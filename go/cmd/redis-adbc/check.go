@@ -17,7 +17,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io"
 	"strings"
@@ -26,43 +25,23 @@ import (
 	redis "github.com/adbc-drivers/redis/go"
 )
 
-// hashFlags are the flags that pick a HASH collection and shape its
-// guessed columns (check, scan).
-type hashFlags struct {
-	prefix    string
-	sample    int
-	keyColumn string
-	types     options
-	renames   options
-}
-
-func (h *hashFlags) register(fs *flag.FlagSet) {
-	h.types, h.renames = options{}, options{}
-	fs.StringVar(&h.prefix, "prefix", "", "the collection's key `prefix`, such as user:")
-	fs.IntVar(&h.sample, "sample", 1000, "HASHes read to guess the columns; -1 reads all of them")
-	fs.StringVar(&h.keyColumn, "key-column", "_key", "column that holds each HASH's key; empty for none")
-	fs.Var(h.types, "type", "a column's type, `column=TYPE` such as age=BIGINT (repeatable)")
-	fs.Var(h.renames, "rename", "a field's column name, `field=column` (repeatable)")
-}
-
 func runCheck(ctx context.Context, args []string, stdout, stderr io.Writer) error {
-	fs := newFlagSet("check", "", stderr)
+	fs := newFlagSet("check", stderr)
 	var cf connFlags
 	cf.register(fs)
 	var hf hashFlags
 	hf.register(fs)
-	schema := fs.String("schema", "", "schema of the table a copy makes (default: the database's)")
-	table := fs.String("table", "", "name of the table a copy makes (default: made from the prefix)")
+	schema := fs.String("schema", "", "the table's schema (default: the database's)")
+	table := fs.String("table", "", "the table's name (default: made from the prefix)")
+	sample := fs.Int("sample", 1000, "HASHes read to guess the columns; -1 reads all of them")
+	keyColumn := fs.String("key-column", "_key", "column that holds each HASH's key in a copy; empty for none")
 	asJSON := fs.Bool("json", false, "write the report as JSON")
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
-	if fs.NArg() > 0 {
-		return fmt.Errorf("unexpected arguments %q (flags go before them)", fs.Args())
-	}
 	r, err := redis.InspectHashes(ctx, cf.options(), redis.HashInspectOptions{
-		Prefix: hf.prefix, Schema: *schema, Table: *table, Sample: hf.sample,
-		KeyColumn: hf.keyColumn, Types: hf.types, Renames: hf.renames,
+		Prefix: hf.prefix, Schema: *schema, Table: *table, Sample: *sample,
+		KeyColumn: *keyColumn, Types: hf.types, Renames: hf.renames,
 	})
 	if err != nil {
 		return err
@@ -124,7 +103,7 @@ func printCandidates(w io.Writer, r *redis.HashReport) {
 			fmt.Fprintf(w, "  %s (%s)\n", c.Table, c.Prefix)
 		}
 	}
-	fmt.Fprintln(w, "\nCheck one with: redis-arrow check -prefix <prefix>")
+	fmt.Fprintln(w, "\nCheck one with: redis-adbc check -prefix <prefix>")
 }
 
 func printReport(w io.Writer, r *redis.HashReport) {
@@ -143,7 +122,7 @@ func printReport(w io.Writer, r *redis.HashReport) {
 	if len(r.Columns) > 0 {
 		fmt.Fprintf(w, "\nGuessed columns (as table %s.%s):\n", r.Schema, r.Table)
 		tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-		fmt.Fprintln(tw, "  COLUMN\tTYPE\tARROW TYPE\tIN PLACE\tPRESENT\tNOTES")
+		fmt.Fprintln(tw, "  COLUMN\tCOPY TYPE\tIN-PLACE TYPE\tPRESENT\tNOTES")
 		for _, c := range r.Columns {
 			name := c.Name
 			if c.Field != "" && c.Field != c.Name {
@@ -157,7 +136,7 @@ func printReport(w io.Writer, r *redis.HashReport) {
 			if inPlace == "" {
 				inPlace = "-"
 			}
-			fmt.Fprintf(tw, "  %s\t%s\t%s\t%s\t%s\t%s\n", name, c.Type, c.ArrowType, inPlace, present, strings.Join(c.Notes, "; "))
+			fmt.Fprintf(tw, "  %s\t%s\t%s\t%s\t%s\n", name, c.Type, inPlace, present, strings.Join(c.Notes, "; "))
 		}
 		_ = tw.Flush()
 	}

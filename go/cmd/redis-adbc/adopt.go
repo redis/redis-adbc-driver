@@ -20,22 +20,19 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strings"
 
 	redis "github.com/adbc-drivers/redis/go"
 )
 
 func runAdopt(ctx context.Context, args []string, stdout, stderr io.Writer) error {
-	fs := newFlagSet("adopt", "", stderr)
+	fs := newFlagSet("adopt", stderr)
 	var cf connFlags
 	cf.register(fs)
-	prefix := fs.String("prefix", "", "the collection's key `prefix`, such as user:")
+	var hf hashFlags
+	hf.register(fs)
 	schema := fs.String("schema", "", "the table's schema (default: the database's)")
 	table := fs.String("table", "", "the table's name (default: made from the prefix)")
-	types, renames := options{}, options{}
-	fs.Var(types, "type", "a column's type in place, `column=TYPE` such as age=SMALLINT (repeatable)")
-	fs.Var(renames, "rename", "a field's column name, `field=column` (repeatable)")
-	indexColumns := fs.String("index-columns", "", "comma-separated `columns` to index (default: every one that can be)")
+	index := fs.String("index-columns", "", "comma-separated `columns` to index (default: every one that can be)")
 	trust := fs.Bool("trust-strings", false, "trust the string values to stay as they are now (see the README)")
 	refresh := fs.Bool("refresh", false, "write __rowid into the HASHes the application added to an adopted table since")
 	apply := fs.Bool("apply", false, "do it; without -apply, adopt only checks and prints what it would do")
@@ -43,20 +40,12 @@ func runAdopt(ctx context.Context, args []string, stdout, stderr io.Writer) erro
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
-	if fs.NArg() > 0 {
-		return fmt.Errorf("unexpected arguments %q (flags go before them)", fs.Args())
+	if hf.prefix == "" {
+		return errors.New("-prefix is required (redis-adbc check lists the collections)")
 	}
-	if *prefix == "" {
-		return errors.New("-prefix is required (redis-arrow check lists the collections)")
-	}
-	o := redis.HashAdoptOptions{Prefix: *prefix, Schema: *schema, Table: *table, Types: types, Renames: renames,
-		TrustStrings: *trust, Refresh: *refresh, Apply: *apply,
+	o := redis.HashAdoptOptions{Prefix: hf.prefix, Schema: *schema, Table: *table, Types: hf.types, Renames: hf.renames,
+		IndexColumns: indexColumns(*index), TrustStrings: *trust, Refresh: *refresh, Apply: *apply,
 		Progress: func(msg string) { fmt.Fprintln(stderr, msg) }}
-	if *indexColumns != "" {
-		for _, c := range strings.Split(*indexColumns, ",") {
-			o.IndexColumns = append(o.IndexColumns, strings.TrimSpace(c))
-		}
-	}
 	res, err := redis.AdoptHashes(ctx, cf.options(), o)
 	if res != nil && *asJSON {
 		enc := json.NewEncoder(stdout)

@@ -512,7 +512,7 @@ func refuseAdopted(meta *tableMeta, what string) error {
 	if !meta.Adopted {
 		return nil
 	}
-	return errorf(adbc.StatusNotImplemented, "%s isn't supported on %q.%q, whose rows are HASHes adopted in place (redis-arrow adopt) under %q",
+	return errorf(adbc.StatusNotImplemented, "%s isn't supported on %q.%q, whose rows are HASHes adopted in place (redis-adbc adopt) under %q",
 		what, displaySchema(meta.Schema), meta.Name, meta.prefix())
 }
 

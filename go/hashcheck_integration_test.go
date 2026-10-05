@@ -145,15 +145,11 @@ func TestHashInspect(t *testing.T) {
 	if strings.Join(cols, "|") != strings.Join(want, "|") {
 		t.Errorf("columns %q\nwant %q", cols, want)
 	}
-	ipc := checklist(t, r, ChecklistArrowIPC)
-	if !ipc.Ready || !strings.HasPrefix(ipc.Command, "redis-arrow scan -prefix it:hc:user:") {
-		t.Errorf("IPC: %+v", ipc)
-	}
-	expectItem(t, ipc, CheckWarn, `age is VARCHAR: 1 of 41 values aren't BIGINT (such as "n/a" in it:hc:user:5)`)
 	cp := checklist(t, r, ChecklistSQLCopy)
-	if !cp.Ready || cp.Command != "redis-arrow scan -prefix it:hc:user: | redis-arrow import -table it_hc_user" {
+	if !cp.Ready || cp.Command != "redis-adbc copy -prefix it:hc:user: -table it_hc_user" {
 		t.Errorf("copy: %+v", cp)
 	}
+	expectItem(t, cp, CheckWarn, `age is VARCHAR: 1 of 41 values aren't BIGINT (such as "n/a" in it:hc:user:5)`)
 	expectItem(t, cp, CheckOK, "public.it_hc_user doesn't exist yet")
 	expectItem(t, cp, CheckOK, "a copy needs about")
 
@@ -162,7 +158,7 @@ func TestHashInspect(t *testing.T) {
 	if r.Keys != 41 || r.Sampled != 10 {
 		t.Errorf("keys %d, sampled %d", r.Keys, r.Sampled)
 	}
-	expectItem(t, checklist(t, r, ChecklistArrowIPC), CheckWarn, "the columns are guessed from 10 of the 41 HASHes")
+	expectItem(t, checklist(t, r, ChecklistSQLCopy), CheckWarn, "the columns are guessed from 10 of the 41 HASHes")
 }
 
 // What a copy can't do: the names it would take are a view's, or have keys.
@@ -211,7 +207,7 @@ func TestHashInspectCopyBlockers(t *testing.T) {
 	// No HASHes at all.
 	g := newHashFixture(t, "it:hc:none:")
 	r := g.inspect(HashInspectOptions{})
-	expectItem(t, checklist(t, r, ChecklistArrowIPC), CheckBlocker, "no HASH keys under it:hc:none:")
+	expectItem(t, checklist(t, r, ChecklistSQLCopy), CheckBlocker, "no HASH keys under it:hc:none:")
 }
 
 // Without a prefix, the collections are listed: the application's, and
@@ -239,7 +235,7 @@ func TestHashDiscover(t *testing.T) {
 }
 
 // scanAll reads every batch of a scan into rows of "k=v" cells, by key.
-func scanAll(t *testing.T, s *HashScan) map[string]string {
+func scanAll(t *testing.T, s *hashScan) map[string]string {
 	t.Helper()
 	out := map[string]string{}
 	for s.Next() {
@@ -273,7 +269,7 @@ func scanAll(t *testing.T, s *HashScan) map[string]string {
 func TestHashScan(t *testing.T) {
 	f := newHashFixture(t, "it:hc:scan:")
 	f.users(2500) // more than a batch's worth of SCAN pages
-	s, err := ScanHashes(f.h.ctx, f.opts, HashScanOptions{Prefix: f.prefix, KeyColumn: "_key", Sample: -1})
+	s, err := scanHashes(f.h.ctx, f.opts, HashCopyOptions{Prefix: f.prefix, KeyColumn: "_key", Sample: -1})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -290,7 +286,7 @@ func TestHashScan(t *testing.T) {
 	}
 
 	// Guessed from a sample without the "n/a": the error says what to do.
-	s, err = ScanHashes(f.h.ctx, f.opts, HashScanOptions{Prefix: f.prefix, KeyColumn: "_key", Sample: 3})
+	s, err = scanHashes(f.h.ctx, f.opts, HashCopyOptions{Prefix: f.prefix, KeyColumn: "_key", Sample: 3})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -302,8 +298,8 @@ func TestHashScan(t *testing.T) {
 	s.Release()
 
 	// -type age=BIGINT: "n/a" fails the scan, or reads as NULL.
-	opts := HashScanOptions{Prefix: f.prefix, KeyColumn: "_key", Types: map[string]string{"age": "BIGINT"}}
-	s, err = ScanHashes(f.h.ctx, f.opts, opts)
+	opts := HashCopyOptions{Prefix: f.prefix, KeyColumn: "_key", Types: map[string]string{"age": "BIGINT"}}
+	s, err = scanHashes(f.h.ctx, f.opts, opts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -314,13 +310,13 @@ func TestHashScan(t *testing.T) {
 	}
 	s.Release()
 	opts.NullOnError = true
-	s, err = ScanHashes(f.h.ctx, f.opts, opts)
+	s, err = scanHashes(f.h.ctx, f.opts, opts)
 	if err != nil {
 		t.Fatal(err)
 	}
 	rows = scanAll(t, s)
-	if !strings.Contains(rows["it:hc:scan:5"], "age=NULL") || s.Stats().Nulls["age"] != 1 {
-		t.Errorf("it:hc:scan:5: %s; nulls %v", rows["it:hc:scan:5"], s.Stats().Nulls)
+	if !strings.Contains(rows["it:hc:scan:5"], "age=NULL") || s.stats.Nulls["age"] != 1 {
+		t.Errorf("it:hc:scan:5: %s; nulls %v", rows["it:hc:scan:5"], s.stats.Nulls)
 	}
 	s.Release()
 }
@@ -331,68 +327,80 @@ func TestHashScanUnknownFields(t *testing.T) {
 	for i := 1; i <= 5; i++ {
 		f.hset(fmt.Sprintf("%s%d", f.prefix, i), "a", i, fmt.Sprintf("only%d", i), "x")
 	}
-	s, err := ScanHashes(f.h.ctx, f.opts, HashScanOptions{Prefix: f.prefix, Sample: 1, KeyColumn: "_key"})
+	s, err := scanHashes(f.h.ctx, f.opts, HashCopyOptions{Prefix: f.prefix, Sample: 1, KeyColumn: "_key"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer s.Release()
 	scanAll(t, s)
-	if got := len(s.Stats().UnknownFields); got != 4 || s.Stats().Rows != 5 {
-		t.Errorf("unknown fields %v, rows %d", s.Stats().UnknownFields, s.Stats().Rows)
+	if got := len(s.stats.UnknownFields); got != 4 || s.stats.Rows != 5 {
+		t.Errorf("unknown fields %v, rows %d", s.stats.UnknownFields, s.stats.Rows)
 	}
-	if _, err := ScanHashes(f.h.ctx, f.opts, HashScanOptions{Prefix: "it:hc:nothing:"}); err == nil ||
+	if _, err := scanHashes(f.h.ctx, f.opts, HashCopyOptions{Prefix: "it:hc:nothing:"}); err == nil ||
 		!strings.Contains(err.Error(), `no HASH keys under "it:hc:nothing:"`) {
 		t.Errorf("empty prefix: %v", err)
 	}
 }
 
-// The scan bulk-ingests into a driver table, which SQL then reads.
-func TestHashScanIngest(t *testing.T) {
+// CopyHashes copies the HASHes into a driver table, which SQL then reads.
+func TestCopyHashes(t *testing.T) {
 	f := newHashFixture(t, "it:hc:cp:")
 	f.users(30)
 	f.h.exec(`DROP TABLE IF EXISTS it_hc_copy`)
 	t.Cleanup(func() { f.h.exec(`DROP TABLE IF EXISTS it_hc_copy`) })
-	s, err := ScanHashes(f.h.ctx, f.opts, HashScanOptions{Prefix: f.prefix, KeyColumn: "_key",
-		Types: map[string]string{"age": "INTEGER"}, NullOnError: true})
+	o := HashCopyOptions{Prefix: f.prefix, KeyColumn: "_key", Table: "it_hc_copy",
+		Types: map[string]string{"age": "INTEGER"}, NullOnError: true}
+	res, err := CopyHashes(f.h.ctx, f.opts, o)
 	if err != nil {
 		t.Fatal(err)
 	}
-	st, err := f.h.conn.NewStatement(f.h.ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer st.Close(f.h.ctx)
-	if err := st.SetOption(f.h.ctx, adbc.OptionKeyIngestTargetTable, "it_hc_copy"); err != nil {
-		t.Fatal(err)
-	}
-	if err := st.BindStream(f.h.ctx, s); err != nil {
-		t.Fatal(err)
-	}
-	if n, err := st.ExecuteUpdate(f.h.ctx); err != nil || n != 30 {
-		t.Fatalf("ingest: %d, %v", n, err)
+	if res.Rows != 30 || res.Table != "public.it_hc_copy" || res.Nulls["age"] != 1 {
+		t.Errorf("copy: %+v", res)
 	}
 	f.h.expectRows(`SELECT COUNT(*), COUNT(age), SUM(balance) FROM it_hc_copy WHERE active`, "15|15|242.40")
 	f.h.expectRows(`SELECT _key, joined, zip FROM it_hc_copy WHERE age = 31 ORDER BY _key`,
 		"it:hc:cp:11|2024-01-12T10:00:00Z|00077")
 	f.h.expectRows(`SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'it_hc_copy' AND column_name IN ('active', 'age', 'joined') ORDER BY 1`,
 		"active|BOOLEAN", "age|INTEGER", "joined|TIMESTAMP(6) WITH TIME ZONE")
+
+	// The table exists: create fails, append adds the rows again.
+	if _, err := CopyHashes(f.h.ctx, f.opts, o); err == nil || !strings.Contains(err.Error(), "already exists") {
+		t.Errorf("create again: %v", err)
+	}
+	f.h.expectRows(`SELECT COUNT(*) FROM it_hc_copy`, "30")
+	o.Mode = adbc.OptionValueIngestModeAppend
+	if _, err := CopyHashes(f.h.ctx, f.opts, o); err != nil {
+		t.Fatal(err)
+	}
+	f.h.expectRows(`SELECT COUNT(*) FROM it_hc_copy`, "60")
+
+	// A value that doesn't convert fails the copy, and a table it created
+	// is dropped again.
+	f.h.exec(`DROP TABLE it_hc_copy`)
+	o.Mode, o.NullOnError = "", false
+	if _, err := CopyHashes(f.h.ctx, f.opts, o); err == nil || !strings.Contains(err.Error(), `"n/a" doesn't convert to INTEGER`) {
+		t.Errorf("got %v", err)
+	}
+	if n, _ := f.raw.Exists(f.h.ctx, metaKey("public", "it_hc_copy")).Result(); n != 0 {
+		t.Error("the failed copy left its table")
+	}
 }
 
-// The ACL rules the README documents for scan and check.
+// The ACL rules the README documents for check and copy.
 var (
-	aclScanCommands      = []string{"+ping", "+info", "+scan", "+hgetall"}
-	aclCheckCommands     = []string{"+ft._list", "+ft.info", "+ft.aggregate", "+memory|usage"}
+	aclCheckCommands     = []string{"+ping", "+info", "+scan", "+hgetall", "+ft._list", "+ft.info", "+ft.aggregate", "+memory|usage"}
 	aclCheckMetaCommands = []string{"+get", "+exists", "+smembers", "+sismember", "+hget", "+hexists"}
+	aclCopyCommands      = []string{"+scan"}
 )
 
-// Users with exactly the documented rules run scan and check without a
+// Users with exactly the documented rules run check and copy without a
 // command refused, and check leaves out the indexes they can't read.
 func TestACLHashTools(t *testing.T) {
 	raw, err := os.ReadFile("../README.md")
 	if err != nil {
 		t.Skip(err)
 	}
-	for _, rules := range [][]string{aclScanCommands, aclCheckCommands, aclCheckMetaCommands} {
+	for _, rules := range [][]string{aclCheckCommands, aclCheckMetaCommands} {
 		if line := strings.Join(rules, " "); !strings.Contains(string(raw), line) {
 			t.Errorf("the README doesn't list these commands as tested: %s", line)
 		}
@@ -400,24 +408,14 @@ func TestACLHashTools(t *testing.T) {
 	a := newACLHarness(t)
 	f := newHashFixture(t, "it:hc:acl:")
 	f.users(5)
-	keys := []string{"%R~it:hc:acl:*"}
-	scanRules := slices.Clone(aclScanCommands)
+	f.h.exec(`DROP TABLE IF EXISTS it_hc_acl`)
+	t.Cleanup(func() { f.h.exec(`DROP TABLE IF EXISTS it_hc_acl`) })
+	var cluster []string
 	if a.cluster {
-		scanRules = append(scanRules, aclClusterCommands...)
+		cluster = aclClusterCommands
 	}
-	a.user("it_hc_scan", append(scanRules, keys...)...)
-	checkRules := slices.Concat(scanRules, aclCheckCommands, aclCheckMetaCommands, keys, []string{"%R~adbc:*"})
-	a.user("it_hc_check", checkRules...)
-
-	s, err := ScanHashes(a.ctx, map[string]string{adbc.OptionKeyURI: a.userURI("it_hc_scan")}, HashScanOptions{Prefix: f.prefix, KeyColumn: "_key"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if n := len(scanAll(t, s)); n != 5 {
-		t.Errorf("scan read %d rows", n)
-	}
-	s.Release()
-	a.expectNoDenials("it_hc_scan")
+	a.user("it_hc_check", slices.Concat(aclCheckCommands, aclCheckMetaCommands, cluster, []string{"%R~it:hc:acl:*", "%R~adbc:*"})...)
+	a.user("it_hc_copy", slices.Concat(a.driverCommands(false), aclCopyCommands, []string{"~adbc:*", "~public:*", "%R~it:hc:acl:*"})...)
 
 	r, err := InspectHashes(a.ctx, map[string]string{adbc.OptionKeyURI: a.userURI("it_hc_check")}, HashInspectOptions{Prefix: f.prefix})
 	if err != nil {
@@ -434,4 +432,11 @@ func TestACLHashTools(t *testing.T) {
 		t.Errorf("search %v, keys %d", r.Server.Search, r.Keys)
 	}
 	a.expectNoDenials("it_hc_check")
+
+	res, err := CopyHashes(a.ctx, map[string]string{adbc.OptionKeyURI: a.userURI("it_hc_copy")},
+		HashCopyOptions{Prefix: f.prefix, KeyColumn: "_key", Table: "it_hc_acl"})
+	if err != nil || res.Rows != 5 {
+		t.Fatalf("copy: %+v, %v", res, err)
+	}
+	a.expectNoDenials("it_hc_copy")
 }

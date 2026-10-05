@@ -291,7 +291,7 @@ func (a *adopter) read(ctx context.Context) error {
 	a.cols, r.Skipped = cols, skipped
 	for _, col := range cols {
 		r.Columns = append(r.Columns, HashColumn{Name: col.name, Field: col.field, Type: col.t.SQLName(),
-			ArrowType: col.t.ArrowType().String(), InPlaceType: col.inPlace.SQLName(), Present: col.guess.present, Notes: col.notes})
+			InPlaceType: col.inPlace.SQLName(), Present: col.guess.present, Notes: col.notes})
 	}
 	return nil
 }
@@ -735,7 +735,7 @@ func (a *adopter) refresh(ctx context.Context, meta *tableMeta) (*HashAdoption, 
 	r := a.res.Report
 	for _, cm := range meta.Columns {
 		r.Columns = append(r.Columns, HashColumn{Name: cm.Name, Field: cm.Field, Type: cm.Type.SQLName(),
-			ArrowType: cm.Type.ArrowType().String(), InPlaceType: cm.Type.SQLName()})
+			InPlaceType: cm.Type.SQLName()})
 	}
 	a.res.Steps = []string{
 		fmt.Sprintf("HSET <key> %s <key suffix> on the HASHes under %s without one whose values fit their columns", rowIDField, meta.prefix()),

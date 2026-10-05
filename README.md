@@ -229,9 +229,8 @@ HASHes and indexes created some other way (for example your own
 load it through the driver; bulk ingest from Arrow is the quickest route.
 The driver doesn't touch such indexes, even one with the name a new table's
 index would take (see "Indexes the driver didn't create are left alone"
-below). `redis-arrow check`, `scan` and `adopt` read such HASHes as Arrow IPC,
-copy them into a table, or make them a table in place (see
-[Existing HASH collections](#existing-hash-collections-check-scan-and-adopt)).
+below). `redis-adbc` copies such HASHes into a table, or makes them a table
+in place (see [Existing HASH collections](#existing-hash-collections-redis-adbc)).
 
 **Limitation: Redis Flex databases are not supported yet**
 
@@ -268,7 +267,8 @@ RHEL 8 and 9 (and compatible distributions), Ubuntu 20.04 and later, and
 Amazon Linux 2023. To use one instead of building, put it at the path
 `make build` would create (`go/build/libadbc_driver_redis.dylib` or `.so`).
 Releases after v0.0.9 also have the [`redis-arrow`](#arrow-ipc-files-redis-arrow)
-command for the same platforms.
+command for the same platforms, and releases after v0.0.10 the
+[`redis-adbc`](#existing-hash-collections-redis-adbc) command.
 
 **1. Start Redis 8.6 and build the driver**
 
@@ -537,10 +537,7 @@ Stop Redis with `docker compose down`.
 
 `redis-arrow` writes a query's result as an
 [Arrow IPC](https://arrow.apache.org/docs/format/Columnar.html#serialization-and-interprocess-communication-ipc)
-file or stream, and bulk-ingests an IPC file or stream into a table. Its
-`check`, `scan` and `adopt` commands read HASHes that something other than
-the driver wrote (see
-[Existing HASH collections](#existing-hash-collections-check-scan-and-adopt)). It links
+file or stream, and bulk-ingests an IPC file or stream into a table. It links
 the driver as a Go library, so it needs neither cgo nor the shared library.
 Build it from `go`:
 
@@ -600,43 +597,51 @@ build/redis-arrow export "SELECT * FROM sales" | build/redis-arrow import -table
   Import reads a stream batch by batch, but reads a file on stdin into
   memory first, since the file format's footer is at its end.
 
-## Existing HASH collections: `check`, `scan` and `adopt`
+## Existing HASH collections: `redis-adbc`
 
 The driver only sees tables it created. HASHes that an application wrote
 (`user:1`, `user:2`, …, maybe with the application's own search index) can
-still be read three ways, and `redis-arrow check` tells you whether each
-one works and what is missing:
+still be queried through the driver, made a table one of two ways.
+`redis-adbc` checks whether each one works, guesses the table's structure,
+and says what is missing:
 
-- **Arrow IPC.** `redis-arrow scan` reads the HASHes themselves and writes
-  them as an Arrow IPC file or stream, one row per HASH. It needs no index
-  and no driver metadata, and writes nothing to Redis.
-- **SQL, by copying.** `redis-arrow scan … | redis-arrow import -table …`
-  bulk-ingests that stream into a new driver table, which SQL then queries
-  like any other. The originals are left as they are. The table is a
-  snapshot: import again with `-mode replace` to refresh it. It needs the
-  Query Engine, a database that isn't Redis Flex, and memory for a second
-  copy of the data.
-- **SQL, in place.** `redis-arrow adopt` makes the HASHes themselves a
-  driver table: SQL reads what the application writes, without a copy. It
-  writes a `__rowid` field into each HASH and creates a second search index
-  beside the application's, so it needs keys that end in an integer
-  (`user:42`), and its columns are only as typed as the stored text allows
-  (see [Adopt](#adopt-hashes-in-place) below for what an adopted table can't
+- **Copy.** `redis-adbc copy` reads the HASHes and bulk-ingests them into a
+  new driver table, through the driver. The originals are left as they
+  are. The table is a snapshot: copy again with `-mode replace` to refresh
+  it. It needs the Query Engine, a database that isn't Redis Flex, and
+  memory for a second copy of the data.
+- **Adopt.** `redis-adbc adopt` makes the HASHes themselves a driver table:
+  SQL reads what the application writes, without a copy. It writes a
+  `__rowid` field into each HASH and creates a second search index beside
+  the application's, so it needs keys that end in an integer (`user:42`),
+  and its columns are only as typed as the stored text allows (see
+  [Adopt](#adopt-hashes-in-place) below for what an adopted table can't
   do).
 
-All three are part of `redis-arrow` (see above), and take its `-uri` and
-`-option` flags.
+Build it from `go`:
+
+```bash
+make adbc-cli
+```
+
+Or download `redis-adbc-<version>-<os>-<arch>.tar.gz` from a
+[release](https://github.com/alberttwong/redis-adbc-driver-arrow-ipc/releases)
+after v0.0.10 (the same platforms and macOS quarantine note as
+[`redis-arrow`](#arrow-ipc-files-redis-arrow)). Like `redis-arrow`, it links
+the driver as a Go library, and connects with `-uri` (else `$REDIS_URI`,
+else `redis://localhost:6379/0`) and `-option key=value`. Flags go before
+anything else.
 
 **Check.** Without `-prefix`, `check` lists the collections it finds: the
 prefixes (up to the last `:`) of HASH keys in a sample of 10,000 keys, the
 prefixes of search indexes on HASHes, and the driver's own tables. With a
-prefix, it reads a sample of the HASHes, guesses the columns, and prints a
-checklist for each way of reading them. Each item is `ok`, `warn`,
-`missing` (the suggested command provides it) or `blocker` (something to
-change first), with a fix:
+prefix, it reads a sample of the HASHes, guesses the columns (their type in
+a copy, and in place), and prints a checklist for each way of making them
+a table. Each item is `ok`, `warn`, `missing` (the suggested command
+provides it) or `blocker` (something to change first), with a fix:
 
 ```bash
-build/redis-arrow check -prefix user: -table users
+build/redis-adbc check -prefix user: -table users
 ```
 
 ```text
@@ -645,32 +650,29 @@ Collection user: on Redis 8.6.2 (standalone)
   search index idx:users (prefix user:): 499 documents, 2 indexing failures
 
 Guessed columns (as table public.users):
-  COLUMN      TYPE                         ARROW TYPE             IN PLACE       PRESENT  NOTES
-  _key        VARCHAR                      utf8                   -              100%     each HASH's key
-  name        VARCHAR                      utf8                   VARCHAR        100%
-  age         VARCHAR                      utf8                   VARCHAR        100%     2 of 501 values aren't BIGINT (such as "n/a" in user:500)
-  active      BOOLEAN                      bool                   VARCHAR        99.8%    true/false text
-  created_at  TIMESTAMP(6) WITH TIME ZONE  timestamp[us, tz=UTC]  VARCHAR        99.8%    ISO 8601 text
-  balance     NUMERIC(38,2)                decimal(38, 2)         NUMERIC(38,2)  99.8%
-  zip         VARCHAR                      utf8                   VARCHAR        99.8%    numbers with leading zeros, kept as text
-  avatar      VARBINARY                    binary                 VARBINARY      10.0%    not UTF-8; 50 values have a NUL byte
+  COLUMN      COPY TYPE                    IN-PLACE TYPE     PRESENT  NOTES
+  _key        VARCHAR                      -                 100%     each HASH's key
+  name        VARCHAR                      VARCHAR           100%
+  age         VARCHAR                      VARCHAR           100%     2 of 501 values aren't BIGINT (such as "n/a" in user:500)
+  active      BOOLEAN                      VARCHAR           99.8%    true/false text
+  created_at  TIMESTAMP(6) WITH TIME ZONE  VARCHAR           99.8%    ISO 8601 text
+  balance     NUMERIC(38,2)                NUMERIC(38,2)     99.8%
+  zip         VARCHAR                      VARCHAR           99.8%    numbers with leading zeros, kept as text
+  avatar      VARBINARY                    VARBINARY         10.0%    not UTF-8; 50 values have a NUL byte
 
-Arrow IPC (redis-arrow scan): READY
+SQL, copied into a driver table (redis-adbc copy): READY
+  [ok]      the Query Engine (RediSearch) is available
   [ok]      501 HASH keys under user:
   [ok]      the columns are guessed from all 501 HASHes
   [ok]      every field has a column type (8 columns)
   [warn]    age is VARCHAR: 2 of 501 values aren't BIGINT (such as "n/a" in user:500)
             fix: -type age=BIGINT -on-error null reads them as NULL
-  run: redis-arrow scan -prefix user: -o users.arrow
-
-SQL, copied into a driver table (redis-arrow scan | redis-arrow import): READY
-  [ok]      the Query Engine (RediSearch) is available
-  [ok]      public.users doesn't exist yet: import creates it
+  [ok]      public.users doesn't exist yet: copy creates it
   [ok]      its rows go under public:users:, which has no keys, and its index is idx:public:users
   [ok]      a copy needs about 0.10 MB (MEMORY USAGE of the sampled HASHes, scaled to all of them), plus its index; 14 MB are in use, and there is no maxmemory limit
-  run: redis-arrow scan -prefix user: | redis-arrow import -table users
+  run: redis-adbc copy -prefix user: -table users
 
-SQL, adopted in place (redis-arrow adopt): READY
+SQL, adopted in place (redis-adbc adopt): READY
   [ok]      the Query Engine (RediSearch) is available
   [ok]      no driver table's rows can be under user:
   [ok]      public.users doesn't exist yet
@@ -688,30 +690,29 @@ SQL, adopted in place (redis-arrow adopt): READY
   [warn]    a later write by the application of a value a numeric column can't hold (text, an empty value, NaN) takes that HASH out of the index, and so out of the table
   [warn]    the __rowid field shows up in the application's own HGETALL and FT.SEARCH results
   [warn]    SQL UPDATE and DELETE change the application's HASHes; INSERT, TRUNCATE, ADD COLUMN and a re-keying RENAME are refused, and DROP TABLE drops only the index and the metadata
-  run: redis-arrow adopt -prefix user: -table users
+  run: redis-adbc adopt -prefix user: -table users
 ```
 
 `-json` writes the same report as JSON. `check` writes nothing to Redis,
 and exits 0 whenever it could check (whether or not a checklist is
 ready). What the checklists look for:
 
-- **Arrow IPC:** HASH keys under the prefix; how many the columns were
-  guessed from; columns that a few odd values made `VARCHAR`; `-type`
-  overrides that some sampled values don't convert to; fields that can't
-  be columns (`__rowid`, other names starting with `__`, an empty name).
-- **SQL by copying:** the Query Engine (`FT._LIST`); not Redis Flex (the
-  probe the driver runs on connect); the target isn't a view (an existing
-  table is a warning: import with `-mode replace` or `append`); no keys
-  already under the key prefix the new table would take (they would merge
-  with its rows), which also rules out copying a collection into its own
-  prefix; column names that can't be indexed (only letters, digits and `_`
-  can, and at most 200 columns); memory: the sampled HASHes' `MEMORY USAGE`
-  scaled to all of them, against `used_memory`, `maxmemory` and
-  `maxmemory_policy` (summed over a cluster's primaries). It is a blocker
-  when the copy doesn't fit, or leaves less than 10% free under an
-  `allkeys-*` policy (which could evict the originals); otherwise less
-  than 10% free is a warning.
-- **SQL in place:** the Query Engine, and not Redis Flex; that no driver
+- **Copy:** the Query Engine (`FT._LIST`); not Redis Flex (the probe the
+  driver runs on connect); HASH keys under the prefix, and how many the
+  columns were guessed from; columns that a few odd values made `VARCHAR`;
+  `-type` overrides that some sampled values don't convert to; fields that
+  can't be columns (`__rowid`, other names starting with `__`, an empty
+  name); the target isn't a view (an existing table is a warning: copy
+  with `-mode replace` or `append`); no keys already under the key prefix
+  the new table would take (they would merge with its rows), which also
+  rules out copying a collection into its own prefix; column names that
+  can't be indexed (only letters, digits and `_` can, and at most 200
+  columns); memory: the sampled HASHes' `MEMORY USAGE` scaled to all of
+  them, against `used_memory`, `maxmemory` and `maxmemory_policy` (summed
+  over a cluster's primaries). It is a blocker when the copy doesn't fit,
+  or leaves less than 10% free under an `allkeys-*` policy (which could
+  evict the originals); otherwise less than 10% free is a warning.
+- **In place:** the Query Engine, and not Redis Flex; that no driver
   table's rows can be under the prefix (and that the prefix isn't the
   driver's own `adbc:` or `pg_temp_`); the table, view and index names;
   which keys end in a row id (an integer from 1 to 2^53; the others stay
@@ -724,8 +725,8 @@ ready). What the checklists look for:
   `__rowid` (`adopt -refresh` adds them).
 
 **How columns are guessed.** Every field becomes a column (`-rename
-field=column` renames one), plus `_key` with each HASH's key (`-key-column`
-names it; empty for none). A column's type is the narrowest that fits the
+field=column` renames one), plus, in a copy, `_key` with each HASH's key
+(`-key-column` names it; empty for none). A column's type is the narrowest that fits the
 text of every sampled value, read as a SQL cast reads it:
 
 | Values | Type |
@@ -745,33 +746,35 @@ column's values don't fit the type the rest share, the column is `VARCHAR`,
 and `check` suggests `-type col=TYPE -on-error null`. `-type col=TYPE`
 sets any column's type (SQL type names, as in `CREATE TABLE`).
 
-**Scan.** `scan` takes `check`'s `-prefix`, `-sample`, `-key-column`,
-`-type` and `-rename`, and export's `-o`, `-format` and `-compression`:
+**Copy.** `copy` takes `check`'s `-prefix`, `-schema`, `-table`, `-sample`,
+`-key-column`, `-type` and `-rename`, and bulk ingest's `-mode` (`create`,
+the default, `append`, `replace` or `create_append`) and `-index-columns`:
 
 ```bash
-build/redis-arrow scan -prefix user: -type age=BIGINT -on-error null -o users.arrow
+build/redis-adbc copy -prefix user: -table users -type age=BIGINT -on-error null
 ```
 
-```bash
-build/redis-arrow scan -prefix user: | build/redis-arrow import -table users
+```text
+501 rows copied into public.users
 ```
 
 - **Columns** are guessed from the first `-sample` HASHes (1,000 by
-  default, `-1` for all of them) before the scan starts. A field that only
-  later HASHes have isn't in the schema: `scan` skips it and names it at
-  the end (`skipped fields that the sample didn't have …`). Every column is
+  default, `-1` for all of them) before the copy starts. A field that only
+  later HASHes have isn't a column: `copy` skips it and names it at the end
+  (`skipped fields that the sample didn't have …`). Every column is
   nullable.
-- **A value that doesn't convert** to its column's type stops the scan with
-  the key, the field and the value, and nothing is written. With
-  `-on-error null` it is read as NULL instead, and counted at the end.
+- **A value that doesn't convert** to its column's type stops the copy with
+  the key, the field and the value. With `-mode create` the table it made
+  is dropped again; with the other modes the rows copied before stay. With
+  `-on-error null` the value is copied as NULL instead, and counted at the
+  end.
 - **Consistency:** keys come from `SCAN` (on every primary of a cluster)
   and each HASH from `HGETALL`, so this isn't a snapshot. A HASH that
-  exists for the whole scan is read once (`SCAN` can return a key twice;
-  `scan` remembers the keys it has read, which takes memory for every key).
-  One created or deleted meanwhile may or may not be read.
-- **Memory:** `scan` streams batches of up to 10,000 rows, whatever the
-  collection's size, as `export` does for a query that
-  [streams](#streamed-results).
+  exists for the whole copy is copied once (`SCAN` can return a key twice;
+  `copy` remembers the keys it has read, which takes memory for every key).
+  One created or deleted meanwhile may or may not be copied.
+- **Memory:** the HASHes are read and ingested in batches of up to 10,000
+  rows, whatever the collection's size.
 
 <a id="adopt-hashes-in-place"></a>
 **Adopt.** `adopt` reads every HASH under the prefix, runs the in-place
@@ -779,11 +782,11 @@ checklist on all of them, and prints what it would do. Nothing changes
 without `-apply`:
 
 ```bash
-build/redis-arrow adopt -prefix user: -table users
+build/redis-adbc adopt -prefix user: -table users
 ```
 
 ```bash
-build/redis-arrow adopt -prefix user: -table users -apply
+build/redis-adbc adopt -prefix user: -table users -apply
 ```
 
 ```text
@@ -836,7 +839,7 @@ Adopted: public.users now reads the HASHes under user: (index idx:public:users:a
   - `INSERT` (and `MERGE … INSERT` and bulk ingest), `TRUNCATE`,
     `ALTER TABLE … ADD COLUMN`, and `RENAME TO` with
     `adbc.redis.rename_rekey` fail with `… isn't supported on
-    "public"."users", whose rows are HASHes adopted in place (redis-arrow
+    "public"."users", whose rows are HASHes adopted in place (redis-adbc
     adopt) under "user:"`.
   - `DROP TABLE` drops the adopted index (without `DD`) and the metadata.
     The HASHes stay, with their `__rowid`. Adopting them again finds those
@@ -862,23 +865,25 @@ Adopted: public.users now reads the HASHes under user: (index idx:public:users:a
   - An `UPDATE` racing the application's `DELETE` of the same HASH can
     write it again, with only the updated fields.
 
-**ACL users.** `check` and `scan` need read access to the collection's keys
-(`%R~user:*`), and these commands; `check` also reads the driver's metadata
-(`%R~adbc:*`):
+**ACL users.** `check` needs read access to the collection's keys
+(`%R~user:*`) and to the driver's metadata (`%R~adbc:*`), and these
+commands:
 
 ```text
-# scan
-+ping +info +scan +hgetall
-# check also
-+ft._list +ft.info +ft.aggregate +memory|usage
++ping +info +scan +hgetall +ft._list +ft.info +ft.aggregate +memory|usage
 +get +exists +smembers +sismember +hget +hexists
 # A cluster (OSS Cluster API) also
 +cluster|slots +command
 ```
 
-`adopt` needs the driver's own rules (see "ACL users" under
-[Server requirements](#server-requirements)), write access to the
-collection's keys (`~user:*`), and:
+`check` leaves out the search indexes on keys the user may not read (Redis
+refuses `FT.INFO` on them), and says how many. Without `MEMORY USAGE`, it
+warns that it can't estimate the memory a copy needs, and goes on.
+
+`copy` and `adopt` need the driver's own rules (see "ACL users" under
+[Server requirements](#server-requirements)). `copy` also needs `+scan`
+and read access to the collection's keys (`%R~user:*`). `adopt` needs
+write access to them (`~user:*`), and:
 
 ```text
 +scan +eval +evalsha +script|load
@@ -886,10 +891,6 @@ collection's keys (`~user:*`), and:
 
 A user that only queries an adopted table needs the driver's read-only
 rules, with read access to the collection's keys (`%R~user:*`).
-
-`check` leaves out the search indexes on keys the user may not read (Redis
-refuses `FT.INFO` on them), and says how many. Without `MEMORY USAGE`, it
-warns that it can't estimate the memory a copy needs, and goes on.
 
 ## Architecture: hybrid index-row layout
 

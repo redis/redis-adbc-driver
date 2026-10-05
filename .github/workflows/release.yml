@@ -12,14 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Builds the driver library and the redis-arrow command for Linux (amd64,
-# arm64) and macOS (arm64), tests the Linux builds against Redis (standalone
-# and a 3-shard cluster), runs the validation suite and a redis-arrow round
-# trip on each Linux tarball on every distribution Redis Software supports,
-# and attaches the tarballs to the release.
+# Builds the driver library and the redis-arrow and redis-adbc commands for
+# Linux (amd64, arm64) and macOS (arm64), tests the Linux builds against
+# Redis (standalone and a 3-shard cluster), runs the validation suite, a
+# redis-arrow round trip and a redis-adbc check, copy and adopt on each Linux
+# tarball on every distribution Redis Software supports, and attaches the
+# tarballs to the release.
 #
-# The redis-arrow steps are skipped for releases tagged before it existed
-# (no go/cmd/redis-arrow).
+# The redis-arrow and redis-adbc steps are skipped for releases tagged before
+# they existed (no go/cmd/redis-arrow, go/cmd/redis-adbc).
 #
 # Runs when a release is published, or by hand for an existing release tag
 # (its assets are replaced). A run by hand can skip Go tests that are wrong at
@@ -107,6 +108,14 @@ jobs:
           file build/redis-arrow
           file build/redis-arrow | grep -q 'statically linked'
 
+      - name: Build redis-adbc
+        if: hashFiles('go/cmd/redis-adbc/main.go') != ''
+        working-directory: go
+        run: |
+          make adbc-cli VERSION="$VERSION"
+          file build/redis-adbc
+          file build/redis-adbc | grep -q 'statically linked'
+
       - name: Start Redis
         working-directory: go
         run: |
@@ -152,6 +161,19 @@ jobs:
           name="redis-arrow-$VERSION-linux-$ARCH"
           mkdir -p "dist/$name"
           cp go/build/redis-arrow README.md "dist/$name/"
+          cd dist
+          tar czf "$name.tar.gz" "$name"
+          sha256sum "$name.tar.gz" > "$name.tar.gz.sha256"
+          rm -r "$name"
+
+      - name: Package redis-adbc
+        if: hashFiles('go/cmd/redis-adbc/main.go') != ''
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          name="redis-adbc-$VERSION-linux-$ARCH"
+          mkdir -p "dist/$name"
+          cp go/build/redis-adbc README.md "dist/$name/"
           cd dist
           tar czf "$name.tar.gz" "$name"
           sha256sum "$name.tar.gz" > "$name.tar.gz.sha256"
@@ -213,7 +235,7 @@ jobs:
               /uv/uv run -q pytest -q tests/'
 
       # The redis-arrow tarball: export to a file, import it, then pipe an
-      # export into an import; check and scan the table's HASHes.
+      # export into an import.
       - name: redis-arrow
         if: hashFiles('go/cmd/redis-arrow/main.go') != ''
         env:
@@ -233,12 +255,31 @@ jobs:
                 /cli/redis-arrow import -table release_cli -mode append 2> out
               grep -qx "1 row ingested into release_cli" out
               /cli/redis-arrow export -o all.arrows "SELECT * FROM release_cli" 2> out
-              grep -qx "2 rows" out
-              /cli/redis-arrow check -prefix public:release_cli -key-column "" > out
-              grep -q "^  2 HASH keys" out
-              grep -qx "Arrow IPC (redis-arrow scan): READY" out
-              /cli/redis-arrow scan -prefix public:release_cli -key-column "" -o rows.arrow 2> out
               grep -qx "2 rows" out'
+
+      # The redis-adbc tarball: an application's HASHes (written with the
+      # server's redis-cli), checked, copied into a table, and adopted.
+      - name: redis-adbc
+        if: hashFiles('go/cmd/redis-adbc/main.go') != ''
+        env:
+          IMAGE: ${{ matrix.image }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          name="redis-adbc-$VERSION-linux-$ARCH"
+          tar xzf "dist/$name.tar.gz" -C dist
+          (cd go && docker compose exec -T redis redis-cli HSET release:adbc:1 name a n 1 >/dev/null &&
+            docker compose exec -T redis redis-cli HSET release:adbc:2 name b n 2 >/dev/null)
+          docker run --rm --network host \
+            -v "$PWD/dist/$name:/cli:ro" \
+            -e REDIS_URI=redis://localhost:6379/0 "$IMAGE" sh -euc '
+              cd /tmp
+              /cli/redis-adbc check -prefix release:adbc: > out
+              grep -qx "SQL, copied into a driver table (redis-adbc copy): READY" out
+              grep -qx "SQL, adopted in place (redis-adbc adopt): READY" out
+              /cli/redis-adbc copy -prefix release:adbc: -table release_adbc_copy -mode replace > out
+              grep -qx "2 rows copied into public.release_adbc_copy" out
+              /cli/redis-adbc adopt -prefix release:adbc: -table release_adbc -apply > out
+              grep -q "^Adopted: public.release_adbc now reads the HASHes under release:adbc:" out'
 
   # GitHub's macOS runners can't run the Redis containers, so the macOS
   # library is built and checked to load; the Go unit tests run without a
@@ -267,6 +308,14 @@ jobs:
           file build/redis-arrow | grep -q arm64
           build/redis-arrow help | grep -q export
 
+      - name: Build redis-adbc
+        if: hashFiles('go/cmd/redis-adbc/main.go') != ''
+        working-directory: go
+        run: |
+          make adbc-cli VERSION="$VERSION"
+          file build/redis-adbc | grep -q arm64
+          build/redis-adbc help | grep -q adopt
+
       - name: Test
         working-directory: go
         run: |
@@ -290,6 +339,17 @@ jobs:
           name="redis-arrow-$VERSION-darwin-arm64"
           mkdir -p "dist/$name"
           cp go/build/redis-arrow README.md "dist/$name/"
+          cd dist
+          tar czf "$name.tar.gz" "$name"
+          shasum -a 256 "$name.tar.gz" > "$name.tar.gz.sha256"
+          rm -r "$name"
+
+      - name: Package redis-adbc
+        if: hashFiles('go/cmd/redis-adbc/main.go') != ''
+        run: |
+          name="redis-adbc-$VERSION-darwin-arm64"
+          mkdir -p "dist/$name"
+          cp go/build/redis-adbc README.md "dist/$name/"
           cd dist
           tar czf "$name.tar.gz" "$name"
           shasum -a 256 "$name.tar.gz" > "$name.tar.gz.sha256"
