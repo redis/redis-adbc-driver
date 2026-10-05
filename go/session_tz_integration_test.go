@@ -94,7 +94,8 @@ func TestSessionTimeZoneSet(t *testing.T) {
 		{`SET TIME ZONE -8`, "<-08>+08", "2024-01-09 21:00:00-08"},
 		{`SET TIME ZONE '5.5'`, "<+05:30>-05:30", "2024-01-10 10:30:00+05:30"},
 		{`SET TIME ZONE INTERVAL '-03:30' HOUR TO MINUTE`, "<-03:30>+03:30", "2024-01-10 01:30:00-03:30"},
-		{`SET TIME ZONE 'PST'`, "PST", "2024-01-09 21:00:00-08"},
+		{`SET TIME ZONE 'cet-1cest,m3.5.0,m10.5.0/3'`, "CET-1CEST,M3.5.0,M10.5.0/3", "2024-01-10 06:00:00+01"},
+		{`SET TIME ZONE 'XYZ1ABC'`, "XYZ1ABC", "2024-01-10 04:00:00-01"},
 		{`SET TIME ZONE LOCAL`, "UTC", "2024-01-10 05:00:00+00"},
 	} {
 		h.exec(c.set)
@@ -134,6 +135,12 @@ func TestSessionTimeZoneSet(t *testing.T) {
 	h.expectRows(`SHOW timezone`, "Asia/Kolkata")
 	h.exec(`RESET timezone`)
 
+	// AT TIME ZONE on stored rows, with a POSIX zone's rules and an
+	// abbreviation tied to a zone (MSK, Europe/Moscow).
+	h.expectRows(`SELECT CAST(tz AT TIME ZONE 'CET-1CEST,M3.5.0,M10.5.0/3' AS TEXT), CAST(ts AT TIME ZONE 'MSK' AS TEXT)
+		FROM it_stz WHERE id IN (1, 6) ORDER BY id`,
+		"2024-01-10 06:00:00|2024-01-09 18:00:00+00", "2024-07-01 20:45:30.25|2024-07-01 08:45:30.25+00")
+
 	// A SET earlier in a script applies to the statements after it, also to
 	// a literal read as a local time.
 	h.expectRows(`SET TIME ZONE 'America/Los_Angeles';
@@ -148,7 +155,8 @@ func TestSessionTimeZoneSet(t *testing.T) {
 		{`SET TIME ZONE 'Mars/Base'`, `invalid value for parameter "TimeZone": "Mars/Base"`},
 		{`SET timezone = 'IST'`, `invalid value for parameter "TimeZone": "IST"`},
 		{`SET LOCAL TIME ZONE ''`, `invalid value for parameter "TimeZone": ""`},
-		{`SET TIME ZONE 'CET-1CEST,M3.5.0,M10.5.0'`, `invalid value for parameter "TimeZone": "CET-1CEST,M3.5.0,M10.5.0"`},
+		{`SET TIME ZONE 'PST'`, `invalid value for parameter "TimeZone": "PST"`},
+		{`SET TIME ZONE 'CET-1CEST,M3.5.0'`, `invalid value for parameter "TimeZone": "CET-1CEST,M3.5.0"`},
 		{`SET TIME ZONE INTERVAL '1 month'`, `invalid value for parameter "TimeZone": "INTERVAL '1 mon'" (cannot specify months in time zone interval)`},
 		{`SET TIME ZONE 168`, `invalid value for parameter "TimeZone": "168"`},
 		{`SET timezone = local`, `invalid value for parameter "TimeZone": "local"`},
@@ -309,7 +317,7 @@ func TestSessionTimeZoneIndexAndIsolation(t *testing.T) {
 			}
 		}
 	}
-	check("America/Los_Angeles", []struct{ where, want string }{
+	losAngeles := []struct{ where, want string }{
 		{`tz >= '2024-01-09' AND tz < '2024-01-10'`, "1"},
 		{`tz = '2024-11-03 01:30'`, "5"},
 		{`tz = TIMESTAMP '2024-11-03 01:30:00'`, "5"},
@@ -328,7 +336,10 @@ func TestSessionTimeZoneIndexAndIsolation(t *testing.T) {
 		{`ts >= TIMESTAMPTZ '2024-11-03 09:30:00+00'`, "4,5"},
 		{`d = TIMESTAMPTZ '2024-03-11 07:00:00+00'`, "3"},
 		{`d < TIMESTAMPTZ '2024-03-11 06:59:59+00'`, "1,2"},
-	})
+	}
+	check("America/Los_Angeles", losAngeles)
+	// A POSIX zone with Los Angeles's rules.
+	check("PST8PDT,M3.2.0,M11.1.0", losAngeles)
 	check("Asia/Kolkata", []struct{ where, want string }{
 		{`tz >= '2024-07-02' AND tz < '2024-07-03'`, "6"},
 		{`tz = '2024-01-10 10:30'`, "1"},
@@ -353,8 +364,10 @@ func TestSessionTimeZoneIndexAndIsolation(t *testing.T) {
 			t.Errorf("%s: %s: query %q, residual %v; want %q", c.zone, c.sql, q, residual, c.query)
 		}
 	}
-	if q, residual := h.pushedWhereIn(raw, "America/Los_Angeles", `SELECT id FROM it_stz WHERE ts = TIMESTAMPTZ '2024-03-10 10:30:00+00'`); q != "@ts:[1710037800000000 1710041400000000]" || !residual {
-		t.Errorf("ts = timestamptz: query %q, residual %v", q, residual)
+	for _, zone := range []string{"America/Los_Angeles", "PST8PDT,M3.2.0,M11.1.0"} {
+		if q, residual := h.pushedWhereIn(raw, zone, `SELECT id FROM it_stz WHERE ts = TIMESTAMPTZ '2024-03-10 10:30:00+00'`); q != "@ts:[1710037800000000 1710041400000000]" || !residual {
+			t.Errorf("%s: ts = timestamptz: query %q, residual %v", zone, q, residual)
+		}
 	}
 
 	// Writes in a session time zone store instants; another connection

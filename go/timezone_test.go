@@ -172,6 +172,26 @@ func TestTimeZoneNames(t *testing.T) {
 		{"TIMESTAMPTZ '2024-07-01 10:00:00+00' AT TIME ZONE 'CET'", "2024-07-01 11:00:00", ""},
 		{"TIMESTAMPTZ '2024-07-01 10:00:00+00' AT TIME ZONE 'Europe/Paris'", "2024-07-01 12:00:00", ""},
 		{"TIMESTAMPTZ '2024-07-01 10:00:00+00' AT TIME ZONE 'PST'", "2024-07-01 02:00:00", ""},
+		// The abbreviations are Postgres's default set: IST is Israel
+		// Standard Time, UTC+2; MSD, EAT and NZT are fixed offsets too.
+		{ts + "'IST'", "2024-01-10 12:00:00", ""},
+		{"TIMESTAMPTZ '2024-07-01 10:00:00+00' AT TIME ZONE 'ist'", "2024-07-01 12:00:00", ""},
+		{ts + "'MSD'", "2024-01-10 14:00:00", ""},
+		{ts + "'EAT'", "2024-01-10 13:00:00", ""},
+		{ts + "'NZT'", "2024-01-10 22:00:00", ""},
+		{ts + "'MESZ'", "2024-01-10 12:00:00", ""},
+		// MSK is tied to Europe/Moscow: the offset it had there at the
+		// time (UTC+4 in 2012), or the first it had, before Moscow used it
+		// (1900, when Moscow was UTC+02:30:17).
+		{ts + "'MSK'", "2024-01-10 13:00:00", ""},
+		{"TIMESTAMPTZ '2012-07-15 12:00:00+00' AT TIME ZONE 'MSK'", "2012-07-15 16:00:00", ""},
+		{"TIMESTAMPTZ '1900-07-15 12:00:00+00' AT TIME ZONE 'msk'", "1900-07-15 15:00:00", ""},
+		{"TIMESTAMP '2012-07-15 12:00:00' AT TIME ZONE 'MSK'", "2012-07-15 08:00:00+00", ""},
+		{"TIMESTAMP '2024-07-15 12:00:00' AT TIME ZONE 'MSK'", "2024-07-15 09:00:00+00", ""},
+		// SGT and ART are tied to zones that no longer use them (the tz
+		// database writes +08 and -03): the zone's offset.
+		{ts + "'SGT'", "2024-01-10 18:00:00", ""},
+		{ts + "'ART'", "2024-01-10 07:00:00", ""},
 		// POSIX-style offsets are west of Greenwich: UTC+5 and +05:30 are
 		// behind UTC.
 		{ts + "'UTC+5'", "2024-01-10 05:00:00", ""},
@@ -192,24 +212,115 @@ func TestTimeZoneNames(t *testing.T) {
 	})
 }
 
+// POSIX zones with daylight saving time, against Postgres 16.
+func TestPosixZoneRules(t *testing.T) {
+	const jan, jul = "TIMESTAMPTZ '2024-01-10 10:00:00+00' AT TIME ZONE ", "TIMESTAMPTZ '2024-07-01 10:00:00+00' AT TIME ZONE "
+	cases := []scalarCase{}
+	for zone, want := range map[string][2]string{
+		// The rules: Mm.w.d (the last Sunday of March, at 02:00 standard
+		// time, to the last Sunday of October, at 03:00 summer time).
+		"CET-1CEST,M3.5.0,M10.5.0/3": {"2024-01-10 11:00:00", "2024-07-01 12:00:00"},
+		// In lower case.
+		"cet-1cest,m3.5.0,m10.5.0": {"2024-01-10 11:00:00", "2024-07-01 12:00:00"},
+		// The southern hemisphere: summer time spans the new year.
+		"AEST-10AEDT,M10.1.0,M4.1.0/3": {"2024-01-10 21:00:00", "2024-07-01 20:00:00"},
+		// Jn doesn't count February 29, n does (from 0).
+		"EST5EDT,J60,J300": {"2024-01-10 05:00:00", "2024-07-01 06:00:00"},
+		"EST5EDT,59,299":   {"2024-01-10 05:00:00", "2024-07-01 06:00:00"},
+		// Times outside a day, and with seconds.
+		"EST5EDT,M3.2.0/-1,M11.1.0/26":         {"2024-01-10 05:00:00", "2024-07-01 06:00:00"},
+		"EST5EDT4,M3.2.0/2:30:15,M11.1.0/1:00": {"2024-01-10 05:00:00", "2024-07-01 06:00:00"},
+		// Quoted names, and ';' before the rules after an offset.
+		"<+03>-3<+04>,M3.5.0,M10.5.0": {"2024-01-10 13:00:00", "2024-07-01 14:00:00"},
+		"EST5EDT4;M3.2.0,M11.1.0":     {"2024-01-10 05:00:00", "2024-07-01 06:00:00"},
+		// Without rules, Postgres's default, the US rules (and summer
+		// time is an hour ahead unless its offset is given).
+		"XYZ1ABC":   {"2024-01-10 09:00:00", "2024-07-01 10:00:00"},
+		"EST5EDT+3": {"2024-01-10 05:00:00", "2024-07-01 07:00:00"},
+		// Summer time behind standard time (Ireland's), and all year
+		// (from January 1 to past December 31).
+		"IST-1GMT0,M10.5.0,M3.5.0/1": {"2024-01-10 10:00:00", "2024-07-01 11:00:00"},
+		"EST5EDT,0/0,J365/25":        {"2024-01-10 06:00:00", "2024-07-01 06:00:00"},
+	} {
+		cases = append(cases, scalarCase{jan + "'" + zone + "'", want[0], ""}, scalarCase{jul + "'" + zone + "'", want[1], ""})
+	}
+	const cet, aus = " AT TIME ZONE 'CET-1CEST,M3.5.0,M10.5.0/3'", " AT TIME ZONE 'AEST-10AEDT,M10.1.0,M4.1.0/3'"
+	cases = append(cases, []scalarCase{
+		// The instants around the transitions.
+		{"TIMESTAMPTZ '2024-03-31 00:59:59+00'" + cet, "2024-03-31 01:59:59", ""},
+		{"TIMESTAMPTZ '2024-03-31 01:00:00+00'" + cet, "2024-03-31 03:00:00", ""},
+		{"TIMESTAMPTZ '2024-10-27 00:59:59+00'" + cet, "2024-10-27 02:59:59", ""},
+		{"TIMESTAMPTZ '2024-10-27 01:00:00+00'" + cet, "2024-10-27 02:00:00", ""},
+		{"TIMESTAMPTZ '2024-04-06 15:59:59+00'" + aus, "2024-04-07 02:59:59", ""},
+		{"TIMESTAMPTZ '2024-04-06 16:00:00+00'" + aus, "2024-04-07 02:00:00", ""},
+		{"TIMESTAMPTZ '2024-10-05 15:59:59+00'" + aus, "2024-10-06 01:59:59", ""},
+		{"TIMESTAMPTZ '2024-10-05 16:00:00+00'" + aus, "2024-10-06 03:00:00", ""},
+		// Local times: one the spring-forward transition skips has the
+		// offset before it, one the fall-back transition repeats the
+		// offset after it.
+		{"TIMESTAMP '2024-03-31 01:59:59'" + cet, "2024-03-31 00:59:59+00", ""},
+		{"TIMESTAMP '2024-03-31 02:00:00'" + cet, "2024-03-31 01:00:00+00", ""},
+		{"TIMESTAMP '2024-03-31 02:30:00'" + cet, "2024-03-31 01:30:00+00", ""},
+		{"TIMESTAMP '2024-03-31 03:00:00'" + cet, "2024-03-31 01:00:00+00", ""},
+		{"TIMESTAMP '2024-10-27 01:59:59'" + cet, "2024-10-26 23:59:59+00", ""},
+		{"TIMESTAMP '2024-10-27 02:00:00'" + cet, "2024-10-27 01:00:00+00", ""},
+		{"TIMESTAMP '2024-10-27 02:30:00'" + cet, "2024-10-27 01:30:00+00", ""},
+		{"TIMESTAMP '2024-10-27 03:00:00'" + cet, "2024-10-27 02:00:00+00", ""},
+		{"TIMESTAMP '2024-04-07 02:30:00'" + aus, "2024-04-06 16:30:00+00", ""},
+		{"TIMESTAMP '2024-10-06 02:30:00'" + aus, "2024-10-05 16:30:00+00", ""},
+		// The rules apply in every year.
+		{"TIMESTAMPTZ '1800-07-01 00:00:00+00'" + cet, "1800-07-01 02:00:00", ""},
+		{"TIMESTAMPTZ '0044-07-01 00:00:00+00 BC'" + cet, "0044-07-01 02:00:00 BC", ""},
+		{"TIMESTAMPTZ '3000-01-01 00:00:00+00'" + cet, "3000-01-01 01:00:00", ""},
+		// Timestamp text with an abbreviation or a POSIX zone (without
+		// rules: Postgres splits the text at a comma).
+		{"CAST('2024-07-01 12:00 MSK' AS TIMESTAMPTZ)", "2024-07-01 09:00:00+00", ""},
+		{"CAST('2012-07-01 12:00 MSK' AS TIMESTAMPTZ)", "2012-07-01 08:00:00+00", ""},
+		{"CAST('2024-07-01 12:00 IST' AS TIMESTAMPTZ)", "2024-07-01 10:00:00+00", ""},
+		{"CAST('2024-07-01 12:00 XYZ1ABC' AS TIMESTAMPTZ)", "2024-07-01 12:00:00+00", ""},
+		{"CAST('2024-01-01 12:00 XYZ1ABC' AS TIMESTAMPTZ)", "2024-01-01 13:00:00+00", ""},
+	}...)
+	runScalarCases(t, cases)
+}
+
 func TestAtTimeZoneErrors(t *testing.T) {
 	const ts = "TIMESTAMP '2024-01-10 10:00:00'"
 	expectExprErrors(t, map[string]string{
-		ts + " AT TIME ZONE 'Mars/Phobos'":               `time zone "Mars/Phobos" not recognized`,
-		ts + " AT TIME ZONE ''":                          `time zone "" not recognized`,
-		ts + " AT TIME ZONE 'Local'":                     `time zone "Local" not recognized`,
-		ts + " AT TIME ZONE 'FOO'":                       `time zone "FOO" not recognized`,
-		ts + " AT TIME ZONE 'UTC+200'":                   `time zone "UTC+200" not recognized`,
-		ts + " AT TIME ZONE '+0530'":                     `time zone "+0530" not recognized`,
-		ts + " AT TIME ZONE 'XYZ1ABC'":                   `time zone "XYZ1ABC" not recognized`,
-		ts + " AT TIME ZONE ' UTC'":                      `time zone " UTC" not recognized`,
-		ts + " AT TIME ZONE 'Asia/' || 'Tokyo'":          `time zone "Asia/" not recognized`,
-		"TIMEZONE('Nowhere', " + ts + ")":                `time zone "Nowhere" not recognized`,
-		"CONVERT_TIMEZONE('Nowhere', 'UTC', " + ts + ")": `time zone "Nowhere" not recognized`,
-		"CONVERT_TIMEZONE('UTC', 'Nowhere', " + ts + ")": `time zone "Nowhere" not recognized`,
-		"CONVERT_TIMEZONE('Nowhere', " + ts + ")":        `time zone "Nowhere" not recognized`,
-		ts + " AT TIME ZONE INTERVAL '1 day'":            `interval time zone "1 day" must not include months or days`,
-		ts + " AT TIME ZONE INTERVAL '1 mon 2 hours'":    `interval time zone "1 mon 02:00:00" must not include months or days`,
+		ts + " AT TIME ZONE 'Mars/Phobos'": `time zone "Mars/Phobos" not recognized`,
+		ts + " AT TIME ZONE ''":            `time zone "" not recognized`,
+		ts + " AT TIME ZONE 'Local'":       `time zone "Local" not recognized`,
+		ts + " AT TIME ZONE 'FOO'":         `time zone "FOO" not recognized`,
+		ts + " AT TIME ZONE 'UTC+200'":     `time zone "UTC+200" not recognized`,
+		ts + " AT TIME ZONE '+0530'":       `time zone "+0530" not recognized`,
+		ts + " AT TIME ZONE 'WEST'":        `time zone "WEST" not recognized`,
+		// POSIX zones that Postgres doesn't read.
+		ts + " AT TIME ZONE 'EST5EDT,M3.2.0'":              `time zone "EST5EDT,M3.2.0" not recognized`,
+		ts + " AT TIME ZONE 'EST5EDT,M3.2.0,M11.1.0,'":     `time zone "EST5EDT,M3.2.0,M11.1.0," not recognized`,
+		ts + " AT TIME ZONE 'EST5EDT;M3.2.0,M11.1.0'":      `time zone "EST5EDT;M3.2.0,M11.1.0" not recognized`,
+		ts + " AT TIME ZONE 'EST5EDT,M3.2.0;M11.1.0'":      `time zone "EST5EDT,M3.2.0;M11.1.0" not recognized`,
+		ts + " AT TIME ZONE 'EST5EDT,M13.1.0,M11.1.0'":     `time zone "EST5EDT,M13.1.0,M11.1.0" not recognized`,
+		ts + " AT TIME ZONE 'EST5EDT,M3.6.0,M11.1.0'":      `time zone "EST5EDT,M3.6.0,M11.1.0" not recognized`,
+		ts + " AT TIME ZONE 'EST5EDT,M3.1.7,M11.1.0'":      `time zone "EST5EDT,M3.1.7,M11.1.0" not recognized`,
+		ts + " AT TIME ZONE 'EST5EDT,M3.2,M11.1.0'":        `time zone "EST5EDT,M3.2,M11.1.0" not recognized`,
+		ts + " AT TIME ZONE 'EST5EDT,J0,J300'":             `time zone "EST5EDT,J0,J300" not recognized`,
+		ts + " AT TIME ZONE 'EST5EDT,366,300'":             `time zone "EST5EDT,366,300" not recognized`,
+		ts + " AT TIME ZONE 'EST5EDT,M3.2.0/168,M11.1.0'":  `time zone "EST5EDT,M3.2.0/168,M11.1.0" not recognized`,
+		ts + " AT TIME ZONE 'EST5EDT,M3.2.0/2:60,M11.1.0'": `time zone "EST5EDT,M3.2.0/2:60,M11.1.0" not recognized`,
+		ts + " AT TIME ZONE 'EST5EDT,M3.2.0/,M11.1.0'":     `time zone "EST5EDT,M3.2.0/,M11.1.0" not recognized`,
+		ts + " AT TIME ZONE 'EST5<>'":                      `time zone "EST5<>" not recognized`,
+		ts + " AT TIME ZONE 'EST5<EDT'":                    `time zone "EST5<EDT" not recognized`,
+		ts + " AT TIME ZONE 'EST5EDT4x'":                   `time zone "EST5EDT4x" not recognized`,
+		ts + " AT TIME ZONE ':EST5EDT'":                    `time zone ":EST5EDT" not recognized`,
+		// Timestamp text can't have a POSIX zone's rules.
+		"CAST('2024-07-01 12:00 CET-1CEST,M3.5.0,M10.5.0' AS TIMESTAMPTZ)": `invalid timestamp "2024-07-01 12:00 CET-1CEST,M3.5.0,M10.5.0"`,
+		ts + " AT TIME ZONE ' UTC'":                                        `time zone " UTC" not recognized`,
+		ts + " AT TIME ZONE 'Asia/' || 'Tokyo'":                            `time zone "Asia/" not recognized`,
+		"TIMEZONE('Nowhere', " + ts + ")":                                  `time zone "Nowhere" not recognized`,
+		"CONVERT_TIMEZONE('Nowhere', 'UTC', " + ts + ")":                   `time zone "Nowhere" not recognized`,
+		"CONVERT_TIMEZONE('UTC', 'Nowhere', " + ts + ")":                   `time zone "Nowhere" not recognized`,
+		"CONVERT_TIMEZONE('Nowhere', " + ts + ")":                          `time zone "Nowhere" not recognized`,
+		ts + " AT TIME ZONE INTERVAL '1 day'":                              `interval time zone "1 day" must not include months or days`,
+		ts + " AT TIME ZONE INTERVAL '1 mon 2 hours'":                      `interval time zone "1 mon 02:00:00" must not include months or days`,
 		// Types without a TIMEZONE: there is no TIME WITH TIME ZONE.
 		"TIME '10:00:00' AT TIME ZONE 'UTC'":                     "function timezone(varchar, time) does not exist",
 		ts + " AT TIME ZONE 5":                                   "function timezone(bigint, timestamp) does not exist",

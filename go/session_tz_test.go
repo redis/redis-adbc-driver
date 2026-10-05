@@ -118,6 +118,12 @@ func TestSessionZoneValues(t *testing.T) {
 		{"utc+5", "UTC+5", -5 * 3600, -5 * 3600},
 		{"+05:30", "+05:30", -19800, -19800},
 		{"<+0530>-05:30", "<+0530>-05:30", 19800, 19800},
+		// POSIX zones with daylight saving time, also without rules (the
+		// US rules).
+		{"CET-1CEST,M3.5.0,M10.5.0", "CET-1CEST,M3.5.0,M10.5.0", 3600, 7200},
+		{"cet-1cest,m3.5.0,m10.5.0/3", "CET-1CEST,M3.5.0,M10.5.0/3", 3600, 7200},
+		{"AEST-10AEDT,M10.1.0,M4.1.0/3", "AEST-10AEDT,M10.1.0,M4.1.0/3", 11 * 3600, 10 * 3600},
+		{"XYZ1ABC", "XYZ1ABC", -3600, 0},
 		// Numbers: hours east of Greenwich, shown as Postgres names them.
 		{"-8", "<-08>+08", -8 * 3600, -8 * 3600},
 		{"+3", "<+03>-03", 3 * 3600, 3 * 3600},
@@ -128,10 +134,6 @@ func TestSessionZoneValues(t *testing.T) {
 		{"INTERVAL '-08:00'", "<-08>+08", -8 * 3600, -8 * 3600},
 		{"interval '-3 hours -30 minutes'", "<-03:30>+03:30", -(3*3600 + 1800), -(3*3600 + 1800)},
 		{"INTERVAL '5' HOUR", "<+05>-05", 5 * 3600, 5 * 3600},
-		// Abbreviations, which Postgres refuses here: fixed offsets.
-		{"PST", "PST", -8 * 3600, -8 * 3600},
-		{"pdt", "PDT", -7 * 3600, -7 * 3600},
-		{"Z", "Z", 0, 0},
 	} {
 		v, err := timeZoneParam(c.value)
 		if err != nil {
@@ -144,23 +146,65 @@ func TestSessionZoneValues(t *testing.T) {
 		}
 	}
 	for value, want := range map[string]string{
-		"Mars/Base":                "invalid value for parameter \"TimeZone\": \"Mars/Base\"",
-		"":                         "invalid value for parameter \"TimeZone\": \"\"",
-		"Local":                    "invalid value for parameter \"TimeZone\": \"Local\"",
-		" UTC":                     "invalid value for parameter \"TimeZone\": \" UTC\"",
-		"IST":                      "invalid value for parameter \"TimeZone\": \"IST\"",
-		"200":                      "invalid value for parameter \"TimeZone\": \"200\"",
-		"UTC+200":                  "invalid value for parameter \"TimeZone\": \"UTC+200\"",
-		"CET-1CEST,M3.5.0,M10.5.0": "invalid value for parameter \"TimeZone\": \"CET-1CEST,M3.5.0,M10.5.0\"",
-		"INTERVAL '1 day'":         "invalid value for parameter \"TimeZone\": \"INTERVAL '1 day'\" (cannot specify days in time zone interval)",
-		"INTERVAL '1 month'":       "invalid value for parameter \"TimeZone\": \"INTERVAL '1 mon'\" (cannot specify months in time zone interval)",
-		"INTERVAL '200 hours'":     "invalid value for parameter \"TimeZone\": \"INTERVAL '200:00:00'\"",
-		"INTERVAL 'soon'":          "invalid value for parameter \"TimeZone\": \"INTERVAL 'soon'\"",
+		"Mars/Base": "invalid value for parameter \"TimeZone\": \"Mars/Base\"",
+		"":          "invalid value for parameter \"TimeZone\": \"\"",
+		"Local":     "invalid value for parameter \"TimeZone\": \"Local\"",
+		" UTC":      "invalid value for parameter \"TimeZone\": \" UTC\"",
+		// Abbreviations that aren't zone names, as in Postgres.
+		"IST":                  "invalid value for parameter \"TimeZone\": \"IST\"",
+		"PST":                  "invalid value for parameter \"TimeZone\": \"PST\"",
+		"pdt":                  "invalid value for parameter \"TimeZone\": \"pdt\"",
+		"MSK":                  "invalid value for parameter \"TimeZone\": \"MSK\"",
+		"Z":                    "invalid value for parameter \"TimeZone\": \"Z\"",
+		"200":                  "invalid value for parameter \"TimeZone\": \"200\"",
+		"UTC+200":              "invalid value for parameter \"TimeZone\": \"UTC+200\"",
+		"CET-1CEST,M3.5.0":     "invalid value for parameter \"TimeZone\": \"CET-1CEST,M3.5.0\"",
+		"INTERVAL '1 day'":     "invalid value for parameter \"TimeZone\": \"INTERVAL '1 day'\" (cannot specify days in time zone interval)",
+		"INTERVAL '1 month'":   "invalid value for parameter \"TimeZone\": \"INTERVAL '1 mon'\" (cannot specify months in time zone interval)",
+		"INTERVAL '200 hours'": "invalid value for parameter \"TimeZone\": \"INTERVAL '200:00:00'\"",
+		"INTERVAL 'soon'":      "invalid value for parameter \"TimeZone\": \"INTERVAL 'soon'\"",
 	} {
 		if _, err := timeZoneParam(value); err == nil || errText(err) != want {
 			t.Errorf("%q: error %v, want %q", value, err, want)
 		}
 	}
+}
+
+// A POSIX zone with daylight saving time as the session time zone, around
+// its transitions (2024-03-31 and 2024-10-27 at 01:00 UTC; in Australia
+// 2024-04-06 and 2024-10-05 at 16:00 UTC), against Postgres 16.
+func TestSessionZonePosixRules(t *testing.T) {
+	runZoneCases(t, "CET-1CEST,M3.5.0,M10.5.0/3", []scalarCase{
+		{"CAST(TIMESTAMPTZ '2024-03-31 00:59:59+00' AS TEXT)", "2024-03-31 01:59:59+01", "VARCHAR"},
+		{"CAST(TIMESTAMPTZ '2024-03-31 01:00:00+00' AS TEXT)", "2024-03-31 03:00:00+02", "VARCHAR"},
+		{"CAST(TIMESTAMPTZ '2024-10-27 00:59:59+00' AS TEXT)", "2024-10-27 02:59:59+02", "VARCHAR"},
+		{"CAST(TIMESTAMPTZ '2024-10-27 01:00:00+00' AS TEXT)", "2024-10-27 02:00:00+01", "VARCHAR"},
+		// A skipped local time has the offset before the transition, a
+		// repeated one the offset after it.
+		{"CAST(TIMESTAMPTZ '2024-03-31 02:00:00' AS TEXT)", "2024-03-31 03:00:00+02", "VARCHAR"},
+		{"CAST(TIMESTAMPTZ '2024-03-31 02:30:00' AS TEXT)", "2024-03-31 03:30:00+02", "VARCHAR"},
+		{"CAST(TIMESTAMPTZ '2024-10-27 02:30:00' AS TEXT)", "2024-10-27 02:30:00+01", "VARCHAR"},
+		{"CAST(TIMESTAMPTZ '2024-10-27 03:00:00' AS TEXT)", "2024-10-27 03:00:00+01", "VARCHAR"},
+		{"TO_CHAR(TIMESTAMPTZ '2024-10-27 00:30:00+00', 'HH24:MI TZ OF')", "02:30 CEST +02", "VARCHAR"},
+		{"TO_CHAR(TIMESTAMPTZ '2024-10-27 01:30:00+00', 'HH24:MI TZ OF')", "02:30 CET +01", "VARCHAR"},
+		// A day is 23 hours across the spring-forward transition.
+		{"CAST(TIMESTAMPTZ '2024-03-30 12:00:00' + INTERVAL '1 day' AS TEXT)", "2024-03-31 12:00:00+02", "VARCHAR"},
+		{"CAST(TIMESTAMPTZ '2024-03-30 12:00:00' + INTERVAL '24 hours' AS TEXT)", "2024-03-31 13:00:00+02", "VARCHAR"},
+		{"EXTRACT(timezone_hour FROM TIMESTAMPTZ '2024-07-01 00:00:00+00')", "2", "BIGINT"},
+		{"CAST(DATE_TRUNC('day', TIMESTAMPTZ '2024-03-31 12:00:00+00') AS TEXT)", "2024-03-31 00:00:00+01", "VARCHAR"},
+		{"CAST(CAST(TIMESTAMPTZ '2024-03-31 00:30:00+00' AS TIMESTAMP) AS TEXT)", "2024-03-31 01:30:00", "VARCHAR"},
+		{"CAST(CAST(DATE '2024-03-31' AS TIMESTAMPTZ) AS TEXT)", "2024-03-31 00:00:00+01", "VARCHAR"},
+		{"CAST(TIMESTAMP '2024-03-31 02:30:00' AT LOCAL AS TEXT)", "2024-03-31 03:30:00+02", "VARCHAR"},
+		// The rules apply in every year.
+		{"CAST(TIMESTAMPTZ '1800-01-01 12:00:00+00' AS TEXT)", "1800-01-01 13:00:00+01", "VARCHAR"},
+		{"CAST(TIMESTAMPTZ '2400-07-01 12:00:00+00' AS TEXT)", "2400-07-01 14:00:00+02", "VARCHAR"},
+	})
+	runZoneCases(t, "AEST-10AEDT,M10.1.0,M4.1.0/3", []scalarCase{
+		{"CAST(TIMESTAMPTZ '2024-04-07 02:30:00' AS TEXT)", "2024-04-07 02:30:00+10", "VARCHAR"},
+		{"CAST(TIMESTAMPTZ '2024-10-06 02:30:00' AS TEXT)", "2024-10-06 03:30:00+11", "VARCHAR"},
+		{"TO_CHAR(TIMESTAMPTZ '2024-04-06 15:30:00+00', 'HH24:MI TZ')", "02:30 AEDT", "VARCHAR"},
+		{"TO_CHAR(TIMESTAMPTZ '2024-04-06 16:30:00+00', 'HH24:MI TZ')", "02:30 AEST", "VARCHAR"},
+	})
 }
 
 // What the session time zone changes, in Los Angeles (around its DST
@@ -396,8 +440,12 @@ func TestSessionZoneKinds(t *testing.T) {
 		"UTC+5":                            {"2024-01-10 05:00:00-05 UTC", "2024-07-10 05:00:00-05 UTC"},
 		"-8":                               {"2024-01-10 02:00:00-08 -08", "2024-07-10 02:00:00-08 -08"},
 		"INTERVAL '+05:30' HOUR TO MINUTE": {"2024-01-10 15:30:00+05:30 +05:30", "2024-07-10 15:30:00+05:30 +05:30"},
-		"PST":                              {"2024-01-10 02:00:00-08 PST", "2024-07-10 02:00:00-08 PST"},
 		"CET":                              {"2024-01-10 11:00:00+01 CET", "2024-07-10 12:00:00+02 CEST"},
+		"CET-1CEST,M3.5.0,M10.5.0/3":       {"2024-01-10 11:00:00+01 CET", "2024-07-10 12:00:00+02 CEST"},
+		"XYZ1ABC":                          {"2024-01-10 09:00:00-01 XYZ", "2024-07-10 10:00:00+00 ABC"},
+		"<+03>-3<+04>,M3.5.0,M10.5.0":      {"2024-01-10 13:00:00+03 +03", "2024-07-10 14:00:00+04 +04"},
+		"ist-1gmt0,m10.5.0,m3.5.0/1":       {"2024-01-10 10:00:00+00 GMT", "2024-07-10 11:00:00+01 IST"},
+		"EST5EDT,0/0,J365/25":              {"2024-01-10 06:00:00-04 EDT", "2024-07-10 06:00:00-04 EDT"},
 		"Australia/Sydney":                 {"2024-01-10 21:00:00+11 AEDT", "2024-07-10 20:00:00+10 AEST"},
 		"America/St_Johns":                 {"2024-01-10 06:30:00-03:30 NST", "2024-07-10 07:30:00-02:30 NDT"},
 	} {
