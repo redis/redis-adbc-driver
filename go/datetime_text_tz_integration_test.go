@@ -222,6 +222,15 @@ func TestToCharIssue90(t *testing.T) {
 		"4|2024-02-29 09 5 2460370 21 II   09 2024 060 060|29th of February, 2,024 AD",
 		"5|0044-03-15 11 3 1705428 -01 III  11 0044 075 074|15th of March, 0,044 BC",
 		"6|NULL|NULL")
+	// TO_DATE reads those patterns back (#114), and a TO_DATE constant is
+	// pushed down like any other.
+	h.expectRows(`SELECT id, TO_DATE(TO_CHAR(d, 'YYYY-MM-DD BC'), 'YYYY-MM-DD BC') = d, TO_DATE(TO_CHAR(d, 'J'), 'J') = d,
+			TO_DATE(TO_CHAR(d, 'YYYY DDD BC'), 'YYYY DDD BC') = d,
+			TO_DATE(TO_CHAR(d, 'FMDDth "of" FMMonth, Y,YYY BC'), 'FMDDth "of" FMMonth, Y,YYY BC') = d
+		FROM it_tcx ORDER BY id`,
+		"1|true|true|true|true", "2|true|true|true|true", "3|true|true|true|true", "4|true|true|true|true",
+		"5|true|true|true|true", "6|NULL|NULL|NULL|NULL")
+	h.expectRows(`SELECT id FROM it_tcx WHERE d = TO_DATE('2020 334', 'YYYY DDD')`, "1")
 	h.expectRows(`SELECT TO_CHAR(ts, 'HH12:MI:SS.MS AM SSSS FF3 US [TZ]'), TO_CHAR(tz, 'YYYY-MM-DD HH24:MI:SS TZ OF'),
 			TO_CHAR(ts, 'FMHH24"h"MI"m"SS"s"')
 		FROM it_tcx WHERE id = 1`,
