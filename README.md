@@ -259,7 +259,7 @@ is Flex. So a Flex release that supports it is no longer refused.
 Requirements: Go 1.26+, a C toolchain (cgo), Docker, and
 [uv](https://docs.astral.sh/uv/). Run everything from the `go` directory.
 
-Each [GitHub release](https://github.com/alberttwong/redis-adbc-driver-arrow-ipc/releases)
+Each [GitHub release](https://github.com/alberttwong/redis-adbc-driver/releases)
 also has prebuilt libraries for macOS (Apple Silicon) and Linux (x86-64 and
 arm64). The Linux libraries run on every Linux that
 [Redis Software supports](https://redis.io/docs/latest/operate/rs/references/supported-platforms/):
@@ -546,7 +546,7 @@ make cli
 ```
 
 Or download `redis-arrow-<version>-<os>-<arch>.tar.gz` from a
-[release](https://github.com/alberttwong/redis-adbc-driver-arrow-ipc/releases) after
+[release](https://github.com/alberttwong/redis-adbc-driver/releases) after
 v0.0.9. The Linux binaries are statically linked, and each release runs
 them on the same distributions as the driver. On macOS, a binary from a
 tarball downloaded with a browser is quarantined, and macOS refuses to run
@@ -625,7 +625,7 @@ make adbc-cli
 ```
 
 Or download `redis-adbc-<version>-<os>-<arch>.tar.gz` from a
-[release](https://github.com/alberttwong/redis-adbc-driver-arrow-ipc/releases)
+[release](https://github.com/alberttwong/redis-adbc-driver/releases)
 after v0.0.10 (the same platforms and macOS quarantine note as
 [`redis-arrow`](#arrow-ipc-files-redis-arrow)). Like `redis-arrow`, it links
 the driver as a Go library, and connects with `-uri` (else `$REDIS_URI`,
