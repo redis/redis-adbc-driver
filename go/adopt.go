@@ -547,8 +547,10 @@ func (a *adopter) waitIndexed(ctx context.Context) error {
 		}
 		info := indexInfoOf(reply)
 		if info.failures > 0 {
-			return errorf(adbc.StatusInvalidData, "the index couldn't index %s (such as %s: %s): fix those values and run adopt again",
-				plural(info.failures, "HASH", "HASHes"), info.lastErrorKey, info.lastError)
+			// hash_indexing_failures counts attempts: a HASH written while
+			// the index scans the existing keys can fail twice.
+			return errorf(adbc.StatusInvalidData, "the index had %s (the last: %s: %s): fix those values and run adopt again",
+				plural(info.failures, "indexing failure"), info.lastErrorKey, info.lastError)
 		}
 		if !info.indexing && info.percent >= 1 {
 			if info.numDocs < a.stats.ids {
