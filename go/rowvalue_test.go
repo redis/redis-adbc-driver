@@ -270,6 +270,35 @@ func TestRowSetMatchesLinearScan(t *testing.T) {
 	}
 }
 
+// keysetBound finds the bound on the first item that a row comparison
+// implies, only in the comparisons compareExpr writes.
+func TestKeysetBound(t *testing.T) {
+	for _, c := range []struct{ expr, want string }{
+		{"(a, b) > (1, 2)", ">=(a, 1)"},
+		{"(a, b) >= (1, 2)", ">=(a, 1)"},
+		{"(a, b) < (1, 2)", "<=(a, 1)"},
+		{"(a, b) <= (1, 2)", "<=(a, 1)"},
+		{"ROW(a, b, c) > ROW(1, 2, 3)", ">=(a, 1)"},
+		{"(a, b, c) <= (1, 2, 3)", "<=(a, 1)"},
+		{"(1, 2) < (a, b)", "<=(1, a)"},
+		{"(a + 1, b) > (2, 3)", ">=(+(a, 1), 2)"}, // comparison() decides what the index can use
+		{"(a, b) BETWEEN (1, 2) AND (3, 4)", ""},  // its two comparisons are conjuncts
+		{"a > 1 OR (a = 1 AND b > 2)", ""},        // separate nodes
+		{"ROW(a) > ROW(1)", ""},
+		{"(a, b) = (1, 2)", ""},
+		{"(a, b) <> (1, 2)", ""},
+		{"(a, b) IS DISTINCT FROM (1, 2)", ""},
+	} {
+		got := ""
+		if b := keysetBound(parseTestExpr(t, c.expr)); b != nil {
+			got = renderExpr(b)
+		}
+		if got != c.want {
+			t.Errorf("%s: bound %q, want %q", c.expr, got, c.want)
+		}
+	}
+}
+
 // Comparing row by row agrees with the IN list the parser builds (an OR of
 // ANDs of =), for values that compare without an error.
 func TestRowSetMatchesRowComparisons(t *testing.T) {

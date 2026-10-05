@@ -17,32 +17,42 @@ package redis
 // Literal IN lists.
 //
 // `x IN (v1, …, vN)` is parsed as `x = v1 OR … OR x = vN`, all sharing one x
-// node. Pushdown turns that into an index union when it can (up to
-// maxUnionTerms values on an indexed column). When the driver evaluates it,
-// each row used to compare x with every value. A long list of constants now
-// probes a hash set instead (the inSet of IN subqueries), built once per
-// statement.
+// node, and a row list `(x, y) IN ((v1, w1), …)` as `(x = v1 AND y = w1) OR
+// …`, sharing the x and y nodes (see compareExpr). Pushdown turns that into
+// an index union when it can (up to maxUnionTerms values on an indexed
+// column). When the driver evaluates it, each row used to compare x with
+// every value. A long list of constants now probes a hash set instead, built
+// once per statement: the inSet of IN subqueries, or for a row list the
+// rowSet of row IN subqueries, which has the chain's NULL rules.
 //
-// The hash set only answers rows whose x can't fail to compare with any of
-// the values: `=` raises an error for types it can't compare, and the OR
-// chain stops at the first match, so a row whose type might hit an error is
-// evaluated by the chain itself, exactly as before.
+// The hash set only answers rows whose items can't fail to compare with any
+// of the values in their position: `=` raises an error for types it can't
+// compare, and the chain stops at the first match (and each AND at the first
+// unequal item), so a row whose types might hit an error is evaluated by the
+// chain itself, exactly as before. So is a row whose second or later item
+// fails to evaluate: the chain evaluates it only where the items before it
+// can match, as Postgres does.
 
 // inListMin is the list length from which a hash set pays off.
 const inListMin = 16
 
 type inList struct {
-	x   Expr
-	set *inSet
-	// types are the distinct types of the non-NULL values; safe caches, by
-	// x's type, whether x compares with all of them without an error.
-	types []ColType
-	safe  map[ColType]bool
+	// xs are the items compared: one for a scalar list.
+	xs []Expr
+	// set holds a scalar list's values, rows a row list's.
+	set  *inSet
+	rows *rowSet
+	// types are, per item, the distinct types of the non-NULL values in its
+	// position; safe caches, per item and by the item's type, whether it
+	// compares with all of them without an error.
+	types [][]ColType
+	safe  []map[ColType]bool
 }
 
 // literalInList recognizes the OR chain of a literal IN list with at least
-// inListMin constant values, returning x and the values (in list order).
-func literalInList(or *Binary) (Expr, []Expr, bool) {
+// inListMin rows of constants, returning the items compared and each row's
+// values (in list order).
+func literalInList(or *Binary) ([]Expr, [][]Expr, bool) {
 	var rev []Expr
 	var node Expr = or
 	for {
@@ -57,24 +67,36 @@ func literalInList(or *Binary) (Expr, []Expr, bool) {
 	if len(rev) < inListMin {
 		return nil, nil, false
 	}
-	var x Expr
-	values := make([]Expr, len(rev))
+	var xs []Expr
+	values := make([][]Expr, len(rev))
 	for i, leaf := range rev {
-		eq, ok := leaf.(*Binary)
-		if !ok || eq.Op != "=" || !isConstant(eq.R) {
+		eqs := conjuncts(leaf, nil)
+		if i == 0 {
+			xs = make([]Expr, len(eqs))
+		} else if len(eqs) != len(xs) {
 			return nil, nil, false
 		}
-		if x == nil {
-			x = eq.L
-		} else if eq.L != x {
-			return nil, nil, false // not one IN list
+		row := make([]Expr, len(eqs))
+		for k, c := range eqs {
+			eq, ok := c.(*Binary)
+			if !ok || eq.Op != "=" || !isConstant(eq.R) {
+				return nil, nil, false
+			}
+			if i == 0 {
+				xs[k] = eq.L
+			} else if eq.L != xs[k] {
+				return nil, nil, false // not one IN list
+			}
+			row[k] = eq.R
 		}
-		values[len(rev)-1-i] = eq.R
+		values[len(rev)-1-i] = row
 	}
-	if hasVolatile(x) || hasSubquery(x) {
-		return nil, nil, false // x is evaluated once here, once per value before
+	for _, x := range xs {
+		if hasVolatile(x) || hasSubquery(x) {
+			return nil, nil, false // x is evaluated once here, once per row before
+		}
 	}
-	return x, values, true
+	return xs, values, true
 }
 
 // evalInList evaluates an IN list's OR chain with its hash set; ok is false
@@ -93,21 +115,36 @@ func (env *evalEnv) evalInList(or *Binary) (Value, bool, error) {
 	if l == nil {
 		return Value{}, false, nil
 	}
-	x, err := env.eval(l.x)
+	// The chain evaluates the first item first too.
+	x, err := env.eval(l.xs[0])
 	if err != nil {
 		return Value{}, true, err
 	}
-	if !x.Null && !l.safeFor(x.T) {
+	if !x.Null && !l.safeFor(0, x.T) {
 		return Value{}, false, nil
 	}
+	if l.set != nil {
+		subqueryStats.inLists.Add(1)
+		return l.set.eval(x, false), true, nil
+	}
+	xs := make([]Value, len(l.xs))
+	xs[0] = x
+	for i := 1; i < len(xs); i++ {
+		if xs[i], err = env.eval(l.xs[i]); err != nil {
+			return Value{}, false, nil // the chain may not evaluate it
+		}
+		if !xs[i].Null && !l.safeFor(i, xs[i].T) {
+			return Value{}, false, nil
+		}
+	}
 	subqueryStats.inLists.Add(1)
-	return l.set.eval(x, false), true, nil
+	return l.rows.eval(xs, false), true, nil
 }
 
 // buildInList evaluates the list's values once. It returns nil (evaluate
 // the chain) if or isn't such a list or a value fails to evaluate.
 func (env *evalEnv) buildInList(or *Binary) *inList {
-	x, exprs, ok := literalInList(or)
+	xs, exprs, ok := literalInList(or)
 	if !ok {
 		// Don't look at the chain's inner OR nodes again either.
 		for node, _ := or.L.(*Binary); node != nil && node.Op == "OR"; node, _ = node.L.(*Binary) {
@@ -115,21 +152,32 @@ func (env *evalEnv) buildInList(or *Binary) *inList {
 		}
 		return nil
 	}
-	l := &inList{x: x, safe: map[ColType]bool{}}
+	n := len(xs)
+	l := &inList{xs: xs, types: make([][]ColType, n), safe: make([]map[ColType]bool, n)}
+	seen := make([]map[ColType]bool, n)
+	for k := range xs {
+		l.safe[k], seen[k] = map[ColType]bool{}, map[ColType]bool{}
+	}
 	rows := make([][]Value, len(exprs))
-	seen := map[ColType]bool{}
-	for i, v := range exprs {
-		val, err := env.eval(v)
-		if err != nil {
-			return nil
-		}
-		rows[i] = []Value{val}
-		if !val.Null && !seen[val.T] {
-			seen[val.T] = true
-			l.types = append(l.types, val.T)
+	for i, row := range exprs {
+		rows[i] = make([]Value, n)
+		for k, v := range row {
+			val, err := env.eval(v)
+			if err != nil {
+				return nil
+			}
+			rows[i][k] = val
+			if !val.Null && !seen[k][val.T] {
+				seen[k][val.T] = true
+				l.types[k] = append(l.types[k], val.T)
+			}
 		}
 	}
-	l.set = &inSet{rows: rows, zone: env.zone()}
+	if n == 1 {
+		l.set = &inSet{rows: rows, zone: env.zone()}
+	} else {
+		l.rows = &rowSet{rows: rows, n: n, zone: env.zone()}
+	}
 	// The chain's inner OR nodes are only reached through this one.
 	for node, _ := or.L.(*Binary); node != nil && node.Op == "OR"; node, _ = node.L.(*Binary) {
 		env.exec.cache.inLists[node] = nil
@@ -137,18 +185,20 @@ func (env *evalEnv) buildInList(or *Binary) *inList {
 	return l
 }
 
-func (l *inList) safeFor(t ColType) bool {
-	if ok, seen := l.safe[t]; seen {
+// safeFor reports whether a value of type t as item i compares with every
+// value in that position without an error.
+func (l *inList) safeFor(i int, t ColType) bool {
+	if ok, seen := l.safe[i][t]; seen {
 		return ok
 	}
 	ok := true
-	for _, vt := range l.types {
+	for _, vt := range l.types[i] {
 		if !compareNeverFails(t, vt) {
 			ok = false
 			break
 		}
 	}
-	l.safe[t] = ok
+	l.safe[i][t] = ok
 	return ok
 }
 

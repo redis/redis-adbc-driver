@@ -151,7 +151,9 @@ func comparison(c Expr) (*ColumnRef, string, Expr, bool) {
 // index doesn't hold exactly, a float compared with NaN or +Infinity, which
 // the index doesn't tell apart) are pushed down inclusively and also kept in
 // the residual, as are predicates widened to the rows that read a column's
-// missing value (widenMissing).
+// missing value (widenMissing). A row ordering comparison pushes down the
+// bound it implies on its first item (keysetBound) and stays in the
+// residual.
 func (e *executor) planWhere(ctx context.Context, where Expr, meta *tableMeta, params []Value) (wherePlan, error) {
 	wp := wherePlan{query: "*"}
 	if where == nil {
@@ -169,7 +171,6 @@ func (e *executor) planWhere(ctx context.Context, where Expr, meta *tableMeta, p
 		return wp, nil
 	}
 	env := e.newEnv(ctx, nil, params)
-	zone := e.zone()
 	parts := conjuncts(where, nil)
 	var residual []Expr
 	addResidual := func(e Expr) { residual = append(residual, e) }
@@ -218,125 +219,27 @@ func (e *executor) planWhere(ctx context.Context, where Expr, meta *tableMeta, p
 			addResidual(c) // re-checked exactly on fetched rows
 			continue
 		}
-		colRef, op, other, ok := comparison(c)
-		if !ok {
-			addResidual(c)
-			continue
-		}
-		col, ok := meta.column(colRef.Name)
-		if !ok || !col.Indexed || !simpleName(col.field()) {
-			addResidual(c)
-			continue
-		}
-		cv, err := env.eval(other)
-		if err != nil {
-			return wp, invalidArg(err)
-		}
-		if cv.Null {
-			addResidual(c)
-			continue
-		}
-		// push adds the index term for c; recheck also keeps c in the
-		// residual, as does widening the term to rows that read the
-		// column's missing value.
-		push := func(term string, recheck bool) {
-			term, widened := widenMissing(term, col, func(m Value) bool {
-				r, err := binaryOp(op, m, cv, zone)
-				b, ok := truthy(r)
-				return err != nil || (ok && b)
-			})
-			if recheck || widened {
-				addResidual(c)
+		if bound := keysetBound(c); bound != nil {
+			// A row comparison (a, b) > (x, y): the index finds the rows
+			// with a >= x, and the rows are checked against all of it.
+			term, _, ok, err := e.comparisonTerm(bound, meta, env)
+			if err != nil {
+				return wp, err
 			}
+			if ok {
+				terms = append(terms, term)
+			}
+			addResidual(c)
+			continue
+		}
+		term, recheck, ok, err := e.comparisonTerm(c, meta, env)
+		if err != nil {
+			return wp, err
+		}
+		if ok {
 			terms = append(terms, term)
 		}
-		ct := col.Type
-		field := "@" + col.field()
-		if lo, hi, ok, err := localBounds(cv, ct, zone); ok {
-			// A TIMESTAMP or DATE column compared with a timestamp with
-			// time zone: every local time that can read as the constant,
-			// re-checked on the rows.
-			if err != nil {
-				addResidual(c)
-				continue
-			}
-			switch op {
-			case "=":
-			case ">", ">=":
-				hi = "+inf"
-			default:
-				lo = "-inf"
-			}
-			push(fmt.Sprintf("%s:[%s %s]", field, lo, hi), true)
-			continue
-		}
-		switch {
-		case ct.Kind.indexedAsNumeric():
-			// The constant as a stored value: an instant for a timestamp
-			// with time zone (text, a TIMESTAMP or a DATE are local times
-			// in the session time zone), rounded to the column's precision.
-			v, err := coerceIn(cv, ct, zone)
-			if err != nil || (ct.Kind == KindBool && op != "=") {
-				addResidual(c)
-				continue
-			}
-			bound := numericBound(v)
-			exact := true
-			switch ct.Kind {
-			case KindInt64, KindTime, KindTimestamp:
-				exact = v.I > -exactDoubleLimit && v.I < exactDoubleLimit
-			case KindDecimal:
-				exact = ct.Precision <= 15
-			case KindFloat32, KindFloat64:
-				// NaN and +Infinity are both +inf in the index (see nan.go).
-				exact = bound != "+inf"
-			}
-			// A constant that doesn't fit the column type (1.5 for an
-			// integer, 1.249 for NUMERIC(6,2), a timestamp with a time of
-			// day for a DATE) was rounded to a neighbouring value. No stored
-			// value lies strictly between the two, so inclusive bounds at
-			// the rounded value still cover every match, and the residual
-			// makes the comparison exact.
-			if cmp, ok := compareIn(v, cv, zone); !ok || cmp != 0 {
-				exact = false
-			}
-			lo, hi := "-inf", "+inf"
-			switch op {
-			case "=":
-				lo, hi = bound, bound
-			case "<":
-				hi = "(" + bound
-			case "<=":
-				hi = bound
-			case ">":
-				lo = "(" + bound
-			case ">=":
-				lo = bound
-			}
-			if !exact {
-				lo, hi = strings.TrimPrefix(lo, "("), strings.TrimPrefix(hi, "(")
-			}
-			push(fmt.Sprintf("%s:[%s %s]", field, lo, hi), !exact)
-		case ct.Kind == KindString && op == "=":
-			v, err := coerceIn(cv, ct, zone)
-			if err != nil {
-				addResidual(c)
-				continue
-			}
-			// Only push string constants: `s = 1` is an error, which the
-			// residual reports, not a match for the row with '1'.
-			if cv.T.Kind != KindString {
-				addResidual(c)
-				continue
-			}
-			// The tag of 'ab ' is 'ab' (see tags.go).
-			lit, exact, ok := tagLookup(col, v.S)
-			if !ok {
-				addResidual(c)
-				continue
-			}
-			push(fmt.Sprintf("%s:{%s}", field, lit), !exact)
-		default:
+		if !ok || recheck {
 			addResidual(c)
 		}
 	}
@@ -346,6 +249,149 @@ func (e *executor) planWhere(ctx context.Context, where Expr, meta *tableMeta, p
 	wp.residual = andAll(residual)
 	wp.none = slices.Contains(terms, noMatchQuery)
 	return wp, nil
+}
+
+// comparisonTerm returns the index term for a comparison `col op constant`
+// on an indexed column, and whether the comparison must also be checked on
+// the rows (recheck): the index may answer it inexactly, or the term was
+// widened to the rows that read the column's missing value. ok is false if
+// the index can't answer it.
+func (e *executor) comparisonTerm(c Expr, meta *tableMeta, env *evalEnv) (term string, recheck, ok bool, err error) {
+	colRef, op, other, ok := comparison(c)
+	if !ok {
+		return "", false, false, nil
+	}
+	col, ok := meta.column(colRef.Name)
+	if !ok || !col.Indexed || !simpleName(col.field()) {
+		return "", false, false, nil
+	}
+	cv, err := env.eval(other)
+	if err != nil {
+		return "", false, false, invalidArg(err)
+	}
+	if cv.Null {
+		return "", false, false, nil
+	}
+	zone := e.zone()
+	// push returns term, widened to the rows that read the column's missing
+	// value, which must then be rechecked too.
+	push := func(term string, recheck bool) (string, bool, bool, error) {
+		term, widened := widenMissing(term, col, func(m Value) bool {
+			r, err := binaryOp(op, m, cv, zone)
+			b, ok := truthy(r)
+			return err != nil || (ok && b)
+		})
+		return term, recheck || widened, true, nil
+	}
+	ct := col.Type
+	field := "@" + col.field()
+	if lo, hi, ok, err := localBounds(cv, ct, zone); ok {
+		// A TIMESTAMP or DATE column compared with a timestamp with time
+		// zone: every local time that can read as the constant, re-checked
+		// on the rows.
+		if err != nil {
+			return "", false, false, nil
+		}
+		switch op {
+		case "=":
+		case ">", ">=":
+			hi = "+inf"
+		default:
+			lo = "-inf"
+		}
+		return push(fmt.Sprintf("%s:[%s %s]", field, lo, hi), true)
+	}
+	switch {
+	case ct.Kind.indexedAsNumeric():
+		// The constant as a stored value: an instant for a timestamp with
+		// time zone (text, a TIMESTAMP or a DATE are local times in the
+		// session time zone), rounded to the column's precision.
+		v, err := coerceIn(cv, ct, zone)
+		if err != nil || (ct.Kind == KindBool && op != "=") {
+			return "", false, false, nil
+		}
+		bound := numericBound(v)
+		exact := true
+		switch ct.Kind {
+		case KindInt64, KindTime, KindTimestamp:
+			exact = v.I > -exactDoubleLimit && v.I < exactDoubleLimit
+		case KindDecimal:
+			exact = ct.Precision <= 15
+		case KindFloat32, KindFloat64:
+			// NaN and +Infinity are both +inf in the index (see nan.go).
+			exact = bound != "+inf"
+		}
+		// A constant that doesn't fit the column type (1.5 for an integer,
+		// 1.249 for NUMERIC(6,2), a timestamp with a time of day for a
+		// DATE) was rounded to a neighbouring value. No stored value lies
+		// strictly between the two, so inclusive bounds at the rounded value
+		// still cover every match, and the residual makes the comparison
+		// exact.
+		if cmp, ok := compareIn(v, cv, zone); !ok || cmp != 0 {
+			exact = false
+		}
+		lo, hi := "-inf", "+inf"
+		switch op {
+		case "=":
+			lo, hi = bound, bound
+		case "<":
+			hi = "(" + bound
+		case "<=":
+			hi = bound
+		case ">":
+			lo = "(" + bound
+		case ">=":
+			lo = bound
+		}
+		if !exact {
+			lo, hi = strings.TrimPrefix(lo, "("), strings.TrimPrefix(hi, "(")
+		}
+		return push(fmt.Sprintf("%s:[%s %s]", field, lo, hi), !exact)
+	case ct.Kind == KindString && op == "=":
+		v, err := coerceIn(cv, ct, zone)
+		if err != nil {
+			return "", false, false, nil
+		}
+		// Only push string constants: `s = 1` is an error, which the
+		// residual reports, not a match for the row with '1'.
+		if cv.T.Kind != KindString {
+			return "", false, false, nil
+		}
+		// The tag of 'ab ' is 'ab' (see tags.go).
+		lit, exact, ok := tagLookup(col, v.S)
+		if !ok {
+			return "", false, false, nil
+		}
+		return push(fmt.Sprintf("%s:{%s}", field, lit), !exact)
+	}
+	return "", false, false, nil
+}
+
+// keysetBound returns the comparison on its first item that a row
+// comparison c implies, nil if c isn't one. compareExpr writes `(a, b) >
+// (x, y)` as `a > x OR (a = x AND b > y)`, sharing the a and x nodes (also
+// for >=, and for three or more items, where b > y is again such an OR),
+// which is only true where a >= x is; likewise for < and <=. Keyset
+// pagination, `WHERE (ts, id) > (?, ?) ORDER BY ts, id LIMIT n`, then reads
+// the rows from the last page on, not every row before it too.
+func keysetBound(c Expr) *Binary {
+	or, ok := c.(*Binary)
+	if !ok || or.Op != "OR" {
+		return nil
+	}
+	strict, ok := or.L.(*Binary)
+	if !ok || (strict.Op != "<" && strict.Op != ">") {
+		return nil
+	}
+	and, ok := or.R.(*Binary)
+	if !ok || and.Op != "AND" {
+		return nil
+	}
+	eq, ok := and.L.(*Binary)
+	if !ok || eq.Op != "=" || eq.L != strict.L || eq.R != strict.R {
+		return nil
+	}
+	return &Binary{Op: strict.Op + "=", L: strict.L, R: strict.R}
 }
 
 func andAll(exprs []Expr) Expr {

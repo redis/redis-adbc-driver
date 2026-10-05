@@ -99,8 +99,8 @@ func (h *sqlHarness) tableColumn(c goredis.UniversalClient, table, column string
 }
 
 // pushedWhere returns the index query and whether a residual is left for
-// the WHERE clause of a single-table SELECT.
-func (h *sqlHarness) pushedWhere(c goredis.UniversalClient, sql string) (string, bool) {
+// the WHERE clause of a single-table SELECT, with the given parameters.
+func (h *sqlHarness) pushedWhere(c goredis.UniversalClient, sql string, params ...Value) (string, bool) {
 	h.t.Helper()
 	parsed, err := ParseScript(sql)
 	if err != nil {
@@ -108,11 +108,16 @@ func (h *sqlHarness) pushedWhere(c goredis.UniversalClient, sql string) (string,
 	}
 	e := &executor{store: &store{client: c}, schema: defaultSchema}
 	e.cache = newExecCache()
-	plan, err := e.planSelect(h.ctx, parsed[0].Stmt.(*SelectStmt), nil)
+	var types []ColType
+	for _, p := range params {
+		types = append(types, p.T)
+	}
+	e.params = params
+	plan, err := e.planSelect(h.ctx, parsed[0].Stmt.(*SelectStmt), types)
 	if err != nil {
 		h.t.Fatal(err)
 	}
-	wp, err := e.planWhere(h.ctx, plan.sel.Where, plan.meta, nil)
+	wp, err := e.planWhere(h.ctx, plan.sel.Where, plan.meta, params)
 	if err != nil {
 		h.t.Fatal(err)
 	}

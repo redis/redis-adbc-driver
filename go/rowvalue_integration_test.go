@@ -16,6 +16,7 @@ package redis
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"slices"
 	"strconv"
@@ -160,12 +161,60 @@ func TestSQLRowValuePushdown(t *testing.T) {
 		{"(k1, k2) IN (SELECT k1, k2 FROM it_rv_s WHERE false)", noMatchQuery, true},
 		{"(k1 + 0, k2) IN (SELECT k1, k2 FROM it_rv_s)", "@k2:{a | c | z}", true},
 		{"(k1, k2) NOT IN (SELECT k1, k2 FROM it_rv_s)", "*", true},
-		{"(k1, k2) > (1, 'a')", "*", true},
+		// An ordering comparison: the index finds the rows on the first
+		// item's side of the bound, and the rows are checked.
+		{"(k1, k2) > (1, 'a')", "@k1:[1 +inf]", true},
+		{"(k1, k2) >= (2, 'a')", "@k1:[2 +inf]", true},
+		{"(k1, k2) < (2, 'b')", "@k1:[-inf 2]", true},
+		{"(k1, k2) <= (1, 'b')", "@k1:[-inf 1]", true},
+		{"(1, 'a') < (k1, k2)", "@k1:[1 +inf]", true},
+		{"(v, k1, k2) > (20, 1, 'a')", "@v:[20 +inf]", true},
+		{"(k1, k2) BETWEEN (1, 'b') AND (2, 'a')", "@k1:[1 +inf] @k1:[-inf 2]", true},
+		{"(k1, k2) > (1, 'a') AND (k1, k2) < (3, 'a') AND k2 = 'a'", "@k1:[1 +inf] @k1:[-inf 3] @k2:{a}", true},
+		{"(k1, k2) > (1.5, 'a')", "@k1:[2 +inf]", true}, // inclusive at the rounded value
+		{"(k1, k2) > (CAST(1 AS DOUBLE PRECISION), 'a')", "@k1:[1 +inf]", true},
+		{"(k1, k2) > (CAST(NULL AS INTEGER), 'a')", "*", true},
+		{"(k2, k1) > ('a', 1)", "*", true}, // strings are only looked up
+		{"(k1 + 0, k2) > (1, 'a')", "*", true},
+		{"(k1, k2) > (id, 'a')", "*", true},
+		{"k1 > 1 OR (k1 = 1 AND k2 > 'a')", "*", true}, // not a row comparison
+		{"NOT (k1, k2) <= (1, 'a')", "*", true},
 	} {
 		q, residual := h.pushedWhere(c, "SELECT id FROM it_rv_t WHERE "+tc.where)
 		if q != tc.query || residual != tc.residual {
 			t.Errorf("%s: pushed %q (residual %v), want %q (residual %v)", tc.where, q, residual, tc.query, tc.residual)
 		}
+	}
+	// With parameters, as keyset pagination writes it.
+	for _, tc := range []struct {
+		where  string
+		params []Value
+		query  string
+	}{
+		{"(k1, id) > ($1, $2)", []Value{intValue(typeInt64, 2), intValue(typeInt64, 3)}, "@k1:[2 +inf]"},
+		{"(k1, id) <= (?, ?)", []Value{intValue(typeInt64, 2), intValue(typeInt64, 3)}, "@k1:[-inf 2]"},
+		{"(k1, k2) >= ($1, $2)", []Value{stringValue("2"), stringValue("a")}, "@k1:[2 +inf]"},
+		{"(k1, k2) >= ($1, $2)", []Value{nullValue(typeInt64), stringValue("a")}, "*"},
+	} {
+		q, residual := h.pushedWhere(c, "SELECT id FROM it_rv_t WHERE "+tc.where, tc.params...)
+		if q != tc.query || !residual {
+			t.Errorf("%s %v: pushed %q (residual %v), want %q (residual true)", tc.where, tc.params, q, residual, tc.query)
+		}
+	}
+	// A long row IN list: an index union, and a hash set for the rows.
+	list := []string{"(1, 'a')", "(2, 'a')"}
+	for i := 0; i < inListMin; i++ {
+		list = append(list, fmt.Sprintf("(%d, 'x%d')", 10+i, i))
+	}
+	inList := "(k1, k2) IN (" + strings.Join(list, ", ") + ")"
+	if q, residual := h.pushedWhere(c, "SELECT id FROM it_rv_t WHERE "+inList); !strings.HasPrefix(q, "(@k1:[1 1] | @k1:[2 2] | @k1:[10 10] | ") ||
+		!strings.Contains(q, ") @k2:{a | a | x0 | x1 | ") || !residual {
+		t.Errorf("long row IN list: pushed %q (residual %v)", q, residual)
+	}
+	before := subqueryStats.inLists.Load()
+	h.expectRows("SELECT id FROM it_rv_t WHERE "+inList+" ORDER BY id", "1", "3")
+	if n := subqueryStats.inLists.Load() - before; n != 2 {
+		t.Errorf("long row IN list: %d rows answered by its hash set, want 2 (rows 1 and 3, which the index finds)", n)
 	}
 	// On the table without an index nothing is pushed, except that no row
 	// can match.
@@ -187,6 +236,136 @@ func TestSQLRowValuePushdown(t *testing.T) {
 	}
 	h.expectRows("SELECT COUNT(*) FROM it_rv_t WHERE (1, 2) < (1, 3)", "6")
 	h.expectRows("SELECT COUNT(*) FROM it_rv_t WHERE (1, 2) = (1, 3)", "0")
+}
+
+// The bound a row comparison pushes to the index finds every row the
+// comparison is true for, whatever the first item's type and values: NULLs,
+// NaN and the infinities, a fraction or a double compared with an integer
+// column, integers beyond 2^53, NUMERIC rounding, a date compared with a
+// timestamp, a timestamp with time zone with a TIMESTAMP, text, and a
+// column's missing value. A copy of the table without an index (it_rv_ksn)
+// gives the answers.
+func TestSQLRowValueKeysetBound(t *testing.T) {
+	h := newSQLHarness(t)
+	h.dropTables("it_rv_ks", "it_rv_ksn")
+	cols := []struct {
+		name, typ string
+		values    []string // the rows' values, in turn
+		consts    []string // the bounds compared with
+	}{
+		{"i", "BIGINT", []string{"1", "2", "NULL", "-3", "9007199254740993", "9007199254740992", "2"},
+			[]string{"2", "1.5", "-3", "9007199254740992", "9007199254740993", "CAST(2 AS DOUBLE PRECISION)", "'2'"}},
+		{"f", "DOUBLE PRECISION", []string{"1.5", "'NaN'", "'Infinity'", "'-Infinity'", "NULL", "2", "-0.5"},
+			[]string{"1.5", "'NaN'", "'Infinity'", "'-Infinity'", "2", "CAST(-0.5 AS REAL)"}},
+		{"d", "NUMERIC(6,2)", []string{"1.25", "2.50", "NULL", "-1.00", "2.51", "9999.99"},
+			[]string{"2.5", "2.505", "1.249", "-1", "CAST(2.5 AS DOUBLE PRECISION)"}},
+		{"dt", "DATE", []string{"DATE '2024-01-01'", "DATE '2024-01-02'", "NULL", "DATE '2023-12-31'"},
+			[]string{"DATE '2024-01-02'", "TIMESTAMP '2024-01-01 12:00:00'", "TIMESTAMPTZ '2024-01-02 03:00:00+05'", "'2024-01-01'"}},
+		{"ts", "TIMESTAMP", []string{"TIMESTAMP '2024-01-01 10:00:00'", "TIMESTAMP '2024-01-02 00:00:00'", "NULL",
+			"TIMESTAMP '2024-01-01 23:59:59.999999'"},
+			[]string{"TIMESTAMP '2024-01-01 10:00:00'", "DATE '2024-01-02'", "TIMESTAMPTZ '2024-01-01 12:00:00+02'",
+				"'2024-01-02 00:00:00'"}},
+	}
+	var defs, plain []string
+	for _, c := range cols {
+		defs = append(defs, c.name+" "+c.typ)
+		plain = append(plain, c.name+" "+c.typ+" NOINDEX")
+	}
+	h.exec("CREATE TABLE it_rv_ks (id INTEGER, " + strings.Join(defs, ", ") + ")")
+	h.exec("CREATE TABLE it_rv_ksn (id INTEGER NOINDEX, " + strings.Join(plain, ", ") + ")")
+	var rows []string
+	for id := 1; id <= 30; id++ {
+		row := []string{strconv.Itoa(id)}
+		for k, c := range cols {
+			// Strides prime to the number of values: each column takes all
+			// of them, in different combinations.
+			row = append(row, c.values[(id*[]int{1, 3, 5, 7, 11}[k]+k)%len(c.values)])
+		}
+		rows = append(rows, "("+strings.Join(row, ", ")+")")
+	}
+	// m reads its DEFAULT, 5, in the rows from before it was added.
+	for _, tbl := range []string{"it_rv_ks", "it_rv_ksn"} {
+		h.exec("INSERT INTO " + tbl + " VALUES " + strings.Join(rows, ", "))
+		typ := "INTEGER DEFAULT 5"
+		if tbl == "it_rv_ksn" {
+			typ += " NOINDEX"
+		}
+		h.exec("ALTER TABLE " + tbl + " ADD COLUMN m " + typ)
+		h.exec("INSERT INTO " + tbl + " (id, i, m) VALUES (31, 1, 4), (32, 2, 6), (33, 3, NULL), (34, 4, 5)")
+	}
+	cols = append(cols, struct {
+		name, typ      string
+		values, consts []string
+	}{name: "m", consts: []string{"5", "4", "6", "4.5"}})
+	c := h.rawClient()
+	checked, pushed := 0, 0
+	for _, col := range cols {
+		for _, x := range col.consts {
+			for k, op := range []string{"<", "<=", ">", ">="} {
+				conds := []string{fmt.Sprintf("(%s, id) %s (%s, 10)", col.name, op, x)}
+				if k%2 == 0 {
+					conds = append(conds, fmt.Sprintf("(%s, i, id) %s (%s, 2, 10)", col.name, op, x))
+				} else {
+					conds = append(conds, fmt.Sprintf("(%s, id) %s (%s, NULL)", col.name, op, x))
+				}
+				for _, cond := range conds {
+					checked++
+					if q, _ := h.pushedWhere(c, "SELECT id FROM it_rv_ks WHERE "+cond); q != "*" {
+						pushed++
+					}
+					q := func(tbl string) string { return "SELECT id FROM " + tbl + " WHERE " + cond + " ORDER BY id" }
+					want, _ := h.query(q("it_rv_ksn"))
+					h.expectRows(q("it_rv_ks"), want...)
+				}
+			}
+		}
+	}
+	if pushed != checked {
+		t.Errorf("%d of %d comparisons pushed a bound, want all", pushed, checked)
+	}
+	// Keyset pagination with parameters, five rows a page, both ways (below
+	// 2^53, which the index sorts as doubles).
+	for _, tbl := range []string{"it_rv_ks", "it_rv_ksn"} {
+		all, _ := h.query("SELECT i, id FROM " + tbl + " WHERE i < 1000 ORDER BY i, id")
+		var got []string
+		last := []int64{math.MinInt64, 0}
+		for len(got) <= len(all) {
+			page := h.queryInts("SELECT i, id FROM "+tbl+" WHERE (i, id) > ($1, $2) AND i < 1000 ORDER BY i, id LIMIT 5", last...)
+			if len(page) == 0 {
+				break
+			}
+			got = append(got, page...)
+			i, id, _ := strings.Cut(page[len(page)-1], "|")
+			last = []int64{mustInt(t, i), mustInt(t, id)}
+		}
+		if !slices.Equal(got, all) {
+			t.Errorf("%s: pages %q, want %q", tbl, got, all)
+		}
+		var back []string
+		last = []int64{math.MaxInt64, 0}
+		for len(back) <= len(all) {
+			page := h.queryInts("SELECT i, id FROM "+tbl+" WHERE (i, id) <= (?, ?) AND i < 1000 ORDER BY i DESC, id DESC LIMIT 5", last...)
+			if len(page) == 0 {
+				break
+			}
+			back = append(back, page...)
+			i, id, _ := strings.Cut(page[len(page)-1], "|")
+			last = []int64{mustInt(t, i), mustInt(t, id) - 1}
+		}
+		slices.Reverse(back)
+		if !slices.Equal(back, all) {
+			t.Errorf("%s: pages backwards %q, want %q", tbl, back, all)
+		}
+	}
+}
+
+func mustInt(t *testing.T, s string) int64 {
+	t.Helper()
+	n, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return n
 }
 
 // A row IN subquery probes a hash set of its rows, built once per statement;
@@ -236,6 +415,41 @@ func TestSQLRowValueHashSet(t *testing.T) {
 	h.expectRows("SELECT id FROM it_rv_p WHERE (a, b) IN (SELECT a, b FROM it_rv_k) ORDER BY id", "1")
 	h.expectRows("SELECT id FROM it_rv_p WHERE (a, b) NOT IN (SELECT a, b FROM it_rv_k WHERE b IS NOT NULL) ORDER BY id",
 		"2", "4", "6", "8")
+
+	// The same rows written as a literal list (at least inListMin of them)
+	// probe a hash set too, built once per list, with the same answers.
+	inList := func(x string, rows []string) string {
+		list := strings.Join(rows, ", ")
+		return fmt.Sprintf("SELECT id, %s IN (%s), %s NOT IN (%s) FROM it_rv_p ORDER BY id", x, list, x, list)
+	}
+	withNulls := append(slices.Clip(vals), "(NULL, 'v5')", "(7, NULL)")
+	before := subqueryStats.inLists.Load()
+	w = h.expectWork(inList("(a, b)", withNulls), all...)
+	if n := subqueryStats.inLists.Load() - before; w.runs != 0 || w.inSets != 2 || n != 16 {
+		t.Errorf("row IN lists: %+v and %d rows answered by a hash set, want no runs, 2 hash sets and 16 rows", w, n)
+	}
+	h.expectRows(inList("(a, b)", withNulls[:21]), notNullB...)
+	h.expectRows(inList("(a, b)", vals), complete...)
+	var swapped []string
+	for _, r := range withNulls {
+		a, b, _ := strings.Cut(strings.Trim(r, "()"), ", ")
+		swapped = append(swapped, "ROW("+b+", "+a+")")
+	}
+	h.expectRows(inList("ROW(b, a)", swapped), all...)
+	for _, x := range []string{"(d, b)", "(f, b)", "(CAST(a AS VARCHAR), b)"} {
+		h.expectRows(inList(x, withNulls), all...)
+	}
+	// Three items, and a WHERE probe.
+	var three []string
+	for _, r := range vals {
+		three = append(three, strings.Replace(r, ")", ", 0)", 1))
+	}
+	h.expectRows("SELECT id FROM it_rv_p WHERE (a, b, 0) IN ("+strings.Join(three, ", ")+") ORDER BY id", "1")
+	h.expectRows("SELECT id FROM it_rv_p WHERE (a, b, 0) NOT IN ("+strings.Join(three, ", ")+") ORDER BY id",
+		"2", "3", "4", "6", "8")
+	// Text compared with numbers can fail to compare: such a row is
+	// compared row by row, with the error the chain of comparisons gives.
+	h.expectError(inList("(b, a)", withNulls), "cannot compare")
 }
 
 // Rows in the conditions of UPDATE, DELETE and MERGE, with RETURNING.
@@ -415,7 +629,9 @@ func TestSQLRowValueErrors(t *testing.T) {
 // writing it. The keys are scattered (each key column has more than
 // maxUnionTerms distinct values at 200,000 rows, so every row is read) or
 // clustered (k1 has at most 1,000, so the index fetches only the rows with
-// those values). The timings are logged (go test -v).
+// those values). Literal row IN lists probe a hash set too, and keyset
+// pagination reads each page from the index from the last page's bound on.
+// The timings are logged (go test -v).
 func TestSQLRowValueScale(t *testing.T) {
 	h := newSQLHarness(t)
 	n := 20000
@@ -426,7 +642,7 @@ func TestSQLRowValueScale(t *testing.T) {
 		}
 	}
 	keys := n / 20
-	h.dropTables("it_rv_big", "it_rv_big2", "it_rv_big3")
+	h.dropTables("it_rv_big", "it_rv_big2", "it_rv_big3", "it_rv_page")
 	t.Cleanup(func() {
 		h.exec("DROP TABLE IF EXISTS pg_temp.it_rv_big__dbt_tmp")
 		h.exec("DROP TABLE IF EXISTS pg_temp.it_rv_big2__dbt_tmp")
@@ -439,6 +655,71 @@ func TestSQLRowValueScale(t *testing.T) {
 	for _, tbl := range []string{"it_rv_big2", "it_rv_big3"} {
 		h.exec("CREATE TABLE " + tbl + " AS SELECT * FROM it_rv_big")
 	}
+
+	// Literal row IN lists of scattered keys: 2,000 rows, more than the
+	// index takes as a union, so every row is read and probes the list's
+	// hash set; and 1,000, which the index answers as a union of each
+	// column's values, the rows it finds probing the hash set.
+	var list []string
+	distinct := map[int]bool{}
+	for j := 0; j < 2*maxUnionTerms; j++ {
+		g := j * 7919 % n
+		distinct[g] = true
+		list = append(list, fmt.Sprintf("(%d, 'k%d')", g/10, g%1009))
+	}
+	timedList := func(what, sql string, want, probes int) {
+		t.Helper()
+		start := time.Now()
+		l, i := subqueryStats.inLists.Load(), subqueryStats.inSets.Load()
+		h.expectRows(sql, strconv.Itoa(want))
+		got := subqueryStats.inLists.Load() - l
+		t.Logf("%s: %v (rows answered by the list's hash set %d, hash sets %d)", what, time.Since(start).Round(time.Millisecond),
+			got, subqueryStats.inSets.Load()-i)
+		if probes > 0 && got != int64(probes) || got == 0 {
+			t.Errorf("%s: %d rows answered by the list's hash set, want %d", what, got, probes)
+		}
+	}
+	long := "(k1, k2) IN (" + strings.Join(list, ", ") + ")"
+	timedList("count … literal row IN list of 2,000 rows", "SELECT COUNT(*) FROM it_rv_big WHERE "+long, len(distinct), n)
+	timedList("count … literal row NOT IN list of 2,000 rows", "SELECT COUNT(*) FROM it_rv_big WHERE NOT "+long, n-len(distinct), n)
+	distinct = map[int]bool{}
+	for j := 0; j < maxUnionTerms; j++ {
+		distinct[j*7919%n] = true
+	}
+	timedList("count … literal row IN list of 1,000 rows (an index union)",
+		"SELECT COUNT(*) FROM it_rv_big WHERE (k1, k2) IN ("+strings.Join(list[:maxUnionTerms], ", ")+")", len(distinct), 0)
+
+	// Keyset pagination, 1,000 rows a page, with parameters: the index
+	// finds the rows from the last page's ts on (ts has four rows a value).
+	h.exec(fmt.Sprintf(`CREATE TABLE it_rv_page AS SELECT g / 4 AS ts, g AS id FROM generate_series(0, %d) AS s(g)`, n-1))
+	start = time.Now()
+	seen, last := 0, []int64{-1, -1}
+	for seen <= n {
+		page := h.queryInts("SELECT ts, id FROM it_rv_page WHERE (ts, id) > ($1, $2) ORDER BY ts, id LIMIT 1000", last...)
+		if len(page) == 0 {
+			break
+		}
+		for _, r := range page {
+			if want := fmt.Sprintf("%d|%d", seen/4, seen); r != want {
+				t.Fatalf("keyset pagination after %v: row %s, want %s", last, r, want)
+			}
+			seen++
+		}
+		ts, id, _ := strings.Cut(page[len(page)-1], "|")
+		last = []int64{mustInt(t, ts), mustInt(t, id)}
+	}
+	if seen != n {
+		t.Errorf("keyset pagination read %d rows, want %d", seen, n)
+	}
+	t.Logf("keyset pagination, %d pages of 1,000 rows: %v", (n+999)/1000, time.Since(start).Round(time.Millisecond))
+	start = time.Now()
+	for i := 0; i < 10; i++ {
+		at := int64(n - 100*(i+1) - 1)
+		if page := h.queryInts("SELECT ts, id FROM it_rv_page WHERE (ts, id) > (?, ?) ORDER BY ts, id LIMIT 100", at/4, at); len(page) != 100 {
+			t.Errorf("keyset page after (%d, %d): %d rows, want 100", at/4, at, len(page))
+		}
+	}
+	t.Logf("keyset pagination, one of the last 10 pages of 100 rows: %v", (time.Since(start) / 10).Round(time.Millisecond))
 	h.exec(`create temporary table it_rv_big__dbt_tmp as (select k1, k2, v + 1 as v from it_rv_big where v % 20 = 0)`)
 	h.exec(fmt.Sprintf(`create temporary table it_rv_big2__dbt_tmp as (select k1, k2, v + 1 as v from it_rv_big where k1 < %d)`, n/200))
 	for _, tmp := range []string{"it_rv_big__dbt_tmp", "it_rv_big2__dbt_tmp"} {
