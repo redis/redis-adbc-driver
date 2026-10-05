@@ -90,25 +90,30 @@ func TestDateRange(t *testing.T) {
 	h.expectRows(`SELECT DATE_SUB(DATE '1970-01-01', INTERVAL 2147483648 DAY)`, "-5877641-06-23")
 	h.expectError(`SELECT DATE_SUB(DATE '1969-12-31', INTERVAL 2147483648 DAY)`, "DATE_SUB: date out of range")
 
-	// MAKE_DATE: the first and last days, then past them.
-	schema = h.expectRows(`SELECT MAKE_DATE(5881580, 7, 11), MAKE_DATE(-5877641, 6, 23), MAKE_DATE(5000000, 1, 1)`,
+	// MAKE_DATE: the first and last days, then past them. A negative year
+	// is BC, so the first day, astronomical year -5877641, is 5877642 BC.
+	schema = h.expectRows(`SELECT MAKE_DATE(5881580, 7, 11), MAKE_DATE(-5877642, 6, 23), MAKE_DATE(5000000, 1, 1)`,
 		"5881580-07-11|-5877641-06-23|5000000-01-01")
 	expectTypes(t, schema, sfDate, sfDate, sfDate)
 	for sql, want := range map[string]string{
 		// Was -1759223-12-12.
-		`SELECT MAKE_DATE(9999999, 1, 1)`:             "date out of range: 9999999-01-01",
-		`SELECT MAKE_DATE(5881580, 7, 12)`:            "date out of range: 5881580-07-12",
-		`SELECT MAKE_DATE(5881581, 1, 1)`:             "date out of range: 5881581-01-01",
-		`SELECT MAKE_DATE(-5877641, 6, 22)`:           "date out of range: -5877641-06-22",
+		`SELECT MAKE_DATE(9999999, 1, 1)`:  "date out of range: 9999999-01-01",
+		`SELECT MAKE_DATE(5881580, 7, 12)`: "date out of range: 5881580-07-12",
+		`SELECT MAKE_DATE(5881581, 1, 1)`:  "date out of range: 5881581-01-01",
+		// Postgres shows a BC year as the astronomical year.
+		`SELECT MAKE_DATE(-5877642, 6, 22)`:           "date out of range: -5877641-06-22",
 		`SELECT MAKE_DATE(2147483647, 12, 31)`:        "date out of range: 2147483647-12-31",
-		`SELECT MAKE_DATE(-2147483648, 1, 1)`:         "date out of range: -2147483648-01-01",
+		`SELECT MAKE_DATE(-2147483647, 1, 1)`:         "date out of range: -2147483646-01-01",
 		`SELECT MAKE_DATE(300000000000, 1, 1)`:        "date out of range: 300000000000-01-01",
 		`SELECT MAKE_DATE(9223372036854775807, 1, 1)`: "date out of range: 9223372036854775807-01-01",
-		// Invalid fields are still reported as such.
+		// Invalid fields are still reported as such; there is no year 0,
+		// and Postgres can't negate -2147483648.
 		`SELECT MAKE_DATE(2023, 2, 29)`:         "date field value out of range: 2023-02-29",
 		`SELECT MAKE_DATE(2024, 13, 1)`:         "date field value out of range: 2024-13-01",
 		`SELECT MAKE_DATE(9999999, 13, 1)`:      "date field value out of range: 9999999-13-01",
 		`SELECT MAKE_DATE(2024, 4294967297, 1)`: "date field value out of range: 2024-4294967297-01",
+		`SELECT MAKE_DATE(0, 1, 1)`:             "date field value out of range: 0-01-01",
+		`SELECT MAKE_DATE(-2147483648, 1, 1)`:   "date field value out of range: -2147483648-01-01",
 	} {
 		h.expectError(sql, want)
 	}

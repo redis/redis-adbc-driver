@@ -225,10 +225,13 @@ func TestToChar(t *testing.T) {
 	sc = append(sc,
 		scalarCase{"TO_CHAR(DATE '2020-11-29', '')", "NULL", "VARCHAR"},
 		scalarCase{"TO_CHAR(CAST(NULL AS DATE), 'YYYY')", "NULL", "VARCHAR"},
-		// TO_DATE and TO_TIMESTAMP read the same templates.
+		// TO_DATE and TO_TIMESTAMP read the same templates, with every
+		// pattern but TZ, tz and OF (fromchar_test.go).
 		scalarCase{"TO_DATE('2024-03-15', 'yyyy-mm-dd')", "2024-03-15", "DATE"},
 		scalarCase{"CAST(TO_TIMESTAMP('2024-03-15 14:30', 'FXYYYY-MM-DD HH24:MI') AS VARCHAR)", "2024-03-15 14:30:00+00", "VARCHAR"},
 		scalarCase{`TO_DATE('2024 "x" 03', 'YYYY "\"x\"" MM')`, "2024-03-01", "DATE"},
+		scalarCase{"TO_DATE('48 2020', 'WW YYYY')", "2020-11-25", "DATE"},
+		scalarCase{"TO_DATE('2,020', 'Y,YYY')", "2020-01-01", "DATE"},
 	)
 	runScalarCases(t, sc)
 	// Every pattern is implemented, for each type TO_CHAR takes.
@@ -239,8 +242,4 @@ func TestToChar(t *testing.T) {
 			}
 		}
 	}
-	expectExprErrors(t, map[string]string{
-		"TO_DATE('48 2020', 'WW YYYY')": `format pattern "WW" cannot be parsed`,
-		"TO_DATE('2020', 'Y,YYY')":      `format pattern "Y,YYY" cannot be parsed`,
-	})
 }

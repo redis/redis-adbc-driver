@@ -16,7 +16,7 @@ package redis
 
 // TO_CHAR(x, format) for dates, times and timestamps, as Postgres's
 // formatting.c does, and the format templates that TO_DATE and
-// TO_TIMESTAMP read (parseWithFormat, datetime.go).
+// TO_TIMESTAMP read (fromchar.go).
 //
 // A format is read left to right. At each position, an optional prefix
 // modifier (FM or fm: no padding; TM or tm: translated names, which are the
@@ -88,6 +88,7 @@ var dchKeywords = func() []dchKeyword {
 type fmtToken struct {
 	key    *dchKeyword // nil for literal text
 	text   string      // the literal
+	quoted bool        // the literal is in double quotes
 	fm, tm bool        // FM (no padding), TM (translated names)
 	th     byte        // 'T' for TH, 't' for th, 0 for neither
 }
@@ -145,7 +146,7 @@ func tokenizeFormat(f string) []fmtToken {
 					i++
 				}
 				_, n := utf8.DecodeRuneInString(f[i:])
-				out = append(out, fmtToken{text: f[i : i+n]})
+				out = append(out, fmtToken{text: f[i : i+n], quoted: true})
 				i += n
 			}
 			continue

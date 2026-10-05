@@ -2269,7 +2269,11 @@ field, even if later rows have it.
     `DATE_ADD(x, INTERVAL n part)` / `DATE_SUB(x, INTERVAL n part)` (MySQL,
     BigQuery), which are `DATEADD(part, n, x)` / `DATEADD(part, -n, x)`
   - `MAKE_DATE`, `MAKE_TIME`, `MAKE_TIMESTAMP`, `MAKE_TIMESTAMPTZ`,
-    `TO_TIMESTAMP(epoch_seconds)`, `EPOCH(x)`, `EPOCH_MS(x)`
+    `TO_TIMESTAMP(epoch_seconds)`, `EPOCH(x)`, `EPOCH_MS(x)`. As in
+    Postgres, a negative year is BC (`MAKE_DATE(-44, 3, 15)` is
+    `0044-03-15 BC`), and year 0 is an error (`date field value out of
+    range: 0-03-15`). Up to v0.0.12 they counted years astronomically, so
+    -44 was 45 BC and 0 was 1 BC
   - `TO_CHAR(x, format)` with Postgres's template patterns, read as
     Postgres reads them (case-sensitive, the first pattern that matches):
     `HH` / `HH12`, `HH24`, `MI`, `SS`, `MS`, `US`, `FF1` to `FF6`, `SSSS` /
@@ -2300,11 +2304,44 @@ field, even if later rows have it.
       a pattern, so `Mm` is `Mm` while `Dd` is two weekday numbers, as in
       Postgres. An empty format gives NULL
   - `TO_DATE(text, format)` and `TO_TIMESTAMP(text, format)` read the same
-    templates, with the patterns `YYYY` (also `IYYY`), `YY`, `MM`, `MONTH`
-    / `MON` in any case, `DD`, `HH24`, `HH12` / `HH`, `MI`, `SS`, `MS`, `US`
-    and `AM` / `PM` / `A.M.` / `P.M.`; `FX` is ignored, and other patterns
-    are an error (`format pattern "WW" cannot be parsed`). `TO_TIMESTAMP`
-    reads the text as a local time in the session time zone
+    templates as Postgres 16 does: every pattern above but `TZ`, `tz` and
+    `OF`, which are an error (`formatting field "TZ" is only supported in
+    to_char`, as in Postgres 16). `TO_TIMESTAMP` reads the text as a local
+    time in the session time zone, unless `TZH` and `TZM` give its offset.
+    `TO_DATE` ignores the time and the offset
+    - **Reading:** a number is as wide as its pattern when another number
+      follows it (`YYYYMMDD` reads `20240315`); otherwise, or with `FM` or
+      `TH`, it takes all its digits and a sign (`-44` for `YYYY`). Names are
+      read in any case. Outside `FX` mode, spaces before and after a field
+      are skipped, a separator or space in the format matches one in the
+      text or none (`TO_DATE('2024/02', 'YYYY-MM-DD')` is 2024-02-01), and
+      any other character, also in quotes, skips one character. Text left
+      after the format is ignored
+    - **Combining fields:** a field that isn't given, or is 0, is year 0
+      (1 BC), January, the 1st or midnight, so `TO_DATE('03-15', 'MM-DD')`
+      is `0001-03-15 BC`. `YYY`, `YY` and `Y` are years near 2020 (`69` is
+      2069, `70` 1970), or with `CC` years of that century; a negative year
+      or `BC` is BC. `J` gives the date (with `DD` and `MM` replacing its
+      day and month), `WW` and `W` the first day of their week, `DDD` the
+      month and the day not given, and `IYYY` with `IW`, `ID` or `IDDD` an
+      ISO week date. `D`, `DAY`, `DY` and `Q` are read and otherwise
+      ignored, but `DAY` and `DY` are the day of an `IW` week. `MS`, `US`
+      and `FF1` to `FF6` are fractions of a second (`.5` is 500 ms), and
+      `FFn` rounds to n digits
+    - **Errors** are Postgres's messages, without its details and hints: a
+      field given twice with different values (`conflicting values for "MM"
+      field in formatting string`), Gregorian and ISO week patterns together
+      (`invalid combination of date conventions`), text a pattern can't read
+      (`invalid value "xx" for "MM"`), and fields out of range
+      (`date/time field value out of range: "2024-02-30"`). The results
+      have the driver's date and timestamp ranges (below), which go further
+      back than Postgres's 4714 BC
+    - **Upgrading from v0.0.12 and earlier:** they read only `YYYY` (also
+      `IYYY`), `YY`, `MM`, `MONTH` / `MON`, `DD`, `HH24`, `HH12` / `HH`,
+      `MI`, `SS`, `MS`, `US` and `AM` / `PM`, unlike Postgres: a missing year
+      was 1970, `MS` and `US` read a count (`.5` was 5 ms), `MON` and `MONTH`
+      took both forms, and text after the format, or a missing separator,
+      was an error
   - Time zones, as in Postgres: `x AT TIME ZONE zone` (also
     `TIMEZONE(zone, x)`) reads a `TIMESTAMP` as a local time in `zone` and
     gives that instant, a `TIMESTAMP WITH TIME ZONE`, and gives the local
@@ -2400,7 +2437,8 @@ field, even if later rows have it.
     is read as a local time.
   - **The current time:** `CURRENT_DATE`, `LOCALTIMESTAMP`, `CURRENT_TIME`
     and `LOCALTIME` are local; `NOW()` is the instant. `MAKE_TIMESTAMPTZ`
-    and `TO_TIMESTAMP(text, format)` read a local time.
+    and `TO_TIMESTAMP(text, format)` read a local time, unless the format
+    has `TZH` or `TZM`.
   - **Daylight saving time,** as in Postgres: a local time that the
     spring-forward transition skips is read with the offset before it
     (`'2024-03-10 02:30'` in Los Angeles is `2024-03-10 03:30:00-07`), and
@@ -2448,9 +2486,10 @@ field, even if later rows have it.
     (`TIMESTAMP '2024-01-31' + INTERVAL '1 month'` is Feb 29). Comparisons
     treat a month as 30 days, so `INTERVAL '1 day' = INTERVAL '24 hours'`
   - A result outside its type's range is an error, as in Postgres, rather
-    than wrapping. A `DATE` is an Arrow `date32` (-5877641-06-23 to
-    5881580-07-11): past it, `date ± integer`, `MAKE_DATE`, `DATEADD`, the
-    other date functions and casts to `DATE` give "date out of range". A
+    than wrapping. A `DATE` is an Arrow `date32` (5877642-06-23 BC, year
+    -5877641, to 5881580-07-11): past it, `date ± integer`, `MAKE_DATE`,
+    `DATEADD`, `TO_DATE`, the other date functions and casts to `DATE` give
+    "date out of range". A
     timestamp past the range of its unit (microseconds: about ±292,000 years
     from 1970) is "timestamp out of range". An interval's time part is
     nanoseconds in 64 bits (about ±2,562,047 hours); past that, and for a

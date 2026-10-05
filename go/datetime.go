@@ -23,10 +23,8 @@ import (
 	"fmt"
 	"math"
 	"math/big"
-	"strconv"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/apache/arrow-go/v18/arrow"
 )
@@ -519,158 +517,18 @@ func dateAdd(name string, args []Value, sign int64, t ColType, z tzZone) (Value,
 	return x, nil
 }
 
-// ---- TO_DATE / TO_TIMESTAMP formats (TO_CHAR is in tochar.go) ----
-
-var monthNames = map[string]time.Month{}
-
-func init() {
-	for m := time.January; m <= time.December; m++ {
-		monthNames[strings.ToLower(m.String())] = m
-		monthNames[strings.ToLower(m.String()[:3])] = m
+// makeYear is the astronomical year of a MAKE_DATE or MAKE_TIMESTAMP year,
+// as Postgres reads it: a negative year is BC (-44 is 44 BC, year -43), and
+// there is no year 0. ok is false for 0, and for -2147483648, which
+// Postgres can't negate.
+func makeYear(y int) (int, bool) {
+	switch {
+	case y == 0 || y == math.MinInt32:
+		return 0, false
+	case y < 0:
+		return y + 1, true
 	}
-}
-
-// parseWithFormat parses text with a TO_CHAR-style format (the subset with
-// fixed meaning: years, months, days, hours, minutes, seconds, fractions,
-// AM/PM and month names). Whitespace in the input is flexible.
-func parseWithFormat(s, format string) (time.Time, error) {
-	year, month, day := 1970, 1, 1
-	hour, minute, sec, nanos := 0, 0, 0, 0
-	pm, has12 := false, false
-	i := 0
-	skipSpace := func() {
-		for i < len(s) && unicode.IsSpace(rune(s[i])) {
-			i++
-		}
-	}
-	readNum := func(maxDigits int) (int, error) {
-		skipSpace()
-		start := i
-		neg := false
-		if i < len(s) && s[i] == '-' && maxDigits >= 4 {
-			neg = true
-			i++
-			start = i
-		}
-		for i < len(s) && i-start < maxDigits && s[i] >= '0' && s[i] <= '9' {
-			i++
-		}
-		if i == start {
-			return 0, fmt.Errorf("expected digits at position %d of %q", start+1, s)
-		}
-		n, _ := strconv.Atoi(s[start:i])
-		if neg {
-			n = -n
-		}
-		return n, nil
-	}
-	var err error
-	for _, t := range tokenizeFormat(format) {
-		if t.key == nil {
-			for _, r := range t.text {
-				if unicode.IsSpace(r) {
-					skipSpace()
-					continue
-				}
-				skipSpace()
-				if i < len(s) && rune(s[i]) == r {
-					i++
-				} else if i < len(s) && !unicode.IsLetter(r) && !unicode.IsDigit(r) &&
-					!unicode.IsLetter(rune(s[i])) && !unicode.IsDigit(rune(s[i])) {
-					i++ // any separator matches any separator
-				} else {
-					return time.Time{}, fmt.Errorf("%q does not match format %q", s, format)
-				}
-			}
-			continue
-		}
-		switch strings.ToUpper(t.key.id) {
-		case "FX":
-			// Fixed format: the input is read as flexibly as ever.
-		case "YYYY", "IYYY":
-			year, err = readNum(4)
-		case "YY":
-			var y int
-			if y, err = readNum(2); err == nil {
-				year = 2000 + y
-				if y >= 70 {
-					year = 1900 + y
-				}
-			}
-		case "MM":
-			month, err = readNum(2)
-		case "DD":
-			day, err = readNum(2)
-		case "HH24":
-			hour, err = readNum(2)
-		case "HH12", "HH":
-			hour, err = readNum(2)
-			has12 = true
-		case "MI":
-			minute, err = readNum(2)
-		case "SS":
-			sec, err = readNum(2)
-		case "MS":
-			var ms int
-			if ms, err = readNum(3); err == nil {
-				nanos = ms * 1_000_000
-			}
-		case "US":
-			var us int
-			if us, err = readNum(6); err == nil {
-				nanos = us * 1_000
-			}
-		case "MONTH", "MON":
-			skipSpace()
-			j := i
-			for j < len(s) && unicode.IsLetter(rune(s[j])) {
-				j++
-			}
-			m, ok := monthNames[strings.ToLower(s[i:j])]
-			if !ok {
-				return time.Time{}, fmt.Errorf("invalid month name in %q", s)
-			}
-			month, i = int(m), j
-		case "AM", "PM", "A.M.", "P.M.":
-			skipSpace()
-			rest := strings.ToUpper(s[i:])
-			switch {
-			case strings.HasPrefix(rest, "PM"), strings.HasPrefix(rest, "P.M."):
-				pm = true
-			case strings.HasPrefix(rest, "AM"), strings.HasPrefix(rest, "A.M."):
-			default:
-				return time.Time{}, fmt.Errorf("expected AM or PM in %q", s)
-			}
-			if strings.HasPrefix(rest, "P.M.") || strings.HasPrefix(rest, "A.M.") {
-				i += 4
-			} else {
-				i += 2
-			}
-		default:
-			return time.Time{}, fmt.Errorf("format pattern %q cannot be parsed", t.key.name)
-		}
-		if err != nil {
-			return time.Time{}, err
-		}
-	}
-	skipSpace()
-	if i != len(s) {
-		return time.Time{}, fmt.Errorf("unexpected trailing text %q", s[i:])
-	}
-	if has12 {
-		if hour < 1 || hour > 12 {
-			return time.Time{}, fmt.Errorf("hour %d is not valid with a 12-hour format", hour)
-		}
-		hour %= 12
-		if pm {
-			hour += 12
-		}
-	}
-	tm := time.Date(year, time.Month(month), day, hour, minute, sec, nanos, time.UTC)
-	if tm.Month() != time.Month(month) || tm.Day() != day || hour > 23 || minute > 59 || sec > 59 {
-		return time.Time{}, fmt.Errorf("date/time field value out of range in %q", s)
-	}
-	return tm, nil
+	return y, true
 }
 
 // ---- dispatch ----
@@ -874,14 +732,21 @@ func (env *evalEnv) evalDateTimeFunc(f *Func, args []Value) (Value, bool, error)
 			}
 			ymd[i] = n
 		}
-		ymdText := fmt.Sprintf("%d-%02d-%02d", ymd[0], ymd[1], ymd[2])
 		// A year past int32 is far outside the date range, and could
 		// overflow time.Date.
 		if ymd[0] < math.MinInt32 || ymd[0] > math.MaxInt32 {
-			return done(Value{}, fmt.Errorf("date out of range: %s", ymdText))
+			return done(Value{}, fmt.Errorf("date out of range: %d-%02d-%02d", ymd[0], ymd[1], ymd[2]))
 		}
-		tm := time.Date(ymd[0], time.Month(ymd[1]), ymd[2], 0, 0, 0, 0, time.UTC)
-		if int(tm.Month()) != ymd[1] || tm.Day() != ymd[2] {
+		// Postgres's messages show a BC year as the astronomical year
+		// (-43-02-30 for MAKE_DATE(-44, 2, 30)).
+		y, ok := makeYear(ymd[0])
+		shown := ymd[0]
+		if ok {
+			shown = y
+		}
+		ymdText := fmt.Sprintf("%d-%02d-%02d", shown, ymd[1], ymd[2])
+		tm := time.Date(y, time.Month(ymd[1]), ymd[2], 0, 0, 0, 0, time.UTC)
+		if !ok || int(tm.Month()) != ymd[1] || tm.Day() != ymd[2] {
 			return done(Value{}, fmt.Errorf("date field value out of range: %s", ymdText))
 		}
 		v, err := fromTime(tm, typeDate)
@@ -914,7 +779,17 @@ func (env *evalEnv) evalDateTimeFunc(f *Func, args []Value) (Value, bool, error)
 			}
 			return done(fromTime(time.Date(1970, 1, 1, parts[0], parts[1], int(whole), nanos, time.UTC), t))
 		}
-		tm := time.Date(parts[0], time.Month(parts[1]), parts[2], parts[3], parts[4], int(whole), nanos, time.UTC)
+		// The date, as MAKE_DATE reads it; Postgres's messages show the
+		// year as given.
+		ymdText := fmt.Sprintf("%d-%02d-%02d", parts[0], parts[1], parts[2])
+		if parts[0] < math.MinInt32 || parts[0] > math.MaxInt32 {
+			return done(Value{}, fmt.Errorf("date out of range: %s", ymdText))
+		}
+		y, ok := makeYear(parts[0])
+		if d := time.Date(y, time.Month(parts[1]), parts[2], 0, 0, 0, 0, time.UTC); !ok || int(d.Month()) != parts[1] || d.Day() != parts[2] {
+			return done(Value{}, fmt.Errorf("date field value out of range: %s", ymdText))
+		}
+		tm := time.Date(y, time.Month(parts[1]), parts[2], parts[3], parts[4], int(whole), nanos, time.UTC)
 		if int(tm.Month()) != parts[1] || tm.Day() != parts[2] || parts[3] > 23 || parts[4] > 59 || whole > 59 {
 			return done(Value{}, fmt.Errorf("date/time field value out of range"))
 		}
@@ -932,14 +807,10 @@ func (env *evalEnv) evalDateTimeFunc(f *Func, args []Value) (Value, bool, error)
 			whole := math.Floor(sv.F)
 			return done(fromTime(time.Unix(int64(whole), int64(math.Round((sv.F-whole)*1e9))).UTC(), t))
 		}
-		tm, err := parseWithFormat(args[0].Text(), args[1].Text())
-		if err != nil {
-			return done(Value{}, err)
+		if f.Name == "TO_DATE" {
+			return done(toDate(args[0].Text(), args[1].Text()))
 		}
-		if f.Name == "TO_TIMESTAMP" {
-			tm = z.instant(tm) // a local time in the session time zone
-		}
-		return done(fromTime(tm, t))
+		return done(toTimestamp(args[0].Text(), args[1].Text(), z, t))
 	case "TO_CHAR":
 		if args[1].Text() == "" {
 			return done(nullValue(typeString), nil) // as in Postgres

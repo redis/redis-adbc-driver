@@ -1201,15 +1201,28 @@ func TestSQLDateTimeFunctions(t *testing.T) {
 			CAST(MAKE_TIME(13, 45, 30.5) AS VARCHAR), LAST_DAY(DATE '2024-02-10'), LAST_DAY(DATE '2023-02-10')`,
 		"2024-02-29|2024-01-02 03:04:05.25|13:45:30.5|2024-02-29|2023-02-28")
 	h.expectError(`SELECT MAKE_DATE(2023, 2, 29)`, "out of range")
+	// Negative years are BC, and there is no year 0, as in Postgres.
+	h.expectRows(`SELECT CAST(MAKE_DATE(-44, 3, 15) AS VARCHAR), CAST(MAKE_TIMESTAMP(-1, 12, 31, 23, 59, 59) AS VARCHAR),
+			MAKE_DATE(-44, 3, 15) = DATE '0044-03-15 BC'`,
+		"0044-03-15 BC|0001-12-31 23:59:59 BC|true")
+	h.expectErrorText(`SELECT MAKE_DATE(0, 3, 15)`, "date field value out of range: 0-03-15")
+	h.expectErrorText(`SELECT MAKE_TIMESTAMP(0, 3, 15, 0, 0, 0)`, "date field value out of range: 0-03-15")
 	h.expectRows(`SELECT CAST(TO_TIMESTAMP(0) AS VARCHAR), CAST(TO_TIMESTAMP(1700000000.5) AS VARCHAR)`,
 		"1970-01-01 00:00:00+00|2023-11-14 22:13:20.5+00")
 	h.expectRows(`SELECT CAST(TO_TIMESTAMP('2024-03-15 14:30', 'YYYY-MM-DD HH24:MI') AS VARCHAR),
 			TO_DATE('15 Mar 2024', 'DD Mon YYYY'), TO_DATE('March 5, 2024', 'Month DD, YYYY'),
 			CAST(TO_TIMESTAMP('03/15/2024 2:30 PM', 'MM/DD/YYYY HH12:MI AM') AS VARCHAR)`,
 		"2024-03-15 14:30:00+00|2024-03-15|2024-03-05|2024-03-15 14:30:00+00")
-	h.expectError(`SELECT TO_DATE('2024-02-30', 'YYYY-MM-DD')`, "out of range")
-	h.expectError(`SELECT TO_DATE('2024/02', 'YYYY-MM-DD')`, "does not match format")
-	h.expectError(`SELECT TO_DATE('2024-xx-01', 'YYYY-MM-DD')`, "expected digits")
+	// Every pattern TO_CHAR writes but TZ, tz and OF; separators match any
+	// separator, or none.
+	h.expectRows(`SELECT TO_DATE('48 2020', 'WW YYYY'), TO_DATE('2459183', 'J'), TO_DATE('2020 XI', 'YYYY RM'),
+			TO_DATE('2020 53 5', 'IYYY IW ID'), CAST(TO_DATE('-44-03-15', 'YYYY-MM-DD') AS VARCHAR), TO_DATE('2024/02', 'YYYY-MM-DD'),
+			CAST(TO_TIMESTAMP('2020-01-01 12:00:00 -05:30', 'YYYY-MM-DD HH24:MI:SS TZH:TZM') AS VARCHAR)`,
+		"2020-11-25|2020-11-29|2020-11-01|2021-01-01|0044-03-15 BC|2024-02-01|2020-01-01 17:30:00+00")
+	h.expectErrorText(`SELECT TO_DATE('2024-02-30', 'YYYY-MM-DD')`, `date/time field value out of range: "2024-02-30"`)
+	h.expectErrorText(`SELECT TO_DATE('2024-xx-01', 'YYYY-MM-DD')`, `invalid value "xx" for "MM"`)
+	h.expectErrorText(`SELECT TO_DATE('2020 XI 10', 'YYYY RM MM')`, `conflicting values for "MM" field in formatting string`)
+	h.expectErrorText(`SELECT TO_TIMESTAMP('2020 12:00 PST', 'YYYY HH24:MI TZ')`, `formatting field "TZ" is only supported in to_char`)
 	h.expectRows(`SELECT EPOCH(ts), EPOCH_MS(ts) FROM it_dt WHERE id = 1`, "1.709214330123456e+09|1709214330123")
 
 	// TO_CHAR.
