@@ -249,17 +249,22 @@ of previous errors`: `failed to create view: NOPERM No permissions to access
 a key ('set' on adbc:{meta}:view:public:v, in a MULTI transaction that Redis
 discarded)`.
 
-**Limitation: only tables created through the driver are visible**
+**Limitation: the driver doesn't find existing HASHes by itself**
 
 A table exists for the driver only if its metadata key
-(`adbc:{meta}:table:<schema>:<table>`) and its index (`idx:<schema>:<table>`) exist.
-HASHes and indexes created some other way (for example your own
-`row:*` / `idx:rows` layout) won't appear as tables. To query existing data,
-load it through the driver; bulk ingest from Arrow is the quickest route.
-The driver doesn't touch such indexes, even one with the name a new table's
-index would take (see "Indexes the driver didn't create are left alone"
-below). `redis-adbc` copies such HASHes into a table, or makes them a table
-in place (see [Existing HASH collections](#existing-hash-collections-redis-adbc)).
+(`adbc:{meta}:table:<schema>:<table>`) exists. The metadata names the
+table's key prefix and index. HASHes and indexes created some other way
+(for example your own `row:*` / `idx:rows` layout) don't appear as tables
+until `redis-adbc` makes them one: `copy` bulk-ingests them into a new
+table, and `adopt` makes the HASHes themselves a table, so that SQL reads
+what the application writes (see
+[Existing HASH collections](#existing-hash-collections-redis-adbc)).
+Adopting needs keys that end in an integer (`user:42`), writes a `__rowid`
+field into each HASH, and creates a second index beside the application's.
+An adopted table refuses `INSERT` and `TRUNCATE`, and doesn't see HASHes
+the application adds until `adopt -refresh -apply` runs. The driver doesn't touch
+indexes it didn't create, even one with the name a new table's index would
+take (see "Indexes the driver didn't create are left alone" below).
 
 **Limitation: Redis Flex databases are not supported yet**
 
@@ -564,9 +569,10 @@ Stop Redis with `docker compose down`.
 
 ## Existing HASH collections: `redis-adbc`
 
-The driver only sees tables it created. HASHes that an application wrote
-(`user:1`, `user:2`, …, maybe with the application's own search index) can
-still be queried through the driver, made a table one of two ways.
+The driver only sees tables that have its metadata. HASHes that an
+application wrote (`user:1`, `user:2`, …, maybe with the application's own
+search index) can still be queried through the driver, made a table one of
+two ways.
 `redis-adbc` checks whether each one works, guesses the table's structure,
 and says what is missing:
 
