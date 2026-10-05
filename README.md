@@ -2291,31 +2291,41 @@ field, even if later rows have it.
       also gives a `TIMESTAMP`, as in Redshift (Snowflake gives a
       `TIMESTAMP_TZ`, which has no equivalent here)
     - Zones are looked up in Postgres's order. First the time zone
-      abbreviations, which are fixed offsets: `UTC`, `UT`, `UCT`, `GMT`,
-      `Z`, `ZULU`, `EST` / `EDT`, `CST` / `CDT`, `MST` / `MDT`, `PST` /
-      `PDT`, `AKST` / `AKDT`, `HST`, `AST` / `ADT`, `NST` / `NDT`, `WET` /
-      `WEST`, `BST`, `CET` / `CEST`, `EET` / `EEST`, `JST`, `KST`, `HKT`,
-      `AWST`, `ACST` / `ACDT`, `AEST` / `AEDT` and `NZST` / `NZDT` (so
-      `CET` is UTC+1 in July too). Then the IANA zone names
+      abbreviations: the 195 of Postgres's default set
+      (`timezone_abbreviations = 'Default'`), in any case. Most are fixed
+      offsets: `UTC`, `GMT`, `Z`, `EST` / `EDT`, `PST` / `PDT`, `CET` /
+      `CEST`, `MSD`, `EAT`, `JST`, `AEST` / `AEDT`, `NZST` / `NZDT`, …, so
+      `CET` is UTC+1 in July too. `IST` is Israel Standard Time, UTC+2, as
+      in Postgres; India's zone is `Asia/Kolkata`. The rest are tied to a
+      zone, as in Postgres: `MSK` is the offset it had in `Europe/Moscow`
+      at that instant (UTC+4 in 2012, UTC+3 now), and one that the tz
+      database no longer uses is the zone's offset (`SGT` is
+      `Asia/Singapore`'s, which it writes `+08`). Then the IANA zone names
       (`America/New_York`, `Etc/GMT+5`), case-insensitive, from the tz
-      database built into the driver. Then POSIX-style offsets: `UTC+5`,
+      database built into the driver. Then POSIX time zones: `UTC+5`,
       `+05:30`, `5` or `<+0530>-05:30`, whose sign is west of Greenwich, as
-      in POSIX and Postgres, so `UTC+5` and `+05:30` are behind UTC. An
-      `INTERVAL` is an offset east of Greenwich, as in ISO 8601 (`INTERVAL
-      '+05:30'` is ahead of UTC), without months or days (`interval time
-      zone "1 day" must not include months or days`). Anything else is
-      `time zone "x" not recognized`. Timestamp text with a zone name
-      (`'2024-03-10 02:30 America/Los_Angeles'`) reads the zone the same way
-    - Daylight saving time as in Postgres: a local time that the
-      spring-forward transition skips is read with the offset before it
-      (`TIMESTAMP '2024-03-10 02:30' AT TIME ZONE 'America/Los_Angeles'` is
-      10:30 UTC), and one that the fall-back transition repeats with the
-      offset after it (`TIMESTAMP '2024-11-03 01:30'` is 01:30 PST, 09:30
-      UTC)
-    - Not supported: `TIME WITH TIME ZONE`, POSIX zones with daylight saving
-      rules (`CET-1CEST,M3.5.0,M10.5.0/3`), abbreviations other than those
-      above (such as `IST`, which Postgres reads as Israel's), and `TO_CHAR`
-      of an interval
+      in POSIX and Postgres, so `UTC+5` and `+05:30` are behind UTC. A
+      POSIX zone can have daylight saving time: `CET-1CEST,M3.5.0,M10.5.0/3`
+      is UTC+1, and UTC+2 from the last Sunday of March at 02:00 to the
+      last Sunday of October at 03:00. Its rules are as in Postgres: days
+      `Mm.w.d`, `Jn` (without February 29) or `n`, times outside a day
+      (`M3.2.0/-1`, `M10.4.6/26`), any case, and without rules
+      (`XYZ1ABC`) the US rules, Postgres's default. An `INTERVAL` is an
+      offset east of Greenwich, as in ISO 8601 (`INTERVAL '+05:30'` is
+      ahead of UTC), without months or days (`interval time zone "1 day"
+      must not include months or days`). Anything else is `time zone "x"
+      not recognized`. Timestamp text with a zone name (`'2024-03-10 02:30
+      America/Los_Angeles'`, `'2024-07-01 12:00 MSK'`) reads the zone the
+      same way, except a POSIX zone with rules, which Postgres splits at
+      its commas. Up to v0.0.12 the driver had 38 of the abbreviations, and
+      `WEST` (UTC+1), which isn't one of Postgres's
+    - Daylight saving time as in Postgres, in an IANA zone or a POSIX one: a
+      local time that the spring-forward transition skips is read with the
+      offset before it (`TIMESTAMP '2024-03-10 02:30' AT TIME ZONE
+      'America/Los_Angeles'` is 10:30 UTC), and one that the fall-back
+      transition repeats with the offset after it (`TIMESTAMP '2024-11-03
+      01:30'` is 01:30 PST, 09:30 UTC)
+    - Not supported: `TIME WITH TIME ZONE`, and `TO_CHAR` of an interval
 - Session time zone (`SET TIME ZONE`, `SET timezone = …`, the
   `adbc.redis.time_zone` option; UTC by default). Each connection has its
   own. As in Postgres, a `TIMESTAMP WITH TIME ZONE` is an instant, and the
@@ -2372,15 +2382,17 @@ field, even if later rows have it.
   - **Values:** the forms in the `TimeZone` row of the parameter table
     under "Transactions and settings". An IANA name is looked up
     case-insensitively and shown as the tz database spells it
-    (`america/new_york` is `America/New_York`). Here, as in Postgres, a zone
-    name comes before an abbreviation, so `SET TIME ZONE 'CET'` has summer
-    time (while `AT TIME ZONE 'CET'` is the abbreviation, UTC+1). Numbers
-    and `INTERVAL`s are east of Greenwich, as in Postgres's `SET TIME ZONE`
-    (`-8` and `INTERVAL '-08:00' HOUR TO MINUTE` are 8 hours behind UTC),
-    while a POSIX-style offset is west of it (`UTC+5` is 5 hours behind).
-    Unlike Postgres, an abbreviation that isn't a zone name (`PST`) is
-    accepted, as a fixed offset. An unknown zone is `invalid value for
-    parameter "TimeZone": "x"`.
+    (`america/new_york` is `America/New_York`), and a POSIX time zone in
+    upper case (`CET-1CEST,M3.5.0,M10.5.0/3`, with daylight saving time).
+    Here, as in Postgres, abbreviations aren't read, so `SET TIME ZONE
+    'CET'` is the zone, with summer time (while `AT TIME ZONE 'CET'` is the
+    abbreviation, UTC+1). Numbers and `INTERVAL`s are east of Greenwich, as
+    in Postgres's `SET TIME ZONE` (`-8` and `INTERVAL '-08:00' HOUR TO
+    MINUTE` are 8 hours behind UTC), while a POSIX time zone is west of it
+    (`UTC+5` is 5 hours behind). An unknown zone, and an abbreviation that
+    isn't a zone name (`PST`, `IST`), are `invalid value for parameter
+    "TimeZone": "x"`, as in Postgres. Up to v0.0.12 the driver read such an
+    abbreviation as a fixed offset.
   - **Differences from Postgres:** a view, a `DEFAULT` or a `CHECK` with a
     local-time literal (`'2024-01-01 00:00'` compared with or written to a
     timestamp with time zone) reads it in the zone of the session that runs
@@ -2608,7 +2620,7 @@ field, even if later rows have it.
     | Parameter | Values | Default |
     |-|-|-|
     | `search_path` | Schemas, comma-separated. Unqualified names use the first one, skipping `"$user"`, `pg_catalog` and `pg_temp` (temporary objects are always found first), as `adbc.redis.default_schema` sets it: `CREATE`, queries, writes and bulk ingest. The schema needn't exist yet (schemas exist once they have a table). `SHOW` shows the list as set, and the ADBC current schema (`adbc.connection.db_schema`) is the same setting | `adbc.redis.default_schema` |
-    | `TimeZone` (`SET TIME ZONE`) | The session time zone (see Session time zone): an IANA zone name (case-insensitive, shown as the tz database spells it), a POSIX-style offset (`UTC+5`, west of Greenwich, shown in upper case), a number of hours east of Greenwich (`-8`, shown `<-08>+08`), `INTERVAL '+05:30' [HOUR TO MINUTE]` (east, shown `<+05:30>-05:30`), or a time zone abbreviation (`PST`, a fixed offset; Postgres refuses these here). `LOCAL` and `DEFAULT` are the default. Others give `invalid value for parameter "TimeZone": "…"` | `adbc.redis.time_zone`, or `UTC` |
+    | `TimeZone` (`SET TIME ZONE`) | The session time zone (see Session time zone): an IANA zone name (case-insensitive, shown as the tz database spells it), a POSIX time zone (`UTC+5`, west of Greenwich, or with daylight saving time, `CET-1CEST,M3.5.0,M10.5.0/3`; shown in upper case), a number of hours east of Greenwich (`-8`, shown `<-08>+08`), or `INTERVAL '+05:30' [HOUR TO MINUTE]` (east, shown `<+05:30>-05:30`). `LOCAL` and `DEFAULT` are the default. Others give `invalid value for parameter "TimeZone": "…"`, also a time zone abbreviation (`PST`), as in Postgres | `adbc.redis.time_zone`, or `UTC` |
     | `client_encoding` | Only `UTF8` (`UTF-8`, `UNICODE`) | `UTF8` |
     | `application_name` | Any; not used | `''` |
     | `standard_conforming_strings` | Only `on`: `'…'` strings don't treat backslashes as escapes | `on` |

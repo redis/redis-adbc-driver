@@ -387,8 +387,10 @@ func parseTimestamp(s string) (sec, nanos int64, digits int, hasTZ bool, err err
 			}
 			offset = sign * (h*3600 + m*60)
 		default:
+			// Postgres splits the text at a comma, so a POSIX zone's rules
+			// can't be written here.
 			z, zerr := resolveZone(tz)
-			if zerr != nil {
+			if zerr != nil || strings.ContainsRune(tz, ',') {
 				return 0, 0, 0, false, fmt.Errorf("invalid timestamp %q", s)
 			}
 			hasTZ = true

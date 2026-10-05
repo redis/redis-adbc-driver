@@ -29,13 +29,15 @@ package redis
 //     preferred type), so they give a timestamp. There is no TIME WITH TIME
 //     ZONE, so a TIME is an error.
 //
-// A zone is, in Postgres's order: a time zone abbreviation (a fixed offset;
-// zoneAbbrevs), an IANA zone name (case-insensitive, from the tz database
-// embedded in the driver), or a POSIX-style offset such as 'UTC+5' or
-// '+05:30', whose sign is west of Greenwich as in POSIX ('UTC+5' is five
-// hours behind UTC). An INTERVAL zone is an offset east of Greenwich
-// (INTERVAL '+05:30' is ahead of UTC), and has no months or days. Anything
-// else is `time zone "x" not recognized`.
+// A zone is, in Postgres's order: a time zone abbreviation of Postgres's
+// default set (zoneAbbrevs: a fixed offset, or the offset it has in a zone),
+// an IANA zone name (case-insensitive, from the tz database embedded in the
+// driver), or a POSIX time zone such as 'UTC+5', '+05:30' or
+// 'CET-1CEST,M3.5.0,M10.5.0/3', whose sign is west of Greenwich as in POSIX
+// ('UTC+5' is five hours behind UTC), with daylight saving time if it names
+// it (posixZone). An INTERVAL zone is an offset east of Greenwich (INTERVAL
+// '+05:30' is ahead of UTC), and has no months or days. Anything else is
+// `time zone "x" not recognized`.
 //
 // A local time that a DST transition skips (02:30 on a spring-forward day)
 // is read with the offset before the transition, and one that it repeats
@@ -57,9 +59,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	_ "time/tzdata" // the IANA zones, so that builds don't depend on the host's
 
@@ -67,33 +71,49 @@ import (
 	"github.com/apache/arrow-go/v18/arrow"
 )
 
-// tzZone is a time zone: an IANA zone, or a fixed offset when loc is nil.
-// The zero value is UTC.
+// tzZone is a time zone: an IANA zone (loc), a POSIX time zone with
+// daylight saving time (rule), or a fixed offset when both are nil. With
+// loc, dyn is set for an abbreviation tied to the zone (MSK, Europe/Moscow;
+// abbrevZone). The zero value is UTC.
 type tzZone struct {
-	loc *time.Location
-	off int // fixed offset, seconds east of UTC
-	// abbr is a fixed offset's abbreviation, TO_CHAR's TZ ("" for UTC).
+	loc  *time.Location
+	rule *posixRule
+	dyn  *abbrevOffsets
+	off  int // fixed offset, seconds east of UTC
+	// abbr is a fixed offset's or a tied abbreviation's abbreviation,
+	// TO_CHAR's TZ ("" for UTC).
 	abbr string
 }
 
 // utcZone is UTC, the session time zone unless it is set.
 var utcZone = tzZone{}
 
+// fixed reports whether the zone is a fixed offset.
+func (z tzZone) fixed() bool {
+	return z.loc == nil && z.rule == nil
+}
+
 // isUTC reports whether the zone is UTC at every instant (so conversions
 // can be skipped).
 func (z tzZone) isUTC() bool {
-	return (z.loc == nil && z.off == 0) || z.loc == time.UTC
+	return (z.fixed() && z.off == 0) || (z.loc == time.UTC && z.dyn == nil)
 }
 
 // abbrevAt is the zone's abbreviation at the instant utc (seconds since the
 // epoch), as TO_CHAR's TZ writes it: PST or PDT for America/Los_Angeles,
-// IST for Asia/Kolkata, UTC for UTC.
+// IST for Asia/Kolkata, UTC for UTC, CET or CEST for
+// 'CET-1CEST,M3.5.0,M10.5.0/3'.
 func (z tzZone) abbrevAt(utc int64) string {
-	if z.loc != nil {
+	switch {
+	case z.rule != nil:
+		if z.rule.isDST(utc) {
+			return z.rule.dst
+		}
+		return z.rule.std
+	case z.loc != nil && z.dyn == nil:
 		name, _ := time.Unix(utc, 0).In(z.loc).Zone()
 		return name
-	}
-	if z.abbr == "" && z.off == 0 {
+	case z.abbr == "" && z.off == 0:
 		return "UTC"
 	}
 	return z.abbr
@@ -102,11 +122,46 @@ func (z tzZone) abbrevAt(utc int64) string {
 // offsetAt is the zone's offset, in seconds east of UTC, at the instant
 // utc (seconds since the epoch).
 func (z tzZone) offsetAt(utc int64) int {
-	if z.loc == nil {
-		return z.off
+	switch {
+	case z.rule != nil:
+		return z.rule.offset(z.rule.isDST(utc))
+	case z.dyn != nil:
+		if off, ok := z.dyn.at(utc); ok {
+			return off
+		}
+		// An abbreviation the zone doesn't use: the zone's offset at the
+		// local time of utc, as Postgres's DetermineTimeZoneAbbrevOffsetTS
+		// reads it.
+		zone := tzZone{loc: z.loc}
+		local := utc + int64(zone.offsetAt(utc))
+		return int(local - zone.localToUTC(local))
+	case z.loc != nil:
+		_, off := time.Unix(utc, 0).In(z.loc).Zone()
+		return off
 	}
-	_, off := time.Unix(utc, 0).In(z.loc).Zone()
-	return off
+	return z.off
+}
+
+// nextTransition is the zone's first transition after the instant utc,
+// with its offsets before and after it, as Postgres's pg_next_dst_boundary
+// finds it; ok is false if there is none (before is then the offset).
+func (z tzZone) nextTransition(utc int64) (at int64, before, after int, ok bool) {
+	switch {
+	case z.rule != nil:
+		before = z.offsetAt(utc)
+		at, dst, ok := z.rule.next(utc)
+		return at, before, z.rule.offset(dst), ok
+	case z.loc != nil:
+		tm := time.Unix(utc, 0).In(z.loc)
+		_, before = tm.Zone()
+		_, end := tm.ZoneBounds()
+		if end.IsZero() {
+			return 0, before, before, false
+		}
+		_, after = end.In(z.loc).Zone()
+		return end.Unix(), before, after, true
+	}
+	return 0, z.off, z.off, false
 }
 
 // localToUTC converts a local time in the zone (seconds since the epoch,
@@ -114,19 +169,24 @@ func (z tzZone) offsetAt(utc int64) int {
 // DetermineTimeZoneOffset does: it finds the first transition after a day
 // before the local time, and uses the offset before or after it. A local
 // time in a spring-forward gap gets the offset before the transition, and
-// one in a fall-back overlap the offset after it.
+// one in a fall-back overlap the offset after it. A tied abbreviation has
+// the offset it has in its zone at the instant the zone gives, as in
+// Postgres's DetermineTimeZoneAbbrevOffset.
 func (z tzZone) localToUTC(local int64) int64 {
-	if z.loc == nil {
+	switch {
+	case z.fixed():
 		return local - int64(z.off)
+	case z.dyn != nil:
+		probe := tzZone{loc: z.loc}.localToUTC(local)
+		if off, ok := z.dyn.at(probe); ok {
+			return local - int64(off)
+		}
+		return probe
 	}
-	prev := time.Unix(local-86400, 0).In(z.loc)
-	_, beforeOff := prev.Zone()
-	_, end := prev.ZoneBounds()
-	if end.IsZero() {
+	boundary, beforeOff, afterOff, ok := z.nextTransition(local - 86400)
+	if !ok {
 		return local - int64(beforeOff) // no transition after it
 	}
-	boundary := end.Unix()
-	_, afterOff := end.In(z.loc).Zone()
 	before, after := local-int64(beforeOff), local-int64(afterOff)
 	switch {
 	case before < boundary && after < boundary:
@@ -139,22 +199,76 @@ func (z tzZone) localToUTC(local int64) int64 {
 	return after // an overlap: the offset after it
 }
 
-// zoneAbbrevs are the time zone abbreviations, from Postgres's default set,
-// in seconds east of UTC. Postgres looks them up before zone names, so
-// 'CET' is always UTC+1 (the IANA zone CET observes summer time).
-var zoneAbbrevs = map[string]int{
-	"utc": 0, "ut": 0, "uct": 0, "gmt": 0, "z": 0, "zulu": 0,
-	// North America
-	"est": -5 * 3600, "edt": -4 * 3600, "cst": -6 * 3600, "cdt": -5 * 3600,
-	"mst": -7 * 3600, "mdt": -6 * 3600, "pst": -8 * 3600, "pdt": -7 * 3600,
-	"akst": -9 * 3600, "akdt": -8 * 3600, "hst": -10 * 3600,
-	"ast": -4 * 3600, "adt": -3 * 3600, "nst": -(3*3600 + 1800), "ndt": -(2*3600 + 1800),
-	// Europe
-	"wet": 0, "west": 3600, "bst": 3600, "cet": 3600, "cest": 2 * 3600, "eet": 2 * 3600, "eest": 3 * 3600,
-	// Asia and the Pacific
-	"jst": 9 * 3600, "kst": 9 * 3600, "hkt": 8 * 3600, "awst": 8 * 3600,
-	"acst": 9*3600 + 1800, "acdt": 10*3600 + 1800, "aest": 10 * 3600, "aedt": 11 * 3600,
-	"nzst": 12 * 3600, "nzdt": 13 * 3600,
+// ---- abbreviations ----
+
+// abbrevZone is the zone of a time zone abbreviation (zoneAbbrevs): a fixed
+// offset, or for one tied to a zone (MSK: Europe/Moscow), as in Postgres,
+// the offset the zone last had under that abbreviation at the instant (or
+// first had, before it was used), and the zone's own offset if the zone
+// never uses it (the tz database has replaced many such abbreviations with
+// numbers, so SGT is Asia/Singapore's offset, +08).
+func abbrevZone(name string) (tzZone, bool) {
+	a, ok := zoneAbbrevs[strings.ToLower(name)]
+	if !ok {
+		return tzZone{}, false
+	}
+	abbr := strings.ToUpper(name)
+	if a.zone == "" {
+		return tzZone{off: a.off, abbr: abbr}, true
+	}
+	loc, err := time.LoadLocation(a.zone)
+	if err != nil {
+		return tzZone{}, false
+	}
+	return tzZone{loc: loc, dyn: tiedAbbrevOffsets(abbr, loc), abbr: abbr}, true
+}
+
+// abbrevOffsets are the offsets an abbreviation has in a zone: the
+// transitions to a period with the abbreviation, in order, and the offset
+// of each period.
+type abbrevOffsets struct {
+	ats  []int64
+	offs []int
+}
+
+// at is the offset of the abbreviation at the instant utc, as Postgres's
+// pg_interpret_timezone_abbrev finds it: that of the last period with it
+// that starts by utc, or else of the first. ok is false if the zone never
+// uses the abbreviation.
+func (a *abbrevOffsets) at(utc int64) (int, bool) {
+	if len(a.ats) == 0 {
+		return 0, false
+	}
+	i, _ := slices.BinarySearch(a.ats, utc+1) // the first after utc
+	return a.offs[max(i-1, 0)], true
+}
+
+// tiedAbbrevs caches the abbrevOffsets of the abbreviations tied to a zone,
+// by abbreviation.
+var tiedAbbrevs sync.Map
+
+// tiedAbbrevOffsets lists the periods of loc with the abbreviation abbr (in
+// upper case), from its first transition to 2200; after its last
+// transition a zone repeats its rule, with the same offsets.
+func tiedAbbrevOffsets(abbr string, loc *time.Location) *abbrevOffsets {
+	if a, ok := tiedAbbrevs.Load(abbr); ok {
+		return a.(*abbrevOffsets)
+	}
+	a := &abbrevOffsets{}
+	until := time.Date(2200, 1, 1, 0, 0, 0, 0, time.UTC).Unix()
+	_, end := time.Unix(-1<<50, 0).In(loc).ZoneBounds()
+	for n := 0; !end.IsZero() && end.Unix() <= until && n < 10000; n++ {
+		at := end.Unix()
+		tm := end.In(loc)
+		if name, off := tm.Zone(); name == abbr {
+			a.ats, a.offs = append(a.ats, at), append(a.offs, off)
+		}
+		if _, end = tm.ZoneBounds(); end.Unix() <= at {
+			break
+		}
+	}
+	tiedAbbrevs.Store(abbr, a)
+	return a
 }
 
 // zoneCache holds resolved zones, also unknown ones (ok false), by name.
@@ -199,12 +313,6 @@ func lookupZone(name string) (tzZone, bool) {
 	return posixZone(name)
 }
 
-// abbrevZone is the zone of a time zone abbreviation (zoneAbbrevs).
-func abbrevZone(name string) (tzZone, bool) {
-	off, ok := zoneAbbrevs[strings.ToLower(name)]
-	return tzZone{off: off, abbr: strings.ToUpper(name)}, ok
-}
-
 // ianaZone is the IANA zone a name names, case-insensitive.
 func ianaZone(name string) (tzZone, bool) {
 	// time.LoadLocation reads "" as UTC and "Local" as the host's zone,
@@ -217,23 +325,6 @@ func ianaZone(name string) (tzZone, bool) {
 		}
 	}
 	return tzZone{}, false
-}
-
-// posixZone is the zone of a POSIX-style offset (posixOffset). Its
-// abbreviation is the name before the offset: UTC for 'UTC+5', +0530 for
-// '<+0530>-05:30'.
-func posixZone(name string) (tzZone, bool) {
-	off, ok := posixOffset(name)
-	if !ok {
-		return tzZone{}, false
-	}
-	abbr := name
-	if strings.HasPrefix(name, "<") {
-		abbr = name[1:strings.IndexByte(name, '>')]
-	} else if i := strings.IndexAny(name, "0123456789,+-"); i >= 0 {
-		abbr = name[:i]
-	}
-	return tzZone{off: off, abbr: strings.ToUpper(abbr)}, true
 }
 
 // zoneSpellings are the spellings of an IANA zone name to try, since zone
@@ -305,71 +396,330 @@ var zoneCamelWords = map[string]string{
 	"easterisland": "EasterIsland",
 }
 
-// posixOffset reads a POSIX-style time zone without daylight saving time,
-// as Postgres accepts it: an optional name (up to the first digit, sign or
-// comma, or anything in <>) and an offset [+-]hh[:mm[:ss]] (hh up to 167)
-// west of Greenwich, so 'UTC+5' and '+05' are UTC-05:00 and
-// '<+0530>-05:30' is UTC+05:30. It returns the offset east of UTC.
-func posixOffset(s string) (int, bool) {
-	i := 0
-	if strings.HasPrefix(s, "<") {
-		end := strings.IndexByte(s, '>')
+// ---- POSIX time zones ----
+
+// posixZone reads a POSIX time zone as Postgres's pg_tzset does (its
+// tzparse, on the name in upper case): a name (up to the first digit, sign
+// or comma, or anything in <>; it may be empty) and an offset
+// [+-]hh[:mm[:ss]] (hh up to 167) west of Greenwich, so 'UTC+5' and '+05'
+// are UTC-05:00 and '<+0530>-05:30' is UTC+05:30. The name is the zone's
+// abbreviation: UTC for 'UTC+5', +0530 for '<+0530>-05:30'.
+//
+// Then, for daylight saving time, its name (not empty), its offset (an hour
+// ahead of standard time if left out), and the rules ',start[/time],end[/
+// time]' (after an offset, ';' may come before them instead): a day is Jn
+// (1 to 365, without February 29), n (0 to 365) or Mm.w.d (weekday d, 0
+// for Sunday, of week w of month m, 5 for the last), and the time is the
+// local time before the transition ([+-]hh[:mm[:ss]], 02:00 if left out).
+// Without rules, daylight saving time is from the second Sunday in March
+// to the first Sunday in November, Postgres's default (the US rules).
+func posixZone(name string) (tzZone, bool) {
+	// Postgres's TZ_STRLEN_MAX; and pg_tzset reads a name starting with ':'
+	// only as a zone file.
+	if len(name) > 255 || strings.HasPrefix(name, ":") {
+		return tzZone{}, false
+	}
+	p := posixParser{s: strings.ToUpper(name)}
+	std, ok := p.name()
+	if !ok || p.done() { // a name without an offset
+		return tzZone{}, false
+	}
+	stdOff, ok := p.offset()
+	if !ok {
+		return tzZone{}, false
+	}
+	if p.done() {
+		return tzZone{off: -stdOff, abbr: std}, true
+	}
+	dst, ok := p.name()
+	if !ok || dst == "" {
+		return tzZone{}, false
+	}
+	dstOff := stdOff - 3600
+	if c := p.peek(); c != 0 && c != ',' && c != ';' {
+		if dstOff, ok = p.offset(); !ok {
+			return tzZone{}, false
+		}
+	}
+	r := &posixRule{std: std, dst: dst, stdOff: -stdOff, dstOff: -dstOff,
+		start: dstRule{kind: 'M', mon: 3, week: 2, secs: 7200},
+		end:   dstRule{kind: 'M', mon: 11, week: 1, secs: 7200}}
+	if !p.done() {
+		if c := p.next(); c != ',' && c != ';' {
+			return tzZone{}, false
+		}
+		if r.start, ok = p.rule(); !ok || p.next() != ',' {
+			return tzZone{}, false
+		}
+		if r.end, ok = p.rule(); !ok || !p.done() {
+			return tzZone{}, false
+		}
+	}
+	// Daylight saving time all year if no year has transitions, as
+	// Postgres has it then (the calendar repeats every 400 years).
+	r.always = true
+	for y := 2000; y < 2400 && r.always; y++ {
+		_, _, ok := r.transitions(y)
+		r.always = !ok
+	}
+	return tzZone{rule: r}, true
+}
+
+// posixParser reads a POSIX time zone, in upper case.
+type posixParser struct {
+	s string
+	i int
+}
+
+func (p *posixParser) done() bool { return p.i == len(p.s) }
+
+// peek is the next byte, 0 at the end.
+func (p *posixParser) peek() byte {
+	if p.done() {
+		return 0
+	}
+	return p.s[p.i]
+}
+
+// next reads the next byte, 0 at the end.
+func (p *posixParser) next() byte {
+	c := p.peek()
+	if c != 0 {
+		p.i++
+	}
+	return c
+}
+
+// name reads an abbreviation: anything in <>, or up to the first digit,
+// sign or comma (as Postgres's getzname, which doesn't stop at ';').
+func (p *posixParser) name() (string, bool) {
+	start := p.i
+	if p.peek() == '<' {
+		end := strings.IndexByte(p.s[start:], '>')
 		if end < 0 {
+			return "", false
+		}
+		p.i = start + end + 1
+		return p.s[start+1 : start+end], true
+	}
+	for c := p.peek(); c != 0 && !(c >= '0' && c <= '9') && c != ',' && c != '-' && c != '+'; c = p.peek() {
+		p.i++
+	}
+	return p.s[start:p.i], true
+}
+
+// num reads a number from lo to hi.
+func (p *posixParser) num(lo, hi int) (int, bool) {
+	start, n := p.i, 0
+	for c := p.peek(); c >= '0' && c <= '9'; c = p.peek() {
+		if n = n*10 + int(c-'0'); n > hi {
 			return 0, false
 		}
-		i = end + 1
-	} else {
-		for i < len(s) && !(s[i] >= '0' && s[i] <= '9') && s[i] != ',' && s[i] != '-' && s[i] != '+' {
-			i++
-		}
+		p.i++
 	}
-	if i == len(s) {
-		return 0, false // a name without an offset
-	}
+	return n, p.i > start && n >= lo
+}
+
+// offset reads [+-]hh[:mm[:ss]], in seconds: hh up to 167, mm up to 59
+// and ss up to 60, as Postgres's getoffset.
+func (p *posixParser) offset() (int, bool) {
 	sign := 1
-	switch s[i] {
+	switch p.peek() {
 	case '-':
 		sign = -1
-		i++
+		p.i++
 	case '+':
-		i++
+		p.i++
 	}
-	num := func(max int) (int, bool) {
-		start, n := i, 0
-		for i < len(s) && s[i] >= '0' && s[i] <= '9' {
-			n = n*10 + int(s[i]-'0')
-			if n > max {
-				return 0, false
-			}
-			i++
-		}
-		return n, i > start
-	}
-	h, ok := num(24*7 - 1)
+	h, ok := p.num(0, 24*7-1)
 	if !ok {
 		return 0, false
 	}
 	secs := h * 3600
-	if i < len(s) && s[i] == ':' {
-		i++
-		m, ok := num(59)
+	if p.peek() == ':' {
+		p.i++
+		m, ok := p.num(0, 59)
 		if !ok {
 			return 0, false
 		}
 		secs += m * 60
-		if i < len(s) && s[i] == ':' {
-			i++
-			sec, ok := num(60)
+		if p.peek() == ':' {
+			p.i++
+			s, ok := p.num(0, 60)
 			if !ok {
 				return 0, false
 			}
-			secs += sec
+			secs += s
 		}
 	}
-	if i != len(s) {
-		return 0, false // daylight saving time rules aren't supported
+	return sign * secs, true
+}
+
+// rule reads a day and an optional /time (posixZone).
+func (p *posixParser) rule() (dstRule, bool) {
+	var r dstRule
+	var ok bool
+	switch c := p.peek(); {
+	case c == 'J':
+		p.i++
+		r.kind = 'J'
+		r.day, ok = p.num(1, 365)
+	case c == 'M':
+		p.i++
+		r.kind = 'M'
+		if r.mon, ok = p.num(1, 12); ok && p.next() == '.' {
+			if r.week, ok = p.num(1, 5); ok && p.next() == '.' {
+				r.day, ok = p.num(0, 6)
+			} else {
+				ok = false
+			}
+		} else {
+			ok = false
+		}
+	case c >= '0' && c <= '9':
+		r.kind = 'D'
+		r.day, ok = p.num(0, 365)
 	}
-	return -sign * secs, true
+	if !ok {
+		return r, false
+	}
+	r.secs = 7200
+	if p.peek() == '/' {
+		p.i++
+		r.secs, ok = p.offset()
+	}
+	return r, ok
+}
+
+// posixRule is a POSIX time zone with daylight saving time
+// ('CET-1CEST,M3.5.0,M10.5.0/3'). Its transitions are as Postgres's tzparse
+// computes them, in every year: the instant daylight saving time starts
+// and the one it ends (earlier, in the southern hemisphere), unless they
+// are the same or daylight saving time would last a year or more.
+type posixRule struct {
+	std, dst       string // abbreviations
+	stdOff, dstOff int    // seconds east of UTC
+	start, end     dstRule
+	// always is set if no year has transitions: then it is always daylight
+	// saving time.
+	always bool
+	// years caches transitions, by year modulo 16.
+	years [16]atomic.Pointer[yearTransitions]
+}
+
+// yearTransitions are a year's transitions (posixRule.transitions).
+type yearTransitions struct {
+	year       int
+	start, end int64
+	ok         bool
+}
+
+// dstRule is when daylight saving time starts or ends in a year: a day,
+// Jn, n or Mm.w.d (kind 'J', 'D' or 'M'), and a local time on it in
+// seconds, which may be negative or past a day.
+type dstRule struct {
+	kind           byte
+	day, week, mon int
+	secs           int
+}
+
+// yearSecs is the rule's local time in year y, in seconds since January 1.
+func (d dstRule) yearSecs(y int, leap bool) int64 {
+	days := d.day
+	switch d.kind {
+	case 'J': // February 29 isn't counted
+		days = d.day - 1
+		if leap && d.day >= 60 {
+			days++
+		}
+	case 'M':
+		first := time.Date(y, time.Month(d.mon), 1, 0, 0, 0, 0, time.UTC)
+		monthDays := time.Date(y, time.Month(d.mon)+1, 0, 0, 0, 0, 0, time.UTC).Day()
+		day := (d.day - int(first.Weekday()) + 7) % 7 // the first such weekday
+		for w := 1; w < d.week && day+7 < monthDays; w++ {
+			day += 7
+		}
+		days = first.YearDay() - 1 + day
+	}
+	return int64(days)*86400 + int64(d.secs)
+}
+
+// offset is the offset of daylight saving time (dst) or standard time.
+func (r *posixRule) offset(dst bool) int {
+	if dst {
+		return r.dstOff
+	}
+	return r.stdOff
+}
+
+// transitions are the instants year y's daylight saving time starts and
+// ends; ok is false if the year has none.
+func (r *posixRule) transitions(y int) (start, end int64, ok bool) {
+	slot := &r.years[y&15]
+	if c := slot.Load(); c != nil && c.year == y {
+		return c.start, c.end, c.ok
+	}
+	start, end, ok = r.yearTransitions(y)
+	slot.Store(&yearTransitions{year: y, start: start, end: end, ok: ok})
+	return start, end, ok
+}
+
+// yearTransitions computes transitions.
+func (r *posixRule) yearTransitions(y int) (start, end int64, ok bool) {
+	jan1 := time.Date(y, 1, 1, 0, 0, 0, 0, time.UTC).Unix()
+	leap := y%4 == 0 && (y%100 != 0 || y%400 == 0)
+	yearSecs := int64(365 * 86400)
+	if leap {
+		yearSecs += 86400
+	}
+	s := r.start.yearSecs(y, leap) - int64(r.stdOff)
+	e := r.end.yearSecs(y, leap) - int64(r.dstOff)
+	if e < s || (s < e && e-s < yearSecs+int64(r.dstOff-r.stdOff)) {
+		return jan1 + s, jan1 + e, true
+	}
+	return 0, 0, false
+}
+
+// isDST reports whether it is daylight saving time at the instant utc: the
+// last transition by then is a start.
+func (r *posixRule) isDST(utc int64) bool {
+	if r.always {
+		return true
+	}
+	// A year's transitions can be up to two weeks into the year before.
+	y := time.Unix(utc, 0).UTC().Year()
+	for yy := y + 1; yy > y-402; yy-- {
+		s, e, ok := r.transitions(yy)
+		switch {
+		case !ok:
+		case max(s, e) <= utc:
+			return s > e
+		case min(s, e) <= utc:
+			return s < e
+		}
+	}
+	return true
+}
+
+// next is the first transition after the instant utc, and whether it
+// starts daylight saving time.
+func (r *posixRule) next(utc int64) (at int64, dst, ok bool) {
+	if r.always {
+		return 0, false, false
+	}
+	// A year's transitions can be up to two weeks into the year after.
+	y := time.Unix(utc, 0).UTC().Year()
+	for yy := y - 1; yy < y+402; yy++ {
+		s, e, ok := r.transitions(yy)
+		switch {
+		case !ok:
+		case min(s, e) > utc:
+			return min(s, e), s < e, true
+		case max(s, e) > utc:
+			return max(s, e), s > e, true
+		}
+	}
+	return 0, false, false
 }
 
 // intervalZone is the zone of an INTERVAL in TIMEZONE: an offset east of
@@ -512,13 +862,12 @@ const maxZoneOffset = 168 * 3600
 //   - A number: hours east of Greenwich (SQL's sign, which is the reverse
 //     of POSIX's), shown the same way: -8 is <-08>+08.
 //   - An IANA zone name, case-insensitive, shown as the tz database spells
-//     it (america/new_york is America/New_York), then a POSIX-style offset
-//     ('UTC+5', west of Greenwich), shown in upper case.
-//   - Unlike Postgres, which refuses them here, a time zone abbreviation
-//     (zoneAbbrevs) that isn't also a zone name, as a fixed offset, shown in
-//     upper case: PST.
+//     it (america/new_york is America/New_York), then a POSIX time zone
+//     ('UTC+5', west of Greenwich, or 'CET-1CEST,M3.5.0,M10.5.0/3';
+//     posixZone), shown in upper case.
 //
-// Anything else is `invalid value for parameter "TimeZone": "x"`.
+// Anything else is `invalid value for parameter "TimeZone": "x"`, also a
+// time zone abbreviation that isn't a zone name (PST), as in Postgres.
 func sessionZone(text string) (tzZone, string, error) {
 	invalid := func() (tzZone, string, error) {
 		return tzZone{}, "", invalidValue("TimeZone", text)
@@ -538,9 +887,6 @@ func sessionZone(text string) (tzZone, string, error) {
 		return z, canonicalZoneName(z.loc.String()), nil
 	}
 	if z, ok := posixZone(text); ok {
-		return z, strings.ToUpper(text), nil
-	}
-	if z, ok := abbrevZone(text); ok {
 		return z, strings.ToUpper(text), nil
 	}
 	return invalid()
@@ -750,20 +1096,19 @@ func addIntervalIn(tm time.Time, iv Value, z tzZone) time.Time {
 // offsetRange is the least and the greatest offset (seconds east of UTC)
 // the zone has within span seconds of the instant utc.
 func (z tzZone) offsetRange(utc, span int64) (int, int) {
-	if z.loc == nil {
+	if z.fixed() {
 		return z.off, z.off
 	}
 	lo, hi := z.offsetAt(utc), z.offsetAt(utc)
 	t := utc - span
 	for range 64 {
-		tm := time.Unix(t, 0).In(z.loc)
-		_, off := tm.Zone()
+		off := z.offsetAt(t)
 		lo, hi = min(lo, off), max(hi, off)
-		_, end := tm.ZoneBounds()
-		if end.IsZero() || end.Unix() > utc+span {
+		end, _, _, ok := z.nextTransition(t)
+		if !ok || end > utc+span {
 			break
 		}
-		t = end.Unix()
+		t = end
 	}
 	return lo, hi
 }
