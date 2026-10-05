@@ -113,7 +113,10 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 	}
 
 	// Map each Arrow field onto a table column; the other columns get their
-	// defaults, with the whole ingest as one statement.
+	// defaults, with the whole ingest as one statement. Values are converted
+	// as INSERT converts them, in the session time zone: text without an
+	// offset, or a timestamp without a zone, written to a TIMESTAMP WITH
+	// TIME ZONE column is a local time.
 	mapping := make([]int, arrowSchema.NumFields())
 	given := make([]bool, len(meta.Columns))
 	for i, f := range arrowSchema.Fields() {
@@ -124,6 +127,7 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 		mapping[i], given[idx] = idx, true
 	}
 	e := s.executor()
+	zone := e.zone()
 	defs := e.columnDefaults(ctx, meta)
 	checks, err := e.tableChecks(ctx, meta)
 	if err != nil {
@@ -150,7 +154,7 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 				if err != nil {
 					return -1, errorf(adbc.StatusInvalidArgument, "column %q: %v", col.Name, err)
 				}
-				cv, err := Coerce(v, col.Type)
+				cv, err := coerceIn(v, col.Type, zone)
 				if err != nil {
 					return -1, errorf(adbc.StatusInvalidArgument, "column %q: %v", col.Name, err)
 				}

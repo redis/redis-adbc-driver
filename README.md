@@ -2321,8 +2321,8 @@ field, even if later rows have it.
     `America/Los_Angeles`, `2024-01-10 10:30:00+05:30` in `Asia/Kolkata`.
   - **Input:** text without an offset or zone (`'2024-01-10 02:00'`,
     `TIMESTAMPTZ '2024-01-10 02:00'`, a bound string parameter, a value
-    written to a column) is a local time; text with an offset or a zone name
-    keeps it.
+    written to a column, also by bulk ingest) is a local time; text with an
+    offset or a zone name keeps it.
   - **Conversions:** a `TIMESTAMP` becomes a `TIMESTAMP WITH TIME ZONE` as a
     local time, and back as its local time; a `DATE` is local midnight, and
     a timestamp with time zone's `DATE` and `TIME` are its local date and
@@ -2331,6 +2331,12 @@ field, even if later rows have it.
     `GREATEST` / `LEAST`, `COALESCE`, `CASE`, `UNION`, joins, and writes to a
     column of the other type. `x AT LOCAL` converts to or from the session
     time zone.
+  - **Bulk ingest** converts as `INSERT` does: an Arrow string without an
+    offset, an Arrow timestamp without a zone and an Arrow date written to a
+    `TIMESTAMP WITH TIME ZONE` column are local times, and an Arrow
+    timestamp with a zone written to a `TIMESTAMP`, `DATE`, `TIME` or text
+    column is its local time. Arrow timestamps with a zone, and text with an
+    offset, keep their instant. Up to v0.0.11, bulk ingest converted in UTC.
   - **Fields and arithmetic:** `EXTRACT` / `DATE_PART` and the field
     functions, `DATE_TRUNC` (a day or longer starts at local midnight; a
     shorter unit keeps the offset, so `01:30 PST` truncates to `01:00 PST`
@@ -2351,9 +2357,7 @@ field, even if later rows have it.
     (`'2024-11-03 01:30'` is `01:30:00-08`).
   - **What it doesn't change:** stored values (instants), Arrow results (a
     `TIMESTAMP WITH TIME ZONE` column is an Arrow timestamp with time zone
-    `UTC`, with the same values in every session time zone), bulk ingest
-    (Arrow timestamps are stored as they are; a timestamp without a zone
-    written to a `TIMESTAMP WITH TIME ZONE` column is UTC), and
+    `UTC`, with the same values in every session time zone), and
     `CONVERT_TIMEZONE`, which reads a timestamp with time zone as its UTC
     time (as Snowflake does).
   - **Index queries** work on UTC instants: a local-time constant is
