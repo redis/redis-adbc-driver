@@ -145,6 +145,9 @@ func (e *executor) materializeRecursive(ctx context.Context, def *CTE, rc *recur
 			return nil, err
 		}
 		for _, row := range rows {
+			if err := cancelled(ctx); err != nil {
+				return nil, err
+			}
 			for i := range row {
 				if row[i], err = coerceIn(row[i], cols[i].Type, e.zone()); err != nil {
 					return nil, invalidArg(err)

@@ -193,6 +193,9 @@ func (jp *joinPlan) fillMerged(env *evalEnv, i int, rows []map[string]Value) err
 			continue
 		}
 		for _, row := range rows {
+			if err := cancelled(env.ctx); err != nil {
+				return err
+			}
 			env.row = row
 			v, err := env.eval(m.expr)
 			if err != nil {

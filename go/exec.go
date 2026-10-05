@@ -77,6 +77,9 @@ func invalidArg(err error) error {
 	if errors.As(err, &ae) {
 		return err
 	}
+	if code, ok := ctxStatus(err); ok {
+		return errorf(code, "%v", err)
+	}
 	return errorf(adbc.StatusInvalidArgument, "%v", err)
 }
 
@@ -188,6 +191,10 @@ func (e *executor) execute(ctx context.Context, ps ParsedStmt, params []Value, p
 		}
 		rows, err := e.runSelect(ctx, plan, params)
 		if err != nil {
+			return execResult{}, err
+		}
+		// Cancelled at the end, or in a loop that doesn't check.
+		if err := cancelled(ctx); err != nil {
 			return execResult{}, err
 		}
 		return e.fitResult(execResult{isQuery: true, cols: plan.columns(), rows: rows, affected: int64(len(rows))}, nil)
@@ -395,6 +402,9 @@ func (e *executor) runCreateTableAs(ctx context.Context, st *CreateTableStmt) (i
 	}
 	coerced := make([][]Value, len(rows))
 	for i, row := range rows {
+		if err := cancelled(ctx); err != nil {
+			return 0, err
+		}
 		out := make([]Value, len(row))
 		for j, v := range row {
 			cv, err := coerceIn(v, meta.Columns[j].Type, e.zone())
@@ -500,6 +510,9 @@ func (e *executor) runInsert(ctx context.Context, st *InsertStmt, params []Value
 	}
 	rows := make([][]Value, 0, len(values))
 	for _, exprs := range values {
+		if err := cancelled(ctx); err != nil {
+			return 0, err
+		}
 		if len(exprs) != len(targets) {
 			return 0, errorf(adbc.StatusInvalidArgument, "INSERT has %d target columns but %d values", len(targets), len(exprs))
 		}
@@ -607,6 +620,9 @@ func (e *executor) insertSelect(ctx context.Context, st *InsertStmt, meta *table
 	}
 	rows := make([][]Value, len(results))
 	for r, res := range results {
+		if err := cancelled(ctx); err != nil {
+			return 0, err
+		}
 		row := make([]Value, len(meta.Columns))
 		given := make([]bool, len(meta.Columns))
 		for j, v := range res {
@@ -1357,6 +1373,9 @@ func (e *executor) runUpdate(ctx context.Context, st *UpdateStmt, params []Value
 	env := e.newEnv(ctx, meta.types(), params)
 	changes := make([]rowChange, len(keys))
 	for r, key := range keys {
+		if err := cancelled(ctx); err != nil {
+			return 0, err
+		}
 		env.row = rows[r]
 		vals, err := setValues(env, meta, cols, st.Sets)
 		if err != nil {
@@ -1400,6 +1419,9 @@ func (e *executor) runDelete(ctx context.Context, st *DeleteStmt, params []Value
 		return 0, err
 	}
 	for _, row := range rows {
+		if err := cancelled(ctx); err != nil {
+			return 0, err
+		}
 		if err := ret.add(row, ""); err != nil {
 			return 0, err
 		}

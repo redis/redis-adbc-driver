@@ -202,6 +202,9 @@ func (e *executor) lateralJoin(env *evalEnv, k int, st joinStep, it *joinItem, w
 	}
 	var out []map[string]Value
 	for _, l := range left {
+		if err := cancelled(env.ctx); err != nil {
+			return nil, err
+		}
 		env.row = l
 		right, err := e.lateralRows(env, it, wp, memo)
 		if err != nil {
@@ -209,6 +212,9 @@ func (e *executor) lateralJoin(env *evalEnv, k int, st joinStep, it *joinItem, w
 		}
 		matched := false
 		for _, r := range right {
+			if err := cancelled(env.ctx); err != nil {
+				return nil, err
+			}
 			row := mergeRows(l, r)
 			ok := true
 			env.row = row
@@ -241,6 +247,9 @@ func (e *executor) lateralRows(env *evalEnv, it *joinItem, wp wherePlan, memo ma
 	fenv := *env
 	var out []map[string]Value
 	keep := func(m map[string]Value) error {
+		if err := cancelled(env.ctx); err != nil {
+			return err
+		}
 		if wp.residual != nil {
 			fenv.row = m
 			v, err := fenv.eval(wp.residual)
@@ -282,7 +291,7 @@ func (e *executor) lateralRows(env *evalEnv, it *joinItem, wp wherePlan, memo ma
 	if rows, ok := memo[key]; ok {
 		return rows, nil
 	}
-	vals, err := generateSeries(lat.typ, args, env.zone())
+	vals, err := generateSeries(env.ctx, lat.typ, args, env.zone())
 	if err != nil {
 		return nil, err
 	}

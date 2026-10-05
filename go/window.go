@@ -528,6 +528,9 @@ func (e *executor) applyWindows(env *evalEnv, plan *selectPlan, n int, setRow fu
 	}
 	keep := make([]int, 0, n)
 	for i := 0; i < n; i++ {
+		if err := cancelled(env.ctx); err != nil {
+			return nil, err
+		}
 		if plan.qualify != nil {
 			setRow(i)
 			v, err := env.eval(plan.qualify)
@@ -721,6 +724,9 @@ func computeWindowGroup(env *evalEnv, g *windowGroup, n int, setRow func(int)) e
 		}
 	}
 	for i := 0; i < n; i++ {
+		if err := cancelled(env.ctx); err != nil {
+			return err
+		}
 		setRow(i)
 		for k, x := range g.spec.PartitionBy {
 			v, err := env.eval(x)
@@ -794,6 +800,9 @@ func computeWindowGroup(env *evalEnv, g *windowGroup, n int, setRow func(int)) e
 	}
 	ws.grp = make([]int, n)
 	for p := 0; p < nparts; p++ {
+		if err := cancelled(env.ctx); err != nil {
+			return err
+		}
 		ps, pe := ws.parts[p], ws.parts[p+1]
 		if no > 0 {
 			slices.SortFunc(ws.perm[ps:pe], func(a, b int) int {
@@ -833,6 +842,9 @@ func (ws *windowSet) compute(env *evalEnv, c windowCall, args [][]Value, keep []
 			ps, pe := ws.parts[p], ws.parts[p+1]
 			m := pe - ps
 			for i := ps; i < pe; i++ {
+				if err := cancelled(env.ctx); err != nil {
+					return err
+				}
 				rank := ws.groupStart[ws.grp[i]] - ps + 1
 				var v Value
 				switch f.Name {
@@ -897,6 +909,9 @@ func (ws *windowSet) compute(env *evalEnv, c windowCall, args [][]Value, keep []
 		// The frame has a hole that moves with the current row, so each
 		// row's frame is aggregated afresh, as PostgreSQL does.
 		for i, row := range ws.perm {
+			if err := cancelled(env.ctx); err != nil {
+				return err
+			}
 			agg.reset()
 			for _, part := range ws.frameParts(i, lo[i], hi[i], excl) {
 				for p := part[0]; p < part[1]; p++ {
@@ -918,6 +933,10 @@ func (ws *windowSet) compute(env *evalEnv, c windowCall, args [][]Value, keep []
 		agg.reset()
 		a, b := ps, ps
 		for i := ps; i < pe; i++ {
+			// A frame's STRING_AGG is all its rows again for each row.
+			if err := cancelled(env.ctx); err != nil {
+				return err
+			}
 			for ; b < hi[i]; b++ {
 				agg.add(ws.perm[b], b)
 			}

@@ -748,6 +748,10 @@ func wrapRedis(err error, context string) error {
 	if errors.As(err, &ae) {
 		return err
 	}
+	// The statement was cancelled (see cancel.go).
+	if code, ok := ctxStatus(err); ok {
+		return errorf(code, "%s: %v", context, err)
+	}
 	return errorf(adbc.StatusIO, "%s: %v", context, err)
 }
 
