@@ -17,6 +17,7 @@ package redis
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync/atomic"
 
 	"github.com/apache/arrow-adbc/go/adbc"
@@ -24,38 +25,49 @@ import (
 	"github.com/apache/arrow-go/v18/arrow/memory"
 )
 
-// HashScanOptions selects the HASHes that ScanHashes reads, and their
-// columns (as for InspectHashes).
-type HashScanOptions struct {
+// HashCopyOptions selects the HASHes that CopyHashes copies, their
+// columns (as for InspectHashes), and the table they are copied into.
+type HashCopyOptions struct {
 	Prefix    string
 	Sample    int
 	KeyColumn string
 	Types     map[string]string
 	Renames   map[string]string
-	// NullOnError reads a value that doesn't convert to its column's type
-	// as NULL. Otherwise ScanHashes fails on it.
+	// NullOnError copies a value that doesn't convert to its column's type
+	// as NULL. Otherwise CopyHashes fails on it (see Mode).
 	NullOnError bool
+	// Schema and Table name the table (by default the database's schema,
+	// and a name made from the prefix).
+	Schema, Table string
+	// Mode is the bulk ingest mode: adbc.OptionValueIngestModeCreate (the
+	// default), Append, Replace or CreateAppend. A copy that fails in create
+	// mode drops the table it created; in the others, the rows copied
+	// before the failure stay.
+	Mode string
+	// IndexColumns are the columns to index (nil: every one that can be).
+	IndexColumns []string
 }
 
-// HashScanStats is what a HashScan has read so far.
-type HashScanStats struct {
-	Rows int64
+// HashCopy is what CopyHashes copied.
+type HashCopy struct {
+	Table string `json:"table"`
+	Rows  int64  `json:"rows"`
 	// UnknownFields counts, for each field that isn't a column (the sample
 	// didn't have it), the HASHes that have it.
-	UnknownFields map[string]int64
-	// Nulls counts, for each column, the values read as NULL because they
+	UnknownFields map[string]int64 `json:"unknown_fields,omitempty"`
+	// Nulls counts, for each column, the values copied as NULL because they
 	// didn't convert (NullOnError).
-	Nulls map[string]int64
+	Nulls map[string]int64 `json:"nulls,omitempty"`
 }
 
-// HashScan reads the HASHes under a prefix as Arrow record batches, one
-// row per HASH. It is an array.RecordReader; releasing it closes its
-// connection.
-type HashScan struct {
+// hashScan reads the HASHes under a prefix as Arrow record batches, one
+// row per HASH, for a bulk ingest. It is an array.RecordReader; releasing
+// it closes its connection.
+type hashScan struct {
 	refs     atomic.Int64
 	ctx      context.Context
 	conn     *hashConn
-	o        HashScanOptions
+	o        HashCopyOptions
 	cols     []*guessedColumn
 	rcols    []resultColumn
 	colOf    map[string]int // field → column
@@ -68,7 +80,7 @@ type HashScan struct {
 	sampled  int // HASHes the columns were guessed from
 	cur      arrow.RecordBatch
 	err      error
-	stats    HashScanStats
+	stats    HashCopy
 }
 
 // hashBatchRows is the most rows in a batch; hashBatchValues caps the
@@ -78,14 +90,76 @@ const (
 	hashBatchValues = 200_000
 )
 
-// ScanHashes reads every HASH under o.Prefix. The columns are guessed from
-// a sample, as InspectHashes guesses them. Every column is nullable, so the
-// result can be bulk-ingested into a new table. The options are the
-// driver's database options. It writes nothing.
+// CopyHashes copies every HASH under o.Prefix into a driver table, one row
+// per HASH, with a bulk ingest through the driver. The columns are guessed
+// from a sample, as InspectHashes guesses them, and every column is
+// nullable. The options are the driver's database options. The HASHes are
+// left as they are.
 //
-// SCAN may return a key more than once, so the scan remembers every key it
+// SCAN may return a key more than once, so the copy remembers every key it
 // has read: about the size of the keys in memory.
-func ScanHashes(ctx context.Context, options map[string]string, o HashScanOptions) (*HashScan, error) {
+func CopyHashes(ctx context.Context, options map[string]string, o HashCopyOptions) (*HashCopy, error) {
+	s, err := scanHashes(ctx, options, o)
+	if err != nil {
+		return nil, err
+	}
+	defer s.Release()
+	if o.Schema == "" {
+		o.Schema = s.conn.db.schema
+	}
+	if o.Table == "" {
+		o.Table = TableNameForPrefix(o.Prefix)
+	}
+	if o.Mode == "" {
+		o.Mode = adbc.OptionValueIngestModeCreate
+	}
+	s.stats.Table = displaySchema(o.Schema) + "." + o.Table
+	db, err := NewDriver(memory.DefaultAllocator).NewDatabaseWithContext(ctx, options)
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close(ctx)
+	conn, err := db.Open(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close(ctx)
+	st, err := conn.NewStatement(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer st.Close(ctx)
+	opts := [][2]string{
+		{adbc.OptionKeyIngestTargetTable, o.Table},
+		{adbc.OptionKeyIngestMode, o.Mode},
+		{adbc.OptionValueIngestTargetDBSchema, o.Schema},
+	}
+	if o.IndexColumns != nil {
+		opts = append(opts, [2]string{OptionStringIngestIndexColumns, strings.Join(o.IndexColumns, ",")})
+	}
+	for _, kv := range opts {
+		if err := st.SetOption(ctx, kv[0], kv[1]); err != nil {
+			return nil, err
+		}
+	}
+	// The statement releases the reader it is given.
+	s.Retain()
+	if err := st.BindStream(ctx, s); err != nil {
+		return nil, err
+	}
+	if _, err := st.ExecuteUpdate(ctx); err != nil {
+		var ae adbc.Error
+		if o.Mode == adbc.OptionValueIngestModeCreate && !(asAdbc(err, &ae) && ae.Code == adbc.StatusAlreadyExists) {
+			// The table is this copy's: the ingest created it.
+			_ = s.conn.st.dropTable(context.WithoutCancel(ctx), o.Schema, o.Table, true)
+		}
+		return nil, err
+	}
+	return &s.stats, nil
+}
+
+// scanHashes starts reading the HASHes under o.Prefix (see CopyHashes).
+func scanHashes(ctx context.Context, options map[string]string, o HashCopyOptions) (*hashScan, error) {
 	if o.Prefix == "" {
 		return nil, errorf(adbc.StatusInvalidArgument, "a key prefix is required")
 	}
@@ -93,7 +167,7 @@ func ScanHashes(ctx context.Context, options map[string]string, o HashScanOption
 	if err != nil {
 		return nil, err
 	}
-	s := &HashScan{ctx: ctx, conn: c, o: o, seen: map[string]struct{}{}}
+	s := &hashScan{ctx: ctx, conn: c, o: o, seen: map[string]struct{}{}}
 	s.refs.Store(1)
 	if err := s.guess(); err != nil {
 		c.close(ctx)
@@ -107,7 +181,7 @@ func ScanHashes(ctx context.Context, options map[string]string, o HashScanOption
 }
 
 // guess reads the sample and guesses the columns.
-func (s *HashScan) guess() error {
+func (s *hashScan) guess() error {
 	sample := s.o.Sample
 	if sample == 0 {
 		sample = defaultSample
@@ -157,12 +231,9 @@ func (s *HashScan) guess() error {
 	return nil
 }
 
-// Stats returns what the scan has read so far.
-func (s *HashScan) Stats() HashScanStats { return s.stats }
+func (s *hashScan) Retain() { s.refs.Add(1) }
 
-func (s *HashScan) Retain() { s.refs.Add(1) }
-
-func (s *HashScan) Release() {
+func (s *hashScan) Release() {
 	if s.refs.Add(-1) == 0 {
 		if s.cur != nil {
 			s.cur.Release()
@@ -172,16 +243,16 @@ func (s *HashScan) Release() {
 	}
 }
 
-func (s *HashScan) Schema() *arrow.Schema { return s.schema }
+func (s *hashScan) Schema() *arrow.Schema { return s.schema }
 
-func (s *HashScan) RecordBatch() arrow.RecordBatch { return s.cur }
+func (s *hashScan) RecordBatch() arrow.RecordBatch { return s.cur }
 
-// Deprecated: Use [HashScan.RecordBatch] instead.
-func (s *HashScan) Record() arrow.RecordBatch { return s.cur }
+// Deprecated: Use [hashScan.RecordBatch] instead.
+func (s *hashScan) Record() arrow.RecordBatch { return s.cur }
 
-func (s *HashScan) Err() error { return s.err }
+func (s *hashScan) Err() error { return s.err }
 
-func (s *HashScan) Next() bool {
+func (s *hashScan) Next() bool {
 	if s.cur != nil {
 		s.cur.Release()
 		s.cur = nil
@@ -233,7 +304,7 @@ func (s *HashScan) Next() bool {
 }
 
 // convert reads HASHes as rows of the columns' values.
-func (s *HashScan) convert(rows []hashRow) ([][]Value, error) {
+func (s *hashScan) convert(rows []hashRow) ([][]Value, error) {
 	out := make([][]Value, len(rows))
 	for r, row := range rows {
 		vals := make([]Value, len(s.cols))

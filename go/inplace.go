@@ -198,7 +198,7 @@ func whyWeaker(col *guessedColumn) string {
 // checkInPlace is the checklist for adopting the HASHes in place.
 func (c *hashConn) checkInPlace(ctx context.Context, r *HashReport, cols []*guessedColumn, k *keyStats,
 	tables []*tableMeta, indexes []searchIndex, t inPlaceTarget) (Checklist, error) {
-	cl := Checklist{Name: ChecklistSQLInPlace, Title: "SQL, adopted in place (redis-arrow adopt)"}
+	cl := Checklist{Name: ChecklistSQLInPlace, Title: "SQL, adopted in place (redis-adbc adopt)"}
 	c.checkServer(&cl, r)
 	if t.existing != nil {
 		return c.checkAdopted(ctx, cl, k, t)
@@ -236,7 +236,7 @@ func (c *hashConn) checkInPlace(ctx context.Context, r *HashReport, cols []*gues
 	switch {
 	case k.ids == 0:
 		cl.add(CheckBlocker, fmt.Sprintf("no HASH key under %s ends in an integer row id (from 1 to 2^53)", shellQuote(t.prefix)),
-			"a table's rows have keys <prefix><rowid>: copy the HASHes instead (redis-arrow scan | redis-arrow import)")
+			"a table's rows have keys <prefix><rowid>: copy the HASHes instead (redis-adbc copy)")
 	case k.other > 0:
 		cl.add(CheckWarn, fmt.Sprintf("%s (such as %s) %s in an integer row id, and %s out of the table",
 			plural(k.other, "key", "keys"), k.otherEx, verb(k.other, "doesn't end", "don't end"), verb(k.other, "stays", "stay")), "")

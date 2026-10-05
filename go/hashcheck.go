@@ -18,14 +18,13 @@ package redis
 //
 // InspectHashes reads a sample of the HASHes under a key prefix, guesses a
 // table's columns from them (hashinfer.go), and checks what each way of
-// reading them needs:
+// making them a driver table needs:
 //
-//   - Arrow IPC: ScanHashes reads the HASHes themselves, so only the keys
-//     and their values matter.
-//   - SQL by copying: ScanHashes piped into a bulk ingest makes a new
-//     driver table. That needs what every table needs (the Query Engine, a
-//     database that isn't Redis Flex), names that are free, and memory for
-//     a second copy of the data.
+//   - Copying (CopyHashes, hashcopy.go): a bulk ingest makes a new table.
+//     That needs what every table needs (the Query Engine, a database that
+//     isn't Redis Flex), names that are free, and memory for a second copy
+//     of the data.
+//   - Adopting them in place (AdoptHashes, adopt.go; see inplace.go).
 //
 // It writes nothing.
 
@@ -103,9 +102,8 @@ type HashColumn struct {
 	Name string `json:"name"`
 	// Field is the HASH field it reads; empty for the key column.
 	Field string `json:"field,omitempty"`
-	// Type is the column's SQL type, and ArrowType its type in Arrow IPC.
-	Type      string `json:"type"`
-	ArrowType string `json:"arrow_type"`
+	// Type is the column's SQL type in a copy.
+	Type string `json:"type"`
 	// InPlaceType is its type in a table adopted in place.
 	InPlaceType string `json:"in_place_type,omitempty"`
 	// Present is how many sampled HASHes have the field.
@@ -160,11 +158,8 @@ const (
 	CheckBlocker = "blocker"
 )
 
-// Checklist names.
-const (
-	ChecklistArrowIPC = "arrow_ipc"
-	ChecklistSQLCopy  = "sql_copy"
-)
+// ChecklistSQLCopy names the checklist for copying HASHes into a table.
+const ChecklistSQLCopy = "sql_copy"
 
 func (c *Checklist) add(status, text, fix string) {
 	c.Items = append(c.Items, CheckItem{Status: status, Text: text, Fix: fix})
@@ -282,7 +277,7 @@ func InspectHashes(ctx context.Context, options map[string]string, o HashInspect
 	}
 	r.Skipped = skipped
 	for _, col := range cols {
-		hc := HashColumn{Name: col.name, Field: col.field, Type: col.t.SQLName(), ArrowType: col.t.ArrowType().String(), Notes: col.notes}
+		hc := HashColumn{Name: col.name, Field: col.field, Type: col.t.SQLName(), Notes: col.notes}
 		if col.field != "" {
 			hc.InPlaceType = col.inPlace.SQLName()
 		}
@@ -301,9 +296,7 @@ func InspectHashes(ctx context.Context, options map[string]string, o HashInspect
 	if r.Table == "" {
 		r.Table = TableNameForPrefix(o.Prefix)
 	}
-	scanCmd := scanCommand(o)
-	ipc := c.checkIPC(r, cols, rows, o, scanCmd)
-	cp, err := c.checkCopy(ctx, r, cols, sampled, o, scanCmd)
+	cp, err := c.checkCopy(ctx, r, cols, rows, sampled, o)
 	if err != nil {
 		return nil, err
 	}
@@ -319,7 +312,7 @@ func InspectHashes(ctx context.Context, options map[string]string, o HashInspect
 	if err != nil {
 		return nil, err
 	}
-	r.Checks = []Checklist{ipc, cp, ip}
+	r.Checks = []Checklist{cp, ip}
 	return r, nil
 }
 
@@ -426,26 +419,17 @@ func (c *hashConn) discover(ctx context.Context, tables []*tableMeta, indexes []
 	return out, nil
 }
 
-// checkIPC is the Arrow IPC checklist: ScanHashes needs only the HASHes.
-func (c *hashConn) checkIPC(r *HashReport, cols []*guessedColumn, rows []hashRow, o HashInspectOptions, scanCmd string) Checklist {
-	cl := Checklist{Name: ChecklistArrowIPC, Title: "Arrow IPC (redis-arrow scan)"}
-	c.checkKeys(&cl, r, o)
-	c.checkColumns(&cl, r, cols, rows)
-	cl.finish(scanCmd + " -o " + shellQuote(r.Table+".arrow"))
-	return cl
-}
-
 // checkKeys checks that there are HASHes to read, and how many were read.
 func (c *hashConn) checkKeys(cl *Checklist, r *HashReport, o HashInspectOptions) {
 	if r.Keys == 0 {
 		cl.add(CheckBlocker, fmt.Sprintf("no HASH keys under %s", shellQuote(o.Prefix)),
-			"check the prefix: redis-arrow check without -prefix lists the collections it finds")
+			"check the prefix: redis-adbc check without -prefix lists the collections it finds")
 		return
 	}
 	cl.add(CheckOK, fmt.Sprintf("%s under %s", plural(r.Keys, "HASH key"), shellQuote(o.Prefix)), "")
 	if int64(r.Sampled) < r.Keys {
 		cl.add(CheckWarn, fmt.Sprintf("the columns are guessed from %d of the %d HASHes", r.Sampled, r.Keys),
-			"scan reads them all, and names any field these don't have; -sample -1 guesses from all of them")
+			"copy reads them all, and names any field these don't have; -sample -1 guesses from all of them")
 	} else {
 		cl.add(CheckOK, fmt.Sprintf("the columns are guessed from all %s", plural(int64(r.Sampled), "HASH", "HASHes")), "")
 	}
@@ -460,7 +444,7 @@ func (c *hashConn) checkColumns(cl *Checklist, r *HashReport, cols []*guessedCol
 	for _, col := range cols {
 		if col.outliers > 0 {
 			cl.add(CheckWarn, fmt.Sprintf("%s is %s: %s", col.name, col.t.SQLName(), col.outlierNote),
-				fmt.Sprintf("-type %s=%s -on-error null reads them as NULL", col.name, typeFlagText(col.suggest)))
+				fmt.Sprintf("-type %s=%s -on-error null copies them as NULL", col.name, typeFlagText(col.suggest)))
 		}
 		if col.override == "" || col.field == "" {
 			continue
@@ -481,7 +465,7 @@ func (c *hashConn) checkColumns(cl *Checklist, r *HashReport, cols []*guessedCol
 		if bad > 0 {
 			cl.add(CheckWarn, fmt.Sprintf("-type %s=%s: %d sampled values don't convert (such as %s in %s)",
 				col.name, col.override, bad, quoteValue(ex.value), ex.key),
-				"scan fails on them; -on-error null reads them as NULL")
+				"copy fails on them; -on-error null copies them as NULL")
 		}
 	}
 	for _, s := range r.Skipped {
@@ -500,22 +484,18 @@ func typeFlagText(t ColType) string {
 }
 
 // checkCopy is the checklist for copying the collection into a new driver
-// table with ScanHashes and bulk ingest.
-func (c *hashConn) checkCopy(ctx context.Context, r *HashReport, cols []*guessedColumn, sampled []string, o HashInspectOptions, scanCmd string) (Checklist, error) {
-	cl := Checklist{Name: ChecklistSQLCopy, Title: "SQL, copied into a driver table (redis-arrow scan | redis-arrow import)"}
+// table (CopyHashes).
+func (c *hashConn) checkCopy(ctx context.Context, r *HashReport, cols []*guessedColumn, rows []hashRow, sampled []string, o HashInspectOptions) (Checklist, error) {
+	cl := Checklist{Name: ChecklistSQLCopy, Title: "SQL, copied into a driver table (redis-adbc copy)"}
 	c.checkServer(&cl, r)
 	if r.DriverTable != "" {
 		cl.add(CheckWarn, fmt.Sprintf("%s holds the rows of the driver table %s, which SQL already reads",
 			shellQuote(o.Prefix), r.DriverTable), "a copy duplicates it")
 	}
-	if r.Keys == 0 {
-		cl.add(CheckBlocker, fmt.Sprintf("no HASH keys under %s", shellQuote(o.Prefix)), "")
-	}
+	c.checkKeys(&cl, r, o)
+	c.checkColumns(&cl, r, cols, rows)
 	target := displaySchema(r.Schema) + "." + r.Table
-	importCmd := "redis-arrow import -table " + shellQuote(r.Table)
-	if r.Schema != c.db.schema {
-		importCmd += " -schema " + shellQuote(r.Schema)
-	}
+	cmd := copyCommand(o, r.Schema, r.Table, c.db.schema)
 	if isTempSchema(r.Schema) || isTempAlias(r.Schema) {
 		cl.add(CheckBlocker, fmt.Sprintf("%s is a temporary schema, dropped when the import's connection closes", r.Schema),
 			"pick a permanent schema with -schema")
@@ -533,9 +513,9 @@ func (c *hashConn) checkCopy(ctx context.Context, r *HashReport, cols []*guessed
 		cl.add(CheckBlocker, fmt.Sprintf("%s is a view", target), "pick another table name with -table")
 	case table:
 		cl.add(CheckWarn, fmt.Sprintf("the table %s exists", target),
-			"import -mode replace drops it and creates it again; -mode append adds the rows to it; or pick another name with -table")
+			"copy -mode replace drops it and creates it again; -mode append adds the rows to it; or pick another name with -table")
 	default:
-		cl.add(CheckOK, fmt.Sprintf("%s doesn't exist yet: import creates it", target), "")
+		cl.add(CheckOK, fmt.Sprintf("%s doesn't exist yet: copy creates it", target), "")
 		// Without search there are no index names to check.
 		if r.Server.Search {
 			if err := c.checkNames(ctx, &cl, r, o); err != nil {
@@ -547,7 +527,7 @@ func (c *hashConn) checkCopy(ctx context.Context, r *HashReport, cols []*guessed
 	if err := c.checkMemory(ctx, &cl, r, sampled); err != nil {
 		return cl, err
 	}
-	cl.finish(scanCmd + " | " + importCmd)
+	cl.finish(cmd)
 	return cl, nil
 }
 
@@ -668,7 +648,7 @@ func checkColumnNames(cl *Checklist, cols []*guessedColumn) {
 	}
 	if n > maxIndexed {
 		cl.add(CheckWarn, fmt.Sprintf("%d columns can be indexed, but a table indexes at most %d", n, maxIndexed),
-			"import -index-columns picks the ones to index")
+			"copy -index-columns picks the ones to index")
 	}
 }
 
@@ -815,9 +795,9 @@ func deref(s *string) string {
 	return *s
 }
 
-// adoptCommand is the redis-arrow adopt command line.
+// adoptCommand is the redis-adbc adopt command line.
 func adoptCommand(prefix, schema, table, defaultSchema string, types, renames map[string]string) string {
-	args := []string{"redis-arrow", "adopt", "-prefix", shellQuote(prefix), "-table", shellQuote(table)}
+	args := []string{"redis-adbc", "adopt", "-prefix", shellQuote(prefix), "-table", shellQuote(table)}
 	if schema != defaultSchema {
 		args = append(args, "-schema", shellQuote(schema))
 	}
@@ -830,9 +810,12 @@ func adoptCommand(prefix, schema, table, defaultSchema string, types, renames ma
 	return strings.Join(args, " ")
 }
 
-// scanCommand is the redis-arrow scan command line for the options.
-func scanCommand(o HashInspectOptions) string {
-	args := []string{"redis-arrow", "scan", "-prefix", shellQuote(o.Prefix)}
+// copyCommand is the redis-adbc copy command line for the options.
+func copyCommand(o HashInspectOptions, schema, table, defaultSchema string) string {
+	args := []string{"redis-adbc", "copy", "-prefix", shellQuote(o.Prefix), "-table", shellQuote(table)}
+	if schema != defaultSchema {
+		args = append(args, "-schema", shellQuote(schema))
+	}
 	if o.KeyColumn != "_key" {
 		args = append(args, "-key-column", shellQuote(o.KeyColumn))
 	}

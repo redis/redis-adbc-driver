@@ -24,9 +24,10 @@ endif
 VERSION ?= v0.1.0
 LIB := build/libadbc_driver_redis.$(EXT)
 CLI := build/redis-arrow
+ADBC_CLI := build/redis-adbc
 LDFLAGS := -s -w -X github.com/adbc-drivers/driverbase-go/driverbase.infoDriverVersion=$(VERSION)
 
-.PHONY: build cli test validate clean redis-up redis-down
+.PHONY: build cli adbc-cli test validate clean redis-up redis-down
 
 build: $(LIB)
 
@@ -41,6 +42,14 @@ cli: $(CLI)
 $(CLI): $(wildcard *.go) $(wildcard cmd/redis-arrow/*.go) go.mod go.sum
 	mkdir -p build
 	CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o $@ ./cmd/redis-arrow
+
+# redis-adbc: check, copy and adopt HASH collections that the driver didn't
+# write. It also links the driver as a Go library.
+adbc-cli: $(ADBC_CLI)
+
+$(ADBC_CLI): $(wildcard *.go) $(wildcard cmd/redis-adbc/*.go) go.mod go.sum
+	mkdir -p build
+	CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o $@ ./cmd/redis-adbc
 
 # One package at a time: with REDIS_URI set, the driver's and redis-arrow's
 # integration tests share the server, and any connection that opens rolls

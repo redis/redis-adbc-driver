@@ -16,11 +16,12 @@ package redis
 
 // Existing HASH collections
 //
-// InspectHashes (hashcheck.go) and ScanHashes (hashexport.go) work on HASHes
-// that something other than the driver wrote, such as an application's
-// user:1, user:2, …. They find the keys with SCAN, read them with HGETALL
-// and write nothing: they connect as the driver does (dial), without the
-// metadata upkeep that opening a connection does.
+// InspectHashes (hashcheck.go), CopyHashes (hashcopy.go) and AdoptHashes
+// (adopt.go) work on HASHes that something other than the driver wrote,
+// such as an application's user:1, user:2, …. They find the keys with
+// SCAN and read them with HGETALL, connected as the driver connects (dial)
+// but without the metadata upkeep of opening a connection. InspectHashes
+// writes nothing.
 
 import (
 	"context"
