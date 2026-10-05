@@ -119,18 +119,50 @@ setting:
   runs after it is set (the connection gets a new client). Connecting uses
   the database's.
 - **Retries:** go-redis sends most commands again after a reply timed out
-  or the connection broke (on a standalone server up to 3 times), so a
-  statement can wait a few times the read timeout before it fails. The
-  driver turns that off for the commands where a second run isn't safe:
-  search commands (a repeated `FT.CURSOR READ` would return the next page,
-  and the rows of the lost one would be missing), and `SET … NX` and `SADD`
-  where the driver acts on the reply. Transactions (`MULTI` … `EXEC`) aren't
-  sent again once they were sent.
-- **Other URI parameters** that go-redis parses (`pool_size`, `max_retries`,
-  …) apply to the single-endpoint client only. The cluster client takes the
-  credentials, TLS and the three timeouts from the URI.
+  or the connection broke (up to 3 times; see `max_retries` under **URI
+  parameters**), so a statement can wait a few times the read timeout
+  before it fails. The driver turns that off for the commands where a
+  second run isn't safe: search commands (a repeated `FT.CURSOR READ` would
+  return the next page, and the rows of the lost one would be missing), and
+  `SET … NX` and `SADD` where the driver acts on the reply. Transactions
+  (`MULTI` … `EXEC`) aren't sent again once they were sent.
 - **Earlier versions** (v0.0.7 and before) used go-redis's defaults: 5
   seconds, in effect 10 seconds on a standalone server.
+
+**URI parameters**
+
+go-redis parses the URI's query parameters
+(`redis://host:6379/0?pool_size=20&client_name=etl`). The single-endpoint
+client and the cluster client both get them. An unknown parameter is an
+error.
+
+- **Both clients:** `client_name`, `max_retries`, `min_retry_backoff`,
+  `max_retry_backoff`, `dial_timeout`, `read_timeout`, `write_timeout`,
+  `pool_fifo`, `pool_size`, `pool_timeout`, `min_idle_conns`,
+  `max_idle_conns`, `max_active_conns`, `max_concurrent_dials`,
+  `conn_max_idle_time`, `conn_max_lifetime`, `conn_max_lifetime_jitter`,
+  `skip_verify` with `rediss://`, and `db` (as the path; a cluster only has
+  database 0).
+- **On a cluster,** every node's client gets them. `pool_size` and
+  `max_active_conns` are per node. `max_retries` is per node too: a node's
+  client sends a command again that many times (by default none), and the
+  cluster client tries again up to `max_redirects` times (3).
+- **Cluster only:** `addr` (another seed node, `host:port`; repeat it for
+  more), `max_redirects`, `dialer_retries`, `dialer_retry_timeout` and
+  `failing_timeout_seconds`. On a single endpoint they're an error. The
+  seeds help when the URI's node is down: `adbc.redis.cluster=auto` asks
+  that node what it is, so also set `adbc.redis.cluster=true`.
+- **Not supported:** `read_only`, `route_by_latency` or `route_randomly`
+  set to true is an error. They send reads to replicas, which may not have
+  the driver's latest writes yet.
+- **The driver's settings win:** the `username` and `password` options,
+  RESP2 (`protocol` has no effect), no `CLIENT SETINFO`, and the timeout
+  options (see **Timeouts**).
+- **`client_name`** makes go-redis name every connection with `CLIENT
+  SETNAME`. An ACL user then needs `+client|setname` (see **ACL users**).
+- **Earlier versions** (v0.0.12 and before) gave the cluster client only
+  the URI's credentials, TLS and timeouts, and refused the cluster-only
+  parameters as unexpected.
 
 **Cancelling a statement**
 
@@ -191,7 +223,8 @@ and a 3-shard cluster:
   prefix was never released); and `MULTI` / `EXEC` / `WATCH` / `UNWATCH`
   for metadata transactions.
 - **Not needed:** `HELLO` and `AUTH` are always allowed. Add `+select` if the
-  URI names a database other than 0 (not tested).
+  URI names a database other than 0 (not tested), and `+client|setname` if it
+  sets `client_name`.
 - **On a cluster,** ACL users are per node: create the user on every node.
 - **For example,** for dbt on a cluster, with `rename_rekey`:
 
@@ -2722,7 +2755,7 @@ clients can see a partly applied statement.
 
 | Option | Level | Meaning |
 |-|-|-|
-| `uri` | database | `redis://[user:pass@]host:port/db`, or `rediss://…` for TLS |
+| `uri` | database | `redis://[user:pass@]host:port/db`, or `rediss://…` for TLS, with go-redis's query parameters (see **URI parameters** under [Server requirements](#server-requirements)) |
 | `username`, `password` | database | Credentials (override the URI) |
 | `adbc.redis.address`, `adbc.redis.db` | database | Used when no URI is given |
 | `adbc.redis.cluster` | database | `auto` (default) / `true` / `false`: OSS Cluster API client or single endpoint |

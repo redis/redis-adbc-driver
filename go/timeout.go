@@ -36,6 +36,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -119,41 +120,35 @@ func (o timeoutSettings) resolve(opts *goredis.Options) (t timeouts, followsRead
 	return t, followsRead
 }
 
-// apply sets the timeouts in go-redis options, where 0 means the default
-// and -1 means none.
-func (t timeouts) apply(opts *goredis.Options) {
+// goRedis returns the read and write timeouts in go-redis's encoding, where
+// 0 means the default and -1 means none.
+func (t timeouts) goRedis() (read, write time.Duration) {
 	none := func(d time.Duration) time.Duration {
 		if d == 0 {
 			return -1
 		}
 		return d
 	}
-	opts.ReadTimeout, opts.WriteTimeout = none(t.read), none(t.write)
+	return none(t.read), none(t.write)
 }
 
-// newClient creates a single-endpoint or OSS Cluster API client from
-// options parsed from the URI (or built from the address), with the given
-// timeouts, and adds errorHook to it.
-func newClient(base *goredis.Options, cluster bool, t timeouts) goredis.UniversalClient {
-	opts := *base
-	t.apply(&opts)
+// newClient creates a single-endpoint or OSS Cluster API client from the
+// options of a clientConfig, with the given timeouts, and adds errorHook to
+// it.
+func newClient(cfg *clientConfig, cluster bool, t timeouts) goredis.UniversalClient {
 	hook := errorHook{t: t}
 	if !cluster {
+		opts := *cfg.single
+		opts.ReadTimeout, opts.WriteTimeout = t.goRedis()
 		c := goredis.NewClient(&opts)
 		c.AddHook(hook)
 		return c
 	}
-	c := goredis.NewClusterClient(&goredis.ClusterOptions{
-		Addrs:           []string{opts.Addr},
-		Username:        opts.Username,
-		Password:        opts.Password,
-		TLSConfig:       opts.TLSConfig,
-		Protocol:        opts.Protocol,
-		DisableIdentity: opts.DisableIdentity,
-		DialTimeout:     opts.DialTimeout,
-		ReadTimeout:     opts.ReadTimeout,
-		WriteTimeout:    opts.WriteTimeout,
-	})
+	opts := *cfg.cluster
+	opts.ReadTimeout, opts.WriteTimeout = t.goRedis()
+	// go-redis appends the nodes it learns of to the seeds.
+	opts.Addrs = slices.Clone(opts.Addrs)
+	c := goredis.NewClusterClient(&opts)
 	// Transactions (WATCH … EXEC) and search commands go to a node's client
 	// directly, so the nodes have the hook too (errorHook leaves errors it
 	// already rewrote alone).

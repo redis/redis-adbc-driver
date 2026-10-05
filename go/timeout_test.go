@@ -14,17 +14,19 @@
 
 package redis
 
-// Tests of the client timeouts and of errorHook's messages (timeout.go)
-// that need no Redis server.
+// Tests of the client's options from the URI (database.go), its timeouts
+// and errorHook's messages (timeout.go) that need no Redis server.
 
 import (
 	"bufio"
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
 	"net"
 	"os"
+	"reflect"
 	"regexp"
 	"slices"
 	"strconv"
@@ -96,15 +98,14 @@ func TestTimeoutResolve(t *testing.T) {
 			t.Errorf("%s %+v: got %+v (follows %v), want read %v write %v (follows %v)", c.uri, c.set, got, follows, c.read, c.write, c.follows)
 		}
 		// go-redis's own encoding: -1 is none.
-		got.apply(opts)
 		none := func(v time.Duration) time.Duration {
 			if v == 0 {
 				return -1
 			}
 			return v
 		}
-		if opts.ReadTimeout != none(c.read) || opts.WriteTimeout != none(c.write) {
-			t.Errorf("%s: applied %v / %v", c.uri, opts.ReadTimeout, opts.WriteTimeout)
+		if r, w := got.goRedis(); r != none(c.read) || w != none(c.write) {
+			t.Errorf("%s: go-redis timeouts %v / %v", c.uri, r, w)
 		}
 	}
 
@@ -136,6 +137,191 @@ func TestTimeoutResolve(t *testing.T) {
 	get(OptionStringWriteTimeout, "0s")
 	set(OptionStringReadTimeout, "soon", `Invalid Argument: [redis] invalid adbc.redis.read_timeout "soon" (want a duration such as 30s or 10m, a number of seconds, or 0 for no timeout)`)
 	get(OptionStringReadTimeout, "1m30s")
+}
+
+// Every URI parameter that go-redis parses reaches the cluster client, as
+// it does the single-endpoint client, under the driver's own settings
+// (credentials options, RESP2, no CLIENT SETINFO, the timeouts).
+func TestClientURIOptions(t *testing.T) {
+	fields := func(t *testing.T, what string, opts any, want map[string]any) {
+		t.Helper()
+		v := reflect.ValueOf(opts).Elem()
+		for name, w := range want {
+			if g := v.FieldByName(name).Interface(); g != w {
+				t.Errorf("%s %s = %v, want %v", what, name, g, w)
+			}
+		}
+	}
+	d := &databaseImpl{password: "from-option", uri: "rediss://app:s%40cret@h1:7000/0?" + strings.Join([]string{
+		"client_name=etl", "protocol=3", "max_retries=2", "min_retry_backoff=20ms", "max_retry_backoff=2s",
+		"dial_timeout=3", "read_timeout=30s", "write_timeout=40s",
+		"pool_fifo=true", "pool_size=7", "pool_timeout=9s", "min_idle_conns=1", "max_idle_conns=4",
+		"max_active_conns=8", "max_concurrent_dials=3",
+		"conn_max_idle_time=1m", "conn_max_lifetime=1h", "conn_max_lifetime_jitter=5m", "skip_verify=true",
+	}, "&")}
+	cfg, err := d.clientConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]any{
+		"Username": "app", "Password": "from-option", "ClientName": "etl", "Protocol": 2, "DisableIdentity": true,
+		"MaxRetries": 2, "MinRetryBackoff": 20 * time.Millisecond, "MaxRetryBackoff": 2 * time.Second,
+		"DialTimeout": 3 * time.Second, "ReadTimeout": 30 * time.Second, "WriteTimeout": 40 * time.Second,
+		"PoolFIFO": true, "PoolSize": 7, "PoolTimeout": 9 * time.Second, "MinIdleConns": 1, "MaxIdleConns": 4,
+		"MaxActiveConns": 8, "MaxConcurrentDials": 3,
+		"ConnMaxIdleTime": time.Minute, "ConnMaxLifetime": time.Hour, "ConnMaxLifetimeJitter": 5 * time.Minute,
+	}
+	fields(t, "single", cfg.single, want)
+	fields(t, "cluster", cfg.cluster, want)
+	if !slices.Equal(cfg.cluster.Addrs, []string{"h1:7000"}) || len(cfg.clusterParams) != 0 {
+		t.Errorf("cluster seeds %v, cluster parameters %v", cfg.cluster.Addrs, cfg.clusterParams)
+	}
+	if tc := cfg.cluster.TLSConfig; tc == nil || tc.ServerName != "h1" || !tc.InsecureSkipVerify || tc.MinVersion != tls.VersionTLS12 {
+		t.Errorf("cluster TLS: %+v", tc)
+	}
+
+	// The cluster client, with the timeouts that the options resolve to
+	// (go-redis's defaults filled in: no write timeout is 0).
+	c := newClient(cfg, true, timeouts{read: time.Minute, write: 0, dial: 3 * time.Second}).(*goredis.ClusterClient)
+	defer c.Close()
+	want["ReadTimeout"], want["WriteTimeout"] = time.Minute, time.Duration(0)
+	fields(t, "cluster client", c.Options(), want)
+	if got := c.Options().Addrs; !slices.Equal(got, []string{"h1:7000"}) {
+		t.Errorf("cluster client seeds %v", got)
+	}
+
+	// go-redis's old names for two of them.
+	cfg, err = (&databaseImpl{uri: "redis://h1:7000?idle_timeout=2m&max_conn_age=3h"}).clientConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	fields(t, "cluster", cfg.cluster, map[string]any{"ConnMaxIdleTime": 2 * time.Minute, "ConnMaxLifetime": 3 * time.Hour})
+
+	// No URI: the address.
+	cfg, err = (&databaseImpl{address: "h9:6380", username: "u"}).clientConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(cfg.cluster.Addrs, []string{"h9:6380"}) || cfg.cluster.Username != "u" || cfg.cluster.Protocol != 2 {
+		t.Errorf("from the address: %+v", cfg.cluster)
+	}
+}
+
+// The parameters that go-redis parses for a cluster only (ParseClusterURL):
+// the cluster client gets them, the single-endpoint client doesn't, and on
+// a single endpoint they're an error. Those that read from replicas are
+// refused.
+func TestClientURIClusterParams(t *testing.T) {
+	d := &databaseImpl{uri: "redis://app:p%40ss%2Fw%3Ard@h1:7000/0?pool_size=7&addr=h2:7001&addr=[::1]:7002&" +
+		"max_redirects=5&dialer_retries=2&dialer_retry_timeout=50ms&failing_timeout_seconds=30"}
+	cfg, err := d.clientConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	co := cfg.cluster
+	if !slices.Equal(co.Addrs, []string{"h1:7000", "h2:7001", "[::1]:7002"}) || co.MaxRedirects != 5 || co.DialerRetries != 2 ||
+		co.DialerRetryTimeout != 50*time.Millisecond || co.FailingTimeoutSeconds != 30 || co.PoolSize != 7 || co.Password != "p@ss/w:rd" {
+		t.Errorf("cluster options: %+v", co)
+	}
+	s := cfg.single
+	if s.Addr != "h1:7000" || s.DialerRetries != 0 || s.FailingTimeoutSeconds != 0 || s.PoolSize != 7 || s.Password != "p@ss/w:rd" {
+		t.Errorf("single-endpoint options: %+v", s)
+	}
+	if want := []string{"addr", "max_redirects", "dialer_retries", "dialer_retry_timeout", "failing_timeout_seconds"}; !slices.Equal(cfg.clusterParams, want) {
+		t.Errorf("cluster parameters %v", cfg.clusterParams)
+	}
+	// Reading from primaries, the default, is fine.
+	cfg, err = (&databaseImpl{uri: "redis://h1:7000?read_only=false&route_randomly=0"}).clientConfig()
+	if err != nil || cfg.cluster.ReadOnly || !slices.Equal(cfg.clusterParams, []string{"read_only", "route_randomly"}) {
+		t.Errorf("read_only=false: %v, %+v", err, cfg)
+	}
+
+	for uri, want := range map[string]string{
+		"redis://h1:7000?read_only=true":        `read_only is not supported: the driver reads from primaries only, so that it sees its own writes`,
+		"redis://h1:7000?route_by_latency=true": `route_by_latency is not supported: the driver reads from primaries only, so that it sees its own writes`,
+		"redis://h1:7000?route_randomly=1":      `route_randomly is not supported: the driver reads from primaries only, so that it sees its own writes`,
+		"redis://h1:7000?read_only=maybe":       `redis: invalid read_only boolean: expected true/false/1/0 or an empty string, got "maybe"`,
+		"redis://h1:7000?addr=h2":               `redis: unable to parse addr param: h2`,
+		"redis://h1:7000?max_redirects=x":       `redis: invalid max_redirects number: strconv.Atoi: parsing "x": invalid syntax`,
+		"redis://h1:7000?addr=h2:1&pool_size=x": `redis: invalid pool_size number: strconv.Atoi: parsing "x": invalid syntax`,
+		"redis://h1:7000?addr=h2:1&bogus=1":     `redis: unexpected option: bogus`,
+	} {
+		_, err := (&databaseImpl{uri: uri}).clientConfig()
+		if want = "Invalid Argument: [redis] invalid URI: " + want; err == nil || err.Error() != want {
+			t.Errorf("%s: %v\nwant: %s", uri, err, want)
+		}
+	}
+
+	// With adbc.redis.cluster=false, before connecting.
+	ctx := context.Background()
+	for uri, want := range map[string]string{
+		"redis://localhost:1/0?max_redirects=5":                  `max_redirects applies`,
+		"redis://localhost:1/0?addr=localhost:2&max_redirects=5": `addr, max_redirects apply`,
+	} {
+		db, err := NewDriver(memory.DefaultAllocator).NewDatabaseWithContext(ctx, map[string]string{
+			adbc.OptionKeyURI: uri, OptionStringCluster: "false"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = db.Open(ctx)
+		want = "Invalid Argument: [redis] invalid URI: " + want + " only to a Redis Cluster (OSS Cluster API), and adbc.redis.cluster is false"
+		if err == nil || err.Error() != want {
+			t.Errorf("%s: %v\nwant: %s", uri, err, want)
+		}
+	}
+}
+
+// clusterOptions copies every setting of go-redis's Options that
+// ClusterOptions has too, so that a go-redis upgrade that adds one fails
+// here until the driver copies it.
+func TestClusterOptionsCopiesEverySetting(t *testing.T) {
+	var o goredis.Options
+	src := reflect.ValueOf(&o).Elem()
+	for i := 0; i < src.NumField(); i++ {
+		f := src.Field(i)
+		if !f.CanSet() {
+			continue
+		}
+		switch f.Kind() {
+		case reflect.Bool:
+			f.SetBool(true)
+		case reflect.Int, reflect.Int64:
+			f.SetInt(int64(i + 1))
+		case reflect.String:
+			f.SetString(src.Type().Field(i).Name)
+		case reflect.Pointer:
+			f.Set(reflect.New(f.Type().Elem()))
+		case reflect.Func:
+			f.Set(reflect.MakeFunc(f.Type(), func([]reflect.Value) []reflect.Value { panic("not called") }))
+		}
+	}
+	c := clusterOptions(&o)
+	if !slices.Equal(c.Addrs, []string{o.Addr}) {
+		t.Errorf("Addrs = %v", c.Addrs)
+	}
+	dst := reflect.ValueOf(c).Elem()
+	for i := 0; i < dst.NumField(); i++ {
+		name := dst.Type().Field(i).Name
+		got, from := dst.Field(i), src.FieldByName(name)
+		if !got.CanSet() || !from.IsValid() || from.Type() != got.Type() {
+			continue // a cluster's own setting
+		}
+		switch got.Kind() {
+		case reflect.Interface:
+			// Nothing to set them to here; clusterOptions copies these.
+			if name != "StreamingCredentialsProvider" && name != "PushNotificationProcessor" {
+				t.Errorf("%s: not checked", name)
+			}
+		case reflect.Func:
+			if got.IsNil() {
+				t.Errorf("%s not copied", name)
+			}
+		default:
+			if !got.Equal(from) {
+				t.Errorf("%s = %v, want %v", name, got, from)
+			}
+		}
+	}
 }
 
 // errorHook's messages for timeouts, and the errors it leaves alone.
@@ -372,7 +558,7 @@ func TestTimeoutNotRetried(t *testing.T) {
 	f := newFakeRedis(t, "GET", "FT.CURSOR", "FT.AGGREGATE", "SET", "SADD")
 	ctx := context.Background()
 	opts := &goredis.Options{Addr: f.addr, Protocol: 2, DisableIdentity: true}
-	client := newClient(opts, false, timeouts{read: 200 * time.Millisecond, write: 200 * time.Millisecond})
+	client := newClient(newClientConfig(opts), false, timeouts{read: 200 * time.Millisecond, write: 200 * time.Millisecond})
 	defer client.Close()
 	st := &store{client: client}
 

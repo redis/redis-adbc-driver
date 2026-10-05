@@ -36,6 +36,7 @@ import (
 	"time"
 
 	"github.com/apache/arrow-adbc/go/adbc"
+	"github.com/apache/arrow-go/v18/arrow/memory"
 	goredis "github.com/redis/go-redis/v9"
 )
 
@@ -313,6 +314,32 @@ func TestACLDriverUser(t *testing.T) {
 
 func ptr[T any](v T) *T { return &v }
 
+// With the URI's client_name, go-redis names each connection with CLIENT
+// SETNAME, which the user then needs (the README says so).
+func TestACLClientName(t *testing.T) {
+	a := newACLHarness(t)
+	keys := []string{"~adbc:*", "~public:*", "~pg_temp_*"}
+	a.user("it_acl_noname", append(a.driverCommands(false), keys...)...)
+	a.user("it_acl_name", append(append(a.driverCommands(false), "+client|setname"), keys...)...)
+	db, err := NewDriver(memory.DefaultAllocator).NewDatabaseWithContext(a.ctx, map[string]string{
+		adbc.OptionKeyURI: withParams(t, a.userURI("it_acl_noname"), "client_name=it_acl_app")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = db.Open(a.ctx)
+	want := "I/O: [redis] failed to connect to Redis: NOPERM User it_acl_noname has no permissions to run the 'client|setname' command"
+	if err == nil || err.Error() != want {
+		t.Errorf("without +client|setname: %v\nwant: %s", err, want)
+	}
+	u := openWith(t, withParams(t, a.userURI("it_acl_name"), "client_name=it_acl_app"), nil)
+	u.expectRows(`SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'it_acl_none'`, "0")
+	a.expectNoDenials("it_acl_name")
+	if readme, err := os.ReadFile("../README.md"); err == nil &&
+		!strings.Contains(strings.Join(strings.Fields(string(readme)), " "), "`+client|setname` if it sets `client_name`") {
+		t.Error("the README doesn't say that client_name needs +client|setname")
+	}
+}
+
 // The documented read-only user: it reads tables, views and metadata, and
 // every change is refused, with Redis's reason, before anything changed.
 func TestACLReadOnlyUser(t *testing.T) {
@@ -399,7 +426,7 @@ func TestACLExecAbort(t *testing.T) {
 		t.Fatal(err)
 	}
 	opts.Protocol, opts.DisableIdentity = 2, true // as the driver's
-	client := newClient(opts, a.cluster, timeouts{read: time.Minute, write: time.Minute})
+	client := newClient(newClientConfig(opts), a.cluster, timeouts{read: time.Minute, write: time.Minute})
 	defer client.Close()
 	key := metaKey("public", "it_acl_x")
 	err = client.Watch(a.ctx, func(tx *goredis.Tx) error {
@@ -444,7 +471,7 @@ func TestACLSearchCommandsAndKeys(t *testing.T) {
 			t.Fatal(err)
 		}
 		opts.Protocol, opts.DisableIdentity = 2, true // as the driver's
-		c := newClient(opts, a.cluster, timeouts{read: time.Minute, write: time.Minute})
+		c := newClient(newClientConfig(opts), a.cluster, timeouts{read: time.Minute, write: time.Minute})
 		t.Cleanup(func() { _ = c.Close() })
 		return &store{client: c}
 	}
