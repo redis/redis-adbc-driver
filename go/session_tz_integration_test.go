@@ -17,8 +17,8 @@ package redis
 // Integration tests for the session time zone (#105): SET TIME ZONE and
 // adbc.redis.time_zone, what the zone changes on stored rows (in Los
 // Angeles, across its DST transitions, and in Kolkata), index queries with
-// local times, per-connection isolation, and what it doesn't change (stored
-// values, Arrow results, bulk ingest).
+// local times, per-connection isolation, what it doesn't change (stored
+// values, Arrow results), and bulk ingest, which converts as INSERT does.
 
 import (
 	"slices"
@@ -64,8 +64,8 @@ func (h *sqlHarness) pushedWhereIn(c goredis.UniversalClient, zone, sql string) 
 // times as TIMESTAMP, DATE and text.
 func (h *sqlHarness) setupSessionTZ() {
 	h.t.Helper()
-	h.dropTables("it_stz", "it_stz_ing")
-	h.exec(`CREATE TABLE it_stz (id INTEGER, tz TIMESTAMPTZ, ts TIMESTAMP, d DATE, s VARCHAR)`)
+	h.dropTables("it_stz")
+	h.exec(`CREATE TABLE it_stz(id INTEGER, tz TIMESTAMPTZ, ts TIMESTAMP, d DATE, s VARCHAR)`)
 	h.exec(`INSERT INTO it_stz VALUES
 		(1, '2024-01-10 05:00:00+00', '2024-01-09 21:00:00', '2024-01-10', '2024-01-09 21:00'),
 		(2, '2024-03-10 09:30:00+00', '2024-03-10 02:30:00', '2024-03-10', '2024-03-10 02:30'),
@@ -284,8 +284,8 @@ func TestSessionTimeZoneFunctions(t *testing.T) {
 }
 
 // Index queries with local times give what the same comparison on the
-// rows gives; connections keep their own time zone; stored values, Arrow
-// results and bulk ingest don't depend on it; adbc.redis.time_zone.
+// rows gives; connections keep their own time zone; stored values and
+// Arrow results don't depend on it; adbc.redis.time_zone.
 func TestSessionTimeZoneIndexAndIsolation(t *testing.T) {
 	h := newSQLHarness(t)
 	h.setupSessionTZ()
@@ -389,51 +389,6 @@ func TestSessionTimeZoneIndexAndIsolation(t *testing.T) {
 		t.Errorf("stored tz of row 1: %q, %v", got, err)
 	}
 
-	// Bulk ingest doesn't use the session time zone: Arrow timestamps with
-	// a zone are instants, and ones without one (into a TIMESTAMP WITH TIME
-	// ZONE column) are UTC.
-	h.exec(`SET TIME ZONE 'America/Los_Angeles'`)
-	h.exec(`CREATE TABLE it_stz_ing (id BIGINT, tz TIMESTAMPTZ, naive TIMESTAMPTZ)`)
-	mem := memory.DefaultAllocator
-	ib := array.NewInt64Builder(mem)
-	zb := array.NewTimestampBuilder(mem, &arrow.TimestampType{Unit: arrow.Microsecond, TimeZone: "America/New_York"})
-	nb := array.NewTimestampBuilder(mem, &arrow.TimestampType{Unit: arrow.Microsecond})
-	for _, b := range []array.Builder{ib, zb, nb} {
-		defer b.Release()
-	}
-	us := arrow.Timestamp(time.Date(2024, 1, 10, 5, 0, 0, 0, time.UTC).UnixMicro())
-	ib.Append(1)
-	zb.Append(us)
-	nb.Append(us)
-	cols := []arrow.Array{ib.NewArray(), zb.NewArray(), nb.NewArray()}
-	for _, c := range cols {
-		defer c.Release()
-	}
-	rec := array.NewRecordBatch(arrow.NewSchema([]arrow.Field{
-		{Name: "id", Type: arrow.PrimitiveTypes.Int64},
-		{Name: "tz", Type: cols[1].DataType()},
-		{Name: "naive", Type: cols[2].DataType()},
-	}, nil), cols, 1)
-	defer rec.Release()
-	st, err := h.conn.NewStatement(h.ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer st.Close(h.ctx)
-	for k, v := range map[string]string{adbc.OptionKeyIngestTargetTable: "it_stz_ing", adbc.OptionKeyIngestMode: adbc.OptionValueIngestModeAppend} {
-		if err := st.SetOption(h.ctx, k, v); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := st.Bind(h.ctx, rec); err != nil {
-		t.Fatal(err)
-	}
-	if n, err := st.ExecuteUpdate(h.ctx); err != nil || n != 1 {
-		t.Fatalf("ingest: %d, %v", n, err)
-	}
-	h2.expectRows(`SELECT tz, naive FROM it_stz_ing`, "2024-01-10T05:00:00Z|2024-01-10T05:00:00Z")
-	h.expectRows(`SELECT CAST(tz AS TEXT), CAST(naive AS TEXT) FROM it_stz_ing`, "2024-01-09 21:00:00-08|2024-01-09 21:00:00-08")
-
 	// adbc.redis.time_zone: on the database, the default of its
 	// connections (what RESET goes back to); on a connection, its zone.
 	hz := newRekeyHarness(t, map[string]string{OptionStringTimeZone: "asia/kolkata"})
@@ -473,4 +428,103 @@ func TestSessionTimeZoneIndexAndIsolation(t *testing.T) {
 		t.Errorf("database option Mars/Base: %v", err)
 	}
 	h2.expectRows(`SHOW timezone`, "Asia/Kolkata")
+}
+
+// Bulk ingest converts as INSERT does, in the session time zone (#151):
+// text without an offset, a timestamp without a zone and a date written to
+// a TIMESTAMP WITH TIME ZONE column are local times (a skipped one with the
+// offset before the transition, a repeated one with the offset after it),
+// and a timestamp with a zone written to a TIMESTAMP, DATE, TIME or text
+// column is its local time. Text with an offset, and a timestamp with a zone,
+// keep their instant.
+func TestSessionTimeZoneIngest(t *testing.T) {
+	h := newSQLHarness(t)
+	h.dropTables("it_stz_ing", "it_stz_ins")
+	for _, table := range []string{"it_stz_ing", "it_stz_ins"} {
+		h.exec(`CREATE TABLE ` + table + ` (id BIGINT, text_tz TIMESTAMPTZ, naive_tz TIMESTAMPTZ, zoned_tz TIMESTAMPTZ,
+			date_tz TIMESTAMPTZ, zoned_ts TIMESTAMP, zoned_d DATE, zoned_t TIME, zoned_s VARCHAR)`)
+	}
+	h.exec(`SET TIME ZONE 'America/New_York'`)
+
+	zoned := &arrow.TimestampType{Unit: arrow.Microsecond, TimeZone: "UTC"}
+	b := array.NewRecordBuilder(memory.DefaultAllocator, arrow.NewSchema([]arrow.Field{
+		{Name: "id", Type: arrow.PrimitiveTypes.Int64},
+		{Name: "text_tz", Type: arrow.BinaryTypes.String},
+		{Name: "naive_tz", Type: &arrow.TimestampType{Unit: arrow.Microsecond}},
+		{Name: "zoned_tz", Type: zoned},
+		{Name: "date_tz", Type: arrow.FixedWidthTypes.Date32},
+		{Name: "zoned_ts", Type: zoned},
+		{Name: "zoned_d", Type: zoned},
+		{Name: "zoned_t", Type: zoned},
+		{Name: "zoned_s", Type: zoned},
+	}, nil))
+	defer b.Release()
+	at := func(month time.Month, day, hour, min int) time.Time {
+		return time.Date(2024, month, day, hour, min, 0, 0, time.UTC)
+	}
+	micros := func(ts ...time.Time) []arrow.Timestamp {
+		out := make([]arrow.Timestamp, len(ts))
+		for i, tm := range ts {
+			out[i] = arrow.Timestamp(tm.UnixMicro())
+		}
+		return out
+	}
+	valid := []bool{true, true, true, false}
+	b.Field(0).(*array.Int64Builder).AppendValues([]int64{1, 2, 3, 4}, nil)
+	// Local times: an ordinary one, one the spring-forward transition skips
+	// and one the fall-back transition repeats; then text with an offset.
+	b.Field(1).(*array.StringBuilder).AppendValues([]string{
+		"2024-01-10 02:00:00", "2024-03-10 02:30", "2024-11-03 01:30", "2024-01-10 07:00:00+00"}, nil)
+	b.Field(2).(*array.TimestampBuilder).AppendValues(micros(
+		at(time.January, 10, 2, 0), at(time.March, 10, 2, 30), at(time.November, 3, 1, 30), time.Unix(0, 0)), valid)
+	// Instants: 02:00, 03:30 and 01:30 in New York, and 22:00 the day before.
+	for _, f := range []int{3, 5, 6, 7, 8} {
+		b.Field(f).(*array.TimestampBuilder).AppendValues(micros(
+			at(time.January, 10, 7, 0), at(time.March, 10, 7, 30), at(time.November, 3, 6, 30), at(time.January, 10, 3, 0)), nil)
+	}
+	b.Field(4).(*array.Date32Builder).AppendValues([]arrow.Date32{
+		arrow.Date32FromTime(at(time.January, 10, 0, 0)), arrow.Date32FromTime(at(time.March, 10, 0, 0)),
+		arrow.Date32FromTime(at(time.November, 3, 0, 0)), 0}, valid)
+	rec := b.NewRecordBatch()
+	defer rec.Release()
+
+	st, err := h.conn.NewStatement(h.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close(h.ctx)
+	for k, v := range map[string]string{adbc.OptionKeyIngestTargetTable: "it_stz_ing", adbc.OptionKeyIngestMode: adbc.OptionValueIngestModeAppend} {
+		if err := st.SetOption(h.ctx, k, v); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := st.Bind(h.ctx, rec); err != nil {
+		t.Fatal(err)
+	}
+	if n, err := st.ExecuteUpdate(h.ctx); err != nil || n != 4 {
+		t.Fatalf("ingest: %d, %v", n, err)
+	}
+	// The same batch bound to an INSERT.
+	ins := h.stmtWith(`INSERT INTO it_stz_ins VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`, rec)
+	if n, err := ins.ExecuteUpdate(h.ctx); err != nil || n != 4 {
+		t.Fatalf("insert: %d, %v", n, err)
+	}
+
+	want := []string{
+		"1|2024-01-10 02:00:00-05|2024-01-10 02:00:00-05|2024-01-10 02:00:00-05|2024-01-10 00:00:00-05|2024-01-10 02:00:00|2024-01-10|02:00:00|2024-01-10 02:00:00-05",
+		"2|2024-03-10 03:30:00-04|2024-03-10 03:30:00-04|2024-03-10 03:30:00-04|2024-03-10 00:00:00-05|2024-03-10 03:30:00|2024-03-10|03:30:00|2024-03-10 03:30:00-04",
+		"3|2024-11-03 01:30:00-05|2024-11-03 01:30:00-05|2024-11-03 01:30:00-05|2024-11-03 00:00:00-04|2024-11-03 01:30:00|2024-11-03|01:30:00|2024-11-03 01:30:00-05",
+		"4|2024-01-10 02:00:00-05|NULL|2024-01-09 22:00:00-05|NULL|2024-01-09 22:00:00|2024-01-09|22:00:00|2024-01-09 22:00:00-05",
+	}
+	for _, table := range []string{"it_stz_ing", "it_stz_ins"} {
+		h.expectRows(`SELECT id, CAST(text_tz AS TEXT), CAST(naive_tz AS TEXT), CAST(zoned_tz AS TEXT), CAST(date_tz AS TEXT),
+			CAST(zoned_ts AS TEXT), CAST(zoned_d AS TEXT), CAST(zoned_t AS TEXT), zoned_s FROM `+table+` ORDER BY id`, want...)
+	}
+	// The instants stored, read by a connection in UTC.
+	h2 := newSQLHarness(t)
+	h2.expectRows(`SELECT text_tz, naive_tz, zoned_tz, date_tz FROM it_stz_ing ORDER BY id`,
+		"2024-01-10T07:00:00Z|2024-01-10T07:00:00Z|2024-01-10T07:00:00Z|2024-01-10T05:00:00Z",
+		"2024-03-10T07:30:00Z|2024-03-10T07:30:00Z|2024-03-10T07:30:00Z|2024-03-10T05:00:00Z",
+		"2024-11-03T06:30:00Z|2024-11-03T06:30:00Z|2024-11-03T06:30:00Z|2024-11-03T04:00:00Z",
+		"2024-01-10T07:00:00Z|NULL|2024-01-10T03:00:00Z|NULL")
 }
