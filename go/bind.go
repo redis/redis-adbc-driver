@@ -534,7 +534,7 @@ func (e *executor) findColumn(c *ColumnRef) (int, columnMeta, error) {
 				}
 			}
 			col, ok := rel.meta.column(ref.Name)
-			if !ok || (rel.prefix != "" && col.Name == rowIDField) || (ref.Qualifier == "" && rel.hidden[col.Name]) {
+			if !ok || (rel.prefix != "" && isSystemColumn(col.Name)) || (ref.Qualifier == "" && rel.hidden[col.Name]) {
 				continue
 			}
 			found++

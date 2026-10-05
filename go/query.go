@@ -175,20 +175,32 @@ func (e *executor) planWhere(ctx context.Context, where Expr, meta *tableMeta, p
 	var residual []Expr
 	addResidual := func(e Expr) { residual = append(residual, e) }
 
-	// Full-row lookup by row id.
+	// Full-row lookup by row id, or by key in a table with KeyRows.
 	for i, c := range parts {
 		col, op, other, ok := comparison(c)
-		if !ok || op != "=" || col.Name != rowIDField {
+		if !ok || op != "=" || !isSystemColumn(col.Name) {
 			continue
 		}
 		v, err := env.eval(other)
 		if err != nil {
 			return wp, invalidArg(err)
 		}
-		if v, err = Coerce(v, typeInt64); err != nil || v.Null {
-			continue
+		if meta.KeyRows {
+			if v, err = Coerce(v, typeString); err != nil || v.Null {
+				continue
+			}
+			if !isRowKey(meta.prefix(), v.S) {
+				// Not a key of the table's rows.
+				wp.none, wp.residual = true, where
+				return wp, nil
+			}
+			wp.keys = []string{v.S}
+		} else {
+			if v, err = Coerce(v, typeInt64); err != nil || v.Null {
+				continue
+			}
+			wp.keys = []string{meta.prefix() + strconv.FormatInt(v.I, 10)}
 		}
-		wp.keys = []string{meta.prefix() + strconv.FormatInt(v.I, 10)}
 		for j, rest := range parts {
 			if j != i {
 				addResidual(rest)
@@ -409,7 +421,9 @@ func andAll(exprs []Expr) Expr {
 // decodeRow converts a fetched HASH into values keyed by column name.
 func decodeRow(meta *tableMeta, row aggRow, only map[string]bool) (map[string]Value, error) {
 	out := make(map[string]Value, len(only)+1)
-	if raw, ok := row[rowIDField]; ok {
+	if meta.KeyRows {
+		out[keyField] = stringValue(row["__key"])
+	} else if raw, ok := row[rowIDField]; ok {
 		v, err := decodeStored(raw, typeInt64)
 		if err != nil {
 			return nil, err
@@ -460,7 +474,11 @@ func (e *executor) scan(ctx context.Context, req scanRequest, params []Value) ([
 	}
 	if req.where.keys != nil {
 		it, fields, _ := e.newScanIter(ctx, req, params)
-		fetched, err := e.store.fetchRows(ctx, req.where.keys, fields)
+		fetch := e.store.fetchRows
+		if req.meta.KeyRows {
+			fetch = e.store.fetchKeyRows
+		}
+		fetched, err := fetch(ctx, req.where.keys, fields)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -532,10 +550,13 @@ func (e *executor) openScan(ctx context.Context, req scanRequest, params []Value
 		sortBy: req.sortBy,
 		limit:  req.limit,
 	}
-	if exactly {
+	if exactly && !meta.KeyRows {
 		ar.load = append([]string{"__key", rowIDField}, fields...)
 		ar.width = len(ar.load)
 	} else {
+		// A table with KeyRows has no field that every row has, so its rows
+		// are read whole: a row deleted after the index matched it then has
+		// no field at all.
 		ar.load, ar.loadAll = []string{"__key"}, true
 		ar.width = len(meta.Columns) + 2
 	}
@@ -556,13 +577,30 @@ func (it *scanIter) next(ctx context.Context) ([]string, []map[string]Value, err
 	}
 	keys := make([]string, len(page))
 	for i, r := range page {
-		if _, ok := r[rowIDField]; !ok {
+		if !it.exists(r) {
 			page[i] = nil // deleted after the index matched it
 			continue
 		}
 		keys[i] = r["__key"]
 	}
 	return it.keep(keys, page)
+}
+
+// exists reports whether a row read through the index still existed when
+// it was read: a row HASH always has __rowid, and in a table with KeyRows,
+// which LOAD * reads whole, it has some field (Redis deletes an empty
+// HASH). Fields named __key and __sort… are the index's, not the HASH's.
+func (it *scanIter) exists(r aggRow) bool {
+	if !it.meta.KeyRows {
+		_, ok := r[rowIDField]
+		return ok
+	}
+	for f := range r {
+		if f != "__key" && !strings.HasPrefix(f, "__sort") {
+			return true
+		}
+	}
+	return false
 }
 
 // close deletes the scan's cursor, if it is still open.
@@ -771,8 +809,11 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 		}
 	}
 	if len(plan.order) == 0 && wp.keys == nil && !meta.isMem {
-		// Implicit insertion order.
-		req.sortBy = []sortKey{{field: rowIDField}}
+		// Implicit insertion order. Rows identified by their keys have none:
+		// they come in the index's order.
+		if !meta.KeyRows {
+			req.sortBy = []sortKey{{field: rowIDField}}
+		}
 		indexSort = true
 	}
 	sel := plan.sel
@@ -1101,7 +1142,7 @@ func (e *executor) indexAggregate(ctx context.Context, plan *selectPlan, wp wher
 			return nil, false, nil
 		}
 		col, ok := meta.column(c.Name)
-		if !ok || !col.Indexed || !simpleName(col.field()) || col.Name == rowIDField || col.MissingThrough > 0 {
+		if !ok || !col.Indexed || !simpleName(col.field()) || isSystemColumn(col.Name) || col.MissingThrough > 0 {
 			return nil, false, nil
 		}
 		if f.Name != "COUNT" && !col.pushable(e.pushdown) {

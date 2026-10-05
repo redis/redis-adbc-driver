@@ -48,9 +48,6 @@ type HashAdoptOptions struct {
 	// application's later writes don't tell the driver), which makes the
 	// driver re-check, sort and group string columns itself.
 	TrustStrings bool
-	// Refresh writes __rowid into the HASHes that the application added to
-	// an adopted table since.
-	Refresh bool
 	// Apply does it; otherwise AdoptHashes only checks and plans.
 	Apply bool
 	// Progress, if set, is told what is happening.
@@ -67,18 +64,10 @@ type HashAdoption struct {
 	// Steps are what adopt does (or did, when Applied).
 	Steps   []string `json:"steps,omitempty"`
 	Applied bool     `json:"applied"`
-	// RowIDsWritten counts the HASHes that got a __rowid field. Pending
-	// counts those that adopt -refresh writes it into (or would, without
-	// Apply).
-	RowIDsWritten int64 `json:"rowids_written"`
-	Pending       int64 `json:"pending,omitempty"`
-	// Left are HASHes that adopt -refresh (or the catch-up after adopting)
-	// left out, because a value doesn't fit its column; LeftExample is one.
-	Left        int64  `json:"left_out,omitempty"`
-	LeftExample string `json:"left_out_example,omitempty"`
-	// UnknownFields counts, for each field that isn't a column, the HASHes
-	// that have it (adopt -refresh).
-	UnknownFields map[string]int64 `json:"unknown_fields,omitempty"`
+	// AlreadyAdopted is set when the HASHes are the adopted table already:
+	// there is nothing to do (the Report's checklist says whether the
+	// driver reads it).
+	AlreadyAdopted bool `json:"already_adopted,omitempty"`
 }
 
 // adoptingKey (HASH) records adoptions in progress, by key prefix, so that
@@ -91,21 +80,6 @@ type adoptRecord struct {
 	Table  string `json:"table"`
 	Index  string `json:"index"`
 }
-
-// rowIDScript writes a HASH's __rowid unless the key is gone (so that a
-// HASH the application deletes meanwhile isn't made again): -1 for a key
-// that is gone, 1 if it wrote the field, 0 if the field had that value,
-// and -2 if it had another.
-var rowIDScript = goredis.NewScript(`
-if redis.call('EXISTS', KEYS[1]) == 0 then return -1 end
-local v = redis.call('HGET', KEYS[1], '__rowid')
-if v == false then
-  redis.call('HSET', KEYS[1], '__rowid', ARGV[1])
-  return 1
-end
-if v == ARGV[1] then return 0 end
-return -2
-`)
 
 // AdoptHashes makes the HASHes under o.Prefix a driver table without
 // copying them (see inplace.go). Without o.Apply, it only reads them,
@@ -138,13 +112,6 @@ type adopter struct {
 	index    string
 	cols     []*guessedColumn
 	stats    keyStats
-	// todo are the HASHes to write __rowid into.
-	todo []keyID
-}
-
-type keyID struct {
-	key string
-	id  int64
 }
 
 func (a *adopter) run(ctx context.Context) (*HashAdoption, error) {
@@ -193,15 +160,12 @@ func (a *adopter) run(ctx context.Context) (*HashAdoption, error) {
 				Documents: ix.numDocs, Failures: ix.failures})
 		}
 	}
-	if o.Refresh || existing != nil {
-		if existing == nil {
-			return nil, errorf(adbc.StatusNotFound, "no adopted table has the key prefix %q: adopt it first (without -refresh)", o.Prefix)
-		}
+	if existing != nil {
 		if existing.Schema != a.schema || existing.Name != a.table {
 			return nil, errorf(adbc.StatusAlreadyExists, "the HASHes under %q are already the adopted table %s.%s",
 				o.Prefix, displaySchema(existing.Schema), existing.Name)
 		}
-		return a.refresh(ctx, existing)
+		return a.adopted(ctx, existing, tables, indexes)
 	}
 
 	a.index = adoptIndexName(a.schema, a.table)
@@ -233,8 +197,8 @@ func (a *adopter) run(ctx context.Context) (*HashAdoption, error) {
 	return a.res, nil
 }
 
-// read reads every HASH: the key statistics, and the columns guessed from
-// the HASHes with a row id suffix (the others won't be rows).
+// read counts every HASH key, and guesses the columns from every HASH that
+// will be a row (isRowKey).
 func (a *adopter) read(ctx context.Context) error {
 	c, o, r := a.c, a.o, a.res.Report
 	gopts := guessOptions{types: o.Types, renames: o.Renames}
@@ -257,7 +221,9 @@ func (a *adopter) read(ctx context.Context) error {
 		for _, k := range page {
 			if !seen[k] {
 				seen[k] = true
-				keys = append(keys, k)
+				if a.stats.add(k, o.Prefix) {
+					keys = append(keys, k)
+				}
 			}
 		}
 		rows, err := c.readHashes(ctx, keys)
@@ -265,15 +231,7 @@ func (a *adopter) read(ctx context.Context) error {
 			return err
 		}
 		for _, row := range rows {
-			v, has := row.get(rowIDField)
-			id, ok := a.stats.add(row.key, o.Prefix, v, has)
-			if !ok {
-				continue
-			}
 			gs.add(row)
-			if !has {
-				a.todo = append(a.todo, keyID{row.key, id})
-			}
 		}
 		if time.Since(last) > 5*time.Second {
 			a.progress(fmt.Sprintf("read %d HASHes", a.stats.keys))
@@ -299,7 +257,7 @@ func (a *adopter) read(ctx context.Context) error {
 // plan is the table's metadata, and the steps adopting takes.
 func (a *adopter) plan() (*tableMeta, error) {
 	o := a.o
-	meta := &tableMeta{Schema: a.schema, Name: a.table, KeyPrefix: o.Prefix, IndexName: a.index, Adopted: true}
+	meta := &tableMeta{Schema: a.schema, Name: a.table, KeyPrefix: o.Prefix, IndexName: a.index, Adopted: true, KeyRows: true}
 	only := map[string]bool{}
 	for _, name := range o.IndexColumns {
 		only[strings.ToLower(name)] = true
@@ -337,25 +295,23 @@ func (a *adopter) plan() (*tableMeta, error) {
 	a.res.Steps = []string{
 		fmt.Sprintf("reserve the key prefix %s and the index name %s (%s, %s, %s)", o.Prefix, a.index, prefixesKey, adoptedKey, indexesKey),
 		strings.Join(argText(adoptIndexArgs(meta)), " "),
-		fmt.Sprintf("HSET <key> %s <key suffix> on the %s that have no %s (only while the key exists)",
-			rowIDField, plural(int64(len(a.todo)), "HASH", "HASHes"), rowIDField),
-		"wait until the index has indexed every HASH, and check that it had no indexing failures",
-		fmt.Sprintf("SET %s (the table's metadata), SET %s %d, SADD %s %s", metaKey(a.schema, a.table),
-			seqKey(a.schema, a.table), a.stats.maxID, tablesKey(a.schema), a.table),
-		fmt.Sprintf("write %s into the HASHes the application added meanwhile", rowIDField),
+		fmt.Sprintf("wait until the index has indexed the %s, and check that it had no indexing failures",
+			plural(a.stats.rows, "HASH", "HASHes")),
+		fmt.Sprintf("SET %s (the table's metadata), SADD %s %s", metaKey(a.schema, a.table), tablesKey(a.schema), a.table),
 	}
 	return meta, nil
 }
 
 // adoptIndexArgs is the FT.CREATE of an adopted table's index: the
-// driver's, over existing keys (no SKIPINITIALSCAN), only for HASHes with
-// a __rowid, and with the fields that would set a document's language,
-// score or payload renamed to ones no application uses.
+// driver's, over existing keys (no SKIPINITIALSCAN), only for the HASHes
+// that are rows (rowKeyFilter), and with the fields that would set a
+// document's language, score or payload renamed to ones no application
+// uses. Its __rowid attribute is in no HASH (see inplace.go).
 func adoptIndexArgs(meta *tableMeta) []any {
 	args := []any{"FT.CREATE", meta.index(), "ON", "HASH", "PREFIX", 1, meta.prefix(),
-		"FILTER", "exists(@" + rowIDField + ")",
+		"FILTER", rowKeyFilter(meta.prefix()),
 		"LANGUAGE_FIELD", "__adbc_language", "SCORE_FIELD", "__adbc_score", "PAYLOAD_FIELD", "__adbc_payload",
-		"SCHEMA", rowIDField, "NUMERIC", "SORTABLE"}
+		"SCHEMA", rowIDField, "NUMERIC"}
 	for _, c := range meta.Columns {
 		if c.Indexed {
 			args = append(args, indexAttrArgs(c)...)
@@ -405,30 +361,28 @@ func (a *adopter) apply(ctx context.Context, meta *tableMeta) error {
 		pipe.SRem(bg, indexesKey, a.index)
 		pipe.HDel(bg, adoptingKey, o.Prefix)
 		_, _ = pipe.Exec(bg)
-		if a.res.RowIDsWritten > 0 {
-			cause = fmt.Errorf("%w (%d HASHes keep the %s field adopt wrote)", cause, a.res.RowIDsWritten, rowIDField)
-		}
 		return cause
 	}
 
-	if err := c.st.searchDo(ctx, a.index, adoptIndexArgs(meta)...).Err(); err != nil {
-		if !resumed || !strings.Contains(strings.ToLower(err.Error()), "already exists") {
-			return undo(wrapRedis(err, "failed to create the search index"))
+	if resumed {
+		// The adopt that stopped may have created the index, maybe as an
+		// earlier version did: make it again (without DD).
+		if err := c.st.searchDo(ctx, a.index, "FT.DROPINDEX", a.index).Err(); err != nil && !isUnknownIndex(err) {
+			return wrapRedis(err, "failed to drop the index of the adopt that stopped")
 		}
 	}
-	created = true
-	a.progress(fmt.Sprintf("created the index %s; writing %s into %d HASHes", a.index, rowIDField, len(a.todo)))
-	if err := a.writeRowIDs(ctx, a.todo); err != nil {
-		return undo(err)
+	if err := c.st.searchDo(ctx, a.index, adoptIndexArgs(meta)...).Err(); err != nil {
+		return undo(wrapRedis(err, "failed to create the search index"))
 	}
+	created = true
+	a.progress(fmt.Sprintf("created the index %s; indexing %s", a.index, plural(a.stats.rows, "HASH", "HASHes")))
 	if err := a.waitIndexed(ctx); err != nil {
 		return undo(err)
 	}
 	if err := a.commit(ctx, meta); err != nil {
 		return undo(err)
 	}
-	// HASHes the application added meanwhile.
-	return a.catchUp(ctx, meta, true)
+	return nil
 }
 
 // reserve reserves the prefix and index name, in one transaction that
@@ -493,48 +447,6 @@ func (a *adopter) reserve(ctx context.Context, rec string) (resumed bool, err er
 	return resumed, nil
 }
 
-// writeRowIDs writes each HASH's __rowid, pipelined, with rowIDScript.
-func (a *adopter) writeRowIDs(ctx context.Context, todo []keyID) error {
-	if len(todo) == 0 {
-		return nil
-	}
-	c := a.c
-	if err := rowIDScript.Load(ctx, c.client).Err(); err != nil {
-		return wrapRedis(err, "failed to load the __rowid script")
-	}
-	last := time.Now()
-	for start := 0; start < len(todo); start += pipelineChunk {
-		chunk := todo[start:min(start+pipelineChunk, len(todo))]
-		pipe := c.client.Pipeline()
-		cmds := make([]*goredis.Cmd, len(chunk))
-		for i, k := range chunk {
-			cmds[i] = rowIDScript.EvalSha(ctx, pipe, []string{k.key}, k.id)
-		}
-		_, _ = pipe.Exec(ctx)
-		for i, cmd := range cmds {
-			n, err := cmd.Int64()
-			if err != nil && strings.HasPrefix(err.Error(), "NOSCRIPT") {
-				// A shard that lost its scripts (a failover, say).
-				n, err = rowIDScript.Eval(ctx, c.client, []string{chunk[i].key}, chunk[i].id).Int64()
-			}
-			if err != nil {
-				return wrapRedis(err, "failed to write "+rowIDField+" into "+chunk[i].key)
-			}
-			switch n {
-			case 1:
-				a.res.RowIDsWritten++
-			case -2:
-				return errorf(adbc.StatusIntegrity, "%s got a %s that isn't its key's suffix while adopt ran", chunk[i].key, rowIDField)
-			}
-		}
-		if time.Since(last) > 5*time.Second {
-			a.progress(fmt.Sprintf("wrote %s into %d of %d HASHes", rowIDField, start+len(chunk), len(todo)))
-			last = time.Now()
-		}
-	}
-	return nil
-}
-
 // waitIndexed waits until the new index has indexed every existing HASH,
 // and fails if it couldn't index some (a value that a NUMERIC attribute
 // can't hold, written since the HASHes were read).
@@ -553,8 +465,8 @@ func (a *adopter) waitIndexed(ctx context.Context) error {
 				plural(info.failures, "indexing failure"), info.lastErrorKey, info.lastError)
 		}
 		if !info.indexing && info.percent >= 1 {
-			if info.numDocs < a.stats.ids {
-				a.progress(fmt.Sprintf("the index has %d of the %d HASHes (the application may have deleted some meanwhile)", info.numDocs, a.stats.ids))
+			if info.numDocs < a.stats.rows {
+				a.progress(fmt.Sprintf("the index has %d of the %d HASHes (the application may have deleted some meanwhile)", info.numDocs, a.stats.rows))
 			}
 			return nil
 		}
@@ -593,7 +505,6 @@ func (a *adopter) commit(ctx context.Context, meta *tableMeta) error {
 			}
 			_, err = tx.TxPipelined(ctx, func(p goredis.Pipeliner) error {
 				p.Set(ctx, key, raw, 0)
-				p.Set(ctx, seqKey(a.schema, a.table), a.stats.maxID, 0)
 				p.SAdd(ctx, tablesKey(a.schema), a.table)
 				p.SAdd(ctx, schemasKey, a.schema)
 				p.HDel(ctx, adoptingKey, meta.KeyPrefix)
@@ -608,144 +519,20 @@ func (a *adopter) commit(ctx context.Context, meta *tableMeta) error {
 	return errorf(adbc.StatusIO, "the table's metadata is being changed concurrently; try again")
 }
 
-// catchUp writes __rowid into the HASHes without one whose values fit
-// their columns: those the application added while adopt ran, or since
-// (refresh). Without write, it only counts them (Pending).
-func (a *adopter) catchUp(ctx context.Context, meta *tableMeta, write bool) error {
-	c, prefix := a.c, meta.prefix()
-	byField := map[string]columnMeta{}
-	for _, cm := range meta.Columns {
-		byField[cm.field()] = cm
-	}
-	ks, err := c.scanKeys(ctx, prefix, "hash")
-	if err != nil {
-		return err
-	}
-	seen := map[string]bool{}
-	var maxID int64
-	for {
-		page, done, err := ks.next(ctx)
-		if err != nil {
-			return err
-		}
-		keys := page[:0:0]
-		for _, k := range page {
-			if !seen[k] {
-				seen[k] = true
-				keys = append(keys, k)
-			}
-		}
-		ids, err := c.rowIDs(ctx, keys)
-		if err != nil {
-			return err
-		}
-		var missing []string
-		for i, k := range keys {
-			if id, ok := suffixID(k, prefix); ok && ids[i] == nil {
-				missing = append(missing, k)
-				maxID = max(maxID, id)
-			}
-		}
-		rows, err := c.readHashes(ctx, missing)
-		if err != nil {
-			return err
-		}
-		var todo []keyID
-		for _, row := range rows {
-			if why := a.misfit(row, byField); why != "" {
-				a.res.Left++
-				if a.res.LeftExample == "" {
-					a.res.LeftExample = why
-				}
-				continue
-			}
-			id, _ := suffixID(row.key, prefix)
-			todo = append(todo, keyID{row.key, id})
-		}
-		a.res.Pending += int64(len(todo))
-		if write {
-			if err := a.writeRowIDs(ctx, todo); err != nil {
-				return err
-			}
-		}
-		if done {
-			break
-		}
-	}
-	if !write {
-		return nil
-	}
-	return a.raiseSeq(ctx, meta, maxID)
-}
-
-// misfit says why a HASH can't be a row (a value its column can't hold),
-// or "". Fields that aren't columns are counted.
-func (a *adopter) misfit(row hashRow, byField map[string]columnMeta) string {
-	for i, f := range row.fields {
-		if f == rowIDField {
-			continue
-		}
-		cm, ok := byField[f]
-		if !ok {
-			if a.res.UnknownFields == nil {
-				a.res.UnknownFields = map[string]int64{}
-			}
-			a.res.UnknownFields[f]++
-			continue
-		}
-		v := row.values[i]
-		err := storedFits(v, cm.Type)
-		if err == nil && v == "" && cm.Type.Kind != KindString && cm.Type.Kind != KindBinary {
-			err = fmt.Errorf("is empty")
-		}
-		if err != nil {
-			return fmt.Sprintf("%s: %s %s %v", row.key, f, quoteValue(v), err)
-		}
-	}
-	return ""
-}
-
-// raiseSeq raises the table's row id counter to at least id.
-func (a *adopter) raiseSeq(ctx context.Context, meta *tableMeta, id int64) error {
-	key := seqKey(meta.Schema, meta.Name)
-	for attempt := 0; attempt < 20; attempt++ {
-		err := a.c.client.Watch(ctx, func(tx *goredis.Tx) error {
-			cur, err := tx.Get(ctx, key).Int64()
-			if err != nil && !errors.Is(err, goredis.Nil) {
-				return err
-			}
-			if cur >= id {
-				return nil
-			}
-			_, err = tx.TxPipelined(ctx, func(p goredis.Pipeliner) error {
-				p.Set(ctx, key, id, 0)
-				return nil
-			})
-			return err
-		}, key)
-		if !errors.Is(err, goredis.TxFailedErr) {
-			return wrapRedis(err, "failed to raise the row id counter")
-		}
-	}
-	return nil
-}
-
-// refresh writes __rowid into the HASHes the application added to an
-// adopted table since.
-func (a *adopter) refresh(ctx context.Context, meta *tableMeta) (*HashAdoption, error) {
+// adopted reports on HASHes that are the adopted table meta already.
+func (a *adopter) adopted(ctx context.Context, meta *tableMeta, tables []*tableMeta, indexes []searchIndex) (*HashAdoption, error) {
 	a.index, a.res.Index = meta.index(), meta.index()
+	a.res.AlreadyAdopted = true
 	r := a.res.Report
 	for _, cm := range meta.Columns {
 		r.Columns = append(r.Columns, HashColumn{Name: cm.Name, Field: cm.Field, Type: cm.Type.SQLName(),
 			InPlaceType: cm.Type.SQLName()})
 	}
-	a.res.Steps = []string{
-		fmt.Sprintf("HSET <key> %s <key suffix> on the HASHes under %s without one whose values fit their columns", rowIDField, meta.prefix()),
-		fmt.Sprintf("raise %s to the largest row id", seqKey(meta.Schema, meta.Name)),
+	t := inPlaceTarget{prefix: meta.prefix(), schema: meta.Schema, table: meta.Name, full: true, existing: meta}
+	cl, err := a.c.checkInPlace(ctx, r, nil, &a.stats, tables, indexes, t)
+	if err != nil {
+		return nil, err
 	}
-	if err := a.catchUp(ctx, meta, a.o.Apply); err != nil {
-		return a.res, err
-	}
-	a.res.Applied = a.o.Apply
+	r.Checks = []Checklist{cl}
 	return a.res, nil
 }

@@ -255,8 +255,8 @@ func (e *executor) checkCheck(ctx context.Context, meta *tableMeta, x Expr) ([]s
 				// s.t.col or catalog.s.t.col (see resolveColumn).
 				err = e.bindCheck(ctx, meta, v)
 			}
-			if err == nil && strings.EqualFold(v.Name, rowIDField) {
-				err = errorf(adbc.StatusInvalidArgument, "system column %q reference in check constraint is invalid", rowIDField)
+			if err == nil && isSystemColumn(v.Name) {
+				err = errorf(adbc.StatusInvalidArgument, "system column %q reference in check constraint is invalid", strings.ToLower(v.Name))
 			}
 		}
 	})

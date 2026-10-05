@@ -152,6 +152,9 @@ func (e *executor) loadTable(ctx context.Context, t TableName) (*tableMeta, erro
 		return nil, err
 	}
 	meta, err := e.store.getTable(ctx, schema, name)
+	if err == nil && meta.Adopted && !meta.KeyRows {
+		return nil, errAdoptedByRowID(meta)
+	}
 	if err == nil && e.cache != nil {
 		e.cache.loaded = append(e.cache.loaded, meta)
 	}
@@ -1522,6 +1525,14 @@ func (e *executor) writeUpdates(ctx context.Context, meta *tableMeta, changes []
 	if err := e.store.raiseNeeds(ctx, meta, changeNeeds(meta, changes)); err != nil {
 		return err
 	}
+	if meta.KeyRows {
+		if err := e.store.checkKeyRowsKept(ctx, meta, changes); err != nil {
+			return err
+		}
+		if err := keyRowUpdateScript.Load(ctx, e.store.client).Err(); err != nil {
+			return wrapRedis(err, "failed to load the update script")
+		}
+	}
 	for start := 0; start < len(changes); start += pipelineChunk {
 		if start > 0 {
 			if err := e.store.checkWritten(ctx, meta); err != nil {
@@ -1529,6 +1540,12 @@ func (e *executor) writeUpdates(ctx context.Context, meta *tableMeta, changes []
 			}
 		}
 		end := min(start+pipelineChunk, len(changes))
+		if meta.KeyRows {
+			if err := e.store.updateKeyRows(ctx, meta, changes[start:end]); err != nil {
+				return err
+			}
+			continue
+		}
 		pipe := e.store.client.Pipeline()
 		for _, ch := range changes[start:end] {
 			if len(ch.set) > 0 {

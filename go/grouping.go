@@ -818,7 +818,7 @@ func (gp *groupingPlan) indexable(e *executor, wp wherePlan, set []int) bool {
 			return false
 		}
 		col, ok := indexed(f.Args[0])
-		if !ok || col.Name == rowIDField || (f.Name != "COUNT" && !col.pushable(e.pushdown)) {
+		if !ok || isSystemColumn(col.Name) || (f.Name != "COUNT" && !col.pushable(e.pushdown)) {
 			return false
 		}
 	}
