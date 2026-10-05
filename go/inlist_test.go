@@ -16,6 +16,7 @@ package redis
 
 import (
 	"math/rand"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -95,10 +96,89 @@ func TestInListMatchesOrChain(t *testing.T) {
 	t.Logf("%d lists × values checked; %d answered by the hash set", checked, subqueryStats.inLists.Load()-before)
 }
 
+// TestRowInListMatchesOrChain is TestInListMatchesOrChain for row lists
+// `(x, y) IN ((v, w), …)`, which probe a rowSet: the same results as the OR
+// of ANDs of = they are parsed as (written out by hand), with NULLs in the
+// rows and in the probe, values of mixed types, and items that fail to
+// compare or to evaluate.
+func TestRowInListMatchesOrChain(t *testing.T) {
+	rnd := rand.New(rand.NewSource(53))
+	byKind := map[string][]string{
+		"num":  {"1", "2", "0", "9007199254740993", "CAST(7 AS SMALLINT)", "1.0", "1.50", "2.25", "TRUE", "FALSE"},
+		"flt":  {"CAST(1.5 AS DOUBLE PRECISION)", "CAST(2 AS DOUBLE PRECISION)", "CAST(0.1 AS REAL)", "1", "2.25"},
+		"str":  {"'a'", "'1'", "'01'", "''", "X'61'", "CAST('a' AS CHAR(3))", "'a '"},
+		"time": {"DATE '2024-01-02'", "TIMESTAMP '2024-01-02 00:00:00'", "TIMESTAMP '2024-01-02 12:00:00'"},
+	}
+	var kinds [][]string
+	for _, p := range byKind {
+		kinds = append(kinds, p, append(append([]string{}, p...), "NULL"))
+	}
+	kinds = append(kinds, inListLiterals)
+	// The second and later items of a probe may also fail to evaluate.
+	probes := append(append([]string{}, inListLiterals...), "1/0")
+	before := subqueryStats.inLists.Load()
+	checked := 0
+	for width := 2; width <= 3; width++ {
+		for n := 0; n < 60; n++ {
+			pools := make([][]string, width)
+			for i := range pools {
+				pools[i] = kinds[rnd.Intn(len(kinds))]
+			}
+			list := make([][]string, inListMin+rnd.Intn(24))
+			for r := range list {
+				list[r] = make([]string, width)
+				for i := range list[r] {
+					list[r][i] = pools[i][rnd.Intn(len(pools[i]))]
+				}
+			}
+			for p := 0; p < 40; p++ {
+				member := list[rnd.Intn(len(list))]
+				x := make([]string, width)
+				for i := range x {
+					switch {
+					case p%3 == 0 && rnd.Intn(4) > 0:
+						x[i] = member[i] // a member, or nearly
+					case p%3 == 1:
+						x[i] = pools[i][rnd.Intn(len(pools[i]))]
+					case i > 0:
+						x[i] = probes[rnd.Intn(len(probes))]
+					default:
+						x[i] = inListLiterals[rnd.Intn(len(inListLiterals))]
+					}
+				}
+				var rows, chain []string
+				for _, r := range list {
+					rows = append(rows, "("+strings.Join(r, ", ")+")")
+					var and []string
+					for i, v := range r {
+						and = append(and, "("+x[i]+") = "+v)
+					}
+					chain = append(chain, "("+strings.Join(and, " AND ")+")")
+				}
+				in := "(" + strings.Join(x, ", ") + ") IN (" + strings.Join(rows, ", ") + ")"
+				or := strings.Join(chain, " OR ")
+				if got, want := evalBool(t, in), evalBool(t, or); got != want {
+					t.Fatalf("%s\n got %s, want %s (the OR chain)", in, got, want)
+				}
+				if got, want := evalBool(t, "NOT "+in), evalBool(t, "NOT ("+or+")"); got != want {
+					t.Fatalf("NOT %s\n got %s, want %s", in, got, want)
+				}
+				checked++
+			}
+		}
+	}
+	if subqueryStats.inLists.Load() == before {
+		t.Fatal("no row IN list used its hash set")
+	}
+	t.Logf("%d row lists × probes checked; %d answered by the hash set", checked, subqueryStats.inLists.Load()-before)
+}
+
 func TestInListRecognition(t *testing.T) {
 	long := make([]string, inListMin)
+	rows := make([]string, inListMin)
 	for i := range long {
 		long[i] = "1"
+		rows[i] = "(1, 'a')"
 	}
 	for _, c := range []struct {
 		sql  string
@@ -110,6 +190,15 @@ func TestInListRecognition(t *testing.T) {
 		{"RANDOM() IN (" + strings.Join(long, ", ") + ")", false},        // x must be evaluated once per value
 		{"x = 1 OR x = 1 OR x = 1 OR x = 1 OR x = 1 OR x = 1 OR x = 1 OR x = 1 OR " +
 			"x = 1 OR x = 1 OR x = 1 OR x = 1 OR x = 1 OR x = 1 OR x = 1 OR x = 1", false}, // separate x nodes
+		// Rows.
+		{"(x, y) IN (" + strings.Join(rows, ", ") + ")", true},
+		{"ROW(x, y, z) IN (" + strings.Join(slices.Repeat([]string{"ROW(1, 'a', NULL)"}, inListMin), ", ") + ")", true},
+		{"(x, y) IN (" + strings.Join(rows[:inListMin-1], ", ") + ")", false},
+		{"(x, y) IN (" + strings.Join(rows, ", ") + ", (1, y))", false},
+		{"(x, y) IN (" + strings.Join(rows, ", ") + ", (1, 'a', 2))", false}, // a binding error
+		{"(x, RANDOM()) IN (" + strings.Join(rows, ", ") + ")", false},
+		{"(x, (SELECT 1)) IN (" + strings.Join(rows, ", ") + ")", false},
+		{strings.Join(slices.Repeat([]string{"(x = 1 AND y = 'a')"}, inListMin), " OR "), false}, // separate x and y nodes
 	} {
 		b, ok := parseTestExpr(t, c.sql).(*Binary)
 		got := false

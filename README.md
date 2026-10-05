@@ -1105,7 +1105,8 @@ How SQL is executed:
 | `col LIKE 'abc%'` on an indexed string column | TAG prefix query `@c:{abc*}` on the prefix's tag, re-checked by the driver (other patterns are checked by the driver alone). RediSearch expands a prefix into at most `search-max-prefix-expansions` tags (200 by default, per shard) and silently ignores the rest, so the driver first runs the prefix query under `FT.PROFILE … LIMIT 0 1` (one more round trip, about 0.3 ms) and, unless every shard's profile reports no warning, checks the prefix on every row the rest of the WHERE clause selects instead. The server's configuration is never changed |
 | `col IN (…)`, `col IN (SELECT …)`, `col = a OR col = b` on an indexed column | Index union query (`(@c:[a a] \| @c:[b b])` or `@c:{a \| b}`), for up to 1,000 values. Above that (or on an unindexed column) the driver checks each row against a hash set of the values, built once per statement: always for `IN (SELECT …)`, and for a literal list of 16 or more constants when the column's type can't fail to compare with them (otherwise value by value, as `=` would) |
 | Subqueries | Uncorrelated: run once per statement, results reused. Correlated `[NOT] EXISTS` / `[NOT] IN` over one table, CTE or derived table, whose only references to the outer query are `inner = outer` conditions in its WHERE: a hash semi-join (anti-join for `NOT`), which runs the subquery once without those conditions. A small inner side (≤ 1,000 rows, counted by the index) is read first, and then `EXISTS` / `IN` also filter the outer table in its index (nothing matches if the subquery has no rows; a union of ≤ 1,000 keys on an indexed outer column); a larger one is read only once running per outer row has cost about as much. Other correlated subqueries: run per outer row with the outer values as constants (so they still use the index), memoised |
-| `(a, b) [NOT] IN (SELECT …)` (and `= ANY`, `<> ALL`) | The subquery runs once, and each row is checked against a hash set of its rows, built once per statement. Telling NULL from false (for `NOT IN`) costs one lookup per pattern of NULLs among the subquery's rows. If the subquery has no row without a NULL, `IN` reads no row. For each indexed column among the items with ≤ 1,000 distinct values in the subquery's rows, an index union fetches only the rows with those values. Correlated, with only `inner = outer` conditions: the hash semi-join below, with a set of rows per key. A literal list, `(a, b) IN ((1, 'x'), (2, 'y'))`, is an `OR` of `AND`s; each indexed column that every row of the list sets gets an index union |
+| `(a, b) [NOT] IN (SELECT …)` (and `= ANY`, `<> ALL`) | The subquery runs once, and each row is checked against a hash set of its rows, built once per statement. Telling NULL from false (for `NOT IN`) costs one lookup per pattern of NULLs among the subquery's rows. If the subquery has no row without a NULL, `IN` reads no row. For each indexed column among the items with ≤ 1,000 distinct values in the subquery's rows, an index union fetches only the rows with those values. Correlated, with only `inner = outer` conditions: the hash semi-join below, with a set of rows per key. A literal list, `(a, b) IN ((1, 'x'), (2, 'y'))`, is an `OR` of `AND`s; each indexed column that every row of the list sets gets an index union (for up to 1,000 rows). A list of 16 or more rows of constants is checked against a hash set of its rows, as `IN (SELECT …)` is, when the items' types can't fail to compare with the values in their position (otherwise row by row, as the `=`s would) |
+| `(a, b) > (x, y)`, `>=`, `<`, `<=`, and row `BETWEEN` | When `a` is an indexed numeric, date or time column, the index takes the bound the comparison implies on it, `a >= x` (`a <= x` for `<` and `<=`), and the driver checks the whole comparison on the rows the index finds. So keyset pagination, `WHERE (ts, id) > (?, ?) ORDER BY ts, id LIMIT n`, reads the rows from the last page's `ts` on, not every row before them too. Strings are only looked up by equality, so a string `a` is checked on every row |
 | `x op ANY / ALL (SELECT …)` | `= ANY` is `IN` and `<> ALL` is `NOT IN`, with the same index unions, hash sets and semi-joins. Other operators: an uncorrelated subquery runs once, and `<`, `<=`, `>`, `>=` compare with its smallest or largest value (when all the values are of one type class); otherwise each row is compared with every value |
 | `UNION` / `INTERSECT` / `EXCEPT` | Each branch runs as its own query (using its own index); the driver combines, de-duplicates and sorts the results |
 | CTEs, derived tables | Run once, unless the query that reads them can't return rows (see above); the outer query filters, sorts and groups them in memory |
@@ -1857,7 +1858,8 @@ field, even if later rows have it.
   - **`<`, `<=`, `>`, `>=`:** left to right; the first pair that is unequal
     or has a NULL decides, NULL for a NULL. `(1, 2) < (1, 3)` and
     `(2, NULL) > (1, 5)` are true, `(1, NULL) < (1, 5)` is NULL. Keyset
-    pagination writes `WHERE (ts, id) > (?, ?)`
+    pagination writes `WHERE (ts, id) > (?, ?)`; the index finds the rows
+    with `ts >= ?` when `ts` is an indexed numeric, date or time column
   - **`IS [NOT] DISTINCT FROM`:** item by item, with NULLs equal
   - **`IS [NOT] NULL`:** `(a, b) IS NULL` is true when every item is NULL,
     `IS NOT NULL` when none is (so a row can be neither)
@@ -2815,6 +2817,18 @@ What drives the numbers:
   read every row and took 1.2–1.6 s. When a key column of the keys has at
   most 1,000 distinct values, the index fetches only the rows with those
   values, and the delete took 0.2–0.3 s.
+- **Long literal row lists and keyset pagination** (`TestSQLRowValueScale`
+  at 200,000 rows, standalone: the better of two runs, and one run of
+  v0.0.12). Counting the rows in a `(k1, k2) IN (…)` list of 2,000
+  scattered keys, more than an index union takes, took 0.6 s: every row is
+  read and checked against a hash set of the list. Up to v0.0.12 each row
+  was compared with each row of the list, and `IN` and `NOT IN` took 89 and
+  56 s. With 1,000 keys the index fetches 4,280 rows, in 62 ms (0.56 s).
+  Paging through a table of 200,000 rows 1,000 at a time with `WHERE (ts,
+  id) > (?, ?) ORDER BY ts, id LIMIT 1000` took 11 s for the 200 pages, and
+  a page of 100 rows near the end 12 ms: the index starts each page at the
+  last page's `ts`. Up to v0.0.12 each page also read every row before it
+  (86 s and 751 ms).
 - **Queries that can't return rows read nothing**, only the tables'
   metadata. On a table of 152,686 rows (measured separately, best of 3,
   standalone), dbt's `select * from (<model>) as __dbt_sbq where false
@@ -2829,12 +2843,11 @@ Known ways to make the slow cases faster (not done yet):
 - `COUNT(*)` with a `LIKE` prefix, and `COUNT(*)` on a lazy view, still read
   the matched rows to re-check them, although the index has already matched
   them exactly; the index could answer them alone.
-- A row ordering comparison, as in keyset pagination (`WHERE (ts, id) > (?,
-  ?)`), is checked on every row; the index could take the bound its first
-  item implies (`ts >= ?`).
-- A literal list of rows, `(a, b) IN ((1, 'x'), …)`, is checked row by row
-  of the list (after the index unions); a long one could use a hash set, as
-  `IN (SELECT …)` does.
+- Keyset pagination with a small `LIMIT` still sorts every row from the
+  bound on and reads a whole cursor page (up to 10,000 rows) per page: the
+  row comparison is checked on the rows, which keeps the `LIMIT` out of the
+  index. The first cursor page could ask for only as many rows as the
+  `LIMIT`.
 
 To reproduce (from `go`, with a Redis running):
 
