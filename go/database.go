@@ -16,6 +16,8 @@ package redis
 
 import (
 	"context"
+	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -45,18 +47,39 @@ type databaseImpl struct {
 	timeZone paramValue
 }
 
-// clientOptions returns the go-redis options from the URI, or the address,
-// and the credentials.
-func (d *databaseImpl) clientOptions() (*goredis.Options, error) {
-	var opts *goredis.Options
+// clientConfig is what the driver makes its clients from (see newClient):
+// go-redis's options for both kinds of client, from the URI (or the address
+// and database) and the credentials.
+type clientConfig struct {
+	// single are a single-endpoint client's options.
+	single *goredis.Options
+	// cluster are an OSS Cluster API client's: the same, the URI's address
+	// as the first seed node, and the URI's cluster parameters.
+	cluster *goredis.ClusterOptions
+	// clusterParams names the cluster parameters that the URI sets.
+	clusterParams []string
+}
+
+// uriClusterParams are the URI parameters that go-redis parses for a
+// cluster client only (ParseClusterURL), not for a single endpoint
+// (ParseURL). The driver takes them when it connects to a cluster, except
+// that it refuses to read from replicas (read_only, route_by_latency or
+// route_randomly true): a replica may not have the driver's latest writes
+// yet (a table just created, rows just written).
+var uriClusterParams = []string{"addr", "max_redirects", "dialer_retries", "dialer_retry_timeout", "failing_timeout_seconds",
+	"read_only", "route_by_latency", "route_randomly"}
+
+// clientConfig returns the clients' options: from the URI, or the address
+// and database, and the credentials.
+func (d *databaseImpl) clientConfig() (*clientConfig, error) {
+	opts := &goredis.Options{Addr: d.address, DB: d.db}
+	var extra *goredis.ClusterOptions
+	var params []string
 	if d.uri != "" {
-		parsed, err := goredis.ParseURL(d.uri)
-		if err != nil {
+		var err error
+		if opts, extra, params, err = parseURI(d.uri); err != nil {
 			return nil, errorf(adbc.StatusInvalidArgument, "invalid URI: %v", err)
 		}
-		opts = parsed
-	} else {
-		opts = &goredis.Options{Addr: d.address, DB: d.db}
 	}
 	if d.username != "" {
 		opts.Username = d.username
@@ -67,22 +90,137 @@ func (d *databaseImpl) clientOptions() (*goredis.Options, error) {
 	// The driver parses RESP2 replies of FT.AGGREGATE / FT.CURSOR.
 	opts.Protocol = 2
 	opts.DisableIdentity = true
-	return opts, nil
+	cfg := newClientConfig(opts)
+	cfg.clusterParams = params
+	if extra != nil {
+		cfg.cluster.Addrs = append(cfg.cluster.Addrs, extra.Addrs[1:]...)
+		cfg.cluster.MaxRedirects = extra.MaxRedirects
+		cfg.cluster.DialerRetries = extra.DialerRetries
+		cfg.cluster.DialerRetryTimeout = extra.DialerRetryTimeout
+		cfg.cluster.FailingTimeoutSeconds = extra.FailingTimeoutSeconds
+	}
+	return cfg, nil
+}
+
+// parseURI parses a URI with go-redis: its single-endpoint options, and
+// (nil if the URI has none) its cluster parameters, which it names.
+func parseURI(uri string) (opts *goredis.Options, cluster *goredis.ClusterOptions, params []string, err error) {
+	u, err := url.Parse(uri)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	q := u.Query()
+	clusterQuery := url.Values{}
+	for _, name := range uriClusterParams {
+		if q.Has(name) {
+			clusterQuery[name] = q[name]
+			params = append(params, name)
+			q.Del(name)
+		}
+	}
+	if len(params) == 0 {
+		opts, err = goredis.ParseURL(uri)
+		return opts, nil, nil, err
+	}
+	u.RawQuery = q.Encode()
+	if opts, err = goredis.ParseURL(u.String()); err != nil {
+		return nil, nil, nil, err
+	}
+	// ParseClusterURL's first seed is the URI's address.
+	if cluster, err = goredis.ParseClusterURL("redis://seed?" + clusterQuery.Encode()); err != nil {
+		return nil, nil, nil, err
+	}
+	for _, p := range []struct {
+		name string
+		on   bool
+	}{{"read_only", cluster.ReadOnly}, {"route_by_latency", cluster.RouteByLatency}, {"route_randomly", cluster.RouteRandomly}} {
+		if p.on {
+			return nil, nil, nil, fmt.Errorf("%s is not supported: the driver reads from primaries only, so that it sees its own writes", p.name)
+		}
+	}
+	return opts, cluster, params, nil
+}
+
+// newClientConfig returns the config of clients with the given options.
+func newClientConfig(opts *goredis.Options) *clientConfig {
+	return &clientConfig{single: opts, cluster: clusterOptions(opts)}
+}
+
+// clusterOptions returns a cluster client's options with the same settings
+// as a single-endpoint client's, and its address as the seed node. go-redis
+// gives every node's client the settings (ClusterOptions.clientOptions).
+// Some mean something else on a cluster: pool_size and max_active_conns are
+// per node, and max_retries is a node client's, within each of the cluster
+// client's attempts (by default a node's client doesn't retry).
+func clusterOptions(o *goredis.Options) *goredis.ClusterOptions {
+	return &goredis.ClusterOptions{
+		Addrs:      []string{o.Addr},
+		ClientName: o.ClientName,
+		Dialer:     o.Dialer,
+		OnConnect:  o.OnConnect,
+
+		Protocol:                     o.Protocol,
+		Username:                     o.Username,
+		Password:                     o.Password,
+		CredentialsProvider:          o.CredentialsProvider,
+		CredentialsProviderContext:   o.CredentialsProviderContext,
+		StreamingCredentialsProvider: o.StreamingCredentialsProvider,
+
+		MaxRetries:      o.MaxRetries,
+		MinRetryBackoff: o.MinRetryBackoff,
+		MaxRetryBackoff: o.MaxRetryBackoff,
+
+		DialTimeout:           o.DialTimeout,
+		DialerRetries:         o.DialerRetries,
+		DialerRetryTimeout:    o.DialerRetryTimeout,
+		DialerRetryBackoff:    o.DialerRetryBackoff,
+		ReadTimeout:           o.ReadTimeout,
+		WriteTimeout:          o.WriteTimeout,
+		ContextTimeoutEnabled: o.ContextTimeoutEnabled,
+
+		MaxConcurrentDials:    o.MaxConcurrentDials,
+		PoolFIFO:              o.PoolFIFO,
+		PoolSize:              o.PoolSize,
+		PoolTimeout:           o.PoolTimeout,
+		MinIdleConns:          o.MinIdleConns,
+		MaxIdleConns:          o.MaxIdleConns,
+		MaxActiveConns:        o.MaxActiveConns,
+		ConnMaxIdleTime:       o.ConnMaxIdleTime,
+		ConnMaxLifetime:       o.ConnMaxLifetime,
+		ConnMaxLifetimeJitter: o.ConnMaxLifetimeJitter,
+
+		ReadBufferSize:          o.ReadBufferSize,
+		WriteBufferSize:         o.WriteBufferSize,
+		PipelineReadBufferSize:  o.PipelineReadBufferSize,
+		PipelineWriteBufferSize: o.PipelineWriteBufferSize,
+		PipelinePoolSize:        o.PipelinePoolSize,
+		AutoPipelineOptions:     o.AutoPipelineOptions,
+
+		TLSConfig: o.TLSConfig,
+
+		DisableIndentity:          o.DisableIndentity,
+		DisableIdentity:           o.DisableIdentity,
+		IdentitySuffix:            o.IdentitySuffix,
+		UnstableResp3:             o.UnstableResp3,
+		PushNotificationProcessor: o.PushNotificationProcessor,
+		FailingTimeoutSeconds:     o.FailingTimeoutSeconds,
+		MaintNotificationsConfig:  o.MaintNotificationsConfig,
+	}
 }
 
 // dial connects to Redis as Open does, without checking the server or
 // writing anything.
-func (d *databaseImpl) dial(ctx context.Context) (client goredis.UniversalClient, opts *goredis.Options, t timeouts, writeFollows bool, err error) {
-	if opts, err = d.clientOptions(); err != nil {
+func (d *databaseImpl) dial(ctx context.Context) (client goredis.UniversalClient, cfg *clientConfig, t timeouts, writeFollows bool, err error) {
+	if cfg, err = d.clientConfig(); err != nil {
 		return nil, nil, t, false, err
 	}
-	t, writeFollows = d.timeouts.resolve(opts)
-	client, err = d.connect(ctx, opts, t)
-	return client, opts, t, writeFollows, err
+	t, writeFollows = d.timeouts.resolve(cfg.single)
+	client, err = d.connect(ctx, cfg, t)
+	return client, cfg, t, writeFollows, err
 }
 
 func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, error) {
-	client, opts, t, writeFollows, err := d.dial(ctx)
+	client, cfg, t, writeFollows, err := d.dial(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -123,7 +261,7 @@ func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, er
 		pushdown:           d.pushdown,
 		rekey:              d.rekey,
 		stream:             d.stream,
-		clientOpts:         opts,
+		clientCfg:          cfg,
 		timeouts:           t,
 		writeFollows:       writeFollows,
 	}
@@ -155,10 +293,13 @@ func (s *store) refuseFlex(ctx context.Context) error {
 
 // connect opens a single-endpoint or OSS Cluster API client, depending on
 // the cluster option and (for "auto") what the server reports.
-func (d *databaseImpl) connect(ctx context.Context, opts *goredis.Options, t timeouts) (goredis.UniversalClient, error) {
+func (d *databaseImpl) connect(ctx context.Context, cfg *clientConfig, t timeouts) (goredis.UniversalClient, error) {
+	if d.cluster == "false" && len(cfg.clusterParams) > 0 {
+		return nil, clusterParamsError(cfg.clusterParams, OptionStringCluster+" is false")
+	}
 	useCluster := d.cluster == "true"
 	if d.cluster != "true" {
-		single := newClient(opts, false, t)
+		single := newClient(cfg, false, t)
 		if err := single.Ping(ctx).Err(); err != nil {
 			_ = single.Close()
 			return nil, errorf(adbc.StatusIO, "failed to connect to Redis: %v", err)
@@ -170,6 +311,10 @@ func (d *databaseImpl) connect(ctx context.Context, opts *goredis.Options, t tim
 		// cluster_enabled:0 or reject the section; both mean single endpoint.
 		info, err := single.Info(ctx, "cluster").Result()
 		if err != nil || !strings.Contains(info, "cluster_enabled:1") {
+			if len(cfg.clusterParams) > 0 {
+				_ = single.Close()
+				return nil, clusterParamsError(cfg.clusterParams, "the server is a single endpoint")
+			}
 			return single, nil
 		}
 		_ = single.Close()
@@ -178,15 +323,26 @@ func (d *databaseImpl) connect(ctx context.Context, opts *goredis.Options, t tim
 	if !useCluster {
 		return nil, errorf(adbc.StatusInternal, "unreachable")
 	}
-	if opts.DB != 0 {
-		return nil, errorf(adbc.StatusInvalidArgument, "Redis Cluster only supports database 0 (got %d)", opts.DB)
+	if cfg.single.DB != 0 {
+		return nil, errorf(adbc.StatusInvalidArgument, "Redis Cluster only supports database 0 (got %d)", cfg.single.DB)
 	}
-	cluster := newClient(opts, true, t)
+	cluster := newClient(cfg, true, t)
 	if err := cluster.Ping(ctx).Err(); err != nil {
 		_ = cluster.Close()
 		return nil, errorf(adbc.StatusIO, "failed to connect to Redis Cluster: %v", err)
 	}
 	return cluster, nil
+}
+
+// clusterParamsError is the error for a URI with cluster parameters when
+// the client is a single endpoint's.
+func clusterParamsError(params []string, why string) error {
+	verb := "applies"
+	if len(params) > 1 {
+		verb = "apply"
+	}
+	return errorf(adbc.StatusInvalidArgument, "invalid URI: %s %s only to a Redis Cluster (OSS Cluster API), and %s",
+		strings.Join(params, ", "), verb, why)
 }
 
 func (d *databaseImpl) Close(ctx context.Context) error { return nil }
@@ -213,9 +369,9 @@ func (d *databaseImpl) GetOption(ctx context.Context, key string) (string, error
 		return d.stream.get(key), nil
 	case OptionStringReadTimeout, OptionStringWriteTimeout:
 		// The timeout a connection opened now gets.
-		opts, err := d.clientOptions()
-		if err != nil {
-			opts = &goredis.Options{}
+		opts := &goredis.Options{}
+		if cfg, err := d.clientConfig(); err == nil {
+			opts = cfg.single
 		}
 		t, _ := d.timeouts.resolve(opts)
 		if key == OptionStringReadTimeout {

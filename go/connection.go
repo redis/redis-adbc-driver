@@ -44,10 +44,10 @@ type connectionImpl struct {
 	stream  streamSettings
 	streams streams
 
-	// clientOpts are the go-redis options the client was made from, and
-	// timeouts its timeouts (see timeout.go). writeFollows is set while
-	// the write timeout follows the read timeout.
-	clientOpts   *goredis.Options
+	// clientCfg is what the client was made from, and timeouts its
+	// timeouts (see timeout.go). writeFollows is set while the write
+	// timeout follows the read timeout.
+	clientCfg    *clientConfig
 	timeouts     timeouts
 	writeFollows bool
 }
@@ -122,7 +122,7 @@ func (c *connectionImpl) setTimeouts(ctx context.Context, t timeouts) error {
 		return errorf(adbc.StatusInvalidState, "the connection is closed")
 	}
 	_, cluster := c.store.client.(*goredis.ClusterClient)
-	client := newClient(c.clientOpts, cluster, t)
+	client := newClient(c.clientCfg, cluster, t)
 	if err := client.Ping(ctx).Err(); err != nil {
 		_ = client.Close()
 		return wrapRedis(err, "failed to connect to Redis")

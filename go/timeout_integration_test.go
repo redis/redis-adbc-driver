@@ -14,13 +14,19 @@
 
 package redis
 
-// Integration tests for the client timeouts (timeout.go).
+// Integration tests for the client's options from the URI (database.go)
+// and its timeouts (timeout.go).
 
 import (
 	"context"
+	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"regexp"
+	"slices"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -133,6 +139,172 @@ func TestTimeoutOptions(t *testing.T) {
 	h.expectRows(`SELECT COUNT(*) FROM it_to_tmp`, "5")
 	h.expectRows(`SELECT table_schema, table_type FROM information_schema.tables WHERE table_name = 'it_to_tmp'`,
 		"pg_temp|LOCAL TEMPORARY")
+}
+
+// withParams is a URI with more query parameters ("name=value").
+func withParams(t *testing.T, uri string, params ...string) string {
+	t.Helper()
+	u, err := url.Parse(uri)
+	if err != nil {
+		t.Fatal(err)
+	}
+	q := u.Query()
+	for _, p := range params {
+		name, value, _ := strings.Cut(p, "=")
+		q.Add(name, value)
+	}
+	u.RawQuery = q.Encode()
+	return u.String()
+}
+
+// eachPrimary runs fn with a client, or each primary's node client.
+func eachPrimary(ctx context.Context, client goredis.UniversalClient, fn func(*goredis.Client) error) error {
+	if cc, ok := client.(*goredis.ClusterClient); ok {
+		var mu sync.Mutex
+		return cc.ForEachMaster(ctx, func(_ context.Context, n *goredis.Client) error {
+			mu.Lock()
+			defer mu.Unlock()
+			return fn(n)
+		})
+	}
+	return fn(client.(*goredis.Client))
+}
+
+// namedConns returns the connections with a client name, on every primary:
+// "address id=…".
+func namedConns(t *testing.T, ctx context.Context, raw goredis.UniversalClient, name string) []string {
+	t.Helper()
+	var conns []string
+	err := eachPrimary(ctx, raw, func(n *goredis.Client) error {
+		list, err := n.ClientList(ctx).Result()
+		if err != nil {
+			return err
+		}
+		for _, line := range strings.Split(list, "\n") {
+			if fields := strings.Fields(line); slices.Contains(fields, "name="+name) {
+				conns = append(conns, n.Options().Addr+" "+fields[0])
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return conns
+}
+
+// The URI's go-redis parameters reach the client, on a cluster too (up to
+// v0.0.12 its client took only the credentials, TLS and timeouts): every
+// node's client has them, client_name names its connections, and
+// min_idle_conns opens connections before they're needed, up to pool_size.
+func TestClientURIOptionsTakeEffect(t *testing.T) {
+	h := newSQLHarness(t)
+	name := fmt.Sprintf("it_curi_%d", time.Now().UnixNano())
+	uri := withParams(t, uriWithoutTimeouts(t), "client_name="+name, "pool_size=2", "min_idle_conns=5", "max_retries=4")
+	hc, err := dialHashes(h.ctx, map[string]string{adbc.OptionKeyURI: uri})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = eachPrimary(h.ctx, hc.client, func(n *goredis.Client) error {
+		addr := n.Options().Addr
+		if got, err := n.ClientGetName(h.ctx).Result(); err != nil || got != name {
+			return fmt.Errorf("%s: CLIENT GETNAME = %q, %v", addr, got, err)
+		}
+		o := n.Options()
+		if o.PoolSize != 2 || o.MinIdleConns != 5 || o.MaxRetries != 4 || o.ReadTimeout != defaultReadTimeout || o.Protocol != 2 {
+			return fmt.Errorf("%s: pool_size %d, min_idle_conns %d, max_retries %d, read timeout %v, protocol %d",
+				addr, o.PoolSize, o.MinIdleConns, o.MaxRetries, o.ReadTimeout, o.Protocol)
+		}
+		for deadline := time.Now().Add(5 * time.Second); n.PoolStats().TotalConns != 2; time.Sleep(20 * time.Millisecond) {
+			if time.Now().After(deadline) {
+				return fmt.Errorf("%s: %d connections, want 2 (min_idle_conns, up to pool_size)", addr, n.PoolStats().TotalConns)
+			}
+		}
+		return nil
+	})
+	hc.close(h.ctx)
+	if err != nil {
+		t.Error(err)
+	}
+
+	// A connection's client for other timeouts has them too, and closing
+	// the connection closes both.
+	raw := h.rawClient()
+	u := openWith(t, uri, nil)
+	before := namedConns(t, h.ctx, raw, name)
+	if err := u.setConnOption(OptionStringReadTimeout, "90s"); err != nil {
+		t.Fatal(err)
+	}
+	u.exec(`DROP TABLE IF EXISTS it_curi_none`)
+	after := namedConns(t, h.ctx, raw, name)
+	if len(slices.DeleteFunc(after, func(c string) bool { return slices.Contains(before, c) })) == 0 {
+		t.Errorf("no new connection named %s after the timeout changed (before: %v)", name, before)
+	}
+	if err := u.conn.Close(u.ctx); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, "no connection named "+name, func() bool { return len(namedConns(t, h.ctx, raw, name)) == 0 })
+}
+
+// The URI parameters that go-redis takes for a cluster only. On a cluster,
+// the client finds the nodes through addr when the URI's own address
+// doesn't answer. On a single endpoint, or with adbc.redis.cluster=false,
+// they're an error.
+func TestClientURIClusterParamsConnect(t *testing.T) {
+	h := newSQLHarness(t)
+	_, cluster := h.rawClient().(*goredis.ClusterClient)
+	uri := os.Getenv("REDIS_URI")
+	openErr := func(uri string, opts map[string]string) error {
+		t.Helper()
+		all := map[string]string{adbc.OptionKeyURI: uri}
+		for k, v := range opts {
+			all[k] = v
+		}
+		db, err := NewDriver(memory.DefaultAllocator).NewDatabaseWithContext(h.ctx, all)
+		if err != nil {
+			t.Fatal(err)
+		}
+		conn, err := db.Open(h.ctx)
+		if err == nil {
+			_ = conn.Close(h.ctx)
+		}
+		return err
+	}
+	err := openErr(withParams(t, uri, "max_redirects=5"), map[string]string{OptionStringCluster: "false"})
+	want := "Invalid Argument: [redis] invalid URI: max_redirects applies only to a Redis Cluster (OSS Cluster API), and adbc.redis.cluster is false"
+	if err == nil || err.Error() != want {
+		t.Errorf("cluster=false: %v\nwant: %s", err, want)
+	}
+	u, err := url.Parse(uri)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cluster {
+		err := openErr(withParams(t, uri, "addr="+u.Host, "dialer_retries=2"), nil)
+		want := "Invalid Argument: [redis] invalid URI: addr, dialer_retries apply only to a Redis Cluster (OSS Cluster API), and the server is a single endpoint"
+		if err == nil || err.Error() != want {
+			t.Errorf("single endpoint: %v\nwant: %s", err, want)
+		}
+		return
+	}
+	if ip := net.ParseIP(u.Hostname()); u.Hostname() != "localhost" && (ip == nil || !ip.IsLoopback()) {
+		t.Skip("a seed that doesn't answer needs a REDIS_URI on this machine")
+	}
+	l, err := net.Listen("tcp", net.JoinHostPort(u.Hostname(), "0"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, closedPort, _ := net.SplitHostPort(l.Addr().String())
+	_ = l.Close()
+	dead := *u
+	dead.Host = net.JoinHostPort(u.Hostname(), closedPort)
+	c := openWith(t, withParams(t, dead.String(), "addr="+u.Host, "dialer_retries=1", "max_redirects=2"),
+		map[string]string{OptionStringCluster: "true"})
+	c.dropTables("it_curi_seed")
+	c.exec(`CREATE TABLE it_curi_seed (id INTEGER)`)
+	c.exec(`INSERT INTO it_curi_seed VALUES (1), (2), (3)`)
+	c.expectRows(`SELECT COUNT(*) FROM it_curi_seed`, "3")
+	c.exec(`DROP TABLE it_curi_seed`)
 }
 
 // pauseTarget returns the node to pause: the server, or on a cluster a
