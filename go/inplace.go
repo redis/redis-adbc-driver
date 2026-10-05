@@ -17,25 +17,27 @@ package redis
 // Adopting HASHes in place
 //
 // An application's HASHes can become a driver table without being copied
-// (AdoptHashes, adopt.go). A table's rows need what the driver writes for
-// its own rows:
+// (AdoptHashes, adopt.go). Adopting writes nothing into them; the table has:
 //
-//   - a key <prefix><rowid>, where the row id is an integer (WHERE __rowid
-//     = N reads that key), and a __rowid field that holds it. Adopting
-//     writes __rowid into each HASH whose key suffix is an integer from 1 to
-//     2^53; the other keys under the prefix stay out of the table.
-//   - a search index in the driver's format: __rowid NUMERIC SORTABLE, and
-//     each column as indexAttrArgs makes it. The application's own index
-//     can't serve (the driver never checks an index's attributes, and its
-//     queries assume them), so adopting creates a second one, with FILTER
-//     "exists(@__rowid)" so that HASHes without __rowid (the application's
-//     new ones) aren't counted.
+//   - its rows identified by their keys (KeyRows, see keyrows.go): every
+//     HASH under the prefix with no ':' after it, whatever its key, is a
+//     row, including those the application writes later.
+//   - a search index in the driver's format: each column as indexAttrArgs
+//     makes it, and a __rowid NUMERIC attribute that no HASH needs (FT.CREATE
+//     needs one attribute, and noMatchQuery names it). The application's own
+//     index can't serve (the driver never checks an index's attributes, and
+//     its queries assume them), so adopting creates a second one, whose
+//     FILTER (rowKeyFilter) leaves out the HASHes that aren't rows.
 //   - values stored as the driver stores them (decodeStored): numbers as
 //     numbers, but booleans as 0 and 1 and dates and times as integers. So
 //     a column is only BIGINT, NUMERIC or DOUBLE PRECISION in place if every
 //     value is such a number; true/false text or ISO dates are VARCHAR.
 //   - the table's metadata, marked adopted (see refuseAdopted for what the
 //     driver then refuses), and its prefix registered.
+//
+// redis-adbc v0.0.11 identified an adopted table's rows by __rowid, which
+// it wrote into each HASH whose key ended in an integer. The driver refuses
+// such a table (errAdoptedByRowID), but DROP TABLE drops it.
 
 import (
 	"context"
@@ -43,7 +45,6 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/apache/arrow-adbc/go/adbc"
@@ -53,106 +54,32 @@ import (
 // ChecklistSQLInPlace names the checklist for adopting HASHes in place.
 const ChecklistSQLInPlace = "sql_in_place"
 
-// maxRowID is the largest row id an adopted key may have: the index holds
-// __rowid as a double, which is exact up to 2^53.
-const maxRowID = 1 << 53
-
-// suffixID returns a key's row id: its suffix after the prefix, if that is
-// a canonical decimal integer from 1 to 2^53.
-func suffixID(key, prefix string) (int64, bool) {
-	s, ok := strings.CutPrefix(key, prefix)
-	if !ok || s == "" || s[0] == '0' || len(s) > 16 {
-		return 0, false
-	}
-	for i := 0; i < len(s); i++ {
-		if s[i] < '0' || s[i] > '9' {
-			return 0, false
-		}
-	}
-	id, err := strconv.ParseInt(s, 10, 64)
-	if err != nil || id > maxRowID {
-		return 0, false
-	}
-	return id, true
-}
-
 // adoptIndexName is the name of an adopted table's index. Escaping turns
 // ':' into %3A in schema and table names, so no driver table's index can
 // have it (namesFor).
 func adoptIndexName(schema, table string) string { return indexName(schema, table) + ":adopted" }
 
-// keyStats is what the keys under a prefix say about adopting them: their
-// suffixes and __rowid fields.
+// keyStats counts the HASH keys under a prefix, and those that adopting
+// makes rows (isRowKey).
 type keyStats struct {
-	keys       int64
-	ids        int64 // keys with a row id suffix
-	maxID      int64
-	other      int64 // keys without one
-	otherEx    string
-	otherRowID int64 // … that have a __rowid field all the same
-	otherIDEx  string
-	idOK       int64 // __rowid equal to the suffix
-	idMissing  int64
-	idWrong    int64
-	idWrongEx  string
+	keys     int64
+	rows     int64
+	nested   int64 // keys with another ':' after the prefix
+	nestedEx string
 }
 
-// add counts a key, given its __rowid field (has is false without one).
-func (k *keyStats) add(key, prefix, rowid string, has bool) (id int64, ok bool) {
+// add counts a key, and reports whether it is a row.
+func (k *keyStats) add(key, prefix string) bool {
 	k.keys++
-	id, ok = suffixID(key, prefix)
-	if !ok {
-		k.other++
-		if k.otherEx == "" {
-			k.otherEx = key
-		}
-		if has {
-			k.otherRowID++
-			if k.otherIDEx == "" {
-				k.otherIDEx = key
-			}
-		}
-		return 0, false
+	if isRowKey(prefix, key) {
+		k.rows++
+		return true
 	}
-	k.ids++
-	k.maxID = max(k.maxID, id)
-	switch {
-	case !has:
-		k.idMissing++
-	case rowid == strconv.FormatInt(id, 10):
-		k.idOK++
-	default:
-		k.idWrong++
-		if k.idWrongEx == "" {
-			k.idWrongEx = fmt.Sprintf("%s has %s", key, quoteValue(rowid))
-		}
+	k.nested++
+	if k.nestedEx == "" {
+		k.nestedEx = key
 	}
-	return id, true
-}
-
-// rowIDs reads the __rowid field of each key (nil for none).
-func (c *hashConn) rowIDs(ctx context.Context, keys []string) ([]*string, error) {
-	out := make([]*string, len(keys))
-	for start := 0; start < len(keys); start += pipelineChunk {
-		chunk := keys[start:min(start+pipelineChunk, len(keys))]
-		pipe := c.client.Pipeline()
-		cmds := make([]*goredis.StringCmd, len(chunk))
-		for i, k := range chunk {
-			cmds[i] = pipe.HGet(ctx, k, rowIDField)
-		}
-		_, _ = pipe.Exec(ctx)
-		for i, cmd := range cmds {
-			v, err := cmd.Result()
-			switch {
-			case err == goredis.Nil, isWrongType(err):
-			case err != nil:
-				return nil, wrapRedis(err, "HGET failed")
-			default:
-				out[start+i] = &v
-			}
-		}
-	}
-	return out, nil
+	return false
 }
 
 // inPlaceTarget is the table that adopting would make.
@@ -201,7 +128,7 @@ func (c *hashConn) checkInPlace(ctx context.Context, r *HashReport, cols []*gues
 	cl := Checklist{Name: ChecklistSQLInPlace, Title: "SQL, adopted in place (redis-adbc adopt)"}
 	c.checkServer(&cl, r)
 	if t.existing != nil {
-		return c.checkAdopted(ctx, cl, k, t)
+		return c.checkAdopted(ctx, cl, t)
 	}
 	for _, tm := range tables {
 		if tm.prefix() == t.prefix {
@@ -232,32 +159,19 @@ func (c *hashConn) checkInPlace(ctx context.Context, r *HashReport, cols []*gues
 		return cl, err
 	}
 
-	// The keys and their __rowid fields.
+	// The keys.
 	switch {
-	case k.ids == 0:
-		cl.add(CheckBlocker, fmt.Sprintf("no HASH key under %s ends in an integer row id (from 1 to 2^53)", shellQuote(t.prefix)),
-			"a table's rows have keys <prefix><rowid>: copy the HASHes instead (redis-adbc copy)")
-	case k.other > 0:
-		cl.add(CheckWarn, fmt.Sprintf("%s (such as %s) %s in an integer row id, and %s out of the table",
-			plural(k.other, "key", "keys"), k.otherEx, verb(k.other, "doesn't end", "don't end"), verb(k.other, "stays", "stay")), "")
-		cl.add(CheckOK, fmt.Sprintf("%s %s in a row id (up to %d)", plural(k.ids, "key", "keys"), verb(k.ids, "ends", "end"), k.maxID), "")
+	case k.keys == 0:
+		cl.add(CheckBlocker, fmt.Sprintf("there are no HASH keys under %s", shellQuote(t.prefix)), "")
+	case k.rows == 0:
+		cl.add(CheckBlocker, fmt.Sprintf("every HASH key under %s has another ':' after it (such as %s), so none would be a row",
+			shellQuote(t.prefix), k.nestedEx), "adopt the prefix up to the last ':' of the keys (redis-adbc check lists the collections)")
+	case k.nested > 0:
+		cl.add(CheckOK, fmt.Sprintf("%s under %s %s rows", plural(k.rows, "HASH", "HASHes"), shellQuote(t.prefix), verb(k.rows, "is", "are")), "")
+		cl.add(CheckWarn, fmt.Sprintf("%s (such as %s) %s another ':' after %s, and %s out of the table",
+			plural(k.nested, "key", "keys"), k.nestedEx, verb(k.nested, "has", "have"), shellQuote(t.prefix), verb(k.nested, "stays", "stay")), "")
 	default:
-		cl.add(CheckOK, fmt.Sprintf("every key ends in a row id (up to %d)", k.maxID), "")
-	}
-	if k.otherRowID > 0 {
-		cl.add(CheckBlocker, fmt.Sprintf("%s without a row id suffix %s a __rowid field (such as %s): the table would read them under another key",
-			plural(k.otherRowID, "key", "keys"), verb(k.otherRowID, "has", "have"), k.otherIDEx), "remove those fields (HDEL <key> __rowid)")
-	}
-	if k.idWrong > 0 {
-		cl.add(CheckBlocker, fmt.Sprintf("%s %s a __rowid that isn't the key's suffix (%s)", plural(k.idWrong, "HASH", "HASHes"), verb(k.idWrong, "has", "have"), k.idWrongEx),
-			"set __rowid to the key's suffix, or remove it (HDEL <key> __rowid)")
-	}
-	switch {
-	case k.idMissing > 0:
-		cl.add(CheckMissing, fmt.Sprintf("%s %s no __rowid field", plural(k.idMissing, "HASH", "HASHes"), verb(k.idMissing, "has", "have")),
-			"adopt writes each one's key suffix into it (HSET <key> __rowid <suffix>)")
-	case k.ids > 0:
-		cl.add(CheckOK, "every HASH has a __rowid field equal to its key's suffix", "")
+		cl.add(CheckOK, fmt.Sprintf("every HASH under %s is a row (%d)", shellQuote(t.prefix), k.rows), "")
 	}
 
 	// The columns.
@@ -307,7 +221,8 @@ func (c *hashConn) checkInPlace(ctx context.Context, r *HashReport, cols []*gues
 		apps = append(apps, ix.Name)
 	}
 	idx := fmt.Sprintf("a search index in the driver's format on %s", shellQuote(t.prefix))
-	fix := fmt.Sprintf("adopt creates %s, with FILTER \"exists(@__rowid)\"; it takes memory of its own", adoptIndexName(t.schema, t.table))
+	fix := fmt.Sprintf("adopt creates %s, over the HASHes that are rows, including those the application writes later; it takes memory of its own",
+		adoptIndexName(t.schema, t.table))
 	if len(apps) > 0 {
 		fix += fmt.Sprintf(" (the application's %s stays as it is, and isn't used)", strings.Join(apps, ", "))
 	}
@@ -322,10 +237,8 @@ func (c *hashConn) checkInPlace(ctx context.Context, r *HashReport, cols []*gues
 
 // adoptHazards are what an adopted table's users should know.
 var adoptHazards = []string{
-	"HASHes the application writes later have no __rowid, so SQL doesn't see them until adopt -refresh runs",
-	"a later write by the application of a value a numeric column can't hold (text, an empty value, NaN) takes that HASH out of the index, and so out of the table",
-	"the __rowid field shows up in the application's own HGETALL and FT.SEARCH results",
-	"SQL UPDATE and DELETE change the application's HASHes; INSERT, TRUNCATE, ADD COLUMN and a re-keying RENAME are refused, and DROP TABLE drops only the index and the metadata",
+	"a write by the application of a value a numeric column can't hold (text, an empty value, NaN) takes that HASH out of the index, and so out of the table",
+	"SQL UPDATE and DELETE change the application's HASHes (an UPDATE that would leave a HASH without fields is refused); INSERT, TRUNCATE, ADD COLUMN and a re-keying RENAME are refused, and DROP TABLE drops only the index and the metadata",
 }
 
 // checkAdoptPrefix checks that no driver key can be under the prefix.
@@ -413,11 +326,18 @@ func (c *hashConn) adoptingRecord(ctx context.Context, prefix string) (*adoptRec
 	return &rec, nil
 }
 
-// checkAdopted checks a table that was adopted already: HASHes the
-// application added since have no __rowid.
-func (c *hashConn) checkAdopted(ctx context.Context, cl Checklist, k *keyStats, t inPlaceTarget) (Checklist, error) {
+// checkAdopted checks a table that was adopted already: there is nothing
+// to do, unless redis-adbc v0.0.11 adopted it.
+func (c *hashConn) checkAdopted(ctx context.Context, cl Checklist, t inPlaceTarget) (Checklist, error) {
 	m := t.existing
-	cl.add(CheckOK, fmt.Sprintf("these HASHes are the adopted table %s", displaySchema(m.Schema)+"."+m.Name), "")
+	name := displaySchema(m.Schema) + "." + m.Name
+	if !m.KeyRows {
+		cl.add(CheckBlocker, fmt.Sprintf("these HASHes are the table %s, which redis-adbc v0.0.11 adopted, and the driver no longer reads", name),
+			fmt.Sprintf("DROP TABLE %s (the HASHes stay), and adopt them again", name))
+		cl.finish("")
+		return cl, nil
+	}
+	cl.add(CheckOK, fmt.Sprintf("these HASHes are the adopted table %s, which reads the HASHes the application writes", name), "")
 	if reply, err := c.st.searchDo(ctx, m.index(), "FT.INFO", m.index()).Result(); err == nil {
 		if info := indexInfoOf(reply); info.failures > 0 {
 			cl.add(CheckWarn, fmt.Sprintf("its index %s has had %s (the last: %s: %s); a HASH it couldn't index is left out of the table",
@@ -425,16 +345,6 @@ func (c *hashConn) checkAdopted(ctx context.Context, cl Checklist, k *keyStats, 
 				"fix those values, and write them again")
 		}
 	}
-	if k.idWrong > 0 {
-		cl.add(CheckWarn, fmt.Sprintf("%s %s a __rowid that isn't the key's suffix (%s)", plural(k.idWrong, "HASH", "HASHes"), verb(k.idWrong, "has", "have"), k.idWrongEx), "")
-	}
-	if k.idMissing > 0 {
-		cl.add(CheckMissing, fmt.Sprintf("%s written since %s no __rowid field, so the table leaves %s out",
-			plural(k.idMissing, "HASH", "HASHes"), verb(k.idMissing, "has", "have"), verb(k.idMissing, "it", "them")), "adopt -refresh writes it")
-		cl.finish(t.command + " -refresh")
-		return cl, nil
-	}
-	cl.add(CheckOK, "every HASH with a row id suffix has its __rowid", "")
 	cl.finish("")
 	return cl, nil
 }

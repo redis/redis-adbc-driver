@@ -140,7 +140,12 @@ func printReport(w io.Writer, r *redis.HashReport) {
 		}
 		_ = tw.Flush()
 	}
-	for _, cl := range r.Checks {
+	printChecks(w, r.Checks)
+}
+
+// printChecks writes checklists.
+func printChecks(w io.Writer, checks []redis.Checklist) {
+	for _, cl := range checks {
 		verdict := "READY"
 		if !cl.Ready {
 			verdict = "NOT READY"

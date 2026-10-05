@@ -259,10 +259,10 @@ until `redis-adbc` makes them one: `copy` bulk-ingests them into a new
 table, and `adopt` makes the HASHes themselves a table, so that SQL reads
 what the application writes (see
 [Existing HASH collections](#existing-hash-collections-redis-adbc)).
-Adopting needs keys that end in an integer (`user:42`), writes a `__rowid`
-field into each HASH, and creates a second index beside the application's.
-An adopted table refuses `INSERT` and `TRUNCATE`, and doesn't see HASHes
-the application adds until `adopt -refresh -apply` runs. The driver doesn't touch
+Adopting writes nothing into the HASHes, whatever their keys
+(`user:42`, `user:alice`), and HASHes the application writes later are rows
+too. It creates a second index beside the application's, and an adopted
+table refuses `INSERT` and `TRUNCATE`. The driver doesn't touch
 indexes it didn't create, even one with the name a new table's index would
 take (see "Indexes the driver didn't create are left alone" below).
 
@@ -582,12 +582,11 @@ and says what is missing:
   it. It needs the Query Engine, a database that isn't Redis Flex, and
   memory for a second copy of the data.
 - **Adopt.** `redis-adbc adopt` makes the HASHes themselves a driver table:
-  SQL reads what the application writes, without a copy. It writes a
-  `__rowid` field into each HASH and creates a second search index beside
-  the application's, so it needs keys that end in an integer (`user:42`),
-  and its columns are only as typed as the stored text allows (see
-  [Adopt](#adopt-hashes-in-place) below for what an adopted table can't
-  do).
+  SQL reads what the application writes, including HASHes it writes later,
+  without a copy. It writes nothing into the HASHes, and creates a second
+  search index beside the application's. Its columns are only as typed as
+  the stored text allows (see [Adopt](#adopt-hashes-in-place) below for
+  what an adopted table can't do).
 
 Build it from `go`:
 
@@ -654,20 +653,15 @@ SQL, adopted in place (redis-adbc adopt): READY
   [ok]      the Query Engine (RediSearch) is available
   [ok]      no driver table's rows can be under user:
   [ok]      public.users doesn't exist yet
-  [warn]    1 key (such as user:alice) doesn't end in an integer row id, and stays out of the table
-  [ok]      500 keys end in a row id (up to 500)
-  [missing] 500 HASHes have no __rowid field
-            fix: adopt writes each one's key suffix into it (HSET <key> __rowid <suffix>)
+  [ok]      every HASH under user: is a row (501)
   [warn]    active is VARCHAR in place (BOOLEAN when copied): the driver stores booleans as 0 and 1
   [warn]    created_at is VARCHAR in place (TIMESTAMP(6) WITH TIME ZONE when copied): the driver stores dates and times as numbers
   [missing] a search index in the driver's format on user:
-            fix: adopt creates idx:public:users:adopted, with FILTER "exists(@__rowid)"; it takes memory of its own (the application's idx:users stays as it is, and isn't used)
+            fix: adopt creates idx:public:users:adopted, over the HASHes that are rows, including those the application writes later; it takes memory of its own (the application's idx:users stays as it is, and isn't used)
   [missing] the table's metadata (adbc:{meta}:table:public:users)
             fix: adopt writes it
-  [warn]    HASHes the application writes later have no __rowid, so SQL doesn't see them until adopt -refresh runs
-  [warn]    a later write by the application of a value a numeric column can't hold (text, an empty value, NaN) takes that HASH out of the index, and so out of the table
-  [warn]    the __rowid field shows up in the application's own HGETALL and FT.SEARCH results
-  [warn]    SQL UPDATE and DELETE change the application's HASHes; INSERT, TRUNCATE, ADD COLUMN and a re-keying RENAME are refused, and DROP TABLE drops only the index and the metadata
+  [warn]    a write by the application of a value a numeric column can't hold (text, an empty value, NaN) takes that HASH out of the index, and so out of the table
+  [warn]    SQL UPDATE and DELETE change the application's HASHes (an UPDATE that would leave a HASH without fields is refused); INSERT, TRUNCATE, ADD COLUMN and a re-keying RENAME are refused, and DROP TABLE drops only the index and the metadata
   run: redis-adbc adopt -prefix user: -table users
 ```
 
@@ -693,14 +687,13 @@ ready). What the checklists look for:
 - **In place:** the Query Engine, and not Redis Flex; that no driver
   table's rows can be under the prefix (and that the prefix isn't the
   driver's own `adbc:` or `pg_temp_`); the table, view and index names;
-  which keys end in a row id (an integer from 1 to 2^53; the others stay
-  out of the table, and may not have a `__rowid` field); `__rowid` fields
-  that aren't the key's suffix (a blocker), or that are missing (adopt
-  writes them); columns that are weaker in place than in a copy; `-type`
-  overrides that some values aren't stored as; what adopt creates; and the
-  hazards below. For a table that was adopted already, it checks the
-  index's indexing failures and the HASHes written since without a
-  `__rowid` (`adopt -refresh` adds them).
+  which HASHes would be rows: those with no `:` after the prefix, whatever
+  their keys (`user:42`, `user:alice`), while keys such as `user:42:prefs`
+  are another collection's, and stay out of the table; columns that are
+  weaker in place than in a copy; `-type` overrides that some values
+  aren't stored as; what adopt creates; and the hazards below. For a table
+  that was adopted already, it checks the index's indexing failures, and
+  whether redis-adbc v0.0.11 adopted it (see below).
 
 **How columns are guessed.** Every field becomes a column (`-rename
 field=column` renames one), plus, in a copy, `_key` with each HASH's key
@@ -768,32 +761,35 @@ build/redis-adbc adopt -prefix user: -table users -apply
 ```
 
 ```text
-Adopted: public.users now reads the HASHes under user: (index idx:public:users:adopted; wrote __rowid into 500 HASHes).
+Adopted: public.users now reads the HASHes under user:, and those the application writes later (index idx:public:users:adopted).
 ```
 
 - **What it does,** in order:
   1. Reserve the key prefix and the index name `idx:<schema>:<table>:adopted`
      (no driver table's index can have that name). The transaction checks
      again that no driver table's prefix overlaps the prefix.
-  2. Create the index: the driver's format (`__rowid NUMERIC SORTABLE`, and
-     each column as a table's), over the existing keys, with `FILTER
-     "exists(@__rowid)"` so that it only holds HASHes that are rows. The
-     fields that would set a document's language, score or payload are
-     renamed to ones no application uses (`__adbc_language`, …).
-  3. Write `__rowid` (the key's suffix) into each HASH that has none. A
-     one-key Lua script does it only while the key exists, so a HASH that
-     the application deletes meanwhile isn't made again.
-  4. Wait until the index has indexed every HASH. If it couldn't index one
+  2. Create the index: the driver's format (each column as a table's), over
+     the existing keys, with a `FILTER` on `@__key` so that it only holds
+     the HASHes that are rows (no `:` after the prefix). The fields that
+     would set a document's language, score or payload are renamed to ones
+     no application uses (`__adbc_language`, …).
+  3. Wait until the index has indexed every HASH. If it couldn't index one
      (a value written meanwhile that a NUMERIC column can't hold), adopt
-     drops the index (without `DD`) and gives the names back. The
-     `__rowid` fields it wrote stay, and it says so.
-  5. Write the table's metadata, marked `adopted`.
-  6. Write `__rowid` into the HASHes the application added meanwhile,
-     when their values fit the columns.
+     drops the index (without `DD`) and gives the names back.
+  4. Write the table's metadata, marked `adopted`.
+
+  Adopt writes nothing into the HASHes. A HASH the application writes
+  later is a row as soon as the index has it.
 
   An adopt that stopped half-way (the process was killed, say) left a
   record in `adbc:{meta}:adopting`. Running it again with the same `-table`
-  finishes it.
+  finishes it. Adopting HASHes that are an adopted table already does
+  nothing.
+- **Rows** are identified by their keys, which the system column `__key`
+  holds: like `__rowid` in other tables, `SELECT *` leaves it out, but
+  `SELECT __key` reads it, and `WHERE __key = 'user:42'` reads that HASH
+  directly. Without `ORDER BY`, rows come in the index's order (there is
+  no insertion order).
 - **Columns.** Every field is a column, as in a copy, but in place a column
   is only `BIGINT`, `NUMERIC(38, s)` or `DOUBLE PRECISION` if every HASH
   that has the field holds such a number. The driver reads the stored
@@ -812,16 +808,14 @@ Adopted: public.users now reads the HASHes under user: (index idx:public:users:a
   application no longer writes, or never writes with a string the index
   doesn't hold exactly.
 - **What an adopted table refuses.** Its keys are the application's, so
-  the driver doesn't hand out row ids among them, move them, or delete them
-  wholesale:
+  the driver doesn't make new ones, move them, or delete them wholesale:
   - `INSERT` (and `MERGE … INSERT` and bulk ingest), `TRUNCATE`,
     `ALTER TABLE … ADD COLUMN`, and `RENAME TO` with
     `adbc.redis.rename_rekey` fail with `… isn't supported on
     "public"."users", whose rows are HASHes adopted in place (redis-adbc
     adopt) under "user:"`.
   - `DROP TABLE` drops the adopted index (without `DD`) and the metadata.
-    The HASHes stay, with their `__rowid`. Adopting them again finds those
-    already in place.
+    The HASHes stay as they are.
   - `DROP COLUMN` forgets the column. The field stays in the HASHes.
   - No new table may have its rows under an adopted prefix: a schema named
     `user` would put a table's rows under `user:`. `CREATE TABLE` there
@@ -829,19 +823,27 @@ Adopted: public.users now reads the HASHes under user: (index idx:public:users:a
   - `SELECT`, `UPDATE`, `DELETE`, views, joins and `ALTER TABLE … RENAME`
     work as on any table. `UPDATE` and `DELETE` change the application's
     HASHes.
+  - An `UPDATE` that would set every field of a HASH to NULL fails with
+    `UPDATE would leave the HASH user:42 of "public"."users" without
+    fields, and Redis deletes a HASH without fields (and so the row) …`,
+    before it changes anything.
 - **Hazards,** which `check` and `adopt` list too:
-  - HASHes the application writes later have no `__rowid`, so SQL doesn't
-    see them (the index's filter keeps them out of counts too) until
-    `adopt -refresh -apply` writes it. `-refresh` without `-apply` counts
-    them.
   - An application write of a value that a numeric column can't hold (text,
     an empty value, `NaN`) takes that HASH out of the index, and so out of
     the table. `FT.INFO` counts it as an indexing failure, and `check`
     reports it.
-  - `__rowid` shows up in the application's own `HGETALL` and `FT.SEARCH`
-    results.
-  - An `UPDATE` racing the application's `DELETE` of the same HASH can
-    write it again, with only the updated fields.
+
+**Tables adopted by redis-adbc v0.0.11.** v0.0.11 identified an adopted
+table's rows by a `__rowid` field, which it wrote into each HASH whose key
+ended in an integer, and its `adopt -refresh` wrote it into HASHes added
+later. The driver now refuses such a table:
+
+```text
+"public"."users" was adopted by redis-adbc v0.0.11, whose adopted tables this driver no longer reads: DROP TABLE "public"."users" (its HASHes stay) and run redis-adbc adopt again
+```
+
+`DROP TABLE` still works, and `check` and `adopt` say the same. The
+`__rowid` fields stay in the HASHes; they aren't columns, and do no harm.
 
 **ACL users.** `check` needs read access to the collection's keys
 (`%R~user:*`) and to the driver's metadata (`%R~adbc:*`), and these
@@ -859,16 +861,21 @@ refuses `FT.INFO` on them), and says how many. Without `MEMORY USAGE`, it
 warns that it can't estimate the memory a copy needs, and goes on.
 
 `copy` and `adopt` need the driver's own rules (see "ACL users" under
-[Server requirements](#server-requirements)). `copy` also needs `+scan`
-and read access to the collection's keys (`%R~user:*`). `adopt` needs
-write access to them (`~user:*`), and:
+[Server requirements](#server-requirements)). `copy` and `adopt` also need
+`+scan` and read access to the collection's keys (`%R~user:*`):
 
 ```text
-+scan +eval +evalsha +script|load
++scan
 ```
 
 A user that only queries an adopted table needs the driver's read-only
-rules, with read access to the collection's keys (`%R~user:*`).
+rules, with read access to the collection's keys (`%R~user:*`). One that
+updates or deletes its rows needs the driver's rules, write access to the
+keys (`~user:*`), and, for the script that `UPDATE` runs on each HASH:
+
+```text
++hlen +eval +evalsha +script|load
+```
 
 ## Architecture: hybrid index-row layout
 

@@ -34,7 +34,6 @@ func runAdopt(ctx context.Context, args []string, stdout, stderr io.Writer) erro
 	table := fs.String("table", "", "the table's name (default: made from the prefix)")
 	index := fs.String("index-columns", "", "comma-separated `columns` to index (default: every one that can be)")
 	trust := fs.Bool("trust-strings", false, "trust the string values to stay as they are now (see the README)")
-	refresh := fs.Bool("refresh", false, "write __rowid into the HASHes the application added to an adopted table since")
 	apply := fs.Bool("apply", false, "do it; without -apply, adopt only checks and prints what it would do")
 	asJSON := fs.Bool("json", false, "write the result as JSON")
 	if err := parseFlags(fs, args); err != nil {
@@ -44,7 +43,7 @@ func runAdopt(ctx context.Context, args []string, stdout, stderr io.Writer) erro
 		return errors.New("-prefix is required (redis-adbc check lists the collections)")
 	}
 	o := redis.HashAdoptOptions{Prefix: hf.prefix, Schema: *schema, Table: *table, Types: hf.types, Renames: hf.renames,
-		IndexColumns: indexColumns(*index), TrustStrings: *trust, Refresh: *refresh, Apply: *apply,
+		IndexColumns: indexColumns(*index), TrustStrings: *trust, Apply: *apply,
 		Progress: func(msg string) { fmt.Fprintln(stderr, msg) }}
 	res, err := redis.AdoptHashes(ctx, cf.options(), o)
 	if res != nil && *asJSON {
@@ -63,36 +62,25 @@ func runAdopt(ctx context.Context, args []string, stdout, stderr io.Writer) erro
 
 func printAdoption(w io.Writer, res *redis.HashAdoption) {
 	r := res.Report
-	if len(r.Checks) > 0 {
-		printReport(w, r)
-	} else {
+	if res.AlreadyAdopted {
 		fmt.Fprintf(w, "Collection %s on %s: the adopted table %s\n", r.Prefix, serverLine(r), res.Table)
+		printChecks(w, r.Checks)
+	} else {
+		printReport(w, r)
 	}
 	ready := len(r.Checks) == 0 || r.Checks[0].Ready
 	switch {
-	case res.Applied && res.Pending > 0 && len(r.Checks) == 0:
-		fmt.Fprintf(w, "\nWrote __rowid into %d %s, which SQL now reads.\n", res.RowIDsWritten, plural(res.RowIDsWritten, "HASH", "HASHes"))
-	case res.Applied && len(r.Checks) == 0:
-		fmt.Fprintln(w, "\nEvery HASH with a row id suffix was in the table already.")
 	case res.Applied:
-		fmt.Fprintf(w, "\nAdopted: %s now reads the HASHes under %s (index %s; wrote __rowid into %d %s).\n",
-			res.Table, r.Prefix, res.Index, res.RowIDsWritten, plural(res.RowIDsWritten, "HASH", "HASHes"))
+		fmt.Fprintf(w, "\nAdopted: %s now reads the HASHes under %s, and those the application writes later (index %s).\n",
+			res.Table, r.Prefix, res.Index)
 	case !ready:
 		fmt.Fprintln(w, "\nNothing was changed: fix the blockers first.")
-		return
+	case res.AlreadyAdopted:
+		fmt.Fprintf(w, "\nNothing to do: %s reads the HASHes under %s.\n", res.Table, r.Prefix)
 	default:
-		if len(r.Checks) == 0 {
-			fmt.Fprintf(w, "\n%d %s no __rowid yet.\n", res.Pending, plural(res.Pending, "HASH has", "HASHes have"))
-		}
 		fmt.Fprintln(w, "\nNothing was changed. With -apply, adopt would:")
 		for i, s := range res.Steps {
 			fmt.Fprintf(w, "  %d. %s\n", i+1, s)
 		}
-	}
-	if res.Left > 0 {
-		fmt.Fprintf(w, "Left out %d %s whose values don't fit their columns, such as %s.\n", res.Left, plural(res.Left, "HASH", "HASHes"), res.LeftExample)
-	}
-	if len(res.UnknownFields) > 0 {
-		fmt.Fprintf(w, "Fields that aren't columns: %s.\n", countList(res.UnknownFields, "HASH", "HASHes"))
 	}
 }

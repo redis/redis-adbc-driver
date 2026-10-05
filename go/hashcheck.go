@@ -239,13 +239,8 @@ func InspectHashes(ctx context.Context, options map[string]string, o HashInspect
 			return nil, err
 		}
 		r.Keys += int64(len(keys))
-		ids, err := c.rowIDs(ctx, keys)
-		if err != nil {
-			return nil, err
-		}
-		for i, k := range keys {
-			v := ids[i]
-			stats.add(k, o.Prefix, deref(v), v != nil)
+		for _, k := range keys {
+			stats.add(k, o.Prefix)
 		}
 		for _, k := range keys {
 			if (sample < 0 || len(sampled) < sample) && !inSample[k] {
@@ -786,13 +781,6 @@ func shellQuote(s string) string {
 		return s
 	}
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
-}
-
-func deref(s *string) string {
-	if s == nil {
-		return ""
-	}
-	return *s
 }
 
 // adoptCommand is the redis-adbc adopt command line.

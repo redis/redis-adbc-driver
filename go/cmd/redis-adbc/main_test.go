@@ -248,7 +248,7 @@ func TestAdoptCommand(t *testing.T) {
 	}
 	for _, want := range []string{
 		"SQL, adopted in place (redis-adbc adopt): READY",
-		"[missing] 5 HASHes have no __rowid field",
+		"[ok]      every HASH under it:cli:ad: is a row (5)",
 		"run: redis-adbc adopt -prefix it:cli:ad: -table it_cli_ad -apply",
 		"Nothing was changed. With -apply, adopt would:",
 		"FT.CREATE idx:public:it_cli_ad:adopted ON HASH PREFIX 1 it:cli:ad:",
@@ -261,22 +261,22 @@ func TestAdoptCommand(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := "Adopted: public.it_cli_ad now reads the HASHes under it:cli:ad: (index idx:public:it_cli_ad:adopted; wrote __rowid into 5 HASHes)."; !strings.Contains(out, want) {
+	if want := "Adopted: public.it_cli_ad now reads the HASHes under it:cli:ad:, and those the application writes later (index idx:public:it_cli_ad:adopted)."; !strings.Contains(out, want) {
 		t.Errorf("adopt -apply output lacks %q:\n%s", want, out)
 	}
 	if n := sqlInt(t, uri, "SELECT COUNT(*) FROM "+table); n != 5 {
 		t.Errorf("%d rows", n)
 	}
-	// A HASH the application adds, then -refresh.
+	// A HASH the application adds is a row at once; adopt has nothing to do.
 	if err := c.HSet(ctx, prefix+"6", "name", "u6", "age", 26, "active", "true", "since", "2024-02-06").Err(); err != nil {
 		t.Fatal(err)
 	}
-	out, _, err = runCmd(t, "adopt", "-uri", uri, "-prefix", prefix, "-refresh", "-apply")
-	if err != nil || !strings.Contains(out, "Wrote __rowid into 1 HASH, which SQL now reads.") {
-		t.Errorf("adopt -refresh -apply: %v\n%s", err, out)
-	}
 	if n := sqlInt(t, uri, "SELECT COUNT(*) FROM "+table); n != 6 {
-		t.Errorf("%d rows after -refresh", n)
+		t.Errorf("%d rows after the application's HSET", n)
+	}
+	out, _, err = runCmd(t, "adopt", "-uri", uri, "-prefix", prefix)
+	if err != nil || !strings.Contains(out, "Nothing to do: public.it_cli_ad reads the HASHes under it:cli:ad:.") {
+		t.Errorf("adopt again: %v\n%s", err, out)
 	}
 	sqlInt(t, uri, "DROP TABLE "+table)
 	if n, err := c.Exists(ctx, prefix+"1").Result(); err != nil || n != 1 {

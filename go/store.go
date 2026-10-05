@@ -85,6 +85,9 @@ const (
 	rowIDField    = "__rowid"
 	metaPrefix    = "adbc:{meta}:"
 	schemasKey    = metaPrefix + "schemas"
+	// keyField is the system column that holds a row's key in a table whose
+	// rows are identified by their keys (tableMeta.KeyRows, keyrows.go).
+	keyField = "__key"
 
 	// maxIndexed caps the number of indexed (SORTABLE) attributes per table;
 	// further columns are stored but not indexed.
@@ -218,6 +221,12 @@ type tableMeta struct {
 	// The driver doesn't own their keys, so it never deletes rows wholesale
 	// or moves them: see refuseAdopted.
 	Adopted bool `json:"adopted,omitempty"`
+	// KeyRows is set for a table whose rows are identified by their keys,
+	// the system column __key, rather than by __rowid: an adopted table's
+	// HASHes have whatever keys the application gave them, and no __rowid
+	// field (see inplace.go). Its rows are the HASHes under the prefix whose
+	// key has no ':' after it (isRowKey).
+	KeyRows bool `json:"key_rows,omitempty"`
 	// readAt is when the metadata was read (or last found not to be moving),
 	// for the checks in rekey.go.
 	readAt time.Time
@@ -255,7 +264,11 @@ func resolveColumn(cols []columnMeta, name string) (int, bool) {
 }
 
 func (t *tableMeta) column(name string) (columnMeta, bool) {
-	if !t.isMem && strings.EqualFold(name, rowIDField) {
+	switch {
+	case t.isMem:
+	case t.KeyRows && strings.EqualFold(name, keyField):
+		return columnMeta{Name: keyField, Type: typeString}, true
+	case !t.KeyRows && strings.EqualFold(name, rowIDField):
 		return columnMeta{Name: rowIDField, Type: typeInt64, Indexed: true}, true
 	}
 	if i, ok := t.resolve(name); ok {
@@ -266,11 +279,21 @@ func (t *tableMeta) column(name string) (columnMeta, bool) {
 
 func (t *tableMeta) types() map[string]ColType {
 	m := make(map[string]ColType, len(t.Columns)+1)
-	m[rowIDField] = typeInt64
+	if t.KeyRows {
+		m[keyField] = typeString
+	} else {
+		m[rowIDField] = typeInt64
+	}
 	for _, c := range t.Columns {
 		m[c.Name] = c.Type
 	}
 	return m
+}
+
+// isSystemColumn reports whether a column name is a system column of a
+// table: __rowid, or __key for a table with KeyRows.
+func isSystemColumn(name string) bool {
+	return strings.EqualFold(name, rowIDField) || strings.EqualFold(name, keyField)
 }
 
 func escapeKeyPart(s string) string {
