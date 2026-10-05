@@ -137,7 +137,7 @@ func (c *connectionImpl) setTimeouts(ctx context.Context, t timeouts) error {
 
 func (c *connectionImpl) Close(ctx context.Context) error {
 	// Before the client goes: closing a stream deletes its cursor.
-	c.closeStreams()
+	c.streams.closeAll(errorf(adbc.StatusInvalidState, "the connection was closed while its result was being read"))
 	if c.store != nil && c.store.client != nil {
 		// Best effort: whatever can't be dropped now is swept by a later
 		// connection (see temp.go).
@@ -185,7 +185,10 @@ func (c *connectionImpl) NewStatement(ctx context.Context) (adbc.StatementWithCo
 		ingest:            driverbase.NewBulkIngestOptions(),
 		stream:            c.stream,
 	}
-	return driverbase.NewStatement(st), nil
+	// Not driverbase.NewStatement(st): its wrapper embeds the StatementImpl
+	// interface, which hides Cancel from AdbcStatementCancel (it looks for
+	// driverbase.StatementCanceler).
+	return st, nil
 }
 
 func (c *connectionImpl) ReadPartition(ctx context.Context, serializedPartition []byte) (array.RecordReader, error) {
