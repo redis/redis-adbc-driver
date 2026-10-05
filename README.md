@@ -266,9 +266,9 @@ arm64). The Linux libraries run on every Linux that
 RHEL 8 and 9 (and compatible distributions), Ubuntu 20.04 and later, and
 Amazon Linux 2023. To use one instead of building, put it at the path
 `make build` would create (`go/build/libadbc_driver_redis.dylib` or `.so`).
-Releases after v0.0.9 also have the [`redis-arrow`](#arrow-ipc-files-redis-arrow)
-command for the same platforms, and releases after v0.0.10 the
-[`redis-adbc`](#existing-hash-collections-redis-adbc) command.
+Releases after v0.0.10 also have the
+[`redis-adbc`](#existing-hash-collections-redis-adbc) command for the same
+platforms.
 
 **1. Start Redis 8.6 and build the driver**
 
@@ -533,70 +533,6 @@ docker exec -it redis-adbc-test redis-cli MONITOR
 
 Stop Redis with `docker compose down`.
 
-## Arrow IPC files: `redis-arrow`
-
-`redis-arrow` writes a query's result as an
-[Arrow IPC](https://arrow.apache.org/docs/format/Columnar.html#serialization-and-interprocess-communication-ipc)
-file or stream, and bulk-ingests an IPC file or stream into a table. It links
-the driver as a Go library, so it needs neither cgo nor the shared library.
-Build it from `go`:
-
-```bash
-make cli
-```
-
-Or download `redis-arrow-<version>-<os>-<arch>.tar.gz` from a
-[release](https://github.com/alberttwong/redis-adbc-driver/releases) after
-v0.0.9. The Linux binaries are statically linked, and each release runs
-them on the same distributions as the driver. On macOS, a binary from a
-tarball downloaded with a browser is quarantined, and macOS refuses to run
-it; download with `gh release download` or `curl` instead, or clear the flag
-with `xattr -d com.apple.quarantine redis-arrow`.
-
-**Export.** `-o` names the output file. The result is in the IPC file format
-(`.arrow`, also read as Feather v2), except for `.arrows` files and stdout,
-which get the stream format. `-format file|stream` overrides this, and
-`-compression lz4|zstd` compresses the batches.
-
-```bash
-build/redis-arrow export -o sales.arrow "SELECT * FROM sales WHERE status = 'shipped'"
-```
-
-```bash
-build/redis-arrow export "SELECT country, COUNT(*) AS orders FROM sales GROUP BY country" | python -c "import sys, pyarrow.ipc; print(pyarrow.ipc.open_stream(sys.stdin.buffer).read_all())"
-```
-
-**Import.** The input is a path, or stdin when none is given. File and stream
-are told apart by the file format's magic bytes. `-mode` is `create` (the
-default), `append`, `replace` or `create_append`, as in ADBC bulk ingest.
-`-schema` and `-index-columns` (`adbc.redis.ingest.index_columns`) are
-optional.
-
-```bash
-build/redis-arrow import -table sales_copy -mode replace sales.arrow
-```
-
-```bash
-build/redis-arrow export "SELECT * FROM sales" | build/redis-arrow import -table sales_copy -mode replace
-```
-
-- **Connecting:** `-uri`, else `$REDIS_URI`, else `redis://localhost:6379/0`.
-  Set a password in `$REDIS_URI` rather than in `-uri`, where other users
-  of the machine can see it in the process list. `-option key=value`
-  (repeatable) sets a database option, such as
-  `-option adbc.redis.read_timeout=30m`.
-- **Flags go before the query or the path.**
-- **Statements without a result set** (DDL, or DML without `RETURNING`)
-  still run, but `export` then fails and writes nothing. A failed export
-  leaves no partial file: it writes a temporary file next to the target and
-  renames it at the end.
-- **Memory:** a query that [streams](#streamed-results), such as
-  `SELECT * FROM t` or one that filters and sorts in the index, is exported
-  batch by batch. Others are built whole before the first batch is
-  written, so exporting a large result needs memory for all of it.
-  Import reads a stream batch by batch, but reads a file on stdin into
-  memory first, since the file format's footer is at its end.
-
 ## Existing HASH collections: `redis-adbc`
 
 The driver only sees tables it created. HASHes that an application wrote
@@ -625,12 +561,19 @@ make adbc-cli
 ```
 
 Or download `redis-adbc-<version>-<os>-<arch>.tar.gz` from a
-[release](https://github.com/alberttwong/redis-adbc-driver/releases)
-after v0.0.10 (the same platforms and macOS quarantine note as
-[`redis-arrow`](#arrow-ipc-files-redis-arrow)). Like `redis-arrow`, it links
-the driver as a Go library, and connects with `-uri` (else `$REDIS_URI`,
-else `redis://localhost:6379/0`) and `-option key=value`. Flags go before
-anything else.
+[release](https://github.com/alberttwong/redis-adbc-driver/releases) after
+v0.0.10. The Linux binaries are statically linked, and each release runs
+them on the same distributions as the driver. On macOS, a binary from a
+tarball downloaded with a browser is quarantined, and macOS refuses to run
+it; download with `gh release download` or `curl` instead, or clear the flag
+with `xattr -d com.apple.quarantine redis-adbc`.
+
+`redis-adbc` links the driver as a Go library, so it needs neither cgo nor
+the shared library. It connects with `-uri`, else `$REDIS_URI`, else
+`redis://localhost:6379/0`. Set a password in `$REDIS_URI` rather than in
+`-uri`, where other users of the machine can see it in the process list.
+`-option key=value` (repeatable) sets a database option, such as
+`-option adbc.redis.read_timeout=30m`. Flags go before anything else.
 
 **Check.** Without `-prefix`, `check` lists the collections it finds: the
 prefixes (up to the last `:`) of HASH keys in a sample of 10,000 keys, the
@@ -2887,8 +2830,8 @@ are skipped when `REDIS_URI` is unset (from `go`):
 REDIS_URI=redis://localhost:6379/0 go test -run TestSQL ./...
 ```
 
-To run every test, pass `-p 1` (as `make test` does), so the driver's and
-`redis-arrow`'s packages don't test against the server at once. Any
+To run every test, pass `-p 1` (as `make test` does), so the driver's
+package and its commands' packages don't test against the server at once. Any
 connection that opens rolls back an abandoned move, including the ones the
 driver's rename tests set up and then expect to find.
 
