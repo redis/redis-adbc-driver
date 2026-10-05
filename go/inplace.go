@@ -420,8 +420,8 @@ func (c *hashConn) checkAdopted(ctx context.Context, cl Checklist, k *keyStats, 
 	cl.add(CheckOK, fmt.Sprintf("these HASHes are the adopted table %s", displaySchema(m.Schema)+"."+m.Name), "")
 	if reply, err := c.st.searchDo(ctx, m.index(), "FT.INFO", m.index()).Result(); err == nil {
 		if info := indexInfoOf(reply); info.failures > 0 {
-			cl.add(CheckWarn, fmt.Sprintf("its index %s couldn't index %s (such as %s: %s), which the table leaves out",
-				m.index(), plural(info.failures, "HASH", "HASHes"), info.lastErrorKey, info.lastError),
+			cl.add(CheckWarn, fmt.Sprintf("its index %s has had %s (the last: %s: %s); a HASH it couldn't index is left out of the table",
+				m.index(), plural(info.failures, "indexing failure"), info.lastErrorKey, info.lastError),
 				"fix those values, and write them again")
 		}
 	}

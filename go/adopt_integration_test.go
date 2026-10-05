@@ -221,7 +221,10 @@ func TestAdoptIndexFailure(t *testing.T) {
 		}
 	}
 	_, err := AdoptHashes(f.h.ctx, f.opts, o)
-	if err == nil || !strings.Contains(err.Error(), "couldn't index 1 HASH (such as it:ad:fail:2") {
+	// One HASH, but it may fail twice: when it is written, and when the
+	// index's scan of the existing keys reaches it.
+	if err == nil || !strings.Contains(err.Error(), "indexing failure") ||
+		!strings.Contains(err.Error(), "(the last: it:ad:fail:2: Invalid numeric value: 'two')") {
 		t.Fatalf("got %v", err)
 	}
 	st := &store{client: f.raw}
