@@ -53,8 +53,10 @@ import (
 //
 // Releasing the stream deletes its cursor, as does closing the connection
 // (after which reading the stream fails). So does cancelling the context
-// given to ExecuteQuery, which the stream reads with. Redis deletes a cursor
-// that isn't read for its idle time (300 seconds by default).
+// given to ExecuteQuery, which the stream reads with, or the statement
+// (AdbcStatementCancel), after which reading it fails with CANCELLED. Redis
+// deletes a cursor that isn't read for its idle time (300 seconds by
+// default).
 
 const defaultStreamBatchRows = 65536
 
@@ -99,7 +101,9 @@ type streamOpts struct {
 	cols      []resultColumn
 	batchRows int
 	mem       memory.Allocator
-	conn      *connectionImpl
+	// owners are the open streams of the connection and the statement,
+	// which the stream joins.
+	owners []*streams
 }
 
 // streamable reports whether a query's plan allows streaming its rows,
@@ -181,25 +185,27 @@ func (e *executor) streamSelect(ctx context.Context, plan *selectPlan, params []
 		r.closeLocked()
 		return execResult{isQuery: true, cols: cols, rows: rows, affected: int64(len(rows))}, nil
 	}
-	r.conn = so.conn
-	r.conn.addStream(r)
+	r.owners = so.owners
+	for _, o := range r.owners {
+		o.add(r)
+	}
 	return execResult{isQuery: true, cols: cols, stream: r, affected: -1}, nil
 }
 
 // streamReader is a streamed result (see the top of this file). Next and
 // Release may be called on another goroutine than ExecuteQuery's, but not
-// at the same time as each other.
+// at the same time as each other. closeWith (Connection.Close, statement
+// Cancel) may be called on any goroutine at any time, while Next runs too.
 type streamReader struct {
 	refs atomic.Int64
 
-	// mu guards everything below. Connection.Close takes it to close the
-	// stream.
+	// mu guards everything below. closeWith takes it to close the stream.
 	mu     sync.Mutex
 	ctx    context.Context
 	cancel context.CancelCauseFunc
 	exec   *executor
 	cache  *execCache // the statement's, for checkReads
-	conn   *connectionImpl
+	owners []*streams
 	it     *scanIter
 	items  []planItem
 	env    *evalEnv
@@ -373,8 +379,8 @@ func (r *streamReader) closeLocked() {
 	r.it.close(r.ctx)
 	r.pending = nil
 	r.cancel(nil)
-	if r.conn != nil {
-		r.conn.removeStream(r)
+	for _, o := range r.owners {
+		o.remove(r)
 	}
 }
 
@@ -390,38 +396,40 @@ func (r *streamReader) closeWith(err error) {
 	}
 }
 
-// streams are a connection's open streams, closed with it.
+// streams are the open streams of a connection, closed with it, or of a
+// statement, closed when it is cancelled.
 type streams struct {
 	mu   sync.Mutex
 	open map[*streamReader]bool
 }
 
-func (c *connectionImpl) addStream(r *streamReader) {
-	c.streams.mu.Lock()
-	defer c.streams.mu.Unlock()
-	if c.streams.open == nil {
-		c.streams.open = map[*streamReader]bool{}
+func (s *streams) add(r *streamReader) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.open == nil {
+		s.open = map[*streamReader]bool{}
 	}
-	c.streams.open[r] = true
+	s.open[r] = true
 }
 
-func (c *connectionImpl) removeStream(r *streamReader) {
-	c.streams.mu.Lock()
-	defer c.streams.mu.Unlock()
-	delete(c.streams.open, r)
+func (s *streams) remove(r *streamReader) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.open, r)
 }
 
-// closeStreams closes the connection's open streams, deleting their
-// cursors. A stream's lock is taken after the connection's is released, as
-// a closing stream takes them in the other order.
-func (c *connectionImpl) closeStreams() {
-	c.streams.mu.Lock()
-	open := make([]*streamReader, 0, len(c.streams.open))
-	for r := range c.streams.open {
+// closeAll closes the open streams with err, deleting their cursors, and
+// returns how many there were. A stream's lock is taken after s's is
+// released, as a closing stream takes them in the other order.
+func (s *streams) closeAll(err error) int {
+	s.mu.Lock()
+	open := make([]*streamReader, 0, len(s.open))
+	for r := range s.open {
 		open = append(open, r)
 	}
-	c.streams.mu.Unlock()
+	s.mu.Unlock()
 	for _, r := range open {
-		r.closeWith(errorf(adbc.StatusInvalidState, "the connection was closed while its result was being read"))
+		r.closeWith(err)
 	}
+	return len(open)
 }

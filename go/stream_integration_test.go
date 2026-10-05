@@ -22,6 +22,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/adbc-drivers/driverbase-go/driverbase"
 	"github.com/apache/arrow-adbc/go/adbc"
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/array"
@@ -78,6 +79,14 @@ func (h *sqlHarness) setupStreamTable(table string, n int) {
 func (h *sqlHarness) openStream(ctx context.Context, conn adbc.ConnectionWithContext, sql string, rec arrow.RecordBatch,
 	opts map[string]string) (array.RecordReader, int64) {
 	h.t.Helper()
+	_, rdr, n := h.openStmtStream(ctx, conn, sql, rec, opts)
+	return rdr, n
+}
+
+// openStmtStream is openStream, and returns the statement too.
+func (h *sqlHarness) openStmtStream(ctx context.Context, conn adbc.ConnectionWithContext, sql string, rec arrow.RecordBatch,
+	opts map[string]string) (adbc.StatementWithContext, array.RecordReader, int64) {
+	h.t.Helper()
 	st, err := conn.NewStatement(ctx)
 	if err != nil {
 		h.t.Fatal(err)
@@ -100,7 +109,23 @@ func (h *sqlHarness) openStream(ctx context.Context, conn adbc.ConnectionWithCon
 	if err != nil {
 		h.t.Fatalf("%s: %v", sql, err)
 	}
-	return rdr, n
+	return st, rdr, n
+}
+
+// canceler is the statement's Cancel, which AdbcStatementCancel looks for
+// the same way.
+func canceler(t *testing.T, st adbc.StatementWithContext) driverbase.StatementCanceler {
+	t.Helper()
+	c, ok := st.(driverbase.StatementCanceler)
+	if !ok {
+		t.Fatalf("%T has no Cancel", st)
+	}
+	return c
+}
+
+func isStatus(err error, code adbc.Status) bool {
+	var ae adbc.Error
+	return errors.As(err, &ae) && ae.Code == code
 }
 
 // readInts reads a result to the end: its first column, and the size of
@@ -248,6 +273,86 @@ func TestSQLStreamResults(t *testing.T) {
 		var ae adbc.Error
 		if rdr.Next() || !errors.As(rdr.Err(), &ae) || ae.Code != adbc.StatusInvalidState {
 			t.Errorf("after Close: err = %v, want InvalidState", rdr.Err())
+		}
+	})
+
+	t.Run("cancelling the statement ends the stream", func(t *testing.T) {
+		st, rdr, _ := h.openStmtStream(h.ctx, h.conn, "SELECT id FROM "+table, nil, small)
+		defer rdr.Release()
+		if !rdr.Next() {
+			t.Fatal(rdr.Err())
+		}
+		id := cursorOf(rdr)
+		c := canceler(t, st)
+		if err := c.Cancel(h.ctx); err != nil {
+			t.Fatal(err)
+		}
+		if id == 0 || h.delCursor(raw, table, id) {
+			t.Errorf("cursor %d was open after Cancel", id)
+		}
+		if rdr.Next() || !isStatus(rdr.Err(), adbc.StatusCancelled) {
+			t.Errorf("after Cancel: err = %v, want Cancelled", rdr.Err())
+		}
+		if err := c.Cancel(h.ctx); !isStatus(err, adbc.StatusInvalidState) {
+			t.Errorf("Cancel again: err = %v, want InvalidState", err)
+		}
+		// The statement runs again.
+		again, _, err := st.ExecuteQuery(h.ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer again.Release()
+		if ids, _, err := readInts(again); err != nil || len(ids) != streamRows {
+			t.Errorf("run again: %d ids, %v", len(ids), err)
+		}
+	})
+
+	t.Run("cancelling the statement while Next runs", func(t *testing.T) {
+		st, rdr, _ := h.openStmtStream(h.ctx, h.conn, "SELECT id FROM "+table, nil, small)
+		defer rdr.Release()
+		if !rdr.Next() {
+			t.Fatal(rdr.Err())
+		}
+		id := cursorOf(rdr)
+		read := make(chan error)
+		go func() {
+			_, _, err := readInts(rdr)
+			read <- err
+		}()
+		cerr := canceler(t, st).Cancel(h.ctx)
+		err := <-read
+		switch {
+		case cerr == nil:
+			if !isStatus(err, adbc.StatusCancelled) {
+				t.Errorf("after Cancel: err = %v, want Cancelled", err)
+			}
+		case isStatus(cerr, adbc.StatusInvalidState):
+			t.Log("the stream ended before Cancel")
+			if err != nil {
+				t.Errorf("read before Cancel: %v", err)
+			}
+		default:
+			t.Errorf("Cancel: %v", cerr)
+		}
+		if id == 0 || h.delCursor(raw, table, id) {
+			t.Errorf("cursor %d was open after Cancel", id)
+		}
+	})
+
+	t.Run("cancelling a statement with no stream", func(t *testing.T) {
+		// A whole result, and a stream released.
+		st, rdr, n := h.openStmtStream(h.ctx, h.conn, "SELECT id FROM "+table+" WHERE qty = 3", nil, nil)
+		rdr.Release()
+		if n == -1 {
+			t.Fatal("the result was streamed")
+		}
+		if err := canceler(t, st).Cancel(h.ctx); !isStatus(err, adbc.StatusInvalidState) {
+			t.Errorf("after a whole result: err = %v, want InvalidState", err)
+		}
+		st, rdr, _ = h.openStmtStream(h.ctx, h.conn, "SELECT id FROM "+table, nil, small)
+		rdr.Release()
+		if err := canceler(t, st).Cancel(h.ctx); !isStatus(err, adbc.StatusInvalidState) {
+			t.Errorf("after Release: err = %v, want InvalidState", err)
 		}
 	})
 

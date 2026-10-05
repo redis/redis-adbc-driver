@@ -1116,7 +1116,10 @@ table's size. Other results are built whole before `ExecuteQuery` returns.
 - **Cursors.** A stream keeps its `FT.AGGREGATE` cursor open until it is
   read to the end, released, or its connection is closed (reading it then
   fails). Cancelling the context passed to `ExecuteQuery` (in Go) also
-  deletes it. Redis limits cursors:
+  deletes it, as does cancelling the statement (`AdbcStatementCancel`;
+  `cursor.adbc_cancel()` in Python), from any thread: reading the stream
+  then fails with CANCELLED. A read under way first waits for the cursor
+  page it asked for. Redis limits cursors:
   - It deletes one that isn't read for `search-cursor-max-idle` (300
     seconds by default). Reading the stream then fails, with a message
     naming `adbc.redis.stream_results`.

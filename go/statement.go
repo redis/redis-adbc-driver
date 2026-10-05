@@ -46,11 +46,19 @@ type statementImpl struct {
 	// stream is adbc.redis.stream_results and stream_batch_rows, from the
 	// connection unless set here.
 	stream streamSettings
+	// streams are the statement's results being streamed, which Cancel
+	// closes.
+	streams streams
 
 	// Bound parameters (or ingest data).
 	params array.RecordReader
 	closed bool
 }
+
+var (
+	_ driverbase.StatementImpl     = (*statementImpl)(nil)
+	_ driverbase.StatementCanceler = (*statementImpl)(nil)
+)
 
 func (s *statementImpl) Base() *driverbase.StatementImplBase { return &s.StatementImplBase }
 
@@ -111,6 +119,18 @@ func (s *statementImpl) clearParams() {
 		s.params.Release()
 		s.params = nil
 	}
+}
+
+// Cancel ends the statement's streamed results (see stream.go), deleting
+// their cursors: reading one then fails with CANCELLED. A Next under way
+// returns once the cursor page it reads arrives. AdbcStatementCancel calls
+// Cancel, from any thread, after it cancels a query still executing; so
+// Cancel touches nothing but s.streams.
+func (s *statementImpl) Cancel(ctx context.Context) error {
+	if s.streams.closeAll(errorf(adbc.StatusCancelled, "the query was cancelled")) == 0 {
+		return errorf(adbc.StatusInvalidState, "no query or result to cancel")
+	}
+	return nil
 }
 
 func (s *statementImpl) Close(ctx context.Context) error {
@@ -315,7 +335,7 @@ func (s *statementImpl) run(ctx context.Context, stream bool) (execResult, error
 	defer exec.sess.endScript()
 	var so *streamOpts
 	if stream && !s.stream.off && len(parsed) == 1 && len(paramRows) <= 1 {
-		so = &streamOpts{batchRows: s.stream.rows(), mem: s.conn.Alloc, conn: s.conn}
+		so = &streamOpts{batchRows: s.stream.rows(), mem: s.conn.Alloc, owners: []*streams{&s.conn.streams, &s.streams}}
 	}
 	var last execResult
 	for _, ps := range parsed {
