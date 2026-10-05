@@ -168,8 +168,9 @@ func errTooManySeriesRows() error {
 }
 
 // generateSeries returns the values of GENERATE_SERIES(args) for column type
-// t (from seriesType), in the session time zone z.
-func generateSeries(t ColType, args []Value, z tzZone) ([]Value, error) {
+// t (from seriesType), in the session time zone z. It stops once ctx is
+// cancelled (see cancel.go).
+func generateSeries(ctx context.Context, t ColType, args []Value, z tzZone) ([]Value, error) {
 	for _, a := range args {
 		if a.Null {
 			return nil, nil
@@ -180,7 +181,7 @@ func generateSeries(t ColType, args []Value, z tzZone) ([]Value, error) {
 		step = args[2]
 	}
 	if t.Kind == KindTimestamp {
-		return timestampSeries(t, args[0], args[1], step, z)
+		return timestampSeries(ctx, t, args[0], args[1], step, z)
 	}
 	vals := make([]Value, 3)
 	for i, a := range []Value{args[0], args[1], step} {
@@ -207,6 +208,11 @@ func generateSeries(t ColType, args []Value, z tzZone) ([]Value, error) {
 		}
 		out := make([]Value, n.Int64()+1)
 		for i := range out {
+			if i%cancelEvery == 0 {
+				if err := cancelled(ctx); err != nil {
+					return nil, err
+				}
+			}
 			out[i] = intValue(t, start.I+int64(i)*step.I)
 		}
 		return out, nil
@@ -225,6 +231,11 @@ func generateSeries(t ColType, args []Value, z tzZone) ([]Value, error) {
 		out := make([]Value, n.Int64()+1)
 		cur := new(big.Int).Set(start.D)
 		for i := range out {
+			if i%cancelEvery == 0 {
+				if err := cancelled(ctx); err != nil {
+					return nil, err
+				}
+			}
 			out[i] = decimalValue(new(big.Int).Set(cur), t.Precision, t.Scale)
 			cur.Add(cur, step.D)
 		}
@@ -254,6 +265,11 @@ func generateSeries(t ColType, args []Value, z tzZone) ([]Value, error) {
 	}
 	out := make([]Value, 0, int(n))
 	for i := 0; i < int(n); i++ {
+		if i%cancelEvery == 0 {
+			if err := cancelled(ctx); err != nil {
+				return nil, err
+			}
+		}
 		v := a + float64(i)*c
 		if (c > 0 && v > b) || (c < 0 && v < b) {
 			break
@@ -267,7 +283,7 @@ func generateSeries(t ColType, args []Value, z tzZone) ([]Value, error) {
 // a timestamp with time zone, months and days are added in the session time
 // zone z, as Postgres does (addIntervalIn), and text and dates are local
 // times there.
-func timestampSeries(t ColType, start, stop, step Value, z tzZone) ([]Value, error) {
+func timestampSeries(ctx context.Context, t ColType, start, stop, step Value, z tzZone) ([]Value, error) {
 	var err error
 	if start, err = coerceIn(start, t, z); err != nil {
 		return nil, invalidArg(err)
@@ -294,6 +310,11 @@ func timestampSeries(t ColType, start, stop, step Value, z tzZone) ([]Value, err
 	for (dir > 0 && !cur.After(end)) || (dir < 0 && !cur.Before(end)) {
 		if len(out) == maxSeriesRows {
 			return nil, errTooManySeriesRows()
+		}
+		if len(out)%cancelEvery == 0 {
+			if err := cancelled(ctx); err != nil {
+				return nil, err
+			}
 		}
 		v, err := fromTime(cur, t)
 		if err != nil {

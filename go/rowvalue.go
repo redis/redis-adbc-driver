@@ -630,6 +630,9 @@ func (env *evalEnv) evalRowQuantified(sq *Subquery, r *RowExpr, rows [][]Value) 
 	}
 	sawNull := false
 	for _, row := range rows {
+		if err := cancelled(env.ctx); err != nil {
+			return Value{}, err
+		}
 		v, err := rowCompareValues(sq.Op, x, row[:len(x)], env.zone())
 		if err != nil {
 			return Value{}, err

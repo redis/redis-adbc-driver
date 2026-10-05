@@ -132,6 +132,35 @@ setting:
 - **Earlier versions** (v0.0.7 and before) used go-redis's defaults: 5
   seconds, in effect 10 seconds on a standalone server.
 
+**Cancelling a statement**
+
+Cancelling a statement while it executes (`AdbcStatementCancel`;
+`cursor.adbc_cancel()` in Python, from another thread), or cancelling the
+context passed to `ExecuteQuery` or `ExecuteUpdate` in Go, makes it fail
+with CANCELLED:
+
+```text
+[redis] the query was cancelled
+```
+
+- **The work the driver does in memory** (filtering, joins, aggregates,
+  window functions, sorting, set operations, recursive queries, subqueries,
+  `generate_series`) checks for the cancel at every row, so it stops within
+  milliseconds. A sort under way finishes first.
+- **Redis commands:** the cancel stops the statement at its next command.
+  One already sent waits for its reply (an `FT.AGGREGATE` page, a pipeline
+  of 1,000 rows), up to the read timeout. The error then names the step:
+  `[redis] failed to write rows: context canceled`.
+- **Writes:** `INSERT`, `UPDATE`, `DELETE` and `MERGE` compute every change
+  before they write one, so cancelled until then they change nothing.
+  There are no transactions, so one cancelled while it writes keeps the
+  rows it has written, as does `CREATE TABLE … AS` (whose table is created
+  first). A rename with `adbc.redis.rename_rekey` is rolled back.
+- **A Go context's deadline** fails the statement the same way, with
+  TIMEOUT.
+- **Earlier versions** (v0.0.11 and before) noticed a cancel only at the
+  statement's next Redis command, which then failed with IO.
+
 **ACL users**
 
 If the database has ACL users, the driver's user needs these commands. The
@@ -1118,8 +1147,8 @@ table's size. Other results are built whole before `ExecuteQuery` returns.
   fails). Cancelling the context passed to `ExecuteQuery` (in Go) also
   deletes it, as does cancelling the statement (`AdbcStatementCancel`;
   `cursor.adbc_cancel()` in Python), from any thread: reading the stream
-  then fails with CANCELLED. A read under way first waits for the cursor
-  page it asked for. Redis limits cursors:
+  then fails with CANCELLED (see **Cancelling a statement**). A read under
+  way first waits for the cursor page it asked for. Redis limits cursors:
   - It deletes one that isn't read for `search-cursor-max-idle` (300
     seconds by default). Reading the stream then fails, with a message
     naming `adbc.redis.stream_results`.

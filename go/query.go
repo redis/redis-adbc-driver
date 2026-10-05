@@ -535,6 +535,9 @@ func (it *scanIter) keep(keys []string, fetched []aggRow) ([]string, []map[strin
 		if raw == nil {
 			continue
 		}
+		if err := cancelled(it.env.ctx); err != nil {
+			return nil, nil, err
+		}
 		vals, err := decodeRow(it.meta, raw, it.need)
 		if err != nil {
 			return nil, nil, err
@@ -615,6 +618,9 @@ func (e *executor) scanMem(ctx context.Context, req scanRequest, params []Value)
 	env := e.newEnv(ctx, req.meta.types(), params)
 	var rows []map[string]Value
 	for _, r := range source {
+		if err := cancelled(ctx); err != nil {
+			return nil, nil, err
+		}
 		env.row = r
 		ok, err := env.eval(req.where.residual)
 		if err != nil {
@@ -630,6 +636,11 @@ func (e *executor) scanMem(ctx context.Context, req scanRequest, params []Value)
 // ---- SELECT ----
 
 func (e *executor) runSelect(ctx context.Context, plan *selectPlan, params []Value) ([][]Value, error) {
+	// Once for each subquery run, set operation branch, grouping set and
+	// recursive step too.
+	if err := cancelled(ctx); err != nil {
+		return nil, err
+	}
 	if plan.noRows && !plan.withoutFrom() {
 		// LIMIT 0, or a HAVING or QUALIFY that is never true (see empty.go).
 		// A query without FROM still reports aggregates as unsupported.
@@ -755,6 +766,9 @@ func (e *executor) selectScanned(ctx context.Context, plan *selectPlan, sc selec
 	if !indexSort && len(plan.order) > 0 {
 		keys := make([][]Value, len(rows))
 		for _, i := range idx {
+			if err := cancelled(ctx); err != nil {
+				return nil, err
+			}
 			setRow(i)
 			for _, o := range plan.order {
 				k, err := env.eval(o.expr)
@@ -771,6 +785,9 @@ func (e *executor) selectScanned(ctx context.Context, plan *selectPlan, sc selec
 	}
 	out := make([][]Value, 0, len(idx))
 	for _, i := range idx {
+		if err := cancelled(ctx); err != nil {
+			return nil, err
+		}
 		setRow(i)
 		row, err := evalItems(env, plan.items)
 		if err != nil {
@@ -815,6 +832,9 @@ func (e *executor) runDistinct(ctx context.Context, plan *selectPlan, params []V
 	seen := map[string]bool{}
 	out := make([][]Value, 0, len(rows))
 	for _, r := range rows {
+		if err := cancelled(ctx); err != nil {
+			return nil, err
+		}
 		key := rowKey(r[n:])
 		if len(plan.distinctOn) == 0 {
 			key = rowKey(r)
@@ -866,6 +886,9 @@ func (e *executor) selectAggregate(ctx context.Context, plan *selectPlan, params
 	if plan.having != nil {
 		kept = make([]aggGroup, 0, len(groups))
 		for _, g := range groups {
+			if err := cancelled(ctx); err != nil {
+				return nil, err
+			}
 			env.row, env.aggs = g.rep, g.results
 			keep, err := env.eval(plan.having)
 			if err != nil {
@@ -894,6 +917,9 @@ func (e *executor) selectAggregate(ctx context.Context, plan *selectPlan, params
 	}
 	out := make([]outRow, 0, len(idx))
 	for _, i := range idx {
+		if err := cancelled(ctx); err != nil {
+			return nil, err
+		}
 		setRow(i)
 		row := outRow{}
 		for _, it := range plan.items {
@@ -1250,6 +1276,9 @@ func (e *executor) driverAggregate(ctx context.Context, plan *selectPlan, wp whe
 		order = append(order, "")
 	}
 	for _, vals := range rows {
+		if err := cancelled(ctx); err != nil {
+			return nil, err
+		}
 		env.row = vals
 		var key strings.Builder
 		for _, gexpr := range plan.sel.GroupBy {
@@ -1277,6 +1306,9 @@ func (e *executor) driverAggregate(ctx context.Context, plan *selectPlan, wp whe
 	}
 	out := make([]aggGroup, 0, len(order))
 	for _, k := range order {
+		if err := cancelled(ctx); err != nil {
+			return nil, err
+		}
 		g := groups[k]
 		env.row = g.rep
 		results := map[*Func]Value{}

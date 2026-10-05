@@ -181,6 +181,9 @@ func (e *executor) runUpdateFrom(ctx context.Context, st *UpdateStmt, params []V
 	var values [][]Value
 	seen := map[string]int{}
 	for _, row := range rows {
+		if err := cancelled(ctx); err != nil {
+			return 0, err
+		}
 		key := row[targetTag].S
 		env.row = row
 		vals, err := setValues(env, dj.meta, cols, st.Sets)
@@ -242,6 +245,9 @@ func (e *executor) runDeleteUsing(ctx context.Context, st *DeleteStmt, params []
 	var keys []string
 	seen := map[string]bool{}
 	for _, row := range rows {
+		if err := cancelled(ctx); err != nil {
+			return 0, err
+		}
 		if key := row[targetTag].S; !seen[key] {
 			seen[key] = true
 			keys = append(keys, key)
@@ -357,6 +363,9 @@ func (e *executor) runMerge(ctx context.Context, st *MergeStmt, params []Value) 
 	var inserts [][]Value
 	changed := map[string]bool{}
 	for _, row := range rows {
+		if err := cancelled(ctx); err != nil {
+			return 0, err
+		}
 		env.row = row
 		target, matched := row[targetTag]
 		match := MergeMatched

@@ -109,6 +109,9 @@ func (env *evalEnv) evalQuantified(sq *Subquery, rows [][]Value) (Value, error) 
 	}
 	sawNull := false
 	for _, r := range rows {
+		if err := cancelled(env.ctx); err != nil {
+			return Value{}, err
+		}
 		v, err := binaryOp(sq.Op, x, r[0], env.zone())
 		if err != nil {
 			return Value{}, err

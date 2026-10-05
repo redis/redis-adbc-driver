@@ -701,6 +701,9 @@ func (e *executor) runJoin(ctx context.Context, jp *joinPlan, need map[string]bo
 				seen := map[string]bool{}
 				var values []Value
 				for _, row := range left {
+					if err := cancelled(ctx); err != nil {
+						return nil, err
+					}
 					env.row = row
 					v, err := env.eval(p.left)
 					if err != nil {
@@ -880,6 +883,9 @@ func (e *executor) joinRows(env *evalEnv, kind string, left, right []map[string]
 	buckets := map[string][]int{}
 	if len(pairs) > 0 {
 		for j, r := range right {
+			if err := cancelled(env.ctx); err != nil {
+				return nil, err
+			}
 			k, ok, err := keyOf(r, rightSide)
 			if err != nil {
 				return nil, err
@@ -911,6 +917,9 @@ func (e *executor) joinRows(env *evalEnv, kind string, left, right []map[string]
 		return nil, err
 	}
 	for _, l := range left {
+		if err := cancelled(env.ctx); err != nil {
+			return nil, err
+		}
 		var candidates []int
 		switch {
 		case never:
@@ -930,6 +939,10 @@ func (e *executor) joinRows(env *evalEnv, kind string, left, right []map[string]
 		}
 		matched := false
 		for _, j := range candidates {
+			// Every pair, as one left row can meet many right ones.
+			if err := cancelled(env.ctx); err != nil {
+				return nil, err
+			}
 			row := mergeRows(l, right[j])
 			ok, err := passes(row)
 			if err != nil {

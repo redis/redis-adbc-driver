@@ -551,6 +551,9 @@ func (e *executor) runView(ctx context.Context, lv *lazyView, outerWhere Expr, n
 	env := e.newEnv(ctx, base.types(), params)
 	out := make([]map[string]Value, len(rows))
 	for r, row := range rows {
+		if err := cancelled(ctx); err != nil {
+			return nil, err
+		}
 		env.row = row
 		m := make(map[string]Value, len(lv.names))
 		for i, it := range lv.plan.items {

@@ -146,6 +146,9 @@ func (e *executor) runSetOp(ctx context.Context, plan *selectPlan, params []Valu
 			return nil, err
 		}
 		for _, row := range rows {
+			if err := cancelled(ctx); err != nil {
+				return nil, err
+			}
 			for i := range row {
 				if row[i], err = coerceIn(row[i], plan.items[i].typ, e.zone()); err != nil {
 					return nil, invalidArg(err)
@@ -184,15 +187,24 @@ func (e *executor) runSetOp(ctx context.Context, plan *selectPlan, params []Valu
 			out = append(left, right...)
 		} else {
 			for _, r := range left {
+				if err := cancelled(ctx); err != nil {
+					return nil, err
+				}
 				distinct(r)
 			}
 			for _, r := range right {
+				if err := cancelled(ctx); err != nil {
+					return nil, err
+				}
 				distinct(r)
 			}
 		}
 	case "INTERSECT":
 		inRight := counts(right)
 		for _, r := range left {
+			if err := cancelled(ctx); err != nil {
+				return nil, err
+			}
 			k := rowKey(r)
 			if inRight[k] == 0 {
 				continue
@@ -207,6 +219,9 @@ func (e *executor) runSetOp(ctx context.Context, plan *selectPlan, params []Valu
 	case "EXCEPT":
 		inRight := counts(right)
 		for _, r := range left {
+			if err := cancelled(ctx); err != nil {
+				return nil, err
+			}
 			k := rowKey(r)
 			if inRight[k] > 0 {
 				if sp.all {
@@ -238,6 +253,9 @@ func (e *executor) runSetOp(ctx context.Context, plan *selectPlan, params []Valu
 		idx := make([]int, len(out))
 		for i := range idx {
 			idx[i] = i
+		}
+		if err := cancelled(ctx); err != nil {
+			return nil, err
 		}
 		sort.SliceStable(idx, func(a, b int) bool { return lessKeys(keys[idx[a]], keys[idx[b]], order) })
 		sorted := make([][]Value, len(out))
