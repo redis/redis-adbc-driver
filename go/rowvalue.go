@@ -286,6 +286,9 @@ func distinctFrom(op string, a, b Value, z tzZone) (Value, error) {
 			if err := recordCompareError(a, b); err != nil {
 				return Value{}, err
 			}
+			if err := textOperandError(a, b, z); err != nil {
+				return Value{}, err
+			}
 			return Value{}, fmt.Errorf("cannot compare %s with %s", a.T.Kind, b.T.Kind)
 		}
 		distinct = c != 0

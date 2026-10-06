@@ -91,12 +91,13 @@ func TestSQLReturningInsert(t *testing.T) {
 	}
 	h.expectRows(`SELECT __rowid, id FROM it_ret_t WHERE id >= 4 ORDER BY id`, "4|4", "5|5")
 
-	// The values as stored (cast to the column types), expressions, aliases
-	// with and without AS, and the table name as a qualifier.
+	// The values as stored (cast to the column types), expressions (named as
+	// in Postgres), aliases with and without AS, and the table name as a
+	// qualifier.
 	schema = h.expectRows(`INSERT INTO it_ret_t (id, amount, k) VALUES ('6', 2.005, 6)
 		RETURNING id, amount, k, id * 2 AS double, UPPER(k || 'x') up, it_ret_t.v, k || '!'`,
 		"6|2.01|6|12|6X|NULL|6!")
-	if got, want := fieldNames(schema), "id|amount|k|double|up|v|k || '!'"; got != want {
+	if got, want := fieldNames(schema), "id|amount|k|double|up|v|?column?"; got != want {
 		t.Errorf("RETURNING column names: %s, want %s", got, want)
 	}
 
@@ -254,14 +255,14 @@ func TestSQLReturningMerge(t *testing.T) {
 	h.setupReturning()
 	h.expectReturning(`MERGE INTO it_ret_t t USING (SELECT 2 AS id, 'two' AS label) s ON t.id = s.id
 		WHEN MATCHED THEN UPDATE SET k = s.label RETURNING *, merge_action()`,
-		"id|label|id|k|v|amount|merge_action()", "2|two|2|two|20|NULL|UPDATE")
+		"id|label|id|k|v|amount|merge_action", "2|two|2|two|20|NULL|UPDATE")
 	// An upsert: inserted the first time, updated the second.
 	upsert := `MERGE INTO it_ret_t AS d USING (SELECT 7 AS id) AS s ON d.id = s.id
 		WHEN MATCHED THEN UPDATE SET v = d.v + 1
 		WHEN NOT MATCHED THEN INSERT (id, v) VALUES (s.id, 0)
 		RETURNING merge_action(), CASE merge_action() WHEN 'INSERT' THEN 'new' ELSE 'old' END AS age, d.id, d.v`
-	h.expectReturning(upsert, "merge_action()|age|id|v", "INSERT|new|7|0")
-	h.expectReturning(upsert, "merge_action()|age|id|v", "UPDATE|old|7|1")
+	h.expectReturning(upsert, "merge_action|age|id|v", "INSERT|new|7|0")
+	h.expectReturning(upsert, "merge_action|age|id|v", "UPDATE|old|7|1")
 	// A CTE source, and no rows.
 	h.expectReturning(`WITH src AS (SELECT 9 AS id) MERGE INTO it_ret_t t USING src ON t.id = src.id
 		WHEN NOT MATCHED THEN INSERT (id, k) VALUES (src.id, 'nine') RETURNING merge_action() AS a, t.id, t.k`,
@@ -513,7 +514,7 @@ func TestSQLReturningBind(t *testing.T) {
 	// One execution per parameter row; their rows are returned together.
 	cols, rows, n := h.queryWith(`INSERT INTO it_ret_t (id, k) VALUES ($1, $2) RETURNING __rowid, id + 1, k, $2 AS p`,
 		paramBatch([]int64{4, 5, 6}, []string{"d", "e", "f"}))
-	if want := []string{"4|5|d|d", "5|6|e|e", "6|7|f|f"}; cols != "__rowid|id + 1|k|p" ||
+	if want := []string{"4|5|d|d", "5|6|e|e", "6|7|f|f"}; cols != "__rowid|?column?|k|p" ||
 		strings.Join(rows, "\n") != strings.Join(want, "\n") || n != 3 {
 		t.Errorf("INSERT … RETURNING with parameters: %s %q (%d rows), want %q", cols, rows, n, want)
 	}
@@ -528,7 +529,7 @@ func TestSQLReturningBind(t *testing.T) {
 		WHEN MATCHED THEN UPDATE SET k = s.k WHEN NOT MATCHED THEN INSERT (id, k) VALUES (s.id, s.k)
 		RETURNING merge_action(), t.id, t.k`,
 		paramBatch([]int64{1, 9}, []string{"upd", "new"}))
-	if want := []string{"INSERT|9|new", "UPDATE|1|upd"}; cols != "merge_action()|id|k" || strings.Join(rows, "\n") != strings.Join(want, "\n") {
+	if want := []string{"INSERT|9|new", "UPDATE|1|upd"}; cols != "merge_action|id|k" || strings.Join(rows, "\n") != strings.Join(want, "\n") {
 		t.Errorf("MERGE … RETURNING with parameters: %s %q, want %q", cols, rows, want)
 	}
 	if n, err := h.stmtWith(`DELETE FROM it_ret_t WHERE id = ? OR k = ? RETURNING k`,
@@ -571,7 +572,7 @@ func TestSQLReturningTemp(t *testing.T) {
 		WHEN MATCHED AND p.id = 1 THEN UPDATE SET (k) = (SELECT t.k || p.k)
 		WHEN MATCHED THEN DELETE
 		RETURNING merge_action(), p.k, t.k`,
-		"merge_action()|k|k", "UPDATE|perm|temp!perm", "DELETE|perm2|perm2+!")
+		"merge_action|k|k", "UPDATE|perm|temp!perm", "DELETE|perm2|perm2+!")
 	h.expectReturning(`DELETE FROM pg_temp.it_ret_tmp t USING public.it_ret_tmp p WHERE p.id = t.id RETURNING t.*`,
 		"id|k", "1|temp!perm")
 	h.expectRows(`SELECT COUNT(*) FROM pg_temp.it_ret_tmp`, "0")

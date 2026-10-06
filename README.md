@@ -69,7 +69,11 @@ It supports SQL queries and Arrow bulk ingestion.
 
 ## Compatibility and validation
 
-The full validation suite (325 passed, 0 failed) has been run against:
+On 2026-10-06, the current validation suite against local Redis Open Source
+8.6.2 had 360 passed, 8 skipped, 3 subtests passed, and 0 failed. The suite
+has also been run against the servers below; the cluster and Redis Cloud
+results are from earlier suite revisions and have not been re-run for this
+update.
 
 | Server | Version | Connection |
 |-|-|-|
@@ -82,11 +86,12 @@ The full validation suite (325 passed, 0 failed) has been run against:
 Local testing uses the Redis version that Redis Cloud runs (currently
 8.6.2), so `go/compose.yaml` pins that image.
 
-\* Run before cluster support was added; not re-run since.
-† Run before the two temporary-table ingest tests were enabled (322
-passed, 0 failed); not re-run since.
+Earlier local and cluster runs had 325 passed, 0 failed. The Cloud runs
+marked † had 322 passed, 0 failed, before the two temporary-table ingest
+tests were enabled; they have not been re-run since. The TLS run marked \*
+predates cluster support and has not been re-run since.
 
-The remaining 10 skipped tests are features the driver doesn't offer:
+The 8 currently skipped tests cover features the driver doesn't offer:
 constraints, statistics, a second catalog, and transactions. Of the
 constraint tests, those for `CHECK` and `PRIMARY KEY` in `GetObjects` run
 now; those for `UNIQUE` and `FOREIGN KEY` are still skipped.
@@ -258,8 +263,8 @@ the Python exception:
 | A value that doesn't convert or doesn't fit (`CAST('abc' AS INTEGER)`, `'2024-02-30'::date`, `1 / 0`, a value too long for its column) | class `22` | `InvalidData` | `DataError` |
 | `NOT NULL` and `CHECK` | `23502`, `23514` | `Integrity` | `IntegrityError` |
 | A table, view, column, function or schema that doesn't exist; an operator for a quoted literal that doesn't exist (`b + '1'`) | `42P01`, `42703`, `42883`, `3F000`; `42883` | `NotFound` | `ProgrammingError` |
-| A table, view, column, constraint or schema that already exists; a column named twice (in `INSERT` or a `PRIMARY KEY`) | `42P07`, `42701`, `42710`, `42P06` | `AlreadyExists` | `ProgrammingError` |
-| A syntax error; a table definition Postgres refuses (two primary keys, `DROP NOT NULL` of a key column, a column of type record); a type that never converts (`DATE` to `BOOLEAN`); a record where another type is needed (`argument of WHERE must be type boolean, not type record`); values without a common type (`CASE`, `COALESCE`, `UNION`, …; see "Quoted string literals"); an operator of a quoted literal that could be one of several (`d + '1'`, `'1' + '1'`) | `42601`; `42P16`; `42846` in a cast, `42804` written to a column or by `ALTER COLUMN … TYPE`; `42804`; `42804`; `42725` | `InvalidArgument` | `ProgrammingError` |
+| A table, view, column, constraint or schema that already exists; a column named twice (in `INSERT`, a `PRIMARY KEY`, a table or a view) | `42P07`, `42701`, `42710`, `42P06` | `AlreadyExists` | `ProgrammingError` |
+| A syntax error; a column name that several columns have (`column reference "x" is ambiguous`); a table definition Postgres refuses (two primary keys, `DROP NOT NULL` of a key column, a column of type record); a type that never converts (`DATE` to `BOOLEAN`); a record where another type is needed (`argument of WHERE must be type boolean, not type record`); values without a common type (`CASE`, `COALESCE`, `UNION`, …; see "Quoted string literals"); an operator of a quoted literal that could be one of several (`d + '1'`, `'1' + '1'`) | `42601`; `42702`; `42P16`; `42846` in a cast, `42804` written to a column or by `ALTER COLUMN … TYPE`; `42804`; `42804`; `42725` | `InvalidArgument` | `ProgrammingError` |
 | What Postgres doesn't support either (`DATE_BIN` by months, `EXTRACT(day FROM time)`, `ALTER COLUMN … TYPE` of a column a view reads) | `0A000` | `NotImplemented` | `NotSupportedError` |
 | A cancel, or a Go deadline | `57014` | `Cancelled`, `Timeout` | `OperationalError` |
 
@@ -280,13 +285,15 @@ the Python exception:
   SQL/JSON paths (`2203A`, `22033`, `22039`).
 - **Every path** gives them: queries (also while a streamed result is
   read), `INSERT`, `UPDATE`, `MERGE`, `ALTER COLUMN … TYPE`, `DEFAULT`s,
-  bound parameters and bulk ingest. A value written to a column has the column's name in front:
-  `[redis] column "n": invalid decimal "x"`. `TRY_CAST` still returns NULL
-  for a value that doesn't convert.
-- **Messages** are the driver's: only the SQLSTATE is Postgres's (`'abc'::int`
-  is `invalid decimal "abc"`, where Postgres says `invalid input syntax for
-  type integer: "abc"`), but for the operators of quoted literals (see
-  "Quoted string literals").
+  bound parameters and bulk ingest. A value written to a column has the
+  column's name in front: `[redis] column "n": invalid input syntax for type
+  integer: "x"`. `TRY_CAST` still returns NULL for a value that doesn't
+  convert.
+- **Messages** are mostly the driver's: only the SQLSTATE is Postgres's
+  (`'abc'::numeric` is `invalid decimal "abc"`, where Postgres says
+  `invalid input syntax for type numeric: "abc"`). Text read as an integer
+  has Postgres's messages too (see Text as an integer under Casts), as do
+  operators of quoted literals (see Quoted string literals).
 - **No SQLSTATE yet:** the errors of the driver's own limits, and a few
   others: `more than one row returned by a subquery used as an expression`
   (`21000` in Postgres), an operator that doesn't exist (`42883`; those of
@@ -442,7 +449,7 @@ is Flex. So a Flex release that supports it is no longer refused.
 
 ## Quick start
 
-Requirements: Go 1.26+, a C toolchain (cgo), Docker, and
+Requirements: Go 1.26.6 or newer, a C toolchain (cgo), Docker, and
 [uv](https://docs.astral.sh/uv/). Run everything from the `go` directory.
 
 Each [GitHub release](https://github.com/alberttwong/redis-adbc-driver/releases)
@@ -2446,6 +2453,52 @@ field, even if later rows have it.
   and `column name "x" appears more than once in USING clause` (up to
   v0.0.12: `USING column "x" is ambiguous`, `USING column "x" does not
   exist in the left side of the join`, and `USING (x, x)` was accepted)
+- **Column names** are Postgres's. A select-list item is named by its
+  alias, or else by its expression (Postgres's FigureColname): a column by
+  the column, `CAST(x AS t)` and `x::t` by `x` (by the type if `x` has no
+  name: `int4`, `varchar`, `date`), a call by the function (`count`,
+  `upper`; also `extract`, `btrim`, `timezone` for `EXTRACT`, `TRIM` and
+  `AT TIME ZONE`), a scalar subquery by its column, `EXISTS` by `exists`,
+  `CASE` by its `ELSE` (or `case`), a row by `row`, a field `(r).f1` by
+  the field, and an operator or a literal is `?column?`. `SELECT count(*),
+  upper(v), CAST(iv AS VARCHAR), v || 'x', 1 FROM t` has the columns
+  `count`, `upper`, `iv`, `?column?` and `?column?`. These name the
+  result's columns (the Arrow fields, also from `ExecuteSchema`),
+  `RETURNING`'s, and those of derived tables, CTEs, views and `CREATE
+  TABLE … AS`, so `SELECT count FROM (SELECT count(*) FROM t) s` and
+  `SELECT * FROM (SELECT CAST(iv AS VARCHAR) FROM t) s ORDER BY iv` work
+  as in Postgres
+  - **Names that repeat** (`SELECT 1, 2`, `SELECT count(*), count(v)`,
+    `SELECT a, a`, `AS s(x, x)`): a result, a derived table or a CTE keeps
+    them all, as in Postgres, and only reading such a column by its name is
+    an error: `column reference "count" is ambiguous` (also as `s.count`),
+    `ORDER BY "count" is ambiguous`, and in `USING` or `NATURAL JOIN`
+    `common column name "count" appears more than once in left table` (or
+    `right table`). A position (`ORDER BY 2`), `*` or column aliases (`AS
+    s(a, b)`) read them. A table or view can't have them: `CREATE TABLE …
+    AS` and `CREATE VIEW` are `column "count" specified more than once`,
+    as in Postgres; give the columns aliases. Column aliases on a table
+    (`FROM t AS x(a, a)`) still can't repeat a name, which Postgres allows
+    until one is read
+  - Names are compared without case, as elsewhere in the driver: in
+    `SELECT a FROM (SELECT 1 AS "A", 2 AS a) s`, `a` is ambiguous, where
+    Postgres reads the second column
+  - **Upgrading from v0.0.12 and earlier:** an item without an alias that
+    wasn't a column was named by its text, `count(*)`, `CAST(iv AS
+    VARCHAR)`, `v || 'x'`, `1`, so result field names change: code that
+    reads columns by name, unaliased expressions included, needs the new
+    names, or aliases. Tables that `CREATE TABLE … AS` made and views keep
+    the names they were made with; made again, they get the new names, and
+    a query whose items now share a name (`SELECT count(*), count(v)`,
+    `SELECT 1, 2`) needs aliases. A view whose query reads a derived
+    table's or CTE's column by its old name (`SELECT "count(*)" FROM
+    (SELECT count(*) FROM t) s`) is now `view "v" is no longer valid:
+    column "count(*)" does not exist`; replace it with `CREATE OR REPLACE
+    VIEW`. Derived tables and CTEs whose columns shared a name were
+    `column name "a" appears more than once in "s"; add aliases`, a view's
+    `column name "a" appears more than once in view "v"; add aliases`, and
+    a table's `duplicate column name "a"`. The `ambiguous` errors had no
+    SQLSTATE; they are `42702` now
 - `FETCH FIRST n ROWS ONLY` is `LIMIT n` (`FETCH FIRST ROW ONLY` is `LIMIT
   1`); `WITH TIES` is not supported, and a query has at most one `LIMIT` or
   `FETCH` (Postgres's "multiple LIMIT clauses not allowed")
@@ -2459,10 +2512,10 @@ field, even if later rows have it.
   (as in Postgres) `ROLLUP (…)`, `CUBE (…)`, `GROUPING SETS (…)` and `()`:
   - A bare name is an input column's before it is an output column's
     (unlike in `ORDER BY`), as in Postgres. A name no input column has is
-    the output column of that name, also one without an alias, named as
-    for `ORDER BY` (below): after `SELECT upper(v)`, `GROUP BY upper`
-    groups by `upper(v)`; after `SELECT CAST(x AS INTEGER)`, `GROUP BY x`
-    is still the column `x`. Only the query's own FROM items count, not
+    the output column of that name, also one without an alias, named by
+    its expression (see "Column names" above): after `SELECT upper(v)`,
+    `GROUP BY upper` groups by `upper(v)`; after `SELECT CAST(x AS
+    INTEGER)`, `GROUP BY x` is still the column `x`. Only the query's own FROM items count, not
     those of the queries around it; a name two of them have (`k` of `JOIN …
     USING (k)`, where the driver keeps both columns) may also be an output
     column's. Output columns of the same name must be the same expression,
@@ -2745,27 +2798,16 @@ field, even if later rows have it.
 - `ORDER BY … [ASC|DESC] [NULLS FIRST|LAST]`; NULLs sort last by default in
   both directions, except records (see Rows as values)
   - A bare name is an output column's before it is an input column's, as
-    in Postgres, also when the output column has no alias. Postgres names
-    such a column by its expression: a column by the column, `CAST(x AS
-    t)` and `x::t` by `x` (by the type if `x` has no name: `int4`,
-    `varchar`, `date`), a call by the function (`count`, `upper`; also
-    `extract`, `btrim`, `timezone` for `EXTRACT`, `TRIM` and `AT TIME
-    ZONE`), a scalar subquery by its column, `EXISTS` by `exists`, `CASE`
-    by its `ELSE` (or `case`), a row by `row`, a field `(r).f1` by the
-    field, and an operator or a literal is `?column?`. So after `SELECT
-    CAST(iv AS VARCHAR) FROM t`, `ORDER BY iv` sorts the text, not the
-    interval (and the index can't sort it); `ORDER BY t.iv`, a position or
-    any other expression reads the input.
+    in Postgres, also when the output column has no alias, named by its
+    expression (see "Column names" above). So after `SELECT CAST(iv AS
+    VARCHAR) FROM t`, `ORDER BY iv` sorts the text, not the interval (and
+    the index can't sort it); `ORDER BY t.iv`, a position or any other
+    expression reads the input.
     Output columns of the same name must be the same expression (`SELECT
     a, a … ORDER BY a`), otherwise it is `ORDER BY "a" is ambiguous`, as
     in `SELECT x::text, x … ORDER BY x`. `DISTINCT ON (…)` names columns
     the same way (`DISTINCT ON "a" is ambiguous`), and so does `ORDER BY`
     on a set operation, with the first branch's columns
-  - The result's column is still named by the expression's text
-    (`CAST(iv AS VARCHAR)`, where Postgres says `iv`), and so are the
-    columns of a derived table, CTE or view: `SELECT * FROM (SELECT
-    CAST(iv AS VARCHAR) FROM t) s ORDER BY iv` is `column "iv" does not
-    exist in table "s"`, which Postgres runs
   - **Upgrading from v0.0.12 and earlier:** a bare name matched an alias,
     then an input column, so after `SELECT CAST(iv AS VARCHAR)` `ORDER BY
     iv` and `DISTINCT ON (iv)` used the interval, `SELECT x::text, x …
@@ -3008,6 +3050,39 @@ field, even if later rows have it.
   digits (see Fractional seconds under Types), and casts between `TIMESTAMP`,
   `TIMESTAMP WITH TIME ZONE`, `DATE`, `TIME` and text use the session time
   zone (see Session time zone)
+  - **Text as an integer** (`SMALLINT`, `INTEGER`, `BIGINT`) is read as
+    Postgres's `int4in` reads it: optional spaces and a sign, then digits,
+    with single underscores between them (`'1_000'`), or `0x`, `0o` or
+    `0b` and hexadecimal, octal or binary digits (`'0x1F'` is 31). Anything
+    else (`'1.5'`, `'1e3'`, `'1.0'`, `''`) is `invalid input syntax for
+    type integer: "1.5"` (`22P02`), and a value past the type's range is
+    `value "3000000000" is out of range for type integer` (`22003`), with
+    `smallint` or `bigint` for those types. Text is read so wherever it
+    becomes an integer: written to an integer column (`INSERT`, `UPDATE`,
+    `MERGE`, `DEFAULT`s, bound parameters, bulk ingest and `redis-adbc
+    copy`), compared with an integer (`WHERE n = '1.5'` fails), and as a
+    function's integer argument (`LPAD(s, '3.5')` fails, as an `INTEGER`).
+    Text compared with a value of another type it doesn't convert to fails
+    with that type's conversion error and SQLSTATE (`DATE '2024-01-01' =
+    'x'` is `invalid date "x"`, `22007`)
+  - Differences: an integer literal is a `BIGINT`, so `1 = 'x'` says `type
+    bigint` where Postgres says `type integer`. An `IN` list stops at the
+    first value that matches, so `1 IN ('1', '1.5')` is true, and an
+    indexed column's `IN` list skips the values that don't convert; Postgres
+    reads every value first, and fails on `'1.5'`. A text column compared
+    with an integer is read row by row (`invalid input syntax for type
+    integer: "a"` for a row of `'a'`); Postgres refuses the comparison
+    (`operator does not exist: text = integer`)
+  - **Upgrading from v0.0.12 and earlier:** text was read as a number and
+    rounded, so `CAST('1.5' AS INTEGER)` was 2, `'1e3'` was 1000 and `'1.0'`
+    was 1, also when written to a column, and `WHERE n = '1.5'` matched the
+    rows where `n` is 2; `'0x1F'` and `'1_000'` were errors. The errors were
+    `invalid decimal "x"`, `value 3000000000 out of range for INTEGER` and
+    `cannot convert decimal value "99999999999999999999" to BIGINT`, and
+    text compared with a value it didn't convert to was `cannot compare
+    int32 with string`, without a SQLSTATE. `redis-adbc copy -type
+    n=INTEGER` rounded a field of `1.5`; it now stops there, or copies NULL
+    with `-on-error null`
 - Math functions: `ROUND(x [, n])` and `TRUNC(x [, n])` (`n` may be
   negative: `ROUND(1250, -2)` is 1300), `FLOOR`, `CEIL` / `CEILING`, `MOD` / `%`,
   `POWER` / `POW`, `SQRT`, `CBRT`, `LN`, `LOG(x)` (base 10) / `LOG(b, x)`,

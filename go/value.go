@@ -997,10 +997,11 @@ func parseStringIn(s string, t ColType, z tzZone) (Value, error) {
 			return boolValue(false), nil
 		}
 	case KindInt16, KindInt32, KindInt64:
-		if i, err := strconv.ParseInt(trimmed, 10, 64); err == nil {
-			return intValue(typeInt64, i), nil
+		i, err := parseIntText(s, t.Kind) // intin.go
+		if err != nil {
+			return Value{}, err
 		}
-		return numberLiteral(trimmed)
+		return intValue(typeInt64, i), nil
 	case KindFloat32, KindFloat64:
 		if f, err := strconv.ParseFloat(trimmed, 64); err == nil {
 			return floatValue(typeFloat64, f), nil
@@ -1143,6 +1144,21 @@ func textOperand(s Value, t ColType, z tzZone) (Value, error) {
 		return parseStringIn(s.S, t, z)
 	}
 	return coerceIn(s, t, z)
+}
+
+// textOperandError is the error of text that doesn't convert to the type of
+// the value it is compared with (i = '1.5' for an INTEGER i), or nil.
+func textOperandError(a, b Value, z tzZone) error {
+	isText := func(v Value) bool { return v.T.Kind == KindString || v.T.Kind == KindBinary }
+	switch {
+	case a.T.Kind == KindString && !isText(b):
+		_, err := textOperand(a, b.T, z)
+		return err
+	case b.T.Kind == KindString && !isText(a):
+		_, err := textOperand(b, a.T, z)
+		return err
+	}
+	return nil
 }
 
 // compareIn compares two non-null values in the session time zone z, which

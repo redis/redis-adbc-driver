@@ -358,11 +358,11 @@ func (p *selectPlan) columnName(name string) string {
 		}
 		return keyLabel(name)
 	case sel.FromAlias != "":
-		return sel.FromAlias + "." + name
+		return sel.FromAlias + "." + columnLabel(name)
 	case sel.From != nil:
-		return sel.From.Name + "." + name
+		return sel.From.Name + "." + columnLabel(name)
 	}
-	return name
+	return columnLabel(name)
 }
 
 // ungroupedSubquery is Postgres's error for a subquery of a grouped query
@@ -499,7 +499,7 @@ func (e *executor) planGroupingSets(plan *selectPlan, types map[string]ColType) 
 	r := &groupingRewriter{gp: gp, memo: map[Expr]Expr{}}
 	out.items = make([]planItem, len(plan.items))
 	for i, it := range plan.items {
-		out.items[i] = planItem{expr: r.rewrite(it.expr), name: it.name, pgName: it.pgName}
+		out.items[i] = planItem{expr: r.rewrite(it.expr), name: it.name}
 	}
 	gp.having = r.rewrite(plan.having)
 	out.order = make([]planOrder, len(plan.order))

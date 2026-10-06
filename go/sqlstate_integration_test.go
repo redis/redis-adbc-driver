@@ -99,12 +99,15 @@ func TestSQLErrorStates(t *testing.T) {
 	}{
 		// Text that doesn't convert: invalid_text_representation.
 		{`SELECT CAST('abc' AS INTEGER)`, data, "22P02", `"abc"`},
+		{`SELECT CAST('1.5' AS INTEGER)`, data, "22P02", `invalid input syntax for type integer: "1.5"`},
+		{`SELECT id FROM it_err WHERE n = '1e3'`, data, "22P02", `invalid input syntax for type integer: "1e3"`},
 		{`SELECT 'abc'::boolean`, data, "22P02", `"abc"`},
 		{`SELECT CAST('abc' AS DOUBLE PRECISION)`, data, "22P02", `"abc"`},
 		{`SELECT CAST('abc' AS NUMERIC(10, 2))`, data, "22P02", `"abc"`},
 		{`SELECT CAST('{' AS JSON)`, data, "22P02", "invalid input syntax for type json"},
 		// numeric_value_out_of_range.
 		{`SELECT CAST(3000000000 AS INTEGER)`, data, "22003", "out of range for INTEGER"},
+		{`SELECT CAST('3000000000' AS INTEGER)`, data, "22003", `value "3000000000" is out of range for type integer`},
 		{`SELECT CAST(1e300 AS BIGINT)`, data, "22003", "BIGINT"},
 		{`SELECT CAST(123456 AS NUMERIC(5, 2))`, data, "22003", "out of range"},
 		{`SELECT CAST(CAST('NaN' AS DOUBLE PRECISION) AS NUMERIC(5, 2))`, data, "22003", "NaN"},
@@ -210,6 +213,16 @@ func TestSQLErrorStates(t *testing.T) {
 		{`CREATE TABLE it_err3 (a INTEGER, PRIMARY KEY (a, a))`, exists, "42701", `column "a" appears twice in primary key constraint`},
 		{`CREATE TABLE it_err3 (a INTEGER CONSTRAINT c CHECK (a > 0), CONSTRAINT c PRIMARY KEY (a))`, exists, "42710", `constraint "c" for relation "it_err3" already exists`},
 		{`CREATE TABLE it_err3 (a INTEGER, CONSTRAINT c CHECK (a > 0), CONSTRAINT c CHECK (a > 1))`, exists, "42710", `check constraint "c" already exists`},
+		// Column names that repeat: in a table or view, duplicate_column; read
+		// from a query, ambiguous_column.
+		{`CREATE TABLE it_err3 (a INTEGER, a INTEGER)`, exists, "42701", `column "a" specified more than once`},
+		{`CREATE TABLE it_err3 AS SELECT count(*), count(n) FROM it_err`, exists, "42701", `column "count" specified more than once`},
+		{`CREATE VIEW it_err3 AS SELECT 1, 2`, exists, "42701", `column "?column?" specified more than once`},
+		{`SELECT id FROM (SELECT id, id FROM it_err) s`, arg, "42702", `column reference "id" is ambiguous`},
+		{`SELECT x FROM it_err2, (SELECT 1 AS x) s`, arg, "42702", `column reference "x" is ambiguous`},
+		{`SELECT * FROM (SELECT 1, 2) s ORDER BY "?column?"`, arg, "42702", `ORDER BY "?column?" is ambiguous`},
+		{`SELECT 1 AS a, 2 AS a UNION SELECT 3, 4 ORDER BY a`, arg, "42702", `ORDER BY "a" is ambiguous`},
+		{`SELECT * FROM (SELECT 1 AS a, 2 AS a) s JOIN (SELECT 1 AS a) r USING (a)`, arg, "42702", `common column name "a" appears more than once in left table`},
 
 		// ALTER COLUMN … TYPE: the conversion, the rows' constraints, and
 		// what Postgres refuses.

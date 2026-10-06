@@ -274,6 +274,9 @@ func evalConditional(f *Func, args []Value, t ColType, z tzZone) (Value, error) 
 		}
 		c, ok := compareIn(a, b, z)
 		if !ok {
+			if err := textOperandError(a, b, z); err != nil {
+				return Value{}, err
+			}
 			return Value{}, fmt.Errorf("NULLIF cannot compare %s with %s", a.T.SQLName(), b.T.SQLName())
 		}
 		if c == 0 {
@@ -544,7 +547,11 @@ func intArg(name, what string, v Value) (int64, error) {
 	if v.T.Kind == KindBool {
 		return 0, fmt.Errorf("%s: the %s must be an integer, got BOOLEAN", name, what)
 	}
-	c, err := Coerce(v, typeInt64)
+	t := typeInt64
+	if v.T.Kind == KindString {
+		t = typeInt32 // as Postgres reads text for its integer parameters
+	}
+	c, err := Coerce(v, t)
 	if err != nil {
 		return 0, fmt.Errorf("%s: the %s must be an integer: %w", name, what, err)
 	}

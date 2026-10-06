@@ -78,8 +78,8 @@ func (jp *joinPlan) planNatural(joined *tableMeta, rels []relation) []relation {
 		out := make([]outputColumn, len(it.base.Columns))
 		for i, c := range it.base.Columns {
 			out[i] = outputColumn{
-				name: c.Name,
-				col:  columnMeta{Name: it.prefix + c.Name, label: c.Name, Type: c.Type, Nullable: true},
+				name: c.outputName(),
+				col:  columnMeta{Name: it.prefix + c.Name, label: c.outputName(), Type: c.Type, Nullable: true},
 				expr: it.ref(c.Name),
 			}
 		}
@@ -134,10 +134,10 @@ func (jp *joinPlan) planNatural(joined *tableMeta, rels []relation) []relation {
 				continue
 			}
 			if count(out, l.name) > 1 {
-				fail(errorf(adbc.StatusInvalidArgument, "common column name %q appears more than once in left table", l.name))
+				fail(stateErrorf(stateAmbiguousColumn, "common column name %q appears more than once in left table", l.name))
 			}
 			if count(right, l.name) > 1 {
-				fail(errorf(adbc.StatusInvalidArgument, "common column name %q appears more than once in right table", l.name))
+				fail(stateErrorf(stateAmbiguousColumn, "common column name %q appears more than once in right table", l.name))
 			}
 			r := right[ri]
 			t, ok := setOpType(l.col.Type, r.col.Type)

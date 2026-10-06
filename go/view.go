@@ -369,7 +369,7 @@ func (e *executor) runCreateView(ctx context.Context, st *CreateViewStmt, numPar
 			return pseudoTypeError(n)
 		}
 		if seen[strings.ToLower(n)] {
-			return errorf(adbc.StatusInvalidArgument, "column name %q appears more than once in view %q; add aliases", n, name)
+			return stateErrorf(stateDuplicateColumn, "column %q specified more than once", n)
 		}
 		seen[strings.ToLower(n)] = true
 		t := c.Type

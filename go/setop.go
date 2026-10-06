@@ -117,7 +117,7 @@ func (e *executor) planSetOp(ctx context.Context, sel *SelectStmt, plan *selectP
 				}
 			}
 		}
-		plan.items = append(plan.items, planItem{name: l.name, typ: t, pgName: l.pgName})
+		plan.items = append(plan.items, planItem{name: l.name, typ: t})
 	}
 	sp := &setOpPlan{op: op.Op, all: op.All, left: left, right: right}
 	for _, o := range sel.OrderBy {
@@ -128,13 +128,12 @@ func (e *executor) planSetOp(ctx context.Context, sel *SelectStmt, plan *selectP
 				col = int(x.V.I) - 1
 			}
 		case *ColumnRef:
-			// The columns are named by the first branch's, as Postgres names
-			// them (colname.go).
+			// The columns are named by the first branch's.
 			if x.Qualifier == "" {
 				for i, it := range plan.items {
-					if strings.EqualFold(it.pgName, x.Name) {
+					if strings.EqualFold(it.name, x.Name) {
 						if col >= 0 {
-							return nil, errorf(adbc.StatusInvalidArgument, "ORDER BY %q is ambiguous", x.Name)
+							return nil, stateErrorf(stateAmbiguousColumn, "ORDER BY %q is ambiguous", x.Name)
 						}
 						col = i
 					}

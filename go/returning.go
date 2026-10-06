@@ -92,12 +92,14 @@ func (e *executor) planReturning(ctx context.Context, list []SelectItem, rels []
 		}
 		name := it.Alias
 		if name == "" {
-			name = it.Text
 			if c, ok := it.Expr.(*ColumnRef); ok {
 				name = c.Name
 				if col, ok := star.column(c.Name); ok {
 					name = col.outputName()
 				}
+			} else {
+				// As a query's columns are named (colname.go).
+				name = figureColname(it.Expr)
 			}
 		}
 		ret.items = append(ret.items, planItem{expr: it.Expr, name: name, typ: t})

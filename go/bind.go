@@ -586,6 +586,9 @@ func (e *executor) findColumn(c *ColumnRef) (int, columnMeta, error) {
 					return 0, columnMeta{}, errorf(adbc.StatusInvalidArgument, "table reference %q is ambiguous", ref.Qualifier)
 				}
 			}
+			if rel.meta.ambiguous(ref.Name) {
+				return 0, columnMeta{}, errAmbiguousColumn(ref.Name)
+			}
 			col, ok := rel.meta.column(ref.Name)
 			if !ok || (rel.prefix != "" && isSystemColumn(col.Name)) || (ref.Qualifier == "" && rel.hidden[col.Name]) {
 				continue
@@ -596,7 +599,7 @@ func (e *executor) findColumn(c *ColumnRef) (int, columnMeta, error) {
 			}
 		}
 		if found > 1 {
-			return 0, columnMeta{}, errorf(adbc.StatusInvalidArgument, "column reference %q is ambiguous; qualify it with a table alias", ref.Name)
+			return 0, columnMeta{}, stateErrorf(stateAmbiguousColumn, "column reference %q is ambiguous; qualify it with a table alias", ref.Name)
 		}
 		if found == 1 {
 			e.noteRead(matchRel.meta, match.Name)
@@ -753,7 +756,7 @@ func hasColumn(rel relation, name string) bool {
 		return false
 	}
 	col, ok := rel.meta.column(name)
-	return ok && !(rel.prefix != "" && isSystemColumn(col.Name)) && !rel.hidden[col.Name]
+	return ok && !(rel.prefix != "" && isSystemColumn(col.Name)) && !rel.hidden[col.Name] || rel.meta.ambiguous(name)
 }
 
 // fromColumns counts the FROM items of the query being bound (the innermost
@@ -950,24 +953,22 @@ func (e *executor) planSubquery(ctx context.Context, sq *Subquery) error {
 
 // ---- in-memory relations (CTEs, derived tables) ----
 
-// memTable builds a relation from query results.
+// memTable builds a relation from query results. Its columns may share a
+// name (see nameColumns).
 func memTable(name string, cols []resultColumn, rows [][]Value, rename []string) (*tableMeta, error) {
 	if rename != nil && len(rename) != len(cols) {
 		return nil, errorf(adbc.StatusInvalidArgument, "%q has %d columns but %d column names were given", name, len(cols), len(rename))
 	}
 	meta := &tableMeta{Name: name, isMem: true}
-	seen := map[string]bool{}
+	names := make([]string, len(cols))
 	for i, c := range cols {
-		n := c.Name
+		names[i] = c.Name
 		if rename != nil {
-			n = rename[i]
+			names[i] = rename[i]
 		}
-		if seen[strings.ToLower(n)] {
-			return nil, errorf(adbc.StatusInvalidArgument, "column name %q appears more than once in %q; add aliases", n, name)
-		}
-		seen[strings.ToLower(n)] = true
-		meta.Columns = append(meta.Columns, columnMeta{Name: n, Type: c.Type, Nullable: true})
+		meta.Columns = append(meta.Columns, columnMeta{Type: c.Type, Nullable: true})
 	}
+	meta.nameColumns(names)
 	meta.mem = make([]map[string]Value, len(rows))
 	for r, row := range rows {
 		m := make(map[string]Value, len(row))
@@ -977,6 +978,50 @@ func memTable(name string, cols []resultColumn, rows [][]Value, rename []string)
 		meta.mem[r] = m
 	}
 	return meta, nil
+}
+
+// nameColumns names the columns of an in-memory relation. As in Postgres,
+// they may share a name (SELECT 1, 2 names both ?column?), which is fine
+// until a reference reads one (SELECT "?column?" … is ambiguous). A column
+// whose name another one has too is output by that name (its label), and
+// held in the rows under a name of its own, which SQL can't write.
+func (t *tableMeta) nameColumns(names []string) {
+	count := map[string]int{}
+	for _, n := range names {
+		count[strings.ToLower(n)]++
+	}
+	t.dups = nil
+	for i, n := range names {
+		c := &t.Columns[i]
+		c.Name, c.label = n, ""
+		if count[strings.ToLower(n)] > 1 {
+			c.Name, c.label = fmt.Sprintf("%s\x00%d", n, i+1), n
+			if t.dups == nil {
+				t.dups = map[string]bool{}
+			}
+			t.dups[strings.ToLower(n)] = true
+		}
+	}
+}
+
+// columnLabel is the name a column of an in-memory relation is held under
+// in its rows as errors name it: without the position nameColumns adds to
+// a name that other columns have too.
+func columnLabel(name string) string {
+	if i := strings.LastIndexByte(name, 0); i > 0 && i < len(name)-1 && strings.Trim(name[i+1:], "0123456789") == "" {
+		return name[:i]
+	}
+	return name
+}
+
+// ambiguous reports whether more than one column of an in-memory relation
+// has name (see nameColumns).
+func (t *tableMeta) ambiguous(name string) bool { return t.dups[strings.ToLower(name)] }
+
+// errAmbiguousColumn is Postgres's error for a reference to a column name
+// that several columns have.
+func errAmbiguousColumn(name string) error {
+	return stateErrorf(stateAmbiguousColumn, "column reference %q is ambiguous", name)
 }
 
 // lazyRelation is a derived table or WITH query that reads an enclosing
