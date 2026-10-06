@@ -127,6 +127,12 @@ type execCache struct {
 	prefixes map[string]bool
 	// usedTemp is set when a name resolves to a temporary object.
 	usedTemp bool
+	// colReads, when set, is told of each column of a stored table that
+	// the statement reads, outside the views it reads (viewDepth counts
+	// those being planned): ALTER COLUMN … TYPE finds the views that read
+	// a column this way (see viewDependencies).
+	colReads  func(meta *tableMeta, column string)
+	viewDepth int
 	// loaded are the tables the statement read (see checkReads in rekey.go).
 	loaded []*tableMeta
 	// branchTypes are the result types of CASE and IIF expressions
@@ -588,6 +594,7 @@ func (e *executor) findColumn(c *ColumnRef) (int, columnMeta, error) {
 			return 0, columnMeta{}, stateErrorf(stateAmbiguousColumn, "column reference %q is ambiguous; qualify it with a table alias", ref.Name)
 		}
 		if found == 1 {
+			e.noteRead(matchRel.meta, match.Name)
 			match.Name = matchRel.prefix + match.Name
 			return depth, match, nil
 		}
@@ -604,6 +611,17 @@ func (e *executor) findColumn(c *ColumnRef) (int, columnMeta, error) {
 		sc = e.scopes[top]
 	}
 	return 0, columnMeta{}, noSuchColumn(&ref, sc, e.lateralColumn(ref.Name))
+}
+
+// noteRead tells colReads (if set) that the statement reads a column of
+// meta, if meta is a stored table and no view being planned reads it.
+func (e *executor) noteRead(meta *tableMeta, column string) {
+	c := e.cache
+	if c == nil || c.colReads == nil || c.viewDepth > 0 || meta == nil ||
+		meta.isMem || meta.join != nil || meta.view != nil || meta.lazy != nil {
+		return
+	}
+	c.colReads(meta, column)
 }
 
 // correlate marks the subqueries whose bodies are the scopes from the

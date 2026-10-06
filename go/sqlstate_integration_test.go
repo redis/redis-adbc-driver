@@ -73,12 +73,15 @@ func checkState(t *testing.T, what string, err error, code adbc.Status, state, m
 
 func TestSQLErrorStates(t *testing.T) {
 	h := newSQLHarness(t)
-	h.dropTables("it_err", "it_err2", "it_err3", "it_err_pk")
+	h.dropViews("it_err_atv")
+	h.dropTables("it_err", "it_err2", "it_err3", "it_err_pk", "it_err_at")
 	h.exec(`CREATE TABLE it_err (id INTEGER NOT NULL, n INTEGER, v VARCHAR(3), d DATE, b BOOLEAN, c INTEGER CHECK (c > 0))`)
 	h.exec(`INSERT INTO it_err (id, n) VALUES (1, 10)`)
 	h.exec(`CREATE TABLE it_err2 (x INTEGER)`)
 	h.exec(`INSERT INTO it_err2 VALUES (-1)`)
 	h.exec(`CREATE TABLE it_err_pk (k INTEGER PRIMARY KEY)`)
+	h.exec(`CREATE TABLE it_err_at (a INTEGER, b BOOLEAN DEFAULT true)`)
+	h.exec(`CREATE VIEW it_err_atv AS SELECT a FROM it_err_at`)
 
 	const (
 		data   = adbc.StatusInvalidData
@@ -211,6 +214,27 @@ func TestSQLErrorStates(t *testing.T) {
 		{`SELECT * FROM (SELECT 1, 2) s ORDER BY "?column?"`, arg, "42702", `ORDER BY "?column?" is ambiguous`},
 		{`SELECT 1 AS a, 2 AS a UNION SELECT 3, 4 ORDER BY a`, arg, "42702", `ORDER BY "a" is ambiguous`},
 		{`SELECT * FROM (SELECT 1 AS a, 2 AS a) s JOIN (SELECT 1 AS a) r USING (a)`, arg, "42702", `common column name "a" appears more than once in left table`},
+
+		// ALTER COLUMN … TYPE: the conversion, the rows' constraints, and
+		// what Postgres refuses.
+		{`ALTER TABLE it_err ALTER COLUMN d TYPE BOOLEAN`, arg, "42804", `column "d" cannot be cast automatically to type boolean`},
+		{`ALTER TABLE it_err ALTER COLUMN n TYPE BOOLEAN USING d`, arg, "42804", `result of USING clause for column "n" cannot be cast automatically to type boolean`},
+		{`ALTER TABLE it_err_at ALTER COLUMN b TYPE DATE USING NULL`, arg, "42804", `default for column "b" cannot be cast automatically to type date`},
+		{`ALTER TABLE it_err ALTER COLUMN n TYPE INTEGER USING 'x'`, data, "22P02", `"x"`},
+		{`ALTER TABLE it_err ALTER COLUMN n TYPE SMALLINT USING 100000`, data, "22003", "out of range"},
+		{`ALTER TABLE it_err ALTER COLUMN n TYPE VARCHAR(1)`, data, "22001", "value too long for type character varying(1)"},
+		{`ALTER TABLE it_err ALTER COLUMN id TYPE BIGINT USING NULL`, integ, "23502", `column "id" of relation "it_err" contains null values`},
+		{`ALTER TABLE it_err ALTER COLUMN c TYPE INTEGER USING -1`, integ, "23514", `of relation "it_err" is violated by some row`},
+		{`ALTER TABLE it_err ALTER COLUMN n TYPE BIGINT, ALTER COLUMN n TYPE TEXT`, notImp, "0A000", `cannot alter type of column "n" twice`},
+		{`ALTER TABLE it_err_at ALTER COLUMN a TYPE BIGINT`, notImp, "0A000", "cannot alter type of a column used by a view or rule"},
+		{`ALTER TABLE it_err ALTER COLUMN n TYPE BIGINT USING (SELECT 1)`, notImp, "0A000", "cannot use subquery in transform expression"},
+		{`ALTER TABLE it_err ALTER COLUMN n TYPE BIGINT USING ROW_NUMBER() OVER ()`, arg, "42P20", "window functions are not allowed in transform expressions"},
+		{`ALTER TABLE it_err ALTER COLUMN n TYPE BIGINT USING COUNT(*)`, arg, "42803", "aggregate functions are not allowed in transform expressions"},
+		{`ALTER TABLE it_err ALTER COLUMN n TYPE BIGINT USING GROUPING(n)`, arg, "42803", "grouping operations are not allowed in transform expressions"},
+		{`ALTER TABLE it_err ALTER COLUMN n TYPE BIGINT USING generate_series(1, 2)`, notImp, "0A000", "set-returning functions are not allowed in transform expressions"},
+		{`ALTER TABLE it_err ALTER COLUMN n TYPE BIGINT USING nope`, absent, "42703", `column "nope" does not exist`},
+		{`ALTER TABLE it_err ALTER COLUMN n TYPE RECORD`, arg, "42P16", `column "n" has pseudo-type record`},
+		{`ALTER TABLE it_err ALTER COLUMN n TYPE VARCHAR(0)`, data, "22023", "length for type varchar must be at least 1"},
 	} {
 		checkState(t, c.sql, h.stmtErr(c.sql, nil), c.code, c.state, c.msg)
 	}
@@ -231,6 +255,8 @@ func TestSQLErrorStates(t *testing.T) {
 	defer strRec.Release()
 	checkState(t, "bound 'x' cast to INTEGER", h.stmtErr(`SELECT CAST($1 AS INTEGER)`, strRec), data, "22P02", `"x"`)
 	checkState(t, "bound 'x' inserted into INTEGER", h.stmtErr(`INSERT INTO it_err (id, n) VALUES (2, $1)`, strRec), data, "22P02", `column "n": `)
+	// A transform expression has no parameters, as in Postgres's ALTER TABLE.
+	checkState(t, "bound parameter in USING", h.stmtErr(`ALTER TABLE it_err ALTER COLUMN n TYPE BIGINT USING $1`, strRec), absent, "42P02", "there is no parameter $1")
 	ub := array.NewUint64Builder(mem)
 	defer ub.Release()
 	ub.Append(1 << 63)
