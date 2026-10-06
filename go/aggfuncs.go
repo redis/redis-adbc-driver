@@ -377,7 +377,7 @@ func (s *stringAgg) result(env *evalEnv, t ColType) (Value, error) {
 	nargs := len(s.fn.Args)
 	order := make([]planOrder, 0, len(s.fn.OrderBy)+nargs)
 	for _, o := range s.fn.OrderBy {
-		order = append(order, planOrder{desc: o.Desc, nullsFirst: o.Nulls == NullsFirst})
+		order = append(order, planOrder{desc: o.Desc, nullsFirst: o.Nulls == NullsFirst, nullsLast: o.Nulls == NullsLast})
 	}
 	if s.fn.Distinct {
 		// As in PostgreSQL, DISTINCT sorts the values: by the ORDER BY keys,

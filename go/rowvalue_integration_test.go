@@ -567,7 +567,6 @@ func TestSQLRowValueDbtDeleteInsert(t *testing.T) {
 func TestSQLRowValueErrors(t *testing.T) {
 	h := newSQLHarness(t)
 	h.setupRowValues()
-	const generic = "a row constructor can only be compared (=, <>, <, <=, >, >=, IS [NOT] DISTINCT FROM, IN, ANY, ALL) or tested with IS [NOT] NULL"
 	cases := []struct{ where, want string }{
 		{"(k1, k2) IN (SELECT k1 FROM it_rv_s)", "subquery has too few columns"},
 		{"(k1, k2) IN (SELECT k1, k2, k1 FROM it_rv_s)", "subquery has too many columns"},
@@ -578,7 +577,9 @@ func TestSQLRowValueErrors(t *testing.T) {
 		{"(k1, k2) IN ((1, 'a'), (2))", "operator does not exist: record = bigint"},
 		{"(k1, k2) = k1", "operator does not exist: record = integer"},
 		{"k2 = (k1, k2)", "operator does not exist: varchar = record"},
-		{"(k1, k2)", generic},
+		{"(k1, k2)", "argument of WHERE must be type boolean, not type record"},
+		{"upper((k1, k2)) = 'a'", "function upper(record) does not exist"},
+		{"(SELECT k1, k2 FROM it_rv_s LIMIT 1) = (k1, k2)", "subquery must return only one column"},
 		{"(k1, nosuch) = (1, 2)", `column "nosuch" does not exist in table "it_rv_e"`},
 		{"(k1, k2) IN (SELECT k1, nosuch FROM it_rv_s)", `column "nosuch" does not exist in table "it_rv_s"`},
 	}
@@ -601,11 +602,12 @@ func TestSQLRowValueErrors(t *testing.T) {
 		{"DELETE FROM it_rv_t WHERE (k1, k2) IN (SELECT k1 FROM it_rv_s)", "subquery has too few columns"},
 		{"UPDATE it_rv_t SET v = 0 WHERE (k1, k2) = (1, 'a', 2)", "unequal number of entries in row expressions"},
 		{"UPDATE it_rv_t SET v = CASE WHEN (k1, k2) = 1 THEN 0 END", "operator does not exist: record = bigint"},
-		{"UPDATE it_rv_t SET v = (1, 2)", generic},
+		{"UPDATE it_rv_t SET v = (1, 2)", `column "v" is of type integer but expression is of type record`},
 		{"MERGE INTO it_rv_t t USING it_rv_s s ON (t.k1, t.k2) = (s.k1) WHEN MATCHED THEN DELETE",
 			"operator does not exist: record = integer"},
 		{"INSERT INTO it_rv_t (id) SELECT 1 WHERE (1, 2) IN (SELECT 1)", "subquery has too few columns"},
-		{"INSERT INTO it_rv_t (id) VALUES ((1, 2))", generic},
+		{"INSERT INTO it_rv_t (id) VALUES ((1, 2))", `column "id" is of type integer but expression is of type record`},
+		{"INSERT INTO it_rv_t (id) SELECT (1, 2)", `column "id" is of type integer but expression is of type record`},
 	} {
 		h.expectErrorText(c.sql, c.want)
 	}
@@ -620,7 +622,7 @@ func TestSQLRowValueErrors(t *testing.T) {
 	h.exec("CREATE VIEW it_rv_v AS SELECT id, k1, k2 FROM it_rv_t WHERE (k1, k2) IN (SELECT k1, k2 FROM it_rv_s)")
 	h.expectRows("SELECT id FROM it_rv_v ORDER BY id", "1", "6")
 	h.expectRows("SELECT id FROM it_rv_v WHERE (k1, k2) > (1, 'a') ORDER BY id", "6")
-	h.expectErrorText("CREATE VIEW it_rv_v2 AS SELECT (k1, k2) FROM it_rv_t", generic)
+	h.expectErrorText("CREATE VIEW it_rv_v2 AS SELECT (k1, k2) FROM it_rv_t", `column "row" has pseudo-type record`)
 }
 
 // dbt's delete+insert of 10,000 keys into a table of 200,000 rows (1,000
