@@ -40,9 +40,9 @@ type setOpPlan struct {
 }
 
 type setOrderKey struct {
-	col        int
-	desc       bool
-	nullsFirst bool
+	col                   int
+	desc                  bool
+	nullsFirst, nullsLast bool
 }
 
 // setOpType is the common type of two branch columns.
@@ -123,7 +123,7 @@ func (e *executor) planSetOp(ctx context.Context, sel *SelectStmt, plan *selectP
 		if col < 0 {
 			return nil, errorf(adbc.StatusInvalidArgument, "ORDER BY on a %s result must use output column names or positions", op.Op)
 		}
-		sp.order = append(sp.order, setOrderKey{col: col, desc: o.Desc, nullsFirst: o.Nulls == NullsFirst})
+		sp.order = append(sp.order, setOrderKey{col: col, desc: o.Desc, nullsFirst: o.Nulls == NullsFirst, nullsLast: o.Nulls == NullsLast})
 	}
 	plan.setop = sp
 	return plan, nil
@@ -286,7 +286,7 @@ func (e *executor) runSetOp(ctx context.Context, plan *selectPlan, params []Valu
 		order := make([]planOrder, len(sp.order))
 		keys := make([][]Value, len(out))
 		for i, k := range sp.order {
-			order[i] = planOrder{desc: k.desc, nullsFirst: k.nullsFirst}
+			order[i] = planOrder{desc: k.desc, nullsFirst: k.nullsFirst, nullsLast: k.nullsLast}
 		}
 		for r, row := range out {
 			for _, k := range sp.order {

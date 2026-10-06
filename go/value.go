@@ -34,6 +34,8 @@ import (
 //   - Floating-point values live in F.
 //   - Strings and binary values live in S.
 //   - Decimals live in D as an unscaled integer at scale T.Scale.
+//   - Records hold their fields in rec (see record.go), and have type
+//     typeRecord: the fields have their own types.
 type Value struct {
 	T    ColType
 	Null bool
@@ -47,6 +49,7 @@ type Value struct {
 	// Intervals: Months and Days, with nanoseconds in I.
 	Months int32
 	Days   int32
+	rec    *[]Value
 }
 
 func nullValue(t ColType) Value { return Value{T: t, Null: true} }
@@ -670,6 +673,8 @@ func (v Value) textIn(z tzZone) string {
 		return formatTimestamp(v.I, v.T.Unit, v.T.TZ != "", v.offsetIn(z), false)
 	case KindInterval:
 		return formatInterval(v)
+	case KindRecord:
+		return recordText(v, z)
 	}
 	return ""
 }
@@ -751,6 +756,9 @@ func coerceIn(v Value, t ColType, z tzZone) (Value, error) {
 			state = stateCannotCoerce
 		}
 		return Value{}, stateErr(state, "cannot convert %s value %q to %s", v.T.Kind, v.textIn(z), t.SQLName())
+	}
+	if t.Kind == KindRecord && v.T.Kind == KindRecord {
+		return coerceRecord(v, t, z)
 	}
 	// Parse strings into the target type first.
 	if v.T.Kind == KindString && t.Kind != KindString && t.Kind != KindBinary {
@@ -940,6 +948,10 @@ func (v Value) wallClock(z tzZone) (int64, error) {
 func castable(from, to ColType) bool {
 	f := from.Kind
 	switch {
+	case to.Kind == KindRecord:
+		return f == KindRecord || f == KindNull // text can't be read as a record
+	case f == KindRecord:
+		return to.Kind == KindString || to.Kind == KindNull
 	case f == KindNull || f == KindString || to.Kind == KindNull || to.Kind == KindString:
 		return true
 	case to.Kind == KindBool:
@@ -1022,6 +1034,9 @@ func parseStringIn(s string, t ColType, z tzZone) (Value, error) {
 		return intervalLiteral(trimmed)
 	case KindTimeTZ:
 		return parseTimeTZ(trimmed, z)
+	case KindRecord:
+		// As in Postgres, which can read text only as a named composite type.
+		return Value{}, stateErr(stateFeatureNotSupported, "input of anonymous composite types is not implemented")
 	}
 	return Value{}, stateErr(stateInvalidText, "cannot convert %q to %s", s, t.SQLName())
 }
@@ -1136,6 +1151,10 @@ func textOperand(s Value, t ColType, z tzZone) (Value, error) {
 func compareIn(a, b Value, z tzZone) (int, bool) {
 	ak, bk := a.T.Kind, b.T.Kind
 	switch {
+	case ak == KindRecord && bk == KindRecord:
+		return compareRecords(a, b, z)
+	case ak == KindRecord || bk == KindRecord:
+		return 0, false
 	case ak == KindInterval && bk == KindInterval:
 		return intervalTotal(a).Cmp(intervalTotal(b)), true
 	case (ak == KindString || ak == KindBinary) && (bk == KindString || bk == KindBinary):

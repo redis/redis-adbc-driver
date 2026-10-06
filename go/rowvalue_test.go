@@ -108,12 +108,17 @@ func TestRowValueExpressions(t *testing.T) {
 			"false|true|true|false|true"},
 		// A row compared with a subquery's one row (NULL for no row).
 		{s + "SELECT (1, 'x') = (SELECT 1, 'x'), (1, 'x') = (SELECT a, b FROM s2 WHERE a = 5), (1, 'x') < (SELECT 1, 'y'), " +
-			"(SELECT a, b FROM s2 WHERE a = 2) = (2, 'y'), (1, 'x') <> (SELECT a, b FROM s2 WHERE a = 1)",
+			"(2, 'y') = (SELECT a, b FROM s2 WHERE a = 2), (1, 'x') <> (SELECT a, b FROM s2 WHERE a = 1)",
 			"true|NULL|true|true|false"},
 		{s + "SELECT (1, 'x') = (SELECT a, b FROM s2)", "error: more than one row returned by a subquery used as an expression"},
-		{s + "SELECT (SELECT a, b FROM s2 WHERE a = 2) IN ((1, 'x'), (2, 'y')), (SELECT 1, 2) BETWEEN (0, 5) AND (1, 2), " +
+		{s + "SELECT (2, 'y') IN ((SELECT a, b FROM s2 WHERE a = 2)), (1, 2) BETWEEN (SELECT 0, 5) AND (SELECT 1, 2), " +
 			"ROW(2) = (SELECT 2), ROW(2) > (SELECT 1)",
 			"true|true|true|true"},
+		// A subquery before the row has one column, a record, which is
+		// compared with the row as a record: NULL fields are equal.
+		{s + "SELECT (SELECT ROW(a, b) FROM s2 WHERE a = 2) = (2, 'y'), (SELECT ROW(1, NULL)) = (1, NULL), " +
+			"(SELECT ROW(1, NULL)) IN ((1, NULL)), (SELECT ROW(1, NULL)) < (1, 2)",
+			"true|true|true|false"},
 		// A set operation as the subquery.
 		{"SELECT (1, 'x') IN (SELECT 2, 'y' UNION SELECT 1, 'x'), (3, 'z') NOT IN (SELECT 2, 'y' UNION ALL SELECT NULL, 'z')",
 			"true|NULL"},
@@ -145,7 +150,6 @@ func TestRowValueExpressions(t *testing.T) {
 
 // The errors, with Postgres's messages where it has one.
 func TestRowValueErrors(t *testing.T) {
-	const generic = "error: a row constructor can only be compared (=, <>, <, <=, >, >=, IS [NOT] DISTINCT FROM, IN, ANY, ALL) or tested with IS [NOT] NULL"
 	cases := []struct{ q, want string }{
 		{"SELECT (1, 2) = (1, 2, 3)", "error: unequal number of entries in row expressions"},
 		{"SELECT (1, 2) < ROW(1)", "error: unequal number of entries in row expressions"},
@@ -159,17 +163,41 @@ func TestRowValueErrors(t *testing.T) {
 		{"SELECT (1, 2) IS NOT DISTINCT FROM 1", "error: operator does not exist: record = bigint"},
 		{"SELECT (1, 2) + 1", "error: operator does not exist: record + bigint"},
 		{"SELECT (1, 2) AND true", "error: argument of AND must be type boolean, not type record"},
-		{"SELECT ((1, 2), 3) = ((1, 2), 3)", "error: nested row constructors are not supported"},
-		{"SELECT ((1, 2), 3) IN (SELECT 1, 2)", "error: nested row constructors are not supported"},
-		{"SELECT ((1, 2), 3) IS NULL", "error: nested row constructors are not supported"},
-		{"SELECT ROW(ROW(1)) IS NOT NULL", "error: nested row constructors are not supported"},
-		{"SELECT (1, 2)", generic},
-		{"SELECT ROW(1)", generic},
-		{"SELECT upper((1, 2))", generic},
-		{"SELECT -(1, 2)", generic},
-		{"SELECT CAST((1, 2) AS VARCHAR)", generic},
-		{"SELECT 1 WHERE (1, 2)", generic},
-		{"SELECT (1, 2) LIKE 'a'", generic},
+		// Nested rows are compared as records: those of different lengths
+		// can't be, which is found when they are.
+		{"SELECT ((1, 2), 3) = ((1, 2, 3), 3)", "error: cannot compare record types with different numbers of columns"},
+		{"SELECT ((1, 2), 3) < ((1, 2, 3), 3)", "error: cannot compare record types with different numbers of columns"},
+		{"SELECT (SELECT ROW(1, 2)) IN (SELECT 1)", "error: operator does not exist: record = bigint"},
+		{"SELECT 1 < ANY (SELECT ROW(1, 2))", "error: operator does not exist: bigint < record"},
+		{"SELECT ((1, 2), 3) IN (SELECT 1, 2)", "error: operator does not exist: record = bigint"},
+		// Where a row is a value of type record.
+		{"SELECT -(1, 2)", "error: operator does not exist: - record"},
+		{"SELECT NOT (1, 2)", "error: argument of NOT must be type boolean, not type record"},
+		{"SELECT (1, 2) || (3, 4)", "error: operator does not exist: record || record"},
+		{"SELECT upper((1, 2))", "error: function upper(record) does not exist"},
+		{"SELECT md5(ROW(1, 'a'))", "error: function md5(record) does not exist"},
+		{"SELECT max((1, 2))", "error: function max(record) does not exist"},
+		{"SELECT (1, 2) LIKE 'a'", "error: operator does not exist: record ~~ varchar"},
+		{"SELECT (1, 2)::json", "error: cannot cast type record to json"},
+		{"SELECT CAST((1, 2) AS INTEGER)", "error: cannot cast type record to integer"},
+		{"SELECT '(1,2)'::record", "error: input of anonymous composite types is not implemented"},
+		{"SELECT 1 WHERE (1, 2)", "error: argument of WHERE must be type boolean, not type record"},
+		{"SELECT 1 HAVING ROW(true)", "error: argument of HAVING must be type boolean, not type record"},
+		{"SELECT CASE WHEN (1, 2) THEN 1 END", "error: argument of CASE/WHEN must be type boolean, not type record"},
+		{"SELECT CASE WHEN true THEN (1, 2) ELSE 1 END", "error: CASE types bigint and record cannot be matched"},
+		{"SELECT COALESCE(NULL, (1, 2), 1)", "error: COALESCE types record and bigint cannot be matched"},
+		{"SELECT GREATEST(1, ROW(1))", "error: GREATEST types bigint and record cannot be matched"},
+		{"SELECT (ROW(1, 2)).f3", `error: could not identify column "f3" in record data type`},
+		{"SELECT (ROW(1, 2)).x", `error: could not identify column "x" in record data type`},
+		{"SELECT (ROW(1, 2)).f01", `error: could not identify column "f01" in record data type`},
+		{"SELECT (ROW(1, 2)).\"F1\"", `error: could not identify column "F1" in record data type`},
+		{"SELECT (1).f1", "error: column notation .f1 applied to type bigint, which is not a composite type"},
+		{"SELECT (ROW(1, 2)).*", `error: syntax error: expected a field name after "." near "*"`},
+		// A subquery compared with a row comes after it, as in Postgres.
+		{"SELECT (SELECT 1, 2) = (1, 2)", "error: subquery must return only one column"},
+		{"SELECT (SELECT 1, 2) IN ((1, 2))", "error: subquery must return only one column"},
+		{"SELECT ROW(1, 2) = (SELECT ROW(1, 2))", "error: subquery has too few columns"},
+		{"SELECT ROW(1, 2) IN (SELECT ROW(1, 2))", "error: subquery has too few columns"},
 		// The subquery's columns.
 		{"SELECT (1, 2) IN (SELECT 1)", "error: subquery has too few columns"},
 		{"SELECT (1, 2) IN (SELECT 1, 2, 3)", "error: subquery has too many columns"},

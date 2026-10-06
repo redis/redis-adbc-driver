@@ -617,7 +617,21 @@ func exprEqual(a, b Expr) bool {
 		return ok && x.Op == y.Op && exprEqual(x.L, y.L) && exprEqual(x.R, y.R)
 	case *IsNull:
 		y, ok := b.(*IsNull)
-		return ok && x.Not == y.Not && exprEqual(x.X, y.X)
+		return ok && x.Not == y.Not && x.field == y.field && exprEqual(x.X, y.X)
+	case *RowExpr:
+		y, ok := b.(*RowExpr)
+		if !ok || len(x.Items) != len(y.Items) {
+			return false
+		}
+		for i := range x.Items {
+			if !exprEqual(x.Items[i], y.Items[i]) {
+				return false
+			}
+		}
+		return true
+	case *FieldSelect:
+		y, ok := b.(*FieldSelect)
+		return ok && x.Index == y.Index && x.Name == y.Name && exprEqual(x.X, y.X)
 	case *Cast:
 		y, ok := b.(*Cast)
 		return ok && x.T == y.T && exprEqual(x.X, y.X) && exprEqual(x.OnError, y.OnError)
@@ -663,12 +677,12 @@ func compareKeys(a, b []Value, order []planOrder) int {
 		case x.Null && y.Null:
 			continue
 		case x.Null:
-			if o.nullsFirst {
+			if o.nullFirst(y) {
 				return -1
 			}
 			return 1
 		case y.Null:
-			if o.nullsFirst {
+			if o.nullFirst(x) {
 				return 1
 			}
 			return -1
@@ -705,7 +719,7 @@ func computeWindowGroup(env *evalEnv, g *windowGroup, n int, setRow func(int)) e
 	np, no := len(g.spec.PartitionBy), len(g.spec.OrderBy)
 	ws := &windowSet{no: no, okeys: make([]Value, n*no), order: make([]planOrder, no), zone: env.zone()}
 	for i, o := range g.spec.OrderBy {
-		ws.order[i] = planOrder{desc: o.Desc, nullsFirst: o.Nulls == NullsFirst}
+		ws.order[i] = planOrder{desc: o.Desc, nullsFirst: o.Nulls == NullsFirst, nullsLast: o.Nulls == NullsLast}
 	}
 	// Evaluate the partition keys, the order keys and every call's
 	// arguments for each row. A FILTER is evaluated first: the arguments of

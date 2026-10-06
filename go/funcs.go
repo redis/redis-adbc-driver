@@ -171,7 +171,10 @@ type funcDef struct {
 	// internal: the parser builds the call for an operator or a special
 	// form; a call written with its name (__JSON(x)) is an unknown
 	// function, and it isn't listed in information_schema.routines.
-	star, orderedSet, nulls, volatile, internal bool
+	// records: its arguments may be records (record.go), as those of
+	// Postgres's functions of "any" or anyelement may; other functions
+	// don't exist for a record argument.
+	star, orderedSet, nulls, volatile, internal, records bool
 }
 
 // funcDefs are the driver's functions (see the top of this file).
@@ -241,8 +244,8 @@ var funcDefs = []funcDef{
 	{name: "LENGTH", aliases: []string{"CHAR_LENGTH", "CHARACTER_LENGTH", "LEN"}, min: 1, max: 1},
 	{name: "FROM_HEX", aliases: []string{"UNHEX", "DECODE_HEX"}, min: 1, max: 1},
 	{name: "TO_HEX", aliases: []string{"HEX"}, min: 1, max: 1},
-	{name: "CONCAT", min: 0, max: many, impl: implConcat},
-	{name: "CONCAT_WS", min: 1, max: many, impl: implConcat},
+	{name: "CONCAT", min: 0, max: many, impl: implConcat, records: true},
+	{name: "CONCAT_WS", min: 1, max: many, impl: implConcat, records: true},
 	{name: "LIKE", min: 2, max: 3}, // x LIKE p [ESCAPE e], also LIKE(x, p [, e])
 	{name: "ILIKE", min: 2, max: 3},
 
@@ -257,11 +260,11 @@ var funcDefs = []funcDef{
 	{name: "REGEXP_MATCH", min: 2, max: 3, impl: implScalar},
 
 	// ---- conditional (eval.go, scalar.go) ----
-	{name: "COALESCE", aliases: []string{"IFNULL", "NVL"}, min: 0, max: many, impl: implCoalesce},
-	{name: "NULLIF", min: 2, max: 2, impl: implConditional},
-	{name: "GREATEST", min: 1, max: many, impl: implConditional},
-	{name: "LEAST", min: 1, max: many, impl: implConditional},
-	{name: "IIF", min: 3, max: 3, impl: implIIF},
+	{name: "COALESCE", aliases: []string{"IFNULL", "NVL"}, min: 0, max: many, impl: implCoalesce, records: true},
+	{name: "NULLIF", min: 2, max: 2, impl: implConditional, records: true},
+	{name: "GREATEST", min: 1, max: many, impl: implConditional, records: true},
+	{name: "LEAST", min: 1, max: many, impl: implConditional, records: true},
+	{name: "IIF", min: 3, max: 3, impl: implIIF, records: true},
 
 	// ---- date and time (datetime.go) ----
 	// The current times take an optional precision p, an integer constant
@@ -319,16 +322,16 @@ var funcDefs = []funcDef{
 	{name: "JSONB_TYPEOF", min: 1, max: 1, impl: implJSON},
 	{name: "JSON_ARRAY_LENGTH", min: 1, max: 1, impl: implJSON},
 	{name: "JSONB_ARRAY_LENGTH", min: 1, max: 1, impl: implJSON},
-	{name: "JSON_BUILD_OBJECT", min: 0, max: many, impl: implJSON},
-	{name: "JSONB_BUILD_OBJECT", min: 0, max: many, impl: implJSON},
-	{name: "JSON_BUILD_ARRAY", min: 0, max: many, impl: implJSON},
-	{name: "JSONB_BUILD_ARRAY", min: 0, max: many, impl: implJSON},
+	{name: "JSON_BUILD_OBJECT", min: 0, max: many, impl: implJSON, records: true},
+	{name: "JSONB_BUILD_OBJECT", min: 0, max: many, impl: implJSON, records: true},
+	{name: "JSON_BUILD_ARRAY", min: 0, max: many, impl: implJSON, records: true},
+	{name: "JSONB_BUILD_ARRAY", min: 0, max: many, impl: implJSON, records: true},
 	// JSON_OBJECT(text[]) and JSON_OBJECT(keys, values), as in Postgres; the
 	// SQL/JSON JSON_OBJECT(k VALUE v, …) is __JSON_OBJECT.
 	{name: "JSON_OBJECT", min: 1, max: 2, impl: implJSON},
 	{name: "JSONB_OBJECT", min: 1, max: 2, impl: implJSON},
-	{name: "TO_JSON", min: 1, max: 1, impl: implJSON},
-	{name: "TO_JSONB", min: 1, max: 1, impl: implJSON},
+	{name: "TO_JSON", min: 1, max: 1, impl: implJSON, records: true},
+	{name: "TO_JSONB", min: 1, max: 1, impl: implJSON, records: true},
 	// The SQL/JSON query functions: the document, the path and the DEFAULT
 	// expressions of ON EMPTY and ON ERROR (JSON_EXISTS has none). The
 	// parser checks their syntax.
@@ -338,16 +341,16 @@ var funcDefs = []funcDef{
 	{name: "__JSON", min: 1, max: 1, impl: implJSON, internal: true},  // x::json
 	{name: "__JSONB", min: 1, max: 1, impl: implJSON, internal: true}, // x::jsonb
 	{name: "__IS_JSON", min: 1, max: 1, impl: implJSON, internal: true},
-	{name: "__JSON_OBJECT", min: 0, max: many, impl: implJSON, internal: true}, // JSON_OBJECT(k VALUE v, …)
-	{name: "__JSON_ARRAY", min: 0, max: many, impl: implJSON, internal: true},  // JSON_ARRAY(v, …)
+	{name: "__JSON_OBJECT", min: 0, max: many, impl: implJSON, internal: true, records: true}, // JSON_OBJECT(k VALUE v, …)
+	{name: "__JSON_ARRAY", min: 0, max: many, impl: implJSON, internal: true, records: true},  // JSON_ARRAY(v, …)
 
 	// ---- grouping and MERGE (grouping.go, returning.go) ----
-	{name: "GROUPING", min: 1, max: many, impl: implGrouping},
+	{name: "GROUPING", min: 1, max: many, impl: implGrouping, records: true},
 	{name: "MERGE_ACTION", min: 0, max: 0, impl: implMergeAction},
 
 	// ---- aggregates (exec.go, aggfuncs.go) ----
 	// COUNT(*), or COUNT(x); several arguments need DISTINCT.
-	{name: "COUNT", kind: aggregateKind, min: 1, max: many, star: true, over: overOK},
+	{name: "COUNT", kind: aggregateKind, min: 1, max: many, star: true, over: overOK, records: true},
 	{name: "SUM", kind: aggregateKind, min: 1, max: 1, over: overOK},
 	{name: "AVG", kind: aggregateKind, min: 1, max: 1, over: overOK},
 	{name: "MIN", kind: aggregateKind, min: 1, max: 1, over: overOK},
@@ -356,7 +359,7 @@ var funcDefs = []funcDef{
 	{name: "LISTAGG", kind: aggregateKind, min: 1, max: 2, over: overOK},
 	{name: "BOOL_OR", kind: aggregateKind, min: 1, max: 1, args: []argType{argBool}, over: overOK},
 	{name: "BOOL_AND", aliases: []string{"EVERY"}, kind: aggregateKind, min: 1, max: 1, args: []argType{argBool}, over: overOK},
-	{name: "ANY_VALUE", kind: aggregateKind, min: 1, max: 1, over: overOK},
+	{name: "ANY_VALUE", kind: aggregateKind, min: 1, max: 1, over: overOK, records: true},
 	{name: "STDDEV_SAMP", aliases: []string{"STDDEV"}, kind: aggregateKind, min: 1, max: 1, args: []argType{argNumber}, over: overOK},
 	{name: "STDDEV_POP", kind: aggregateKind, min: 1, max: 1, args: []argType{argNumber}, over: overOK},
 	{name: "VAR_SAMP", aliases: []string{"VARIANCE"}, kind: aggregateKind, min: 1, max: 1, args: []argType{argNumber}, over: overOK},
@@ -365,13 +368,13 @@ var funcDefs = []funcDef{
 	{name: "PERCENTILE_CONT", kind: aggregateKind, min: 1, max: 1, args: []argType{argNumber}, within: argNumberOrInterval,
 		orderedSet: true, over: overNotImplemented},
 	{name: "PERCENTILE_DISC", kind: aggregateKind, min: 1, max: 1, args: []argType{argNumber}, orderedSet: true, over: overNotImplemented},
-	{name: "MODE", kind: aggregateKind, min: 0, max: 0, orderedSet: true, over: overNotImplemented},
+	{name: "MODE", kind: aggregateKind, min: 0, max: 0, orderedSet: true, over: overNotImplemented, records: true},
 	// MEDIAN(x) is PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY x).
 	{name: "MEDIAN", kind: aggregateKind, min: 1, max: 1, args: []argType{argNumberOrInterval}, over: overNotImplemented},
-	{name: "JSON_AGG", kind: aggregateKind, impl: implJSON, min: 1, max: 1},
-	{name: "JSONB_AGG", kind: aggregateKind, impl: implJSON, min: 1, max: 1},
-	{name: "JSON_OBJECT_AGG", kind: aggregateKind, impl: implJSON, min: 2, max: 2},
-	{name: "JSONB_OBJECT_AGG", kind: aggregateKind, impl: implJSON, min: 2, max: 2},
+	{name: "JSON_AGG", kind: aggregateKind, impl: implJSON, min: 1, max: 1, records: true},
+	{name: "JSONB_AGG", kind: aggregateKind, impl: implJSON, min: 1, max: 1, records: true},
+	{name: "JSON_OBJECT_AGG", kind: aggregateKind, impl: implJSON, min: 2, max: 2, records: true},
+	{name: "JSONB_OBJECT_AGG", kind: aggregateKind, impl: implJSON, min: 2, max: 2, records: true},
 
 	// ---- window functions (window.go) ----
 	{name: "ROW_NUMBER", kind: windowKind, min: 0, max: 0, over: overOK},
@@ -380,11 +383,11 @@ var funcDefs = []funcDef{
 	{name: "PERCENT_RANK", kind: windowKind, min: 0, max: 0, over: overOK},
 	{name: "CUME_DIST", kind: windowKind, min: 0, max: 0, over: overOK},
 	{name: "NTILE", kind: windowKind, min: 1, max: 1, args: []argType{argInt}, over: overOK},
-	{name: "LAG", kind: windowKind, min: 1, max: 3, args: []argType{argAny, argInt}, over: overOK, nulls: true},
-	{name: "LEAD", kind: windowKind, min: 1, max: 3, args: []argType{argAny, argInt}, over: overOK, nulls: true},
-	{name: "FIRST_VALUE", kind: windowKind, min: 1, max: 1, over: overOK, nulls: true},
-	{name: "LAST_VALUE", kind: windowKind, min: 1, max: 1, over: overOK, nulls: true},
-	{name: "NTH_VALUE", kind: windowKind, min: 2, max: 2, args: []argType{argAny, argInt}, over: overOK, nulls: true},
+	{name: "LAG", kind: windowKind, min: 1, max: 3, args: []argType{argAny, argInt}, over: overOK, nulls: true, records: true},
+	{name: "LEAD", kind: windowKind, min: 1, max: 3, args: []argType{argAny, argInt}, over: overOK, nulls: true, records: true},
+	{name: "FIRST_VALUE", kind: windowKind, min: 1, max: 1, over: overOK, nulls: true, records: true},
+	{name: "LAST_VALUE", kind: windowKind, min: 1, max: 1, over: overOK, nulls: true, records: true},
+	{name: "NTH_VALUE", kind: windowKind, min: 2, max: 2, args: []argType{argAny, argInt}, over: overOK, nulls: true, records: true},
 
 	// ---- table functions (series.go) ----
 	// The overloads (integers, numerics, timestamps with an interval step)

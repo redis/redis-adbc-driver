@@ -107,6 +107,8 @@ func walkExprPruned(e Expr, fn func(Expr) bool) {
 		for _, it := range x.Items {
 			walkExprPruned(it, fn)
 		}
+	case *FieldSelect:
+		walkExprPruned(x.X, fn)
 	case *WindowFunc:
 		// The call itself is not visited as a *Func: SUM(x) OVER (…) is not
 		// an aggregate, but aggregates in its arguments (SUM(COUNT(*))) are.
@@ -156,6 +158,8 @@ func walkOutsideAggregates(e Expr, fn func(Expr)) {
 		for _, it := range x.Items {
 			walkOutsideAggregates(it, fn)
 		}
+	case *FieldSelect:
+		walkOutsideAggregates(x.X, fn)
 	case *WindowFunc:
 		for _, c := range x.children() {
 			walkOutsideAggregates(c, fn)
@@ -225,6 +229,9 @@ func (env *evalEnv) eval(e Expr) (Value, error) {
 		if err != nil {
 			return Value{}, err
 		}
+		if v.T.Kind == KindRecord && !x.field {
+			return boolValue(recordIsNull(v, x.Not)), nil
+		}
 		return boolValue(v.Null != x.Not), nil
 	case *Unary:
 		v, err := env.eval(x.X)
@@ -290,7 +297,13 @@ func (env *evalEnv) eval(e Expr) (Value, error) {
 		}
 		return binaryOp(x.Op, l, r, env.zone())
 	case *RowExpr:
-		return Value{}, errRowValue()
+		items, err := env.evalItems(x.Items)
+		if err != nil {
+			return Value{}, err
+		}
+		return recordValue(items), nil
+	case *FieldSelect:
+		return env.evalFieldSelect(x)
 	case *Func:
 		return env.evalFunc(x)
 	case *Case:
@@ -592,6 +605,9 @@ func binaryOp(op string, l, r Value, z tzZone) (Value, error) {
 		}
 		c, ok := compareIn(l, r, z)
 		if !ok {
+			if err := recordCompareError(l, r); err != nil {
+				return Value{}, err
+			}
 			return Value{}, fmt.Errorf("cannot compare %s with %s", l.T.Kind, r.T.Kind)
 		}
 		switch op {
@@ -711,6 +727,9 @@ func arithmeticType(op string, a, b ColType) (ColType, error) {
 		return typeInt64, nil
 	}
 	num := func(k Kind) bool { return k.isNumeric() || k == KindBool }
+	if a.Kind == KindRecord || b.Kind == KindRecord {
+		return ColType{}, stateErr(stateUndefinedFunction, "operator does not exist: %s %s %s", sigTypeName(a), op, sigTypeName(b))
+	}
 	if !num(a.Kind) || !num(b.Kind) {
 		return ColType{}, fmt.Errorf("operator %s is not supported for %s and %s", op, a.Kind, b.Kind)
 	}
@@ -814,6 +833,12 @@ func inferType(e Expr, cols map[string]ColType, params []ColType) (ColType, erro
 		}
 		return ColType{}, fmt.Errorf("unknown column %q", x.Name)
 	case *Cast:
+		if x.T.Kind == KindRecord {
+			// CAST(r AS RECORD) keeps r's fields.
+			if t, err := inferType(x.X, cols, params); err == nil && t.Kind == KindRecord {
+				return t, nil
+			}
+		}
 		return x.T, nil
 	case *IsNull:
 		return typeBool, nil
@@ -865,7 +890,21 @@ func inferType(e Expr, cols map[string]ColType, params []ColType) (ColType, erro
 	case *WindowFunc:
 		return windowType(x, cols, params)
 	case *RowExpr:
-		return ColType{}, errRowValue()
+		fields := make([]ColType, len(x.Items))
+		for i, it := range x.Items {
+			t, err := inferType(it, cols, params)
+			if err != nil {
+				return ColType{}, err
+			}
+			fields[i] = t
+		}
+		return recordOf(fields), nil
+	case *FieldSelect:
+		t, err := inferType(x.X, cols, params)
+		if err != nil {
+			return ColType{}, err
+		}
+		return fieldSelectType(x, t)
 	case *Case:
 		results := make([]Expr, 0, len(x.Whens)+1)
 		for _, w := range x.Whens {
@@ -895,6 +934,8 @@ func commonType(a, b ColType) ColType {
 		return b
 	case b.Kind == KindNull || a == b:
 		return a
+	case a.Kind == KindRecord && b.Kind == KindRecord:
+		return commonRecord(a, b)
 	case (a.Kind.isNumeric() || a.Kind == KindBool) && (b.Kind.isNumeric() || b.Kind == KindBool):
 		if a.Kind.isInteger() && b.Kind.isInteger() {
 			if a.Kind > b.Kind {
