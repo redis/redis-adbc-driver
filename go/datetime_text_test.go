@@ -15,6 +15,7 @@
 package redis
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -234,12 +235,124 @@ func TestToChar(t *testing.T) {
 		scalarCase{"TO_DATE('2,020', 'Y,YYY')", "2020-01-01", "DATE"},
 	)
 	runScalarCases(t, sc)
-	// Every pattern is implemented, for each type TO_CHAR takes.
+	// Every pattern is implemented, for each type TO_CHAR takes. For an
+	// interval and a time, the ones Postgres 16 rejects are an error.
+	notInterval := map[string]bool{}
+	for _, p := range strings.Fields("A.D. AD B.C. BC a.d. ad b.c. bc MONTH Month month MON Mon mon " +
+		"DAY Day day DY Dy dy D d ID id TZ tz TZH tzh TZM tzm OF of") {
+		notInterval[p] = true
+	}
 	for _, k := range dchKeywords {
-		for _, v := range []string{"DATE '2020-11-29'", "TIMESTAMP '2020-11-29 10:00:00'", "TIMESTAMPTZ '2020-11-29 10:00:00+00'", "TIME '10:00:00'"} {
-			if _, _, err := evalTestExpr(t, "TO_CHAR("+v+", '"+k.name+"')"); err != nil {
-				t.Errorf("TO_CHAR(%s, '%s'): %v", v, k.name, err)
+		for _, v := range []string{"DATE '2020-11-29'", "TIMESTAMP '2020-11-29 10:00:00'", "TIMESTAMPTZ '2020-11-29 10:00:00+00'",
+			"TIME '10:00:00'", "INTERVAL '1 day'"} {
+			_, _, err := evalTestExpr(t, "TO_CHAR("+v+", '"+k.name+"')")
+			want := ""
+			if notInterval[k.name] && (strings.HasPrefix(v, "TIME ") || strings.HasPrefix(v, "INTERVAL ")) {
+				want = "invalid format specification for an interval value"
+			}
+			if (err == nil && want != "") || (err != nil && errText(err) != want) {
+				t.Errorf("TO_CHAR(%s, '%s'): error %v, want %q", v, k.name, err, want)
 			}
 		}
 	}
+}
+
+// TO_CHAR of an interval, from its own fields, and of a time, which
+// Postgres casts to an interval (#114). Every result is Postgres 16's.
+func TestToCharInterval(t *testing.T) {
+	const (
+		iv  = "INTERVAL '1 year 2 mons 3 days 04:05:06.789'"
+		neg = "INTERVAL '-1 years -2 mons -3 days -04:05:06.789'"
+	)
+	cases := []struct{ value, format, want string }{
+		// Years, months and days as the interval has them, and hours past 23.
+		{iv, "YYYY-MM-DD HH24:MI:SS.MS", "0001-02-03 04:05:06.789"},
+		{"INTERVAL '14 mons 40 days 100:00:00'", "YYYY MM DD HH24", "0001 02 40 100"},
+		{"INTERVAL '12 mons'", "YYYY MM", "0001 00"},
+		{"INTERVAL '25 hours'", "DD HH24", "00 25"},
+		{"INTERVAL '0'", "[YYYY] [Y,YYY] [CC] [J]", "[0000] [0,000] [00] [1721028]"},
+		{"INTERVAL '2 years 11 mons'", `YYYY "years" MM "months" Q`, "0002 years 11 months 4"},
+		{"TIMESTAMP '2024-03-01' - TIMESTAMP '2024-01-01 12:00'", `FMDD "days" FMHH24 "hours"`, "59 days 12 hours"},
+		// A negative field has a sign, and is padded one wider for it.
+		{neg, "YYYY MM DD HH24 MI SS MS US", "-0001 -02 -3 -04 -05 -06 -789 -789000"},
+		{neg, "FMYYYY FMMM FMDD FMHH24 FMMI FMSS", "-1 -2 -3 -4 -5 -6"},
+		{"INTERVAL '-1 days +01:00:00'", "DD HH24", "-1 01"},
+		{"INTERVAL '1 year -3 mons'", "YYYY MM", "0000 09"},
+		{"INTERVAL '-00:00:00.5'", "MS US FF1", "-500 -500000 -5"},
+		{"INTERVAL '-3 days'", "DDth", "-3rd"},
+		// HH and HH12 are on a 12-hour clock, and AM / PM come from the
+		// hours of the day.
+		{"INTERVAL '100 hours'", "HH HH12 AM", "04 04 AM"},
+		{"INTERVAL '36:00:00'", "HH12 PM p.m.", "12 PM p.m."},
+		{"INTERVAL '-13:00:00'", "HH12 AM", "-01 AM"},
+		{"INTERVAL '-12:00:00'", "HH FMHH", "012 12"},
+		// SSSS is the time's seconds, without the days.
+		{"INTERVAL '1 day 01:00:00'", "SSSS SSSSS", "3600 3600"},
+		{"INTERVAL '-01:00:01'", "SSSS", "-3601"},
+		{"INTERVAL '00:00:00.123456'", "FF1 FF2 FF3 FF4 FF5 FF6 MS US", "1 12 123 1234 12345 123456 123 123456"},
+		// Years have no era, and CC is the years / 100.
+		{"INTERVAL '1234 years'", "Y,YYY YYYY YYY YY Y CC", "1,234 1234 234 34 4 12"},
+		{"INTERVAL '2001 years'", "CC", "20"},
+		{"INTERVAL '-1234 years'", "Y,YYY YYYY YYY YY Y CC", "-1,-234 -1234 -234 -34 -4 -12"},
+		{"INTERVAL '123456 years'", "YYYY CC", "123456 1234"},
+		// DDD, and WW from it, count a month as 30 days; W is from the days.
+		{iv, "DDD WW W", "423 61 1"},
+		{"INTERVAL '40 days'", "DDD WW W", "040 06 6"},
+		{neg, "DDD WW W", "-423 -59 1"},
+		// Q and RM are from the months: nothing without them (RM is XII for
+		// whole years, I when negative), and negative months count back
+		// from December.
+		{"INTERVAL '5 mons'", "Q RM", "2 V   "},
+		{"INTERVAL '1 year'", "[Q] [RM] [rm]", "[] [XII ] [xii ]"},
+		{"INTERVAL '-2 mons'", "Q RM", "0 XI  "},
+		{"INTERVAL '-11 mons'", "MM Q RM", "-11 -3 II  "},
+		{"INTERVAL '-2 years'", "FMRM", "I"},
+		{"INTERVAL '3 days'", "[Q] [RM]", "[] []"},
+		// The ISO fields and J are Postgres's date arithmetic on the fields,
+		// which aren't a date.
+		{iv, "J IYYY IW IDDD", "1721459 0001 05 034"},
+		{"INTERVAL '-2147483648 days'", "J W WW", "-2145762620 306783379 306783379"},
+		// Ordinals, and FX.
+		{"INTERVAL '21 days 02:00:00'", "DDth HH24TH", "21st 02ND"},
+		{"INTERVAL '1 day'", "FXDD", "01"},
+		// A time is the interval since midnight: no years, months or days.
+		{"TIME '10:00:00'", "YYYY-MM-DD HH24:MI:SS", "0000-00-00 10:00:00"},
+		{"TIME '10:00:00'", "J IYYY IW IDDD CC WW W DDD [Q] [RM]", "1721028 -001 48 331 00 01 1 000 [] []"},
+		{"TIME '13:05:09.5'", "HH12:MI:SS.MS AM SSSS", "01:05:09.500 PM 47109"},
+		{"TIME '12:30:00'", "HH12:MI pm", "12:30 pm"},
+		{"TIME '24:00:00'", "HH24 HH12 AM", "24 12 AM"},
+	}
+	var sc []scalarCase
+	for _, c := range cases {
+		sc = append(sc, scalarCase{"TO_CHAR(" + c.value + ", '" + c.format + "')", c.want, "VARCHAR"})
+	}
+	sc = append(sc,
+		scalarCase{"TO_CHAR(INTERVAL '1 day', '')", "NULL", "VARCHAR"},
+		scalarCase{"TO_CHAR(CAST(NULL AS INTERVAL), 'Day')", "NULL", "VARCHAR"},
+	)
+	runScalarCases(t, sc)
+	// The patterns that need a calendar date, wherever they are in the
+	// format.
+	const msg = "invalid format specification for an interval value"
+	expectExprErrors(t, map[string]string{
+		"TO_CHAR(INTERVAL '1 day', 'DD Day')":             msg,
+		"TO_CHAR(INTERVAL '1 mon', 'FMMonth')":            msg,
+		"TO_CHAR(INTERVAL '1 year', 'YYYY BC')":           msg,
+		"TO_CHAR(TIME '10:00:00', 'HH24:MI TZ')":          msg,
+		"TO_CHAR(TIME '10:00:00', 'D HH24')":              msg,
+		"TO_CHAR(TIME '10:00:00', '\"Day\" ID')":          msg,
+		"TO_CHAR(LOCALTIME, 'HH24:MI OF')":                msg,
+		"TO_CHAR(INTERVAL '-1 days', 'TMDy, FMDD')":       msg,
+		"TO_CHAR(INTERVAL '1 day', 'HH24 a.d.')":          msg,
+		"TO_CHAR(INTERVAL '00:00:01', 'SS tzh:tzm')":      msg,
+		"TO_CHAR(INTERVAL '1 year', 'YYYY-MM \"x\" mon')": msg,
+	})
+	// A time has no time zone: the session's doesn't change it.
+	runZoneCases(t, "America/Los_Angeles", []scalarCase{
+		{"TO_CHAR(TIME '10:00:00', 'HH24:MI')", "10:00", "VARCHAR"},
+		{"TO_CHAR(LOCALTIME, 'YYYY-MM-DD HH24:MI')", "0000-00-00 21:00", "VARCHAR"},
+		{"TO_CHAR(CAST(TIMESTAMPTZ '2024-01-10 05:00:00+00' AS TIME), 'HH24:MI')", "21:00", "VARCHAR"},
+		{"TO_CHAR(INTERVAL '1 day 02:00:00', 'DD HH24')", "01 02", "VARCHAR"},
+		{"TO_CHAR(TIME '10:00:00', 'HH24 TZH')", "error: " + msg, ""},
+	})
 }

@@ -34,6 +34,8 @@ func runAdopt(ctx context.Context, args []string, stdout, stderr io.Writer) erro
 	table := fs.String("table", "", "the table's name (default: made from the prefix)")
 	index := fs.String("index-columns", "", "comma-separated `columns` to index (default: every one that can be)")
 	trust := fs.Bool("trust-strings", false, "trust the string values to stay as they are now (see the README)")
+	appIndex := fs.String("index", "", "the application's search `index` to read the rows through (default: one that can serve, if any)")
+	ownIndex := fs.Bool("own-index", false, "create an index in the driver's format, even if the application's can serve")
 	apply := fs.Bool("apply", false, "do it; without -apply, adopt only checks and prints what it would do")
 	asJSON := fs.Bool("json", false, "write the result as JSON")
 	if err := parseFlags(fs, args); err != nil {
@@ -43,7 +45,7 @@ func runAdopt(ctx context.Context, args []string, stdout, stderr io.Writer) erro
 		return errors.New("-prefix is required (redis-adbc check lists the collections)")
 	}
 	o := redis.HashAdoptOptions{Prefix: hf.prefix, Schema: *schema, Table: *table, Types: hf.types, Renames: hf.renames,
-		IndexColumns: indexColumns(*index), TrustStrings: *trust, Apply: *apply,
+		IndexColumns: indexColumns(*index), TrustStrings: *trust, Index: *appIndex, OwnIndex: *ownIndex, Apply: *apply,
 		Progress: func(msg string) { fmt.Fprintln(stderr, msg) }}
 	res, err := redis.AdoptHashes(ctx, cf.options(), o)
 	if res != nil && *asJSON {
@@ -70,6 +72,9 @@ func printAdoption(w io.Writer, res *redis.HashAdoption) {
 	}
 	ready := len(r.Checks) == 0 || r.Checks[0].Ready
 	switch {
+	case res.Applied && res.AppIndex:
+		fmt.Fprintf(w, "\nAdopted: %s now reads the HASHes under %s, and those the application writes later (through the application's index %s).\n",
+			res.Table, r.Prefix, res.Index)
 	case res.Applied:
 		fmt.Fprintf(w, "\nAdopted: %s now reads the HASHes under %s, and those the application writes later (index %s).\n",
 			res.Table, r.Prefix, res.Index)

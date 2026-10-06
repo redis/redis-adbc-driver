@@ -83,6 +83,12 @@ package redis
 // expire too. Connections that find a job being settled by another one wait
 // for it (up to rekeyTTL), and a takeover that fails deletes its lease key
 // at once, so the next connection can try again (see settleAbandoned).
+//
+// Closing a connection while a re-key runs on another goroutine stops it
+// as a cancel does, before the client closes (see stopRekeys): the move
+// stops at its next command, and the rename is rolled back, or finished if
+// it has switched. A re-key still running when Close stops waiting gives
+// its lease up, so that the next connection takes it over at once.
 
 import (
 	"context"
@@ -153,30 +159,52 @@ func (j *rekeyJob) mayAct() error {
 	return nil
 }
 
+// testHookRekeyStep, when set by a test, runs at two steps of a re-key that
+// rekeyTable runs: "copy" before each page of rows is copied, and
+// "switched" once the metadata names the new keys. ctx is the move's, which
+// Close cancels.
+var testHookRekeyStep func(ctx context.Context, step string)
+
 // rekeyTable renames a table and moves its rows and index to the new name's.
 func (e *executor) rekeyTable(ctx context.Context, meta *tableMeta, to string) error {
 	s := e.store
-	// Leftovers of abandoned re-keys (one may hold this table's prefix or
-	// the new names).
-	_ = s.recoverDead(ctx)
-	job, start, err := s.beginRekey(ctx, meta.Schema, meta.Name, to)
+	run, err := s.trackRekey(ctx)
 	if err != nil {
 		return err
 	}
+	defer s.untrackRekey(run)
+	// Closing the connection stops the rename as cancelling it does.
+	sctx := run.ctx
+	// Leftovers of abandoned re-keys (one may hold this table's prefix or
+	// the new names).
+	_ = s.recoverDead(sctx)
+	job, start, err := s.beginRekey(sctx, meta.Schema, meta.Name, to)
+	if err != nil {
+		if run.closing() {
+			return errRekeyClosed
+		}
+		return err
+	}
+	s.holdRekey(run, job.lease)
 	defer job.lease.release()
 	fence := time.Now().Add(rekeyFence)
 	// Cancelling the statement stops the move, but not the rollback.
 	mctx, cancel := context.WithCancel(job.lease.ctx)
 	defer cancel()
-	defer context.AfterFunc(ctx, cancel)()
+	defer context.AfterFunc(sctx, cancel)()
 	err = s.moveRows(mctx, job, start, fence)
 	var next *tableMeta
 	if err == nil {
 		next, err = s.switchRekey(mctx, job, start)
 	}
+	if err == nil && testHookRekeyStep != nil {
+		testHookRekeyStep(mctx, "switched")
+	}
 	bg := context.WithoutCancel(ctx)
 	if err != nil {
 		switch {
+		case run.closing():
+			err = errRekeyClosed
 		case job.lease.ctx.Err() != nil:
 			err = errLostRekey
 		case ctx.Err() != nil:
@@ -309,16 +337,21 @@ func (s *store) beginRekey(ctx context.Context, schema, from, to string) (*rekey
 // with rekeyTTL/2 to spare for commands still in flight.
 type lease struct {
 	// ctx is cancelled once the lease is no longer valid.
-	ctx     context.Context
-	cancel  context.CancelFunc
-	done    chan struct{}
+	ctx    context.Context
+	cancel context.CancelFunc
+	done   chan struct{}
+	// client renews the lease key, rekeyAliveKey(owner). It is the client
+	// the connection had when the lease was taken: one that other timeouts
+	// replace stays open until the connection closes.
+	client  goredis.UniversalClient
+	owner   string
 	mu      sync.Mutex
 	renewed time.Time
 }
 
 // holdLease renews a re-key's lease, last set at since, until release.
 func (s *store) holdLease(ctx context.Context, owner string, since time.Time) *lease {
-	l := &lease{renewed: since, done: make(chan struct{})}
+	l := &lease{client: s.client, owner: owner, renewed: since, done: make(chan struct{})}
 	l.ctx, l.cancel = context.WithCancel(ctx)
 	go func() {
 		defer close(l.done)
@@ -329,7 +362,7 @@ func (s *store) holdLease(ctx context.Context, owner string, since time.Time) *l
 			case <-l.ctx.Done():
 				return
 			case <-tick.C:
-				if !l.renew(s, owner) {
+				if !l.renew() {
 					l.cancel()
 					return
 				}
@@ -340,10 +373,10 @@ func (s *store) holdLease(ctx context.Context, owner string, since time.Time) *l
 }
 
 // renew extends the lease and reports whether it is still valid.
-func (l *lease) renew(s *store, owner string) bool {
+func (l *lease) renew() bool {
 	sent := time.Now()
 	// XX: an expired lease must stay expired.
-	ok, err := s.client.SetXX(l.ctx, rekeyAliveKey(owner), "1", rekeyTTL).Result()
+	ok, err := l.client.SetXX(l.ctx, rekeyAliveKey(l.owner), "1", rekeyTTL).Result()
 	if err == nil && !ok {
 		return false
 	}
@@ -365,6 +398,132 @@ func (l *lease) valid() bool {
 }
 
 func (l *lease) release() { l.cancel(); <-l.done }
+
+// ---- re-keys running when the connection closes ----
+
+// rekeyRun is a re-key that this connection runs (rekeyTable) or settles
+// for a connection that went away (recoverRekey), as Close sees it.
+type rekeyRun struct {
+	// ctx is derived from the caller's, and Close cancels it with
+	// errClosing. A rename's move stops then, but not its rollback; a
+	// takeover doesn't use it.
+	ctx  context.Context
+	stop context.CancelCauseFunc
+	done chan struct{}
+	// lease is the job's, once it has one (guarded by store.mu).
+	lease *lease
+}
+
+var (
+	// errClosing is the cause with which Close cancels a re-key's context.
+	errClosing = errors.New("the connection is closing")
+	// errRekeyClosed is the error of a rename that Close stopped.
+	errRekeyClosed = errorf(adbc.StatusInvalidState, "the connection was closed while the table was being renamed (%s); the rename was stopped",
+		OptionStringRenameRekey)
+)
+
+// closing reports whether Close stopped the re-key.
+func (r *rekeyRun) closing() bool { return context.Cause(r.ctx) == errClosing }
+
+// trackRekey registers a re-key that is starting, so that Close can stop it.
+// It fails once Close has begun.
+func (s *store) trackRekey(ctx context.Context) (*rekeyRun, error) {
+	r := &rekeyRun{done: make(chan struct{})}
+	r.ctx, r.stop = context.WithCancelCause(ctx)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		r.stop(nil)
+		return nil, errConnClosed
+	}
+	if s.rekeys == nil {
+		s.rekeys = map[*rekeyRun]struct{}{}
+	}
+	s.rekeys[r] = struct{}{}
+	return r, nil
+}
+
+// holdRekey records the lease a re-key holds.
+func (s *store) holdRekey(r *rekeyRun, l *lease) {
+	s.mu.Lock()
+	r.lease = l
+	s.mu.Unlock()
+}
+
+// untrackRekey ends a re-key, once its lease is released.
+func (s *store) untrackRekey(r *rekeyRun) {
+	s.mu.Lock()
+	delete(s.rekeys, r)
+	s.mu.Unlock()
+	r.stop(nil)
+	close(r.done)
+}
+
+func (s *store) isClosed() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.closed
+}
+
+// setClosed marks the connection closed, so that no re-key starts on it any
+// more, and reports whether it was open.
+func (s *store) setClosed() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	was := s.closed
+	s.closed = true
+	return !was
+}
+
+// stopRekeys runs when the connection closes (after setClosed), before its
+// client does. It stops the re-keys that statements run on other
+// goroutines: a rename's move stops at its next command and is rolled back
+// (or finished, if it has switched) as when the statement is cancelled; a
+// takeover finishes its rollback. It waits for them up to rekeyTTL/2 (their
+// leases are renewed meanwhile). A re-key that is still running then stops
+// renewing its lease, and its lease key is deleted, so that the next
+// connection takes it over at once rather than after rekeyTTL; it takes no
+// further destructive step (mayAct). One stuck before it holds its lease
+// (beginRekey, takeOver) can't be given up: its lease expires.
+func (s *store) stopRekeys(ctx context.Context) {
+	s.mu.Lock()
+	runs := make([]*rekeyRun, 0, len(s.rekeys))
+	for r := range s.rekeys {
+		runs = append(runs, r)
+	}
+	s.mu.Unlock()
+	if len(runs) == 0 {
+		return
+	}
+	for _, r := range runs {
+		r.stop(errClosing)
+	}
+	timeout := time.NewTimer(rekeyTTL / 2)
+	defer timeout.Stop()
+wait:
+	for _, r := range runs {
+		select {
+		case <-r.done:
+		case <-timeout.C:
+			break wait
+		}
+	}
+	for _, r := range runs {
+		select {
+		case <-r.done:
+			continue
+		default:
+		}
+		s.mu.Lock()
+		l := r.lease
+		s.mu.Unlock()
+		if l != nil {
+			// Not release: a renewal under way may wait for its reply.
+			l.cancel()
+			s.client.Del(context.WithoutCancel(ctx), rekeyAliveKey(l.owner))
+		}
+	}
+}
 
 // moveRows is step 2: it creates the new index and, once the writes that
 // may have missed rekey_to are done (at fence), copies every row.
@@ -405,6 +564,9 @@ func (s *store) moveRows(ctx context.Context, job *rekeyJob, start *tableMeta, f
 			if k, ok := r["__key"]; ok && strings.HasPrefix(k, job.OldPrefix) {
 				keys = append(keys, k)
 			}
+		}
+		if testHookRekeyStep != nil {
+			testHookRekeyStep(ctx, "copy")
 		}
 		if err := s.copyRows(ctx, job, keys); err != nil {
 			if cursor != 0 {
@@ -823,10 +985,16 @@ func (s *store) ownerAlive(ctx context.Context, job *rekeyJob) (bool, error) {
 // by deleting its own lease key, rather than keeping it from every other
 // connection until that expires.
 func (s *store) recoverRekey(ctx context.Context, job *rekeyJob) error {
+	run, err := s.trackRekey(ctx)
+	if err != nil {
+		return err
+	}
+	defer s.untrackRekey(run)
 	taken, err := s.takeOver(ctx, job)
 	if err != nil {
 		return err
 	}
+	s.holdRekey(run, taken.lease)
 	defer taken.lease.release()
 	if taken.Switched {
 		err = s.finishRekey(taken.lease.ctx, taken)

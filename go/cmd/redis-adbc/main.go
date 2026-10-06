@@ -15,7 +15,8 @@
 // Command redis-adbc makes HASHes that an application wrote usable with the
 // ADBC driver: check guesses their table structure and lists what the
 // driver needs, copy copies them into a driver table, and adopt makes them
-// a driver table in place.
+// a driver table in place. sweep deletes the rows that writers left under
+// the key prefixes of dropped and truncated tables.
 package main
 
 import (
@@ -41,6 +42,8 @@ Commands:
            list what the ADBC driver needs to query it
   copy     copy an existing HASH collection into a driver table
   adopt    make an existing HASH collection a driver table, in place
+  sweep    delete the rows left under the key prefixes of dropped and
+           truncated tables
 
 Run "redis-adbc <command> -h" for a command's flags.
 `
@@ -78,6 +81,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 		return runCopy(ctx, args[1:], stdout, stderr)
 	case "adopt":
 		return runAdopt(ctx, args[1:], stdout, stderr)
+	case "sweep":
+		return runSweep(ctx, args[1:], stdout, stderr)
 	case "help", "-h", "-help", "--help":
 		fmt.Fprint(stdout, usage)
 		return nil

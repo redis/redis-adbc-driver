@@ -41,6 +41,10 @@ package redis
 // WITH queries in it that read the working table are computed while planning,
 // so for them the term is planned again for each run.
 //
+// A recursive CTE that reads an enclosing query (in either term) is planned
+// like one that doesn't, but iterated when it is read, once for each distinct
+// set of the outer values it reads (see lazyRelation in bind.go).
+//
 // The columns are named by the non-recursive term (or the CTE's column list)
 // and have its types, widened to hold the recursive term's values when both
 // are of one category (integers, numerics, strings, timestamps, …).
@@ -70,7 +74,9 @@ var (
 )
 
 // materializeCTE computes a CTE once: by iteration if it refers to itself
-// in a WITH RECURSIVE list, otherwise by running its query.
+// in a WITH RECURSIVE list, otherwise by running its query. One that reads
+// an enclosing query is computed when it is read instead (see
+// lazyRelation).
 func (e *executor) materializeCTE(ctx context.Context, def *CTE) (*tableMeta, error) {
 	if def.Recursive {
 		rc, err := e.checkRecursion(def)
@@ -84,12 +90,32 @@ func (e *executor) materializeCTE(ctx context.Context, def *CTE) (*tableMeta, er
 	if def.Search != nil || def.Cycle != nil {
 		return nil, errorf(adbc.StatusInvalidArgument, "WITH query is not recursive")
 	}
-	return e.materialize(ctx, def, def.Name, def.Select, def.Columns, hiddenLevel{})
+	return e.materialize(ctx, def, def.Name, def.Select, def.Columns, &scope{needs: map[string]bool{}})
+}
+
+// recursivePlan is a recursive CTE planned for its iteration (runRecursive):
+// its terms, its working table and its tracer, and the scopes and WITH
+// lists the terms were planned with, to plan the recursive term again.
+type recursivePlan struct {
+	def         *CTE
+	rc          *recursionCheck
+	nonrec, rec *selectPlan
+	cols        []resultColumn
+	wt          *tableMeta
+	tr          *tracer
+	scopes      []*scope
+	ctes        []map[string]*CTE
+	cteLevel    []int
 }
 
 // materializeRecursive evaluates a recursive CTE (see the file comment).
+// Its terms are planned as the body of one subquery (as a set operation's
+// are): if they read an enclosing query, the CTE is computed when it is
+// read, for each distinct set of outer values (see lazyRelation and
+// runSelect).
 func (e *executor) materializeRecursive(ctx context.Context, def *CTE, rc *recursionCheck) (*tableMeta, error) {
-	defer e.hide(hiddenLevel{})()
+	sq := &Subquery{Select: def.Select, Kind: SubqueryLateral}
+	defer e.fromQuery(&scope{needs: map[string]bool{}}, sq)()
 	body := def.Select
 	op := body.SetOp
 	pop, err := e.pushCTEs(body.With)
@@ -109,7 +135,9 @@ func (e *executor) materializeRecursive(ctx context.Context, def *CTE, rc *recur
 	}
 	e.cache.working[def] = wt
 	defer delete(e.cache.working, def)
+	e.pendingSq = sq
 	rec, err := e.planSelect(ctx, op.Right, e.paramTypes)
+	e.pendingSq = nil
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +164,34 @@ func (e *executor) materializeRecursive(ctx context.Context, def *CTE, rc *recur
 			return nil, err
 		}
 	}
+	rp := &recursivePlan{def: def, rc: rc, nonrec: nonrec, rec: rec, cols: cols, wt: wt, tr: tr,
+		scopes: slices.Clone(e.scopes), ctes: slices.Clone(e.ctes), cteLevel: slices.Clone(e.cteLevel)}
+	if sq.correlated {
+		meta, err := e.recursiveResult(def, cols, tr, nil)
+		if err == nil {
+			sq.plan = &selectPlan{sel: def.Select, recursive: rp}
+			// The scopes around its level, which rp.scopes ends with.
+			meta.lazy = &lazyRelation{sq: sq, scopes: rp.scopes[:len(rp.scopes)-1]}
+		}
+		return meta, err
+	}
+	if e.planOnly {
+		// Only the columns are wanted (see empty.go).
+		return e.recursiveResult(def, cols, tr, nil)
+	}
+	return e.runRecursive(ctx, rp)
+}
 
+// runRecursive runs a recursive CTE's iteration (see the file comment).
+func (e *executor) runRecursive(ctx context.Context, rp *recursivePlan) (*tableMeta, error) {
+	def, rc, cols, wt, rec := rp.def, rp.rc, rp.cols, rp.wt, rp.rec
+	op := def.Select.SetOp
+	var tr *tracer
+	if rp.tr != nil {
+		t := *rp.tr
+		t.traces = nil
+		tr = &t
+	}
 	run := func(plan *selectPlan) ([][]Value, error) {
 		rows, err := e.runSelect(ctx, plan, e.params)
 		if err != nil {
@@ -154,11 +209,18 @@ func (e *executor) materializeRecursive(ctx context.Context, def *CTE, rc *recur
 		}
 		return rows, nil
 	}
-	var result [][]Value
-	if e.planOnly {
-		// Only the columns are wanted (see empty.go).
-		return e.recursiveResult(def, cols, tr, nil)
+	// replan plans the recursive term again, as it was planned.
+	replan := func() (*selectPlan, error) {
+		scopes, sq, ctes, levels := e.scopes, e.pendingSq, e.ctes, e.cteLevel
+		e.scopes, e.pendingSq, e.ctes, e.cteLevel = rp.scopes, nil, rp.ctes, rp.cteLevel
+		e.cache.working[def] = wt
+		defer func() {
+			e.scopes, e.pendingSq, e.ctes, e.cteLevel = scopes, sq, ctes, levels
+			delete(e.cache.working, def)
+		}()
+		return e.planSelect(ctx, op.Right, e.paramTypes)
 	}
+	var result [][]Value
 	seen := map[string]bool{}
 	// add appends rows to the result (for UNION, those not in it yet) and
 	// returns their positions. With a tracer, traceOf gives their traces,
@@ -194,7 +256,7 @@ func (e *executor) materializeRecursive(ctx context.Context, def *CTE, rc *recur
 		return errorf(adbc.StatusInvalidArgument,
 			"recursive query %q returned more than %d rows; check the stop condition of its recursive term", def.Name, maxRecursiveRows)
 	}
-	rows, err := run(nonrec)
+	rows, err := run(rp.nonrec)
 	if err != nil {
 		return nil, err
 	}
@@ -235,7 +297,7 @@ func (e *executor) materializeRecursive(ctx context.Context, def *CTE, rc *recur
 						delete(e.cache.ctes, x)
 					}
 				}
-				if rec, err = e.planSelect(ctx, op.Right, e.paramTypes); err != nil {
+				if rec, err = replan(); err != nil {
 					return nil, err
 				}
 			}

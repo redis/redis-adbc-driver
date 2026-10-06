@@ -899,6 +899,9 @@ type parser struct {
 	// refs, when set, collects where each column reference is written (for
 	// CHECK expressions, see check.go).
 	refs *[]refSpan
+	// lits, when set, collects where each string literal is written (for
+	// the definitions of views, defaults and CHECKs, see creationzone.go).
+	lits *[]litSpan
 }
 
 // refSpan is where a column reference is written in the source: bytes
@@ -3463,7 +3466,7 @@ func (p *parser) parsePostfix(x Expr) (Expr, error) {
 		if err != nil {
 			return nil, &sqlError{msg: err.Error()}
 		}
-		x = &Cast{X: x, T: ct}
+		x = p.noteCast(&Cast{X: x, T: ct})
 	}
 	return x, nil
 }
@@ -3480,7 +3483,7 @@ func (p *parser) parsePrimary() (Expr, error) {
 		return &Literal{V: v}, nil
 	case tokString:
 		p.pos++
-		return &Literal{V: stringValue(t.text)}, nil
+		return p.noteLiteral(t), nil
 	case tokHex:
 		p.pos++
 		b, err := hex.DecodeString(t.text)
@@ -3640,7 +3643,7 @@ func (p *parser) parsePrimary() (Expr, error) {
 				if err != nil {
 					return nil, &sqlError{msg: err.Error()}
 				}
-				return &Cast{X: x, T: ct, OnError: onError}, nil
+				return p.noteCast(&Cast{X: x, T: ct, OnError: onError}), nil
 			}
 		case "DATEADD", "DATE_ADD", "DATE_SUB", "TIMESTAMPADD", "DATEDIFF", "TIMESTAMPDIFF":
 			if p.peekAt(1).kind == tokOp && p.peekAt(1).text == "(" {
@@ -3686,7 +3689,7 @@ func (p *parser) parsePrimary() (Expr, error) {
 				text := stringValue(s.text)
 				if _, _, _, hasTZ, _ := parseTimestamp(s.text); isTimestampTZ(ct) && !hasTZ {
 					// A local time, read when the statement runs, as below.
-					return &Cast{X: &Literal{V: text}, T: ct}, nil
+					return p.noteCast(&Cast{X: p.noteLiteral(s), T: ct}), nil
 				}
 				v, err := Coerce(text, ct)
 				if err != nil {
@@ -3714,7 +3717,7 @@ func (p *parser) parsePrimary() (Expr, error) {
 						// A local time in the session time zone, which is
 						// known when the statement runs (a SET earlier in
 						// the script may change it): read then.
-						return &Cast{X: &Literal{V: stringValue(s.text)}, T: v.T}, nil
+						return p.noteCast(&Cast{X: p.noteLiteral(s), T: v.T}), nil
 					}
 				}
 				return &Literal{V: v}, nil

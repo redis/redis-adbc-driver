@@ -99,5 +99,5 @@ func parseFloat(s string, bitSize int) (float64, error) {
 // over an indexed column and for groups of it: pushableKind of its type,
 // except for a float column that may hold a NaN.
 func (c columnMeta) pushable(mode string) bool {
-	return pushableKind(c.Type.Kind, mode) && !c.NaNs
+	return pushableKind(c.Type.Kind, mode) && !c.NaNs && c.inPipeline()
 }

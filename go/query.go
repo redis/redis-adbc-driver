@@ -459,6 +459,9 @@ type scanRequest struct {
 	sortBy []sortKey
 	limit  *[2]int64
 	need   map[string]bool // columns to read from the row HASHes
+	// ties re-sorts the rows that tie in the index's sort, when sortBy has
+	// keys whose values the index may round (see ties.go).
+	ties *tieSort
 }
 
 // scan finds the matching rows through the index (or directly by key), reads
@@ -511,6 +514,11 @@ type scanIter struct {
 	residual Expr
 	env      *evalEnv
 	cur      *aggCursor
+	// ties is set for a scan with a tieSort, which also records the page
+	// keep last saw (raw) and which of its rows it kept.
+	ties *tieScan
+	raw  []aggRow
+	kept []int
 }
 
 // newScanIter returns a scanIter for req without a cursor, and the HASH
@@ -545,10 +553,11 @@ func (e *executor) openScan(ctx context.Context, req scanRequest, params []Value
 	it, fields, exactly := e.newScanIter(ctx, req, params)
 	meta := req.meta
 	ar := &aggRequest{
-		index:  meta.index(),
-		query:  req.where.query,
-		sortBy: req.sortBy,
-		limit:  req.limit,
+		index:     meta.index(),
+		query:     req.where.query,
+		rowFilter: meta.rowFilter(),
+		sortBy:    req.sortBy,
+		limit:     req.limit,
 	}
 	if exactly && !meta.KeyRows {
 		ar.load = append([]string{"__key", rowIDField}, fields...)
@@ -560,17 +569,37 @@ func (e *executor) openScan(ctx context.Context, req scanRequest, params []Value
 		ar.load, ar.loadAll = []string{"__key"}, true
 		ar.width = len(meta.Columns) + 2
 	}
+	if req.ties != nil {
+		it.ties = &tieScan{tieSort: req.ties, store: e.store, ar: ar}
+		if ar.limit != nil {
+			ar.limit = it.ties.windowLimit(*ar.limit)
+		}
+	}
 	cur, err := e.store.openAggregate(ctx, ar)
 	if err != nil {
 		return nil, err
 	}
 	it.cur = cur
+	if it.ties != nil && ar.limit != nil {
+		if err := it.readWindow(ctx); err != nil {
+			it.close(ctx)
+			return nil, err
+		}
+	}
 	return it, nil
 }
 
 // next returns the matching rows of the next cursor page, which may be
 // none, and their keys; io.EOF after the last page.
 func (it *scanIter) next(ctx context.Context) ([]string, []map[string]Value, error) {
+	if it.ties != nil {
+		return it.nextInOrder(ctx)
+	}
+	return it.nextPage(ctx)
+}
+
+// nextPage is next in the index's order.
+func (it *scanIter) nextPage(ctx context.Context) ([]string, []map[string]Value, error) {
 	page, err := it.cur.next(ctx)
 	if err != nil {
 		return nil, nil, err
@@ -615,6 +644,9 @@ func (it *scanIter) close(ctx context.Context) {
 func (it *scanIter) keep(keys []string, fetched []aggRow) ([]string, []map[string]Value, error) {
 	outKeys := make([]string, 0, len(keys))
 	rows := make([]map[string]Value, 0, len(keys))
+	if it.ties != nil {
+		it.raw, it.kept = fetched, it.kept[:0]
+	}
 	for i, raw := range fetched {
 		if raw == nil {
 			continue
@@ -638,6 +670,9 @@ func (it *scanIter) keep(keys []string, fetched []aggRow) ([]string, []map[strin
 		}
 		outKeys = append(outKeys, keys[i])
 		rows = append(rows, vals)
+		if it.ties != nil {
+			it.kept = append(it.kept, i)
+		}
 	}
 	return outKeys, rows, nil
 }
@@ -667,6 +702,13 @@ func loadsExactly(c columnMeta) bool {
 // scanMem filters an in-memory relation.
 func (e *executor) scanMem(ctx context.Context, req scanRequest, params []Value) ([]string, []map[string]Value, error) {
 	source := req.meta.mem
+	if req.meta.lazy != nil {
+		rows, err := e.lazyRows(ctx, req.meta, params)
+		if err != nil {
+			return nil, nil, err
+		}
+		source = rows
+	}
 	if req.meta.view != nil {
 		need := maps.Clone(req.need)
 		if need == nil {
@@ -724,6 +766,20 @@ func (e *executor) runSelect(ctx context.Context, plan *selectPlan, params []Val
 	// recursive step too.
 	if err := cancelled(ctx); err != nil {
 		return nil, err
+	}
+	if plan.recursive != nil {
+		meta, err := e.runRecursive(ctx, plan.recursive)
+		if err != nil {
+			return nil, err
+		}
+		rows := make([][]Value, len(meta.mem))
+		for r, m := range meta.mem {
+			rows[r] = make([]Value, len(meta.Columns))
+			for i, c := range meta.Columns {
+				rows[r][i] = m[c.Name]
+			}
+		}
+		return rows, nil
 	}
 	if plan.noRows && !plan.withoutFrom() {
 		// LIMIT 0, or a HAVING or QUALIFY that is never true (see empty.go).
@@ -785,6 +841,7 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 	// ORDER BY on indexed columns sorts inside the index; anything else is
 	// sorted by the driver after fetching.
 	indexSort := wp.keys == nil && !meta.isMem
+	var sortCols []columnMeta
 	for _, o := range plan.order {
 		c, ok := o.expr.(*ColumnRef)
 		if !ok || o.nullsFirst {
@@ -795,18 +852,22 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 		col, ok := meta.column(c.Name)
 		// Rows that read a missing value have no index entry to sort on,
 		// strings cut at a NUL byte sort on what is left, and NaNs tie with
-		// +Infinity.
+		// +Infinity. Values the index rounds to the same double are sorted
+		// again by the scan (see ties.go).
 		if !ok || !col.Indexed || col.MissingThrough > 0 || !col.sortsExactly() {
 			indexSort = false
 			break
 		}
 		req.sortBy = append(req.sortBy, sortKey{field: col.field(), desc: o.desc})
+		sortCols = append(sortCols, col)
 	}
 	if !indexSort {
 		req.sortBy = nil
 		for _, o := range plan.order {
 			columnRefs(o.expr, req.need)
 		}
+	} else if len(sortCols) > 0 {
+		req.ties = newTieSort(sortCols, plan.order)
 	}
 	if len(plan.order) == 0 && wp.keys == nil && !meta.isMem {
 		// Implicit insertion order. Rows identified by their keys have none:
@@ -1142,7 +1203,7 @@ func (e *executor) indexAggregate(ctx context.Context, plan *selectPlan, wp wher
 			return nil, false, nil
 		}
 		col, ok := meta.column(c.Name)
-		if !ok || !col.Indexed || !simpleName(col.field()) || isSystemColumn(col.Name) || col.MissingThrough > 0 {
+		if !ok || !col.Indexed || !simpleName(col.field()) || isSystemColumn(col.Name) || col.MissingThrough > 0 || !col.inPipeline() {
 			return nil, false, nil
 		}
 		if f.Name != "COUNT" && !col.pushable(e.pushdown) {
@@ -1196,7 +1257,7 @@ func (e *executor) indexAggregate(ctx context.Context, plan *selectPlan, wp wher
 		}
 		return steps
 	}
-	raw, err := e.store.aggregate(ctx, &aggRequest{index: meta.index(), query: wp.query, groupBy: pipeline(false)})
+	raw, err := e.store.aggregate(ctx, &aggRequest{index: meta.index(), query: wp.query, rowFilter: meta.rowFilter(), groupBy: pipeline(false)})
 	if err != nil {
 		return nil, false, err
 	}
@@ -1218,7 +1279,7 @@ func (e *executor) indexAggregate(ctx context.Context, plan *selectPlan, wp wher
 		}
 	}
 	if lost {
-		raw, err = e.store.aggregate(ctx, &aggRequest{index: meta.index(), query: wp.query, groupBy: pipeline(true)})
+		raw, err = e.store.aggregate(ctx, &aggRequest{index: meta.index(), query: wp.query, rowFilter: meta.rowFilter(), groupBy: pipeline(true)})
 		if err != nil {
 			if strings.Contains(err.Error(), "Unknown function name 'case'") {
 				return nil, false, nil
@@ -1651,10 +1712,10 @@ func likePrefixTerm(c Expr, meta *tableMeta, env *evalEnv) (string, bool) {
 		return "", false
 	}
 	prefix := strings.TrimSuffix(pat, "%")
-	if strings.ContainsAny(prefix, "%_") || strings.Contains(prefix, tagSeparator) {
+	if strings.ContainsAny(prefix, "%_") || strings.Contains(prefix, col.tagSep()) {
 		return "", false
 	}
-	lit, ok := prefixLookup(prefix)
+	lit, ok := prefixLookup(prefix, col.tagSep())
 	if !ok {
 		return "", false
 	}

@@ -28,6 +28,16 @@ package redis
 // (memoised), unless they can run once as a semi-join (semijoin.go). CTEs and
 // derived tables are run once and held in memory as a relation that the
 // regular driver-side filter/sort/group paths read.
+//
+// As in Postgres, a derived table or CTE may read the columns of the queries
+// around its level (the query whose FROM or WITH list holds it), but not the
+// FROM items of that level: a derived table is planned with those queries'
+// scopes and an empty one for its level, which holds what it can't read for
+// errors (unseenRel), and a CTE with the scopes and WITH lists around its
+// WITH list, wherever it is read. One that reads an enclosing query is
+// planned as a correlated subquery instead of being run, and its rows are
+// computed when its reader is scanned, once per distinct set of the outer
+// values it reads (see lazyRelation).
 
 import (
 	"context"
@@ -78,19 +88,24 @@ type scope struct {
 	// funcArgs is set for the scope of a FROM function's arguments, which
 	// are LATERAL already (see lateralOnly).
 	funcArgs bool
+	// unseen are the FROM items of this scope's level that the query being
+	// planned there can't read (see unseenRel).
+	unseen []unseenRel
 }
 
-// hiddenLevel is what a derived table or CTE being planned can't see, one
-// per table or CTE it is in (see hide). outer are the scopes of the
-// queries around it: Postgres lets a derived table read them, the driver
-// doesn't. before are the FROM items before a derived table in its FROM
-// list, which only LATERAL makes visible; noHint is set if the table is
-// the right side of a RIGHT or FULL join, which LATERAL can't help. Only
-// errors read them.
-type hiddenLevel struct {
-	outer  []*scope
-	before []relation
-	noHint bool
+// unseenRel is a FROM item of a level that a FROM item of the same level
+// can't read: for a derived table, the items before it, which only LATERAL
+// makes visible, and for every FROM item of UPDATE, DELETE and MERGE, the
+// target table. Only errors read them, as Postgres's errorMissingRTE and
+// errorMissingColumn do (see lateralOnly), except forbidden ones. noHint is
+// set if LATERAL wouldn't help: for the target, and for the items before
+// the right side of a RIGHT or FULL join. forbidden is set for the target
+// of UPDATE or DELETE as seen from a LATERAL item or a FROM function's
+// arguments: Postgres finds it there, but reading it is an error
+// (check_lateral_ref_ok), even if a later item has the column too.
+type unseenRel struct {
+	relation
+	noHint, forbidden bool
 }
 
 // execCache holds per-statement results shared by nested executors.
@@ -245,6 +260,9 @@ func (e *executor) bind(ctx context.Context, expr Expr) error {
 	})
 	if err == nil {
 		e.noteParams(expr)
+		if e.localLits != nil {
+			e.noteLocalTimes(expr)
+		}
 	}
 	return err
 }
@@ -536,6 +554,13 @@ func (e *executor) findColumn(c *ColumnRef) (int, columnMeta, error) {
 	top := len(e.scopes) - 1
 	for depth := 0; depth <= top; depth++ {
 		sc := e.scopes[top-depth]
+		for _, u := range sc.unseen {
+			if u.forbidden && (ref.Qualifier != "" && e.names(q, u.relation) || ref.Qualifier == "" && hasColumn(u.relation, ref.Name)) {
+				return 0, columnMeta{}, errorf(adbc.StatusInvalidArgument,
+					"invalid reference to FROM-clause entry for table %q; there is an entry for table %q, but it cannot be referenced from this part of the query",
+					u.name, u.name)
+			}
+		}
 		var match columnMeta
 		var matchRel relation
 		found, named := 0, 0
@@ -683,13 +708,7 @@ func noSuchColumn(c *ColumnRef, sc *scope, detail string) error {
 // unqualified column that no visible item has, when FROM items that only
 // LATERAL would make visible have it (see lateralOnly); "" if none does.
 func (e *executor) lateralColumn(name string) string {
-	rels, hint := e.lateralOnly(func(rel relation) bool {
-		if rel.meta == nil {
-			return false
-		}
-		col, ok := rel.meta.column(name)
-		return ok && !(rel.prefix != "" && isSystemColumn(col.Name)) && !rel.hidden[col.Name]
-	})
+	rels, hint := e.lateralOnly(func(rel relation) bool { return hasColumn(rel, name) })
 	switch {
 	case len(rels) == 0:
 		return ""
@@ -701,6 +720,16 @@ func (e *executor) lateralColumn(name string) string {
 		detail += "; to reference that column, you must mark this subquery with LATERAL"
 	}
 	return detail
+}
+
+// hasColumn reports whether an unqualified reference to the column name
+// would read rel's (see findColumn).
+func hasColumn(rel relation, name string) bool {
+	if rel.meta == nil {
+		return false
+	}
+	col, ok := rel.meta.column(name)
+	return ok && !(rel.prefix != "" && isSystemColumn(col.Name)) && !rel.hidden[col.Name]
 }
 
 // mentions reports whether q names rel, or the table rel reads (under an
@@ -715,10 +744,22 @@ func (e *executor) mentions(q qualName, rel relation) bool {
 // invalid: Postgres's hint names the item's alias when it is the table
 // under an alias that is visible here, and otherwise its detail says the
 // item can't be referenced from here (as for s2.t where s1.t is read).
-// Else, if an item that only LATERAL would make visible does, the
-// reference is invalid too (lateralEntry). Else the entry is missing.
+// The items of a level that can't be read from it come first, as in its
+// range table (see unseenRel): the detail names the item, and a hint says
+// to add LATERAL if that would help (lateralHint). Else the entry is
+// missing.
 func (e *executor) missingFromEntry(q qualName) error {
 	for i := len(e.scopes) - 1; i >= 0; i-- {
+		for _, u := range e.scopes[i].unseen {
+			if !e.mentions(q, u.relation) {
+				continue
+			}
+			if u.forbidden {
+				// Postgres looks for its alias, finds it, and fails there.
+				return unreadableEntry(qualName{name: u.name}, u.name, false)
+			}
+			return unreadableEntry(q, u.name, e.lateralHint(u))
+		}
 		for j, rel := range e.scopes[i].rels {
 			if !e.mentions(q, rel) {
 				continue
@@ -732,56 +773,58 @@ func (e *executor) missingFromEntry(q qualName) error {
 				q.name, rel.name)
 		}
 	}
-	if err := e.lateralEntry(q); err != nil {
-		return err
-	}
 	return errorf(adbc.StatusInvalidArgument, "missing FROM-clause entry for table %q", q.name)
 }
 
-// lateralEntry is Postgres's error for a qualifier that names no item in
-// scope, when a FROM item that only LATERAL would make visible is one that
-// q mentions (see lateralOnly): its detail names the first, and its hint
-// says to add LATERAL. It is nil if there is no such item.
-func (e *executor) lateralEntry(q qualName) error {
-	rels, hint := e.lateralOnly(func(rel relation) bool { return e.mentions(q, rel) })
-	if len(rels) == 0 {
-		return nil
-	}
+// unreadableEntry is Postgres's error for a qualifier q that names an item
+// that can't be referenced here, named entry, with the hint to add LATERAL
+// if hint is set.
+func unreadableEntry(q qualName, entry string, hint bool) error {
 	msg := fmt.Sprintf("invalid reference to FROM-clause entry for table %q; there is an entry for table %q, but it cannot be referenced from this part of the query",
-		q.name, rels[0].name)
+		q.name, entry)
 	if hint {
 		msg += "; to reference that table, you must mark this subquery with LATERAL"
 	}
 	return errorf(adbc.StatusInvalidArgument, "%s", msg)
 }
 
-// lateralOnly returns the FROM items before the derived tables being
-// planned that match accepts, innermost table first: Postgres finds them,
-// but a derived table can't read them unless it is LATERAL. It returns
-// none if an item of the scopes around those tables matches, which
-// Postgres lets a derived table read (the driver doesn't), so that its
-// errors don't suggest LATERAL there. hint reports whether Postgres's
-// error for the first says to add LATERAL: not if its table is the right
-// side of a RIGHT or FULL join (see hiddenLevel), or if the reference is
-// in the arguments of a function in FROM, which are LATERAL already.
+// lateralEntry is Postgres's error for a qualifier that names no item in
+// scope, when a FROM item that can't be read here is one that q mentions
+// (see lateralOnly): its detail names the first, and its hint may say to
+// add LATERAL. It is nil if there is no such item.
+func (e *executor) lateralEntry(q qualName) error {
+	rels, hint := e.lateralOnly(func(rel relation) bool { return e.mentions(q, rel) })
+	if len(rels) == 0 {
+		return nil
+	}
+	return unreadableEntry(q, rels[0].name, hint)
+}
+
+// lateralOnly returns the FROM items that can't be read here (see
+// unseenRel) that match accepts, innermost level first: Postgres finds
+// them, but they are not visible from here. hint reports whether
+// Postgres's error for the first says to add LATERAL (see lateralHint).
 func (e *executor) lateralOnly(match func(relation) bool) (rels []relation, hint bool) {
-	for k := len(e.hidden) - 1; k >= 0; k-- {
-		for _, sc := range e.hidden[k].outer {
-			if slices.ContainsFunc(sc.rels, match) {
-				return nil, false
-			}
-		}
-		for _, rel := range e.hidden[k].before {
-			if !match(rel) {
+	for i := len(e.scopes) - 1; i >= 0; i-- {
+		for _, u := range e.scopes[i].unseen {
+			if !match(u.relation) {
 				continue
 			}
 			if rels == nil {
-				hint = !e.hidden[k].noHint && (len(e.scopes) == 0 || !e.scopes[len(e.scopes)-1].funcArgs)
+				hint = e.lateralHint(u)
 			}
-			rels = append(rels, rel)
+			rels = append(rels, u.relation)
 		}
 	}
 	return rels, hint
+}
+
+// lateralHint reports whether Postgres's error for a reference to u says
+// to add LATERAL: not if LATERAL wouldn't make it readable (see
+// unseenRel), or if the reference is in the arguments of a function in
+// FROM, which are LATERAL already.
+func (e *executor) lateralHint(u unseenRel) bool {
+	return !u.noHint && (len(e.scopes) == 0 || !e.scopes[len(e.scopes)-1].funcArgs)
 }
 
 // visibleAt reports whether item j of scope i is the one its name refers to
@@ -894,11 +937,27 @@ func memTable(name string, cols []resultColumn, rows [][]Value, rename []string)
 	return meta, nil
 }
 
-// materialize runs a query that has no access to enclosing scopes (see
-// hide; lat is what a derived table can't see of its own FROM list). While
-// only planning, it plans the query and returns an empty relation with its
-// columns (see empty.go).
-func (e *executor) materialize(ctx context.Context, key any, name string, sel *SelectStmt, rename []string, lat hiddenLevel) (*tableMeta, error) {
+// lazyRelation is a derived table or WITH query that reads an enclosing
+// query: its rows are computed when the query that reads it is scanned
+// (see lazyRows), for the enclosing rows it is scanned for. sq is its
+// query, planned as a correlated subquery whose body is that of the derived
+// table or WITH query (the queries around it are its enclosing scopes), so
+// that it runs once per distinct set of outer values (see subqueryRows). up
+// is the number of levels between the query that reads it and the level
+// whose FROM or WITH list it is in, where sq is evaluated: 0 for a derived
+// table. scopes are the scopes around that level, as it was planned.
+type lazyRelation struct {
+	sq     *Subquery
+	up     int
+	scopes []*scope
+}
+
+// materialize plans the query of a derived table or WITH query, as level's
+// FROM or WITH list holds it (see fromQuery): it is run once, unless it
+// reads an enclosing query, when its relation is computed as its reader is
+// scanned (see lazyRelation). While only planning, it plans the query and
+// returns an empty relation with its columns (see empty.go).
+func (e *executor) materialize(ctx context.Context, key any, name string, sel *SelectStmt, rename []string, level *scope) (*tableMeta, error) {
 	if e.cache.materializing[key] {
 		if def, ok := key.(*CTE); ok && def.Recursive {
 			return nil, errorf(adbc.StatusNotImplemented, "mutual recursion between WITH items is not implemented")
@@ -907,10 +966,20 @@ func (e *executor) materialize(ctx context.Context, key any, name string, sel *S
 	}
 	e.cache.materializing[key] = true
 	defer delete(e.cache.materializing, key)
-	defer e.hide(lat)()
+	sq := &Subquery{Select: sel, Kind: SubqueryLateral}
+	restore := e.fromQuery(level, sq)
 	plan, err := e.planSelect(ctx, sel, e.paramTypes)
+	restore()
 	if err != nil {
 		return nil, err
+	}
+	if sq.correlated {
+		sq.plan = plan
+		meta, err := memTable(name, plan.columns(), nil, rename)
+		if err == nil {
+			meta.lazy = &lazyRelation{sq: sq, scopes: slices.Clone(e.scopes)}
+		}
+		return meta, err
 	}
 	if e.planOnly {
 		return memTable(name, plan.columns(), nil, rename)
@@ -922,15 +991,16 @@ func (e *executor) materialize(ctx context.Context, key any, name string, sel *S
 	return memTable(name, plan.columns(), rows, rename)
 }
 
-// hide makes the enclosing scopes invisible while a derived table or CTE is
-// planned, and keeps them in hidden with lat (see hiddenLevel) for its
-// errors. The returned function restores them.
-func (e *executor) hide(lat hiddenLevel) func() {
-	scopes, sq, hidden := e.scopes, e.pendingSq, e.hidden
-	lat.outer = scopes
-	e.hidden = append(slices.Clip(hidden), lat)
-	e.scopes, e.pendingSq = nil, nil
-	return func() { e.scopes, e.pendingSq, e.hidden = scopes, sq, hidden }
+// fromQuery prepares the planning of the query of a derived table or WITH
+// query as the body of sq: it sees the queries around level, the level
+// whose FROM or WITH list holds it, which is pushed as a scope without
+// items (it may only read level's unseen items, for errors). The returned
+// function restores the scopes.
+func (e *executor) fromQuery(level *scope, sq *Subquery) func() {
+	scopes, pending := e.scopes, e.pendingSq
+	e.scopes = append(slices.Clip(scopes), level)
+	e.pendingSq = sq
+	return func() { e.scopes, e.pendingSq = scopes, pending }
 }
 
 // pushCTEs makes a statement's WITH list visible while it is planned; the
@@ -948,9 +1018,9 @@ func (e *executor) pushCTEs(with []CTE) (func(), error) {
 		defs[key] = &with[i]
 	}
 	e.ctes = append(e.ctes, defs)
-	e.cteHidden = append(e.cteHidden, len(e.hidden))
+	e.cteLevel = append(e.cteLevel, len(e.scopes))
 	return func() {
-		e.ctes, e.cteHidden = e.ctes[:len(e.ctes)-1], e.cteHidden[:len(e.cteHidden)-1]
+		e.ctes, e.cteLevel = e.ctes[:len(e.ctes)-1], e.cteLevel[:len(e.cteLevel)-1]
 	}, nil
 }
 
@@ -965,17 +1035,68 @@ func (e *executor) lookupCTE(name string) (*CTE, int) {
 	return nil, -1
 }
 
+// cteRelation is the relation of a WITH query of the list e.ctes[list]
+// read here. Its query is planned as Postgres plans it, where its WITH list
+// is: it sees the queries around the list's query and the WITH lists up to
+// its own, not the list's query's FROM items or anything nested in it. One
+// that reads an enclosing query is computed for the rows of the list's
+// level, from wherever it is read (see lazyRelation), and every query from
+// here up to that level reads what it reads.
+func (e *executor) cteRelation(ctx context.Context, def *CTE, list int) (*tableMeta, error) {
+	// Fewer scopes when a query is planned without its enclosing ones
+	// (semijoin.go): a CTE that reads them fails to plan there.
+	level := min(e.cteLevel[list], len(e.scopes))
+	m, ok := e.cache.ctes[def]
+	if ok && m.lazy != nil && !slices.Equal(m.lazy.scopes, e.scopes[:level]) {
+		ok = false
+	}
+	if !ok {
+		var err error
+		if m, err = e.planCTE(ctx, def, list, level); err != nil {
+			return nil, err
+		}
+		if !e.planOnly {
+			e.cache.ctes[def] = m
+		}
+	}
+	if m.lazy == nil {
+		return m, nil
+	}
+	lz := *m.lazy
+	lz.up = len(e.scopes) - level
+	// The level of the query reading it, whose FROM item it is.
+	e.scopes = append(e.scopes, &scope{sq: e.pendingSq, needs: map[string]bool{}})
+	for _, ref := range lz.sq.outerRefs {
+		e.correlate(ref.name, lz.up+ref.up)
+	}
+	e.popScope()
+	out := *m
+	out.lazy = &lz
+	return &out, nil
+}
+
+// planCTE materializes a WITH query of the list e.ctes[list], planned with
+// only the first level scopes (those around its list's query) and the WITH
+// lists up to its own.
+func (e *executor) planCTE(ctx context.Context, def *CTE, list, level int) (*tableMeta, error) {
+	scopes, ctes, levels := e.scopes, e.ctes, e.cteLevel
+	e.scopes = slices.Clip(scopes[:level])
+	e.ctes, e.cteLevel = slices.Clip(ctes[:list+1]), slices.Clip(levels[:list+1])
+	defer func() { e.scopes, e.ctes, e.cteLevel = scopes, ctes, levels }()
+	return e.materializeCTE(ctx, def)
+}
+
 // fromRelation resolves the FROM clause of a SELECT (without joins) to a
 // relation.
 func (e *executor) fromRelation(ctx context.Context, sel *SelectStmt) (relation, error) {
-	return e.resolveFromItem(ctx, sel.From, sel.FromSelect, sel.FromAlias, hiddenLevel{})
+	return e.resolveFromItem(ctx, sel.From, sel.FromSelect, sel.FromAlias, nil)
 }
 
 // resolveFromItem resolves one FROM item: a table, a view, a CTE, or a
-// derived table (which can't see lat, see hiddenLevel). The relation is
-// named by the alias, or else by the item's name; meta is nil if there is
-// no item.
-func (e *executor) resolveFromItem(ctx context.Context, table *TableName, sub *SelectStmt, alias string, lat hiddenLevel) (relation, error) {
+// derived table (which can't read unseen, the items of its level, see
+// unseenRel). The relation is named by the alias, or else by the item's
+// name; meta is nil if there is no item.
+func (e *executor) resolveFromItem(ctx context.Context, table *TableName, sub *SelectStmt, alias string, unseen []unseenRel) (relation, error) {
 	rel := relation{name: alias, aliased: alias != ""}
 	switch {
 	case sub != nil:
@@ -983,12 +1104,17 @@ func (e *executor) resolveFromItem(ctx context.Context, table *TableName, sub *S
 			rel.meta = m
 			return rel, nil
 		}
-		m, err := e.materialize(ctx, sub, alias, sub, nil, lat)
+		// The level of the query whose FROM item it is (the pending
+		// subquery's, whose scope is pushed later), as for LATERAL.
+		level := &scope{sq: e.pendingSq, needs: map[string]bool{}, unseen: unseen, aggClause: "FROM clause of their own query level"}
+		m, err := e.materialize(ctx, sub, alias, sub, nil, level)
 		if err != nil {
 			return relation{}, err
 		}
-		if !e.planOnly {
-			// An empty stand-in isn't kept: another reference may read it.
+		if !e.planOnly && m.lazy == nil {
+			// An empty stand-in isn't kept: another reference may read
+			// it. Nor is a lazy relation: it was planned for the scopes
+			// here.
 			e.cache.derived[sub] = m
 		}
 		rel.meta = m
@@ -1009,20 +1135,9 @@ func (e *executor) resolveFromItem(ctx context.Context, table *TableName, sub *S
 					rel.meta = m
 					return rel, nil
 				}
-				if m, ok := e.cache.ctes[def]; ok {
-					rel.meta = m
-					return rel, nil
-				}
-				// Its body can't see what its WITH list's query can't.
-				hidden := e.hidden
-				e.hidden = slices.Clip(hidden[:min(e.cteHidden[list], len(hidden))])
-				m, err := e.materializeCTE(ctx, def)
-				e.hidden = hidden
+				m, err := e.cteRelation(ctx, def, list)
 				if err != nil {
 					return relation{}, err
-				}
-				if !e.planOnly {
-					e.cache.ctes[def] = m
 				}
 				rel.meta = m
 				return rel, nil
@@ -1099,6 +1214,33 @@ func (e *executor) subqueryRows(ctx context.Context, sq *Subquery, env *evalEnv)
 		e.cache.sub[sq] = rows
 	}
 	return rows, nil
+}
+
+// lazyRows computes the rows of a lazy relation (see lazyRelation), with
+// meta's column names: its query's rows for the enclosing rows the
+// executor runs for.
+func (e *executor) lazyRows(ctx context.Context, meta *tableMeta, params []Value) ([]map[string]Value, error) {
+	lz := meta.lazy
+	env := e.newEnv(ctx, nil, params)
+	for i := 0; i < lz.up; i++ {
+		if env.outer == nil {
+			return nil, errorf(adbc.StatusInternal, "%q has no enclosing row", meta.Name)
+		}
+		env = env.outer
+	}
+	rows, err := e.subqueryRows(ctx, lz.sq, env)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]map[string]Value, len(rows))
+	for r, row := range rows {
+		m := make(map[string]Value, len(row))
+		for i, c := range meta.Columns {
+			m[c.Name] = row[i]
+		}
+		out[r] = m
+	}
+	return out, nil
 }
 
 // lookupUp reads a column of the row `up` environments above env.

@@ -41,7 +41,8 @@ import (
 //   - without aggregates, GROUP BY, DISTINCT, set operations, window
 //     functions, or correlated subqueries;
 //   - in insertion order, or ordered by indexed columns the index sorts
-//     exactly (see prepareScan).
+//     exactly (see prepareScan), but for rows that tie on values it rounds,
+//     which the scan sorts again as they stream (see ties.go).
 //
 // Other queries are read whole, as before. LIMIT and OFFSET apply as the
 // rows stream when they can't run in the index.
