@@ -16,7 +16,8 @@ package redis
 
 // Views.
 //
-// A view is stored as its SELECT text plus the column names and types it
+// A view is stored as its SELECT text (with its local-time literals as
+// instants, see creationzone.go) plus the column names and types it
 // produced when it was created (and its comments, see comment.go):
 //
 //	adbc:{meta}:view:<schema>:<view>   STRING JSON {schema, name, sql, columns}
@@ -329,15 +330,21 @@ func (e *executor) runCreateView(ctx context.Context, st *CreateViewStmt, numPar
 	defer delete(e.cache.materializing, key)
 	e.cache.usedTemp = false
 	// The body is only planned: its derived tables and CTEs aren't run (see
-	// empty.go).
+	// empty.go). Its local-time literals are stored as instants, read in the
+	// session time zone (see creationzone.go).
 	defer e.planningOnly(true)()
+	var text string
 	err = e.isolated(home, true, func() error {
-		plan, err := e.planSelect(ctx, st.Select, nil)
-		if err != nil {
-			return err
-		}
-		cols = plan.columns()
-		return nil
+		var err error
+		text, err = e.foldView(st.Text, st.Select, func(sel *SelectStmt) error {
+			plan, err := e.planSelect(ctx, sel, nil)
+			if err != nil {
+				return err
+			}
+			cols = plan.columns()
+			return nil
+		})
+		return err
 	})
 	if err != nil {
 		return err
@@ -348,7 +355,7 @@ func (e *executor) runCreateView(ctx context.Context, st *CreateViewStmt, numPar
 	if st.Columns != nil && len(st.Columns) != len(cols) {
 		return errorf(adbc.StatusInvalidArgument, "view has %d columns but %d column names were given", len(cols), len(st.Columns))
 	}
-	v := &viewMeta{Schema: schema, Name: name, SQL: st.Text}
+	v := &viewMeta{Schema: schema, Name: name, SQL: text}
 	if temp {
 		v.DefaultSchema = home
 	}

@@ -260,6 +260,9 @@ func (e *executor) bind(ctx context.Context, expr Expr) error {
 	})
 	if err == nil {
 		e.noteParams(expr)
+		if e.localLits != nil {
+			e.noteLocalTimes(expr)
+		}
 	}
 	return err
 }
