@@ -37,6 +37,14 @@ package redis
 // matched"), which checkUnknowns reports when the expression is bound, as
 // it does literals that don't convert.
 //
+// An operand of +, -, * or / takes the type that Postgres's operator
+// resolution gives it (oper_select_candidate): next to a value of type T,
+// a T if the operator takes two Ts, so that '1' + 1 is 2 and d -
+// '2024-01-01' a number of days, and otherwise the type of the one form of
+// the operator that takes a T (ts + '1 day' adds an interval). With no such
+// form (b + '1') or more than one (d + '1' adds days or an interval), or two
+// literals, the operator is an error (literalOperandType).
+//
 // Comparisons already read text as the other side's type (textOperand),
 // and INSERT, UPDATE and CAST convert it to theirs.
 
@@ -144,10 +152,15 @@ func literalType(lit Expr, t ColType) ColType {
 	if t.Kind != KindDecimal {
 		return t
 	}
-	v, err := parseStringIn(lit.(*Literal).V.S, t, utcZone)
-	if err != nil || v.Null || (v.T.Kind != KindDecimal && !v.T.Kind.isInteger()) {
+	// Its digits, also with an exponent ('1e2' is 100, not a DOUBLE).
+	d, scale, err := parseDecimal(lit.(*Literal).V.S)
+	if err != nil {
 		return t
 	}
+	if scale < 0 {
+		d, scale = rescaleDecimal(d, scale, 0), 0
+	}
+	v := decimalValue(d, max(decimalDigits(d), scale+1, 1), scale)
 	if c, err := Coerce(v, t); err == nil {
 		if cmp, ok := compareValues(c, v); ok && cmp == 0 {
 			return t
@@ -235,6 +248,164 @@ func checkLiteral(lit Expr, t ColType) error {
 	return err
 }
 
+// opLiteral is a quoted string literal that is an operand of an arithmetic
+// operator (operatorLiteral).
+type opLiteral struct {
+	op    string // +, -, *, / or % (MOD); - also for a minus sign before it
+	lit   *Literal
+	other Expr // the other operand; nil for a minus sign
+	left  bool // lit is the left operand
+	call  bool // MOD(a, b) written as a call, not as a % b
+}
+
+// operatorLiteral returns the quoted string literal of x if x is an
+// arithmetic operator (+, -, *, / or %, or MOD) with one, or a minus sign
+// before one. Of two literals it returns the left one.
+func operatorLiteral(x Expr) (opLiteral, bool) {
+	var l, r Expr
+	o := opLiteral{}
+	switch v := x.(type) {
+	case *Binary:
+		if !arithmeticOps[v.Op] {
+			return o, false
+		}
+		o.op, l, r = v.Op, v.L, v.R
+	case *Func:
+		if v.Name != "MOD" || len(v.Args) != 2 {
+			return o, false
+		}
+		o.op, o.call, l, r = "%", v.named, v.Args[0], v.Args[1]
+	case *Unary:
+		if v.Op != "-" || !unknownLiteral(v.X) {
+			return o, false
+		}
+		return opLiteral{op: "-", lit: v.X.(*Literal)}, true
+	default:
+		return o, false
+	}
+	switch {
+	case unknownLiteral(l):
+		o.lit, o.other, o.left = l.(*Literal), r, true
+	case unknownLiteral(r):
+		o.lit, o.other = r.(*Literal), l
+	default:
+		return o, false
+	}
+	return o, true
+}
+
+// untypedOperand reports whether x, the other operand of an operator's
+// quoted string literal, has no type either: another such literal or a
+// NULL, as in Postgres, where both are of type unknown.
+func untypedOperand(x Expr) bool {
+	l, ok := x.(*Literal)
+	return ok && (l.Unknown || l.V.Null)
+}
+
+// literalOperandType returns the type of lit, a quoted string literal (or
+// a parameter, which Postgres types alike) that is an operand of the
+// arithmetic operator op, the left one if left, next to a value of type t,
+// as Postgres resolves the operator (see the top of this file): t itself
+// for a number (a NUMERIC with the literal's own fractional digits), and
+// for dates and times the type of the form the operator has for them. t is
+// NULL for an operand that has no type (untypedOperand), which is the error
+// of two literals. (% of a DOUBLE PRECISION is the driver's MOD of
+// doubles; Postgres has none.)
+func literalOperandType(op string, lit Expr, t ColType, left bool) (ColType, error) {
+	sig := func() string {
+		if left {
+			return "unknown " + op + " " + sigTypeName(t)
+		}
+		return sigTypeName(t) + " " + op + " unknown"
+	}
+	switch k := t.Kind; {
+	case k == KindNull:
+		return ColType{}, stateErr(stateAmbiguousFunction, "operator is not unique: unknown %s unknown", op)
+	case k == KindDecimal:
+		// Postgres's NUMERIC has no scale, and the value has the literal's
+		// digits, so that n * '2' has those of n.
+		if l, ok := lit.(*Literal); ok {
+			if _, scale, err := parseDecimal(l.V.S); err == nil {
+				return decimalType(38, min(max(scale, 0), 38)), nil
+			}
+		}
+		return t.withoutTypmod(), nil // checkLiteral reports it
+	case k.isNumeric():
+		return t.withoutTypmod(), nil
+	case k == KindDate:
+		switch op {
+		case "+":
+			// date + integer and date + interval (and + time).
+			return ColType{}, stateErr(stateAmbiguousFunction, "operator is not unique: %s", sig())
+		case "-":
+			return typeDate, nil // the days between them
+		}
+	case k == KindTimestamp:
+		switch op {
+		case "+":
+			return typeInterval, nil
+		case "-":
+			return t.withoutTypmod(), nil
+		}
+	case k == KindTime:
+		switch {
+		case op == "+":
+			return typeInterval, nil
+		case op == "-":
+			return t.withoutTypmod(), nil
+		case op == "*" || (op == "/" && !left):
+			// Postgres reads the time as an interval.
+			return typeFloat64, nil
+		}
+	case k == KindTimeTZ:
+		switch {
+		case op == "+":
+			// time with time zone + interval and + date.
+			return ColType{}, stateErr(stateAmbiguousFunction, "operator is not unique: %s", sig())
+		case op == "-" && !left:
+			return typeInterval, nil
+		}
+	case k == KindInterval:
+		switch {
+		case op == "+" || op == "-":
+			return typeInterval, nil
+		case op == "*" || (op == "/" && !left):
+			return typeFloat64, nil
+		}
+	}
+	return ColType{}, stateErr(stateUndefinedFunction, "operator does not exist: %s", sig())
+}
+
+// typeNext returns the literal's type next to its other operand, of type
+// t, or the operator's error (literalOperandType): a minus sign before a
+// literal is ambiguous (- unknown), as it is in Postgres, and MOD's are
+// those of a function (function mod(date, unknown) does not exist). ok is
+// false where the type isn't known yet: next to a value without a type
+// other than a literal or NULL, such as a parameter without a value.
+func (o opLiteral) typeNext(t ColType) (lt ColType, ok bool, err error) {
+	switch {
+	case o.other == nil:
+		return ColType{}, false, stateErr(stateAmbiguousFunction, "operator is not unique: - unknown")
+	case untypedOperand(o.other):
+		t = typeNull
+	case t.Kind == KindNull:
+		return ColType{}, false, nil
+	}
+	lt, err = literalOperandType(o.op, o.lit, t, o.left)
+	if err != nil && o.call {
+		a, b := sigTypeName(t), "unknown"
+		if o.left {
+			a, b = b, a
+		}
+		if sqlState(err) == stateAmbiguousFunction {
+			err = stateErr(stateAmbiguousFunction, "function mod(%s, %s) is not unique", a, b)
+		} else {
+			err = stateErr(stateUndefinedFunction, "function mod(%s, %s) does not exist", a, b)
+		}
+	}
+	return lt, err == nil, err
+}
+
 // checkUnknowns reports the error of an expression of expr (outside its
 // subqueries) whose values' types have no common type, or one of whose
 // quoted string literals isn't a value of the type it takes, as Postgres
@@ -246,6 +417,27 @@ func checkUnknowns(expr Expr, cols func() map[string]ColType, params []ColType) 
 	walkExprPruned(expr, func(x Expr) bool {
 		if err != nil {
 			return false
+		}
+		if o, ok := operatorLiteral(x); ok {
+			// The operator's error, or the literal's as its type.
+			var t ColType
+			if o.other != nil {
+				if types == nil {
+					types = cols()
+				}
+				var terr error
+				if t, terr = inferType(o.other, types, params); terr != nil {
+					return true // reported where it is typed
+				}
+			}
+			lt, known, oerr := o.typeNext(t)
+			switch {
+			case oerr != nil:
+				err = oerr
+			case known:
+				err = checkLiteral(o.lit, lt)
+			}
+			return err == nil
 		}
 		parts, _ := matchedParts(x)
 		lits := literalParts(x)

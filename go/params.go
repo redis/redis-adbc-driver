@@ -109,12 +109,20 @@ func (e *executor) noteParams(expr Expr) {
 				c.noteParamOf(v.L, typeString)
 				c.noteParamOf(v.R, typeString)
 			case arithmeticOps[v.Op]:
-				if t := typeOf(v.R); t.Kind.isNumeric() {
-					c.noteParamOf(v.L, t)
+				// As Postgres types a parameter next to a value of type T,
+				// as a quoted literal: a T if the operator takes two, so
+				// qty * $1 is qty's type, ts - $1 a timestamp, and ts + $1
+				// an interval (literalOperandType).
+				operand := func(x Expr, t ColType, left bool) {
+					if t.Kind == KindNull {
+						return
+					}
+					if pt, err := literalOperandType(v.Op, x, t, left); err == nil {
+						c.noteParamOf(x, pt)
+					}
 				}
-				if t := typeOf(v.L); t.Kind.isNumeric() {
-					c.noteParamOf(v.R, t)
-				}
+				operand(v.L, typeOf(v.R), true)
+				operand(v.R, typeOf(v.L), false)
 			}
 		case *Unary:
 			if v.Op == "NOT" {
