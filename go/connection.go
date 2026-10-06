@@ -113,13 +113,13 @@ func (c *connectionImpl) SetOption(ctx context.Context, key, value string) error
 // fixes them when a client is made, so this makes a new one. The old one
 // stays open until the connection closes, for background work that still
 // uses it (cleanups, string column checks, the temporary schema's
-// heartbeat).
+// heartbeat, a rename's lease).
 func (c *connectionImpl) setTimeouts(ctx context.Context, t timeouts) error {
 	if t == c.timeouts {
 		return nil
 	}
-	if c.store == nil || c.store.client == nil {
-		return errorf(adbc.StatusInvalidState, "the connection is closed")
+	if c.store == nil || c.store.isClosed() {
+		return errConnClosed
 	}
 	_, cluster := c.store.client.(*goredis.ClusterClient)
 	client := newClient(c.clientCfg, cluster, t)
@@ -135,25 +135,32 @@ func (c *connectionImpl) setTimeouts(ctx context.Context, t timeouts) error {
 	return nil
 }
 
+// errConnClosed refuses what needs the connection once it is closed.
+var errConnClosed = errorf(adbc.StatusInvalidState, "the connection is closed")
+
 func (c *connectionImpl) Close(ctx context.Context) error {
 	// Before the client goes: closing a stream deletes its cursor.
 	c.streams.closeAll(errorf(adbc.StatusInvalidState, "the connection was closed while its result was being read"))
-	if c.store != nil && c.store.client != nil {
-		// Best effort: whatever can't be dropped now is swept by a later
-		// connection (see temp.go).
-		_ = c.store.dropTempSchema(ctx)
-		err := c.store.client.Close()
-		c.store.client = nil
-		c.store.mu.Lock()
-		retired := c.store.retired
-		c.store.retired = nil
-		c.store.mu.Unlock()
-		for _, old := range retired {
-			_ = old.Close()
-		}
-		return err
+	if c.store == nil || !c.store.setClosed() {
+		return nil
 	}
-	return nil
+	// Renames running on other goroutines stop, and are rolled back, while
+	// the client is open (see rekey.go).
+	c.store.stopRekeys(ctx)
+	// Best effort: whatever can't be dropped now is swept by a later
+	// connection (see temp.go).
+	_ = c.store.dropTempSchema(ctx)
+	// The client stays set: a statement still running on another goroutine
+	// fails with "redis: client is closed".
+	err := c.store.client.Close()
+	c.store.mu.Lock()
+	retired := c.store.retired
+	c.store.retired = nil
+	c.store.mu.Unlock()
+	for _, old := range retired {
+		_ = old.Close()
+	}
+	return err
 }
 
 func (c *connectionImpl) PrepareDriverInfo(ctx context.Context, infoCodes []adbc.InfoCode) error {
