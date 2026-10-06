@@ -3097,25 +3097,43 @@ func isIntervalUnit(t token) bool {
 // parseInterval parses what follows INTERVAL:
 //
 //	INTERVAL '1 day 2 hours'           a literal
-//	INTERVAL '2' HOUR                  string with a unit
-//	INTERVAL '1-2' YEAR TO MONTH       (the TO part is accepted; the string decides)
+//	INTERVAL '2' HOUR                  a literal of a typmod, as in Postgres:
+//	INTERVAL '1-2' YEAR TO MONTH       the fields to the right of the last
+//	INTERVAL '1.5' SECOND(0)           are dropped, and SECOND(p) or
+//	INTERVAL(0) '1.5'                  INTERVAL(p) rounds to p digits
+//	INTERVAL '2' HOURS                 a number of a unit
 //	INTERVAL 7 DAY / INTERVAL ? DAY    an expression with a unit
 func (p *parser) parseInterval() (Expr, error) {
+	if p.isOp("(") && p.peekAt(1).kind == tokNumber && p.peekAt(2).kind == tokOp && p.peekAt(2).text == ")" &&
+		p.peekAt(3).kind == tokString {
+		prec, err := p.parseIntervalPrecision()
+		if err != nil {
+			return nil, err
+		}
+		v, err := typedIntervalLiteral(p.next().text, intervalTypmod{precision: prec})
+		if err != nil {
+			return nil, parseErr(err)
+		}
+		return &Literal{V: v}, nil
+	}
 	if t := p.peek(); t.kind == tokString {
 		p.pos++
-		if !isIntervalUnit(p.peek()) {
-			v, err := intervalLiteral(t.text)
+		unit := strings.ToLower(p.peek().text)
+		tm, ok, err := p.parseIntervalQualifier()
+		switch {
+		case err != nil:
+			return nil, err
+		case ok && tm.fields == typmodFields[unit] && tm.precision < 0:
+			// One field, also INTERVAL ? HOUR (and in DATE_ADD).
+		case ok:
+			v, err := typedIntervalLiteral(t.text, tm)
 			if err != nil {
 				return nil, parseErr(err)
 			}
 			return &Literal{V: v}, nil
-		}
-		unit := strings.ToLower(p.next().text)
-		if p.acceptKeyword("TO") {
-			if !isIntervalUnit(p.peek()) {
-				return nil, syntaxErr("expected an interval field after TO")
-			}
+		case isIntervalUnit(p.peek()):
 			p.pos++
+		default:
 			v, err := intervalLiteral(t.text)
 			if err != nil {
 				return nil, parseErr(err)
@@ -3133,6 +3151,58 @@ func (p *parser) parseInterval() (Expr, error) {
 	}
 	unit := strings.ToLower(p.next().text)
 	return &Func{Name: "__INTERVAL", Args: []Expr{x, &Literal{V: stringValue(unit)}}}, nil
+}
+
+// parseIntervalQualifier parses the fields of an interval typmod, as
+// Postgres's opt_interval: YEAR, MONTH, DAY, HOUR, MINUTE, SECOND, YEAR TO
+// MONTH, DAY TO HOUR, DAY TO MINUTE, DAY TO SECOND, HOUR TO MINUTE, HOUR
+// TO SECOND or MINUTE TO SECOND, and SECOND(p). It is false if there are
+// none.
+func (p *parser) parseIntervalQualifier() (intervalTypmod, bool, error) {
+	tm := fullTypmod
+	first, ok := typmodFields[strings.ToLower(p.peek().text)]
+	if !ok || p.peek().kind != tokIdent {
+		return tm, false, nil
+	}
+	p.pos++
+	tm.fields = first
+	if p.acceptKeyword("TO") {
+		last, ok := typmodFields[strings.ToLower(p.peek().text)]
+		if !ok || p.peek().kind != tokIdent ||
+			!(first == ivYear && last == ivMonth || first >= ivDay && first <= ivMinute && last > first) {
+			return tm, false, syntaxErr("expected YEAR TO MONTH, DAY TO HOUR, DAY TO MINUTE, DAY TO SECOND, HOUR TO MINUTE, " +
+				"HOUR TO SECOND or MINUTE TO SECOND")
+		}
+		p.pos++
+		for f := first; f <= last; f <<= 1 {
+			tm.fields |= f
+		}
+	}
+	if tm.fields&ivSecond != 0 && p.isOp("(") {
+		prec, err := p.parseIntervalPrecision()
+		if err != nil {
+			return tm, false, err
+		}
+		tm.precision = prec
+	}
+	return tm, true, nil
+}
+
+// parseIntervalPrecision parses (p), the digits of a second of an interval
+// typmod. As in Postgres, a p above 6 is 6.
+func (p *parser) parseIntervalPrecision() (int, error) {
+	if err := p.expectOp("("); err != nil {
+		return 0, err
+	}
+	t := p.next()
+	n, err := strconv.Atoi(t.text)
+	if t.kind != tokNumber || err != nil || n < 0 {
+		return 0, syntaxErr("expected the digits of a second near %q", t.text)
+	}
+	if err := p.expectOp(")"); err != nil {
+		return 0, err
+	}
+	return min(n, 6), nil
 }
 
 func (p *parser) parseCase() (Expr, error) {

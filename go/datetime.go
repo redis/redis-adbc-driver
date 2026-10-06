@@ -648,6 +648,16 @@ func (env *evalEnv) evalDateTimeFunc(f *Func, args []Value) (Value, bool, error)
 		if !ok {
 			return done(Value{}, fmt.Errorf("unknown interval unit %q", args[1].Text()))
 		}
+		// A unit that is a field of Postgres's interval typmods (YEAR,
+		// MONTH, DAY, HOUR, MINUTE or SECOND) is that typmod: text is read
+		// as a literal of it (INTERVAL '1 day 02:30' HOUR is 1 day
+		// 02:00:00), and a number of the unit drops the fields after it too
+		// (INTERVAL 1.5 HOUR is 01:00:00).
+		fields, typmod := typmodFields[args[1].Text()]
+		tm := intervalTypmod{fields: fields, precision: -1}
+		if typmod && args[0].T.Kind == KindString {
+			return done(typedIntervalLiteral(args[0].S, tm))
+		}
 		// n is read as in a literal, rounded to the microsecond.
 		val, fval, e := unitCount(args[0])
 		if e == litBadFormat {
@@ -657,7 +667,7 @@ func (env *evalEnv) evalDateTimeFunc(f *Func, args []Value) (Value, bool, error)
 		if e != 0 || !it.addUnit(val, fval, u) {
 			return done(Value{}, stateErr(stateDatetimeRange, "interval out of range"))
 		}
-		return done(it.value())
+		return done(it.typedValue(tm))
 	case "AGE":
 		var a, b time.Time
 		var err error
