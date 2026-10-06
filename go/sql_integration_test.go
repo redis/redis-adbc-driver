@@ -1984,7 +1984,7 @@ func TestSQLScalarFunctions(t *testing.T) {
 	h.expectError(`SELECT MOD(id, id - id) FROM it_fn`, "MOD: division by zero")
 	h.expectError(`SELECT SUBSTRING(s, 1, -1) FROM it_fn`, "negative substring length not allowed")
 	h.expectError(`SELECT SPLIT_PART(code, '-', 0) FROM it_fn`, "field position must not be zero")
-	h.expectError(`SELECT ROUND(s) FROM it_fn WHERE id = 1`, "cannot convert")
+	h.expectError(`SELECT ROUND(s) FROM it_fn WHERE id = 1`, `invalid input syntax for type double precision: "  Hello World  "`)
 	h.expectError(`SELECT LEFT(s) FROM it_fn WHERE id > 100`, "LEFT expects 2 arguments")
 	h.expectError(`SELECT GREATEST(d, id) FROM it_fn`, "GREATEST types DATE and INTEGER cannot be matched")
 }

@@ -320,6 +320,12 @@ func (e *executor) comparisonTerm(c Expr, meta *tableMeta, env *evalEnv) (term s
 		// time zone (text, a TIMESTAMP or a DATE are local times in the
 		// session time zone), rounded to the column's precision.
 		v, err := coerceIn(cv, ct, zone)
+		if err != nil && ct.Kind == KindFloat32 && cv.T.Kind.isNumeric() {
+			// A number past a REAL's range (an error as a value): the REAL
+			// it rounds to, ±Infinity or 0, is a bound as below.
+			f, _ := cv.asFloat()
+			v, err = floatValue(ct, float64(float32(f))), nil
+		}
 		if err != nil || (ct.Kind == KindBool && op != "=") {
 			return "", false, false, nil
 		}

@@ -51,7 +51,7 @@ func TestStateStatus(t *testing.T) {
 // The SQLSTATE survives wrapping (with %w), the parser, and the boundaries
 // that make the error an adbc.Error.
 func TestSQLStateKept(t *testing.T) {
-	inner := stateErr(stateInvalidText, "invalid decimal %q", "x")
+	inner := invalidText("numeric", "x")
 	for _, c := range []struct {
 		name  string
 		err   error
@@ -59,10 +59,10 @@ func TestSQLStateKept(t *testing.T) {
 		state string
 		msg   string
 	}{
-		{"invalidArg", invalidArg(inner), adbc.StatusInvalidData, "22P02", `[redis] invalid decimal "x"`},
-		{"wrapped", invalidArg(fmt.Errorf("ABS: %w", inner)), adbc.StatusInvalidData, "22P02", `[redis] ABS: invalid decimal "x"`},
-		{"parser", invalidArg(parseErr(inner)), adbc.StatusInvalidData, "22P02", `[redis] invalid decimal "x"`},
-		{"column", columnErr("n", inner), adbc.StatusInvalidData, "22P02", `[redis] column "n": invalid decimal "x"`},
+		{"invalidArg", invalidArg(inner), adbc.StatusInvalidData, "22P02", `[redis] invalid input syntax for type numeric: "x"`},
+		{"wrapped", invalidArg(fmt.Errorf("ABS: %w", inner)), adbc.StatusInvalidData, "22P02", `[redis] ABS: invalid input syntax for type numeric: "x"`},
+		{"parser", invalidArg(parseErr(inner)), adbc.StatusInvalidData, "22P02", `[redis] invalid input syntax for type numeric: "x"`},
+		{"column", columnErr("n", inner), adbc.StatusInvalidData, "22P02", `[redis] column "n": invalid input syntax for type numeric: "x"`},
 		{"column of an adbc.Error", columnErr("v", stateErrorf(stateStringTooLong, "value too long for type character varying(3)")),
 			adbc.StatusInvalidData, "22001", `[redis] column "v": value too long for type character varying(3)`},
 		// Written to a column, a type that never converts is datatype_mismatch.

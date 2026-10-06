@@ -102,11 +102,14 @@ func TestDateTimeText(t *testing.T) {
 	})
 	expectExprErrors(t, map[string]string{
 		// There is no year 0, as in Postgres.
-		"CAST('0000-01-01' AS DATE)":           `invalid date "0000-01-01"`,
-		"CAST('0000-01-01 BC' AS DATE)":        `invalid timestamp "0000-01-01 BC"`,
-		"CAST('2024-01-10x' AS DATE)":          `invalid timestamp "2024-01-10x"`,
-		"CAST('12345678-01-01' AS DATE)":       `invalid timestamp "12345678-01-01"`,
-		"CAST('2024-1-10 10:00' AS TIMESTAMP)": `invalid timestamp "2024-1-10 10:00"`,
+		"CAST('0000-01-01' AS DATE)":    `date/time field value out of range: "0000-01-01"`,
+		"CAST('0000-01-01 BC' AS DATE)": `date/time field value out of range: "0000-01-01 BC"`,
+		"CAST('2024-01-10x' AS DATE)":   `invalid input syntax for type date: "2024-01-10x"`,
+		// Postgres: date out of range (22008); the driver reads 4 to 7
+		// digits of a year.
+		"CAST('12345678-01-01' AS DATE)": `invalid input syntax for type date: "12345678-01-01"`,
+		// Postgres reads 2024-01-10 10:00:00.
+		"CAST('2024-1-10 10:00' AS TIMESTAMP)": `invalid input syntax for type timestamp: "2024-1-10 10:00"`,
 	})
 }
 

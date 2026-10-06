@@ -114,7 +114,7 @@ func TestNaNText(t *testing.T) {
 		t.Errorf("error %v", err)
 	}
 	// Other text isn't affected: the n of 'banana' is no NaN.
-	if _, _, err := evalTestExpr(t, "CAST('banana' AS NUMERIC)"); err == nil || !strings.Contains(err.Error(), `invalid decimal "banana"`) {
+	if _, _, err := evalTestExpr(t, "CAST('banana' AS NUMERIC)"); err == nil || !strings.Contains(err.Error(), `invalid input syntax for type numeric: "banana"`) {
 		t.Errorf("error %v", err)
 	}
 }

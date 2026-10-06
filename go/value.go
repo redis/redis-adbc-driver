@@ -266,28 +266,40 @@ func parseFraction(frac string) (int64, int, error) {
 	return n, digits, nil
 }
 
+// parseClock reads HH:MM[:SS[.fraction]] as seconds, nanoseconds and the
+// fraction's digits. As in Postgres (time_overflows), a field past its
+// range (25:00, 10:60) is datetime_field_overflow, and so is a time past
+// 24:00:00 once its fraction is read in microseconds (24:00:01,
+// 23:59:60.5; 23:59:60 is 24:00:00).
 func parseClock(s string) (sec int64, nanos int64, digits int, err error) {
+	bad := func() (int64, int64, int, error) {
+		return 0, 0, 0, dateTimeTextError(stateDatetimeFormat, "time", s)
+	}
 	clock, frac, _ := strings.Cut(s, ".")
 	parts := strings.Split(clock, ":")
 	if len(parts) < 2 || len(parts) > 3 {
-		return 0, 0, 0, stateErr(stateDatetimeFormat, "invalid time %q", s)
+		return bad()
 	}
 	var hms [3]int64
 	for i, p := range parts {
 		v, err := strconv.ParseInt(p, 10, 64)
 		if err != nil {
-			return 0, 0, 0, stateErr(stateDatetimeFormat, "invalid time %q", s)
+			return bad()
 		}
 		hms[i] = v
 	}
 	if hms[0] > 24 || hms[1] > 59 || hms[2] > 60 {
-		return 0, 0, 0, stateErr(stateDatetimeRange, "invalid time %q", s)
+		return 0, 0, 0, dateTimeTextError(stateDatetimeRange, "time", s)
 	}
 	nanos, digits, err = parseFraction(frac)
 	if err != nil {
-		return 0, 0, 0, stateErr(stateDatetimeFormat, "invalid time %q", s)
+		return bad()
 	}
-	return hms[0]*3600 + hms[1]*60 + hms[2], nanos, digits, nil
+	sec = hms[0]*3600 + hms[1]*60 + hms[2]
+	if sec*1_000_000+pgMicros(nanos) > 86400*1_000_000 {
+		return 0, 0, 0, dateTimeTextError(stateDatetimeRange, "time", s)
+	}
+	return sec, nanos, digits, nil
 }
 
 // splitEra removes a trailing era, " BC" or " AD" in any case, from date or
@@ -337,16 +349,16 @@ func parseDatePrefix(s string, bc bool) (days int64, rest, bad string) {
 	return floorDiv(tm.Unix(), 86400), s[n+6:], ""
 }
 
-func parseDateDays(s string) (int64, error) {
-	t, bc := splitEra(s)
-	days, rest, bad := parseDatePrefix(t, bc)
-	if bad == "" && rest != "" {
-		bad = stateDatetimeFormat
+// dateTimeErr is err, from reading text in as a value of type typ (its
+// name in Postgres: "date", "timestamp with time zone"), with Postgres's
+// message for what is wrong (dateTimeTextError). A time zone that doesn't
+// exist keeps its error.
+func dateTimeErr(err error, typ, in string) error {
+	state := sqlState(err)
+	if state == stateInvalidParameter {
+		return err
 	}
-	if bad != "" {
-		return 0, stateErr(bad, "invalid date %q", s)
-	}
-	return days, nil
+	return dateTimeTextError(state, typ, in)
 }
 
 // parseTimestamp parses "YYYY-MM-DD[ T]HH:MM:SS[.fffffffff][Z|±HH[:MM]|zone]
@@ -358,7 +370,7 @@ func parseTimestamp(s string) (sec, nanos int64, digits int, hasTZ bool, err err
 	t, bc := splitEra(s)
 	days, rest, bad := parseDatePrefix(t, bc)
 	if bad != "" {
-		return 0, 0, 0, false, stateErr(bad, "invalid timestamp %q", s)
+		return 0, 0, 0, false, dateTimeTextError(bad, "timestamp", s)
 	}
 	rest = strings.TrimLeft(rest, " T")
 	offset := int64(0)
@@ -378,32 +390,17 @@ func parseTimestamp(s string) (sec, nanos int64, digits int, hasTZ bool, err err
 			hasTZ = true
 		case tz[0] == '+' || tz[0] == '-':
 			hasTZ = true
-			sign := int64(1)
-			if tz[0] == '-' {
-				sign = -1
+			off, bad := parseTZDisplacement(tz) // timetz.go
+			if bad != "" {
+				return 0, 0, 0, false, dateTimeTextError(bad, "timestamp", s)
 			}
-			hh := strings.ReplaceAll(tz[1:], ":", "")
-			mm := ""
-			if len(hh) > 2 {
-				mm = hh[2:]
-				hh = hh[:2]
-			}
-			h, err1 := strconv.ParseInt(hh, 10, 64)
-			m := int64(0)
-			var err2 error
-			if mm != "" {
-				m, err2 = strconv.ParseInt(mm, 10, 64)
-			}
-			if err1 != nil || err2 != nil {
-				return 0, 0, 0, false, stateErr(stateDatetimeFormat, "invalid timestamp %q", s)
-			}
-			offset = sign * (h*3600 + m*60)
+			offset = int64(off)
 		default:
 			// Postgres splits the text at a comma, so a POSIX zone's rules
 			// can't be written here.
 			z, zerr := resolveZone(tz)
 			if zerr != nil || strings.ContainsRune(tz, ',') {
-				return 0, 0, 0, false, stateErr(stateDatetimeFormat, "invalid timestamp %q", s)
+				return 0, 0, 0, false, unknownZoneText(tz, "timestamp", s)
 			}
 			hasTZ = true
 			// The zone's offset at that local time, with DST gaps and
@@ -412,7 +409,7 @@ func parseTimestamp(s string) (sec, nanos int64, digits int, hasTZ bool, err err
 			if rest != "" {
 				var cerr error
 				if clockSec, _, _, cerr = parseClock(rest); cerr != nil {
-					return 0, 0, 0, false, stateErr(sqlState(cerr), "invalid timestamp %q", s)
+					return 0, 0, 0, false, dateTimeErr(cerr, "timestamp", s)
 				}
 			}
 			local := days*86400 + clockSec
@@ -423,7 +420,7 @@ func parseTimestamp(s string) (sec, nanos int64, digits int, hasTZ bool, err err
 	if rest != "" {
 		clockSec, nanos, digits, err = parseClock(rest)
 		if err != nil {
-			return 0, 0, 0, false, stateErr(sqlState(err), "invalid timestamp %q", s)
+			return 0, 0, 0, false, dateTimeErr(err, "timestamp", s)
 		}
 	}
 	sec = days*86400 + clockSec - offset
@@ -466,9 +463,13 @@ func timestampLiteral(s string, withTZ bool) (Value, error) {
 // z. The unit has the fraction's digits (microseconds, or nanoseconds for
 // more than 6).
 func timestampLiteralIn(s string, withTZ bool, z tzZone) (Value, error) {
+	typ := "timestamp"
+	if withTZ {
+		typ = "timestamp with time zone"
+	}
 	sec, nanos, digits, hasTZ, err := parseTimestamp(s)
 	if err != nil {
-		return Value{}, err
+		return Value{}, dateTimeErr(err, typ, s)
 	}
 	if withTZ && !hasTZ {
 		sec = z.localToUTC(sec)
@@ -482,7 +483,8 @@ func timestampLiteralIn(s string, withTZ bool, z tzZone) (Value, error) {
 		v, err = secondsNanosToUnit(sec, pgMicros(nanos)*1000, unit)
 	}
 	if err != nil {
-		return Value{}, err
+		// Past the microseconds' range, about ±292,000 years from 1970.
+		return Value{}, stateErr(stateDatetimeRange, `timestamp out of range: "%s"`, s)
 	}
 	tz := ""
 	if withTZ {
@@ -491,10 +493,20 @@ func timestampLiteralIn(s string, withTZ bool, z tzZone) (Value, error) {
 	return intValue(timestampType(unit, tz), v), nil
 }
 
+// timeLiteral reads text as a TIME, as Postgres's time_in does: the time,
+// which may follow a date and be followed by an offset or a time zone,
+// checked as for a time with time zone (parseTimeTZ) and otherwise ignored
+// ('2024-01-05 10:00:00+05' is 10:00:00).
 func timeLiteral(s string) (Value, error) {
-	sec, nanos, digits, err := parseClock(strings.TrimSpace(s))
+	_, _, clock, zone := timeTZParts(s)
+	if zone != "" {
+		if _, err := parseTimeTZ(s, utcZone); err != nil {
+			return Value{}, dateTimeErr(err, "time", s)
+		}
+	}
+	sec, nanos, digits, err := parseClock(clock)
 	if err != nil {
-		return Value{}, err
+		return Value{}, dateTimeErr(err, "time", s)
 	}
 	unit := unitForDigits(digits)
 	v, err := secondsNanosToUnit(sec, nanos, unit)
@@ -504,12 +516,37 @@ func timeLiteral(s string) (Value, error) {
 	return intValue(timeType(unit), v), nil
 }
 
+// dateLiteral reads text as a DATE, as Postgres's date_in does: a date,
+// which may be followed by a time, and an offset or a time zone, which are
+// checked as a timestamp's and otherwise ignored ('2024-01-05 23:00-05' and
+// '2024-01-05 24:00' are 2024-01-05).
 func dateLiteral(s string) (Value, error) {
-	d, err := parseDateDays(s)
-	if err != nil {
-		return Value{}, err
+	t, bc := splitEra(s)
+	days, rest, bad := parseDatePrefix(t, bc)
+	if bad != "" {
+		return Value{}, dateTimeTextError(bad, "date", s)
 	}
-	return intValue(typeDate, d), nil
+	if strings.TrimSpace(rest) != "" {
+		if _, _, _, _, err := parseTimestamp(s); err != nil {
+			return Value{}, dateTimeErr(err, "date", s)
+		}
+	}
+	if days < math.MinInt32 || days > math.MaxInt32 {
+		// Past an Arrow date32's range (see dateValue).
+		return Value{}, stateErr(stateDatetimeRange, `date out of range: "%s"`, s)
+	}
+	return intValue(typeDate, days), nil
+}
+
+// unknownZoneText is the error for timestamp text in, read as type typ,
+// whose time zone zone doesn't exist. As in Postgres, a name with a slash
+// is a zone name, `time zone "mars/base" not recognized` (22023, in lower
+// case, as Postgres reads the text), and other text invalid syntax.
+func unknownZoneText(zone, typ, in string) error {
+	if strings.ContainsRune(zone, '/') && !strings.ContainsRune(zone, ',') {
+		return stateErr(stateInvalidParameter, `time zone "%s" not recognized`, strings.ToLower(zone))
+	}
+	return dateTimeTextError(stateDatetimeFormat, typ, in)
 }
 
 // numberLiteral types a numeric literal: integers become BIGINT, literals
@@ -716,6 +753,31 @@ func intRange(k Kind) (int64, int64) {
 	}
 }
 
+// intOutOfRange is Postgres's error for a number past the range of integer
+// kind k: "integer out of range", or "smallint" or "bigint".
+func intOutOfRange(k Kind) error {
+	return stateErr(stateNumericRange, "%s out of range", intTypeName(k)) // intin.go
+}
+
+// realRangeError is Postgres's error for v, f as a double, that a REAL
+// can't hold, or nil: a double past its range is "value out of range:
+// overflow", and one that isn't 0 but rounds to it "value out of range:
+// underflow" (float84 in float.c); a NUMERIC is read as its text is
+// (numeric_float4), `"1000…0" is out of range for type real`.
+func realRangeError(v Value, f float64) error {
+	r := float64(float32(f))
+	over, under := math.IsInf(r, 0) && !math.IsInf(f, 0), r == 0 && f != 0
+	switch {
+	case !over && !under:
+		return nil
+	case v.T.Kind == KindDecimal:
+		return stateErr(stateNumericRange, `"%s" is out of range for type real`, formatDecimal(v.D, v.T.Scale))
+	case over:
+		return stateErr(stateNumericRange, "value out of range: overflow")
+	}
+	return stateErr(stateNumericRange, "value out of range: underflow")
+}
+
 func (v Value) asFloat() (float64, bool) {
 	switch v.T.Kind {
 	case KindInt16, KindInt32, KindInt64, KindBool:
@@ -783,13 +845,13 @@ func coerceIn(v Value, t ColType, z tzZone) (Value, error) {
 			i = v.I
 		case v.T.Kind.isFloat():
 			if math.IsNaN(v.F) || math.IsInf(v.F, 0) || v.F >= 9.223372036854775807e18 || v.F < -9.223372036854775808e18 {
-				return fail()
+				return Value{}, intOutOfRange(t.Kind)
 			}
 			i = int64(math.Round(v.F))
 		case v.T.Kind == KindDecimal:
 			r := rescaleDecimal(v.D, v.T.Scale, 0)
 			if !r.IsInt64() {
-				return fail()
+				return Value{}, intOutOfRange(t.Kind)
 			}
 			i = r.Int64()
 		default:
@@ -797,7 +859,7 @@ func coerceIn(v Value, t ColType, z tzZone) (Value, error) {
 		}
 		lo, hi := intRange(t.Kind)
 		if i < lo || i > hi {
-			return Value{}, stateErr(stateNumericRange, "value %d out of range for %s", i, t.SQLName())
+			return Value{}, intOutOfRange(t.Kind)
 		}
 		return intValue(t, i), nil
 	case KindFloat32, KindFloat64:
@@ -806,6 +868,9 @@ func coerceIn(v Value, t ColType, z tzZone) (Value, error) {
 			return fail()
 		}
 		if t.Kind == KindFloat32 {
+			if err := realRangeError(v, f); err != nil {
+				return Value{}, err
+			}
 			f = float64(float32(f))
 		}
 		return floatValue(t, f), nil
@@ -831,7 +896,7 @@ func coerceIn(v Value, t ColType, z tzZone) (Value, error) {
 		}
 		r := rescaleDecimal(d, scale, t.Scale)
 		if decimalDigits(r) > t.Precision && r.Sign() != 0 {
-			return Value{}, stateErr(stateNumericRange, "value %s out of range for %s", formatDecimal(d, scale), t.SQLName())
+			return Value{}, numericFieldOverflow(t) // textin.go
 		}
 		return decimalValue(r, t.Precision, t.Scale), nil
 	case KindString:
@@ -990,12 +1055,11 @@ func parseStringIn(s string, t ColType, z tzZone) (Value, error) {
 	trimmed := strings.TrimSpace(s)
 	switch t.Kind {
 	case KindBool:
-		switch strings.ToLower(trimmed) {
-		case "true", "t", "yes", "y", "1", "on":
-			return boolValue(true), nil
-		case "false", "f", "no", "n", "0", "off":
-			return boolValue(false), nil
+		b, err := parseBoolText(s) // textin.go
+		if err != nil {
+			return Value{}, err
 		}
+		return boolValue(b), nil
 	case KindInt16, KindInt32, KindInt64:
 		i, err := parseIntText(s, t.Kind) // intin.go
 		if err != nil {
@@ -1003,29 +1067,22 @@ func parseStringIn(s string, t ColType, z tzZone) (Value, error) {
 		}
 		return intValue(typeInt64, i), nil
 	case KindFloat32, KindFloat64:
-		if f, err := strconv.ParseFloat(trimmed, 64); err == nil {
-			return floatValue(typeFloat64, f), nil
+		f, err := parseFloatText(s, t.Kind) // textin.go
+		if err != nil {
+			return Value{}, err
 		}
+		return floatValue(t, f), nil
 	case KindDecimal:
-		// 'NaN', 'Infinity', 'inf', … (each has an n).
-		if strings.ContainsAny(trimmed, "nN") {
-			if f, err := strconv.ParseFloat(trimmed, 64); err == nil && (math.IsNaN(f) || math.IsInf(f, 0)) {
-				return Value{}, numericSpecialError(f, t)
-			}
-		}
-		return numberLiteral(trimmed)
+		return parseNumericText(s, t) // textin.go
 	case KindDate:
-		if len(trimmed) > 10 {
-			return timestampLiteral(trimmed, false)
-		}
-		return dateLiteral(trimmed)
+		return dateLiteral(s)
 	case KindTime, KindTimestamp:
 		var v Value
 		var err error
 		if t.Kind == KindTime {
-			v, err = timeLiteral(trimmed)
+			v, err = timeLiteral(s)
 		} else {
-			v, err = timestampLiteralIn(trimmed, t.TZ != "", z)
+			v, err = timestampLiteralIn(s, t.TZ != "", z)
 		}
 		if err == nil && t.Unit != arrow.Nanosecond {
 			v = inMicros(v)
