@@ -287,6 +287,22 @@ func TestSQLAggOrderedSet(t *testing.T) {
 			CAST(PERCENTILE_DISC(0.5) WITHIN GROUP (ORDER BY i DESC) AS VARCHAR)
 		FROM x`,
 		"1 day|2 days 06:00:00|1 day")
+	// As Postgres's interval_lerp, lo + (hi - lo) × fraction with interval
+	// * double precision: the difference of 1 year and 1 mon 1 day 1 sec,
+	// halved, is 5 mons 15 days -12:00:00.5. The difference needn't fit an
+	// interval's nanoseconds (±2562047 hours), only Postgres's
+	// microseconds, but its months and days must fit their 32 bits.
+	h.expectRows(`WITH x(i) AS (SELECT INTERVAL '1 year' UNION ALL SELECT INTERVAL '1 mon 1 day 1 sec')
+		SELECT CAST(MEDIAN(i) AS VARCHAR), CAST(PERCENTILE_CONT(0.3) WITHIN GROUP (ORDER BY i DESC) AS VARCHAR) FROM x`,
+		"6 mons 16 days -11:59:59.5|9 mons -9 days +07:12:00.3")
+	h.expectRows(`WITH x(i) AS (SELECT INTERVAL '1 mon' UNION ALL SELECT INTERVAL '2 mons' UNION ALL SELECT INTERVAL '-1 mon')
+		SELECT CAST(PERCENTILE_CONT(0.333) WITHIN GROUP (ORDER BY i) AS VARCHAR) FROM x`,
+		"9 days 23:02:24")
+	h.expectRows(`WITH x(i) AS (SELECT INTERVAL '-2000000 hours' UNION ALL SELECT INTERVAL '2000000 hours')
+		SELECT CAST(MEDIAN(i) AS VARCHAR), CAST(PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY i) AS VARCHAR) FROM x`,
+		"00:00:00|-1000000:00:00")
+	h.expectError(`WITH x(i) AS (SELECT INTERVAL '-2147483648 mons' UNION ALL SELECT INTERVAL '2147483647 mons')
+		SELECT MEDIAN(i) FROM x`, "interval out of range")
 
 	// Errors, with PostgreSQL's messages. The fraction is checked even when
 	// there are no rows, as in PostgreSQL.

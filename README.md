@@ -2630,11 +2630,11 @@ field, even if later rows have it.
       the months, days and time each on its own, without carrying one into
       the next: `INTERVAL '1 mon'` + `INTERVAL '30 days'` is `1 mon 30
       days`, and 20 and 5 hours are `25:00:00`. `AVG` divides that sum by
-      the count as Postgres's `interval / n` does: a fraction of a month
-      becomes days, 30 to a month, rounded to millionths of a day, one of a
-      day becomes time, and the time is rounded to microseconds, half to
-      even (`AVG` of `1 sec`, `0` and `0` is `00:00:00.333333`; the
-      driver's own `INTERVAL '1 sec' / 3` is `00:00:00.333333333`). Each
+      the count as `interval / n` does (see Intervals and date/time
+      arithmetic): a fraction of a month becomes days, 30 to a month,
+      rounded to millionths of a day, one of a day becomes time, and the
+      time is rounded to microseconds, half to even (`AVG` of `1 sec`, `0`
+      and `0` is `00:00:00.333333`, as is `INTERVAL '1 sec' / 3`). Each
       field is summed exactly, so only a total out of range is "interval
       out of range", in any row order; Postgres adds the values one by one
       and fails as soon as a running total is out of range, so the same
@@ -2675,6 +2675,18 @@ field, even if later rows have it.
     formulas and errors. `MEDIAN(x)` is `PERCENTILE_CONT(0.5) WITHIN GROUP
     (ORDER BY x)`. The fraction is evaluated once per group (a constant, a
     parameter or a grouped column) and must be between 0 and 1
+    - Between two intervals `lo` and `hi`, `PERCENTILE_CONT` is `lo + (hi -
+      lo) * p`, `p` being how far the position is from `lo` to `hi`, with
+      `interval * n` (see Intervals and date/time arithmetic), as in
+      Postgres: `MEDIAN` of `1 year` and `1 mon 1 day 1 sec` is `6 mons 16
+      days -11:59:59.5`. The difference's months and
+      days must fit in 32 bits ("interval out of range"), but its time
+      needn't fit an interval's nanoseconds: `MEDIAN` of `-2000000 hours`
+      and `2000000 hours` is `00:00:00`
+    - **Upgrading from v0.0.12 and earlier:** the interpolation cascaded
+      fractions in nanoseconds (that `MEDIAN` was `6 mons 15 days
+      12:00:00.5`), and a difference past ±2,562,047 hours was "interval
+      out of range"
   - `agg(…) FILTER (WHERE cond)` on any aggregate, also as a window function:
     only the rows where `cond` is true are aggregated, and their arguments
     alone are evaluated
@@ -3207,6 +3219,37 @@ field, even if later rows have it.
     INTERVAL '30 days'` and `INTERVAL '1 day' = INTERVAL '24 hours'`, and so
     do `ORDER BY`, `GROUP BY`, `DISTINCT`, joins and set operations, as in
     Postgres (see `GROUP BY`)
+  - `interval * n` and `interval / n` work as in Postgres, with `n` as a
+    `DOUBLE PRECISION`: each field is multiplied (or divided) and
+    truncated, the fraction of a month becomes days, 30 to a month,
+    rounded to millionths of a day, the fraction of a day becomes time,
+    and the time is rounded to microseconds, half to even. So `INTERVAL '1
+    sec' / 3` is `00:00:00.333333`, `INTERVAL '1 mon' / 7` is `4 days
+    06:51:25.6896` (30 / 7 is 4.285714 days), and `INTERVAL '1 mon 3 days'
+    / 4` is `8 days 06:00:00`. The time never carries into days: `INTERVAL
+    '29 days 23:59:59.999999' * 0.5` is `14 days 24:00:00`. Months or days
+    past 32 bits (also once a cascaded fraction adds a day), a NaN and an
+    infinite `n` are "interval out of range" (dividing by an infinity is
+    0), and `/ 0` is "division by zero"
+    - An interval's time is nanoseconds here and microseconds in
+      Postgres. A time that isn't whole microseconds (a bound or ingested
+      Arrow `month_day_nano_interval`, or a literal with more than 6
+      decimals of a second) counts with its fraction, and the result is
+      whole microseconds, so even `* 1` rounds it: 2.5 µs × 1 is
+      `00:00:00.000002`. The result must fit the nanoseconds' range, about
+      ±2,562,047 hours, 1000 times shorter than Postgres's
+    - The doubles are computed as Postgres does on x86-64. The arm64
+      build in the `postgres:16` Docker image fuses multiply-adds (its
+      compiler's default), so there `interval * n` and `PERCENTILE_CONT`
+      can differ in the last microseconds when the fields are large:
+      `INTERVAL '2147483647 mons' * 0.3` is `53687091 years 2 mons 3 days
+      00:00:00.0864` on x86-64 and `53687091 years 2 mons 2 days
+      23:59:59.9136` on arm64
+    - **Upgrading from v0.0.12 and earlier:** the fractions cascaded in
+      nanoseconds and weren't rounded: `INTERVAL '1 sec' / 3` was
+      `00:00:00.333333333` and `INTERVAL '1 mon' / 7` `4 days
+      06:51:25.714285714`. `PERCENTILE_CONT` and `MEDIAN` of intervals
+      changed with them (see Aggregates)
   - A result outside its type's range is an error, as in Postgres, rather
     than wrapping. A `DATE` is an Arrow `date32` (5877642-06-23 BC, year
     -5877641, to 5881580-07-11): past it, `date ± integer`, `MAKE_DATE`,
