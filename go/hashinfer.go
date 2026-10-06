@@ -324,6 +324,11 @@ func storedFits(v string, t ColType) error {
 	case KindInterval:
 		_, err := decodeInterval(v)
 		return err
+	case KindTimeTZ:
+		if _, err := parseTimeTZ(v, utcZone); err != nil || timeTZLocal(v) {
+			return fmt.Errorf("isn't a time with an offset, which the driver stores as 10:00:00+02")
+		}
+		return nil
 	}
 	return fmt.Errorf("can't be stored as %s", t.SQLName())
 }

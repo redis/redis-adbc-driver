@@ -260,9 +260,11 @@ func (c *connectionImpl) GetTableSchema(ctx context.Context, catalog *string, db
 	}
 	fields := make([]arrow.Field, len(meta.Columns))
 	for i, col := range meta.Columns {
-		fields[i] = arrow.Field{Name: col.Name, Type: col.Type.ArrowType(), Nullable: col.Nullable}
+		fields[i] = arrowField(col.Name, col.Type, col.Nullable)
 		if col.Comment != "" {
-			fields[i].Metadata = arrow.NewMetadata([]string{remarksKey}, []string{col.Comment})
+			md := fields[i].Metadata
+			keys := append(slices.Clone(md.Keys()), remarksKey)
+			fields[i].Metadata = arrow.NewMetadata(keys, append(slices.Clone(md.Values()), col.Comment))
 		}
 	}
 	return arrow.NewSchema(fields, nil), nil
@@ -399,7 +401,7 @@ func (c *connectionImpl) GetTablesForDBSchema(ctx context.Context, catalog strin
 					size, octets := n, 4*n
 					ci.XdbcColumnSize, ci.XdbcCharOctetLength = &size, &octets
 				}
-				if k := col.Type.Kind; k == KindTime || k == KindTimestamp {
+				if k := col.Type.Kind; k == KindTime || k == KindTimeTZ || k == KindTimestamp {
 					// The fractional-second digits, TIMESTAMP(p)'s p.
 					digits := int16(col.Type.fracDigits())
 					ci.XdbcDecimalDigits = &digits

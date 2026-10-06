@@ -102,7 +102,7 @@ func (t ColType) pgName() string {
 // value of t.
 func (t ColType) withoutTypmod() ColType {
 	t.Length = 0
-	if t.Kind == KindTime || t.Kind == KindTimestamp {
+	if t.isTimeOfDay() || t.Kind == KindTimestamp {
 		t.Precision = 0
 	}
 	return t

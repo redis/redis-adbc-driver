@@ -27,7 +27,7 @@ import (
 func metaFromArrow(schemaName, table string, schema *arrow.Schema) (*tableMeta, error) {
 	meta := &tableMeta{Schema: schemaName, Name: table}
 	for _, f := range schema.Fields() {
-		t, err := colTypeFromArrow(f.Type)
+		t, err := colTypeFromField(f)
 		if err != nil {
 			return nil, errorf(adbc.StatusNotImplemented, "column %q: %v", f.Name, err)
 		}
