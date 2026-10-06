@@ -2210,6 +2210,26 @@ field, even if later rows have it.
     grouping expressions, matched as a whole (`GROUP BY ROLLUP (UPPER(s))`
     can select `UPPER(s)` but not `s`); this also applies to a plain `GROUP
     BY` that calls `GROUPING()`
+  - Values that compare equal are one group, as in Postgres: `INTERVAL '1
+    mon'` and `INTERVAL '30 days'`, `INTERVAL '1 day'` and `INTERVAL '24
+    hours'`, and a `DOUBLE PRECISION` `-0` (`-x` of a zero) and `0`. The
+    group shows the value of its first row read, which on a cluster can be
+    either. So do `SELECT DISTINCT` (which runs as `GROUP BY`), grouping
+    sets and `DISTINCT` in aggregates, as window partitions, `DISTINCT ON`,
+    set operations and joins already did
+  - A `CASE` or `COALESCE` of a number and a string literal gives values of
+    both kinds (`COALESCE(n, '0')` of an integer `n` is an integer, or the
+    string `'0'`; in Postgres `'0'` is an integer there). They group as the
+    expression's type shows them, so the `0` and the `'0'` are one group,
+    also for `DISTINCT` and window partitions
+  - **Upgrading from v0.0.12 and earlier:** `GROUP BY`, `SELECT DISTINCT`
+    over plain expressions and `DISTINCT` in aggregates told such values
+    apart by their text, so `1 mon` and `30 days` were two groups, and
+    `SUM(DISTINCT iv)` added both. `DISTINCT` in aggregates and window
+    partitions also told the `0` from the `'0'`. And two rows of several
+    values could be taken for one when they held NUL bytes (`BYTEA` values,
+    or text that was bound or ingested), in `GROUP BY`, `SELECT DISTINCT`,
+    set operations and window partitions
 - **Subqueries of a grouped query** (`GROUP BY`, or aggregates or `HAVING`
   without it) may read only its grouped columns, as in Postgres. That applies
   where the query computes a value per group: the SELECT list, `HAVING`,
@@ -2404,6 +2424,11 @@ field, even if later rows have it.
   - `COUNT(*)`, `COUNT/SUM/AVG/MIN/MAX(x)`, `COUNT(DISTINCT x)`, and
     `COUNT(DISTINCT a, b, …)` (as in MySQL), which counts the distinct
     combinations of rows where none of them is NULL
+  - With `DISTINCT`, values that compare equal count once, as in Postgres
+    (see `GROUP BY`): `COUNT(DISTINCT iv)` of `INTERVAL '1 mon'`, `INTERVAL
+    '30 days'` and `INTERVAL '1 day'` is 2, and their `SUM(DISTINCT iv)` adds
+    the first of the two equal ones read: `1 mon 1 day` (on a cluster, maybe
+    `31 days`)
   - Of values that compare equal, `MIN` and `MAX` return the last one, as
     in Postgres: `MAX` of `INTERVAL '1 mon'` and then `INTERVAL '30 days'`
     is `30 days`. Up to v0.0.12 they returned the first one, except as
@@ -3004,7 +3029,10 @@ field, even if later rows have it.
     n`, `interval / n`, `-interval`
   - Months follow the calendar and clamp to the end of the month
     (`TIMESTAMP '2024-01-31' + INTERVAL '1 month'` is Feb 29). Comparisons
-    treat a month as 30 days, so `INTERVAL '1 day' = INTERVAL '24 hours'`
+    treat a month as 30 days and a day as 24 hours, so `INTERVAL '1 mon' =
+    INTERVAL '30 days'` and `INTERVAL '1 day' = INTERVAL '24 hours'`, and so
+    do `ORDER BY`, `GROUP BY`, `DISTINCT`, joins and set operations, as in
+    Postgres (see `GROUP BY`)
   - A result outside its type's range is an error, as in Postgres, rather
     than wrapping. A `DATE` is an Arrow `date32` (5877642-06-23 BC, year
     -5877641, to 5881580-07-11): past it, `date ± integer`, `MAKE_DATE`,

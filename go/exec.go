@@ -1266,6 +1266,7 @@ type accumulator struct {
 	best     Value
 	has      bool
 	distinct map[string]bool
+	argTypes []ColType // of the arguments, for DISTINCT's keys (keyAs)
 	ext      aggState
 	in       []Value // input buffer (aggInput)
 }

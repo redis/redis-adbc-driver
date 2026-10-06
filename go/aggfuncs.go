@@ -324,23 +324,19 @@ func (a *accumulator) addRow(env *evalEnv) error {
 	a.in = in
 	if f.Distinct {
 		// Only the arguments count (the ORDER BY keys are among them).
-		var key strings.Builder
-		for _, v := range in[:len(f.Args)] {
-			if v.Null {
-				if f.Name == "COUNT" {
-					return nil
-				}
-				key.WriteString("N\x00")
-				continue
-			}
-			t := v.Text()
-			key.WriteString(v.T.Kind.String())
-			key.WriteString(strconv.Itoa(len(t)))
-			key.WriteByte(':')
-			key.WriteString(t)
-		}
+		// Values that compare equal are one value, as in Postgres, and the
+		// first of them counts: SUM(DISTINCT) of '1 mon' and then '30 days'
+		// is '1 mon'.
 		if a.distinct == nil {
 			a.distinct = map[string]bool{}
+			a.argTypes = keyTypes(f.Args, env.types)
+		}
+		var key strings.Builder
+		for i, v := range in[:len(f.Args)] {
+			if v.Null && f.Name == "COUNT" {
+				return nil
+			}
+			writeKey(&key, keyAs(v, a.argTypes[i], env.zone()))
 		}
 		if a.distinct[key.String()] {
 			return nil
