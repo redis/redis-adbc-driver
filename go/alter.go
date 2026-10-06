@@ -23,9 +23,11 @@ package redis
 // comma-separated, and are then one metadata update (see alterTable):
 //
 //   - RENAME TO: the table keeps its key prefix and index (fixed at creation
-//     and reserved in a registry), so no row is touched. With the option
-//     adbc.redis.rename_rekey, it also moves the rows and index to the new
-//     name's, in time proportional to the number of rows (see rekey.go).
+//     and reserved in a registry), so no row is touched, and a DROP TABLE
+//     that it overlaps drops the table under its new name (see dropTable).
+//     With the option adbc.redis.rename_rekey, it also moves the rows and
+//     index to the new name's, in time proportional to the number of rows
+//     (see rekey.go).
 //   - RENAME COLUMN: the column keeps its HASH field and index attribute;
 //     only its SQL name changes.
 //   - ADD COLUMN: the column gets a HASH field no current or dropped column
@@ -114,6 +116,10 @@ func checkColumnName(name string) error {
 	return nil
 }
 
+// testHookRenaming, when set by a test, runs once a plain RENAME TO has read
+// the table's metadata, before its transaction.
+var testHookRenaming func()
+
 func (e *executor) renameTable(ctx context.Context, meta *tableMeta, to TableName) error {
 	if to.Catalog != "" && to.Catalog != catalogName {
 		return errorf(adbc.StatusInvalidArgument, "catalog %q does not exist", to.Catalog)
@@ -136,6 +142,9 @@ func (e *executor) renameTable(ctx context.Context, meta *tableMeta, to TableNam
 			return err
 		}
 		return e.rekeyTable(ctx, meta, newName)
+	}
+	if testHookRenaming != nil {
+		testHookRenaming()
 	}
 	s := e.store
 	oldKey, newKey := metaKey(meta.Schema, meta.Name), metaKey(meta.Schema, newName)

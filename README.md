@@ -1063,11 +1063,12 @@ keys (`~user:*`), and, for the script that `UPDATE` runs on each HASH:
     cost. If the table was dropped, truncated, renamed or created again
     since the statement started, it writes nothing.
   - A write of more than 1,000 rows (`CREATE TABLE … AS`, `INSERT …
-    SELECT`, bulk ingest, a large `UPDATE`) also checks that the table
-    still has its keys: between pipelines of 1,000 rows once 100 ms have
-    passed since the last check, and always after its last pipeline (one
-    round trip each). Smaller writes check at the end only when 100 ms have
-    passed since they read the metadata, as before.
+    SELECT`, bulk ingest, a large `UPDATE` or `MERGE`) also checks that the
+    table still has its keys: between pipelines of 1,000 rows once 100 ms
+    have passed since the last check, and always after its last pipeline
+    (one round trip each). Smaller writes check at the end only when 100 ms
+    have passed since they read the metadata, as before, and so do deletes
+    of any size, which make no key.
   - A statement whose table was dropped or truncated (or whose rows a
     re-keying rename moved away) stops and fails: "table … was renamed with
     its rows moved to new keys, truncated or dropped, while this statement
@@ -1344,11 +1345,17 @@ field, even if later rows have it.
     still be writing to the table (in Postgres, `TRUNCATE` would wait for
     it). Such a statement fails as after `DROP TABLE` ("… truncated or
     dropped, while this statement was writing to it …") and deletes what it
-    wrote, so the table is empty afterwards. A small write that doesn't
-    check may succeed, with its rows left under the old prefix, where no
-    table reads them. Up to v0.0.7 the rows such a statement wrote after
-    the `TRUNCATE` stayed in the table, and `RESTART IDENTITY` could lose
-    them (see "Key prefixes" in the architecture section).
+    wrote, so the table is empty afterwards. That includes `UPDATE` and
+    `MERGE`, whose changes after the `TRUNCATE` would leave partial copies
+    of the rows they set under the old prefix. A `DELETE` (or `MERGE …
+    DELETE`) leaves nothing there: one that ran for 100 ms or more fails
+    all the same (it can't tell a `TRUNCATE` from a re-keying rename, which
+    copied the rows it hadn't deleted yet), and a faster one succeeds, as
+    if it had run first. A small write that doesn't check may succeed, with
+    its rows left under the old prefix, where no table reads them. Up to
+    v0.0.7 the rows such a statement wrote after the `TRUNCATE` stayed in
+    the table, and `RESTART IDENTITY` could lose them (see "Key prefixes"
+    in the architecture section).
   - **Concurrent reads and `ALTER`s:** a statement that reads the table for
     100 ms or more across a `TRUNCATE` fails ("try again"), as across a
     `DROP TABLE`. An `ALTER TABLE … ADD COLUMN` that commits while a
@@ -1404,6 +1411,21 @@ field, even if later rows have it.
     `t__dbt_tmp` and renames to `t` keeps the keys `public:t__dbt_tmp:<rowid>`
     and the index `idx:public:t__dbt_tmp` (or `t__dbt_tmp~N`: names are never
     reused, so every build after the first takes a new N).
+  - **With a concurrent `DROP TABLE`:** there are no locks, so
+    `DROP TABLE t` and `ALTER TABLE t RENAME TO u` may overlap. In Postgres
+    one of them waits for the other: either the `DROP` drops the table and
+    the rename fails, or the rename comes first and the `DROP` fails. Here
+    a rename that commits before the `DROP` reads the table makes the
+    `DROP` fail (`table "public"."t" does not exist`), and a `DROP` that
+    commits before the rename makes the rename fail the same way. A rename
+    that commits while the `DROP` runs is too late to save the table: the
+    `DROP` drops the index, which deletes the rows, and the renamed table
+    keeps that index. So the `DROP` drops the table under its new name,
+    `u`, and both statements succeed. A table created as `t` meanwhile is
+    another table, and stays. Up to v0.0.12 the `DROP` failed ("does not
+    exist"), did nothing under `IF EXISTS`, or dropped that new `t`
+    instead, and `u` was left without its index or rows, its key prefix and
+    index name still reserved.
   - With the option `adbc.redis.rename_rekey` set to `true` (on the
     database, e.g. in dbt's `db_kwargs`, or on the connection), `RENAME TO`
     also moves the rows and the index to the new name's: `public:t:<rowid>`
@@ -1430,7 +1452,10 @@ field, even if later rows have it.
       or `RENAME COLUMN` that had already started is taken into account when
       the metadata is switched. `DROP TABLE` (and so bulk ingest in
       `replace` mode) is not refused: if it reaches the table before the
-      switch, the rename fails.
+      switch, the rename fails. If the switch comes first, the `DROP`
+      fails ("does not exist"), and the renamed table keeps its rows,
+      which were copied to its new keys: unlike a plain rename, this one
+      isn't followed.
     - A write statement that read the table's metadata before the move
       started may still be running, so the copy waits 100 ms first. A write
       statement that took longer than that, from reading the metadata to its

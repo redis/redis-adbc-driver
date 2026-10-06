@@ -1579,6 +1579,9 @@ func (e *executor) writeUpdates(ctx context.Context, meta *tableMeta, changes []
 		if _, err := pipe.Exec(ctx); err != nil {
 			return wrapRedis(err, "failed to update rows")
 		}
+		if testHookRowsWritten != nil {
+			testHookRowsWritten(meta, end)
+		}
 	}
 	if len(changes) > pipelineChunk {
 		return e.store.checkKeys(ctx, meta, true)
@@ -1603,6 +1606,9 @@ func (e *executor) deleteKeys(ctx context.Context, meta *tableMeta, keys []strin
 		}
 		if _, err := pipe.Exec(ctx); err != nil {
 			return wrapRedis(err, "failed to delete rows")
+		}
+		if testHookRowsWritten != nil {
+			testHookRowsWritten(meta, end)
 		}
 	}
 	return e.store.checkWritten(ctx, meta)
