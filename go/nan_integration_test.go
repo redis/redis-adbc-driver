@@ -477,11 +477,12 @@ func TestSQLNaNAggregates(t *testing.T) {
 		mh.nanAgree("SELECT id % 2, MIN({c}), MAX({c}) FROM {t} GROUP BY id % 2 ORDER BY 1", "0|-Inf|NaN", "1|1.5|NaN")
 	})
 
-	// In the index: an indexed double without NaNs groups and reduces there
-	// (in the all mode), and stops once it gets one. COUNT stays.
+	// In the index: an indexed float without NaNs reduces there (in the all
+	// mode), as a REAL groups there, and stops once it gets one. COUNT
+	// stays. A double never groups there (see indexValueExact).
 	h.dropTables("it_nan_agg")
-	h.exec("CREATE TABLE it_nan_agg (g INTEGER, x DOUBLE PRECISION)")
-	h.exec("INSERT INTO it_nan_agg VALUES (1, 'Infinity'), (1, 2), (2, '-Infinity')")
+	h.exec("CREATE TABLE it_nan_agg (g INTEGER, x DOUBLE PRECISION, r REAL)")
+	h.exec("INSERT INTO it_nan_agg VALUES (1, 'Infinity', 'Infinity'), (1, 2, 2), (2, '-Infinity', '-Infinity')")
 	pushed := func(want bool, sqls ...string) {
 		t.Helper()
 		for _, sql := range sqls {
@@ -490,15 +491,17 @@ func TestSQLNaNAggregates(t *testing.T) {
 			}
 		}
 	}
-	all := []string{"SELECT MAX(x), MIN(x), SUM(x), AVG(x) FROM it_nan_agg", "SELECT x, COUNT(*) FROM it_nan_agg GROUP BY x",
-		"SELECT g, MAX(x) FROM it_nan_agg GROUP BY g"}
+	all := []string{"SELECT MAX(x), MIN(x), SUM(x), AVG(x) FROM it_nan_agg", "SELECT r, COUNT(*) FROM it_nan_agg GROUP BY r",
+		"SELECT g, MAX(x), MAX(r) FROM it_nan_agg GROUP BY g"}
 	counts := []string{"SELECT COUNT(x), COUNT(*) FROM it_nan_agg", "SELECT g, COUNT(x) FROM it_nan_agg GROUP BY g"}
 	pushed(true, all...)
 	pushed(true, counts...)
+	pushed(false, "SELECT x, COUNT(*) FROM it_nan_agg GROUP BY x")
 	// +inf + -inf is NaN, which RediSearch writes -nan on amd64.
 	ah := hs[PushdownAll]
 	ah.expectRows("SELECT MAX(x), MIN(x), SUM(x), AVG(x) FROM it_nan_agg", "+Inf|-Inf|NaN|NaN")
-	h.exec("INSERT INTO it_nan_agg VALUES (1, 'NaN')")
+	ah.expectRows("SELECT r, COUNT(*) FROM it_nan_agg GROUP BY r ORDER BY r", "-Inf|1", "2|1", "+Inf|1")
+	h.exec("INSERT INTO it_nan_agg VALUES (1, 'NaN', 'NaN')")
 	pushed(false, all...)
 	pushed(true, counts...)
 	ah.expectRows("SELECT g, COUNT(x), MAX(x), SUM(x) FROM it_nan_agg GROUP BY g ORDER BY g", "1|3|NaN|NaN", "2|1|-Inf|-Inf")

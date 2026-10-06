@@ -30,16 +30,20 @@ import (
 //
 //   - Integers, booleans (0/1), dates (days since epoch), times (units since
 //     midnight) and timestamps (units since epoch) live in I.
+//   - A time with time zone is its time in I and its UTC offset in Off.
 //   - Floating-point values live in F.
 //   - Strings and binary values live in S.
 //   - Decimals live in D as an unscaled integer at scale T.Scale.
 type Value struct {
 	T    ColType
 	Null bool
-	I    int64
-	F    float64
-	S    string
-	D    *big.Int
+	// Off is a time with time zone's UTC offset, in seconds east of
+	// Greenwich (timetz.go).
+	Off int32
+	I   int64
+	F   float64
+	S   string
+	D   *big.Int
 	// Intervals: Months and Days, with nanoseconds in I.
 	Months int32
 	Days   int32
@@ -655,6 +659,8 @@ func (v Value) textIn(z tzZone) string {
 		return formatDate(v.I)
 	case KindTime:
 		return formatTime(v.I, v.T.Unit)
+	case KindTimeTZ:
+		return timeTZText(v)
 	case KindTimestamp:
 		return formatTimestamp(v.I, v.T.Unit, v.T.TZ != "", v.offsetIn(z), false)
 	case KindInterval:
@@ -720,10 +726,12 @@ func Coerce(v Value, t ColType) (Value, error) { return coerceIn(v, t, utcZone) 
 // in the session time zone z, as Postgres converts in its session time
 // zone: a TIMESTAMP becomes a TIMESTAMP WITH TIME ZONE as a local time in
 // z, a TIMESTAMP WITH TIME ZONE becomes its local time (also as a DATE or a
-// TIME), a DATE is local midnight, text without an offset is read as a
-// local time, and a timestamp with time zone as text has z's offset. A time
-// or timestamp is rounded to t's fractional digits (roundUnit), so a
-// TIMESTAMP(2) holds milliseconds rounded to 2 digits.
+// TIME, and with z's offset as a TIME WITH TIME ZONE), a DATE is local
+// midnight, a TIME becomes a TIME WITH TIME ZONE with z's offset today,
+// text without an offset is read as a local time, and a timestamp with time
+// zone as text has z's offset. A time or timestamp is rounded to t's
+// fractional digits (roundUnit), so a TIMESTAMP(2) holds milliseconds
+// rounded to 2 digits.
 func coerceIn(v Value, t ColType, z tzZone) (Value, error) {
 	if v.Null || t.Kind == KindNull {
 		return nullValue(t), nil
@@ -833,8 +841,22 @@ func coerceIn(v Value, t ColType, z tzZone) (Value, error) {
 			}
 			return dateValue(floorDiv(local, unitsPerSecond[v.T.Unit]*86400))
 		}
+	case KindTimeTZ:
+		switch {
+		case v.T.Kind == KindTimeTZ:
+			i, err := roundUnit(v.I, v.T.Unit, t.Unit, t.fracDigits(), 0)
+			if err != nil {
+				return Value{}, err
+			}
+			return Value{T: t, I: i, Off: v.Off}, nil
+		case v.T.Kind == KindTime:
+			return timeTZFromTime(v, t, z)
+		case isTimestampTZ(v.T):
+			return timeTZFromTimestamp(v, t, z)
+		}
 	case KindTime:
-		if v.T.Kind == KindTime {
+		if v.T.Kind == KindTime || v.T.Kind == KindTimeTZ {
+			// A time with time zone's time, without its offset.
 			i, err := roundUnit(v.I, v.T.Unit, t.Unit, t.fracDigits(), 0)
 			if err != nil {
 				return Value{}, err
@@ -911,8 +933,12 @@ func castable(from, to ColType) bool {
 		return f == KindBool || f.isInteger()
 	case to.Kind.isNumeric():
 		return f.isNumeric() || f == KindBool
-	case to.Kind == KindDate || to.Kind == KindTime:
+	case to.Kind == KindDate:
 		return f == to.Kind || f == KindTimestamp
+	case to.Kind == KindTime:
+		return f == KindTime || f == KindTimeTZ || f == KindTimestamp
+	case to.Kind == KindTimeTZ:
+		return f == KindTimeTZ || f == KindTime || isTimestampTZ(from)
 	case to.Kind == KindTimestamp:
 		return f == KindTimestamp || f == KindDate
 	}
@@ -981,6 +1007,8 @@ func parseStringIn(s string, t ColType, z tzZone) (Value, error) {
 		return v, err
 	case KindInterval:
 		return intervalLiteral(trimmed)
+	case KindTimeTZ:
+		return parseTimeTZ(trimmed, z)
 	}
 	return Value{}, fmt.Errorf("cannot convert %q to %s", s, t.SQLName())
 }
@@ -1007,6 +1035,8 @@ func encodeStored(v Value) string {
 		return formatDecimal(v.D, v.T.Scale)
 	case KindInterval:
 		return encodeInterval(v)
+	case KindTimeTZ:
+		return timeTZText(v) // its text, with its offset
 	default:
 		return v.S
 	}
@@ -1053,6 +1083,12 @@ func decodeStored(s string, t ColType) (Value, error) {
 		return binaryValue(s), nil
 	case KindInterval:
 		return decodeInterval(s)
+	case KindTimeTZ:
+		v, err := parseTimeTZ(s, utcZone) // the text has an offset
+		if err != nil {
+			return Value{}, fmt.Errorf("corrupt %s value %q", t.Kind, s)
+		}
+		return Coerce(v, t)
 	case KindString:
 		if t.Fixed {
 			return Value{T: t, S: s}, nil
@@ -1074,7 +1110,7 @@ func compareValues(a, b Value) (int, bool) { return compareIn(a, b, utcZone) }
 // written, as Postgres compares at full precision: '10:00:00.5' is not
 // equal to a TIMESTAMP(0) of 10:00:01 or 10:00:00.
 func textOperand(s Value, t ColType, z tzZone) (Value, error) {
-	if t.Kind == KindTime || t.Kind == KindTimestamp {
+	if t.isTimeOfDay() || t.Kind == KindTimestamp {
 		return parseStringIn(s.S, t, z)
 	}
 	return coerceIn(s, t, z)
@@ -1134,6 +1170,12 @@ func compareIn(a, b Value, z tzZone) (int, bool) {
 		return cmpFloat(af, bf), true
 	case ak == bk && (ak == KindDate):
 		return cmpInt(a.I, b.I), true
+	case ak == KindTimeTZ && bk == KindTimeTZ:
+		return compareTimeTZ(a, b), true
+	case ak == KindTimeTZ && bk == KindTime, ak == KindTime && bk == KindTimeTZ:
+		// A TIME is read as a time with time zone, with the session time
+		// zone's offset today.
+		return compareTimeTZ(asTimeTZ(a, z), asTimeTZ(b, z)), true
 	case (ak == KindTime && bk == KindTime) || (ak == KindTimestamp && bk == KindTimestamp):
 		if ak == KindTimestamp && (a.T.TZ == "") != (b.T.TZ == "") {
 			// A TIMESTAMP compared with a TIMESTAMP WITH TIME ZONE is a

@@ -937,7 +937,7 @@ func TestSQLAlterTable(t *testing.T) {
 	h.expectRows(`SELECT id FROM it_alter WHERE note = 'x'`, "4")
 	h.exec(`ALTER TABLE it_alter ADD COLUMN IF NOT EXISTS note VARCHAR`)
 	h.expectError(`ALTER TABLE it_alter ADD COLUMN note VARCHAR`, "already exists")
-	h.expectError(`ALTER TABLE it_alter ADD COLUMN must INTEGER NOT NULL`, "NOT NULL")
+	h.expectError(`ALTER TABLE it_alter ADD COLUMN must INTEGER NOT NULL`, `column "must" of relation "it_alter" contains null values`)
 	h.expectError(`ALTER TABLE it_alter ADD COLUMN d INTEGER DEFAULT RANDOM()`, "volatile DEFAULT")
 
 	// DROP COLUMN: gone at once; its field is removed from rows in the
@@ -1240,7 +1240,8 @@ func TestSQLDateTimeFunctions(t *testing.T) {
 	if d := time.Since(time.Unix(int64(epoch), 0)); d < -time.Minute || d > time.Minute {
 		t.Errorf("CURRENT_TIMESTAMP is %v away from now", d)
 	}
-	if s := schema.String(); !strings.Contains(s, "date32") || !strings.Contains(s, "time64[us]") || !strings.Contains(s, "timestamp[us]") {
+	// CURRENT_TIME is a time with time zone: its text (see timetz.go).
+	if s := schema.String(); !strings.Contains(s, "date32") || schema.Field(2).Type.ID() != arrow.STRING || !strings.Contains(s, "timestamp[us]") {
 		t.Errorf("current time types = %s", s)
 	}
 

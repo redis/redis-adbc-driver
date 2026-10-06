@@ -64,6 +64,7 @@ const (
 	clsTime                       // compared after converting units
 	clsTimestamp                  // compared after converting units
 	clsTimestampTZ                // compared after converting units; apart from TIMESTAMP (the session time zone)
+	clsTimeTZ                     // compared by time and offset; apart from TIME (the session time zone)
 	numClasses
 )
 
@@ -83,6 +84,8 @@ func classOf(t ColType) eqClass {
 		return clsDate
 	case k == KindTime:
 		return clsTime
+	case k == KindTimeTZ:
+		return clsTimeTZ
 	case k == KindTimestamp && t.TZ != "":
 		return clsTimestampTZ
 	case k == KindTimestamp:
@@ -118,7 +121,7 @@ func floatKey(v Value) string {
 // one map. Integers, decimals and booleans compare exactly with each other,
 // so they share a tag.
 var classTag = [numClasses]string{clsNum: "n", clsBool: "n", clsFloat: "f", clsStr: "s",
-	clsInterval: "i", clsDate: "d", clsTime: "t", clsTimestamp: "p", clsTimestampTZ: "z"}
+	clsInterval: "i", clsDate: "d", clsTime: "t", clsTimestamp: "p", clsTimestampTZ: "z", clsTimeTZ: "w"}
 
 func exactNum(c eqClass) bool { return c == clsNum || c == clsBool }
 

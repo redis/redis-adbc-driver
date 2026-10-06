@@ -587,6 +587,8 @@ func sigTypeName(t ColType) string {
 		return "numeric"
 	case KindTime:
 		return "time"
+	case KindTimeTZ:
+		return "time with time zone"
 	case KindTimestamp:
 		if t.TZ != "" {
 			return "timestamp with time zone"
