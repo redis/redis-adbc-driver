@@ -3155,9 +3155,38 @@ field, even if later rows have it.
     isn't supported.
 - Intervals and date/time arithmetic:
   - `INTERVAL '1 year 2 months 3 days 04:05:06'`, `'1.5 hours'`, `'2 days ago'`,
-    `'3 04:05:06'`, `'1-2'` (years-months), ISO 8601 `'P1Y2M3DT4H'`,
+    `'3 04:05:06'`, `'1-2'` (years-months), ISO 8601 `'P1Y2M3DT4H'` (also
+    in the alternative format, `'P0001-02-03T04:05:06'`),
     `INTERVAL '2' HOUR`, `INTERVAL 7 DAY` / `INTERVAL ? DAY`, and
     `CAST('7 days' AS INTERVAL)`
+    - A literal is read as Postgres 16 reads it. Each field's integer part
+      is exact, and its fraction cascades into the smaller units: a month
+      is 30 days, a week 7 days and a day 24 hours (`'1.5 months'` is `1
+      mon 15 days`, `'0.1 mon'` is `3 days`), and a fraction of a year,
+      decade, century or millennium is whole months, rounded half to even
+      (`'0.125 years'` is `2 mons`). The time is rounded to microseconds,
+      as Postgres's always is, though an interval holds nanoseconds: the
+      fraction of a unit rounds half a microsecond toward zero (`'0.0000015
+      seconds'` is `00:00:00.000001`, `'1.0000005 sec'` is `00:00:01`), and
+      a clock's fraction of a second rounds half to even
+      (`'00:00:00.0000015'` is `00:00:00.000002`). So does `n` in `INTERVAL
+      n UNIT`. Bound and ingested Arrow `month_day_nano_interval` values
+      keep their nanoseconds
+    - A clock with a fraction and two fields is minutes and seconds
+      (`'1:30.5'` is `00:01:30.5`). Its minutes go up to 59 and its seconds
+      to 60, and the months of years-months to 11: past them, it is
+      `interval field value out of range: "1:75:00"`, as in Postgres
+    - **Upgrading from v0.0.12 and earlier:** the fields were summed as
+      nanoseconds in doubles, so a literal's time past about 2,500 hours
+      wasn't exact (`'1000000:00:00.000001'` was `1000000:00:00.000001024`),
+      and digits past microseconds were kept (`'0.0000015 seconds'` was
+      `00:00:00.0000015`). A fraction of a year cascaded into days
+      (`'0.05 years'` was `18 days`; it is `1 mon`), `'1:30.5'` was 1 hour
+      30.5 minutes, `'1:75:00'` and `'1-12'` were accepted, and the ISO 8601
+      alternative format was an error. No literal is exactly -2^63
+      nanoseconds any more: `'-9223372036.854775808 seconds'` rounds to
+      `-2562047:47:16.854776` (Postgres's value), past the nanoseconds'
+      range, so it is "interval out of range"
   - `timestamp ± interval` (a timestamp with time zone adds months and
     days in the session time zone), `date ± interval` (gives a timestamp),
     `date ± integer` (days), `date - date` (days), `timestamp - timestamp`
@@ -3186,9 +3215,9 @@ field, even if later rows have it.
     0), and `/ 0` is "division by zero"
     - An interval's time is nanoseconds here and microseconds in
       Postgres. A time that isn't whole microseconds (a bound or ingested
-      Arrow `month_day_nano_interval`, or a literal with more than 6
-      decimals of a second) counts with its fraction, and the result is
-      whole microseconds, so even `* 1` rounds it: 2.5 µs × 1 is
+      Arrow `month_day_nano_interval`, or the difference of two
+      `TIMESTAMP(9)`s or `TIME(9)`s) counts with its fraction, and the
+      result is whole microseconds, so even `* 1` rounds it: 2.5 µs × 1 is
       `00:00:00.000002`. The result must fit the nanoseconds' range, about
       ±2,562,047 hours, 1000 times shorter than Postgres's
     - The doubles are computed as Postgres does on x86-64. The arm64
