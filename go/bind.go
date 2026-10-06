@@ -202,6 +202,11 @@ func (e *executor) bindIn(ctx context.Context, expr Expr, meta *tableMeta, alias
 	if containsWindow(expr) {
 		return nil, errWindowPlacement()
 	}
+	if clause == "WHERE" {
+		if err := e.conditionTypeError(expr, clause); err != nil {
+			return nil, err
+		}
+	}
 	return sc.needs, nil
 }
 
@@ -221,23 +226,12 @@ func (e *executor) bind(ctx context.Context, expr Expr) error {
 				err = e.resolveColumn(v)
 			}
 		case *Binary:
-			if _, ok := v.L.(*RowExpr); ok {
-				err = e.rowOperatorError(ctx, v)
-			} else if _, ok := v.R.(*RowExpr); ok {
-				err = e.rowOperatorError(ctx, v)
-			}
-		case *IsNull:
-			if _, ok := v.X.(*RowExpr); ok {
-				// The parser rewrites a row's IS NULL: this row was nested.
-				if err = e.bindRowItems(ctx, v.X); err == nil {
-					err = errNestedRow()
-				}
-			}
-		case *RowExpr:
-			// Rows are rewritten or are a subquery's operand (which walkExpr
-			// doesn't visit as a row): this one is out of place.
-			if err = e.bindRowItems(ctx, v); err == nil {
-				err = errRowValue()
+			_, l := v.L.(*RowExpr)
+			_, r := v.R.(*RowExpr)
+			if l || r {
+				// It binds its operands itself.
+				err = e.bindRowOperator(ctx, v)
+				return false
 			}
 		case *Subquery:
 			err = e.planSubquery(ctx, v)
@@ -258,6 +252,10 @@ func (e *executor) bind(ctx context.Context, expr Expr) error {
 		}
 		return err == nil
 	})
+	if err == nil {
+		// Now that the types are known.
+		err = e.checkRecords(expr)
+	}
 	if err == nil {
 		e.noteParams(expr)
 		if e.localLits != nil {
@@ -898,8 +896,11 @@ func (e *executor) planSubquery(ctx context.Context, sq *Subquery) error {
 		if err := subqueryWidthError(len(plan.items), width); err != nil {
 			return err
 		}
+		if err := e.recordOperandError(sq, plan); err != nil {
+			return err
+		}
 	case sq.Kind != SubqueryExists && len(plan.items) != 1:
-		return errorf(adbc.StatusInvalidArgument, "subquery must return exactly one column, got %d", len(plan.items))
+		return stateErrorf(stateSyntax, "subquery must return only one column") // as in Postgres
 	}
 	sq.plan = plan
 	e.planSemiJoin(ctx, sq)

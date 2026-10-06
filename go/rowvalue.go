@@ -34,7 +34,9 @@ package redis
 //     comparisons, and a simple CASE on a row a searched CASE.
 //   - (a, b) op (SELECT x, y …) compares with the subquery's one row: its
 //     columns are RowColumns of one subquery, which runs once. No row gives
-//     NULLs, and more than one is an error.
+//     NULLs, and more than one is an error. As in Postgres, only a
+//     subquery after the row: (SELECT …) op (a, b) compares the subquery's
+//     value, which must be one column (a record), with the row as a record.
 //
 // A row compared with a subquery's rows, (a, b) [NOT] IN (SELECT x, y …) and
 // (a, b) op ANY | ALL (SELECT …), keeps the row as the subquery's operand.
@@ -42,33 +44,31 @@ package redis
 // statement, or the groups of a semi-join when the subquery is correlated;
 // ANY / ALL compare with each row (rowCompareValues).
 //
-// Anything else is an error, which binding reports in Postgres's order (the
-// operands are bound first): rows of different lengths, a row compared with
-// a single value, and a row anywhere but in a comparison or IS NULL.
+// An item that is itself a row, and a row anywhere else, is a value of type
+// record (record.go): the items of `((a, b), c) = ((1, 2), 3)` compare (a,
+// b) with (1, 2) as records, with their NULL rules, as Postgres does. The
+// errors, which binding reports in Postgres's order (the operands are bound
+// first), are rows of different lengths, a row compared with a single value,
+// and operators other than comparisons and ||.
 
 import (
 	"context"
 	"fmt"
 	"strings"
-
-	"github.com/apache/arrow-adbc/go/adbc"
 )
 
 // ---- parsing ----
 
 // compareExpr builds `l op r` for a comparison operator (=, <>, <, <=, >, >=,
 // IS [NOT] DISTINCT FROM), rewriting a comparison of rows into comparisons
-// of their items. A comparison that can't be rewritten (rows of different
-// lengths, a row and a single value) is left as it is, for binding to
-// report.
+// of their items. A comparison that isn't rewritten (rows of different
+// lengths, a row and another value) is left as it is: binding reports its
+// errors, and otherwise it compares records (record.go).
 func compareExpr(op string, l, r Expr) Expr {
 	lr, lok := l.(*RowExpr)
 	rr, rok := r.(*RowExpr)
-	switch {
-	case lok && !rok:
+	if lok && !rok {
 		rr, rok = rowOfSubquery(r, len(lr.Items))
-	case rok && !lok:
-		lr, lok = rowOfSubquery(l, len(rr.Items))
 	}
 	if !lok || !rok || len(lr.Items) != len(rr.Items) || len(lr.Items) == 0 {
 		return &Binary{Op: op, L: l, R: r}
@@ -76,9 +76,9 @@ func compareExpr(op string, l, r Expr) Expr {
 	ls, rs := lr.Items, rr.Items
 	n := len(ls)
 	// The items are compared with plain comparisons: a nested row isn't
-	// rewritten (Postgres compares nested rows as composite values, with
-	// other NULL rules), so binding reports it.
-	cmp := func(op string, i int) Expr { return &Binary{Op: op, L: ls[i], R: rs[i]} }
+	// rewritten, and is compared as a record (Postgres compares nested rows
+	// as composite values, with their NULL rules).
+	cmp := func(op string, i int) Expr { return &Binary{Op: op, L: ls[i], R: rs[i], nested: true} }
 	var e Expr
 	switch op {
 	case "=", "IS NOT DISTINCT FROM", "<>", "IS DISTINCT FROM":
@@ -104,9 +104,9 @@ func compareExpr(op string, l, r Expr) Expr {
 	return e
 }
 
-// rowOfSubquery returns the columns of a scalar subquery compared with a
-// row of n items, as a row of RowColumns. It may be compared more than once
-// (`(SELECT a, b) IN ((1, 2), (3, 4))`), with rows of the same length.
+// rowOfSubquery returns the columns of a scalar subquery that a row of n
+// items is compared with, as a row of RowColumns. A node shared by several
+// comparisons is compared with rows of the same length.
 func rowOfSubquery(e Expr, n int) (*RowExpr, bool) {
 	sq, ok := e.(*Subquery)
 	if !ok || sq.Kind != SubqueryScalar || n == 0 || (sq.Width != 0 && !(sq.rowCompare && sq.Width == n)) {
@@ -121,7 +121,8 @@ func rowOfSubquery(e Expr, n int) (*RowExpr, bool) {
 }
 
 // isNullExpr builds `x IS [NOT] NULL`. For a row, IS NULL is true when every
-// item is NULL and IS NOT NULL when none is.
+// item is NULL and IS NOT NULL when none is; an item that is a record is not
+// NULL, whatever its fields are (see IsNull.field).
 func isNullExpr(x Expr, not bool) Expr {
 	r, ok := x.(*RowExpr)
 	if !ok {
@@ -132,9 +133,7 @@ func isNullExpr(x Expr, not bool) Expr {
 	}
 	var e Expr
 	for _, it := range r.Items {
-		// A nested row stays the operand of its IS NULL, for binding to
-		// report.
-		var t Expr = &IsNull{X: it, Not: not}
+		var t Expr = &IsNull{X: it, Not: not, field: true}
 		if e == nil {
 			e = t
 		} else {
@@ -190,85 +189,64 @@ func rowItems(x Expr) []Expr {
 	return []Expr{x}
 }
 
-// ---- errors ----
-
-func errRowValue() error {
-	return errorf(adbc.StatusInvalidArgument,
-		"a row constructor can only be compared (=, <>, <, <=, >, >=, IS [NOT] DISTINCT FROM, IN, ANY, ALL) or tested with IS [NOT] NULL")
-}
-
-func errNestedRow() error {
-	return errorf(adbc.StatusInvalidArgument, "nested row constructors are not supported")
-}
+// ---- binding ----
 
 func isRowComparison(op string) bool {
 	return isComparison(op) || isDistinctOp(op)
 }
 
-// bindRowItems binds the items of a row (of nested rows too), or x.
-func (e *executor) bindRowItems(ctx context.Context, x Expr) error {
-	r, ok := x.(*RowExpr)
-	if !ok {
-		return e.bind(ctx, x)
-	}
-	for _, it := range r.Items {
-		if err := e.bindRowItems(ctx, it); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// rowOperatorError is the error for an operator with a row operand that the
-// parser didn't rewrite (b.L or b.R is a *RowExpr). The operands are bound
-// first, so an error in them is reported before it, as in Postgres.
-func (e *executor) rowOperatorError(ctx context.Context, b *Binary) error {
+// bindRowOperator binds an operator with a row operand that the parser
+// didn't rewrite (b.L or b.R is a *RowExpr) and checks it. Its operands are
+// bound first, so an error in them is reported before its own, as in
+// Postgres. A comparison of the row with another record (a nested row, a
+// record column, a subquery's record) or with NULL compares records, and ||
+// joins a record's text with text; rows of different lengths, a row
+// compared with a single value and other operators are errors.
+func (e *executor) bindRowOperator(ctx context.Context, b *Binary) error {
 	for _, side := range []Expr{b.L, b.R} {
-		if err := e.bindRowItems(ctx, side); err != nil {
+		if err := e.bind(ctx, side); err != nil {
 			return err
 		}
 	}
 	if b.Op == "AND" || b.Op == "OR" {
-		return errorf(adbc.StatusInvalidArgument, "argument of %s must be type boolean, not type record", b.Op)
+		return stateErrorf(stateDatatypeMismatch, "argument of %s must be type boolean, not type record", b.Op)
 	}
 	lr, lok := b.L.(*RowExpr)
 	rr, rok := b.R.(*RowExpr)
-	if lok && rok && isRowComparison(b.Op) {
+	if lok && rok && isRowComparison(b.Op) && !b.nested {
 		switch {
 		case len(lr.Items) != len(rr.Items):
-			return errorf(adbc.StatusInvalidArgument, "unequal number of entries in row expressions")
+			return stateErrorf(stateSyntax, "unequal number of entries in row expressions")
 		case len(lr.Items) == 0:
-			return errorf(adbc.StatusInvalidArgument, "cannot compare rows of zero length")
+			return stateErrorf(stateFeatureNotSupported, "cannot compare rows of zero length")
 		}
-		return errNestedRow() // the items of a rewritten comparison
 	}
-	name := func(x Expr) string {
-		if _, ok := x.(*RowExpr); ok {
-			return "record"
-		}
-		t, err := inferType(x, e.scopeTypes(), e.paramTypes)
+	types := e.scopeTypes()
+	typeOf := func(x Expr) ColType {
+		t, err := inferType(x, types, e.paramTypes)
 		if err != nil {
-			t = typeNull
+			return typeNull
 		}
-		return sigTypeName(t)
+		return t
+	}
+	lt, rt := typeOf(b.L), typeOf(b.R)
+	record := func(t ColType) bool { return t.Kind == KindRecord || t.Kind == KindNull }
+	switch {
+	case isRowComparison(b.Op) && record(lt) && record(rt):
+		return nil
+	case b.Op == "||" && (lt.Kind != KindRecord || rt.Kind != KindRecord):
+		return nil
 	}
 	op := b.Op
 	if isDistinctOp(op) {
 		op = "=" // the operator IS DISTINCT FROM uses
 	}
-	return errorf(adbc.StatusInvalidArgument, "operator does not exist: %s %s %s", name(b.L), op, name(b.R))
+	return stateErrorf(stateUndefinedFunction, "operator does not exist: %s %s %s", sigTypeName(lt), op, sigTypeName(rt))
 }
 
-// bindRowOperand binds the row operand of an IN / ANY / ALL subquery; a
-// nested row is an error.
+// bindRowOperand binds the row operand of an IN / ANY / ALL subquery.
 func (e *executor) bindRowOperand(ctx context.Context, r *RowExpr) error {
 	for _, it := range r.Items {
-		if _, nested := it.(*RowExpr); nested {
-			if err := e.bindRowItems(ctx, it); err != nil {
-				return err
-			}
-			return errNestedRow()
-		}
 		if err := e.bind(ctx, it); err != nil {
 			return err
 		}
@@ -281,9 +259,9 @@ func (e *executor) bindRowOperand(ctx context.Context, r *RowExpr) error {
 func subqueryWidthError(got, want int) error {
 	switch {
 	case got > want:
-		return errorf(adbc.StatusInvalidArgument, "subquery has too many columns")
+		return stateErrorf(stateSyntax, "subquery has too many columns")
 	case got < want:
-		return errorf(adbc.StatusInvalidArgument, "subquery has too few columns")
+		return stateErrorf(stateSyntax, "subquery has too few columns")
 	}
 	return nil
 }
@@ -299,6 +277,9 @@ func distinctFrom(op string, a, b Value, z tzZone) (Value, error) {
 	if !a.Null && !b.Null {
 		c, ok := compareIn(a, b, z)
 		if !ok {
+			if err := recordCompareError(a, b); err != nil {
+				return Value{}, err
+			}
 			return Value{}, fmt.Errorf("cannot compare %s with %s", a.T.Kind, b.T.Kind)
 		}
 		distinct = c != 0

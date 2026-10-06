@@ -43,6 +43,9 @@ const (
 	// KindTimeTZ is TIME WITH TIME ZONE: a time of day and a UTC offset
 	// (timetz.go).
 	KindTimeTZ
+	// KindRecord is a row value, (a, b) or ROW(…): Postgres's anonymous
+	// record type (see record.go). It is never a column's type.
+	KindRecord
 )
 
 var kindNames = map[Kind]string{
@@ -61,6 +64,7 @@ var kindNames = map[Kind]string{
 	KindTimestamp: "timestamp",
 	KindInterval:  "interval",
 	KindTimeTZ:    "timetz",
+	KindRecord:    "record",
 }
 
 func (k Kind) String() string { return kindNames[k] }
@@ -97,6 +101,9 @@ type ColType struct {
 	// lengths.go).
 	Length int32
 	Fixed  bool
+	// Rec holds a record's field types (recordOf); nil for a record whose
+	// fields aren't known (CAST(x AS RECORD), NULL::record).
+	Rec *recordType
 }
 
 type colTypeJSON struct {
@@ -180,6 +187,7 @@ var (
 	typeBinary   = ColType{Kind: KindBinary}
 	typeDate     = ColType{Kind: KindDate}
 	typeInterval = ColType{Kind: KindInterval}
+	typeRecord   = ColType{Kind: KindRecord}
 )
 
 func timeType(unit arrow.TimeUnit) ColType { return ColType{Kind: KindTime, Unit: unit} }
@@ -299,6 +307,8 @@ func (t ColType) ArrowType() arrow.DataType {
 		// Arrow has no time with time zone: its text, as Postgres writes it
 		// (see arrowField).
 		return arrow.BinaryTypes.String
+	case KindRecord:
+		return t.Rec.arrowType()
 	default:
 		return arrow.Null
 	}
@@ -346,6 +356,8 @@ func (t ColType) SQLName() string {
 		return fmt.Sprintf("TIMESTAMP(%d)", t.fracDigits())
 	case KindInterval:
 		return "INTERVAL"
+	case KindRecord:
+		return "RECORD"
 	default:
 		return "NULL"
 	}
@@ -457,6 +469,8 @@ func colTypeFromSQL(spec sqlTypeSpec) (ColType, error) {
 		return timeTypeFromSQL(spec, param(0, 6))
 	case "INTERVAL":
 		return typeInterval, nil
+	case "RECORD":
+		return typeRecord, nil
 	}
 	return ColType{}, fmt.Errorf("unsupported SQL type %s", strings.ToUpper(spec.Name))
 }

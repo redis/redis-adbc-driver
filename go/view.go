@@ -365,6 +365,9 @@ func (e *executor) runCreateView(ctx context.Context, st *CreateViewStmt, numPar
 		if st.Columns != nil {
 			n = st.Columns[i]
 		}
+		if c.Type.Kind == KindRecord {
+			return pseudoTypeError(n)
+		}
 		if seen[strings.ToLower(n)] {
 			return errorf(adbc.StatusInvalidArgument, "column name %q appears more than once in view %q; add aliases", n, name)
 		}
@@ -473,10 +476,23 @@ func substitute(e Expr, repl map[string]Expr) (Expr, bool) {
 	case *Binary:
 		l, ok1 := substitute(x.L, repl)
 		r, ok2 := substitute(x.R, repl)
-		return &Binary{Op: x.Op, L: l, R: r}, ok1 && ok2
+		return &Binary{Op: x.Op, L: l, R: r, nested: x.nested}, ok1 && ok2
 	case *IsNull:
 		v, ok := substitute(x.X, repl)
-		return &IsNull{X: v, Not: x.Not}, ok
+		return &IsNull{X: v, Not: x.Not, field: x.field}, ok
+	case *RowExpr:
+		r := &RowExpr{Items: make([]Expr, len(x.Items))}
+		for i, it := range x.Items {
+			v, ok := substitute(it, repl)
+			if !ok {
+				return nil, false
+			}
+			r.Items[i] = v
+		}
+		return r, true
+	case *FieldSelect:
+		v, ok := substitute(x.X, repl)
+		return &FieldSelect{X: v, Name: x.Name, Index: x.Index}, ok
 	case *Cast:
 		v, ok := substitute(x.X, repl)
 		c := &Cast{X: v, T: x.T}

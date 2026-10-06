@@ -201,8 +201,11 @@ func (e *executor) describeParams(ctx context.Context, st Stmt) error {
 		if st.AsSelect == nil {
 			return nil
 		}
-		_, err := e.planSelect(ctx, st.AsSelect, nil)
-		return err
+		plan, err := e.planSelect(ctx, st.AsSelect, nil)
+		if err != nil {
+			return err
+		}
+		return checkStorableColumns(plan.columns())
 	case *InsertStmt:
 		meta, err := e.loadTable(ctx, st.Table)
 		if err != nil {

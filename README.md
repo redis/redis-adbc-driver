@@ -212,7 +212,7 @@ the Python exception:
 | `NOT NULL` and `CHECK` | `23502`, `23514` | `Integrity` | `IntegrityError` |
 | A table, view, column, function or schema that doesn't exist | `42P01`, `42703`, `42883`, `3F000` | `NotFound` | `ProgrammingError` |
 | A table, view, column, constraint or schema that already exists; a column named twice (in `INSERT` or a `PRIMARY KEY`) | `42P07`, `42701`, `42710`, `42P06` | `AlreadyExists` | `ProgrammingError` |
-| A syntax error; a table definition Postgres refuses (two primary keys, `DROP NOT NULL` of a key column); a type that never converts (`DATE` to `BOOLEAN`) | `42601`; `42P16`; `42846` in a cast, `42804` written to a column | `InvalidArgument` | `ProgrammingError` |
+| A syntax error; a table definition Postgres refuses (two primary keys, `DROP NOT NULL` of a key column, a column of type record); a type that never converts (`DATE` to `BOOLEAN`); a record where another type is needed (`argument of WHERE must be type boolean, not type record`) | `42601`; `42P16`; `42846` in a cast, `42804` written to a column; `42804` | `InvalidArgument` | `ProgrammingError` |
 | What Postgres doesn't support either (`DATE_BIN` by months, `EXTRACT(day FROM time)`) | `0A000` | `NotImplemented` | `NotSupportedError` |
 | A cancel, or a Go deadline | `57014` | `Cancelled`, `Timeout` | `OperationalError` |
 
@@ -241,7 +241,8 @@ the Python exception:
   type integer: "abc"`).
 - **No SQLSTATE yet:** the errors of the driver's own limits, and a few
   others: `more than one row returned by a subquery used as an expression`
-  (`21000` in Postgres), an operator that doesn't exist (`42883`), `missing
+  (`21000` in Postgres), an operator that doesn't exist (`42883`; those of
+  rows and records have it), `missing
   FROM-clause entry for table "t"` (`42P01`), and a `SET` of an invalid
   value (`22023`). They keep their status, mostly `InvalidArgument`.
 - **In Go,** `adbc.Error.Error()` ends with the SQLSTATE in parentheses:
@@ -2109,7 +2110,7 @@ field, even if later rows have it.
   with aggregates (below), `CASE` (simple and searched), arithmetic,
   `CAST(x AS type)` / `x::type` (and `TRY_CAST`, see below), `IS [NOT] NULL`,
   `IS [NOT] DISTINCT FROM` (NULLs count as equal), row constructors
-  (`(a, b) = (1, 'x')`, `(a, b) IN (SELECT …)`; see below), `[NOT] LIKE` / `ILIKE` (with `ESCAPE`), subqueries (scalar `(SELECT …)`, `EXISTS`,
+  (`(a, b) = (1, 'x')`, `(a, b) IN (SELECT …)`, `SELECT (a, b)`; see below), `[NOT] LIKE` / `ILIKE` (with `ESCAPE`), subqueries (scalar `(SELECT …)`, `EXISTS`,
   `[NOT] IN (SELECT …)`, `x op ANY | SOME | ALL (SELECT …)`, also with a row
   on the left, correlated or not, in SELECT/WHERE/HAVING and in
   `UPDATE`/`DELETE`/`MERGE`),
@@ -2392,9 +2393,10 @@ field, even if later rows have it.
   rows `ANY` is false and `ALL` true. `= ANY` is `IN` and `<> ALL` is
   `NOT IN`
 - Row constructors, as in Postgres: `(a, b, …)` with two or more items, and
-  `ROW(…)` with any number (`ROW(a)`, `ROW()`). They can be compared
-  wherever a condition can be: `WHERE`, `ON`, `HAVING`, `CASE`, the SELECT
-  list, `CHECK`, and the conditions of `UPDATE`, `DELETE` and `MERGE`:
+  `ROW(…)` with any number (`ROW(a)`, `ROW()`). Two rows are compared item
+  by item wherever a condition can be: `WHERE`, `ON`, `HAVING`, `CASE`, the
+  SELECT list, `CHECK`, and the conditions of `UPDATE`, `DELETE` and
+  `MERGE`. Anywhere else a row is a value (see Rows as values below):
   - **`=` and `<>`:** item by item. `=` is true if every pair is equal,
     false if a pair is unequal, and otherwise NULL: `(1, NULL) = (1, 2)` is
     NULL, `(1, NULL) = (2, 2)` false. `<>` is its negation
@@ -2417,7 +2419,11 @@ field, even if later rows have it.
     `IN`, `<> ALL` is `NOT IN`, and the other operators compare with each
     row
   - **`(a, b) op (SELECT x, y …)`** compares with the subquery's row: NULL
-    if it returns none, an error if it returns more than one
+    if it returns none, an error if it returns more than one. As in
+    Postgres, the subquery comes after the row: `(SELECT x, y …) = (a, b)`
+    is `subquery must return only one column`, and `(SELECT ROW(x, y) …) =
+    (a, b)` compares two records. Up to v0.0.12 a subquery of several
+    columns before the row was compared as one after it
   - **`BETWEEN` and simple `CASE`** work with rows too (`(a, b) BETWEEN (1,
     2) AND (3, 4)`, `CASE (a, b) WHEN (1, 2) THEN …`). `EXISTS` is
     unchanged
@@ -2426,18 +2432,76 @@ field, even if later rows have it.
     columns` / `subquery has too few columns` (also `x IN (SELECT a, b …)`
     for a single value), `cannot compare rows of zero length`, and
     `operator does not exist: record = integer` for a row compared with a
-    single value. A row anywhere else (as a select list item, a function
-    argument, in arithmetic) is `a row constructor can only be compared (…)
-    or tested with IS [NOT] NULL`, and a row nested in another is `nested
-    row constructors are not supported` (Postgres compares those as
-    composite values, with other NULL rules). Rows as values (`SELECT (a,
-    b)` returning a composite) and `ORDER BY` / `GROUP BY` on a row
-    expression aren't supported
+    single value
   - A comparison of two rows is rewritten into comparisons of their items,
     so `(k1, k2) = (1, 'x')` runs in the index like `k1 = 1 AND k2 = 'x'`.
     For `IN`, see "How SQL is executed"
+- Rows as values: a row that isn't compared with another row is a value of
+  type record, Postgres's anonymous record: `SELECT (a, b)`, `ORDER BY (a,
+  b)`, `GROUP BY ROW(a, b)`, `DISTINCT`, a row nested in a compared row, a
+  derived table's or CTE's column, a `CASE` or `COALESCE` result. Up to
+  v0.0.12 these were errors (`a row constructor can only be compared …`,
+  `nested row constructors are not supported`):
+  - **Results:** a record is an Arrow struct whose children are named `f1`,
+    `f2`, … (Postgres's names for an anonymous record's fields), each
+    nullable, with the items' types; a nested row is a nested struct. A
+    NULL record is a NULL struct, and a record whose fields are NULL is
+    not. The column of `SELECT (a, b)` is named `row`, as in Postgres.
+    Postgres's own ADBC driver can't read anonymous records (`Expected
+    nested record type to have 1 fields but got 2`), so the struct is the
+    driver's choice
+  - **Text:** `CAST(r AS VARCHAR)`, `||` and `CONCAT` write a record as
+    Postgres does: `(1,"a b",,t)`. A NULL field is empty, and a field is
+    quoted when it is empty or has a quote, a backslash, a parenthesis, a
+    comma or white space, with quotes and backslashes doubled. Booleans are
+    `t` / `f`, binary values `\x…`, and a nested row is quoted text:
+    `("(1,2)",3)`. Text can't be read as a record (`input of anonymous
+    composite types is not implemented`)
+  - **Fields:** `(r).f1`, `(r).f2`, …; `(ROW(1, 2)).f3` is `could not
+    identify column "f3" in record data type`. `(r).*` isn't supported
+  - **Comparison:** two records (rows nested in compared rows, record
+    columns) compare as Postgres's btree comparison of records does: field
+    by field, a NULL field equal to a NULL field and greater than any value.
+    So `((1, NULL), 3) = ((1, NULL), 3)` is true, while `(1, NULL) = (1,
+    NULL)` is NULL. Records of different lengths whose common fields are
+    equal can't be compared (`cannot compare record types with different
+    numbers of columns`)
+  - **`IS [NOT] NULL`:** true for a NULL record or one whose fields are all
+    NULL; `IS NOT NULL` for a record none of whose fields is NULL. A field
+    that is a record is not NULL, whatever its fields: `((NULL, NULL),
+    NULL) IS NULL` is false
+  - **Sorting and grouping:** `ORDER BY (a, b)` sorts by the record, as
+    Postgres sorts records: NULL fields last in ascending order and first
+    with `DESC`. A NULL record sorts the same way unless `NULLS FIRST` /
+    `NULLS LAST` places it (other `ORDER BY` keys put NULLs last either
+    way). `DISTINCT`, `GROUP BY ROW(a, b)`, `UNION`, `PARTITION BY` and
+    `COUNT(DISTINCT …)` treat NULL fields as equal. `GROUP BY (a, b)` is
+    `GROUP BY a, b`, as in Postgres. The driver sorts and groups records
+    itself, not the index
+  - **Functions:** `COALESCE`, `NULLIF`, `GREATEST`, `LEAST`, `IIF`,
+    `CASE`, `CONCAT`, `COUNT`, `ANY_VALUE`, `MODE`, the JSON constructors
+    and aggregates (`TO_JSON(ROW(1, 'a'))` is `{"f1":1,"f2":"a"}`) and the
+    offset window functions take records. Other functions don't exist for
+    one (`function upper(record) does not exist`), nor do arithmetic,
+    `LIKE` and casts to types other than text and `RECORD` (`operator does
+    not exist: record + bigint`, `cannot cast type record to integer`). A
+    record as a condition is `argument of WHERE must be type boolean, not
+    type record`
+  - **Storage:** as in Postgres, a record can't be stored: a column of a
+    table (`CREATE TABLE`, `CREATE TABLE … AS`, `ALTER TABLE … ADD COLUMN`)
+    or a view can't have type record (`column "row" has pseudo-type
+    record`), and writing one to a column is `column "a" is of type integer
+    but expression is of type record`. Arrow structs can't be bound or
+    ingested. A table's name as a whole-row value (`SELECT t FROM t`,
+    `ROW(t.*)`) isn't supported
+  - **Differences from Postgres:** a nested record's fields are known, so
+    `((ROW(1, ROW(2, 3))).f2).f1` is 2 (Postgres can't identify the column),
+    and records whose fields have different types (`ROW(1)` and `ROW(1.0)`)
+    compare by value (Postgres can't compare them). Records of different
+    lengths in one column (`UNION ALL`, `CASE`) are an error when they are
+    returned, since an Arrow struct has one set of fields
 - `ORDER BY … [ASC|DESC] [NULLS FIRST|LAST]`; NULLs sort last by default in
-  both directions
+  both directions, except records (see Rows as values)
 - Function calls (the functions are listed below) are checked when the
   statement is planned, before any row is read, wherever a call can be:
   the SELECT list, `WHERE`, `GROUP BY`, `HAVING`, `QUALIFY`, `ORDER BY`,
@@ -3131,10 +3195,11 @@ field, even if later rows have it.
     are `\u` escapes Postgres can't decode (code point 0, unpaired
     surrogates). `doc IS JSON` guards against bad rows
   - The `JSONB_` spellings (`JSONB_EXTRACT_PATH`, `JSONB_TYPEOF`,
-    `JSONB_BUILD_OBJECT`, `JSONB_AGG`, …), `::jsonb` and `RETURNING JSONB`
-    give jsonb's text: keys sorted (shorter first) without duplicates,
-    numbers as exact `NUMERIC` (`1e2` is `100`, `1.50` stays `1.50`), and
-    `{"a": 1}` spacing
+    `JSONB_BUILD_OBJECT`, `JSONB_AGG`, …), `TO_JSONB`, `::jsonb` and
+    `RETURNING JSONB` give jsonb's text: keys sorted (shorter first) without
+    duplicates, numbers as exact `NUMERIC` (`1e2` is `100`, `1.50` stays
+    `1.50`), and `{"a": 1}` spacing. Up to v0.0.12 `TO_JSONB` gave JSON's
+    text
   - `x IS [NOT] JSON [VALUE | SCALAR | ARRAY | OBJECT]
     [{WITH | WITHOUT} UNIQUE [KEYS]]` is false for malformed text and NULL
     for NULL
@@ -3337,7 +3402,9 @@ field, even if later rows have it.
   is a UTC instant (an Arrow timestamp with time zone `UTC`), shown and read
   as a local time in the session time zone.
   JSON documents are stored in `VARCHAR` columns (`NOINDEX` if they are
-  never compared as a whole); `JSON` and `JSONB` are only cast targets
+  never compared as a whole); `JSON` and `JSONB` are only cast targets.
+  A row value has type `RECORD`, which no column can have, and is returned
+  as an Arrow struct (see Rows as values)
   - **Time with time zone:** `TIME(p) WITH TIME ZONE` (also `TIMETZ(p)`) is
     Postgres's: a time of day and a UTC offset, kept as written, with no
     date. `p` is 0 to 6 (6 without it; a `p` above 6 is 6, as in Postgres),
