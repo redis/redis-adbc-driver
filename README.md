@@ -430,14 +430,16 @@ take (see "Indexes the driver didn't create are left alone" below).
 Tiering) keeps most of a database on SSD, for datasets of a terabyte and
 more. Search on Flex can't index tables the way the driver needs. Every
 table's index has a `NUMERIC SORTABLE` row-ID field, and every query reads
-rows through `FT.AGGREGATE` cursors. So when the driver connects to a Flex
-database it fails with `Redis Flex databases are not supported`, before
-writing anything.
+rows through `FT.AGGREGATE` cursors. A Flex database with Search enabled
+fails with `Redis Flex databases are not supported`, before writing anything.
+A database without Search fails earlier with an error that the Redis server
+does not provide the search (RediSearch) module.
 
 | Flex database | Search on Flex | Missing for the driver |
 |-|-|-|
 | Redis Cloud Essentials | Not available | Search itself (the driver reports that search is missing) |
-| Redis Cloud Pro | Opt-in Preview | `FT.AGGREGATE`; `NUMERIC` fields (per Redis's docs; not tested here) |
+| Redis Cloud Pro without Search enabled, Redis 8.6 | Unavailable on the newly created test database | `FT._LIST`, `FT.CREATE`, `FT.SEARCH`, and `FT.AGGREGATE` were not registered. The driver reports that search is missing. |
+| Redis Cloud Pro Search on Flex beta | Opt-in beta; not exercised in the live Cloud tests | `FT.AGGREGATE` and `NUMERIC` fields (per Redis's docs) |
 | Redis Software 8.2.0-78, Redis 8.6.2, Search 8.6.11 | Included (`search_on_bigstore`) | `FT.AGGREGATE`, `FT.ALTER`, `FT.DROPINDEX … DD`; `NUMERIC`, `GEO` and `SORTABLE` fields. `FT.SEARCH` returns only keys, and indexes need `SKIPINITIALSCAN` (tested, see [Building and testing](#building-and-testing)) |
 
 Redis's announcement of Search on Flex says Redis Software already offers
@@ -445,6 +447,11 @@ Redis's announcement of Search on Flex says Redis Software already offers
 But the latest Docker image (8.2.0-78, built 2026-09-01) rejects both. The
 connect check tests whether `FT.AGGREGATE` works, not whether the database
 is Flex. So a Flex release that supports it is no longer refused.
+
+The local and Cloud tests ran on 2026-10-06 against commit `40da0bf`.
+See the [compatibility report](docs/redis-flex-compatibility.md) or its
+[Word version](docs/redis-flex-compatibility.docx) for the settings, live
+command results, and missing driver and server functions.
 
 ## Quick start
 
@@ -4313,11 +4320,61 @@ that it does so without writing to the database. The test is skipped unless
 `REDIS_FLEX_URI` is set:
 
 ```bash
-REDIS_FLEX_URI=redis://localhost:12000/0 go test -run TestFlex ./...
+REDIS_FLEX_URI=redis://localhost:12000/0 go test -count=1 -run TestFlex -v ./...
 ```
 
 Remove the cluster with `docker compose --profile flex down redis-flex`.
 Name the service: without it, `down` also removes the `redis` container.
+
+#### Verified local result
+
+On 2026-10-06, `TestFlexRefused` passed against Redis Software `8.2.0-78`,
+Redis `8.6.2`, and Search `8.6.11`. The driver returned ADBC
+`NotImplemented` with the expected Flex message and left the key count
+unchanged. Direct probes confirmed that `FT.AGGREGATE`, `NUMERIC`, and
+`SORTABLE` fields were unavailable. Temporary probe keys and indexes were
+removed.
+
+#### Redis Cloud Pro Flex
+
+Run the same test from `go` using an authenticated database URI. The Redis
+Cloud account and user API keys authenticate the management API; use the
+database password for the Redis connection. Keep the URI in an environment
+variable and out of source control. For example, in a shell with history
+disabled or using a secret manager:
+
+```bash
+export REDIS_FLEX_URI='redis://default:<url-encoded-password>@<host>:<port>/0'
+go test -count=1 -run TestFlex -v ./...
+unset REDIS_FLEX_URI
+```
+
+The live Cloud run tested a newly created 250 GB Flex database in GCP
+`us-east4`, on Redis `8.6` with 10% RAM. The database used
+1,000 operations/second, no replication or
+persistence, RESP3, no TLS, and a single proxy endpoint. The driver uses
+RESP2. The 250 GB dataset was the minimum accepted by this subscription.
+
+The authenticated run failed `TestFlexRefused` with
+`ERR unknown command 'FT._LIST'`. This test expects the later Flex-specific
+refusal, so a missing Search module is a test failure rather than a passing
+Flex compatibility check. On the new database, `PING` returned `PONG`, but
+`COMMAND INFO` found no registration for `FT._LIST`, `FT.CREATE`,
+`FT.SEARCH`, or `FT.AGGREGATE`. No Cloud probe keys or indexes were created.
+
+[Redis's documentation](https://redis.io/docs/latest/operate/rc/databases/create-database/create-flex-database/)
+requires enabling a Search-on-Flex beta flag for the Pro subscription before
+creating a database with Search on tiered storage. It does not specify the
+flag's exact menu location. `Setup → Advanced options → Redis Flex` enables
+tiered storage; it does not confirm Search beta enablement. If the beta
+control is absent, ask Redis Support to confirm eligibility and the
+enablement procedure. These tests did not independently verify the
+subscription's beta entitlement or exercise a Search-enabled Cloud database.
+
+The disposable Cloud database was left active pending explicit deletion
+approval. The API dry run estimated approximately USD 1.43/hour for its
+shape. See the [report](docs/redis-flex-compatibility.md) for full settings
+and the distinction between live results and documented beta limitations.
 
 ### Cross-platform builds and releases
 
