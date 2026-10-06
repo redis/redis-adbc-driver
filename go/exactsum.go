@@ -277,7 +277,7 @@ func (s *exactSum) sumValue(t ColType) (Value, error) {
 		d, okd := s.days.int64()
 		ns, okns := s.nanos.int64()
 		if !okm || !okd || !okns {
-			return Value{}, fmt.Errorf("interval out of range")
+			return Value{}, stateErr(stateDatetimeRange, "interval out of range")
 		}
 		return intervalValue(m, d, ns)
 	case KindInt64:
@@ -312,7 +312,7 @@ func (s *exactSum) meanValue(t ColType) (Value, error) {
 	d, okd := s.days.int64()
 	us, okus := s.nanos.micros()
 	if !okm || !okd || !okus || m != int64(int32(m)) || d != int64(int32(d)) {
-		return Value{}, fmt.Errorf("interval out of range")
+		return Value{}, stateErr(stateDatetimeRange, "interval out of range")
 	}
 	return divideInterval(int32(m), int32(d), us, float64(s.n))
 }
