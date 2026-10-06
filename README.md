@@ -1141,6 +1141,34 @@ Deleted 13 HASHes under 2 prefixes.
     `hash_indexing_failures` (`Invalid numeric value: 'NaN'`). Writing the
     row again by its id indexes it: `UPDATE t SET x = 'NaN' WHERE __rowid =
     N`.
+- **Ties in the sort vector**: the index sorts `NUMERIC` attributes as
+  doubles, which hold every integer below 2^53 and every decimal of up to
+  15 significant digits apart from its neighbours, but not larger `BIGINT`
+  values, `TIME` and `TIMESTAMP` values as large in their unit (a
+  `TIMESTAMP(9)` after April 1970, a `TIMESTAMP` after 2255 or before 1685)
+  or `NUMERIC` values with more digits (from 10⁶ on for `NUMERIC`, which is
+  `NUMERIC(38,9)`): 2^53 and 2^53 + 1 are the same double. The index
+  returns rows that tie in the order it indexed them (reversed for
+  `DESC`), so up to v0.0.12 `ORDER BY id` could return 9007199254740993
+  before 9007199254740992, and `LIMIT 1` pick the wrong one. Rounding never
+  swaps two values, so only rows that tie can be out of order:
+  - The driver reads the sort keys the index returns with each row
+    (`__sort0`, …). Rows that follow each other with the same keys, up to
+    the first one that may round, are a run. A run of two or more rows with
+    a key from 2^53 on (10^(15-s) for `NUMERIC(p,s)`) is sorted by the
+    rows' values, read with `HMGET` for columns the query doesn't select.
+    The rows still stream, a run at a time.
+  - With `LIMIT` / `OFFSET` in the index, the driver asks for one row more
+    on each side. If a run with such a key goes on past them, it reads the
+    rest of the run: by value when the first `ORDER BY` key is a `BIGINT`,
+    `TIME` or `TIMESTAMP` (`@c:[v v]`, and an `FT.SEARCH … LIMIT 0 0` that
+    counts the rows before it if the run started before the rows read),
+    otherwise by asking again with more rows on that side. The rows of the
+    `LIMIT` are read before the first is returned.
+  - Without such ties nothing changes but the two extra rows: the same
+    commands run, and `LIMIT` still runs in the index. Microsecond
+    timestamps between 1685 and 2255 never tie, and nanosecond ones only
+    within about 256 ns of each other.
 - **Metadata**, all in one hash slot: `adbc:{meta}:table:<schema>:<table>`
   (column types, defaults, missing values, string levels, NaN flags,
   comments and `CHECK` constraints as JSON), `adbc:{meta}:seq:*` (row ids),
@@ -1304,7 +1332,9 @@ table's size. Other results are built whole before `ExecuteQuery` returns.
     functions or correlated subqueries;
   - in insertion order, or ordered by indexed columns the index sorts
     exactly. An `ORDER BY` the driver sorts itself (an expression,
-    `NULLS FIRST`, …) reads the rows whole.
+    `NULLS FIRST`, …) reads the rows whole. Rows that tie on a large
+    number in the index are sorted again as they stream (see "Ties in the
+    sort vector" above).
 
   `LIMIT` and `OFFSET` that can't run in the index (because the driver
   re-checks part of the WHERE clause) are applied as the rows stream, and
@@ -1358,7 +1388,8 @@ integer, boolean, date or time, or not indexed, and otherwise uses `LOAD *`,
 which returns the HASH fields unchanged. Sorts run on aliases
 (`LOAD @c AS __sort0 SORTBY @__sort0`) so that on a cluster the coordinator
 merges the shards' results on the numeric sort values rather than on the
-strings `LOAD *` returns.
+strings `LOAD *` returns. Rows whose sort values tie as doubles are sorted
+again by the driver (see "Ties in the sort vector" above).
 
 Aggregate pushdown (`adbc.redis.aggregate_pushdown`):
 
@@ -3143,6 +3174,16 @@ What drives the numbers:
   a page of 100 rows near the end 12 ms: the index starts each page at the
   last page's `ts`. Up to v0.0.12 each page also read every row before it
   (86 s and 751 ms).
+- **`ORDER BY` on values from 2^53 on** costs about as much as on smaller
+  ones, as long as the rows don't tie (see "Ties in the sort vector"). On
+  100,000 rows with `BIGINT` ids 2^60 + 7k (Snowflake-like; 36 share each
+  double, so a `LIMIT` nearly always ends within a tie), `SELECT * … ORDER
+  BY id DESC LIMIT 20` took 8.3 ms, against 7.9 ms in v0.0.12 (which could
+  return the rows of a tie in the wrong order): one more `FT.AGGREGATE`
+  reads the tie. With `ORDER BY id LIMIT 20 OFFSET 50000` it took 22 ms
+  (20 ms), with an `FT.AGGREGATE` for the tie at each end and an
+  `FT.SEARCH` count. Measured with Redis 8.6.2, standalone, on a machine
+  shared with other work, median of 21 runs.
 - **Queries that can't return rows read nothing**, only the tables'
   metadata. On a table of 152,686 rows (measured separately, best of 3,
   standalone), dbt's `select * from (<model>) as __dbt_sbq where false
@@ -3162,6 +3203,12 @@ Known ways to make the slow cases faster (not done yet):
   row comparison is checked on the rows, which keeps the `LIMIT` out of the
   index. The first cursor page could ask for only as many rows as the
   `LIMIT`.
+- A `LIMIT` that ends within a tie of large `NUMERIC` values, or of a key
+  after one that doesn't round (`ORDER BY category, id`), asks the index
+  again with more rows, which sorts every match again; the driver could
+  read the tie by value, as it does for an integer first key. Many rows
+  with the same large value make one long tie, which such a `LIMIT` reads
+  whole.
 
 To reproduce (from `go`, with a Redis running):
 
