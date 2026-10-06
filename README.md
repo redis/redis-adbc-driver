@@ -69,7 +69,11 @@ It supports SQL queries and Arrow bulk ingestion.
 
 ## Compatibility and validation
 
-The full validation suite (325 passed, 0 failed) has been run against:
+On 2026-10-06, the current validation suite against local Redis Open Source
+8.6.2 had 360 passed, 8 skipped, 3 subtests passed, and 0 failed. The suite
+has also been run against the servers below; the cluster and Redis Cloud
+results are from earlier suite revisions and have not been re-run for this
+update.
 
 | Server | Version | Connection |
 |-|-|-|
@@ -82,11 +86,12 @@ The full validation suite (325 passed, 0 failed) has been run against:
 Local testing uses the Redis version that Redis Cloud runs (currently
 8.6.2), so `go/compose.yaml` pins that image.
 
-\* Run before cluster support was added; not re-run since.
-† Run before the two temporary-table ingest tests were enabled (322
-passed, 0 failed); not re-run since.
+Earlier local and cluster runs had 325 passed, 0 failed. The Cloud runs
+marked † had 322 passed, 0 failed, before the two temporary-table ingest
+tests were enabled; they have not been re-run since. The TLS run marked \*
+predates cluster support and has not been re-run since.
 
-The remaining 10 skipped tests are features the driver doesn't offer:
+The 8 currently skipped tests cover features the driver doesn't offer:
 constraints, statistics, a second catalog, and transactions. Of the
 constraint tests, those for `CHECK` and `PRIMARY KEY` in `GetObjects` run
 now; those for `UNIQUE` and `FOREIGN KEY` are still skipped.
@@ -441,7 +446,7 @@ is Flex. So a Flex release that supports it is no longer refused.
 
 ## Quick start
 
-Requirements: Go 1.26+, a C toolchain (cgo), Docker, and
+Requirements: Go 1.26.6 or newer, a C toolchain (cgo), Docker, and
 [uv](https://docs.astral.sh/uv/). Run everything from the `go` directory.
 
 Each [GitHub release](https://github.com/alberttwong/redis-adbc-driver/releases)
