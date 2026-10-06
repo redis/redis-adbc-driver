@@ -207,7 +207,8 @@ func (c columnMeta) tagsExact() bool { return c.tagLevel() == "" }
 // sortsExactly reports whether the index's sorting vector holds the values
 // of an indexed column as stored, in SQL's order: those of a string column
 // may be cut at a NUL byte, and a float column that may hold a NaN holds it
-// as +Infinity (see nan.go).
+// as +Infinity (see nan.go). Numbers it rounds to doubles stay in order
+// apart from ties, which scans sort again (see ties.go).
 func (c columnMeta) sortsExactly() bool {
 	switch {
 	case c.Type.Kind == KindString:
