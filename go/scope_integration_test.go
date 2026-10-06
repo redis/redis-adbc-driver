@@ -361,6 +361,160 @@ func TestSQLJoinConditionScopeDML(t *testing.T) {
 	h.expectRows(`SELECT a, b FROM it_scj.t ORDER BY a`, "1|0", "2|3", "3|NULL")
 }
 
+// setupCommaJoins creates a(x), b(x) and c(x) holding (1), d(x, y) holding
+// (1, 10) and (2, 20), e(y) holding (5) and an empty f(x) in the schema
+// it_scc, which becomes the connection's search_path.
+func (h *sqlHarness) setupCommaJoins() {
+	h.t.Helper()
+	h.exec(`DROP SCHEMA IF EXISTS it_scc CASCADE`)
+	h.exec(`CREATE SCHEMA it_scc`)
+	h.t.Cleanup(func() { h.exec(`DROP SCHEMA IF EXISTS it_scc CASCADE`) })
+	h.exec(`SET search_path = it_scc`)
+	for _, t := range []string{"a", "b", "c", "f"} {
+		h.exec(`CREATE TABLE ` + t + ` (x INTEGER)`)
+	}
+	h.exec(`INSERT INTO a VALUES (1)`)
+	h.exec(`INSERT INTO b VALUES (1)`)
+	h.exec(`INSERT INTO c VALUES (1)`)
+	h.exec(`CREATE TABLE d (x INTEGER, y INTEGER)`)
+	h.exec(`INSERT INTO d VALUES (1, 10), (2, 20)`)
+	h.exec(`CREATE TABLE e (y INTEGER)`)
+	h.exec(`INSERT INTO e VALUES (5)`)
+}
+
+// A join's ON clause reads only its two sides, as in Postgres
+// (transformJoinOnClause): the FROM items from the last comma up to it. A
+// comma starts a new FROM-list item, while CROSS JOIN joins the items
+// before it, so in `FROM a, b JOIN c ON …` the ON can't read a, and in
+// `FROM a CROSS JOIN b JOIN c ON …` it can. The messages are pg16's for
+// the same statements.
+func TestSQLJoinConditionScope(t *testing.T) {
+	h := newSQLHarness(t)
+	h.setupCommaJoins()
+
+	columnY := `column "y" does not exist; there is a column named "y" in table "d", but it cannot be referenced from this part of the query`
+	columnsX := `column "x" does not exist; there are columns named "x", but they are in tables that cannot be referenced ` +
+		`from this part of the query; try using a table-qualified name`
+	for _, c := range []struct{ sql, want string }{
+		// The issue's queries: an item after the join, and one before a comma.
+		{`SELECT * FROM a JOIN b ON b.x = c.x JOIN c ON true`, `missing FROM-clause entry for table "c"`},
+		{`SELECT * FROM a, b JOIN c ON c.x = a.x`, invalidEntry("a", "a")},
+		{`SELECT * FROM a JOIN b ON b.x = c.x, c`, `missing FROM-clause entry for table "c"`},
+		{`SELECT * FROM a, b JOIN c ON c.x = b.x JOIN d ON d.x = a.x`, invalidEntry("a", "a")},
+		// Under an alias, the detail names the alias.
+		{`SELECT * FROM a AS p, b JOIN c ON c.x = p.x`, invalidEntry("p", "p")},
+		{`SELECT * FROM a AS p, b JOIN c ON c.x = a.x`, invalidEntry("a", "p")},
+		// Unqualified columns.
+		{`SELECT * FROM d, b JOIN c ON c.x = y`, columnY},
+		{`SELECT * FROM a, b, e JOIN e AS e2 ON e2.y = x`, columnsX},
+		{`SELECT * FROM a NATURAL JOIN b, e JOIN e AS e2 ON e2.y = x`, columnsX},
+		// From a subquery in the ON clause, from a derived table there, and
+		// from a LATERAL item's ON clause.
+		{`SELECT * FROM a, b JOIN c ON EXISTS (SELECT 1 WHERE a.x = 1)`, invalidEntry("a", "a")},
+		{`SELECT * FROM a, b JOIN c ON EXISTS (SELECT * FROM (SELECT a.x) s)`, invalidEntry("a", "a")},
+		{`SELECT * FROM a, b JOIN LATERAL (SELECT a.x AS z) l ON l.z = a.x`, invalidEntry("a", "a")},
+		// In a subquery and a derived table. An enclosing query that has
+		// no item a doesn't change that.
+		{`SELECT (SELECT count(*) FROM a, b JOIN c ON c.x = a.x)`, invalidEntry("a", "a")},
+		{`SELECT * FROM c WHERE EXISTS (SELECT 1 FROM a, b JOIN d ON d.x = a.x)`, invalidEntry("a", "a")},
+		{`SELECT * FROM (SELECT * FROM a, b JOIN c ON c.x = a.x) s`, invalidEntry("a", "a")},
+		// USING and NATURAL: the left side starts at the last comma.
+		{`SELECT * FROM a, e JOIN c USING (x)`, `column "x" specified in USING clause does not exist in left table`},
+		{`SELECT * FROM a CROSS JOIN b JOIN c USING (x)`, `common column name "x" appears more than once in left table`},
+		{`SELECT * FROM a JOIN e USING (x)`, `column "x" specified in USING clause does not exist in right table`},
+		{`SELECT * FROM a JOIN b USING (x, x)`, `column name "x" appears more than once in USING clause`},
+		// A derived table on the right of a RIGHT join may need LATERAL to
+		// read an item before the comma, but not its left side.
+		{`SELECT * FROM a, b RIGHT JOIN (SELECT a.x) s ON true`, lateralRef("a", "a")},
+		{`SELECT * FROM a, b RIGHT JOIN (SELECT b.x) s ON true`, invalidEntry("b", "b")},
+		{`SELECT * FROM a, b RIGHT JOIN LATERAL (SELECT b.x AS z) s ON true`,
+			`invalid reference to FROM-clause entry for table "b": the combining JOIN type must be INNER or LEFT for a LATERAL reference`},
+		// Postgres runs these; the driver doesn't.
+		{`SELECT * FROM a, b RIGHT JOIN LATERAL (SELECT a.x AS z) s ON true`,
+			`a LATERAL reference to "a" from a later FROM-list item with a RIGHT or FULL JOIN is not implemented`},
+		{`SELECT * FROM a, b RIGHT JOIN d ON d.x = b.x JOIN LATERAL (SELECT a.x AS z) s ON true`,
+			`a LATERAL reference to "a" from a later FROM-list item with a RIGHT or FULL JOIN is not implemented`},
+		// A recursive reference before the comma isn't in the outer join.
+		{`WITH RECURSIVE r(n) AS (SELECT 1 UNION ALL SELECT n + 1 FROM b, r RIGHT JOIN c ON true WHERE n < 3) SELECT * FROM r`,
+			`recursive reference to query "r" must not appear within an outer join`},
+		// UPDATE … FROM and DELETE … USING. The target comes first.
+		{`UPDATE d SET y = 0 FROM a, b JOIN c ON c.x = a.x`, invalidEntry("a", "a")},
+		{`DELETE FROM d USING a, b JOIN c ON c.x = a.x`, invalidEntry("a", "a")},
+		{`UPDATE d AS t SET y = 0 FROM d, b JOIN c ON c.x = d.x`, invalidEntry("d", "t")},
+		{`UPDATE d SET y = 0 FROM a, b JOIN c ON c.x = y`, columnY},
+	} {
+		h.expectErrorText(c.sql, c.want)
+	}
+	h.expectScopeError(`SELECT * FROM b NATURAL FULL JOIN c, a JOIN d ON d.x = x`, `column reference "x" is ambiguous`, false)
+	h.expectScopeError(`CREATE VIEW v AS SELECT * FROM a, b JOIN c ON c.x = a.x`, invalidEntry("a", "a"), true)
+	if _, err := h.paramTypes(`SELECT * FROM a, b JOIN c ON c.x = a.x AND c.x = $1`); err == nil || errText(err) != invalidEntry("a", "a") {
+		t.Errorf("parameter schema: error %v, want %q", err, invalidEntry("a", "a"))
+	}
+	h.expectRows(`SELECT * FROM d ORDER BY x`, "1|10", "2|20")
+
+	// What the ON clause may read.
+	h.expectRows(`SELECT * FROM a CROSS JOIN b JOIN c ON c.x = a.x`, "1|1|1")
+	h.expectRows(`SELECT * FROM a, b JOIN c ON c.x = b.x WHERE a.x = c.x`, "1|1|1")
+	h.expectRows(`SELECT * FROM a WHERE EXISTS (SELECT 1 FROM a AS p, b JOIN d ON d.x = a.x)`, "1")
+	h.expectRows(`SELECT * FROM a, b JOIN LATERAL (SELECT a.x + b.x AS s) l ON true`, "1|1|2")
+	// A merged column, as of the join: x is a's in the ON, c's in SELECT *.
+	h.expectRows(`SELECT * FROM a JOIN e ON x = 1 NATURAL RIGHT JOIN c`, "1|5")
+	// A recursive CTE in the ON clause reads the enclosing query's y, not
+	// e2's.
+	h.expectRows(`SELECT * FROM d WHERE EXISTS (SELECT 1 FROM e AS e2, b JOIN c ON EXISTS (
+		WITH RECURSIVE r(n) AS (SELECT 1 UNION ALL SELECT n + y FROM r WHERE n < 30) SELECT 1 FROM r WHERE n = 11)) ORDER BY x`,
+		"1|10")
+	// A correlated subquery in ON reads c.x, which nothing else does, and
+	// is evaluated once c is joined.
+	h.expectRows(`SELECT a.x FROM a, b JOIN c ON EXISTS (SELECT 1 FROM d WHERE d.y = c.x * 10)`, "1")
+	h.expectRows(`SELECT a.x FROM a JOIN b ON true JOIN c ON EXISTS (SELECT 1 FROM d WHERE d.y = c.x * 10)`, "1")
+
+	// USING and NATURAL after a comma. SELECT * lists each FROM-list
+	// item's columns in turn.
+	h.expectRows(`SELECT a.x, b.x, c.x FROM a, b JOIN c USING (x)`, "1|1|1")
+	h.expectRows(`SELECT * FROM d, b NATURAL JOIN c ORDER BY d.x`, "1|10|1", "2|20|1")
+	h.expectRows(`SELECT * FROM a, e NATURAL JOIN c`, "1|5|1")
+	h.expectRows(`SELECT * FROM a NATURAL JOIN b, d NATURAL JOIN c`, "1|1|10")
+	h.expectRows(`SELECT c.x, d.y FROM b NATURAL RIGHT JOIN c JOIN d USING (x)`, "1|10")
+
+	// A RIGHT or FULL join after a comma keeps the rows of the items
+	// before it: they are joined to its result, not NULL-extended by it.
+	h.expectRows(`SELECT * FROM a, b RIGHT JOIN d ON d.x = b.x ORDER BY d.x`, "1|1|1|10", "1|NULL|2|20")
+	h.expectRows(`SELECT * FROM a, b FULL JOIN d ON d.x = b.x ORDER BY d.x`, "1|1|1|10", "1|NULL|2|20")
+	h.expectRows(`SELECT * FROM a CROSS JOIN b RIGHT JOIN d ON d.x = b.x ORDER BY d.x`, "1|1|1|10", "NULL|NULL|2|20")
+	h.expectRows(`SELECT * FROM a, b NATURAL RIGHT JOIN d ORDER BY d.x`, "1|1|10", "1|2|20")
+	h.expectRows(`SELECT * FROM e, b NATURAL FULL JOIN d ORDER BY x`, "5|1|10", "5|2|20")
+	h.expectRows(`SELECT * FROM f, b RIGHT JOIN d ON d.x = b.x`)
+	h.expectRows(`SELECT * FROM f, b FULL JOIN d ON d.x = b.x`)
+	h.expectRows(`SELECT * FROM b RIGHT JOIN d ON d.x = b.x, f`)
+	h.expectRows(`SELECT * FROM (SELECT 1 AS z WHERE false) z, b RIGHT JOIN d ON d.x = b.x`)
+	h.expectRows(`SELECT * FROM a RIGHT JOIN d ON d.x = a.x, b RIGHT JOIN d AS d2 ON d2.x = b.x ORDER BY d.x, d2.x`,
+		"1|1|10|1|1|10", "1|1|10|NULL|2|20", "NULL|2|20|1|1|10", "NULL|2|20|NULL|2|20")
+	h.expectRows(`SELECT count(*) FROM d, b RIGHT JOIN d AS d2 ON d2.x = b.x, e RIGHT JOIN c ON true`, "4")
+	h.expectRows(`SELECT * FROM a CROSS JOIN b, c RIGHT JOIN d ON d.x = c.x ORDER BY d.x`, "1|1|1|1|10", "1|1|NULL|2|20")
+	h.expectRows(`SELECT * FROM a, b JOIN c ON c.x = b.x JOIN e ON e.y = 5 RIGHT JOIN d ON d.x = c.x ORDER BY d.x`,
+		"1|1|1|5|1|10", "1|NULL|NULL|NULL|2|20")
+	h.expectRows(`SELECT * FROM a, b JOIN e ON false RIGHT JOIN d ON true ORDER BY d.x`, "1|NULL|NULL|1|10", "1|NULL|NULL|2|20")
+	// WHERE, on the items before the comma, after it, and both.
+	h.expectRows(`SELECT * FROM d, b RIGHT JOIN c ON c.x = b.x WHERE d.y = 20`, "2|20|1|1")
+	h.expectRows(`SELECT * FROM e, b RIGHT JOIN d ON d.x = b.x WHERE b.x IS NULL`, "5|NULL|2|20")
+	h.expectRows(`SELECT * FROM e, b FULL JOIN d ON d.x = b.x WHERE e.y = 5 AND d.y > 5 ORDER BY d.x`, "5|1|1|10", "5|NULL|2|20")
+	h.expectRows(`SELECT * FROM d AS d1, b RIGHT JOIN d ON d.x = b.x WHERE d1.y = d.y ORDER BY d.x`,
+		"1|10|1|1|10", "2|20|NULL|2|20")
+	// Joins after the RIGHT join, including a LATERAL item that reads it.
+	h.expectRows(`SELECT * FROM e, b RIGHT JOIN d ON d.x = b.x JOIN c ON c.x = d.x`, "5|1|1|10|1")
+	h.expectRows(`SELECT * FROM e, b RIGHT JOIN d ON d.x = b.x JOIN LATERAL (SELECT d.y * 2 AS w) l ON true ORDER BY d.x`,
+		"5|1|1|10|20", "5|NULL|2|20|40")
+	h.expectRows(`WITH RECURSIVE r(n) AS (SELECT 1 UNION ALL SELECT n + 1 FROM r, b RIGHT JOIN c ON c.x = b.x WHERE n < 3)
+		SELECT * FROM r`, "1", "2", "3")
+
+	// In UPDATE … FROM and DELETE … USING.
+	h.expectRows(`UPDATE d SET y = d.y + 1 FROM e, b RIGHT JOIN c ON c.x = b.x WHERE d.x = c.x RETURNING d.x, d.y`, "1|11")
+	h.expectRows(`DELETE FROM d USING e, b RIGHT JOIN d AS d2 ON d2.x = b.x WHERE d.x = d2.x AND b.x IS NULL RETURNING d.x, d.y`,
+		"2|20")
+	h.expectRows(`SELECT * FROM d ORDER BY x`, "1|11")
+}
+
 // setupSchemas creates the tables of #111: t in the schemas it_sc1 and
 // it_sc2 (where (2, 20) is in both), and a view it_sc2.tv of the latter.
 func (h *sqlHarness) setupSchemas() {

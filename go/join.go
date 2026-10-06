@@ -38,6 +38,7 @@ package redis
 
 import (
 	"context"
+	"fmt"
 	"maps"
 	"math"
 	"slices"
@@ -75,6 +76,18 @@ type joinItem struct {
 	// common columns (see planNatural).
 	natural bool
 	usingOn Expr
+	// comma is set for an item after a comma, which starts a new FROM-list
+	// item (see JoinClause.Comma): the items from the last one on are the
+	// left side of a join (see start).
+	comma bool
+	// visible are the row keys of the columns an unqualified reference in
+	// the item's join condition may read, when NATURAL JOINs before it
+	// merge columns (see planNatural); nil if they don't.
+	visible map[string]bool
+	// isolated is set for the items of a FROM-list item after the first one
+	// that has a RIGHT or FULL join: they are joined on their own, and then
+	// to the rows of the items before them (see runJoin).
+	isolated bool
 }
 
 type joinPlan struct {
@@ -102,7 +115,7 @@ func (e *executor) planJoin(ctx context.Context, sel *SelectStmt) (*tableMeta, [
 	kinds := make([]string, len(items))
 	never := make([]bool, len(items))
 	for i, jc := range sel.Joins {
-		kinds[i+1], never[i+1] = jc.Kind, e.neverTrue(ctx, jc.On)
+		kinds[i+1], never[i+1] = readsKind(jc.Kind, jc.Comma), e.neverTrue(ctx, jc.On)
 	}
 	read, _ := joinReads(kinds, never, make([]bool, len(items)))
 	for i, jc := range items {
@@ -173,18 +186,33 @@ func (it *joinItem) rel() relation {
 
 // unseenBy returns what a derived table joined as kind can't read of its
 // level (see unseenRel): the target of the DML statement, and the items
-// before it, which LATERAL would make readable unless kind is RIGHT or
-// FULL.
+// before it, which LATERAL would make readable, except the left side of a
+// RIGHT or FULL join (the items since the last comma). As in Postgres, a
+// LATERAL item there may read the FROM-list items before that.
 func (jp *joinPlan) unseenBy(kind string) []unseenRel {
 	var out []unseenRel
 	for _, u := range jp.unseen {
 		u.forbidden = false // only a LATERAL item finds it
 		out = append(out, u)
 	}
-	for _, it := range jp.items {
-		out = append(out, unseenRel{relation: it.rel(), noHint: kind == "RIGHT" || kind == "FULL"})
+	left := len(jp.items)
+	if left > 0 && (kind == "RIGHT" || kind == "FULL") {
+		left = jp.start(left - 1)
+	}
+	for i, it := range jp.items {
+		out = append(out, unseenRel{relation: it.rel(), noHint: i >= left})
 	}
 	return out
+}
+
+// start returns the index of the first item of the FROM-list item that
+// item i is part of: the item after the last comma up to i (see
+// JoinClause.Comma).
+func (jp *joinPlan) start(i int) int {
+	for i > 0 && !jp.items[i].comma {
+		i--
+	}
+	return i
 }
 
 // rels are the relations of the items added so far.
@@ -217,22 +245,32 @@ func keyLabel(key string) string {
 // relation and the scope relations.
 func (jp *joinPlan) finish() (*tableMeta, []relation) {
 	// Nullability: LEFT makes the new item nullable, RIGHT the items before
-	// it, FULL both.
+	// it in its FROM-list item (its left side), FULL both.
 	for i, it := range jp.items {
+		left := jp.items[jp.start(i):i]
 		switch it.kind {
 		case "LEFT":
 			it.nullable = true
 		case "RIGHT":
-			for _, prev := range jp.items[:i] {
+			for _, prev := range left {
 				prev.nullable = true
 			}
 		case "FULL":
 			it.nullable = true
-			for _, prev := range jp.items[:i] {
+			for _, prev := range left {
 				prev.nullable = true
 			}
 		}
 	}
+	// The FROM-list items after the first that have a RIGHT or FULL join.
+	for i, it := range jp.items {
+		if start := jp.start(i); start > 0 && (it.kind == "RIGHT" || it.kind == "FULL") {
+			for j := start; j < len(jp.items) && (j == start || !jp.items[j].comma); j++ {
+				jp.items[j].isolated = true
+			}
+		}
+	}
+	jp.checkIsolated()
 	joined := &tableMeta{Name: "join", isMem: true, join: jp}
 	rels := make([]relation, len(jp.items))
 	for i, it := range jp.items {
@@ -247,8 +285,34 @@ func (jp *joinPlan) finish() (*tableMeta, []relation) {
 	return joined, rels
 }
 
-// bindJoin binds the ON / USING conditions in the query's scope (called with
-// the join scope pushed).
+// checkIsolated leaves in jp.err the error for a LATERAL item or FROM
+// function of an isolated FROM-list item (see joinItem.isolated) that reads
+// the items before it, which the driver joins to it afterwards.
+func (jp *joinPlan) checkIsolated() {
+	for i, it := range jp.items {
+		if !it.isolated || it.lateral == nil || jp.err != nil {
+			continue
+		}
+		for _, prev := range jp.items[:jp.start(i)] {
+			for c := range it.lateral.need {
+				if strings.HasPrefix(c, prev.prefix) && jp.err == nil {
+					jp.err = errorf(adbc.StatusNotImplemented,
+						"a LATERAL reference to %q from a later FROM-list item with a RIGHT or FULL JOIN is not implemented", prev.alias)
+				}
+			}
+		}
+	}
+}
+
+// bindJoin binds the ON / USING conditions (called with the join scope
+// pushed). As in Postgres (transformJoinOnClause), a join's condition reads
+// only its two sides: the items of its FROM-list item up to it (see
+// JoinClause.Comma), with the columns merged by the NATURAL JOINs among
+// them (see onScope). It is bound in a copy of the join scope that holds
+// just those, which shares its needs and subquery. The items of the
+// FROM-list items before it are in Postgres's range table, so its errors
+// find them (as unseen items, after the scope's own, see unseenRel); the
+// items after it aren't there yet.
 func (e *executor) bindJoin(ctx context.Context, sel *SelectStmt, jp *joinPlan) error {
 	if jp.err != nil {
 		return jp.err
@@ -258,26 +322,40 @@ func (e *executor) bindJoin(ctx context.Context, sel *SelectStmt, jp *joinPlan) 
 			return err
 		}
 	}
+	top := len(e.scopes) - 1
+	sc := e.scopes[top]
+	defer func() { e.scopes[top] = sc }()
 	for i, jc := range sel.Joins {
-		it := jp.items[i+1]
+		k := i + 1
+		it := jp.items[k]
+		start := jp.start(k)
 		cond := jc.On
 		if jc.Natural {
 			cond = it.usingOn
 		}
 		if len(jc.Using) > 0 {
+			// Postgres's checks, on the left side's columns: those of the
+			// items since the last comma, less those merged into another
+			// one by a NATURAL JOIN.
 			var parts []Expr
-			for _, col := range jc.Using {
+			for u, col := range jc.Using {
+				if slices.ContainsFunc(jc.Using[:u], func(c string) bool { return strings.EqualFold(c, col) }) {
+					return errorf(adbc.StatusInvalidArgument, "column name %q appears more than once in USING clause", col)
+				}
 				var left *joinItem
-				for _, prev := range jp.items[:i+1] {
-					if _, ok := prev.base.column(col); ok {
+				for _, prev := range jp.items[start:k] {
+					if c, ok := prev.base.column(col); ok && (it.visible == nil || it.visible[prev.prefix+c.Name]) {
 						if left != nil {
-							return errorf(adbc.StatusInvalidArgument, "USING column %q is ambiguous", col)
+							return errorf(adbc.StatusInvalidArgument, "common column name %q appears more than once in left table", col)
 						}
 						left = prev
 					}
 				}
 				if left == nil {
-					return errorf(adbc.StatusInvalidArgument, "USING column %q does not exist in the left side of the join", col)
+					return errorf(adbc.StatusInvalidArgument, "column %q specified in USING clause does not exist in left table", col)
+				}
+				if _, ok := it.base.column(col); !ok {
+					return errorf(adbc.StatusInvalidArgument, "column %q specified in USING clause does not exist in right table", col)
 				}
 				parts = append(parts, &Binary{Op: "=", L: left.ref(col), R: it.ref(col)})
 			}
@@ -287,6 +365,12 @@ func (e *executor) bindJoin(ctx context.Context, sel *SelectStmt, jp *joinPlan) 
 			it.on = nil
 			continue
 		}
+		on := *sc
+		on.rels, on.unseen = jp.onScope(k, sc.rels), slices.Clone(sc.unseen)
+		for _, prev := range jp.items[:start] {
+			on.unseen = append(on.unseen, unseenRel{relation: prev.rel(), noHint: true})
+		}
+		e.scopes[top] = &on
 		if err := e.bindClause(ctx, cond, "JOIN conditions"); err != nil {
 			return err
 		}
@@ -296,6 +380,39 @@ func (e *executor) bindJoin(ctx context.Context, sel *SelectStmt, jp *joinPlan) 
 		it.on = cond
 	}
 	return nil
+}
+
+// onScope returns the relations of rels (the query's scope) that item k's
+// join condition reads: those of the items of its FROM-list item up to k,
+// and of the columns merged by the NATURAL FULL JOINs among them. The
+// columns merged into another one by then are hidden from unqualified
+// references (see joinItem.visible).
+func (jp *joinPlan) onScope(k int, rels []relation) []relation {
+	start := jp.start(k)
+	var out []relation
+	for _, rel := range rels {
+		in := false
+		for j := start; j <= k; j++ {
+			in = in || rel.prefix == jp.items[j].prefix ||
+				j < k && rel.prefix == fmt.Sprintf("%s%d.", mergedPrefix, j)
+		}
+		if !in {
+			continue
+		}
+		rel.hidden = nil
+		if visible := jp.items[k].visible; visible != nil {
+			for _, c := range rel.meta.Columns {
+				if !visible[rel.prefix+c.Name] {
+					if rel.hidden == nil {
+						rel.hidden = map[string]bool{}
+					}
+					rel.hidden[c.Name] = true
+				}
+			}
+		}
+		out = append(out, rel)
+	}
+	return out
 }
 
 // itemsOf returns the indexes of the join items an expression reads, and
@@ -373,8 +490,9 @@ func (jp *joinPlan) planPushdown(where Expr) {
 		}
 		if len(idx) == 1 {
 			jp.items[idx[0]].pushed = append(jp.items[idx[0]].pushed, c)
-		} else {
-			last := idx[len(idx)-1]
+		} else if last := idx[len(idx)-1]; !jp.items[last].isolated || idx[0] >= jp.start(last) {
+			// Not if it reads the items before an isolated FROM-list item,
+			// which aren't in its rows when it is joined (see runJoin).
 			jp.items[last].extra = append(jp.items[last].extra, c)
 		}
 	}
@@ -512,9 +630,17 @@ func (e *executor) joinOrder(ctx context.Context, jp *joinPlan, wps []wherePlan)
 		used  bool
 	}
 	var pool []*poolCond
-	for _, it := range jp.items {
+	for i, it := range jp.items {
 		for _, c := range condsOf(it) {
-			idx, _ := jp.itemsOf(c)
+			idx, movable := jp.itemsOf(c)
+			if !movable {
+				// The columns its subqueries read aren't in idx: it waits
+				// for every item its ON may read (see bindJoin).
+				idx = nil
+				for j := jp.start(i); j <= i; j++ {
+					idx = append(idx, j)
+				}
+			}
 			pool = append(pool, &poolCond{expr: c, items: idx})
 		}
 	}
@@ -612,7 +738,7 @@ func (e *executor) runJoin(ctx context.Context, jp *joinPlan, need map[string]bo
 	never := make([]bool, len(jp.items))
 	empty := make([]bool, len(jp.items))
 	for i, it := range jp.items {
-		kinds[i], never[i] = it.kind, i > 0 && e.neverTrue(ctx, it.on)
+		kinds[i], never[i] = readsKind(it.kind, it.comma), i > 0 && e.neverTrue(ctx, it.on)
 		empty[i] = it.lateral == nil && it.base.isMem && it.base.view == nil && it.base.join == nil && it.base.lazy == nil &&
 			len(it.base.mem) == 0
 	}
@@ -645,16 +771,43 @@ func (e *executor) runJoin(ctx context.Context, jp *joinPlan, need map[string]bo
 		return nil, err
 	}
 
-	var left []map[string]Value
+	// The rows of an isolated FROM-list item (see joinItem.isolated) are
+	// joined on their own, starting from its first item, and then to outer,
+	// the rows of the items before it (which the steps keep in written
+	// order, as for every outer join).
+	var left, outer []map[string]Value
+	isolating := false
+	endIsolated := func() error {
+		if !isolating {
+			return nil
+		}
+		isolating = false
+		var err error
+		left, err = e.joinRows(env, "CROSS", outer, left, nil, nil)
+		return err
+	}
 	avail := map[int]bool{}
 	for k, st := range steps {
 		i, it, view, wp := st.item, jp.items[st.item], views[st.item], wps[st.item]
+		// first is set for the step that starts the rows joined so far.
+		first := k == 0
+		if it.comma {
+			if err := endIsolated(); err != nil {
+				return nil, err
+			}
+			if it.isolated {
+				if len(left) == 0 {
+					return nil, nil
+				}
+				outer, left, isolating, first = left, nil, true, true
+			}
+		}
 
 		// Split equality conditions (joined so far ⋈ this item) from the rest.
 		var pairs []equiPair
 		var filters []Expr
 		for _, c := range st.conds {
-			if b, ok := c.(*Binary); ok && b.Op == "=" && k > 0 {
+			if b, ok := c.(*Binary); ok && b.Op == "=" && !first {
 				li, lok := jp.itemsOf(b.L)
 				ri, rok := jp.itemsOf(b.R)
 				if lok && rok && len(li) > 0 && len(ri) > 0 {
@@ -692,13 +845,13 @@ func (e *executor) runJoin(ctx context.Context, jp *joinPlan, need map[string]bo
 			}
 		}
 		innerLike := st.kind == "INNER" || st.kind == "LEFT" || st.kind == "CROSS"
-		if k > 0 && len(left) == 0 && innerLike {
+		if !first && len(left) == 0 && innerLike {
 			// Nothing on the left to join or extend; a later RIGHT/FULL
 			// join may still add rows.
 			left = nil
 			continue
 		}
-		if k > 0 && innerLike {
+		if !first && innerLike {
 			never, err := neverTrue(env, filters)
 			if err != nil {
 				return nil, err
@@ -714,7 +867,7 @@ func (e *executor) runJoin(ctx context.Context, jp *joinPlan, need map[string]bo
 			}
 		}
 		if it.lateral != nil {
-			if left, err = e.lateralJoin(env, k, st, it, wp, left, pairs, filters); err != nil {
+			if left, err = e.lateralJoin(env, first, st, it, wp, left, pairs, filters); err != nil {
 				return nil, err
 			}
 			if err := jp.fillMerged(env, i, left); err != nil {
@@ -722,7 +875,7 @@ func (e *executor) runJoin(ctx context.Context, jp *joinPlan, need map[string]bo
 			}
 			continue
 		}
-		if k > 0 && innerLike && wp.keys == nil && !view.isMem {
+		if !first && innerLike && wp.keys == nil && !view.isMem {
 			// Index lookup join: fetch only rows whose key matches the left.
 			for _, p := range pairs {
 				cm, ok := lookupColumn(view, p.right)
@@ -774,7 +927,7 @@ func (e *executor) runJoin(ctx context.Context, jp *joinPlan, need map[string]bo
 				}
 			}
 		}
-		if k == 0 {
+		if first {
 			// Conditions on the first table alone that could not be pushed.
 			left = right
 			if len(st.conds) > 0 {
@@ -791,6 +944,9 @@ func (e *executor) runJoin(ctx context.Context, jp *joinPlan, need map[string]bo
 		if err := jp.fillMerged(env, i, left); err != nil {
 			return nil, err
 		}
+	}
+	if err := endIsolated(); err != nil {
+		return nil, err
 	}
 	return left, nil
 }
