@@ -1423,22 +1423,21 @@ func (e *executor) driverAggregate(ctx context.Context, plan *selectPlan, wp whe
 		groups[""] = newGroup(map[string]Value{})
 		order = append(order, "")
 	}
+	groupTypes := keyTypes(plan.sel.GroupBy, types)
 	for _, vals := range rows {
 		if err := cancelled(ctx); err != nil {
 			return nil, err
 		}
 		env.row = vals
+		// Values that compare equal are one group, as in Postgres ('1 mon'
+		// and '30 days', 0.0 and -0.0), and its first row represents it.
 		var key strings.Builder
-		for _, gexpr := range plan.sel.GroupBy {
+		for i, gexpr := range plan.sel.GroupBy {
 			v, err := env.eval(gexpr)
 			if err != nil {
 				return nil, invalidArg(err)
 			}
-			if v.Null {
-				key.WriteString("N\x00")
-			} else {
-				key.WriteString("V" + v.Text() + "\x00")
-			}
+			writeKey(&key, keyAs(v, groupTypes[i], env.zone()))
 		}
 		g, ok := groups[key.String()]
 		if !ok {

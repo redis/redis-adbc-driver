@@ -723,6 +723,7 @@ func computeWindowGroup(env *evalEnv, g *windowGroup, n int, setRow func(int)) e
 			keep[j] = make([]bool, n)
 		}
 	}
+	ptypes := keyTypes(g.spec.PartitionBy, env.types)
 	for i := 0; i < n; i++ {
 		if err := cancelled(env.ctx); err != nil {
 			return err
@@ -733,7 +734,7 @@ func computeWindowGroup(env *evalEnv, g *windowGroup, n int, setRow func(int)) e
 			if err != nil {
 				return err
 			}
-			pkeys[i*np+k] = v
+			pkeys[i*np+k] = keyAs(v, ptypes[k], ws.zone)
 		}
 		for k, o := range g.spec.OrderBy {
 			v, err := env.eval(o.Expr)
