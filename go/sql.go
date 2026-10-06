@@ -421,6 +421,10 @@ type SelectStmt struct {
 	FromFunc    *Func
 	FromLateral bool
 	FromColumns []string
+	// writtenGroupBy is GroupBy as written: planning resolves GroupBy in
+	// place (an ordinal or an alias becomes the expression it names), and
+	// planning again (a cached statement) resolves it from this.
+	writtenGroupBy []Expr
 }
 
 type InsertStmt struct {

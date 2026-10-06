@@ -710,7 +710,7 @@ func (gp *groupingPlan) setPlan(set []int, input *tableMeta) *selectPlan {
 	if input != nil {
 		sub.meta, sel.Where = input, nil
 	}
-	sel.GroupBy, sel.GroupingSets = nil, nil
+	sel.GroupBy, sel.writtenGroupBy, sel.GroupingSets = nil, nil, nil
 	sel.Having, sel.Qualify, sel.OrderBy, sel.Limit, sel.Offset = nil, nil, nil, nil, nil
 	sel.Distinct, sel.DistinctOn = false, nil
 	sub.items = make([]planItem, 0, len(set)+len(gp.aggs))

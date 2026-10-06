@@ -2311,6 +2311,24 @@ field, even if later rows have it.
     values could be taken for one when they held NUL bytes (`BYTEA` values,
     or text that was bound or ingested), in `GROUP BY`, `SELECT DISTINCT`,
     set operations and window partitions
+  - Unlike in Postgres, `GROUP BY`, `HAVING` and `QUALIFY` expressions may
+    use the select list's aliases (`HAVING n > 1` after `count(*) AS n`). A
+    bare name is an alias's only if no FROM item of the query has a column
+    of that name, so an input column comes first, also in a join. An
+    enclosing query's column comes after the alias, and a name two FROM
+    items have (`k` of `JOIN … USING (k)`) may be an alias's too. A
+    qualified name (`t.x`) is never an alias's
+  - **Upgrading from v0.0.12 and earlier:** in a join an alias came before
+    an input column of its name in these expressions too, even a qualified
+    one: after `SELECT CAST(x AS INTEGER) AS x … FROM t JOIN u …`,
+    `HAVING x > 1.3`, `HAVING t.x > 1.3` and `GROUP BY t.x` read the alias.
+    And a query planned again (a statement executed again or with
+    parameters, or a subquery in a `GROUP BY` item named by position or
+    alias, as in `GROUP BY 1, 2`) resolved its `GROUP BY` again from the
+    first plan's result: after `SELECT id AS w, max(v) AS id … GROUP BY w`
+    in a subquery, where `id` is an enclosing query's column, `w` had
+    become `id`, which then named the alias `id`: `aggregate functions are
+    not allowed in GROUP BY`
 - **Subqueries of a grouped query** (`GROUP BY`, or aggregates or `HAVING`
   without it) may read only its grouped columns, as in Postgres. That applies
   where the query computes a value per group: the SELECT list, `HAVING`,
