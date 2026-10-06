@@ -236,3 +236,35 @@ func TestToCharIssue90(t *testing.T) {
 		FROM it_tcx WHERE id = 1`,
 		"01:05:09.123 PM 47109 123 123000 []|2024-01-10 13:05:09 UTC +00|13h05m09s")
 }
+
+// #114: TO_CHAR of stored intervals and times, from the interval's own
+// fields, as in Postgres 16.
+func TestToCharIntervalRows(t *testing.T) {
+	h := newSQLHarness(t)
+	h.dropTables("it_tci")
+	h.exec(`CREATE TABLE it_tci (id INTEGER, iv INTERVAL, t TIME, started TIMESTAMP, ended TIMESTAMP)`)
+	h.exec(`INSERT INTO it_tci VALUES
+		(1, '1 year 2 mons 3 days 04:05:06.789', '13:05:09.5', '2024-01-01 12:00', '2024-03-01 00:00'),
+		(2, '-1 years -2 mons -3 days -04:05:06.789', '00:00', '2024-01-10 09:30:15', '2024-01-10 08:00'),
+		(3, '100:00:00', '24:00:00', NULL, NULL),
+		(4, NULL, NULL, NULL, NULL)`)
+	h.expectRows(`SELECT id, TO_CHAR(iv, 'YYYY-MM-DD HH24:MI:SS.MS DDD'), TO_CHAR(t, 'YYYY-MM-DD HH12:MI:SS AM'),
+			TO_CHAR(ended - started, 'FMDD "days" FMHH24 "h" FMMI "m"')
+		FROM it_tci ORDER BY id`,
+		"1|0001-02-03 04:05:06.789 423|0000-00-00 01:05:09 PM|59 days 12 h 0 m",
+		"2|-0001--02--3 -04:-05:-06.-789 -423|0000-00-00 12:00:00 AM|0 days -1 h -30 m",
+		"3|0000-00-00 100:00:00.000 000|0000-00-00 12:00:00 AM|NULL",
+		"4|NULL|NULL|NULL")
+	h.expectRows(`SELECT id FROM it_tci WHERE TO_CHAR(iv, 'HH24') = '100'`, "3")
+	h.expectRows(`SELECT TO_CHAR(MAX(iv), 'YYYY MM DD HH24'), TO_CHAR(MIN(iv), 'YYYY MM DD HH24') FROM it_tci`,
+		"0001 02 03 04|-0001 -02 -3 -04")
+	h.expectRows(`SELECT id, TO_CHAR(iv * 2, 'FMHH24'), TO_CHAR(t - TIME '06:00', 'HH24:MI') FROM it_tci ORDER BY id`,
+		"1|8|07:05", "2|-8|-06:00", "3|200|18:00", "4|NULL|NULL")
+	h.expectRows(`SELECT TO_CHAR(t, 'HH24') AS h, COUNT(*) FROM it_tci GROUP BY 1 ORDER BY 1`,
+		"00|1", "13|1", "24|1", "NULL|1")
+	// A pattern that needs a calendar date is an error on a row with a
+	// value, and not on a NULL.
+	h.expectErrorText(`SELECT TO_CHAR(iv, 'FMDay') FROM it_tci WHERE id = 1`, "invalid format specification for an interval value")
+	h.expectErrorText(`SELECT TO_CHAR(t, 'HH24 TZ') FROM it_tci WHERE id = 1`, "invalid format specification for an interval value")
+	h.expectRows(`SELECT TO_CHAR(iv, 'Day') FROM it_tci WHERE id = 4`, "NULL")
+}

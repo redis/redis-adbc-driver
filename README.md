@@ -2320,11 +2320,32 @@ field, even if later rows have it.
       abbreviation there (`UTC`, `PST` / `PDT`, `IST`; `tz` in lower case),
       and `TZH`, `TZM` and `OF` its offset (`-08`, `00` and `-08`; `+00`,
       `00` and `+00` in UTC). For a timestamp `TZ` is empty and the offset
-      `+00`. A time is formatted as on 1970-01-01
+      `+00`
     - Anything else is copied: text in double quotes (where `\` escapes the
       next character), `\"` (a `"`), and every character that doesn't start
       a pattern, so `Mm` is `Mm` while `Dd` is two weekday numbers, as in
       Postgres. An empty format gives NULL
+    - An interval is formatted from its own fields, as in Postgres: `YYYY`
+      is its years, `MM` the months left over (`TO_CHAR(INTERVAL '14 mons',
+      'YYYY MM')` is `0001 02`), `DD` its days and `HH24` its hours, which
+      can pass 23. `HH` / `HH12` are on a 12-hour clock, and `AM` / `PM`
+      follow the hour of the day. A negative interval's fields are negative,
+      and numbers are padded one wider for the sign (`YYYY` is `-0001`, `MM`
+      `-02`). `CC` is the years / 100, `DDD` the length in days with a month
+      as 30, `Q` and `RM` come from the months (empty without them), and
+      `J`, `IYYY`, `IW` and `IDDD` are Postgres's date arithmetic on the
+      fields. The patterns that need a calendar date (`MONTH`, `MON`, `DAY`,
+      `DY`, `D`, `ID`, `BC` / `AD`, `TZ`, `TZH`, `TZM` and `OF`) are an
+      error, as in Postgres: `invalid format specification for an interval
+      value`
+    - A time is formatted as the interval since midnight, because Postgres
+      casts it to one: `TO_CHAR(TIME '13:05', 'YYYY-MM-DD HH24:MI')` is
+      `0000-00-00 13:05`. The session time zone doesn't change it
+    - **Upgrading from v0.0.12 and earlier:** `TO_CHAR` of an interval was
+      an error (`expected a date, time or timestamp, got interval`), and a
+      time was formatted as on 1970-01-01: `YYYY` was `1970`, `J` `2440588`
+      and `Day` `Thursday`, and `TZ`, `D` and the other patterns that need a
+      calendar date gave a value
   - `TO_DATE(text, format)` and `TO_TIMESTAMP(text, format)` read the same
     templates as Postgres 16 does: every pattern above but `TZ`, `tz` and
     `OF`, which are an error (`formatting field "TZ" is only supported in
@@ -2419,7 +2440,7 @@ field, even if later rows have it.
       'America/Los_Angeles'` is 10:30 UTC), and one that the fall-back
       transition repeats with the offset after it (`TIMESTAMP '2024-11-03
       01:30'` is 01:30 PST, 09:30 UTC)
-    - Not supported: `TIME WITH TIME ZONE`, and `TO_CHAR` of an interval
+    - Not supported: `TIME WITH TIME ZONE`
 - Session time zone (`SET TIME ZONE`, `SET timezone = …`, the
   `adbc.redis.time_zone` option; UTC by default). Each connection has its
   own. As in Postgres, a `TIMESTAMP WITH TIME ZONE` is an instant, and the
@@ -2517,7 +2538,7 @@ field, even if later rows have it.
     nanoseconds in 64 bits (about ±2,562,047 hours); past that, and for a
     months or days count beyond 32 bits, it is "interval out of range"
   - `AGE(a, b)` / `AGE(x)` (years, months, days and time), and `EXTRACT`
-    on intervals
+    and `TO_CHAR` on intervals
   - Intervals are returned as Arrow `month_day_nano_interval`; Arrow
     interval and duration values can be bound and ingested
 - JSON stored as text in `VARCHAR` columns (there is no JSON column type).
