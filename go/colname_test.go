@@ -143,6 +143,16 @@ func TestFigureColname(t *testing.T) {
 		{"(SELECT count(*) AS c FROM t UNION SELECT 2 LIMIT 1)", "c"},
 		{"(SELECT max(t.v) FROM t1)", "max"}, // an aggregate of the outer query
 		{"(SELECT max(t.v) + 1 FROM t1)", "?column?"},
+		// A row, and a field of one.
+		{"(v, s)", "row"},
+		{"ROW(v)", "row"},
+		{"CAST(ROW(v, s) AS VARCHAR)", "row"},
+		{"(SELECT ROW(1, 2))", "row"},
+		{"(ROW(v, s)).f2", "f2"},
+		{"(ROW(v, s)).F2", "f2"},
+		{"CAST((ROW(v, s)).f1 AS VARCHAR)", "f1"},
+		{"CASE WHEN true THEN v ELSE (ROW(v, s)).f1 END", "f1"},
+		{"COALESCE(ROW(v, s), ROW(2, 'b'))", "coalesce"},
 		{"EXISTS (SELECT 1)", "exists"},
 		{"NOT EXISTS (SELECT 1)", "?column?"},
 		{"1 IN (SELECT 1)", "?column?"},
@@ -212,6 +222,10 @@ func TestOrderByOutputNames(t *testing.T) {
 		{"SELECT upper('a'), lower('b') AS upper FROM ivg ORDER BY upper", ambiguous("ORDER BY", "upper")},
 		{`SELECT 1, 2 ORDER BY "?column?"`, ambiguous("ORDER BY", "?column?")},
 		{`SELECT 1, 1 ORDER BY "?column?"`, "1|1"},
+		// A row is named row, and a field of one by the field.
+		{"SELECT CAST((ROW(id, iv)).f2 AS VARCHAR) FROM ivg ORDER BY f2", asText},
+		{`SELECT ROW(id) FROM n ORDER BY "row" DESC`, "(11)\n(10)\n(2)\n(1)"},
+		{`SELECT (id, id), ROW(id + 1) FROM n ORDER BY "row"`, ambiguous("ORDER BY", "row")},
 		// A subquery's ORDER BY names its own columns.
 		{"SELECT (SELECT CAST(i.iv AS VARCHAR) FROM ivg i ORDER BY iv LIMIT 1)", "1 day"},
 
@@ -228,6 +242,8 @@ func TestOrderByOutputNames(t *testing.T) {
 		{"SELECT DISTINCT ON (ivg.iv) CAST(iv AS VARCHAR) FROM ivg ORDER BY ivg.iv", "1 day\n1 day 02:00:00\n1 mon"},
 		{"SELECT DISTINCT ON (iv) CAST(iv AS VARCHAR) FROM ivg ORDER BY ivg.iv",
 			"error: SELECT DISTINCT ON expressions must match initial ORDER BY expressions"},
+		{"SELECT DISTINCT ON (f1) CAST((ROW(iv, id)).f1 AS VARCHAR), id FROM ivg ORDER BY f1, id DESC",
+			"1 day|5\n1 day 02:00:00|3\n1 mon|1\n24:00:00|6\n26:00:00|4\n30 days|2"},
 		{"SELECT DISTINCT ON (id) id, iv AS id FROM ivg ORDER BY 1", ambiguous("DISTINCT ON", "id")},
 		{"SELECT DISTINCT ON (iv) iv::text, iv FROM ivg ORDER BY iv", ambiguous("ORDER BY", "iv")},
 
@@ -236,6 +252,7 @@ func TestOrderByOutputNames(t *testing.T) {
 		{"SELECT count(*) FROM ivg UNION SELECT 7 ORDER BY count", "6\n7"},
 		{`SELECT 1 UNION SELECT 2 ORDER BY "?column?" DESC`, "2\n1"},
 		{"SELECT CAST(id AS VARCHAR) FROM n UNION SELECT '3' ORDER BY id", "1\n10\n11\n2\n3"},
+		{"SELECT (ROW(CAST(id AS VARCHAR))).f1 FROM n UNION SELECT '3' ORDER BY f1", "1\n10\n11\n2\n3"},
 	}
 	for _, c := range cases {
 		if got := memQuery(with + c.q); got != c.want {

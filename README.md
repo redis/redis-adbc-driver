@@ -2510,10 +2510,11 @@ field, even if later rows have it.
     `varchar`, `date`), a call by the function (`count`, `upper`; also
     `extract`, `btrim`, `timezone` for `EXTRACT`, `TRIM` and `AT TIME
     ZONE`), a scalar subquery by its column, `EXISTS` by `exists`, `CASE`
-    by its `ELSE` (or `case`), and an operator or a literal is
-    `?column?`. So after `SELECT CAST(iv AS VARCHAR) FROM t`, `ORDER BY
-    iv` sorts the text, not the interval (and the index can't sort it);
-    `ORDER BY t.iv`, a position or any other expression reads the input.
+    by its `ELSE` (or `case`), a row by `row`, a field `(r).f1` by the
+    field, and an operator or a literal is `?column?`. So after `SELECT
+    CAST(iv AS VARCHAR) FROM t`, `ORDER BY iv` sorts the text, not the
+    interval (and the index can't sort it); `ORDER BY t.iv`, a position or
+    any other expression reads the input.
     Output columns of the same name must be the same expression (`SELECT
     a, a … ORDER BY a`), otherwise it is `ORDER BY "a" is ambiguous`, as
     in `SELECT x::text, x … ORDER BY x`. `DISTINCT ON (…)` names columns

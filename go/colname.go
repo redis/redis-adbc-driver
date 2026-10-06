@@ -22,7 +22,8 @@ package redis
 // a function call by the function, CAST(x AS t) and x::t by x if that has a
 // name and by t's type name (int4, varchar) if not, CASE by its ELSE in the
 // same way (or "case"), a scalar subquery by its column, EXISTS by
-// "exists", and anything else (operators, literals) "?column?". The
+// "exists", a row by "row", a field (r).f1 by the field, and anything else
+// (operators, literals) "?column?". The
 // driver's own name for an unaliased expression is its text, so these are
 // kept apart (planItem.pgName).
 
@@ -83,6 +84,8 @@ func figureName(e Expr) (string, int) {
 		}
 	case *RowExpr:
 		return "row", 2
+	case *FieldSelect:
+		return x.Name, 2 // (r).f1
 	case *Literal:
 		// A typed literal (DATE '…', INTERVAL '1 day'), which Postgres reads
 		// as a cast of the string.
