@@ -84,14 +84,12 @@ func (e *executor) materializeCTE(ctx context.Context, def *CTE) (*tableMeta, er
 	if def.Search != nil || def.Cycle != nil {
 		return nil, errorf(adbc.StatusInvalidArgument, "WITH query is not recursive")
 	}
-	return e.materialize(ctx, def, def.Name, def.Select, def.Columns)
+	return e.materialize(ctx, def, def.Name, def.Select, def.Columns, hiddenLevel{})
 }
 
 // materializeRecursive evaluates a recursive CTE (see the file comment).
 func (e *executor) materializeRecursive(ctx context.Context, def *CTE, rc *recursionCheck) (*tableMeta, error) {
-	savedScopes, savedSq := e.scopes, e.pendingSq
-	e.scopes, e.pendingSq = nil, nil
-	defer func() { e.scopes, e.pendingSq = savedScopes, savedSq }()
+	defer e.hide(hiddenLevel{})()
 	body := def.Select
 	op := body.SetOp
 	pop, err := e.pushCTEs(body.With)

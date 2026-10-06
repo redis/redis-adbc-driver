@@ -437,7 +437,12 @@ func TestSQLLateral(t *testing.T) {
 	h.expectError(`SELECT * FROM it_qf_g g FULL JOIN generate_series(1, g.id) s ON TRUE`,
 		"the combining JOIN type must be INNER or LEFT for a LATERAL reference")
 	h.expectError(`SELECT * FROM LATERAL (SELECT y.id) t, it_qf_g y`, `missing FROM-clause entry for table "y"`)
-	h.expectError(`SELECT * FROM it_qf_g g, (SELECT g.id) t`, `missing FROM-clause entry for table "g"`)
+	// Without LATERAL, Postgres's error says to add it (#114).
+	h.expectErrorText(`SELECT * FROM it_qf_g g, (SELECT g.id) t`, lateralRef("g", "g"))
+	h.expectErrorText(`SELECT * FROM it_qf_g g, (SELECT it_qf_g.id) t`, lateralRef("it_qf_g", "g"))
+	h.expectErrorText(`SELECT * FROM it_qf_g g, (SELECT v FROM it_qf_g2) t`,
+		`column "v" does not exist in table "it_qf_g2"; there is a column named "v" in table "g", `+
+			`but it cannot be referenced from this part of the query; to reference that column, you must mark this subquery with LATERAL`)
 	h.expectError(`SELECT * FROM it_qf_g g, LATERAL (SELECT 1)`, "must have an alias")
 	h.expectError(`SELECT * FROM it_qf_g, LATERAL it_qf_g2`, "LATERAL must be followed by a subquery or a function call")
 }

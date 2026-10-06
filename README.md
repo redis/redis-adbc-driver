@@ -1761,9 +1761,24 @@ field, even if later rows have it.
     - `cross-database references are not implemented: other.s.t.col` for
       a catalog other than `redis`, and `improper qualified name (too many
       dotted names): a.b.c.d.e` for more than four names (also for `*`)
-    - A derived table that refers to an earlier FROM item without
-      `LATERAL` gets `missing FROM-clause entry` (Postgres: `invalid
-      reference …`, with a hint to add `LATERAL`)
+    - The same error with Postgres's hint, `…; to reference that table,
+      you must mark this subquery with LATERAL`, when a derived table
+      refers to an earlier FROM item without `LATERAL`: `select * from t,
+      (select t.v) s`, also from deeper in the derived table. The detail
+      names the item, `x` for `t` read as `x`. An unqualified column of
+      such an item is `column "v" does not exist; there is a column named
+      "v" in table "t", but it cannot be referenced from this part of the
+      query; to reference that column, you must mark this subquery with
+      LATERAL`, or, if several items have it, `…; there are columns named
+      "v", but they are in tables that cannot be referenced from this part
+      of the query; try using a table-qualified name`. As in Postgres,
+      there is no hint where `LATERAL` can't help: in the arguments of a
+      FROM function (which are `LATERAL` already), and on the right of a
+      `RIGHT` or `FULL` join. Up to v0.0.12 these were `missing
+      FROM-clause entry for table "t"` and `column "v" does not exist`
+    - A derived table or CTE can't read the columns of an enclosing query,
+      which Postgres allows: `select * from t where exists (select * from
+      u, (select t.v) s)` is `missing FROM-clause entry for table "t"`
 - `FETCH FIRST n ROWS ONLY` is `LIMIT n` (`FETCH FIRST ROW ONLY` is `LIMIT
   1`); `WITH TIES` is not supported, and a query has at most one `LIMIT` or
   `FETCH` (Postgres's "multiple LIMIT clauses not allowed")

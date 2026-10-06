@@ -117,7 +117,8 @@ func (e *executor) planJoin(ctx context.Context, sel *SelectStmt) (*tableMeta, [
 // addJoinItem resolves a FROM item (table, view, CTE or derived table) and
 // adds it to the join.
 func (e *executor) addJoinItem(ctx context.Context, jp *joinPlan, kind string, table *TableName, sub *SelectStmt, alias string) error {
-	rel, err := e.resolveFromItem(ctx, table, sub, alias)
+	lat := hiddenLevel{before: jp.rels(), noHint: kind == "RIGHT" || kind == "FULL"}
+	rel, err := e.resolveFromItem(ctx, table, sub, alias, lat)
 	if err != nil {
 		return err
 	}
@@ -166,6 +167,15 @@ func (jp *joinPlan) add(kind string, rel relation) (*joinItem, error) {
 // rel is the item's relation in the query's scope.
 func (it *joinItem) rel() relation {
 	return relation{name: it.alias, aliased: it.aliased, schema: it.schema, meta: it.base, prefix: it.prefix}
+}
+
+// rels are the relations of the items added so far.
+func (jp *joinPlan) rels() []relation {
+	rels := make([]relation, len(jp.items))
+	for i, it := range jp.items {
+		rels[i] = it.rel()
+	}
+	return rels
 }
 
 // ref is a reference to the item's column col, bound to the item itself

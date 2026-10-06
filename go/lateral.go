@@ -79,14 +79,10 @@ func (e *executor) addFromItem(ctx context.Context, jp *joinPlan, jc JoinClause)
 	// The item's own scope: the items before it, as seen from the query
 	// whose FROM clause this is (the pending subquery, if any, is that
 	// query's, and its scope is pushed later).
-	rels := make([]relation, len(jp.items))
-	for i, it := range jp.items {
-		rels[i] = it.rel()
-	}
-	sc := &scope{rels: rels, sq: e.pendingSq, needs: map[string]bool{}, aggClause: "FROM clause of their own query level"}
+	sc := &scope{rels: jp.rels(), sq: e.pendingSq, needs: map[string]bool{}, aggClause: "FROM clause of their own query level"}
 	e.scopes = append(e.scopes, sc)
 	if jc.Func != nil {
-		sc.aggClause = "functions in FROM"
+		sc.aggClause, sc.funcArgs = "functions in FROM", true
 		if alias == "" {
 			alias = strings.ToLower(jc.Func.Name)
 		}

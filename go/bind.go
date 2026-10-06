@@ -75,6 +75,22 @@ type scope struct {
 	// outerAggs are the aggregates of this scope's level that its
 	// subqueries hold (see bindAggregate).
 	outerAggs []*outerAggregate
+	// funcArgs is set for the scope of a FROM function's arguments, which
+	// are LATERAL already (see lateralOnly).
+	funcArgs bool
+}
+
+// hiddenLevel is what a derived table or CTE being planned can't see, one
+// per table or CTE it is in (see hide). outer are the scopes of the
+// queries around it: Postgres lets a derived table read them, the driver
+// doesn't. before are the FROM items before a derived table in its FROM
+// list, which only LATERAL makes visible; noHint is set if the table is
+// the right side of a RIGHT or FULL join, which LATERAL can't help. Only
+// errors read them.
+type hiddenLevel struct {
+	outer  []*scope
+	before []relation
+	noHint bool
 }
 
 // execCache holds per-statement results shared by nested executors.
@@ -551,16 +567,17 @@ func (e *executor) findColumn(c *ColumnRef) (int, columnMeta, error) {
 		}
 		if named > 0 {
 			// The item visible as the qualifier here has no such column.
-			return 0, columnMeta{}, noSuchColumn(&ref, sc)
+			return 0, columnMeta{}, noSuchColumn(&ref, sc, "")
 		}
 	}
 	if ref.Qualifier != "" {
 		return 0, columnMeta{}, e.missingFromEntry(q)
 	}
-	if top < 0 {
-		return 0, columnMeta{}, noSuchColumn(&ref, nil)
+	var sc *scope
+	if top >= 0 {
+		sc = e.scopes[top]
 	}
-	return 0, columnMeta{}, noSuchColumn(&ref, e.scopes[top])
+	return 0, columnMeta{}, noSuchColumn(&ref, sc, e.lateralColumn(ref.Name))
 }
 
 // correlate marks the subqueries whose bodies are the scopes from the
@@ -646,16 +663,50 @@ func (e *executor) readsTable(q qualName, rel relation) bool {
 }
 
 // noSuchColumn is the error for a column that the scope sc (nil for none)
-// doesn't have.
-func noSuchColumn(c *ColumnRef, sc *scope) error {
+// doesn't have, followed by detail if it isn't empty.
+func noSuchColumn(c *ColumnRef, sc *scope, detail string) error {
 	name := c.Name
 	if c.Qualifier != "" {
 		name = c.Qualifier + "." + c.Name
 	}
+	msg := fmt.Sprintf("column %q does not exist", name)
 	if sc != nil && len(sc.rels) == 1 {
-		return errorf(adbc.StatusInvalidArgument, "column %q does not exist in table %q", name, sc.rels[0].meta.Name)
+		msg = fmt.Sprintf("column %q does not exist in table %q", name, sc.rels[0].meta.Name)
 	}
-	return errorf(adbc.StatusInvalidArgument, "column %q does not exist", name)
+	if detail != "" {
+		msg += "; " + detail
+	}
+	return errorf(adbc.StatusInvalidArgument, "%s", msg)
+}
+
+// lateralColumn is Postgres's detail and hint (errorMissingColumn) for an
+// unqualified column that no visible item has, when FROM items that only
+// LATERAL would make visible have it (see lateralOnly); "" if none does.
+func (e *executor) lateralColumn(name string) string {
+	rels, hint := e.lateralOnly(func(rel relation) bool {
+		if rel.meta == nil {
+			return false
+		}
+		col, ok := rel.meta.column(name)
+		return ok && !(rel.prefix != "" && isSystemColumn(col.Name)) && !rel.hidden[col.Name]
+	})
+	switch {
+	case len(rels) == 0:
+		return ""
+	case len(rels) > 1:
+		return fmt.Sprintf("there are columns named %q, but they are in tables that cannot be referenced from this part of the query; try using a table-qualified name", name)
+	}
+	detail := fmt.Sprintf("there is a column named %q in table %q, but it cannot be referenced from this part of the query", name, rels[0].name)
+	if hint {
+		detail += "; to reference that column, you must mark this subquery with LATERAL"
+	}
+	return detail
+}
+
+// mentions reports whether q names rel, or the table rel reads (under an
+// alias): the items Postgres's errorMissingRTE looks for.
+func (e *executor) mentions(q qualName, rel relation) bool {
+	return rel.name != "" && (strings.EqualFold(rel.name, q.name) || e.readsTable(q, rel))
 }
 
 // missingFromEntry is Postgres's error (errorMissingRTE) for a qualifier
@@ -664,11 +715,12 @@ func noSuchColumn(c *ColumnRef, sc *scope) error {
 // invalid: Postgres's hint names the item's alias when it is the table
 // under an alias that is visible here, and otherwise its detail says the
 // item can't be referenced from here (as for s2.t where s1.t is read).
-// Else the entry is missing.
+// Else, if an item that only LATERAL would make visible does, the
+// reference is invalid too (lateralEntry). Else the entry is missing.
 func (e *executor) missingFromEntry(q qualName) error {
 	for i := len(e.scopes) - 1; i >= 0; i-- {
 		for j, rel := range e.scopes[i].rels {
-			if rel.name == "" || !(strings.EqualFold(rel.name, q.name) || e.readsTable(q, rel)) {
+			if !e.mentions(q, rel) {
 				continue
 			}
 			if rel.aliased && !strings.EqualFold(rel.name, q.name) && e.visibleAt(i, j) {
@@ -680,7 +732,56 @@ func (e *executor) missingFromEntry(q qualName) error {
 				q.name, rel.name)
 		}
 	}
+	if err := e.lateralEntry(q); err != nil {
+		return err
+	}
 	return errorf(adbc.StatusInvalidArgument, "missing FROM-clause entry for table %q", q.name)
+}
+
+// lateralEntry is Postgres's error for a qualifier that names no item in
+// scope, when a FROM item that only LATERAL would make visible is one that
+// q mentions (see lateralOnly): its detail names the first, and its hint
+// says to add LATERAL. It is nil if there is no such item.
+func (e *executor) lateralEntry(q qualName) error {
+	rels, hint := e.lateralOnly(func(rel relation) bool { return e.mentions(q, rel) })
+	if len(rels) == 0 {
+		return nil
+	}
+	msg := fmt.Sprintf("invalid reference to FROM-clause entry for table %q; there is an entry for table %q, but it cannot be referenced from this part of the query",
+		q.name, rels[0].name)
+	if hint {
+		msg += "; to reference that table, you must mark this subquery with LATERAL"
+	}
+	return errorf(adbc.StatusInvalidArgument, "%s", msg)
+}
+
+// lateralOnly returns the FROM items before the derived tables being
+// planned that match accepts, innermost table first: Postgres finds them,
+// but a derived table can't read them unless it is LATERAL. It returns
+// none if an item of the scopes around those tables matches, which
+// Postgres lets a derived table read (the driver doesn't), so that its
+// errors don't suggest LATERAL there. hint reports whether Postgres's
+// error for the first says to add LATERAL: not if its table is the right
+// side of a RIGHT or FULL join (see hiddenLevel), or if the reference is
+// in the arguments of a function in FROM, which are LATERAL already.
+func (e *executor) lateralOnly(match func(relation) bool) (rels []relation, hint bool) {
+	for k := len(e.hidden) - 1; k >= 0; k-- {
+		for _, sc := range e.hidden[k].outer {
+			if slices.ContainsFunc(sc.rels, match) {
+				return nil, false
+			}
+		}
+		for _, rel := range e.hidden[k].before {
+			if !match(rel) {
+				continue
+			}
+			if rels == nil {
+				hint = !e.hidden[k].noHint && (len(e.scopes) == 0 || !e.scopes[len(e.scopes)-1].funcArgs)
+			}
+			rels = append(rels, rel)
+		}
+	}
+	return rels, hint
 }
 
 // visibleAt reports whether item j of scope i is the one its name refers to
@@ -793,10 +894,11 @@ func memTable(name string, cols []resultColumn, rows [][]Value, rename []string)
 	return meta, nil
 }
 
-// materialize runs a query that has no access to enclosing scopes. While
+// materialize runs a query that has no access to enclosing scopes (see
+// hide; lat is what a derived table can't see of its own FROM list). While
 // only planning, it plans the query and returns an empty relation with its
 // columns (see empty.go).
-func (e *executor) materialize(ctx context.Context, key any, name string, sel *SelectStmt, rename []string) (*tableMeta, error) {
+func (e *executor) materialize(ctx context.Context, key any, name string, sel *SelectStmt, rename []string, lat hiddenLevel) (*tableMeta, error) {
 	if e.cache.materializing[key] {
 		if def, ok := key.(*CTE); ok && def.Recursive {
 			return nil, errorf(adbc.StatusNotImplemented, "mutual recursion between WITH items is not implemented")
@@ -805,9 +907,7 @@ func (e *executor) materialize(ctx context.Context, key any, name string, sel *S
 	}
 	e.cache.materializing[key] = true
 	defer delete(e.cache.materializing, key)
-	savedScopes, savedSq := e.scopes, e.pendingSq
-	e.scopes, e.pendingSq = nil, nil
-	defer func() { e.scopes, e.pendingSq = savedScopes, savedSq }()
+	defer e.hide(lat)()
 	plan, err := e.planSelect(ctx, sel, e.paramTypes)
 	if err != nil {
 		return nil, err
@@ -820,6 +920,17 @@ func (e *executor) materialize(ctx context.Context, key any, name string, sel *S
 		return nil, err
 	}
 	return memTable(name, plan.columns(), rows, rename)
+}
+
+// hide makes the enclosing scopes invisible while a derived table or CTE is
+// planned, and keeps them in hidden with lat (see hiddenLevel) for its
+// errors. The returned function restores them.
+func (e *executor) hide(lat hiddenLevel) func() {
+	scopes, sq, hidden := e.scopes, e.pendingSq, e.hidden
+	lat.outer = scopes
+	e.hidden = append(slices.Clip(hidden), lat)
+	e.scopes, e.pendingSq = nil, nil
+	return func() { e.scopes, e.pendingSq, e.hidden = scopes, sq, hidden }
 }
 
 // pushCTEs makes a statement's WITH list visible while it is planned; the
@@ -837,29 +948,34 @@ func (e *executor) pushCTEs(with []CTE) (func(), error) {
 		defs[key] = &with[i]
 	}
 	e.ctes = append(e.ctes, defs)
-	return func() { e.ctes = e.ctes[:len(e.ctes)-1] }, nil
+	e.cteHidden = append(e.cteHidden, len(e.hidden))
+	return func() {
+		e.ctes, e.cteHidden = e.ctes[:len(e.ctes)-1], e.cteHidden[:len(e.cteHidden)-1]
+	}, nil
 }
 
-// lookupCTE finds a CTE visible from the current query.
-func (e *executor) lookupCTE(name string) *CTE {
+// lookupCTE finds a CTE visible from the current query, and the index of
+// its WITH list in e.ctes.
+func (e *executor) lookupCTE(name string) (*CTE, int) {
 	for i := len(e.ctes) - 1; i >= 0; i-- {
 		if def, ok := e.ctes[i][strings.ToLower(name)]; ok {
-			return def
+			return def, i
 		}
 	}
-	return nil
+	return nil, -1
 }
 
 // fromRelation resolves the FROM clause of a SELECT (without joins) to a
 // relation.
 func (e *executor) fromRelation(ctx context.Context, sel *SelectStmt) (relation, error) {
-	return e.resolveFromItem(ctx, sel.From, sel.FromSelect, sel.FromAlias)
+	return e.resolveFromItem(ctx, sel.From, sel.FromSelect, sel.FromAlias, hiddenLevel{})
 }
 
 // resolveFromItem resolves one FROM item: a table, a view, a CTE, or a
-// derived table. The relation is named by the alias, or else by the item's
-// name; meta is nil if there is no item.
-func (e *executor) resolveFromItem(ctx context.Context, table *TableName, sub *SelectStmt, alias string) (relation, error) {
+// derived table (which can't see lat, see hiddenLevel). The relation is
+// named by the alias, or else by the item's name; meta is nil if there is
+// no item.
+func (e *executor) resolveFromItem(ctx context.Context, table *TableName, sub *SelectStmt, alias string, lat hiddenLevel) (relation, error) {
 	rel := relation{name: alias, aliased: alias != ""}
 	switch {
 	case sub != nil:
@@ -867,7 +983,7 @@ func (e *executor) resolveFromItem(ctx context.Context, table *TableName, sub *S
 			rel.meta = m
 			return rel, nil
 		}
-		m, err := e.materialize(ctx, sub, alias, sub, nil)
+		m, err := e.materialize(ctx, sub, alias, sub, nil, lat)
 		if err != nil {
 			return relation{}, err
 		}
@@ -887,7 +1003,7 @@ func (e *executor) resolveFromItem(ctx context.Context, table *TableName, sub *S
 			return rel, err
 		}
 		if table.Schema == "" && table.Catalog == "" {
-			if def := e.lookupCTE(table.Name); def != nil {
+			if def, list := e.lookupCTE(table.Name); def != nil {
 				if m, ok := e.cache.working[def]; ok {
 					// The recursive reference of a recursive CTE.
 					rel.meta = m
@@ -897,7 +1013,11 @@ func (e *executor) resolveFromItem(ctx context.Context, table *TableName, sub *S
 					rel.meta = m
 					return rel, nil
 				}
+				// Its body can't see what its WITH list's query can't.
+				hidden := e.hidden
+				e.hidden = slices.Clip(hidden[:min(e.cteHidden[list], len(hidden))])
 				m, err := e.materializeCTE(ctx, def)
+				e.hidden = hidden
 				if err != nil {
 					return relation{}, err
 				}

@@ -277,16 +277,20 @@ func (s *store) listViews(ctx context.Context, schema string) ([]string, error) 
 // names resolve to temporary objects only if temp is set.
 func (e *executor) isolated(schema string, temp bool, fn func() error) error {
 	saved := struct {
-		scopes []*scope
-		sq     *Subquery
-		ctes   []map[string]*CTE
-		schema string
-		outer  *evalEnv
-		noTemp bool
-	}{e.scopes, e.pendingSq, e.ctes, e.schema, e.outer, e.noTemp}
-	e.scopes, e.pendingSq, e.ctes, e.schema, e.outer, e.noTemp = nil, nil, nil, schema, nil, !temp
+		scopes    []*scope
+		sq        *Subquery
+		ctes      []map[string]*CTE
+		hidden    []hiddenLevel
+		cteHidden []int
+		schema    string
+		outer     *evalEnv
+		noTemp    bool
+	}{e.scopes, e.pendingSq, e.ctes, e.hidden, e.cteHidden, e.schema, e.outer, e.noTemp}
+	e.scopes, e.pendingSq, e.ctes, e.hidden, e.cteHidden = nil, nil, nil, nil, nil
+	e.schema, e.outer, e.noTemp = schema, nil, !temp
 	defer func() {
-		e.scopes, e.pendingSq, e.ctes, e.schema, e.outer, e.noTemp = saved.scopes, saved.sq, saved.ctes, saved.schema, saved.outer, saved.noTemp
+		e.scopes, e.pendingSq, e.ctes, e.hidden, e.cteHidden = saved.scopes, saved.sq, saved.ctes, saved.hidden, saved.cteHidden
+		e.schema, e.outer, e.noTemp = saved.schema, saved.outer, saved.noTemp
 	}()
 	return fn()
 }

@@ -43,7 +43,12 @@ type executor struct {
 	scopes     []*scope
 	pendingSq  *Subquery
 	ctes       []map[string]*CTE
-	now        time.Time // CURRENT_TIMESTAMP etc., fixed per statement
+	// hidden is what the derived table or CTE being planned can't see
+	// (see hiddenLevel), and cteHidden[i] its length when ctes[i] was
+	// pushed: a CTE's body is planned with that much of it.
+	hidden    []hiddenLevel
+	cteHidden []int
+	now       time.Time // CURRENT_TIMESTAMP etc., fixed per statement
 	// noTemp stops unqualified names from resolving to temporary objects
 	// (inside permanent views).
 	noTemp bool
@@ -787,6 +792,14 @@ func (e *executor) planSelect(ctx context.Context, sel *SelectStmt, paramTypes [
 		itemStart[i] = len(plan.items)
 		if it.Star {
 			if plan.meta == nil {
+				if len(it.StarOf) > 0 {
+					// As in Postgres, for an item only LATERAL makes visible.
+					if q, err := starQual(it.StarOf); err == nil {
+						if err := e.lateralEntry(q); err != nil {
+							return nil, err
+						}
+					}
+				}
 				return nil, errorf(adbc.StatusInvalidArgument, "SELECT %s requires a FROM clause", it.Text)
 			}
 			cols, err := e.starColumns(plan.meta, rels, jp != nil, it.StarOf)
@@ -972,6 +985,21 @@ func (e *executor) planSelect(ctx context.Context, sel *SelectStmt, paramTypes [
 	return plan, nil
 }
 
+// starQual is the qualifier of rel.*, written as the names qual.
+func starQual(qual []string) (qualName, error) {
+	if len(qual) > 3 {
+		return qualName{}, errorf(adbc.StatusInvalidArgument, "improper qualified name (too many dotted names): %s.*", strings.Join(qual, "."))
+	}
+	q := qualName{name: qual[len(qual)-1]}
+	if len(qual) >= 2 {
+		q.schema = qual[len(qual)-2]
+	}
+	if len(qual) == 3 {
+		q.catalog = qual[0]
+	}
+	return q, q.checkCatalog("*")
+}
+
 // starColumns returns the columns `*` or `rel.*` expands to, where rels are
 // the innermost scope's. The qualifier of rel.* names an item as a column's
 // does (see names); in a join, the star is that item's columns (named
@@ -984,17 +1012,8 @@ func (e *executor) starColumns(meta *tableMeta, rels []relation, joined bool, qu
 		}
 		return meta.Columns, nil
 	}
-	if len(qual) > 3 {
-		return nil, errorf(adbc.StatusInvalidArgument, "improper qualified name (too many dotted names): %s.*", strings.Join(qual, "."))
-	}
-	q := qualName{name: qual[len(qual)-1]}
-	if len(qual) >= 2 {
-		q.schema = qual[len(qual)-2]
-	}
-	if len(qual) == 3 {
-		q.catalog = qual[0]
-	}
-	if err := q.checkCatalog("*"); err != nil {
+	q, err := starQual(qual)
+	if err != nil {
 		return nil, err
 	}
 	var match *relation
