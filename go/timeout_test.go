@@ -141,7 +141,7 @@ func TestTimeoutResolve(t *testing.T) {
 
 // Every URI parameter that go-redis parses reaches the cluster client, as
 // it does the single-endpoint client, under the driver's own settings
-// (credentials options, RESP2, no CLIENT SETINFO, the timeouts).
+// (credentials options, RESP3 by default, no CLIENT SETINFO, the timeouts).
 func TestClientURIOptions(t *testing.T) {
 	fields := func(t *testing.T, what string, opts any, want map[string]any) {
 		t.Helper()
@@ -164,7 +164,7 @@ func TestClientURIOptions(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := map[string]any{
-		"Username": "app", "Password": "from-option", "ClientName": "etl", "Protocol": 2, "DisableIdentity": true,
+		"Username": "app", "Password": "from-option", "ClientName": "etl", "Protocol": 3, "DisableIdentity": true,
 		"MaxRetries": 2, "MinRetryBackoff": 20 * time.Millisecond, "MaxRetryBackoff": 2 * time.Second,
 		"DialTimeout": 3 * time.Second, "ReadTimeout": 30 * time.Second, "WriteTimeout": 40 * time.Second,
 		"PoolFIFO": true, "PoolSize": 7, "PoolTimeout": 9 * time.Second, "MinIdleConns": 1, "MaxIdleConns": 4,
@@ -197,12 +197,21 @@ func TestClientURIOptions(t *testing.T) {
 	}
 	fields(t, "cluster", cfg.cluster, map[string]any{"ConnMaxIdleTime": 2 * time.Minute, "ConnMaxLifetime": 3 * time.Hour})
 
-	// No URI: the address.
+	// RESP2 remains an explicit compatibility option for both clients.
+	cfg, err = (&databaseImpl{uri: "redis://h1:7000?protocol=2"}).clientConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.single.Protocol != 2 || cfg.cluster.Protocol != 2 {
+		t.Errorf("protocol=2: single %d, cluster %d", cfg.single.Protocol, cfg.cluster.Protocol)
+	}
+
+	// No URI: the address, with the RESP3 default.
 	cfg, err = (&databaseImpl{address: "h9:6380", username: "u"}).clientConfig()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(cfg.cluster.Addrs, []string{"h9:6380"}) || cfg.cluster.Username != "u" || cfg.cluster.Protocol != 2 {
+	if !slices.Equal(cfg.cluster.Addrs, []string{"h9:6380"}) || cfg.cluster.Username != "u" || cfg.cluster.Protocol != 3 {
 		t.Errorf("from the address: %+v", cfg.cluster)
 	}
 }

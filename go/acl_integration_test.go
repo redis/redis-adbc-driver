@@ -427,7 +427,7 @@ func TestACLExecAbort(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	opts.Protocol, opts.DisableIdentity = 2, true // as the driver's
+	opts.Protocol, opts.DisableIdentity = 3, true // the driver's default
 	client := newClient(newClientConfig(opts), a.cluster, timeouts{read: time.Minute, write: time.Minute})
 	defer client.Close()
 	key := metaKey("public", "it_acl_x")
@@ -472,7 +472,7 @@ func TestACLSearchCommandsAndKeys(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		opts.Protocol, opts.DisableIdentity = 2, true // as the driver's
+		opts.Protocol, opts.DisableIdentity = 3, true // the driver's default
 		c := newClient(newClientConfig(opts), a.cluster, timeouts{read: time.Minute, write: time.Minute})
 		t.Cleanup(func() { _ = c.Close() })
 		return &store{client: c}

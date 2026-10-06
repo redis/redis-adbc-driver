@@ -669,6 +669,39 @@ func TestSQLAlterTypeBig(t *testing.T) {
 	}
 }
 
+// Dropped-column cleanup can HDEL an indexed field between cursor pages,
+// replacing the source index's document ids. Force that overlap so a cursor
+// that skips rows must be detected and the missing copies rescanned.
+func TestSQLAlterTypeCleanupDuringCursor(t *testing.T) {
+	h := newSQLHarness(t)
+	h.dropTables("it_at_cleanup")
+	raw := h.rawClient()
+	const n = 20000
+	h.exec(fmt.Sprintf(`CREATE TABLE it_at_cleanup AS SELECT g AS id, CAST(g AS text) AS c, g %% 7 AS k FROM generate_series(1, %d) AS s(g)`, n))
+	prefix, oldIndex := h.tableNames(raw, defaultSchema, "it_at_cleanup")
+	first := true
+	t.Cleanup(func() { testHookRewriteStep = nil })
+	testHookRewriteStep = func(ctx context.Context, step string) {
+		if step != "copy" || !first {
+			return
+		}
+		first = false
+		for start := 1; start <= n; start += pipelineChunk {
+			pipe := raw.Pipeline()
+			for i := start; i < start+pipelineChunk && i <= n; i++ {
+				pipe.HDel(ctx, prefix+fmt.Sprint(i), "k")
+			}
+			if _, err := pipe.Exec(ctx); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	h.exec(`ALTER TABLE it_at_cleanup DROP COLUMN k, ALTER COLUMN c TYPE bigint USING c::bigint * 2`)
+	testHookRewriteStep = nil
+	h.expectRows(`SELECT count(*), sum(c), min(c), max(c) FROM it_at_cleanup`, fmt.Sprintf("%d|%d|2|%d", n, n*(n+1), 2*n))
+	h.expectReleased(raw, prefix, oldIndex)
+}
+
 func (h *sqlHarness) expectAttrs(raw goredis.UniversalClient, table, want string) {
 	h.t.Helper()
 	if got := h.attrTypes(raw, table); got != want {

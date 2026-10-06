@@ -616,79 +616,146 @@ type indexAttr struct {
 	options               []string
 }
 
-// indexInfoOf reads an FT.INFO reply (RESP2: a flat list of names and
-// values).
+// redisReplyMap normalizes a RESP3 map. The generic go-redis command parser
+// returns map[any]any; map[string]any is also accepted for fixtures and typed
+// callers.
+func redisReplyMap(reply any) (map[string]any, bool) {
+	switch m := reply.(type) {
+	case map[string]any:
+		return m, true
+	case map[any]any:
+		out := make(map[string]any, len(m))
+		for k, v := range m {
+			if key, ok := k.(string); ok {
+				out[key] = v
+			}
+		}
+		return out, true
+	default:
+		return nil, false
+	}
+}
+
+// redisReplyFields normalizes an alternating RESP2 name/value list or a
+// RESP3 map.
+func redisReplyFields(reply any) (map[string]any, bool) {
+	if fields, ok := redisReplyMap(reply); ok {
+		return fields, true
+	}
+	list, ok := reply.([]any)
+	if !ok {
+		return nil, false
+	}
+	out := make(map[string]any, len(list)/2)
+	for i := 0; i+1 < len(list); i += 2 {
+		if key, ok := list[i].(string); ok {
+			out[key] = list[i+1]
+		}
+	}
+	return out, true
+}
+
+func redisReplyInt64(v any) (int64, bool) {
+	switch n := v.(type) {
+	case int64:
+		return n, true
+	case int:
+		return int64(n), true
+	case int32:
+		return int64(n), true
+	case uint64:
+		if n <= uint64(^uint64(0)>>1) {
+			return int64(n), true
+		}
+	case uint:
+		return int64(n), true
+	case string:
+		parsed, err := strconv.ParseInt(n, 10, 64)
+		return parsed, err == nil
+	}
+	return 0, false
+}
+
+// indexInfoOf reads an FT.INFO reply: a flat list of names and values in
+// RESP2, or a map with map-valued definitions and attributes in RESP3.
 func indexInfoOf(reply any) indexInfo {
 	var info indexInfo
-	list, _ := reply.([]any)
-	for i := 0; i+1 < len(list); i += 2 {
-		k, _ := list[i].(string)
+	fields, _ := redisReplyFields(reply)
+	for k, value := range fields {
 		switch k {
 		case "index_definition":
-			def, _ := list[i+1].([]any)
-			for j := 0; j+1 < len(def); j += 2 {
-				dk, _ := def[j].(string)
-				switch dk {
-				case "key_type":
-					info.keyType = fmt.Sprint(def[j+1])
-				case "prefixes":
-					ps, _ := def[j+1].([]any)
-					for _, p := range ps {
-						info.prefixes = append(info.prefixes, fmt.Sprint(p))
-					}
-				case "filter":
-					info.filter = fmt.Sprint(def[j+1])
+			def, _ := redisReplyFields(value)
+			info.keyType = fmt.Sprint(def["key_type"])
+			if def["key_type"] == nil {
+				info.keyType = ""
+			}
+			if ps, ok := def["prefixes"].([]any); ok {
+				for _, p := range ps {
+					info.prefixes = append(info.prefixes, fmt.Sprint(p))
 				}
+			}
+			if def["filter"] != nil {
+				info.filter = fmt.Sprint(def["filter"])
 			}
 		case "num_docs":
-			info.numDocs, _ = strconv.ParseInt(fmt.Sprint(list[i+1]), 10, 64)
+			info.numDocs, _ = strconv.ParseInt(fmt.Sprint(value), 10, 64)
 		case "hash_indexing_failures":
-			info.failures, _ = strconv.ParseInt(fmt.Sprint(list[i+1]), 10, 64)
+			info.failures, _ = strconv.ParseInt(fmt.Sprint(value), 10, 64)
 		case "indexing":
-			info.indexing = fmt.Sprint(list[i+1]) != "0"
+			info.indexing = fmt.Sprint(value) != "0"
 		case "percent_indexed":
-			info.percent, _ = strconv.ParseFloat(fmt.Sprint(list[i+1]), 64)
+			info.percent, _ = strconv.ParseFloat(fmt.Sprint(value), 64)
 		case "Index Errors":
-			errs, _ := list[i+1].([]any)
-			for j := 0; j+1 < len(errs); j += 2 {
-				switch fmt.Sprint(errs[j]) {
-				case "last indexing error":
-					info.lastError = fmt.Sprint(errs[j+1])
-				case "last indexing error key":
-					info.lastErrorKey = fmt.Sprint(errs[j+1])
-				}
-			}
+			errs, _ := redisReplyFields(value)
+			info.lastError = fmt.Sprint(errs["last indexing error"])
+			info.lastErrorKey = fmt.Sprint(errs["last indexing error key"])
 		case "attributes":
-			attrs, _ := list[i+1].([]any)
+			attrs, _ := value.([]any)
 			for _, a := range attrs {
-				parts, _ := a.([]any)
-				var at indexAttr
-				for j := 0; j < len(parts); j++ {
-					name := fmt.Sprint(parts[j])
-					switch {
-					case j+1 < len(parts) && (name == "identifier" || name == "attribute" || name == "type"):
-						v := fmt.Sprint(parts[j+1])
-						j++
-						switch name {
-						case "identifier":
-							at.identifier = v
-						case "attribute":
-							at.name = v
-						default:
-							at.typ = v
-						}
-					case j+1 < len(parts) && name == "SEPARATOR":
-						at.options = append(at.options, name+" "+fmt.Sprint(parts[j+1]))
-						j++
-					default:
-						at.options = append(at.options, name)
-					}
-				}
-				info.attrs = append(info.attrs, at)
+				info.attrs = append(info.attrs, indexAttrOf(a))
 			}
 		}
 	}
 	return info
+}
+
+func indexAttrOf(reply any) indexAttr {
+	if fields, ok := redisReplyMap(reply); ok { // RESP3
+		at := indexAttr{identifier: fmt.Sprint(fields["identifier"]), name: fmt.Sprint(fields["attribute"]), typ: fmt.Sprint(fields["type"])}
+		if fields["SEPARATOR"] != nil {
+			at.options = append(at.options, "SEPARATOR "+fmt.Sprint(fields["SEPARATOR"]))
+		}
+		if flags, ok := fields["flags"].([]any); ok {
+			for _, flag := range flags {
+				at.options = append(at.options, fmt.Sprint(flag))
+			}
+		}
+		return at
+	}
+	parts, _ := reply.([]any) // RESP2
+	var at indexAttr
+	for j := 0; j < len(parts); j++ {
+		name := fmt.Sprint(parts[j])
+		switch {
+		case j+1 < len(parts) && (name == "identifier" || name == "attribute" || name == "type"):
+			v := fmt.Sprint(parts[j+1])
+			j++
+			switch name {
+			case "identifier":
+				at.identifier = v
+			case "attribute":
+				at.name = v
+			default:
+				at.typ = v
+			}
+		case j+1 < len(parts) && name == "SEPARATOR":
+			at.options = append(at.options, name+" "+fmt.Sprint(parts[j+1]))
+			j++
+		default:
+			at.options = append(at.options, name)
+		}
+	}
+	return at
 }
 
 // ensureRegistry records the prefixes and indexes of tables created before

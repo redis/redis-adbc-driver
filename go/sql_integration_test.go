@@ -861,7 +861,9 @@ func (h *sqlHarness) rawClient() goredis.UniversalClient {
 	if err != nil {
 		h.t.Fatal(err)
 	}
-	opts.Protocol = 2 // the driver's reply parsing expects RESP2
+	// Keep the test-inspection client on RESP2: a few helpers below inspect
+	// raw replies directly. Driver connections use the configured protocol.
+	opts.Protocol = 2
 	var c goredis.UniversalClient = goredis.NewClient(opts)
 	if info, err := c.Info(h.ctx, "cluster").Result(); err == nil && strings.Contains(info, "cluster_enabled:1") {
 		_ = c.Close()

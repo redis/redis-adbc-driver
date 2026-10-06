@@ -365,7 +365,7 @@ func TestAdoptIndexFailure(t *testing.T) {
 // The commands adopt needs besides the driver's, and those an UPDATE of an
 // adopted table needs (README).
 var (
-	aclAdoptCommands = []string{"+scan"}
+	aclAdoptCommands = []string{"+scan", "+hkeys"}
 	aclUpdateAdopted = []string{"+hlen", "+eval", "+evalsha", "+script|load"}
 )
 
