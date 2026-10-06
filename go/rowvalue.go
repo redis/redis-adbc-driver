@@ -241,7 +241,13 @@ func (e *executor) bindRowOperator(ctx context.Context, b *Binary) error {
 	if isDistinctOp(op) {
 		op = "=" // the operator IS DISTINCT FROM uses
 	}
-	return stateErrorf(stateUndefinedFunction, "operator does not exist: %s %s %s", sigTypeName(lt), op, sigTypeName(rt))
+	name := func(x Expr, t ColType) string {
+		if arithmeticOps[op] && unknownLiteral(x) {
+			return "unknown" // a quoted literal's type (see unknown.go)
+		}
+		return sigTypeName(t)
+	}
+	return stateErrorf(stateUndefinedFunction, "operator does not exist: %s %s %s", name(b.L, lt), op, name(b.R, rt))
 }
 
 // bindRowOperand binds the row operand of an IN / ANY / ALL subquery.

@@ -245,6 +245,10 @@ func (env *evalEnv) eval(e Expr) (Value, error) {
 			}
 			return boolValue(!b), nil
 		}
+		if o, ok := operatorLiteral(x); ok {
+			_, _, err := o.typeNext(typeNull) // - unknown
+			return Value{}, err
+		}
 		return negate(v)
 	case *Binary:
 		switch x.Op {
@@ -294,6 +298,11 @@ func (env *evalEnv) eval(e Expr) (Value, error) {
 		r, err := env.eval(x.R)
 		if err != nil {
 			return Value{}, err
+		}
+		if o, ok := operatorLiteral(x); ok {
+			if l, r, err = env.literalOperands(x, o, l, r); err != nil {
+				return Value{}, err
+			}
 		}
 		return binaryOp(x.Op, l, r, env.zone())
 	case *RowExpr:
@@ -416,6 +425,70 @@ func (env *evalEnv) literalAs(v Value, e Expr) (Value, error) {
 	return coerceIn(v, t, env.zone())
 }
 
+// literalOperands returns l and r, the values of the operands of x, an
+// arithmetic operator with the quoted string literal o (operatorLiteral),
+// with the literal read as the type it takes there (literalOperandType), in
+// the session time zone: in id + '1', '1' is an integer. Next to an operand
+// whose type isn't known (a parameter without a value), it takes the type
+// of the other value, and the result is NULL if that is NULL.
+func (env *evalEnv) literalOperands(x Expr, o opLiteral, l, r Value) (Value, Value, error) {
+	v, ov := &r, l
+	if o.left {
+		v, ov = &l, r
+	}
+	t, ok, err := env.literalOperandType(x, o)
+	if err != nil {
+		return Value{}, Value{}, err
+	}
+	if !ok {
+		if ov.Null {
+			*v = nullValue(typeNull)
+			return l, r, nil
+		}
+		if t, _, err = o.typeNext(ov.T); err != nil {
+			return Value{}, Value{}, err
+		}
+	}
+	if *v, err = coerceIn(*v, t, env.zone()); err != nil {
+		return Value{}, Value{}, err
+	}
+	return l, r, nil
+}
+
+// literalOperandType returns the type of o, the quoted string literal of
+// x, an arithmetic operator, as inferType gives it (typeNext, cached for
+// the statement); ok is false if it isn't known.
+func (env *evalEnv) literalOperandType(x Expr, o opLiteral) (ColType, bool, error) {
+	typed := func() (ColType, bool, error) {
+		var params []ColType
+		if env.exec != nil {
+			params = env.exec.paramTypes
+		}
+		t, err := inferType(o.other, env.types, params)
+		if err != nil {
+			return ColType{}, false, nil // taken from the value
+		}
+		return o.typeNext(t)
+	}
+	ex := env.exec
+	if ex == nil {
+		return typed()
+	}
+	ex.ensureCache()
+	if t, ok := ex.cache.literalTypes[x]; ok {
+		return t, t.Kind != KindNull, nil
+	}
+	t, ok, err := typed()
+	if err != nil {
+		return ColType{}, false, err
+	}
+	if !ok {
+		t = typeNull
+	}
+	ex.cache.literalTypes[x] = t
+	return t, ok, nil
+}
+
 // concatValues joins the text of the non-NULL values with sep, in the
 // session time zone z.
 func concatValues(sep string, args []Value, z tzZone) Value {
@@ -472,6 +545,13 @@ func (env *evalEnv) evalFunc(f *Func) (Value, error) {
 			return Value{}, err
 		}
 		args[i] = v
+	}
+	if o, ok := operatorLiteral(f); ok {
+		// MOD (%) reads a quoted literal as an operator does.
+		var err error
+		if args[0], args[1], err = env.literalOperands(f, o, args[0], args[1]); err != nil {
+			return Value{}, err
+		}
 	}
 	if d.impl != implCoalesce && d.impl != implConditional && !seesPadding[f.Name] {
 		// Functions take CHAR values as text, without their padding.
@@ -886,6 +966,10 @@ func inferType(e Expr, cols map[string]ColType, params []ColType) (ColType, erro
 		if x.Op == "NOT" {
 			return typeBool, nil
 		}
+		if o, ok := operatorLiteral(x); ok {
+			_, _, err := o.typeNext(typeNull) // - unknown
+			return ColType{}, err
+		}
 		return inferType(x.X, cols, params)
 	case *Binary:
 		switch {
@@ -901,6 +985,26 @@ func inferType(e Expr, cols map[string]ColType, params []ColType) (ColType, erro
 		r, err := inferType(x.R, cols, params)
 		if err != nil {
 			return ColType{}, err
+		}
+		if o, ok := operatorLiteral(x); ok {
+			// A quoted string literal takes a type from the operator and
+			// the other operand.
+			other := r
+			if !o.left {
+				other = l
+			}
+			t, ok, err := o.typeNext(other)
+			if err != nil {
+				return ColType{}, err
+			}
+			if !ok {
+				return typeNull, nil // next to a parameter without a value
+			}
+			if o.left {
+				l = t
+			} else {
+				r = t
+			}
 		}
 		return arithmeticType(x.Op, l, r)
 	case *Func:
@@ -926,6 +1030,21 @@ func inferType(e Expr, cols map[string]ColType, params []ColType) (ColType, erro
 			if _, err := commonExprType(x.Name, parts, args[len(args)-len(parts):], numLits); err != nil {
 				return ColType{}, err
 			}
+		}
+		if o, ok := operatorLiteral(x); ok {
+			// MOD (%) of a quoted literal: as an operator's.
+			i, j := 0, 1
+			if !o.left {
+				i, j = 1, 0
+			}
+			t, ok, err := o.typeNext(args[j])
+			if err != nil {
+				return ColType{}, err
+			}
+			if !ok {
+				return typeNull, nil
+			}
+			args[i] = t
 		}
 		return inferFuncType(x, args), nil
 	case *Subquery:
