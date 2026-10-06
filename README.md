@@ -3190,8 +3190,9 @@ field, even if later rows have it.
   - `INTERVAL '1 year 2 months 3 days 04:05:06'`, `'1.5 hours'`, `'2 days ago'`,
     `'3 04:05:06'`, `'1-2'` (years-months), ISO 8601 `'P1Y2M3DT4H'` (also
     in the alternative format, `'P0001-02-03T04:05:06'`),
-    `INTERVAL '2' HOUR`, `INTERVAL 7 DAY` / `INTERVAL ? DAY`, and
-    `CAST('7 days' AS INTERVAL)`
+    `INTERVAL '2' HOUR`, `INTERVAL '1-2' YEAR TO MONTH`, `INTERVAL '1.5'
+    SECOND(0)`, `INTERVAL(0) '1.5'`, `INTERVAL 7 DAY` / `INTERVAL ? DAY`,
+    and `CAST('7 days' AS INTERVAL)`
     - A literal is read as Postgres 16 reads it. Each field's integer part
       is exact, and its fraction cascades into the smaller units: a month
       is 30 days, a week 7 days and a day 24 hours (`'1.5 months'` is `1
@@ -3209,6 +3210,52 @@ field, even if later rows have it.
       (`'1:30.5'` is `00:01:30.5`). Its minutes go up to 59 and its seconds
       to 60, and the months of years-months to 11: past them, it is
       `interval field value out of range: "1:75:00"`, as in Postgres
+    - The fields are read from right to left, as in Postgres, so that a
+      unit comes before its number: a number without a unit has the unit
+      of the number to its right, but after hours or a clock it is days
+      (`'1 2 hours'` is `1 day 02:00:00`, `'1-2 years'` is `1 year 2
+      mons`), and the rightmost is seconds (`'1 day 5'` is `1 day
+      00:00:05`). Each unit is given once: `'1 day 2 days'`, `'01:00
+      02:00'` and `'1.5 seconds 3 microseconds'` (a fraction of a second is
+      its milliseconds and microseconds too) are `invalid input syntax for
+      type interval: "…"`, as is `'1 2'`. `ago` may be anywhere (`'1 day
+      ago 2 hours'` is `-1 days -02:00:00`). The units are Postgres's, which
+      include `c`, `cent`, `dec`, `mil`, `usecond` and `msecond`, and
+      punctuation between fields is a separator (`'@ 1 day, 2 hours'`).
+      An ISO 8601 number is read as C's `strtod` reads it, also in
+      hexadecimal (`'P0x10Y'` is `16 years`)
+    - With fields (`INTERVAL '…' HOUR`, `DAY TO MINUTE`, `MINUTE TO SECOND`
+      and Postgres's other qualifiers), the rightmost number without a
+      unit is the last field, and the fields after it are dropped, the
+      time truncated toward zero, as in Postgres: `INTERVAL '1.5' HOUR` is
+      `01:00:00`, `INTERVAL '1 day 02:30' HOUR` is `1 day 02:00:00`, and
+      `INTERVAL '1:30' MINUTE TO SECOND` is `00:01:30`. `SECOND(p)` and
+      `INTERVAL(p) '…'` round the time to `p` decimals, half away from
+      zero. `INTERVAL n HOUR` and `INTERVAL ? HOUR` drop them too
+      (`INTERVAL 1.5 HOUR` is `01:00:00`)
+    - **Differences from Postgres:** `INTERVAL n UNIT` with an expression,
+      and `INTERVAL 'n' UNIT` with a unit that isn't a qualifier's field
+      (`HOURS`, `WEEK`, `QUARTER`), which keeps its fraction (`INTERVAL
+      '1.5' HOURS` is `01:30:00`), are driver extensions; Postgres reads
+      `INTERVAL '1.5' hours` as an interval of 1.5 seconds named `hours`.
+      The qualifier of a column or a cast (`CAST(x AS INTERVAL HOUR)`) is
+      ignored
+    - **Upgrading from v0.0.12 and earlier:** the fields were read from
+      left to right and added up: `'1 2 hours'` was `02:00:01`, `'1 2'`
+      `00:00:03`, `'1-2 years'` an error, and a unit given twice was
+      summed (`'1 day 2 days'` was `3 days`). The driver also read
+      quarters (`'1 quarter'` was `3 mons`), lower-case ISO 8601
+      (`'p1d'`), ISO 8601 text with spaces around it (`CAST(' P1D' AS
+      INTERVAL)`), `'1.seconds'`, `'-.5 hours'`, `'ago'` (`00:00:00`) and
+      `'1 ago'`, and `ago` only at the end, but not `'1 c'`, `'1d2h'` or
+      `'@ 1 day'`. `INTERVAL '1.5' HOUR` and `INTERVAL 1.5 HOUR` were
+      `01:30:00`, `INTERVAL '1 day 02:30' HOUR` was "INTERVAL HOUR needs a
+      number", `INTERVAL '1e3' SECOND` was `00:16:40`, and any units were
+      accepted around `TO` (`YEAR TO DAY`). Text that isn't an interval
+      was `invalid interval "…"` (with the same SQLSTATE, 22007), and a
+      field past its part of the interval (`'2147483648 days'`) was
+      "interval out of range" (22008), not `interval field value out of
+      range: "…"` (22015)
     - **Upgrading from v0.0.12 and earlier:** the fields were summed as
       nanoseconds in doubles, so a literal's time past about 2,500 hours
       wasn't exact (`'1000000:00:00.000001'` was `1000000:00:00.000001024`),

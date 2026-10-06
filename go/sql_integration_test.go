@@ -1341,8 +1341,8 @@ func TestSQLIntervals(t *testing.T) {
 
 	// Errors.
 	h.expectError(`SELECT TIMESTAMP '2024-01-01 00:00:00' + 1`, "not supported")
-	h.expectError(`SELECT INTERVAL 'abc'`, "invalid interval")
-	h.expectError(`SELECT INTERVAL 'x' HOUR`, "needs a number")
+	h.expectError(`SELECT INTERVAL 'abc'`, `invalid input syntax for type interval: "abc"`)
+	h.expectError(`SELECT INTERVAL 'x' HOURS`, "needs a number")
 	h.expectError(`SELECT INTERVAL '1 day' / 0`, "division by zero")
 }
 
