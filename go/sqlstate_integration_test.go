@@ -221,6 +221,8 @@ func TestSQLErrorStates(t *testing.T) {
 		{`ALTER TABLE it_err ALTER COLUMN n TYPE BIGINT USING GROUPING(n)`, arg, "42803", "grouping operations are not allowed in transform expressions"},
 		{`ALTER TABLE it_err ALTER COLUMN n TYPE BIGINT USING generate_series(1, 2)`, notImp, "0A000", "set-returning functions are not allowed in transform expressions"},
 		{`ALTER TABLE it_err ALTER COLUMN n TYPE BIGINT USING nope`, absent, "42703", `column "nope" does not exist`},
+		{`ALTER TABLE it_err ALTER COLUMN n TYPE RECORD`, arg, "42P16", `column "n" has pseudo-type record`},
+		{`ALTER TABLE it_err ALTER COLUMN n TYPE VARCHAR(0)`, data, "22023", "length for type varchar must be at least 1"},
 	} {
 		checkState(t, c.sql, h.stmtErr(c.sql, nil), c.code, c.state, c.msg)
 	}

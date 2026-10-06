@@ -2458,7 +2458,10 @@ func (p *parser) parseAlterType(cmd *AlterCmd) error {
 	}
 	ct, err := colTypeFromSQL(spec)
 	if err != nil {
-		return &sqlError{msg: err.Error()}
+		return parseErr(err)
+	}
+	if ct.Kind == KindRecord {
+		return &sqlError{msg: fmt.Sprintf("column %q has pseudo-type record", cmd.Column), state: stateTableDefinition}
 	}
 	if p.isKeyword("COLLATE") {
 		return &sqlError{msg: `COLLATE is not supported: strings compare by their bytes, as with Postgres's "C" collation`}
