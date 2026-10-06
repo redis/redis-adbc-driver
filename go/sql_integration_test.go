@@ -2104,7 +2104,7 @@ func TestSQLMerge(t *testing.T) {
 	reset()
 	h.expectError(`MERGE INTO it_m_tgt t USING (SELECT 1 AS id, 5 AS q UNION ALL SELECT NULL, 6) s ON t.id = s.id
 		WHEN MATCHED THEN UPDATE SET qty = s.q
-		WHEN NOT MATCHED THEN INSERT (id, qty) VALUES (s.id, s.q)`, `NULL value in column "id" violates not-null constraint`)
+		WHEN NOT MATCHED THEN INSERT (id, qty) VALUES (s.id, s.q)`, `null value in column "id" of relation "it_m_tgt" violates not-null constraint`)
 	h.expectError(`MERGE INTO it_m_tgt t USING it_m_src s ON t.id = s.id
 		WHEN MATCHED AND s.op = 'del' THEN UPDATE SET qty = 'many'
 		WHEN MATCHED THEN UPDATE SET qty = s.qty`, `column "qty"`)

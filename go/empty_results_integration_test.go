@@ -445,7 +445,7 @@ func TestSQLEmptyKeepsChecks(t *testing.T) {
 
 	// Rows written next to an input that has none are checked.
 	const check = `new row for relation "it_empty_chk" violates check constraint "it_empty_chk_v_check"`
-	const notNull = `NULL value in column "id" violates not-null constraint`
+	const notNull = `null value in column "id" of relation "it_empty_chk" violates not-null constraint`
 	h.expectError(`INSERT INTO it_empty_chk SELECT 2, -1 FROM it_empty_t WHERE id = 1
 		UNION ALL SELECT 3, 1 FROM it_empty_t WHERE false`, check)
 	h.expectError("INSERT INTO it_empty_chk SELECT t.id + 1, -1 FROM it_empty_t t LEFT JOIN it_empty_u u ON false WHERE t.id = 1", check)

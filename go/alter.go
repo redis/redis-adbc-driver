@@ -43,11 +43,16 @@ package redis
 //   - ALTER COLUMN … SET / DROP DEFAULT: only rows inserted later see the
 //     change.
 //   - ALTER COLUMN … SET NOT NULL checks that no existing row reads NULL,
-//     then marks the column; DROP NOT NULL only unmarks it.
+//     then marks the column; DROP NOT NULL only unmarks it (not a column of
+//     the primary key).
 //   - ADD COLUMN … CHECK and ADD CONSTRAINT … CHECK check the existing rows
 //     against the new constraint, then add it; DROP CONSTRAINT removes one
 //     (see check.go). DROP COLUMN drops the constraints that read the column,
 //     and RENAME COLUMN rewrites them.
+//   - ADD PRIMARY KEY (and ADD COLUMN … PRIMARY KEY) makes the key's columns
+//     NOT NULL, checking the existing rows as SET NOT NULL does, and records
+//     the key (see pkey.go). DROP CONSTRAINT drops it by name, and DROP
+//     COLUMN with one of its columns; its columns stay NOT NULL.
 
 import (
 	"context"
@@ -316,6 +321,11 @@ func cloneMeta(m *tableMeta) *tableMeta {
 	c.RetiredFields = slices.Clone(m.RetiredFields)
 	c.PendingCleanup = slices.Clone(m.PendingCleanup)
 	c.Checks = slices.Clone(m.Checks)
+	if m.PrimaryKey != nil {
+		key := *m.PrimaryKey
+		key.Fields = slices.Clone(key.Fields)
+		c.PrimaryKey = &key
+	}
 	return &c
 }
 
@@ -474,6 +484,13 @@ const (
 	rankAddColumn = 40
 	// AT_PASS_COL_ATTRS: ALTER COLUMN … SET NOT NULL.
 	rankSetNotNull = 60
+	// AT_PASS_ADD_INDEX: ADD PRIMARY KEY, and the PRIMARY KEY of an ADD
+	// COLUMN. Postgres finds a key column named twice two passes before (in
+	// AT_PASS_ADD_CONSTR), and one that doesn't exist, as it makes them NOT
+	// NULL, one pass before (in AT_PASS_COL_ATTRS). No other step reads what
+	// those find or change, so alterAddKey does all of it here, in that
+	// order.
+	rankAddIndex = 80
 	// AT_PASS_ADD_OTHERCONSTR, in the order the steps join it: ALTER COLUMN
 	// … SET DEFAULT (when the statement is prepared), then the CHECKs of the
 	// ADD COLUMNs (in AT_PASS_ADD_COL), then those of ADD CONSTRAINT (in
@@ -483,11 +500,13 @@ const (
 	rankAddConstraint = 92
 )
 
-// alterStep is one step of an ALTER TABLE: an action, or the CHECKs of an
-// ADD COLUMN, which Postgres adds in a later pass than the column.
+// alterStep is one step of an ALTER TABLE: an action, or the CHECKs or the
+// PRIMARY KEY of an ADD COLUMN, which Postgres adds in later passes than the
+// column.
 type alterStep struct {
 	cmd    *AlterCmd
 	checks bool // the CHECKs of cmd, an ADD COLUMN
+	key    bool // the PRIMARY KEY of cmd, an ADD COLUMN
 	rank   int
 }
 
@@ -505,6 +524,13 @@ func alterOrder(cmds []AlterCmd) []alterStep {
 			rank = rankAddColumn
 			if len(c.Def.Checks) > 0 {
 				steps = append(steps, alterStep{cmd: c, checks: true, rank: rankColumnChecks})
+			}
+			if len(c.Def.PrimaryKeys) > 0 {
+				steps = append(steps, alterStep{cmd: c, key: true, rank: rankAddIndex})
+			}
+		case AlterAddConstraint:
+			if c.Key != nil {
+				rank = rankAddIndex
 			}
 		case AlterSetNotNull:
 			rank = rankSetNotNull
@@ -525,7 +551,8 @@ func alterOrder(cmds []AlterCmd) []alterStep {
 func (e *executor) applyAlter(ctx context.Context, m *tableMeta, cmds []AlterCmd, taken map[string]bool) (*alterResult, error) {
 	res := &alterResult{}
 	had := len(m.Columns)
-	// The ADD COLUMN IF NOT EXISTS skipped, with their CHECKs.
+	// The ADD COLUMN IF NOT EXISTS skipped, with their CHECKs and PRIMARY
+	// KEY.
 	skipped := map[*AlterCmd]bool{}
 	for _, step := range alterOrder(cmds) {
 		cmd := step.cmd
@@ -534,6 +561,10 @@ func (e *executor) applyAlter(ctx context.Context, m *tableMeta, cmds []AlterCmd
 		case step.checks:
 			if !skipped[cmd] {
 				err = e.alterColumnChecks(ctx, m, cmd.Def, res)
+			}
+		case step.key:
+			if !skipped[cmd] {
+				err = alterAddKey(m, cmd.Def.PrimaryKeys[0], res)
 			}
 		case cmd.Action == AlterAddColumn:
 			var added bool
@@ -545,6 +576,8 @@ func (e *executor) applyAlter(ctx context.Context, m *tableMeta, cmds []AlterCmd
 			err = e.alterDefault(ctx, m, *cmd, res)
 		case cmd.Action == AlterSetNotNull, cmd.Action == AlterDropNotNull:
 			err = alterNotNull(m, *cmd, res)
+		case cmd.Action == AlterAddConstraint && cmd.Key != nil:
+			err = alterAddKey(m, *cmd.Key, res)
 		case cmd.Action == AlterAddConstraint:
 			err = e.alterAddConstraint(ctx, m, cmd.Check, res)
 		case cmd.Action == AlterDropConstraint:
@@ -574,12 +607,13 @@ func columnMissing(column, table string) error {
 }
 
 // alterAddColumn applies ADD COLUMN, without the column's CHECKs (see
-// alterColumnChecks), and reports whether it added the column (IF NOT
-// EXISTS skips one that exists). The column gets a HASH field no current or
-// dropped column has used. With a DEFAULT, existing rows read the default as
-// it is now, recorded as the column's missing value (see defaults.go), so
-// it must be the same for all of them. Without one they read NULL, so with
-// NOT NULL the table must have no rows (checked with the rows).
+// alterColumnChecks) and PRIMARY KEY (alterAddKey), and reports whether it
+// added the column (IF NOT EXISTS skips one that exists). The column gets a
+// HASH field no current or dropped column has used. With a DEFAULT, existing
+// rows read the default as it is now, recorded as the column's missing value
+// (see defaults.go), so it must be the same for all of them. Without one
+// they read NULL, so with NOT NULL (or PRIMARY KEY) the table must have no
+// rows (checked with the rows).
 func (e *executor) alterAddColumn(ctx context.Context, m *tableMeta, cmd AlterCmd, taken map[string]bool, res *alterResult) (bool, error) {
 	// The application may have the field in its HASHes, and missing
 	// values count on row ids that the driver hands out.
@@ -590,6 +624,11 @@ func (e *executor) alterAddColumn(ctx context.Context, m *tableMeta, cmd AlterCm
 	if err := checkColumnName(def.Name); err != nil {
 		return false, err
 	}
+	if len(def.PrimaryKeys) > 1 {
+		return false, multipleKeys(m.Name)
+	}
+	// As in Postgres, a key column is NOT NULL from the start.
+	def.NotNull = def.NotNull || len(def.PrimaryKeys) > 0
 	if _, ok := m.resolve(def.Name); ok {
 		if cmd.IfColumnNotExists {
 			res.log("add %q: exists", def.Name)
@@ -653,8 +692,9 @@ func (e *executor) alterColumnChecks(ctx context.Context, m *tableMeta, def Colu
 
 // alterDropColumn applies DROP COLUMN. The column disappears from the
 // metadata; its field is retired (never reused) and removed from the rows
-// later. As in Postgres, the CHECK constraints that read it go too. Drops
-// come before the other actions, so the column is one the table had.
+// later. As in Postgres, the CHECK constraints that read it go too, and the
+// primary key if it is one of its columns. Drops come before the other
+// actions, so the column is one the table had.
 func alterDropColumn(m *tableMeta, cmd AlterCmd, res *alterResult) error {
 	i, ok := m.resolve(cmd.Column)
 	if !ok {
@@ -685,8 +725,12 @@ func alterDropColumn(m *tableMeta, cmd AlterCmd, res *alterResult) error {
 		gone = append(gone, k.Name)
 		return true
 	})
+	if m.inKey(c) {
+		gone = append(gone, m.PrimaryKey.Name)
+		m.PrimaryKey = nil
+	}
 	m.Columns = slices.Delete(m.Columns, i, i+1)
-	res.log("drop %q field %q checks %q", c.Name, f, gone)
+	res.log("drop %q field %q constraints %q", c.Name, f, gone)
 	return nil
 }
 
@@ -714,8 +758,9 @@ func (e *executor) alterDefault(ctx context.Context, m *tableMeta, cmd AlterCmd,
 }
 
 // alterNotNull applies ALTER COLUMN … SET NOT NULL and DROP NOT NULL. As in
-// Postgres, either is a no-op on a column that already is so, and SET NOT
-// NULL on a nullable column has the existing rows checked.
+// Postgres, either is a no-op on a column that already is so, SET NOT NULL
+// on a nullable column has the existing rows checked, and DROP NOT NULL
+// refuses a column of the primary key.
 func alterNotNull(m *tableMeta, cmd AlterCmd, res *alterResult) error {
 	i, ok := m.resolve(cmd.Column)
 	if !ok {
@@ -723,6 +768,9 @@ func alterNotNull(m *tableMeta, cmd AlterCmd, res *alterResult) error {
 	}
 	col := &m.Columns[i]
 	set := cmd.Action == AlterSetNotNull
+	if !set && m.inKey(*col) {
+		return errorf(adbc.StatusInvalidArgument, "column %q is in a primary key", col.Name)
+	}
 	// The trace says whether the rows are checked, so that a column whose
 	// NOT NULL was dropped meanwhile isn't set without that.
 	check := set && col.Nullable
@@ -734,8 +782,9 @@ func alterNotNull(m *tableMeta, cmd AlterCmd, res *alterResult) error {
 	return nil
 }
 
-// alterAddConstraint applies ADD CONSTRAINT. chk is nil for the PRIMARY KEY,
-// UNIQUE and FOREIGN KEY constraints, which are accepted and ignored.
+// alterAddConstraint applies ADD CONSTRAINT … CHECK (PRIMARY KEY is
+// alterAddKey). chk is nil for the UNIQUE and FOREIGN KEY constraints, which
+// are accepted and ignored.
 func (e *executor) alterAddConstraint(ctx context.Context, m *tableMeta, chk *CheckDef, res *alterResult) error {
 	if chk == nil {
 		res.log("constraint ignored")
@@ -749,9 +798,15 @@ func (e *executor) alterAddConstraint(ctx context.Context, m *tableMeta, chk *Ch
 	return nil
 }
 
-// alterDropConstraint applies DROP CONSTRAINT, for CHECK constraints (the
-// only ones kept).
+// alterDropConstraint applies DROP CONSTRAINT, for CHECK constraints and the
+// primary key (the only ones kept). The key's columns stay NOT NULL, as in
+// Postgres.
 func alterDropConstraint(m *tableMeta, cmd AlterCmd, res *alterResult) error {
+	if k := m.PrimaryKey; k != nil && strings.EqualFold(k.Name, cmd.Constraint) {
+		m.PrimaryKey = nil
+		res.log("drop constraint %q", k.Name)
+		return nil
+	}
 	i := slices.IndexFunc(m.Checks, func(c checkMeta) bool { return strings.EqualFold(c.Name, cmd.Constraint) })
 	if i < 0 {
 		if cmd.IfConstraintExists {

@@ -138,7 +138,7 @@ func TestSQLDefaultsInsert(t *testing.T) {
 	// An explicit NULL stays NULL; DEFAULT for a column without one is NULL.
 	h.exec(`INSERT INTO it_def_d (a, b) VALUES (4, NULL)`)
 	h.exec(`INSERT INTO it_def_d VALUES (DEFAULT, 6, NULL, DEFAULT)`)
-	h.expectError(`INSERT INTO it_def_d (a, s) VALUES (5, NULL)`, `NULL value in column "s" violates not-null constraint`)
+	h.expectError(`INSERT INTO it_def_d (a, s) VALUES (5, NULL)`, `null value in column "s" of relation "it_def_d" violates not-null constraint`)
 	// INSERT … SELECT with a column list.
 	if n := h.exec(`INSERT INTO it_def_d (a, b) SELECT a + 100, b * 2 FROM it_def_d WHERE a = 1`); n != 1 {
 		t.Errorf("INSERT … SELECT affected %d rows, want 1", n)
@@ -182,7 +182,7 @@ func TestSQLDefaultsInsert(t *testing.T) {
 		v VARCHAR DEFAULT CAST(NULL AS VARCHAR))`)
 	h.expectRows(`SELECT column_name, column_default FROM information_schema.columns
 		WHERE table_name = 'it_def_null' ORDER BY ordinal_position`, "a|NULL", "s|NULL", "v|NULL")
-	h.expectError(`INSERT INTO it_def_null (a) VALUES (1)`, `NULL value in column "s" violates not-null constraint`)
+	h.expectError(`INSERT INTO it_def_null (a) VALUES (1)`, `null value in column "s" of relation "it_def_null" violates not-null constraint`)
 
 	// CREATE TABLE … AS copies values, not defaults.
 	h.exec(`CREATE TABLE it_def_ctas AS SELECT a, b, s FROM it_def_d`)
@@ -321,7 +321,7 @@ func TestSQLAddColumnDefault(t *testing.T) {
 	}
 	h.exec(`INSERT INTO it_def_add (id, label) VALUES (5, 'e')`)
 	h.exec(`INSERT INTO it_def_add (id, label, qty, tag, blank) VALUES (6, 'f', NULL, 'new', NULL), (7, 'g', 13, 'new', 'x')`)
-	h.expectError(`INSERT INTO it_def_add (id, tag) VALUES (99, NULL)`, `NULL value in column "tag" violates not-null constraint`)
+	h.expectError(`INSERT INTO it_def_add (id, tag) VALUES (99, NULL)`, `null value in column "tag" of relation "it_def_add" violates not-null constraint`)
 	all := []string{"1|a|7|old|", "2|b|7|old|", "3|c|7|old|", "4|d|7|old|", "5|e|7|old|", "6|f|NULL|new|NULL", "7|g|13|new|x"}
 	h.expectRows(`SELECT * FROM it_def_add ORDER BY id`, all...)
 	h.expectRows(`SELECT * FROM it_def_add WHERE __rowid = 2`, all[1])

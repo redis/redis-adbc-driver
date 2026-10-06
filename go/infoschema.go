@@ -29,6 +29,13 @@ package redis
 //	views    (table_catalog, table_schema, table_name, view_definition)
 //	routines (routine_catalog, routine_schema, routine_name, routine_type,
 //	          function_kind, min_arguments, max_arguments, alias_of)
+//	table_constraints (constraint_catalog, constraint_schema,
+//	          constraint_name, table_catalog, table_schema, table_name,
+//	          constraint_type, is_deferrable, initially_deferred, enforced,
+//	          nulls_distinct)
+//	key_column_usage (constraint_catalog, constraint_schema,
+//	          constraint_name, table_catalog, table_schema, table_name,
+//	          column_name, ordinal_position, position_in_unique_constraint)
 //
 // The connection's own temporary tables and views are included under schema
 // pg_temp (temporary tables with table_type LOCAL TEMPORARY, as in
@@ -38,7 +45,13 @@ package redis
 // without one). character_maximum_length is the n of VARCHAR(n) / CHAR(n)
 // (NULL without one) and character_octet_length its bytes at up to 4 per
 // character (1073741824 without one), as in Postgres. routines lists the
-// driver's functions (see routineRows).
+// driver's functions (see routineRows). table_constraints lists each table's
+// primary key and CHECK constraints (the constraints kept), with Postgres's
+// columns; enforced is NO for a primary key, whose uniqueness isn't enforced
+// (see pkey.go). Postgres also lists each NOT NULL there, as a CHECK with a
+// name made of object ids; the driver doesn't (see columns.is_nullable).
+// key_column_usage lists the columns of each primary key, with their
+// position in the key.
 
 import (
 	"context"
@@ -100,6 +113,30 @@ var infoSchemaColumns = map[string][]resultColumn{
 		{Name: "min_arguments", Type: typeInt32},
 		{Name: "max_arguments", Type: typeInt32},
 		{Name: "alias_of", Type: typeString},
+	},
+	"table_constraints": {
+		{Name: "constraint_catalog", Type: typeString},
+		{Name: "constraint_schema", Type: typeString},
+		{Name: "constraint_name", Type: typeString},
+		{Name: "table_catalog", Type: typeString},
+		{Name: "table_schema", Type: typeString},
+		{Name: "table_name", Type: typeString},
+		{Name: "constraint_type", Type: typeString},
+		{Name: "is_deferrable", Type: typeString},
+		{Name: "initially_deferred", Type: typeString},
+		{Name: "enforced", Type: typeString},
+		{Name: "nulls_distinct", Type: typeString},
+	},
+	"key_column_usage": {
+		{Name: "constraint_catalog", Type: typeString},
+		{Name: "constraint_schema", Type: typeString},
+		{Name: "constraint_name", Type: typeString},
+		{Name: "table_catalog", Type: typeString},
+		{Name: "table_schema", Type: typeString},
+		{Name: "table_name", Type: typeString},
+		{Name: "column_name", Type: typeString},
+		{Name: "ordinal_position", Type: typeInt32},
+		{Name: "position_in_unique_constraint", Type: typeInt32},
 	},
 }
 
@@ -260,9 +297,47 @@ func (e *executor) infoSchemaTable(ctx context.Context, name string) (*tableMeta
 				}
 				rows = append(rows, []Value{stringValue(catalogName), stringValue(schema), stringValue(v), stringValue(vm.SQL)})
 			}
+		case "table_constraints", "key_column_usage":
+			metas, err := e.store.getTables(ctx, stored, tables)
+			if err != nil {
+				return nil, err
+			}
+			for _, m := range metas {
+				if m != nil { // nil: dropped meanwhile
+					rows = append(rows, constraintRows(key, schema, m)...)
+				}
+			}
 		}
 	}
 	return memTable(key, cols, rows, nil)
+}
+
+// constraintRows renders a table's rows of information_schema.table_constraints
+// or key_column_usage (key), listed under schema: the primary key, then the
+// CHECK constraints.
+func constraintRows(key, schema string, m *tableMeta) [][]Value {
+	cat, sch, table := stringValue(catalogName), stringValue(schema), stringValue(m.Name)
+	var rows [][]Value
+	if key == "key_column_usage" {
+		if m.PrimaryKey != nil {
+			for i, c := range m.keyColumns() {
+				rows = append(rows, []Value{cat, sch, stringValue(m.PrimaryKey.Name), cat, sch, table,
+					stringValue(c), intValue(typeInt32, int64(i+1)), nullValue(typeInt32)})
+			}
+		}
+		return rows
+	}
+	row := func(name, kind string, enforced bool) []Value {
+		return []Value{cat, sch, stringValue(name), cat, sch, table, stringValue(kind),
+			yesNo(false), yesNo(false), yesNo(enforced), nullValue(typeString)}
+	}
+	if m.PrimaryKey != nil {
+		rows = append(rows, row(m.PrimaryKey.Name, "PRIMARY KEY", false))
+	}
+	for _, c := range m.Checks {
+		rows = append(rows, row(c.Name, "CHECK", true))
+	}
+	return rows
 }
 
 // getTables reads the metadata of several tables in one round trip. As in

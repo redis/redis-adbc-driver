@@ -367,7 +367,11 @@ func (e *executor) runCreateTable(ctx context.Context, st *CreateTableStmt) erro
 	if err := meta.applyIndexPolicy(nil, noIndex); err != nil {
 		return err
 	}
-	if meta.Checks, err = e.defineChecks(ctx, meta, st.Checks); err != nil {
+	err = definePrimaryKey(meta, st.PrimaryKeys, func() (err error) {
+		meta.Checks, err = e.defineChecks(ctx, meta, st.Checks)
+		return err
+	})
+	if err != nil {
 		return err
 	}
 	_, err = e.store.createTable(ctx, meta, st.IfNotExists)
@@ -599,6 +603,11 @@ func insertRow(env *evalEnv, meta *tableMeta, defs *columnDefaults, checks *tabl
 	return row, nil
 }
 
+// notNullErr is Postgres's error for a NULL written to a NOT NULL column.
+func notNullErr(column, table string) error {
+	return errorf(adbc.StatusIntegrity, "null value in column %q of relation %q violates not-null constraint", column, table)
+}
+
 // checkNewRow checks a row to be inserted (ordered like meta.Columns)
 // against the column lengths (cutting trailing spaces beyond them, see
 // lengths.go), NOT NULL and then the table's CHECK constraints, as Postgres
@@ -609,7 +618,7 @@ func checkNewRow(meta *tableMeta, checks *tableChecks, row []Value) error {
 	}
 	for i, c := range meta.Columns {
 		if row[i].Null && !c.Nullable {
-			return errorf(adbc.StatusIntegrity, "NULL value in column %q violates not-null constraint", c.Name)
+			return notNullErr(c.Name, meta.Name)
 		}
 	}
 	return checks.check(row)
@@ -1503,7 +1512,7 @@ func setValues(env *evalEnv, meta *tableMeta, cols []int, sets []SetClause) ([]V
 	}
 	for i, v := range vals {
 		if col := meta.Columns[cols[i]]; v.Null && !col.Nullable {
-			return nil, errorf(adbc.StatusIntegrity, "NULL value in column %q violates not-null constraint", col.Name)
+			return nil, notNullErr(col.Name, meta.Name)
 		}
 	}
 	return vals, nil

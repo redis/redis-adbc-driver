@@ -129,8 +129,8 @@ func TestSQLAlterNotNull(t *testing.T) {
 	h.exec(`UPDATE it_nn SET v = 0 WHERE v IS NULL`)
 	h.exec(`ALTER TABLE it_nn ALTER COLUMN v SET NOT NULL`)
 	h.expectNullable("it_nn", "id=NO", "v=NO", "s=YES")
-	h.expectQueryError(`INSERT INTO it_nn (id) VALUES (4)`, adbc.StatusIntegrity, `NULL value in column "v" violates not-null constraint`)
-	h.expectQueryError(`UPDATE it_nn SET v = NULL WHERE id = 1`, adbc.StatusIntegrity, `NULL value in column "v" violates not-null constraint`)
+	h.expectQueryError(`INSERT INTO it_nn (id) VALUES (4)`, adbc.StatusIntegrity, `null value in column "v" of relation "it_nn" violates not-null constraint`)
+	h.expectQueryError(`UPDATE it_nn SET v = NULL WHERE id = 1`, adbc.StatusIntegrity, `null value in column "v" of relation "it_nn" violates not-null constraint`)
 	// SET NOT NULL again, and DROP NOT NULL of a nullable column, change
 	// nothing, as in Postgres.
 	h.exec(`ALTER TABLE it_nn ALTER COLUMN v SET NOT NULL`)
@@ -163,7 +163,7 @@ func TestSQLAlterNotNull(t *testing.T) {
 		ADD COLUMN x integer, ALTER COLUMN x SET NOT NULL`)
 	h.expectNullable("it_nn_empty", "id=YES", "v=NO", "w=NO", "x=NO")
 	h.expectQueryError(`INSERT INTO it_nn_empty (id, v, x) VALUES (1, 1, 1)`, adbc.StatusIntegrity,
-		`NULL value in column "w" violates not-null constraint`)
+		`null value in column "w" of relation "it_nn_empty" violates not-null constraint`)
 	h.exec(`INSERT INTO it_nn_empty VALUES (1, 1, 1, 1)`)
 	// With a row, the new column needs a non-NULL default, which the row
 	// reads.
@@ -293,7 +293,7 @@ func TestSQLAlterNotNullConcurrent(t *testing.T) {
 		}
 	}
 	_, err = st.insertRows(h.ctx, old, [][]Value{row(old, 5)})
-	expectErr(err, adbc.StatusIntegrity, `NULL value in column "v" violates not-null constraint`)
+	expectErr(err, adbc.StatusIntegrity, `null value in column "v" of relation "it_nn_race" violates not-null constraint`)
 	if _, err := st.insertRows(h.ctx, old, [][]Value{row(old, 6, 6)}); err != nil {
 		t.Fatal(err)
 	}

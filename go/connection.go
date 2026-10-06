@@ -414,9 +414,18 @@ func (c *connectionImpl) GetTablesForDBSchema(ctx context.Context, catalog strin
 				}
 				info.TableColumns = append(info.TableColumns, ci)
 			}
-			// CHECK constraints are the only ones kept (see check.go).
+			// The primary key (its columns in key order, see pkey.go) and
+			// the CHECK constraints are the only ones kept (see check.go).
 			info.TableConstraints = []driverbase.ConstraintInfo{}
 			if meta != nil {
+				if k := meta.PrimaryKey; k != nil {
+					name := k.Name
+					info.TableConstraints = append(info.TableConstraints, driverbase.ConstraintInfo{
+						ConstraintName:        &name,
+						ConstraintType:        "PRIMARY KEY",
+						ConstraintColumnNames: driverbase.RequiredList(meta.keyColumns()),
+					})
+				}
 				for _, chk := range meta.Checks {
 					name := chk.Name
 					info.TableConstraints = append(info.TableConstraints, driverbase.ConstraintInfo{
