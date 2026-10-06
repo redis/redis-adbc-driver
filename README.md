@@ -192,8 +192,67 @@ with CANCELLED:
   first). A rename with `adbc.redis.rename_rekey` is rolled back.
 - **A Go context's deadline** fails the statement the same way, with
   TIMEOUT.
+- **SQLSTATE** `57014` (query_canceled) in both cases, as Postgres reports a
+  cancel and a statement timeout (see **Errors**).
 - **Earlier versions** (v0.0.11 and before) noticed a cancel only at the
   statement's next Redis command, which then failed with IO.
+
+**Errors**
+
+An error that Postgres has a SQLSTATE for carries the one Postgres 16
+reports for the same statement: `adbc.Error.SqlState` in Go,
+`AdbcError.sqlstate` in C, and `exc.sqlstate` in Python, whose
+`adbc_driver_manager` also ends the message with `SQLSTATE: 22P02`. The
+SQLSTATE sets the ADBC status, as it does in adbc-driver-postgresql, and so
+the Python exception:
+
+| Error | SQLSTATE | Status | Python |
+|-|-|-|-|
+| A value that doesn't convert or doesn't fit (`CAST('abc' AS INTEGER)`, `'2024-02-30'::date`, `1 / 0`, a value too long for its column) | class `22` | `InvalidData` | `DataError` |
+| `NOT NULL` and `CHECK` | `23502`, `23514` | `Integrity` | `IntegrityError` |
+| A table, view, column, function or schema that doesn't exist | `42P01`, `42703`, `42883`, `3F000` | `NotFound` | `ProgrammingError` |
+| A table, view, column, constraint or schema that already exists; a column named twice (in `INSERT` or a `PRIMARY KEY`) | `42P07`, `42701`, `42710`, `42P06` | `AlreadyExists` | `ProgrammingError` |
+| A syntax error; a table definition Postgres refuses (two primary keys, `DROP NOT NULL` of a key column); a type that never converts (`DATE` to `BOOLEAN`) | `42601`; `42P16`; `42846` in a cast, `42804` written to a column | `InvalidArgument` | `ProgrammingError` |
+| What Postgres doesn't support either (`DATE_BIN` by months, `EXTRACT(day FROM time)`) | `0A000` | `NotImplemented` | `NotSupportedError` |
+| A cancel, or a Go deadline | `57014` | `Cancelled`, `Timeout` | `OperationalError` |
+
+- **Data exceptions** have Postgres's code for each case: `22P02` for text
+  that isn't a number, boolean, JSON or array; `22003` for a number out of
+  its type's range (also an integer overflow, and NaN or infinity cast to
+  `NUMERIC`, which in Postgres overflow a `NUMERIC(p, s)`); `22007` for text
+  that isn't a date, time, time with time zone, timestamp or interval, or
+  doesn't match a `TO_DATE` pattern; `22008` for date and time fields or
+  results out of range (`'25:00'::time`, `MAKE_DATE(2024, 2, 30)`); `22009`
+  for a time zone offset out of range (`'10:00+16'::timetz`); `22012` for
+  division by zero; `22001` for a value too long; `22023` for an argument out of its
+  domain (an unknown time zone or `EXTRACT` field, `SPLIT_PART` position 0,
+  a zero `generate_series` step, `VARCHAR(0)`); `2201B` for a regular
+  expression that doesn't compile; and the codes of logarithms (`2201E`),
+  powers and square roots (`2201F`), substrings (`22011`), window function
+  arguments (`22013`, `22014`, `22016`), NULL object keys (`22004`) and
+  SQL/JSON paths (`2203A`, `22033`, `22039`).
+- **Every path** gives them: queries (also while a streamed result is
+  read), `INSERT`, `UPDATE`, `MERGE`, `DEFAULT`s, bound parameters and bulk
+  ingest. A value written to a column has the column's name in front:
+  `[redis] column "n": invalid decimal "x"`. `TRY_CAST` still returns NULL
+  for a value that doesn't convert.
+- **Messages** are the driver's: only the SQLSTATE is Postgres's (`'abc'::int`
+  is `invalid decimal "abc"`, where Postgres says `invalid input syntax for
+  type integer: "abc"`).
+- **No SQLSTATE yet:** the errors of the driver's own limits, and a few
+  others: `more than one row returned by a subquery used as an expression`
+  (`21000` in Postgres), an operator that doesn't exist (`42883`), `missing
+  FROM-clause entry for table "t"` (`42P01`), and a `SET` of an invalid
+  value (`22023`). They keep their status, mostly `InvalidArgument`.
+- **In Go,** `adbc.Error.Error()` ends with the SQLSTATE in parentheses:
+  `Invalid Data: [redis] division by zero (22012)`.
+- **Upgrading from v0.0.12 and earlier:** errors had no SQLSTATE, and a
+  value that didn't convert failed with `InvalidArgument`
+  (`ProgrammingError` in Python), unlike Postgres; only a value too long was
+  `InvalidData`. An unknown column or function was `InvalidArgument`, as
+  was a column named twice in `INSERT`; they are `NotFound` and
+  `AlreadyExists` now. `DATE_BIN` by months and `EXTRACT` of a field the
+  type doesn't have were `InvalidArgument`.
 
 **ACL users**
 
@@ -1838,9 +1897,10 @@ field, even if later rows have it.
     from 1 to 10485760.
   - **Writes:** a value longer than its column's length is an error, `value
     too long for type character varying(3)` (`character(3)` for `CHAR(3)`),
-    with ADBC status `InvalidData`, unless the characters beyond the length
-    are all spaces, which are cut (`'ab    '` is written to a `VARCHAR(3)` as
-    `'ab '`). Every write checks it: `INSERT … VALUES`, `INSERT … SELECT`,
+    with ADBC status `InvalidData` and SQLSTATE `22001` (see **Errors**),
+    unless the characters beyond the length are all spaces, which are cut
+    (`'ab    '` is written to a `VARCHAR(3)` as `'ab '`). Every write
+    checks it: `INSERT … VALUES`, `INSERT … SELECT`,
     `INSERT … DEFAULT VALUES`, `UPDATE` (also with `FROM`), both branches of
     `MERGE`, and bulk ingest. It is checked where `NOT NULL` and `CHECK` are,
     before them, so a statement with a failing row writes nothing (a bulk
@@ -2585,8 +2645,11 @@ field, even if later rows have it.
   for it instead, and `CAST(x AS type DEFAULT v ON CONVERSION ERROR)` returns
   `v` (converted to the type). The result has the target type. An error
   while computing `x`, and a cast between types that never convert (`DATE`
-  to `BOOLEAN`), are still errors. A cast to `VARCHAR(n)` or `CHAR(n)` cuts
-  the text to `n` characters, and `CHAR(n)` pads it (see String lengths). A
+  to `BOOLEAN`), are still errors. A value that doesn't convert fails with
+  `InvalidData` and a class `22` SQLSTATE, and a cast between types that
+  never convert with `InvalidArgument` and `42846` (see **Errors**). A
+  cast to `VARCHAR(n)` or `CHAR(n)` cuts the text to `n` characters, and
+  `CHAR(n)` pads it (see String lengths). A
   cast to a `TIME(p)` or `TIMESTAMP(p)` of a lower precision rounds to `p`
   digits (see Fractional seconds under Types), and casts between `TIMESTAMP`,
   `TIMESTAMP WITH TIME ZONE`, `DATE`, `TIME` and text use the session time

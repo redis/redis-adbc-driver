@@ -701,7 +701,7 @@ func noSuchColumn(c *ColumnRef, sc *scope, detail string) error {
 	if detail != "" {
 		msg += "; " + detail
 	}
-	return errorf(adbc.StatusInvalidArgument, "%s", msg)
+	return stateErrorf(stateUndefinedColumn, "%s", msg)
 }
 
 // lateralColumn is Postgres's detail and hint (errorMissingColumn) for an

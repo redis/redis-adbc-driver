@@ -60,7 +60,6 @@ package redis
 // it are checked in the driver.
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -91,7 +90,7 @@ func timeTZText(v Value) string {
 // errTimeTZSyntax is Postgres's error for text that isn't a time with time
 // zone.
 func errTimeTZSyntax(s string) error {
-	return fmt.Errorf("invalid input syntax for type time with time zone: %q", s)
+	return stateErr(stateDatetimeFormat, "invalid input syntax for type time with time zone: %q", s)
 }
 
 // parseTimeTZ reads text as a time with time zone (see the top of the file),
@@ -105,13 +104,13 @@ func parseTimeTZ(in string, z tzZone) (Value, error) {
 	if err != nil {
 		if clockShaped(clock) {
 			// 25:00, 10:60: a field out of range.
-			return Value{}, fmt.Errorf("date/time field value out of range: %q", in)
+			return Value{}, stateErr(stateDatetimeRange, "date/time field value out of range: %q", in)
 		}
 		return Value{}, errTimeTZSyntax(in)
 	}
 	us := sec*1_000_000 + pgMicros(nanos)
 	if us > 86400*1_000_000 {
-		return Value{}, fmt.Errorf("date/time field value out of range: %q", in)
+		return Value{}, stateErr(stateDatetimeRange, "date/time field value out of range: %q", in)
 	}
 	// offsetOn is zone's offset at the local time sec on the date, or on the
 	// current date in the session time zone.
@@ -151,7 +150,7 @@ func parseTimeTZ(in string, z tzZone) (Value, error) {
 		}
 	}
 	if off < -maxTZDisplacement || off > maxTZDisplacement {
-		return Value{}, fmt.Errorf("time zone displacement out of range: %q", in)
+		return Value{}, stateErr(stateTZDisplacement, "time zone displacement out of range: %q", in)
 	}
 	return Value{T: typeTimeTZ, I: us, Off: int32(off)}, nil
 }
@@ -160,7 +159,7 @@ func parseTimeTZ(in string, z tzZone) (Value, error) {
 // the epoch), if it has one, its clock and its zone, "" if it has none.
 func timeTZParts(in string) (days int64, hasDate bool, clock, zone string) {
 	s := strings.TrimSpace(in)
-	if d, rest, ok := parseDatePrefix(s, false); ok {
+	if d, rest, bad := parseDatePrefix(s, false); bad == "" {
 		days, hasDate, s = d, true, strings.TrimLeft(rest, " ")
 	}
 	if len(s) > 1 && (s[0] == 'T' || s[0] == 't') && s[1] >= '0' && s[1] <= '9' {
@@ -244,7 +243,7 @@ func parseTZDisplacement(s, in string) (int, error) {
 		return 0, errTimeTZSyntax(in)
 	}
 	if h > 15 || m > 59 || sec > 59 {
-		return 0, fmt.Errorf("time zone displacement out of range: %q", in)
+		return 0, stateErr(stateTZDisplacement, "time zone displacement out of range: %q", in)
 	}
 	return sign * (h*3600 + m*60 + sec), nil
 }
@@ -389,9 +388,9 @@ func timeTZPart(field string, v Value) (Value, error) {
 		return i(off / 60 % 60)
 	case "year", "month", "day", "dow", "doy", "isodow", "isoyear", "week", "quarter", "decade", "century",
 		"millennium", "julian":
-		return Value{}, fmt.Errorf("unit %q not supported for type time with time zone", strings.ToLower(field))
+		return Value{}, stateErr(stateFeatureNotSupported, "unit %q not supported for type time with time zone", strings.ToLower(field))
 	}
-	return Value{}, fmt.Errorf("unit %q not recognized for type time with time zone", strings.ToLower(field))
+	return Value{}, stateErr(stateInvalidParameter, "unit %q not recognized for type time with time zone", strings.ToLower(field))
 }
 
 // timeTZPlusInterval is x ± the time part of an interval (sign 1 or -1),

@@ -36,7 +36,6 @@ package redis
 // the ordered-set aggregates and MEDIAN work over frames.
 
 import (
-	"fmt"
 	"math"
 	"slices"
 	"sort"
@@ -495,7 +494,7 @@ func (o *orderedSetAgg) result(env *evalEnv, t ColType) (Value, error) {
 			return nullValue(t), nil
 		}
 		if frac, _ = v.asFloat(); frac < 0 || frac > 1 || math.IsNaN(frac) {
-			return Value{}, fmt.Errorf("percentile value %s is not between 0 and 1", strconv.FormatFloat(frac, 'g', -1, 64))
+			return Value{}, stateErr(stateNumericRange, "percentile value %s is not between 0 and 1", strconv.FormatFloat(frac, 'g', -1, 64))
 		}
 	}
 	n := len(o.vals)

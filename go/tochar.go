@@ -432,7 +432,7 @@ func formatChar(format string, f charFields) (string, error) {
 		case "TZ", "tz", "TZH", "TZM", "OF", "AD", "BC", "ad", "bc", "A.D.", "B.C.", "a.d.", "b.c.",
 			"MONTH", "Month", "month", "MON", "Mon", "mon", "DAY", "Day", "day", "DY", "Dy", "dy", "D", "ID":
 			if f.interval {
-				return "", fmt.Errorf("invalid format specification for an interval value")
+				return "", stateErr(stateDatetimeFormat, "invalid format specification for an interval value")
 			}
 		}
 		pm := f.hour%24 >= 12

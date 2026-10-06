@@ -46,9 +46,9 @@ func cancelled(ctx context.Context) error {
 		return ae
 	}
 	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-		return errorf(adbc.StatusTimeout, "the query timed out")
+		return codeStateErrorf(adbc.StatusTimeout, stateQueryCanceled, "the query timed out")
 	}
-	return errorf(adbc.StatusCancelled, "the query was cancelled")
+	return stateErrorf(stateQueryCanceled, "the query was cancelled")
 }
 
 // ctxStatus is the status of an error caused by a done context, as go-redis

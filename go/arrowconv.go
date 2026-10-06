@@ -68,7 +68,7 @@ func valueAt(arr arrow.Array, i int) (Value, error) {
 	case *array.Uint64:
 		v := a.Value(i)
 		if v > 1<<63-1 {
-			return Value{}, fmt.Errorf("uint64 value %d out of range", v)
+			return Value{}, stateErr(stateNumericRange, "uint64 value %d out of range", v)
 		}
 		return intValue(ct, int64(v)), nil
 	case *array.Float16:
@@ -125,7 +125,7 @@ func valueAt(arr arrow.Array, i int) (Value, error) {
 		unit := a.DataType().(*arrow.DurationType).Unit
 		ns, err := convertUnit(int64(a.Value(i)), unit, arrow.Nanosecond)
 		if err != nil {
-			return Value{}, fmt.Errorf("interval out of range")
+			return Value{}, stateErr(stateDatetimeRange, "interval out of range")
 		}
 		return intervalValue(0, 0, ns)
 	}

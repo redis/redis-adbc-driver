@@ -200,10 +200,10 @@ func (e *executor) defineChecks(ctx context.Context, meta *tableMeta, defs []Che
 			continue
 		}
 		if slices.ContainsFunc(defs[:i], func(o CheckDef) bool { return strings.EqualFold(o.Name, d.Name) }) {
-			return nil, errorf(adbc.StatusAlreadyExists, "check constraint %q already exists", d.Name)
+			return nil, stateErrorf(stateDuplicateObject, "check constraint %q already exists", d.Name)
 		}
 		if used[strings.ToLower(d.Name)] {
-			return nil, errorf(adbc.StatusAlreadyExists, "constraint %q for relation %q already exists", d.Name, meta.Name)
+			return nil, stateErrorf(stateDuplicateObject, "constraint %q for relation %q already exists", d.Name, meta.Name)
 		}
 	}
 	for _, d := range defs {
@@ -406,7 +406,7 @@ func (tc *tableChecks) checkRow(row map[string]Value) error {
 	if err != nil || i < 0 {
 		return err
 	}
-	return errorf(adbc.StatusIntegrity, "new row for relation %q violates check constraint %q", tc.meta.Name, tc.meta.Checks[i].Name)
+	return stateErrorf(stateCheck, "new row for relation %q violates check constraint %q", tc.meta.Name, tc.meta.Checks[i].Name)
 }
 
 // violated returns the first constraint that row violates, -1 if none.
@@ -460,7 +460,7 @@ func (e *executor) validateRows(ctx context.Context, stored, with *tableMeta, re
 	check := func(row map[string]Value) error {
 		for _, name := range notNull {
 			if v, ok := row[name]; !ok || v.Null {
-				return errorf(adbc.StatusIntegrity, "column %q of relation %q contains null values", name, with.Name)
+				return stateErrorf(stateNotNull, "column %q of relation %q contains null values", name, with.Name)
 			}
 		}
 		if tc == nil {
@@ -470,7 +470,7 @@ func (e *executor) validateRows(ctx context.Context, stored, with *tableMeta, re
 		if err != nil || i < 0 {
 			return err
 		}
-		return errorf(adbc.StatusIntegrity, "check constraint %q of relation %q is violated by some row", res.checks[i].Name, with.Name)
+		return stateErrorf(stateCheck, "check constraint %q of relation %q is violated by some row", res.checks[i].Name, with.Name)
 	}
 	var where Expr
 	if above > 0 {

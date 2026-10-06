@@ -440,7 +440,7 @@ func colTypeFromSQL(spec sqlTypeSpec) (ColType, error) {
 			s = 9
 		}
 		if p < 1 || p > 76 {
-			return ColType{}, fmt.Errorf("invalid NUMERIC precision %d", p)
+			return ColType{}, stateErr(stateInvalidParameter, "invalid NUMERIC precision %d", p)
 		}
 		return decimalType(int32(p), int32(s)), nil
 	case "VARCHAR", "CHARACTER VARYING", "NVARCHAR":
@@ -479,7 +479,7 @@ func timeTypeFromSQL(spec sqlTypeSpec, p int) (ColType, error) {
 	}
 	switch {
 	case len(spec.Params) > 1:
-		return ColType{}, fmt.Errorf("invalid type modifier for type %s", strings.ToLower(spec.Name))
+		return ColType{}, stateErr(stateInvalidParameter, "invalid type modifier for type %s", strings.ToLower(spec.Name))
 	case p < 0:
 		name := "TIMESTAMP"
 		if k != KindTimestamp {
@@ -489,7 +489,7 @@ func timeTypeFromSQL(spec sqlTypeSpec, p int) (ColType, error) {
 		if withTZ {
 			suffix = " WITH TIME ZONE"
 		}
-		return ColType{}, fmt.Errorf("%s(%d)%s precision must not be negative", name, p, suffix)
+		return ColType{}, stateErr(stateInvalidParameter, "%s(%d)%s precision must not be negative", name, p, suffix)
 	}
 	return fracType(k, p, tz), nil
 }

@@ -81,8 +81,8 @@ func cancelAfter(d time.Duration) func(cancel func()) func() {
 // CANCELLED within cancelLag of the cancel.
 func expectCancelled(t *testing.T, lag time.Duration, err error) {
 	t.Helper()
-	if !isStatus(err, adbc.StatusCancelled) {
-		t.Fatalf("got %v, want CANCELLED", err)
+	if !isStatus(err, adbc.StatusCancelled) || sqlState(err) != stateQueryCanceled {
+		t.Fatalf("got %v, want CANCELLED (57014)", err)
 	}
 	if lag > cancelLag {
 		t.Errorf("failed %v after the cancel, want under %v: %v", lag, cancelLag, err)
@@ -163,8 +163,8 @@ func TestSQLCancel(t *testing.T) {
 			if err := st.SetSqlQuery(h.ctx, sql); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := st.ExecuteUpdate(ctx); !isStatus(err, adbc.StatusCancelled) {
-				t.Errorf("%s: got %v, want CANCELLED", sql, err)
+			if _, err := st.ExecuteUpdate(ctx); !isStatus(err, adbc.StatusCancelled) || sqlState(err) != stateQueryCanceled {
+				t.Errorf("%s: got %v, want CANCELLED (57014)", sql, err)
 			}
 			st.Close(h.ctx)
 		}

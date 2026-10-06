@@ -65,7 +65,7 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 			}
 		}
 	case isTempSchema(schemaName):
-		return -1, errorf(adbc.StatusNotFound, "schema %q does not exist", schemaName)
+		return -1, stateErrorf(stateUndefinedSchema, "schema %q does not exist", schemaName)
 	case schemaName == "":
 		schemaName = s.conn.sess.currentSchema()
 	}
@@ -152,11 +152,11 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 			for r := 0; r < n; r++ {
 				v, err := valueAt(arr, r)
 				if err != nil {
-					return -1, errorf(adbc.StatusInvalidArgument, "column %q: %v", col.Name, err)
+					return -1, columnErr(col.Name, err)
 				}
 				cv, err := coerceIn(v, col.Type, zone)
 				if err != nil {
-					return -1, errorf(adbc.StatusInvalidArgument, "column %q: %v", col.Name, err)
+					return -1, columnErr(col.Name, err)
 				}
 				rows[r][mapping[c]] = cv
 			}

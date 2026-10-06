@@ -320,7 +320,7 @@ func evalConditional(f *Func, args []Value, z tzZone) (Value, error) {
 		}
 		v, err := coerceIn(a, t, z)
 		if err != nil {
-			return Value{}, fmt.Errorf("%s: %v", f.Name, err)
+			return Value{}, fmt.Errorf("%s: %w", f.Name, err)
 		}
 		if !has {
 			best, has = v, true
@@ -412,7 +412,7 @@ func scalarFunc(f *Func, args []Value, z tzZone) (Value, error) {
 				return Value{}, err
 			}
 			if count < 0 {
-				return Value{}, fmt.Errorf("%s: negative substring length not allowed", f.Name)
+				return Value{}, stateErr(stateSubstring, "%s: negative substring length not allowed", f.Name)
 			}
 		}
 		if args[0].T.Kind == KindBinary {
@@ -473,7 +473,7 @@ func scalarFunc(f *Func, args []Value, z tzZone) (Value, error) {
 			return Value{}, err
 		}
 		if n == 0 {
-			return Value{}, fmt.Errorf("SPLIT_PART: field position must not be zero")
+			return Value{}, stateErr(stateInvalidParameter, "SPLIT_PART: field position must not be zero")
 		}
 		s, delim := text(0), text(1)
 		fields := []string{s}
@@ -542,7 +542,7 @@ func numericArg(name string, v Value) (Value, error) {
 	case v.T.Kind == KindString:
 		c, err := Coerce(v, typeFloat64)
 		if err != nil {
-			return Value{}, fmt.Errorf("%s: %v", name, err)
+			return Value{}, fmt.Errorf("%s: %w", name, err)
 		}
 		return c, nil
 	}
@@ -556,7 +556,7 @@ func intArg(name, what string, v Value) (int64, error) {
 	}
 	c, err := Coerce(v, typeInt64)
 	if err != nil {
-		return 0, fmt.Errorf("%s: the %s must be an integer: %v", name, what, err)
+		return 0, fmt.Errorf("%s: the %s must be an integer: %w", name, what, err)
 	}
 	return c.I, nil
 }
@@ -656,7 +656,7 @@ func roundFunc(f *Func, args []Value) (Value, error) {
 		}
 		r, _ := roundUnscaled(big.NewInt(x.I), 0, n, mode)
 		if !r.IsInt64() {
-			return Value{}, fmt.Errorf("%s: integer out of range", f.Name)
+			return Value{}, stateErr(stateNumericRange, "%s: integer out of range", f.Name)
 		}
 		return Coerce(intValue(typeInt64, r.Int64()), x.T)
 	case x.T.Kind.isFloat():
@@ -694,7 +694,7 @@ func modFunc(f *Func, args []Value) (Value, error) {
 	switch {
 	case t.Kind.isInteger():
 		if b.I == 0 {
-			return Value{}, fmt.Errorf("MOD: division by zero")
+			return Value{}, stateErr(stateDivisionByZero, "MOD: division by zero")
 		}
 		if b.I == -1 {
 			return intValue(t, 0), nil
@@ -702,13 +702,13 @@ func modFunc(f *Func, args []Value) (Value, error) {
 		return intValue(t, a.I%b.I), nil
 	case t.Kind == KindDecimal:
 		if b.D.Sign() == 0 {
-			return Value{}, fmt.Errorf("MOD: division by zero")
+			return Value{}, stateErr(stateDivisionByZero, "MOD: division by zero")
 		}
 		// Rem truncates toward zero: the result has the sign of a.
 		return decimalValue(new(big.Int).Rem(a.D, b.D), t.Precision, t.Scale), nil
 	}
 	if b.F == 0 {
-		return Value{}, fmt.Errorf("MOD: division by zero")
+		return Value{}, stateErr(stateDivisionByZero, "MOD: division by zero")
 	}
 	return floatValue(typeFloat64, math.Mod(a.F, b.F)), nil
 }
@@ -733,13 +733,13 @@ func floatFunc(f *Func, args []Value) (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
-	fail := func(msg string) (Value, error) { return Value{}, fmt.Errorf("%s: %s", f.Name, msg) }
+	fail := func(state, msg string) (Value, error) { return Value{}, stateErr(state, "%s: %s", f.Name, msg) }
 	logArg := func(v float64) error {
 		switch {
 		case v == 0:
-			return fmt.Errorf("%s: cannot take logarithm of zero", f.Name)
+			return stateErr(stateLogarithm, "%s: cannot take logarithm of zero", f.Name)
 		case v < 0:
-			return fmt.Errorf("%s: cannot take logarithm of a negative number", f.Name)
+			return stateErr(stateLogarithm, "%s: cannot take logarithm of a negative number", f.Name)
 		}
 		return nil
 	}
@@ -748,7 +748,7 @@ func floatFunc(f *Func, args []Value) (Value, error) {
 	switch f.Name {
 	case "SQRT":
 		if x < 0 {
-			return fail("cannot take square root of a negative number")
+			return fail(statePower, "cannot take square root of a negative number")
 		}
 		r = math.Sqrt(x)
 	case "LN":
@@ -778,7 +778,7 @@ func floatFunc(f *Func, args []Value) (Value, error) {
 		}
 		switch base {
 		case 1:
-			return fail("division by zero")
+			return fail(stateDivisionByZero, "division by zero")
 		case 10:
 			r = math.Log10(v)
 		default:
@@ -789,15 +789,15 @@ func floatFunc(f *Func, args []Value) (Value, error) {
 		// As in Postgres, a double that underflows to zero is an error, but
 		// the exp of a NUMERIC is then 0.
 		if r == 0 && !math.IsInf(x, -1) && args[0].T.Kind != KindDecimal {
-			return fail("value out of range: underflow")
+			return fail(stateNumericRange, "value out of range: underflow")
 		}
 	case "POWER", "POW":
 		y := xs[1]
 		switch {
 		case x == 0 && y < 0:
-			return fail("zero raised to a negative power is undefined")
+			return fail(statePower, "zero raised to a negative power is undefined")
 		case x < 0 && !math.IsInf(y, 0) && !math.IsNaN(y) && y != math.Trunc(y):
-			return fail("a negative number raised to a non-integer power yields a complex result")
+			return fail(statePower, "a negative number raised to a non-integer power yields a complex result")
 		}
 		r = math.Pow(x, y)
 	case "CBRT":
@@ -805,13 +805,13 @@ func floatFunc(f *Func, args []Value) (Value, error) {
 	case "RADIANS":
 		r = x * radiansPerDegree
 		if r == 0 && x != 0 {
-			return fail("value out of range: underflow")
+			return fail(stateNumericRange, "value out of range: underflow")
 		}
 	case "DEGREES":
 		r = x / radiansPerDegree
 	}
 	if math.IsInf(r, 0) && !math.IsInf(x, 0) && (len(xs) < 2 || !math.IsInf(xs[1], 0)) {
-		return fail("value out of range: overflow")
+		return fail(stateNumericRange, "value out of range: overflow")
 	}
 	return floatValue(typeFloat64, r), nil
 }
@@ -848,7 +848,9 @@ func trigFunc(f *Func, args []Value) (Value, error) {
 	if math.IsNaN(x) || (len(xs) > 1 && math.IsNaN(xs[1])) {
 		return floatValue(typeFloat64, math.NaN()), nil
 	}
-	outOfRange := func() (Value, error) { return Value{}, fmt.Errorf("%s: input is out of range", f.Name) }
+	outOfRange := func() (Value, error) {
+		return Value{}, stateErr(stateNumericRange, "%s: input is out of range", f.Name)
+	}
 	var r float64
 	switch f.Name {
 	case "SIN", "COS", "TAN", "COT", "SIND", "COSD", "TAND", "COTD":
@@ -1105,9 +1107,9 @@ func parseRegexpFlags(name, flags string) (regexpFlags, error) {
 			fl.literal = true
 		case 't':
 		case 'x', 'b', 'e':
-			return fl, fmt.Errorf("%s: regular expression option %q is not supported", name, string(c))
+			return fl, stateErr(stateFeatureNotSupported, "%s: regular expression option %q is not supported", name, string(c))
 		default:
-			return fl, fmt.Errorf("%s: invalid regular expression option %q", name, string(c))
+			return fl, stateErr(stateInvalidParameter, "%s: invalid regular expression option %q", name, string(c))
 		}
 	}
 	return fl, nil
