@@ -212,8 +212,8 @@ the Python exception:
 | `NOT NULL` and `CHECK` | `23502`, `23514` | `Integrity` | `IntegrityError` |
 | A table, view, column, function or schema that doesn't exist | `42P01`, `42703`, `42883`, `3F000` | `NotFound` | `ProgrammingError` |
 | A table, view, column, constraint or schema that already exists; a column named twice (in `INSERT` or a `PRIMARY KEY`) | `42P07`, `42701`, `42710`, `42P06` | `AlreadyExists` | `ProgrammingError` |
-| A syntax error; a table definition Postgres refuses (two primary keys, `DROP NOT NULL` of a key column, a column of type record); a type that never converts (`DATE` to `BOOLEAN`); a record where another type is needed (`argument of WHERE must be type boolean, not type record`) | `42601`; `42P16`; `42846` in a cast, `42804` written to a column; `42804` | `InvalidArgument` | `ProgrammingError` |
-| What Postgres doesn't support either (`DATE_BIN` by months, `EXTRACT(day FROM time)`) | `0A000` | `NotImplemented` | `NotSupportedError` |
+| A syntax error; a table definition Postgres refuses (two primary keys, `DROP NOT NULL` of a key column, a column of type record); a type that never converts (`DATE` to `BOOLEAN`); a record where another type is needed (`argument of WHERE must be type boolean, not type record`) | `42601`; `42P16`; `42846` in a cast, `42804` written to a column or by `ALTER COLUMN … TYPE`; `42804` | `InvalidArgument` | `ProgrammingError` |
+| What Postgres doesn't support either (`DATE_BIN` by months, `EXTRACT(day FROM time)`, `ALTER COLUMN … TYPE` of a column a view reads) | `0A000` | `NotImplemented` | `NotSupportedError` |
 | A cancel, or a Go deadline | `57014` | `Cancelled`, `Timeout` | `OperationalError` |
 
 - **Data exceptions** have Postgres's code for each case: `22P02` for text
@@ -232,10 +232,11 @@ the Python exception:
   arguments (`22013`, `22014`, `22016`), NULL object keys (`22004`) and
   SQL/JSON paths (`2203A`, `22033`, `22039`).
 - **Every path** gives them: queries (also while a streamed result is
-  read), `INSERT`, `UPDATE`, `MERGE`, `DEFAULT`s, bound parameters and bulk
-  ingest. A value written to a column has the column's name in front:
-  `[redis] column "n": invalid input syntax for type integer: "x"`.
-  `TRY_CAST` still returns NULL for a value that doesn't convert.
+  read), `INSERT`, `UPDATE`, `MERGE`, `ALTER COLUMN … TYPE`, `DEFAULT`s,
+  bound parameters and bulk ingest. A value written to a column has the
+  column's name in front: `[redis] column "n": invalid input syntax for
+  type integer: "x"`. `TRY_CAST` still returns NULL for a value that
+  doesn't convert.
 - **Messages** are mostly the driver's: only the SQLSTATE is Postgres's
   (`'abc'::numeric` is `invalid decimal "abc"`, where Postgres says
   `invalid input syntax for type numeric: "abc"`). Text read as an integer
@@ -284,7 +285,9 @@ and a 3-shard cluster:
   commands for metadata and rows (`HGETALL` reads pending re-keying
   renames on every connect, and `HEXISTS` checks that a new table's key
   prefix was never released); and `MULTI` / `EXEC` / `WATCH` / `UNWATCH`
-  for metadata transactions.
+  for metadata transactions. `ALTER COLUMN … TYPE`, which rewrites the
+  rows to new keys, needs only these (it copies rows with `HGETALL` and
+  `HSET`, not `DUMP` / `RESTORE`).
 - **Not needed:** `HELLO` and `AUTH` are always allowed. Add `+select` if the
   URI names a database other than 0 (not tested), and `+client|setname` if it
   sets `client_name`.
@@ -1246,22 +1249,25 @@ Deleted 13 HASHes under 2 prefixes.
   name (see "Key prefixes" below).
   `adbc:{meta}:cleanup` lists tables with a dropped-column cleanup in progress.
   `adbc:{meta}:rekey` records renames that are moving a table's rows
-  (`adbc.redis.rename_rekey`), keyed by the old prefix, and
+  (`adbc.redis.rename_rekey`), and `ALTER COLUMN … TYPE`s rewriting them
+  (marked `rewrite`), keyed by the old prefix, and
   `adbc:{meta}:rekey:alive:<id>` (30-second TTL, renewed by the renaming
   connection) shows that the connection doing one is alive. A record taken
   over from a connection that went away is marked `recovering`.
   `adbc:{meta}:released` counts how often each key prefix was released (by
-  `DROP TABLE`, `TRUNCATE` or a re-keying rename), one field per prefix
-  that was ever released; a statement checks it and `adbc:{meta}:prefixes`
-  to tell when its table's rows have moved away. Metadata written by
+  `DROP TABLE`, `TRUNCATE`, a re-keying rename or `ALTER COLUMN … TYPE`),
+  one field per prefix that was ever released; a statement checks it and
+  `adbc:{meta}:prefixes` to tell when its table's rows have moved away.
+  Metadata written by
   v0.0.1 (`adbc:meta:*`, `adbc:schemas`, …) is migrated automatically on
   the first connection.
 - **Key prefixes are never reused.** A table takes the first of
   `<schema>:<table>:`, `<schema>:<table>~2:`, … that no table has had
   before, with the index name of the same N (`idx:<schema>:<table>~2`).
   So a table created again after `DROP TABLE` gets new keys, and so do a
-  table emptied by `TRUNCATE` and a re-keying rename onto a name that a
-  table had before. The reason is writes still running when a table is
+  table emptied by `TRUNCATE`, a table whose rows `ALTER COLUMN … TYPE`
+  rewrote, and a re-keying rename onto a name that a table had before. The
+  reason is writes still running when a table is
   dropped: a statement that read the table's metadata before the `DROP`
   goes on writing rows under the old prefix until it finds out, and those
   rows outlive the `DROP`, which only deletes the rows its index knows
@@ -1289,10 +1295,11 @@ Deleted 13 HASHes under 2 prefixes.
     have passed since they read the metadata, as before, and so do deletes
     of any size, which make no key.
   - A statement whose table was dropped or truncated (or whose rows a
-    re-keying rename moved away) stops and fails: "table … was renamed with
-    its rows moved to new keys, truncated or dropped, while this statement
-    was writing to it; some of its changes may be lost or have gone to
-    another table". If no table has the old prefix any more, it first
+    re-keying rename or `ALTER COLUMN … TYPE` moved away) stops and fails:
+    "table … was renamed with its rows moved to new keys, rewritten by
+    ALTER COLUMN … TYPE, truncated or dropped, while this statement was
+    writing to it; some of its changes may be lost or have gone to another
+    table". If no table has the old prefix any more, it first
     deletes every key it wrote there (one pipelined `DEL` per 1,000 keys).
   - Keys can still be left under the old prefix of a dropped or truncated
     table, where no table or query reads them: when the writing process
@@ -1375,7 +1382,7 @@ How SQL is executed:
 | Window functions | Computed by the driver once the rows are known: after WHERE, GROUP BY and HAVING (which still run in the index when they can), before QUALIFY, ORDER BY and LIMIT. Rows are hashed into partitions and each partition is sorted once per distinct PARTITION BY / ORDER BY; frame aggregates add and remove rows as the frame slides (O(1) amortized per row; sums, averages and variances add and subtract exact sums, also of doubles). With `EXCLUDE CURRENT ROW / GROUP / TIES` the frame has a hole, so each row's frame is aggregated afresh (O(frame) per row), as PostgreSQL does; `FIRST_VALUE` / `LAST_VALUE` / `NTH_VALUE` stay O(1), also with `IGNORE NULLS`. A query with window functions never pushes its LIMIT into the index |
 | `CREATE TEMP TABLE` / `VIEW` | Same as a permanent table or view, in the connection's `pg_temp_<id>` schema. Unqualified names are looked up there first (in memory, no extra round trip) |
 | `TRUNCATE` | Like `DROP TABLE` and `CREATE TABLE` with the same metadata: reserves a new key prefix and index name and runs `FT.CREATE` for each table, switches the metadata of every table of the statement to the new names in one `WATCH`/`MULTI` (which also releases the old names), then runs `FT.DROPINDEX <old> DD`, which deletes every row the old index knows about. Statements still writing to the table find out and fail (see "Key prefixes are never reused") |
-| `ALTER TABLE` | Metadata only (optimistic `WATCH`/`MULTI` on the table's metadata, one for all the actions of a statement), plus `FT.INFO` and one `FT.ALTER` for the added columns and a background `HDEL` pass for `DROP COLUMN`. `ADD COLUMN … DEFAULT` records a missing value instead of writing the rows. Adding a `CHECK` (`ADD COLUMN … CHECK`, `ADD CONSTRAINT … CHECK`) or a `NOT NULL` (`ALTER COLUMN … SET NOT NULL`, `ADD COLUMN … NOT NULL` without a default, and the columns of `ADD PRIMARY KEY`) first reads the columns they use from every row, with one `FT.AGGREGATE` cursor scan for all the statement's new constraints, to check them, and when it commits, the rows inserted since (by `__rowid`). With `adbc.redis.rename_rekey`, `RENAME TO` also creates the new name's index, copies every row the old index lists with pipelined `DUMP` / `RESTORE … REPLACE` (a cursor page at a time; one key per command, so it works on a cluster), switches the metadata in one transaction, then runs `FT.DROPINDEX <old> DD` |
+| `ALTER TABLE` | Metadata only (optimistic `WATCH`/`MULTI` on the table's metadata, one for all the actions of a statement), plus `FT.INFO` and one `FT.ALTER` for the added columns and a background `HDEL` pass for `DROP COLUMN`. `ADD COLUMN … DEFAULT` records a missing value instead of writing the rows. Adding a `CHECK` (`ADD COLUMN … CHECK`, `ADD CONSTRAINT … CHECK`) or a `NOT NULL` (`ALTER COLUMN … SET NOT NULL`, `ADD COLUMN … NOT NULL` without a default, and the columns of `ADD PRIMARY KEY`) first reads the columns they use from every row, with one `FT.AGGREGATE` cursor scan for all the statement's new constraints, to check them, and when it commits, the rows inserted since (by `__rowid`). With `adbc.redis.rename_rekey`, `RENAME TO` also creates the new name's index, copies every row the old index lists with pipelined `DUMP` / `RESTORE … REPLACE` (a cursor page at a time; one key per command, so it works on a cluster), switches the metadata in one transaction, then runs `FT.DROPINDEX <old> DD`. `ALTER COLUMN … TYPE` that converts values does the same under the table's own name: `FT.CREATE` of the new names' index with the new attributes, pipelined `HGETALL` of every row the old index lists and `HSET` of each converted row to its new key, one transaction to switch the metadata, then `FT.DROPINDEX <old> DD`; it also scans the views (`SMEMBERS` and `GET` of each one) to find those that read the column |
 | Views | `CREATE VIEW` plans the body without running it, which checks its tables, columns and function calls. Single-table views without GROUP BY/aggregates/window functions/LIMIT are expanded in place: the outer query's filters are rewritten over the base table and run in its index. Other views are computed once per query, like a derived table |
 | Joins | Each table's own WHERE/ON filters run in its index (except on the NULL-supplying side of an outer join). Inner joins are reordered to start from the table with the fewest matches (counted by the index). Equality conditions drive a hash join; when the next table's key is indexed and there are ≤ 1,000 distinct keys, only matching rows are fetched with an index union. The joined rows are then grouped/sorted in memory. `NATURAL JOIN` is an equality join on the common columns, like `USING`. An item whose `ON` can never be true (`ON false`), or that has no rows, isn't read when that settles the result: an inner join is then empty and reads no item, a `LEFT JOIN` keeps the left rows with NULLs for the item, and a `RIGHT JOIN` returns the item's rows without reading the items before it. A FROM-list item after a comma that has a `RIGHT` or `FULL` join is joined on its own, then cross joined with the rows of the items before the comma (see "Commas"), and `WHERE` conditions that read both are applied after that. An `ON` condition with a correlated subquery waits until every item it may read is joined (up to v0.0.12, in an inner join of three or more items it could run before, and `from a join b on true join c on exists (select … where … = c.x)` returned no rows) |
 | `UPDATE … FROM`, `DELETE … USING`, `MERGE` | The target is joined with the other items as above: its own filters (in WHERE, or in MERGE's ON) run in its index, and an equality on an indexed target column is an index lookup join, also through a no-op cast like dbt's `s.id::text = t.id::text`. `MERGE` is source `LEFT JOIN` target, or `FULL JOIN` with `WHEN NOT MATCHED BY SOURCE` clauses (which need every target row); `ON FALSE` reads the target only for those. Changes are then written by row key with pipelined `HSET`/`HDEL`/`DEL`, and new rows like `INSERT` does |
@@ -1615,28 +1622,31 @@ field, even if later rows have it.
   `ADD [COLUMN] [IF NOT EXISTS] c TYPE [column_constraint …] [NOINDEX] [COMMENT 'text']`,
   `DROP [COLUMN] [IF EXISTS] c [CASCADE | RESTRICT]`,
   `ALTER [COLUMN] c {SET DEFAULT expr | DROP DEFAULT | SET NOT NULL | DROP NOT NULL}`,
+  `ALTER [COLUMN] c [SET DATA] TYPE type [USING expr]`,
   `ADD table_constraint`,
-  `DROP CONSTRAINT [IF EXISTS] name [CASCADE | RESTRICT]`. `ALTER COLUMN …
-  TYPE` isn't supported. All of them only change metadata, so they take the
-  same time at any table size (except `RENAME TO` with
-  `adbc.redis.rename_rekey`, and adding a `CHECK`, a `NOT NULL` or a
-  `PRIMARY KEY`, which reads every row first):
+  `DROP CONSTRAINT [IF EXISTS] name [CASCADE | RESTRICT]`. All of them only
+  change metadata, so they take the same time at any table size, except
+  `RENAME TO` with `adbc.redis.rename_rekey` and `ALTER COLUMN … TYPE`,
+  which rewrite every row, and adding a `CHECK`, a `NOT NULL` or a
+  `PRIMARY KEY`, which reads every row first:
   - **Several actions** (dbt's `on_schema_change` and snapshots send
     `alter table t add column "a" …, add column "b" …, drop column "c"`) are
     one change of the table's metadata, made in one `WATCH`/`MULTI`, so
     other statements see the table before all of them or after all of
     them. They run in Postgres's order, each seeing what the ones before it
     did: first the drops (`DROP COLUMN`, `DROP CONSTRAINT`, `DROP DEFAULT`
-    and `DROP NOT NULL`), then `ADD COLUMN`, then `SET NOT NULL`, then the
-    primary keys (`ADD PRIMARY KEY` and `ADD COLUMN … PRIMARY KEY`), then
-    `SET DEFAULT`, the new columns' `CHECK`s and `ADD CONSTRAINT … CHECK`,
-    each group in the order written. So `ADD CONSTRAINT c CHECK (x > 0), ADD
-    COLUMN x … DEFAULT 1` checks the rows with `x`'s default, `DROP COLUMN
-    a, ADD COLUMN a …` gives a new, empty column (also written the other way
-    round), `ALTER COLUMN a SET DEFAULT 1, ADD COLUMN a …` gives the new
-    column a default, `ADD PRIMARY KEY (b), ADD COLUMN b …` makes the new
-    column the key, and `ADD PRIMARY KEY (b), DROP CONSTRAINT t_pkey`
-    replaces the key. An action that runs earlier can't name what the
+    and `DROP NOT NULL`), then `ALTER COLUMN … TYPE` (and the `CHECK`s that
+    read the columns it changes, bound again), then `ADD COLUMN`, then `SET
+    NOT NULL`, then the primary keys (`ADD PRIMARY KEY` and `ADD COLUMN …
+    PRIMARY KEY`), then `SET DEFAULT`, the new columns' `CHECK`s and `ADD
+    CONSTRAINT … CHECK`, each group in the order written. So `ADD
+    CONSTRAINT c CHECK (x > 0), ADD COLUMN x … DEFAULT 1` checks the rows
+    with `x`'s default, `DROP COLUMN a, ADD COLUMN a …` gives a new, empty
+    column (also written the other way round), `ALTER COLUMN a SET DEFAULT
+    1, ADD COLUMN a …` gives the new column a default, `ADD PRIMARY KEY (b),
+    ADD COLUMN b …` makes the new column the key, and `ADD PRIMARY KEY (b),
+    DROP CONSTRAINT t_pkey` replaces the key. An action that runs earlier
+    can't name what the
     statement adds: `ADD COLUMN a …, DROP COLUMN a` and `ADD COLUMN a …
     DEFAULT 9, ALTER COLUMN a DROP DEFAULT` fail with `column "a" of
     relation "t" does not exist`, as in Postgres. Unnamed constraints are
@@ -1670,7 +1680,10 @@ field, even if later rows have it.
     reused). If writing the metadata fails (a concurrent change, "try
     again", or a lost connection), the index keeps attributes that no
     column uses, which is harmless, and a later `ADD COLUMN` doesn't reuse
-    their names.
+    their names. A statement with an `ALTER COLUMN … TYPE` that converts
+    values writes new rows instead, under new keys, and switches to them
+    in one transaction once every row is converted and checked (see
+    below), so it is all or nothing too.
   - **`RENAME TO` and `RENAME COLUMN`** take no list, as in Postgres:
     `ALTER TABLE t RENAME TO u, ADD …` is `syntax error at or near ","`,
     and `ALTER TABLE t ADD …, RENAME …` is `syntax error at or near
@@ -1806,6 +1819,105 @@ field, even if later rows have it.
     default. Rows still being written when the change commits, rows updated
     meanwhile, and rows inserted after a new `CHECK` by a statement that
     read the table before it aren't checked.
+  - `ALTER COLUMN c [SET DATA] TYPE type [USING expr]` converts the
+    column's values, as in Postgres:
+    - **Without `USING`,** the column's value is converted as an `INSERT`
+      converts it, which Postgres allows for these types: a number to any
+      number type, `DATE` to `TIMESTAMP` (either kind), a `TIMESTAMP` to
+      `DATE`, `TIME` or the other `TIMESTAMP`, `TIME` and `INTERVAL` to
+      each other, `TIME` and `TIME WITH TIME ZONE` to each other, a
+      `TIMESTAMP WITH TIME ZONE` to `TIME WITH TIME ZONE`, and any type to a
+      string type. Otherwise it fails with
+      Postgres's `column "c" cannot be cast automatically to type integer;
+      you might need to specify "USING c::integer"`. A string that is too
+      long for a `VARCHAR(n)` or `CHAR(n)` is an error (`value too long for
+      type character varying(2)`), unless the rest is spaces; `USING
+      c::varchar(2)` cuts it.
+    - **`USING expr`** converts an expression over the row instead, which
+      may read any of the table's columns and call functions (`RANDOM()`
+      gives each row its own value), but not use subqueries, parameters,
+      aggregates or window functions (`cannot use subquery in transform
+      expression`, …). Its result is converted as above (`result of USING
+      clause for column "c" cannot be cast automatically to type integer`
+      otherwise; a string literal or `NULL` converts to any type). It reads
+      the row as it was before the statement: `ALTER COLUMN a TYPE text
+      USING b::text, ALTER COLUMN b TYPE int USING a::int` swaps the values,
+      and `DROP COLUMN b, ALTER COLUMN a TYPE int USING b` reads `b`.
+    - **The rest of the column stays:** its name, `NOT NULL` (a row that
+      the conversion makes NULL fails with `column "c" of relation "t"
+      contains null values`), primary key, comment and `DEFAULT`. The
+      `DEFAULT` must
+      convert too (`default for column "c" cannot be cast automatically to
+      type integer`; drop it first, in the same statement, and set a new one
+      after), and is checked as a new one is. The `CHECK` constraints that
+      read the column are bound again for the new type (one that no longer
+      works fails the statement, `argument of CHECK must be type boolean,
+      not type integer`), and every converted row must pass them.
+    - **Refused, as in Postgres:** a column that a view reads (`cannot alter
+      type of a column used by a view or rule; rule _RETURN on view v
+      depends on column "c"`), even to the same type, and a column whose
+      type changes twice in one statement (`cannot alter type of column "c"
+      twice`). Dependencies aren't recorded, so the views of every schema,
+      and the connection's temporary views, whose text names the table are
+      planned to find the columns they read. Other connections' temporary
+      views aren't checked. `COLLATE` isn't supported (strings compare by
+      their bytes, as with Postgres's `"C"` collation).
+    - **Only the metadata changes** when the values stay as they are: the
+      same type without `USING`, or a `VARCHAR` that gets longer or loses
+      its length (`TEXT`). Postgres doesn't rewrite the table for these
+      either.
+    - **Otherwise every row is rewritten,** as in Postgres, and like
+      `RENAME TO` with `adbc.redis.rename_rekey` (above), to new keys: the
+      table takes new names (`<schema>:<table>~N:` and its index), and
+      every row the old index lists is read (`HGETALL`), converted, checked
+      against `NOT NULL` and the `CHECK`s (also those the statement adds),
+      and written to its new key (`HSET`), pipelined, a cursor page at a
+      time. The new index has the column's new attribute (`NUMERIC` for
+      numbers, dates and times, `TAG` for strings, none for `BYTEA`,
+      `INTERVAL` and `TIME WITH TIME ZONE`), so indexed queries on the
+      column read the new type. One
+      transaction then switches the metadata to the new names, with every
+      action of the statement, and the old index is dropped with its rows
+      (`DD`). The new rows hold only the table's columns: the fields of
+      dropped columns aren't copied (and no cleanup is left), and a column
+      added in the same statement with a `DEFAULT`, or an altered column
+      that had a missing value, gets its value written into every row. This
+      takes time proportional to the number of rows (and 100 ms more), and
+      the table takes twice its memory until the old rows are dropped.
+    - **All or nothing:** a value that doesn't convert, a row that fails a
+      constraint, a cancel (`AdbcStatementCancel`, CANCELLED), the
+      connection's close or a lost connection rolls the change back: the
+      new index is dropped with its rows, and the table is as it was.
+    - **Concurrent statements** are those of a re-keying rename: while the
+      rows are rewritten, writes are refused ("is being altered: ALTER
+      COLUMN … TYPE is rewriting its rows to new keys; try again when that
+      has finished"), as are other `ALTER`s and `TRUNCATE`; readers see the
+      table as it was until the switch; a statement that read the table
+      before and writes, or reads for 100 ms or more, across the rewrite
+      fails ("was renamed with its rows moved to new keys, rewritten by
+      ALTER COLUMN … TYPE, truncated or dropped, while this statement was
+      …"). An `ALTER` (or `COMMENT ON`) that had already started and
+      changes the table meanwhile makes the rewrite fail ("was changed
+      while ALTER COLUMN … TYPE rewrote its rows; try again"), and so does
+      a `DROP TABLE`. If the connection goes away, or can't renew its
+      lease, the next connection to open, or the next statement that
+      changes the table, rolls the rewrite back, as for a rename. It needs
+      no commands beyond the basic ones (see **ACL users**).
+    - **Not supported:** conversions that the driver's `CAST` doesn't make
+      either, such as `TIME` to `INTERVAL` (`cannot convert time value …`),
+      and tables adopted with `redis-adbc adopt`, whose HASHes are the
+      application's. Values convert as the driver's `CAST` converts them,
+      which differs from Postgres in a few places: a `DOUBLE PRECISION`
+      half rounds away from zero to an integer (Postgres rounds to even),
+      `BYTEA` keeps its text as written, and a conversion error has the
+      driver's message (`invalid decimal "abc"`, where Postgres says
+      `invalid input syntax for type integer: "abc"`). As for the other
+      defaults, a `DEFAULT` that the new type can't hold is an error at the
+      `ALTER` (Postgres fails when a row gets it).
+    - **Upgrading from v0.0.12 and earlier:** `ALTER COLUMN … TYPE` was
+      `unsupported ALTER COLUMN action near "TYPE"`. The error of a
+      statement whose table moved away while it was writing or reading now
+      names `ALTER COLUMN … TYPE` among the causes.
   - `ADD COLUMN … CHECK (…)` and `ADD [CONSTRAINT name] CHECK (…)` check
     every existing row first (see Constraints below). `ADD [CONSTRAINT
     name] PRIMARY KEY (cols)` and `ADD COLUMN … PRIMARY KEY` make the key's
@@ -2686,10 +2798,10 @@ field, even if later rows have it.
       lo) * p`, `p` being how far the position is from `lo` to `hi`, with
       `interval * n` (see Intervals and date/time arithmetic), as in
       Postgres: `MEDIAN` of `1 year` and `1 mon 1 day 1 sec` is `6 mons 16
-      days -11:59:59.5`. The difference's months and
-      days must fit in 32 bits ("interval out of range"), but its time
-      needn't fit an interval's nanoseconds: `MEDIAN` of `-2000000 hours`
-      and `2000000 hours` is `00:00:00`
+      days -11:59:59.5`. The difference's months and days must fit in 32
+      bits ("interval out of range"), but its time needn't fit an
+      interval's nanoseconds: `MEDIAN` of `-2000000 hours` and `2000000
+      hours` is `00:00:00`
     - **Upgrading from v0.0.12 and earlier:** the interpolation cascaded
       fractions in nanoseconds (that `MEDIAN` was `6 mons 15 days
       12:00:00.5`), and a difference past ±2,562,047 hours was "interval

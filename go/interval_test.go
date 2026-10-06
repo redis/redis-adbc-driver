@@ -397,8 +397,12 @@ func TestIntervalMulDiv(t *testing.T) {
 		"INTERVAL '2562047 hours' * 2":   "interval out of range",
 		"INTERVAL '2562047 hours' / 0.5": "interval out of range",
 	} {
-		if _, _, err := evalTestExpr(t, expr); err == nil || err.Error() != want {
-			t.Errorf("%s: error %v, want %s", expr, err, want)
+		state := stateDatetimeRange
+		if want == "division by zero" {
+			state = stateDivisionByZero
+		}
+		if _, _, err := evalTestExpr(t, expr); err == nil || err.Error() != want || sqlState(err) != state {
+			t.Errorf("%s: error %v (SQLSTATE %q), want %s (%s)", expr, err, sqlState(err), want, state)
 		}
 	}
 }

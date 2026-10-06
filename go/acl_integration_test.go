@@ -234,6 +234,8 @@ func TestACLDriverUser(t *testing.T) {
 		`ALTER TABLE it_acl_s.t ADD CONSTRAINT pos CHECK (id > 0)`,
 		`COMMENT ON TABLE it_acl_s.t IS 'fruit'`,
 		`CREATE VIEW it_acl_s.v AS SELECT id, label FROM it_acl_s.t WHERE label LIKE 'a%'`,
+		// Rewrites the rows to new keys, with the base commands.
+		`ALTER TABLE it_acl_s.t ALTER COLUMN amount TYPE NUMERIC(12,2), ALTER COLUMN quantity TYPE BIGINT`,
 		`CREATE TABLE it_acl_d AS SELECT id, label FROM it_acl_s.t`,
 		`MERGE INTO it_acl_d d USING it_acl_s.t s ON d.id = s.id WHEN MATCHED THEN UPDATE SET label = s.label || '!'`,
 		`ALTER TABLE it_acl_d RENAME TO it_acl_d2`,
