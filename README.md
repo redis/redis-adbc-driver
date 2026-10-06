@@ -621,6 +621,11 @@ and says what is missing:
   the stored text allows (see [Adopt](#adopt-hashes-in-place) below for
   what an adopted table can't do).
 
+`redis-adbc sweep` is for the driver's own tables rather than an
+application's HASHes: it deletes the rows that writers left under the key
+prefixes of dropped and truncated tables (see [Sweep](#sweep-leftover-rows)
+below).
+
 Build it from `go`:
 
 ```bash
@@ -910,6 +915,90 @@ keys (`~user:*`), and, for the script that `UPDATE` runs on each HASH:
 +hlen +eval +evalsha +script|load
 ```
 
+<a id="sweep-leftover-rows"></a>
+**Sweep.** `DROP TABLE`, `TRUNCATE` and a re-keying rename release the
+table's key prefix, and no table takes it again (see "Key prefixes are
+never reused" below). Rows can still be left under it, where no table or
+query reads them: those of a writer whose process exited before it found
+out, and of a write of 1,000 rows or fewer that read the metadata within
+100 ms of the release and reached Redis after it. `sweep` finds them, and
+with `-apply` deletes them. Nothing is deleted without `-apply`:
+
+```bash
+build/redis-adbc sweep
+```
+
+```text
+Released key prefixes on Redis 8.6.2 (standalone): 4
+  PREFIX            HASHES
+  public:events:    1
+  public:orders~2:  12
+
+Left alone:
+  user:  an adopted table had it: the HASHes are the application's
+
+Nothing was deleted. With -apply, sweep deletes the 13 HASHes under 2 prefixes.
+```
+
+```bash
+build/redis-adbc sweep -apply
+```
+
+```text
+Released key prefixes on Redis 8.6.2 (standalone): 4
+  PREFIX            HASHES  DELETED
+  public:events:    1       1
+  public:orders~2:  12      12
+
+Left alone:
+  user:  an adopted table had it: the HASHes are the application's
+
+Deleted 13 HASHes under 2 prefixes.
+```
+
+- **What it deletes:** the HASHes whose key is a released prefix and a row
+  id (`public:orders~2:42`), found with `SCAN … TYPE hash` (on every
+  primary of a cluster). The prefix is the part of the key up to its last
+  `:`, so the rows of a live table whose name starts with the dropped
+  one's (`public:orders2:`), or of the table's next prefix
+  (`public:orders~3:`), are never touched, nor are keys under the prefix
+  that aren't a row id or aren't HASHes.
+- **What it leaves alone,** listed with the reason:
+  - Prefixes that a table has. Up to v0.0.7, the driver gave a dropped
+    table's prefix to the next table of its name. `sweep` checks again
+    before each pipeline of 1,000 deletions.
+  - The prefixes of a re-keying rename that is still moving rows: a `DROP
+    TABLE` during one releases the table's prefix early. Run `sweep` again
+    once the rename has finished. The next connection to open settles one
+    whose connection went away.
+  - The prefixes of adopted tables, also of dropped ones (listed in
+    `adbc:{meta}:adopted:dropped`), and the prefixes that overlap them:
+    those HASHes are the application's. v0.0.11 and v0.0.12 didn't record
+    dropped adopted tables, so `sweep` also leaves alone every prefix that
+    doesn't have the form of a driver table's, `<schema>:<table>:`
+    (`user:`, `app:user:profile:`). An application's prefix that has that
+    form (`app:users:`), adopted and then dropped with those versions,
+    can't be told apart: check the dry run before `-apply`.
+  - Prefixes whose keys the user may not delete (`NOPERM`).
+  - Temporary tables' prefixes, which aren't counted as released: a
+    connection that opens drops the temporary tables of connections that
+    went away, rows and all.
+- **Cost:** `SCAN` goes through every key of the database (it returns
+  those under the released prefixes' longest common prefix, such as
+  `public:`), which takes a while on a large one. So nothing sweeps when a
+  connection opens.
+- **Writers still running** may leave keys after `sweep` has passed them.
+  Running it again later deletes those. The counts in
+  `adbc:{meta}:released` stay, so no new table takes the prefixes.
+- `-json` writes the result as JSON. `sweep` exits 0 when it could sweep,
+  whether or not it found HASHes, and 1 on an error, after printing what it
+  found and deleted until then.
+- **ACL users:** `sweep` needs the driver's own rules, with `+scan`, and
+  write access to the keys of the schemas it sweeps (`~public:*`).
+- **Earlier versions** (v0.0.12 and before) have no `sweep`. It works on
+  databases they wrote, except for the prefixes that v0.0.5 and earlier
+  released: they didn't record them.
+
 ## Architecture: hybrid index-row layout
 
 ```
@@ -1079,11 +1168,10 @@ keys (`~user:*`), and, for the script that `UPDATE` runs on each HASH:
     exits before it finds out, and when a write of 1,000 rows or fewer that
     read the metadata within 100 ms of the `DROP` or `TRUNCATE` reaches
     Redis after it (it doesn't check, and succeeds, as if it had run
-    before). To remove them, check that no table has the prefix
-    (`information_schema.tables.key_prefix`, or `SISMEMBER
-    adbc:{meta}:prefixes '<prefix>'` returns 0), then delete its keys, on
-    every primary of a cluster: `redis-cli --scan --pattern '<prefix>*' |
-    xargs redis-cli unlink`.
+    before). `redis-adbc sweep -apply` deletes them (see
+    [Sweep](#sweep-leftover-rows)). Nothing deletes them by itself: a
+    connection that opens doesn't look for them, since that means reading
+    every key.
   - **Upgrading:** tables created by earlier versions keep their names
     (until a `TRUNCATE` gives them new ones) and work as before. Prefixes
     released by v0.0.6 and v0.0.7 are recorded in `adbc:{meta}:released`
