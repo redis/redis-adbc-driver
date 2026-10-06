@@ -645,6 +645,9 @@ func binaryOp(op string, l, r Value, z tzZone) (Value, error) {
 			if err := recordCompareError(l, r); err != nil {
 				return Value{}, err
 			}
+			if err := textOperandError(l, r, z); err != nil {
+				return Value{}, err
+			}
 			return Value{}, fmt.Errorf("cannot compare %s with %s", l.T.Kind, r.T.Kind)
 		}
 		switch op {

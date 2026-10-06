@@ -99,12 +99,15 @@ func TestSQLErrorStates(t *testing.T) {
 	}{
 		// Text that doesn't convert: invalid_text_representation.
 		{`SELECT CAST('abc' AS INTEGER)`, data, "22P02", `"abc"`},
+		{`SELECT CAST('1.5' AS INTEGER)`, data, "22P02", `invalid input syntax for type integer: "1.5"`},
+		{`SELECT id FROM it_err WHERE n = '1e3'`, data, "22P02", `invalid input syntax for type integer: "1e3"`},
 		{`SELECT 'abc'::boolean`, data, "22P02", `"abc"`},
 		{`SELECT CAST('abc' AS DOUBLE PRECISION)`, data, "22P02", `"abc"`},
 		{`SELECT CAST('abc' AS NUMERIC(10, 2))`, data, "22P02", `"abc"`},
 		{`SELECT CAST('{' AS JSON)`, data, "22P02", "invalid input syntax for type json"},
 		// numeric_value_out_of_range.
 		{`SELECT CAST(3000000000 AS INTEGER)`, data, "22003", "out of range for INTEGER"},
+		{`SELECT CAST('3000000000' AS INTEGER)`, data, "22003", `value "3000000000" is out of range for type integer`},
 		{`SELECT CAST(1e300 AS BIGINT)`, data, "22003", "BIGINT"},
 		{`SELECT CAST(123456 AS NUMERIC(5, 2))`, data, "22003", "out of range"},
 		{`SELECT CAST(CAST('NaN' AS DOUBLE PRECISION) AS NUMERIC(5, 2))`, data, "22003", "NaN"},

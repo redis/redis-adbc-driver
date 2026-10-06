@@ -285,12 +285,14 @@ the Python exception:
   SQL/JSON paths (`2203A`, `22033`, `22039`).
 - **Every path** gives them: queries (also while a streamed result is
   read), `INSERT`, `UPDATE`, `MERGE`, `ALTER COLUMN … TYPE`, `DEFAULT`s,
-  bound parameters and bulk ingest. A value written to a column has the column's name in front:
-  `[redis] column "n": invalid decimal "x"`. `TRY_CAST` still returns NULL
-  for a value that doesn't convert.
-- **Messages** are the driver's: only the SQLSTATE is Postgres's (`'abc'::int`
-  is `invalid decimal "abc"`, where Postgres says `invalid input syntax for
-  type integer: "abc"`).
+  bound parameters and bulk ingest. A value written to a column has the
+  column's name in front: `[redis] column "n": invalid input syntax for type
+  integer: "x"`. `TRY_CAST` still returns NULL for a value that doesn't
+  convert.
+- **Messages** are mostly the driver's: only the SQLSTATE is Postgres's
+  (`'abc'::numeric` is `invalid decimal "abc"`, where Postgres says
+  `invalid input syntax for type numeric: "abc"`). Text read as an integer
+  has Postgres's messages too (see Text as an integer under Casts).
 - **No SQLSTATE yet:** the errors of the driver's own limits, and a few
   others: `more than one row returned by a subquery used as an expression`
   (`21000` in Postgres), an operator that doesn't exist (`42883`; those of
@@ -3043,6 +3045,39 @@ field, even if later rows have it.
   digits (see Fractional seconds under Types), and casts between `TIMESTAMP`,
   `TIMESTAMP WITH TIME ZONE`, `DATE`, `TIME` and text use the session time
   zone (see Session time zone)
+  - **Text as an integer** (`SMALLINT`, `INTEGER`, `BIGINT`) is read as
+    Postgres's `int4in` reads it: optional spaces and a sign, then digits,
+    with single underscores between them (`'1_000'`), or `0x`, `0o` or
+    `0b` and hexadecimal, octal or binary digits (`'0x1F'` is 31). Anything
+    else (`'1.5'`, `'1e3'`, `'1.0'`, `''`) is `invalid input syntax for
+    type integer: "1.5"` (`22P02`), and a value past the type's range is
+    `value "3000000000" is out of range for type integer` (`22003`), with
+    `smallint` or `bigint` for those types. Text is read so wherever it
+    becomes an integer: written to an integer column (`INSERT`, `UPDATE`,
+    `MERGE`, `DEFAULT`s, bound parameters, bulk ingest and `redis-adbc
+    copy`), compared with an integer (`WHERE n = '1.5'` fails), and as a
+    function's integer argument (`LPAD(s, '3.5')` fails, as an `INTEGER`).
+    Text compared with a value of another type it doesn't convert to fails
+    with that type's conversion error and SQLSTATE (`DATE '2024-01-01' =
+    'x'` is `invalid date "x"`, `22007`)
+  - Differences: an integer literal is a `BIGINT`, so `1 = 'x'` says `type
+    bigint` where Postgres says `type integer`. An `IN` list stops at the
+    first value that matches, so `1 IN ('1', '1.5')` is true, and an
+    indexed column's `IN` list skips the values that don't convert; Postgres
+    reads every value first, and fails on `'1.5'`. A text column compared
+    with an integer is read row by row (`invalid input syntax for type
+    integer: "a"` for a row of `'a'`); Postgres refuses the comparison
+    (`operator does not exist: text = integer`)
+  - **Upgrading from v0.0.12 and earlier:** text was read as a number and
+    rounded, so `CAST('1.5' AS INTEGER)` was 2, `'1e3'` was 1000 and `'1.0'`
+    was 1, also when written to a column, and `WHERE n = '1.5'` matched the
+    rows where `n` is 2; `'0x1F'` and `'1_000'` were errors. The errors were
+    `invalid decimal "x"`, `value 3000000000 out of range for INTEGER` and
+    `cannot convert decimal value "99999999999999999999" to BIGINT`, and
+    text compared with a value it didn't convert to was `cannot compare
+    int32 with string`, without a SQLSTATE. `redis-adbc copy -type
+    n=INTEGER` rounded a field of `1.5`; it now stops there, or copies NULL
+    with `-on-error null`
 - Math functions: `ROUND(x [, n])` and `TRUNC(x [, n])` (`n` may be
   negative: `ROUND(1250, -2)` is 1300), `FLOOR`, `CEIL` / `CEILING`, `MOD` / `%`,
   `POWER` / `POW`, `SQRT`, `CBRT`, `LN`, `LOG(x)` (base 10) / `LOG(b, x)`,

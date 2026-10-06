@@ -563,7 +563,7 @@ func TestScalarErrors(t *testing.T) {
 		{"GREATEST(DATE '2024-01-01', CAST(1 AS INTEGER))", "GREATEST types date and integer cannot be matched"},
 		{"LEAST(CAST('a' AS VARCHAR), 1)", "LEAST types varchar and bigint cannot be matched"},
 		// A quoted literal is read as the other arguments' type.
-		{"LEAST('a', 1)", `invalid decimal "a"`},
+		{"LEAST('a', 1)", `invalid input syntax for type bigint: "a"`},
 		{"COALESCE(CAST('a' AS VARCHAR), 1)", "COALESCE types varchar and bigint cannot be matched"},
 		{"ROUND(1, 2, 3)", "ROUND expects 1 or 2 arguments"},
 		{"RANDOM(1)", "RANDOM expects no arguments"},

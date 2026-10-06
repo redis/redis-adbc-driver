@@ -447,9 +447,9 @@ func TestSQLRowValueHashSet(t *testing.T) {
 	h.expectRows("SELECT id FROM it_rv_p WHERE (a, b, 0) IN ("+strings.Join(three, ", ")+") ORDER BY id", "1")
 	h.expectRows("SELECT id FROM it_rv_p WHERE (a, b, 0) NOT IN ("+strings.Join(three, ", ")+") ORDER BY id",
 		"2", "3", "4", "6", "8")
-	// Text compared with numbers can fail to compare: such a row is
+	// Text compared with numbers can fail to convert: such a row is
 	// compared row by row, with the error the chain of comparisons gives.
-	h.expectError(inList("(b, a)", withNulls), "cannot compare")
+	h.expectError(inList("(b, a)", withNulls), `invalid input syntax for type bigint: "v`)
 }
 
 // Rows in the conditions of UPDATE, DELETE and MERGE, with RETURNING.

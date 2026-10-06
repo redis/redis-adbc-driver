@@ -3255,7 +3255,7 @@ func TestSQLLongInList(t *testing.T) {
 	if subqueryStats.inLists.Load() == before {
 		t.Error("no IN list used its hash set")
 	}
-	// A string column against numbers can fail to compare: it is still
+	// A string column against numbers can fail to convert: it is still
 	// evaluated value by value, with the same error as before.
-	h.expectError("SELECT COUNT(*) FROM it_inlist WHERE s IN ("+list+")", "cannot compare")
+	h.expectError("SELECT COUNT(*) FROM it_inlist WHERE s IN ("+list+")", `invalid input syntax for type bigint: "s`)
 }

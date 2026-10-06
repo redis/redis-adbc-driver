@@ -403,10 +403,10 @@ func TestSQLFunctionsValueErrors(t *testing.T) {
 	for _, c := range []struct{ expr, err string }{
 		{"1 / (id - id)", "division by zero"},
 		{"LOG(id - id)", "LOG: cannot take logarithm of zero"},
-		{"CAST(s AS INTEGER)", `invalid decimal "a"`},
+		{"CAST(s AS INTEGER)", `invalid input syntax for type integer: "a"`},
 		{"SQRT(-id)", "SQRT: cannot take square root of a negative number"},
 		{"MAKE_DATE(2024, 13, id)", "date field value out of range: 2024-13-01"},
-		{"ROUND(n, s)", `ROUND: the number of decimal places must be an integer: invalid decimal "a"`},
+		{"ROUND(n, s)", `ROUND: the number of decimal places must be an integer: invalid input syntax for type integer: "a"`},
 	} {
 		h.expectErrorText("SELECT "+c.expr+" FROM it_fx_t", c.err)
 		h.expectRows("SELECT " + c.expr + " FROM it_fx_e")

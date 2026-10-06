@@ -104,14 +104,14 @@ func TestUnknownLiteralErrors(t *testing.T) {
 		{"GREATEST(s, 1)", "GREATEST types varchar and bigint cannot be matched"},
 		{"IIF(i = 1, s, 1)", "IIF types varchar and bigint cannot be matched"},
 		{"1 + COALESCE(s, i)", "COALESCE types varchar and integer cannot be matched"},
-		{"CASE WHEN i = 1 THEN 'x' ELSE 1 END", `invalid decimal "x"`},
-		{"CASE WHEN FALSE THEN 'x' ELSE i END", `invalid decimal "x"`},
-		{"i + CASE WHEN i = 1 THEN 'x' ELSE 1 END", `invalid decimal "x"`},
+		{"CASE WHEN i = 1 THEN 'x' ELSE 1 END", `invalid input syntax for type bigint: "x"`},
+		{"CASE WHEN FALSE THEN 'x' ELSE i END", `invalid input syntax for type integer: "x"`},
+		{"i + CASE WHEN i = 1 THEN 'x' ELSE 1 END", `invalid input syntax for type bigint: "x"`},
 		{"CASE WHEN i = 1 THEN b ELSE 'maybe' END", `cannot convert "maybe" to BOOLEAN`},
 		{"COALESCE(d, 'soon')", `invalid date "soon"`},
-		{"NULLIF('a', i)", `invalid decimal "a"`},
-		{"NULLIF(i, 'a')", `invalid decimal "a"`},
-		{"LAG(i, 1, 'x') OVER (ORDER BY i)", `invalid decimal "x"`},
+		{"NULLIF('a', i)", `invalid input syntax for type integer: "a"`},
+		{"NULLIF(i, 'a')", `invalid input syntax for type integer: "a"`},
+		{"LAG(i, 1, 'x') OVER (ORDER BY i)", `invalid input syntax for type integer: "x"`},
 	} {
 		if err := checkUnknowns(parseTestExpr(t, c.expr), cols, nil); err == nil || !strings.Contains(err.Error(), c.err) {
 			t.Errorf("%s: error %v, want one containing %q", c.expr, err, c.err)
@@ -205,8 +205,8 @@ func TestUnknownLiteralSetOps(t *testing.T) {
 		t.Errorf("%s: %q, want %q", sql, got, want)
 	}
 	for _, c := range []struct{ sql, err string }{
-		{`SELECT 'a' UNION SELECT 3`, `invalid decimal "a"`},
-		{`SELECT 'a' WHERE FALSE UNION SELECT 3`, `invalid decimal "a"`},
+		{`SELECT 'a' UNION SELECT 3`, `invalid input syntax for type bigint: "a"`},
+		{`SELECT 'a' WHERE FALSE UNION SELECT 3`, `invalid input syntax for type bigint: "a"`},
 		// The first UNION's column is text.
 		{`SELECT '1' UNION SELECT '2' UNION SELECT 3`, "types VARCHAR and BIGINT cannot be matched"},
 	} {

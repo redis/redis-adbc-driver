@@ -311,7 +311,7 @@ func TestSQLAlterTypeConstraints(t *testing.T) {
 		{`ALTER TABLE it_atc3 ALTER COLUMN c TYPE int USING c::int`, adbc.StatusInvalidArgument,
 			`default for column "c" cannot be cast automatically to type integer`},
 		{`ALTER TABLE it_atc3 ALTER COLUMN c DROP DEFAULT, ALTER COLUMN c TYPE int USING c::int, ALTER COLUMN c SET DEFAULT 'x'`,
-			adbc.StatusInvalidData, `column "c": invalid decimal "x"`},
+			adbc.StatusInvalidData, `column "c": invalid input syntax for type integer: "x"`},
 		{`ALTER TABLE it_atc3 ALTER COLUMN c DROP DEFAULT, ALTER COLUMN c TYPE int USING NULLIF(c, '2')::int, ALTER COLUMN c SET NOT NULL`,
 			adbc.StatusIntegrity, `column "c" of relation "it_atc3" contains null values`},
 	} {
@@ -713,7 +713,7 @@ func TestSQLAlterType(t *testing.T) {
 		{`ALTER TABLE it_at ALTER COLUMN c TYPE bigint USING c::bigint, ALTER COLUMN c TYPE integer USING c::integer`, adbc.StatusNotImplemented,
 			`cannot alter type of column "c" twice`},
 		// Row 3's 'abc' doesn't convert: nothing changes.
-		{`ALTER TABLE it_at ALTER COLUMN c TYPE integer USING c::integer`, adbc.StatusInvalidData, `invalid decimal "abc"`},
+		{`ALTER TABLE it_at ALTER COLUMN c TYPE integer USING c::integer`, adbc.StatusInvalidData, `invalid input syntax for type integer: "abc"`},
 		{`ALTER TABLE it_at ALTER COLUMN v TYPE varchar(1)`, adbc.StatusInvalidData, `value too long for type character varying(1)`},
 	} {
 		h.expectQueryError(c.sql, c.code, c.msg)
@@ -745,7 +745,7 @@ func TestSQLAlterType(t *testing.T) {
 	if q, residual := h.pushedWhere(raw, `SELECT id FROM it_at WHERE c = 10`); !strings.Contains(q, "@c:[10 10]") || residual {
 		t.Errorf("WHERE c = 10: index query %q, residual %v", q, residual)
 	}
-	h.expectQueryError(`INSERT INTO it_at (id, c) VALUES (4, 'x')`, adbc.StatusInvalidData, `column "c": invalid decimal "x"`)
+	h.expectQueryError(`INSERT INTO it_at (id, c) VALUES (4, 'x')`, adbc.StatusInvalidData, `column "c": invalid input syntax for type integer: "x"`)
 	h.exec(`INSERT INTO it_at (id, c) VALUES (4, 12)`)
 	h.expectRows(`SELECT id, n FROM it_at WHERE c = 12`, "4|5")
 

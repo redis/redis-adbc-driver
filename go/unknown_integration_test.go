@@ -105,10 +105,10 @@ func TestSQLUnknownLiterals(t *testing.T) {
 		{`SELECT COALESCE(CASE WHEN id = 1 THEN '1' END, 1) FROM it_unklit`, "COALESCE types varchar and bigint cannot be matched"},
 		{`SELECT COALESCE(s, 1) FROM it_unklit`, "COALESCE types varchar and bigint cannot be matched"},
 		// A literal that isn't an integer is an error, also where no row reads it.
-		{`SELECT CASE WHEN id = 1 THEN 'x' ELSE 1 END FROM it_unklit WHERE FALSE`, `invalid decimal "x"`},
-		{`SELECT id FROM it_unklit WHERE id = CASE WHEN id = 1 THEN 'x' ELSE 2 END`, `invalid decimal "x"`},
+		{`SELECT CASE WHEN id = 1 THEN 'x' ELSE 1 END FROM it_unklit WHERE FALSE`, `invalid input syntax for type bigint: "x"`},
+		{`SELECT id FROM it_unklit WHERE id = CASE WHEN id = 1 THEN 'x' ELSE 2 END`, `invalid input syntax for type bigint: "x"`},
 		{`SELECT CASE WHEN id = 1 THEN b ELSE 'maybe' END FROM it_unklit`, `cannot convert "maybe" to BOOLEAN`},
-		{`SELECT 'a' UNION SELECT 3`, `invalid decimal "a"`},
+		{`SELECT 'a' UNION SELECT 3`, `invalid input syntax for type bigint: "a"`},
 	} {
 		h.expectError(c.sql, c.err)
 	}
