@@ -472,7 +472,7 @@ func rangeOffsetOK(key, off ColType) bool {
 	switch {
 	case key.Kind.isNumeric():
 		return off.Kind.isNumeric()
-	case key.Kind == KindDate || key.Kind == KindTime || key.Kind == KindTimestamp || key.Kind == KindInterval:
+	case key.Kind == KindDate || key.isTimeOfDay() || key.Kind == KindTimestamp || key.Kind == KindInterval:
 		return off.Kind == KindInterval
 	}
 	return false
@@ -723,6 +723,7 @@ func computeWindowGroup(env *evalEnv, g *windowGroup, n int, setRow func(int)) e
 			keep[j] = make([]bool, n)
 		}
 	}
+	ptypes := keyTypes(g.spec.PartitionBy, env.types)
 	for i := 0; i < n; i++ {
 		if err := cancelled(env.ctx); err != nil {
 			return err
@@ -733,7 +734,7 @@ func computeWindowGroup(env *evalEnv, g *windowGroup, n int, setRow func(int)) e
 			if err != nil {
 				return err
 			}
-			pkeys[i*np+k] = v
+			pkeys[i*np+k] = keyAs(v, ptypes[k], ws.zone)
 		}
 		for k, o := range g.spec.OrderBy {
 			v, err := env.eval(o.Expr)
@@ -992,7 +993,7 @@ func (ws *windowSet) valueAt(c windowCall, args [][]Value, lo, hi []int, excl Fr
 				return err
 			}
 			if nth.I <= 0 {
-				return fmt.Errorf("argument of NTH_VALUE must be greater than zero")
+				return stateErr(stateNthValue, "argument of NTH_VALUE must be greater than zero")
 			}
 			k = int(min(nth.I, int64(len(ws.perm)+1)))
 		}
@@ -1063,7 +1064,7 @@ func (ws *windowSet) ntile(arg []Value, vals []Value) error {
 			return err
 		}
 		if b.I <= 0 {
-			return fmt.Errorf("argument of NTILE must be greater than zero")
+			return stateErr(stateNtile, "argument of NTILE must be greater than zero")
 		}
 		m := int64(pe - ps)
 		q, r := m/b.I, m%b.I
@@ -1185,12 +1186,12 @@ func (ws *windowSet) frameOffset(env *evalEnv, fr *WindowFrame, b FrameBound, wh
 		return Value{}, err
 	}
 	if v.Null {
-		return Value{}, fmt.Errorf("frame %s offset must not be null", which)
+		return Value{}, stateErr(stateNullNotAllowed, "frame %s offset must not be null", which)
 	}
 	negative := false
 	if fr.Unit != FrameRange {
 		if v, err = Coerce(v, typeInt64); err != nil {
-			return Value{}, fmt.Errorf("%s frame offsets must be integers: %v", frameUnitNames[fr.Unit], err)
+			return Value{}, fmt.Errorf("%s frame offsets must be integers: %w", frameUnitNames[fr.Unit], err)
 		}
 		negative = v.I < 0
 	} else {
@@ -1206,7 +1207,7 @@ func (ws *windowSet) frameOffset(env *evalEnv, fr *WindowFrame, b FrameBound, wh
 				key.SQLName(), v.T.SQLName())
 		}
 		switch {
-		case v.T.Kind == KindInterval && key.Kind == KindTime:
+		case v.T.Kind == KindInterval && key.isTimeOfDay():
 			// A time moves by the interval's time part only (see timeOffset).
 			negative = v.I < 0
 		case v.T.Kind == KindInterval:
@@ -1217,7 +1218,7 @@ func (ws *windowSet) frameOffset(env *evalEnv, fr *WindowFrame, b FrameBound, wh
 		}
 	}
 	if negative {
-		return Value{}, fmt.Errorf("frame %s offset must not be negative", which)
+		return Value{}, stateErr(stateFrameOffset, "frame %s offset must not be negative", which)
 	}
 	return v, nil
 }
@@ -1309,7 +1310,7 @@ func (ws *windowSet) rangeBound(off Value, i, ps, pe int, following, start bool)
 	}
 	var target Value
 	var err error
-	if cur.T.Kind == KindTime {
+	if cur.T.isTimeOfDay() {
 		target, err = timeOffset(cur, off, toward)
 	} else {
 		target, err = binaryOp(op, cur, off, ws.zone)
@@ -1338,7 +1339,8 @@ func (ws *windowSet) rangeBound(off Value, i, ps, pe int, following, start bool)
 	})
 }
 
-// timeOffset moves a TIME key by dir times an interval for a RANGE bound.
+// timeOffset moves a TIME or TIME WITH TIME ZONE key by dir times an
+// interval for a RANGE bound.
 // As in PostgreSQL, only the interval's time part counts and the result does
 // not wrap around midnight (time ± interval does), so a frame never reaches
 // past the start or end of the day.
@@ -1350,7 +1352,11 @@ func timeOffset(t, off Value, dir int) (Value, error) {
 	}
 	s := ns + d
 	if (d > 0 && s < ns) || (d < 0 && s > ns) {
-		return Value{}, fmt.Errorf("time out of range")
+		return Value{}, stateErr(stateDatetimeRange, "time out of range")
+	}
+	if t.T.Kind == KindTimeTZ {
+		// With t's offset, as Postgres's in_range for a time with time zone.
+		return Value{T: ColType{Kind: KindTimeTZ, Unit: arrow.Nanosecond}, I: s, Off: t.Off}, nil
 	}
 	return intValue(timeType(arrow.Nanosecond), s), nil
 }

@@ -554,12 +554,16 @@ func (rc *recursionCheck) query(sel *SelectStmt, hidden map[string]bool) {
 }
 
 // nullSupplying reports whether FROM item i is on the NULL-supplying side of
-// an outer join (as joinPlan.finish works it out).
+// an outer join (as joinPlan.finish works it out): of a RIGHT or FULL join
+// up to the next comma.
 func nullSupplying(items []JoinClause, i int) bool {
 	if k := items[i].Kind; k == "LEFT" || k == "FULL" {
 		return true
 	}
 	for _, later := range items[i+1:] {
+		if later.Comma {
+			break
+		}
 		if later.Kind == "RIGHT" || later.Kind == "FULL" {
 			return true
 		}

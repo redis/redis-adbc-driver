@@ -338,16 +338,18 @@ func (env *evalEnv) evalCase(c *Case) (Value, error) {
 	return nullValue(typeNull), nil
 }
 
-// branchValue evaluates the chosen branch of a CASE or IIF (e). A date or
-// timestamp is converted to the result's type when that is another date
-// or timestamp type: a TIMESTAMP or DATE branch of a TIMESTAMP WITH TIME
-// ZONE result is read as a local time in the session time zone, as
-// Postgres converts a CASE's branches, so that sorting, grouping and text
-// see the result's values. (Other types keep their branch's value, which
-// the result's type holds.)
+// branchValue evaluates the chosen branch of a CASE or IIF (e). A date,
+// time or timestamp is converted to the result's type when that is another
+// date or time type: a TIMESTAMP or DATE branch of a TIMESTAMP WITH TIME
+// ZONE result is read as a local time in the session time zone, and a TIME
+// branch of a TIME WITH TIME ZONE result takes the session time zone's
+// offset, as Postgres converts a CASE's branches, so that sorting, grouping
+// and text see the result's values. (Other types keep their branch's
+// value, which the result's type holds.)
 func (env *evalEnv) branchValue(e, branch Expr) (Value, error) {
 	v, err := env.eval(branch)
-	if err != nil || v.Null || (v.T.Kind != KindTimestamp && v.T.Kind != KindDate) || env.exec == nil {
+	k := v.T.Kind
+	if err != nil || v.Null || (k != KindTimestamp && k != KindDate && k != KindTime) || env.exec == nil {
 		return v, err
 	}
 	ex := env.exec
@@ -356,6 +358,12 @@ func (env *evalEnv) branchValue(e, branch Expr) (Value, error) {
 	if !ok {
 		t, _ = inferType(e, env.types, ex.paramTypes) // the zero type on error
 		ex.cache.branchTypes[e] = t
+	}
+	if k == KindTime {
+		if t.Kind != KindTimeTZ {
+			return v, nil
+		}
+		return coerceIn(v, t.withFracDigits(max(t.fracDigits(), v.T.fracDigits())), env.zone())
 	}
 	if t.Kind != KindTimestamp || (v.T.Kind == KindTimestamp && v.T.TZ == t.TZ) {
 		return v, nil
@@ -471,7 +479,7 @@ func (env *evalEnv) evalFunc(f *Func) (Value, error) {
 	case "FROM_HEX", "UNHEX", "DECODE_HEX":
 		b, err := hex.DecodeString(args[0].S)
 		if err != nil {
-			return Value{}, fmt.Errorf("invalid hex string %q", args[0].S)
+			return Value{}, stateErr(stateInvalidParameter, "invalid hex string %q", args[0].S)
 		}
 		return binaryValue(string(b)), nil
 	case "TO_HEX", "HEX":
@@ -490,7 +498,7 @@ func (env *evalEnv) evalFunc(f *Func) (Value, error) {
 		if len(args) == 3 {
 			esc = args[2].Text()
 			if utf8.RuneCountInString(esc) > 1 {
-				return Value{}, fmt.Errorf("ESCAPE must be a single character")
+				return Value{}, stateErr(stateEscape, "ESCAPE must be a single character")
 			}
 		}
 		s, pat := args[0].paddedIn(env.zone()), args[1].textIn(env.zone())
@@ -552,7 +560,7 @@ func negate(v Value) (Value, error) {
 	switch {
 	case v.T.Kind.isInteger():
 		if v.I == math.MinInt64 {
-			return Value{}, fmt.Errorf("integer overflow")
+			return Value{}, stateErr(stateNumericRange, "integer overflow")
 		}
 		return intValue(v.T, -v.I), nil
 	case v.T.Kind.isFloat():
@@ -630,27 +638,27 @@ func binaryOp(op string, l, r Value, z tzZone) (Value, error) {
 		case "+":
 			s := a + b
 			if (s > a) != (b > 0) {
-				return Value{}, fmt.Errorf("integer overflow")
+				return Value{}, stateErr(stateNumericRange, "integer overflow")
 			}
 			return intValue(rt, s), nil
 		case "-":
 			s := a - b
 			if (s < a) != (b > 0) {
-				return Value{}, fmt.Errorf("integer overflow")
+				return Value{}, stateErr(stateNumericRange, "integer overflow")
 			}
 			return intValue(rt, s), nil
 		case "*":
 			if a != 0 && b != 0 {
 				p := a * b
 				if p/b != a || (a == -1 && b == math.MinInt64) || (b == -1 && a == math.MinInt64) {
-					return Value{}, fmt.Errorf("integer overflow")
+					return Value{}, stateErr(stateNumericRange, "integer overflow")
 				}
 				return intValue(rt, p), nil
 			}
 			return intValue(rt, 0), nil
 		case "/":
 			if b == 0 {
-				return Value{}, fmt.Errorf("division by zero")
+				return Value{}, stateErr(stateDivisionByZero, "division by zero")
 			}
 			return intValue(rt, a/b), nil
 		}
@@ -666,7 +674,7 @@ func binaryOp(op string, l, r Value, z tzZone) (Value, error) {
 			return floatValue(rt, a*b), nil
 		case "/":
 			if b == 0 {
-				return Value{}, fmt.Errorf("division by zero")
+				return Value{}, stateErr(stateDivisionByZero, "division by zero")
 			}
 			return floatValue(rt, a/b), nil
 		}
@@ -903,7 +911,8 @@ func commonType(a, b ColType) ColType {
 			t.Scale = max(a.Scale, b.Scale)
 		}
 		return t
-	case a.Kind == KindTimestamp && b.Kind == KindTimestamp, a.Kind == KindTime && b.Kind == KindTime:
+	case a.Kind == KindTimestamp && b.Kind == KindTimestamp, a.Kind == KindTime && b.Kind == KindTime,
+		a.Kind == KindTimeTZ && b.Kind == KindTimeTZ:
 		// The more fractional digits, so that no value is rounded; with a
 		// time zone if either has one, as in Postgres.
 		t := finerTime(a, b)
@@ -911,6 +920,12 @@ func commonType(a, b ColType) ColType {
 			t.TZ = b.TZ
 		}
 		return t
+	case a.isTimeOfDay() && b.isTimeOfDay():
+		// A TIME and a time with time zone: a time with time zone (Postgres
+		// converts the TIME).
+		t := finerTime(a, b)
+		t.Kind = KindTimeTZ
+		return t.withFracDigits(t.fracDigits())
 	case a.Kind == KindDate && b.Kind == KindTimestamp:
 		return b
 	case a.Kind == KindTimestamp && b.Kind == KindDate:

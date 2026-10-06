@@ -108,8 +108,9 @@ func (h *sqlHarness) tableConstraints(schema, table string) []string {
 }
 
 // Every constraint form parses, in CREATE TABLE and ADD COLUMN, with the
-// same meaning at both levels. PRIMARY KEY, UNIQUE and FOREIGN KEY are not
-// enforced.
+// same meaning at both levels. UNIQUE, FOREIGN KEY and the uniqueness of
+// PRIMARY KEY are not enforced (pkey_integration_test.go tests the rest of
+// PRIMARY KEY).
 func TestSQLConstraintForms(t *testing.T) {
 	h := newSQLHarness(t)
 	h.dropTables("it_con_parent", "it_con_forms", "it_con_tbl", "it_con_multi", "it_con_bad")
@@ -143,7 +144,6 @@ func TestSQLConstraintForms(t *testing.T) {
 		check (a >= 0),
 		constraint b_nonneg check (b >= 0),
 		unique (a, b),
-		primary key (a),
 		constraint u_b unique (b),
 		constraint pk_a primary key (a),
 		foreign key (parent_id) references it_con_parent (id),
@@ -164,13 +164,13 @@ func TestSQLConstraintForms(t *testing.T) {
 		c varchar constraint c_d default 'x' constraint c_u unique constraint c_null null comment 'C' noindex,
 		d integer references public.it_con_parent (id) on delete set default (d) on update no action,
 		e integer references it_con_parent match simple on update restrict check (e <> 0) no inherit,
-		f integer constraint f_ref references it_con_parent (id) match partial on delete set null (f, e) unique primary key
+		f integer constraint f_ref references it_con_parent (id) match partial on delete set null (f, e) unique
 	)`)
 	h.expectChecks(raw, "it_con_multi",
 		"a_pos: a > 0", "it_con_multi_b_check: b > 0", "it_con_multi_b_check1: b < 100", "it_con_multi_e_check: e <> 0")
 	h.exec(`INSERT INTO it_con_multi (a) VALUES (1)`)
 	h.expectRows(`SELECT a, b, c, d, e, f FROM it_con_multi`, "1|5|x|NULL|NULL|NULL")
-	h.expectError(`INSERT INTO it_con_multi (a) VALUES (NULL)`, `NULL value in column "a" violates not-null constraint`)
+	h.expectError(`INSERT INTO it_con_multi (a) VALUES (NULL)`, `null value in column "a" of relation "it_con_multi" violates not-null constraint`)
 	h.expectError(`INSERT INTO it_con_multi (a, b) VALUES (1, 100)`, `violates check constraint "it_con_multi_b_check1"`)
 	h.expectError(`INSERT INTO it_con_multi (a, e) VALUES (1, 0)`, `violates check constraint "it_con_multi_e_check"`)
 	h.expectRows(`SELECT column_name, is_nullable, column_default, is_indexed, comment FROM information_schema.columns
@@ -179,7 +179,7 @@ func TestSQLConstraintForms(t *testing.T) {
 
 	// ADD COLUMN takes the same column constraints.
 	h.exec(`ALTER TABLE it_con_forms ADD COLUMN ref_id integer constraint ref_fk references it_con_parent (id) on delete cascade check (ref_id > 0) unique`)
-	h.exec(`ALTER TABLE it_con_forms ADD qty2 integer not null default 1 constraint qty2_pos check (qty2 > 0) primary key`)
+	h.exec(`ALTER TABLE it_con_forms ADD qty2 integer not null default 1 constraint qty2_pos check (qty2 > 0) unique`)
 	h.expectChecks(raw, "it_con_forms", "it_con_forms_amount_check: amount >= 0", "qty_nonneg: qty >= 0",
 		"it_con_forms_ref_id_check: ref_id > 0", "qty2_pos: qty2 > 0")
 	h.expectError(`INSERT INTO it_con_forms (id, ref_id) VALUES (3, 0)`, `violates check constraint "it_con_forms_ref_id_check"`)
@@ -252,9 +252,9 @@ func TestSQLCheckInsert(t *testing.T) {
 	h.exec(`ALTER TABLE it_chk_ins ALTER COLUMN amount DROP DEFAULT`)
 	h.exec(`INSERT INTO it_chk_ins (id) VALUES (5)`)
 	// NOT NULL comes first, also for INSERT … SELECT.
-	h.expectError(`INSERT INTO it_chk_ins VALUES (NULL, -1, 1, 1, 'a')`, `NULL value in column "id" violates not-null constraint`)
+	h.expectError(`INSERT INTO it_chk_ins VALUES (NULL, -1, 1, 1, 'a')`, `null value in column "id" of relation "it_chk_ins" violates not-null constraint`)
 	h.expectError(`INSERT INTO it_chk_ins SELECT CASE WHEN id = 1 THEN NULL ELSE id END, -1, 1, 1, 'a' FROM it_chk_ins WHERE id IN (1, 2)`,
-		`NULL value in column "id" violates not-null constraint`)
+		`null value in column "id" of relation "it_chk_ins" violates not-null constraint`)
 
 	// INSERT … SELECT that passes, and DEFAULT VALUES.
 	h.exec(`CREATE TABLE it_chk_src (n integer)`)
@@ -589,7 +589,7 @@ func TestSQLCheckAlter(t *testing.T) {
 	h.expectError(`ALTER TABLE it_chk_alt DROP CONSTRAINT`, `expected identifier near ""`)
 	h.expectError(`ALTER TABLE it_chk_alt ADD CONSTRAINT c`, `syntax error: expected a constraint after CONSTRAINT c near ""`)
 	h.expectError(`ALTER TABLE it_chk_alt ADD CHECK v > 0`, `syntax error: expected "(" near "v"`)
-	h.expectError(`ALTER TABLE it_chk_alt ALTER COLUMN v SET NOT NULL`, `unsupported ALTER COLUMN action near "SET"`)
+	h.expectError(`ALTER TABLE it_chk_alt ALTER COLUMN v TYPE bigint`, `unsupported ALTER COLUMN action near "TYPE"`)
 	h.expectError(`ALTER TABLE it_chk_alt VALIDATE CONSTRAINT x`,
 		`unsupported ALTER TABLE action near "VALIDATE" (supported: RENAME TO, RENAME COLUMN, ADD COLUMN, DROP COLUMN, ALTER COLUMN, ADD CONSTRAINT, DROP CONSTRAINT)`)
 	h.expectError(`ALTER VIEW it_chk_alt DROP CONSTRAINT x`, "ALTER VIEW supports only RENAME TO")
@@ -831,14 +831,15 @@ func TestSQLCheckDbt(t *testing.T) {
 	h.exec(`DROP TABLE it_chk_s.t`)
 	h.expectError(ddl(`select 0 as id, 1 as amount, 1 as zone_id`), `new row for relation "t" violates check constraint "t_id_check"`)
 	h.exec(`DROP TABLE it_chk_s.t`)
-	h.expectError(ddl(`select cast(null as integer) as id, 1 as amount, 1 as zone_id`), `NULL value in column "id" violates not-null constraint`)
+	h.expectError(ddl(`select cast(null as integer) as id, 1 as amount, 1 as zone_id`), `null value in column "id" of relation "t" violates not-null constraint`)
 	h.exec(`DROP TABLE it_chk_s.t`)
-	// A NULL amount passes, and the foreign key isn't enforced (zone 9).
+	// A NULL amount passes, and neither the foreign key (zone 9) nor the
+	// primary key's uniqueness (id 2 twice) is enforced.
 	h.exec(ddl(`select 1 as id, 10.5 as amount, 1 as zone_id
         union all select 2 as id, null as amount, 9 as zone_id
         union all select 2 as id, 0 as amount, 2 as zone_id`))
 	h.expectRows(`SELECT id, amount, zone_id FROM it_chk_s.t ORDER BY id, zone_id`, "1|10.500000000|1", "2|0.000000000|2", "2|NULL|9")
-	if got := strings.Join(h.tableConstraints("it_chk_s", "t"), "\n"); got != "table\nt_amount_check CHECK (amount)\nt_id_check CHECK (id)" {
+	if got := strings.Join(h.tableConstraints("it_chk_s", "t"), "\n"); got != "table\nt_pkey PRIMARY KEY (id)\nt_amount_check CHECK (amount)\nt_id_check CHECK (id)" {
 		t.Errorf("GetObjects constraints %q", got)
 	}
 }

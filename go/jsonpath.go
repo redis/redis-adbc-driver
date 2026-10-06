@@ -132,7 +132,7 @@ func (sc *jsonPathScanner) word() string {
 // syntaxError is Postgres's error for the token at the current position.
 func (sc *jsonPathScanner) syntaxError() error {
 	if sc.i >= len(sc.src) {
-		return errors.New("syntax error at end of jsonpath input")
+		return stateErr(stateSyntax, "syntax error at end of jsonpath input")
 	}
 	start := sc.i
 	tok := sc.word()
@@ -140,7 +140,7 @@ func (sc *jsonPathScanner) syntaxError() error {
 		_, size := utf8.DecodeRuneInString(sc.src[start:])
 		tok = sc.src[start : start+size]
 	}
-	return fmt.Errorf(`syntax error at or near "%s" of jsonpath input`, tok)
+	return stateErr(stateSyntax, `syntax error at or near "%s" of jsonpath input`, tok)
 }
 
 func parseJSONPath(src string) (*jsonPath, error) {
@@ -161,7 +161,7 @@ func parseJSONPath(src string) (*jsonPath, error) {
 	}
 	sc.i++
 	if v := sc.word(); v != "" {
-		return nil, fmt.Errorf(`could not find jsonpath variable "%s"`, v)
+		return nil, stateErr(stateUndefinedObject, `could not find jsonpath variable "%s"`, v)
 	}
 	for {
 		sc.skipSpace()
@@ -240,23 +240,23 @@ func (sc *jsonPathScanner) quoted() (string, error) {
 		case e == 'u' && sc.at('{'):
 			end := strings.IndexByte(s[sc.i:], '}')
 			if end < 0 {
-				return "", errors.New("invalid Unicode escape sequence in jsonpath")
+				return "", stateErr(stateSyntax, "invalid Unicode escape sequence in jsonpath")
 			}
 			n, err := strconv.ParseUint(s[sc.i+1:sc.i+end], 16, 32)
 			if err != nil || n > utf8.MaxRune {
-				return "", errors.New("invalid Unicode escape sequence in jsonpath")
+				return "", stateErr(stateSyntax, "invalid Unicode escape sequence in jsonpath")
 			}
 			r, sc.i = rune(n), sc.i+end+1
 		case e == 'u':
 			n, ok := hex4(s[sc.i:])
 			if !ok {
-				return "", errors.New("invalid Unicode escape sequence in jsonpath")
+				return "", stateErr(stateSyntax, "invalid Unicode escape sequence in jsonpath")
 			}
 			r, sc.i = n, sc.i+4
 		case e == 'x' && sc.i+2 <= len(s):
 			n, err := strconv.ParseUint(s[sc.i:sc.i+2], 16, 8)
 			if err != nil {
-				return "", errors.New("invalid hexadecimal character sequence in jsonpath")
+				return "", stateErr(stateSyntax, "invalid hexadecimal character sequence in jsonpath")
 			}
 			r, sc.i = rune(n), sc.i+2
 		default:
@@ -274,7 +274,7 @@ func (sc *jsonPathScanner) quoted() (string, error) {
 		}
 		b.WriteRune(r)
 	}
-	return "", errors.New("syntax error at end of jsonpath input")
+	return "", stateErr(stateSyntax, "syntax error at end of jsonpath input")
 }
 
 // subscripts parses what follows a '[': * ] or subscript, … ].
@@ -347,7 +347,7 @@ func (sc *jsonPathScanner) index() (jsonPathIndex, error) {
 	}
 	n, err := strconv.ParseInt(sc.src[start:sc.i], 10, 32)
 	if err != nil {
-		return x, errors.New("jsonpath array subscript is out of integer range")
+		return x, stateErr(stateJSONSubscript, "jsonpath array subscript is out of integer range")
 	}
 	if neg {
 		n = -n
@@ -397,9 +397,9 @@ func (p *jsonPath) apply(st jsonPathStep, it *jsonNode, out []*jsonNode, unwrap 
 		case it.kind != jsonObject && !p.strict:
 			return out, nil
 		case it.kind != jsonObject && st.kind == pathAnyKey:
-			return nil, errors.New("jsonpath wildcard member accessor can only be applied to an object")
+			return nil, stateErr(stateJSONObjectNotFound, "jsonpath wildcard member accessor can only be applied to an object")
 		case it.kind != jsonObject:
-			return nil, errors.New("jsonpath member accessor can only be applied to an object")
+			return nil, stateErr(stateJSONMemberNotFound, "jsonpath member accessor can only be applied to an object")
 		case st.kind == pathAnyKey:
 			return append(out, it.items...), nil
 		}
@@ -407,7 +407,7 @@ func (p *jsonPath) apply(st jsonPathStep, it *jsonNode, out []*jsonNode, unwrap 
 			return append(out, v), nil
 		}
 		if p.strict {
-			return nil, fmt.Errorf(`JSON object does not contain key "%s"`, st.key)
+			return nil, stateErr(stateJSONMemberNotFound, `JSON object does not contain key "%s"`, st.key)
 		}
 		return out, nil
 	case pathAnyElement:
@@ -415,14 +415,14 @@ func (p *jsonPath) apply(st jsonPathStep, it *jsonNode, out []*jsonNode, unwrap 
 		case it.kind == jsonArray:
 			return append(out, it.items...), nil
 		case p.strict:
-			return nil, errors.New("jsonpath wildcard array accessor can only be applied to an array")
+			return nil, stateErr(stateJSONArrayNotFound, "jsonpath wildcard array accessor can only be applied to an array")
 		}
 		return append(out, it), nil
 	}
 	elems := it.items
 	if it.kind != jsonArray {
 		if p.strict {
-			return nil, errors.New("jsonpath array accessor can only be applied to an array")
+			return nil, stateErr(stateJSONArrayNotFound, "jsonpath array accessor can only be applied to an array")
 		}
 		elems = []*jsonNode{it}
 	}
@@ -430,7 +430,7 @@ func (p *jsonPath) apply(st jsonPathStep, it *jsonNode, out []*jsonNode, unwrap 
 	for _, sub := range st.subs {
 		from, to := sub.from.resolve(size), sub.to.resolve(size)
 		if p.strict && (from < 0 || from > to || to >= size) {
-			return nil, errors.New("jsonpath array subscript is out of bounds")
+			return nil, stateErr(stateJSONSubscript, "jsonpath array subscript is out of bounds")
 		}
 		for i := max(from, 0); i <= min(to, size-1); i++ {
 			out = append(out, elems[i])

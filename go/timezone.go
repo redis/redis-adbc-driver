@@ -26,8 +26,10 @@ package redis
 //   - timestamptz AT TIME ZONE z gives the local time in z of the instant (a
 //     timestamp);
 //   - a date, and text, are read as a timestamp with time zone (Postgres's
-//     preferred type), so they give a timestamp. There is no TIME WITH TIME
-//     ZONE, so a TIME is an error.
+//     preferred type), so they give a timestamp;
+//   - a time with time zone gives the time of the same instant in z, with
+//     z's offset at the statement's time, and a TIME is read as a time with
+//     time zone first (timetz.go). CONVERT_TIMEZONE doesn't take them.
 //
 // A zone is, in Postgres's order: a time zone abbreviation of Postgres's
 // default set (zoneAbbrevs: a fixed offset, or the offset it has in a zone),
@@ -55,7 +57,6 @@ package redis
 // take the zone.
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -83,6 +84,11 @@ type tzZone struct {
 	// abbr is a fixed offset's or a tied abbreviation's abbreviation,
 	// TO_CHAR's TZ ("" for UTC).
 	abbr string
+	// now, when hasNow is set, is the statement's current time (seconds
+	// since the epoch), at which a time with time zone takes the zone's
+	// offset (timetz.go); otherwise the clock's time is used.
+	now    int64
+	hasNow bool
 }
 
 // utcZone is UTC, the session time zone unless it is set.
@@ -298,7 +304,7 @@ func resolveZone(name string) (tzZone, error) {
 		zoneCache.Unlock()
 	}
 	if !c.ok {
-		return tzZone{}, fmt.Errorf("time zone \"%s\" not recognized", name)
+		return tzZone{}, stateErr(stateInvalidParameter, "time zone \"%s\" not recognized", name)
 	}
 	return c.z, nil
 }
@@ -727,7 +733,7 @@ func (r *posixRule) next(utc int64) (at int64, dst, ok bool) {
 // Postgres).
 func intervalZone(v Value) (tzZone, error) {
 	if v.Months != 0 || v.Days != 0 {
-		return tzZone{}, fmt.Errorf("interval time zone \"%s\" must not include months or days", formatInterval(v))
+		return tzZone{}, stateErr(stateInvalidParameter, "interval time zone \"%s\" must not include months or days", formatInterval(v))
 	}
 	return tzZone{off: int(v.I / int64(time.Second))}, nil
 }
@@ -740,9 +746,13 @@ func zoneTimestamp(x Value) bool {
 }
 
 // timezoneType is the result type of TIMEZONE(z, x): a timestamp gives a
-// timestamp with time zone, and a timestamp with time zone (or a date, or
-// text) a timestamp. The unit is kept.
+// timestamp with time zone, a timestamp with time zone (or a date, or text)
+// a timestamp, and a time or a time with time zone a time with time zone.
+// The unit is kept.
 func timezoneType(x ColType) ColType {
+	if x.isTimeOfDay() {
+		return fracType(KindTimeTZ, x.fracDigits(), "")
+	}
 	if x.Kind == KindTimestamp {
 		if x.TZ == "" {
 			return timestampType(x.Unit, "UTC")
@@ -767,7 +777,7 @@ func convertTimezoneType(x ColType) ColType {
 // timestamp with time zone, in the session time zone.
 func atTimeZone(f *Func, args []Value, t ColType, session tzZone) (Value, error) {
 	z, x := session, args[len(args)-1]
-	if !zoneTimestamp(x) {
+	if !zoneTimestamp(x) && !x.T.isTimeOfDay() {
 		return Value{}, noSuchFunction(f.Name, false, argTypes(args))
 	}
 	if len(args) == 2 {
@@ -786,6 +796,12 @@ func atTimeZone(f *Func, args []Value, t ColType, session tzZone) (Value, error)
 	}
 	var err error
 	switch x.T.Kind {
+	case KindTime, KindTimeTZ:
+		// A TIME is a time with time zone in the session time zone.
+		if x, err = coerceIn(x, t, session); err != nil {
+			return Value{}, err
+		}
+		return timeTZAtZone(x, z, session.currentTime(), t), nil
 	case KindString:
 		x, err = parseStringIn(x.S, typeTimestampTZ, session)
 	case KindDate:
@@ -1013,7 +1029,7 @@ func offsetSessionZone(off int) (tzZone, string, error) {
 
 // errTimestampRange is the error for a timestamp that a time zone moves
 // out of the range of its unit.
-var errTimestampRange = errors.New("timestamp out of range")
+var errTimestampRange = stateErr(stateDatetimeRange, "timestamp out of range")
 
 // localUnits converts v, units since the epoch of an instant (a timestamp
 // with time zone), to the local time in z, in the same units.

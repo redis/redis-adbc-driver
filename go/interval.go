@@ -77,7 +77,7 @@ func init() {
 
 func intervalValue(months, days int64, nanos int64) (Value, error) {
 	if months > math.MaxInt32 || months < math.MinInt32 || days > math.MaxInt32 || days < math.MinInt32 {
-		return Value{}, fmt.Errorf("interval out of range")
+		return Value{}, stateErr(stateDatetimeRange, "interval out of range")
 	}
 	return Value{T: typeInterval, Months: int32(months), Days: int32(days), I: nanos}, nil
 }
@@ -105,7 +105,7 @@ func (p intervalParts) value() (Value, error) {
 		// Go's conversion of a float past int64 (or NaN) to an integer is
 		// platform-dependent: it saturates or wraps.
 		if !(f >= -(1<<63) && f < 1<<63) {
-			return Value{}, fmt.Errorf("interval out of range")
+			return Value{}, stateErr(stateDatetimeRange, "interval out of range")
 		}
 	}
 	return intervalValue(int64(m), int64(dd), int64(ns))
@@ -117,7 +117,7 @@ func (p intervalParts) value() (Value, error) {
 func intervalLiteral(s string) (Value, error) {
 	in := strings.TrimSpace(s)
 	if in == "" {
-		return Value{}, fmt.Errorf("invalid interval %q", s)
+		return Value{}, stateErr(stateDatetimeFormat, "invalid interval %q", s)
 	}
 	if in[0] == 'P' || in[0] == 'p' {
 		return isoInterval(in)
@@ -135,7 +135,7 @@ func intervalLiteral(s string) (Value, error) {
 		case strings.Contains(f, ":"):
 			ns, err := parseClockInterval(f)
 			if err != nil {
-				return Value{}, fmt.Errorf("invalid interval %q", s)
+				return Value{}, stateErr(stateDatetimeFormat, "invalid interval %q", s)
 			}
 			p.nanos += ns
 		case isYearMonth(f):
@@ -151,7 +151,7 @@ func intervalLiteral(s string) (Value, error) {
 			num, unit := splitNumberUnit(f)
 			n, err := strconv.ParseFloat(num, 64)
 			if err != nil {
-				return Value{}, fmt.Errorf("invalid interval %q", s)
+				return Value{}, stateErr(stateDatetimeFormat, "invalid interval %q", s)
 			}
 			if unit == "" && i+1 < len(fields) {
 				if _, ok := intervalUnits[fields[i+1]]; ok {
@@ -170,7 +170,7 @@ func intervalLiteral(s string) (Value, error) {
 			}
 			u, ok := intervalUnits[unit]
 			if !ok {
-				return Value{}, fmt.Errorf("invalid interval unit %q in %q", unit, s)
+				return Value{}, stateErr(stateDatetimeFormat, "invalid interval unit %q in %q", unit, s)
 			}
 			p.add(n, u)
 		}
@@ -238,7 +238,7 @@ func isoInterval(s string) (Value, error) {
 		default:
 			n, err := strconv.ParseFloat(num, 64)
 			if err != nil {
-				return Value{}, fmt.Errorf("invalid interval %q", s)
+				return Value{}, stateErr(stateDatetimeFormat, "invalid interval %q", s)
 			}
 			num = ""
 			var unit string
@@ -258,13 +258,13 @@ func isoInterval(s string) (Value, error) {
 			case r == 'S':
 				unit = "second"
 			default:
-				return Value{}, fmt.Errorf("invalid interval %q", s)
+				return Value{}, stateErr(stateDatetimeFormat, "invalid interval %q", s)
 			}
 			p.add(n, intervalUnits[unit])
 		}
 	}
 	if num != "" {
-		return Value{}, fmt.Errorf("invalid interval %q", s)
+		return Value{}, stateErr(stateDatetimeFormat, "invalid interval %q", s)
 	}
 	return p.value()
 }
@@ -381,7 +381,7 @@ func addOrSub(op string, a, b int64) (int64, bool) {
 
 func negateInterval(v Value) (Value, error) {
 	if v.Months == math.MinInt32 || v.Days == math.MinInt32 || v.I == math.MinInt64 {
-		return Value{}, fmt.Errorf("interval out of range")
+		return Value{}, stateErr(stateDatetimeRange, "interval out of range")
 	}
 	return intervalValue(-int64(v.Months), -int64(v.Days), -v.I)
 }
@@ -408,7 +408,7 @@ func divideInterval(months, days int32, us, factor float64) (Value, error) {
 // "interval out of range" past the nanoseconds' range, or for err.
 func microsInterval(months, days int32, us int64, err error) (Value, error) {
 	if err == nil && (us > math.MaxInt64/1000 || us < math.MinInt64/1000) {
-		err = fmt.Errorf("interval out of range")
+		err = stateErr(stateDatetimeRange, "interval out of range")
 	}
 	if err != nil {
 		return Value{}, err
@@ -437,7 +437,9 @@ func scaleInterval(months, days int32, us, factor float64, div bool) (int32, int
 		// The conversion keeps the product from being fused into an FMA.
 		return float64(x * factor)
 	}
-	outOfRange := func() (int32, int32, int64, error) { return 0, 0, 0, fmt.Errorf("interval out of range") }
+	outOfRange := func() (int32, int32, int64, error) {
+		return 0, 0, 0, stateErr(stateDatetimeRange, "interval out of range")
+	}
 	// FLOAT8_FITS_IN_INT32, false for NaN.
 	fits := func(x float64) bool { return x >= math.MinInt32 && x < -math.MinInt32 }
 	// pg_add_s32_overflow.
@@ -490,7 +492,7 @@ func temporalType(op string, a, b ColType) (ColType, bool, error) {
 		return ColType{}, true, fmt.Errorf("operator %s is not supported for %s and %s", op, a.SQLName(), b.SQLName())
 	}
 	involved := ak == iv || bk == iv || ak == KindDate || bk == KindDate || ak == KindTimestamp || bk == KindTimestamp ||
-		ak == KindTime || bk == KindTime
+		ak == KindTime || bk == KindTime || ak == KindTimeTZ || bk == KindTimeTZ
 	if !involved {
 		return ColType{}, false, nil
 	}
@@ -513,6 +515,12 @@ func temporalType(op string, a, b ColType) (ColType, bool, error) {
 			return typeInterval, true, nil
 		case ak == KindDate && bk == KindTime:
 			return typeTimestamp, true, nil
+		case ak == KindTimeTZ && bk == iv:
+			return a.withoutTypmod(), true, nil
+		case ak == iv && bk == KindTimeTZ:
+			return b.withoutTypmod(), true, nil
+		case ak == KindDate && bk == KindTimeTZ, ak == KindTimeTZ && bk == KindDate:
+			return typeTimestampTZ, true, nil
 		}
 	case "-":
 		switch {
@@ -530,6 +538,8 @@ func temporalType(op string, a, b ColType) (ColType, bool, error) {
 			return a.withoutTypmod(), true, nil
 		case ak == KindTime && bk == KindTime:
 			return typeInterval, true, nil
+		case ak == KindTimeTZ && bk == iv:
+			return a.withoutTypmod(), true, nil
 		case ak == iv && bk == iv:
 			return typeInterval, true, nil
 		}
@@ -566,7 +576,7 @@ func temporalOp(op string, l, r Value, rt ColType, z tzZone) (Value, error) {
 		}
 		ns, overflow := addOrSub(op, l.I, r.I)
 		if overflow {
-			return Value{}, fmt.Errorf("interval out of range")
+			return Value{}, stateErr(stateDatetimeRange, "interval out of range")
 		}
 		return intervalValue(int64(l.Months)+sign*int64(r.Months), int64(l.Days)+sign*int64(r.Days), ns)
 	case op == "*" && lk == KindInterval:
@@ -578,7 +588,7 @@ func temporalOp(op string, l, r Value, rt ColType, z tzZone) (Value, error) {
 	case op == "/" && lk == KindInterval:
 		f, _ := r.asFloat()
 		if f == 0 {
-			return Value{}, fmt.Errorf("division by zero")
+			return Value{}, stateErr(stateDivisionByZero, "division by zero")
 		}
 		return divideInterval(l.Months, l.Days, intervalMicros(l), f)
 	case lk == KindDate && rk.isInteger(), lk.isInteger() && rk == KindDate:
@@ -589,7 +599,7 @@ func temporalOp(op string, l, r Value, rt ColType, z tzZone) (Value, error) {
 		}
 		days, overflow := addOrSub(op, d, n)
 		if overflow {
-			return Value{}, fmt.Errorf("date out of range")
+			return Value{}, stateErr(stateDatetimeRange, "date out of range")
 		}
 		return dateValue(days)
 	case lk == KindDate && rk == KindDate:
@@ -615,6 +625,20 @@ func temporalOp(op string, l, r Value, rt ColType, z tzZone) (Value, error) {
 			return Value{}, err
 		}
 		return fromTime(tm.Add(time.Duration(timeOfDay(r))), rt)
+	case lk == KindTimeTZ && rk == KindInterval, lk == KindInterval && rk == KindTimeTZ:
+		t, iv := l, r
+		if lk == KindInterval {
+			t, iv = r, l
+		}
+		sign := int64(1)
+		if op == "-" {
+			sign = -1
+		}
+		return timeTZPlusInterval(t, iv, sign, rt), nil
+	case lk == KindDate && rk == KindTimeTZ:
+		return dateAtTimeTZ(l, r, rt)
+	case lk == KindTimeTZ && rk == KindDate:
+		return dateAtTimeTZ(r, l, rt)
 	case rt.Kind == KindInterval:
 		// timestamp/date - timestamp/date: days and time, no months. With
 		// a timestamp with time zone, both are instants.
@@ -760,5 +784,5 @@ func intervalPart(field string, v Value) (Value, error) {
 		secs := years*365.25*86400 + months*30*86400 + float64(v.Days)*86400 + float64(v.I)/1e9
 		return floatValue(typeFloat64, secs), nil
 	}
-	return Value{}, fmt.Errorf("field %q is not valid for INTERVAL values", field)
+	return Value{}, stateErr(stateFeatureNotSupported, "field %q is not valid for INTERVAL values", field)
 }

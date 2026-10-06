@@ -19,8 +19,9 @@ package redis
 // CREATE TABLE takes CHECK (expr) on a column or as a table constraint,
 // ALTER TABLE … ADD COLUMN on the new column, and ALTER TABLE … ADD
 // [CONSTRAINT name] CHECK (expr) on the table. As in Postgres, all of them
-// mean the same: a condition on the whole row. PRIMARY KEY, UNIQUE and
-// REFERENCES / FOREIGN KEY are accepted and not enforced (nothing is kept).
+// mean the same: a condition on the whole row. PRIMARY KEY is kept, but its
+// uniqueness isn't enforced (see pkey.go); UNIQUE and REFERENCES / FOREIGN
+// KEY are accepted and not enforced (nothing is kept).
 //
 //   - Definition: the expression is bound over the table alone, so it may
 //     read any of the table's columns but not __rowid or another table, and
@@ -52,8 +53,10 @@ package redis
 //     also those that don't read the columns it sets (it reads the columns
 //     they use).
 //   - ADD COLUMN and ADD CONSTRAINT check the existing rows first (the new
-//     column reads its missing value, see defaults.go). Without locks, rows
-//     written meanwhile by statements that read the metadata before the
+//     column reads its missing value, see defaults.go), with the rows
+//     inserted meanwhile when the change commits (see alterTable). Without
+//     locks, rows still being written then, rows updated meanwhile, and rows
+//     inserted later by statements that read the metadata before the
 //     constraint was added aren't checked against it.
 
 import (
@@ -188,16 +191,19 @@ func (e *executor) defineChecks(ctx context.Context, meta *tableMeta, defs []Che
 	for _, c := range meta.Checks {
 		used[strings.ToLower(c.Name)] = true
 	}
+	if meta.PrimaryKey != nil {
+		used[strings.ToLower(meta.PrimaryKey.Name)] = true
+	}
 	// Explicit names first, so that no default name takes one.
 	for i, d := range defs {
 		if d.Name == "" {
 			continue
 		}
 		if slices.ContainsFunc(defs[:i], func(o CheckDef) bool { return strings.EqualFold(o.Name, d.Name) }) {
-			return nil, errorf(adbc.StatusAlreadyExists, "check constraint %q already exists", d.Name)
+			return nil, stateErrorf(stateDuplicateObject, "check constraint %q already exists", d.Name)
 		}
 		if used[strings.ToLower(d.Name)] {
-			return nil, errorf(adbc.StatusAlreadyExists, "constraint %q for relation %q already exists", d.Name, meta.Name)
+			return nil, stateErrorf(stateDuplicateObject, "constraint %q for relation %q already exists", d.Name, meta.Name)
 		}
 	}
 	for _, d := range defs {
@@ -400,7 +406,7 @@ func (tc *tableChecks) checkRow(row map[string]Value) error {
 	if err != nil || i < 0 {
 		return err
 	}
-	return errorf(adbc.StatusIntegrity, "new row for relation %q violates check constraint %q", tc.meta.Name, tc.meta.Checks[i].Name)
+	return stateErrorf(stateCheck, "new row for relation %q violates check constraint %q", tc.meta.Name, tc.meta.Checks[i].Name)
 }
 
 // violated returns the first constraint that row violates, -1 if none.
@@ -418,52 +424,80 @@ func (tc *tableChecks) violated(row map[string]Value) (int, error) {
 	return -1, nil
 }
 
-// validateChecks checks the rows of a table against new CHECK constraints
-// (ALTER TABLE … ADD COLUMN … CHECK, ADD CONSTRAINT), as Postgres does.
-// stored is the table as it is; with is the table the constraints are on,
-// as the ALTER TABLE leaves it. A column of with that stored has (with the
-// same field) is read from the rows; one the statement adds is in added,
-// with the value every existing row reads for it.
-func (e *executor) validateChecks(ctx context.Context, stored, with *tableMeta, checks []checkMeta, added map[string]Value) error {
+// validateRows checks the rows of a table against the constraints an ALTER
+// TABLE adds, as Postgres does: its CHECKs (ADD COLUMN … CHECK, ADD
+// CONSTRAINT) and NOT NULLs (ALTER COLUMN … SET NOT NULL, ADD COLUMN … NOT
+// NULL without a default). stored is the table as it is; with is the table
+// as the ALTER TABLE leaves it, and res what it did. A column of with that
+// stored has (with the same field) is read from the rows; one the statement
+// adds reads the same value in every existing row (see addedValues). With
+// above > 0, only the rows with higher row ids are checked. As in Postgres,
+// a row is checked against NOT NULL first (in column order), then against
+// the constraints (in name order).
+func (e *executor) validateRows(ctx context.Context, stored, with *tableMeta, res *alterResult, above int64) error {
+	added, err := res.addedValues()
+	if err != nil {
+		return err
+	}
 	m := *with
-	m.Checks = checks
+	m.Checks = res.checks
 	tc, err := e.tableChecks(ctx, &m)
-	if err != nil || tc == nil {
+	if err != nil {
 		return err
 	}
 	need := map[string]bool{}
-	for _, i := range tc.cols {
-		if name := with.Columns[i].Name; !hasKey(added, name) {
-			need[name] = true
+	var notNull []string
+	for i, c := range with.Columns {
+		if slices.Contains(res.notNull, c.field()) {
+			notNull = append(notNull, c.Name)
+		} else if tc == nil || !slices.Contains(tc.cols, i) {
+			continue
+		}
+		if !hasKey(added, c.Name) {
+			need[c.Name] = true
 		}
 	}
-	violation := func(i int) error {
-		return errorf(adbc.StatusIntegrity, "check constraint %q of relation %q is violated by some row", checks[i].Name, with.Name)
+	check := func(row map[string]Value) error {
+		for _, name := range notNull {
+			if v, ok := row[name]; !ok || v.Null {
+				return stateErrorf(stateNotNull, "column %q of relation %q contains null values", name, with.Name)
+			}
+		}
+		if tc == nil {
+			return nil
+		}
+		i, err := tc.violated(row)
+		if err != nil || i < 0 {
+			return err
+		}
+		return stateErrorf(stateCheck, "check constraint %q of relation %q is violated by some row", res.checks[i].Name, with.Name)
+	}
+	var where Expr
+	if above > 0 {
+		if where, err = parseExprText(fmt.Sprintf("%s > %d", rowIDField, above)); err != nil {
+			return err
+		}
 	}
 	if len(need) == 0 {
 		// Only new columns are read, so every row gives the same result:
 		// the table is read only to see whether it has any rows.
-		i, err := tc.violated(maps.Clone(added))
-		if err != nil || i < 0 {
+		violation := check(maps.Clone(added))
+		if violation == nil {
+			return nil
+		}
+		if _, rows, err := e.matchRows(ctx, stored, "", where, nil, nil); err != nil || len(rows) == 0 {
 			return err
 		}
-		if _, rows, err := e.matchRows(ctx, stored, "", nil, nil, nil); err != nil || len(rows) == 0 {
-			return err
-		}
-		return violation(i)
+		return violation
 	}
-	_, rows, err := e.matchRows(ctx, stored, "", nil, nil, need)
+	_, rows, err := e.matchRows(ctx, stored, "", where, nil, need)
 	if err != nil {
 		return err
 	}
 	for _, row := range rows {
 		maps.Copy(row, added)
-		i, err := tc.violated(row)
-		if err != nil {
+		if err := check(row); err != nil {
 			return err
-		}
-		if i >= 0 {
-			return violation(i)
 		}
 	}
 	return nil

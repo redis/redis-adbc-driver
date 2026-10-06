@@ -73,7 +73,7 @@ func toTime(v Value) (time.Time, error) {
 // beyond the int32 range of days it is "date out of range", as in Postgres.
 func dateValue(days int64) (Value, error) {
 	if days < math.MinInt32 || days > math.MaxInt32 {
-		return Value{}, fmt.Errorf("date out of range")
+		return Value{}, stateErr(stateDatetimeRange, "date out of range")
 	}
 	return intValue(typeDate, days), nil
 }
@@ -223,7 +223,7 @@ func datePart(field string, v Value, z tzZone) (Value, error) {
 			case KindTime:
 				typ = "time without time zone"
 			}
-			return Value{}, fmt.Errorf("unit %q not supported for type %s", field, typ)
+			return Value{}, stateErr(stateFeatureNotSupported, "unit %q not supported for type %s", field, typ)
 		}
 		n := off
 		switch f {
@@ -238,7 +238,7 @@ func datePart(field string, v Value, z tzZone) (Value, error) {
 		switch f {
 		case "hour", "minute", "second", "milliseconds", "microseconds", "epoch":
 		default:
-			return Value{}, fmt.Errorf("field %q is not valid for TIME values", field)
+			return Value{}, stateErr(stateFeatureNotSupported, "field %q is not valid for TIME values", field)
 		}
 		if f == "hour" {
 			// Of the time of day itself: 24 for 24:00:00, which rounding to
@@ -302,7 +302,7 @@ func datePart(field string, v Value, z tzZone) (Value, error) {
 		}
 		return i(-((-y)/1000 + 1))
 	}
-	return Value{}, fmt.Errorf("unknown date/time field %q", field)
+	return Value{}, stateErr(stateInvalidParameter, "unknown date/time field %q", field)
 }
 
 // truncIn truncates an instant to the start of the given unit of its local
@@ -361,7 +361,7 @@ func truncTime(unit string, tm time.Time) (time.Time, error) {
 		m := (y-1)/1000*1000 + 1
 		return time.Date(m, 1, 1, 0, 0, 0, 0, time.UTC), nil
 	}
-	return time.Time{}, fmt.Errorf("unknown DATE_TRUNC unit %q", unit)
+	return time.Time{}, stateErr(stateInvalidParameter, "unknown DATE_TRUNC unit %q", unit)
 }
 
 // dateTruncType: dates stay dates; strings become timestamps.
@@ -469,7 +469,7 @@ func dateAddType(part Expr, x ColType) ColType {
 func dateAdd(name string, args []Value, sign int64, t ColType, z tzZone) (Value, error) {
 	part, ok := datePartOf(args[0].Text())
 	if !ok {
-		return Value{}, fmt.Errorf("%s: unknown date part %q", name, args[0].Text())
+		return Value{}, stateErr(stateInvalidParameter, "%s: unknown date part %q", name, args[0].Text())
 	}
 	n, err := intArg(name, "number of units", args[1])
 	if err != nil {
@@ -477,7 +477,7 @@ func dateAdd(name string, args []Value, sign int64, t ColType, z tzZone) (Value,
 	}
 	if sign < 0 {
 		if n == math.MinInt64 {
-			return Value{}, fmt.Errorf("%s: interval out of range", name)
+			return Value{}, stateErr(stateDatetimeRange, "%s: interval out of range", name)
 		}
 		n = -n
 	}
@@ -487,11 +487,11 @@ func dateAdd(name string, args []Value, sign int64, t ColType, z tzZone) (Value,
 	case KindDate, KindTimestamp:
 	case KindTime:
 		if u.nanos == 0 {
-			return Value{}, fmt.Errorf("%s: date part %s is not valid for TIME values", name, part)
+			return Value{}, stateErr(stateFeatureNotSupported, "%s: date part %s is not valid for TIME values", name, part)
 		}
 	case KindString:
 		if x, err = coerceIn(x, t, z); err != nil {
-			return Value{}, fmt.Errorf("%s: %v", name, err)
+			return Value{}, fmt.Errorf("%s: %w", name, err)
 		}
 	default:
 		return Value{}, fmt.Errorf("%s expects a date, time or timestamp, got %s", name, x.T.SQLName())
@@ -501,7 +501,7 @@ func dateAdd(name string, args []Value, sign int64, t ColType, z tzZone) (Value,
 	var iv Value
 	if u.nanos == 0 {
 		if n < math.MinInt32 || n > math.MaxInt32 {
-			return Value{}, fmt.Errorf("%s: interval out of range", name)
+			return Value{}, stateErr(stateDatetimeRange, "%s: interval out of range", name)
 		}
 		iv, err = intervalValue(n*int64(u.months), n*int64(u.days), 0)
 	} else {
@@ -512,7 +512,7 @@ func dateAdd(name string, args []Value, sign int64, t ColType, z tzZone) (Value,
 		x, err = temporalOp("+", x, iv, t, z)
 	}
 	if err != nil {
-		return Value{}, fmt.Errorf("%s: %v", name, err)
+		return Value{}, fmt.Errorf("%s: %w", name, err)
 	}
 	return x, nil
 }
@@ -542,7 +542,9 @@ func dateTimeFuncType(f *Func, args []ColType) (ColType, bool) {
 		return currentTimeType(f, typeTimestampTZ), true
 	case "LOCALTIMESTAMP":
 		return currentTimeType(f, typeTimestamp), true
-	case "CURRENT_TIME", "LOCALTIME":
+	case "CURRENT_TIME":
+		return currentTimeType(f, typeTimeTZ), true
+	case "LOCALTIME":
 		return currentTimeType(f, typeTimeUS), true
 	case "TO_TIMESTAMP", "MAKE_TIMESTAMPTZ":
 		return typeTimestampTZ, true
@@ -620,12 +622,24 @@ func (env *evalEnv) evalDateTimeFunc(f *Func, args []Value) (Value, bool, error)
 	switch f.Name {
 	case "CURRENT_TIMESTAMP", "NOW", "TRANSACTION_TIMESTAMP", "STATEMENT_TIMESTAMP":
 		return done(currentTime(env.now(), t))
-	case "CURRENT_DATE", "LOCALTIMESTAMP", "CURRENT_TIME", "LOCALTIME":
+	case "CURRENT_DATE", "LOCALTIMESTAMP", "LOCALTIME":
 		// The local date and time in the session time zone.
 		return done(currentTime(z.localTime(env.now()), t))
+	case "CURRENT_TIME":
+		// The local time in the session time zone, and its offset there.
+		now, tt := env.now(), t
+		tt.Kind = KindTime
+		v, err := currentTime(z.localTime(now), tt)
+		if err != nil {
+			return done(Value{}, err)
+		}
+		return done(Value{T: t, I: v.I, Off: int32(z.offsetAt(now.Unix()))}, nil)
 	case "DATE_PART":
-		if args[1].T.Kind == KindInterval {
+		switch args[1].T.Kind {
+		case KindInterval:
 			return done(intervalPart(args[0].Text(), args[1]))
+		case KindTimeTZ:
+			return done(timeTZPart(args[0].Text(), args[1]))
 		}
 		return done(datePart(args[0].Text(), args[1], z))
 	case "__INTERVAL":
@@ -636,7 +650,7 @@ func (env *evalEnv) evalDateTimeFunc(f *Func, args []Value) (Value, bool, error)
 		}
 		n, err := Coerce(args[0], typeFloat64)
 		if err != nil {
-			return done(Value{}, fmt.Errorf("INTERVAL %s needs a number, got %q", strings.ToUpper(args[1].Text()), args[0].Text()))
+			return done(Value{}, stateErr(stateInvalidText, "INTERVAL %s needs a number, got %q", strings.ToUpper(args[1].Text()), args[0].Text()))
 		}
 		var p intervalParts
 		p.add(n.F, u)
@@ -664,7 +678,13 @@ func (env *evalEnv) evalDateTimeFunc(f *Func, args []Value) (Value, bool, error)
 		if field == "" {
 			field = strings.ToLower(f.Name)
 		}
-		v, err := datePart(field, args[0], z)
+		var v Value
+		var err error
+		if args[0].T.Kind == KindTimeTZ {
+			v, err = timeTZPart(field, args[0])
+		} else {
+			v, err = datePart(field, args[0], z)
+		}
 		if err == nil && v.T.Kind == KindFloat64 {
 			v = intValue(typeInt64, int64(math.Floor(v.F))) // SECOND() is whole seconds
 		}
@@ -735,7 +755,7 @@ func (env *evalEnv) evalDateTimeFunc(f *Func, args []Value) (Value, bool, error)
 		// A year past int32 is far outside the date range, and could
 		// overflow time.Date.
 		if ymd[0] < math.MinInt32 || ymd[0] > math.MaxInt32 {
-			return done(Value{}, fmt.Errorf("date out of range: %d-%02d-%02d", ymd[0], ymd[1], ymd[2]))
+			return done(Value{}, stateErr(stateDatetimeRange, "date out of range: %d-%02d-%02d", ymd[0], ymd[1], ymd[2]))
 		}
 		// Postgres's messages show a BC year as the astronomical year
 		// (-43-02-30 for MAKE_DATE(-44, 2, 30)).
@@ -747,11 +767,11 @@ func (env *evalEnv) evalDateTimeFunc(f *Func, args []Value) (Value, bool, error)
 		ymdText := fmt.Sprintf("%d-%02d-%02d", shown, ymd[1], ymd[2])
 		tm := time.Date(y, time.Month(ymd[1]), ymd[2], 0, 0, 0, 0, time.UTC)
 		if !ok || int(tm.Month()) != ymd[1] || tm.Day() != ymd[2] {
-			return done(Value{}, fmt.Errorf("date field value out of range: %s", ymdText))
+			return done(Value{}, stateErr(stateDatetimeRange, "date field value out of range: %s", ymdText))
 		}
 		v, err := fromTime(tm, typeDate)
 		if err != nil {
-			return done(Value{}, fmt.Errorf("date out of range: %s", ymdText))
+			return done(Value{}, stateErr(stateDatetimeRange, "date out of range: %s", ymdText))
 		}
 		return done(v, nil)
 	case "MAKE_TIMESTAMP", "MAKE_TIMESTAMPTZ", "MAKE_TIME":
@@ -775,7 +795,7 @@ func (env *evalEnv) evalDateTimeFunc(f *Func, args []Value) (Value, bool, error)
 		nanos := int(math.Round((secV.F - whole) * 1e9))
 		if f.Name == "MAKE_TIME" {
 			if parts[0] < 0 || parts[0] > 23 || parts[1] < 0 || parts[1] > 59 || whole < 0 || whole > 59 {
-				return done(Value{}, fmt.Errorf("time field value out of range"))
+				return done(Value{}, stateErr(stateDatetimeRange, "time field value out of range"))
 			}
 			return done(fromTime(time.Date(1970, 1, 1, parts[0], parts[1], int(whole), nanos, time.UTC), t))
 		}
@@ -783,15 +803,15 @@ func (env *evalEnv) evalDateTimeFunc(f *Func, args []Value) (Value, bool, error)
 		// year as given.
 		ymdText := fmt.Sprintf("%d-%02d-%02d", parts[0], parts[1], parts[2])
 		if parts[0] < math.MinInt32 || parts[0] > math.MaxInt32 {
-			return done(Value{}, fmt.Errorf("date out of range: %s", ymdText))
+			return done(Value{}, stateErr(stateDatetimeRange, "date out of range: %s", ymdText))
 		}
 		y, ok := makeYear(parts[0])
 		if d := time.Date(y, time.Month(parts[1]), parts[2], 0, 0, 0, 0, time.UTC); !ok || int(d.Month()) != parts[1] || d.Day() != parts[2] {
-			return done(Value{}, fmt.Errorf("date field value out of range: %s", ymdText))
+			return done(Value{}, stateErr(stateDatetimeRange, "date field value out of range: %s", ymdText))
 		}
 		tm := time.Date(y, time.Month(parts[1]), parts[2], parts[3], parts[4], int(whole), nanos, time.UTC)
 		if int(tm.Month()) != parts[1] || tm.Day() != parts[2] || parts[3] > 23 || parts[4] > 59 || whole > 59 {
-			return done(Value{}, fmt.Errorf("date/time field value out of range"))
+			return done(Value{}, stateErr(stateDatetimeRange, "date/time field value out of range"))
 		}
 		if f.Name == "MAKE_TIMESTAMPTZ" {
 			tm = z.instant(tm) // a local time in the session time zone
@@ -812,6 +832,11 @@ func (env *evalEnv) evalDateTimeFunc(f *Func, args []Value) (Value, bool, error)
 		}
 		return done(toTimestamp(args[0].Text(), args[1].Text(), z, t))
 	case "TO_CHAR":
+		if args[0].T.Kind == KindTimeTZ {
+			// Postgres has no TO_CHAR of a time with time zone (nor a cast
+			// to an interval, which a TIME has).
+			return done(Value{}, noSuchFunction(f.Name, false, argTypes(args)))
+		}
 		if args[1].Text() == "" {
 			return done(nullValue(typeString), nil) // as in Postgres
 		}
@@ -865,12 +890,12 @@ func dateBin(args []Value, t ColType, z tzZone) (Value, error) {
 		return Value{}, noSuchFunction("date_bin", false, argTypes(args))
 	}
 	if stride.Months != 0 {
-		return Value{}, fmt.Errorf("timestamps cannot be binned into intervals containing months or years")
+		return Value{}, stateErr(stateFeatureNotSupported, "timestamps cannot be binned into intervals containing months or years")
 	}
 	step := new(big.Int).Mul(big.NewInt(int64(stride.Days)), big.NewInt(nsPerDay))
 	step.Add(step, big.NewInt(stride.I))
 	if step.Sign() <= 0 {
-		return Value{}, fmt.Errorf("stride must be greater than zero")
+		return Value{}, stateErr(stateDatetimeRange, "stride must be greater than zero")
 	}
 	// at is a source or origin in nanoseconds since the epoch, as t.
 	at := func(v Value) (*big.Int, error) {

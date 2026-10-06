@@ -799,7 +799,7 @@ func (gp *groupingPlan) indexable(e *executor, wp wherePlan, set []int) bool {
 	}
 	for _, i := range set {
 		col, ok := indexed(gp.slots[i].expr)
-		if !ok || !(col.Type.Kind == KindString || col.pushable(e.pushdown)) {
+		if !ok || !col.groupable(e.pushdown) {
 			return false
 		}
 	}

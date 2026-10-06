@@ -196,7 +196,7 @@ func TestTimeZonesIssue88(t *testing.T) {
 	h.expectErrorText(`SELECT CONVERT_TIMEZONE('UTC', 'Nowhere', ts) FROM it_tzx WHERE id = 5`, `time zone "Nowhere" not recognized`)
 	h.expectErrorText(`SELECT tz AT TIME ZONE INTERVAL '1 day' FROM it_tzx WHERE id = 5`,
 		`interval time zone "1 day" must not include months or days`)
-	h.expectErrorText(`SELECT CAST('10:00' AS TIME) AT TIME ZONE zone FROM it_tzx WHERE id = 5`, "function timezone(varchar, time) does not exist")
+	h.expectErrorText(`SELECT CAST('10:00' AS TIME) AT TIME ZONE 5 FROM it_tzx WHERE id = 5`, "function timezone(bigint, time) does not exist")
 	h.expectErrorText(`SELECT TIMEZONE() FROM it_tzx`, "TIMEZONE expects 1 or 2 arguments")
 }
 

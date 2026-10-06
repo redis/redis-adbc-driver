@@ -68,7 +68,7 @@ func valueAt(arr arrow.Array, i int) (Value, error) {
 	case *array.Uint64:
 		v := a.Value(i)
 		if v > 1<<63-1 {
-			return Value{}, fmt.Errorf("uint64 value %d out of range", v)
+			return Value{}, stateErr(stateNumericRange, "uint64 value %d out of range", v)
 		}
 		return intValue(ct, int64(v)), nil
 	case *array.Float16:
@@ -125,7 +125,7 @@ func valueAt(arr arrow.Array, i int) (Value, error) {
 		unit := a.DataType().(*arrow.DurationType).Unit
 		ns, err := convertUnit(int64(a.Value(i)), unit, arrow.Nanosecond)
 		if err != nil {
-			return Value{}, fmt.Errorf("interval out of range")
+			return Value{}, stateErr(stateDatetimeRange, "interval out of range")
 		}
 		return intervalValue(0, 0, ns)
 	}
@@ -159,7 +159,11 @@ func appendValue(b array.Builder, t ColType, v Value) error {
 	case *array.Decimal256Builder:
 		bb.Append(decimal256.FromBigInt(v.D))
 	case *array.StringBuilder:
-		bb.Append(v.S)
+		if v.T.Kind == KindTimeTZ {
+			bb.Append(timeTZText(v)) // its text (see arrowField)
+		} else {
+			bb.Append(v.S)
+		}
 	case *array.BinaryBuilder:
 		bb.Append([]byte(v.S))
 	case *array.Date32Builder:
@@ -187,7 +191,7 @@ type resultColumn struct {
 func resultSchema(cols []resultColumn) *arrow.Schema {
 	fields := make([]arrow.Field, len(cols))
 	for i, c := range cols {
-		fields[i] = arrow.Field{Name: c.Name, Type: c.Type.ArrowType(), Nullable: true}
+		fields[i] = arrowField(c.Name, c.Type, true)
 	}
 	return arrow.NewSchema(fields, nil)
 }

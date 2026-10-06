@@ -195,7 +195,7 @@ func generateSeries(ctx context.Context, t ColType, args []Value, z tzZone) ([]V
 	switch {
 	case t.Kind.isInteger():
 		if step.I == 0 {
-			return nil, errorf(adbc.StatusInvalidArgument, "step size cannot equal zero")
+			return nil, stateErrorf(stateInvalidParameter, "step size cannot equal zero")
 		}
 		if (step.I > 0 && start.I > stop.I) || (step.I < 0 && start.I < stop.I) {
 			return nil, nil
@@ -218,7 +218,7 @@ func generateSeries(ctx context.Context, t ColType, args []Value, z tzZone) ([]V
 		return out, nil
 	case t.Kind == KindDecimal:
 		if step.D.Sign() == 0 {
-			return nil, errorf(adbc.StatusInvalidArgument, "step size cannot equal zero")
+			return nil, stateErrorf(stateInvalidParameter, "step size cannot equal zero")
 		}
 		if c := start.D.Cmp(stop.D); (step.D.Sign() > 0 && c > 0) || (step.D.Sign() < 0 && c < 0) {
 			return nil, nil
@@ -248,13 +248,13 @@ func generateSeries(ctx context.Context, t ColType, args []Value, z tzZone) ([]V
 	}{{a, "start value"}, {b, "stop value"}, {c, "step size"}} {
 		switch {
 		case math.IsNaN(x.v):
-			return nil, errorf(adbc.StatusInvalidArgument, "%s cannot be NaN", x.what)
+			return nil, stateErrorf(stateInvalidParameter, "%s cannot be NaN", x.what)
 		case math.IsInf(x.v, 0):
-			return nil, errorf(adbc.StatusInvalidArgument, "%s cannot be infinity", x.what)
+			return nil, stateErrorf(stateInvalidParameter, "%s cannot be infinity", x.what)
 		}
 	}
 	if c == 0 {
-		return nil, errorf(adbc.StatusInvalidArgument, "step size cannot equal zero")
+		return nil, stateErrorf(stateInvalidParameter, "step size cannot equal zero")
 	}
 	if (c > 0 && a > b) || (c < 0 && a < b) {
 		return nil, nil
@@ -296,7 +296,7 @@ func timestampSeries(ctx context.Context, t ColType, start, stop, step Value, z 
 	}
 	dir := intervalTotal(step).Sign()
 	if dir == 0 {
-		return nil, errorf(adbc.StatusInvalidArgument, "step size cannot equal zero")
+		return nil, stateErrorf(stateInvalidParameter, "step size cannot equal zero")
 	}
 	cur, err := toTime(start)
 	if err != nil {

@@ -16,7 +16,6 @@ package redis
 
 import (
 	"context"
-	"errors"
 	"maps"
 	"slices"
 	"strings"
@@ -79,15 +78,11 @@ type execResult struct {
 	stream *streamReader
 }
 
+// invalidArg is the error of a statement as an adbc.Error: with its
+// SQLSTATE's status if it has one (a data exception is INVALID_DATA, see
+// sqlstate.go), and INVALID_ARGUMENT otherwise.
 func invalidArg(err error) error {
-	var ae adbc.Error
-	if errors.As(err, &ae) {
-		return err
-	}
-	if code, ok := ctxStatus(err); ok {
-		return errorf(code, "%v", err)
-	}
-	return errorf(adbc.StatusInvalidArgument, "%v", err)
+	return wrapErr(adbc.StatusInvalidArgument, err, "")
 }
 
 // resolveTable returns the schema and name a table or view is stored under.
@@ -114,7 +109,7 @@ func (e *executor) resolveTable(t TableName) (string, string, error) {
 		return e.store.tempSchema(), t.Name, nil
 	case isTempSchema(schema):
 		// Temporary schemas are only reachable as pg_temp by their owner.
-		return "", "", errorf(adbc.StatusNotFound, "table %q.%q does not exist", schema, t.Name)
+		return "", "", stateErrorf(stateUndefinedTable, "table %q.%q does not exist", schema, t.Name)
 	}
 	return schema, t.Name, nil
 }
@@ -367,7 +362,11 @@ func (e *executor) runCreateTable(ctx context.Context, st *CreateTableStmt) erro
 	if err := meta.applyIndexPolicy(nil, noIndex); err != nil {
 		return err
 	}
-	if meta.Checks, err = e.defineChecks(ctx, meta, st.Checks); err != nil {
+	err = definePrimaryKey(meta, st.PrimaryKeys, func() (err error) {
+		meta.Checks, err = e.defineChecks(ctx, meta, st.Checks)
+		return err
+	})
+	if err != nil {
 		return err
 	}
 	_, err = e.store.createTable(ctx, meta, st.IfNotExists)
@@ -424,7 +423,7 @@ func (e *executor) runCreateTableAs(ctx context.Context, st *CreateTableStmt) (i
 		for j, v := range row {
 			cv, err := coerceIn(v, meta.Columns[j].Type, e.zone())
 			if err != nil {
-				return 0, errorf(adbc.StatusInvalidArgument, "column %q: %v", meta.Columns[j].Name, err)
+				return 0, columnErr(meta.Columns[j].Name, err)
 			}
 			out[j] = cv
 		}
@@ -558,10 +557,10 @@ func insertTargets(meta *tableMeta, cols []string) ([]int, error) {
 	for _, name := range cols {
 		i, ok := meta.resolve(name)
 		if !ok {
-			return nil, errorf(adbc.StatusInvalidArgument, "column %q does not exist in table %q", name, meta.Name)
+			return nil, stateErrorf(stateUndefinedColumn, "column %q does not exist in table %q", name, meta.Name)
 		}
 		if slices.Contains(targets, i) {
-			return nil, errorf(adbc.StatusInvalidArgument, "column %q specified more than once", name)
+			return nil, stateErrorf(stateDuplicateColumn, "column %q specified more than once", name)
 		}
 		targets = append(targets, i)
 	}
@@ -586,7 +585,7 @@ func insertRow(env *evalEnv, meta *tableMeta, defs *columnDefaults, checks *tabl
 		col := meta.Columns[targets[j]]
 		cv, err := coerceIn(v, col.Type, env.zone())
 		if err != nil {
-			return nil, errorf(adbc.StatusInvalidArgument, "column %q: %v", col.Name, err)
+			return nil, columnErr(col.Name, err)
 		}
 		row[targets[j]], given[targets[j]] = cv, true
 	}
@@ -599,6 +598,12 @@ func insertRow(env *evalEnv, meta *tableMeta, defs *columnDefaults, checks *tabl
 	return row, nil
 }
 
+// notNullErr is Postgres's error for a NULL written to a NOT NULL column
+// (not_null_violation).
+func notNullErr(column, table string) error {
+	return stateErrorf(stateNotNull, "null value in column %q of relation %q violates not-null constraint", column, table)
+}
+
 // checkNewRow checks a row to be inserted (ordered like meta.Columns)
 // against the column lengths (cutting trailing spaces beyond them, see
 // lengths.go), NOT NULL and then the table's CHECK constraints, as Postgres
@@ -609,7 +614,7 @@ func checkNewRow(meta *tableMeta, checks *tableChecks, row []Value) error {
 	}
 	for i, c := range meta.Columns {
 		if row[i].Null && !c.Nullable {
-			return errorf(adbc.StatusIntegrity, "NULL value in column %q violates not-null constraint", c.Name)
+			return notNullErr(c.Name, meta.Name)
 		}
 	}
 	return checks.check(row)
@@ -644,7 +649,7 @@ func (e *executor) insertSelect(ctx context.Context, st *InsertStmt, meta *table
 			col := meta.Columns[targets[j]]
 			cv, err := coerceIn(v, col.Type, e.zone())
 			if err != nil {
-				return 0, errorf(adbc.StatusInvalidArgument, "column %q: %v", col.Name, err)
+				return 0, columnErr(col.Name, err)
 			}
 			row[targets[j]], given[targets[j]] = cv, true
 		}
@@ -1257,6 +1262,7 @@ type accumulator struct {
 	best     Value
 	has      bool
 	distinct map[string]bool
+	argTypes []ColType // of the arguments, for DISTINCT's keys (keyAs)
 	ext      aggState
 	in       []Value // input buffer (aggInput)
 }
@@ -1477,7 +1483,7 @@ func setTargets(meta *tableMeta, alias string, sets []SetClause) ([]int, error) 
 		}
 		idx, ok := meta.resolve(s.Column)
 		if !ok {
-			return nil, errorf(adbc.StatusInvalidArgument, "column %q does not exist in table %q", s.Column, meta.Name)
+			return nil, stateErrorf(stateUndefinedColumn, "column %q does not exist in table %q", s.Column, meta.Name)
 		}
 		cols[i] = idx
 	}
@@ -1497,7 +1503,7 @@ func setValues(env *evalEnv, meta *tableMeta, cols []int, sets []SetClause) ([]V
 		}
 		cv, err := coerceIn(v, col.Type, env.zone())
 		if err != nil {
-			return nil, errorf(adbc.StatusInvalidArgument, "column %q: %v", col.Name, err)
+			return nil, columnErr(col.Name, err)
 		}
 		if vals[i], err = fitLength(col.Type, cv); err != nil {
 			return nil, err
@@ -1505,7 +1511,7 @@ func setValues(env *evalEnv, meta *tableMeta, cols []int, sets []SetClause) ([]V
 	}
 	for i, v := range vals {
 		if col := meta.Columns[cols[i]]; v.Null && !col.Nullable {
-			return nil, errorf(adbc.StatusIntegrity, "NULL value in column %q violates not-null constraint", col.Name)
+			return nil, notNullErr(col.Name, meta.Name)
 		}
 	}
 	return vals, nil
@@ -1592,6 +1598,9 @@ func (e *executor) writeUpdates(ctx context.Context, meta *tableMeta, changes []
 		if _, err := pipe.Exec(ctx); err != nil {
 			return wrapRedis(err, "failed to update rows")
 		}
+		if testHookRowsWritten != nil {
+			testHookRowsWritten(meta, end)
+		}
 	}
 	if len(changes) > pipelineChunk {
 		return e.store.checkKeys(ctx, meta, true)
@@ -1616,6 +1625,9 @@ func (e *executor) deleteKeys(ctx context.Context, meta *tableMeta, keys []strin
 		}
 		if _, err := pipe.Exec(ctx); err != nil {
 			return wrapRedis(err, "failed to delete rows")
+		}
+		if testHookRowsWritten != nil {
+			testHookRowsWritten(meta, end)
 		}
 	}
 	return e.store.checkWritten(ctx, meta)

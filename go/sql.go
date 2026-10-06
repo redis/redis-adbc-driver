@@ -368,6 +368,10 @@ type JoinClause struct {
 	Lateral bool
 	Columns []string
 	Natural bool
+	// Comma marks an item after a comma (Kind CROSS). As in Postgres, it
+	// starts a new FROM-list item: the joins after it have it as their left
+	// side, not the items before it, as they would after CROSS JOIN.
+	Comma bool
 }
 
 type SelectStmt struct {
@@ -442,6 +446,10 @@ type ColumnDef struct {
 	// Checks are the column's CHECK constraints (ADD COLUMN only: CREATE
 	// TABLE moves them to CreateTableStmt.Checks).
 	Checks []CheckDef
+	// PrimaryKeys are the column's PRIMARY KEY constraints, each of the
+	// column alone (more than one is an error; ADD COLUMN only: CREATE TABLE
+	// moves them to CreateTableStmt.PrimaryKeys).
+	PrimaryKeys []KeyDef
 }
 
 // CheckDef is a CHECK constraint: its CONSTRAINT name ("" if it has none),
@@ -450,6 +458,13 @@ type CheckDef struct {
 	Name string
 	Expr Expr
 	Text string
+}
+
+// KeyDef is a PRIMARY KEY constraint: its CONSTRAINT name ("" if it has
+// none) and its columns, in key order (see pkey.go).
+type KeyDef struct {
+	Name    string
+	Columns []string
 }
 
 type AlterAction int
@@ -463,6 +478,8 @@ const (
 	AlterDropDefault
 	AlterAddConstraint
 	AlterDropConstraint
+	AlterSetNotNull
+	AlterDropNotNull
 )
 
 type AlterTableStmt struct {
@@ -471,7 +488,8 @@ type AlterTableStmt struct {
 	// View is set for ALTER VIEW (which only supports RENAME TO).
 	View bool
 	// Cmds are the actions in the order written: a single RENAME TO or
-	// RENAME COLUMN, or one or more of the others (see alter.go).
+	// RENAME COLUMN, or one or more of the others, which run in Postgres's
+	// order (see alterOrder in alter.go).
 	Cmds []AlterCmd
 }
 
@@ -484,10 +502,11 @@ type AlterCmd struct {
 	Def               ColumnDef // ADD COLUMN; SET DEFAULT (only the default)
 	IfColumnExists    bool
 	IfColumnNotExists bool
-	// Check is the CHECK of ADD CONSTRAINT (nil for the PRIMARY KEY, UNIQUE
-	// and FOREIGN KEY constraints, which are accepted and ignored).
-	// Constraint is the name DROP CONSTRAINT drops.
+	// Check is the CHECK of ADD CONSTRAINT, and Key its PRIMARY KEY (both
+	// nil for the UNIQUE and FOREIGN KEY constraints, which are accepted and
+	// ignored). Constraint is the name DROP CONSTRAINT drops.
 	Check              *CheckDef
+	Key                *KeyDef
 	Constraint         string
 	IfConstraintExists bool
 }
@@ -502,6 +521,9 @@ type CreateTableStmt struct {
 	// Checks are the CHECK constraints, column and table ones, in the order
 	// written (which is the order their default names are chosen in).
 	Checks []CheckDef
+	// PrimaryKeys are the PRIMARY KEY constraints, column and table ones, in
+	// the order written (more than one is an error).
+	PrimaryKeys []KeyDef
 	// AsSelect is set for CREATE TABLE … AS SELECT.
 	AsSelect *SelectStmt
 	// Comment is the text of a table-level COMMENT [=] 'text' clause.
@@ -695,12 +717,14 @@ type token struct {
 	end  int    // byte offset just past the token
 }
 
-type sqlError struct{ msg string }
+// sqlError is an error in a statement, or in the data it reads, with its
+// SQLSTATE if the driver knows it (state; see sqlstate.go).
+type sqlError struct{ msg, state string }
 
 func (e *sqlError) Error() string { return e.msg }
 
 func syntaxErr(format string, args ...any) error {
-	return &sqlError{msg: "syntax error: " + fmt.Sprintf(format, args...)}
+	return &sqlError{msg: "syntax error: " + fmt.Sprintf(format, args...), state: stateSyntax}
 }
 
 func lex(src string) ([]token, error) {
@@ -1689,7 +1713,7 @@ func (p *parser) parseFromEntry() (JoinClause, error) {
 }
 
 // parseFromList parses the items of a FROM clause: the first item (with an
-// empty Kind), then any number of `, item`, `CROSS JOIN item`,
+// empty Kind), then any number of `, item` (Comma), `CROSS JOIN item`,
 // `[INNER | LEFT | RIGHT | FULL] [OUTER] JOIN item ON … | USING (…)` and
 // `NATURAL [INNER | LEFT | RIGHT | FULL] [OUTER] JOIN item`.
 func (p *parser) parseFromList() ([]JoinClause, error) {
@@ -1700,10 +1724,10 @@ func (p *parser) parseFromList() ([]JoinClause, error) {
 	items := []JoinClause{first}
 	for {
 		kind := ""
-		natural := false
+		natural, comma := false, false
 		switch {
 		case p.acceptOp(","):
-			kind = "CROSS"
+			kind, comma = "CROSS", true
 		case p.acceptKeyword("CROSS", "JOIN"):
 			kind = "CROSS"
 		case p.acceptKeyword("INNER", "JOIN"), p.acceptKeyword("JOIN"):
@@ -1736,7 +1760,7 @@ func (p *parser) parseFromList() ([]JoinClause, error) {
 		if err != nil {
 			return nil, err
 		}
-		jc.Kind, jc.Natural = kind, natural
+		jc.Kind, jc.Natural, jc.Comma = kind, natural, comma
 		if natural {
 			if p.isKeyword("ON") || p.isKeyword("USING") {
 				return nil, syntaxErr("NATURAL JOIN cannot have an ON or USING clause")
@@ -1980,12 +2004,15 @@ func (p *parser) parseCreate() (Stmt, error) {
 	}
 	for {
 		if p.isTableConstraint() {
-			chk, err := p.parseTableConstraint(false)
+			chk, key, err := p.parseTableConstraint(false)
 			if err != nil {
 				return nil, err
 			}
 			if chk != nil {
 				st.Checks = append(st.Checks, *chk)
+			}
+			if key != nil {
+				st.PrimaryKeys = append(st.PrimaryKeys, *key)
 			}
 		} else {
 			col, err := p.parseColumnDef()
@@ -1993,7 +2020,8 @@ func (p *parser) parseCreate() (Stmt, error) {
 				return nil, err
 			}
 			st.Checks = append(st.Checks, col.Checks...)
-			col.Checks = nil
+			st.PrimaryKeys = append(st.PrimaryKeys, col.PrimaryKeys...)
+			col.Checks, col.PrimaryKeys = nil, nil
 			st.Columns = append(st.Columns, col)
 		}
 		if !p.acceptOp(",") {
@@ -2030,40 +2058,65 @@ func (p *parser) isTableConstraint() bool {
 		p.isKeyword("FOREIGN") || p.isKeyword("CHECK")
 }
 
-// parseTableConstraint parses a table constraint, `[CONSTRAINT name] CHECK
-// (expr)` or one of the PRIMARY KEY, UNIQUE and FOREIGN KEY constraints,
-// which are accepted and ignored: everything up to the next ',' or ')' (in
-// ALTER TABLE … ADD, the end of the statement) is skipped. It returns the
-// CHECK, or nil for the others.
-func (p *parser) parseTableConstraint(inAlter bool) (*CheckDef, error) {
+// parseTableConstraint parses a table constraint: `[CONSTRAINT name] CHECK
+// (expr)`, `[CONSTRAINT name] PRIMARY KEY (cols)`, or one of the UNIQUE and
+// FOREIGN KEY constraints, which are accepted and ignored. After PRIMARY
+// KEY's columns, and in place of the others, everything up to the next ','
+// or ')' (in ALTER TABLE … ADD, the end of the statement) is skipped: index
+// parameters (INCLUDE, WITH, USING INDEX TABLESPACE) and DEFERRABLE mean
+// nothing here. It returns the CHECK or the PRIMARY KEY, or neither.
+func (p *parser) parseTableConstraint(inAlter bool) (*CheckDef, *KeyDef, error) {
 	name := ""
 	if p.acceptKeyword("CONSTRAINT") {
 		var err error
 		if name, err = p.parseIdent(); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if !p.isKeyword("CHECK") && !p.isKeyword("PRIMARY") && !p.isKeyword("UNIQUE") &&
 			!p.isKeyword("FOREIGN") && !p.isKeyword("EXCLUDE") {
-			return nil, syntaxErr("expected a constraint after CONSTRAINT %s near %q", name, p.peek().text)
+			return nil, nil, syntaxErr("expected a constraint after CONSTRAINT %s near %q", name, p.peek().text)
 		}
 	}
+	if p.acceptKeyword("PRIMARY", "KEY") {
+		key := &KeyDef{Name: name}
+		if err := p.expectOp("("); err != nil {
+			return nil, nil, err
+		}
+		if p.isOp(")") {
+			return nil, nil, pgSyntaxErr(")")
+		}
+		for {
+			c, err := p.parseIdent()
+			if err != nil {
+				return nil, nil, err
+			}
+			key.Columns = append(key.Columns, c)
+			if !p.acceptOp(",") {
+				break
+			}
+		}
+		if err := p.expectOp(")"); err != nil {
+			return nil, nil, err
+		}
+		return nil, key, p.skipBalanced(inAlter)
+	}
 	if !p.acceptKeyword("CHECK") {
-		return nil, p.skipBalanced(inAlter)
+		return nil, nil, p.skipBalanced(inAlter)
 	}
 	chk, err := p.parseCheck(name)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	// Postgres's NO INHERIT and NOT VALID (which CREATE TABLE ignores) mean
 	// nothing here.
 	for p.acceptKeyword("NO", "INHERIT") || p.acceptKeyword("NOT", "VALID") {
 	}
-	return &chk, nil
+	return &chk, nil, nil
 }
 
 // parseColumnDef parses `name TYPE [constraint …]`, where each constraint
-// may be named with CONSTRAINT name. PRIMARY KEY, UNIQUE and REFERENCES are
-// accepted and ignored.
+// may be named with CONSTRAINT name. UNIQUE and REFERENCES are accepted and
+// ignored.
 func (p *parser) parseColumnDef() (ColumnDef, error) {
 	name, err := p.parseIdent()
 	if err != nil {
@@ -2075,7 +2128,7 @@ func (p *parser) parseColumnDef() (ColumnDef, error) {
 	}
 	ct, err := colTypeFromSQL(spec)
 	if err != nil {
-		return ColumnDef{}, &sqlError{msg: err.Error()}
+		return ColumnDef{}, parseErr(err)
 	}
 	col := ColumnDef{Name: name, Type: ct}
 	for {
@@ -2098,6 +2151,7 @@ func (p *parser) parseColumnDef() (ColumnDef, error) {
 			p.acceptKeyword("NO", "INHERIT")
 			col.Checks = append(col.Checks, chk)
 		case p.acceptKeyword("PRIMARY", "KEY"):
+			col.PrimaryKeys = append(col.PrimaryKeys, KeyDef{Name: named, Columns: []string{name}})
 		case p.acceptKeyword("UNIQUE"):
 		case p.acceptKeyword("REFERENCES"):
 			if err := p.parseReferences(); err != nil {
@@ -2268,14 +2322,14 @@ func (p *parser) parseAlter() (Stmt, error) {
 			return st, nil
 		}
 		if p.peek().kind == tokEOF || p.isOp(";") {
-			return nil, &sqlError{msg: "syntax error at end of input"}
+			return nil, &sqlError{msg: "syntax error at end of input", state: stateSyntax}
 		}
 	}
 }
 
 // pgSyntaxErr is Postgres's message for a syntax error at a token.
 func pgSyntaxErr(tok string) error {
-	return &sqlError{msg: fmt.Sprintf(`syntax error at or near "%s"`, tok)}
+	return &sqlError{msg: fmt.Sprintf(`syntax error at or near "%s"`, tok), state: stateSyntax}
 }
 
 // parseAlterRename parses RENAME TO u or RENAME [COLUMN] a TO b.
@@ -2314,7 +2368,7 @@ func (p *parser) parseAlterCmd(view bool) (AlterCmd, error) {
 	switch {
 	case p.acceptKeyword("ADD"):
 		if p.isTableConstraint() {
-			if cmd.Check, err = p.parseTableConstraint(true); err != nil {
+			if cmd.Check, cmd.Key, err = p.parseTableConstraint(true); err != nil {
 				return cmd, err
 			}
 			cmd.Action = AlterAddConstraint
@@ -2354,8 +2408,12 @@ func (p *parser) parseAlterCmd(view bool) (AlterCmd, error) {
 			cmd.Action = AlterSetDefault
 		case p.acceptKeyword("DROP", "DEFAULT"):
 			cmd.Action = AlterDropDefault
+		case p.acceptKeyword("SET", "NOT", "NULL"):
+			cmd.Action = AlterSetNotNull
+		case p.acceptKeyword("DROP", "NOT", "NULL"):
+			cmd.Action = AlterDropNotNull
 		default:
-			return cmd, &sqlError{msg: fmt.Sprintf("unsupported ALTER COLUMN action near %q (supported: SET DEFAULT, DROP DEFAULT)", p.peek().text)}
+			return cmd, &sqlError{msg: fmt.Sprintf("unsupported ALTER COLUMN action near %q (supported: SET DEFAULT, DROP DEFAULT, SET NOT NULL, DROP NOT NULL)", p.peek().text)}
 		}
 	default:
 		if view {
@@ -2980,7 +3038,7 @@ func (p *parser) parseInterval() (Expr, error) {
 		if !isIntervalUnit(p.peek()) {
 			v, err := intervalLiteral(t.text)
 			if err != nil {
-				return nil, &sqlError{msg: err.Error()}
+				return nil, parseErr(err)
 			}
 			return &Literal{V: v}, nil
 		}
@@ -2992,7 +3050,7 @@ func (p *parser) parseInterval() (Expr, error) {
 			p.pos++
 			v, err := intervalLiteral(t.text)
 			if err != nil {
-				return nil, &sqlError{msg: err.Error()}
+				return nil, parseErr(err)
 			}
 			return &Literal{V: v}, nil
 		}
@@ -3457,7 +3515,7 @@ func (p *parser) parsePostfix(x Expr) (Expr, error) {
 		}
 		ct, err := colTypeFromSQL(spec)
 		if err != nil {
-			return nil, &sqlError{msg: err.Error()}
+			return nil, parseErr(err)
 		}
 		x = p.noteCast(&Cast{X: x, T: ct})
 	}
@@ -3634,7 +3692,7 @@ func (p *parser) parsePrimary() (Expr, error) {
 				}
 				ct, err := colTypeFromSQL(spec)
 				if err != nil {
-					return nil, &sqlError{msg: err.Error()}
+					return nil, parseErr(err)
 				}
 				return p.noteCast(&Cast{X: x, T: ct, OnError: onError}), nil
 			}
@@ -3649,12 +3707,12 @@ func (p *parser) parsePrimary() (Expr, error) {
 				p.pos += 2
 				return p.parseSQLJSONFunc(upper)
 			}
-		case "DATE", "TIME", "TIMESTAMP", "TIMESTAMPTZ", "DATETIME":
+		case "DATE", "TIME", "TIMESTAMP", "TIMESTAMPTZ", "DATETIME", "TIMETZ":
 			// Typed literal: DATE '...', TIMESTAMP [WITH TIME ZONE] '...',
-			// TIMESTAMP(p) '...'
+			// TIMESTAMP(p) '...', TIME [WITH TIME ZONE] '...', TIMETZ '...'
 			save := p.pos
 			p.pos++
-			withTZ := upper == "TIMESTAMPTZ"
+			withTZ := upper == "TIMESTAMPTZ" || upper == "TIMETZ"
 			var params []int
 			if upper != "DATE" && p.isOp("(") && p.peekAt(1).kind == tokNumber && p.peekAt(2).kind == tokOp &&
 				p.peekAt(2).text == ")" {
@@ -3670,23 +3728,33 @@ func (p *parser) parsePrimary() (Expr, error) {
 					p.acceptKeyword("WITHOUT", "TIME", "ZONE")
 				}
 			}
-			if s := p.peek(); s.kind == tokString && params != nil {
-				// With a precision: the text cast to the type, read as a
-				// cast reads it (in microseconds unless the type is in
-				// nanoseconds), and rounded.
+			if s := p.peek(); s.kind == tokString && (params != nil || upper == "TIMETZ" || upper == "TIME" && withTZ) {
+				// With a precision, or a time with time zone: the text cast
+				// to the type, read as a cast reads it (in microseconds
+				// unless the type is in nanoseconds), and rounded.
 				p.pos++
 				ct, err := colTypeFromSQL(sqlTypeSpec{Name: upper, Params: params, WithTZ: withTZ})
 				if err != nil {
-					return nil, &sqlError{msg: err.Error()}
+					return nil, parseErr(err)
 				}
 				text := stringValue(s.text)
+				if ct.Kind == KindTimeTZ {
+					if _, err := parseTimeTZ(s.text, utcZone); err != nil {
+						return nil, &sqlError{msg: err.Error()}
+					}
+					if timeTZLocal(s.text) {
+						// The session time zone's offset, read when the
+						// statement runs.
+						return p.noteCast(&Cast{X: p.noteLiteral(s), T: ct}), nil
+					}
+				}
 				if _, _, _, hasTZ, _ := parseTimestamp(s.text); isTimestampTZ(ct) && !hasTZ {
 					// A local time, read when the statement runs, as below.
 					return p.noteCast(&Cast{X: p.noteLiteral(s), T: ct}), nil
 				}
 				v, err := Coerce(text, ct)
 				if err != nil {
-					return nil, &sqlError{msg: err.Error()}
+					return nil, parseErr(err)
 				}
 				return &Literal{V: v}, nil
 			}
@@ -3703,7 +3771,7 @@ func (p *parser) parsePrimary() (Expr, error) {
 					v, err = timestampLiteral(s.text, withTZ)
 				}
 				if err != nil {
-					return nil, &sqlError{msg: err.Error()}
+					return nil, parseErr(err)
 				}
 				if withTZ {
 					if _, _, _, hasTZ, _ := parseTimestamp(s.text); !hasTZ {

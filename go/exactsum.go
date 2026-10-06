@@ -33,7 +33,6 @@ package redis
 // interval, and AVG divides it by the count as Postgres's interval / n does.
 
 import (
-	"fmt"
 	"math"
 	"math/big"
 	"math/bits"
@@ -284,13 +283,13 @@ func (s *exactSum) sumValue(t ColType) (Value, error) {
 	case KindInt64:
 		if s.exp == 0 && s.scale == 0 {
 			if !s.sum.IsInt64() {
-				return Value{}, fmt.Errorf("integer overflow in SUM")
+				return Value{}, stateErr(stateNumericRange, "integer overflow in SUM")
 			}
 			return intValue(typeInt64, s.sum.Int64()), nil
 		}
 		d := s.decimal(0)
 		if !d.IsInt64() {
-			return Value{}, fmt.Errorf("integer overflow in SUM")
+			return Value{}, stateErr(stateNumericRange, "integer overflow in SUM")
 		}
 		return intValue(typeInt64, d.Int64()), nil
 	case KindDecimal:

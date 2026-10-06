@@ -68,6 +68,7 @@ def test_cancel_from_another_thread(conn, table, sql) -> None:
             timer.cancel()
             timer.join()
         assert e.value.status_code == adbc_driver_manager.AdbcStatusCode.CANCELLED, e.value
+        assert e.value.sqlstate == "57014", e.value
         assert not errors, errors
         assert cancelled_at, "the statement failed before the cancel"
         assert failed_at - cancelled_at[0] < LAG, f"failed {failed_at - cancelled_at[0]:.1f}s after the cancel"

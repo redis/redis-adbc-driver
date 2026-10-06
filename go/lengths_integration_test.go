@@ -240,7 +240,7 @@ func TestSQLLengthWrites(t *testing.T) {
 	h.expectTooLong(`INSERT INTO it_len_nn VALUES (NULL, 'abc')`, "character varying(2)")
 	h.exec(`INSERT INTO it_len_nn VALUES ('a', 'b')`)
 	h.expectTooLong(`UPDATE it_len_nn SET a = NULL, b = 'abc'`, "character varying(2)")
-	h.expectError(`UPDATE it_len_nn SET a = NULL, b = 'ab'`, `NULL value in column "a" violates not-null constraint`)
+	h.expectError(`UPDATE it_len_nn SET a = NULL, b = 'ab'`, `null value in column "a" of relation "it_len_nn" violates not-null constraint`)
 	h.expectRows(`SELECT a, b FROM it_len_nn`, "a|b")
 
 	// Parameters are checked like literals.

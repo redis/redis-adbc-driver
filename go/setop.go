@@ -26,6 +26,7 @@ package redis
 import (
 	"context"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/apache/arrow-adbc/go/adbc"
@@ -53,12 +54,18 @@ func setOpType(a, b ColType) (ColType, bool) {
 		return a, true
 	case a.Kind.isNumeric() && b.Kind.isNumeric():
 		return commonType(a, b), true
-	case a.Kind == b.Kind && (a.Kind == KindTime || a.Kind == KindTimestamp):
+	case a.Kind == b.Kind && (a.isTimeOfDay() || a.Kind == KindTimestamp):
 		t := finerTime(a, b)
 		if a.TZ != "" || b.TZ != "" {
 			t.TZ = "UTC"
 		}
 		return t, true
+	case a.isTimeOfDay() && b.isTimeOfDay():
+		// A TIME and a time with time zone: a time with time zone, as in
+		// Postgres.
+		t := finerTime(a, b)
+		t.Kind = KindTimeTZ
+		return t.withFracDigits(t.fracDigits()), true
 	case a.Kind == b.Kind:
 		return commonType(a, b), true
 	}
@@ -126,16 +133,52 @@ func (e *executor) planSetOp(ctx context.Context, sel *SelectStmt, plan *selectP
 func rowKey(row []Value) string {
 	var b strings.Builder
 	for _, v := range row {
-		if v.Null {
-			b.WriteString("N\x00")
-			continue
-		}
-		k, _ := joinKey(v)
-		b.WriteString("V")
-		b.WriteString(k)
-		b.WriteByte(0)
+		writeKey(&b, v)
 	}
 	return b.String()
+}
+
+// writeKey appends v's part of a row key, as rowKey, GROUP BY and DISTINCT
+// aggregates build them: values that compare equal have the same part
+// (joinKey: 1 and 1.0, 0.0 and -0.0, '1 mon' and '30 days'), and so do
+// NULLs. Each part starts with its length, so the parts of two rows can't
+// run into each other, whatever bytes their strings hold.
+func writeKey(b *strings.Builder, v Value) {
+	if v.Null {
+		b.WriteByte('N')
+		return
+	}
+	k, _ := joinKey(v)
+	b.WriteString(strconv.Itoa(len(k)))
+	b.WriteByte(':')
+	b.WriteString(k)
+}
+
+// keyTypes returns the type of each expression whose values keyAs keys,
+// typeNull where it isn't known.
+func keyTypes(exprs []Expr, types map[string]ColType) []ColType {
+	ts := make([]ColType, len(exprs))
+	for i, x := range exprs {
+		if t, err := inferType(x, types, nil); err == nil {
+			ts[i] = t
+		}
+	}
+	return ts
+}
+
+// keyAs returns v as a value of t, the type of the expression that gave
+// it, for writeKey. A CASE or COALESCE can give values of different kinds
+// (COALESCE(n, '0') of an integer n gives integers and the string '0'),
+// which its type holds alike, as its results show them, so they are keyed
+// alike. v is unchanged if t isn't known or v doesn't convert to it.
+func keyAs(v Value, t ColType, z tzZone) Value {
+	if v.Null || t.Kind == KindNull || (v.T.Kind == t.Kind && v.T.TZ == t.TZ) {
+		return v
+	}
+	if c, err := coerceIn(v, t, z); err == nil {
+		return c
+	}
+	return v
 }
 
 func (e *executor) runSetOp(ctx context.Context, plan *selectPlan, params []Value) ([][]Value, error) {

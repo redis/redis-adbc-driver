@@ -288,7 +288,9 @@ func (it *scanIter) readWindow(ctx context.Context) error {
 		trail := int64(len(rows)) == asked && t.reachesEdge(rows, lo, hi, false)
 		if (lead || trail) && (!lead || t.byValue(t.edgeKey(rows, lo, hi, true))) &&
 			(!trail || t.byValue(t.edgeKey(rows, lo, hi, false))) {
-			return it.readEdgeRuns(ctx, rows, lo, hi, lead, trail)
+			if ok, err := it.readEdgeRuns(ctx, rows, lo, hi, lead, trail); ok || err != nil {
+				return err
+			}
 		}
 		wider := *t.ar.limit
 		more := max(asked, tieWiden)
@@ -341,14 +343,18 @@ func (t *tieSort) edgeKey(rows []tieRow, lo, hi int, first bool) string {
 
 // byValue reports whether the scan can read the run with runKey key whole
 // by its value, with the query @c:[key key]: when the first sort key may
-// round, so that it is the run's only key, and the index returned it as an
-// integer (it prints integers exactly).
+// round, so that it is the run's only key, and the index returned it as the
+// exact integer that a double below 2^63 is. Larger doubles don't convert
+// to a C long long, and how the index prints them depends on the platform:
+// a 3-shard cluster on linux-amd64 printed 2^63 so that @c:[key key] found
+// none of its rows. readEdgeRuns also checks that the run it reads has
+// every row of LIMIT and OFFSET in it.
 func (t *tieSort) byValue(key string) bool {
 	if t.first != 0 || t.cols[0].Type.Kind == KindDecimal {
 		return false
 	}
-	digits := strings.TrimPrefix(key, "-")
-	return digits != "" && strings.Trim(digits, "0123456789") == ""
+	d, err := strconv.ParseFloat(key, 64)
+	return err == nil && math.Abs(d) < 1<<63 && strconv.FormatFloat(d, 'f', 0, 64) == key
 }
 
 // readEdgeRuns makes ready the rows of LIMIT and OFFSET (rows[lo:hi] of
@@ -357,8 +363,9 @@ func (t *tieSort) byValue(key string) bool {
 // runs whole by their value (see byValue): the rows of LIMIT and OFFSET
 // that are in them are those of the sorted runs in their places. A run that
 // goes on before the rows read starts after the rows that sort before its
-// value, which the index counts.
-func (it *scanIter) readEdgeRuns(ctx context.Context, rows []tieRow, lo, hi int, lead, trail bool) error {
+// value, which the index counts. ok is false, and nothing is ready, if a
+// run read lacks one of its rows in rows[lo:hi].
+func (it *scanIter) readEdgeRuns(ctx context.Context, rows []tieRow, lo, hi int, lead, trail bool) (ok bool, err error) {
 	t := it.ties
 	from := t.ar.limit[0]
 	type edge struct {
@@ -371,7 +378,7 @@ func (it *scanIter) readEdgeRuns(ctx context.Context, rows []tieRow, lo, hi int,
 		key := t.edgeKey(rows, lo, hi, true)
 		start, err := it.countBefore(ctx, key)
 		if err != nil {
-			return err
+			return false, err
 		}
 		edges = append(edges, edge{key: key, start: start})
 	}
@@ -388,13 +395,22 @@ func (it *scanIter) readEdgeRuns(ctx context.Context, rows []tieRow, lo, hi int,
 	for i := range edges {
 		run, err := it.readRun(ctx, edges[i].key)
 		if err != nil {
-			return err
+			return false, err
+		}
+		read := make(map[string]bool, len(run))
+		for _, r := range run {
+			read[r.key] = true
+		}
+		for _, r := range rows[lo:hi] {
+			if r.vals != nil && t.runKey(r.raw) == edges[i].key && !read[r.key] {
+				return false, nil
+			}
 		}
 		edges[i].rows = run
 		inEdge[edges[i].key] = true
 	}
 	if err := it.sortRuns(ctx, rows, lo, hi, inEdge); err != nil {
-		return err
+		return false, err
 	}
 	for p := t.off; p-t.off < t.n; p++ {
 		var r tieRow
@@ -421,7 +437,7 @@ func (it *scanIter) readEdgeRuns(ctx context.Context, rows []tieRow, lo, hi int,
 		}
 	}
 	t.done = true
-	return nil
+	return true, nil
 }
 
 // countBefore returns how many rows of the scan sort before the run whose

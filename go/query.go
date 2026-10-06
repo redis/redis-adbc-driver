@@ -41,6 +41,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/apache/arrow-adbc/go/adbc"
+	"github.com/apache/arrow-go/v18/arrow"
 )
 
 // exactDoubleLimit bounds integers whose double representation is exact.
@@ -1102,17 +1103,101 @@ type aggGroup struct {
 	results map[*Func]Value
 }
 
-// pushableKind reports whether RediSearch returns exact results for
-// aggregates over a column of this kind (values it formats with at most 12
-// significant digits).
-func pushableKind(k Kind, mode string) bool {
-	switch k {
+// pushableType reports whether RediSearch returns exact results for
+// aggregates over a column of this type (values it formats with at most 12
+// significant digits). In the all mode that is any number but a nanosecond
+// TIMESTAMP, whose values the index rounds from April 1970 on, so that it
+// would only group them to group them again (see indexValueExact).
+func pushableType(t ColType, mode string) bool {
+	switch t.Kind {
 	case KindInt16, KindInt32, KindBool, KindDate:
 		return true
 	case KindString:
 		return false
+	case KindTimestamp:
+		if t.Unit == arrow.Nanosecond {
+			return false
+		}
 	}
-	return mode == PushdownAll && k.indexedAsNumeric()
+	return mode == PushdownAll && t.Kind.indexedAsNumeric()
+}
+
+// groupable reports whether the index can group an indexed column: a string
+// column, or one whose aggregates are pushable, but not a DOUBLE PRECISION
+// one, whose groups' values it doesn't reply exactly (see indexValueExact).
+func (c columnMeta) groupable(mode string) bool {
+	return c.Type.Kind == KindString || (c.pushable(mode) && c.Type.Kind != KindFloat64)
+}
+
+// indexValueExact reports whether s, a value FT.AGGREGATE replies for an
+// indexed column of type t (a GROUPBY key, a MIN or a MAX), is exactly the
+// value of the rows it stands for. The index holds NUMERIC attributes as
+// doubles, and replies with an integral double in full and with others to
+// 12 significant digits:
+//
+//   - BIGINT, TIME and TIMESTAMP values, integers of their unit, are exact
+//     below 2^53, which a TIME always is. From there two values can be one
+//     double: 2^53 and 2^53 + 1 are one group, as are TIMESTAMP(9) values of
+//     2024 up to 256 ns apart, and 9999-12-31 23:59:59.999999 is replied as
+//     10000-01-01.
+//   - A NUMERIC(p, s) value is exact if it has at most 12 significant digits:
+//     always for p <= 12, else below 10^(12-s). Two values with 13 to 15 are
+//     replied the same (123456789012.34 and .35 as 123456789012), and from
+//     16 on they can be one double too, as tieBound has it for sorts, which
+//     don't read the replies.
+//   - REAL values are stored with at most 9 significant digits, and are
+//     exact below 2^63, and as infinities: the index prints an integral
+//     double through a C long long, which a larger one overflows.
+//   - DOUBLE PRECISION values aren't: 5.0000000000001 is replied as 5, so
+//     the index doesn't group them (groupable).
+//   - SMALLINT, INTEGER, BOOLEAN and DATE values are, and strings are TAGs
+//     (see tags.go).
+func indexValueExact(t ColType, s string) bool {
+	switch t.Kind {
+	case KindInt64, KindTime, KindTimestamp:
+		i, err := strconv.ParseInt(s, 10, 64)
+		return err == nil && i > -exactDoubleLimit && i < exactDoubleLimit
+	case KindDecimal:
+		if t.Precision <= 12 {
+			return true
+		}
+		f, err := strconv.ParseFloat(s, 64)
+		return err == nil && math.Abs(f) < math.Pow10(12-int(t.Scale))
+	case KindFloat32:
+		f, err := parseFloat(s, 64)
+		return err == nil && (math.Abs(f) < 1<<63 || math.IsInf(f, 0))
+	case KindFloat64:
+		return false
+	}
+	return true
+}
+
+// exactIntSum reports whether RediSearch's SUM of nn values of an integer
+// kind is exact. It adds doubles, which hold every partial sum while nn
+// times the largest magnitude is below 2^53: for an INTEGER, fewer than 2^22
+// (4,194,304) values; for a BIGINT, as the group's MIN and MAX (lo and hi)
+// tell. Past that, 9007199254740992, -9007199254740993 and 5 add up to 5.
+func exactIntSum(k Kind, nn float64, lo, hi string) bool {
+	var m float64
+	switch k {
+	case KindBool:
+		m = 1
+	case KindInt16:
+		m = 1 << 15
+	case KindInt32:
+		m = 1 << 31
+	default:
+		l, err := parseFloat(lo, 64)
+		if err != nil {
+			return false
+		}
+		h, err := parseFloat(hi, 64)
+		if err != nil {
+			return false
+		}
+		m = math.Max(math.Abs(l), math.Abs(h))
+	}
+	return m*nn < exactDoubleLimit
 }
 
 // indexReducers maps the aggregates the index can compute to their
@@ -1147,7 +1232,7 @@ func (e *executor) indexAggregate(ctx context.Context, plan *selectPlan, wp wher
 		if !ok || !col.Indexed || !simpleName(col.field()) || col.MissingThrough > 0 || !col.sortsExactly() {
 			return nil, false, nil
 		}
-		if !(col.Type.Kind == KindString || col.pushable(e.pushdown)) {
+		if !col.groupable(e.pushdown) {
 			return nil, false, nil
 		}
 		groupCols = append(groupCols, col)
@@ -1254,6 +1339,11 @@ func (e *executor) indexAggregate(ctx context.Context, plan *selectPlan, wp wher
 				arg = "@" + nonNull[argCol[i].Name] + "_z"
 			}
 			steps = append(steps, "REDUCE", indexReducers[f.Name], 1, arg, "AS", fmt.Sprintf("__a%d", i))
+			if f.Name == "SUM" && argCol[i].Type.Kind == KindInt64 {
+				// What bounds its partial sums (see exactIntSum).
+				steps = append(steps, "REDUCE", "MIN", 1, arg, "AS", fmt.Sprintf("__a%d_lo", i),
+					"REDUCE", "MAX", 1, arg, "AS", fmt.Sprintf("__a%d_hi", i))
+			}
 		}
 		return steps
 	}
@@ -1300,6 +1390,11 @@ func (e *executor) indexAggregate(ctx context.Context, plan *selectPlan, wp wher
 				g.rep[c.Name] = nullValue(c.Type)
 				continue
 			}
+			if !indexValueExact(c.Type, s) {
+				// The group may hold several values, or be replied as
+				// another: group in the driver.
+				return nil, false, nil
+			}
 			v, err := decodeStored(s, c.Type)
 			if err != nil {
 				return nil, false, nil
@@ -1336,7 +1431,8 @@ func (e *executor) indexAggregate(ctx context.Context, plan *selectPlan, wp wher
 			case "SUM":
 				if t.Kind == KindInt64 {
 					n, err := strconv.ParseInt(s, 10, 64)
-					if err != nil {
+					lo, hi := r[fmt.Sprintf("__a%d_lo", i)], r[fmt.Sprintf("__a%d_hi", i)]
+					if err != nil || !exactIntSum(argCol[i].Type.Kind, nn, lo, hi) {
 						// Rounded by RediSearch: compute exactly in the driver.
 						return nil, false, nil
 					}
@@ -1355,6 +1451,12 @@ func (e *executor) indexAggregate(ctx context.Context, plan *selectPlan, wp wher
 				}
 				g.results[f] = floatValue(typeFloat64, sum/nn)
 			default: // MIN, MAX, and BOOL_OR / BOOL_AND as MAX / MIN of 0 and 1
+				// One of the rows' values, which the index's double may not
+				// be (indexValueExact). Those of decimals and doubles keep
+				// its 12 digits, as SUM does.
+				if k := argCol[i].Type.Kind; k != KindDecimal && !k.isFloat() && !indexValueExact(argCol[i].Type, s) {
+					return nil, false, nil
+				}
 				v, err := decodeStored(s, argCol[i].Type)
 				if err != nil {
 					return nil, false, nil
@@ -1423,22 +1525,21 @@ func (e *executor) driverAggregate(ctx context.Context, plan *selectPlan, wp whe
 		groups[""] = newGroup(map[string]Value{})
 		order = append(order, "")
 	}
+	groupTypes := keyTypes(plan.sel.GroupBy, types)
 	for _, vals := range rows {
 		if err := cancelled(ctx); err != nil {
 			return nil, err
 		}
 		env.row = vals
+		// Values that compare equal are one group, as in Postgres ('1 mon'
+		// and '30 days', 0.0 and -0.0), and its first row represents it.
 		var key strings.Builder
-		for _, gexpr := range plan.sel.GroupBy {
+		for i, gexpr := range plan.sel.GroupBy {
 			v, err := env.eval(gexpr)
 			if err != nil {
 				return nil, invalidArg(err)
 			}
-			if v.Null {
-				key.WriteString("N\x00")
-			} else {
-				key.WriteString("V" + v.Text() + "\x00")
-			}
+			writeKey(&key, keyAs(v, groupTypes[i], env.zone()))
 		}
 		g, ok := groups[key.String()]
 		if !ok {

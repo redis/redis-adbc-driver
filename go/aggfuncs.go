@@ -36,7 +36,6 @@ package redis
 // the ordered-set aggregates and MEDIAN work over frames.
 
 import (
-	"fmt"
 	"math"
 	"math/big"
 	"slices"
@@ -325,23 +324,19 @@ func (a *accumulator) addRow(env *evalEnv) error {
 	a.in = in
 	if f.Distinct {
 		// Only the arguments count (the ORDER BY keys are among them).
-		var key strings.Builder
-		for _, v := range in[:len(f.Args)] {
-			if v.Null {
-				if f.Name == "COUNT" {
-					return nil
-				}
-				key.WriteString("N\x00")
-				continue
-			}
-			t := v.Text()
-			key.WriteString(v.T.Kind.String())
-			key.WriteString(strconv.Itoa(len(t)))
-			key.WriteByte(':')
-			key.WriteString(t)
-		}
+		// Values that compare equal are one value, as in Postgres, and the
+		// first of them counts: SUM(DISTINCT) of '1 mon' and then '30 days'
+		// is '1 mon'.
 		if a.distinct == nil {
 			a.distinct = map[string]bool{}
+			a.argTypes = keyTypes(f.Args, env.types)
+		}
+		var key strings.Builder
+		for i, v := range in[:len(f.Args)] {
+			if v.Null && f.Name == "COUNT" {
+				return nil
+			}
+			writeKey(&key, keyAs(v, a.argTypes[i], env.zone()))
 		}
 		if a.distinct[key.String()] {
 			return nil
@@ -500,7 +495,7 @@ func (o *orderedSetAgg) result(env *evalEnv, t ColType) (Value, error) {
 			return nullValue(t), nil
 		}
 		if frac, _ = v.asFloat(); frac < 0 || frac > 1 || math.IsNaN(frac) {
-			return Value{}, fmt.Errorf("percentile value %s is not between 0 and 1", strconv.FormatFloat(frac, 'g', -1, 64))
+			return Value{}, stateErr(stateNumericRange, "percentile value %s is not between 0 and 1", strconv.FormatFloat(frac, 'g', -1, 64))
 		}
 	}
 	n := len(o.vals)
@@ -565,7 +560,7 @@ func lerp(lo, hi Value, p float64) (Value, error) {
 	// Postgres, so it needn't fit in the nanoseconds' range.
 	months, days := int64(hi.Months)-int64(lo.Months), int64(hi.Days)-int64(lo.Days)
 	if months != int64(int32(months)) || days != int64(int32(days)) {
-		return Value{}, fmt.Errorf("interval out of range")
+		return Value{}, stateErr(stateDatetimeRange, "interval out of range")
 	}
 	us := float64(hi.I/1000-lo.I/1000) + float64(hi.I%1000-lo.I%1000)/1000
 	m, d, t, err := scaleInterval(int32(months), int32(days), us, p, false)
@@ -574,7 +569,7 @@ func lerp(lo, hi Value, p float64) (Value, error) {
 	}
 	ns := new(big.Int).Mul(big.NewInt(t), big.NewInt(1000))
 	if ns.Add(ns, big.NewInt(lo.I)); !ns.IsInt64() {
-		return Value{}, fmt.Errorf("interval out of range")
+		return Value{}, stateErr(stateDatetimeRange, "interval out of range")
 	}
 	return intervalValue(int64(lo.Months)+int64(m), int64(lo.Days)+int64(d), ns.Int64())
 }

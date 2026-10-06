@@ -40,7 +40,6 @@ package redis
 
 import (
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"math"
 	"slices"
@@ -65,7 +64,7 @@ func checkJSONArgs(f *Func) error {
 	switch f.Name {
 	case "JSON_BUILD_OBJECT", "JSONB_BUILD_OBJECT":
 		if n%2 != 0 {
-			return fmt.Errorf("%s: argument list must have even number of elements (alternating keys and values)", f.Name)
+			return stateErr(stateInvalidParameter, "%s: argument list must have even number of elements (alternating keys and values)", f.Name)
 		}
 		for i := 0; i < n; i += 2 {
 			if isJSONExpr(f.Args[i]) {
@@ -88,8 +87,8 @@ func checkJSONArgs(f *Func) error {
 }
 
 var (
-	errJSONKey     = errors.New("key value must be scalar, not array, composite, or json")
-	errJSONNullKey = errors.New("null value not allowed for object key")
+	errJSONKey     = stateErr(stateInvalidParameter, "key value must be scalar, not array, composite, or json")
+	errJSONNullKey = stateErr(stateNullNotAllowed, "null value not allowed for object key")
 )
 
 // jsonFuncType returns the result type of a JSON function; ok is false if f
@@ -271,9 +270,9 @@ func (env *evalEnv) evalJSONFunc(f *Func) (Value, error) {
 		case jsonArray:
 			return intValue(typeInt64, int64(len(n.items))), nil
 		case jsonObject:
-			return Value{}, errors.New("cannot get array length of a non-array")
+			return Value{}, stateErr(stateInvalidParameter, "cannot get array length of a non-array")
 		}
-		return Value{}, errors.New("cannot get array length of a scalar")
+		return Value{}, stateErr(stateInvalidParameter, "cannot get array length of a scalar")
 	}
 	// ->, ->>, #>, #>> and JSON_EXTRACT_PATH[_TEXT]
 	steps, ok, err := jsonSteps(f, args)
@@ -375,14 +374,14 @@ const maxJSONDepth = 10000
 
 // jsonSyntaxError is Postgres's error for malformed JSON, with its DETAIL.
 func jsonSyntaxError(format string, args ...any) error {
-	return fmt.Errorf("invalid input syntax for type json: "+format, args...)
+	return stateErr(stateInvalidText, "invalid input syntax for type json: "+format, args...)
 }
 
 var (
 	errJSONEnded         = jsonSyntaxError("the input string ended unexpectedly")
 	errJSONLowSurrogate  = jsonSyntaxError("Unicode low surrogate must follow a high surrogate")
 	errJSONHighSurrogate = jsonSyntaxError("Unicode high surrogate must not follow a high surrogate")
-	errJSONZero          = errors.New("unsupported Unicode escape sequence: \\u0000 cannot be converted to text")
+	errJSONZero          = stateErr(stateUntranslatable, "unsupported Unicode escape sequence: \\u0000 cannot be converted to text")
 	errJSONDepth         = jsonSyntaxError("nesting is deeper than %d levels", maxJSONDepth)
 )
 
@@ -933,7 +932,7 @@ func jsonbNumber(raw string) (string, error) {
 	return out, nil
 }
 
-var errNumericOverflow = errors.New("value overflows numeric format")
+var errNumericOverflow = stateErr(stateNumericRange, "value overflows numeric format")
 
 // ---- encoding SQL values ----
 
@@ -1026,7 +1025,7 @@ func buildJSONObject(f *Func, args []Value, z tzZone) (Value, error) {
 			if seen[key] {
 				var q strings.Builder
 				writeJSONString(&q, key)
-				return Value{}, fmt.Errorf("duplicate JSON object key value: %s", q.String())
+				return Value{}, stateErr(stateDuplicateJSONKey, "duplicate JSON object key value: %s", q.String())
 			}
 			seen[key] = true
 		}
@@ -1074,11 +1073,11 @@ func jsonObjectFromArrays(f *Func, args []Value) (Value, error) {
 	if len(args) == 1 {
 		switch {
 		case len(a.dims) == 1 && a.dims[0]%2 != 0:
-			return Value{}, errors.New("array must have even number of elements")
+			return Value{}, stateErr(stateArraySubscript, "array must have even number of elements")
 		case len(a.dims) == 2 && a.dims[1] != 2:
-			return Value{}, errors.New("array must have two columns")
+			return Value{}, stateErr(stateArraySubscript, "array must have two columns")
 		case len(a.dims) > 2:
-			return Value{}, errors.New("wrong number of array subscripts")
+			return Value{}, stateErr(stateArraySubscript, "wrong number of array subscripts")
 		}
 		for i := 0; i+1 < len(a.elems); i += 2 {
 			keys.elems, keys.nulls = append(keys.elems, a.elems[i]), append(keys.nulls, a.nulls[i])
@@ -1090,10 +1089,10 @@ func jsonObjectFromArrays(f *Func, args []Value) (Value, error) {
 		}
 		keys = a
 		if len(keys.dims) > 1 || len(vals.dims) > 1 {
-			return Value{}, errors.New("wrong number of array subscripts")
+			return Value{}, stateErr(stateArraySubscript, "wrong number of array subscripts")
 		}
 		if len(keys.elems) != len(vals.elems) {
-			return Value{}, errors.New("mismatched array dimensions")
+			return Value{}, stateErr(stateArraySubscript, "mismatched array dimensions")
 		}
 	}
 	var b strings.Builder
@@ -1307,7 +1306,7 @@ type arrayParser struct {
 }
 
 func (ap *arrayParser) fail(detail string) error {
-	return fmt.Errorf(`malformed array literal: "%s" (%s)`, ap.src, detail)
+	return stateErr(stateInvalidText, `malformed array literal: "%s" (%s)`, ap.src, detail)
 }
 
 func (ap *arrayParser) skipSpace() {
@@ -1566,7 +1565,7 @@ func (p *parser) parseJSONReturning(c *jsonClauses) error {
 	default:
 		t, err := colTypeFromSQL(spec)
 		if err != nil {
-			return &sqlError{msg: err.Error()}
+			return parseErr(err)
 		}
 		c.returning, c.returnJSON, c.jsonb = t, false, false
 	}

@@ -220,6 +220,8 @@ type tableMeta struct {
 	Comment string `json:"comment,omitempty"`
 	// Checks are the table's CHECK constraints (see check.go).
 	Checks []checkMeta `json:"checks,omitempty"`
+	// PrimaryKey is the table's PRIMARY KEY, nil without one (see pkey.go).
+	PrimaryKey *keyMeta `json:"primary_key,omitempty"`
 	// Adopted is set for a table whose rows are HASHes that something else
 	// (an application) wrote, adopted in place with AdoptHashes (adopt.go).
 	// The driver doesn't own their keys, so it never deletes rows wholesale
@@ -779,7 +781,7 @@ func errorf(code adbc.Status, format string, args ...any) error {
 }
 
 func tableNotFound(schema, table string) error {
-	return errorf(adbc.StatusNotFound, "table %q.%q does not exist", displaySchema(schema), table)
+	return stateErrorf(stateUndefinedTable, "table %q.%q does not exist", displaySchema(schema), table)
 }
 
 func wrapRedis(err error, context string) error {
@@ -790,11 +792,9 @@ func wrapRedis(err error, context string) error {
 	if errors.As(err, &ae) {
 		return err
 	}
-	// The statement was cancelled (see cancel.go).
-	if code, ok := ctxStatus(err); ok {
-		return errorf(code, "%s: %v", context, err)
-	}
-	return errorf(adbc.StatusIO, "%s: %v", context, err)
+	// The statement was cancelled (see cancel.go), or a value didn't
+	// convert (see sqlstate.go).
+	return wrapErr(adbc.StatusIO, err, context)
 }
 
 // ---- store ----
@@ -988,7 +988,7 @@ func (s *store) createTable(ctx context.Context, meta *tableMeta, ifNotExists bo
 			return false, errorf(adbc.StatusInvalidArgument, "column name %q is reserved", c.Name)
 		}
 		if seen[strings.ToLower(c.Name)] {
-			return false, errorf(adbc.StatusAlreadyExists, "duplicate column name %q", c.Name)
+			return false, stateErrorf(stateDuplicateColumn, "duplicate column name %q", c.Name)
 		}
 		seen[strings.ToLower(c.Name)] = true
 	}
@@ -1001,14 +1001,14 @@ func (s *store) createTable(ctx context.Context, meta *tableMeta, ifNotExists bo
 		if ifNotExists {
 			return false, nil
 		}
-		return false, errorf(adbc.StatusAlreadyExists, "%q.%q already exists as a view", displaySchema(meta.Schema), meta.Name)
+		return false, stateErrorf(stateDuplicateTable, "%q.%q already exists as a view", displaySchema(meta.Schema), meta.Name)
 	}
 	key := metaKey(meta.Schema, meta.Name)
 	exists := func() (bool, error) {
 		if ifNotExists {
 			return false, nil
 		}
-		return false, errorf(adbc.StatusAlreadyExists, "table %q.%q already exists", displaySchema(meta.Schema), meta.Name)
+		return false, stateErrorf(stateDuplicateTable, "table %q.%q already exists", displaySchema(meta.Schema), meta.Name)
 	}
 	if n, err := s.client.Exists(ctx, key).Result(); err != nil {
 		return false, wrapRedis(err, "failed to create table")
@@ -1296,30 +1296,61 @@ func (s *store) addIndexedColumns(ctx context.Context, t *truncation, cur *table
 	return nil
 }
 
+// testHookDropRead, when set by a test, runs once dropTable has read the
+// table's metadata, before it drops the table's index.
+var testHookDropRead func()
+
 // testHookDropping, when set by a test, runs once dropTable has dropped the
 // table's index, before it removes the metadata.
 var testHookDropping func()
 
 // dropTable removes the index, every row, and the table metadata. The
 // metadata goes only if the table still has the keys whose index was
-// dropped: otherwise (a TRUNCATE moved it to new ones meanwhile) it starts
-// again, so that the new index and key prefix don't outlive the table.
+// dropped. Otherwise it starts again:
+//
+//   - Under the table's new name, if a plain RENAME TO renamed it meanwhile.
+//     The rename kept the keys and the index, so the renamed table has lost
+//     its index and rows: the DROP follows it rather than leave it without
+//     them. (In Postgres, one of the two would wait for the other.)
+//   - Under the same name otherwise: a TRUNCATE moved the table to new keys
+//     meanwhile, so that the new index and key prefix don't outlive the
+//     table.
 func (s *store) dropTable(ctx context.Context, schema, table string, ifExists bool) error {
-	key := metaKey(schema, table)
+	name := table // as the statement names it
+	// dropped is the table whose index this dropped last.
+	var dropped *tableMeta
 	for attempt := 0; attempt < 20; attempt++ {
 		meta, err := s.getTable(ctx, schema, table)
-		if err != nil {
-			var ae adbc.Error
-			if ifExists && asAdbc(err, &ae) && ae.Code == adbc.StatusNotFound {
+		var ae adbc.Error
+		notFound := err != nil && asAdbc(err, &ae) && ae.Code == adbc.StatusNotFound
+		if dropped != nil && (notFound || (err == nil && !meta.sameKeysAs(dropped))) {
+			to, err := s.renamedTo(ctx, dropped)
+			if err != nil {
+				return err
+			}
+			if to != "" {
+				table = to
+				continue
+			}
+		}
+		if notFound {
+			if ifExists {
 				return nil
 			}
+			return tableNotFound(schema, name)
+		}
+		if err != nil {
 			return err
 		}
+		key := metaKey(schema, table)
 		// DROP TABLE isn't refused while a re-key moves the table's rows (the
 		// re-key then fails). One that its connection abandoned is rolled
 		// back first, so that it doesn't outlive the table (see rekey.go).
 		if meta.RekeyTo != "" {
 			s.recoverStale(ctx, meta.prefix())
+		}
+		if testHookDropRead != nil {
+			testHookDropRead()
 		}
 		// DD deletes every document the index knows about; an adopted
 		// table's HASHes stay, and the application's index too (AppIndex).
@@ -1332,6 +1363,7 @@ func (s *store) dropTable(ctx context.Context, schema, table string, ifExists bo
 				return wrapRedis(err, "failed to drop search index")
 			}
 		}
+		dropped = meta
 		if testHookDropping != nil {
 			testHookDropping()
 		}
@@ -1369,7 +1401,45 @@ func (s *store) dropTable(ctx context.Context, schema, table string, ifExists bo
 		s.trackTemp(schema, table, false)
 		return nil
 	}
-	return errorf(adbc.StatusIO, "table %q.%q is being changed concurrently; try again", displaySchema(schema), table)
+	return errorf(adbc.StatusIO, "table %q.%q is being changed concurrently; try again", displaySchema(schema), name)
+}
+
+// sameKeysAs reports whether two metadata of a table, under any names, have
+// the same key prefix and generation.
+func (t *tableMeta) sameKeysAs(o *tableMeta) bool {
+	return t.prefix() == o.prefix() && t.PrefixGen == o.PrefixGen
+}
+
+// renamedTo returns the name that a plain RENAME TO gave a table since meta
+// was read: the table of meta's schema that has meta's key prefix and
+// generation, which a rename keeps. It returns "" if none does, as when the
+// prefix was released (by DROP TABLE, TRUNCATE or a re-keying rename).
+func (s *store) renamedTo(ctx context.Context, meta *tableMeta) (string, error) {
+	pipe := s.client.Pipeline()
+	kept := pipe.SIsMember(ctx, prefixesKey, meta.prefix())
+	listed := pipe.SMembers(ctx, tablesKey(meta.Schema))
+	if _, err := pipe.Exec(ctx); err != nil {
+		return "", wrapRedis(err, "failed to drop table")
+	}
+	if !kept.Val() {
+		return "", nil
+	}
+	names := listed.Val()
+	pipe = s.client.Pipeline()
+	raws := make([]*goredis.StringCmd, len(names))
+	for i, n := range names {
+		raws[i] = pipe.Get(ctx, metaKey(meta.Schema, n))
+	}
+	if _, err := pipe.Exec(ctx); err != nil && !errors.Is(err, goredis.Nil) {
+		return "", wrapRedis(err, "failed to drop table")
+	}
+	for i, n := range names {
+		var cur tableMeta
+		if json.Unmarshal([]byte(raws[i].Val()), &cur) == nil && cur.Name == n && cur.sameKeysAs(meta) {
+			return n, nil
+		}
+	}
+	return "", nil
 }
 
 func isUnknownIndex(err error) bool {
@@ -1414,7 +1484,7 @@ func (s *store) createSchema(ctx context.Context, schema string, ifNotExists boo
 		if ifNotExists {
 			return nil
 		}
-		return errorf(adbc.StatusAlreadyExists, "schema %q already exists", schema)
+		return stateErrorf(stateDuplicateSchema, "schema %q already exists", schema)
 	}
 	if reservedSchema(schema) {
 		return errorf(adbc.StatusInvalidArgument, "schema name %q is reserved for temporary tables and views", schema)
@@ -1424,7 +1494,7 @@ func (s *store) createSchema(ctx context.Context, schema string, ifNotExists boo
 		return wrapRedis(err, "failed to create schema")
 	}
 	if (n == 0 || schema == defaultSchema) && !ifNotExists {
-		return errorf(adbc.StatusAlreadyExists, "schema %q already exists", schema)
+		return stateErrorf(stateDuplicateSchema, "schema %q already exists", schema)
 	}
 	return nil
 }
@@ -1441,7 +1511,7 @@ func (s *store) dropSchema(ctx context.Context, schema string, ifExists, cascade
 		if ifExists {
 			return nil
 		}
-		return errorf(adbc.StatusNotFound, "schema %q does not exist", schema)
+		return stateErrorf(stateUndefinedSchema, "schema %q does not exist", schema)
 	}
 	tables, err := s.listTables(ctx, schema)
 	if err != nil {
@@ -1513,7 +1583,7 @@ func (s *store) allocRows(ctx context.Context, meta *tableMeta, rows [][]Value) 
 	for _, row := range rows {
 		for i, c := range meta.Columns {
 			if row[i].Null && !c.Nullable {
-				return rowAlloc{}, errorf(adbc.StatusIntegrity, "NULL value in column %q violates not-null constraint", c.Name)
+				return rowAlloc{}, notNullErr(c.Name, meta.Name)
 			}
 		}
 	}
@@ -1541,7 +1611,43 @@ func (s *store) allocRows(ctx context.Context, meta *tableMeta, rows [][]Value) 
 		}
 		return rowAlloc{}, writeMovedErr(meta)
 	}
+	if err := notNullSince(meta, cur.Val(), rows); err != nil {
+		return rowAlloc{}, err
+	}
 	return rowAlloc{first: last - int64(len(rows)) + 1, added: addedMissing(meta, cur.Val())}, nil
+}
+
+// notNullSince checks rows to be inserted with meta against the NOT NULL
+// constraints that the table's current metadata (raw JSON) has and meta
+// doesn't: those of an ALTER TABLE … SET NOT NULL or ADD COLUMN … NOT NULL
+// that committed after meta was read. The rows know nothing about a column
+// added since, so unless it has a missing value (see addedMissing), they
+// would have none.
+func notNullSince(meta *tableMeta, raw string, rows [][]Value) error {
+	if !strings.Contains(raw, `"nullable":false`) {
+		return nil // the common case, without decoding the metadata
+	}
+	var cur tableMeta
+	if json.Unmarshal([]byte(raw), &cur) != nil {
+		return nil
+	}
+	for _, c := range cur.Columns {
+		if c.Nullable {
+			continue
+		}
+		i := slices.IndexFunc(meta.Columns, func(k columnMeta) bool { return k.field() == c.field() })
+		switch {
+		case i < 0 && c.MissingThrough == 0:
+			return errorf(adbc.StatusIO, "table %q changed concurrently; try again", meta.Name)
+		case i >= 0 && meta.Columns[i].Nullable:
+			for _, row := range rows {
+				if row[i].Null {
+					return notNullErr(c.Name, meta.Name)
+				}
+			}
+		}
+	}
+	return nil
 }
 
 // sameKeys reports whether raw, the current metadata under meta's name, is
@@ -1573,7 +1679,8 @@ func sameKeys(meta *tableMeta, raw string) bool {
 }
 
 // testHookRowsWritten, when set by a test, runs after each pipeline of rows
-// that writeRows sends, with the number of rows written so far.
+// that writeRows, writeUpdates or deleteKeys sends, with the number of rows
+// written (set or deleted) so far.
 var testHookRowsWritten func(meta *tableMeta, written int)
 
 // writeRows writes rows allocated by allocRows as HASHes. A write of more

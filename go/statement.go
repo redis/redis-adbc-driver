@@ -127,7 +127,7 @@ func (s *statementImpl) clearParams() {
 // Cancel, from any thread, after it cancels a query still executing; so
 // Cancel touches nothing but s.streams.
 func (s *statementImpl) Cancel(ctx context.Context) error {
-	if s.streams.closeAll(errorf(adbc.StatusCancelled, "the query was cancelled")) == 0 {
+	if s.streams.closeAll(stateErrorf(stateQueryCanceled, "the query was cancelled")) == 0 {
 		return errorf(adbc.StatusInvalidState, "no query or result to cancel")
 	}
 	return nil
@@ -266,7 +266,7 @@ func (s *statementImpl) GetParameterSchema(ctx context.Context) (*arrow.Schema, 
 	}
 	fields := make([]arrow.Field, len(types))
 	for i, t := range types {
-		fields[i] = arrow.Field{Type: t.ArrowType(), Nullable: true}
+		fields[i] = arrowField("", t, true)
 	}
 	return arrow.NewSchema(fields, nil), nil
 }
@@ -303,7 +303,7 @@ func (s *statementImpl) paramRows() ([][]Value, []ColType, error) {
 			for c := 0; c < int(rec.NumCols()); c++ {
 				v, err := valueAt(rec.Column(c), r)
 				if err != nil {
-					return nil, nil, errorf(adbc.StatusInvalidArgument, "parameter %d: %v", c+1, err)
+					return nil, nil, wrapErr(adbc.StatusInvalidArgument, err, "parameter "+strconv.Itoa(c+1))
 				}
 				row[c] = v
 			}
