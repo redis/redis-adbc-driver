@@ -1296,30 +1296,61 @@ func (s *store) addIndexedColumns(ctx context.Context, t *truncation, cur *table
 	return nil
 }
 
+// testHookDropRead, when set by a test, runs once dropTable has read the
+// table's metadata, before it drops the table's index.
+var testHookDropRead func()
+
 // testHookDropping, when set by a test, runs once dropTable has dropped the
 // table's index, before it removes the metadata.
 var testHookDropping func()
 
 // dropTable removes the index, every row, and the table metadata. The
 // metadata goes only if the table still has the keys whose index was
-// dropped: otherwise (a TRUNCATE moved it to new ones meanwhile) it starts
-// again, so that the new index and key prefix don't outlive the table.
+// dropped. Otherwise it starts again:
+//
+//   - Under the table's new name, if a plain RENAME TO renamed it meanwhile.
+//     The rename kept the keys and the index, so the renamed table has lost
+//     its index and rows: the DROP follows it rather than leave it without
+//     them. (In Postgres, one of the two would wait for the other.)
+//   - Under the same name otherwise: a TRUNCATE moved the table to new keys
+//     meanwhile, so that the new index and key prefix don't outlive the
+//     table.
 func (s *store) dropTable(ctx context.Context, schema, table string, ifExists bool) error {
-	key := metaKey(schema, table)
+	name := table // as the statement names it
+	// dropped is the table whose index this dropped last.
+	var dropped *tableMeta
 	for attempt := 0; attempt < 20; attempt++ {
 		meta, err := s.getTable(ctx, schema, table)
-		if err != nil {
-			var ae adbc.Error
-			if ifExists && asAdbc(err, &ae) && ae.Code == adbc.StatusNotFound {
+		var ae adbc.Error
+		notFound := err != nil && asAdbc(err, &ae) && ae.Code == adbc.StatusNotFound
+		if dropped != nil && (notFound || (err == nil && !meta.sameKeysAs(dropped))) {
+			to, err := s.renamedTo(ctx, dropped)
+			if err != nil {
+				return err
+			}
+			if to != "" {
+				table = to
+				continue
+			}
+		}
+		if notFound {
+			if ifExists {
 				return nil
 			}
+			return tableNotFound(schema, name)
+		}
+		if err != nil {
 			return err
 		}
+		key := metaKey(schema, table)
 		// DROP TABLE isn't refused while a re-key moves the table's rows (the
 		// re-key then fails). One that its connection abandoned is rolled
 		// back first, so that it doesn't outlive the table (see rekey.go).
 		if meta.RekeyTo != "" {
 			s.recoverStale(ctx, meta.prefix())
+		}
+		if testHookDropRead != nil {
+			testHookDropRead()
 		}
 		// DD deletes every document the index knows about; an adopted
 		// table's HASHes stay, and the application's index too (AppIndex).
@@ -1332,6 +1363,7 @@ func (s *store) dropTable(ctx context.Context, schema, table string, ifExists bo
 				return wrapRedis(err, "failed to drop search index")
 			}
 		}
+		dropped = meta
 		if testHookDropping != nil {
 			testHookDropping()
 		}
@@ -1369,7 +1401,45 @@ func (s *store) dropTable(ctx context.Context, schema, table string, ifExists bo
 		s.trackTemp(schema, table, false)
 		return nil
 	}
-	return errorf(adbc.StatusIO, "table %q.%q is being changed concurrently; try again", displaySchema(schema), table)
+	return errorf(adbc.StatusIO, "table %q.%q is being changed concurrently; try again", displaySchema(schema), name)
+}
+
+// sameKeysAs reports whether two metadata of a table, under any names, have
+// the same key prefix and generation.
+func (t *tableMeta) sameKeysAs(o *tableMeta) bool {
+	return t.prefix() == o.prefix() && t.PrefixGen == o.PrefixGen
+}
+
+// renamedTo returns the name that a plain RENAME TO gave a table since meta
+// was read: the table of meta's schema that has meta's key prefix and
+// generation, which a rename keeps. It returns "" if none does, as when the
+// prefix was released (by DROP TABLE, TRUNCATE or a re-keying rename).
+func (s *store) renamedTo(ctx context.Context, meta *tableMeta) (string, error) {
+	pipe := s.client.Pipeline()
+	kept := pipe.SIsMember(ctx, prefixesKey, meta.prefix())
+	listed := pipe.SMembers(ctx, tablesKey(meta.Schema))
+	if _, err := pipe.Exec(ctx); err != nil {
+		return "", wrapRedis(err, "failed to drop table")
+	}
+	if !kept.Val() {
+		return "", nil
+	}
+	names := listed.Val()
+	pipe = s.client.Pipeline()
+	raws := make([]*goredis.StringCmd, len(names))
+	for i, n := range names {
+		raws[i] = pipe.Get(ctx, metaKey(meta.Schema, n))
+	}
+	if _, err := pipe.Exec(ctx); err != nil && !errors.Is(err, goredis.Nil) {
+		return "", wrapRedis(err, "failed to drop table")
+	}
+	for i, n := range names {
+		var cur tableMeta
+		if json.Unmarshal([]byte(raws[i].Val()), &cur) == nil && cur.Name == n && cur.sameKeysAs(meta) {
+			return n, nil
+		}
+	}
+	return "", nil
 }
 
 func isUnknownIndex(err error) bool {
@@ -1609,7 +1679,8 @@ func sameKeys(meta *tableMeta, raw string) bool {
 }
 
 // testHookRowsWritten, when set by a test, runs after each pipeline of rows
-// that writeRows sends, with the number of rows written so far.
+// that writeRows, writeUpdates or deleteKeys sends, with the number of rows
+// written (set or deleted) so far.
 var testHookRowsWritten func(meta *tableMeta, written int)
 
 // writeRows writes rows allocated by allocRows as HASHes. A write of more
