@@ -53,8 +53,6 @@ package redis
 import (
 	"fmt"
 	"strings"
-
-	"github.com/apache/arrow-adbc/go/adbc"
 )
 
 // maxStringLength is the longest declared length, Postgres's.
@@ -71,7 +69,7 @@ func stringTypeFromSQL(spec sqlTypeSpec, fixed bool) (ColType, error) {
 		return t, nil
 	}
 	if len(spec.Params) > 1 {
-		return ColType{}, fmt.Errorf("invalid type modifier for type %s", strings.ToLower(spec.Name))
+		return ColType{}, stateErr(stateInvalidParameter, "invalid type modifier for type %s", strings.ToLower(spec.Name))
 	}
 	name := "varchar"
 	if fixed {
@@ -80,9 +78,9 @@ func stringTypeFromSQL(spec sqlTypeSpec, fixed bool) (ColType, error) {
 	n := spec.Params[0]
 	switch {
 	case n < 1:
-		return ColType{}, fmt.Errorf("length for type %s must be at least 1", name)
+		return ColType{}, stateErr(stateInvalidParameter, "length for type %s must be at least 1", name)
 	case n > maxStringLength:
-		return ColType{}, fmt.Errorf("length for type %s cannot exceed %d", name, maxStringLength)
+		return ColType{}, stateErr(stateInvalidParameter, "length for type %s cannot exceed %d", name, maxStringLength)
 	}
 	t.Length = int32(n)
 	return t, nil
@@ -173,7 +171,7 @@ func fitLength(t ColType, v Value) (Value, error) {
 		return v, nil
 	}
 	if strings.TrimLeft(v.S[len(head):], " ") != "" {
-		return Value{}, errorf(adbc.StatusInvalidData, "value too long for type %s", t.pgName())
+		return Value{}, stateErrorf(stateStringTooLong, "value too long for type %s", t.pgName())
 	}
 	v.S = head
 	return v, nil

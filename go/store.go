@@ -781,7 +781,7 @@ func errorf(code adbc.Status, format string, args ...any) error {
 }
 
 func tableNotFound(schema, table string) error {
-	return errorf(adbc.StatusNotFound, "table %q.%q does not exist", displaySchema(schema), table)
+	return stateErrorf(stateUndefinedTable, "table %q.%q does not exist", displaySchema(schema), table)
 }
 
 func wrapRedis(err error, context string) error {
@@ -792,11 +792,9 @@ func wrapRedis(err error, context string) error {
 	if errors.As(err, &ae) {
 		return err
 	}
-	// The statement was cancelled (see cancel.go).
-	if code, ok := ctxStatus(err); ok {
-		return errorf(code, "%s: %v", context, err)
-	}
-	return errorf(adbc.StatusIO, "%s: %v", context, err)
+	// The statement was cancelled (see cancel.go), or a value didn't
+	// convert (see sqlstate.go).
+	return wrapErr(adbc.StatusIO, err, context)
 }
 
 // ---- store ----
@@ -990,7 +988,7 @@ func (s *store) createTable(ctx context.Context, meta *tableMeta, ifNotExists bo
 			return false, errorf(adbc.StatusInvalidArgument, "column name %q is reserved", c.Name)
 		}
 		if seen[strings.ToLower(c.Name)] {
-			return false, errorf(adbc.StatusAlreadyExists, "duplicate column name %q", c.Name)
+			return false, stateErrorf(stateDuplicateColumn, "duplicate column name %q", c.Name)
 		}
 		seen[strings.ToLower(c.Name)] = true
 	}
@@ -1003,14 +1001,14 @@ func (s *store) createTable(ctx context.Context, meta *tableMeta, ifNotExists bo
 		if ifNotExists {
 			return false, nil
 		}
-		return false, errorf(adbc.StatusAlreadyExists, "%q.%q already exists as a view", displaySchema(meta.Schema), meta.Name)
+		return false, stateErrorf(stateDuplicateTable, "%q.%q already exists as a view", displaySchema(meta.Schema), meta.Name)
 	}
 	key := metaKey(meta.Schema, meta.Name)
 	exists := func() (bool, error) {
 		if ifNotExists {
 			return false, nil
 		}
-		return false, errorf(adbc.StatusAlreadyExists, "table %q.%q already exists", displaySchema(meta.Schema), meta.Name)
+		return false, stateErrorf(stateDuplicateTable, "table %q.%q already exists", displaySchema(meta.Schema), meta.Name)
 	}
 	if n, err := s.client.Exists(ctx, key).Result(); err != nil {
 		return false, wrapRedis(err, "failed to create table")
@@ -1486,7 +1484,7 @@ func (s *store) createSchema(ctx context.Context, schema string, ifNotExists boo
 		if ifNotExists {
 			return nil
 		}
-		return errorf(adbc.StatusAlreadyExists, "schema %q already exists", schema)
+		return stateErrorf(stateDuplicateSchema, "schema %q already exists", schema)
 	}
 	if reservedSchema(schema) {
 		return errorf(adbc.StatusInvalidArgument, "schema name %q is reserved for temporary tables and views", schema)
@@ -1496,7 +1494,7 @@ func (s *store) createSchema(ctx context.Context, schema string, ifNotExists boo
 		return wrapRedis(err, "failed to create schema")
 	}
 	if (n == 0 || schema == defaultSchema) && !ifNotExists {
-		return errorf(adbc.StatusAlreadyExists, "schema %q already exists", schema)
+		return stateErrorf(stateDuplicateSchema, "schema %q already exists", schema)
 	}
 	return nil
 }
@@ -1513,7 +1511,7 @@ func (s *store) dropSchema(ctx context.Context, schema string, ifExists, cascade
 		if ifExists {
 			return nil
 		}
-		return errorf(adbc.StatusNotFound, "schema %q does not exist", schema)
+		return stateErrorf(stateUndefinedSchema, "schema %q does not exist", schema)
 	}
 	tables, err := s.listTables(ctx, schema)
 	if err != nil {

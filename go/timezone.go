@@ -57,7 +57,6 @@ package redis
 // take the zone.
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -305,7 +304,7 @@ func resolveZone(name string) (tzZone, error) {
 		zoneCache.Unlock()
 	}
 	if !c.ok {
-		return tzZone{}, fmt.Errorf("time zone \"%s\" not recognized", name)
+		return tzZone{}, stateErr(stateInvalidParameter, "time zone \"%s\" not recognized", name)
 	}
 	return c.z, nil
 }
@@ -734,7 +733,7 @@ func (r *posixRule) next(utc int64) (at int64, dst, ok bool) {
 // Postgres).
 func intervalZone(v Value) (tzZone, error) {
 	if v.Months != 0 || v.Days != 0 {
-		return tzZone{}, fmt.Errorf("interval time zone \"%s\" must not include months or days", formatInterval(v))
+		return tzZone{}, stateErr(stateInvalidParameter, "interval time zone \"%s\" must not include months or days", formatInterval(v))
 	}
 	return tzZone{off: int(v.I / int64(time.Second))}, nil
 }
@@ -1030,7 +1029,7 @@ func offsetSessionZone(off int) (tzZone, string, error) {
 
 // errTimestampRange is the error for a timestamp that a time zone moves
 // out of the range of its unit.
-var errTimestampRange = errors.New("timestamp out of range")
+var errTimestampRange = stateErr(stateDatetimeRange, "timestamp out of range")
 
 // localUnits converts v, units since the epoch of an instant (a timestamp
 // with time zone), to the local time in z, in the same units.

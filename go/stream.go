@@ -363,7 +363,7 @@ func (r *streamReader) fail(err error) {
 		if cause := context.Cause(r.ctx); errors.As(cause, &ae) {
 			err = cause // closeWith's
 		} else {
-			err = errorf(adbc.StatusCancelled, "reading the result was cancelled: %v", cause)
+			err = stateErrorf(stateQueryCanceled, "reading the result was cancelled: %v", cause)
 		}
 	}
 	r.err = err
