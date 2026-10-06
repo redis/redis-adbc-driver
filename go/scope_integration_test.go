@@ -290,6 +290,45 @@ func invalidEntry(name, entry string) string {
 		`", but it cannot be referenced from this part of the query`
 }
 
+// Postgres's error for a derived table that reads an earlier FROM item
+// without LATERAL (#114): invalidEntry with its hint.
+func lateralRef(name, entry string) string {
+	return invalidEntry(name, entry) + "; to reference that table, you must mark this subquery with LATERAL"
+}
+
+// A derived table that reads an earlier FROM item needs LATERAL; Postgres's
+// errors say so (#114). The messages are pg16's for the same statements.
+func TestSQLLateralScopeErrors(t *testing.T) {
+	h := newSQLHarness(t)
+	h.setupScope()
+
+	h.expectErrorText(`SELECT * FROM it_sc.t, (SELECT t.v) s`, lateralRef("t", "t"))
+	h.expectErrorText(`SELECT * FROM it_sc.t JOIN (SELECT t.v) s ON true`, lateralRef("t", "t"))
+	h.expectErrorText(`SELECT * FROM it_sc.t, (SELECT it_sc.t.v) s`, lateralRef("t", "t"))
+	h.expectErrorText(`SELECT * FROM it_sc.t, (SELECT * FROM it_sc.e WHERE e.id = t.id) s`, lateralRef("t", "t"))
+	h.expectErrorText(`SELECT * FROM it_sc.t, (SELECT * FROM it_sc.e, (SELECT t.v) s1) s`, lateralRef("t", "t"))
+	// An unqualified column, of one earlier item or of several.
+	h.expectErrorText(`SELECT * FROM it_sc.e, (SELECT k FROM it_sc.t) s`,
+		`column "k" does not exist in table "t"; there is a column named "k" in table "e", but it cannot be referenced `+
+			`from this part of the query; to reference that column, you must mark this subquery with LATERAL`)
+	h.expectErrorText(`SELECT * FROM it_sc.t, it_sc.e, (SELECT v) s`,
+		`column "v" does not exist; there are columns named "v", but they are in tables that cannot be referenced `+
+			`from this part of the query; try using a table-qualified name`)
+	// LATERAL can't be the right side of a RIGHT join: no hint.
+	h.expectErrorText(`SELECT * FROM it_sc.t RIGHT JOIN (SELECT t.v) s ON true`, invalidEntry("t", "t"))
+	// UPDATE … FROM and DELETE … USING.
+	h.expectScopeError(`UPDATE it_sc.t SET v = 0 FROM it_sc.e, (SELECT e.k) s`, lateralRef("e", "e"), true)
+	h.expectScopeError(`DELETE FROM it_sc.t USING it_sc.e, (SELECT e.k) s`, lateralRef("e", "e"), true)
+	h.expectRows(`SELECT id, v FROM it_sc.t ORDER BY id`, "1|10", "2|20")
+
+	// With LATERAL, it works.
+	h.expectRows(`SELECT t.id, s.v FROM it_sc.t, LATERAL (SELECT t.v) s ORDER BY 1`, "1|10", "2|20")
+	// Unchanged: Postgres runs this, but a derived table can't read an
+	// enclosing query here (see the README), and LATERAL wouldn't help.
+	h.expectErrorText(`SELECT * FROM it_sc.t WHERE EXISTS (SELECT * FROM it_sc.e, (SELECT t.v) s)`,
+		`missing FROM-clause entry for table "t"`)
+}
+
 // The issue's queries (#111).
 func TestSQLSchemaScopeIssue(t *testing.T) {
 	h := newSQLHarness(t)
