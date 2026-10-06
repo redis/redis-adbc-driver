@@ -91,13 +91,27 @@ func TestLateralReferenceErrors(t *testing.T) {
 		{"WITH c AS (SELECT t.a) SELECT * FROM (SELECT 1 AS a) t, c", missing("t")},
 		{", c AS (SELECT t.a) SELECT * FROM t, (SELECT * FROM c) s", missing("t")},
 		{", c AS (SELECT b) SELECT * FROM t, (SELECT * FROM c) s", `error: column "b" does not exist`},
-		// Postgres runs these, where a derived table reads an enclosing
-		// query, but the driver can't (see the README); its error doesn't
-		// suggest LATERAL.
-		{"SELECT * FROM t WHERE EXISTS (SELECT * FROM u, (SELECT t.a) s)", missing("t")},
-		{"SELECT * FROM t, LATERAL (SELECT * FROM u, (SELECT t.a) s1) s", missing("t")},
-		{"SELECT * FROM t WHERE EXISTS (SELECT * FROM t, (SELECT t.a) s)", missing("t")},
-		{"SELECT * FROM t WHERE EXISTS (SELECT * FROM u, (SELECT b) s)", `error: column "b" does not exist`},
+		// A derived table reads an enclosing query (see
+		// TestOuterReferencesFromFrom), even where an earlier item of its
+		// own level has the name, as in Postgres.
+		{"SELECT * FROM t WHERE EXISTS (SELECT * FROM u, (SELECT t.a) s)", "1|2"},
+		{"SELECT * FROM t, LATERAL (SELECT u.c, s1.x FROM u, (SELECT t.a AS x) s1) s", "1|2|3|1"},
+		{"SELECT * FROM t WHERE EXISTS (SELECT * FROM t, (SELECT t.a) s)", "1|2"},
+		{"SELECT * FROM t WHERE EXISTS (SELECT * FROM u, (SELECT b) s)", "1|2"},
+		{"SELECT * FROM t WHERE EXISTS (SELECT * FROM u, (SELECT a) s)", "1|2"},
+		// The level's own items still can't be read. As in Postgres, errors
+		// look for the name innermost level first: they find the inner t in
+		// the first query, the outer one (read as x) in the second.
+		{"SELECT * FROM t x WHERE EXISTS (SELECT * FROM t, (SELECT t.a) s)", hinted("t", "t")},
+		{"SELECT * FROM t x WHERE EXISTS (SELECT * FROM u, (SELECT t.a) s)",
+			`error: invalid reference to FROM-clause entry for table "t"; perhaps you meant to reference the table alias "x"`},
+		{"SELECT * FROM t WHERE EXISTS (SELECT * FROM u, (SELECT u.a) s)", hinted("u", "u")},
+		{"SELECT * FROM t WHERE EXISTS (SELECT * FROM u, (SELECT c) s)", `error: column "c" does not exist; ` + column("c", "u")},
+		{"SELECT * FROM t WHERE EXISTS (SELECT * FROM u RIGHT JOIN (SELECT u.a) s ON true)", entry("u", "u")},
+		// A CTE's body sees neither its query's FROM items nor anything
+		// nested in that query.
+		{"SELECT * FROM t WHERE EXISTS (WITH c AS (SELECT u.a) SELECT * FROM u, c)", missing("u")},
+		{"SELECT (WITH c AS (SELECT x.a) SELECT (SELECT 1 FROM t x, c))", missing("x")},
 
 		// What works: LATERAL, and FROM functions, which are LATERAL
 		// anyway.

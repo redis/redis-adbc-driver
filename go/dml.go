@@ -81,7 +81,10 @@ func (e *executor) planDMLJoin(ctx context.Context, table TableName, alias strin
 	if alias == "" {
 		rel.name = table.Name
 	}
-	jp := &joinPlan{}
+	// As in Postgres, the FROM items can't read the target. UPDATE and
+	// DELETE (which join it CROSS, MERGE LEFT or FULL) have it in their
+	// namespace: a LATERAL item that reads it is wrong.
+	jp := &joinPlan{unseen: []unseenRel{{relation: rel, noHint: true, forbidden: kind == "CROSS"}}}
 	for _, jc := range from {
 		if err := e.addFromItem(ctx, jp, jc); err != nil {
 			return nil, err

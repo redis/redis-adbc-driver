@@ -323,10 +323,10 @@ func TestSQLLateralScopeErrors(t *testing.T) {
 
 	// With LATERAL, it works.
 	h.expectRows(`SELECT t.id, s.v FROM it_sc.t, LATERAL (SELECT t.v) s ORDER BY 1`, "1|10", "2|20")
-	// Unchanged: Postgres runs this, but a derived table can't read an
-	// enclosing query here (see the README), and LATERAL wouldn't help.
-	h.expectErrorText(`SELECT * FROM it_sc.t WHERE EXISTS (SELECT * FROM it_sc.e, (SELECT t.v) s)`,
-		`missing FROM-clause entry for table "t"`)
+	// An enclosing query's items it can read, as in Postgres (see
+	// TestSQLOuterReferencesFromFrom).
+	h.expectRows(`SELECT * FROM it_sc.t WHERE EXISTS (SELECT * FROM it_sc.e, (SELECT t.v) s WHERE s.v = e.v) ORDER BY id`,
+		"1|10", "2|20")
 }
 
 // The issue's queries (#111).

@@ -667,6 +667,13 @@ func loadsExactly(c columnMeta) bool {
 // scanMem filters an in-memory relation.
 func (e *executor) scanMem(ctx context.Context, req scanRequest, params []Value) ([]string, []map[string]Value, error) {
 	source := req.meta.mem
+	if req.meta.lazy != nil {
+		rows, err := e.lazyRows(ctx, req.meta, params)
+		if err != nil {
+			return nil, nil, err
+		}
+		source = rows
+	}
 	if req.meta.view != nil {
 		need := maps.Clone(req.need)
 		if need == nil {
@@ -724,6 +731,20 @@ func (e *executor) runSelect(ctx context.Context, plan *selectPlan, params []Val
 	// recursive step too.
 	if err := cancelled(ctx); err != nil {
 		return nil, err
+	}
+	if plan.recursive != nil {
+		meta, err := e.runRecursive(ctx, plan.recursive)
+		if err != nil {
+			return nil, err
+		}
+		rows := make([][]Value, len(meta.mem))
+		for r, m := range meta.mem {
+			rows[r] = make([]Value, len(meta.Columns))
+			for i, c := range meta.Columns {
+				rows[r][i] = m[c.Name]
+			}
+		}
+		return rows, nil
 	}
 	if plan.noRows && !plan.withoutFrom() {
 		// LIMIT 0, or a HAVING or QUALIFY that is never true (see empty.go).

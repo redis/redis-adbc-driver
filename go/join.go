@@ -85,6 +85,9 @@ type joinPlan struct {
 	merged []mergedColumn
 	// err is an error found by finish, reported by bindJoin.
 	err error
+	// unseen is the target table of UPDATE, DELETE or MERGE, which its
+	// FROM items can't read (see unseenRel).
+	unseen []unseenRel
 }
 
 // planJoin resolves the FROM items of a query with joins. It returns the
@@ -117,8 +120,7 @@ func (e *executor) planJoin(ctx context.Context, sel *SelectStmt) (*tableMeta, [
 // addJoinItem resolves a FROM item (table, view, CTE or derived table) and
 // adds it to the join.
 func (e *executor) addJoinItem(ctx context.Context, jp *joinPlan, kind string, table *TableName, sub *SelectStmt, alias string) error {
-	lat := hiddenLevel{before: jp.rels(), noHint: kind == "RIGHT" || kind == "FULL"}
-	rel, err := e.resolveFromItem(ctx, table, sub, alias, lat)
+	rel, err := e.resolveFromItem(ctx, table, sub, alias, jp.unseenBy(kind))
 	if err != nil {
 		return err
 	}
@@ -167,6 +169,22 @@ func (jp *joinPlan) add(kind string, rel relation) (*joinItem, error) {
 // rel is the item's relation in the query's scope.
 func (it *joinItem) rel() relation {
 	return relation{name: it.alias, aliased: it.aliased, schema: it.schema, meta: it.base, prefix: it.prefix}
+}
+
+// unseenBy returns what a derived table joined as kind can't read of its
+// level (see unseenRel): the target of the DML statement, and the items
+// before it, which LATERAL would make readable unless kind is RIGHT or
+// FULL.
+func (jp *joinPlan) unseenBy(kind string) []unseenRel {
+	var out []unseenRel
+	for _, u := range jp.unseen {
+		u.forbidden = false // only a LATERAL item finds it
+		out = append(out, u)
+	}
+	for _, it := range jp.items {
+		out = append(out, unseenRel{relation: it.rel(), noHint: kind == "RIGHT" || kind == "FULL"})
+	}
+	return out
 }
 
 // rels are the relations of the items added so far.
@@ -593,7 +611,8 @@ func (e *executor) runJoin(ctx context.Context, jp *joinPlan, need map[string]bo
 	empty := make([]bool, len(jp.items))
 	for i, it := range jp.items {
 		kinds[i], never[i] = it.kind, i > 0 && e.neverTrue(ctx, it.on)
-		empty[i] = it.lateral == nil && it.base.isMem && it.base.view == nil && it.base.join == nil && len(it.base.mem) == 0
+		empty[i] = it.lateral == nil && it.base.isMem && it.base.view == nil && it.base.join == nil && it.base.lazy == nil &&
+			len(it.base.mem) == 0
 	}
 	read, none := joinReads(kinds, never, empty)
 	if none {
