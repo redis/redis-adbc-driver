@@ -78,15 +78,22 @@ func (e *executor) noteParams(expr Expr) {
 		}
 		return t
 	}
-	// commonOf is the common type of xs other than xs[skip].
+	// commonOf is the common type of xs other than xs[skip], whose quoted
+	// literals take the others' type (commonExprType).
 	commonOf := func(xs []Expr, skip int) ColType {
-		out := typeNull
+		var others []Expr
+		var ts []ColType
 		for i, x := range xs {
 			if i != skip {
-				out = commonType(out, typeOf(x))
+				others = append(others, x)
+				ts = append(ts, typeOf(x))
 			}
 		}
-		return out
+		t, err := commonExprType("", others, ts, false)
+		if err != nil {
+			return typeNull
+		}
+		return t
 	}
 	walkExprPruned(expr, func(x Expr) bool {
 		switch v := x.(type) {

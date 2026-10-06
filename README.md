@@ -212,7 +212,7 @@ the Python exception:
 | `NOT NULL` and `CHECK` | `23502`, `23514` | `Integrity` | `IntegrityError` |
 | A table, view, column, function or schema that doesn't exist | `42P01`, `42703`, `42883`, `3F000` | `NotFound` | `ProgrammingError` |
 | A table, view, column, constraint or schema that already exists; a column named twice (in `INSERT` or a `PRIMARY KEY`) | `42P07`, `42701`, `42710`, `42P06` | `AlreadyExists` | `ProgrammingError` |
-| A syntax error; a table definition Postgres refuses (two primary keys, `DROP NOT NULL` of a key column, a column of type record); a type that never converts (`DATE` to `BOOLEAN`); a record where another type is needed (`argument of WHERE must be type boolean, not type record`) | `42601`; `42P16`; `42846` in a cast, `42804` written to a column; `42804` | `InvalidArgument` | `ProgrammingError` |
+| A syntax error; a table definition Postgres refuses (two primary keys, `DROP NOT NULL` of a key column, a column of type record); a type that never converts (`DATE` to `BOOLEAN`); a record where another type is needed (`argument of WHERE must be type boolean, not type record`); values without a common type (`CASE`, `COALESCE`, `UNION`, …; see "Quoted string literals") | `42601`; `42P16`; `42846` in a cast, `42804` written to a column; `42804`; `42804` | `InvalidArgument` | `ProgrammingError` |
 | What Postgres doesn't support either (`DATE_BIN` by months, `EXTRACT(day FROM time)`) | `0A000` | `NotImplemented` | `NotSupportedError` |
 | A cancel, or a Go deadline | `57014` | `Cancelled`, `Timeout` | `OperationalError` |
 
@@ -2278,11 +2278,10 @@ field, even if later rows have it.
     either. So do `SELECT DISTINCT` (which runs as `GROUP BY`), grouping
     sets and `DISTINCT` in aggregates, as window partitions, `DISTINCT ON`,
     set operations and joins already did
-  - A `CASE` or `COALESCE` of a number and a string literal gives values of
-    both kinds (`COALESCE(n, '0')` of an integer `n` is an integer, or the
-    string `'0'`; in Postgres `'0'` is an integer there). They group as the
-    expression's type shows them, so the `0` and the `'0'` are one group,
-    also for `DISTINCT` and window partitions
+  - A `CASE` or `COALESCE` of a number and a string literal gives numbers,
+    as in Postgres (`COALESCE(n, '0')` of an integer `n` is an integer, and
+    its `'0'` the integer 0; see "Quoted string literals"), so a `0` of `n`
+    and the `'0'` are one group, also for `DISTINCT` and window partitions
   - **Upgrading from v0.0.12 and earlier:** `GROUP BY`, `SELECT DISTINCT`
     over plain expressions and `DISTINCT` in aggregates told such values
     apart by their text, so `1 mon` and `30 days` were two groups, and
@@ -2328,8 +2327,9 @@ field, even if later rows have it.
     `GROUP BY` has the table's primary key.
 - `UNION [ALL]`, `INTERSECT [ALL]`, `EXCEPT [ALL]` (`INTERSECT` binds
   tighter; parenthesized branches may have their own `ORDER BY`/`LIMIT`).
-  Columns are matched by position and widened to a common type; NULLs count
-  as equal when removing duplicates. `ORDER BY` on the combined result uses
+  Columns are matched by position and widened to a common type (a column of
+  quoted literals takes the other branch's type, see "Quoted string
+  literals" below); NULLs count as equal when removing duplicates. `ORDER BY` on the combined result uses
   output column names or positions. Set operations work anywhere a query
   does (subqueries, CTEs, views, CTAS, `INSERT … SELECT`)
 - `WITH RECURSIVE name [(cols)] AS (non-recursive term UNION [ALL]
@@ -2829,9 +2829,50 @@ field, even if later rows have it.
   arguments are ignored), and `IIF(cond, a, b)` (like `CASE`, only the chosen
   branch is evaluated). `COALESCE`, `GREATEST` and `LEAST` widen their
   arguments to a common type (`COALESCE(int_col, 2.5)` is `NUMERIC`); a
-  string literal, or a number that type holds exactly, takes the other
-  arguments' type (`COALESCE(int_col, 0)` stays `INTEGER`,
+  string literal (see below), or a number that type holds exactly, takes the
+  other arguments' type (`COALESCE(int_col, 0)` stays `INTEGER`,
   `GREATEST(d, '2024-01-01')` is a `DATE`)
+- Quoted string literals (`'1'`, `$$1$$`) have no type of their own, as in
+  Postgres (its `unknown`): where an expression's value is one of several
+  values, a literal among them takes the type of the others, and is text if
+  all are. So `CASE WHEN id = 1 THEN '1' ELSE 1 END` is a `BIGINT`, whose
+  `'1'` is the integer 1: arithmetic, sorting, grouping, `DISTINCT`, window
+  partitions and index queries see integers. These are the results of
+  `CASE` and `IIF`, the arguments of `COALESCE`, `GREATEST` and `LEAST`,
+  `LAG`'s and `LEAD`'s default, `NULLIF`'s arguments (`NULLIF('1', int_col)`
+  is an `INTEGER`), and a column of the branches of `UNION`, `INTERSECT`
+  and `EXCEPT` (`SELECT '1' UNION SELECT 1` is a `BIGINT`), also in `CREATE
+  TABLE … AS` and views. A cast gives a literal a type (`CAST('1' AS
+  VARCHAR)`, `'1'::text`).
+  - **Errors,** as in Postgres, when the statement is planned, also if no
+    row reads the value: a literal that isn't a value of the type (`CASE
+    WHEN … THEN 'x' ELSE 1 END` is `invalid decimal "x"`; Postgres:
+    `invalid input syntax for type integer: "x"`; both `22P02`), and typed
+    values without a common type, such as a `VARCHAR` column and an
+    integer (`CASE WHEN … THEN v ELSE 1 END` is `CASE types bigint and
+    varchar cannot be matched`, `42804`, and so for `COALESCE`, `GREATEST`,
+    `LEAST` and `IIF`). A `CASE` of literals alone is text, so
+    `COALESCE(CASE WHEN … THEN '1' END, 1)` is such an error too.
+  - **Differences:** the literal is read as `CAST` reads text, so `'1.5'`
+    as an integer is 2 where Postgres fails. A `CASE` whose results are all
+    `NULL` has no type, as `NULL` has, so `COALESCE(CASE WHEN … THEN NULL
+    END, '2', 1)` is 2 (Postgres's `CASE` is text: `COALESCE types text and
+    integer cannot be matched`). Arithmetic doesn't type a literal (`'1' +
+    1` is an error; Postgres: 2). Comparisons read text as the other side's
+    type, and `INSERT`, `UPDATE` and casts convert it to theirs, as before.
+  - **Upgrading from v0.0.12 and earlier:** results change type. Such a
+    `CASE`, `IIF`, `NULLIF` or `LAG` was a `VARCHAR`, whose other values
+    weren't converted (`CASE WHEN id = 1 THEN '1' ELSE 1 END` gave the text
+    `'1'` and the integer 1), so its column, and the column `CREATE TABLE …
+    AS` made of it, is now a `BIGINT` (or the other values' type), `+ 1` of
+    it works, and `COUNT(DISTINCT …)`, `DISTINCT` and window partitions see
+    one value where they saw two. `COALESCE`, `GREATEST` and `LEAST` had
+    the type already, but gave a literal's text where the other arguments
+    were NULLs without a type (`COALESCE(CASE WHEN … THEN n END, '0')` gave
+    `'0'`, so `+ 1` of it failed), and `GREATEST('1', '2', 3)` and `SELECT
+    '1' UNION SELECT 1` were `types VARCHAR and BIGINT cannot be matched`.
+    Typed values without a common type gave a `VARCHAR` column of values of
+    both types, and are now an error: cast them (`CAST(n AS VARCHAR)`)
 - Functions return NULL for a NULL argument, except `COALESCE`, `NULLIF`,
   `GREATEST`, `LEAST` and `IIF`. Functions of constants are computed once,
   so `WHERE n > ROUND(?)` is still an index query; functions over columns are
@@ -3120,10 +3161,10 @@ field, even if later rows have it.
     local-time literal is text without an offset that is cast to a
     timestamp with time zone or a time with time zone (`TIMESTAMPTZ '…'`,
     `'…'::timestamptz`, `TIMETZ '…'`, `'…'::timetz`) or read as one:
-    compared with one (also in `IN`, `BETWEEN` and a `CASE` operand), an
-    argument of `COALESCE`, `GREATEST`, `LEAST` or `NULLIF` with one, the
-    operand of `AT TIME ZONE` and `AT LOCAL`, and the `DEFAULT` of such a
-    column. A time with time zone is stored with the offset the zone has
+    compared with one (also in `IN`, `BETWEEN` and a `CASE` operand), a
+    result of a `CASE` or `IIF` or an argument of `COALESCE`, `GREATEST`,
+    `LEAST` or `NULLIF` with one, the operand of `AT TIME ZONE` and `AT
+    LOCAL`, and the `DEFAULT` of such a column. A time with time zone is stored with the offset the zone has
     that day (`'10:00'` in New York in July is `'10:00:00-04'`), as
     Postgres stores `'10:00:00-04'::time with time zone`. The conversions
     the definition makes when it runs read the zone of the session that
@@ -3537,8 +3578,8 @@ field, even if later rows have it.
       precision, which is 6, when they differ). So `CREATE TABLE … AS` and
       views keep the precision of a column or cast they select. Arithmetic
       (`ts + INTERVAL '1 second'`), functions, aggregates and a text
-      literal in `COALESCE` have none, as in Postgres, and have the unit's
-      digits (a `TIMESTAMP(3)` for a `TIMESTAMP(2)`)
+      literal in `CASE` or `COALESCE` have none, as in Postgres, and have
+      the unit's digits (a `TIMESTAMP(3)` for a `TIMESTAMP(2)`)
     - `TIMESTAMP(p) '…'`, `TIMESTAMP(p) WITH TIME ZONE '…'`,
       `TIMESTAMPTZ(p) '…'` and `TIME(p) '…'` are the text cast to the type
     - Text with more than 6 digits read into a type of 6 or fewer is read

@@ -503,6 +503,10 @@ func windowType(w *WindowFunc, cols map[string]ColType, params []ColType) (ColTy
 		if err != nil {
 			return ColType{}, err
 		}
+		if unknownLiteral(f.Args[2]) && t.Kind != KindNull {
+			// A quoted default is a value of the argument's type.
+			return literalType(f.Args[2], t), nil
+		}
 		return commonType(t, d).withoutTypmod(), nil
 	case "FIRST_VALUE", "LAST_VALUE", "NTH_VALUE":
 		t, err := arg(0)
@@ -602,7 +606,7 @@ func exprEqual(a, b Expr) bool {
 	switch x := a.(type) {
 	case *Literal:
 		y, ok := b.(*Literal)
-		return ok && x.V.T == y.V.T && x.V.Null == y.V.Null && x.V.Text() == y.V.Text()
+		return ok && x.V.T == y.V.T && x.V.Null == y.V.Null && x.V.Text() == y.V.Text() && x.Unknown == y.Unknown
 	case *ColumnRef:
 		y, ok := b.(*ColumnRef)
 		return ok && x.Name == y.Name && x.Outer == y.Outer
@@ -737,7 +741,6 @@ func computeWindowGroup(env *evalEnv, g *windowGroup, n int, setRow func(int)) e
 			keep[j] = make([]bool, n)
 		}
 	}
-	ptypes := keyTypes(g.spec.PartitionBy, env.types)
 	for i := 0; i < n; i++ {
 		if err := cancelled(env.ctx); err != nil {
 			return err
@@ -748,7 +751,7 @@ func computeWindowGroup(env *evalEnv, g *windowGroup, n int, setRow func(int)) e
 			if err != nil {
 				return err
 			}
-			pkeys[i*np+k] = keyAs(v, ptypes[k], ws.zone)
+			pkeys[i*np+k] = v
 		}
 		for k, o := range g.spec.OrderBy {
 			v, err := env.eval(o.Expr)

@@ -92,6 +92,11 @@ func TestFoldLocalTimes(t *testing.T) {
 		{`CASE tz WHEN '2024-01-01' THEN 1 END = 1`, `CASE tz WHEN '2024-01-01 00:00:00-05' THEN 1 END = 1`},
 		{`COALESCE(tz, '2024-01-01') = GREATEST(tz, '2024-01-01') AND NULLIF(tz, '2024-01-01') IS NULL`,
 			`COALESCE(tz, '2024-01-01 00:00:00-05') = GREATEST(tz, '2024-01-01 00:00:00-05') AND NULLIF(tz, '2024-01-01 00:00:00-05') IS NULL`},
+		// A CASE's or IIF's results are read as its type (see unknown.go).
+		{`CASE WHEN s = 'a' THEN tz ELSE '2024-01-01' END = IIF(s = 'b', '2024-01-02', tz)`,
+			`CASE WHEN s = 'a' THEN tz ELSE '2024-01-01 00:00:00-05' END = IIF(s = 'b', '2024-01-02 00:00:00-05', tz)`},
+		{`CASE WHEN s = 'a' THEN ts ELSE '2024-01-01' END = ts AND CASE WHEN s = 'a' THEN '2024-01-01' END = s`,
+			`CASE WHEN s = 'a' THEN ts ELSE '2024-01-01' END = ts AND CASE WHEN s = 'a' THEN '2024-01-01' END = s`},
 		{`'2024-01-01' AT TIME ZONE 'UTC' = ts AND '2024-01-01' AT LOCAL = ts`,
 			`'2024-01-01 00:00:00-05' AT TIME ZONE 'UTC' = ts AND '2024-01-01 00:00:00-05' AT LOCAL = ts`},
 		{`tz AT TIME ZONE 'America/Chicago' = '2024-01-01'`, `tz AT TIME ZONE 'America/Chicago' = '2024-01-01'`},
