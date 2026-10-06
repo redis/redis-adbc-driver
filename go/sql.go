@@ -368,6 +368,10 @@ type JoinClause struct {
 	Lateral bool
 	Columns []string
 	Natural bool
+	// Comma marks an item after a comma (Kind CROSS). As in Postgres, it
+	// starts a new FROM-list item: the joins after it have it as their left
+	// side, not the items before it, as they would after CROSS JOIN.
+	Comma bool
 }
 
 type SelectStmt struct {
@@ -1689,7 +1693,7 @@ func (p *parser) parseFromEntry() (JoinClause, error) {
 }
 
 // parseFromList parses the items of a FROM clause: the first item (with an
-// empty Kind), then any number of `, item`, `CROSS JOIN item`,
+// empty Kind), then any number of `, item` (Comma), `CROSS JOIN item`,
 // `[INNER | LEFT | RIGHT | FULL] [OUTER] JOIN item ON … | USING (…)` and
 // `NATURAL [INNER | LEFT | RIGHT | FULL] [OUTER] JOIN item`.
 func (p *parser) parseFromList() ([]JoinClause, error) {
@@ -1700,10 +1704,10 @@ func (p *parser) parseFromList() ([]JoinClause, error) {
 	items := []JoinClause{first}
 	for {
 		kind := ""
-		natural := false
+		natural, comma := false, false
 		switch {
 		case p.acceptOp(","):
-			kind = "CROSS"
+			kind, comma = "CROSS", true
 		case p.acceptKeyword("CROSS", "JOIN"):
 			kind = "CROSS"
 		case p.acceptKeyword("INNER", "JOIN"), p.acceptKeyword("JOIN"):
@@ -1736,7 +1740,7 @@ func (p *parser) parseFromList() ([]JoinClause, error) {
 		if err != nil {
 			return nil, err
 		}
-		jc.Kind, jc.Natural = kind, natural
+		jc.Kind, jc.Natural, jc.Comma = kind, natural, comma
 		if natural {
 			if p.isKeyword("ON") || p.isKeyword("USING") {
 				return nil, syntaxErr("NATURAL JOIN cannot have an ON or USING clause")

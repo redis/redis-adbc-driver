@@ -50,7 +50,7 @@ func TestNeverTrue(t *testing.T) {
 
 // TestJoinReads checks which items of a join in written order are read.
 // Each case lists the items as kind[:n][:e] (n: ON is never true, e: no
-// rows), and the items read, or "none".
+// rows), where "," is an item after a comma, and the items read, or "none".
 func TestJoinReads(t *testing.T) {
 	for _, c := range []struct{ join, want string }{
 		{"- INNER", "0 1"},
@@ -76,6 +76,18 @@ func TestJoinReads(t *testing.T) {
 		{"- LEFT LEFT:n INNER", "0 1 3"},
 		{"- RIGHT:n LEFT:n", "1"},
 		{"- FULL:e RIGHT", "0 2"},
+		// A comma starts a FROM-list item of its own: a RIGHT or FULL join
+		// after it doesn't replace the rows before it, and the join has no
+		// rows if one FROM-list item has none.
+		{"- , RIGHT:n", "0 2"},
+		{"-:e , RIGHT", "none"},
+		{"-:e CROSS RIGHT", "2"},
+		{"- ,:e RIGHT", "0 2"},
+		{"- , FULL:e", "0 1"},
+		{"- , INNER:n", "none"},
+		{"- , INNER:n RIGHT", "0 3"},
+		{"- RIGHT:n , INNER", "1 2 3"},
+		{"- , LEFT:n , RIGHT:e", "none"},
 	} {
 		items := strings.Fields(c.join)
 		kinds := make([]string, len(items))

@@ -119,12 +119,41 @@ const noMatchQuery = "@" + rowIDField + ":[-1 -1]"
 
 // joinReads works out which items of a join in written order can change its
 // result, given the items whose ON can never be true (never) and those known
-// to have no rows (empty); kinds are the join kinds, "" for the first item.
-// none reports that the join has no rows at all. Running the join reading
-// only the items in read gives its result: an item not read is joined as if
-// it had no rows when it is a LEFT or FULL item, and otherwise its rows and
-// those joined before it don't matter.
+// to have no rows (empty); kinds are the join kinds, "" for the first item
+// and "," for an item after a comma (see readsKind). none reports that the
+// join has no rows at all. Running the join reading only the items in read
+// gives its result: an item not read is joined as if it had no rows when it
+// is a LEFT or FULL item, and otherwise its rows and those joined before it
+// in its FROM-list item don't matter. The join has no rows if one of its
+// FROM-list items has none.
 func joinReads(kinds []string, never, empty []bool) (read []bool, none bool) {
+	read = make([]bool, len(kinds))
+	for start := 0; start < len(kinds); {
+		end := start + 1
+		for end < len(kinds) && kinds[end] != "," {
+			end++
+		}
+		r, none := itemReads(kinds[start:end], never[start:end], empty[start:end])
+		if none {
+			return make([]bool, len(kinds)), true
+		}
+		copy(read[start:], r)
+		start = end
+	}
+	return read, false
+}
+
+// readsKind is the kind of a join item for joinReads.
+func readsKind(kind string, comma bool) string {
+	if comma {
+		return ","
+	}
+	return kind
+}
+
+// itemReads is joinReads for one FROM-list item, whose first item's kind
+// isn't read.
+func itemReads(kinds []string, never, empty []bool) (read []bool, none bool) {
 	// from are the items the rows joined so far come from.
 	var from []int
 	none = empty[0]

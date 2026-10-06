@@ -22,8 +22,8 @@ package redis
 //
 //   - SELECT * lists the merged columns first, in the left side's order, then
 //     the left side's other columns, then the right side's. In a chain of
-//     joins the left side is everything joined so far, with its own merged
-//     columns.
+//     joins the left side is everything joined so far since the last comma
+//     (see JoinClause.Comma), with its own merged columns.
 //   - The merged column is the left column for INNER and LEFT joins, the
 //     right column for RIGHT joins, and COALESCE(left, right) for FULL joins,
 //     which the join computes after that step under a key of its own.
@@ -32,6 +32,7 @@ package redis
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/apache/arrow-adbc/go/adbc"
@@ -61,8 +62,10 @@ type outputColumn struct {
 
 // planNatural works out the conditions, merged columns, SELECT * order and
 // hidden columns of the NATURAL JOINs (see the file comment), adding the
-// relations of FULL joins' merged columns to rels. Errors are left in jp.err
-// for bindJoin.
+// relations of FULL joins' merged columns to rels. Each FROM-list item (see
+// JoinClause.Comma) is a join of its own: its columns follow those of the
+// items before it in SELECT *, and a NATURAL JOIN's left side is the items
+// of its FROM-list item before it. Errors are left in jp.err for bindJoin.
 func (jp *joinPlan) planNatural(joined *tableMeta, rels []relation) []relation {
 	natural := false
 	for _, it := range jp.items {
@@ -96,10 +99,21 @@ func (jp *joinPlan) planNatural(joined *tableMeta, rels []relation) []relation {
 			jp.err = err
 		}
 	}
+	// star are the columns of the FROM-list items before out's.
+	var star []outputColumn
 	out := columnsOf(jp.items[0])
 	for k := 1; k < len(jp.items); k++ {
 		it := jp.items[k]
 		right := columnsOf(it)
+		if it.comma {
+			star, out = append(star, out...), right
+			continue
+		}
+		// What the join condition sees (see onScope).
+		it.visible = map[string]bool{}
+		for _, c := range slices.Concat(out, right) {
+			it.visible[c.col.Name] = true
+		}
 		if !it.natural {
 			out = append(out, right...)
 			continue
@@ -164,9 +178,10 @@ func (jp *joinPlan) planNatural(joined *tableMeta, rels []relation) []relation {
 			rels = append(rels, relation{meta: meta, prefix: fmt.Sprintf("%s%d.", mergedPrefix, k)})
 		}
 	}
-	jp.star = make([]columnMeta, len(out))
+	star = append(star, out...)
+	jp.star = make([]columnMeta, len(star))
 	visible := map[string]bool{}
-	for i, c := range out {
+	for i, c := range star {
 		jp.star[i] = c.col
 		visible[c.col.Name] = true
 	}
