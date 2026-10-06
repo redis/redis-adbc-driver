@@ -148,6 +148,10 @@ type Cast struct {
 	X       Expr
 	T       ColType
 	OnError Expr
+	// typeName is t as Postgres names it (castTypeName), set by the
+	// parser: it names an unaliased cast whose operand has no name
+	// (figureColname).
+	typeName string
 }
 
 // Case is CASE [operand] WHEN … THEN … [ELSE …] END. With an operand, each
@@ -3532,7 +3536,7 @@ func (p *parser) parsePostfix(x Expr) (Expr, error) {
 		if err != nil {
 			return nil, parseErr(err)
 		}
-		x = p.noteCast(&Cast{X: x, T: ct})
+		x = p.noteCast(&Cast{X: x, T: ct, typeName: castTypeName(spec, ct)})
 	}
 	return x, nil
 }
@@ -3729,7 +3733,7 @@ func (p *parser) parsePrimary() (Expr, error) {
 				if err != nil {
 					return nil, parseErr(err)
 				}
-				return p.noteCast(&Cast{X: x, T: ct, OnError: onError}), nil
+				return p.noteCast(&Cast{X: x, T: ct, OnError: onError, typeName: castTypeName(spec, ct)}), nil
 			}
 		case "DATEADD", "DATE_ADD", "DATE_SUB", "TIMESTAMPADD", "DATEDIFF", "TIMESTAMPDIFF":
 			if p.peekAt(1).kind == tokOp && p.peekAt(1).text == "(" {

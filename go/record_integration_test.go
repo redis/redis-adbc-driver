@@ -57,7 +57,8 @@ func TestSQLRecordValues(t *testing.T) {
 			"4|(,)", "3|(,y)", "5|(2,a)", "2|(1,)", "1|(1,x)", "6|(1,x)")
 		h.expectRows("SELECT id FROM "+tbl+" ORDER BY ROW(a, b) DESC LIMIT 3", "4", "3", "5")
 		h.expectRows("SELECT id FROM "+tbl+" ORDER BY ROW(a, b) NULLS FIRST, id LIMIT 3", "1", "6", "2")
-		h.expectRows("SELECT r::text FROM (SELECT DISTINCT (a, b) AS r FROM "+tbl+") s ORDER BY r",
+		// s.r: a bare r is the output column r::text, as in Postgres.
+		h.expectRows("SELECT r::text FROM (SELECT DISTINCT (a, b) AS r FROM "+tbl+") s ORDER BY s.r",
 			"(1,x)", "(1,)", "(2,a)", "(,y)", "(,)")
 		h.expectRows("SELECT ROW(a, b)::text, count(*) FROM "+tbl+" GROUP BY ROW(a, b) ORDER BY ROW(a, b) DESC",
 			"(,)|1", "(,y)|1", "(2,a)|1", "(1,)|1", "(1,x)|2")
