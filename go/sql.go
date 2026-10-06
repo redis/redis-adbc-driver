@@ -27,7 +27,14 @@ import (
 
 type Expr interface{ exprNode() }
 
-type Literal struct{ V Value }
+// Literal is a constant. Unknown marks a quoted string literal ('1'), which
+// has no type of its own, as Postgres's unknown type: it takes the type of
+// the values it is one of, the other results of a CASE or arguments of
+// COALESCE (commonExprType), and is text otherwise. A cast of it is typed.
+type Literal struct {
+	V       Value
+	Unknown bool
+}
 
 // ColumnRef is a column reference, optionally qualified (alias.column,
 // schema.table.column or catalog.schema.table.column; Qualifier is then the

@@ -118,10 +118,9 @@ func TestSQLNegativeZeroGroups(t *testing.T) {
 		UNION ALL SELECT d FROM it_ivgrp WHERE id = 2) v GROUP BY z`, "-0|2")
 }
 
-// An expression whose values are of different kinds keys them as its type:
-// the driver's COALESCE and CASE of an integer and '1' give the integer 1 on
-// one row and the string '1' on the other (in Postgres, '1' is an integer
-// there), which are one value to GROUP BY, DISTINCT and PARTITION BY.
+// The '1' of a COALESCE or CASE of an integer and '1' is the integer 1, as
+// in Postgres (see unknown.go), so the two rows' 1s are one value to GROUP
+// BY, DISTINCT and PARTITION BY.
 func TestSQLMixedKindKeys(t *testing.T) {
 	h := newSQLHarness(t)
 	h.setupGroupKeys()

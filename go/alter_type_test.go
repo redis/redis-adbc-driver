@@ -191,6 +191,11 @@ func TestApplyAlterType(t *testing.T) {
 		// Values are converted when the rows are rewritten.
 		{sql: `ALTER TABLE t ALTER COLUMN a TYPE smallint USING 100000`, rewrite: "true",
 			want: strings.Replace(base, "a integer", "a smallint", 1)},
+		// A quoted string literal converts to any type, also as a CASE's
+		// result next to an integer.
+		{sql: `ALTER TABLE t ALTER COLUMN a TYPE integer USING '5'`, rewrite: "true", want: base},
+		{sql: `ALTER TABLE t ALTER COLUMN a TYPE bigint USING CASE WHEN id = 1 THEN '7' ELSE a END`, rewrite: "true",
+			want: strings.Replace(base, "a integer", "a bigint", 1)},
 
 		// Errors, as Postgres's.
 		{sql: `ALTER TABLE t ALTER COLUMN nope TYPE integer`, want: `column "nope" of relation "t" does not exist`},
@@ -202,6 +207,13 @@ func TestApplyAlterType(t *testing.T) {
 			want: `column "s" cannot be cast automatically to type timestamp without time zone; you might need to specify "USING s::timestamp(3) without time zone"`},
 		{sql: `ALTER TABLE t ALTER COLUMN s TYPE integer USING s`,
 			want: `result of USING clause for column "s" cannot be cast automatically to type integer; you might need to add an explicit cast`},
+		// A cast of a literal or of NULL has the cast's type.
+		{sql: `ALTER TABLE t ALTER COLUMN a TYPE integer USING '5'::text`,
+			want: `result of USING clause for column "a" cannot be cast automatically to type integer; you might need to add an explicit cast`},
+		{sql: `ALTER TABLE t ALTER COLUMN a TYPE integer USING CAST('5' AS varchar)`,
+			want: `result of USING clause for column "a" cannot be cast automatically to type integer; you might need to add an explicit cast`},
+		{sql: `ALTER TABLE t ALTER COLUMN a TYPE bigint USING NULL::text`,
+			want: `result of USING clause for column "a" cannot be cast automatically to type bigint; you might need to add an explicit cast`},
 		{sql: `ALTER TABLE t ALTER COLUMN v TYPE boolean USING v > 0`, want: `default for column "v" cannot be cast automatically to type boolean`},
 		// The driver's length() takes an integer (Postgres's doesn't).
 		{sql: `ALTER TABLE t ALTER COLUMN s DROP DEFAULT, ALTER COLUMN s TYPE integer USING length(s)`, rewrite: "true", rechecked: "len",

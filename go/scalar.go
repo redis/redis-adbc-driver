@@ -124,11 +124,24 @@ func scalarFuncType(f *Func, args []ColType) (ColType, bool) {
 		if arg(0).Kind == KindNull {
 			return arg(1), true
 		}
+		if len(f.Args) == 2 && unknownLiteral(f.Args[0]) && !unknownLiteral(f.Args[1]) && arg(1).Kind != KindNull {
+			// The literal is read as the other argument's type, as = reads
+			// it: NULLIF('1', int_col) is an INTEGER.
+			return literalType(f.Args[0], arg(1)), true
+		}
 		return arg(0), true
 	case "GREATEST", "LEAST":
 		return unifiedType(f, args), true
 	case "IIF":
-		return commonType(arg(1), arg(2)), true
+		// The type of its results, as a CASE's.
+		if len(f.Args) != 3 || len(args) != 3 {
+			return commonType(arg(1), arg(2)), true
+		}
+		t, err := commonExprType(f.Name, f.Args[1:], args[1:], false)
+		if err != nil {
+			return typeString, true
+		}
+		return t, true
 	}
 	return ColType{}, false
 }
@@ -204,47 +217,17 @@ func modType(f *Func, args []ColType) ColType {
 }
 
 // unifiedType is the common type of the arguments of COALESCE, GREATEST,
-// LEAST and MOD. As with untyped literals in Postgres, a string literal, or
-// a numeric literal that the other arguments' type holds exactly, takes the
-// type of the other arguments: COALESCE(int_col, 0) is an INTEGER and
-// GREATEST(d, '2024-01-01') is a DATE.
+// LEAST and MOD (commonExprType): as with untyped literals in Postgres, a
+// string literal, or a numeric literal that the other arguments' type holds
+// exactly, takes the type of the other arguments: COALESCE(int_col, 0) and
+// COALESCE(int_col, '0') are INTEGERs, and GREATEST(d, '2024-01-01') is a
+// DATE. Types that don't match give text (inferType reports them).
 func unifiedType(f *Func, args []ColType) ColType {
-	literal := func(i int) (Value, bool) {
-		if i < len(f.Args) {
-			if l, ok := f.Args[i].(*Literal); ok && !l.V.Null {
-				return l.V, true
-			}
-		}
-		return Value{}, false
+	t, err := commonExprType(f.Name, f.Args, args, true)
+	if err != nil {
+		return typeString
 	}
-	out := typeNull
-	for i, t := range args {
-		if _, ok := literal(i); !ok {
-			out = commonType(out, t)
-		}
-	}
-	for i, t := range args {
-		v, ok := literal(i)
-		if !ok {
-			continue
-		}
-		if out.Kind != KindNull {
-			if v.T.Kind == KindString {
-				// The literal has no length, so the result has none.
-				out = out.withoutTypmod()
-				continue
-			}
-			if v.T.Kind.isNumeric() && out.Kind.isNumeric() {
-				if c, err := Coerce(v, out); err == nil {
-					if cmp, ok := compareValues(c, v); ok && cmp == 0 {
-						continue
-					}
-				}
-			}
-		}
-		out = commonType(out, t)
-	}
-	return out
+	return t
 }
 
 // ---- evaluation ----
@@ -272,13 +255,19 @@ func zonedText(args []Value, z tzZone) []Value {
 
 // evalConditional evaluates the functions that accept NULL arguments:
 // NULLIF, GREATEST and LEAST (COALESCE and IIF are handled by the caller),
-// in the session time zone z.
-func evalConditional(f *Func, args []Value, z tzZone) (Value, error) {
-	t, _ := scalarFuncType(f, argTypes(args))
+// of type t, in the session time zone z.
+func evalConditional(f *Func, args []Value, t ColType, z tzZone) (Value, error) {
 	if f.Name == "NULLIF" {
 		a, b := args[0], args[1]
 		if a.Null {
 			return nullValue(t), nil
+		}
+		if unknownLiteral(f.Args[0]) && a.T != t && t.Kind != KindNull {
+			// A quoted literal is a value of the other argument's type.
+			var err error
+			if a, err = coerceIn(a, t, z); err != nil {
+				return Value{}, err
+			}
 		}
 		if b.Null {
 			return a, nil
@@ -304,12 +293,13 @@ func evalConditional(f *Func, args []Value, z tzZone) (Value, error) {
 			if a.T.Kind != KindString && a.T.Kind != KindBinary {
 				mixed = true
 			}
-			if n := a.T.SQLName(); !slices.Contains(names, n) {
+			if n := sigTypeName(a.T); !slices.Contains(names, n) {
 				names = append(names, n)
 			}
 		}
 		if mixed && len(names) > 1 {
-			return Value{}, fmt.Errorf("%s types %s cannot be matched", f.Name, strings.Join(names, " and "))
+			// As typeMatchError, where the types weren't known before.
+			return Value{}, stateErr(stateDatatypeMismatch, "%s types %s cannot be matched", f.Name, strings.Join(names, " and "))
 		}
 	}
 	var best Value

@@ -116,8 +116,7 @@ func TestEqualValuesGroupTogether(t *testing.T) {
 		{`SELECT CAST(x AS VARCHAR), COUNT(*), COUNT(DISTINCT x), COUNT(DISTINCT -x) FROM ` + zeros + ` GROUP BY x`,
 			[]string{"-0|2|1|1"}},
 		{`SELECT COUNT(*) FROM (SELECT DISTINCT x FROM ` + zeros + `) s`, []string{"1"}},
-		// The integer 1 and the string '1' of one expression are one value
-		// of its type.
+		// The '1' of an integer expression is the integer 1.
 		{`SELECT ` + mixed + `, COUNT(*), COUNT(DISTINCT ` + mixed + `) FROM ` + ints + ` GROUP BY 1`,
 			[]string{"1|2|1"}},
 		{`SELECT g, COUNT(*) OVER (PARTITION BY ` + mixed + `) FROM ` + ints, []string{"1|2", "1|2"}},

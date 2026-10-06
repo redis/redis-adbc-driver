@@ -94,12 +94,30 @@ func (e *executor) planSetOp(ctx context.Context, sel *SelectStmt, plan *selectP
 			op.Op, len(left.items), len(right.items))
 	}
 	for i := range left.items {
-		t, ok := setOpType(left.items[i].typ, right.items[i].typ)
-		if !ok {
-			return nil, errorf(adbc.StatusInvalidArgument, "%s column %d: types %s and %s cannot be matched",
-				op.Op, i+1, left.items[i].typ.SQLName(), right.items[i].typ.SQLName())
+		l, r := left.items[i], right.items[i]
+		lt, rt := l.typ, r.typ
+		// A quoted string literal takes the other branch's type, as in
+		// Postgres: SELECT '1' UNION SELECT 1 is an integer (see unknown.go).
+		lu, ru := unknownLiteral(l.expr), unknownLiteral(r.expr)
+		switch {
+		case lu && !ru && rt.Kind != KindNull:
+			lt = literalType(l.expr, rt)
+		case ru && !lu && lt.Kind != KindNull:
+			rt = literalType(r.expr, lt)
 		}
-		plan.items = append(plan.items, planItem{name: left.items[i].name, typ: t, pgName: left.items[i].pgName})
+		t, ok := setOpType(lt, rt)
+		if !ok {
+			return nil, stateErrorf(stateDatatypeMismatch, "%s column %d: types %s and %s cannot be matched",
+				op.Op, i+1, lt.SQLName(), rt.SQLName())
+		}
+		for _, it := range []planItem{l, r} {
+			if unknownLiteral(it.expr) {
+				if err := checkLiteral(it.expr, t); err != nil {
+					return nil, invalidArg(err)
+				}
+			}
+		}
+		plan.items = append(plan.items, planItem{name: l.name, typ: t, pgName: l.pgName})
 	}
 	sp := &setOpPlan{op: op.Op, all: op.All, left: left, right: right}
 	for _, o := range sel.OrderBy {
@@ -155,33 +173,6 @@ func writeKey(b *strings.Builder, v Value) {
 	b.WriteString(strconv.Itoa(len(k)))
 	b.WriteByte(':')
 	b.WriteString(k)
-}
-
-// keyTypes returns the type of each expression whose values keyAs keys,
-// typeNull where it isn't known.
-func keyTypes(exprs []Expr, types map[string]ColType) []ColType {
-	ts := make([]ColType, len(exprs))
-	for i, x := range exprs {
-		if t, err := inferType(x, types, nil); err == nil {
-			ts[i] = t
-		}
-	}
-	return ts
-}
-
-// keyAs returns v as a value of t, the type of the expression that gave
-// it, for writeKey. A CASE or COALESCE can give values of different kinds
-// (COALESCE(n, '0') of an integer n gives integers and the string '0'),
-// which its type holds alike, as its results show them, so they are keyed
-// alike. v is unchanged if t isn't known or v doesn't convert to it.
-func keyAs(v Value, t ColType, z tzZone) Value {
-	if v.Null || t.Kind == KindNull || (v.T.Kind == t.Kind && v.T.TZ == t.TZ) {
-		return v
-	}
-	if c, err := coerceIn(v, t, z); err == nil {
-		return c
-	}
-	return v
 }
 
 func (e *executor) runSetOp(ctx context.Context, plan *selectPlan, params []Value) ([][]Value, error) {
