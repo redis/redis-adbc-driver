@@ -2797,10 +2797,10 @@ field, even if later rows have it.
       lo) * p`, `p` being how far the position is from `lo` to `hi`, with
       `interval * n` (see Intervals and date/time arithmetic), as in
       Postgres: `MEDIAN` of `1 year` and `1 mon 1 day 1 sec` is `6 mons 16
-      days -11:59:59.5`. The difference's months and
-      days must fit in 32 bits ("interval out of range"), but its time
-      needn't fit an interval's nanoseconds: `MEDIAN` of `-2000000 hours`
-      and `2000000 hours` is `00:00:00`
+      days -11:59:59.5`. The difference's months and days must fit in 32
+      bits ("interval out of range"), but its time needn't fit an
+      interval's nanoseconds: `MEDIAN` of `-2000000 hours` and `2000000
+      hours` is `00:00:00`
     - **Upgrading from v0.0.12 and earlier:** the interpolation cascaded
       fractions in nanoseconds (that `MEDIAN` was `6 mons 15 days
       12:00:00.5`), and a difference past ±2,562,047 hours was "interval
