@@ -1161,10 +1161,10 @@ Deleted 13 HASHes under 2 prefixes.
   - With `LIMIT` / `OFFSET` in the index, the driver asks for one row more
     on each side. If a run with such a key goes on past them, it reads the
     rest of the run: by value when the first `ORDER BY` key is a `BIGINT`,
-    `TIME` or `TIMESTAMP` (`@c:[v v]`, and an `FT.SEARCH … LIMIT 0 0` that
-    counts the rows before it if the run started before the rows read),
-    otherwise by asking again with more rows on that side. The rows of the
-    `LIMIT` are read before the first is returned.
+    `TIME` or `TIMESTAMP` below 2^63 (`@c:[v v]`, and an `FT.SEARCH …
+    LIMIT 0 0` that counts the rows before it if the run started before the
+    rows read), otherwise by asking again with more rows on that side. The
+    rows of the `LIMIT` are read before the first is returned.
   - Without such ties nothing changes but the two extra rows: the same
     commands run, and `LIMIT` still runs in the index. Microsecond
     timestamps between 1685 and 2255 never tie, and nanosecond ones only
