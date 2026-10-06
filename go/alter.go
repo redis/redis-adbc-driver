@@ -47,6 +47,10 @@ package redis
 //   - ALTER COLUMN … SET NOT NULL checks that no existing row reads NULL,
 //     then marks the column; DROP NOT NULL only unmarks it (not a column of
 //     the primary key).
+//   - ALTER COLUMN … [SET DATA] TYPE converts the column's values, and so
+//     rewrites every row, to new keys and a new index (see alter_type.go),
+//     unless the values stay as they are (a longer VARCHAR, or the same
+//     type without USING): then it only changes the metadata.
 //   - ADD COLUMN … CHECK and ADD CONSTRAINT … CHECK check the existing rows
 //     against the new constraint, then add it; DROP CONSTRAINT removes one
 //     (see check.go). DROP COLUMN drops the constraints that read the column,
@@ -285,6 +289,14 @@ type alterResult struct {
 	// dropped is set when a column of the table was dropped, so its field
 	// must be removed from the rows.
 	dropped bool
+	// altered are the columns ALTER COLUMN … TYPE changes, and rewrite is
+	// set when their values change, so that every row is rewritten (see
+	// alter_type.go). rechecked are the table's CHECK constraints that read
+	// an altered column: bound again for the new types, and checked against
+	// the rewritten rows.
+	altered   []*alteredColumn
+	rewrite   bool
+	rechecked []checkMeta
 	// trace is each action's resolved effect, so that the actions applied
 	// again in the transaction that commits them (to the metadata as it is
 	// then) can be compared with what was planned, checked and indexed.
@@ -338,6 +350,16 @@ func cloneMeta(m *tableMeta) *tableMeta {
 	return &c
 }
 
+// alterInputs is what applyAlter needs from Redis, read once before it
+// runs. taken are index attributes that new columns must not use as their
+// field (see alterTable). views has, for each column (lower case) that ALTER
+// COLUMN … TYPE names and a view reads, Postgres's detail naming the view
+// (see viewDependencies). A nil *alterInputs has neither.
+type alterInputs struct {
+	taken map[string]bool
+	views map[string]string
+}
+
 // testHookAltered, when set by a test, runs once alterTable has changed the
 // index (step 3), before it commits.
 var testHookAltered func(meta *tableMeta)
@@ -363,6 +385,9 @@ var testHookAltered func(meta *tableMeta)
 //  5. The fields of dropped columns are removed from the rows in the
 //     background, as for a single DROP COLUMN.
 //
+// An ALTER COLUMN … TYPE that converts values rewrites the table instead,
+// with all the statement's actions (see rewriteTable in alter_type.go).
+//
 // So an action that fails leaves the table as it was: metadata, index and
 // rows. Nothing writes rows before the commit. If the commit itself fails
 // (a concurrent change, or a lost connection), the attributes step 3 added
@@ -378,17 +403,24 @@ var testHookAltered func(meta *tableMeta)
 func (e *executor) alterTable(ctx context.Context, meta *tableMeta, cmds []AlterCmd) error {
 	// Index attributes that no column uses (left by a commit that failed)
 	// can't be added again, so new columns don't take their names.
-	var taken map[string]bool
+	in := &alterInputs{}
 	if slices.ContainsFunc(cmds, func(c AlterCmd) bool { return c.Action == AlterAddColumn }) {
 		var err error
-		if taken, err = e.store.indexAttributes(ctx, meta.index()); err != nil {
+		if in.taken, err = e.store.indexAttributes(ctx, meta.index()); err != nil {
 			return err
 		}
 	}
+	// The views that read the columns whose type changes.
+	if err := e.viewDependencies(ctx, meta, cmds, in); err != nil {
+		return err
+	}
 	plan := cloneMeta(meta)
-	res, err := e.applyAlter(ctx, plan, cmds, taken)
+	res, err := e.applyAlter(ctx, plan, cmds, in)
 	if err != nil {
 		return err
+	}
+	if res.rewrite {
+		return e.rewriteTable(ctx, meta, cmds, in, res)
 	}
 	// checked is the last row id allocated before the rows were checked.
 	var checked int64
@@ -429,7 +461,7 @@ func (e *executor) alterTable(ctx context.Context, meta *tableMeta, cmds []Alter
 			return errorf(adbc.StatusIO, "table %q changed concurrently; try again", m.Name)
 		}
 		cur := cloneMeta(m)
-		again, err := e.applyAlter(ctx, m, cmds, taken)
+		again, err := e.applyAlter(ctx, m, cmds, in)
 		if err != nil {
 			return err
 		}
@@ -489,6 +521,11 @@ const (
 	// AT_PASS_DROP: DROP COLUMN, DROP CONSTRAINT, ALTER COLUMN … DROP
 	// DEFAULT and DROP NOT NULL.
 	rankDrop = 0
+	// AT_PASS_ALTER_TYPE: ALTER COLUMN … TYPE.
+	rankAlterType = 10
+	// AT_PASS_OLD_CONSTR: the CHECK constraints that read a column whose
+	// type changed, which Postgres drops and adds again for the new type.
+	rankOldChecks = 30
 	// AT_PASS_ADD_COL: ADD COLUMN, with its DEFAULT and NOT NULL.
 	rankAddColumn = 40
 	// AT_PASS_COL_ATTRS: ALTER COLUMN … SET NOT NULL.
@@ -509,26 +546,35 @@ const (
 	rankAddConstraint = 92
 )
 
-// alterStep is one step of an ALTER TABLE: an action, or the CHECKs or the
+// alterStep is one step of an ALTER TABLE: an action, the CHECKs or the
 // PRIMARY KEY of an ADD COLUMN, which Postgres adds in later passes than the
-// column.
+// column, or the CHECKs that read the columns whose type changed
+// (oldChecks, with cmd the first ALTER COLUMN … TYPE).
 type alterStep struct {
-	cmd    *AlterCmd
-	checks bool // the CHECKs of cmd, an ADD COLUMN
-	key    bool // the PRIMARY KEY of cmd, an ADD COLUMN
-	rank   int
+	cmd       *AlterCmd
+	checks    bool // the CHECKs of cmd, an ADD COLUMN
+	key       bool // the PRIMARY KEY of cmd, an ADD COLUMN
+	oldChecks bool
+	rank      int
 }
 
 // alterOrder returns the steps of ALTER TABLE actions in the order Postgres
 // runs them (see the ranks above).
 func alterOrder(cmds []AlterCmd) []alterStep {
 	var steps []alterStep
+	retyped := false
 	for i := range cmds {
 		c := &cmds[i]
 		rank := rankAddConstraint
 		switch c.Action {
 		case AlterDropColumn, AlterDropConstraint, AlterDropDefault, AlterDropNotNull:
 			rank = rankDrop
+		case AlterColumnType:
+			rank = rankAlterType
+			if !retyped {
+				steps = append(steps, alterStep{cmd: c, oldChecks: true, rank: rankOldChecks})
+				retyped = true
+			}
 		case AlterAddColumn:
 			rank = rankAddColumn
 			if len(c.Def.Checks) > 0 {
@@ -555,11 +601,17 @@ func alterOrder(cmds []AlterCmd) []alterStep {
 // applyAlter applies ALTER TABLE actions (not RENAME) to m, in Postgres's
 // order (alterOrder). It reads nothing from Redis: alterTable runs it on the
 // metadata as read, and again on the metadata as it is when the change
-// commits. taken are index attributes that new columns must not use as
-// their field.
-func (e *executor) applyAlter(ctx context.Context, m *tableMeta, cmds []AlterCmd, taken map[string]bool) (*alterResult, error) {
+// commits (and a rewrite when it begins and switches). in is what it needs
+// from Redis (nil for nothing).
+func (e *executor) applyAlter(ctx context.Context, m *tableMeta, cmds []AlterCmd, in *alterInputs) (*alterResult, error) {
+	if in == nil {
+		in = &alterInputs{}
+	}
 	res := &alterResult{}
 	had := len(m.Columns)
+	// The table before any action ran: ALTER COLUMN … TYPE converts its
+	// values, as Postgres does.
+	orig := cloneMeta(m)
 	// The ADD COLUMN IF NOT EXISTS skipped, with their CHECKs and PRIMARY
 	// KEY.
 	skipped := map[*AlterCmd]bool{}
@@ -575,9 +627,13 @@ func (e *executor) applyAlter(ctx context.Context, m *tableMeta, cmds []AlterCmd
 			if !skipped[cmd] {
 				err = alterAddKey(m, cmd.Def.PrimaryKeys[0], res)
 			}
+		case step.oldChecks:
+			err = e.alterOldChecks(ctx, m, res)
+		case cmd.Action == AlterColumnType:
+			err = e.alterType(ctx, m, orig, *cmd, in, res)
 		case cmd.Action == AlterAddColumn:
 			var added bool
-			added, err = e.alterAddColumn(ctx, m, *cmd, taken, res)
+			added, err = e.alterAddColumn(ctx, m, *cmd, in.taken, res)
 			skipped[cmd] = !added
 		case cmd.Action == AlterDropColumn:
 			err = alterDropColumn(m, *cmd, res)

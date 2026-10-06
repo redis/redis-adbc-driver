@@ -21,7 +21,8 @@ package redis
 // matched by position and widened to a common type. Duplicates are detected
 // with the hash-join equality rules (1 = 1.0 = 1.00), and NULLs count as
 // equal to each other, as SQL requires for set operations. ORDER BY on the
-// combined result may use output column names or positions.
+// combined result may use output column names (the first branch's, as
+// Postgres names them) or positions.
 
 import (
 	"context"
@@ -116,7 +117,7 @@ func (e *executor) planSetOp(ctx context.Context, sel *SelectStmt, plan *selectP
 				}
 			}
 		}
-		plan.items = append(plan.items, planItem{name: l.name, typ: t})
+		plan.items = append(plan.items, planItem{name: l.name, typ: t, pgName: l.pgName})
 	}
 	sp := &setOpPlan{op: op.Op, all: op.All, left: left, right: right}
 	for _, o := range sel.OrderBy {
@@ -127,9 +128,11 @@ func (e *executor) planSetOp(ctx context.Context, sel *SelectStmt, plan *selectP
 				col = int(x.V.I) - 1
 			}
 		case *ColumnRef:
+			// The columns are named by the first branch's, as Postgres names
+			// them (colname.go).
 			if x.Qualifier == "" {
 				for i, it := range plan.items {
-					if strings.EqualFold(it.name, x.Name) {
+					if strings.EqualFold(it.pgName, x.Name) {
 						if col >= 0 {
 							return nil, errorf(adbc.StatusInvalidArgument, "ORDER BY %q is ambiguous", x.Name)
 						}

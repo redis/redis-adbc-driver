@@ -226,7 +226,7 @@ func TestSQLDefaultsValidation(t *testing.T) {
 	h.expectError(`ALTER TABLE it_def_ok ALTER COLUMN nope SET DEFAULT 1`, `column "nope" of relation "it_def_ok" does not exist`)
 	h.expectError(`ALTER TABLE it_def_ok ALTER COLUMN a SET DEFAULT 'many'`, `column "a"`)
 	h.expectError(`ALTER TABLE it_def_ok ALTER COLUMN a SET DEFAULT a`, "cannot use column reference in DEFAULT expression")
-	h.expectError(`ALTER TABLE it_def_ok ALTER COLUMN a TYPE BIGINT`, "unsupported ALTER COLUMN action")
+	h.expectError(`ALTER TABLE it_def_ok ALTER COLUMN a TYPE BOOLEAN`, `column "a" cannot be cast automatically to type boolean`)
 	h.expectRows(`SELECT column_name, column_default FROM information_schema.columns WHERE table_name = 'it_def_ok'`, "a|NULL")
 	h.expectRows(`SELECT * FROM it_def_ok`, "1")
 }

@@ -689,6 +689,11 @@ type planItem struct {
 	expr Expr
 	name string
 	typ  ColType
+	// pgName is the name Postgres gives the column (colname.go), which a
+	// bare name in ORDER BY and DISTINCT ON matches: the same as name, but
+	// for an unaliased expression other than a column, which name calls
+	// by its text.
+	pgName string
 }
 
 type planOrder struct {
@@ -853,7 +858,8 @@ func (e *executor) planSelect(ctx context.Context, sel *SelectStmt, paramTypes [
 				return nil, err
 			}
 			for _, c := range cols {
-				plan.items = append(plan.items, planItem{expr: &ColumnRef{Name: c.Name}, name: c.outputName(), typ: c.Type})
+				plan.items = append(plan.items, planItem{expr: &ColumnRef{Name: c.Name}, name: c.outputName(), typ: c.Type, pgName: c.outputName()})
+				e.noteStarRead(plan.meta, rels, c.Name)
 			}
 			continue
 		}
@@ -864,7 +870,7 @@ func (e *executor) planSelect(ctx context.Context, sel *SelectStmt, paramTypes [
 		if err != nil {
 			return nil, invalidArg(err)
 		}
-		name := it.Alias
+		name, pgName := it.Alias, it.Alias
 		if name == "" {
 			if c, ok := it.Expr.(*ColumnRef); ok {
 				// Output the column's own name, not alias.column.
@@ -879,8 +885,9 @@ func (e *executor) planSelect(ctx context.Context, sel *SelectStmt, paramTypes [
 						name = col.outputName()
 					}
 				}
+				pgName = name
 			} else {
-				name = it.Text
+				name, pgName = it.Text, figureColname(it.Expr)
 			}
 			switch x := it.Expr.(type) {
 			case *RowExpr:
@@ -889,7 +896,7 @@ func (e *executor) planSelect(ctx context.Context, sel *SelectStmt, paramTypes [
 				name = x.Name
 			}
 		}
-		plan.items = append(plan.items, planItem{expr: it.Expr, name: name, typ: t})
+		plan.items = append(plan.items, planItem{expr: it.Expr, name: name, typ: t, pgName: pgName})
 		if isAggregate(it.Expr) {
 			plan.aggregate = true
 		}
@@ -904,14 +911,33 @@ func (e *executor) planSelect(ctx context.Context, sel *SelectStmt, paramTypes [
 			}
 		}
 		for i, g := range sel.GroupBy {
-			// GROUP BY <ordinal> or <output alias>
+			// GROUP BY <ordinal> or <output column name>
 			if lit, ok := g.(*Literal); ok && lit.V.T.Kind.isInteger() && !lit.V.Null {
 				n := int(lit.V.I)
 				if n < 1 || n > len(plan.items) {
 					return nil, errorf(adbc.StatusInvalidArgument, "GROUP BY position %d is out of range", n)
 				}
 				g = plan.items[n-1].expr
+			} else if c, ok := g.(*ColumnRef); ok && c.Qualifier == "" {
+				// As in Postgres, a bare name is an input column's before it
+				// is an output column's (unlike in ORDER BY), also one named
+				// by its expression (colname.go): GROUP BY upper after SELECT
+				// upper(v) groups by upper(v). Only this query's FROM items
+				// count, not an enclosing query's. A name two of them have
+				// may be an output column's too: the driver keeps both
+				// columns of JOIN … USING (k), which Postgres merges.
+				if e.fromColumns(c.writtenName()) != 1 {
+					it, err := findOutputColumn(plan.items, c.writtenName(), "GROUP BY")
+					if err != nil {
+						return nil, err
+					}
+					if it != nil {
+						g = it.expr
+					}
+				}
 			} else {
+				// The driver also reads aliases in an expression (GROUP BY
+				// lower(u)), which Postgres doesn't.
 				g = replaceAliases(g, aliases, plan.meta)
 			}
 			if err := e.bind(ctx, g); err != nil {
@@ -974,17 +1000,17 @@ func (e *executor) planSelect(ctx context.Context, sel *SelectStmt, paramTypes [
 			plan.order = append(plan.order, planOrder{expr: plan.items[n-1].expr, desc: o.Desc, nullsFirst: o.Nulls == NullsFirst, nullsLast: o.Nulls == NullsLast})
 			continue
 		}
-		// ORDER BY <output alias>
-		if c, ok := expr.(*ColumnRef); ok {
-			matched := false
-			for i, it := range sel.Items {
-				if !it.Star && it.Alias != "" && strings.EqualFold(it.Alias, c.Name) {
-					plan.order = append(plan.order, planOrder{expr: plan.items[itemStart[i]].expr, desc: o.Desc, nullsFirst: o.Nulls == NullsFirst, nullsLast: o.Nulls == NullsLast})
-					matched = true
-					break
-				}
+		// ORDER BY <output column name>: as in Postgres, a bare name is an
+		// output column's before it is an input column's, also when the
+		// output column is named by its expression (colname.go): ORDER BY v
+		// after SELECT CAST(v AS VARCHAR) sorts the text.
+		if c, ok := expr.(*ColumnRef); ok && c.Qualifier == "" {
+			it, err := findOutputColumn(plan.items, c.writtenName(), "ORDER BY")
+			if err != nil {
+				return nil, err
 			}
-			if matched {
+			if it != nil {
+				plan.order = append(plan.order, planOrder{expr: it.expr, desc: o.Desc, nullsFirst: o.Nulls == NullsFirst, nullsLast: o.Nulls == NullsLast})
 				continue
 			}
 		}
@@ -1027,7 +1053,7 @@ func (e *executor) planSelect(ctx context.Context, sel *SelectStmt, paramTypes [
 		return nil, err
 	}
 	if sel.Distinct {
-		if err := e.planDistinct(ctx, plan, itemStart, types); err != nil {
+		if err := e.planDistinct(ctx, plan, types); err != nil {
 			return nil, err
 		}
 	}
@@ -1102,6 +1128,34 @@ func (e *executor) starColumns(meta *tableMeta, rels []relation, joined bool, qu
 	return cols, nil
 }
 
+// noteStarRead tells colReads (see noteRead) about a column that * selects
+// from meta, the FROM clause's relation: a stored table's, or with joins,
+// that of the item whose prefix the column has, or every item with a column
+// of that name for a column that a NATURAL or USING join merges.
+func (e *executor) noteStarRead(meta *tableMeta, rels []relation, name string) {
+	if e.cache == nil || e.cache.colReads == nil {
+		return
+	}
+	if meta.join == nil {
+		e.noteRead(meta, name)
+		return
+	}
+	found := false
+	for _, rel := range rels {
+		if rel.prefix != "" && strings.HasPrefix(name, rel.prefix) {
+			e.noteRead(rel.meta, strings.TrimPrefix(name, rel.prefix))
+			found = true
+		}
+	}
+	if !found {
+		for _, rel := range rels {
+			if c, ok := rel.meta.column(name); ok {
+				e.noteRead(rel.meta, c.Name)
+			}
+		}
+	}
+}
+
 // distinctAsGroupBy rewrites SELECT DISTINCT over plain expressions (no
 // aggregates, windows, stars, subqueries or RANDOM()) as GROUP BY them.
 func distinctAsGroupBy(sel *SelectStmt) (*SelectStmt, bool) {
@@ -1155,10 +1209,10 @@ func checkDistinctOrder(plan *selectPlan) error {
 }
 
 // planDistinct plans SELECT DISTINCT and DISTINCT ON (…). DISTINCT ON
-// expressions may be output positions or aliases, like ORDER BY, and must
+// expressions may be output positions or names, like ORDER BY, and must
 // match the leading ORDER BY expressions (as in Postgres), so the row kept
 // for each key is the first in ORDER BY order.
-func (e *executor) planDistinct(ctx context.Context, plan *selectPlan, itemStart []int, types map[string]ColType) error {
+func (e *executor) planDistinct(ctx context.Context, plan *selectPlan, types map[string]ColType) error {
 	sel := plan.sel
 	plan.distinct = true
 	if len(sel.DistinctOn) == 0 {
@@ -1173,11 +1227,12 @@ func (e *executor) planDistinct(ctx context.Context, plan *selectPlan, itemStart
 			}
 			expr = plan.items[n-1].expr
 		} else if c, ok := x.(*ColumnRef); ok && c.Qualifier == "" {
-			for i, it := range sel.Items {
-				if !it.Star && it.Alias != "" && strings.EqualFold(it.Alias, c.Name) {
-					expr = plan.items[itemStart[i]].expr
-					break
-				}
+			it, err := findOutputColumn(plan.items, c.writtenName(), "DISTINCT ON")
+			if err != nil {
+				return err
+			}
+			if it != nil {
+				expr = it.expr
 			}
 		}
 		if expr == x {

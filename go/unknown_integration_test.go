@@ -56,7 +56,8 @@ func TestSQLUnknownLiterals(t *testing.T) {
 	}{
 		{`SELECT CASE WHEN id = 1 THEN '1' ELSE 1 END FROM it_unklit ORDER BY id`, arrow.PrimitiveTypes.Int64, []string{"1", "1"}},
 		{`SELECT CASE WHEN id = 1 THEN '1' ELSE 1 END + 1 FROM it_unklit ORDER BY id`, arrow.PrimitiveTypes.Int64, []string{"2", "2"}},
-		{`SELECT CASE WHEN id = 1 THEN '5' ELSE id END FROM it_unklit ORDER BY id`, arrow.PrimitiveTypes.Int32, []string{"5", "2"}},
+		// The CASE is named id, after its ELSE, so ORDER BY id sorts by it.
+		{`SELECT CASE WHEN id = 1 THEN '5' ELSE id END FROM it_unklit ORDER BY id`, arrow.PrimitiveTypes.Int32, []string{"2", "5"}},
 		{`SELECT COALESCE(CASE WHEN id = 2 THEN id END, '0') + 1 FROM it_unklit ORDER BY id`, arrow.PrimitiveTypes.Int64, []string{"1", "3"}},
 		{`SELECT COALESCE(CASE WHEN id = 2 THEN id END, '0') FROM it_unklit ORDER BY id`, arrow.PrimitiveTypes.Int32, []string{"0", "2"}},
 		{`SELECT GREATEST(CASE WHEN id = 2 THEN id END, '5') FROM it_unklit ORDER BY id`, arrow.PrimitiveTypes.Int32, []string{"5", "5"}},
