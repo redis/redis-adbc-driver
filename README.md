@@ -1801,6 +1801,12 @@ field, even if later rows have it.
       item has too. Up to v0.0.12 these were `missing FROM-clause entry
       for table "t"`, and `update t set v = 0 from u, lateral (select v)
       s` read `u.v`
+    - The same errors for a join's `ON` clause among the FROM items of
+      `UPDATE … FROM` and `DELETE … USING`, which, as in Postgres, reads
+      only that join's two sides, not the target: `update t set v = 0 from
+      u join w on w.id = t.id`, also from a subquery in it. `WHERE` reads
+      the target, and so does `MERGE`'s `ON`, which joins it. Up to
+      v0.0.12 such an `ON` read the target
 - `FETCH FIRST n ROWS ONLY` is `LIMIT n` (`FETCH FIRST ROW ONLY` is `LIMIT
   1`); `WITH TIES` is not supported, and a query has at most one `LIMIT` or
   `FETCH` (Postgres's "multiple LIMIT clauses not allowed")
