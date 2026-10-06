@@ -1344,8 +1344,8 @@ func TestSQLIntervals(t *testing.T) {
 
 	// Errors.
 	h.expectError(`SELECT TIMESTAMP '2024-01-01 00:00:00' + 1`, "not supported")
-	h.expectError(`SELECT INTERVAL 'abc'`, "invalid interval")
-	h.expectError(`SELECT INTERVAL 'x' HOUR`, "needs a number")
+	h.expectError(`SELECT INTERVAL 'abc'`, `invalid input syntax for type interval: "abc"`)
+	h.expectError(`SELECT INTERVAL 'x' HOURS`, "needs a number")
 	h.expectError(`SELECT INTERVAL '1 day' / 0`, "division by zero")
 }
 
@@ -1989,7 +1989,7 @@ func TestSQLScalarFunctions(t *testing.T) {
 	h.expectError(`SELECT SPLIT_PART(code, '-', 0) FROM it_fn`, "field position must not be zero")
 	h.expectError(`SELECT ROUND(s) FROM it_fn WHERE id = 1`, "cannot convert")
 	h.expectError(`SELECT LEFT(s) FROM it_fn WHERE id > 100`, "LEFT expects 2 arguments")
-	h.expectError(`SELECT GREATEST(d, id) FROM it_fn`, "GREATEST types DATE and INTEGER cannot be matched")
+	h.expectError(`SELECT GREATEST(d, id) FROM it_fn`, "GREATEST types date and integer cannot be matched")
 }
 
 // Bound parameters inside the special syntaxes are numbered in order.

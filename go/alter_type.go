@@ -133,7 +133,7 @@ func (e *executor) alterType(ctx context.Context, m, orig *tableMeta, cmd AlterC
 		if err != nil {
 			return invalidArg(err)
 		}
-		if !unknownLiteral(x) && !assignable(t, to) {
+		if !unknownOrNull(x) && !assignable(t, to) {
 			return stateErrorf(stateDatatypeMismatch, "result of USING clause for column %q cannot be cast automatically to type %s; you might need to add an explicit cast",
 				col.Name, pgTypeName(to, false))
 		}
@@ -196,7 +196,7 @@ func (e *executor) alterTypeDefault(ctx context.Context, col columnMeta, to ColT
 		return errorf(adbc.StatusInternal, "invalid DEFAULT %q of column %q: %v", col.Default, col.Name, err)
 	}
 	t := col.Type
-	if !unknownLiteral(x) {
+	if !unknownOrNull(x) {
 		if it, err := inferType(x, nil, nil); err == nil {
 			t = it
 		}
@@ -271,11 +271,11 @@ func (e *executor) bindUsing(ctx context.Context, orig *tableMeta, x Expr) (Expr
 	return x, nil
 }
 
-// unknownLiteral reports whether x is a string literal or NULL, which
-// Postgres types as unknown and converts to any type.
-func unknownLiteral(x Expr) bool {
+// unknownOrNull reports whether x is a quoted string literal or NULL, which
+// Postgres types as unknown and converts to any type (see unknownLiteral).
+func unknownOrNull(x Expr) bool {
 	l, ok := x.(*Literal)
-	return ok && (l.V.Null || l.V.T.Kind == KindString || l.V.T.Kind == KindNull)
+	return ok && (l.V.Null || l.Unknown)
 }
 
 // assignable reports whether Postgres 16 converts values of type from to

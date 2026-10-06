@@ -263,6 +263,9 @@ func (e *executor) bind(ctx context.Context, expr Expr) error {
 		err = e.checkRecords(expr)
 	}
 	if err == nil {
+		if err = checkUnknowns(expr, e.scopeTypes, e.paramTypes); err != nil {
+			return invalidArg(err)
+		}
 		e.noteParams(expr)
 		if e.localLits != nil {
 			e.noteLocalTimes(expr)
