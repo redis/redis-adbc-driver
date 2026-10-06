@@ -14,8 +14,9 @@
 
 package redis
 
-// Unit tests for rendering intervals as text, for the interval range and
-// for the aggregates of intervals. They need no Redis server.
+// Unit tests for rendering intervals as text, for the interval range, for
+// interval * n and interval / n, and for the aggregates of intervals. They
+// need no Redis server.
 
 import (
 	"math"
@@ -87,8 +88,12 @@ func TestIntervalRange(t *testing.T) {
 		{"CAST(INTERVAL 2562047 HOUR AS VARCHAR)", "2562047:00:00", "VARCHAR"},
 		// Exactly math.MinInt64 nanoseconds.
 		{"CAST(INTERVAL '-9223372036.854775808 seconds' AS VARCHAR)", "-2562047:47:16.854775808", "VARCHAR"},
-		{"CAST(INTERVAL '-9223372036.854775808 seconds' * 1 AS VARCHAR)", "-2562047:47:16.854775808", "VARCHAR"},
 		{"CAST(INTERVAL '-9223372036.854775808 seconds' - INTERVAL '-1 second' AS VARCHAR)", "-2562047:47:15.854775808", "VARCHAR"},
+		// * and / are in microseconds, as in Postgres. 9223372036854775 µs
+		// is past 2^53, so the double of 9223372036854774 is the largest
+		// that a product can be.
+		{"CAST((INTERVAL '2562047 hours' + INTERVAL '2836.854774 seconds') * 1 AS VARCHAR)", "2562047:47:16.854774", "VARCHAR"},
+		{"CAST((INTERVAL '-2562047 hours' - INTERVAL '2836.854774 seconds') / 1 AS VARCHAR)", "-2562047:47:16.854774", "VARCHAR"},
 		{"CAST(INTERVAL '-2562047 hours' - INTERVAL '2836.854775808 seconds' AS VARCHAR)", "-2562047:47:16.854775808", "VARCHAR"},
 		{"CAST(INTERVAL '2562047 hours' + INTERVAL '-2562047 hours' AS VARCHAR)", "00:00:00", "VARCHAR"},
 		{"CAST(INTERVAL '-2562047 hours' * 1 AS VARCHAR)", "-2562047:00:00", "VARCHAR"},
@@ -117,6 +122,11 @@ func TestIntervalRange(t *testing.T) {
 		"INTERVAL '2562047 hours' / 0.5",
 		"INTERVAL '-9223372036.854775808 seconds' * -1",
 		"INTERVAL '-9223372036.854775808 seconds' / -1",
+		// In microseconds, -2^63 ns and 9223372036854775 µs round to
+		// doubles past the nanoseconds' range (Postgres:
+		// -2562047:47:16.854776 and 2562047:47:16.854776).
+		"INTERVAL '-9223372036.854775808 seconds' * 1",
+		"(INTERVAL '2562047 hours' + INTERVAL '2836.854775 seconds') * 1",
 		"INTERVAL '2562047 hours' + INTERVAL '1 hour'",
 		"INTERVAL '-2562047 hours' - INTERVAL '1 hour'",
 		"INTERVAL '-9223372036.854775808 seconds' + INTERVAL '-0.000000001 seconds'",
@@ -132,6 +142,147 @@ func TestIntervalRange(t *testing.T) {
 		}
 		if err == nil || !strings.Contains(err.Error(), "interval out of range") {
 			t.Errorf("%s: error %v, want interval out of range", expr, err)
+		}
+	}
+}
+
+// interval * n and interval / n work as Postgres's interval_mul and
+// interval_div: each field is multiplied and truncated, a month's fraction
+// cascades into days rounded to millionths of a day, a day's into seconds,
+// and the time is rounded to microseconds, half to even. Each value is
+// Postgres 16's on x86-64. Postgres on arm64 fuses multiply-adds, so three
+// of its products differ there in the last microseconds (marked); the
+// driver's are the same on both.
+func TestIntervalMulDiv(t *testing.T) {
+	var cases []scalarCase
+	for _, c := range [][2]string{
+		{"INTERVAL '1 sec' / 3", "00:00:00.333333"},
+		{"INTERVAL '1 mon' / 7", "4 days 06:51:25.6896"}, // 30 / 7 days is 4.285714 days
+		{"INTERVAL '1 mon 3 days' / 4", "8 days 06:00:00"},
+		{"INTERVAL '1 day' / 3", "08:00:00"},
+		{"INTERVAL '1 mon 1 day 1 sec' / 7", "4 days 10:17:08.6896"},
+		{"INTERVAL '1 mon' * 0.1", "3 days"},
+		{"INTERVAL '13 mons' * 0.1", "1 mon 9 days"},
+		{"INTERVAL '1 mon' * (CAST(1 AS DOUBLE PRECISION) / 3)", "10 days"},
+		{"INTERVAL '1 mon' / (CAST(1 AS DOUBLE PRECISION) / 3)", "3 mons"},
+		{"INTERVAL '1 mon' * 0.034", "1 day 00:28:48"},
+		{"INTERVAL '1 year 2 mons 3 days 04:05:06.789' * 0.7", "9 mons 26 days 05:15:34.7523"},
+		{"INTERVAL '1 year 2 mons 3 days 04:05:06.789' / 7", "2 mons 10:52:09.541286"},
+		{"INTERVAL '1 year 2 mons 3 days 04:05:06.789' * -2.71828", "-3 years -2 mons -9 days -31:04:59.986403"},
+		{"INTERVAL '7 mons 13 days 01:02:03.456789' / 0.3", "1 year 11 mons 53 days 11:26:51.52263"},
+		{"INTERVAL '5 mons 5 days 5 hours' / (CAST(1 AS DOUBLE PRECISION) / 7)", "2 years 11 mons 35 days 35:00:00"},
+		{"INTERVAL '11 mons 29 days' * 1.1", "1 year 34 days 21:36:00"},
+		{"3 * INTERVAL '1 mon 1 day 1 sec'", "3 mons 3 days 00:00:03"},
+		{"0.3 * INTERVAL '1 year 2 mons 3 days 04:05:06.789'", "4 mons 6 days 22:49:32.0367"},
+		// Negative fields and factors. Nothing carries into a larger unit but
+		// the whole days of cascaded seconds; the time itself never does.
+		{"INTERVAL '-1 mon -1 day' * 0.5", "-15 days -12:00:00"},
+		{"INTERVAL '-1 mon 1 day 1 sec' / 3", "-10 days +08:00:00.333333"},
+		{"INTERVAL '1 mon -1 day' * 1.5", "1 mon 14 days -12:00:00"},
+		{"INTERVAL '29 days 23:59:59.999999' * 0.5", "14 days 24:00:00"},
+		{"INTERVAL '1 mon 29 days 23:59:59.999999' / 2", "29 days 24:00:00"},
+		// Microseconds, half to even.
+		{"INTERVAL '0.000001 sec' / 3", "00:00:00"},
+		{"INTERVAL '0.000001 sec' * 0.5", "00:00:00"},
+		{"INTERVAL '00:00:00.000003' * 0.5", "00:00:00.000002"},
+		{"INTERVAL '00:00:00.000003' / 2", "00:00:00.000002"},
+		{"INTERVAL '12345 days 12:34:56.789012' * 0.000001", "00:17:46.653297"},
+		{"INTERVAL '12345 days 12:34:56.789012' / 1000000", "00:17:46.653297"},
+		{"INTERVAL '1 sec' * CAST('1e-300' AS DOUBLE PRECISION)", "00:00:00"},
+		{"INTERVAL '1 day' / CAST('Infinity' AS DOUBLE PRECISION)", "00:00:00"},
+		{"INTERVAL '1 day' / CAST('-Infinity' AS DOUBLE PRECISION)", "00:00:00"},
+		// The ends of the ranges.
+		{"INTERVAL '2147483647 mons' * 0.5", "89478485 years 3 mons 15 days"},
+		{"INTERVAL '2147483647 mons' / 2", "89478485 years 3 mons 15 days"},
+		{"INTERVAL '2147483647 mons' * 1.0000000001", "178956970 years 7 mons 6 days 10:37:07.7664"}, // the product truncates into range
+		{"INTERVAL '-2147483648 mons' * 1", "-178956970 years -8 mons"},
+		{"INTERVAL '-2147483648 days' / 2", "-1073741824 days"},
+		{"INTERVAL '2147483647 mons 2147483647 days' / 3", "59652323 years 6 mons 715827892 days 08:00:00.089833"},
+		{"INTERVAL '2562047 hours' * 1", "2562047:00:00"},
+		{"INTERVAL '2562047 hours' / 1.0000000001", "2562046:59:59.077664"},
+		{"INTERVAL '-2562047 hours' * 0.9999999999", "-2562046:59:59.077664"},
+		{"(INTERVAL '2562047 hours' + INTERVAL '2836.854775 seconds') / 7", "366006:49:36.69354"},
+		{"(INTERVAL '-2562047 hours' - INTERVAL '2836.854775 seconds') * -0.5", "1281023:53:38.427388"},
+		// Postgres on arm64: …19.950196, 2 days 23:59:59.9136 and
+		// 16:48:00.00103.
+		{"INTERVAL '7 mons 13 days 01:02:03.456789' * 123456.789", "72016 years 5 mons 1604953 days 127713:17:19.95019"},
+		{"INTERVAL '2147483647 mons' * 0.3", "53687091 years 2 mons 3 days 00:00:00.0864"},
+		{"INTERVAL '2147483647 days' * 0.1", "214748364 days 16:48:00.001545"},
+	} {
+		cases = append(cases, scalarCase{"CAST(" + c[0] + " AS VARCHAR)", c[1], "VARCHAR"})
+	}
+	runScalarCases(t, cases)
+
+	for expr, want := range map[string]string{
+		// A field past its 32 bits, also when whole days of seconds or of a
+		// month carry into the days.
+		"INTERVAL '-2147483648 mons' * -1":                          "interval out of range",
+		"INTERVAL '-2147483648 mons' / -1":                          "interval out of range",
+		"INTERVAL '-2147483648 days' * -1":                          "interval out of range",
+		"INTERVAL '2147483647 mons' / 0.5":                          "interval out of range",
+		"INTERVAL '2147483647 days' * 1.5":                          "interval out of range",
+		"INTERVAL '1 mon' / CAST('1e-10' AS DOUBLE PRECISION)":      "interval out of range",
+		"INTERVAL '2147483647 mons 2147483647 days' * 0.9999999999": "interval out of range",
+		"INTERVAL '2147483647 mons 2147483647 days' / 1.0000000001": "interval out of range",
+		"INTERVAL '1 day' * CAST('NaN' AS DOUBLE PRECISION)":        "interval out of range",
+		"INTERVAL '1 day' / CAST('NaN' AS DOUBLE PRECISION)":        "interval out of range",
+		"INTERVAL '0' * CAST('Infinity' AS DOUBLE PRECISION)":       "interval out of range",
+		"INTERVAL '1 day' * CAST('Infinity' AS DOUBLE PRECISION)":   "interval out of range",
+		"INTERVAL '1 day' / 0":                                      "division by zero",
+		"INTERVAL '1 day' / 0.0":                                    "division by zero",
+		"INTERVAL '1 day' / CAST('-0' AS DOUBLE PRECISION)":         "division by zero",
+		"INTERVAL '0' / 0":                                          "division by zero",
+		// The time past the nanoseconds' range (Postgres: 5124094:00:00).
+		"INTERVAL '2562047 hours' * 2":   "interval out of range",
+		"INTERVAL '2562047 hours' / 0.5": "interval out of range",
+	} {
+		if _, _, err := evalTestExpr(t, expr); err == nil || err.Error() != want {
+			t.Errorf("%s: error %v, want %s", expr, err, want)
+		}
+	}
+}
+
+// A time that isn't whole microseconds (a bound Arrow value) counts with
+// its fraction in * and /, and the result is whole microseconds, half to
+// even; Postgres has no such times.
+func TestIntervalMulDivNanos(t *testing.T) {
+	iv := func(months, days int32, ns int64) Value {
+		return Value{T: typeInterval, Months: months, Days: days, I: ns}
+	}
+	for _, c := range []struct {
+		v    Value
+		f    float64
+		div  bool
+		want string
+	}{
+		{iv(0, 0, 1500), 1, false, "00:00:00.000002"},
+		{iv(0, 0, 2500), 1, false, "00:00:00.000002"},
+		{iv(0, 0, 2501), 1, false, "00:00:00.000003"},
+		{iv(0, 0, -1500), 1, false, "-00:00:00.000002"},
+		{iv(0, 0, 1), 1, false, "00:00:00"},
+		{iv(0, 0, 7500), 3, true, "00:00:00.000002"}, // 2.5 µs
+		{iv(0, 0, 7501), 3, true, "00:00:00.000003"},
+		{iv(1, 1, 1_000_000_001), 7, true, "4 days 10:17:08.6896"},
+		{iv(0, 0, math.MinInt64), 0.5, false, "-1281023:53:38.427388"},
+		{iv(0, 0, math.MaxInt64), 2, true, "1281023:53:38.427388"},
+		{iv(0, 0, math.MaxInt64), 1, false, "interval out of range"}, // 9223372036854775.807 µs
+		{iv(0, 0, math.MinInt64), 1, true, "interval out of range"},
+	} {
+		var v Value
+		var err error
+		if c.div {
+			v, err = divideInterval(c.v.Months, c.v.Days, intervalMicros(c.v), c.f)
+		} else {
+			v, err = multiplyInterval(c.v, c.f)
+		}
+		got := ""
+		if err != nil {
+			got = err.Error()
+		} else {
+			got = formatInterval(v)
+		}
+		if got != c.want {
+			t.Errorf("%s (%d ns) × %v (div %v) = %s, want %s", formatInterval(c.v), c.v.I, c.f, c.div, got, c.want)
 		}
 	}
 }
