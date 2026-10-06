@@ -542,7 +542,9 @@ func dateTimeFuncType(f *Func, args []ColType) (ColType, bool) {
 		return currentTimeType(f, typeTimestampTZ), true
 	case "LOCALTIMESTAMP":
 		return currentTimeType(f, typeTimestamp), true
-	case "CURRENT_TIME", "LOCALTIME":
+	case "CURRENT_TIME":
+		return currentTimeType(f, typeTimeTZ), true
+	case "LOCALTIME":
 		return currentTimeType(f, typeTimeUS), true
 	case "TO_TIMESTAMP", "MAKE_TIMESTAMPTZ":
 		return typeTimestampTZ, true
@@ -620,12 +622,24 @@ func (env *evalEnv) evalDateTimeFunc(f *Func, args []Value) (Value, bool, error)
 	switch f.Name {
 	case "CURRENT_TIMESTAMP", "NOW", "TRANSACTION_TIMESTAMP", "STATEMENT_TIMESTAMP":
 		return done(currentTime(env.now(), t))
-	case "CURRENT_DATE", "LOCALTIMESTAMP", "CURRENT_TIME", "LOCALTIME":
+	case "CURRENT_DATE", "LOCALTIMESTAMP", "LOCALTIME":
 		// The local date and time in the session time zone.
 		return done(currentTime(z.localTime(env.now()), t))
+	case "CURRENT_TIME":
+		// The local time in the session time zone, and its offset there.
+		now, tt := env.now(), t
+		tt.Kind = KindTime
+		v, err := currentTime(z.localTime(now), tt)
+		if err != nil {
+			return done(Value{}, err)
+		}
+		return done(Value{T: t, I: v.I, Off: int32(z.offsetAt(now.Unix()))}, nil)
 	case "DATE_PART":
-		if args[1].T.Kind == KindInterval {
+		switch args[1].T.Kind {
+		case KindInterval:
 			return done(intervalPart(args[0].Text(), args[1]))
+		case KindTimeTZ:
+			return done(timeTZPart(args[0].Text(), args[1]))
 		}
 		return done(datePart(args[0].Text(), args[1], z))
 	case "__INTERVAL":
@@ -664,7 +678,13 @@ func (env *evalEnv) evalDateTimeFunc(f *Func, args []Value) (Value, bool, error)
 		if field == "" {
 			field = strings.ToLower(f.Name)
 		}
-		v, err := datePart(field, args[0], z)
+		var v Value
+		var err error
+		if args[0].T.Kind == KindTimeTZ {
+			v, err = timeTZPart(field, args[0])
+		} else {
+			v, err = datePart(field, args[0], z)
+		}
 		if err == nil && v.T.Kind == KindFloat64 {
 			v = intValue(typeInt64, int64(math.Floor(v.F))) // SECOND() is whole seconds
 		}
@@ -812,6 +832,11 @@ func (env *evalEnv) evalDateTimeFunc(f *Func, args []Value) (Value, bool, error)
 		}
 		return done(toTimestamp(args[0].Text(), args[1].Text(), z, t))
 	case "TO_CHAR":
+		if args[0].T.Kind == KindTimeTZ {
+			// Postgres has no TO_CHAR of a time with time zone (nor a cast
+			// to an interval, which a TIME has).
+			return done(Value{}, noSuchFunction(f.Name, false, argTypes(args)))
+		}
 		if args[1].Text() == "" {
 			return done(nullValue(typeString), nil) // as in Postgres
 		}

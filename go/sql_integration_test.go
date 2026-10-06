@@ -1240,7 +1240,8 @@ func TestSQLDateTimeFunctions(t *testing.T) {
 	if d := time.Since(time.Unix(int64(epoch), 0)); d < -time.Minute || d > time.Minute {
 		t.Errorf("CURRENT_TIMESTAMP is %v away from now", d)
 	}
-	if s := schema.String(); !strings.Contains(s, "date32") || !strings.Contains(s, "time64[us]") || !strings.Contains(s, "timestamp[us]") {
+	// CURRENT_TIME is a time with time zone: its text (see timetz.go).
+	if s := schema.String(); !strings.Contains(s, "date32") || schema.Field(2).Type.ID() != arrow.STRING || !strings.Contains(s, "timestamp[us]") {
 		t.Errorf("current time types = %s", s)
 	}
 

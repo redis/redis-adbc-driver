@@ -223,6 +223,8 @@ func compareNeverFails(a, b ColType) bool {
 		return true
 	case (ak == KindTime || ak == KindTimestamp) && ak == bk && a.Unit == b.Unit && a.TZ == b.TZ:
 		return true
+	case ak == KindTimeTZ && bk == KindTimeTZ:
+		return true
 	}
 	return false
 }

@@ -439,6 +439,8 @@ func joinKey(v Value) (string, bool) {
 	case k == KindInterval:
 		// Equal lengths are equal intervals ('1 day' = '24 hours').
 		return "i" + intervalTotal(v).String(), true
+	case k == KindTimeTZ:
+		return timeTZKey(v), true
 	case k == KindTimestamp || k == KindTime:
 		// Seconds plus nanoseconds, so different units compare equal.
 		per := unitsPerSecond[v.T.Unit]
@@ -860,8 +862,9 @@ func (e *executor) joinRows(env *evalEnv, kind string, left, right []map[string]
 	// (lengths.go), so its keys drop them on both sides.
 	char := make([]bool, len(pairs))
 	// A pair of a DATE or TIMESTAMP with a TIMESTAMP WITH TIME ZONE (or a
-	// DATE with a TIMESTAMP) is keyed as the latter, converted in the
-	// session time zone, as compareIn compares them.
+	// DATE with a TIMESTAMP, or a TIME with a TIME WITH TIME ZONE) is keyed
+	// as the latter, converted in the session time zone, as compareIn
+	// compares them.
 	keyType := make([]ColType, len(pairs))
 	for i, p := range pairs {
 		lt, _ := inferType(p.left, env.types, nil)
@@ -873,6 +876,9 @@ func (e *executor) joinRows(env *evalEnv, kind string, left, right []map[string]
 			if isTimestampTZ(lt) || isTimestampTZ(rt) {
 				keyType[i].TZ = "UTC"
 			}
+		}
+		if lt.isTimeOfDay() && rt.isTimeOfDay() && lt.Kind != rt.Kind {
+			keyType[i] = ColType{Kind: KindTimeTZ, Unit: arrow.Second}
 		}
 	}
 	zone := env.zone()
@@ -889,7 +895,7 @@ func (e *executor) joinRows(env *evalEnv, kind string, left, right []map[string]
 			}
 			if kt := keyType[i]; kt.Kind != KindNull && !v.Null && (v.T.Kind != kt.Kind || v.T.TZ != kt.TZ) {
 				// The value's own unit, so that nothing is rounded.
-				if v.T.Kind == KindTimestamp {
+				if v.T.Kind == KindTimestamp || v.T.isTimeOfDay() {
 					kt.Unit = v.T.Unit
 				}
 				if v, err = coerceIn(v, kt, zone); err != nil {
