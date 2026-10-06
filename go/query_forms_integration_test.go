@@ -544,9 +544,12 @@ func TestSQLNaturalJoin(t *testing.T) {
 		t.Errorf("NATURAL FULL JOIN columns = %s, want id,k,v,w", got)
 	}
 	// Unqualified, the merged column (COALESCE of both for FULL); qualified,
-	// each side's own.
-	h.expectRows(`SELECT id, it_qf_g.id, it_qf_g2.id, k FROM it_qf_g NATURAL FULL JOIN it_qf_g2 ORDER BY id`,
+	// each side's own. All three output columns are named id, so ORDER BY
+	// id is ambiguous, as in Postgres.
+	h.expectRows(`SELECT id, it_qf_g.id, it_qf_g2.id, k FROM it_qf_g NATURAL FULL JOIN it_qf_g2 ORDER BY 1`,
 		"1|1|1|a", "2|2|NULL|a", "3|3|3|b", "4|4|NULL|b", "5|5|NULL|NULL", "9|NULL|9|c")
+	h.expectError(`SELECT id, it_qf_g.id, it_qf_g2.id, k FROM it_qf_g NATURAL FULL JOIN it_qf_g2 ORDER BY id`,
+		`ORDER BY "id" is ambiguous`)
 	h.expectRows(`SELECT id, w FROM it_qf_g NATURAL FULL JOIN it_qf_g2 WHERE id > 3 ORDER BY id`,
 		"4|NULL", "5|NULL", "9|900")
 	h.expectRows(`SELECT k, COUNT(*) FROM it_qf_g NATURAL FULL JOIN it_qf_g2 GROUP BY k ORDER BY k`,

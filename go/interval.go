@@ -33,7 +33,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/apache/arrow-go/v18/arrow"
 )
@@ -82,38 +81,176 @@ func intervalValue(months, days int64, nanos int64) (Value, error) {
 	return Value{T: typeInterval, Months: int32(months), Days: int32(days), I: nanos}, nil
 }
 
-// accumulator for fractional interval parts, cascading fractions downward
-// like Postgres: a fractional month adds 30 days per month, a fractional day
-// adds 24 hours per day.
-type intervalParts struct {
-	months, days float64
-	nanos        float64
+// An interval literal is read as Postgres 16 reads it (DecodeInterval and
+// DecodeISO8601Interval in src/backend/utils/adt/datetime.c), into an
+// itmIn: each field's integer part is exact, and its fraction cascades
+// into the smaller units as Postgres's does (a month is 30 days, a week 7
+// days and a day 24 hours, and a fraction of a year is whole months),
+// rounded to the microsecond. So a literal's time is whole microseconds, as
+// Postgres's is, though an interval holds nanoseconds.
+
+const (
+	usPerSecond = int64(1_000_000)
+	usPerMinute = 60 * usPerSecond
+	usPerHour   = 60 * usPerMinute
+	usPerDay    = 24 * usPerHour
+)
+
+// itmIn is an interval literal's fields as they are read (Postgres's
+// struct pg_itm_in). Its adjust methods are Postgres's Adjust* functions:
+// they are false if a field overflows.
+type itmIn struct {
+	usec      int64
+	mday      int32
+	mon, year int32
 }
 
-func (p *intervalParts) add(n float64, u intervalUnit) {
-	p.months += n * u.months
-	p.days += n * u.days
-	p.nanos += n * u.nanos
-}
+// literalErr is why a literal can't be read, as Postgres's DTERR codes: a
+// field it can't read (DTERR_BAD_FORMAT), a field outside its range
+// (DTERR_FIELD_OVERFLOW, such as 75 minutes), or a value past the range of
+// an interval.
+type literalErr int
 
-func (p intervalParts) value() (Value, error) {
-	m := math.Trunc(p.months)
-	d := p.days + (p.months-m)*30
-	dd := math.Trunc(d)
-	ns := math.Round(p.nanos + (d-dd)*float64(nsPerDay))
-	for _, f := range []float64{m, dd, ns} {
-		// Go's conversion of a float past int64 (or NaN) to an integer is
-		// platform-dependent: it saturates or wraps.
-		if !(f >= -(1<<63) && f < 1<<63) {
-			return Value{}, stateErr(stateDatetimeRange, "interval out of range")
-		}
+const (
+	litBadFormat literalErr = iota + 1
+	litFieldRange
+	litOutOfRange
+)
+
+func (e literalErr) error(s string) error {
+	switch e {
+	case litBadFormat:
+		return stateErr(stateDatetimeFormat, "invalid interval %q", s)
+	case litFieldRange:
+		return stateErr(stateIntervalField, "interval field value out of range: %q", s)
 	}
-	return intervalValue(int64(m), int64(dd), int64(ns))
+	return stateErr(stateDatetimeRange, "interval out of range")
+}
+
+// mulAddInt64 adds val × m to *sum, and is false if that overflows
+// (int64_multiply_add).
+func mulAddInt64(val, m int64, sum *int64) bool {
+	p := val * m
+	if val != 0 && (p/val != m || (val == -1 && m == math.MinInt64)) {
+		return false
+	}
+	var overflow bool
+	*sum, overflow = addOrSub("+", *sum, p)
+	return !overflow
+}
+
+// addScaled32 adds val × scale to a 32-bit field, and is false if val, the
+// product or the sum doesn't fit in 32 bits (pg_mul_s32_overflow and
+// pg_add_s32_overflow).
+func addScaled32(field *int32, val, scale int64) bool {
+	if val < math.MinInt32 || val > math.MaxInt32 {
+		return false
+	}
+	p := val * scale
+	s := int64(*field) + p
+	if p < math.MinInt32 || p > math.MaxInt32 || s < math.MinInt32 || s > math.MaxInt32 {
+		return false
+	}
+	*field = int32(s)
+	return true
+}
+
+// addMicros adds us microseconds, and is false if that overflows.
+func (it *itmIn) addMicros(us int64) bool { return mulAddInt64(us, 1, &it.usec) }
+
+// adjustFractMicroseconds adds frac × scale microseconds, rounding off the
+// fraction of a microsecond: half of one rounds toward zero.
+func (it *itmIn) adjustFractMicroseconds(frac float64, scale int64) bool {
+	if frac == 0 {
+		return true
+	}
+	// The conversion keeps the product from being fused into an FMA.
+	frac = float64(frac * float64(scale))
+	us := int64(frac)
+	frac -= float64(us)
+	if frac > 0.5 {
+		us++
+	} else if frac < -0.5 {
+		us--
+	}
+	return it.addMicros(us)
+}
+
+// adjustFractDays adds frac × scale days: the whole days, and the rest as
+// microseconds.
+func (it *itmIn) adjustFractDays(frac float64, scale int64) bool {
+	if frac == 0 {
+		return true
+	}
+	frac = float64(frac * float64(scale))
+	extra := int64(frac)
+	return addScaled32(&it.mday, extra, 1) && it.adjustFractMicroseconds(frac-float64(extra), usPerDay)
+}
+
+// adjustFractYears adds frac × scale years as whole months, rounded half to
+// even.
+func (it *itmIn) adjustFractYears(frac float64, scale int64) bool {
+	return addScaled32(&it.mon, int64(math.RoundToEven(frac*float64(scale)*12)), 1)
+}
+
+// adjustMicroseconds adds (val + fval) × scale microseconds.
+func (it *itmIn) adjustMicroseconds(val int64, fval float64, scale int64) bool {
+	return mulAddInt64(val, scale, &it.usec) && it.adjustFractMicroseconds(fval, scale)
+}
+
+func (it *itmIn) adjustDays(val, scale int64) bool  { return addScaled32(&it.mday, val, scale) }
+func (it *itmIn) adjustMonths(val int64) bool       { return addScaled32(&it.mon, val, 1) }
+func (it *itmIn) adjustYears(val, scale int64) bool { return addScaled32(&it.year, val, scale) }
+
+// addUnit adds val + fval of unit u, as DecodeInterval does for a number
+// and its unit.
+func (it *itmIn) addUnit(val int64, fval float64, u intervalUnit) bool {
+	switch {
+	case u.nanos != 0:
+		return it.adjustMicroseconds(val, fval, int64(u.nanos)/1000)
+	case u.days == 1:
+		return it.adjustDays(val, 1) && it.adjustFractMicroseconds(fval, usPerDay)
+	case u.days != 0:
+		return it.adjustDays(val, int64(u.days)) && it.adjustFractDays(fval, int64(u.days))
+	case u.months == 1:
+		return it.adjustMonths(val) && it.adjustFractDays(fval, 30)
+	case u.months == 3:
+		// Postgres has no quarters. A quarter is 3 months, and a fraction
+		// of one 3 times that fraction of a month.
+		if val < math.MinInt32 || val > math.MaxInt32 {
+			return false
+		}
+		m := fval * 3
+		whole := math.Trunc(m)
+		return it.adjustMonths(val*3+int64(whole)) && it.adjustFractDays(m-whole, 30)
+	}
+	years := int64(u.months) / 12
+	return it.adjustYears(val, years) && it.adjustFractYears(fval, years)
+}
+
+// negate negates every field, as "ago" does, and is false if one can't be
+// negated.
+func (it *itmIn) negate() bool {
+	if it.usec == math.MinInt64 || it.mday == math.MinInt32 || it.mon == math.MinInt32 || it.year == math.MinInt32 {
+		return false
+	}
+	it.usec, it.mday, it.mon, it.year = -it.usec, -it.mday, -it.mon, -it.year
+	return true
+}
+
+// value is the interval read. Its years and months together must fit in
+// 32 bits, as in Postgres (itmin2interval), and its time in the driver's
+// int64 nanoseconds.
+func (it itmIn) value() (Value, error) {
+	if it.usec > math.MaxInt64/1000 || it.usec < math.MinInt64/1000 {
+		return Value{}, stateErr(stateDatetimeRange, "interval out of range")
+	}
+	return intervalValue(int64(it.year)*12+int64(it.mon), int64(it.mday), it.usec*1000)
 }
 
 // intervalLiteral parses Postgres interval input: '1 year 2 months 3 days',
 // '1.5 hours', '-2 weeks', '04:05:06.5', '3 04:05:06', '1-2' (years-months),
-// '2 days ago', and ISO 8601 'P1Y2M3DT4H5M6S'.
+// '2 days ago', and ISO 8601 'P1Y2M3DT4H5M6S' and 'P0001-02-03T04:05:06'.
 func intervalLiteral(s string) (Value, error) {
 	in := strings.TrimSpace(s)
 	if in == "" {
@@ -122,7 +259,7 @@ func intervalLiteral(s string) (Value, error) {
 	if in[0] == 'P' || in[0] == 'p' {
 		return isoInterval(in)
 	}
-	var p intervalParts
+	var it itmIn
 	fields := strings.Fields(strings.ToLower(in))
 	ago := false
 	if n := len(fields); n > 0 && fields[n-1] == "ago" {
@@ -131,27 +268,21 @@ func intervalLiteral(s string) (Value, error) {
 	}
 	for i := 0; i < len(fields); i++ {
 		f := fields[i]
+		var e literalErr
 		switch {
 		case strings.Contains(f, ":"):
-			ns, err := parseClockInterval(f)
-			if err != nil {
-				return Value{}, stateErr(stateDatetimeFormat, "invalid interval %q", s)
+			var us int64
+			if us, e = clockMicros(f); e == 0 && !it.addMicros(us) {
+				e = litOutOfRange
 			}
-			p.nanos += ns
 		case isYearMonth(f):
-			neg := strings.HasPrefix(f, "-")
-			ys, ms, _ := strings.Cut(strings.TrimPrefix(f, "-"), "-")
-			y, _ := strconv.ParseFloat(ys, 64)
-			m, _ := strconv.ParseFloat(ms, 64)
-			if neg {
-				y, m = -y, -m
-			}
-			p.months += y*12 + m
+			e = it.addYearMonth(f)
 		default:
 			num, unit := splitNumberUnit(f)
-			n, err := strconv.ParseFloat(num, 64)
-			if err != nil {
-				return Value{}, stateErr(stateDatetimeFormat, "invalid interval %q", s)
+			var val int64
+			var fval float64
+			if val, fval, e = intervalNumber(num); e != 0 {
+				break
 			}
 			if unit == "" && i+1 < len(fields) {
 				if _, ok := intervalUnits[fields[i+1]]; ok {
@@ -172,13 +303,18 @@ func intervalLiteral(s string) (Value, error) {
 			if !ok {
 				return Value{}, stateErr(stateDatetimeFormat, "invalid interval unit %q in %q", unit, s)
 			}
-			p.add(n, u)
+			if !it.addUnit(val, fval, u) {
+				e = litOutOfRange
+			}
+		}
+		if e != 0 {
+			return Value{}, e.error(s)
 		}
 	}
-	if ago {
-		p.months, p.days, p.nanos = -p.months, -p.days, -p.nanos
+	if ago && !it.negate() {
+		return Value{}, litOutOfRange.error(s)
 	}
-	return p.value()
+	return it.value()
 }
 
 func isYearMonth(f string) bool {
@@ -195,6 +331,28 @@ func isYearMonth(f string) bool {
 	return true
 }
 
+// addYearMonth adds a years-months field, [-]y-m, as DecodeInterval does:
+// the months are 0 to 11, and a minus sign applies to both.
+func (it *itmIn) addYearMonth(f string) literalErr {
+	ys, ms, _ := strings.Cut(strings.TrimPrefix(f, "-"), "-")
+	// They are digits, so the only error is ErrRange.
+	y, err := strconv.ParseInt(ys, 10, 64)
+	if err != nil {
+		return litOutOfRange
+	}
+	m, err := strconv.ParseInt(ms, 10, 64)
+	if err != nil || m >= 12 {
+		return litFieldRange
+	}
+	if f[0] == '-' {
+		y, m = -y, -m
+	}
+	if !mulAddInt64(y, 12, &m) || !it.adjustMonths(m) {
+		return litOutOfRange
+	}
+	return 0
+}
+
 func splitNumberUnit(f string) (string, string) {
 	i := 0
 	for i < len(f) && (f[i] == '+' || f[i] == '-' || f[i] == '.' || (f[i] >= '0' && f[i] <= '9')) {
@@ -203,70 +361,377 @@ func splitNumberUnit(f string) (string, string) {
 	return f[:i], f[i:]
 }
 
-// parseClockInterval parses [-]h:mm[:ss[.fff]] into nanoseconds.
-func parseClockInterval(f string) (float64, error) {
-	neg := strings.HasPrefix(f, "-")
-	parts := strings.Split(strings.TrimLeft(f, "+-"), ":")
-	if len(parts) < 2 || len(parts) > 3 {
-		return 0, fmt.Errorf("invalid time %q", f)
+// digitsEnd is the end of the digits in s from i.
+func digitsEnd(s string, i int) int {
+	for i < len(s) && s[i] >= '0' && s[i] <= '9' {
+		i++
 	}
-	var total float64
-	mult := []float64{float64(nsPerHour), float64(nsPerMinute), float64(nsPerSecond)}
-	for i, part := range parts {
-		v, err := strconv.ParseFloat(part, 64)
-		if err != nil {
-			return 0, err
-		}
-		total += v * mult[i]
-	}
-	if neg {
-		total = -total
-	}
-	return total, nil
+	return i
 }
 
-func isoInterval(s string) (Value, error) {
-	var p intervalParts
-	inTime := false
-	num := ""
-	for _, r := range strings.ToUpper(s[1:]) {
-		switch {
-		case r == 'T':
-			inTime = true
-		case unicode.IsDigit(r) || r == '.' || r == '-':
-			num += string(r)
-		default:
-			n, err := strconv.ParseFloat(num, 64)
-			if err != nil {
-				return Value{}, stateErr(stateDatetimeFormat, "invalid interval %q", s)
-			}
-			num = ""
-			var unit string
-			switch {
-			case r == 'Y':
-				unit = "year"
-			case r == 'M' && !inTime:
-				unit = "month"
-			case r == 'W':
-				unit = "week"
-			case r == 'D':
-				unit = "day"
-			case r == 'H':
-				unit = "hour"
-			case r == 'M':
-				unit = "minute"
-			case r == 'S':
-				unit = "second"
-			default:
-				return Value{}, stateErr(stateDatetimeFormat, "invalid interval %q", s)
-			}
-			p.add(n, intervalUnits[unit])
+// intervalNumber reads a number field, [+-]digits[.digits], as
+// DecodeInterval does: its integer part exactly, and its fraction as a
+// double with the number's sign. Unlike Postgres, it reads a sign without
+// an integer part ('-.5').
+func intervalNumber(s string) (int64, float64, literalErr) {
+	sign := 0
+	if s != "" && (s[0] == '+' || s[0] == '-') {
+		sign = 1
+	}
+	n := digitsEnd(s, sign)
+	var val int64
+	var fval float64
+	if n > sign {
+		var err error
+		if val, err = strconv.ParseInt(s[:n], 10, 64); err != nil {
+			return 0, 0, litOutOfRange
+		}
+	} else if len(s) < n+2 {
+		return 0, 0, litBadFormat // no digits
+	}
+	if n < len(s) {
+		var e literalErr
+		if fval, e = fraction(s[n:]); e != 0 {
+			return 0, 0, e
+		}
+		if s[0] == '-' {
+			fval = -fval
 		}
 	}
-	if num != "" {
-		return Value{}, stateErr(stateDatetimeFormat, "invalid interval %q", s)
+	return val, fval, 0
+}
+
+// fraction reads a fraction, "." and digits, as a double (ParseFraction):
+// "." alone is 0.
+func fraction(f string) (float64, literalErr) {
+	if f == "" || f[0] != '.' || digitsEnd(f, 1) != len(f) {
+		return 0, litBadFormat
 	}
-	return p.value()
+	if len(f) == 1 {
+		return 0, 0
+	}
+	v, err := strconv.ParseFloat(f, 64)
+	if err != nil {
+		return 0, litBadFormat
+	}
+	return v, 0
+}
+
+// clockMicros reads a clock field, [+-]h:mm, [+-]mm:ss.f or
+// [+-]h:mm:ss[.f], into microseconds as DecodeTimeForInterval does: the
+// minutes are 0 to 59 and the seconds 0 to 60, and the fraction of a
+// second is rounded to the microsecond, half to even.
+func clockMicros(f string) (int64, literalErr) {
+	neg := f[0] == '-'
+	if f[0] == '+' || f[0] == '-' {
+		f = f[1:]
+	}
+	// field reads the digits at the start of f, and is false if there are
+	// none. Past int64 it is math.MaxInt64, too large for any field.
+	field := func() (int64, bool) {
+		i := digitsEnd(f, 0)
+		n, _ := strconv.ParseInt(f[:i], 10, 64)
+		f = f[i:]
+		return n, i > 0
+	}
+	h, ok := field()
+	if !ok || f == "" || f[0] != ':' {
+		return 0, litBadFormat
+	}
+	f = f[1:]
+	m, ok := field()
+	if !ok {
+		return 0, litBadFormat
+	}
+	var sec, fsec int64
+	var e literalErr
+	switch {
+	case f == "":
+	case f[0] == '.':
+		// mm:ss.f
+		h, m, sec = 0, h, m
+		fsec, e = fractionalSecond(f)
+	case f[0] == ':':
+		f = f[1:]
+		if sec, ok = field(); !ok {
+			return 0, litBadFormat
+		}
+		if f != "" {
+			fsec, e = fractionalSecond(f)
+		}
+	default:
+		return 0, litBadFormat
+	}
+	if e != 0 {
+		return 0, e
+	}
+	if m > 59 || sec > 60 {
+		return 0, litFieldRange
+	}
+	us := fsec
+	if !mulAddInt64(h, usPerHour, &us) || !mulAddInt64(m, usPerMinute, &us) || !mulAddInt64(sec, usPerSecond, &us) {
+		return 0, litOutOfRange
+	}
+	if neg {
+		us = -us
+	}
+	return us, 0
+}
+
+// fractionalSecond reads a fraction of a second as microseconds, rounded
+// half to even (ParseFractionalSecond).
+func fractionalSecond(f string) (int64, literalErr) {
+	frac, e := fraction(f)
+	return int64(math.RoundToEven(frac * 1e6)), e
+}
+
+// isoInterval reads an ISO 8601 interval as Postgres's
+// DecodeISO8601Interval does: with designators ('P1Y2M3DT4H5M6S', with
+// weeks too, and fractions in any field), or in the alternative format
+// ('P0001-02-03T04:05:06', 'P00010203T040506'). Unlike Postgres, it reads
+// lower-case letters too.
+func isoInterval(s string) (Value, error) {
+	fail := func(e literalErr) (Value, error) { return Value{}, e.error(s) }
+	str := strings.ToUpper(s)
+	if len(str) < 2 || str[0] != 'P' {
+		return fail(litBadFormat)
+	}
+	str = str[1:]
+	var it itmIn
+	var val int64
+	var fval float64
+	// number reads the number at the start of str.
+	number := func() literalErr {
+		var e literalErr
+		val, fval, str, e = iso8601Number(str)
+		return e
+	}
+	datePart, haveField := true, false
+	for str != "" {
+		if str[0] == 'T' {
+			// The time part.
+			datePart, haveField = false, false
+			str = str[1:]
+			continue
+		}
+		fieldStart := str
+		if e := number(); e != 0 {
+			return fail(e)
+		}
+		var unit byte // 0 at the end
+		if str != "" {
+			unit, str = str[0], str[1:]
+		}
+		var ok bool
+		if datePart {
+			switch unit {
+			case 'Y':
+				ok = it.adjustYears(val, 1) && it.adjustFractYears(fval, 1)
+			case 'M':
+				ok = it.adjustMonths(val) && it.adjustFractDays(fval, 30)
+			case 'W':
+				ok = it.adjustDays(val, 7) && it.adjustFractDays(fval, 7)
+			case 'D':
+				ok = it.adjustDays(val, 1) && it.adjustFractMicroseconds(fval, usPerDay)
+			case 'T', 0:
+				if iso8601IntegerWidth(fieldStart) == 8 && !haveField {
+					// The alternative format's basic yyyymmdd.
+					if !it.adjustYears(val/10000, 1) || !it.adjustMonths(val/100%100) || !it.adjustDays(val%100, 1) ||
+						!it.adjustFractMicroseconds(fval, usPerDay) {
+						return fail(litOutOfRange)
+					}
+					if unit == 0 {
+						return it.value()
+					}
+					datePart, haveField = false, false
+					continue
+				}
+				fallthrough
+			case '-':
+				// The alternative format's extended y-m-d.
+				if haveField {
+					return fail(litBadFormat)
+				}
+				if !it.adjustYears(val, 1) || !it.adjustFractYears(fval, 1) {
+					return fail(litOutOfRange)
+				}
+				if unit == 0 {
+					return it.value()
+				}
+				if unit == 'T' {
+					datePart, haveField = false, false
+					continue
+				}
+				if e := number(); e != 0 {
+					return fail(e)
+				}
+				if !it.adjustMonths(val) || !it.adjustFractDays(fval, 30) {
+					return fail(litOutOfRange)
+				}
+				if str == "" {
+					return it.value()
+				}
+				if str[0] == 'T' {
+					datePart, haveField = false, false
+					continue
+				}
+				if str[0] != '-' {
+					return fail(litBadFormat)
+				}
+				str = str[1:]
+				if e := number(); e != 0 {
+					return fail(e)
+				}
+				if !it.adjustDays(val, 1) || !it.adjustFractMicroseconds(fval, usPerDay) {
+					return fail(litOutOfRange)
+				}
+				if str == "" {
+					return it.value()
+				}
+				if str[0] == 'T' {
+					datePart, haveField = false, false
+					continue
+				}
+				return fail(litBadFormat)
+			default:
+				return fail(litBadFormat)
+			}
+		} else {
+			switch unit {
+			case 'H':
+				ok = it.adjustMicroseconds(val, fval, usPerHour)
+			case 'M':
+				ok = it.adjustMicroseconds(val, fval, usPerMinute)
+			case 'S':
+				ok = it.adjustMicroseconds(val, fval, usPerSecond)
+			case 0:
+				if iso8601IntegerWidth(fieldStart) == 6 && !haveField {
+					// The alternative format's basic hhmmss.
+					if !it.adjustMicroseconds(val/10000, 0, usPerHour) || !it.adjustMicroseconds(val/100%100, 0, usPerMinute) ||
+						!it.adjustMicroseconds(val%100, 0, usPerSecond) || !it.adjustFractMicroseconds(fval, 1) {
+						return fail(litOutOfRange)
+					}
+					return it.value()
+				}
+				fallthrough
+			case ':':
+				// The alternative format's extended h:m:s.
+				if haveField {
+					return fail(litBadFormat)
+				}
+				if !it.adjustMicroseconds(val, fval, usPerHour) {
+					return fail(litOutOfRange)
+				}
+				if unit == 0 {
+					return it.value()
+				}
+				if e := number(); e != 0 {
+					return fail(e)
+				}
+				if !it.adjustMicroseconds(val, fval, usPerMinute) {
+					return fail(litOutOfRange)
+				}
+				if str == "" {
+					return it.value()
+				}
+				if str[0] != ':' {
+					return fail(litBadFormat)
+				}
+				str = str[1:]
+				if e := number(); e != 0 {
+					return fail(e)
+				}
+				if !it.adjustMicroseconds(val, fval, usPerSecond) {
+					return fail(litOutOfRange)
+				}
+				if str == "" {
+					return it.value()
+				}
+				return fail(litBadFormat)
+			default:
+				return fail(litBadFormat)
+			}
+		}
+		if !ok {
+			return fail(litOutOfRange)
+		}
+		haveField = true
+	}
+	return it.value()
+}
+
+// iso8601Number reads the number at the start of s as ParseISO8601Number
+// does: a double, also in e notation, at most 1e15 in magnitude, as its
+// integer part and fraction. It returns the rest of s.
+func iso8601Number(s string) (int64, float64, string, literalErr) {
+	if s == "" || !(s[0] >= '0' && s[0] <= '9' || s[0] == '-' || s[0] == '.') {
+		return 0, 0, s, litBadFormat
+	}
+	// The longest prefix that strtod reads.
+	i := 0
+	if s[0] == '-' {
+		i = 1
+	}
+	end := digitsEnd(s, i)
+	n := end - i
+	if end < len(s) && s[end] == '.' {
+		e := digitsEnd(s, end+1)
+		n += e - end - 1
+		end = e
+	}
+	if n == 0 {
+		return 0, 0, s, litBadFormat
+	}
+	if end < len(s) && (s[end] == 'E' || s[end] == 'e') {
+		e := end + 1
+		if e < len(s) && (s[e] == '+' || s[e] == '-') {
+			e++
+		}
+		if d := digitsEnd(s, e); d > e {
+			end = d
+		}
+	}
+	v, err := strconv.ParseFloat(s[:end], 64)
+	if err != nil {
+		return 0, 0, s, litBadFormat // past the range of a double
+	}
+	if v < -1e15 || v > 1e15 {
+		return 0, 0, s, litOutOfRange
+	}
+	ip := math.Trunc(v)
+	return int64(ip), v - ip, s[end:], 0
+}
+
+// iso8601IntegerWidth is the number of digits in the integer part of an
+// ISO 8601 number.
+func iso8601IntegerWidth(s string) int {
+	s = strings.TrimPrefix(s, "-")
+	return digitsEnd(s, 0)
+}
+
+// unitCount is n of INTERVAL n UNIT, as an integer part and a fraction: a
+// NUMERIC, and text, as a literal's number is read (intervalNumber), else
+// as a double.
+func unitCount(v Value) (int64, float64, literalErr) {
+	switch v.T.Kind {
+	case KindInt16, KindInt32, KindInt64:
+		return v.I, 0, 0
+	case KindDecimal:
+		return intervalNumber(v.Text())
+	case KindString:
+		if val, fval, e := intervalNumber(strings.TrimSpace(v.S)); e != litBadFormat {
+			return val, fval, e
+		}
+	}
+	n, err := Coerce(v, typeFloat64)
+	if err != nil {
+		return 0, 0, litBadFormat
+	}
+	if !(n.F > -(1<<63) && n.F < 1<<63) { // also NaN
+		return 0, 0, litOutOfRange
+	}
+	ip := math.Trunc(n.F)
+	return int64(ip), n.F - ip, 0
 }
 
 // formatInterval renders an interval like Postgres: "1 year 2 mons 3 days

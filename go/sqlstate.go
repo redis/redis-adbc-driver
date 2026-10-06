@@ -46,6 +46,7 @@ const (
 	stateDivisionByZero      = "22012" // division_by_zero
 	stateFrameOffset         = "22013" // invalid_preceding_or_following_size
 	stateNtile               = "22014" // invalid_argument_for_ntile_function
+	stateIntervalField       = "22015" // interval_field_overflow
 	stateNthValue            = "22016" // invalid_argument_for_nth_value_function
 	stateInvalidParameter    = "22023" // invalid_parameter_value
 	stateEscape              = "22025" // invalid_escape_sequence

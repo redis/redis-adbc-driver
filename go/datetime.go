@@ -648,13 +648,16 @@ func (env *evalEnv) evalDateTimeFunc(f *Func, args []Value) (Value, bool, error)
 		if !ok {
 			return done(Value{}, fmt.Errorf("unknown interval unit %q", args[1].Text()))
 		}
-		n, err := Coerce(args[0], typeFloat64)
-		if err != nil {
+		// n is read as in a literal, rounded to the microsecond.
+		val, fval, e := unitCount(args[0])
+		if e == litBadFormat {
 			return done(Value{}, stateErr(stateInvalidText, "INTERVAL %s needs a number, got %q", strings.ToUpper(args[1].Text()), args[0].Text()))
 		}
-		var p intervalParts
-		p.add(n.F, u)
-		return done(p.value())
+		var it itmIn
+		if e != 0 || !it.addUnit(val, fval, u) {
+			return done(Value{}, stateErr(stateDatetimeRange, "interval out of range"))
+		}
+		return done(it.value())
 	case "AGE":
 		var a, b time.Time
 		var err error

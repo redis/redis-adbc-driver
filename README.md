@@ -2365,6 +2365,26 @@ field, even if later rows have it.
   `SELECT 1/0 FROM t WHERE false` returns no rows
 - `GROUP BY` items are expressions, output positions or aliases, and also
   (as in Postgres) `ROLLUP (…)`, `CUBE (…)`, `GROUPING SETS (…)` and `()`:
+  - A bare name is an input column's before it is an output column's
+    (unlike in `ORDER BY`), as in Postgres. A name no input column has is
+    the output column of that name, also one without an alias, named as
+    for `ORDER BY` (below): after `SELECT upper(v)`, `GROUP BY upper`
+    groups by `upper(v)`; after `SELECT CAST(x AS INTEGER)`, `GROUP BY x`
+    is still the column `x`. Only the query's own FROM items count, not
+    those of the queries around it; a name two of them have (`k` of `JOIN …
+    USING (k)`, where the driver keeps both columns) may also be an output
+    column's. Output columns of the same name must be the same expression,
+    otherwise it is `GROUP BY "a" is ambiguous`, and the one named may not
+    be an aggregate or a window function. Unlike in Postgres, an alias may
+    also be used inside an expression (`GROUP BY lower(u)` after `upper(v)
+    AS u`); a name without an alias may not
+  - **Upgrading from v0.0.12 and earlier:** a bare name matched only
+    aliases, so `GROUP BY upper` after `SELECT upper(v)` was `column
+    "upper" does not exist`, or in a subquery read an enclosing query's
+    column `upper`. Of two aliases of the name the last one was used, where
+    it is now ambiguous. In a join an alias came before an input column of
+    its name, and `GROUP BY k` after `SELECT t.k … JOIN … USING (k)` was
+    `column reference "k" is ambiguous`
   - `ROLLUP (a, b)` is the grouping sets `(a, b), (a), ()`, and `CUBE (a, b)`
     is every subset of its items (at most 12). `GROUPING SETS (…)` lists
     sets, and may contain `ROLLUP`, `CUBE` and `GROUPING SETS`. A
@@ -2441,7 +2461,8 @@ field, even if later rows have it.
   tighter; parenthesized branches may have their own `ORDER BY`/`LIMIT`).
   Columns are matched by position and widened to a common type; NULLs count
   as equal when removing duplicates. `ORDER BY` on the combined result uses
-  output column names or positions. Set operations work anywhere a query
+  output column names (the first branch's, named as in Postgres; see
+  `ORDER BY` below) or positions. Set operations work anywhere a query
   does (subqueries, CTEs, views, CTAS, `INSERT … SELECT`)
 - `WITH RECURSIVE name [(cols)] AS (non-recursive term UNION [ALL]
   recursive term)`, evaluated as in Postgres: the recursive term reads the
@@ -2613,6 +2634,38 @@ field, even if later rows have it.
     returned, since an Arrow struct has one set of fields
 - `ORDER BY … [ASC|DESC] [NULLS FIRST|LAST]`; NULLs sort last by default in
   both directions, except records (see Rows as values)
+  - A bare name is an output column's before it is an input column's, as
+    in Postgres, also when the output column has no alias. Postgres names
+    such a column by its expression: a column by the column, `CAST(x AS
+    t)` and `x::t` by `x` (by the type if `x` has no name: `int4`,
+    `varchar`, `date`), a call by the function (`count`, `upper`; also
+    `extract`, `btrim`, `timezone` for `EXTRACT`, `TRIM` and `AT TIME
+    ZONE`), a scalar subquery by its column, `EXISTS` by `exists`, `CASE`
+    by its `ELSE` (or `case`), a row by `row`, a field `(r).f1` by the
+    field, and an operator or a literal is `?column?`. So after `SELECT
+    CAST(iv AS VARCHAR) FROM t`, `ORDER BY iv` sorts the text, not the
+    interval (and the index can't sort it); `ORDER BY t.iv`, a position or
+    any other expression reads the input.
+    Output columns of the same name must be the same expression (`SELECT
+    a, a … ORDER BY a`), otherwise it is `ORDER BY "a" is ambiguous`, as
+    in `SELECT x::text, x … ORDER BY x`. `DISTINCT ON (…)` names columns
+    the same way (`DISTINCT ON "a" is ambiguous`), and so does `ORDER BY`
+    on a set operation, with the first branch's columns
+  - The result's column is still named by the expression's text
+    (`CAST(iv AS VARCHAR)`, where Postgres says `iv`), and so are the
+    columns of a derived table, CTE or view: `SELECT * FROM (SELECT
+    CAST(iv AS VARCHAR) FROM t) s ORDER BY iv` is `column "iv" does not
+    exist in table "s"`, which Postgres runs
+  - **Upgrading from v0.0.12 and earlier:** a bare name matched an alias,
+    then an input column, so after `SELECT CAST(iv AS VARCHAR)` `ORDER BY
+    iv` and `DISTINCT ON (iv)` used the interval, `SELECT x::text, x …
+    ORDER BY x` and `SELECT a, b AS a … ORDER BY a` sorted by `x` and `b`,
+    and `ORDER BY t.iv` sorted by an alias `iv`. `SELECT DISTINCT CAST(iv
+    AS VARCHAR) … ORDER BY iv` was `for SELECT DISTINCT, ORDER BY
+    expressions must appear in select list`, and `ORDER BY count` after
+    `SELECT COUNT(*)` was `column "count" does not exist` (on a `UNION`,
+    `ORDER BY on a UNION result must use output column names or
+    positions`)
 - Function calls (the functions are listed below) are checked when the
   statement is planned, before any row is read, wherever a call can be:
   the SELECT list, `WHERE`, `GROUP BY`, `HAVING`, `QUALIFY`, `ORDER BY`,
@@ -3266,9 +3319,38 @@ field, even if later rows have it.
     isn't supported.
 - Intervals and date/time arithmetic:
   - `INTERVAL '1 year 2 months 3 days 04:05:06'`, `'1.5 hours'`, `'2 days ago'`,
-    `'3 04:05:06'`, `'1-2'` (years-months), ISO 8601 `'P1Y2M3DT4H'`,
+    `'3 04:05:06'`, `'1-2'` (years-months), ISO 8601 `'P1Y2M3DT4H'` (also
+    in the alternative format, `'P0001-02-03T04:05:06'`),
     `INTERVAL '2' HOUR`, `INTERVAL 7 DAY` / `INTERVAL ? DAY`, and
     `CAST('7 days' AS INTERVAL)`
+    - A literal is read as Postgres 16 reads it. Each field's integer part
+      is exact, and its fraction cascades into the smaller units: a month
+      is 30 days, a week 7 days and a day 24 hours (`'1.5 months'` is `1
+      mon 15 days`, `'0.1 mon'` is `3 days`), and a fraction of a year,
+      decade, century or millennium is whole months, rounded half to even
+      (`'0.125 years'` is `2 mons`). The time is rounded to microseconds,
+      as Postgres's always is, though an interval holds nanoseconds: the
+      fraction of a unit rounds half a microsecond toward zero (`'0.0000015
+      seconds'` is `00:00:00.000001`, `'1.0000005 sec'` is `00:00:01`), and
+      a clock's fraction of a second rounds half to even
+      (`'00:00:00.0000015'` is `00:00:00.000002`). So does `n` in `INTERVAL
+      n UNIT`. Bound and ingested Arrow `month_day_nano_interval` values
+      keep their nanoseconds
+    - A clock with a fraction and two fields is minutes and seconds
+      (`'1:30.5'` is `00:01:30.5`). Its minutes go up to 59 and its seconds
+      to 60, and the months of years-months to 11: past them, it is
+      `interval field value out of range: "1:75:00"`, as in Postgres
+    - **Upgrading from v0.0.12 and earlier:** the fields were summed as
+      nanoseconds in doubles, so a literal's time past about 2,500 hours
+      wasn't exact (`'1000000:00:00.000001'` was `1000000:00:00.000001024`),
+      and digits past microseconds were kept (`'0.0000015 seconds'` was
+      `00:00:00.0000015`). A fraction of a year cascaded into days
+      (`'0.05 years'` was `18 days`; it is `1 mon`), `'1:30.5'` was 1 hour
+      30.5 minutes, `'1:75:00'` and `'1-12'` were accepted, and the ISO 8601
+      alternative format was an error. No literal is exactly -2^63
+      nanoseconds any more: `'-9223372036.854775808 seconds'` rounds to
+      `-2562047:47:16.854776` (Postgres's value), past the nanoseconds'
+      range, so it is "interval out of range"
   - `timestamp ± interval` (a timestamp with time zone adds months and
     days in the session time zone), `date ± interval` (gives a timestamp),
     `date ± integer` (days), `date - date` (days), `timestamp - timestamp`
@@ -3297,9 +3379,9 @@ field, even if later rows have it.
     0), and `/ 0` is "division by zero"
     - An interval's time is nanoseconds here and microseconds in
       Postgres. A time that isn't whole microseconds (a bound or ingested
-      Arrow `month_day_nano_interval`, or a literal with more than 6
-      decimals of a second) counts with its fraction, and the result is
-      whole microseconds, so even `* 1` rounds it: 2.5 µs × 1 is
+      Arrow `month_day_nano_interval`, or the difference of two
+      `TIMESTAMP(9)`s or `TIME(9)`s) counts with its fraction, and the
+      result is whole microseconds, so even `* 1` rounds it: 2.5 µs × 1 is
       `00:00:00.000002`. The result must fit the nanoseconds' range, about
       ±2,562,047 hours, 1000 times shorter than Postgres's
     - The doubles are computed as Postgres does on x86-64. The arm64
