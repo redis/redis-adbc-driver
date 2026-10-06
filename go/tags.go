@@ -131,12 +131,13 @@ func tagLevelOf(v string) string {
 	return ""
 }
 
-// valueTags returns the tags the index holds for a string value.
-func valueTags(v string) []string {
+// valueTags returns the tags the index holds for a string value, split at
+// sep (tagSeparator, or the separator of the application's index).
+func valueTags(v, sep string) []string {
 	if i := strings.IndexByte(v, 0); i >= 0 {
 		v = v[:i]
 	}
-	tags := strings.Split(v, tagSeparator)
+	tags := strings.Split(v, sep)
 	for i, t := range tags {
 		t = strings.Trim(t, tagSpace)
 		if len(t) > maxTagBytes {
@@ -164,12 +165,25 @@ func tagQueryable(tag string) bool {
 // just those rows; ok is false if the tag can't be written in a query.
 func tagLookup(col columnMeta, v string) (lit string, exact, ok bool) {
 	tag := ""
-	for _, t := range valueTags(v) {
+	for _, t := range valueTags(v, col.tagSep()) {
 		if tagQueryable(t) && (!ok || len(t) > len(tag)) {
 			tag, ok = t, true
 		}
 	}
+	if tag == "" && col.App != nil && !col.App.indexEmpty {
+		// A TAG without INDEXEMPTY holds no empty tag, and refuses to
+		// look one up.
+		return "", false, false
+	}
 	return escapeTag(tag), ok && col.tagsExact() && tagLevelOf(v) == "", ok
+}
+
+// tagSep returns the separator of an indexed string column's TAG.
+func (c columnMeta) tagSep() string {
+	if c.App != nil {
+		return c.App.sep
+	}
+	return tagSeparator
 }
 
 // prefixLookup returns the tag prefix, escaped, that a TAG prefix query
@@ -179,8 +193,8 @@ func tagLookup(col columnMeta, v string) (lit string, exact, ok bool) {
 // prefix (@c:{ab\\*} is @c:{ab*}), so they are left out. ok is false if
 // there is no single tag of at least two characters (as RediSearch
 // requires) that a query can write.
-func prefixLookup(prefix string) (lit string, ok bool) {
-	tags := valueTags(prefix)
+func prefixLookup(prefix, sep string) (lit string, ok bool) {
+	tags := valueTags(prefix, sep)
 	if len(tags) != 1 {
 		return "", false
 	}
@@ -210,6 +224,8 @@ func (c columnMeta) tagsExact() bool { return c.tagLevel() == "" }
 // as +Infinity (see nan.go).
 func (c columnMeta) sortsExactly() bool {
 	switch {
+	case !c.inPipeline():
+		return false
 	case c.Type.Kind == KindString:
 		return tagRank(c.tagLevel()) < tagRank(tagsTruncated)
 	case c.Type.Kind.isFloat():
@@ -217,6 +233,11 @@ func (c columnMeta) sortsExactly() bool {
 	}
 	return true
 }
+
+// inPipeline reports whether an FT.AGGREGATE pipeline can use an indexed
+// column's values (APPLY, sorts on a cluster): an attribute of the
+// application's index can't unless it is SORTABLE (see appindex.go).
+func (c columnMeta) inPipeline() bool { return c.App == nil || c.App.sortable }
 
 // initTags records that a new indexed string column has no values yet.
 func (c *columnMeta) initTags() {

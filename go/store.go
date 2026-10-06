@@ -135,6 +135,10 @@ type columnMeta struct {
 	NaNs bool `json:"nans,omitempty"`
 	// Comment is the column's COMMENT ON text (see comment.go).
 	Comment string `json:"comment,omitempty"`
+	// App is what the attribute of the application's index on the column's
+	// field can do, in a table with AppIndex (set for each statement, see
+	// appindex.go).
+	App *appAttr `json:"-"`
 	// label is the name a result column takes from the column when it
 	// differs from Name: joined relations name columns alias.column but
 	// output them as column.
@@ -227,6 +231,10 @@ type tableMeta struct {
 	// field (see inplace.go). Its rows are the HASHes under the prefix whose
 	// key has no ':' after it (isRowKey).
 	KeyRows bool `json:"key_rows,omitempty"`
+	// AppIndex is set for an adopted table that reads its rows through the
+	// application's own search index (IndexName), which the driver never
+	// creates, alters or drops (see appindex.go).
+	AppIndex bool `json:"app_index,omitempty"`
 	// readAt is when the metadata was read (or last found not to be moving),
 	// for the checks in rekey.go.
 	readAt time.Time
@@ -695,6 +703,9 @@ func (s *store) ensureRegistry(ctx context.Context) error {
 			}
 			if err := s.client.SAdd(ctx, prefixesKey, meta.prefix()).Err(); err != nil {
 				return wrapRedis(err, "failed to build the table registry")
+			}
+			if meta.AppIndex {
+				continue // the application's index isn't the driver's to name
 			}
 			if err := s.client.SAdd(ctx, indexesKey, meta.index()).Err(); err != nil {
 				return wrapRedis(err, "failed to build the table registry")
@@ -1308,14 +1319,15 @@ func (s *store) dropTable(ctx context.Context, schema, table string, ifExists bo
 			s.recoverStale(ctx, meta.prefix())
 		}
 		// DD deletes every document the index knows about; an adopted
-		// table's HASHes stay (with the __rowid fields adopt wrote).
-		drop := []any{"FT.DROPINDEX", meta.index(), "DD"}
-		if meta.Adopted {
-			drop = drop[:2]
-		}
-		if err := s.searchDo(ctx, meta.index(), drop...).Err(); err != nil &&
-			!isUnknownIndex(err) {
-			return wrapRedis(err, "failed to drop search index")
+		// table's HASHes stay, and the application's index too (AppIndex).
+		if !meta.AppIndex {
+			drop := []any{"FT.DROPINDEX", meta.index(), "DD"}
+			if meta.Adopted {
+				drop = drop[:2]
+			}
+			if err := s.searchDo(ctx, meta.index(), drop...).Err(); err != nil && !isUnknownIndex(err) {
+				return wrapRedis(err, "failed to drop search index")
+			}
 		}
 		if testHookDropping != nil {
 			testHookDropping()

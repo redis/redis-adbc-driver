@@ -294,7 +294,8 @@ what the application writes (see
 [Existing HASH collections](#existing-hash-collections-redis-adbc)).
 Adopting writes nothing into the HASHes, whatever their keys
 (`user:42`, `user:alice`), and HASHes the application writes later are rows
-too. It creates a second index beside the application's, and an adopted
+too. It reads the rows through the application's own search index when
+that can serve, and otherwise creates a second one, and an adopted
 table refuses `INSERT` and `TRUNCATE`. The driver doesn't touch
 indexes it didn't create, even one with the name a new table's index would
 take (see "Indexes the driver didn't create are left alone" below).
@@ -616,8 +617,9 @@ and says what is missing:
   memory for a second copy of the data.
 - **Adopt.** `redis-adbc adopt` makes the HASHes themselves a driver table:
   SQL reads what the application writes, including HASHes it writes later,
-  without a copy. It writes nothing into the HASHes, and creates a second
-  search index beside the application's. Its columns are only as typed as
+  without a copy. It writes nothing into the HASHes, and reads them through
+  the application's own search index when that can serve (otherwise it
+  creates one in the driver's format). Its columns are only as typed as
   the stored text allows (see [Adopt](#adopt-hashes-in-place) below for
   what an adopted table can't do).
 
@@ -694,12 +696,13 @@ SQL, adopted in place (redis-adbc adopt): READY
   [ok]      every HASH under user: is a row (501)
   [warn]    active is VARCHAR in place (BOOLEAN when copied): the driver stores booleans as 0 and 1
   [warn]    created_at is VARCHAR in place (TIMESTAMP(6) WITH TIME ZONE when copied): the driver stores dates and times as numbers
+  [warn]    the application's index idx:users can't serve: it has had 2 indexing failures, so it may leave HASHes out
   [missing] a search index in the driver's format on user:
             fix: adopt creates idx:public:users:adopted, over the HASHes that are rows, including those the application writes later; it takes memory of its own (the application's idx:users stays as it is, and isn't used)
   [missing] the table's metadata (adbc:{meta}:table:public:users)
             fix: adopt writes it
   [warn]    a write by the application of a value a numeric column can't hold (text, an empty value, NaN) takes that HASH out of the index, and so out of the table
-  [warn]    SQL UPDATE and DELETE change the application's HASHes (an UPDATE that would leave a HASH without fields is refused); INSERT, TRUNCATE, ADD COLUMN and a re-keying RENAME are refused, and DROP TABLE drops only the index and the metadata
+  [warn]    SQL UPDATE and DELETE change the application's HASHes (an UPDATE that would leave a HASH without fields is refused); INSERT, TRUNCATE, ADD COLUMN and a re-keying RENAME are refused, and DROP TABLE drops only the metadata and an index adopt created
   run: redis-adbc adopt -prefix user: -table users
 ```
 
@@ -729,7 +732,9 @@ ready). What the checklists look for:
   their keys (`user:42`, `user:alice`), while keys such as `user:42:prefs`
   are another collection's, and stay out of the table; columns that are
   weaker in place than in a copy; `-type` overrides that some values
-  aren't stored as; what adopt creates; and the hazards below. For a table
+  aren't stored as; the application's index adopt would read the rows
+  through and what its attributes answer, or why none can serve; what
+  adopt creates; and the hazards below. For a table
   that was adopted already, it checks the index's indexing failures, and
   whether redis-adbc v0.0.11 adopted it (see below).
 
@@ -802,7 +807,8 @@ build/redis-adbc adopt -prefix user: -table users -apply
 Adopted: public.users now reads the HASHes under user:, and those the application writes later (index idx:public:users:adopted).
 ```
 
-- **What it does,** in order:
+- **What it does,** in order, when it creates the index (see "The
+  application's index" below for when it doesn't):
   1. Reserve the key prefix and the index name `idx:<schema>:<table>:adopted`
      (no driver table's index can have that name). The transaction checks
      again that no driver table's prefix overlaps the prefix.
@@ -823,6 +829,34 @@ Adopted: public.users now reads the HASHes under user:, and those the applicatio
   record in `adbc:{meta}:adopting`. Running it again with the same `-table`
   finishes it. Adopting HASHes that are an adopted table already does
   nothing.
+- **The application's index.** If a search index of the application's
+  can serve, adopt reads the rows through it, and creates no index of its
+  own (`Adopted: public.users now reads … (through the application's index
+  idx:users)`). The driver never changes or drops that index. It can serve
+  if it is on HASHes, its only prefix is the table's, it has no `FILTER`, no
+  indexing failures and has finished indexing, and it holds a document for
+  every HASH under the prefix (one made with `SKIPINITIALSCAN` may not).
+  Its documents that aren't rows (`user:42:prefs`) are left out by a
+  `FILTER` step in each query. Of several, adopt picks the one with an
+  attribute for the most columns; `-index idx:users` names one, and
+  `-own-index` creates the driver's index instead. Each statement reads
+  the index's attributes (`FT.INFO`), and what runs in the index depends on
+  them:
+
+  | Attribute on the column's field | What runs in the index |
+  |-|-|
+  | `NUMERIC SORTABLE`, on a numeric column | filters, sorts, and aggregates (as on a table's own index) |
+  | `NUMERIC`, on a numeric column | filters; the driver sorts and aggregates |
+  | `TAG`, on a string column | `=`, `IN` and `LIKE 'x%'` find the rows that may match, and the driver checks them: the TAG's separator splits values into tags, and without `CASESENSITIVE` it ignores case. `= ''` needs `INDEXEMPTY`. The driver sorts and groups |
+  | `TEXT`, `GEO`, `VECTOR`, `NOINDEX`, one named with `AS`, or none | nothing: filters on the column read every row |
+
+  `check` lists which columns get which. `-index-columns` picks the columns
+  of an index adopt creates, so it needs `-own-index` when the
+  application's index can serve. If the application drops its index, or
+  changes its prefixes or `FILTER`, statements on the table fail
+  (`"public"."users" reads the application's search index idx:users, which
+  is gone: …`) until it is made again as it was; `DROP TABLE` still works,
+  and leaves the index alone.
 - **Rows** are identified by their keys, which the system column `__key`
   holds: like `__rowid` in other tables, `SELECT *` leaves it out, but
   `SELECT __key` reads it, and `WHERE __key = 'user:42'` reads that HASH
@@ -852,8 +886,9 @@ Adopted: public.users now reads the HASHes under user:, and those the applicatio
     `adbc.redis.rename_rekey` fail with `… isn't supported on
     "public"."users", whose rows are HASHes adopted in place (redis-adbc
     adopt) under "user:"`.
-  - `DROP TABLE` drops the adopted index (without `DD`) and the metadata.
-    The HASHes stay as they are.
+  - `DROP TABLE` drops the adopted index (without `DD`), or none if the
+    table reads the application's, and the metadata. The HASHes stay as
+    they are.
   - `DROP COLUMN` forgets the column. The field stays in the HASHes.
   - No new table may have its rows under an adopted prefix: a schema named
     `user` would put a table's rows under `user:`. `CREATE TABLE` there
@@ -869,7 +904,8 @@ Adopted: public.users now reads the HASHes under user:, and those the applicatio
   - An application write of a value that a numeric column can't hold (text,
     an empty value, `NaN`) takes that HASH out of the index, and so out of
     the table. `FT.INFO` counts it as an indexing failure, and `check`
-    reports it.
+    reports it. With the application's index, a value that one of its
+    `NUMERIC` attributes can't hold does the same.
 
 **Tables adopted by redis-adbc v0.0.11.** v0.0.11 identified an adopted
 table's rows by a `__rowid` field, which it wrote into each HASH whose key
@@ -907,7 +943,9 @@ warns that it can't estimate the memory a copy needs, and goes on.
 ```
 
 A user that only queries an adopted table needs the driver's read-only
-rules, with read access to the collection's keys (`%R~user:*`). One that
+rules, with read access to the collection's keys (`%R~user:*`), and
+`+ft.info` if the table reads the application's index (each statement
+reads its attributes). One that
 updates or deletes its rows needs the driver's rules, write access to the
 keys (`~user:*`), and, for the script that `UPDATE` runs on each HASH:
 

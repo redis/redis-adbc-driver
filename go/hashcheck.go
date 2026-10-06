@@ -296,7 +296,8 @@ func InspectHashes(ctx context.Context, options map[string]string, o HashInspect
 		return nil, err
 	}
 	t := inPlaceTarget{prefix: o.Prefix, schema: r.Schema, table: r.Table, sampled: r.Sampled,
-		command: adoptCommand(o.Prefix, r.Schema, r.Table, c.db.schema, o.Types, o.Renames)}
+		command: adoptCommand(o.Prefix, r.Schema, r.Table, c.db.schema, o.Types, o.Renames),
+		app:     chooseAppIndex(indexes, cols, o.Prefix, r.Keys, "", false)}
 	for _, tm := range tables {
 		if tm.Adopted && tm.prefix() == o.Prefix {
 			t.existing = tm

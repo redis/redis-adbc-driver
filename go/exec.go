@@ -160,6 +160,11 @@ func (e *executor) loadTable(ctx context.Context, t TableName) (*tableMeta, erro
 	if err == nil && meta.Adopted && !meta.KeyRows {
 		return nil, errAdoptedByRowID(meta)
 	}
+	if err == nil && meta.AppIndex {
+		if err := e.store.loadAppIndex(ctx, meta); err != nil {
+			return nil, err
+		}
+	}
 	if err == nil && e.cache != nil {
 		e.cache.loaded = append(e.cache.loaded, meta)
 	}

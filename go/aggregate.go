@@ -36,14 +36,16 @@ import (
 // The fields are loaded last, so only the rows that survive sorting and
 // limiting are read.
 type aggRequest struct {
-	index   string
-	query   string
-	groupBy []any     // raw APPLY/GROUPBY/REDUCE arguments
-	sortBy  []sortKey // index attributes (not used with groupBy)
-	limit   *[2]int64
-	load    []string
-	loadAll bool // also load every HASH field (LOAD *)
-	width   int  // fields per result row, to size cursor pages (0 if small)
+	index string
+	query string
+	// rowFilter keeps the documents that are rows (tableMeta.rowFilter).
+	rowFilter string
+	groupBy   []any     // raw APPLY/GROUPBY/REDUCE arguments
+	sortBy    []sortKey // index attributes (not used with groupBy)
+	limit     *[2]int64
+	load      []string
+	loadAll   bool // also load every HASH field (LOAD *)
+	width     int  // fields per result row, to size cursor pages (0 if small)
 }
 
 // pageRows returns the cursor page size.
@@ -62,6 +64,9 @@ type aggRow map[string]string
 
 func (r *aggRequest) args(maxRows int64) []any {
 	args := []any{"FT.AGGREGATE", r.index, r.query}
+	if r.rowFilter != "" {
+		args = append(args, "LOAD", 1, "@__key", "FILTER", r.rowFilter)
+	}
 	args = append(args, r.groupBy...)
 	if len(r.sortBy) > 0 {
 		// Sort on copies of the keys. LOAD * replaces the fields with their
