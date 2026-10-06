@@ -42,6 +42,10 @@ func describeSteps(steps []alterStep) string {
 			d = "checks of " + c.Def.Name
 		case s.key:
 			d = "primary key of " + c.Def.Name
+		case s.oldChecks:
+			d = "checks again"
+		case c.Action == AlterColumnType:
+			d = "type " + c.Column
 		case c.Action == AlterAddColumn:
 			d = "add " + c.Def.Name
 		case c.Action == AlterDropColumn:
@@ -100,6 +104,12 @@ func TestAlterOrder(t *testing.T) {
 			"drop constraint t_pkey, add c, primary key of c, checks of c"},
 		// dbt's on_schema_change: added, then removed columns.
 		{`alter table t add column "a" int, add column "b" text, drop column "c"`, "drop c, add a, add b"},
+		// ALTER COLUMN … TYPE after the drops, then (once) the CHECKs that
+		// read the columns, before ADD COLUMN.
+		{`ALTER TABLE t ADD COLUMN b int, ALTER COLUMN a TYPE bigint, DROP COLUMN x, ALTER COLUMN v SET DEFAULT 1, ALTER COLUMN v SET DATA TYPE text`,
+			"drop x, type a, type v, checks again, add b, set default v"},
+		{`ALTER TABLE t ALTER COLUMN a SET NOT NULL, ALTER COLUMN a DROP DEFAULT, ALTER COLUMN a TYPE int USING a + 1`,
+			"drop default a, type a, checks again, set not null a"},
 	} {
 		if got := describeSteps(alterOrder(parseAlter(t, c.sql).Cmds)); got != c.want {
 			t.Errorf("%s\n got: %s\nwant: %s", c.sql, got, c.want)
