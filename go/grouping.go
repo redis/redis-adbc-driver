@@ -499,7 +499,7 @@ func (e *executor) planGroupingSets(plan *selectPlan, types map[string]ColType) 
 	r := &groupingRewriter{gp: gp, memo: map[Expr]Expr{}}
 	out.items = make([]planItem, len(plan.items))
 	for i, it := range plan.items {
-		out.items[i] = planItem{expr: r.rewrite(it.expr), name: it.name}
+		out.items[i] = planItem{expr: r.rewrite(it.expr), name: it.name, pgName: it.pgName}
 	}
 	gp.having = r.rewrite(plan.having)
 	out.order = make([]planOrder, len(plan.order))
@@ -710,7 +710,7 @@ func (gp *groupingPlan) setPlan(set []int, input *tableMeta) *selectPlan {
 	if input != nil {
 		sub.meta, sel.Where = input, nil
 	}
-	sel.GroupBy, sel.GroupingSets = nil, nil
+	sel.GroupBy, sel.writtenGroupBy, sel.GroupingSets = nil, nil, nil
 	sel.Having, sel.Qualify, sel.OrderBy, sel.Limit, sel.Offset = nil, nil, nil, nil, nil
 	sel.Distinct, sel.DistinctOn = false, nil
 	sub.items = make([]planItem, 0, len(set)+len(gp.aggs))

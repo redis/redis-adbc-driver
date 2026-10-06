@@ -46,6 +46,7 @@ const (
 	stateDivisionByZero      = "22012" // division_by_zero
 	stateFrameOffset         = "22013" // invalid_preceding_or_following_size
 	stateNtile               = "22014" // invalid_argument_for_ntile_function
+	stateIntervalField       = "22015" // interval_field_overflow
 	stateNthValue            = "22016" // invalid_argument_for_nth_value_function
 	stateInvalidParameter    = "22023" // invalid_parameter_value
 	stateEscape              = "22025" // invalid_escape_sequence
@@ -67,6 +68,7 @@ const (
 	stateSyntax              = "42601" // syntax_error
 	stateDuplicateColumn     = "42701" // duplicate_column
 	stateUndefinedColumn     = "42703" // undefined_column
+	stateGrouping            = "42803" // grouping_error
 	stateDatatypeMismatch    = "42804" // datatype_mismatch
 	stateCannotCoerce        = "42846" // cannot_coerce
 	stateUndefinedFunction   = "42883" // undefined_function
@@ -75,9 +77,11 @@ const (
 	stateWrongObjectType     = "42809" // wrong_object_type
 	stateDuplicateObject     = "42710" // duplicate_object
 	stateUndefinedTable      = "42P01" // undefined_table
+	stateUndefinedParameter  = "42P02" // undefined_parameter
 	stateDuplicateSchema     = "42P06" // duplicate_schema
 	stateDuplicateTable      = "42P07" // duplicate_table
 	stateTableDefinition     = "42P16" // invalid_table_definition
+	stateWindowing           = "42P20" // windowing_error
 	stateQueryCanceled       = "57014" // query_canceled
 )
 
