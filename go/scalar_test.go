@@ -560,8 +560,11 @@ func TestScalarErrors(t *testing.T) {
 		{"REGEXP_REPLACE('a', 'a', 'x', 'z')", `invalid regular expression option "z"`},
 		{"REGEXP_REPLACE('a', 'a', 'x', 'x')", `option "x" is not supported`},
 		{"NULLIF(1, DATE '2024-01-01')", "NULLIF cannot compare"},
-		{"GREATEST(DATE '2024-01-01', CAST(1 AS INTEGER))", "GREATEST types DATE and INTEGER cannot be matched"},
-		{"LEAST('a', 1)", "LEAST types VARCHAR and BIGINT cannot be matched"},
+		{"GREATEST(DATE '2024-01-01', CAST(1 AS INTEGER))", "GREATEST types date and integer cannot be matched"},
+		{"LEAST(CAST('a' AS VARCHAR), 1)", "LEAST types varchar and bigint cannot be matched"},
+		// A quoted literal is read as the other arguments' type.
+		{"LEAST('a', 1)", `invalid input syntax for type bigint: "a"`},
+		{"COALESCE(CAST('a' AS VARCHAR), 1)", "COALESCE types varchar and bigint cannot be matched"},
 		{"ROUND(1, 2, 3)", "ROUND expects 1 or 2 arguments"},
 		{"RANDOM(1)", "RANDOM expects no arguments"},
 		{"GREATEST()", "GREATEST expects at least 1 argument"},

@@ -89,6 +89,9 @@ func TestSQLParameterSchema(t *testing.T) {
 		{"SELECT COALESCE(name, $1) FROM it_par_t", []string{col["name"]}},
 		{"SELECT CASE WHEN qty > $1 THEN name ELSE $2 END FROM it_par_t", []string{col["qty"], col["name"]}},
 		{"SELECT CASE qty WHEN $1 THEN 'x' END FROM it_par_t", []string{col["qty"]}},
+		// A quoted literal takes the others' type, and is text alone.
+		{"SELECT CASE WHEN qty > 1 THEN $1 WHEN qty > 2 THEN '5' ELSE qty END FROM it_par_t", []string{col["qty"]}},
+		{"SELECT COALESCE($1, '0')", []string{str}},
 		// Subqueries: inside one, and its IN operand.
 		{"SELECT name FROM it_par_t WHERE id IN (SELECT k FROM it_par_s WHERE label = $1)", []string{col["label"]}},
 		{"SELECT name FROM it_par_t WHERE $1 IN (SELECT k FROM it_par_s)", []string{col["k"]}},

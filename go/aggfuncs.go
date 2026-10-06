@@ -329,14 +329,13 @@ func (a *accumulator) addRow(env *evalEnv) error {
 		// is '1 mon'.
 		if a.distinct == nil {
 			a.distinct = map[string]bool{}
-			a.argTypes = keyTypes(f.Args, env.types)
 		}
 		var key strings.Builder
-		for i, v := range in[:len(f.Args)] {
+		for _, v := range in[:len(f.Args)] {
 			if v.Null && f.Name == "COUNT" {
 				return nil
 			}
-			writeKey(&key, keyAs(v, a.argTypes[i], env.zone()))
+			writeKey(&key, v)
 		}
 		if a.distinct[key.String()] {
 			return nil

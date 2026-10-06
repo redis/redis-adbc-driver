@@ -143,28 +143,245 @@ func TestIntervalLiteral(t *testing.T) {
 		{"1:30:61", `interval field value out of range: "1:30:61"`},
 		{"75:30.5", `interval field value out of range: "75:30.5"`},
 		{"1-12", `interval field value out of range: "1-12"`},
-		// Postgres: invalid input syntax for type interval.
-		{"1.5:00", `invalid interval "1.5:00"`},
-		{"1:-30:00", `invalid interval "1:-30:00"`},
-		{"P1Y2M3D4H", `invalid interval "P1Y2M3D4H"`},
-		{"P1Y2", `invalid interval "P1Y2"`},
-		{"PT1H2", `invalid interval "PT1H2"`},
+		{"1.5:00", `invalid input syntax for type interval: "1.5:00"`},
+		{"1:-30:00", `invalid input syntax for type interval: "1:-30:00"`},
+		{"P1Y2M3D4H", `invalid input syntax for type interval: "P1Y2M3D4H"`},
+		{"P1Y2", `invalid input syntax for type interval: "P1Y2"`},
+		{"PT1H2", `invalid input syntax for type interval: "PT1H2"`},
 	} {
 		if _, err := intervalLiteral(c.in); err == nil || err.Error() != c.err {
 			t.Errorf("%q: error %v, want %s", c.in, err, c.err)
 		}
 	}
 
-	// INTERVAL 'n' UNIT and INTERVAL n UNIT read n as a literal's number,
-	// and text cast to an interval is a literal.
+	// INTERVAL 'n' UNIT is a literal, and INTERVAL n UNIT reads n as a
+	// literal's number; text cast to an interval is a literal.
 	runScalarCases(t, []scalarCase{
 		{"CAST(INTERVAL '0.0000015' SECOND AS VARCHAR)", "00:00:00.000001", "VARCHAR"},
 		{"CAST(INTERVAL '1.0000005' SECOND AS VARCHAR)", "00:00:01", "VARCHAR"},
 		{"CAST(INTERVAL 1.0000005 SECOND AS VARCHAR)", "00:00:01", "VARCHAR"},
-		{"CAST(INTERVAL 1.5 HOUR AS VARCHAR)", "01:30:00", "VARCHAR"},
-		{"CAST(INTERVAL '1e3' SECOND AS VARCHAR)", "00:16:40", "VARCHAR"},
+		{"CAST(INTERVAL 1e3 SECOND AS VARCHAR)", "00:16:40", "VARCHAR"},
 		{"CAST(CAST('0.0000015 seconds' AS INTERVAL) AS VARCHAR)", "00:00:00.000001", "VARCHAR"},
 	})
+}
+
+// The fields of a literal are read as Postgres's DecodeInterval reads
+// them, from right to left: a number without a unit has that of the number
+// to its right (but days after hours or a clock), a unit given twice is an
+// error, and "ago" anywhere negates them all. The values are Postgres 16's.
+func TestIntervalLiteralFields(t *testing.T) {
+	for _, c := range []struct{ in, want string }{
+		// A number takes its unit from the field to its right.
+		{"1 2 hours", "1 day 02:00:00"},
+		{"1 +02:03", "1 day 02:03:00"},
+		{"1 - 2 hours", "1 day -02:00:00"},
+		{"1-2 years", "1 year 2 mons"},
+		{"1 day 5", "1 day 00:00:05"},
+		{"day 1", "00:00:01"},
+		{"1 hours days", "01:00:00"},
+		{"5", "00:00:05"},
+		// Units given once each, and seconds with a fraction of none.
+		{"1 day 1 week", "8 days"},
+		{"1 decade 1 year", "11 years"},
+		{"1 second 1 millisecond 1 microsecond", "00:00:01.001001"},
+		{"1.0 seconds 1 millisecond", "00:00:01.001"},
+		{"1. seconds", "00:00:01"},
+		// "ago" anywhere, once or more.
+		{"1 day ago 2 hours", "-1 days -02:00:00"},
+		{"2 hours ago ago", "-02:00:00"},
+		{"01:00 ago", "-01:00:00"},
+		// A clock replaces the time of a fraction of a day to its right.
+		{"01:00 1.5 days", "1 day 01:00:00"},
+		{"1:", "01:00:00"},
+		{"1:.5", "00:01:00.5"},
+		{":30", "00:00:30"},
+		{"- 5 hours", "-05:00:00"},
+		{"-1:30", "-01:30:00"},
+		{"1-", "1 year"},
+		// Postgres's units, which compare their first 10 letters, and
+		// punctuation as a separator.
+		{"1 c", "100 years"},
+		{"1 cent", "100 years"},
+		{"1 decs", "10 years"},
+		{"1 mils", "1000 years"},
+		{"1 millenniums", "1000 years"},
+		{"1 mseconds", "00:00:00.001"},
+		{"1 useconds", "00:00:00.000001"},
+		{"1 microsecondsfoo", "00:00:00.000001"},
+		{"1d2h", "1 day 02:00:00"},
+		{"1mon2days", "1 mon 2 days"},
+		{"1y2m", "1 year 00:02:00"},
+		{"1 day, 2 hours", "1 day 02:00:00"},
+		{"@ 1 day", "1 day"},
+		{"1 DAY 2 Hours AGO", "-1 days -02:00:00"},
+		{".5 hours", "00:30:00"},
+		// ISO 8601 numbers are read by strtod: also in hexadecimal.
+		{"P0x10Y", "16 years"},
+		{"PT0x1.8H", "01:30:00"},
+		{"P-0x10D", "-269 years"},
+		{"P0x1p-1074D", "00:00:00"},
+		{"P0e-400D", "00:00:00"},
+	} {
+		v, err := intervalLiteral(c.in)
+		if err != nil {
+			t.Errorf("%q: %v", c.in, err)
+		} else if got := formatInterval(v); got != c.want {
+			t.Errorf("%q = %q, want %q", c.in, got, c.want)
+		}
+	}
+
+	bad := func(s string) string { return `invalid input syntax for type interval: "` + s + `"` }
+	field := func(s string) string { return `interval field value out of range: "` + s + `"` }
+	for _, c := range []struct{ in, err string }{
+		// A unit given twice, a fraction of a second with milliseconds or
+		// microseconds, and two clocks.
+		{"1 day 2 days", bad("1 day 2 days")},
+		{"01:00 02:00", bad("01:00 02:00")},
+		{"2147483647 months 0.5 months", bad("2147483647 months 0.5 months")},
+		{"1.5 seconds 3 microseconds", bad("1.5 seconds 3 microseconds")},
+		{"1 millisecond 1.5 seconds", bad("1 millisecond 1.5 seconds")},
+		{"0.5 microseconds 0.5 microseconds", bad("0.5 microseconds 0.5 microseconds")},
+		{"1 hour 1 hr", bad("1 hour 1 hr")},
+		{"1 hour 01:00", bad("1 hour 01:00")},
+		{"1 2", bad("1 2")},
+		{"1 2 3", bad("1 2 3")},
+		// No units, and a number after "ago".
+		{"ago", bad("ago")},
+		{"1 ago", bad("1 ago")},
+		{"", bad("")},
+		// Driver extensions that Postgres doesn't read: quarters, a sign
+		// without digits, a point before text, lower-case ISO 8601, and
+		// spaces around it.
+		{"1 quarter", bad("1 quarter")},
+		{"1 qtr", bad("1 qtr")},
+		{"-.5 hours", bad("-.5 hours")},
+		{"1.seconds", bad("1.seconds")},
+		{"p1d", bad("p1d")},
+		{"P1d", bad("P1d")},
+		{" P1D", bad(" P1D")},
+		{"P1Y ago", bad("P1Y ago")},
+		// A word that isn't a date keyword reads on into the digits.
+		{"1day2hours", bad("1day2hours")},
+		{"1yr2m", bad("1yr2m")},
+		{"1 microsec", bad("1 microsec")},
+		{"1 timezone", bad("1 timezone")},
+		{"Infinity", bad("Infinity")},
+		{"1e3", bad("1e3")},
+		{"-1:75", bad("-1:75")},
+		{"1/2", bad("1/2")},
+		{"1-2-3", bad("1-2-3")},
+		{"1 +-2", bad("1 +-2")},
+		{"1 day é", bad("1 day é")},
+		// strtod's ERANGE.
+		{"P1e-310D", bad("P1e-310D")},
+		{"P1e400D", bad("P1e400D")},
+		// More than 25 fields, or than interval_in's 256-byte buffer.
+		{strings.Repeat("ago ", 24) + "1 day", bad(strings.Repeat("ago ", 24) + "1 day")},
+		{strings.Repeat("0", 251) + "1 day", bad(strings.Repeat("0", 251) + "1 day")},
+		// A field that overflows its part of the interval.
+		{"2147483648 days", field("2147483648 days")},
+		{"1 day 2147483647 days", field("1 day 2147483647 days")},
+		{"9223372036854775808 us", field("9223372036854775808 us")},
+		{"-9223372036854775808 us ago", field("-9223372036854775808 us ago")},
+		{"1--2", field("1--2")},
+		{"1:75", field("1:75")},
+		{"P2147483648D", field("P2147483648D")},
+		{"P-infD", field("P-infD")},
+		{"P-nanD", field("P-nanD")},
+		{"178956970 years 8 months", "interval out of range"},
+	} {
+		if _, err := intervalLiteral(c.in); err == nil || err.Error() != c.err {
+			t.Errorf("%q: error %v, want %s", c.in, err, c.err)
+		}
+	}
+	for _, s := range []string{strings.Repeat("ago ", 23) + "1 day", strings.Repeat("0", 250) + "1 day"} {
+		if _, err := intervalLiteral(s); err != nil {
+			t.Errorf("%q: %v", s, err)
+		}
+	}
+}
+
+// INTERVAL '…' with fields, or SECOND(p) or INTERVAL(p), is read as
+// Postgres's interval_in reads text for that typmod: its rightmost number
+// without a unit is the last field, and the fields to the right of it are
+// dropped (AdjustIntervalForTypmod). So is INTERVAL n FIELD. The values
+// are Postgres 16's.
+func TestIntervalTypmod(t *testing.T) {
+	cases := []scalarCase{}
+	for _, c := range [][2]string{
+		{"INTERVAL '1.5' HOUR", "01:00:00"},
+		{"INTERVAL '1.5' DAY", "1 day"},
+		{"INTERVAL '1.5' YEAR", "1 year"},
+		{"INTERVAL '1.5' MONTH", "1 mon"},
+		{"INTERVAL '-1.5' HOUR", "-01:00:00"},
+		{"INTERVAL '-90 minutes' HOUR", "-01:00:00"},
+		{"INTERVAL '5' MINUTE", "00:05:00"},
+		{"INTERVAL '1 day 2 hours 30 minutes' HOUR", "1 day 02:00:00"},
+		{"INTERVAL '1 year 2 months 3 days' YEAR", "1 year"},
+		{"INTERVAL '1 year 14 months' YEAR", "2 years"},
+		{"INTERVAL '-1 year -5 months' YEAR", "-1 years"},
+		{"INTERVAL '1 year 2 months 3 days' MONTH", "1 year 2 mons"},
+		{"INTERVAL '100 days' MONTH", "00:00:00"},
+		{"INTERVAL '5 4' HOUR", "5 days 04:00:00"},
+		{"INTERVAL '1:30' MINUTE", "01:30:00"},
+		{"INTERVAL '1-2' YEAR TO MONTH", "1 year 2 mons"},
+		{"INTERVAL '1 year 1.5 months' YEAR TO MONTH", "1 year 1 mon"},
+		{"INTERVAL '5 4' DAY TO HOUR", "5 days 04:00:00"},
+		{"INTERVAL '3 4:05:06.789' DAY TO HOUR", "3 days 04:00:00"},
+		{"INTERVAL '3 4:05:06.789' DAY TO MINUTE", "3 days 04:05:00"},
+		{"INTERVAL '3 4:05:06.789' DAY TO SECOND", "3 days 04:05:06.789"},
+		{"INTERVAL '1:30' HOUR TO MINUTE", "01:30:00"},
+		{"INTERVAL '1:30' MINUTE TO SECOND", "00:01:30"},
+		{"INTERVAL '1 1:30' MINUTE TO SECOND", "1 day 00:01:30"},
+		{"INTERVAL '-1 1:30' MINUTE TO SECOND", "-1 days +00:01:30"},
+		{"INTERVAL '1:30' DAY TO SECOND", "01:30:00"},
+		{"INTERVAL '1.23456' SECOND(2)", "00:00:01.23"},
+		{"INTERVAL '-1.235' SECOND(2)", "-00:00:01.24"},
+		{"INTERVAL '2.5' SECOND(0)", "00:00:03"},
+		{"INTERVAL '1.23456' MINUTE TO SECOND(3)", "00:00:01.235"},
+		{"INTERVAL '1 +02:03:04.5678' DAY TO SECOND(2)", "1 day 02:03:04.57"},
+		{"INTERVAL '1.5 hours' SECOND(0)", "01:30:00"},
+		{"INTERVAL '1' SECOND(7)", "00:00:01"},
+		{"INTERVAL(2) '1.23456'", "00:00:01.23"},
+		{"INTERVAL(0) '1:30.5'", "00:01:31"},
+		{"INTERVAL 'P1DT1H30M' HOUR", "1 day 01:00:00"},
+		// The time is dropped before it must fit in nanoseconds.
+		{"INTERVAL '-2147483648 hour' YEAR", "00:00:00"},
+		{"INTERVAL '999999999 hours' DAY", "00:00:00"},
+		// Not Postgres: INTERVAL n FIELD, also bound, drops the fields to
+		// the field's right too, and text is read for the typmod.
+		{"INTERVAL 1.5 HOUR", "01:00:00"},
+		{"INTERVAL 1.5 DAY", "1 day"},
+		{"INTERVAL 1.9 MINUTE", "00:01:00"},
+		{"INTERVAL CAST('1 day 02:30' AS VARCHAR) HOUR", "1 day 02:00:00"},
+		// Units that aren't a typmod's fields keep their fractions.
+		{"INTERVAL '1.5' HOURS", "01:30:00"},
+		{"INTERVAL 1.5 HOURS", "01:30:00"},
+		{"INTERVAL '1.5' WEEK", "10 days 12:00:00"},
+	} {
+		cases = append(cases, scalarCase{"CAST(" + c[0] + " AS VARCHAR)", c[1], "VARCHAR"})
+	}
+	runScalarCases(t, cases)
+
+	for _, c := range [][2]string{
+		{"INTERVAL '1 2' DAY TO SECOND", `invalid input syntax for type interval: "1 2"`},
+		{"INTERVAL '1 2' HOUR TO MINUTE", `invalid input syntax for type interval: "1 2"`},
+		{"INTERVAL '1 2' YEAR TO MONTH", `invalid input syntax for type interval: "1 2"`},
+		{"INTERVAL '75:30' MINUTE TO SECOND", `interval field value out of range: "75:30"`},
+		{"INTERVAL 'x' HOUR", `invalid input syntax for type interval: "x"`},
+		{"INTERVAL '1' YEAR TO DAY", "syntax error"},
+		{"INTERVAL '1' HOUR TO DAY", "syntax error"},
+		{"INTERVAL '1' MONTH TO SECOND", "syntax error"},
+		{"INTERVAL '1' SECOND(-1)", "syntax error"},
+	} {
+		_, err := ParseScript("SELECT " + c[0])
+		if err == nil {
+			_, _, err = evalTestExpr(t, c[0])
+		}
+		if err == nil || !strings.Contains(err.Error(), c[1]) {
+			t.Errorf("%s: error %v, want %s", c[0], err, c[1])
+		}
+	}
 }
 
 // formatInterval renders the time part's sign once, in front of the clock,
@@ -266,8 +483,8 @@ func TestIntervalRange(t *testing.T) {
 		"INTERVAL 'PT2562048H'",
 		"INTERVAL '2562048:00:00'",
 		"INTERVAL 2562048 HOUR",
-		"INTERVAL 'Infinity' SECOND",
-		"INTERVAL 'NaN' SECOND",
+		"INTERVAL CAST('Infinity' AS DOUBLE PRECISION) SECOND",
+		"INTERVAL CAST('NaN' AS DOUBLE PRECISION) SECOND",
 		// Literals whose time rounds to a microsecond past the
 		// nanoseconds' range (Postgres: 2562047:47:16.854776, and
 		// -2562047:47:16.854776 for MinInt64 nanoseconds).
@@ -397,8 +614,12 @@ func TestIntervalMulDiv(t *testing.T) {
 		"INTERVAL '2562047 hours' * 2":   "interval out of range",
 		"INTERVAL '2562047 hours' / 0.5": "interval out of range",
 	} {
-		if _, _, err := evalTestExpr(t, expr); err == nil || err.Error() != want {
-			t.Errorf("%s: error %v, want %s", expr, err, want)
+		state := stateDatetimeRange
+		if want == "division by zero" {
+			state = stateDivisionByZero
+		}
+		if _, _, err := evalTestExpr(t, expr); err == nil || err.Error() != want || sqlState(err) != state {
+			t.Errorf("%s: error %v (SQLSTATE %q), want %s (%s)", expr, err, sqlState(err), want, state)
 		}
 	}
 }

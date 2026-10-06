@@ -21,7 +21,53 @@ An [ADBC](https://arrow.apache.org/adbc/) driver built on
 with the [ADBC driver validation suite](https://github.com/adbc-drivers/validation).
 It supports SQL queries and Arrow bulk ingestion.
 
-## Tested with
+## Contents
+
+- [Compatibility and validation](#compatibility-and-validation)
+- [Server requirements](#server-requirements)
+  - [Prerequisites](#prerequisites)
+  - [Driver-managed setup](#driver-managed-setup)
+  - [Timeouts](#timeouts)
+  - [URI parameters](#uri-parameters)
+  - [Cancelling a statement](#cancelling-a-statement)
+  - [Error handling](#error-handling)
+  - [ACL users](#acl-users)
+  - [Limitations](#limitations)
+- [Quick start](#quick-start)
+- [Existing HASH collections: `redis-adbc`](#existing-hash-collections-redis-adbc)
+  - [Build and connect](#build-and-connect)
+  - [Check collections](#check-collections)
+  - [Column inference](#column-inference)
+  - [Copy HASHes into a table](#copy-hashes-into-a-table)
+  - [Adopt HASHes in place](#adopt-hashes-in-place)
+  - [ACL permissions for `redis-adbc`](#acl-permissions-for-redis-adbc)
+  - [Sweep leftover rows](#sweep-leftover-rows)
+- [Architecture: hybrid index-row layout](#architecture-hybrid-index-row-layout)
+  - [Rows and indexes](#rows-and-indexes)
+  - [Metadata and key naming](#metadata-and-key-naming)
+  - [Query execution](#query-execution)
+  - [Streamed results](#streamed-results)
+  - [Aggregate pushdown](#aggregate-pushdown)
+- [Supported SQL](#supported-sql)
+  - [Schema objects and DDL](#schema-objects-and-ddl)
+  - [Inserts, parameters, defaults, and constraints](#inserts-parameters-defaults-and-constraints)
+  - [Queries and relational features](#queries-and-relational-features)
+  - [Expressions, aggregates, and functions](#expressions-aggregates-and-functions)
+  - [Additional statements and metadata](#additional-statements-and-metadata)
+  - [Transactions, limitations, and types](#transactions-limitations-and-types)
+- [Options](#options)
+- [Performance](#performance)
+  - [Results](#results)
+  - [Reproduce the benchmark](#reproduce-the-benchmark)
+- [Building and testing](#building-and-testing)
+  - [Validation suite](#validation-suite)
+  - [Go tests](#go-tests)
+  - [Redis Cluster](#redis-cluster)
+  - [Redis Flex](#redis-flex)
+  - [Cross-platform builds and releases](#cross-platform-builds-and-releases)
+  - [Python usage](#python-usage)
+
+## Compatibility and validation
 
 The full validation suite (325 passed, 0 failed) has been run against:
 
@@ -54,7 +100,7 @@ refuses them when it connects; see
 You don't create any indexes or enable any settings yourself. The one hard
 requirement is the Query Engine.
 
-**What you need**
+### Prerequisites
 
 - **Redis with the Query Engine (RediSearch).** It is built into Redis 8.x
   (e.g. the `redis:8.6.2` image). On older versions use Redis Stack, or Redis
@@ -72,9 +118,9 @@ requirement is the Query Engine.
   multi-key transactions never cross slots. A cluster only has database 0;
   on standalone servers only database 0 has been tested.
 - **ACL permissions,** if the database has ACL users: the commands and keys
-  under **ACL users** below.
+  under [ACL users](#acl-users) below.
 
-**What the driver does for you**
+### Driver-managed setup
 
 - `CREATE TABLE` and bulk ingest create the table's index
   (`FT.CREATE idx:<schema>:<table> …`) and its metadata keys. `DROP TABLE`
@@ -89,9 +135,9 @@ requirement is the Query Engine.
 - Every query passes `TIMEOUT 0`, so the server's default search timeout
   (which can return partial results) doesn't apply. You don't need to change
   any `search-*` settings or enable keyspace notifications. The client's own
-  timeouts still apply; see **Timeouts** below.
+  timeouts still apply; see [Timeouts](#timeouts) below.
 
-**Timeouts**
+### Timeouts
 
 The driver's client waits up to 5 minutes for each reply from Redis, and
 to send each command, on standalone servers and clusters alike. Some
@@ -131,7 +177,7 @@ setting:
 - **Earlier versions** (v0.0.7 and before) used go-redis's defaults: 5
   seconds, in effect 10 seconds on a standalone server.
 
-**URI parameters**
+### URI parameters
 
 go-redis parses the URI's query parameters
 (`redis://host:6379/0?pool_size=20&client_name=etl`). The single-endpoint
@@ -159,14 +205,15 @@ error.
   the driver's latest writes yet.
 - **The driver's settings win:** the `username` and `password` options,
   RESP2 (`protocol` has no effect), no `CLIENT SETINFO`, and the timeout
-  options (see **Timeouts**).
+  options (see [Timeouts](#timeouts)).
 - **`client_name`** makes go-redis name every connection with `CLIENT
-  SETNAME`. An ACL user then needs `+client|setname` (see **ACL users**).
+  SETNAME`. An ACL user then needs `+client|setname` (see
+  [ACL users](#acl-users)).
 - **Earlier versions** (v0.0.12 and before) gave the cluster client only
   the URI's credentials, TLS and timeouts, and refused the cluster-only
   parameters as unexpected.
 
-**Cancelling a statement**
+### Cancelling a statement
 
 Cancelling a statement while it executes (`AdbcStatementCancel`;
 `cursor.adbc_cancel()` in Python, from another thread), or cancelling the
@@ -193,11 +240,11 @@ with CANCELLED:
 - **A Go context's deadline** fails the statement the same way, with
   TIMEOUT.
 - **SQLSTATE** `57014` (query_canceled) in both cases, as Postgres reports a
-  cancel and a statement timeout (see **Errors**).
+  cancel and a statement timeout (see [Error handling](#error-handling)).
 - **Earlier versions** (v0.0.11 and before) noticed a cancel only at the
   statement's next Redis command, which then failed with IO.
 
-**Errors**
+### Error handling
 
 An error that Postgres has a SQLSTATE for carries the one Postgres 16
 reports for the same statement: `adbc.Error.SqlState` in Go,
@@ -212,8 +259,8 @@ the Python exception:
 | `NOT NULL` and `CHECK` | `23502`, `23514` | `Integrity` | `IntegrityError` |
 | A table, view, column, function or schema that doesn't exist | `42P01`, `42703`, `42883`, `3F000` | `NotFound` | `ProgrammingError` |
 | A table, view, column, constraint or schema that already exists; a column named twice (in `INSERT` or a `PRIMARY KEY`) | `42P07`, `42701`, `42710`, `42P06` | `AlreadyExists` | `ProgrammingError` |
-| A syntax error; a table definition Postgres refuses (two primary keys, `DROP NOT NULL` of a key column, a column of type record); a type that never converts (`DATE` to `BOOLEAN`); a record where another type is needed (`argument of WHERE must be type boolean, not type record`) | `42601`; `42P16`; `42846` in a cast, `42804` written to a column; `42804` | `InvalidArgument` | `ProgrammingError` |
-| What Postgres doesn't support either (`DATE_BIN` by months, `EXTRACT(day FROM time)`) | `0A000` | `NotImplemented` | `NotSupportedError` |
+| A syntax error; a table definition Postgres refuses (two primary keys, `DROP NOT NULL` of a key column, a column of type record); a type that never converts (`DATE` to `BOOLEAN`); a record where another type is needed (`argument of WHERE must be type boolean, not type record`); values without a common type (`CASE`, `COALESCE`, `UNION`, …; see "Quoted string literals") | `42601`; `42P16`; `42846` in a cast, `42804` written to a column or by `ALTER COLUMN … TYPE`; `42804`; `42804` | `InvalidArgument` | `ProgrammingError` |
+| What Postgres doesn't support either (`DATE_BIN` by months, `EXTRACT(day FROM time)`, `ALTER COLUMN … TYPE` of a column a view reads) | `0A000` | `NotImplemented` | `NotSupportedError` |
 | A cancel, or a Go deadline | `57014` | `Cancelled`, `Timeout` | `OperationalError` |
 
 - **Data exceptions** have Postgres's code for each case: `22P02` for text
@@ -232,10 +279,11 @@ the Python exception:
   arguments (`22013`, `22014`, `22016`), NULL object keys (`22004`) and
   SQL/JSON paths (`2203A`, `22033`, `22039`).
 - **Every path** gives them: queries (also while a streamed result is
-  read), `INSERT`, `UPDATE`, `MERGE`, `DEFAULT`s, bound parameters and bulk
-  ingest. A value written to a column has the column's name in front:
-  `[redis] column "n": invalid input syntax for type integer: "x"`.
-  `TRY_CAST` still returns NULL for a value that doesn't convert.
+  read), `INSERT`, `UPDATE`, `MERGE`, `ALTER COLUMN … TYPE`, `DEFAULT`s,
+  bound parameters and bulk ingest. A value written to a column has the
+  column's name in front: `[redis] column "n": invalid input syntax for type
+  integer: "x"`. `TRY_CAST` still returns NULL for a value that doesn't
+  convert.
 - **Messages** are mostly the driver's: only the SQLSTATE is Postgres's
   (`'abc'::numeric` is `invalid decimal "abc"`, where Postgres says
   `invalid input syntax for type numeric: "abc"`). Text read as an integer
@@ -256,7 +304,7 @@ the Python exception:
   `AlreadyExists` now. `DATE_BIN` by months and `EXTRACT` of a field the
   type doesn't have were `InvalidArgument`.
 
-**ACL users**
+### ACL users
 
 If the database has ACL users, the driver's user needs these commands. The
 lists were checked with users that have exactly these rules, running the Go
@@ -284,7 +332,9 @@ and a 3-shard cluster:
   commands for metadata and rows (`HGETALL` reads pending re-keying
   renames on every connect, and `HEXISTS` checks that a new table's key
   prefix was never released); and `MULTI` / `EXEC` / `WATCH` / `UNWATCH`
-  for metadata transactions.
+  for metadata transactions. `ALTER COLUMN … TYPE`, which rewrites the
+  rows to new keys, needs only these (it copies rows with `HGETALL` and
+  `HSET`, not `DUMP` / `RESTORE`).
 - **Not needed:** `HELLO` and `AUTH` are always allowed. Add `+select` if the
   URI names a database other than 0 (not tested), and `+client|setname` if it
   sets `client_name`.
@@ -323,8 +373,10 @@ ACL SETUSER reader on >password resetchannels %R~adbc:* %R~public:* +ping +info 
   leaves that to the next connection that can write. (Redis's `ACL LOG`
   then shows the refused commands.)
 
-**Key patterns don't cover every search command.** RediSearch commands that
-change indexes declare no keys, so key patterns don't apply to them:
+#### Search commands and key patterns
+
+RediSearch commands that change indexes declare no keys, so key patterns
+don't apply to them:
 
 - **`FT.DROPINDEX … DD`** deletes every row of a table, even for a user that
   may only read the table's keys. `FT.CREATE`, `FT.ALTER` and the
@@ -338,14 +390,18 @@ change indexes declare no keys, so key patterns don't apply to them:
   every index, so such a user sees the other schemas' table names. Check
   this on other Redis versions.
 
-**Errors:** a command the user may not run fails with Redis's `NOPERM`
-error. One that Redis refuses inside a transaction is reported with the
+#### Permission errors
+
+A command the user may not run fails with Redis's `NOPERM` error. One that
+Redis refuses inside a transaction is reported with the
 command and its key, rather than as `EXECABORT Transaction discarded because
 of previous errors`: `failed to create view: NOPERM No permissions to access
 a key ('set' on adbc:{meta}:view:public:v, in a MULTI transaction that Redis
 discarded)`.
 
-**Limitation: the driver doesn't find existing HASHes by itself**
+### Limitations
+
+#### Existing HASH collections need `redis-adbc`
 
 A table exists for the driver only if its metadata key
 (`adbc:{meta}:table:<schema>:<table>`) exists. The metadata names the
@@ -363,7 +419,7 @@ table refuses `INSERT` and `TRUNCATE`. The driver doesn't touch
 indexes it didn't create, even one with the name a new table's index would
 take (see "Indexes the driver didn't create are left alone" below).
 
-**Limitation: Redis Flex databases are not supported yet**
+#### Redis Flex databases are not supported yet
 
 [Redis Flex](https://redis.io/docs/latest/operate/rs/flex/) (formerly Auto
 Tiering) keeps most of a database on SSD, for datasets of a terabyte and
@@ -401,7 +457,7 @@ Releases after v0.0.10 also have the
 [`redis-adbc`](#existing-hash-collections-redis-adbc) command for the same
 platforms.
 
-**1. Start Redis 8.6 and build the driver**
+### 1. Start Redis 8.6 and build the driver
 
 ```bash
 cd go
@@ -409,7 +465,7 @@ docker compose up --detach --wait redis
 make build
 ```
 
-**2. Load the sample data set**
+### 2. Load the sample data set
 
 ```bash
 uv run --project validation python examples/load_sample.py
@@ -424,7 +480,7 @@ This creates two tables in the default `public` schema:
   unit_price NUMERIC(10,2), discount, ordered_at TIMESTAMP WITH TIME ZONE,
   status, notes`. Every column except `notes` is indexed.
 
-**3. Run SQL**
+### 3. Run SQL
 
 `examples/sql.py` runs one statement passed as an argument, or starts an
 interactive prompt (statements end with `;`) when given none:
@@ -638,7 +694,7 @@ COMMENT ON COLUMN events.payload IS 'Raw JSON, as received';
 DROP TABLE events;
 ```
 
-**4. Look at the data in Redis**
+### 4. Inspect the data in Redis
 
 Each row is a plain HASH, and each table has one RediSearch index. A renamed
 table keeps its key names unless `adbc.redis.rename_rekey` is set (see
@@ -691,6 +747,8 @@ application's HASHes: it deletes the rows that writers left under the key
 prefixes of dropped and truncated tables (see [Sweep](#sweep-leftover-rows)
 below).
 
+### Build and connect
+
 Build it from `go`:
 
 ```bash
@@ -712,7 +770,9 @@ the shared library. It connects with `-uri`, else `$REDIS_URI`, else
 `-option key=value` (repeatable) sets a database option, such as
 `-option adbc.redis.read_timeout=30m`. Flags go before anything else.
 
-**Check.** Without `-prefix`, `check` lists the collections it finds: the
+### Check collections
+
+Without `-prefix`, `check` lists the collections it finds: the
 prefixes (up to the last `:`) of HASH keys in a sample of 10,000 keys, the
 prefixes of search indexes on HASHes, and the driver's own tables. With a
 prefix, it reads a sample of the HASHes, guesses the columns (their type in
@@ -801,8 +861,10 @@ ready). What the checklists look for:
   that was adopted already, it checks the index's indexing failures, and
   whether redis-adbc v0.0.11 adopted it (see below).
 
-**How columns are guessed.** Every field becomes a column (`-rename
-field=column` renames one), plus, in a copy, `_key` with each HASH's key
+### Column inference
+
+Every field becomes a column (`-rename field=column` renames one), plus, in
+a copy, `_key` with each HASH's key
 (`-key-column` names it; empty for none). A column's type is the narrowest that fits the
 text of every sampled value, read as a SQL cast reads it:
 
@@ -823,7 +885,9 @@ column's values don't fit the type the rest share, the column is `VARCHAR`,
 and `check` suggests `-type col=TYPE -on-error null`. `-type col=TYPE`
 sets any column's type (SQL type names, as in `CREATE TABLE`).
 
-**Copy.** `copy` takes `check`'s `-prefix`, `-schema`, `-table`, `-sample`,
+### Copy HASHes into a table
+
+`copy` takes `check`'s `-prefix`, `-schema`, `-table`, `-sample`,
 `-key-column`, `-type` and `-rename`, and bulk ingest's `-mode` (`create`,
 the default, `append`, `replace` or `create_append`) and `-index-columns`:
 
@@ -853,9 +917,10 @@ build/redis-adbc copy -prefix user: -table users -type age=BIGINT -on-error null
 - **Memory:** the HASHes are read and ingested in batches of up to 10,000
   rows, whatever the collection's size.
 
-<a id="adopt-hashes-in-place"></a>
-**Adopt.** `adopt` reads every HASH under the prefix, runs the in-place
-checklist on all of them, and prints what it would do. Nothing changes
+### Adopt HASHes in place
+
+`adopt` reads every HASH under the prefix, runs the in-place checklist on
+all of them, and prints what it would do. Nothing changes
 without `-apply`:
 
 ```bash
@@ -970,8 +1035,10 @@ Adopted: public.users now reads the HASHes under user:, and those the applicatio
     reports it. With the application's index, a value that one of its
     `NUMERIC` attributes can't hold does the same.
 
-**Tables adopted by redis-adbc v0.0.11.** v0.0.11 identified an adopted
-table's rows by a `__rowid` field, which it wrote into each HASH whose key
+#### Tables adopted by redis-adbc v0.0.11
+
+v0.0.11 identified an adopted table's rows by a `__rowid` field, which it
+wrote into each HASH whose key
 ended in an integer, and its `adopt -refresh` wrote it into HASHes added
 later. The driver now refuses such a table:
 
@@ -982,8 +1049,10 @@ later. The driver now refuses such a table:
 `DROP TABLE` still works, and `check` and `adopt` say the same. The
 `__rowid` fields stay in the HASHes; they aren't columns, and do no harm.
 
-**ACL users.** `check` needs read access to the collection's keys
-(`%R~user:*`) and to the driver's metadata (`%R~adbc:*`), and these
+### ACL permissions for `redis-adbc`
+
+`check` needs read access to the collection's keys (`%R~user:*`) and to the
+driver's metadata (`%R~adbc:*`), and these
 commands:
 
 ```text
@@ -997,8 +1066,8 @@ commands:
 refuses `FT.INFO` on them), and says how many. Without `MEMORY USAGE`, it
 warns that it can't estimate the memory a copy needs, and goes on.
 
-`copy` and `adopt` need the driver's own rules (see "ACL users" under
-[Server requirements](#server-requirements)). `copy` and `adopt` also need
+`copy` and `adopt` need the driver's own rules (see
+[ACL users](#acl-users)). `copy` and `adopt` also need
 `+scan` and read access to the collection's keys (`%R~user:*`):
 
 ```text
@@ -1016,9 +1085,10 @@ keys (`~user:*`), and, for the script that `UPDATE` runs on each HASH:
 +hlen +eval +evalsha +script|load
 ```
 
-<a id="sweep-leftover-rows"></a>
-**Sweep.** `DROP TABLE`, `TRUNCATE` and a re-keying rename release the
-table's key prefix, and no table takes it again (see "Key prefixes are
+### Sweep leftover rows
+
+`DROP TABLE`, `TRUNCATE` and a re-keying rename release the table's key
+prefix, and no table takes it again (see "Key prefixes are
 never reused" below). Rows can still be left under it, where no table or
 query reads them: those of a writer whose process exited before it found
 out, and of a write of 1,000 rows or fewer that read the metadata within
@@ -1116,6 +1186,8 @@ Deleted 13 HASHes under 2 prefixes.
 └──────────────────────────────▲───────────────────────────────────┘
                                │ direct HMGET (full-row lookup)
 ```
+
+### Rows and indexes
 
 - **Rows** are flat HASHes `<schema>:<table>:<rowid>` holding every column
   (NULL = field absent, except for missing values, below; a hidden `__rowid`
@@ -1233,6 +1305,9 @@ Deleted 13 HASHes under 2 prefixes.
     commands run, and `LIMIT` still runs in the index. Microsecond
     timestamps between 1685 and 2255 never tie, and nanosecond ones only
     within about 256 ns of each other.
+
+### Metadata and key naming
+
 - **Metadata**, all in one hash slot: `adbc:{meta}:table:<schema>:<table>`
   (column types, defaults, missing values, string levels, NaN flags,
   comments, `CHECK` constraints and the primary key as JSON), `adbc:{meta}:seq:*` (row ids),
@@ -1246,22 +1321,25 @@ Deleted 13 HASHes under 2 prefixes.
   name (see "Key prefixes" below).
   `adbc:{meta}:cleanup` lists tables with a dropped-column cleanup in progress.
   `adbc:{meta}:rekey` records renames that are moving a table's rows
-  (`adbc.redis.rename_rekey`), keyed by the old prefix, and
+  (`adbc.redis.rename_rekey`), and `ALTER COLUMN … TYPE`s rewriting them
+  (marked `rewrite`), keyed by the old prefix, and
   `adbc:{meta}:rekey:alive:<id>` (30-second TTL, renewed by the renaming
   connection) shows that the connection doing one is alive. A record taken
   over from a connection that went away is marked `recovering`.
   `adbc:{meta}:released` counts how often each key prefix was released (by
-  `DROP TABLE`, `TRUNCATE` or a re-keying rename), one field per prefix
-  that was ever released; a statement checks it and `adbc:{meta}:prefixes`
-  to tell when its table's rows have moved away. Metadata written by
+  `DROP TABLE`, `TRUNCATE`, a re-keying rename or `ALTER COLUMN … TYPE`),
+  one field per prefix that was ever released; a statement checks it and
+  `adbc:{meta}:prefixes` to tell when its table's rows have moved away.
+  Metadata written by
   v0.0.1 (`adbc:meta:*`, `adbc:schemas`, …) is migrated automatically on
   the first connection.
 - **Key prefixes are never reused.** A table takes the first of
   `<schema>:<table>:`, `<schema>:<table>~2:`, … that no table has had
   before, with the index name of the same N (`idx:<schema>:<table>~2`).
   So a table created again after `DROP TABLE` gets new keys, and so do a
-  table emptied by `TRUNCATE` and a re-keying rename onto a name that a
-  table had before. The reason is writes still running when a table is
+  table emptied by `TRUNCATE`, a table whose rows `ALTER COLUMN … TYPE`
+  rewrote, and a re-keying rename onto a name that a table had before. The
+  reason is writes still running when a table is
   dropped: a statement that read the table's metadata before the `DROP`
   goes on writing rows under the old prefix until it finds out, and those
   rows outlive the `DROP`, which only deletes the rows its index knows
@@ -1289,10 +1367,11 @@ Deleted 13 HASHes under 2 prefixes.
     have passed since they read the metadata, as before, and so do deletes
     of any size, which make no key.
   - A statement whose table was dropped or truncated (or whose rows a
-    re-keying rename moved away) stops and fails: "table … was renamed with
-    its rows moved to new keys, truncated or dropped, while this statement
-    was writing to it; some of its changes may be lost or have gone to
-    another table". If no table has the old prefix any more, it first
+    re-keying rename or `ALTER COLUMN … TYPE` moved away) stops and fails:
+    "table … was renamed with its rows moved to new keys, rewritten by
+    ALTER COLUMN … TYPE, truncated or dropped, while this statement was
+    writing to it; some of its changes may be lost or have gone to another
+    table". If no table has the old prefix any more, it first
     deletes every key it wrote there (one pipelined `DEL` per 1,000 keys).
   - Keys can still be left under the old prefix of a dropped or truncated
     table, where no table or query reads them: when the writing process
@@ -1351,7 +1430,9 @@ Deleted 13 HASHes under 2 prefixes.
   keys. A new connection drops the temporary objects of any owner whose
   alive key has expired, re-checking the key before each object.
 
-How SQL is executed:
+### Query execution
+
+The driver executes SQL as follows:
 
 | Query shape | Execution |
 |-|-|
@@ -1375,7 +1456,7 @@ How SQL is executed:
 | Window functions | Computed by the driver once the rows are known: after WHERE, GROUP BY and HAVING (which still run in the index when they can), before QUALIFY, ORDER BY and LIMIT. Rows are hashed into partitions and each partition is sorted once per distinct PARTITION BY / ORDER BY; frame aggregates add and remove rows as the frame slides (O(1) amortized per row; sums, averages and variances add and subtract exact sums, also of doubles). With `EXCLUDE CURRENT ROW / GROUP / TIES` the frame has a hole, so each row's frame is aggregated afresh (O(frame) per row), as PostgreSQL does; `FIRST_VALUE` / `LAST_VALUE` / `NTH_VALUE` stay O(1), also with `IGNORE NULLS`. A query with window functions never pushes its LIMIT into the index |
 | `CREATE TEMP TABLE` / `VIEW` | Same as a permanent table or view, in the connection's `pg_temp_<id>` schema. Unqualified names are looked up there first (in memory, no extra round trip) |
 | `TRUNCATE` | Like `DROP TABLE` and `CREATE TABLE` with the same metadata: reserves a new key prefix and index name and runs `FT.CREATE` for each table, switches the metadata of every table of the statement to the new names in one `WATCH`/`MULTI` (which also releases the old names), then runs `FT.DROPINDEX <old> DD`, which deletes every row the old index knows about. Statements still writing to the table find out and fail (see "Key prefixes are never reused") |
-| `ALTER TABLE` | Metadata only (optimistic `WATCH`/`MULTI` on the table's metadata, one for all the actions of a statement), plus `FT.INFO` and one `FT.ALTER` for the added columns and a background `HDEL` pass for `DROP COLUMN`. `ADD COLUMN … DEFAULT` records a missing value instead of writing the rows. Adding a `CHECK` (`ADD COLUMN … CHECK`, `ADD CONSTRAINT … CHECK`) or a `NOT NULL` (`ALTER COLUMN … SET NOT NULL`, `ADD COLUMN … NOT NULL` without a default, and the columns of `ADD PRIMARY KEY`) first reads the columns they use from every row, with one `FT.AGGREGATE` cursor scan for all the statement's new constraints, to check them, and when it commits, the rows inserted since (by `__rowid`). With `adbc.redis.rename_rekey`, `RENAME TO` also creates the new name's index, copies every row the old index lists with pipelined `DUMP` / `RESTORE … REPLACE` (a cursor page at a time; one key per command, so it works on a cluster), switches the metadata in one transaction, then runs `FT.DROPINDEX <old> DD` |
+| `ALTER TABLE` | Metadata only (optimistic `WATCH`/`MULTI` on the table's metadata, one for all the actions of a statement), plus `FT.INFO` and one `FT.ALTER` for the added columns and a background `HDEL` pass for `DROP COLUMN`. `ADD COLUMN … DEFAULT` records a missing value instead of writing the rows. Adding a `CHECK` (`ADD COLUMN … CHECK`, `ADD CONSTRAINT … CHECK`) or a `NOT NULL` (`ALTER COLUMN … SET NOT NULL`, `ADD COLUMN … NOT NULL` without a default, and the columns of `ADD PRIMARY KEY`) first reads the columns they use from every row, with one `FT.AGGREGATE` cursor scan for all the statement's new constraints, to check them, and when it commits, the rows inserted since (by `__rowid`). With `adbc.redis.rename_rekey`, `RENAME TO` also creates the new name's index, copies every row the old index lists with pipelined `DUMP` / `RESTORE … REPLACE` (a cursor page at a time; one key per command, so it works on a cluster), switches the metadata in one transaction, then runs `FT.DROPINDEX <old> DD`. `ALTER COLUMN … TYPE` that converts values does the same under the table's own name: `FT.CREATE` of the new names' index with the new attributes, pipelined `HGETALL` of every row the old index lists and `HSET` of each converted row to its new key, one transaction to switch the metadata, then `FT.DROPINDEX <old> DD`; it also scans the views (`SMEMBERS` and `GET` of each one) to find those that read the column |
 | Views | `CREATE VIEW` plans the body without running it, which checks its tables, columns and function calls. Single-table views without GROUP BY/aggregates/window functions/LIMIT are expanded in place: the outer query's filters are rewritten over the base table and run in its index. Other views are computed once per query, like a derived table |
 | Joins | Each table's own WHERE/ON filters run in its index (except on the NULL-supplying side of an outer join). Inner joins are reordered to start from the table with the fewest matches (counted by the index). Equality conditions drive a hash join; when the next table's key is indexed and there are ≤ 1,000 distinct keys, only matching rows are fetched with an index union. The joined rows are then grouped/sorted in memory. `NATURAL JOIN` is an equality join on the common columns, like `USING`. An item whose `ON` can never be true (`ON false`), or that has no rows, isn't read when that settles the result: an inner join is then empty and reads no item, a `LEFT JOIN` keeps the left rows with NULLs for the item, and a `RIGHT JOIN` returns the item's rows without reading the items before it. A FROM-list item after a comma that has a `RIGHT` or `FULL` join is joined on its own, then cross joined with the rows of the items before the comma (see "Commas"), and `WHERE` conditions that read both are applied after that. An `ON` condition with a correlated subquery waits until every item it may read is joined (up to v0.0.12, in an inner join of three or more items it could run before, and `from a join b on true join c on exists (select … where … = c.x)` returned no rows) |
 | `UPDATE … FROM`, `DELETE … USING`, `MERGE` | The target is joined with the other items as above: its own filters (in WHERE, or in MERGE's ON) run in its index, and an equality on an indexed target column is an index lookup join, also through a no-op cast like dbt's `s.id::text = t.id::text`. `MERGE` is source `LEFT JOIN` target, or `FULL JOIN` with `WHEN NOT MATCHED BY SOURCE` clauses (which need every target row); `ON FALSE` reads the target only for those. Changes are then written by row key with pipelined `HSET`/`HDEL`/`DEL`, and new rows like `INSERT` does |
@@ -1415,7 +1496,8 @@ table's size. Other results are built whole before `ExecuteQuery` returns.
   fails). Cancelling the context passed to `ExecuteQuery` (in Go) also
   deletes it, as does cancelling the statement (`AdbcStatementCancel`;
   `cursor.adbc_cancel()` in Python), from any thread: reading the stream
-  then fails with CANCELLED (see **Cancelling a statement**). A read under
+  then fails with CANCELLED (see
+  [Cancelling a statement](#cancelling-a-statement)). A read under
   way first waits for the cursor page it asked for. Redis limits cursors:
   - It deletes one that isn't read for `search-cursor-max-idle` (300
     seconds by default). Reading the stream then fails, with a message
@@ -1456,7 +1538,9 @@ merges the shards' results on the numeric sort values rather than on the
 strings `LOAD *` returns. Rows whose sort values tie as doubles are sorted
 again by the driver (see "Ties in the sort vector" above).
 
-Aggregate pushdown (`adbc.redis.aggregate_pushdown`):
+### Aggregate pushdown
+
+The `adbc.redis.aggregate_pushdown` option controls where aggregates run:
 
 - `exact` (default): pushes COUNT, plus SUM/AVG/MIN/MAX over 16/32-bit
   integer, boolean and date columns, which RediSearch returns exactly, and
@@ -1516,6 +1600,8 @@ order, and `FIRST_VALUE` returns NULL when the group's first row lacks the
 field, even if later rows have it.
 
 ## Supported SQL
+
+### Schema objects and DDL
 
 - `CREATE TABLE [IF NOT EXISTS] t (col TYPE [column_constraint …] [NOINDEX] [COMMENT 'text'], …
   [, table_constraint, …]) [COMMENT [=] 'text']`, where a column constraint
@@ -1615,28 +1701,31 @@ field, even if later rows have it.
   `ADD [COLUMN] [IF NOT EXISTS] c TYPE [column_constraint …] [NOINDEX] [COMMENT 'text']`,
   `DROP [COLUMN] [IF EXISTS] c [CASCADE | RESTRICT]`,
   `ALTER [COLUMN] c {SET DEFAULT expr | DROP DEFAULT | SET NOT NULL | DROP NOT NULL}`,
+  `ALTER [COLUMN] c [SET DATA] TYPE type [USING expr]`,
   `ADD table_constraint`,
-  `DROP CONSTRAINT [IF EXISTS] name [CASCADE | RESTRICT]`. `ALTER COLUMN …
-  TYPE` isn't supported. All of them only change metadata, so they take the
-  same time at any table size (except `RENAME TO` with
-  `adbc.redis.rename_rekey`, and adding a `CHECK`, a `NOT NULL` or a
-  `PRIMARY KEY`, which reads every row first):
+  `DROP CONSTRAINT [IF EXISTS] name [CASCADE | RESTRICT]`. All of them only
+  change metadata, so they take the same time at any table size, except
+  `RENAME TO` with `adbc.redis.rename_rekey` and `ALTER COLUMN … TYPE`,
+  which rewrite every row, and adding a `CHECK`, a `NOT NULL` or a
+  `PRIMARY KEY`, which reads every row first:
   - **Several actions** (dbt's `on_schema_change` and snapshots send
     `alter table t add column "a" …, add column "b" …, drop column "c"`) are
     one change of the table's metadata, made in one `WATCH`/`MULTI`, so
     other statements see the table before all of them or after all of
     them. They run in Postgres's order, each seeing what the ones before it
     did: first the drops (`DROP COLUMN`, `DROP CONSTRAINT`, `DROP DEFAULT`
-    and `DROP NOT NULL`), then `ADD COLUMN`, then `SET NOT NULL`, then the
-    primary keys (`ADD PRIMARY KEY` and `ADD COLUMN … PRIMARY KEY`), then
-    `SET DEFAULT`, the new columns' `CHECK`s and `ADD CONSTRAINT … CHECK`,
-    each group in the order written. So `ADD CONSTRAINT c CHECK (x > 0), ADD
-    COLUMN x … DEFAULT 1` checks the rows with `x`'s default, `DROP COLUMN
-    a, ADD COLUMN a …` gives a new, empty column (also written the other way
-    round), `ALTER COLUMN a SET DEFAULT 1, ADD COLUMN a …` gives the new
-    column a default, `ADD PRIMARY KEY (b), ADD COLUMN b …` makes the new
-    column the key, and `ADD PRIMARY KEY (b), DROP CONSTRAINT t_pkey`
-    replaces the key. An action that runs earlier can't name what the
+    and `DROP NOT NULL`), then `ALTER COLUMN … TYPE` (and the `CHECK`s that
+    read the columns it changes, bound again), then `ADD COLUMN`, then `SET
+    NOT NULL`, then the primary keys (`ADD PRIMARY KEY` and `ADD COLUMN …
+    PRIMARY KEY`), then `SET DEFAULT`, the new columns' `CHECK`s and `ADD
+    CONSTRAINT … CHECK`, each group in the order written. So `ADD
+    CONSTRAINT c CHECK (x > 0), ADD COLUMN x … DEFAULT 1` checks the rows
+    with `x`'s default, `DROP COLUMN a, ADD COLUMN a …` gives a new, empty
+    column (also written the other way round), `ALTER COLUMN a SET DEFAULT
+    1, ADD COLUMN a …` gives the new column a default, `ADD PRIMARY KEY (b),
+    ADD COLUMN b …` makes the new column the key, and `ADD PRIMARY KEY (b),
+    DROP CONSTRAINT t_pkey` replaces the key. An action that runs earlier
+    can't name what the
     statement adds: `ADD COLUMN a …, DROP COLUMN a` and `ADD COLUMN a …
     DEFAULT 9, ALTER COLUMN a DROP DEFAULT` fail with `column "a" of
     relation "t" does not exist`, as in Postgres. Unnamed constraints are
@@ -1670,7 +1759,10 @@ field, even if later rows have it.
     reused). If writing the metadata fails (a concurrent change, "try
     again", or a lost connection), the index keeps attributes that no
     column uses, which is harmless, and a later `ADD COLUMN` doesn't reuse
-    their names.
+    their names. A statement with an `ALTER COLUMN … TYPE` that converts
+    values writes new rows instead, under new keys, and switches to them
+    in one transaction once every row is converted and checked (see
+    below), so it is all or nothing too.
   - **`RENAME TO` and `RENAME COLUMN`** take no list, as in Postgres:
     `ALTER TABLE t RENAME TO u, ADD …` is `syntax error at or near ","`,
     and `ALTER TABLE t ADD …, RENAME …` is `syntax error at or near
@@ -1806,6 +1898,106 @@ field, even if later rows have it.
     default. Rows still being written when the change commits, rows updated
     meanwhile, and rows inserted after a new `CHECK` by a statement that
     read the table before it aren't checked.
+  - `ALTER COLUMN c [SET DATA] TYPE type [USING expr]` converts the
+    column's values, as in Postgres:
+    - **Without `USING`,** the column's value is converted as an `INSERT`
+      converts it, which Postgres allows for these types: a number to any
+      number type, `DATE` to `TIMESTAMP` (either kind), a `TIMESTAMP` to
+      `DATE`, `TIME` or the other `TIMESTAMP`, `TIME` and `INTERVAL` to
+      each other, `TIME` and `TIME WITH TIME ZONE` to each other, a
+      `TIMESTAMP WITH TIME ZONE` to `TIME WITH TIME ZONE`, and any type to a
+      string type. Otherwise it fails with
+      Postgres's `column "c" cannot be cast automatically to type integer;
+      you might need to specify "USING c::integer"`. A string that is too
+      long for a `VARCHAR(n)` or `CHAR(n)` is an error (`value too long for
+      type character varying(2)`), unless the rest is spaces; `USING
+      c::varchar(2)` cuts it.
+    - **`USING expr`** converts an expression over the row instead, which
+      may read any of the table's columns and call functions (`RANDOM()`
+      gives each row its own value), but not use subqueries, parameters,
+      aggregates or window functions (`cannot use subquery in transform
+      expression`, …). Its result is converted as above (`result of USING
+      clause for column "c" cannot be cast automatically to type integer`
+      otherwise; a quoted string literal or `NULL` converts to any type, a
+      cast of one doesn't). It reads the row as it was before the
+      statement: `ALTER COLUMN a TYPE text USING b::text, ALTER COLUMN b
+      TYPE int USING a::int` swaps the values, and `DROP COLUMN b, ALTER
+      COLUMN a TYPE int USING b` reads `b`.
+    - **The rest of the column stays:** its name, `NOT NULL` (a row that
+      the conversion makes NULL fails with `column "c" of relation "t"
+      contains null values`), primary key, comment and `DEFAULT`. The
+      `DEFAULT` must
+      convert too (`default for column "c" cannot be cast automatically to
+      type integer`; drop it first, in the same statement, and set a new one
+      after), and is checked as a new one is. The `CHECK` constraints that
+      read the column are bound again for the new type (one that no longer
+      works fails the statement, `argument of CHECK must be type boolean,
+      not type integer`), and every converted row must pass them.
+    - **Refused, as in Postgres:** a column that a view reads (`cannot alter
+      type of a column used by a view or rule; rule _RETURN on view v
+      depends on column "c"`), even to the same type, and a column whose
+      type changes twice in one statement (`cannot alter type of column "c"
+      twice`). Dependencies aren't recorded, so the views of every schema,
+      and the connection's temporary views, whose text names the table are
+      planned to find the columns they read. Other connections' temporary
+      views aren't checked. `COLLATE` isn't supported (strings compare by
+      their bytes, as with Postgres's `"C"` collation).
+    - **Only the metadata changes** when the values stay as they are: the
+      same type without `USING`, or a `VARCHAR` that gets longer or loses
+      its length (`TEXT`). Postgres doesn't rewrite the table for these
+      either.
+    - **Otherwise every row is rewritten,** as in Postgres, and like
+      `RENAME TO` with `adbc.redis.rename_rekey` (above), to new keys: the
+      table takes new names (`<schema>:<table>~N:` and its index), and
+      every row the old index lists is read (`HGETALL`), converted, checked
+      against `NOT NULL` and the `CHECK`s (also those the statement adds),
+      and written to its new key (`HSET`), pipelined, a cursor page at a
+      time. The new index has the column's new attribute (`NUMERIC` for
+      numbers, dates and times, `TAG` for strings, none for `BYTEA`,
+      `INTERVAL` and `TIME WITH TIME ZONE`), so indexed queries on the
+      column read the new type. One
+      transaction then switches the metadata to the new names, with every
+      action of the statement, and the old index is dropped with its rows
+      (`DD`). The new rows hold only the table's columns: the fields of
+      dropped columns aren't copied (and no cleanup is left), and a column
+      added in the same statement with a `DEFAULT`, or an altered column
+      that had a missing value, gets its value written into every row. This
+      takes time proportional to the number of rows (and 100 ms more), and
+      the table takes twice its memory until the old rows are dropped.
+    - **All or nothing:** a value that doesn't convert, a row that fails a
+      constraint, a cancel (`AdbcStatementCancel`, CANCELLED), the
+      connection's close or a lost connection rolls the change back: the
+      new index is dropped with its rows, and the table is as it was.
+    - **Concurrent statements** are those of a re-keying rename: while the
+      rows are rewritten, writes are refused ("is being altered: ALTER
+      COLUMN … TYPE is rewriting its rows to new keys; try again when that
+      has finished"), as are other `ALTER`s and `TRUNCATE`; readers see the
+      table as it was until the switch; a statement that read the table
+      before and writes, or reads for 100 ms or more, across the rewrite
+      fails ("was renamed with its rows moved to new keys, rewritten by
+      ALTER COLUMN … TYPE, truncated or dropped, while this statement was
+      …"). An `ALTER` (or `COMMENT ON`) that had already started and
+      changes the table meanwhile makes the rewrite fail ("was changed
+      while ALTER COLUMN … TYPE rewrote its rows; try again"), and so does
+      a `DROP TABLE`. If the connection goes away, or can't renew its
+      lease, the next connection to open, or the next statement that
+      changes the table, rolls the rewrite back, as for a rename. It needs
+      no commands beyond the basic ones (see [ACL users](#acl-users)).
+    - **Not supported:** conversions that the driver's `CAST` doesn't make
+      either, such as `TIME` to `INTERVAL` (`cannot convert time value …`),
+      and tables adopted with `redis-adbc adopt`, whose HASHes are the
+      application's. Values convert as the driver's `CAST` converts them,
+      which differs from Postgres in a few places: a `DOUBLE PRECISION`
+      half rounds away from zero to an integer (Postgres rounds to even),
+      `BYTEA` keeps its text as written, and a conversion error has the
+      driver's message (`invalid decimal "abc"`, where Postgres says
+      `invalid input syntax for type integer: "abc"`). As for the other
+      defaults, a `DEFAULT` that the new type can't hold is an error at the
+      `ALTER` (Postgres fails when a row gets it).
+    - **Upgrading from v0.0.12 and earlier:** `ALTER COLUMN … TYPE` was
+      `unsupported ALTER COLUMN action near "TYPE"`. The error of a
+      statement whose table moved away while it was writing or reading now
+      names `ALTER COLUMN … TYPE` among the causes.
   - `ADD COLUMN … CHECK (…)` and `ADD [CONSTRAINT name] CHECK (…)` check
     every existing row first (see Constraints below). `ADD [CONSTRAINT
     name] PRIMARY KEY (cols)` and `ADD COLUMN … PRIMARY KEY` make the key's
@@ -1836,6 +2028,9 @@ field, even if later rows have it.
   - **Errors** are Postgres's: `"v" is not a table` (`COMMENT ON TABLE` on a
     view), `"t" is not a view`, `relation "t" does not exist`, `column "c"
     of relation "t" does not exist`.
+
+### Inserts, parameters, defaults, and constraints
+
 - `INSERT INTO t [(cols)] VALUES (…), (…)` with literals, `?` / `$n`
   parameters or `DEFAULT`, `INSERT INTO t DEFAULT VALUES`, and
   `INSERT INTO t [(cols)] SELECT …` (the query may be parenthesized:
@@ -1899,7 +2094,8 @@ field, even if later rows have it.
     from 1 to 10485760.
   - **Writes:** a value longer than its column's length is an error, `value
     too long for type character varying(3)` (`character(3)` for `CHAR(3)`),
-    with ADBC status `InvalidData` and SQLSTATE `22001` (see **Errors**),
+    with ADBC status `InvalidData` and SQLSTATE `22001` (see
+    [Error handling](#error-handling)),
     unless the characters beyond the length are all spaces, which are cut
     (`'ab    '` is written to a `VARCHAR(3)` as `'ab '`). Every write
     checks it: `INSERT … VALUES`, `INSERT … SELECT`,
@@ -2098,6 +2294,9 @@ field, even if later rows have it.
     metadata removes the key. A NULL in a `NOT NULL` column was `NULL value
     in column "a" violates not-null constraint`; it is now Postgres's `null
     value in column "a" of relation "t" violates not-null constraint`.
+
+### Queries and relational features
+
 - `[WITH [RECURSIVE] name [(cols)] AS (SELECT …), …] SELECT [ALL | DISTINCT | DISTINCT ON (…)] … FROM item {, item |
   [INNER | LEFT | RIGHT | FULL] [OUTER] JOIN item ON … | USING (…) | CROSS JOIN item |
   NATURAL [INNER | LEFT | RIGHT | FULL] [OUTER] JOIN item}
@@ -2299,11 +2498,10 @@ field, even if later rows have it.
     either. So do `SELECT DISTINCT` (which runs as `GROUP BY`), grouping
     sets and `DISTINCT` in aggregates, as window partitions, `DISTINCT ON`,
     set operations and joins already did
-  - A `CASE` or `COALESCE` of a number and a string literal gives values of
-    both kinds (`COALESCE(n, '0')` of an integer `n` is an integer, or the
-    string `'0'`; in Postgres `'0'` is an integer there). They group as the
-    expression's type shows them, so the `0` and the `'0'` are one group,
-    also for `DISTINCT` and window partitions
+  - A `CASE` or `COALESCE` of a number and a string literal gives numbers,
+    as in Postgres (`COALESCE(n, '0')` of an integer `n` is an integer, and
+    its `'0'` the integer 0; see "Quoted string literals"), so a `0` of `n`
+    and the `'0'` are one group, also for `DISTINCT` and window partitions
   - **Upgrading from v0.0.12 and earlier:** `GROUP BY`, `SELECT DISTINCT`
     over plain expressions and `DISTINCT` in aggregates told such values
     apart by their text, so `1 mon` and `30 days` were two groups, and
@@ -2312,6 +2510,24 @@ field, even if later rows have it.
     values could be taken for one when they held NUL bytes (`BYTEA` values,
     or text that was bound or ingested), in `GROUP BY`, `SELECT DISTINCT`,
     set operations and window partitions
+  - Unlike in Postgres, `GROUP BY`, `HAVING` and `QUALIFY` expressions may
+    use the select list's aliases (`HAVING n > 1` after `count(*) AS n`). A
+    bare name is an alias's only if no FROM item of the query has a column
+    of that name, so an input column comes first, also in a join. An
+    enclosing query's column comes after the alias, and a name two FROM
+    items have (`k` of `JOIN … USING (k)`) may be an alias's too. A
+    qualified name (`t.x`) is never an alias's
+  - **Upgrading from v0.0.12 and earlier:** in a join an alias came before
+    an input column of its name in these expressions too, even a qualified
+    one: after `SELECT CAST(x AS INTEGER) AS x … FROM t JOIN u …`,
+    `HAVING x > 1.3`, `HAVING t.x > 1.3` and `GROUP BY t.x` read the alias.
+    And a query planned again (a statement executed again or with
+    parameters, or a subquery in a `GROUP BY` item named by position or
+    alias, as in `GROUP BY 1, 2`) resolved its `GROUP BY` again from the
+    first plan's result: after `SELECT id AS w, max(v) AS id … GROUP BY w`
+    in a subquery, where `id` is an enclosing query's column, `w` had
+    become `id`, which then named the alias `id`: `aggregate functions are
+    not allowed in GROUP BY`
 - **Subqueries of a grouped query** (`GROUP BY`, or aggregates or `HAVING`
   without it) may read only its grouped columns, as in Postgres. That applies
   where the query computes a value per group: the SELECT list, `HAVING`,
@@ -2349,11 +2565,12 @@ field, even if later rows have it.
     `GROUP BY` has the table's primary key.
 - `UNION [ALL]`, `INTERSECT [ALL]`, `EXCEPT [ALL]` (`INTERSECT` binds
   tighter; parenthesized branches may have their own `ORDER BY`/`LIMIT`).
-  Columns are matched by position and widened to a common type; NULLs count
-  as equal when removing duplicates. `ORDER BY` on the combined result uses
-  output column names (the first branch's, named as in Postgres; see
-  `ORDER BY` below) or positions. Set operations work anywhere a query
-  does (subqueries, CTEs, views, CTAS, `INSERT … SELECT`)
+  Columns are matched by position and widened to a common type (a column of
+  quoted literals takes the other branch's type, see "Quoted string
+  literals" below); NULLs count as equal when removing duplicates. `ORDER BY`
+  on the combined result uses output column names (the first branch's, named
+  as in Postgres; see `ORDER BY` below) or positions. Set operations work
+  anywhere a query does (subqueries, CTEs, views, CTAS, `INSERT … SELECT`)
 - `WITH RECURSIVE name [(cols)] AS (non-recursive term UNION [ALL]
   recursive term)`, evaluated as in Postgres: the recursive term reads the
   rows the previous iteration added until it adds none, and `UNION` also
@@ -2457,7 +2674,7 @@ field, even if later rows have it.
     single value
   - A comparison of two rows is rewritten into comparisons of their items,
     so `(k1, k2) = (1, 'x')` runs in the index like `k1 = 1 AND k2 = 'x'`.
-    For `IN`, see "How SQL is executed"
+    For `IN`, see [Query execution](#query-execution).
 - Rows as values: a row that isn't compared with another row is a value of
   type record, Postgres's anonymous record: `SELECT (a, b)`, `ORDER BY (a,
   b)`, `GROUP BY ROW(a, b)`, `DISTINCT`, a row nested in a compared row, a
@@ -2556,6 +2773,9 @@ field, even if later rows have it.
     `SELECT COUNT(*)` was `column "count" does not exist` (on a `UNION`,
     `ORDER BY on a UNION result must use output column names or
     positions`)
+
+### Expressions, aggregates, and functions
+
 - Function calls (the functions are listed below) are checked when the
   statement is planned, before any row is read, wherever a call can be:
   the SELECT list, `WHERE`, `GROUP BY`, `HAVING`, `QUALIFY`, `ORDER BY`,
@@ -2686,10 +2906,10 @@ field, even if later rows have it.
       lo) * p`, `p` being how far the position is from `lo` to `hi`, with
       `interval * n` (see Intervals and date/time arithmetic), as in
       Postgres: `MEDIAN` of `1 year` and `1 mon 1 day 1 sec` is `6 mons 16
-      days -11:59:59.5`. The difference's months and
-      days must fit in 32 bits ("interval out of range"), but its time
-      needn't fit an interval's nanoseconds: `MEDIAN` of `-2000000 hours`
-      and `2000000 hours` is `00:00:00`
+      days -11:59:59.5`. The difference's months and days must fit in 32
+      bits ("interval out of range"), but its time needn't fit an
+      interval's nanoseconds: `MEDIAN` of `-2000000 hours` and `2000000
+      hours` is `00:00:00`
     - **Upgrading from v0.0.12 and earlier:** the interpolation cascaded
       fractions in nanoseconds (that `MEDIAN` was `6 mons 15 days
       12:00:00.5`), and a difference past ±2,562,047 hours was "interval
@@ -2777,7 +2997,8 @@ field, even if later rows have it.
   while computing `x`, and a cast between types that never convert (`DATE`
   to `BOOLEAN`), are still errors. A value that doesn't convert fails with
   `InvalidData` and a class `22` SQLSTATE, and a cast between types that
-  never convert with `InvalidArgument` and `42846` (see **Errors**). A
+  never convert with `InvalidArgument` and `42846` (see
+  [Error handling](#error-handling)). A
   cast to `VARCHAR(n)` or `CHAR(n)` cuts the text to `n` characters, and
   `CHAR(n)` pads it (see String lengths). A
   cast to a `TIME(p)` or `TIMESTAMP(p)` of a lower precision rounds to `p`
@@ -2916,9 +3137,50 @@ field, even if later rows have it.
   arguments are ignored), and `IIF(cond, a, b)` (like `CASE`, only the chosen
   branch is evaluated). `COALESCE`, `GREATEST` and `LEAST` widen their
   arguments to a common type (`COALESCE(int_col, 2.5)` is `NUMERIC`); a
-  string literal, or a number that type holds exactly, takes the other
-  arguments' type (`COALESCE(int_col, 0)` stays `INTEGER`,
+  string literal (see below), or a number that type holds exactly, takes the
+  other arguments' type (`COALESCE(int_col, 0)` stays `INTEGER`,
   `GREATEST(d, '2024-01-01')` is a `DATE`)
+- Quoted string literals (`'1'`, `$$1$$`) have no type of their own, as in
+  Postgres (its `unknown`): where an expression's value is one of several
+  values, a literal among them takes the type of the others, and is text if
+  all are. So `CASE WHEN id = 1 THEN '1' ELSE 1 END` is a `BIGINT`, whose
+  `'1'` is the integer 1: arithmetic, sorting, grouping, `DISTINCT`, window
+  partitions and index queries see integers. These are the results of
+  `CASE` and `IIF`, the arguments of `COALESCE`, `GREATEST` and `LEAST`,
+  `LAG`'s and `LEAD`'s default, `NULLIF`'s arguments (`NULLIF('1', int_col)`
+  is an `INTEGER`), and a column of the branches of `UNION`, `INTERSECT`
+  and `EXCEPT` (`SELECT '1' UNION SELECT 1` is a `BIGINT`), also in `CREATE
+  TABLE … AS` and views. A cast gives a literal a type (`CAST('1' AS
+  VARCHAR)`, `'1'::text`).
+  - **Errors,** as in Postgres, when the statement is planned, also if no
+    row reads the value: a literal that isn't a value of the type (`CASE
+    WHEN … THEN 'x' ELSE 1 END` is `invalid decimal "x"`; Postgres:
+    `invalid input syntax for type integer: "x"`; both `22P02`), and typed
+    values without a common type, such as a `VARCHAR` column and an
+    integer (`CASE WHEN … THEN v ELSE 1 END` is `CASE types bigint and
+    varchar cannot be matched`, `42804`, and so for `COALESCE`, `GREATEST`,
+    `LEAST` and `IIF`). A `CASE` of literals alone is text, so
+    `COALESCE(CASE WHEN … THEN '1' END, 1)` is such an error too.
+  - **Differences:** the literal is read as `CAST` reads text, so `'1.5'`
+    as an integer is 2 where Postgres fails. A `CASE` whose results are all
+    `NULL` has no type, as `NULL` has, so `COALESCE(CASE WHEN … THEN NULL
+    END, '2', 1)` is 2 (Postgres's `CASE` is text: `COALESCE types text and
+    integer cannot be matched`). Arithmetic doesn't type a literal (`'1' +
+    1` is an error; Postgres: 2). Comparisons read text as the other side's
+    type, and `INSERT`, `UPDATE` and casts convert it to theirs, as before.
+  - **Upgrading from v0.0.12 and earlier:** results change type. Such a
+    `CASE`, `IIF`, `NULLIF` or `LAG` was a `VARCHAR`, whose other values
+    weren't converted (`CASE WHEN id = 1 THEN '1' ELSE 1 END` gave the text
+    `'1'` and the integer 1), so its column, and the column `CREATE TABLE …
+    AS` made of it, is now a `BIGINT` (or the other values' type), `+ 1` of
+    it works, and `COUNT(DISTINCT …)`, `DISTINCT` and window partitions see
+    one value where they saw two. `COALESCE`, `GREATEST` and `LEAST` had
+    the type already, but gave a literal's text where the other arguments
+    were NULLs without a type (`COALESCE(CASE WHEN … THEN n END, '0')` gave
+    `'0'`, so `+ 1` of it failed), and `GREATEST('1', '2', 3)` and `SELECT
+    '1' UNION SELECT 1` were `types VARCHAR and BIGINT cannot be matched`.
+    Typed values without a common type gave a `VARCHAR` column of values of
+    both types, and are now an error: cast them (`CAST(n AS VARCHAR)`)
 - Functions return NULL for a NULL argument, except `COALESCE`, `NULLIF`,
   `GREATEST`, `LEAST` and `IIF`. Functions of constants are computed once,
   so `WHERE n > ROUND(?)` is still an index query; functions over columns are
@@ -3207,10 +3469,10 @@ field, even if later rows have it.
     local-time literal is text without an offset that is cast to a
     timestamp with time zone or a time with time zone (`TIMESTAMPTZ '…'`,
     `'…'::timestamptz`, `TIMETZ '…'`, `'…'::timetz`) or read as one:
-    compared with one (also in `IN`, `BETWEEN` and a `CASE` operand), an
-    argument of `COALESCE`, `GREATEST`, `LEAST` or `NULLIF` with one, the
-    operand of `AT TIME ZONE` and `AT LOCAL`, and the `DEFAULT` of such a
-    column. A time with time zone is stored with the offset the zone has
+    compared with one (also in `IN`, `BETWEEN` and a `CASE` operand), a
+    result of a `CASE` or `IIF` or an argument of `COALESCE`, `GREATEST`,
+    `LEAST` or `NULLIF` with one, the operand of `AT TIME ZONE` and `AT
+    LOCAL`, and the `DEFAULT` of such a column. A time with time zone is stored with the offset the zone has
     that day (`'10:00'` in New York in July is `'10:00:00-04'`), as
     Postgres stores `'10:00:00-04'::time with time zone`. The conversions
     the definition makes when it runs read the zone of the session that
@@ -3244,8 +3506,9 @@ field, even if later rows have it.
   - `INTERVAL '1 year 2 months 3 days 04:05:06'`, `'1.5 hours'`, `'2 days ago'`,
     `'3 04:05:06'`, `'1-2'` (years-months), ISO 8601 `'P1Y2M3DT4H'` (also
     in the alternative format, `'P0001-02-03T04:05:06'`),
-    `INTERVAL '2' HOUR`, `INTERVAL 7 DAY` / `INTERVAL ? DAY`, and
-    `CAST('7 days' AS INTERVAL)`
+    `INTERVAL '2' HOUR`, `INTERVAL '1-2' YEAR TO MONTH`, `INTERVAL '1.5'
+    SECOND(0)`, `INTERVAL(0) '1.5'`, `INTERVAL 7 DAY` / `INTERVAL ? DAY`,
+    and `CAST('7 days' AS INTERVAL)`
     - A literal is read as Postgres 16 reads it. Each field's integer part
       is exact, and its fraction cascades into the smaller units: a month
       is 30 days, a week 7 days and a day 24 hours (`'1.5 months'` is `1
@@ -3263,6 +3526,52 @@ field, even if later rows have it.
       (`'1:30.5'` is `00:01:30.5`). Its minutes go up to 59 and its seconds
       to 60, and the months of years-months to 11: past them, it is
       `interval field value out of range: "1:75:00"`, as in Postgres
+    - The fields are read from right to left, as in Postgres, so that a
+      unit comes before its number: a number without a unit has the unit
+      of the number to its right, but after hours or a clock it is days
+      (`'1 2 hours'` is `1 day 02:00:00`, `'1-2 years'` is `1 year 2
+      mons`), and the rightmost is seconds (`'1 day 5'` is `1 day
+      00:00:05`). Each unit is given once: `'1 day 2 days'`, `'01:00
+      02:00'` and `'1.5 seconds 3 microseconds'` (a fraction of a second is
+      its milliseconds and microseconds too) are `invalid input syntax for
+      type interval: "…"`, as is `'1 2'`. `ago` may be anywhere (`'1 day
+      ago 2 hours'` is `-1 days -02:00:00`). The units are Postgres's, which
+      include `c`, `cent`, `dec`, `mil`, `usecond` and `msecond`, and
+      punctuation between fields is a separator (`'@ 1 day, 2 hours'`).
+      An ISO 8601 number is read as C's `strtod` reads it, also in
+      hexadecimal (`'P0x10Y'` is `16 years`)
+    - With fields (`INTERVAL '…' HOUR`, `DAY TO MINUTE`, `MINUTE TO SECOND`
+      and Postgres's other qualifiers), the rightmost number without a
+      unit is the last field, and the fields after it are dropped, the
+      time truncated toward zero, as in Postgres: `INTERVAL '1.5' HOUR` is
+      `01:00:00`, `INTERVAL '1 day 02:30' HOUR` is `1 day 02:00:00`, and
+      `INTERVAL '1:30' MINUTE TO SECOND` is `00:01:30`. `SECOND(p)` and
+      `INTERVAL(p) '…'` round the time to `p` decimals, half away from
+      zero. `INTERVAL n HOUR` and `INTERVAL ? HOUR` drop them too
+      (`INTERVAL 1.5 HOUR` is `01:00:00`)
+    - **Differences from Postgres:** `INTERVAL n UNIT` with an expression,
+      and `INTERVAL 'n' UNIT` with a unit that isn't a qualifier's field
+      (`HOURS`, `WEEK`, `QUARTER`), which keeps its fraction (`INTERVAL
+      '1.5' HOURS` is `01:30:00`), are driver extensions; Postgres reads
+      `INTERVAL '1.5' hours` as an interval of 1.5 seconds named `hours`.
+      The qualifier of a column or a cast (`CAST(x AS INTERVAL HOUR)`) is
+      ignored
+    - **Upgrading from v0.0.12 and earlier:** the fields were read from
+      left to right and added up: `'1 2 hours'` was `02:00:01`, `'1 2'`
+      `00:00:03`, `'1-2 years'` an error, and a unit given twice was
+      summed (`'1 day 2 days'` was `3 days`). The driver also read
+      quarters (`'1 quarter'` was `3 mons`), lower-case ISO 8601
+      (`'p1d'`), ISO 8601 text with spaces around it (`CAST(' P1D' AS
+      INTERVAL)`), `'1.seconds'`, `'-.5 hours'`, `'ago'` (`00:00:00`) and
+      `'1 ago'`, and `ago` only at the end, but not `'1 c'`, `'1d2h'` or
+      `'@ 1 day'`. `INTERVAL '1.5' HOUR` and `INTERVAL 1.5 HOUR` were
+      `01:30:00`, `INTERVAL '1 day 02:30' HOUR` was "INTERVAL HOUR needs a
+      number", `INTERVAL '1e3' SECOND` was `00:16:40`, and any units were
+      accepted around `TO` (`YEAR TO DAY`). Text that isn't an interval
+      was `invalid interval "…"` (with the same SQLSTATE, 22007), and a
+      field past its part of the interval (`'2147483648 days'`) was
+      "interval out of range" (22008), not `interval field value out of
+      range: "…"` (22015)
     - **Upgrading from v0.0.12 and earlier:** the fields were summed as
       nanoseconds in doubles, so a literal's time past about 2,500 hours
       wasn't exact (`'1000000:00:00.000001'` was `1000000:00:00.000001024`),
@@ -3410,6 +3719,9 @@ field, even if later rows have it.
     `JSON_TABLE`), `JSONB_SET` and the other modification functions,
     `JSON_ARRAY(SELECT …)`, and a JSON column type (a RedisJSON-backed one
     is possible future work)
+
+### Additional statements and metadata
+
 - `SELECT` without `FROM` for literal expressions
 - `information_schema` (read-only, built from the driver's metadata when
   queried): `schemata`, `tables` (`BASE TABLE` / `VIEW` / `LOCAL TEMPORARY`,
@@ -3489,6 +3801,9 @@ field, even if later rows have it.
   read in the `RETURNING` list of `UPDATE … FROM`, `DELETE … USING` or
   `MERGE` (as in any join), and `merge_action()` can't be called inside a
   subquery
+
+### Transactions, limitations, and types
+
 - Transactions and settings. The driver is autocommit only: every statement
   commits on its own. SQL written for Postgres still sends transaction
   control and `SET` (dbt sends a literal `commit;` before hooks that run
@@ -3653,8 +3968,8 @@ field, even if later rows have it.
       precision, which is 6, when they differ). So `CREATE TABLE … AS` and
       views keep the precision of a column or cast they select. Arithmetic
       (`ts + INTERVAL '1 second'`), functions, aggregates and a text
-      literal in `COALESCE` have none, as in Postgres, and have the unit's
-      digits (a `TIMESTAMP(3)` for a `TIMESTAMP(2)`)
+      literal in `CASE` or `COALESCE` have none, as in Postgres, and have
+      the unit's digits (a `TIMESTAMP(3)` for a `TIMESTAMP(2)`)
     - `TIMESTAMP(p) '…'`, `TIMESTAMP(p) WITH TIME ZONE '…'`,
       `TIMESTAMPTZ(p) '…'` and `TIME(p) '…'` are the text cast to the type
     - Text with more than 6 digits read into a type of 6 or fewer is read
@@ -3695,25 +4010,29 @@ clients can see a partly applied statement.
 
 | Option | Level | Meaning |
 |-|-|-|
-| `uri` | database | `redis://[user:pass@]host:port/db`, or `rediss://…` for TLS, with go-redis's query parameters (see **URI parameters** under [Server requirements](#server-requirements)) |
+| `uri` | database | `redis://[user:pass@]host:port/db`, or `rediss://…` for TLS, with go-redis's query parameters (see [URI parameters](#uri-parameters)) |
 | `username`, `password` | database | Credentials (override the URI) |
 | `adbc.redis.address`, `adbc.redis.db` | database | Used when no URI is given |
 | `adbc.redis.cluster` | database | `auto` (default) / `true` / `false`: OSS Cluster API client or single endpoint |
 | `adbc.redis.default_schema` | database | Schema for unqualified names (default `public`). `SET search_path` and the ADBC current schema change it for one connection; `RESET search_path` goes back to it |
 | `adbc.redis.aggregate_pushdown` | database, statement | `exact` / `all` / `none` |
 | `adbc.redis.rename_rekey` | database, connection | `false` (default): `RENAME TO` only changes metadata. `true`: it also moves the rows and index to the new name's keys, in time proportional to the number of rows, and the table refuses changes meanwhile (see `ALTER TABLE`). The connection option overrides the database's |
-| `adbc.redis.read_timeout` | database, connection | How long the client waits for each reply: `30s`, `10m`, … or a number of seconds; `0` for no timeout. Default `5m`, or the URI's `read_timeout` (see **Timeouts** under [Server requirements](#server-requirements)). The connection option overrides the database's |
+| `adbc.redis.read_timeout` | database, connection | How long the client waits for each reply: `30s`, `10m`, … or a number of seconds; `0` for no timeout. Default `5m`, or the URI's `read_timeout` (see [Timeouts](#timeouts)). The connection option overrides the database's |
 | `adbc.redis.write_timeout` | database, connection | How long the client waits to send each command, in the same format. Default: the read timeout, or the URI's `write_timeout` |
 | `adbc.redis.ingest.index_columns` | statement | Comma-separated columns to index on bulk ingest (`*` = all indexable) |
 | `adbc.redis.stream_results` | database, statement | `true` (default): [stream](#streamed-results) the results of queries that can be. `false`: build every result whole before `ExecuteQuery` returns. The statement option overrides the database's |
 | `adbc.redis.stream_batch_rows` | database, statement | Rows per record batch of a streamed result (default 65,536). A result that fits in the first batch is returned whole. Also an integer option on the statement |
 | `adbc.redis.time_zone` | database, connection | The session time zone, with the values `SET TIME ZONE` takes (default `UTC`; see Session time zone), and what `RESET timezone` and `SET TIME ZONE DEFAULT` go back to. The connection option overrides the database's and replaces a `SET`'s value; reading it gives the current value, as `SHOW timezone` does |
 
+### Scale considerations
+
 Scale tips: keep column names short (they are repeated in every HASH), raise
 `hash-max-listpack-entries` / `hash-max-listpack-value` so small rows use the
 compact encoding, and index only the columns you filter or aggregate on.
 
 ## Performance
+
+### Benchmark setup
 
 Measured with `go/examples/bench.py` (see below) on the sample data set
 scaled to **100,000 `sales` rows × 10 columns** and 50 `customers`.
@@ -3723,6 +4042,8 @@ warm-up, measured in Python and including the Arrow transfer; "Redis
 commands" are counted with `INFO commandstats` on the standalone server (a
 cluster adds the shard fan-out, `_FT.AGGREGATE` / `_FT.CURSOR`). Numbers on a
 laptop vary from run to run; treat them as orders of magnitude.
+
+### Results
 
 Bulk ingest (`adbc_ingest`): 100,000 rows in 1.6 s standalone (62,000 rows/s)
 and 0.56 s on a 3-shard cluster (180,000 rows/s).
@@ -3746,6 +4067,8 @@ and 0.56 s on a 3-shard cluster (180,000 rows/s).
 | `GROUP BY` of an expression `SUM(quantity * unit_price)` | 5 | 494 | 549 | 12 |
 | `GROUP BY DATE_TRUNC('month', ts)` | 12 | 499 | 542 | 12 |
 | Full scan, `SELECT *` | 100,000 | 679 | 825 | 13 |
+
+### Interpretation
 
 What drives the numbers:
 
@@ -3830,6 +4153,8 @@ What drives the numbers:
   (as long as the model itself) and 2.7 s; `select * from t where false
   limit 0` took 1.4 s, and now 0.5 ms.
 
+### Potential optimizations
+
 Known ways to make the slow cases faster (not done yet):
 
 - `COUNT(*)` with a `LIKE` prefix, and `COUNT(*)` on a lazy view, still read
@@ -3851,7 +4176,9 @@ Known ways to make the slow cases faster (not done yet):
   (`@c:[v v]`) can hold the exact one; the driver could read those, as an
   `ORDER BY … LIMIT` reads a tie.
 
-To reproduce (from `go`, with a Redis running):
+### Reproduce the benchmark
+
+From `go`, with Redis running:
 
 ```bash
 REDIS_URI=redis://localhost:6379/0 uv run --project validation --with redis python examples/bench.py --rows 100000
@@ -3861,6 +4188,8 @@ The script **replaces** the `sales` and `customers` tables with benchmark data;
 run `examples/load_sample.py` afterwards to get the quick-start data back.
 
 ## Building and testing
+
+### Validation suite
 
 See the [Quick start](#quick-start) for building. To run the ADBC validation
 suite against the local Redis:
@@ -3878,6 +4207,8 @@ an empty database: the suite leaves its test tables (`test_*`, `getobjects*`,
 ```bash
 REDIS_URI='rediss://default:<password>@<host>:<port>/0' uv run pytest -v tests/
 ```
+
+### Go tests
 
 SQL features beyond the validation suite (CASE, HAVING, CTAS, …) have Go
 integration tests with exact expected results. They need a running Redis and
@@ -3904,13 +4235,14 @@ Some tests need more:
 
 - **The ACL tests** (`TestACL…`) create ACL users `it_acl_*` and delete them
   afterwards, so the user needs the `ACL` command. To run the whole suite as
-  a user with only the driver's commands (see **ACL users** under
-  [Server requirements](#server-requirements)), set `REDIS_URI` to that user
-  and `REDIS_ADMIN_URI` to one that can do everything: the tests' own checks
-  use it (`KEYS`, `ACL`, …).
+  a user with only the driver's commands (see [ACL users](#acl-users)), set
+  `REDIS_URI` to that user and `REDIS_ADMIN_URI` to one that can do
+  everything: the tests' own checks use it (`KEYS`, `ACL`, …).
 - **`TestTimeoutServerPaused`** pauses the server (`CLIENT PAUSE`, on one
   shard of a cluster) for about half a minute, so it only runs with
   `REDIS_PAUSE_TESTS=1`. Run it against a test server only.
+
+### Redis Cluster
 
 To test against a local 3-shard Redis Cluster (from `go`):
 
@@ -3921,6 +4253,8 @@ docker compose --profile cluster up --detach --wait redis-cluster
 ```bash
 cd validation && REDIS_URI=redis://localhost:7001/0 uv run pytest -v tests/
 ```
+
+### Redis Flex
 
 To test against Redis Flex, `flex-setup.sh` (from `go`) starts a
 single-node Redis Software cluster with flash storage in Docker. It then
@@ -3944,6 +4278,8 @@ REDIS_FLEX_URI=redis://localhost:12000/0 go test -run TestFlex ./...
 
 Remove the cluster with `docker compose --profile flex down redis-flex`.
 Name the service: without it, `down` also removes the `redis` container.
+
+### Cross-platform builds and releases
 
 To build the Linux library (on Linux or a Mac, with Docker), run
 `build-linux.sh` from `go` with `amd64` or `arm64`. It writes
@@ -3983,7 +4319,9 @@ leaves it out. v0.0.8 and v0.0.9 got their binaries this way: their
 gh workflow run release.yml -f tag=v0.0.8 -f skip=TestScalarTrigonometry
 ```
 
-Using the driver from Python:
+### Python usage
+
+Use the driver from Python through the ADBC driver manager:
 
 ```python
 import adbc_driver_manager.dbapi as dbapi

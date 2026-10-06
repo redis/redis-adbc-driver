@@ -214,7 +214,10 @@ type tableMeta struct {
 	// RekeyTo is set while RENAME TO moves the rows to a new key prefix (the
 	// one named here), and writes are refused. PrefixGen is how often the
 	// key prefix had been released when the table took it (see rekey.go).
+	// Rewriting is set with RekeyTo when the move is ALTER COLUMN … TYPE
+	// rewriting the rows under the same name (see alter_type.go).
 	RekeyTo   string `json:"rekey_to,omitempty"`
+	Rewriting bool   `json:"rewriting,omitempty"`
 	PrefixGen int64  `json:"prefix_gen,omitempty"`
 	// Comment is the table's COMMENT ON text (see comment.go).
 	Comment string `json:"comment,omitempty"`
