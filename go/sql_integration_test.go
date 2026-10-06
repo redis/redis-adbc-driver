@@ -1295,6 +1295,11 @@ func TestSQLIntervals(t *testing.T) {
 		str(`INTERVAL '1 day' + INTERVAL '2 hours'`)+`, `+str(`3 * INTERVAL '20 minutes'`)+`,
 		INTERVAL '1 day' = INTERVAL '24 hours', INTERVAL '1 month' > INTERVAL '29 days'`,
 		"2 days 12:00:00|00:15:00|-1 days|1 day 02:00:00|01:00:00|true|true")
+	// * and / as in Postgres: a month's fraction becomes days rounded to
+	// millionths of a day, and the time is rounded to microseconds.
+	h.expectRows(`SELECT `+str(`INTERVAL '1 sec' / 3`)+`, `+str(`INTERVAL '1 mon' / 7`)+`, `+str(`INTERVAL '1 mon 3 days' / 4`)+`, `+
+		str(`INTERVAL '1 mon' * 0.1`),
+		"00:00:00.333333|4 days 06:51:25.6896|8 days 06:00:00|3 days")
 
 	// AGE (the Postgres documentation example) and EXTRACT from intervals.
 	h.expectRows(`SELECT `+str(`AGE(TIMESTAMP '2001-04-10 00:00:00', TIMESTAMP '1957-06-13 00:00:00')`)+`, `+
@@ -1323,6 +1328,10 @@ func TestSQLIntervals(t *testing.T) {
 		t.Errorf("interval column type = %s", dt)
 	}
 	h.expectRows(`SELECT data_type FROM information_schema.columns WHERE table_name = 'it_iv_ctas' AND column_name = 'since'`, "INTERVAL")
+	h.expectRows(`SELECT id, `+str(`since / 7`)+`, `+str(`since * 0.1`)+`, `+str(`1.5 * since`)+`, `+str(`since / id`)+
+		` FROM it_iv_ctas ORDER BY id`,
+		"1|01:42:51.428571|01:12:00|18:00:00|12:00:00", "2|06:51:25.714286|04:48:00|3 days|1 day",
+		"3|1 day 14:55:42.857142|1 day 03:15:00|16 days 24:45:00|3 days 18:50:00", "4|NULL|NULL|NULL|NULL")
 	_, schema = h.query(`SELECT CURRENT_TIMESTAMP - INTERVAL '7 days', DATE '2024-01-01' + INTERVAL '1 day'`)
 	if s := schema.String(); !strings.Contains(s, "timestamp[us, tz=UTC]") || !strings.Contains(s, "timestamp[us]") {
 		t.Errorf("arithmetic result types = %s", s)
@@ -1368,6 +1377,40 @@ func TestSQLIntervalBind(t *testing.T) {
 	// Jan 31 + 1 month = Feb 29 (leap year), + 1 day = Mar 1, + 1 hour.
 	if want := "2024-03-01 01:00:00|00:01:30"; got != want {
 		t.Errorf("bound intervals: got %q, want %q", got, want)
+	}
+
+	// A bound interval's nanoseconds count in * and /, and the result is
+	// whole microseconds, half to even: 2.5 µs × 1 is 2, 7.501 µs / 3 is 3
+	// (and a month / 3 is 10 days). Without them, it keeps its nanoseconds.
+	if err := st.SetSqlQuery(h.ctx, `SELECT CAST(? AS VARCHAR), CAST(CAST(? AS INTERVAL) * 1 AS VARCHAR),
+			CAST(CAST(? AS INTERVAL) / 3 AS VARCHAR)`); err != nil {
+		t.Fatal(err)
+	}
+	ivs := make([]arrow.Array, 3)
+	for i, v := range []arrow.MonthDayNanoInterval{{Nanoseconds: 1500}, {Nanoseconds: 2500}, {Months: 1, Nanoseconds: 7501}} {
+		b := array.NewMonthDayNanoIntervalBuilder(mem)
+		b.Append(v)
+		ivs[i] = b.NewArray()
+		b.Release()
+	}
+	rec = array.NewRecordBatch(arrow.NewSchema([]arrow.Field{
+		{Name: "a", Type: arrow.FixedWidthTypes.MonthDayNanoInterval},
+		{Name: "b", Type: arrow.FixedWidthTypes.MonthDayNanoInterval},
+		{Name: "c", Type: arrow.FixedWidthTypes.MonthDayNanoInterval},
+	}, nil), ivs, 1)
+	if err := st.Bind(h.ctx, rec); err != nil {
+		t.Fatal(err)
+	}
+	rdr2, _, err := st.ExecuteQuery(h.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rdr2.Release()
+	rdr2.Next()
+	r = rdr2.RecordBatch()
+	got = r.Column(0).ValueStr(0) + "|" + r.Column(1).ValueStr(0) + "|" + r.Column(2).ValueStr(0)
+	if want := "00:00:00.0000015|00:00:00.000002|10 days 00:00:00.000003"; got != want {
+		t.Errorf("bound nanosecond intervals: got %q, want %q", got, want)
 	}
 }
 

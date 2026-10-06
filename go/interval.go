@@ -386,39 +386,91 @@ func negateInterval(v Value) (Value, error) {
 	return intervalValue(-int64(v.Months), -int64(v.Days), -v.I)
 }
 
-func scaleInterval(v Value, f float64) (Value, error) {
-	if math.IsNaN(f) || math.IsInf(f, 0) {
-		return Value{}, fmt.Errorf("interval out of range")
-	}
-	p := intervalParts{months: float64(v.Months) * f, days: float64(v.Days) * f, nanos: float64(v.I) * f}
-	return p.value()
+// intervalMicros is an interval's time part in microseconds, with a
+// fraction for nanoseconds that aren't whole microseconds.
+func intervalMicros(v Value) float64 { return float64(v.I/1000) + float64(v.I%1000)/1000 }
+
+// multiplyInterval is v × f, as Postgres's interval * double precision
+// (interval_mul, see scaleInterval).
+func multiplyInterval(v Value, f float64) (Value, error) {
+	return microsInterval(scaleInterval(v.Months, v.Days, intervalMicros(v), f, false))
 }
 
 // divideInterval divides an interval of months, days and microseconds by
-// factor (non-zero) as Postgres's interval_div does, for AVG: each field is
-// divided, a fraction of a month cascades into days (30 per month), rounded
-// to 6 decimal places (TSROUND), a fraction of a day into seconds, rounded
-// to the microsecond, and the time is rounded to the microsecond, half to
-// even, all in doubles as in Postgres.
+// factor (non-zero), as Postgres's interval / double precision
+// (interval_div, see scaleInterval): for interval / n, and for AVG, whose
+// sum's time may be beyond the nanoseconds' range.
 func divideInterval(months, days int32, us, factor float64) (Value, error) {
+	return microsInterval(scaleInterval(months, days, us, factor, true))
+}
+
+// microsInterval is the interval of months, days and microseconds us, or
+// "interval out of range" past the nanoseconds' range, or for err.
+func microsInterval(months, days int32, us int64, err error) (Value, error) {
+	if err == nil && (us > math.MaxInt64/1000 || us < math.MinInt64/1000) {
+		err = fmt.Errorf("interval out of range")
+	}
+	if err != nil {
+		return Value{}, err
+	}
+	return Value{T: typeInterval, Months: months, Days: days, I: us * 1000}, nil
+}
+
+// scaleInterval multiplies an interval of months, days and microseconds by
+// factor as Postgres's interval_mul does, or with div divides it by factor
+// (non-zero) as interval_div does, in doubles as in Postgres. Each field is
+// multiplied and truncated, and must fit in its 32 bits; the fraction of a
+// month cascades into days (30 per month), rounded to 6 decimal places
+// (TSROUND), the fraction of a day into seconds, also rounded so, and the
+// time is rounded to the microsecond, half to even, and must fit in 64 bits.
+// It returns the result's months, days and microseconds.
+//
+// The driver's intervals hold nanoseconds, Postgres's microseconds, so a
+// time that isn't whole microseconds (a bound or ingested Arrow value)
+// counts with its fraction, and the result is in whole microseconds, as
+// Postgres's always is.
+func scaleInterval(months, days int32, us, factor float64, div bool) (int32, int32, int64, error) {
+	scale := func(x float64) float64 {
+		if div {
+			return x / factor
+		}
+		// The conversion keeps the product from being fused into an FMA.
+		return float64(x * factor)
+	}
+	outOfRange := func() (int32, int32, int64, error) { return 0, 0, 0, fmt.Errorf("interval out of range") }
+	// FLOAT8_FITS_IN_INT32, false for NaN.
+	fits := func(x float64) bool { return x >= math.MinInt32 && x < -math.MinInt32 }
+	// pg_add_s32_overflow.
+	add := func(a, b int32) (int32, bool) {
+		s := int64(a) + int64(b)
+		return int32(s), s == int64(int32(s))
+	}
 	tsRound := func(x float64) float64 { return math.RoundToEven(x*1e6) / 1e6 }
-	m, d := int32(float64(months)/factor), int32(float64(days)/factor)
-	monthDays := tsRound((float64(months)/factor - float64(m)) * 30)
-	sec := tsRound((float64(days)/factor - float64(d) + monthDays - float64(int32(monthDays))) * 86400)
-	day := int64(d)
+	mf, df := scale(float64(months)), scale(float64(days))
+	if !fits(mf) || !fits(df) {
+		return outOfRange()
+	}
+	m, d := int32(mf), int32(df)
+	monthDays := tsRound((mf - float64(m)) * 30)
+	sec := tsRound((df - float64(d) + monthDays - float64(int32(monthDays))) * 86400)
+	var ok bool
 	if math.Abs(sec) >= 86400 {
 		// 24:00:00 from rounding, or more from the cascades.
 		whole := int32(sec / 86400)
-		day += int64(whole)
+		if d, ok = add(d, whole); !ok {
+			return outOfRange()
+		}
 		sec -= float64(whole * 86400)
 	}
-	day += int64(int32(monthDays))
-	// The conversion keeps the product from being fused into an FMA.
-	t := math.RoundToEven(us/factor + float64(sec*1e6))
-	if !(t >= -(1<<63) && t < 1<<63) || int64(t) > math.MaxInt64/1000 || int64(t) < math.MinInt64/1000 {
-		return Value{}, fmt.Errorf("interval out of range")
+	if d, ok = add(d, int32(monthDays)); !ok {
+		return outOfRange()
 	}
-	return intervalValue(int64(m), day, int64(t)*1000)
+	// The conversion keeps the product from being fused into an FMA.
+	t := math.RoundToEven(scale(us) + float64(sec*1e6))
+	if !(t >= -(1<<63) && t < 1<<63) {
+		return outOfRange()
+	}
+	return m, d, int64(t), nil
 }
 
 // timeOfDay returns nanoseconds since midnight of a TIME value.
@@ -519,16 +571,16 @@ func temporalOp(op string, l, r Value, rt ColType, z tzZone) (Value, error) {
 		return intervalValue(int64(l.Months)+sign*int64(r.Months), int64(l.Days)+sign*int64(r.Days), ns)
 	case op == "*" && lk == KindInterval:
 		f, _ := r.asFloat()
-		return scaleInterval(l, f)
+		return multiplyInterval(l, f)
 	case op == "*" && rk == KindInterval:
 		f, _ := l.asFloat()
-		return scaleInterval(r, f)
+		return multiplyInterval(r, f)
 	case op == "/" && lk == KindInterval:
 		f, _ := r.asFloat()
 		if f == 0 {
 			return Value{}, fmt.Errorf("division by zero")
 		}
-		return scaleInterval(l, 1/f)
+		return divideInterval(l.Months, l.Days, intervalMicros(l), f)
 	case lk == KindDate && rk.isInteger(), lk.isInteger() && rk == KindDate:
 		// date ± days, days + date
 		d, n := l.I, r.I

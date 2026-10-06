@@ -38,6 +38,7 @@ package redis
 import (
 	"fmt"
 	"math"
+	"math/big"
 	"slices"
 	"sort"
 	"strconv"
@@ -559,12 +560,21 @@ func lerp(lo, hi Value, p float64) (Value, error) {
 		// The conversion keeps the product from being fused into an FMA.
 		return floatValue(typeFloat64, lo.F+float64((hi.F-lo.F)*p)), nil
 	}
-	d, err := binaryOp("-", hi, lo, utcZone)
+	// Postgres's interval_lerp, with interval - interval, interval_mul and
+	// interval + interval. The difference's time is microseconds, as in
+	// Postgres, so it needn't fit in the nanoseconds' range.
+	months, days := int64(hi.Months)-int64(lo.Months), int64(hi.Days)-int64(lo.Days)
+	if months != int64(int32(months)) || days != int64(int32(days)) {
+		return Value{}, fmt.Errorf("interval out of range")
+	}
+	us := float64(hi.I/1000-lo.I/1000) + float64(hi.I%1000-lo.I%1000)/1000
+	m, d, t, err := scaleInterval(int32(months), int32(days), us, p, false)
 	if err != nil {
 		return Value{}, err
 	}
-	if d, err = scaleInterval(d, p); err != nil {
-		return Value{}, err
+	ns := new(big.Int).Mul(big.NewInt(t), big.NewInt(1000))
+	if ns.Add(ns, big.NewInt(lo.I)); !ns.IsInt64() {
+		return Value{}, fmt.Errorf("interval out of range")
 	}
-	return binaryOp("+", lo, d, utcZone)
+	return intervalValue(int64(lo.Months)+int64(m), int64(lo.Days)+int64(d), ns.Int64())
 }
