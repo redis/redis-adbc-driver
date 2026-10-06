@@ -1156,7 +1156,7 @@ How SQL is executed:
 | Window functions | Computed by the driver once the rows are known: after WHERE, GROUP BY and HAVING (which still run in the index when they can), before QUALIFY, ORDER BY and LIMIT. Rows are hashed into partitions and each partition is sorted once per distinct PARTITION BY / ORDER BY; frame aggregates add and remove rows as the frame slides (O(1) amortized per row; sums, averages and variances add and subtract exact sums, also of doubles). With `EXCLUDE CURRENT ROW / GROUP / TIES` the frame has a hole, so each row's frame is aggregated afresh (O(frame) per row), as PostgreSQL does; `FIRST_VALUE` / `LAST_VALUE` / `NTH_VALUE` stay O(1), also with `IGNORE NULLS`. A query with window functions never pushes its LIMIT into the index |
 | `CREATE TEMP TABLE` / `VIEW` | Same as a permanent table or view, in the connection's `pg_temp_<id>` schema. Unqualified names are looked up there first (in memory, no extra round trip) |
 | `TRUNCATE` | Like `DROP TABLE` and `CREATE TABLE` with the same metadata: reserves a new key prefix and index name and runs `FT.CREATE` for each table, switches the metadata of every table of the statement to the new names in one `WATCH`/`MULTI` (which also releases the old names), then runs `FT.DROPINDEX <old> DD`, which deletes every row the old index knows about. Statements still writing to the table find out and fail (see "Key prefixes are never reused") |
-| `ALTER TABLE` | Metadata only (optimistic `WATCH`/`MULTI` on the table's metadata, one for all the actions of a statement), plus `FT.INFO` and one `FT.ALTER` for the added columns and a background `HDEL` pass for `DROP COLUMN`. `ADD COLUMN … DEFAULT` records a missing value instead of writing the rows. Adding a `CHECK` (`ADD COLUMN … CHECK`, `ADD CONSTRAINT … CHECK`) first reads the columns it uses from every row, with one `FT.AGGREGATE` cursor scan for all the statement's new `CHECK`s, to check them. With `adbc.redis.rename_rekey`, `RENAME TO` also creates the new name's index, copies every row the old index lists with pipelined `DUMP` / `RESTORE … REPLACE` (a cursor page at a time; one key per command, so it works on a cluster), switches the metadata in one transaction, then runs `FT.DROPINDEX <old> DD` |
+| `ALTER TABLE` | Metadata only (optimistic `WATCH`/`MULTI` on the table's metadata, one for all the actions of a statement), plus `FT.INFO` and one `FT.ALTER` for the added columns and a background `HDEL` pass for `DROP COLUMN`. `ADD COLUMN … DEFAULT` records a missing value instead of writing the rows. Adding a `CHECK` (`ADD COLUMN … CHECK`, `ADD CONSTRAINT … CHECK`) or a `NOT NULL` (`ALTER COLUMN … SET NOT NULL`, `ADD COLUMN … NOT NULL` without a default) first reads the columns they use from every row, with one `FT.AGGREGATE` cursor scan for all the statement's new constraints, to check them, and when it commits, the rows inserted since (by `__rowid`). With `adbc.redis.rename_rekey`, `RENAME TO` also creates the new name's index, copies every row the old index lists with pipelined `DUMP` / `RESTORE … REPLACE` (a cursor page at a time; one key per command, so it works on a cluster), switches the metadata in one transaction, then runs `FT.DROPINDEX <old> DD` |
 | Views | `CREATE VIEW` plans the body without running it, which checks its tables, columns and function calls. Single-table views without GROUP BY/aggregates/window functions/LIMIT are expanded in place: the outer query's filters are rewritten over the base table and run in its index. Other views are computed once per query, like a derived table |
 | Joins | Each table's own WHERE/ON filters run in its index (except on the NULL-supplying side of an outer join). Inner joins are reordered to start from the table with the fewest matches (counted by the index). Equality conditions drive a hash join; when the next table's key is indexed and there are ≤ 1,000 distinct keys, only matching rows are fetched with an index union. The joined rows are then grouped/sorted in memory. `NATURAL JOIN` is an equality join on the common columns, like `USING`. An item whose `ON` can never be true (`ON false`), or that has no rows, isn't read when that settles the result: an inner join is then empty and reads no item, a `LEFT JOIN` keeps the left rows with NULLs for the item, and a `RIGHT JOIN` returns the item's rows without reading the items before it |
 | `UPDATE … FROM`, `DELETE … USING`, `MERGE` | The target is joined with the other items as above: its own filters (in WHERE, or in MERGE's ON) run in its index, and an equality on an indexed target column is an index lookup join, also through a no-op cast like dbt's `s.id::text = t.id::text`. `MERGE` is source `LEFT JOIN` target, or `FULL JOIN` with `WHEN NOT MATCHED BY SOURCE` clauses (which need every target row); `ON FALSE` reads the target only for those. Changes are then written by row key with pipelined `HSET`/`HDEL`/`DEL`, and new rows like `INSERT` does |
@@ -1359,27 +1359,43 @@ field, even if later rows have it.
   `RENAME [COLUMN] a TO b`, or with one or more of these, separated by commas:
   `ADD [COLUMN] [IF NOT EXISTS] c TYPE [column_constraint …] [NOINDEX] [COMMENT 'text']`,
   `DROP [COLUMN] [IF EXISTS] c [CASCADE | RESTRICT]`,
-  `ALTER [COLUMN] c {SET DEFAULT expr | DROP DEFAULT}`,
+  `ALTER [COLUMN] c {SET DEFAULT expr | DROP DEFAULT | SET NOT NULL | DROP NOT NULL}`,
   `ADD table_constraint`,
-  `DROP CONSTRAINT [IF EXISTS] name [CASCADE | RESTRICT]`. All of them only change metadata, so they
-  take the same time at any table size (except `RENAME TO` with
-  `adbc.redis.rename_rekey`, and adding a `CHECK`, which reads every row
-  first):
+  `DROP CONSTRAINT [IF EXISTS] name [CASCADE | RESTRICT]`. `ALTER COLUMN …
+  TYPE` isn't supported. All of them only change metadata, so they take the
+  same time at any table size (except `RENAME TO` with
+  `adbc.redis.rename_rekey`, and adding a `CHECK` or `NOT NULL`, which reads
+  every row first):
   - **Several actions** (dbt's `on_schema_change` and snapshots send
     `alter table t add column "a" …, add column "b" …, drop column "c"`) are
     one change of the table's metadata, made in one `WATCH`/`MULTI`, so
     other statements see the table before all of them or after all of
-    them. They apply in the order written, each seeing what the ones before
-    it did: `ADD COLUMN x …, ADD CONSTRAINT c CHECK (x > 0)` checks the rows
-    with `x`'s default, `DROP COLUMN a, ADD COLUMN a …` gives a new, empty
-    column, and two unnamed `CHECK`s on `v` are named `t_v_check` and
-    `t_v_check1`. Postgres instead runs all the `DROP`s first, then the
-    `ADD COLUMN`s, then the constraints and defaults, so a few orders it
-    accepts are errors here, such as a `CHECK` on a column added later in
-    the list (write the column first), and `ADD COLUMN a …, DROP COLUMN a`,
-    an error there, adds nothing here. A table can't be left without
-    columns, but `DROP COLUMN a, ADD COLUMN b …` works on a table whose only
-    column is `a`.
+    them. They run in Postgres's order, each seeing what the ones before it
+    did: first the drops (`DROP COLUMN`, `DROP CONSTRAINT`, `DROP DEFAULT`
+    and `DROP NOT NULL`), then `ADD COLUMN`, then `SET NOT NULL`, then `SET
+    DEFAULT`, the new columns' `CHECK`s and `ADD CONSTRAINT`, each group in
+    the order written. So `ADD CONSTRAINT c CHECK (x > 0), ADD COLUMN x …
+    DEFAULT 1` checks the rows with `x`'s default, `DROP COLUMN a, ADD
+    COLUMN a …` gives a new, empty column (also written the other way
+    round), and `ALTER COLUMN a SET DEFAULT 1, ADD COLUMN a …` gives the new
+    column a default. An action that runs earlier can't name what the
+    statement adds: `ADD COLUMN a …, DROP COLUMN a` and `ADD COLUMN a …
+    DEFAULT 9, ALTER COLUMN a DROP DEFAULT` fail with `column "a" of
+    relation "t" does not exist`, as in Postgres. Unnamed `CHECK`s are named
+    in that order too: in `ADD CHECK (v > 0), ADD COLUMN b … CHECK (v > 1)`,
+    the column's is `t_v_check` and the other `t_v_check1`. Of several
+    errors, the one reported is the first in that order. A table can't be
+    left without columns (Postgres allows it), but `DROP COLUMN a, ADD
+    COLUMN b …` works on a table whose only column is `a`.
+    - **Upgrading from v0.0.12 and earlier:** the actions ran in the order
+      written, so `ADD COLUMN a …, DROP COLUMN a` added nothing, `ADD COLUMN
+      a … DEFAULT 9, ALTER COLUMN a DROP DEFAULT` left `a` without a default
+      (for the rows inserted later), and a `CHECK` on a column added later
+      in the list was an error. `ADD COLUMN … NOT NULL` without a non-NULL
+      `DEFAULT` was an error also on a table without rows. In `ADD COLUMN`,
+      `DROP COLUMN` and `ALTER COLUMN`, a column that already exists or
+      doesn't was `column "a" already exists in table "t"` or `column "a"
+      does not exist in table "t"`.
   - **All or nothing:** if any action fails (a column that exists or
     doesn't, a `DEFAULT` that doesn't convert, a `CHECK` that some row
     fails, …), none is applied: the metadata, the search index and the
@@ -1469,13 +1485,37 @@ field, even if later rows have it.
     `DEFAULT CURRENT_TIMESTAMP` gives them all the time of the `ALTER`) and
     recorded as the column's missing value rather than written to them (see
     the architecture section). A volatile default (`RANDOM()`) is not
-    supported here, and `NOT NULL` needs a non-NULL `DEFAULT`.
+    supported here. With `NOT NULL` and no `DEFAULT` (or a NULL one), the
+    existing rows would read NULL, so as in Postgres it works only on a
+    table without rows (otherwise `column "c" of relation "t" contains null
+    values`).
   - `DROP COLUMN` hides the column immediately and removes its field from
     existing rows in the background (resumed by the next connection if the
     process exits first). A dropped column's values never reappear, even if
     a column with the same name is added later.
   - `ALTER COLUMN … SET DEFAULT` / `DROP DEFAULT` only change what rows
     inserted later get; existing rows keep their values.
+  - `ALTER COLUMN … SET NOT NULL` checks every row first, reading the
+    column as queries do (one added with a `DEFAULT` reads it in the rows
+    that existed then), and fails with Postgres's `column "c" of relation
+    "t" contains null values` if one is NULL. Each row is checked against
+    `NOT NULL` before the statement's new `CHECK`s, as in Postgres. `DROP
+    NOT NULL` only changes the metadata. Either does nothing to a column
+    that already is so. `information_schema.columns.is_nullable`,
+    `GetObjects` and `GetTableSchema` show the change. `PRIMARY KEY` isn't
+    kept (see Constraints below), so unlike in Postgres a key column is
+    nullable unless it is declared `NOT NULL`, and `DROP NOT NULL` doesn't
+    refuse it.
+  - **Concurrent writes:** there are no locks, so other connections may
+    write while the rows are checked for a new `NOT NULL` or `CHECK` (in
+    Postgres they would wait). The rows they insert meanwhile are checked
+    too, when the change commits (which tries again while more keep coming,
+    up to 20 times, then fails with "try again"). A statement that read the
+    table before a new `NOT NULL` and inserts after it fails on a NULL in
+    the column, or with "try again" if the column was added without a
+    default. Rows still being written when the change commits, rows updated
+    meanwhile, and rows inserted after a new `CHECK` by a statement that
+    read the table before it aren't checked.
   - `ADD COLUMN … CHECK (…)` and `ADD [CONSTRAINT name] CHECK (…)` check
     every existing row first (see Constraints below). `DROP CONSTRAINT`
     removes a `CHECK`; the other constraints aren't kept, so it can't name
@@ -1666,8 +1706,9 @@ field, even if later rows have it.
   - **Existing rows:** `ADD COLUMN … CHECK` and `ADD [CONSTRAINT name] CHECK`
     check every row first, with the new column at its default, and fail
     with `check constraint "c" of relation "t" is violated by some row`.
-    Rows that other connections write while that runs aren't checked
-    against the new constraint.
+    Rows that other connections insert while that runs are checked when the
+    change commits, but not all the rows they write (see "Concurrent
+    writes" under `ALTER TABLE`).
   - **Lifetime:** the constraints are part of the table's metadata (an
     optional `checks` field holding each name and expression, so older
     metadata reads unchanged). `RENAME TO` (also with

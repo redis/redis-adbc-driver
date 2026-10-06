@@ -463,6 +463,8 @@ const (
 	AlterDropDefault
 	AlterAddConstraint
 	AlterDropConstraint
+	AlterSetNotNull
+	AlterDropNotNull
 )
 
 type AlterTableStmt struct {
@@ -471,7 +473,8 @@ type AlterTableStmt struct {
 	// View is set for ALTER VIEW (which only supports RENAME TO).
 	View bool
 	// Cmds are the actions in the order written: a single RENAME TO or
-	// RENAME COLUMN, or one or more of the others (see alter.go).
+	// RENAME COLUMN, or one or more of the others, which run in Postgres's
+	// order (see alterOrder in alter.go).
 	Cmds []AlterCmd
 }
 
@@ -2351,8 +2354,12 @@ func (p *parser) parseAlterCmd(view bool) (AlterCmd, error) {
 			cmd.Action = AlterSetDefault
 		case p.acceptKeyword("DROP", "DEFAULT"):
 			cmd.Action = AlterDropDefault
+		case p.acceptKeyword("SET", "NOT", "NULL"):
+			cmd.Action = AlterSetNotNull
+		case p.acceptKeyword("DROP", "NOT", "NULL"):
+			cmd.Action = AlterDropNotNull
 		default:
-			return cmd, &sqlError{msg: fmt.Sprintf("unsupported ALTER COLUMN action near %q (supported: SET DEFAULT, DROP DEFAULT)", p.peek().text)}
+			return cmd, &sqlError{msg: fmt.Sprintf("unsupported ALTER COLUMN action near %q (supported: SET DEFAULT, DROP DEFAULT, SET NOT NULL, DROP NOT NULL)", p.peek().text)}
 		}
 	default:
 		if view {
