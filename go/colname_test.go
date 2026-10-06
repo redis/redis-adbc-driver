@@ -260,3 +260,89 @@ func TestOrderByOutputNames(t *testing.T) {
 		}
 	}
 }
+
+// A bare name in GROUP BY is an input column's before it is an output
+// column's, also where the output column is named by its expression, as in
+// Postgres. The results and errors are pg16's for the same queries over
+// tables (rows in the same order), except where noted. Each query is
+// planned twice, as a cached statement is.
+func TestGroupByOutputNames(t *testing.T) {
+	const with = "WITH t(id, v, x) AS (SELECT 1, 'a', 1.2 UNION ALL SELECT 2, 'A', 1.4 UNION ALL SELECT 3, 'b', 2.0 " +
+		"UNION ALL SELECT 4, NULL, 2.6), " +
+		"ivg(id, iv) AS (SELECT 1, INTERVAL '1 mon' UNION ALL SELECT 2, INTERVAL '30 days' " +
+		"UNION ALL SELECT 3, INTERVAL '1 day 02:00:00' UNION ALL SELECT 4, INTERVAL '26 hours' " +
+		"UNION ALL SELECT 5, INTERVAL '1 day' UNION ALL SELECT 6, INTERVAL '24 hours'), " +
+		"u(k, w) AS (SELECT 1, 'p' UNION ALL SELECT 2, 'q') "
+	ambiguous := func(name string) string { return `error: GROUP BY "` + name + `" is ambiguous` }
+	const aggregate = "error: aggregate functions are not allowed in GROUP BY"
+	const window = "error: window functions are not allowed in GROUP BY"
+	cases := []struct{ q, want string }{
+		// No input column has the name: the output column of that name.
+		{"SELECT upper(CAST(iv AS VARCHAR)) FROM ivg GROUP BY upper ORDER BY 1",
+			"1 DAY\n1 DAY 02:00:00\n1 MON\n24:00:00\n26:00:00\n30 DAYS"},
+		{"SELECT upper(v), count(*) FROM t GROUP BY upper ORDER BY 1", "A|2\nB|1\nNULL|1"},
+		{"SELECT CAST(x + 0 AS INTEGER), count(*) FROM t GROUP BY int4 ORDER BY 1", "1|2\n2|1\n3|1"},
+		{`SELECT id % 2, count(*) FROM t GROUP BY "?column?" ORDER BY 1`, "0|2\n1|2"},
+		{"SELECT (SELECT 'k' AS z), count(*) FROM t GROUP BY z", "k|4"},
+		{"SELECT (SELECT max(id) FROM t), count(*) FROM t GROUP BY max", "4|4"}, // the subquery's aggregate
+		{"SELECT upper(v), count(*) FROM t GROUP BY upper HAVING count(*) > 1", "A|2"},
+		{"SELECT upper(t.v), count(*) FROM t JOIN u ON t.id = u.k GROUP BY upper ORDER BY 1", "A|2"},
+		{"SELECT count(*) FROM (SELECT CAST(iv AS VARCHAR) AS s FROM ivg GROUP BY s) g", "6"},
+		{"SELECT upper(v), count(*) FROM t GROUP BY ROLLUP (upper) ORDER BY 1, 2", "A|2\nB|1\nNULL|1\nNULL|4"},
+		{`SELECT upper(v), id % 2, count(*) FROM t GROUP BY GROUPING SETS ((upper), ("?column?")) ORDER BY 1, 2`,
+			"A|NULL|2\nB|NULL|1\nNULL|0|2\nNULL|1|2\nNULL|NULL|1"},
+		{"SELECT DISTINCT upper(v) FROM t ORDER BY upper", "A\nB\nNULL"},
+
+		// An input column comes first, and isn't ambiguous with an output
+		// column of its name.
+		{"SELECT CAST(x AS INTEGER), count(*) FROM t GROUP BY x ORDER BY 1, 2", "1|1\n1|1\n2|1\n3|1"},
+		{"SELECT CAST(x AS INTEGER) AS x, count(*) FROM t GROUP BY x ORDER BY 1, 2", "1|1\n1|1\n2|1\n3|1"},
+		{"SELECT CAST(x AS INTEGER) AS y, count(*) FROM t GROUP BY y ORDER BY 1", "1|2\n2|1\n3|1"},
+		{"SELECT upper(v) AS v, count(*) FROM t GROUP BY v ORDER BY 1, 2", "A|1\nA|1\nB|1\nNULL|1"},
+		{"SELECT count(*) FROM (SELECT CAST(iv AS VARCHAR) FROM ivg GROUP BY iv) g", "3"},
+		// Also in a join, where the alias came first before.
+		{"SELECT CAST(x AS INTEGER) AS x, count(*) FROM t JOIN u ON true GROUP BY x ORDER BY 1, 2", "1|2\n1|2\n2|2\n3|2"},
+		// Only this query's input: an enclosing query's column comes after.
+		{"SELECT o.upper, (SELECT count(*) FROM (SELECT upper(v) FROM t GROUP BY upper) q) FROM (SELECT 1 AS upper) o", "1|3"},
+		{"SELECT k, (SELECT count(*) FROM (SELECT upper(v) FROM t WHERE id > k GROUP BY upper) q) FROM u ORDER BY 1", "1|3\n2|2"},
+		{"SELECT k, (SELECT count(*) FROM t GROUP BY k) FROM u ORDER BY 1", "1|4\n2|4"},
+		// A name two FROM items have: the driver keeps both columns of
+		// JOIN … USING (id), which Postgres merges.
+		{"SELECT t.id, count(*) FROM t JOIN t t2 USING (id) GROUP BY id ORDER BY 1", "1|1\n2|1\n3|1\n4|1"},
+		// A qualified name, or a name in an expression, isn't an output
+		// column's.
+		{"SELECT upper(v) FROM t GROUP BY t.upper", `error: column "t.upper" does not exist in table "t"`}, // pg16: column t.upper does not exist
+		{"SELECT upper(v), count(*) FROM t GROUP BY lower(upper)", `error: column "upper" does not exist in table "t"`},
+
+		// Output columns of the same name must be the same expression.
+		{"SELECT upper(v), upper(v) FROM t GROUP BY upper ORDER BY 1", "A|A\nB|B\nNULL|NULL"},
+		{"SELECT id % 2 AS k, id % 2 AS k, count(*) FROM t GROUP BY k ORDER BY 1", "0|0|2\n1|1|2"},
+		{"SELECT upper(v), lower(v) AS upper FROM t GROUP BY upper", ambiguous("upper")},
+		{"SELECT id + 1 AS k, id + 2 AS k FROM t GROUP BY k", ambiguous("k")}, // before: the last one
+
+		// The output column may not be an aggregate or a window function.
+		{"SELECT count(*) FROM t GROUP BY count", aggregate},
+		{"SELECT count(*) AS c FROM t GROUP BY c", aggregate},
+		{"SELECT count(*), upper(v) FROM t GROUP BY upper, count", aggregate},
+		{"SELECT row_number() OVER () FROM t GROUP BY row_number", window},
+		{"SELECT row_number() OVER () AS r FROM t GROUP BY r", window},
+
+		// The driver also reads an alias in an expression; pg16: column "u"
+		// does not exist.
+		{"SELECT upper(v) AS u, count(*) FROM t GROUP BY lower(u) ORDER BY 1", "A|2\nB|1\nNULL|1"},
+	}
+	for _, c := range cases {
+		stmts, err := ParseScript(with + c.q)
+		if err != nil {
+			t.Errorf("%s: %v", c.q, err)
+			continue
+		}
+		sel := stmts[0].Stmt.(*SelectStmt)
+		for range 2 {
+			if got := memRun(sel); got != c.want {
+				t.Errorf("%s:\n got %q\nwant %q", c.q, got, c.want)
+				break
+			}
+		}
+	}
+}
