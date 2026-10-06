@@ -476,6 +476,7 @@ const (
 	AlterDropConstraint
 	AlterSetNotNull
 	AlterDropNotNull
+	AlterColumnType
 )
 
 type AlterTableStmt struct {
@@ -491,11 +492,15 @@ type AlterTableStmt struct {
 
 // AlterCmd is one action of an ALTER TABLE.
 type AlterCmd struct {
-	Action            AlterAction
-	NewTable          TableName // RENAME TO
-	Column            string    // RENAME COLUMN (old) / DROP COLUMN / ALTER COLUMN
-	NewColumn         string    // RENAME COLUMN (new)
-	Def               ColumnDef // ADD COLUMN; SET DEFAULT (only the default)
+	Action    AlterAction
+	NewTable  TableName // RENAME TO
+	Column    string    // RENAME COLUMN (old) / DROP COLUMN / ALTER COLUMN
+	NewColumn string    // RENAME COLUMN (new)
+	Def       ColumnDef // ADD COLUMN; SET DEFAULT (only the default); TYPE (only the type)
+	// Using is the USING expression of ALTER COLUMN … TYPE (nil without
+	// one), and UsingText its source text.
+	Using             Expr
+	UsingText         string
 	IfColumnExists    bool
 	IfColumnNotExists bool
 	// Check is the CHECK of ADD CONSTRAINT, and Key its PRIMARY KEY (both
@@ -2406,8 +2411,12 @@ func (p *parser) parseAlterCmd(view bool) (AlterCmd, error) {
 			cmd.Action = AlterSetNotNull
 		case p.acceptKeyword("DROP", "NOT", "NULL"):
 			cmd.Action = AlterDropNotNull
+		case p.acceptKeyword("SET", "DATA", "TYPE"), p.acceptKeyword("TYPE"):
+			if err := p.parseAlterType(&cmd); err != nil {
+				return cmd, err
+			}
 		default:
-			return cmd, &sqlError{msg: fmt.Sprintf("unsupported ALTER COLUMN action near %q (supported: SET DEFAULT, DROP DEFAULT, SET NOT NULL, DROP NOT NULL)", p.peek().text)}
+			return cmd, &sqlError{msg: fmt.Sprintf("unsupported ALTER COLUMN action near %q (supported: [SET DATA] TYPE, SET DEFAULT, DROP DEFAULT, SET NOT NULL, DROP NOT NULL)", p.peek().text)}
 		}
 	default:
 		if view {
@@ -2416,6 +2425,32 @@ func (p *parser) parseAlterCmd(view bool) (AlterCmd, error) {
 		return cmd, &sqlError{msg: fmt.Sprintf("unsupported ALTER TABLE action near %q (supported: RENAME TO, RENAME COLUMN, ADD COLUMN, DROP COLUMN, ALTER COLUMN, ADD CONSTRAINT, DROP CONSTRAINT)", p.peek().text)}
 	}
 	return cmd, nil
+}
+
+// parseAlterType parses what follows ALTER COLUMN c [SET DATA] TYPE: the
+// type, then [USING expr]. COLLATE is refused: the driver has no
+// collations (strings compare by their bytes).
+func (p *parser) parseAlterType(cmd *AlterCmd) error {
+	spec, err := p.parseTypeSpec()
+	if err != nil {
+		return err
+	}
+	ct, err := colTypeFromSQL(spec)
+	if err != nil {
+		return &sqlError{msg: err.Error()}
+	}
+	if p.isKeyword("COLLATE") {
+		return &sqlError{msg: `COLLATE is not supported: strings compare by their bytes, as with Postgres's "C" collation`}
+	}
+	cmd.Action, cmd.Def.Type = AlterColumnType, ct
+	if p.acceptKeyword("USING") {
+		start := p.peek().pos
+		if cmd.Using, err = p.parseExpr(); err != nil {
+			return err
+		}
+		cmd.UsingText = strings.TrimSpace(p.src[start:p.toks[p.pos-1].end])
+	}
+	return nil
 }
 
 // skipBalanced skips tokens up to the next top-level ',' or ')', or with

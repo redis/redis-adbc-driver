@@ -84,6 +84,11 @@ package redis
 // for it (up to rekeyTTL), and a takeover that fails deletes its lease key
 // at once, so the next connection can try again (see settleAbandoned).
 //
+// ALTER COLUMN … TYPE rewrites a table's rows to new keys under its own name
+// with the same steps and checks (a job marked rewrite, with From = To; see
+// alter_type.go): it converts the rows instead of copying them with DUMP,
+// and its switch makes the metadata the altered table's.
+//
 // Closing a connection while a re-key runs on another goroutine stops it
 // as a cancel does, before the client closes (see stopRekeys): the move
 // stops at its next command, and the rename is rolled back, or finished if
@@ -141,6 +146,9 @@ type rekeyJob struct {
 	// Recovering is set when a connection has taken the job over from one
 	// that went away, to roll it back or finish it.
 	Recovering bool `json:"recovering,omitempty"`
+	// Rewrite is set for ALTER COLUMN … TYPE, which moves the rows to new
+	// keys of the same table (From = To), converted (see alter_type.go).
+	Rewrite bool `json:"rewrite,omitempty"`
 
 	// lease is held by the connection running the job.
 	lease *lease
@@ -234,9 +242,25 @@ func (e *executor) rekeyTable(ctx context.Context, meta *tableMeta, to string) e
 // beginRekey is step 1. It returns the job, holding its lease, and the
 // table's metadata as it was before.
 func (s *store) beginRekey(ctx context.Context, schema, from, to string) (*rekeyJob, *tableMeta, error) {
-	n, err := s.client.Incr(ctx, rekeyNextKey).Result()
+	return s.beginMove(ctx, schema, from, to, nil)
+}
+
+// beginMove is step 1 of a re-key, or with rewrite set, of the rewrite of
+// ALTER COLUMN … TYPE (see alter_type.go): the table keeps its name (to is
+// from), and rewrite checks, in the transaction, that the metadata as it is
+// then is the table the change was planned for.
+func (s *store) beginMove(ctx context.Context, schema, from, to string, rewrite func(cur *tableMeta) error) (*rekeyJob, *tableMeta, error) {
+	what := "the rename"
+	next := s.client.Incr
+	if rewrite != nil {
+		// INCRBY, which every user of the driver may run (see "ACL users"
+		// in the README).
+		what = "rewriting the table"
+		next = func(ctx context.Context, key string) *goredis.IntCmd { return s.client.IncrBy(ctx, key, 1) }
+	}
+	n, err := next(ctx, rekeyNextKey).Result()
 	if err != nil {
-		return nil, nil, wrapRedis(err, "failed to start the rename")
+		return nil, nil, wrapRedis(err, "failed to start "+what)
 	}
 	owner := strconv.FormatInt(n, 10)
 	oldKey, newKey := metaKey(schema, from), metaKey(schema, to)
@@ -258,13 +282,19 @@ func (s *store) beginRekey(ctx context.Context, schema, from, to string) (*rekey
 				moving = cur
 				return errRekeyBusy
 			}
-			if err := refuseAdopted(cur, "RENAME TO with "+OptionStringRenameRekey+" (which moves the rows to new keys)"); err != nil {
-				return err
-			}
-			if n, err := tx.Exists(ctx, newKey).Result(); err != nil {
-				return err
-			} else if n > 0 {
-				return errorf(adbc.StatusAlreadyExists, "table %q.%q already exists", displaySchema(schema), to)
+			if rewrite != nil {
+				if err := rewrite(cur); err != nil {
+					return err
+				}
+			} else {
+				if err := refuseAdopted(cur, "RENAME TO with "+OptionStringRenameRekey+" (which moves the rows to new keys)"); err != nil {
+					return err
+				}
+				if n, err := tx.Exists(ctx, newKey).Result(); err != nil {
+					return err
+				} else if n > 0 {
+					return errorf(adbc.StatusAlreadyExists, "table %q.%q already exists", displaySchema(schema), to)
+				}
 			}
 			// Pin the physical names, as a plain rename does.
 			cur.KeyPrefix, cur.IndexName = cur.prefix(), cur.index()
@@ -285,9 +315,10 @@ func (s *store) beginRekey(ctx context.Context, schema, from, to string) (*rekey
 				return err
 			}
 			job = &rekeyJob{Schema: schema, From: from, To: to, OldPrefix: cur.KeyPrefix, OldIndex: cur.IndexName,
-				KeyPrefix: names.prefix, IndexName: names.index, OldPrefixGen: cur.PrefixGen, Owner: owner}
+				KeyPrefix: names.prefix, IndexName: names.index, OldPrefixGen: cur.PrefixGen, Owner: owner,
+				Rewrite: rewrite != nil}
 			start = *cur
-			cur.RekeyTo = names.prefix
+			cur.RekeyTo, cur.Rewriting = names.prefix, rewrite != nil
 			rawMeta, err := marshalMeta(cur)
 			if err != nil {
 				return err
@@ -321,7 +352,7 @@ func (s *store) beginRekey(ctx context.Context, schema, from, to string) (*rekey
 			return nil, nil, err
 		}
 		if err != nil {
-			return nil, nil, wrapRedis(err, "failed to start the rename")
+			return nil, nil, wrapRedis(err, "failed to start "+what)
 		}
 		s.noteTempNames(names)
 		job.lease = s.holdLease(context.WithoutCancel(ctx), owner, sent)
@@ -794,7 +825,7 @@ func (s *store) endRekey(ctx context.Context, job *rekeyJob) error {
 				var ae adbc.Error
 				switch {
 				case err == nil && cur.RekeyTo == job.KeyPrefix:
-					cur.RekeyTo = ""
+					cur.RekeyTo, cur.Rewriting = "", false
 					if raw, err = marshalMeta(cur); err != nil {
 						return err
 					}
@@ -1010,7 +1041,9 @@ func (s *store) recoverRekey(ctx context.Context, job *rekeyJob) error {
 // takeOver makes this connection the owner of a job whose owner's lease has
 // expired, and marks it recovering. The caller releases the lease.
 func (s *store) takeOver(ctx context.Context, job *rekeyJob) (*rekeyJob, error) {
-	n, err := s.client.Incr(ctx, rekeyNextKey).Result()
+	// INCRBY rather than INCR: a user without rename_rekey's commands
+	// recovers the rewrites of ALTER COLUMN … TYPE (see beginMove).
+	n, err := s.client.IncrBy(ctx, rekeyNextKey, 1).Result()
 	if err != nil {
 		return nil, wrapRedis(err, "failed to recover a rename")
 	}
@@ -1055,6 +1088,12 @@ func movingErr(meta *tableMeta) error {
 	if meta.RekeyTo == "" {
 		return nil
 	}
+	if meta.Rewriting {
+		return errorf(adbc.StatusIO, "table %q.%q is being altered: ALTER COLUMN … TYPE is rewriting its rows to new keys; try again when that has finished. "+
+			"If the connection altering it has gone away, the next connection to open, or the next statement that changes the table, "+
+			"rolls the change back once its lease (%s) has expired",
+			displaySchema(meta.Schema), meta.Name, rekeyTTL)
+	}
 	return errorf(adbc.StatusIO, "table %q.%q is being renamed and its rows moved to new keys (%s); try again when that has finished. "+
 		"If the connection renaming it has gone away, the next connection to open, or the next statement that changes the table, "+
 		"rolls the rename back once its lease (%s) has expired",
@@ -1071,6 +1110,9 @@ func (s *store) checkWritable(ctx context.Context, meta *tableMeta) error {
 	}
 	outcome, job, err := s.settleAbandoned(ctx, meta.prefix(), true)
 	sch, t := displaySchema(meta.Schema), meta.Name
+	if meta.Rewriting {
+		return s.checkRewritable(ctx, meta, outcome, job, err)
+	}
 	switch outcome {
 	case rekeyRunning:
 		return movingErr(meta)
@@ -1089,9 +1131,7 @@ func (s *store) checkWritable(ctx context.Context, meta *tableMeta) error {
 	}
 	// The move is over (rolled back now, or ended since the metadata was
 	// read). Unless the table changed otherwise, the statement goes on.
-	fresh, ferr := s.getTable(ctx, meta.Schema, meta.Name)
-	if ferr == nil && sameTable(meta, fresh) {
-		meta.RekeyTo, meta.readAt = "", fresh.readAt
+	if s.unmoved(ctx, meta) {
 		return nil
 	}
 	if outcome == rekeySettled {
@@ -1102,6 +1142,49 @@ func (s *store) checkWritable(ctx context.Context, meta *tableMeta) error {
 		"ended since; try again", sch, t, OptionStringRenameRekey)
 }
 
+// unmoved reports whether a table that was being moved when meta was read
+// is back as it was, the move rolled back (or ended without changing it);
+// then meta counts as read now, without rekey_to.
+func (s *store) unmoved(ctx context.Context, meta *tableMeta) bool {
+	fresh, err := s.getTable(ctx, meta.Schema, meta.Name)
+	if err != nil || !sameTable(meta, fresh) {
+		return false
+	}
+	meta.RekeyTo, meta.Rewriting, meta.readAt = "", false, fresh.readAt
+	return true
+}
+
+// checkRewritable is checkWritable for a table that ALTER COLUMN … TYPE was
+// rewriting when meta was read, once settleAbandoned has found the outcome.
+func (s *store) checkRewritable(ctx context.Context, meta *tableMeta, outcome rekeyOutcome, job *rekeyJob, err error) error {
+	sch, t := displaySchema(meta.Schema), meta.Name
+	switch outcome {
+	case rekeyRunning:
+		return movingErr(meta)
+	case rekeyRecovering:
+		return errorf(adbc.StatusIO, "table %q.%q was being altered (ALTER COLUMN … TYPE) by a connection that has gone away, "+
+			"and another connection is still rolling the change back; try again in a moment", sch, t)
+	case rekeyStuck:
+		return errorf(adbc.StatusIO, "table %q.%q is being altered (ALTER COLUMN … TYPE), but the connection altering it has gone away, "+
+			"and rolling the change back failed: %v. The next connection to open, or the next statement that changes "+
+			"the table, tries again", sch, t, errMessage(err))
+	case rekeySettled:
+		if job.Switched {
+			return errorf(adbc.StatusIO, "table %q.%q was being altered (ALTER COLUMN … TYPE) by a connection that has gone away; "+
+				"that change has now been completed, so try again", sch, t)
+		}
+	}
+	if s.unmoved(ctx, meta) {
+		return nil
+	}
+	if outcome == rekeySettled {
+		return errorf(adbc.StatusIO, "table %q.%q was being altered (ALTER COLUMN … TYPE) by a connection that has gone away; "+
+			"the change has now been rolled back, so try again", sch, t)
+	}
+	return errorf(adbc.StatusIO, "table %q.%q was being altered (ALTER COLUMN … TYPE) when this statement started, and that has "+
+		"ended since; try again", sch, t)
+}
+
 // sameTable reports whether fresh metadata is the moving table's, with
 // rekey_to cleared and nothing else changed.
 func sameTable(moving, fresh *tableMeta) bool {
@@ -1109,7 +1192,7 @@ func sameTable(moving, fresh *tableMeta) bool {
 		return false
 	}
 	was := *moving
-	was.RekeyTo = ""
+	was.RekeyTo, was.Rewriting = "", false
 	a, aerr := json.Marshal(&was)
 	b, berr := json.Marshal(fresh)
 	return aerr == nil && berr == nil && string(a) == string(b)
@@ -1212,14 +1295,15 @@ func (s *store) checkKeys(ctx context.Context, meta *tableMeta, writing bool) er
 		}
 		return writeMovedErr(meta)
 	}
-	return errorf(adbc.StatusIO, "table %q.%q was renamed with its rows moved to new keys, truncated or dropped, while this statement was reading it; try again",
+	return errorf(adbc.StatusIO, "table %q.%q was renamed with its rows moved to new keys, rewritten by ALTER COLUMN … TYPE, truncated or dropped, while this statement was reading it; try again",
 		displaySchema(meta.Schema), meta.Name)
 }
 
-// writeMovedErr is the error of a statement whose table's rows moved away,
-// or that was truncated or dropped, while it was writing to it.
+// writeMovedErr is the error of a statement whose table's rows moved away
+// (a re-keying rename or ALTER COLUMN … TYPE), or that was truncated or
+// dropped, while it was writing to it.
 func writeMovedErr(meta *tableMeta) error {
-	return errorf(adbc.StatusIO, "table %q.%q was renamed with its rows moved to new keys, truncated or dropped, while this statement was writing to it; some of its changes may be lost or have gone to another table",
+	return errorf(adbc.StatusIO, "table %q.%q was renamed with its rows moved to new keys, rewritten by ALTER COLUMN … TYPE, truncated or dropped, while this statement was writing to it; some of its changes may be lost or have gone to another table",
 		displaySchema(meta.Schema), meta.Name)
 }
 

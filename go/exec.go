@@ -828,6 +828,7 @@ func (e *executor) planSelect(ctx context.Context, sel *SelectStmt, paramTypes [
 			}
 			for _, c := range cols {
 				plan.items = append(plan.items, planItem{expr: &ColumnRef{Name: c.Name}, name: c.outputName(), typ: c.Type})
+				e.noteStarRead(plan.meta, rels, c.Name)
 			}
 			continue
 		}
@@ -1059,6 +1060,34 @@ func (e *executor) starColumns(meta *tableMeta, rels []relation, joined bool, qu
 		}
 	}
 	return cols, nil
+}
+
+// noteStarRead tells colReads (see noteRead) about a column that * selects
+// from meta, the FROM clause's relation: a stored table's, or with joins,
+// that of the item whose prefix the column has, or every item with a column
+// of that name for a column that a NATURAL or USING join merges.
+func (e *executor) noteStarRead(meta *tableMeta, rels []relation, name string) {
+	if e.cache == nil || e.cache.colReads == nil {
+		return
+	}
+	if meta.join == nil {
+		e.noteRead(meta, name)
+		return
+	}
+	found := false
+	for _, rel := range rels {
+		if rel.prefix != "" && strings.HasPrefix(name, rel.prefix) {
+			e.noteRead(rel.meta, strings.TrimPrefix(name, rel.prefix))
+			found = true
+		}
+	}
+	if !found {
+		for _, rel := range rels {
+			if c, ok := rel.meta.column(name); ok {
+				e.noteRead(rel.meta, c.Name)
+			}
+		}
+	}
 }
 
 // distinctAsGroupBy rewrites SELECT DISTINCT over plain expressions (no

@@ -393,6 +393,9 @@ func (e *executor) viewRelation(ctx context.Context, v *viewMeta, alias string) 
 	}
 	e.cache.materializing[key] = true
 	defer delete(e.cache.materializing, key)
+	// The columns this view reads are its own (see noteRead).
+	e.cache.viewDepth++
+	defer func() { e.cache.viewDepth-- }()
 
 	parsed, err := ParseScript(v.SQL)
 	if err != nil {
