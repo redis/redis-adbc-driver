@@ -589,7 +589,7 @@ func TestSQLCheckAlter(t *testing.T) {
 	h.expectError(`ALTER TABLE it_chk_alt DROP CONSTRAINT`, `expected identifier near ""`)
 	h.expectError(`ALTER TABLE it_chk_alt ADD CONSTRAINT c`, `syntax error: expected a constraint after CONSTRAINT c near ""`)
 	h.expectError(`ALTER TABLE it_chk_alt ADD CHECK v > 0`, `syntax error: expected "(" near "v"`)
-	h.expectError(`ALTER TABLE it_chk_alt ALTER COLUMN v SET NOT NULL`, `unsupported ALTER COLUMN action near "SET"`)
+	h.expectError(`ALTER TABLE it_chk_alt ALTER COLUMN v TYPE bigint`, `unsupported ALTER COLUMN action near "TYPE"`)
 	h.expectError(`ALTER TABLE it_chk_alt VALIDATE CONSTRAINT x`,
 		`unsupported ALTER TABLE action near "VALIDATE" (supported: RENAME TO, RENAME COLUMN, ADD COLUMN, DROP COLUMN, ALTER COLUMN, ADD CONSTRAINT, DROP CONSTRAINT)`)
 	h.expectError(`ALTER VIEW it_chk_alt DROP CONSTRAINT x`, "ALTER VIEW supports only RENAME TO")

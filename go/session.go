@@ -400,13 +400,21 @@ func (s *session) zone() tzZone { return s.value("timezone").zone }
 // zone is the session time zone of the statement being run (UTC for an
 // executor without a connection).
 func (e *executor) zone() tzZone {
+	var z tzZone
 	switch {
 	case e == nil || e.sess == nil:
 		return utcZone
 	case e.tzKnown:
-		return e.tz
+		z = e.tz
+	default:
+		z = e.sess.zone()
 	}
-	return e.sess.zone()
+	if !e.now.IsZero() {
+		// A time with time zone takes the zone's offset at the statement's
+		// time, as Postgres takes it at the transaction's.
+		z.now, z.hasNow = e.now.Unix(), true
+	}
+	return z
 }
 
 // readZone reads the session time zone for zone, when a statement starts

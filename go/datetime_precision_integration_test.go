@@ -214,8 +214,9 @@ func TestFractionalPrecisionIssue113(t *testing.T) {
 	h.expectRows(`SELECT EXTRACT(microseconds FROM CURRENT_TIMESTAMP(0)) % 1000000, CURRENT_TIMESTAMP(0) = CAST(NOW() AS TIMESTAMPTZ(0)),
 		CURRENT_TIMESTAMP(2) = CAST(CURRENT_TIMESTAMP AS TIMESTAMPTZ(2)), LOCALTIMESTAMP(1) = CAST(LOCALTIMESTAMP AS TIMESTAMP(1)),
 		CURRENT_TIMESTAMP(6) = CURRENT_TIMESTAMP`, "0|true|true|true|true")
-	if _, schema := h.query(`SELECT CURRENT_TIMESTAMP(0), LOCALTIMESTAMP(2), CURRENT_TIME(5)`); schema.Field(0).Type.String() != "timestamp[s, tz=UTC]" ||
-		schema.Field(1).Type.String() != "timestamp[ms]" || schema.Field(2).Type.String() != "time64[us]" {
+	if _, schema := h.query(`SELECT CURRENT_TIMESTAMP(0), LOCALTIMESTAMP(2), LOCALTIME(5), CURRENT_TIME(5)`); schema.Field(0).Type.String() != "timestamp[s, tz=UTC]" ||
+		schema.Field(1).Type.String() != "timestamp[ms]" || schema.Field(2).Type.String() != "time64[us]" ||
+		schema.Field(3).Type.String() != "utf8" {
 		t.Errorf("Arrow types of the current times: %s", schema)
 	}
 

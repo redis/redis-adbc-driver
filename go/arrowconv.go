@@ -159,7 +159,11 @@ func appendValue(b array.Builder, t ColType, v Value) error {
 	case *array.Decimal256Builder:
 		bb.Append(decimal256.FromBigInt(v.D))
 	case *array.StringBuilder:
-		bb.Append(v.S)
+		if v.T.Kind == KindTimeTZ {
+			bb.Append(timeTZText(v)) // its text (see arrowField)
+		} else {
+			bb.Append(v.S)
+		}
 	case *array.BinaryBuilder:
 		bb.Append([]byte(v.S))
 	case *array.Date32Builder:
@@ -187,7 +191,7 @@ type resultColumn struct {
 func resultSchema(cols []resultColumn) *arrow.Schema {
 	fields := make([]arrow.Field, len(cols))
 	for i, c := range cols {
-		fields[i] = arrow.Field{Name: c.Name, Type: c.Type.ArrowType(), Nullable: true}
+		fields[i] = arrowField(c.Name, c.Type, true)
 	}
 	return arrow.NewSchema(fields, nil)
 }

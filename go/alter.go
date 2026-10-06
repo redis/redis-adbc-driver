@@ -17,22 +17,26 @@ package redis
 // ALTER TABLE.
 //
 // Every change is a metadata update (WATCH/MULTI on the table's metadata key),
-// so it takes the same time at any table size (except where a CHECK
-// constraint is added, which reads the rows first). RENAME TO and RENAME
+// so it takes the same time at any table size (except where a CHECK or NOT
+// NULL constraint is added, which reads the rows first). RENAME TO and RENAME
 // COLUMN come alone; the other actions may come several to a statement,
-// comma-separated, and are then one metadata update (see alterTable):
+// comma-separated, and are then one metadata update, run in Postgres's
+// order (see alterTable and alterOrder):
 //
 //   - RENAME TO: the table keeps its key prefix and index (fixed at creation
-//     and reserved in a registry), so no row is touched. With the option
-//     adbc.redis.rename_rekey, it also moves the rows and index to the new
-//     name's, in time proportional to the number of rows (see rekey.go).
+//     and reserved in a registry), so no row is touched, and a DROP TABLE
+//     that it overlaps drops the table under its new name (see dropTable).
+//     With the option adbc.redis.rename_rekey, it also moves the rows and
+//     index to the new name's, in time proportional to the number of rows
+//     (see rekey.go).
 //   - RENAME COLUMN: the column keeps its HASH field and index attribute;
 //     only its SQL name changes.
 //   - ADD COLUMN: the column gets a HASH field no current or dropped column
 //     has used, and is added to the index with FT.ALTER. Existing rows read
 //     it as NULL, or with DEFAULT as its default, which is recorded as the
 //     column's missing value instead of being written to them (see
-//     defaults.go).
+//     defaults.go). With NOT NULL and no default, the table must have no
+//     rows.
 //   - DROP COLUMN: the column disappears immediately. Its field is retired
 //     (never reused) and removed from existing rows by a background task;
 //     the task is recorded in the metadata and resumed by later connections
@@ -40,6 +44,8 @@ package redis
 //     indexed column's attribute stays in the index, unused.
 //   - ALTER COLUMN … SET / DROP DEFAULT: only rows inserted later see the
 //     change.
+//   - ALTER COLUMN … SET NOT NULL checks that no existing row reads NULL,
+//     then marks the column; DROP NOT NULL only unmarks it.
 //   - ADD COLUMN … CHECK and ADD CONSTRAINT … CHECK check the existing rows
 //     against the new constraint, then add it; DROP CONSTRAINT removes one
 //     (see check.go). DROP COLUMN drops the constraints that read the column,
@@ -48,6 +54,7 @@ package redis
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -114,6 +121,10 @@ func checkColumnName(name string) error {
 	return nil
 }
 
+// testHookRenaming, when set by a test, runs once a plain RENAME TO has read
+// the table's metadata, before its transaction.
+var testHookRenaming func()
+
 func (e *executor) renameTable(ctx context.Context, meta *tableMeta, to TableName) error {
 	if to.Catalog != "" && to.Catalog != catalogName {
 		return errorf(adbc.StatusInvalidArgument, "catalog %q does not exist", to.Catalog)
@@ -136,6 +147,9 @@ func (e *executor) renameTable(ctx context.Context, meta *tableMeta, to TableNam
 			return err
 		}
 		return e.rekeyTable(ctx, meta, newName)
+	}
+	if testHookRenaming != nil {
+		testHookRenaming()
 	}
 	s := e.store
 	oldKey, newKey := metaKey(meta.Schema, meta.Name), metaKey(meta.Schema, newName)
@@ -249,17 +263,20 @@ func freeField(m *tableMeta, name string, taken map[string]bool) string {
 	return cand
 }
 
-// ---- ADD / DROP COLUMN, ALTER COLUMN … DEFAULT, ADD / DROP CONSTRAINT ----
+// ---- ADD / DROP COLUMN, ALTER COLUMN, ADD / DROP CONSTRAINT ----
 
 // alterResult is what applying the actions of an ALTER TABLE (other than
 // RENAME) to a table's metadata did.
 type alterResult struct {
-	// added are the columns added (and not dropped again), with the
-	// missing value they get, for the index and the row checks.
+	// added are the columns added, with the missing value they get, for
+	// the index and the row checks.
 	added []addedColumn
-	// checks are the CHECK constraints added that are still there at the
-	// end; existing rows must pass them.
+	// checks are the CHECK constraints added; existing rows must pass them.
 	checks []checkMeta
+	// notNull are the fields of the columns made NOT NULL (by SET NOT NULL,
+	// or ADD COLUMN … NOT NULL without a non-NULL DEFAULT); no existing row
+	// may read NULL in them.
+	notNull []string
 	// dropped is set when a column of the table was dropped, so its field
 	// must be removed from the rows.
 	dropped bool
@@ -279,6 +296,10 @@ type addedColumn struct {
 func (r *alterResult) log(format string, args ...any) {
 	r.trace = append(r.trace, fmt.Sprintf(format, args...))
 }
+
+// validates reports whether the existing rows must be checked against new
+// constraints.
+func (r *alterResult) validates() bool { return len(r.checks) > 0 || len(r.notNull) > 0 }
 
 // addedValues returns the value every existing row reads for each added
 // column, by name: its missing value, or NULL.
@@ -314,20 +335,21 @@ var testHookAltered func(meta *tableMeta)
 // alterTable runs the actions of an ALTER TABLE other than RENAME, one or
 // several, as one change of the table's metadata:
 //
-//  1. Plan: the actions are applied in the order written to a copy of the
-//     metadata as read (applyAlter), each seeing what the ones before it
-//     did. Every error in a definition (a column that exists or doesn't, a
-//     DEFAULT or CHECK that isn't valid) is found here.
-//  2. The existing rows are checked against the new CHECK constraints, in
-//     one scan, as the table will be after the change.
+//  1. Plan: the actions are applied in Postgres's order (alterOrder) to a
+//     copy of the metadata as read (applyAlter), each seeing what the ones
+//     before it did. Every error in a definition (a column that exists or
+//     doesn't, a DEFAULT or CHECK that isn't valid) is found here.
+//  2. The existing rows are checked against the new CHECK and NOT NULL
+//     constraints, in one scan, as the table will be after the change.
 //  3. The new indexed columns are added to the search index, in one FT.ALTER
 //     (which adds all of them or none).
 //  4. Commit: in one WATCH/MULTI on the metadata (and on the row id counter
-//     if a column gets a missing value), the actions are applied again to
-//     the metadata as it is then, and the result written if they did the
-//     same as planned, and the table still has the index of step 3 (TRUNCATE
-//     moves a table to a new one); otherwise the statement fails ("try
-//     again").
+//     if a column gets a missing value or rows were checked), the actions
+//     are applied again to the metadata as it is then, and the result
+//     written if they did the same as planned, and the table still has the
+//     index of step 3 (TRUNCATE moves a table to a new one); otherwise the
+//     statement fails ("try again"). Rows inserted since step 2 began (with
+//     higher row ids than the last one allocated then) are checked first.
 //  5. The fields of dropped columns are removed from the rows in the
 //     background, as for a single DROP COLUMN.
 //
@@ -336,6 +358,13 @@ var testHookAltered func(meta *tableMeta)
 // (a concurrent change, or a lost connection), the attributes step 3 added
 // stay in the index unused, which is harmless: no column reads them, and a
 // later ADD COLUMN doesn't reuse their names.
+//
+// Without locks, other statements may write rows meanwhile. Inserts that
+// allocate their row ids once the change has committed see the new NOT NULL
+// constraints (allocRows), even if they read the metadata before. The rest
+// isn't checked against the new constraints: rows still being written when
+// it commits, rows updated meanwhile, and rows inserted later by a statement
+// that read the metadata before a CHECK was added.
 func (e *executor) alterTable(ctx context.Context, meta *tableMeta, cmds []AlterCmd) error {
 	// Index attributes that no column uses (left by a commit that failed)
 	// can't be added again, so new columns don't take their names.
@@ -351,12 +380,13 @@ func (e *executor) alterTable(ctx context.Context, meta *tableMeta, cmds []Alter
 	if err != nil {
 		return err
 	}
-	if len(res.checks) > 0 {
-		added, err := res.addedValues()
-		if err != nil {
+	// checked is the last row id allocated before the rows were checked.
+	var checked int64
+	if res.validates() {
+		if checked, err = e.store.lastRowID(ctx, meta); err != nil {
 			return err
 		}
-		if err := e.validateChecks(ctx, meta, plan, res.checks, added); err != nil {
+		if err := e.validateRows(ctx, meta, plan, res, 0); err != nil {
 			return err
 		}
 	}
@@ -383,7 +413,7 @@ func (e *executor) alterTable(ctx context.Context, meta *tableMeta, cmds []Alter
 	// The rows that exist when a column with a missing value is added, those
 	// with ids up to the last one allocated, read it (see defaults.go).
 	withMissing := slices.ContainsFunc(res.added, func(c addedColumn) bool { return c.missing })
-	err = e.store.updateTableTx(ctx, meta.Schema, meta.Name, withMissing, func(m *tableMeta, lastRowID int64) error {
+	err = e.store.updateTableTx(ctx, meta.Schema, meta.Name, withMissing || res.validates(), func(m *tableMeta, lastRowID int64) error {
 		// TRUNCATE moves a table to a new index (truncateTables).
 		if m.index() != meta.index() || m.prefix() != meta.prefix() {
 			return errorf(adbc.StatusIO, "table %q changed concurrently; try again", m.Name)
@@ -395,6 +425,15 @@ func (e *executor) alterTable(ctx context.Context, meta *tableMeta, cmds []Alter
 		}
 		if !slices.Equal(again.trace, res.trace) || !sameChecksColumns(meta, cur, res.checks) {
 			return errorf(adbc.StatusIO, "table %q changed concurrently; try again", m.Name)
+		}
+		// The rows inserted since: no row id is allocated between this
+		// read of the counter and the commit (or the commit fails, and
+		// this runs again).
+		if res.validates() && lastRowID > checked {
+			if err := e.validateRows(ctx, meta, plan, res, checked); err != nil {
+				return err
+			}
+			checked = lastRowID
 		}
 		for _, a := range again.added {
 			if !a.missing {
@@ -422,26 +461,103 @@ func (e *executor) alterTable(ctx context.Context, meta *tableMeta, cmds []Alter
 	return nil
 }
 
-// applyAlter applies ALTER TABLE actions (not RENAME) to m in order. It
-// reads nothing from Redis: alterTable runs it on the metadata as read, and
-// again on the metadata as it is when the change commits. taken are index
-// attributes that new columns must not use as their field.
+// lastRowID returns the last row id allocated for a table's rows, 0 if none.
+func (s *store) lastRowID(ctx context.Context, meta *tableMeta) (int64, error) {
+	n, err := s.client.Get(ctx, seqKey(meta.Schema, meta.Name)).Int64()
+	if err != nil && !errors.Is(err, goredis.Nil) {
+		return 0, wrapRedis(err, "failed to read the row id counter")
+	}
+	return n, nil
+}
+
+// Ranks of the steps of an ALTER TABLE, in Postgres's order: the passes of
+// AlterTablePass in Postgres 16's src/backend/commands/tablecmds.c (times
+// 10), as ATPrepCmd and ATParseTransformCmd assign them. Postgres runs all
+// the steps of a pass, in the order written, before the next pass, and
+// checks the rows against new constraints once all of them have run.
+const (
+	// AT_PASS_DROP: DROP COLUMN, DROP CONSTRAINT, ALTER COLUMN … DROP
+	// DEFAULT and DROP NOT NULL.
+	rankDrop = 0
+	// AT_PASS_ADD_COL: ADD COLUMN, with its DEFAULT and NOT NULL.
+	rankAddColumn = 40
+	// AT_PASS_COL_ATTRS: ALTER COLUMN … SET NOT NULL.
+	rankSetNotNull = 60
+	// AT_PASS_ADD_OTHERCONSTR, in the order the steps join it: ALTER COLUMN
+	// … SET DEFAULT (when the statement is prepared), then the CHECKs of the
+	// ADD COLUMNs (in AT_PASS_ADD_COL), then those of ADD CONSTRAINT (in
+	// AT_PASS_ADD_CONSTR, where Postgres first reads every ADD CONSTRAINT).
+	rankSetDefault    = 90
+	rankColumnChecks  = 91
+	rankAddConstraint = 92
+)
+
+// alterStep is one step of an ALTER TABLE: an action, or the CHECKs of an
+// ADD COLUMN, which Postgres adds in a later pass than the column.
+type alterStep struct {
+	cmd    *AlterCmd
+	checks bool // the CHECKs of cmd, an ADD COLUMN
+	rank   int
+}
+
+// alterOrder returns the steps of ALTER TABLE actions in the order Postgres
+// runs them (see the ranks above).
+func alterOrder(cmds []AlterCmd) []alterStep {
+	var steps []alterStep
+	for i := range cmds {
+		c := &cmds[i]
+		rank := rankAddConstraint
+		switch c.Action {
+		case AlterDropColumn, AlterDropConstraint, AlterDropDefault, AlterDropNotNull:
+			rank = rankDrop
+		case AlterAddColumn:
+			rank = rankAddColumn
+			if len(c.Def.Checks) > 0 {
+				steps = append(steps, alterStep{cmd: c, checks: true, rank: rankColumnChecks})
+			}
+		case AlterSetNotNull:
+			rank = rankSetNotNull
+		case AlterSetDefault:
+			rank = rankSetDefault
+		}
+		steps = append(steps, alterStep{cmd: c, rank: rank})
+	}
+	slices.SortStableFunc(steps, func(a, b alterStep) int { return a.rank - b.rank })
+	return steps
+}
+
+// applyAlter applies ALTER TABLE actions (not RENAME) to m, in Postgres's
+// order (alterOrder). It reads nothing from Redis: alterTable runs it on the
+// metadata as read, and again on the metadata as it is when the change
+// commits. taken are index attributes that new columns must not use as
+// their field.
 func (e *executor) applyAlter(ctx context.Context, m *tableMeta, cmds []AlterCmd, taken map[string]bool) (*alterResult, error) {
 	res := &alterResult{}
 	had := len(m.Columns)
-	for _, cmd := range cmds {
+	// The ADD COLUMN IF NOT EXISTS skipped, with their CHECKs.
+	skipped := map[*AlterCmd]bool{}
+	for _, step := range alterOrder(cmds) {
+		cmd := step.cmd
 		var err error
-		switch cmd.Action {
-		case AlterAddColumn:
-			err = e.alterAddColumn(ctx, m, cmd, taken, res)
-		case AlterDropColumn:
-			err = alterDropColumn(m, cmd, res)
-		case AlterSetDefault, AlterDropDefault:
-			err = e.alterDefault(ctx, m, cmd, res)
-		case AlterAddConstraint:
+		switch {
+		case step.checks:
+			if !skipped[cmd] {
+				err = e.alterColumnChecks(ctx, m, cmd.Def, res)
+			}
+		case cmd.Action == AlterAddColumn:
+			var added bool
+			added, err = e.alterAddColumn(ctx, m, *cmd, taken, res)
+			skipped[cmd] = !added
+		case cmd.Action == AlterDropColumn:
+			err = alterDropColumn(m, *cmd, res)
+		case cmd.Action == AlterSetDefault, cmd.Action == AlterDropDefault:
+			err = e.alterDefault(ctx, m, *cmd, res)
+		case cmd.Action == AlterSetNotNull, cmd.Action == AlterDropNotNull:
+			err = alterNotNull(m, *cmd, res)
+		case cmd.Action == AlterAddConstraint:
 			err = e.alterAddConstraint(ctx, m, cmd.Check, res)
-		case AlterDropConstraint:
-			err = alterDropConstraint(m, cmd, res)
+		case cmd.Action == AlterDropConstraint:
+			err = alterDropConstraint(m, *cmd, res)
 		default:
 			err = errorf(adbc.StatusNotImplemented, "unsupported ALTER TABLE action")
 		}
@@ -460,47 +576,56 @@ func (e *executor) applyAlter(ctx context.Context, m *tableMeta, cmds []AlterCmd
 	return res, nil
 }
 
-// alterAddColumn applies ADD COLUMN. The column gets a HASH field no
-// current or dropped column has used. With a DEFAULT, existing rows read the
-// default as it is now, recorded as the column's missing value (see
-// defaults.go), so it must be the same for all of them.
-func (e *executor) alterAddColumn(ctx context.Context, m *tableMeta, cmd AlterCmd, taken map[string]bool, res *alterResult) error {
+// columnMissing is Postgres's error for an ALTER TABLE action on a column
+// that doesn't exist.
+func columnMissing(column, table string) error {
+	return errorf(adbc.StatusNotFound, "column %q of relation %q does not exist", column, table)
+}
+
+// alterAddColumn applies ADD COLUMN, without the column's CHECKs (see
+// alterColumnChecks), and reports whether it added the column (IF NOT
+// EXISTS skips one that exists). The column gets a HASH field no current or
+// dropped column has used. With a DEFAULT, existing rows read the default as
+// it is now, recorded as the column's missing value (see defaults.go), so
+// it must be the same for all of them. Without one they read NULL, so with
+// NOT NULL the table must have no rows (checked with the rows).
+func (e *executor) alterAddColumn(ctx context.Context, m *tableMeta, cmd AlterCmd, taken map[string]bool, res *alterResult) (bool, error) {
 	// The application may have the field in its HASHes, and missing
 	// values count on row ids that the driver hands out.
 	if err := refuseAdopted(m, "ADD COLUMN"); err != nil {
-		return err
+		return false, err
 	}
 	def := cmd.Def
 	if err := checkColumnName(def.Name); err != nil {
-		return err
+		return false, err
 	}
 	if _, ok := m.resolve(def.Name); ok {
 		if cmd.IfColumnNotExists {
 			res.log("add %q: exists", def.Name)
-			return nil
+			return false, nil
 		}
-		return errorf(adbc.StatusAlreadyExists, "column %q already exists in table %q", def.Name, m.Name)
+		return false, errorf(adbc.StatusAlreadyExists, "column %q of relation %q already exists", def.Name, m.Name)
 	}
 	col := columnMeta{Name: def.Name, Type: def.Type, Nullable: !def.NotNull, Comment: def.Comment}
 	missing := false
 	if def.Default != nil {
 		if hasVolatile(def.Default) {
-			return errorf(adbc.StatusNotImplemented, "ADD COLUMN with a volatile DEFAULT is not supported: existing rows would each need their own value")
+			return false, errorf(adbc.StatusNotImplemented, "ADD COLUMN with a volatile DEFAULT is not supported: existing rows would each need their own value")
 		}
 		text, v, err := e.checkDefault(ctx, def)
 		if err != nil {
-			return err
+			return false, err
 		}
 		col.Default = text
 		if !v.Null {
 			col.Missing, missing = encodeStored(v), true
 		}
 	}
-	if def.NotNull && !missing {
-		return errorf(adbc.StatusNotImplemented, "cannot add a NOT NULL column without a non-NULL DEFAULT: existing rows would have no value")
-	}
 	if f := freeField(m, def.Name, taken); f != def.Name {
 		col.Field = f
+	}
+	if def.NotNull && !missing {
+		res.notNull = append(res.notNull, col.field())
 	}
 	indexed := 0
 	for _, c := range m.Columns {
@@ -518,22 +643,27 @@ func (e *executor) alterAddColumn(ctx context.Context, m *tableMeta, cmd AlterCm
 	col.NaNs = col.Indexed && col.Type.Kind.isFloat() && col.Missing == nanStored
 	m.Columns = append(m.Columns, col)
 	res.added = append(res.added, addedColumn{col, missing})
-	res.log("add %q field %q type %s indexed %v missing %v %q default %q", col.Name, col.field(), col.Type.SQLName(), col.Indexed, missing, col.Missing, col.Default)
-	// The column's CHECK constraints are defined on the table with it, and
-	// the existing rows read its missing value.
-	if len(def.Checks) > 0 {
-		checks, err := e.defineChecks(ctx, m, def.Checks)
-		if err != nil {
-			return err
-		}
-		res.addChecks(m, checks)
+	res.log("add %q field %q type %s indexed %v missing %v %q default %q not null %v",
+		col.Name, col.field(), col.Type.SQLName(), col.Indexed, missing, col.Missing, col.Default, def.NotNull)
+	return true, nil
+}
+
+// alterColumnChecks applies the CHECKs of an ADD COLUMN. They are defined on
+// the table with every column the statement adds, and the existing rows read
+// the column's missing value.
+func (e *executor) alterColumnChecks(ctx context.Context, m *tableMeta, def ColumnDef, res *alterResult) error {
+	checks, err := e.defineChecks(ctx, m, def.Checks)
+	if err != nil {
+		return err
 	}
+	res.addChecks(m, checks)
 	return nil
 }
 
 // alterDropColumn applies DROP COLUMN. The column disappears from the
 // metadata; its field is retired (never reused) and removed from the rows
-// later. As in Postgres, the CHECK constraints that read it go too.
+// later. As in Postgres, the CHECK constraints that read it go too. Drops
+// come before the other actions, so the column is one the table had.
 func alterDropColumn(m *tableMeta, cmd AlterCmd, res *alterResult) error {
 	i, ok := m.resolve(cmd.Column)
 	if !ok {
@@ -541,14 +671,11 @@ func alterDropColumn(m *tableMeta, cmd AlterCmd, res *alterResult) error {
 			res.log("drop %q: missing", cmd.Column)
 			return nil
 		}
-		return errorf(adbc.StatusNotFound, "column %q does not exist in table %q", cmd.Column, m.Name)
+		return columnMissing(cmd.Column, m.Name)
 	}
 	c := m.Columns[i]
 	f := c.field()
-	if j := slices.IndexFunc(res.added, func(a addedColumn) bool { return a.field() == f }); j >= 0 {
-		// Added by this statement: no row has its field.
-		res.added = slices.Delete(res.added, j, j+1)
-	} else if m.Adopted {
+	if m.Adopted {
 		// An application's field: it stays in the HASHes.
 		m.RetiredFields = append(m.RetiredFields, f)
 	} else {
@@ -565,7 +692,6 @@ func alterDropColumn(m *tableMeta, cmd AlterCmd, res *alterResult) error {
 			return false
 		}
 		gone = append(gone, k.Name)
-		res.dropCheck(k.Name)
 		return true
 	})
 	m.Columns = slices.Delete(m.Columns, i, i+1)
@@ -579,7 +705,7 @@ func alterDropColumn(m *tableMeta, cmd AlterCmd, res *alterResult) error {
 func (e *executor) alterDefault(ctx context.Context, m *tableMeta, cmd AlterCmd, res *alterResult) error {
 	i, ok := m.resolve(cmd.Column)
 	if !ok {
-		return errorf(adbc.StatusNotFound, "column %q does not exist in table %q", cmd.Column, m.Name)
+		return columnMissing(cmd.Column, m.Name)
 	}
 	col := m.Columns[i]
 	text := ""
@@ -593,6 +719,27 @@ func (e *executor) alterDefault(ctx context.Context, m *tableMeta, cmd AlterCmd,
 	}
 	m.Columns[i].Default = text
 	res.log("default %q field %q: %q", col.Name, col.field(), text)
+	return nil
+}
+
+// alterNotNull applies ALTER COLUMN … SET NOT NULL and DROP NOT NULL. As in
+// Postgres, either is a no-op on a column that already is so, and SET NOT
+// NULL on a nullable column has the existing rows checked.
+func alterNotNull(m *tableMeta, cmd AlterCmd, res *alterResult) error {
+	i, ok := m.resolve(cmd.Column)
+	if !ok {
+		return columnMissing(cmd.Column, m.Name)
+	}
+	col := &m.Columns[i]
+	set := cmd.Action == AlterSetNotNull
+	// The trace says whether the rows are checked, so that a column whose
+	// NOT NULL was dropped meanwhile isn't set without that.
+	check := set && col.Nullable
+	if check {
+		res.notNull = append(res.notNull, col.field())
+	}
+	col.Nullable = !set
+	res.log("not null %q field %q: %v, checked %v", col.Name, col.field(), set, check)
 	return nil
 }
 
@@ -623,7 +770,6 @@ func alterDropConstraint(m *tableMeta, cmd AlterCmd, res *alterResult) error {
 		return errorf(adbc.StatusNotFound, "constraint %q of relation %q does not exist", cmd.Constraint, m.Name)
 	}
 	name := m.Checks[i].Name
-	res.dropCheck(name)
 	m.Checks = slices.Delete(m.Checks, i, i+1)
 	res.log("drop constraint %q", name)
 	return nil
@@ -636,12 +782,6 @@ func (r *alterResult) addChecks(m *tableMeta, checks []checkMeta) {
 	for _, c := range checks {
 		r.log("check %q: %s", c.Name, c.Expr)
 	}
-}
-
-// dropCheck forgets a constraint added by the statement that is dropped
-// again by it.
-func (r *alterResult) dropCheck(name string) {
-	r.checks = slices.DeleteFunc(r.checks, func(c checkMeta) bool { return strings.EqualFold(c.Name, name) })
 }
 
 // indexAttributes returns the names of a search index's attributes, lower

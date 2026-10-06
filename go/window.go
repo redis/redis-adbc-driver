@@ -472,7 +472,7 @@ func rangeOffsetOK(key, off ColType) bool {
 	switch {
 	case key.Kind.isNumeric():
 		return off.Kind.isNumeric()
-	case key.Kind == KindDate || key.Kind == KindTime || key.Kind == KindTimestamp || key.Kind == KindInterval:
+	case key.Kind == KindDate || key.isTimeOfDay() || key.Kind == KindTimestamp || key.Kind == KindInterval:
 		return off.Kind == KindInterval
 	}
 	return false
@@ -1206,7 +1206,7 @@ func (ws *windowSet) frameOffset(env *evalEnv, fr *WindowFrame, b FrameBound, wh
 				key.SQLName(), v.T.SQLName())
 		}
 		switch {
-		case v.T.Kind == KindInterval && key.Kind == KindTime:
+		case v.T.Kind == KindInterval && key.isTimeOfDay():
 			// A time moves by the interval's time part only (see timeOffset).
 			negative = v.I < 0
 		case v.T.Kind == KindInterval:
@@ -1309,7 +1309,7 @@ func (ws *windowSet) rangeBound(off Value, i, ps, pe int, following, start bool)
 	}
 	var target Value
 	var err error
-	if cur.T.Kind == KindTime {
+	if cur.T.isTimeOfDay() {
 		target, err = timeOffset(cur, off, toward)
 	} else {
 		target, err = binaryOp(op, cur, off, ws.zone)
@@ -1338,7 +1338,8 @@ func (ws *windowSet) rangeBound(off Value, i, ps, pe int, following, start bool)
 	})
 }
 
-// timeOffset moves a TIME key by dir times an interval for a RANGE bound.
+// timeOffset moves a TIME or TIME WITH TIME ZONE key by dir times an
+// interval for a RANGE bound.
 // As in PostgreSQL, only the interval's time part counts and the result does
 // not wrap around midnight (time ± interval does), so a frame never reaches
 // past the start or end of the day.
@@ -1351,6 +1352,10 @@ func timeOffset(t, off Value, dir int) (Value, error) {
 	s := ns + d
 	if (d > 0 && s < ns) || (d < 0 && s > ns) {
 		return Value{}, fmt.Errorf("time out of range")
+	}
+	if t.T.Kind == KindTimeTZ {
+		// With t's offset, as Postgres's in_range for a time with time zone.
+		return Value{T: ColType{Kind: KindTimeTZ, Unit: arrow.Nanosecond}, I: s, Off: t.Off}, nil
 	}
 	return intValue(timeType(arrow.Nanosecond), s), nil
 }

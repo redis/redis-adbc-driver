@@ -463,6 +463,8 @@ const (
 	AlterDropDefault
 	AlterAddConstraint
 	AlterDropConstraint
+	AlterSetNotNull
+	AlterDropNotNull
 )
 
 type AlterTableStmt struct {
@@ -471,7 +473,8 @@ type AlterTableStmt struct {
 	// View is set for ALTER VIEW (which only supports RENAME TO).
 	View bool
 	// Cmds are the actions in the order written: a single RENAME TO or
-	// RENAME COLUMN, or one or more of the others (see alter.go).
+	// RENAME COLUMN, or one or more of the others, which run in Postgres's
+	// order (see alterOrder in alter.go).
 	Cmds []AlterCmd
 }
 
@@ -2354,8 +2357,12 @@ func (p *parser) parseAlterCmd(view bool) (AlterCmd, error) {
 			cmd.Action = AlterSetDefault
 		case p.acceptKeyword("DROP", "DEFAULT"):
 			cmd.Action = AlterDropDefault
+		case p.acceptKeyword("SET", "NOT", "NULL"):
+			cmd.Action = AlterSetNotNull
+		case p.acceptKeyword("DROP", "NOT", "NULL"):
+			cmd.Action = AlterDropNotNull
 		default:
-			return cmd, &sqlError{msg: fmt.Sprintf("unsupported ALTER COLUMN action near %q (supported: SET DEFAULT, DROP DEFAULT)", p.peek().text)}
+			return cmd, &sqlError{msg: fmt.Sprintf("unsupported ALTER COLUMN action near %q (supported: SET DEFAULT, DROP DEFAULT, SET NOT NULL, DROP NOT NULL)", p.peek().text)}
 		}
 	default:
 		if view {
@@ -3649,12 +3656,12 @@ func (p *parser) parsePrimary() (Expr, error) {
 				p.pos += 2
 				return p.parseSQLJSONFunc(upper)
 			}
-		case "DATE", "TIME", "TIMESTAMP", "TIMESTAMPTZ", "DATETIME":
+		case "DATE", "TIME", "TIMESTAMP", "TIMESTAMPTZ", "DATETIME", "TIMETZ":
 			// Typed literal: DATE '...', TIMESTAMP [WITH TIME ZONE] '...',
-			// TIMESTAMP(p) '...'
+			// TIMESTAMP(p) '...', TIME [WITH TIME ZONE] '...', TIMETZ '...'
 			save := p.pos
 			p.pos++
-			withTZ := upper == "TIMESTAMPTZ"
+			withTZ := upper == "TIMESTAMPTZ" || upper == "TIMETZ"
 			var params []int
 			if upper != "DATE" && p.isOp("(") && p.peekAt(1).kind == tokNumber && p.peekAt(2).kind == tokOp &&
 				p.peekAt(2).text == ")" {
@@ -3670,16 +3677,26 @@ func (p *parser) parsePrimary() (Expr, error) {
 					p.acceptKeyword("WITHOUT", "TIME", "ZONE")
 				}
 			}
-			if s := p.peek(); s.kind == tokString && params != nil {
-				// With a precision: the text cast to the type, read as a
-				// cast reads it (in microseconds unless the type is in
-				// nanoseconds), and rounded.
+			if s := p.peek(); s.kind == tokString && (params != nil || upper == "TIMETZ" || upper == "TIME" && withTZ) {
+				// With a precision, or a time with time zone: the text cast
+				// to the type, read as a cast reads it (in microseconds
+				// unless the type is in nanoseconds), and rounded.
 				p.pos++
 				ct, err := colTypeFromSQL(sqlTypeSpec{Name: upper, Params: params, WithTZ: withTZ})
 				if err != nil {
 					return nil, &sqlError{msg: err.Error()}
 				}
 				text := stringValue(s.text)
+				if ct.Kind == KindTimeTZ {
+					if _, err := parseTimeTZ(s.text, utcZone); err != nil {
+						return nil, &sqlError{msg: err.Error()}
+					}
+					if timeTZLocal(s.text) {
+						// The session time zone's offset, read when the
+						// statement runs.
+						return p.noteCast(&Cast{X: p.noteLiteral(s), T: ct}), nil
+					}
+				}
 				if _, _, _, hasTZ, _ := parseTimestamp(s.text); isTimestampTZ(ct) && !hasTZ {
 					// A local time, read when the statement runs, as below.
 					return p.noteCast(&Cast{X: p.noteLiteral(s), T: ct}), nil

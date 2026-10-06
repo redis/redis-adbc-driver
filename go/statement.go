@@ -266,7 +266,7 @@ func (s *statementImpl) GetParameterSchema(ctx context.Context) (*arrow.Schema, 
 	}
 	fields := make([]arrow.Field, len(types))
 	for i, t := range types {
-		fields[i] = arrow.Field{Type: t.ArrowType(), Nullable: true}
+		fields[i] = arrowField("", t, true)
 	}
 	return arrow.NewSchema(fields, nil), nil
 }

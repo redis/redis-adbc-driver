@@ -53,12 +53,18 @@ func setOpType(a, b ColType) (ColType, bool) {
 		return a, true
 	case a.Kind.isNumeric() && b.Kind.isNumeric():
 		return commonType(a, b), true
-	case a.Kind == b.Kind && (a.Kind == KindTime || a.Kind == KindTimestamp):
+	case a.Kind == b.Kind && (a.isTimeOfDay() || a.Kind == KindTimestamp):
 		t := finerTime(a, b)
 		if a.TZ != "" || b.TZ != "" {
 			t.TZ = "UTC"
 		}
 		return t, true
+	case a.isTimeOfDay() && b.isTimeOfDay():
+		// A TIME and a time with time zone: a time with time zone, as in
+		// Postgres.
+		t := finerTime(a, b)
+		t.Kind = KindTimeTZ
+		return t.withFracDigits(t.fracDigits()), true
 	case a.Kind == b.Kind:
 		return commonType(a, b), true
 	}

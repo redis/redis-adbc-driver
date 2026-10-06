@@ -321,14 +321,17 @@ func TestAtTimeZoneErrors(t *testing.T) {
 		"CONVERT_TIMEZONE('Nowhere', " + ts + ")":                          `time zone "Nowhere" not recognized`,
 		ts + " AT TIME ZONE INTERVAL '1 day'":                              `interval time zone "1 day" must not include months or days`,
 		ts + " AT TIME ZONE INTERVAL '1 mon 2 hours'":                      `interval time zone "1 mon 02:00:00" must not include months or days`,
-		// Types without a TIMEZONE: there is no TIME WITH TIME ZONE.
-		"TIME '10:00:00' AT TIME ZONE 'UTC'":                     "function timezone(varchar, time) does not exist",
+		// Types without a TIMEZONE.
 		ts + " AT TIME ZONE 5":                                   "function timezone(bigint, timestamp) does not exist",
+		"TIME '10:00:00' AT TIME ZONE 5":                         "function timezone(bigint, time) does not exist",
+		"TIMETZ '10:00:00+02' AT TIME ZONE 'Mars/Phobos'":        `time zone "Mars/Phobos" not recognized`,
+		"TIMETZ '10:00:00+02' AT TIME ZONE INTERVAL '1 day'":     `interval time zone "1 day" must not include months or days`,
 		"INTERVAL '1 hour' AT TIME ZONE 'UTC'":                   "function timezone(varchar, interval) does not exist",
 		"1 AT TIME ZONE 'UTC'":                                   "function timezone(varchar, bigint) does not exist",
 		"CONVERT_TIMEZONE(INTERVAL '1 hour', 'UTC', " + ts + ")": "function convert_timezone(interval, varchar, timestamp) does not exist",
 		"CONVERT_TIMEZONE('UTC', 1)":                             "function convert_timezone(varchar, bigint) does not exist",
 		"CONVERT_TIMEZONE('UTC', TIME '10:00:00')":               "function convert_timezone(varchar, time) does not exist",
+		"CONVERT_TIMEZONE('UTC', TIMETZ '10:00:00+02')":          "function convert_timezone(varchar, time with time zone) does not exist",
 		// Argument counts.
 		"TIMEZONE()":                  "TIMEZONE expects 1 or 2 arguments",
 		"TIMEZONE('UTC', 'UTC', 'x')": "TIMEZONE expects 1 or 2 arguments",

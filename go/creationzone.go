@@ -18,25 +18,29 @@ package redis
 //
 // A view, a column DEFAULT and a CHECK are stored as SQL text and parsed
 // again each time they are used, by the session that uses them. Text
-// without an offset that is read as a timestamp with time zone is a local
-// time in the session time zone, so such a literal would be read in the
-// zone of whichever session reads the view or writes the row. Postgres
-// reads it once: it converts the literal to an instant when the definition
-// is created (the constant is folded), and stores that.
+// without an offset that is read as a timestamp with time zone, or as a
+// time with time zone, is a local time in the session time zone, so such a
+// literal would be read in the zone of whichever session reads the view or
+// writes the row. Postgres reads it once: it converts the literal to an
+// instant (or a time with an offset) when the definition is created (the
+// constant is folded), and stores that.
 //
 // The driver does the same to the text it stores: each such literal is
 // replaced by its instant, written with the offset of the creating
 // session's zone ('2024-01-01 00:00' in New York becomes '2024-01-01
-// 00:00:00-05', which reads the same in every zone). A literal is such a
-// one, as in Postgres, if it is
+// 00:00:00-05', which reads the same in every zone; a time with time zone
+// '10:00' becomes '10:00:00-04' in July). A literal is such a one, as in
+// Postgres, if it is
 //
-//   - cast to a timestamp with time zone: TIMESTAMPTZ '…', '…'::timestamptz,
-//     CAST('…' AS TIMESTAMPTZ) (also TRY_CAST and its fallback);
+//   - cast to a timestamp with time zone or a time with time zone:
+//     TIMESTAMPTZ '…', '…'::timestamptz, CAST('…' AS TIMESTAMPTZ), TIMETZ
+//     '…', '…'::timetz (also TRY_CAST and its fallback);
 //   - or untyped and read as one because of what it meets: compared with a
-//     timestamp with time zone (=, <, IS DISTINCT FROM, IN, BETWEEN, a CASE
-//     operand), an argument of COALESCE, GREATEST or LEAST whose result is
-//     one, or of NULLIF with one, the operand of AT TIME ZONE and AT LOCAL,
-//     and a column's DEFAULT itself when the column is one.
+//     timestamp with time zone or a time with time zone (=, <, IS DISTINCT
+//     FROM, IN, BETWEEN, a CASE operand), an argument of COALESCE, GREATEST
+//     or LEAST whose result is one, or of NULLIF with one, the operand of AT
+//     TIME ZONE and AT LOCAL, and a column's DEFAULT itself when the column
+//     is one.
 //
 // Everything else keeps reading the session time zone when it runs, as in
 // Postgres: casts of columns and expressions (ts::date, CAST(d AS
@@ -78,7 +82,7 @@ func (p *parser) noteLiteral(t token) *Literal {
 // noteCast returns c, and marks its operand (and TRY_CAST's fallback) if
 // it is a string literal cast to a timestamp with time zone.
 func (p *parser) noteCast(c *Cast) *Cast {
-	if p.lits == nil || !isTimestampTZ(c.T) {
+	if p.lits == nil || !readsLocalTime(c.T) {
 		return c
 	}
 	for _, x := range []Expr{c.X, c.OnError} {
@@ -144,7 +148,7 @@ func localTimeLiterals(x Expr, typeOf func(Expr) ColType, out map[*Literal]bool)
 	// meets adds x if it is one read as other's type.
 	meets := func(x, other Expr) {
 		if lit, ok := text(x); ok {
-			if _, both := text(other); !both && isTimestampTZ(typeOf(other)) {
+			if _, both := text(other); !both && readsLocalTime(typeOf(other)) {
 				out[lit] = true
 			}
 		}
@@ -175,7 +179,7 @@ func localTimeLiterals(x Expr, typeOf func(Expr) ColType, out map[*Literal]bool)
 			case d.impl == implCoalesce || d.impl == implConditional:
 				// COALESCE, GREATEST, LEAST: the arguments are read as the
 				// result's type.
-				if isTimestampTZ(typeOf(v)) {
+				if readsLocalTime(typeOf(v)) {
 					for _, a := range v.Args {
 						if lit, ok := text(a); ok {
 							out[lit] = true
@@ -241,10 +245,15 @@ func foldLocalTimes(text string, lits []litSpan, untyped map[*Literal]bool, z tz
 // '2024-03-10 02:30', which the spring-forward transition skips, is
 // '2024-03-10 03:30:00-07'. Where z's offset has seconds (local mean time
 // before 1883 in America/New_York), the text is in UTC, since timestamp
-// text can't have them. The fraction keeps its digits' unit. ok is false
-// for text with an offset or a zone, or that isn't a timestamp.
+// text can't have them. The fraction keeps its digits' unit. Time with time
+// zone text without a date or a zone is read as one in z, as text with its
+// offset (foldedTimeTZ). ok is false for text with an offset or a zone, or
+// that isn't a timestamp or a time.
 func foldedLocalTime(s string, z tzZone) (string, bool) {
 	if _, _, _, hasTZ, err := parseTimestamp(s); err != nil || hasTZ {
+		if err != nil {
+			return foldedTimeTZ(s, z)
+		}
 		return "", false
 	}
 	v, err := timestampLiteralIn(s, true, z)
@@ -270,6 +279,21 @@ func foldedLocalTime(s string, z tzZone) (string, bool) {
 		return "", false
 	}
 	return out, true
+}
+
+// foldedTimeTZ returns time with time zone text without a zone, s, read in
+// z (with z's offset on the current date), as text with that offset: in
+// America/New_York in July, '10:00' is '10:00:00-04'. ok is false for text
+// with a zone, or that isn't a time with time zone.
+func foldedTimeTZ(s string, z tzZone) (string, bool) {
+	if !timeTZLocal(s) {
+		return "", false
+	}
+	v, err := parseTimeTZ(s, z)
+	if err != nil {
+		return "", false
+	}
+	return timeTZText(v), true
 }
 
 // foldView plans the body of a new view with plan, and returns its text
@@ -318,7 +342,7 @@ func (e *executor) foldDefault(text string, t ColType) string {
 		return text // not expected: the text parsed before
 	}
 	untyped := map[*Literal]bool{}
-	if lit, ok := x.(*Literal); ok && lit.V.T.Kind == KindString && isTimestampTZ(t) {
+	if lit, ok := x.(*Literal); ok && lit.V.T.Kind == KindString && readsLocalTime(t) {
 		untyped[lit] = true // read as the column's type
 	}
 	localTimeLiterals(x, func(x Expr) ColType {

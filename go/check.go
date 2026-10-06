@@ -52,8 +52,10 @@ package redis
 //     also those that don't read the columns it sets (it reads the columns
 //     they use).
 //   - ADD COLUMN and ADD CONSTRAINT check the existing rows first (the new
-//     column reads its missing value, see defaults.go). Without locks, rows
-//     written meanwhile by statements that read the metadata before the
+//     column reads its missing value, see defaults.go), with the rows
+//     inserted meanwhile when the change commits (see alterTable). Without
+//     locks, rows still being written then, rows updated meanwhile, and rows
+//     inserted later by statements that read the metadata before the
 //     constraint was added aren't checked against it.
 
 import (
@@ -418,52 +420,80 @@ func (tc *tableChecks) violated(row map[string]Value) (int, error) {
 	return -1, nil
 }
 
-// validateChecks checks the rows of a table against new CHECK constraints
-// (ALTER TABLE … ADD COLUMN … CHECK, ADD CONSTRAINT), as Postgres does.
-// stored is the table as it is; with is the table the constraints are on,
-// as the ALTER TABLE leaves it. A column of with that stored has (with the
-// same field) is read from the rows; one the statement adds is in added,
-// with the value every existing row reads for it.
-func (e *executor) validateChecks(ctx context.Context, stored, with *tableMeta, checks []checkMeta, added map[string]Value) error {
+// validateRows checks the rows of a table against the constraints an ALTER
+// TABLE adds, as Postgres does: its CHECKs (ADD COLUMN … CHECK, ADD
+// CONSTRAINT) and NOT NULLs (ALTER COLUMN … SET NOT NULL, ADD COLUMN … NOT
+// NULL without a default). stored is the table as it is; with is the table
+// as the ALTER TABLE leaves it, and res what it did. A column of with that
+// stored has (with the same field) is read from the rows; one the statement
+// adds reads the same value in every existing row (see addedValues). With
+// above > 0, only the rows with higher row ids are checked. As in Postgres,
+// a row is checked against NOT NULL first (in column order), then against
+// the constraints (in name order).
+func (e *executor) validateRows(ctx context.Context, stored, with *tableMeta, res *alterResult, above int64) error {
+	added, err := res.addedValues()
+	if err != nil {
+		return err
+	}
 	m := *with
-	m.Checks = checks
+	m.Checks = res.checks
 	tc, err := e.tableChecks(ctx, &m)
-	if err != nil || tc == nil {
+	if err != nil {
 		return err
 	}
 	need := map[string]bool{}
-	for _, i := range tc.cols {
-		if name := with.Columns[i].Name; !hasKey(added, name) {
-			need[name] = true
+	var notNull []string
+	for i, c := range with.Columns {
+		if slices.Contains(res.notNull, c.field()) {
+			notNull = append(notNull, c.Name)
+		} else if tc == nil || !slices.Contains(tc.cols, i) {
+			continue
+		}
+		if !hasKey(added, c.Name) {
+			need[c.Name] = true
 		}
 	}
-	violation := func(i int) error {
-		return errorf(adbc.StatusIntegrity, "check constraint %q of relation %q is violated by some row", checks[i].Name, with.Name)
+	check := func(row map[string]Value) error {
+		for _, name := range notNull {
+			if v, ok := row[name]; !ok || v.Null {
+				return errorf(adbc.StatusIntegrity, "column %q of relation %q contains null values", name, with.Name)
+			}
+		}
+		if tc == nil {
+			return nil
+		}
+		i, err := tc.violated(row)
+		if err != nil || i < 0 {
+			return err
+		}
+		return errorf(adbc.StatusIntegrity, "check constraint %q of relation %q is violated by some row", res.checks[i].Name, with.Name)
+	}
+	var where Expr
+	if above > 0 {
+		if where, err = parseExprText(fmt.Sprintf("%s > %d", rowIDField, above)); err != nil {
+			return err
+		}
 	}
 	if len(need) == 0 {
 		// Only new columns are read, so every row gives the same result:
 		// the table is read only to see whether it has any rows.
-		i, err := tc.violated(maps.Clone(added))
-		if err != nil || i < 0 {
+		violation := check(maps.Clone(added))
+		if violation == nil {
+			return nil
+		}
+		if _, rows, err := e.matchRows(ctx, stored, "", where, nil, nil); err != nil || len(rows) == 0 {
 			return err
 		}
-		if _, rows, err := e.matchRows(ctx, stored, "", nil, nil, nil); err != nil || len(rows) == 0 {
-			return err
-		}
-		return violation(i)
+		return violation
 	}
-	_, rows, err := e.matchRows(ctx, stored, "", nil, nil, need)
+	_, rows, err := e.matchRows(ctx, stored, "", where, nil, need)
 	if err != nil {
 		return err
 	}
 	for _, row := range rows {
 		maps.Copy(row, added)
-		i, err := tc.violated(row)
-		if err != nil {
+		if err := check(row); err != nil {
 			return err
-		}
-		if i >= 0 {
-			return violation(i)
 		}
 	}
 	return nil

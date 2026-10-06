@@ -40,6 +40,9 @@ const (
 	KindTime
 	KindTimestamp
 	KindInterval
+	// KindTimeTZ is TIME WITH TIME ZONE: a time of day and a UTC offset
+	// (timetz.go).
+	KindTimeTZ
 )
 
 var kindNames = map[Kind]string{
@@ -57,6 +60,7 @@ var kindNames = map[Kind]string{
 	KindTime:      "time",
 	KindTimestamp: "timestamp",
 	KindInterval:  "interval",
+	KindTimeTZ:    "timetz",
 }
 
 func (k Kind) String() string { return kindNames[k] }
@@ -80,7 +84,7 @@ func (k Kind) indexedAsNumeric() bool {
 // metadata and maps 1:1 onto an Arrow type.
 type ColType struct {
 	Kind Kind
-	Unit arrow.TimeUnit // time and timestamp
+	Unit arrow.TimeUnit // time, time with time zone and timestamp
 	TZ   string         // timestamp: "" (naive) or "UTC"
 	// Precision is a decimal's digits, and a time's or timestamp's declared
 	// fractional-second digits when they are fewer than its unit's (1 or 2
@@ -114,7 +118,7 @@ var unitNames = map[arrow.TimeUnit]string{
 
 func (t ColType) MarshalJSON() ([]byte, error) {
 	j := colTypeJSON{Kind: t.Kind.String()}
-	if t.Kind == KindTime || t.Kind == KindTimestamp {
+	if t.isTimeOfDay() || t.Kind == KindTimestamp {
 		j.Unit = unitNames[t.Unit]
 		j.TZ = t.TZ
 		j.Precision = t.Precision // set only for a p below the unit's digits
@@ -156,7 +160,7 @@ func (t *ColType) UnmarshalJSON(data []byte) error {
 	t.Scale = j.Scale
 	t.Length = j.Length
 	t.Fixed = j.Fixed
-	if t.Kind == KindTime || t.Kind == KindTimestamp {
+	if t.isTimeOfDay() || t.Kind == KindTimestamp {
 		// Without a precision (metadata written before it was kept), the
 		// unit's digits.
 		*t = fracType(t.Kind, t.fracDigits(), t.TZ)
@@ -180,6 +184,10 @@ var (
 
 func timeType(unit arrow.TimeUnit) ColType { return ColType{Kind: KindTime, Unit: unit} }
 
+// isTimeOfDay reports whether t is a time of day: TIME or TIME WITH TIME
+// ZONE.
+func (t ColType) isTimeOfDay() bool { return t.Kind == KindTime || t.Kind == KindTimeTZ }
+
 func timestampType(unit arrow.TimeUnit, tz string) ColType {
 	return ColType{Kind: KindTimestamp, Unit: unit, TZ: tz}
 }
@@ -188,12 +196,17 @@ func decimalType(precision, scale int32) ColType {
 	return ColType{Kind: KindDecimal, Precision: precision, Scale: scale}
 }
 
-// fracType is TIME(p) (k = KindTime) or TIMESTAMP(p) with time zone tz
-// (KindTimestamp): the Arrow unit that holds p digits, and p itself when
-// the unit has more. So TIMESTAMP(3) is timestampType(arrow.Millisecond,
-// "") and TIMESTAMP(2) is that with Precision 2, whose values are
-// milliseconds rounded to 2 digits. A p above 9 is 9.
+// fracType is TIME(p) (k = KindTime), TIME(p) WITH TIME ZONE (KindTimeTZ)
+// or TIMESTAMP(p) with time zone tz (KindTimestamp): the Arrow unit that
+// holds p digits, and p itself when the unit has more. So TIMESTAMP(3) is
+// timestampType(arrow.Millisecond, "") and TIMESTAMP(2) is that with
+// Precision 2, whose values are milliseconds rounded to 2 digits. A p above
+// 9 is 9, and above 6 for a time with time zone, which holds microseconds as
+// in Postgres.
 func fracType(k Kind, p int, tz string) ColType {
+	if k == KindTimeTZ {
+		p, tz = min(p, maxTimeTZDigits), ""
+	}
 	t := ColType{Kind: k, Unit: unitForPrecision(p), TZ: tz}
 	if p > 0 && p < precisionForUnit(t.Unit) {
 		t.Precision = int32(p)
@@ -282,6 +295,10 @@ func (t ColType) ArrowType() arrow.DataType {
 		return &arrow.TimestampType{Unit: t.Unit, TimeZone: t.TZ}
 	case KindInterval:
 		return arrow.FixedWidthTypes.MonthDayNanoInterval
+	case KindTimeTZ:
+		// Arrow has no time with time zone: its text, as Postgres writes it
+		// (see arrowField).
+		return arrow.BinaryTypes.String
 	default:
 		return arrow.Null
 	}
@@ -320,6 +337,8 @@ func (t ColType) SQLName() string {
 		return "DATE"
 	case KindTime:
 		return fmt.Sprintf("TIME(%d)", t.fracDigits())
+	case KindTimeTZ:
+		return fmt.Sprintf("TIME(%d) WITH TIME ZONE", t.fracDigits())
 	case KindTimestamp:
 		if t.TZ != "" {
 			return fmt.Sprintf("TIMESTAMP(%d) WITH TIME ZONE", t.fracDigits())
@@ -434,7 +453,7 @@ func colTypeFromSQL(spec sqlTypeSpec) (ColType, error) {
 		return typeBinary, nil
 	case "DATE":
 		return typeDate, nil
-	case "TIME", "TIMESTAMP", "DATETIME", "TIMESTAMPTZ":
+	case "TIME", "TIMESTAMP", "DATETIME", "TIMESTAMPTZ", "TIMETZ":
 		return timeTypeFromSQL(spec, param(0, 6))
 	case "INTERVAL":
 		return typeInterval, nil
@@ -445,13 +464,17 @@ func colTypeFromSQL(spec sqlTypeSpec) (ColType, error) {
 // timeTypeFromSQL returns the type of TIME(p) and TIMESTAMP(p) [WITH TIME
 // ZONE] and their synonyms, with p fractional digits (fracType). As in
 // Postgres a negative p is an error; a p above 9 is 9 (Postgres reduces a
-// p above 6 to 6, with a warning).
+// p above 6 to 6, with a warning), and for TIME WITH TIME ZONE (TIMETZ) a p
+// above 6 is 6, as in Postgres.
 func timeTypeFromSQL(spec sqlTypeSpec, p int) (ColType, error) {
 	k, tz := KindTimestamp, ""
+	withTZ := spec.WithTZ || spec.Name == "TIMESTAMPTZ" || spec.Name == "TIMETZ"
 	switch {
+	case spec.Name == "TIMETZ" || spec.Name == "TIME" && withTZ:
+		k = KindTimeTZ
 	case spec.Name == "TIME":
-		k = KindTime // TIME WITH TIME ZONE is a TIME
-	case spec.WithTZ || spec.Name == "TIMESTAMPTZ":
+		k = KindTime
+	case withTZ:
 		tz = "UTC"
 	}
 	switch {
@@ -459,14 +482,14 @@ func timeTypeFromSQL(spec sqlTypeSpec, p int) (ColType, error) {
 		return ColType{}, fmt.Errorf("invalid type modifier for type %s", strings.ToLower(spec.Name))
 	case p < 0:
 		name := "TIMESTAMP"
-		if k == KindTime {
+		if k != KindTimestamp {
 			name = "TIME"
 		}
-		withTZ := ""
-		if spec.WithTZ || spec.Name == "TIMESTAMPTZ" {
-			withTZ = " WITH TIME ZONE"
+		suffix := ""
+		if withTZ {
+			suffix = " WITH TIME ZONE"
 		}
-		return ColType{}, fmt.Errorf("%s(%d)%s precision must not be negative", name, p, withTZ)
+		return ColType{}, fmt.Errorf("%s(%d)%s precision must not be negative", name, p, suffix)
 	}
 	return fracType(k, p, tz), nil
 }

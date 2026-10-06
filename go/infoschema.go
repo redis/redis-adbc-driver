@@ -151,7 +151,7 @@ func columnRow(schema, table string, pos int, c columnMeta) []Value {
 		prec = optInt(53, true)
 	case KindDate:
 		dtPrec = optInt(0, true)
-	case KindTime, KindTimestamp:
+	case KindTime, KindTimeTZ, KindTimestamp:
 		dtPrec = optInt(int32(t.fracDigits()), true)
 	}
 	return []Value{

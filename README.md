@@ -1062,8 +1062,9 @@ Deleted 13 HASHes under 2 prefixes.
 - **Selective index**: `FT.CREATE idx:<schema>:<table> ON HASH PREFIX 1
   <schema>:<table>:` covering only filterable columns: numeric, boolean,
   decimal, date/time and timestamp columns as `NUMERIC SORTABLE`, strings as
-  `TAG SEPARATOR "\x1f" CASESENSITIVE INDEXEMPTY SORTABLE UNF`. Binary columns and columns
-  declared `NOINDEX` are stored in the HASH only.
+  `TAG SEPARATOR "\x1f" CASESENSITIVE INDEXEMPTY SORTABLE UNF`. Binary,
+  `INTERVAL` and `TIME WITH TIME ZONE` columns, and columns declared
+  `NOINDEX`, are stored in the HASH only.
 - **Strings in the index**: a TAG doesn't hold every string as it is.
   RediSearch cuts a value at its first NUL byte, splits it at the separator,
   trims ASCII whitespace (space, `\t`, `\n`, `\v`, `\f`, `\r`) from both
@@ -1161,10 +1162,10 @@ Deleted 13 HASHes under 2 prefixes.
   - With `LIMIT` / `OFFSET` in the index, the driver asks for one row more
     on each side. If a run with such a key goes on past them, it reads the
     rest of the run: by value when the first `ORDER BY` key is a `BIGINT`,
-    `TIME` or `TIMESTAMP` (`@c:[v v]`, and an `FT.SEARCH … LIMIT 0 0` that
-    counts the rows before it if the run started before the rows read),
-    otherwise by asking again with more rows on that side. The rows of the
-    `LIMIT` are read before the first is returned.
+    `TIME` or `TIMESTAMP` below 2^63 (`@c:[v v]`, and an `FT.SEARCH …
+    LIMIT 0 0` that counts the rows before it if the run started before the
+    rows read), otherwise by asking again with more rows on that side. The
+    rows of the `LIMIT` are read before the first is returned.
   - Without such ties nothing changes but the two extra rows: the same
     commands run, and `LIMIT` still runs in the index. Microsecond
     timestamps between 1685 and 2255 never tie, and nanosecond ones only
@@ -1218,11 +1219,12 @@ Deleted 13 HASHes under 2 prefixes.
     cost. If the table was dropped, truncated, renamed or created again
     since the statement started, it writes nothing.
   - A write of more than 1,000 rows (`CREATE TABLE … AS`, `INSERT …
-    SELECT`, bulk ingest, a large `UPDATE`) also checks that the table
-    still has its keys: between pipelines of 1,000 rows once 100 ms have
-    passed since the last check, and always after its last pipeline (one
-    round trip each). Smaller writes check at the end only when 100 ms have
-    passed since they read the metadata, as before.
+    SELECT`, bulk ingest, a large `UPDATE` or `MERGE`) also checks that the
+    table still has its keys: between pipelines of 1,000 rows once 100 ms
+    have passed since the last check, and always after its last pipeline
+    (one round trip each). Smaller writes check at the end only when 100 ms
+    have passed since they read the metadata, as before, and so do deletes
+    of any size, which make no key.
   - A statement whose table was dropped or truncated (or whose rows a
     re-keying rename moved away) stops and fails: "table … was renamed with
     its rows moved to new keys, truncated or dropped, while this statement
@@ -1310,7 +1312,7 @@ How SQL is executed:
 | Window functions | Computed by the driver once the rows are known: after WHERE, GROUP BY and HAVING (which still run in the index when they can), before QUALIFY, ORDER BY and LIMIT. Rows are hashed into partitions and each partition is sorted once per distinct PARTITION BY / ORDER BY; frame aggregates add and remove rows as the frame slides (O(1) amortized per row; sums, averages and variances add and subtract exact sums, also of doubles). With `EXCLUDE CURRENT ROW / GROUP / TIES` the frame has a hole, so each row's frame is aggregated afresh (O(frame) per row), as PostgreSQL does; `FIRST_VALUE` / `LAST_VALUE` / `NTH_VALUE` stay O(1), also with `IGNORE NULLS`. A query with window functions never pushes its LIMIT into the index |
 | `CREATE TEMP TABLE` / `VIEW` | Same as a permanent table or view, in the connection's `pg_temp_<id>` schema. Unqualified names are looked up there first (in memory, no extra round trip) |
 | `TRUNCATE` | Like `DROP TABLE` and `CREATE TABLE` with the same metadata: reserves a new key prefix and index name and runs `FT.CREATE` for each table, switches the metadata of every table of the statement to the new names in one `WATCH`/`MULTI` (which also releases the old names), then runs `FT.DROPINDEX <old> DD`, which deletes every row the old index knows about. Statements still writing to the table find out and fail (see "Key prefixes are never reused") |
-| `ALTER TABLE` | Metadata only (optimistic `WATCH`/`MULTI` on the table's metadata, one for all the actions of a statement), plus `FT.INFO` and one `FT.ALTER` for the added columns and a background `HDEL` pass for `DROP COLUMN`. `ADD COLUMN … DEFAULT` records a missing value instead of writing the rows. Adding a `CHECK` (`ADD COLUMN … CHECK`, `ADD CONSTRAINT … CHECK`) first reads the columns it uses from every row, with one `FT.AGGREGATE` cursor scan for all the statement's new `CHECK`s, to check them. With `adbc.redis.rename_rekey`, `RENAME TO` also creates the new name's index, copies every row the old index lists with pipelined `DUMP` / `RESTORE … REPLACE` (a cursor page at a time; one key per command, so it works on a cluster), switches the metadata in one transaction, then runs `FT.DROPINDEX <old> DD` |
+| `ALTER TABLE` | Metadata only (optimistic `WATCH`/`MULTI` on the table's metadata, one for all the actions of a statement), plus `FT.INFO` and one `FT.ALTER` for the added columns and a background `HDEL` pass for `DROP COLUMN`. `ADD COLUMN … DEFAULT` records a missing value instead of writing the rows. Adding a `CHECK` (`ADD COLUMN … CHECK`, `ADD CONSTRAINT … CHECK`) or a `NOT NULL` (`ALTER COLUMN … SET NOT NULL`, `ADD COLUMN … NOT NULL` without a default) first reads the columns they use from every row, with one `FT.AGGREGATE` cursor scan for all the statement's new constraints, to check them, and when it commits, the rows inserted since (by `__rowid`). With `adbc.redis.rename_rekey`, `RENAME TO` also creates the new name's index, copies every row the old index lists with pipelined `DUMP` / `RESTORE … REPLACE` (a cursor page at a time; one key per command, so it works on a cluster), switches the metadata in one transaction, then runs `FT.DROPINDEX <old> DD` |
 | Views | `CREATE VIEW` plans the body without running it, which checks its tables, columns and function calls. Single-table views without GROUP BY/aggregates/window functions/LIMIT are expanded in place: the outer query's filters are rewritten over the base table and run in its index. Other views are computed once per query, like a derived table |
 | Joins | Each table's own WHERE/ON filters run in its index (except on the NULL-supplying side of an outer join). Inner joins are reordered to start from the table with the fewest matches (counted by the index). Equality conditions drive a hash join; when the next table's key is indexed and there are ≤ 1,000 distinct keys, only matching rows are fetched with an index union. The joined rows are then grouped/sorted in memory. `NATURAL JOIN` is an equality join on the common columns, like `USING`. An item whose `ON` can never be true (`ON false`), or that has no rows, isn't read when that settles the result: an inner join is then empty and reads no item, a `LEFT JOIN` keeps the left rows with NULLs for the item, and a `RIGHT JOIN` returns the item's rows without reading the items before it |
 | `UPDATE … FROM`, `DELETE … USING`, `MERGE` | The target is joined with the other items as above: its own filters (in WHERE, or in MERGE's ON) run in its index, and an equality on an indexed target column is an index lookup join, also through a no-op cast like dbt's `s.id::text = t.id::text`. `MERGE` is source `LEFT JOIN` target, or `FULL JOIN` with `WHEN NOT MATCHED BY SOURCE` clauses (which need every target row); `ON FALSE` reads the target only for those. Changes are then written by row key with pipelined `HSET`/`HDEL`/`DEL`, and new rows like `INSERT` does |
@@ -1397,17 +1399,44 @@ Aggregate pushdown (`adbc.redis.aggregate_pushdown`):
   integer, boolean and date columns, which RediSearch returns exactly, and
   BOOL_OR/BOOL_AND/EVERY over boolean columns. Other aggregates are computed
   by the driver.
-- `all`: also pushes floating-point, decimal and 64-bit aggregates.
-  RediSearch adds doubles in its own order (on a cluster, each shard's
-  rows, then the shards' sums) and reports the result with 12 significant
-  digits; `AVG` is that sum divided by the count. That is the exact sum
-  when it has at most 12 significant digits, such as amounts with two
-  decimals, and RediSearch's rounding errors stay below the 12th digit;
-  otherwise it differs from it after the 12th digit (`SUM` of 1/3 and 1/7
-  is 0.47619047619, not 0.47619047619047616), and sums that cancel can lose
-  their small values (1e16, 1, -1e16, 3, 1e16, 0.5, -1e16 came back as 4,
-  not 4.5). A float column that may hold a NaN is grouped and reduced by
-  the driver (see "NaNs in the index" above).
+- `all`: also pushes floating-point, decimal and 64-bit aggregates, and
+  groups on such columns (see below). RediSearch adds doubles in its own
+  order (on a cluster, each shard's rows, then the shards' sums) and
+  reports the result with 12 significant digits; `AVG` is that sum divided
+  by the count. That is the exact sum when it has at most 12 significant
+  digits, such as amounts with two decimals, and RediSearch's rounding
+  errors stay below the 12th digit; otherwise it differs from it after the
+  12th digit (`SUM` of 1/3 and 1/7 is 0.47619047619, not
+  0.47619047619047616), and sums that cancel can lose their small values
+  (1e16, 1, -1e16, 3, 1e16, 0.5, -1e16 came back as 4, not 4.5). A float
+  column that may hold a NaN is grouped and reduced by the driver (see
+  "NaNs in the index" above).
+  - **Groups are exact.** The index groups (`GROUP BY`, `SELECT
+    DISTINCT`) on its doubles too, and replies with a group's value in full
+    if it is an integer and with 12 significant digits otherwise. The
+    driver takes the index's groups only if each one's value is exactly a
+    value of the column, and otherwise groups the rows itself, after that
+    `FT.AGGREGATE`. That is a `BIGINT`, `TIME` or `TIMESTAMP` value below
+    2^53 in its unit (a `TIMESTAMP` from 1685 to 2255), a `NUMERIC(p,s)`
+    value of at most 12 significant digits (any for p ≤ 12, otherwise
+    those below 10^(12-s): 1,000 for `NUMERIC`, which is `NUMERIC(38,9)`),
+    and a `REAL` below 2^63 or infinite. `DOUBLE PRECISION` columns
+    (5.0000000000001 is replied as 5) and nanosecond `TIMESTAMP`s (past
+    2^53 from April 1970) aren't grouped in the index at all. Up to v0.0.12
+    the driver took the index's groups as they came: 9007199254740992 and
+    9007199254740993 were one group, as were `TIMESTAMP(9)` values of 2024
+    up to 256 ns apart; `SELECT DISTINCT` returned 0.3 twice for 0.3 and
+    0.30000000000000004, and 9999-12-31 23:59:59.999999 as 10000-01-01.
+  - **So are `MIN` and `MAX` of a `BIGINT`, `TIME` or `TIMESTAMP`**, which
+    come from the index on the same condition, **and `SUM`s of integers.**
+    RediSearch's sum of integers is exact while the count times the
+    largest magnitude is below 2^53: for a `BIGINT`, the driver asks the
+    index for the group's `MIN` and `MAX` too; for an `INTEGER` (in the
+    `exact` mode too), up to 4 million values. The driver computes the
+    others. Up to v0.0.12, `MIN` of -9007199254740993 was
+    -9007199254740992, and the `SUM` of 9007199254740992,
+    -9007199254740993 and 5 was 5. `MIN` and `MAX` of decimals and doubles
+    keep the index's 12 significant digits.
 - `none`: always aggregates in the driver.
 
 The other modes compute `SUM` and `AVG` of doubles exactly (see
@@ -1501,11 +1530,17 @@ field, even if later rows have it.
     still be writing to the table (in Postgres, `TRUNCATE` would wait for
     it). Such a statement fails as after `DROP TABLE` ("… truncated or
     dropped, while this statement was writing to it …") and deletes what it
-    wrote, so the table is empty afterwards. A small write that doesn't
-    check may succeed, with its rows left under the old prefix, where no
-    table reads them. Up to v0.0.7 the rows such a statement wrote after
-    the `TRUNCATE` stayed in the table, and `RESTART IDENTITY` could lose
-    them (see "Key prefixes" in the architecture section).
+    wrote, so the table is empty afterwards. That includes `UPDATE` and
+    `MERGE`, whose changes after the `TRUNCATE` would leave partial copies
+    of the rows they set under the old prefix. A `DELETE` (or `MERGE …
+    DELETE`) leaves nothing there: one that ran for 100 ms or more fails
+    all the same (it can't tell a `TRUNCATE` from a re-keying rename, which
+    copied the rows it hadn't deleted yet), and a faster one succeeds, as
+    if it had run first. A small write that doesn't check may succeed, with
+    its rows left under the old prefix, where no table reads them. Up to
+    v0.0.7 the rows such a statement wrote after the `TRUNCATE` stayed in
+    the table, and `RESTART IDENTITY` could lose them (see "Key prefixes"
+    in the architecture section).
   - **Concurrent reads and `ALTER`s:** a statement that reads the table for
     100 ms or more across a `TRUNCATE` fails ("try again"), as across a
     `DROP TABLE`. An `ALTER TABLE … ADD COLUMN` that commits while a
@@ -1516,27 +1551,43 @@ field, even if later rows have it.
   `RENAME [COLUMN] a TO b`, or with one or more of these, separated by commas:
   `ADD [COLUMN] [IF NOT EXISTS] c TYPE [column_constraint …] [NOINDEX] [COMMENT 'text']`,
   `DROP [COLUMN] [IF EXISTS] c [CASCADE | RESTRICT]`,
-  `ALTER [COLUMN] c {SET DEFAULT expr | DROP DEFAULT}`,
+  `ALTER [COLUMN] c {SET DEFAULT expr | DROP DEFAULT | SET NOT NULL | DROP NOT NULL}`,
   `ADD table_constraint`,
-  `DROP CONSTRAINT [IF EXISTS] name [CASCADE | RESTRICT]`. All of them only change metadata, so they
-  take the same time at any table size (except `RENAME TO` with
-  `adbc.redis.rename_rekey`, and adding a `CHECK`, which reads every row
-  first):
+  `DROP CONSTRAINT [IF EXISTS] name [CASCADE | RESTRICT]`. `ALTER COLUMN …
+  TYPE` isn't supported. All of them only change metadata, so they take the
+  same time at any table size (except `RENAME TO` with
+  `adbc.redis.rename_rekey`, and adding a `CHECK` or `NOT NULL`, which reads
+  every row first):
   - **Several actions** (dbt's `on_schema_change` and snapshots send
     `alter table t add column "a" …, add column "b" …, drop column "c"`) are
     one change of the table's metadata, made in one `WATCH`/`MULTI`, so
     other statements see the table before all of them or after all of
-    them. They apply in the order written, each seeing what the ones before
-    it did: `ADD COLUMN x …, ADD CONSTRAINT c CHECK (x > 0)` checks the rows
-    with `x`'s default, `DROP COLUMN a, ADD COLUMN a …` gives a new, empty
-    column, and two unnamed `CHECK`s on `v` are named `t_v_check` and
-    `t_v_check1`. Postgres instead runs all the `DROP`s first, then the
-    `ADD COLUMN`s, then the constraints and defaults, so a few orders it
-    accepts are errors here, such as a `CHECK` on a column added later in
-    the list (write the column first), and `ADD COLUMN a …, DROP COLUMN a`,
-    an error there, adds nothing here. A table can't be left without
-    columns, but `DROP COLUMN a, ADD COLUMN b …` works on a table whose only
-    column is `a`.
+    them. They run in Postgres's order, each seeing what the ones before it
+    did: first the drops (`DROP COLUMN`, `DROP CONSTRAINT`, `DROP DEFAULT`
+    and `DROP NOT NULL`), then `ADD COLUMN`, then `SET NOT NULL`, then `SET
+    DEFAULT`, the new columns' `CHECK`s and `ADD CONSTRAINT`, each group in
+    the order written. So `ADD CONSTRAINT c CHECK (x > 0), ADD COLUMN x …
+    DEFAULT 1` checks the rows with `x`'s default, `DROP COLUMN a, ADD
+    COLUMN a …` gives a new, empty column (also written the other way
+    round), and `ALTER COLUMN a SET DEFAULT 1, ADD COLUMN a …` gives the new
+    column a default. An action that runs earlier can't name what the
+    statement adds: `ADD COLUMN a …, DROP COLUMN a` and `ADD COLUMN a …
+    DEFAULT 9, ALTER COLUMN a DROP DEFAULT` fail with `column "a" of
+    relation "t" does not exist`, as in Postgres. Unnamed `CHECK`s are named
+    in that order too: in `ADD CHECK (v > 0), ADD COLUMN b … CHECK (v > 1)`,
+    the column's is `t_v_check` and the other `t_v_check1`. Of several
+    errors, the one reported is the first in that order. A table can't be
+    left without columns (Postgres allows it), but `DROP COLUMN a, ADD
+    COLUMN b …` works on a table whose only column is `a`.
+    - **Upgrading from v0.0.12 and earlier:** the actions ran in the order
+      written, so `ADD COLUMN a …, DROP COLUMN a` added nothing, `ADD COLUMN
+      a … DEFAULT 9, ALTER COLUMN a DROP DEFAULT` left `a` without a default
+      (for the rows inserted later), and a `CHECK` on a column added later
+      in the list was an error. `ADD COLUMN … NOT NULL` without a non-NULL
+      `DEFAULT` was an error also on a table without rows. In `ADD COLUMN`,
+      `DROP COLUMN` and `ALTER COLUMN`, a column that already exists or
+      doesn't was `column "a" already exists in table "t"` or `column "a"
+      does not exist in table "t"`.
   - **All or nothing:** if any action fails (a column that exists or
     doesn't, a `DEFAULT` that doesn't convert, a `CHECK` that some row
     fails, …), none is applied: the metadata, the search index and the
@@ -1561,6 +1612,21 @@ field, even if later rows have it.
     `t__dbt_tmp` and renames to `t` keeps the keys `public:t__dbt_tmp:<rowid>`
     and the index `idx:public:t__dbt_tmp` (or `t__dbt_tmp~N`: names are never
     reused, so every build after the first takes a new N).
+  - **With a concurrent `DROP TABLE`:** there are no locks, so
+    `DROP TABLE t` and `ALTER TABLE t RENAME TO u` may overlap. In Postgres
+    one of them waits for the other: either the `DROP` drops the table and
+    the rename fails, or the rename comes first and the `DROP` fails. Here
+    a rename that commits before the `DROP` reads the table makes the
+    `DROP` fail (`table "public"."t" does not exist`), and a `DROP` that
+    commits before the rename makes the rename fail the same way. A rename
+    that commits while the `DROP` runs is too late to save the table: the
+    `DROP` drops the index, which deletes the rows, and the renamed table
+    keeps that index. So the `DROP` drops the table under its new name,
+    `u`, and both statements succeed. A table created as `t` meanwhile is
+    another table, and stays. Up to v0.0.12 the `DROP` failed ("does not
+    exist"), did nothing under `IF EXISTS`, or dropped that new `t`
+    instead, and `u` was left without its index or rows, its key prefix and
+    index name still reserved.
   - With the option `adbc.redis.rename_rekey` set to `true` (on the
     database, e.g. in dbt's `db_kwargs`, or on the connection), `RENAME TO`
     also moves the rows and the index to the new name's: `public:t:<rowid>`
@@ -1587,7 +1653,10 @@ field, even if later rows have it.
       or `RENAME COLUMN` that had already started is taken into account when
       the metadata is switched. `DROP TABLE` (and so bulk ingest in
       `replace` mode) is not refused: if it reaches the table before the
-      switch, the rename fails.
+      switch, the rename fails. If the switch comes first, the `DROP`
+      fails ("does not exist"), and the renamed table keeps its rows,
+      which were copied to its new keys: unlike a plain rename, this one
+      isn't followed.
     - A write statement that read the table's metadata before the move
       started may still be running, so the copy waits 100 ms first. A write
       statement that took longer than that, from reading the metadata to its
@@ -1637,13 +1706,37 @@ field, even if later rows have it.
     `DEFAULT CURRENT_TIMESTAMP` gives them all the time of the `ALTER`) and
     recorded as the column's missing value rather than written to them (see
     the architecture section). A volatile default (`RANDOM()`) is not
-    supported here, and `NOT NULL` needs a non-NULL `DEFAULT`.
+    supported here. With `NOT NULL` and no `DEFAULT` (or a NULL one), the
+    existing rows would read NULL, so as in Postgres it works only on a
+    table without rows (otherwise `column "c" of relation "t" contains null
+    values`).
   - `DROP COLUMN` hides the column immediately and removes its field from
     existing rows in the background (resumed by the next connection if the
     process exits first). A dropped column's values never reappear, even if
     a column with the same name is added later.
   - `ALTER COLUMN … SET DEFAULT` / `DROP DEFAULT` only change what rows
     inserted later get; existing rows keep their values.
+  - `ALTER COLUMN … SET NOT NULL` checks every row first, reading the
+    column as queries do (one added with a `DEFAULT` reads it in the rows
+    that existed then), and fails with Postgres's `column "c" of relation
+    "t" contains null values` if one is NULL. Each row is checked against
+    `NOT NULL` before the statement's new `CHECK`s, as in Postgres. `DROP
+    NOT NULL` only changes the metadata. Either does nothing to a column
+    that already is so. `information_schema.columns.is_nullable`,
+    `GetObjects` and `GetTableSchema` show the change. `PRIMARY KEY` isn't
+    kept (see Constraints below), so unlike in Postgres a key column is
+    nullable unless it is declared `NOT NULL`, and `DROP NOT NULL` doesn't
+    refuse it.
+  - **Concurrent writes:** there are no locks, so other connections may
+    write while the rows are checked for a new `NOT NULL` or `CHECK` (in
+    Postgres they would wait). The rows they insert meanwhile are checked
+    too, when the change commits (which tries again while more keep coming,
+    up to 20 times, then fails with "try again"). A statement that read the
+    table before a new `NOT NULL` and inserts after it fails on a NULL in
+    the column, or with "try again" if the column was added without a
+    default. Rows still being written when the change commits, rows updated
+    meanwhile, and rows inserted after a new `CHECK` by a statement that
+    read the table before it aren't checked.
   - `ADD COLUMN … CHECK (…)` and `ADD [CONSTRAINT name] CHECK (…)` check
     every existing row first (see Constraints below). `DROP CONSTRAINT`
     removes a `CHECK`; the other constraints aren't kept, so it can't name
@@ -1835,8 +1928,9 @@ field, even if later rows have it.
   - **Existing rows:** `ADD COLUMN … CHECK` and `ADD [CONSTRAINT name] CHECK`
     check every row first, with the new column at its default, and fail
     with `check constraint "c" of relation "t" is violated by some row`.
-    Rows that other connections write while that runs aren't checked
-    against the new constraint.
+    Rows that other connections insert while that runs are checked when the
+    change commits, but not all the rows they write (see "Concurrent
+    writes" under `ALTER TABLE`).
   - **Lifetime:** the constraints are part of the table's metadata (an
     optional `checks` field holding each name and expression, so older
     metadata reads unchanged). `RENAME TO` (also with
@@ -2472,15 +2566,23 @@ field, even if later rows have it.
     `LOCALTIME(p)` and `NOW(p)` are rounded to `p` digits, as in Postgres
     (`CURRENT_TIMESTAMP(0)` is whole seconds, and `CURRENT_TIMESTAMP(2)` is
     `CAST(CURRENT_TIMESTAMP AS TIMESTAMPTZ(2))`), and have type
-    `TIMESTAMP(p) WITH TIME ZONE`, `TIMESTAMP(p)` or `TIME(p)`; `p` is an
-    integer constant from 0 to 9
+    `TIMESTAMP(p) WITH TIME ZONE`, `TIMESTAMP(p)`, `TIME(p) WITH TIME ZONE`
+    (`CURRENT_TIME`, up to 6 digits) or `TIME(p)` (`LOCALTIME`); `p` is an
+    integer constant from 0 to 9. `CURRENT_TIME` is the local time with the
+    session time zone's offset (`10:30:00-04`), as in Postgres. Up to
+    v0.0.12 it was a `TIME`, an Arrow `time64`; it is now a string column
+    (see Types)
   - `EXTRACT(field FROM x)` / `DATE_PART('field', x)` for `year`, `isoyear`,
     `quarter`, `month`, `week` (ISO), `day`, `dow` (0 = Sunday), `isodow`,
     `doy`, `hour`, `minute`, `second`, `milliseconds`, `microseconds`, `epoch`,
     `decade`, `century`, `millennium`, and for a timestamp with time zone
-    `timezone`, `timezone_hour` and `timezone_minute` (its offset, east of
-    UTC); shortcuts `YEAR()`, `QUARTER()`, `MONTH()`, `WEEK()`, `DAY()`,
-    `DAYOFYEAR()`, `HOUR()`, `MINUTE()`, `SECOND()`
+    or a time with time zone `timezone`, `timezone_hour` and
+    `timezone_minute` (its offset, east of UTC). A time with time zone has
+    the time's fields, `epoch` (the seconds of its time in UTC, so
+    `'10:00+02'` is 28800) and the offset's; the others are `unit "day" not
+    supported for type time with time zone`, as in Postgres. Shortcuts
+    `YEAR()`, `QUARTER()`, `MONTH()`, `WEEK()`, `DAY()`, `DAYOFYEAR()`,
+    `HOUR()`, `MINUTE()`, `SECOND()`
   - `DATE_TRUNC('unit', x)` (dates stay dates), `DATE_DIFF('unit', a, b)`
     (unit boundaries crossed), `LAST_DAY(d)`
   - `DATE_BIN(stride, source, origin)` (Postgres 14): the start of the
@@ -2561,7 +2663,9 @@ field, even if later rows have it.
       value`
     - A time is formatted as the interval since midnight, because Postgres
       casts it to one: `TO_CHAR(TIME '13:05', 'YYYY-MM-DD HH24:MI')` is
-      `0000-00-00 13:05`. The session time zone doesn't change it
+      `0000-00-00 13:05`. The session time zone doesn't change it. Postgres
+      has no `TO_CHAR` of a time with time zone, so it is `function
+      to_char(time with time zone, varchar) does not exist`
     - **Upgrading from v0.0.12 and earlier:** `TO_CHAR` of an interval was
       an error (`expected a date, time or timestamp, got interval`), and a
       time was formatted as on 1970-01-01: `YYYY` was `1970`, `J` `2440588`
@@ -2611,10 +2715,15 @@ field, even if later rows have it.
     gives that instant, a `TIMESTAMP WITH TIME ZONE`, and gives the local
     time in `zone` of a `TIMESTAMP WITH TIME ZONE`, a `TIMESTAMP`. A `DATE`
     and text are read as a `TIMESTAMP WITH TIME ZONE` (local times in the
-    session time zone), and the precision is kept. `x AT LOCAL` (also
-    `TIMEZONE(x)`) converts to or from the session time zone. There is no
-    `TIME WITH TIME ZONE`, so a `TIME` is an error (`function
-    timezone(varchar, time) does not exist`)
+    session time zone), and the precision is kept. A `TIME WITH TIME ZONE`
+    gives the time of the same instant in `zone`, with the offset `zone`
+    has at the statement's time, wrapped into a day (`TIMETZ '10:00+02' AT
+    TIME ZONE 'America/New_York'` is `04:00:00-04` in July), and a `TIME`
+    is first read as a time with time zone in the session time zone, as
+    Postgres casts it (`TIME '10:00' AT TIME ZONE 'UTC'` is `14:00:00+00` in
+    a New York session in July). `x AT LOCAL` (also `TIMEZONE(x)`) converts
+    to or from the session time zone. Up to v0.0.12 a `TIME` was an error
+    (`function timezone(varchar, time) does not exist`)
     - `AT TIME ZONE` binds tighter than `*` and `+` and looser than `::`
       and unary minus, left to right, so dbt_date's `cast(cast(x as
       timestamp) at time zone 'UTC' at time zone 'America/Los_Angeles' as
@@ -2661,7 +2770,6 @@ field, even if later rows have it.
       'America/Los_Angeles'` is 10:30 UTC), and one that the fall-back
       transition repeats with the offset after it (`TIMESTAMP '2024-11-03
       01:30'` is 01:30 PST, 09:30 UTC)
-    - Not supported: `TIME WITH TIME ZONE`
 - Session time zone (`SET TIME ZONE`, `SET timezone = …`, the
   `adbc.redis.time_zone` option; UTC by default). Each connection has its
   own. As in Postgres, a `TIMESTAMP WITH TIME ZONE` is an instant, and the
@@ -2674,7 +2782,10 @@ field, even if later rows have it.
   - **Input:** text without an offset or zone (`'2024-01-10 02:00'`,
     `TIMESTAMPTZ '2024-01-10 02:00'`, a bound string parameter, a value
     written to a column, also by bulk ingest) is a local time; text with an
-    offset or a zone name keeps it.
+    offset or a zone name keeps it. A time with time zone without an offset
+    (`'10:00'`, `TIMETZ '10:00'`), and a `TIME` converted to one, take the
+    zone's offset on the current date, as in Postgres: `10:00:00-04` in New
+    York in July, `10:00:00-05` in January.
   - **Conversions:** a `TIMESTAMP` becomes a `TIMESTAMP WITH TIME ZONE` as a
     local time, and back as its local time; a `DATE` is local midnight, and
     a timestamp with time zone's `DATE` and `TIME` are its local date and
@@ -2700,9 +2811,9 @@ field, even if later rows have it.
     `RANGE` offsets). `DATE_BIN`'s stride is elapsed time; only its origin
     is read as a local time.
   - **The current time:** `CURRENT_DATE`, `LOCALTIMESTAMP`, `CURRENT_TIME`
-    and `LOCALTIME` are local; `NOW()` is the instant. `MAKE_TIMESTAMPTZ`
-    and `TO_TIMESTAMP(text, format)` read a local time, unless the format
-    has `TZH` or `TZM`.
+    and `LOCALTIME` are local (`CURRENT_TIME` with the zone's offset);
+    `NOW()` is the instant. `MAKE_TIMESTAMPTZ` and `TO_TIMESTAMP(text,
+    format)` read a local time, unless the format has `TZH` or `TZM`.
   - **Daylight saving time,** as in Postgres: a local time that the
     spring-forward transition skips is read with the offset before it
     (`'2024-03-10 02:30'` in Los Angeles is `2024-03-10 03:30:00-07`), and
@@ -2726,12 +2837,16 @@ field, even if later rows have it.
     returns the same rows in every session, and a `CHECK (ts >=
     '2024-01-01')` defined there rejects the same rows in every session. A
     local-time literal is text without an offset that is cast to a
-    timestamp with time zone (`TIMESTAMPTZ '…'`, `'…'::timestamptz`) or
-    read as one: compared with one (also in `IN`, `BETWEEN` and a `CASE`
-    operand), an argument of `COALESCE`, `GREATEST`, `LEAST` or `NULLIF`
-    with one, the operand of `AT TIME ZONE` and `AT LOCAL`, and the
-    `DEFAULT` of such a column. The conversions the definition makes when
-    it runs read the zone of the session that runs it, as in Postgres:
+    timestamp with time zone or a time with time zone (`TIMESTAMPTZ '…'`,
+    `'…'::timestamptz`, `TIMETZ '…'`, `'…'::timetz`) or read as one:
+    compared with one (also in `IN`, `BETWEEN` and a `CASE` operand), an
+    argument of `COALESCE`, `GREATEST`, `LEAST` or `NULLIF` with one, the
+    operand of `AT TIME ZONE` and `AT LOCAL`, and the `DEFAULT` of such a
+    column. A time with time zone is stored with the offset the zone has
+    that day (`'10:00'` in New York in July is `'10:00:00-04'`), as
+    Postgres stores `'10:00:00-04'::time with time zone`. The conversions
+    the definition makes when it runs read the zone of the session that
+    runs it, as in Postgres:
     casts of columns and of other values (`ts::date`, `DATE
     '2024-01-01'::timestamptz`, a `TIMESTAMP` compared with a timestamp
     with time zone), `CURRENT_DATE`, `LOCALTIMESTAMP` and text output.
@@ -2755,8 +2870,8 @@ field, even if later rows have it.
     isn't a zone name (`PST`, `IST`), are `invalid value for parameter
     "TimeZone": "x"`, as in Postgres. Up to v0.0.12 the driver read such an
     abbreviation as a fixed offset.
-  - **Differences from Postgres:** `TIME WITH TIME ZONE`, and
-    `MAKE_TIMESTAMPTZ` with a zone argument, aren't supported.
+  - **Differences from Postgres:** `MAKE_TIMESTAMPTZ` with a zone argument
+    isn't supported.
 - Intervals and date/time arithmetic:
   - `INTERVAL '1 year 2 months 3 days 04:05:06'`, `'1.5 hours'`, `'2 days ago'`,
     `'3 04:05:06'`, `'1-2'` (years-months), ISO 8601 `'P1Y2M3DT4H'`,
@@ -2766,7 +2881,10 @@ field, even if later rows have it.
     days in the session time zone), `date ± interval` (gives a timestamp),
     `date ± integer` (days), `date - date` (days), `timestamp - timestamp`
     (an interval of days and time), `time ± interval`, `time - time`,
-    `interval ± interval`, `interval * n`, `interval / n`, `-interval`
+    `timetz ± interval` (the interval's time part, wrapped around midnight;
+    the offset is kept), `date + timetz` (a timestamp with time zone: the
+    time at its offset on that date), `interval ± interval`, `interval *
+    n`, `interval / n`, `-interval`
   - Months follow the calendar and clamp to the end of the month
     (`TIMESTAMP '2024-01-31' + INTERVAL '1 month'` is Feb 29). Comparisons
     treat a month as 30 days, so `INTERVAL '1 day' = INTERVAL '24 hours'`
@@ -3004,14 +3122,61 @@ field, even if later rows have it.
   functions
 - Types: `BOOLEAN, SMALLINT, INTEGER, BIGINT, REAL, DOUBLE PRECISION,
   NUMERIC(p,s), VARCHAR(n), CHAR(n), VARCHAR/TEXT, VARBINARY/BLOB, DATE,
-  TIME(p), TIMESTAMP(p) [WITH TIME ZONE], INTERVAL` (interval columns are
-  stored but not indexed; see String lengths for `VARCHAR(n)` / `CHAR(n)`).
-  `TIME WITH TIME ZONE` is a `TIME`: there is no time-of-day type with a
-  zone. A `TIMESTAMP WITH TIME ZONE` is a UTC instant (an Arrow timestamp
-  with time zone `UTC`), shown and read as a local time in the session time
-  zone.
+  TIME(p) [WITH TIME ZONE], TIMESTAMP(p) [WITH TIME ZONE], INTERVAL`
+  (interval and time with time zone columns are stored but not indexed; see
+  String lengths for `VARCHAR(n)` / `CHAR(n)`). A `TIMESTAMP WITH TIME ZONE`
+  is a UTC instant (an Arrow timestamp with time zone `UTC`), shown and read
+  as a local time in the session time zone.
   JSON documents are stored in `VARCHAR` columns (`NOINDEX` if they are
   never compared as a whole); `JSON` and `JSONB` are only cast targets
+  - **Time with time zone:** `TIME(p) WITH TIME ZONE` (also `TIMETZ(p)`) is
+    Postgres's: a time of day and a UTC offset, kept as written, with no
+    date. `p` is 0 to 6 (6 without it; a `p` above 6 is 6, as in Postgres),
+    and a value is rounded to it as a `TIME(p)` is.
+    - Text in: a time and an offset (`'10:00+02'`, `'10:00:00.5-05:30'`,
+      `'10:00 +0530'`, `'10:00Z'`, up to `±15:59:59`) or an abbreviation
+      (`EST`, `CEST`, `MSK`). A zone name needs a date before the time,
+      whose offset it takes (`'2024-07-01 10:00 America/New_York'` is
+      `10:00:00-04`), unless the zone has only ever had one offset
+      (`Etc/GMT+5`); `'10:00 America/New_York'` is `invalid input syntax
+      for type time with time zone`, as in Postgres. Without an offset, the
+      session time zone's on the current date (see Session time zone).
+      Text out: `10:00:00+02`, `10:00:00.5-05:30`
+    - Comparisons, as Postgres's: by the time in UTC, then larger offsets
+      first. So `'10:00+02' = '09:00+01'` is false and `'10:00+02' <
+      '09:00+01'`; `'23:00-05'` (04:00 UTC the next day) sorts after
+      `'24:00+00'`. `ORDER BY`, `GROUP BY`, `DISTINCT`, joins, `IN`, `MIN` /
+      `MAX` and window `RANGE` frames (the time ± the interval, with the
+      row's offset) compare that way. A `TIME` compared with one is read as
+      one in the session time zone
+    - Conversions: a `TIME` takes the session time zone's offset on the
+      current date, a `TIMESTAMP WITH TIME ZONE` becomes its local time and
+      offset in the session time zone, and a time with time zone becomes a
+      `TIME` by dropping its offset (also when written to a `TIME` column).
+      A `TIMESTAMP`, a `DATE` and other types don't convert, as in
+      Postgres. `CASE`, `COALESCE`, `GREATEST`, `LEAST` and `UNION` of a
+      `TIME` and a time with time zone give a time with time zone
+    - Arrow has no such type, so a time with time zone is a string column
+      (`utf8`) of its text, whose field metadata
+      `ARROW:FLIGHT:SQL:TYPE_NAME` (Flight SQL's) names its type, `TIME(6)
+      WITH TIME ZONE`, in query results and `GetTableSchema`. Postgres's
+      own ADBC driver has no mapping either: it returns Postgres's binary
+      form as an opaque binary column. Bound strings and ingested strings
+      are read as text in; bulk ingest that creates a table makes a string
+      field with that metadata a time with time zone column, so a result
+      ingests back as the same type
+    - Rows store the text (`10:00:00+02`). The index doesn't hold such a
+      column, so comparisons with it are checked by the driver on the rows
+      the rest of the query finds, and it is sorted and grouped by the
+      driver
+    - `information_schema.columns` shows `data_type` `TIME(6) WITH TIME
+      ZONE` and `datetime_precision` 6, and `GetObjects` the same
+      `xdbc_type_name` and `xdbc_decimal_digits`
+    - **Upgrading from v0.0.12 and earlier:** they read `TIME WITH TIME
+      ZONE` as `TIME`, dropping a value's offset (`'10:00+02'` was
+      `10:00:00`), and had no `TIMETZ`. Columns they created are `TIME`
+      columns and stay so; `CREATE TABLE … AS SELECT c::timetz` or a new
+      column makes a time with time zone column
   - **NaN and the infinities:** `REAL` and `DOUBLE PRECISION` hold `NaN`,
     `Infinity` and `-Infinity` (read from text in any case, also as `inf`),
     in every column, indexed or not (see "NaNs in the index"). As in
@@ -3210,6 +3375,17 @@ What drives the numbers:
   (20 ms), with an `FT.AGGREGATE` for the tie at each end and an
   `FT.SEARCH` count. Measured with Redis 8.6.2, standalone, on a machine
   shared with other work, median of 21 runs.
+- **`GROUP BY`, `MIN` and `MAX` on values from 2^53 on, in the `all`
+  mode,** cost the index's `FT.AGGREGATE` and then the driver's, which
+  reads every row as in the `exact` mode (see "Aggregate pushdown"). On
+  100,000 rows with those Snowflake-like ids, `SELECT id, COUNT(*) …
+  GROUP BY id` took 400 ms, against 382 ms in the `exact` mode, and `SELECT
+  g, COUNT(*), MIN(id), MAX(id) … GROUP BY g` (6 groups) 294 ms (279 ms).
+  v0.0.12 took 25 and 7.7 ms, and returned 2,735 groups for the 100,000
+  ids and rounded `MIN`s and `MAX`es. Groups, `MIN`s and `MAX`es of
+  smaller values still take one `FT.AGGREGATE`, as before. Measured with
+  Redis 8.6.2, standalone, on a machine shared with other work, median of
+  21 runs.
 - **Queries that can't return rows read nothing**, only the tables'
   metadata. On a table of 152,686 rows (measured separately, best of 3,
   standalone), dbt's `select * from (<model>) as __dbt_sbq where false
@@ -3235,6 +3411,10 @@ Known ways to make the slow cases faster (not done yet):
   read the tie by value, as it does for an integer first key. Many rows
   with the same large value make one long tie, which such a `LIMIT` reads
   whole.
+- In the `all` mode, `MIN` and `MAX` of `BIGINT`s from 2^53 on read every
+  row, although only the rows that tie with the index's answer
+  (`@c:[v v]`) can hold the exact one; the driver could read those, as an
+  `ORDER BY … LIMIT` reads a tie.
 
 To reproduce (from `go`, with a Redis running):
 

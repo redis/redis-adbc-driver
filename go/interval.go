@@ -438,7 +438,7 @@ func temporalType(op string, a, b ColType) (ColType, bool, error) {
 		return ColType{}, true, fmt.Errorf("operator %s is not supported for %s and %s", op, a.SQLName(), b.SQLName())
 	}
 	involved := ak == iv || bk == iv || ak == KindDate || bk == KindDate || ak == KindTimestamp || bk == KindTimestamp ||
-		ak == KindTime || bk == KindTime
+		ak == KindTime || bk == KindTime || ak == KindTimeTZ || bk == KindTimeTZ
 	if !involved {
 		return ColType{}, false, nil
 	}
@@ -461,6 +461,12 @@ func temporalType(op string, a, b ColType) (ColType, bool, error) {
 			return typeInterval, true, nil
 		case ak == KindDate && bk == KindTime:
 			return typeTimestamp, true, nil
+		case ak == KindTimeTZ && bk == iv:
+			return a.withoutTypmod(), true, nil
+		case ak == iv && bk == KindTimeTZ:
+			return b.withoutTypmod(), true, nil
+		case ak == KindDate && bk == KindTimeTZ, ak == KindTimeTZ && bk == KindDate:
+			return typeTimestampTZ, true, nil
 		}
 	case "-":
 		switch {
@@ -478,6 +484,8 @@ func temporalType(op string, a, b ColType) (ColType, bool, error) {
 			return a.withoutTypmod(), true, nil
 		case ak == KindTime && bk == KindTime:
 			return typeInterval, true, nil
+		case ak == KindTimeTZ && bk == iv:
+			return a.withoutTypmod(), true, nil
 		case ak == iv && bk == iv:
 			return typeInterval, true, nil
 		}
@@ -563,6 +571,20 @@ func temporalOp(op string, l, r Value, rt ColType, z tzZone) (Value, error) {
 			return Value{}, err
 		}
 		return fromTime(tm.Add(time.Duration(timeOfDay(r))), rt)
+	case lk == KindTimeTZ && rk == KindInterval, lk == KindInterval && rk == KindTimeTZ:
+		t, iv := l, r
+		if lk == KindInterval {
+			t, iv = r, l
+		}
+		sign := int64(1)
+		if op == "-" {
+			sign = -1
+		}
+		return timeTZPlusInterval(t, iv, sign, rt), nil
+	case lk == KindDate && rk == KindTimeTZ:
+		return dateAtTimeTZ(l, r, rt)
+	case lk == KindTimeTZ && rk == KindDate:
+		return dateAtTimeTZ(r, l, rt)
 	case rt.Kind == KindInterval:
 		// timestamp/date - timestamp/date: days and time, no months. With
 		// a timestamp with time zone, both are instants.
