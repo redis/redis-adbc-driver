@@ -1286,8 +1286,10 @@ func (a *accumulator) add(v Value) {
 			a.best, a.has = v, true
 			return
 		}
+		// Of values that compare equal ('1 day' and '24 hours'), the last
+		// one, as in Postgres (and the window frames, window.go).
 		c, ok := compareValues(v, a.best)
-		if ok && ((a.fn.Name == "MIN" && c < 0) || (a.fn.Name == "MAX" && c > 0)) {
+		if ok && ((a.fn.Name == "MIN" && c <= 0) || (a.fn.Name == "MAX" && c >= 0)) {
 			a.best = v
 		}
 	}
@@ -1304,9 +1306,9 @@ func (a *accumulator) result(env *evalEnv, t ColType) (Value, error) {
 		return intValue(typeInt64, a.count), nil
 	case "AVG":
 		if a.count == 0 {
-			return nullValue(typeFloat64), nil
+			return nullValue(t), nil
 		}
-		return floatValue(typeFloat64, a.sum.mean()), nil
+		return a.sum.meanValue(t)
 	case "SUM":
 		if a.count == 0 {
 			return nullValue(t), nil

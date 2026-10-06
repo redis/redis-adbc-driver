@@ -2193,6 +2193,10 @@ field, even if later rows have it.
   - `COUNT(*)`, `COUNT/SUM/AVG/MIN/MAX(x)`, `COUNT(DISTINCT x)`, and
     `COUNT(DISTINCT a, b, …)` (as in MySQL), which counts the distinct
     combinations of rows where none of them is NULL
+  - Of values that compare equal, `MIN` and `MAX` return the last one, as
+    in Postgres: `MAX` of `INTERVAL '1 mon'` and then `INTERVAL '30 days'`
+    is `30 days`. Up to v0.0.12 they returned the first one, except as
+    window functions
   - `SUM`, `AVG` and the variances and standard deviations add their
     values exactly, whatever their type, also as window functions: every
     integer, decimal and double is a fraction whose denominator is a power
@@ -2215,6 +2219,26 @@ field, even if later rows have it.
     - Adding a value costs an integer addition, about 25 ns for a double
       (40 ns with the squares a variance needs), against 3–7 µs to read a
       row
+    - Intervals: `SUM` and `AVG` are `INTERVAL`s, as in Postgres. `SUM` adds
+      the months, days and time each on its own, without carrying one into
+      the next: `INTERVAL '1 mon'` + `INTERVAL '30 days'` is `1 mon 30
+      days`, and 20 and 5 hours are `25:00:00`. `AVG` divides that sum by
+      the count as Postgres's `interval / n` does: a fraction of a month
+      becomes days, 30 to a month, rounded to millionths of a day, one of a
+      day becomes time, and the time is rounded to microseconds, half to
+      even (`AVG` of `1 sec`, `0` and `0` is `00:00:00.333333`; the
+      driver's own `INTERVAL '1 sec' / 3` is `00:00:00.333333333`). Each
+      field is summed exactly, so only a total out of range is "interval
+      out of range", in any row order; Postgres adds the values one by one
+      and fails as soon as a running total is out of range, so the same
+      rows in another order can fail there. `SUM`'s time part has the
+      interval's range (about ±2,562,047 hours, see Intervals and date/time
+      arithmetic), while `AVG`'s sum may go up to Postgres's (microseconds
+      in 64 bits)
+    - **Upgrading from v0.0.12 and earlier:** `SUM` and `AVG` of an
+      interval returned a `DOUBLE PRECISION` 0 (so `TO_CHAR(SUM(iv), …)`
+      was `expected a date, time or timestamp, got float64`), also as window
+      functions
     - **Upgrading:** results of v0.0.7 and earlier can differ in their last
       digits: `SUM`, `AVG` and the variances of doubles, `AVG` of decimals,
       and `AVG` of integers whose sum is beyond 2^53. The new value is the
@@ -2281,9 +2305,9 @@ field, even if later rows have it.
   - `QUALIFY` filters on window results and may use output aliases
     (`QUALIFY ROW_NUMBER() OVER (PARTITION BY k ORDER BY ts DESC) = 1`)
   - Result types: `BIGINT` for `ROW_NUMBER`, `RANK`, `DENSE_RANK`, `NTILE` and
-    `COUNT`; `DOUBLE PRECISION` for `PERCENT_RANK`, `CUME_DIST` and `AVG`; the
-    argument's type for `MIN`, `MAX` and the offset functions; the other
-    aggregates as with `GROUP BY`
+    `COUNT`; `DOUBLE PRECISION` for `PERCENT_RANK`, `CUME_DIST` and `AVG`
+    (`INTERVAL` for intervals); the argument's type for `MIN`, `MAX` and the
+    offset functions; the other aggregates as with `GROUP BY`
   - As in `ORDER BY`, NULLs sort last by default in either direction
     (PostgreSQL puts them first for `DESC`). Rows that tie on the window's
     `ORDER BY` keep their input order
@@ -2757,6 +2781,8 @@ field, even if later rows have it.
     months or days count beyond 32 bits, it is "interval out of range"
   - `AGE(a, b)` / `AGE(x)` (years, months, days and time), and `EXTRACT`
     and `TO_CHAR` on intervals
+  - `SUM`, `AVG`, `MIN` and `MAX` of intervals, also as window functions,
+    are intervals (see Aggregates)
   - Intervals are returned as Arrow `month_day_nano_interval`; Arrow
     interval and duration values can be bound and ingested
 - JSON stored as text in `VARCHAR` columns (there is no JSON column type).

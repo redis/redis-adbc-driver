@@ -1759,14 +1759,21 @@ func TestSQLAlterViewRename(t *testing.T) {
 
 // planOf plans a SELECT the way the driver runs it and reports the index
 // query, whether a residual predicate is left for the driver to evaluate on
-// fetched rows, and whether the aggregates run inside FT.AGGREGATE.
+// fetched rows, and whether the aggregates run inside FT.AGGREGATE, in the
+// default (exact) pushdown mode.
 func (h *sqlHarness) planOf(sql string) (query string, residual, indexAgg bool) {
+	h.t.Helper()
+	return h.planIn(sql, PushdownExact)
+}
+
+// planIn is planOf in a pushdown mode.
+func (h *sqlHarness) planIn(sql, mode string) (query string, residual, indexAgg bool) {
 	h.t.Helper()
 	parsed, err := ParseScript(sql)
 	if err != nil {
 		h.t.Fatalf("%s: %v", sql, err)
 	}
-	e := &executor{store: &store{client: h.rawClient()}, schema: "public", pushdown: PushdownExact, now: time.Now().UTC()}
+	e := &executor{store: &store{client: h.rawClient()}, schema: "public", pushdown: mode, now: time.Now().UTC()}
 	e.cache = newExecCache()
 	plan, err := e.planSelect(h.ctx, parsed[0].Stmt.(*SelectStmt), nil)
 	if err != nil {

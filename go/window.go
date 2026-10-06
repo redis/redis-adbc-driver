@@ -1495,7 +1495,7 @@ func (a *frameAgg) result() (Value, error) {
 		return nullValue(a.typ), nil
 	}
 	if a.name == "AVG" {
-		return floatValue(typeFloat64, a.sum.mean()), nil
+		return a.sum.meanValue(a.typ)
 	}
 	return a.sum.sumValue(a.typ)
 }
