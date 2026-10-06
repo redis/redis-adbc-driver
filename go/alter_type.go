@@ -831,6 +831,11 @@ func (e *executor) copyRewritten(ctx context.Context, job *rekeyJob, rw *rewrite
 		if err := e.copyRewrittenPageScan(ctx, job, rw, attempt > 0); err != nil {
 			return err
 		}
+		// DROP TABLE may have removed both indexes during the scan. Preserve
+		// its table-not-found error instead of probing a now-missing index.
+		if _, err := s.getTable(ctx, job.Schema, job.From); err != nil {
+			return err
+		}
 		copied, err := s.countMatches(ctx, job.IndexName, "*")
 		if err != nil {
 			return err
