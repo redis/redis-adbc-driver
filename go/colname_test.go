@@ -16,6 +16,7 @@ package redis
 
 import (
 	"context"
+	"strings"
 	"testing"
 )
 
@@ -174,7 +175,7 @@ func TestFigureColname(t *testing.T) {
 				t.Errorf("%s: %v", c.expr, err)
 				break
 			}
-			if got := plan.items[0].pgName; got != c.want {
+			if got := plan.columns()[0].Name; got != c.want {
 				t.Errorf("%s: named %q, want %q", c.expr, got, c.want)
 				break
 			}
@@ -343,6 +344,70 @@ func TestGroupByOutputNames(t *testing.T) {
 				t.Errorf("%s:\n got %q\nwant %q", c.q, got, c.want)
 				break
 			}
+		}
+	}
+}
+
+// Derived tables and CTEs name their columns as Postgres does, and keep the
+// names that several columns have: only a reference to one of those is an
+// error. The names, rows and errors are pg16's.
+func TestDerivedColumnNames(t *testing.T) {
+	cases := []struct{ q, want string }{
+		{"SELECT count FROM (SELECT count(*) FROM (SELECT 1 UNION ALL SELECT 2) v) s", "count: 2"},
+		{`WITH c AS (SELECT upper('a'), 1 + 1) SELECT upper, "?column?" FROM c`, "upper|?column?: A|2"},
+		{"SELECT * FROM (SELECT 1, 2) s", "?column?|?column?: 1|2"},
+		{"SELECT * FROM (SELECT 1 AS a, 2 AS a) s(x)", "x|a: 1|2"},
+		{"SELECT * FROM (SELECT 1, 2) s(a, a)", "a|a: 1|2"},
+		{"SELECT a FROM (SELECT 1, 2) s(b, a)", "a: 2"},
+		{"SELECT * FROM (SELECT 1, 2) s1 JOIN (SELECT 3, 4) s2 ON true", "?column?|?column?|?column?|?column?: 1|2|3|4"},
+		{"SELECT * FROM (SELECT 1 AS a, 2 AS b) s NATURAL JOIN (SELECT 1, 2) r", "a|b|?column?|?column?: 1|2|1|2"},
+		{"SELECT DISTINCT * FROM (SELECT 1, 2 UNION ALL SELECT 1, 2) s", "?column?|?column?: 1|2"},
+		{`SELECT "?column?" FROM (SELECT 1, 2) s`, `error: column reference "?column?" is ambiguous`},
+		{`SELECT s."?column?" FROM (SELECT 1, 2) s`, `error: column reference "?column?" is ambiguous`},
+		{`SELECT * FROM (SELECT 1, 2) s ORDER BY "?column?"`, `error: ORDER BY "?column?" is ambiguous`},
+		{`SELECT * FROM (SELECT 1, 2) s JOIN (SELECT 1 AS "?column?") r USING ("?column?")`,
+			`error: common column name "?column?" appears more than once in left table`},
+	}
+	for _, c := range cases {
+		if got := memNamedQuery(c.q); got != c.want {
+			t.Errorf("%s:\n got %q\nwant %q", c.q, got, c.want)
+		}
+	}
+}
+
+// memNamedQuery is memQuery, with the result's column names first:
+// "a|b: 1|2".
+func memNamedQuery(q string) string {
+	stmts, err := ParseScript(q)
+	if err != nil {
+		return "error: " + errText(err)
+	}
+	e := &executor{cache: newExecCache()}
+	plan, err := e.planSelect(context.Background(), stmts[0].Stmt.(*SelectStmt), nil)
+	if err != nil {
+		return "error: " + errText(err)
+	}
+	var names []string
+	for _, c := range plan.columns() {
+		names = append(names, c.Name)
+	}
+	return strings.Join(names, "|") + ": " + memQuery(q)
+}
+
+// A column held under a name of its own, since another one has its name
+// (nameColumns), is named in errors by that name.
+func TestColumnLabel(t *testing.T) {
+	for key, want := range map[string]string{
+		"s.x":                  "s.x",
+		"t\x001.x":             "t.x",
+		"s.?column?\x002":      "s.?column?",
+		"t\x001.?column?\x002": "t.?column?",
+		"\x00natural1.x":       "\x00natural1.x",
+		"\x00agg3":             "\x00agg3",
+		"a\x00":                "a\x00",
+	} {
+		if got := keyLabel(key); got != want {
+			t.Errorf("keyLabel(%q) = %q, want %q", key, got, want)
 		}
 	}
 }

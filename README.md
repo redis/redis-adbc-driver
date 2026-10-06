@@ -263,8 +263,8 @@ the Python exception:
 | A value that doesn't convert or doesn't fit (`CAST('abc' AS INTEGER)`, `'2024-02-30'::date`, `1 / 0`, a value too long for its column) | class `22` | `InvalidData` | `DataError` |
 | `NOT NULL` and `CHECK` | `23502`, `23514` | `Integrity` | `IntegrityError` |
 | A table, view, column, function or schema that doesn't exist | `42P01`, `42703`, `42883`, `3F000` | `NotFound` | `ProgrammingError` |
-| A table, view, column, constraint or schema that already exists; a column named twice (in `INSERT` or a `PRIMARY KEY`) | `42P07`, `42701`, `42710`, `42P06` | `AlreadyExists` | `ProgrammingError` |
-| A syntax error; a table definition Postgres refuses (two primary keys, `DROP NOT NULL` of a key column, a column of type record); a type that never converts (`DATE` to `BOOLEAN`); a record where another type is needed (`argument of WHERE must be type boolean, not type record`); values without a common type (`CASE`, `COALESCE`, `UNION`, …; see "Quoted string literals") | `42601`; `42P16`; `42846` in a cast, `42804` written to a column or by `ALTER COLUMN … TYPE`; `42804`; `42804` | `InvalidArgument` | `ProgrammingError` |
+| A table, view, column, constraint or schema that already exists; a column named twice (in `INSERT`, a `PRIMARY KEY`, a table or a view) | `42P07`, `42701`, `42710`, `42P06` | `AlreadyExists` | `ProgrammingError` |
+| A syntax error; a column name that several columns have (`column reference "x" is ambiguous`); a table definition Postgres refuses (two primary keys, `DROP NOT NULL` of a key column, a column of type record); a type that never converts (`DATE` to `BOOLEAN`); a record where another type is needed (`argument of WHERE must be type boolean, not type record`); values without a common type (`CASE`, `COALESCE`, `UNION`, …; see "Quoted string literals") | `42601`; `42702`; `42P16`; `42846` in a cast, `42804` written to a column or by `ALTER COLUMN … TYPE`; `42804`; `42804` | `InvalidArgument` | `ProgrammingError` |
 | What Postgres doesn't support either (`DATE_BIN` by months, `EXTRACT(day FROM time)`, `ALTER COLUMN … TYPE` of a column a view reads) | `0A000` | `NotImplemented` | `NotSupportedError` |
 | A cancel, or a Go deadline | `57014` | `Cancelled`, `Timeout` | `OperationalError` |
 
@@ -2446,6 +2446,52 @@ field, even if later rows have it.
   and `column name "x" appears more than once in USING clause` (up to
   v0.0.12: `USING column "x" is ambiguous`, `USING column "x" does not
   exist in the left side of the join`, and `USING (x, x)` was accepted)
+- **Column names** are Postgres's. A select-list item is named by its
+  alias, or else by its expression (Postgres's FigureColname): a column by
+  the column, `CAST(x AS t)` and `x::t` by `x` (by the type if `x` has no
+  name: `int4`, `varchar`, `date`), a call by the function (`count`,
+  `upper`; also `extract`, `btrim`, `timezone` for `EXTRACT`, `TRIM` and
+  `AT TIME ZONE`), a scalar subquery by its column, `EXISTS` by `exists`,
+  `CASE` by its `ELSE` (or `case`), a row by `row`, a field `(r).f1` by
+  the field, and an operator or a literal is `?column?`. `SELECT count(*),
+  upper(v), CAST(iv AS VARCHAR), v || 'x', 1 FROM t` has the columns
+  `count`, `upper`, `iv`, `?column?` and `?column?`. These name the
+  result's columns (the Arrow fields, also from `ExecuteSchema`),
+  `RETURNING`'s, and those of derived tables, CTEs, views and `CREATE
+  TABLE … AS`, so `SELECT count FROM (SELECT count(*) FROM t) s` and
+  `SELECT * FROM (SELECT CAST(iv AS VARCHAR) FROM t) s ORDER BY iv` work
+  as in Postgres
+  - **Names that repeat** (`SELECT 1, 2`, `SELECT count(*), count(v)`,
+    `SELECT a, a`, `AS s(x, x)`): a result, a derived table or a CTE keeps
+    them all, as in Postgres, and only reading such a column by its name is
+    an error: `column reference "count" is ambiguous` (also as `s.count`),
+    `ORDER BY "count" is ambiguous`, and in `USING` or `NATURAL JOIN`
+    `common column name "count" appears more than once in left table` (or
+    `right table`). A position (`ORDER BY 2`), `*` or column aliases (`AS
+    s(a, b)`) read them. A table or view can't have them: `CREATE TABLE …
+    AS` and `CREATE VIEW` are `column "count" specified more than once`,
+    as in Postgres; give the columns aliases. Column aliases on a table
+    (`FROM t AS x(a, a)`) still can't repeat a name, which Postgres allows
+    until one is read
+  - Names are compared without case, as elsewhere in the driver: in
+    `SELECT a FROM (SELECT 1 AS "A", 2 AS a) s`, `a` is ambiguous, where
+    Postgres reads the second column
+  - **Upgrading from v0.0.12 and earlier:** an item without an alias that
+    wasn't a column was named by its text, `count(*)`, `CAST(iv AS
+    VARCHAR)`, `v || 'x'`, `1`, so result field names change: code that
+    reads columns by name, unaliased expressions included, needs the new
+    names, or aliases. Tables that `CREATE TABLE … AS` made and views keep
+    the names they were made with; made again, they get the new names, and
+    a query whose items now share a name (`SELECT count(*), count(v)`,
+    `SELECT 1, 2`) needs aliases. A view whose query reads a derived
+    table's or CTE's column by its old name (`SELECT "count(*)" FROM
+    (SELECT count(*) FROM t) s`) is now `view "v" is no longer valid:
+    column "count(*)" does not exist`; replace it with `CREATE OR REPLACE
+    VIEW`. Derived tables and CTEs whose columns shared a name were
+    `column name "a" appears more than once in "s"; add aliases`, a view's
+    `column name "a" appears more than once in view "v"; add aliases`, and
+    a table's `duplicate column name "a"`. The `ambiguous` errors had no
+    SQLSTATE; they are `42702` now
 - `FETCH FIRST n ROWS ONLY` is `LIMIT n` (`FETCH FIRST ROW ONLY` is `LIMIT
   1`); `WITH TIES` is not supported, and a query has at most one `LIMIT` or
   `FETCH` (Postgres's "multiple LIMIT clauses not allowed")
@@ -2459,10 +2505,10 @@ field, even if later rows have it.
   (as in Postgres) `ROLLUP (…)`, `CUBE (…)`, `GROUPING SETS (…)` and `()`:
   - A bare name is an input column's before it is an output column's
     (unlike in `ORDER BY`), as in Postgres. A name no input column has is
-    the output column of that name, also one without an alias, named as
-    for `ORDER BY` (below): after `SELECT upper(v)`, `GROUP BY upper`
-    groups by `upper(v)`; after `SELECT CAST(x AS INTEGER)`, `GROUP BY x`
-    is still the column `x`. Only the query's own FROM items count, not
+    the output column of that name, also one without an alias, named by
+    its expression (see "Column names" above): after `SELECT upper(v)`,
+    `GROUP BY upper` groups by `upper(v)`; after `SELECT CAST(x AS
+    INTEGER)`, `GROUP BY x` is still the column `x`. Only the query's own FROM items count, not
     those of the queries around it; a name two of them have (`k` of `JOIN …
     USING (k)`, where the driver keeps both columns) may also be an output
     column's. Output columns of the same name must be the same expression,
@@ -2745,27 +2791,16 @@ field, even if later rows have it.
 - `ORDER BY … [ASC|DESC] [NULLS FIRST|LAST]`; NULLs sort last by default in
   both directions, except records (see Rows as values)
   - A bare name is an output column's before it is an input column's, as
-    in Postgres, also when the output column has no alias. Postgres names
-    such a column by its expression: a column by the column, `CAST(x AS
-    t)` and `x::t` by `x` (by the type if `x` has no name: `int4`,
-    `varchar`, `date`), a call by the function (`count`, `upper`; also
-    `extract`, `btrim`, `timezone` for `EXTRACT`, `TRIM` and `AT TIME
-    ZONE`), a scalar subquery by its column, `EXISTS` by `exists`, `CASE`
-    by its `ELSE` (or `case`), a row by `row`, a field `(r).f1` by the
-    field, and an operator or a literal is `?column?`. So after `SELECT
-    CAST(iv AS VARCHAR) FROM t`, `ORDER BY iv` sorts the text, not the
-    interval (and the index can't sort it); `ORDER BY t.iv`, a position or
-    any other expression reads the input.
+    in Postgres, also when the output column has no alias, named by its
+    expression (see "Column names" above). So after `SELECT CAST(iv AS
+    VARCHAR) FROM t`, `ORDER BY iv` sorts the text, not the interval (and
+    the index can't sort it); `ORDER BY t.iv`, a position or any other
+    expression reads the input.
     Output columns of the same name must be the same expression (`SELECT
     a, a … ORDER BY a`), otherwise it is `ORDER BY "a" is ambiguous`, as
     in `SELECT x::text, x … ORDER BY x`. `DISTINCT ON (…)` names columns
     the same way (`DISTINCT ON "a" is ambiguous`), and so does `ORDER BY`
     on a set operation, with the first branch's columns
-  - The result's column is still named by the expression's text
-    (`CAST(iv AS VARCHAR)`, where Postgres says `iv`), and so are the
-    columns of a derived table, CTE or view: `SELECT * FROM (SELECT
-    CAST(iv AS VARCHAR) FROM t) s ORDER BY iv` is `column "iv" does not
-    exist in table "s"`, which Postgres runs
   - **Upgrading from v0.0.12 and earlier:** a bare name matched an alias,
     then an input column, so after `SELECT CAST(iv AS VARCHAR)` `ORDER BY
     iv` and `DISTINCT ON (iv)` used the interval, `SELECT x::text, x …
