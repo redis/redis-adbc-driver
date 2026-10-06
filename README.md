@@ -1966,7 +1966,11 @@ field, even if later rows have it.
       time. The new index has the column's new attribute (`NUMERIC` for
       numbers, dates and times, `TAG` for strings, none for `BYTEA`,
       `INTERVAL` and `TIME WITH TIME ZONE`), so indexed queries on the
-      column read the new type. One
+      column read the new type. Before switching, the old and new indexes'
+      row counts are compared. If background dropped-column cleanup changed
+      the old index during a cursor scan, missing rows are rescanned (up to
+      three scans); already copied rows aren't converted again. A persistent
+      mismatch fails and rolls back rather than committing missing rows. One
       transaction then switches the metadata to the new names, with every
       action of the statement, and the old index is dropped with its rows
       (`DD`). The new rows hold only the table's columns: the fields of
