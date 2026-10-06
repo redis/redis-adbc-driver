@@ -96,8 +96,8 @@ func parseFloat(s string, bitSize int) (float64, error) {
 }
 
 // pushable reports whether RediSearch returns exact results for aggregates
-// over an indexed column and for groups of it: pushableKind of its type,
+// over an indexed column and for groups of it: pushableType of its type,
 // except for a float column that may hold a NaN.
 func (c columnMeta) pushable(mode string) bool {
-	return pushableKind(c.Type.Kind, mode) && !c.NaNs && c.inPipeline()
+	return pushableType(c.Type, mode) && !c.NaNs && c.inPipeline()
 }

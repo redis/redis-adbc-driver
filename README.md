@@ -1397,17 +1397,44 @@ Aggregate pushdown (`adbc.redis.aggregate_pushdown`):
   integer, boolean and date columns, which RediSearch returns exactly, and
   BOOL_OR/BOOL_AND/EVERY over boolean columns. Other aggregates are computed
   by the driver.
-- `all`: also pushes floating-point, decimal and 64-bit aggregates.
-  RediSearch adds doubles in its own order (on a cluster, each shard's
-  rows, then the shards' sums) and reports the result with 12 significant
-  digits; `AVG` is that sum divided by the count. That is the exact sum
-  when it has at most 12 significant digits, such as amounts with two
-  decimals, and RediSearch's rounding errors stay below the 12th digit;
-  otherwise it differs from it after the 12th digit (`SUM` of 1/3 and 1/7
-  is 0.47619047619, not 0.47619047619047616), and sums that cancel can lose
-  their small values (1e16, 1, -1e16, 3, 1e16, 0.5, -1e16 came back as 4,
-  not 4.5). A float column that may hold a NaN is grouped and reduced by
-  the driver (see "NaNs in the index" above).
+- `all`: also pushes floating-point, decimal and 64-bit aggregates, and
+  groups on such columns (see below). RediSearch adds doubles in its own
+  order (on a cluster, each shard's rows, then the shards' sums) and
+  reports the result with 12 significant digits; `AVG` is that sum divided
+  by the count. That is the exact sum when it has at most 12 significant
+  digits, such as amounts with two decimals, and RediSearch's rounding
+  errors stay below the 12th digit; otherwise it differs from it after the
+  12th digit (`SUM` of 1/3 and 1/7 is 0.47619047619, not
+  0.47619047619047616), and sums that cancel can lose their small values
+  (1e16, 1, -1e16, 3, 1e16, 0.5, -1e16 came back as 4, not 4.5). A float
+  column that may hold a NaN is grouped and reduced by the driver (see
+  "NaNs in the index" above).
+  - **Groups are exact.** The index groups (`GROUP BY`, `SELECT
+    DISTINCT`) on its doubles too, and replies with a group's value in full
+    if it is an integer and with 12 significant digits otherwise. The
+    driver takes the index's groups only if each one's value is exactly a
+    value of the column, and otherwise groups the rows itself, after that
+    `FT.AGGREGATE`. That is a `BIGINT`, `TIME` or `TIMESTAMP` value below
+    2^53 in its unit (a `TIMESTAMP` from 1685 to 2255), a `NUMERIC(p,s)`
+    value of at most 12 significant digits (any for p ≤ 12, otherwise
+    those below 10^(12-s): 1,000 for `NUMERIC`, which is `NUMERIC(38,9)`),
+    and a `REAL` below 2^63 or infinite. `DOUBLE PRECISION` columns
+    (5.0000000000001 is replied as 5) and nanosecond `TIMESTAMP`s (past
+    2^53 from April 1970) aren't grouped in the index at all. Up to v0.0.12
+    the driver took the index's groups as they came: 9007199254740992 and
+    9007199254740993 were one group, as were `TIMESTAMP(9)` values of 2024
+    up to 256 ns apart; `SELECT DISTINCT` returned 0.3 twice for 0.3 and
+    0.30000000000000004, and 9999-12-31 23:59:59.999999 as 10000-01-01.
+  - **So are `MIN` and `MAX` of a `BIGINT`, `TIME` or `TIMESTAMP`**, which
+    come from the index on the same condition, **and `SUM`s of integers.**
+    RediSearch's sum of integers is exact while the count times the
+    largest magnitude is below 2^53: for a `BIGINT`, the driver asks the
+    index for the group's `MIN` and `MAX` too; for an `INTEGER` (in the
+    `exact` mode too), up to 4 million values. The driver computes the
+    others. Up to v0.0.12, `MIN` of -9007199254740993 was
+    -9007199254740992, and the `SUM` of 9007199254740992,
+    -9007199254740993 and 5 was 5. `MIN` and `MAX` of decimals and doubles
+    keep the index's 12 significant digits.
 - `none`: always aggregates in the driver.
 
 The other modes compute `SUM` and `AVG` of doubles exactly (see
@@ -3184,6 +3211,17 @@ What drives the numbers:
   (20 ms), with an `FT.AGGREGATE` for the tie at each end and an
   `FT.SEARCH` count. Measured with Redis 8.6.2, standalone, on a machine
   shared with other work, median of 21 runs.
+- **`GROUP BY`, `MIN` and `MAX` on values from 2^53 on, in the `all`
+  mode,** cost the index's `FT.AGGREGATE` and then the driver's, which
+  reads every row as in the `exact` mode (see "Aggregate pushdown"). On
+  100,000 rows with those Snowflake-like ids, `SELECT id, COUNT(*) …
+  GROUP BY id` took 400 ms, against 382 ms in the `exact` mode, and `SELECT
+  g, COUNT(*), MIN(id), MAX(id) … GROUP BY g` (6 groups) 294 ms (279 ms).
+  v0.0.12 took 25 and 7.7 ms, and returned 2,735 groups for the 100,000
+  ids and rounded `MIN`s and `MAX`es. Groups, `MIN`s and `MAX`es of
+  smaller values still take one `FT.AGGREGATE`, as before. Measured with
+  Redis 8.6.2, standalone, on a machine shared with other work, median of
+  21 runs.
 - **Queries that can't return rows read nothing**, only the tables'
   metadata. On a table of 152,686 rows (measured separately, best of 3,
   standalone), dbt's `select * from (<model>) as __dbt_sbq where false
@@ -3209,6 +3247,10 @@ Known ways to make the slow cases faster (not done yet):
   read the tie by value, as it does for an integer first key. Many rows
   with the same large value make one long tie, which such a `LIMIT` reads
   whole.
+- In the `all` mode, `MIN` and `MAX` of `BIGINT`s from 2^53 on read every
+  row, although only the rows that tie with the index's answer
+  (`@c:[v v]`) can hold the exact one; the driver could read those, as an
+  `ORDER BY … LIMIT` reads a tie.
 
 To reproduce (from `go`, with a Redis running):
 
