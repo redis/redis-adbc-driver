@@ -173,6 +173,28 @@ func TestTieWindow(t *testing.T) {
 			t.Errorf("reachesEdge(%q, %d, %d, first %v) = %v, want %v", c.rows, c.lo, c.hi, c.first, got, c.want)
 		}
 	}
+	// By value: only keys the index printed as the exact integer of a
+	// double below 2^63.
+	for key, want := range map[string]bool{
+		"5": true, "-5": true, "9007199254740992": true, "1234567890123456768": true,
+		"9223372036854774784":  true,  // 2^63 - 1024
+		"9223372036854775807":  false, // 2^63, as a saturated long long
+		"-9223372036854775808": false, // -2^63, or 2^63 overflowed
+		"9223372036854775808":  false,
+		"1234567890123456789":  false, // not a double
+		"9.22337203685e+18":    false,
+		"":                     false,
+		"\x00":                 false,
+	} {
+		if got := ts.byValue(key); got != want {
+			t.Errorf("byValue(%q) = %v, want %v", key, got, want)
+		}
+	}
+	dec := newTieSort([]columnMeta{{Name: "n", Type: decimalType(38, 9), Indexed: true}}, make([]planOrder, 1))
+	if dec.byValue("5") {
+		t.Error("byValue of a NUMERIC key: want false")
+	}
+
 	// The LIMIT the index applies first: a row more each side.
 	for _, c := range []struct{ in, want [2]int64 }{
 		{[2]int64{0, 10}, [2]int64{0, 11}},
