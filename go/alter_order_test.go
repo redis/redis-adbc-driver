@@ -40,6 +40,8 @@ func describeSteps(steps []alterStep) string {
 		switch {
 		case s.checks:
 			d = "checks of " + c.Def.Name
+		case s.key:
+			d = "primary key of " + c.Def.Name
 		case c.Action == AlterAddColumn:
 			d = "add " + c.Def.Name
 		case c.Action == AlterDropColumn:
@@ -54,6 +56,8 @@ func describeSteps(steps []alterStep) string {
 			d = "drop not null " + c.Column
 		case c.Action == AlterAddConstraint && c.Check != nil:
 			d = "add check " + c.Check.Name
+		case c.Action == AlterAddConstraint && c.Key != nil:
+			d = "add primary key (" + strings.Join(c.Key.Columns, ", ") + ")"
 		case c.Action == AlterAddConstraint:
 			d = "add other constraint"
 		case c.Action == AlterDropConstraint:
@@ -65,8 +69,8 @@ func describeSteps(steps []alterStep) string {
 }
 
 // The steps run in Postgres 16's passes: drops; ADD COLUMN; SET NOT NULL;
-// then SET DEFAULT, the CHECKs of the ADD COLUMNs and those of ADD
-// CONSTRAINT. Within a pass, in the order written.
+// the PRIMARY KEYs; then SET DEFAULT, the CHECKs of the ADD COLUMNs and
+// those of ADD CONSTRAINT. Within a pass, in the order written.
 func TestAlterOrder(t *testing.T) {
 	for _, c := range []struct{ sql, want string }{
 		{`ALTER TABLE t ADD COLUMN a int, DROP COLUMN a`, "drop a, add a"},
@@ -86,8 +90,14 @@ func TestAlterOrder(t *testing.T) {
 		// CONSTRAINT's, whatever the order written.
 		{`ALTER TABLE t ADD CHECK (v > 0), ADD COLUMN c int CHECK (v > 1), ALTER COLUMN v SET DEFAULT 1, ADD COLUMN d int CHECK (d > 0) CHECK (d < 9)`,
 			"add c, add d, set default v, checks of c, checks of d, add check "},
-		{`ALTER TABLE t ADD PRIMARY KEY (id), DROP COLUMN x, ADD UNIQUE (v), ADD COLUMN y int`,
-			"drop x, add y, add other constraint, add other constraint"},
+		{`ALTER TABLE t ADD UNIQUE (v), ADD PRIMARY KEY (id), DROP COLUMN x, ADD COLUMN y int`,
+			"drop x, add y, add primary key (id), add other constraint"},
+		{`ALTER TABLE t ADD PRIMARY KEY (c), ADD COLUMN c int`, "add c, add primary key (c)"},
+		{`ALTER TABLE t ADD PRIMARY KEY (a), ALTER COLUMN a DROP NOT NULL`, "drop not null a, add primary key (a)"},
+		{`ALTER TABLE t ADD CHECK (a > 0), ADD PRIMARY KEY (a, b), ALTER COLUMN b SET NOT NULL`,
+			"set not null b, add primary key (a, b), add check "},
+		{`ALTER TABLE t ADD COLUMN c int CHECK (c > 0) PRIMARY KEY, DROP CONSTRAINT t_pkey`,
+			"drop constraint t_pkey, add c, primary key of c, checks of c"},
 		// dbt's on_schema_change: added, then removed columns.
 		{`alter table t add column "a" int, add column "b" text, drop column "c"`, "drop c, add a, add b"},
 	} {
@@ -121,6 +131,9 @@ func TestApplyAlterPasses(t *testing.T) {
 			}
 			out = append(out, s)
 		}
+		if k := m.PrimaryKey; k != nil {
+			out = append(out, fmt.Sprintf("%s: primary key (%s)", k.Name, strings.Join(m.keyColumns(), ", ")))
+		}
 		for _, k := range m.Checks {
 			out = append(out, fmt.Sprintf("%s: %s", k.Name, k.Expr))
 		}
@@ -148,6 +161,17 @@ func TestApplyAlterPasses(t *testing.T) {
 		// Unnamed CHECKs are named in that order: the column's first.
 		{`ALTER TABLE t ADD CHECK (v > 0), ADD COLUMN b int CHECK (v > 1)`,
 			"id integer; a integer; v integer default 4; b integer; c: v > 0; t_v_check: v > 1; t_v_check1: v > 0", ""},
+		// A PRIMARY KEY makes its columns NOT NULL after DROP NOT NULL and
+		// ADD COLUMN, and is named before the CHECKs of ADD COLUMN.
+		{`ALTER TABLE t ADD PRIMARY KEY (b, a), ADD COLUMN b int, ALTER COLUMN a DROP NOT NULL`,
+			"id integer; a integer not null; v integer default 4; b integer not null; t_pkey: primary key (b, a); c: v > 0", "b a"},
+		{`ALTER TABLE t ADD COLUMN k int CHECK (k > 0) CONSTRAINT t_k_check PRIMARY KEY`,
+			"id integer; a integer; v integer default 4; k integer not null; t_k_check: primary key (k); c: v > 0; t_k_check1: k > 0", "k"},
+		{`ALTER TABLE t ADD COLUMN k int DEFAULT 1 PRIMARY KEY`,
+			"id integer; a integer; v integer default 4; k integer not null default 1; t_pkey: primary key (k); c: v > 0", ""},
+		{`ALTER TABLE t ADD COLUMN IF NOT EXISTS id int PRIMARY KEY`, "id integer; a integer; v integer default 4; c: v > 0", ""},
+		{`ALTER TABLE t ADD CONSTRAINT pk PRIMARY KEY (a), DROP CONSTRAINT IF EXISTS pk`,
+			"id integer; a integer not null; v integer default 4; pk: primary key (a); c: v > 0", "a"},
 		// The table's only columns dropped, others added, written either way.
 		{`ALTER TABLE t ADD COLUMN b int, DROP COLUMN id, DROP COLUMN a, DROP COLUMN v`, "b integer", ""},
 		// Errors, as Postgres's: the first in that order.
@@ -162,6 +186,15 @@ func TestApplyAlterPasses(t *testing.T) {
 		{`ALTER TABLE t ADD CONSTRAINT k CHECK (nope > 0), ALTER COLUMN v SET DEFAULT 'bad'`, `column "v": invalid decimal "bad"`, ""},
 		{`ALTER TABLE t ADD CONSTRAINT k CHECK (nope > 0), ADD COLUMN w int DEFAULT 'bad'`, `column "w": invalid decimal "bad"`, ""},
 		{`ALTER TABLE t ADD CONSTRAINT k CHECK (nope2 > 0), ADD COLUMN w int CHECK (nope1 > 0)`, `column "nope1" does not exist in table "t"`, ""},
+		{`ALTER TABLE t ADD PRIMARY KEY (a), ADD PRIMARY KEY (v)`, `multiple primary keys for table "t" are not allowed`, ""},
+		{`ALTER TABLE t ADD COLUMN k int PRIMARY KEY PRIMARY KEY`, `multiple primary keys for table "t" are not allowed`, ""},
+		{`ALTER TABLE t ADD PRIMARY KEY (nope)`, `column "nope" of relation "t" does not exist`, ""},
+		{`ALTER TABLE t ADD PRIMARY KEY (a, nope, a)`, `column "a" appears twice in primary key constraint`, ""},
+		{`ALTER TABLE t ADD PRIMARY KEY (a), ALTER COLUMN a SET DEFAULT 'bad'`, `column "a": invalid decimal "bad"`, ""},
+		{`ALTER TABLE t ADD CONSTRAINT c PRIMARY KEY (a)`, `constraint "c" for relation "t" already exists`, ""},
+		{`ALTER TABLE t ADD CONSTRAINT t_pkey CHECK (a > 0), ADD PRIMARY KEY (a)`, `constraint "t_pkey" for relation "t" already exists`, ""},
+		{`ALTER TABLE t ADD PRIMARY KEY (a), ALTER COLUMN a DROP NOT NULL, ALTER COLUMN a SET NOT NULL, DROP CONSTRAINT t_pkey`,
+			`constraint "t_pkey" of relation "t" does not exist`, ""},
 	} {
 		m := table()
 		res, err := e.applyAlter(context.Background(), m, parseAlter(t, c.sql).Cmds, nil)

@@ -41,7 +41,9 @@ Local testing uses the Redis version that Redis Cloud runs (currently
 passed, 0 failed); not re-run since.
 
 The remaining 10 skipped tests are features the driver doesn't offer:
-constraints, statistics, a second catalog, and transactions.
+constraints, statistics, a second catalog, and transactions. Of the
+constraint tests, those for `CHECK` and `PRIMARY KEY` in `GetObjects` run
+now; those for `UNIQUE` and `FOREIGN KEY` are still skipped.
 
 Redis Flex (RAM + SSD) databases are not supported yet, and the driver
 refuses them when it connects; see
@@ -1172,7 +1174,7 @@ Deleted 13 HASHes under 2 prefixes.
     within about 256 ns of each other.
 - **Metadata**, all in one hash slot: `adbc:{meta}:table:<schema>:<table>`
   (column types, defaults, missing values, string levels, NaN flags,
-  comments and `CHECK` constraints as JSON), `adbc:{meta}:seq:*` (row ids),
+  comments, `CHECK` constraints and the primary key as JSON), `adbc:{meta}:seq:*` (row ids),
   `adbc:{meta}:tables:<schema>`, `adbc:{meta}:schemas`, and for views
   `adbc:{meta}:view:<schema>:<view>` (the SELECT text, its columns and comments) and
   `adbc:{meta}:views:<schema>`. Tables and views share one namespace.
@@ -1312,7 +1314,7 @@ How SQL is executed:
 | Window functions | Computed by the driver once the rows are known: after WHERE, GROUP BY and HAVING (which still run in the index when they can), before QUALIFY, ORDER BY and LIMIT. Rows are hashed into partitions and each partition is sorted once per distinct PARTITION BY / ORDER BY; frame aggregates add and remove rows as the frame slides (O(1) amortized per row; sums, averages and variances add and subtract exact sums, also of doubles). With `EXCLUDE CURRENT ROW / GROUP / TIES` the frame has a hole, so each row's frame is aggregated afresh (O(frame) per row), as PostgreSQL does; `FIRST_VALUE` / `LAST_VALUE` / `NTH_VALUE` stay O(1), also with `IGNORE NULLS`. A query with window functions never pushes its LIMIT into the index |
 | `CREATE TEMP TABLE` / `VIEW` | Same as a permanent table or view, in the connection's `pg_temp_<id>` schema. Unqualified names are looked up there first (in memory, no extra round trip) |
 | `TRUNCATE` | Like `DROP TABLE` and `CREATE TABLE` with the same metadata: reserves a new key prefix and index name and runs `FT.CREATE` for each table, switches the metadata of every table of the statement to the new names in one `WATCH`/`MULTI` (which also releases the old names), then runs `FT.DROPINDEX <old> DD`, which deletes every row the old index knows about. Statements still writing to the table find out and fail (see "Key prefixes are never reused") |
-| `ALTER TABLE` | Metadata only (optimistic `WATCH`/`MULTI` on the table's metadata, one for all the actions of a statement), plus `FT.INFO` and one `FT.ALTER` for the added columns and a background `HDEL` pass for `DROP COLUMN`. `ADD COLUMN … DEFAULT` records a missing value instead of writing the rows. Adding a `CHECK` (`ADD COLUMN … CHECK`, `ADD CONSTRAINT … CHECK`) or a `NOT NULL` (`ALTER COLUMN … SET NOT NULL`, `ADD COLUMN … NOT NULL` without a default) first reads the columns they use from every row, with one `FT.AGGREGATE` cursor scan for all the statement's new constraints, to check them, and when it commits, the rows inserted since (by `__rowid`). With `adbc.redis.rename_rekey`, `RENAME TO` also creates the new name's index, copies every row the old index lists with pipelined `DUMP` / `RESTORE … REPLACE` (a cursor page at a time; one key per command, so it works on a cluster), switches the metadata in one transaction, then runs `FT.DROPINDEX <old> DD` |
+| `ALTER TABLE` | Metadata only (optimistic `WATCH`/`MULTI` on the table's metadata, one for all the actions of a statement), plus `FT.INFO` and one `FT.ALTER` for the added columns and a background `HDEL` pass for `DROP COLUMN`. `ADD COLUMN … DEFAULT` records a missing value instead of writing the rows. Adding a `CHECK` (`ADD COLUMN … CHECK`, `ADD CONSTRAINT … CHECK`) or a `NOT NULL` (`ALTER COLUMN … SET NOT NULL`, `ADD COLUMN … NOT NULL` without a default, and the columns of `ADD PRIMARY KEY`) first reads the columns they use from every row, with one `FT.AGGREGATE` cursor scan for all the statement's new constraints, to check them, and when it commits, the rows inserted since (by `__rowid`). With `adbc.redis.rename_rekey`, `RENAME TO` also creates the new name's index, copies every row the old index lists with pipelined `DUMP` / `RESTORE … REPLACE` (a cursor page at a time; one key per command, so it works on a cluster), switches the metadata in one transaction, then runs `FT.DROPINDEX <old> DD` |
 | Views | `CREATE VIEW` plans the body without running it, which checks its tables, columns and function calls. Single-table views without GROUP BY/aggregates/window functions/LIMIT are expanded in place: the outer query's filters are rewritten over the base table and run in its index. Other views are computed once per query, like a derived table |
 | Joins | Each table's own WHERE/ON filters run in its index (except on the NULL-supplying side of an outer join). Inner joins are reordered to start from the table with the fewest matches (counted by the index). Equality conditions drive a hash join; when the next table's key is indexed and there are ≤ 1,000 distinct keys, only matching rows are fetched with an index union. The joined rows are then grouped/sorted in memory. `NATURAL JOIN` is an equality join on the common columns, like `USING`. An item whose `ON` can never be true (`ON false`), or that has no rows, isn't read when that settles the result: an inner join is then empty and reads no item, a `LEFT JOIN` keeps the left rows with NULLs for the item, and a `RIGHT JOIN` returns the item's rows without reading the items before it |
 | `UPDATE … FROM`, `DELETE … USING`, `MERGE` | The target is joined with the other items as above: its own filters (in WHERE, or in MERGE's ON) run in its index, and an equality on an indexed target column is an index lookup join, also through a no-op cast like dbt's `s.id::text = t.id::text`. `MERGE` is source `LEFT JOIN` target, or `FULL JOIN` with `WHEN NOT MATCHED BY SOURCE` clauses (which need every target row); `ON FALSE` reads the target only for those. Changes are then written by row key with pipelined `HSET`/`HDEL`/`DEL`, and new rows like `INSERT` does |
@@ -1556,26 +1558,31 @@ field, even if later rows have it.
   `DROP CONSTRAINT [IF EXISTS] name [CASCADE | RESTRICT]`. `ALTER COLUMN …
   TYPE` isn't supported. All of them only change metadata, so they take the
   same time at any table size (except `RENAME TO` with
-  `adbc.redis.rename_rekey`, and adding a `CHECK` or `NOT NULL`, which reads
-  every row first):
+  `adbc.redis.rename_rekey`, and adding a `CHECK`, a `NOT NULL` or a
+  `PRIMARY KEY`, which reads every row first):
   - **Several actions** (dbt's `on_schema_change` and snapshots send
     `alter table t add column "a" …, add column "b" …, drop column "c"`) are
     one change of the table's metadata, made in one `WATCH`/`MULTI`, so
     other statements see the table before all of them or after all of
     them. They run in Postgres's order, each seeing what the ones before it
     did: first the drops (`DROP COLUMN`, `DROP CONSTRAINT`, `DROP DEFAULT`
-    and `DROP NOT NULL`), then `ADD COLUMN`, then `SET NOT NULL`, then `SET
-    DEFAULT`, the new columns' `CHECK`s and `ADD CONSTRAINT`, each group in
-    the order written. So `ADD CONSTRAINT c CHECK (x > 0), ADD COLUMN x …
-    DEFAULT 1` checks the rows with `x`'s default, `DROP COLUMN a, ADD
-    COLUMN a …` gives a new, empty column (also written the other way
-    round), and `ALTER COLUMN a SET DEFAULT 1, ADD COLUMN a …` gives the new
-    column a default. An action that runs earlier can't name what the
+    and `DROP NOT NULL`), then `ADD COLUMN`, then `SET NOT NULL`, then the
+    primary keys (`ADD PRIMARY KEY` and `ADD COLUMN … PRIMARY KEY`), then
+    `SET DEFAULT`, the new columns' `CHECK`s and `ADD CONSTRAINT … CHECK`,
+    each group in the order written. So `ADD CONSTRAINT c CHECK (x > 0), ADD
+    COLUMN x … DEFAULT 1` checks the rows with `x`'s default, `DROP COLUMN
+    a, ADD COLUMN a …` gives a new, empty column (also written the other way
+    round), `ALTER COLUMN a SET DEFAULT 1, ADD COLUMN a …` gives the new
+    column a default, `ADD PRIMARY KEY (b), ADD COLUMN b …` makes the new
+    column the key, and `ADD PRIMARY KEY (b), DROP CONSTRAINT t_pkey`
+    replaces the key. An action that runs earlier can't name what the
     statement adds: `ADD COLUMN a …, DROP COLUMN a` and `ADD COLUMN a …
     DEFAULT 9, ALTER COLUMN a DROP DEFAULT` fail with `column "a" of
-    relation "t" does not exist`, as in Postgres. Unnamed `CHECK`s are named
-    in that order too: in `ADD CHECK (v > 0), ADD COLUMN b … CHECK (v > 1)`,
-    the column's is `t_v_check` and the other `t_v_check1`. Of several
+    relation "t" does not exist`, as in Postgres. Unnamed constraints are
+    named in that order too: in `ADD CHECK (v > 0), ADD COLUMN b … CHECK (v
+    > 1)`, the column's is `t_v_check` and the other `t_v_check1`, and in
+    `ADD CHECK (b > 0), ADD CONSTRAINT t_b_check PRIMARY KEY (b)` the key
+    takes `t_b_check` and the `CHECK` is `t_b_check1`. Of several
     errors, the one reported is the first in that order. A table can't be
     left without columns (Postgres allows it), but `DROP COLUMN a, ADD
     COLUMN b …` works on a table whose only column is `a`.
@@ -1723,10 +1730,11 @@ field, even if later rows have it.
     `NOT NULL` before the statement's new `CHECK`s, as in Postgres. `DROP
     NOT NULL` only changes the metadata. Either does nothing to a column
     that already is so. `information_schema.columns.is_nullable`,
-    `GetObjects` and `GetTableSchema` show the change. `PRIMARY KEY` isn't
-    kept (see Constraints below), so unlike in Postgres a key column is
-    nullable unless it is declared `NOT NULL`, and `DROP NOT NULL` doesn't
-    refuse it.
+    `GetObjects` and `GetTableSchema` show the change. `DROP NOT NULL` on a
+    column of the primary key fails with Postgres's `column "id" is in a
+    primary key`, unless the statement drops the key first (`DROP
+    CONSTRAINT t_pkey, ALTER COLUMN id DROP NOT NULL`; both are drops, which
+    run in the order written).
   - **Concurrent writes:** there are no locks, so other connections may
     write while the rows are checked for a new `NOT NULL` or `CHECK` (in
     Postgres they would wait). The rows they insert meanwhile are checked
@@ -1738,9 +1746,12 @@ field, even if later rows have it.
     meanwhile, and rows inserted after a new `CHECK` by a statement that
     read the table before it aren't checked.
   - `ADD COLUMN … CHECK (…)` and `ADD [CONSTRAINT name] CHECK (…)` check
-    every existing row first (see Constraints below). `DROP CONSTRAINT`
-    removes a `CHECK`; the other constraints aren't kept, so it can't name
-    them.
+    every existing row first (see Constraints below). `ADD [CONSTRAINT
+    name] PRIMARY KEY (cols)` and `ADD COLUMN … PRIMARY KEY` make the key's
+    columns `NOT NULL`, checking every row first as `SET NOT NULL` does
+    (see "Primary keys" under Constraints below). `DROP CONSTRAINT` removes
+    a `CHECK` or the primary key; `UNIQUE` and `FOREIGN KEY` constraints
+    aren't kept, so it can't name them.
 - `COMMENT ON {TABLE | VIEW | COLUMN} name IS 'text' | NULL`, as in
   Postgres (dbt's `persist_docs` runs it). A column is named `t.col`,
   `schema.t.col` or `redis.schema.t.col`, and names resolve as elsewhere
@@ -1874,8 +1885,9 @@ field, even if later rows have it.
     ON`, and some writes) removes it, so upgrade every client of a database
     together.
 - Constraints, written as in Postgres. `NOT NULL`, `CHECK` and the lengths
-  of `VARCHAR(n)` / `CHAR(n)` (see String lengths above) are enforced;
-  `PRIMARY KEY`, `UNIQUE` and `FOREIGN KEY` are not:
+  of `VARCHAR(n)` / `CHAR(n)` (see String lengths above) are enforced.
+  `PRIMARY KEY` is kept and makes its columns `NOT NULL`, but its
+  uniqueness isn't enforced. `UNIQUE` and `FOREIGN KEY` are not enforced:
   - **Accepted:** on a column (in `CREATE TABLE` and `ADD COLUMN`), any
     number of `NOT NULL`, `NULL`, `CHECK (expr)`, `DEFAULT expr`, `PRIMARY
     KEY`, `UNIQUE` and `REFERENCES t [(col)] [MATCH {FULL | PARTIAL |
@@ -1885,10 +1897,14 @@ field, even if later rows have it.
     `CHECK (expr)`, `PRIMARY KEY (cols)`, `UNIQUE (cols)` or `FOREIGN KEY
     (cols) REFERENCES t [(cols)] …`. A column `CHECK` means the same as a
     table one: a condition on the whole row, which may read any column.
-  - **Not enforced:** `PRIMARY KEY`, `UNIQUE` and `FOREIGN KEY` /
-    `REFERENCES` are accepted and ignored. Nothing is kept, so duplicate
-    keys and rows without a parent are inserted, the referenced table
-    needn't exist, and `GetObjects` doesn't list them.
+    After `PRIMARY KEY (cols)`, Postgres's index parameters (`INCLUDE
+    (cols)`, `WITH (…)`, `USING INDEX TABLESPACE name`) and `DEFERRABLE` /
+    `INITIALLY DEFERRED` are accepted and mean nothing.
+  - **Not enforced:** `UNIQUE` and `FOREIGN KEY` / `REFERENCES` are
+    accepted and ignored. Nothing is kept, so duplicate values and rows
+    without a parent are inserted, the referenced table needn't exist, and
+    `GetObjects` doesn't list them. Nor is the uniqueness of a `PRIMARY KEY`
+    enforced (see "Primary keys" below).
   - **`CHECK`, when written:** the expression is checked as in Postgres. It
     may read the table's columns (`col`, `t.col` or `schema.t.col`, see
     "Names" below) but not `__rowid` or another table, may not use
@@ -1940,8 +1956,65 @@ field, even if later rows have it.
     that read it, also those that read other columns too, and `DROP
     CONSTRAINT [IF EXISTS] name` drops one. Temporary tables have them in
     the same way; `CREATE TABLE … AS` copies none.
-  - **Reading them back:** `GetObjects`' `table_constraints` lists each
-    `CHECK`, with type `CHECK` and the columns its expression reads.
+  - **Primary keys,** as in Postgres 16:
+    - **Definition:** a table has at most one (`multiple primary keys for
+      table "t" are not allowed`), of its own columns (in `ALTER TABLE`,
+      also those the statement adds), each named once: `column "x" named
+      in key does not exist` (`ALTER TABLE`: `column "x" of relation "t"
+      does not exist`) and `column "a" appears twice in primary key
+      constraint`.
+    - **`NOT NULL`:** the key's columns become `NOT NULL` as if declared so
+      (also a column declared `NULL`), so every write checks them, with
+      Postgres's `null value in column "id" of relation "t" violates
+      not-null constraint`. `information_schema.columns.is_nullable`,
+      `GetObjects` and `GetTableSchema` show it. `DROP NOT NULL` on a key
+      column fails (`column "id" is in a primary key`), and the columns stay
+      `NOT NULL` when the key is dropped.
+    - **Names:** `CONSTRAINT name` as written, otherwise `<table>_pkey`,
+      with `1`, `2`, … appended to a name one of the table's `CHECK`s uses
+      (`t_pkey1`). A `CHECK` added later avoids the key's name in the same
+      way. In `CREATE TABLE` the `CHECK`s are named first, so a key named
+      like one of them fails with `constraint "c" for relation "t" already
+      exists`, as in Postgres. Postgres names the key's index the same, so
+      it also avoids the names of the schema's other tables, indexes and
+      constraints: where another table's key is `t_pkey` already (it keeps
+      that name when its table is renamed), Postgres names a new table
+      `t`'s key `t_pkey1` and the driver `t_pkey`.
+    - **Uniqueness isn't enforced:** rows with the same key are inserted,
+      and `UPDATE` can give two rows the same key. Enforcing it needs a
+      check that is atomic with the write against every other writer, and
+      the rows are separate HASHes (on different shards of a cluster),
+      written without a transaction across them: looking the key up in the
+      search index first would let two statements each find no row and
+      both insert one. So `information_schema.table_constraints.enforced`
+      is `NO` for a primary key, and the dbt adapter declares `primary_key`
+      `not_enforced` (dbt warns about it in a contract, as for Snowflake or
+      BigQuery).
+    - **Existing rows:** `ADD PRIMARY KEY` and `ADD COLUMN … PRIMARY KEY`
+      check every row for NULLs in the key's columns as `SET NOT NULL` does,
+      with the same error (`column "id" of relation "t" contains null
+      values`) and the same treatment of concurrent writes (see "Concurrent
+      writes" under `ALTER TABLE`). Duplicate keys aren't checked
+      (Postgres's `could not create unique index "t_pkey"`).
+    - **Lifetime:** the key is part of the table's metadata (an optional
+      `primary_key` field: its name and the HASH fields of its columns, in
+      key order). `RENAME COLUMN` keeps it on the renamed column. `RENAME
+      TO` (also with `adbc.redis.rename_rekey`) and `TRUNCATE` keep it with
+      its name, as Postgres keeps its index's. `DROP COLUMN` of one of its
+      columns drops it, as `DROP CONSTRAINT name` does. Temporary tables
+      have one in the same way; `CREATE TABLE … AS` and a bulk ingest that
+      creates its table don't.
+  - **Reading them back:** `GetObjects`' `table_constraints` lists the
+    primary key, with type `PRIMARY KEY` and its columns in key order, and
+    each `CHECK`, with type `CHECK` and the columns its expression reads.
+    `information_schema.table_constraints` lists both, with Postgres's
+    columns (`is_deferrable` and `initially_deferred` are `NO`; `enforced`
+    is `YES` for a `CHECK` and `NO` for a primary key), and
+    `information_schema.key_column_usage` the key's columns, with their
+    `ordinal_position` in the key. Postgres 16 also lists each `NOT NULL`
+    in `table_constraints`, as a `CHECK` named with object ids
+    (`2200_16384_1_not_null`); the driver doesn't (see
+    `information_schema.columns.is_nullable`).
   - **Upgrading:** clients on v0.0.6 and earlier ignore the new metadata.
     They don't check the constraints, and a change they make to a table's
     metadata (an `ALTER TABLE`, a `COMMENT ON`, and some writes) removes
@@ -1953,6 +2026,16 @@ field, even if later rows have it.
     constraint "c" of relation "t" can't be evaluated (function
     nosuchfunc(integer) does not exist); drop it with ALTER TABLE … DROP
     CONSTRAINT`.
+  - **Upgrading from v0.0.12 and earlier:** `PRIMARY KEY` was accepted and
+    not kept, so the tables those versions created have no key, and its
+    columns are nullable unless they were declared `NOT NULL`; add it with
+    `ALTER TABLE … ADD PRIMARY KEY (…)`. A table can no longer have two
+    `PRIMARY KEY` clauses. Clients on those versions ignore the
+    `primary_key` field (they still check the `NOT NULL` of its columns,
+    which is part of each column), and a change they make to a table's
+    metadata removes the key. A NULL in a `NOT NULL` column was `NULL value
+    in column "a" violates not-null constraint`; it is now Postgres's `null
+    value in column "a" of relation "t" violates not-null constraint`.
 - `[WITH [RECURSIVE] name [(cols)] AS (SELECT …), …] SELECT [ALL | DISTINCT | DISTINCT ON (…)] … FROM item {, item |
   [INNER | LEFT | RIGHT | FULL] [OUTER] JOIN item ON … | USING (…) | CROSS JOIN item |
   NATURAL [INNER | LEFT | RIGHT | FULL] [OUTER] JOIN item}
@@ -2132,7 +2215,7 @@ field, even if later rows have it.
     where it is written again (Postgres accepts both).
   - **Outside subqueries,** a column that is neither grouped nor aggregated
     is still read from the group's first row. Postgres rejects it unless the
-    `GROUP BY` has the table's primary key, which the driver doesn't keep.
+    `GROUP BY` has the table's primary key.
 - `UNION [ALL]`, `INTERSECT [ALL]`, `EXCEPT [ALL]` (`INTERSECT` binds
   tighter; parenthesized branches may have their own `ORDER BY`/`LIMIT`).
   Columns are matched by position and widened to a common type; NULLs count
@@ -2959,8 +3042,9 @@ field, even if later rows have it.
   `comment`), `columns` (`ordinal_position`, `column_default`, `data_type`, `is_nullable`,
   `character_maximum_length`, `character_octet_length`, `numeric_precision`,
   `numeric_scale`, `datetime_precision`, `is_indexed` and `comment`), `views`
-  (`view_definition`), and `routines`, the driver's functions (see "Function
-  calls" above). `comment` is the `COMMENT ON` text, NULL without
+  (`view_definition`), `table_constraints` and `key_column_usage` (the
+  primary keys and `CHECK` constraints, see Constraints above), and
+  `routines`, the driver's functions (see "Function calls" above). `comment` is the `COMMENT ON` text, NULL without
   one. `data_type` is the driver's name of the type, with its length or
   precision (`VARCHAR(3)`, `TIMESTAMP(2)`, `TIMESTAMP(6) WITH TIME ZONE`),
   where Postgres writes `character varying` or `timestamp without time

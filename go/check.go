@@ -19,8 +19,9 @@ package redis
 // CREATE TABLE takes CHECK (expr) on a column or as a table constraint,
 // ALTER TABLE … ADD COLUMN on the new column, and ALTER TABLE … ADD
 // [CONSTRAINT name] CHECK (expr) on the table. As in Postgres, all of them
-// mean the same: a condition on the whole row. PRIMARY KEY, UNIQUE and
-// REFERENCES / FOREIGN KEY are accepted and not enforced (nothing is kept).
+// mean the same: a condition on the whole row. PRIMARY KEY is kept, but its
+// uniqueness isn't enforced (see pkey.go); UNIQUE and REFERENCES / FOREIGN
+// KEY are accepted and not enforced (nothing is kept).
 //
 //   - Definition: the expression is bound over the table alone, so it may
 //     read any of the table's columns but not __rowid or another table, and
@@ -189,6 +190,9 @@ func (e *executor) defineChecks(ctx context.Context, meta *tableMeta, defs []Che
 	used := map[string]bool{}
 	for _, c := range meta.Checks {
 		used[strings.ToLower(c.Name)] = true
+	}
+	if meta.PrimaryKey != nil {
+		used[strings.ToLower(meta.PrimaryKey.Name)] = true
 	}
 	// Explicit names first, so that no default name takes one.
 	for i, d := range defs {

@@ -35,6 +35,10 @@ class RedisQuirks(model.DriverQuirks):
         # Autocommit only
         connection_transactions=False,
         get_objects=True,
+        # GetObjects lists CHECK constraints and the primary key, the only
+        # constraints kept (UNIQUE and FOREIGN KEY are accepted and ignored).
+        get_objects_constraints_check=True,
+        get_objects_constraints_primary=True,
         statement_bind=True,
         statement_bulk_ingest=True,
         statement_bulk_ingest_catalog=False,
@@ -72,6 +76,19 @@ class RedisQuirks(model.DriverQuirks):
     def qualify_temp_table(self, cursor, name: str) -> list[str]:
         # A connection's temporary tables and views are in its pg_temp schema.
         return [self.features.current_catalog, "pg_temp", name]
+
+    @property
+    def sample_ddl_constraints(self) -> list[str]:
+        return [
+            "CREATE TABLE constraint_check (a INTEGER CHECK (a > 0), b INTEGER, CHECK (a + b > 0))",
+            "CREATE TABLE constraint_primary (a INTEGER PRIMARY KEY)",
+            "CREATE TABLE constraint_primary_multi (a INTEGER, b INTEGER, PRIMARY KEY (b, a))",
+            "CREATE TABLE constraint_primary_multi2 (a INTEGER, b INTEGER, PRIMARY KEY (a, b))",
+            "CREATE TABLE constraint_unique (a INTEGER UNIQUE, b INTEGER, c INTEGER, UNIQUE (c, b))",
+            "CREATE TABLE constraint_foreign (a INTEGER, b INTEGER REFERENCES constraint_primary (a))",
+            "CREATE TABLE constraint_foreign_multi (a INTEGER, b INTEGER, c INTEGER,"
+            " FOREIGN KEY (c, b) REFERENCES constraint_primary_multi2 (a, b))",
+        ]
 
     def split_statement(self, statement: str) -> list[str]:
         # The driver executes ';'-separated scripts itself.

@@ -220,6 +220,8 @@ type tableMeta struct {
 	Comment string `json:"comment,omitempty"`
 	// Checks are the table's CHECK constraints (see check.go).
 	Checks []checkMeta `json:"checks,omitempty"`
+	// PrimaryKey is the table's PRIMARY KEY, nil without one (see pkey.go).
+	PrimaryKey *keyMeta `json:"primary_key,omitempty"`
 	// Adopted is set for a table whose rows are HASHes that something else
 	// (an application) wrote, adopted in place with AdoptHashes (adopt.go).
 	// The driver doesn't own their keys, so it never deletes rows wholesale
@@ -1583,7 +1585,7 @@ func (s *store) allocRows(ctx context.Context, meta *tableMeta, rows [][]Value) 
 	for _, row := range rows {
 		for i, c := range meta.Columns {
 			if row[i].Null && !c.Nullable {
-				return rowAlloc{}, errorf(adbc.StatusIntegrity, "NULL value in column %q violates not-null constraint", c.Name)
+				return rowAlloc{}, notNullErr(c.Name, meta.Name)
 			}
 		}
 	}
@@ -1642,7 +1644,7 @@ func notNullSince(meta *tableMeta, raw string, rows [][]Value) error {
 		case i >= 0 && meta.Columns[i].Nullable:
 			for _, row := range rows {
 				if row[i].Null {
-					return errorf(adbc.StatusIntegrity, "NULL value in column %q violates not-null constraint", c.Name)
+					return notNullErr(c.Name, meta.Name)
 				}
 			}
 		}
