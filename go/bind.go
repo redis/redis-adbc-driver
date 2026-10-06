@@ -138,6 +138,10 @@ type execCache struct {
 	// branchTypes are the result types of CASE and IIF expressions
 	// (branchValue).
 	branchTypes map[Expr]ColType
+	// literalTypes are the types of the quoted string literals that are
+	// operands of arithmetic operators, by operator (literalOperands);
+	// NULL where they are taken from the other operand's values.
+	literalTypes map[Expr]ColType
 	// paramHints are the parameter types found while describing a
 	// statement's parameters (params.go); nil otherwise.
 	paramHints map[int]ColType
@@ -157,6 +161,7 @@ func newExecCache() *execCache {
 		working:       map[*CTE]*tableMeta{},
 		extremes:      map[*Subquery]*quantExtremes{},
 		branchTypes:   map[Expr]ColType{},
+		literalTypes:  map[Expr]ColType{},
 	}
 }
 

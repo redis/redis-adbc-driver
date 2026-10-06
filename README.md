@@ -262,9 +262,9 @@ the Python exception:
 |-|-|-|-|
 | A value that doesn't convert or doesn't fit (`CAST('abc' AS INTEGER)`, `'2024-02-30'::date`, `1 / 0`, a value too long for its column) | class `22` | `InvalidData` | `DataError` |
 | `NOT NULL` and `CHECK` | `23502`, `23514` | `Integrity` | `IntegrityError` |
-| A table, view, column, function or schema that doesn't exist | `42P01`, `42703`, `42883`, `3F000` | `NotFound` | `ProgrammingError` |
+| A table, view, column, function or schema that doesn't exist; an operator for a quoted literal that doesn't exist (`b + '1'`) | `42P01`, `42703`, `42883`, `3F000`; `42883` | `NotFound` | `ProgrammingError` |
 | A table, view, column, constraint or schema that already exists; a column named twice (in `INSERT`, a `PRIMARY KEY`, a table or a view) | `42P07`, `42701`, `42710`, `42P06` | `AlreadyExists` | `ProgrammingError` |
-| A syntax error; a column name that several columns have (`column reference "x" is ambiguous`); a table definition Postgres refuses (two primary keys, `DROP NOT NULL` of a key column, a column of type record); a type that never converts (`DATE` to `BOOLEAN`); a record where another type is needed (`argument of WHERE must be type boolean, not type record`); values without a common type (`CASE`, `COALESCE`, `UNION`, …; see "Quoted string literals") | `42601`; `42702`; `42P16`; `42846` in a cast, `42804` written to a column or by `ALTER COLUMN … TYPE`; `42804`; `42804` | `InvalidArgument` | `ProgrammingError` |
+| A syntax error; a column name that several columns have (`column reference "x" is ambiguous`); a table definition Postgres refuses (two primary keys, `DROP NOT NULL` of a key column, a column of type record); a type that never converts (`DATE` to `BOOLEAN`); a record where another type is needed (`argument of WHERE must be type boolean, not type record`); values without a common type (`CASE`, `COALESCE`, `UNION`, …; see "Quoted string literals"); an operator of a quoted literal that could be one of several (`d + '1'`, `'1' + '1'`) | `42601`; `42702`; `42P16`; `42846` in a cast, `42804` written to a column or by `ALTER COLUMN … TYPE`; `42804`; `42804`; `42725` | `InvalidArgument` | `ProgrammingError` |
 | What Postgres doesn't support either (`DATE_BIN` by months, `EXTRACT(day FROM time)`, `ALTER COLUMN … TYPE` of a column a view reads) | `0A000` | `NotImplemented` | `NotSupportedError` |
 | A cancel, or a Go deadline | `57014` | `Cancelled`, `Timeout` | `OperationalError` |
 
@@ -292,11 +292,12 @@ the Python exception:
 - **Messages** are mostly the driver's: only the SQLSTATE is Postgres's
   (`'abc'::numeric` is `invalid decimal "abc"`, where Postgres says
   `invalid input syntax for type numeric: "abc"`). Text read as an integer
-  has Postgres's messages too (see Text as an integer under Casts).
+  has Postgres's messages too (see Text as an integer under Casts), as do
+  operators of quoted literals (see Quoted string literals).
 - **No SQLSTATE yet:** the errors of the driver's own limits, and a few
   others: `more than one row returned by a subquery used as an expression`
   (`21000` in Postgres), an operator that doesn't exist (`42883`; those of
-  rows and records have it), `missing
+  rows, records and quoted literals have it), `missing
   FROM-clause entry for table "t"` (`42P01`), and a `SET` of an invalid
   value (`22023`). They keep their status, mostly `InvalidArgument`.
 - **In Go,** `adbc.Error.Error()` ends with the SQLSTATE in parentheses:
@@ -2054,7 +2055,11 @@ field, even if later rows have it.
     - An `INSERT` value, or an `UPDATE` `SET` value: the target column's type.
       This also covers `-$1` and the select items of `INSERT … SELECT`.
     - `CAST($1 AS t)` or `$1::t`: `t`.
-    - Arithmetic with a number: that number's type.
+    - Arithmetic (`+`, `-`, `*`, `/`, `%`): the type a quoted literal has
+      there (see Quoted string literals), as in Postgres. With a number,
+      that number's type; `ts + $1` is an interval, `ts - $1` a timestamp,
+      `d - $1` a date and `iv * $1` a double; none for `d + $1`, which could
+      be either, or `b + $1`.
     - `||`, `LIKE`, `ILIKE`, `SIMILAR TO` and the regex operators: text.
     - `AND`, `OR`, `NOT`, and `CASE WHEN` conditions: boolean.
     - `COALESCE`, `NULLIF`, `GREATEST` and `LEAST` arguments, and `CASE`
@@ -3191,23 +3196,41 @@ field, even if later rows have it.
   is an `INTEGER`), and a column of the branches of `UNION`, `INTERSECT`
   and `EXCEPT` (`SELECT '1' UNION SELECT 1` is a `BIGINT`), also in `CREATE
   TABLE … AS` and views. A cast gives a literal a type (`CAST('1' AS
-  VARCHAR)`, `'1'::text`).
+  VARCHAR)`, `'1'::text`). An operand of `+`, `-`, `*`, `/` and `%`
+  (`MOD`) takes its type from the operator and the other operand, as
+  Postgres resolves the operator: a value of the other operand's type if
+  the operator takes two (`'1' + 1` is 2, `id + '1'` adds 1, `d -
+  '2024-01-01'` is a number of days, `ts - '2024-01-01'` an interval), and
+  otherwise the type of the one form the operator has for it (`ts + '1
+  day'` and `tm + '01:00'` add an interval, `iv * '2'` multiplies by a
+  double), also in `WHERE` (`id = '1' + 1` is an index query), `GROUP BY`,
+  `UPDATE … SET` and views. A `NUMERIC` literal keeps its own digits (`n *
+  '2'` has `n`'s scale).
   - **Errors,** as in Postgres, when the statement is planned, also if no
     row reads the value: a literal that isn't a value of the type (`CASE
-    WHEN … THEN 'x' ELSE 1 END` is `invalid decimal "x"`; Postgres:
-    `invalid input syntax for type integer: "x"`; both `22P02`), and typed
-    values without a common type, such as a `VARCHAR` column and an
+    WHEN … THEN 'x' ELSE 1 END` and `'x' + 1` are `invalid decimal "x"`;
+    Postgres: `invalid input syntax for type integer: "x"`; both `22P02`);
+    typed values without a common type, such as a `VARCHAR` column and an
     integer (`CASE WHEN … THEN v ELSE 1 END` is `CASE types bigint and
     varchar cannot be matched`, `42804`, and so for `COALESCE`, `GREATEST`,
-    `LEAST` and `IIF`). A `CASE` of literals alone is text, so
-    `COALESCE(CASE WHEN … THEN '1' END, 1)` is such an error too.
+    `LEAST` and `IIF`; a `CASE` of literals alone is text, so
+    `COALESCE(CASE WHEN … THEN '1' END, 1)` is such an error too); and an
+    operator that has no form for the other operand's type (`b + '1'` is
+    `operator does not exist: boolean + unknown`, `42883`) or more than one
+    (`d + '1'` could add days or an interval: `operator is not unique: date
+    + unknown`, `42725`), as are two literals (`'1' + '1'`, `NULL + '1'`)
+    and `-'1'`. For `MOD(…)` they are `function mod(date, unknown) does not
+    exist` and `function mod(unknown, unknown) is not unique`.
   - **Differences:** the literal is read as `CAST` reads text, so `'1.5'`
-    as an integer is 2 where Postgres fails. A `CASE` whose results are all
-    `NULL` has no type, as `NULL` has, so `COALESCE(CASE WHEN … THEN NULL
-    END, '2', 1)` is 2 (Postgres's `CASE` is text: `COALESCE types text and
-    integer cannot be matched`). Arithmetic doesn't type a literal (`'1' +
-    1` is an error; Postgres: 2). Comparisons read text as the other side's
-    type, and `INSERT`, `UPDATE` and casts convert it to theirs, as before.
+    as an integer is 2 where Postgres fails (`'1.5' + 1` is 3). A `CASE`
+    whose results are all `NULL` has no type, as `NULL` has, so
+    `COALESCE(CASE WHEN … THEN NULL END, '2', 1)` is 2 (Postgres's `CASE`
+    is text: `COALESCE types text and integer cannot be matched`). `%` and
+    `MOD` of a `DOUBLE PRECISION` are the driver's (Postgres has none), and
+    so is `f % '1'`; `tm * '2'` fails as `tm * 2` does (Postgres reads the
+    time as an interval); `+'1'` stays text (Postgres: a double).
+    Comparisons read text as the other side's type, and `INSERT`, `UPDATE`
+    and casts convert it to theirs, as before.
   - **Upgrading from v0.0.12 and earlier:** results change type. Such a
     `CASE`, `IIF`, `NULLIF` or `LAG` was a `VARCHAR`, whose other values
     weren't converted (`CASE WHEN id = 1 THEN '1' ELSE 1 END` gave the text
@@ -3220,7 +3243,10 @@ field, even if later rows have it.
     `'0'`, so `+ 1` of it failed), and `GREATEST('1', '2', 3)` and `SELECT
     '1' UNION SELECT 1` were `types VARCHAR and BIGINT cannot be matched`.
     Typed values without a common type gave a `VARCHAR` column of values of
-    both types, and are now an error: cast them (`CAST(n AS VARCHAR)`)
+    both types, and are now an error: cast them (`CAST(n AS VARCHAR)`).
+    Arithmetic of a literal was an error (`operator + is not supported for
+    string and int64`, or `for DATE and VARCHAR`, without a SQLSTATE), and
+    works now, or fails with Postgres's error (`42883`, `42725`)
 - Functions return NULL for a NULL argument, except `COALESCE`, `NULLIF`,
   `GREATEST`, `LEAST` and `IIF`. Functions of constants are computed once,
   so `WHERE n > ROUND(?)` is still an index query; functions over columns are
