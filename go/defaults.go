@@ -17,7 +17,8 @@ package redis
 // Column defaults.
 //
 // A column's DEFAULT is stored as SQL text in the table metadata
-// (columnMeta.Default) and checked when it is defined: it may not read
+// (columnMeta.Default; a local-time literal as its instant, see
+// creationzone.go) and checked when it is defined: it may not read
 // columns, run subqueries, take parameters or call aggregates, GROUPING or
 // window functions, its calls are resolved as in a query (funcs.go), and it
 // is evaluated once so that a value the column can't hold is an error then.
@@ -165,7 +166,9 @@ func (e *executor) checkDefault(ctx context.Context, def ColumnDef) (string, Val
 	if cv.Null && !hasVolatile(def.Default) {
 		return "", cv, nil
 	}
-	return def.DefaultText, cv, nil
+	// Its local-time literals are stored as instants, read in the session
+	// time zone, as cv was (see creationzone.go).
+	return e.foldDefault(def.DefaultText, def.Type), cv, nil
 }
 
 // columnDefaults computes the defaults of a table's columns for the rows of

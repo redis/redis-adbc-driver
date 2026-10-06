@@ -1651,8 +1651,9 @@ field, even if later rows have it.
     `CURRENT_DATE`, the statement's time. A volatile default (`RANDOM()`)
     is computed for every row.
   - `information_schema.columns.column_default` and `GetObjects`'
-    `xdbc_column_def` show the default as written. `CREATE TABLE … AS`
-    copies values, not defaults
+    `xdbc_column_def` show the default as written, except that a local-time
+    literal is stored as its instant (see Session time zone). `CREATE TABLE
+    … AS` copies values, not defaults
 - String lengths, as in Postgres:
   - **Types:** `VARCHAR(n)` (also `CHARACTER VARYING(n)`, `CHAR VARYING(n)`
     and `NVARCHAR(n)`) holds at most `n` characters. `CHAR(n)` (also
@@ -2594,6 +2595,31 @@ field, even if later rows have it.
   - **Index queries** work on UTC instants: a local-time constant is
     converted in the session time zone before it is pushed down (see "How
     SQL is executed"), so the index returns the rows the comparison does.
+  - **Views, defaults and `CHECK`s** read a local-time literal once, in the
+    session time zone of the statement that defines them (`CREATE VIEW`,
+    `CREATE TABLE`, `ALTER TABLE`), as Postgres does. The literal is stored
+    as its instant, with that zone's offset: `'2024-01-01 00:00'` in New
+    York is stored as `'2024-01-01 00:00:00-05'`, which `information_schema`
+    shows (Postgres's `pg_get_viewdef` shows `'2024-01-01
+    00:00:00-05'::timestamp with time zone`). So a view created in New York
+    returns the same rows in every session, and a `CHECK (ts >=
+    '2024-01-01')` defined there rejects the same rows in every session. A
+    local-time literal is text without an offset that is cast to a
+    timestamp with time zone (`TIMESTAMPTZ '…'`, `'…'::timestamptz`) or
+    read as one: compared with one (also in `IN`, `BETWEEN` and a `CASE`
+    operand), an argument of `COALESCE`, `GREATEST`, `LEAST` or `NULLIF`
+    with one, the operand of `AT TIME ZONE` and `AT LOCAL`, and the
+    `DEFAULT` of such a column. The conversions the definition makes when
+    it runs read the zone of the session that runs it, as in Postgres:
+    casts of columns and of other values (`ts::date`, `DATE
+    '2024-01-01'::timestamptz`, a `TIMESTAMP` compared with a timestamp
+    with time zone), `CURRENT_DATE`, `LOCALTIMESTAMP` and text output.
+    - **Upgrading from v0.0.12 and earlier:** they read such a literal in
+      the zone of the session that queried the view or wrote the row.
+      Views, defaults and `CHECK`s they stored keep doing so; define them
+      again (`CREATE OR REPLACE VIEW`, `ALTER TABLE … ALTER COLUMN … SET
+      DEFAULT`, `DROP CONSTRAINT` and `ADD CONSTRAINT`) to store the
+      instant.
   - **Values:** the forms in the `TimeZone` row of the parameter table
     under "Transactions and settings". An IANA name is looked up
     case-insensitively and shown as the tz database spells it
@@ -2608,11 +2634,7 @@ field, even if later rows have it.
     isn't a zone name (`PST`, `IST`), are `invalid value for parameter
     "TimeZone": "x"`, as in Postgres. Up to v0.0.12 the driver read such an
     abbreviation as a fixed offset.
-  - **Differences from Postgres:** a view, a `DEFAULT` or a `CHECK` with a
-    local-time literal (`'2024-01-01 00:00'` compared with or written to a
-    timestamp with time zone) reads it in the zone of the session that runs
-    the query or writes the row; Postgres reads it once, in the zone of the
-    session that creates the view or the table. `TIME WITH TIME ZONE`, and
+  - **Differences from Postgres:** `TIME WITH TIME ZONE`, and
     `MAKE_TIMESTAMPTZ` with a zone argument, aren't supported.
 - Intervals and date/time arithmetic:
   - `INTERVAL '1 year 2 months 3 days 04:05:06'`, `'1.5 hours'`, `'2 days ago'`,

@@ -35,7 +35,8 @@ package redis
 //     (tableMeta.Checks; an optional field, so older metadata reads
 //     unchanged). The text is the expression as written, except that a
 //     qualified column reference (t.a) loses its qualifier, so RENAME TO
-//     doesn't break it. RENAME COLUMN rewrites the references to the column
+//     doesn't break it, and a local-time literal is its instant
+//     (creationzone.go). RENAME COLUMN rewrites the references to the column
 //     in the text (rewriteRefs), DROP COLUMN drops the constraints that read
 //     the column, as Postgres does, and RENAME TO (also re-keying), TRUNCATE
 //     and the other metadata changes keep them.
@@ -222,7 +223,7 @@ func (e *executor) defineChecks(ctx context.Context, meta *tableMeta, defs []Che
 			}
 			used[strings.ToLower(name)] = true
 		}
-		out[i] = checkMeta{Name: name, Expr: d.Text}
+		out[i] = checkMeta{Name: name, Expr: e.foldCheck(ctx, meta, d.Text)}
 	}
 	return out, nil
 }

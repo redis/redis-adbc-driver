@@ -65,6 +65,10 @@ type executor struct {
 	// sess when it starts (tzKnown) and after SET (see zone).
 	tz      tzZone
 	tzKnown bool
+	// localLits, while a view or a CHECK is defined, collects the string
+	// literals of the expressions bound that are read as timestamps with
+	// time zone (see creationzone.go).
+	localLits map[*Literal]bool
 }
 
 // execResult is the outcome of one statement.
