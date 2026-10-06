@@ -357,6 +357,11 @@ const (
 	// adoptedKey (SET) lists the key prefixes of adopted tables, which no
 	// new table's prefix may overlap (see adoptedOverlap).
 	adoptedKey = metaPrefix + "adopted"
+	// droppedAdoptedKey (SET) lists the key prefixes of adopted tables that
+	// were dropped. DROP TABLE releases them as any table's, so that no new
+	// table takes them, but the HASHes stay: they are the application's,
+	// and redis-adbc sweep leaves them alone (see sweep.go).
+	droppedAdoptedKey = metaPrefix + "adopted:dropped"
 )
 
 // tableNames are the key prefix and index name a table takes: for N = 1,
@@ -1334,6 +1339,7 @@ func (s *store) dropTable(ctx context.Context, schema, table string, ifExists bo
 				p.SRem(ctx, cleanupKey, cleanupMember(schema, table))
 				if meta.Adopted {
 					p.SRem(ctx, adoptedKey, meta.prefix())
+					p.SAdd(ctx, droppedAdoptedKey, meta.prefix())
 				}
 				return nil
 			})
@@ -1617,8 +1623,8 @@ type rowLog struct {
 // prefix once no table has that prefix (checkKeys): its table was dropped
 // or its rows moved while the statement was writing, so these keys either
 // were deleted with the table or are left over, and no table can take the
-// prefix again (see claimNames). It is best effort; see the README for
-// keys left behind.
+// prefix again (see claimNames). It is best effort: redis-adbc sweep
+// deletes the keys left behind (see sweep.go).
 func (s *store) discardWritten(ctx context.Context, meta *tableMeta) {
 	log := meta.wrote
 	meta.wrote = rowLog{}

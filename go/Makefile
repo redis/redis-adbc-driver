@@ -35,7 +35,8 @@ $(LIB): $(wildcard *.go) $(wildcard pkg/*.go) $(wildcard pkg/*.c) $(wildcard pkg
 	CGO_ENABLED=1 go build -buildmode=c-shared -tags driverlib -ldflags "$(LDFLAGS)" -o $@ ./pkg
 
 # redis-adbc: check, copy and adopt HASH collections that the driver didn't
-# write. It links the driver as a Go library, so it needs no cgo.
+# write, and sweep the rows left under the key prefixes of dropped tables.
+# It links the driver as a Go library, so it needs no cgo.
 adbc-cli: $(ADBC_CLI)
 
 $(ADBC_CLI): $(wildcard *.go) $(wildcard cmd/redis-adbc/*.go) go.mod go.sum
