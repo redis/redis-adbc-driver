@@ -1275,7 +1275,7 @@ How SQL is executed:
 | `(a, b) > (x, y)`, `>=`, `<`, `<=`, and row `BETWEEN` | When `a` is an indexed numeric, date or time column, the index takes the bound the comparison implies on it, `a >= x` (`a <= x` for `<` and `<=`), and the driver checks the whole comparison on the rows the index finds. So keyset pagination, `WHERE (ts, id) > (?, ?) ORDER BY ts, id LIMIT n`, reads the rows from the last page's `ts` on, not every row before them too. Strings are only looked up by equality, so a string `a` is checked on every row |
 | `x op ANY / ALL (SELECT …)` | `= ANY` is `IN` and `<> ALL` is `NOT IN`, with the same index unions, hash sets and semi-joins. Other operators: an uncorrelated subquery runs once, and `<`, `<=`, `>`, `>=` compare with its smallest or largest value (when all the values are of one type class); otherwise each row is compared with every value |
 | `UNION` / `INTERSECT` / `EXCEPT` | Each branch runs as its own query (using its own index); the driver combines, de-duplicates and sorts the results |
-| CTEs, derived tables | Run once, unless the query that reads them can't return rows (see above); the outer query filters, sorts and groups them in memory |
+| CTEs, derived tables | Run once, unless the query that reads them can't return rows (see above); the outer query filters, sorts and groups them in memory. One that reads an enclosing query's columns runs when the query that reads it does instead, once per distinct set of the values it reads (memoised like a correlated subquery, and shared by a CTE's references) |
 | `WITH RECURSIVE` | Working-table iteration in memory: the non-recursive term runs once, then the recursive term runs against the rows the last iteration added (its joins with tables still use their indexes, such as an index lookup join on the new rows' keys) until it adds none. `UNION` drops rows produced before. At most 10,000 iterations and 1,000,000 rows. With `SEARCH` / `CYCLE`, the recursive term runs once per row of the working table, to know each row's parent |
 | `LATERAL`, `GENERATE_SERIES` | Join items computed while the join runs. One that reads earlier FROM items runs for each row joined so far (a `LATERAL` subquery memoised on the values it reads, like a correlated subquery); otherwise it runs once and is joined like a derived table. A join with such an item keeps its written order. `GENERATE_SERIES` makes its rows in memory, at most 1,000,000 per call |
 | `SELECT DISTINCT` | Over plain expressions it is the same as `GROUP BY` them, so it runs in the index (`FT.AGGREGATE … GROUPBY`) when they're indexed columns. Otherwise (stars, aggregates, window functions, `DISTINCT ON`) the driver removes duplicate rows after the rest of the query, NULLs counting as equal. `LIMIT` / `OFFSET` apply afterwards and never run in the index. As in Postgres, `ORDER BY` must use the select list, and `DISTINCT ON` keys must match the leading `ORDER BY` expressions |
@@ -1874,6 +1874,19 @@ field, even if later rows have it.
     name. A `MERGE` source can't have the target's name even then: `name
     "t" specified more than once; the name is used both as MERGE target
     table and data source`
+  - **A derived table or CTE reads the queries around it**, as in
+    Postgres: a derived table the columns of the queries around the one
+    whose FROM list holds it (not that query's other FROM items, which
+    need `LATERAL`), and a CTE those around the query whose WITH list
+    holds it, wherever it is read (not that query's FROM items, nor the
+    queries between). `select * from t where exists (select * from u,
+    (select t.v) s)` reads `t.v` of each row of `t`, and so does `select
+    (with c as (select t.v) select (select v from c)) from t`; that
+    holds for recursive CTEs too. Up to v0.0.12 they couldn't read an
+    enclosing query (`missing FROM-clause entry for table "t"`), and a
+    CTE's body saw the WITH lists of the queries that read it: in `with c
+    as (select * from d) select * from (with d as (select 1) select *
+    from c) s`, `d` was the inner CTE (Postgres: no such table)
   - **`t.col`** is a column of the innermost level with an item visible as
     `t`. If that item has no column `col`, it is an error, even when an
     outer `t` has one; if two items of that level are visible as `t`
@@ -1913,9 +1926,24 @@ field, even if later rows have it.
       FROM function (which are `LATERAL` already), and on the right of a
       `RIGHT` or `FULL` join. Up to v0.0.12 these were `missing
       FROM-clause entry for table "t"` and `column "v" does not exist`
-    - A derived table or CTE can't read the columns of an enclosing query,
-      which Postgres allows: `select * from t where exists (select * from
-      u, (select t.v) s)` is `missing FROM-clause entry for table "t"`
+    - The same error without a hint when a FROM item of `UPDATE t …
+      FROM`, `DELETE FROM t USING` or a `MERGE INTO t` source reads the
+      target, which `LATERAL` can't make visible: `update t set v = 0 from
+      u, (select t.v) s`. An unqualified column of the target is `column
+      "v" does not exist; there is a column named "v" in table "t", but it
+      cannot be referenced from this part of the query`. As in Postgres, a
+      `LATERAL` item or a FROM function of `UPDATE` or `DELETE` that reads
+      the target is `invalid reference to FROM-clause entry for table "t";
+      there is an entry …` even for an unqualified column that an earlier
+      item has too. Up to v0.0.12 these were `missing FROM-clause entry
+      for table "t"`, and `update t set v = 0 from u, lateral (select v)
+      s` read `u.v`
+    - The same errors for a join's `ON` clause among the FROM items of
+      `UPDATE … FROM` and `DELETE … USING`, which, as in Postgres, reads
+      only that join's two sides, not the target: `update t set v = 0 from
+      u join w on w.id = t.id`, also from a subquery in it. `WHERE` reads
+      the target, and so does `MERGE`'s `ON`, which joins it. Up to
+      v0.0.12 such an `ON` read the target
 - `FETCH FIRST n ROWS ONLY` is `LIMIT n` (`FETCH FIRST ROW ONLY` is `LIMIT
   1`); `WITH TIES` is not supported, and a query has at most one `LIMIT` or
   `FETCH` (Postgres's "multiple LIMIT clauses not allowed")

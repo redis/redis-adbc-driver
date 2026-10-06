@@ -331,7 +331,7 @@ func (e *executor) planSemiJoin(ctx context.Context, sq *Subquery) {
 		plan.windowed() || len(sel.Windows) > 0 {
 		return
 	}
-	if len(sel.Joins) > 0 || plan.meta.view != nil || plan.meta.join != nil {
+	if len(sel.Joins) > 0 || plan.meta.view != nil || plan.meta.join != nil || plan.meta.lazy != nil {
 		return
 	}
 	// DISTINCT ON keeps one row per key after the correlation filter; the

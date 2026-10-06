@@ -43,12 +43,10 @@ type executor struct {
 	scopes     []*scope
 	pendingSq  *Subquery
 	ctes       []map[string]*CTE
-	// hidden is what the derived table or CTE being planned can't see
-	// (see hiddenLevel), and cteHidden[i] its length when ctes[i] was
-	// pushed: a CTE's body is planned with that much of it.
-	hidden    []hiddenLevel
-	cteHidden []int
-	now       time.Time // CURRENT_TIMESTAMP etc., fixed per statement
+	// cteLevel[i] is the number of scopes when ctes[i] was pushed: the
+	// level of its query, whose enclosing scopes its CTEs see.
+	cteLevel []int
+	now      time.Time // CURRENT_TIMESTAMP etc., fixed per statement
 	// noTemp stops unqualified names from resolving to temporary objects
 	// (inside permanent views).
 	noTemp bool
@@ -703,6 +701,10 @@ type selectPlan struct {
 	// hold (LIMIT 0, or a HAVING or QUALIFY that is never true); it then
 	// reads nothing (see empty.go).
 	noRows bool
+	// recursive is set for the body of a recursive CTE that reads an
+	// enclosing query, run as a correlated subquery (see
+	// materializeRecursive); the plan has nothing else.
+	recursive *recursivePlan
 }
 
 // windowed reports whether the query computes window functions (or

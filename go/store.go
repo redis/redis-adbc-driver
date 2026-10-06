@@ -251,6 +251,9 @@ type tableMeta struct {
 	join *joinPlan
 	// view is set for a simple view, computed when the query is scanned.
 	view *lazyView
+	// lazy is set for a derived table or CTE that reads an enclosing
+	// query, computed when the query is scanned (see lazyRelation).
+	lazy *lazyRelation
 }
 
 // resolve finds a column by name: exact match first, then case-insensitive.
