@@ -14,9 +14,10 @@
 
 package redis
 
-// The names Postgres gives output columns, which a bare name in ORDER BY
-// and DISTINCT ON matches before it matches an input column, and one in
-// GROUP BY after.
+// The names of output columns, as Postgres gives them: the result's column
+// names (also RETURNING's), those of derived tables, CTEs, views and CREATE
+// TABLE … AS, and the names a bare name in ORDER BY and DISTINCT ON matches
+// before it matches an input column, and one in GROUP BY after.
 //
 // An output column is named by its alias, or by FigureColname
 // (parse_target.c) from the expression: a column reference by the column,
@@ -24,15 +25,12 @@ package redis
 // name and by t's type name (int4, varchar) if not, CASE by its ELSE in the
 // same way (or "case"), a scalar subquery by its column, EXISTS by
 // "exists", a row by "row", a field (r).f1 by the field, and anything else
-// (operators, literals) "?column?". The
-// driver's own name for an unaliased expression is its text, so these are
-// kept apart (planItem.pgName).
+// (operators, literals) "?column?". So names repeat (SELECT 1, 2 has two
+// columns named ?column?): a derived table or CTE keeps them all, and only
+// a reference to such a name is an error (nameColumns), while a table or
+// view can't have them.
 
-import (
-	"strings"
-
-	"github.com/apache/arrow-adbc/go/adbc"
-)
+import "strings"
 
 // figureColname returns the name Postgres gives the output column of the
 // unaliased select-list expression e.
@@ -80,7 +78,7 @@ func figureName(e Expr) (string, int) {
 			// The subquery's column, also when Postgres has no name for it
 			// ("?column?").
 			if x.plan != nil && len(x.plan.items) > 0 {
-				return x.plan.items[0].pgName, 2
+				return x.plan.items[0].name, 2
 			}
 		}
 	case *RowExpr:
@@ -211,13 +209,13 @@ func findOutputColumn(items []planItem, name, clause string) (*planItem, error) 
 	var match *planItem
 	for i := range items {
 		it := &items[i]
-		if !strings.EqualFold(it.pgName, name) {
+		if !strings.EqualFold(it.name, name) {
 			continue
 		}
 		if match == nil {
 			match = it
 		} else if !exprEqual(match.expr, it.expr) {
-			return nil, errorf(adbc.StatusInvalidArgument, "%s %q is ambiguous", clause, name)
+			return nil, stateErrorf(stateAmbiguousColumn, "%s %q is ambiguous", clause, name)
 		}
 	}
 	return match, nil

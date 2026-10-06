@@ -67,6 +67,7 @@ const (
 	stateUndefinedSchema     = "3F000" // invalid_schema_name
 	stateSyntax              = "42601" // syntax_error
 	stateDuplicateColumn     = "42701" // duplicate_column
+	stateAmbiguousColumn     = "42702" // ambiguous_column
 	stateUndefinedColumn     = "42703" // undefined_column
 	stateDatatypeMismatch    = "42804" // datatype_mismatch
 	stateCannotCoerce        = "42846" // cannot_coerce

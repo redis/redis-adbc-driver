@@ -248,6 +248,9 @@ type tableMeta struct {
 	// have no index or HASHes.
 	isMem bool
 	mem   []map[string]Value
+	// dups are the names (in lower case) that more than one column of an
+	// in-memory relation has (see nameColumns).
+	dups map[string]bool
 	// join is set for the relation produced by a FROM clause with joins; its
 	// rows are computed when the query is scanned.
 	join *joinPlan
@@ -988,7 +991,7 @@ func (s *store) createTable(ctx context.Context, meta *tableMeta, ifNotExists bo
 			return false, errorf(adbc.StatusInvalidArgument, "column name %q is reserved", c.Name)
 		}
 		if seen[strings.ToLower(c.Name)] {
-			return false, stateErrorf(stateDuplicateColumn, "duplicate column name %q", c.Name)
+			return false, stateErrorf(stateDuplicateColumn, "column %q specified more than once", c.Name)
 		}
 		seen[strings.ToLower(c.Name)] = true
 	}

@@ -142,7 +142,8 @@ func readBy(items []*joinItem, cols map[string]bool) string {
 
 // renameColumns applies column aliases (`AS a(x, y)`) to a FROM item's
 // relation: its first len(cols) columns take the new names. A table keeps
-// reading the columns' HASH fields.
+// reading the columns' HASH fields. A derived table's or CTE's columns may
+// then share a name, as in Postgres (see nameColumns), a table's may not.
 func renameColumns(meta *tableMeta, alias string, cols []string) (*tableMeta, error) {
 	if len(cols) > len(meta.Columns) {
 		return nil, errorf(adbc.StatusInvalidArgument, "table %q has %d columns available but %d columns specified",
@@ -150,21 +151,33 @@ func renameColumns(meta *tableMeta, alias string, cols []string) (*tableMeta, er
 	}
 	m := *meta
 	m.Columns = slices.Clone(meta.Columns)
-	rename := make(map[string]string, len(cols))
-	for i, n := range cols {
-		c := &m.Columns[i]
-		if !m.isMem {
+	rename := make(map[string]string, len(m.Columns))
+	if m.isMem {
+		names := make([]string, len(m.Columns))
+		for i, c := range m.Columns {
+			names[i] = c.outputName()
+			if i < len(cols) {
+				names[i] = cols[i]
+			}
+		}
+		m.nameColumns(names)
+		for i, c := range meta.Columns {
+			rename[c.Name] = m.Columns[i].Name
+		}
+	} else {
+		for i, n := range cols {
+			c := &m.Columns[i]
 			c.Field = c.field()
+			rename[c.Name] = n
+			c.Name = n
 		}
-		rename[c.Name] = n
-		c.Name = n
-	}
-	seen := map[string]bool{}
-	for _, c := range m.Columns {
-		if seen[strings.ToLower(c.Name)] {
-			return nil, errorf(adbc.StatusInvalidArgument, "column name %q appears more than once in %q", c.Name, alias)
+		seen := map[string]bool{}
+		for _, c := range m.Columns {
+			if seen[strings.ToLower(c.Name)] {
+				return nil, errorf(adbc.StatusInvalidArgument, "column name %q appears more than once in %q", c.Name, alias)
+			}
+			seen[strings.ToLower(c.Name)] = true
 		}
-		seen[strings.ToLower(c.Name)] = true
 	}
 	if m.isMem {
 		m.mem = make([]map[string]Value, len(meta.mem))

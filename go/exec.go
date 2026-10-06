@@ -687,13 +687,11 @@ func (e *executor) insertSelect(ctx context.Context, st *InsertStmt, meta *table
 
 type planItem struct {
 	expr Expr
+	// name is the column's name, as Postgres gives it (colname.go): its
+	// alias, or else the name of its expression. A bare name in ORDER BY
+	// and DISTINCT ON matches it.
 	name string
 	typ  ColType
-	// pgName is the name Postgres gives the column (colname.go), which a
-	// bare name in ORDER BY and DISTINCT ON matches: the same as name, but
-	// for an unaliased expression other than a column, which name calls
-	// by its text.
-	pgName string
 }
 
 type planOrder struct {
@@ -858,7 +856,7 @@ func (e *executor) planSelect(ctx context.Context, sel *SelectStmt, paramTypes [
 				return nil, err
 			}
 			for _, c := range cols {
-				plan.items = append(plan.items, planItem{expr: &ColumnRef{Name: c.Name}, name: c.outputName(), typ: c.Type, pgName: c.outputName()})
+				plan.items = append(plan.items, planItem{expr: &ColumnRef{Name: c.Name}, name: c.outputName(), typ: c.Type})
 			}
 			continue
 		}
@@ -869,7 +867,7 @@ func (e *executor) planSelect(ctx context.Context, sel *SelectStmt, paramTypes [
 		if err != nil {
 			return nil, invalidArg(err)
 		}
-		name, pgName := it.Alias, it.Alias
+		name := it.Alias
 		if name == "" {
 			if c, ok := it.Expr.(*ColumnRef); ok {
 				// Output the column's own name, not alias.column.
@@ -884,18 +882,11 @@ func (e *executor) planSelect(ctx context.Context, sel *SelectStmt, paramTypes [
 						name = col.outputName()
 					}
 				}
-				pgName = name
 			} else {
-				name, pgName = it.Text, figureColname(it.Expr)
-			}
-			switch x := it.Expr.(type) {
-			case *RowExpr:
-				name = "row" // as Postgres names it
-			case *FieldSelect:
-				name = x.Name
+				name = figureColname(it.Expr) // also "row", and f1 for (r).f1
 			}
 		}
-		plan.items = append(plan.items, planItem{expr: it.Expr, name: name, typ: t, pgName: pgName})
+		plan.items = append(plan.items, planItem{expr: it.Expr, name: name, typ: t})
 		if isAggregate(it.Expr) {
 			plan.aggregate = true
 		}

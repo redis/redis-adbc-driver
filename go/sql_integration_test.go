@@ -389,7 +389,10 @@ func TestSQLDerivedTablesAndCTEs(t *testing.T) {
 	// A SELECT alias isn't visible in the same query's WHERE (standard SQL).
 	h.expectError(`SELECT id, qty * 2 AS dbl FROM it_orders WHERE dbl > 7`, "does not exist")
 	h.expectRows(`SELECT id, dbl FROM (SELECT id, qty * 2 AS dbl FROM it_orders) q WHERE dbl > 7 ORDER BY dbl DESC`, "4|20", "6|8")
-	h.expectError(`SELECT * FROM (SELECT id, id FROM it_orders) x`, "more than once")
+	// As in Postgres, a derived table's columns may share a name, which a
+	// reference can't read.
+	h.expectRows(`SELECT * FROM (SELECT id, id FROM it_orders WHERE id < 3) x ORDER BY 1`, "1|1", "2|2")
+	h.expectError(`SELECT id FROM (SELECT id, id FROM it_orders) x`, `column reference "id" is ambiguous`)
 
 	// CTEs: filtering, chaining, column lists, reuse, use inside subqueries.
 	h.expectRows(`WITH totals AS (SELECT customer_id, SUM(amount) AS total FROM it_orders GROUP BY customer_id)
@@ -2664,11 +2667,13 @@ func TestSQLWindowAggregates(t *testing.T) {
 		"6|17.50|1.875|12.25|2024-01-01|c|28|8",
 		"7|22.50|2.875|9.25|2024-01-01|c|28|8",
 		"8|23.50|3|9|2024-01-01|c|28|8")
-	if s := schema.String(); !strings.Contains(s, "OVER (ORDER BY id): type=decimal(38, 2)") ||
-		!strings.Contains(s, "CURRENT ROW): type=float64") || !strings.Contains(s, "MIN(d) OVER (): type=date32") ||
-		!strings.Contains(s, "MAX(g) OVER (): type=utf8") || !strings.Contains(s, "SUM(v) OVER (): type=int64") ||
-		!strings.Contains(s, "COUNT(*) OVER (): type=int64") {
-		t.Errorf("window aggregate types = %s", s)
+	if got, want := fieldNames(schema), "id|sum|avg|sum|min|max|sum|count"; got != want {
+		t.Errorf("window aggregate names = %s, want %s", got, want)
+	}
+	for i, want := range []string{"int32", "decimal(38, 2)", "float64", "float64", "date32", "utf8", "int64", "int64"} {
+		if got := schema.Field(i).Type.String(); got != want {
+			t.Errorf("window aggregate %d type = %s, want %s", i, got, want)
+		}
 	}
 
 	// Window calls inside expressions and scalar functions, and scalar
