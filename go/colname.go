@@ -15,7 +15,8 @@
 package redis
 
 // The names Postgres gives output columns, which a bare name in ORDER BY
-// and DISTINCT ON matches before it matches an input column.
+// and DISTINCT ON matches before it matches an input column, and one in
+// GROUP BY after.
 //
 // An output column is named by its alias, or by FigureColname
 // (parse_target.c) from the expression: a column reference by the column,
@@ -202,10 +203,10 @@ func (c *ColumnRef) writtenName() string {
 }
 
 // findOutputColumn returns the output column a bare name in clause (ORDER
-// BY or DISTINCT ON) names, or nil if there is none, as Postgres finds it
-// (findTargetlistEntrySQL92): the columns of that name must all be the same
-// expression (SELECT a, a … ORDER BY a), otherwise the name is ambiguous
-// (SELECT a AS b, b … ORDER BY b).
+// BY, DISTINCT ON or GROUP BY) names, or nil if there is none, as Postgres
+// finds it (findTargetlistEntrySQL92): the columns of that name must all be
+// the same expression (SELECT a, a … ORDER BY a), otherwise the name is
+// ambiguous (SELECT a AS b, b … ORDER BY b).
 func findOutputColumn(items []planItem, name, clause string) (*planItem, error) {
 	var match *planItem
 	for i := range items {

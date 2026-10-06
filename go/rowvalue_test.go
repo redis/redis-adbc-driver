@@ -28,7 +28,12 @@ func memQuery(q string) string {
 	if err != nil {
 		return "error: " + errText(err)
 	}
-	rows, err := runInMemory(stmts[0].Stmt.(*SelectStmt))
+	return memRun(stmts[0].Stmt.(*SelectStmt))
+}
+
+// memRun is memQuery for a parsed query, which it plans again each time.
+func memRun(sel *SelectStmt) string {
+	rows, err := runInMemory(sel)
 	if err != nil {
 		return "error: " + errText(err)
 	}

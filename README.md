@@ -2254,6 +2254,26 @@ field, even if later rows have it.
   `SELECT 1/0 FROM t WHERE false` returns no rows
 - `GROUP BY` items are expressions, output positions or aliases, and also
   (as in Postgres) `ROLLUP (…)`, `CUBE (…)`, `GROUPING SETS (…)` and `()`:
+  - A bare name is an input column's before it is an output column's
+    (unlike in `ORDER BY`), as in Postgres. A name no input column has is
+    the output column of that name, also one without an alias, named as
+    for `ORDER BY` (below): after `SELECT upper(v)`, `GROUP BY upper`
+    groups by `upper(v)`; after `SELECT CAST(x AS INTEGER)`, `GROUP BY x`
+    is still the column `x`. Only the query's own FROM items count, not
+    those of the queries around it; a name two of them have (`k` of `JOIN …
+    USING (k)`, where the driver keeps both columns) may also be an output
+    column's. Output columns of the same name must be the same expression,
+    otherwise it is `GROUP BY "a" is ambiguous`, and the one named may not
+    be an aggregate or a window function. Unlike in Postgres, an alias may
+    also be used inside an expression (`GROUP BY lower(u)` after `upper(v)
+    AS u`); a name without an alias may not
+  - **Upgrading from v0.0.12 and earlier:** a bare name matched only
+    aliases, so `GROUP BY upper` after `SELECT upper(v)` was `column
+    "upper" does not exist`, or in a subquery read an enclosing query's
+    column `upper`. Of two aliases of the name the last one was used, where
+    it is now ambiguous. In a join an alias came before an input column of
+    its name, and `GROUP BY k` after `SELECT t.k … JOIN … USING (k)` was
+    `column reference "k" is ambiguous`
   - `ROLLUP (a, b)` is the grouping sets `(a, b), (a), ()`, and `CUBE (a, b)`
     is every subset of its items (at most 12). `GROUPING SETS (…)` lists
     sets, and may contain `ROLLUP`, `CUBE` and `GROUPING SETS`. A
