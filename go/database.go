@@ -87,8 +87,12 @@ func (d *databaseImpl) clientConfig() (*clientConfig, error) {
 	if d.password != "" {
 		opts.Password = d.password
 	}
-	// The driver parses RESP2 replies of FT.AGGREGATE / FT.CURSOR.
-	opts.Protocol = 2
+	// go-redis uses RESP3 by default. Set it explicitly so that the same
+	// protocol reaches a cluster's node clients, while preserving a URI's
+	// explicit protocol=2 compatibility setting (or protocol=3).
+	if opts.Protocol == 0 {
+		opts.Protocol = 3
+	}
 	opts.DisableIdentity = true
 	cfg := newClientConfig(opts)
 	cfg.clusterParams = params

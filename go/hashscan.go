@@ -143,7 +143,7 @@ func (ks *keyScan) next(ctx context.Context) (keys []string, done bool, err erro
 	return keys, ks.node >= len(ks.nodes), nil
 }
 
-// hashRow is one HASH: its fields and values, in HGETALL's order.
+// hashRow is one HASH: its fields and values, in HKEYS' order.
 type hashRow struct {
 	key    string
 	fields []string
@@ -157,39 +157,63 @@ func (r hashRow) get(field string) (string, bool) {
 	return "", false
 }
 
-// readHashes reads HASHes with pipelined HGETALL. A key that is gone (or
-// no longer a HASH) is left out.
+// readHashes reads HASHes with pipelined HKEYS followed by HMGET. Unlike
+// HGETALL, HKEYS has the same list-shaped reply in RESP2 and RESP3, so the
+// field order used for inferred columns is preserved across protocols. A key
+// that is gone (or no longer a HASH) is left out.
 func (c *hashConn) readHashes(ctx context.Context, keys []string) ([]hashRow, error) {
 	rows := make([]hashRow, 0, len(keys))
 	for start := 0; start < len(keys); start += pipelineChunk {
 		chunk := keys[start:min(start+pipelineChunk, len(keys))]
 		pipe := c.client.Pipeline()
-		cmds := make([]*goredis.Cmd, len(chunk))
+		fieldCmds := make([]*goredis.StringSliceCmd, len(chunk))
 		for i, k := range chunk {
-			cmds[i] = pipe.Do(ctx, "HGETALL", k)
+			fieldCmds[i] = pipe.HKeys(ctx, k)
 		}
 		// Each command's error is checked below.
 		_, _ = pipe.Exec(ctx)
-		for i, cmd := range cmds {
-			reply, err := cmd.Result()
+		fields := make([][]string, len(chunk))
+		for i, cmd := range fieldCmds {
+			var err error
+			fields[i], err = cmd.Result()
 			if err != nil {
 				if isWrongType(err) {
 					continue
 				}
-				return nil, wrapRedis(err, "HGETALL failed")
+				return nil, wrapRedis(err, "HKEYS failed")
 			}
-			list, _ := reply.([]any)
-			if len(list) == 0 {
+		}
+
+		pipe = c.client.Pipeline()
+		valueCmds := make([]*goredis.SliceCmd, len(chunk))
+		for i, k := range chunk {
+			if len(fields[i]) > 0 {
+				valueCmds[i] = pipe.HMGet(ctx, k, fields[i]...)
+			}
+		}
+		// Each command's error is checked below.
+		_, _ = pipe.Exec(ctx)
+		for i, cmd := range valueCmds {
+			if cmd == nil {
 				continue
 			}
-			row := hashRow{key: chunk[i], fields: make([]string, 0, len(list)/2), values: make([]string, 0, len(list)/2)}
-			for j := 0; j+1 < len(list); j += 2 {
-				f, _ := list[j].(string)
-				v, _ := list[j+1].(string)
-				row.fields = append(row.fields, f)
-				row.values = append(row.values, v)
+			values, err := cmd.Result()
+			if err != nil {
+				if isWrongType(err) {
+					continue
+				}
+				return nil, wrapRedis(err, "HMGET failed")
 			}
-			rows = append(rows, row)
+			row := hashRow{key: chunk[i], fields: make([]string, 0, len(fields[i])), values: make([]string, 0, len(fields[i]))}
+			for j, value := range values {
+				if s, ok := value.(string); ok {
+					row.fields = append(row.fields, fields[i][j])
+					row.values = append(row.values, s)
+				}
+			}
+			if len(row.fields) > 0 {
+				rows = append(rows, row)
+			}
 		}
 	}
 	return rows, nil

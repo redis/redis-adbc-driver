@@ -209,8 +209,9 @@ error.
   set to true is an error. They send reads to replicas, which may not have
   the driver's latest writes yet.
 - **The driver's settings win:** the `username` and `password` options,
-  RESP2 (`protocol` has no effect), no `CLIENT SETINFO`, and the timeout
-  options (see [Timeouts](#timeouts)).
+  no `CLIENT SETINFO`, and the timeout options (see [Timeouts](#timeouts)).
+  The protocol defaults to RESP3; set `protocol=2` for RESP2 compatibility,
+  or `protocol=3` explicitly. The setting reaches every cluster node too.
 - **`client_name`** makes go-redis name every connection with `CLIENT
   SETNAME`. An ACL user then needs `+client|setname` (see
   [ACL users](#acl-users)).
@@ -340,9 +341,10 @@ and a 3-shard cluster:
   for metadata transactions. `ALTER COLUMN … TYPE`, which rewrites the
   rows to new keys, needs only these (it copies rows with `HGETALL` and
   `HSET`, not `DUMP` / `RESTORE`).
-- **Not needed:** `HELLO` and `AUTH` are always allowed. Add `+select` if the
-  URI names a database other than 0 (not tested), and `+client|setname` if it
-  sets `client_name`.
+- **Not needed:** RESP3 negotiation uses `HELLO`, but `HELLO` and `AUTH` are
+  always allowed. Add `+select` if the URI names a database other than 0 (not
+  tested), and `+client|setname` if it sets `client_name`. A `protocol=2` URI
+  remains available for compatibility with RESP2-only deployments.
 - **On a cluster,** ACL users are per node: create the user on every node.
 - **For example,** for dbt on a cluster, with `rename_rekey`:
 
@@ -1061,7 +1063,7 @@ driver's metadata (`%R~adbc:*`), and these
 commands:
 
 ```text
-+ping +info +scan +hgetall +ft._list +ft.info +ft.aggregate +memory|usage
++ping +info +scan +hkeys +hmget +ft._list +ft.info +ft.aggregate +memory|usage
 +get +exists +smembers +sismember +hget +hexists
 # A cluster (OSS Cluster API) also
 +cluster|slots +command
@@ -1073,11 +1075,14 @@ warns that it can't estimate the memory a copy needs, and goes on.
 
 `copy` and `adopt` need the driver's own rules (see
 [ACL users](#acl-users)). `copy` and `adopt` also need
-`+scan` and read access to the collection's keys (`%R~user:*`):
+`+scan +hkeys` and read access to the collection's keys (`%R~user:*`):
 
 ```text
-+scan
++scan +hkeys
 ```
+
+`HMGET` is already in the driver's rules; the tools use `HKEYS` followed by
+`HMGET` so inferred column order is the same under RESP2 and RESP3.
 
 A user that only queries an adopted table needs the driver's read-only
 rules, with read access to the collection's keys (`%R~user:*`), and

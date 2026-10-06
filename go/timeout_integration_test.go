@@ -211,7 +211,7 @@ func TestClientURIOptionsTakeEffect(t *testing.T) {
 			return fmt.Errorf("%s: CLIENT GETNAME = %q, %v", addr, got, err)
 		}
 		o := n.Options()
-		if o.PoolSize != 2 || o.MinIdleConns != 5 || o.MaxRetries != 4 || o.ReadTimeout != defaultReadTimeout || o.Protocol != 2 {
+		if o.PoolSize != 2 || o.MinIdleConns != 5 || o.MaxRetries != 4 || o.ReadTimeout != defaultReadTimeout || o.Protocol != 3 {
 			return fmt.Errorf("%s: pool_size %d, min_idle_conns %d, max_retries %d, read timeout %v, protocol %d",
 				addr, o.PoolSize, o.MinIdleConns, o.MaxRetries, o.ReadTimeout, o.Protocol)
 		}
@@ -244,6 +244,37 @@ func TestClientURIOptionsTakeEffect(t *testing.T) {
 		t.Fatal(err)
 	}
 	waitFor(t, "no connection named "+name, func() bool { return len(namedConns(t, h.ctx, raw, name)) == 0 })
+}
+
+// Both protocols execute RediSearch queries. The default suite exercises
+// RESP3; this keeps the explicit RESP2 compatibility path live too.
+func TestRESPProtocols(t *testing.T) {
+	newSQLHarness(t) // skip without REDIS_URI
+	base := uriWithoutTimeouts(t)
+	for _, protocol := range []int{3, 2} {
+		t.Run(fmt.Sprintf("RESP%d", protocol), func(t *testing.T) {
+			u, err := url.Parse(base)
+			if err != nil {
+				t.Fatal(err)
+			}
+			q := u.Query()
+			q.Set("protocol", fmt.Sprint(protocol))
+			u.RawQuery = q.Encode()
+
+			h := openWith(t, u.String(), nil)
+			table := fmt.Sprintf("it_resp%d", protocol)
+			h.exec("DROP TABLE IF EXISTS " + table)
+			t.Cleanup(func() { h.exec("DROP TABLE IF EXISTS " + table) })
+			h.exec("CREATE TABLE " + table + " (id INTEGER, label VARCHAR)")
+			h.exec("INSERT INTO " + table + " VALUES (2, 'two'), (1, 'one'), (3, 'three')")
+			// ORDER BY without LIMIT uses FT.SEARCH for the count and
+			// FT.AGGREGATE WITHCURSOR for the rows.
+			h.expectRows("SELECT id, label FROM "+table+" ORDER BY id", "1|one", "2|two", "3|three")
+			// ALTER reads FT.INFO metadata before changing the schema.
+			h.exec("ALTER TABLE " + table + " ADD COLUMN extra INTEGER")
+			h.expectRows("SELECT COUNT(*) FROM "+table, "3")
+		})
+	}
 }
 
 // The URI parameters that go-redis takes for a cluster only. On a cluster,

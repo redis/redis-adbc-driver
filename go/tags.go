@@ -522,8 +522,16 @@ func (e *executor) prefixComplete(ctx context.Context, meta *tableMeta, query st
 	ok := false
 	reply, err := e.store.searchDo(ctx, meta.index(), "FT.PROFILE", meta.index(), "AGGREGATE", "LIMITED",
 		"QUERY", query, "LIMIT", 0, 1, "TIMEOUT", 0, "DIALECT", 2).Result()
-	if parts, isList := reply.([]any); err == nil && isList && len(parts) == 2 {
-		ok = profileComplete(parts[1], e.store.shards(ctx))
+	if err == nil {
+		var profile any
+		if parts, isList := reply.([]any); isList && len(parts) == 2 { // RESP2
+			profile = parts[1]
+		} else if fields, isMap := redisReplyMap(reply); isMap { // RESP3
+			profile = fields["Profile"]
+		}
+		if profile != nil {
+			ok = profileComplete(profile, e.store.shards(ctx))
+		}
 	}
 	if e.cache.prefixes == nil {
 		e.cache.prefixes = map[string]bool{}
@@ -574,14 +582,12 @@ func profileComplete(profile any, shards int) bool {
 	return true
 }
 
-// profileEntry returns the value of key in a profile's key, value, … list,
-// or nil.
+// profileEntry returns the value of key in a RESP2 key/value list or a
+// RESP3 profile map, or nil.
 func profileEntry(x any, key string) any {
-	list, _ := x.([]any)
-	for i := 0; i+1 < len(list); i += 2 {
-		if s, ok := list[i].(string); ok && s == key {
-			return list[i+1]
-		}
+	fields, _ := redisReplyFields(x)
+	if fields != nil {
+		return fields[key]
 	}
 	return nil
 }
