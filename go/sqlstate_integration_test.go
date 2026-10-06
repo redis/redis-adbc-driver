@@ -123,6 +123,8 @@ func TestSQLErrorStates(t *testing.T) {
 		{`SELECT CAST('abc' AS TIMESTAMP)`, data, "22007", `"abc"`},
 		{`SELECT CAST('abc' AS TIME)`, data, "22007", `"abc"`},
 		{`SELECT CAST('abc' AS INTERVAL)`, data, "22007", `"abc"`},
+		{`SELECT CAST('1:75:00' AS INTERVAL)`, data, "22015", `interval field value out of range: "1:75:00"`},
+		{`SELECT CAST('2562047:47:16.854776' AS INTERVAL)`, data, "22008", "interval out of range"},
 		{`SELECT CAST('2024-02-30' AS DATE)`, data, "22008", `"2024-02-30"`},
 		{`SELECT CAST('2024-02-30 10:00' AS TIMESTAMP)`, data, "22008", `"2024-02-30 10:00"`},
 		{`SELECT CAST('25:00' AS TIME)`, data, "22008", `"25:00"`},

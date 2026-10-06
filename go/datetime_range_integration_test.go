@@ -206,7 +206,7 @@ func TestIntervalArithmeticRange(t *testing.T) {
 		`SELECT INTERVAL '-2000000 hours' - INTERVAL '2000000 hours'`:                                    "interval out of range",
 		`SELECT TIMESTAMP '2024-01-01 00:00:00' + (INTERVAL '2000000 hours' + INTERVAL '2000000 hours')`: "interval out of range",
 		// -2^63 nanoseconds can't be negated: was 1731-09-22 00:12:43.145224.
-		`SELECT TIMESTAMP '2024-01-01 00:00:00' - INTERVAL '-9223372036.854775808 seconds'`: "interval out of range",
+		`SELECT TIMESTAMP '2024-01-01 00:00:00' - ` + minNanos: "interval out of range",
 		// Past the range of a timestamp.
 		`SELECT TIMESTAMP '2024-01-01 00:00:00' + INTERVAL '300000 years'`:                    "timestamp out of range",
 		`SELECT TIMESTAMP '2024-01-01 00:00:00' - INTERVAL '300000 years'`:                    "timestamp out of range",
@@ -220,7 +220,7 @@ func TestIntervalArithmeticRange(t *testing.T) {
 	// int64 limit (10:00 + 2^63 - 808 ns, and - -2^63 ns, are 09:47:16.854775
 	// to the microsecond; adding them used to overflow).
 	h.expectRows(`SELECT CAST(TIME '10:00:00' + (INTERVAL '2562047 hours' + INTERVAL '47 minutes' + INTERVAL '16.854775 seconds') AS VARCHAR),
-			CAST(TIME '10:00:00' - INTERVAL '-9223372036.854775808 seconds' AS VARCHAR),
+			CAST(TIME '10:00:00' - `+minNanos+` AS VARCHAR),
 			CAST(TIME '10:00:00' - INTERVAL '2562047 hours' AS VARCHAR)`,
 		"09:47:16.854775|09:47:16.854775|11:00:00")
 }

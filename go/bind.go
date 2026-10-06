@@ -730,6 +730,21 @@ func hasColumn(rel relation, name string) bool {
 	return ok && !(rel.prefix != "" && isSystemColumn(col.Name)) && !rel.hidden[col.Name]
 }
 
+// fromColumns counts the FROM items of the query being bound (the innermost
+// scope, not the queries around it) that an unqualified reference to the
+// column name would read.
+func (e *executor) fromColumns(name string) int {
+	n := 0
+	if top := len(e.scopes) - 1; top >= 0 {
+		for _, rel := range e.scopes[top].rels {
+			if hasColumn(rel, name) {
+				n++
+			}
+		}
+	}
+	return n
+}
+
 // mentions reports whether q names rel, or the table rel reads (under an
 // alias): the items Postgres's errorMissingRTE looks for.
 func (e *executor) mentions(q qualName, rel relation) bool {

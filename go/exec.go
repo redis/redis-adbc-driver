@@ -910,14 +910,33 @@ func (e *executor) planSelect(ctx context.Context, sel *SelectStmt, paramTypes [
 			}
 		}
 		for i, g := range sel.GroupBy {
-			// GROUP BY <ordinal> or <output alias>
+			// GROUP BY <ordinal> or <output column name>
 			if lit, ok := g.(*Literal); ok && lit.V.T.Kind.isInteger() && !lit.V.Null {
 				n := int(lit.V.I)
 				if n < 1 || n > len(plan.items) {
 					return nil, errorf(adbc.StatusInvalidArgument, "GROUP BY position %d is out of range", n)
 				}
 				g = plan.items[n-1].expr
+			} else if c, ok := g.(*ColumnRef); ok && c.Qualifier == "" {
+				// As in Postgres, a bare name is an input column's before it
+				// is an output column's (unlike in ORDER BY), also one named
+				// by its expression (colname.go): GROUP BY upper after SELECT
+				// upper(v) groups by upper(v). Only this query's FROM items
+				// count, not an enclosing query's. A name two of them have
+				// may be an output column's too: the driver keeps both
+				// columns of JOIN … USING (k), which Postgres merges.
+				if e.fromColumns(c.writtenName()) != 1 {
+					it, err := findOutputColumn(plan.items, c.writtenName(), "GROUP BY")
+					if err != nil {
+						return nil, err
+					}
+					if it != nil {
+						g = it.expr
+					}
+				}
 			} else {
+				// The driver also reads aliases in an expression (GROUP BY
+				// lower(u)), which Postgres doesn't.
 				g = replaceAliases(g, aliases, plan.meta)
 			}
 			if err := e.bind(ctx, g); err != nil {
