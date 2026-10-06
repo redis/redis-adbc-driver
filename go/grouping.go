@@ -499,7 +499,7 @@ func (e *executor) planGroupingSets(plan *selectPlan, types map[string]ColType) 
 	r := &groupingRewriter{gp: gp, memo: map[Expr]Expr{}}
 	out.items = make([]planItem, len(plan.items))
 	for i, it := range plan.items {
-		out.items[i] = planItem{expr: r.rewrite(it.expr), name: it.name}
+		out.items[i] = planItem{expr: r.rewrite(it.expr), name: it.name, pgName: it.pgName}
 	}
 	gp.having = r.rewrite(plan.having)
 	out.order = make([]planOrder, len(plan.order))

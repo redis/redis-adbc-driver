@@ -1314,9 +1314,10 @@ func TestSQLIntervals(t *testing.T) {
 		"3|11 days 08:30:00", "2|2 days", "1|12:00:00", "4|NULL")
 	h.expectRows(`SELECT id FROM it_iv WHERE ts - INTERVAL '1 hour' < TIMESTAMP '2024-02-28 12:00:00'`, "1")
 
-	// Interval columns: CTAS stores them; types are reported.
+	// Interval columns: CTAS stores them; types are reported. (ORDER BY
+	// since alone would be the output column CAST(since AS VARCHAR).)
 	h.exec(`CREATE TABLE it_iv_ctas AS SELECT id, ts - TIMESTAMP '2024-02-28 00:00:00' AS since FROM it_iv`)
-	schema := h.expectRows(`SELECT id, `+str(`since`)+`, since > INTERVAL '1 day' FROM it_iv_ctas ORDER BY since`,
+	schema := h.expectRows(`SELECT id, `+str(`since`)+`, since > INTERVAL '1 day' FROM it_iv_ctas ORDER BY it_iv_ctas.since`,
 		"1|12:00:00|false", "2|2 days|true", "3|11 days 08:30:00|true", "4|NULL|NULL")
 	_ = schema
 	_, schema = h.query(`SELECT since FROM it_iv_ctas`)

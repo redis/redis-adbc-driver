@@ -2329,7 +2329,8 @@ field, even if later rows have it.
   tighter; parenthesized branches may have their own `ORDER BY`/`LIMIT`).
   Columns are matched by position and widened to a common type; NULLs count
   as equal when removing duplicates. `ORDER BY` on the combined result uses
-  output column names or positions. Set operations work anywhere a query
+  output column names (the first branch's, named as in Postgres; see
+  `ORDER BY` below) or positions. Set operations work anywhere a query
   does (subqueries, CTEs, views, CTAS, `INSERT … SELECT`)
 - `WITH RECURSIVE name [(cols)] AS (non-recursive term UNION [ALL]
   recursive term)`, evaluated as in Postgres: the recursive term reads the
@@ -2438,6 +2439,37 @@ field, even if later rows have it.
     For `IN`, see "How SQL is executed"
 - `ORDER BY … [ASC|DESC] [NULLS FIRST|LAST]`; NULLs sort last by default in
   both directions
+  - A bare name is an output column's before it is an input column's, as
+    in Postgres, also when the output column has no alias. Postgres names
+    such a column by its expression: a column by the column, `CAST(x AS
+    t)` and `x::t` by `x` (by the type if `x` has no name: `int4`,
+    `varchar`, `date`), a call by the function (`count`, `upper`; also
+    `extract`, `btrim`, `timezone` for `EXTRACT`, `TRIM` and `AT TIME
+    ZONE`), a scalar subquery by its column, `EXISTS` by `exists`, `CASE`
+    by its `ELSE` (or `case`), and an operator or a literal is
+    `?column?`. So after `SELECT CAST(iv AS VARCHAR) FROM t`, `ORDER BY
+    iv` sorts the text, not the interval (and the index can't sort it);
+    `ORDER BY t.iv`, a position or any other expression reads the input.
+    Output columns of the same name must be the same expression (`SELECT
+    a, a … ORDER BY a`), otherwise it is `ORDER BY "a" is ambiguous`, as
+    in `SELECT x::text, x … ORDER BY x`. `DISTINCT ON (…)` names columns
+    the same way (`DISTINCT ON "a" is ambiguous`), and so does `ORDER BY`
+    on a set operation, with the first branch's columns
+  - The result's column is still named by the expression's text
+    (`CAST(iv AS VARCHAR)`, where Postgres says `iv`), and so are the
+    columns of a derived table, CTE or view: `SELECT * FROM (SELECT
+    CAST(iv AS VARCHAR) FROM t) s ORDER BY iv` is `column "iv" does not
+    exist in table "s"`, which Postgres runs
+  - **Upgrading from v0.0.12 and earlier:** a bare name matched an alias,
+    then an input column, so after `SELECT CAST(iv AS VARCHAR)` `ORDER BY
+    iv` and `DISTINCT ON (iv)` used the interval, `SELECT x::text, x …
+    ORDER BY x` and `SELECT a, b AS a … ORDER BY a` sorted by `x` and `b`,
+    and `ORDER BY t.iv` sorted by an alias `iv`. `SELECT DISTINCT CAST(iv
+    AS VARCHAR) … ORDER BY iv` was `for SELECT DISTINCT, ORDER BY
+    expressions must appear in select list`, and `ORDER BY count` after
+    `SELECT COUNT(*)` was `column "count" does not exist` (on a `UNION`,
+    `ORDER BY on a UNION result must use output column names or
+    positions`)
 - Function calls (the functions are listed below) are checked when the
   statement is planned, before any row is read, wherever a call can be:
   the SELECT list, `WHERE`, `GROUP BY`, `HAVING`, `QUALIFY`, `ORDER BY`,
