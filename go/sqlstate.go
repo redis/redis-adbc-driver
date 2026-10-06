@@ -73,6 +73,7 @@ const (
 	stateDatatypeMismatch    = "42804" // datatype_mismatch
 	stateCannotCoerce        = "42846" // cannot_coerce
 	stateUndefinedFunction   = "42883" // undefined_function
+	stateAmbiguousFunction   = "42725" // ambiguous_function
 	stateUndefinedObject     = "42704" // undefined_object
 	stateWrongObjectType     = "42809" // wrong_object_type
 	stateDuplicateObject     = "42710" // duplicate_object

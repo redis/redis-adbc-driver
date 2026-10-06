@@ -39,7 +39,8 @@ package redis
 //     timestamp with time zone or a time with time zone (=, <, IS DISTINCT
 //     FROM, IN, BETWEEN, a CASE operand), a result of a CASE or an argument
 //     of COALESCE, GREATEST or LEAST whose result is one (see unknown.go),
-//     or of NULLIF with one, the operand of AT TIME ZONE and AT LOCAL, and a
+//     or of NULLIF with one, an operand of - with one (tstz -
+//     '2024-01-01'), the operand of AT TIME ZONE and AT LOCAL, and a
 //     column's DEFAULT itself when the column is one.
 //
 // Everything else keeps reading the session time zone when it runs, as in
@@ -172,6 +173,12 @@ func localTimeLiterals(x Expr, typeOf func(Expr) ColType, out map[*Literal]bool)
 			if isComparison(v.Op) || isDistinctOp(v.Op) {
 				meets(v.L, v.R)
 				meets(v.R, v.L)
+			}
+			if o, ok := operatorLiteral(v); ok && o.other != nil {
+				// tstz - '2024-01-01': an operand read as the other's type.
+				if t, ok, err := o.typeNext(typeOf(o.other)); err == nil && ok && readsLocalTime(t) {
+					out[o.lit] = true
+				}
 			}
 		case *Case:
 			if v.Operand != nil {
