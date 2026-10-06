@@ -1541,7 +1541,43 @@ func (s *store) allocRows(ctx context.Context, meta *tableMeta, rows [][]Value) 
 		}
 		return rowAlloc{}, writeMovedErr(meta)
 	}
+	if err := notNullSince(meta, cur.Val(), rows); err != nil {
+		return rowAlloc{}, err
+	}
 	return rowAlloc{first: last - int64(len(rows)) + 1, added: addedMissing(meta, cur.Val())}, nil
+}
+
+// notNullSince checks rows to be inserted with meta against the NOT NULL
+// constraints that the table's current metadata (raw JSON) has and meta
+// doesn't: those of an ALTER TABLE … SET NOT NULL or ADD COLUMN … NOT NULL
+// that committed after meta was read. The rows know nothing about a column
+// added since, so unless it has a missing value (see addedMissing), they
+// would have none.
+func notNullSince(meta *tableMeta, raw string, rows [][]Value) error {
+	if !strings.Contains(raw, `"nullable":false`) {
+		return nil // the common case, without decoding the metadata
+	}
+	var cur tableMeta
+	if json.Unmarshal([]byte(raw), &cur) != nil {
+		return nil
+	}
+	for _, c := range cur.Columns {
+		if c.Nullable {
+			continue
+		}
+		i := slices.IndexFunc(meta.Columns, func(k columnMeta) bool { return k.field() == c.field() })
+		switch {
+		case i < 0 && c.MissingThrough == 0:
+			return errorf(adbc.StatusIO, "table %q changed concurrently; try again", meta.Name)
+		case i >= 0 && meta.Columns[i].Nullable:
+			for _, row := range rows {
+				if row[i].Null {
+					return errorf(adbc.StatusIntegrity, "NULL value in column %q violates not-null constraint", c.Name)
+				}
+			}
+		}
+	}
+	return nil
 }
 
 // sameKeys reports whether raw, the current metadata under meta's name, is

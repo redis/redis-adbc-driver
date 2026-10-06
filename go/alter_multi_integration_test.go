@@ -113,7 +113,8 @@ func TestSQLAlterMultiDbt(t *testing.T) {
 	}
 }
 
-// Actions apply in the order written, each seeing what the ones before it
+// Actions apply in Postgres's order (drops, then added columns, then SET
+// NOT NULL, then defaults and CHECKs), each seeing what the ones before it
 // did, with constraints and defaults.
 func TestSQLAlterMultiMixed(t *testing.T) {
 	h := newSQLHarness(t)
@@ -128,10 +129,11 @@ func TestSQLAlterMultiMixed(t *testing.T) {
 	h.expectChecks(raw, "it_am_mix", "w_pos: w > 0")
 
 	// Two unnamed CHECKs, named as Postgres names them; a column with its
-	// own CHECK; a new default; and a constraint dropped.
+	// own CHECK, which Postgres adds before the ADD CONSTRAINTs; a new
+	// default; and a constraint dropped.
 	h.exec(`ALTER TABLE it_am_mix ADD CHECK (v > 0), ADD CHECK (v < 100),
 		ADD COLUMN x integer CHECK (x IS NULL OR x > id), ALTER COLUMN v SET DEFAULT 7, DROP CONSTRAINT w_pos`)
-	h.expectChecks(raw, "it_am_mix", "it_am_mix_v_check: v > 0", "it_am_mix_v_check1: v < 100", "it_am_mix_check: x IS NULL OR x > id")
+	h.expectChecks(raw, "it_am_mix", "it_am_mix_check: x IS NULL OR x > id", "it_am_mix_v_check: v > 0", "it_am_mix_v_check1: v < 100")
 	h.exec(`INSERT INTO it_am_mix (id) VALUES (3)`)
 	h.expectRows(`SELECT id, v, w, x FROM it_am_mix ORDER BY id`, "1|10|5|NULL", "2|NULL|5|NULL", "3|7|5|NULL")
 	h.exec(`INSERT INTO it_am_mix (id, w) VALUES (4, 0)`) // w_pos is gone
@@ -139,11 +141,12 @@ func TestSQLAlterMultiMixed(t *testing.T) {
 		`new row for relation "it_am_mix" violates check constraint "it_am_mix_check"`)
 	h.exec(`DELETE FROM it_am_mix WHERE id = 4`)
 
-	// A default set on a column added before it: existing rows read NULL,
-	// new rows the default. A default dropped from a column added before
-	// it: existing rows keep it as their missing value.
-	h.exec(`ALTER TABLE it_am_mix ADD COLUMN y integer, ALTER COLUMN y SET DEFAULT 3,
-		ADD COLUMN z integer DEFAULT 9, ALTER COLUMN z DROP DEFAULT`)
+	// A default set on a column the statement adds, also written before
+	// it: existing rows read NULL, new rows the default. A default dropped
+	// later from a column added with one: existing rows keep it as their
+	// missing value.
+	h.exec(`ALTER TABLE it_am_mix ALTER COLUMN y SET DEFAULT 3, ADD COLUMN y integer, ADD COLUMN z integer DEFAULT 9`)
+	h.exec(`ALTER TABLE it_am_mix ALTER COLUMN z DROP DEFAULT`)
 	h.exec(`INSERT INTO it_am_mix (id) VALUES (6)`)
 	h.expectRows(`SELECT id, y, z FROM it_am_mix ORDER BY id`, "1|NULL|9", "2|NULL|9", "3|NULL|9", "6|3|NULL")
 	if got := h.columnDefs("it_am_mix"); strings.Join(got, " ") != "id= v=7 w=5 x= y=3 z=" {
@@ -156,6 +159,13 @@ func TestSQLAlterMultiMixed(t *testing.T) {
 	h.exec(`ALTER TABLE it_am_mix DROP COLUMN x, ADD COLUMN x varchar`)
 	h.expectRows(`SELECT id, x FROM it_am_mix ORDER BY id`, "1|NULL", "2|NULL", "3|NULL", "6|NULL")
 	h.expectChecks(raw, "it_am_mix", "it_am_mix_v_check: v > 0", "it_am_mix_v_check1: v < 100")
+	// A CHECK on a column added later in the list, which the rows pass
+	// with its default.
+	h.exec(`ALTER TABLE it_am_mix ADD CONSTRAINT later_pos CHECK (later > 0), ADD COLUMN later integer DEFAULT 1`)
+	h.expectChecks(raw, "it_am_mix", "it_am_mix_v_check: v > 0", "it_am_mix_v_check1: v < 100", "later_pos: later > 0")
+	h.expectErrorText(`INSERT INTO it_am_mix (id, later) VALUES (7, 0)`,
+		`new row for relation "it_am_mix" violates check constraint "later_pos"`)
+	h.exec(`ALTER TABLE it_am_mix DROP COLUMN later`)
 	if f := h.tableColumn(raw, "it_am_mix", "x").field(); f != "x_2" {
 		t.Errorf("field of the new x: %q", f)
 	}
@@ -180,21 +190,20 @@ func TestSQLAlterMultiMixed(t *testing.T) {
 	h.exec(`INSERT INTO it_am_one VALUES (1)`)
 	h.exec(`ALTER TABLE it_am_one DROP COLUMN a, ADD COLUMN b text`)
 	h.expectColumns(`SELECT * FROM it_am_one`, "b", "NULL")
-	// A column added and dropped again in one statement leaves nothing:
-	// no index attribute, no retired field.
-	h.exec(`ALTER TABLE it_am_one ADD COLUMN c integer, DROP COLUMN c`)
-	h.expectColumns(`SELECT * FROM it_am_one`, "b", "NULL")
-	if got := h.indexAttrs(raw, defaultSchema, "it_am_one"); got != "__rowid a b" {
+	// Written the other way round, the drop still comes first.
+	h.exec(`ALTER TABLE it_am_one ADD COLUMN c integer, DROP COLUMN b`)
+	h.expectColumns(`SELECT * FROM it_am_one`, "c", "NULL")
+	if got := h.indexAttrs(raw, defaultSchema, "it_am_one"); got != "__rowid a b c" {
 		t.Errorf("index attributes: %q", got)
 	}
 	meta, err := (&store{client: raw}).getTable(h.ctx, defaultSchema, "it_am_one")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(meta.RetiredFields, []string{"a"}) {
+	if !slices.Equal(meta.RetiredFields, []string{"a", "b"}) {
 		t.Errorf("retired fields: %q", meta.RetiredFields)
 	}
-	h.expectErrorText(`ALTER TABLE it_am_one DROP COLUMN b`, `cannot drop the only column of table "it_am_one"`)
+	h.expectErrorText(`ALTER TABLE it_am_one DROP COLUMN c`, `cannot drop the only column of table "it_am_one"`)
 }
 
 // An action that fails leaves the table as it was: metadata, index, rows.
@@ -218,9 +227,9 @@ func TestSQLAlterMultiAtomic(t *testing.T) {
 		{`ALTER TABLE it_am_atom DROP COLUMN s, ADD COLUMN n1 integer DEFAULT -1 CHECK (n1 >= 0)`,
 			`check constraint "it_am_atom_n1_check" of relation "it_am_atom" is violated by some row`},
 		{`ALTER TABLE it_am_atom ADD COLUMN n1 integer, DROP COLUMN nope`,
-			`column "nope" does not exist in table "it_am_atom"`},
+			`column "nope" of relation "it_am_atom" does not exist`},
 		{`ALTER TABLE it_am_atom ADD COLUMN n1 integer, ADD COLUMN N1 varchar`,
-			`column "N1" already exists in table "it_am_atom"`},
+			`column "N1" of relation "it_am_atom" already exists`},
 		{`ALTER TABLE it_am_atom DROP COLUMN s, ADD COLUMN n1 integer DEFAULT 'abc'`,
 			`column "n1": invalid decimal "abc"`},
 		// String lengths: a DEFAULT too long for the added column, and a
@@ -230,26 +239,55 @@ func TestSQLAlterMultiAtomic(t *testing.T) {
 		{`ALTER TABLE it_am_atom ADD COLUMN n2 char(3) DEFAULT 'abc', ALTER COLUMN n2 SET DEFAULT 'abcd'`,
 			`value too long for type character(3)`},
 		{`ALTER TABLE it_am_atom ADD COLUMN n1 integer, ALTER COLUMN nope SET DEFAULT 1`,
-			`column "nope" does not exist in table "it_am_atom"`},
+			`column "nope" of relation "it_am_atom" does not exist`},
+		{`ALTER TABLE it_am_atom ADD COLUMN n1 integer, ALTER COLUMN nope SET NOT NULL`,
+			`column "nope" of relation "it_am_atom" does not exist`},
 		{`ALTER TABLE it_am_atom ADD COLUMN n1 integer, DROP CONSTRAINT nope`,
 			`constraint "nope" of relation "it_am_atom" does not exist`},
 		{`ALTER TABLE it_am_atom ADD COLUMN n1 integer, ADD CONSTRAINT c CHECK (n1 > 0), ADD CONSTRAINT C CHECK (v > 0)`,
 			`constraint "C" for relation "it_am_atom" already exists`},
 		{`ALTER TABLE it_am_atom DROP COLUMN id, DROP COLUMN v, DROP COLUMN s`,
 			`cannot drop all the columns of table "it_am_atom"`},
+		// A NOT NULL column without a default: the rows read NULL.
 		{`ALTER TABLE it_am_atom ADD COLUMN n1 integer, ADD COLUMN n2 integer NOT NULL`,
-			`cannot add a NOT NULL column without a non-NULL DEFAULT: existing rows would have no value`},
+			`column "n2" of relation "it_am_atom" contains null values`},
+		{`ALTER TABLE it_am_atom ADD COLUMN n1 integer, ALTER COLUMN n1 SET NOT NULL`,
+			`column "n1" of relation "it_am_atom" contains null values`},
 		{`ALTER TABLE it_am_atom ADD COLUMN n1 integer, ADD COLUMN n2 float DEFAULT random()`,
 			`ADD COLUMN with a volatile DEFAULT is not supported: existing rows would each need their own value`},
-		// Written order: a column dropped before a CHECK on it, and a CHECK
-		// on a column added after it.
+		// Postgres's order: the drops come first, so they can't drop what
+		// the statement adds or name what it sets, and a CHECK can't read a
+		// column dropped anywhere in the list.
 		{`ALTER TABLE it_am_atom DROP COLUMN v, ADD CONSTRAINT c CHECK (v > 0)`,
 			`column "v" does not exist in table "it_am_atom"`},
-		{`ALTER TABLE it_am_atom ADD CONSTRAINT c CHECK (n1 > 0), ADD COLUMN n1 integer`,
-			`column "n1" does not exist in table "it_am_atom"`},
+		{`ALTER TABLE it_am_atom ADD CONSTRAINT c CHECK (v > 0), DROP COLUMN v`,
+			`column "v" does not exist in table "it_am_atom"`},
+		{`ALTER TABLE it_am_atom ADD COLUMN n1 integer, DROP COLUMN n1`,
+			`column "n1" of relation "it_am_atom" does not exist`},
+		{`ALTER TABLE it_am_atom ADD COLUMN n1 integer DEFAULT 9, ALTER COLUMN n1 DROP DEFAULT`,
+			`column "n1" of relation "it_am_atom" does not exist`},
+		{`ALTER TABLE it_am_atom ADD COLUMN n1 integer NOT NULL DEFAULT 0, ALTER COLUMN n1 DROP NOT NULL`,
+			`column "n1" of relation "it_am_atom" does not exist`},
+		{`ALTER TABLE it_am_atom ALTER COLUMN v SET NOT NULL, DROP COLUMN v`,
+			`column "v" of relation "it_am_atom" does not exist`},
+		{`ALTER TABLE it_am_atom ALTER COLUMN s SET DEFAULT 'x', DROP COLUMN s`,
+			`column "s" of relation "it_am_atom" does not exist`},
+		{`ALTER TABLE it_am_atom ADD CONSTRAINT c CHECK (v > -10), DROP CONSTRAINT c`,
+			`constraint "c" of relation "it_am_atom" does not exist`},
+		{`ALTER TABLE it_am_atom ADD COLUMN n1 integer CHECK (n1 > 0), DROP CONSTRAINT it_am_atom_n1_check`,
+			`constraint "it_am_atom_n1_check" of relation "it_am_atom" does not exist`},
+		// The first error in that order is the one reported.
+		{`ALTER TABLE it_am_atom ADD COLUMN id integer, DROP COLUMN nope`,
+			`column "nope" of relation "it_am_atom" does not exist`},
+		{`ALTER TABLE it_am_atom ALTER COLUMN s SET DEFAULT 'x', ALTER COLUMN nope SET NOT NULL`,
+			`column "nope" of relation "it_am_atom" does not exist`},
+		{`ALTER TABLE it_am_atom ADD CONSTRAINT c CHECK (nope > 0), ALTER COLUMN v SET DEFAULT 'bad'`,
+			`column "v": invalid decimal "bad"`},
+		{`ALTER TABLE it_am_atom ADD CONSTRAINT c CHECK (nope2 > 0), ADD COLUMN n1 integer CHECK (nope1 > 0)`,
+			`column "nope1" does not exist in table "it_am_atom"`},
 		// A DROP COLUMN that would drop a CHECK, then a failure.
 		{`ALTER TABLE it_am_atom DROP COLUMN id, ADD COLUMN n1 integer, ADD COLUMN n1 integer`,
-			`column "n1" already exists in table "it_am_atom"`},
+			`column "n1" of relation "it_am_atom" already exists`},
 	} {
 		h.expectErrorText(c.sql, c.want)
 		if got := h.rawMeta(raw, defaultSchema, "it_am_atom"); got != meta {
@@ -283,7 +321,7 @@ func TestSQLAlterMultiErrors(t *testing.T) {
 		{`ALTER TABLE it_am_err ADD COLUMN x integer, VALIDATE CONSTRAINT c`,
 			`unsupported ALTER TABLE action near "VALIDATE" (supported: RENAME TO, RENAME COLUMN, ADD COLUMN, DROP COLUMN, ALTER COLUMN, ADD CONSTRAINT, DROP CONSTRAINT)`},
 		{`ALTER TABLE it_am_err ADD COLUMN x integer, ALTER COLUMN v TYPE bigint`,
-			`unsupported ALTER COLUMN action near "TYPE" (supported: SET DEFAULT, DROP DEFAULT)`},
+			`unsupported ALTER COLUMN action near "TYPE" (supported: SET DEFAULT, DROP DEFAULT, SET NOT NULL, DROP NOT NULL)`},
 		{`ALTER TABLE it_am_err ADD COLUMN x integer ADD COLUMN y integer`, `syntax error: unexpected "ADD"`},
 		{`ALTER TABLE it_am_errv ADD COLUMN x integer, ADD COLUMN y integer`,
 			`"public"."it_am_errv" is a view; ALTER TABLE on a view supports only RENAME TO`},

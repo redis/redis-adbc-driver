@@ -937,7 +937,7 @@ func TestSQLAlterTable(t *testing.T) {
 	h.expectRows(`SELECT id FROM it_alter WHERE note = 'x'`, "4")
 	h.exec(`ALTER TABLE it_alter ADD COLUMN IF NOT EXISTS note VARCHAR`)
 	h.expectError(`ALTER TABLE it_alter ADD COLUMN note VARCHAR`, "already exists")
-	h.expectError(`ALTER TABLE it_alter ADD COLUMN must INTEGER NOT NULL`, "NOT NULL")
+	h.expectError(`ALTER TABLE it_alter ADD COLUMN must INTEGER NOT NULL`, `column "must" of relation "it_alter" contains null values`)
 	h.expectError(`ALTER TABLE it_alter ADD COLUMN d INTEGER DEFAULT RANDOM()`, "volatile DEFAULT")
 
 	// DROP COLUMN: gone at once; its field is removed from rows in the
