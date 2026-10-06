@@ -81,7 +81,10 @@ func (e *executor) planDMLJoin(ctx context.Context, table TableName, alias strin
 	if alias == "" {
 		rel.name = table.Name
 	}
-	jp := &joinPlan{}
+	// As in Postgres, the FROM items can't read the target. UPDATE and
+	// DELETE (which join it CROSS, MERGE LEFT or FULL) have it in their
+	// namespace: a LATERAL item that reads it is wrong.
+	jp := &joinPlan{unseen: []unseenRel{{relation: rel, noHint: true, forbidden: kind == "CROSS"}}}
 	for _, jc := range from {
 		if err := e.addFromItem(ctx, jp, jc); err != nil {
 			return nil, err
@@ -104,6 +107,25 @@ func (dj *dmlJoin) rows(ctx context.Context, e *executor, where Expr, need map[s
 	wp := wherePlan{residual: where, none: e.neverTrue(ctx, where)}
 	_, rows, err := e.scan(ctx, scanRequest{meta: dj.joined, where: wp, need: need}, params)
 	return rows, err
+}
+
+// bindFromJoins binds the join conditions of the FROM items of UPDATE …
+// FROM or DELETE … USING (see bindJoin) and returns the columns their
+// correlated subqueries read. As in Postgres, a join's ON clause reads only
+// that join's sides, so not the target, which is joined to the items last:
+// the conditions are bound in a scope of the other items, where the target
+// is only found for errors (see unseenRel). WHERE reads it, and so does
+// MERGE's ON, the target's own join condition.
+func (e *executor) bindFromJoins(ctx context.Context, dj *dmlJoin) (map[string]bool, error) {
+	target := dj.target.rel()
+	rels := slices.DeleteFunc(slices.Clone(dj.rels), func(rel relation) bool { return rel.prefix == target.prefix })
+	sc := e.pushScope(rels, "JOIN conditions")
+	defer e.popScope()
+	sc.unseen = []unseenRel{{relation: target, noHint: true}}
+	if err := e.bindJoin(ctx, dj.sel, dj.jp); err != nil {
+		return nil, err
+	}
+	return sc.needs, nil
 }
 
 // bindWhere binds the WHERE clause of UPDATE … FROM / DELETE … USING in
@@ -144,12 +166,12 @@ func (e *executor) runUpdateFrom(ctx context.Context, st *UpdateStmt, params []V
 	if err != nil {
 		return 0, err
 	}
-	sc := e.pushScope(dj.rels, "UPDATE")
-	defer e.popScope()
-	if err := e.bindJoin(ctx, dj.sel, dj.jp); err != nil {
+	need, err := e.bindFromJoins(ctx, dj)
+	if err != nil {
 		return 0, err
 	}
-	need := map[string]bool{}
+	sc := e.pushScope(dj.rels, "UPDATE")
+	defer e.popScope()
 	for _, s := range st.Sets {
 		if containsWindow(s.Expr) {
 			return 0, errWindowPlacement()
@@ -225,15 +247,16 @@ func (e *executor) runDeleteUsing(ctx context.Context, st *DeleteStmt, params []
 	if err != nil {
 		return 0, err
 	}
-	sc := e.pushScope(dj.rels, "WHERE")
-	defer e.popScope()
-	if err := e.bindJoin(ctx, dj.sel, dj.jp); err != nil {
+	need, err := e.bindFromJoins(ctx, dj)
+	if err != nil {
 		return 0, err
 	}
+	sc := e.pushScope(dj.rels, "WHERE")
+	defer e.popScope()
 	if err := e.bindWhere(ctx, st.Where); err != nil {
 		return 0, err
 	}
-	need := maps.Clone(sc.needs)
+	maps.Copy(need, sc.needs)
 	ret, err := e.planReturning(ctx, st.Returning, dj.rels, dj.targetFirst(), false, need)
 	if err != nil {
 		return 0, err

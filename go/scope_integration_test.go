@@ -267,6 +267,100 @@ func TestSQLAliasScopeErrors(t *testing.T) {
 	h.expectScopeError(`SELECT 1 FROM it_sc.t, it_sc.e t`, `table name "t" specified more than once`, false)
 }
 
+// A join's ON clause among the FROM items of UPDATE … FROM or DELETE …
+// USING reads only that join's sides, not the target, as in Postgres;
+// WHERE reads the target, and so does MERGE's ON. The messages are pg16's
+// for the same statements.
+func TestSQLJoinConditionScopeDML(t *testing.T) {
+	h := newSQLHarness(t)
+	h.exec(`DROP SCHEMA IF EXISTS it_scj CASCADE`)
+	h.exec(`CREATE SCHEMA it_scj`)
+	t.Cleanup(func() { h.exec(`DROP SCHEMA IF EXISTS it_scj CASCADE`) })
+	h.exec(`CREATE TABLE it_scj.t (a INTEGER, b INTEGER)`)
+	h.exec(`CREATE TABLE it_scj.u (a INTEGER, c INTEGER)`)
+	h.exec(`INSERT INTO it_scj.u VALUES (1, 3), (2, 5), (2, 6)`)
+	reset := func() {
+		h.exec(`DELETE FROM it_scj.t`)
+		h.exec(`INSERT INTO it_scj.t VALUES (1, 2), (2, 3), (3, NULL)`)
+	}
+	reset()
+
+	// The target's column b, unqualified.
+	columnB := func(entry string) string {
+		return `column "b" does not exist; there is a column named "b" in table "` + entry +
+			`", but it cannot be referenced from this part of the query`
+	}
+	for _, c := range []struct{ sql, want string }{
+		// The issue's statements.
+		{`UPDATE it_scj.t SET b = 0 FROM it_scj.u JOIN it_scj.u AS v ON v.a = t.a`, invalidEntry("t", "t")},
+		{`DELETE FROM it_scj.t USING it_scj.u JOIN it_scj.u AS v ON v.c = t.b`, invalidEntry("t", "t")},
+		// The target under an alias: the detail names the alias.
+		{`UPDATE it_scj.t AS x SET b = 0 FROM it_scj.u JOIN it_scj.u AS v ON v.a = x.a`, invalidEntry("x", "x")},
+		{`UPDATE it_scj.t AS x SET b = 0 FROM it_scj.u JOIN it_scj.u AS v ON v.a = t.a`, invalidEntry("t", "x")},
+		{`DELETE FROM it_scj.t AS x USING it_scj.u JOIN it_scj.u AS v ON v.a = t.a`, invalidEntry("t", "x")},
+		{`UPDATE it_scj.t SET b = 0 FROM it_scj.u JOIN it_scj.u AS v ON v.a = it_scj.t.a`, invalidEntry("t", "t")},
+		{`UPDATE it_scj.t SET b = 0 FROM it_scj.u JOIN it_scj.u AS v ON v.a = t.zz`, invalidEntry("t", "t")},
+		// The target comes first, before an item that reads its table.
+		{`UPDATE it_scj.t SET b = 0 FROM it_scj.t AS y JOIN it_scj.u ON u.a = t.a`, invalidEntry("t", "t")},
+		{`UPDATE it_scj.t AS x SET b = 0 FROM it_scj.t AS y JOIN it_scj.u ON u.a = t.a`, invalidEntry("t", "x")},
+		// An unqualified column only the target has.
+		{`UPDATE it_scj.t SET b = 0 FROM it_scj.u JOIN it_scj.u AS v ON v.a = b`, columnB("t")},
+		{`DELETE FROM it_scj.t USING it_scj.u JOIN it_scj.u AS v ON v.c = b`, columnB("t")},
+		{`UPDATE it_scj.t AS x SET b = 0 FROM it_scj.u JOIN it_scj.u AS v ON v.a = b`, columnB("x")},
+		// In a subquery of the ON clause, and in a derived table there.
+		{`UPDATE it_scj.t SET b = 0 FROM it_scj.u JOIN it_scj.u AS v ON EXISTS (SELECT 1 WHERE v.a = t.a)`, invalidEntry("t", "t")},
+		{`UPDATE it_scj.t SET b = 0 FROM it_scj.u JOIN it_scj.u AS v ON EXISTS (SELECT 1 WHERE v.a = b)`, columnB("t")},
+		{`UPDATE it_scj.t SET b = 0 FROM it_scj.u JOIN it_scj.u AS v ON EXISTS (SELECT 1 FROM (SELECT t.a) d)`, invalidEntry("t", "t")},
+		{`UPDATE it_scj.t SET b = 0 FROM it_scj.u JOIN it_scj.u AS v ON EXISTS (SELECT max(t.a))`, invalidEntry("t", "t")},
+		// Other joins, and items after the join.
+		{`UPDATE it_scj.t SET b = 0 FROM it_scj.u JOIN it_scj.u AS v ON v.a = u.a JOIN it_scj.u AS w ON w.a = t.a`, invalidEntry("t", "t")},
+		{`UPDATE it_scj.t SET b = 0 FROM it_scj.u LEFT JOIN it_scj.u AS v ON v.a = t.a`, invalidEntry("t", "t")},
+		{`UPDATE it_scj.t SET b = 0 FROM it_scj.u JOIN it_scj.u AS v ON v.a = t.a, it_scj.u AS w`, invalidEntry("t", "t")},
+		{`UPDATE it_scj.t SET b = 0 FROM it_scj.u JOIN it_scj.u AS v ON t.b IS NULL AND v.a = u.a`, invalidEntry("t", "t")},
+		// Also where nothing is read.
+		{`UPDATE it_scj.t SET b = 0 FROM it_scj.u JOIN it_scj.u AS v ON v.a = t.a WHERE false`, invalidEntry("t", "t")},
+	} {
+		h.expectErrorText(c.sql, c.want)
+	}
+	h.expectRows(`SELECT a, b FROM it_scj.t ORDER BY a`, "1|2", "2|3", "3|NULL")
+	// GetParameterSchema binds the statement the same way.
+	if _, err := h.paramTypes(`UPDATE it_scj.t SET b = $1 FROM it_scj.u JOIN it_scj.u AS v ON v.a = t.a`); err == nil ||
+		errText(err) != invalidEntry("t", "t") {
+		t.Errorf("parameter schema: error %v, want %q", err, invalidEntry("t", "t"))
+	}
+
+	// WHERE reads the target.
+	h.expectAffected(`UPDATE it_scj.t SET b = 0 FROM it_scj.u JOIN it_scj.u AS v ON v.a = u.a WHERE u.a = t.a`, 2)
+	h.expectRows(`SELECT a, b FROM it_scj.t ORDER BY a`, "1|0", "2|0", "3|NULL")
+	reset()
+	h.expectAffected(`DELETE FROM it_scj.t USING it_scj.u JOIN it_scj.u AS v ON v.c = u.c WHERE v.c = t.b`, 1)
+	h.expectRows(`SELECT a, b FROM it_scj.t ORDER BY a`, "1|2", "3|NULL")
+	reset()
+	h.expectAffected(`UPDATE it_scj.t SET b = 0 FROM it_scj.u JOIN it_scj.u AS v USING (a) WHERE u.a = t.a`, 2)
+	h.expectRows(`SELECT a, b FROM it_scj.t ORDER BY a`, "1|0", "2|0", "3|NULL")
+	// An item may have the target's name under an alias.
+	reset()
+	h.expectAffected(`UPDATE it_scj.t AS x SET b = 0 FROM it_scj.u AS t JOIN it_scj.u AS v ON v.a = t.a WHERE x.a = t.a`, 2)
+	h.expectRows(`SELECT a, b FROM it_scj.t ORDER BY a`, "1|0", "2|0", "3|NULL")
+	// A merged column of a NATURAL FULL JOIN.
+	reset()
+	h.expectAffected(`UPDATE it_scj.t SET b = 0 FROM it_scj.u NATURAL FULL JOIN it_scj.u AS v
+		JOIN (SELECT 3 AS z) w ON w.z = c WHERE u.a = t.a`, 1)
+	h.expectRows(`SELECT a, b FROM it_scj.t ORDER BY a`, "1|0", "2|3", "3|NULL")
+	// A correlated subquery in ON reads v.c, which nothing else does.
+	reset()
+	h.expectRows(`UPDATE it_scj.t SET b = 0 FROM it_scj.u JOIN it_scj.u AS v
+		ON v.a = u.a AND EXISTS (SELECT 1 FROM it_scj.u w WHERE w.c = v.c + 1) WHERE u.a = t.a RETURNING t.a, t.b`, "2|0")
+	h.expectRows(`DELETE FROM it_scj.t USING it_scj.u JOIN it_scj.u AS v
+		ON v.a = u.a AND EXISTS (SELECT 1 FROM it_scj.u w WHERE w.c = v.c + 1) WHERE u.a = t.a RETURNING t.a, t.b`, "2|0")
+	h.expectRows(`SELECT a, b FROM it_scj.t ORDER BY a`, "1|2", "3|NULL")
+
+	// MERGE's ON joins the target, so it reads it.
+	reset()
+	h.expectAffected(`MERGE INTO it_scj.t USING it_scj.u ON u.a = t.a AND u.c = 3 WHEN MATCHED THEN UPDATE SET b = 0`, 1)
+	h.expectRows(`SELECT a, b FROM it_scj.t ORDER BY a`, "1|0", "2|3", "3|NULL")
+}
+
 // setupSchemas creates the tables of #111: t in the schemas it_sc1 and
 // it_sc2 (where (2, 20) is in both), and a view it_sc2.tv of the latter.
 func (h *sqlHarness) setupSchemas() {
@@ -323,10 +417,10 @@ func TestSQLLateralScopeErrors(t *testing.T) {
 
 	// With LATERAL, it works.
 	h.expectRows(`SELECT t.id, s.v FROM it_sc.t, LATERAL (SELECT t.v) s ORDER BY 1`, "1|10", "2|20")
-	// Unchanged: Postgres runs this, but a derived table can't read an
-	// enclosing query here (see the README), and LATERAL wouldn't help.
-	h.expectErrorText(`SELECT * FROM it_sc.t WHERE EXISTS (SELECT * FROM it_sc.e, (SELECT t.v) s)`,
-		`missing FROM-clause entry for table "t"`)
+	// An enclosing query's items it can read, as in Postgres (see
+	// TestSQLOuterReferencesFromFrom).
+	h.expectRows(`SELECT * FROM it_sc.t WHERE EXISTS (SELECT * FROM it_sc.e, (SELECT t.v) s WHERE s.v = e.v) ORDER BY id`,
+		"1|10", "2|20")
 }
 
 // The issue's queries (#111).

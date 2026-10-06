@@ -94,6 +94,9 @@ type inPlaceTarget struct {
 	// resuming is set when an earlier adopt into the same table stopped
 	// half-way (adoptingKey), and reserved the names.
 	resuming bool
+	// app is the application's index that adopt would read the rows
+	// through (see appindex.go).
+	app appIndexChoice
 }
 
 func (t inPlaceTarget) name() string { return displaySchema(t.schema) + "." + t.table }
@@ -215,18 +218,28 @@ func (c *hashConn) checkInPlace(ctx context.Context, r *HashReport, cols []*gues
 		}
 	}
 
-	// What adopt creates.
-	var apps []string
-	for _, ix := range r.Indexes {
-		apps = append(apps, ix.Name)
+	// The index: the application's, or one adopt creates.
+	if t.app.blocker != "" {
+		cl.add(CheckBlocker, t.app.blocker, "adopt without -index picks an index that can serve, or creates its own")
 	}
-	idx := fmt.Sprintf("a search index in the driver's format on %s", shellQuote(t.prefix))
-	fix := fmt.Sprintf("adopt creates %s, over the HASHes that are rows, including those the application writes later; it takes memory of its own",
-		adoptIndexName(t.schema, t.table))
-	if len(apps) > 0 {
-		fix += fmt.Sprintf(" (the application's %s stays as it is, and isn't used)", strings.Join(apps, ", "))
+	if ix := t.app.index; ix != nil {
+		checkAppIndex(&cl, ix, cols)
+	} else {
+		var apps []string
+		for _, ix := range r.Indexes {
+			apps = append(apps, ix.Name)
+			if why := t.app.unusable[ix.Name]; why != "" {
+				cl.add(CheckWarn, fmt.Sprintf("the application's index %s can't serve: %s", ix.Name, why), "")
+			}
+		}
+		idx := fmt.Sprintf("a search index in the driver's format on %s", shellQuote(t.prefix))
+		fix := fmt.Sprintf("adopt creates %s, over the HASHes that are rows, including those the application writes later; it takes memory of its own",
+			adoptIndexName(t.schema, t.table))
+		if len(apps) > 0 {
+			fix += fmt.Sprintf(" (the application's %s stays as it is, and isn't used)", strings.Join(apps, ", "))
+		}
+		cl.add(CheckMissing, idx, fix)
 	}
-	cl.add(CheckMissing, idx, fix)
 	cl.add(CheckMissing, fmt.Sprintf("the table's metadata (%s)", metaKey(t.schema, t.table)), "adopt writes it")
 	for _, h := range adoptHazards {
 		cl.add(CheckWarn, h, "")
@@ -235,10 +248,48 @@ func (c *hashConn) checkInPlace(ctx context.Context, r *HashReport, cols []*gues
 	return cl, nil
 }
 
+// checkAppIndex says what reading the rows through the application's
+// index ix answers in the index (see appindex.go).
+func checkAppIndex(cl *Checklist, ix *searchIndex, cols []*guessedColumn) {
+	cl.add(CheckOK, fmt.Sprintf("adopt reads the rows through the application's index %s, and creates no index of its own", ix.name), "")
+	var sorted, numeric, tags, none []string
+	for _, col := range cols {
+		if col.field == "" {
+			continue // the key column of copies
+		}
+		a, ok := appAttrFor(ix.attrs, col.fieldOrName(), col.inPlace.Kind)
+		switch {
+		case !ok:
+			none = append(none, col.name)
+		case a.typ == "TAG":
+			tags = append(tags, col.name)
+		case a.hasOption("SORTABLE"):
+			sorted = append(sorted, col.name)
+		default:
+			numeric = append(numeric, col.name)
+		}
+	}
+	if len(sorted) > 0 {
+		cl.add(CheckOK, fmt.Sprintf("filters, sorts and aggregates on %s run in %s (SORTABLE NUMERIC)", strings.Join(sorted, ", "), ix.name), "")
+	}
+	if len(numeric) > 0 {
+		cl.add(CheckOK, fmt.Sprintf("filters on %s run in %s (NUMERIC, not SORTABLE: the driver sorts and aggregates them)", strings.Join(numeric, ", "), ix.name), "")
+	}
+	if len(tags) > 0 {
+		cl.add(CheckOK, fmt.Sprintf("=, IN and LIKE 'x%%' on %s look values up in %s (TAG), and the driver checks the rows found", strings.Join(tags, ", "), ix.name), "")
+	}
+	if len(none) > 0 {
+		cl.add(CheckWarn, fmt.Sprintf("%s %s no TAG or NUMERIC attribute in %s: filters on %s read every row", strings.Join(none, ", "),
+			verb(int64(len(none)), "has", "have"), ix.name, verb(int64(len(none)), "it", "them")),
+			"adopt -own-index creates an index in the driver's format instead")
+	}
+	cl.add(CheckWarn, fmt.Sprintf("if the application drops %s, or changes its prefixes or FILTER, SQL on the table fails until it is as it was", ix.name), "")
+}
+
 // adoptHazards are what an adopted table's users should know.
 var adoptHazards = []string{
 	"a write by the application of a value a numeric column can't hold (text, an empty value, NaN) takes that HASH out of the index, and so out of the table",
-	"SQL UPDATE and DELETE change the application's HASHes (an UPDATE that would leave a HASH without fields is refused); INSERT, TRUNCATE, ADD COLUMN and a re-keying RENAME are refused, and DROP TABLE drops only the index and the metadata",
+	"SQL UPDATE and DELETE change the application's HASHes (an UPDATE that would leave a HASH without fields is refused); INSERT, TRUNCATE, ADD COLUMN and a re-keying RENAME are refused, and DROP TABLE drops only the metadata and an index adopt created",
 }
 
 // checkAdoptPrefix checks that no driver key can be under the prefix.
@@ -302,7 +353,7 @@ func (c *hashConn) checkAdoptNames(ctx context.Context, cl *Checklist, indexes [
 	}
 	idx := adoptIndexName(t.schema, t.table)
 	for _, ix := range indexes {
-		if ix.name == idx && !t.resuming {
+		if ix.name == idx && !t.resuming && t.app.index == nil {
 			cl.add(CheckBlocker, fmt.Sprintf("a search index named %s exists", idx), "pick another table name with -table")
 		}
 	}
@@ -338,6 +389,9 @@ func (c *hashConn) checkAdopted(ctx context.Context, cl Checklist, t inPlaceTarg
 		return cl, nil
 	}
 	cl.add(CheckOK, fmt.Sprintf("these HASHes are the adopted table %s, which reads the HASHes the application writes", name), "")
+	if m.AppIndex {
+		cl.add(CheckOK, fmt.Sprintf("it reads them through the application's index %s", m.index()), "")
+	}
 	if reply, err := c.st.searchDo(ctx, m.index(), "FT.INFO", m.index()).Result(); err == nil {
 		if info := indexInfoOf(reply); info.failures > 0 {
 			cl.add(CheckWarn, fmt.Sprintf("its index %s has had %s (the last: %s: %s); a HASH it couldn't index is left out of the table",

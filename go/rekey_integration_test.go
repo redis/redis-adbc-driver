@@ -608,7 +608,7 @@ func TestSQLRekeyLease(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer job.lease.release()
-	if !job.lease.renew(st, job.Owner) || job.mayAct() != nil {
+	if !job.lease.renew() || job.mayAct() != nil {
 		t.Fatal("a renewed lease is not valid")
 	}
 	// A lease whose renewals have failed for rekeyTTL/2 is no longer valid.
@@ -621,7 +621,7 @@ func TestSQLRekeyLease(t *testing.T) {
 	if err := raw.Del(h.ctx, rekeyAliveKey(job.Owner)).Err(); err != nil {
 		t.Fatal(err)
 	}
-	if job.lease.renew(st, job.Owner) {
+	if job.lease.renew() {
 		t.Error("an expired lease was renewed")
 	}
 	job.lease.cancel()

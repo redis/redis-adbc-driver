@@ -48,6 +48,11 @@ type HashAdoptOptions struct {
 	// application's later writes don't tell the driver), which makes the
 	// driver re-check, sort and group string columns itself.
 	TrustStrings bool
+	// Index names the application's index to read the rows through; by
+	// default adopt picks one that can serve, if any (see appindex.go).
+	// OwnIndex makes it create the driver's own index even so.
+	Index    string
+	OwnIndex bool
 	// Apply does it; otherwise AdoptHashes only checks and plans.
 	Apply bool
 	// Progress, if set, is told what is happening.
@@ -68,6 +73,9 @@ type HashAdoption struct {
 	// there is nothing to do (the Report's checklist says whether the
 	// driver reads it).
 	AlreadyAdopted bool `json:"already_adopted,omitempty"`
+	// AppIndex is set when the table reads its rows through the
+	// application's index (Index), rather than one adopt creates.
+	AppIndex bool `json:"app_index,omitempty"`
 }
 
 // adoptingKey (HASH) records adoptions in progress, by key prefix, so that
@@ -88,6 +96,9 @@ type adoptRecord struct {
 func AdoptHashes(ctx context.Context, options map[string]string, o HashAdoptOptions) (*HashAdoption, error) {
 	if o.Prefix == "" {
 		return nil, errorf(adbc.StatusInvalidArgument, "a key prefix is required")
+	}
+	if o.Index != "" && o.OwnIndex {
+		return nil, errorf(adbc.StatusInvalidArgument, "-index reads the rows through the application's index, and -own-index creates one: pick one")
 	}
 	c, err := dialHashes(ctx, options)
 	if err != nil {
@@ -112,6 +123,9 @@ type adopter struct {
 	index    string
 	cols     []*guessedColumn
 	stats    keyStats
+	// app is the application's index the table reads its rows through,
+	// or nil.
+	app *searchIndex
 }
 
 func (a *adopter) run(ctx context.Context) (*HashAdoption, error) {
@@ -168,13 +182,25 @@ func (a *adopter) run(ctx context.Context) (*HashAdoption, error) {
 		return a.adopted(ctx, existing, tables, indexes)
 	}
 
-	a.index = adoptIndexName(a.schema, a.table)
-	a.res.Index = a.index
 	if err := a.read(ctx); err != nil {
 		return nil, err
 	}
+	choice := chooseAppIndex(indexes, a.cols, o.Prefix, a.stats.keys, o.Index, o.OwnIndex)
+	a.app = choice.index
+	a.index = adoptIndexName(a.schema, a.table)
+	if a.app != nil {
+		a.index = a.app.name
+	}
+	a.res.Index, a.res.AppIndex = a.index, a.app != nil
+	command := adoptCommand(o.Prefix, a.schema, a.table, c.db.schema, o.Types, o.Renames)
+	switch {
+	case o.Index != "":
+		command += " -index " + shellQuote(o.Index)
+	case o.OwnIndex:
+		command += " -own-index"
+	}
 	t := inPlaceTarget{prefix: o.Prefix, schema: a.schema, table: a.table, full: true, sampled: r.Sampled,
-		command: adoptCommand(o.Prefix, a.schema, a.table, c.db.schema, o.Types, o.Renames) + " -apply"}
+		command: command + " -apply", app: choice}
 	cl, err := c.checkInPlace(ctx, r, a.cols, &a.stats, tables, indexes, t)
 	if err != nil {
 		return nil, err
@@ -292,6 +318,21 @@ func (a *adopter) plan() (*tableMeta, error) {
 	if len(meta.Columns) == 0 {
 		return nil, errorf(adbc.StatusInvalidArgument, "the HASHes under %q have no field that can be a column", o.Prefix)
 	}
+	if a.app != nil {
+		if o.IndexColumns != nil {
+			return nil, errorf(adbc.StatusInvalidArgument, "-index-columns picks the columns of the index adopt creates, and adopt reads the rows through the application's index %s: add -own-index", a.index)
+		}
+		meta.AppIndex = true
+		applyAppAttrs(meta, a.app.attrs)
+		a.res.Steps = []string{
+			fmt.Sprintf("reserve the key prefix %s (%s, %s)", o.Prefix, prefixesKey, adoptedKey),
+			fmt.Sprintf("read the rows through the application's index %s, which adopt doesn't change", a.index),
+			fmt.Sprintf("check that %s has indexed the %s under %s, and had no indexing failures", a.index,
+				plural(a.stats.keys, "HASH", "HASHes"), o.Prefix),
+			fmt.Sprintf("SET %s (the table's metadata), SADD %s %s", metaKey(a.schema, a.table), tablesKey(a.schema), a.table),
+		}
+		return meta, nil
+	}
 	a.res.Steps = []string{
 		fmt.Sprintf("reserve the key prefix %s and the index name %s (%s, %s, %s)", o.Prefix, a.index, prefixesKey, adoptedKey, indexesKey),
 		strings.Join(argText(adoptIndexArgs(meta)), " "),
@@ -358,24 +399,28 @@ func (a *adopter) apply(ctx context.Context, meta *tableMeta) error {
 		pipe := c.client.TxPipeline()
 		pipe.SRem(bg, prefixesKey, o.Prefix)
 		pipe.SRem(bg, adoptedKey, o.Prefix)
-		pipe.SRem(bg, indexesKey, a.index)
+		if a.app == nil {
+			pipe.SRem(bg, indexesKey, a.index)
+		}
 		pipe.HDel(bg, adoptingKey, o.Prefix)
 		_, _ = pipe.Exec(bg)
 		return cause
 	}
 
-	if resumed {
-		// The adopt that stopped may have created the index, maybe as an
-		// earlier version did: make it again (without DD).
-		if err := c.st.searchDo(ctx, a.index, "FT.DROPINDEX", a.index).Err(); err != nil && !isUnknownIndex(err) {
-			return wrapRedis(err, "failed to drop the index of the adopt that stopped")
+	if a.app == nil {
+		if resumed {
+			// The adopt that stopped may have created the index, maybe as an
+			// earlier version did: make it again (without DD).
+			if err := c.st.searchDo(ctx, a.index, "FT.DROPINDEX", a.index).Err(); err != nil && !isUnknownIndex(err) {
+				return wrapRedis(err, "failed to drop the index of the adopt that stopped")
+			}
 		}
+		if err := c.st.searchDo(ctx, a.index, adoptIndexArgs(meta)...).Err(); err != nil {
+			return undo(wrapRedis(err, "failed to create the search index"))
+		}
+		created = true
+		a.progress(fmt.Sprintf("created the index %s; indexing %s", a.index, plural(a.stats.rows, "HASH", "HASHes")))
 	}
-	if err := c.st.searchDo(ctx, a.index, adoptIndexArgs(meta)...).Err(); err != nil {
-		return undo(wrapRedis(err, "failed to create the search index"))
-	}
-	created = true
-	a.progress(fmt.Sprintf("created the index %s; indexing %s", a.index, plural(a.stats.rows, "HASH", "HASHes")))
 	if err := a.waitIndexed(ctx); err != nil {
 		return undo(err)
 	}
@@ -385,10 +430,10 @@ func (a *adopter) apply(ctx context.Context, meta *tableMeta) error {
 	return nil
 }
 
-// reserve reserves the prefix and index name, in one transaction that
-// checks again that no driver prefix overlaps the prefix. It reports
-// whether an earlier adopt of the same prefix and table had reserved them
-// (and stopped).
+// reserve reserves the prefix and the name of the index adopt creates, in
+// one transaction that checks again that no driver prefix overlaps the
+// prefix. It reports whether an earlier adopt of the same prefix and table
+// had reserved them (and stopped).
 func (a *adopter) reserve(ctx context.Context, rec string) (resumed bool, err error) {
 	c, prefix := a.c, a.o.Prefix
 	for attempt := 0; attempt < 20; attempt++ {
@@ -422,16 +467,20 @@ func (a *adopter) reserve(ctx context.Context, rec string) (resumed bool, err er
 					return errorf(adbc.StatusAlreadyExists, "keys under %q can be under %q, a driver table's key prefix", prefix, p)
 				}
 			}
-			if ok, err := tx.SIsMember(ctx, indexesKey, a.index).Result(); err != nil || ok {
-				if err == nil {
-					err = errorf(adbc.StatusAlreadyExists, "the index name %s is taken", a.index)
+			if a.app == nil { // the application's index isn't the driver's to name
+				if ok, err := tx.SIsMember(ctx, indexesKey, a.index).Result(); err != nil || ok {
+					if err == nil {
+						err = errorf(adbc.StatusAlreadyExists, "the index name %s is taken", a.index)
+					}
+					return err
 				}
-				return err
 			}
 			_, err = tx.TxPipelined(ctx, func(p goredis.Pipeliner) error {
 				p.SAdd(ctx, prefixesKey, prefix)
 				p.SAdd(ctx, adoptedKey, prefix)
-				p.SAdd(ctx, indexesKey, a.index)
+				if a.app == nil {
+					p.SAdd(ctx, indexesKey, a.index)
+				}
 				p.HSet(ctx, adoptingKey, prefix, rec)
 				return nil
 			})
@@ -447,9 +496,10 @@ func (a *adopter) reserve(ctx context.Context, rec string) (resumed bool, err er
 	return resumed, nil
 }
 
-// waitIndexed waits until the new index has indexed every existing HASH,
-// and fails if it couldn't index some (a value that a NUMERIC attribute
-// can't hold, written since the HASHes were read).
+// waitIndexed waits until the index (the new one, or the application's) has
+// indexed every existing HASH, and fails if it couldn't index some (a value
+// that a NUMERIC attribute can't hold, written since the HASHes were read),
+// or if the application's index can't serve anymore.
 func (a *adopter) waitIndexed(ctx context.Context) error {
 	last := time.Now()
 	for {
@@ -458,6 +508,9 @@ func (a *adopter) waitIndexed(ctx context.Context) error {
 			return wrapRedis(err, "failed to read the search index")
 		}
 		info := indexInfoOf(reply)
+		if why := appIndexProblem(info, a.o.Prefix); a.app != nil && why != "" {
+			return errorf(adbc.StatusInvalidState, "the application's index %s changed while adopt ran, and can't serve anymore: %s", a.index, why)
+		}
 		if info.failures > 0 {
 			// hash_indexing_failures counts attempts: a HASH written while
 			// the index scans the existing keys can fail twice.

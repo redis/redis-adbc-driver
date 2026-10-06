@@ -311,11 +311,11 @@ func (e *executor) describeJoinedDML(ctx context.Context, table TableName, alias
 	if err != nil {
 		return err
 	}
-	e.pushScope(dj.rels, clause)
-	defer e.popScope()
-	if err := e.bindJoin(ctx, dj.sel, dj.jp); err != nil {
+	if _, err := e.bindFromJoins(ctx, dj); err != nil {
 		return err
 	}
+	e.pushScope(dj.rels, clause)
+	defer e.popScope()
 	for i, s := range sets {
 		e.cache.noteParamOf(s.Expr, dj.meta.Columns[cols[i]].Type)
 		if err := e.bind(ctx, s.Expr); err != nil {

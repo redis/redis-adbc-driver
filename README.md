@@ -294,7 +294,8 @@ what the application writes (see
 [Existing HASH collections](#existing-hash-collections-redis-adbc)).
 Adopting writes nothing into the HASHes, whatever their keys
 (`user:42`, `user:alice`), and HASHes the application writes later are rows
-too. It creates a second index beside the application's, and an adopted
+too. It reads the rows through the application's own search index when
+that can serve, and otherwise creates a second one, and an adopted
 table refuses `INSERT` and `TRUNCATE`. The driver doesn't touch
 indexes it didn't create, even one with the name a new table's index would
 take (see "Indexes the driver didn't create are left alone" below).
@@ -616,10 +617,16 @@ and says what is missing:
   memory for a second copy of the data.
 - **Adopt.** `redis-adbc adopt` makes the HASHes themselves a driver table:
   SQL reads what the application writes, including HASHes it writes later,
-  without a copy. It writes nothing into the HASHes, and creates a second
-  search index beside the application's. Its columns are only as typed as
+  without a copy. It writes nothing into the HASHes, and reads them through
+  the application's own search index when that can serve (otherwise it
+  creates one in the driver's format). Its columns are only as typed as
   the stored text allows (see [Adopt](#adopt-hashes-in-place) below for
   what an adopted table can't do).
+
+`redis-adbc sweep` is for the driver's own tables rather than an
+application's HASHes: it deletes the rows that writers left under the key
+prefixes of dropped and truncated tables (see [Sweep](#sweep-leftover-rows)
+below).
 
 Build it from `go`:
 
@@ -689,12 +696,13 @@ SQL, adopted in place (redis-adbc adopt): READY
   [ok]      every HASH under user: is a row (501)
   [warn]    active is VARCHAR in place (BOOLEAN when copied): the driver stores booleans as 0 and 1
   [warn]    created_at is VARCHAR in place (TIMESTAMP(6) WITH TIME ZONE when copied): the driver stores dates and times as numbers
+  [warn]    the application's index idx:users can't serve: it has had 2 indexing failures, so it may leave HASHes out
   [missing] a search index in the driver's format on user:
             fix: adopt creates idx:public:users:adopted, over the HASHes that are rows, including those the application writes later; it takes memory of its own (the application's idx:users stays as it is, and isn't used)
   [missing] the table's metadata (adbc:{meta}:table:public:users)
             fix: adopt writes it
   [warn]    a write by the application of a value a numeric column can't hold (text, an empty value, NaN) takes that HASH out of the index, and so out of the table
-  [warn]    SQL UPDATE and DELETE change the application's HASHes (an UPDATE that would leave a HASH without fields is refused); INSERT, TRUNCATE, ADD COLUMN and a re-keying RENAME are refused, and DROP TABLE drops only the index and the metadata
+  [warn]    SQL UPDATE and DELETE change the application's HASHes (an UPDATE that would leave a HASH without fields is refused); INSERT, TRUNCATE, ADD COLUMN and a re-keying RENAME are refused, and DROP TABLE drops only the metadata and an index adopt created
   run: redis-adbc adopt -prefix user: -table users
 ```
 
@@ -724,7 +732,9 @@ ready). What the checklists look for:
   their keys (`user:42`, `user:alice`), while keys such as `user:42:prefs`
   are another collection's, and stay out of the table; columns that are
   weaker in place than in a copy; `-type` overrides that some values
-  aren't stored as; what adopt creates; and the hazards below. For a table
+  aren't stored as; the application's index adopt would read the rows
+  through and what its attributes answer, or why none can serve; what
+  adopt creates; and the hazards below. For a table
   that was adopted already, it checks the index's indexing failures, and
   whether redis-adbc v0.0.11 adopted it (see below).
 
@@ -797,7 +807,8 @@ build/redis-adbc adopt -prefix user: -table users -apply
 Adopted: public.users now reads the HASHes under user:, and those the application writes later (index idx:public:users:adopted).
 ```
 
-- **What it does,** in order:
+- **What it does,** in order, when it creates the index (see "The
+  application's index" below for when it doesn't):
   1. Reserve the key prefix and the index name `idx:<schema>:<table>:adopted`
      (no driver table's index can have that name). The transaction checks
      again that no driver table's prefix overlaps the prefix.
@@ -818,6 +829,34 @@ Adopted: public.users now reads the HASHes under user:, and those the applicatio
   record in `adbc:{meta}:adopting`. Running it again with the same `-table`
   finishes it. Adopting HASHes that are an adopted table already does
   nothing.
+- **The application's index.** If a search index of the application's
+  can serve, adopt reads the rows through it, and creates no index of its
+  own (`Adopted: public.users now reads … (through the application's index
+  idx:users)`). The driver never changes or drops that index. It can serve
+  if it is on HASHes, its only prefix is the table's, it has no `FILTER`, no
+  indexing failures and has finished indexing, and it holds a document for
+  every HASH under the prefix (one made with `SKIPINITIALSCAN` may not).
+  Its documents that aren't rows (`user:42:prefs`) are left out by a
+  `FILTER` step in each query. Of several, adopt picks the one with an
+  attribute for the most columns; `-index idx:users` names one, and
+  `-own-index` creates the driver's index instead. Each statement reads
+  the index's attributes (`FT.INFO`), and what runs in the index depends on
+  them:
+
+  | Attribute on the column's field | What runs in the index |
+  |-|-|
+  | `NUMERIC SORTABLE`, on a numeric column | filters, sorts, and aggregates (as on a table's own index) |
+  | `NUMERIC`, on a numeric column | filters; the driver sorts and aggregates |
+  | `TAG`, on a string column | `=`, `IN` and `LIKE 'x%'` find the rows that may match, and the driver checks them: the TAG's separator splits values into tags, and without `CASESENSITIVE` it ignores case. `= ''` needs `INDEXEMPTY`. The driver sorts and groups |
+  | `TEXT`, `GEO`, `VECTOR`, `NOINDEX`, one named with `AS`, or none | nothing: filters on the column read every row |
+
+  `check` lists which columns get which. `-index-columns` picks the columns
+  of an index adopt creates, so it needs `-own-index` when the
+  application's index can serve. If the application drops its index, or
+  changes its prefixes or `FILTER`, statements on the table fail
+  (`"public"."users" reads the application's search index idx:users, which
+  is gone: …`) until it is made again as it was; `DROP TABLE` still works,
+  and leaves the index alone.
 - **Rows** are identified by their keys, which the system column `__key`
   holds: like `__rowid` in other tables, `SELECT *` leaves it out, but
   `SELECT __key` reads it, and `WHERE __key = 'user:42'` reads that HASH
@@ -847,8 +886,9 @@ Adopted: public.users now reads the HASHes under user:, and those the applicatio
     `adbc.redis.rename_rekey` fail with `… isn't supported on
     "public"."users", whose rows are HASHes adopted in place (redis-adbc
     adopt) under "user:"`.
-  - `DROP TABLE` drops the adopted index (without `DD`) and the metadata.
-    The HASHes stay as they are.
+  - `DROP TABLE` drops the adopted index (without `DD`), or none if the
+    table reads the application's, and the metadata. The HASHes stay as
+    they are.
   - `DROP COLUMN` forgets the column. The field stays in the HASHes.
   - No new table may have its rows under an adopted prefix: a schema named
     `user` would put a table's rows under `user:`. `CREATE TABLE` there
@@ -864,7 +904,8 @@ Adopted: public.users now reads the HASHes under user:, and those the applicatio
   - An application write of a value that a numeric column can't hold (text,
     an empty value, `NaN`) takes that HASH out of the index, and so out of
     the table. `FT.INFO` counts it as an indexing failure, and `check`
-    reports it.
+    reports it. With the application's index, a value that one of its
+    `NUMERIC` attributes can't hold does the same.
 
 **Tables adopted by redis-adbc v0.0.11.** v0.0.11 identified an adopted
 table's rows by a `__rowid` field, which it wrote into each HASH whose key
@@ -902,13 +943,99 @@ warns that it can't estimate the memory a copy needs, and goes on.
 ```
 
 A user that only queries an adopted table needs the driver's read-only
-rules, with read access to the collection's keys (`%R~user:*`). One that
+rules, with read access to the collection's keys (`%R~user:*`), and
+`+ft.info` if the table reads the application's index (each statement
+reads its attributes). One that
 updates or deletes its rows needs the driver's rules, write access to the
 keys (`~user:*`), and, for the script that `UPDATE` runs on each HASH:
 
 ```text
 +hlen +eval +evalsha +script|load
 ```
+
+<a id="sweep-leftover-rows"></a>
+**Sweep.** `DROP TABLE`, `TRUNCATE` and a re-keying rename release the
+table's key prefix, and no table takes it again (see "Key prefixes are
+never reused" below). Rows can still be left under it, where no table or
+query reads them: those of a writer whose process exited before it found
+out, and of a write of 1,000 rows or fewer that read the metadata within
+100 ms of the release and reached Redis after it. `sweep` finds them, and
+with `-apply` deletes them. Nothing is deleted without `-apply`:
+
+```bash
+build/redis-adbc sweep
+```
+
+```text
+Released key prefixes on Redis 8.6.2 (standalone): 4
+  PREFIX            HASHES
+  public:events:    1
+  public:orders~2:  12
+
+Left alone:
+  user:  an adopted table had it: the HASHes are the application's
+
+Nothing was deleted. With -apply, sweep deletes the 13 HASHes under 2 prefixes.
+```
+
+```bash
+build/redis-adbc sweep -apply
+```
+
+```text
+Released key prefixes on Redis 8.6.2 (standalone): 4
+  PREFIX            HASHES  DELETED
+  public:events:    1       1
+  public:orders~2:  12      12
+
+Left alone:
+  user:  an adopted table had it: the HASHes are the application's
+
+Deleted 13 HASHes under 2 prefixes.
+```
+
+- **What it deletes:** the HASHes whose key is a released prefix and a row
+  id (`public:orders~2:42`), found with `SCAN … TYPE hash` (on every
+  primary of a cluster). The prefix is the part of the key up to its last
+  `:`, so the rows of a live table whose name starts with the dropped
+  one's (`public:orders2:`), or of the table's next prefix
+  (`public:orders~3:`), are never touched, nor are keys under the prefix
+  that aren't a row id or aren't HASHes.
+- **What it leaves alone,** listed with the reason:
+  - Prefixes that a table has. Up to v0.0.7, the driver gave a dropped
+    table's prefix to the next table of its name. `sweep` checks again
+    before each pipeline of 1,000 deletions.
+  - The prefixes of a re-keying rename that is still moving rows: a `DROP
+    TABLE` during one releases the table's prefix early. Run `sweep` again
+    once the rename has finished. The next connection to open settles one
+    whose connection went away.
+  - The prefixes of adopted tables, also of dropped ones (listed in
+    `adbc:{meta}:adopted:dropped`), and the prefixes that overlap them:
+    those HASHes are the application's. v0.0.11 and v0.0.12 didn't record
+    dropped adopted tables, so `sweep` also leaves alone every prefix that
+    doesn't have the form of a driver table's, `<schema>:<table>:`
+    (`user:`, `app:user:profile:`). An application's prefix that has that
+    form (`app:users:`), adopted and then dropped with those versions,
+    can't be told apart: check the dry run before `-apply`.
+  - Prefixes whose keys the user may not delete (`NOPERM`).
+  - Temporary tables' prefixes, which aren't counted as released: a
+    connection that opens drops the temporary tables of connections that
+    went away, rows and all.
+- **Cost:** `SCAN` goes through every key of the database (it returns
+  those under the released prefixes' longest common prefix, such as
+  `public:`), which takes a while on a large one. So nothing sweeps when a
+  connection opens.
+- **Writers still running** may leave keys after `sweep` has passed them.
+  Running it again later deletes those. The counts in
+  `adbc:{meta}:released` stay, so no new table takes the prefixes.
+- `-json` writes the result as JSON. `sweep` exits 0 when it could sweep,
+  whether or not it found HASHes, and 1 on an error, after printing what it
+  found and deleted until then.
+- **ACL users:** `sweep` needs the driver's own rules, with `+scan`, and
+  write access to the keys of the schemas it sweeps (`~public:*`).
+- **Earlier versions** (v0.0.12 and before) have no `sweep`. It works on
+  databases they wrote, except for the prefixes that v0.0.5 and earlier
+  released: they didn't record them.
 
 ## Architecture: hybrid index-row layout
 
@@ -1014,6 +1141,34 @@ keys (`~user:*`), and, for the script that `UPDATE` runs on each HASH:
     `hash_indexing_failures` (`Invalid numeric value: 'NaN'`). Writing the
     row again by its id indexes it: `UPDATE t SET x = 'NaN' WHERE __rowid =
     N`.
+- **Ties in the sort vector**: the index sorts `NUMERIC` attributes as
+  doubles, which hold every integer below 2^53 and every decimal of up to
+  15 significant digits apart from its neighbours, but not larger `BIGINT`
+  values, `TIME` and `TIMESTAMP` values as large in their unit (a
+  `TIMESTAMP(9)` after April 1970, a `TIMESTAMP` after 2255 or before 1685)
+  or `NUMERIC` values with more digits (from 10⁶ on for `NUMERIC`, which is
+  `NUMERIC(38,9)`): 2^53 and 2^53 + 1 are the same double. The index
+  returns rows that tie in the order it indexed them (reversed for
+  `DESC`), so up to v0.0.12 `ORDER BY id` could return 9007199254740993
+  before 9007199254740992, and `LIMIT 1` pick the wrong one. Rounding never
+  swaps two values, so only rows that tie can be out of order:
+  - The driver reads the sort keys the index returns with each row
+    (`__sort0`, …). Rows that follow each other with the same keys, up to
+    the first one that may round, are a run. A run of two or more rows with
+    a key from 2^53 on (10^(15-s) for `NUMERIC(p,s)`) is sorted by the
+    rows' values, read with `HMGET` for columns the query doesn't select.
+    The rows still stream, a run at a time.
+  - With `LIMIT` / `OFFSET` in the index, the driver asks for one row more
+    on each side. If a run with such a key goes on past them, it reads the
+    rest of the run: by value when the first `ORDER BY` key is a `BIGINT`,
+    `TIME` or `TIMESTAMP` (`@c:[v v]`, and an `FT.SEARCH … LIMIT 0 0` that
+    counts the rows before it if the run started before the rows read),
+    otherwise by asking again with more rows on that side. The rows of the
+    `LIMIT` are read before the first is returned.
+  - Without such ties nothing changes but the two extra rows: the same
+    commands run, and `LIMIT` still runs in the index. Microsecond
+    timestamps between 1685 and 2255 never tie, and nanosecond ones only
+    within about 256 ns of each other.
 - **Metadata**, all in one hash slot: `adbc:{meta}:table:<schema>:<table>`
   (column types, defaults, missing values, string levels, NaN flags,
   comments and `CHECK` constraints as JSON), `adbc:{meta}:seq:*` (row ids),
@@ -1080,11 +1235,10 @@ keys (`~user:*`), and, for the script that `UPDATE` runs on each HASH:
     exits before it finds out, and when a write of 1,000 rows or fewer that
     read the metadata within 100 ms of the `DROP` or `TRUNCATE` reaches
     Redis after it (it doesn't check, and succeeds, as if it had run
-    before). To remove them, check that no table has the prefix
-    (`information_schema.tables.key_prefix`, or `SISMEMBER
-    adbc:{meta}:prefixes '<prefix>'` returns 0), then delete its keys, on
-    every primary of a cluster: `redis-cli --scan --pattern '<prefix>*' |
-    xargs redis-cli unlink`.
+    before). `redis-adbc sweep -apply` deletes them (see
+    [Sweep](#sweep-leftover-rows)). Nothing deletes them by itself: a
+    connection that opens doesn't look for them, since that means reading
+    every key.
   - **Upgrading:** tables created by earlier versions keep their names
     (until a `TRUNCATE` gives them new ones) and work as before. Prefixes
     released by v0.0.6 and v0.0.7 are recorded in `adbc:{meta}:released`
@@ -1150,7 +1304,7 @@ How SQL is executed:
 | `(a, b) > (x, y)`, `>=`, `<`, `<=`, and row `BETWEEN` | When `a` is an indexed numeric, date or time column, the index takes the bound the comparison implies on it, `a >= x` (`a <= x` for `<` and `<=`), and the driver checks the whole comparison on the rows the index finds. So keyset pagination, `WHERE (ts, id) > (?, ?) ORDER BY ts, id LIMIT n`, reads the rows from the last page's `ts` on, not every row before them too. Strings are only looked up by equality, so a string `a` is checked on every row |
 | `x op ANY / ALL (SELECT …)` | `= ANY` is `IN` and `<> ALL` is `NOT IN`, with the same index unions, hash sets and semi-joins. Other operators: an uncorrelated subquery runs once, and `<`, `<=`, `>`, `>=` compare with its smallest or largest value (when all the values are of one type class); otherwise each row is compared with every value |
 | `UNION` / `INTERSECT` / `EXCEPT` | Each branch runs as its own query (using its own index); the driver combines, de-duplicates and sorts the results |
-| CTEs, derived tables | Run once, unless the query that reads them can't return rows (see above); the outer query filters, sorts and groups them in memory |
+| CTEs, derived tables | Run once, unless the query that reads them can't return rows (see above); the outer query filters, sorts and groups them in memory. One that reads an enclosing query's columns runs when the query that reads it does instead, once per distinct set of the values it reads (memoised like a correlated subquery, and shared by a CTE's references) |
 | `WITH RECURSIVE` | Working-table iteration in memory: the non-recursive term runs once, then the recursive term runs against the rows the last iteration added (its joins with tables still use their indexes, such as an index lookup join on the new rows' keys) until it adds none. `UNION` drops rows produced before. At most 10,000 iterations and 1,000,000 rows. With `SEARCH` / `CYCLE`, the recursive term runs once per row of the working table, to know each row's parent |
 | `LATERAL`, `GENERATE_SERIES` | Join items computed while the join runs. One that reads earlier FROM items runs for each row joined so far (a `LATERAL` subquery memoised on the values it reads, like a correlated subquery); otherwise it runs once and is joined like a derived table. A join with such an item keeps its written order. `GENERATE_SERIES` makes its rows in memory, at most 1,000,000 per call |
 | `SELECT DISTINCT` | Over plain expressions it is the same as `GROUP BY` them, so it runs in the index (`FT.AGGREGATE … GROUPBY`) when they're indexed columns. Otherwise (stars, aggregates, window functions, `DISTINCT ON`) the driver removes duplicate rows after the rest of the query, NULLs counting as equal. `LIMIT` / `OFFSET` apply afterwards and never run in the index. As in Postgres, `ORDER BY` must use the select list, and `DISTINCT ON` keys must match the leading `ORDER BY` expressions |
@@ -1179,7 +1333,9 @@ table's size. Other results are built whole before `ExecuteQuery` returns.
     functions or correlated subqueries;
   - in insertion order, or ordered by indexed columns the index sorts
     exactly. An `ORDER BY` the driver sorts itself (an expression,
-    `NULLS FIRST`, …) reads the rows whole.
+    `NULLS FIRST`, …) reads the rows whole. Rows that tie on a large
+    number in the index are sorted again as they stream (see "Ties in the
+    sort vector" above).
 
   `LIMIT` and `OFFSET` that can't run in the index (because the driver
   re-checks part of the WHERE clause) are applied as the rows stream, and
@@ -1233,7 +1389,8 @@ integer, boolean, date or time, or not indexed, and otherwise uses `LOAD *`,
 which returns the HASH fields unchanged. Sorts run on aliases
 (`LOAD @c AS __sort0 SORTBY @__sort0`) so that on a cluster the coordinator
 merges the shards' results on the numeric sort values rather than on the
-strings `LOAD *` returns.
+strings `LOAD *` returns. Rows whose sort values tie as doubles are sorted
+again by the driver (see "Ties in the sort vector" above).
 
 Aggregate pushdown (`adbc.redis.aggregate_pushdown`):
 
@@ -1488,6 +1645,17 @@ field, even if later rows have it.
       same connections remove the old rows instead. A renaming connection
       that can't renew its lease for 15 seconds stops before its next step
       and fails; another connection then rolls the move back.
+    - If the renaming connection is closed (`AdbcConnectionRelease`) while
+      the rename runs on another thread, the rename stops as if cancelled.
+      Close returns once it is rolled back, or finished if it had switched
+      the metadata. No lease is left, so other connections change the table
+      at once. The rename fails with "the connection was closed while the
+      table was being renamed", or with CANCELLED if its statement was
+      released first (Python's `close()` closes the cursors first). Close
+      waits up to 15 seconds. A rename still running then gives its lease
+      up, and the next connection rolls it back at once. Up to v0.0.12,
+      Close left the lease in place, so the table refused changes for 30
+      seconds, and the process could crash.
   - `RENAME COLUMN` keeps the column's HASH field; only its SQL name changes.
   - `ADD COLUMN` adds the column to the index with `FT.ALTER`; existing rows
     read it as NULL, or as its `DEFAULT`, which is computed once (so
@@ -1577,8 +1745,9 @@ field, even if later rows have it.
     `CURRENT_DATE`, the statement's time. A volatile default (`RANDOM()`)
     is computed for every row.
   - `information_schema.columns.column_default` and `GetObjects`'
-    `xdbc_column_def` show the default as written. `CREATE TABLE … AS`
-    copies values, not defaults
+    `xdbc_column_def` show the default as written, except that a local-time
+    literal is stored as its instant (see Session time zone). `CREATE TABLE
+    … AS` copies values, not defaults
 - String lengths, as in Postgres:
   - **Types:** `VARCHAR(n)` (also `CHARACTER VARYING(n)`, `CHAR VARYING(n)`
     and `NVARCHAR(n)`) holds at most `n` characters. `CHAR(n)` (also
@@ -1762,6 +1931,19 @@ field, even if later rows have it.
     name. A `MERGE` source can't have the target's name even then: `name
     "t" specified more than once; the name is used both as MERGE target
     table and data source`
+  - **A derived table or CTE reads the queries around it**, as in
+    Postgres: a derived table the columns of the queries around the one
+    whose FROM list holds it (not that query's other FROM items, which
+    need `LATERAL`), and a CTE those around the query whose WITH list
+    holds it, wherever it is read (not that query's FROM items, nor the
+    queries between). `select * from t where exists (select * from u,
+    (select t.v) s)` reads `t.v` of each row of `t`, and so does `select
+    (with c as (select t.v) select (select v from c)) from t`; that
+    holds for recursive CTEs too. Up to v0.0.12 they couldn't read an
+    enclosing query (`missing FROM-clause entry for table "t"`), and a
+    CTE's body saw the WITH lists of the queries that read it: in `with c
+    as (select * from d) select * from (with d as (select 1) select *
+    from c) s`, `d` was the inner CTE (Postgres: no such table)
   - **`t.col`** is a column of the innermost level with an item visible as
     `t`. If that item has no column `col`, it is an error, even when an
     outer `t` has one; if two items of that level are visible as `t`
@@ -1801,9 +1983,24 @@ field, even if later rows have it.
       FROM function (which are `LATERAL` already), and on the right of a
       `RIGHT` or `FULL` join. Up to v0.0.12 these were `missing
       FROM-clause entry for table "t"` and `column "v" does not exist`
-    - A derived table or CTE can't read the columns of an enclosing query,
-      which Postgres allows: `select * from t where exists (select * from
-      u, (select t.v) s)` is `missing FROM-clause entry for table "t"`
+    - The same error without a hint when a FROM item of `UPDATE t …
+      FROM`, `DELETE FROM t USING` or a `MERGE INTO t` source reads the
+      target, which `LATERAL` can't make visible: `update t set v = 0 from
+      u, (select t.v) s`. An unqualified column of the target is `column
+      "v" does not exist; there is a column named "v" in table "t", but it
+      cannot be referenced from this part of the query`. As in Postgres, a
+      `LATERAL` item or a FROM function of `UPDATE` or `DELETE` that reads
+      the target is `invalid reference to FROM-clause entry for table "t";
+      there is an entry …` even for an unqualified column that an earlier
+      item has too. Up to v0.0.12 these were `missing FROM-clause entry
+      for table "t"`, and `update t set v = 0 from u, lateral (select v)
+      s` read `u.v`
+    - The same errors for a join's `ON` clause among the FROM items of
+      `UPDATE … FROM` and `DELETE … USING`, which, as in Postgres, reads
+      only that join's two sides, not the target: `update t set v = 0 from
+      u join w on w.id = t.id`, also from a subquery in it. `WHERE` reads
+      the target, and so does `MERGE`'s `ON`, which joins it. Up to
+      v0.0.12 such an `ON` read the target
 - `FETCH FIRST n ROWS ONLY` is `LIMIT n` (`FETCH FIRST ROW ONLY` is `LIMIT
   1`); `WITH TIES` is not supported, and a query has at most one `LIMIT` or
   `FETCH` (Postgres's "multiple LIMIT clauses not allowed")
@@ -2345,11 +2542,32 @@ field, even if later rows have it.
       abbreviation there (`UTC`, `PST` / `PDT`, `IST`; `tz` in lower case),
       and `TZH`, `TZM` and `OF` its offset (`-08`, `00` and `-08`; `+00`,
       `00` and `+00` in UTC). For a timestamp `TZ` is empty and the offset
-      `+00`. A time is formatted as on 1970-01-01
+      `+00`
     - Anything else is copied: text in double quotes (where `\` escapes the
       next character), `\"` (a `"`), and every character that doesn't start
       a pattern, so `Mm` is `Mm` while `Dd` is two weekday numbers, as in
       Postgres. An empty format gives NULL
+    - An interval is formatted from its own fields, as in Postgres: `YYYY`
+      is its years, `MM` the months left over (`TO_CHAR(INTERVAL '14 mons',
+      'YYYY MM')` is `0001 02`), `DD` its days and `HH24` its hours, which
+      can pass 23. `HH` / `HH12` are on a 12-hour clock, and `AM` / `PM`
+      follow the hour of the day. A negative interval's fields are negative,
+      and numbers are padded one wider for the sign (`YYYY` is `-0001`, `MM`
+      `-02`). `CC` is the years / 100, `DDD` the length in days with a month
+      as 30, `Q` and `RM` come from the months (empty without them), and
+      `J`, `IYYY`, `IW` and `IDDD` are Postgres's date arithmetic on the
+      fields. The patterns that need a calendar date (`MONTH`, `MON`, `DAY`,
+      `DY`, `D`, `ID`, `BC` / `AD`, `TZ`, `TZH`, `TZM` and `OF`) are an
+      error, as in Postgres: `invalid format specification for an interval
+      value`
+    - A time is formatted as the interval since midnight, because Postgres
+      casts it to one: `TO_CHAR(TIME '13:05', 'YYYY-MM-DD HH24:MI')` is
+      `0000-00-00 13:05`. The session time zone doesn't change it
+    - **Upgrading from v0.0.12 and earlier:** `TO_CHAR` of an interval was
+      an error (`expected a date, time or timestamp, got interval`), and a
+      time was formatted as on 1970-01-01: `YYYY` was `1970`, `J` `2440588`
+      and `Day` `Thursday`, and `TZ`, `D` and the other patterns that need a
+      calendar date gave a value
   - `TO_DATE(text, format)` and `TO_TIMESTAMP(text, format)` read the same
     templates as Postgres 16 does: every pattern above but `TZ`, `tz` and
     `OF`, which are an error (`formatting field "TZ" is only supported in
@@ -2444,7 +2662,7 @@ field, even if later rows have it.
       'America/Los_Angeles'` is 10:30 UTC), and one that the fall-back
       transition repeats with the offset after it (`TIMESTAMP '2024-11-03
       01:30'` is 01:30 PST, 09:30 UTC)
-    - Not supported: `TIME WITH TIME ZONE`, and `TO_CHAR` of an interval
+    - Not supported: `TIME WITH TIME ZONE`
 - Session time zone (`SET TIME ZONE`, `SET timezone = …`, the
   `adbc.redis.time_zone` option; UTC by default). Each connection has its
   own. As in Postgres, a `TIMESTAMP WITH TIME ZONE` is an instant, and the
@@ -2499,6 +2717,31 @@ field, even if later rows have it.
   - **Index queries** work on UTC instants: a local-time constant is
     converted in the session time zone before it is pushed down (see "How
     SQL is executed"), so the index returns the rows the comparison does.
+  - **Views, defaults and `CHECK`s** read a local-time literal once, in the
+    session time zone of the statement that defines them (`CREATE VIEW`,
+    `CREATE TABLE`, `ALTER TABLE`), as Postgres does. The literal is stored
+    as its instant, with that zone's offset: `'2024-01-01 00:00'` in New
+    York is stored as `'2024-01-01 00:00:00-05'`, which `information_schema`
+    shows (Postgres's `pg_get_viewdef` shows `'2024-01-01
+    00:00:00-05'::timestamp with time zone`). So a view created in New York
+    returns the same rows in every session, and a `CHECK (ts >=
+    '2024-01-01')` defined there rejects the same rows in every session. A
+    local-time literal is text without an offset that is cast to a
+    timestamp with time zone (`TIMESTAMPTZ '…'`, `'…'::timestamptz`) or
+    read as one: compared with one (also in `IN`, `BETWEEN` and a `CASE`
+    operand), an argument of `COALESCE`, `GREATEST`, `LEAST` or `NULLIF`
+    with one, the operand of `AT TIME ZONE` and `AT LOCAL`, and the
+    `DEFAULT` of such a column. The conversions the definition makes when
+    it runs read the zone of the session that runs it, as in Postgres:
+    casts of columns and of other values (`ts::date`, `DATE
+    '2024-01-01'::timestamptz`, a `TIMESTAMP` compared with a timestamp
+    with time zone), `CURRENT_DATE`, `LOCALTIMESTAMP` and text output.
+    - **Upgrading from v0.0.12 and earlier:** they read such a literal in
+      the zone of the session that queried the view or wrote the row.
+      Views, defaults and `CHECK`s they stored keep doing so; define them
+      again (`CREATE OR REPLACE VIEW`, `ALTER TABLE … ALTER COLUMN … SET
+      DEFAULT`, `DROP CONSTRAINT` and `ADD CONSTRAINT`) to store the
+      instant.
   - **Values:** the forms in the `TimeZone` row of the parameter table
     under "Transactions and settings". An IANA name is looked up
     case-insensitively and shown as the tz database spells it
@@ -2513,11 +2756,7 @@ field, even if later rows have it.
     isn't a zone name (`PST`, `IST`), are `invalid value for parameter
     "TimeZone": "x"`, as in Postgres. Up to v0.0.12 the driver read such an
     abbreviation as a fixed offset.
-  - **Differences from Postgres:** a view, a `DEFAULT` or a `CHECK` with a
-    local-time literal (`'2024-01-01 00:00'` compared with or written to a
-    timestamp with time zone) reads it in the zone of the session that runs
-    the query or writes the row; Postgres reads it once, in the zone of the
-    session that creates the view or the table. `TIME WITH TIME ZONE`, and
+  - **Differences from Postgres:** `TIME WITH TIME ZONE`, and
     `MAKE_TIMESTAMPTZ` with a zone argument, aren't supported.
 - Intervals and date/time arithmetic:
   - `INTERVAL '1 year 2 months 3 days 04:05:06'`, `'1.5 hours'`, `'2 days ago'`,
@@ -2542,7 +2781,7 @@ field, even if later rows have it.
     nanoseconds in 64 bits (about ±2,562,047 hours); past that, and for a
     months or days count beyond 32 bits, it is "interval out of range"
   - `AGE(a, b)` / `AGE(x)` (years, months, days and time), and `EXTRACT`
-    on intervals
+    and `TO_CHAR` on intervals
   - Intervals are returned as Arrow `month_day_nano_interval`; Arrow
     interval and duration values can be bound and ingested
 - JSON stored as text in `VARCHAR` columns (there is no JSON column type).
@@ -2960,6 +3199,16 @@ What drives the numbers:
   a page of 100 rows near the end 12 ms: the index starts each page at the
   last page's `ts`. Up to v0.0.12 each page also read every row before it
   (86 s and 751 ms).
+- **`ORDER BY` on values from 2^53 on** costs about as much as on smaller
+  ones, as long as the rows don't tie (see "Ties in the sort vector"). On
+  100,000 rows with `BIGINT` ids 2^60 + 7k (Snowflake-like; 36 share each
+  double, so a `LIMIT` nearly always ends within a tie), `SELECT * … ORDER
+  BY id DESC LIMIT 20` took 8.3 ms, against 7.9 ms in v0.0.12 (which could
+  return the rows of a tie in the wrong order): one more `FT.AGGREGATE`
+  reads the tie. With `ORDER BY id LIMIT 20 OFFSET 50000` it took 22 ms
+  (20 ms), with an `FT.AGGREGATE` for the tie at each end and an
+  `FT.SEARCH` count. Measured with Redis 8.6.2, standalone, on a machine
+  shared with other work, median of 21 runs.
 - **Queries that can't return rows read nothing**, only the tables'
   metadata. On a table of 152,686 rows (measured separately, best of 3,
   standalone), dbt's `select * from (<model>) as __dbt_sbq where false
@@ -2979,6 +3228,12 @@ Known ways to make the slow cases faster (not done yet):
   row comparison is checked on the rows, which keeps the `LIMIT` out of the
   index. The first cursor page could ask for only as many rows as the
   `LIMIT`.
+- A `LIMIT` that ends within a tie of large `NUMERIC` values, or of a key
+  after one that doesn't round (`ORDER BY category, id`), asks the index
+  again with more rows, which sorts every match again; the driver could
+  read the tie by value, as it does for an integer first key. Many rows
+  with the same large value make one long tie, which such a `LIMIT` reads
+  whole.
 
 To reproduce (from `go`, with a Redis running):
 
