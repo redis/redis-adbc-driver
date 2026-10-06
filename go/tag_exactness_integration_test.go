@@ -621,7 +621,7 @@ func TestTagModel(t *testing.T) {
 		"\x00":                                   {""},
 		" " + strings.Repeat("y", maxTagBytes+9): {strings.Repeat("y", maxTagBytes)},
 	} {
-		if got := valueTags(v); strings.Join(got, "|") != strings.Join(want, "|") {
+		if got := valueTags(v, tagSeparator); strings.Join(got, "|") != strings.Join(want, "|") {
 			t.Errorf("valueTags(%q) = %q, want %q", v, got, want)
 		}
 	}
@@ -653,7 +653,7 @@ func TestTagModel(t *testing.T) {
 		}
 	}
 	for p, want := range map[string]string{"ab": "ab", " ab ": "ab", "a": "", "  a": "", "a\x00bc": "", "ab\x00c": "ab", "a\x02": "", `a\`: "", `ab\\`: "ab", `a\b`: `a\\b`} {
-		lit, ok := prefixLookup(p)
+		lit, ok := prefixLookup(p, tagSeparator)
 		if (want == "") == ok || lit != want {
 			t.Errorf("prefixLookup(%q) = %q, %v; want %q", p, lit, ok, want)
 		}

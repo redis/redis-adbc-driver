@@ -545,10 +545,11 @@ func (e *executor) openScan(ctx context.Context, req scanRequest, params []Value
 	it, fields, exactly := e.newScanIter(ctx, req, params)
 	meta := req.meta
 	ar := &aggRequest{
-		index:  meta.index(),
-		query:  req.where.query,
-		sortBy: req.sortBy,
-		limit:  req.limit,
+		index:     meta.index(),
+		query:     req.where.query,
+		rowFilter: meta.rowFilter(),
+		sortBy:    req.sortBy,
+		limit:     req.limit,
 	}
 	if exactly && !meta.KeyRows {
 		ar.load = append([]string{"__key", rowIDField}, fields...)
@@ -1142,7 +1143,7 @@ func (e *executor) indexAggregate(ctx context.Context, plan *selectPlan, wp wher
 			return nil, false, nil
 		}
 		col, ok := meta.column(c.Name)
-		if !ok || !col.Indexed || !simpleName(col.field()) || isSystemColumn(col.Name) || col.MissingThrough > 0 {
+		if !ok || !col.Indexed || !simpleName(col.field()) || isSystemColumn(col.Name) || col.MissingThrough > 0 || !col.inPipeline() {
 			return nil, false, nil
 		}
 		if f.Name != "COUNT" && !col.pushable(e.pushdown) {
@@ -1196,7 +1197,7 @@ func (e *executor) indexAggregate(ctx context.Context, plan *selectPlan, wp wher
 		}
 		return steps
 	}
-	raw, err := e.store.aggregate(ctx, &aggRequest{index: meta.index(), query: wp.query, groupBy: pipeline(false)})
+	raw, err := e.store.aggregate(ctx, &aggRequest{index: meta.index(), query: wp.query, rowFilter: meta.rowFilter(), groupBy: pipeline(false)})
 	if err != nil {
 		return nil, false, err
 	}
@@ -1218,7 +1219,7 @@ func (e *executor) indexAggregate(ctx context.Context, plan *selectPlan, wp wher
 		}
 	}
 	if lost {
-		raw, err = e.store.aggregate(ctx, &aggRequest{index: meta.index(), query: wp.query, groupBy: pipeline(true)})
+		raw, err = e.store.aggregate(ctx, &aggRequest{index: meta.index(), query: wp.query, rowFilter: meta.rowFilter(), groupBy: pipeline(true)})
 		if err != nil {
 			if strings.Contains(err.Error(), "Unknown function name 'case'") {
 				return nil, false, nil
@@ -1651,10 +1652,10 @@ func likePrefixTerm(c Expr, meta *tableMeta, env *evalEnv) (string, bool) {
 		return "", false
 	}
 	prefix := strings.TrimSuffix(pat, "%")
-	if strings.ContainsAny(prefix, "%_") || strings.Contains(prefix, tagSeparator) {
+	if strings.ContainsAny(prefix, "%_") || strings.Contains(prefix, col.tagSep()) {
 		return "", false
 	}
-	lit, ok := prefixLookup(prefix)
+	lit, ok := prefixLookup(prefix, col.tagSep())
 	if !ok {
 		return "", false
 	}
