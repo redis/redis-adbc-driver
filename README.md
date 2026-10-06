@@ -58,6 +58,7 @@ It supports SQL queries and Arrow bulk ingestion.
 - [Options](#options)
 - [Performance](#performance)
   - [Results](#results)
+  - [Query performance factor (QPF)](#query-performance-factor-qpf)
   - [Reproduce the benchmark](#reproduce-the-benchmark)
 - [Building and testing](#building-and-testing)
   - [Validation suite](#validation-suite)
@@ -4234,6 +4235,53 @@ What drives the numbers:
   where false limit 0)`) 1.0 ms. Up to v0.0.6 they ran in full, in 1.0 s
   (as long as the model itself) and 2.7 s; `select * from t where false
   limit 0` took 1.4 s, and now 0.5 ms.
+
+### Query performance factor (QPF)
+
+Higher QPF did **not consistently improve performance** in the local tests
+below. QPF adds query compute capacity per shard in Redis Software and Redis
+Cloud; its benefit depends on the query, concurrency, and available CPU.
+See [Redis's QPF documentation](https://redis.io/docs/latest/operate/oss_and_stack/stack-with-enterprise/search/query-performance-factor/).
+
+On October 6, 2026, we ran 108 trials against a disposable single-shard Redis
+Software database: standard (QPF disabled), 2×, and 4× QPF; concurrency 1 and
+16; six workloads; three repeats per combination. Each trial sent requests
+for three seconds and waited for outstanding requests to finish. The data
+contained 100,000 hashes, each with a 512-byte payload. The database used
+Redis 8.6.2 and Search 8.6.11, with RAM storage and no replica. QPF settings
+were verified through the management API after each change.
+
+At **16 concurrent clients**, median trial throughput relative to standard
+was as follows. Values above 1.00× mean higher throughput.
+
+| Direct Redis workload | 2× QPF | 4× QPF |
+|---|---:|---:|
+| `FT.SEARCH`, text count | 0.63× | 0.90× |
+| `FT.SEARCH`, tag filter and small projection | 0.84× | 0.81× |
+| `FT.SEARCH`, 100 full documents | 1.07× | 0.86× |
+| `FT.AGGREGATE`, group and sum using `SORTABLE` values | 0.99× | 1.16× |
+| `FT.AGGREGATE`, same group and sum with `LOAD` | 0.53× | 0.97× |
+| `FT.SEARCH`, numeric range count | 0.61× | 0.82× |
+
+The indexed aggregation's median trial p95 latency fell from 81.36 ms at
+standard QPF to 68.55 ms at 4×. Aggregation with `LOAD` showed no consistent
+throughput gain. Single-client results were also mixed. Query results were
+checked across QPF settings, both aggregation variants returned identical
+sums, and all 108 trials completed with zero command errors.
+
+**These measurements do not establish production QPF speedups.** The local
+Docker host had 10 virtual CPUs and substantial, varying CPU load from
+another Redis test container. Throughput varied widely across repeats, and
+some slow aggregation trials had few samples. These are direct
+`FT.SEARCH`/`FT.AGGREGATE` measurements, not end-to-end ADBC SQL or Arrow
+transfer benchmarks. This run does not support increasing QPF by default;
+compare throughput and p95 latency with representative queries on an
+isolated host before choosing a setting.
+
+The [full report](benchmarks/qpf/report.md) includes absolute throughput,
+latency, run-to-run ranges, exact queries, and reproduction commands.
+[Raw results](benchmarks/qpf/results.json) and the
+[benchmark script](benchmarks/qpf/run.py) are included.
 
 ### Potential optimizations
 
