@@ -769,6 +769,9 @@ func funcType(f *Func, args []ColType) ColType {
 	case "MERGE_ACTION":
 		return typeString
 	case "AVG":
+		if len(args) == 1 && args[0].Kind == KindInterval {
+			return typeInterval
+		}
 		return typeFloat64
 	case "SUM":
 		if len(args) == 1 {
@@ -777,6 +780,8 @@ func funcType(f *Func, args []ColType) ColType {
 				return typeInt64
 			case args[0].Kind == KindDecimal:
 				return decimalType(38, args[0].Scale)
+			case args[0].Kind == KindInterval:
+				return typeInterval
 			}
 		}
 		return typeFloat64

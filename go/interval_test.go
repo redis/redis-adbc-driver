@@ -14,11 +14,13 @@
 
 package redis
 
-// Unit tests for rendering intervals as text and for the interval range.
-// They need no Redis server.
+// Unit tests for rendering intervals as text, for the interval range and
+// for the aggregates of intervals. They need no Redis server.
 
 import (
 	"math"
+	"math/big"
+	"math/rand/v2"
 	"strings"
 	"testing"
 
@@ -151,6 +153,227 @@ func TestIntervalFromArrowDuration(t *testing.T) {
 			t.Errorf("duration %v: %v", arr.(*array.Duration).Value(i), err)
 		case want != "" && v.Text() != want:
 			t.Errorf("duration %v = %s, want %s", arr.(*array.Duration).Value(i), v.Text(), want)
+		}
+	}
+}
+
+// mustInterval parses an interval literal.
+func mustInterval(t *testing.T, s string) Value {
+	t.Helper()
+	v, err := intervalLiteral(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return v
+}
+
+// intervalSum adds interval literals, and the zeros after them.
+func intervalSum(t *testing.T, zeros int, lits ...string) *exactSum {
+	t.Helper()
+	s := &exactSum{}
+	for _, l := range lits {
+		s.add(mustInterval(t, l))
+	}
+	for range zeros {
+		s.add(mustInterval(t, "0"))
+	}
+	return s
+}
+
+// SUM of intervals adds months, days and time on their own, as Postgres
+// does, and fails only if the total is out of range, whatever the order.
+func TestIntervalSum(t *testing.T) {
+	sumText := func(s *exactSum) string {
+		v, err := s.sumValue(typeInterval)
+		if err != nil {
+			return err.Error()
+		}
+		return formatInterval(v)
+	}
+	for _, c := range []struct {
+		lits []string
+		want string
+	}{
+		// Not justified: 30 days stay days, 25 hours stay hours.
+		{[]string{"1 mon", "30 days", "1 day 02:00:00"}, "1 mon 31 days 02:00:00"},
+		{[]string{"-1 year 3 days -00:00:01.5", "25 hours"}, "-1 years +3 days 24:59:58.5"},
+		{[]string{"23:00:00", "02:00:00", "-1 day"}, "-1 days +25:00:00"},
+		// Through running totals out of range, in any order (Postgres fails
+		// when it adds them in an order that overflows).
+		{[]string{"2147483647 mons", "1 mon", "-1 mon"}, "178956970 years 7 mons"},
+		{[]string{"-1 mon", "2147483647 mons", "1 mon"}, "178956970 years 7 mons"},
+		{[]string{"2147483647 days", "2147483647 days", "-2147483647 days"}, "2147483647 days"},
+		{[]string{"2562047 hours", "2562047 hours", "-2562047 hours"}, "2562047:00:00"},
+		// Totals out of range.
+		{[]string{"2147483647 mons", "1 mon"}, "interval out of range"},
+		{[]string{"-2147483647 days", "-2 days"}, "interval out of range"},
+		{[]string{"2000000 hours", "2000000 hours"}, "interval out of range"},
+	} {
+		if got := sumText(intervalSum(t, 0, c.lits...)); got != c.want {
+			t.Errorf("SUM(%q) = %s, want %s", c.lits, got, c.want)
+		}
+	}
+	// Exactly MinInt64 nanoseconds, the most negative time part.
+	s := &exactSum{}
+	s.add(Value{T: typeInterval, I: -math.MaxInt64})
+	s.add(mustInterval(t, "-0.000000001 seconds"))
+	if got := sumText(s); got != "-2562047:47:16.854775808" {
+		t.Errorf("SUM to MinInt64 nanoseconds = %s", got)
+	}
+	s.add(mustInterval(t, "-0.000000001 seconds"))
+	if got := sumText(s); got != "interval out of range" {
+		t.Errorf("SUM past MinInt64 nanoseconds = %s", got)
+	}
+
+	// A sliding frame removes values exactly.
+	rng := rand.New(rand.NewPCG(9, 10))
+	vals := make([]Value, 300)
+	for i := range vals {
+		ns := rng.Int64N(nsPerDay) - nsPerDay/2
+		if rng.IntN(5) == 0 {
+			ns = math.MaxInt64 - rng.Int64N(nsPerDay) // overflows when two are added
+		}
+		vals[i] = Value{T: typeInterval, Months: int32(rng.IntN(25) - 12), Days: int32(rng.IntN(61) - 30), I: ns}
+	}
+	for _, width := range []int{1, 3, 20} {
+		s := &exactSum{}
+		for i, v := range vals {
+			s.add(v)
+			if i >= width {
+				s.remove(vals[i-width])
+			}
+			fresh := &exactSum{}
+			for _, w := range vals[max(0, i-width+1) : i+1] {
+				fresh.add(w)
+			}
+			a, aerr := s.sumValue(typeInterval)
+			b, berr := fresh.sumValue(typeInterval)
+			am, amerr := s.meanValue(typeInterval)
+			bm, bmerr := fresh.meanValue(typeInterval)
+			if a != b || (aerr == nil) != (berr == nil) || am != bm || (amerr == nil) != (bmerr == nil) {
+				t.Fatalf("width %d, row %d: sliding sum %v (%v) / mean %v (%v), fresh %v (%v) / %v (%v)",
+					width, i, a, aerr, am, amerr, b, berr, bm, bmerr)
+			}
+		}
+	}
+}
+
+// wideInt adds and subtracts int64s in 128 bits.
+func TestWideInt(t *testing.T) {
+	rng := rand.New(rand.NewPCG(11, 12))
+	var w wideInt
+	ref := new(big.Int)
+	for i := range 2000 {
+		v := int64(rng.Uint64())
+		switch i % 7 {
+		case 0:
+			v = math.MaxInt64
+		case 1:
+			v = math.MinInt64
+		}
+		sub := rng.IntN(3) == 0
+		w.add(v, sub)
+		if sub {
+			ref.Sub(ref, big.NewInt(v))
+		} else {
+			ref.Add(ref, big.NewInt(v))
+		}
+		got := new(big.Int).Lsh(big.NewInt(w.hi), 64)
+		got.Add(got, new(big.Int).SetUint64(w.lo))
+		if got.Cmp(ref) != 0 {
+			t.Fatalf("step %d: %s, want %s", i, got, ref)
+		}
+		n, ok := w.int64()
+		if ok != ref.IsInt64() || (ok && n != ref.Int64()) {
+			t.Fatalf("step %d: int64() = %d, %v for %s", i, n, ok, ref)
+		}
+		// The microseconds, within a unit in the last place (exactly when they
+		// are whole, as Postgres's are).
+		us, ok := w.micros()
+		want, _ := new(big.Rat).SetFrac(ref, big.NewInt(1000)).Float64()
+		q := new(big.Int).Quo(ref, big.NewInt(1000))
+		if ok != q.IsInt64() || (ok && math.Abs(us-want) > math.Abs(want)*0x1p-52) {
+			t.Fatalf("step %d: micros() = %v, %v for %s", i, us, ok, ref)
+		}
+	}
+	// Whole microseconds are converted as Postgres converts its int64, also
+	// beyond 64 bits of nanoseconds.
+	for _, us := range []int64{1<<52 + 1, -(1<<52 + 1), math.MaxInt64 / 1000, 123456789} {
+		var w wideInt
+		w.add(us*1000, false)
+		w.add(us*1000, false)
+		if got, ok := w.micros(); !ok || got != float64(2*us) {
+			t.Errorf("micros() of 2 × %d000 = %v, %v", us, got, ok)
+		}
+	}
+}
+
+// AVG of intervals is Postgres's: the sum divided by the count, with the
+// fractions of months and days cascading down and the result rounded to
+// microseconds. The expected values are Postgres 16's.
+func TestIntervalMean(t *testing.T) {
+	for _, c := range []struct {
+		lits  []string
+		zeros int
+		want  string
+	}{
+		{[]string{"1 mon", "30 days", "1 day 02:00:00"}, 0, "20 days 08:40:00"},
+		{[]string{"-1 year 3 days -00:00:01.5", "25 hours"}, 0, "-6 mons +1 day 24:29:59.25"},
+		{[]string{"1 mon", "30 days", "1 day 02:00:00", "1 sec", "-1 year 3 days -00:00:01.5", "25 hours"}, 2,
+			"-1 mons -7 days +03:22:29.9375"},
+		{[]string{"1 sec"}, 2, "00:00:00.333333"},
+		{[]string{"1 mon"}, 1, "15 days"},
+		{[]string{"1 mon"}, 2, "10 days"},
+		{[]string{"-1 mon"}, 1, "-15 days"},
+		// The fraction of a month is rounded to microseconds of a day before
+		// it cascades: 30 / 7 days is 4.285714 days.
+		{[]string{"1 mon"}, 6, "4 days 06:51:25.6896"},
+		{[]string{"1 mon 3 days"}, 3, "8 days 06:00:00"}, // 1.25 days of seconds cascade into a day
+		{[]string{"5 mons"}, 2, "1 mon 20 days"},
+		{[]string{"-5 mons -1 day"}, 2, "-1 mons -20 days -08:00:00"},
+		{[]string{"1 year 1 mon 1 day 00:00:01"}, 2, "4 mons 10 days 08:00:00.333333"},
+		{[]string{"1 mon 1 day 1 sec"}, 10, "2 days 19:38:11.023564"},
+		{[]string{"7 mons 23 days 22:59:59.999999"}, 2, "2 mons 17 days 23:40:00"},
+		{[]string{"7 mons 23 days 22:59:59.999999"}, 6, "1 mon 3 days 10:08:34.285714"},
+		// Microseconds round half to even.
+		{[]string{"3 microseconds"}, 1, "00:00:00.000002"},
+		{[]string{"1 microsecond"}, 1, "00:00:00"},
+		{[]string{"-3 microseconds"}, 1, "-00:00:00.000002"},
+		{[]string{"1 day 00:00:00.000003"}, 1, "12:00:00.000002"},
+		{[]string{"1 day", "1 day", "1 day 00:00:00.000001"}, 0, "1 day"},
+		{[]string{"29 days 23:59:59.999999"}, 1, "14 days 24:00:00"},
+		// The sum's time is beyond the nanoseconds of an interval, but not
+		// beyond Postgres's microseconds.
+		{[]string{"2000000 hours", "2000000 hours"}, 0, "2000000:00:00"},
+		// As in Postgres, the sum must be an interval.
+		{[]string{"2147483647 mons", "1 mon"}, 0, "interval out of range"},
+		{[]string{"-2147483647 days", "-2 days"}, 0, "interval out of range"},
+	} {
+		got := ""
+		if v, err := intervalSum(t, c.zeros, c.lits...).meanValue(typeInterval); err != nil {
+			got = err.Error()
+		} else {
+			got = formatInterval(v)
+		}
+		if got != c.want {
+			t.Errorf("AVG(%q and %d zeros) = %s, want %s", c.lits, c.zeros, got, c.want)
+		}
+	}
+}
+
+// Of intervals that compare equal, MIN and MAX return the last one, as
+// Postgres's interval_smaller and interval_larger do.
+func TestIntervalMinMaxTies(t *testing.T) {
+	for _, name := range []string{"MIN", "MAX"} {
+		for _, lits := range [][]string{{"1 mon", "30 days"}, {"30 days", "1 mon"}, {"1 day", "24 hours", "1 day"}} {
+			a := newAccumulator(&Func{Name: name, Args: []Expr{&ColumnRef{Name: "iv"}}})
+			for _, l := range lits {
+				a.add(mustInterval(t, l))
+			}
+			v, err := a.result(nil, typeInterval)
+			if want := mustInterval(t, lits[len(lits)-1]); err != nil || v != want {
+				t.Errorf("%s(%q) = %s, %v; want %s", name, lits, formatInterval(v), err, formatInterval(want))
+			}
 		}
 	}
 }

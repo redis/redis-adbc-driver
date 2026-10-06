@@ -394,6 +394,33 @@ func scaleInterval(v Value, f float64) (Value, error) {
 	return p.value()
 }
 
+// divideInterval divides an interval of months, days and microseconds by
+// factor (non-zero) as Postgres's interval_div does, for AVG: each field is
+// divided, a fraction of a month cascades into days (30 per month), rounded
+// to 6 decimal places (TSROUND), a fraction of a day into seconds, rounded
+// to the microsecond, and the time is rounded to the microsecond, half to
+// even, all in doubles as in Postgres.
+func divideInterval(months, days int32, us, factor float64) (Value, error) {
+	tsRound := func(x float64) float64 { return math.RoundToEven(x*1e6) / 1e6 }
+	m, d := int32(float64(months)/factor), int32(float64(days)/factor)
+	monthDays := tsRound((float64(months)/factor - float64(m)) * 30)
+	sec := tsRound((float64(days)/factor - float64(d) + monthDays - float64(int32(monthDays))) * 86400)
+	day := int64(d)
+	if math.Abs(sec) >= 86400 {
+		// 24:00:00 from rounding, or more from the cascades.
+		whole := int32(sec / 86400)
+		day += int64(whole)
+		sec -= float64(whole * 86400)
+	}
+	day += int64(int32(monthDays))
+	// The conversion keeps the product from being fused into an FMA.
+	t := math.RoundToEven(us/factor + float64(sec*1e6))
+	if !(t >= -(1<<63) && t < 1<<63) || int64(t) > math.MaxInt64/1000 || int64(t) < math.MinInt64/1000 {
+		return Value{}, fmt.Errorf("interval out of range")
+	}
+	return intervalValue(int64(m), day, int64(t)*1000)
+}
+
 // timeOfDay returns nanoseconds since midnight of a TIME value.
 func timeOfDay(v Value) int64 {
 	return v.I * (nsPerSecond / unitsPerSecond[v.T.Unit])
