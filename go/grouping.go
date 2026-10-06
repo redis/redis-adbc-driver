@@ -612,11 +612,13 @@ func (r *groupingRewriter) node(e Expr) Expr {
 	case *Unary:
 		return &Unary{Op: x.Op, X: r.rewrite(x.X)}
 	case *Binary:
-		return &Binary{Op: x.Op, L: r.rewrite(x.L), R: r.rewrite(x.R)}
+		return &Binary{Op: x.Op, L: r.rewrite(x.L), R: r.rewrite(x.R), nested: x.nested}
 	case *IsNull:
-		return &IsNull{X: r.rewrite(x.X), Not: x.Not}
+		return &IsNull{X: r.rewrite(x.X), Not: x.Not, field: x.field}
 	case *RowExpr:
 		return &RowExpr{Items: r.rewriteAll(x.Items)}
+	case *FieldSelect:
+		return &FieldSelect{X: r.rewrite(x.X), Name: x.Name, Index: x.Index}
 	case *Cast:
 		return &Cast{X: r.rewrite(x.X), T: x.T}
 	case *Case:

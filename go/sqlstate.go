@@ -71,6 +71,7 @@ const (
 	stateCannotCoerce        = "42846" // cannot_coerce
 	stateUndefinedFunction   = "42883" // undefined_function
 	stateUndefinedObject     = "42704" // undefined_object
+	stateWrongObjectType     = "42809" // wrong_object_type
 	stateDuplicateObject     = "42710" // duplicate_object
 	stateUndefinedTable      = "42P01" // undefined_table
 	stateDuplicateSchema     = "42P06" // duplicate_schema

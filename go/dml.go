@@ -148,7 +148,13 @@ func (e *executor) bindClause(ctx context.Context, x Expr, clause string) error 
 	saved := sc.aggClause
 	sc.aggClause = clause
 	defer func() { sc.aggClause = saved }()
-	return e.bind(ctx, x)
+	if err := e.bind(ctx, x); err != nil {
+		return err
+	}
+	if clause == "WHERE" || clause == "JOIN conditions" {
+		return e.conditionTypeError(x, clause)
+	}
+	return nil
 }
 
 // runUpdateFrom implements UPDATE t SET … FROM items [WHERE …].
@@ -173,11 +179,14 @@ func (e *executor) runUpdateFrom(ctx context.Context, st *UpdateStmt, params []V
 	}
 	sc := e.pushScope(dj.rels, "UPDATE")
 	defer e.popScope()
-	for _, s := range st.Sets {
+	for i, s := range st.Sets {
 		if containsWindow(s.Expr) {
 			return 0, errWindowPlacement()
 		}
 		if err := e.bind(ctx, s.Expr); err != nil {
+			return 0, err
+		}
+		if err := recordWriteError(dj.meta.Columns[cols[i]], s.Expr); err != nil {
 			return 0, err
 		}
 		columnRefs(s.Expr, need)

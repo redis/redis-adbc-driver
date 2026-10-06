@@ -391,6 +391,9 @@ func (e *executor) runCreateTableAs(ctx context.Context, st *CreateTableStmt) (i
 	if err != nil {
 		return 0, err
 	}
+	if err := checkStorableColumns(plan.columns()); err != nil {
+		return 0, err
+	}
 	rows, err := e.runSelect(ctx, plan, nil)
 	if err != nil {
 		return 0, err
@@ -464,9 +467,17 @@ func replaceAliases(e Expr, aliases map[string]Expr, meta *tableMeta) Expr {
 	case *Unary:
 		return &Unary{Op: x.Op, X: replaceAliases(x.X, aliases, meta)}
 	case *Binary:
-		return &Binary{Op: x.Op, L: replaceAliases(x.L, aliases, meta), R: replaceAliases(x.R, aliases, meta)}
+		return &Binary{Op: x.Op, L: replaceAliases(x.L, aliases, meta), R: replaceAliases(x.R, aliases, meta), nested: x.nested}
 	case *IsNull:
-		return &IsNull{X: replaceAliases(x.X, aliases, meta), Not: x.Not}
+		return &IsNull{X: replaceAliases(x.X, aliases, meta), Not: x.Not, field: x.field}
+	case *RowExpr:
+		r := &RowExpr{Items: make([]Expr, len(x.Items))}
+		for i, it := range x.Items {
+			r.Items[i] = replaceAliases(it, aliases, meta)
+		}
+		return r
+	case *FieldSelect:
+		return &FieldSelect{X: replaceAliases(x.X, aliases, meta), Name: x.Name, Index: x.Index}
 	case *Cast:
 		return &Cast{X: replaceAliases(x.X, aliases, meta), T: x.T, OnError: replaceAliases(x.OnError, aliases, meta)}
 	case *Func:
@@ -530,8 +541,11 @@ func (e *executor) runInsert(ctx context.Context, st *InsertStmt, params []Value
 		if len(exprs) != len(targets) {
 			return 0, errorf(adbc.StatusInvalidArgument, "INSERT has %d target columns but %d values", len(targets), len(exprs))
 		}
-		for _, expr := range exprs {
+		for j, expr := range exprs {
 			if _, err := e.bindIn(ctx, expr, nil, "", "VALUES"); err != nil {
+				return 0, err
+			}
+			if err := recordWriteError(meta.Columns[targets[j]], expr); err != nil {
 				return 0, err
 			}
 		}
@@ -629,6 +643,11 @@ func (e *executor) insertSelect(ctx context.Context, st *InsertStmt, meta *table
 	if len(plan.items) != len(targets) {
 		return 0, errorf(adbc.StatusInvalidArgument, "INSERT has %d target columns but the query returns %d", len(targets), len(plan.items))
 	}
+	for j, it := range plan.items {
+		if err := recordColumnError(meta.Columns[targets[j]], it.typ); err != nil {
+			return 0, err
+		}
+	}
 	results, err := e.runSelect(ctx, plan, e.params)
 	if err != nil {
 		return 0, err
@@ -680,7 +699,18 @@ type planItem struct {
 type planOrder struct {
 	expr       Expr
 	desc       bool
-	nullsFirst bool // NULLS FIRST (the default is NULLs last either way)
+	nullsFirst bool // NULLS FIRST (by default NULLs sort last either way, but see nullFirst)
+	// nullsLast is an explicit NULLS LAST: without one, a NULL record sorts
+	// first with DESC, as in Postgres (see nullFirst).
+	nullsLast bool
+}
+
+// nullFirst reports whether a NULL sorts before other, a non-NULL value of
+// the same key: with NULLS FIRST, and for a record (record.go) with DESC
+// unless NULLS LAST is given, as Postgres sorts records. Other NULLs sort
+// last by default in either direction, as RediSearch's SORTBY does.
+func (o planOrder) nullFirst(other Value) bool {
+	return o.nullsFirst || (o.desc && !o.nullsLast && other.T.Kind == KindRecord)
 }
 
 type selectPlan struct {
@@ -858,6 +888,12 @@ func (e *executor) planSelect(ctx context.Context, sel *SelectStmt, paramTypes [
 			} else {
 				name, pgName = it.Text, figureColname(it.Expr)
 			}
+			switch x := it.Expr.(type) {
+			case *RowExpr:
+				name = "row" // as Postgres names it
+			case *FieldSelect:
+				name = x.Name
+			}
 		}
 		plan.items = append(plan.items, planItem{expr: it.Expr, name: name, typ: t, pgName: pgName})
 		if isAggregate(it.Expr) {
@@ -906,6 +942,9 @@ func (e *executor) planSelect(ctx context.Context, sel *SelectStmt, paramTypes [
 		if err := e.bind(ctx, having); err != nil {
 			return nil, err
 		}
+		if err := e.conditionTypeError(having, "HAVING"); err != nil {
+			return nil, err
+		}
 		if containsWindow(having) {
 			return nil, errorf(adbc.StatusInvalidArgument, "window functions are not allowed in HAVING")
 		}
@@ -920,6 +959,9 @@ func (e *executor) planSelect(ctx context.Context, sel *SelectStmt, paramTypes [
 		err := e.bind(ctx, sel.Where)
 		sc.aggClause = ""
 		restore()
+		if err == nil {
+			err = e.conditionTypeError(sel.Where, "WHERE")
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -935,7 +977,7 @@ func (e *executor) planSelect(ctx context.Context, sel *SelectStmt, paramTypes [
 			if n < 1 || n > len(plan.items) {
 				return nil, errorf(adbc.StatusInvalidArgument, "ORDER BY position %d is out of range", n)
 			}
-			plan.order = append(plan.order, planOrder{expr: plan.items[n-1].expr, desc: o.Desc, nullsFirst: o.Nulls == NullsFirst})
+			plan.order = append(plan.order, planOrder{expr: plan.items[n-1].expr, desc: o.Desc, nullsFirst: o.Nulls == NullsFirst, nullsLast: o.Nulls == NullsLast})
 			continue
 		}
 		// ORDER BY <output column name>: as in Postgres, a bare name is an
@@ -948,14 +990,14 @@ func (e *executor) planSelect(ctx context.Context, sel *SelectStmt, paramTypes [
 				return nil, err
 			}
 			if it != nil {
-				plan.order = append(plan.order, planOrder{expr: it.expr, desc: o.Desc, nullsFirst: o.Nulls == NullsFirst})
+				plan.order = append(plan.order, planOrder{expr: it.expr, desc: o.Desc, nullsFirst: o.Nulls == NullsFirst, nullsLast: o.Nulls == NullsLast})
 				continue
 			}
 		}
 		if err := e.bind(ctx, expr); err != nil {
 			return nil, err
 		}
-		plan.order = append(plan.order, planOrder{expr: expr, desc: o.Desc, nullsFirst: o.Nulls == NullsFirst})
+		plan.order = append(plan.order, planOrder{expr: expr, desc: o.Desc, nullsFirst: o.Nulls == NullsFirst, nullsLast: o.Nulls == NullsLast})
 	}
 	if sel.Qualify != nil {
 		// QUALIFY filters after window functions; like HAVING, it may use
@@ -968,6 +1010,9 @@ func (e *executor) planSelect(ctx context.Context, sel *SelectStmt, paramTypes [
 		}
 		qualify := replaceAliases(sel.Qualify, aliases, plan.meta)
 		if err := e.bind(ctx, qualify); err != nil {
+			return nil, err
+		}
+		if err := e.conditionTypeError(qualify, "QUALIFY"); err != nil {
 			return nil, err
 		}
 		if isAggregate(qualify) {
@@ -1196,7 +1241,7 @@ func applyLimit[T any](rows []T, offset, limit *int64) []T {
 }
 
 // lessKeys orders rows by sort keys; NULLs sort last in either direction,
-// matching RediSearch SORTBY.
+// matching RediSearch SORTBY, unless the keys say otherwise (nullFirst).
 func lessKeys(a, b []Value, order []planOrder) bool {
 	for i, o := range order {
 		x, y := a[i], b[i]
@@ -1204,9 +1249,9 @@ func lessKeys(a, b []Value, order []planOrder) bool {
 		case x.Null && y.Null:
 			continue
 		case x.Null:
-			return o.nullsFirst
+			return o.nullFirst(y)
 		case y.Null:
-			return !o.nullsFirst
+			return !o.nullFirst(x)
 		}
 		c, _ := compareValues(x, y)
 		if c == 0 {
@@ -1397,9 +1442,12 @@ func (e *executor) runUpdate(ctx context.Context, st *UpdateStmt, params []Value
 		return 0, err
 	}
 	need := map[string]bool{}
-	for _, s := range st.Sets {
+	for i, s := range st.Sets {
 		needs, err := e.bindIn(ctx, s.Expr, meta, st.Alias, "UPDATE")
 		if err != nil {
+			return 0, err
+		}
+		if err := recordWriteError(meta.Columns[cols[i]], s.Expr); err != nil {
 			return 0, err
 		}
 		columnRefs(s.Expr, need)

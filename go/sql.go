@@ -112,9 +112,10 @@ type RowColumn struct {
 }
 
 // RowExpr is a row constructor, (a, b, …) or ROW(…). The parser rewrites
-// its comparisons into comparisons of its items (rowvalue.go), so it stays
-// in a statement only as the operand of a row IN / ANY / ALL subquery, or
-// where it is an error, which binding reports.
+// its comparisons into comparisons of its items (rowvalue.go); anywhere
+// else, also as an item of a rewritten comparison, it is a value of type
+// record (record.go). It is also the operand of a row IN / ANY / ALL
+// subquery.
 type RowExpr struct {
 	Items []Expr
 }
@@ -127,10 +128,17 @@ type Unary struct {
 type Binary struct {
 	Op   string
 	L, R Expr
+	// nested marks the comparison of two items of compared rows that are
+	// rows themselves (compareExpr): their records are compared, and rows of
+	// different lengths are an error only when evaluated, as in Postgres.
+	nested bool
 }
 type IsNull struct {
 	X   Expr
 	Not bool
+	// field tests the value itself, as for the items of a row's IS NULL
+	// (isNullExpr): a record field is not NULL, whatever its own fields are.
+	field bool
 }
 
 // Cast is CAST(x AS t) or x::t. OnError, if set, is the result when the
@@ -1922,7 +1930,11 @@ func parseTypeText(src string) (ColType, error) {
 	if p.peek().kind != tokEOF {
 		return ColType{}, syntaxErr("unexpected %q", p.peek().text)
 	}
-	return colTypeFromSQL(spec)
+	t, err := colTypeFromSQL(spec)
+	if err == nil && t.Kind == KindRecord {
+		return ColType{}, fmt.Errorf("a column can't have pseudo-type record")
+	}
+	return t, err
 }
 
 func (p *parser) parseCreate() (Stmt, error) {
@@ -2133,6 +2145,9 @@ func (p *parser) parseColumnDef() (ColumnDef, error) {
 	ct, err := colTypeFromSQL(spec)
 	if err != nil {
 		return ColumnDef{}, parseErr(err)
+	}
+	if ct.Kind == KindRecord {
+		return ColumnDef{}, &sqlError{msg: fmt.Sprintf("column %q has pseudo-type record", name), state: stateTableDefinition}
 	}
 	col := ColumnDef{Name: name, Type: ct}
 	for {
@@ -3526,6 +3541,26 @@ func (p *parser) parsePostfix(x Expr) (Expr, error) {
 	return x, nil
 }
 
+// parseFieldSelect parses the field selections that may follow a
+// parenthesized expression x: (x).f1, ((x).f2).f1 or (x).f2.f1.
+func (p *parser) parseFieldSelect(x Expr) (Expr, error) {
+	for p.isOp(".") {
+		t := p.peekAt(1)
+		if t.kind != tokIdent && t.kind != tokQuotedIdent {
+			return nil, syntaxErr("expected a field name after \".\" near %q", t.text)
+		}
+		p.pos += 2
+		name, index := t.text, recordFieldIndex(t.text)
+		if t.kind == tokIdent {
+			name = strings.ToLower(name)
+		} else if strings.HasPrefix(name, "F") {
+			index = -1 // "F1" isn't f1
+		}
+		x = &FieldSelect{X: x, Name: name, Index: index}
+	}
+	return x, nil
+}
+
 func (p *parser) parsePrimary() (Expr, error) {
 	t := p.peek()
 	switch t.kind {
@@ -3570,7 +3605,7 @@ func (p *parser) parsePrimary() (Expr, error) {
 				if err != nil {
 					return nil, err
 				}
-				return &Subquery{Select: sub, Kind: SubqueryScalar}, nil
+				return p.parseFieldSelect(&Subquery{Select: sub, Kind: SubqueryScalar})
 			}
 			e, err := p.parseExpr()
 			if err != nil {
@@ -3594,7 +3629,7 @@ func (p *parser) parsePrimary() (Expr, error) {
 			if err := p.expectOp(")"); err != nil {
 				return nil, err
 			}
-			return e, nil
+			return p.parseFieldSelect(e)
 		}
 		return nil, syntaxErr("unexpected %q", t.text)
 	case tokQuotedIdent:

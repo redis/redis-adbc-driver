@@ -565,6 +565,8 @@ func joinKey(v Value) (string, bool) {
 		sec := floorDiv(v.I, per)
 		frac := (v.I - sec*per) * (1_000_000_000 / per)
 		return k.String()[:2] + strconv.FormatInt(sec, 10) + "." + strconv.FormatInt(frac, 10), true
+	case k == KindRecord:
+		return recordJoinKey(v), true
 	}
 	return v.T.Kind.String() + v.Text(), true
 }

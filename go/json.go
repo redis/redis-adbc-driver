@@ -303,9 +303,9 @@ func jsonDocArg(f *Func, args []Value) (string, error) {
 }
 
 // jsonResult returns a constructor's JSON text, in jsonb's form for the
-// JSONB_ functions and RETURNING JSONB.
+// JSONB_ functions, TO_JSONB and RETURNING JSONB.
 func jsonResult(f *Func, text string) (Value, error) {
-	if strings.HasPrefix(f.Name, "JSONB_") || (f.JSON != nil && f.JSON.jsonb) {
+	if strings.HasPrefix(f.Name, "JSONB_") || f.Name == "TO_JSONB" || (f.JSON != nil && f.JSON.jsonb) {
 		s, err := normalizeJSONB(text)
 		if err != nil {
 			return Value{}, err
@@ -994,6 +994,8 @@ func writeJSONValue(b *strings.Builder, v Value, isJSON bool, z tzZone) {
 		b.WriteString(v.Text())
 	case k.isFloat() && !math.IsNaN(v.F) && !math.IsInf(v.F, 0):
 		b.WriteString(v.Text())
+	case k == KindRecord:
+		writeJSONRecord(b, v, z)
 	default:
 		writeJSONString(b, jsonText(v, z))
 	}
@@ -1457,7 +1459,7 @@ func (a *jsonAgg) result(env *evalEnv, _ ColType) (Value, error) {
 	case len(f.OrderBy) > 0:
 		order := make([]planOrder, len(f.OrderBy))
 		for i, o := range f.OrderBy {
-			order[i] = planOrder{expr: o.Expr, desc: o.Desc, nullsFirst: o.Nulls == NullsFirst}
+			order[i] = planOrder{expr: o.Expr, desc: o.Desc, nullsFirst: o.Nulls == NullsFirst, nullsLast: o.Nulls == NullsLast}
 		}
 		sort.SliceStable(rows, func(i, j int) bool { return lessKeys(rows[i].keys, rows[j].keys, order) })
 	case f.Distinct:
