@@ -799,6 +799,12 @@ type store struct {
 	// retired are clients replaced by another one with other timeouts (see
 	// connectionImpl.setTimeouts), closed with the connection.
 	retired []goredis.UniversalClient
+
+	// rekeys are the re-keys this connection is running or settling, which
+	// Close stops (see stopRekeys); closed is set once Close has begun. The
+	// client stays set after Close, closed.
+	rekeys map[*rekeyRun]struct{}
+	closed bool
 }
 
 // onceCmd is a command that go-redis must not send again when it fails.

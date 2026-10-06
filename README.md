@@ -1463,6 +1463,17 @@ field, even if later rows have it.
       same connections remove the old rows instead. A renaming connection
       that can't renew its lease for 15 seconds stops before its next step
       and fails; another connection then rolls the move back.
+    - If the renaming connection is closed (`AdbcConnectionRelease`) while
+      the rename runs on another thread, the rename stops as if cancelled.
+      Close returns once it is rolled back, or finished if it had switched
+      the metadata. No lease is left, so other connections change the table
+      at once. The rename fails with "the connection was closed while the
+      table was being renamed", or with CANCELLED if its statement was
+      released first (Python's `close()` closes the cursors first). Close
+      waits up to 15 seconds. A rename still running then gives its lease
+      up, and the next connection rolls it back at once. Up to v0.0.12,
+      Close left the lease in place, so the table refused changes for 30
+      seconds, and the process could crash.
   - `RENAME COLUMN` keeps the column's HASH field; only its SQL name changes.
   - `ADD COLUMN` adds the column to the index with `FT.ALTER`; existing rows
     read it as NULL, or as its `DEFAULT`, which is computed once (so
