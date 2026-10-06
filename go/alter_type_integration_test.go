@@ -184,19 +184,19 @@ func TestSQLAlterTypeValues(t *testing.T) {
 		field string
 	}{
 		// Numbers.
-		{alter: `ALTER TABLE it_at_val ALTER f TYPE int`, err: `cannot convert float64 value "NaN" to INTEGER`, code: adbc.StatusInvalidArgument},
+		{alter: `ALTER TABLE it_at_val ALTER f TYPE int`, err: `cannot convert float64 value "NaN" to INTEGER`, code: adbc.StatusInvalidData},
 		{alter: `ALTER TABLE it_at_val ALTER f TYPE int USING CASE WHEN f = 'NaN' THEN 0 ELSE f END`, sel: `f`, want: []string{"2", "4", "0"}},
 		{alter: `ALTER TABLE it_at_val ALTER r TYPE bigint USING CASE WHEN r = 'Infinity' THEN 7 ELSE r * 2 END`, sel: `r`, want: []string{"3", "-5", "7"}},
 		{alter: `ALTER TABLE it_at_val ALTER n TYPE int`, sel: `n`, want: []string{"3", "-3", "1234567"}},
 		{alter: `ALTER TABLE it_at_val ALTER n TYPE numeric(10,1)`, sel: `n::text`, want: []string{"2.5", "-2.5", "1234567.1"}},
-		{alter: `ALTER TABLE it_at_val ALTER n TYPE numeric(5,1)`, err: `value 1234567.125 out of range for NUMERIC(5,1)`, code: adbc.StatusInvalidArgument},
+		{alter: `ALTER TABLE it_at_val ALTER n TYPE numeric(5,1)`, err: `value 1234567.125 out of range for NUMERIC(5,1)`, code: adbc.StatusInvalidData},
 		{alter: `ALTER TABLE it_at_val ALTER f TYPE real`, sel: `f::text`, want: []string{"2.25", "3.75", "NaN"}},
 		{alter: `ALTER TABLE it_at_val ALTER r TYPE double precision`, sel: `r::text`, want: []string{"1.5", "-2.5", "Infinity"}},
 		{alter: `ALTER TABLE it_at_val ALTER n TYPE double precision`, sel: `n::numeric(10,3)::text`, want: []string{"2.500", "-2.500", "1234567.125"}},
 		{alter: `ALTER TABLE it_at_val ALTER f TYPE text`, sel: `f`, want: []string{"2.25", "3.75", "NaN"}},
 		{alter: `ALTER TABLE it_at_val ALTER n TYPE text`, sel: `n`, want: []string{"2.500", "-2.500", "1234567.125"}},
 		{alter: `ALTER TABLE it_at_val ALTER id TYPE smallint`, sel: `id`, want: []string{"1", "2", "3"}},
-		{alter: `ALTER TABLE it_at_val ALTER id TYPE smallint USING CASE WHEN id = 1 THEN 100000 ELSE id END`, err: `value 100000 out of range for SMALLINT`, code: adbc.StatusInvalidArgument},
+		{alter: `ALTER TABLE it_at_val ALTER id TYPE smallint USING CASE WHEN id = 1 THEN 100000 ELSE id END`, err: `value 100000 out of range for SMALLINT`, code: adbc.StatusInvalidData},
 		// Strings: an assignment, so a value that is too long is an error,
 		// unless the rest is spaces (cut), and CHAR pads.
 		{alter: `ALTER TABLE it_at_val ALTER s TYPE varchar(2)`, err: `value too long for type character varying(2)`, code: adbc.StatusInvalidData},
@@ -283,7 +283,7 @@ func TestSQLAlterTypeConstraints(t *testing.T) {
 			`column "n" of relation "it_atc" contains null values`},
 		{`ALTER TABLE it_atc ALTER COLUMN n TYPE text USING CASE WHEN n = 2 THEN NULL ELSE n::text END`, adbc.StatusIntegrity,
 			`column "n" of relation "it_atc" contains null values`},
-		{`ALTER TABLE it_atc ALTER COLUMN n TYPE smallint USING CASE WHEN n = 1 THEN 100000 ELSE n END`, adbc.StatusInvalidArgument, `value 100000 out of range for SMALLINT`},
+		{`ALTER TABLE it_atc ALTER COLUMN n TYPE smallint USING CASE WHEN n = 1 THEN 100000 ELSE n END`, adbc.StatusInvalidData, `value 100000 out of range for SMALLINT`},
 	} {
 		h.expectQueryError(c.sql, c.code, c.msg)
 		h.expectRolledBack(raw, "it_atc", before)
@@ -311,7 +311,7 @@ func TestSQLAlterTypeConstraints(t *testing.T) {
 		{`ALTER TABLE it_atc3 ALTER COLUMN c TYPE int USING c::int`, adbc.StatusInvalidArgument,
 			`default for column "c" cannot be cast automatically to type integer`},
 		{`ALTER TABLE it_atc3 ALTER COLUMN c DROP DEFAULT, ALTER COLUMN c TYPE int USING c::int, ALTER COLUMN c SET DEFAULT 'x'`,
-			adbc.StatusInvalidArgument, `column "c": invalid decimal "x"`},
+			adbc.StatusInvalidData, `column "c": invalid decimal "x"`},
 		{`ALTER TABLE it_atc3 ALTER COLUMN c DROP DEFAULT, ALTER COLUMN c TYPE int USING NULLIF(c, '2')::int, ALTER COLUMN c SET NOT NULL`,
 			adbc.StatusIntegrity, `column "c" of relation "it_atc3" contains null values`},
 	} {
@@ -704,7 +704,7 @@ func TestSQLAlterType(t *testing.T) {
 		{`ALTER TABLE it_at ALTER COLUMN n TYPE boolean USING n <> 0`, adbc.StatusInvalidArgument,
 			`default for column "n" cannot be cast automatically to type boolean`},
 		{`ALTER TABLE it_at ALTER COLUMN nope TYPE integer`, adbc.StatusNotFound, `column "nope" of relation "it_at" does not exist`},
-		{`ALTER TABLE it_at ALTER COLUMN c TYPE integer USING nope`, adbc.StatusInvalidArgument, `column "nope" does not exist in table "it_at"`},
+		{`ALTER TABLE it_at ALTER COLUMN c TYPE integer USING nope`, adbc.StatusNotFound, `column "nope" does not exist in table "it_at"`},
 		{`ALTER TABLE it_at ALTER COLUMN c TYPE integer USING (SELECT 1)`, adbc.StatusNotImplemented, `cannot use subquery in transform expression`},
 		{`ALTER TABLE it_at ALTER COLUMN c TYPE integer USING max(id)`, adbc.StatusInvalidArgument, `aggregate functions are not allowed in transform expressions`},
 		{`ALTER TABLE it_at ALTER COLUMN c TYPE text COLLATE "C"`, adbc.StatusInvalidArgument,
@@ -713,7 +713,7 @@ func TestSQLAlterType(t *testing.T) {
 		{`ALTER TABLE it_at ALTER COLUMN c TYPE bigint USING c::bigint, ALTER COLUMN c TYPE integer USING c::integer`, adbc.StatusNotImplemented,
 			`cannot alter type of column "c" twice`},
 		// Row 3's 'abc' doesn't convert: nothing changes.
-		{`ALTER TABLE it_at ALTER COLUMN c TYPE integer USING c::integer`, adbc.StatusInvalidArgument, `invalid decimal "abc"`},
+		{`ALTER TABLE it_at ALTER COLUMN c TYPE integer USING c::integer`, adbc.StatusInvalidData, `invalid decimal "abc"`},
 		{`ALTER TABLE it_at ALTER COLUMN v TYPE varchar(1)`, adbc.StatusInvalidData, `value too long for type character varying(1)`},
 	} {
 		h.expectQueryError(c.sql, c.code, c.msg)
@@ -745,7 +745,7 @@ func TestSQLAlterType(t *testing.T) {
 	if q, residual := h.pushedWhere(raw, `SELECT id FROM it_at WHERE c = 10`); !strings.Contains(q, "@c:[10 10]") || residual {
 		t.Errorf("WHERE c = 10: index query %q, residual %v", q, residual)
 	}
-	h.expectQueryError(`INSERT INTO it_at (id, c) VALUES (4, 'x')`, adbc.StatusInvalidArgument, `column "c": invalid decimal "x"`)
+	h.expectQueryError(`INSERT INTO it_at (id, c) VALUES (4, 'x')`, adbc.StatusInvalidData, `column "c": invalid decimal "x"`)
 	h.exec(`INSERT INTO it_at (id, c) VALUES (4, 12)`)
 	h.expectRows(`SELECT id, n FROM it_at WHERE c = 12`, "4|5")
 

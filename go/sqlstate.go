@@ -67,15 +67,18 @@ const (
 	stateSyntax              = "42601" // syntax_error
 	stateDuplicateColumn     = "42701" // duplicate_column
 	stateUndefinedColumn     = "42703" // undefined_column
+	stateGrouping            = "42803" // grouping_error
 	stateDatatypeMismatch    = "42804" // datatype_mismatch
 	stateCannotCoerce        = "42846" // cannot_coerce
 	stateUndefinedFunction   = "42883" // undefined_function
 	stateUndefinedObject     = "42704" // undefined_object
 	stateDuplicateObject     = "42710" // duplicate_object
 	stateUndefinedTable      = "42P01" // undefined_table
+	stateUndefinedParameter  = "42P02" // undefined_parameter
 	stateDuplicateSchema     = "42P06" // duplicate_schema
 	stateDuplicateTable      = "42P07" // duplicate_table
 	stateTableDefinition     = "42P16" // invalid_table_definition
+	stateWindowing           = "42P20" // windowing_error
 	stateQueryCanceled       = "57014" // query_canceled
 )
 

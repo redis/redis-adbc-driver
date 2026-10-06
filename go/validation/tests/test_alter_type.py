@@ -48,6 +48,7 @@ def test_alter_type(conn, table) -> None:
             'column "c" cannot be cast automatically to type integer;'
             ' you might need to specify "USING c::integer"'
         ) in str(e.value)
+        assert e.value.sqlstate == "42804"
     assert types(conn)["c"] == pyarrow.string()
 
     with conn.cursor() as cur:

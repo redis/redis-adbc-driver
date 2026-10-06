@@ -134,19 +134,19 @@ func (e *executor) alterType(ctx context.Context, m, orig *tableMeta, cmd AlterC
 			return invalidArg(err)
 		}
 		if !unknownLiteral(x) && !assignable(t, to) {
-			return errorf(adbc.StatusInvalidArgument, "result of USING clause for column %q cannot be cast automatically to type %s; you might need to add an explicit cast",
+			return stateErrorf(stateDatatypeMismatch, "result of USING clause for column %q cannot be cast automatically to type %s; you might need to add an explicit cast",
 				col.Name, pgTypeName(to, false))
 		}
 		using = x
 	} else if !assignable(src.Type, to) {
-		return errorf(adbc.StatusInvalidArgument, `column %q cannot be cast automatically to type %s; you might need to specify "USING %s::%s"`,
+		return stateErrorf(stateDatatypeMismatch, `column %q cannot be cast automatically to type %s; you might need to specify "USING %s::%s"`,
 			col.Name, pgTypeName(to, false), col.Name, pgTypeName(to, true))
 	}
 	// As Postgres: a second ALTER COLUMN … TYPE of the column fails if the
 	// first changed its type, and otherwise replaces it.
 	if k := slices.IndexFunc(res.altered, func(a *alteredColumn) bool { return a.field == col.field() }); k >= 0 {
 		if a := res.altered[k]; a.from != a.to {
-			return errorf(adbc.StatusNotImplemented, "cannot alter type of column %q twice", col.Name)
+			return stateErrorf(stateFeatureNotSupported, "cannot alter type of column %q twice", col.Name)
 		}
 		res.altered = slices.Delete(res.altered, k, k+1)
 	}
@@ -156,7 +156,7 @@ func (e *executor) alterType(ctx context.Context, m, orig *tableMeta, cmd AlterC
 		}
 	}
 	if d, ok := in.views[strings.ToLower(col.Name)]; ok {
-		return errorf(adbc.StatusNotImplemented, "cannot alter type of a column used by a view or rule; %s", d)
+		return stateErrorf(stateFeatureNotSupported, "cannot alter type of a column used by a view or rule; %s", d)
 	}
 	was := col.Type
 	col.Type = to
@@ -202,7 +202,7 @@ func (e *executor) alterTypeDefault(ctx context.Context, col columnMeta, to ColT
 		}
 	}
 	if !assignable(t, to) {
-		return errorf(adbc.StatusInvalidArgument, "default for column %q cannot be cast automatically to type %s", col.Name, pgTypeName(to, false))
+		return stateErrorf(stateDatatypeMismatch, "default for column %q cannot be cast automatically to type %s", col.Name, pgTypeName(to, false))
 	}
 	_, _, err = e.checkDefault(ctx, ColumnDef{Name: col.Name, Type: to, Default: x, DefaultText: col.Default})
 	return err
@@ -242,20 +242,20 @@ func (e *executor) bindUsing(ctx context.Context, orig *tableMeta, x Expr) (Expr
 		}
 		switch v := n.(type) {
 		case *Subquery:
-			err = errorf(adbc.StatusNotImplemented, "cannot use subquery in transform expression")
+			err = stateErrorf(stateFeatureNotSupported, "cannot use subquery in transform expression")
 		case *Param:
-			err = errorf(adbc.StatusInvalidArgument, "there is no parameter $%d", v.Index+1)
+			err = stateErrorf(stateUndefinedParameter, "there is no parameter $%d", v.Index+1)
 		case *WindowFunc:
-			err = errorf(adbc.StatusInvalidArgument, "window functions are not allowed in transform expressions")
+			err = stateErrorf(stateWindowing, "window functions are not allowed in transform expressions")
 		case *Func:
 			d, ok := lookupFunc(v.Name)
 			switch {
 			case aggregateFuncs[v.Name]:
-				err = errorf(adbc.StatusInvalidArgument, "aggregate functions are not allowed in transform expressions")
+				err = stateErrorf(stateGrouping, "aggregate functions are not allowed in transform expressions")
 			case v.Name == "GROUPING":
-				err = errorf(adbc.StatusInvalidArgument, "grouping operations are not allowed in transform expressions")
+				err = stateErrorf(stateGrouping, "grouping operations are not allowed in transform expressions")
 			case ok && d.kind == tableKind:
-				err = errorf(adbc.StatusNotImplemented, "set-returning functions are not allowed in transform expressions")
+				err = stateErrorf(stateFeatureNotSupported, "set-returning functions are not allowed in transform expressions")
 			}
 		}
 	})
@@ -687,7 +687,7 @@ func (rw *rewrite) convert(raw aggRow) ([]any, error) {
 	// the constraints.
 	for _, i := range rw.notNull {
 		if c := rw.target.Columns[i]; row[c.Name].Null {
-			return nil, errorf(adbc.StatusIntegrity, "column %q of relation %q contains null values", c.Name, rw.target.Name)
+			return nil, stateErrorf(stateNotNull, "column %q of relation %q contains null values", c.Name, rw.target.Name)
 		}
 	}
 	if rw.checks != nil {
@@ -696,7 +696,7 @@ func (rw *rewrite) convert(raw aggRow) ([]any, error) {
 			return nil, err
 		}
 		if i >= 0 {
-			return nil, errorf(adbc.StatusIntegrity, "check constraint %q of relation %q is violated by some row", rw.checks.meta.Checks[i].Name, rw.target.Name)
+			return nil, stateErrorf(stateCheck, "check constraint %q of relation %q is violated by some row", rw.checks.meta.Checks[i].Name, rw.target.Name)
 		}
 	}
 	fields := make([]any, 0, 2+2*len(raw))

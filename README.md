@@ -212,8 +212,8 @@ the Python exception:
 | `NOT NULL` and `CHECK` | `23502`, `23514` | `Integrity` | `IntegrityError` |
 | A table, view, column, function or schema that doesn't exist | `42P01`, `42703`, `42883`, `3F000` | `NotFound` | `ProgrammingError` |
 | A table, view, column, constraint or schema that already exists; a column named twice (in `INSERT` or a `PRIMARY KEY`) | `42P07`, `42701`, `42710`, `42P06` | `AlreadyExists` | `ProgrammingError` |
-| A syntax error; a table definition Postgres refuses (two primary keys, `DROP NOT NULL` of a key column); a type that never converts (`DATE` to `BOOLEAN`) | `42601`; `42P16`; `42846` in a cast, `42804` written to a column | `InvalidArgument` | `ProgrammingError` |
-| What Postgres doesn't support either (`DATE_BIN` by months, `EXTRACT(day FROM time)`) | `0A000` | `NotImplemented` | `NotSupportedError` |
+| A syntax error; a table definition Postgres refuses (two primary keys, `DROP NOT NULL` of a key column); a type that never converts (`DATE` to `BOOLEAN`) | `42601`; `42P16`; `42846` in a cast, `42804` written to a column or by `ALTER COLUMN … TYPE` | `InvalidArgument` | `ProgrammingError` |
+| What Postgres doesn't support either (`DATE_BIN` by months, `EXTRACT(day FROM time)`, `ALTER COLUMN … TYPE` of a column a view reads) | `0A000` | `NotImplemented` | `NotSupportedError` |
 | A cancel, or a Go deadline | `57014` | `Cancelled`, `Timeout` | `OperationalError` |
 
 - **Data exceptions** have Postgres's code for each case: `22P02` for text
@@ -232,8 +232,8 @@ the Python exception:
   arguments (`22013`, `22014`, `22016`), NULL object keys (`22004`) and
   SQL/JSON paths (`2203A`, `22033`, `22039`).
 - **Every path** gives them: queries (also while a streamed result is
-  read), `INSERT`, `UPDATE`, `MERGE`, `DEFAULT`s, bound parameters and bulk
-  ingest. A value written to a column has the column's name in front:
+  read), `INSERT`, `UPDATE`, `MERGE`, `ALTER COLUMN … TYPE`, `DEFAULT`s,
+  bound parameters and bulk ingest. A value written to a column has the column's name in front:
   `[redis] column "n": invalid decimal "x"`. `TRY_CAST` still returns NULL
   for a value that doesn't convert.
 - **Messages** are the driver's: only the SQLSTATE is Postgres's (`'abc'::int`
