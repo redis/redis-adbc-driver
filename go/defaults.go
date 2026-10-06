@@ -158,7 +158,7 @@ func (e *executor) checkDefault(ctx context.Context, def ColumnDef) (string, Val
 	}
 	cv, err := coerceIn(v, def.Type, e.zone())
 	if err != nil {
-		return "", Value{}, errorf(adbc.StatusInvalidArgument, "column %q: %v", def.Name, err)
+		return "", Value{}, columnErr(def.Name, err)
 	}
 	if cv, err = fitLength(def.Type, cv); err != nil {
 		return "", Value{}, err
@@ -215,7 +215,7 @@ func (d *columnDefaults) value(i int) (Value, error) {
 	}
 	cv, err := coerceIn(v, c.Type, d.env.zone())
 	if err != nil {
-		return Value{}, errorf(adbc.StatusInvalidArgument, "column %q: %v", c.Name, err)
+		return Value{}, columnErr(c.Name, err)
 	}
 	if !hasVolatile(d.exprs[i]) {
 		d.vals[i], d.done[i] = cv, true

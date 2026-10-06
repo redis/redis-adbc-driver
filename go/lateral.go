@@ -62,7 +62,7 @@ func (e *executor) addFromItem(ctx context.Context, jp *joinPlan, jc JoinClause)
 			return err
 		}
 		it := jp.items[len(jp.items)-1]
-		it.natural = jc.Natural
+		it.natural, it.comma = jc.Natural, jc.Comma
 		if jc.Columns != nil {
 			m, err := renameColumns(it.base, it.alias, jc.Columns)
 			if err != nil {
@@ -110,22 +110,27 @@ func (e *executor) addFromItem(ctx context.Context, jp *joinPlan, jc JoinClause)
 		return err
 	}
 	lat.need = sc.needs
-	if len(lat.need) > 0 && (jc.Kind == "RIGHT" || jc.Kind == "FULL") {
-		return errorf(adbc.StatusInvalidArgument,
-			"invalid reference to FROM-clause entry for table %q: the combining JOIN type must be INNER or LEFT for a LATERAL reference",
-			jp.readBy(lat.need))
+	if jc.Kind == "RIGHT" || jc.Kind == "FULL" {
+		// As in Postgres, it can't read its join's left side, the items
+		// since the last comma. Those before are allowed, which the driver
+		// doesn't implement (see checkIsolated).
+		if name := readBy(jp.items[jp.start(len(jp.items)-1):], lat.need); name != "" {
+			return errorf(adbc.StatusInvalidArgument,
+				"invalid reference to FROM-clause entry for table %q: the combining JOIN type must be INNER or LEFT for a LATERAL reference", name)
+		}
 	}
 	it, err := jp.add(jc.Kind, relation{name: alias, aliased: jc.Alias != "", meta: base})
 	if err != nil {
 		return err
 	}
-	it.lateral, it.natural = lat, jc.Natural
+	it.lateral, it.natural, it.comma = lat, jc.Natural, jc.Comma
 	return nil
 }
 
-// readBy returns the alias of the first join item one of cols belongs to.
-func (jp *joinPlan) readBy(cols map[string]bool) string {
-	for _, it := range jp.items {
+// readBy returns the alias of the first of items that one of cols belongs
+// to, "" if none.
+func readBy(items []*joinItem, cols map[string]bool) string {
+	for _, it := range items {
 		for c := range cols {
 			if strings.HasPrefix(c, it.prefix) {
 				return it.alias
@@ -177,11 +182,11 @@ func renameColumns(meta *tableMeta, alias string, cols []string) (*tableMeta, er
 	return &m, nil
 }
 
-// lateralJoin runs step k of a join, whose item is a LATERAL subquery or a
-// table function: it joins left (the rows joined so far) with the item's
-// rows for each of them, or, if the item reads no earlier item, with its
-// rows computed once.
-func (e *executor) lateralJoin(env *evalEnv, k int, st joinStep, it *joinItem, wp wherePlan, left []map[string]Value, pairs []equiPair, filters []Expr) ([]map[string]Value, error) {
+// lateralJoin runs a step of a join (first: the one that starts the rows
+// joined so far), whose item is a LATERAL subquery or a table function: it
+// joins left (the rows joined so far) with the item's rows for each of
+// them, or, if the item reads no earlier item, with its rows computed once.
+func (e *executor) lateralJoin(env *evalEnv, first bool, st joinStep, it *joinItem, wp wherePlan, left []map[string]Value, pairs []equiPair, filters []Expr) ([]map[string]Value, error) {
 	memo := map[string][]map[string]Value{}
 	if len(it.lateral.need) == 0 {
 		env.row = nil
@@ -189,7 +194,7 @@ func (e *executor) lateralJoin(env *evalEnv, k int, st joinStep, it *joinItem, w
 		if err != nil {
 			return nil, err
 		}
-		if k > 0 {
+		if !first {
 			return e.joinRows(env, st.kind, left, right, pairs, filters)
 		}
 		if len(st.conds) == 0 {

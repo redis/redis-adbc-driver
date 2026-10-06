@@ -149,7 +149,7 @@ func (e *executor) renameTable(ctx context.Context, meta *tableMeta, to TableNam
 	if exists, err := e.store.viewExists(ctx, meta.Schema, newName); err != nil {
 		return err
 	} else if exists {
-		return errorf(adbc.StatusAlreadyExists, "%q.%q already exists as a view", displaySchema(meta.Schema), newName)
+		return stateErrorf(stateDuplicateTable, "%q.%q already exists as a view", displaySchema(meta.Schema), newName)
 	}
 	if e.rekey {
 		if err := refuseAdopted(meta, "RENAME TO with "+OptionStringRenameRekey+" (which moves the rows to new keys)"); err != nil {
@@ -177,7 +177,7 @@ func (e *executor) renameTable(ctx context.Context, meta *tableMeta, to TableNam
 			if n, err := tx.Exists(ctx, newKey).Result(); err != nil {
 				return err
 			} else if n > 0 {
-				return errorf(adbc.StatusAlreadyExists, "table %q.%q already exists", displaySchema(meta.Schema), newName)
+				return stateErrorf(stateDuplicateTable, "table %q.%q already exists", displaySchema(meta.Schema), newName)
 			}
 			seq, err := tx.Get(ctx, oldSeq).Result()
 			if err != nil && err != goredis.Nil {
@@ -229,10 +229,10 @@ func (e *executor) renameColumn(ctx context.Context, meta *tableMeta, from, to s
 	return e.store.updateTable(ctx, meta.Schema, meta.Name, func(m *tableMeta) error {
 		i, ok := m.resolve(from)
 		if !ok {
-			return errorf(adbc.StatusNotFound, "column %q does not exist in table %q", from, m.Name)
+			return stateErrorf(stateUndefinedColumn, "column %q does not exist in table %q", from, m.Name)
 		}
 		if j, ok := m.resolve(to); ok && j != i {
-			return errorf(adbc.StatusAlreadyExists, "column %q already exists in table %q", to, m.Name)
+			return stateErrorf(stateDuplicateColumn, "column %q already exists in table %q", to, m.Name)
 		}
 		old := m.Columns[i].Name
 		m.Columns[i].Field = m.Columns[i].field()
@@ -666,9 +666,9 @@ func (e *executor) applyAlter(ctx context.Context, m *tableMeta, cmds []AlterCmd
 }
 
 // columnMissing is Postgres's error for an ALTER TABLE action on a column
-// that doesn't exist.
+// that doesn't exist (undefined_column).
 func columnMissing(column, table string) error {
-	return errorf(adbc.StatusNotFound, "column %q of relation %q does not exist", column, table)
+	return stateErrorf(stateUndefinedColumn, "column %q of relation %q does not exist", column, table)
 }
 
 // alterAddColumn applies ADD COLUMN, without the column's CHECKs (see
@@ -699,7 +699,7 @@ func (e *executor) alterAddColumn(ctx context.Context, m *tableMeta, cmd AlterCm
 			res.log("add %q: exists", def.Name)
 			return false, nil
 		}
-		return false, errorf(adbc.StatusAlreadyExists, "column %q of relation %q already exists", def.Name, m.Name)
+		return false, stateErrorf(stateDuplicateColumn, "column %q of relation %q already exists", def.Name, m.Name)
 	}
 	col := columnMeta{Name: def.Name, Type: def.Type, Nullable: !def.NotNull, Comment: def.Comment}
 	missing := false
@@ -834,7 +834,7 @@ func alterNotNull(m *tableMeta, cmd AlterCmd, res *alterResult) error {
 	col := &m.Columns[i]
 	set := cmd.Action == AlterSetNotNull
 	if !set && m.inKey(*col) {
-		return errorf(adbc.StatusInvalidArgument, "column %q is in a primary key", col.Name)
+		return stateErrorf(stateTableDefinition, "column %q is in a primary key", col.Name)
 	}
 	// The trace says whether the rows are checked, so that a column whose
 	// NOT NULL was dropped meanwhile isn't set without that.

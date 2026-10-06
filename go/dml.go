@@ -94,7 +94,8 @@ func (e *executor) planDMLJoin(ctx context.Context, table TableName, alias strin
 	if err != nil {
 		return nil, err
 	}
-	target.tag = targetTag
+	// UPDATE's and DELETE's target isn't part of the FROM items' joins.
+	target.tag, target.comma = targetTag, kind == "CROSS"
 	joined, rels := jp.finish()
 	joins := append(slices.Clone(from[1:]), JoinClause{Kind: kind, On: on})
 	return &dmlJoin{meta: meta, target: target, jp: jp, joined: joined, rels: rels, sel: &SelectStmt{Joins: joins}}, nil

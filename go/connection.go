@@ -225,7 +225,7 @@ func (c *connectionImpl) SetCurrentDbSchema(ctx context.Context, schema string) 
 		return err
 	}
 	if !ok {
-		return errorf(adbc.StatusNotFound, "schema %q does not exist", schema)
+		return stateErrorf(stateUndefinedSchema, "schema %q does not exist", schema)
 	}
 	c.sess.setSchema(schema)
 	return nil

@@ -80,7 +80,7 @@ func parseDecimal(s string) (*big.Int, int32, error) {
 	if i := strings.IndexAny(s, "eE"); i >= 0 {
 		e, err := strconv.ParseInt(s[i+1:], 10, 32)
 		if err != nil {
-			return nil, 0, fmt.Errorf("invalid decimal %q", s)
+			return nil, 0, stateErr(stateInvalidText, "invalid decimal %q", s)
 		}
 		exp = e
 		s = s[:i]
@@ -95,16 +95,16 @@ func parseDecimal(s string) (*big.Int, int32, error) {
 	intPart, frac, _ := strings.Cut(s, ".")
 	digits := intPart + frac
 	if digits == "" {
-		return nil, 0, fmt.Errorf("invalid decimal %q", s)
+		return nil, 0, stateErr(stateInvalidText, "invalid decimal %q", s)
 	}
 	for _, c := range digits {
 		if c < '0' || c > '9' {
-			return nil, 0, fmt.Errorf("invalid decimal %q", s)
+			return nil, 0, stateErr(stateInvalidText, "invalid decimal %q", s)
 		}
 	}
 	v, ok := new(big.Int).SetString(digits, 10)
 	if !ok {
-		return nil, 0, fmt.Errorf("invalid decimal %q", s)
+		return nil, 0, stateErr(stateInvalidText, "invalid decimal %q", s)
 	}
 	if neg {
 		v.Neg(v)
@@ -191,7 +191,7 @@ func convertUnit(v int64, from, to arrow.TimeUnit) (int64, error) {
 		mult := t / f
 		r := v * mult
 		if v != 0 && (r/mult != v) {
-			return 0, fmt.Errorf("value %d out of range for unit %s", v, unitNames[to])
+			return 0, stateErr(stateDatetimeRange, "value %d out of range for unit %s", v, unitNames[to])
 		}
 		return r, nil
 	}
@@ -226,7 +226,7 @@ func roundUnit(v int64, from, to arrow.TimeUnit, digits int, epoch int64) (int64
 	// q counts units of 10^-digits seconds, which `to` holds.
 	m := intPow10[precisionForUnit(to)-digits]
 	if q*m/m != q {
-		return 0, fmt.Errorf("value %d out of range for unit %s", v, unitNames[to])
+		return 0, stateErr(stateDatetimeRange, "value %d out of range for unit %s", v, unitNames[to])
 	}
 	return q * m, nil
 }
@@ -238,7 +238,7 @@ func secondsNanosToUnit(sec, nanos int64, unit arrow.TimeUnit) (int64, error) {
 	total := new(big.Int).Mul(big.NewInt(sec), big.NewInt(per))
 	total.Add(total, big.NewInt(floorDiv(nanos, 1_000_000_000/per)))
 	if !total.IsInt64() {
-		return 0, fmt.Errorf("timestamp out of range for unit %s", unitNames[unit])
+		return 0, stateErr(stateDatetimeRange, "timestamp out of range for unit %s", unitNames[unit])
 	}
 	return total.Int64(), nil
 }
@@ -267,22 +267,22 @@ func parseClock(s string) (sec int64, nanos int64, digits int, err error) {
 	clock, frac, _ := strings.Cut(s, ".")
 	parts := strings.Split(clock, ":")
 	if len(parts) < 2 || len(parts) > 3 {
-		return 0, 0, 0, fmt.Errorf("invalid time %q", s)
+		return 0, 0, 0, stateErr(stateDatetimeFormat, "invalid time %q", s)
 	}
 	var hms [3]int64
 	for i, p := range parts {
 		v, err := strconv.ParseInt(p, 10, 64)
 		if err != nil {
-			return 0, 0, 0, fmt.Errorf("invalid time %q", s)
+			return 0, 0, 0, stateErr(stateDatetimeFormat, "invalid time %q", s)
 		}
 		hms[i] = v
 	}
 	if hms[0] > 24 || hms[1] > 59 || hms[2] > 60 {
-		return 0, 0, 0, fmt.Errorf("invalid time %q", s)
+		return 0, 0, 0, stateErr(stateDatetimeRange, "invalid time %q", s)
 	}
 	nanos, digits, err = parseFraction(frac)
 	if err != nil {
-		return 0, 0, 0, fmt.Errorf("invalid time %q", s)
+		return 0, 0, 0, stateErr(stateDatetimeFormat, "invalid time %q", s)
 	}
 	return hms[0]*3600 + hms[1]*60 + hms[2], nanos, digits, nil
 }
@@ -305,8 +305,10 @@ func splitEra(s string) (string, bool) {
 // parseDatePrefix parses the YYYY-MM-DD that s starts with (four to seven
 // year digits; bc: a BC year, so 0001 is astronomical year 0) and returns
 // its days since the epoch and the text after it. As in Postgres there is no
-// year 0.
-func parseDatePrefix(s string, bc bool) (int64, string, bool) {
+// year 0. If s doesn't start with a date, bad is invalid_datetime_format
+// (22007); if the date's fields are out of range (February 30, year 0),
+// datetime_field_overflow (22008), as Postgres reports them.
+func parseDatePrefix(s string, bc bool) (days int64, rest, bad string) {
 	isDigit := func(i int) bool { return i < len(s) && s[i] >= '0' && s[i] <= '9' }
 	n := 0
 	for isDigit(n) {
@@ -314,29 +316,32 @@ func parseDatePrefix(s string, bc bool) (int64, string, bool) {
 	}
 	if n < 4 || n > 7 || len(s) < n+6 || s[n] != '-' || !isDigit(n+1) || !isDigit(n+2) || s[n+3] != '-' ||
 		!isDigit(n+4) || !isDigit(n+5) {
-		return 0, "", false
+		return 0, "", stateDatetimeFormat
 	}
 	y, _ := strconv.Atoi(s[:n])
 	m, _ := strconv.Atoi(s[n+1 : n+3])
 	d, _ := strconv.Atoi(s[n+4 : n+6])
 	if y == 0 {
-		return 0, "", false
+		return 0, "", stateDatetimeRange
 	}
 	if bc {
 		y = 1 - y
 	}
 	tm := time.Date(y, time.Month(m), d, 0, 0, 0, 0, time.UTC)
 	if tm.Year() != y || int(tm.Month()) != m || tm.Day() != d {
-		return 0, "", false
+		return 0, "", stateDatetimeRange
 	}
-	return floorDiv(tm.Unix(), 86400), s[n+6:], true
+	return floorDiv(tm.Unix(), 86400), s[n+6:], ""
 }
 
 func parseDateDays(s string) (int64, error) {
 	t, bc := splitEra(s)
-	days, rest, ok := parseDatePrefix(t, bc)
-	if !ok || rest != "" {
-		return 0, fmt.Errorf("invalid date %q", s)
+	days, rest, bad := parseDatePrefix(t, bc)
+	if bad == "" && rest != "" {
+		bad = stateDatetimeFormat
+	}
+	if bad != "" {
+		return 0, stateErr(bad, "invalid date %q", s)
 	}
 	return days, nil
 }
@@ -348,9 +353,9 @@ func parseDateDays(s string) (int64, error) {
 func parseTimestamp(s string) (sec, nanos int64, digits int, hasTZ bool, err error) {
 	s = strings.TrimSpace(s)
 	t, bc := splitEra(s)
-	days, rest, ok := parseDatePrefix(t, bc)
-	if !ok {
-		return 0, 0, 0, false, fmt.Errorf("invalid timestamp %q", s)
+	days, rest, bad := parseDatePrefix(t, bc)
+	if bad != "" {
+		return 0, 0, 0, false, stateErr(bad, "invalid timestamp %q", s)
 	}
 	rest = strings.TrimLeft(rest, " T")
 	offset := int64(0)
@@ -387,7 +392,7 @@ func parseTimestamp(s string) (sec, nanos int64, digits int, hasTZ bool, err err
 				m, err2 = strconv.ParseInt(mm, 10, 64)
 			}
 			if err1 != nil || err2 != nil {
-				return 0, 0, 0, false, fmt.Errorf("invalid timestamp %q", s)
+				return 0, 0, 0, false, stateErr(stateDatetimeFormat, "invalid timestamp %q", s)
 			}
 			offset = sign * (h*3600 + m*60)
 		default:
@@ -395,7 +400,7 @@ func parseTimestamp(s string) (sec, nanos int64, digits int, hasTZ bool, err err
 			// can't be written here.
 			z, zerr := resolveZone(tz)
 			if zerr != nil || strings.ContainsRune(tz, ',') {
-				return 0, 0, 0, false, fmt.Errorf("invalid timestamp %q", s)
+				return 0, 0, 0, false, stateErr(stateDatetimeFormat, "invalid timestamp %q", s)
 			}
 			hasTZ = true
 			// The zone's offset at that local time, with DST gaps and
@@ -404,7 +409,7 @@ func parseTimestamp(s string) (sec, nanos int64, digits int, hasTZ bool, err err
 			if rest != "" {
 				var cerr error
 				if clockSec, _, _, cerr = parseClock(rest); cerr != nil {
-					return 0, 0, 0, false, fmt.Errorf("invalid timestamp %q", s)
+					return 0, 0, 0, false, stateErr(sqlState(cerr), "invalid timestamp %q", s)
 				}
 			}
 			local := days*86400 + clockSec
@@ -415,7 +420,7 @@ func parseTimestamp(s string) (sec, nanos int64, digits int, hasTZ bool, err err
 	if rest != "" {
 		clockSec, nanos, digits, err = parseClock(rest)
 		if err != nil {
-			return 0, 0, 0, false, fmt.Errorf("invalid timestamp %q", s)
+			return 0, 0, 0, false, stateErr(sqlState(err), "invalid timestamp %q", s)
 		}
 	}
 	sec = days*86400 + clockSec - offset
@@ -510,7 +515,7 @@ func numberLiteral(text string) (Value, error) {
 	if strings.ContainsAny(text, "eE") {
 		f, err := strconv.ParseFloat(text, 64)
 		if err != nil {
-			return Value{}, fmt.Errorf("invalid number %q", text)
+			return Value{}, stateErr(stateInvalidText, "invalid number %q", text)
 		}
 		return floatValue(typeFloat64, f), nil
 	}
@@ -737,7 +742,15 @@ func coerceIn(v Value, t ColType, z tzZone) (Value, error) {
 		return nullValue(t), nil
 	}
 	fail := func() (Value, error) {
-		return Value{}, fmt.Errorf("cannot convert %s value %q to %s", v.T.Kind, v.textIn(z), t.SQLName())
+		// A value of a type that converts that doesn't fit (a DOUBLE past
+		// BIGINT's range, or NaN) is numeric_value_out_of_range, and one of a
+		// type that never converts (DATE to BOOLEAN) cannot_coerce, as in
+		// Postgres.
+		state := stateNumericRange
+		if !castable(v.T, t) {
+			state = stateCannotCoerce
+		}
+		return Value{}, stateErr(state, "cannot convert %s value %q to %s", v.T.Kind, v.textIn(z), t.SQLName())
 	}
 	// Parse strings into the target type first.
 	if v.T.Kind == KindString && t.Kind != KindString && t.Kind != KindBinary {
@@ -776,7 +789,7 @@ func coerceIn(v Value, t ColType, z tzZone) (Value, error) {
 		}
 		lo, hi := intRange(t.Kind)
 		if i < lo || i > hi {
-			return Value{}, fmt.Errorf("value %d out of range for %s", i, t.SQLName())
+			return Value{}, stateErr(stateNumericRange, "value %d out of range for %s", i, t.SQLName())
 		}
 		return intValue(t, i), nil
 	case KindFloat32, KindFloat64:
@@ -810,7 +823,7 @@ func coerceIn(v Value, t ColType, z tzZone) (Value, error) {
 		}
 		r := rescaleDecimal(d, scale, t.Scale)
 		if decimalDigits(r) > t.Precision && r.Sign() != 0 {
-			return Value{}, fmt.Errorf("value %s out of range for %s", formatDecimal(d, scale), t.SQLName())
+			return Value{}, stateErr(stateNumericRange, "value %s out of range for %s", formatDecimal(d, scale), t.SQLName())
 		}
 		return decimalValue(r, t.Precision, t.Scale), nil
 	case KindString:
@@ -949,7 +962,7 @@ func castable(from, to ColType) bool {
 // NUMERIC type t. NUMERIC values are fixed-point decimals here, which
 // Postgres's numeric NaN and ±Infinity don't fit.
 func numericSpecialError(f float64, t ColType) error {
-	return fmt.Errorf("cannot convert %s to %s: NUMERIC values can't be NaN or infinite", floatText(f, 64), t.SQLName())
+	return stateErr(stateNumericRange, "cannot convert %s to %s: NUMERIC values can't be NaN or infinite", floatText(f, 64), t.SQLName())
 }
 
 // parseString converts text into a value of the given type.
@@ -1010,7 +1023,7 @@ func parseStringIn(s string, t ColType, z tzZone) (Value, error) {
 	case KindTimeTZ:
 		return parseTimeTZ(trimmed, z)
 	}
-	return Value{}, fmt.Errorf("cannot convert %q to %s", s, t.SQLName())
+	return Value{}, stateErr(stateInvalidText, "cannot convert %q to %s", s, t.SQLName())
 }
 
 // ---- storage encoding ----

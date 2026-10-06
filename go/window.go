@@ -723,6 +723,7 @@ func computeWindowGroup(env *evalEnv, g *windowGroup, n int, setRow func(int)) e
 			keep[j] = make([]bool, n)
 		}
 	}
+	ptypes := keyTypes(g.spec.PartitionBy, env.types)
 	for i := 0; i < n; i++ {
 		if err := cancelled(env.ctx); err != nil {
 			return err
@@ -733,7 +734,7 @@ func computeWindowGroup(env *evalEnv, g *windowGroup, n int, setRow func(int)) e
 			if err != nil {
 				return err
 			}
-			pkeys[i*np+k] = v
+			pkeys[i*np+k] = keyAs(v, ptypes[k], ws.zone)
 		}
 		for k, o := range g.spec.OrderBy {
 			v, err := env.eval(o.Expr)
@@ -992,7 +993,7 @@ func (ws *windowSet) valueAt(c windowCall, args [][]Value, lo, hi []int, excl Fr
 				return err
 			}
 			if nth.I <= 0 {
-				return fmt.Errorf("argument of NTH_VALUE must be greater than zero")
+				return stateErr(stateNthValue, "argument of NTH_VALUE must be greater than zero")
 			}
 			k = int(min(nth.I, int64(len(ws.perm)+1)))
 		}
@@ -1063,7 +1064,7 @@ func (ws *windowSet) ntile(arg []Value, vals []Value) error {
 			return err
 		}
 		if b.I <= 0 {
-			return fmt.Errorf("argument of NTILE must be greater than zero")
+			return stateErr(stateNtile, "argument of NTILE must be greater than zero")
 		}
 		m := int64(pe - ps)
 		q, r := m/b.I, m%b.I
@@ -1185,12 +1186,12 @@ func (ws *windowSet) frameOffset(env *evalEnv, fr *WindowFrame, b FrameBound, wh
 		return Value{}, err
 	}
 	if v.Null {
-		return Value{}, fmt.Errorf("frame %s offset must not be null", which)
+		return Value{}, stateErr(stateNullNotAllowed, "frame %s offset must not be null", which)
 	}
 	negative := false
 	if fr.Unit != FrameRange {
 		if v, err = Coerce(v, typeInt64); err != nil {
-			return Value{}, fmt.Errorf("%s frame offsets must be integers: %v", frameUnitNames[fr.Unit], err)
+			return Value{}, fmt.Errorf("%s frame offsets must be integers: %w", frameUnitNames[fr.Unit], err)
 		}
 		negative = v.I < 0
 	} else {
@@ -1217,7 +1218,7 @@ func (ws *windowSet) frameOffset(env *evalEnv, fr *WindowFrame, b FrameBound, wh
 		}
 	}
 	if negative {
-		return Value{}, fmt.Errorf("frame %s offset must not be negative", which)
+		return Value{}, stateErr(stateFrameOffset, "frame %s offset must not be negative", which)
 	}
 	return v, nil
 }
@@ -1351,7 +1352,7 @@ func timeOffset(t, off Value, dir int) (Value, error) {
 	}
 	s := ns + d
 	if (d > 0 && s < ns) || (d < 0 && s > ns) {
-		return Value{}, fmt.Errorf("time out of range")
+		return Value{}, stateErr(stateDatetimeRange, "time out of range")
 	}
 	if t.T.Kind == KindTimeTZ {
 		// With t's offset, as Postgres's in_range for a time with time zone.
@@ -1500,7 +1501,7 @@ func (a *frameAgg) result() (Value, error) {
 		return nullValue(a.typ), nil
 	}
 	if a.name == "AVG" {
-		return floatValue(typeFloat64, a.sum.mean()), nil
+		return a.sum.meanValue(a.typ)
 	}
 	return a.sum.sumValue(a.typ)
 }

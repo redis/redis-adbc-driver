@@ -95,7 +95,7 @@ func (e *executor) runComment(ctx context.Context, st *CommentStmt) error {
 		if ok, err := e.store.schemaExists(ctx, schema); err != nil {
 			return err
 		} else if !ok {
-			return errorf(adbc.StatusNotFound, "schema %q does not exist", st.Table.Schema)
+			return stateErrorf(stateUndefinedSchema, "schema %q does not exist", st.Table.Schema)
 		}
 	}
 	return relationNotFound(st.Table)
@@ -112,7 +112,7 @@ func (st *CommentStmt) name() string {
 // relationNotFound is Postgres's error for a COMMENT ON a table or view that
 // doesn't exist.
 func relationNotFound(t TableName) error {
-	return errorf(adbc.StatusNotFound, "relation %q does not exist", t.String())
+	return stateErrorf(stateUndefinedTable, "relation %q does not exist", t.String())
 }
 
 // setComment sets the comment of a table or view (rel), whose comment and
@@ -124,7 +124,7 @@ func setComment(st *CommentStmt, comment *string, cols []columnMeta, rel string)
 	}
 	i, ok := resolveColumn(cols, st.Column)
 	if !ok {
-		return errorf(adbc.StatusNotFound, "column %q of relation %q does not exist", st.Column, rel)
+		return stateErrorf(stateUndefinedColumn, "column %q of relation %q does not exist", st.Column, rel)
 	}
 	cols[i].Comment = st.Text
 	return nil

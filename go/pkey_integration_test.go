@@ -184,7 +184,7 @@ func TestSQLPrimaryKeyCreate(t *testing.T) {
 		{`CREATE TABLE it_pk_bad (a integer primary key, primary key (a))`, adbc.StatusInvalidArgument, multiple},
 		{`CREATE TABLE it_pk_bad (a integer, b integer, primary key (a), primary key (b))`, adbc.StatusInvalidArgument, multiple},
 		{`CREATE TABLE it_pk_bad (a integer primary key primary key)`, adbc.StatusInvalidArgument, multiple},
-		{`CREATE TABLE it_pk_bad (a integer, primary key (a, a))`, adbc.StatusInvalidArgument, `column "a" appears twice in primary key constraint`},
+		{`CREATE TABLE it_pk_bad (a integer, primary key (a, a))`, adbc.StatusAlreadyExists, `column "a" appears twice in primary key constraint`},
 		{`CREATE TABLE it_pk_bad (a integer, primary key (nope))`, adbc.StatusNotFound, `column "nope" named in key does not exist`},
 		{`CREATE TABLE it_pk_bad (a integer, primary key (a, nope, a))`, adbc.StatusNotFound, `column "nope" named in key does not exist`},
 		{`CREATE TABLE it_pk_bad (a integer, primary key (nope), primary key (a))`, adbc.StatusNotFound, `column "nope" named in key does not exist`},
@@ -234,7 +234,7 @@ func TestSQLPrimaryKeyAlter(t *testing.T) {
 	h.exec(`ALTER TABLE it_pk_alt ADD COLUMN IF NOT EXISTS v integer PRIMARY KEY`)
 	h.expectQueryError(`ALTER TABLE it_pk_alt ADD PRIMARY KEY (nope)`, adbc.StatusNotFound,
 		`column "nope" of relation "it_pk_alt" does not exist`)
-	h.expectQueryError(`ALTER TABLE it_pk_alt ADD PRIMARY KEY (v, nope, v)`, adbc.StatusInvalidArgument,
+	h.expectQueryError(`ALTER TABLE it_pk_alt ADD PRIMARY KEY (v, nope, v)`, adbc.StatusAlreadyExists,
 		`column "v" appears twice in primary key constraint`)
 
 	// DROP NOT NULL refuses a column of the key, unless the key is dropped

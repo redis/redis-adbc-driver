@@ -104,6 +104,7 @@ def test_cancel_from_another_thread(conn, db_kwargs, table) -> None:
         assert len(errors) == 1, errors
         assert isinstance(errors[0], adbc_driver_manager.OperationalError), errors[0]
         assert errors[0].status_code == adbc_driver_manager.AdbcStatusCode.CANCELLED
+        assert errors[0].sqlstate == "57014", errors[0]
         assert open_cursors(uri, index) == before
 
         # Nothing is left to cancel.

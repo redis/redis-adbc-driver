@@ -40,16 +40,17 @@ func TestCancelled(t *testing.T) {
 	closeWith(errorf(adbc.StatusInvalidState, "the connection was closed while its result was being read"))
 
 	for _, c := range []struct {
-		name string
-		ctx  context.Context
-		code adbc.Status // 0: no error
-		msg  string
+		name  string
+		ctx   context.Context
+		code  adbc.Status // 0: no error
+		msg   string
+		state string // the SQLSTATE: query_canceled, as Postgres reports a cancel and a statement timeout
 	}{
-		{"nil", nil, 0, ""},
-		{"live", live, 0, ""},
-		{"cancelled", done, adbc.StatusCancelled, "[redis] the query was cancelled"},
-		{"past its deadline", past, adbc.StatusTimeout, "[redis] the query timed out"},
-		{"closed stream", closed, adbc.StatusInvalidState, "[redis] the connection was closed while its result was being read"},
+		{"nil", nil, 0, "", ""},
+		{"live", live, 0, "", ""},
+		{"cancelled", done, adbc.StatusCancelled, "[redis] the query was cancelled", "57014"},
+		{"past its deadline", past, adbc.StatusTimeout, "[redis] the query timed out", "57014"},
+		{"closed stream", closed, adbc.StatusInvalidState, "[redis] the connection was closed while its result was being read", ""},
 	} {
 		err := cancelled(c.ctx)
 		if c.code == 0 {
@@ -59,8 +60,8 @@ func TestCancelled(t *testing.T) {
 			continue
 		}
 		var ae adbc.Error
-		if !errors.As(err, &ae) || ae.Code != c.code || ae.Msg != c.msg {
-			t.Errorf("%s: got %#v, want %v %q", c.name, err, c.code, c.msg)
+		if !errors.As(err, &ae) || ae.Code != c.code || ae.Msg != c.msg || sqlState(err) != c.state {
+			t.Errorf("%s: got %#v, want %v %q (%s)", c.name, err, c.code, c.msg, c.state)
 		}
 	}
 }
@@ -75,22 +76,25 @@ func TestCancelStatus(t *testing.T) {
 		redis   adbc.Status // wrapRedis
 		arg     adbc.Status // invalidArg
 		message string      // wrapRedis's
+		state   string      // the SQLSTATE of both
 	}{
-		{context.Canceled, adbc.StatusCancelled, adbc.StatusCancelled, "[redis] failed to write rows: context canceled"},
-		{fmt.Errorf("pipeline: %w", context.Canceled), adbc.StatusCancelled, adbc.StatusCancelled, "[redis] failed to write rows: pipeline: context canceled"},
-		{context.DeadlineExceeded, adbc.StatusTimeout, adbc.StatusTimeout, "[redis] failed to write rows: context deadline exceeded"},
+		{context.Canceled, adbc.StatusCancelled, adbc.StatusCancelled, "[redis] failed to write rows: context canceled", "57014"},
+		{fmt.Errorf("pipeline: %w", context.Canceled), adbc.StatusCancelled, adbc.StatusCancelled, "[redis] failed to write rows: pipeline: context canceled", "57014"},
+		{context.DeadlineExceeded, adbc.StatusTimeout, adbc.StatusTimeout, "[redis] failed to write rows: context deadline exceeded", "57014"},
 		// A socket timeout stays IO (see timeout.go).
-		{socketTimeout, adbc.StatusIO, adbc.StatusInvalidArgument, "[redis] failed to write rows: read tcp: i/o timeout"},
-		{errors.New("ERR unknown command"), adbc.StatusIO, adbc.StatusInvalidArgument, "[redis] failed to write rows: ERR unknown command"},
+		{socketTimeout, adbc.StatusIO, adbc.StatusInvalidArgument, "[redis] failed to write rows: read tcp: i/o timeout", ""},
+		{errors.New("ERR unknown command"), adbc.StatusIO, adbc.StatusInvalidArgument, "[redis] failed to write rows: ERR unknown command", ""},
 		// An ADBC error is kept.
-		{errorf(adbc.StatusCancelled, "the rename was cancelled"), adbc.StatusCancelled, adbc.StatusCancelled, "[redis] the rename was cancelled"},
+		{stateErrorf(stateQueryCanceled, "the rename was cancelled"), adbc.StatusCancelled, adbc.StatusCancelled, "[redis] the rename was cancelled", "57014"},
+		// A value that doesn't convert has its SQLSTATE's status.
+		{stateErr(stateInvalidText, "invalid number %q", "x"), adbc.StatusInvalidData, adbc.StatusInvalidData, `[redis] failed to write rows: invalid number "x"`, "22P02"},
 	} {
 		var ae adbc.Error
-		if err := wrapRedis(c.err, "failed to write rows"); !errors.As(err, &ae) || ae.Code != c.redis || ae.Msg != c.message {
-			t.Errorf("wrapRedis(%v) = %#v, want %v %q", c.err, err, c.redis, c.message)
+		if err := wrapRedis(c.err, "failed to write rows"); !errors.As(err, &ae) || ae.Code != c.redis || ae.Msg != c.message || sqlState(err) != c.state {
+			t.Errorf("wrapRedis(%v) = %#v, want %v %q (%s)", c.err, err, c.redis, c.message, c.state)
 		}
-		if err := invalidArg(c.err); !errors.As(err, &ae) || ae.Code != c.arg {
-			t.Errorf("invalidArg(%v) = %#v, want %v", c.err, err, c.arg)
+		if err := invalidArg(c.err); !errors.As(err, &ae) || ae.Code != c.arg || sqlState(err) != c.state {
+			t.Errorf("invalidArg(%v) = %#v, want %v (%s)", c.err, err, c.arg, c.state)
 		}
 	}
 }

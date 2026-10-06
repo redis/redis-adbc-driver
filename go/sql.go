@@ -368,6 +368,10 @@ type JoinClause struct {
 	Lateral bool
 	Columns []string
 	Natural bool
+	// Comma marks an item after a comma (Kind CROSS). As in Postgres, it
+	// starts a new FROM-list item: the joins after it have it as their left
+	// side, not the items before it, as they would after CROSS JOIN.
+	Comma bool
 }
 
 type SelectStmt struct {
@@ -718,12 +722,14 @@ type token struct {
 	end  int    // byte offset just past the token
 }
 
-type sqlError struct{ msg string }
+// sqlError is an error in a statement, or in the data it reads, with its
+// SQLSTATE if the driver knows it (state; see sqlstate.go).
+type sqlError struct{ msg, state string }
 
 func (e *sqlError) Error() string { return e.msg }
 
 func syntaxErr(format string, args ...any) error {
-	return &sqlError{msg: "syntax error: " + fmt.Sprintf(format, args...)}
+	return &sqlError{msg: "syntax error: " + fmt.Sprintf(format, args...), state: stateSyntax}
 }
 
 func lex(src string) ([]token, error) {
@@ -1712,7 +1718,7 @@ func (p *parser) parseFromEntry() (JoinClause, error) {
 }
 
 // parseFromList parses the items of a FROM clause: the first item (with an
-// empty Kind), then any number of `, item`, `CROSS JOIN item`,
+// empty Kind), then any number of `, item` (Comma), `CROSS JOIN item`,
 // `[INNER | LEFT | RIGHT | FULL] [OUTER] JOIN item ON … | USING (…)` and
 // `NATURAL [INNER | LEFT | RIGHT | FULL] [OUTER] JOIN item`.
 func (p *parser) parseFromList() ([]JoinClause, error) {
@@ -1723,10 +1729,10 @@ func (p *parser) parseFromList() ([]JoinClause, error) {
 	items := []JoinClause{first}
 	for {
 		kind := ""
-		natural := false
+		natural, comma := false, false
 		switch {
 		case p.acceptOp(","):
-			kind = "CROSS"
+			kind, comma = "CROSS", true
 		case p.acceptKeyword("CROSS", "JOIN"):
 			kind = "CROSS"
 		case p.acceptKeyword("INNER", "JOIN"), p.acceptKeyword("JOIN"):
@@ -1759,7 +1765,7 @@ func (p *parser) parseFromList() ([]JoinClause, error) {
 		if err != nil {
 			return nil, err
 		}
-		jc.Kind, jc.Natural = kind, natural
+		jc.Kind, jc.Natural, jc.Comma = kind, natural, comma
 		if natural {
 			if p.isKeyword("ON") || p.isKeyword("USING") {
 				return nil, syntaxErr("NATURAL JOIN cannot have an ON or USING clause")
@@ -2127,7 +2133,7 @@ func (p *parser) parseColumnDef() (ColumnDef, error) {
 	}
 	ct, err := colTypeFromSQL(spec)
 	if err != nil {
-		return ColumnDef{}, &sqlError{msg: err.Error()}
+		return ColumnDef{}, parseErr(err)
 	}
 	col := ColumnDef{Name: name, Type: ct}
 	for {
@@ -2321,14 +2327,14 @@ func (p *parser) parseAlter() (Stmt, error) {
 			return st, nil
 		}
 		if p.peek().kind == tokEOF || p.isOp(";") {
-			return nil, &sqlError{msg: "syntax error at end of input"}
+			return nil, &sqlError{msg: "syntax error at end of input", state: stateSyntax}
 		}
 	}
 }
 
 // pgSyntaxErr is Postgres's message for a syntax error at a token.
 func pgSyntaxErr(tok string) error {
-	return &sqlError{msg: fmt.Sprintf(`syntax error at or near "%s"`, tok)}
+	return &sqlError{msg: fmt.Sprintf(`syntax error at or near "%s"`, tok), state: stateSyntax}
 }
 
 // parseAlterRename parses RENAME TO u or RENAME [COLUMN] a TO b.
@@ -3067,7 +3073,7 @@ func (p *parser) parseInterval() (Expr, error) {
 		if !isIntervalUnit(p.peek()) {
 			v, err := intervalLiteral(t.text)
 			if err != nil {
-				return nil, &sqlError{msg: err.Error()}
+				return nil, parseErr(err)
 			}
 			return &Literal{V: v}, nil
 		}
@@ -3079,7 +3085,7 @@ func (p *parser) parseInterval() (Expr, error) {
 			p.pos++
 			v, err := intervalLiteral(t.text)
 			if err != nil {
-				return nil, &sqlError{msg: err.Error()}
+				return nil, parseErr(err)
 			}
 			return &Literal{V: v}, nil
 		}
@@ -3544,7 +3550,7 @@ func (p *parser) parsePostfix(x Expr) (Expr, error) {
 		}
 		ct, err := colTypeFromSQL(spec)
 		if err != nil {
-			return nil, &sqlError{msg: err.Error()}
+			return nil, parseErr(err)
 		}
 		x = p.noteCast(&Cast{X: x, T: ct})
 	}
@@ -3721,7 +3727,7 @@ func (p *parser) parsePrimary() (Expr, error) {
 				}
 				ct, err := colTypeFromSQL(spec)
 				if err != nil {
-					return nil, &sqlError{msg: err.Error()}
+					return nil, parseErr(err)
 				}
 				return p.noteCast(&Cast{X: x, T: ct, OnError: onError}), nil
 			}
@@ -3764,7 +3770,7 @@ func (p *parser) parsePrimary() (Expr, error) {
 				p.pos++
 				ct, err := colTypeFromSQL(sqlTypeSpec{Name: upper, Params: params, WithTZ: withTZ})
 				if err != nil {
-					return nil, &sqlError{msg: err.Error()}
+					return nil, parseErr(err)
 				}
 				text := stringValue(s.text)
 				if ct.Kind == KindTimeTZ {
@@ -3783,7 +3789,7 @@ func (p *parser) parsePrimary() (Expr, error) {
 				}
 				v, err := Coerce(text, ct)
 				if err != nil {
-					return nil, &sqlError{msg: err.Error()}
+					return nil, parseErr(err)
 				}
 				return &Literal{V: v}, nil
 			}
@@ -3800,7 +3806,7 @@ func (p *parser) parsePrimary() (Expr, error) {
 					v, err = timestampLiteral(s.text, withTZ)
 				}
 				if err != nil {
-					return nil, &sqlError{msg: err.Error()}
+					return nil, parseErr(err)
 				}
 				if withTZ {
 					if _, _, _, hasTZ, _ := parseTimestamp(s.text); !hasTZ {

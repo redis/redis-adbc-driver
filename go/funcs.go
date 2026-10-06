@@ -613,7 +613,7 @@ func noSuchFunction(name string, star bool, types []ColType) error {
 	for _, t := range types {
 		names = append(names, sigTypeName(t))
 	}
-	return errorf(adbc.StatusInvalidArgument, "function %s(%s) does not exist", strings.ToLower(name), strings.Join(names, ", "))
+	return stateErrorf(stateUndefinedFunction, "function %s(%s) does not exist", strings.ToLower(name), strings.Join(names, ", "))
 }
 
 // inferArgTypes infers the types of a call's arguments for an error

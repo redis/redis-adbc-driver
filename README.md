@@ -192,8 +192,67 @@ with CANCELLED:
   first). A rename with `adbc.redis.rename_rekey` is rolled back.
 - **A Go context's deadline** fails the statement the same way, with
   TIMEOUT.
+- **SQLSTATE** `57014` (query_canceled) in both cases, as Postgres reports a
+  cancel and a statement timeout (see **Errors**).
 - **Earlier versions** (v0.0.11 and before) noticed a cancel only at the
   statement's next Redis command, which then failed with IO.
+
+**Errors**
+
+An error that Postgres has a SQLSTATE for carries the one Postgres 16
+reports for the same statement: `adbc.Error.SqlState` in Go,
+`AdbcError.sqlstate` in C, and `exc.sqlstate` in Python, whose
+`adbc_driver_manager` also ends the message with `SQLSTATE: 22P02`. The
+SQLSTATE sets the ADBC status, as it does in adbc-driver-postgresql, and so
+the Python exception:
+
+| Error | SQLSTATE | Status | Python |
+|-|-|-|-|
+| A value that doesn't convert or doesn't fit (`CAST('abc' AS INTEGER)`, `'2024-02-30'::date`, `1 / 0`, a value too long for its column) | class `22` | `InvalidData` | `DataError` |
+| `NOT NULL` and `CHECK` | `23502`, `23514` | `Integrity` | `IntegrityError` |
+| A table, view, column, function or schema that doesn't exist | `42P01`, `42703`, `42883`, `3F000` | `NotFound` | `ProgrammingError` |
+| A table, view, column, constraint or schema that already exists; a column named twice (in `INSERT` or a `PRIMARY KEY`) | `42P07`, `42701`, `42710`, `42P06` | `AlreadyExists` | `ProgrammingError` |
+| A syntax error; a table definition Postgres refuses (two primary keys, `DROP NOT NULL` of a key column); a type that never converts (`DATE` to `BOOLEAN`) | `42601`; `42P16`; `42846` in a cast, `42804` written to a column | `InvalidArgument` | `ProgrammingError` |
+| What Postgres doesn't support either (`DATE_BIN` by months, `EXTRACT(day FROM time)`) | `0A000` | `NotImplemented` | `NotSupportedError` |
+| A cancel, or a Go deadline | `57014` | `Cancelled`, `Timeout` | `OperationalError` |
+
+- **Data exceptions** have Postgres's code for each case: `22P02` for text
+  that isn't a number, boolean, JSON or array; `22003` for a number out of
+  its type's range (also an integer overflow, and NaN or infinity cast to
+  `NUMERIC`, which in Postgres overflow a `NUMERIC(p, s)`); `22007` for text
+  that isn't a date, time, time with time zone, timestamp or interval, or
+  doesn't match a `TO_DATE` pattern; `22008` for date and time fields or
+  results out of range (`'25:00'::time`, `MAKE_DATE(2024, 2, 30)`); `22009`
+  for a time zone offset out of range (`'10:00+16'::timetz`); `22012` for
+  division by zero; `22001` for a value too long; `22023` for an argument out of its
+  domain (an unknown time zone or `EXTRACT` field, `SPLIT_PART` position 0,
+  a zero `generate_series` step, `VARCHAR(0)`); `2201B` for a regular
+  expression that doesn't compile; and the codes of logarithms (`2201E`),
+  powers and square roots (`2201F`), substrings (`22011`), window function
+  arguments (`22013`, `22014`, `22016`), NULL object keys (`22004`) and
+  SQL/JSON paths (`2203A`, `22033`, `22039`).
+- **Every path** gives them: queries (also while a streamed result is
+  read), `INSERT`, `UPDATE`, `MERGE`, `DEFAULT`s, bound parameters and bulk
+  ingest. A value written to a column has the column's name in front:
+  `[redis] column "n": invalid decimal "x"`. `TRY_CAST` still returns NULL
+  for a value that doesn't convert.
+- **Messages** are the driver's: only the SQLSTATE is Postgres's (`'abc'::int`
+  is `invalid decimal "abc"`, where Postgres says `invalid input syntax for
+  type integer: "abc"`).
+- **No SQLSTATE yet:** the errors of the driver's own limits, and a few
+  others: `more than one row returned by a subquery used as an expression`
+  (`21000` in Postgres), an operator that doesn't exist (`42883`), `missing
+  FROM-clause entry for table "t"` (`42P01`), and a `SET` of an invalid
+  value (`22023`). They keep their status, mostly `InvalidArgument`.
+- **In Go,** `adbc.Error.Error()` ends with the SQLSTATE in parentheses:
+  `Invalid Data: [redis] division by zero (22012)`.
+- **Upgrading from v0.0.12 and earlier:** errors had no SQLSTATE, and a
+  value that didn't convert failed with `InvalidArgument`
+  (`ProgrammingError` in Python), unlike Postgres; only a value too long was
+  `InvalidData`. An unknown column or function was `InvalidArgument`, as
+  was a column named twice in `INSERT`; they are `NotFound` and
+  `AlreadyExists` now. `DATE_BIN` by months and `EXTRACT` of a field the
+  type doesn't have were `InvalidArgument`.
 
 **ACL users**
 
@@ -1322,7 +1381,7 @@ How SQL is executed:
 | `TRUNCATE` | Like `DROP TABLE` and `CREATE TABLE` with the same metadata: reserves a new key prefix and index name and runs `FT.CREATE` for each table, switches the metadata of every table of the statement to the new names in one `WATCH`/`MULTI` (which also releases the old names), then runs `FT.DROPINDEX <old> DD`, which deletes every row the old index knows about. Statements still writing to the table find out and fail (see "Key prefixes are never reused") |
 | `ALTER TABLE` | Metadata only (optimistic `WATCH`/`MULTI` on the table's metadata, one for all the actions of a statement), plus `FT.INFO` and one `FT.ALTER` for the added columns and a background `HDEL` pass for `DROP COLUMN`. `ADD COLUMN … DEFAULT` records a missing value instead of writing the rows. Adding a `CHECK` (`ADD COLUMN … CHECK`, `ADD CONSTRAINT … CHECK`) or a `NOT NULL` (`ALTER COLUMN … SET NOT NULL`, `ADD COLUMN … NOT NULL` without a default, and the columns of `ADD PRIMARY KEY`) first reads the columns they use from every row, with one `FT.AGGREGATE` cursor scan for all the statement's new constraints, to check them, and when it commits, the rows inserted since (by `__rowid`). With `adbc.redis.rename_rekey`, `RENAME TO` also creates the new name's index, copies every row the old index lists with pipelined `DUMP` / `RESTORE … REPLACE` (a cursor page at a time; one key per command, so it works on a cluster), switches the metadata in one transaction, then runs `FT.DROPINDEX <old> DD`. `ALTER COLUMN … TYPE` that converts values does the same under the table's own name: `FT.CREATE` of the new names' index with the new attributes, pipelined `HGETALL` of every row the old index lists and `HSET` of each converted row to its new key, one transaction to switch the metadata, then `FT.DROPINDEX <old> DD`; it also scans the views (`SMEMBERS` and `GET` of each one) to find those that read the column |
 | Views | `CREATE VIEW` plans the body without running it, which checks its tables, columns and function calls. Single-table views without GROUP BY/aggregates/window functions/LIMIT are expanded in place: the outer query's filters are rewritten over the base table and run in its index. Other views are computed once per query, like a derived table |
-| Joins | Each table's own WHERE/ON filters run in its index (except on the NULL-supplying side of an outer join). Inner joins are reordered to start from the table with the fewest matches (counted by the index). Equality conditions drive a hash join; when the next table's key is indexed and there are ≤ 1,000 distinct keys, only matching rows are fetched with an index union. The joined rows are then grouped/sorted in memory. `NATURAL JOIN` is an equality join on the common columns, like `USING`. An item whose `ON` can never be true (`ON false`), or that has no rows, isn't read when that settles the result: an inner join is then empty and reads no item, a `LEFT JOIN` keeps the left rows with NULLs for the item, and a `RIGHT JOIN` returns the item's rows without reading the items before it |
+| Joins | Each table's own WHERE/ON filters run in its index (except on the NULL-supplying side of an outer join). Inner joins are reordered to start from the table with the fewest matches (counted by the index). Equality conditions drive a hash join; when the next table's key is indexed and there are ≤ 1,000 distinct keys, only matching rows are fetched with an index union. The joined rows are then grouped/sorted in memory. `NATURAL JOIN` is an equality join on the common columns, like `USING`. An item whose `ON` can never be true (`ON false`), or that has no rows, isn't read when that settles the result: an inner join is then empty and reads no item, a `LEFT JOIN` keeps the left rows with NULLs for the item, and a `RIGHT JOIN` returns the item's rows without reading the items before it. A FROM-list item after a comma that has a `RIGHT` or `FULL` join is joined on its own, then cross joined with the rows of the items before the comma (see "Commas"), and `WHERE` conditions that read both are applied after that. An `ON` condition with a correlated subquery waits until every item it may read is joined (up to v0.0.12, in an inner join of three or more items it could run before, and `from a join b on true join c on exists (select … where … = c.x)` returned no rows) |
 | `UPDATE … FROM`, `DELETE … USING`, `MERGE` | The target is joined with the other items as above: its own filters (in WHERE, or in MERGE's ON) run in its index, and an equality on an indexed target column is an index lookup join, also through a no-op cast like dbt's `s.id::text = t.id::text`. `MERGE` is source `LEFT JOIN` target, or `FULL JOIN` with `WHEN NOT MATCHED BY SOURCE` clauses (which need every target row); `ON FALSE` reads the target only for those. Changes are then written by row key with pipelined `HSET`/`HDEL`/`DEL`, and new rows like `INSERT` does |
 | Anything the index can't answer exactly | Evaluated by the driver on rows fetched from the HASHes |
 
@@ -1949,9 +2008,10 @@ field, even if later rows have it.
     from 1 to 10485760.
   - **Writes:** a value longer than its column's length is an error, `value
     too long for type character varying(3)` (`character(3)` for `CHAR(3)`),
-    with ADBC status `InvalidData`, unless the characters beyond the length
-    are all spaces, which are cut (`'ab    '` is written to a `VARCHAR(3)` as
-    `'ab '`). Every write checks it: `INSERT … VALUES`, `INSERT … SELECT`,
+    with ADBC status `InvalidData` and SQLSTATE `22001` (see **Errors**),
+    unless the characters beyond the length are all spaces, which are cut
+    (`'ab    '` is written to a `VARCHAR(3)` as `'ab '`). Every write
+    checks it: `INSERT … VALUES`, `INSERT … SELECT`,
     `INSERT … DEFAULT VALUES`, `UPDATE` (also with `FROM`), both branches of
     `MERGE`, and bulk ingest. It is checked where `NOT NULL` and `CHECK` are,
     before them, so a statement with a failing row writes nothing (a bulk
@@ -2264,6 +2324,35 @@ field, even if later rows have it.
       u join w on w.id = t.id`, also from a subquery in it. `WHERE` reads
       the target, and so does `MERGE`'s `ON`, which joins it. Up to
       v0.0.12 such an `ON` read the target
+    - The same errors for a join's `ON` clause that reads a FROM item
+      outside its join, in any query: as in Postgres, it reads only the
+      join's two sides, the items from the last comma up to it (see
+      "Commas" below). `select * from a, b join c on c.x = a.x` is
+      `invalid reference to FROM-clause entry for table "a"; there is an
+      entry …` (`from a cross join b join c on c.x = a.x` works), an
+      unqualified column that only `a` has is `column "y" does not exist;
+      there is a column named "y" in table "a", …`, and `select * from a
+      join b on b.x = c.x join c on true` is `missing FROM-clause entry for
+      table "c"`, also from a subquery in the `ON`. Up to v0.0.12 an `ON`
+      read every FROM item of its query
+- **Commas** separate FROM-list items, as in Postgres: `a, b join c on …`
+  is `a` and `b join c on …`, while `a cross join b join c on …` is
+  `(a cross join b) join c on …`. So a join after a comma has only the
+  items since the comma on its left: its `ON` can't read `a` (above),
+  `USING` and `NATURAL JOIN` match the columns of `b`, not `a`, and a
+  `RIGHT` or `FULL` join keeps every row of `a`: `select * from a, b right
+  join d on d.x = b.x` is `a` cross joined with `b right join d`, so a row
+  of `d` that matches no `b` comes with each row of `a`. `SELECT *` lists
+  each FROM-list item's columns in turn. Up to v0.0.12 a comma was `CROSS
+  JOIN`: that query gave NULL for `a` in such a row, and `d`'s rows when
+  `a` had none, and `from a, e natural join c` joined `a` with `c` (or
+  failed with `common column name "x" appears more than once in left
+  table`). The `USING` errors are now Postgres's too: `column "x"
+  specified in USING clause does not exist in left table` (and `… right
+  table`), `common column name "x" appears more than once in left table`
+  and `column name "x" appears more than once in USING clause` (up to
+  v0.0.12: `USING column "x" is ambiguous`, `USING column "x" does not
+  exist in the left side of the join`, and `USING (x, x)` was accepted)
 - `FETCH FIRST n ROWS ONLY` is `LIMIT n` (`FETCH FIRST ROW ONLY` is `LIMIT
   1`); `WITH TIES` is not supported, and a query has at most one `LIMIT` or
   `FETCH` (Postgres's "multiple LIMIT clauses not allowed")
@@ -2292,6 +2381,26 @@ field, even if later rows have it.
     grouping expressions, matched as a whole (`GROUP BY ROLLUP (UPPER(s))`
     can select `UPPER(s)` but not `s`); this also applies to a plain `GROUP
     BY` that calls `GROUPING()`
+  - Values that compare equal are one group, as in Postgres: `INTERVAL '1
+    mon'` and `INTERVAL '30 days'`, `INTERVAL '1 day'` and `INTERVAL '24
+    hours'`, and a `DOUBLE PRECISION` `-0` (`-x` of a zero) and `0`. The
+    group shows the value of its first row read, which on a cluster can be
+    either. So do `SELECT DISTINCT` (which runs as `GROUP BY`), grouping
+    sets and `DISTINCT` in aggregates, as window partitions, `DISTINCT ON`,
+    set operations and joins already did
+  - A `CASE` or `COALESCE` of a number and a string literal gives values of
+    both kinds (`COALESCE(n, '0')` of an integer `n` is an integer, or the
+    string `'0'`; in Postgres `'0'` is an integer there). They group as the
+    expression's type shows them, so the `0` and the `'0'` are one group,
+    also for `DISTINCT` and window partitions
+  - **Upgrading from v0.0.12 and earlier:** `GROUP BY`, `SELECT DISTINCT`
+    over plain expressions and `DISTINCT` in aggregates told such values
+    apart by their text, so `1 mon` and `30 days` were two groups, and
+    `SUM(DISTINCT iv)` added both. `DISTINCT` in aggregates and window
+    partitions also told the `0` from the `'0'`. And two rows of several
+    values could be taken for one when they held NUL bytes (`BYTEA` values,
+    or text that was bound or ingested), in `GROUP BY`, `SELECT DISTINCT`,
+    set operations and window partitions
 - **Subqueries of a grouped query** (`GROUP BY`, or aggregates or `HAVING`
   without it) may read only its grouped columns, as in Postgres. That applies
   where the query computes a value per group: the SELECT list, `HAVING`,
@@ -2362,8 +2471,13 @@ field, even if later rows have it.
   `[LEFT] JOIN LATERAL … ON …`) reads the columns of the items before it; a
   table function reads them with or without `LATERAL`, as in Postgres. It
   runs once per distinct value of the columns it reads. `RIGHT` and `FULL`
-  joins can't have such a reference (Postgres's error), but are fine for a
-  `LATERAL` item that reads none
+  joins can't have such a reference to their left side (Postgres's error),
+  but are fine for a `LATERAL` item that reads none. Postgres also runs a
+  `LATERAL` item that reads the FROM-list items before the comma of a
+  `RIGHT` or `FULL` join's FROM-list item (see "Commas"), as in `from a,
+  b right join lateral (select a.x) s on true`; the driver doesn't (`a
+  LATERAL reference to "a" from a later FROM-list item with a RIGHT or FULL
+  JOIN is not implemented`)
 - `NATURAL [INNER | LEFT | RIGHT | FULL] JOIN` joins on the columns both
   sides have (a cross join if none). As in Postgres, `SELECT *` lists each
   common column once, first, then the left side's other columns and the
@@ -2481,6 +2595,15 @@ field, even if later rows have it.
   - `COUNT(*)`, `COUNT/SUM/AVG/MIN/MAX(x)`, `COUNT(DISTINCT x)`, and
     `COUNT(DISTINCT a, b, …)` (as in MySQL), which counts the distinct
     combinations of rows where none of them is NULL
+  - With `DISTINCT`, values that compare equal count once, as in Postgres
+    (see `GROUP BY`): `COUNT(DISTINCT iv)` of `INTERVAL '1 mon'`, `INTERVAL
+    '30 days'` and `INTERVAL '1 day'` is 2, and their `SUM(DISTINCT iv)` adds
+    the first of the two equal ones read: `1 mon 1 day` (on a cluster, maybe
+    `31 days`)
+  - Of values that compare equal, `MIN` and `MAX` return the last one, as
+    in Postgres: `MAX` of `INTERVAL '1 mon'` and then `INTERVAL '30 days'`
+    is `30 days`. Up to v0.0.12 they returned the first one, except as
+    window functions
   - `SUM`, `AVG` and the variances and standard deviations add their
     values exactly, whatever their type, also as window functions: every
     integer, decimal and double is a fraction whose denominator is a power
@@ -2503,6 +2626,26 @@ field, even if later rows have it.
     - Adding a value costs an integer addition, about 25 ns for a double
       (40 ns with the squares a variance needs), against 3–7 µs to read a
       row
+    - Intervals: `SUM` and `AVG` are `INTERVAL`s, as in Postgres. `SUM` adds
+      the months, days and time each on its own, without carrying one into
+      the next: `INTERVAL '1 mon'` + `INTERVAL '30 days'` is `1 mon 30
+      days`, and 20 and 5 hours are `25:00:00`. `AVG` divides that sum by
+      the count as Postgres's `interval / n` does: a fraction of a month
+      becomes days, 30 to a month, rounded to millionths of a day, one of a
+      day becomes time, and the time is rounded to microseconds, half to
+      even (`AVG` of `1 sec`, `0` and `0` is `00:00:00.333333`; the
+      driver's own `INTERVAL '1 sec' / 3` is `00:00:00.333333333`). Each
+      field is summed exactly, so only a total out of range is "interval
+      out of range", in any row order; Postgres adds the values one by one
+      and fails as soon as a running total is out of range, so the same
+      rows in another order can fail there. `SUM`'s time part has the
+      interval's range (about ±2,562,047 hours, see Intervals and date/time
+      arithmetic), while `AVG`'s sum may go up to Postgres's (microseconds
+      in 64 bits)
+    - **Upgrading from v0.0.12 and earlier:** `SUM` and `AVG` of an
+      interval returned a `DOUBLE PRECISION` 0 (so `TO_CHAR(SUM(iv), …)`
+      was `expected a date, time or timestamp, got float64`), also as window
+      functions
     - **Upgrading:** results of v0.0.7 and earlier can differ in their last
       digits: `SUM`, `AVG` and the variances of doubles, `AVG` of decimals,
       and `AVG` of integers whose sum is beyond 2^53. The new value is the
@@ -2569,9 +2712,9 @@ field, even if later rows have it.
   - `QUALIFY` filters on window results and may use output aliases
     (`QUALIFY ROW_NUMBER() OVER (PARTITION BY k ORDER BY ts DESC) = 1`)
   - Result types: `BIGINT` for `ROW_NUMBER`, `RANK`, `DENSE_RANK`, `NTILE` and
-    `COUNT`; `DOUBLE PRECISION` for `PERCENT_RANK`, `CUME_DIST` and `AVG`; the
-    argument's type for `MIN`, `MAX` and the offset functions; the other
-    aggregates as with `GROUP BY`
+    `COUNT`; `DOUBLE PRECISION` for `PERCENT_RANK`, `CUME_DIST` and `AVG`
+    (`INTERVAL` for intervals); the argument's type for `MIN`, `MAX` and the
+    offset functions; the other aggregates as with `GROUP BY`
   - As in `ORDER BY`, NULLs sort last by default in either direction
     (PostgreSQL puts them first for `DESC`). Rows that tie on the window's
     `ORDER BY` keep their input order
@@ -2613,8 +2756,11 @@ field, even if later rows have it.
   for it instead, and `CAST(x AS type DEFAULT v ON CONVERSION ERROR)` returns
   `v` (converted to the type). The result has the target type. An error
   while computing `x`, and a cast between types that never convert (`DATE`
-  to `BOOLEAN`), are still errors. A cast to `VARCHAR(n)` or `CHAR(n)` cuts
-  the text to `n` characters, and `CHAR(n)` pads it (see String lengths). A
+  to `BOOLEAN`), are still errors. A value that doesn't convert fails with
+  `InvalidData` and a class `22` SQLSTATE, and a cast between types that
+  never convert with `InvalidArgument` and `42846` (see **Errors**). A
+  cast to `VARCHAR(n)` or `CHAR(n)` cuts the text to `n` characters, and
+  `CHAR(n)` pads it (see String lengths). A
   cast to a `TIME(p)` or `TIMESTAMP(p)` of a lower precision rounds to `p`
   digits (see Fractional seconds under Types), and casts between `TIMESTAMP`,
   `TIMESTAMP WITH TIME ZONE`, `DATE`, `TIME` and text use the session time
@@ -3057,7 +3203,10 @@ field, even if later rows have it.
     n`, `interval / n`, `-interval`
   - Months follow the calendar and clamp to the end of the month
     (`TIMESTAMP '2024-01-31' + INTERVAL '1 month'` is Feb 29). Comparisons
-    treat a month as 30 days, so `INTERVAL '1 day' = INTERVAL '24 hours'`
+    treat a month as 30 days and a day as 24 hours, so `INTERVAL '1 mon' =
+    INTERVAL '30 days'` and `INTERVAL '1 day' = INTERVAL '24 hours'`, and so
+    do `ORDER BY`, `GROUP BY`, `DISTINCT`, joins and set operations, as in
+    Postgres (see `GROUP BY`)
   - A result outside its type's range is an error, as in Postgres, rather
     than wrapping. A `DATE` is an Arrow `date32` (5877642-06-23 BC, year
     -5877641, to 5881580-07-11): past it, `date ± integer`, `MAKE_DATE`,
@@ -3069,6 +3218,8 @@ field, even if later rows have it.
     months or days count beyond 32 bits, it is "interval out of range"
   - `AGE(a, b)` / `AGE(x)` (years, months, days and time), and `EXTRACT`
     and `TO_CHAR` on intervals
+  - `SUM`, `AVG`, `MIN` and `MAX` of intervals, also as window functions,
+    are intervals (see Aggregates)
   - Intervals are returned as Arrow `month_day_nano_interval`; Arrow
     interval and duration values can be bound and ingested
 - JSON stored as text in `VARCHAR` columns (there is no JSON column type).

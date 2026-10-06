@@ -26,9 +26,13 @@ package redis
 // shard answers first, and a window frame removes a value by subtracting
 // it, exactly. Adding a value costs an integer addition (and a shift or a
 // multiplication when it has a smaller unit than every value before it).
+//
+// Intervals are summed as Postgres adds them, field by field: months, days
+// and nanoseconds each have their own sum, in 128 bits, and none spills
+// into the next ('1 mon' + '30 days' is '1 mon 30 days'). SUM is that
+// interval, and AVG divides it by the count as Postgres's interval / n does.
 
 import (
-	"fmt"
 	"math"
 	"math/big"
 	"math/bits"
@@ -51,6 +55,8 @@ type exactSum struct {
 	scale             int32
 	t, t2             big.Int // the value being added, and its square
 	a, b, c, d        big.Int // scratch for results
+	// The sums of intervals' months, days and nanoseconds.
+	months, days, nanos wideInt
 }
 
 func (s *exactSum) reset() {
@@ -58,6 +64,7 @@ func (s *exactSum) reset() {
 	s.sum.SetInt64(0)
 	s.sq.SetInt64(0)
 	s.exp, s.scale = 0, 0
+	s.months, s.days, s.nanos = wideInt{}, wideInt{}, wideInt{}
 }
 
 // add adds a non-NULL value.
@@ -108,6 +115,11 @@ func (s *exactSum) update(v Value, remove bool) {
 		if sh := -int(sc) - s.exp; sh > 0 {
 			t.Lsh(t, uint(sh))
 		}
+	case k == KindInterval:
+		s.months.add(int64(v.Months), remove)
+		s.days.add(int64(v.Days), remove)
+		s.nanos.add(v.I, remove)
+		return
 	default:
 		// Doubles; other kinds count as 0, as they always have.
 		f, _ := v.asFloat()
@@ -257,19 +269,27 @@ func (s *exactSum) decimal(sc int32) *big.Int {
 
 // sumValue returns the sum as a value of type t: BIGINT (an error if it
 // doesn't fit), a decimal (with t's scale, or more places if the values
-// have them) or a double.
+// have them), an interval (an error if a field doesn't fit) or a double.
 func (s *exactSum) sumValue(t ColType) (Value, error) {
 	switch t.Kind {
+	case KindInterval:
+		m, okm := s.months.int64()
+		d, okd := s.days.int64()
+		ns, okns := s.nanos.int64()
+		if !okm || !okd || !okns {
+			return Value{}, stateErr(stateDatetimeRange, "interval out of range")
+		}
+		return intervalValue(m, d, ns)
 	case KindInt64:
 		if s.exp == 0 && s.scale == 0 {
 			if !s.sum.IsInt64() {
-				return Value{}, fmt.Errorf("integer overflow in SUM")
+				return Value{}, stateErr(stateNumericRange, "integer overflow in SUM")
 			}
 			return intValue(typeInt64, s.sum.Int64()), nil
 		}
 		d := s.decimal(0)
 		if !d.IsInt64() {
-			return Value{}, fmt.Errorf("integer overflow in SUM")
+			return Value{}, stateErr(stateNumericRange, "integer overflow in SUM")
 		}
 		return intValue(typeInt64, d.Int64()), nil
 	case KindDecimal:
@@ -277,6 +297,24 @@ func (s *exactSum) sumValue(t ColType) (Value, error) {
 		return decimalValue(s.decimal(sc), t.Precision, sc), nil
 	}
 	return floatValue(typeFloat64, s.float()), nil
+}
+
+// meanValue returns AVG of the values, of type t: an interval, or a double
+// (mean).
+func (s *exactSum) meanValue(t ColType) (Value, error) {
+	if t.Kind != KindInterval {
+		return floatValue(typeFloat64, s.mean()), nil
+	}
+	// As in Postgres, the sum must be an interval, with its time in
+	// microseconds in 64 bits (Postgres fails once a running total is out of
+	// range), and the mean is the sum / n.
+	m, okm := s.months.int64()
+	d, okd := s.days.int64()
+	us, okus := s.nanos.micros()
+	if !okm || !okd || !okus || m != int64(int32(m)) || d != int64(int32(d)) {
+		return Value{}, stateErr(stateDatetimeRange, "interval out of range")
+	}
+	return divideInterval(int32(m), int32(d), us, float64(s.n))
 }
 
 // variance returns the sample variance of the values (the population
@@ -429,4 +467,48 @@ func pow5(k int32) *big.Int {
 		return pow5s[k]
 	}
 	return new(big.Int).Exp(big.NewInt(5), big.NewInt(int64(k)), nil)
+}
+
+// wideInt is a 128-bit two's complement integer, a sum of int64s that can't
+// overflow.
+type wideInt struct {
+	hi int64
+	lo uint64
+}
+
+// add adds v, or subtracts it with sub.
+func (w *wideInt) add(v int64, sub bool) {
+	// v is (v >> 63, uint64(v)) in 128 bits.
+	var c uint64
+	if sub {
+		w.lo, c = bits.Sub64(w.lo, uint64(v), 0)
+		w.hi -= v>>63 + int64(c)
+	} else {
+		w.lo, c = bits.Add64(w.lo, uint64(v), 0)
+		w.hi += v>>63 + int64(c)
+	}
+}
+
+// int64 returns w, and whether it fits in an int64.
+func (w wideInt) int64() (int64, bool) {
+	n := int64(w.lo)
+	return n, w.hi == n>>63
+}
+
+// micros returns w / 1000 (nanoseconds as microseconds) as a double, and
+// whether its integer part fits in an int64.
+func (w wideInt) micros() (float64, bool) {
+	var q, r int64
+	if n, ok := w.int64(); ok {
+		q, r = n/1000, n%1000
+	} else {
+		b := new(big.Int).Lsh(big.NewInt(w.hi), 64)
+		b.Add(b, new(big.Int).SetUint64(w.lo))
+		bq, br := b.QuoRem(b, big.NewInt(1000), new(big.Int))
+		if !bq.IsInt64() {
+			return 0, false
+		}
+		q, r = bq.Int64(), br.Int64()
+	}
+	return float64(q) + float64(r)/1000, true
 }

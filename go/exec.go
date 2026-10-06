@@ -16,7 +16,6 @@ package redis
 
 import (
 	"context"
-	"errors"
 	"maps"
 	"slices"
 	"strings"
@@ -79,15 +78,11 @@ type execResult struct {
 	stream *streamReader
 }
 
+// invalidArg is the error of a statement as an adbc.Error: with its
+// SQLSTATE's status if it has one (a data exception is INVALID_DATA, see
+// sqlstate.go), and INVALID_ARGUMENT otherwise.
 func invalidArg(err error) error {
-	var ae adbc.Error
-	if errors.As(err, &ae) {
-		return err
-	}
-	if code, ok := ctxStatus(err); ok {
-		return errorf(code, "%v", err)
-	}
-	return errorf(adbc.StatusInvalidArgument, "%v", err)
+	return wrapErr(adbc.StatusInvalidArgument, err, "")
 }
 
 // resolveTable returns the schema and name a table or view is stored under.
@@ -114,7 +109,7 @@ func (e *executor) resolveTable(t TableName) (string, string, error) {
 		return e.store.tempSchema(), t.Name, nil
 	case isTempSchema(schema):
 		// Temporary schemas are only reachable as pg_temp by their owner.
-		return "", "", errorf(adbc.StatusNotFound, "table %q.%q does not exist", schema, t.Name)
+		return "", "", stateErrorf(stateUndefinedTable, "table %q.%q does not exist", schema, t.Name)
 	}
 	return schema, t.Name, nil
 }
@@ -428,7 +423,7 @@ func (e *executor) runCreateTableAs(ctx context.Context, st *CreateTableStmt) (i
 		for j, v := range row {
 			cv, err := coerceIn(v, meta.Columns[j].Type, e.zone())
 			if err != nil {
-				return 0, errorf(adbc.StatusInvalidArgument, "column %q: %v", meta.Columns[j].Name, err)
+				return 0, columnErr(meta.Columns[j].Name, err)
 			}
 			out[j] = cv
 		}
@@ -562,10 +557,10 @@ func insertTargets(meta *tableMeta, cols []string) ([]int, error) {
 	for _, name := range cols {
 		i, ok := meta.resolve(name)
 		if !ok {
-			return nil, errorf(adbc.StatusInvalidArgument, "column %q does not exist in table %q", name, meta.Name)
+			return nil, stateErrorf(stateUndefinedColumn, "column %q does not exist in table %q", name, meta.Name)
 		}
 		if slices.Contains(targets, i) {
-			return nil, errorf(adbc.StatusInvalidArgument, "column %q specified more than once", name)
+			return nil, stateErrorf(stateDuplicateColumn, "column %q specified more than once", name)
 		}
 		targets = append(targets, i)
 	}
@@ -590,7 +585,7 @@ func insertRow(env *evalEnv, meta *tableMeta, defs *columnDefaults, checks *tabl
 		col := meta.Columns[targets[j]]
 		cv, err := coerceIn(v, col.Type, env.zone())
 		if err != nil {
-			return nil, errorf(adbc.StatusInvalidArgument, "column %q: %v", col.Name, err)
+			return nil, columnErr(col.Name, err)
 		}
 		row[targets[j]], given[targets[j]] = cv, true
 	}
@@ -603,9 +598,10 @@ func insertRow(env *evalEnv, meta *tableMeta, defs *columnDefaults, checks *tabl
 	return row, nil
 }
 
-// notNullErr is Postgres's error for a NULL written to a NOT NULL column.
+// notNullErr is Postgres's error for a NULL written to a NOT NULL column
+// (not_null_violation).
 func notNullErr(column, table string) error {
-	return errorf(adbc.StatusIntegrity, "null value in column %q of relation %q violates not-null constraint", column, table)
+	return stateErrorf(stateNotNull, "null value in column %q of relation %q violates not-null constraint", column, table)
 }
 
 // checkNewRow checks a row to be inserted (ordered like meta.Columns)
@@ -653,7 +649,7 @@ func (e *executor) insertSelect(ctx context.Context, st *InsertStmt, meta *table
 			col := meta.Columns[targets[j]]
 			cv, err := coerceIn(v, col.Type, e.zone())
 			if err != nil {
-				return 0, errorf(adbc.StatusInvalidArgument, "column %q: %v", col.Name, err)
+				return 0, columnErr(col.Name, err)
 			}
 			row[targets[j]], given[targets[j]] = cv, true
 		}
@@ -1295,6 +1291,7 @@ type accumulator struct {
 	best     Value
 	has      bool
 	distinct map[string]bool
+	argTypes []ColType // of the arguments, for DISTINCT's keys (keyAs)
 	ext      aggState
 	in       []Value // input buffer (aggInput)
 }
@@ -1324,8 +1321,10 @@ func (a *accumulator) add(v Value) {
 			a.best, a.has = v, true
 			return
 		}
+		// Of values that compare equal ('1 day' and '24 hours'), the last
+		// one, as in Postgres (and the window frames, window.go).
 		c, ok := compareValues(v, a.best)
-		if ok && ((a.fn.Name == "MIN" && c < 0) || (a.fn.Name == "MAX" && c > 0)) {
+		if ok && ((a.fn.Name == "MIN" && c <= 0) || (a.fn.Name == "MAX" && c >= 0)) {
 			a.best = v
 		}
 	}
@@ -1342,9 +1341,9 @@ func (a *accumulator) result(env *evalEnv, t ColType) (Value, error) {
 		return intValue(typeInt64, a.count), nil
 	case "AVG":
 		if a.count == 0 {
-			return nullValue(typeFloat64), nil
+			return nullValue(t), nil
 		}
-		return floatValue(typeFloat64, a.sum.mean()), nil
+		return a.sum.meanValue(t)
 	case "SUM":
 		if a.count == 0 {
 			return nullValue(t), nil
@@ -1513,7 +1512,7 @@ func setTargets(meta *tableMeta, alias string, sets []SetClause) ([]int, error) 
 		}
 		idx, ok := meta.resolve(s.Column)
 		if !ok {
-			return nil, errorf(adbc.StatusInvalidArgument, "column %q does not exist in table %q", s.Column, meta.Name)
+			return nil, stateErrorf(stateUndefinedColumn, "column %q does not exist in table %q", s.Column, meta.Name)
 		}
 		cols[i] = idx
 	}
@@ -1533,7 +1532,7 @@ func setValues(env *evalEnv, meta *tableMeta, cols []int, sets []SetClause) ([]V
 		}
 		cv, err := coerceIn(v, col.Type, env.zone())
 		if err != nil {
-			return nil, errorf(adbc.StatusInvalidArgument, "column %q: %v", col.Name, err)
+			return nil, columnErr(col.Name, err)
 		}
 		if vals[i], err = fitLength(col.Type, cv); err != nil {
 			return nil, err

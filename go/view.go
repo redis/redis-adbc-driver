@@ -67,7 +67,7 @@ func viewKey(schema, name string) string { return metaPrefix + "view:" + tableKe
 func viewsKey(schema string) string      { return metaPrefix + "views:" + escapeKeyPart(schema) }
 
 func viewNotFound(schema, name string) error {
-	return errorf(adbc.StatusNotFound, "view %q.%q does not exist", displaySchema(schema), name)
+	return stateErrorf(stateUndefinedTable, "view %q.%q does not exist", displaySchema(schema), name)
 }
 
 func (s *store) getView(ctx context.Context, schema, name string) (*viewMeta, error) {
@@ -229,12 +229,12 @@ func (s *store) renameView(ctx context.Context, schema, name string, to TableNam
 			if n, err := tx.Exists(ctx, newKey).Result(); err != nil {
 				return err
 			} else if n > 0 {
-				return errorf(adbc.StatusAlreadyExists, "view %q.%q already exists", displaySchema(schema), newName)
+				return stateErrorf(stateDuplicateTable, "view %q.%q already exists", displaySchema(schema), newName)
 			}
 			if n, err := tx.Exists(ctx, tableKey).Result(); err != nil {
 				return err
 			} else if n > 0 {
-				return errorf(adbc.StatusAlreadyExists, "%q.%q already exists as a table", displaySchema(schema), newName)
+				return stateErrorf(stateDuplicateTable, "%q.%q already exists as a table", displaySchema(schema), newName)
 			}
 			v.Name = newName
 			out, err := json.Marshal(&v)
@@ -307,7 +307,7 @@ func (e *executor) runCreateView(ctx context.Context, st *CreateViewStmt, numPar
 	if exists, err := e.store.tableExists(ctx, schema, name); err != nil {
 		return err
 	} else if exists {
-		return errorf(adbc.StatusAlreadyExists, "%q.%q already exists as a table", displaySchema(schema), name)
+		return stateErrorf(stateDuplicateTable, "%q.%q already exists as a table", displaySchema(schema), name)
 	}
 	if exists, err := e.store.viewExists(ctx, schema, name); err != nil {
 		return err
@@ -315,7 +315,7 @@ func (e *executor) runCreateView(ctx context.Context, st *CreateViewStmt, numPar
 		if st.IfNotExists {
 			return nil
 		}
-		return errorf(adbc.StatusAlreadyExists, "view %q.%q already exists", displaySchema(schema), name)
+		return stateErrorf(stateDuplicateTable, "view %q.%q already exists", displaySchema(schema), name)
 	}
 	// Plan the body now, both to reject invalid views and to record the
 	// view's column names and types. A temporary view's unqualified names

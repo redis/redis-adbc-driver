@@ -35,7 +35,6 @@ package redis
 
 import (
 	"errors"
-	"fmt"
 	"regexp"
 	"regexp/syntax"
 	"strings"
@@ -96,9 +95,9 @@ func invalidRegexp(name string, err error, showExpr bool) error {
 		}
 	}
 	if name == "" {
-		return fmt.Errorf("invalid regular expression: %s", reason)
+		return stateErr(stateRegex, "invalid regular expression: %s", reason)
 	}
-	return fmt.Errorf("%s: invalid regular expression: %s", name, reason)
+	return stateErr(stateRegex, "%s: invalid regular expression: %s", name, reason)
 }
 
 // at returns the leftmost match that starts at byte offset pos or later, as
@@ -208,7 +207,7 @@ func regexpParam(name string, args []Value, i int, param string, def, min int64)
 		return 0, err
 	}
 	if n < min {
-		return 0, fmt.Errorf("%s: invalid value for parameter %q: %d", name, param, n)
+		return 0, stateErr(stateInvalidParameter, "%s: invalid value for parameter %q: %d", name, param, n)
 	}
 	return n, nil
 }
@@ -274,7 +273,7 @@ func regexpFunc(f *Func, args []Value) (Value, error) {
 			return Value{}, err
 		}
 		if endoption > 1 {
-			return Value{}, fmt.Errorf("%s: invalid value for parameter %q: %d", f.Name, "endoption", endoption)
+			return Value{}, stateErr(stateInvalidParameter, "%s: invalid value for parameter %q: %d", f.Name, "endoption", endoption)
 		}
 		flagsAt = 5
 	}
@@ -292,7 +291,7 @@ func regexpFunc(f *Func, args []Value) (Value, error) {
 		return Value{}, err
 	}
 	if fl.global {
-		return Value{}, fmt.Errorf("%s does not support the \"global\" option", f.Name)
+		return Value{}, stateErr(stateInvalidParameter, "%s does not support the \"global\" option", f.Name)
 	}
 	rs, err := compilePattern(f.Name, pattern, fl)
 	if err != nil {
@@ -457,14 +456,14 @@ func matchArray(s string, m []int) string {
 // The result is split at the escape-double-quote separators (outside
 // classes) into at most three parts.
 func similarParts(name, pattern, esc string) ([]string, error) {
-	fail := func(msg string) error {
+	fail := func(state, msg string) error {
 		if name == "" {
-			return errors.New(msg)
+			return stateErr(state, "%s", msg)
 		}
-		return fmt.Errorf("%s: %s", name, msg)
+		return stateErr(state, "%s: %s", name, msg)
 	}
 	if utf8.RuneCountInString(esc) > 1 {
-		return nil, fail("invalid escape string: it must be empty or one character")
+		return nil, fail(stateEscape, "invalid escape string: it must be empty or one character")
 	}
 	escR := rune(-1)
 	if esc != "" {
@@ -483,7 +482,7 @@ func similarParts(name, pattern, esc string) ([]string, error) {
 			afterEsc = false
 			if c == '"' && !inClass {
 				if len(parts) == 2 {
-					return nil, fail("SQL regular expression may not contain more than two escape-double-quote separators")
+					return nil, fail(stateEscapeUse, "SQL regular expression may not contain more than two escape-double-quote separators")
 				}
 				parts = append(parts, b.String())
 				b.Reset()

@@ -40,8 +40,6 @@ package redis
 // (1 BC), January, the 1st, midnight.
 
 import (
-	"errors"
-	"fmt"
 	"math"
 	"strings"
 	"time"
@@ -237,7 +235,7 @@ func readFromChar(s, format string) (*fromChar, error) {
 // (Postgres's from_char_set_int).
 func setField(dest *int, v int, name string) error {
 	if *dest != 0 && *dest != v {
-		return fmt.Errorf(`conflicting values for "%s" field in formatting string`, name)
+		return stateErr(stateDatetimeFormat, `conflicting values for "%s" field in formatting string`, name)
 	}
 	*dest = v
 	return nil
@@ -252,7 +250,7 @@ func (p *fcParser) field(k, extra int) error {
 		if f.mode == 0 {
 			f.mode = m
 		} else if f.mode != m {
-			return errors.New("invalid combination of date conventions")
+			return stateErr(stateDatetimeFormat, "invalid combination of date conventions")
 		}
 	}
 	// num reads a number into dest, the pattern's width wide.
@@ -305,7 +303,7 @@ func (p *fcParser) field(k, extra int) error {
 			f.us *= fracScale(n, 6)
 		}
 	case "TZ", "tz", "OF":
-		err = fmt.Errorf(`formatting field "%s" is only supported in to_char`, name)
+		err = stateErr(stateFeatureNotSupported, `formatting field "%s" is only supported in to_char`, name)
 	case "TZH":
 		// A sign, or a space for +. A '-' before the number that the
 		// format read as a separator is the sign too, if spaces were
@@ -490,20 +488,20 @@ func (p *fcParser) number(dest *int, width, k int) (int, error) {
 		v, p.i = strtol(p.s, start)
 	} else {
 		if len(rest) < width {
-			return 0, fmt.Errorf(`source string too short for "%s" formatting field`, name)
+			return 0, stateErr(stateDatetimeFormat, `source string too short for "%s" formatting field`, name)
 		}
 		var used int
 		v, used = strtol(rest[:width], 0)
 		if used > 0 && used < width {
-			return 0, fmt.Errorf(`invalid value "%s" for "%s"`, shown, name)
+			return 0, stateErr(stateDatetimeFormat, `invalid value "%s" for "%s"`, shown, name)
 		}
 		p.i += used
 	}
 	if p.i == start {
-		return 0, fmt.Errorf(`invalid value "%s" for "%s"`, shown, name)
+		return 0, stateErr(stateDatetimeFormat, `invalid value "%s" for "%s"`, shown, name)
 	}
 	if v < math.MinInt32 || v > math.MaxInt32 {
-		return 0, fmt.Errorf(`value for "%s" in source string is out of range`, name)
+		return 0, stateErr(stateDatetimeRange, `value for "%s" in source string is out of range`, name)
 	}
 	if dest != nil {
 		if err := setField(dest, int(v), name); err != nil {
@@ -526,7 +524,7 @@ func (p *fcParser) word(words []string, name string) (int, error) {
 	if j := strings.IndexAny(rest, " \t\n\r\f\v"); j >= 0 {
 		rest = rest[:j]
 	}
-	return 0, fmt.Errorf(`invalid value "%s" for "%s"`, rest, name)
+	return 0, stateErr(stateDatetimeFormat, `invalid value "%s" for "%s"`, rest, name)
 }
 
 func asciiEqualFold(a, b string) bool {
@@ -571,7 +569,7 @@ func (p *fcParser) yCommaYYY() error {
 			return nil
 		}
 	}
-	return errors.New(`invalid input string for "Y,YYY"`)
+	return stateErr(stateDatetimeFormat, `invalid input string for "Y,YYY"`)
 }
 
 // fromCharTime is the date and time that TO_DATE and TO_TIMESTAMP read.
@@ -633,7 +631,7 @@ func daysBeforeIn(y int) [13]int {
 // Postgres's do_to_timestamp.
 func (f *fromChar) result(s string) (fromCharTime, error) {
 	r := fromCharTime{mon: 1, mday: 1}
-	outOfRange := func() error { return fmt.Errorf(`date/time field value out of range: "%s"`, s) }
+	outOfRange := func() error { return stateErr(stateDatetimeRange, `date/time field value out of range: "%s"`, s) }
 	if f.ssss != 0 {
 		r.hour, r.min, r.sec = f.ssss/3600, f.ssss%3600/60, f.ssss%60
 	}
@@ -648,7 +646,7 @@ func (f *fromChar) result(s string) (fromCharTime, error) {
 	}
 	if f.clock12 {
 		if r.hour < 1 || r.hour > 12 {
-			return r, fmt.Errorf(`hour "%d" is invalid for the 12-hour clock`, r.hour)
+			return r, stateErr(stateDatetimeFormat, `hour "%d" is invalid for the 12-hour clock`, r.hour)
 		}
 		if f.pm != 0 && r.hour < 12 {
 			r.hour += 12
@@ -730,7 +728,7 @@ func (f *fromChar) result(s string) (fromCharTime, error) {
 	if ddd != 0 && (r.mon <= 1 || r.mday <= 1) {
 		// The day of the year sets the month and the day not given.
 		if r.year == 0 && f.bc == 0 {
-			return r, errors.New("cannot calculate day of year without year information")
+			return r, stateErr(stateDatetimeFormat, "cannot calculate day of year without year information")
 		}
 		if f.mode == fcISOWeek {
 			r.year, r.mon, r.mday = civilDate(isoWeekStart(r.year, 1) - 1 + int64(ddd))
@@ -765,7 +763,7 @@ func (f *fromChar) result(s string) (fromCharTime, error) {
 	r.usec = int(usec)
 	if f.tzsign != 0 {
 		if f.tzh < 0 || f.tzh > 15 || f.tzm < 0 || f.tzm > 59 {
-			return r, fmt.Errorf(`time zone displacement out of range: "%s"`, s)
+			return r, stateErr(stateTZDisplacement, `time zone displacement out of range: "%s"`, s)
 		}
 		r.hasOffset, r.offset = true, f.tzsign*(f.tzh*3600+f.tzm*60)
 	}
@@ -782,7 +780,7 @@ func toDate(s, format string) (Value, error) {
 	}
 	v, err := dateValue(civilDays(r.year, r.mon, r.mday))
 	if err != nil {
-		return Value{}, fmt.Errorf(`date out of range: "%s"`, s)
+		return Value{}, stateErr(stateDatetimeRange, `date out of range: "%s"`, s)
 	}
 	return v, nil
 }
@@ -811,7 +809,7 @@ func toTimestamp(s, format string, z tzZone, t ColType) (Value, error) {
 		v, err = fromTime(time.UnixMicro(us).UTC(), t)
 	}
 	if err != nil {
-		return Value{}, errors.New("timestamp out of range")
+		return Value{}, stateErr(stateDatetimeRange, "timestamp out of range")
 	}
 	return v, nil
 }

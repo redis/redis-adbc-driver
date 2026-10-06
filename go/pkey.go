@@ -51,8 +51,6 @@ import (
 	"fmt"
 	"slices"
 	"strings"
-
-	"github.com/apache/arrow-adbc/go/adbc"
 )
 
 // keyMeta is a PRIMARY KEY as the table metadata stores it: its name and
@@ -84,7 +82,7 @@ func (t *tableMeta) inKey(c columnMeta) bool {
 
 // multipleKeys is Postgres's error for a second primary key of a table.
 func multipleKeys(table string) error {
-	return errorf(adbc.StatusInvalidArgument, "multiple primary keys for table %q are not allowed", table)
+	return stateErrorf(stateTableDefinition, "multiple primary keys for table %q are not allowed", table)
 }
 
 // resolveKey resolves the columns of a new primary key of meta, in key
@@ -96,11 +94,11 @@ func resolveKey(meta *tableMeta, def KeyDef, inAlter bool) ([]int, error) {
 	for i, name := range def.Columns {
 		j, ok := meta.resolve(name)
 		if !ok && !inAlter {
-			return nil, errorf(adbc.StatusNotFound, "column %q named in key does not exist", name)
+			return nil, stateErrorf(stateUndefinedColumn, "column %q named in key does not exist", name)
 		}
 		// Column names are unique regardless of case.
 		if slices.ContainsFunc(def.Columns[:i], func(o string) bool { return strings.EqualFold(o, name) }) {
-			return nil, errorf(adbc.StatusInvalidArgument, "column %q appears twice in primary key constraint", name)
+			return nil, stateErrorf(stateDuplicateColumn, "column %q appears twice in primary key constraint", name)
 		}
 		cols[i] = j
 	}
@@ -119,7 +117,7 @@ func keyName(meta *tableMeta, name string) (string, error) {
 	}
 	if name != "" {
 		if used(name) {
-			return "", errorf(adbc.StatusAlreadyExists, "constraint %q for relation %q already exists", name, meta.Name)
+			return "", stateErrorf(stateDuplicateObject, "constraint %q for relation %q already exists", name, meta.Name)
 		}
 		return name, nil
 	}

@@ -216,7 +216,7 @@ func (e *executor) rekeyTable(ctx context.Context, meta *tableMeta, to string) e
 		case job.lease.ctx.Err() != nil:
 			err = errLostRekey
 		case ctx.Err() != nil:
-			err = errorf(adbc.StatusCancelled, "the rename was cancelled")
+			err = stateErrorf(stateQueryCanceled, "the rename was cancelled")
 		}
 		// Roll back (or, if the switch did happen, finish). If that fails
 		// too, another connection does it once the lease has expired.
@@ -293,7 +293,7 @@ func (s *store) beginMove(ctx context.Context, schema, from, to string, rewrite 
 				if n, err := tx.Exists(ctx, newKey).Result(); err != nil {
 					return err
 				} else if n > 0 {
-					return errorf(adbc.StatusAlreadyExists, "table %q.%q already exists", displaySchema(schema), to)
+					return stateErrorf(stateDuplicateTable, "table %q.%q already exists", displaySchema(schema), to)
 				}
 			}
 			// Pin the physical names, as a plain rename does.
@@ -680,12 +680,12 @@ func (s *store) switchRekey(ctx context.Context, job *rekeyJob, start *tableMeta
 			if n, err := tx.Exists(ctx, newKey).Result(); err != nil {
 				return err
 			} else if n > 0 {
-				return errorf(adbc.StatusAlreadyExists, "table %q.%q already exists", displaySchema(schema), job.To)
+				return stateErrorf(stateDuplicateTable, "table %q.%q already exists", displaySchema(schema), job.To)
 			}
 			if n, err := tx.Exists(ctx, viewKey(schema, job.To)).Result(); err != nil {
 				return err
 			} else if n > 0 {
-				return errorf(adbc.StatusAlreadyExists, "%q.%q already exists as a view", displaySchema(schema), job.To)
+				return stateErrorf(stateDuplicateTable, "%q.%q already exists as a view", displaySchema(schema), job.To)
 			}
 			// An ADD COLUMN that read the metadata before step 1 may have
 			// added an attribute to the old index since.
