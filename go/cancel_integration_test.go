@@ -16,6 +16,9 @@ package redis
 
 import (
 	"context"
+	"fmt"
+	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -27,10 +30,11 @@ import (
 // fail. Each query below takes several seconds uncancelled.
 const cancelLag = time.Second
 
-// runCancelled runs sql (with update, as ExecuteUpdate) with a context
-// cancelled after delay. It returns the error and how long after the cancel
-// the statement returned.
-func (h *sqlHarness) runCancelled(sql string, update bool, delay time.Duration) (time.Duration, error) {
+// runCancelled runs sql (with update, as ExecuteUpdate) with a context that
+// arm cancels: arm gets the cancel function and returns one that disarms it
+// once the statement has returned. It returns the error and how long after
+// the cancel the statement returned.
+func (h *sqlHarness) runCancelled(sql string, update bool, arm func(cancel func()) (disarm func())) (time.Duration, error) {
 	h.t.Helper()
 	st, err := h.conn.NewStatement(h.ctx)
 	if err != nil {
@@ -43,10 +47,10 @@ func (h *sqlHarness) runCancelled(sql string, update bool, delay time.Duration) 
 	ctx, cancel := context.WithCancel(h.ctx)
 	defer cancel()
 	cancelledAt := make(chan time.Time, 1)
-	timer := time.AfterFunc(delay, func() {
+	disarm := arm(sync.OnceFunc(func() {
 		cancelledAt <- time.Now()
 		cancel()
-	})
+	}))
 	if update {
 		_, err = st.ExecuteUpdate(ctx)
 	} else {
@@ -56,12 +60,32 @@ func (h *sqlHarness) runCancelled(sql string, update bool, delay time.Duration) 
 		}
 	}
 	end := time.Now()
-	timer.Stop()
+	disarm()
 	select {
 	case at := <-cancelledAt:
 		return max(end.Sub(at), 0), err
 	default:
 		return 0, err // returned before the cancel
+	}
+}
+
+// cancelAfter cancels a statement once d has passed.
+func cancelAfter(d time.Duration) func(cancel func()) func() {
+	return func(cancel func()) func() {
+		timer := time.AfterFunc(d, cancel)
+		return func() { timer.Stop() }
+	}
+}
+
+// expectCancelled checks that a statement run by runCancelled failed with
+// CANCELLED within cancelLag of the cancel.
+func expectCancelled(t *testing.T, lag time.Duration, err error) {
+	t.Helper()
+	if !isStatus(err, adbc.StatusCancelled) {
+		t.Fatalf("got %v, want CANCELLED", err)
+	}
+	if lag > cancelLag {
+		t.Errorf("failed %v after the cancel, want under %v: %v", lag, cancelLag, err)
 	}
 }
 
@@ -80,7 +104,6 @@ func TestSQLCancel(t *testing.T) {
 		name   string
 		sql    string
 		update bool
-		delay  time.Duration
 	}{
 		{name: "where", sql: "select g from generate_series(1, 1000000) as s(g) where length(repeat(cast(g as varchar), 1000)) < 0"},
 		{name: "aggregate", sql: "select sum(length(repeat(cast(g as varchar), 2000))) from generate_series(1, 500000) as s(g)"},
@@ -97,23 +120,36 @@ func TestSQLCancel(t *testing.T) {
 		{name: "recursive", sql: "with recursive r(n) as (select g from generate_series(1, 500) as s(g) union all select n + 1 from r where n < 2200) select count(*) from r"},
 		{name: "correlated subquery", sql: "select sum((select count(*) from generate_series(1, 3000) as b(h) where b.h < a.g)) from generate_series(1, 3000) as a(g)"},
 		{name: "update", update: true, sql: "update cancel_small set id = id + (select count(*) from generate_series(1, 200000) as b(h) where b.h < cancel_small.id)"},
-		// Cancelled while it writes the rows: those written stay.
-		{name: "create table as", update: true, delay: time.Second, sql: "create table cancel_ctas as select g from generate_series(1, 300000) as s(g)"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			d := c.delay
-			if d == 0 {
-				d = delay
-			}
-			lag, err := h.runCancelled(c.sql, c.update, d)
-			if !isStatus(err, adbc.StatusCancelled) {
-				t.Fatalf("got %v, want CANCELLED", err)
-			}
-			if lag > cancelLag {
-				t.Errorf("failed %v after the cancel, want under %v: %v", lag, cancelLag, err)
-			}
+			lag, err := h.runCancelled(c.sql, c.update, cancelAfter(delay))
+			expectCancelled(t, lag, err)
 		})
 	}
+
+	// Cancelled once it has written its first pipeline of rows, which a
+	// fixed delay can miss on a fast machine: its next command fails
+	// (go-redis), and the rows written stay.
+	t.Run("create table as", func(t *testing.T) {
+		const rows = 300000
+		written := 0
+		lag, err := h.runCancelled(fmt.Sprintf("create table cancel_ctas as select g from generate_series(1, %d) as s(g)", rows), true, func(cancel func()) func() {
+			testHookRowsWritten = func(meta *tableMeta, n int) {
+				if meta.Name == "cancel_ctas" && written == 0 {
+					written = n
+					cancel()
+				}
+			}
+			return func() { testHookRowsWritten = nil }
+		})
+		expectCancelled(t, lag, err)
+		if written >= rows {
+			t.Fatalf("cancelled after %d of %d rows were written, want part-way through", written, rows)
+		}
+		if got, _ := h.query("select count(*) from cancel_ctas"); len(got) != 1 || got[0] != strconv.Itoa(written) {
+			t.Errorf("rows: got %v, want %d", got, written)
+		}
+	})
 
 	// go-redis fails a command with a cancelled context at once.
 	t.Run("redis command", func(t *testing.T) {
