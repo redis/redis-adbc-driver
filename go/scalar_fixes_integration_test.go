@@ -120,7 +120,7 @@ func TestScalarFixesTryCast(t *testing.T) {
 		FROM it_sf_raw ORDER BY id`,
 		"1|42|2000-01-01|42", "2|-1|2000-01-01|20", "3|-1|2000-01-01|30", "4|NULL|NULL|NULL", "5|12|2000-01-01|12")
 	expectTypes(t, schema, sfInt32, sfInt32, sfDate, sfInt32)
-	h.expectError(`SELECT CAST('x' AS INTEGER DEFAULT 'y' ON CONVERSION ERROR)`, `invalid decimal "y"`)
+	h.expectError(`SELECT CAST('x' AS INTEGER DEFAULT 'y' ON CONVERSION ERROR)`, `invalid input syntax for type integer: "y"`)
 	h.expectError(`SELECT CAST('x' AS INTEGER DEFAULT 0)`, "expected ON CONVERSION ERROR")
 	h.expectError(`SELECT TRY_CAST('1' AS INTEGER DEFAULT 0 ON CONVERSION ERROR)`, `expected ")"`)
 
@@ -136,8 +136,8 @@ func TestScalarFixesTryCast(t *testing.T) {
 	h.expectError(`SELECT TRY_CAST(n / (n - n) AS INTEGER) FROM it_sf_raw`, "division by zero")
 	h.expectError(`SELECT TRY_CAST(DATE '2024-01-01' AS BOOLEAN)`, "cannot convert")
 	h.expectError(`SELECT SAFE_CAST(id AS DATE) FROM it_sf_raw`, "cannot convert")
-	h.expectError(`SELECT CAST('x' AS INTEGER)`, `invalid decimal "x"`)
-	h.expectError(`SELECT 'x'::INTEGER`, `invalid decimal "x"`)
+	h.expectError(`SELECT CAST('x' AS INTEGER)`, `invalid input syntax for type integer: "x"`)
+	h.expectError(`SELECT 'x'::INTEGER`, `invalid input syntax for type integer: "x"`)
 	h.expectError(`SELECT CAST(100000 AS SMALLINT)`, "out of range")
 }
 
