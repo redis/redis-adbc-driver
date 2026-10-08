@@ -1,8 +1,10 @@
 # Redis Software: SQL/Arrow and QPF, October 8, 2026
 
-This is the primary README performance snapshot. It measures the complete
-ADBC SQL execution and Arrow fetch on Redis Software, including the client
-work that QPF cannot accelerate.
+This report preserves the single-client QPF latency comparison and the
+concurrent QPF throughput experiment. The primary README latency table now
+uses the [driver worker-scaling experiment](../../workers/2026-10-08/README.md).
+Both measure complete ADBC SQL execution and Arrow fetch on Redis Software,
+including the client work that QPF cannot accelerate.
 
 ## Environment
 
