@@ -1610,6 +1610,7 @@ func (e *executor) driverAggregate(ctx context.Context, plan *selectPlan, wp whe
 			return nil, invalidArg(err)
 		}
 	}
+	inputs := compileAggregateInputs(aggs, types)
 	type group struct {
 		rep  map[string]Value
 		accs []*accumulator
@@ -1649,8 +1650,15 @@ func (e *executor) driverAggregate(ctx context.Context, plan *selectPlan, wp whe
 				groups[key.String()] = g
 				order = append(order, key.String())
 			}
-			for _, acc := range g.accs {
-				if err := acc.addRow(env); err != nil {
+			inputs.nextRow()
+			for i, acc := range g.accs {
+				if root := inputs.roots[i]; root >= 0 {
+					v, err := inputs.value(root, vals)
+					if err != nil {
+						return invalidArg(err)
+					}
+					acc.add(v)
+				} else if err := acc.addRow(env); err != nil {
 					return invalidArg(err)
 				}
 			}

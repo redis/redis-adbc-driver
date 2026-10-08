@@ -1,0 +1,10 @@
+=== RUN   TestAggregateInputLoadProfile
+    aggregate_inputs_bench_test.go:135: LOAD_PROFILE {"allocated_bytes":226590768,"allocations":2100233,"rows":100000,"seconds":0.375840209}
+--- PASS: TestAggregateInputLoadProfile (0.38s)
+=== RUN   TestAggregateInputLoadProfile
+    aggregate_inputs_bench_test.go:135: LOAD_PROFILE {"allocated_bytes":226569136,"allocations":2100205,"rows":100000,"seconds":0.355485}
+--- PASS: TestAggregateInputLoadProfile (0.36s)
+=== RUN   TestAggregateInputLoadProfile
+    aggregate_inputs_bench_test.go:135: LOAD_PROFILE {"allocated_bytes":226569456,"allocations":2100208,"rows":100000,"seconds":0.360936958}
+--- PASS: TestAggregateInputLoadProfile (0.37s)
+PASS
