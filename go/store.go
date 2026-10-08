@@ -1769,6 +1769,12 @@ func (s *store) writeRows(ctx context.Context, meta *tableMeta, a rowAlloc, rows
 		return 0, nil
 	}
 	prefix := meta.prefix()
+	// Box each stable field name once per batch; copying the interface into
+	// each HASH command avoids one allocation per column per row.
+	fieldNames := make([]any, len(meta.Columns))
+	for i, c := range meta.Columns {
+		fieldNames[i] = c.field()
+	}
 	meta.wrote.ranges = append(meta.wrote.ranges, [2]int64{a.first, int64(len(rows))})
 	for start := 0; start < len(rows); start += pipelineChunk {
 		if start > 0 {
@@ -1782,9 +1788,9 @@ func (s *store) writeRows(ctx context.Context, meta *tableMeta, a rowAlloc, rows
 			id := strconv.FormatInt(a.first+int64(r), 10)
 			fields := make([]any, 0, 2+2*len(meta.Columns)+len(a.added))
 			fields = append(fields, rowIDField, id)
-			for i, c := range meta.Columns {
+			for i := range meta.Columns {
 				if v := rows[r][i]; !v.Null {
-					fields = append(fields, c.field(), encodeStored(v))
+					fields = append(fields, fieldNames[i], encodeStored(v))
 				}
 			}
 			fields = append(fields, a.added...)

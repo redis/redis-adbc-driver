@@ -1,0 +1,119 @@
+{
+  "baseline_driver_sha256": "aa8558d77195a9acaac0a410ae52409ee9befd36e9082019093533e065de2c63",
+  "optimized_driver_sha256": "7b0e32a240c7b2367fc5581ba18c6267b7e0ab2f16e0d62efe215b297020534a",
+  "redis_version": "8.6.2",
+  "kind": "loading profile; not full-scale ClickBench",
+  "rows": 100000,
+  "columns": 105,
+  "batch_size": 10000,
+  "results": [
+    {
+      "strategy": "baseline",
+      "workers": 1,
+      "prefetch": false,
+      "repeat": 1,
+      "seconds": 14.258751459012274,
+      "rows_per_second": 7013.236768131953,
+      "correctness": "valid"
+    },
+    {
+      "strategy": "optimized",
+      "workers": 1,
+      "prefetch": true,
+      "repeat": 1,
+      "seconds": 15.678715999994893,
+      "rows_per_second": 6378.073306515187,
+      "correctness": "valid"
+    },
+    {
+      "strategy": "optimized",
+      "workers": 4,
+      "prefetch": true,
+      "repeat": 1,
+      "seconds": 12.85660195798846,
+      "rows_per_second": 7778.1050021436595,
+      "correctness": "valid"
+    },
+    {
+      "strategy": "optimized",
+      "workers": 8,
+      "prefetch": true,
+      "repeat": 1,
+      "seconds": 13.679109832970425,
+      "rows_per_second": 7310.417214355019,
+      "correctness": "valid"
+    },
+    {
+      "strategy": "optimized",
+      "workers": 1,
+      "prefetch": true,
+      "repeat": 2,
+      "seconds": 12.679717708029784,
+      "rows_per_second": 7886.610909064026,
+      "correctness": "valid"
+    },
+    {
+      "strategy": "optimized",
+      "workers": 4,
+      "prefetch": true,
+      "repeat": 2,
+      "seconds": 12.625534959021024,
+      "rows_per_second": 7920.456465771327,
+      "correctness": "valid"
+    },
+    {
+      "strategy": "optimized",
+      "workers": 8,
+      "prefetch": true,
+      "repeat": 2,
+      "seconds": 14.451654832984786,
+      "rows_per_second": 6919.622780621477,
+      "correctness": "valid"
+    },
+    {
+      "strategy": "baseline",
+      "workers": 1,
+      "prefetch": false,
+      "repeat": 2,
+      "seconds": 13.491159249970224,
+      "rows_per_second": 7412.261477843033,
+      "correctness": "valid"
+    },
+    {
+      "strategy": "optimized",
+      "workers": 4,
+      "prefetch": true,
+      "repeat": 3,
+      "seconds": 11.945397374976892,
+      "rows_per_second": 8371.425149026778,
+      "correctness": "valid"
+    },
+    {
+      "strategy": "optimized",
+      "workers": 8,
+      "prefetch": true,
+      "repeat": 3,
+      "seconds": 17.31714474997716,
+      "rows_per_second": 5774.624018207845,
+      "correctness": "valid"
+    },
+    {
+      "strategy": "baseline",
+      "workers": 1,
+      "prefetch": false,
+      "repeat": 3,
+      "seconds": 18.066307040979154,
+      "rows_per_second": 5535.165530685026,
+      "correctness": "valid"
+    },
+    {
+      "strategy": "optimized",
+      "workers": 1,
+      "prefetch": true,
+      "repeat": 3,
+      "seconds": 17.677346666983794,
+      "rows_per_second": 5656.957567436932,
+      "correctness": "valid"
+    }
+  ]
+}
