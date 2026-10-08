@@ -56,6 +56,11 @@ const (
 	//   - "none": always compute aggregates in the driver.
 	OptionStringAggregatePushdown = "adbc.redis.aggregate_pushdown"
 
+	// OptionStringQueryWorkers enables bounded parallel scans for eligible
+	// ungrouped aggregates. Defaults to auto: half the visible logical CPUs,
+	// capped by available runtime parallelism. Explicit values are 1 through 32.
+	OptionStringQueryWorkers = "adbc.redis.query_workers"
+
 	// OptionStringCluster (database) selects the client: "auto" (default)
 	// uses the OSS Cluster API client when the server reports
 	// cluster_enabled:1 and a single-endpoint client otherwise (standalone

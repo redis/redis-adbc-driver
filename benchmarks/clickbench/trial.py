@@ -16,8 +16,10 @@ def main():
         with dbapi.connect(driver=job["driver"], autocommit=True, db_kwargs={
             "uri": os.environ["REDIS_CLOUD_URI"],
             "adbc.redis.aggregate_pushdown": "exact",
+            "adbc.redis.query_workers": str(job.get("query_workers") or "auto"),
             "adbc.redis.read_timeout": "20m", "adbc.redis.write_timeout": "20m",
         }) as conn, conn.cursor() as cur:
+            result["query_workers"] = int(conn.adbc_connection.get_option("adbc.redis.query_workers"))
             cur.execute(f"SET search_path TO {job['namespace']}")
             started = time.perf_counter()
             cur.execute(job["sql"])

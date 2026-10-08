@@ -29,10 +29,11 @@ type executor struct {
 	store *store
 	// sess is the connection's settings (session.go), and schema its
 	// current schema.
-	sess     *session
-	schema   string
-	pushdown string // aggregate pushdown mode
-	rekey    bool   // RENAME TO also moves the rows (see rekey.go)
+	sess         *session
+	schema       string
+	pushdown     string // aggregate pushdown mode
+	queryWorkers int
+	rekey        bool // RENAME TO also moves the rows (see rekey.go)
 
 	// Per-statement state (see bind.go).
 	cache      *execCache
