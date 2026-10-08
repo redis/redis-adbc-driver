@@ -51,8 +51,29 @@ func TestMergeExactSumPartitions(t *testing.T) {
 	}
 }
 
+func TestDefaultQueryWorkers(t *testing.T) {
+	for _, c := range []struct{ total, available, want int }{{16, 16, 8}, {16, 3, 3}, {3, 3, 1}, {1, 1, 1}, {0, 0, 1}, {128, 100, 64}} {
+		if got := defaultQueryWorkers(c.total, c.available); got != c.want {
+			t.Fatalf("%+v: got %d", c, got)
+		}
+	}
+	if got := effectiveQueryWorkers(4); got != 4 {
+		t.Fatalf("explicit override: %d", got)
+	}
+}
+
 func TestQueryWorkersOption(t *testing.T) {
 	d := NewDriver(memory.DefaultAllocator)
+	for _, opts := range []map[string]string{{}, {OptionStringQueryWorkers: "auto"}} {
+		db, err := d.NewDatabaseWithContext(context.Background(), opts)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := db.(adbc.GetSetOptionsWithContext).GetOption(context.Background(), OptionStringQueryWorkers)
+		if err != nil || got != fmt.Sprint(effectiveQueryWorkers(0)) {
+			t.Fatalf("automatic workers %q, %v", got, err)
+		}
+	}
 	for _, v := range []string{"0", "33", "-1", "bad"} {
 		if _, err := d.NewDatabaseWithContext(context.Background(), map[string]string{OptionStringQueryWorkers: v}); err == nil {
 			t.Fatalf("accepted %q", v)

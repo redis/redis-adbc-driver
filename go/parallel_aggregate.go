@@ -19,10 +19,24 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"runtime"
 	"sync"
 
 	goredis "github.com/redis/go-redis/v9"
 )
+
+// defaultQueryWorkers uses half the visible logical CPUs, capped by the
+// runtime's available parallelism (including affinity and container limits).
+func defaultQueryWorkers(total, available int) int {
+	return max(1, min(max(1, total/2), available))
+}
+
+func effectiveQueryWorkers(configured int) int {
+	if configured > 0 {
+		return configured
+	}
+	return defaultQueryWorkers(runtime.NumCPU(), runtime.GOMAXPROCS(0))
+}
 
 // parallelPredicate excludes expressions that execute subqueries, consume
 // randomness, or mutate execution state. Each partition owns its executor.
@@ -124,7 +138,7 @@ func mergeAccumulator(dst, src *accumulator) {
 // Adopted/memory tables, grouped queries and complex expressions stay serial.
 func (e *executor) parallelAggregate(ctx context.Context, plan *selectPlan, wp wherePlan, aggs []*Func, params []Value) ([]aggGroup, bool, error) {
 	meta := plan.meta
-	workers := e.queryWorkers
+	workers := effectiveQueryWorkers(e.queryWorkers)
 	if workers < 2 || meta.isMem || meta.Adopted || meta.KeyRows || meta.AppIndex || len(plan.sel.GroupBy) > 0 || len(plan.extraNeed) > 0 || len(plan.outerAggs) > 0 || wp.none || wp.keys != nil || !parallelPredicate(wp.residual) || !parallelAggregates(aggs, meta.types()) {
 		return nil, false, nil
 	}

@@ -129,8 +129,8 @@ def main():
     ap.add_argument("--resume-result", type=Path, help="Resume a interrupted load after prefix validation")
     ap.add_argument("--cleanup", action="store_true",
                     help="Drop only this run's generated table and schema on completion")
-    ap.add_argument("--query-workers", type=int, default=1, choices=range(1, 33),
-                    help="Parallel driver workers for eligible individual aggregates")
+    ap.add_argument("--query-workers", type=int, default=None, choices=range(1, 33),
+                    help="Override automatic driver workers for eligible individual aggregates")
     ap.add_argument("--query-timeout", type=float, default=1200)
     ap.add_argument("--deadline", type=float, default=float("inf"),
                     help="UTC epoch deadline for stopping within the deployment budget")

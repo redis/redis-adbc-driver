@@ -59,6 +59,8 @@ func (c *connectionImpl) executor() *executor {
 
 func (c *connectionImpl) GetOption(ctx context.Context, key string) (string, error) {
 	switch key {
+	case OptionStringQueryWorkers:
+		return strconv.Itoa(effectiveQueryWorkers(c.queryWorkers)), nil
 	case OptionStringRenameRekey:
 		return strconv.FormatBool(c.rekey), nil
 	case OptionStringReadTimeout:

@@ -368,7 +368,7 @@ func (d *databaseImpl) GetOption(ctx context.Context, key string) (string, error
 	case OptionStringAggregatePushdown:
 		return d.pushdown, nil
 	case OptionStringQueryWorkers:
-		return strconv.Itoa(max(1, d.queryWorkers)), nil
+		return strconv.Itoa(effectiveQueryWorkers(d.queryWorkers)), nil
 	case OptionStringCluster:
 		return d.cluster, nil
 	case OptionStringRenameRekey:
@@ -420,9 +420,13 @@ func (d *databaseImpl) SetOption(ctx context.Context, key, value string) error {
 		}
 		d.schema = value
 	case OptionStringQueryWorkers:
+		if value == "auto" {
+			d.queryWorkers = 0
+			return nil
+		}
 		n, err := strconv.Atoi(value)
 		if err != nil || n < 1 || n > 32 {
-			return errorf(adbc.StatusInvalidArgument, "invalid %s %q (want 1 through 32)", key, value)
+			return errorf(adbc.StatusInvalidArgument, "invalid %s %q (want auto or 1 through 32)", key, value)
 		}
 		d.queryWorkers = n
 	case OptionStringAggregatePushdown:
