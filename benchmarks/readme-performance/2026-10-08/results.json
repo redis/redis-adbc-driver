@@ -1,0 +1,410 @@
+{
+  "metadata": {
+    "python": "3.14.0",
+    "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+    "packages": {
+      "pyarrow": "25.0.1",
+      "adbc-driver-manager": "1.12.0",
+      "redis": "8.1.0"
+    },
+    "driver_sha256": "4a82b496fd05fe71732b3ef56b41495f04b103916d5fcd011472cdace81fce46",
+    "options": {
+      "adbc.redis.query_workers": "10",
+      "adbc.redis.query_worker_budget": "10"
+    },
+    "date": "2026-10-08",
+    "driver_commit": "77976c883dcb4d7e2ae55120d4c06472f59ae94b",
+    "go_version": "1.26.6",
+    "host_cpu": "Apple M4",
+    "host_logical_cpus": 10,
+    "host_memory_bytes": 17179869184,
+    "docker_engine_version": "29.8.2",
+    "docker_reported_cpus": 10,
+    "docker_reported_memory_bytes": 8319500288,
+    "redis_version": "8.4.4",
+    "search_version": "8.4.10",
+    "redis_image_digest": "redis@sha256:c44528447fa07ed62bdb0c1944cba54f8cad6a4e4a49ada9d4843b5b07d03227",
+    "rows": 100000,
+    "columns": 10,
+    "customers": 50,
+    "random_seed": 42,
+    "query_repeats": 5,
+    "query_warmups": 1,
+    "ingest_runs": 1,
+    "runs_sequential": true
+  },
+  "results": {
+    "standalone": {
+      "ingest_seconds_rounded": 1.03,
+      "ingest_rows_per_second": 96734,
+      "queries": [
+        {
+          "query": "point lookup by __rowid",
+          "rows_out": 1,
+          "min_ms": 1.1,
+          "median_ms": 1.4,
+          "max_ms": 1.7,
+          "commands_per_run": 2,
+          "command_detail": "hmget 1, get 1"
+        },
+        {
+          "query": "indexed filter + top 10",
+          "rows_out": 10,
+          "min_ms": 4.2,
+          "median_ms": 4.8,
+          "max_ms": 5.6,
+          "commands_per_run": 12,
+          "command_detail": "hmget 10, get 1, FT.AGGREGATE 1"
+        },
+        {
+          "query": "indexed range COUNT",
+          "rows_out": 1,
+          "min_ms": 5.6,
+          "median_ms": 6.3,
+          "max_ms": 6.5,
+          "commands_per_run": 2,
+          "command_detail": "get 1, FT.AGGREGATE 1"
+        },
+        {
+          "query": "LIKE prefix COUNT",
+          "rows_out": 1,
+          "min_ms": 65.3,
+          "median_ms": 79.7,
+          "max_ms": 80.6,
+          "commands_per_run": 5,
+          "command_detail": "FT.CURSOR 2, get 1, FT.PROFILE 1"
+        },
+        {
+          "query": "interval range COUNT",
+          "rows_out": 1,
+          "min_ms": 1.1,
+          "median_ms": 1.2,
+          "max_ms": 1.3,
+          "commands_per_run": 2,
+          "command_detail": "get 1, FT.AGGREGATE 1"
+        },
+        {
+          "query": "GROUP BY, index reduce",
+          "rows_out": 6,
+          "min_ms": 6.7,
+          "median_ms": 7.3,
+          "max_ms": 7.6,
+          "commands_per_run": 2,
+          "command_detail": "get 1, FT.AGGREGATE 1"
+        },
+        {
+          "query": "GROUP BY, driver (AVG double)",
+          "rows_out": 6,
+          "min_ms": 583.6,
+          "median_ms": 604.2,
+          "max_ms": 715.6,
+          "commands_per_run": 100015,
+          "command_detail": "hmget 100,000, FT.CURSOR 10, hget 2"
+        },
+        {
+          "query": "GROUP BY expression, driver",
+          "rows_out": 5,
+          "min_ms": 634.3,
+          "median_ms": 704.6,
+          "max_ms": 846.2,
+          "commands_per_run": 100015,
+          "command_detail": "hmget 100,000, FT.CURSOR 10, hget 2"
+        },
+        {
+          "query": "GROUP BY DATE_TRUNC, driver",
+          "rows_out": 12,
+          "min_ms": 1871.2,
+          "median_ms": 1890.7,
+          "max_ms": 2027.5,
+          "commands_per_run": 100015,
+          "command_detail": "hmget 100,000, FT.CURSOR 10, hget 2"
+        },
+        {
+          "query": "non-indexed filter (scan)",
+          "rows_out": 1,
+          "min_ms": 265.1,
+          "median_ms": 267.5,
+          "max_ms": 328.7,
+          "commands_per_run": 15,
+          "command_detail": "FT.CURSOR 10, hget 2, sismember 1"
+        },
+        {
+          "query": "fetch 10% of rows",
+          "rows_out": 10000,
+          "min_ms": 74.0,
+          "median_ms": 102.7,
+          "max_ms": 135.8,
+          "commands_per_run": 10006,
+          "command_detail": "hmget 10,000, hget 1, get 1"
+        },
+        {
+          "query": "full scan, all columns",
+          "rows_out": 100000,
+          "min_ms": 1034.0,
+          "median_ms": 1116.6,
+          "max_ms": 1532.8,
+          "commands_per_run": 16,
+          "command_detail": "FT.CURSOR 10, hget 2, sismember 1"
+        },
+        {
+          "query": "selective join (index lookup)",
+          "rows_out": 8,
+          "min_ms": 26.6,
+          "median_ms": 33.3,
+          "max_ms": 37.3,
+          "commands_per_run": 6,
+          "command_detail": "get 2, FT.SEARCH 2, FT.AGGREGATE 2"
+        },
+        {
+          "query": "unfiltered join (hash join)",
+          "rows_out": 6,
+          "min_ms": 431.1,
+          "median_ms": 464.0,
+          "max_ms": 1230.5,
+          "commands_per_run": 22,
+          "command_detail": "FT.CURSOR 10, hget 4, sismember 2"
+        },
+        {
+          "query": "correlated subquery (50 rows)",
+          "rows_out": 50,
+          "min_ms": 45.3,
+          "median_ms": 67.6,
+          "max_ms": 83.4,
+          "commands_per_run": 54,
+          "command_detail": "FT.AGGREGATE 51, get 2, FT.SEARCH 1"
+        },
+        {
+          "query": "IN (SELECT \u2026), half the rows",
+          "rows_out": 1,
+          "min_ms": 1196.2,
+          "median_ms": 1270.2,
+          "max_ms": 1603.4,
+          "commands_per_run": 150043,
+          "command_detail": "hmget 150,017, FT.CURSOR 15, hget 4"
+        },
+        {
+          "query": "correlated EXISTS (semi-join)",
+          "rows_out": 1,
+          "min_ms": 1421.5,
+          "median_ms": 1731.8,
+          "max_ms": 1875.0,
+          "commands_per_run": 150548,
+          "command_detail": "hmget 150,017, FT.AGGREGATE 502, FT.CURSOR 15"
+        },
+        {
+          "query": "correlated EXISTS, no inner rows",
+          "rows_out": 1,
+          "min_ms": 3.9,
+          "median_ms": 4.4,
+          "max_ms": 5.2,
+          "commands_per_run": 5,
+          "command_detail": "get 3, FT.SEARCH 2"
+        },
+        {
+          "query": "UNION of two filters",
+          "rows_out": 1750,
+          "min_ms": 53.7,
+          "median_ms": 54.1,
+          "max_ms": 77.0,
+          "commands_per_run": 1953,
+          "command_detail": "hmget 1,947, get 2, FT.SEARCH 2"
+        },
+        {
+          "query": "view with pushed filter",
+          "rows_out": 1,
+          "min_ms": 16.1,
+          "median_ms": 20.2,
+          "max_ms": 27.4,
+          "commands_per_run": 4,
+          "command_detail": "get 3, FT.AGGREGATE 1"
+        }
+      ]
+    },
+    "cluster": {
+      "ingest_seconds_rounded": 0.73,
+      "ingest_rows_per_second": 137441,
+      "queries": [
+        {
+          "query": "point lookup by __rowid",
+          "rows_out": 1,
+          "min_ms": 0.8,
+          "median_ms": 1.0,
+          "max_ms": 1.3,
+          "commands_per_run": 2,
+          "command_detail": "hmget 1, get 1"
+        },
+        {
+          "query": "indexed filter + top 10",
+          "rows_out": 10,
+          "min_ms": 4.2,
+          "median_ms": 4.9,
+          "max_ms": 6.3,
+          "commands_per_run": 15,
+          "command_detail": "hmget 10, _FT.AGGREGATE 3, get 1"
+        },
+        {
+          "query": "indexed range COUNT",
+          "rows_out": 1,
+          "min_ms": 3.6,
+          "median_ms": 4.3,
+          "max_ms": 4.7,
+          "commands_per_run": 5,
+          "command_detail": "_FT.AGGREGATE 3, get 1, FT.AGGREGATE 1"
+        },
+        {
+          "query": "LIKE prefix COUNT",
+          "rows_out": 1,
+          "min_ms": 70.5,
+          "median_ms": 81.4,
+          "max_ms": 85.5,
+          "commands_per_run": 29,
+          "command_detail": "_FT.CURSOR 18, _FT.PROFILE 3, _FT.AGGREGATE 3"
+        },
+        {
+          "query": "interval range COUNT",
+          "rows_out": 1,
+          "min_ms": 1.1,
+          "median_ms": 1.4,
+          "max_ms": 2.5,
+          "commands_per_run": 5,
+          "command_detail": "_FT.AGGREGATE 3, get 1, FT.AGGREGATE 1"
+        },
+        {
+          "query": "GROUP BY, index reduce",
+          "rows_out": 6,
+          "min_ms": 3.5,
+          "median_ms": 4.1,
+          "max_ms": 4.5,
+          "commands_per_run": 5,
+          "command_detail": "_FT.AGGREGATE 3, get 1, FT.AGGREGATE 1"
+        },
+        {
+          "query": "GROUP BY, driver (AVG double)",
+          "rows_out": 6,
+          "min_ms": 533.9,
+          "median_ms": 583.2,
+          "max_ms": 631.2,
+          "commands_per_run": 100119,
+          "command_detail": "hmget 100,000, _FT.CURSOR 99, FT.CURSOR 10"
+        },
+        {
+          "query": "GROUP BY expression, driver",
+          "rows_out": 5,
+          "min_ms": 543.2,
+          "median_ms": 581.5,
+          "max_ms": 616.7,
+          "commands_per_run": 100119,
+          "command_detail": "hmget 100,000, _FT.CURSOR 99, FT.CURSOR 10"
+        },
+        {
+          "query": "GROUP BY DATE_TRUNC, driver",
+          "rows_out": 12,
+          "min_ms": 1900.5,
+          "median_ms": 1940.3,
+          "max_ms": 1946.3,
+          "commands_per_run": 100123,
+          "command_detail": "hmget 100,000, _FT.CURSOR 99, FT.CURSOR 10"
+        },
+        {
+          "query": "non-indexed filter (scan)",
+          "rows_out": 1,
+          "min_ms": 267.5,
+          "median_ms": 286.8,
+          "max_ms": 312.3,
+          "commands_per_run": 118,
+          "command_detail": "_FT.CURSOR 99, FT.CURSOR 10, _FT.AGGREGATE 3"
+        },
+        {
+          "query": "fetch 10% of rows",
+          "rows_out": 10000,
+          "min_ms": 59.9,
+          "median_ms": 62.0,
+          "max_ms": 81.4,
+          "commands_per_run": 10019,
+          "command_detail": "hmget 10,000, _FT.CURSOR 9, _FT.SEARCH 3"
+        },
+        {
+          "query": "full scan, all columns",
+          "rows_out": 100000,
+          "min_ms": 959.8,
+          "median_ms": 1027.5,
+          "max_ms": 1688.0,
+          "commands_per_run": 125,
+          "command_detail": "_FT.CURSOR 99, FT.CURSOR 10, cluster|shards 4"
+        },
+        {
+          "query": "selective join (index lookup)",
+          "rows_out": 8,
+          "min_ms": 41.9,
+          "median_ms": 43.9,
+          "max_ms": 71.7,
+          "commands_per_run": 21,
+          "command_detail": "_FT.SEARCH 6, _FT.AGGREGATE 6, _FT.CURSOR 3"
+        },
+        {
+          "query": "unfiltered join (hash join)",
+          "rows_out": 6,
+          "min_ms": 460.4,
+          "median_ms": 517.9,
+          "max_ms": 598.3,
+          "commands_per_run": 134,
+          "command_detail": "_FT.CURSOR 99, FT.CURSOR 10, _FT.SEARCH 6"
+        },
+        {
+          "query": "correlated subquery (50 rows)",
+          "rows_out": 50,
+          "min_ms": 78.5,
+          "median_ms": 101.1,
+          "max_ms": 155.4,
+          "commands_per_run": 212,
+          "command_detail": "_FT.AGGREGATE 153, FT.AGGREGATE 51, _FT.SEARCH 3"
+        },
+        {
+          "query": "IN (SELECT \u2026), half the rows",
+          "rows_out": 1,
+          "min_ms": 1379.3,
+          "median_ms": 1642.1,
+          "max_ms": 1985.9,
+          "commands_per_run": 150204,
+          "command_detail": "hmget 150,017, _FT.CURSOR 147, FT.CURSOR 15"
+        },
+        {
+          "query": "correlated EXISTS (semi-join)",
+          "rows_out": 1,
+          "min_ms": 1802.1,
+          "median_ms": 2307.5,
+          "max_ms": 8081.7,
+          "commands_per_run": 152217,
+          "command_detail": "hmget 150,017, _FT.AGGREGATE 1,506, FT.AGGREGATE 502"
+        },
+        {
+          "query": "correlated EXISTS, no inner rows",
+          "rows_out": 1,
+          "min_ms": 5.0,
+          "median_ms": 5.5,
+          "max_ms": 14.3,
+          "commands_per_run": 11,
+          "command_detail": "_FT.SEARCH 6, get 3, FT.SEARCH 2"
+        },
+        {
+          "query": "UNION of two filters",
+          "rows_out": 1750,
+          "min_ms": 53.4,
+          "median_ms": 60.6,
+          "max_ms": 106.5,
+          "commands_per_run": 1966,
+          "command_detail": "hmget 1,947, _FT.SEARCH 6, _FT.AGGREGATE 6"
+        },
+        {
+          "query": "view with pushed filter",
+          "rows_out": 1,
+          "min_ms": 15.6,
+          "median_ms": 22.9,
+          "max_ms": 29.2,
+          "commands_per_run": 7,
+          "command_detail": "get 3, _FT.AGGREGATE 3, FT.AGGREGATE 1"
+        }
+      ]
+    }
+  }
+}
