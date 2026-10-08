@@ -1459,7 +1459,8 @@ The driver executes SQL as follows:
 | Queries that can't return rows: `WHERE false`, `LIMIT 0`, … | Their rows aren't read. A query with `LIMIT 0` (or `FETCH FIRST 0 ROWS ONLY`, or a `HAVING` or `QUALIFY` that is never true) returns without a command. One whose `WHERE` is never true doesn't read its FROM items, and the rest of it runs over no rows: `COUNT(*)` without `GROUP BY` still returns one row, 0. A condition is never true when it is FALSE or NULL whatever the rows hold: its parts that read no column, parameter or subquery are evaluated once, and `AND` is never true if one side is, `OR` if both are (`false`, `1 = 0`, `NULL`, `x > 0 AND false`, `NOT true`, …). This applies at every level (derived tables, CTEs, views, join items, `UNION` branches, subqueries) and to `INSERT … SELECT`, `UPDATE`, `DELETE`, `MERGE` and `CREATE TABLE … AS`. The derived tables, CTEs and views such a query reads are planned but not run, so its columns and their types are those of the full query, and unknown tables, columns and functions and wrong argument counts are still errors; `ExecuteSchema` and `CREATE VIEW` plan their query the same way. This is how dbt asks for a query's columns (`select * from (…) as __dbt_sbq where false limit 0`, for model contracts, snapshots and unit tests), and what `dbt run --empty` reads (`(select * from t where false limit 0)`) |
 | Filter / sort / limit | `FT.AGGREGATE <idx> "<pushed-down query>" [SORTBY …] [LIMIT …] LOAD … WITHCURSOR COUNT 10000`: the rows come back in the cursor pages, up to 10,000 at a time (fewer for wide tables), and are [streamed](#streamed-results) as the result is read |
 | `COUNT(*)`, `GROUP BY` + `COUNT/SUM/AVG/MIN/MAX`, `BOOL_OR/BOOL_AND/EVERY` of a boolean column | `FT.AGGREGATE … APPLY exists(@c) … GROUPBY … REDUCE …` over SORTABLE fields, HASHes never opened (`BOOL_OR` / `BOOL_AND` are `MAX` / `MIN` of the stored 0 and 1). On a cluster, a shard whose rows of a group all lack the value sends NaN as its partial `SUM`, which made the group's `SUM` and `AVG` NaN up to v0.0.7 (`AVG` of an integer column also in the default mode). So when a `SUM` comes back NaN for a group that has values, the driver runs the command again with `case(exists(@c), @c, 0)` in place of `@c` (about 2.5 times as long; a real NaN, from adding +Infinity and -Infinity, stays NaN), and a server without `case()` aggregates the query in the driver. An amd64 server writes that NaN `-nan`, which up to v0.0.9 the driver didn't read, so it aggregated such queries itself |
-| Other aggregates (`STRING_AGG`, `STDDEV`, percentiles, `ANY_VALUE`, …), `DISTINCT` and `FILTER (WHERE …)` | Reduced by the driver over the rows fetched from the HASHes (the index still filters them). An aggregate's `FILTER` is evaluated before its arguments, so `SUM(1 / x) FILTER (WHERE x <> 0)` never divides by zero. Ordered-set aggregates keep each group's values and sort them once |
+| `COUNT(DISTINCT col[, …])` | Eligible queries use exact server-side tuple deduplication, then count tuples in the driver; NULL tuples are excluded. See Aggregate pushdown below |
+| Other aggregates (`STRING_AGG`, `STDDEV`, percentiles, `ANY_VALUE`, …), other `DISTINCT` aggregates and `FILTER (WHERE …)` | Reduced by the driver over the rows fetched from the HASHes (the index still filters them). An aggregate's `FILTER` is evaluated before its arguments, so `SUM(1 / x) FILTER (WHERE x <> 0)` never divides by zero. Ordered-set aggregates keep each group's values and sort them once |
 | `GROUP BY ROLLUP` / `CUBE` / `GROUPING SETS` | Each grouping set runs as its own grouped query: an `FT.AGGREGATE … GROUPBY` when a plain `GROUP BY` of its columns would be one, otherwise in the driver, where the sets share one read of the rows. The driver combines the groups of all sets (`UNION ALL`, NULL for the columns a set doesn't group), then applies HAVING, window functions, QUALIFY, DISTINCT, ORDER BY and LIMIT to the combined rows |
 | `col LIKE 'abc%'` on an indexed string column | TAG prefix query `@c:{abc*}` on the prefix's tag, re-checked by the driver (other patterns are checked by the driver alone). RediSearch expands a prefix into at most `search-max-prefix-expansions` tags (200 by default, per shard) and silently ignores the rest, so the driver first runs the prefix query under `FT.PROFILE … LIMIT 0 1` (one more round trip, about 0.3 ms) and, unless every shard's profile reports no warning, checks the prefix on every row the rest of the WHERE clause selects instead. The server's configuration is never changed |
 | `col IN (…)`, `col IN (SELECT …)`, `col = a OR col = b` on an indexed column | Index union query (`(@c:[a a] \| @c:[b b])` or `@c:{a \| b}`), for up to 1,000 values. Above that (or on an unindexed column) the driver checks each row against a hash set of the values, built once per statement: always for `IN (SELECT …)`, and for a literal list of 16 or more constants when the column's type can't fail to compare with them (otherwise value by value, as `=` would) |
@@ -1574,7 +1575,7 @@ The `adbc.redis.aggregate_pushdown` option controls where aggregates run:
 - `exact` (default): pushes COUNT, plus SUM/AVG/MIN/MAX over 16/32-bit
   integer, boolean and date columns, which RediSearch returns exactly, and
   BOOL_OR/BOOL_AND/EVERY over boolean columns. Other aggregates are computed
-  by the driver.
+  by the driver, except for the exact COUNT DISTINCT strategy below.
 - `all`: also pushes floating-point, decimal and 64-bit aggregates, and
   groups on such columns (see below). RediSearch adds doubles in its own
   order (on a cluster, each shard's rows, then the shards' sums) and
@@ -1630,8 +1631,38 @@ relations and the shared input for grouping sets retain their existing
 materialization. The [aggregation profile](benchmarks/aggregate-pages/report.md)
 reports latency and memory across input sizes and group cardinalities.
 
-In every mode, `DISTINCT`, `FILTER (WHERE …)` and the other aggregates run
-in the driver. RediSearch has reducers that look like some of them, but none
+In `exact` and `all` modes, queries whose aggregates are all
+`COUNT(DISTINCT col[, …])` can deduplicate complete tuples in Redis and
+count them in the driver, without transferring every source row or retaining
+client distinct sets. Eligible grouping and argument columns are indexed
+strings, integers (including BIGINT), booleans, dates, times and timestamps.
+Safe sorting vectors need no load. For BIGINT, timestamps and NUL-containing
+strings, `LOAD *` **before** `GROUPBY` uses the original HASH strings; named
+loads still use rounded or truncated index values. This preserves values
+above 2^53 and embedded NUL bytes without adding stored fields or indexes.
+Complete tuples are merged across shards before counting, and any tuple
+with a NULL argument is excluded. Redis GROUPBY uses a hash as its identity;
+per-column TOLIST sets compare complete values, and MIN/MAX of presence
+flags check NULL/value mixtures. A hash group containing different tuples
+triggers the exact row-based fallback. For NUL-containing columns, the
+strategy also verifies Search 8.6 or newer with `MODULE LIST`; older versions
+or an ACL that denies that command retain the exact row path.
+
+Aggregate filters use exact index predicates or pure comparisons over tuple
+columns. The latter also recheck normalized string predicates, such as
+`SearchPhrase <> ''`. A separate group query preserves zero-count groups
+when every aggregate is filtered. Equivalent aggregate calls share a
+pipeline; different calls use separate pipelines. This does not provide a
+snapshot across concurrent writes. Adopted tables, unindexed columns,
+virtual defaults, noncanonical stored values, expressions, mixed aggregates
+and other predicates retain the exact row-based path. `none` disables tuple
+deduplication. The [distinct benchmark](benchmarks/exact-distinct/report.md)
+records wire bytes, latency, driver allocations and server memory. Raw
+loading moves work and tuple state to Redis; high cardinality can transfer
+as many tuples as input rows, and there is no spill or new memory limit.
+
+Other `DISTINCT` aggregates, filters outside that scope and other aggregates
+run in the driver. RediSearch has reducers that look like some of them, but none
 gives SQL's answer: `STDDEV` loses precision on values far from zero (150
 values near 10⁹ came back wrong in the 8th significant digit, on a cluster
 too) and is 0 instead of NULL for a single value, `QUANTILE` is an
