@@ -20,6 +20,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync/atomic"
 
 	"github.com/adbc-drivers/driverbase-go/driverbase"
 	"github.com/apache/arrow-adbc/go/adbc"
@@ -36,6 +37,8 @@ type connectionImpl struct {
 	sess         *session
 	pushdown     string
 	queryWorkers int
+	workerBudget *workerBudget
+	workerGrant  atomic.Int64
 	version      string
 	// rekey is adbc.redis.rename_rekey (from the database unless set on the
 	// connection).
@@ -54,11 +57,15 @@ type connectionImpl struct {
 }
 
 func (c *connectionImpl) executor() *executor {
-	return &executor{store: c.store, sess: c.sess, schema: c.sess.currentSchema(), pushdown: c.pushdown, queryWorkers: c.queryWorkers, rekey: c.rekey}
+	return &executor{store: c.store, sess: c.sess, schema: c.sess.currentSchema(), pushdown: c.pushdown, queryWorkers: c.queryWorkers, workerBudget: c.workerBudget, workerGrant: &c.workerGrant, rekey: c.rekey}
 }
 
 func (c *connectionImpl) GetOption(ctx context.Context, key string) (string, error) {
 	switch key {
+	case OptionIntQueryWorkersLastGrant:
+		return strconv.FormatInt(c.workerGrant.Load(), 10), nil
+	case OptionStringQueryWorkerBudget, OptionIntQueryWorkersActive, OptionIntQueryWorkersQueued:
+		return c.workerBudget.option(key), nil
 	case OptionStringQueryWorkers:
 		return strconv.Itoa(effectiveQueryWorkers(c.queryWorkers)), nil
 	case OptionStringRenameRekey:

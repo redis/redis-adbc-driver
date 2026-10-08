@@ -56,10 +56,16 @@ const (
 	//   - "none": always compute aggregates in the driver.
 	OptionStringAggregatePushdown = "adbc.redis.aggregate_pushdown"
 
-	// OptionStringQueryWorkers enables bounded parallel scans for eligible
-	// ungrouped aggregates. Defaults to auto: half the visible logical CPUs,
-	// capped by available runtime parallelism. Explicit values are 1 through 32.
+	// OptionStringQueryWorkers is the per-query ceiling (auto = GOMAXPROCS).
 	OptionStringQueryWorkers = "adbc.redis.query_workers"
+	// OptionStringQueryWorkerBudget (database) caps active eligible aggregate
+	// workers across its connections. Auto follows GOMAXPROCS at admission.
+	OptionStringQueryWorkerBudget = "adbc.redis.query_worker_budget"
+	// Read-only database/connection counters for shared worker admission.
+	OptionIntQueryWorkersActive = "adbc.redis.query_workers_active"
+	OptionIntQueryWorkersQueued = "adbc.redis.query_workers_queued"
+	// Last admitted grant on a connection, zero before its first admission.
+	OptionIntQueryWorkersLastGrant = "adbc.redis.query_workers_last_grant"
 
 	// OptionStringCluster (database) selects the client: "auto" (default)
 	// uses the OSS Cluster API client when the server reports
@@ -190,6 +196,7 @@ func (d *driverImpl) newDatabaseImpl(ctx context.Context, opts map[string]string
 		schema:           defaultSchema,
 		pushdown:         PushdownExact,
 		cluster:          "auto",
+		workerBudget:     &workerBudget{},
 	}
 	if err := db.SetOptions(ctx, opts); err != nil {
 		return nil, err

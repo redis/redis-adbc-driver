@@ -19,6 +19,7 @@ import (
 	"maps"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/apache/arrow-adbc/go/adbc"
@@ -33,6 +34,8 @@ type executor struct {
 	schema       string
 	pushdown     string // aggregate pushdown mode
 	queryWorkers int
+	workerBudget *workerBudget
+	workerGrant  *atomic.Int64
 	rekey        bool // RENAME TO also moves the rows (see rekey.go)
 
 	// Per-statement state (see bind.go).

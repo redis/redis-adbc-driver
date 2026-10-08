@@ -25,17 +25,12 @@ import (
 	goredis "github.com/redis/go-redis/v9"
 )
 
-// defaultQueryWorkers uses half the visible logical CPUs, capped by the
-// runtime's available parallelism (including affinity and container limits).
-func defaultQueryWorkers(total, available int) int {
-	return max(1, min(max(1, total/2), available))
-}
-
+// Automatic ceilings follow current runtime capacity, including container limits.
 func effectiveQueryWorkers(configured int) int {
 	if configured > 0 {
 		return configured
 	}
-	return defaultQueryWorkers(runtime.NumCPU(), runtime.GOMAXPROCS(0))
+	return max(1, runtime.GOMAXPROCS(0))
 }
 
 // parallelPredicate excludes expressions that execute subqueries, consume
@@ -139,7 +134,10 @@ func mergeAccumulator(dst, src *accumulator) {
 func (e *executor) parallelAggregate(ctx context.Context, plan *selectPlan, wp wherePlan, aggs []*Func, params []Value) ([]aggGroup, bool, error) {
 	meta := plan.meta
 	workers := effectiveQueryWorkers(e.queryWorkers)
-	if workers < 2 || meta.isMem || meta.Adopted || meta.KeyRows || meta.AppIndex || len(plan.sel.GroupBy) > 0 || len(plan.extraNeed) > 0 || len(plan.outerAggs) > 0 || wp.none || wp.keys != nil || !parallelPredicate(wp.residual) || !parallelAggregates(aggs, meta.types()) {
+	if e.workerBudget != nil {
+		workers = min(workers, e.workerBudget.capacity())
+	}
+	if meta.isMem || meta.Adopted || meta.KeyRows || meta.AppIndex || len(plan.sel.GroupBy) > 0 || len(plan.extraNeed) > 0 || len(plan.outerAggs) > 0 || wp.none || wp.keys != nil || !parallelPredicate(wp.residual) || !parallelAggregates(aggs, meta.types()) {
 		return nil, false, nil
 	}
 	// The sequence is an upper bound, not a count: deleted rows and gaps do not
@@ -151,8 +149,24 @@ func (e *executor) parallelAggregate(ctx context.Context, plan *selectPlan, wp w
 	if err != nil {
 		return nil, true, wrapRedis(err, "reading row sequence failed")
 	}
-	if last < int64(workers)*1024 || last >= exactDoubleLimit {
+	if last < int64(max(2, workers))*1024 || last >= exactDoubleLimit {
 		return nil, false, nil
+	}
+	// Even a one-worker eligible scan participates in the shared budget.
+	if e.workerBudget != nil {
+		grant, err := e.workerBudget.acquire(ctx, e.queryWorkers)
+		if err != nil {
+			return nil, true, cancelled(ctx)
+		}
+		workers = grant
+		if e.workerGrant != nil {
+			e.workerGrant.Store(int64(grant))
+		}
+		defer e.workerBudget.release(grant)
+	}
+	if workers == 1 {
+		groups, err := e.serialDriverAggregate(ctx, plan, wp, aggs, params)
+		return groups, true, err
 	}
 	types := meta.types()
 	aggTypes := make([]ColType, len(aggs))

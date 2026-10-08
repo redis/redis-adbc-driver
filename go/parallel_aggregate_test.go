@@ -20,7 +20,11 @@ import (
 	"math"
 	"os"
 	"reflect"
+	"runtime"
+	"strconv"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/apache/arrow-adbc/go/adbc"
 	"github.com/apache/arrow-go/v18/arrow/memory"
@@ -52,9 +56,12 @@ func TestMergeExactSumPartitions(t *testing.T) {
 }
 
 func TestDefaultQueryWorkers(t *testing.T) {
-	for _, c := range []struct{ total, available, want int }{{16, 16, 8}, {16, 3, 3}, {3, 3, 1}, {1, 1, 1}, {0, 0, 1}, {128, 100, 64}} {
-		if got := defaultQueryWorkers(c.total, c.available); got != c.want {
-			t.Fatalf("%+v: got %d", c, got)
+	for _, n := range []int{1, 4, 16} {
+		old := runtime.GOMAXPROCS(n)
+		got := effectiveQueryWorkers(0)
+		runtime.GOMAXPROCS(old)
+		if got != n {
+			t.Fatalf("GOMAXPROCS %d: got %d", n, got)
 		}
 	}
 	if got := effectiveQueryWorkers(4); got != 4 {
@@ -146,5 +153,97 @@ func TestSQLParallelAggregates(t *testing.T) {
 		if !reflect.DeepEqual(got, want) {
 			t.Fatalf("%s\ngot %v\nwant %v", q, got, want)
 		}
+	}
+	// Four connections from one database share two tokens, including the
+	// explicit ceiling (four) which must never bypass the shared limit.
+	shared, err := newDriverImpl(memory.DefaultAllocator).newDatabaseImpl(h.ctx, map[string]string{
+		adbc.OptionKeyURI: os.Getenv("REDIS_URI"), OptionStringQueryWorkers: "4",
+		OptionStringQueryWorkerBudget: "2", OptionStringAggregatePushdown: PushdownNone,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { shared.Close(h.ctx) })
+	connections := make([]*sqlHarness, 4)
+	for i := range connections {
+		c, err := shared.Open(h.ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { c.Close(h.ctx) })
+		connections[i] = &sqlHarness{t: t, ctx: h.ctx, conn: c}
+	}
+	want, _ := serial.query(queries[0])
+	var wg sync.WaitGroup
+	for _, c := range connections {
+		wg.Add(1)
+		go func(c *sqlHarness) {
+			defer wg.Done()
+			got, _ := c.query(queries[0])
+			if !reflect.DeepEqual(got, want) {
+				t.Errorf("concurrent aggregate: %v want %v", got, want)
+			}
+		}(c)
+	}
+	wg.Wait()
+	if shared.workerBudget.option(OptionIntQueryWorkersActive) != "0" {
+		t.Fatal("success leaked workers")
+	}
+	for _, c := range connections {
+		opts := c.conn.(adbc.GetSetOptionsWithContext)
+		if got, err := opts.GetOption(h.ctx, OptionStringQueryWorkerBudget); err != nil || got != "2" {
+			t.Fatalf("connection budget: %s %v", got, err)
+		}
+		value, err := opts.GetOption(h.ctx, OptionIntQueryWorkersLastGrant)
+		grant, _ := strconv.Atoi(value)
+		if err != nil || grant < 1 || grant > 2 {
+			t.Fatalf("connection grant bypassed budget: %s %v", value, err)
+		}
+	}
+	// Cancel a real statement after it has reached the admission queue.
+	held, _ := shared.workerBudget.acquire(h.ctx, 2)
+	ctx, cancel := context.WithCancel(h.ctx)
+	stmnt, err := connections[0].conn.NewStatement(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stmnt.Close(h.ctx)
+	if err := stmnt.SetSqlQuery(ctx, queries[0]); err != nil {
+		t.Fatal(err)
+	}
+	errs := make(chan error, 1)
+	go func() {
+		rdr, _, err := stmnt.ExecuteQuery(ctx)
+		if rdr != nil {
+			rdr.Release()
+		}
+		errs <- err
+	}()
+	waitQueued(t, shared.workerBudget, 1)
+	cancel()
+	select {
+	case err := <-errs:
+		if !isStatus(err, adbc.StatusCancelled) {
+			t.Fatalf("cancelled query status: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("cancelled query did not leave queue")
+	}
+	shared.workerBudget.release(held)
+	if shared.workerBudget.option(OptionIntQueryWorkersActive) != "0" || shared.workerBudget.option(OptionIntQueryWorkersQueued) != "0" {
+		t.Fatal("cancellation leaked workers")
+	}
+	// A missing index makes the worker scan fail after admission.
+	if err := st.client.Do(h.ctx, "FT.DROPINDEX", meta.index()).Err(); err != nil {
+		t.Fatal(err)
+	}
+	e := &executor{store: st, queryWorkers: 4, workerBudget: shared.workerBudget}
+	_, handled, scanErr := e.parallelAggregate(h.ctx, &selectPlan{meta: meta, sel: &SelectStmt{}}, wherePlan{query: "*"}, []*Func{{Name: "SUM", Args: []Expr{&ColumnRef{Name: "v"}}}}, nil)
+	if !handled || scanErr == nil {
+		t.Fatalf("expected admitted scan error: handled=%v err=%v", handled, scanErr)
+	}
+
+	if shared.workerBudget.option(OptionIntQueryWorkersActive) != "0" {
+		t.Fatal("error leaked workers")
 	}
 }
