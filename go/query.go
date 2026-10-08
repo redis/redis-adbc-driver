@@ -464,6 +464,7 @@ type scanRequest struct {
 	// ties re-sorts the rows that tie in the index's sort, when sortBy has
 	// keys whose values the index may round (see ties.go).
 	ties *tieSort
+	late *lateProjection
 }
 
 // scan finds the matching rows through the index (or directly by key), reads
@@ -522,9 +523,11 @@ type scanIter struct {
 	fetch []string
 	// ties is set for a scan with a tieSort, which also records the page
 	// keep last saw (raw) and which of its rows it kept.
-	ties *tieScan
-	raw  []aggRow
-	kept []int
+	ties       *tieScan
+	raw        []aggRow
+	kept       []int
+	late       *lateProjection
+	skip, left int64
 }
 
 // newScanIter returns a scanIter for req without a cursor, and the HASH
@@ -607,6 +610,10 @@ func (e *executor) openScan(ctx context.Context, req scanRequest, params []Value
 		return nil, err
 	}
 	it.cur = cur
+	if req.late != nil {
+		it.late, it.store = req.late, e.store
+		it.skip, it.left = req.late.offset, req.late.limit
+	}
 	if it.ties != nil && ar.limit != nil {
 		if err := it.readWindow(ctx); err != nil {
 			it.close(ctx)
@@ -619,10 +626,22 @@ func (e *executor) openScan(ctx context.Context, req scanRequest, params []Value
 // next returns the matching rows of the next cursor page, which may be
 // none, and their keys; io.EOF after the last page.
 func (it *scanIter) next(ctx context.Context) ([]string, []map[string]Value, error) {
-	if it.ties != nil {
-		return it.nextInOrder(ctx)
+	if it.late != nil && it.left == 0 {
+		it.close(ctx)
+		return nil, nil, io.EOF
 	}
-	return it.nextPage(ctx)
+	var keys []string
+	var rows []map[string]Value
+	var err error
+	if it.ties != nil {
+		keys, rows, err = it.nextInOrder(ctx)
+	} else {
+		keys, rows, err = it.nextPage(ctx)
+	}
+	if err != nil || it.late == nil {
+		return keys, rows, err
+	}
+	return it.materialize(ctx, keys)
 }
 
 // nextPage is next in the index's order.
@@ -932,6 +951,28 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 		}
 		req.limit = &[2]int64{off, *sel.Limit}
 	}
+	// A residual predicate prevents index LIMIT. Read only its inputs (and
+	// exact tie-sort inputs), then fetch output fields for surviving rows.
+	if wp.residual != nil && indexSort && !meta.KeyRows && !plan.windowed() &&
+		!plan.hasCorrelated() && len(plan.extraNeed) == 0 && sel.Limit != nil {
+		predicate := map[string]bool{}
+		columnRefs(wp.residual, predicate)
+		if len(predicate)*2 <= len(meta.Columns) && len(req.need) > len(predicate) {
+			late := &lateProjection{need: req.need, limit: *sel.Limit}
+			if sel.Offset != nil {
+				late.offset = *sel.Offset
+			}
+			for _, c := range meta.Columns {
+				if late.need[c.Name] {
+					late.fields = append(late.fields, c.field())
+					if c.MissingThrough > 0 {
+						late.fields = append(late.fields, nullMarker(c.field()))
+					}
+				}
+			}
+			req.need, req.late = predicate, late
+		}
+	}
 	return selectScan{req: req, indexSort: indexSort, pushLimit: pushLimit}, nil
 }
 
@@ -972,7 +1013,7 @@ func (e *executor) selectScanned(ctx context.Context, plan *selectPlan, sc selec
 		}
 		sort.SliceStable(idx, func(a, b int) bool { return lessKeys(keys[idx[a]], keys[idx[b]], plan.order) })
 	}
-	if !pushLimit {
+	if !pushLimit && sc.req.late == nil {
 		idx = applyLimit(idx, sel.Offset, sel.Limit)
 	}
 	out := make([][]Value, 0, len(idx))
