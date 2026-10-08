@@ -28,6 +28,7 @@ package redis
 //     fetched from the HASHes.
 
 import (
+	"container/heap"
 	"context"
 	"errors"
 	"fmt"
@@ -1060,17 +1061,20 @@ func (e *executor) selectAggregate(ctx context.Context, plan *selectPlan, params
 		}
 	}
 
-	type outRow struct {
-		vals []Value
-		keys []Value
+	var out []aggregateOutput
+	top := aggregateTopK{order: plan.order}
+	k := aggregateTopLimit(plan, len(idx))
+	if k > 0 {
+		top.rows = make([]aggregateOutput, 0, k)
+	} else {
+		out = make([]aggregateOutput, 0, len(idx))
 	}
-	out := make([]outRow, 0, len(idx))
-	for _, i := range idx {
+	for ordinal, i := range idx {
 		if err := cancelled(ctx); err != nil {
 			return nil, err
 		}
 		setRow(i)
-		row := outRow{}
+		row := aggregateOutput{ordinal: ordinal}
 		for _, it := range plan.items {
 			v, err := env.eval(it.expr)
 			if err != nil {
@@ -1085,9 +1089,19 @@ func (e *executor) selectAggregate(ctx context.Context, plan *selectPlan, params
 			}
 			row.keys = append(row.keys, v)
 		}
-		out = append(out, row)
+		if k == 0 {
+			out = append(out, row)
+		} else if len(top.rows) < k {
+			heap.Push(&top, row)
+		} else if top.better(row, top.rows[0]) {
+			top.rows[0] = row
+			heap.Fix(&top, 0)
+		}
 	}
-	sort.SliceStable(out, func(i, j int) bool { return lessKeys(out[i].keys, out[j].keys, plan.order) })
+	if k > 0 {
+		out = top.rows
+	}
+	sort.SliceStable(out, func(i, j int) bool { return top.better(out[i], out[j]) })
 	out = applyLimit(out, plan.sel.Offset, plan.sel.Limit)
 	rows := make([][]Value, len(out))
 	for i, r := range out {
@@ -1496,12 +1510,11 @@ func (e *executor) driverAggregate(ctx context.Context, plan *selectPlan, wp whe
 		// Those of its subqueries, too.
 		columnRefs(f, req.need)
 	}
-	_, rows, err := e.scan(ctx, req, params)
-	if err != nil {
-		return nil, err
-	}
+	// Only fields read after reduction belong in a representative row.
+	repNeed := aggregateRepresentativeNeed(plan, aggs)
 	types := meta.types()
 	env := e.newEnv(ctx, types, params)
+	var err error
 	aggTypes := make([]ColType, len(aggs))
 	for i, f := range aggs {
 		if aggTypes[i], err = inferType(f, types, nil); err != nil {
@@ -1525,33 +1538,53 @@ func (e *executor) driverAggregate(ctx context.Context, plan *selectPlan, wp whe
 		groups[""] = newGroup(map[string]Value{})
 		order = append(order, "")
 	}
-	for _, vals := range rows {
-		if err := cancelled(ctx); err != nil {
-			return nil, err
-		}
-		env.row = vals
-		// Values that compare equal are one group, as in Postgres ('1 mon'
-		// and '30 days', 0.0 and -0.0), and its first row represents it.
-		var key strings.Builder
-		for _, gexpr := range plan.sel.GroupBy {
-			v, err := env.eval(gexpr)
-			if err != nil {
-				return nil, invalidArg(err)
+	err = e.scanPages(ctx, req, params, func(rows []map[string]Value) error {
+		for _, vals := range rows {
+			if err := cancelled(ctx); err != nil {
+				return err
 			}
-			writeKey(&key, v)
-		}
-		g, ok := groups[key.String()]
-		if !ok {
-			g = newGroup(vals)
-			groups[key.String()] = g
-			order = append(order, key.String())
-		}
-		for _, acc := range g.accs {
-			if err := acc.addRow(env); err != nil {
-				return nil, invalidArg(err)
+			env.row = vals
+			// Values that compare equal are one group, as in Postgres ('1 mon'
+			// and '30 days', 0.0 and -0.0), and its first row represents it.
+			var key strings.Builder
+			for _, gexpr := range plan.sel.GroupBy {
+				v, err := env.eval(gexpr)
+				if err != nil {
+					return invalidArg(err)
+				}
+				writeKey(&key, v)
+			}
+			g, ok := groups[key.String()]
+			if !ok {
+				g = newGroup(vals)
+				groups[key.String()] = g
+				order = append(order, key.String())
+			}
+			for _, acc := range g.accs {
+				if err := acc.addRow(env); err != nil {
+					return invalidArg(err)
+				}
+			}
+			if !ok {
+				// Redis scans own their freshly decoded maps. Prune only
+				// after aggregate inputs have been consumed; shared memory
+				// relations must keep their original rows for other scans.
+				if meta.isMem {
+					g.rep = maps.Clone(vals)
+				}
+				for name := range g.rep {
+					if !repNeed[name] {
+						delete(g.rep, name)
+					}
+				}
 			}
 		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
+	env.row = nil // do not retain the last page through the evaluation environment
 	out := make([]aggGroup, 0, len(order))
 	for _, k := range order {
 		if err := cancelled(ctx); err != nil {
@@ -1568,6 +1601,9 @@ func (e *executor) driverAggregate(ctx context.Context, plan *selectPlan, wp whe
 			results[f] = v
 		}
 		out = append(out, aggGroup{rep: g.rep, results: results})
+		// Finalized results no longer need the group's accumulators or
+		// retained ordered-set inputs while later groups are finalized.
+		delete(groups, k)
 	}
 	return out, nil
 }
