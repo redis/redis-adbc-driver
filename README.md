@@ -1482,6 +1482,15 @@ The driver executes SQL as follows:
 | `UPDATE … FROM`, `DELETE … USING`, `MERGE` | The target is joined with the other items as above: its own filters (in WHERE, or in MERGE's ON) run in its index, and an equality on an indexed target column is an index lookup join, also through a no-op cast like dbt's `s.id::text = t.id::text`. `MERGE` is source `LEFT JOIN` target, or `FULL JOIN` with `WHEN NOT MATCHED BY SOURCE` clauses (which need every target row); `ON FALSE` reads the target only for those. Changes are then written by row key with pipelined `HSET`/`HDEL`/`DEL`, and new rows like `INSERT` does |
 | Anything the index can't answer exactly | Evaluated by the driver on rows fetched from the HASHes |
 
+For ordered managed-table queries with a residual predicate and LIMIT, the
+scan can defer output columns: it reads predicate inputs and ordering keys,
+checks the exact SQL predicate, corrects rounded sort ties, and applies
+OFFSET/LIMIT before fetching output fields from the selected HASHes. Deleted
+rows found during that fetch do not consume LIMIT. This also works with
+`adbc.redis.stream_results=false`. It does not add indexes or convert SQL
+substring LIKE into tokenized text search. Windows, correlated subqueries,
+adopted rows, and driver-side sorting retain their existing scan path.
+
 ### Streamed results
 
 A query that reads one table through its index, row by row, is **streamed**:
