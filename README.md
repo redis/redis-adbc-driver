@@ -1619,6 +1619,17 @@ The other modes compute `SUM` and `AVG` of doubles exactly (see
 Aggregates, below), so their results don't depend on the mode, the order of
 the rows, or the server being standalone or a cluster.
 
+Driver-side aggregates over indexed tables consume one cursor page at a
+time, updating their accumulators before fetching the next page. Each group
+retains only the representative fields used after reduction. Eligible
+`ORDER BY … LIMIT … OFFSET …` queries select the best `LIMIT + OFFSET`
+projected groups with a bounded heap, preserving stable ties; queries with
+windows or DISTINCT keep their existing ordering path. Exact distinct sets,
+group state and ordered-set inputs still grow with cardinality. In-memory
+relations and the shared input for grouping sets retain their existing
+materialization. The [aggregation profile](benchmarks/aggregate-pages/report.md)
+reports latency and memory across input sizes and group cardinalities.
+
 In every mode, `DISTINCT`, `FILTER (WHERE …)` and the other aggregates run
 in the driver. RediSearch has reducers that look like some of them, but none
 gives SQL's answer: `STDDEV` loses precision on values far from zero (150
