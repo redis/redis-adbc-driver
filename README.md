@@ -1491,6 +1491,13 @@ rows found during that fetch do not consume LIMIT. This also works with
 substring LIKE into tokenized text search. Windows, correlated subqueries,
 adopted rows, and driver-side sorting retain their existing scan path.
 
+Driver-side aggregates share pure integer input subexpressions within each
+row. A typed evaluator handles integer columns, literals, and checked
+`+`, `-`, and `*`, preserving aggregate order and per-row overflow errors.
+Each aggregate still updates its own exact accumulator. Decimal/float inputs,
+filters, DISTINCT, functions, casts, subqueries, and unsupported expressions
+use the existing evaluator; expressions are not rewritten into affine sums.
+
 ### Streamed results
 
 A query that reads one table through its index, row by row, is **streamed**:

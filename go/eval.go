@@ -769,34 +769,13 @@ func binaryOp(op string, l, r Value, z tzZone) (Value, error) {
 	}
 	switch rt.Kind {
 	case KindInt64:
-		a, b := l.I, r.I
 		switch op {
-		case "+":
-			s := a + b
-			if (s > a) != (b > 0) {
-				return Value{}, stateErr(stateNumericRange, "integer overflow")
+		case "+", "-", "*", "/":
+			v, err := integerArithmetic(op[0], l.I, r.I)
+			if err != nil {
+				return Value{}, err
 			}
-			return intValue(rt, s), nil
-		case "-":
-			s := a - b
-			if (s < a) != (b > 0) {
-				return Value{}, stateErr(stateNumericRange, "integer overflow")
-			}
-			return intValue(rt, s), nil
-		case "*":
-			if a != 0 && b != 0 {
-				p := a * b
-				if p/b != a || (a == -1 && b == math.MinInt64) || (b == -1 && a == math.MinInt64) {
-					return Value{}, stateErr(stateNumericRange, "integer overflow")
-				}
-				return intValue(rt, p), nil
-			}
-			return intValue(rt, 0), nil
-		case "/":
-			if b == 0 {
-				return Value{}, stateErr(stateDivisionByZero, "division by zero")
-			}
-			return intValue(rt, a/b), nil
+			return intValue(rt, v), nil
 		}
 	case KindFloat64:
 		a, _ := l.asFloat()
