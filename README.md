@@ -57,7 +57,7 @@ It supports SQL queries and Arrow bulk ingestion.
   - [Transactions, limitations, and types](#transactions-limitations-and-types)
 - [Options](#options)
 - [Performance](#performance)
-  - [Results](#results)
+  - [Single-query latency by driver worker count](#single-query-latency-by-driver-worker-count)
   - [Query performance factor (QPF)](#query-performance-factor-qpf)
   - [Reproduce the benchmark](#reproduce-the-benchmark)
 - [Building and testing](#building-and-testing)
@@ -4214,79 +4214,81 @@ compact encoding, and index only the columns you filter or aggregate on.
 Measured on **2026-10-08** against the default **Redis Software** environment:
 one RAM database and one shard, Redis 8.6.2 and Search 8.6.11, using
 `redislabs/redis:8.2.0-78.18`. The driver is at
-[`66aba73`](https://github.com/alberttwong/redis-adbc-driver/commit/66aba73),
+[`5904851`](https://github.com/alberttwong/redis-adbc-driver/commit/5904851),
 with the worker coordinator from PR #225. The seed-42 fixture contains
-**100,000 `sales` rows × 10 columns** and 50 `customers`.
+**100,000 `sales` rows × 10 columns**; these queries all use `sales`.
 
 Hardware: Apple M4 (10 cores, 16 GiB), Docker Desktop (10 CPUs, 7.75 GiB).
 Client: Go 1.26.6, Python 3.14.0, PyArrow 25.0.1, ADBC driver manager 1.12.0.
-Automatic worker ceiling and shared budget both resolve to 10. No other
-containers appeared in the sampled Docker inventory; host applications still
-share the laptop.
+**QPF stays at standard**, client `GOMAXPROCS` stays at 10, and the shared
+worker budget stays at `auto` (10). Only the per-query worker ceiling changes:
+1, 2, 4, 8, or automatic (10). One query is in flight at a time. This measures
+worker scaling at fixed CPU capacity; a worker count is not a count of busy
+CPU cores.
 
-The table shows median SQL execution plus complete Arrow fetch from five
-runs after one warm-up, at standard, 2×, and 4× QPF, in that order. Each
-setting has one five-run block; small differences can be run variation.
-The separate [concurrency experiment](#query-performance-factor-qpf) rotates
-QPF order across three rounds. Software's proxy reports delayed INFO counters,
-so per-query command counts are omitted.
+Each table cell is the **median of five block medians**, with two warmups
+and three timed SQL executions plus complete Arrow fetch per block. Each
+block uses a fresh client process. The five rounds balance setting order
+and shuffle workload order (seed 224): 175 blocks, **525 timed queries**.
+Complete results and actual worker grants are checked. No other containers
+appeared in the round-boundary inventory; host applications still share the
+laptop. Small differences, especially in the controls, can be run variation.
 
-[Raw measurements, exact SQL, environment and reproduction details](benchmarks/qpf/2026-10-08-adbc/README.md)
-are included. The [earlier OSS standalone/cluster snapshot](benchmarks/readme-performance/2026-10-08/README.md)
-is retained as a historical comparison. These runs do not isolate the effect
-of PR #225 or compare Software and OSS under identical conditions.
+[Raw measurements, exact SQL, CPU and peak memory, and reproduction details](benchmarks/workers/2026-10-08/README.md)
+are included. The separate [QPF experiment](#query-performance-factor-qpf)
+measures concurrent throughput. The [earlier 20-query QPF latency table](benchmarks/qpf/2026-10-08-adbc/README.md#single-client-sql-latency)
+and [OSS standalone/cluster snapshot](benchmarks/readme-performance/2026-10-08/README.md)
+remain archived. These runs compare worker settings within one build; they
+do not isolate the effect of PR #225 or compare Software and OSS under
+identical conditions.
 
-### Results
+<a id="results"></a>
 
-Bulk ingest (`adbc_ingest`), standard QPF: **1.10 s for 100,000 rows
-(90,888 rows/s)**, measured once.
+### Single-query latency by driver worker count
 
-| Query | Rows out | Standard QPF (ms) | 2× QPF (ms) | 4× QPF (ms) |
-|---|---:|---:|---:|---:|
-| point lookup by __rowid | 1 | 1.5 | 1.4 | 1.2 |
-| indexed filter + top 10 | 10 | 3.2 | 2.8 | 3.3 |
-| indexed range COUNT | 1 | 7.2 | 5.8 | 5.8 |
-| LIKE prefix COUNT | 1 | 88.4 | 91.9 | 85.8 |
-| interval range COUNT | 1 | 1.4 | 1.4 | 1.3 |
-| GROUP BY, index reduce | 6 | 7.6 | 8.4 | 7.8 |
-| GROUP BY, driver (AVG double) | 6 | 592.8 | 626.6 | 604.7 |
-| GROUP BY expression, driver | 5 | 680.4 | 664.7 | 673.9 |
-| GROUP BY DATE_TRUNC, driver | 12 | 774.3 | 863.7 | 817.1 |
-| non-indexed filter (scan) | 1 | 416.0 | 366.3 | 356.3 |
-| fetch 10% of rows | 10,000 | 78.2 | 80.8 | 67.6 |
-| full scan, all columns | 100,000 | 887.4 | 1067.4 | 981.2 |
-| selective join (index lookup) | 8 | 37.1 | 36.4 | 51.9 |
-| unfiltered join (hash join) | 6 | 460.7 | 496.1 | 480.3 |
-| correlated subquery (50 rows) | 50 | 54.2 | 52.8 | 54.9 |
-| IN (SELECT …), half the rows | 1 | 1002.2 | 1100.3 | 984.1 |
-| correlated EXISTS (semi-join) | 1 | 1197.6 | 1183.6 | 1237.1 |
-| correlated EXISTS, no inner rows | 1 | 2.0 | 2.0 | 1.9 |
-| UNION of two filters | 1,750 | 52.4 | 54.1 | 51.8 |
-| view with pushed filter | 1 | 25.3 | 23.5 | 24.0 |
+Lower latency is better. Auto/one-worker speedup is shown only for eligible
+ungrouped aggregates. Controls use zero aggregate worker grants at every
+setting, so their columns are repeated measurements of the same execution
+path. The indexed queries use server reductions; grouped driver aggregates
+and full scans do not use this worker pool. Default exact aggregate pushdown
+remains enabled.
+
+| Query | Rows out | 1 worker (ms) | 2 workers (ms) | 4 workers (ms) | 8 workers (ms) | Auto (10) (ms) | Auto vs 1 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Ungrouped `AVG(discount)` | 1 | 656.7 | 431.9 | 357.9 | 309.3 | 298.5 | 2.20× |
+| Ungrouped `SUM, AVG, MIN, MAX` | 1 | 729.9 | 479.5 | 387.1 | 360.4 | 330.3 | 2.21× |
+| Filtered ungrouped `SUM, AVG, MIN, MAX` | 1 | 239.6 | 159.2 | 133.2 | 132.4 | 116.2 | 2.06× |
+| Indexed range `COUNT` (control) | 1 | 6.4 | 6.3 | 6.4 | 6.7 | 6.0 | — |
+| Indexed `GROUP BY, COUNT, SUM` (control) | 6 | 9.1 | 9.4 | 8.8 | 10.0 | 9.4 | — |
+| Driver grouped `AVG(discount)` (control) | 6 | 695.0 | 704.3 | 682.9 | 732.2 | 706.0 | — |
+| Full scan, all columns (control) | 100,000 | 1049.8 | 1042.5 | 1052.3 | 1020.5 | 1044.0 | — |
+
+Bulk ingest (`adbc_ingest`), standard QPF: **1.37 s for 100,000 rows
+(73,107 rows/s)**, measured once during fixture loading.
 
 ### Interpretation
 
-- **Small index queries are already fast with one client.** At standard QPF,
-  indexed range count took 7.2 ms and indexed group-by took
-  7.6 ms. QPF's main benefit in this experiment appears under
-  concurrency, where more Search compute can serve several queries at once.
-- **Scanning, decoding, and Arrow transfer remain substantial.** The full
-  scan took 0.89 s and driver-side grouped `AVG` took
-  0.59 s at standard QPF. Narrow projections fetch exact values with
-  pipelined `HMGET`; increasing QPF cannot remove that work. Grouped aggregates
-  use the serial driver path; eligible ungrouped aggregates share the automatic
-  worker budget across connections.
-- **Selective joins reduce the rows processed.** The selective join took
-  37.1 ms, compared with 460.7 ms for the unfiltered hash join.
-  Correlated counts over 50 customers took 54.2 ms.
-- **Equality semi-joins avoid comparing every pair of rows.** The `IN`
-  subquery took 1.00 s and correlated `EXISTS` took
-  1.20 s; with no inner matches, `EXISTS` took
-  2.0 ms. The older per-row implementations measured 22–23 s
-  in historical runs.
+- **Eligible ungrouped aggregates benefit from more workers.** Automatic
+  workers reduced `AVG(discount)` from 656.7 to 298.5 ms (**2.20×**), mixed
+  `SUM, AVG, MIN, MAX` from 729.9 to 330.3 ms (**2.21×**), and the filtered
+  variant from 239.6 to 116.2 ms (**2.06×**). QPF remained at standard.
+- **Faster latency uses more client resources.** For the mixed aggregate,
+  mean busy client cores rose from **0.72 to 1.89**, median client CPU time
+  from **532.9 to 639.2 ms/query**, and median process peak RSS from
+  **128.6 to 297.0 MiB**. Ten granted workers did not occupy ten CPU cores.
+  RSS includes Python, Arrow, Go, warmups and timed queries; it excludes Redis.
+- **The controls do not use this worker pool.** Indexed count remained about
+  6–7 ms, driver grouped AVG about 0.7 s, and the full scan about 1.0 s.
+  Their columns vary without a worker-path change; these differences should
+  not be credited to the worker setting.
+- **Automatic is a CPU-based default, not an optimizer.** It had the lowest
+  reported median for these three eligible queries, but some block ranges
+  overlap. This fixture does not establish the best setting for every query,
+  host, or concurrency level. See the report for all five rounds and resource
+  measurements.
 
 The following specialized measurements are historical OSS results and were
-not rerun in this Software/QPF experiment:
+not rerun in this worker-scaling experiment:
 
 - **dbt's `delete+insert` with a composite key** (`where (k1, k2) in
   (select distinct k1, k2 from …)`) deleted 10,000 keys from a table of
@@ -4422,11 +4424,18 @@ From `go`, using the default Redis Software environment:
 ```bash
 make redis-up
 make build
-REDIS_URI=redis://localhost:6379/0 uv run --project validation --with redis python examples/bench.py --rows 100000 --repeat 5
+REDIS_URI=redis://localhost:6379/0 uv run --project validation python examples/bench.py --rows 100000 --repeat 1
+REDIS_URI=redis://localhost:6379/0 uv run --project validation python ../benchmarks/workers/run.py --cpus 10 --output /tmp/adbc-workers-new
+python3 ../benchmarks/workers/summarize.py /tmp/adbc-workers-new
 ```
 
-The script **replaces** the `sales` and `customers` tables with benchmark data;
-run `examples/load_sample.py` afterwards to get the quick-start data back.
+The first Python command **replaces** the `sales` and `customers` tables and
+runs a fixture sanity check. The worker harness then runs the five-round
+comparison at standard QPF and saves raw results; the final command produces
+the summary and tables. Use a new output directory for each run. `--cpus`
+fixes client `GOMAXPROCS`, not Docker's CPU allocation. See the
+[method and reproduction details](benchmarks/workers/2026-10-08/README.md).
+Run `examples/load_sample.py` afterwards to get the quick-start data back.
 
 ## Building and testing
 
