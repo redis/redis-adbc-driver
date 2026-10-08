@@ -1550,12 +1550,22 @@ double printed with 12 significant digits, which would round 64-bit integers,
 timestamps, decimals and doubles. So the driver names the columns it needs
 (`LOAD n @__key @__rowid @c …`) only when each one is a string (unless the
 column may hold a NUL byte, at which the sort vector stops), a 16/32-bit
-integer, boolean, date or time, or not indexed, and otherwise uses `LOAD *`,
-which returns the HASH fields unchanged. Sorts run on aliases
+integer, boolean, date or time, or not indexed. When a managed-table scan
+needs at most half the table's columns, it loads the exact-safe fields and
+keys through the cursor and reads the remaining fields from the HASHes
+with pipelined `HMGET` (at most 1,000 commands per batch). This preserves
+exact BIGINTs without transferring every column of a wide row. Wider
+projections and adopted tables use `LOAD *`, which returns the HASH fields
+unchanged. The two-stage read can observe concurrent changes between the
+cursor and `HMGET`; queries do not provide a snapshot. Sorts run on aliases
 (`LOAD @c AS __sort0 SORTBY @__sort0`) so that on a cluster the coordinator
 merges the shards' results on the numeric sort values rather than on the
 strings `LOAD *` returns. Rows whose sort values tie as doubles are sorted
 again by the driver (see "Ties in the sort vector" above).
+
+The [narrow-scan profile](benchmarks/narrow-scan/report.md) compares both
+paths on the official 100,000-row ClickBench fixture, including transferred
+bytes, allocations and exact aggregate query timings.
 
 ### Aggregate pushdown
 

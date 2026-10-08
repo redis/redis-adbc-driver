@@ -467,9 +467,9 @@ type scanRequest struct {
 }
 
 // scan finds the matching rows through the index (or directly by key), reads
-// the needed columns, and applies the residual predicate. Rows found through
-// the index are read by the FT.AGGREGATE pipeline itself, a cursor page at a
-// time, rather than with one HMGET per row.
+// the needed columns, and applies the residual predicate. Indexed scans load
+// rows a cursor page at a time; narrow projections fetch fields the index
+// cannot load exactly with bounded pipelined HMGETs.
 func (e *executor) scan(ctx context.Context, req scanRequest, params []Value) ([]string, []map[string]Value, error) {
 	if req.where.none {
 		return nil, nil, nil
@@ -516,6 +516,10 @@ type scanIter struct {
 	residual Expr
 	env      *evalEnv
 	cur      *aggCursor
+	// fetch holds fields LOAD cannot return exactly. Managed rows can read
+	// these from their HASHes in bounded pipelines after each cursor page.
+	store *store
+	fetch []string
 	// ties is set for a scan with a tieSort, which also records the page
 	// keep last saw (raw) and which of its rows it kept.
 	ties *tieScan
@@ -561,9 +565,30 @@ func (e *executor) openScan(ctx context.Context, req scanRequest, params []Value
 		sortBy:    req.sortBy,
 		limit:     req.limit,
 	}
-	if exactly && !meta.KeyRows {
+	if !meta.KeyRows && !exactly && len(it.need)*2 <= len(meta.Columns) {
+		// Keep narrow projections narrow even when a SORTABLE value rounds
+		// in the index. Require at least half the columns to be omitted to
+		// justify the extra pipeline round trips. Wider projections and
+		// adopted HASHes retain LOAD *.
+		fields = nil
+		for _, c := range meta.Columns {
+			if !it.need[c.Name] {
+				continue
+			}
+			dst := &fields
+			if !loadsExactly(c) {
+				dst = &it.fetch
+			}
+			*dst = append(*dst, c.field())
+			if c.MissingThrough > 0 {
+				*dst = append(*dst, nullMarker(c.field()))
+			}
+		}
+		it.store = e.store
+	}
+	if !meta.KeyRows && (exactly || len(it.fetch) > 0) {
 		ar.load = append([]string{"__key", rowIDField}, fields...)
-		ar.width = len(ar.load)
+		ar.width = len(ar.load) + len(it.fetch)
 	} else {
 		// A table with KeyRows has no field that every row has, so its rows
 		// are read whole: a row deleted after the index matched it then has
@@ -613,6 +638,23 @@ func (it *scanIter) nextPage(ctx context.Context) ([]string, []map[string]Value,
 			continue
 		}
 		keys[i] = r["__key"]
+	}
+	if len(it.fetch) > 0 {
+		// fetchRows includes __rowid, so a row deleted between the cursor
+		// lookup and HMGET is skipped, including rows with all NULL values.
+		fetched, err := it.store.fetchRows(ctx, keys, it.fetch)
+		if err != nil {
+			return nil, nil, err
+		}
+		for i, raw := range fetched {
+			if page[i] == nil || raw == nil {
+				page[i] = nil
+				continue
+			}
+			for f, v := range raw {
+				page[i][f] = v
+			}
+		}
 	}
 	return it.keep(keys, page)
 }
@@ -683,7 +725,7 @@ func (it *scanIter) keep(keys []string, fetched []aggRow) ([]string, []map[strin
 // LOAD reads SORTABLE attributes from the index's sorting vector, where
 // numbers are doubles printed with 12 significant digits: strings (stored
 // UNF) and integers below 2^53 survive, other numbers must be read from the
-// HASH with LOAD *, as must strings cut at a NUL byte (see tags.go).
+// HASH, as must strings cut at a NUL byte (see tags.go).
 // Unindexed fields are always read from the HASH.
 func loadsExactly(c columnMeta) bool {
 	if !simpleName(c.field()) {

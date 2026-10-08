@@ -1861,16 +1861,26 @@ func (s *store) fetchRows(ctx context.Context, keys []string, fields []string) (
 	fields = append([]string{rowIDField}, fields...)
 	out := make([]aggRow, len(keys))
 	for start := 0; start < len(keys); start += pipelineChunk {
+		if err := cancelled(ctx); err != nil {
+			return nil, err
+		}
 		end := min(start+pipelineChunk, len(keys))
 		pipe := s.client.Pipeline()
 		cmds := make([]*goredis.SliceCmd, 0, end-start)
 		for _, k := range keys[start:end] {
+			if k == "" {
+				cmds = append(cmds, nil) // already found deleted by the cursor
+				continue
+			}
 			cmds = append(cmds, pipe.HMGet(ctx, k, fields...))
 		}
 		if _, err := pipe.Exec(ctx); err != nil && !errors.Is(err, goredis.Nil) {
 			return nil, wrapRedis(err, "failed to read rows")
 		}
 		for i, cmd := range cmds {
+			if cmd == nil {
+				continue
+			}
 			vals, err := cmd.Result()
 			if err != nil {
 				return nil, wrapRedis(err, "failed to read rows")
