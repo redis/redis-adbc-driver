@@ -138,14 +138,18 @@ def main():
 
     for round_idx, factors in enumerate([[0, 2, 4], [4, 0, 2], [2, 4, 0]], 1):
         for factor in factors:
-            requested = {'active': factor > 0, 'scaling_factor': factor}
+            # active=false retains the previous effective settings on this image.
+            requested = {'active': True, 'scaling_factor': factor}
             api(f'bdbs/{uid}', {'query_performance_factor': requested}, 'PUT')
             wait(lambda: api(f'bdbs/{uid}')['status'] == 'active', 'QPF update')
             time.sleep(2)
-            observed = api(f'bdbs/{uid}')
-            effective = {k: observed.get(k) for k in ['query_performance_factor', 'sched_policy', 'conns', 'module_list']}
+            observed = api(f'bdbs/{uid}?fields=query_performance_factor,sched_policy,conns,search,module_list')
+            effective = {k: observed.get(k) for k in ['query_performance_factor', 'sched_policy', 'conns', 'search', 'module_list']}
             meta['configs'].append({'round': round_idx, 'factor': factor, 'effective': effective})
-            if effective['query_performance_factor'] != requested:
+            if (effective['query_performance_factor'] != requested
+                    or effective['search']['search-workers'] != math.ceil(factor * 1.5)
+                    or effective['sched_policy'] != ('mnp' if factor else 'cmp')
+                    or effective['conns'] != (32 if factor else 5)):
                 raise RuntimeError(f'QPF not applied: {effective}')
             for name, query in queries.items():
                 assert client.execute_command(*query) == expected[name], f'Result mismatch: {name}'
@@ -188,7 +192,7 @@ def main():
                     print(json.dumps(record), flush=True)
                     write()
     # Restore standard QPF in the dedicated benchmark database.
-    api(f'bdbs/{uid}', {'query_performance_factor': {'active': False, 'scaling_factor': 0}}, 'PUT')
+    api(f'bdbs/{uid}', {'query_performance_factor': {'active': True, 'scaling_factor': 0}}, 'PUT')
     write()
 
 

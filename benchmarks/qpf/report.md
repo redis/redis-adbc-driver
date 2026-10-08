@@ -1,5 +1,18 @@
 # Local QPF benchmark
 
+**Superseded: these ratios have an invalid standard baseline.** The saved
+round-2 and round-3 configurations show `sched_policy=mnp` and `conns=32`
+even though QPF was marked inactive. Toggling `active=false` retained the
+expanded settings on this image. Background CPU contention was an additional
+confounder. Do not use these ratios to assess QPF gains.
+
+The corrected end-to-end SQL/Arrow comparison is in
+[the October 8 Redis Software report](2026-10-08-adbc/README.md).
+The direct-command script now also applies standard with `active=true` and
+`scaling_factor=0`, and verifies worker/routing settings. The raw historical
+results below are preserved.
+
+
 Measured on October 6, 2026 using a dedicated disposable Redis Software container.
 
 ## Method

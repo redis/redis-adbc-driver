@@ -2,7 +2,8 @@
 
 This reruns the original [sample benchmark](../../../go/examples/bench.py) on
 PR #225's driver code, commit `77976c8`, using the previous README's hardware
-and Redis/Search versions. It updates the main README's query/ingest snapshot.
+and Redis/Search versions. This is the historical OSS snapshot; the main README now uses the
+[Redis Software/QPF measurements](../../qpf/2026-10-08-adbc/README.md).
 It is not an A/B experiment isolating the shared worker-budget implementation.
 The separately measured QPF, row-value and wide-integer benchmarks retain their
 own historical settings and results.

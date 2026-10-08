@@ -70,22 +70,28 @@ It supports SQL queries and Arrow bulk ingestion.
 
 ## Compatibility and validation
 
-On 2026-10-06, the current validation suite against local Redis Open Source
-8.6.2 had 360 passed, 8 skipped, 3 subtests passed, and 0 failed. The suite
-has also been run against the servers below; the cluster and Redis Cloud
-results are from earlier suite revisions and have not been re-run for this
-update.
+On **2026-10-08**, the validation suite against the default local **Redis
+Software** database (Redis 8.6.2, Search 8.6.11) had **360 passed, 8 skipped,
+3 subtests passed, and 0 failed**. The full Go suite also passed, with explicit
+skips for protocol-level ACL administration and resettable command counters
+that Software blocks. Those checks passed separately on the OSS three-shard
+compatibility environment. See [Building and testing](#building-and-testing).
+The other validation results below are from earlier runs.
 
 | Server | Version | Connection |
 |-|-|-|
+| **Redis Software (default)**, `redislabs/redis:8.2.0-78.18` | Redis 8.6.2, Search 8.6.11 | `redis://` |
 | Redis Open Source (`redis:8.6.2` Docker image) | 8.6.2, Search 8.6.0 | `redis://` |
 | Redis Open Source cluster, 3 shards (OSS Cluster API) | 8.6.2, Search 8.6.0 | `redis://` |
 | Redis Cloud, single shard | 8.6.2, Search 8.6.10 | `redis://` and TLS (`rediss://`)*† |
 | Redis Cloud Pro, 2 shards, through the proxy endpoint | 8.6.2 | `redis://`† |
 | Redis Cloud Pro, 2 shards, OSS Cluster API enabled | 8.6.2 | `redis://`† |
 
-Local testing uses the Redis version that Redis Cloud runs (currently
-8.6.2), so `go/compose.yaml` pins that image.
+**Redis Software is the default local and CI test environment.**
+`make redis-up` starts the pinned `redislabs/redis:8.2.0-78.18` image,
+bootstraps a single-node cluster, and creates a Redis 8.6 RAM database with
+Search. Open Source standalone and cluster environments are optional
+compatibility targets; CI also tests the three-shard OSS Cluster API.
 
 Earlier local and cluster runs had 325 passed, 0 failed. The Cloud runs
 marked † had 322 passed, 0 failed, before the two temporary-table ingest
@@ -112,10 +118,10 @@ These products are not supported.
 
 ### Prerequisites
 
-- **Redis with the Query Engine (RediSearch).** It is built into Redis 8.x
-  (e.g. the `redis:8.6.2` image). On older versions use Redis Stack, or Redis
-  Cloud / Redis Software with Search enabled. The driver runs `FT._LIST`
-  when it connects and refuses to connect if search isn't available.
+- **Redis with the Query Engine (RediSearch).** The default local setup uses
+  Redis Software with Search enabled. Redis Cloud and Redis 8.x Open Source
+  with Search are also supported; older versions need Redis Stack. The driver
+  runs `FT._LIST` when it connects and refuses to connect if search isn't available.
 - **A standalone server, Redis Cloud / Redis Software, or a Redis Cluster.**
   The driver picks its client automatically (`adbc.redis.cluster=auto`):
   - If the server reports `cluster_enabled:1` (OSS Cluster API), it uses a
@@ -477,11 +483,11 @@ Releases after v0.0.10 also have the
 [`redis-adbc`](#existing-hash-collections-redis-adbc) command for the same
 platforms.
 
-### 1. Start Redis 8.6 and build the driver
+### 1. Start Redis Software and build the driver
 
 ```bash
 cd go
-docker compose up --detach --wait redis
+make redis-up
 make build
 ```
 
@@ -724,21 +730,21 @@ below); `information_schema.tables` shows each table's `key_prefix` and
 `index_name`:
 
 ```bash
-docker exec redis-adbc-test redis-cli HGETALL public:sales:42
+docker compose exec redis-software /opt/redislabs/bin/redis-cli -p 12000 HGETALL public:sales:42
 ```
 
 ```bash
-docker exec redis-adbc-test redis-cli FT.INFO idx:public:sales
+docker compose exec redis-software /opt/redislabs/bin/redis-cli -p 12000 FT.INFO idx:public:sales
 ```
 
 To see the `FT.AGGREGATE` / `FT.CURSOR` commands the driver sends for each query,
 run `MONITOR` in a second terminal while you run SQL:
 
 ```bash
-docker exec -it redis-adbc-test redis-cli MONITOR
+docker compose exec redis-software /opt/redislabs/bin/redis-cli -p 12000 MONITOR
 ```
 
-Stop Redis with `docker compose down`.
+Stop and remove the disposable Redis Software database with `make redis-down` (from `go`).
 
 ## Existing HASH collections: `redis-adbc`
 
@@ -4205,85 +4211,83 @@ compact encoding, and index only the columns you filter or aggregate on.
 
 ### Benchmark setup
 
-Refreshed on **2026-10-08** with `go/examples/bench.py`, using driver code
-[`77976c8`](https://github.com/alberttwong/redis-adbc-driver/commit/77976c8).
-The sample data set contains **100,000 `sales` rows × 10 columns** and 50
-`customers`, generated with seed 42. Setup: Apple M4 (10 cores, 16 GB),
-Docker Desktop (10 CPUs, 7.75 GiB available memory), Redis 8.4.4 and Search
-8.4.10 on the same machine, matching the previous README's server versions.
-The client uses Go 1.26.6, Python 3.14.0, PyArrow 25.0.1 and ADBC driver manager
-1.12.0. Default automatic worker ceiling and shared budget both resolve to 10.
+Measured on **2026-10-08** against the default **Redis Software** environment:
+one RAM database and one shard, Redis 8.6.2 and Search 8.6.11, using
+`redislabs/redis:8.2.0-78.18`. The driver is at
+[`66aba73`](https://github.com/alberttwong/redis-adbc-driver/commit/66aba73),
+with the worker coordinator from PR #225. The seed-42 fixture contains
+**100,000 `sales` rows × 10 columns** and 50 `customers`.
 
-Query times are medians of 5 runs after one warm-up, measured in Python and
-including the Arrow transfer. Ingest is a single timed load per deployment.
-Standalone and three-shard runs use separate fresh containers and run
-sequentially. Command counts come from `INFO commandstats`; the table shows
-standalone counts, while the raw cluster results include shard fan-out
-(`_FT.AGGREGATE` / `_FT.CURSOR`). Command counts measure Redis operations,
-including pipelined commands, rather than network round trips. Laptop timings
-vary; the raw output retains minima and maxima as well as medians.
+Hardware: Apple M4 (10 cores, 16 GiB), Docker Desktop (10 CPUs, 7.75 GiB).
+Client: Go 1.26.6, Python 3.14.0, PyArrow 25.0.1, ADBC driver manager 1.12.0.
+Automatic worker ceiling and shared budget both resolve to 10. No other
+containers appeared in the sampled Docker inventory; host applications still
+share the laptop.
 
-[Raw output, structured results and reproduction details](benchmarks/readme-performance/2026-10-08/README.md)
-are included. This refresh measures the current driver; differences from the
-previous README snapshot include earlier driver changes and runtime variation,
-so they do not isolate the effect of the worker-budget PR.
+The table shows median SQL execution plus complete Arrow fetch from five
+runs after one warm-up, at standard, 2×, and 4× QPF, in that order. Each
+setting has one five-run block; small differences can be run variation.
+The separate [concurrency experiment](#query-performance-factor-qpf) rotates
+QPF order across three rounds. Software's proxy reports delayed INFO counters,
+so per-query command counts are omitted.
+
+[Raw measurements, exact SQL, environment and reproduction details](benchmarks/qpf/2026-10-08-adbc/README.md)
+are included. The [earlier OSS standalone/cluster snapshot](benchmarks/readme-performance/2026-10-08/README.md)
+is retained as a historical comparison. These runs do not isolate the effect
+of PR #225 or compare Software and OSS under identical conditions.
 
 ### Results
 
-Bulk ingest (`adbc_ingest`): 100,000 rows in 1.03 s standalone (96,734 rows/s)
-and 0.73 s on a 3-shard cluster (137,441 rows/s).
+Bulk ingest (`adbc_ingest`), standard QPF: **1.10 s for 100,000 rows
+(90,888 rows/s)**, measured once.
 
-| Query | Rows out | Standalone (ms) | 3-shard cluster (ms) | Standalone commands/run |
-|-|-:|-:|-:|-:|
-| Point lookup, `WHERE __rowid = N` | 1 | 1.4 | 1.0 | 2 |
-| `COUNT(*)` with `ordered_at >= TIMESTAMP … - INTERVAL '30 days'` | 1 | 1.2 | 1.4 | 2 |
-| Indexed TAG filters + `ORDER BY … LIMIT 10` | 10 | 4.8 | 4.9 | 12 |
-| `COUNT(*)` with an indexed range | 1 | 6.3 | 4.3 | 2 |
-| `GROUP BY` with `COUNT` / integer `SUM` (index reduce) | 6 | 7.3 | 4.1 | 2 |
-| Selective join (index lookup join) + `GROUP BY` | 8 | 33.3 | 43.9 | 6 |
-| `COUNT(*)` on a view, filter pushed into its base table | 1 | 20.2 | 22.9 | 4 |
-| Correlated scalar subquery for each of 50 customers | 50 | 67.6 | 101.1 | 54 |
-| `UNION` of two indexed filters | 1,750 | 54.1 | 60.6 | 1,953 |
-| Fetch 10% of the rows (indexed range) | 10,000 | 102.7 | 62.0 | 10,006 |
-| `COUNT(*)` with `LIKE 'gi%'` (index prefix query, profiled first) | 1 | 79.7 | 81.4 | 5 |
-| Filter on a non-indexed column (`notes LIKE '%order 1%'`) | 1 | 267.5 | 286.8 | 15 |
-| Unfiltered join + `GROUP BY` (hash join over all rows) | 6 | 464.0 | 517.9 | 22 |
-| `GROUP BY` with `AVG` of a `DOUBLE` (driver-side) | 6 | 604.2 | 583.2 | 100,015 |
-| `GROUP BY` of an expression `SUM(quantity * unit_price)` | 5 | 704.6 | 581.5 | 100,015 |
-| `GROUP BY DATE_TRUNC('month', ordered_at)` | 12 | 1890.7 | 1940.3 | 100,015 |
-| Full scan, `SELECT *` | 100,000 | 1116.6 | 1027.5 | 16 |
+| Query | Rows out | Standard QPF (ms) | 2× QPF (ms) | 4× QPF (ms) |
+|---|---:|---:|---:|---:|
+| point lookup by __rowid | 1 | 1.5 | 1.4 | 1.2 |
+| indexed filter + top 10 | 10 | 3.2 | 2.8 | 3.3 |
+| indexed range COUNT | 1 | 7.2 | 5.8 | 5.8 |
+| LIKE prefix COUNT | 1 | 88.4 | 91.9 | 85.8 |
+| interval range COUNT | 1 | 1.4 | 1.4 | 1.3 |
+| GROUP BY, index reduce | 6 | 7.6 | 8.4 | 7.8 |
+| GROUP BY, driver (AVG double) | 6 | 592.8 | 626.6 | 604.7 |
+| GROUP BY expression, driver | 5 | 680.4 | 664.7 | 673.9 |
+| GROUP BY DATE_TRUNC, driver | 12 | 774.3 | 863.7 | 817.1 |
+| non-indexed filter (scan) | 1 | 416.0 | 366.3 | 356.3 |
+| fetch 10% of rows | 10,000 | 78.2 | 80.8 | 67.6 |
+| full scan, all columns | 100,000 | 887.4 | 1067.4 | 981.2 |
+| selective join (index lookup) | 8 | 37.1 | 36.4 | 51.9 |
+| unfiltered join (hash join) | 6 | 460.7 | 496.1 | 480.3 |
+| correlated subquery (50 rows) | 50 | 54.2 | 52.8 | 54.9 |
+| IN (SELECT …), half the rows | 1 | 1002.2 | 1100.3 | 984.1 |
+| correlated EXISTS (semi-join) | 1 | 1197.6 | 1183.6 | 1237.1 |
+| correlated EXISTS, no inner rows | 1 | 2.0 | 2.0 | 1.9 |
+| UNION of two filters | 1,750 | 52.4 | 54.1 | 51.8 |
+| view with pushed filter | 1 | 25.3 | 23.5 | 24.0 |
 
 ### Interpretation
 
-What drives the numbers:
+- **Small index queries are already fast with one client.** At standard QPF,
+  indexed range count took 7.2 ms and indexed group-by took
+  7.6 ms. QPF's main benefit in this experiment appears under
+  concurrency, where more Search compute can serve several queries at once.
+- **Scanning, decoding, and Arrow transfer remain substantial.** The full
+  scan took 0.89 s and driver-side grouped `AVG` took
+  0.59 s at standard QPF. Narrow projections fetch exact values with
+  pipelined `HMGET`; increasing QPF cannot remove that work. Grouped aggregates
+  use the serial driver path; eligible ungrouped aggregates share the automatic
+  worker budget across connections.
+- **Selective joins reduce the rows processed.** The selective join took
+  37.1 ms, compared with 460.7 ms for the unfiltered hash join.
+  Correlated counts over 50 customers took 54.2 ms.
+- **Equality semi-joins avoid comparing every pair of rows.** The `IN`
+  subquery took 1.00 s and correlated `EXISTS` took
+  1.20 s; with no inner matches, `EXISTS` took
+  2.0 ms. The older per-row implementations measured 22–23 s
+  in historical runs.
 
-- **Index reductions and small indexed results take milliseconds in this
-  data set.** Counts and ranges took 1.2–6.3 ms standalone; exact `GROUP BY`
-  with `COUNT` and integer `SUM` took 7.3 ms. Indexed filters with
-  `ORDER BY … LIMIT 10` took 4.8 ms while fetching only ten projected rows.
-- **Reading and reducing rows costs more than index-only queries.** The full
-  100,000-row scan took 1.12 s standalone and 1.03 s on the cluster, including
-  decoding and Arrow transfer. Driver-side `AVG` grouping took 0.60 and
-  0.58 s; grouping by `DATE_TRUNC` took 1.89 and 1.94 s. Wide scans read rows
-  inside cursor pages, up to 10,000 per page. Narrow projections fetch fields
-  that the index cannot return exactly with bounded pipelined `HMGET`s:
-  the driver-side groups issued 100,000 `HMGET`s, while the 10% projection
-  issued 10,000. These are pipelined operations, not one network round trip
-  per row. Up to v0.0.3 full-row scans fetched every row with pipelined
-  `HMGET`; the earlier README measured those at 3.3–3.8 s.
-- **Selective joins avoid a full join scan** by filtering the smaller side
-  first and fetching matching rows from the other side. The selective join
-  took 33.3 ms standalone and 43.9 ms on the cluster, compared with 464.0 and
-  517.9 ms for the unfiltered hash join. Correlated scalar counts over 50
-  customers took 67.6 and 101.1 ms, issuing 54 standalone Redis commands.
-- **`IN (SELECT …)` and correlated `EXISTS` / `IN` on equalities avoid
-  comparing every outer row with every inner row.** In this rerun,
-  `order_id IN (SELECT …)` with 50,017 qualifying inner rows took 1.27 s
-  standalone and 1.64 s on the cluster. A correlated equality `EXISTS` took
-  1.73 and 2.31 s: it probes the first 500 rows, then uses a hash semi-join.
-  With no inner matches it took 4.4 and 5.5 ms. The earlier implementation
-  without these paths took 23 s for `IN` and 22–23 s for per-row `EXISTS` in
-  the historical README run.
+The following specialized measurements are historical OSS results and were
+not rerun in this Software/QPF experiment:
+
 - **dbt's `delete+insert` with a composite key** (`where (k1, k2) in
   (select distinct k1, k2 from …)`) deleted 10,000 keys from a table of
   200,000 rows in about 1 s, standalone and on a 3-shard cluster, and
@@ -4339,50 +4343,54 @@ What drives the numbers:
 
 ### Query performance factor (QPF)
 
-Higher QPF did **not consistently improve performance** in the local tests
-below. QPF adds query compute capacity per shard in Redis Software and Redis
-Cloud; its benefit depends on the query, concurrency, and available CPU.
-See [Redis's QPF documentation](https://redis.io/docs/latest/operate/oss_and_stack/stack-with-enterprise/search/query-performance-factor/).
+**QPF substantially improved concurrent index-query throughput** in the
+corrected SQL/Arrow experiment. At 16 clients, 4× QPF delivered
+**4.13× indexed group-by throughput** and **4.01× indexed range-count
+throughput**, relative to standard. Single-client latency and workloads
+that fetch and process many rows showed much smaller benefits.
 
-On October 6, 2026, we ran 108 trials against a disposable single-shard Redis
-Software database: standard (QPF disabled), 2×, and 4× QPF; concurrency 1 and
-16; six workloads; three repeats per combination. Each trial sent requests
-for three seconds and waited for outstanding requests to finish. The data
-contained 100,000 hashes, each with a 512-byte payload. The database used
-Redis 8.6.2 and Search 8.6.11, with RAM storage and no replica. QPF settings
-were verified through the management API after each change.
+The earlier October 6 comparison had an invalid baseline: on this Software
+image, setting `active=false` retained expanded routing/connection settings
+after QPF had been enabled. Its saved metadata confirms this. The corrected
+harness uses `active=true, scaling_factor=0` for standard and verifies
+Search workers, routing, and connection limits after every transition.
+The [old report](benchmarks/qpf/report.md) is marked superseded.
 
-At **16 concurrent clients**, median trial throughput relative to standard
-was as follows. Values above 1.00× mean higher throughput.
+The corrected experiment ran **90 trials** on the same 100,000-row fixture:
+three rounds with rotated QPF order, five seconds of requests per trial,
+plus draining outstanding work. Each client warms up twice. Index workloads
+use 1 and 16 clients; larger driver/transfer workloads use 1 and 4. All
+connections share one ADBC database handle and its automatic worker budget.
+The five workloads' complete results are checked across settings; all trials
+had zero query errors.
 
-| Direct Redis workload | 2× QPF | 4× QPF |
-|---|---:|---:|
-| `FT.SEARCH`, text count | 0.63× | 0.90× |
-| `FT.SEARCH`, tag filter and small projection | 0.84× | 0.81× |
-| `FT.SEARCH`, 100 full documents | 1.07× | 0.86× |
-| `FT.AGGREGATE`, group and sum using `SORTABLE` values | 0.99× | 1.16× |
-| `FT.AGGREGATE`, same group and sum with `LOAD` | 0.53× | 0.97× |
-| `FT.SEARCH`, numeric range count | 0.61× | 0.82× |
+The table shows median trial throughput over three repeats. Ratios above
+1.00× mean more completed SQL queries per second, including Arrow fetch.
 
-The indexed aggregation's median trial p95 latency fell from 81.36 ms at
-standard QPF to 68.55 ms at 4×. Aggregation with `LOAD` showed no consistent
-throughput gain. Single-client results were also mixed. Query results were
-checked across QPF settings, both aggregation variants returned identical
-sums, and all 108 trials completed with zero command errors.
+| SQL workload | Clients | Standard queries/s | 2× / standard | 4× / standard |
+|---|---:|---:|---:|---:|
+| Indexed `GROUP BY country, COUNT, SUM` | 16 | 145.96 | 2.68× | 4.13× |
+| Indexed range `COUNT` | 16 | 259.07 | 2.37× | 4.01× |
+| Driver-side grouped `AVG(discount)` | 4 | 3.47 | 1.22× | 1.20× |
+| Ungrouped `SUM, AVG, MIN, MAX` | 4 | 3.82 | 1.07× | 1.11× |
+| Full scan, all 100,000 rows | 4 | 1.71 | 1.31× | 1.27× |
 
-**These measurements do not establish production QPF speedups.** The local
-Docker host had 10 virtual CPUs and substantial, varying CPU load from
-another Redis test container. Throughput varied widely across repeats, and
-some slow aggregation trials had few samples. These are direct
-`FT.SEARCH`/`FT.AGGREGATE` measurements, not end-to-end ADBC SQL or Arrow
-transfer benchmarks. This run does not support increasing QPF by default;
-compare throughput and p95 latency with representative queries on an
-isolated host before choosing a setting.
+At 16 clients, indexed group-by's median trial p95 fell from
+**176.4 ms to 38.4 ms** at 4× QPF; range-count p95 fell from
+**68.8 ms to 22.9 ms**. These are local measurements on a shared
+client/server laptop, not production forecasts. Five-second scan trials have
+few requests, so their p95 values and small throughput differences are noisy.
 
-The [full report](benchmarks/qpf/report.md) includes absolute throughput,
-latency, run-to-run ranges, exact queries, and reproduction commands.
-[Raw results](benchmarks/qpf/results.json) and the
-[benchmark script](benchmarks/qpf/run.py) are included.
+QPF increases server Search compute. It cannot eliminate decoding, transfer,
+or driver-side work, and it needs CPU headroom. The test verified 0 background
+Search workers at standard, 3 at 2×, and 6 at 4×. See
+[Redis's QPF sizing guidance](https://redis.io/docs/latest/operate/oss_and_stack/stack-with-enterprise/search/query-performance-factor/).
+Standard remains the default; choose higher QPF from representative concurrent
+measurements and available CPU capacity.
+
+[Full report and reproduction commands](benchmarks/qpf/2026-10-08-adbc/README.md),
+[raw trials and configuration checks](benchmarks/qpf/2026-10-08-adbc/results.json),
+and [SQL/Arrow harness](benchmarks/qpf/adbc.py) are included.
 
 ### Potential optimizations
 
@@ -4409,9 +4417,10 @@ Known ways to make the slow cases faster (not done yet):
 
 ### Reproduce the benchmark
 
-From `go`, with Redis running:
+From `go`, using the default Redis Software environment:
 
 ```bash
+make redis-up
 make build
 REDIS_URI=redis://localhost:6379/0 uv run --project validation --with redis python examples/bench.py --rows 100000 --repeat 5
 ```
@@ -4421,14 +4430,22 @@ run `examples/load_sample.py` afterwards to get the quick-start data back.
 
 ## Building and testing
 
+The default setup needs Docker Compose, `curl`, and `jq`. It uses the bundled
+trial license and fixed local test credentials, with the admin API and database
+bound to localhost. The database is in RAM, with no replica or persistence.
+`SOFTWARE_API_PORT` (default 19443) and `SOFTWARE_DB_PORT` (default 6379)
+override host ports; set `REDIS_URI` for tests when changing the database port.
+QPF remains at standard unless explicitly changed for a benchmark.
+
 ### Validation suite
 
 See the [Quick start](#quick-start) for building. To run the ADBC validation
-suite against the local Redis:
+suite against the default local Redis Software database:
 
 ```bash
-cd go/validation
-REDIS_URI=redis://localhost:6379/0 uv run pytest -v tests/
+cd go
+make redis-up
+make validate
 ```
 
 The suite accepts any Redis 8.x server, so it can also target a remote or
@@ -4444,7 +4461,9 @@ REDIS_URI='rediss://default:<password>@<host>:<port>/0' uv run pytest -v tests/
 
 SQL features beyond the validation suite (CASE, HAVING, CTAS, …) have Go
 integration tests with exact expected results. They need a running Redis and
-are skipped when `REDIS_URI` is unset (from `go`):
+are skipped by direct `go test` commands when `REDIS_URI` is unset.
+`make test` sets the local Software URI by default; start it with
+`make redis-up` first (from `go`):
 
 ```bash
 REDIS_URI=redis://localhost:6379/0 go test -run TestSQL ./...
@@ -4469,14 +4488,22 @@ Some tests need more:
   afterwards, so the user needs the `ACL` command. To run the whole suite as
   a user with only the driver's commands (see [ACL users](#acl-users)), set
   `REDIS_URI` to that user and `REDIS_ADMIN_URI` to one that can do
-  everything: the tests' own checks use it (`KEYS`, `ACL`, …).
+  everything: the tests' own checks use it (`KEYS`, `ACL`, …). Redis Software
+  manages users through its management API and blocks `ACL SETUSER`, so
+  these protocol-level ACL tests skip there and run in the OSS compatibility job.
+- **Command-count assertions** need `CONFIG RESETSTAT` and immediate INFO
+  counters. They skip when Software blocks that command; the other SQL
+  correctness tests run on Software, and the OSS job covers these assertions.
 - **`TestTimeoutServerPaused`** pauses the server (`CLIENT PAUSE`, on one
   shard of a cluster) for about half a minute, so it only runs with
   `REDIS_PAUSE_TESTS=1`. Run it against a test server only.
 
 ### Redis Cluster
 
-To test against a local 3-shard Redis Cluster (from `go`):
+Open Source is an optional compatibility environment. For standalone OSS,
+run `make redis-down` then `make redis-oss-up` from `go`; it uses port 6379.
+Remove it with `docker compose --profile oss rm -sf redis` before switching
+back to Software. To test the OSS Cluster API on a local three-shard cluster:
 
 ```bash
 docker compose --profile cluster up --detach --wait redis-cluster

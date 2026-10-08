@@ -13,9 +13,23 @@
 # limitations under the License.
 
 services:
+  # Default environment: Redis Software with a RAM database and Search.
+  # make redis-up also bootstraps the cluster and creates the database.
+  redis-software:
+    image: redislabs/redis:8.2.0-78.18
+    cap_add: [SYS_RESOURCE]
+    ports:
+      - "127.0.0.1:${SOFTWARE_API_PORT:-19443}:9443"
+      - "127.0.0.1:${SOFTWARE_DB_PORT:-6379}:12000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sk -o /dev/null https://localhost:9443/v1/bootstrap"]
+      interval: 3s
+      timeout: 5s
+      retries: 60
+
+  # Optional Redis Open Source compatibility environment.
   redis:
-    # Redis 8.x ships the Query Engine (RediSearch) built in. Local testing
-    # uses the version Redis Cloud runs, so results match Cloud.
+    profiles: ["oss"]
     image: redis:8.6.2
     container_name: redis-adbc-test
     ports:
