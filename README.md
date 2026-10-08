@@ -106,6 +106,10 @@ refuses them when it connects; see
 You don't create any indexes or enable any settings yourself. The one hard
 requirement is the Query Engine.
 
+The ADBC driver requires commands and functions unavailable in Valkey and
+Redis 7.2 derivatives, including AWS ElastiCache and Google Cloud Memorystore.
+These products are not supported.
+
 ### Prerequisites
 
 - **Redis with the Query Engine (RediSearch).** It is built into Redis 8.x
