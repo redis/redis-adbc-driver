@@ -1057,6 +1057,12 @@ func (e *executor) selectAggregate(ctx context.Context, plan *selectPlan, params
 		return nil, err
 	}
 	if !ok {
+		groups, ok, err = e.indexCountDistinct(ctx, plan, wp, aggs, params)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if !ok {
 		groups, err = e.driverAggregate(ctx, plan, wp, aggs, params)
 		if err != nil {
 			return nil, err

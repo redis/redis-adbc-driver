@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/apache/arrow-adbc/go/adbc"
@@ -46,6 +47,9 @@ type aggRequest struct {
 	load      []string
 	loadAll   bool // also load every HASH field (LOAD *)
 	width     int  // fields per result row, to size cursor pages (0 if small)
+	// listLengths captures cardinalities of explicitly requested array reducers.
+	listLengths    map[string]string
+	distinctChecks []distinctCheck
 }
 
 // pageRows returns the cursor page size.
@@ -166,7 +170,8 @@ type aggCursor struct {
 	first   []aggRow
 	pending bool
 	// cursor is 0 once every page has been read, or the cursor deleted.
-	cursor int64
+	cursor      int64
+	listLengths map[string]string
 }
 
 // openAggregate runs the pipeline and reads its first page.
@@ -194,8 +199,8 @@ func (s *store) openAggregate(ctx context.Context, req *aggRequest) (*aggCursor,
 	if err != nil {
 		return nil, wrapRedis(err, "FT.AGGREGATE failed")
 	}
-	c := &aggCursor{node: node, index: req.index, count: req.pageRows(), pending: true}
-	if c.first, c.cursor, err = parseCursorReply(reply); err != nil {
+	c := &aggCursor{node: node, index: req.index, count: req.pageRows(), pending: true, listLengths: req.listLengths}
+	if c.first, c.cursor, err = parseCursorReplyLists(reply, c.listLengths); err != nil {
 		c.close(ctx)
 		return nil, err
 	}
@@ -223,7 +228,7 @@ func (c *aggCursor) next(ctx context.Context) ([]aggRow, error) {
 		}
 		return nil, wrapRedis(err, "FT.CURSOR READ failed")
 	}
-	page, cursor, err := parseCursorReply(reply)
+	page, cursor, err := parseCursorReplyLists(reply, c.listLengths)
 	c.cursor = cursor
 	if err != nil {
 		c.close(ctx)
@@ -248,6 +253,10 @@ func (c *aggCursor) close(ctx context.Context) {
 // and the FT.AGGREGATE result map in RESP3. The cursor id is 0 when the last
 // page has been read.
 func parseCursorReply(reply any) ([]aggRow, int64, error) {
+	return parseCursorReplyLists(reply, nil)
+}
+
+func parseCursorReplyLists(reply any, listLengths map[string]string) ([]aggRow, int64, error) {
 	outer, ok := reply.([]any)
 	if !ok || len(outer) != 2 {
 		return nil, 0, errorf(adbc.StatusInternal, "unexpected FT.AGGREGATE reply %T", reply)
@@ -275,6 +284,10 @@ func parseCursorReply(reply any) ([]aggRow, int64, error) {
 				row[k] = v
 			case []byte:
 				row[k] = string(v)
+			case []any:
+				if alias, ok := listLengths[k]; ok {
+					row[alias] = strconv.Itoa(len(v))
+				}
 			case int64:
 				row[k] = fmt.Sprint(v)
 			case int, float64, float32:
