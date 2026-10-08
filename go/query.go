@@ -1575,6 +1575,9 @@ func (e *executor) indexAggregate(ctx context.Context, plan *selectPlan, wp wher
 // driverAggregate fetches the needed columns from the row HASHes and reduces
 // them in the driver.
 func (e *executor) driverAggregate(ctx context.Context, plan *selectPlan, wp wherePlan, aggs []*Func, params []Value) ([]aggGroup, error) {
+	if groups, handled, err := e.parallelAggregate(ctx, plan, wp, aggs, params); handled {
+		return groups, err
+	}
 	meta := plan.meta
 	req := scanRequest{meta: meta, where: wp, need: maps.Clone(plan.extraNeed)}
 	if req.need == nil {

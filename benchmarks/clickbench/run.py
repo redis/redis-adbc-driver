@@ -129,6 +129,8 @@ def main():
     ap.add_argument("--resume-result", type=Path, help="Resume a interrupted load after prefix validation")
     ap.add_argument("--cleanup", action="store_true",
                     help="Drop only this run's generated table and schema on completion")
+    ap.add_argument("--query-workers", type=int, default=1, choices=range(1, 33),
+                    help="Parallel driver workers for eligible individual aggregates")
     ap.add_argument("--query-timeout", type=float, default=1200)
     ap.add_argument("--deadline", type=float, default=float("inf"),
                     help="UTC epoch deadline for stopping within the deployment budget")
@@ -184,6 +186,7 @@ def main():
                      "namespace": namespace, "columns": 105,
                      "placement": placement,
                      "query_timeout_seconds": args.query_timeout,
+                     "query_workers": args.query_workers,
                      "connection_protocol": "RESP3 (driver default); fresh connection per trial",
                      "aggregate_pushdown": "exact", "timing": "execute + Arrow fetch",
                      "correctness": "row count checked; query fingerprints need reference validation",
@@ -320,7 +323,7 @@ def main():
                             save(args.output, result)
                             continue
                         job_path.write_text(json.dumps({"driver": str(args.driver.resolve()),
-                            "namespace": namespace, "sql": sql, "output": str(output_path.resolve())}))
+                            "namespace": namespace, "sql": sql, "query_workers": args.query_workers, "output": str(output_path.resolve())}))
                         try:
                             process = subprocess.run([sys.executable, str(HERE / "trial.py"), str(job_path)],
                                 timeout=min(args.query_timeout, remaining), capture_output=True)
