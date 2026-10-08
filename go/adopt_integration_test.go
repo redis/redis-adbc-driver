@@ -130,7 +130,13 @@ func TestAdoptHashes(t *testing.T) {
 	r := f.inspect(HashInspectOptions{})
 	ip := checklist(t, r, ChecklistSQLInPlace)
 	expectItem(t, ip, CheckOK, "these HASHes are the adopted table public.it_ad_users")
-	expectItem(t, ip, CheckWarn, "(the last: it:ad:user:32: Invalid numeric value: 'lots')")
+	// Search versions may prefix the detail with SEARCH_NUMERIC_VALUE_INVALID.
+	if !slices.ContainsFunc(ip.Items, func(item CheckItem) bool {
+		return item.Status == CheckWarn && strings.Contains(item.Text, "(the last: it:ad:user:32:") &&
+			strings.Contains(item.Text, "Invalid numeric value: 'lots')")
+	}) {
+		t.Fatalf("missing last indexing failure detail: %+v", ip.Items)
+	}
 	res = f.adopt(HashAdoptOptions{})
 	if res.Applied || !res.AlreadyAdopted || !res.Report.Checks[0].Ready {
 		t.Errorf("adopt again: %+v", res)
@@ -337,7 +343,8 @@ func TestAdoptIndexFailure(t *testing.T) {
 	// One HASH, but it may fail twice: when it is written, and when the
 	// index's scan of the existing keys reaches it.
 	if err == nil || !strings.Contains(err.Error(), "indexing failure") ||
-		!strings.Contains(err.Error(), "(the last: it:ad:fail:2: Invalid numeric value: 'two')") {
+		!strings.Contains(err.Error(), "(the last: it:ad:fail:2:") ||
+		!strings.Contains(err.Error(), "Invalid numeric value: 'two')") {
 		t.Fatalf("got %v", err)
 	}
 	st := &store{client: f.raw}

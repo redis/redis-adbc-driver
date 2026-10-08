@@ -22,11 +22,13 @@ else
 endif
 
 VERSION ?= v0.1.0
+REDIS_URI ?= redis://localhost:6379/0
+export REDIS_URI
 LIB := build/libadbc_driver_redis.$(EXT)
 ADBC_CLI := build/redis-adbc
 LDFLAGS := -s -w -X github.com/adbc-drivers/driverbase-go/driverbase.infoDriverVersion=$(VERSION)
 
-.PHONY: build adbc-cli test validate clean redis-up redis-down
+.PHONY: build adbc-cli test validate clean redis-up redis-down redis-oss-up
 
 build: $(LIB)
 
@@ -47,14 +49,19 @@ $(ADBC_CLI): $(wildcard *.go) $(wildcard cmd/redis-adbc/*.go) go.mod go.sum
 # integration tests share the server, and any connection that opens rolls
 # back an abandoned move (adbc.redis.rename_rekey), including the ones the
 # driver's tests set up and expect to find.
+# Disable caching because the running integration server is external state.
 test:
-	go test -v -p 1 ./...
+	go test -count=1 -v -p 1 ./...
 
 redis-up:
-	docker compose up --detach --wait redis
+	bash software-setup.sh
 
 redis-down:
-	docker compose down
+	docker compose stop redis-software
+	docker compose rm -f redis-software
+
+redis-oss-up:
+	docker compose --profile oss up --detach --wait redis
 
 validate: build
 	cd validation && uv run pytest -vvs -rfEsxX tests/

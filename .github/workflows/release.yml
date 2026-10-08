@@ -13,8 +13,8 @@
 # limitations under the License.
 
 # Builds the driver library and the redis-adbc command for Linux (amd64,
-# arm64) and macOS (arm64), tests the Linux builds against Redis (standalone
-# and a 3-shard cluster), runs the validation suite and a redis-adbc check,
+# arm64) and macOS (arm64), tests the Linux builds against Redis Software
+# and an OSS compatibility cluster, runs the validation suite and a redis-adbc check,
 # copy and adopt on each Linux tarball on every distribution Redis Software
 # supports, and attaches the tarballs to the release.
 #
@@ -108,16 +108,14 @@ jobs:
           file build/redis-adbc
           file build/redis-adbc | grep -q 'statically linked'
 
-      - name: Start Redis
+      - name: Start Redis Software
         working-directory: go
-        run: |
-          docker compose up --detach --wait redis
-          docker compose --profile cluster up --detach --wait redis-cluster
+        run: make redis-up
 
       # -p 1: the packages' integration tests share the server, and a
       # connection opened by one rolls back the abandoned moves another set
       # up (see the Makefile's test target).
-      - name: Test (standalone)
+      - name: Test (Redis Software)
         working-directory: go
         env:
           REDIS_URI: redis://localhost:6379/0
@@ -125,7 +123,13 @@ jobs:
           go test -count=1 -p 1 -skip "$SKIP" ./...
           cd validation && uv run pytest -q tests/
 
-      - name: Test (3-shard cluster)
+      - name: Start OSS compatibility cluster
+        working-directory: go
+        run: |
+          make redis-down
+          docker compose --profile cluster up --detach --wait redis-cluster
+
+      - name: Test (OSS 3-shard compatibility)
         working-directory: go
         env:
           REDIS_URI: redis://localhost:7001/0
@@ -184,9 +188,9 @@ jobs:
           path: dist
       - uses: astral-sh/setup-uv@v10.2.0
 
-      - name: Start Redis
+      - name: Start Redis Software
         working-directory: go
-        run: docker compose up --detach --wait redis
+        run: make redis-up
 
       - name: Validation suite
         env:
@@ -223,8 +227,8 @@ jobs:
         run: |
           name="redis-adbc-$VERSION-linux-$ARCH"
           tar xzf "dist/$name.tar.gz" -C dist
-          (cd go && docker compose exec -T redis redis-cli HSET release:adbc:1 name a n 1 >/dev/null &&
-            docker compose exec -T redis redis-cli HSET release:adbc:2 name b n 2 >/dev/null)
+          (cd go && docker compose exec -T redis-software /opt/redislabs/bin/redis-cli -p 12000 HSET release:adbc:1 name a n 1 >/dev/null &&
+            docker compose exec -T redis-software /opt/redislabs/bin/redis-cli -p 12000 HSET release:adbc:2 name b n 2 >/dev/null)
           docker run --rm --network host \
             -v "$PWD/dist/$name:/cli:ro" \
             -e REDIS_URI=redis://localhost:6379/0 "$IMAGE" sh -euc '

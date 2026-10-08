@@ -674,6 +674,12 @@ func (h *sqlHarness) rowReads(c goredis.UniversalClient, fn func()) map[string]i
 			err = do(h.ctx, c.(*goredis.Client))
 		}
 		if err != nil {
+			// Software exposes delayed proxy counters and blocks RESETSTAT.
+			// This command-count assertion runs on the OSS compatibility job;
+			// the separate empty-query tests still check SQL results here.
+			if strings.Contains(err.Error(), "command 'config|resetstat' is not allowed") {
+				h.t.Skipf("server does not expose resettable command statistics: %v", err)
+			}
 			h.t.Fatal(err)
 		}
 	}
