@@ -4205,72 +4205,85 @@ compact encoding, and index only the columns you filter or aggregate on.
 
 ### Benchmark setup
 
-Measured with `go/examples/bench.py` (see below) on the sample data set
-scaled to **100,000 `sales` rows × 10 columns** and 50 `customers`.
-Setup: Apple M4 (10 cores, 16 GB), Docker Desktop, Redis 8.4.4 (Search
-8.4.10) in Docker on the same machine. Times are the median of 5 runs after a
-warm-up, measured in Python and including the Arrow transfer; "Redis
-commands" are counted with `INFO commandstats` on the standalone server (a
-cluster adds the shard fan-out, `_FT.AGGREGATE` / `_FT.CURSOR`). Numbers on a
-laptop vary from run to run; treat them as orders of magnitude.
+Refreshed on **2026-10-08** with `go/examples/bench.py`, using driver code
+[`77976c8`](https://github.com/alberttwong/redis-adbc-driver/commit/77976c8).
+The sample data set contains **100,000 `sales` rows × 10 columns** and 50
+`customers`, generated with seed 42. Setup: Apple M4 (10 cores, 16 GB),
+Docker Desktop (10 CPUs, 7.75 GiB available memory), Redis 8.4.4 and Search
+8.4.10 on the same machine, matching the previous README's server versions.
+The client uses Go 1.26.6, Python 3.14.0, PyArrow 25.0.1 and ADBC driver manager
+1.12.0. Default automatic worker ceiling and shared budget both resolve to 10.
+
+Query times are medians of 5 runs after one warm-up, measured in Python and
+including the Arrow transfer. Ingest is a single timed load per deployment.
+Standalone and three-shard runs use separate fresh containers and run
+sequentially. Command counts come from `INFO commandstats`; the table shows
+standalone counts, while the raw cluster results include shard fan-out
+(`_FT.AGGREGATE` / `_FT.CURSOR`). Command counts measure Redis operations,
+including pipelined commands, rather than network round trips. Laptop timings
+vary; the raw output retains minima and maxima as well as medians.
+
+[Raw output, structured results and reproduction details](benchmarks/readme-performance/2026-10-08/README.md)
+are included. This refresh measures the current driver; differences from the
+previous README snapshot include earlier driver changes and runtime variation,
+so they do not isolate the effect of the worker-budget PR.
 
 ### Results
 
-Bulk ingest (`adbc_ingest`): 100,000 rows in 1.6 s standalone (62,000 rows/s)
-and 0.56 s on a 3-shard cluster (180,000 rows/s).
+Bulk ingest (`adbc_ingest`): 100,000 rows in 1.03 s standalone (96,734 rows/s)
+and 0.73 s on a 3-shard cluster (137,441 rows/s).
 
-| Query | Rows out | Standalone (ms) | 3-shard cluster (ms) | Redis commands |
+| Query | Rows out | Standalone (ms) | 3-shard cluster (ms) | Standalone commands/run |
 |-|-:|-:|-:|-:|
-| Point lookup, `WHERE __rowid = N` | 1 | 1.7 | 1.0 | 2 |
-| `COUNT(*)` with `ts >= TIMESTAMP … - INTERVAL '30 days'` | 1 | 1.4 | 1.0 | 2 |
-| Indexed TAG filters + `ORDER BY … LIMIT 10` | 10 | 4.4 | 1.9 | 2 |
-| `COUNT(*)` with an indexed range | 1 | 5.0 | 2.5 | 2 |
-| `GROUP BY` with `COUNT` / integer `SUM` (index reduce) | 6 | 6.9 | 3.1 | 2 |
-| Selective join (index lookup join) + `GROUP BY` | 8 | 25 | 27 | 6 |
-| `COUNT(*)` on a view, filter pushed into its base table | 1 | 27 | 15 | 4 |
-| Correlated scalar subquery for each of 50 customers | 50 | 31 | 28 | 54 |
-| `UNION` of two indexed filters | 1,750 | 48 | 46 | 6 |
-| Fetch 10% of the rows (indexed range) | 10,000 | 50 | 68 | 4 |
-| `COUNT(*)` with `LIKE 'gi%'` (index prefix query, profiled first) | 1 | 62 | 64 | 5 |
-| Filter on a non-indexed column (`notes LIKE '%x%'`) | 1 | 272 | 279 | 12 |
-| Unfiltered join + `GROUP BY` (hash join over all rows) | 6 | 345 | 358 | 16 |
-| `GROUP BY` with `AVG` of a `DOUBLE` (driver-side) | 6 | 463 | 522 | 12 |
-| `GROUP BY` of an expression `SUM(quantity * unit_price)` | 5 | 494 | 549 | 12 |
-| `GROUP BY DATE_TRUNC('month', ts)` | 12 | 499 | 542 | 12 |
-| Full scan, `SELECT *` | 100,000 | 679 | 825 | 13 |
+| Point lookup, `WHERE __rowid = N` | 1 | 1.4 | 1.0 | 2 |
+| `COUNT(*)` with `ordered_at >= TIMESTAMP … - INTERVAL '30 days'` | 1 | 1.2 | 1.4 | 2 |
+| Indexed TAG filters + `ORDER BY … LIMIT 10` | 10 | 4.8 | 4.9 | 12 |
+| `COUNT(*)` with an indexed range | 1 | 6.3 | 4.3 | 2 |
+| `GROUP BY` with `COUNT` / integer `SUM` (index reduce) | 6 | 7.3 | 4.1 | 2 |
+| Selective join (index lookup join) + `GROUP BY` | 8 | 33.3 | 43.9 | 6 |
+| `COUNT(*)` on a view, filter pushed into its base table | 1 | 20.2 | 22.9 | 4 |
+| Correlated scalar subquery for each of 50 customers | 50 | 67.6 | 101.1 | 54 |
+| `UNION` of two indexed filters | 1,750 | 54.1 | 60.6 | 1,953 |
+| Fetch 10% of the rows (indexed range) | 10,000 | 102.7 | 62.0 | 10,006 |
+| `COUNT(*)` with `LIKE 'gi%'` (index prefix query, profiled first) | 1 | 79.7 | 81.4 | 5 |
+| Filter on a non-indexed column (`notes LIKE '%order 1%'`) | 1 | 267.5 | 286.8 | 15 |
+| Unfiltered join + `GROUP BY` (hash join over all rows) | 6 | 464.0 | 517.9 | 22 |
+| `GROUP BY` with `AVG` of a `DOUBLE` (driver-side) | 6 | 604.2 | 583.2 | 100,015 |
+| `GROUP BY` of an expression `SUM(quantity * unit_price)` | 5 | 704.6 | 581.5 | 100,015 |
+| `GROUP BY DATE_TRUNC('month', ordered_at)` | 12 | 1890.7 | 1940.3 | 100,015 |
+| Full scan, `SELECT *` | 100,000 | 1116.6 | 1027.5 | 16 |
 
 ### Interpretation
 
 What drives the numbers:
 
-- **Queries the index answers on its own take milliseconds**, independent of
-  table size: counts and ranges, TAG equality filters with `ORDER BY … LIMIT`,
-  and `GROUP BY` with `COUNT` and integer `SUM`/`MIN`/`MAX`.
-- **Reading rows costs about 3–7 µs per row.** Rows come back inside the
-  `FT.AGGREGATE` cursor pages, up to 10,000 per page, so reading all 100,000
-  rows takes a dozen commands and 0.3–0.8 s. Queries that need the driver to
-  see every row pay this: aggregates the index can't compute exactly (`AVG`
-  of doubles, expressions, `DATE_TRUNC` groups), filters on non-indexed
-  columns, and unfiltered joins. Of the full scan's 0.68 s, Redis itself
-  takes about 0.35 s to produce the rows (measured from inside the
-  container); the rest is decoding, Arrow conversion, and Docker Desktop's
-  port forwarding (about 15 ms per page). Up to v0.0.3 the driver fetched
-  each row with its own pipelined `HMGET` instead, at about 30 µs per row
-  (3.3–3.8 s for the full scan).
-- **Selective joins are fast** because the smaller side is filtered in its
-  index first and only matching rows of the other side are fetched. A
-  correlated scalar subquery costs one indexed query per distinct outer
-  value (about 0.6 ms each here).
-- **`IN (SELECT …)` and correlated `EXISTS` / `IN` on equalities don't
-  run per row** (`bench.py` has three such queries over the 100,000 rows).
-  `order_id IN (SELECT …)` with 50,000 values takes 0.74 s: each row is
-  checked against a hash set of the values. `EXISTS (SELECT … WHERE
-  r.order_id = s.order_id AND …)` with 50,000 inner rows takes 0.87 s: it
-  runs per outer row for the first 500 rows, then reads the inner side once
-  as a hash semi-join. When the subquery has no rows it takes 2 ms, because
-  the index then rules out every row. Without the hash set, each row was
-  compared with every value (23 s), and without the semi-join the subquery
-  ran once per outer row (100,000 `FT.AGGREGATE` commands, 22–23 s).
+- **Index reductions and small indexed results take milliseconds in this
+  data set.** Counts and ranges took 1.2–6.3 ms standalone; exact `GROUP BY`
+  with `COUNT` and integer `SUM` took 7.3 ms. Indexed filters with
+  `ORDER BY … LIMIT 10` took 4.8 ms while fetching only ten projected rows.
+- **Reading and reducing rows costs more than index-only queries.** The full
+  100,000-row scan took 1.12 s standalone and 1.03 s on the cluster, including
+  decoding and Arrow transfer. Driver-side `AVG` grouping took 0.60 and
+  0.58 s; grouping by `DATE_TRUNC` took 1.89 and 1.94 s. Wide scans read rows
+  inside cursor pages, up to 10,000 per page. Narrow projections fetch fields
+  that the index cannot return exactly with bounded pipelined `HMGET`s:
+  the driver-side groups issued 100,000 `HMGET`s, while the 10% projection
+  issued 10,000. These are pipelined operations, not one network round trip
+  per row. Up to v0.0.3 full-row scans fetched every row with pipelined
+  `HMGET`; the earlier README measured those at 3.3–3.8 s.
+- **Selective joins avoid a full join scan** by filtering the smaller side
+  first and fetching matching rows from the other side. The selective join
+  took 33.3 ms standalone and 43.9 ms on the cluster, compared with 464.0 and
+  517.9 ms for the unfiltered hash join. Correlated scalar counts over 50
+  customers took 67.6 and 101.1 ms, issuing 54 standalone Redis commands.
+- **`IN (SELECT …)` and correlated `EXISTS` / `IN` on equalities avoid
+  comparing every outer row with every inner row.** In this rerun,
+  `order_id IN (SELECT …)` with 50,017 qualifying inner rows took 1.27 s
+  standalone and 1.64 s on the cluster. A correlated equality `EXISTS` took
+  1.73 and 2.31 s: it probes the first 500 rows, then uses a hash semi-join.
+  With no inner matches it took 4.4 and 5.5 ms. The earlier implementation
+  without these paths took 23 s for `IN` and 22–23 s for per-row `EXISTS` in
+  the historical README run.
 - **dbt's `delete+insert` with a composite key** (`where (k1, k2) in
   (select distinct k1, k2 from …)`) deleted 10,000 keys from a table of
   200,000 rows in about 1 s, standalone and on a 3-shard cluster, and
@@ -4399,7 +4412,8 @@ Known ways to make the slow cases faster (not done yet):
 From `go`, with Redis running:
 
 ```bash
-REDIS_URI=redis://localhost:6379/0 uv run --project validation --with redis python examples/bench.py --rows 100000
+make build
+REDIS_URI=redis://localhost:6379/0 uv run --project validation --with redis python examples/bench.py --rows 100000 --repeat 5
 ```
 
 The script **replaces** the `sales` and `customers` tables with benchmark data;
