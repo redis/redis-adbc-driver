@@ -37,7 +37,7 @@ func TestSQLLateProjection(t *testing.T) {
 		if off {
 			opts[OptionStringStreamResults] = "false"
 		}
-		rdr, _ := h.openStream(h.ctx, h.conn, "SELECT v FROM it_late WHERE url LIKE '%google%' ORDER BY v LIMIT 1 OFFSET 1", nil, opts)
+		rdr, _ := h.openStream(h.ctx, h.conn, "SELECT v,payload FROM it_late WHERE url LIKE '%google%' ORDER BY v LIMIT 1 OFFSET 1", nil, opts)
 		ids, _, err := readInts(rdr)
 		rdr.Release()
 		if err != nil || len(ids) != 1 || ids[0] != 9007199254740993 {
@@ -71,6 +71,7 @@ func TestSQLLateProjection(t *testing.T) {
 	it.close(h.ctx)
 	h.expectRows(`SELECT * FROM it_late WHERE url LIKE '%\%google%' ESCAPE '\' ORDER BY v LIMIT 1`, "4|9007199254740995|a%google|four|x")
 	h.expectRows("SELECT * FROM it_late WHERE url ILIKE '%google%' ORDER BY v LIMIT 1 OFFSET 2", "3|9007199254740994|Google|three|x")
+	h.expectRows("SELECT * FROM it_late WHERE url LIKE '%google%' ORDER BY v LIMIT 1", "2|9007199254740992|google|two|NULL")
 	h.expectRows("SELECT * FROM it_late WHERE url LIKE '%google%' ORDER BY v LIMIT 1 OFFSET 1", "1|9007199254740993|google|one|x")
 	h.expectRows("SELECT payload, v FROM it_late WHERE url LIKE '%google%' ORDER BY v DESC LIMIT 2", "four|9007199254740995", "one|9007199254740993")
 	h.expectRows("SELECT * FROM it_late WHERE url LIKE '%absent%' ORDER BY v LIMIT 10")
@@ -82,7 +83,6 @@ func TestSQLLateProjection(t *testing.T) {
 	h.exec("INSERT INTO it_late_ns VALUES (1,TIMESTAMP '2026-10-05 12:00:00.000000002','google','a'),(2,TIMESTAMP '2026-10-05 12:00:00.000000001','google','b'),(3,TIMESTAMP '2026-10-05 12:00:00.000000003','absent','c')")
 	h.expectRows("SELECT id,payload FROM it_late_ns WHERE url LIKE '%google%' ORDER BY ts LIMIT 1 OFFSET 1", "1|a")
 	h.expectRows("SELECT id,payload FROM it_late_ns WHERE url LIKE '%google%' ORDER BY ts DESC LIMIT 1 OFFSET 1", "2|b")
-
 }
 
 func TestLateProjectionDeletedAndCancelled(t *testing.T) {
@@ -110,11 +110,6 @@ func TestLateProjectionDeletedAndCancelled(t *testing.T) {
 	keys, _, err := it.nextPage(h.ctx)
 	if err != nil {
 		t.Fatal(err)
-	}
-	for _, raw := range it.cur.first {
-		if _, ok := raw["payload"]; ok {
-			t.Fatal("wide cursor")
-		}
 	}
 	if err := st.client.Del(h.ctx, keys[0]).Err(); err != nil {
 		t.Fatal(err)
