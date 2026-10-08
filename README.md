@@ -4171,7 +4171,10 @@ clients can see a partly applied statement.
 | `adbc.redis.cluster` | database | `auto` (default) / `true` / `false`: OSS Cluster API client or single endpoint |
 | `adbc.redis.default_schema` | database | Schema for unqualified names (default `public`). `SET search_path` and the ADBC current schema change it for one connection; `RESET search_path` goes back to it |
 | `adbc.redis.aggregate_pushdown` | database, statement | `exact` / `all` / `none` |
-| `adbc.redis.query_workers` | database | `auto` (default): the smaller of half the visible logical CPUs (rounded down, at least one) and available Go runtime parallelism (`GOMAXPROCS`, which accounts for CPU limits). Explicit 1 through 32 overrides the default. Parallel row-range scans for ungrouped COUNT/SUM/AVG/MIN/MAX over direct columns on driver-owned tables; simple residual comparisons are supported. DISTINCT, FILTER, grouped queries and complex expressions remain serial. Small tables remain serial. Exact SUM/AVG results are preserved. Each worker owns a cursor and bounded pages; memory and Redis load increase with workers. |
+| `adbc.redis.query_workers` | database | Per-query ceiling: `auto` (default) follows current `GOMAXPROCS`; explicit values are 1 through 32. Eligible ungrouped COUNT/SUM/AVG/MIN/MAX over direct columns on driver-owned tables scan disjoint row-ID ranges. The shared worker budget may grant fewer workers. DISTINCT, FILTER, grouped queries, complex expressions and small tables retain the serial path. Exact SUM/AVG results are preserved. Each worker owns a cursor and bounded pages. |
+| `adbc.redis.query_worker_budget` | database | Maximum active eligible aggregate scan/reduce workers across connections opened from this database handle. `auto` (default) follows current `GOMAXPROCS` at admission; a positive integer sets an explicit budget. A lone query can use the full budget up to its ceiling. FIFO admission assigns available tokens fairly to queued queries; no query starts without at least one token. Grants last until the query's workers finish, including error/cancellation cleanup. Lowering capacity constrains future grants without preempting running workers. |
+| `adbc.redis.query_workers_active`, `adbc.redis.query_workers_queued` | database or connection, read-only | Current shared active worker grants and number of queries waiting for admission. `query_worker_budget` also reads the currently resolved budget on either handle. |
+| `adbc.redis.query_workers_last_grant` | connection, read-only | Worker grant for this connection's most recently admitted eligible aggregate, or 0 before its first admission. `query_workers` reads the per-query ceiling, which can be larger than the grant. |
 | `adbc.redis.rename_rekey` | database, connection | `false` (default): `RENAME TO` only changes metadata. `true`: it also moves the rows and index to the new name's keys, in time proportional to the number of rows, and the table refuses changes meanwhile (see `ALTER TABLE`). The connection option overrides the database's |
 | `adbc.redis.read_timeout` | database, connection | How long the client waits for each reply: `30s`, `10m`, … or a number of seconds; `0` for no timeout. Default `5m`, or the URI's `read_timeout` (see [Timeouts](#timeouts)). The connection option overrides the database's |
 | `adbc.redis.write_timeout` | database, connection | How long the client waits to send each command, in the same format. Default: the read timeout, or the URI's `write_timeout` |
@@ -4179,6 +4182,18 @@ clients can see a partly applied statement.
 | `adbc.redis.stream_results` | database, statement | `true` (default): [stream](#streamed-results) the results of queries that can be. `false`: build every result whole before `ExecuteQuery` returns. The statement option overrides the database's |
 | `adbc.redis.stream_batch_rows` | database, statement | Rows per record batch of a streamed result (default 65,536). A result that fits in the first batch is returned whole. Also an integer option on the statement |
 | `adbc.redis.time_zone` | database, connection | The session time zone, with the values `SET TIME ZONE` takes (default `UTC`; see Session time zone), and what `RESET timezone` and `SET TIME ZONE DEFAULT` go back to. The connection option overrides the database's and replaces a `SET`'s value; reading it gives the current value, as `SHOW timezone` does |
+
+Aggregate worker tokens control concurrency; a token does not reserve a
+physical CPU. Connections should reuse one ADBC database handle to share
+capacity. Separate database handles and application processes have independent
+budgets, even when they use the same Redis URI. Serial fallbacks and server-side
+aggregate pushdown do not acquire worker tokens. A running query keeps its
+grant; later queries can borrow spare tokens or wait. When tokens become
+available, queued queries receive at least one each in FIFO order, with remaining
+tokens divided round-robin up to each ceiling. Set a smaller explicit budget
+for application or Redis headroom. See the
+[concurrent aggregate benchmark](docs/aggregate-worker-budget.md) for measurements
+and reproduction instructions.
 
 ### Scale considerations
 

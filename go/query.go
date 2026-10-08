@@ -1578,6 +1578,10 @@ func (e *executor) driverAggregate(ctx context.Context, plan *selectPlan, wp whe
 	if groups, handled, err := e.parallelAggregate(ctx, plan, wp, aggs, params); handled {
 		return groups, err
 	}
+	return e.serialDriverAggregate(ctx, plan, wp, aggs, params)
+}
+
+func (e *executor) serialDriverAggregate(ctx context.Context, plan *selectPlan, wp wherePlan, aggs []*Func, params []Value) ([]aggGroup, error) {
 	meta := plan.meta
 	req := scanRequest{meta: meta, where: wp, need: maps.Clone(plan.extraNeed)}
 	if req.need == nil {

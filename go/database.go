@@ -37,6 +37,7 @@ type databaseImpl struct {
 	schema       string
 	pushdown     string
 	queryWorkers int
+	workerBudget *workerBudget
 	cluster      string
 	rekey        bool
 	// stream is adbc.redis.stream_results and adbc.redis.stream_batch_rows.
@@ -265,6 +266,7 @@ func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, er
 		sess:               d.newSession(),
 		pushdown:           d.pushdown,
 		queryWorkers:       d.queryWorkers,
+		workerBudget:       d.workerBudget,
 		rekey:              d.rekey,
 		stream:             d.stream,
 		clientCfg:          cfg,
@@ -367,6 +369,8 @@ func (d *databaseImpl) GetOption(ctx context.Context, key string) (string, error
 		return d.schema, nil
 	case OptionStringAggregatePushdown:
 		return d.pushdown, nil
+	case OptionStringQueryWorkerBudget, OptionIntQueryWorkersActive, OptionIntQueryWorkersQueued:
+		return d.workerBudget.option(key), nil
 	case OptionStringQueryWorkers:
 		return strconv.Itoa(effectiveQueryWorkers(d.queryWorkers)), nil
 	case OptionStringCluster:
@@ -419,6 +423,8 @@ func (d *databaseImpl) SetOption(ctx context.Context, key, value string) error {
 			return errorf(adbc.StatusInvalidArgument, "%s: schema name %q is reserved for temporary tables and views", key, value)
 		}
 		d.schema = value
+	case OptionStringQueryWorkerBudget:
+		return d.workerBudget.configure(value)
 	case OptionStringQueryWorkers:
 		if value == "auto" {
 			d.queryWorkers = 0
