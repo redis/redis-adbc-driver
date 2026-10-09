@@ -20,5 +20,6 @@
       "id": "repro-3",
       "sql": "select * from t where (id, grp) in (values (1, 'a'))"
     }
-  ]
+  ],
+  "tier": "issues"
 }

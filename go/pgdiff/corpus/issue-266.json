@@ -1,0 +1,143 @@
+{
+  "area": "functions",
+  "source": "https://github.com/alberttwong/redis-adbc-driver/issues/266",
+  "setup": [
+    "CREATE TABLE t (id integer, name varchar(20), score integer, grp varchar(10))",
+    "INSERT INTO t VALUES (1, 'apple', 10, 'a'), (2, 'Banana', NULL, 'a'), (3, 'cherry', 30, 'b'), (4, '_x', 20, 'b')",
+    "CREATE TABLE u (id integer, label text)",
+    "INSERT INTO u VALUES (1, 'one'), (2, 'two')"
+  ],
+  "cases": [
+    {
+      "id": "row-1",
+      "sql": "select width_bucket(5, 0, 10, 5)",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-2",
+      "sql": "select corr(score, id) from t",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-3",
+      "sql": "select covar_pop(score, id) from t",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-4",
+      "sql": "select regr_slope(score, id) from t",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-5",
+      "sql": "select bit_and(id), bit_or(id) from t",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-6",
+      "sql": "select format('%s-%s', 1, 2)",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-7",
+      "sql": "select translate('abc', 'ab', 'xy')",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-8",
+      "sql": "select encode('abc'::bytea, 'base64')",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-9",
+      "sql": "select sha256('abc'::bytea)",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-10",
+      "sql": "select quote_ident('A b'), quote_literal('it''s')",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-11",
+      "sql": "select to_number('1,234.5', '9G999D9')",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-12",
+      "sql": "select to_char(1234.5, '9G999D99')",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-13",
+      "sql": "select make_interval(days => 1)",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-14",
+      "sql": "select clock_timestamp() is not null",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-15",
+      "sql": "select date_trunc('day', timestamptz '2024-01-01 20:00+00', 'Asia/Tokyo')",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-16",
+      "sql": "select div(7, 2), gcd(12, 18), lcm(4, 6)",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-17",
+      "sql": "select 2 ^ 3",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-18",
+      "sql": "select 5 & 3, 5 | 3, 1 << 2",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-19",
+      "sql": "select (date '2024-01-01', date '2024-02-01') overlaps (date '2024-01-15', date '2024-03-01')",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-20",
+      "sql": "select 5 between symmetric 10 and 1",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-21",
+      "sql": "select chr(65), ascii('A'), octet_length('abc')",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-22",
+      "sql": "select num_nonnulls(1, null)",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-23",
+      "sql": "select isfinite(date '2024-01-01')",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-24",
+      "sql": "select justify_hours(interval '25 hours')",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-25",
+      "sql": "select sinh(1)",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-26",
+      "sql": "select trim_scale(1.500), scale(1.50)",
+      "expect_postgres": null
+    }
+  ],
+  "tier": "issues"
+}

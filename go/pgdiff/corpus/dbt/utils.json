@@ -1,0 +1,98 @@
+{
+  "area": "utils",
+  "tier": "dbt",
+  "source": "https://github.com/dbt-labs/dbt-core/tree/v1.9.1/tests/adapter/basic",
+  "provenance": {
+    "versions": {
+      "dbt-core": "1.9.1",
+      "dbt-postgres": "1.9.1",
+      "dbt-tests-adapter": "1.9.1"
+    },
+    "dbt-utils": {
+      "version": "1.3.0",
+      "commit": "e164c645238ca98f21b2ecc558912b94b3d75a9f"
+    },
+    "adapter_tests": [
+      "dbt.tests.adapter.basic.test_base.BaseSimpleMaterializations.test_base",
+      "dbt.tests.adapter.basic.test_incremental.BaseIncremental.test_incremental"
+    ],
+    "utils_test": "go/pgdiff/capture/test_generated.py:TestUtils.test_generated",
+    "source": "https://github.com/dbt-labs/dbt-core/tree/v1.9.1/tests/adapter/basic",
+    "record_count": 217
+  },
+  "setup": [
+    "CREATE TABLE base (id integer, name text, some_date timestamp without time zone)",
+    "INSERT INTO base VALUES (1, 'Easton', '1981-05-20T06:46:51'),(2, 'Lillian', '1978-09-03T18:10:33'),(3, 'Jeremiah', '1982-03-11T03:59:51'),(4, 'Nolan', '1976-05-06T20:21:35'),(5, 'Hannah', '1982-06-23T05:41:26'),(6, 'Eleanor', '1991-08-10T23:12:21'),(7, 'Lily', '1971-03-29T14:58:02'),(8, 'Jonathan', '1988-02-26T02:55:24'),(9, 'Adrian', '1994-02-09T13:14:23'),(10, 'Nora', '1976-03-01T16:51:39')"
+  ],
+  "cases": [
+    {
+      "id": "event-0201-0",
+      "sql": "create  table \"{{schema}}\".\"utils__dbt_tmp\"\n  \n  \n    as\n  \n  (\n    \n                select id, md5(cast(coalesce(cast(id as TEXT), '_dbt_utils_surrogate_key_null_') || '-' || coalesce(cast(name as TEXT), '_dbt_utils_surrogate_key_null_') as TEXT)) as sk,\n                \n    ( id ) / nullif( ( id ), 0)\n as ratio\n                from \"{{schema}}\".\"base\"\n  );",
+      "expect_postgres": null,
+      "source_event": 201,
+      "source_sql_sha256": "3c025be1aee5095170a463863b084c3656d152aeccaace1dd8b986389bd29297",
+      "adaptation": "Strip query comments; substitute isolated schema and temporary suffix; remove the environment-specific catalog qualifier."
+    },
+    {
+      "id": "event-0202-0",
+      "sql": "alter table \"{{schema}}\".\"utils__dbt_tmp\" rename to \"utils\"",
+      "expect_postgres": null,
+      "source_event": 202,
+      "source_sql_sha256": "6a8973976a2bb50a8775ad5cb30b1881d6ed311aa14dcb296b7e4632ce133dd3",
+      "adaptation": "Strip query comments; substitute isolated schema and temporary suffix; remove the environment-specific catalog qualifier."
+    },
+    {
+      "id": "event-0204-0",
+      "sql": "drop table if exists \"{{schema}}\".\"utils__dbt_backup\" cascade",
+      "expect_postgres": null,
+      "source_event": 204,
+      "source_sql_sha256": "83d84b2ea24b676dc041dc40c1c38e2f549c66f8edf5b1f516b810811d5b9015",
+      "adaptation": "Strip query comments; substitute isolated schema and temporary suffix; remove the environment-specific catalog qualifier."
+    },
+    {
+      "id": "event-0206-0",
+      "sql": "select\n          column_name,\n          data_type,\n          character_maximum_length,\n          numeric_precision,\n          numeric_scale\n\n      from INFORMATION_SCHEMA.columns\n      where table_name = 'base'\n        \n        and table_schema = '{{schema}}'\n        \n      order by ordinal_position",
+      "expect_postgres": null,
+      "source_event": 206,
+      "source_sql_sha256": "ff070efb3b131ba73b5c2feb48c73a61eddff9de8a7fb8d49fd2e7a79734f439",
+      "adaptation": "Strip query comments; substitute isolated schema and temporary suffix; remove the environment-specific catalog qualifier."
+    },
+    {
+      "id": "event-0207-0",
+      "sql": "select\n          column_name,\n          data_type,\n          character_maximum_length,\n          numeric_precision,\n          numeric_scale\n\n      from INFORMATION_SCHEMA.columns\n      where table_name = 'utils'\n        \n        and table_schema = '{{schema}}'\n        \n      order by ordinal_position",
+      "expect_postgres": null,
+      "source_event": 207,
+      "source_sql_sha256": "cae1ca9514ea02bca81bcea6e8c5ac22fe16b28ff2abb5c7bc47a5c5c6f88143",
+      "adaptation": "Strip query comments; substitute isolated schema and temporary suffix; remove the environment-specific catalog qualifier."
+    },
+    {
+      "id": "event-0208-0",
+      "sql": "create view \"{{schema}}\".\"unioned__dbt_tmp\"\n    \n    \n  as (\n    \n                \n    \n\n        (\n            select\n                cast('\"{{schema}}\".\"base\"' as TEXT) as _dbt_source_relation,\n\n                \n                    cast(\"id\" as integer) as \"id\" ,\n                    cast(\"name\" as text) as \"name\" ,\n                    cast(\"some_date\" as timestamp without time zone) as \"some_date\" ,\n                    cast(null as text) as \"sk\" ,\n                    cast(null as integer) as \"ratio\" \n\n            from \"{{schema}}\".\"base\"\n\n            \n        )\n\n        union all\n        \n\n        (\n            select\n                cast('\"{{schema}}\".\"utils\"' as TEXT) as _dbt_source_relation,\n\n                \n                    cast(\"id\" as integer) as \"id\" ,\n                    cast(null as text) as \"name\" ,\n                    cast(null as timestamp without time zone) as \"some_date\" ,\n                    cast(\"sk\" as text) as \"sk\" ,\n                    cast(\"ratio\" as integer) as \"ratio\" \n\n            from \"{{schema}}\".\"utils\"\n\n            \n        )\n\n        \n  );",
+      "expect_postgres": null,
+      "source_event": 208,
+      "source_sql_sha256": "424621115ccd5ac3277cc2319cfcaa24714939c0099ec54080394248525217d0",
+      "adaptation": "Strip query comments; substitute isolated schema and temporary suffix; remove the environment-specific catalog qualifier."
+    },
+    {
+      "id": "event-0209-0",
+      "sql": "alter table \"{{schema}}\".\"unioned__dbt_tmp\" rename to \"unioned\"",
+      "expect_postgres": null,
+      "source_event": 209,
+      "source_sql_sha256": "7c0957f6577d666f7e2bfeb1d062497e2151826471dcb96103abb33605322835",
+      "adaptation": "Strip query comments; substitute isolated schema and temporary suffix; remove the environment-specific catalog qualifier."
+    },
+    {
+      "id": "event-0211-0",
+      "sql": "drop view if exists \"{{schema}}\".\"unioned__dbt_backup\" cascade",
+      "expect_postgres": null,
+      "source_event": 211,
+      "source_sql_sha256": "8b532f7252139bc04c26e5cd2d52a134fde0312bdd80593fbfef865c7678a9d1",
+      "adaptation": "Strip query comments; substitute isolated schema and temporary suffix; remove the environment-specific catalog qualifier."
+    },
+    {
+      "id": "read-unioned",
+      "sql": "SELECT * FROM unioned ORDER BY _dbt_source_relation, id",
+      "expect_postgres": null
+    }
+  ]
+}

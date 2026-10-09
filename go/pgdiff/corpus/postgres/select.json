@@ -1,0 +1,32 @@
+{
+  "area": "select",
+  "tier": "postgres",
+  "source": "https://raw.githubusercontent.com/postgres/postgres/7d3e000c5961a544302072058a1184e9a588837b/src/test/regress/sql/select.sql",
+  "provenance": {
+    "version": "REL_16_15",
+    "commit": "7d3e000c5961a544302072058a1184e9a588837b",
+    "sha256": "76a06a847e20ca5ad6e53b29c6825784b0b992aff0ac691fcb9c9ff12d0db6a5",
+    "fixture": "Curated independent subset; reduced fixtures, not the full upstream regression database."
+  },
+  "setup": [],
+  "cases": [
+    {
+      "id": "statement-0019",
+      "sql": "select foo from (select 1 offset 0) as foo;",
+      "source_statement": 19,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0020",
+      "sql": "select foo from (select null offset 0) as foo;",
+      "source_statement": 20,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0021",
+      "sql": "select foo from (select 'xyzzy',1,null offset 0) as foo;",
+      "source_statement": 21,
+      "expect_postgres": null
+    }
+  ]
+}

@@ -32,5 +32,6 @@
       "id": "repro-6",
       "sql": "select null isnull, 1 notnull"
     }
-  ]
+  ],
+  "tier": "issues"
 }

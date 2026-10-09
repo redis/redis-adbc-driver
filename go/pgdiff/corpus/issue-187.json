@@ -1,0 +1,48 @@
+{
+  "area": "union",
+  "source": "https://github.com/alberttwong/redis-adbc-driver/issues/187",
+  "setup": [
+    "CREATE TABLE t (id integer, name varchar(20), score integer, grp varchar(10))",
+    "INSERT INTO t VALUES (1, 'apple', 10, 'a'), (2, 'Banana', NULL, 'a'), (3, 'cherry', 30, 'b'), (4, '_x', 20, 'b')",
+    "CREATE TABLE u (id integer, label text)",
+    "INSERT INTO u VALUES (1, 'one'), (2, 'two')"
+  ],
+  "cases": [
+    {
+      "id": "row-1",
+      "sql": "select cast('2023-09-01' as date) union all select '2023-09-02'",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-2",
+      "sql": "select 1 union all select '2'",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-3",
+      "sql": "select date '2023-09-01' union all select timestamp '2023-09-02 10:00:00'",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-4",
+      "sql": "select date '2023-09-01' union all select timestamptz '2023-09-02 10:00:00+00'",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-5",
+      "sql": "select case when true then date '2023-09-01' else '2023-09-02' end",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-6",
+      "sql": "select coalesce(date '2023-09-01', '2023-09-02')",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-7",
+      "sql": "select coalesce(date '2023-09-01', timestamp '2023-09-02 10:00:00')",
+      "expect_postgres": null
+    }
+  ],
+  "tier": "issues"
+}

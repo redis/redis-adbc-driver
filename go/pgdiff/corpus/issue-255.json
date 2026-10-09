@@ -11,5 +11,6 @@
       "id": "repro-2",
       "sql": "select '[1]'::jsonb || '[2]'"
     }
-  ]
+  ],
+  "tier": "issues"
 }

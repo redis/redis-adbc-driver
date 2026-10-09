@@ -23,5 +23,6 @@
       "id": "repro-5",
       "sql": "select regexp_replace('hello world', '\\mworld', 'X')"
     }
-  ]
+  ],
+  "tier": "issues"
 }

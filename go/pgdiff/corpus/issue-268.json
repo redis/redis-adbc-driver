@@ -19,5 +19,6 @@
       "id": "repro-4",
       "sql": "select date_add(timestamp '2024-01-01 00:00', interval 1 day)"
     }
-  ]
+  ],
+  "tier": "issues"
 }

@@ -19,5 +19,6 @@
       "id": "repro-4",
       "sql": "select U&'d\\0061t\\+000061'"
     }
-  ]
+  ],
+  "tier": "issues"
 }

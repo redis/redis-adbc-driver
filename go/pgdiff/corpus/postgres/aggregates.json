@@ -1,0 +1,161 @@
+{
+  "area": "aggregates",
+  "tier": "postgres",
+  "source": "https://raw.githubusercontent.com/postgres/postgres/7d3e000c5961a544302072058a1184e9a588837b/src/test/regress/sql/aggregates.sql",
+  "provenance": {
+    "version": "REL_16_15",
+    "commit": "7d3e000c5961a544302072058a1184e9a588837b",
+    "sha256": "f762ebe588a81404b826b45b1db59018ee3fe2d087612b4fc6561b00be6c4d0b",
+    "fixture": "Curated independent subset; reduced fixtures, not the full upstream regression database."
+  },
+  "setup": [
+    "CREATE TABLE aggtest (a smallint, b real)",
+    "INSERT INTO aggtest VALUES (1,1.5),(2,2.5),(NULL,NULL),(3,3.5)"
+  ],
+  "cases": [
+    {
+      "id": "statement-0005",
+      "sql": "SELECT avg(a) AS avg_32 FROM aggtest WHERE a < 100;",
+      "source_statement": 5,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0010",
+      "sql": "SELECT avg(b)::numeric(10,3) AS avg_107_943 FROM aggtest;",
+      "source_statement": 10,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0013",
+      "sql": "SELECT sum(a) AS sum_198 FROM aggtest;",
+      "source_statement": 13,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0014",
+      "sql": "SELECT sum(b) AS avg_431_773 FROM aggtest;",
+      "source_statement": 14,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0017",
+      "sql": "SELECT max(a) AS max_100 FROM aggtest;",
+      "source_statement": 17,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0018",
+      "sql": "SELECT max(aggtest.b) AS max_324_78 FROM aggtest;",
+      "source_statement": 18,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0020",
+      "sql": "SELECT stddev_pop(b) FROM aggtest;",
+      "source_statement": 20,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0021",
+      "sql": "SELECT stddev_samp(b) FROM aggtest;",
+      "source_statement": 21,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0022",
+      "sql": "SELECT var_pop(b) FROM aggtest;",
+      "source_statement": 22,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0023",
+      "sql": "SELECT var_samp(b) FROM aggtest;",
+      "source_statement": 23,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0024",
+      "sql": "SELECT stddev_pop(b::numeric) FROM aggtest;",
+      "source_statement": 24,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0025",
+      "sql": "SELECT stddev_samp(b::numeric) FROM aggtest;",
+      "source_statement": 25,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0026",
+      "sql": "SELECT var_pop(b::numeric) FROM aggtest;",
+      "source_statement": 26,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0027",
+      "sql": "SELECT var_samp(b::numeric) FROM aggtest;",
+      "source_statement": 27,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0028",
+      "sql": "SELECT var_pop(1.0::float8), var_samp(2.0::float8);",
+      "source_statement": 28,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0029",
+      "sql": "SELECT stddev_pop(3.0::float8), stddev_samp(4.0::float8);",
+      "source_statement": 29,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0030",
+      "sql": "SELECT var_pop('inf'::float8), var_samp('inf'::float8);",
+      "source_statement": 30,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0031",
+      "sql": "SELECT stddev_pop('inf'::float8), stddev_samp('inf'::float8);",
+      "source_statement": 31,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0032",
+      "sql": "SELECT var_pop('nan'::float8), var_samp('nan'::float8);",
+      "source_statement": 32,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0033",
+      "sql": "SELECT stddev_pop('nan'::float8), stddev_samp('nan'::float8);",
+      "source_statement": 33,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0034",
+      "sql": "SELECT var_pop(1.0::float4), var_samp(2.0::float4);",
+      "source_statement": 34,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0035",
+      "sql": "SELECT stddev_pop(3.0::float4), stddev_samp(4.0::float4);",
+      "source_statement": 35,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0036",
+      "sql": "SELECT var_pop('inf'::float4), var_samp('inf'::float4);",
+      "source_statement": 36,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0037",
+      "sql": "SELECT stddev_pop('inf'::float4), stddev_samp('inf'::float4);",
+      "source_statement": 37,
+      "expect_postgres": null
+    }
+  ]
+}

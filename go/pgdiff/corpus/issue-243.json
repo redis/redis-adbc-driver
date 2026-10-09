@@ -12,5 +12,6 @@
       "id": "repro-1",
       "sql": "select grp, name from t group by grp order by grp"
     }
-  ]
+  ],
+  "tier": "issues"
 }

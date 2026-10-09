@@ -1,0 +1,158 @@
+{
+  "area": "date",
+  "tier": "postgres",
+  "source": "https://raw.githubusercontent.com/postgres/postgres/7d3e000c5961a544302072058a1184e9a588837b/src/test/regress/sql/date.sql",
+  "provenance": {
+    "version": "REL_16_15",
+    "commit": "7d3e000c5961a544302072058a1184e9a588837b",
+    "sha256": "616424ff98227d02b301013b618711b85ad1ff9e1619c7ec9f7bc362c265a1b0",
+    "fixture": "Curated independent subset; reduced fixtures, not the full upstream regression database."
+  },
+  "setup": [],
+  "cases": [
+    {
+      "id": "statement-0023",
+      "sql": "SELECT date 'January 8, 1999';",
+      "source_statement": 23,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0024",
+      "sql": "SELECT date '1999-01-08';",
+      "source_statement": 24,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0025",
+      "sql": "SELECT date '1999-01-18';",
+      "source_statement": 25,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0026",
+      "sql": "SELECT date '1/8/1999';",
+      "source_statement": 26,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0027",
+      "sql": "SELECT date '1/18/1999';",
+      "source_statement": 27,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0028",
+      "sql": "SELECT date '18/1/1999';",
+      "source_statement": 28,
+      "expect_postgres": "22008"
+    },
+    {
+      "id": "statement-0029",
+      "sql": "SELECT date '01/02/03';",
+      "source_statement": 29,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0030",
+      "sql": "SELECT date '19990108';",
+      "source_statement": 30,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0031",
+      "sql": "SELECT date '990108';",
+      "source_statement": 31,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0032",
+      "sql": "SELECT date '1999.008';",
+      "source_statement": 32,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0033",
+      "sql": "SELECT date 'J2451187';",
+      "source_statement": 33,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0034",
+      "sql": "SELECT date 'January 8, 99 BC';",
+      "source_statement": 34,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0035",
+      "sql": "SELECT date '99-Jan-08';",
+      "source_statement": 35,
+      "expect_postgres": "22008"
+    },
+    {
+      "id": "statement-0036",
+      "sql": "SELECT date '1999-Jan-08';",
+      "source_statement": 36,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0037",
+      "sql": "SELECT date '08-Jan-99';",
+      "source_statement": 37,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0038",
+      "sql": "SELECT date '08-Jan-1999';",
+      "source_statement": 38,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0039",
+      "sql": "SELECT date 'Jan-08-99';",
+      "source_statement": 39,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0040",
+      "sql": "SELECT date 'Jan-08-1999';",
+      "source_statement": 40,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0041",
+      "sql": "SELECT date '99-08-Jan';",
+      "source_statement": 41,
+      "expect_postgres": "22007"
+    },
+    {
+      "id": "statement-0042",
+      "sql": "SELECT date '1999-08-Jan';",
+      "source_statement": 42,
+      "expect_postgres": "22007"
+    },
+    {
+      "id": "statement-0043",
+      "sql": "SELECT date '99 Jan 08';",
+      "source_statement": 43,
+      "expect_postgres": "22007"
+    },
+    {
+      "id": "statement-0044",
+      "sql": "SELECT date '1999 Jan 08';",
+      "source_statement": 44,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0045",
+      "sql": "SELECT date '08 Jan 99';",
+      "source_statement": 45,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0046",
+      "sql": "SELECT date '08 Jan 1999';",
+      "source_statement": 46,
+      "expect_postgres": null
+    }
+  ]
+}

@@ -39,5 +39,6 @@
       "id": "repro-9",
       "sql": "select json_build_object('a', 1000000.0::float8)"
     }
-  ]
+  ],
+  "tier": "issues"
 }

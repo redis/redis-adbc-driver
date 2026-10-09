@@ -1,0 +1,28 @@
+{
+  "area": "indexes",
+  "source": "https://github.com/alberttwong/redis-adbc-driver/issues/260",
+  "setup": [
+    "CREATE TABLE t (id integer, name varchar(20), score integer, grp varchar(10))",
+    "INSERT INTO t VALUES (1, 'apple', 10, 'a'), (2, 'Banana', NULL, 'a'), (3, 'cherry', 30, 'b'), (4, '_x', 20, 'b')",
+    "CREATE TABLE u (id integer, label text)",
+    "INSERT INTO u VALUES (1, 'one'), (2, 'two')"
+  ],
+  "cases": [
+    {
+      "id": "row-1",
+      "sql": "create index t_name_idx on t (name)",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-2",
+      "sql": "drop index t_name_idx",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-3",
+      "sql": "create unique index t_id_idx on t (id)",
+      "expect_postgres": null
+    }
+  ],
+  "tier": "issues"
+}
