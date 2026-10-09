@@ -12,13 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Runs the Go tests and the validation suite on Linux amd64 and arm64 against
-# Redis Software and an OSS 3-shard compatibility cluster, as release.yml's linux job does.
-# Results can differ between the two (Go fuses multiply-adds on arm64 but not
-# amd64, and an amd64 server writes some NaNs as -nan), so both are tested
-# before merge rather than first in the release run, whose failure leaves the
-# release with no binaries. Only the other Linux distributions are left to
-# release.yml.
+# Run each Redis environment on its own runner so independent suites run in
+# parallel. Both architectures are covered because floating-point behavior
+# differs between amd64 and arm64. Redis Software uses its proxy endpoint;
+# its three primary shards share one disposable Software node.
+# All four environments include Search.
 #
 # Runs on pull requests that change the driver or this file. A newer push to
 # the same pull request cancels the run in progress.
@@ -42,16 +40,20 @@ concurrency:
 
 jobs:
   linux:
-    name: linux-${{ matrix.arch }}
+    name: linux-${{ matrix.arch }}-${{ matrix.environment }}
     strategy:
       fail-fast: false
       matrix:
+        arch: [amd64, arm64]
+        environment: [software-single, software-cluster, oss-single, oss-cluster]
         include:
           - arch: amd64
             runner: ubuntu-24.04
           - arch: arm64
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
+    env:
+      REDIS_URI: redis://localhost:6379/0
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
@@ -73,31 +75,38 @@ jobs:
         working-directory: go
         run: make build
 
-      - name: Start Redis Software
-        working-directory: go
-        run: make redis-up
-
-      # -p 1: the packages' integration tests share the server, and a
-      # connection opened by one rolls back the abandoned moves another set
-      # up (see the Makefile's test target).
-      - name: Test (Redis Software)
+      - name: Start Redis with Search
         working-directory: go
         env:
-          REDIS_URI: redis://localhost:6379/0
+          REDIS_ENVIRONMENT: ${{ matrix.environment }}
         run: |
-          go test -count=1 -p 1 ./...
-          cd validation && uv run pytest -q tests/
+          case "$REDIS_ENVIRONMENT" in
+            software-single) SOFTWARE_SHARDS=1 make redis-up ;;
+            software-cluster) SOFTWARE_SHARDS=3 make redis-up ;;
+            oss-single)
+              make redis-oss-up
+              docker compose exec -T redis redis-cli -e FT._LIST
+              ;;
+            oss-cluster)
+              docker compose --profile cluster up --detach --wait redis-cluster
+              for port in 7001 7002 7003; do
+                docker compose exec -T redis-cluster redis-cli -e -p "$port" FT._LIST
+              done
+              echo 'REDIS_URI=redis://localhost:7001/0' >> "$GITHUB_ENV"
+              ;;
+          esac
 
-      - name: Start OSS compatibility cluster
+      # The Go packages share a database. Keep them sequential within each
+      # job; opening a connection can roll back another package's test moves.
+      - name: Go tests
         working-directory: go
-        run: |
-          make redis-down
-          docker compose --profile cluster up --detach --wait redis-cluster
+        run: go test -count=1 -p 1 ./...
 
-      - name: Test (OSS 3-shard compatibility)
+      - name: Python ADBC validation
+        working-directory: go/validation
+        run: uv run pytest -q tests/
+
+      - name: Redis logs on failure
+        if: failure()
         working-directory: go
-        env:
-          REDIS_URI: redis://localhost:7001/0
-        run: |
-          go test -count=1 -p 1 ./...
-          cd validation && uv run pytest -q tests/
+        run: docker compose --profile oss --profile cluster logs --no-color

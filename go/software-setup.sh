@@ -13,7 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Starts the default disposable Redis Software RAM test database with Search.
+# Starts a disposable Redis Software RAM test database with Search.
+# SOFTWARE_SHARDS=1 (default) or 3 selects the database topology; three shards
+# share one Software node and are accessed through the proxy endpoint.
 # Requires Docker Compose, curl and jq. Fixed credentials and a trial license
 # are for local testing only; both published ports bind to localhost.
 set -euo pipefail
@@ -23,6 +25,11 @@ for tool in docker curl jq; do
 done
 api_port=${SOFTWARE_API_PORT:-19443}
 db_port=${SOFTWARE_DB_PORT:-6379}
+shards=${SOFTWARE_SHARDS:-1}
+case $shards in
+    1|3) ;;
+    *) echo 'SOFTWARE_SHARDS must be 1 or 3' >&2; exit 1 ;;
+esac
 admin_user=${SOFTWARE_ADMIN_USER:-admin@example.com}
 admin_pass=${SOFTWARE_ADMIN_PASSWORD:-adbc-software-test}
 api="https://localhost:$api_port/v1"
@@ -72,7 +79,14 @@ wait_for 'Redis Software cluster' bootstrapped
 uid=$(call -f "$api/bdbs" | jq -r '[.[] | select(.name == "adbc-test") | .uid][0] // empty')
 if [ -z "$uid" ]; then
     # Redis 8 includes Search; an explicit module_list is unnecessary.
-    body='{"name":"adbc-test","type":"redis","redis_version":"8.6","port":12000,"memory_size":1073741824,"replication":false,"data_persistence":"disabled","eviction_policy":"noeviction"}'
+    body=$(jq -n --argjson shards "$shards" '{
+        name: "adbc-test", type: "redis", redis_version: "8.6", port: 12000,
+        memory_size: 1073741824, replication: false,
+        data_persistence: "disabled", eviction_policy: "noeviction",
+        shards_count: $shards, sharding: ($shards > 1), shards_placement: "dense"
+    } + if $shards > 1 then {
+        shard_key_regex: [{regex: ".*\\{(?<tag>.*)\\}.*"}, {regex: "(?<tag>.*)"}]
+    } else {} end')
     create() {
         local reply code
         reply=$(call -w '\n%{http_code}' -X POST "$api/bdbs" -d "$body") || return 1
@@ -91,8 +105,20 @@ fi
 active() { [ "$(call -f "$api/bdbs/$uid" | jq -r .status)" = active ]; }
 wait_for 'RAM database' active
 # Check the reused database rather than silently accepting a different setup.
-call -f "$api/bdbs/$uid" | jq -e '.port == 12000 and .bigstore != true and .replication == false' >/dev/null
+if ! call -f "$api/bdbs/$uid" | jq -e --argjson shards "$shards" '
+    .port == 12000 and .bigstore != true and .replication == false
+    and .shards_count == $shards and .sharding == ($shards > 1)
+' >/dev/null; then
+    echo "Existing database does not match the requested $shards-shard RAM topology; run make redis-down before changing topology." >&2
+    exit 1
+fi
+shards_ready() {
+    call -f "$api/bdbs/$uid/shards" | jq -e --argjson shards "$shards" '
+        [.[] | select(.role == "master" and .status == "active")] | length == $shards
+    ' >/dev/null
+}
+wait_for 'primary shards' shards_ready
 ready() { docker compose exec -T redis-software /opt/redislabs/bin/redis-cli -e -p 12000 FT._LIST >/dev/null; }
 wait_for 'Search endpoint' ready
-call -f "$api/bdbs/$uid" | jq -r '"Redis Software database: Redis \(.version), modules \([.module_list[].module_name] | join(", "))"' >&2
+call -f "$api/bdbs/$uid" | jq -r '"Redis Software database: Redis \(.version), \(.shards_count) shard(s), modules \([.module_list[].module_name] | join(", "))"' >&2
 echo "REDIS_URI=redis://localhost:$db_port/0"
