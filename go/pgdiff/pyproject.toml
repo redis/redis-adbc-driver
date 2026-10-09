@@ -1,0 +1,8 @@
+[project]
+name = "redis-adbc-pgdiff"
+version = "0.1.0"
+requires-python = ">=3.13"
+dependencies = ["adbc-driver-manager", "pyarrow", "psycopg[binary]", "sqlparse"]
+
+[tool.uv]
+package = false

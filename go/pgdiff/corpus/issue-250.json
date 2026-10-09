@@ -1,0 +1,43 @@
+{
+  "area": "float",
+  "source": "https://github.com/alberttwong/redis-adbc-driver/issues/250",
+  "setup": [],
+  "cases": [
+    {
+      "id": "repro-1",
+      "sql": "select 123456::float8::text"
+    },
+    {
+      "id": "repro-2",
+      "sql": "select 1234567::float8::text"
+    },
+    {
+      "id": "repro-3",
+      "sql": "select 100000000000000::float8::text"
+    },
+    {
+      "id": "repro-4",
+      "sql": "select 1e15::float8::text"
+    },
+    {
+      "id": "repro-5",
+      "sql": "select 0.00001::float8::text"
+    },
+    {
+      "id": "repro-6",
+      "sql": "select 1234567::float4::text"
+    },
+    {
+      "id": "repro-7",
+      "sql": "select 'x' || 2500000.5::float8"
+    },
+    {
+      "id": "repro-8",
+      "sql": "select to_json(1000000::float8)"
+    },
+    {
+      "id": "repro-9",
+      "sql": "select json_build_object('a', 1000000.0::float8)"
+    }
+  ]
+}

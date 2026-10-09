@@ -1,0 +1,19 @@
+{
+  "area": "aggregates",
+  "source": "https://github.com/alberttwong/redis-adbc-driver/issues/242",
+  "setup": [],
+  "cases": [
+    {
+      "id": "repro-1",
+      "sql": "select count(*)"
+    },
+    {
+      "id": "repro-2",
+      "sql": "select count(*) where false"
+    },
+    {
+      "id": "repro-3",
+      "sql": "select sum(1), max(2)"
+    }
+  ]
+}

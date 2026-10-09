@@ -1,0 +1,36 @@
+{
+  "area": "boolean",
+  "source": "https://github.com/alberttwong/redis-adbc-driver/issues/239",
+  "setup": [
+    "CREATE TABLE t (id integer, name varchar(20), score integer, grp varchar(10))",
+    "INSERT INTO t VALUES (1, 'apple', 10, 'a'), (2, 'Banana', NULL, 'a'), (3, 'cherry', 30, 'b'), (4, '_x', 20, 'b')",
+    "CREATE TABLE u (id integer, label text)",
+    "INSERT INTO u VALUES (1, 'one'), (2, 'two')"
+  ],
+  "cases": [
+    {
+      "id": "repro-1",
+      "sql": "select (1 = 1) is true"
+    },
+    {
+      "id": "repro-2",
+      "sql": "select (1 = 2) is not false"
+    },
+    {
+      "id": "repro-3",
+      "sql": "select null::boolean is unknown"
+    },
+    {
+      "id": "repro-4",
+      "sql": "select count(*) from t where (score > 15) is not true"
+    },
+    {
+      "id": "repro-5",
+      "sql": "select 1 is true"
+    },
+    {
+      "id": "repro-6",
+      "sql": "select null isnull, 1 notnull"
+    }
+  ]
+}
