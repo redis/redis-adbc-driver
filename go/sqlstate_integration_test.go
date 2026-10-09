@@ -74,12 +74,13 @@ func checkState(t *testing.T, what string, err error, code adbc.Status, state, m
 func TestSQLErrorStates(t *testing.T) {
 	h := newSQLHarness(t)
 	h.dropViews("it_err_atv")
-	h.dropTables("it_err", "it_err2", "it_err3", "it_err_pk", "it_err_at")
+	h.dropTables("it_err", "it_err2", "it_err3", "it_err_pk", "it_err_at", "it_err_num")
 	h.exec(`CREATE TABLE it_err (id INTEGER NOT NULL, n INTEGER, v VARCHAR(3), d DATE, b BOOLEAN, c INTEGER CHECK (c > 0))`)
 	h.exec(`INSERT INTO it_err (id, n) VALUES (1, 10)`)
 	h.exec(`CREATE TABLE it_err2 (x INTEGER)`)
 	h.exec(`INSERT INTO it_err2 VALUES (-1)`)
 	h.exec(`CREATE TABLE it_err_pk (k INTEGER PRIMARY KEY)`)
+	h.exec(`CREATE TABLE it_err_num (m NUMERIC(5, 2), r REAL, f DOUBLE PRECISION, t TIME, ts TIMESTAMP WITH TIME ZONE)`)
 	h.exec(`CREATE TABLE it_err_at (a INTEGER, b BOOLEAN DEFAULT true)`)
 	h.exec(`CREATE VIEW it_err_atv AS SELECT a FROM it_err_at`)
 
@@ -101,15 +102,26 @@ func TestSQLErrorStates(t *testing.T) {
 		{`SELECT CAST('abc' AS INTEGER)`, data, "22P02", `"abc"`},
 		{`SELECT CAST('1.5' AS INTEGER)`, data, "22P02", `invalid input syntax for type integer: "1.5"`},
 		{`SELECT id FROM it_err WHERE n = '1e3'`, data, "22P02", `invalid input syntax for type integer: "1e3"`},
-		{`SELECT 'abc'::boolean`, data, "22P02", `"abc"`},
-		{`SELECT CAST('abc' AS DOUBLE PRECISION)`, data, "22P02", `"abc"`},
-		{`SELECT CAST('abc' AS NUMERIC(10, 2))`, data, "22P02", `"abc"`},
+		{`SELECT 'abc'::boolean`, data, "22P02", `invalid input syntax for type boolean: "abc"`},
+		{`SELECT TRUE = 'maybe'`, data, "22P02", `invalid input syntax for type boolean: "maybe"`},
+		{`SELECT CAST('abc' AS DOUBLE PRECISION)`, data, "22P02", `invalid input syntax for type double precision: "abc"`},
+		{`SELECT CAST('1_000' AS DOUBLE PRECISION)`, data, "22P02", `invalid input syntax for type double precision: "1_000"`},
+		{`SELECT CAST('abc' AS REAL)`, data, "22P02", `invalid input syntax for type real: "abc"`},
+		{`SELECT CAST('abc' AS NUMERIC(10, 2))`, data, "22P02", `invalid input syntax for type numeric: "abc"`},
+		{`SELECT 'abc'::numeric`, data, "22P02", `invalid input syntax for type numeric: "abc"`},
+		{`SELECT 1.5 = 'x'`, data, "22P02", `invalid input syntax for type numeric: "x"`},
 		{`SELECT CAST('{' AS JSON)`, data, "22P02", "invalid input syntax for type json"},
 		// numeric_value_out_of_range.
-		{`SELECT CAST(3000000000 AS INTEGER)`, data, "22003", "out of range for INTEGER"},
+		{`SELECT CAST(3000000000 AS INTEGER)`, data, "22003", "integer out of range"},
 		{`SELECT CAST('3000000000' AS INTEGER)`, data, "22003", `value "3000000000" is out of range for type integer`},
-		{`SELECT CAST(1e300 AS BIGINT)`, data, "22003", "BIGINT"},
-		{`SELECT CAST(123456 AS NUMERIC(5, 2))`, data, "22003", "out of range"},
+		{`SELECT CAST(1e300 AS BIGINT)`, data, "22003", "bigint out of range"},
+		{`SELECT CAST(123456 AS NUMERIC(5, 2))`, data, "22003", "numeric field overflow"},
+		{`SELECT CAST('123456' AS NUMERIC(5, 2))`, data, "22003",
+			"numeric field overflow; a field with precision 5, scale 2 must round to an absolute value less than 10^3"},
+		{`SELECT CAST('1e9999999999' AS NUMERIC)`, data, "22003", "value overflows numeric format"},
+		{`SELECT CAST('1e400' AS DOUBLE PRECISION)`, data, "22003", `"1e400" is out of range for type double precision`},
+		{`SELECT CAST('1e39' AS REAL)`, data, "22003", `"1e39" is out of range for type real`},
+		{`SELECT CAST(CAST(1e39 AS DOUBLE PRECISION) AS REAL)`, data, "22003", "value out of range: overflow"},
 		{`SELECT CAST(CAST('NaN' AS DOUBLE PRECISION) AS NUMERIC(5, 2))`, data, "22003", "NaN"},
 		{`SELECT 9223372036854775807 + 1`, data, "22003", "integer overflow"},
 		{`SELECT ACOS(2)`, data, "22003", "input is out of range"},
@@ -121,16 +133,23 @@ func TestSQLErrorStates(t *testing.T) {
 		{`SELECT INTERVAL '1 day' / 0`, data, "22012", "division by zero"},
 		// Dates and times: invalid_datetime_format, and
 		// datetime_field_overflow for fields out of range.
-		{`SELECT CAST('abc' AS DATE)`, data, "22007", `"abc"`},
-		{`SELECT DATE 'abc'`, data, "22007", `"abc"`},
-		{`SELECT CAST('abc' AS TIMESTAMP)`, data, "22007", `"abc"`},
-		{`SELECT CAST('abc' AS TIME)`, data, "22007", `"abc"`},
+		{`SELECT CAST('abc' AS DATE)`, data, "22007", `invalid input syntax for type date: "abc"`},
+		{`SELECT DATE 'abc'`, data, "22007", `invalid input syntax for type date: "abc"`},
+		{`SELECT DATE '2024-01-01' = 'abc'`, data, "22007", `invalid input syntax for type date: "abc"`},
+		{`SELECT CAST('abc' AS TIMESTAMP)`, data, "22007", `invalid input syntax for type timestamp: "abc"`},
+		{`SELECT CAST('abc' AS TIMESTAMP WITH TIME ZONE)`, data, "22007", `invalid input syntax for type timestamp with time zone: "abc"`},
+		{`SELECT CAST('abc' AS TIME)`, data, "22007", `invalid input syntax for type time: "abc"`},
 		{`SELECT CAST('abc' AS INTERVAL)`, data, "22007", `"abc"`},
 		{`SELECT CAST('1:75:00' AS INTERVAL)`, data, "22015", `interval field value out of range: "1:75:00"`},
 		{`SELECT CAST('2562047:47:16.854776' AS INTERVAL)`, data, "22008", "interval out of range"},
-		{`SELECT CAST('2024-02-30' AS DATE)`, data, "22008", `"2024-02-30"`},
-		{`SELECT CAST('2024-02-30 10:00' AS TIMESTAMP)`, data, "22008", `"2024-02-30 10:00"`},
-		{`SELECT CAST('25:00' AS TIME)`, data, "22008", `"25:00"`},
+		{`SELECT CAST('2024-02-30' AS DATE)`, data, "22008", `date/time field value out of range: "2024-02-30"`},
+		{`SELECT CAST('2024-02-30 10:00' AS TIMESTAMP)`, data, "22008", `date/time field value out of range: "2024-02-30 10:00"`},
+		{`SELECT CAST('25:00' AS TIME)`, data, "22008", `date/time field value out of range: "25:00"`},
+		{`SELECT CAST('24:00:01' AS TIME)`, data, "22008", `date/time field value out of range: "24:00:01"`},
+		{`SELECT CAST('5881580-07-12' AS DATE)`, data, "22008", `date out of range: "5881580-07-12"`},
+		{`SELECT CAST('294277-01-01' AS TIMESTAMP)`, data, "22008", `timestamp out of range: "294277-01-01"`},
+		{`SELECT CAST('2024-01-05 10:00+16' AS TIMESTAMP WITH TIME ZONE)`, data, "22009", `time zone displacement out of range: "2024-01-05 10:00+16"`},
+		{`SELECT CAST('2024-01-05 10:00 Mars/Base' AS TIMESTAMP WITH TIME ZONE)`, data, "22023", `time zone "mars/base" not recognized`},
 		{`SELECT DATE '2024-01-01' + 2147483647`, data, "22008", "date out of range"},
 		{`SELECT INTERVAL '2147483647 days' * 2`, data, "22008", "interval out of range"},
 		{`SELECT INTERVAL '1 mon' / 1e-300`, data, "22008", "interval out of range"},
@@ -177,7 +196,18 @@ func TestSQLErrorStates(t *testing.T) {
 		{`INSERT INTO it_err (id, n) SELECT 2, 'x'`, data, "22P02", `column "n": `},
 		{`UPDATE it_err SET n = 'x'`, data, "22P02", `column "n": `},
 		{`UPDATE it_err SET n = 1 / 0`, data, "22012", "division by zero"},
-		{`INSERT INTO it_err (id, d) VALUES (2, '2024-02-30')`, data, "22008", `column "d": `},
+		{`INSERT INTO it_err (id, d) VALUES (2, '2024-02-30')`, data, "22008", `column "d": date/time field value out of range: "2024-02-30"`},
+		{`INSERT INTO it_err (id, b) VALUES (2, 'maybe')`, data, "22P02", `column "b": invalid input syntax for type boolean: "maybe"`},
+		{`INSERT INTO it_err_num (m) VALUES ('x')`, data, "22P02", `column "m": invalid input syntax for type numeric: "x"`},
+		{`INSERT INTO it_err_num (m) VALUES (1234.5)`, data, "22003", `column "m": numeric field overflow`},
+		{`INSERT INTO it_err_num (r) VALUES ('1e39')`, data, "22003", `column "r": "1e39" is out of range for type real`},
+		// 1e300 is a DOUBLE PRECISION here, and a NUMERIC in Postgres
+		// (`"1000…" is out of range for type real`).
+		{`INSERT INTO it_err_num (r) VALUES (1e300)`, data, "22003", `column "r": value out of range: overflow`},
+		{`INSERT INTO it_err_num (f) VALUES ('x')`, data, "22P02", `column "f": invalid input syntax for type double precision: "x"`},
+		{`INSERT INTO it_err_num (t) VALUES ('24:00:01')`, data, "22008", `column "t": date/time field value out of range: "24:00:01"`},
+		{`INSERT INTO it_err_num (ts) VALUES ('x')`, data, "22007", `column "ts": invalid input syntax for type timestamp with time zone: "x"`},
+		{`UPDATE it_err SET d = 'x'`, data, "22007", `column "d": invalid input syntax for type date: "x"`},
 		{`MERGE INTO it_err t USING (SELECT 2 AS id) s ON t.id = s.id WHEN NOT MATCHED THEN INSERT (id, n) VALUES (s.id, 'x')`, data, "22P02", `column "n": `},
 		{`INSERT INTO it_err (id, v) VALUES (2, 'abcd')`, data, "22001", "value too long for type character varying(3)"},
 		{`UPDATE it_err SET v = 'abcd'`, data, "22001", "value too long for type character varying(3)"},

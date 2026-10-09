@@ -298,14 +298,21 @@ the Python exception:
 - **Every path** gives them: queries (also while a streamed result is
   read), `INSERT`, `UPDATE`, `MERGE`, `ALTER COLUMN … TYPE`, `DEFAULT`s,
   bound parameters and bulk ingest. A value written to a column has the
-  column's name in front: `[redis] column "n": invalid input syntax for type
-  integer: "x"`. `TRY_CAST` still returns NULL for a value that doesn't
-  convert.
-- **Messages** are mostly the driver's: only the SQLSTATE is Postgres's
-  (`'abc'::numeric` is `invalid decimal "abc"`, where Postgres says
-  `invalid input syntax for type numeric: "abc"`). Text read as an integer
-  has Postgres's messages too (see Text as an integer under Casts), as do
-  operators of quoted literals (see Quoted string literals).
+  column's name in front: `[redis] column "n": invalid input syntax for
+  type integer: "x"`. `TRY_CAST` still returns NULL for a value that
+  doesn't convert.
+- **Messages** of a value that doesn't convert or doesn't fit are
+  Postgres's: text that isn't a number, boolean, date, time or interval
+  (`invalid input syntax for type numeric: "abc"`, `date/time field value
+  out of range: "2024-02-30"`, see Text as an integer and Text as a
+  number, a boolean, a date or a time under Casts), and a number past its
+  type's range (`integer out of range`, `numeric field overflow`).
+  Postgres's details and hints are left out, but for `numeric field
+  overflow`'s, which follows a `;`. So are those of operators of quoted
+  literals (see Quoted string literals). Many other messages are the
+  driver's, with only the SQLSTATE Postgres's: `CAST(DATE '2024-01-01' AS
+  BOOLEAN)` is `cannot convert date value "2024-01-01" to BOOLEAN`, where
+  Postgres says `cannot cast type date to boolean`.
 - **No SQLSTATE yet:** the errors of the driver's own limits, and a few
   others: `more than one row returned by a subquery used as an expression`
   (`21000` in Postgres), an operator that doesn't exist (`42883`; those of
@@ -320,7 +327,14 @@ the Python exception:
   `InvalidData`. An unknown column or function was `InvalidArgument`, as
   was a column named twice in `INSERT`; they are `NotFound` and
   `AlreadyExists` now. `DATE_BIN` by months and `EXTRACT` of a field the
-  type doesn't have were `InvalidArgument`.
+  type doesn't have were `InvalidArgument`. The messages of text that
+  didn't convert were the driver's: `invalid decimal "abc"`, `invalid
+  number "1e"`, `cannot convert "x" to DOUBLE PRECISION` (and `BOOLEAN`),
+  and `invalid date "x"`, `invalid time "x"` and `invalid timestamp "x"`,
+  also for a field out of range; so were those of numbers past their
+  type's range: `value 3000000000 out of range for INTEGER`, `cannot
+  convert float64 value "1e+300" to BIGINT` and `value 123456 out of range
+  for NUMERIC(5,2)`.
 
 ### ACL users
 
@@ -2090,9 +2104,9 @@ field, even if later rows have it.
       application's. Values convert as the driver's `CAST` converts them,
       which differs from Postgres in a few places: a `DOUBLE PRECISION`
       half rounds away from zero to an integer (Postgres rounds to even),
-      `BYTEA` keeps its text as written, and a conversion error has the
-      driver's message (`invalid decimal "abc"`, where Postgres says
-      `invalid input syntax for type integer: "abc"`). As for the other
+      and `BYTEA` keeps its text as written. A conversion error has
+      Postgres's message (`invalid input syntax for type integer: "abc"`,
+      see [Error handling](#error-handling)). As for the other
       defaults, a `DEFAULT` that the new type can't hold is an error at the
       `ALTER` (Postgres fails when a row gets it).
     - **Upgrading from v0.0.12 and earlier:** `ALTER COLUMN … TYPE` was
@@ -3159,7 +3173,7 @@ field, even if later rows have it.
     function's integer argument (`LPAD(s, '3.5')` fails, as an `INTEGER`).
     Text compared with a value of another type it doesn't convert to fails
     with that type's conversion error and SQLSTATE (`DATE '2024-01-01' =
-    'x'` is `invalid date "x"`, `22007`)
+    'x'` is `invalid input syntax for type date: "x"`, `22007`)
   - Differences: an integer literal is a `BIGINT`, so `1 = 'x'` says `type
     bigint` where Postgres says `type integer`. An `IN` list stops at the
     first value that matches, so `1 IN ('1', '1.5')` is true, and an
@@ -3178,6 +3192,79 @@ field, even if later rows have it.
     int32 with string`, without a SQLSTATE. `redis-adbc copy -type
     n=INTEGER` rounded a field of `1.5`; it now stops there, or copies NULL
     with `-on-error null`
+  - **Text as a number, a boolean, a date or a time** is read as Postgres
+    reads it, with its errors, wherever text becomes one (as for integers):
+    - `NUMERIC` as `numeric_in` reads it: optional spaces and a sign, then
+      digits with an optional point and exponent (`'.5'`, `'1.'`,
+      `'1.5e-3'`), or `0x`, `0o` or `0b` and hexadecimal, octal or binary
+      digits (`'0x1F'` is 31), with single underscores between digits
+      (`'1_000.000_1'`, `'0x_1F'`), then optional spaces. Anything else is
+      `invalid input syntax for type numeric: "abc"` (`22P02`). An exponent
+      past ±1,073,741,823, or more than 131,072 digits before the point or
+      16,383 after it, is `value overflows numeric format`, and a value the
+      type can't hold `numeric field overflow; a field with precision 5,
+      scale 2 must round to an absolute value less than 10^3` (`22003`),
+      also when it isn't text (`CAST(123456 AS NUMERIC(5, 2))`)
+    - `DOUBLE PRECISION` and `REAL` as `float8in` and `float4in` read them,
+      with C's `strtod`: optional spaces and a sign, then digits with an
+      optional point and exponent, `0x` and hexadecimal digits with an
+      optional point and binary exponent (`'0x1F'` is 31, `'0x1.8p1'` 3),
+      or `Infinity`, `inf` or `NaN` (also `nan(…)`), in any case, then
+      optional spaces; no underscores. Anything else is `invalid input
+      syntax for type double precision: "x"` (`real` for a `REAL`), and a
+      value past the type's range, or one that isn't 0 but rounds to it,
+      `"1e400" is out of range for type double precision` (`22003`). A
+      double past a `REAL`'s range is `value out of range: overflow`, or
+      `underflow` if it rounds to 0
+    - `BOOLEAN` as `boolin` reads it: without spaces, a prefix of `true` or
+      `false`, `yes` or `no`, `on`, `of` or `off`, `1` or `0`, in any case
+      (`'t'`, `'fa'`, `'YE'`; `'o'` isn't one). Anything else is `invalid
+      input syntax for type boolean: "maybe"` (`22P02`)
+    - Dates, times and timestamps: text that isn't one is `invalid input
+      syntax for type date: "x"` (`22007`; `time`, `timestamp`, `timestamp
+      with time zone` and `time with time zone` for those types), and a
+      field out of range `date/time field value out of range:
+      "2024-02-30"` (`22008`), also a time past `24:00:00` (`'24:00:01'`,
+      `'23:59:60.5'`; `'23:59:60'` is `24:00:00`). An offset is written
+      `+5`, `+0530`, `+05:30` or `+05:30:15`, up to 15:59:59 (past it,
+      `time zone displacement out of range: "…"`, `22009`), and a zone name
+      with a `/` that doesn't exist is `time zone "mars/base" not
+      recognized` (`22023`). Past the driver's ranges (see Intervals and
+      date/time arithmetic) a date is `date out of range: "…"` and a
+      timestamp `timestamp out of range: "…"` (`22008`). A `DATE` checks
+      a time, offset or zone after the date and ignores them
+      (`'2024-01-05 23:00-05'` and `'2024-01-05 24:00'` are 2024-01-05), and
+      so does a `TIME` with an offset or zone after the time, and a date
+      before it (`'10:00+05'` is 10:00:00)
+  - Differences: dates and times are read in ISO 8601 order only
+    (`2024-01-05 10:00:00`, with four to seven year digits); Postgres also
+    reads `'Jan 5 2024'`, `'20240105'`, `'2024-1-5'`, `'10:00 PM'`, `'1000'`
+    and the special values (`'epoch'`, `'today'`, `'infinity'`,
+    `'allballs'`), which are `invalid input syntax` here. A `DATE` and a
+    `TIMESTAMP` have the driver's ranges, so `'5874898-01-01'` is a date
+    here (Postgres: `date out of range`) and `'294276-12-31'` isn't a
+    timestamp. Text with an offset read as a `TIMESTAMP` is that instant in
+    UTC (`'2024-01-05 10:00-05'` is 15:00); Postgres ignores the offset. A
+    `NUMERIC` can't hold `NaN` or the infinities (see NaN and the
+    infinities), and has at most 76 digits (38, with 9 after the point,
+    without a precision), so `CAST('1e40' AS NUMERIC)` is `numeric field
+    overflow`. A number with an exponent is a `DOUBLE PRECISION` here, so
+    `CAST(1e39 AS REAL)` is `value out of range: overflow`, where Postgres
+    reads a `NUMERIC` and says `"1000…" is out of range for type real`
+  - **Upgrading from v0.0.12 and earlier:** `NUMERIC` text with an exponent
+    was read as a double, losing digits (`'12345678901234567890123e-3'`
+    was 12345678901234567000.000), and `'1_000'` and `'0x1F'` were
+    errors. A `DOUBLE PRECISION` read `'1_000'` as 1000, refused `'0x1F'`,
+    `'-NaN'` and `'1e400'` (with `22P02`), and read `'1e-400'` as 0; a
+    `REAL` past its range was `Infinity` (also a double cast to one), or 0.
+    A `BOOLEAN` was a whole word or one letter (`'tr'`, `'of'` were
+    errors). `'24:00:01'` was a `TIME` past the end of the day, an offset
+    past 15:59 was read, `+05:30:15` was misread, a `DATE` with a time was
+    the date of that timestamp in UTC (`'2024-01-05 23:00-05'` and
+    `'2024-01-05 24:00'` were 2024-01-06), `DATE '2024-01-05 10:00'` was an
+    error, so was a `TIME` with a date or an offset, and a date after
+    294247 AD was `timestamp out of range for unit us`. The errors had the
+    driver's messages (see [Error handling](#error-handling))
 - Math functions: `ROUND(x [, n])` and `TRUNC(x [, n])` (`n` may be
   negative: `ROUND(1250, -2)` is 1300), `FLOOR`, `CEIL` / `CEILING`, `MOD` / `%`,
   `POWER` / `POW`, `SQRT`, `CBRT`, `LN`, `LOG(x)` (base 10) / `LOG(b, x)`,
@@ -3303,8 +3390,9 @@ field, even if later rows have it.
   '2'` has `n`'s scale).
   - **Errors,** as in Postgres, when the statement is planned, also if no
     row reads the value: a literal that isn't a value of the type (`CASE
-    WHEN … THEN 'x' ELSE 1 END` and `'x' + 1` are `invalid decimal "x"`;
-    Postgres: `invalid input syntax for type integer: "x"`; both `22P02`);
+    WHEN … THEN 'x' ELSE 1 END` and `'x' + 1` are `invalid input syntax
+    for type bigint: "x"`, as an integer literal is a `BIGINT`; Postgres:
+    `… type integer: "x"`; both `22P02`);
     typed values without a common type, such as a `VARCHAR` column and an
     integer (`CASE WHEN … THEN v ELSE 1 END` is `CASE types bigint and
     varchar cannot be matched`, `42804`, and so for `COALESCE`, `GREATEST`,
@@ -4098,8 +4186,9 @@ field, even if later rows have it.
     Arrow results hold the doubles themselves. `NUMERIC` has neither (in
     Postgres it has both): converting one to it fails with `cannot convert
     NaN to NUMERIC(10,2): NUMERIC values can't be NaN or infinite`, and
-    nothing is written. A value beyond `REAL`'s range is an infinity
-    (Postgres raises `value out of range: overflow`)
+    nothing is written. A value beyond `REAL`'s range is an error, as in
+    Postgres (`value out of range: overflow`; it was an infinity up to
+    v0.0.12)
   - **Fractional seconds:** `TIME(p)` and `TIMESTAMP(p)` hold `p` digits,
     from 0 to 9 (6 without `p`; a `p` above 9 is 9, where Postgres reduces
     a `p` above 6 to 6; a negative `p` is an error, as in Postgres). Their

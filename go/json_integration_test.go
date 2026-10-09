@@ -287,7 +287,7 @@ func TestSQLJSONPath(t *testing.T) {
 			t.Errorf("JSON_VALUE RETURNING column %d type = %s, want %s", i, dt, want)
 		}
 	}
-	h.expectError(`SELECT JSON_VALUE(doc, '$.placed' RETURNING DATE ERROR ON ERROR) FROM it_json_orders WHERE id = 3`, "invalid date")
+	h.expectError(`SELECT JSON_VALUE(doc, '$.placed' RETURNING DATE ERROR ON ERROR) FROM it_json_orders WHERE id = 3`, "invalid input syntax for type date")
 	h.expectError(`SELECT JSON_VALUE(doc, '$.customer.tier' ERROR ON EMPTY) FROM it_json_orders WHERE id = 2`,
 		"no SQL/JSON item found for specified path")
 	h.expectRows(`SELECT JSON_VALUE(doc, '$.items[0].qty' RETURNING INTEGER DEFAULT -1 ON EMPTY),

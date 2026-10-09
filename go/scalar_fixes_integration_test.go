@@ -99,7 +99,7 @@ func TestScalarFixesTryCast(t *testing.T) {
 			TRY_CAST(-2147483648 AS INTEGER)`,
 		"NULL|NULL|NULL|NULL|NULL|NULL|-2147483648")
 	h.expectError(`SELECT CAST(TIMESTAMP '2300-01-01 00:00:00' AS TIMESTAMP(9))`, "out of range")
-	h.expectError(`SELECT CAST(123.456 AS NUMERIC(4,2))`, "out of range")
+	h.expectError(`SELECT CAST(123.456 AS NUMERIC(4,2))`, "numeric field overflow")
 
 	// NULL stays NULL, with the target type.
 	schema = h.expectRows(`SELECT TRY_CAST(NULL AS INTEGER), SAFE_CAST(NULL AS DATE)`, "NULL|NULL")

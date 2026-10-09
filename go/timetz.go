@@ -90,7 +90,7 @@ func timeTZText(v Value) string {
 // errTimeTZSyntax is Postgres's error for text that isn't a time with time
 // zone.
 func errTimeTZSyntax(s string) error {
-	return stateErr(stateDatetimeFormat, "invalid input syntax for type time with time zone: %q", s)
+	return dateTimeTextError(stateDatetimeFormat, "time with time zone", s)
 }
 
 // parseTimeTZ reads text as a time with time zone (see the top of the file),
@@ -104,13 +104,13 @@ func parseTimeTZ(in string, z tzZone) (Value, error) {
 	if err != nil {
 		if clockShaped(clock) {
 			// 25:00, 10:60: a field out of range.
-			return Value{}, stateErr(stateDatetimeRange, "date/time field value out of range: %q", in)
+			return Value{}, dateTimeTextError(stateDatetimeRange, "time with time zone", in)
 		}
 		return Value{}, errTimeTZSyntax(in)
 	}
 	us := sec*1_000_000 + pgMicros(nanos)
 	if us > 86400*1_000_000 {
-		return Value{}, stateErr(stateDatetimeRange, "date/time field value out of range: %q", in)
+		return Value{}, dateTimeTextError(stateDatetimeRange, "time with time zone", in)
 	}
 	// offsetOn is zone's offset at the local time sec on the date, or on the
 	// current date in the session time zone.
@@ -127,15 +127,16 @@ func parseTimeTZ(in string, z tzZone) (Value, error) {
 	case name == "":
 		off = offsetOn(z)
 	case name[0] == '+' || name[0] == '-':
-		if off, err = parseTZDisplacement(name, in); err != nil {
-			return Value{}, err
+		var bad string
+		if off, bad = parseTZDisplacement(name); bad != "" {
+			return Value{}, dateTimeTextError(bad, "time with time zone", in)
 		}
 	default:
 		// Postgres splits the text at a comma, so a POSIX zone's rules can't
 		// be written here.
 		zone, err := resolveZone(name)
 		if err != nil || strings.ContainsRune(name, ',') {
-			return Value{}, errTimeTZSyntax(in)
+			return Value{}, unknownZoneText(name, "time with time zone", in)
 		}
 		switch single, ok := zone.singleOffset(); {
 		case ok:
@@ -150,7 +151,7 @@ func parseTimeTZ(in string, z tzZone) (Value, error) {
 		}
 	}
 	if off < -maxTZDisplacement || off > maxTZDisplacement {
-		return Value{}, stateErr(stateTZDisplacement, "time zone displacement out of range: %q", in)
+		return Value{}, dateTimeTextError(stateTZDisplacement, "time with time zone", in)
 	}
 	return Value{T: typeTimeTZ, I: us, Off: int32(off)}, nil
 }
@@ -202,9 +203,10 @@ func readsLocalTime(t ColType) bool { return isTimestampTZ(t) || t.Kind == KindT
 
 // parseTZDisplacement reads a UTC offset written as numbers, as Postgres's
 // DecodeTimezone does: ±H, ±HH, ±HHMM (more than two digits are hours and
-// minutes), ±HH:MM or ±HH:MM:SS, with hours up to 15. in is the whole text,
-// for errors.
-func parseTZDisplacement(s, in string) (int, error) {
+// minutes), ±HH:MM or ±HH:MM:SS, with hours up to 15. bad is the SQLSTATE
+// of what is wrong with it, or "": invalid_datetime_format, or
+// invalid_time_zone_displacement_value for a field out of range.
+func parseTZDisplacement(s string) (off int, bad string) {
 	sign := 1
 	if s[0] == '-' {
 		sign = -1
@@ -223,29 +225,29 @@ func parseTZDisplacement(s, in string) (int, error) {
 	digits := s[1:]
 	h, rest, ok := num(digits)
 	if !ok {
-		return 0, errTimeTZSyntax(in)
+		return 0, stateDatetimeFormat
 	}
 	m, sec := 0, 0
 	switch {
 	case strings.HasPrefix(rest, ":"):
 		if m, rest, ok = num(rest[1:]); !ok {
-			return 0, errTimeTZSyntax(in)
+			return 0, stateDatetimeFormat
 		}
 		if strings.HasPrefix(rest, ":") {
 			if sec, rest, ok = num(rest[1:]); !ok {
-				return 0, errTimeTZSyntax(in)
+				return 0, stateDatetimeFormat
 			}
 		}
 	case rest == "" && len(digits) > 2:
 		h, m = h/100, h%100
 	}
 	if rest != "" {
-		return 0, errTimeTZSyntax(in)
+		return 0, stateDatetimeFormat
 	}
 	if h > 15 || m > 59 || sec > 59 {
-		return 0, stateErr(stateTZDisplacement, "time zone displacement out of range: %q", in)
+		return 0, stateTZDisplacement
 	}
-	return sign * (h*3600 + m*60 + sec), nil
+	return sign * (h*3600 + m*60 + sec), ""
 }
 
 // currentTime is the statement's current time in z (seconds since the

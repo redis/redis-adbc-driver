@@ -312,7 +312,7 @@ func TestAtTimeZoneErrors(t *testing.T) {
 		ts + " AT TIME ZONE 'EST5EDT4x'":                   `time zone "EST5EDT4x" not recognized`,
 		ts + " AT TIME ZONE ':EST5EDT'":                    `time zone ":EST5EDT" not recognized`,
 		// Timestamp text can't have a POSIX zone's rules.
-		"CAST('2024-07-01 12:00 CET-1CEST,M3.5.0,M10.5.0' AS TIMESTAMPTZ)": `invalid timestamp "2024-07-01 12:00 CET-1CEST,M3.5.0,M10.5.0"`,
+		"CAST('2024-07-01 12:00 CET-1CEST,M3.5.0,M10.5.0' AS TIMESTAMPTZ)": `invalid input syntax for type timestamp with time zone: "2024-07-01 12:00 CET-1CEST,M3.5.0,M10.5.0"`,
 		ts + " AT TIME ZONE ' UTC'":                                        `time zone " UTC" not recognized`,
 		ts + " AT TIME ZONE 'Asia/' || 'Tokyo'":                            `time zone "Asia/" not recognized`,
 		"TIMEZONE('Nowhere', " + ts + ")":                                  `time zone "Nowhere" not recognized`,
