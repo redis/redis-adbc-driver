@@ -1,0 +1,134 @@
+{
+  "area": "timestamp",
+  "tier": "postgres",
+  "source": "https://raw.githubusercontent.com/postgres/postgres/7d3e000c5961a544302072058a1184e9a588837b/src/test/regress/sql/timestamp.sql",
+  "provenance": {
+    "version": "REL_16_15",
+    "commit": "7d3e000c5961a544302072058a1184e9a588837b",
+    "sha256": "68b4cd1d083eac4379f7603fa5ca8c7580d5f755d0682161753da4b4ef69f99b",
+    "fixture": "Curated independent subset; reduced fixtures, not the full upstream regression database."
+  },
+  "setup": [],
+  "cases": [
+    {
+      "id": "statement-0026",
+      "sql": "SELECT timestamp 'infinity' = timestamp '+infinity' AS t;",
+      "source_statement": 26,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0062",
+      "sql": "SELECT pg_input_is_valid('garbage', 'timestamp');",
+      "source_statement": 62,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0063",
+      "sql": "SELECT pg_input_is_valid('2001-01-01 00:00 Nehwon/Lankhmar', 'timestamp');",
+      "source_statement": 63,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0101",
+      "sql": "SELECT '4714-11-24 00:00:00 BC'::timestamp;",
+      "source_statement": 101,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0102",
+      "sql": "SELECT '4714-11-23 23:59:59 BC'::timestamp;",
+      "source_statement": 102,
+      "expect_postgres": "22008"
+    },
+    {
+      "id": "statement-0103",
+      "sql": "SELECT '294276-12-31 23:59:59'::timestamp;",
+      "source_statement": 103,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0104",
+      "sql": "SELECT '294277-01-01 00:00:00'::timestamp;",
+      "source_statement": 104,
+      "expect_postgres": "22008"
+    },
+    {
+      "id": "statement-0112",
+      "sql": "SELECT date_trunc( 'week', timestamp '2004-02-29 15:44:17.71393' ) AS week_trunc;",
+      "source_statement": 112,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0118",
+      "sql": "SELECT date_bin('5 min'::interval, timestamp '2020-02-01 01:01:01', timestamp '2020-02-01 00:02:30');",
+      "source_statement": 118,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0119",
+      "sql": "SELECT date_bin('30 minutes'::interval, timestamp '2024-02-01 15:00:00', timestamp '2024-02-01 17:00:00');",
+      "source_statement": 119,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0120",
+      "sql": "SELECT date_bin('5 months'::interval, timestamp '2020-02-01 01:01:01', timestamp '2001-01-01');",
+      "source_statement": 120,
+      "expect_postgres": "0A000"
+    },
+    {
+      "id": "statement-0121",
+      "sql": "SELECT date_bin('5 years'::interval,  timestamp '2020-02-01 01:01:01', timestamp '2001-01-01');",
+      "source_statement": 121,
+      "expect_postgres": "0A000"
+    },
+    {
+      "id": "statement-0122",
+      "sql": "SELECT date_bin('0 days'::interval, timestamp '1970-01-01 01:00:00' , timestamp '1970-01-01 00:00:00');",
+      "source_statement": 122,
+      "expect_postgres": "22008"
+    },
+    {
+      "id": "statement-0123",
+      "sql": "SELECT date_bin('-2 days'::interval, timestamp '1970-01-01 01:00:00' , timestamp '1970-01-01 00:00:00');",
+      "source_statement": 123,
+      "expect_postgres": "22008"
+    },
+    {
+      "id": "statement-0124",
+      "sql": "select date_bin('15 minutes'::interval, timestamp '294276-12-30', timestamp '4000-12-20 BC');",
+      "source_statement": 124,
+      "expect_postgres": "22008"
+    },
+    {
+      "id": "statement-0125",
+      "sql": "select date_bin('200000000 days'::interval, '2024-02-01'::timestamp, '2024-01-01'::timestamp);",
+      "source_statement": 125,
+      "expect_postgres": "22008"
+    },
+    {
+      "id": "statement-0126",
+      "sql": "select date_bin('365000 days'::interval, '4400-01-01 BC'::timestamp, '4000-01-01 BC'::timestamp);",
+      "source_statement": 126,
+      "expect_postgres": "22008"
+    },
+    {
+      "id": "statement-0133",
+      "sql": "SELECT date_part('epoch', '294270-01-01 00:00:00'::timestamp);",
+      "source_statement": 133,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0136",
+      "sql": "SELECT timestamp '294276-12-31 23:59:59' - timestamp '1999-12-23 19:59:04.224193' AS ok;",
+      "source_statement": 136,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0137",
+      "sql": "SELECT timestamp '294276-12-31 23:59:59' - timestamp '1999-12-23 19:59:04.224192' AS overflows;",
+      "source_statement": 137,
+      "expect_postgres": "22008"
+    }
+  ]
+}

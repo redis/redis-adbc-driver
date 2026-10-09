@@ -11,5 +11,6 @@
       "id": "repro-2",
       "sql": "select 2.5::float8::integer, 3.5::float8::integer, (-2.5)::float8::integer"
     }
-  ]
+  ],
+  "tier": "issues"
 }

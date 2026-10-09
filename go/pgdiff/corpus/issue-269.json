@@ -1,0 +1,87 @@
+{
+  "area": "transactions",
+  "source": "https://github.com/alberttwong/redis-adbc-driver/issues/269",
+  "setup": [
+    "create table tx (id integer)"
+  ],
+  "cases": [
+    {
+      "id": "row-1",
+      "steps": [
+        {
+          "sql": "begin",
+          "expect_postgres": null
+        },
+        {
+          "sql": "insert into tx values (9)",
+          "expect_postgres": null
+        },
+        {
+          "sql": "rollback",
+          "expect_postgres": null
+        },
+        {
+          "sql": "select count(*) from tx",
+          "expect_postgres": null
+        }
+      ],
+      "adaptation": "Original script is run one statement at a time, retaining each outcome."
+    },
+    {
+      "id": "row-2",
+      "steps": [
+        {
+          "sql": "begin",
+          "expect_postgres": null
+        },
+        {
+          "sql": "insert into tx values (10)",
+          "expect_postgres": null
+        },
+        {
+          "sql": "savepoint s1",
+          "expect_postgres": null
+        },
+        {
+          "sql": "insert into tx values (11)",
+          "expect_postgres": null
+        },
+        {
+          "sql": "rollback to s1",
+          "expect_postgres": null
+        },
+        {
+          "sql": "commit",
+          "expect_postgres": null
+        },
+        {
+          "sql": "select count(*) from tx where id >= 10",
+          "expect_postgres": null
+        }
+      ],
+      "adaptation": "Original script is run one statement at a time, retaining each outcome."
+    },
+    {
+      "id": "uncommitted-visibility",
+      "steps": [
+        {
+          "sql": "begin",
+          "connection": "a"
+        },
+        {
+          "sql": "insert into tx values (100)",
+          "connection": "a"
+        },
+        {
+          "sql": "select count(*) from tx where id=100",
+          "connection": "b"
+        },
+        {
+          "sql": "rollback",
+          "connection": "a"
+        }
+      ]
+    }
+  ],
+  "tier": "issues"
+}

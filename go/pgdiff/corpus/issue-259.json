@@ -1,0 +1,25 @@
+{
+  "area": "with",
+  "source": "https://github.com/alberttwong/redis-adbc-driver/issues/259",
+  "setup": [
+    "CREATE TABLE t (id integer, name varchar(20), score integer, grp varchar(10))",
+    "INSERT INTO t VALUES (1, 'apple', 10, 'a'), (2, 'Banana', NULL, 'a'), (3, 'cherry', 30, 'b'), (4, '_x', 20, 'b')",
+    "CREATE TABLE u (id integer, label text)",
+    "INSERT INTO u VALUES (1, 'one'), (2, 'two')",
+    "create table w (id integer, label varchar(10))",
+    "insert into w values (1,'one'),(2,'two')"
+  ],
+  "cases": [
+    {
+      "id": "row-1",
+      "sql": "with x as (select 5 as id, 'five' as label) insert into w select * from x",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-2",
+      "sql": "with d as (delete from w where id = 2 returning *) select count(*) from d",
+      "expect_postgres": null
+    }
+  ],
+  "tier": "issues"
+}

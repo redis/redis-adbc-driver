@@ -1,0 +1,217 @@
+{
+  "area": "join",
+  "tier": "postgres",
+  "source": "https://raw.githubusercontent.com/postgres/postgres/7d3e000c5961a544302072058a1184e9a588837b/src/test/regress/sql/join.sql",
+  "provenance": {
+    "version": "REL_16_15",
+    "commit": "7d3e000c5961a544302072058a1184e9a588837b",
+    "sha256": "bc818cf50a59c730d30428949009e1d691f0c2fbce36fec5b0235e2b73b9fbc7",
+    "fixture": "Curated independent subset; reduced fixtures, not the full upstream regression database."
+  },
+  "setup": [
+    "CREATE TABLE J1_TBL (\n  i integer,\n  j integer,\n  t text\n);",
+    "CREATE TABLE J2_TBL (\n  i integer,\n  k integer\n);",
+    "INSERT INTO J1_TBL VALUES (1, 4, 'one');",
+    "INSERT INTO J1_TBL VALUES (2, 3, 'two');",
+    "INSERT INTO J1_TBL VALUES (3, 2, 'three');",
+    "INSERT INTO J1_TBL VALUES (4, 1, 'four');",
+    "INSERT INTO J1_TBL VALUES (5, 0, 'five');",
+    "INSERT INTO J1_TBL VALUES (6, 6, 'six');",
+    "INSERT INTO J1_TBL VALUES (7, 7, 'seven');",
+    "INSERT INTO J1_TBL VALUES (8, 8, 'eight');",
+    "INSERT INTO J1_TBL VALUES (0, NULL, 'zero');",
+    "INSERT INTO J1_TBL VALUES (NULL, NULL, 'null');",
+    "INSERT INTO J1_TBL VALUES (NULL, 0, 'zero');",
+    "INSERT INTO J2_TBL VALUES (1, -1);",
+    "INSERT INTO J2_TBL VALUES (2, 2);",
+    "INSERT INTO J2_TBL VALUES (3, -3);",
+    "INSERT INTO J2_TBL VALUES (2, 4);",
+    "INSERT INTO J2_TBL VALUES (5, -5);",
+    "INSERT INTO J2_TBL VALUES (5, -5);",
+    "INSERT INTO J2_TBL VALUES (0, NULL);",
+    "INSERT INTO J2_TBL VALUES (NULL, NULL);",
+    "INSERT INTO J2_TBL VALUES (NULL, 0);"
+  ],
+  "cases": [
+    {
+      "id": "statement-0025",
+      "sql": "SELECT *\n  FROM J1_TBL AS tx;",
+      "source_statement": 25,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0026",
+      "sql": "SELECT *\n  FROM J1_TBL tx;",
+      "source_statement": 26,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0027",
+      "sql": "SELECT *\n  FROM J1_TBL AS t1 (a, b, c);",
+      "source_statement": 27,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0028",
+      "sql": "SELECT *\n  FROM J1_TBL t1 (a, b, c);",
+      "source_statement": 28,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0029",
+      "sql": "SELECT *\n  FROM J1_TBL t1 (a, b, c), J2_TBL t2 (d, e);",
+      "source_statement": 29,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0030",
+      "sql": "SELECT t1.a, t2.e\n  FROM J1_TBL t1 (a, b, c), J2_TBL t2 (d, e)\n  WHERE t1.a = t2.d;",
+      "source_statement": 30,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0031",
+      "sql": "SELECT *\n  FROM J1_TBL CROSS JOIN J2_TBL;",
+      "source_statement": 31,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0032",
+      "sql": "SELECT i, k, t\n  FROM J1_TBL CROSS JOIN J2_TBL;",
+      "source_statement": 32,
+      "expect_postgres": "42702"
+    },
+    {
+      "id": "statement-0033",
+      "sql": "SELECT t1.i, k, t\n  FROM J1_TBL t1 CROSS JOIN J2_TBL t2;",
+      "source_statement": 33,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0034",
+      "sql": "SELECT ii, tt, kk\n  FROM (J1_TBL CROSS JOIN J2_TBL)\n    AS tx (ii, jj, tt, ii2, kk);",
+      "source_statement": 34,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0035",
+      "sql": "SELECT tx.ii, tx.jj, tx.kk\n  FROM (J1_TBL t1 (a, b, c) CROSS JOIN J2_TBL t2 (d, e))\n    AS tx (ii, jj, tt, ii2, kk);",
+      "source_statement": 35,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0036",
+      "sql": "SELECT *\n  FROM J1_TBL CROSS JOIN J2_TBL a CROSS JOIN J2_TBL b;",
+      "source_statement": 36,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0037",
+      "sql": "SELECT *\n  FROM J1_TBL INNER JOIN J2_TBL USING (i);",
+      "source_statement": 37,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0038",
+      "sql": "SELECT *\n  FROM J1_TBL JOIN J2_TBL USING (i);",
+      "source_statement": 38,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0039",
+      "sql": "SELECT *\n  FROM J1_TBL t1 (a, b, c) JOIN J2_TBL t2 (a, d) USING (a)\n  ORDER BY a, d;",
+      "source_statement": 39,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0040",
+      "sql": "SELECT *\n  FROM J1_TBL t1 (a, b, c) JOIN J2_TBL t2 (a, b) USING (b)\n  ORDER BY b, t1.a;",
+      "source_statement": 40,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0041",
+      "sql": "SELECT * FROM J1_TBL JOIN J2_TBL USING (i) WHERE J1_TBL.t = 'one';",
+      "source_statement": 41,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0042",
+      "sql": "SELECT * FROM J1_TBL JOIN J2_TBL USING (i) AS x WHERE J1_TBL.t = 'one';",
+      "source_statement": 42,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0043",
+      "sql": "SELECT * FROM (J1_TBL JOIN J2_TBL USING (i)) AS x WHERE J1_TBL.t = 'one';",
+      "source_statement": 43,
+      "expect_postgres": "42P01"
+    },
+    {
+      "id": "statement-0044",
+      "sql": "SELECT * FROM J1_TBL JOIN J2_TBL USING (i) AS x WHERE x.i = 1;",
+      "source_statement": 44,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0045",
+      "sql": "SELECT * FROM J1_TBL JOIN J2_TBL USING (i) AS x WHERE x.t = 'one';",
+      "source_statement": 45,
+      "expect_postgres": "42703"
+    },
+    {
+      "id": "statement-0046",
+      "sql": "SELECT * FROM (J1_TBL JOIN J2_TBL USING (i) AS x) AS xx WHERE x.i = 1;",
+      "source_statement": 46,
+      "expect_postgres": "42P01"
+    },
+    {
+      "id": "statement-0047",
+      "sql": "SELECT * FROM J1_TBL a1 JOIN J2_TBL a2 USING (i) AS a1;",
+      "source_statement": 47,
+      "expect_postgres": "42712"
+    },
+    {
+      "id": "statement-0048",
+      "sql": "SELECT x.* FROM J1_TBL JOIN J2_TBL USING (i) AS x WHERE J1_TBL.t = 'one';",
+      "source_statement": 48,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0049",
+      "sql": "SELECT ROW(x.*) FROM J1_TBL JOIN J2_TBL USING (i) AS x WHERE J1_TBL.t = 'one';",
+      "source_statement": 49,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0050",
+      "sql": "SELECT row_to_json(x.*) FROM J1_TBL JOIN J2_TBL USING (i) AS x WHERE J1_TBL.t = 'one';",
+      "source_statement": 50,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0051",
+      "sql": "SELECT *\n  FROM J1_TBL NATURAL JOIN J2_TBL;",
+      "source_statement": 51,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0052",
+      "sql": "SELECT *\n  FROM J1_TBL t1 (a, b, c) NATURAL JOIN J2_TBL t2 (a, d);",
+      "source_statement": 52,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0053",
+      "sql": "SELECT *\n  FROM J1_TBL t1 (a, b, c) NATURAL JOIN J2_TBL t2 (d, a);",
+      "source_statement": 53,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0054",
+      "sql": "SELECT *\n  FROM J1_TBL t1 (a, b) NATURAL JOIN J2_TBL t2 (a);",
+      "source_statement": 54,
+      "expect_postgres": null
+    }
+  ]
+}

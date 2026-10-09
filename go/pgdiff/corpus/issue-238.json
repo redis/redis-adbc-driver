@@ -24,5 +24,6 @@
       "id": "repro-4",
       "sql": "select * from t natural join u"
     }
-  ]
+  ],
+  "tier": "issues"
 }

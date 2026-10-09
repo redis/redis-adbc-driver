@@ -24,5 +24,6 @@
       "id": "repro-4",
       "sql": "select max(name) from t"
     }
-  ]
+  ],
+  "tier": "issues"
 }

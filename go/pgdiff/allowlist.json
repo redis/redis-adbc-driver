@@ -1,1 +1,53 @@
-{}
+{
+  "extensions.json:timestamp9": {
+    "reason": "The driver intentionally supports nanosecond TIMESTAMP(9); Postgres caps precision at 6.",
+    "issue": "https://github.com/alberttwong/redis-adbc-driver/issues/236",
+    "postgres": {
+      "types": [
+        "timestamp"
+      ],
+      "rows": [
+        [
+          "2024-01-01T00:00:00.123457"
+        ]
+      ],
+      "type_checks": {
+        "0": {
+          "precision": 6
+        }
+      }
+    },
+    "redis": {
+      "types": [
+        "timestamp"
+      ],
+      "rows": [
+        [
+          "2024-01-01T00:00:00.123456789"
+        ]
+      ],
+      "type_checks": {
+        "0": {
+          "precision": 9
+        }
+      }
+    }
+  },
+  "extensions.json:try-cast": {
+    "reason": "TRY_CAST is a documented non-conflicting driver extension; invalid conversion returns typed NULL.",
+    "issue": "https://github.com/alberttwong/redis-adbc-driver/issues/236",
+    "postgres": {
+      "sqlstate": "42601"
+    },
+    "redis": {
+      "types": [
+        "int32"
+      ],
+      "rows": [
+        [
+          null
+        ]
+      ]
+    }
+  }
+}

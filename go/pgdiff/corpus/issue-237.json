@@ -28,5 +28,6 @@
       "id": "repro-5",
       "sql": "select id, score from t order by score asc"
     }
-  ]
+  ],
+  "tier": "issues"
 }

@@ -108,15 +108,16 @@ refuses them when it connects; see
 [Server requirements](#server-requirements).
 
 The differential harness compares rows, physical Arrow result types and
-SQLSTATEs with Postgres 16.15, pinned by digest on amd64 and initialized with
-**C collation** (byte ordering). Run `REDIS_URI=redis://localhost:6379/0 make -C go pgdiff`.
-The initial 73-case corpus passes **24/73 (32.9%)** on October 9, 2026, including
-**13/13 smoke cases**; the remaining cases target known compatibility issues
-from #274. This measures that starter corpus, rather than broad Postgres
-conformance. The command reports each difference and exits nonzero while gaps
-remain. See [the harness guide](go/pgdiff/README.md) for coverage, type-mapping
-limitations, documented exceptions and the report format. dbt SQL and Postgres's
-regression corpus remain to be added.
+SQLSTATEs with digest-pinned amd64 Postgres 16.15 and **C collation** (byte order).
+Run `REDIS_URI=redis://localhost:6379/0 make -C go pgdiff`.
+On October 9, 2026, its expanded curated corpus passes **327/603 scored cases
+(54.2%)**, including **13/13 smoke cases**, **19/23 captured dbt cases**, and
+**229/371 Postgres regression cases**. Four more cases are separately classified
+as documented extensions or explicit scope exclusions, for **607 cases total**.
+This measures the checked-in corpus rather than full Postgres conformance.
+Unresolved differences remain visible; fixture/infrastructure failures have a
+separate exit status. See [the harness guide](go/pgdiff/README.md) for the
+coverage inventories, pinned sources, type-comparison limits and manual CI run.
 
 ## Server requirements
 

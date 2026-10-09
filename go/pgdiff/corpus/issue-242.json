@@ -15,5 +15,6 @@
       "id": "repro-3",
       "sql": "select sum(1), max(2)"
     }
-  ]
+  ],
+  "tier": "issues"
 }

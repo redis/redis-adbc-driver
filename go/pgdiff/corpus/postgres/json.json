@@ -1,0 +1,254 @@
+{
+  "area": "json",
+  "tier": "postgres",
+  "source": "https://raw.githubusercontent.com/postgres/postgres/7d3e000c5961a544302072058a1184e9a588837b/src/test/regress/sql/json.sql",
+  "provenance": {
+    "version": "REL_16_15",
+    "commit": "7d3e000c5961a544302072058a1184e9a588837b",
+    "sha256": "021fa336d00f94afbc026e2d7d6eb6e526cc1af139452e7eb726a638fafe29a3",
+    "fixture": "Curated independent subset; reduced fixtures, not the full upstream regression database."
+  },
+  "setup": [],
+  "cases": [
+    {
+      "id": "statement-0000",
+      "sql": "SELECT '\"\"'::json;",
+      "source_statement": 0,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0001",
+      "sql": "SELECT $$''$$::json;",
+      "source_statement": 1,
+      "expect_postgres": "22P02"
+    },
+    {
+      "id": "statement-0002",
+      "sql": "SELECT '\"abc\"'::json;",
+      "source_statement": 2,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0003",
+      "sql": "SELECT '\"abc'::json;",
+      "source_statement": 3,
+      "expect_postgres": "22P02"
+    },
+    {
+      "id": "statement-0004",
+      "sql": "SELECT '\"abc\ndef\"'::json;",
+      "source_statement": 4,
+      "expect_postgres": "22P02"
+    },
+    {
+      "id": "statement-0005",
+      "sql": "SELECT '\"\\n\\\"\\\\\"'::json;",
+      "source_statement": 5,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0006",
+      "sql": "SELECT '\"\\v\"'::json;",
+      "source_statement": 6,
+      "expect_postgres": "22P02"
+    },
+    {
+      "id": "statement-0009",
+      "sql": "SELECT '1'::json;",
+      "source_statement": 9,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0010",
+      "sql": "SELECT '0'::json;",
+      "source_statement": 10,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0011",
+      "sql": "SELECT '01'::json;",
+      "source_statement": 11,
+      "expect_postgres": "22P02"
+    },
+    {
+      "id": "statement-0012",
+      "sql": "SELECT '0.1'::json;",
+      "source_statement": 12,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0013",
+      "sql": "SELECT '9223372036854775808'::json;",
+      "source_statement": 13,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0014",
+      "sql": "SELECT '1e100'::json;",
+      "source_statement": 14,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0015",
+      "sql": "SELECT '1.3e100'::json;",
+      "source_statement": 15,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0016",
+      "sql": "SELECT '1f2'::json;",
+      "source_statement": 16,
+      "expect_postgres": "22P02"
+    },
+    {
+      "id": "statement-0017",
+      "sql": "SELECT '0.x1'::json;",
+      "source_statement": 17,
+      "expect_postgres": "22P02"
+    },
+    {
+      "id": "statement-0018",
+      "sql": "SELECT '1.3ex100'::json;",
+      "source_statement": 18,
+      "expect_postgres": "22P02"
+    },
+    {
+      "id": "statement-0019",
+      "sql": "SELECT '[]'::json;",
+      "source_statement": 19,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0020",
+      "sql": "SELECT '[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]'::json;",
+      "source_statement": 20,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0021",
+      "sql": "SELECT '[1,2]'::json;",
+      "source_statement": 21,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0022",
+      "sql": "SELECT '[1,2,]'::json;",
+      "source_statement": 22,
+      "expect_postgres": "22P02"
+    },
+    {
+      "id": "statement-0023",
+      "sql": "SELECT '[1,2'::json;",
+      "source_statement": 23,
+      "expect_postgres": "22P02"
+    },
+    {
+      "id": "statement-0024",
+      "sql": "SELECT '[1,[2]'::json;",
+      "source_statement": 24,
+      "expect_postgres": "22P02"
+    },
+    {
+      "id": "statement-0025",
+      "sql": "SELECT '{}'::json;",
+      "source_statement": 25,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0026",
+      "sql": "SELECT '{\"abc\"}'::json;",
+      "source_statement": 26,
+      "expect_postgres": "22P02"
+    },
+    {
+      "id": "statement-0027",
+      "sql": "SELECT '{\"abc\":1}'::json;",
+      "source_statement": 27,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0028",
+      "sql": "SELECT '{1:\"abc\"}'::json;",
+      "source_statement": 28,
+      "expect_postgres": "22P02"
+    },
+    {
+      "id": "statement-0029",
+      "sql": "SELECT '{\"abc\",1}'::json;",
+      "source_statement": 29,
+      "expect_postgres": "22P02"
+    },
+    {
+      "id": "statement-0030",
+      "sql": "SELECT '{\"abc\"=1}'::json;",
+      "source_statement": 30,
+      "expect_postgres": "22P02"
+    },
+    {
+      "id": "statement-0031",
+      "sql": "SELECT '{\"abc\"::1}'::json;",
+      "source_statement": 31,
+      "expect_postgres": "22P02"
+    },
+    {
+      "id": "statement-0032",
+      "sql": "SELECT '{\"abc\":1,\"def\":2,\"ghi\":[3,4],\"hij\":{\"klm\":5,\"nop\":[6]}}'::json;",
+      "source_statement": 32,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0033",
+      "sql": "SELECT '{\"abc\":1:2}'::json;",
+      "source_statement": 33,
+      "expect_postgres": "22P02"
+    },
+    {
+      "id": "statement-0034",
+      "sql": "SELECT '{\"abc\":1,3}'::json;",
+      "source_statement": 34,
+      "expect_postgres": "22P02"
+    },
+    {
+      "id": "statement-0039",
+      "sql": "SELECT 'true'::json;",
+      "source_statement": 39,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0040",
+      "sql": "SELECT 'false'::json;",
+      "source_statement": 40,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0041",
+      "sql": "SELECT 'null'::json;",
+      "source_statement": 41,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0042",
+      "sql": "SELECT ' true '::json;",
+      "source_statement": 42,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0043",
+      "sql": "SELECT 'true false'::json;",
+      "source_statement": 43,
+      "expect_postgres": "22P02"
+    },
+    {
+      "id": "statement-0044",
+      "sql": "SELECT 'true, false'::json;",
+      "source_statement": 44,
+      "expect_postgres": "22P02"
+    },
+    {
+      "id": "statement-0045",
+      "sql": "SELECT 'truf'::json;",
+      "source_statement": 45,
+      "expect_postgres": "22P02"
+    }
+  ]
+}

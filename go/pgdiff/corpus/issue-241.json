@@ -15,6 +15,23 @@
     {
       "id": "repro-2",
       "sql": "select id from t order by id limit 1 + 1"
+    },
+    {
+      "id": "row-3",
+      "sql": "select id from t order by id limit $1",
+      "params": [
+        2
+      ],
+      "expect_postgres": null
+    },
+    {
+      "id": "row-4",
+      "sql": "select id from t order by id offset $1",
+      "params": [
+        2
+      ],
+      "expect_postgres": null
     }
-  ]
+  ],
+  "tier": "issues"
 }
