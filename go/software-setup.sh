@@ -42,20 +42,31 @@ state() {
     { curl -sSk "$api/bootstrap" | jq -er '.bootstrap_status.state // empty' 2>/dev/null; } ||
         call -f "$api/bootstrap" | jq -er '.bootstrap_status.state // empty'
 }
-if [ "$(state)" = idle ]; then
-    jq -n --arg user "$admin_user" --arg pass "$admin_pass" '{
-        action: "create_cluster", cluster: {name: "adbc-test.local"}, node: {},
-        credentials: {username: $user, password: $pass}
-    }' | curl -sSkf -H 'Content-Type: application/json' -X POST "$api/bootstrap/create_cluster" -d @- >/dev/null
-fi
+# The container is healthy before its API answers (the healthcheck accepts
+# a 503), so the state is read until it can be, and an idle node is asked
+# to create the cluster then, rather than once before the API is up.
+requested=
 bootstrapped() {
     local s
-    s=$(state)
-    if [ "$s" = failed ]; then
+    s=$(state) || return 1
+    case $s in
+    completed) call -f -o /dev/null "$api/cluster" ;;
+    failed)
         call "$api/bootstrap" >&2
         exit 1
-    fi
-    [ "$s" = completed ] && call -f -o /dev/null "$api/cluster"
+        ;;
+    idle)
+        if [ -z "$requested" ]; then
+            jq -n --arg user "$admin_user" --arg pass "$admin_pass" '{
+                action: "create_cluster", cluster: {name: "adbc-test.local"}, node: {},
+                credentials: {username: $user, password: $pass}
+            }' | curl -sSkf -H 'Content-Type: application/json' -X POST "$api/bootstrap/create_cluster" -d @- >/dev/null &&
+                requested=1
+        fi
+        return 1
+        ;;
+    *) return 1 ;;
+    esac
 }
 wait_for 'Redis Software cluster' bootstrapped
 uid=$(call -f "$api/bdbs" | jq -r '[.[] | select(.name == "adbc-test") | .uid][0] // empty')
