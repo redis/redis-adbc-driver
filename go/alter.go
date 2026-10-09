@@ -67,6 +67,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/apache/arrow-adbc/go/adbc"
 	goredis "github.com/redis/go-redis/v9"
@@ -898,9 +899,24 @@ func (r *alterResult) addChecks(m *tableMeta, checks []checkMeta) {
 // indexAttributes returns the names of a search index's attributes, lower
 // case.
 func (s *store) indexAttributes(ctx context.Context, index string) (map[string]bool, error) {
-	reply, err := s.searchDo(ctx, index, "FT.INFO", index).Result()
-	if err != nil {
-		return nil, wrapRedis(err, "failed to read the search index")
+	var reply any
+	for attempt := 0; ; attempt++ {
+		var err error
+		reply, err = s.searchDo(ctx, index, "FT.INFO", index).Result()
+		if err == nil {
+			break
+		}
+		// Redis Software can report different schemas across shards while
+		// a concurrent FT.ALTER propagates. Only retry this read and this
+		// explicit server error; never replay a schema-changing command.
+		if err.Error() != "SEARCH_VALUE_BAD Inconsistent index state" || attempt >= 19 {
+			return nil, wrapRedis(err, "failed to read the search index")
+		}
+		select {
+		case <-ctx.Done():
+			return nil, wrapRedis(ctx.Err(), "failed to read the search index")
+		case <-time.After(50 * time.Millisecond):
+		}
 	}
 	out := map[string]bool{}
 	for _, attr := range indexInfoOf(reply).attrs {
