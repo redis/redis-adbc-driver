@@ -1,0 +1,8 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/adbc-drivers/redis/go
+cpu: Apple M4
+BenchmarkWorkerTuningSignals-10    	 3239996	       485.8 ns/op	     208 B/op	       1 allocs/op
+BenchmarkWorkerTuningCohort-10     	  551641	      1857 ns/op	     640 B/op	       4 allocs/op
+PASS
+ok  	github.com/adbc-drivers/redis/go	3.583s

@@ -96,4 +96,5 @@ condition, not a precise RTT emulator. INFO counters measure the entire server;
 keep unrelated activity idle. The fixture modifies only `it_worker_profile`.
 Inspect the allocation history for convergence; average measurements include
 cold learning and probes. This benchmark does not establish bounds across all
-Redis deployments. See the archived run for actual results and limitations.
+Redis deployments. See the [archived evaluation](../benchmarks/worker-autotune/README.md) for
+actual results and limitations.
