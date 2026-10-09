@@ -114,7 +114,7 @@ func classify(s string) classified {
 			return classified{class: classDate}
 		}
 	case timestampTextRe.MatchString(s):
-		if _, _, digits, zoned, err := parseTimestamp(s); err == nil {
+		if _, _, digits, _, zoned, err := parseTimestamp(s); err == nil {
 			return classified{class: classTimestamp, zoned: zoned, fracDigits: digits}
 		}
 	}

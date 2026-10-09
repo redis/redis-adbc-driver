@@ -3906,7 +3906,7 @@ func (p *parser) parsePrimary() (Expr, error) {
 						return p.noteCast(&Cast{X: p.noteLiteral(s), T: ct}), nil
 					}
 				}
-				if _, _, _, hasTZ, _ := parseTimestamp(s.text); isTimestampTZ(ct) && !hasTZ {
+				if _, _, _, _, hasTZ, _ := parseTimestamp(s.text); isTimestampTZ(ct) && !hasTZ {
 					// A local time, read when the statement runs, as below.
 					return p.noteCast(&Cast{X: p.noteLiteral(s), T: ct}), nil
 				}
@@ -3932,7 +3932,7 @@ func (p *parser) parsePrimary() (Expr, error) {
 					return nil, parseErr(err)
 				}
 				if withTZ {
-					if _, _, _, hasTZ, _ := parseTimestamp(s.text); !hasTZ {
+					if _, _, _, _, hasTZ, _ := parseTimestamp(s.text); !hasTZ {
 						// A local time in the session time zone, which is
 						// known when the statement runs (a SET earlier in
 						// the script may change it): read then.

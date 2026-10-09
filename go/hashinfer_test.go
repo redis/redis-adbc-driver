@@ -142,6 +142,9 @@ func TestConvertValue(t *testing.T) {
 		{"42", typeInt64, "42"},
 		{"yes", typeBool, "true"},
 		{"2024-01-15T10:00:00+02:00", fracType(KindTimestamp, 6, "UTC"), "2024-01-15 08:00:00+00"},
+		// -type col=TIMESTAMP: the offset is ignored, as in a cast.
+		{"2024-01-15T10:00:00+02:00", fracType(KindTimestamp, 6, ""), "2024-01-15 10:00:00"},
+		{"2024-01-15T23:00:00-05:00", typeDate, "2024-01-15"},
 	} {
 		v, err := convertValue(c.v, c.t)
 		if err != nil {

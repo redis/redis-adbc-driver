@@ -160,6 +160,8 @@ func TestSQLErrorStates(t *testing.T) {
 		{`SELECT TO_DATE('2024-02-30', 'YYYY-MM-DD')`, data, "22008", `date/time field value out of range: "2024-02-30"`},
 		{`SELECT TO_DATE('xx', 'MM')`, data, "22007", `invalid value "xx" for "MM"`},
 		{`SELECT TO_TIMESTAMP('2024-01-01 +25', 'YYYY-MM-DD TZH')`, data, "22009", "time zone displacement out of range"},
+		{`SELECT CAST('2024-01-05 10:00:00+16' AS TIMESTAMP)`, data, "22009", `time zone displacement out of range: "2024-01-05 10:00:00+16"`},
+		{`SELECT TIMESTAMP '2024-01-05 10:00:00-16'`, data, "22009", `time zone displacement out of range: "2024-01-05 10:00:00-16"`},
 		{`SELECT TO_CHAR(INTERVAL '1 day', 'Day')`, data, "22007", "invalid format specification for an interval value"},
 		{`SELECT DATE_BIN(INTERVAL '-1 day', TIMESTAMP '2024-01-01', TIMESTAMP '2024-01-01')`, data, "22008", "stride must be greater than zero"},
 		{`SELECT DATE_BIN(INTERVAL '1 month', TIMESTAMP '2024-01-01', TIMESTAMP '2024-01-01')`, notImp, "0A000", "months or years"},
