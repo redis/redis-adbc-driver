@@ -923,7 +923,9 @@ An empty value doesn't count, and reads as NULL in a column that isn't a
 string. A field that some HASHes lack is NULL there. When at most 5% of a
 column's values don't fit the type the rest share, the column is `VARCHAR`,
 and `check` suggests `-type col=TYPE -on-error null`. `-type col=TYPE`
-sets any column's type (SQL type names, as in `CREATE TABLE`).
+sets any column's type (SQL type names, as in `CREATE TABLE`). The values
+are read as a cast reads them, so with `-type col=TIMESTAMP` an offset is
+ignored (`2024-01-15T10:00:00+02:00` is 10:00), as in Postgres.
 
 ### Copy HASHes into a table
 
@@ -1580,7 +1582,9 @@ at its rounded value and re-checked by the driver, as is a `NaN` or
 `Infinity` compared with a float column (see "NaNs in the index" above). A
 `TIMESTAMP WITH TIME ZONE` column compared with a local time (text without
 an offset, a `TIMESTAMP` or a `DATE`) is pushed as that local time's
-instant in the session time zone. A `TIMESTAMP` or `DATE` column compared
+instant in the session time zone. A `TIMESTAMP` column compared with text
+with an offset or a zone is pushed as the time written, without the
+offset, as Postgres reads the text. A `TIMESTAMP` or `DATE` column compared
 with a timestamp with time zone is pushed as the range of local times that
 can be that instant (in a DST gap, 02:30 is the same instant as 03:30) and
 re-checked.
@@ -3235,7 +3239,9 @@ field, even if later rows have it.
       a time, offset or zone after the date and ignores them
       (`'2024-01-05 23:00-05'` and `'2024-01-05 24:00'` are 2024-01-05), and
       so does a `TIME` with an offset or zone after the time, and a date
-      before it (`'10:00+05'` is 10:00:00)
+      before it (`'10:00+05'` is 10:00:00), and a `TIMESTAMP` with an
+      offset or zone (`'2024-01-05 10:00-05'` is 10:00; see Session time
+      zone)
   - Differences: dates and times are read in ISO 8601 order only
     (`2024-01-05 10:00:00`, with four to seven year digits); Postgres also
     reads `'Jan 5 2024'`, `'20240105'`, `'2024-1-5'`, `'10:00 PM'`, `'1000'`
@@ -3243,9 +3249,7 @@ field, even if later rows have it.
     `'allballs'`), which are `invalid input syntax` here. A `DATE` and a
     `TIMESTAMP` have the driver's ranges, so `'5874898-01-01'` is a date
     here (Postgres: `date out of range`) and `'294276-12-31'` isn't a
-    timestamp. Text with an offset read as a `TIMESTAMP` is that instant in
-    UTC (`'2024-01-05 10:00-05'` is 15:00); Postgres ignores the offset. A
-    `NUMERIC` can't hold `NaN` or the infinities (see NaN and the
+    timestamp. A `NUMERIC` can't hold `NaN` or the infinities (see NaN and the
     infinities), and has at most 76 digits (38, with 9 after the point,
     without a precision), so `CAST('1e40' AS NUMERIC)` is `numeric field
     overflow`. A number with an exponent is a `DOUBLE PRECISION` here, so
@@ -3665,6 +3669,22 @@ field, even if later rows have it.
     (`'10:00'`, `TIMETZ '10:00'`), and a `TIME` converted to one, take the
     zone's offset on the current date, as in Postgres: `10:00:00-04` in New
     York in July, `10:00:00-05` in January.
+  - **Text read as a `TIMESTAMP`** is the date and time written, in every
+    session time zone: an offset or a zone name is checked and ignored, as
+    Postgres's `timestamp_in` ignores it (and a `DATE`'s; see Casts).
+    `TIMESTAMP '2024-01-05 10:00:00-05'` and `CAST('2024-01-05 10:00:00
+    Asia/Tokyo' AS TIMESTAMP)` are `2024-01-05 10:00:00`. The same goes for
+    text compared with a `TIMESTAMP` column (`ts = '2024-01-05
+    10:00:00-05'`, also in the index query), written to one (`INSERT`,
+    `UPDATE`, `DEFAULT`, bound parameters, bulk ingest) or checked against
+    one.
+    - **Upgrading from v0.0.14 and earlier:** such text was converted to
+      UTC, so `TIMESTAMP '2024-01-05 10:00:00-05'` was `2024-01-05
+      15:00:00`, `ts = '2024-01-05 10:00:00-05'` matched the rows at 15:00,
+      and such text written to a `TIMESTAMP` column was stored as its UTC
+      time. Rows written that way keep it. Views, `DEFAULT`s and `CHECK`s
+      keep the text they were defined with, so ones defined by earlier
+      versions read it the new way.
   - **Conversions:** a `TIMESTAMP` becomes a `TIMESTAMP WITH TIME ZONE` as a
     local time, and back as its local time; a `DATE` is local midnight, and
     a timestamp with time zone's `DATE` and `TIME` are its local date and
@@ -3678,7 +3698,10 @@ field, even if later rows have it.
     `TIMESTAMP WITH TIME ZONE` column are local times, and an Arrow
     timestamp with a zone written to a `TIMESTAMP`, `DATE`, `TIME` or text
     column is its local time. Arrow timestamps with a zone, and text with an
-    offset, keep their instant. Up to v0.0.11, bulk ingest converted in UTC.
+    offset, written to a `TIMESTAMP WITH TIME ZONE` column keep their
+    instant; text with an offset written to a `TIMESTAMP` or `DATE` column
+    is the date and time written, its offset ignored (see above). Up to
+    v0.0.11, bulk ingest converted in UTC.
   - **Fields and arithmetic:** `EXTRACT` / `DATE_PART` and the field
     functions, `DATE_TRUNC` (a day or longer starts at local midnight; a
     shorter unit keeps the offset, so `01:30 PST` truncates to `01:00 PST`

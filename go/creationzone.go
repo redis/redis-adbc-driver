@@ -265,7 +265,7 @@ func foldLocalTimes(text string, lits []litSpan, untyped map[*Literal]bool, z tz
 // offset (foldedTimeTZ). ok is false for text with an offset or a zone, or
 // that isn't a timestamp or a time.
 func foldedLocalTime(s string, z tzZone) (string, bool) {
-	if _, _, _, hasTZ, err := parseTimestamp(s); err != nil || hasTZ {
+	if _, _, _, _, hasTZ, err := parseTimestamp(s); err != nil || hasTZ {
 		if err != nil {
 			return foldedTimeTZ(s, z)
 		}

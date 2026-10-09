@@ -362,18 +362,20 @@ func dateTimeErr(err error, typ, in string) error {
 }
 
 // parseTimestamp parses "YYYY-MM-DD[ T]HH:MM:SS[.fffffffff][Z|±HH[:MM]|zone]
-// [BC]". It returns seconds and nanoseconds since the Unix epoch (UTC), the
-// number of fractional digits, and whether an explicit offset was present.
-// A zone name is read as by AT TIME ZONE (timezone.go).
-func parseTimestamp(s string) (sec, nanos int64, digits int, hasTZ bool, err error) {
+// [BC]". It returns the date and time written, as seconds and nanoseconds
+// since 1970-01-01 00:00:00, the number of fractional digits, and the
+// offset (seconds east of UTC) if an explicit offset or zone was present
+// (hasTZ). An offset is read as Postgres's DecodeTimezone reads it
+// (parseTZDisplacement), and a zone name as by AT TIME ZONE (timezone.go),
+// with its offset at that local time.
+func parseTimestamp(s string) (local, nanos int64, digits int, offset int64, hasTZ bool, err error) {
 	s = strings.TrimSpace(s)
 	t, bc := splitEra(s)
 	days, rest, bad := parseDatePrefix(t, bc)
 	if bad != "" {
-		return 0, 0, 0, false, dateTimeTextError(bad, "timestamp", s)
+		return 0, 0, 0, 0, false, dateTimeTextError(bad, "timestamp", s)
 	}
 	rest = strings.TrimLeft(rest, " T")
-	offset := int64(0)
 	if rest != "" {
 		clockEnd := len(rest)
 		for i, c := range rest {
@@ -392,7 +394,7 @@ func parseTimestamp(s string) (sec, nanos int64, digits int, hasTZ bool, err err
 			hasTZ = true
 			off, bad := parseTZDisplacement(tz) // timetz.go
 			if bad != "" {
-				return 0, 0, 0, false, dateTimeTextError(bad, "timestamp", s)
+				return 0, 0, 0, 0, false, dateTimeTextError(bad, "timestamp", s)
 			}
 			offset = int64(off)
 		default:
@@ -400,7 +402,7 @@ func parseTimestamp(s string) (sec, nanos int64, digits int, hasTZ bool, err err
 			// can't be written here.
 			z, zerr := resolveZone(tz)
 			if zerr != nil || strings.ContainsRune(tz, ',') {
-				return 0, 0, 0, false, unknownZoneText(tz, "timestamp", s)
+				return 0, 0, 0, 0, false, unknownZoneText(tz, "timestamp", s)
 			}
 			hasTZ = true
 			// The zone's offset at that local time, with DST gaps and
@@ -409,22 +411,21 @@ func parseTimestamp(s string) (sec, nanos int64, digits int, hasTZ bool, err err
 			if rest != "" {
 				var cerr error
 				if clockSec, _, _, cerr = parseClock(rest); cerr != nil {
-					return 0, 0, 0, false, dateTimeErr(cerr, "timestamp", s)
+					return 0, 0, 0, 0, false, dateTimeErr(cerr, "timestamp", s)
 				}
 			}
-			local := days*86400 + clockSec
-			offset = local - z.localToUTC(local)
+			at := days*86400 + clockSec
+			offset = at - z.localToUTC(at)
 		}
 	}
 	var clockSec int64
 	if rest != "" {
 		clockSec, nanos, digits, err = parseClock(rest)
 		if err != nil {
-			return 0, 0, 0, false, dateTimeErr(err, "timestamp", s)
+			return 0, 0, 0, 0, false, dateTimeErr(err, "timestamp", s)
 		}
 	}
-	sec = days*86400 + clockSec - offset
-	return sec, nanos, digits, hasTZ, nil
+	return days*86400 + clockSec, nanos, digits, offset, hasTZ, nil
 }
 
 func unitForDigits(digits int) arrow.TimeUnit {
@@ -458,20 +459,25 @@ func timestampLiteral(s string, withTZ bool) (Value, error) {
 	return timestampLiteralIn(s, withTZ, utcZone)
 }
 
-// timestampLiteralIn is timestampLiteral in the session time zone z: text
-// without an offset read as a timestamp with time zone is a local time in
-// z. The unit has the fraction's digits (microseconds, or nanoseconds for
-// more than 6).
+// timestampLiteralIn is timestampLiteral in the session time zone z. As in
+// Postgres, read as a timestamp with time zone, text with an offset or a
+// zone is that instant, and text without one a local time in z; read as a
+// timestamp, the text's offset or zone is checked and ignored, so
+// '2024-01-05 10:00:00-05' is 10:00. The unit has the fraction's digits
+// (microseconds, or nanoseconds for more than 6).
 func timestampLiteralIn(s string, withTZ bool, z tzZone) (Value, error) {
 	typ := "timestamp"
 	if withTZ {
 		typ = "timestamp with time zone"
 	}
-	sec, nanos, digits, hasTZ, err := parseTimestamp(s)
+	sec, nanos, digits, offset, hasTZ, err := parseTimestamp(s)
 	if err != nil {
 		return Value{}, dateTimeErr(err, typ, s)
 	}
-	if withTZ && !hasTZ {
+	switch {
+	case withTZ && hasTZ:
+		sec -= offset
+	case withTZ:
 		sec = z.localToUTC(sec)
 	}
 	unit := unitForDigits(digits)
@@ -527,7 +533,7 @@ func dateLiteral(s string) (Value, error) {
 		return Value{}, dateTimeTextError(bad, "date", s)
 	}
 	if strings.TrimSpace(rest) != "" {
-		if _, _, _, _, err := parseTimestamp(s); err != nil {
+		if _, _, _, _, _, err := parseTimestamp(s); err != nil {
 			return Value{}, dateTimeErr(err, "date", s)
 		}
 	}
