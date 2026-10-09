@@ -567,7 +567,11 @@ func numberLiteral(text string) (Value, error) {
 	}
 	if !strings.Contains(text, ".") {
 		if i, err := strconv.ParseInt(text, 10, 64); err == nil {
-			return intValue(typeInt64, i), nil
+			t := typeInt64
+			if i >= math.MinInt32 && i <= math.MaxInt32 {
+				t = typeInt32
+			}
+			return intValue(t, i), nil
 		}
 	}
 	d, scale, err := parseDecimal(text)
@@ -734,7 +738,18 @@ func floatText(f float64, bits int) string {
 	case math.IsInf(f, -1):
 		return "-Infinity"
 	}
-	return strconv.FormatFloat(f, 'g', -1, bits)
+	// Choose notation from the exponent of the shortest round-trip form.
+	s := strconv.FormatFloat(f, 'e', -1, bits)
+	i := strings.IndexByte(s, 'e')
+	exponent, _ := strconv.Atoi(s[i+1:])
+	upper := 15
+	if bits == 32 {
+		upper = 6
+	}
+	if exponent >= -4 && exponent < upper {
+		return strconv.FormatFloat(f, 'f', -1, bits)
+	}
+	return s
 }
 
 // offsetIn is the offset (seconds east of UTC) a timestamp with time zone
@@ -853,7 +868,7 @@ func coerceIn(v Value, t ColType, z tzZone) (Value, error) {
 			if math.IsNaN(v.F) || math.IsInf(v.F, 0) || v.F >= 9.223372036854775807e18 || v.F < -9.223372036854775808e18 {
 				return Value{}, intOutOfRange(t.Kind)
 			}
-			i = int64(math.Round(v.F))
+			i = int64(math.RoundToEven(v.F))
 		case v.T.Kind == KindDecimal:
 			r := rescaleDecimal(v.D, v.T.Scale, 0)
 			if !r.IsInt64() {
@@ -881,6 +896,14 @@ func coerceIn(v Value, t ColType, z tzZone) (Value, error) {
 		}
 		return floatValue(t, f), nil
 	case KindDecimal:
+		if t.Precision == 0 {
+			if v.T.Kind == KindDecimal {
+				return v, nil
+			}
+			if v.T.Kind.isInteger() {
+				return decimalValue(big.NewInt(v.I), decimalDigits(big.NewInt(v.I)), 0), nil
+			}
+		}
 		var d *big.Int
 		var scale int32
 		switch {

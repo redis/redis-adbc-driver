@@ -48,6 +48,7 @@ func (h *sqlHarness) setupUnknownOperands() {
 func TestSQLUnknownOperands(t *testing.T) {
 	h := newSQLHarness(t)
 	h.setupUnknownOperands()
+	i32 := arrow.PrimitiveTypes.Int32
 	i64, f64, iv := arrow.PrimitiveTypes.Int64, arrow.PrimitiveTypes.Float64, arrow.FixedWidthTypes.MonthDayNanoInterval
 	str := arrow.BinaryTypes.String
 	for _, c := range []struct {
@@ -55,11 +56,11 @@ func TestSQLUnknownOperands(t *testing.T) {
 		typ  arrow.DataType // of the last column
 		want []string
 	}{
-		{`SELECT '1' + 1`, i64, []string{"2"}},
-		{`SELECT id + '1' FROM it_unkop ORDER BY id`, i64, []string{"2", "3", "4"}},
-		{`SELECT '1' + id FROM it_unkop ORDER BY id`, i64, []string{"2", "3", "4"}},
-		{`SELECT id, '10' - id, id * '-2', id / '2' FROM it_unkop ORDER BY id`, i64, []string{"1|9|-2|0", "2|8|-4|1", "3|7|-6|1"}},
-		{`SELECT i2 + '1' FROM it_unkop WHERE id = 1`, i64, []string{"3"}},
+		{`SELECT '1' + 1`, i32, []string{"2"}},
+		{`SELECT id + '1' FROM it_unkop ORDER BY id`, i32, []string{"2", "3", "4"}},
+		{`SELECT '1' + id FROM it_unkop ORDER BY id`, i32, []string{"2", "3", "4"}},
+		{`SELECT id, '10' - id, id * '-2', id / '2' FROM it_unkop ORDER BY id`, i32, []string{"1|9|-2|0", "2|8|-4|1", "3|7|-6|1"}},
+		{`SELECT i2 + '1' FROM it_unkop WHERE id = 1`, arrow.PrimitiveTypes.Int16, []string{"3"}},
 		{`SELECT f - '0.5', f + 'Infinity' FROM it_unkop WHERE id = 1`, f64, []string{"2|+Inf"}},
 		// A NUMERIC literal keeps its own digits.
 		{`SELECT n + '1.005', n * '2' FROM it_unkop ORDER BY id`, &arrow.Decimal128Type{Precision: 38, Scale: 2},
@@ -77,8 +78,8 @@ func TestSQLUnknownOperands(t *testing.T) {
 		{`SELECT CAST(iv + '1 hour' AS VARCHAR), CAST(iv * '2' AS VARCHAR), CAST(iv / '2' AS VARCHAR) FROM it_unkop WHERE id = 1`, str,
 			[]string{"1 day 01:00:00|2 days|12:00:00"}},
 		// Nested, and next to a CASE whose literal takes its type.
-		{`SELECT (id + '1') * '2', '1' - (id + '1') + '2' FROM it_unkop ORDER BY id`, i64, []string{"4|1", "6|0", "8|-1"}},
-		{`SELECT CASE WHEN id = 1 THEN '5' ELSE id END + '1' FROM it_unkop ORDER BY id`, i64, []string{"6", "3", "4"}},
+		{`SELECT (id + '1') * '2', '1' - (id + '1') + '2' FROM it_unkop ORDER BY id`, i32, []string{"4|1", "6|0", "8|-1"}},
+		{`SELECT CASE WHEN id = 1 THEN '5' ELSE id END + '1' FROM it_unkop ORDER BY id`, i32, []string{"6", "3", "4"}},
 		{`SELECT COALESCE(n, '0') + '1' FROM it_unkop ORDER BY id`, &arrow.Decimal128Type{Precision: 38, Scale: 2},
 			[]string{"2.25", "3.50", "1.00"}},
 		// Grouping, aggregates, HAVING, ORDER BY, windows and subqueries.
@@ -88,7 +89,7 @@ func TestSQLUnknownOperands(t *testing.T) {
 		{`SELECT MAX(id + '1'), SUM(id * '10'), COUNT(DISTINCT g * '0') FROM it_unkop`, i64, []string{"4|60|1"}},
 		{`SELECT id FROM it_unkop ORDER BY id * '-1'`, arrow.PrimitiveTypes.Int32, []string{"3", "2", "1"}},
 		{`SELECT id, SUM(id) OVER (ORDER BY id) + '10' FROM it_unkop ORDER BY id`, i64, []string{"1|11", "2|13", "3|16"}},
-		{`SELECT id, (SELECT MAX(x.id) + '1' FROM it_unkop x WHERE x.g = it_unkop.g) FROM it_unkop ORDER BY id`, i64,
+		{`SELECT id, (SELECT MAX(x.id) + '1' FROM it_unkop x WHERE x.g = it_unkop.g) FROM it_unkop ORDER BY id`, i32,
 			[]string{"1|3", "2|3", "3|4"}},
 		// WHERE, also as an index query.
 		{`SELECT id FROM it_unkop WHERE id = '1' + 1`, arrow.PrimitiveTypes.Int32, []string{"2"}},
@@ -161,7 +162,7 @@ func TestSQLUnknownOperandWrites(t *testing.T) {
 
 	h.exec(`CREATE TABLE it_unkop_ctas AS SELECT id + '1' AS a, n * '2' AS b, ts + '1 day' AS c, d - '2024-01-01' AS e FROM it_unkop`)
 	h.expectRows(`SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'it_unkop_ctas' ORDER BY ordinal_position`,
-		"a|BIGINT", "b|NUMERIC(38,2)", "c|TIMESTAMP(6)", "e|BIGINT")
+		"a|INTEGER", "b|NUMERIC(38,2)", "c|TIMESTAMP(6)", "e|BIGINT")
 	h.expectRows(`SELECT a, b, CAST(c AS VARCHAR), e FROM it_unkop_ctas ORDER BY a`,
 		"2|2.50|2024-02-01 10:00:00|30", "3|5.00|2024-02-02 10:00:00|31", "4|NULL|NULL|NULL", "5|NULL|NULL|NULL")
 

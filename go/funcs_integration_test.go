@@ -157,7 +157,7 @@ func wantArgCount(name string, min, max, n int) string {
 // argCountSyntax are the calls whose argument counts the parser checks,
 // with its errors; a missing count is valid syntax for another form.
 var argCountSyntax = map[string]map[int]string{
-	"DATE_ADD":    {2: "syntax error: DATE_ADD expects (part, n, x) or (x, INTERVAL n part)", 4: "syntax error: DATE_ADD expects (part, n, x) or (x, INTERVAL n part)"},
+	"DATE_ADD":    {1: "syntax error: DATE_ADD expects (part, n, x) or (x, INTERVAL n part)", 4: "syntax error: DATE_ADD expects (part, n, x) or (x, INTERVAL n part)"},
 	"DATE_SUB":    {2: "syntax error: DATE_SUB expects (x, INTERVAL n part)", 4: "syntax error: DATE_SUB expects (x, INTERVAL n part)"},
 	"JSON_VALUE":  {1: `syntax error: expected "," near ")"`, 5: `syntax error: expected ON EMPTY or ON ERROR near ","`},
 	"JSON_QUERY":  {1: `syntax error: expected "," near ")"`, 5: `syntax error: expected ON EMPTY or ON ERROR near ","`},
@@ -290,17 +290,17 @@ func TestSQLFunctionsEveryPosition(t *testing.T) {
 		{"SELECT id FROM it_fx_t WHERE id > ALL (SELECT nosuchfunc(id) FROM it_fx_e)", noSuchInt},
 		{"SELECT * FROM (SELECT nosuchfunc(id) AS x FROM it_fx_e) s", noSuchInt},
 		{"WITH c AS (SELECT nosuchfunc(id) AS x FROM it_fx_t) SELECT * FROM c WHERE false", noSuchInt},
-		{"WITH RECURSIVE r(n) AS (SELECT 1 UNION ALL SELECT nosuchfunc(n) FROM r WHERE n < 3) SELECT * FROM r", "function nosuchfunc(bigint) does not exist"},
+		{"WITH RECURSIVE r(n) AS (SELECT 1 UNION ALL SELECT nosuchfunc(n) FROM r WHERE n < 3) SELECT * FROM r", "function nosuchfunc(integer) does not exist"},
 		{"SELECT * FROM it_fx_t t, LATERAL (SELECT nosuchfunc(t.id) AS x) l", noSuchInt},
 		{"SELECT * FROM it_fx_t t, generate_series(1, nosuchfunc(t.id)) g", noSuchInt},
 		{"SELECT id FROM it_fx_t UNION ALL SELECT nosuchfunc(id) FROM it_fx_e", noSuchInt},
 		{"SELECT id FROM it_fx_ok WHERE nosuchfunc(id) = 1", noSuchInt},
 		{"SELECT nosuchfunc(id) FROM it_fx_t LIMIT 0", noSuchInt},
 		{"SELECT nosuchfunc(id) FROM it_fx_t FETCH FIRST 0 ROWS ONLY", noSuchInt},
-		{"SELECT COUNT(*) FROM it_fx_t HAVING false AND nosuchfunc(1) = 1", "function nosuchfunc(bigint) does not exist"},
-		{"SELECT nosuchfunc(1)", "function nosuchfunc(bigint) does not exist"},
+		{"SELECT COUNT(*) FROM it_fx_t HAVING false AND nosuchfunc(1) = 1", "function nosuchfunc(integer) does not exist"},
+		{"SELECT nosuchfunc(1)", "function nosuchfunc(integer) does not exist"},
 		{"SELECT nosuchfunc(s, d, n, b, ts, 1, 1.5, 'x', NULL, 2.5e0, INTERVAL '1 day', CAST(1 AS SMALLINT)) FROM it_fx_t",
-			"function nosuchfunc(varchar, date, numeric, boolean, timestamp, bigint, numeric, varchar, unknown, double precision, interval, smallint) does not exist"},
+			"function nosuchfunc(varchar, date, numeric, boolean, timestamp, integer, numeric, varchar, unknown, double precision, interval, smallint) does not exist"},
 		{"SELECT nosuchfunc() FROM it_fx_t", "function nosuchfunc() does not exist"},
 		{"SELECT nosuchfunc(*) FROM it_fx_t", "function nosuchfunc(*) does not exist"},
 		{"SELECT nosuchfunc(DISTINCT id) FROM it_fx_t", noSuchInt},
@@ -308,7 +308,7 @@ func TestSQLFunctionsEveryPosition(t *testing.T) {
 		{"INSERT INTO it_fx_t SELECT nosuchfunc(id), s, d, n, b, ts FROM it_fx_t", noSuchInt},
 		{"INSERT INTO it_fx_t SELECT nosuchfunc(id), s, d, n, b, ts FROM it_fx_e", noSuchInt},
 		{"INSERT INTO it_fx_t " + dbtEmpty("SELECT nosuchfunc(id), s, d, n, b, ts FROM it_fx_t"), noSuchInt},
-		{"INSERT INTO it_fx_t (id) VALUES (3), (nosuchfunc(4))", "function nosuchfunc(bigint) does not exist"},
+		{"INSERT INTO it_fx_t (id) VALUES (3), (nosuchfunc(4))", "function nosuchfunc(integer) does not exist"},
 		{"INSERT INTO it_fx_t (id) VALUES (3) RETURNING nosuchfunc(id)", noSuchInt},
 		{"UPDATE it_fx_t SET s = nosuchfunc(s)", "function nosuchfunc(varchar) does not exist"},
 		{"UPDATE it_fx_e SET s = nosuchfunc(s)", "function nosuchfunc(varchar) does not exist"},
@@ -342,10 +342,10 @@ func TestSQLFunctionsEveryPosition(t *testing.T) {
 		{"CREATE TEMP TABLE it_fx_c (id INTEGER CHECK (nosuchfunc(id) > 0))", noSuchInt},
 		{"CREATE TABLE it_fx_c (id INTEGER CHECK (GROUPING(id) = 0))", "grouping operations are not allowed in check constraints"},
 		{"CREATE TABLE it_fx_d (id INTEGER DEFAULT GROUPING(1))", "grouping operations are not allowed in DEFAULT expressions"},
-		{"CREATE TABLE it_fx_d (id INTEGER DEFAULT nosuchfunc(1))", "function nosuchfunc(bigint) does not exist"},
+		{"CREATE TABLE it_fx_d (id INTEGER DEFAULT nosuchfunc(1))", "function nosuchfunc(integer) does not exist"},
 		{"CREATE TABLE it_fx_d (id INTEGER DEFAULT nosuchfunc(NULL))", "function nosuchfunc(unknown) does not exist"},
 		{"CREATE TABLE it_fx_d (s VARCHAR DEFAULT upper(NULL, NULL))", "UPPER expects 1 argument"},
-		{"CREATE TABLE it_fx_d (id INTEGER DEFAULT CASE WHEN true THEN 1 ELSE nosuchfunc(2) END)", "function nosuchfunc(bigint) does not exist"},
+		{"CREATE TABLE it_fx_d (id INTEGER DEFAULT CASE WHEN true THEN 1 ELSE nosuchfunc(2) END)", "function nosuchfunc(integer) does not exist"},
 		{"ALTER TABLE it_fx_t ADD COLUMN c INTEGER DEFAULT nosuchfunc(NULL)", "function nosuchfunc(unknown) does not exist"},
 		{"ALTER TABLE it_fx_t ADD COLUMN c INTEGER CHECK (nosuchfunc(c) > 0)", noSuchInt},
 		{"ALTER TABLE it_fx_e ADD COLUMN c INTEGER CHECK (nosuchfunc(c) > 0)", noSuchInt},
@@ -378,10 +378,10 @@ func TestSQLFunctionsErrorOrder(t *testing.T) {
 		{"SELECT nosuchfunc(nosuchcol) FROM it_fx_t", `column "nosuchcol" does not exist in table "it_fx_t"`},
 		{"SELECT upper(nosuchcol, 1) FROM it_fx_t", `column "nosuchcol" does not exist in table "it_fx_t"`},
 		{"SELECT nosuchfunc(id) OVER (ORDER BY nosuchcol) FROM it_fx_t", `column "nosuchcol" does not exist in table "it_fx_t"`},
-		{"SELECT nosuchfunc(1), nosuchcol FROM it_fx_t", "function nosuchfunc(bigint) does not exist"},
+		{"SELECT nosuchfunc(1), nosuchcol FROM it_fx_t", "function nosuchfunc(integer) does not exist"},
 		{"SELECT nosuchcol, nosuchfunc(1) FROM it_fx_t", `column "nosuchcol" does not exist in table "it_fx_t"`},
-		{"SELECT nosuchfunc(1) + nosuchcol FROM it_fx_t", "function nosuchfunc(bigint) does not exist"},
-		{"SELECT upper(nosuchfunc(1), 2) FROM it_fx_t", "function nosuchfunc(bigint) does not exist"},
+		{"SELECT nosuchfunc(1) + nosuchcol FROM it_fx_t", "function nosuchfunc(integer) does not exist"},
+		{"SELECT upper(nosuchfunc(1), 2) FROM it_fx_t", "function nosuchfunc(integer) does not exist"},
 		{"SELECT nosuchfunc(upper(1, 2)) FROM it_fx_t", "UPPER expects 1 argument"},
 		{"SELECT otherfunc(nosuchfunc(id)) FROM it_fx_t", noSuchInt},
 		// The function, before what is wrong with its use.
@@ -435,14 +435,15 @@ func TestSQLFunctionsNamesAndForms(t *testing.T) {
 		TIMESTAMPADD(day, 1, d), EXTRACT(month FROM d), TRIM(LEADING 'a' FROM s), POSITION('x' IN s), SUBSTRING(s FROM 1 FOR 1) FROM it_fx_t ORDER BY id`,
 		"1|2|2|2024-01-02|1||0|a", "NULL|NULL|NULL|NULL|NULL|x|1|x")
 	h.expectErrorText("SELECT NoSuchFunc(id) FROM it_fx_t", noSuchInt)
-	h.expectErrorText(`SELECT "upper"(s) FROM it_fx_t`, `syntax error: unexpected "("`)
+	h.expectRows(`SELECT "upper"(s) FROM it_fx_t ORDER BY id`, "A", "X")
+	h.expectErrorText(`SELECT "UPPER"(s) FROM it_fx_t`, "function upper(varchar) does not exist")
 	h.expectErrorText(`SELECT pg_catalog.upper(s) FROM it_fx_t`, `syntax error: unexpected "("`)
 	h.expectRows(`SELECT * FROM "generate_series"(1, 2)`, "1", "2")
 	h.expectErrorText(`SELECT * FROM nosuchfunc(1)`, "table function nosuchfunc is not supported (only GENERATE_SERIES is)")
 	// The internal functions the parser builds for operators and special
 	// forms can't be called by name.
 	h.expectErrorText("SELECT __is_json(s) FROM it_fx_t", "function __is_json(varchar) does not exist")
-	h.expectErrorText("SELECT __INTERVAL(1, 'day') FROM it_fx_e", "function __interval(bigint, varchar) does not exist")
+	h.expectErrorText("SELECT __INTERVAL(1, 'day') FROM it_fx_e", "function __interval(integer, varchar) does not exist")
 	h.expectErrorText("CREATE TABLE it_fx_d (s VARCHAR DEFAULT __json('1'))", "function __json(varchar) does not exist")
 	h.expectRows(`SELECT s IS JSON, '{}'::json, INTERVAL 1 DAY = INTERVAL '24 hours', LIKE(s, 'a%'), s ILIKE 'A' FROM it_fx_t ORDER BY id`,
 		"false|{}|true|true|true", "false|{}|true|false|false")
@@ -535,7 +536,7 @@ func TestSQLFunctionsStoredBefore(t *testing.T) {
 	}, nil); err != nil {
 		t.Fatal(err)
 	}
-	h.expectErrorText("INSERT INTO it_fx_oldc (id) VALUES (2)", "function nosuchfunc(bigint) does not exist")
+	h.expectErrorText("INSERT INTO it_fx_oldc (id) VALUES (2)", "function nosuchfunc(integer) does not exist")
 	h.exec("INSERT INTO it_fx_oldc VALUES (2, 'b')") // the default isn't needed
 	h.exec("ALTER TABLE it_fx_oldc ALTER COLUMN s DROP DEFAULT")
 	h.exec("INSERT INTO it_fx_oldc (id) VALUES (3)")

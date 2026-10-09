@@ -43,12 +43,12 @@ def test_row_is_struct(rows_conn) -> None:
         table = cur.fetch_arrow_table()
     assert table.schema == pyarrow.schema(
         [
-            ("row", pyarrow.struct([("f1", pyarrow.int64()), ("f2", pyarrow.string())])),
+            ("row", pyarrow.struct([("f1", pyarrow.int32()), ("f2", pyarrow.string())])),
             (
                 "n",
                 pyarrow.struct(
                     [
-                        ("f1", pyarrow.struct([("f1", pyarrow.int64()), ("f2", pyarrow.decimal128(2, 1))])),
+                        ("f1", pyarrow.struct([("f1", pyarrow.int32()), ("f2", pyarrow.decimal128(2, 1))])),
                         ("f2", pyarrow.null()),
                     ]
                 ),

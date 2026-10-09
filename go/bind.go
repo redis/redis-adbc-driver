@@ -674,7 +674,7 @@ func (q qualName) String() string {
 // checkCatalog is Postgres's error for a qualifier naming another catalog;
 // last is the rest of the reference (its column, or "*").
 func (q qualName) checkCatalog(last string) error {
-	if q.catalog == "" || strings.EqualFold(q.catalog, catalogName) {
+	if q.catalog == "" || (q.catalog == catalogName) {
 		return nil
 	}
 	return errorf(adbc.StatusNotImplemented, "cross-database references are not implemented: %s.%s", q, last)
@@ -688,7 +688,7 @@ func (e *executor) names(q qualName, rel relation) bool {
 	if q.item != "" {
 		return rel.prefix == q.item
 	}
-	if !strings.EqualFold(rel.name, q.name) {
+	if !(rel.name == q.name) {
 		return false
 	}
 	return q.schema == "" || (!rel.aliased && e.inSchema(rel, q.schema))
@@ -701,14 +701,14 @@ func (e *executor) inSchema(rel relation, schema string) bool {
 	if isTempAlias(schema) {
 		schema = e.store.tempSchema()
 	}
-	return rel.schema != "" && strings.EqualFold(rel.schema, schema)
+	return rel.schema != "" && (rel.schema == schema)
 }
 
 // readsTable reports whether rel is the table or view q names, under any
 // alias. Without a schema, that is any table, view or CTE of that name
 // (Postgres: the table the search path finds, or the CTE).
 func (e *executor) readsTable(q qualName, rel relation) bool {
-	if rel.meta == nil || !strings.EqualFold(rel.meta.Name, q.name) {
+	if rel.meta == nil || !(rel.meta.Name == q.name) {
 		return false
 	}
 	return q.schema == "" || e.inSchema(rel, q.schema)
@@ -777,7 +777,7 @@ func (e *executor) fromColumns(name string) int {
 // mentions reports whether q names rel, or the table rel reads (under an
 // alias): the items Postgres's errorMissingRTE looks for.
 func (e *executor) mentions(q qualName, rel relation) bool {
-	return rel.name != "" && (strings.EqualFold(rel.name, q.name) || e.readsTable(q, rel))
+	return rel.name != "" && ((rel.name == q.name) || e.readsTable(q, rel))
 }
 
 // missingFromEntry is Postgres's error (errorMissingRTE) for a qualifier
@@ -806,7 +806,7 @@ func (e *executor) missingFromEntry(q qualName) error {
 			if !e.mentions(q, rel) {
 				continue
 			}
-			if rel.aliased && !strings.EqualFold(rel.name, q.name) && e.visibleAt(i, j) {
+			if rel.aliased && !(rel.name == q.name) && e.visibleAt(i, j) {
 				return errorf(adbc.StatusInvalidArgument,
 					"invalid reference to FROM-clause entry for table %q; perhaps you meant to reference the table alias %q", q.name, rel.name)
 			}
@@ -876,7 +876,7 @@ func (e *executor) visibleAt(i, j int) bool {
 	for k := len(e.scopes) - 1; k >= 0; k-- {
 		hit := -1
 		for n, rel := range e.scopes[k].rels {
-			if strings.EqualFold(rel.name, name) {
+			if rel.name == name {
 				if hit >= 0 {
 					return false // ambiguous
 				}
@@ -988,18 +988,18 @@ func memTable(name string, cols []resultColumn, rows [][]Value, rename []string)
 func (t *tableMeta) nameColumns(names []string) {
 	count := map[string]int{}
 	for _, n := range names {
-		count[strings.ToLower(n)]++
+		count[n]++
 	}
 	t.dups = nil
 	for i, n := range names {
 		c := &t.Columns[i]
 		c.Name, c.label = n, ""
-		if count[strings.ToLower(n)] > 1 {
+		if count[n] > 1 {
 			c.Name, c.label = fmt.Sprintf("%s\x00%d", n, i+1), n
 			if t.dups == nil {
 				t.dups = map[string]bool{}
 			}
-			t.dups[strings.ToLower(n)] = true
+			t.dups[n] = true
 		}
 	}
 }
@@ -1016,7 +1016,7 @@ func columnLabel(name string) string {
 
 // ambiguous reports whether more than one column of an in-memory relation
 // has name (see nameColumns).
-func (t *tableMeta) ambiguous(name string) bool { return t.dups[strings.ToLower(name)] }
+func (t *tableMeta) ambiguous(name string) bool { return t.dups[name] }
 
 // errAmbiguousColumn is Postgres's error for a reference to a column name
 // that several columns have.
@@ -1098,7 +1098,7 @@ func (e *executor) pushCTEs(with []CTE) (func(), error) {
 	}
 	defs := map[string]*CTE{}
 	for i := range with {
-		key := strings.ToLower(with[i].Name)
+		key := with[i].Name
 		if _, dup := defs[key]; dup {
 			return nil, errorf(adbc.StatusInvalidArgument, "WITH query name %q specified more than once", with[i].Name)
 		}
@@ -1115,7 +1115,7 @@ func (e *executor) pushCTEs(with []CTE) (func(), error) {
 // its WITH list in e.ctes.
 func (e *executor) lookupCTE(name string) (*CTE, int) {
 	for i := len(e.ctes) - 1; i >= 0; i-- {
-		if def, ok := e.ctes[i][strings.ToLower(name)]; ok {
+		if def, ok := e.ctes[i][name]; ok {
 			return def, i
 		}
 	}

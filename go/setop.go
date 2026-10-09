@@ -131,7 +131,7 @@ func (e *executor) planSetOp(ctx context.Context, sel *SelectStmt, plan *selectP
 			// The columns are named by the first branch's.
 			if x.Qualifier == "" {
 				for i, it := range plan.items {
-					if strings.EqualFold(it.name, x.Name) {
+					if it.name == x.Name {
 						if col >= 0 {
 							return nil, stateErrorf(stateAmbiguousColumn, "ORDER BY %q is ambiguous", x.Name)
 						}

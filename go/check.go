@@ -126,7 +126,7 @@ func checkReads(text, column string) bool {
 		return false
 	}
 	for _, r := range refs {
-		if strings.EqualFold(r.ref.Name, column) {
+		if r.ref.Name == column {
 			return true
 		}
 	}
@@ -142,7 +142,7 @@ func checkColumns(meta *tableMeta, text string) []string {
 	}
 	var out []string
 	for _, c := range meta.Columns {
-		if slices.ContainsFunc(refs, func(r refSpan) bool { return strings.EqualFold(r.ref.Name, c.Name) }) {
+		if slices.ContainsFunc(refs, func(r refSpan) bool { return (r.ref.Name == c.Name) }) {
 			out = append(out, c.Name)
 		}
 	}
@@ -161,13 +161,13 @@ func renameInCheck(text, from, to string) (string, error) {
 	want := make([]string, len(refs))
 	for i, r := range refs {
 		want[i] = r.ref.Name
-		if strings.EqualFold(r.ref.Name, from) {
+		if r.ref.Name == from {
 			want[i] = to
 		}
 	}
 	rename := func(name string) string {
 		return rewriteRefs(text, 0, refs, func(r refSpan) (string, bool) {
-			return name, strings.EqualFold(r.ref.Name, from)
+			return name, (r.ref.Name == from)
 		})
 	}
 	out := rename(to)
@@ -189,26 +189,26 @@ func renameInCheck(text, from, to string) (string, error) {
 func (e *executor) defineChecks(ctx context.Context, meta *tableMeta, defs []CheckDef) ([]checkMeta, error) {
 	used := map[string]bool{}
 	for _, c := range meta.Checks {
-		used[strings.ToLower(c.Name)] = true
+		used[c.Name] = true
 	}
 	if meta.PrimaryKey != nil {
-		used[strings.ToLower(meta.PrimaryKey.Name)] = true
+		used[meta.PrimaryKey.Name] = true
 	}
 	// Explicit names first, so that no default name takes one.
 	for i, d := range defs {
 		if d.Name == "" {
 			continue
 		}
-		if slices.ContainsFunc(defs[:i], func(o CheckDef) bool { return strings.EqualFold(o.Name, d.Name) }) {
+		if slices.ContainsFunc(defs[:i], func(o CheckDef) bool { return (o.Name == d.Name) }) {
 			return nil, stateErrorf(stateDuplicateObject, "check constraint %q already exists", d.Name)
 		}
-		if used[strings.ToLower(d.Name)] {
+		if used[d.Name] {
 			return nil, stateErrorf(stateDuplicateObject, "constraint %q for relation %q already exists", d.Name, meta.Name)
 		}
 	}
 	for _, d := range defs {
 		if d.Name != "" {
-			used[strings.ToLower(d.Name)] = true
+			used[d.Name] = true
 		}
 	}
 	out := make([]checkMeta, len(defs))
@@ -224,10 +224,10 @@ func (e *executor) defineChecks(ctx context.Context, meta *tableMeta, defs []Che
 				base += "_" + cols[0]
 			}
 			name = base + "_check"
-			for n := 1; used[strings.ToLower(name)]; n++ {
+			for n := 1; used[name]; n++ {
 				name = fmt.Sprintf("%s_check%d", base, n)
 			}
-			used[strings.ToLower(name)] = true
+			used[name] = true
 		}
 		out[i] = checkMeta{Name: name, Expr: e.foldCheck(ctx, meta, d.Text)}
 	}

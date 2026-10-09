@@ -291,8 +291,10 @@ var funcDefs = []funcDef{
 	{name: "EPOCH_MS", min: 1, max: 1, impl: implDateTime},
 	{name: "LAST_DAY", min: 1, max: 1, impl: implDateTime},
 	{name: "AGE", min: 1, max: 2, impl: implDateTime},
-	// DATE_ADD(x, INTERVAL n part) is DATE_ADD('part', n, x), and DATE_SUB
-	// (written only that way) DATE_SUB('part', n, x).
+	// DATE_ADD has both PostgreSQL and Snowflake overloads; DATE_SUB
+	// retains the MySQL interval syntax.
+	{name: "__PG_DATE_ADD", min: 2, max: 3, impl: implDateTime, internal: true},
+	{name: "DATE_SUBTRACT", min: 2, max: 3, impl: implDateTime},
 	{name: "DATEADD", aliases: []string{"DATE_ADD", "TIMESTAMPADD"}, min: 3, max: 3, impl: implDateTime},
 	{name: "DATE_SUB", min: 3, max: 3, impl: implDateTime},
 	{name: "DATEDIFF", aliases: []string{"DATE_DIFF", "TIMESTAMPDIFF"}, min: 3, max: 3, impl: implDateTime},
@@ -420,7 +422,7 @@ func lookupFunc(name string) (*funcDef, bool) {
 // name, and for an internal function's name written as name(…).
 func callee(f *Func) (*funcDef, bool) {
 	d, ok := funcsByName[f.Name]
-	if !ok || (d.internal && f.named) {
+	if !ok || f.quotedCase || (d.internal && f.named) {
 		return nil, false
 	}
 	return d, true

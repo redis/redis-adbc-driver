@@ -657,6 +657,9 @@ func roundFunc(f *Func, args []Value) (Value, error) {
 		}
 		return Coerce(intValue(typeInt64, r.Int64()), x.T)
 	case x.T.Kind.isFloat():
+		if mode == roundHalfAway && len(args) == 1 {
+			return floatValue(typeFloat64, math.RoundToEven(x.F)), nil
+		}
 		switch mode {
 		case roundFloor:
 			return floatValue(typeFloat64, math.Floor(x.F)), nil
@@ -1074,6 +1077,8 @@ func compileRegexp(expr string) (*regexp.Regexp, error) {
 // argument of the REGEXP_* functions.
 type regexpFlags struct {
 	global          bool // g: every match
+	expanded        bool
+	basic           bool
 	caseInsensitive bool // i
 	literal         bool // q: the pattern is a literal string
 	dotNL           bool // '.' matches a newline
@@ -1101,10 +1106,15 @@ func parseRegexpFlags(name, flags string) (regexpFlags, error) {
 		case 'w':
 			fl.dotNL, fl.multiLine = true, true
 		case 'q':
-			fl.literal = true
+			fl.literal, fl.basic = true, false
 		case 't':
-		case 'x', 'b', 'e':
-			return fl, stateErr(stateFeatureNotSupported, "%s: regular expression option %q is not supported", name, string(c))
+			fl.expanded = false
+		case 'x':
+			fl.expanded = true
+		case 'b':
+			fl.basic, fl.literal = true, false
+		case 'e':
+			fl.basic, fl.literal = false, false
 		default:
 			return fl, stateErr(stateInvalidParameter, "%s: invalid regular expression option %q", name, string(c))
 		}

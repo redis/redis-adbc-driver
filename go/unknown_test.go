@@ -48,13 +48,13 @@ func TestUnknownLiteralFlag(t *testing.T) {
 func TestUnknownLiteralTypes(t *testing.T) {
 	for _, c := range []struct{ expr, typ string }{
 		{"CASE WHEN i = 1 THEN '1' ELSE i END", "INTEGER"},
-		{"CASE WHEN i = 1 THEN '1' ELSE 1 END", "BIGINT"},
+		{"CASE WHEN i = 1 THEN '1' ELSE 1 END", "INTEGER"},
 		{"CASE WHEN i = 1 THEN '1' ELSE 1.5 END", "NUMERIC(2,1)"},
 		{"CASE WHEN i = 1 THEN '1' END", "VARCHAR"},
 		{"CASE WHEN i = 1 THEN '1' ELSE '2' END", "VARCHAR"},
 		{"CASE WHEN i = 1 THEN NULL ELSE '2' END", "VARCHAR"},
 		{"CASE WHEN i = 1 THEN NULL END", "NULL"},
-		{"CASE i WHEN 1 THEN '5' ELSE i * 10 END", "BIGINT"},
+		{"CASE i WHEN 1 THEN '5' ELSE i * 10 END", "INTEGER"},
 		{"CASE WHEN i = 1 THEN d ELSE '2024-01-01' END", "DATE"},
 		{"CASE WHEN i = 1 THEN n ELSE '2.5' END", "NUMERIC(10,2)"},
 		// With the digits the literal needs, so that it isn't rounded.
@@ -67,10 +67,10 @@ func TestUnknownLiteralTypes(t *testing.T) {
 		{"CASE WHEN i = 1 THEN tz ELSE '2024-01-01' END", typeTimestampTZ.SQLName()},
 		{"CASE WHEN i = 1 THEN '1' ELSE CASE WHEN i = 2 THEN i END END", "INTEGER"},
 		{"COALESCE(i, '0')", "INTEGER"},
-		{"COALESCE(NULL, '2', 1)", "BIGINT"},
-		{"COALESCE(CASE WHEN i = 1 THEN NULL END, '2', 1)", "BIGINT"},
+		{"COALESCE(NULL, '2', 1)", "INTEGER"},
+		{"COALESCE(CASE WHEN i = 1 THEN NULL END, '2', 1)", "INTEGER"},
 		{"COALESCE('a', 'b')", "VARCHAR"},
-		{"GREATEST('1', '2', 3)", "BIGINT"},
+		{"GREATEST('1', '2', 3)", "INTEGER"},
 		{"LEAST(d, '2024-01-01')", "DATE"},
 		{"NULLIF('1', i)", "INTEGER"},
 		{"NULLIF(i, '1')", "INTEGER"},
@@ -95,18 +95,18 @@ func TestUnknownLiteralTypes(t *testing.T) {
 func TestUnknownLiteralErrors(t *testing.T) {
 	cols := func() map[string]ColType { return unknownTestCols }
 	for _, c := range []struct{ expr, err string }{
-		{"CASE WHEN i = 1 THEN s ELSE 1 END", "CASE types bigint and varchar cannot be matched"},
-		{"CASE WHEN i = 1 THEN CAST('1' AS VARCHAR) ELSE 1 END", "CASE types bigint and varchar cannot be matched"},
+		{"CASE WHEN i = 1 THEN s ELSE 1 END", "CASE types integer and varchar cannot be matched"},
+		{"CASE WHEN i = 1 THEN CAST('1' AS VARCHAR) ELSE 1 END", "CASE types integer and varchar cannot be matched"},
 		// A CASE of literals alone is text.
-		{"CASE WHEN i = 1 THEN 1 ELSE CASE WHEN i = 2 THEN '2' END END", "CASE types varchar and bigint cannot be matched"},
-		{"COALESCE(CASE WHEN i = 1 THEN '1' END, 1)", "COALESCE types varchar and bigint cannot be matched"},
+		{"CASE WHEN i = 1 THEN 1 ELSE CASE WHEN i = 2 THEN '2' END END", "CASE types varchar and integer cannot be matched"},
+		{"COALESCE(CASE WHEN i = 1 THEN '1' END, 1)", "COALESCE types varchar and integer cannot be matched"},
 		{"CASE WHEN i = 1 THEN d ELSE INTERVAL '1 day' END", "CASE types interval and date cannot be matched"},
-		{"GREATEST(s, 1)", "GREATEST types varchar and bigint cannot be matched"},
-		{"IIF(i = 1, s, 1)", "IIF types varchar and bigint cannot be matched"},
+		{"GREATEST(s, 1)", "GREATEST types varchar and integer cannot be matched"},
+		{"IIF(i = 1, s, 1)", "IIF types varchar and integer cannot be matched"},
 		{"1 + COALESCE(s, i)", "COALESCE types varchar and integer cannot be matched"},
-		{"CASE WHEN i = 1 THEN 'x' ELSE 1 END", `invalid input syntax for type bigint: "x"`},
+		{"CASE WHEN i = 1 THEN 'x' ELSE 1 END", `invalid input syntax for type integer: "x"`},
 		{"CASE WHEN FALSE THEN 'x' ELSE i END", `invalid input syntax for type integer: "x"`},
-		{"i + CASE WHEN i = 1 THEN 'x' ELSE 1 END", `invalid input syntax for type bigint: "x"`},
+		{"i + CASE WHEN i = 1 THEN 'x' ELSE 1 END", `invalid input syntax for type integer: "x"`},
 		{"CASE WHEN i = 1 THEN b ELSE 'maybe' END", `invalid input syntax for type boolean: "maybe"`},
 		{"COALESCE(d, 'soon')", `invalid input syntax for type date: "soon"`},
 		{"NULLIF('a', i)", `invalid input syntax for type integer: "a"`},
@@ -205,10 +205,10 @@ func TestUnknownLiteralSetOps(t *testing.T) {
 		t.Errorf("%s: %q, want %q", sql, got, want)
 	}
 	for _, c := range []struct{ sql, err string }{
-		{`SELECT 'a' UNION SELECT 3`, `invalid input syntax for type bigint: "a"`},
-		{`SELECT 'a' WHERE FALSE UNION SELECT 3`, `invalid input syntax for type bigint: "a"`},
+		{`SELECT 'a' UNION SELECT 3`, `invalid input syntax for type integer: "a"`},
+		{`SELECT 'a' WHERE FALSE UNION SELECT 3`, `invalid input syntax for type integer: "a"`},
 		// The first UNION's column is text.
-		{`SELECT '1' UNION SELECT '2' UNION SELECT 3`, "types VARCHAR and BIGINT cannot be matched"},
+		{`SELECT '1' UNION SELECT '2' UNION SELECT 3`, "types VARCHAR and INTEGER cannot be matched"},
 	} {
 		stmts, err := ParseScript(c.sql)
 		if err != nil {

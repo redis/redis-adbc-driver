@@ -223,6 +223,9 @@ func aggregateType(f *Func, cols map[string]ColType, params []ColType, over bool
 	case name == "ANY_VALUE":
 		return args[0].withoutTypmod(), true, nil
 	case statFuncs[name]:
+		if args[0].Kind.isInteger() || args[0].Kind == KindDecimal {
+			return decimalType(0, 0), true, nil
+		}
 		return typeFloat64, true, nil
 	case name == "PERCENTILE_CONT":
 		return contType(keys[0]), true, nil
@@ -464,7 +467,9 @@ func (s *statAgg) add(in []Value) error {
 	return nil
 }
 
-func (s *statAgg) result(*evalEnv, ColType) (Value, error) { return s.acc.varianceValue(s.name), nil }
+func (s *statAgg) result(_ *evalEnv, t ColType) (Value, error) {
+	return s.acc.statValue(s.name, t), nil
+}
 
 // orderedSetAgg is PERCENTILE_CONT, PERCENTILE_DISC, MODE or MEDIAN: it
 // keeps the non-NULL values and sorts them once the group is complete.

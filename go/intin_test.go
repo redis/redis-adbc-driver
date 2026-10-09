@@ -170,7 +170,7 @@ func TestTextToInteger(t *testing.T) {
 		// Text compared with an integer is read as one (of the type of
 		// the other operand: an integer literal is a BIGINT).
 		{"CAST(1 AS INTEGER) = '1.5'", stateInvalidText, `invalid input syntax for type integer: "1.5"`},
-		{"1 = '1.5'", stateInvalidText, `invalid input syntax for type bigint: "1.5"`},
+		{"1 = '1.5'", stateInvalidText, `invalid input syntax for type integer: "1.5"`},
 		{"CAST(1 AS INTEGER) < 'x'", stateInvalidText, `invalid input syntax for type integer: "x"`},
 		{"CAST(1 AS INTEGER) IS DISTINCT FROM '1.0'", stateInvalidText, `invalid input syntax for type integer: "1.0"`},
 		{"CAST(1 AS INTEGER) = '99999999999'", stateNumericRange, `value "99999999999" is out of range for type integer`},

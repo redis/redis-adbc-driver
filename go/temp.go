@@ -52,7 +52,6 @@ import (
 	"context"
 	"errors"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -74,13 +73,13 @@ var tempTTL = 2 * time.Minute
 
 func tempAliveKey(id string) string { return metaPrefix + "temp:alive:" + id }
 
-func isTempAlias(schema string) bool { return strings.EqualFold(schema, tempAlias) }
+func isTempAlias(schema string) bool { return (schema == tempAlias) }
 
 // tempSchemaID returns the connection id of a temporary schema name
 // (pg_temp_<digits>).
 func tempSchemaID(schema string) (string, bool) {
 	n := len(tempSchemaBase)
-	if len(schema) <= n || !strings.EqualFold(schema[:n], tempSchemaBase) {
+	if len(schema) <= n || !(schema[:n] == tempSchemaBase) {
 		return "", false
 	}
 	for _, c := range schema[n:] {

@@ -368,7 +368,7 @@ func TestSQLAddColumnDefault(t *testing.T) {
 
 	// Sorts and aggregates are computed by the driver for such columns.
 	h.expectRows(`SELECT id, qty FROM it_def_add ORDER BY qty DESC, id`,
-		"7|13", "1|7", "2|7", "3|7", "4|7", "5|7", "6|NULL")
+		"6|NULL", "7|13", "1|7", "2|7", "3|7", "4|7", "5|7")
 	h.expectRows(`SELECT id FROM it_def_add ORDER BY tag, id DESC LIMIT 2`, "7", "6")
 	h.expectRows(`SELECT COUNT(*), COUNT(qty), SUM(qty), MIN(qty), MAX(qty), AVG(qty) FROM it_def_add`, "7|6|48|7|13|8")
 	h.expectRows(`SELECT qty, COUNT(*) FROM it_def_add GROUP BY qty ORDER BY qty`, "7|5", "13|1", "NULL|1")

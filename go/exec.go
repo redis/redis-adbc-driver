@@ -269,6 +269,7 @@ func (e *executor) fitResult(res execResult, err error) (execResult, error) {
 	if err != nil || !res.isQuery {
 		return res, err
 	}
+	resolveNumericColumns(res.cols, res.rows)
 	z := e.zone()
 	for _, row := range res.rows {
 		if err := fitRow(row, res.cols, z); err != nil {
@@ -404,7 +405,9 @@ func (e *executor) runCreateTableAs(ctx context.Context, st *CreateTableStmt) (i
 		return 0, err
 	}
 	meta := &tableMeta{Schema: schema, Name: name}
-	for j, c := range plan.columns() {
+	cols := plan.columns()
+	resolveNumericColumns(cols, rows)
+	for j, c := range cols {
 		t := c.Type
 		if t.Kind == KindNull {
 			t = typeString // SELECT NULL AS x: no type information
@@ -468,7 +471,7 @@ func (e *executor) replaceAliases(expr Expr, aliases map[string]Expr) Expr {
 		if x.Qualifier != "" || e.fromColumns(x.writtenName()) == 1 {
 			return x
 		}
-		if a, ok := aliases[strings.ToLower(x.writtenName())]; ok {
+		if a, ok := aliases[x.writtenName()]; ok {
 			return a
 		}
 		return x
@@ -705,18 +708,14 @@ type planItem struct {
 type planOrder struct {
 	expr       Expr
 	desc       bool
-	nullsFirst bool // NULLS FIRST (by default NULLs sort last either way, but see nullFirst)
-	// nullsLast is an explicit NULLS LAST: without one, a NULL record sorts
-	// first with DESC, as in Postgres (see nullFirst).
+	nullsFirst bool // explicit NULLS FIRST
+	// nullsLast is explicit NULLS LAST; DESC otherwise puts NULLs first.
 	nullsLast bool
 }
 
-// nullFirst reports whether a NULL sorts before other, a non-NULL value of
-// the same key: with NULLS FIRST, and for a record (record.go) with DESC
-// unless NULLS LAST is given, as Postgres sorts records. Other NULLs sort
-// last by default in either direction, as RediSearch's SORTBY does.
+// nullFirst follows PostgreSQL defaults: ASC NULLS LAST, DESC NULLS FIRST.
 func (o planOrder) nullFirst(other Value) bool {
-	return o.nullsFirst || (o.desc && !o.nullsLast && other.T.Kind == KindRecord)
+	return o.nullsFirst || (o.desc && !o.nullsLast)
 }
 
 type selectPlan struct {
@@ -906,7 +905,7 @@ func (e *executor) planSelect(ctx context.Context, sel *SelectStmt, paramTypes [
 		aliases := map[string]Expr{}
 		for i, it := range sel.Items {
 			if !it.Star && it.Alias != "" {
-				aliases[strings.ToLower(it.Alias)] = plan.items[itemStart[i]].expr
+				aliases[it.Alias] = plan.items[itemStart[i]].expr
 			}
 		}
 		if sel.writtenGroupBy == nil {
@@ -957,7 +956,7 @@ func (e *executor) planSelect(ctx context.Context, sel *SelectStmt, paramTypes [
 		aliases := map[string]Expr{}
 		for i, it := range sel.Items {
 			if !it.Star && it.Alias != "" {
-				aliases[strings.ToLower(it.Alias)] = plan.items[itemStart[i]].expr
+				aliases[it.Alias] = plan.items[itemStart[i]].expr
 			}
 		}
 		having := e.replaceAliases(sel.Having, aliases)
@@ -1027,7 +1026,7 @@ func (e *executor) planSelect(ctx context.Context, sel *SelectStmt, paramTypes [
 		aliases := map[string]Expr{}
 		for i, it := range sel.Items {
 			if !it.Star && it.Alias != "" {
-				aliases[strings.ToLower(it.Alias)] = plan.items[itemStart[i]].expr
+				aliases[it.Alias] = plan.items[itemStart[i]].expr
 			}
 		}
 		qualify := e.replaceAliases(sel.Qualify, aliases)
@@ -1582,7 +1581,7 @@ func (e *executor) runDelete(ctx context.Context, st *DeleteStmt, params []Value
 func setTargets(meta *tableMeta, alias string, sets []SetClause) ([]int, error) {
 	cols := make([]int, len(sets))
 	for i, s := range sets {
-		if s.Qualifier != "" && !strings.EqualFold(s.Qualifier, alias) && !strings.EqualFold(s.Qualifier, meta.Name) {
+		if s.Qualifier != "" && !(s.Qualifier == alias) && !(s.Qualifier == meta.Name) {
 			return nil, errorf(adbc.StatusInvalidArgument, "SET column %s.%s is not in the table being updated (%q)", s.Qualifier, s.Column, alias)
 		}
 		idx, ok := meta.resolve(s.Column)

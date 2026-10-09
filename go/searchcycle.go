@@ -131,7 +131,7 @@ func (e *executor) newTracer(ctx context.Context, def *CTE, rc *recursionCheck, 
 			return bad("cycle mark column name %q already used in WITH query column list", c.Set)
 		case used(c.Using):
 			return bad("cycle path column name %q already used in WITH query column list", c.Using)
-		case strings.EqualFold(c.Set, c.Using):
+		case (c.Set == c.Using):
 			return bad("cycle mark column name and cycle path column name are the same")
 		}
 		if c.To != nil {
@@ -160,9 +160,9 @@ func (e *executor) newTracer(ctx context.Context, def *CTE, rc *recursionCheck, 
 	}
 	if s, c := def.Search, def.Cycle; s != nil && c != nil {
 		switch {
-		case strings.EqualFold(s.Set, c.Set):
+		case (s.Set == c.Set):
 			return bad("search sequence column name and cycle mark column name are the same")
-		case strings.EqualFold(s.Set, c.Using):
+		case (s.Set == c.Using):
 			return bad("search sequence column name and cycle path column name are the same")
 		}
 	}

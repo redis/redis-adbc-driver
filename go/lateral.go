@@ -62,7 +62,7 @@ func (e *executor) addFromItem(ctx context.Context, jp *joinPlan, jc JoinClause)
 			return err
 		}
 		it := jp.items[len(jp.items)-1]
-		it.natural, it.comma = jc.Natural, jc.Comma
+		it.natural, it.comma, it.using = jc.Natural, jc.Comma, jc.Using
 		if jc.Columns != nil {
 			m, err := renameColumns(it.base, it.alias, jc.Columns)
 			if err != nil {
@@ -123,7 +123,7 @@ func (e *executor) addFromItem(ctx context.Context, jp *joinPlan, jc JoinClause)
 	if err != nil {
 		return err
 	}
-	it.lateral, it.natural, it.comma = lat, jc.Natural, jc.Comma
+	it.lateral, it.natural, it.comma, it.using = lat, jc.Natural, jc.Comma, jc.Using
 	return nil
 }
 
@@ -173,10 +173,10 @@ func renameColumns(meta *tableMeta, alias string, cols []string) (*tableMeta, er
 		}
 		seen := map[string]bool{}
 		for _, c := range m.Columns {
-			if seen[strings.ToLower(c.Name)] {
+			if seen[c.Name] {
 				return nil, errorf(adbc.StatusInvalidArgument, "column name %q appears more than once in %q", c.Name, alias)
 			}
-			seen[strings.ToLower(c.Name)] = true
+			seen[c.Name] = true
 		}
 	}
 	if m.isMem {

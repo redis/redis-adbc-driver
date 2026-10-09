@@ -462,11 +462,12 @@ func decodeRow(meta *tableMeta, row aggRow, only map[string]bool) (map[string]Va
 
 // scanRequest describes an index lookup followed by a row fetch.
 type scanRequest struct {
-	meta   *tableMeta
-	where  wherePlan
-	sortBy []sortKey
-	limit  *[2]int64
-	need   map[string]bool // columns to read from the row HASHes
+	hashScan bool // lowered aggregate cap requires HASH pagination
+	meta     *tableMeta
+	where    wherePlan
+	sortBy   []sortKey
+	limit    *[2]int64
+	need     map[string]bool // columns to read from the row HASHes
 	// ties re-sorts the rows that tie in the index's sort, when sortBy has
 	// keys whose values the index may round (see ties.go).
 	ties *tieSort
@@ -483,6 +484,9 @@ func (e *executor) scan(ctx context.Context, req scanRequest, params []Value) ([
 	}
 	if req.meta.isMem {
 		return e.scanMem(ctx, req, params)
+	}
+	if req.hashScan {
+		return e.scanBeyondCap(ctx, req, params)
 	}
 	if req.where.keys != nil {
 		it, fields, _ := e.newScanIter(ctx, req, params)
@@ -913,7 +917,7 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 	var sortCols []columnMeta
 	for _, o := range plan.order {
 		c, ok := o.expr.(*ColumnRef)
-		if !ok || o.nullsFirst {
+		if !ok {
 			// RediSearch always sorts missing values last.
 			indexSort = false
 			break
@@ -923,7 +927,7 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 		// strings cut at a NUL byte sort on what is left, and NaNs tie with
 		// +Infinity. Values the index rounds to the same double are sorted
 		// again by the scan (see ties.go).
-		if !ok || !col.Indexed || col.MissingThrough > 0 || !col.sortsExactly() {
+		if !ok || !col.Indexed || col.MissingThrough > 0 || !col.sortsExactly() || (col.Nullable && (o.nullsFirst || o.desc && !o.nullsLast)) {
 			indexSort = false
 			break
 		}
@@ -955,7 +959,12 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 		if sel.Offset != nil {
 			off = *sel.Offset
 		}
-		req.limit = &[2]int64{off, *sel.Limit}
+		caps := e.store.paginationCaps(ctx, meta.index())
+		if off > caps[0] || off > caps[1] || *sel.Limit > caps[1]-off {
+			pushLimit = false
+		} else {
+			req.limit = &[2]int64{off, *sel.Limit}
+		}
 	}
 	// A residual predicate prevents index LIMIT. Read only its inputs (and
 	// exact tie-sort inputs), then fetch output fields for surviving rows.
@@ -977,6 +986,17 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 				}
 			}
 			req.need, req.late = predicate, late
+		}
+	}
+	if !meta.isMem && wp.keys == nil && req.limit == nil && e.store.paginationCaps(ctx, meta.index())[1] < 1<<31 {
+		// A configured aggregate cap limits the entire cursor, not its page.
+		// Fetch HASHes and apply the full predicate instead of truncating rows.
+		req.hashScan = true
+		req.where.residual = sel.Where
+		req.ties, req.late, req.sortBy = nil, nil, nil
+		indexSort, pushLimit = false, false
+		for _, o := range plan.order {
+			columnRefs(o.expr, req.need)
 		}
 	}
 	return selectScan{req: req, indexSort: indexSort, pushLimit: pushLimit}, nil

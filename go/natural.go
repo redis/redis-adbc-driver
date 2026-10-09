@@ -33,7 +33,6 @@ package redis
 import (
 	"fmt"
 	"slices"
-	"strings"
 
 	"github.com/apache/arrow-adbc/go/adbc"
 )
@@ -69,7 +68,7 @@ type outputColumn struct {
 func (jp *joinPlan) planNatural(joined *tableMeta, rels []relation) []relation {
 	natural := false
 	for _, it := range jp.items {
-		natural = natural || it.natural
+		natural = natural || it.natural || len(it.using) > 0
 	}
 	if !natural {
 		return rels
@@ -88,7 +87,7 @@ func (jp *joinPlan) planNatural(joined *tableMeta, rels []relation) []relation {
 	count := func(cols []outputColumn, name string) int {
 		n := 0
 		for _, c := range cols {
-			if strings.EqualFold(c.name, name) {
+			if c.name == name {
 				n++
 			}
 		}
@@ -114,7 +113,7 @@ func (jp *joinPlan) planNatural(joined *tableMeta, rels []relation) []relation {
 		for _, c := range slices.Concat(out, right) {
 			it.visible[c.col.Name] = true
 		}
-		if !it.natural {
+		if !it.natural && len(it.using) == 0 {
 			out = append(out, right...)
 			continue
 		}
@@ -122,10 +121,33 @@ func (jp *joinPlan) planNatural(joined *tableMeta, rels []relation) []relation {
 		var conds []Expr
 		var synth []columnMeta
 		usedLeft, usedRight := map[int]bool{}, map[int]bool{}
-		for li, l := range out {
+		leftOrder := make([]int, 0, len(out))
+		if it.natural {
+			for i := range out {
+				leftOrder = append(leftOrder, i)
+			}
+		} else {
+			for u, name := range it.using {
+				if slices.Contains(it.using[:u], name) {
+					fail(errorf(adbc.StatusInvalidArgument, "column name %q appears more than once in USING clause", name))
+				}
+				li := slices.IndexFunc(out, func(c outputColumn) bool { return c.name == name })
+				if li < 0 {
+					fail(errorf(adbc.StatusInvalidArgument, "column %q specified in USING clause does not exist in left table", name))
+					continue
+				}
+				if count(right, name) == 0 {
+					fail(errorf(adbc.StatusInvalidArgument, "column %q specified in USING clause does not exist in right table", name))
+					continue
+				}
+				leftOrder = append(leftOrder, li)
+			}
+		}
+		for _, li := range leftOrder {
+			l := out[li]
 			ri := -1
 			for j, r := range right {
-				if strings.EqualFold(l.name, r.name) {
+				if l.name == r.name {
 					ri = j
 					break
 				}

@@ -198,11 +198,11 @@ func TestSQLAggStatistics(t *testing.T) {
 	// v = 1 2 4 10 10: mean 5.4, Σ(x - mean)² = 75.2, so the sample variance
 	// is 18.8 and the population variance 15.04.
 	schema := h.expectRows(`SELECT VAR_SAMP(v), VARIANCE(v), VAR_POP(v), STDDEV_SAMP(v), STDDEV(v), STDDEV_POP(v) FROM it_agg`,
-		"18.8|18.8|15.04|4.33589667773576|4.33589667773576|3.878143885933063")
-	expectTypeIDs(t, schema, arrow.FLOAT64, arrow.FLOAT64, arrow.FLOAT64, arrow.FLOAT64, arrow.FLOAT64, arrow.FLOAT64)
+		"18.8000000000000000|18.8000000000000000|15.0400000000000000|4.3358966777357599|4.3358966777357599|3.8781438859330632")
+	expectTypeIDs(t, schema, arrow.DECIMAL128, arrow.DECIMAL128, arrow.DECIMAL128, arrow.DECIMAL128, arrow.DECIMAL128, arrow.DECIMAL128)
 	// Decimals and doubles are summed exactly too.
 	h.expectRows(`SELECT VAR_SAMP(n), VAR_POP(n), STDDEV_SAMP(n), STDDEV_POP(n) FROM it_agg`,
-		"16.925|13.54|4.1140004861448425|3.6796738985948196")
+		"16.9250000000000000|13.5400000000000000|4.1140004861448424|3.6796738985948198")
 	// Welford's last bits depend on the order the rows come in, which on a
 	// cluster depends on the shards their keys hash to (and so on the
 	// table's key prefix, new each time the table is created).
@@ -213,34 +213,34 @@ func TestSQLAggStatistics(t *testing.T) {
 	// ones 0; no values give NULL.
 	h.expectRows(`SELECT g, VAR_SAMP(v), VAR_POP(v), STDDEV(v), STDDEV_POP(v), VAR_SAMP(n), STDDEV_SAMP(f)
 		FROM it_agg GROUP BY g ORDER BY g`,
-		"a|2.3333333333333335|1.5555555555555556|1.5275252316519468|1.247219128924647|0.5625|0.75",
-		"b|0|0|0|0|60.5|2.8284271247461903",
+		"a|2.3333333333333333|1.5555555555555556|1.5275252316519467|1.2472191289246471|0.56250000000000000000|0.75",
+		"b|0.0000000000000000|0.0000000000000000|0.0000000000000000|0.0000000000000000|60.50000000000000000000|2.8284271247461903",
 		"c|NULL|NULL|NULL|NULL|NULL|NULL")
 	h.expectRows(`SELECT VAR_SAMP(v), VAR_POP(v), STDDEV_SAMP(v), STDDEV_POP(f) FROM it_agg WHERE id = 1`, "NULL|0|NULL|0")
 	h.expectRows(`SELECT VAR_SAMP(v), STDDEV_POP(v) FROM it_agg WHERE id > 100`, "NULL|NULL")
-	h.expectRows(`SELECT VAR_SAMP(DISTINCT v), VAR_POP(DISTINCT v) FROM it_agg`, "16.25|12.1875")
+	h.expectRows(`SELECT VAR_SAMP(DISTINCT v), VAR_POP(DISTINCT v) FROM it_agg`, "16.2500000000000000|12.1875000000000000")
 
 	// Numerical stability: values far from zero relative to their spread.
 	// The integers are exact even beyond 2^53, where doubles can't hold them.
 	h.exec(`INSERT INTO it_agg_big VALUES (1000000000000001, 1000000000000001), (1000000000000002, 1000000000000002),
 		(1000000000000003, 1000000000000003)`)
 	h.expectRows(`SELECT VAR_SAMP(x), STDDEV_POP(x), VAR_SAMP(d), VAR_POP(d) FROM it_agg_big`,
-		"1|0.816496580927726|1|0.6666666666666666")
+		"1.00000000000000000000|0.81649658092772603273|1|0.6666666666666666")
 	h.exec("DELETE FROM it_agg_big")
 	h.exec(`INSERT INTO it_agg_big (x) VALUES (9223372036854775805), (9223372036854775806), (9223372036854775807)`)
-	h.expectRows(`SELECT VAR_SAMP(x), STDDEV_SAMP(x), VAR_POP(x) FROM it_agg_big`, "1|1|0.6666666666666666")
+	h.expectRows(`SELECT VAR_SAMP(x), STDDEV_SAMP(x), VAR_POP(x) FROM it_agg_big`, "1.00000000000000000000|1.00000000000000000000|0.66666666666666666667")
 
 	// As window functions; values leave the sliding frames exactly.
 	h.expectRows(`SELECT id, VAR_SAMP(v) OVER w, STDDEV_POP(v) OVER w, VAR_SAMP(f) OVER w, STDDEV_POP(f) OVER w,
 			VAR_POP(n) OVER (PARTITION BY g)
 		FROM it_agg WINDOW w AS (ORDER BY id ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) ORDER BY id`,
-		"1|0.5|0.5|0.28125|0.375|0.375",
-		"2|2.3333333333333335|1.247219128924647|0.5625|0.6123724356957945|0.375",
-		"3|2|1|0.28125|0.375|0.375",
-		"4|18|3|2|1|0.375",
-		"5|0|0|8|2|30.25",
-		"6|0|0|8|2|30.25",
-		"7|NULL|0|NULL|0|NULL")
+		"1|0.50000000000000000000|0.50000000000000000000|0.28125|0.375|0.37500000000000000000",
+		"2|2.33333333333333330000|1.24721912892464710000|0.5625|0.6123724356957945|0.37500000000000000000",
+		"3|2.00000000000000000000|1.00000000000000000000|0.28125|0.375|0.37500000000000000000",
+		"4|18.00000000000000000000|3.00000000000000000000|2|1|0.37500000000000000000",
+		"5|0.00000000000000000000|0.00000000000000000000|8|2|30.25000000000000000000",
+		"6|0.00000000000000000000|0.00000000000000000000|8|2|30.25000000000000000000",
+		"7|NULL|0.00000000000000000000|NULL|0|NULL")
 
 	// Errors.
 	h.expectError(`SELECT STDDEV(k) FROM it_agg`, "function stddev(varchar) does not exist")
@@ -400,9 +400,14 @@ func TestSQLAggFilter(t *testing.T) {
 		MEDIAN(v) AS med, MODE() WITHIN GROUP (ORDER BY n) AS mo FROM it_agg GROUP BY g`)
 	h.expectRows(`SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'it_agg_ctas'
 		ORDER BY ordinal_position`,
-		"g|VARCHAR", "sd|DOUBLE PRECISION", "bo|BOOLEAN", "ks|VARCHAR", "med|DOUBLE PRECISION", "mo|NUMERIC(6,2)")
+		"g|VARCHAR",
+		"sd|NUMERIC(17,16)",
+		"bo|BOOLEAN",
+		"ks|VARCHAR",
+		"med|DOUBLE PRECISION",
+		"mo|NUMERIC(6,2)")
 	h.expectRows(`SELECT g, sd, bo, ks, med, mo FROM it_agg_ctas ORDER BY g`,
-		"a|1.5275252316519468|true|x,y,x|2|1.50", "b|0|false|z,z|10|-1.00", "c|NULL|NULL|NULL|NULL|NULL")
+		"a|1.5275252316519467|true|x,y,x|2|1.50", "b|0.0000000000000000|false|z,z|10|-1.00", "c|NULL|NULL|NULL|NULL|NULL")
 
 	// FILTER is still a valid column alias.
 	schema = h.expectRows(`SELECT COUNT(*) filter FROM it_agg`, "7")
@@ -431,10 +436,10 @@ func TestSQLAggGroupingSets(t *testing.T) {
 			SUM(COUNT(*)) FILTER (WHERE COUNT(*) > 1) OVER (ORDER BY g),
 			SUM(COUNT(*)) FILTER (WHERE GROUPING(g) = 0) OVER (ORDER BY g)
 		FROM it_agg GROUP BY ROLLUP (g) ORDER BY g`,
-		"a|2|x,y,x|1.247219128924647|4|4",
-		"b|0|z,z|0|6|6",
+		"a|2|x,y,x|1.2472191289246471|4|4",
+		"b|0|z,z|0.0000000000000000|6|6",
 		"c|0|NULL|NULL|6|7",
-		"NULL|2|x,y,x,z,z|3.878143885933063|13|7")
+		"NULL|2|x,y,x,z,z|3.8781438859330632|13|7")
 	// By g, by b (true: v 1 4; false: 2 10 10; NULL: id 4, no v), and in
 	// all; the b = NULL group comes before the total, its set being first.
 	h.expectRows(`SELECT g, b, BOOL_OR(v > 4), MEDIAN(v) FROM it_agg WHERE g <> 'c' GROUP BY GROUPING SETS ((g), (b), ())
@@ -561,5 +566,5 @@ func TestSQLWindowRangeTime(t *testing.T) {
 	h.expectError(`SELECT SUM(v) OVER (ORDER BY t RANGE BETWEEN CURRENT ROW AND INTERVAL '1 day -30 minutes' FOLLOWING) FROM it_agg_t`,
 		"frame ending offset must not be negative")
 	h.expectError(`SELECT SUM(v) OVER (ORDER BY t RANGE BETWEEN 1 PRECEDING AND CURRENT ROW) FROM it_agg_t`,
-		"not supported for ORDER BY type TIME(6) and offset type BIGINT")
+		"not supported for ORDER BY type TIME(6) and offset type INTEGER")
 }

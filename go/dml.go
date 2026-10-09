@@ -502,7 +502,7 @@ func checkMergeNames(st *MergeStmt) error {
 	if source == "" && st.Source.Table != nil {
 		source = st.Source.Table.Name
 	}
-	if !strings.EqualFold(target, source) {
+	if !(target == source) {
 		return nil
 	}
 	return errorf(adbc.StatusInvalidArgument,
