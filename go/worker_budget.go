@@ -27,26 +27,37 @@ import (
 // Grants are non-preemptive. FIFO admission prevents new queries from passing
 // queued queries; when several are waiting, available tokens are divided among
 // them round-robin up to their ceilings. A lone waiter can borrow all capacity.
-// The zero value is ready for use and follows current GOMAXPROCS.
+// The zero value starts with one worker and learns from completed scans.
 type workerBudget struct {
 	mu         sync.Mutex
 	configured int
 	active     int
 	queue      []*workerRequest
+	tuner      workerTuner
+	cohort     workerCohort
+	regime     string
 }
 
 type workerRequest struct {
-	ctx     context.Context
-	ceiling int
-	grant   int
-	ready   chan struct{}
+	ctx        context.Context
+	ceiling    int
+	partitions int
+	grant      int
+	ready      chan struct{}
+}
+
+func (b *workerBudget) upper() int {
+	if b.configured > 0 {
+		return min(32, b.configured)
+	}
+	return min(32, max(1, runtime.GOMAXPROCS(0))*2)
 }
 
 func (b *workerBudget) limit() int {
 	if b.configured > 0 {
 		return b.configured
 	}
-	return max(1, runtime.GOMAXPROCS(0))
+	return b.tuner.capacity(b.upper())
 }
 
 func (b *workerBudget) capacity() int {
@@ -59,6 +70,8 @@ func (b *workerBudget) option(key string) string {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	switch key {
+	case OptionStringQueryWorkerTuning:
+		return b.tuningJSON()
 	case OptionIntQueryWorkersActive:
 		return strconv.Itoa(b.active)
 	case OptionIntQueryWorkersQueued:
@@ -80,6 +93,8 @@ func (b *workerBudget) configure(value string) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.configured = n
+	b.tuner = workerTuner{}
+	b.regime = ""
 	b.dispatch()
 	return nil
 }
@@ -105,7 +120,14 @@ func (b *workerBudget) dispatch() {
 	for available > 0 {
 		assigned := false
 		for _, r := range requests {
-			if available > 0 && r.grant < effectiveQueryWorkers(r.ceiling) {
+			ceiling := effectiveQueryWorkers(r.ceiling)
+			if r.partitions > 0 {
+				ceiling = min(ceiling, r.partitions)
+			}
+			if r.ceiling == 0 {
+				ceiling = min(ceiling, b.tuner.capacity(b.upper()))
+			}
+			if available > 0 && r.grant < ceiling {
 				r.grant++
 				available--
 				assigned = true
@@ -127,10 +149,14 @@ func (b *workerBudget) dispatch() {
 }
 
 func (b *workerBudget) acquire(ctx context.Context, ceiling int) (int, error) {
+	return b.acquireBounded(ctx, ceiling, 0)
+}
+
+func (b *workerBudget) acquireBounded(ctx context.Context, ceiling, partitions int) (int, error) {
 	if err := ctx.Err(); err != nil {
 		return 0, err
 	}
-	r := &workerRequest{ctx: ctx, ceiling: ceiling, ready: make(chan struct{})}
+	r := &workerRequest{ctx: ctx, ceiling: ceiling, partitions: partitions, ready: make(chan struct{})}
 	b.mu.Lock()
 	b.queue = append(b.queue, r)
 	b.dispatch()
@@ -164,4 +190,10 @@ func (b *workerBudget) release(grant int) {
 	defer b.mu.Unlock()
 	b.active -= grant
 	b.dispatch()
+}
+
+func (b *workerBudget) automatic() bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.configured == 0
 }

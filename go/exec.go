@@ -36,6 +36,7 @@ type executor struct {
 	queryWorkers int
 	workerBudget *workerBudget
 	workerGrant  *atomic.Int64
+	telemetry    *scanTelemetry
 	rekey        bool // RENAME TO also moves the rows (see rekey.go)
 
 	// Per-statement state (see bind.go).

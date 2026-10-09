@@ -25,12 +25,13 @@ import (
 	goredis "github.com/redis/go-redis/v9"
 )
 
-// Automatic ceilings follow current runtime capacity, including container limits.
+// Automatic exploration ceilings follow runtime capacity, including container
+// limits, with bounded headroom for workers waiting on Redis/network I/O.
 func effectiveQueryWorkers(configured int) int {
 	if configured > 0 {
 		return configured
 	}
-	return max(1, runtime.GOMAXPROCS(0))
+	return min(32, max(1, runtime.GOMAXPROCS(0))*2)
 }
 
 // parallelPredicate excludes expressions that execute subqueries, consume
@@ -131,7 +132,7 @@ func mergeAccumulator(dst, src *accumulator) {
 // existing scan path. Each owns its cursor, row maps, environment and reducers;
 // the only shared objects are immutable plans and the concurrency-safe client.
 // Adopted/memory tables, grouped queries and complex expressions stay serial.
-func (e *executor) parallelAggregate(ctx context.Context, plan *selectPlan, wp wherePlan, aggs []*Func, params []Value) ([]aggGroup, bool, error) {
+func (e *executor) parallelAggregate(ctx context.Context, plan *selectPlan, wp wherePlan, aggs []*Func, params []Value) (groups []aggGroup, handled bool, resultErr error) {
 	meta := plan.meta
 	workers := effectiveQueryWorkers(e.queryWorkers)
 	if e.workerBudget != nil {
@@ -149,12 +150,30 @@ func (e *executor) parallelAggregate(ctx context.Context, plan *selectPlan, wp w
 	if err != nil {
 		return nil, true, wrapRedis(err, "reading row sequence failed")
 	}
-	if last < int64(max(2, workers))*1024 || last >= exactDoubleLimit {
+	if last < 2048 || last >= exactDoubleLimit {
 		return nil, false, nil
+	}
+	// Measure actual fetched rows, never sequence IDs (which can have gaps).
+	if e.workerBudget != nil && (e.queryWorkers == 0 || e.workerBudget.automatic()) {
+		key := meta.Schema + "." + meta.Name + ":" + wp.query + fmt.Sprint(last/4096)
+		for _, f := range aggs {
+			key += ":" + f.Name
+			for _, a := range f.Args {
+				if c, ok := a.(*ColumnRef); ok {
+					key += ":" + c.Name
+				}
+			}
+		}
+		stats := &scanTelemetry{}
+		local := *e
+		local.telemetry = stats
+		e = &local
+		start := e.workerBudget.begin(key)
+		defer func() { e.workerBudget.finish(start, stats, resultErr != nil) }()
 	}
 	// Even a one-worker eligible scan participates in the shared budget.
 	if e.workerBudget != nil {
-		grant, err := e.workerBudget.acquire(ctx, e.queryWorkers)
+		grant, err := e.workerBudget.acquireBounded(ctx, e.queryWorkers, int(min(last/1024, 32)))
 		if err != nil {
 			return nil, true, cancelled(ctx)
 		}

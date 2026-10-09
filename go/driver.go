@@ -56,11 +56,13 @@ const (
 	//   - "none": always compute aggregates in the driver.
 	OptionStringAggregatePushdown = "adbc.redis.aggregate_pushdown"
 
-	// OptionStringQueryWorkers is the per-query ceiling (auto = GOMAXPROCS).
+	// OptionStringQueryWorkers is the per-query ceiling (auto = bounded CPU headroom).
 	OptionStringQueryWorkers = "adbc.redis.query_workers"
 	// OptionStringQueryWorkerBudget (database) caps active eligible aggregate
-	// workers across its connections. Auto follows GOMAXPROCS at admission.
+	// workers across its connections. Auto learns within runtime CPU bounds.
 	OptionStringQueryWorkerBudget = "adbc.redis.query_worker_budget"
+	// JSON snapshot of local measured worker policy (read-only).
+	OptionStringQueryWorkerTuning = "adbc.redis.query_worker_tuning"
 	// Read-only database/connection counters for shared worker admission.
 	OptionIntQueryWorkersActive = "adbc.redis.query_workers_active"
 	OptionIntQueryWorkersQueued = "adbc.redis.query_workers_queued"

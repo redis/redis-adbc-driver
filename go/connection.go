@@ -64,7 +64,7 @@ func (c *connectionImpl) GetOption(ctx context.Context, key string) (string, err
 	switch key {
 	case OptionIntQueryWorkersLastGrant:
 		return strconv.FormatInt(c.workerGrant.Load(), 10), nil
-	case OptionStringQueryWorkerBudget, OptionIntQueryWorkersActive, OptionIntQueryWorkersQueued:
+	case OptionStringQueryWorkerBudget, OptionIntQueryWorkersActive, OptionIntQueryWorkersQueued, OptionStringQueryWorkerTuning:
 		return c.workerBudget.option(key), nil
 	case OptionStringQueryWorkers:
 		return strconv.Itoa(effectiveQueryWorkers(c.queryWorkers)), nil
