@@ -27,7 +27,7 @@ import (
 // Grants are non-preemptive. FIFO admission prevents new queries from passing
 // queued queries; when several are waiting, available tokens are divided among
 // them round-robin up to their ceilings. A lone waiter can borrow all capacity.
-// The zero value starts with one worker and learns from completed scans.
+// The zero value starts with a conservative CPU-based budget and learns from completed scans.
 type workerBudget struct {
 	mu         sync.Mutex
 	configured int

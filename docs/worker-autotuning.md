@@ -1,7 +1,10 @@
 # Aggregate worker autotuning
 
 With both worker options left at `auto`, each database handle starts eligible
-aggregate scans with one shared worker. It learns from normal execution; no
+aggregate scans with `min(4, GOMAXPROCS)` shared workers. Explicit ceilings
+can further reduce the automatic target. This conservative CPU-based starting
+point avoids serializing all concurrent work during cold learning. It learns
+from normal execution; no
 statement is replayed and the application’s `GOMAXPROCS` is never changed.
 Automatic exploration is bounded by `min(32, 2 * GOMAXPROCS)`. Go’s current
 runtime capacity (including Go-supported container CPU limits) is read at
@@ -40,7 +43,7 @@ lower the target immediately when a cohort is evaluated.
 
 Changing table, coarse sequence-size bucket, pushed-down predicate, aggregate
 input columns, or concurrency invalidates the comparison baseline. The first
-cohort in a new regime is discarded and learning restarts at one worker. Mixed
+cohort in a new regime is discarded and learning restarts at the conservative CPU-based budget. Mixed
 workloads, failed/cancelled cohorts, and cohorts spanning allocation changes are
 discarded. One model is retained per database handle, so rapidly changing or
 mixed workloads may remain conservatively sized. Continuous windows count

@@ -64,7 +64,7 @@ func TestWorkerTunerNoiseCapacityAndPressure(t *testing.T) {
 		if tuner.current != previous {
 			changes++
 		}
-		if tuner.current > 2 {
+		if tuner.current > 5 {
 			t.Fatalf("noise caused unbounded growth: %d", tuner.current)
 		}
 	}
@@ -179,7 +179,7 @@ func BenchmarkWorkerTuningCohort(b *testing.B) {
 func TestWorkerTunerTailAndRedisChanges(t *testing.T) {
 	old := runtime.GOMAXPROCS(4)
 	defer runtime.GOMAXPROCS(old)
-	tuner := workerTuner{}
+	tuner := workerTuner{current: 1, cpu: 4}
 	for i := 0; i < 3; i++ {
 		tuner.observe(tuneObservation{Rows: 1000, Seconds: 1, TailSeconds: 1}, 8)
 	}

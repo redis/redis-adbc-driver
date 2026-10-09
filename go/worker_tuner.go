@@ -48,7 +48,7 @@ type tuneObservation struct {
 func (t *workerTuner) capacity(upper int) int {
 	cpu := max(1, runtime.GOMAXPROCS(0))
 	if t.current == 0 || t.cpu != cpu {
-		*t = workerTuner{current: 1, cpu: cpu, reason: "runtime capacity initialization"}
+		*t = workerTuner{current: min(4, cpu, upper), cpu: cpu, reason: "runtime capacity initialization"}
 	}
 	t.current = max(1, min(t.current, upper))
 	return t.current
@@ -193,7 +193,7 @@ func (b *workerBudget) finish(start time.Time, stats *scanTelemetry, failed bool
 	regime := c.key + ":" + strconv.Itoa(c.peak)
 	if b.regime != regime {
 		b.regime = regime
-		b.tuner = workerTuner{current: 1, cpu: runtime.GOMAXPROCS(0), reason: "workload or concurrency changed"}
+		b.tuner = workerTuner{current: min(4, runtime.GOMAXPROCS(0), b.upper()), cpu: runtime.GOMAXPROCS(0), reason: "workload or concurrency changed"}
 		// The completed cohort used the previous allocation: don't train on it.
 		return
 	}

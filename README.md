@@ -4178,7 +4178,7 @@ clients can see a partly applied statement.
 | `adbc.redis.default_schema` | database | Schema for unqualified names (default `public`). `SET search_path` and the ADBC current schema change it for one connection; `RESET search_path` goes back to it |
 | `adbc.redis.aggregate_pushdown` | database, statement | `exact` / `all` / `none` |
 | `adbc.redis.query_workers` | database | Per-query ceiling: `auto` (default) permits measured exploration up to `min(32, 2 × GOMAXPROCS)`; explicit values are 1 through 32. Eligible ungrouped COUNT/SUM/AVG/MIN/MAX over direct columns on driver-owned tables scan disjoint row-ID ranges. The shared worker budget may grant fewer workers. DISTINCT, FILTER, grouped queries, complex expressions and small tables retain the serial path. Exact SUM/AVG results are preserved. Each worker owns a cursor and bounded pages. |
-| `adbc.redis.query_worker_budget` | database | Maximum active eligible aggregate scan/reduce workers across connections opened from this database handle. `auto` (default) starts at one worker and adapts from completed scan measurements; a positive integer sets an explicit budget. A lone query can use the learned budget up to its ceiling. Explicit budgets remain fixed shared limits; automatic per-query grants still learn within them. Setting both options explicitly selects fixed allocation. FIFO admission assigns available tokens fairly to queued queries; no query starts without at least one token. Grants last until the query's workers finish, including error/cancellation cleanup. Lowering capacity constrains future grants without preempting running workers. |
+| `adbc.redis.query_worker_budget` | database | Maximum active eligible aggregate scan/reduce workers across connections opened from this database handle. `auto` (default) starts at up to four workers from CPU capacity and adapts from completed scan measurements; a positive integer sets an explicit budget. A lone query can use the learned budget up to its ceiling. Explicit budgets remain fixed shared limits; automatic per-query grants still learn within them. Setting both options explicitly selects fixed allocation. FIFO admission assigns available tokens fairly to queued queries; no query starts without at least one token. Grants last until the query's workers finish, including error/cancellation cleanup. Lowering capacity constrains future grants without preempting running workers. |
 | `adbc.redis.query_workers_active`, `adbc.redis.query_workers_queued` | database or connection, read-only | Current shared active worker grants and number of queries waiting for admission. `query_worker_budget` also reads the currently resolved budget on either handle. |
 | `adbc.redis.query_workers_last_grant` | connection, read-only | Worker grant for this connection's most recently admitted eligible aggregate, or 0 before its first admission. `query_workers` reads the per-query ceiling, which can be larger than the grant. |
 | `adbc.redis.query_worker_tuning` | database or connection, read-only | JSON snapshot: effective shared budget, target workers, exploration ceiling, completed observations, last measured signals, and reason for the most recent allocation decision. See [worker autotuning](docs/worker-autotuning.md). |
@@ -4247,6 +4247,10 @@ identical conditions.
 
 ### Single-query latency by driver worker count
 
+These measurements predate measured worker autotuning. `Auto (10)` below
+uses the earlier CPU-sized policy. The current policy and its measured
+tradeoffs are documented in the [autotuning evaluation](benchmarks/worker-autotune/README.md).
+
 Lower latency is better. Auto/one-worker speedup is shown only for eligible
 ungrouped aggregates. Controls use zero aggregate worker grants at every
 setting, so their columns are repeated measurements of the same execution
@@ -4282,7 +4286,7 @@ Bulk ingest (`adbc_ingest`), standard QPF: **1.37 s for 100,000 rows
   6–7 ms, driver grouped AVG about 0.7 s, and the full scan about 1.0 s.
   Their columns vary without a worker-path change; these differences should
   not be credited to the worker setting.
-- **Automatic is a CPU-based default, not an optimizer.** It had the lowest
+- **The automatic policy in this archived run followed CPU capacity.** It had the lowest
   reported median for these three eligible queries, but some block ranges
   overlap. This fixture does not establish the best setting for every query,
   host, or concurrency level. See the report for all five rounds and resource

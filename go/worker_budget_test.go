@@ -43,7 +43,7 @@ func TestWorkerBudgetRuntimeAndCeiling(t *testing.T) {
 		b := &workerBudget{}
 		for _, ceiling := range []int{0, 1, 3, 32} {
 			got, err := b.acquire(context.Background(), ceiling)
-			if err != nil || got != 1 {
+			if err != nil || got != min(4, limit, effectiveQueryWorkers(ceiling)) {
 				t.Fatalf("limit %d ceiling %d: %d %v", limit, ceiling, got, err)
 			}
 			b.release(got)
@@ -184,7 +184,7 @@ func TestWorkerBudgetOptions(t *testing.T) {
 		}
 		want := value
 		if value == "auto" {
-			want = "1"
+			want = fmt.Sprint(min(4, runtime.GOMAXPROCS(0)))
 		}
 		got, err := db.GetOption(context.Background(), OptionStringQueryWorkerBudget)
 		if err != nil || got != want {
