@@ -4636,6 +4636,25 @@ Some tests need more:
   shard of a cluster) for about half a minute, so it only runs with
   `REDIS_PAUSE_TESTS=1`. Run it against a test server only.
 
+The pull-request Test workflow runs eight independent jobs: AMD64 and ARM64
+for each of Redis Software single-shard, Redis Software three-shard, Redis
+Open Source standalone, and Redis Open Source three-shard cluster. Every
+environment includes Search and runs both the Go tests and Python ADBC
+validation. Jobs run in parallel, subject to GitHub runner availability;
+tests within a job share a database and run sequentially.
+
+To start a local three-shard Redis Software database with Search:
+
+```bash
+SOFTWARE_SHARDS=3 make redis-up
+```
+
+The Software shards share one disposable Software node and are accessed
+through its proxy endpoint on port 6379. This tests database sharding, not
+multi-node failover. Remove an existing Software container with
+`make redis-down` before changing the shard count; setup verifies the actual
+shard count and fails if an existing database has a different topology.
+
 ### Redis Cluster
 
 Open Source is an optional compatibility environment. For standalone OSS,
