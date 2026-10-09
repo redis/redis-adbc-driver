@@ -11,7 +11,7 @@ indexed = {(r['condition'], r['GOMAXPROCS'], r['concurrency'], r['policy']): r f
 assert set(indexed) == expected and len(records) == len(expected), 'incomplete or duplicate matrix'
 fields = ['condition', 'GOMAXPROCS', 'concurrency', 'policy', 'rows', 'rounds', 'worker_ceiling', 'worker_budget', 'mean_query_seconds', 'p95_query_seconds', 'queries_per_second', 'client_cpu_seconds', 'client_cpu_percent', 'client_peak_heap_bytes', 'client_allocated_bytes', 'redis_network_bytes_per_second', 'redis_commands_per_second', 'redis_cpu_seconds', 'redis_memory_bytes']
 with (folder / 'metrics.csv').open('w') as output:
-    writer = csv.DictWriter(output, fieldnames=fields, extrasaction='ignore')
+    writer = csv.DictWriter(output, fieldnames=fields, extrasaction='ignore', lineterminator='\n')
     writer.writeheader()
     writer.writerows(records)
 lines = ['# Worker autotuning evaluation — October 9, 2026', '',
