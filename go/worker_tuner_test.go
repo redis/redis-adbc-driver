@@ -361,3 +361,101 @@ func TestWorkerTunerResetWithOutstandingLease(t *testing.T) {
 		t.Fatal("reset did not recover")
 	}
 }
+
+func TestWorkerTunerAbandonsIncomparableProbe(t *testing.T) {
+	old := runtime.GOMAXPROCS(4)
+	defer runtime.GOMAXPROCS(old)
+	for _, phase := range []string{"probe", "verify"} {
+		tuner := workerTuner{current: 3, cpu: 4, best: 2, phase: phase, samples: 3, cooldown: tuningHold}
+		for i := 0; i < tuningIncomparableLimit-1; i++ {
+			tuner.discardWindow()
+		}
+		if tuner.phase != phase || tuner.current != 3 {
+			t.Fatal("did not allow transition grace")
+		}
+		tuner.discardWindow()
+		if tuner.current != 2 || tuner.phase != "holding" || tuner.samples != 0 || tuner.incomparable != 0 {
+			t.Fatalf("kept unvalidated candidate/partial comparison: %+v", tuner)
+		}
+	}
+}
+
+func TestWorkerTunerSustainedMixedProbe(t *testing.T) {
+	old := runtime.GOMAXPROCS(4)
+	defer runtime.GOMAXPROCS(old)
+	b := &workerBudget{tuner: workerTuner{current: 3, cpu: 4, best: 2, phase: "probe", cooldown: tuningHold}, regime: "retained:2"}
+	stats := &scanTelemetry{}
+	stats.rows.Store(1000)
+	anchor := b.begin("retained")
+	for i := 0; i < 8*tuningIncomparableLimit; i++ {
+		lease := b.begin("different")
+		b.finish(lease, stats, false)
+	}
+	if b.tuner.current != 2 || b.tuner.phase != "holding" || b.tuner.observations != 0 {
+		t.Fatalf("sustained mixed work kept an unvalidated candidate: %+v", b.tuner)
+	}
+	b.finish(anchor, stats, false)
+	if b.cohort.pending != 0 || len(b.pendingGenerations) != 0 {
+		t.Fatal("fallback leaked leases")
+	}
+}
+
+func TestWorkerTunerCachedCapacityReason(t *testing.T) {
+	old := runtime.GOMAXPROCS(2)
+	defer runtime.GOMAXPROCS(old)
+	b := &workerBudget{}
+	b.cacheModel("cached:1", workerTuner{current: 4, cpu: 4, best: 4})
+	stats := &scanTelemetry{}
+	stats.rows.Store(1000)
+	lease := b.begin("cached")
+	b.finish(lease, stats, false)
+	if b.tuner.current != 2 || b.tuner.best != 0 || b.tuner.reason != "runtime capacity invalidated cached workload" {
+		t.Fatalf("reported restoration of an invalid CPU model: %+v", b.tuner)
+	}
+}
+
+func TestWorkerTunerAbandonPreservesAdmission(t *testing.T) {
+	old := runtime.GOMAXPROCS(4)
+	defer runtime.GOMAXPROCS(old)
+	b := &workerBudget{tuner: workerTuner{current: 3, cpu: 4, best: 2, phase: "probe", cooldown: tuningHold}}
+	anchor := b.begin("retained")
+	grant, err := b.acquire(context.Background(), 0)
+	if err != nil || grant != 3 {
+		t.Fatalf("probe grant: %d %v", grant, err)
+	}
+	for i := 0; i < 8*tuningIncomparableLimit; i++ {
+		lease := b.begin("cancelled")
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		n, err := b.acquire(ctx, 0)
+		if n != 0 || err != context.Canceled {
+			t.Fatalf("cancelled admission: %d %v", n, err)
+		}
+		b.finish(lease, &scanTelemetry{}, true)
+	}
+	if b.tuner.current != 2 || b.active != 3 {
+		t.Fatal("fallback preempted an existing grant")
+	}
+	next := b.begin("retained")
+	ready := make(chan int, 1)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	go func() { n, _ := b.acquire(ctx, 0); ready <- n }()
+	waitQueued(t, b, 1)
+	select {
+	case <-ready:
+		t.Fatal("over-admitted during fallback")
+	default:
+	}
+	b.release(grant)
+	b.finish(anchor, &scanTelemetry{}, false)
+	n := <-ready
+	if n != 2 {
+		t.Fatalf("retained grant: %d", n)
+	}
+	b.release(n)
+	b.finish(next, &scanTelemetry{}, false)
+	if b.active != 0 || len(b.queue) != 0 || b.cohort.pending != 0 {
+		t.Fatal("fallback leaked admission state")
+	}
+}

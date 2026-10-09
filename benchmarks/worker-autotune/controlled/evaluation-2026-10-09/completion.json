@@ -1,0 +1,11 @@
+{
+  "status": "cancelled",
+  "reason": "User requested stopping the trials and creating a PR for encountered problems.",
+  "completed_trials": 47,
+  "planned_trials": 222,
+  "completed_records": 141,
+  "planned_records": 666,
+  "errors": [],
+  "source_commit": "09588f0ca874a34cfbf092cf39ecdf06cbed6a0c",
+  "final_guard_measured": false
+}

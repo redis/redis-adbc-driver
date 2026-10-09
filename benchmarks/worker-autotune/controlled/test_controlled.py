@@ -14,7 +14,10 @@
 
 import copy
 import unittest
-from gate import POLICIES, evaluate
+import json
+import tempfile
+from pathlib import Path
+from gate import POLICIES, evaluate, write_report
 
 class GateTests(unittest.TestCase):
     def fixture(self):
@@ -30,6 +33,17 @@ class GateTests(unittest.TestCase):
                     record[metric] = .1 if metric == 'p95_query_seconds' else 10
                 records.append(record)
         return records, manifest
+
+    def test_cancelled_report_preserves_incomplete_coverage(self):
+        records, manifest = self.fixture()
+        result = evaluate(records[:1], manifest)
+        result['status'] = 'cancelled'
+        with tempfile.TemporaryDirectory() as directory:
+            write_report(directory, result)
+            self.assertEqual(json.loads(Path(directory, 'gate.json').read_text())['status'], 'cancelled')
+            report = Path(directory, 'REPORT.md').read_text()
+            self.assertIn('Incomplete coverage:', report)
+            self.assertNotIn('Infrastructure failure:', report)
 
     def test_pass_and_regression(self):
         records, manifest = self.fixture()

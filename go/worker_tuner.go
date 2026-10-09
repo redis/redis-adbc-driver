@@ -30,12 +30,14 @@ import (
 // slow observation can never ratchet a retained allocation down.
 const tuningWindow = 6
 const tuningHold = 48
+const tuningIncomparableLimit = 8
 
 type workerTuner struct {
 	current, cpu, best, samples, stable, direction int
 	bestScore, bestTail                            float64
 	beforeScore, beforeTail, probeScore, probeTail float64
 	bestNoise, beforeNoise, probeNoise             float64
+	incomparable                                   int
 	candidate, cooldown, pressure                  int
 	rates, tails                                   [tuningWindow]float64
 	phase                                          string
@@ -84,6 +86,7 @@ func (t *workerTuner) hold(reason string) {
 	t.phase = "holding"
 	t.stable = 0
 	t.samples = 0
+	t.incomparable = 0
 	t.reason = reason
 }
 func (t *workerTuner) probe(upper int) {
@@ -108,8 +111,26 @@ func (t *workerTuner) probe(upper int) {
 	t.current = candidate
 	t.phase = "probe"
 	t.samples = 0
+	t.incomparable = 0
 	t.reason = "bounded candidate probe"
 }
+
+// A temporary candidate must not persist indefinitely when observations cannot
+// be compared. Allow transition grace (old leases normally drain in one or two
+// windows), then abandon the comparison. This bounds discarded completion
+// windows, not elapsed time: grants remain non-preemptive.
+func (t *workerTuner) discardWindow() {
+	if t.phase == "probe" || t.phase == "verify" {
+		t.incomparable++
+		if t.incomparable >= tuningIncomparableLimit {
+			t.cooldown = min(192, max(tuningHold, t.cooldown*2))
+			t.hold("abandoned incomparable probe: retained allocation")
+			return
+		}
+	}
+	t.reason = "discarded failed, mixed, or allocation-transition window"
+}
+
 func (t *workerTuner) observe(o tuneObservation, upper int) {
 	t.capacity(upper)
 	t.last = o
@@ -307,7 +328,7 @@ func (b *workerBudget) cacheModel(regime string, t workerTuner) {
 	if t.best > 0 {
 		t.current = t.best
 	}
-	t.phase, t.samples, t.candidate = "baseline", 0, 0
+	t.phase, t.samples, t.candidate, t.incomparable = "baseline", 0, 0, 0
 	b.models[regime] = t
 }
 func (b *workerBudget) finish(lease workerLease, stats *scanTelemetry, failed bool) {
@@ -342,7 +363,8 @@ func (b *workerBudget) finish(lease workerLease, stats *scanTelemetry, failed bo
 		b.cohort = workerCohort{started: time.Now(), cpu: cpuSnapshot(), pending: c.pending, peak: c.pending, key: key, generation: b.generation, mixed: b.pendingMixed(key)}
 	}()
 	if c.mixed || c.failed || c.generation != b.generation || b.pendingMixed(c.key) {
-		b.tuner.reason = "discarded failed, mixed, or allocation-transition window"
+		b.tuner.discardWindow()
+		b.dispatch()
 		return
 	}
 	regime := c.key + ":" + strconv.Itoa(c.peak)
@@ -350,9 +372,17 @@ func (b *workerBudget) finish(lease workerLease, stats *scanTelemetry, failed bo
 		b.cacheModel(b.regime, b.tuner)
 		b.regime = regime
 		if model, exists := b.models[regime]; exists {
+			previousCPU := model.cpu
 			b.tuner = model
 			b.tuner.capacity(b.upper())
-			b.tuner.reason = "resumed retained workload allocation"
+			switch {
+			case previousCPU != b.tuner.cpu:
+				b.tuner.reason = "runtime capacity invalidated cached workload"
+			case model.best > 0:
+				b.tuner.reason = "resumed retained workload allocation"
+			default:
+				b.tuner.reason = "resumed unlearned workload baseline"
+			}
 		} else {
 			b.tuner = workerTuner{}
 			b.tuner.capacity(b.upper())

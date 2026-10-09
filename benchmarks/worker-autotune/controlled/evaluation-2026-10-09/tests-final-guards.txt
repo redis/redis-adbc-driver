@@ -1,0 +1,3 @@
+ok  	github.com/adbc-drivers/redis/go	2.338s
+ok  	github.com/adbc-drivers/redis/go/cmd/redis-adbc	2.651s [no tests to run]
+ok  	github.com/adbc-drivers/redis/go/internal/benchproxy	2.653s

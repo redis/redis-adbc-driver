@@ -14,7 +14,8 @@
 # limitations under the License.
 
 """Isolated Docker matrix; write the manifest BEFORE running measurements.
-Exit 0=gate passed, 2=performance regression, 1=infrastructure failure.
+Exit 0=gate passed, 2=performance regression, 1=infrastructure failure,
+130=operator interruption (partial evidence is preserved).
 Servers must already be isolated, seeded only by this runner, and idle.
 """
 import argparse
@@ -182,7 +183,7 @@ def main():
         for record in records:
             record.update(spec, trial_metadata=metadata, server_quota_events=events)
         return records, stdout + stderr
-    records, errors = [], []
+    records, errors, cancelled = [], [], False
     try:
         for deployment in servers:
             for rows in sorted({s['rows'] for s in scenarios}):
@@ -203,19 +204,24 @@ def main():
                     errors.append(dict(trial=spec, error=str(error)))
                     (output / 'logs' / f'{number:03d}-error.txt').write_text(str(error))
                     print(f"Infrastructure failure in trial {number}: {error}", flush=True)
+    except KeyboardInterrupt:
+        cancelled = True
     except Exception as error:
         errors.append(dict(error=str(error)))
     manifest['stats_after'] = command(['docker', 'stats', '--no-stream', '--format', '{{json .}}'])
     manifest['activity_after'] = command(['docker', 'ps', '--format', '{{json .}}'])
     # Completion metadata is separate so the predeclared manifest remains immutable.
-    (output / 'completion.json').write_text(json.dumps(dict(activity_after=manifest['activity_after'], stats_after=manifest['stats_after'], errors=errors), indent=2) + '\n')
+    (output / 'completion.json').write_text(json.dumps(dict(cancelled=cancelled, completed_records=len(records), planned_trials=len(schedule), activity_after=manifest['activity_after'], stats_after=manifest['stats_after'], errors=errors), indent=2) + '\n')
     result = evaluate(records, manifest)
     if errors:
         result['status'] = 'infrastructure'
         result['infrastructure'].extend(errors)
+    if cancelled:
+        result['status'] = 'cancelled'
+        result['note'] = 'Stopped by the operator. Missing trials are incomplete coverage, not measured Redis failures. No readiness conclusion. ' + result['note']
     write_report(output, result)
     print(f"Gate: {result['status']}; {sum(c['passed'] for c in result['cases'])}/{len(result['cases'])} cases pass", flush=True)
-    raise SystemExit({'pass': 0, 'regression': 2, 'infrastructure': 1}[result['status']])
+    raise SystemExit({'pass': 0, 'regression': 2, 'infrastructure': 1, 'cancelled': 130}[result['status']])
 
 if __name__ == '__main__':
     main()

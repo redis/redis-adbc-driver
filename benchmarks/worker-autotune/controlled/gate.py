@@ -69,5 +69,6 @@ def write_report(output, result):
     for c in result['cases']:
         lines.append('| ' + ' / '.join(map(str, c['case'])) + ' | ' + c['best_fixed'] + ' | ' + ' | '.join(f"{c[m]:.3f}" for m in ['steady_qps_ratio', 'steady_p95_ratio', 'cold_qps_ratio', 'cold_p95_ratio']) + f" | {c['passed']} |")
     for error in result['infrastructure']:
-        lines.append(f"\nInfrastructure failure: {error}")
+        label = "Incomplete coverage" if result["status"] == "cancelled" else "Infrastructure failure"
+        lines.append(f"\n{label}: {error}")
     Path(output, 'REPORT.md').write_text('\n'.join(lines) + '\n')

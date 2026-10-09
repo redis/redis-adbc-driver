@@ -1,0 +1,8 @@
+{
+  "base_source_commit": "14e0a35a45d7c4ea20edd2d9addf8c34741767d9",
+  "profiler_source_commit": "09588f0ca874a34cfbf092cf39ecdf06cbed6a0c",
+  "profiler_sha256": "3e874fb0e9a12cc91d0a3bd219f08f86065e62b588854972ed6c211536a6c620",
+  "legacy_tuner_sha256": "89bc776a755ffadb9ef7e87baa3a76e920b03464f41772f37026606e497d0c15",
+  "build": "Export base go/ tree, replace only worker_budget_profile_test.go with the profiling revision, then CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go test -c .",
+  "note": "This metadata records the diagnostic build; it does not modify the predeclared manifest or gate."
+}

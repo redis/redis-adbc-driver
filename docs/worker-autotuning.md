@@ -32,7 +32,10 @@ the holding period from 48 to at most 192 comparable cohorts.
 A sustained slowdown starts a paired downward probe; it cannot repeatedly
 ratchet the retained allocation downward without checking a candidate. Later
 probes reassess changed Redis/network conditions. Learning losses are bounded
-in allocation step and probe duration, not in end-to-end latency or throughput.
+in allocation step and comparable observation count, not in wall-clock time,
+end-to-end latency, or throughput. Eight discarded cohorts during a probe or
+verification restore the retained allocation and back off; existing grants
+finish without preemption.
 These decision thresholds do not guarantee the external performance gate.
 The policy seeks a useful local allocation and does not prove a global maximum.
 

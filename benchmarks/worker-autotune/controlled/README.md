@@ -60,6 +60,9 @@ python3 benchmarks/worker-autotune/controlled/run.py \
 The output path must be new so a run cannot silently replace its predeclared
 manifest. Exit status is 0 for a passing gate, 2 for measured performance
 regressions, and 1 for infrastructure failure or incomplete/duplicate trials.
+An operator interrupt exits 130, cleans up the current trial, and records a
+`cancelled` report with partial evidence; missing coverage is not a measured
+Redis failure.
 All cases run even if a gate fails. Archive `manifest.json`, `results.jsonl.gz`,
 `gate.json`, `REPORT.md`, `completion.json`, and logs on either success or failure.
 Results include per-query latency, cold learning, CPU, heap, allocations,
@@ -79,3 +82,7 @@ randomizes a fifth `legacy-tuned` policy into OSS/CPU4 blocks and records its
 binary hash. It is diagnostic and does not participate in fixed-reference gate
 selection. This compares policies under identical fixture, quotas and profiler;
 it does not retroactively control the original workstation experiment.
+
+The [stopped October 9 evaluation](evaluation-2026-10-09/PROBLEMS.md) preserves
+47 of 222 invocations and documents provisional regressions. It does not pass
+the readiness gate or validate the final recovery guard through performance trials.
