@@ -29,13 +29,19 @@ import (
 // them round-robin up to their ceilings. A lone waiter can borrow all capacity.
 // The zero value starts with a conservative CPU-based budget and learns from completed scans.
 type workerBudget struct {
-	mu         sync.Mutex
-	configured int
-	active     int
-	queue      []*workerRequest
-	tuner      workerTuner
-	cohort     workerCohort
-	regime     string
+	mu                        sync.Mutex
+	configured                int
+	active                    int
+	queue                     []*workerRequest
+	tuner                     workerTuner
+	cohort                    workerCohort
+	regime                    string
+	models                    map[string]workerTuner
+	modelOrder                []string
+	generation                uint64
+	epochAllocation, epochCPU int
+	pendingKeys               map[string]int
+	pendingGenerations        map[uint64]int
 }
 
 type workerRequest struct {
@@ -95,6 +101,9 @@ func (b *workerBudget) configure(value string) error {
 	b.configured = n
 	b.tuner = workerTuner{}
 	b.regime = ""
+	b.generation++ // Invalidate in-flight observations even if the limit is unchanged.
+	b.models = nil
+	b.modelOrder = nil
 	b.dispatch()
 	return nil
 }
