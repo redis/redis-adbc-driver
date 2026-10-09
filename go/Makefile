@@ -28,7 +28,7 @@ LIB := build/libadbc_driver_redis.$(EXT)
 ADBC_CLI := build/redis-adbc
 LDFLAGS := -s -w -X github.com/adbc-drivers/driverbase-go/driverbase.infoDriverVersion=$(VERSION)
 
-.PHONY: build adbc-cli test validate clean redis-up redis-down redis-oss-up
+.PHONY: build adbc-cli test validate clean redis-up redis-down redis-oss-up pgdiff pgdiff-test
 
 build: $(LIB)
 
@@ -68,3 +68,10 @@ validate: build
 
 clean:
 	rm -rf build
+
+# Pinned amd64 Postgres reference; Redis must already be running.
+pgdiff: build
+	uv run --project pgdiff python pgdiff/run.py $(PGDIFF_ARGS)
+
+pgdiff-test:
+	uv run --project pgdiff python -m unittest discover -s pgdiff -p "test_*.py"

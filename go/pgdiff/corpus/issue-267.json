@@ -1,0 +1,27 @@
+{
+  "area": "regex",
+  "source": "https://github.com/alberttwong/redis-adbc-driver/issues/267",
+  "setup": [],
+  "cases": [
+    {
+      "id": "repro-1",
+      "sql": "select substring('xyz' from 'x|xy')"
+    },
+    {
+      "id": "repro-2",
+      "sql": "select 'abab' ~ '(ab)\\1'"
+    },
+    {
+      "id": "repro-3",
+      "sql": "select 'foobar' ~ 'foo(?=bar)'"
+    },
+    {
+      "id": "repro-4",
+      "sql": "select 'hello world' ~ '\\yworld\\y'"
+    },
+    {
+      "id": "repro-5",
+      "sql": "select regexp_replace('hello world', '\\mworld', 'X')"
+    }
+  ]
+}

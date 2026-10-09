@@ -107,6 +107,17 @@ Redis Flex (RAM + SSD) databases are not supported yet, and the driver
 refuses them when it connects; see
 [Server requirements](#server-requirements).
 
+The differential harness compares rows, physical Arrow result types and
+SQLSTATEs with Postgres 16.15, pinned by digest on amd64 and initialized with
+**C collation** (byte ordering). Run `REDIS_URI=redis://localhost:6379/0 make -C go pgdiff`.
+The initial 73-case corpus passes **24/73 (32.9%)** on October 9, 2026, including
+**13/13 smoke cases**; the remaining cases target known compatibility issues
+from #274. This measures that starter corpus, rather than broad Postgres
+conformance. The command reports each difference and exits nonzero while gaps
+remain. See [the harness guide](go/pgdiff/README.md) for coverage, type-mapping
+limitations, documented exceptions and the report format. dbt SQL and Postgres's
+regression corpus remain to be added.
+
 ## Server requirements
 
 You don't create any indexes or enable any settings yourself. The one hard

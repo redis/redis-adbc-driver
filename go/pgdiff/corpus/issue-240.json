@@ -1,0 +1,23 @@
+{
+  "area": "strings",
+  "source": "https://github.com/alberttwong/redis-adbc-driver/issues/240",
+  "setup": [],
+  "cases": [
+    {
+      "id": "repro-1",
+      "sql": "select length(E'a\\nb')"
+    },
+    {
+      "id": "repro-2",
+      "sql": "select E'it\\'s'"
+    },
+    {
+      "id": "repro-3",
+      "sql": "select E'\\x41\\102'"
+    },
+    {
+      "id": "repro-4",
+      "sql": "select U&'d\\0061t\\+000061'"
+    }
+  ]
+}

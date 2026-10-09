@@ -1,0 +1,16 @@
+{
+  "area": "aggregates",
+  "source": "https://github.com/alberttwong/redis-adbc-driver/issues/252",
+  "setup": [
+    "CREATE TABLE t (id integer, name varchar(20), score integer, grp varchar(10))",
+    "INSERT INTO t VALUES (1, 'apple', 10, 'a'), (2, 'Banana', NULL, 'a'), (3, 'cherry', 30, 'b'), (4, '_x', 20, 'b')",
+    "CREATE TABLE u (id integer, label text)",
+    "INSERT INTO u VALUES (1, 'one'), (2, 'two')"
+  ],
+  "cases": [
+    {
+      "id": "repro-1",
+      "sql": "select variance(score) from t"
+    }
+  ]
+}
