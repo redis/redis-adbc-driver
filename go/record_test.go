@@ -171,17 +171,17 @@ func TestRecordArrow(t *testing.T) {
 	}
 	defer rec.Release()
 	wantSchema := "schema:\n  fields: 6\n" +
-		"    - row: type=struct<f1: int64 nullable, f2: utf8 nullable>, nullable\n" +
-		"    - c: type=struct<f1: int64 nullable>, nullable\n" +
+		"    - row: type=struct<f1: int32 nullable, f2: utf8 nullable>, nullable\n" +
+		"    - c: type=struct<f1: int32 nullable>, nullable\n" +
 		"    - n: type=struct<f1: struct<f1: decimal(2, 1) nullable, f2: null nullable> nullable, f2: date32 nullable>, nullable\n" +
-		"    - z: type=struct<f1: int64 nullable, f2: utf8 nullable>, nullable\n" +
+		"    - z: type=struct<f1: int32 nullable, f2: utf8 nullable>, nullable\n" +
 		"    - e: type=struct<>, nullable\n" +
 		"    - f2: type=utf8, nullable"
 	if got := rec.Schema().String(); got != wantSchema {
 		t.Errorf("schema:\n got: %s\nwant: %s", got, wantSchema)
 	}
 	row := rec.Column(0).(*array.Struct)
-	if row.IsNull(0) || row.Field(0).(*array.Int64).Value(0) != 1 || row.Field(1).(*array.String).Value(0) != "x" {
+	if row.IsNull(0) || row.Field(0).(*array.Int32).Value(0) != 1 || row.Field(1).(*array.String).Value(0) != "x" {
 		t.Errorf("(1, 'x') is %v", row)
 	}
 	n := rec.Column(2).(*array.Struct)

@@ -75,6 +75,7 @@ type joinItem struct {
 	// natural is NATURAL JOIN; usingOn is then its condition over the
 	// common columns (see planNatural).
 	natural bool
+	using   []string
 	usingOn Expr
 	// comma is set for an item after a comma, which starts a new FROM-list
 	// item (see JoinClause.Comma): the items from the last one on are the
@@ -166,10 +167,10 @@ func (e *executor) addJoinItem(ctx context.Context, jp *joinPlan, kind string, t
 func (jp *joinPlan) add(kind string, rel relation) (*joinItem, error) {
 	prefix := rel.name + "."
 	for _, it := range jp.items {
-		if !strings.EqualFold(it.alias, rel.name) {
+		if !(it.alias == rel.name) {
 			continue
 		}
-		if it.aliased || rel.aliased || it.schema == "" || rel.schema == "" || strings.EqualFold(it.schema, rel.schema) {
+		if it.aliased || rel.aliased || it.schema == "" || rel.schema == "" || (it.schema == rel.schema) {
 			return nil, errorf(adbc.StatusInvalidArgument, "table name %q specified more than once; use aliases", rel.name)
 		}
 		prefix = rel.name + "\x00" + strconv.Itoa(len(jp.items)) + "."
@@ -331,41 +332,10 @@ func (e *executor) bindJoin(ctx context.Context, sel *SelectStmt, jp *joinPlan) 
 		it := jp.items[k]
 		start := jp.start(k)
 		cond := jc.On
-		if jc.Natural {
+		if jc.Natural || len(jc.Using) > 0 {
 			cond = it.usingOn
 		}
-		if len(jc.Using) > 0 {
-			// Postgres's checks, on the left side's columns: those of the
-			// items since the last comma, less those merged into another
-			// one by a NATURAL JOIN.
-			var parts []Expr
-			for u, col := range jc.Using {
-				if slices.ContainsFunc(jc.Using[:u], func(c string) bool { return strings.EqualFold(c, col) }) {
-					return errorf(adbc.StatusInvalidArgument, "column name %q appears more than once in USING clause", col)
-				}
-				var left *joinItem
-				for _, prev := range jp.items[start:k] {
-					c, ok := prev.base.column(col)
-					if ok && (it.visible == nil || it.visible[prev.prefix+c.Name]) || prev.base.ambiguous(col) {
-						if left != nil || !ok {
-							return stateErrorf(stateAmbiguousColumn, "common column name %q appears more than once in left table", col)
-						}
-						left = prev
-					}
-				}
-				if left == nil {
-					return errorf(adbc.StatusInvalidArgument, "column %q specified in USING clause does not exist in left table", col)
-				}
-				if it.base.ambiguous(col) {
-					return stateErrorf(stateAmbiguousColumn, "common column name %q appears more than once in right table", col)
-				}
-				if _, ok := it.base.column(col); !ok {
-					return errorf(adbc.StatusInvalidArgument, "column %q specified in USING clause does not exist in right table", col)
-				}
-				parts = append(parts, &Binary{Op: "=", L: left.ref(col), R: it.ref(col)})
-			}
-			cond = andAll(parts)
-		}
+
 		if cond == nil {
 			it.on = nil
 			continue

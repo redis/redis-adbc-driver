@@ -433,39 +433,17 @@ func TestSQLCheckDefinition(t *testing.T) {
 		CONSTRAINT Upper_Name CHECK (it_chk_names.c <> 6 AND public.it_chk_names.a <> 7)
 	)`)
 	h.expectChecks(raw, "it_chk_names",
-		"it_chk_names_a_check: a > 0",
-		"it_chk_names_a_check1: a < 100",
-		"it_chk_names_a_check2: a <> 50",
-		"it_chk_names_check: b > a",
-		"My Check: c > 0",
-		"it_chk_names_check1: 1 = 1",
-		"it_chk_names_b_check: b > 0",
-		"it_chk_names_check2: a + b > 0",
-		"it_chk_names_check3: true",
-		"it_chk_names_c_check: c < 10",
-		"it_chk_names_c_check1: c <> 5",
-		"Upper_Name: c <> 6 AND a <> 7")
+		"it_chk_names_a_check: a > 0", "it_chk_names_a_check1: a < 100", "it_chk_names_a_check2: a <> 50", "it_chk_names_check: b > a", "My Check: c > 0", "it_chk_names_check1: 1 = 1", "it_chk_names_b_check: b > 0", "it_chk_names_check2: a + b > 0", "it_chk_names_check3: true", "it_chk_names_c_check: c < 10", "it_chk_names_c_check1: c <> 5", "upper_name: c <> 6 AND a <> 7")
 	h.expectError(`INSERT INTO it_chk_names (c) VALUES (0)`, `violates check constraint "My Check"`)
-	h.expectError(`INSERT INTO it_chk_names (c) VALUES (6)`, `violates check constraint "Upper_Name"`)
-	h.expectError(`INSERT INTO it_chk_names (a) VALUES (7)`, `violates check constraint "Upper_Name"`)
+	h.expectError(`INSERT INTO it_chk_names (c) VALUES (6)`, `violates check constraint "upper_name"`)
+	h.expectError(`INSERT INTO it_chk_names (a) VALUES (7)`, `violates check constraint "upper_name"`)
 	// Later constraints continue the numbering.
 	h.exec(`ALTER TABLE it_chk_names ADD COLUMN d integer check (d > 0) check (a > 1)`)
 	h.exec(`ALTER TABLE it_chk_names ADD CHECK (d < 9)`)
 	h.exec(`ALTER TABLE it_chk_names ADD CONSTRAINT d_even CHECK (d % 2 = 0)`)
 	h.exec(`ALTER TABLE it_chk_names ADD CHECK (c > d)`)
 	h.expectChecks(raw, "it_chk_names",
-		"it_chk_names_a_check: a > 0",
-		"it_chk_names_a_check1: a < 100",
-		"it_chk_names_a_check2: a <> 50",
-		"it_chk_names_check: b > a",
-		"My Check: c > 0",
-		"it_chk_names_check1: 1 = 1",
-		"it_chk_names_b_check: b > 0",
-		"it_chk_names_check2: a + b > 0",
-		"it_chk_names_check3: true",
-		"it_chk_names_c_check: c < 10",
-		"it_chk_names_c_check1: c <> 5",
-		"Upper_Name: c <> 6 AND a <> 7",
+		"it_chk_names_a_check: a > 0", "it_chk_names_a_check1: a < 100", "it_chk_names_a_check2: a <> 50", "it_chk_names_check: b > a", "My Check: c > 0", "it_chk_names_check1: 1 = 1", "it_chk_names_b_check: b > 0", "it_chk_names_check2: a + b > 0", "it_chk_names_check3: true", "it_chk_names_c_check: c < 10", "it_chk_names_c_check1: c <> 5", "upper_name: c <> 6 AND a <> 7",
 		"it_chk_names_d_check: d > 0",
 		"it_chk_names_a_check3: a > 1",
 		"it_chk_names_d_check1: d < 9",
@@ -489,11 +467,11 @@ func TestSQLCheckDefinition(t *testing.T) {
 		`CREATE TABLE it_chk_bad (a integer, check (other.a > 0))`:                                                  `missing FROM-clause entry for table "other"`,
 		`CREATE TABLE it_chk_bad (a integer check (__rowid > 0))`:                                                   `system column "__rowid" reference in check constraint is invalid`,
 		`CREATE TABLE it_chk_bad (a integer check (a))`:                                                             "argument of CHECK must be type boolean, not type integer",
-		`CREATE TABLE it_chk_bad (a integer check (a + 1))`:                                                         "argument of CHECK must be type boolean, not type bigint",
+		`CREATE TABLE it_chk_bad (a integer check (a + 1))`:                                                         "argument of CHECK must be type boolean, not type integer",
 		`CREATE TABLE it_chk_bad (a integer, b varchar check (b))`:                                                  "argument of CHECK must be type boolean, not type varchar",
 		`CREATE TABLE it_chk_bad (a integer check (merge_action() = 'x'))`:                                          "MERGE_ACTION() can only be used in the RETURNING list of a MERGE command",
 		`CREATE TABLE it_chk_bad (a integer constraint c check (a > 0) constraint c check (a < 9))`:                 `check constraint "c" already exists`,
-		`CREATE TABLE it_chk_bad (a integer constraint c check (a > 0), check (a < 9), constraint C check (a < 8))`: `check constraint "C" already exists`,
+		`CREATE TABLE it_chk_bad (a integer constraint c check (a > 0), check (a < 9), constraint C check (a < 8))`: `check constraint "c" already exists`,
 		`ALTER TABLE it_chk_names ADD COLUMN e integer constraint d_even check (e > 0)`:                             `constraint "d_even" for relation "it_chk_names" already exists`,
 		`ALTER TABLE it_chk_names ADD CONSTRAINT "My Check" CHECK (a > 0)`:                                          `constraint "My Check" for relation "it_chk_names" already exists`,
 		`ALTER TABLE it_chk_names ADD COLUMN e integer check (nosuch > 0)`:                                          `column "nosuch" does not exist in table "it_chk_names"`,
@@ -591,7 +569,7 @@ func TestSQLCheckAlter(t *testing.T) {
 	h.expectError(`ALTER TABLE it_chk_alt ADD CHECK v > 0`, `syntax error: expected "(" near "v"`)
 	h.expectError(`ALTER TABLE it_chk_alt ALTER COLUMN v TYPE bigint USING 0`, `check constraint "it_chk_alt_v_check" of relation "it_chk_alt" is violated by some row`)
 	h.expectError(`ALTER TABLE it_chk_alt VALIDATE CONSTRAINT x`,
-		`unsupported ALTER TABLE action near "VALIDATE" (supported: RENAME TO, RENAME COLUMN, ADD COLUMN, DROP COLUMN, ALTER COLUMN, ADD CONSTRAINT, DROP CONSTRAINT)`)
+		`unsupported ALTER TABLE action near "validate" (supported: RENAME TO, RENAME COLUMN, ADD COLUMN, DROP COLUMN, ALTER COLUMN, ADD CONSTRAINT, DROP CONSTRAINT)`)
 	h.expectError(`ALTER VIEW it_chk_alt DROP CONSTRAINT x`, "ALTER VIEW supports only RENAME TO")
 }
 
@@ -628,7 +606,7 @@ func TestSQLCheckLifetime(t *testing.T) {
 	h.exec(`ALTER TABLE it_chk_life2 RENAME COLUMN hi TO "interval"`)
 	h.exec(`ALTER TABLE it_chk_life2 RENAME COLUMN id TO Ident`)
 	checks = []string{`it_chk_life_amount_check: "Amount Due" >= 0`, `it_chk_life_check: low <= "interval"`,
-		`Big: "Amount Due" < 1000 and "interval" < 1000`, "it_chk_life_id_check: Ident > 0"}
+		`Big: "Amount Due" < 1000 and "interval" < 1000`, "it_chk_life_id_check: ident > 0"}
 	h.expectChecks(raw, "it_chk_life2", checks...)
 	h.expectError(`INSERT INTO it_chk_life2 VALUES (2, -1, 1, 2)`, `violates check constraint "it_chk_life_amount_check"`)
 	h.expectError(`INSERT INTO it_chk_life2 VALUES (2, 1, 3, 2)`, `violates check constraint "it_chk_life_check"`)
@@ -639,7 +617,7 @@ func TestSQLCheckLifetime(t *testing.T) {
 	h.expectChecks(raw, "it_chk_life2", checks...)
 	if got, want := strings.Join(h.tableConstraints("public", "it_chk_life2"), "\n"), strings.Join([]string{"table",
 		"it_chk_life_amount_check CHECK (Amount Due)",
-		"it_chk_life_check CHECK (low, hi)", "Big CHECK (Amount Due, hi)", "it_chk_life_id_check CHECK (Ident)"}, "\n"); got != want {
+		"it_chk_life_check CHECK (low, hi)", "Big CHECK (Amount Due, hi)", "it_chk_life_id_check CHECK (ident)"}, "\n"); got != want {
 		t.Errorf("GetObjects constraints\n got: %q\nwant: %q", got, want)
 	}
 
@@ -682,13 +660,13 @@ func TestSQLCheckLifetime(t *testing.T) {
 	h.exec(`ALTER TABLE it_chk_text RENAME COLUMN day TO d`)
 	h.exec(`ALTER TABLE it_chk_text RENAME COLUMN label TO "Label"`)
 	h.expectChecks(raw, "it_chk_text", `it_chk_text_day_check: DATE_ADD(d, INTERVAL 1 DAY) > DATE '2020-01-01'`,
-		`it_chk_text_label_check: Label /* not empty */ <> $$$$ AND Label <> 'it''s'`)
+		`it_chk_text_label_check: "Label" /* not empty */ <> $$$$ AND "Label" <> 'it''s'`)
 	h.expectError(`INSERT INTO it_chk_text VALUES (DATE '2019-12-30', 'a')`, `violates check constraint "it_chk_text_day_check"`)
 	h.expectError(`INSERT INTO it_chk_text VALUES (DATE '2020-01-01', '')`, `violates check constraint "it_chk_text_label_check"`)
 	h.expectError(`INSERT INTO it_chk_text VALUES (DATE '2020-01-01', 'it''s')`, `violates check constraint "it_chk_text_label_check"`)
 	h.exec(`ALTER TABLE it_chk_text RENAME COLUMN d TO month`)
 	h.expectChecks(raw, "it_chk_text", `it_chk_text_day_check: DATE_ADD(month, INTERVAL 1 DAY) > DATE '2020-01-01'`,
-		`it_chk_text_label_check: Label /* not empty */ <> $$$$ AND Label <> 'it''s'`)
+		`it_chk_text_label_check: "Label" /* not empty */ <> $$$$ AND "Label" <> 'it''s'`)
 	h.expectError(`INSERT INTO it_chk_text VALUES (DATE '2019-12-30', 'a')`, `violates check constraint "it_chk_text_day_check"`)
 	h.exec(`INSERT INTO it_chk_text VALUES (DATE '2020-01-01', 'a')`)
 

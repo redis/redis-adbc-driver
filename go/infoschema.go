@@ -57,7 +57,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"strings"
 
 	"github.com/apache/arrow-adbc/go/adbc"
 	goredis "github.com/redis/go-redis/v9"
@@ -65,7 +64,7 @@ import (
 
 const infoSchema = "information_schema"
 
-func isInfoSchema(schema string) bool { return strings.EqualFold(schema, infoSchema) }
+func isInfoSchema(schema string) bool { return (schema == infoSchema) }
 
 var infoSchemaColumns = map[string][]resultColumn{
 	"schemata": {
@@ -200,7 +199,7 @@ func columnRow(schema, table string, pos int, c columnMeta) []Value {
 
 // infoSchemaTable builds one information_schema table.
 func (e *executor) infoSchemaTable(ctx context.Context, name string) (*tableMeta, error) {
-	key := strings.ToLower(name)
+	key := name
 	cols, ok := infoSchemaColumns[key]
 	if !ok {
 		return nil, tableNotFound(infoSchema, name)

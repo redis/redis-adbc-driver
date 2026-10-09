@@ -184,7 +184,7 @@ func TestSQLNaNWritePaths(t *testing.T) {
 			h.expectRows("SELECT id FROM "+table+" WHERE "+c+" = 'NaN'", "2")
 			h.expectRows("SELECT id FROM "+table+" WHERE "+c+" > 'Infinity'", "2")
 			h.expectRows("SELECT id FROM "+table+" WHERE "+c+" < 'Infinity'", "1")
-			h.expectRows("SELECT id FROM "+table+" ORDER BY "+c+" DESC LIMIT 1", "2")
+			h.expectRows("SELECT id FROM "+table+" ORDER BY "+c+" DESC NULLS LAST LIMIT 1", "2")
 			h.expectRows("SELECT COUNT(*), COUNT("+c+"), MAX("+c+"), MIN("+c+") FROM "+table, "2|2|NaN|1")
 		}
 		h.expectNaNs(raw, table, "x", "r")
@@ -442,10 +442,10 @@ func TestSQLNaNOrder(t *testing.T) {
 		mh.nanAgree("SELECT id FROM {t} ORDER BY {c} DESC NULLS FIRST, id", "5", "2", "7", "3", "6", "1", "4")
 		mh.nanAgree("SELECT id FROM {t} ORDER BY {c} NULLS FIRST, id", "5", "4", "1", "6", "3", "2", "7")
 		mh.nanAgree("SELECT {c} FROM {t} ORDER BY {c}", "-Inf", "1.5", "5", "+Inf", "NaN", "NaN", "NULL")
-		mh.nanAgree("SELECT {c} FROM {t} ORDER BY {c} DESC LIMIT 3", "NaN", "NaN", "+Inf")
-		mh.nanAgree("SELECT {c} FROM {t} ORDER BY {c} DESC LIMIT 1", "NaN")
+		mh.nanAgree("SELECT {c} FROM {t} ORDER BY {c} DESC NULLS LAST LIMIT 3", "NaN", "NaN", "+Inf")
+		mh.nanAgree("SELECT {c} FROM {t} ORDER BY {c} DESC NULLS LAST LIMIT 1", "NaN")
 		mh.nanAgree("SELECT {c} FROM {t} ORDER BY {c} LIMIT 2 OFFSET 3", "+Inf", "NaN")
-		mh.nanAgree("SELECT {c} FROM {t} WHERE {c} >= 5 ORDER BY {c} DESC LIMIT 3", "NaN", "NaN", "+Inf")
+		mh.nanAgree("SELECT {c} FROM {t} WHERE {c} >= 5 ORDER BY {c} DESC NULLS LAST LIMIT 3", "NaN", "NaN", "+Inf")
 		mh.nanAgree("SELECT {c} FROM {t} WHERE {c} >= 'Infinity' ORDER BY {c} LIMIT 1", "+Inf")
 		mh.nanAgree("SELECT id, RANK() OVER (ORDER BY {c}) FROM {t} ORDER BY id",
 			"1|2", "2|5", "3|4", "4|1", "5|7", "6|3", "7|5")
@@ -506,7 +506,7 @@ func TestSQLNaNAggregates(t *testing.T) {
 	pushed(true, counts...)
 	ah.expectRows("SELECT g, COUNT(x), MAX(x), SUM(x) FROM it_nan_agg GROUP BY g ORDER BY g", "1|3|NaN|NaN", "2|1|-Inf|-Inf")
 	ah.expectRows("SELECT x, COUNT(*) FROM it_nan_agg GROUP BY x ORDER BY x", "-Inf|1", "2|1", "+Inf|1", "NaN|1")
-	ah.expectRows("SELECT x FROM it_nan_agg ORDER BY x DESC LIMIT 1", "NaN")
+	ah.expectRows("SELECT x FROM it_nan_agg ORDER BY x DESC NULLS LAST LIMIT 1", "NaN")
 }
 
 // TestSQLNaNJoins checks hash joins, index lookup joins, IN subqueries,

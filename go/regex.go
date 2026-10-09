@@ -18,15 +18,8 @@ package redis
 // REGEXP_LIKE, REGEXP_COUNT, REGEXP_INSTR, REGEXP_SUBSTR, REGEXP_MATCH, the
 // pattern forms of SUBSTRING and the searches of REGEXP_REPLACE (whose
 // replacement is in scalar.go). Arguments, flags, positions and errors
-// follow Postgres, with two differences:
-//
-//   - Patterns use RE2 syntax (Go's regexp package): no backreferences or
-//     lookaround, and RE2's escapes (\b is a word boundary, not a
-//     backspace).
-//   - Where a pattern can match strings of different lengths at the same
-//     position, RE2 takes the first alternative by Perl's rules (x|xy
-//     matches the "x" of "xy"), whereas Postgres prefers the longest or the
-//     shortest match depending on the pattern's quantifiers.
+// follow Postgres. RE2 handles simple patterns and regexp2 handles
+// backreferences and lookaround; full ARE capture priority is not yet ported.
 //
 // Positions count characters. A search from a start position sees the text
 // before it, as in Postgres: ^ does not match there, and \b looks at the
@@ -43,7 +36,9 @@ import (
 
 // regexpSearch is a compiled pattern.
 type regexpSearch struct {
-	re *regexp.Regexp
+	re       *regexp.Regexp
+	are      *arePattern
+	shortest bool
 	// prefix holds the flags, such as (?is), and body the pattern as RE2
 	// syntax; from is compiled from them on first use, to search from a
 	// later position (see at).
@@ -55,6 +50,13 @@ type regexpSearch struct {
 // messages (none for the operators).
 func compilePattern(name, pattern string, fl regexpFlags) (*regexpSearch, error) {
 	body := pattern
+	if fl.basic {
+		body = basicRegexp(body)
+	}
+	if fl.expanded {
+		body = expandedRegexp(body)
+	}
+	body = translateARE(body)
 	if fl.literal {
 		body = regexp.QuoteMeta(pattern)
 	}
@@ -72,14 +74,25 @@ func compilePattern(name, pattern string, fl regexpFlags) (*regexpSearch, error)
 		prefix = "(?" + prefix + ")"
 	}
 	re, err := compileRegexp(prefix + body)
+	shortest := strings.Contains(body, "*?") || strings.Contains(body, "+?") || strings.Contains(body, "??")
 	if err != nil {
+		are, aerr := compileARE(prefix+body, shortest)
+		if aerr == nil {
+			return &regexpSearch{are: are, prefix: prefix, body: body, shortest: shortest}, nil
+		}
 		// Report the error for the pattern as written, without the flags.
 		if _, perr := syntax.Parse(body, syntax.Perl); perr != nil {
 			err = perr
 		}
 		return nil, invalidRegexp(name, err, true)
 	}
-	return &regexpSearch{re: re, prefix: prefix, body: body}, nil
+	if !shortest {
+		// Cache entries remain immutable: Longest must precede publication.
+		copy := re.Copy()
+		copy.Longest()
+		re = copy
+	}
+	return &regexpSearch{re: re, prefix: prefix, body: body, shortest: shortest}, nil
 }
 
 // invalidRegexp is Postgres's error for a pattern that does not compile,
@@ -108,32 +121,28 @@ func invalidRegexp(name string, err error, showExpr bool) error {
 // before pos: it skips that character and then finds the leftmost match,
 // as an unanchored search does.
 func (rs *regexpSearch) at(s string, pos int) ([]int, error) {
-	if pos == 0 {
-		return rs.re.FindStringSubmatchIndex(s), nil
-	}
 	if pos > len(s) {
 		return nil, nil
 	}
-	if rs.from == nil {
-		re, err := compileRegexp(rs.prefix + `\A(?s:.)(?s:.*?)(` + closeQuote(rs.body) + `)`)
-		if err != nil {
-			return nil, invalidRegexp("", err, true)
-		}
-		rs.from = re
+	if rs.are != nil {
+		return rs.are.at(s, pos)
 	}
-	_, w := utf8.DecodeLastRuneInString(s[:pos])
-	base := pos - w
-	m := rs.from.FindStringSubmatchIndex(s[base:])
-	if m == nil {
-		return nil, nil
+	if pos == 0 {
+		return rs.re.FindStringSubmatchIndex(s), nil
 	}
-	m = m[2:] // the pattern's own match and groups
-	for i := range m {
-		if m[i] >= 0 {
-			m[i] += base
-		}
+	// The full text remains visible to anchors and lookbehind at this start.
+	p, err := compileARE(rs.prefix+rs.body, rs.shortest)
+	if err != nil {
+		return nil, invalidRegexp("", err, true)
 	}
-	return m, nil
+	return p.at(s, pos)
+}
+
+func (rs *regexpSearch) groups() int {
+	if rs.re != nil {
+		return rs.re.NumSubexp()
+	}
+	return len(rs.are.re.GetGroupNumbers()) - 1
 }
 
 // all returns up to limit matches (-1: no limit) at or after byte offset
@@ -235,7 +244,8 @@ func regexpFunc(f *Func, args []Value) (Value, error) {
 		if err != nil {
 			return Value{}, err
 		}
-		return boolValue(rs.re.MatchString(s)), nil
+		m, err := rs.at(s, 0)
+		return boolValue(m != nil), err
 	case "SIMILAR TO":
 		esc := `\`
 		if len(args) == 3 {
@@ -300,9 +310,13 @@ func regexpFunc(f *Func, args []Value) (Value, error) {
 
 	switch f.Name {
 	case "REGEXP_LIKE":
-		return boolValue(rs.re.MatchString(s)), nil
+		m, err := rs.at(s, 0)
+		return boolValue(m != nil), err
 	case "REGEXP_MATCH":
-		m := rs.re.FindStringSubmatchIndex(s)
+		m, err := rs.at(s, 0)
+		if err != nil {
+			return Value{}, err
+		}
 		if m == nil {
 			return nullValue(typeString), nil
 		}
@@ -328,7 +342,7 @@ func regexpFunc(f *Func, args []Value) (Value, error) {
 		if err != nil {
 			return Value{}, err
 		}
-		if g, ok := subexprGroup(rs.re.NumSubexp(), subexpr); ok && int64(len(matches)) >= n {
+		if g, ok := subexprGroup(rs.groups(), subexpr); ok && int64(len(matches)) >= n {
 			if m := matches[n-1]; m[2*g] >= 0 {
 				loc = m[2*g : 2*g+2]
 			}
@@ -395,8 +409,11 @@ func regexpSubstring(s, pattern string) (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
-	m := rs.re.FindStringSubmatchIndex(s)
-	g := min(rs.re.NumSubexp(), 1)
+	m, err := rs.at(s, 0)
+	if err != nil {
+		return Value{}, err
+	}
+	g := min(rs.groups(), 1)
 	if m == nil || m[2*g] < 0 {
 		return nullValue(typeString), nil
 	}

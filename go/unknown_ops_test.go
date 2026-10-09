@@ -36,10 +36,10 @@ var opTestCols = map[string]ColType{"i": typeInt32, "i2": {Kind: KindInt16}, "f"
 // T, as in Postgres 16.
 func TestUnknownOperandTypes(t *testing.T) {
 	for _, c := range []struct{ expr, typ string }{
-		{"'1' + 1", "BIGINT"},
-		{"i + '1'", "BIGINT"},
-		{"'1' * i", "BIGINT"},
-		{"i2 - '1'", "BIGINT"},
+		{"'1' + 1", "INTEGER"},
+		{"i + '1'", "INTEGER"},
+		{"'1' * i", "INTEGER"},
+		{"i2 - '1'", "SMALLINT"},
 		{"f / '2'", "DOUBLE PRECISION"},
 		{"'1.5' + 1.25", "NUMERIC(38,2)"},
 		// A NUMERIC literal has its own digits (Postgres's has no scale).
@@ -63,15 +63,15 @@ func TestUnknownOperandTypes(t *testing.T) {
 		{"iv * '2'", "INTERVAL"},
 		{"'2' * iv", "INTERVAL"},
 		{"iv / '2'", "INTERVAL"},
-		{"(i + '1') * '2'", "BIGINT"},
-		{"'2' * (i + '1')", "BIGINT"},
-		{"i + '1' + '2'", "BIGINT"},
-		{"CASE WHEN i = 1 THEN '1' ELSE i END + '1'", "BIGINT"},
+		{"(i + '1') * '2'", "INTEGER"},
+		{"'2' * (i + '1')", "INTEGER"},
+		{"i + '1' + '2'", "INTEGER"},
+		{"CASE WHEN i = 1 THEN '1' ELSE i END + '1'", "INTEGER"},
 		{"COALESCE(n, '0') + '1'", "NUMERIC(38,2)"},
 		{"i || '1'", "VARCHAR"},
 		{"'1' || '1'", "VARCHAR"},
 		// % is MOD, which keeps its arguments' type.
-		{"'7' % 2", "BIGINT"},
+		{"'7' % 2", "INTEGER"},
 		{"i % '2'", "INTEGER"},
 		{"MOD('7', i2)", "SMALLINT"},
 		{"n % '1'", "NUMERIC(10,2)"},

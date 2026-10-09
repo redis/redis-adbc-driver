@@ -229,7 +229,7 @@ func TestSQLErrorStates(t *testing.T) {
 		{`SELECT * FROM it_err_nosuch`, absent, "42P01", "does not exist"},
 		{`SELECT nosuch FROM it_err`, absent, "42703", `column "nosuch" does not exist`},
 		{`INSERT INTO it_err (nosuch) VALUES (1)`, absent, "42703", `column "nosuch" does not exist`},
-		{`SELECT nosuchfunc(1)`, absent, "42883", "function nosuchfunc(bigint) does not exist"},
+		{`SELECT nosuchfunc(1)`, absent, "42883", "function nosuchfunc(integer) does not exist"},
 		// A quoted literal next to an operator with no form for the other
 		// operand's type, or more than one (see unknown.go).
 		{`SELECT TRUE + '1'`, absent, "42883", "operator does not exist: boolean + unknown"},

@@ -116,18 +116,18 @@ func TestScalarMath(t *testing.T) {
 		{"ROUND(123456789012345678901234567890.5)", "123456789012345678901234567891", "NUMERIC(31,0)"},
 		{"ROUND(2.5, -1000000000)", "0", "NUMERIC(2,0)"},
 		// Integers keep their type; a negative n rounds to tens, hundreds, …
-		{"ROUND(5)", "5", "BIGINT"},
-		{"ROUND(5, 2)", "5", "BIGINT"},
-		{"ROUND(1250, -2)", "1300", "BIGINT"},
-		{"ROUND(-1250, -2)", "-1300", "BIGINT"},
-		{"ROUND(1249, -2)", "1200", "BIGINT"},
+		{"ROUND(5)", "5", "INTEGER"},
+		{"ROUND(5, 2)", "5", "INTEGER"},
+		{"ROUND(1250, -2)", "1300", "INTEGER"},
+		{"ROUND(-1250, -2)", "-1300", "INTEGER"},
+		{"ROUND(1249, -2)", "1200", "INTEGER"},
 		{"ROUND(CAST(149 AS SMALLINT), -2)", "100", "SMALLINT"},
-		// DOUBLE also rounds half away from zero (not to even), on the
-		// decimal value as written: 2.675 is 2.67499999… in binary.
-		{"ROUND(CAST(0.5 AS DOUBLE))", "1", "DOUBLE PRECISION"},
+		// Floating ROUND(x) rounds half to even. The two-argument extension
+		// retains decimal rounding of the written value.
+		{"ROUND(CAST(0.5 AS DOUBLE))", "0", "DOUBLE PRECISION"},
 		{"ROUND(CAST(1.5 AS DOUBLE))", "2", "DOUBLE PRECISION"},
-		{"ROUND(CAST(2.5 AS DOUBLE))", "3", "DOUBLE PRECISION"},
-		{"ROUND(CAST(-2.5 AS DOUBLE))", "-3", "DOUBLE PRECISION"},
+		{"ROUND(CAST(2.5 AS DOUBLE))", "2", "DOUBLE PRECISION"},
+		{"ROUND(CAST(-2.5 AS DOUBLE))", "-2", "DOUBLE PRECISION"},
 		{"ROUND(2.675e0, 2)", "2.68", "DOUBLE PRECISION"},
 		{"ROUND(-2.675e0, 2)", "-2.68", "DOUBLE PRECISION"},
 		{"ROUND(1.005e0, 2)", "1.01", "DOUBLE PRECISION"},
@@ -135,15 +135,15 @@ func TestScalarMath(t *testing.T) {
 		{"ROUND(1.5e300, -300)", "2e+300", "DOUBLE PRECISION"},
 		{"ROUND(1e-320, 2)", "0", "DOUBLE PRECISION"},
 		{"ROUND(CAST(2.675 AS REAL), 2)", "2.68", "DOUBLE PRECISION"},
-		{"ROUND('2.5')", "3", "DOUBLE PRECISION"},
+		{"ROUND('2.5')", "2", "DOUBLE PRECISION"},
 		{"ROUND(CAST('NaN' AS DOUBLE))", "NaN", "DOUBLE PRECISION"},
 		{"ROUND(2.5, NULL)", "NULL", "NUMERIC(3,1)"}, // digits not a literal: input scale
 		{"ROUND(NULL)", "NULL", "NULL"},
 
 		{"TRUNC(2.789, 1)", "2.7", "NUMERIC(2,1)"},
 		{"TRUNC(-2.789)", "-2", "NUMERIC(1,0)"},
-		{"TRUNC(1299, -2)", "1200", "BIGINT"},
-		{"TRUNC(-1299, -2)", "-1200", "BIGINT"},
+		{"TRUNC(1299, -2)", "1200", "INTEGER"},
+		{"TRUNC(-1299, -2)", "-1200", "INTEGER"},
 		{"TRUNC(2.789e0, 2)", "2.78", "DOUBLE PRECISION"},
 		{"TRUNC(-2.789e0)", "-2", "DOUBLE PRECISION"},
 
@@ -152,14 +152,14 @@ func TestScalarMath(t *testing.T) {
 		{"CEIL(1.2)", "2", "NUMERIC(2,0)"},
 		{"CEIL(-1.2)", "-1", "NUMERIC(2,0)"},
 		{"CEILING(9.1)", "10", "NUMERIC(2,0)"},
-		{"FLOOR(7)", "7", "BIGINT"},
+		{"FLOOR(7)", "7", "INTEGER"},
 		{"CEIL(-1.5e0)", "-1", "DOUBLE PRECISION"},
 		{"FLOOR(-1.5e0)", "-2", "DOUBLE PRECISION"},
 
 		// MOD takes the sign of the dividend; NUMERIC stays exact.
-		{"MOD(7, 3)", "1", "BIGINT"},
-		{"MOD(-7, 3)", "-1", "BIGINT"},
-		{"MOD(7, -3)", "1", "BIGINT"},
+		{"MOD(7, 3)", "1", "INTEGER"},
+		{"MOD(-7, 3)", "-1", "INTEGER"},
+		{"MOD(7, -3)", "1", "INTEGER"},
 		{"MOD(-9223372036854775808, -1)", "0", "BIGINT"},
 		{"MOD(7.5, 2)", "1.5", "NUMERIC(2,1)"},
 		{"MOD(-7.5, 2)", "-1.5", "NUMERIC(2,1)"},
@@ -187,8 +187,8 @@ func TestScalarMath(t *testing.T) {
 		{"EXP(-1000.0)", "0", "DOUBLE PRECISION"}, // NUMERIC: no underflow error
 		{"SQRT(NULL)", "NULL", "DOUBLE PRECISION"},
 
-		{"SIGN(-5)", "-1", "BIGINT"},
-		{"SIGN(0)", "0", "BIGINT"},
+		{"SIGN(-5)", "-1", "INTEGER"},
+		{"SIGN(0)", "0", "INTEGER"},
 		{"SIGN(2.5)", "1", "NUMERIC(1,0)"},
 		{"SIGN(-0.5e0)", "-1", "DOUBLE PRECISION"},
 		{"SIGN(CAST(0 AS DOUBLE))", "0", "DOUBLE PRECISION"},
@@ -487,19 +487,19 @@ func TestScalarStrings(t *testing.T) {
 
 func TestScalarConditional(t *testing.T) {
 	runScalarCases(t, []scalarCase{
-		{"NULLIF(1, 1)", "NULL", "BIGINT"},
-		{"NULLIF(1, 2)", "1", "BIGINT"},
+		{"NULLIF(1, 1)", "NULL", "INTEGER"},
+		{"NULLIF(1, 2)", "1", "INTEGER"},
 		{"NULLIF('a', 'a')", "NULL", "VARCHAR"},
 		{"NULLIF('', '')", "NULL", "VARCHAR"},
-		{"NULLIF(NULL, 1)", "NULL", "BIGINT"},
-		{"NULLIF(1, NULL)", "1", "BIGINT"},
+		{"NULLIF(NULL, 1)", "NULL", "INTEGER"},
+		{"NULLIF(1, NULL)", "1", "INTEGER"},
 		{"NULLIF(1.0, 1)", "NULL", ""},
 
 		// GREATEST / LEAST ignore NULLs and widen to a common type.
-		{"GREATEST(1, 5, 3)", "5", "BIGINT"},
-		{"LEAST(1, 5, 3)", "1", "BIGINT"},
-		{"GREATEST(1, NULL, 3)", "3", "BIGINT"},
-		{"LEAST(NULL, 2, NULL)", "2", "BIGINT"},
+		{"GREATEST(1, 5, 3)", "5", "INTEGER"},
+		{"LEAST(1, 5, 3)", "1", "INTEGER"},
+		{"GREATEST(1, NULL, 3)", "3", "INTEGER"},
+		{"LEAST(NULL, 2, NULL)", "2", "INTEGER"},
 		{"GREATEST(NULL, NULL)", "NULL", "NULL"},
 		{"GREATEST(1, 2.5)", "2.5", "NUMERIC(38,1)"},
 		{"LEAST(1, 2.5)", "1.0", "NUMERIC(38,1)"},
@@ -509,15 +509,15 @@ func TestScalarConditional(t *testing.T) {
 		{"LEAST('b', 'B', 'a')", "B", "VARCHAR"},
 		{"GREATEST(DATE '2024-01-01', '2024-06-01')", "2024-06-01", "DATE"},
 		{"GREATEST(DATE '2024-01-01', TIMESTAMP '2023-06-01 12:00:00')", "2024-01-01 00:00:00", "TIMESTAMP(6)"},
-		{"GREATEST(5)", "5", "BIGINT"},
+		{"GREATEST(5)", "5", "INTEGER"},
 
 		// IIF is CASE WHEN: only the chosen branch is evaluated.
 		{"IIF(1 < 2, 'yes', 'no')", "yes", "VARCHAR"},
 		{"IIF(1 > 2, 'yes', 'no')", "no", "VARCHAR"},
 		{"IIF(NULL, 'yes', 'no')", "no", "VARCHAR"},
 		{"IIF(1 > 2, 1, 2.5)", "2.5", "NUMERIC(38,1)"},
-		{"IIF(TRUE, 1, 1 / 0)", "1", "BIGINT"},
-		{"IIF(TRUE, NULL, 1)", "NULL", "BIGINT"},
+		{"IIF(TRUE, 1, 1 / 0)", "1", "INTEGER"},
+		{"IIF(TRUE, NULL, 1)", "NULL", "INTEGER"},
 
 		// COALESCE widens too; literals take the other arguments' type.
 		{"COALESCE(NULL, 1, 2.5)", "1.0", "NUMERIC(38,1)"},
@@ -558,13 +558,12 @@ func TestScalarErrors(t *testing.T) {
 		{"REPEAT('ab', 100000000)", "REPEAT: requested length too large"},
 		{"REGEXP_REPLACE('a', '(', 'x')", "REGEXP_REPLACE: invalid regular expression"},
 		{"REGEXP_REPLACE('a', 'a', 'x', 'z')", `invalid regular expression option "z"`},
-		{"REGEXP_REPLACE('a', 'a', 'x', 'x')", `option "x" is not supported`},
 		{"NULLIF(1, DATE '2024-01-01')", "NULLIF cannot compare"},
 		{"GREATEST(DATE '2024-01-01', CAST(1 AS INTEGER))", "GREATEST types date and integer cannot be matched"},
-		{"LEAST(CAST('a' AS VARCHAR), 1)", "LEAST types varchar and bigint cannot be matched"},
+		{"LEAST(CAST('a' AS VARCHAR), 1)", "LEAST types varchar and integer cannot be matched"},
 		// A quoted literal is read as the other arguments' type.
-		{"LEAST('a', 1)", `invalid input syntax for type bigint: "a"`},
-		{"COALESCE(CAST('a' AS VARCHAR), 1)", "COALESCE types varchar and bigint cannot be matched"},
+		{"LEAST('a', 1)", `invalid input syntax for type integer: "a"`},
+		{"COALESCE(CAST('a' AS VARCHAR), 1)", "COALESCE types varchar and integer cannot be matched"},
 		{"ROUND(1, 2, 3)", "ROUND expects 1 or 2 arguments"},
 		{"RANDOM(1)", "RANDOM expects no arguments"},
 		{"GREATEST()", "GREATEST expects at least 1 argument"},

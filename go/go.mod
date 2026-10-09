@@ -6,6 +6,7 @@ require (
 	github.com/adbc-drivers/driverbase-go/driverbase v0.0.0-20260903064016-31a68ee93796
 	github.com/apache/arrow-adbc/go/adbc v1.12.0
 	github.com/apache/arrow-go/v18 v18.8.0
+	github.com/dlclark/regexp2 v1.11.5
 	github.com/redis/go-redis/v9 v9.22.0
 )
 

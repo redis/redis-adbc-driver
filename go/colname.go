@@ -111,6 +111,8 @@ func funcColname(f *Func) (string, int) {
 		return "", 0
 	case "DATE_PART":
 		return "extract", 2 // EXTRACT(field FROM x)
+	case "__PG_DATE_ADD":
+		return "date_add", 2
 	case "__INTERVAL":
 		return "interval", 1 // INTERVAL '1' DAY: a cast of the string
 	case "__JSON", "__JSONB":
@@ -209,7 +211,7 @@ func findOutputColumn(items []planItem, name, clause string) (*planItem, error) 
 	var match *planItem
 	for i := range items {
 		it := &items[i]
-		if !strings.EqualFold(it.name, name) {
+		if !(it.name == name) {
 			continue
 		}
 		if match == nil {

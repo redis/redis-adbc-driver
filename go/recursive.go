@@ -60,7 +60,6 @@ package redis
 import (
 	"context"
 	"slices"
-	"strings"
 
 	"github.com/apache/arrow-adbc/go/adbc"
 )
@@ -448,7 +447,7 @@ func (e *executor) checkRecursion(def *CTE) (*recursionCheck, error) {
 // siblingCTEs returns the WITH list def belongs to.
 func (e *executor) siblingCTEs(def *CTE) map[string]*CTE {
 	for i := len(e.ctes) - 1; i >= 0; i-- {
-		if e.ctes[i][strings.ToLower(def.Name)] == def {
+		if e.ctes[i][def.Name] == def {
 			return e.ctes[i]
 		}
 	}
@@ -466,7 +465,7 @@ func shadowCTEs(hidden map[string]bool, with []CTE) map[string]bool {
 		out[k] = true
 	}
 	for _, c := range with {
-		out[strings.ToLower(c.Name)] = true
+		out[c.Name] = true
 	}
 	return out
 }
@@ -577,11 +576,11 @@ func (rc *recursionCheck) fromItem(jc JoinClause, hidden map[string]bool) bool {
 	switch {
 	case jc.Table != nil:
 		t := jc.Table
-		key := strings.ToLower(t.Name)
+		key := t.Name
 		if t.Schema != "" || t.Catalog != "" || hidden[key] {
 			return false
 		}
-		if key == strings.ToLower(rc.cte.Name) {
+		if key == rc.cte.Name {
 			switch {
 			case rc.probe:
 			case rc.mutual:

@@ -186,7 +186,7 @@ func TestSQLRecursiveCTE(t *testing.T) {
 	if got := columnNames(schema); got != "a,b" {
 		t.Errorf("column names = %s", got)
 	}
-	if schema.Field(0).Type.ID() != arrow.INT64 || schema.Field(1).Type.ID() != arrow.STRING {
+	if schema.Field(0).Type.ID() != arrow.INT32 || schema.Field(1).Type.ID() != arrow.STRING {
 		t.Errorf("column types = %s", schema)
 	}
 	h.expectRows(`WITH RECURSIVE r(x) AS (SELECT 1.5 UNION ALL SELECT x + 1 FROM r WHERE x < 3) SELECT * FROM r`,
@@ -195,12 +195,12 @@ func TestSQLRecursiveCTE(t *testing.T) {
 		SELECT * FROM r`,
 		"2024-02-27", "2024-02-28", "2024-02-29", "2024-03-01")
 	h.expectError(`WITH RECURSIVE r(x) AS (SELECT 1 UNION ALL SELECT x * 1.5 FROM r WHERE x < 3) SELECT * FROM r`,
-		`recursive query "r" column 1 has type BIGINT in non-recursive term but type NUMERIC(38,1) overall`)
+		`recursive query "r" column 1 has type INTEGER in non-recursive term but type NUMERIC(38,1) overall`)
 	h.expectError(`WITH RECURSIVE r(d) AS (SELECT DATE '2024-02-27' UNION ALL SELECT d + INTERVAL '1 day' FROM r WHERE d < DATE '2024-03-01')
 		SELECT * FROM r`,
 		`recursive query "r" column 1 has type DATE in non-recursive term but type TIMESTAMP(6) overall`)
 	h.expectError(`WITH RECURSIVE r(x) AS (SELECT 1 UNION ALL SELECT 'a' FROM r) SELECT * FROM r`,
-		`has type BIGINT in non-recursive term but type VARCHAR overall`)
+		`has type INTEGER in non-recursive term but type VARCHAR overall`)
 	h.expectError(`WITH RECURSIVE r(x) AS (SELECT 1 UNION ALL SELECT x, x FROM r) SELECT * FROM r`,
 		"each UNION query must have the same number of columns")
 	h.expectError(`WITH RECURSIVE r(a, b) AS (SELECT 1 UNION ALL SELECT a + 1 FROM r WHERE a < 3) SELECT * FROM r`,
@@ -337,7 +337,7 @@ func TestSQLRecursiveSearchCycle(t *testing.T) {
 		{w + ` CYCLE n SET c USING c SELECT * FROM w`, "cycle mark column name and cycle path column name are the same"},
 		{w + ` SEARCH DEPTH FIRST BY n SET c CYCLE n SET c USING p SELECT * FROM w`,
 			"search sequence column name and cycle mark column name are the same"},
-		{w + ` CYCLE n SET c TO 1 DEFAULT 'x' USING p SELECT * FROM w`, "CYCLE types BIGINT and VARCHAR cannot be matched"},
+		{w + ` CYCLE n SET c TO 1 DEFAULT 'x' USING p SELECT * FROM w`, "CYCLE types INTEGER and VARCHAR cannot be matched"},
 		{`WITH RECURSIVE w(n) AS (SELECT 1 UNION ALL SELECT s.m FROM (SELECT n + 1 AS m FROM w) s WHERE s.m < 3)
 			CYCLE n SET c USING p SELECT * FROM w`,
 			`with a SEARCH or CYCLE clause, the recursive reference to WITH query "w" must be at the top level of its right-hand SELECT`},
@@ -593,7 +593,7 @@ func TestSQLGenerateSeries(t *testing.T) {
 	t.Cleanup(func() { h.exec("DROP TABLE IF EXISTS it_qf_ev") })
 
 	schema := h.expectRows(`SELECT * FROM generate_series(1, 3)`, "1", "2", "3")
-	if got := columnNames(schema); got != "generate_series" || schema.Field(0).Type.ID() != arrow.INT64 {
+	if got := columnNames(schema); got != "generate_series" || schema.Field(0).Type.ID() != arrow.INT32 {
 		t.Errorf("generate_series column = %s", schema)
 	}
 	h.expectRows(`SELECT * FROM generate_series(10, 1, -3)`, "10", "7", "4", "1")
@@ -686,7 +686,7 @@ func TestSQLGenerateSeries(t *testing.T) {
 	h.expectError(`SELECT * FROM unnest(1)`, "table function unnest is not supported")
 	h.expectError(`SELECT * FROM generate_series(1)`, "GENERATE_SERIES expects 2 or 3 arguments")
 	h.expectError(`SELECT * FROM generate_series(1, 10, INTERVAL '1 day')`,
-		"function generate_series(bigint, bigint, interval) does not exist")
+		"function generate_series(integer, integer, interval) does not exist")
 	h.expectError(`SELECT * FROM generate_series(DATE '2024-01-01', DATE '2024-01-02')`,
 		"function generate_series(date, date) does not exist")
 	h.expectError(`SELECT * FROM generate_series(1, COUNT(*))`, "aggregate functions are not allowed in functions in FROM")

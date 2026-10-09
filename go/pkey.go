@@ -50,7 +50,6 @@ package redis
 import (
 	"fmt"
 	"slices"
-	"strings"
 )
 
 // keyMeta is a PRIMARY KEY as the table metadata stores it: its name and
@@ -97,7 +96,7 @@ func resolveKey(meta *tableMeta, def KeyDef, inAlter bool) ([]int, error) {
 			return nil, stateErrorf(stateUndefinedColumn, "column %q named in key does not exist", name)
 		}
 		// Column names are unique regardless of case.
-		if slices.ContainsFunc(def.Columns[:i], func(o string) bool { return strings.EqualFold(o, name) }) {
+		if slices.ContainsFunc(def.Columns[:i], func(o string) bool { return (o == name) }) {
 			return nil, stateErrorf(stateDuplicateColumn, "column %q appears twice in primary key constraint", name)
 		}
 		cols[i] = j
@@ -113,7 +112,7 @@ func resolveKey(meta *tableMeta, def KeyDef, inAlter bool) ([]int, error) {
 // keyName names a new primary key of meta (see the top of this file).
 func keyName(meta *tableMeta, name string) (string, error) {
 	used := func(n string) bool {
-		return slices.ContainsFunc(meta.Checks, func(c checkMeta) bool { return strings.EqualFold(c.Name, n) })
+		return slices.ContainsFunc(meta.Checks, func(c checkMeta) bool { return (c.Name == n) })
 	}
 	if name != "" {
 		if used(name) {

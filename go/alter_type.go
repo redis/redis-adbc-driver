@@ -155,7 +155,7 @@ func (e *executor) alterType(ctx context.Context, m, orig *tableMeta, cmd AlterC
 			return err
 		}
 	}
-	if d, ok := in.views[strings.ToLower(col.Name)]; ok {
+	if d, ok := in.views[col.Name]; ok {
 		return stateErrorf(stateFeatureNotSupported, "cannot alter type of a column used by a view or rule; %s", d)
 	}
 	was := col.Type
@@ -417,7 +417,7 @@ func (e *executor) viewDependencies(ctx context.Context, meta *tableMeta, cmds [
 			continue
 		}
 		if i, ok := meta.resolve(c.Column); ok {
-			cols[strings.ToLower(meta.Columns[i].Name)] = true
+			cols[meta.Columns[i].Name] = true
 		}
 	}
 	if len(cols) == 0 {
@@ -449,7 +449,7 @@ func (e *executor) viewDependencies(ctx context.Context, meta *tableMeta, cmds [
 				continue
 			}
 			for _, c := range e.viewReads(ctx, v, meta) {
-				lc := strings.ToLower(c)
+				lc := c
 				if cols[lc] && in.views[lc] == "" {
 					if in.views == nil {
 						in.views = map[string]string{}

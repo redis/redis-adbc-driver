@@ -376,7 +376,7 @@ func (p *selectPlan) columnName(name string) string {
 // (outerAggs), computed per group.
 func (p *selectPlan) ungroupedSubquery(sq *Subquery) error {
 	for _, ref := range sq.outerRefs {
-		if ref.up != 0 || groupedColumn(p.sel.GroupBy, ref.name) || p.outerAggregate(ref.name) {
+		if ref.up != 0 || groupedColumn(p.sel.GroupBy, ref.name) || p.functionallyGrouped(ref.name) || p.outerAggregate(ref.name) {
 			continue
 		}
 		return errorf(adbc.StatusInvalidArgument, "subquery uses ungrouped column %q from outer query", p.columnName(ref.name))
@@ -432,10 +432,25 @@ func checkGroupedSubqueries(plan *selectPlan) error {
 	exprs = append(exprs, plan.having, plan.qualify)
 	var err error
 	for _, x := range exprs {
-		walkOutsideAggregates(x, func(n Expr) {
-			if sq, ok := n.(*Subquery); ok && err == nil && !grouping[sq] {
+		walkExprPruned(x, func(n Expr) bool {
+			if err != nil {
+				return false
+			}
+			for _, g := range sel.GroupBy {
+				if exprEqual(g, n) {
+					return false
+				}
+			}
+			if f, ok := n.(*Func); ok && aggregateFuncs[f.Name] {
+				return false
+			}
+			if sq, ok := n.(*Subquery); ok && !grouping[sq] {
 				err = plan.ungroupedSubquery(sq)
 			}
+			if c, ok := n.(*ColumnRef); ok && c.Outer == 0 && !plan.functionallyGrouped(c.Name) && !plan.outerAggregate(c.Name) {
+				err = stateErrorf(stateGrouping, "column %q must appear in the GROUP BY clause or be used in an aggregate function", plan.columnName(c.Name))
+			}
+			return true
 		})
 	}
 	return err
@@ -885,4 +900,32 @@ func (gp *groupingPlan) combine(set []int, res [][]Value) []map[string]Value {
 		out[r] = row
 	}
 	return out
+}
+
+// A base table grouped by its complete primary key determines its other columns.
+func (p *selectPlan) functionallyGrouped(name string) bool {
+	if p.meta == nil {
+		return false
+	}
+	determines := func(t *tableMeta, prefix string) bool {
+		keys := t.keyColumns()
+		if len(keys) == 0 || t.isMem {
+			return false
+		}
+		for _, key := range keys {
+			if !groupedColumn(p.sel.GroupBy, prefix+key) {
+				return false
+			}
+		}
+		return true
+	}
+	if p.meta.join == nil {
+		return determines(p.meta, "")
+	}
+	for _, item := range p.meta.join.items {
+		if strings.HasPrefix(name, item.prefix) {
+			return determines(item.base, item.prefix)
+		}
+	}
+	return false
 }

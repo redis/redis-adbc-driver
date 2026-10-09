@@ -82,6 +82,15 @@ func (c *connectionImpl) GetOption(ctx context.Context, key string) (string, err
 
 func (c *connectionImpl) SetOption(ctx context.Context, key, value string) error {
 	switch key {
+	case adbc.OptionKeyAutoCommit:
+		switch value {
+		case adbc.OptionValueEnabled:
+			return nil
+		case adbc.OptionValueDisabled:
+			return errorf(adbc.StatusNotImplemented, "transactions are not supported (autocommit only)")
+		default:
+			return errorf(adbc.StatusInvalidArgument, "invalid autocommit value %q: expected true or false", value)
+		}
 	case OptionStringRenameRekey:
 		rekey, err := parseRenameRekey(value)
 		if err != nil {

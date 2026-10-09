@@ -75,7 +75,7 @@ var funcSamples = map[string]string{
 	"MINUTE": "MINUTE(TIMESTAMP '2024-01-02 03:04:05')", "SECOND": "SECOND(TIMESTAMP '2024-01-02 03:04:05')",
 	"EPOCH": "EPOCH(TIMESTAMP '2024-01-02 03:04:05')", "EPOCH_MS": "EPOCH_MS(TIMESTAMP '2024-01-02 03:04:05')",
 	"LAST_DAY": "LAST_DAY(DATE '2024-02-02')", "AGE": "AGE(DATE '2024-01-02', DATE '2023-01-01')",
-	"DATEADD": "DATEADD(day, 1, DATE '2024-01-02')", "DATE_ADD": "DATE_ADD(DATE '2024-01-02', INTERVAL 1 DAY)",
+	"DATEADD": "DATEADD(day, 1, DATE '2024-01-02')", "DATE_ADD": "DATE_ADD(day, 1, DATE '2024-01-02')",
 	"TIMESTAMPADD": "TIMESTAMPADD(day, 1, DATE '2024-01-02')", "DATE_SUB": "DATE_SUB(DATE '2024-01-02', INTERVAL 1 DAY)",
 	"DATEDIFF":      "DATEDIFF(day, DATE '2024-01-01', DATE '2024-01-03')",
 	"DATE_DIFF":     "DATE_DIFF('day', DATE '2024-01-01', DATE '2024-01-03')",
@@ -87,6 +87,8 @@ var funcSamples = map[string]string{
 	"CONVERT_TIMEZONE": "CONVERT_TIMEZONE('UTC', 'America/New_York', TIMESTAMP '2024-01-02 03:04:05')",
 	"DATE_BIN":         "DATE_BIN(INTERVAL '15 minutes', TIMESTAMP '2024-01-02 03:04:05', TIMESTAMP '2024-01-01')",
 	"__INTERVAL":       "INTERVAL 7 DAY",
+	"__PG_DATE_ADD":    "DATE_ADD(DATE '2024-01-02', INTERVAL 1 DAY)",
+	"DATE_SUBTRACT":    "DATE_SUBTRACT(DATE '2024-01-02', INTERVAL '1 day')",
 	// JSON
 	"->": `'{"a": 1}' -> 'a'`, "->>": `'{"a": 1}' ->> 'a'`, "#>": `'{"a": [1]}' #> '{a,0}'`, "#>>": `'{"a": [1]}' #>> '{a,0}'`,
 	"JSON_EXTRACT_PATH": `JSON_EXTRACT_PATH('{"a": 1}', 'a')`, "JSON_EXTRACT_PATH_TEXT": `JSON_EXTRACT_PATH_TEXT('{"a": 1}', 'a')`,
@@ -394,13 +396,13 @@ func TestFuncRegistryShape(t *testing.T) {
 // tests evaluate) get the same errors as bound ones.
 func TestFuncUnboundErrors(t *testing.T) {
 	for _, c := range []struct{ expr, err string }{
-		{"NOSUCHFUNC(1, 'a', NULL, 1.5, DATE '2024-01-01')", "function nosuchfunc(bigint, varchar, unknown, numeric, date) does not exist"},
+		{"NOSUCHFUNC(1, 'a', NULL, 1.5, DATE '2024-01-01')", "function nosuchfunc(integer, varchar, unknown, numeric, date) does not exist"},
 		{"NoSuchFunc()", "function nosuchfunc() does not exist"},
 		{"UPPER(1, 2)", "UPPER expects 1 argument"},
 		{"UPPER(NULL, NULL)", "UPPER expects 1 argument"},
 		{"UPPER(DISTINCT 'a')", "UPPER does not accept * or DISTINCT"},
 		{"COALESCE(NOSUCHFUNC(NULL), 1)", "function nosuchfunc(unknown) does not exist"},
-		{"CASE WHEN TRUE THEN 1 ELSE UPPER(NOSUCHFUNC(2), 3) END", "function nosuchfunc(bigint) does not exist"},
+		{"CASE WHEN TRUE THEN 1 ELSE UPPER(NOSUCHFUNC(2), 3) END", "function nosuchfunc(integer) does not exist"},
 		{"CAST(NOW(1, 2) AS VARCHAR)", "NOW expects 0 or 1 arguments"},
 		{"ROW_NUMBER()", "window function ROW_NUMBER requires an OVER clause"},
 		{"generate_series(1, 2)", "generate_series is only supported in FROM"},
@@ -415,7 +417,7 @@ func TestFuncUnboundErrors(t *testing.T) {
 		}
 	}
 	// Type inference and evaluation report them too.
-	if _, _, err := evalTestExpr(t, "NOSUCHFUNC(1)"); err == nil || !strings.Contains(err.Error(), "function nosuchfunc(bigint) does not exist") {
+	if _, _, err := evalTestExpr(t, "NOSUCHFUNC(1)"); err == nil || !strings.Contains(err.Error(), "function nosuchfunc(integer) does not exist") {
 		t.Errorf("NOSUCHFUNC(1): %v", err)
 	}
 	if _, _, err := evalTestExpr(t, "UPPER(NULL, NULL)"); err == nil || !strings.Contains(err.Error(), "UPPER expects 1 argument") {

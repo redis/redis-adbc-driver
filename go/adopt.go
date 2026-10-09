@@ -286,7 +286,7 @@ func (a *adopter) plan() (*tableMeta, error) {
 	meta := &tableMeta{Schema: a.schema, Name: a.table, KeyPrefix: o.Prefix, IndexName: a.index, Adopted: true, KeyRows: true}
 	only := map[string]bool{}
 	for _, name := range o.IndexColumns {
-		only[strings.ToLower(name)] = true
+		only[name] = true
 	}
 	n := 0
 	for _, col := range a.cols {
@@ -294,7 +294,7 @@ func (a *adopter) plan() (*tableMeta, error) {
 		if col.field != col.name {
 			cm.Field = col.field
 		}
-		want := indexable(cm.Type) && simpleName(cm.field()) && (o.IndexColumns == nil || only[strings.ToLower(col.name)])
+		want := indexable(cm.Type) && simpleName(cm.field()) && (o.IndexColumns == nil || only[col.name])
 		cm.Indexed = want && n < maxIndexed
 		if cm.Indexed {
 			n++

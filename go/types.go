@@ -284,6 +284,9 @@ func (t ColType) ArrowType() arrow.DataType {
 	case KindFloat64:
 		return arrow.PrimitiveTypes.Float64
 	case KindDecimal:
+		if t.Precision == 0 {
+			return &arrow.Decimal256Type{Precision: 76, Scale: 16}
+		}
 		if t.Precision <= 38 {
 			return &arrow.Decimal128Type{Precision: t.Precision, Scale: t.Scale}
 		}
@@ -330,6 +333,9 @@ func (t ColType) SQLName() string {
 	case KindFloat64:
 		return "DOUBLE PRECISION"
 	case KindDecimal:
+		if t.Precision == 0 {
+			return "NUMERIC"
+		}
 		return fmt.Sprintf("NUMERIC(%d,%d)", t.Precision, t.Scale)
 	case KindString:
 		switch {

@@ -278,8 +278,8 @@ func TestSQLGroupingFunction(t *testing.T) {
 	if dt := schema.Field(0).Type; dt.ID() != arrow.INT32 {
 		t.Errorf("GROUPING() type = %s, want int32", dt)
 	}
-	if dt := schema.Field(1).Type; dt.ID() != arrow.INT64 {
-		t.Errorf("GROUPING() + 1 type = %s, want int64", dt)
+	if dt := schema.Field(1).Type; dt.ID() != arrow.INT32 {
+		t.Errorf("GROUPING() + 1 type = %s, want int32", dt)
 	}
 
 	// Postgres's errors.

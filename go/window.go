@@ -197,7 +197,7 @@ func (p *parser) parseWindowClause(sel *SelectStmt) error {
 			return err
 		}
 		for _, w := range sel.Windows {
-			if strings.EqualFold(w.Name, name) {
+			if w.Name == name {
 				return &sqlError{msg: fmt.Sprintf("window %q is already defined", name)}
 			}
 		}
@@ -246,7 +246,7 @@ func resolveWindowSpec(defs []NamedWindow, s *WindowSpec) (*WindowSpec, error) {
 	}
 	var base *WindowSpec
 	for _, d := range defs {
-		if strings.EqualFold(d.Name, s.Ref) {
+		if d.Name == s.Ref {
 			base = d.Spec
 		}
 	}
@@ -1512,7 +1512,7 @@ func (a *frameAgg) result() (Value, error) {
 		return boolResult(a.name != "BOOL_OR", a.count, a.trues), nil
 	}
 	if statFuncs[a.name] {
-		return a.sum.varianceValue(a.name), nil
+		return a.sum.statValue(a.name, a.typ), nil
 	}
 	if a.count == 0 {
 		return nullValue(a.typ), nil
