@@ -146,6 +146,7 @@ func TestAggregateWorkerConcurrencyProfile(t *testing.T) {
 		cpuBefore := cpu()
 		started := time.Now()
 		latencies := make([]float64, 0, rounds*concurrency)
+		history := make([]map[string]any, 0, rounds)
 		for round := 0; round < rounds; round++ {
 			var wg sync.WaitGroup
 			durations := make([]float64, concurrency)
@@ -166,6 +167,16 @@ func TestAggregateWorkerConcurrencyProfile(t *testing.T) {
 			close(start)
 			wg.Wait()
 			latencies = append(latencies, durations...)
+			options := db.(adbc.GetSetOptionsWithContext)
+			target, _ := options.GetOption(h.ctx, OptionStringQueryWorkerBudget)
+			tuning, _ := options.GetOption(h.ctx, OptionStringQueryWorkerTuning)
+			var state any
+			_ = json.Unmarshal([]byte(tuning), &state)
+			roundGrants := make([]string, concurrency)
+			for i := range roundGrants {
+				roundGrants[i], _ = connections[i].conn.(adbc.GetSetOptionsWithContext).GetOption(h.ctx, OptionIntQueryWorkersLastGrant)
+			}
+			history = append(history, map[string]any{"round": round, "budget": target, "grants": roundGrants, "tuning": state})
 		}
 		elapsed := time.Since(started).Seconds()
 		clientCPU := cpu() - cpuBefore
@@ -185,6 +196,7 @@ func TestAggregateWorkerConcurrencyProfile(t *testing.T) {
 		}
 		result := map[string]any{
 			"last_worker_grants": grants,
+			"allocation_history": history,
 			"rows":               rows, "rounds": rounds, "concurrency": concurrency, "GOMAXPROCS": runtime.GOMAXPROCS(0),
 			"worker_ceiling": ceiling, "worker_budget": resolved,
 			"mean_query_seconds": sum / float64(len(latencies)), "p95_query_seconds": latencies[(len(latencies)*95+99)/100-1],

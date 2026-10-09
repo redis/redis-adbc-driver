@@ -19,6 +19,7 @@ import (
 	"errors"
 	"io"
 	"maps"
+	"time"
 )
 
 // scanPages visits indexed rows a cursor page at a time and closes the cursor
@@ -52,13 +53,27 @@ func (e *executor) scanPages(ctx context.Context, req scanRequest, params []Valu
 		}
 		return nil
 	}
+	var started time.Time
+	if e.telemetry != nil {
+		started = time.Now()
+	}
 	it, err := e.openScan(ctx, req, params)
+	if e.telemetry != nil {
+		e.telemetry.fetch.Add(int64(time.Since(started)))
+	}
 	if err != nil {
 		return err
 	}
 	defer it.close(ctx)
 	for {
+		if e.telemetry != nil {
+			started = time.Now()
+		}
 		_, rows, err := it.next(ctx)
+		if e.telemetry != nil {
+			e.telemetry.fetch.Add(int64(time.Since(started)))
+			e.telemetry.rows.Add(int64(len(rows)))
+		}
 		if errors.Is(err, io.EOF) {
 			return nil
 		}

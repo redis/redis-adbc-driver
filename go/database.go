@@ -369,7 +369,7 @@ func (d *databaseImpl) GetOption(ctx context.Context, key string) (string, error
 		return d.schema, nil
 	case OptionStringAggregatePushdown:
 		return d.pushdown, nil
-	case OptionStringQueryWorkerBudget, OptionIntQueryWorkersActive, OptionIntQueryWorkersQueued:
+	case OptionStringQueryWorkerBudget, OptionIntQueryWorkersActive, OptionIntQueryWorkersQueued, OptionStringQueryWorkerTuning:
 		return d.workerBudget.option(key), nil
 	case OptionStringQueryWorkers:
 		return strconv.Itoa(effectiveQueryWorkers(d.queryWorkers)), nil

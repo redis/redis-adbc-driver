@@ -16,6 +16,7 @@ package redis
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"os"
@@ -60,7 +61,7 @@ func TestDefaultQueryWorkers(t *testing.T) {
 		old := runtime.GOMAXPROCS(n)
 		got := effectiveQueryWorkers(0)
 		runtime.GOMAXPROCS(old)
-		if got != n {
+		if got != min(32, n*2) {
 			t.Fatalf("GOMAXPROCS %d: got %d", n, got)
 		}
 	}
@@ -139,7 +140,7 @@ func TestSQLParallelAggregates(t *testing.T) {
 		t.Cleanup(func() { c.Close(h.ctx); db.Close(h.ctx) })
 		return &sqlHarness{t: t, ctx: h.ctx, conn: c}
 	}
-	serial, parallel := newHarness("1"), newHarness("4")
+	serial, parallel, automatic := newHarness("1"), newHarness("4"), newHarness("auto")
 	queries := []string{
 		"SELECT COUNT(*), COUNT(v), SUM(v), AVG(v), MIN(v), MAX(v), SUM(f), AVG(f) FROM it_parallel_aggregate",
 		"SELECT COUNT(*), SUM(v), AVG(f) FROM it_parallel_aggregate WHERE g <> 3",
@@ -153,6 +154,27 @@ func TestSQLParallelAggregates(t *testing.T) {
 		if !reflect.DeepEqual(got, want) {
 			t.Fatalf("%s\ngot %v\nwant %v", q, got, want)
 		}
+		got, _ = automatic.query(q)
+		if !reflect.DeepEqual(got, want) {
+			t.Fatalf("automatic %s: %v want %v", q, got, want)
+		}
+	}
+	// Normal execution trains the automatic coordinator without replaying SQL.
+	autoOptions := automatic.conn.(adbc.GetSetOptionsWithContext)
+	expected, _ := serial.query(queries[0])
+	for i := 0; i < 12; i++ {
+		got, _ := automatic.query(queries[0])
+		if !reflect.DeepEqual(got, expected) {
+			t.Fatal("tuning changed SQL results")
+		}
+	}
+	snapshot, _ := autoOptions.GetOption(h.ctx, OptionStringQueryWorkerTuning)
+	var state struct {
+		Observations uint64
+		Signals      tuneObservation
+	}
+	if err := json.Unmarshal([]byte(snapshot), &state); err != nil || state.Observations == 0 || state.Signals.Rows == 0 {
+		t.Fatalf("automatic scans did not record actual work: %s %v", snapshot, err)
 	}
 	// Four connections from one database share two tokens, including the
 	// explicit ceiling (four) which must never bypass the shared limit.
@@ -245,5 +267,12 @@ func TestSQLParallelAggregates(t *testing.T) {
 
 	if shared.workerBudget.option(OptionIntQueryWorkersActive) != "0" {
 		t.Fatal("error leaked workers")
+	}
+
+	e.queryWorkers = 0
+	e.workerBudget = &workerBudget{}
+	_, handled, scanErr = e.parallelAggregate(h.ctx, &selectPlan{meta: meta, sel: &SelectStmt{}}, wherePlan{query: "*"}, []*Func{{Name: "SUM", Args: []Expr{&ColumnRef{Name: "v"}}}}, nil)
+	if !handled || scanErr == nil || e.workerBudget.cohort.pending != 0 || e.workerBudget.active != 0 || e.workerBudget.tuner.observations != 0 {
+		t.Fatal("automatic error cleanup leaked or trained on failed query")
 	}
 }
