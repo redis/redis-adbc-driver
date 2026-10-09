@@ -231,14 +231,15 @@ func (it *joinItem) ref(col string) *ColumnRef {
 }
 
 // keyLabel is a joined row's key as errors name it: alias.column, without
-// the number in a second item's prefix (see add).
+// the number in a second item's prefix (see add), or in the column's name
+// (see columnLabel).
 func keyLabel(key string) string {
 	if i := strings.IndexByte(key, 0); i > 0 {
 		if j := strings.IndexByte(key[i:], '.'); j > 0 {
-			return key[:i] + key[i+j:]
+			key = key[:i] + key[i+j:]
 		}
 	}
-	return key
+	return columnLabel(key)
 }
 
 // finish works out which items are NULL-supplying and returns the joined
@@ -276,7 +277,7 @@ func (jp *joinPlan) finish() (*tableMeta, []relation) {
 	for i, it := range jp.items {
 		for _, c := range it.base.Columns {
 			joined.Columns = append(joined.Columns, columnMeta{
-				Name: it.prefix + c.Name, label: c.Name, Type: c.Type, Nullable: true,
+				Name: it.prefix + c.Name, label: c.outputName(), Type: c.Type, Nullable: true,
 			})
 		}
 		rels[i] = it.rel()
@@ -344,15 +345,19 @@ func (e *executor) bindJoin(ctx context.Context, sel *SelectStmt, jp *joinPlan) 
 				}
 				var left *joinItem
 				for _, prev := range jp.items[start:k] {
-					if c, ok := prev.base.column(col); ok && (it.visible == nil || it.visible[prev.prefix+c.Name]) {
-						if left != nil {
-							return errorf(adbc.StatusInvalidArgument, "common column name %q appears more than once in left table", col)
+					c, ok := prev.base.column(col)
+					if ok && (it.visible == nil || it.visible[prev.prefix+c.Name]) || prev.base.ambiguous(col) {
+						if left != nil || !ok {
+							return stateErrorf(stateAmbiguousColumn, "common column name %q appears more than once in left table", col)
 						}
 						left = prev
 					}
 				}
 				if left == nil {
 					return errorf(adbc.StatusInvalidArgument, "column %q specified in USING clause does not exist in left table", col)
+				}
+				if it.base.ambiguous(col) {
+					return stateErrorf(stateAmbiguousColumn, "common column name %q appears more than once in right table", col)
 				}
 				if _, ok := it.base.column(col); !ok {
 					return errorf(adbc.StatusInvalidArgument, "column %q specified in USING clause does not exist in right table", col)

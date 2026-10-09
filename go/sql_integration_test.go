@@ -389,7 +389,10 @@ func TestSQLDerivedTablesAndCTEs(t *testing.T) {
 	// A SELECT alias isn't visible in the same query's WHERE (standard SQL).
 	h.expectError(`SELECT id, qty * 2 AS dbl FROM it_orders WHERE dbl > 7`, "does not exist")
 	h.expectRows(`SELECT id, dbl FROM (SELECT id, qty * 2 AS dbl FROM it_orders) q WHERE dbl > 7 ORDER BY dbl DESC`, "4|20", "6|8")
-	h.expectError(`SELECT * FROM (SELECT id, id FROM it_orders) x`, "more than once")
+	// As in Postgres, a derived table's columns may share a name, which a
+	// reference can't read.
+	h.expectRows(`SELECT * FROM (SELECT id, id FROM it_orders WHERE id < 3) x ORDER BY 1`, "1|1", "2|2")
+	h.expectError(`SELECT id FROM (SELECT id, id FROM it_orders) x`, `column reference "id" is ambiguous`)
 
 	// CTEs: filtering, chaining, column lists, reuse, use inside subqueries.
 	h.expectRows(`WITH totals AS (SELECT customer_id, SUM(amount) AS total FROM it_orders GROUP BY customer_id)
@@ -858,7 +861,9 @@ func (h *sqlHarness) rawClient() goredis.UniversalClient {
 	if err != nil {
 		h.t.Fatal(err)
 	}
-	opts.Protocol = 2 // the driver's reply parsing expects RESP2
+	// Keep the test-inspection client on RESP2: a few helpers below inspect
+	// raw replies directly. Driver connections use the configured protocol.
+	opts.Protocol = 2
 	var c goredis.UniversalClient = goredis.NewClient(opts)
 	if info, err := c.Info(h.ctx, "cluster").Result(); err == nil && strings.Contains(info, "cluster_enabled:1") {
 		_ = c.Close()
@@ -1341,8 +1346,8 @@ func TestSQLIntervals(t *testing.T) {
 
 	// Errors.
 	h.expectError(`SELECT TIMESTAMP '2024-01-01 00:00:00' + 1`, "not supported")
-	h.expectError(`SELECT INTERVAL 'abc'`, "invalid interval")
-	h.expectError(`SELECT INTERVAL 'x' HOUR`, "needs a number")
+	h.expectError(`SELECT INTERVAL 'abc'`, `invalid input syntax for type interval: "abc"`)
+	h.expectError(`SELECT INTERVAL 'x' HOURS`, "needs a number")
 	h.expectError(`SELECT INTERVAL '1 day' / 0`, "division by zero")
 }
 
@@ -1986,7 +1991,7 @@ func TestSQLScalarFunctions(t *testing.T) {
 	h.expectError(`SELECT SPLIT_PART(code, '-', 0) FROM it_fn`, "field position must not be zero")
 	h.expectError(`SELECT ROUND(s) FROM it_fn WHERE id = 1`, `invalid input syntax for type double precision: "  Hello World  "`)
 	h.expectError(`SELECT LEFT(s) FROM it_fn WHERE id > 100`, "LEFT expects 2 arguments")
-	h.expectError(`SELECT GREATEST(d, id) FROM it_fn`, "GREATEST types DATE and INTEGER cannot be matched")
+	h.expectError(`SELECT GREATEST(d, id) FROM it_fn`, "GREATEST types date and integer cannot be matched")
 }
 
 // Bound parameters inside the special syntaxes are numbered in order.
@@ -2664,11 +2669,13 @@ func TestSQLWindowAggregates(t *testing.T) {
 		"6|17.50|1.875|12.25|2024-01-01|c|28|8",
 		"7|22.50|2.875|9.25|2024-01-01|c|28|8",
 		"8|23.50|3|9|2024-01-01|c|28|8")
-	if s := schema.String(); !strings.Contains(s, "OVER (ORDER BY id): type=decimal(38, 2)") ||
-		!strings.Contains(s, "CURRENT ROW): type=float64") || !strings.Contains(s, "MIN(d) OVER (): type=date32") ||
-		!strings.Contains(s, "MAX(g) OVER (): type=utf8") || !strings.Contains(s, "SUM(v) OVER (): type=int64") ||
-		!strings.Contains(s, "COUNT(*) OVER (): type=int64") {
-		t.Errorf("window aggregate types = %s", s)
+	if got, want := fieldNames(schema), "id|sum|avg|sum|min|max|sum|count"; got != want {
+		t.Errorf("window aggregate names = %s, want %s", got, want)
+	}
+	for i, want := range []string{"int32", "decimal(38, 2)", "float64", "float64", "date32", "utf8", "int64", "int64"} {
+		if got := schema.Field(i).Type.String(); got != want {
+			t.Errorf("window aggregate %d type = %s, want %s", i, got, want)
+		}
 	}
 
 	// Window calls inside expressions and scalar functions, and scalar

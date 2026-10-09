@@ -38,6 +38,7 @@ func TestStateStatus(t *testing.T) {
 		"42701": adbc.StatusAlreadyExists,
 		"42601": adbc.StatusInvalidArgument,
 		"42846": adbc.StatusInvalidArgument,
+		"42725": adbc.StatusInvalidArgument,
 		"0A000": adbc.StatusNotImplemented,
 		"57014": adbc.StatusCancelled,
 		"21000": adbc.StatusIO,

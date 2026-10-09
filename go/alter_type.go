@@ -133,7 +133,7 @@ func (e *executor) alterType(ctx context.Context, m, orig *tableMeta, cmd AlterC
 		if err != nil {
 			return invalidArg(err)
 		}
-		if !unknownLiteral(x) && !assignable(t, to) {
+		if !unknownOrNull(x) && !assignable(t, to) {
 			return stateErrorf(stateDatatypeMismatch, "result of USING clause for column %q cannot be cast automatically to type %s; you might need to add an explicit cast",
 				col.Name, pgTypeName(to, false))
 		}
@@ -196,7 +196,7 @@ func (e *executor) alterTypeDefault(ctx context.Context, col columnMeta, to ColT
 		return errorf(adbc.StatusInternal, "invalid DEFAULT %q of column %q: %v", col.Default, col.Name, err)
 	}
 	t := col.Type
-	if !unknownLiteral(x) {
+	if !unknownOrNull(x) {
 		if it, err := inferType(x, nil, nil); err == nil {
 			t = it
 		}
@@ -271,11 +271,11 @@ func (e *executor) bindUsing(ctx context.Context, orig *tableMeta, x Expr) (Expr
 	return x, nil
 }
 
-// unknownLiteral reports whether x is a string literal or NULL, which
-// Postgres types as unknown and converts to any type.
-func unknownLiteral(x Expr) bool {
+// unknownOrNull reports whether x is a quoted string literal or NULL, which
+// Postgres types as unknown and converts to any type (see unknownLiteral).
+func unknownOrNull(x Expr) bool {
 	l, ok := x.(*Literal)
-	return ok && (l.V.Null || l.V.T.Kind == KindString || l.V.T.Kind == KindNull)
+	return ok && (l.V.Null || l.Unknown)
 }
 
 // assignable reports whether Postgres 16 converts values of type from to
@@ -819,6 +819,39 @@ func (e *executor) copyRewritten(ctx context.Context, job *rekeyJob, rw *rewrite
 		return wrapRedis(ctx.Err(), "ALTER TABLE stopped")
 	case <-time.After(time.Until(fence)):
 	}
+	// Background dropped-column cleanup can reindex old HASHes while a
+	// cursor is open. RediSearch then replaces document ids, and that cursor
+	// can omit rows. Writers are fenced out, so the source count is stable;
+	// verify the copies before switching metadata, and rescan missing rows.
+	want, err := s.countMatches(ctx, job.OldIndex, "*")
+	if err != nil {
+		return err
+	}
+	for attempt := 0; attempt < 3; attempt++ {
+		if err := e.copyRewrittenPageScan(ctx, job, rw, attempt > 0); err != nil {
+			return err
+		}
+		// DROP TABLE may have removed both indexes during the scan. Preserve
+		// its table-not-found error instead of probing a now-missing index.
+		if _, err := s.getTable(ctx, job.Schema, job.From); err != nil {
+			return err
+		}
+		copied, err := s.countMatches(ctx, job.IndexName, "*")
+		if err != nil {
+			return err
+		}
+		if copied == want {
+			return nil
+		}
+	}
+	return errorf(adbc.StatusIO, "ALTER TABLE: the source index changed during the rewrite and not every row could be copied; try again")
+}
+
+// copyRewrittenPageScan reads every cursor page of the old index. A retry
+// skips existing copies so USING expressions are evaluated once per row,
+// even when they contain volatile functions.
+func (e *executor) copyRewrittenPageScan(ctx context.Context, job *rekeyJob, rw *rewrite, retry bool) error {
+	s := e.store
 	node, err := s.search(ctx, job.OldIndex)
 	if err != nil {
 		return err
@@ -831,6 +864,9 @@ func (e *executor) copyRewritten(ctx context.Context, job *rekeyJob, rw *rewrite
 	for {
 		rows, cursor, err := parseCursorReply(reply)
 		if err != nil {
+			if cursor != 0 {
+				_ = node.Do(context.WithoutCancel(ctx), "FT.CURSOR", "DEL", job.OldIndex, cursor).Err()
+			}
 			return err
 		}
 		keys := make([]string, 0, len(rows))
@@ -842,7 +878,13 @@ func (e *executor) copyRewritten(ctx context.Context, job *rekeyJob, rw *rewrite
 		if testHookRewriteStep != nil {
 			testHookRewriteStep(ctx, "copy")
 		}
-		if err := e.rewriteKeys(ctx, job, rw, keys); err != nil {
+		if retry {
+			keys, err = s.missingRewriteKeys(ctx, job, keys)
+		}
+		if err == nil {
+			err = e.rewriteKeys(ctx, job, rw, keys)
+		}
+		if err != nil {
 			if cursor != 0 {
 				_ = node.Do(context.WithoutCancel(ctx), "FT.CURSOR", "DEL", job.OldIndex, cursor).Err()
 			}
@@ -855,6 +897,30 @@ func (e *executor) copyRewritten(ctx context.Context, job *rekeyJob, rw *rewrite
 			return wrapRedis(err, "ALTER TABLE: FT.CURSOR READ failed")
 		}
 	}
+}
+
+// missingRewriteKeys keeps source keys whose new-prefix HASH was not
+// written by an earlier scan. No other writer can create these copies
+// until the rewrite switches metadata.
+func (s *store) missingRewriteKeys(ctx context.Context, job *rekeyJob, keys []string) ([]string, error) {
+	missing := make([]string, 0, len(keys))
+	for start := 0; start < len(keys); start += pipelineChunk {
+		chunk := keys[start:min(start+pipelineChunk, len(keys))]
+		pipe := s.client.Pipeline()
+		cmds := make([]*goredis.IntCmd, len(chunk))
+		for i, key := range chunk {
+			cmds[i] = pipe.Exists(ctx, job.KeyPrefix+strings.TrimPrefix(key, job.OldPrefix))
+		}
+		if _, err := pipe.Exec(ctx); err != nil {
+			return nil, wrapRedis(err, "ALTER TABLE: checking copied rows failed")
+		}
+		for i, cmd := range cmds {
+			if cmd.Val() == 0 {
+				missing = append(missing, chunk[i])
+			}
+		}
+	}
+	return missing, nil
 }
 
 // rewriteKeys converts and copies rows to their new keys, with pipelined

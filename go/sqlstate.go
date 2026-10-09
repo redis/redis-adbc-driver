@@ -67,11 +67,13 @@ const (
 	stateUndefinedSchema     = "3F000" // invalid_schema_name
 	stateSyntax              = "42601" // syntax_error
 	stateDuplicateColumn     = "42701" // duplicate_column
+	stateAmbiguousColumn     = "42702" // ambiguous_column
 	stateUndefinedColumn     = "42703" // undefined_column
 	stateGrouping            = "42803" // grouping_error
 	stateDatatypeMismatch    = "42804" // datatype_mismatch
 	stateCannotCoerce        = "42846" // cannot_coerce
 	stateUndefinedFunction   = "42883" // undefined_function
+	stateAmbiguousFunction   = "42725" // ambiguous_function
 	stateUndefinedObject     = "42704" // undefined_object
 	stateWrongObjectType     = "42809" // wrong_object_type
 	stateDuplicateObject     = "42710" // duplicate_object

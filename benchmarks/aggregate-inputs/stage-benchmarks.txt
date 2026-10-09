@@ -1,0 +1,51 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/adbc-drivers/redis/go
+cpu: Apple M4
+BenchmarkAggregateInputStages/1/evaluate/scalar-10         	 3587361	       102.9 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAggregateInputStages/1/evaluate/scalar-10         	 3943742	        97.06 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAggregateInputStages/1/evaluate/scalar-10         	 3948834	        93.23 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAggregateInputStages/1/evaluate_update/scalar-10  	 3169076	       118.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAggregateInputStages/1/evaluate_update/scalar-10  	 3170968	       113.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAggregateInputStages/1/evaluate_update/scalar-10  	 2727056	       117.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAggregateInputStages/1/evaluate/typed-10          	 8834635	        37.96 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAggregateInputStages/1/evaluate/typed-10          	10186215	        36.64 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAggregateInputStages/1/evaluate/typed-10          	 9829261	        37.51 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAggregateInputStages/1/evaluate_update/typed-10   	 6426151	        57.30 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAggregateInputStages/1/evaluate_update/typed-10   	 6346417	        59.51 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAggregateInputStages/1/evaluate_update/typed-10   	 6436318	        57.72 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAggregateInputStages/1/update-10                  	20640722	        17.47 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAggregateInputStages/1/update-10                  	21354105	        18.34 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAggregateInputStages/1/update-10                  	18842084	        18.24 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAggregateInputStages/10/evaluate/scalar-10        	  396542	       967.1 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAggregateInputStages/10/evaluate/scalar-10        	  412047	       900.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAggregateInputStages/10/evaluate/scalar-10        	  413466	       947.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAggregateInputStages/10/evaluate_update/scalar-10 	  305793	      1215 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAggregateInputStages/10/evaluate_update/scalar-10 	  310557	      1139 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAggregateInputStages/10/evaluate_update/scalar-10 	  317629	      1214 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAggregateInputStages/10/evaluate/typed-10         	 1316500	       273.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAggregateInputStages/10/evaluate/typed-10         	 1258254	       266.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAggregateInputStages/10/evaluate/typed-10         	 1320081	       277.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAggregateInputStages/10/evaluate_update/typed-10  	  764155	       451.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAggregateInputStages/10/evaluate_update/typed-10  	  829628	       451.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAggregateInputStages/10/evaluate_update/typed-10  	  808572	       469.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAggregateInputStages/10/update-10                 	 2020936	       170.9 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAggregateInputStages/10/update-10                 	 1932687	       188.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAggregateInputStages/10/update-10                 	 1973626	       171.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAggregateInputStages/90/evaluate/scalar-10        	   42720	      8402 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAggregateInputStages/90/evaluate/scalar-10        	   44022	      8361 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAggregateInputStages/90/evaluate/scalar-10        	   44740	      8667 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAggregateInputStages/90/evaluate_update/scalar-10 	   35052	     10576 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAggregateInputStages/90/evaluate_update/scalar-10 	   34147	     10811 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAggregateInputStages/90/evaluate_update/scalar-10 	   33352	     10304 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAggregateInputStages/90/evaluate/typed-10         	   96235	      3159 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAggregateInputStages/90/evaluate/typed-10         	  151885	      2434 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAggregateInputStages/90/evaluate/typed-10         	  147088	      2260 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAggregateInputStages/90/evaluate_update/typed-10  	   93426	      4090 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAggregateInputStages/90/evaluate_update/typed-10  	   81915	      4008 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAggregateInputStages/90/evaluate_update/typed-10  	   91051	      3852 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAggregateInputStages/90/update-10                 	  240225	      1669 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAggregateInputStages/90/update-10                 	  230941	      1576 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAggregateInputStages/90/update-10                 	  235105	      1617 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/adbc-drivers/redis/go	20.433s

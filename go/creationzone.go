@@ -37,10 +37,11 @@ package redis
 //     '…', '…'::timetz (also TRY_CAST and its fallback);
 //   - or untyped and read as one because of what it meets: compared with a
 //     timestamp with time zone or a time with time zone (=, <, IS DISTINCT
-//     FROM, IN, BETWEEN, a CASE operand), an argument of COALESCE, GREATEST
-//     or LEAST whose result is one, or of NULLIF with one, the operand of AT
-//     TIME ZONE and AT LOCAL, and a column's DEFAULT itself when the column
-//     is one.
+//     FROM, IN, BETWEEN, a CASE operand), a result of a CASE or an argument
+//     of COALESCE, GREATEST or LEAST whose result is one (see unknown.go),
+//     or of NULLIF with one, an operand of - with one (tstz -
+//     '2024-01-01'), the operand of AT TIME ZONE and AT LOCAL, and a
+//     column's DEFAULT itself when the column is one.
 //
 // Everything else keeps reading the session time zone when it runs, as in
 // Postgres: casts of columns and expressions (ts::date, CAST(d AS
@@ -72,7 +73,7 @@ type litSpan struct {
 // noteLiteral returns the string literal token t as a literal, and records
 // where it is written when p.lits is set.
 func (p *parser) noteLiteral(t token) *Literal {
-	lit := &Literal{V: stringValue(t.text)}
+	lit := &Literal{V: stringValue(t.text), Unknown: true}
 	if p.lits != nil {
 		*p.lits = append(*p.lits, litSpan{lit: lit, start: t.pos, end: t.end})
 	}
@@ -153,12 +154,31 @@ func localTimeLiterals(x Expr, typeOf func(Expr) ColType, out map[*Literal]bool)
 			}
 		}
 	}
+	// resultsOf adds the literals that x's value is one of (the results of
+	// a CASE, the arguments of COALESCE, …), if they are read as its type.
+	resultsOf := func(x Expr) {
+		parts, _ := matchedParts(x)
+		if parts == nil || !readsLocalTime(typeOf(x)) {
+			return
+		}
+		for _, p := range parts {
+			if lit, ok := text(p); ok {
+				out[lit] = true
+			}
+		}
+	}
 	walkExpr(x, func(n Expr) {
 		switch v := n.(type) {
 		case *Binary:
 			if isComparison(v.Op) || isDistinctOp(v.Op) {
 				meets(v.L, v.R)
 				meets(v.R, v.L)
+			}
+			if o, ok := operatorLiteral(v); ok && o.other != nil {
+				// tstz - '2024-01-01': an operand read as the other's type.
+				if t, ok, err := o.typeNext(typeOf(o.other)); err == nil && ok && readsLocalTime(t) {
+					out[o.lit] = true
+				}
 			}
 		case *Case:
 			if v.Operand != nil {
@@ -167,6 +187,7 @@ func localTimeLiterals(x Expr, typeOf func(Expr) ColType, out map[*Literal]bool)
 					meets(v.Operand, w.When)
 				}
 			}
+			resultsOf(v)
 		case *Func:
 			d, ok := callee(v)
 			switch {
@@ -176,16 +197,10 @@ func localTimeLiterals(x Expr, typeOf func(Expr) ColType, out map[*Literal]bool)
 					meets(v.Args[0], v.Args[1])
 					meets(v.Args[1], v.Args[0])
 				}
-			case d.impl == implCoalesce || d.impl == implConditional:
-				// COALESCE, GREATEST, LEAST: the arguments are read as the
-				// result's type.
-				if readsLocalTime(typeOf(v)) {
-					for _, a := range v.Args {
-						if lit, ok := text(a); ok {
-							out[lit] = true
-						}
-					}
-				}
+			case d.impl == implCoalesce || d.impl == implConditional || d.impl == implIIF:
+				// COALESCE, GREATEST, LEAST, IIF: the arguments are read as
+				// the result's type.
+				resultsOf(v)
 			case v.Name == "TIMEZONE":
 				// x AT TIME ZONE z and x AT LOCAL read text x as a timestamp
 				// with time zone.

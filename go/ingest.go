@@ -18,9 +18,11 @@ import (
 	"context"
 	"errors"
 	"io"
+	"strings"
 
 	"github.com/apache/arrow-adbc/go/adbc"
 	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
 )
 
 // metaFromArrow derives table metadata from an Arrow schema.
@@ -139,8 +141,10 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 		rec := s.params.RecordBatch()
 		n := int(rec.NumRows())
 		rows := make([][]Value, n)
+		values := make([]Value, n*len(meta.Columns))
 		for r := 0; r < n; r++ {
-			row := make([]Value, len(meta.Columns))
+			start, end := r*len(meta.Columns), (r+1)*len(meta.Columns)
+			row := values[start:end:end]
 			if err := defs.fill(row, given); err != nil {
 				return -1, err
 			}
@@ -149,16 +153,8 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 		for c := 0; c < int(rec.NumCols()); c++ {
 			col := meta.Columns[mapping[c]]
 			arr := rec.Column(c)
-			for r := 0; r < n; r++ {
-				v, err := valueAt(arr, r)
-				if err != nil {
-					return -1, columnErr(col.Name, err)
-				}
-				cv, err := coerceIn(v, col.Type, zone)
-				if err != nil {
-					return -1, columnErr(col.Name, err)
-				}
-				rows[r][mapping[c]] = cv
+			if err := ingestColumn(arr, col.Type, zone, rows, mapping[c]); err != nil {
+				return -1, columnErr(col.Name, err)
 			}
 		}
 		// Each batch is checked whole before any of it is written.
@@ -177,4 +173,44 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 		return -1, errorf(adbc.StatusIO, "failed to read ingest data: %v", err)
 	}
 	return total, nil
+}
+
+// ingestColumn resolves common Arrow array types once per column, rather than
+// once per cell. Strings still own their bytes after the Arrow batch is freed,
+// and every value passes the same coercion and later row constraint checks.
+func ingestColumn(arr arrow.Array, target ColType, zone tzZone, rows [][]Value, column int) error {
+	var read func(int) Value
+	switch a := arr.(type) {
+	case *array.Int16:
+		read = func(i int) Value { return intValue(typeInt16, int64(a.Value(i))) }
+	case *array.Int32:
+		read = func(i int) Value { return intValue(typeInt32, int64(a.Value(i))) }
+	case *array.Int64:
+		read = func(i int) Value { return intValue(typeInt64, a.Value(i)) }
+	case *array.String:
+		read = func(i int) Value { return stringValue(strings.Clone(a.Value(i))) }
+	case *array.LargeString:
+		read = func(i int) Value { return stringValue(strings.Clone(a.Value(i))) }
+	}
+	for i := range rows {
+		var v Value
+		var err error
+		switch {
+		case read == nil:
+			v, err = valueAt(arr, i)
+		case arr.IsNull(i):
+			v = nullValue(target)
+		default:
+			v = read(i)
+		}
+		if err != nil {
+			return err
+		}
+		v, err = coerceIn(v, target, zone)
+		if err != nil {
+			return err
+		}
+		rows[i][column] = v
+	}
+	return nil
 }

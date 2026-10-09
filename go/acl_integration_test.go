@@ -101,6 +101,12 @@ func (a *aclHarness) user(name string, rules ...string) {
 		return n.Do(a.ctx, "ACL", "LOG", "RESET").Err()
 	})
 	if err != nil {
+		// Redis Software manages users through its management API. WHOAMI
+		// is available there, but SETUSER is explicitly blocked by the proxy.
+		// Keep other permission errors as failures: they need REDIS_ADMIN_URI.
+		if strings.Contains(err.Error(), "command 'acl|setuser' is not allowed") {
+			a.t.Skipf("server manages ACL users outside the Redis protocol: %v", err)
+		}
 		a.t.Fatal(err)
 	}
 	a.t.Cleanup(func() {
@@ -427,7 +433,7 @@ func TestACLExecAbort(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	opts.Protocol, opts.DisableIdentity = 2, true // as the driver's
+	opts.Protocol, opts.DisableIdentity = 3, true // the driver's default
 	client := newClient(newClientConfig(opts), a.cluster, timeouts{read: time.Minute, write: time.Minute})
 	defer client.Close()
 	key := metaKey("public", "it_acl_x")
@@ -472,7 +478,7 @@ func TestACLSearchCommandsAndKeys(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		opts.Protocol, opts.DisableIdentity = 2, true // as the driver's
+		opts.Protocol, opts.DisableIdentity = 3, true // the driver's default
 		c := newClient(newClientConfig(opts), a.cluster, timeouts{read: time.Minute, write: time.Minute})
 		t.Cleanup(func() { _ = c.Close() })
 		return &store{client: c}

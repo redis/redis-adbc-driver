@@ -245,6 +245,10 @@ func (env *evalEnv) eval(e Expr) (Value, error) {
 			}
 			return boolValue(!b), nil
 		}
+		if o, ok := operatorLiteral(x); ok {
+			_, _, err := o.typeNext(typeNull) // - unknown
+			return Value{}, err
+		}
 		return negate(v)
 	case *Binary:
 		switch x.Op {
@@ -294,6 +298,11 @@ func (env *evalEnv) eval(e Expr) (Value, error) {
 		r, err := env.eval(x.R)
 		if err != nil {
 			return Value{}, err
+		}
+		if o, ok := operatorLiteral(x); ok {
+			if l, r, err = env.literalOperands(x, o, l, r); err != nil {
+				return Value{}, err
+			}
 		}
 		return binaryOp(x.Op, l, r, env.zone())
 	case *RowExpr:
@@ -351,27 +360,26 @@ func (env *evalEnv) evalCase(c *Case) (Value, error) {
 	return nullValue(typeNull), nil
 }
 
-// branchValue evaluates the chosen branch of a CASE or IIF (e). A date,
-// time or timestamp is converted to the result's type when that is another
-// date or time type: a TIMESTAMP or DATE branch of a TIMESTAMP WITH TIME
-// ZONE result is read as a local time in the session time zone, and a TIME
-// branch of a TIME WITH TIME ZONE result takes the session time zone's
-// offset, as Postgres converts a CASE's branches, so that sorting, grouping
-// and text see the result's values. (Other types keep their branch's
-// value, which the result's type holds.)
+// branchValue evaluates the chosen branch of a CASE or IIF (e). A quoted
+// string literal is a value of the result's type (literalAs): '1' is the
+// integer 1 in CASE WHEN … THEN '1' ELSE 2 END. A date, time or timestamp
+// is converted to the result's type when that is another date or time
+// type: a TIMESTAMP or DATE branch of a TIMESTAMP WITH TIME ZONE result is
+// read as a local time in the session time zone, and a TIME branch of a
+// TIME WITH TIME ZONE result takes the session time zone's offset, as
+// Postgres converts a CASE's branches, so that sorting, grouping and text
+// see the result's values. (Other types keep their branch's value, which
+// the result's type holds.)
 func (env *evalEnv) branchValue(e, branch Expr) (Value, error) {
 	v, err := env.eval(branch)
+	if err == nil && unknownLiteral(branch) {
+		return env.literalAs(v, e)
+	}
 	k := v.T.Kind
 	if err != nil || v.Null || (k != KindTimestamp && k != KindDate && k != KindTime) || env.exec == nil {
 		return v, err
 	}
-	ex := env.exec
-	ex.ensureCache()
-	t, ok := ex.cache.branchTypes[e]
-	if !ok {
-		t, _ = inferType(e, env.types, ex.paramTypes) // the zero type on error
-		ex.cache.branchTypes[e] = t
-	}
+	t, _ := env.resultType(e)
 	if k == KindTime {
 		if t.Kind != KindTimeTZ {
 			return v, nil
@@ -385,6 +393,100 @@ func (env *evalEnv) branchValue(e, branch Expr) (Value, error) {
 		t = finerTime(t, v.T) // nothing is rounded
 	}
 	return coerceIn(v, t, env.zone())
+}
+
+// resultType returns the type of e, a CASE, IIF or call whose value is one
+// of its parts, as inferType gives it (cached for the statement); ok is
+// false if it isn't known.
+func (env *evalEnv) resultType(e Expr) (ColType, bool) {
+	ex := env.exec
+	if ex == nil {
+		t, err := inferType(e, env.types, nil)
+		return t, err == nil && t.Kind != KindNull
+	}
+	ex.ensureCache()
+	t, ok := ex.cache.branchTypes[e]
+	if !ok {
+		t, _ = inferType(e, env.types, ex.paramTypes) // the zero type on error
+		ex.cache.branchTypes[e] = t
+	}
+	return t, t.Kind != KindNull
+}
+
+// literalAs returns v, the text of a quoted string literal that is a value
+// of e (see commonExprType), as a value of e's type, in the session time
+// zone: a timestamp with time zone without an offset is a local time.
+// Without a known type it stays text.
+func (env *evalEnv) literalAs(v Value, e Expr) (Value, error) {
+	t, ok := env.resultType(e)
+	if v.Null || !ok || v.T == t {
+		return v, nil
+	}
+	return coerceIn(v, t, env.zone())
+}
+
+// literalOperands returns l and r, the values of the operands of x, an
+// arithmetic operator with the quoted string literal o (operatorLiteral),
+// with the literal read as the type it takes there (literalOperandType), in
+// the session time zone: in id + '1', '1' is an integer. Next to an operand
+// whose type isn't known (a parameter without a value), it takes the type
+// of the other value, and the result is NULL if that is NULL.
+func (env *evalEnv) literalOperands(x Expr, o opLiteral, l, r Value) (Value, Value, error) {
+	v, ov := &r, l
+	if o.left {
+		v, ov = &l, r
+	}
+	t, ok, err := env.literalOperandType(x, o)
+	if err != nil {
+		return Value{}, Value{}, err
+	}
+	if !ok {
+		if ov.Null {
+			*v = nullValue(typeNull)
+			return l, r, nil
+		}
+		if t, _, err = o.typeNext(ov.T); err != nil {
+			return Value{}, Value{}, err
+		}
+	}
+	if *v, err = coerceIn(*v, t, env.zone()); err != nil {
+		return Value{}, Value{}, err
+	}
+	return l, r, nil
+}
+
+// literalOperandType returns the type of o, the quoted string literal of
+// x, an arithmetic operator, as inferType gives it (typeNext, cached for
+// the statement); ok is false if it isn't known.
+func (env *evalEnv) literalOperandType(x Expr, o opLiteral) (ColType, bool, error) {
+	typed := func() (ColType, bool, error) {
+		var params []ColType
+		if env.exec != nil {
+			params = env.exec.paramTypes
+		}
+		t, err := inferType(o.other, env.types, params)
+		if err != nil {
+			return ColType{}, false, nil // taken from the value
+		}
+		return o.typeNext(t)
+	}
+	ex := env.exec
+	if ex == nil {
+		return typed()
+	}
+	ex.ensureCache()
+	if t, ok := ex.cache.literalTypes[x]; ok {
+		return t, t.Kind != KindNull, nil
+	}
+	t, ok, err := typed()
+	if err != nil {
+		return ColType{}, false, err
+	}
+	if !ok {
+		t = typeNull
+	}
+	ex.cache.literalTypes[x] = t
+	return t, ok, nil
 }
 
 // concatValues joins the text of the non-NULL values with sep, in the
@@ -444,6 +546,13 @@ func (env *evalEnv) evalFunc(f *Func) (Value, error) {
 		}
 		args[i] = v
 	}
+	if o, ok := operatorLiteral(f); ok {
+		// MOD (%) reads a quoted literal as an operator does.
+		var err error
+		if args[0], args[1], err = env.literalOperands(f, o, args[0], args[1]); err != nil {
+			return Value{}, err
+		}
+	}
 	if d.impl != implCoalesce && d.impl != implConditional && !seesPadding[f.Name] {
 		// Functions take CHAR values as text, without their padding.
 		for i, a := range args {
@@ -454,8 +563,12 @@ func (env *evalEnv) evalFunc(f *Func) (Value, error) {
 	}
 	switch d.impl {
 	case implCoalesce:
-		// The result has the arguments' common type.
-		t := unifiedType(f, argTypes(args))
+		// The result has the arguments' common type (quoted literals are
+		// values of it), as typed: a NULL argument has no type.
+		t, ok := env.resultType(f)
+		if !ok {
+			t = unifiedType(f, argTypes(args))
+		}
 		for _, a := range args {
 			if !a.Null {
 				return coerceIn(a, t, env.zone())
@@ -463,7 +576,11 @@ func (env *evalEnv) evalFunc(f *Func) (Value, error) {
 		}
 		return nullValue(t), nil
 	case implConditional:
-		return evalConditional(f, args, env.zone())
+		t, ok := env.resultType(f)
+		if !ok {
+			t, _ = scalarFuncType(f, argTypes(args))
+		}
+		return evalConditional(f, args, t, env.zone())
 	case implConcat:
 		// NULL arguments are skipped, as in Postgres (|| propagates NULL).
 		if f.Name == "CONCAT" {
@@ -652,34 +769,13 @@ func binaryOp(op string, l, r Value, z tzZone) (Value, error) {
 	}
 	switch rt.Kind {
 	case KindInt64:
-		a, b := l.I, r.I
 		switch op {
-		case "+":
-			s := a + b
-			if (s > a) != (b > 0) {
-				return Value{}, stateErr(stateNumericRange, "integer overflow")
+		case "+", "-", "*", "/":
+			v, err := integerArithmetic(op[0], l.I, r.I)
+			if err != nil {
+				return Value{}, err
 			}
-			return intValue(rt, s), nil
-		case "-":
-			s := a - b
-			if (s < a) != (b > 0) {
-				return Value{}, stateErr(stateNumericRange, "integer overflow")
-			}
-			return intValue(rt, s), nil
-		case "*":
-			if a != 0 && b != 0 {
-				p := a * b
-				if p/b != a || (a == -1 && b == math.MinInt64) || (b == -1 && a == math.MinInt64) {
-					return Value{}, stateErr(stateNumericRange, "integer overflow")
-				}
-				return intValue(rt, p), nil
-			}
-			return intValue(rt, 0), nil
-		case "/":
-			if b == 0 {
-				return Value{}, stateErr(stateDivisionByZero, "division by zero")
-			}
-			return intValue(rt, a/b), nil
+			return intValue(rt, v), nil
 		}
 	case KindFloat64:
 		a, _ := l.asFloat()
@@ -849,6 +945,10 @@ func inferType(e Expr, cols map[string]ColType, params []ColType) (ColType, erro
 		if x.Op == "NOT" {
 			return typeBool, nil
 		}
+		if o, ok := operatorLiteral(x); ok {
+			_, _, err := o.typeNext(typeNull) // - unknown
+			return ColType{}, err
+		}
 		return inferType(x.X, cols, params)
 	case *Binary:
 		switch {
@@ -864,6 +964,26 @@ func inferType(e Expr, cols map[string]ColType, params []ColType) (ColType, erro
 		r, err := inferType(x.R, cols, params)
 		if err != nil {
 			return ColType{}, err
+		}
+		if o, ok := operatorLiteral(x); ok {
+			// A quoted string literal takes a type from the operator and
+			// the other operand.
+			other := r
+			if !o.left {
+				other = l
+			}
+			t, ok, err := o.typeNext(other)
+			if err != nil {
+				return ColType{}, err
+			}
+			if !ok {
+				return typeNull, nil // next to a parameter without a value
+			}
+			if o.left {
+				l = t
+			} else {
+				r = t
+			}
 		}
 		return arithmeticType(x.Op, l, r)
 	case *Func:
@@ -881,6 +1001,27 @@ func inferType(e Expr, cols map[string]ColType, params []ColType) (ColType, erro
 			t, err := inferType(a, cols, params)
 			if err != nil {
 				return ColType{}, err
+			}
+			args[i] = t
+		}
+		if parts, numLits := matchedParts(x); parts != nil {
+			// Values of types that don't match are an error.
+			if _, err := commonExprType(x.Name, parts, args[len(args)-len(parts):], numLits); err != nil {
+				return ColType{}, err
+			}
+		}
+		if o, ok := operatorLiteral(x); ok {
+			// MOD (%) of a quoted literal: as an operator's.
+			i, j := 0, 1
+			if !o.left {
+				i, j = 1, 0
+			}
+			t, ok, err := o.typeNext(args[j])
+			if err != nil {
+				return ColType{}, err
+			}
+			if !ok {
+				return typeNull, nil
 			}
 			args[i] = t
 		}
@@ -909,52 +1050,61 @@ func inferType(e Expr, cols map[string]ColType, params []ColType) (ColType, erro
 		}
 		return fieldSelectType(x, t)
 	case *Case:
-		results := make([]Expr, 0, len(x.Whens)+1)
-		for _, w := range x.Whens {
-			results = append(results, w.Then)
-		}
-		if x.Else != nil {
-			results = append(results, x.Else)
-		}
-		out := typeNull
-		for _, r := range results {
-			t, err := inferType(r, cols, params)
-			if err != nil {
-				return ColType{}, err
-			}
-			out = commonType(out, t)
-		}
-		return out, nil
+		return exprsType("CASE", caseResults(x), cols, params, false)
 	}
 	return ColType{}, fmt.Errorf("unsupported expression %T", e)
 }
 
-// commonType is the type that can hold values of both a and b (used for
-// the branches of CASE and the arguments of COALESCE, GREATEST and LEAST).
+// caseResults are the results of a CASE: its ELSE and its THEN values, in
+// the order Postgres matches their types (for its errors).
+func caseResults(c *Case) []Expr {
+	results := make([]Expr, 0, len(c.Whens)+1)
+	if c.Else != nil {
+		results = append(results, c.Else)
+	}
+	for _, w := range c.Whens {
+		results = append(results, w.Then)
+	}
+	return results
+}
+
+// commonType is the type that can hold values of both a and b, text for
+// types that have none (see matchTypes).
 func commonType(a, b ColType) ColType {
+	if t, ok := matchTypes(a, b); ok {
+		return t
+	}
+	return typeString
+}
+
+// matchTypes is the type that can hold values of both a and b (used for
+// the results of CASE and the arguments of COALESCE, GREATEST and LEAST);
+// ok is false for types that have none, such as an INTEGER and a VARCHAR,
+// or a DATE and an INTERVAL, which Postgres doesn't match either.
+func matchTypes(a, b ColType) (ColType, bool) {
 	switch {
 	case a.Kind == KindNull:
-		return b
+		return b, true
 	case b.Kind == KindNull || a == b:
-		return a
+		return a, true
 	case a.Kind == KindRecord && b.Kind == KindRecord:
-		return commonRecord(a, b)
+		return commonRecord(a, b), true
 	case (a.Kind.isNumeric() || a.Kind == KindBool) && (b.Kind.isNumeric() || b.Kind == KindBool):
 		if a.Kind.isInteger() && b.Kind.isInteger() {
 			if a.Kind > b.Kind {
-				return a
+				return a, true
 			}
-			return b
+			return b, true
 		}
 		t, err := arithmeticType("+", a, b)
 		if err != nil {
-			return typeString
+			return ColType{}, false
 		}
 		if t.Kind == KindDecimal {
 			// Keep enough scale for both sides.
 			t.Scale = max(a.Scale, b.Scale)
 		}
-		return t
+		return t, true
 	case a.Kind == KindTimestamp && b.Kind == KindTimestamp, a.Kind == KindTime && b.Kind == KindTime,
 		a.Kind == KindTimeTZ && b.Kind == KindTimeTZ:
 		// The more fractional digits, so that no value is rounded; with a
@@ -963,24 +1113,24 @@ func commonType(a, b ColType) ColType {
 		if b.TZ != "" {
 			t.TZ = b.TZ
 		}
-		return t
+		return t, true
 	case a.isTimeOfDay() && b.isTimeOfDay():
 		// A TIME and a time with time zone: a time with time zone (Postgres
 		// converts the TIME).
 		t := finerTime(a, b)
 		t.Kind = KindTimeTZ
-		return t.withFracDigits(t.fracDigits())
+		return t.withFracDigits(t.fracDigits()), true
 	case a.Kind == KindDate && b.Kind == KindTimestamp:
-		return b
+		return b, true
 	case a.Kind == KindTimestamp && b.Kind == KindDate:
-		return a
+		return a, true
 	case a.Kind == KindString && b.Kind == KindString:
 		// Different lengths: no length; CHAR only if both are.
-		return ColType{Kind: KindString, Fixed: a.Fixed && b.Fixed}
+		return ColType{Kind: KindString, Fixed: a.Fixed && b.Fixed}, true
 	case a.Kind == b.Kind:
-		return a
+		return a, true
 	}
-	return typeString
+	return ColType{}, false
 }
 
 // likeMatch implements SQL LIKE: '%' matches any run of characters, '_' one

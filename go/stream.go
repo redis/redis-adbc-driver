@@ -168,7 +168,7 @@ func (e *executor) streamSelect(ctx context.Context, plan *selectPlan, params []
 		cols: cols, schema: resultSchema(cols), mem: so.mem, batchRows: so.batchRows, left: -1,
 	}
 	r.refs.Store(1)
-	if !sc.pushLimit {
+	if !sc.pushLimit && sc.req.late == nil {
 		if off := plan.sel.Offset; off != nil {
 			r.skip = *off
 		}

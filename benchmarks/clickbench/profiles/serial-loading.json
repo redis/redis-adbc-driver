@@ -1,0 +1,65 @@
+{
+  "baseline_driver_sha256": "aa8558d77195a9acaac0a410ae52409ee9befd36e9082019093533e065de2c63",
+  "optimized_driver_sha256": "7b0e32a240c7b2367fc5581ba18c6267b7e0ab2f16e0d62efe215b297020534a",
+  "redis_version": "8.6.2",
+  "kind": "loading profile; not full-scale ClickBench",
+  "rows": 100000,
+  "columns": 105,
+  "batch_size": 10000,
+  "results": [
+    {
+      "strategy": "baseline",
+      "workers": 1,
+      "prefetch": false,
+      "repeat": 1,
+      "seconds": 13.912156042002607,
+      "rows_per_second": 7187.958480201559,
+      "correctness": "valid"
+    },
+    {
+      "strategy": "optimized",
+      "workers": 1,
+      "prefetch": false,
+      "repeat": 1,
+      "seconds": 13.942590542021208,
+      "rows_per_second": 7172.268288207462,
+      "correctness": "valid"
+    },
+    {
+      "strategy": "optimized",
+      "workers": 1,
+      "prefetch": false,
+      "repeat": 2,
+      "seconds": 13.015084833023138,
+      "rows_per_second": 7683.392101008077,
+      "correctness": "valid"
+    },
+    {
+      "strategy": "baseline",
+      "workers": 1,
+      "prefetch": false,
+      "repeat": 2,
+      "seconds": 14.88561108399881,
+      "rows_per_second": 6717.896862661845,
+      "correctness": "valid"
+    },
+    {
+      "strategy": "baseline",
+      "workers": 1,
+      "prefetch": false,
+      "repeat": 3,
+      "seconds": 13.332688833004795,
+      "rows_per_second": 7500.362548959522,
+      "correctness": "valid"
+    },
+    {
+      "strategy": "optimized",
+      "workers": 1,
+      "prefetch": false,
+      "repeat": 3,
+      "seconds": 12.964523417002056,
+      "rows_per_second": 7713.357196675434,
+      "correctness": "valid"
+    }
+  ]
+}

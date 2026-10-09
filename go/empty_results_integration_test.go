@@ -191,8 +191,8 @@ func TestSQLEmptyWhere(t *testing.T) {
 	h.expectRows("SELECT * FROM it_empty_t, LATERAL (SELECT * FROM it_empty_u WHERE it_empty_u.t_id = it_empty_t.id AND false) s")
 
 	// Without FROM.
-	h.expectNoRows("SELECT 1 WHERE false", "1 int64")
-	h.expectNoRows("SELECT (SELECT COUNT(*) FROM it_empty_t) WHERE 1 = 0", "(SELECT COUNT(*) FROM it_empty_t) int64")
+	h.expectNoRows("SELECT 1 WHERE false", "?column? int64")
+	h.expectNoRows("SELECT (SELECT COUNT(*) FROM it_empty_t) WHERE 1 = 0", "count int64")
 	h.expectRows("SELECT (SELECT COUNT(*) FROM it_empty_t WHERE false)", "0")
 
 	// Values that would fail to compute on rows that aren't read raise no
@@ -674,6 +674,12 @@ func (h *sqlHarness) rowReads(c goredis.UniversalClient, fn func()) map[string]i
 			err = do(h.ctx, c.(*goredis.Client))
 		}
 		if err != nil {
+			// Software exposes delayed proxy counters and blocks RESETSTAT.
+			// This command-count assertion runs on the OSS compatibility job;
+			// the separate empty-query tests still check SQL results here.
+			if strings.Contains(err.Error(), "command 'config|resetstat' is not allowed") {
+				h.t.Skipf("server does not expose resettable command statistics: %v", err)
+			}
 			h.t.Fatal(err)
 		}
 	}

@@ -388,9 +388,9 @@ func TestCopyHashes(t *testing.T) {
 
 // The ACL rules the README documents for check and copy.
 var (
-	aclCheckCommands     = []string{"+ping", "+info", "+scan", "+hgetall", "+ft._list", "+ft.info", "+ft.aggregate", "+memory|usage"}
+	aclCheckCommands     = []string{"+ping", "+info", "+scan", "+hkeys", "+hmget", "+ft._list", "+ft.info", "+ft.aggregate", "+memory|usage"}
 	aclCheckMetaCommands = []string{"+get", "+exists", "+smembers", "+sismember", "+hget", "+hexists"}
-	aclCopyCommands      = []string{"+scan"}
+	aclCopyCommands      = []string{"+scan", "+hkeys"}
 )
 
 // Users with exactly the documented rules run check and copy without a

@@ -1089,7 +1089,8 @@ func parseStringIn(s string, t ColType, z tzZone) (Value, error) {
 		}
 		return v, err
 	case KindInterval:
-		return intervalLiteral(trimmed)
+		// Not trimmed: as in Postgres, ' P1D' isn't ISO 8601.
+		return intervalLiteral(s)
 	case KindTimeTZ:
 		return parseTimeTZ(trimmed, z)
 	case KindRecord:

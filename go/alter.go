@@ -903,22 +903,8 @@ func (s *store) indexAttributes(ctx context.Context, index string) (map[string]b
 		return nil, wrapRedis(err, "failed to read the search index")
 	}
 	out := map[string]bool{}
-	info, _ := reply.([]any)
-	for i := 0; i+1 < len(info); i += 2 {
-		if k, _ := info[i].(string); k != "attributes" {
-			continue
-		}
-		attrs, _ := info[i+1].([]any)
-		for _, a := range attrs {
-			parts, _ := a.([]any)
-			for j := 0; j+1 < len(parts); j += 2 {
-				if k, _ := parts[j].(string); k == "identifier" {
-					if name, ok := parts[j+1].(string); ok {
-						out[strings.ToLower(name)] = true
-					}
-				}
-			}
-		}
+	for _, attr := range indexInfoOf(reply).attrs {
+		out[strings.ToLower(attr.identifier)] = true
 	}
 	return out, nil
 }

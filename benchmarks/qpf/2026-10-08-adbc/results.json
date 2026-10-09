@@ -1,0 +1,4100 @@
+{
+  "metadata": {
+    "date": "2026-10-08",
+    "rows": 100000,
+    "seconds_per_trial": 5.0,
+    "rounds": 3,
+    "query_concurrency": {
+      "index_group": [
+        "SELECT country, COUNT(*), SUM(quantity) FROM sales GROUP BY country ORDER BY country",
+        [
+          1,
+          16
+        ]
+      ],
+      "index_count": [
+        "SELECT COUNT(*) FROM sales WHERE quantity BETWEEN 5 AND 10",
+        [
+          1,
+          16
+        ]
+      ],
+      "driver_group": [
+        "SELECT country, AVG(discount) FROM sales GROUP BY country ORDER BY country",
+        [
+          1,
+          4
+        ]
+      ],
+      "driver_reduce": [
+        "SELECT SUM(quantity), AVG(discount), MIN(unit_price), MAX(unit_price) FROM sales",
+        [
+          1,
+          4
+        ]
+      ],
+      "full_scan": [
+        "SELECT * FROM sales",
+        [
+          1,
+          4
+        ]
+      ]
+    },
+    "driver_sha256": "4a82b496fd05fe71732b3ef56b41495f04b103916d5fcd011472cdace81fce46",
+    "commit": "66aba73b6a588c07bea2d55e5e223d4a29c0923a",
+    "python": "3.14.0",
+    "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+    "packages": {
+      "pyarrow": "25.0.1",
+      "adbc-driver-manager": "1.12.0",
+      "redis": "8.1.0"
+    },
+    "server": {
+      "redis_version": "8.6.2",
+      "redis_git_sha1": 0,
+      "redis_git_dirty": 0,
+      "redis_build_id": 0,
+      "redis_mode": "standalone",
+      "os": "Linux 7.0.14-linuxkit aarch64",
+      "arch_bits": 64,
+      "multiplexing_api": "epoll",
+      "gcc_version": "11.4.1 20230605 (Red Hat 11.4.1-2)",
+      "process_id": 1,
+      "run_id": "2a6ff50b893947b5a26f2cdbe0cf28552b4205d9",
+      "tcp_port": 12000,
+      "server_time_usec": 1791498999000000,
+      "uptime_in_seconds": 888,
+      "uptime_in_days": 0,
+      "hz": 10,
+      "lru_clock": 0,
+      "config_file": ""
+    },
+    "modules": [
+      {
+        "name": "search",
+        "ver": 80611,
+        "path": "/enterprise-managed",
+        "args": []
+      },
+      {
+        "name": "bf",
+        "ver": 80604,
+        "path": "/enterprise-managed",
+        "args": []
+      },
+      {
+        "name": "ReJSON",
+        "ver": 80606,
+        "path": "/enterprise-managed",
+        "args": []
+      },
+      {
+        "name": "vectorset",
+        "ver": 1,
+        "path": "/enterprise-managed",
+        "args": []
+      },
+      {
+        "name": "timeseries",
+        "ver": 80601,
+        "path": "/enterprise-managed",
+        "args": []
+      }
+    ],
+    "original_qpf": {
+      "active": true,
+      "scaling_factor": 0
+    },
+    "configs": [
+      {
+        "round": 1,
+        "qpf": 0,
+        "observed": {
+          "query_performance_factor": {
+            "active": true,
+            "scaling_factor": 0
+          },
+          "sched_policy": "cmp",
+          "conns": 5,
+          "search": {
+            "search-_bg-index-mem-pct-thr": 100,
+            "search-_bg-index-oom-pause-time": 5,
+            "search-_free-resource-on-thread": true,
+            "search-_numeric-compress": false,
+            "search-_numeric-ranges-parents": 0,
+            "search-_print-profile-clock": true,
+            "search-_prioritize-intersect-union-children": false,
+            "search-bg-index-sleep-duration-us": 1,
+            "search-bg-index-sleep-gap": 100,
+            "search-bm25std-tanh-factor": 4,
+            "search-conn-per-shard": 0,
+            "search-cursor-max-idle": 300000,
+            "search-cursor-reply-threshold": 1,
+            "search-default-dialect": 1,
+            "search-default-scorer": "BM25STD",
+            "search-disk-drop-read-cache": false,
+            "search-disk-use-direct-reads": false,
+            "search-enable-unstable-features": false,
+            "search-ext-load": null,
+            "search-fork-gc-clean-threshold": 100,
+            "search-fork-gc-retry-interval": 5,
+            "search-fork-gc-run-interval": 30,
+            "search-fork-gc-sleep-before-exit": 0,
+            "search-friso-ini": null,
+            "search-gc-scan-size": 100,
+            "search-index-cursor-limit": 128,
+            "search-indexer-yield-every-ops": 1000,
+            "search-io-threads": 1,
+            "search-max-aggregate-results": 2147483648,
+            "search-max-doctablesize": 1000000,
+            "search-max-prefix-expansions": 200,
+            "search-max-search-results": 1000000,
+            "search-min-operation-workers": 4,
+            "search-min-phonetic-term-len": 3,
+            "search-min-prefix": 2,
+            "search-min-stem-len": 4,
+            "search-multi-text-slop": 100,
+            "search-no-gc": false,
+            "search-no-mem-pools": false,
+            "search-on-oom": "return",
+            "search-on-timeout": "RETURN",
+            "search-partial-indexed-docs": false,
+            "search-raw-docid-encoding": false,
+            "search-threads": 20,
+            "search-tiered-hnsw-buffer-limit": 1024,
+            "search-timeout": 500,
+            "search-topology-validation-timeout": 30000,
+            "search-union-iterator-heap": 20,
+            "search-vss-max-resize": 0,
+            "search-workers": 0,
+            "search-workers-priority-bias-threshold": 1
+          },
+          "module_list": [
+            {
+              "module_args": "",
+              "module_id": "d98befb0dee1336a498f3ec5bb82493b",
+              "module_name": "ReJSON",
+              "semantic_version": "8.6.6"
+            },
+            {
+              "module_args": "",
+              "module_id": "ea2cb38fd9f84531377fb4546c0f67be",
+              "module_name": "bf",
+              "semantic_version": "8.6.4"
+            },
+            {
+              "module_args": "",
+              "module_id": "30992425191e7f4170d6495c0970ddf9",
+              "module_name": "search",
+              "semantic_version": "8.6.11"
+            },
+            {
+              "module_args": "",
+              "module_id": "d77ea295188e8a2e17adbdd8af0dc98d",
+              "module_name": "timeseries",
+              "semantic_version": "8.6.1"
+            }
+          ]
+        }
+      },
+      {
+        "round": 1,
+        "qpf": 2,
+        "observed": {
+          "query_performance_factor": {
+            "active": true,
+            "scaling_factor": 2
+          },
+          "sched_policy": "mnp",
+          "conns": 32,
+          "search": {
+            "search-_bg-index-mem-pct-thr": 100,
+            "search-_bg-index-oom-pause-time": 5,
+            "search-_free-resource-on-thread": true,
+            "search-_numeric-compress": false,
+            "search-_numeric-ranges-parents": 0,
+            "search-_print-profile-clock": true,
+            "search-_prioritize-intersect-union-children": false,
+            "search-bg-index-sleep-duration-us": 1,
+            "search-bg-index-sleep-gap": 100,
+            "search-bm25std-tanh-factor": 4,
+            "search-conn-per-shard": 0,
+            "search-cursor-max-idle": 300000,
+            "search-cursor-reply-threshold": 1,
+            "search-default-dialect": 1,
+            "search-default-scorer": "BM25STD",
+            "search-disk-drop-read-cache": false,
+            "search-disk-use-direct-reads": false,
+            "search-enable-unstable-features": false,
+            "search-ext-load": null,
+            "search-fork-gc-clean-threshold": 100,
+            "search-fork-gc-retry-interval": 5,
+            "search-fork-gc-run-interval": 30,
+            "search-fork-gc-sleep-before-exit": 0,
+            "search-friso-ini": null,
+            "search-gc-scan-size": 100,
+            "search-index-cursor-limit": 128,
+            "search-indexer-yield-every-ops": 1000,
+            "search-io-threads": 1,
+            "search-max-aggregate-results": 2147483648,
+            "search-max-doctablesize": 1000000,
+            "search-max-prefix-expansions": 200,
+            "search-max-search-results": 1000000,
+            "search-min-operation-workers": 4,
+            "search-min-phonetic-term-len": 3,
+            "search-min-prefix": 2,
+            "search-min-stem-len": 4,
+            "search-multi-text-slop": 100,
+            "search-no-gc": false,
+            "search-no-mem-pools": false,
+            "search-on-oom": "return",
+            "search-on-timeout": "RETURN",
+            "search-partial-indexed-docs": false,
+            "search-raw-docid-encoding": false,
+            "search-threads": 20,
+            "search-tiered-hnsw-buffer-limit": 1024,
+            "search-timeout": 500,
+            "search-topology-validation-timeout": 30000,
+            "search-union-iterator-heap": 20,
+            "search-vss-max-resize": 0,
+            "search-workers": 3,
+            "search-workers-priority-bias-threshold": 1
+          },
+          "module_list": [
+            {
+              "module_args": "",
+              "module_id": "d98befb0dee1336a498f3ec5bb82493b",
+              "module_name": "ReJSON",
+              "semantic_version": "8.6.6"
+            },
+            {
+              "module_args": "",
+              "module_id": "ea2cb38fd9f84531377fb4546c0f67be",
+              "module_name": "bf",
+              "semantic_version": "8.6.4"
+            },
+            {
+              "module_args": "",
+              "module_id": "30992425191e7f4170d6495c0970ddf9",
+              "module_name": "search",
+              "semantic_version": "8.6.11"
+            },
+            {
+              "module_args": "",
+              "module_id": "d77ea295188e8a2e17adbdd8af0dc98d",
+              "module_name": "timeseries",
+              "semantic_version": "8.6.1"
+            }
+          ]
+        }
+      },
+      {
+        "round": 1,
+        "qpf": 4,
+        "observed": {
+          "query_performance_factor": {
+            "active": true,
+            "scaling_factor": 4
+          },
+          "sched_policy": "mnp",
+          "conns": 32,
+          "search": {
+            "search-_bg-index-mem-pct-thr": 100,
+            "search-_bg-index-oom-pause-time": 5,
+            "search-_free-resource-on-thread": true,
+            "search-_numeric-compress": false,
+            "search-_numeric-ranges-parents": 0,
+            "search-_print-profile-clock": true,
+            "search-_prioritize-intersect-union-children": false,
+            "search-bg-index-sleep-duration-us": 1,
+            "search-bg-index-sleep-gap": 100,
+            "search-bm25std-tanh-factor": 4,
+            "search-conn-per-shard": 0,
+            "search-cursor-max-idle": 300000,
+            "search-cursor-reply-threshold": 1,
+            "search-default-dialect": 1,
+            "search-default-scorer": "BM25STD",
+            "search-disk-drop-read-cache": false,
+            "search-disk-use-direct-reads": false,
+            "search-enable-unstable-features": false,
+            "search-ext-load": null,
+            "search-fork-gc-clean-threshold": 100,
+            "search-fork-gc-retry-interval": 5,
+            "search-fork-gc-run-interval": 30,
+            "search-fork-gc-sleep-before-exit": 0,
+            "search-friso-ini": null,
+            "search-gc-scan-size": 100,
+            "search-index-cursor-limit": 128,
+            "search-indexer-yield-every-ops": 1000,
+            "search-io-threads": 1,
+            "search-max-aggregate-results": 2147483648,
+            "search-max-doctablesize": 1000000,
+            "search-max-prefix-expansions": 200,
+            "search-max-search-results": 1000000,
+            "search-min-operation-workers": 4,
+            "search-min-phonetic-term-len": 3,
+            "search-min-prefix": 2,
+            "search-min-stem-len": 4,
+            "search-multi-text-slop": 100,
+            "search-no-gc": false,
+            "search-no-mem-pools": false,
+            "search-on-oom": "return",
+            "search-on-timeout": "RETURN",
+            "search-partial-indexed-docs": false,
+            "search-raw-docid-encoding": false,
+            "search-threads": 20,
+            "search-tiered-hnsw-buffer-limit": 1024,
+            "search-timeout": 500,
+            "search-topology-validation-timeout": 30000,
+            "search-union-iterator-heap": 20,
+            "search-vss-max-resize": 0,
+            "search-workers": 6,
+            "search-workers-priority-bias-threshold": 1
+          },
+          "module_list": [
+            {
+              "module_args": "",
+              "module_id": "d98befb0dee1336a498f3ec5bb82493b",
+              "module_name": "ReJSON",
+              "semantic_version": "8.6.6"
+            },
+            {
+              "module_args": "",
+              "module_id": "ea2cb38fd9f84531377fb4546c0f67be",
+              "module_name": "bf",
+              "semantic_version": "8.6.4"
+            },
+            {
+              "module_args": "",
+              "module_id": "30992425191e7f4170d6495c0970ddf9",
+              "module_name": "search",
+              "semantic_version": "8.6.11"
+            },
+            {
+              "module_args": "",
+              "module_id": "d77ea295188e8a2e17adbdd8af0dc98d",
+              "module_name": "timeseries",
+              "semantic_version": "8.6.1"
+            }
+          ]
+        }
+      },
+      {
+        "round": 2,
+        "qpf": 4,
+        "observed": {
+          "query_performance_factor": {
+            "active": true,
+            "scaling_factor": 4
+          },
+          "sched_policy": "mnp",
+          "conns": 32,
+          "search": {
+            "search-_bg-index-mem-pct-thr": 100,
+            "search-_bg-index-oom-pause-time": 5,
+            "search-_free-resource-on-thread": true,
+            "search-_numeric-compress": false,
+            "search-_numeric-ranges-parents": 0,
+            "search-_print-profile-clock": true,
+            "search-_prioritize-intersect-union-children": false,
+            "search-bg-index-sleep-duration-us": 1,
+            "search-bg-index-sleep-gap": 100,
+            "search-bm25std-tanh-factor": 4,
+            "search-conn-per-shard": 0,
+            "search-cursor-max-idle": 300000,
+            "search-cursor-reply-threshold": 1,
+            "search-default-dialect": 1,
+            "search-default-scorer": "BM25STD",
+            "search-disk-drop-read-cache": false,
+            "search-disk-use-direct-reads": false,
+            "search-enable-unstable-features": false,
+            "search-ext-load": null,
+            "search-fork-gc-clean-threshold": 100,
+            "search-fork-gc-retry-interval": 5,
+            "search-fork-gc-run-interval": 30,
+            "search-fork-gc-sleep-before-exit": 0,
+            "search-friso-ini": null,
+            "search-gc-scan-size": 100,
+            "search-index-cursor-limit": 128,
+            "search-indexer-yield-every-ops": 1000,
+            "search-io-threads": 1,
+            "search-max-aggregate-results": 2147483648,
+            "search-max-doctablesize": 1000000,
+            "search-max-prefix-expansions": 200,
+            "search-max-search-results": 1000000,
+            "search-min-operation-workers": 4,
+            "search-min-phonetic-term-len": 3,
+            "search-min-prefix": 2,
+            "search-min-stem-len": 4,
+            "search-multi-text-slop": 100,
+            "search-no-gc": false,
+            "search-no-mem-pools": false,
+            "search-on-oom": "return",
+            "search-on-timeout": "RETURN",
+            "search-partial-indexed-docs": false,
+            "search-raw-docid-encoding": false,
+            "search-threads": 20,
+            "search-tiered-hnsw-buffer-limit": 1024,
+            "search-timeout": 500,
+            "search-topology-validation-timeout": 30000,
+            "search-union-iterator-heap": 20,
+            "search-vss-max-resize": 0,
+            "search-workers": 6,
+            "search-workers-priority-bias-threshold": 1
+          },
+          "module_list": [
+            {
+              "module_args": "",
+              "module_id": "d98befb0dee1336a498f3ec5bb82493b",
+              "module_name": "ReJSON",
+              "semantic_version": "8.6.6"
+            },
+            {
+              "module_args": "",
+              "module_id": "ea2cb38fd9f84531377fb4546c0f67be",
+              "module_name": "bf",
+              "semantic_version": "8.6.4"
+            },
+            {
+              "module_args": "",
+              "module_id": "30992425191e7f4170d6495c0970ddf9",
+              "module_name": "search",
+              "semantic_version": "8.6.11"
+            },
+            {
+              "module_args": "",
+              "module_id": "d77ea295188e8a2e17adbdd8af0dc98d",
+              "module_name": "timeseries",
+              "semantic_version": "8.6.1"
+            }
+          ]
+        }
+      },
+      {
+        "round": 2,
+        "qpf": 0,
+        "observed": {
+          "query_performance_factor": {
+            "active": true,
+            "scaling_factor": 0
+          },
+          "sched_policy": "cmp",
+          "conns": 5,
+          "search": {
+            "search-_bg-index-mem-pct-thr": 100,
+            "search-_bg-index-oom-pause-time": 5,
+            "search-_free-resource-on-thread": true,
+            "search-_numeric-compress": false,
+            "search-_numeric-ranges-parents": 0,
+            "search-_print-profile-clock": true,
+            "search-_prioritize-intersect-union-children": false,
+            "search-bg-index-sleep-duration-us": 1,
+            "search-bg-index-sleep-gap": 100,
+            "search-bm25std-tanh-factor": 4,
+            "search-conn-per-shard": 0,
+            "search-cursor-max-idle": 300000,
+            "search-cursor-reply-threshold": 1,
+            "search-default-dialect": 1,
+            "search-default-scorer": "BM25STD",
+            "search-disk-drop-read-cache": false,
+            "search-disk-use-direct-reads": false,
+            "search-enable-unstable-features": false,
+            "search-ext-load": null,
+            "search-fork-gc-clean-threshold": 100,
+            "search-fork-gc-retry-interval": 5,
+            "search-fork-gc-run-interval": 30,
+            "search-fork-gc-sleep-before-exit": 0,
+            "search-friso-ini": null,
+            "search-gc-scan-size": 100,
+            "search-index-cursor-limit": 128,
+            "search-indexer-yield-every-ops": 1000,
+            "search-io-threads": 1,
+            "search-max-aggregate-results": 2147483648,
+            "search-max-doctablesize": 1000000,
+            "search-max-prefix-expansions": 200,
+            "search-max-search-results": 1000000,
+            "search-min-operation-workers": 4,
+            "search-min-phonetic-term-len": 3,
+            "search-min-prefix": 2,
+            "search-min-stem-len": 4,
+            "search-multi-text-slop": 100,
+            "search-no-gc": false,
+            "search-no-mem-pools": false,
+            "search-on-oom": "return",
+            "search-on-timeout": "RETURN",
+            "search-partial-indexed-docs": false,
+            "search-raw-docid-encoding": false,
+            "search-threads": 20,
+            "search-tiered-hnsw-buffer-limit": 1024,
+            "search-timeout": 500,
+            "search-topology-validation-timeout": 30000,
+            "search-union-iterator-heap": 20,
+            "search-vss-max-resize": 0,
+            "search-workers": 0,
+            "search-workers-priority-bias-threshold": 1
+          },
+          "module_list": [
+            {
+              "module_args": "",
+              "module_id": "d98befb0dee1336a498f3ec5bb82493b",
+              "module_name": "ReJSON",
+              "semantic_version": "8.6.6"
+            },
+            {
+              "module_args": "",
+              "module_id": "ea2cb38fd9f84531377fb4546c0f67be",
+              "module_name": "bf",
+              "semantic_version": "8.6.4"
+            },
+            {
+              "module_args": "",
+              "module_id": "30992425191e7f4170d6495c0970ddf9",
+              "module_name": "search",
+              "semantic_version": "8.6.11"
+            },
+            {
+              "module_args": "",
+              "module_id": "d77ea295188e8a2e17adbdd8af0dc98d",
+              "module_name": "timeseries",
+              "semantic_version": "8.6.1"
+            }
+          ]
+        }
+      },
+      {
+        "round": 2,
+        "qpf": 2,
+        "observed": {
+          "query_performance_factor": {
+            "active": true,
+            "scaling_factor": 2
+          },
+          "sched_policy": "mnp",
+          "conns": 32,
+          "search": {
+            "search-_bg-index-mem-pct-thr": 100,
+            "search-_bg-index-oom-pause-time": 5,
+            "search-_free-resource-on-thread": true,
+            "search-_numeric-compress": false,
+            "search-_numeric-ranges-parents": 0,
+            "search-_print-profile-clock": true,
+            "search-_prioritize-intersect-union-children": false,
+            "search-bg-index-sleep-duration-us": 1,
+            "search-bg-index-sleep-gap": 100,
+            "search-bm25std-tanh-factor": 4,
+            "search-conn-per-shard": 0,
+            "search-cursor-max-idle": 300000,
+            "search-cursor-reply-threshold": 1,
+            "search-default-dialect": 1,
+            "search-default-scorer": "BM25STD",
+            "search-disk-drop-read-cache": false,
+            "search-disk-use-direct-reads": false,
+            "search-enable-unstable-features": false,
+            "search-ext-load": null,
+            "search-fork-gc-clean-threshold": 100,
+            "search-fork-gc-retry-interval": 5,
+            "search-fork-gc-run-interval": 30,
+            "search-fork-gc-sleep-before-exit": 0,
+            "search-friso-ini": null,
+            "search-gc-scan-size": 100,
+            "search-index-cursor-limit": 128,
+            "search-indexer-yield-every-ops": 1000,
+            "search-io-threads": 1,
+            "search-max-aggregate-results": 2147483648,
+            "search-max-doctablesize": 1000000,
+            "search-max-prefix-expansions": 200,
+            "search-max-search-results": 1000000,
+            "search-min-operation-workers": 4,
+            "search-min-phonetic-term-len": 3,
+            "search-min-prefix": 2,
+            "search-min-stem-len": 4,
+            "search-multi-text-slop": 100,
+            "search-no-gc": false,
+            "search-no-mem-pools": false,
+            "search-on-oom": "return",
+            "search-on-timeout": "RETURN",
+            "search-partial-indexed-docs": false,
+            "search-raw-docid-encoding": false,
+            "search-threads": 20,
+            "search-tiered-hnsw-buffer-limit": 1024,
+            "search-timeout": 500,
+            "search-topology-validation-timeout": 30000,
+            "search-union-iterator-heap": 20,
+            "search-vss-max-resize": 0,
+            "search-workers": 3,
+            "search-workers-priority-bias-threshold": 1
+          },
+          "module_list": [
+            {
+              "module_args": "",
+              "module_id": "d98befb0dee1336a498f3ec5bb82493b",
+              "module_name": "ReJSON",
+              "semantic_version": "8.6.6"
+            },
+            {
+              "module_args": "",
+              "module_id": "ea2cb38fd9f84531377fb4546c0f67be",
+              "module_name": "bf",
+              "semantic_version": "8.6.4"
+            },
+            {
+              "module_args": "",
+              "module_id": "30992425191e7f4170d6495c0970ddf9",
+              "module_name": "search",
+              "semantic_version": "8.6.11"
+            },
+            {
+              "module_args": "",
+              "module_id": "d77ea295188e8a2e17adbdd8af0dc98d",
+              "module_name": "timeseries",
+              "semantic_version": "8.6.1"
+            }
+          ]
+        }
+      },
+      {
+        "round": 3,
+        "qpf": 2,
+        "observed": {
+          "query_performance_factor": {
+            "active": true,
+            "scaling_factor": 2
+          },
+          "sched_policy": "mnp",
+          "conns": 32,
+          "search": {
+            "search-_bg-index-mem-pct-thr": 100,
+            "search-_bg-index-oom-pause-time": 5,
+            "search-_free-resource-on-thread": true,
+            "search-_numeric-compress": false,
+            "search-_numeric-ranges-parents": 0,
+            "search-_print-profile-clock": true,
+            "search-_prioritize-intersect-union-children": false,
+            "search-bg-index-sleep-duration-us": 1,
+            "search-bg-index-sleep-gap": 100,
+            "search-bm25std-tanh-factor": 4,
+            "search-conn-per-shard": 0,
+            "search-cursor-max-idle": 300000,
+            "search-cursor-reply-threshold": 1,
+            "search-default-dialect": 1,
+            "search-default-scorer": "BM25STD",
+            "search-disk-drop-read-cache": false,
+            "search-disk-use-direct-reads": false,
+            "search-enable-unstable-features": false,
+            "search-ext-load": null,
+            "search-fork-gc-clean-threshold": 100,
+            "search-fork-gc-retry-interval": 5,
+            "search-fork-gc-run-interval": 30,
+            "search-fork-gc-sleep-before-exit": 0,
+            "search-friso-ini": null,
+            "search-gc-scan-size": 100,
+            "search-index-cursor-limit": 128,
+            "search-indexer-yield-every-ops": 1000,
+            "search-io-threads": 1,
+            "search-max-aggregate-results": 2147483648,
+            "search-max-doctablesize": 1000000,
+            "search-max-prefix-expansions": 200,
+            "search-max-search-results": 1000000,
+            "search-min-operation-workers": 4,
+            "search-min-phonetic-term-len": 3,
+            "search-min-prefix": 2,
+            "search-min-stem-len": 4,
+            "search-multi-text-slop": 100,
+            "search-no-gc": false,
+            "search-no-mem-pools": false,
+            "search-on-oom": "return",
+            "search-on-timeout": "RETURN",
+            "search-partial-indexed-docs": false,
+            "search-raw-docid-encoding": false,
+            "search-threads": 20,
+            "search-tiered-hnsw-buffer-limit": 1024,
+            "search-timeout": 500,
+            "search-topology-validation-timeout": 30000,
+            "search-union-iterator-heap": 20,
+            "search-vss-max-resize": 0,
+            "search-workers": 3,
+            "search-workers-priority-bias-threshold": 1
+          },
+          "module_list": [
+            {
+              "module_args": "",
+              "module_id": "d98befb0dee1336a498f3ec5bb82493b",
+              "module_name": "ReJSON",
+              "semantic_version": "8.6.6"
+            },
+            {
+              "module_args": "",
+              "module_id": "ea2cb38fd9f84531377fb4546c0f67be",
+              "module_name": "bf",
+              "semantic_version": "8.6.4"
+            },
+            {
+              "module_args": "",
+              "module_id": "30992425191e7f4170d6495c0970ddf9",
+              "module_name": "search",
+              "semantic_version": "8.6.11"
+            },
+            {
+              "module_args": "",
+              "module_id": "d77ea295188e8a2e17adbdd8af0dc98d",
+              "module_name": "timeseries",
+              "semantic_version": "8.6.1"
+            }
+          ]
+        }
+      },
+      {
+        "round": 3,
+        "qpf": 4,
+        "observed": {
+          "query_performance_factor": {
+            "active": true,
+            "scaling_factor": 4
+          },
+          "sched_policy": "mnp",
+          "conns": 32,
+          "search": {
+            "search-_bg-index-mem-pct-thr": 100,
+            "search-_bg-index-oom-pause-time": 5,
+            "search-_free-resource-on-thread": true,
+            "search-_numeric-compress": false,
+            "search-_numeric-ranges-parents": 0,
+            "search-_print-profile-clock": true,
+            "search-_prioritize-intersect-union-children": false,
+            "search-bg-index-sleep-duration-us": 1,
+            "search-bg-index-sleep-gap": 100,
+            "search-bm25std-tanh-factor": 4,
+            "search-conn-per-shard": 0,
+            "search-cursor-max-idle": 300000,
+            "search-cursor-reply-threshold": 1,
+            "search-default-dialect": 1,
+            "search-default-scorer": "BM25STD",
+            "search-disk-drop-read-cache": false,
+            "search-disk-use-direct-reads": false,
+            "search-enable-unstable-features": false,
+            "search-ext-load": null,
+            "search-fork-gc-clean-threshold": 100,
+            "search-fork-gc-retry-interval": 5,
+            "search-fork-gc-run-interval": 30,
+            "search-fork-gc-sleep-before-exit": 0,
+            "search-friso-ini": null,
+            "search-gc-scan-size": 100,
+            "search-index-cursor-limit": 128,
+            "search-indexer-yield-every-ops": 1000,
+            "search-io-threads": 1,
+            "search-max-aggregate-results": 2147483648,
+            "search-max-doctablesize": 1000000,
+            "search-max-prefix-expansions": 200,
+            "search-max-search-results": 1000000,
+            "search-min-operation-workers": 4,
+            "search-min-phonetic-term-len": 3,
+            "search-min-prefix": 2,
+            "search-min-stem-len": 4,
+            "search-multi-text-slop": 100,
+            "search-no-gc": false,
+            "search-no-mem-pools": false,
+            "search-on-oom": "return",
+            "search-on-timeout": "RETURN",
+            "search-partial-indexed-docs": false,
+            "search-raw-docid-encoding": false,
+            "search-threads": 20,
+            "search-tiered-hnsw-buffer-limit": 1024,
+            "search-timeout": 500,
+            "search-topology-validation-timeout": 30000,
+            "search-union-iterator-heap": 20,
+            "search-vss-max-resize": 0,
+            "search-workers": 6,
+            "search-workers-priority-bias-threshold": 1
+          },
+          "module_list": [
+            {
+              "module_args": "",
+              "module_id": "d98befb0dee1336a498f3ec5bb82493b",
+              "module_name": "ReJSON",
+              "semantic_version": "8.6.6"
+            },
+            {
+              "module_args": "",
+              "module_id": "ea2cb38fd9f84531377fb4546c0f67be",
+              "module_name": "bf",
+              "semantic_version": "8.6.4"
+            },
+            {
+              "module_args": "",
+              "module_id": "30992425191e7f4170d6495c0970ddf9",
+              "module_name": "search",
+              "semantic_version": "8.6.11"
+            },
+            {
+              "module_args": "",
+              "module_id": "d77ea295188e8a2e17adbdd8af0dc98d",
+              "module_name": "timeseries",
+              "semantic_version": "8.6.1"
+            }
+          ]
+        }
+      },
+      {
+        "round": 3,
+        "qpf": 0,
+        "observed": {
+          "query_performance_factor": {
+            "active": true,
+            "scaling_factor": 0
+          },
+          "sched_policy": "cmp",
+          "conns": 5,
+          "search": {
+            "search-_bg-index-mem-pct-thr": 100,
+            "search-_bg-index-oom-pause-time": 5,
+            "search-_free-resource-on-thread": true,
+            "search-_numeric-compress": false,
+            "search-_numeric-ranges-parents": 0,
+            "search-_print-profile-clock": true,
+            "search-_prioritize-intersect-union-children": false,
+            "search-bg-index-sleep-duration-us": 1,
+            "search-bg-index-sleep-gap": 100,
+            "search-bm25std-tanh-factor": 4,
+            "search-conn-per-shard": 0,
+            "search-cursor-max-idle": 300000,
+            "search-cursor-reply-threshold": 1,
+            "search-default-dialect": 1,
+            "search-default-scorer": "BM25STD",
+            "search-disk-drop-read-cache": false,
+            "search-disk-use-direct-reads": false,
+            "search-enable-unstable-features": false,
+            "search-ext-load": null,
+            "search-fork-gc-clean-threshold": 100,
+            "search-fork-gc-retry-interval": 5,
+            "search-fork-gc-run-interval": 30,
+            "search-fork-gc-sleep-before-exit": 0,
+            "search-friso-ini": null,
+            "search-gc-scan-size": 100,
+            "search-index-cursor-limit": 128,
+            "search-indexer-yield-every-ops": 1000,
+            "search-io-threads": 1,
+            "search-max-aggregate-results": 2147483648,
+            "search-max-doctablesize": 1000000,
+            "search-max-prefix-expansions": 200,
+            "search-max-search-results": 1000000,
+            "search-min-operation-workers": 4,
+            "search-min-phonetic-term-len": 3,
+            "search-min-prefix": 2,
+            "search-min-stem-len": 4,
+            "search-multi-text-slop": 100,
+            "search-no-gc": false,
+            "search-no-mem-pools": false,
+            "search-on-oom": "return",
+            "search-on-timeout": "RETURN",
+            "search-partial-indexed-docs": false,
+            "search-raw-docid-encoding": false,
+            "search-threads": 20,
+            "search-tiered-hnsw-buffer-limit": 1024,
+            "search-timeout": 500,
+            "search-topology-validation-timeout": 30000,
+            "search-union-iterator-heap": 20,
+            "search-vss-max-resize": 0,
+            "search-workers": 0,
+            "search-workers-priority-bias-threshold": 1
+          },
+          "module_list": [
+            {
+              "module_args": "",
+              "module_id": "d98befb0dee1336a498f3ec5bb82493b",
+              "module_name": "ReJSON",
+              "semantic_version": "8.6.6"
+            },
+            {
+              "module_args": "",
+              "module_id": "ea2cb38fd9f84531377fb4546c0f67be",
+              "module_name": "bf",
+              "semantic_version": "8.6.4"
+            },
+            {
+              "module_args": "",
+              "module_id": "30992425191e7f4170d6495c0970ddf9",
+              "module_name": "search",
+              "semantic_version": "8.6.11"
+            },
+            {
+              "module_args": "",
+              "module_id": "d77ea295188e8a2e17adbdd8af0dc98d",
+              "module_name": "timeseries",
+              "semantic_version": "8.6.1"
+            }
+          ]
+        }
+      }
+    ],
+    "worker_options": {
+      "adbc.redis.query_workers": "10",
+      "adbc.redis.query_worker_budget": "10"
+    },
+    "result_hashes": {
+      "index_group": "4b641a229d8a2940531cebeeda9b3e87fabce1607acd30a545ff136644823ff7",
+      "index_count": "fc99b167e5a3cee562eae9c88f5fc8ac0fd6ad501493b88750badd74795d6b9f",
+      "driver_group": "380a4efb18fc8b94e907b1c7a4ae3b66dcb924ed0618fce02649aa85cd3fddf7",
+      "driver_reduce": "7470422a3acfba18e9e8eb04277743cc4b37a5d767e539eda2f91482883a53e8",
+      "full_scan": "85f3b42ded57c2e227c4e2d3f78fb43c52ef0ea858b38b27cf0500ac931961fa"
+    },
+    "restored_qpf": {
+      "query_performance_factor": {
+        "active": true,
+        "scaling_factor": 0
+      },
+      "sched_policy": "cmp",
+      "conns": 5,
+      "search": {
+        "search-_bg-index-mem-pct-thr": 100,
+        "search-_bg-index-oom-pause-time": 5,
+        "search-_free-resource-on-thread": true,
+        "search-_numeric-compress": false,
+        "search-_numeric-ranges-parents": 0,
+        "search-_print-profile-clock": true,
+        "search-_prioritize-intersect-union-children": false,
+        "search-bg-index-sleep-duration-us": 1,
+        "search-bg-index-sleep-gap": 100,
+        "search-bm25std-tanh-factor": 4,
+        "search-conn-per-shard": 0,
+        "search-cursor-max-idle": 300000,
+        "search-cursor-reply-threshold": 1,
+        "search-default-dialect": 1,
+        "search-default-scorer": "BM25STD",
+        "search-disk-drop-read-cache": false,
+        "search-disk-use-direct-reads": false,
+        "search-enable-unstable-features": false,
+        "search-ext-load": null,
+        "search-fork-gc-clean-threshold": 100,
+        "search-fork-gc-retry-interval": 5,
+        "search-fork-gc-run-interval": 30,
+        "search-fork-gc-sleep-before-exit": 0,
+        "search-friso-ini": null,
+        "search-gc-scan-size": 100,
+        "search-index-cursor-limit": 128,
+        "search-indexer-yield-every-ops": 1000,
+        "search-io-threads": 1,
+        "search-max-aggregate-results": 2147483648,
+        "search-max-doctablesize": 1000000,
+        "search-max-prefix-expansions": 200,
+        "search-max-search-results": 1000000,
+        "search-min-operation-workers": 4,
+        "search-min-phonetic-term-len": 3,
+        "search-min-prefix": 2,
+        "search-min-stem-len": 4,
+        "search-multi-text-slop": 100,
+        "search-no-gc": false,
+        "search-no-mem-pools": false,
+        "search-on-oom": "return",
+        "search-on-timeout": "RETURN",
+        "search-partial-indexed-docs": false,
+        "search-raw-docid-encoding": false,
+        "search-threads": 20,
+        "search-tiered-hnsw-buffer-limit": 1024,
+        "search-timeout": 500,
+        "search-topology-validation-timeout": 30000,
+        "search-union-iterator-heap": 20,
+        "search-vss-max-resize": 0,
+        "search-workers": 0,
+        "search-workers-priority-bias-threshold": 1
+      },
+      "module_list": [
+        {
+          "module_args": "",
+          "module_id": "d98befb0dee1336a498f3ec5bb82493b",
+          "module_name": "ReJSON",
+          "semantic_version": "8.6.6"
+        },
+        {
+          "module_args": "",
+          "module_id": "ea2cb38fd9f84531377fb4546c0f67be",
+          "module_name": "bf",
+          "semantic_version": "8.6.4"
+        },
+        {
+          "module_args": "",
+          "module_id": "30992425191e7f4170d6495c0970ddf9",
+          "module_name": "search",
+          "semantic_version": "8.6.11"
+        },
+        {
+          "module_args": "",
+          "module_id": "d77ea295188e8a2e17adbdd8af0dc98d",
+          "module_name": "timeseries",
+          "semantic_version": "8.6.1"
+        }
+      ]
+    }
+  },
+  "trials": [
+    {
+      "round": 1,
+      "qpf": 0,
+      "query": "index_group",
+      "concurrency": 1,
+      "requests": 544,
+      "elapsed_s": 5.008249583013821,
+      "qps": 108.6207847638129,
+      "p50_ms": 8.350061980308965,
+      "p95_ms": 10.952499986160547,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 8555802,
+        "total_net_output_bytes": 52298078
+      }
+    },
+    {
+      "round": 1,
+      "qpf": 0,
+      "query": "index_group",
+      "concurrency": 16,
+      "requests": 744,
+      "elapsed_s": 5.09731354098767,
+      "qps": 145.9592379431775,
+      "p50_ms": 108.45204201177694,
+      "p95_ms": 176.41083401395008,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 447019,
+        "total_net_output_bytes": 1711282
+      }
+    },
+    {
+      "round": 1,
+      "qpf": 0,
+      "query": "index_count",
+      "concurrency": 1,
+      "requests": 909,
+      "elapsed_s": 5.003101208014414,
+      "qps": 181.68730997163973,
+      "p50_ms": 5.3522089729085565,
+      "p95_ms": 6.531583028845489,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 283958,
+        "total_net_output_bytes": 1178599
+      }
+    },
+    {
+      "round": 1,
+      "qpf": 0,
+      "query": "index_count",
+      "concurrency": 16,
+      "requests": 1294,
+      "elapsed_s": 5.055533583043143,
+      "qps": 255.9571563999157,
+      "p50_ms": 62.264791486086324,
+      "p95_ms": 69.42291598534212,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 368190,
+        "total_net_output_bytes": 1518137
+      }
+    },
+    {
+      "round": 1,
+      "qpf": 0,
+      "query": "driver_group",
+      "concurrency": 1,
+      "requests": 9,
+      "elapsed_s": 5.166830790985841,
+      "qps": 1.7418801513108546,
+      "p50_ms": 573.6842089681886,
+      "p95_ms": 587.992208020296,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 58266681,
+        "total_net_output_bytes": 126821774
+      }
+    },
+    {
+      "round": 1,
+      "qpf": 0,
+      "query": "driver_group",
+      "concurrency": 4,
+      "requests": 18,
+      "elapsed_s": 5.553084415965714,
+      "qps": 3.241441809933245,
+      "p50_ms": 1172.0352084957995,
+      "p95_ms": 1479.1454169899225,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 160787065,
+        "total_net_output_bytes": 352360667
+      }
+    },
+    {
+      "round": 1,
+      "qpf": 0,
+      "query": "driver_reduce",
+      "concurrency": 1,
+      "requests": 18,
+      "elapsed_s": 5.227268084010575,
+      "qps": 3.443481319632197,
+      "p50_ms": 287.7904584747739,
+      "p95_ms": 315.6341250287369,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 158078955,
+        "total_net_output_bytes": 305910707
+      }
+    },
+    {
+      "round": 1,
+      "qpf": 0,
+      "query": "driver_reduce",
+      "concurrency": 4,
+      "requests": 21,
+      "elapsed_s": 5.891280000039842,
+      "qps": 3.5645903776187824,
+      "p50_ms": 1087.4832079862244,
+      "p95_ms": 1481.8061669939198,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 242377093,
+        "total_net_output_bytes": 447644431
+      }
+    },
+    {
+      "round": 1,
+      "qpf": 0,
+      "query": "full_scan",
+      "concurrency": 1,
+      "requests": 6,
+      "elapsed_s": 5.446055834006984,
+      "qps": 1.1017147423524387,
+      "p50_ms": 887.6660210371483,
+      "p95_ms": 1000.6219169590622,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 39289038,
+        "total_net_output_bytes": 344208059
+      }
+    },
+    {
+      "round": 1,
+      "qpf": 0,
+      "query": "full_scan",
+      "concurrency": 4,
+      "requests": 10,
+      "elapsed_s": 5.91876854095608,
+      "qps": 1.6895406419093835,
+      "p50_ms": 2289.4939164980315,
+      "p95_ms": 2695.6698749563657,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 30466,
+        "total_net_output_bytes": 654267283
+      }
+    },
+    {
+      "round": 1,
+      "qpf": 2,
+      "query": "index_group",
+      "concurrency": 1,
+      "requests": 593,
+      "elapsed_s": 5.005674749962054,
+      "qps": 118.46554752773245,
+      "p50_ms": 8.219125040341169,
+      "p95_ms": 9.64112498331815,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 236978,
+        "total_net_output_bytes": 8356163
+      }
+    },
+    {
+      "round": 1,
+      "qpf": 2,
+      "query": "index_group",
+      "concurrency": 16,
+      "requests": 1970,
+      "elapsed_s": 5.038062750012614,
+      "qps": 391.0233154589168,
+      "p50_ms": 39.51850000885315,
+      "p95_ms": 47.093375003896654,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 812689,
+        "total_net_output_bytes": 3478447
+      }
+    },
+    {
+      "round": 1,
+      "qpf": 2,
+      "query": "index_count",
+      "concurrency": 1,
+      "requests": 912,
+      "elapsed_s": 5.004221042036079,
+      "qps": 182.24614627113525,
+      "p50_ms": 5.310708511387929,
+      "p95_ms": 6.458249990828335,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 344549,
+        "total_net_output_bytes": 1488502
+      }
+    },
+    {
+      "round": 1,
+      "qpf": 2,
+      "query": "index_count",
+      "concurrency": 16,
+      "requests": 2967,
+      "elapsed_s": 5.032360833021812,
+      "qps": 589.5841133908491,
+      "p50_ms": 26.805708999745548,
+      "p95_ms": 31.440208025742322,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 785286,
+        "total_net_output_bytes": 3150492
+      }
+    },
+    {
+      "round": 1,
+      "qpf": 2,
+      "query": "driver_group",
+      "concurrency": 1,
+      "requests": 9,
+      "elapsed_s": 5.274244208005257,
+      "qps": 1.7064056280025457,
+      "p50_ms": 589.2595840268768,
+      "p95_ms": 613.7190839508548,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 59004952,
+        "total_net_output_bytes": 129643155
+      }
+    },
+    {
+      "round": 1,
+      "qpf": 2,
+      "query": "driver_group",
+      "concurrency": 4,
+      "requests": 21,
+      "elapsed_s": 5.762300208967645,
+      "qps": 3.6443779807443066,
+      "p50_ms": 1045.5057920189574,
+      "p95_ms": 1207.9665830242448,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 186475437,
+        "total_net_output_bytes": 404474034
+      }
+    },
+    {
+      "round": 1,
+      "qpf": 2,
+      "query": "driver_reduce",
+      "concurrency": 1,
+      "requests": 21,
+      "elapsed_s": 5.13423112500459,
+      "qps": 4.090193738596298,
+      "p50_ms": 246.71529204351828,
+      "p95_ms": 263.2031670073047,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 156542503,
+        "total_net_output_bytes": 299627942
+      }
+    },
+    {
+      "round": 1,
+      "qpf": 2,
+      "query": "driver_reduce",
+      "concurrency": 4,
+      "requests": 23,
+      "elapsed_s": 5.631643500004429,
+      "qps": 4.08406533545348,
+      "p50_ms": 963.1026249844581,
+      "p95_ms": 1247.552458953578,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 280307113,
+        "total_net_output_bytes": 519849768
+      }
+    },
+    {
+      "round": 1,
+      "qpf": 2,
+      "query": "full_scan",
+      "concurrency": 1,
+      "requests": 6,
+      "elapsed_s": 5.942478583951015,
+      "qps": 1.0096797010264933,
+      "p50_ms": 985.4557505168486,
+      "p95_ms": 1018.5134579660371,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 38564990,
+        "total_net_output_bytes": 324781658
+      }
+    },
+    {
+      "round": 1,
+      "qpf": 2,
+      "query": "full_scan",
+      "concurrency": 4,
+      "requests": 13,
+      "elapsed_s": 6.167509916005656,
+      "qps": 2.1078198782077284,
+      "p50_ms": 1708.6538749863394,
+      "p95_ms": 2101.3041250407696,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 34016,
+        "total_net_output_bytes": 743373035
+      }
+    },
+    {
+      "round": 1,
+      "qpf": 4,
+      "query": "index_group",
+      "concurrency": 1,
+      "requests": 585,
+      "elapsed_s": 5.004717500007246,
+      "qps": 116.88971455414877,
+      "p50_ms": 8.28020804328844,
+      "p95_ms": 9.808000002522022,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 227554,
+        "total_net_output_bytes": 14802936
+      }
+    },
+    {
+      "round": 1,
+      "qpf": 4,
+      "query": "index_group",
+      "concurrency": 16,
+      "requests": 2716,
+      "elapsed_s": 5.028804208035581,
+      "qps": 540.0886349204198,
+      "p50_ms": 28.647458995692432,
+      "p95_ms": 39.779166982043535,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 1092522,
+        "total_net_output_bytes": 4671276
+      }
+    },
+    {
+      "round": 1,
+      "qpf": 4,
+      "query": "index_count",
+      "concurrency": 1,
+      "requests": 914,
+      "elapsed_s": 5.006987707980443,
+      "qps": 182.54488592876132,
+      "p50_ms": 5.352603999199346,
+      "p95_ms": 6.33320800261572,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 395149,
+        "total_net_output_bytes": 1699910
+      }
+    },
+    {
+      "round": 1,
+      "qpf": 4,
+      "query": "index_count",
+      "concurrency": 16,
+      "requests": 4613,
+      "elapsed_s": 5.018120832974091,
+      "qps": 919.2684181074237,
+      "p50_ms": 16.491042042616755,
+      "p95_ms": 25.523791962768883,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 1196194,
+        "total_net_output_bytes": 4764957
+      }
+    },
+    {
+      "round": 1,
+      "qpf": 4,
+      "query": "driver_group",
+      "concurrency": 1,
+      "requests": 9,
+      "elapsed_s": 5.346536500030197,
+      "qps": 1.6833327519505699,
+      "p50_ms": 599.1994999931194,
+      "p95_ms": 618.2212089770474,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 69109930,
+        "total_net_output_bytes": 151247221
+      }
+    },
+    {
+      "round": 1,
+      "qpf": 4,
+      "query": "driver_group",
+      "concurrency": 4,
+      "requests": 22,
+      "elapsed_s": 5.768022957956418,
+      "qps": 3.814131836915311,
+      "p50_ms": 997.8401874832343,
+      "p95_ms": 1120.5767499632202,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 200180243,
+        "total_net_output_bytes": 436103014
+      }
+    },
+    {
+      "round": 1,
+      "qpf": 4,
+      "query": "driver_reduce",
+      "concurrency": 1,
+      "requests": 20,
+      "elapsed_s": 5.057333374978043,
+      "qps": 3.9546532761619324,
+      "p50_ms": 251.38152102590539,
+      "p95_ms": 292.9930000100285,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 156282278,
+        "total_net_output_bytes": 290988821
+      }
+    },
+    {
+      "round": 1,
+      "qpf": 4,
+      "query": "driver_reduce",
+      "concurrency": 4,
+      "requests": 24,
+      "elapsed_s": 5.653227083035745,
+      "qps": 4.2453628073811895,
+      "p50_ms": 913.3739169919863,
+      "p95_ms": 1205.2652920247056,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 278846982,
+        "total_net_output_bytes": 521604453
+      }
+    },
+    {
+      "round": 1,
+      "qpf": 4,
+      "query": "full_scan",
+      "concurrency": 1,
+      "requests": 6,
+      "elapsed_s": 5.613784583983943,
+      "qps": 1.068797690798098,
+      "p50_ms": 924.6557289734483,
+      "p95_ms": 1011.6840419941582,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 23240032,
+        "total_net_output_bytes": 321261337
+      }
+    },
+    {
+      "round": 1,
+      "qpf": 4,
+      "query": "full_scan",
+      "concurrency": 4,
+      "requests": 12,
+      "elapsed_s": 5.4386125830351375,
+      "qps": 2.206445084437902,
+      "p50_ms": 1751.7362085054629,
+      "p95_ms": 1896.701167046558,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 33467,
+        "total_net_output_bytes": 729947425
+      }
+    },
+    {
+      "round": 2,
+      "qpf": 4,
+      "query": "index_group",
+      "concurrency": 1,
+      "requests": 557,
+      "elapsed_s": 5.003974458028097,
+      "qps": 111.31151940761416,
+      "p50_ms": 8.35516699589789,
+      "p95_ms": 12.495125003624707,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 186795,
+        "total_net_output_bytes": 11781465
+      }
+    },
+    {
+      "round": 2,
+      "qpf": 4,
+      "query": "index_group",
+      "concurrency": 16,
+      "requests": 3094,
+      "elapsed_s": 5.02341687498847,
+      "qps": 615.9154370414662,
+      "p50_ms": 23.994707968086004,
+      "p95_ms": 36.388083011843264,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 1093498,
+        "total_net_output_bytes": 4733328
+      }
+    },
+    {
+      "round": 2,
+      "qpf": 4,
+      "query": "index_count",
+      "concurrency": 1,
+      "requests": 1025,
+      "elapsed_s": 5.006372084026225,
+      "qps": 204.73907707947956,
+      "p50_ms": 4.813499981537461,
+      "p95_ms": 5.4818750359117985,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 587226,
+        "total_net_output_bytes": 2511987
+      }
+    },
+    {
+      "round": 2,
+      "qpf": 4,
+      "query": "index_count",
+      "concurrency": 16,
+      "requests": 5458,
+      "elapsed_s": 5.015199374989606,
+      "qps": 1088.2917291820152,
+      "p50_ms": 13.482666981872171,
+      "p95_ms": 22.31058303732425,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 1567654,
+        "total_net_output_bytes": 6241078
+      }
+    },
+    {
+      "round": 2,
+      "qpf": 4,
+      "query": "driver_group",
+      "concurrency": 1,
+      "requests": 9,
+      "elapsed_s": 5.2440017919871025,
+      "qps": 1.7162465531098994,
+      "p50_ms": 566.202207992319,
+      "p95_ms": 668.7726670061238,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 64878646,
+        "total_net_output_bytes": 141389653
+      }
+    },
+    {
+      "round": 2,
+      "qpf": 4,
+      "query": "driver_group",
+      "concurrency": 4,
+      "requests": 24,
+      "elapsed_s": 5.755599041993264,
+      "qps": 4.169852664317697,
+      "p50_ms": 897.3016039817594,
+      "p95_ms": 1126.762708008755,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 213877105,
+        "total_net_output_bytes": 465972676
+      }
+    },
+    {
+      "round": 2,
+      "qpf": 4,
+      "query": "driver_reduce",
+      "concurrency": 1,
+      "requests": 25,
+      "elapsed_s": 5.119789040996693,
+      "qps": 4.88301369447307,
+      "p50_ms": 201.79158402606845,
+      "p95_ms": 233.3082920522429,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 196697629,
+        "total_net_output_bytes": 373796824
+      }
+    },
+    {
+      "round": 2,
+      "qpf": 4,
+      "query": "driver_reduce",
+      "concurrency": 4,
+      "requests": 23,
+      "elapsed_s": 5.5303228329867125,
+      "qps": 4.158889217608042,
+      "p50_ms": 863.1041669868864,
+      "p95_ms": 1771.1175000295043,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 291074918,
+        "total_net_output_bytes": 537359081
+      }
+    },
+    {
+      "round": 2,
+      "qpf": 4,
+      "query": "full_scan",
+      "concurrency": 1,
+      "requests": 6,
+      "elapsed_s": 5.044701334030833,
+      "qps": 1.189366743978451,
+      "p50_ms": 840.7498539891094,
+      "p95_ms": 849.3766249739565,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 7992641,
+        "total_net_output_bytes": 252199187
+      }
+    },
+    {
+      "round": 2,
+      "qpf": 4,
+      "query": "full_scan",
+      "concurrency": 4,
+      "requests": 8,
+      "elapsed_s": 7.993709291971754,
+      "qps": 1.0007869573183708,
+      "p50_ms": 3984.754958510166,
+      "p95_ms": 4667.082208034117,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 26160,
+        "total_net_output_bytes": 533774989
+      }
+    },
+    {
+      "round": 2,
+      "qpf": 0,
+      "query": "index_group",
+      "concurrency": 1,
+      "requests": 655,
+      "elapsed_s": 5.00694824999664,
+      "qps": 130.8182084766783,
+      "p50_ms": 7.4428749503567815,
+      "p95_ms": 8.801332965958863,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 10127104,
+        "total_net_output_bytes": 55820671
+      }
+    },
+    {
+      "round": 2,
+      "qpf": 0,
+      "query": "index_group",
+      "concurrency": 16,
+      "requests": 766,
+      "elapsed_s": 5.083654874993954,
+      "qps": 150.67899352646575,
+      "p50_ms": 98.59585401136428,
+      "p95_ms": 174.58154197083786,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 448784,
+        "total_net_output_bytes": 1763960
+      }
+    },
+    {
+      "round": 2,
+      "qpf": 0,
+      "query": "index_count",
+      "concurrency": 1,
+      "requests": 944,
+      "elapsed_s": 5.00936416600598,
+      "qps": 188.44707007050386,
+      "p50_ms": 5.118853994645178,
+      "p95_ms": 6.214332999661565,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 294711,
+        "total_net_output_bytes": 1227515
+      }
+    },
+    {
+      "round": 2,
+      "qpf": 0,
+      "query": "index_count",
+      "concurrency": 16,
+      "requests": 1311,
+      "elapsed_s": 5.060432708996814,
+      "qps": 259.06875466779877,
+      "p50_ms": 59.20100002549589,
+      "p95_ms": 68.84504202753305,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 376276,
+        "total_net_output_bytes": 1538075
+      }
+    },
+    {
+      "round": 2,
+      "qpf": 0,
+      "query": "driver_group",
+      "concurrency": 1,
+      "requests": 9,
+      "elapsed_s": 5.045309500012081,
+      "qps": 1.7838350650199852,
+      "p50_ms": 557.607457973063,
+      "p95_ms": 588.6375830159523,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 60940091,
+        "total_net_output_bytes": 132500542
+      }
+    },
+    {
+      "round": 2,
+      "qpf": 0,
+      "query": "driver_group",
+      "concurrency": 4,
+      "requests": 21,
+      "elapsed_s": 5.795494915975723,
+      "qps": 3.623504170819286,
+      "p50_ms": 1065.141582977958,
+      "p95_ms": 1250.1272080116905,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 179914176,
+        "total_net_output_bytes": 391151285
+      }
+    },
+    {
+      "round": 2,
+      "qpf": 0,
+      "query": "driver_reduce",
+      "concurrency": 1,
+      "requests": 21,
+      "elapsed_s": 5.23060266696848,
+      "qps": 4.014833727022713,
+      "p50_ms": 242.29975003981963,
+      "p95_ms": 289.70016696257517,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 191133928,
+        "total_net_output_bytes": 367799704
+      }
+    },
+    {
+      "round": 2,
+      "qpf": 0,
+      "query": "driver_reduce",
+      "concurrency": 4,
+      "requests": 22,
+      "elapsed_s": 5.355003709031735,
+      "qps": 4.108307145127624,
+      "p50_ms": 932.8425629937556,
+      "p95_ms": 1263.0992089980282,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 244180583,
+        "total_net_output_bytes": 455670958
+      }
+    },
+    {
+      "round": 2,
+      "qpf": 0,
+      "query": "full_scan",
+      "concurrency": 1,
+      "requests": 7,
+      "elapsed_s": 5.676374625007156,
+      "qps": 1.2331814692359517,
+      "p50_ms": 807.5239580357447,
+      "p95_ms": 828.8907919777557,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 36273296,
+        "total_net_output_bytes": 372276688
+      }
+    },
+    {
+      "round": 2,
+      "qpf": 0,
+      "query": "full_scan",
+      "concurrency": 4,
+      "requests": 12,
+      "elapsed_s": 5.988661084033083,
+      "qps": 2.003786795014047,
+      "p50_ms": 1921.1734165146481,
+      "p95_ms": 2278.9177499944344,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 33288,
+        "total_net_output_bytes": 722961213
+      }
+    },
+    {
+      "round": 2,
+      "qpf": 2,
+      "query": "index_group",
+      "concurrency": 1,
+      "requests": 630,
+      "elapsed_s": 5.008311292040162,
+      "qps": 125.7909030138113,
+      "p50_ms": 7.589521032059565,
+      "p95_ms": 9.699291957076639,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 262294,
+        "total_net_output_bytes": 2265362
+      }
+    },
+    {
+      "round": 2,
+      "qpf": 2,
+      "query": "index_group",
+      "concurrency": 16,
+      "requests": 2377,
+      "elapsed_s": 5.0381237079855055,
+      "qps": 471.8026268851671,
+      "p50_ms": 32.886333006899804,
+      "p95_ms": 39.095916028600186,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 1003381,
+        "total_net_output_bytes": 4293985
+      }
+    },
+    {
+      "round": 2,
+      "qpf": 2,
+      "query": "index_count",
+      "concurrency": 1,
+      "requests": 922,
+      "elapsed_s": 5.005963708041236,
+      "qps": 184.18032046835708,
+      "p50_ms": 5.113541992614046,
+      "p95_ms": 6.507750018499792,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 339741,
+        "total_net_output_bytes": 1460722
+      }
+    },
+    {
+      "round": 2,
+      "qpf": 2,
+      "query": "index_count",
+      "concurrency": 16,
+      "requests": 3295,
+      "elapsed_s": 5.027413707983214,
+      "qps": 655.4065751079424,
+      "p50_ms": 23.472625005524606,
+      "p95_ms": 31.089541036635637,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 868848,
+        "total_net_output_bytes": 3479359
+      }
+    },
+    {
+      "round": 2,
+      "qpf": 2,
+      "query": "driver_group",
+      "concurrency": 1,
+      "requests": 9,
+      "elapsed_s": 5.221597167022992,
+      "qps": 1.7236105567161555,
+      "p50_ms": 585.1014590007253,
+      "p95_ms": 607.0294590317644,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 73590855,
+        "total_net_output_bytes": 160345173
+      }
+    },
+    {
+      "round": 2,
+      "qpf": 2,
+      "query": "driver_group",
+      "concurrency": 4,
+      "requests": 24,
+      "elapsed_s": 5.6676197909982875,
+      "qps": 4.234581867703703,
+      "p50_ms": 889.826354017714,
+      "p95_ms": 988.6165829957463,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 176137316,
+        "total_net_output_bytes": 386845555
+      }
+    },
+    {
+      "round": 2,
+      "qpf": 2,
+      "query": "driver_reduce",
+      "concurrency": 1,
+      "requests": 23,
+      "elapsed_s": 5.107218499993905,
+      "qps": 4.503429802352777,
+      "p50_ms": 195.7234159926884,
+      "p95_ms": 331.6794169950299,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 221240170,
+        "total_net_output_bytes": 420043843
+      }
+    },
+    {
+      "round": 2,
+      "qpf": 2,
+      "query": "driver_reduce",
+      "concurrency": 4,
+      "requests": 25,
+      "elapsed_s": 5.90177095803665,
+      "qps": 4.236016642759851,
+      "p50_ms": 888.660249998793,
+      "p95_ms": 1688.6244579800405,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 238138349,
+        "total_net_output_bytes": 445416036
+      }
+    },
+    {
+      "round": 2,
+      "qpf": 2,
+      "query": "full_scan",
+      "concurrency": 1,
+      "requests": 6,
+      "elapsed_s": 5.40181141596986,
+      "qps": 1.1107385167615555,
+      "p50_ms": 864.7108959848993,
+      "p95_ms": 1087.7527499687858,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 65421427,
+        "total_net_output_bytes": 330257774
+      }
+    },
+    {
+      "round": 2,
+      "qpf": 2,
+      "query": "full_scan",
+      "concurrency": 4,
+      "requests": 16,
+      "elapsed_s": 6.259720332978759,
+      "qps": 2.556024734157128,
+      "p50_ms": 1432.878499472281,
+      "p95_ms": 1757.7788749476895,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 38984,
+        "total_net_output_bytes": 843861795
+      }
+    },
+    {
+      "round": 3,
+      "qpf": 2,
+      "query": "index_group",
+      "concurrency": 1,
+      "requests": 599,
+      "elapsed_s": 5.005207792040892,
+      "qps": 119.67535113177699,
+      "p50_ms": 7.946833036839962,
+      "p95_ms": 10.055416962131858,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 9919127,
+        "total_net_output_bytes": 54545160
+      }
+    },
+    {
+      "round": 3,
+      "qpf": 2,
+      "query": "index_group",
+      "concurrency": 16,
+      "requests": 1643,
+      "elapsed_s": 5.052641624992248,
+      "qps": 325.17643679162006,
+      "p50_ms": 38.796457985881716,
+      "p95_ms": 75.67849999759346,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 523624,
+        "total_net_output_bytes": 2226767
+      }
+    },
+    {
+      "round": 3,
+      "qpf": 2,
+      "query": "index_count",
+      "concurrency": 1,
+      "requests": 976,
+      "elapsed_s": 5.002289250027388,
+      "qps": 195.1106685793222,
+      "p50_ms": 4.978271521395072,
+      "p95_ms": 6.085583008825779,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 508840,
+        "total_net_output_bytes": 2191990
+      }
+    },
+    {
+      "round": 3,
+      "qpf": 2,
+      "query": "index_count",
+      "concurrency": 16,
+      "requests": 3082,
+      "elapsed_s": 5.029018041037489,
+      "qps": 612.8432976080917,
+      "p50_ms": 25.053000019397587,
+      "p95_ms": 34.36175000388175,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 886852,
+        "total_net_output_bytes": 3566884
+      }
+    },
+    {
+      "round": 3,
+      "qpf": 2,
+      "query": "driver_group",
+      "concurrency": 1,
+      "requests": 8,
+      "elapsed_s": 5.1383744580089115,
+      "qps": 1.5569126122232733,
+      "p50_ms": 592.0391879917588,
+      "p95_ms": 859.3731669825502,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 54307267,
+        "total_net_output_bytes": 119426800
+      }
+    },
+    {
+      "round": 3,
+      "qpf": 2,
+      "query": "driver_group",
+      "concurrency": 4,
+      "requests": 24,
+      "elapsed_s": 5.689430500031449,
+      "qps": 4.218348391788481,
+      "p50_ms": 898.265875002835,
+      "p95_ms": 1018.9705420052633,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 208726101,
+        "total_net_output_bytes": 454933812
+      }
+    },
+    {
+      "round": 3,
+      "qpf": 2,
+      "query": "driver_reduce",
+      "concurrency": 1,
+      "requests": 25,
+      "elapsed_s": 5.042860209010541,
+      "qps": 4.957504067895875,
+      "p50_ms": 197.91629200335592,
+      "p95_ms": 224.41191697726026,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 194323915,
+        "total_net_output_bytes": 363390296
+      }
+    },
+    {
+      "round": 3,
+      "qpf": 2,
+      "query": "driver_reduce",
+      "concurrency": 4,
+      "requests": 19,
+      "elapsed_s": 5.431730457989033,
+      "qps": 3.497964441894322,
+      "p50_ms": 1012.9268750315532,
+      "p95_ms": 1848.8586249877699,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 245865215,
+        "total_net_output_bytes": 459551794
+      }
+    },
+    {
+      "round": 3,
+      "qpf": 2,
+      "query": "full_scan",
+      "concurrency": 1,
+      "requests": 6,
+      "elapsed_s": 5.3732054170104675,
+      "qps": 1.116651892928796,
+      "p50_ms": 881.1053340032231,
+      "p95_ms": 966.7128750006668,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 31050642,
+        "total_net_output_bytes": 297834162
+      }
+    },
+    {
+      "round": 3,
+      "qpf": 2,
+      "query": "full_scan",
+      "concurrency": 4,
+      "requests": 12,
+      "elapsed_s": 5.353994625038467,
+      "qps": 2.2413171548362887,
+      "p50_ms": 1819.2064370086882,
+      "p95_ms": 2009.211750002578,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 32097,
+        "total_net_output_bytes": 668853169
+      }
+    },
+    {
+      "round": 3,
+      "qpf": 4,
+      "query": "index_group",
+      "concurrency": 1,
+      "requests": 620,
+      "elapsed_s": 5.009651959000621,
+      "qps": 123.76109260166733,
+      "p50_ms": 7.814771000994369,
+      "p95_ms": 8.995083975605667,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 223132,
+        "total_net_output_bytes": 26486007
+      }
+    },
+    {
+      "round": 3,
+      "qpf": 4,
+      "query": "index_group",
+      "concurrency": 16,
+      "requests": 3029,
+      "elapsed_s": 5.026552417024504,
+      "qps": 602.5999032141862,
+      "p50_ms": 24.482500040903687,
+      "p95_ms": 38.35054096998647,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 1408081,
+        "total_net_output_bytes": 6017362
+      }
+    },
+    {
+      "round": 3,
+      "qpf": 4,
+      "query": "index_count",
+      "concurrency": 1,
+      "requests": 941,
+      "elapsed_s": 5.005169291980565,
+      "qps": 188.00562880214642,
+      "p50_ms": 4.949374997522682,
+      "p95_ms": 5.657207977492362,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 284026,
+        "total_net_output_bytes": 1220588
+      }
+    },
+    {
+      "round": 3,
+      "qpf": 4,
+      "query": "index_count",
+      "concurrency": 16,
+      "requests": 5205,
+      "elapsed_s": 5.016254167014267,
+      "qps": 1037.6268479828798,
+      "p50_ms": 14.278832997661084,
+      "p95_ms": 22.943500021938235,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 1495822,
+        "total_net_output_bytes": 5938863
+      }
+    },
+    {
+      "round": 3,
+      "qpf": 4,
+      "query": "driver_group",
+      "concurrency": 1,
+      "requests": 10,
+      "elapsed_s": 5.5442313340026885,
+      "qps": 1.8036765418986305,
+      "p50_ms": 551.2238750234246,
+      "p95_ms": 586.079458007589,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 69107044,
+        "total_net_output_bytes": 151114245
+      }
+    },
+    {
+      "round": 3,
+      "qpf": 4,
+      "query": "driver_group",
+      "concurrency": 4,
+      "requests": 24,
+      "elapsed_s": 5.531980458996259,
+      "qps": 4.3384101187433775,
+      "p50_ms": 889.819667005213,
+      "p95_ms": 1009.3397499877028,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 191835714,
+        "total_net_output_bytes": 418022003
+      }
+    },
+    {
+      "round": 3,
+      "qpf": 4,
+      "query": "driver_reduce",
+      "concurrency": 1,
+      "requests": 25,
+      "elapsed_s": 5.026376541994978,
+      "qps": 4.973761872220869,
+      "p50_ms": 202.33604201348498,
+      "p95_ms": 226.0965000023134,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 192270115,
+        "total_net_output_bytes": 365906674
+      }
+    },
+    {
+      "round": 3,
+      "qpf": 4,
+      "query": "driver_reduce",
+      "concurrency": 4,
+      "requests": 28,
+      "elapsed_s": 5.465867584047373,
+      "qps": 5.12270002327179,
+      "p50_ms": 754.5663120108657,
+      "p95_ms": 997.1503750421107,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 297229637,
+        "total_net_output_bytes": 556858471
+      }
+    },
+    {
+      "round": 3,
+      "qpf": 4,
+      "query": "full_scan",
+      "concurrency": 1,
+      "requests": 6,
+      "elapsed_s": 5.07005995803047,
+      "qps": 1.1834179575128294,
+      "p50_ms": 832.9365619865712,
+      "p95_ms": 900.8207920123823,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 72643685,
+        "total_net_output_bytes": 335740346
+      }
+    },
+    {
+      "round": 3,
+      "qpf": 4,
+      "query": "full_scan",
+      "concurrency": 4,
+      "requests": 12,
+      "elapsed_s": 5.5198978340486065,
+      "qps": 2.17395327971107,
+      "p50_ms": 1773.2912080246024,
+      "p95_ms": 1980.7257499778643,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 31977,
+        "total_net_output_bytes": 668240741
+      }
+    },
+    {
+      "round": 3,
+      "qpf": 0,
+      "query": "index_group",
+      "concurrency": 1,
+      "requests": 517,
+      "elapsed_s": 5.002644499996677,
+      "qps": 103.34534064939922,
+      "p50_ms": 7.990666956175119,
+      "p95_ms": 12.772749993018806,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 198249,
+        "total_net_output_bytes": 37237076
+      }
+    },
+    {
+      "round": 3,
+      "qpf": 0,
+      "query": "index_group",
+      "concurrency": 16,
+      "requests": 633,
+      "elapsed_s": 5.094873291964177,
+      "qps": 124.24254024106763,
+      "p50_ms": 118.30108298454434,
+      "p95_ms": 259.07954201102257,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 306339,
+        "total_net_output_bytes": 1142445
+      }
+    },
+    {
+      "round": 3,
+      "qpf": 0,
+      "query": "index_count",
+      "concurrency": 1,
+      "requests": 932,
+      "elapsed_s": 5.007790083007421,
+      "qps": 186.1100374719159,
+      "p50_ms": 5.110562517074868,
+      "p95_ms": 6.742958968970925,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 308348,
+        "total_net_output_bytes": 1258615
+      }
+    },
+    {
+      "round": 3,
+      "qpf": 0,
+      "query": "index_count",
+      "concurrency": 16,
+      "requests": 1324,
+      "elapsed_s": 5.041145625000354,
+      "qps": 262.63871319922583,
+      "p50_ms": 59.80029149213806,
+      "p95_ms": 68.18266602931544,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 442939,
+        "total_net_output_bytes": 1832681
+      }
+    },
+    {
+      "round": 3,
+      "qpf": 0,
+      "query": "driver_group",
+      "concurrency": 1,
+      "requests": 9,
+      "elapsed_s": 5.4566322499886155,
+      "qps": 1.6493689857913325,
+      "p50_ms": 571.9018329982646,
+      "p95_ms": 853.4980419790372,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 60897262,
+        "total_net_output_bytes": 132452569
+      }
+    },
+    {
+      "round": 3,
+      "qpf": 0,
+      "query": "driver_group",
+      "concurrency": 4,
+      "requests": 18,
+      "elapsed_s": 5.18725799996173,
+      "qps": 3.470041397619474,
+      "p50_ms": 1081.1355214973446,
+      "p95_ms": 1318.293165997602,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 173347138,
+        "total_net_output_bytes": 378955234
+      }
+    },
+    {
+      "round": 3,
+      "qpf": 0,
+      "query": "driver_reduce",
+      "concurrency": 1,
+      "requests": 17,
+      "elapsed_s": 5.2907462090370245,
+      "qps": 3.2131573370430466,
+      "p50_ms": 295.19337497185916,
+      "p95_ms": 416.58537497278303,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 159897791,
+        "total_net_output_bytes": 304788724
+      }
+    },
+    {
+      "round": 3,
+      "qpf": 0,
+      "query": "driver_reduce",
+      "concurrency": 4,
+      "requests": 21,
+      "elapsed_s": 5.503715042024851,
+      "qps": 3.8156045216094565,
+      "p50_ms": 1043.645083962474,
+      "p95_ms": 1340.3675419976935,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 225180008,
+        "total_net_output_bytes": 413445646
+      }
+    },
+    {
+      "round": 3,
+      "qpf": 0,
+      "query": "full_scan",
+      "concurrency": 1,
+      "requests": 6,
+      "elapsed_s": 5.110787833982613,
+      "qps": 1.173987298025726,
+      "p50_ms": 851.1364585137926,
+      "p95_ms": 871.6344580170698,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 31043769,
+        "total_net_output_bytes": 309988114
+      }
+    },
+    {
+      "round": 3,
+      "qpf": 0,
+      "query": "full_scan",
+      "concurrency": 4,
+      "requests": 12,
+      "elapsed_s": 7.032526083989069,
+      "qps": 1.7063569842023572,
+      "p50_ms": 2203.1681454973295,
+      "p95_ms": 2692.0533340307884,
+      "errors": 0,
+      "redis_delta": {
+        "used_cpu_sys": 0.0,
+        "used_cpu_user": 0.0,
+        "total_net_input_bytes": 34040,
+        "total_net_output_bytes": 733436348
+      }
+    }
+  ],
+  "docker_samples": [
+    {
+      "time": 1791499000.9456902,
+      "trial": {},
+      "containers": [
+        {
+          "BlockIO": "53.2MB / 21.7MB",
+          "CPUPerc": "104.75%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.24%",
+          "MemUsage": "1.491GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "6.12GB / 20.8GB",
+          "PIDs": "472"
+        }
+      ]
+    },
+    {
+      "time": 1791499010.0290198,
+      "trial": {
+        "round": 1,
+        "qpf": 0,
+        "query": "index_group",
+        "concurrency": 1
+      },
+      "containers": [
+        {
+          "BlockIO": "53.2MB / 22.2MB",
+          "CPUPerc": "87.39%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.18%",
+          "MemUsage": "1.486GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "6.14GB / 20.9GB",
+          "PIDs": "472"
+        }
+      ]
+    },
+    {
+      "time": 1791499019.105055,
+      "trial": {
+        "round": 1,
+        "qpf": 0,
+        "query": "index_count",
+        "concurrency": 1
+      },
+      "containers": [
+        {
+          "BlockIO": "53.2MB / 22.2MB",
+          "CPUPerc": "87.59%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "18.99%",
+          "MemUsage": "1.471GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "6.14GB / 20.9GB",
+          "PIDs": "472"
+        }
+      ]
+    },
+    {
+      "time": 1791499028.187202,
+      "trial": {
+        "round": 1,
+        "qpf": 0,
+        "query": "index_count",
+        "concurrency": 16
+      },
+      "containers": [
+        {
+          "BlockIO": "53.2MB / 22.2MB",
+          "CPUPerc": "108.19%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "18.99%",
+          "MemUsage": "1.471GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "6.14GB / 20.9GB",
+          "PIDs": "472"
+        }
+      ]
+    },
+    {
+      "time": 1791499037.291185,
+      "trial": {
+        "round": 1,
+        "qpf": 0,
+        "query": "driver_group",
+        "concurrency": 4
+      },
+      "containers": [
+        {
+          "BlockIO": "53.2MB / 22.2MB",
+          "CPUPerc": "140.95%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.09%",
+          "MemUsage": "1.479GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "6.26GB / 21.1GB",
+          "PIDs": "472"
+        }
+      ]
+    },
+    {
+      "time": 1791499046.363433,
+      "trial": {
+        "round": 1,
+        "qpf": 0,
+        "query": "driver_reduce",
+        "concurrency": 1
+      },
+      "containers": [
+        {
+          "BlockIO": "53.2MB / 22.2MB",
+          "CPUPerc": "172.39%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.30%",
+          "MemUsage": "1.496GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "6.48GB / 21.6GB",
+          "PIDs": "472"
+        }
+      ]
+    },
+    {
+      "time": 1791499055.614086,
+      "trial": {
+        "round": 1,
+        "qpf": 0,
+        "query": "driver_reduce",
+        "concurrency": 4
+      },
+      "containers": [
+        {
+          "BlockIO": "53.2MB / 22.3MB",
+          "CPUPerc": "171.19%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.24%",
+          "MemUsage": "1.49GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "6.76GB / 22.1GB",
+          "PIDs": "472"
+        }
+      ]
+    },
+    {
+      "time": 1791499064.682772,
+      "trial": {
+        "round": 1,
+        "qpf": 0,
+        "query": "full_scan",
+        "concurrency": 4
+      },
+      "containers": [
+        {
+          "BlockIO": "53.2MB / 22.3MB",
+          "CPUPerc": "80.83%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.63%",
+          "MemUsage": "1.521GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "6.81GB / 22.5GB",
+          "PIDs": "472"
+        }
+      ]
+    },
+    {
+      "time": 1791499074.5549262,
+      "trial": {
+        "round": 1,
+        "qpf": 0,
+        "query": "full_scan",
+        "concurrency": 4
+      },
+      "containers": [
+        {
+          "BlockIO": "53.2MB / 22.3MB",
+          "CPUPerc": "156.64%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.57%",
+          "MemUsage": "1.517GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "6.81GB / 23.1GB",
+          "PIDs": "472"
+        }
+      ]
+    },
+    {
+      "time": 1791499084.543591,
+      "trial": {
+        "round": 1,
+        "qpf": 2,
+        "query": "index_group",
+        "concurrency": 1
+      },
+      "containers": [
+        {
+          "BlockIO": "53.2MB / 22.3MB",
+          "CPUPerc": "85.65%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.34%",
+          "MemUsage": "1.498GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "6.83GB / 23.2GB",
+          "PIDs": "475"
+        }
+      ]
+    },
+    {
+      "time": 1791499094.5249531,
+      "trial": {
+        "round": 1,
+        "qpf": 2,
+        "query": "index_count",
+        "concurrency": 1
+      },
+      "containers": [
+        {
+          "BlockIO": "53.2MB / 22.3MB",
+          "CPUPerc": "78.90%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.11%",
+          "MemUsage": "1.481GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "6.83GB / 23.2GB",
+          "PIDs": "475"
+        }
+      ]
+    },
+    {
+      "time": 1791499104.5340438,
+      "trial": {
+        "round": 1,
+        "qpf": 2,
+        "query": "driver_group",
+        "concurrency": 1
+      },
+      "containers": [
+        {
+          "BlockIO": "53.2MB / 22.3MB",
+          "CPUPerc": "59.32%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.15%",
+          "MemUsage": "1.484GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "6.87GB / 23.3GB",
+          "PIDs": "475"
+        }
+      ]
+    },
+    {
+      "time": 1791499114.576492,
+      "trial": {
+        "round": 1,
+        "qpf": 2,
+        "query": "driver_group",
+        "concurrency": 4
+      },
+      "containers": [
+        {
+          "BlockIO": "53.2MB / 22.4MB",
+          "CPUPerc": "170.60%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.28%",
+          "MemUsage": "1.494GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "7.08GB / 23.7GB",
+          "PIDs": "475"
+        }
+      ]
+    },
+    {
+      "time": 1791499124.57835,
+      "trial": {
+        "round": 1,
+        "qpf": 2,
+        "query": "driver_reduce",
+        "concurrency": 4
+      },
+      "containers": [
+        {
+          "BlockIO": "53.7MB / 22.4MB",
+          "CPUPerc": "244.04%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.37%",
+          "MemUsage": "1.501GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "7.42GB / 24.4GB",
+          "PIDs": "475"
+        }
+      ]
+    },
+    {
+      "time": 1791499134.5411289,
+      "trial": {
+        "round": 1,
+        "qpf": 2,
+        "query": "full_scan",
+        "concurrency": 1
+      },
+      "containers": [
+        {
+          "BlockIO": "53.7MB / 22.4MB",
+          "CPUPerc": "85.06%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.63%",
+          "MemUsage": "1.521GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "7.56GB / 24.9GB",
+          "PIDs": "475"
+        }
+      ]
+    },
+    {
+      "time": 1791499144.562998,
+      "trial": {
+        "round": 1,
+        "qpf": 2,
+        "query": "full_scan",
+        "concurrency": 4
+      },
+      "containers": [
+        {
+          "BlockIO": "53.7MB / 22.4MB",
+          "CPUPerc": "248.47%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "20.47%",
+          "MemUsage": "1.586GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "7.56GB / 25.6GB",
+          "PIDs": "475"
+        }
+      ]
+    },
+    {
+      "time": 1791499154.5401962,
+      "trial": {
+        "round": 1,
+        "qpf": 4,
+        "query": "index_group",
+        "concurrency": 1
+      },
+      "containers": [
+        {
+          "BlockIO": "53.7MB / 22.5MB",
+          "CPUPerc": "86.07%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.63%",
+          "MemUsage": "1.521GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "7.58GB / 25.8GB",
+          "PIDs": "478"
+        }
+      ]
+    },
+    {
+      "time": 1791499163.605976,
+      "trial": {
+        "round": 1,
+        "qpf": 4,
+        "query": "index_count",
+        "concurrency": 1
+      },
+      "containers": [
+        {
+          "BlockIO": "53.7MB / 22.5MB",
+          "CPUPerc": "77.03%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.23%",
+          "MemUsage": "1.49GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "7.58GB / 25.8GB",
+          "PIDs": "478"
+        }
+      ]
+    },
+    {
+      "time": 1791499173.59831,
+      "trial": {
+        "round": 1,
+        "qpf": 4,
+        "query": "driver_group",
+        "concurrency": 1
+      },
+      "containers": [
+        {
+          "BlockIO": "53.7MB / 22.5MB",
+          "CPUPerc": "58.40%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.38%",
+          "MemUsage": "1.501GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "7.6GB / 25.8GB",
+          "PIDs": "478"
+        }
+      ]
+    },
+    {
+      "time": 1791499183.560003,
+      "trial": {
+        "round": 1,
+        "qpf": 4,
+        "query": "driver_group",
+        "concurrency": 4
+      },
+      "containers": [
+        {
+          "BlockIO": "53.7MB / 22.5MB",
+          "CPUPerc": "183.71%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.47%",
+          "MemUsage": "1.508GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "7.79GB / 26.2GB",
+          "PIDs": "478"
+        }
+      ]
+    },
+    {
+      "time": 1791499193.649228,
+      "trial": {
+        "round": 1,
+        "qpf": 4,
+        "query": "driver_reduce",
+        "concurrency": 4
+      },
+      "containers": [
+        {
+          "BlockIO": "53.7MB / 22.5MB",
+          "CPUPerc": "222.98%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.64%",
+          "MemUsage": "1.522GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "8.1GB / 26.8GB",
+          "PIDs": "478"
+        }
+      ]
+    },
+    {
+      "time": 1791499203.550776,
+      "trial": {
+        "round": 1,
+        "qpf": 4,
+        "query": "full_scan",
+        "concurrency": 1
+      },
+      "containers": [
+        {
+          "BlockIO": "53.7MB / 22.6MB",
+          "CPUPerc": "71.69%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "20.25%",
+          "MemUsage": "1.569GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "8.32GB / 27.4GB",
+          "PIDs": "478"
+        }
+      ]
+    },
+    {
+      "time": 1791499213.569891,
+      "trial": {
+        "round": 1,
+        "qpf": 4,
+        "query": "full_scan",
+        "concurrency": 4
+      },
+      "containers": [
+        {
+          "BlockIO": "53.7MB / 22.6MB",
+          "CPUPerc": "211.39%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "20.92%",
+          "MemUsage": "1.621GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "8.33GB / 28GB",
+          "PIDs": "478"
+        }
+      ]
+    },
+    {
+      "time": 1791499223.637592,
+      "trial": {
+        "round": 2,
+        "qpf": 4,
+        "query": "index_group",
+        "concurrency": 1
+      },
+      "containers": [
+        {
+          "BlockIO": "53.7MB / 22.6MB",
+          "CPUPerc": "95.89%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.84%",
+          "MemUsage": "1.537GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "8.34GB / 28.3GB",
+          "PIDs": "478"
+        }
+      ]
+    },
+    {
+      "time": 1791499233.581711,
+      "trial": {
+        "round": 2,
+        "qpf": 4,
+        "query": "index_count",
+        "concurrency": 1
+      },
+      "containers": [
+        {
+          "BlockIO": "64.2MB / 22.8MB",
+          "CPUPerc": "480.71%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.47%",
+          "MemUsage": "1.509GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "8.35GB / 28.3GB",
+          "PIDs": "478"
+        }
+      ]
+    },
+    {
+      "time": 1791499243.5679512,
+      "trial": {
+        "round": 2,
+        "qpf": 4,
+        "query": "driver_group",
+        "concurrency": 1
+      },
+      "containers": [
+        {
+          "BlockIO": "64.2MB / 22.9MB",
+          "CPUPerc": "554.32%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.37%",
+          "MemUsage": "1.501GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "8.35GB / 28.3GB",
+          "PIDs": "478"
+        }
+      ]
+    },
+    {
+      "time": 1791499253.5785952,
+      "trial": {
+        "round": 2,
+        "qpf": 4,
+        "query": "driver_group",
+        "concurrency": 4
+      },
+      "containers": [
+        {
+          "BlockIO": "64.2MB / 22.9MB",
+          "CPUPerc": "175.28%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.56%",
+          "MemUsage": "1.516GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "8.53GB / 28.7GB",
+          "PIDs": "478"
+        }
+      ]
+    },
+    {
+      "time": 1791499263.5719218,
+      "trial": {
+        "round": 2,
+        "qpf": 4,
+        "query": "driver_reduce",
+        "concurrency": 4
+      },
+      "containers": [
+        {
+          "BlockIO": "64.2MB / 23MB",
+          "CPUPerc": "197.23%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.84%",
+          "MemUsage": "1.538GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "8.89GB / 29.4GB",
+          "PIDs": "478"
+        }
+      ]
+    },
+    {
+      "time": 1791499273.547661,
+      "trial": {
+        "round": 2,
+        "qpf": 4,
+        "query": "full_scan",
+        "concurrency": 1
+      },
+      "containers": [
+        {
+          "BlockIO": "64.2MB / 23MB",
+          "CPUPerc": "76.40%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "20.38%",
+          "MemUsage": "1.579GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "9.13GB / 30GB",
+          "PIDs": "479"
+        }
+      ]
+    },
+    {
+      "time": 1791499283.921298,
+      "trial": {
+        "round": 2,
+        "qpf": 4,
+        "query": "full_scan",
+        "concurrency": 4
+      },
+      "containers": [
+        {
+          "BlockIO": "64.2MB / 23.5MB",
+          "CPUPerc": "281.79%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "20.79%",
+          "MemUsage": "1.611GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "9.14GB / 30.6GB",
+          "PIDs": "479"
+        }
+      ]
+    },
+    {
+      "time": 1791499293.5769558,
+      "trial": {
+        "round": 2,
+        "qpf": 4,
+        "query": "full_scan",
+        "concurrency": 4
+      },
+      "containers": [
+        {
+          "BlockIO": "64.2MB / 23.5MB",
+          "CPUPerc": "112.75%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "20.13%",
+          "MemUsage": "1.56GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "9.15GB / 30.8GB",
+          "PIDs": "472"
+        }
+      ]
+    },
+    {
+      "time": 1791499303.5559602,
+      "trial": {
+        "round": 2,
+        "qpf": 0,
+        "query": "index_group",
+        "concurrency": 16
+      },
+      "containers": [
+        {
+          "BlockIO": "64.2MB / 24.1MB",
+          "CPUPerc": "108.12%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.41%",
+          "MemUsage": "1.504GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "9.15GB / 30.8GB",
+          "PIDs": "473"
+        }
+      ]
+    },
+    {
+      "time": 1791499313.581428,
+      "trial": {
+        "round": 2,
+        "qpf": 0,
+        "query": "index_count",
+        "concurrency": 16
+      },
+      "containers": [
+        {
+          "BlockIO": "64.2MB / 24.1MB",
+          "CPUPerc": "106.96%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.29%",
+          "MemUsage": "1.495GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "9.15GB / 30.8GB",
+          "PIDs": "473"
+        }
+      ]
+    },
+    {
+      "time": 1791499323.546626,
+      "trial": {
+        "round": 2,
+        "qpf": 0,
+        "query": "driver_group",
+        "concurrency": 4
+      },
+      "containers": [
+        {
+          "BlockIO": "64.2MB / 24.2MB",
+          "CPUPerc": "123.75%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.42%",
+          "MemUsage": "1.505GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "9.29GB / 31.1GB",
+          "PIDs": "473"
+        }
+      ]
+    },
+    {
+      "time": 1791499333.56078,
+      "trial": {
+        "round": 2,
+        "qpf": 0,
+        "query": "driver_reduce",
+        "concurrency": 1
+      },
+      "containers": [
+        {
+          "BlockIO": "64.2MB / 24.2MB",
+          "CPUPerc": "162.47%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.91%",
+          "MemUsage": "1.543GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "9.58GB / 31.7GB",
+          "PIDs": "474"
+        }
+      ]
+    },
+    {
+      "time": 1791499343.567931,
+      "trial": {
+        "round": 2,
+        "qpf": 0,
+        "query": "full_scan",
+        "concurrency": 1
+      },
+      "containers": [
+        {
+          "BlockIO": "64.2MB / 24.2MB",
+          "CPUPerc": "75.62%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.61%",
+          "MemUsage": "1.52GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "9.88GB / 32.3GB",
+          "PIDs": "474"
+        }
+      ]
+    },
+    {
+      "time": 1791499353.583403,
+      "trial": {
+        "round": 2,
+        "qpf": 0,
+        "query": "full_scan",
+        "concurrency": 4
+      },
+      "containers": [
+        {
+          "BlockIO": "66.4MB / 24.2MB",
+          "CPUPerc": "135.77%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "20.21%",
+          "MemUsage": "1.566GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "9.88GB / 32.8GB",
+          "PIDs": "474"
+        }
+      ]
+    },
+    {
+      "time": 1791499363.578933,
+      "trial": {
+        "round": 2,
+        "qpf": 0,
+        "query": "full_scan",
+        "concurrency": 4
+      },
+      "containers": [
+        {
+          "BlockIO": "66.4MB / 24.2MB",
+          "CPUPerc": "108.67%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.82%",
+          "MemUsage": "1.536GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "9.9GB / 33.3GB",
+          "PIDs": "476"
+        }
+      ]
+    },
+    {
+      "time": 1791499373.559466,
+      "trial": {
+        "round": 2,
+        "qpf": 2,
+        "query": "index_group",
+        "concurrency": 16
+      },
+      "containers": [
+        {
+          "BlockIO": "66.4MB / 24.2MB",
+          "CPUPerc": "321.35%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.38%",
+          "MemUsage": "1.502GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "9.9GB / 33.4GB",
+          "PIDs": "477"
+        }
+      ]
+    },
+    {
+      "time": 1791499383.5953789,
+      "trial": {
+        "round": 2,
+        "qpf": 2,
+        "query": "index_count",
+        "concurrency": 16
+      },
+      "containers": [
+        {
+          "BlockIO": "66.4MB / 24.2MB",
+          "CPUPerc": "327.88%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.32%",
+          "MemUsage": "1.497GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "9.9GB / 33.4GB",
+          "PIDs": "477"
+        }
+      ]
+    },
+    {
+      "time": 1791499393.567073,
+      "trial": {
+        "round": 2,
+        "qpf": 2,
+        "query": "driver_group",
+        "concurrency": 4
+      },
+      "containers": [
+        {
+          "BlockIO": "66.4MB / 24.3MB",
+          "CPUPerc": "160.13%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.50%",
+          "MemUsage": "1.511GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "10GB / 33.7GB",
+          "PIDs": "477"
+        }
+      ]
+    },
+    {
+      "time": 1791499403.638206,
+      "trial": {
+        "round": 2,
+        "qpf": 2,
+        "query": "driver_reduce",
+        "concurrency": 1
+      },
+      "containers": [
+        {
+          "BlockIO": "66.4MB / 24.4MB",
+          "CPUPerc": "211.40%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.74%",
+          "MemUsage": "1.529GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "10.4GB / 34.3GB",
+          "PIDs": "478"
+        }
+      ]
+    },
+    {
+      "time": 1791499413.666189,
+      "trial": {
+        "round": 2,
+        "qpf": 2,
+        "query": "full_scan",
+        "concurrency": 1
+      },
+      "containers": [
+        {
+          "BlockIO": "66.4MB / 24.4MB",
+          "CPUPerc": "74.64%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.91%",
+          "MemUsage": "1.543GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "10.7GB / 35GB",
+          "PIDs": "477"
+        }
+      ]
+    },
+    {
+      "time": 1791499423.6397948,
+      "trial": {
+        "round": 2,
+        "qpf": 2,
+        "query": "full_scan",
+        "concurrency": 4
+      },
+      "containers": [
+        {
+          "BlockIO": "66.4MB / 24.4MB",
+          "CPUPerc": "223.09%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "20.84%",
+          "MemUsage": "1.615GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "10.7GB / 35.6GB",
+          "PIDs": "477"
+        }
+      ]
+    },
+    {
+      "time": 1791499433.577643,
+      "trial": {
+        "round": 2,
+        "qpf": 2,
+        "query": "full_scan",
+        "concurrency": 4
+      },
+      "containers": [
+        {
+          "BlockIO": "66.4MB / 24.4MB",
+          "CPUPerc": "105.04%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.96%",
+          "MemUsage": "1.547GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "10.7GB / 36.1GB",
+          "PIDs": "477"
+        }
+      ]
+    },
+    {
+      "time": 1791499443.5821598,
+      "trial": {
+        "round": 3,
+        "qpf": 2,
+        "query": "index_group",
+        "concurrency": 16
+      },
+      "containers": [
+        {
+          "BlockIO": "66.4MB / 24.4MB",
+          "CPUPerc": "324.39%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.52%",
+          "MemUsage": "1.513GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "10.7GB / 36.1GB",
+          "PIDs": "477"
+        }
+      ]
+    },
+    {
+      "time": 1791499453.5857868,
+      "trial": {
+        "round": 3,
+        "qpf": 2,
+        "query": "index_count",
+        "concurrency": 16
+      },
+      "containers": [
+        {
+          "BlockIO": "66.4MB / 24.4MB",
+          "CPUPerc": "336.04%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.41%",
+          "MemUsage": "1.504GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "10.7GB / 36.1GB",
+          "PIDs": "477"
+        }
+      ]
+    },
+    {
+      "time": 1791499463.610634,
+      "trial": {
+        "round": 3,
+        "qpf": 2,
+        "query": "driver_group",
+        "concurrency": 4
+      },
+      "containers": [
+        {
+          "BlockIO": "66.4MB / 24.5MB",
+          "CPUPerc": "181.02%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.56%",
+          "MemUsage": "1.516GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "10.9GB / 36.5GB",
+          "PIDs": "477"
+        }
+      ]
+    },
+    {
+      "time": 1791499473.573688,
+      "trial": {
+        "round": 3,
+        "qpf": 2,
+        "query": "driver_reduce",
+        "concurrency": 1
+      },
+      "containers": [
+        {
+          "BlockIO": "66.4MB / 24.5MB",
+          "CPUPerc": "221.18%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.78%",
+          "MemUsage": "1.532GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "11.2GB / 37.2GB",
+          "PIDs": "477"
+        }
+      ]
+    },
+    {
+      "time": 1791499483.617985,
+      "trial": {
+        "round": 3,
+        "qpf": 2,
+        "query": "full_scan",
+        "concurrency": 1
+      },
+      "containers": [
+        {
+          "BlockIO": "66.4MB / 24.5MB",
+          "CPUPerc": "75.11%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "20.13%",
+          "MemUsage": "1.56GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "11.5GB / 37.7GB",
+          "PIDs": "478"
+        }
+      ]
+    },
+    {
+      "time": 1791499493.613472,
+      "trial": {
+        "round": 3,
+        "qpf": 2,
+        "query": "full_scan",
+        "concurrency": 4
+      },
+      "containers": [
+        {
+          "BlockIO": "66.4MB / 24.5MB",
+          "CPUPerc": "197.73%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "20.73%",
+          "MemUsage": "1.606GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "11.5GB / 38.3GB",
+          "PIDs": "477"
+        }
+      ]
+    },
+    {
+      "time": 1791499503.561593,
+      "trial": {
+        "round": 3,
+        "qpf": 4,
+        "query": "index_group",
+        "concurrency": 1
+      },
+      "containers": [
+        {
+          "BlockIO": "66.4MB / 24.5MB",
+          "CPUPerc": "88.58%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "20.04%",
+          "MemUsage": "1.552GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "11.5GB / 38.7GB",
+          "PIDs": "480"
+        }
+      ]
+    },
+    {
+      "time": 1791499513.648808,
+      "trial": {
+        "round": 3,
+        "qpf": 4,
+        "query": "index_count",
+        "concurrency": 1
+      },
+      "containers": [
+        {
+          "BlockIO": "66.4MB / 24.5MB",
+          "CPUPerc": "77.88%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.55%",
+          "MemUsage": "1.514GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "11.5GB / 38.7GB",
+          "PIDs": "480"
+        }
+      ]
+    },
+    {
+      "time": 1791499523.5900621,
+      "trial": {
+        "round": 3,
+        "qpf": 4,
+        "query": "driver_group",
+        "concurrency": 1
+      },
+      "containers": [
+        {
+          "BlockIO": "66.9MB / 24.5MB",
+          "CPUPerc": "57.52%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.60%",
+          "MemUsage": "1.519GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "11.5GB / 38.7GB",
+          "PIDs": "480"
+        }
+      ]
+    },
+    {
+      "time": 1791499533.580409,
+      "trial": {
+        "round": 3,
+        "qpf": 4,
+        "query": "driver_group",
+        "concurrency": 4
+      },
+      "containers": [
+        {
+          "BlockIO": "66.9MB / 24.5MB",
+          "CPUPerc": "183.44%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.70%",
+          "MemUsage": "1.527GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "11.7GB / 39.2GB",
+          "PIDs": "480"
+        }
+      ]
+    },
+    {
+      "time": 1791499543.5887659,
+      "trial": {
+        "round": 3,
+        "qpf": 4,
+        "query": "driver_reduce",
+        "concurrency": 4
+      },
+      "containers": [
+        {
+          "BlockIO": "66.9MB / 24.6MB",
+          "CPUPerc": "218.33%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.94%",
+          "MemUsage": "1.545GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "12.1GB / 39.9GB",
+          "PIDs": "480"
+        }
+      ]
+    },
+    {
+      "time": 1791499553.579545,
+      "trial": {
+        "round": 3,
+        "qpf": 4,
+        "query": "full_scan",
+        "concurrency": 1
+      },
+      "containers": [
+        {
+          "BlockIO": "66.9MB / 24.6MB",
+          "CPUPerc": "76.40%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "20.31%",
+          "MemUsage": "1.573GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "12.3GB / 40.5GB",
+          "PIDs": "480"
+        }
+      ]
+    },
+    {
+      "time": 1791499563.620498,
+      "trial": {
+        "round": 3,
+        "qpf": 4,
+        "query": "full_scan",
+        "concurrency": 4
+      },
+      "containers": [
+        {
+          "BlockIO": "66.9MB / 25.1MB",
+          "CPUPerc": "195.89%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "21.29%",
+          "MemUsage": "1.65GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "12.3GB / 41.2GB",
+          "PIDs": "480"
+        }
+      ]
+    },
+    {
+      "time": 1791499573.7262988,
+      "trial": {
+        "round": 3,
+        "qpf": 0,
+        "query": "index_group",
+        "concurrency": 1
+      },
+      "containers": [
+        {
+          "BlockIO": "66.9MB / 25.2MB",
+          "CPUPerc": "92.21%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.71%",
+          "MemUsage": "1.528GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "12.3GB / 41.4GB",
+          "PIDs": "474"
+        }
+      ]
+    },
+    {
+      "time": 1791499583.642474,
+      "trial": {
+        "round": 3,
+        "qpf": 0,
+        "query": "index_count",
+        "concurrency": 1
+      },
+      "containers": [
+        {
+          "BlockIO": "66.9MB / 25.2MB",
+          "CPUPerc": "83.36%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.41%",
+          "MemUsage": "1.504GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "12.3GB / 41.4GB",
+          "PIDs": "474"
+        }
+      ]
+    },
+    {
+      "time": 1791499592.753402,
+      "trial": {
+        "round": 3,
+        "qpf": 0,
+        "query": "driver_group",
+        "concurrency": 1
+      },
+      "containers": [
+        {
+          "BlockIO": "66.9MB / 25.2MB",
+          "CPUPerc": "58.01%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.38%",
+          "MemUsage": "1.502GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "12.3GB / 41.5GB",
+          "PIDs": "474"
+        }
+      ]
+    },
+    {
+      "time": 1791499601.824695,
+      "trial": {
+        "round": 3,
+        "qpf": 0,
+        "query": "driver_group",
+        "concurrency": 4
+      },
+      "containers": [
+        {
+          "BlockIO": "66.9MB / 25.3MB",
+          "CPUPerc": "138.30%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.46%",
+          "MemUsage": "1.508GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "12.5GB / 41.8GB",
+          "PIDs": "474"
+        }
+      ]
+    },
+    {
+      "time": 1791499610.946167,
+      "trial": {
+        "round": 3,
+        "qpf": 0,
+        "query": "driver_reduce",
+        "concurrency": 1
+      },
+      "containers": [
+        {
+          "BlockIO": "66.9MB / 25.8MB",
+          "CPUPerc": "159.27%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "19.68%",
+          "MemUsage": "1.525GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "12.7GB / 42.2GB",
+          "PIDs": "474"
+        }
+      ]
+    },
+    {
+      "time": 1791499620.05652,
+      "trial": {
+        "round": 3,
+        "qpf": 0,
+        "query": "full_scan",
+        "concurrency": 1
+      },
+      "containers": [
+        {
+          "BlockIO": "76.9MB / 25.9MB",
+          "CPUPerc": "111.81%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "18.41%",
+          "MemUsage": "1.426GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "13GB / 42.8GB",
+          "PIDs": "474"
+        }
+      ]
+    },
+    {
+      "time": 1791499629.19603,
+      "trial": {
+        "round": 3,
+        "qpf": 0,
+        "query": "full_scan",
+        "concurrency": 4
+      },
+      "containers": [
+        {
+          "BlockIO": "80.2MB / 25.9MB",
+          "CPUPerc": "138.76%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "18.96%",
+          "MemUsage": "1.469GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "13GB / 43.2GB",
+          "PIDs": "474"
+        }
+      ]
+    },
+    {
+      "time": 1791499638.261547,
+      "trial": {
+        "round": 3,
+        "qpf": 0,
+        "query": "full_scan",
+        "concurrency": 4
+      },
+      "containers": [
+        {
+          "BlockIO": "80.2MB / 25.9MB",
+          "CPUPerc": "151.33%",
+          "Container": "36277753e078415173f2ff327f3b5f43b842c37aac9edfd2e841f748758b7dbd",
+          "ID": "36277753e078",
+          "MemPerc": "18.91%",
+          "MemUsage": "1.465GiB / 7.748GiB",
+          "Name": "go-redis-software-1",
+          "NetIO": "13GB / 43.7GB",
+          "PIDs": "474"
+        }
+      ]
+    }
+  ]
+}

@@ -464,7 +464,7 @@ func (it *scanIter) readRun(ctx context.Context, key string) ([]tieRow, error) {
 	if err != nil {
 		return nil, err
 	}
-	sub := &scanIter{meta: it.meta, need: it.need, env: it.env, cur: cur, ties: t}
+	sub := &scanIter{meta: it.meta, need: it.need, env: it.env, cur: cur, ties: t, store: it.store, fetch: it.fetch}
 	defer sub.close(ctx)
 	var run []tieRow
 	for {

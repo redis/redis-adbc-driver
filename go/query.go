@@ -28,6 +28,7 @@ package redis
 //     fetched from the HASHes.
 
 import (
+	"container/heap"
 	"context"
 	"errors"
 	"fmt"
@@ -469,12 +470,13 @@ type scanRequest struct {
 	// ties re-sorts the rows that tie in the index's sort, when sortBy has
 	// keys whose values the index may round (see ties.go).
 	ties *tieSort
+	late *lateProjection
 }
 
 // scan finds the matching rows through the index (or directly by key), reads
-// the needed columns, and applies the residual predicate. Rows found through
-// the index are read by the FT.AGGREGATE pipeline itself, a cursor page at a
-// time, rather than with one HMGET per row.
+// the needed columns, and applies the residual predicate. Indexed scans load
+// rows a cursor page at a time; narrow projections fetch fields the index
+// cannot load exactly with bounded pipelined HMGETs.
 func (e *executor) scan(ctx context.Context, req scanRequest, params []Value) ([]string, []map[string]Value, error) {
 	if req.where.none {
 		return nil, nil, nil
@@ -521,11 +523,17 @@ type scanIter struct {
 	residual Expr
 	env      *evalEnv
 	cur      *aggCursor
+	// fetch holds fields LOAD cannot return exactly. Managed rows can read
+	// these from their HASHes in bounded pipelines after each cursor page.
+	store *store
+	fetch []string
 	// ties is set for a scan with a tieSort, which also records the page
 	// keep last saw (raw) and which of its rows it kept.
-	ties *tieScan
-	raw  []aggRow
-	kept []int
+	ties       *tieScan
+	raw        []aggRow
+	kept       []int
+	late       *lateProjection
+	skip, left int64
 }
 
 // newScanIter returns a scanIter for req without a cursor, and the HASH
@@ -566,9 +574,30 @@ func (e *executor) openScan(ctx context.Context, req scanRequest, params []Value
 		sortBy:    req.sortBy,
 		limit:     req.limit,
 	}
-	if exactly && !meta.KeyRows {
+	if !meta.KeyRows && !exactly && len(it.need)*2 <= len(meta.Columns) {
+		// Keep narrow projections narrow even when a SORTABLE value rounds
+		// in the index. Require at least half the columns to be omitted to
+		// justify the extra pipeline round trips. Wider projections and
+		// adopted HASHes retain LOAD *.
+		fields = nil
+		for _, c := range meta.Columns {
+			if !it.need[c.Name] {
+				continue
+			}
+			dst := &fields
+			if !loadsExactly(c) {
+				dst = &it.fetch
+			}
+			*dst = append(*dst, c.field())
+			if c.MissingThrough > 0 {
+				*dst = append(*dst, nullMarker(c.field()))
+			}
+		}
+		it.store = e.store
+	}
+	if !meta.KeyRows && (exactly || len(it.fetch) > 0) {
 		ar.load = append([]string{"__key", rowIDField}, fields...)
-		ar.width = len(ar.load)
+		ar.width = len(ar.load) + len(it.fetch)
 	} else {
 		// A table with KeyRows has no field that every row has, so its rows
 		// are read whole: a row deleted after the index matched it then has
@@ -587,6 +616,10 @@ func (e *executor) openScan(ctx context.Context, req scanRequest, params []Value
 		return nil, err
 	}
 	it.cur = cur
+	if req.late != nil {
+		it.late, it.store = req.late, e.store
+		it.skip, it.left = req.late.offset, req.late.limit
+	}
 	if it.ties != nil && ar.limit != nil {
 		if err := it.readWindow(ctx); err != nil {
 			it.close(ctx)
@@ -599,10 +632,22 @@ func (e *executor) openScan(ctx context.Context, req scanRequest, params []Value
 // next returns the matching rows of the next cursor page, which may be
 // none, and their keys; io.EOF after the last page.
 func (it *scanIter) next(ctx context.Context) ([]string, []map[string]Value, error) {
-	if it.ties != nil {
-		return it.nextInOrder(ctx)
+	if it.late != nil && it.left == 0 {
+		it.close(ctx)
+		return nil, nil, io.EOF
 	}
-	return it.nextPage(ctx)
+	var keys []string
+	var rows []map[string]Value
+	var err error
+	if it.ties != nil {
+		keys, rows, err = it.nextInOrder(ctx)
+	} else {
+		keys, rows, err = it.nextPage(ctx)
+	}
+	if err != nil || it.late == nil {
+		return keys, rows, err
+	}
+	return it.materialize(ctx, keys)
 }
 
 // nextPage is next in the index's order.
@@ -618,6 +663,23 @@ func (it *scanIter) nextPage(ctx context.Context) ([]string, []map[string]Value,
 			continue
 		}
 		keys[i] = r["__key"]
+	}
+	if len(it.fetch) > 0 {
+		// fetchRows includes __rowid, so a row deleted between the cursor
+		// lookup and HMGET is skipped, including rows with all NULL values.
+		fetched, err := it.store.fetchRows(ctx, keys, it.fetch)
+		if err != nil {
+			return nil, nil, err
+		}
+		for i, raw := range fetched {
+			if page[i] == nil || raw == nil {
+				page[i] = nil
+				continue
+			}
+			for f, v := range raw {
+				page[i][f] = v
+			}
+		}
 	}
 	return it.keep(keys, page)
 }
@@ -688,7 +750,7 @@ func (it *scanIter) keep(keys []string, fetched []aggRow) ([]string, []map[strin
 // LOAD reads SORTABLE attributes from the index's sorting vector, where
 // numbers are doubles printed with 12 significant digits: strings (stored
 // UNF) and integers below 2^53 survive, other numbers must be read from the
-// HASH with LOAD *, as must strings cut at a NUL byte (see tags.go).
+// HASH, as must strings cut at a NUL byte (see tags.go).
 // Unindexed fields are always read from the HASH.
 func loadsExactly(c columnMeta) bool {
 	if !simpleName(c.field()) {
@@ -895,6 +957,28 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 		}
 		req.limit = &[2]int64{off, *sel.Limit}
 	}
+	// A residual predicate prevents index LIMIT. Read only its inputs (and
+	// exact tie-sort inputs), then fetch output fields for surviving rows.
+	if wp.residual != nil && indexSort && !meta.KeyRows && !plan.windowed() &&
+		!plan.hasCorrelated() && len(plan.extraNeed) == 0 && sel.Limit != nil {
+		predicate := map[string]bool{}
+		columnRefs(wp.residual, predicate)
+		if len(predicate)*2 <= len(meta.Columns) && len(req.need) > len(predicate) {
+			late := &lateProjection{need: req.need, limit: *sel.Limit}
+			if sel.Offset != nil {
+				late.offset = *sel.Offset
+			}
+			for _, c := range meta.Columns {
+				if late.need[c.Name] {
+					late.fields = append(late.fields, c.field())
+					if c.MissingThrough > 0 {
+						late.fields = append(late.fields, nullMarker(c.field()))
+					}
+				}
+			}
+			req.need, req.late = predicate, late
+		}
+	}
 	return selectScan{req: req, indexSort: indexSort, pushLimit: pushLimit}, nil
 }
 
@@ -935,7 +1019,7 @@ func (e *executor) selectScanned(ctx context.Context, plan *selectPlan, sc selec
 		}
 		sort.SliceStable(idx, func(a, b int) bool { return lessKeys(keys[idx[a]], keys[idx[b]], plan.order) })
 	}
-	if !pushLimit {
+	if !pushLimit && sc.req.late == nil {
 		idx = applyLimit(idx, sel.Offset, sel.Limit)
 	}
 	out := make([][]Value, 0, len(idx))
@@ -1020,6 +1104,12 @@ func (e *executor) selectAggregate(ctx context.Context, plan *selectPlan, params
 		return nil, err
 	}
 	if !ok {
+		groups, ok, err = e.indexCountDistinct(ctx, plan, wp, aggs, params)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if !ok {
 		groups, err = e.driverAggregate(ctx, plan, wp, aggs, params)
 		if err != nil {
 			return nil, err
@@ -1066,17 +1156,20 @@ func (e *executor) selectAggregate(ctx context.Context, plan *selectPlan, params
 		}
 	}
 
-	type outRow struct {
-		vals []Value
-		keys []Value
+	var out []aggregateOutput
+	top := aggregateTopK{order: plan.order}
+	k := aggregateTopLimit(plan, len(idx))
+	if k > 0 {
+		top.rows = make([]aggregateOutput, 0, k)
+	} else {
+		out = make([]aggregateOutput, 0, len(idx))
 	}
-	out := make([]outRow, 0, len(idx))
-	for _, i := range idx {
+	for ordinal, i := range idx {
 		if err := cancelled(ctx); err != nil {
 			return nil, err
 		}
 		setRow(i)
-		row := outRow{}
+		row := aggregateOutput{ordinal: ordinal}
 		for _, it := range plan.items {
 			v, err := env.eval(it.expr)
 			if err != nil {
@@ -1091,9 +1184,19 @@ func (e *executor) selectAggregate(ctx context.Context, plan *selectPlan, params
 			}
 			row.keys = append(row.keys, v)
 		}
-		out = append(out, row)
+		if k == 0 {
+			out = append(out, row)
+		} else if len(top.rows) < k {
+			heap.Push(&top, row)
+		} else if top.better(row, top.rows[0]) {
+			top.rows[0] = row
+			heap.Fix(&top, 0)
+		}
 	}
-	sort.SliceStable(out, func(i, j int) bool { return lessKeys(out[i].keys, out[j].keys, plan.order) })
+	if k > 0 {
+		out = top.rows
+	}
+	sort.SliceStable(out, func(i, j int) bool { return top.better(out[i], out[j]) })
 	out = applyLimit(out, plan.sel.Offset, plan.sel.Limit)
 	rows := make([][]Value, len(out))
 	for i, r := range out {
@@ -1478,6 +1581,13 @@ func (e *executor) indexAggregate(ctx context.Context, plan *selectPlan, wp wher
 // driverAggregate fetches the needed columns from the row HASHes and reduces
 // them in the driver.
 func (e *executor) driverAggregate(ctx context.Context, plan *selectPlan, wp wherePlan, aggs []*Func, params []Value) ([]aggGroup, error) {
+	if groups, handled, err := e.parallelAggregate(ctx, plan, wp, aggs, params); handled {
+		return groups, err
+	}
+	return e.serialDriverAggregate(ctx, plan, wp, aggs, params)
+}
+
+func (e *executor) serialDriverAggregate(ctx context.Context, plan *selectPlan, wp wherePlan, aggs []*Func, params []Value) ([]aggGroup, error) {
 	meta := plan.meta
 	req := scanRequest{meta: meta, where: wp, need: maps.Clone(plan.extraNeed)}
 	if req.need == nil {
@@ -1502,18 +1612,18 @@ func (e *executor) driverAggregate(ctx context.Context, plan *selectPlan, wp whe
 		// Those of its subqueries, too.
 		columnRefs(f, req.need)
 	}
-	_, rows, err := e.scan(ctx, req, params)
-	if err != nil {
-		return nil, err
-	}
+	// Only fields read after reduction belong in a representative row.
+	repNeed := aggregateRepresentativeNeed(plan, aggs)
 	types := meta.types()
 	env := e.newEnv(ctx, types, params)
+	var err error
 	aggTypes := make([]ColType, len(aggs))
 	for i, f := range aggs {
 		if aggTypes[i], err = inferType(f, types, nil); err != nil {
 			return nil, invalidArg(err)
 		}
 	}
+	inputs := compileAggregateInputs(aggs, types)
 	type group struct {
 		rep  map[string]Value
 		accs []*accumulator
@@ -1531,34 +1641,60 @@ func (e *executor) driverAggregate(ctx context.Context, plan *selectPlan, wp whe
 		groups[""] = newGroup(map[string]Value{})
 		order = append(order, "")
 	}
-	groupTypes := keyTypes(plan.sel.GroupBy, types)
-	for _, vals := range rows {
-		if err := cancelled(ctx); err != nil {
-			return nil, err
-		}
-		env.row = vals
-		// Values that compare equal are one group, as in Postgres ('1 mon'
-		// and '30 days', 0.0 and -0.0), and its first row represents it.
-		var key strings.Builder
-		for i, gexpr := range plan.sel.GroupBy {
-			v, err := env.eval(gexpr)
-			if err != nil {
-				return nil, invalidArg(err)
+	err = e.scanPages(ctx, req, params, func(rows []map[string]Value) error {
+		for _, vals := range rows {
+			if err := cancelled(ctx); err != nil {
+				return err
 			}
-			writeKey(&key, keyAs(v, groupTypes[i], env.zone()))
-		}
-		g, ok := groups[key.String()]
-		if !ok {
-			g = newGroup(vals)
-			groups[key.String()] = g
-			order = append(order, key.String())
-		}
-		for _, acc := range g.accs {
-			if err := acc.addRow(env); err != nil {
-				return nil, invalidArg(err)
+			env.row = vals
+			// Values that compare equal are one group, as in Postgres ('1 mon'
+			// and '30 days', 0.0 and -0.0), and its first row represents it.
+			var key strings.Builder
+			for _, gexpr := range plan.sel.GroupBy {
+				v, err := env.eval(gexpr)
+				if err != nil {
+					return invalidArg(err)
+				}
+				writeKey(&key, v)
+			}
+			g, ok := groups[key.String()]
+			if !ok {
+				g = newGroup(vals)
+				groups[key.String()] = g
+				order = append(order, key.String())
+			}
+			inputs.nextRow()
+			for i, acc := range g.accs {
+				if root := inputs.roots[i]; root >= 0 {
+					v, err := inputs.value(root, vals)
+					if err != nil {
+						return invalidArg(err)
+					}
+					acc.add(v)
+				} else if err := acc.addRow(env); err != nil {
+					return invalidArg(err)
+				}
+			}
+			if !ok {
+				// Redis scans own their freshly decoded maps. Prune only
+				// after aggregate inputs have been consumed; shared memory
+				// relations must keep their original rows for other scans.
+				if meta.isMem {
+					g.rep = maps.Clone(vals)
+				}
+				for name := range g.rep {
+					if !repNeed[name] {
+						delete(g.rep, name)
+					}
+				}
 			}
 		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
+	env.row = nil // do not retain the last page through the evaluation environment
 	out := make([]aggGroup, 0, len(order))
 	for _, k := range order {
 		if err := cancelled(ctx); err != nil {
@@ -1575,6 +1711,9 @@ func (e *executor) driverAggregate(ctx context.Context, plan *selectPlan, wp whe
 			results[f] = v
 		}
 		out = append(out, aggGroup{rep: g.rep, results: results})
+		// Finalized results no longer need the group's accumulators or
+		// retained ordered-set inputs while later groups are finalized.
+		delete(groups, k)
 	}
 	return out, nil
 }

@@ -185,6 +185,8 @@ func TestSQLErrorStates(t *testing.T) {
 		{`SELECT JSON_ARRAY_LENGTH('{}')`, data, "22023", "cannot get array length of a non-array"},
 		{`SELECT JSON_OBJECT('{a}')`, data, "2202E", "array must have even number of elements"},
 		{`SELECT CAST('a' AS VARCHAR(0))`, data, "22023", "length for type varchar must be at least 1"},
+		{`SELECT 'x' + 1`, data, "22P02", `"x"`},
+		{`SELECT CAST(1 AS SMALLINT) + '40000'`, data, "22003", "40000"},
 		// A type that never converts: cannot_coerce, also in TRY_CAST.
 		{`SELECT CAST(DATE '2024-01-01' AS BOOLEAN)`, arg, "42846", "BOOLEAN"},
 		{`SELECT TRY_CAST(DATE '2024-01-01' AS BOOLEAN)`, arg, "42846", "BOOLEAN"},
@@ -226,6 +228,10 @@ func TestSQLErrorStates(t *testing.T) {
 		{`SELECT nosuch FROM it_err`, absent, "42703", `column "nosuch" does not exist`},
 		{`INSERT INTO it_err (nosuch) VALUES (1)`, absent, "42703", `column "nosuch" does not exist`},
 		{`SELECT nosuchfunc(1)`, absent, "42883", "function nosuchfunc(bigint) does not exist"},
+		// A quoted literal next to an operator with no form for the other
+		// operand's type, or more than one (see unknown.go).
+		{`SELECT TRUE + '1'`, absent, "42883", "operator does not exist: boolean + unknown"},
+		{`SELECT DATE '2024-01-01' + '1'`, arg, "42725", "operator is not unique: date + unknown"},
 		{`CREATE TABLE it_err (x INTEGER)`, exists, "42P07", "already exists"},
 		{`INSERT INTO it_err (id, id) VALUES (1, 2)`, exists, "42701", `column "id" specified more than once`},
 		{`ALTER TABLE it_err ADD COLUMN n INTEGER`, exists, "42701", `column "n" of relation "it_err" already exists`},
@@ -237,6 +243,16 @@ func TestSQLErrorStates(t *testing.T) {
 		{`CREATE TABLE it_err3 (a INTEGER, PRIMARY KEY (a, a))`, exists, "42701", `column "a" appears twice in primary key constraint`},
 		{`CREATE TABLE it_err3 (a INTEGER CONSTRAINT c CHECK (a > 0), CONSTRAINT c PRIMARY KEY (a))`, exists, "42710", `constraint "c" for relation "it_err3" already exists`},
 		{`CREATE TABLE it_err3 (a INTEGER, CONSTRAINT c CHECK (a > 0), CONSTRAINT c CHECK (a > 1))`, exists, "42710", `check constraint "c" already exists`},
+		// Column names that repeat: in a table or view, duplicate_column; read
+		// from a query, ambiguous_column.
+		{`CREATE TABLE it_err3 (a INTEGER, a INTEGER)`, exists, "42701", `column "a" specified more than once`},
+		{`CREATE TABLE it_err3 AS SELECT count(*), count(n) FROM it_err`, exists, "42701", `column "count" specified more than once`},
+		{`CREATE VIEW it_err3 AS SELECT 1, 2`, exists, "42701", `column "?column?" specified more than once`},
+		{`SELECT id FROM (SELECT id, id FROM it_err) s`, arg, "42702", `column reference "id" is ambiguous`},
+		{`SELECT x FROM it_err2, (SELECT 1 AS x) s`, arg, "42702", `column reference "x" is ambiguous`},
+		{`SELECT * FROM (SELECT 1, 2) s ORDER BY "?column?"`, arg, "42702", `ORDER BY "?column?" is ambiguous`},
+		{`SELECT 1 AS a, 2 AS a UNION SELECT 3, 4 ORDER BY a`, arg, "42702", `ORDER BY "a" is ambiguous`},
+		{`SELECT * FROM (SELECT 1 AS a, 2 AS a) s JOIN (SELECT 1 AS a) r USING (a)`, arg, "42702", `common column name "a" appears more than once in left table`},
 
 		// ALTER COLUMN … TYPE: the conversion, the rows' constraints, and
 		// what Postgres refuses.

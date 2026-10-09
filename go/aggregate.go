@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/apache/arrow-adbc/go/adbc"
@@ -46,6 +47,9 @@ type aggRequest struct {
 	load      []string
 	loadAll   bool // also load every HASH field (LOAD *)
 	width     int  // fields per result row, to size cursor pages (0 if small)
+	// listLengths captures cardinalities of explicitly requested array reducers.
+	listLengths    map[string]string
+	distinctChecks []distinctCheck
 }
 
 // pageRows returns the cursor page size.
@@ -110,13 +114,26 @@ func (s *store) countMatches(ctx context.Context, index, query string) (int64, e
 	if err != nil {
 		return 0, wrapRedis(err, "FT.SEARCH failed")
 	}
-	arr, ok := reply.([]any)
-	if !ok || len(arr) == 0 {
+	return parseSearchCount(reply)
+}
+
+// parseSearchCount reads an FT.SEARCH LIMIT 0 0 reply. RESP2 returns
+// [count], while RESP3 returns a map with total_results.
+func parseSearchCount(reply any) (int64, error) {
+	var count any
+	if arr, ok := reply.([]any); ok {
+		if len(arr) == 0 {
+			return 0, errorf(adbc.StatusInternal, "unexpected FT.SEARCH reply %T", reply)
+		}
+		count = arr[0]
+	} else if fields, ok := redisReplyMap(reply); ok {
+		count = fields["total_results"]
+	} else {
 		return 0, errorf(adbc.StatusInternal, "unexpected FT.SEARCH reply %T", reply)
 	}
-	n, ok := arr[0].(int64)
+	n, ok := redisReplyInt64(count)
 	if !ok {
-		return 0, errorf(adbc.StatusInternal, "unexpected FT.SEARCH count %T", arr[0])
+		return 0, errorf(adbc.StatusInternal, "unexpected FT.SEARCH count %T", count)
 	}
 	return n, nil
 }
@@ -153,7 +170,8 @@ type aggCursor struct {
 	first   []aggRow
 	pending bool
 	// cursor is 0 once every page has been read, or the cursor deleted.
-	cursor int64
+	cursor      int64
+	listLengths map[string]string
 }
 
 // openAggregate runs the pipeline and reads its first page.
@@ -181,8 +199,8 @@ func (s *store) openAggregate(ctx context.Context, req *aggRequest) (*aggCursor,
 	if err != nil {
 		return nil, wrapRedis(err, "FT.AGGREGATE failed")
 	}
-	c := &aggCursor{node: node, index: req.index, count: req.pageRows(), pending: true}
-	if c.first, c.cursor, err = parseCursorReply(reply); err != nil {
+	c := &aggCursor{node: node, index: req.index, count: req.pageRows(), pending: true, listLengths: req.listLengths}
+	if c.first, c.cursor, err = parseCursorReplyLists(reply, c.listLengths); err != nil {
 		c.close(ctx)
 		return nil, err
 	}
@@ -210,7 +228,7 @@ func (c *aggCursor) next(ctx context.Context) ([]aggRow, error) {
 		}
 		return nil, wrapRedis(err, "FT.CURSOR READ failed")
 	}
-	page, cursor, err := parseCursorReply(reply)
+	page, cursor, err := parseCursorReplyLists(reply, c.listLengths)
 	c.cursor = cursor
 	if err != nil {
 		c.close(ctx)
@@ -230,46 +248,82 @@ func (c *aggCursor) close(ctx context.Context) {
 	c.pending, c.first = false, nil
 }
 
-// parseCursorReply parses a RESP2 WITHCURSOR reply: [[total, row...], cursor].
-// The cursor id is 0 when the last page has been read.
+// parseCursorReply parses a WITHCURSOR reply. The outer reply is
+// [results, cursor] in both protocols; results is [total, row...] in RESP2
+// and the FT.AGGREGATE result map in RESP3. The cursor id is 0 when the last
+// page has been read.
 func parseCursorReply(reply any) ([]aggRow, int64, error) {
+	return parseCursorReplyLists(reply, nil)
+}
+
+func parseCursorReplyLists(reply any, listLengths map[string]string) ([]aggRow, int64, error) {
 	outer, ok := reply.([]any)
 	if !ok || len(outer) != 2 {
 		return nil, 0, errorf(adbc.StatusInternal, "unexpected FT.AGGREGATE reply %T", reply)
 	}
-	cursor, ok := outer[1].(int64)
+	cursor, ok := redisReplyInt64(outer[1])
 	if !ok {
 		return nil, 0, errorf(adbc.StatusInternal, "unexpected cursor id %T", outer[1])
 	}
 	// From here on, an error comes with the cursor, so that it can be
 	// deleted.
-	results, ok := outer[0].([]any)
+	results, ok := aggregateReplyRows(outer[0])
 	if !ok {
 		return nil, cursor, errorf(adbc.StatusInternal, "unexpected FT.AGGREGATE results %T", outer[0])
 	}
-	if len(results) == 0 {
-		return nil, cursor, nil
-	}
-	rows := make([]aggRow, 0, len(results)-1)
-	for _, r := range results[1:] {
-		fields, ok := r.([]any)
+	rows := make([]aggRow, 0, len(results))
+	for _, result := range results {
+		fields, ok := aggregateReplyFields(result)
 		if !ok {
-			return nil, cursor, errorf(adbc.StatusInternal, "unexpected FT.AGGREGATE row %T", r)
+			return nil, cursor, errorf(adbc.StatusInternal, "unexpected FT.AGGREGATE row %T", result)
 		}
-		row := make(aggRow, len(fields)/2)
-		for i := 0; i+1 < len(fields); i += 2 {
-			k, ok := fields[i].(string)
-			if !ok {
-				continue
-			}
-			switch v := fields[i+1].(type) {
+		row := make(aggRow, len(fields))
+		for k, value := range fields {
+			switch v := value.(type) {
 			case string:
 				row[k] = v
+			case []byte:
+				row[k] = string(v)
+			case []any:
+				if alias, ok := listLengths[k]; ok {
+					row[alias] = strconv.Itoa(len(v))
+				}
 			case int64:
+				row[k] = fmt.Sprint(v)
+			case int, float64, float32:
 				row[k] = fmt.Sprint(v)
 			}
 		}
 		rows = append(rows, row)
 	}
 	return rows, cursor, nil
+}
+
+// aggregateReplyRows returns the raw rows from an FT.AGGREGATE result.
+func aggregateReplyRows(reply any) ([]any, bool) {
+	if list, ok := reply.([]any); ok { // RESP2: count, row, ...
+		if len(list) == 0 {
+			return nil, true
+		}
+		return list[1:], true
+	}
+	fields, ok := redisReplyMap(reply) // RESP3
+	if !ok {
+		return nil, false
+	}
+	rows, ok := fields["results"].([]any)
+	return rows, ok
+}
+
+// aggregateReplyFields returns one aggregate row's fields. RESP2 represents
+// a row as an alternating list; RESP3 nests them in extra_attributes.
+func aggregateReplyFields(reply any) (map[string]any, bool) {
+	if list, ok := reply.([]any); ok {
+		return redisReplyFields(list)
+	}
+	row, ok := redisReplyMap(reply)
+	if !ok {
+		return nil, false
+	}
+	return redisReplyMap(row["extra_attributes"])
 }

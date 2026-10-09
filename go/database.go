@@ -29,15 +29,17 @@ import (
 type databaseImpl struct {
 	driverbase.DatabaseImplBase
 
-	uri      string
-	address  string
-	username string
-	password string
-	db       int
-	schema   string
-	pushdown string
-	cluster  string
-	rekey    bool
+	uri          string
+	address      string
+	username     string
+	password     string
+	db           int
+	schema       string
+	pushdown     string
+	queryWorkers int
+	workerBudget *workerBudget
+	cluster      string
+	rekey        bool
 	// stream is adbc.redis.stream_results and adbc.redis.stream_batch_rows.
 	stream streamSettings
 	// timeouts are adbc.redis.read_timeout and write_timeout (see
@@ -87,8 +89,12 @@ func (d *databaseImpl) clientConfig() (*clientConfig, error) {
 	if d.password != "" {
 		opts.Password = d.password
 	}
-	// The driver parses RESP2 replies of FT.AGGREGATE / FT.CURSOR.
-	opts.Protocol = 2
+	// go-redis uses RESP3 by default. Set it explicitly so that the same
+	// protocol reaches a cluster's node clients, while preserving a URI's
+	// explicit protocol=2 compatibility setting (or protocol=3).
+	if opts.Protocol == 0 {
+		opts.Protocol = 3
+	}
 	opts.DisableIdentity = true
 	cfg := newClientConfig(opts)
 	cfg.clusterParams = params
@@ -259,6 +265,8 @@ func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, er
 		store:              st,
 		sess:               d.newSession(),
 		pushdown:           d.pushdown,
+		queryWorkers:       d.queryWorkers,
+		workerBudget:       d.workerBudget,
 		rekey:              d.rekey,
 		stream:             d.stream,
 		clientCfg:          cfg,
@@ -361,6 +369,10 @@ func (d *databaseImpl) GetOption(ctx context.Context, key string) (string, error
 		return d.schema, nil
 	case OptionStringAggregatePushdown:
 		return d.pushdown, nil
+	case OptionStringQueryWorkerBudget, OptionIntQueryWorkersActive, OptionIntQueryWorkersQueued:
+		return d.workerBudget.option(key), nil
+	case OptionStringQueryWorkers:
+		return strconv.Itoa(effectiveQueryWorkers(d.queryWorkers)), nil
 	case OptionStringCluster:
 		return d.cluster, nil
 	case OptionStringRenameRekey:
@@ -411,6 +423,18 @@ func (d *databaseImpl) SetOption(ctx context.Context, key, value string) error {
 			return errorf(adbc.StatusInvalidArgument, "%s: schema name %q is reserved for temporary tables and views", key, value)
 		}
 		d.schema = value
+	case OptionStringQueryWorkerBudget:
+		return d.workerBudget.configure(value)
+	case OptionStringQueryWorkers:
+		if value == "auto" {
+			d.queryWorkers = 0
+			return nil
+		}
+		n, err := strconv.Atoi(value)
+		if err != nil || n < 1 || n > 32 {
+			return errorf(adbc.StatusInvalidArgument, "invalid %s %q (want auto or 1 through 32)", key, value)
+		}
+		d.queryWorkers = n
 	case OptionStringAggregatePushdown:
 		if err := validatePushdown(value); err != nil {
 			return err

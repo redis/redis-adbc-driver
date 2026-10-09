@@ -48,8 +48,6 @@ func trimCSpace(s string) string {
 	return s[i:j]
 }
 
-func isDigit(c byte) bool { return c >= '0' && c <= '9' }
-
 // hasPrefixFold reports whether s starts with prefix, a lower-case ASCII
 // word, in any case (ASCII only, as C's strncasecmp).
 func hasPrefixFold(s, prefix string) bool {

@@ -21,26 +21,84 @@ An [ADBC](https://arrow.apache.org/adbc/) driver built on
 with the [ADBC driver validation suite](https://github.com/adbc-drivers/validation).
 It supports SQL queries and Arrow bulk ingestion.
 
-## Tested with
+## Contents
 
-The full validation suite (325 passed, 0 failed) has been run against:
+- [Compatibility and validation](#compatibility-and-validation)
+- [Server requirements](#server-requirements)
+  - [Prerequisites](#prerequisites)
+  - [Driver-managed setup](#driver-managed-setup)
+  - [Timeouts](#timeouts)
+  - [URI parameters](#uri-parameters)
+  - [Cancelling a statement](#cancelling-a-statement)
+  - [Error handling](#error-handling)
+  - [ACL users](#acl-users)
+  - [Limitations](#limitations)
+- [Quick start](#quick-start)
+- [Existing HASH collections: `redis-adbc`](#existing-hash-collections-redis-adbc)
+  - [Build and connect](#build-and-connect)
+  - [Check collections](#check-collections)
+  - [Column inference](#column-inference)
+  - [Copy HASHes into a table](#copy-hashes-into-a-table)
+  - [Adopt HASHes in place](#adopt-hashes-in-place)
+  - [ACL permissions for `redis-adbc`](#acl-permissions-for-redis-adbc)
+  - [Sweep leftover rows](#sweep-leftover-rows)
+- [Architecture: hybrid index-row layout](#architecture-hybrid-index-row-layout)
+  - [Rows and indexes](#rows-and-indexes)
+  - [Metadata and key naming](#metadata-and-key-naming)
+  - [Query execution](#query-execution)
+  - [Streamed results](#streamed-results)
+  - [Aggregate pushdown](#aggregate-pushdown)
+- [Supported SQL](#supported-sql)
+  - [Schema objects and DDL](#schema-objects-and-ddl)
+  - [Inserts, parameters, defaults, and constraints](#inserts-parameters-defaults-and-constraints)
+  - [Queries and relational features](#queries-and-relational-features)
+  - [Expressions, aggregates, and functions](#expressions-aggregates-and-functions)
+  - [Additional statements and metadata](#additional-statements-and-metadata)
+  - [Transactions, limitations, and types](#transactions-limitations-and-types)
+- [Options](#options)
+- [Performance](#performance)
+  - [Single-query latency by driver worker count](#single-query-latency-by-driver-worker-count)
+  - [Query performance factor (QPF)](#query-performance-factor-qpf)
+  - [Reproduce the benchmark](#reproduce-the-benchmark)
+- [Building and testing](#building-and-testing)
+  - [Validation suite](#validation-suite)
+  - [Go tests](#go-tests)
+  - [Redis Cluster](#redis-cluster)
+  - [Redis Flex](#redis-flex)
+  - [Cross-platform builds and releases](#cross-platform-builds-and-releases)
+  - [Python usage](#python-usage)
+
+## Compatibility and validation
+
+On **2026-10-08**, the validation suite against the default local **Redis
+Software** database (Redis 8.6.2, Search 8.6.11) had **360 passed, 8 skipped,
+3 subtests passed, and 0 failed**. The full Go suite also passed, with explicit
+skips for protocol-level ACL administration and resettable command counters
+that Software blocks. Those checks passed separately on the OSS three-shard
+compatibility environment. See [Building and testing](#building-and-testing).
+The other validation results below are from earlier runs.
 
 | Server | Version | Connection |
 |-|-|-|
+| **Redis Software (default)**, `redislabs/redis:8.2.0-78.18` | Redis 8.6.2, Search 8.6.11 | `redis://` |
 | Redis Open Source (`redis:8.6.2` Docker image) | 8.6.2, Search 8.6.0 | `redis://` |
 | Redis Open Source cluster, 3 shards (OSS Cluster API) | 8.6.2, Search 8.6.0 | `redis://` |
 | Redis Cloud, single shard | 8.6.2, Search 8.6.10 | `redis://` and TLS (`rediss://`)*† |
 | Redis Cloud Pro, 2 shards, through the proxy endpoint | 8.6.2 | `redis://`† |
 | Redis Cloud Pro, 2 shards, OSS Cluster API enabled | 8.6.2 | `redis://`† |
 
-Local testing uses the Redis version that Redis Cloud runs (currently
-8.6.2), so `go/compose.yaml` pins that image.
+**Redis Software is the default local and CI test environment.**
+`make redis-up` starts the pinned `redislabs/redis:8.2.0-78.18` image,
+bootstraps a single-node cluster, and creates a Redis 8.6 RAM database with
+Search. Open Source standalone and cluster environments are optional
+compatibility targets; CI also tests the three-shard OSS Cluster API.
 
-\* Run before cluster support was added; not re-run since.
-† Run before the two temporary-table ingest tests were enabled (322
-passed, 0 failed); not re-run since.
+Earlier local and cluster runs had 325 passed, 0 failed. The Cloud runs
+marked † had 322 passed, 0 failed, before the two temporary-table ingest
+tests were enabled; they have not been re-run since. The TLS run marked \*
+predates cluster support and has not been re-run since.
 
-The remaining 10 skipped tests are features the driver doesn't offer:
+The 8 currently skipped tests cover features the driver doesn't offer:
 constraints, statistics, a second catalog, and transactions. Of the
 constraint tests, those for `CHECK` and `PRIMARY KEY` in `GetObjects` run
 now; those for `UNIQUE` and `FOREIGN KEY` are still skipped.
@@ -54,12 +112,16 @@ refuses them when it connects; see
 You don't create any indexes or enable any settings yourself. The one hard
 requirement is the Query Engine.
 
-**What you need**
+The ADBC driver requires commands and functions unavailable in Valkey and
+Redis 7.2 derivatives, including AWS ElastiCache and Google Cloud Memorystore.
+These products are not supported.
 
-- **Redis with the Query Engine (RediSearch).** It is built into Redis 8.x
-  (e.g. the `redis:8.6.2` image). On older versions use Redis Stack, or Redis
-  Cloud / Redis Software with Search enabled. The driver runs `FT._LIST`
-  when it connects and refuses to connect if search isn't available.
+### Prerequisites
+
+- **Redis with the Query Engine (RediSearch).** The default local setup uses
+  Redis Software with Search enabled. Redis Cloud and Redis 8.x Open Source
+  with Search are also supported; older versions need Redis Stack. The driver
+  runs `FT._LIST` when it connects and refuses to connect if search isn't available.
 - **A standalone server, Redis Cloud / Redis Software, or a Redis Cluster.**
   The driver picks its client automatically (`adbc.redis.cluster=auto`):
   - If the server reports `cluster_enabled:1` (OSS Cluster API), it uses a
@@ -72,9 +134,9 @@ requirement is the Query Engine.
   multi-key transactions never cross slots. A cluster only has database 0;
   on standalone servers only database 0 has been tested.
 - **ACL permissions,** if the database has ACL users: the commands and keys
-  under **ACL users** below.
+  under [ACL users](#acl-users) below.
 
-**What the driver does for you**
+### Driver-managed setup
 
 - `CREATE TABLE` and bulk ingest create the table's index
   (`FT.CREATE idx:<schema>:<table> …`) and its metadata keys. `DROP TABLE`
@@ -89,9 +151,9 @@ requirement is the Query Engine.
 - Every query passes `TIMEOUT 0`, so the server's default search timeout
   (which can return partial results) doesn't apply. You don't need to change
   any `search-*` settings or enable keyspace notifications. The client's own
-  timeouts still apply; see **Timeouts** below.
+  timeouts still apply; see [Timeouts](#timeouts) below.
 
-**Timeouts**
+### Timeouts
 
 The driver's client waits up to 5 minutes for each reply from Redis, and
 to send each command, on standalone servers and clusters alike. Some
@@ -131,7 +193,7 @@ setting:
 - **Earlier versions** (v0.0.7 and before) used go-redis's defaults: 5
   seconds, in effect 10 seconds on a standalone server.
 
-**URI parameters**
+### URI parameters
 
 go-redis parses the URI's query parameters
 (`redis://host:6379/0?pool_size=20&client_name=etl`). The single-endpoint
@@ -158,15 +220,17 @@ error.
   set to true is an error. They send reads to replicas, which may not have
   the driver's latest writes yet.
 - **The driver's settings win:** the `username` and `password` options,
-  RESP2 (`protocol` has no effect), no `CLIENT SETINFO`, and the timeout
-  options (see **Timeouts**).
+  no `CLIENT SETINFO`, and the timeout options (see [Timeouts](#timeouts)).
+  The protocol defaults to RESP3; set `protocol=2` for RESP2 compatibility,
+  or `protocol=3` explicitly. The setting reaches every cluster node too.
 - **`client_name`** makes go-redis name every connection with `CLIENT
-  SETNAME`. An ACL user then needs `+client|setname` (see **ACL users**).
+  SETNAME`. An ACL user then needs `+client|setname` (see
+  [ACL users](#acl-users)).
 - **Earlier versions** (v0.0.12 and before) gave the cluster client only
   the URI's credentials, TLS and timeouts, and refused the cluster-only
   parameters as unexpected.
 
-**Cancelling a statement**
+### Cancelling a statement
 
 Cancelling a statement while it executes (`AdbcStatementCancel`;
 `cursor.adbc_cancel()` in Python, from another thread), or cancelling the
@@ -193,11 +257,11 @@ with CANCELLED:
 - **A Go context's deadline** fails the statement the same way, with
   TIMEOUT.
 - **SQLSTATE** `57014` (query_canceled) in both cases, as Postgres reports a
-  cancel and a statement timeout (see **Errors**).
+  cancel and a statement timeout (see [Error handling](#error-handling)).
 - **Earlier versions** (v0.0.11 and before) noticed a cancel only at the
   statement's next Redis command, which then failed with IO.
 
-**Errors**
+### Error handling
 
 An error that Postgres has a SQLSTATE for carries the one Postgres 16
 reports for the same statement: `adbc.Error.SqlState` in Go,
@@ -210,9 +274,9 @@ the Python exception:
 |-|-|-|-|
 | A value that doesn't convert or doesn't fit (`CAST('abc' AS INTEGER)`, `'2024-02-30'::date`, `1 / 0`, a value too long for its column) | class `22` | `InvalidData` | `DataError` |
 | `NOT NULL` and `CHECK` | `23502`, `23514` | `Integrity` | `IntegrityError` |
-| A table, view, column, function or schema that doesn't exist | `42P01`, `42703`, `42883`, `3F000` | `NotFound` | `ProgrammingError` |
-| A table, view, column, constraint or schema that already exists; a column named twice (in `INSERT` or a `PRIMARY KEY`) | `42P07`, `42701`, `42710`, `42P06` | `AlreadyExists` | `ProgrammingError` |
-| A syntax error; a table definition Postgres refuses (two primary keys, `DROP NOT NULL` of a key column, a column of type record); a type that never converts (`DATE` to `BOOLEAN`); a record where another type is needed (`argument of WHERE must be type boolean, not type record`) | `42601`; `42P16`; `42846` in a cast, `42804` written to a column or by `ALTER COLUMN … TYPE`; `42804` | `InvalidArgument` | `ProgrammingError` |
+| A table, view, column, function or schema that doesn't exist; an operator for a quoted literal that doesn't exist (`b + '1'`) | `42P01`, `42703`, `42883`, `3F000`; `42883` | `NotFound` | `ProgrammingError` |
+| A table, view, column, constraint or schema that already exists; a column named twice (in `INSERT`, a `PRIMARY KEY`, a table or a view) | `42P07`, `42701`, `42710`, `42P06` | `AlreadyExists` | `ProgrammingError` |
+| A syntax error; a column name that several columns have (`column reference "x" is ambiguous`); a table definition Postgres refuses (two primary keys, `DROP NOT NULL` of a key column, a column of type record); a type that never converts (`DATE` to `BOOLEAN`); a record where another type is needed (`argument of WHERE must be type boolean, not type record`); values without a common type (`CASE`, `COALESCE`, `UNION`, …; see "Quoted string literals"); an operator of a quoted literal that could be one of several (`d + '1'`, `'1' + '1'`) | `42601`; `42702`; `42P16`; `42846` in a cast, `42804` written to a column or by `ALTER COLUMN … TYPE`; `42804`; `42804`; `42725` | `InvalidArgument` | `ProgrammingError` |
 | What Postgres doesn't support either (`DATE_BIN` by months, `EXTRACT(day FROM time)`, `ALTER COLUMN … TYPE` of a column a view reads) | `0A000` | `NotImplemented` | `NotSupportedError` |
 | A cancel, or a Go deadline | `57014` | `Cancelled`, `Timeout` | `OperationalError` |
 
@@ -238,20 +302,21 @@ the Python exception:
   type integer: "x"`. `TRY_CAST` still returns NULL for a value that
   doesn't convert.
 - **Messages** of a value that doesn't convert or doesn't fit are
-  Postgres's: text that isn't a number, boolean, date or time (`invalid
-  input syntax for type numeric: "abc"`, `date/time field value out of
-  range: "2024-02-30"`, see Text as an integer and Text as a number, a
-  boolean, a date or a time under Casts), and a number past its type's
-  range (`integer out of range`, `numeric field overflow`). Postgres's
-  details and hints are left out, but for `numeric field overflow`'s, which
-  follows a `;`. Many other messages are the driver's, with only the
-  SQLSTATE Postgres's: `CAST(DATE '2024-01-01' AS BOOLEAN)` is `cannot
-  convert date value "2024-01-01" to BOOLEAN`, where Postgres says `cannot
-  cast type date to boolean`, and interval text is `invalid interval "x"`.
+  Postgres's: text that isn't a number, boolean, date, time or interval
+  (`invalid input syntax for type numeric: "abc"`, `date/time field value
+  out of range: "2024-02-30"`, see Text as an integer and Text as a
+  number, a boolean, a date or a time under Casts), and a number past its
+  type's range (`integer out of range`, `numeric field overflow`).
+  Postgres's details and hints are left out, but for `numeric field
+  overflow`'s, which follows a `;`. So are those of operators of quoted
+  literals (see Quoted string literals). Many other messages are the
+  driver's, with only the SQLSTATE Postgres's: `CAST(DATE '2024-01-01' AS
+  BOOLEAN)` is `cannot convert date value "2024-01-01" to BOOLEAN`, where
+  Postgres says `cannot cast type date to boolean`.
 - **No SQLSTATE yet:** the errors of the driver's own limits, and a few
   others: `more than one row returned by a subquery used as an expression`
   (`21000` in Postgres), an operator that doesn't exist (`42883`; those of
-  rows and records have it), `missing
+  rows, records and quoted literals have it), `missing
   FROM-clause entry for table "t"` (`42P01`), and a `SET` of an invalid
   value (`22023`). They keep their status, mostly `InvalidArgument`.
 - **In Go,** `adbc.Error.Error()` ends with the SQLSTATE in parentheses:
@@ -271,7 +336,7 @@ the Python exception:
   convert float64 value "1e+300" to BIGINT` and `value 123456 out of range
   for NUMERIC(5,2)`.
 
-**ACL users**
+### ACL users
 
 If the database has ACL users, the driver's user needs these commands. The
 lists were checked with users that have exactly these rules, running the Go
@@ -302,9 +367,10 @@ and a 3-shard cluster:
   for metadata transactions. `ALTER COLUMN … TYPE`, which rewrites the
   rows to new keys, needs only these (it copies rows with `HGETALL` and
   `HSET`, not `DUMP` / `RESTORE`).
-- **Not needed:** `HELLO` and `AUTH` are always allowed. Add `+select` if the
-  URI names a database other than 0 (not tested), and `+client|setname` if it
-  sets `client_name`.
+- **Not needed:** RESP3 negotiation uses `HELLO`, but `HELLO` and `AUTH` are
+  always allowed. Add `+select` if the URI names a database other than 0 (not
+  tested), and `+client|setname` if it sets `client_name`. A `protocol=2` URI
+  remains available for compatibility with RESP2-only deployments.
 - **On a cluster,** ACL users are per node: create the user on every node.
 - **For example,** for dbt on a cluster, with `rename_rekey`:
 
@@ -340,8 +406,10 @@ ACL SETUSER reader on >password resetchannels %R~adbc:* %R~public:* +ping +info 
   leaves that to the next connection that can write. (Redis's `ACL LOG`
   then shows the refused commands.)
 
-**Key patterns don't cover every search command.** RediSearch commands that
-change indexes declare no keys, so key patterns don't apply to them:
+#### Search commands and key patterns
+
+RediSearch commands that change indexes declare no keys, so key patterns
+don't apply to them:
 
 - **`FT.DROPINDEX … DD`** deletes every row of a table, even for a user that
   may only read the table's keys. `FT.CREATE`, `FT.ALTER` and the
@@ -355,14 +423,18 @@ change indexes declare no keys, so key patterns don't apply to them:
   every index, so such a user sees the other schemas' table names. Check
   this on other Redis versions.
 
-**Errors:** a command the user may not run fails with Redis's `NOPERM`
-error. One that Redis refuses inside a transaction is reported with the
+#### Permission errors
+
+A command the user may not run fails with Redis's `NOPERM` error. One that
+Redis refuses inside a transaction is reported with the
 command and its key, rather than as `EXECABORT Transaction discarded because
 of previous errors`: `failed to create view: NOPERM No permissions to access
 a key ('set' on adbc:{meta}:view:public:v, in a MULTI transaction that Redis
 discarded)`.
 
-**Limitation: the driver doesn't find existing HASHes by itself**
+### Limitations
+
+#### Existing HASH collections need `redis-adbc`
 
 A table exists for the driver only if its metadata key
 (`adbc:{meta}:table:<schema>:<table>`) exists. The metadata names the
@@ -380,20 +452,22 @@ table refuses `INSERT` and `TRUNCATE`. The driver doesn't touch
 indexes it didn't create, even one with the name a new table's index would
 take (see "Indexes the driver didn't create are left alone" below).
 
-**Limitation: Redis Flex databases are not supported yet**
+#### Redis Flex databases are not supported yet
 
 [Redis Flex](https://redis.io/docs/latest/operate/rs/flex/) (formerly Auto
 Tiering) keeps most of a database on SSD, for datasets of a terabyte and
 more. Search on Flex can't index tables the way the driver needs. Every
 table's index has a `NUMERIC SORTABLE` row-ID field, and every query reads
-rows through `FT.AGGREGATE` cursors. So when the driver connects to a Flex
-database it fails with `Redis Flex databases are not supported`, before
-writing anything.
+rows through `FT.AGGREGATE` cursors. A Flex database with Search enabled
+fails with `Redis Flex databases are not supported`, before writing anything.
+A database without Search fails earlier with an error that the Redis server
+does not provide the search (RediSearch) module.
 
 | Flex database | Search on Flex | Missing for the driver |
 |-|-|-|
 | Redis Cloud Essentials | Not available | Search itself (the driver reports that search is missing) |
-| Redis Cloud Pro | Opt-in Preview | `FT.AGGREGATE`; `NUMERIC` fields (per Redis's docs; not tested here) |
+| Redis Cloud Pro without Search enabled, Redis 8.6 | Unavailable on the newly created test database | `FT._LIST`, `FT.CREATE`, `FT.SEARCH`, and `FT.AGGREGATE` were not registered. The driver reports that search is missing. |
+| Redis Cloud Pro Search on Flex beta | Opt-in beta; not exercised in the live Cloud tests | `FT.AGGREGATE` and `NUMERIC` fields (per Redis's docs) |
 | Redis Software 8.2.0-78, Redis 8.6.2, Search 8.6.11 | Included (`search_on_bigstore`) | `FT.AGGREGATE`, `FT.ALTER`, `FT.DROPINDEX … DD`; `NUMERIC`, `GEO` and `SORTABLE` fields. `FT.SEARCH` returns only keys, and indexes need `SKIPINITIALSCAN` (tested, see [Building and testing](#building-and-testing)) |
 
 Redis's announcement of Search on Flex says Redis Software already offers
@@ -402,9 +476,14 @@ But the latest Docker image (8.2.0-78, built 2026-09-01) rejects both. The
 connect check tests whether `FT.AGGREGATE` works, not whether the database
 is Flex. So a Flex release that supports it is no longer refused.
 
+The local and Cloud tests ran on 2026-10-06 against commit `40da0bf`.
+See the [compatibility report](docs/redis-flex-compatibility.md) or its
+[Word version](docs/redis-flex-compatibility.docx) for the settings, live
+command results, and missing driver and server functions.
+
 ## Quick start
 
-Requirements: Go 1.26+, a C toolchain (cgo), Docker, and
+Requirements: Go 1.26.6 or newer, a C toolchain (cgo), Docker, and
 [uv](https://docs.astral.sh/uv/). Run everything from the `go` directory.
 
 Each [GitHub release](https://github.com/alberttwong/redis-adbc-driver/releases)
@@ -418,15 +497,15 @@ Releases after v0.0.10 also have the
 [`redis-adbc`](#existing-hash-collections-redis-adbc) command for the same
 platforms.
 
-**1. Start Redis 8.6 and build the driver**
+### 1. Start Redis Software and build the driver
 
 ```bash
 cd go
-docker compose up --detach --wait redis
+make redis-up
 make build
 ```
 
-**2. Load the sample data set**
+### 2. Load the sample data set
 
 ```bash
 uv run --project validation python examples/load_sample.py
@@ -441,7 +520,7 @@ This creates two tables in the default `public` schema:
   unit_price NUMERIC(10,2), discount, ordered_at TIMESTAMP WITH TIME ZONE,
   status, notes`. Every column except `notes` is indexed.
 
-**3. Run SQL**
+### 3. Run SQL
 
 `examples/sql.py` runs one statement passed as an argument, or starts an
 interactive prompt (statements end with `;`) when given none:
@@ -655,7 +734,7 @@ COMMENT ON COLUMN events.payload IS 'Raw JSON, as received';
 DROP TABLE events;
 ```
 
-**4. Look at the data in Redis**
+### 4. Inspect the data in Redis
 
 Each row is a plain HASH, and each table has one RediSearch index. A renamed
 table keeps its key names unless `adbc.redis.rename_rekey` is set (see
@@ -665,21 +744,21 @@ below); `information_schema.tables` shows each table's `key_prefix` and
 `index_name`:
 
 ```bash
-docker exec redis-adbc-test redis-cli HGETALL public:sales:42
+docker compose exec redis-software /opt/redislabs/bin/redis-cli -p 12000 HGETALL public:sales:42
 ```
 
 ```bash
-docker exec redis-adbc-test redis-cli FT.INFO idx:public:sales
+docker compose exec redis-software /opt/redislabs/bin/redis-cli -p 12000 FT.INFO idx:public:sales
 ```
 
 To see the `FT.AGGREGATE` / `FT.CURSOR` commands the driver sends for each query,
 run `MONITOR` in a second terminal while you run SQL:
 
 ```bash
-docker exec -it redis-adbc-test redis-cli MONITOR
+docker compose exec redis-software /opt/redislabs/bin/redis-cli -p 12000 MONITOR
 ```
 
-Stop Redis with `docker compose down`.
+Stop and remove the disposable Redis Software database with `make redis-down` (from `go`).
 
 ## Existing HASH collections: `redis-adbc`
 
@@ -708,6 +787,8 @@ application's HASHes: it deletes the rows that writers left under the key
 prefixes of dropped and truncated tables (see [Sweep](#sweep-leftover-rows)
 below).
 
+### Build and connect
+
 Build it from `go`:
 
 ```bash
@@ -729,7 +810,9 @@ the shared library. It connects with `-uri`, else `$REDIS_URI`, else
 `-option key=value` (repeatable) sets a database option, such as
 `-option adbc.redis.read_timeout=30m`. Flags go before anything else.
 
-**Check.** Without `-prefix`, `check` lists the collections it finds: the
+### Check collections
+
+Without `-prefix`, `check` lists the collections it finds: the
 prefixes (up to the last `:`) of HASH keys in a sample of 10,000 keys, the
 prefixes of search indexes on HASHes, and the driver's own tables. With a
 prefix, it reads a sample of the HASHes, guesses the columns (their type in
@@ -818,8 +901,10 @@ ready). What the checklists look for:
   that was adopted already, it checks the index's indexing failures, and
   whether redis-adbc v0.0.11 adopted it (see below).
 
-**How columns are guessed.** Every field becomes a column (`-rename
-field=column` renames one), plus, in a copy, `_key` with each HASH's key
+### Column inference
+
+Every field becomes a column (`-rename field=column` renames one), plus, in
+a copy, `_key` with each HASH's key
 (`-key-column` names it; empty for none). A column's type is the narrowest that fits the
 text of every sampled value, read as a SQL cast reads it:
 
@@ -840,7 +925,9 @@ column's values don't fit the type the rest share, the column is `VARCHAR`,
 and `check` suggests `-type col=TYPE -on-error null`. `-type col=TYPE`
 sets any column's type (SQL type names, as in `CREATE TABLE`).
 
-**Copy.** `copy` takes `check`'s `-prefix`, `-schema`, `-table`, `-sample`,
+### Copy HASHes into a table
+
+`copy` takes `check`'s `-prefix`, `-schema`, `-table`, `-sample`,
 `-key-column`, `-type` and `-rename`, and bulk ingest's `-mode` (`create`,
 the default, `append`, `replace` or `create_append`) and `-index-columns`:
 
@@ -870,9 +957,10 @@ build/redis-adbc copy -prefix user: -table users -type age=BIGINT -on-error null
 - **Memory:** the HASHes are read and ingested in batches of up to 10,000
   rows, whatever the collection's size.
 
-<a id="adopt-hashes-in-place"></a>
-**Adopt.** `adopt` reads every HASH under the prefix, runs the in-place
-checklist on all of them, and prints what it would do. Nothing changes
+### Adopt HASHes in place
+
+`adopt` reads every HASH under the prefix, runs the in-place checklist on
+all of them, and prints what it would do. Nothing changes
 without `-apply`:
 
 ```bash
@@ -987,8 +1075,10 @@ Adopted: public.users now reads the HASHes under user:, and those the applicatio
     reports it. With the application's index, a value that one of its
     `NUMERIC` attributes can't hold does the same.
 
-**Tables adopted by redis-adbc v0.0.11.** v0.0.11 identified an adopted
-table's rows by a `__rowid` field, which it wrote into each HASH whose key
+#### Tables adopted by redis-adbc v0.0.11
+
+v0.0.11 identified an adopted table's rows by a `__rowid` field, which it
+wrote into each HASH whose key
 ended in an integer, and its `adopt -refresh` wrote it into HASHes added
 later. The driver now refuses such a table:
 
@@ -999,12 +1089,14 @@ later. The driver now refuses such a table:
 `DROP TABLE` still works, and `check` and `adopt` say the same. The
 `__rowid` fields stay in the HASHes; they aren't columns, and do no harm.
 
-**ACL users.** `check` needs read access to the collection's keys
-(`%R~user:*`) and to the driver's metadata (`%R~adbc:*`), and these
+### ACL permissions for `redis-adbc`
+
+`check` needs read access to the collection's keys (`%R~user:*`) and to the
+driver's metadata (`%R~adbc:*`), and these
 commands:
 
 ```text
-+ping +info +scan +hgetall +ft._list +ft.info +ft.aggregate +memory|usage
++ping +info +scan +hkeys +hmget +ft._list +ft.info +ft.aggregate +memory|usage
 +get +exists +smembers +sismember +hget +hexists
 # A cluster (OSS Cluster API) also
 +cluster|slots +command
@@ -1014,13 +1106,16 @@ commands:
 refuses `FT.INFO` on them), and says how many. Without `MEMORY USAGE`, it
 warns that it can't estimate the memory a copy needs, and goes on.
 
-`copy` and `adopt` need the driver's own rules (see "ACL users" under
-[Server requirements](#server-requirements)). `copy` and `adopt` also need
-`+scan` and read access to the collection's keys (`%R~user:*`):
+`copy` and `adopt` need the driver's own rules (see
+[ACL users](#acl-users)). `copy` and `adopt` also need
+`+scan +hkeys` and read access to the collection's keys (`%R~user:*`):
 
 ```text
-+scan
++scan +hkeys
 ```
+
+`HMGET` is already in the driver's rules; the tools use `HKEYS` followed by
+`HMGET` so inferred column order is the same under RESP2 and RESP3.
 
 A user that only queries an adopted table needs the driver's read-only
 rules, with read access to the collection's keys (`%R~user:*`), and
@@ -1033,9 +1128,10 @@ keys (`~user:*`), and, for the script that `UPDATE` runs on each HASH:
 +hlen +eval +evalsha +script|load
 ```
 
-<a id="sweep-leftover-rows"></a>
-**Sweep.** `DROP TABLE`, `TRUNCATE` and a re-keying rename release the
-table's key prefix, and no table takes it again (see "Key prefixes are
+### Sweep leftover rows
+
+`DROP TABLE`, `TRUNCATE` and a re-keying rename release the table's key
+prefix, and no table takes it again (see "Key prefixes are
 never reused" below). Rows can still be left under it, where no table or
 query reads them: those of a writer whose process exited before it found
 out, and of a write of 1,000 rows or fewer that read the metadata within
@@ -1133,6 +1229,8 @@ Deleted 13 HASHes under 2 prefixes.
 └──────────────────────────────▲───────────────────────────────────┘
                                │ direct HMGET (full-row lookup)
 ```
+
+### Rows and indexes
 
 - **Rows** are flat HASHes `<schema>:<table>:<rowid>` holding every column
   (NULL = field absent, except for missing values, below; a hidden `__rowid`
@@ -1250,6 +1348,9 @@ Deleted 13 HASHes under 2 prefixes.
     commands run, and `LIMIT` still runs in the index. Microsecond
     timestamps between 1685 and 2255 never tie, and nanosecond ones only
     within about 256 ns of each other.
+
+### Metadata and key naming
+
 - **Metadata**, all in one hash slot: `adbc:{meta}:table:<schema>:<table>`
   (column types, defaults, missing values, string levels, NaN flags,
   comments, `CHECK` constraints and the primary key as JSON), `adbc:{meta}:seq:*` (row ids),
@@ -1372,7 +1473,9 @@ Deleted 13 HASHes under 2 prefixes.
   keys. A new connection drops the temporary objects of any owner whose
   alive key has expired, re-checking the key before each object.
 
-How SQL is executed:
+### Query execution
+
+The driver executes SQL as follows:
 
 | Query shape | Execution |
 |-|-|
@@ -1380,7 +1483,8 @@ How SQL is executed:
 | Queries that can't return rows: `WHERE false`, `LIMIT 0`, … | Their rows aren't read. A query with `LIMIT 0` (or `FETCH FIRST 0 ROWS ONLY`, or a `HAVING` or `QUALIFY` that is never true) returns without a command. One whose `WHERE` is never true doesn't read its FROM items, and the rest of it runs over no rows: `COUNT(*)` without `GROUP BY` still returns one row, 0. A condition is never true when it is FALSE or NULL whatever the rows hold: its parts that read no column, parameter or subquery are evaluated once, and `AND` is never true if one side is, `OR` if both are (`false`, `1 = 0`, `NULL`, `x > 0 AND false`, `NOT true`, …). This applies at every level (derived tables, CTEs, views, join items, `UNION` branches, subqueries) and to `INSERT … SELECT`, `UPDATE`, `DELETE`, `MERGE` and `CREATE TABLE … AS`. The derived tables, CTEs and views such a query reads are planned but not run, so its columns and their types are those of the full query, and unknown tables, columns and functions and wrong argument counts are still errors; `ExecuteSchema` and `CREATE VIEW` plan their query the same way. This is how dbt asks for a query's columns (`select * from (…) as __dbt_sbq where false limit 0`, for model contracts, snapshots and unit tests), and what `dbt run --empty` reads (`(select * from t where false limit 0)`) |
 | Filter / sort / limit | `FT.AGGREGATE <idx> "<pushed-down query>" [SORTBY …] [LIMIT …] LOAD … WITHCURSOR COUNT 10000`: the rows come back in the cursor pages, up to 10,000 at a time (fewer for wide tables), and are [streamed](#streamed-results) as the result is read |
 | `COUNT(*)`, `GROUP BY` + `COUNT/SUM/AVG/MIN/MAX`, `BOOL_OR/BOOL_AND/EVERY` of a boolean column | `FT.AGGREGATE … APPLY exists(@c) … GROUPBY … REDUCE …` over SORTABLE fields, HASHes never opened (`BOOL_OR` / `BOOL_AND` are `MAX` / `MIN` of the stored 0 and 1). On a cluster, a shard whose rows of a group all lack the value sends NaN as its partial `SUM`, which made the group's `SUM` and `AVG` NaN up to v0.0.7 (`AVG` of an integer column also in the default mode). So when a `SUM` comes back NaN for a group that has values, the driver runs the command again with `case(exists(@c), @c, 0)` in place of `@c` (about 2.5 times as long; a real NaN, from adding +Infinity and -Infinity, stays NaN), and a server without `case()` aggregates the query in the driver. An amd64 server writes that NaN `-nan`, which up to v0.0.9 the driver didn't read, so it aggregated such queries itself |
-| Other aggregates (`STRING_AGG`, `STDDEV`, percentiles, `ANY_VALUE`, …), `DISTINCT` and `FILTER (WHERE …)` | Reduced by the driver over the rows fetched from the HASHes (the index still filters them). An aggregate's `FILTER` is evaluated before its arguments, so `SUM(1 / x) FILTER (WHERE x <> 0)` never divides by zero. Ordered-set aggregates keep each group's values and sort them once |
+| `COUNT(DISTINCT col[, …])` | Eligible queries use exact server-side tuple deduplication, then count tuples in the driver; NULL tuples are excluded. See Aggregate pushdown below |
+| Other aggregates (`STRING_AGG`, `STDDEV`, percentiles, `ANY_VALUE`, …), other `DISTINCT` aggregates and `FILTER (WHERE …)` | Reduced by the driver over the rows fetched from the HASHes (the index still filters them). An aggregate's `FILTER` is evaluated before its arguments, so `SUM(1 / x) FILTER (WHERE x <> 0)` never divides by zero. Ordered-set aggregates keep each group's values and sort them once |
 | `GROUP BY ROLLUP` / `CUBE` / `GROUPING SETS` | Each grouping set runs as its own grouped query: an `FT.AGGREGATE … GROUPBY` when a plain `GROUP BY` of its columns would be one, otherwise in the driver, where the sets share one read of the rows. The driver combines the groups of all sets (`UNION ALL`, NULL for the columns a set doesn't group), then applies HAVING, window functions, QUALIFY, DISTINCT, ORDER BY and LIMIT to the combined rows |
 | `col LIKE 'abc%'` on an indexed string column | TAG prefix query `@c:{abc*}` on the prefix's tag, re-checked by the driver (other patterns are checked by the driver alone). RediSearch expands a prefix into at most `search-max-prefix-expansions` tags (200 by default, per shard) and silently ignores the rest, so the driver first runs the prefix query under `FT.PROFILE … LIMIT 0 1` (one more round trip, about 0.3 ms) and, unless every shard's profile reports no warning, checks the prefix on every row the rest of the WHERE clause selects instead. The server's configuration is never changed |
 | `col IN (…)`, `col IN (SELECT …)`, `col = a OR col = b` on an indexed column | Index union query (`(@c:[a a] \| @c:[b b])` or `@c:{a \| b}`), for up to 1,000 values. Above that (or on an unindexed column) the driver checks each row against a hash set of the values, built once per statement: always for `IN (SELECT …)`, and for a literal list of 16 or more constants when the column's type can't fail to compare with them (otherwise value by value, as `=` would) |
@@ -1401,6 +1505,22 @@ How SQL is executed:
 | Joins | Each table's own WHERE/ON filters run in its index (except on the NULL-supplying side of an outer join). Inner joins are reordered to start from the table with the fewest matches (counted by the index). Equality conditions drive a hash join; when the next table's key is indexed and there are ≤ 1,000 distinct keys, only matching rows are fetched with an index union. The joined rows are then grouped/sorted in memory. `NATURAL JOIN` is an equality join on the common columns, like `USING`. An item whose `ON` can never be true (`ON false`), or that has no rows, isn't read when that settles the result: an inner join is then empty and reads no item, a `LEFT JOIN` keeps the left rows with NULLs for the item, and a `RIGHT JOIN` returns the item's rows without reading the items before it. A FROM-list item after a comma that has a `RIGHT` or `FULL` join is joined on its own, then cross joined with the rows of the items before the comma (see "Commas"), and `WHERE` conditions that read both are applied after that. An `ON` condition with a correlated subquery waits until every item it may read is joined (up to v0.0.12, in an inner join of three or more items it could run before, and `from a join b on true join c on exists (select … where … = c.x)` returned no rows) |
 | `UPDATE … FROM`, `DELETE … USING`, `MERGE` | The target is joined with the other items as above: its own filters (in WHERE, or in MERGE's ON) run in its index, and an equality on an indexed target column is an index lookup join, also through a no-op cast like dbt's `s.id::text = t.id::text`. `MERGE` is source `LEFT JOIN` target, or `FULL JOIN` with `WHEN NOT MATCHED BY SOURCE` clauses (which need every target row); `ON FALSE` reads the target only for those. Changes are then written by row key with pipelined `HSET`/`HDEL`/`DEL`, and new rows like `INSERT` does |
 | Anything the index can't answer exactly | Evaluated by the driver on rows fetched from the HASHes |
+
+For ordered managed-table queries with a residual predicate and LIMIT, the
+scan can defer output columns: it reads predicate inputs and ordering keys,
+checks the exact SQL predicate, corrects rounded sort ties, and applies
+OFFSET/LIMIT before fetching output fields from the selected HASHes. Deleted
+rows found during that fetch do not consume LIMIT. This also works with
+`adbc.redis.stream_results=false`. It does not add indexes or convert SQL
+substring LIKE into tokenized text search. Windows, correlated subqueries,
+adopted rows, and driver-side sorting retain their existing scan path.
+
+Driver-side aggregates share pure integer input subexpressions within each
+row. A typed evaluator handles integer columns, literals, and checked
+`+`, `-`, and `*`, preserving aggregate order and per-row overflow errors.
+Each aggregate still updates its own exact accumulator. Decimal/float inputs,
+filters, DISTINCT, functions, casts, subqueries, and unsupported expressions
+use the existing evaluator; expressions are not rewritten into affine sums.
 
 ### Streamed results
 
@@ -1436,7 +1556,8 @@ table's size. Other results are built whole before `ExecuteQuery` returns.
   fails). Cancelling the context passed to `ExecuteQuery` (in Go) also
   deletes it, as does cancelling the statement (`AdbcStatementCancel`;
   `cursor.adbc_cancel()` in Python), from any thread: reading the stream
-  then fails with CANCELLED (see **Cancelling a statement**). A read under
+  then fails with CANCELLED (see
+  [Cancelling a statement](#cancelling-a-statement)). A read under
   way first waits for the cursor page it asked for. Redis limits cursors:
   - It deletes one that isn't read for `search-cursor-max-idle` (300
     seconds by default). Reading the stream then fails, with a message
@@ -1470,19 +1591,31 @@ double printed with 12 significant digits, which would round 64-bit integers,
 timestamps, decimals and doubles. So the driver names the columns it needs
 (`LOAD n @__key @__rowid @c …`) only when each one is a string (unless the
 column may hold a NUL byte, at which the sort vector stops), a 16/32-bit
-integer, boolean, date or time, or not indexed, and otherwise uses `LOAD *`,
-which returns the HASH fields unchanged. Sorts run on aliases
+integer, boolean, date or time, or not indexed. When a managed-table scan
+needs at most half the table's columns, it loads the exact-safe fields and
+keys through the cursor and reads the remaining fields from the HASHes
+with pipelined `HMGET` (at most 1,000 commands per batch). This preserves
+exact BIGINTs without transferring every column of a wide row. Wider
+projections and adopted tables use `LOAD *`, which returns the HASH fields
+unchanged. The two-stage read can observe concurrent changes between the
+cursor and `HMGET`; queries do not provide a snapshot. Sorts run on aliases
 (`LOAD @c AS __sort0 SORTBY @__sort0`) so that on a cluster the coordinator
 merges the shards' results on the numeric sort values rather than on the
 strings `LOAD *` returns. Rows whose sort values tie as doubles are sorted
 again by the driver (see "Ties in the sort vector" above).
 
-Aggregate pushdown (`adbc.redis.aggregate_pushdown`):
+The [narrow-scan profile](benchmarks/narrow-scan/report.md) compares both
+paths on the official 100,000-row ClickBench fixture, including transferred
+bytes, allocations and exact aggregate query timings.
+
+### Aggregate pushdown
+
+The `adbc.redis.aggregate_pushdown` option controls where aggregates run:
 
 - `exact` (default): pushes COUNT, plus SUM/AVG/MIN/MAX over 16/32-bit
   integer, boolean and date columns, which RediSearch returns exactly, and
   BOOL_OR/BOOL_AND/EVERY over boolean columns. Other aggregates are computed
-  by the driver.
+  by the driver, except for the exact COUNT DISTINCT strategy below.
 - `all`: also pushes floating-point, decimal and 64-bit aggregates, and
   groups on such columns (see below). RediSearch adds doubles in its own
   order (on a cluster, each shard's rows, then the shards' sums) and
@@ -1527,8 +1660,49 @@ The other modes compute `SUM` and `AVG` of doubles exactly (see
 Aggregates, below), so their results don't depend on the mode, the order of
 the rows, or the server being standalone or a cluster.
 
-In every mode, `DISTINCT`, `FILTER (WHERE …)` and the other aggregates run
-in the driver. RediSearch has reducers that look like some of them, but none
+Driver-side aggregates over indexed tables consume one cursor page at a
+time, updating their accumulators before fetching the next page. Each group
+retains only the representative fields used after reduction. Eligible
+`ORDER BY … LIMIT … OFFSET …` queries select the best `LIMIT + OFFSET`
+projected groups with a bounded heap, preserving stable ties; queries with
+windows or DISTINCT keep their existing ordering path. Exact distinct sets,
+group state and ordered-set inputs still grow with cardinality. In-memory
+relations and the shared input for grouping sets retain their existing
+materialization. The [aggregation profile](benchmarks/aggregate-pages/report.md)
+reports latency and memory across input sizes and group cardinalities.
+
+In `exact` and `all` modes, queries whose aggregates are all
+`COUNT(DISTINCT col[, …])` can deduplicate complete tuples in Redis and
+count them in the driver, without transferring every source row or retaining
+client distinct sets. Eligible grouping and argument columns are indexed
+strings, integers (including BIGINT), booleans, dates, times and timestamps.
+Safe sorting vectors need no load. For BIGINT, timestamps and NUL-containing
+strings, `LOAD *` **before** `GROUPBY` uses the original HASH strings; named
+loads still use rounded or truncated index values. This preserves values
+above 2^53 and embedded NUL bytes without adding stored fields or indexes.
+Complete tuples are merged across shards before counting, and any tuple
+with a NULL argument is excluded. Redis GROUPBY uses a hash as its identity;
+per-column TOLIST sets compare complete values, and MIN/MAX of presence
+flags check NULL/value mixtures. A hash group containing different tuples
+triggers the exact row-based fallback. For NUL-containing columns, the
+strategy also verifies Search 8.6 or newer with `MODULE LIST`; older versions
+or an ACL that denies that command retain the exact row path.
+
+Aggregate filters use exact index predicates or pure comparisons over tuple
+columns. The latter also recheck normalized string predicates, such as
+`SearchPhrase <> ''`. A separate group query preserves zero-count groups
+when every aggregate is filtered. Equivalent aggregate calls share a
+pipeline; different calls use separate pipelines. This does not provide a
+snapshot across concurrent writes. Adopted tables, unindexed columns,
+virtual defaults, noncanonical stored values, expressions, mixed aggregates
+and other predicates retain the exact row-based path. `none` disables tuple
+deduplication. The [distinct benchmark](benchmarks/exact-distinct/report.md)
+records wire bytes, latency, driver allocations and server memory. Raw
+loading moves work and tuple state to Redis; high cardinality can transfer
+as many tuples as input rows, and there is no spill or new memory limit.
+
+Other `DISTINCT` aggregates, filters outside that scope and other aggregates
+run in the driver. RediSearch has reducers that look like some of them, but none
 gives SQL's answer: `STDDEV` loses precision on values far from zero (150
 values near 10⁹ came back wrong in the 8th significant digit, on a cluster
 too) and is 0 instead of NULL for a single value, `QUANTILE` is an
@@ -1537,6 +1711,8 @@ order, and `FIRST_VALUE` returns NULL when the group's first row lacks the
 field, even if later rows have it.
 
 ## Supported SQL
+
+### Schema objects and DDL
 
 - `CREATE TABLE [IF NOT EXISTS] t (col TYPE [column_constraint …] [NOINDEX] [COMMENT 'text'], …
   [, table_constraint, …]) [COMMENT [=] 'text']`, where a column constraint
@@ -1853,10 +2029,11 @@ field, even if later rows have it.
       aggregates or window functions (`cannot use subquery in transform
       expression`, …). Its result is converted as above (`result of USING
       clause for column "c" cannot be cast automatically to type integer`
-      otherwise; a string literal or `NULL` converts to any type). It reads
-      the row as it was before the statement: `ALTER COLUMN a TYPE text
-      USING b::text, ALTER COLUMN b TYPE int USING a::int` swaps the values,
-      and `DROP COLUMN b, ALTER COLUMN a TYPE int USING b` reads `b`.
+      otherwise; a quoted string literal or `NULL` converts to any type, a
+      cast of one doesn't). It reads the row as it was before the
+      statement: `ALTER COLUMN a TYPE text USING b::text, ALTER COLUMN b
+      TYPE int USING a::int` swaps the values, and `DROP COLUMN b, ALTER
+      COLUMN a TYPE int USING b` reads `b`.
     - **The rest of the column stays:** its name, `NOT NULL` (a row that
       the conversion makes NULL fails with `column "c" of relation "t"
       contains null values`), primary key, comment and `DEFAULT`. The
@@ -1889,7 +2066,11 @@ field, even if later rows have it.
       time. The new index has the column's new attribute (`NUMERIC` for
       numbers, dates and times, `TAG` for strings, none for `BYTEA`,
       `INTERVAL` and `TIME WITH TIME ZONE`), so indexed queries on the
-      column read the new type. One
+      column read the new type. Before switching, the old and new indexes'
+      row counts are compared. If background dropped-column cleanup changed
+      the old index during a cursor scan, missing rows are rescanned (up to
+      three scans); already copied rows aren't converted again. A persistent
+      mismatch fails and rolls back rather than committing missing rows. One
       transaction then switches the metadata to the new names, with every
       action of the statement, and the old index is dropped with its rows
       (`DD`). The new rows hold only the table's columns: the fields of
@@ -1916,7 +2097,7 @@ field, even if later rows have it.
       a `DROP TABLE`. If the connection goes away, or can't renew its
       lease, the next connection to open, or the next statement that
       changes the table, rolls the rewrite back, as for a rename. It needs
-      no commands beyond the basic ones (see **ACL users**).
+      no commands beyond the basic ones (see [ACL users](#acl-users)).
     - **Not supported:** conversions that the driver's `CAST` doesn't make
       either, such as `TIME` to `INTERVAL` (`cannot convert time value …`),
       and tables adopted with `redis-adbc adopt`, whose HASHes are the
@@ -1925,7 +2106,7 @@ field, even if later rows have it.
       half rounds away from zero to an integer (Postgres rounds to even),
       and `BYTEA` keeps its text as written. A conversion error has
       Postgres's message (`invalid input syntax for type integer: "abc"`,
-      see **Errors**). As for the other
+      see [Error handling](#error-handling)). As for the other
       defaults, a `DEFAULT` that the new type can't hold is an error at the
       `ALTER` (Postgres fails when a row gets it).
     - **Upgrading from v0.0.12 and earlier:** `ALTER COLUMN … TYPE` was
@@ -1962,6 +2143,9 @@ field, even if later rows have it.
   - **Errors** are Postgres's: `"v" is not a table` (`COMMENT ON TABLE` on a
     view), `"t" is not a view`, `relation "t" does not exist`, `column "c"
     of relation "t" does not exist`.
+
+### Inserts, parameters, defaults, and constraints
+
 - `INSERT INTO t [(cols)] VALUES (…), (…)` with literals, `?` / `$n`
   parameters or `DEFAULT`, `INSERT INTO t DEFAULT VALUES`, and
   `INSERT INTO t [(cols)] SELECT …` (the query may be parenthesized:
@@ -1980,7 +2164,11 @@ field, even if later rows have it.
     - An `INSERT` value, or an `UPDATE` `SET` value: the target column's type.
       This also covers `-$1` and the select items of `INSERT … SELECT`.
     - `CAST($1 AS t)` or `$1::t`: `t`.
-    - Arithmetic with a number: that number's type.
+    - Arithmetic (`+`, `-`, `*`, `/`, `%`): the type a quoted literal has
+      there (see Quoted string literals), as in Postgres. With a number,
+      that number's type; `ts + $1` is an interval, `ts - $1` a timestamp,
+      `d - $1` a date and `iv * $1` a double; none for `d + $1`, which could
+      be either, or `b + $1`.
     - `||`, `LIKE`, `ILIKE`, `SIMILAR TO` and the regex operators: text.
     - `AND`, `OR`, `NOT`, and `CASE WHEN` conditions: boolean.
     - `COALESCE`, `NULLIF`, `GREATEST` and `LEAST` arguments, and `CASE`
@@ -2025,7 +2213,8 @@ field, even if later rows have it.
     from 1 to 10485760.
   - **Writes:** a value longer than its column's length is an error, `value
     too long for type character varying(3)` (`character(3)` for `CHAR(3)`),
-    with ADBC status `InvalidData` and SQLSTATE `22001` (see **Errors**),
+    with ADBC status `InvalidData` and SQLSTATE `22001` (see
+    [Error handling](#error-handling)),
     unless the characters beyond the length are all spaces, which are cut
     (`'ab    '` is written to a `VARCHAR(3)` as `'ab '`). Every write
     checks it: `INSERT … VALUES`, `INSERT … SELECT`,
@@ -2224,6 +2413,9 @@ field, even if later rows have it.
     metadata removes the key. A NULL in a `NOT NULL` column was `NULL value
     in column "a" violates not-null constraint`; it is now Postgres's `null
     value in column "a" of relation "t" violates not-null constraint`.
+
+### Queries and relational features
+
 - `[WITH [RECURSIVE] name [(cols)] AS (SELECT …), …] SELECT [ALL | DISTINCT | DISTINCT ON (…)] … FROM item {, item |
   [INNER | LEFT | RIGHT | FULL] [OUTER] JOIN item ON … | USING (…) | CROSS JOIN item |
   NATURAL [INNER | LEFT | RIGHT | FULL] [OUTER] JOIN item}
@@ -2370,6 +2562,52 @@ field, even if later rows have it.
   and `column name "x" appears more than once in USING clause` (up to
   v0.0.12: `USING column "x" is ambiguous`, `USING column "x" does not
   exist in the left side of the join`, and `USING (x, x)` was accepted)
+- **Column names** are Postgres's. A select-list item is named by its
+  alias, or else by its expression (Postgres's FigureColname): a column by
+  the column, `CAST(x AS t)` and `x::t` by `x` (by the type if `x` has no
+  name: `int4`, `varchar`, `date`), a call by the function (`count`,
+  `upper`; also `extract`, `btrim`, `timezone` for `EXTRACT`, `TRIM` and
+  `AT TIME ZONE`), a scalar subquery by its column, `EXISTS` by `exists`,
+  `CASE` by its `ELSE` (or `case`), a row by `row`, a field `(r).f1` by
+  the field, and an operator or a literal is `?column?`. `SELECT count(*),
+  upper(v), CAST(iv AS VARCHAR), v || 'x', 1 FROM t` has the columns
+  `count`, `upper`, `iv`, `?column?` and `?column?`. These name the
+  result's columns (the Arrow fields, also from `ExecuteSchema`),
+  `RETURNING`'s, and those of derived tables, CTEs, views and `CREATE
+  TABLE … AS`, so `SELECT count FROM (SELECT count(*) FROM t) s` and
+  `SELECT * FROM (SELECT CAST(iv AS VARCHAR) FROM t) s ORDER BY iv` work
+  as in Postgres
+  - **Names that repeat** (`SELECT 1, 2`, `SELECT count(*), count(v)`,
+    `SELECT a, a`, `AS s(x, x)`): a result, a derived table or a CTE keeps
+    them all, as in Postgres, and only reading such a column by its name is
+    an error: `column reference "count" is ambiguous` (also as `s.count`),
+    `ORDER BY "count" is ambiguous`, and in `USING` or `NATURAL JOIN`
+    `common column name "count" appears more than once in left table` (or
+    `right table`). A position (`ORDER BY 2`), `*` or column aliases (`AS
+    s(a, b)`) read them. A table or view can't have them: `CREATE TABLE …
+    AS` and `CREATE VIEW` are `column "count" specified more than once`,
+    as in Postgres; give the columns aliases. Column aliases on a table
+    (`FROM t AS x(a, a)`) still can't repeat a name, which Postgres allows
+    until one is read
+  - Names are compared without case, as elsewhere in the driver: in
+    `SELECT a FROM (SELECT 1 AS "A", 2 AS a) s`, `a` is ambiguous, where
+    Postgres reads the second column
+  - **Upgrading from v0.0.12 and earlier:** an item without an alias that
+    wasn't a column was named by its text, `count(*)`, `CAST(iv AS
+    VARCHAR)`, `v || 'x'`, `1`, so result field names change: code that
+    reads columns by name, unaliased expressions included, needs the new
+    names, or aliases. Tables that `CREATE TABLE … AS` made and views keep
+    the names they were made with; made again, they get the new names, and
+    a query whose items now share a name (`SELECT count(*), count(v)`,
+    `SELECT 1, 2`) needs aliases. A view whose query reads a derived
+    table's or CTE's column by its old name (`SELECT "count(*)" FROM
+    (SELECT count(*) FROM t) s`) is now `view "v" is no longer valid:
+    column "count(*)" does not exist`; replace it with `CREATE OR REPLACE
+    VIEW`. Derived tables and CTEs whose columns shared a name were
+    `column name "a" appears more than once in "s"; add aliases`, a view's
+    `column name "a" appears more than once in view "v"; add aliases`, and
+    a table's `duplicate column name "a"`. The `ambiguous` errors had no
+    SQLSTATE; they are `42702` now
 - `FETCH FIRST n ROWS ONLY` is `LIMIT n` (`FETCH FIRST ROW ONLY` is `LIMIT
   1`); `WITH TIES` is not supported, and a query has at most one `LIMIT` or
   `FETCH` (Postgres's "multiple LIMIT clauses not allowed")
@@ -2383,10 +2621,10 @@ field, even if later rows have it.
   (as in Postgres) `ROLLUP (…)`, `CUBE (…)`, `GROUPING SETS (…)` and `()`:
   - A bare name is an input column's before it is an output column's
     (unlike in `ORDER BY`), as in Postgres. A name no input column has is
-    the output column of that name, also one without an alias, named as
-    for `ORDER BY` (below): after `SELECT upper(v)`, `GROUP BY upper`
-    groups by `upper(v)`; after `SELECT CAST(x AS INTEGER)`, `GROUP BY x`
-    is still the column `x`. Only the query's own FROM items count, not
+    the output column of that name, also one without an alias, named by
+    its expression (see "Column names" above): after `SELECT upper(v)`,
+    `GROUP BY upper` groups by `upper(v)`; after `SELECT CAST(x AS
+    INTEGER)`, `GROUP BY x` is still the column `x`. Only the query's own FROM items count, not
     those of the queries around it; a name two of them have (`k` of `JOIN …
     USING (k)`, where the driver keeps both columns) may also be an output
     column's. Output columns of the same name must be the same expression,
@@ -2425,11 +2663,10 @@ field, even if later rows have it.
     either. So do `SELECT DISTINCT` (which runs as `GROUP BY`), grouping
     sets and `DISTINCT` in aggregates, as window partitions, `DISTINCT ON`,
     set operations and joins already did
-  - A `CASE` or `COALESCE` of a number and a string literal gives values of
-    both kinds (`COALESCE(n, '0')` of an integer `n` is an integer, or the
-    string `'0'`; in Postgres `'0'` is an integer there). They group as the
-    expression's type shows them, so the `0` and the `'0'` are one group,
-    also for `DISTINCT` and window partitions
+  - A `CASE` or `COALESCE` of a number and a string literal gives numbers,
+    as in Postgres (`COALESCE(n, '0')` of an integer `n` is an integer, and
+    its `'0'` the integer 0; see "Quoted string literals"), so a `0` of `n`
+    and the `'0'` are one group, also for `DISTINCT` and window partitions
   - **Upgrading from v0.0.12 and earlier:** `GROUP BY`, `SELECT DISTINCT`
     over plain expressions and `DISTINCT` in aggregates told such values
     apart by their text, so `1 mon` and `30 days` were two groups, and
@@ -2438,6 +2675,24 @@ field, even if later rows have it.
     values could be taken for one when they held NUL bytes (`BYTEA` values,
     or text that was bound or ingested), in `GROUP BY`, `SELECT DISTINCT`,
     set operations and window partitions
+  - Unlike in Postgres, `GROUP BY`, `HAVING` and `QUALIFY` expressions may
+    use the select list's aliases (`HAVING n > 1` after `count(*) AS n`). A
+    bare name is an alias's only if no FROM item of the query has a column
+    of that name, so an input column comes first, also in a join. An
+    enclosing query's column comes after the alias, and a name two FROM
+    items have (`k` of `JOIN … USING (k)`) may be an alias's too. A
+    qualified name (`t.x`) is never an alias's
+  - **Upgrading from v0.0.12 and earlier:** in a join an alias came before
+    an input column of its name in these expressions too, even a qualified
+    one: after `SELECT CAST(x AS INTEGER) AS x … FROM t JOIN u …`,
+    `HAVING x > 1.3`, `HAVING t.x > 1.3` and `GROUP BY t.x` read the alias.
+    And a query planned again (a statement executed again or with
+    parameters, or a subquery in a `GROUP BY` item named by position or
+    alias, as in `GROUP BY 1, 2`) resolved its `GROUP BY` again from the
+    first plan's result: after `SELECT id AS w, max(v) AS id … GROUP BY w`
+    in a subquery, where `id` is an enclosing query's column, `w` had
+    become `id`, which then named the alias `id`: `aggregate functions are
+    not allowed in GROUP BY`
 - **Subqueries of a grouped query** (`GROUP BY`, or aggregates or `HAVING`
   without it) may read only its grouped columns, as in Postgres. That applies
   where the query computes a value per group: the SELECT list, `HAVING`,
@@ -2475,11 +2730,12 @@ field, even if later rows have it.
     `GROUP BY` has the table's primary key.
 - `UNION [ALL]`, `INTERSECT [ALL]`, `EXCEPT [ALL]` (`INTERSECT` binds
   tighter; parenthesized branches may have their own `ORDER BY`/`LIMIT`).
-  Columns are matched by position and widened to a common type; NULLs count
-  as equal when removing duplicates. `ORDER BY` on the combined result uses
-  output column names (the first branch's, named as in Postgres; see
-  `ORDER BY` below) or positions. Set operations work anywhere a query
-  does (subqueries, CTEs, views, CTAS, `INSERT … SELECT`)
+  Columns are matched by position and widened to a common type (a column of
+  quoted literals takes the other branch's type, see "Quoted string
+  literals" below); NULLs count as equal when removing duplicates. `ORDER BY`
+  on the combined result uses output column names (the first branch's, named
+  as in Postgres; see `ORDER BY` below) or positions. Set operations work
+  anywhere a query does (subqueries, CTEs, views, CTAS, `INSERT … SELECT`)
 - `WITH RECURSIVE name [(cols)] AS (non-recursive term UNION [ALL]
   recursive term)`, evaluated as in Postgres: the recursive term reads the
   rows the previous iteration added until it adds none, and `UNION` also
@@ -2583,7 +2839,7 @@ field, even if later rows have it.
     single value
   - A comparison of two rows is rewritten into comparisons of their items,
     so `(k1, k2) = (1, 'x')` runs in the index like `k1 = 1 AND k2 = 'x'`.
-    For `IN`, see "How SQL is executed"
+    For `IN`, see [Query execution](#query-execution).
 - Rows as values: a row that isn't compared with another row is a value of
   type record, Postgres's anonymous record: `SELECT (a, b)`, `ORDER BY (a,
   b)`, `GROUP BY ROW(a, b)`, `DISTINCT`, a row nested in a compared row, a
@@ -2651,27 +2907,16 @@ field, even if later rows have it.
 - `ORDER BY … [ASC|DESC] [NULLS FIRST|LAST]`; NULLs sort last by default in
   both directions, except records (see Rows as values)
   - A bare name is an output column's before it is an input column's, as
-    in Postgres, also when the output column has no alias. Postgres names
-    such a column by its expression: a column by the column, `CAST(x AS
-    t)` and `x::t` by `x` (by the type if `x` has no name: `int4`,
-    `varchar`, `date`), a call by the function (`count`, `upper`; also
-    `extract`, `btrim`, `timezone` for `EXTRACT`, `TRIM` and `AT TIME
-    ZONE`), a scalar subquery by its column, `EXISTS` by `exists`, `CASE`
-    by its `ELSE` (or `case`), a row by `row`, a field `(r).f1` by the
-    field, and an operator or a literal is `?column?`. So after `SELECT
-    CAST(iv AS VARCHAR) FROM t`, `ORDER BY iv` sorts the text, not the
-    interval (and the index can't sort it); `ORDER BY t.iv`, a position or
-    any other expression reads the input.
+    in Postgres, also when the output column has no alias, named by its
+    expression (see "Column names" above). So after `SELECT CAST(iv AS
+    VARCHAR) FROM t`, `ORDER BY iv` sorts the text, not the interval (and
+    the index can't sort it); `ORDER BY t.iv`, a position or any other
+    expression reads the input.
     Output columns of the same name must be the same expression (`SELECT
     a, a … ORDER BY a`), otherwise it is `ORDER BY "a" is ambiguous`, as
     in `SELECT x::text, x … ORDER BY x`. `DISTINCT ON (…)` names columns
     the same way (`DISTINCT ON "a" is ambiguous`), and so does `ORDER BY`
     on a set operation, with the first branch's columns
-  - The result's column is still named by the expression's text
-    (`CAST(iv AS VARCHAR)`, where Postgres says `iv`), and so are the
-    columns of a derived table, CTE or view: `SELECT * FROM (SELECT
-    CAST(iv AS VARCHAR) FROM t) s ORDER BY iv` is `column "iv" does not
-    exist in table "s"`, which Postgres runs
   - **Upgrading from v0.0.12 and earlier:** a bare name matched an alias,
     then an input column, so after `SELECT CAST(iv AS VARCHAR)` `ORDER BY
     iv` and `DISTINCT ON (iv)` used the interval, `SELECT x::text, x …
@@ -2682,6 +2927,9 @@ field, even if later rows have it.
     `SELECT COUNT(*)` was `column "count" does not exist` (on a `UNION`,
     `ORDER BY on a UNION result must use output column names or
     positions`)
+
+### Expressions, aggregates, and functions
+
 - Function calls (the functions are listed below) are checked when the
   statement is planned, before any row is read, wherever a call can be:
   the SELECT list, `WHERE`, `GROUP BY`, `HAVING`, `QUALIFY`, `ORDER BY`,
@@ -2903,7 +3151,8 @@ field, even if later rows have it.
   while computing `x`, and a cast between types that never convert (`DATE`
   to `BOOLEAN`), are still errors. A value that doesn't convert fails with
   `InvalidData` and a class `22` SQLSTATE, and a cast between types that
-  never convert with `InvalidArgument` and `42846` (see **Errors**). A
+  never convert with `InvalidArgument` and `42846` (see
+  [Error handling](#error-handling)). A
   cast to `VARCHAR(n)` or `CHAR(n)` cuts the text to `n` characters, and
   `CHAR(n)` pads it (see String lengths). A
   cast to a `TIME(p)` or `TIMESTAMP(p)` of a lower precision rounds to `p`
@@ -3015,7 +3264,7 @@ field, even if later rows have it.
     `'2024-01-05 24:00'` were 2024-01-06), `DATE '2024-01-05 10:00'` was an
     error, so was a `TIME` with a date or an offset, and a date after
     294247 AD was `timestamp out of range for unit us`. The errors had the
-    driver's messages (see **Errors**)
+    driver's messages (see [Error handling](#error-handling))
 - Math functions: `ROUND(x [, n])` and `TRUNC(x [, n])` (`n` may be
   negative: `ROUND(1250, -2)` is 1300), `FLOOR`, `CEIL` / `CEILING`, `MOD` / `%`,
   `POWER` / `POW`, `SQRT`, `CBRT`, `LN`, `LOG(x)` (base 10) / `LOG(b, x)`,
@@ -3115,9 +3364,72 @@ field, even if later rows have it.
   arguments are ignored), and `IIF(cond, a, b)` (like `CASE`, only the chosen
   branch is evaluated). `COALESCE`, `GREATEST` and `LEAST` widen their
   arguments to a common type (`COALESCE(int_col, 2.5)` is `NUMERIC`); a
-  string literal, or a number that type holds exactly, takes the other
-  arguments' type (`COALESCE(int_col, 0)` stays `INTEGER`,
+  string literal (see below), or a number that type holds exactly, takes the
+  other arguments' type (`COALESCE(int_col, 0)` stays `INTEGER`,
   `GREATEST(d, '2024-01-01')` is a `DATE`)
+- Quoted string literals (`'1'`, `$$1$$`) have no type of their own, as in
+  Postgres (its `unknown`): where an expression's value is one of several
+  values, a literal among them takes the type of the others, and is text if
+  all are. So `CASE WHEN id = 1 THEN '1' ELSE 1 END` is a `BIGINT`, whose
+  `'1'` is the integer 1: arithmetic, sorting, grouping, `DISTINCT`, window
+  partitions and index queries see integers. These are the results of
+  `CASE` and `IIF`, the arguments of `COALESCE`, `GREATEST` and `LEAST`,
+  `LAG`'s and `LEAD`'s default, `NULLIF`'s arguments (`NULLIF('1', int_col)`
+  is an `INTEGER`), and a column of the branches of `UNION`, `INTERSECT`
+  and `EXCEPT` (`SELECT '1' UNION SELECT 1` is a `BIGINT`), also in `CREATE
+  TABLE … AS` and views. A cast gives a literal a type (`CAST('1' AS
+  VARCHAR)`, `'1'::text`). An operand of `+`, `-`, `*`, `/` and `%`
+  (`MOD`) takes its type from the operator and the other operand, as
+  Postgres resolves the operator: a value of the other operand's type if
+  the operator takes two (`'1' + 1` is 2, `id + '1'` adds 1, `d -
+  '2024-01-01'` is a number of days, `ts - '2024-01-01'` an interval), and
+  otherwise the type of the one form the operator has for it (`ts + '1
+  day'` and `tm + '01:00'` add an interval, `iv * '2'` multiplies by a
+  double), also in `WHERE` (`id = '1' + 1` is an index query), `GROUP BY`,
+  `UPDATE … SET` and views. A `NUMERIC` literal keeps its own digits (`n *
+  '2'` has `n`'s scale).
+  - **Errors,** as in Postgres, when the statement is planned, also if no
+    row reads the value: a literal that isn't a value of the type (`CASE
+    WHEN … THEN 'x' ELSE 1 END` and `'x' + 1` are `invalid input syntax
+    for type bigint: "x"`, as an integer literal is a `BIGINT`; Postgres:
+    `… type integer: "x"`; both `22P02`);
+    typed values without a common type, such as a `VARCHAR` column and an
+    integer (`CASE WHEN … THEN v ELSE 1 END` is `CASE types bigint and
+    varchar cannot be matched`, `42804`, and so for `COALESCE`, `GREATEST`,
+    `LEAST` and `IIF`; a `CASE` of literals alone is text, so
+    `COALESCE(CASE WHEN … THEN '1' END, 1)` is such an error too); and an
+    operator that has no form for the other operand's type (`b + '1'` is
+    `operator does not exist: boolean + unknown`, `42883`) or more than one
+    (`d + '1'` could add days or an interval: `operator is not unique: date
+    + unknown`, `42725`), as are two literals (`'1' + '1'`, `NULL + '1'`)
+    and `-'1'`. For `MOD(…)` they are `function mod(date, unknown) does not
+    exist` and `function mod(unknown, unknown) is not unique`.
+  - **Differences:** the literal is read as `CAST` reads text, so `'1.5'`
+    as an integer is 2 where Postgres fails (`'1.5' + 1` is 3). A `CASE`
+    whose results are all `NULL` has no type, as `NULL` has, so
+    `COALESCE(CASE WHEN … THEN NULL END, '2', 1)` is 2 (Postgres's `CASE`
+    is text: `COALESCE types text and integer cannot be matched`). `%` and
+    `MOD` of a `DOUBLE PRECISION` are the driver's (Postgres has none), and
+    so is `f % '1'`; `tm * '2'` fails as `tm * 2` does (Postgres reads the
+    time as an interval); `+'1'` stays text (Postgres: a double).
+    Comparisons read text as the other side's type, and `INSERT`, `UPDATE`
+    and casts convert it to theirs, as before.
+  - **Upgrading from v0.0.12 and earlier:** results change type. Such a
+    `CASE`, `IIF`, `NULLIF` or `LAG` was a `VARCHAR`, whose other values
+    weren't converted (`CASE WHEN id = 1 THEN '1' ELSE 1 END` gave the text
+    `'1'` and the integer 1), so its column, and the column `CREATE TABLE …
+    AS` made of it, is now a `BIGINT` (or the other values' type), `+ 1` of
+    it works, and `COUNT(DISTINCT …)`, `DISTINCT` and window partitions see
+    one value where they saw two. `COALESCE`, `GREATEST` and `LEAST` had
+    the type already, but gave a literal's text where the other arguments
+    were NULLs without a type (`COALESCE(CASE WHEN … THEN n END, '0')` gave
+    `'0'`, so `+ 1` of it failed), and `GREATEST('1', '2', 3)` and `SELECT
+    '1' UNION SELECT 1` were `types VARCHAR and BIGINT cannot be matched`.
+    Typed values without a common type gave a `VARCHAR` column of values of
+    both types, and are now an error: cast them (`CAST(n AS VARCHAR)`).
+    Arithmetic of a literal was an error (`operator + is not supported for
+    string and int64`, or `for DATE and VARCHAR`, without a SQLSTATE), and
+    works now, or fails with Postgres's error (`42883`, `42725`)
 - Functions return NULL for a NULL argument, except `COALESCE`, `NULLIF`,
   `GREATEST`, `LEAST` and `IIF`. Functions of constants are computed once,
   so `WHERE n > ROUND(?)` is still an index query; functions over columns are
@@ -3406,10 +3718,10 @@ field, even if later rows have it.
     local-time literal is text without an offset that is cast to a
     timestamp with time zone or a time with time zone (`TIMESTAMPTZ '…'`,
     `'…'::timestamptz`, `TIMETZ '…'`, `'…'::timetz`) or read as one:
-    compared with one (also in `IN`, `BETWEEN` and a `CASE` operand), an
-    argument of `COALESCE`, `GREATEST`, `LEAST` or `NULLIF` with one, the
-    operand of `AT TIME ZONE` and `AT LOCAL`, and the `DEFAULT` of such a
-    column. A time with time zone is stored with the offset the zone has
+    compared with one (also in `IN`, `BETWEEN` and a `CASE` operand), a
+    result of a `CASE` or `IIF` or an argument of `COALESCE`, `GREATEST`,
+    `LEAST` or `NULLIF` with one, the operand of `AT TIME ZONE` and `AT
+    LOCAL`, and the `DEFAULT` of such a column. A time with time zone is stored with the offset the zone has
     that day (`'10:00'` in New York in July is `'10:00:00-04'`), as
     Postgres stores `'10:00:00-04'::time with time zone`. The conversions
     the definition makes when it runs read the zone of the session that
@@ -3443,8 +3755,9 @@ field, even if later rows have it.
   - `INTERVAL '1 year 2 months 3 days 04:05:06'`, `'1.5 hours'`, `'2 days ago'`,
     `'3 04:05:06'`, `'1-2'` (years-months), ISO 8601 `'P1Y2M3DT4H'` (also
     in the alternative format, `'P0001-02-03T04:05:06'`),
-    `INTERVAL '2' HOUR`, `INTERVAL 7 DAY` / `INTERVAL ? DAY`, and
-    `CAST('7 days' AS INTERVAL)`
+    `INTERVAL '2' HOUR`, `INTERVAL '1-2' YEAR TO MONTH`, `INTERVAL '1.5'
+    SECOND(0)`, `INTERVAL(0) '1.5'`, `INTERVAL 7 DAY` / `INTERVAL ? DAY`,
+    and `CAST('7 days' AS INTERVAL)`
     - A literal is read as Postgres 16 reads it. Each field's integer part
       is exact, and its fraction cascades into the smaller units: a month
       is 30 days, a week 7 days and a day 24 hours (`'1.5 months'` is `1
@@ -3462,6 +3775,52 @@ field, even if later rows have it.
       (`'1:30.5'` is `00:01:30.5`). Its minutes go up to 59 and its seconds
       to 60, and the months of years-months to 11: past them, it is
       `interval field value out of range: "1:75:00"`, as in Postgres
+    - The fields are read from right to left, as in Postgres, so that a
+      unit comes before its number: a number without a unit has the unit
+      of the number to its right, but after hours or a clock it is days
+      (`'1 2 hours'` is `1 day 02:00:00`, `'1-2 years'` is `1 year 2
+      mons`), and the rightmost is seconds (`'1 day 5'` is `1 day
+      00:00:05`). Each unit is given once: `'1 day 2 days'`, `'01:00
+      02:00'` and `'1.5 seconds 3 microseconds'` (a fraction of a second is
+      its milliseconds and microseconds too) are `invalid input syntax for
+      type interval: "…"`, as is `'1 2'`. `ago` may be anywhere (`'1 day
+      ago 2 hours'` is `-1 days -02:00:00`). The units are Postgres's, which
+      include `c`, `cent`, `dec`, `mil`, `usecond` and `msecond`, and
+      punctuation between fields is a separator (`'@ 1 day, 2 hours'`).
+      An ISO 8601 number is read as C's `strtod` reads it, also in
+      hexadecimal (`'P0x10Y'` is `16 years`)
+    - With fields (`INTERVAL '…' HOUR`, `DAY TO MINUTE`, `MINUTE TO SECOND`
+      and Postgres's other qualifiers), the rightmost number without a
+      unit is the last field, and the fields after it are dropped, the
+      time truncated toward zero, as in Postgres: `INTERVAL '1.5' HOUR` is
+      `01:00:00`, `INTERVAL '1 day 02:30' HOUR` is `1 day 02:00:00`, and
+      `INTERVAL '1:30' MINUTE TO SECOND` is `00:01:30`. `SECOND(p)` and
+      `INTERVAL(p) '…'` round the time to `p` decimals, half away from
+      zero. `INTERVAL n HOUR` and `INTERVAL ? HOUR` drop them too
+      (`INTERVAL 1.5 HOUR` is `01:00:00`)
+    - **Differences from Postgres:** `INTERVAL n UNIT` with an expression,
+      and `INTERVAL 'n' UNIT` with a unit that isn't a qualifier's field
+      (`HOURS`, `WEEK`, `QUARTER`), which keeps its fraction (`INTERVAL
+      '1.5' HOURS` is `01:30:00`), are driver extensions; Postgres reads
+      `INTERVAL '1.5' hours` as an interval of 1.5 seconds named `hours`.
+      The qualifier of a column or a cast (`CAST(x AS INTERVAL HOUR)`) is
+      ignored
+    - **Upgrading from v0.0.12 and earlier:** the fields were read from
+      left to right and added up: `'1 2 hours'` was `02:00:01`, `'1 2'`
+      `00:00:03`, `'1-2 years'` an error, and a unit given twice was
+      summed (`'1 day 2 days'` was `3 days`). The driver also read
+      quarters (`'1 quarter'` was `3 mons`), lower-case ISO 8601
+      (`'p1d'`), ISO 8601 text with spaces around it (`CAST(' P1D' AS
+      INTERVAL)`), `'1.seconds'`, `'-.5 hours'`, `'ago'` (`00:00:00`) and
+      `'1 ago'`, and `ago` only at the end, but not `'1 c'`, `'1d2h'` or
+      `'@ 1 day'`. `INTERVAL '1.5' HOUR` and `INTERVAL 1.5 HOUR` were
+      `01:30:00`, `INTERVAL '1 day 02:30' HOUR` was "INTERVAL HOUR needs a
+      number", `INTERVAL '1e3' SECOND` was `00:16:40`, and any units were
+      accepted around `TO` (`YEAR TO DAY`). Text that isn't an interval
+      was `invalid interval "…"` (with the same SQLSTATE, 22007), and a
+      field past its part of the interval (`'2147483648 days'`) was
+      "interval out of range" (22008), not `interval field value out of
+      range: "…"` (22015)
     - **Upgrading from v0.0.12 and earlier:** the fields were summed as
       nanoseconds in doubles, so a literal's time past about 2,500 hours
       wasn't exact (`'1000000:00:00.000001'` was `1000000:00:00.000001024`),
@@ -3609,6 +3968,9 @@ field, even if later rows have it.
     `JSON_TABLE`), `JSONB_SET` and the other modification functions,
     `JSON_ARRAY(SELECT …)`, and a JSON column type (a RedisJSON-backed one
     is possible future work)
+
+### Additional statements and metadata
+
 - `SELECT` without `FROM` for literal expressions
 - `information_schema` (read-only, built from the driver's metadata when
   queried): `schemata`, `tables` (`BASE TABLE` / `VIEW` / `LOCAL TEMPORARY`,
@@ -3688,6 +4050,9 @@ field, even if later rows have it.
   read in the `RETURNING` list of `UPDATE … FROM`, `DELETE … USING` or
   `MERGE` (as in any join), and `merge_action()` can't be called inside a
   subquery
+
+### Transactions, limitations, and types
+
 - Transactions and settings. The driver is autocommit only: every statement
   commits on its own. SQL written for Postgres still sends transaction
   control and `SET` (dbt sends a literal `commit;` before hooks that run
@@ -3853,8 +4218,8 @@ field, even if later rows have it.
       precision, which is 6, when they differ). So `CREATE TABLE … AS` and
       views keep the precision of a column or cast they select. Arithmetic
       (`ts + INTERVAL '1 second'`), functions, aggregates and a text
-      literal in `COALESCE` have none, as in Postgres, and have the unit's
-      digits (a `TIMESTAMP(3)` for a `TIMESTAMP(2)`)
+      literal in `CASE` or `COALESCE` have none, as in Postgres, and have
+      the unit's digits (a `TIMESTAMP(3)` for a `TIMESTAMP(2)`)
     - `TIMESTAMP(p) '…'`, `TIMESTAMP(p) WITH TIME ZONE '…'`,
       `TIMESTAMPTZ(p) '…'` and `TIME(p) '…'` are the text cast to the type
     - Text with more than 6 digits read into a type of 6 or fewer is read
@@ -3895,19 +4260,37 @@ clients can see a partly applied statement.
 
 | Option | Level | Meaning |
 |-|-|-|
-| `uri` | database | `redis://[user:pass@]host:port/db`, or `rediss://…` for TLS, with go-redis's query parameters (see **URI parameters** under [Server requirements](#server-requirements)) |
+| `uri` | database | `redis://[user:pass@]host:port/db`, or `rediss://…` for TLS, with go-redis's query parameters (see [URI parameters](#uri-parameters)) |
 | `username`, `password` | database | Credentials (override the URI) |
 | `adbc.redis.address`, `adbc.redis.db` | database | Used when no URI is given |
 | `adbc.redis.cluster` | database | `auto` (default) / `true` / `false`: OSS Cluster API client or single endpoint |
 | `adbc.redis.default_schema` | database | Schema for unqualified names (default `public`). `SET search_path` and the ADBC current schema change it for one connection; `RESET search_path` goes back to it |
 | `adbc.redis.aggregate_pushdown` | database, statement | `exact` / `all` / `none` |
+| `adbc.redis.query_workers` | database | Per-query ceiling: `auto` (default) follows current `GOMAXPROCS`; explicit values are 1 through 32. Eligible ungrouped COUNT/SUM/AVG/MIN/MAX over direct columns on driver-owned tables scan disjoint row-ID ranges. The shared worker budget may grant fewer workers. DISTINCT, FILTER, grouped queries, complex expressions and small tables retain the serial path. Exact SUM/AVG results are preserved. Each worker owns a cursor and bounded pages. |
+| `adbc.redis.query_worker_budget` | database | Maximum active eligible aggregate scan/reduce workers across connections opened from this database handle. `auto` (default) follows current `GOMAXPROCS` at admission; a positive integer sets an explicit budget. A lone query can use the full budget up to its ceiling. FIFO admission assigns available tokens fairly to queued queries; no query starts without at least one token. Grants last until the query's workers finish, including error/cancellation cleanup. Lowering capacity constrains future grants without preempting running workers. |
+| `adbc.redis.query_workers_active`, `adbc.redis.query_workers_queued` | database or connection, read-only | Current shared active worker grants and number of queries waiting for admission. `query_worker_budget` also reads the currently resolved budget on either handle. |
+| `adbc.redis.query_workers_last_grant` | connection, read-only | Worker grant for this connection's most recently admitted eligible aggregate, or 0 before its first admission. `query_workers` reads the per-query ceiling, which can be larger than the grant. |
 | `adbc.redis.rename_rekey` | database, connection | `false` (default): `RENAME TO` only changes metadata. `true`: it also moves the rows and index to the new name's keys, in time proportional to the number of rows, and the table refuses changes meanwhile (see `ALTER TABLE`). The connection option overrides the database's |
-| `adbc.redis.read_timeout` | database, connection | How long the client waits for each reply: `30s`, `10m`, … or a number of seconds; `0` for no timeout. Default `5m`, or the URI's `read_timeout` (see **Timeouts** under [Server requirements](#server-requirements)). The connection option overrides the database's |
+| `adbc.redis.read_timeout` | database, connection | How long the client waits for each reply: `30s`, `10m`, … or a number of seconds; `0` for no timeout. Default `5m`, or the URI's `read_timeout` (see [Timeouts](#timeouts)). The connection option overrides the database's |
 | `adbc.redis.write_timeout` | database, connection | How long the client waits to send each command, in the same format. Default: the read timeout, or the URI's `write_timeout` |
 | `adbc.redis.ingest.index_columns` | statement | Comma-separated columns to index on bulk ingest (`*` = all indexable) |
 | `adbc.redis.stream_results` | database, statement | `true` (default): [stream](#streamed-results) the results of queries that can be. `false`: build every result whole before `ExecuteQuery` returns. The statement option overrides the database's |
 | `adbc.redis.stream_batch_rows` | database, statement | Rows per record batch of a streamed result (default 65,536). A result that fits in the first batch is returned whole. Also an integer option on the statement |
 | `adbc.redis.time_zone` | database, connection | The session time zone, with the values `SET TIME ZONE` takes (default `UTC`; see Session time zone), and what `RESET timezone` and `SET TIME ZONE DEFAULT` go back to. The connection option overrides the database's and replaces a `SET`'s value; reading it gives the current value, as `SHOW timezone` does |
+
+Aggregate worker tokens control concurrency; a token does not reserve a
+physical CPU. Connections should reuse one ADBC database handle to share
+capacity. Separate database handles and application processes have independent
+budgets, even when they use the same Redis URI. Serial fallbacks and server-side
+aggregate pushdown do not acquire worker tokens. A running query keeps its
+grant; later queries can borrow spare tokens or wait. When tokens become
+available, queued queries receive at least one each in FIFO order, with remaining
+tokens divided round-robin up to each ceiling. Set a smaller explicit budget
+for application or Redis headroom. See the
+[concurrent aggregate benchmark](docs/aggregate-worker-budget.md) for measurements
+and reproduction instructions.
+
+### Scale considerations
 
 Scale tips: keep column names short (they are repeated in every HASH), raise
 `hash-max-listpack-entries` / `hash-max-listpack-value` so small rows use the
@@ -3915,68 +4298,87 @@ compact encoding, and index only the columns you filter or aggregate on.
 
 ## Performance
 
-Measured with `go/examples/bench.py` (see below) on the sample data set
-scaled to **100,000 `sales` rows × 10 columns** and 50 `customers`.
-Setup: Apple M4 (10 cores, 16 GB), Docker Desktop, Redis 8.4.4 (Search
-8.4.10) in Docker on the same machine. Times are the median of 5 runs after a
-warm-up, measured in Python and including the Arrow transfer; "Redis
-commands" are counted with `INFO commandstats` on the standalone server (a
-cluster adds the shard fan-out, `_FT.AGGREGATE` / `_FT.CURSOR`). Numbers on a
-laptop vary from run to run; treat them as orders of magnitude.
+### Benchmark setup
 
-Bulk ingest (`adbc_ingest`): 100,000 rows in 1.6 s standalone (62,000 rows/s)
-and 0.56 s on a 3-shard cluster (180,000 rows/s).
+Measured on **2026-10-08** against the default **Redis Software** environment:
+one RAM database and one shard, Redis 8.6.2 and Search 8.6.11, using
+`redislabs/redis:8.2.0-78.18`. The driver is at
+[`5904851`](https://github.com/alberttwong/redis-adbc-driver/commit/5904851),
+with the worker coordinator from PR #225. The seed-42 fixture contains
+**100,000 `sales` rows × 10 columns**; these queries all use `sales`.
 
-| Query | Rows out | Standalone (ms) | 3-shard cluster (ms) | Redis commands |
-|-|-:|-:|-:|-:|
-| Point lookup, `WHERE __rowid = N` | 1 | 1.7 | 1.0 | 2 |
-| `COUNT(*)` with `ts >= TIMESTAMP … - INTERVAL '30 days'` | 1 | 1.4 | 1.0 | 2 |
-| Indexed TAG filters + `ORDER BY … LIMIT 10` | 10 | 4.4 | 1.9 | 2 |
-| `COUNT(*)` with an indexed range | 1 | 5.0 | 2.5 | 2 |
-| `GROUP BY` with `COUNT` / integer `SUM` (index reduce) | 6 | 6.9 | 3.1 | 2 |
-| Selective join (index lookup join) + `GROUP BY` | 8 | 25 | 27 | 6 |
-| `COUNT(*)` on a view, filter pushed into its base table | 1 | 27 | 15 | 4 |
-| Correlated scalar subquery for each of 50 customers | 50 | 31 | 28 | 54 |
-| `UNION` of two indexed filters | 1,750 | 48 | 46 | 6 |
-| Fetch 10% of the rows (indexed range) | 10,000 | 50 | 68 | 4 |
-| `COUNT(*)` with `LIKE 'gi%'` (index prefix query, profiled first) | 1 | 62 | 64 | 5 |
-| Filter on a non-indexed column (`notes LIKE '%x%'`) | 1 | 272 | 279 | 12 |
-| Unfiltered join + `GROUP BY` (hash join over all rows) | 6 | 345 | 358 | 16 |
-| `GROUP BY` with `AVG` of a `DOUBLE` (driver-side) | 6 | 463 | 522 | 12 |
-| `GROUP BY` of an expression `SUM(quantity * unit_price)` | 5 | 494 | 549 | 12 |
-| `GROUP BY DATE_TRUNC('month', ts)` | 12 | 499 | 542 | 12 |
-| Full scan, `SELECT *` | 100,000 | 679 | 825 | 13 |
+Hardware: Apple M4 (10 cores, 16 GiB), Docker Desktop (10 CPUs, 7.75 GiB).
+Client: Go 1.26.6, Python 3.14.0, PyArrow 25.0.1, ADBC driver manager 1.12.0.
+**QPF stays at standard**, client `GOMAXPROCS` stays at 10, and the shared
+worker budget stays at `auto` (10). Only the per-query worker ceiling changes:
+1, 2, 4, 8, or automatic (10). One query is in flight at a time. This measures
+worker scaling at fixed CPU capacity; a worker count is not a count of busy
+CPU cores.
 
-What drives the numbers:
+Each table cell is the **median of five block medians**, with two warmups
+and three timed SQL executions plus complete Arrow fetch per block. Each
+block uses a fresh client process. The five rounds balance setting order
+and shuffle workload order (seed 224): 175 blocks, **525 timed queries**.
+Complete results and actual worker grants are checked. No other containers
+appeared in the round-boundary inventory; host applications still share the
+laptop. Small differences, especially in the controls, can be run variation.
 
-- **Queries the index answers on its own take milliseconds**, independent of
-  table size: counts and ranges, TAG equality filters with `ORDER BY … LIMIT`,
-  and `GROUP BY` with `COUNT` and integer `SUM`/`MIN`/`MAX`.
-- **Reading rows costs about 3–7 µs per row.** Rows come back inside the
-  `FT.AGGREGATE` cursor pages, up to 10,000 per page, so reading all 100,000
-  rows takes a dozen commands and 0.3–0.8 s. Queries that need the driver to
-  see every row pay this: aggregates the index can't compute exactly (`AVG`
-  of doubles, expressions, `DATE_TRUNC` groups), filters on non-indexed
-  columns, and unfiltered joins. Of the full scan's 0.68 s, Redis itself
-  takes about 0.35 s to produce the rows (measured from inside the
-  container); the rest is decoding, Arrow conversion, and Docker Desktop's
-  port forwarding (about 15 ms per page). Up to v0.0.3 the driver fetched
-  each row with its own pipelined `HMGET` instead, at about 30 µs per row
-  (3.3–3.8 s for the full scan).
-- **Selective joins are fast** because the smaller side is filtered in its
-  index first and only matching rows of the other side are fetched. A
-  correlated scalar subquery costs one indexed query per distinct outer
-  value (about 0.6 ms each here).
-- **`IN (SELECT …)` and correlated `EXISTS` / `IN` on equalities don't
-  run per row** (`bench.py` has three such queries over the 100,000 rows).
-  `order_id IN (SELECT …)` with 50,000 values takes 0.74 s: each row is
-  checked against a hash set of the values. `EXISTS (SELECT … WHERE
-  r.order_id = s.order_id AND …)` with 50,000 inner rows takes 0.87 s: it
-  runs per outer row for the first 500 rows, then reads the inner side once
-  as a hash semi-join. When the subquery has no rows it takes 2 ms, because
-  the index then rules out every row. Without the hash set, each row was
-  compared with every value (23 s), and without the semi-join the subquery
-  ran once per outer row (100,000 `FT.AGGREGATE` commands, 22–23 s).
+[Raw measurements, exact SQL, CPU and peak memory, and reproduction details](benchmarks/workers/2026-10-08/README.md)
+are included. The separate [QPF experiment](#query-performance-factor-qpf)
+measures concurrent throughput. The [earlier 20-query QPF latency table](benchmarks/qpf/2026-10-08-adbc/README.md#single-client-sql-latency)
+and [OSS standalone/cluster snapshot](benchmarks/readme-performance/2026-10-08/README.md)
+remain archived. These runs compare worker settings within one build; they
+do not isolate the effect of PR #225 or compare Software and OSS under
+identical conditions.
+
+<a id="results"></a>
+
+### Single-query latency by driver worker count
+
+Lower latency is better. Auto/one-worker speedup is shown only for eligible
+ungrouped aggregates. Controls use zero aggregate worker grants at every
+setting, so their columns are repeated measurements of the same execution
+path. The indexed queries use server reductions; grouped driver aggregates
+and full scans do not use this worker pool. Default exact aggregate pushdown
+remains enabled.
+
+| Query | Rows out | 1 worker (ms) | 2 workers (ms) | 4 workers (ms) | 8 workers (ms) | Auto (10) (ms) | Auto vs 1 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Ungrouped `AVG(discount)` | 1 | 656.7 | 431.9 | 357.9 | 309.3 | 298.5 | 2.20× |
+| Ungrouped `SUM, AVG, MIN, MAX` | 1 | 729.9 | 479.5 | 387.1 | 360.4 | 330.3 | 2.21× |
+| Filtered ungrouped `SUM, AVG, MIN, MAX` | 1 | 239.6 | 159.2 | 133.2 | 132.4 | 116.2 | 2.06× |
+| Indexed range `COUNT` (control) | 1 | 6.4 | 6.3 | 6.4 | 6.7 | 6.0 | — |
+| Indexed `GROUP BY, COUNT, SUM` (control) | 6 | 9.1 | 9.4 | 8.8 | 10.0 | 9.4 | — |
+| Driver grouped `AVG(discount)` (control) | 6 | 695.0 | 704.3 | 682.9 | 732.2 | 706.0 | — |
+| Full scan, all columns (control) | 100,000 | 1049.8 | 1042.5 | 1052.3 | 1020.5 | 1044.0 | — |
+
+Bulk ingest (`adbc_ingest`), standard QPF: **1.37 s for 100,000 rows
+(73,107 rows/s)**, measured once during fixture loading.
+
+### Interpretation
+
+- **Eligible ungrouped aggregates benefit from more workers.** Automatic
+  workers reduced `AVG(discount)` from 656.7 to 298.5 ms (**2.20×**), mixed
+  `SUM, AVG, MIN, MAX` from 729.9 to 330.3 ms (**2.21×**), and the filtered
+  variant from 239.6 to 116.2 ms (**2.06×**). QPF remained at standard.
+- **Faster latency uses more client resources.** For the mixed aggregate,
+  mean busy client cores rose from **0.72 to 1.89**, median client CPU time
+  from **532.9 to 639.2 ms/query**, and median process peak RSS from
+  **128.6 to 297.0 MiB**. Ten granted workers did not occupy ten CPU cores.
+  RSS includes Python, Arrow, Go, warmups and timed queries; it excludes Redis.
+- **The controls do not use this worker pool.** Indexed count remained about
+  6–7 ms, driver grouped AVG about 0.7 s, and the full scan about 1.0 s.
+  Their columns vary without a worker-path change; these differences should
+  not be credited to the worker setting.
+- **Automatic is a CPU-based default, not an optimizer.** It had the lowest
+  reported median for these three eligible queries, but some block ranges
+  overlap. This fixture does not establish the best setting for every query,
+  host, or concurrency level. See the report for all five rounds and resource
+  measurements.
+
+The following specialized measurements are historical OSS results and were
+not rerun in this worker-scaling experiment:
+
 - **dbt's `delete+insert` with a composite key** (`where (k1, k2) in
   (select distinct k1, k2 from …)`) deleted 10,000 keys from a table of
   200,000 rows in about 1 s, standalone and on a 3-shard cluster, and
@@ -4030,6 +4432,59 @@ What drives the numbers:
   (as long as the model itself) and 2.7 s; `select * from t where false
   limit 0` took 1.4 s, and now 0.5 ms.
 
+### Query performance factor (QPF)
+
+**QPF substantially improved concurrent index-query throughput** in the
+corrected SQL/Arrow experiment. At 16 clients, 4× QPF delivered
+**4.13× indexed group-by throughput** and **4.01× indexed range-count
+throughput**, relative to standard. Single-client latency and workloads
+that fetch and process many rows showed much smaller benefits.
+
+The earlier October 6 comparison had an invalid baseline: on this Software
+image, setting `active=false` retained expanded routing/connection settings
+after QPF had been enabled. Its saved metadata confirms this. The corrected
+harness uses `active=true, scaling_factor=0` for standard and verifies
+Search workers, routing, and connection limits after every transition.
+The [old report](benchmarks/qpf/report.md) is marked superseded.
+
+The corrected experiment ran **90 trials** on the same 100,000-row fixture:
+three rounds with rotated QPF order, five seconds of requests per trial,
+plus draining outstanding work. Each client warms up twice. Index workloads
+use 1 and 16 clients; larger driver/transfer workloads use 1 and 4. All
+connections share one ADBC database handle and its automatic worker budget.
+The five workloads' complete results are checked across settings; all trials
+had zero query errors.
+
+The table shows median trial throughput over three repeats. Ratios above
+1.00× mean more completed SQL queries per second, including Arrow fetch.
+
+| SQL workload | Clients | Standard queries/s | 2× / standard | 4× / standard |
+|---|---:|---:|---:|---:|
+| Indexed `GROUP BY country, COUNT, SUM` | 16 | 145.96 | 2.68× | 4.13× |
+| Indexed range `COUNT` | 16 | 259.07 | 2.37× | 4.01× |
+| Driver-side grouped `AVG(discount)` | 4 | 3.47 | 1.22× | 1.20× |
+| Ungrouped `SUM, AVG, MIN, MAX` | 4 | 3.82 | 1.07× | 1.11× |
+| Full scan, all 100,000 rows | 4 | 1.71 | 1.31× | 1.27× |
+
+At 16 clients, indexed group-by's median trial p95 fell from
+**176.4 ms to 38.4 ms** at 4× QPF; range-count p95 fell from
+**68.8 ms to 22.9 ms**. These are local measurements on a shared
+client/server laptop, not production forecasts. Five-second scan trials have
+few requests, so their p95 values and small throughput differences are noisy.
+
+QPF increases server Search compute. It cannot eliminate decoding, transfer,
+or driver-side work, and it needs CPU headroom. The test verified 0 background
+Search workers at standard, 3 at 2×, and 6 at 4×. See
+[Redis's QPF sizing guidance](https://redis.io/docs/latest/operate/oss_and_stack/stack-with-enterprise/search/query-performance-factor/).
+Standard remains the default; choose higher QPF from representative concurrent
+measurements and available CPU capacity.
+
+[Full report and reproduction commands](benchmarks/qpf/2026-10-08-adbc/README.md),
+[raw trials and configuration checks](benchmarks/qpf/2026-10-08-adbc/results.json),
+and [SQL/Arrow harness](benchmarks/qpf/adbc.py) are included.
+
+### Potential optimizations
+
 Known ways to make the slow cases faster (not done yet):
 
 - `COUNT(*)` with a `LIKE` prefix, and `COUNT(*)` on a lazy view, still read
@@ -4051,23 +4506,44 @@ Known ways to make the slow cases faster (not done yet):
   (`@c:[v v]`) can hold the exact one; the driver could read those, as an
   `ORDER BY … LIMIT` reads a tie.
 
-To reproduce (from `go`, with a Redis running):
+### Reproduce the benchmark
+
+From `go`, using the default Redis Software environment:
 
 ```bash
-REDIS_URI=redis://localhost:6379/0 uv run --project validation --with redis python examples/bench.py --rows 100000
+make redis-up
+make build
+REDIS_URI=redis://localhost:6379/0 uv run --project validation python examples/bench.py --rows 100000 --repeat 1
+REDIS_URI=redis://localhost:6379/0 uv run --project validation python ../benchmarks/workers/run.py --cpus 10 --output /tmp/adbc-workers-new
+python3 ../benchmarks/workers/summarize.py /tmp/adbc-workers-new
 ```
 
-The script **replaces** the `sales` and `customers` tables with benchmark data;
-run `examples/load_sample.py` afterwards to get the quick-start data back.
+The first Python command **replaces** the `sales` and `customers` tables and
+runs a fixture sanity check. The worker harness then runs the five-round
+comparison at standard QPF and saves raw results; the final command produces
+the summary and tables. Use a new output directory for each run. `--cpus`
+fixes client `GOMAXPROCS`, not Docker's CPU allocation. See the
+[method and reproduction details](benchmarks/workers/2026-10-08/README.md).
+Run `examples/load_sample.py` afterwards to get the quick-start data back.
 
 ## Building and testing
 
+The default setup needs Docker Compose, `curl`, and `jq`. It uses the bundled
+trial license and fixed local test credentials, with the admin API and database
+bound to localhost. The database is in RAM, with no replica or persistence.
+`SOFTWARE_API_PORT` (default 19443) and `SOFTWARE_DB_PORT` (default 6379)
+override host ports; set `REDIS_URI` for tests when changing the database port.
+QPF remains at standard unless explicitly changed for a benchmark.
+
+### Validation suite
+
 See the [Quick start](#quick-start) for building. To run the ADBC validation
-suite against the local Redis:
+suite against the default local Redis Software database:
 
 ```bash
-cd go/validation
-REDIS_URI=redis://localhost:6379/0 uv run pytest -v tests/
+cd go
+make redis-up
+make validate
 ```
 
 The suite accepts any Redis 8.x server, so it can also target a remote or
@@ -4079,9 +4555,13 @@ an empty database: the suite leaves its test tables (`test_*`, `getobjects*`,
 REDIS_URI='rediss://default:<password>@<host>:<port>/0' uv run pytest -v tests/
 ```
 
+### Go tests
+
 SQL features beyond the validation suite (CASE, HAVING, CTAS, …) have Go
 integration tests with exact expected results. They need a running Redis and
-are skipped when `REDIS_URI` is unset (from `go`):
+are skipped by direct `go test` commands when `REDIS_URI` is unset.
+`make test` sets the local Software URI by default; start it with
+`make redis-up` first (from `go`):
 
 ```bash
 REDIS_URI=redis://localhost:6379/0 go test -run TestSQL ./...
@@ -4104,15 +4584,24 @@ Some tests need more:
 
 - **The ACL tests** (`TestACL…`) create ACL users `it_acl_*` and delete them
   afterwards, so the user needs the `ACL` command. To run the whole suite as
-  a user with only the driver's commands (see **ACL users** under
-  [Server requirements](#server-requirements)), set `REDIS_URI` to that user
-  and `REDIS_ADMIN_URI` to one that can do everything: the tests' own checks
-  use it (`KEYS`, `ACL`, …).
+  a user with only the driver's commands (see [ACL users](#acl-users)), set
+  `REDIS_URI` to that user and `REDIS_ADMIN_URI` to one that can do
+  everything: the tests' own checks use it (`KEYS`, `ACL`, …). Redis Software
+  manages users through its management API and blocks `ACL SETUSER`, so
+  these protocol-level ACL tests skip there and run in the OSS compatibility job.
+- **Command-count assertions** need `CONFIG RESETSTAT` and immediate INFO
+  counters. They skip when Software blocks that command; the other SQL
+  correctness tests run on Software, and the OSS job covers these assertions.
 - **`TestTimeoutServerPaused`** pauses the server (`CLIENT PAUSE`, on one
   shard of a cluster) for about half a minute, so it only runs with
   `REDIS_PAUSE_TESTS=1`. Run it against a test server only.
 
-To test against a local 3-shard Redis Cluster (from `go`):
+### Redis Cluster
+
+Open Source is an optional compatibility environment. For standalone OSS,
+run `make redis-down` then `make redis-oss-up` from `go`; it uses port 6379.
+Remove it with `docker compose --profile oss rm -sf redis` before switching
+back to Software. To test the OSS Cluster API on a local three-shard cluster:
 
 ```bash
 docker compose --profile cluster up --detach --wait redis-cluster
@@ -4121,6 +4610,8 @@ docker compose --profile cluster up --detach --wait redis-cluster
 ```bash
 cd validation && REDIS_URI=redis://localhost:7001/0 uv run pytest -v tests/
 ```
+
+### Redis Flex
 
 To test against Redis Flex, `flex-setup.sh` (from `go`) starts a
 single-node Redis Software cluster with flash storage in Docker. It then
@@ -4139,11 +4630,63 @@ that it does so without writing to the database. The test is skipped unless
 `REDIS_FLEX_URI` is set:
 
 ```bash
-REDIS_FLEX_URI=redis://localhost:12000/0 go test -run TestFlex ./...
+REDIS_FLEX_URI=redis://localhost:12000/0 go test -count=1 -run TestFlex -v ./...
 ```
 
 Remove the cluster with `docker compose --profile flex down redis-flex`.
 Name the service: without it, `down` also removes the `redis` container.
+
+#### Verified local result
+
+On 2026-10-06, `TestFlexRefused` passed against Redis Software `8.2.0-78`,
+Redis `8.6.2`, and Search `8.6.11`. The driver returned ADBC
+`NotImplemented` with the expected Flex message and left the key count
+unchanged. Direct probes confirmed that `FT.AGGREGATE`, `NUMERIC`, and
+`SORTABLE` fields were unavailable. Temporary probe keys and indexes were
+removed.
+
+#### Redis Cloud Pro Flex
+
+Run the same test from `go` using an authenticated database URI. The Redis
+Cloud account and user API keys authenticate the management API; use the
+database password for the Redis connection. Keep the URI in an environment
+variable and out of source control. For example, in a shell with history
+disabled or using a secret manager:
+
+```bash
+export REDIS_FLEX_URI='redis://default:<url-encoded-password>@<host>:<port>/0'
+go test -count=1 -run TestFlex -v ./...
+unset REDIS_FLEX_URI
+```
+
+The live Cloud run tested a newly created 250 GB Flex database in GCP
+`us-east4`, on Redis `8.6` with 10% RAM. The database used
+1,000 operations/second, no replication or
+persistence, RESP3, no TLS, and a single proxy endpoint. The driver uses
+RESP2. The 250 GB dataset was the minimum accepted by this subscription.
+
+The authenticated run failed `TestFlexRefused` with
+`ERR unknown command 'FT._LIST'`. This test expects the later Flex-specific
+refusal, so a missing Search module is a test failure rather than a passing
+Flex compatibility check. On the new database, `PING` returned `PONG`, but
+`COMMAND INFO` found no registration for `FT._LIST`, `FT.CREATE`,
+`FT.SEARCH`, or `FT.AGGREGATE`. No Cloud probe keys or indexes were created.
+
+[Redis's documentation](https://redis.io/docs/latest/operate/rc/databases/create-database/create-flex-database/)
+requires enabling a Search-on-Flex beta flag for the Pro subscription before
+creating a database with Search on tiered storage. It does not specify the
+flag's exact menu location. `Setup → Advanced options → Redis Flex` enables
+tiered storage; it does not confirm Search beta enablement. If the beta
+control is absent, ask Redis Support to confirm eligibility and the
+enablement procedure. These tests did not independently verify the
+subscription's beta entitlement or exercise a Search-enabled Cloud database.
+
+The disposable Cloud database was left active pending explicit deletion
+approval. The API dry run estimated approximately USD 1.43/hour for its
+shape. See the [report](docs/redis-flex-compatibility.md) for full settings
+and the distinction between live results and documented beta limitations.
+
+### Cross-platform builds and releases
 
 To build the Linux library (on Linux or a Mac, with Docker), run
 `build-linux.sh` from `go` with `amd64` or `arm64`. It writes
@@ -4183,7 +4726,9 @@ leaves it out. v0.0.8 and v0.0.9 got their binaries this way: their
 gh workflow run release.yml -f tag=v0.0.8 -f skip=TestScalarTrigonometry
 ```
 
-Using the driver from Python:
+### Python usage
+
+Use the driver from Python through the ADBC driver manager:
 
 ```python
 import adbc_driver_manager.dbapi as dbapi
