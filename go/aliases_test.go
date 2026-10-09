@@ -36,7 +36,7 @@ func TestAliasesInExpressions(t *testing.T) {
 		// pg16: column "t.x" must appear in the GROUP BY clause or be used in
 		// an aggregate function (the driver reads it from the group's first
 		// row); it groups by t.x + 0 too.
-		{"SELECT CAST(x AS INTEGER) AS x, count(*) FROM t JOIN u ON true GROUP BY x + 0 ORDER BY 1, 2", "1|2\n1|2\n2|2\n3|2"},
+		{"SELECT CAST(x AS INTEGER) AS x, count(*) FROM t JOIN u ON true GROUP BY x + 0 ORDER BY 1, 2", `error: column "t.x" must appear in the GROUP BY clause or be used in an aggregate function`},
 		// A qualified name is the input column.
 		{"SELECT CAST(x AS INTEGER) AS x, count(*) FROM t JOIN u ON true GROUP BY t.x HAVING t.x > 1.3 ORDER BY 1, 2",
 			"1|2\n2|2\n3|2"},
@@ -48,14 +48,14 @@ func TestAliasesInExpressions(t *testing.T) {
 		// A name no FROM item has is the alias's; pg16: column "y" (or "s")
 		// does not exist.
 		{"SELECT x AS y, count(*) FROM t JOIN u ON true GROUP BY y HAVING y > 1.3 ORDER BY 1", "1.4|2\n2.0|2\n2.6|2"},
-		{"SELECT upper(v) AS s, count(*) FROM t JOIN u ON t.id = u.k GROUP BY lower(s) ORDER BY 1", "A|2"},
+		{"SELECT upper(v) AS s, count(*) FROM t JOIN u ON t.id = u.k GROUP BY lower(s) ORDER BY 1", `error: column "t.v" must appear in the GROUP BY clause or be used in an aggregate function`},
 		// Also one an enclosing query has; pg16 reads u.k: 1|0, 2|0.
 		{"SELECT k, (SELECT count(*) FROM (SELECT t.id * 10 AS k FROM t GROUP BY t.id HAVING k > 10) q) FROM u ORDER BY 1",
 			"1|3\n2|3"},
 		// And one two FROM items have: the driver keeps both columns of JOIN
 		// … USING (k), which Postgres merges; pg16 reads the merged k: no
 		// rows.
-		{"SELECT u.k * 10 AS k, count(*) FROM u JOIN u2 USING (k) GROUP BY u.k HAVING k > 10 ORDER BY 1", "20|1"},
+		{"SELECT u.k * 10 AS k, count(*) FROM u JOIN u2 USING (k) GROUP BY u.k HAVING k > 10 ORDER BY 1", ""},
 
 		// GROUP BY is resolved from the items as written each time: GROUP BY
 		// w after id AS w (t.id, of the enclosing query) groups by t.id, and

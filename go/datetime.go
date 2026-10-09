@@ -555,6 +555,8 @@ func dateTimeFuncType(f *Func, args []ColType) (ColType, bool) {
 	case "YEAR", "QUARTER", "MONTH", "WEEK", "DAY", "DAYOFMONTH", "DAYOFYEAR", "HOUR", "MINUTE", "SECOND",
 		"DATE_DIFF", "DATEDIFF", "TIMESTAMPDIFF", "EPOCH_MS":
 		return typeInt64, true
+	case "__PG_DATE_ADD", "DATE_SUBTRACT":
+		return typeTimestampTZ, true
 	case "DATEADD", "DATE_ADD", "DATE_SUB", "TIMESTAMPADD":
 		if len(args) == 3 {
 			return dateAddType(f.Args[0], args[2]), true
@@ -744,6 +746,28 @@ func (env *evalEnv) evalDateTimeFunc(f *Func, args []Value) (Value, bool, error)
 		}
 		n, err := dateDiff(unit, a, b)
 		return done(intValue(typeInt64, n), err)
+	case "__PG_DATE_ADD", "DATE_SUBTRACT":
+		arithmeticZone := z
+		if len(args) == 3 {
+			var err error
+			arithmeticZone, err = resolveZone(args[2].Text())
+			if err != nil {
+				return done(Value{}, err)
+			}
+		}
+		x, err := coerceIn(args[0], typeTimestampTZ, z)
+		if err != nil {
+			return done(Value{}, err)
+		}
+		iv, err := coerceIn(args[1], typeInterval, z)
+		if err != nil {
+			return done(Value{}, err)
+		}
+		op := "+"
+		if f.Name == "DATE_SUBTRACT" {
+			op = "-"
+		}
+		return done(temporalOp(op, x, iv, typeTimestampTZ, arithmeticZone))
 	case "DATEADD", "DATE_ADD", "DATE_SUB", "TIMESTAMPADD":
 		sign := int64(1)
 		if f.Name == "DATE_SUB" {
@@ -940,4 +964,14 @@ func dateBin(args []Value, t ColType, z tzZone) (Value, error) {
 		return Value{}, errTimestampRange
 	}
 	return intValue(t, units.Int64()), nil
+}
+
+// datePartLiteral distinguishes the extension overload from PostgreSQL's.
+func datePartLiteral(e Expr) bool {
+	l, ok := e.(*Literal)
+	if !ok || l.V.T.Kind != KindString {
+		return false
+	}
+	_, ok = datePartOf(l.V.S)
+	return ok
 }

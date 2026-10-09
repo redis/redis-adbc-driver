@@ -183,7 +183,7 @@ func (t *tableMeta) applyIndexPolicy(only map[string]bool, noIndex map[string]bo
 		if only != nil {
 			want = false
 			for name := range only {
-				if strings.EqualFold(name, c.Name) {
+				if name == c.Name {
 					want = indexable(c.Type) && simpleName(c.Name)
 				}
 			}
@@ -274,20 +274,15 @@ func resolveColumn(cols []columnMeta, name string) (int, bool) {
 			return i, true
 		}
 	}
-	for i, c := range cols {
-		if strings.EqualFold(c.Name, name) {
-			return i, true
-		}
-	}
 	return -1, false
 }
 
 func (t *tableMeta) column(name string) (columnMeta, bool) {
 	switch {
 	case t.isMem:
-	case t.KeyRows && strings.EqualFold(name, keyField):
+	case t.KeyRows && (name == keyField):
 		return columnMeta{Name: keyField, Type: typeString}, true
-	case !t.KeyRows && strings.EqualFold(name, rowIDField):
+	case !t.KeyRows && (name == rowIDField):
 		return columnMeta{Name: rowIDField, Type: typeInt64, Indexed: true}, true
 	}
 	if i, ok := t.resolve(name); ok {
@@ -312,7 +307,7 @@ func (t *tableMeta) types() map[string]ColType {
 // isSystemColumn reports whether a column name is a system column of a
 // table: __rowid, or __key for a table with KeyRows.
 func isSystemColumn(name string) bool {
-	return strings.EqualFold(name, rowIDField) || strings.EqualFold(name, keyField)
+	return (name == rowIDField) || (name == keyField)
 }
 
 func escapeKeyPart(s string) string {
@@ -873,6 +868,8 @@ func wrapRedis(err error, context string) error {
 // ---- store ----
 
 type store struct {
+	searchCapsOnce sync.Once
+	searchCaps     [2]int64
 	// client is a *goredis.Client, or a *goredis.ClusterClient when the
 	// server exposes the OSS Cluster API.
 	client goredis.UniversalClient
@@ -1060,10 +1057,10 @@ func (s *store) createTable(ctx context.Context, meta *tableMeta, ifNotExists bo
 		if c.Name == rowIDField || strings.HasPrefix(c.Name, "__") {
 			return false, errorf(adbc.StatusInvalidArgument, "column name %q is reserved", c.Name)
 		}
-		if seen[strings.ToLower(c.Name)] {
+		if seen[c.Name] {
 			return false, stateErrorf(stateDuplicateColumn, "column %q specified more than once", c.Name)
 		}
-		seen[strings.ToLower(c.Name)] = true
+		seen[c.Name] = true
 	}
 	for i := range meta.Columns {
 		meta.Columns[i].initTags()

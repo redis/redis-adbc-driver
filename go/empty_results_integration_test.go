@@ -162,7 +162,7 @@ func TestSQLEmptyWhere(t *testing.T) {
 	h.expectRows("SELECT g, COUNT(*) FROM it_empty_t WHERE g = 'a' AND false GROUP BY g")
 
 	// Views, CTEs and derived tables, at any level.
-	h.expectNoRows("SELECT * FROM it_empty_v WHERE false", "id int32, g utf8, x2 int64")
+	h.expectNoRows("SELECT * FROM it_empty_v WHERE false", "id int32, g utf8, x2 int32")
 	h.expectNoRows("SELECT * FROM it_empty_vagg WHERE false", "g utf8, n int64, s decimal(38, 2)")
 	h.expectRows("SELECT COUNT(*) FROM it_empty_vagg WHERE false", "0")
 	h.expectRows("SELECT COUNT(*) FROM it_empty_v WHERE x2 > 0 AND false", "0")
@@ -181,17 +181,17 @@ func TestSQLEmptyWhere(t *testing.T) {
 	h.expectRows(`WITH RECURSIVE r(n) AS (SELECT 1 FROM it_empty_t WHERE false UNION ALL SELECT n + 1 FROM r WHERE n < 3)
 		SELECT * FROM r`)
 	h.expectNoRows(`WITH RECURSIVE r(n) AS (SELECT 1 UNION ALL SELECT n + 1 FROM r WHERE n < 3) SELECT * FROM r WHERE false`,
-		"n int64")
+		"n int32")
 	h.expectNoRows(`WITH RECURSIVE r(n) AS (SELECT 1 UNION ALL SELECT n + 1 FROM r WHERE n < 3)
-			SEARCH DEPTH FIRST BY n SET ord SELECT * FROM r LIMIT 0`, "n int64, ord int64")
+			SEARCH DEPTH FIRST BY n SET ord SELECT * FROM r LIMIT 0`, "n int32, ord int64")
 
 	// Other FROM items.
-	h.expectNoRows("SELECT * FROM generate_series(1, 3) AS s(n) WHERE false", "n int64")
+	h.expectNoRows("SELECT * FROM generate_series(1, 3) AS s(n) WHERE false", "n int32")
 	h.expectRows("SELECT COUNT(*) FROM information_schema.tables WHERE false", "0")
 	h.expectRows("SELECT * FROM it_empty_t, LATERAL (SELECT * FROM it_empty_u WHERE it_empty_u.t_id = it_empty_t.id AND false) s")
 
 	// Without FROM.
-	h.expectNoRows("SELECT 1 WHERE false", "?column? int64")
+	h.expectNoRows("SELECT 1 WHERE false", "?column? int32")
 	h.expectNoRows("SELECT (SELECT COUNT(*) FROM it_empty_t) WHERE 1 = 0", "count int64")
 	h.expectRows("SELECT (SELECT COUNT(*) FROM it_empty_t WHERE false)", "0")
 

@@ -98,6 +98,9 @@ func (s *exactSum) update(v Value, remove bool) {
 		}
 	case k == KindDecimal:
 		if v.D.Sign() == 0 {
+			if v.T.Scale > s.scale {
+				s.raiseScale(v.T.Scale)
+			}
 			return
 		}
 		t.Set(v.D)

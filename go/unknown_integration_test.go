@@ -54,16 +54,16 @@ func TestSQLUnknownLiterals(t *testing.T) {
 		typ  arrow.DataType
 		want []string
 	}{
-		{`SELECT CASE WHEN id = 1 THEN '1' ELSE 1 END FROM it_unklit ORDER BY id`, arrow.PrimitiveTypes.Int64, []string{"1", "1"}},
-		{`SELECT CASE WHEN id = 1 THEN '1' ELSE 1 END + 1 FROM it_unklit ORDER BY id`, arrow.PrimitiveTypes.Int64, []string{"2", "2"}},
+		{`SELECT CASE WHEN id = 1 THEN '1' ELSE 1 END FROM it_unklit ORDER BY id`, arrow.PrimitiveTypes.Int32, []string{"1", "1"}},
+		{`SELECT CASE WHEN id = 1 THEN '1' ELSE 1 END + 1 FROM it_unklit ORDER BY id`, arrow.PrimitiveTypes.Int32, []string{"2", "2"}},
 		// The CASE is named id, after its ELSE, so ORDER BY id sorts by it.
 		{`SELECT CASE WHEN id = 1 THEN '5' ELSE id END FROM it_unklit ORDER BY id`, arrow.PrimitiveTypes.Int32, []string{"2", "5"}},
-		{`SELECT COALESCE(CASE WHEN id = 2 THEN id END, '0') + 1 FROM it_unklit ORDER BY id`, arrow.PrimitiveTypes.Int64, []string{"1", "3"}},
+		{`SELECT COALESCE(CASE WHEN id = 2 THEN id END, '0') + 1 FROM it_unklit ORDER BY id`, arrow.PrimitiveTypes.Int32, []string{"1", "3"}},
 		{`SELECT COALESCE(CASE WHEN id = 2 THEN id END, '0') FROM it_unklit ORDER BY id`, arrow.PrimitiveTypes.Int32, []string{"0", "2"}},
 		{`SELECT GREATEST(CASE WHEN id = 2 THEN id END, '5') FROM it_unklit ORDER BY id`, arrow.PrimitiveTypes.Int32, []string{"5", "5"}},
-		{`SELECT LEAST(id, '5') + 1 FROM it_unklit ORDER BY id`, arrow.PrimitiveTypes.Int64, []string{"2", "3"}},
+		{`SELECT LEAST(id, '5') + 1 FROM it_unklit ORDER BY id`, arrow.PrimitiveTypes.Int32, []string{"2", "3"}},
 		{`SELECT NULLIF('1', id) FROM it_unklit ORDER BY id`, arrow.PrimitiveTypes.Int32, []string{"NULL", "1"}},
-		{`SELECT LAG(id, 1, '0') OVER (ORDER BY id) + 1 FROM it_unklit ORDER BY id`, arrow.PrimitiveTypes.Int64, []string{"1", "2"}},
+		{`SELECT LAG(id, 1, '0') OVER (ORDER BY id) + 1 FROM it_unklit ORDER BY id`, arrow.PrimitiveTypes.Int32, []string{"1", "2"}},
 		{`SELECT CASE WHEN id = 1 THEN d ELSE '2024-02-01' END FROM it_unklit ORDER BY id`, arrow.FixedWidthTypes.Date32,
 			[]string{"2024-01-01", "2024-02-01"}},
 		{`SELECT CASE WHEN id = 1 THEN b ELSE 'false' END FROM it_unklit ORDER BY id`, arrow.FixedWidthTypes.Boolean,
@@ -74,7 +74,7 @@ func TestSQLUnknownLiterals(t *testing.T) {
 			[]string{"1.500", "2.567"}},
 		// Without a typed value, text.
 		{`SELECT CASE WHEN id = 1 THEN '1' END FROM it_unklit ORDER BY id`, arrow.BinaryTypes.String, []string{"1", "NULL"}},
-		{`SELECT COALESCE(NULL, '2', 1) FROM it_unklit ORDER BY id`, arrow.PrimitiveTypes.Int64, []string{"2", "2"}},
+		{`SELECT COALESCE(NULL, '2', 1) FROM it_unklit ORDER BY id`, arrow.PrimitiveTypes.Int32, []string{"2", "2"}},
 		// Grouping, DISTINCT and windows see one value.
 		{`SELECT CASE WHEN id = 1 THEN '1' ELSE 1 END AS c, COUNT(*) FROM it_unklit GROUP BY 1`, arrow.PrimitiveTypes.Int64, []string{"1|2"}},
 		{`SELECT COUNT(DISTINCT CASE WHEN id = 1 THEN '1' ELSE 1 END) FROM it_unklit`, arrow.PrimitiveTypes.Int64, []string{"1"}},
@@ -82,11 +82,11 @@ func TestSQLUnknownLiterals(t *testing.T) {
 		{`SELECT COUNT(*) OVER (PARTITION BY CASE WHEN id = 1 THEN '1' ELSE 1 END) FROM it_unklit ORDER BY id`,
 			arrow.PrimitiveTypes.Int64, []string{"2", "2"}},
 		{`SELECT MIN(CASE WHEN id = 1 THEN '10' ELSE 9 END), MAX(CASE WHEN id = 1 THEN '10' ELSE 9 END) FROM it_unklit`,
-			arrow.PrimitiveTypes.Int64, []string{"9|10"}},
-		{`SELECT CASE WHEN COUNT(*) > 1 THEN '7' ELSE 2 END + 1 FROM it_unklit`, arrow.PrimitiveTypes.Int64, []string{"8"}},
+			arrow.PrimitiveTypes.Int32, []string{"9|10"}},
+		{`SELECT CASE WHEN COUNT(*) > 1 THEN '7' ELSE 2 END + 1 FROM it_unklit`, arrow.PrimitiveTypes.Int32, []string{"8"}},
 		// Set operations.
-		{`SELECT CASE WHEN id = 1 THEN '1' ELSE 1 END FROM it_unklit UNION SELECT 1`, arrow.PrimitiveTypes.Int64, []string{"1"}},
-		{`SELECT '1' UNION SELECT 3 ORDER BY 1`, arrow.PrimitiveTypes.Int64, []string{"1", "3"}},
+		{`SELECT CASE WHEN id = 1 THEN '1' ELSE 1 END FROM it_unklit UNION SELECT 1`, arrow.PrimitiveTypes.Int32, []string{"1"}},
+		{`SELECT '1' UNION SELECT 3 ORDER BY 1`, arrow.PrimitiveTypes.Int32, []string{"1", "3"}},
 		{`SELECT d FROM it_unklit WHERE id = 1 UNION SELECT '2024-05-05' ORDER BY 1`, arrow.FixedWidthTypes.Date32,
 			[]string{"2024-01-01", "2024-05-05"}},
 		// The index is queried with the integer.
@@ -100,15 +100,15 @@ func TestSQLUnknownLiterals(t *testing.T) {
 		t.Errorf("WHERE id = CASE … '1' …: query %q, residual %v; want @id:[1 1] and none", q, residual)
 	}
 	for _, c := range []struct{ sql, err string }{
-		{`SELECT CASE WHEN id = 1 THEN s ELSE 1 END FROM it_unklit`, "CASE types bigint and varchar cannot be matched"},
-		{`SELECT id FROM it_unklit WHERE CASE WHEN id = 1 THEN s ELSE 1 END = 'a'`, "CASE types bigint and varchar cannot be matched"},
-		{`SELECT COALESCE(CASE WHEN id = 1 THEN '1' END, 1) FROM it_unklit`, "COALESCE types varchar and bigint cannot be matched"},
-		{`SELECT COALESCE(s, 1) FROM it_unklit`, "COALESCE types varchar and bigint cannot be matched"},
+		{`SELECT CASE WHEN id = 1 THEN s ELSE 1 END FROM it_unklit`, "CASE types integer and varchar cannot be matched"},
+		{`SELECT id FROM it_unklit WHERE CASE WHEN id = 1 THEN s ELSE 1 END = 'a'`, "CASE types integer and varchar cannot be matched"},
+		{`SELECT COALESCE(CASE WHEN id = 1 THEN '1' END, 1) FROM it_unklit`, "COALESCE types varchar and integer cannot be matched"},
+		{`SELECT COALESCE(s, 1) FROM it_unklit`, "COALESCE types varchar and integer cannot be matched"},
 		// A literal that isn't an integer is an error, also where no row reads it.
-		{`SELECT CASE WHEN id = 1 THEN 'x' ELSE 1 END FROM it_unklit WHERE FALSE`, `invalid input syntax for type bigint: "x"`},
-		{`SELECT id FROM it_unklit WHERE id = CASE WHEN id = 1 THEN 'x' ELSE 2 END`, `invalid input syntax for type bigint: "x"`},
+		{`SELECT CASE WHEN id = 1 THEN 'x' ELSE 1 END FROM it_unklit WHERE FALSE`, `invalid input syntax for type integer: "x"`},
+		{`SELECT id FROM it_unklit WHERE id = CASE WHEN id = 1 THEN 'x' ELSE 2 END`, `invalid input syntax for type integer: "x"`},
 		{`SELECT CASE WHEN id = 1 THEN b ELSE 'maybe' END FROM it_unklit`, `invalid input syntax for type boolean: "maybe"`},
-		{`SELECT 'a' UNION SELECT 3`, `invalid input syntax for type bigint: "a"`},
+		{`SELECT 'a' UNION SELECT 3`, `invalid input syntax for type integer: "a"`},
 	} {
 		h.expectError(c.sql, c.err)
 	}
@@ -143,7 +143,7 @@ func TestSQLUnknownLiteralWrites(t *testing.T) {
 	h.expectRows(`SELECT id, n FROM it_unklit WHERE id = 7`, "7|3.25")
 	h.exec(`CREATE VIEW it_unklit_v AS SELECT id, CASE WHEN id = 1 THEN '1' ELSE id END AS c FROM it_unklit`)
 	schema := h.expectRows(`SELECT c + 1 FROM it_unklit_v ORDER BY id`, "2", "3", "8")
-	h.expectType(schema, "it_unklit_v", 0, arrow.PrimitiveTypes.Int64)
+	h.expectType(schema, "it_unklit_v", 0, arrow.PrimitiveTypes.Int32)
 }
 
 // A quoted literal that becomes a timestamp with time zone is a local time
@@ -186,7 +186,7 @@ func TestSQLUnknownLiteralParams(t *testing.T) {
 		t.Fatalf("no rows: %v", rdr.Err())
 	}
 	col := rdr.RecordBatch().Column(0)
-	if got := col.ValueStr(0); got != "1" || !arrow.TypeEqual(col.DataType(), arrow.PrimitiveTypes.Int64) {
-		t.Errorf("COALESCE(?, '0') + 1 of a NULL INTEGER: %s (%s), want 1 (int64)", got, col.DataType())
+	if got := col.ValueStr(0); got != "1" || !arrow.TypeEqual(col.DataType(), arrow.PrimitiveTypes.Int32) {
+		t.Errorf("COALESCE(?, '0') + 1 of a NULL INTEGER: %s (%s), want 1 (int32)", got, col.DataType())
 	}
 }

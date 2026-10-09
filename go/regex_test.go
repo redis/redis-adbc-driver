@@ -183,7 +183,7 @@ func TestRegexFunctions(t *testing.T) {
 		{"REGEXP_COUNT('aXa', 'a', 3)", "1", "BIGINT"},
 		{"REGEXP_COUNT('aXa', '\\Aa', 3)", "0", "BIGINT"},
 		{"REGEXP_COUNT('a\nb', '^b', 3, 'n')", "1", "BIGINT"},
-		{"REGEXP_COUNT('ab cd', '\\bc', 4)", "1", "BIGINT"},
+		{"REGEXP_COUNT('ab cd', '\\yc', 4)", "1", "BIGINT"},
 		{"REGEXP_COUNT('abcd', '\\bc', 3)", "0", "BIGINT"},
 		{"REGEXP_COUNT(NULL, 'a')", "NULL", "BIGINT"},
 		{"REGEXP_COUNT('a', 'a', NULL)", "NULL", "BIGINT"},
@@ -400,12 +400,9 @@ func TestRegexErrors(t *testing.T) {
 	for _, c := range []struct{ expr, err string }{
 		{"'a' ~ '('", "invalid regular expression: missing closing ): `(`"},
 		{"'a' ~* '[a'", "invalid regular expression: missing closing ]: `[a`"},
-		{`'aa' ~ '(a)\1'`, "invalid regular expression: invalid escape sequence: `\\1`"}, // no backreferences
-		{"'a' ~ '(?=a)'", "invalid regular expression: invalid or unsupported Perl syntax"},
 		{"REGEXP_LIKE('a', '*')", "REGEXP_LIKE: invalid regular expression: missing argument to repetition operator: `*`"},
 		{"REGEXP_LIKE('a', 'a', 'g')", `REGEXP_LIKE does not support the "global" option`},
 		{"REGEXP_LIKE('a', 'a', 'z')", `REGEXP_LIKE: invalid regular expression option "z"`},
-		{"REGEXP_LIKE('a', 'a', 'x')", `REGEXP_LIKE: regular expression option "x" is not supported`},
 		{"REGEXP_MATCH('a', 'a', 'g')", `REGEXP_MATCH does not support the "global" option`},
 		{"REGEXP_COUNT('a', 'a', 1, 'g')", `REGEXP_COUNT does not support the "global" option`},
 		{"REGEXP_COUNT('a', 'a', 0)", `REGEXP_COUNT: invalid value for parameter "start": 0`},

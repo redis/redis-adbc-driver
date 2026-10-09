@@ -719,7 +719,7 @@ FROM information_schema.columns WHERE table_name = 'sales' ORDER BY ordinal_posi
 -- LIKE; a prefix pattern on an indexed column is an index prefix query
 SELECT COUNT(*) FROM sales WHERE product LIKE 'gi%';
 
--- Regular expressions (RE2 syntax) and SIMILAR TO run in the driver, on the
+-- Regular expressions and SIMILAR TO run in the driver, on the
 -- rows the rest of the WHERE clause finds in the index
 SELECT name, REGEXP_SUBSTR(email, '([0-9]+)@', 1, 1, '', 1) AS num, SUBSTRING(email FROM '@(.*)$') AS domain
 FROM customers WHERE email ~ '^customer[0-9]@' ORDER BY customer_id LIMIT 3;
@@ -2641,7 +2641,7 @@ field, even if later rows have it.
     `GROUP BY upper` groups by `upper(v)`; after `SELECT CAST(x AS
     INTEGER)`, `GROUP BY x` is still the column `x`. Only the query's own FROM items count, not
     those of the queries around it; a name two of them have (`k` of `JOIN …
-    USING (k)`, where the driver keeps both columns) may also be an output
+    USING (k)`, which merges the shared column) may also be an output
     column's. Output columns of the same name must be the same expression,
     otherwise it is `GROUP BY "a" is ambiguous`, and the one named may not
     be an aggregate or a window function. Unlike in Postgres, an alias may
@@ -2740,9 +2740,10 @@ field, even if later rows have it.
   - **Repeated subqueries:** a subquery in `GROUP BY` counts as grouped
     where it is the same item, by position or alias (`group by 1`), not
     where it is written again (Postgres accepts both).
-  - **Outside subqueries,** a column that is neither grouped nor aggregated
-    is still read from the group's first row. Postgres rejects it unless the
-    `GROUP BY` has the table's primary key.
+  - A column outside an aggregate must be grouped (`42803`), including in
+    `HAVING` and `ORDER BY`. Grouping by a base table's entire primary key
+    permits its other columns. Use `ANY_VALUE(column)` when any value in
+    the group is intended.
 - `UNION [ALL]`, `INTERSECT [ALL]`, `EXCEPT [ALL]` (`INTERSECT` binds
   tighter; parenthesized branches may have their own `ORDER BY`/`LIMIT`).
   Columns are matched by position and widened to a common type (a column of
@@ -2793,8 +2794,8 @@ field, even if later rows have it.
   right side's; the merged column is the left one for inner and left joins,
   the right one for right joins and `COALESCE` of both for full joins, and
   an unqualified reference means the merged column (`a.id` still reads
-  `a`'s). `USING (…)` keeps its existing behavior (both columns, so an
-  unqualified reference is ambiguous)
+  `a`'s). `JOIN … USING (…)` follows the same rules, with merged columns
+  first in the order of the USING list
 - `GENERATE_SERIES(start, stop [, step])` in FROM, with Postgres's overloads:
   integers (step 1 by default) and numerics, and timestamps with an interval
   step (`DATE` arguments give `TIMESTAMP WITH TIME ZONE`, as in Postgres;
@@ -2892,8 +2893,7 @@ field, even if later rows have it.
   - **Sorting and grouping:** `ORDER BY (a, b)` sorts by the record, as
     Postgres sorts records: NULL fields last in ascending order and first
     with `DESC`. A NULL record sorts the same way unless `NULLS FIRST` /
-    `NULLS LAST` places it (other `ORDER BY` keys put NULLs last either
-    way). `DISTINCT`, `GROUP BY ROW(a, b)`, `UNION`, `PARTITION BY` and
+    `NULLS LAST` places it. `DISTINCT`, `GROUP BY ROW(a, b)`, `UNION`, `PARTITION BY` and
     `COUNT(DISTINCT …)` treat NULL fields as equal. `GROUP BY (a, b)` is
     `GROUP BY a, b`, as in Postgres. The driver sorts and groups records
     itself, not the index
@@ -2919,8 +2919,8 @@ field, even if later rows have it.
     compare by value (Postgres can't compare them). Records of different
     lengths in one column (`UNION ALL`, `CASE`) are an error when they are
     returned, since an Arrow struct has one set of fields
-- `ORDER BY … [ASC|DESC] [NULLS FIRST|LAST]`; NULLs sort last by default in
-  both directions, except records (see Rows as values)
+- `ORDER BY … [ASC|DESC] [NULLS FIRST|LAST]`; NULLs sort last with `ASC` and first
+  with `DESC`, unless explicitly overridden
   - A bare name is an output column's before it is an input column's, as
     in Postgres, also when the output column has no alias, named by its
     expression (see "Column names" above). So after `SELECT CAST(iv AS
@@ -2954,9 +2954,9 @@ field, even if later rows have it.
   don't depend on whether a table has rows, and a query that reads none
   (`WHERE false`, dbt's `where false limit 0`, `ExecuteSchema`) gets them
   too:
-  - Names are case-insensitive. A quoted name (`"upper"(x)`) or a
-    schema-qualified one (`pg_catalog.upper(x)`) is not a call (a syntax
-    error), except `"generate_series"(…)` in FROM
+  - Unquoted names fold to lowercase; quoted names are exact.
+    `"upper"(x)` calls the builtin; `"UPPER"(x)` does not. Schema-qualified
+    calls (`pg_catalog.upper(x)`) are not supported
   - An unknown function is Postgres's `function nosuchfunc(integer) does
     not exist`, with the argument types the planner infers (`unknown` for
     NULL and for a parameter without a type)
@@ -3058,10 +3058,10 @@ field, even if later rows have it.
   - `BOOL_OR(b)`, `BOOL_AND(b)` / `EVERY(b)` on booleans, `ANY_VALUE(x)` (a
     non-NULL value of the group)
   - `VAR_SAMP` / `VARIANCE`, `VAR_POP`, `STDDEV_SAMP` / `STDDEV`,
-    `STDDEV_POP` return `DOUBLE PRECISION` (PostgreSQL returns `numeric` for
-    integer and numeric inputs). The values and their squares are summed
-    exactly, so the result is the correctly rounded double whatever the
-    values' type and size. The sample versions are NULL for one value, the
+    `STDDEV_POP` return exact `NUMERIC` for integer and numeric inputs, using
+    PostgreSQL's division scale and square-root rounding; floating inputs
+    return `DOUBLE PRECISION`. Values and their squares are summed exactly.
+    Arrow output uses one common decimal scale per result column. The sample versions are NULL for one value, the
     population ones 0
   - Ordered-set aggregates: `PERCENTILE_CONT(f) WITHIN GROUP (ORDER BY x)`
     interpolates (numbers as doubles, and intervals), `PERCENTILE_DISC(f)
@@ -3123,8 +3123,7 @@ field, even if later rows have it.
     `COUNT`; `DOUBLE PRECISION` for `PERCENT_RANK`, `CUME_DIST` and `AVG`
     (`INTERVAL` for intervals); the argument's type for `MIN`, `MAX` and the
     offset functions; the other aggregates as with `GROUP BY`
-  - As in `ORDER BY`, NULLs sort last by default in either direction
-    (PostgreSQL puts them first for `DESC`). Rows that tie on the window's
+  - As in `ORDER BY`, NULLs sort last with `ASC` and first with `DESC`. Rows that tie on the window's
     `ORDER BY` keep their input order
 - Dates, times and timestamps become text (`CAST(x AS VARCHAR)`, `||`,
   `CONCAT`, `STRING_AGG`, `LIKE`, `MD5(CAST(x AS TEXT))`, …) as Postgres
@@ -3189,8 +3188,7 @@ field, even if later rows have it.
     Text compared with a value of another type it doesn't convert to fails
     with that type's conversion error and SQLSTATE (`DATE '2024-01-01' =
     'x'` is `invalid input syntax for type date: "x"`, `22007`)
-  - Differences: an integer literal is a `BIGINT`, so `1 = 'x'` says `type
-    bigint` where Postgres says `type integer`. An `IN` list stops at the
+  - Differences: an `IN` list stops at the
     first value that matches, so `1 IN ('1', '1.5')` is true, and an
     indexed column's `IN` list skips the values that don't convert; Postgres
     reads every value first, and fails on `'1.5'`. A text column compared
@@ -3284,9 +3282,10 @@ field, even if later rows have it.
   negative: `ROUND(1250, -2)` is 1300), `FLOOR`, `CEIL` / `CEILING`, `MOD` / `%`,
   `POWER` / `POW`, `SQRT`, `CBRT`, `LN`, `LOG(x)` (base 10) / `LOG(b, x)`,
   `LOG10`, `EXP`, `SIGN`, `ABS`, `PI()`, `RANDOM()`
-  - `ROUND` rounds half away from zero: exactly on `NUMERIC`, and on
-    `DOUBLE PRECISION` too, by the value as written (`ROUND(2.675e0, 2)` is
-    2.68). Postgres rounds doubles half to even
+  - `ROUND(x)` rounds floating inputs half to even, preserving negative
+    zero; floating-to-integer casts use the same rule. Integer and `NUMERIC`
+    rounding remains half away from zero. The two-argument floating
+    extension retains decimal rounding (`ROUND(2.675e0, 2)` is 2.68)
   - Integers and doubles keep their type. `ROUND(NUMERIC(p,s), n)` has scale
     `n` (at most `s`); `ROUND(x)`, `TRUNC(x)`, `FLOOR` and `CEIL` scale 0.
     `MOD` and `%` have their arguments' common type (`NUMERIC` stays
@@ -3362,19 +3361,25 @@ field, even if later rows have it.
     them matches as little of the string as it can
   - Flags: `i` (case-insensitive), `c`, `n` / `m` (newline-sensitive), `s`,
     `p`, `w`, `q` (a literal pattern), and `g` for `REGEXP_REPLACE` only;
-    `x`, `b` and `e` are not supported. Without flags, `.` matches newlines
+    `x` (expanded), `b` (basic) and `e` (extended) are supported. Without flags, `.` matches newlines
     and `^` and `$` anchor the whole string
-  - Patterns use Go's RE2 syntax: no backreferences (`\1`) or lookaround,
-    and `\b` is a word boundary (`\y` in Postgres). Where a pattern can match
-    text of different lengths at the same position, RE2 takes the first
-    alternative, as Perl does, so `SUBSTRING('xyz' FROM 'x|xy')` is `x`
-    where Postgres gives `xy`. A pattern that doesn't compile is an error
+  - Patterns support backreferences, lookaround, and PostgreSQL word
+    constraints (`\y`, `\Y`, `\m`, `\M`; `\b` is backspace). Greedy
+    patterns select the longest match (`SUBSTRING('xyz' FROM 'x|xy')`
+    returns `xy`). Advanced patterns have a 250 ms execution deadline.
+    The engines are Go RE2 and regexp2; full PostgreSQL ARE compatibility,
+    including capture priority and embedded mode options, remains incomplete.
+    A pattern that doesn't compile is an error
     such as `` invalid regular expression: missing closing ): `(` ``
   - Patterns over columns are evaluated by the driver, on the rows the rest
     of the `WHERE` clause finds in the index: `~ '^abc'` and
     `SIMILAR TO 'abc%'` are not index prefix queries. `REGEXP_MATCHES` and
     `REGEXP_SPLIT_TO_TABLE` / `REGEXP_SPLIT_TO_ARRAY` (sets and arrays) are
     not supported
+- `jsonb || jsonb` merges objects with right-hand keys winning, concatenates
+  arrays, and wraps non-array operands when needed. The merge is top-level.
+  A quoted text literal beside a JSON expression is parsed as JSON; invalid
+  JSON raises `22P02`.
 - Conditional functions: `NULLIF(a, b)`, `GREATEST(…)` / `LEAST(…)` (NULL
   arguments are ignored), and `IIF(cond, a, b)` (like `CASE`, only the chosen
   branch is evaluated). `COALESCE`, `GREATEST` and `LEAST` widen their
@@ -3406,10 +3411,9 @@ field, even if later rows have it.
   - **Errors,** as in Postgres, when the statement is planned, also if no
     row reads the value: a literal that isn't a value of the type (`CASE
     WHEN … THEN 'x' ELSE 1 END` and `'x' + 1` are `invalid input syntax
-    for type bigint: "x"`, as an integer literal is a `BIGINT`; Postgres:
-    `… type integer: "x"`; both `22P02`);
+    for type integer: "x"`, `22P02`);
     typed values without a common type, such as a `VARCHAR` column and an
-    integer (`CASE WHEN … THEN v ELSE 1 END` is `CASE types bigint and
+    integer (`CASE WHEN … THEN v ELSE 1 END` is `CASE types integer and
     varchar cannot be matched`, `42804`, and so for `COALESCE`, `GREATEST`,
     `LEAST` and `IIF`; a `CASE` of literals alone is text, so
     `COALESCE(CASE WHEN … THEN '1' END, 1)` is such an error too); and an
@@ -3986,18 +3990,15 @@ field, even if later rows have it.
   - Aggregates, computed by the driver: `JSON_AGG(x [ORDER BY …])` and
     `JSON_OBJECT_AGG(k, v [ORDER BY …])`, also with `DISTINCT` (whose values
     come out sorted). NULL values are `null`, a NULL key is an error, and no
-    rows give NULL. `ORDER BY` puts NULLs last by default in either
-    direction, like the driver's `ORDER BY` (Postgres puts them first for
-    `DESC`). They are not available as window functions
+    rows give NULL. `ORDER BY` puts NULLs last with `ASC` and first with `DESC`. They are not available as window functions
   - Results are `VARCHAR`. An argument is embedded as JSON when it is itself
     JSON: a JSON function, `->`, `#>` or `::json`. Any other text becomes a
     JSON string, including JSON read back from a table, view or subquery, so
     write `col::json` to embed it
-  - Differences from Postgres: doubles keep the driver's text form (`1e+06`
-    where Postgres writes `1000000`), and the SQL/JSON functions apply
+  - Differences from Postgres: the SQL/JSON functions apply
     `ON ERROR` to a malformed document too (Postgres raises the error when
     it converts the text to jsonb)
-  - Not supported: the other jsonb operators (`@>`, `?`, `||` on jsonb,
+  - Not supported: the other jsonb operators (`@>`, `?`,
     `-`), set-returning functions (`JSON_EACH`, `JSON_ARRAY_ELEMENTS`,
     `JSON_TABLE`), `JSONB_SET` and the other modification functions,
     `JSON_ARRAY(SELECT …)`, and a JSON column type (a RedisJSON-backed one
@@ -4781,3 +4782,34 @@ print(cur.fetch_arrow_table())
 
 The C FFI shim in `go/pkg` was generated with driverbase-go's `ffitemplate`
 (`go run main.go -prefix Redis -driver <path>/go`).
+
+### PostgreSQL compatibility upgrade notes
+
+Unquoted SQL identifiers now fold to ASCII lowercase; double-quoted names
+remain exact. Existing mixed-case Redis metadata is retained. Quote its exact
+names when accessing it, or rename those objects and update stored view SQL.
+
+Small integer literals now infer `INTEGER`, then `BIGINT` or `NUMERIC` as
+needed. Integer arithmetic checks overflow at its common operand width. Cast
+operands to `BIGINT` when the wider range or an Arrow int64 schema is required.
+
+Default descending sorts put NULLs first, including windows and ordered
+aggregates. Write `DESC NULLS LAST` to retain the old ordering. Nullable
+descending sorts with NULLs first are sorted by the driver; `NOT NULL` keys or
+explicit `NULLS LAST` can retain index sorting.
+
+`DATE_ADD(timestamptz, interval [, zone])` and `DATE_SUBTRACT` implement the
+PostgreSQL 16 overloads, using the session time zone unless a zone is supplied.
+The Snowflake `(part, n, x)` form remains available. The MySQL interval syntax
+for `DATE_ADD` now resolves to the PostgreSQL overload and returns timestamptz.
+
+Escape strings (`E'...'`) decode C, octal, hex and Unicode escapes; Unicode
+strings and identifiers (`U&'...'`, `U&"..."`) support `UESCAPE`. Invalid UTF-8
+or NUL in decoded strings raises `22021`. Boolean tests accept `IS [NOT]
+TRUE/FALSE/UNKNOWN`; `ISNULL` and `NOTNULL` are postfix null tests.
+
+The ADBC autocommit option accepts `true` as a no-op. Setting `false` reports
+that transactions are not implemented. Large LIMIT/OFFSET values fall back
+to cursor pagination when their arguments exceed Redis Search's caps. A
+lowered total aggregate cap uses bounded HASH scans and driver-side sorting
+to avoid truncating the result.

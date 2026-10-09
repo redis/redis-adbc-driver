@@ -167,7 +167,7 @@ func TestScalarFixesModOperator(t *testing.T) {
 	schema = h.expectRows(`SELECT 7 % 3, -7 % 3, 7.5 % 2, 7.5e0 % 2, 7 % 3 * 2, 2 * 7 % 3, 7 + 5 % 3, 7 % NULL,
 			-9223372036854775808 % -1`,
 		"1|-1|1.5|1.5|2|2|9|NULL|0")
-	expectTypes(t, schema, sfInt64, sfInt64, sfDecimal(2, 1), sfDouble, sfInt64, sfInt64, sfInt64, sfInt64, sfInt64)
+	expectTypes(t, schema, sfInt32, sfInt32, sfDecimal(2, 1), sfDouble, sfInt32, sfInt32, sfInt32, sfInt32, sfInt64)
 
 	// In WHERE: over a column (evaluated by the driver) and of constants
 	// (computed once, then an index query).
@@ -294,10 +294,10 @@ func TestScalarFixesDateAddDiff(t *testing.T) {
 		"2|2024-02-02|2|2024-02-02|31")
 	h.expectRows(`SELECT id FROM it_sf_dates WHERE DATEADD(day, day, d) < d`, "2")
 	h.expectRows(`SELECT DATE_ADD(d, INTERVAL day DAY), DATE_SUB(d, INTERVAL 1 MONTH) FROM it_sf_dates ORDER BY id`,
-		"2024-02-02|2023-12-31", "2023-12-28|2023-11-30", "NULL|NULL")
+		"2024-02-02T00:00:00Z|2023-12-31", "2023-12-28T00:00:00Z|2023-11-30", "NULL|NULL")
 	h.expectRows(`WITH x AS (SELECT DATE '2024-01-31' AS day, 5 AS mm)
 		SELECT DATE_ADD(day, INTERVAL 1 MONTH), DATE_SUB(day, INTERVAL mm DAY), DATEADD(mm, mm, day) FROM x`,
-		"2024-02-29|2024-01-26|2024-06-30")
+		"2024-02-29T00:00:00Z|2024-01-26|2024-06-30")
 	h.expectRows(`SELECT "day" FROM it_sf_dates ORDER BY "day"`, "-3", "2", "NULL")
 
 	// DATEDIFF counts boundaries crossed, exactly like DATE_DIFF.
@@ -331,8 +331,8 @@ func TestScalarFixesDateAddDiff(t *testing.T) {
 	schema = h.expectRows(`SELECT DATE_ADD(DATE '2024-01-31', INTERVAL 1 MONTH), DATE_SUB(DATE '2024-03-01', INTERVAL 1 DAY),
 			DATE_ADD(DATE '2024-01-01', INTERVAL '3' DAY), DATE_ADD(DATE '2024-01-01', INTERVAL 2 HOUR),
 			DATE_SUB(TIMESTAMP '2024-01-01 00:00:00', INTERVAL 1 SECOND), DATE_SUB(DATE '2024-01-01', INTERVAL -1 YEAR)`,
-		"2024-02-29|2024-02-29|2024-01-04|2024-01-01T02:00:00|2023-12-31T23:59:59|2025-01-01")
-	expectTypes(t, schema, sfDate, sfDate, sfDate, sfTS, sfTS, sfDate)
+		"2024-02-29T00:00:00Z|2024-02-29|2024-01-04T00:00:00Z|2024-01-01T02:00:00Z|2023-12-31T23:59:59|2025-01-01")
+	expectTypes(t, schema, sfTSTZ, sfDate, sfTSTZ, sfTSTZ, sfTS, sfDate)
 
 	// NULL in any argument gives NULL, with the result type.
 	schema = h.expectRows(`SELECT DATEADD(day, NULL, d), DATEADD(day, 1, NULL), DATEDIFF(day, NULL, d), DATEADD(hour, NULL, d)
@@ -357,6 +357,6 @@ func TestScalarFixesDateAddDiff(t *testing.T) {
 	h.expectError(`SELECT DATEADD(year, 10000000, DATE '2024-01-01')`, "DATEADD: date out of range")
 	h.expectError(`SELECT DATEADD(day, 3000000000, DATE '2024-01-01')`, "DATEADD: interval out of range")
 	h.expectError(`SELECT DATEADD(year, 300000, TIMESTAMP '2024-01-01 00:00:00')`, "out of range")
-	h.expectError(`SELECT DATE_ADD(DATE '2024-01-01', INTERVAL '1 day')`, "DATE_ADD expects (part, n, x) or (x, INTERVAL n part)")
+	h.expectRows(`SELECT DATE_ADD(DATE '2024-01-01', INTERVAL '1 day')`, "2024-01-02T00:00:00Z")
 	h.expectError(`SELECT DATE_SUB('day', 1, DATE '2024-01-01')`, "DATE_SUB expects (x, INTERVAL n part)")
 }

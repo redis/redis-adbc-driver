@@ -131,7 +131,7 @@ func TestSQLRowValueOperators(t *testing.T) {
 		h.expectRows("SELECT k1, COUNT(*) FROM "+tbl+" GROUP BY k1 HAVING (k1, COUNT(*)) > (1, 2) ORDER BY k1",
 			"2|2", "3|1")
 		h.expectRows("SELECT id FROM "+tbl+" WHERE k1 IS NOT NULL ORDER BY (k1, k2) < (2, 'a') DESC, id",
-			"1", "2", "3", "6", "4")
+			"4", "1", "2", "3", "6")
 		// Joins on rows.
 		h.expectRows("SELECT t.id, s.k1 FROM "+tbl+" t JOIN it_rv_s s ON (t.k1, t.k2) = (s.k1, s.k2) ORDER BY t.id",
 			"1|1", "6|3")
@@ -449,7 +449,7 @@ func TestSQLRowValueHashSet(t *testing.T) {
 		"2", "3", "4", "6", "8")
 	// Text compared with numbers can fail to convert: such a row is
 	// compared row by row, with the error the chain of comparisons gives.
-	h.expectError(inList("(b, a)", withNulls), `invalid input syntax for type bigint: "v`)
+	h.expectError(inList("(b, a)", withNulls), `invalid input syntax for type integer: "v`)
 }
 
 // Rows in the conditions of UPDATE, DELETE and MERGE, with RETURNING.
@@ -574,7 +574,7 @@ func TestSQLRowValueErrors(t *testing.T) {
 		{"(k1, k2) <> ALL (SELECT k1 FROM it_rv_s)", "subquery has too few columns"},
 		{"(k1, k2) = (SELECT k1 FROM it_rv_s)", "subquery has too few columns"},
 		{"(k1, k2) = (1, 'a', 2)", "unequal number of entries in row expressions"},
-		{"(k1, k2) IN ((1, 'a'), (2))", "operator does not exist: record = bigint"},
+		{"(k1, k2) IN ((1, 'a'), (2))", "operator does not exist: record = integer"},
 		{"(k1, k2) = k1", "operator does not exist: record = integer"},
 		{"k2 = (k1, k2)", "operator does not exist: varchar = record"},
 		{"(k1, k2)", "argument of WHERE must be type boolean, not type record"},
@@ -601,7 +601,7 @@ func TestSQLRowValueErrors(t *testing.T) {
 	for _, c := range []struct{ sql, want string }{
 		{"DELETE FROM it_rv_t WHERE (k1, k2) IN (SELECT k1 FROM it_rv_s)", "subquery has too few columns"},
 		{"UPDATE it_rv_t SET v = 0 WHERE (k1, k2) = (1, 'a', 2)", "unequal number of entries in row expressions"},
-		{"UPDATE it_rv_t SET v = CASE WHEN (k1, k2) = 1 THEN 0 END", "operator does not exist: record = bigint"},
+		{"UPDATE it_rv_t SET v = CASE WHEN (k1, k2) = 1 THEN 0 END", "operator does not exist: record = integer"},
 		{"UPDATE it_rv_t SET v = (1, 2)", `column "v" is of type integer but expression is of type record`},
 		{"MERGE INTO it_rv_t t USING it_rv_s s ON (t.k1, t.k2) = (s.k1) WHEN MATCHED THEN DELETE",
 			"operator does not exist: record = integer"},

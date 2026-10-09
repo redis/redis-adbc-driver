@@ -238,6 +238,25 @@ func (env *evalEnv) eval(e Expr) (Value, error) {
 		if err != nil {
 			return Value{}, err
 		}
+		if strings.HasPrefix(x.Op, "IS ") {
+			if !v.Null && v.T.Kind == KindString {
+				v, err = Coerce(v, typeBool)
+				if err != nil {
+					return Value{}, err
+				}
+			}
+			if v.T.Kind != KindBool && v.T.Kind != KindNull {
+				return Value{}, stateErr(stateDatatypeMismatch, "argument of %s must be type boolean, not type %s", x.Op, sigTypeName(v.T))
+			}
+			switch x.Op {
+			case "IS TRUE":
+				return boolValue(!v.Null && v.I != 0), nil
+			case "IS FALSE":
+				return boolValue(!v.Null && v.I == 0), nil
+			default:
+				return boolValue(v.Null), nil
+			}
+		}
 		if x.Op == "NOT" {
 			b, ok := truthy(v)
 			if !ok {
@@ -303,6 +322,9 @@ func (env *evalEnv) eval(e Expr) (Value, error) {
 			if l, r, err = env.literalOperands(x, o, l, r); err != nil {
 				return Value{}, err
 			}
+		}
+		if x.Op == "||" && (isJSONExpr(x.L) || isJSONExpr(x.R)) {
+			return jsonConcat(l, r)
 		}
 		return binaryOp(x.Op, l, r, env.zone())
 	case *RowExpr:
@@ -689,8 +711,9 @@ func negate(v Value) (Value, error) {
 	}
 	switch {
 	case v.T.Kind.isInteger():
-		if v.I == math.MinInt64 {
-			return Value{}, stateErr(stateNumericRange, "integer overflow")
+		lo, _ := intRange(v.T.Kind)
+		if v.I == lo {
+			return Value{}, stateErr(stateNumericRange, "%s out of range", sigTypeName(v.T))
 		}
 		return intValue(v.T, -v.I), nil
 	case v.T.Kind.isFloat():
@@ -768,12 +791,16 @@ func binaryOp(op string, l, r Value, z tzZone) (Value, error) {
 		return nullValue(rt), nil
 	}
 	switch rt.Kind {
-	case KindInt64:
+	case KindInt16, KindInt32, KindInt64:
 		switch op {
 		case "+", "-", "*", "/":
 			v, err := integerArithmetic(op[0], l.I, r.I)
 			if err != nil {
 				return Value{}, err
+			}
+			lo, hi := intRange(rt.Kind)
+			if v < lo || v > hi {
+				return Value{}, stateErr(stateNumericRange, "%s out of range", sigTypeName(rt))
 			}
 			return intValue(rt, v), nil
 		}
@@ -839,6 +866,9 @@ func arithmeticType(op string, a, b ColType) (ColType, error) {
 		if op == "/" {
 			return typeFloat64, nil
 		}
+		if a.Kind == KindDecimal && a.Precision == 0 || b.Kind == KindDecimal && b.Precision == 0 {
+			return decimalType(0, 0), nil
+		}
 		as, bs := int32(0), int32(0)
 		if a.Kind == KindDecimal {
 			as = a.Scale
@@ -850,6 +880,15 @@ func arithmeticType(op string, a, b ColType) (ColType, error) {
 			return decimalType(38, as+bs), nil
 		}
 		return decimalType(38, max(as, bs)), nil
+	}
+	if a.Kind.isInteger() && b.Kind.isInteger() {
+		if a.Kind == KindInt64 || b.Kind == KindInt64 {
+			return typeInt64, nil
+		}
+		if a.Kind == KindInt32 || b.Kind == KindInt32 {
+			return typeInt32, nil
+		}
+		return typeInt16, nil
 	}
 	return typeInt64, nil
 }
@@ -942,6 +981,19 @@ func inferType(e Expr, cols map[string]ColType, params []ColType) (ColType, erro
 	case *IsNull:
 		return typeBool, nil
 	case *Unary:
+		if strings.HasPrefix(x.Op, "IS ") {
+			t, err := inferType(x.X, cols, params)
+			if err != nil {
+				return ColType{}, err
+			}
+			if lit, ok := x.X.(*Literal); ok && lit.Unknown {
+				t = typeBool
+			}
+			if t.Kind != KindBool && t.Kind != KindNull {
+				return ColType{}, stateErr(stateDatatypeMismatch, "argument of %s must be type boolean, not type %s", x.Op, sigTypeName(t))
+			}
+			return typeBool, nil
+		}
 		if x.Op == "NOT" {
 			return typeBool, nil
 		}
@@ -1003,6 +1055,26 @@ func inferType(e Expr, cols map[string]ColType, params []ColType) (ColType, erro
 				return ColType{}, err
 			}
 			args[i] = t
+		}
+		if x.Name == "__PG_DATE_ADD" || x.Name == "DATE_SUBTRACT" {
+			for i, t := range args {
+				valid := t.Kind == KindNull || unknownLiteral(x.Args[i])
+				switch i {
+				case 0:
+					valid = valid || t.Kind == KindDate || t.Kind == KindTimestamp
+				case 1:
+					valid = valid || t.Kind == KindInterval
+				case 2:
+					valid = valid || t.Kind == KindString
+				}
+				if !valid {
+					name := x.Name
+					if name == "__PG_DATE_ADD" {
+						name = "DATE_ADD"
+					}
+					return ColType{}, noSuchFunction(name, false, args)
+				}
+			}
 		}
 		if parts, numLits := matchedParts(x); parts != nil {
 			// Values of types that don't match are an error.

@@ -145,8 +145,8 @@ func TestSQLReturningInsert(t *testing.T) {
 	h.expectError(`INSERT INTO it_ret_t (id) VALUES (70) RETURNING merge_action()`,
 		"MERGE_ACTION() can only be used in the RETURNING list of a MERGE command")
 	h.expectError(`INSERT INTO it_ret_t (id) VALUES (70) RETURNING`, "syntax error")
-	h.expectError(`SELECT 1 RETURNING 1`, `unexpected "RETURNING"`)
-	h.expectError(`CREATE TABLE it_ret_x (id INTEGER) RETURNING id`, `unexpected "RETURNING"`)
+	h.expectError(`SELECT 1 RETURNING 1`, `unexpected "returning"`)
+	h.expectError(`CREATE TABLE it_ret_x (id INTEGER) RETURNING id`, `unexpected "returning"`)
 	h.expectRows(`SELECT COUNT(*) FROM it_ret_t WHERE id = 70`, "0")
 }
 
@@ -476,12 +476,12 @@ func TestSQLReturningStatement(t *testing.T) {
 	// ExecuteSchema plans RETURNING without running the statement.
 	for _, c := range []struct{ sql, want string }{
 		{`INSERT INTO it_ret_t (id) VALUES (9) RETURNING __rowid, *`, "__rowid: int64, id: int32, k: utf8, v: int32, amount: decimal(6, 2)"},
-		{`INSERT INTO it_ret_t SELECT * FROM it_ret_t RETURNING id + 1 AS next`, "next: int64"},
+		{`INSERT INTO it_ret_t SELECT * FROM it_ret_t RETURNING id + 1 AS next`, "next: int32"},
 		{`UPDATE it_ret_t SET v = 1 RETURNING v, k`, "v: int32, k: utf8"},
 		{`UPDATE it_ret_t t SET (k, v) = (s.k, 1) FROM it_ret_s s WHERE s.id = t.id RETURNING *`,
 			"id: int32, k: utf8, v: int32, amount: decimal(6, 2), id: int32, k: utf8, op: utf8"},
 		{`DELETE FROM it_ret_t RETURNING amount`, "amount: decimal(6, 2)"},
-		{`WITH g AS (SELECT 1 AS gid) DELETE FROM it_ret_t USING g WHERE g.gid = it_ret_t.id RETURNING g.*, k`, "gid: int64, k: utf8"},
+		{`WITH g AS (SELECT 1 AS gid) DELETE FROM it_ret_t USING g WHERE g.gid = it_ret_t.id RETURNING g.*, k`, "gid: int32, k: utf8"},
 		{`MERGE INTO it_ret_t t USING it_ret_s s ON t.id = s.id WHEN MATCHED THEN DELETE RETURNING merge_action() AS a, s.op, t.v`,
 			"a: utf8, op: utf8, v: int32"},
 		{`DELETE FROM it_ret_t`, ""},

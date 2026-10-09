@@ -45,7 +45,6 @@ import (
 	"encoding/json"
 	"errors"
 	"slices"
-	"strings"
 
 	"github.com/apache/arrow-adbc/go/adbc"
 	goredis "github.com/redis/go-redis/v9"
@@ -368,10 +367,10 @@ func (e *executor) runCreateView(ctx context.Context, st *CreateViewStmt, numPar
 		if c.Type.Kind == KindRecord {
 			return pseudoTypeError(n)
 		}
-		if seen[strings.ToLower(n)] {
+		if seen[n] {
 			return stateErrorf(stateDuplicateColumn, "column %q specified more than once", n)
 		}
-		seen[strings.ToLower(n)] = true
+		seen[n] = true
 		t := c.Type
 		if t.Kind == KindNull {
 			t = typeString

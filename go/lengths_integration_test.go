@@ -343,7 +343,7 @@ func TestSQLLengthChar(t *testing.T) {
 	h.expectRows(`SELECT MIN(c), MAX(c), COUNT(DISTINCT c) FROM it_len_ch`, "a  |abc|3")
 	h.expectRows(`SELECT id, c || '|', UPPER(c), COALESCE(c, 'zz'), NULLIF(c, 'ab') FROM it_len_ch ORDER BY id`,
 		"1|ab||AB|ab |NULL", "2|abc||ABC|abc|abc", "3|a||A|a  |a  ", "4|NULL|NULL|zz|NULL", "5|ab||AB|ab |NULL")
-	h.expectRows(`SELECT id, c FROM it_len_ch ORDER BY c DESC, id LIMIT 3`, "2|abc", "1|ab ", "5|ab ")
+	h.expectRows(`SELECT id, c FROM it_len_ch ORDER BY c DESC, id LIMIT 3`, "4|NULL", "2|abc", "1|ab ")
 
 	// Joins compare without trailing spaces when a side is CHAR, the text
 	// side too: t = 'ab ' (row 2) matches c = 'ab', where Postgres compares

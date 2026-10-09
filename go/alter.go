@@ -260,13 +260,13 @@ func (e *executor) renameColumn(ctx context.Context, meta *tableMeta, from, to s
 func freeField(m *tableMeta, name string, taken map[string]bool) string {
 	used := map[string]bool{}
 	for _, c := range m.Columns {
-		used[strings.ToLower(c.field())] = true
+		used[c.field()] = true
 	}
 	for _, f := range m.RetiredFields {
-		used[strings.ToLower(f)] = true
+		used[f] = true
 	}
 	cand := name
-	for n := 2; used[strings.ToLower(cand)] || taken[strings.ToLower(cand)] || cand == rowIDField; n++ {
+	for n := 2; used[cand] || taken[cand] || cand == rowIDField; n++ {
 		cand = fmt.Sprintf("%s_%d", name, n)
 	}
 	return cand
@@ -867,12 +867,12 @@ func (e *executor) alterAddConstraint(ctx context.Context, m *tableMeta, chk *Ch
 // primary key (the only ones kept). The key's columns stay NOT NULL, as in
 // Postgres.
 func alterDropConstraint(m *tableMeta, cmd AlterCmd, res *alterResult) error {
-	if k := m.PrimaryKey; k != nil && strings.EqualFold(k.Name, cmd.Constraint) {
+	if k := m.PrimaryKey; k != nil && (k.Name == cmd.Constraint) {
 		m.PrimaryKey = nil
 		res.log("drop constraint %q", k.Name)
 		return nil
 	}
-	i := slices.IndexFunc(m.Checks, func(c checkMeta) bool { return strings.EqualFold(c.Name, cmd.Constraint) })
+	i := slices.IndexFunc(m.Checks, func(c checkMeta) bool { return (c.Name == cmd.Constraint) })
 	if i < 0 {
 		if cmd.IfConstraintExists {
 			res.log("drop constraint %q: missing", cmd.Constraint)
@@ -904,7 +904,7 @@ func (s *store) indexAttributes(ctx context.Context, index string) (map[string]b
 	}
 	out := map[string]bool{}
 	for _, attr := range indexInfoOf(reply).attrs {
-		out[strings.ToLower(attr.identifier)] = true
+		out[attr.identifier] = true
 	}
 	return out, nil
 }

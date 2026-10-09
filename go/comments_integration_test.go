@@ -390,12 +390,12 @@ func TestSQLCommentErrors(t *testing.T) {
 		`COMMENT ON TABLE other.public.it_cmt_et IS 'x'`:    "cross-database references are not implemented: other.public.it_cmt_et",
 		`COMMENT ON COLUMN other.public.it_cmt_et.id IS ''`: "cross-database references are not implemented: other.public.it_cmt_et.id",
 		`COMMENT ON TABLE information_schema.tables IS 'x'`: "information_schema is read-only",
-		`COMMENT ON SCHEMA public IS 'x'`:                   `unsupported COMMENT ON object "SCHEMA" (supported: TABLE, VIEW, COLUMN)`,
+		`COMMENT ON SCHEMA public IS 'x'`:                   `unsupported COMMENT ON object "schema" (supported: TABLE, VIEW, COLUMN)`,
 		`COMMENT ON TABLE it_cmt_et IS 42`:                  `expected a string or NULL near "42"`,
 		`COMMENT ON TABLE it_cmt_et IS ?`:                   "expected a string or NULL",
-		`COMMENT ON TABLE it_cmt_et IS UPPER('x')`:          `expected a string or NULL near "UPPER"`,
+		`COMMENT ON TABLE it_cmt_et IS UPPER('x')`:          `expected a string or NULL near "upper"`,
 		`COMMENT ON TABLE it_cmt_et 'x'`:                    "expected IS",
-		`COMMENT TABLE it_cmt_et IS 'x'`:                    `expected ON near "TABLE"`,
+		`COMMENT TABLE it_cmt_et IS 'x'`:                    `expected ON near "table"`,
 		`COMMENT ON TABLE it_cmt_et IS 'x' 'y'`:             `unexpected "y"`,
 	} {
 		h.expectError(sql, msg)
@@ -477,7 +477,7 @@ func TestSQLCreateTableComment(t *testing.T) {
 	h.expectComments("public", "it_cmt_ctas", "NULL", "id=NULL", "s=NULL", "n=NULL", "extra=NULL")
 
 	h.expectError(`CREATE TABLE it_cmt_bad (id INTEGER COMMENT 42)`, `expected a string after COMMENT near "42"`)
-	h.expectError(`CREATE TABLE it_cmt_bad (id INTEGER) COMMENT NULL`, `expected a string after COMMENT near "NULL"`)
+	h.expectError(`CREATE TABLE it_cmt_bad (id INTEGER) COMMENT NULL`, `expected a string after COMMENT near "null"`)
 	h.expectError(`CREATE TABLE it_cmt_bad (id INTEGER) COMMENT = 'x' 'y'`, `unexpected "y"`)
 }
 

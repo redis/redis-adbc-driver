@@ -196,7 +196,8 @@ type Func struct {
 	// named is set for a call written as name(…), not built by the parser
 	// for an operator or a special form: it can't name an internal function
 	// (funcs.go).
-	named bool
+	named      bool
+	quotedCase bool
 }
 
 // NullTreatment is the IGNORE NULLS / RESPECT NULLS of a function call.
@@ -780,7 +781,25 @@ func lex(src string) ([]token, error) {
 			}
 			toks = append(toks, token{kind: tokHex, text: s, pos: i, end: i + 1 + n})
 			i += 1 + n
-		case (c == 'E' || c == 'e' || c == 'N' || c == 'n') && i+1 < len(src) && src[i+1] == '\'':
+		case (c == 'U' || c == 'u') && i+2 < len(src) && src[i+1] == '&' && (src[i+2] == '\'' || src[i+2] == '"'):
+			value, n, err := lexUnicodeString(src[i:], src[i+2])
+			if err != nil {
+				return nil, err
+			}
+			kind := tokString
+			if src[i+2] == '"' {
+				kind = tokQuotedIdent
+			}
+			toks = append(toks, token{kind: kind, text: value, pos: i, end: i + n})
+			i += n
+		case (c == 'E' || c == 'e') && i+1 < len(src) && src[i+1] == '\'':
+			value, n, err := lexEscapeString(src[i+1:])
+			if err != nil {
+				return nil, err
+			}
+			toks = append(toks, token{kind: tokString, text: value, pos: i, end: i + 1 + n})
+			i += 1 + n
+		case (c == 'N' || c == 'n') && i+1 < len(src) && src[i+1] == '\'':
 			// E'..' / N'..' prefixed strings; treated as plain strings.
 			s, n, err := lexQuoted(src[i+1:], '\'')
 			if err != nil {
@@ -861,7 +880,7 @@ func lex(src string) ([]token, error) {
 				}
 				break
 			}
-			toks = append(toks, token{kind: tokIdent, text: src[start:i], pos: start, end: i})
+			toks = append(toks, token{kind: tokIdent, text: foldIdentifier(src[start:i]), pos: start, end: i})
 		case c == '~' || (c == '!' && i+1 < len(src) && src[i+1] == '~'):
 			// The regular-expression match operators ~, ~*, !~ and !~*.
 			start := i
@@ -1707,7 +1726,7 @@ func (p *parser) parseFromEntry() (JoinClause, error) {
 	if t := p.peek(); (t.kind == tokIdent || t.kind == tokQuotedIdent) && p.peekAt(1).kind == tokOp && p.peekAt(1).text == "(" {
 		// A table function call (a table name is never followed by "(").
 		p.pos += 2
-		jc.Func = &Func{Name: strings.ToUpper(t.text)}
+		jc.Func = &Func{Name: strings.ToUpper(t.text), quotedCase: t.kind == tokQuotedIdent && t.text != foldIdentifier(t.text)}
 		for !p.isOp(")") {
 			a, err := p.parseExpr()
 			if err != nil {
@@ -3320,8 +3339,20 @@ func (p *parser) parseComparison() (Expr, error) {
 				continue
 			}
 		}
+		if p.isKeyword("ISNULL") || p.isKeyword("NOTNULL") {
+			l = isNullExpr(l, strings.EqualFold(p.next().text, "NOTNULL"))
+			continue
+		}
 		if p.acceptKeyword("IS") {
 			not := p.acceptKeyword("NOT")
+			if p.isKeyword("TRUE") || p.isKeyword("FALSE") || p.isKeyword("UNKNOWN") {
+				op := "IS " + strings.ToUpper(p.next().text)
+				l = &Unary{Op: op, X: l}
+				if not {
+					l = &Unary{Op: "NOT", X: l}
+				}
+				continue
+			}
 			if p.acceptKeyword("JSON") {
 				l = p.parseIsJSON(l)
 				if not {
@@ -3753,6 +3784,9 @@ func (p *parser) parsePrimary() (Expr, error) {
 		return nil, syntaxErr("unexpected %q", t.text)
 	case tokQuotedIdent:
 		p.pos++
+		if p.acceptOp("(") {
+			return p.parseFunctionCall(strings.ToUpper(t.text), t.text != foldIdentifier(t.text))
+		}
 		return p.parseColumnRef(t.text)
 	case tokIdent:
 		upper := strings.ToUpper(t.text)
@@ -3965,39 +3999,7 @@ func (p *parser) parsePrimary() (Expr, error) {
 		}
 		p.pos++
 		if p.acceptOp("(") {
-			f := &Func{Name: upper, named: true}
-			if p.acceptOp("*") {
-				f.Star = true
-			} else if !p.isOp(")") {
-				f.Distinct = p.acceptKeyword("DISTINCT")
-				for {
-					a, err := p.parseExpr()
-					if err != nil {
-						return nil, err
-					}
-					f.Args = append(f.Args, a)
-					if !p.acceptOp(",") {
-						break
-					}
-				}
-				if err := p.parseCallArgSuffix(f); err != nil {
-					return nil, err
-				}
-			}
-			if err := p.expectOp(")"); err != nil {
-				return nil, err
-			}
-			if err := p.parseCallSuffix(f); err != nil {
-				return nil, err
-			}
-			if p.acceptKeyword("OVER") {
-				spec, err := p.parseOver()
-				if err != nil {
-					return nil, err
-				}
-				return &WindowFunc{Func: f, Over: spec}, nil
-			}
-			return f, nil
+			return p.parseFunctionCall(upper, false)
 		}
 		return p.parseColumnRef(t.text)
 	}
@@ -4250,6 +4252,17 @@ func (p *parser) parseDateArith(name string) (Expr, error) {
 		return nil, err
 	}
 	f := call.(*Func)
+	if name == "DATE_ADD" && (len(f.Args) == 2 || bare == "" && len(f.Args) == 3 && !datePartLiteral(f.Args[0])) {
+		f.Name = "__PG_DATE_ADD"
+		if bare != "" {
+			ref := &ColumnRef{Name: bare}
+			f.Args[0] = ref
+			if p.refs != nil {
+				*p.refs = append(*p.refs, refSpan{ref: ref, start: bareTok.pos, name: bareTok.pos, end: bareTok.end})
+			}
+		}
+		return f, nil
+	}
 	if (name != "DATE_ADD" && name != "DATE_SUB") || (name == "DATE_ADD" && len(f.Args) == 3) {
 		return f, nil
 	}
@@ -4304,4 +4317,43 @@ func (p *parser) parseColumnRef(first string) (Expr, error) {
 		*p.refs = append(*p.refs, refSpan{ref: ref, start: start, name: last.pos, end: last.end})
 	}
 	return ref, nil
+}
+
+func (p *parser) parseFunctionCall(name string, quotedCase bool) (Expr, error) {
+	if name == "DATE_ADD" && !quotedCase {
+		return p.parseDateArith(name)
+	}
+	f := &Func{Name: name, named: true, quotedCase: quotedCase}
+	if p.acceptOp("*") {
+		f.Star = true
+	} else if !p.isOp(")") {
+		f.Distinct = p.acceptKeyword("DISTINCT")
+		for {
+			a, err := p.parseExpr()
+			if err != nil {
+				return nil, err
+			}
+			f.Args = append(f.Args, a)
+			if !p.acceptOp(",") {
+				break
+			}
+		}
+		if err := p.parseCallArgSuffix(f); err != nil {
+			return nil, err
+		}
+	}
+	if err := p.expectOp(")"); err != nil {
+		return nil, err
+	}
+	if err := p.parseCallSuffix(f); err != nil {
+		return nil, err
+	}
+	if p.acceptKeyword("OVER") {
+		spec, err := p.parseOver()
+		if err != nil {
+			return nil, err
+		}
+		return &WindowFunc{Func: f, Over: spec}, nil
+	}
+	return f, nil
 }

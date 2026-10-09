@@ -330,7 +330,7 @@ func TestGroupByOutputNames(t *testing.T) {
 
 		// The driver also reads an alias in an expression; pg16: column "u"
 		// does not exist.
-		{"SELECT upper(v) AS u, count(*) FROM t GROUP BY lower(u) ORDER BY 1", "A|2\nB|1\nNULL|1"},
+		{"SELECT upper(v) AS u, count(*) FROM t GROUP BY lower(u) ORDER BY 1", `error: column "t.v" must appear in the GROUP BY clause or be used in an aggregate function`},
 	}
 	for _, c := range cases {
 		stmts, err := ParseScript(with + c.q)

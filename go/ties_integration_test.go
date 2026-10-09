@@ -17,7 +17,7 @@ package redis
 // Integration tests for ORDER BY on values the index rounds to the same
 // double (see ties.go). They run against the Redis server at REDIS_URI,
 // standalone or a cluster, like sql_integration_test.go. The expected rows
-// are Postgres 16's (with NULLS LAST for DESC, the driver's default). Each
+// are Postgres 16's (with NULLS LAST for DESC NULLS LAST, the driver's default). Each
 // query runs on an indexed column, which the index sorts, and on a NOINDEX
 // copy, which the driver sorts itself.
 
@@ -101,8 +101,8 @@ func TestSQLOrderByRoundedValues(t *testing.T) {
 	h := newSQLHarness(t)
 	h.setupTieTable()
 
-	// By column: ORDER BY c, ORDER BY c DESC, WHERE g = 'a' (an index
-	// query) ORDER BY c, ORDER BY g, c and ORDER BY g DESC, c DESC.
+	// By column: ORDER BY c, ORDER BY c DESC NULLS LAST, WHERE g = 'a' (an index
+	// query) ORDER BY c, ORDER BY g, c and ORDER BY g DESC NULLS LAST, c DESC NULLS LAST.
 	want := map[string][5]string{
 		"b":  {"4,3,5,2,1,9,8,7,6", "7,8,9,1,2,5,3,4,6", "5,2,1,8,7", "5,2,1,8,7,4,3,9,6", "9,3,4,6,7,8,1,2,5"},
 		"ts": {"4,3,5,8,7,9,2,1,6", "1,2,9,7,8,5,3,4,6", "5,8,7,2,1", "5,8,7,2,1,4,3,9,6", "9,3,4,6,1,2,7,8,5"},
@@ -112,10 +112,10 @@ func TestSQLOrderByRoundedValues(t *testing.T) {
 	for _, c := range tieColumns {
 		w := want[c]
 		h.tieAgree(c, "SELECT id FROM it_ties ORDER BY {c}", w[0])
-		h.tieAgree(c, "SELECT id FROM it_ties ORDER BY {c} DESC", w[1])
+		h.tieAgree(c, "SELECT id FROM it_ties ORDER BY {c} DESC NULLS LAST", w[1])
 		h.tieAgree(c, "SELECT id FROM it_ties WHERE g = 'a' ORDER BY {c}", w[2])
 		h.tieAgree(c, "SELECT id FROM it_ties ORDER BY g, {c}", w[3])
-		h.tieAgree(c, "SELECT id FROM it_ties ORDER BY g DESC, {c} DESC", w[4])
+		h.tieAgree(c, "SELECT id FROM it_ties ORDER BY g DESC NULLS LAST, {c} DESC NULLS LAST", w[4])
 		// The column read for the WHERE clause, rather than by HMGET for the
 		// sort.
 		h.tieAgree(c, "SELECT id FROM it_ties WHERE {c} IS NOT NULL OR id = 6 ORDER BY {c}", w[0])
@@ -123,7 +123,7 @@ func TestSQLOrderByRoundedValues(t *testing.T) {
 
 		// Every LIMIT and OFFSET: the rows of the full order.
 		order := strings.Split(w[0], ",")
-		for i, by := range []string{"{c}", "{c} DESC", "g, {c}", "g DESC, {c} DESC"} {
+		for i, by := range []string{"{c}", "{c} DESC NULLS LAST", "g, {c}", "g DESC NULLS LAST, {c} DESC NULLS LAST"} {
 			all := strings.Split(w[[]int{0, 1, 3, 4}[i]], ",")
 			for off := 0; off <= len(all); off++ {
 				for lim := 1; lim <= 3; lim++ {
@@ -156,11 +156,11 @@ func TestSQLOrderByRoundedValues(t *testing.T) {
 	}{
 		{"SELECT id FROM it_ties ORDER BY b", want["b"][0], tieWork{3, 0, 0}},
 		// LIMIT 1 would pick -2^53, the first of -2^53 and -2^53 - 1 in the
-		// index's order (OFFSET 3 would pick 2^53 + 1, and DESC OFFSET 7
+		// index's order (OFFSET 3 would pick 2^53 + 1, and DESC NULLS LAST OFFSET 7
 		// -2^53), so the scan reads that run whole, by value, and sorts it.
 		{"SELECT id FROM it_ties ORDER BY b LIMIT 1", "4", tieWork{1, 0, 1}},
 		{"SELECT id FROM it_ties ORDER BY b LIMIT 1 OFFSET 3", "2", tieWork{1, 0, 1}},
-		{"SELECT id FROM it_ties ORDER BY b DESC LIMIT 1 OFFSET 7", "4", tieWork{1, 0, 1}},
+		{"SELECT id FROM it_ties ORDER BY b DESC NULLS LAST LIMIT 1 OFFSET 7", "4", tieWork{1, 0, 1}},
 		// NUMERIC values, and keys after one that doesn't round, are read
 		// with more rows on that side instead.
 		{"SELECT id FROM it_ties ORDER BY n LIMIT 1", "4", tieWork{1, 1, 0}},
@@ -188,13 +188,13 @@ func TestSQLOrderByRoundedValues(t *testing.T) {
 	h.exec("INSERT INTO it_ties_ns VALUES " + strings.Join(values, ", "))
 	if work := tieWorkOf(func() {
 		h.expectRows("SELECT id FROM it_ties_ns ORDER BY ts LIMIT 3 OFFSET 5", "15", "14", "13")
-		h.expectRows("SELECT id FROM it_ties_ns ORDER BY ts DESC LIMIT 2", "1", "2")
+		h.expectRows("SELECT id FROM it_ties_ns ORDER BY ts DESC NULLS LAST LIMIT 2", "1", "2")
 	}); work != (tieWork{}) {
 		t.Errorf("TIMESTAMP(9) that don't tie: %+v, want none", work)
 	}
 	// 1 ns apart, they do.
 	h.exec("INSERT INTO it_ties_ns VALUES (21, TIMESTAMP '2026-10-05 12:00:00.000000002'), (22, TIMESTAMP '2026-10-05 12:00:00.000000001')")
-	h.expectRows("SELECT id FROM it_ties_ns ORDER BY ts DESC LIMIT 2", "21", "22")
+	h.expectRows("SELECT id FROM it_ties_ns ORDER BY ts DESC NULLS LAST LIMIT 2", "21", "22")
 	h.expectRows("SELECT id FROM it_ties_ns WHERE ts > TIMESTAMP '2026-10-05 12:00:00' ORDER BY ts", "22", "21")
 }
 
@@ -232,7 +232,7 @@ func TestSQLOrderByRoundedRuns(t *testing.T) {
 
 	if work := tieWorkOf(func() {
 		h.expectRows("SELECT k FROM it_ties_runs ORDER BY b", ks(0, n)...)
-		h.expectRows("SELECT k, b - 4611686018427387904 FROM it_ties_runs ORDER BY b DESC", func() []string {
+		h.expectRows("SELECT k, b - 4611686018427387904 FROM it_ties_runs ORDER BY b DESC NULLS LAST", func() []string {
 			var out []string
 			for _, k := range ks(n-1, -1) {
 				out = append(out, k+"|"+k)
@@ -245,7 +245,7 @@ func TestSQLOrderByRoundedRuns(t *testing.T) {
 	// LIMIT and OFFSET within the second run, and across both.
 	if work := tieWorkOf(func() {
 		h.expectRows("SELECT k FROM it_ties_runs ORDER BY b LIMIT 5 OFFSET 600", ks(600, 605)...)
-		h.expectRows("SELECT k FROM it_ties_runs ORDER BY b DESC LIMIT 3 OFFSET 986", "513", "512", "511")
+		h.expectRows("SELECT k FROM it_ties_runs ORDER BY b DESC NULLS LAST LIMIT 3 OFFSET 986", "513", "512", "511")
 	}); work != (tieWork{3, 0, 3}) {
 		t.Errorf("LIMIT within runs: %+v, want 3 runs read and sorted", work)
 	}
@@ -269,7 +269,7 @@ func TestSQLOrderByRoundedRuns(t *testing.T) {
 		streamed bool
 	}{
 		{"SELECT k FROM it_ties_runs ORDER BY b", 0, n, true},
-		{"SELECT k FROM it_ties_runs ORDER BY b DESC", n - 1, -1, true},
+		{"SELECT k FROM it_ties_runs ORDER BY b DESC NULLS LAST", n - 1, -1, true},
 		{"SELECT k FROM it_ties_runs ORDER BY b LIMIT 300 OFFSET 450", 450, 750, false},
 		{"SELECT k FROM it_ties_runs WHERE s <> 'x' ORDER BY b LIMIT 300 OFFSET 450", 450, 750, false},
 	} {
@@ -323,10 +323,10 @@ func TestSQLOrderByRoundedAdopted(t *testing.T) {
 		return out
 	}
 	h.expectRows("SELECT name FROM it_ties_ev ORDER BY id", names(0, n)...)
-	h.expectRows("SELECT name FROM it_ties_ev ORDER BY id DESC", names(n-1, -1)...)
+	h.expectRows("SELECT name FROM it_ties_ev ORDER BY id DESC NULLS LAST", names(n-1, -1)...)
 	if work := tieWorkOf(func() {
 		h.expectRows("SELECT name FROM it_ties_ev ORDER BY id LIMIT 3 OFFSET 100", names(100, 103)...)
-		h.expectRows("SELECT id - 1152921504606846976, name FROM it_ties_ev ORDER BY id DESC LIMIT 2", "2093|e299", "2086|e298")
+		h.expectRows("SELECT id - 1152921504606846976, name FROM it_ties_ev ORDER BY id DESC NULLS LAST LIMIT 2", "2093|e299", "2086|e298")
 	}); work.runsRead == 0 || work.widened != 0 {
 		t.Errorf("%+v, want runs read by value", work)
 	}

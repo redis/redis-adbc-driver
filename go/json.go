@@ -134,6 +134,8 @@ func isJSONExpr(e Expr) bool {
 		return found
 	}
 	switch x := e.(type) {
+	case *Binary:
+		return x.Op == "||" && (isJSONExpr(x.L) || isJSONExpr(x.R))
 	case *Func:
 		switch {
 		case x.JSON != nil:
