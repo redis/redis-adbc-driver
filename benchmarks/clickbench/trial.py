@@ -11,6 +11,8 @@ import adbc_driver_manager.dbapi as dbapi
 
 def main():
     job = json.loads(Path(sys.argv[1]).read_text())
+    if "--credentials-stdin" in sys.argv[2:]:
+        os.environ["REDIS_CLOUD_URI"] = json.load(sys.stdin)["uri"]
     result = {"seconds": None}
     try:
         with dbapi.connect(driver=job["driver"], autocommit=True, db_kwargs={

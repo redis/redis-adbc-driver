@@ -8,6 +8,7 @@ import datetime
 from contextlib import closing, contextmanager
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -24,6 +25,7 @@ import pyarrow.parquet as pq
 import redis
 
 from loading import ingest_batches
+from isolation import check_isolation, resolve_memory_limit, run_isolated
 
 FULL_ROWS = 99_997_497
 HERE = Path(__file__).resolve().parent
@@ -132,9 +134,18 @@ def main():
     ap.add_argument("--query-workers", type=int, default=None, choices=range(1, 33),
                     help="Override automatic driver workers for eligible individual aggregates")
     ap.add_argument("--query-timeout", type=float, default=1200)
+    ap.add_argument("--trial-memory-mib", type=int, default=None,
+                    help="Hard per-trial RAM limit; defaults to half the available host/cgroup RAM")
     ap.add_argument("--deadline", type=float, default=float("inf"),
                     help="UTC epoch deadline for stopping within the deployment budget")
     args = ap.parse_args()
+    if args.query_timeout <= 0 or not math.isfinite(args.query_timeout):
+        ap.error("Query timeout must be finite and positive")
+    try:
+        trial_memory_mib = resolve_memory_limit(args.trial_memory_mib)
+        check_isolation(trial_memory_mib)
+    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
+        ap.error(str(error))
     prefetch = args.load_workers > 1 or args.load_prefetch
     placement = validate_placement(json.loads(args.placement.read_text()))
     uri = os.environ.get("REDIS_CLOUD_URI")
@@ -186,6 +197,8 @@ def main():
                      "namespace": namespace, "columns": 105,
                      "placement": placement,
                      "query_timeout_seconds": args.query_timeout,
+                     "trial_memory_limit_mib": trial_memory_mib,
+                     "trial_isolation": "systemd-cgroup-v2",
                      "query_workers": args.query_workers,
                      "connection_protocol": "RESP3 (driver default); fresh connection per trial",
                      "aggregate_pushdown": "exact", "timing": "execute + Arrow fetch",
@@ -324,17 +337,18 @@ def main():
                             continue
                         job_path.write_text(json.dumps({"driver": str(args.driver.resolve()),
                             "namespace": namespace, "sql": sql, "query_workers": args.query_workers, "output": str(output_path.resolve())}))
+                        output_path.unlink(missing_ok=True)
                         try:
-                            process = subprocess.run([sys.executable, str(HERE / "trial.py"), str(job_path)],
-                                timeout=min(args.query_timeout, remaining), capture_output=True)
-                            if process.returncode != 0 or not output_path.exists():
-                                record.update(seconds=None, error_type="WorkerExit", exit_code=process.returncode)
-                            else:
+                            record.update(run_isolated(
+                                [sys.executable, str(HERE / "trial.py"), str(job_path), "--credentials-stdin"],
+                                timeout=min(args.query_timeout, remaining), memory_mib=trial_memory_mib,
+                                credentials={"uri": uri}))
+                            if not record.get("error_type") and not output_path.exists():
+                                record.update(seconds=None, error_type="WorkerExit")
+                            elif not record.get("error_type"):
                                 measured = json.loads(output_path.read_text())
                                 record.update({k:v for k,v in measured.items() if k != "values"})
                                 result["result"][number - 1][trial] = measured["seconds"]
-                        except subprocess.TimeoutExpired:
-                            record.update(seconds=None, error_type="QueryDeadline")
                         except Exception as error:
                             # Exception type/status aid diagnosis without leaking credentials.
                             record.update(seconds=None, error_type=type(error).__name__,
