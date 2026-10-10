@@ -200,6 +200,11 @@ type tableMeta struct {
 	Schema  string       `json:"schema"`
 	Name    string       `json:"name"`
 	Columns []columnMeta `json:"columns"`
+	// FoldedIdentifiers is set on metadata created after unquoted SQL
+	// identifiers began following PostgreSQL's lower-case folding rules.
+	// Older metadata did not record whether a mixed-case column was quoted,
+	// so it keeps the driver's original case-insensitive fallback.
+	FoldedIdentifiers bool `json:"folded_identifiers,omitempty"`
 
 	// KeyPrefix and IndexName are fixed when the table is created, so that
 	// RENAME TO only rewrites metadata. Empty for tables created before they
@@ -264,8 +269,20 @@ type tableMeta struct {
 	lazy *lazyRelation
 }
 
-// resolve finds a column by name: exact match first, then case-insensitive.
-func (t *tableMeta) resolve(name string) (int, bool) { return resolveColumn(t.Columns, name) }
+// resolve finds a column by name. Metadata created with PostgreSQL identifier
+// folding uses exact names; legacy metadata falls back to case-insensitive
+// matching because it did not record whether mixed-case names were quoted.
+func (t *tableMeta) resolve(name string) (int, bool) {
+	if i, ok := resolveColumn(t.Columns, name); ok || t.FoldedIdentifiers {
+		return i, ok
+	}
+	for i, c := range t.Columns {
+		if strings.EqualFold(c.Name, name) {
+			return i, true
+		}
+	}
+	return -1, false
+}
 
 // resolveColumn is resolve for a list of columns (a table's or a view's).
 func resolveColumn(cols []columnMeta, name string) (int, bool) {
@@ -1049,6 +1066,7 @@ func (s *store) createTable(ctx context.Context, meta *tableMeta, ifNotExists bo
 	if len(meta.Columns) == 0 {
 		return false, errorf(adbc.StatusInvalidArgument, "table %q must have at least one column", meta.Name)
 	}
+	meta.FoldedIdentifiers = true
 	seen := map[string]bool{}
 	for _, c := range meta.Columns {
 		if c.Name == "" {
