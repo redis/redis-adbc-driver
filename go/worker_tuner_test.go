@@ -17,6 +17,7 @@ package redis
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"runtime"
 	"testing"
 	"time"
@@ -34,7 +35,7 @@ func TestWorkerTunerMeasuredWorkloads(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			tuner := workerTuner{}
-			for i := 0; i < 150; i++ {
+			for i := 0; i < 400; i++ {
 				n := tuner.capacity(8)
 				rate := float64(min(n, tc.optimum)) * 1000
 				// Beyond the optimum, contention increases latency and reduces throughput.
@@ -180,21 +181,27 @@ func TestWorkerTunerTailAndRedisChanges(t *testing.T) {
 	old := runtime.GOMAXPROCS(4)
 	defer runtime.GOMAXPROCS(old)
 	tuner := workerTuner{current: 1, cpu: 4}
-	for i := 0; i < 3; i++ {
+	for i := 0; i < tuningWindow; i++ {
 		tuner.observe(tuneObservation{Rows: 1000, Seconds: 1, TailSeconds: 1}, 8)
 	}
 	if tuner.current != 2 {
 		t.Fatal("missing bounded probe")
 	}
-	for i := 0; i < 3; i++ {
+	for i := 0; i < tuningWindow; i++ {
 		tuner.observe(tuneObservation{Rows: 1000, Seconds: .5, TailSeconds: 1.3}, 8)
 	}
 	if tuner.current != 1 {
 		t.Fatal("accepted throughput improvement with excessive tail cost")
 	}
+	for i := 0; i < tuningWindow; i++ {
+		tuner.observe(tuneObservation{Rows: 1000, Seconds: 1, TailSeconds: 1}, 8)
+	}
+	if tuner.best != 1 || tuner.phase != "holding" {
+		t.Fatalf("tail guard failed after reference verification: %+v", tuner)
+	}
 	// A deployment that previously sustained four workers now saturates at two.
 	tuner = workerTuner{current: 4, cpu: 4, best: 4, bestScore: 4000, bestTail: .25}
-	for i := 0; i < 90; i++ {
+	for i := 0; i < 300; i++ {
 		n := tuner.capacity(8)
 		rate := float64(min(n, 2)) * 1000
 		if n > 2 {
@@ -218,5 +225,237 @@ func TestWorkerTunerPartitionBound(t *testing.T) {
 	b.release(n)
 	if b.active != 0 {
 		t.Fatal("bounded scan leaked capacity")
+	}
+}
+
+func TestWorkerTunerRejectsDriftAndBursts(t *testing.T) {
+	old := runtime.GOMAXPROCS(4)
+	defer runtime.GOMAXPROCS(old)
+	for _, drift := range []bool{false, true} {
+		tuner := workerTuner{}
+		for phase := 0; phase < 3; phase++ {
+			for sample := 0; sample < tuningWindow; sample++ {
+				seconds := 1.0
+				if phase == 1 {
+					seconds = .5
+				}
+				if drift && phase == 2 {
+					seconds = .5
+				}
+				if !drift && phase == 1 && sample%2 == 0 {
+					seconds = 2
+				}
+				tuner.observe(tuneObservation{Rows: 1000, Seconds: seconds, TailSeconds: seconds}, 8)
+			}
+		}
+		if tuner.best != 4 || tuner.current != 4 || tuner.phase != "holding" {
+			t.Fatalf("drift=%v trained on incomparable measurements: %+v", drift, tuner)
+		}
+	}
+	// A slowdown starts a probe; it cannot repeatedly ratchet the retained model.
+	tuner := workerTuner{current: 4, cpu: 4, best: 4, bestScore: 1000, bestTail: 1, phase: "holding", cooldown: tuningHold}
+	for i := 0; i < tuningWindow; i++ {
+		tuner.observe(tuneObservation{Rows: 1000, Seconds: 2, TailSeconds: 2}, 8)
+	}
+	if tuner.best != 4 || tuner.current != 3 || tuner.phase != "probe" {
+		t.Fatalf("slowdown changed retained allocation without a comparison: %+v", tuner)
+	}
+}
+
+func TestWorkerTunerWorkloadCache(t *testing.T) {
+	old := runtime.GOMAXPROCS(4)
+	defer runtime.GOMAXPROCS(old)
+	b := &workerBudget{}
+	stats := &scanTelemetry{}
+	stats.rows.Store(1000)
+	lease := b.begin("first")
+	b.finish(lease, stats, false)
+	b.tuner.best, b.tuner.current, b.tuner.phase, b.tuner.samples = 2, 3, "probe", 3
+	lease = b.begin("second")
+	b.finish(lease, stats, false)
+	lease = b.begin("first")
+	b.finish(lease, stats, false)
+	if b.tuner.current != 2 || b.tuner.phase != "baseline" || b.tuner.samples != 0 {
+		t.Fatalf("did not restore retained model with a fresh comparison: %+v", b.tuner)
+	}
+	for i := 0; i < 12; i++ {
+		b.cacheModel(fmt.Sprint(i), workerTuner{current: 4, cpu: 4})
+	}
+	if len(b.models) != 8 || len(b.modelOrder) != 8 {
+		t.Fatal("unbounded model cache")
+	}
+	if err := b.configure("auto"); err != nil {
+		t.Fatal(err)
+	}
+	if len(b.models) != 0 || b.regime != "" {
+		t.Fatal("operator reset preserved stale workload models")
+	}
+}
+
+func TestWorkerTunerContinuousTransitionRecovery(t *testing.T) {
+	old := runtime.GOMAXPROCS(4)
+	defer runtime.GOMAXPROCS(old)
+	b := &workerBudget{}
+	stats := &scanTelemetry{}
+	stats.rows.Store(1000)
+	stale := b.begin("old workload")
+	for i := 0; i < 24; i++ {
+		lease := b.begin("new workload")
+		b.finish(lease, stats, false)
+	}
+	if b.tuner.observations != 0 {
+		t.Fatal("trained while mixed old work remained")
+	}
+	b.finish(stale, stats, false)
+	anchor := b.begin("new workload")
+	for i := 0; i < 24; i++ {
+		lease := b.begin("new workload")
+		b.finish(lease, stats, false)
+	}
+	if b.tuner.observations == 0 {
+		t.Fatal("mixed marker remained sticky under continuous traffic")
+	}
+	// A live runtime change makes outstanding leases incomparable, then recovers.
+	runtime.GOMAXPROCS(2)
+	for i := 0; i < 16; i++ {
+		lease := b.begin("new workload")
+		b.finish(lease, stats, false)
+	}
+	if b.tuner.observations != 0 {
+		t.Fatal("trained across an allocation generation")
+	}
+	b.finish(anchor, stats, false)
+	anchor = b.begin("new workload")
+	for i := 0; i < 24; i++ {
+		lease := b.begin("new workload")
+		b.finish(lease, stats, false)
+	}
+	if b.tuner.observations == 0 {
+		t.Fatal("allocation transition did not recover")
+	}
+	b.finish(anchor, stats, false)
+	if len(b.pendingKeys) != 0 || len(b.pendingGenerations) != 0 || b.cohort.pending != 0 {
+		t.Fatal("lease accounting leaked")
+	}
+}
+
+func TestWorkerTunerResetWithOutstandingLease(t *testing.T) {
+	b := &workerBudget{}
+	stats := &scanTelemetry{}
+	stats.rows.Store(1000)
+	old := b.begin("same")
+	if err := b.configure("auto"); err != nil {
+		t.Fatal(err)
+	}
+	current := b.begin("same")
+	b.finish(old, stats, false)
+	b.finish(current, stats, false)
+	if b.tuner.observations != 0 {
+		t.Fatal("reset accepted an old observation with the same allocation")
+	}
+	for i := 0; i < 3; i++ {
+		lease := b.begin("same")
+		b.finish(lease, stats, false)
+	}
+	if b.tuner.observations != 2 {
+		t.Fatal("reset did not recover")
+	}
+}
+
+func TestWorkerTunerAbandonsIncomparableProbe(t *testing.T) {
+	old := runtime.GOMAXPROCS(4)
+	defer runtime.GOMAXPROCS(old)
+	for _, phase := range []string{"probe", "verify"} {
+		tuner := workerTuner{current: 3, cpu: 4, best: 2, phase: phase, samples: 3, cooldown: tuningHold}
+		for i := 0; i < tuningIncomparableLimit-1; i++ {
+			tuner.discardWindow()
+		}
+		if tuner.phase != phase || tuner.current != 3 {
+			t.Fatal("did not allow transition grace")
+		}
+		tuner.discardWindow()
+		if tuner.current != 2 || tuner.phase != "holding" || tuner.samples != 0 || tuner.incomparable != 0 {
+			t.Fatalf("kept unvalidated candidate/partial comparison: %+v", tuner)
+		}
+	}
+}
+
+func TestWorkerTunerSustainedMixedProbe(t *testing.T) {
+	old := runtime.GOMAXPROCS(4)
+	defer runtime.GOMAXPROCS(old)
+	b := &workerBudget{tuner: workerTuner{current: 3, cpu: 4, best: 2, phase: "probe", cooldown: tuningHold}, regime: "retained:2"}
+	stats := &scanTelemetry{}
+	stats.rows.Store(1000)
+	anchor := b.begin("retained")
+	for i := 0; i < 8*tuningIncomparableLimit; i++ {
+		lease := b.begin("different")
+		b.finish(lease, stats, false)
+	}
+	if b.tuner.current != 2 || b.tuner.phase != "holding" || b.tuner.observations != 0 {
+		t.Fatalf("sustained mixed work kept an unvalidated candidate: %+v", b.tuner)
+	}
+	b.finish(anchor, stats, false)
+	if b.cohort.pending != 0 || len(b.pendingGenerations) != 0 {
+		t.Fatal("fallback leaked leases")
+	}
+}
+
+func TestWorkerTunerCachedCapacityReason(t *testing.T) {
+	old := runtime.GOMAXPROCS(2)
+	defer runtime.GOMAXPROCS(old)
+	b := &workerBudget{}
+	b.cacheModel("cached:1", workerTuner{current: 4, cpu: 4, best: 4})
+	stats := &scanTelemetry{}
+	stats.rows.Store(1000)
+	lease := b.begin("cached")
+	b.finish(lease, stats, false)
+	if b.tuner.current != 2 || b.tuner.best != 0 || b.tuner.reason != "runtime capacity invalidated cached workload" {
+		t.Fatalf("reported restoration of an invalid CPU model: %+v", b.tuner)
+	}
+}
+
+func TestWorkerTunerAbandonPreservesAdmission(t *testing.T) {
+	old := runtime.GOMAXPROCS(4)
+	defer runtime.GOMAXPROCS(old)
+	b := &workerBudget{tuner: workerTuner{current: 3, cpu: 4, best: 2, phase: "probe", cooldown: tuningHold}}
+	anchor := b.begin("retained")
+	grant, err := b.acquire(context.Background(), 0)
+	if err != nil || grant != 3 {
+		t.Fatalf("probe grant: %d %v", grant, err)
+	}
+	for i := 0; i < 8*tuningIncomparableLimit; i++ {
+		lease := b.begin("cancelled")
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		n, err := b.acquire(ctx, 0)
+		if n != 0 || err != context.Canceled {
+			t.Fatalf("cancelled admission: %d %v", n, err)
+		}
+		b.finish(lease, &scanTelemetry{}, true)
+	}
+	if b.tuner.current != 2 || b.active != 3 {
+		t.Fatal("fallback preempted an existing grant")
+	}
+	next := b.begin("retained")
+	ready := make(chan int, 1)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	go func() { n, _ := b.acquire(ctx, 0); ready <- n }()
+	waitQueued(t, b, 1)
+	select {
+	case <-ready:
+		t.Fatal("over-admitted during fallback")
+	default:
+	}
+	b.release(grant)
+	b.finish(anchor, &scanTelemetry{}, false)
+	n := <-ready
+	if n != 2 {
+		t.Fatalf("retained grant: %d", n)
+	}
+	b.release(n)
+	b.finish(next, &scanTelemetry{}, false)
+	if b.active != 0 || len(b.queue) != 0 || b.cohort.pending != 0 {
+		t.Fatal("fallback leaked admission state")
 	}
 }

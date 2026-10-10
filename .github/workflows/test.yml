@@ -30,6 +30,7 @@ on:
       - benchmarks/clickbench/**
       - benchmarks/qpf/**
       - benchmarks/workers/**
+      - benchmarks/worker-autotune/**
 
 permissions:
   contents: read
@@ -69,6 +70,9 @@ jobs:
 
       - name: Check performance benchmark syntax
         run: python3 -m py_compile benchmarks/qpf/*.py benchmarks/workers/*.py
+
+      - name: Check autotuning measurement gate
+        run: python3 -m unittest discover -s benchmarks/worker-autotune/controlled -v
 
       # The validation suite loads go/build/libadbc_driver_redis.so.
       - name: Build
