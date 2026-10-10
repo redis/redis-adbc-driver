@@ -52,6 +52,26 @@ Install Go, a C compiler, Python and uv on the VM and copy this source tree
 there. Build natively for its OS and architecture; do not transfer the macOS
 library to Linux. Download data before starting the ingestion timer.
 
+Query trials require Linux with systemd, cgroup v2 memory control, and permission
+to create transient services in the system manager (run the dedicated runner as
+root). The harness checks this before loading data and fails if isolation cannot
+be enforced. Each query runs in its own sibling service, so a trial OOM cannot
+kill the benchmark supervisor through its cgroup. The kernel caps the whole
+trial, including the Go driver, Arrow buffers, Python output and descendants.
+
+The default limit is half of available host/cgroup RAM, leaving room for the OS
+and supervisor. Override with `--trial-memory-mib 61440` for a 60 GiB cap;
+overrides must leave at least 25% of available RAM free. Swap is disabled for
+trials. Results record the cap and, when systemd retains it, the memory peak.
+Exceeding the cap records `MemoryLimit` and a null timing, then the sweep
+continues. Timeouts stop the entire trial service, including descendants.
+Credentials are passed through stdin rather than service command arguments.
+
+These limits protect the runner; they do not implement disk spilling or make a
+high-cardinality query succeed with less RAM. Redis's server-side aggregate group
+limit is independent and remains visible as a query error. The driver outside
+this benchmark harness does not acquire a hard per-query memory limit.
+
 ```sh
 make -C go build
 git clone https://github.com/ClickHouse/ClickBench.git /tmp/ClickBench
@@ -152,4 +172,12 @@ Helper checks (no database access or benchmark timings):
 ```sh
 uv run --no-project --with pyarrow --with redis --with adbc-driver-manager \
   python -m unittest discover -s benchmarks/clickbench -v
+```
+
+On a disposable Linux systemd host, also run the actual memory-kill and timeout
+containment tests (no Redis database required):
+
+```sh
+CLICKBENCH_SYSTEMD_TEST=1 python -m unittest discover \
+  -s benchmarks/clickbench -p test_isolation_linux.py -v
 ```
