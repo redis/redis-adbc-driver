@@ -117,3 +117,12 @@ These changes bound retained state; they do not prove the seven queries meet
 the 300-second budget on 99,997,497 rows. Keep #305–#311 open until three full
 trials per SQL pass with valid independent references, stage metrics, wire/server
 profiles, CPU, spill I/O, peak memory and the tested commit/binary checksum.
+
+### Q19 after the merged follow-up
+
+A full-scale retest of PR #314 still timed out for Q19. Expression groups with
+only COUNT(*) now use narrow row partitions, spill by complete evaluated SQL
+group key, and compare final counts before decoding losing top-K groups. Mixed
+aggregate inputs and ordering on group values keep the general exact reducer.
+See the [Q19 profile and acceptance record](../benchmarks/clickbench/q19-followup/report.md)
+for the measured synthetic comparison and remaining full-scale checks.

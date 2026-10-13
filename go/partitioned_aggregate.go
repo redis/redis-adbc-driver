@@ -43,6 +43,7 @@ type tupleAggregatePlan struct {
 	types          []ColType
 	countAlias     string
 	server         bool
+	countGroups    bool
 }
 
 func tupleAggregateShape(plan *selectPlan, aggs []*Func) (*tupleAggregatePlan, bool) {
@@ -195,6 +196,20 @@ func tupleAggregateShape(plan *selectPlan, aggs []*Func) (*tupleAggregatePlan, b
 			return nil, false
 		}
 	}
+	p.countGroups = len(plan.sel.GroupBy) > 0
+	for _, f := range aggs {
+		p.countGroups = p.countGroups && f.Name == "COUNT" && f.Star && !f.Distinct
+	}
+	if p.countGroups {
+		for _, x := range p.groupExprs {
+			if _, column := x.(*ColumnRef); !column {
+				// Exact source-tuple grouping requires LOAD * and TOLIST checks
+				// before minute reduction. A narrow row scan avoids that work.
+				p.server = false
+				break
+			}
+		}
+	}
 	if !tupleHavingExpr(plan.having, aggs) {
 		return nil, false
 	}
@@ -250,9 +265,11 @@ func (p *tupleAggregatePlan) tuple(env *evalEnv, vals []Value, count int64) (spi
 		keys = append(keys, env.row[c.Name])
 		prefixCols[c.Name] = true
 	}
-	for i, c := range p.cols {
-		if !prefixCols[c.Name] {
-			keys = append(keys, vals[i])
+	if !p.countGroups {
+		for i, c := range p.cols {
+			if !prefixCols[c.Name] {
+				keys = append(keys, vals[i])
+			}
 		}
 	}
 	row := spillTuple{key: rowKey(keys), raw: make([]string, len(vals)), null: make([]bool, len(vals)), count: count}
@@ -645,6 +662,9 @@ dispatch:
 }
 
 func (e *executor) reduceTupleRuns(ctx context.Context, plan *selectPlan, p *tupleAggregatePlan, aggs []*Func, params []Value, spill *tupleSpill) ([]aggGroup, error) {
+	if groups, handled, err := e.reduceCountGroups(ctx, plan, p, aggs, params, spill); handled {
+		return groups, err
+	}
 	env := e.newEnv(ctx, plan.meta.types(), params)
 	var out []aggGroup
 	// Keep only final top-K groups for the simple supported projection. Ties
