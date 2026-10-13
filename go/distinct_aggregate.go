@@ -380,6 +380,8 @@ func distinctResidual(expr Expr, group, args []columnMeta) bool {
 		switch x := x.(type) {
 		case *ColumnRef:
 			safe = safe && x.Outer == 0 && names[x.Name]
+		case *Func:
+			safe = safe && (x.Name == "LIKE" || x.Name == "ILIKE")
 		case *Literal, *Param, *IsNull:
 		case *Unary:
 			safe = safe && x.Op == "NOT"

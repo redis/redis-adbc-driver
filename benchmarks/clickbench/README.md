@@ -184,3 +184,88 @@ containment tests (no Redis database required):
 CLICKBENCH_SYSTEMD_TEST=1 python -m unittest discover \
   -s benchmarks/clickbench -p test_isolation_linux.py -v
 ```
+
+## Full-scale reference generation (#313)
+
+Generate all 43 independent reference values from a typed DuckDB view over the
+Parquet file. This streams the source and permits DuckDB disk spilling rather
+than retaining a 100-million-row Arrow table. DATE integers represent epoch
+days; TIMESTAMP integers represent epoch seconds. Reading the raw integers
+with `read_parquet()` alone is not the same SQL schema.
+
+```sh
+uv run --no-project --with pyarrow --with redis --with adbc-driver-manager --with duckdb \
+  python benchmarks/clickbench/references.py \
+  --upstream /tmp/ClickBench --parquet /tmp/hits.parquet \
+  --output full-reference --temp-directory /mnt/duckdb-tmp --memory-limit 16GB
+```
+
+The generator checks all 105 columns, source row count and required NULL
+constraints, and records source SHA256, schema SHA256, upstream commit, query
+number/SQL and DuckDB version. `manifest.json` becomes complete only when all
+43 queries succeeded. Error records remain distinct from driver failures.
+Validation rejects incomplete manifests, old untyped reference files, changed
+sources, changed SQL or mismatched metadata. Regenerate old reference sets.
+Use `validate.py --reference-dir full-reference` with the same source/upstream.
+Different allowed groups for unordered LIMIT, or different ordering ties,
+remain `needs_tie_validation` until checked independently; `compare.py` does
+not calculate ratios for such unverified results.
+
+## Effective FinOps protection (#312)
+
+Owner and skip-deletion tags did not protect the October 13 runner from the
+external `finops_access_key` caller. Before another long AWS run, identify
+**every** cleanup principal from CloudTrail and the account's cleanup inventory.
+The external process source is still an operational investigation; modifying
+one Lambda does not establish that another caller respects its exemptions.
+
+Prepare a protected configuration file with these fields (use verified IDs):
+
+```json
+{
+  "account_id": "123456789012",
+  "region": "us-east-1",
+  "run_tag": "unique-approved-benchmark-run",
+  "instance_id": "i-0123456789abcdef0",
+  "expires_at": "2026-10-14T08:11:41Z",
+  "finops_principals": ["arn:aws:iam::123456789012:user/finops_access_key"],
+  "cleanup_principal": "arn:aws:iam::123456789012:role/benchmark-budget-cleanup",
+  "cleanup_rule_name": "benchmark-budget-cleanup",
+  "cleanup_function_arn": "arn:aws:lambda:us-east-1:123456789012:function:benchmark-budget-cleanup",
+  "redis_subscription_id": 123,
+  "redis_database_id": 456
+}
+```
+
+The deadline shown is illustrative and expires; replace it with the approved
+spending deadline. Add the verified `instance_id` to the runner placement file.
+After provisioning the independent scheduled cleanup and tagging the runner:
+
+```sh
+uv run --no-project --with boto3 python benchmarks/clickbench/finops.py \
+  finops-config.json --install --output finops-verification.json
+```
+
+This installs only `ec2:TerminateInstances` explicit denies on the configured
+FinOps principals, scoped to account, region, exact BenchmarkRun tag and expiry.
+The cleanup role never receives this policy. Each installed policy is read
+back, and actual principal policies are simulated for protected, unrelated,
+untagged and expired cases; the budget cleanup role must remain allowed before
+and after expiry. No live instance is deleted by the verifier. The preflight
+checks the live runner tag/state and enabled EventBridge schedule, Lambda target
+and execution role. It records exact Redis IDs; operators must separately verify
+that the scheduled cleanup uses those owned IDs and valid Redis control-plane
+credentials. IAM simulation does not attest external process source, unknown
+principals, every organization control, or future policy changes. See the
+[AWS simulator documentation](https://docs.aws.amazon.com/cli/latest/reference/iam/simulate-principal-policy.html).
+
+Full AWS `run.py` executions require `--finops-config finops-config.json` and
+`--with boto3`; the harness repeats the live preflight before connecting/loading
+and saves the evidence and policy expiry in run metadata. Verification failures
+stop the run. Deployment should verify exemptions before expensive Redis
+provisioning too. Preserve this evidence with the deployment and ensure teardown
+removes only the owned runner/database/subscription. After the deadline and
+teardown, use `finops.py ... --remove-expired --output removal.json` to remove the
+matching per-run policies; differing policy contents are never overwritten or
+removed. This PR supplies the reusable guard; it does not modify live IAM or
+claim the external FinOps process has been repaired.

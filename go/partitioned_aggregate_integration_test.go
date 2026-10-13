@@ -350,3 +350,129 @@ func (h *partitionCancelHook) ProcessHook(next goredis.ProcessHook) goredis.Proc
 		return err
 	}
 }
+
+func TestSQLClickBenchFollowupShapes(t *testing.T) {
+	h := newSQLHarness(t)
+	h.dropTables("it_cb_followup")
+	h.exec("CREATE TABLE it_cb_followup (uid BIGINT, phrase VARCHAR, url VARCHAR, title VARCHAR, counter INTEGER, ts TIMESTAMP)")
+	h.exec(`INSERT INTO it_cb_followup VALUES
+ (9007199254740993,'z','google-a','Google',1,'2013-07-14 00:01:01'),
+ (9007199254740993,'z','google-b','Google',1,'2013-07-14 00:01:59'),
+ (9007199254740992,'a','x.google.y','Google',2,'2013-07-14 00:02:01'),
+ (9007199254740993,'z','google-a','Google',1,'2013-07-14 00:01:01'),
+ (7,'','google','Google',2,NULL),(8,NULL,NULL,NULL,3,NULL),
+ (9,'a','GOOGLE','google',3,'1969-12-31 23:59:59'),
+ (10,'a','googlé','Google',4,'2013-07-14 00:01:01')`)
+	queries := []string{
+		"SELECT uid,phrase,COUNT(*) FROM it_cb_followup GROUP BY uid,phrase LIMIT 2",
+		"SELECT uid,extract(minute FROM ts) AS m,phrase,COUNT(*) FROM it_cb_followup GROUP BY uid,m,phrase ORDER BY COUNT(*) DESC LIMIT 2",
+		"SELECT phrase,MIN(url),COUNT(*) AS c FROM it_cb_followup WHERE url LIKE '%google%' AND phrase<>'' GROUP BY phrase ORDER BY c DESC LIMIT 2",
+		"SELECT phrase,MIN(url),MIN(title),COUNT(*) AS c,COUNT(DISTINCT uid) FROM it_cb_followup WHERE title LIKE '%Google%' AND url NOT LIKE '%.google.%' AND phrase<>'' GROUP BY phrase ORDER BY c DESC LIMIT 2",
+		"SELECT counter,AVG(length(url)) AS l,COUNT(*) AS c FROM it_cb_followup WHERE url<>'' GROUP BY counter HAVING COUNT(*)>1 ORDER BY l DESC LIMIT 1",
+	}
+	for _, sql := range queries {
+		t.Run(sql, func(t *testing.T) {
+			e, plan, wp := distinctTestPlan(t, h, sql)
+			p, ok := tupleAggregateShape(plan, plan.aggregateCalls())
+			if !ok {
+				t.Fatal("shape rejected")
+			}
+			spill := tupleSpill{dir: t.TempDir(), prefix: "followup"}
+			for _, r := range [][2]int64{{1, 2}, {3, 8}} {
+				if err := e.aggregateTuplePartition(h.ctx, plan, p, wp, nil, r[0], r[1], false, func(row spillTuple) error { return spill.add(h.ctx, row) }); err != nil {
+					t.Fatal(err)
+				}
+				if err := spill.flush(h.ctx); err != nil {
+					t.Fatal(err)
+				}
+			}
+			groups, err := e.reduceTupleRuns(h.ctx, plan, p, plan.aggregateCalls(), nil, &spill)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(groups) > 2 {
+				t.Fatalf("unbounded groups: %d", len(groups))
+			}
+			// Use public projection to compare exact expressions and HAVING; sorted
+			// ties may differ, so use a query with complete ordering below as well.
+			if err := e.store.client.Set(h.ctx, seqKey(plan.meta.Schema, plan.meta.Name), aggregatePartitionRows*2, 0).Err(); err != nil {
+				t.Fatal(err)
+			}
+			e.queryWorkers = 2
+			e.pushdown = PushdownNone
+			actual, err := e.selectAggregate(h.ctx, plan, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := e.store.client.Set(h.ctx, seqKey(plan.meta.Schema, plan.meta.Name), 8, 0).Err(); err != nil {
+				t.Fatal(err)
+			}
+			full := *plan
+			sel := *plan.sel
+			sel.Limit = nil
+			full.sel = &sel
+			all, err := e.selectAggregate(h.ctx, &full, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, row := range actual {
+				found := false
+				for _, other := range all {
+					if reflect.DeepEqual(row, other) {
+						found = true
+					}
+				}
+				if !found {
+					t.Fatalf("inexact group: %v; expected one of %v", row, all)
+				}
+			}
+			if len(actual) == 0 {
+				t.Fatal("no groups")
+			}
+			if strings.Contains(sql, "HAVING") && (len(actual) != 1 || actual[0][0].I != 1 || actual[0][2].I != 3) {
+				t.Fatalf("HAVING/top-K: %v", actual)
+			}
+		})
+	}
+	e, plan, wp := distinctTestPlan(t, h, "SELECT COUNT(*) FROM it_cb_followup WHERE url LIKE '%google%'")
+	if !parallelPredicate(wp.residual) {
+		t.Fatal("LIKE excluded")
+	}
+	if err := e.store.client.Set(h.ctx, seqKey(plan.meta.Schema, plan.meta.Name), 4096, 0).Err(); err != nil {
+		t.Fatal(err)
+	}
+	e.queryWorkers = 2
+	got, ok, err := e.parallelAggregate(h.ctx, plan, wp, plan.aggregateCalls(), nil)
+	if err != nil || !ok || got[0].results[plan.aggregateCalls()[0]].I != 5 {
+		t.Fatalf("groups=%v handled=%v err=%v", got, ok, err)
+	}
+}
+
+func TestSQLStreamingStringTopK(t *testing.T) {
+	h := newSQLHarness(t)
+	h.dropTables("it_string_topk")
+	h.exec("CREATE TABLE it_string_topk (phrase VARCHAR, unused INTEGER)")
+	h.exec(`INSERT INTO it_string_topk VALUES ('z',1),('',2),('a',3),('A',4),('a',5),('a\x00b',6),(NULL,7),(' b',8)`)
+	e, plan, _ := distinctTestPlan(t, h, "SELECT phrase FROM it_string_topk WHERE phrase<>'' ORDER BY phrase LIMIT 3 OFFSET 1")
+	sc, err := e.prepareScan(h.ctx, plan, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sc.indexSort = false
+	sc.pushLimit = false
+	sc.req.sortBy = nil
+	sc.req.limit = nil
+	sc.req.late = nil
+	sc.req.ties = nil
+	got, handled, err := e.selectTopK(h.ctx, plan, sc, nil)
+	if err != nil || !handled {
+		t.Fatalf("handled=%v err=%v", handled, err)
+	}
+	want, err := e.selectScanned(h.ctx, plan, sc, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %v want %v", got, want)
+	}
+}

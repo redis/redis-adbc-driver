@@ -878,6 +878,9 @@ func (e *executor) runSelect(ctx context.Context, plan *selectPlan, params []Val
 	if err != nil {
 		return nil, err
 	}
+	if rows, handled, err := e.selectTopK(ctx, plan, sc, params); handled {
+		return rows, err
+	}
 	return e.selectScanned(ctx, plan, sc, params)
 }
 
@@ -972,7 +975,7 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 		!plan.hasCorrelated() && len(plan.extraNeed) == 0 && sel.Limit != nil {
 		predicate := map[string]bool{}
 		columnRefs(wp.residual, predicate)
-		if len(predicate)*2 <= len(meta.Columns) && len(req.need) > len(predicate) {
+		if len(predicate)*2 <= len(meta.Columns) {
 			late := &lateProjection{need: req.need, limit: *sel.Limit}
 			if sel.Offset != nil {
 				late.offset = *sel.Offset

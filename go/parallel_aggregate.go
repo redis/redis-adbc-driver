@@ -42,6 +42,16 @@ func parallelPredicate(x Expr) bool {
 		return true
 	case *ColumnRef:
 		return v.Outer == 0
+	case *Func:
+		if v.Name != "LIKE" && v.Name != "ILIKE" {
+			return false
+		}
+		for _, x := range v.Args {
+			if !parallelPredicate(x) {
+				return false
+			}
+		}
+		return true
 	case *Unary:
 		return v.Op == "NOT" && parallelPredicate(v.X)
 	case *Binary:
