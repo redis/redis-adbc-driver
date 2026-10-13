@@ -138,6 +138,8 @@ def main():
                     help="Hard per-trial RAM limit; defaults to half the available host/cgroup RAM")
     ap.add_argument("--deadline", type=float, default=float("inf"),
                     help="UTC epoch deadline for stopping within the deployment budget")
+    ap.add_argument("--finops-config", type=Path,
+                    help="Required for full AWS runs: live exemption and independent cleanup preflight")
     args = ap.parse_args()
     if args.query_timeout <= 0 or not math.isfinite(args.query_timeout):
         ap.error("Query timeout must be finite and positive")
@@ -206,6 +208,16 @@ def main():
                      "queries_sha256": hashlib.sha256("\n".join(queries).encode()).hexdigest()},
         "queries": queries, "trials": [],
     }
+    if args.rows == FULL_ROWS and placement["runner"]["provider"].lower() == "aws":
+        if not args.finops_config:
+            ap.error("Full AWS runs require --finops-config; ownership tags do not prove protection")
+        from finops import verify_live, utc
+        config = json.loads(args.finops_config.read_text())
+        if config["region"] != placement["runner"]["region"] or config["instance_id"] != placement["runner"].get("instance_id"):
+            ap.error("FinOps protection region/instance differs from runner placement")
+        result["metadata"]["finops_protection"] = verify_live(config)
+        args.deadline = min(args.deadline, utc(config["expires_at"]).timestamp())
+        result["metadata"]["spending_deadline_utc"] = config["expires_at"]
     args.output.parent.mkdir(parents=True, exist_ok=True)
     # No connection URI or raw server errors are written to the output.
     client = redis.Redis.from_url(uri, socket_connect_timeout=10, socket_timeout=30, protocol=2)

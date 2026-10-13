@@ -36,16 +36,18 @@ import (
 const aggregatePartitionRows int64 = 65536
 
 type tupleAggregatePlan struct {
-	cols, group, distinct []columnMeta
-	args                  []int
-	types                 []ColType
-	countAlias            string
-	server                bool
+	cols, distinct []columnMeta
+	groupExprs     []Expr
+	argExprs       map[int]Expr
+	args           []int
+	types          []ColType
+	countAlias     string
+	server         bool
 }
 
 func tupleAggregateShape(plan *selectPlan, aggs []*Func) (*tupleAggregatePlan, bool) {
 	meta := plan.meta
-	if meta.isMem || meta.Adopted || meta.KeyRows || meta.AppIndex || len(plan.extraNeed) > 0 || len(plan.outerAggs) > 0 || plan.windowed() || plan.distinct || len(plan.distinctOn) > 0 || plan.having != nil || plan.qualify != nil || len(aggs) == 0 {
+	if meta.isMem || meta.Adopted || meta.KeyRows || meta.AppIndex || len(plan.extraNeed) > 0 || len(plan.outerAggs) > 0 || plan.windowed() || plan.distinct || len(plan.distinctOn) > 0 || plan.qualify != nil || len(aggs) == 0 {
 		return nil, false
 	}
 	if len(plan.sel.GroupBy) == 0 {
@@ -57,7 +59,7 @@ func tupleAggregateShape(plan *selectPlan, aggs []*Func) (*tupleAggregatePlan, b
 			return nil, false
 		}
 	}
-	p := &tupleAggregatePlan{server: true}
+	p := &tupleAggregatePlan{server: true, groupExprs: plan.sel.GroupBy, argExprs: map[int]Expr{}}
 	add := func(c columnMeta) int {
 		for i, old := range p.cols {
 			if old.Name == c.Name {
@@ -68,17 +70,18 @@ func tupleAggregateShape(plan *selectPlan, aggs []*Func) (*tupleAggregatePlan, b
 		return len(p.cols) - 1
 	}
 	for _, x := range plan.sel.GroupBy {
-		c, ok := distinctColumn(meta, x)
-		if !ok {
+		if !tupleInputExpr(x) {
 			return nil, false
 		}
-		duplicate := false
-		for _, old := range p.group {
-			duplicate = duplicate || old.Name == c.Name
-		}
-		if !duplicate {
-			p.group = append(p.group, c)
-			add(c)
+		need := map[string]bool{}
+		columnRefs(x, need)
+		for _, c := range meta.Columns {
+			if need[c.Name] {
+				if _, ok := distinctColumn(meta, &ColumnRef{Name: c.Name}); !ok {
+					return nil, false
+				}
+				add(c)
+			}
 		}
 	}
 	// A single DISTINCT tuple (possibly requested under multiple aliases) is
@@ -129,14 +132,29 @@ func tupleAggregateShape(plan *selectPlan, aggs []*Func) (*tupleAggregatePlan, b
 			if len(f.Args) != 1 {
 				return nil, false
 			}
-			c, ok := distinctColumn(meta, f.Args[0])
-			if !ok {
+			x := f.Args[0]
+			if !tupleInputExpr(x) {
 				return nil, false
 			}
-			if (f.Name == "SUM" || f.Name == "AVG") && !c.Type.Kind.isInteger() {
+			typ, err := inferType(x, meta.types(), nil)
+			if err != nil || ((f.Name == "SUM" || f.Name == "AVG") && !typ.Kind.isInteger()) {
 				return nil, false
 			}
-			arg = add(c)
+			if c, ok := distinctColumn(meta, x); ok {
+				arg = add(c)
+			} else {
+				p.argExprs[len(p.args)] = x
+				need := map[string]bool{}
+				columnRefs(x, need)
+				for _, c := range meta.Columns {
+					if need[c.Name] {
+						if _, ok := distinctColumn(meta, &ColumnRef{Name: c.Name}); !ok {
+							return nil, false
+						}
+						add(c)
+					}
+				}
+			}
 		}
 		p.args = append(p.args, arg)
 		typ, err := inferType(f, meta.types(), nil)
@@ -148,6 +166,11 @@ func tupleAggregateShape(plan *selectPlan, aggs []*Func) (*tupleAggregatePlan, b
 	// Output expressions are deliberately simple: pruning final groups to
 	// top-K must not evaluate volatile functions early or more than once.
 	simple := func(x Expr) bool {
+		for _, g := range plan.sel.GroupBy {
+			if exprEqual(x, g) {
+				return true
+			}
+		}
 		switch x := x.(type) {
 		case *Literal:
 			return true
@@ -171,6 +194,9 @@ func tupleAggregateShape(plan *selectPlan, aggs []*Func) (*tupleAggregatePlan, b
 		if !simple(o.expr) {
 			return nil, false
 		}
+	}
+	if !tupleHavingExpr(plan.having, aggs) {
+		return nil, false
 	}
 	p.countAlias = "__partition_count"
 	for {
@@ -205,16 +231,100 @@ func partitionWhere(wp wherePlan, lo, hi int64, tail bool) wherePlan {
 	return part
 }
 
-func (p *tupleAggregatePlan) tuple(vals []Value, count int64) spillTuple {
-	row := spillTuple{key: rowKey(vals), raw: make([]string, len(vals)), null: make([]bool, len(vals)), count: count}
+// Sort by evaluated group and DISTINCT keys before other source values.
+// Source values remain in the record so final projection uses a representative
+// row with the driver's timestamp, string and NULL semantics.
+func (p *tupleAggregatePlan) tuple(env *evalEnv, vals []Value, count int64) (spillTuple, error) {
+	env.row = p.row(vals)
+	keys, err := p.groupValues(env)
+	if err != nil {
+		return spillTuple{}, err
+	}
+	prefixCols := map[string]bool{}
+	for _, x := range p.groupExprs {
+		if c, ok := x.(*ColumnRef); ok {
+			prefixCols[c.Name] = true
+		}
+	}
+	for _, c := range p.distinct {
+		keys = append(keys, env.row[c.Name])
+		prefixCols[c.Name] = true
+	}
+	for i, c := range p.cols {
+		if !prefixCols[c.Name] {
+			keys = append(keys, vals[i])
+		}
+	}
+	row := spillTuple{key: rowKey(keys), raw: make([]string, len(vals)), null: make([]bool, len(vals)), count: count}
 	for i, v := range vals {
 		row.null[i] = v.Null
 		if !v.Null {
 			row.raw[i] = encodeStored(v)
 		}
 	}
+	return row, nil
+}
+func (p *tupleAggregatePlan) row(vals []Value) map[string]Value {
+	row := make(map[string]Value, len(vals))
+	for i, c := range p.cols {
+		row[c.Name] = vals[i]
+	}
 	return row
 }
+func (p *tupleAggregatePlan) groupValues(env *evalEnv) ([]Value, error) {
+	var vals []Value
+	for _, x := range p.groupExprs {
+		v, err := env.eval(x)
+		if err != nil {
+			return nil, invalidArg(err)
+		}
+		vals = append(vals, v)
+	}
+	return vals, nil
+}
+
+// Keep eligibility narrow: these pure forms cover ClickBench minute and
+// character-length expressions without admitting volatility or subqueries.
+func tupleInputExpr(x Expr) bool {
+	switch x := x.(type) {
+	case *ColumnRef:
+		return x.Outer == 0
+	case *Literal:
+		return true
+	case *Func:
+		if x.Name != "LENGTH" && x.Name != "DATE_PART" {
+			return false
+		}
+		for _, a := range x.Args {
+			if !tupleInputExpr(a) {
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
+func tupleHavingExpr(x Expr, aggs []*Func) bool {
+	if x == nil {
+		return true
+	}
+	for _, f := range aggs {
+		if x == f {
+			return true
+		}
+	}
+	switch x := x.(type) {
+	case *Literal:
+		return true
+	case *Binary:
+		switch x.Op {
+		case "AND", "OR", "=", "!=", "<>", "<", "<=", ">", ">=":
+			return tupleHavingExpr(x.L, aggs) && tupleHavingExpr(x.R, aggs)
+		}
+	}
+	return false
+}
+
 func (p *tupleAggregatePlan) values(row spillTuple) ([]Value, error) {
 	vals := make([]Value, len(p.cols))
 	for i, c := range p.cols {
@@ -238,6 +348,14 @@ func (e *executor) aggregateTuplePartition(ctx context.Context, plan *selectPlan
 	part := partitionWhere(wp, lo, hi, tail)
 	if e.aggregateMetrics != nil {
 		e.aggregateMetrics.partitions.Add(1)
+	}
+	env := e.newEnv(ctx, plan.meta.types(), params)
+	emit := func(vals []Value, count int64) error {
+		row, err := p.tuple(env, vals, count)
+		if err != nil {
+			return err
+		}
+		return visit(row)
 	}
 	scan := func() error {
 		if e.aggregateMetrics != nil {
@@ -272,7 +390,7 @@ func (e *executor) aggregateTuplePartition(ctx context.Context, plan *selectPlan
 						}
 					}
 				}
-				if err := visit(p.tuple(vals, 1)); err != nil {
+				if err := emit(vals, 1); err != nil {
 					return err
 				}
 			}
@@ -323,7 +441,6 @@ func (e *executor) aggregateTuplePartition(ctx context.Context, plan *selectPlan
 			return scan()
 		}
 	}
-	env := e.newEnv(ctx, plan.meta.types(), params)
 	env.row = map[string]Value{}
 	for _, row := range raw {
 		if err := cancelled(ctx); err != nil {
@@ -343,7 +460,7 @@ func (e *executor) aggregateTuplePartition(ctx context.Context, plan *selectPlan
 			}
 		}
 		count, _ := strconv.ParseInt(row[p.countAlias], 10, 64)
-		if err := visit(p.tuple(vals, count)); err != nil {
+		if err := emit(vals, count); err != nil {
 			return err
 		}
 	}
@@ -377,7 +494,28 @@ func addWeightedInteger(a *accumulator, v Value, n int64) {
 
 func (e *executor) partitionedAggregate(ctx context.Context, plan *selectPlan, wp wherePlan, aggs []*Func, params []Value, force bool) (groups []aggGroup, handled bool, resultErr error) {
 	p, ok := tupleAggregateShape(plan, aggs)
-	if !ok || wp.none || wp.keys != nil || !distinctResidual(wp.residual, p.cols, nil) {
+	if !ok || wp.none || wp.keys != nil {
+		return nil, false, nil
+	}
+	// Residual-only inputs must be retained in the server tuple before filtering.
+	need := map[string]bool{}
+	columnRefs(wp.residual, need)
+	for _, c := range plan.meta.Columns {
+		if !need[c.Name] {
+			continue
+		}
+		found := false
+		for _, old := range p.cols {
+			found = found || old.Name == c.Name
+		}
+		if !found {
+			if _, ok := distinctColumn(plan.meta, &ColumnRef{Name: c.Name}); !ok {
+				return nil, false, nil
+			}
+			p.cols = append(p.cols, c)
+		}
+	}
+	if !distinctResidual(wp.residual, p.cols, nil) {
 		return nil, false, nil
 	}
 	last, err := e.store.client.Get(ctx, seqKey(plan.meta.Schema, plan.meta.Name)).Int64()
@@ -425,7 +563,7 @@ func (e *executor) partitionedAggregate(ctx context.Context, plan *selectPlan, w
 		local := *e
 		local.telemetry = stats
 		e = &local
-		key := plan.meta.Schema + "." + plan.meta.Name + ":tuple:" + wp.query + fmt.Sprint(len(p.group))
+		key := plan.meta.Schema + "." + plan.meta.Name + ":tuple:" + wp.query + fmt.Sprint(len(p.groupExprs))
 		for _, c := range p.cols {
 			key += ":" + c.Name
 		}
@@ -512,6 +650,15 @@ func (e *executor) reduceTupleRuns(ctx context.Context, plan *selectPlan, p *tup
 	// Keep only final top-K groups for the simple supported projection. Ties
 	// use the deterministic merge order; SQL does not define their order.
 	limit := aggregateTopLimit(plan, math.MaxInt)
+	if len(plan.order) == 0 && plan.sel.Limit != nil && *plan.sel.Limit > 0 {
+		off := int64(0)
+		if plan.sel.Offset != nil {
+			off = *plan.sel.Offset
+		}
+		if off >= 0 && off < math.MaxInt && *plan.sel.Limit < math.MaxInt-off {
+			limit = int(off + *plan.sel.Limit)
+		}
+	}
 	top := aggregateTopK{order: plan.order}
 	topGroups := map[int]aggGroup{}
 	ordinal := 0
@@ -530,6 +677,16 @@ func (e *executor) reduceTupleRuns(ctx context.Context, plan *selectPlan, p *tup
 				return invalidArg(err)
 			}
 			g.results[f] = v
+		}
+		env.row, env.aggs = g.rep, g.results
+		if plan.having != nil {
+			v, err := env.eval(plan.having)
+			if err != nil {
+				return invalidArg(err)
+			}
+			if b, ok := truthy(v); !ok || !b {
+				return nil
+			}
 		}
 		if limit == 0 {
 			out = append(out, g)
@@ -557,26 +714,36 @@ func (e *executor) reduceTupleRuns(ctx context.Context, plan *selectPlan, p *tup
 		}
 		return nil
 	}
+	stop := errors.New("unordered aggregate output complete")
 	err := spill.merge(ctx, func(row spillTuple) error {
 		vals, err := p.values(row)
 		if err != nil {
 			return err
 		}
-		key := rowKey(vals[:len(p.group)])
+		env.row = p.row(vals)
+		groupVals, err := p.groupValues(env)
+		if err != nil {
+			return err
+		}
+		key := rowKey(groupVals)
 		if !haveGroup || key != groupKey {
 			if err := emit(); err != nil {
 				return err
 			}
-			haveGroup, groupKey, haveDistinct = true, key, false
-			rep = map[string]Value{}
-			for i, c := range p.group {
-				rep[c.Name] = vals[i]
+			// Runs contain the entire input and are sorted by SQL group key.
+			// The previous group's count is now complete in every run. An
+			// unordered LIMIT permits returning these first complete groups.
+			if limit > 0 && len(plan.order) == 0 && len(top.rows) == limit {
+				return stop
 			}
+			haveGroup, groupKey, haveDistinct = true, key, false
+			rep = p.row(vals)
 			accs = make([]*accumulator, len(aggs))
 			for i, f := range aggs {
 				accs[i] = newAccumulator(f)
 			}
 		}
+		env.row = p.row(vals)
 		var dvals []Value
 		valid := true
 		for _, c := range p.distinct {
@@ -604,22 +771,31 @@ func (e *executor) reduceTupleRuns(ctx context.Context, plan *selectPlan, p *tup
 			if p.args[i] >= 0 {
 				v = vals[p.args[i]]
 			}
+			if x := p.argExprs[i]; x != nil {
+				v, err = env.eval(x)
+				if err != nil {
+					return invalidArg(err)
+				}
+			}
 			addWeightedInteger(accs[i], v, row.count)
 		}
 		return nil
 	})
-	if err != nil {
+	stopped := errors.Is(err, stop)
+	if err != nil && !stopped {
 		return nil, err
 	}
-	if !haveGroup && len(p.group) == 0 {
+	if !haveGroup && len(p.groupExprs) == 0 {
 		haveGroup = true
 		rep = map[string]Value{}
 		for _, f := range aggs {
 			accs = append(accs, newAccumulator(f))
 		}
 	}
-	if err := emit(); err != nil {
-		return nil, err
+	if !stopped {
+		if err := emit(); err != nil {
+			return nil, err
+		}
 	}
 	if limit > 0 {
 		for _, row := range top.rows {

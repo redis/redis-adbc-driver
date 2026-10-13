@@ -5,6 +5,7 @@ the same Arrow-decoded source prefix. Different LIMIT ties remain unverified.
 """
 import argparse
 import json
+import hashlib
 import math
 from pathlib import Path
 
@@ -12,7 +13,8 @@ import duckdb
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from run import FULL_ROWS, arrow_schema, convert_batch, save
+from run import FULL_ROWS, arrow_schema, convert_batch, save, commit
+from references import checked_reference, file_sha256
 
 
 def same_value(actual, expected):
@@ -63,6 +65,15 @@ def main():
                 break
         oracle = duckdb.connect()
         oracle.register("hits", pa.Table.from_batches(batches))
+    reference_meta = None
+    if oracle is None:
+        ddl = (args.upstream / "postgresql/create.sql").read_text()
+        reference_meta = {"loaded_rows": rows, "source_rows": pq.ParquetFile(args.parquet).metadata.num_rows,
+                          "columns": len(arrow_schema(ddl)), "upstream_commit": commit(args.upstream),
+                          "source_sha256": file_sha256(args.parquet),
+                          "schema_sha256": hashlib.sha256(ddl.encode()).hexdigest()}
+        if reference_meta["upstream_commit"] != run["metadata"]["upstream_commit"]:
+            ap.error("Run and reference upstream commits differ")
     checks = []
     for number, sql in enumerate(run["queries"], 1):
         if oracle:
@@ -72,11 +83,11 @@ def main():
                 checks.append({"query": number, "status": "reference_error", "type": type(error).__name__})
                 continue
         else:
-            reference = json.loads((args.reference_dir / f"q{number:02}.json").read_text())
-            if reference.get("error"):
-                checks.append({"query": number, "status": "reference_error"})
+            try:
+                expected = checked_reference(args.reference_dir, number, sql, reference_meta)
+            except (OSError, ValueError, KeyError, TypeError) as error:
+                checks.append({"query": number, "status": "reference_error", "type": type(error).__name__})
                 continue
-            expected = reference["rows"]
         for trial in range(1, 4):
             raw = args.run.parent / (args.run.stem + "-raw") / f"q{number:02}-{trial}.json"
             measured = json.loads(raw.read_text()) if raw.exists() else {}

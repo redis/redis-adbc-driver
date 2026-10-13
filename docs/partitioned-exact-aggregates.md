@@ -51,7 +51,7 @@ passes. Set TMPDIR to a volume with adequate free space; disk errors fail the
 query. Query-local files, cursors and worker grants are cleaned up on return or
 cancellation. A process killed without cleanup can leave a temporary directory.
 Adopted tables, multiple different DISTINCT argument tuples, aggregate FILTER,
-complex grouping, HAVING and windows keep their established paths.
+unsupported grouping/HAVING expressions and windows keep their established paths.
 
 ## Diagnostics and validation
 
@@ -88,3 +88,32 @@ independent DuckDB value comparisons, accounting for legitimate top-K ties.
 Local correctness and bounded-state regressions do not establish completion
 within the full-scale deadline. The original cloud sweep was still active
 when these changes were validated locally; it was left running.
+
+## ClickBench follow-up shapes (#305–#311)
+
+The bounded strategy now evaluates pure `DATE_PART` (including EXTRACT minute)
+and `LENGTH` expressions with the driver environment. Spill keys begin with the
+evaluated group keys and DISTINCT arguments, followed by complete source input
+values. This keeps different timestamps in the same minute group consecutive
+without rounding timestamps or BIGINTs through Redis doubles. Source values
+remain available for representative-row projection. Integer expression SUM/AVG
+retains exact weighted sum/count state. Simple aggregate-comparison HAVING runs
+only after complete reduction and before retaining final top-K groups.
+
+LIKE/ILIKE residual predicates can run over complete exact tuples; their input
+fields are retained even when not projected or aggregated. Scalar substring
+COUNT can use parallel narrow scans. SQL case, NULL and escape behavior stays
+in the driver; tokenized full-text matching is not substituted for substring
+semantics. Unordered grouped LIMIT retains OFFSET + LIMIT complete groups
+rather than materializing every final group. All source input is read; the final
+merge can stop once the chosen groups have complete counts across every run.
+
+Ordered narrow projections with lossy index ordering now stream exact scan
+pages through an OFFSET + LIMIT heap, preserving strings, duplicates and NULL
+ordering. Exact index ordering with residual predicates can stop after enough
+surviving rows even when the projection and predicate read the same fields.
+Windowed, correlated and volatile projection forms retain their existing paths.
+These changes bound retained state; they do not prove the seven queries meet
+the 300-second budget on 99,997,497 rows. Keep #305–#311 open until three full
+trials per SQL pass with valid independent references, stage metrics, wire/server
+profiles, CPU, spill I/O, peak memory and the tested commit/binary checksum.
