@@ -269,3 +269,14 @@ teardown, use `finops.py ... --remove-expired --output removal.json` to remove t
 matching per-run policies; differing policy contents are never overwritten or
 removed. This PR supplies the reusable guard; it does not modify live IAM or
 claim the external FinOps process has been repaired.
+
+## Interrupted-trial stage evidence
+
+`trial.py` writes `qNN-T.progress.json` before connection/setup/execution/fetch/
+output stages and refreshes it every five seconds. Failed isolated trials
+retain it as `partial_diagnostics`, including the last active stage, completed
+stage timings, elapsed wall time, CPU and process peak RSS. These partial
+samples never replace null failure timings or establish completed query
+latency. The sampler does not query the active ADBC connection and writes no
+connection URI or result values. Read the [Q19 follow-up report](q19-followup/report.md)
+for the timeout that motivated this and a reproducible exact-plan comparison.
