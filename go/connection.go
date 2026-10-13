@@ -34,12 +34,13 @@ type connectionImpl struct {
 
 	store *store
 	// sess holds the settings: the current schema, and what SET changes.
-	sess         *session
-	pushdown     string
-	queryWorkers int
-	workerBudget *workerBudget
-	workerGrant  atomic.Int64
-	version      string
+	sess             *session
+	pushdown         string
+	queryWorkers     int
+	workerBudget     *workerBudget
+	workerGrant      atomic.Int64
+	aggregateMetrics atomic.Pointer[partitionMetrics]
+	version          string
 	// rekey is adbc.redis.rename_rekey (from the database unless set on the
 	// connection).
 	rekey bool
@@ -57,11 +58,15 @@ type connectionImpl struct {
 }
 
 func (c *connectionImpl) executor() *executor {
-	return &executor{store: c.store, sess: c.sess, schema: c.sess.currentSchema(), pushdown: c.pushdown, queryWorkers: c.queryWorkers, workerBudget: c.workerBudget, workerGrant: &c.workerGrant, rekey: c.rekey}
+	metrics := &partitionMetrics{}
+	c.aggregateMetrics.Store(metrics)
+	return &executor{store: c.store, sess: c.sess, schema: c.sess.currentSchema(), pushdown: c.pushdown, queryWorkers: c.queryWorkers, workerBudget: c.workerBudget, workerGrant: &c.workerGrant, aggregateMetrics: metrics, rekey: c.rekey}
 }
 
 func (c *connectionImpl) GetOption(ctx context.Context, key string) (string, error) {
 	switch key {
+	case OptionStringAggregateMetrics:
+		return c.aggregateMetrics.Load().json(), nil
 	case OptionIntQueryWorkersLastGrant:
 		return strconv.FormatInt(c.workerGrant.Load(), 10), nil
 	case OptionStringQueryWorkerBudget, OptionIntQueryWorkersActive, OptionIntQueryWorkersQueued, OptionStringQueryWorkerTuning:

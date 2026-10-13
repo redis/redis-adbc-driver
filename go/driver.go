@@ -68,6 +68,8 @@ const (
 	OptionIntQueryWorkersQueued = "adbc.redis.query_workers_queued"
 	// Last admitted grant on a connection, zero before its first admission.
 	OptionIntQueryWorkersLastGrant = "adbc.redis.query_workers_last_grant"
+	// OptionStringAggregateMetrics reports the last partitioned exact aggregate.
+	OptionStringAggregateMetrics = "adbc.redis.aggregate_metrics"
 
 	// OptionStringCluster (database) selects the client: "auto" (default)
 	// uses the OSS Cluster API client when the server reports

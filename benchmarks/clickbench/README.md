@@ -69,8 +69,11 @@ Credentials are passed through stdin rather than service command arguments.
 
 These limits protect the runner; they do not implement disk spilling or make a
 high-cardinality query succeed with less RAM. Redis's server-side aggregate group
-limit is independent and remains visible as a query error. The driver outside
-this benchmark harness does not acquire a hard per-query memory limit.
+limit is independent. Supported simple aggregate queries now use
+[partitioned exact aggregation](../../docs/partitioned-exact-aggregates.md),
+with disk spilling and recovery from that group limit. Unsupported plans may
+still return the server error. The driver outside this benchmark harness does
+not acquire a hard per-query process memory limit.
 
 ```sh
 make -C go build

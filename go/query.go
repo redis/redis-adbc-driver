@@ -1119,15 +1119,27 @@ func (e *executor) selectAggregate(ctx context.Context, plan *selectPlan, params
 	types := meta.types()
 	env := e.newEnv(ctx, types, params)
 
-	groups, ok, err := e.indexAggregate(ctx, plan, wp, aggs)
+	groups, ok, err := e.partitionedAggregate(ctx, plan, wp, aggs, params, false)
 	if err != nil {
 		return nil, err
 	}
 	if !ok {
+		groups, ok, err = e.indexAggregate(ctx, plan, wp, aggs)
+	}
+	if err == nil && !ok {
 		groups, ok, err = e.indexCountDistinct(ctx, plan, wp, aggs, params)
-		if err != nil {
-			return nil, err
+	}
+	if aggregateGroupLimit(err) {
+		// Retry only supported exact plans. Unsupported SQL retains its explicit
+		// server resource error instead of silently switching to unbounded state.
+		original := err
+		groups, ok, err = e.partitionedAggregate(ctx, plan, wp, aggs, params, true)
+		if !ok && err == nil {
+			return nil, original
 		}
+	}
+	if err != nil {
+		return nil, err
 	}
 	if !ok {
 		groups, err = e.driverAggregate(ctx, plan, wp, aggs, params)
