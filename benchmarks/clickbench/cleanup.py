@@ -10,6 +10,9 @@ import urllib.error
 import urllib.request
 
 
+MAX_PENDING_CHECKS = 30
+
+
 def error_code(exc):
     return getattr(exc, "response", {}).get("Error", {}).get("Code")
 
@@ -106,11 +109,20 @@ def step(ec2, api, state, save, status=None, now=None, verify_only=False):
     def checkpoint(phase, **result):
         state["cleanup_phase"] = phase
         state["cleanup_verified"] = False
+        state.pop("cleanup_action_reason", None)
+        if result.get("pending"):
+            checks = state.setdefault("cleanup_pending_checks", {})
+            checks[phase] = checks.get(phase, 0) + 1
+            if checks[phase] >= MAX_PENDING_CHECKS:
+                state["cleanup_action_reason"] = f"{phase}: observation limit reached"
+                result = {"action_required": True}
         save(state)
         return result
 
     if instance is not None and instance["State"]["Name"] != "terminated":
-        if instance["State"]["Name"] != "shutting-down":
+        if instance["State"]["Name"] != "shutting-down" and not state.get("runner_terminate_requested"):
+            state.update(runner_terminate_requested=True, cleanup_verified=False)
+            save(state)
             ec2.terminate_instances(InstanceIds=[state["instance_id"]])
         return checkpoint("terminating runner", pending=True)
     state["runner_terminated"] = True
@@ -124,10 +136,15 @@ def step(ec2, api, state, save, status=None, now=None, verify_only=False):
             return checkpoint("waiting for security group interfaces", pending=True)
         if state.get("security_group_dependency_failures", 0) >= 3:
             return checkpoint("security group dependencies require action", action_required=True)
+        if state.get("security_group_delete_requested"):
+            return checkpoint("verifying security group deletion", pending=True)
+        state.update(security_group_delete_requested=True, cleanup_verified=False)
+        save(state)
         try:
             ec2.delete_security_group(GroupId=state["security_group_id"])
         except Exception as exc:
             if error_code(exc) == "DependencyViolation":
+                state["security_group_delete_requested"] = False
                 state["security_group_dependency_failures"] = state.get("security_group_dependency_failures", 0) + 1
                 return checkpoint("security group dependencies remain", pending=True)
             if error_code(exc) != "InvalidGroup.NotFound":
@@ -161,6 +178,7 @@ def step(ec2, api, state, save, status=None, now=None, verify_only=False):
         if state.get(resource + "_delete_requested"):
             return checkpoint(resource + " deletion request uncertain", action_required=True)
         state[resource + "_delete_requested"] = True
+        state["cleanup_verified"] = False
         save(state)
         task = api(resource_path, "DELETE")
         if not task or not task.get("taskId"):
@@ -168,6 +186,7 @@ def step(ec2, api, state, save, status=None, now=None, verify_only=False):
         state[resource + "_delete_task"] = task["taskId"]
         return checkpoint("deleting " + resource, pending=True)
 
+    state.pop("cleanup_action_reason", None)
     state.update(cleanup_verified=True, cleanup_verified_utc=now.isoformat(),
                  cleanup_phase="verified", phase="cleanup-verified")
     save(state)
