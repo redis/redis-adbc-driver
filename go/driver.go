@@ -66,10 +66,12 @@ const (
 	// Read-only database/connection counters for shared worker admission.
 	OptionIntQueryWorkersActive = "adbc.redis.query_workers_active"
 	OptionIntQueryWorkersQueued = "adbc.redis.query_workers_queued"
-	// Last admitted grant on a connection, zero before its first admission.
+	// Last admitted grant in the latest execution, zero if none was admitted.
 	OptionIntQueryWorkersLastGrant = "adbc.redis.query_workers_last_grant"
 	// OptionStringAggregateMetrics reports the last partitioned exact aggregate.
 	OptionStringAggregateMetrics = "adbc.redis.aggregate_metrics"
+	// Opt-in statement sidecar, refreshed during execute and on return.
+	OptionStringExecutionDiagnosticsFile = "adbc.redis.execution_diagnostics_file"
 
 	// OptionStringCluster (database) selects the client: "auto" (default)
 	// uses the OSS Cluster API client when the server reports

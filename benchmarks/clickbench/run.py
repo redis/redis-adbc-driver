@@ -26,7 +26,7 @@ import redis
 
 from loading import ingest_batches
 from isolation import check_isolation, resolve_memory_limit, run_isolated
-from progress import progress_path, annotate_failure
+from progress import progress_path, execution_path, annotate_failure
 
 FULL_ROWS = 99_997_497
 HERE = Path(__file__).resolve().parent
@@ -352,6 +352,7 @@ def main():
                             "namespace": namespace, "sql": sql, "query_workers": args.query_workers, "output": str(output_path.resolve())}))
                         output_path.unlink(missing_ok=True)
                         progress_path(output_path).unlink(missing_ok=True)
+                        execution_path(output_path).unlink(missing_ok=True)
                         try:
                             record.update(run_isolated(
                                 [sys.executable, str(HERE / "trial.py"), str(job_path), "--credentials-stdin"],

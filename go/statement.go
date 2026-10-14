@@ -42,7 +42,8 @@ type statementImpl struct {
 	// indexable columns).
 	indexColumns map[string]bool
 	// aggPushdown overrides the connection's aggregate pushdown mode.
-	aggPushdown string
+	aggPushdown     string
+	diagnosticsFile string
 	// stream is adbc.redis.stream_results and stream_batch_rows, from the
 	// connection unless set here.
 	stream streamSettings
@@ -75,7 +76,12 @@ func (s *statementImpl) GetOption(ctx context.Context, key string) (string, erro
 		slices.Sort(names)
 		return strings.Join(names, ","), nil
 	case OptionStringAggregatePushdown:
-		return s.executor().pushdown, nil
+		if s.aggPushdown != "" {
+			return s.aggPushdown, nil
+		}
+		return s.conn.pushdown, nil
+	case OptionStringExecutionDiagnosticsFile:
+		return s.diagnosticsFile, nil
 	case OptionStringStreamResults, OptionIntStreamBatchRows:
 		return s.stream.get(key), nil
 	}
@@ -166,6 +172,9 @@ func (s *statementImpl) SetOption(ctx context.Context, key, val string) error {
 			return err
 		}
 		s.aggPushdown = val
+		return nil
+	case OptionStringExecutionDiagnosticsFile:
+		s.diagnosticsFile = val
 		return nil
 	case OptionStringStreamResults, OptionIntStreamBatchRows:
 		return s.stream.set(key, val)
@@ -319,7 +328,7 @@ func (s *statementImpl) paramRows() ([][]Value, []ColType, error) {
 // run executes every statement of the script, once per bound parameter row.
 // With stream set, the result of a query may be a stream (see stream.go):
 // that of a single statement run at most once.
-func (s *statementImpl) run(ctx context.Context, stream bool) (execResult, error) {
+func (s *statementImpl) run(ctx context.Context, stream bool) (result execResult, resultErr error) {
 	parsed, err := s.parse()
 	if err != nil {
 		return execResult{}, err
@@ -329,6 +338,12 @@ func (s *statementImpl) run(ctx context.Context, stream bool) (execResult, error
 		return execResult{}, err
 	}
 	exec := s.executor()
+	s.conn.workerGrant.Store(0)
+	finishDiagnostics := exec.startDiagnostics(s.diagnosticsFile, s.conn.clientCfg)
+	defer func() { finishDiagnostics(resultErr) }()
+	if exec.diagnostics != nil {
+		ctx = context.WithValue(ctx, diagnosticsContextKey{}, exec.diagnostics)
+	}
 	// A script of several statements is one transaction for SET LOCAL, as
 	// in Postgres; what it set ends with it unless a BEGIN is open.
 	exec.script = len(parsed) > 1

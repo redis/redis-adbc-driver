@@ -10,9 +10,30 @@ def progress_path(output):
     return Path(output).with_suffix(".progress.json")
 
 
+def execution_path(output):
+    return Path(output).with_suffix(".execution.json")
+
+
+def retained_execution(output):
+    """Driver-owned snapshot; no concurrent calls into the active ADBC handle."""
+    try:
+        value = json.loads(execution_path(output).read_text())
+        if value.get("version") != 1 or value.get("status") not in {"running", "execute_returned", "execute_failed"}:
+            return None
+        fields = {"version", "status", "phase", "sampled_at", "execute_elapsed_seconds", "worker_grant", "plan",
+                  "processed_rows", "matched_rows", "aggregate_metrics", "redis_commands",
+                  "redis_round_trip_worker_seconds", "socket_read_worker_seconds", "connection_read_bytes",
+                  "connection_written_bytes", "io_scope", "redis_server_profile",
+                  "process_allocated_bytes_during_execute", "process_heap_bytes"}
+        return {key: value[key] for key in fields if key in value}
+    except (OSError, ValueError, TypeError, AttributeError):
+        return None
+
+
 class TrialProgress:
     def __init__(self, output, started, cpu_before, interval=5):
         self.path = progress_path(output)
+        self.output = output
         self.started, self.cpu_before = started, cpu_before
         self.interval = interval
         self.lock = threading.Lock()
@@ -47,6 +68,9 @@ class TrialProgress:
                             "process_user_cpu_seconds": usage.ru_utime - self.cpu_before.ru_utime,
                             "process_system_cpu_seconds": usage.ru_stime - self.cpu_before.ru_stime,
                             "process_peak_rss_bytes": usage.ru_maxrss * 1024}
+                execution = retained_execution(self.output)
+                if execution:
+                    snapshot["execution_diagnostics"] = execution
                 temp = self.path.with_suffix(self.path.suffix + ".tmp")
                 temp.write_text(json.dumps(snapshot) + "\n")
                 temp.replace(self.path)
@@ -75,7 +99,11 @@ def retained_progress(output):
             return None
         fields = {"status", "active_stage", "stage_seconds", "active_stage_elapsed_seconds", "trial_wall_seconds",
                   "process_user_cpu_seconds", "process_system_cpu_seconds", "process_peak_rss_bytes"}
-        return {key: value[key] for key in fields if key in value}
+        result = {key: value[key] for key in fields if key in value}
+        execution = retained_execution(output)
+        if execution:
+            result["execution_diagnostics"] = execution
+        return result
     except (OSError, ValueError, TypeError, AttributeError):
         return None
 

@@ -27,6 +27,9 @@ type partitionMetrics struct {
 	partitions, retries, fallbacks, tuples, rows, valueBytes atomic.Int64
 	redisNanos, partitionNanos, mergeNanos, spillBytes       atomic.Int64
 	workers                                                  atomic.Int64
+	rowScans                                                 atomic.Int64
+	spillReadBytes                                           atomic.Int64
+	spillRead, spillWrite, spillSort, fetch, merge           liveTimer
 }
 
 func (m *partitionMetrics) json() string {
@@ -39,6 +42,10 @@ func (m *partitionMetrics) json() string {
 		"returned_tuples": m.tuples.Load(), "represented_rows": m.rows.Load(), "logical_value_bytes": m.valueBytes.Load(),
 		"redis_reply_seconds": float64(m.redisNanos.Load()) / 1e9, "partition_worker_seconds": float64(m.partitionNanos.Load()) / 1e9,
 		"merge_wall_seconds": float64(m.mergeNanos.Load()) / 1e9, "spill_written_bytes": m.spillBytes.Load(),
+		"row_scan_partitions": m.rowScans.Load(), "spill_read_bytes": m.spillReadBytes.Load(),
+		"spill_read_worker_seconds": m.spillRead.seconds(), "spill_write_worker_seconds": m.spillWrite.seconds(),
+		"spill_sort_worker_seconds": m.spillSort.seconds(), "partition_fetch_worker_seconds": m.fetch.seconds(),
+		"merge_elapsed_seconds": m.merge.seconds(),
 	})
 	return string(b)
 }

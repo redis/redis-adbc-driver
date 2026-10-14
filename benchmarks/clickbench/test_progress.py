@@ -8,7 +8,7 @@ import tempfile
 import time
 import unittest
 
-from progress import TrialProgress, progress_path, retained_progress, annotate_failure
+from progress import TrialProgress, progress_path, retained_progress, annotate_failure, execution_path, retained_execution
 
 
 class Progress(unittest.TestCase):
@@ -37,7 +37,8 @@ class Progress(unittest.TestCase):
             output, job = Path(directory) / "q19-1.json", Path(directory) / "job.json"
             job.write_text(json.dumps({"driver": "fake", "namespace": "test", "sql": "SELECT 1", "output": str(output)}))
             script = """
-import sys, time
+import sys, time, json
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 import trial
 conn, cur = MagicMock(), MagicMock()
@@ -47,6 +48,10 @@ cur.__enter__.return_value = cur
 conn.adbc_connection.get_option.return_value = '8'
 def execute(sql):
     if not sql.startswith('SET '):
+        options = cur.adbc_statement.set_options.call_args.kwargs
+        Path(options['adbc.redis.execution_diagnostics_file']).write_text(json.dumps({
+            'version': 1, 'status': 'running', 'phase': 'partition_fetch', 'worker_grant': 4,
+            'aggregate_metrics': {'represented_rows': 123, 'spill_written_bytes': 456}}))
         time.sleep(1000)
 cur.execute.side_effect = execute
 with patch.object(trial.dbapi, 'connect', return_value=conn), patch.object(trial.sys, 'argv', ['trial.py', sys.argv[1]]):
@@ -60,7 +65,7 @@ with patch.object(trial.dbapi, 'connect', return_value=conn), patch.object(trial
                     deadline = time.monotonic() + 10
                     while time.monotonic() < deadline:
                         snapshot = retained_progress(output)
-                        if snapshot and snapshot["active_stage"] == "execute":
+                        if snapshot and snapshot["active_stage"] == "execute" and snapshot.get("execution_diagnostics"):
                             break
                         if process.poll() is not None:
                             self.fail("Mock trial exited before execute checkpoint")
@@ -79,6 +84,10 @@ with patch.object(trial.dbapi, 'connect', return_value=conn), patch.object(trial
             self.assertIsNone(record["seconds"])
             self.assertEqual(record["error_type"], "QueryDeadline")
             self.assertEqual(record["partial_diagnostics"]["active_stage"], "execute")
+            execution = record["partial_diagnostics"]["execution_diagnostics"]
+            self.assertEqual(execution["worker_grant"], 4)
+            self.assertEqual(execution["aggregate_metrics"]["represented_rows"], 123)
+            self.assertNotIn("seconds", execution)
             success = {"seconds": 1.0}
             annotate_failure(success, output)
             self.assertNotIn("partial_diagnostics", success)
@@ -102,6 +111,17 @@ with patch.object(trial.dbapi, 'connect', return_value=conn), patch.object(trial
             progress.enter("execute", {})
             progress.close("failed", {})
             self.assertIsNone(retained_progress(output))
+
+    def test_execution_checkpoint_validation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "q32-1.json"
+            self.assertIsNone(retained_execution(output))
+            for value in ["broken", "null", "[]", '{"version":2,"status":"running"}', '{"version":1,"status":"complete"}']:
+                execution_path(output).write_text(value)
+                self.assertIsNone(retained_execution(output))
+            execution_path(output).write_text(json.dumps({"version": 1, "status": "execute_returned", "worker_grant": 2,
+                                                          "seconds": 1, "uri": "secret"}))
+            self.assertEqual(retained_execution(output), {"version": 1, "status": "execute_returned", "worker_grant": 2})
 
 
 if __name__ == "__main__":

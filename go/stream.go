@@ -146,7 +146,10 @@ func (e *executor) streamSelect(ctx context.Context, plan *selectPlan, params []
 		return execResult{}, err
 	}
 	if sc.req.where.keys != nil || sc.req.where.none || !sc.indexSort {
-		rows, err := e.selectScanned(ctx, plan, sc, params)
+		rows, handled, err := e.selectTopK(ctx, plan, sc, params)
+		if !handled {
+			rows, err = e.selectScanned(ctx, plan, sc, params)
+		}
 		if err != nil {
 			return execResult{}, err
 		}

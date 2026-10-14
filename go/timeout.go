@@ -142,6 +142,7 @@ func newClient(cfg *clientConfig, cluster bool, t timeouts) goredis.UniversalCli
 		opts.ReadTimeout, opts.WriteTimeout = t.goRedis()
 		c := goredis.NewClient(&opts)
 		c.AddHook(hook)
+		c.AddHook(diagnosticsHook{active: &cfg.diagnostics})
 		return c
 	}
 	opts := *cfg.cluster
@@ -152,7 +153,10 @@ func newClient(cfg *clientConfig, cluster bool, t timeouts) goredis.UniversalCli
 	// Transactions (WATCH … EXEC) and search commands go to a node's client
 	// directly, so the nodes have the hook too (errorHook leaves errors it
 	// already rewrote alone).
-	c.OnNewNode(func(node *goredis.Client) { node.AddHook(hook) })
+	c.OnNewNode(func(node *goredis.Client) {
+		node.AddHook(hook)
+		node.AddHook(diagnosticsHook{active: &cfg.diagnostics})
+	})
 	c.AddHook(hook)
 	return c
 }
