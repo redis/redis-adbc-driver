@@ -25,24 +25,8 @@ import (
 // final OFFSET+LIMIT rows. Every residual is checked before heap admission.
 func (e *executor) selectTopK(ctx context.Context, plan *selectPlan, sc selectScan, params []Value) ([][]Value, bool, error) {
 	k := aggregateTopLimit(plan, math.MaxInt)
-	if k == 0 || sc.indexSort || plan.hasCorrelated() || len(plan.extraNeed) != 0 || plan.qualify != nil {
+	if !selectTopKShape(plan, sc, k) {
 		return nil, false, nil
-	}
-	// Evaluation of volatile projection expressions stays on the established
-	// path. Simple columns also keep retained rows narrow.
-	for _, it := range plan.items {
-		switch it.expr.(type) {
-		case *ColumnRef, *Literal:
-		default:
-			return nil, false, nil
-		}
-	}
-	for _, o := range plan.order {
-		switch o.expr.(type) {
-		case *ColumnRef:
-		default:
-			return nil, false, nil
-		}
 	}
 	env := e.newEnv(ctx, plan.meta.types(), params)
 	e.diagnostics.setPhase("select_topk")
@@ -90,4 +74,37 @@ func (e *executor) selectTopK(ctx context.Context, plan *selectPlan, sc selectSc
 		out[i] = r.vals
 	}
 	return out, true, nil
+}
+
+// selectTopKShape admits projections whose rows can be evaluated independently.
+// Volatile and correlated expressions retain their established serial path.
+func selectTopKShape(plan *selectPlan, sc selectScan, k int) bool {
+	if k == 0 || sc.indexSort || plan.hasCorrelated() || len(plan.extraNeed) != 0 || plan.qualify != nil {
+		return false
+	}
+	for _, it := range plan.items {
+		switch it.expr.(type) {
+		case *ColumnRef, *Literal:
+		default:
+			return false
+		}
+	}
+	for _, o := range plan.order {
+		if _, ok := o.expr.(*ColumnRef); !ok {
+			return false
+		}
+	}
+	return true
+}
+
+func retainTopK(top *aggregateTopK, row aggregateOutput, k int) {
+	if len(top.rows) == k && !top.better(row, top.rows[0]) {
+		return
+	}
+	if len(top.rows) < k {
+		heap.Push(top, row)
+	} else {
+		top.rows[0] = row
+		heap.Fix(top, 0)
+	}
 }

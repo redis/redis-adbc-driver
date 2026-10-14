@@ -286,3 +286,29 @@ func TestSQLExecutionDiagnosticsAndStreamTopK(t *testing.T) {
 		t.Fatalf("hash topk got=%v want=%v err=%v", got, want, err)
 	}
 }
+
+func TestSQLParallelExactTopK(t *testing.T) {
+	h := newSQLHarness(t)
+	h.dropTables("it_parallel_topk")
+	h.exec("CREATE TABLE it_parallel_topk (phrase VARCHAR,payload INTEGER)")
+	h.exec("INSERT INTO it_parallel_topk VALUES ('z',1),('a\x00z',2),('a\x00b',3),('',4),('b',5),(NULL,6),('A',7),(' a',8)")
+	e, plan, _ := distinctTestPlan(t, h, "SELECT phrase,payload FROM it_parallel_topk WHERE phrase<>'' ORDER BY phrase,payload DESC LIMIT 4 OFFSET 1")
+	// Sparse sequences are valid. Raising the upper bound exercises multiple
+	// disjoint ranges without making this correctness test load 131k rows.
+	if err := e.store.client.Set(h.ctx, seqKey(plan.meta.Schema, plan.meta.Name), aggregatePartitionRows*2, 0).Err(); err != nil {
+		t.Fatal(err)
+	}
+	e.queryWorkers = 2
+	sc, err := e.prepareScan(h.ctx, plan, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, handled, err := e.parallelSelectTopK(h.ctx, plan, sc, nil)
+	if err != nil || !handled {
+		t.Fatalf("handled=%v err=%v", handled, err)
+	}
+	want, err := e.selectScanned(h.ctx, plan, sc, nil)
+	if err != nil || !reflect.DeepEqual(got, want) {
+		t.Fatalf("got=%v want=%v err=%v", got, want, err)
+	}
+}

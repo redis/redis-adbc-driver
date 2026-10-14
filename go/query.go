@@ -885,6 +885,9 @@ func (e *executor) runSelect(ctx context.Context, plan *selectPlan, params []Val
 	if err != nil {
 		return nil, err
 	}
+	if rows, handled, err := e.parallelSelectTopK(ctx, plan, sc, params); handled {
+		return rows, err
+	}
 	if rows, handled, err := e.selectTopK(ctx, plan, sc, params); handled {
 		return rows, err
 	}
