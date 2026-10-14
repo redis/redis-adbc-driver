@@ -207,9 +207,22 @@ number/SQL and DuckDB version. `manifest.json` becomes complete only when all
 Validation rejects incomplete manifests, old untyped reference files, changed
 sources, changed SQL or mismatched metadata. Regenerate old reference sets.
 Use `validate.py --reference-dir full-reference` with the same source/upstream.
-Different allowed groups for unordered LIMIT, or different ordering ties,
-remain `needs_tie_validation` until checked independently; `compare.py` does
-not calculate ratios for such unverified results.
+For different LIMIT selections, the validator independently checks membership in
+the complete typed DuckDB result, including all projected aggregate values and
+row multiplicity. Ordered results must fill exactly the required rank bands,
+including partial ties at both OFFSET and LIMIT boundaries. Q25 retains its
+unprojected EventTime sort key in the oracle. Different valid ties pass; missing
+higher-ranked rows, invalid groups, incorrect aggregates and out-of-bound rows
+fail. Oracle failures, unsupported ordering expressions, or more than one million
+eligible tie rows remain `needs_tie_validation`; `compare.py` excludes them from
+ratios. Exact ordered reference matches retain their order check.
+
+Use `--tie-memory-limit 4GB --tie-temp-directory /mnt/duckdb-tmp` to bound oracle
+memory and permit disk spilling. Correctness evidence records source/schema
+provenance, the oracle version, raw trial hashes and the validation method.
+The [October 14 validation evidence](tie-validation-2026-10-14/evidence.json)
+resolves all 21 pending ties in the historical d0792283 run: 111 valid trials and
+18 deadlines. These timings describe that original driver commit.
 
 ## Effective FinOps protection (#312)
 
@@ -332,8 +345,11 @@ can prevent that VPC's teardown even when the database is gone. Never delete
 the managed VPC directly, remove unrelated groups, or detach other workloads'
 interfaces to force cleanup. Three security-group dependency violations produce
 `action_required`; Redis `destroy_error`, failed tasks, or uncertain requests
-also require intervention. Task `processing-completed` alone does not prove
-absence. Submitted tasks are checkpointed and never blindly repeated. Monitor
+also require intervention. Each pending phase escalates to `action_required`
+after 30 persisted observations, including stuck ENIs and a completed task whose
+resource remains present. Accepted EC2/group mutations are checkpointed before
+submission and never repeated on stale readback. Task `processing-completed`
+alone does not prove absence. Submitted tasks are checkpointed and never blindly repeated. Monitor
 `cleanup_phase`, `pending`, and `action_required`; notify on actionable failure
 and disable the schedule only after verified cleanup. Deployment adapters and
 schedule provisioning remain operator-managed; this PR does not alter a live

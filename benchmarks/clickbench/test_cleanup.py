@@ -226,6 +226,47 @@ class CleanupTest(unittest.TestCase):
         self.assertEqual(self.step(), {"action_required": True})
         self.assertFalse(self.api.calls)
 
+    def test_completed_task_with_present_resource_eventually_escalates(self):
+        self.no_aws()
+        self.state["database_delete_task"] = "test-task"
+        for _ in range(cleanup.MAX_PENDING_CHECKS - 1):
+            self.assertEqual(self.step(), {"pending": True})
+        self.assertEqual(self.step(), {"action_required": True})
+        self.assertIn("observation limit", self.saved[-1]["cleanup_action_reason"])
+        self.assertFalse(self.saved[-1]["cleanup_verified"])
+        self.assertFalse(self.api.calls)
+        # An eventual absence can still complete cleanup without resetting the
+        # budget or treating the prior task success as absence.
+        self.api.db = self.api.sub = None
+        self.assertEqual(self.step(), {"verified": True})
+
+    def test_interfaces_eventually_escalate_without_mutation(self):
+        self.no_runner()
+        self.ec2.interfaces = [{"NetworkInterfaceId": "eni-test"}]
+        for _ in range(cleanup.MAX_PENDING_CHECKS):
+            result = self.step()
+        self.assertEqual(result, {"action_required": True})
+        self.assertFalse(self.ec2.calls)
+        self.assertFalse(self.api.calls)
+
+    def test_eventually_consistent_aws_readback_never_repeats_deletion(self):
+        self.step()
+        # Simulate stale DescribeInstances readback after termination accepted.
+        self.ec2.instance["State"]["Name"] = "running"
+        for _ in range(cleanup.MAX_PENDING_CHECKS):
+            result = self.step()
+        self.assertEqual(result, {"action_required": True})
+        self.assertEqual(len(self.ec2.calls), 1)
+        self.no_runner()
+        original_group = copy.deepcopy(self.ec2.group)
+        self.step()
+        self.ec2.group = original_group
+        for _ in range(cleanup.MAX_PENDING_CHECKS):
+            result = self.step()
+        self.assertEqual(result, {"action_required": True})
+        self.assertEqual([c[0] for c in self.ec2.calls], ["terminate", "delete_group"])
+        self.assertFalse(self.api.calls)
+
     def test_missing_identity_fails_closed(self):
         for key in STATE:
             with self.subTest(key=key):
