@@ -280,3 +280,67 @@ samples never replace null failure timings or establish completed query
 latency. The sampler does not query the active ADBC connection and writes no
 connection URI or result values. Read the [Q19 follow-up report](q19-followup/report.md)
 for the timeout that motivated this and a reproducible exact-plan comparison.
+
+## Dependency-ordered scheduled cleanup (#321)
+
+Package `cleanup.py` in the independent cleanup Lambda and set its handler to
+`cleanup.handler`, with `BUCKET` and `SECRET_ARN` environment variables. The
+secret holds the Redis control-plane `key` and `secret`; never put credentials
+in deployment state or logs. Lambda supplies `AWS_REGION`. Grant the role only
+the required S3 state/status reads and state writes, Secrets Manager secret
+read, EC2 describe/terminate/delete-security-group operations, and authorized
+Redis resource deletion access. Preserve backup and result objects.
+
+Persist these verified identities in `setup/deployment-state.json`:
+
+```json
+{
+  "name": "unique-approved-benchmark-run",
+  "region": "us-east-1",
+  "instance_id": "i-0123456789abcdef0",
+  "security_group_id": "sg-0123456789abcdef0",
+  "security_group_name": "unique-approved-benchmark-run-runner",
+  "vpc_id": "vpc-0123456789abcdef0",
+  "subscription_id": 123,
+  "database_id": 456,
+  "database_name": "benchmark-database",
+  "cleanup_deadline_utc": "2026-10-14T08:11:41Z"
+}
+```
+
+The date is illustrative; use the approved deadline. Tag both the runner and
+its dedicated security group with `BenchmarkRun` equal to `name`; the runner
+also needs `Name` equal to `name` plus `-runner`. Untagged, shared, or mismatched
+resources fail closed. Existing deployments must reconcile and verify these
+identities and tags before adopting this module. Invoke with `verify_only=true`
+for a read-only identity check; this does not attest IAM permissions or prove
+that future deletion will succeed.
+
+Each scheduled invocation advances one asynchronous step, beginning at the
+approved deadline or when `results/status.json` has both `phase=complete` and
+`artifacts_persisted=true`:
+
+1. Terminate only the exact tagged runner; tolerate an already-absent instance.
+2. Wait for its security group's network interfaces to disappear, delete only
+   the exact tagged group, and verify absence on a later invocation.
+3. Delete the exact database and verify its absence.
+4. Require an empty matching subscription, delete it, and verify absence.
+5. Persist `cleanup_verified=true` only after all targeted resources are gone.
+
+The managed subscription can own the VPC: an extra benchmark security group
+can prevent that VPC's teardown even when the database is gone. Never delete
+the managed VPC directly, remove unrelated groups, or detach other workloads'
+interfaces to force cleanup. Three security-group dependency violations produce
+`action_required`; Redis `destroy_error`, failed tasks, or uncertain requests
+also require intervention. Task `processing-completed` alone does not prove
+absence. Submitted tasks are checkpointed and never blindly repeated. Monitor
+`cleanup_phase`, `pending`, and `action_required`; notify on actionable failure
+and disable the schedule only after verified cleanup. Deployment adapters and
+schedule provisioning remain operator-managed; this PR does not alter a live
+Lambda, infrastructure, or budget.
+
+Run the cleanup regressions without cloud access:
+
+```sh
+python3 -m unittest discover -s benchmarks/clickbench -p test_cleanup.py -v
+```
