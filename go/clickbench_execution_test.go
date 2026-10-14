@@ -311,4 +311,32 @@ func TestSQLParallelExactTopK(t *testing.T) {
 	if err != nil || !reflect.DeepEqual(got, want) {
 		t.Fatalf("got=%v want=%v err=%v", got, want, err)
 	}
+
+	// An exact Redis index sort still needs the bounded path when a residual
+	// predicate prevents pushing LIMIT. Otherwise Redis sorts every matching
+	// row before returning the first cursor page (the full-scale Q26 shape).
+	h.dropTables("it_parallel_topk_exact")
+	h.exec("CREATE TABLE it_parallel_topk_exact (phrase VARCHAR,payload INTEGER)")
+	h.exec("INSERT INTO it_parallel_topk_exact VALUES ('z',1),('a',2),('',3),('b',4),(NULL,5),('A',6),(' a',7)")
+	e, plan, _ = distinctTestPlan(t, h, "SELECT phrase FROM it_parallel_topk_exact WHERE phrase<>'' ORDER BY phrase LIMIT 2")
+	if err := e.store.client.Set(h.ctx, seqKey(plan.meta.Schema, plan.meta.Name), aggregatePartitionRows*2, 0).Err(); err != nil {
+		t.Fatal(err)
+	}
+	e.queryWorkers = 2
+	sc, err = e.prepareScan(h.ctx, plan, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !sc.indexSort || sc.pushLimit || sc.req.where.residual == nil {
+		t.Fatalf("expected exact index sort with residual and no pushed limit: %+v", sc)
+	}
+	got, handled, err = e.parallelSelectTopK(h.ctx, plan, sc, nil)
+	if err != nil || !handled {
+		t.Fatalf("handled=%v err=%v", handled, err)
+	}
+	want, err = e.selectScanned(h.ctx, plan, sc, nil)
+	if err != nil || !reflect.DeepEqual(got, want) {
+		t.Fatalf("exact index residual got=%v want=%v err=%v", got, want, err)
+	}
+	h.expectRows("SELECT phrase FROM it_parallel_topk_exact WHERE phrase<>'' ORDER BY phrase LIMIT 2", " a", "A")
 }

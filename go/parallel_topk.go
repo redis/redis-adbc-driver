@@ -26,13 +26,21 @@ import (
 
 // parallelSelectTopK scans disjoint managed row-ID ranges and retains only the
 // best OFFSET+LIMIT rows in each worker. It is the exact bounded alternative
-// when an indexed string cannot be sorted by Redis (for example, because one
-// value contains a NUL byte). The final range is open-ended so concurrent
+// when Redis cannot sort exactly (for example, because one value contains a
+// NUL byte), and when an exact index sort cannot push LIMIT because a residual
+// predicate must be checked first. The final range is open-ended so concurrent
 // inserts follow the same inclusion rule as partitioned aggregates.
 func (e *executor) parallelSelectTopK(ctx context.Context, plan *selectPlan, sc selectScan, params []Value) (out [][]Value, handled bool, resultErr error) {
 	k := aggregateTopLimit(plan, math.MaxInt)
 	meta := plan.meta
-	if !selectTopKShape(plan, sc, k) || meta.isMem || meta.Adopted || meta.KeyRows || meta.AppIndex ||
+	// selectTopKShape rejects an index-ordered scan because the serial path can
+	// normally stream it. A residual prevents the index LIMIT, though, and makes
+	// Redis sort the complete match set before that stream can return its first
+	// page. Partition by managed row ID in that case and sort only each bounded
+	// worker heap. Keep a genuinely pushed LIMIT on the established index path.
+	shapeScan := sc
+	shapeScan.indexSort = false
+	if sc.pushLimit || !selectTopKShape(plan, shapeScan, k) || meta.isMem || meta.Adopted || meta.KeyRows || meta.AppIndex ||
 		sc.req.where.none || sc.req.where.keys != nil || !parallelPredicate(sc.req.where.residual) {
 		return nil, false, nil
 	}

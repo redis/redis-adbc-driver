@@ -145,6 +145,15 @@ func (e *executor) streamSelect(ctx context.Context, plan *selectPlan, params []
 	if err != nil {
 		return execResult{}, err
 	}
+	// A residual can prevent LIMIT from running in an otherwise exact index
+	// sort. Redis would then sort the complete match set before this stream saw
+	// its first page. Prefer the bounded partitioned heap when it is eligible.
+	if rows, handled, err := e.parallelSelectTopK(ctx, plan, sc, params); handled {
+		if err != nil {
+			return execResult{}, err
+		}
+		return e.fitResult(execResult{isQuery: true, cols: plan.columns(), rows: rows, affected: int64(len(rows))}, nil)
+	}
 	if sc.req.where.keys != nil || sc.req.where.none || !sc.indexSort {
 		rows, handled, err := e.selectTopK(ctx, plan, sc, params)
 		if !handled {
