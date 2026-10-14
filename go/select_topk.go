@@ -25,7 +25,7 @@ import (
 // final OFFSET+LIMIT rows. Every residual is checked before heap admission.
 func (e *executor) selectTopK(ctx context.Context, plan *selectPlan, sc selectScan, params []Value) ([][]Value, bool, error) {
 	k := aggregateTopLimit(plan, math.MaxInt)
-	if k == 0 || sc.indexSort || sc.req.hashScan || plan.hasCorrelated() || len(plan.extraNeed) != 0 || plan.qualify != nil {
+	if k == 0 || sc.indexSort || plan.hasCorrelated() || len(plan.extraNeed) != 0 || plan.qualify != nil {
 		return nil, false, nil
 	}
 	// Evaluation of volatile projection expressions stays on the established
@@ -45,6 +45,7 @@ func (e *executor) selectTopK(ctx context.Context, plan *selectPlan, sc selectSc
 		}
 	}
 	env := e.newEnv(ctx, plan.meta.types(), params)
+	e.diagnostics.setPhase("select_topk")
 	top := aggregateTopK{order: plan.order}
 	ordinal := 0
 	err := e.scanPages(ctx, sc.req, params, func(rows []map[string]Value) error {

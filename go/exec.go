@@ -38,6 +38,7 @@ type executor struct {
 	workerGrant      *atomic.Int64
 	telemetry        *scanTelemetry
 	aggregateMetrics *partitionMetrics
+	diagnostics      *executionDiagnostics
 	rekey            bool // RENAME TO also moves the rows (see rekey.go)
 
 	// Per-statement state (see bind.go).

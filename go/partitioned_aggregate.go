@@ -27,6 +27,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/apache/arrow-adbc/go/adbc"
 	goredis "github.com/redis/go-redis/v9"
 )
 
@@ -44,6 +45,9 @@ type tupleAggregatePlan struct {
 	countAlias     string
 	server         bool
 	countGroups    bool
+	partialGroups  bool
+	functions      []*Func
+	groupKeyMask   []bool
 }
 
 func tupleAggregateShape(plan *selectPlan, aggs []*Func) (*tupleAggregatePlan, bool) {
@@ -60,7 +64,29 @@ func tupleAggregateShape(plan *selectPlan, aggs []*Func) (*tupleAggregatePlan, b
 			return nil, false
 		}
 	}
-	p := &tupleAggregatePlan{server: true, groupExprs: plan.sel.GroupBy, argExprs: map[int]Expr{}}
+	p := &tupleAggregatePlan{server: true, groupExprs: plan.sel.GroupBy, argExprs: map[int]Expr{}, functions: aggs}
+	// An integer expression of columns already present as direct group keys
+	// cannot refine their equality. Still evaluate every expression in SQL
+	// order on every row: this only shortens the encoded key, never suppresses
+	// an overflow or rewrites the projected expression (including NULLs).
+	direct := map[string]bool{}
+	for _, x := range p.groupExprs {
+		if c, ok := x.(*ColumnRef); ok {
+			direct[c.Name] = true
+		}
+	}
+	for _, x := range p.groupExprs {
+		keep := true
+		if _, binary := x.(*Binary); binary && tupleInputExpr(x, meta.types()) {
+			need := map[string]bool{}
+			columnRefs(x, need)
+			keep = false
+			for name := range need {
+				keep = keep || !direct[name]
+			}
+		}
+		p.groupKeyMask = append(p.groupKeyMask, keep)
+	}
 	add := func(c columnMeta) int {
 		for i, old := range p.cols {
 			if old.Name == c.Name {
@@ -71,7 +97,7 @@ func tupleAggregateShape(plan *selectPlan, aggs []*Func) (*tupleAggregatePlan, b
 		return len(p.cols) - 1
 	}
 	for _, x := range plan.sel.GroupBy {
-		if !tupleInputExpr(x) {
+		if !tupleInputExpr(x, meta.types()) {
 			return nil, false
 		}
 		need := map[string]bool{}
@@ -134,7 +160,7 @@ func tupleAggregateShape(plan *selectPlan, aggs []*Func) (*tupleAggregatePlan, b
 				return nil, false
 			}
 			x := f.Args[0]
-			if !tupleInputExpr(x) {
+			if !tupleInputExpr(x, meta.types()) {
 				return nil, false
 			}
 			typ, err := inferType(x, meta.types(), nil)
@@ -210,6 +236,23 @@ func tupleAggregateShape(plan *selectPlan, aggs []*Func) (*tupleAggregatePlan, b
 			}
 		}
 	}
+	// Mixed integer SUM/AVG and string/integer MIN/MAX merge exact state by the
+	// final SQL key. Reading just their inputs avoids LOAD * and source-tuple
+	// TOLIST/existence checks on wide tables (including ClickBench Q32/Q33).
+	p.partialGroups = !p.countGroups && len(p.distinct) == 0 && len(p.groupExprs) > 0
+	for _, f := range aggs {
+		if f.Star {
+			p.partialGroups = p.partialGroups && f.Name == "COUNT"
+			continue
+		}
+		typ, err := inferType(f.Args[0], meta.types(), nil)
+		p.partialGroups = p.partialGroups && err == nil &&
+			((f.Name == "SUM" || f.Name == "AVG") && typ.Kind.isInteger() ||
+				(f.Name == "MIN" || f.Name == "MAX") && (typ.Kind.isInteger() || typ.Kind == KindString))
+	}
+	if p.partialGroups {
+		p.server = false
+	}
 	if !tupleHavingExpr(plan.having, aggs) {
 		return nil, false
 	}
@@ -255,6 +298,15 @@ func (p *tupleAggregatePlan) tuple(env *evalEnv, vals []Value, count int64) (spi
 	if err != nil {
 		return spillTuple{}, err
 	}
+	if len(p.groupKeyMask) > 0 {
+		compact := keys[:0]
+		for i, v := range keys {
+			if p.groupKeyMask[i] {
+				compact = append(compact, v)
+			}
+		}
+		keys = compact
+	}
 	prefixCols := map[string]bool{}
 	for _, x := range p.groupExprs {
 		if c, ok := x.(*ColumnRef); ok {
@@ -265,7 +317,7 @@ func (p *tupleAggregatePlan) tuple(env *evalEnv, vals []Value, count int64) (spi
 		keys = append(keys, env.row[c.Name])
 		prefixCols[c.Name] = true
 	}
-	if !p.countGroups {
+	if !p.countGroups && !p.partialGroups {
 		for i, c := range p.cols {
 			if !prefixCols[c.Name] {
 				keys = append(keys, vals[i])
@@ -279,6 +331,33 @@ func (p *tupleAggregatePlan) tuple(env *evalEnv, vals []Value, count int64) (spi
 			row.raw[i] = encodeStored(v)
 		}
 	}
+	if p.partialGroups {
+		for i, f := range p.functions {
+			if f.Star {
+				continue // COUNT(*) uses row.count
+			}
+			var v Value
+			if p.args[i] >= 0 {
+				v = vals[p.args[i]]
+			} else {
+				v, err = env.eval(p.argExprs[i])
+				if err != nil {
+					return spillTuple{}, invalidArg(err)
+				}
+			}
+			n, sum := int64(0), "0"
+			if !v.Null {
+				n = count
+				if f.Name == "SUM" || f.Name == "AVG" {
+					sum = new(big.Int).Mul(big.NewInt(v.I), big.NewInt(n)).String()
+				} else {
+					sum = encodeStored(v)
+				}
+			}
+			row.raw = append(row.raw, strconv.FormatInt(n, 10), sum)
+			row.null = append(row.null, false, false)
+		}
+	}
 	return row, nil
 }
 func (p *tupleAggregatePlan) row(vals []Value) map[string]Value {
@@ -287,6 +366,64 @@ func (p *tupleAggregatePlan) row(vals []Value) map[string]Value {
 		row[c.Name] = vals[i]
 	}
 	return row
+}
+
+func (p *tupleAggregatePlan) partialOffset(aggregate int) int {
+	offset := len(p.cols)
+	for _, f := range p.functions[:aggregate] {
+		if !f.Star {
+			offset += 2
+		}
+	}
+	return offset
+}
+
+// Partial sums are arbitrary-precision integer strings in the run. Counts
+// preserve the AVG denominator and distinguish an all-NULL group from zero.
+func (p *tupleAggregatePlan) combine(dst *spillTuple, src spillTuple) error {
+	if p.partialGroups {
+		i := len(p.cols)
+		for fn, f := range p.functions {
+			if f.Star {
+				continue
+			}
+			n, err := strconv.ParseInt(dst.raw[i], 10, 64)
+			m, otherErr := strconv.ParseInt(src.raw[i], 10, 64)
+			if err != nil || otherErr != nil {
+				return fmt.Errorf("invalid partial aggregate state")
+			}
+			if f.Name == "SUM" || f.Name == "AVG" {
+				var a, b big.Int
+				_, aok := a.SetString(dst.raw[i+1], 10)
+				_, bok := b.SetString(src.raw[i+1], 10)
+				if !aok || !bok {
+					return fmt.Errorf("invalid partial sum")
+				}
+				dst.raw[i+1] = a.Add(&a, &b).String()
+			} else if m > 0 {
+				if n == 0 {
+					dst.raw[i+1] = src.raw[i+1]
+				} else {
+					a, err := decodeStored(dst.raw[i+1], p.types[fn])
+					if err != nil {
+						return err
+					}
+					b, err := decodeStored(src.raw[i+1], p.types[fn])
+					if err != nil {
+						return err
+					}
+					cmp, _ := compareValues(b, a)
+					if f.Name == "MIN" && cmp < 0 || f.Name == "MAX" && cmp > 0 {
+						dst.raw[i+1] = src.raw[i+1]
+					}
+				}
+			}
+			dst.raw[i] = strconv.FormatInt(n+m, 10)
+			i += 2
+		}
+	}
+	dst.count += src.count
+	return nil
 }
 func (p *tupleAggregatePlan) groupValues(env *evalEnv) ([]Value, error) {
 	var vals []Value
@@ -300,20 +437,23 @@ func (p *tupleAggregatePlan) groupValues(env *evalEnv) ([]Value, error) {
 	return vals, nil
 }
 
-// Keep eligibility narrow: these pure forms cover ClickBench minute and
-// character-length expressions without admitting volatility or subqueries.
-func tupleInputExpr(x Expr) bool {
+// Keep eligibility narrow: typed checked integer arithmetic, regex replacement,
+// minute and character-length expressions admit no volatility or subqueries.
+func tupleInputExpr(x Expr, types map[string]ColType) bool {
 	switch x := x.(type) {
 	case *ColumnRef:
 		return x.Outer == 0
 	case *Literal:
 		return true
+	case *Binary:
+		inputs := compileAggregateInputs([]*Func{{Name: "SUM", Args: []Expr{x}}}, types)
+		return inputs.roots[0] >= 0
 	case *Func:
-		if x.Name != "LENGTH" && x.Name != "DATE_PART" {
+		if x.Name != "LENGTH" && x.Name != "DATE_PART" && x.Name != "REGEXP_REPLACE" {
 			return false
 		}
 		for _, a := range x.Args {
-			if !tupleInputExpr(a) {
+			if !tupleInputExpr(a, types) {
 				return false
 			}
 		}
@@ -376,7 +516,10 @@ func (e *executor) aggregateTuplePartition(ctx context.Context, plan *selectPlan
 	}
 	scan := func() error {
 		if e.aggregateMetrics != nil {
-			e.aggregateMetrics.fallbacks.Add(1)
+			e.aggregateMetrics.rowScans.Add(1)
+			if p.server {
+				e.aggregateMetrics.fallbacks.Add(1)
+			}
 		}
 		need := map[string]bool{}
 		for _, c := range p.cols {
@@ -421,7 +564,14 @@ func (e *executor) aggregateTuplePartition(ctx context.Context, plan *selectPlan
 	req.groupBy = append(req.groupBy, "REDUCE", "COUNT", 0, "AS", p.countAlias)
 	req.width++
 	started := time.Now()
+	var endFetch func()
+	if e.aggregateMetrics != nil {
+		endFetch = e.aggregateMetrics.fetch.start()
+	}
 	raw, err := e.store.aggregate(ctx, req)
+	if endFetch != nil {
+		endFetch()
+	}
 	if e.telemetry != nil {
 		e.telemetry.fetch.Add(int64(time.Since(started)))
 	}
@@ -514,6 +664,16 @@ func (e *executor) partitionedAggregate(ctx context.Context, plan *selectPlan, w
 	if !ok || wp.none || wp.keys != nil {
 		return nil, false, nil
 	}
+	parentCtx, original := ctx, e
+	defer func() {
+		var sqlErr adbc.Error
+		if handled && parentCtx.Err() == nil && errors.As(resultErr, &sqlErr) && (sqlErr.Code == adbc.StatusInvalidArgument || sqlErr.Code == adbc.StatusInvalidData) {
+			// Deterministic expressions can still fail. Re-evaluate in the
+			// original scan and argument order instead of reporting whichever
+			// partition happened to finish first.
+			groups, resultErr = original.serialDriverAggregate(parentCtx, plan, wp, aggs, params)
+		}
+	}()
 	// Residual-only inputs must be retained in the server tuple before filtering.
 	need := map[string]bool{}
 	columnRefs(wp.residual, need)
@@ -575,6 +735,11 @@ func (e *executor) partitionedAggregate(ctx context.Context, plan *selectPlan, w
 		e.aggregateMetrics.used.Store(true)
 		e.aggregateMetrics.workers.Store(int64(workers))
 	}
+	e.diagnostics.setPhase("partition_fetch")
+	e.diagnostics.setPlan(map[string]any{"kind": "partitioned_exact", "server_source_tuples": p.server,
+		"partial_groups": p.partialGroups, "count_groups": p.countGroups, "group_expressions": p.groupExprs,
+		"encoded_group_key_mask": p.groupKeyMask,
+		"input_columns":          p.cols, "residual": wp.residual, "search_query": wp.query, "partition_rows": aggregatePartitionRows})
 	if e.workerBudget != nil && (e.queryWorkers == 0 || e.workerBudget.automatic()) {
 		stats := &scanTelemetry{}
 		local := *e
@@ -597,7 +762,7 @@ func (e *executor) partitionedAggregate(ctx context.Context, plan *selectPlan, w
 	errs := make([]error, workers)
 	var wg sync.WaitGroup
 	for w := range workers {
-		spills[w] = tupleSpill{dir: dir, prefix: fmt.Sprint(w), metrics: e.aggregateMetrics}
+		spills[w] = tupleSpill{dir: dir, prefix: fmt.Sprint(w), metrics: e.aggregateMetrics, combine: p.combine}
 		wg.Add(1)
 		go func(w int) {
 			defer wg.Done()
@@ -646,12 +811,20 @@ dispatch:
 		}
 		return nil, true, cancelled(ctx)
 	}
-	combined := tupleSpill{dir: dir, prefix: "merge", metrics: e.aggregateMetrics}
+	combined := tupleSpill{dir: dir, prefix: "merge", metrics: e.aggregateMetrics, combine: p.combine}
 	for w := range spills {
 		combined.runs = append(combined.runs, spills[w].runs...)
 	}
 	started := time.Now()
+	e.diagnostics.setPhase("aggregate_merge")
+	var endMerge func()
+	if e.aggregateMetrics != nil {
+		endMerge = e.aggregateMetrics.merge.start()
+	}
 	out, err := e.reduceTupleRuns(ctx, plan, p, aggs, params, &combined)
+	if endMerge != nil {
+		endMerge()
+	}
 	if e.aggregateMetrics != nil {
 		e.aggregateMetrics.mergeNanos.Add(int64(time.Since(started)))
 	}
@@ -781,6 +954,34 @@ func (e *executor) reduceTupleRuns(ctx context.Context, plan *selectPlan, p *tup
 			distinctKey, haveDistinct = dkey, true
 		}
 		for i, f := range aggs {
+			if p.partialGroups {
+				if f.Star {
+					accs[i].count += row.count
+				} else {
+					offset := p.partialOffset(i)
+					n, err := strconv.ParseInt(row.raw[offset], 10, 64)
+					if err != nil {
+						return fmt.Errorf("invalid partial aggregate state")
+					}
+					if f.Name == "SUM" || f.Name == "AVG" {
+						var sum big.Int
+						if _, ok := sum.SetString(row.raw[offset+1], 10); !ok {
+							return fmt.Errorf("invalid partial sum")
+						}
+						accs[i].count += n
+						accs[i].sum.n += n
+						accs[i].sum.sum.Add(&accs[i].sum.sum, &sum)
+					} else if n > 0 {
+						v, err := decodeStored(row.raw[offset+1], p.types[i])
+						if err != nil {
+							return err
+						}
+						accs[i].add(v)
+						accs[i].count += n - 1
+					}
+				}
+				continue
+			}
 			if f.Distinct {
 				if fresh {
 					accs[i].count++

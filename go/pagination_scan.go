@@ -23,44 +23,14 @@ import (
 // otherwise unbounded cursor. Predicate evaluation and ordering stay in the
 // driver; SCAN pages and HASH fetch pipelines remain bounded.
 func (e *executor) scanBeyondCap(ctx context.Context, req scanRequest, params []Value) ([]string, []map[string]Value, error) {
-	it, fields, _ := e.newScanIter(ctx, req, params)
-	ks, err := (&hashConn{client: e.store.client}).scanKeys(ctx, req.meta.prefix(), "hash")
-	if err != nil {
-		return nil, nil, err
-	}
-	fetch := e.store.fetchRows
-	if req.meta.KeyRows {
-		fetch = e.store.fetchKeyRows
-	}
 	var keys []string
 	var rows []map[string]Value
-	seen := map[string]bool{}
-	for {
-		page, done, err := ks.next(ctx)
-		if err != nil {
-			return nil, nil, err
-		}
-		unique := page[:0]
-		for _, key := range page {
-			if seen[key] || req.meta.KeyRows && !isRowKey(req.meta.prefix(), key) {
-				continue
-			}
-			seen[key] = true
-			unique = append(unique, key)
-		}
-		fetched, err := fetch(ctx, unique, fields)
-		if err != nil {
-			return nil, nil, err
-		}
-		k, r, err := it.keep(unique, fetched)
-		if err != nil {
-			return nil, nil, err
-		}
-		keys = append(keys, k...)
-		rows = append(rows, r...)
-		if done {
-			break
-		}
+	err := e.scanBeyondCapPages(ctx, req, params, func(k []string, r []map[string]Value) error {
+		keys, rows = append(keys, k...), append(rows, r...)
+		return nil
+	})
+	if err != nil {
+		return nil, nil, err
 	}
 	if !req.meta.KeyRows {
 		idx := make([]int, len(rows))
@@ -77,4 +47,46 @@ func (e *executor) scanBeyondCap(ctx context.Context, req scanRequest, params []
 		keys, rows = orderedKeys, orderedRows
 	}
 	return keys, rows, nil
+}
+
+func (e *executor) scanBeyondCapPages(ctx context.Context, req scanRequest, params []Value, visit func([]string, []map[string]Value) error) error {
+	it, fields, _ := e.newScanIter(ctx, req, params)
+	ks, err := (&hashConn{client: e.store.client}).scanKeys(ctx, req.meta.prefix(), "hash")
+	if err != nil {
+		return err
+	}
+	fetch := e.store.fetchRows
+	if req.meta.KeyRows {
+		fetch = e.store.fetchKeyRows
+	}
+	seen := map[string]bool{}
+	for {
+		page, done, err := ks.next(ctx)
+		if err != nil {
+			return err
+		}
+		unique := page[:0]
+		for _, key := range page {
+			if seen[key] || req.meta.KeyRows && !isRowKey(req.meta.prefix(), key) {
+				continue
+			}
+			seen[key] = true
+			unique = append(unique, key)
+		}
+		fetched, err := fetch(ctx, unique, fields)
+		if err != nil {
+			return err
+		}
+		k, r, err := it.keep(unique, fetched)
+		if err != nil {
+			return err
+		}
+		if err := visit(k, r); err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+	}
+	return nil
 }

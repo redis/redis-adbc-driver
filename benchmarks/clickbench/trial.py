@@ -9,7 +9,7 @@ import time
 
 import adbc_driver_manager.dbapi as dbapi
 
-from progress import TrialProgress
+from progress import TrialProgress, execution_path, retained_execution
 
 
 def main():
@@ -34,12 +34,19 @@ def main():
             setup_started = time.perf_counter()
             cur.execute(f"SET search_path TO {job['namespace']}")
             result["stage_seconds"]["session_setup"] = time.perf_counter() - setup_started
+            try:
+                cur.adbc_statement.set_options(**{
+                    "adbc.redis.execution_diagnostics_file": str(execution_path(job["output"]).resolve())})
+            except Exception as diagnostic_error:
+                # Older retained driver versions may not support this option.
+                result["diagnostics_setup_error_type"] = type(diagnostic_error).__name__
             progress.enter("execute", result["stage_seconds"])
             started = time.perf_counter()
             try:
                 cur.execute(job["sql"])
             finally:
                 result["stage_seconds"]["execute"] = time.perf_counter() - started
+                result["execution_diagnostics"] = retained_execution(job["output"])
                 # Diagnostics must not replace the original query failure.
                 try:
                     result["worker_grant"] = int(conn.adbc_connection.get_option(

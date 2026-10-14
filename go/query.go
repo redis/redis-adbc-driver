@@ -522,11 +522,12 @@ func (e *executor) scan(ctx context.Context, req scanRequest, params []Value) ([
 // scanIter reads the rows of a scan: decodes them and applies the residual
 // predicate, a cursor page at a time for a scan through the index.
 type scanIter struct {
-	meta     *tableMeta
-	need     map[string]bool
-	residual Expr
-	env      *evalEnv
-	cur      *aggCursor
+	diagnostics *executionDiagnostics
+	meta        *tableMeta
+	need        map[string]bool
+	residual    Expr
+	env         *evalEnv
+	cur         *aggCursor
 	// fetch holds fields LOAD cannot return exactly. Managed rows can read
 	// these from their HASHes in bounded pipelines after each cursor page.
 	store *store
@@ -562,7 +563,7 @@ func (e *executor) newScanIter(ctx context.Context, req scanRequest, params []Va
 			}
 		}
 	}
-	it = &scanIter{meta: meta, need: need, residual: req.where.residual, env: e.newEnv(ctx, meta.types(), params)}
+	it = &scanIter{meta: meta, need: need, residual: req.where.residual, env: e.newEnv(ctx, meta.types(), params), diagnostics: e.diagnostics}
 	return it, fields, exactly
 }
 
@@ -715,6 +716,9 @@ func (it *scanIter) close(ctx context.Context) {
 // keep decodes fetched rows, skipping nil ones, and returns those the
 // residual predicate accepts, with their keys.
 func (it *scanIter) keep(keys []string, fetched []aggRow) ([]string, []map[string]Value, error) {
+	if it.diagnostics != nil {
+		it.diagnostics.processed.Add(int64(len(fetched)))
+	}
 	outKeys := make([]string, 0, len(keys))
 	rows := make([]map[string]Value, 0, len(keys))
 	if it.ties != nil {
@@ -746,6 +750,9 @@ func (it *scanIter) keep(keys []string, fetched []aggRow) ([]string, []map[strin
 		if it.ties != nil {
 			it.kept = append(it.kept, i)
 		}
+	}
+	if it.diagnostics != nil {
+		it.diagnostics.matched.Add(int64(len(rows)))
 	}
 	return outKeys, rows, nil
 }
@@ -886,7 +893,8 @@ func (e *executor) runSelect(ctx context.Context, plan *selectPlan, params []Val
 
 // selectScan is how a SELECT on one table reads its rows (prepareScan).
 type selectScan struct {
-	req scanRequest
+	req  scanRequest
+	caps [2]int64
 	// indexSort is set when the rows come in ORDER BY order (or insertion
 	// order, without ORDER BY) from the index, and pushLimit when LIMIT
 	// and OFFSET run there too.
@@ -902,6 +910,10 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 	wp, err := e.planWhere(ctx, plan.sel.Where, meta, params)
 	if err != nil {
 		return selectScan{}, err
+	}
+	var caps [2]int64
+	if !meta.isMem && wp.keys == nil {
+		caps = e.store.paginationCaps(ctx, meta.index())
 	}
 	req := scanRequest{meta: meta, where: wp, need: maps.Clone(plan.extraNeed)}
 	if req.need == nil {
@@ -962,7 +974,6 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 		if sel.Offset != nil {
 			off = *sel.Offset
 		}
-		caps := e.store.paginationCaps(ctx, meta.index())
 		if off > caps[0] || off > caps[1] || *sel.Limit > caps[1]-off {
 			pushLimit = false
 		} else {
@@ -991,18 +1002,25 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 			req.need, req.late = predicate, late
 		}
 	}
-	if !meta.isMem && wp.keys == nil && req.limit == nil && e.store.paginationCaps(ctx, meta.index())[1] < 1<<31 {
+	if !meta.isMem && wp.keys == nil && req.limit == nil && caps[1] < 1<<31 {
 		// A configured aggregate cap limits the entire cursor, not its page.
 		// Fetch HASHes and apply the full predicate instead of truncating rows.
 		req.hashScan = true
 		req.where.residual = sel.Where
+		if req.late != nil {
+			for name := range req.late.need {
+				req.need[name] = true
+			}
+		}
 		req.ties, req.late, req.sortBy = nil, nil, nil
 		indexSort, pushLimit = false, false
 		for _, o := range plan.order {
 			columnRefs(o.expr, req.need)
 		}
 	}
-	return selectScan{req: req, indexSort: indexSort, pushLimit: pushLimit}, nil
+	sc := selectScan{req: req, caps: caps, indexSort: indexSort, pushLimit: pushLimit}
+	e.recordSelectPlan(plan, sc)
+	return sc, nil
 }
 
 // selectScanned reads the rows prepareScan planned, then computes windows,
@@ -1623,6 +1641,7 @@ func (e *executor) driverAggregate(ctx context.Context, plan *selectPlan, wp whe
 }
 
 func (e *executor) serialDriverAggregate(ctx context.Context, plan *selectPlan, wp wherePlan, aggs []*Func, params []Value) ([]aggGroup, error) {
+	e.diagnostics.setPhase("serial_aggregate")
 	meta := plan.meta
 	req := scanRequest{meta: meta, where: wp, need: maps.Clone(plan.extraNeed)}
 	if req.need == nil {

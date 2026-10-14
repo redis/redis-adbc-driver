@@ -20,6 +20,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync/atomic"
 
 	"github.com/adbc-drivers/driverbase-go/driverbase"
 	"github.com/apache/arrow-adbc/go/adbc"
@@ -53,6 +54,7 @@ type databaseImpl struct {
 // go-redis's options for both kinds of client, from the URI (or the address
 // and database) and the credentials.
 type clientConfig struct {
+	diagnostics atomic.Pointer[executionDiagnostics]
 	// single are a single-endpoint client's options.
 	single *goredis.Options
 	// cluster are an OSS Cluster API client's: the same, the URI's address

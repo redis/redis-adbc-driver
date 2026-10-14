@@ -49,6 +49,7 @@ type tupleSpill struct {
 	runs        []string
 	serial      int
 	metrics     *partitionMetrics
+	combine     func(*spillTuple, spillTuple) error
 }
 
 func (s *tupleSpill) add(ctx context.Context, row spillTuple) error {
@@ -75,13 +76,20 @@ func (s *tupleSpill) flush(ctx context.Context) error {
 	if len(s.rows) == 0 {
 		return nil
 	}
+	var sorted func()
+	if s.metrics != nil {
+		sorted = s.metrics.spillSort.start()
+	}
 	sort.Slice(s.rows, func(i, j int) bool { return s.rows[i].key < s.rows[j].key })
+	if sorted != nil {
+		sorted()
+	}
 	path := s.path()
 	f, err := os.Create(path)
 	if err != nil {
 		return err
 	}
-	w := bufio.NewWriterSize(f, 64<<10)
+	w := bufio.NewWriterSize(spillWriter(f, s.metrics), 64<<10)
 	for i := 0; i < len(s.rows); {
 		if err = cancelled(ctx); err != nil {
 			break
@@ -89,8 +97,13 @@ func (s *tupleSpill) flush(ctx context.Context) error {
 		row := s.rows[i]
 		j := i + 1
 		for j < len(s.rows) && s.rows[j].key == row.key {
-			row.count += s.rows[j].count
+			if err = combineSpillTuple(s.combine, &row, s.rows[j]); err != nil {
+				break
+			}
 			j++
+		}
+		if err != nil {
+			break
 		}
 		if err = writeSpillTuple(w, row); err != nil {
 			break
@@ -106,11 +119,6 @@ func (s *tupleSpill) flush(ctx context.Context) error {
 	}
 	if err != nil {
 		return err
-	}
-	if s.metrics != nil {
-		if info, err := os.Stat(path); err == nil {
-			s.metrics.spillBytes.Add(info.Size())
-		}
 	}
 	s.runs = append(s.runs, path)
 	clear(s.rows)
@@ -208,6 +216,18 @@ func (h *spillHeap) Pop() any {
 }
 
 func mergeSpillRuns(ctx context.Context, paths []string, visit func(spillTuple) error) error {
+	return mergeSpillRunsWith(ctx, paths, visit, nil, nil)
+}
+
+func combineSpillTuple(combine func(*spillTuple, spillTuple) error, dst *spillTuple, src spillTuple) error {
+	if combine != nil {
+		return combine(dst, src)
+	}
+	dst.count += src.count
+	return nil
+}
+
+func mergeSpillRunsWith(ctx context.Context, paths []string, visit func(spillTuple) error, combine func(*spillTuple, spillTuple) error, metrics *partitionMetrics) error {
 	files := make([]*os.File, len(paths))
 	defer func() {
 		for _, f := range files {
@@ -223,7 +243,7 @@ func mergeSpillRuns(ctx context.Context, paths []string, visit func(spillTuple) 
 		if err != nil {
 			return err
 		}
-		files[i], readers[i] = f, bufio.NewReaderSize(f, 64<<10)
+		files[i], readers[i] = f, bufio.NewReaderSize(spillReader(f, metrics), 64<<10)
 		row, err := readSpillTuple(readers[i])
 		if err == io.EOF {
 			continue
@@ -249,7 +269,9 @@ func mergeSpillRuns(ctx context.Context, paths []string, visit func(spillTuple) 
 		if !have {
 			pending, have = head.row, true
 		} else {
-			pending.count += head.row.count
+			if err := combineSpillTuple(combine, &pending, head.row); err != nil {
+				return err
+			}
 		}
 		row, err := readSpillTuple(readers[head.source])
 		if err != io.EOF {
@@ -278,8 +300,8 @@ func (s *tupleSpill) merge(ctx context.Context, visit func(spillTuple) error) er
 			if err != nil {
 				return err
 			}
-			w := bufio.NewWriterSize(f, 64<<10)
-			err = mergeSpillRuns(ctx, paths, func(row spillTuple) error { return writeSpillTuple(w, row) })
+			w := bufio.NewWriterSize(spillWriter(f, s.metrics), 64<<10)
+			err = mergeSpillRunsWith(ctx, paths, func(row spillTuple) error { return writeSpillTuple(w, row) }, s.combine, s.metrics)
 			if err == nil {
 				err = w.Flush()
 			}
@@ -290,11 +312,6 @@ func (s *tupleSpill) merge(ctx context.Context, visit func(spillTuple) error) er
 			if err != nil {
 				return err
 			}
-			if s.metrics != nil {
-				if info, err := os.Stat(path); err == nil {
-					s.metrics.spillBytes.Add(info.Size())
-				}
-			}
 			next = append(next, path)
 			for _, old := range paths {
 				if err = os.Remove(old); err != nil {
@@ -304,7 +321,37 @@ func (s *tupleSpill) merge(ctx context.Context, visit func(spillTuple) error) er
 		}
 		s.runs = next
 	}
-	return mergeSpillRuns(ctx, s.runs, visit)
+	return mergeSpillRunsWith(ctx, s.runs, visit, s.combine, s.metrics)
+}
+
+type measuredSpill struct {
+	file    *os.File
+	metrics *partitionMetrics
+}
+
+func spillReader(f *os.File, m *partitionMetrics) io.Reader {
+	if m == nil {
+		return f
+	}
+	return measuredSpill{f, m}
+}
+func spillWriter(f *os.File, m *partitionMetrics) io.Writer {
+	if m == nil {
+		return f
+	}
+	return measuredSpill{f, m}
+}
+func (s measuredSpill) Read(b []byte) (int, error) {
+	defer s.metrics.spillRead.start()()
+	n, err := s.file.Read(b)
+	s.metrics.spillReadBytes.Add(int64(n))
+	return n, err
+}
+func (s measuredSpill) Write(b []byte) (int, error) {
+	defer s.metrics.spillWrite.start()()
+	n, err := s.file.Write(b)
+	s.metrics.spillBytes.Add(int64(n))
+	return n, err
 }
 
 func spillRecordError(err error) error {

@@ -29,6 +29,9 @@ func (e *executor) scanPages(ctx context.Context, req scanRequest, params []Valu
 	if req.where.none {
 		return nil
 	}
+	if req.hashScan {
+		return e.scanBeyondCapPages(ctx, req, params, func(_ []string, rows []map[string]Value) error { return visit(rows) })
+	}
 	if req.meta.isMem {
 		_, rows, err := e.scanMem(ctx, req, params)
 		if err != nil {
@@ -57,7 +60,14 @@ func (e *executor) scanPages(ctx context.Context, req scanRequest, params []Valu
 	if e.telemetry != nil {
 		started = time.Now()
 	}
+	var fetched func()
+	if e.aggregateMetrics != nil {
+		fetched = e.aggregateMetrics.fetch.start()
+	}
 	it, err := e.openScan(ctx, req, params)
+	if fetched != nil {
+		fetched()
+	}
 	if e.telemetry != nil {
 		e.telemetry.fetch.Add(int64(time.Since(started)))
 	}
@@ -69,7 +79,13 @@ func (e *executor) scanPages(ctx context.Context, req scanRequest, params []Valu
 		if e.telemetry != nil {
 			started = time.Now()
 		}
+		if e.aggregateMetrics != nil {
+			fetched = e.aggregateMetrics.fetch.start()
+		}
 		_, rows, err := it.next(ctx)
+		if fetched != nil {
+			fetched()
+		}
 		if e.telemetry != nil {
 			e.telemetry.fetch.Add(int64(time.Since(started)))
 			e.telemetry.rows.Add(int64(len(rows)))

@@ -10,7 +10,7 @@ import trial
 
 
 class TrialDiagnostics(unittest.TestCase):
-    def run_trial(self, failure=None, diagnostic_failure=False):
+    def run_trial(self, failure=None, diagnostic_failure=False, setup_failure=False):
         conn, cur = MagicMock(), MagicMock()
         conn.__enter__.return_value = conn
         conn.cursor.return_value = cur
@@ -18,6 +18,8 @@ class TrialDiagnostics(unittest.TestCase):
         cur.fetch_arrow_table.return_value = pa.table({"count": [31]})
         if failure:
             cur.execute.side_effect = [None, failure]
+        if setup_failure:
+            cur.adbc_statement.set_options.side_effect = NotImplementedError("older driver")
         def option(key):
             if diagnostic_failure and key != "adbc.redis.query_workers":
                 raise RuntimeError("diagnostics unavailable")
@@ -58,6 +60,12 @@ class TrialDiagnostics(unittest.TestCase):
         self.assertEqual(result["error_type"], "ValueError")
         self.assertEqual(result["diagnostic_error_type"], "RuntimeError")
         self.assertIsNone(result["seconds"])
+
+    def test_older_driver_still_executes(self):
+        result = self.run_trial(setup_failure=True)
+        self.assertEqual(result["diagnostics_setup_error_type"], "NotImplementedError")
+        self.assertIsNotNone(result["seconds"])
+        self.assertEqual(result["values"], [[31]])
 
 
 if __name__ == "__main__":

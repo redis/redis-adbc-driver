@@ -16,6 +16,7 @@ package redis
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -67,7 +68,8 @@ func parallelAggregates(aggs []*Func, types map[string]ColType) bool {
 	if len(aggs) == 0 {
 		return false
 	}
-	for _, f := range aggs {
+	inputs := compileAggregateInputs(aggs, types)
+	for i, f := range aggs {
 		if f.Distinct || f.Filter != nil || len(f.OrderBy) > 0 || f.WithinGroup {
 			return false
 		}
@@ -86,7 +88,15 @@ func parallelAggregates(aggs []*Func, types map[string]ColType) bool {
 			return false
 		}
 		col, ok := f.Args[0].(*ColumnRef)
-		if !ok || col.Outer != 0 {
+		if !ok {
+			// Only the checked, pure integer DAG is safe to evaluate in
+			// independent partitions. Never algebraically rewrite SUM(x+c).
+			if inputs.roots[i] < 0 {
+				return false
+			}
+			continue
+		}
+		if col.Outer != 0 {
 			return false
 		}
 		// Interval MIN/MAX retain the last equivalent representation; partition
@@ -141,7 +151,7 @@ func mergeAccumulator(dst, src *accumulator) {
 // parallelAggregate runs independent, disjoint row-ID ranges through the
 // existing scan path. Each owns its cursor, row maps, environment and reducers;
 // the only shared objects are immutable plans and the concurrency-safe client.
-// Adopted/memory tables, grouped queries and complex expressions stay serial.
+// Adopted/memory tables, grouped queries and unsupported expressions stay serial.
 func (e *executor) parallelAggregate(ctx context.Context, plan *selectPlan, wp wherePlan, aggs []*Func, params []Value) (groups []aggGroup, handled bool, resultErr error) {
 	meta := plan.meta
 	workers := effectiveQueryWorkers(e.queryWorkers)
@@ -169,9 +179,8 @@ func (e *executor) parallelAggregate(ctx context.Context, plan *selectPlan, wp w
 		for _, f := range aggs {
 			key += ":" + f.Name
 			for _, a := range f.Args {
-				if c, ok := a.(*ColumnRef); ok {
-					key += ":" + c.Name
-				}
+				encoded, _ := json.Marshal(a)
+				key += ":" + string(encoded)
 			}
 		}
 		stats := &scanTelemetry{}
@@ -197,6 +206,11 @@ func (e *executor) parallelAggregate(ctx context.Context, plan *selectPlan, wp w
 		groups, err := e.serialDriverAggregate(ctx, plan, wp, aggs, params)
 		return groups, true, err
 	}
+	if e.workerGrant != nil {
+		e.workerGrant.Store(int64(workers))
+	}
+	e.diagnostics.setPhase("parallel_aggregate")
+	e.diagnostics.setPlan(map[string]any{"kind": "parallel_exact", "workers": workers, "checked_integer_inputs": true, "residual": wp.residual})
 	types := meta.types()
 	aggTypes := make([]ColType, len(aggs))
 	need := map[string]bool{}
@@ -207,10 +221,12 @@ func (e *executor) parallelAggregate(ctx context.Context, plan *selectPlan, wp w
 			return nil, true, invalidArg(err)
 		}
 	}
+	parentCtx := ctx
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	partial := make([][]*accumulator, workers)
 	errs := make([]error, workers)
+	inputErrors := make([]bool, workers)
 	var wg sync.WaitGroup
 	for worker := 0; worker < workers; worker++ {
 		wg.Add(1)
@@ -218,6 +234,7 @@ func (e *executor) parallelAggregate(ctx context.Context, plan *selectPlan, wp w
 			defer wg.Done()
 			local := *e
 			local.cache = newExecCache()
+			inputs := compileAggregateInputs(aggs, types)
 			reducers := make([]*accumulator, len(aggs))
 			for i, f := range aggs {
 				reducers[i] = newAccumulator(f)
@@ -240,9 +257,18 @@ func (e *executor) parallelAggregate(ctx context.Context, plan *selectPlan, wp w
 					if err := cancelled(ctx); err != nil {
 						return err
 					}
+					inputs.nextRow()
 					for i, f := range aggs {
 						var v Value
-						if !f.Star {
+						if root := inputs.roots[i]; root >= 0 {
+							var err error
+							v, err = inputs.value(root, row)
+							if err != nil {
+								inputErrors[w] = true
+								cancel()
+								return invalidArg(err)
+							}
+						} else if !f.Star {
 							v = row[f.Args[0].(*ColumnRef).Name]
 						}
 						reducers[i].add(v)
@@ -254,6 +280,15 @@ func (e *executor) parallelAggregate(ctx context.Context, plan *selectPlan, wp w
 		}(worker)
 	}
 	wg.Wait()
+	for _, failed := range inputErrors {
+		if failed {
+			// Parallel completion order must not choose the reported SQL
+			// error. Replay the pure inputs in the established serial scan
+			// order, including residuals and aggregate argument order.
+			groups, err := e.serialDriverAggregate(parentCtx, plan, wp, aggs, params)
+			return groups, true, err
+		}
+	}
 	for _, err := range errs {
 		if err != nil {
 			return nil, true, err
