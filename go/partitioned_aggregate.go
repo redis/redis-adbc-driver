@@ -22,6 +22,7 @@ import (
 	"math"
 	"math/big"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -35,6 +36,22 @@ import (
 // external exact merge. LIMIT is applied only after every partition has been
 // reduced. Small queries and unsupported SQL keep their established plans.
 const aggregatePartitionRows int64 = 65536
+
+const (
+	aggregateMergeShards = 16
+	aggregateSpillFanIn  = 512
+)
+
+func aggregateSpillShard(key string) int {
+	// Deterministic FNV-1a keeps equal group keys in the same final merge while
+	// spreading unrelated keys without adding per-row hasher allocations.
+	var hash uint64 = 14695981039346656037
+	for i := 0; i < len(key); i++ {
+		hash ^= uint64(key[i])
+		hash *= 1099511628211
+	}
+	return int(hash % aggregateMergeShards)
+}
 
 type tupleAggregatePlan struct {
 	cols, distinct []columnMeta
@@ -298,6 +315,7 @@ func (p *tupleAggregatePlan) tuple(env *evalEnv, vals []Value, count int64) (spi
 	if err != nil {
 		return spillTuple{}, err
 	}
+	groupKey := rowKey(keys)
 	if len(p.groupKeyMask) > 0 {
 		compact := keys[:0]
 		for i, v := range keys {
@@ -324,7 +342,7 @@ func (p *tupleAggregatePlan) tuple(env *evalEnv, vals []Value, count int64) (spi
 			}
 		}
 	}
-	row := spillTuple{key: rowKey(keys), raw: make([]string, len(vals)), null: make([]bool, len(vals)), count: count}
+	row := spillTuple{key: rowKey(keys), groupKey: groupKey, raw: make([]string, len(vals)), null: make([]bool, len(vals)), count: count}
 	for i, v := range vals {
 		row.null[i] = v.Null
 		if !v.Null {
@@ -758,11 +776,15 @@ func (e *executor) partitionedAggregate(ctx context.Context, plan *selectPlan, w
 	ctx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
 	jobs := make(chan int64)
-	spills := make([]tupleSpill, workers)
+	spills := make([][]tupleSpill, workers)
 	errs := make([]error, workers)
 	var wg sync.WaitGroup
 	for w := range workers {
-		spills[w] = tupleSpill{dir: dir, prefix: fmt.Sprint(w), metrics: e.aggregateMetrics, combine: p.combine}
+		spills[w] = make([]tupleSpill, aggregateMergeShards)
+		for shard := range aggregateMergeShards {
+			spills[w][shard] = tupleSpill{dir: dir, prefix: fmt.Sprintf("%d-%d", w, shard), metrics: e.aggregateMetrics,
+				combine: p.combine, fanIn: aggregateSpillFanIn}
+		}
 		wg.Add(1)
 		go func(w int) {
 			defer wg.Done()
@@ -778,7 +800,7 @@ func (e *executor) partitionedAggregate(ctx context.Context, plan *selectPlan, w
 					if local.aggregateMetrics != nil {
 						local.aggregateMetrics.rows.Add(row.count)
 					}
-					return spills[w].add(ctx, row)
+					return spills[w][aggregateSpillShard(row.groupKey)].add(ctx, row)
 				})
 				if local.aggregateMetrics != nil {
 					local.aggregateMetrics.partitionNanos.Add(int64(time.Since(started)))
@@ -788,9 +810,12 @@ func (e *executor) partitionedAggregate(ctx context.Context, plan *selectPlan, w
 					return
 				}
 			}
-			errs[w] = spills[w].flush(ctx)
-			if errs[w] != nil {
-				cancel(errs[w])
+			for shard := range aggregateMergeShards {
+				errs[w] = spills[w][shard].flush(ctx)
+				if errs[w] != nil {
+					cancel(errs[w])
+					return
+				}
 			}
 		}(w)
 	}
@@ -811,25 +836,89 @@ dispatch:
 		}
 		return nil, true, cancelled(ctx)
 	}
-	combined := tupleSpill{dir: dir, prefix: "merge", metrics: e.aggregateMetrics, combine: p.combine}
-	for w := range spills {
-		combined.runs = append(combined.runs, spills[w].runs...)
-	}
 	started := time.Now()
 	e.diagnostics.setPhase("aggregate_merge")
 	var endMerge func()
 	if e.aggregateMetrics != nil {
 		endMerge = e.aggregateMetrics.merge.start()
 	}
-	out, err := e.reduceTupleRuns(ctx, plan, p, aggs, params, &combined)
+	shardGroups := make([][]aggGroup, aggregateMergeShards)
+	shardErrs := make([]error, aggregateMergeShards)
+	var mergeWG sync.WaitGroup
+	for shard := range aggregateMergeShards {
+		mergeWG.Add(1)
+		go func(shard int) {
+			defer mergeWG.Done()
+			combined := tupleSpill{dir: dir, prefix: fmt.Sprintf("merge-%d", shard), metrics: e.aggregateMetrics,
+				combine: p.combine, fanIn: aggregateSpillFanIn}
+			for w := range spills {
+				combined.runs = append(combined.runs, spills[w][shard].runs...)
+			}
+			if len(combined.runs) == 0 {
+				return
+			}
+			shardGroups[shard], shardErrs[shard] = e.reduceTupleRuns(ctx, plan, p, aggs, params, &combined)
+			if shardErrs[shard] != nil {
+				cancel(shardErrs[shard])
+			}
+		}(shard)
+	}
+	mergeWG.Wait()
 	if endMerge != nil {
 		endMerge()
 	}
 	if e.aggregateMetrics != nil {
 		e.aggregateMetrics.mergeNanos.Add(int64(time.Since(started)))
 	}
-	if err != nil {
-		return nil, true, wrapRedis(err, "exact aggregate merge failed")
+	var out []aggGroup
+	for shard := range aggregateMergeShards {
+		if shardErrs[shard] != nil {
+			return nil, true, wrapRedis(shardErrs[shard], "exact aggregate merge failed")
+		}
+		out = append(out, shardGroups[shard]...)
+	}
+	// Hash sharding deliberately destroys the old globally sorted merge order.
+	// Restore SQL group-key order so stable ORDER BY ties retain the established
+	// deterministic result and so per-shard top-K pruning composes globally.
+	sort.SliceStable(out, func(i, j int) bool { return out[i].mergeKey < out[j].mergeKey })
+	limit := aggregateTopLimit(plan, math.MaxInt)
+	if len(plan.order) == 0 && plan.sel.Limit != nil && *plan.sel.Limit > 0 {
+		off := int64(0)
+		if plan.sel.Offset != nil {
+			off = *plan.sel.Offset
+		}
+		if off >= 0 && off < math.MaxInt && *plan.sel.Limit < math.MaxInt-off {
+			limit = int(off + *plan.sel.Limit)
+		}
+	}
+	if limit > 0 && len(out) > limit {
+		if len(plan.order) == 0 {
+			out = out[:limit]
+		} else {
+			type rankedGroup struct {
+				group aggGroup
+				rank  aggregateOutput
+			}
+			env := e.newEnv(ctx, plan.meta.types(), params)
+			ranked := make([]rankedGroup, len(out))
+			for i, group := range out {
+				env.row, env.aggs = group.rep, group.results
+				ranked[i] = rankedGroup{group: group, rank: aggregateOutput{ordinal: i}}
+				for _, order := range plan.order {
+					value, err := env.eval(order.expr)
+					if err != nil {
+						return nil, true, invalidArg(err)
+					}
+					ranked[i].rank.keys = append(ranked[i].rank.keys, value)
+				}
+			}
+			top := aggregateTopK{order: plan.order}
+			sort.SliceStable(ranked, func(i, j int) bool { return top.better(ranked[i].rank, ranked[j].rank) })
+			out = out[:limit]
+			for i := range out {
+				out[i] = ranked[i].group
+			}
+		}
 	}
 	return out, true, nil
 }
@@ -863,7 +952,7 @@ func (e *executor) reduceTupleRuns(ctx context.Context, plan *selectPlan, p *tup
 		if !haveGroup {
 			return nil
 		}
-		g := aggGroup{rep: rep, results: map[*Func]Value{}}
+		g := aggGroup{rep: rep, results: map[*Func]Value{}, mergeKey: groupKey}
 		for i, f := range aggs {
 			v, err := accs[i].result(env, p.types[i])
 			if err != nil {

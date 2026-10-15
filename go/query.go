@@ -1264,8 +1264,9 @@ func (e *executor) selectAggregate(ctx context.Context, plan *selectPlan, params
 // aggGroup is one output group: representative column values (the GROUP BY
 // columns) and the reduced value of every aggregate call.
 type aggGroup struct {
-	rep     map[string]Value
-	results map[*Func]Value
+	rep      map[string]Value
+	results  map[*Func]Value
+	mergeKey string // deterministic partitioned-aggregate merge order
 }
 
 // pushableType reports whether RediSearch returns exact results for

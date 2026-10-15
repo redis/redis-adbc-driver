@@ -58,6 +58,47 @@ func TestTupleSpillMergeMultiplePasses(t *testing.T) {
 	}
 }
 
+func TestTupleSpillPerQueryTuning(t *testing.T) {
+	ctx := context.Background()
+	spill := tupleSpill{dir: t.TempDir(), prefix: "tuned", bufferBytes: 1 << 20, bufferRows: 2, fanIn: 2}
+	for run := 0; run < 5; run++ {
+		for _, key := range []string{"b", "a"} {
+			if err := spill.add(ctx, spillTuple{key: key, count: 1}); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if len(spill.runs) != 5 {
+		t.Fatalf("runs=%d", len(spill.runs))
+	}
+	var rows []spillTuple
+	if err := spill.merge(ctx, func(row spillTuple) error { rows = append(rows, row); return nil }); err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 2 || rows[0].key != "a" || rows[0].count != 5 || rows[1].key != "b" || rows[1].count != 5 {
+		t.Fatalf("rows=%+v", rows)
+	}
+	files, err := filepath.Glob(filepath.Join(spill.dir, "*"))
+	if err != nil || len(files) > 2 {
+		t.Fatalf("files=%d err=%v", len(files), err)
+	}
+}
+
+func TestAggregateSpillShard(t *testing.T) {
+	seen := map[int]bool{}
+	for i := 0; i < 1000; i++ {
+		key := fmt.Sprintf("group-%d", i)
+		shard := aggregateSpillShard(key)
+		if shard < 0 || shard >= aggregateMergeShards || shard != aggregateSpillShard(key) {
+			t.Fatalf("shard %d for %q", shard, key)
+		}
+		seen[shard] = true
+	}
+	if len(seen) != aggregateMergeShards {
+		t.Fatalf("used %d of %d shards", len(seen), aggregateMergeShards)
+	}
+}
+
 func TestTupleSpillCancellationAndTruncation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()

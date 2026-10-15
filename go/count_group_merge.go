@@ -95,7 +95,7 @@ func (e *executor) reduceCountGroups(ctx context.Context, plan *selectPlan, p *t
 		if err != nil {
 			return err
 		}
-		group := aggGroup{rep: p.row(vals), results: make(map[*Func]Value, len(aggs))}
+		group := aggGroup{rep: p.row(vals), results: make(map[*Func]Value, len(aggs)), mergeKey: row.key}
 		for _, f := range aggs {
 			group.results[f] = value
 		}

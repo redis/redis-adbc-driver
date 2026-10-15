@@ -36,10 +36,11 @@ const (
 )
 
 type spillTuple struct {
-	key   string
-	raw   []string
-	null  []bool
-	count int64
+	key      string
+	groupKey string // in-memory routing key; the persisted key may also include DISTINCT inputs
+	raw      []string
+	null     []bool
+	count    int64
 }
 
 type tupleSpill struct {
@@ -50,6 +51,30 @@ type tupleSpill struct {
 	serial      int
 	metrics     *partitionMetrics
 	combine     func(*spillTuple, spillTuple) error
+	bufferBytes int
+	bufferRows  int
+	fanIn       int
+}
+
+func (s *tupleSpill) maxBufferBytes() int {
+	if s.bufferBytes > 0 {
+		return s.bufferBytes
+	}
+	return spillBufferBytes
+}
+
+func (s *tupleSpill) maxFanIn() int {
+	if s.fanIn > 1 {
+		return s.fanIn
+	}
+	return spillFanIn
+}
+
+func (s *tupleSpill) maxBufferRows() int {
+	if s.bufferRows > 0 {
+		return s.bufferRows
+	}
+	return spillBufferRows
 }
 
 func (s *tupleSpill) add(ctx context.Context, row spillTuple) error {
@@ -61,7 +86,7 @@ func (s *tupleSpill) add(ctx context.Context, row spillTuple) error {
 	for _, v := range row.raw {
 		s.bytes += len(v)
 	}
-	if s.bytes >= spillBufferBytes || len(s.rows) >= spillBufferRows {
+	if s.bytes >= s.maxBufferBytes() || len(s.rows) >= s.maxBufferRows() {
 		return s.flush(ctx)
 	}
 	return nil
@@ -291,10 +316,11 @@ func (s *tupleSpill) merge(ctx context.Context, visit func(spillTuple) error) er
 	if err := s.flush(ctx); err != nil {
 		return err
 	}
-	for len(s.runs) > spillFanIn {
+	fanIn := s.maxFanIn()
+	for len(s.runs) > fanIn {
 		var next []string
-		for start := 0; start < len(s.runs); start += spillFanIn {
-			paths := s.runs[start:min(start+spillFanIn, len(s.runs))]
+		for start := 0; start < len(s.runs); start += fanIn {
+			paths := s.runs[start:min(start+fanIn, len(s.runs))]
 			path := s.path()
 			f, err := os.Create(path)
 			if err != nil {
