@@ -309,7 +309,7 @@ func TestSQLOrderByRoundedAdopted(t *testing.T) {
 		t.Fatalf("adopt: %+v", res)
 	}
 	h := f.h
-	h.expectRows("SELECT data_type FROM information_schema.columns WHERE table_name = 'it_ties_ev' AND column_name = 'id'", "BIGINT")
+	h.expectRows("SELECT driver_data_type FROM information_schema.columns WHERE table_name = 'it_ties_ev' AND column_name = 'id'", "BIGINT")
 	names := func(from, to int) []string {
 		var out []string
 		for k := from; k != to; {

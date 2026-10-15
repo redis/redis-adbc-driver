@@ -474,7 +474,7 @@ func TestSQLGroupingSetsQueries(t *testing.T) {
 	h.expectRows("SELECT region, q FROM it_gs_v WHERE g = 1", "NULL|28")
 	h.expectRows("SELECT region, q FROM it_gs_v WHERE region IS NULL ORDER BY g", "NULL|13", "NULL|28")
 	h.exec(`CREATE TABLE it_gs_out AS SELECT region, SUM(qty) AS q, GROUPING(region) AS g FROM it_gs_sales GROUP BY CUBE (region)`)
-	h.expectRows(`SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'it_gs_out' ORDER BY ordinal_position`,
+	h.expectRows(`SELECT column_name, driver_data_type FROM information_schema.columns WHERE table_name = 'it_gs_out' ORDER BY ordinal_position`,
 		"region|VARCHAR", "q|BIGINT", "g|INTEGER")
 	h.exec(`INSERT INTO it_gs_out SELECT product, COUNT(*), GROUPING(product) FROM it_gs_sales GROUP BY ROLLUP (product)`)
 	h.expectRows("SELECT region, q, g FROM it_gs_out ORDER BY g, region, q",

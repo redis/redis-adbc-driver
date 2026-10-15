@@ -25,7 +25,7 @@ package redis
 //	          ordinal_position, column_default, data_type, is_nullable,
 //	          character_maximum_length, character_octet_length,
 //	          numeric_precision, numeric_scale, datetime_precision,
-//	          is_indexed, comment)
+//	          driver_data_type, is_indexed, comment)
 //	views    (table_catalog, table_schema, table_name, view_definition)
 //	routines (routine_catalog, routine_schema, routine_name, routine_type,
 //	          function_kind, min_arguments, max_arguments, alias_of)
@@ -57,6 +57,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strconv"
+	"strings"
 
 	"github.com/apache/arrow-adbc/go/adbc"
 	goredis "github.com/redis/go-redis/v9"
@@ -87,13 +89,47 @@ var infoSchemaColumns = map[string][]resultColumn{
 		{Name: "column_name", Type: typeString},
 		{Name: "ordinal_position", Type: typeInt32},
 		{Name: "column_default", Type: typeString},
-		{Name: "data_type", Type: typeString},
 		{Name: "is_nullable", Type: typeString},
+		{Name: "data_type", Type: typeString},
 		{Name: "character_maximum_length", Type: typeInt32},
 		{Name: "character_octet_length", Type: typeInt32},
 		{Name: "numeric_precision", Type: typeInt32},
+		{Name: "numeric_precision_radix", Type: typeInt32},
 		{Name: "numeric_scale", Type: typeInt32},
 		{Name: "datetime_precision", Type: typeInt32},
+		{Name: "interval_type", Type: typeString},
+		{Name: "interval_precision", Type: typeInt32},
+		{Name: "character_set_catalog", Type: typeString},
+		{Name: "character_set_schema", Type: typeString},
+		{Name: "character_set_name", Type: typeString},
+		{Name: "collation_catalog", Type: typeString},
+		{Name: "collation_schema", Type: typeString},
+		{Name: "collation_name", Type: typeString},
+		{Name: "domain_catalog", Type: typeString},
+		{Name: "domain_schema", Type: typeString},
+		{Name: "domain_name", Type: typeString},
+		{Name: "udt_catalog", Type: typeString},
+		{Name: "udt_schema", Type: typeString},
+		{Name: "udt_name", Type: typeString},
+		{Name: "scope_catalog", Type: typeString},
+		{Name: "scope_schema", Type: typeString},
+		{Name: "scope_name", Type: typeString},
+		{Name: "maximum_cardinality", Type: typeInt32},
+		{Name: "dtd_identifier", Type: typeString},
+		{Name: "is_self_referencing", Type: typeString},
+		{Name: "is_identity", Type: typeString},
+		{Name: "identity_generation", Type: typeString},
+		{Name: "identity_start", Type: typeString},
+		{Name: "identity_increment", Type: typeString},
+		{Name: "identity_maximum", Type: typeString},
+		{Name: "identity_minimum", Type: typeString},
+		{Name: "identity_cycle", Type: typeString},
+		{Name: "is_generated", Type: typeString},
+		{Name: "generation_expression", Type: typeString},
+		{Name: "is_updatable", Type: typeString},
+		// Redis ADBC extension: the exact type spelling used by this driver,
+		// including typmods such as VARCHAR(20) and NUMERIC(10,2).
+		{Name: "driver_data_type", Type: typeString},
 		{Name: "is_indexed", Type: typeString},
 		{Name: "comment", Type: typeString},
 	},
@@ -161,11 +197,52 @@ func optString(s string) Value {
 	return stringValue(s)
 }
 
+// postgresTypeNames are information_schema.columns' data_type and udt_name.
+func postgresTypeNames(t ColType) (string, string) {
+	switch t.Kind {
+	case KindBool:
+		return "boolean", "bool"
+	case KindInt16:
+		return "smallint", "int2"
+	case KindInt32:
+		return "integer", "int4"
+	case KindInt64:
+		return "bigint", "int8"
+	case KindFloat32:
+		return "real", "float4"
+	case KindFloat64:
+		return "double precision", "float8"
+	case KindDecimal:
+		return "numeric", "numeric"
+	case KindString:
+		if t.Fixed {
+			return "character", "bpchar"
+		}
+		return "character varying", "varchar"
+	case KindBinary:
+		return "bytea", "bytea"
+	case KindDate:
+		return "date", "date"
+	case KindTime:
+		return "time without time zone", "time"
+	case KindTimeTZ:
+		return "time with time zone", "timetz"
+	case KindTimestamp:
+		if t.TZ != "" {
+			return "timestamp with time zone", "timestamptz"
+		}
+		return "timestamp without time zone", "timestamp"
+	case KindInterval:
+		return "interval", "interval"
+	}
+	return strings.ToLower(t.SQLName()), strings.ToLower(t.SQLName())
+}
+
 // columnRow renders one information_schema.columns row.
 func columnRow(schema, table string, pos int, c columnMeta) []Value {
 	t := c.Type
 	null := nullValue(typeInt32)
-	prec, scale, dtPrec, chars, octets := null, null, null, null, null
+	prec, radix, scale, dtPrec, chars, octets := null, null, null, null, null, null
 	switch t.Kind {
 	case KindString:
 		if t.Length > 0 {
@@ -175,25 +252,41 @@ func columnRow(schema, table string, pos int, c columnMeta) []Value {
 		}
 	case KindDecimal:
 		prec, scale = optInt(t.Precision, true), optInt(t.Scale, true)
+		radix = optInt(10, true)
 	case KindInt16:
 		prec, scale = optInt(16, true), optInt(0, true)
+		radix = optInt(2, true)
 	case KindInt32:
 		prec, scale = optInt(32, true), optInt(0, true)
+		radix = optInt(2, true)
 	case KindInt64:
 		prec, scale = optInt(64, true), optInt(0, true)
+		radix = optInt(2, true)
 	case KindFloat32:
 		prec = optInt(24, true)
+		radix = optInt(2, true)
 	case KindFloat64:
 		prec = optInt(53, true)
+		radix = optInt(2, true)
 	case KindDate:
 		dtPrec = optInt(0, true)
 	case KindTime, KindTimeTZ, KindTimestamp:
 		dtPrec = optInt(int32(t.fracDigits()), true)
 	}
+	dataType, udtName := postgresTypeNames(t)
+	nullString := nullValue(typeString)
 	return []Value{
 		stringValue(catalogName), stringValue(schema), stringValue(table),
-		stringValue(c.Name), intValue(typeInt32, int64(pos)), optString(c.Default), stringValue(t.SQLName()),
-		yesNo(c.Nullable), chars, octets, prec, scale, dtPrec, yesNo(c.Indexed), optString(c.Comment),
+		stringValue(c.Name), intValue(typeInt32, int64(pos)), optString(c.Default), yesNo(c.Nullable), stringValue(dataType),
+		chars, octets, prec, radix, scale, dtPrec,
+		nullString, null, nullString, nullString, nullString, nullString, nullString, nullString,
+		nullString, nullString, nullString,
+		stringValue(catalogName), stringValue("pg_catalog"), stringValue(udtName),
+		nullString, nullString, nullString, null,
+		stringValue(strconv.Itoa(pos)), yesNo(false), yesNo(false),
+		nullString, nullString, nullString, nullString, nullString, nullString,
+		stringValue("NEVER"), nullString, yesNo(true), stringValue(t.SQLName()),
+		yesNo(c.Indexed), optString(c.Comment),
 	}
 }
 
@@ -226,7 +319,7 @@ func (e *executor) infoSchemaTable(ctx context.Context, name string) (*tableMeta
 	}
 	var rows [][]Value
 	if key == "schemata" {
-		for _, s := range append(spaces, space{name: infoSchema}) {
+		for _, s := range append(spaces, space{name: infoSchema}, space{name: pgCatalog}) {
 			rows = append(rows, []Value{stringValue(catalogName), stringValue(s.name)})
 		}
 		return memTable(key, cols, rows, nil)

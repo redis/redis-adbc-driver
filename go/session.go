@@ -347,6 +347,8 @@ func (p *parser) parseShow() (Stmt, error) {
 		return &ShowStmt{All: true}, nil
 	case p.acceptKeyword("TIME", "ZONE"):
 		return &ShowStmt{Name: "timezone"}, nil
+	case p.acceptKeyword("TRANSACTION", "ISOLATION", "LEVEL"):
+		return &ShowStmt{Name: "transaction_isolation"}, nil
 	}
 	name, err := p.parseSettingName()
 	if err != nil {
@@ -388,10 +390,13 @@ type session struct {
 	local map[string]paramValue
 	// inBlock is set between BEGIN and COMMIT / ROLLBACK.
 	inBlock bool
+	// user is the Redis ACL username exposed through Postgres-compatible
+	// session-user functions and keywords.
+	user string
 }
 
 func newSession(schema string) *session {
-	return &session{defaultSchema: schema, defaultZone: utcParam, vals: map[string]paramValue{}}
+	return &session{defaultSchema: schema, defaultZone: utcParam, vals: map[string]paramValue{}, user: "default"}
 }
 
 // zone is the session time zone.
@@ -513,6 +518,9 @@ func (e *executor) runSet(st *SetStmt) error {
 	if !ok {
 		return unrecognizedParam(st.Name)
 	}
+	if def.parse == nil {
+		return errorf(adbc.StatusInvalidArgument, "parameter %q cannot be changed", st.Name)
+	}
 	var v paramValue
 	if st.Default {
 		v = def.initial(s)
@@ -590,6 +598,27 @@ func fixed(text string) func(*session) paramValue {
 
 // settings are the parameters, by lower-case name.
 var settings = map[string]*setting{
+	"server_version": {
+		name: "server_version", desc: "PostgreSQL compatibility version reported by the Redis ADBC driver.", initial: fixed("16.0"),
+	},
+	"server_version_num": {
+		name: "server_version_num", desc: "PostgreSQL compatibility version as an integer.", initial: fixed("160000"),
+	},
+	"transaction_isolation": {
+		name: "transaction_isolation", desc: "Current transaction isolation level (autocommit compatibility value).", initial: fixed("read committed"),
+	},
+	"max_identifier_length": {
+		name: "max_identifier_length", desc: "Maximum identifier length in bytes.", initial: fixed("63"),
+	},
+	"server_encoding": {
+		name: "server_encoding", desc: "Server character set encoding.", initial: fixed("UTF8"),
+	},
+	"integer_datetimes": {
+		name: "integer_datetimes", desc: "Date and time values use integer storage.", initial: fixed("on"),
+	},
+	"is_superuser": {
+		name: "is_superuser", desc: "Redis ACL compatibility value.", initial: fixed("off"),
+	},
 	"search_path": {
 		name: "search_path",
 		desc: "Sets the schema for unqualified names: the first schema of the list, " +

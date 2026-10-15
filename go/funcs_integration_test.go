@@ -437,7 +437,7 @@ func TestSQLFunctionsNamesAndForms(t *testing.T) {
 	h.expectErrorText("SELECT NoSuchFunc(id) FROM it_fx_t", noSuchInt)
 	h.expectRows(`SELECT "upper"(s) FROM it_fx_t ORDER BY id`, "A", "X")
 	h.expectErrorText(`SELECT "UPPER"(s) FROM it_fx_t`, "function upper(varchar) does not exist")
-	h.expectErrorText(`SELECT pg_catalog.upper(s) FROM it_fx_t`, `syntax error: unexpected "("`)
+	h.expectRows(`SELECT pg_catalog.upper(s) FROM it_fx_t ORDER BY id`, "A", "X")
 	h.expectRows(`SELECT * FROM "generate_series"(1, 2)`, "1", "2")
 	h.expectErrorText(`SELECT * FROM nosuchfunc(1)`, "table function nosuchfunc is not supported (only GENERATE_SERIES is)")
 	// The internal functions the parser builds for operators and special
@@ -510,7 +510,7 @@ func TestSQLFunctionsStoredBefore(t *testing.T) {
 	// The metadata still lists it, and it can be replaced or dropped.
 	h.expectRows("SELECT table_name, view_definition FROM information_schema.views WHERE table_name LIKE 'it_fx_old%' ORDER BY 1",
 		"it_fx_olde|SELECT nosuchfunc(id) AS x FROM it_fx_e", "it_fx_oldv|SELECT nosuchfunc(id) AS x FROM it_fx_t")
-	h.expectRows("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'it_fx_oldv'", "x|VARCHAR")
+	h.expectRows("SELECT column_name, driver_data_type FROM information_schema.columns WHERE table_name = 'it_fx_oldv'", "x|VARCHAR")
 	h.exec("CREATE OR REPLACE VIEW it_fx_oldv AS SELECT upper(s) AS x FROM it_fx_t")
 	h.expectRows("SELECT x FROM it_fx_oldv ORDER BY x", "A", "X")
 	h.exec("DROP VIEW it_fx_olde")

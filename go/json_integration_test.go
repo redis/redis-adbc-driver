@@ -426,7 +426,7 @@ func TestSQLJSONConstructors(t *testing.T) {
 
 	// Results are VARCHAR: they can be stored, updated and read back.
 	h.exec(`CREATE TABLE it_json_ctas AS SELECT id, JSON_BUILD_OBJECT('i', i, 'n', n) AS j FROM it_json_types`)
-	h.expectRows(`SELECT data_type FROM information_schema.columns WHERE table_name = 'it_json_ctas' AND column_name = 'j'`, "VARCHAR")
+	h.expectRows(`SELECT driver_data_type FROM information_schema.columns WHERE table_name = 'it_json_ctas' AND column_name = 'j'`, "VARCHAR")
 	h.expectRows(`SELECT id, j ->> 'i', j -> 'n' FROM it_json_ctas ORDER BY id`, "1|42|10.50", "2|NULL|null")
 	h.exec(`UPDATE it_json_ctas SET j = JSONB_BUILD_OBJECT('old', j::json, 'k', 'v') WHERE id = 1`)
 	h.exec(`INSERT INTO it_json_ctas VALUES (3, JSON_ARRAY(1, 2))`)

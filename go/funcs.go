@@ -179,6 +179,18 @@ type funcDef struct {
 
 // funcDefs are the driver's functions (see the top of this file).
 var funcDefs = []funcDef{
+	// ---- Postgres session and catalog compatibility ----
+	{name: "VERSION", min: 0, max: 0},
+	{name: "CURRENT_DATABASE", min: 0, max: 0},
+	{name: "CURRENT_SCHEMA", min: 0, max: 0},
+	{name: "CURRENT_USER", aliases: []string{"SESSION_USER", "CURRENT_ROLE", "USER"}, min: 0, max: 0},
+	{name: "PG_TYPEOF", min: 1, max: 1},
+	{name: "CURRENT_SETTING", min: 1, max: 2},
+	{name: "SET_CONFIG", min: 3, max: 3},
+	{name: "FORMAT_TYPE", min: 2, max: 2},
+	{name: "OBJ_DESCRIPTION", min: 1, max: 2},
+	{name: "TO_REGCLASS", min: 1, max: 1},
+
 	// ---- math (scalar.go) ----
 	{name: "ROUND", min: 1, max: 2, impl: implScalar},
 	{name: "TRUNC", min: 1, max: 2, impl: implScalar},

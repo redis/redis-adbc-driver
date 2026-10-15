@@ -34,11 +34,11 @@ import (
 )
 
 // columnTypes lists a table's columns as "column type" from
-// information_schema.columns.data_type. GetObjects' xdbc_type_name must say
+// information_schema.columns.driver_data_type. GetObjects' xdbc_type_name must say
 // the same, and GetTableSchema must have the type's Arrow type.
 func (h *sqlHarness) columnTypes(table string) []string {
 	h.t.Helper()
-	got, _ := h.query(fmt.Sprintf(`SELECT column_name || ' ' || data_type FROM information_schema.columns
+	got, _ := h.query(fmt.Sprintf(`SELECT column_name || ' ' || driver_data_type FROM information_schema.columns
 		WHERE table_schema = 'public' AND table_name = '%s' ORDER BY ordinal_position`, table))
 	schema := defaultSchema
 	rdr, err := h.conn.GetObjects(h.ctx, adbc.ObjectDepthColumns, nil, &schema, &table, nil, nil)
@@ -740,8 +740,8 @@ func TestSQLAlterType(t *testing.T) {
 		{`ALTER TABLE it_at ALTER COLUMN c TYPE integer USING nope`, adbc.StatusNotFound, `column "nope" does not exist in table "it_at"`},
 		{`ALTER TABLE it_at ALTER COLUMN c TYPE integer USING (SELECT 1)`, adbc.StatusNotImplemented, `cannot use subquery in transform expression`},
 		{`ALTER TABLE it_at ALTER COLUMN c TYPE integer USING max(id)`, adbc.StatusInvalidArgument, `aggregate functions are not allowed in transform expressions`},
-		{`ALTER TABLE it_at ALTER COLUMN c TYPE text COLLATE "C"`, adbc.StatusInvalidArgument,
-			`COLLATE is not supported: strings compare by their bytes, as with Postgres's "C" collation`},
+		{`ALTER TABLE it_at ALTER COLUMN c TYPE text COLLATE "x"`, adbc.StatusNotFound,
+			`collation "x" for encoding UTF8 does not exist`},
 		{`ALTER TABLE it_at ALTER COLUMN c TYPE nosuchtype`, adbc.StatusInvalidArgument, `unsupported SQL type NOSUCHTYPE`},
 		{`ALTER TABLE it_at ALTER COLUMN c TYPE bigint USING c::bigint, ALTER COLUMN c TYPE integer USING c::integer`, adbc.StatusNotImplemented,
 			`cannot alter type of column "c" twice`},

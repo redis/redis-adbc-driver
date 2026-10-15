@@ -105,6 +105,10 @@ const (
 	// and replaces a SET's value; reading it gives the current value, as
 	// SHOW timezone does.
 	OptionStringTimeZone = "adbc.redis.time_zone"
+	// OptionStringTemporaryObjects reports whether this connection currently
+	// owns any temporary tables or views. It is read-only and answered from
+	// connection-local state, without contacting Redis.
+	OptionStringTemporaryObjects = "adbc.redis.temporary_objects"
 
 	// OptionStringStreamResults (database or statement) controls whether a
 	// query's rows are read from Redis as the result is read: "true" (the

@@ -92,7 +92,7 @@ func TestAdoptHashes(t *testing.T) {
 	// index, so this runs there.
 	h.expectRows(`SELECT COUNT(*), SUM(balance) FROM it_ad_users WHERE balance >= 25`, "6|166.65")
 	h.expectRows(`SELECT name FROM it_ad_users WHERE zip = '00070' AND active = 'true'`, "User 10")
-	h.expectRows(`SELECT data_type FROM information_schema.columns WHERE table_name = 'it_ad_users' AND column_name = 'balance'`,
+	h.expectRows(`SELECT driver_data_type FROM information_schema.columns WHERE table_name = 'it_ad_users' AND column_name = 'balance'`,
 		"NUMERIC(38,2)")
 
 	// UPDATE and DELETE change the application's HASHes.

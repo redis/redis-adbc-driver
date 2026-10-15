@@ -81,6 +81,8 @@ func (c *connectionImpl) GetOption(ctx context.Context, key string) (string, err
 		return formatTimeout(c.timeouts.write), nil
 	case OptionStringTimeZone:
 		return c.sess.value("timezone").text, nil
+	case OptionStringTemporaryObjects:
+		return strconv.FormatBool(c.store != nil && c.store.hasTempObjects()), nil
 	}
 	return c.ConnectionImplBase.GetOption(ctx, key)
 }
@@ -129,6 +131,8 @@ func (c *connectionImpl) SetOption(ctx context.Context, key, value string) error
 		}
 		c.sess.setDefaultZone(tz)
 		return nil
+	case OptionStringTemporaryObjects:
+		return errorf(adbc.StatusInvalidArgument, "%s is read-only", key)
 	}
 	return c.ConnectionImplBase.SetOption(ctx, key, value)
 }

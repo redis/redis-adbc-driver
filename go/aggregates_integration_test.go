@@ -398,7 +398,7 @@ func TestSQLAggFilter(t *testing.T) {
 	h.expectRows(`SELECT * FROM it_agg_v ORDER BY g`, "a|2|x,y,x|2", "b|0|z,z|10", "c|0|NULL|NULL")
 	h.exec(`CREATE TABLE it_agg_ctas AS SELECT g, STDDEV(v) AS sd, BOOL_OR(b) AS bo, STRING_AGG(k, ',' ORDER BY id) AS ks,
 		MEDIAN(v) AS med, MODE() WITHIN GROUP (ORDER BY n) AS mo FROM it_agg GROUP BY g`)
-	h.expectRows(`SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'it_agg_ctas'
+	h.expectRows(`SELECT column_name, driver_data_type FROM information_schema.columns WHERE table_name = 'it_agg_ctas'
 		ORDER BY ordinal_position`,
 		"g|VARCHAR",
 		"sd|NUMERIC(17,16)",

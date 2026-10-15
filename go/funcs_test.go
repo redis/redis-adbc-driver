@@ -37,6 +37,12 @@ import (
 // parser builds them for. A sample that starts with SELECT is the whole
 // query.
 var funcSamples = map[string]string{
+	// Postgres session and catalog compatibility
+	"VERSION": "VERSION()", "CURRENT_DATABASE": "CURRENT_DATABASE()", "CURRENT_SCHEMA": "CURRENT_SCHEMA()",
+	"CURRENT_USER": "CURRENT_USER", "SESSION_USER": "SESSION_USER", "CURRENT_ROLE": "CURRENT_ROLE", "USER": "USER",
+	"PG_TYPEOF": "PG_TYPEOF(1)", "CURRENT_SETTING": "CURRENT_SETTING('TimeZone')",
+	"SET_CONFIG":  "SET_CONFIG('application_name', 'test', false)",
+	"FORMAT_TYPE": "FORMAT_TYPE(23, NULL)", "OBJ_DESCRIPTION": "OBJ_DESCRIPTION('t'::regclass)", "TO_REGCLASS": "TO_REGCLASS('t')",
 	// math
 	"ROUND": "ROUND(2.5)", "TRUNC": "TRUNC(2.55, 1)", "FLOOR": "FLOOR(2.5)", "CEIL": "CEIL(2.5)", "CEILING": "CEILING(2.5)",
 	"MOD": "MOD(5, 3)", "POWER": "POWER(2, 3)", "POW": "POW(2, 3)", "SQRT": "SQRT(4)", "LN": "LN(1)", "LOG": "LOG(2, 8)",

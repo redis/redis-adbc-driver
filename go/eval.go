@@ -22,6 +22,8 @@ import (
 	"math/big"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/apache/arrow-adbc/go/adbc"
 )
 
 // evalEnv supplies column values (keyed by canonical column name) and bound
@@ -613,6 +615,16 @@ func (env *evalEnv) evalFunc(f *Func) (Value, error) {
 		}
 		return concatValues(args[0].textIn(env.zone()), args[1:], env.zone()), nil
 	}
+	if f.Name == "PG_TYPEOF" && (unknownLiteral(f.Args[0]) || args[0].T.Kind == KindNull) {
+		return stringValue("unknown"), nil
+	}
+	if f.Name == "FORMAT_TYPE" && len(args) == 2 && !args[0].Null {
+		names := map[int64]string{16: "boolean", 17: "bytea", 20: "bigint", 21: "smallint", 23: "integer", 25: "text", 700: "real", 701: "double precision", 1043: "character varying", 1082: "date", 1114: "timestamp without time zone", 1184: "timestamp with time zone", 1186: "interval", 1700: "numeric"}
+		if name, ok := names[args[0].I]; ok {
+			return stringValue(name), nil
+		}
+		return stringValue("???"), nil
+	}
 	for _, a := range args {
 		if a.Null {
 			return nullValue(inferFuncType(f, argTypes(args))), nil
@@ -628,6 +640,71 @@ func (env *evalEnv) evalFunc(f *Func) (Value, error) {
 		return scalarFunc(f, args, env.zone())
 	}
 	switch f.Name {
+	case "VERSION":
+		return stringValue("PostgreSQL 16.0 (Redis ADBC driver)"), nil
+	case "CURRENT_DATABASE":
+		return stringValue(catalogName), nil
+	case "CURRENT_SCHEMA":
+		if env.exec == nil || env.exec.sess == nil {
+			return stringValue(defaultSchema), nil
+		}
+		return stringValue(env.exec.sess.currentSchema()), nil
+	case "CURRENT_USER", "SESSION_USER", "CURRENT_ROLE", "USER":
+		if env.exec == nil || env.exec.sess == nil || env.exec.sess.user == "" {
+			return stringValue("default"), nil
+		}
+		return stringValue(env.exec.sess.user), nil
+	case "PG_TYPEOF":
+		return stringValue(sigTypeName(args[0].T)), nil
+	case "CURRENT_SETTING":
+		name := strings.ToLower(args[0].Text())
+		def, ok := settings[name]
+		if !ok {
+			if len(args) == 2 && args[1].T.Kind == KindBool && args[1].I != 0 {
+				return nullValue(typeString), nil
+			}
+			return Value{}, unrecognizedParam(name)
+		}
+		if env.exec == nil || env.exec.sess == nil {
+			return stringValue(def.initial(newSession(defaultSchema)).text), nil
+		}
+		return stringValue(env.exec.sess.value(name).text), nil
+	case "SET_CONFIG":
+		name := strings.ToLower(args[0].Text())
+		def, ok := settings[name]
+		if !ok {
+			return Value{}, unrecognizedParam(name)
+		}
+		if def.parse == nil {
+			return Value{}, errorf(adbc.StatusInvalidArgument, "parameter %q cannot be changed", name)
+		}
+		if args[2].T.Kind != KindBool {
+			return Value{}, fmt.Errorf("SET_CONFIG's third argument must be boolean")
+		}
+		if env.exec == nil {
+			return Value{}, fmt.Errorf("SET_CONFIG requires a connection")
+		}
+		if env.exec.sess == nil {
+			env.exec.sess = newSession(defaultSchema)
+		}
+		v, err := def.parse([]SetValue{{Text: args[1].Text(), Kind: SetString}}, env.exec.sess.value(name))
+		if err != nil {
+			return Value{}, err
+		}
+		if args[2].I != 0 {
+			if env.exec.sess.local == nil {
+				env.exec.sess.local = map[string]paramValue{}
+			}
+			env.exec.sess.local[name] = v
+		} else {
+			env.exec.sess.vals[name] = v
+			delete(env.exec.sess.local, name)
+		}
+		return stringValue(v.text), nil
+	case "OBJ_DESCRIPTION":
+		return nullValue(typeString), nil
+	case "TO_REGCLASS":
+		return args[0], nil
 	case "FROM_HEX", "UNHEX", "DECODE_HEX":
 		b, err := hex.DecodeString(args[0].S)
 		if err != nil {
@@ -921,7 +998,9 @@ func funcType(f *Func, args []ColType) ColType {
 		return typeBool
 	case "FROM_HEX", "UNHEX", "DECODE_HEX":
 		return typeBinary
-	case "TO_HEX", "HEX", "LOWER", "LCASE", "UPPER", "UCASE", "CONCAT", "CONCAT_WS":
+	case "TO_HEX", "HEX", "LOWER", "LCASE", "UPPER", "UCASE", "CONCAT", "CONCAT_WS",
+		"VERSION", "CURRENT_DATABASE", "CURRENT_SCHEMA", "CURRENT_USER", "SESSION_USER", "CURRENT_ROLE", "USER",
+		"PG_TYPEOF", "CURRENT_SETTING", "SET_CONFIG", "FORMAT_TYPE", "OBJ_DESCRIPTION", "TO_REGCLASS":
 		return typeString
 	case "MERGE_ACTION":
 		return typeString

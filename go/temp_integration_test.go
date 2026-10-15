@@ -93,6 +93,44 @@ func (h *sqlHarness) indexExists(raw goredis.UniversalClient, index string) bool
 	return err == nil
 }
 
+func (h *sqlHarness) temporaryObjectsOption() string {
+	h.t.Helper()
+	v, err := h.conn.(adbc.GetSetOptionsWithContext).GetOption(h.ctx, OptionStringTemporaryObjects)
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	return v
+}
+
+func TestSQLTemporaryObjectsOption(t *testing.T) {
+	h := newSQLHarness(t)
+	h.exec("DROP TABLE IF EXISTS it_tmp_option")
+	h.exec("DROP VIEW IF EXISTS it_tmp_option_v")
+	if got := h.temporaryObjectsOption(); got != "false" {
+		t.Fatalf("new connection: %s", got)
+	}
+	h.exec("CREATE TEMP TABLE it_tmp_option (id INTEGER)")
+	if got := h.temporaryObjectsOption(); got != "true" {
+		t.Fatalf("after CREATE TEMP TABLE: %s", got)
+	}
+	h.exec("CREATE TEMP VIEW it_tmp_option_v AS SELECT * FROM it_tmp_option")
+	h.exec("DROP TABLE it_tmp_option")
+	if got := h.temporaryObjectsOption(); got != "true" {
+		t.Fatalf("view remains: %s", got)
+	}
+	h.exec("DROP VIEW it_tmp_option_v")
+	if got := h.temporaryObjectsOption(); got != "false" {
+		t.Fatalf("after dropping all temporary objects: %s", got)
+	}
+	h.expectError("CREATE TEMP TABLE it_tmp_option (id NO_SUCH_TYPE)", "unsupported SQL type")
+	if got := h.temporaryObjectsOption(); got != "false" {
+		t.Fatalf("failed create: %s", got)
+	}
+	if err := h.conn.(adbc.GetSetOptionsWithContext).SetOption(h.ctx, OptionStringTemporaryObjects, "true"); err == nil || !strings.Contains(err.Error(), "read-only") {
+		t.Fatalf("setting read-only option: %v", err)
+	}
+}
+
 // objects lists GetObjects results as "catalog.schema[.table TYPE]".
 func (h *sqlHarness) objects(depth adbc.ObjectDepth, schema, table *string) []string {
 	h.t.Helper()
@@ -630,7 +668,7 @@ func TestSQLTempVisibility(t *testing.T) {
 	h.expectRows(`SELECT table_schema, table_name, table_type FROM information_schema.tables
 		WHERE table_name LIKE 'it_vis%' ORDER BY table_name`,
 		"public|it_vis_perm|BASE TABLE", "pg_temp|it_vis_t|LOCAL TEMPORARY", "pg_temp|it_vis_v|VIEW")
-	h.expectRows(`SELECT table_schema, column_name, data_type, is_nullable FROM information_schema.columns
+	h.expectRows(`SELECT table_schema, column_name, driver_data_type, is_nullable FROM information_schema.columns
 		WHERE table_name = 'it_vis_t' ORDER BY ordinal_position`, "pg_temp|id|INTEGER|NO", "pg_temp|label|VARCHAR|YES")
 	h.expectRows(`SELECT table_schema, view_definition FROM information_schema.views WHERE table_name = 'it_vis_v'`,
 		"pg_temp|SELECT label FROM it_vis_t")

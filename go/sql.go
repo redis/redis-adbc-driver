@@ -2185,6 +2185,11 @@ func (p *parser) parseColumnDef() (ColumnDef, error) {
 		return ColumnDef{}, &sqlError{msg: fmt.Sprintf("column %q has pseudo-type record", name), state: stateTableDefinition}
 	}
 	col := ColumnDef{Name: name, Type: ct}
+	if p.acceptKeyword("COLLATE") {
+		if err := p.parseCollation(); err != nil {
+			return ColumnDef{}, err
+		}
+	}
 	for {
 		named, constraint := "", false
 		if p.acceptKeyword("CONSTRAINT") {
@@ -2483,8 +2488,7 @@ func (p *parser) parseAlterCmd(view bool) (AlterCmd, error) {
 }
 
 // parseAlterType parses what follows ALTER COLUMN c [SET DATA] TYPE: the
-// type, then [USING expr]. COLLATE is refused: the driver has no
-// collations (strings compare by their bytes).
+// type, optional byte-order COLLATE, then [USING expr].
 func (p *parser) parseAlterType(cmd *AlterCmd) error {
 	spec, err := p.parseTypeSpec()
 	if err != nil {
@@ -2497,8 +2501,10 @@ func (p *parser) parseAlterType(cmd *AlterCmd) error {
 	if ct.Kind == KindRecord {
 		return &sqlError{msg: fmt.Sprintf("column %q has pseudo-type record", cmd.Column), state: stateTableDefinition}
 	}
-	if p.isKeyword("COLLATE") {
-		return &sqlError{msg: `COLLATE is not supported: strings compare by their bytes, as with Postgres's "C" collation`}
+	if p.acceptKeyword("COLLATE") {
+		if err := p.parseCollation(); err != nil {
+			return err
+		}
 	}
 	cmd.Action, cmd.Def.Type = AlterColumnType, ct
 	if p.acceptKeyword("USING") {
@@ -3673,22 +3679,52 @@ func (p *parser) parseUnary() (Expr, error) {
 }
 
 func (p *parser) parsePostfix(x Expr) (Expr, error) {
-	for p.acceptOp("::") {
-		spec, err := p.parseTypeSpec()
-		if err != nil {
-			return nil, err
+	for {
+		switch {
+		case p.acceptOp("::"):
+			spec, err := p.parseTypeSpec()
+			if err != nil {
+				return nil, err
+			}
+			if j, ok := jsonCast(spec, x); ok {
+				x = j
+				continue
+			}
+			ct, err := colTypeFromSQL(spec)
+			if err != nil {
+				return nil, parseErr(err)
+			}
+			x = p.noteCast(&Cast{X: x, T: ct, typeName: castTypeName(spec, ct)})
+		case p.acceptKeyword("COLLATE"):
+			if err := p.parseCollation(); err != nil {
+				return nil, err
+			}
+		default:
+			return x, nil
 		}
-		if j, ok := jsonCast(spec, x); ok {
-			x = j
-			continue
-		}
-		ct, err := colTypeFromSQL(spec)
-		if err != nil {
-			return nil, parseErr(err)
-		}
-		x = p.noteCast(&Cast{X: x, T: ct, typeName: castTypeName(spec, ct)})
 	}
-	return x, nil
+}
+
+// parseCollation accepts the byte-order collations the driver implements.
+// COLLATE is otherwise a semantic no-op because all string comparison is
+// already bytewise. A schema qualifier is accepted for pg_catalog."C".
+func (p *parser) parseCollation() error {
+	name, err := p.parseIdent()
+	if err != nil {
+		return err
+	}
+	if p.acceptOp(".") {
+		if name != "pg_catalog" {
+			return stateErrorf(stateUndefinedObject, "collation %q for encoding UTF8 does not exist", name)
+		}
+		if name, err = p.parseIdent(); err != nil {
+			return err
+		}
+	}
+	if !strings.EqualFold(name, "C") && !strings.EqualFold(name, "POSIX") && !strings.EqualFold(name, "default") {
+		return stateErrorf(stateUndefinedObject, "collation %q for encoding UTF8 does not exist", name)
+	}
+	return nil
 }
 
 // parseFieldSelect parses the field selections that may follow a
@@ -3790,6 +3826,13 @@ func (p *parser) parsePrimary() (Expr, error) {
 		return p.parseColumnRef(t.text)
 	case tokIdent:
 		upper := strings.ToUpper(t.text)
+		// Postgres clients qualify built-in calls with pg_catalog.
+		if strings.EqualFold(t.text, "pg_catalog") && p.peekAt(1).kind == tokOp && p.peekAt(1).text == "." &&
+			(p.peekAt(2).kind == tokIdent || p.peekAt(2).kind == tokQuotedIdent) && p.peekAt(3).kind == tokOp && p.peekAt(3).text == "(" {
+			fn := p.peekAt(2)
+			p.pos += 4
+			return p.parseFunctionCall(strings.ToUpper(fn.text), fn.kind == tokQuotedIdent && fn.text != foldIdentifier(fn.text))
+		}
 		switch upper {
 		case "NULL":
 			p.pos++
@@ -3803,7 +3846,8 @@ func (p *parser) parsePrimary() (Expr, error) {
 		case "CASE":
 			p.pos++
 			return p.parseCase()
-		case "CURRENT_DATE", "CURRENT_TIMESTAMP", "CURRENT_TIME", "LOCALTIMESTAMP", "LOCALTIME":
+		case "CURRENT_DATE", "CURRENT_TIMESTAMP", "CURRENT_TIME", "LOCALTIMESTAMP", "LOCALTIME",
+			"CURRENT_USER", "SESSION_USER", "CURRENT_ROLE", "USER":
 			// SQL-standard niladic functions (no parentheses needed).
 			if !(p.peekAt(1).kind == tokOp && p.peekAt(1).text == "(") {
 				p.pos++

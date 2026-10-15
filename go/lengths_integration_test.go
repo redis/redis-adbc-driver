@@ -444,7 +444,7 @@ func TestSQLLengthMetadata(t *testing.T) {
 	if got := h.columnSizes("it_len_m"); strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Errorf("GetObjects columns\n got: %q\nwant: %q", got, want)
 	}
-	h.expectRows(`SELECT column_name, data_type, character_maximum_length, character_octet_length, numeric_precision
+	h.expectRows(`SELECT column_name, driver_data_type, character_maximum_length, character_octet_length, numeric_precision
 		FROM information_schema.columns WHERE table_name = 'it_len_m' ORDER BY ordinal_position`,
 		"a|VARCHAR(3)|3|12|NULL", "b|VARCHAR(10)|10|40|NULL", "c|CHAR(4)|4|16|NULL", "d|CHAR(1)|1|4|NULL",
 		"e|CHAR(2)|2|8|NULL", "f|CHAR(3)|3|12|NULL", "g|VARCHAR(5)|5|20|NULL", "h|VARCHAR|NULL|1073741824|NULL",
@@ -478,7 +478,7 @@ func TestSQLLengthMetadata(t *testing.T) {
 		CASE WHEN true THEN a END AS cs, CASE WHEN true THEN a ELSE b END AS cs2, CASE WHEN true THEN a ELSE 'zzzzz' END AS cs3,
 		(SELECT a FROM it_len_m LIMIT 1) AS sq, MIN(a) OVER () AS mi, LAG(a) OVER (ORDER BY a) AS lg, CAST(c AS CHAR(2)) AS c2
 		FROM it_len_m`)
-	h.expectRows(`SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'it_len_ctas' ORDER BY ordinal_position`,
+	h.expectRows(`SELECT column_name, driver_data_type FROM information_schema.columns WHERE table_name = 'it_len_ctas' ORDER BY ordinal_position`,
 		"a|VARCHAR(3)", "c|CHAR(4)", "x|VARCHAR(7)", "y|VARCHAR", "z|VARCHAR", "co|VARCHAR(3)", "cl|VARCHAR",
 		"cb|VARCHAR", "ni|VARCHAR(3)", "cs|VARCHAR(3)", "cs2|VARCHAR", "cs3|VARCHAR", "sq|VARCHAR(3)", "mi|VARCHAR",
 		"lg|VARCHAR", "c2|CHAR(2)")
@@ -486,10 +486,10 @@ func TestSQLLengthMetadata(t *testing.T) {
 	h.expectTooLong(`INSERT INTO it_len_ctas (a) VALUES ('abcd')`, "character varying(3)")
 	h.expectTooLong(`INSERT INTO it_len_ctas (c2) VALUES ('abc')`, "character(2)")
 	h.exec(`CREATE TABLE it_len_cagg AS SELECT c, MAX(a) AS m, MIN(c) AS mc FROM it_len_m GROUP BY c`)
-	h.expectRows(`SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'it_len_cagg' ORDER BY ordinal_position`,
+	h.expectRows(`SELECT column_name, driver_data_type FROM information_schema.columns WHERE table_name = 'it_len_cagg' ORDER BY ordinal_position`,
 		"c|CHAR(4)", "m|VARCHAR", "mc|BPCHAR")
 	h.exec(`CREATE TABLE it_len_cu AS SELECT a, a AS b FROM it_len_m UNION ALL SELECT a, b FROM it_len_m`)
-	h.expectRows(`SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'it_len_cu' ORDER BY ordinal_position`,
+	h.expectRows(`SELECT column_name, driver_data_type FROM information_schema.columns WHERE table_name = 'it_len_cu' ORDER BY ordinal_position`,
 		"a|VARCHAR(3)", "b|VARCHAR")
 
 	// Views report the lengths of their columns.
@@ -502,7 +502,7 @@ func TestSQLLengthMetadata(t *testing.T) {
 
 	// ADD COLUMN.
 	h.exec(`ALTER TABLE it_len_m ADD COLUMN m varchar(2)`)
-	h.expectRows(`SELECT data_type, character_maximum_length FROM information_schema.columns WHERE table_name = 'it_len_m' AND column_name = 'm'`,
+	h.expectRows(`SELECT driver_data_type, character_maximum_length FROM information_schema.columns WHERE table_name = 'it_len_m' AND column_name = 'm'`,
 		"VARCHAR(2)|2")
 	h.expectTooLong(`UPDATE it_len_m SET m = 'abc'`, "character varying(2)")
 	h.exec(`UPDATE it_len_m SET m = 'ab'`)

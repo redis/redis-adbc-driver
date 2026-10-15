@@ -148,11 +148,11 @@ func TestFractionalPrecisionIssue113(t *testing.T) {
 		WHERE id <= 2 ORDER BY id`,
 		"1|2024-01-10 10:00:00.121|2024-01-10 10:00:00", "2|2024-01-10 10:00:00.131|2024-01-10 10:00:00")
 
-	// The types: information_schema (data_type is the driver's name, which
+	// The types: information_schema (driver_data_type is the driver's name, which
 	// Postgres writes as `timestamp without time zone`; datetime_precision
 	// is p), GetObjects (xdbc_type_name and xdbc_decimal_digits) and the
 	// stored metadata.
-	h.expectRows(`SELECT column_name, data_type, datetime_precision FROM information_schema.columns
+	h.expectRows(`SELECT column_name, driver_data_type, datetime_precision FROM information_schema.columns
 		WHERE table_name = 'it_prec' AND column_name <> 'id' ORDER BY ordinal_position`,
 		"ts2|TIMESTAMP(2)|2", "t5|TIME(5)|5", "tz1|TIMESTAMP(1) WITH TIME ZONE|1", "ts4|TIMESTAMP(4)|4", "ts1|TIMESTAMP(1)|1")
 	if got, want := strings.Join(h.columnDigits("it_prec"), ", "),
@@ -191,7 +191,7 @@ func TestFractionalPrecisionIssue113(t *testing.T) {
 	// value has the unit's digits (Postgres: none, which is 6).
 	h.exec(`CREATE TABLE it_prec_ctas AS SELECT s.id, ts2, CAST(ts AS TIMESTAMP(1)) AS c1, CAST(tz AS TIMESTAMPTZ(2)) AS c2,
 		CAST(t AS TIME(4)) AS c4, ts2 + INTERVAL '1 second' AS plus FROM it_prec_src s JOIN it_prec p ON p.id = s.id`)
-	h.expectRows(`SELECT column_name, data_type, datetime_precision FROM information_schema.columns
+	h.expectRows(`SELECT column_name, driver_data_type, datetime_precision FROM information_schema.columns
 		WHERE table_name = 'it_prec_ctas' AND column_name <> 'id' ORDER BY ordinal_position`,
 		"ts2|TIMESTAMP(2)|2", "c1|TIMESTAMP(1)|1", "c2|TIMESTAMP(2) WITH TIME ZONE|2", "c4|TIME(4)|4", "plus|TIMESTAMP(3)|3")
 	h.expectRows(`SELECT id, CAST(ts2 AS TEXT), CAST(c1 AS TEXT), CAST(c2 AS TEXT), CAST(c4 AS TEXT), CAST(plus AS TEXT)
@@ -200,7 +200,7 @@ func TestFractionalPrecisionIssue113(t *testing.T) {
 		"2|2024-01-10 10:00:00.13|2024-06-30 12:00:00|2024-06-30 12:00:00.05+00|12:00:00|2024-01-10 10:00:01.13")
 	h.expectRows(`SELECT id FROM it_prec_ctas WHERE c2 = '2024-06-30 12:00:00.05+00'`, "2")
 	h.exec(`CREATE VIEW it_prec_v AS SELECT id, ts2, t5, CAST(ts4 AS TIMESTAMP(1)) AS v1 FROM it_prec`)
-	h.expectRows(`SELECT column_name, data_type, datetime_precision FROM information_schema.columns
+	h.expectRows(`SELECT column_name, driver_data_type, datetime_precision FROM information_schema.columns
 		WHERE table_name = 'it_prec_v' AND column_name <> 'id' ORDER BY ordinal_position`,
 		"ts2|TIMESTAMP(2)|2", "t5|TIME(5)|5", "v1|TIMESTAMP(1)|1")
 	h.expectRows(`SELECT CAST(v1 AS TEXT) FROM it_prec_v WHERE id = 2`, "2024-01-10 10:00:00.1")

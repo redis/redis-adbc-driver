@@ -275,6 +275,9 @@ func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, er
 		timeouts:           t,
 		writeFollows:       writeFollows,
 	}
+	if cfg.single.Username != "" {
+		conn.sess.user = cfg.single.Username
+	}
 	return driverbase.NewConnectionBuilder(conn).
 		WithCurrentNamespacer(conn).
 		WithDriverInfoPreparer(conn).

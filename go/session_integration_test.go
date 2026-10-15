@@ -285,12 +285,24 @@ func TestSQLSetParameters(t *testing.T) {
 		`DateStyle|ISO, MDY|Display format for date and time values. Only ISO is supported; the order (MDY, DMY, YMD) has no effect, as only ISO dates are read.`,
 		`extra_float_digits|1|Extra digits for floating-point values shown as text. Accepted and shown; results are Arrow values.`,
 		`idle_in_transaction_session_timeout|0|Maximum allowed idle time in a transaction. Accepted and shown; there are no transactions.`,
+		`integer_datetimes|on|Date and time values use integer storage.`,
 		`IntervalStyle|postgres|Display format for interval values. Only postgres is supported.`,
+		`is_superuser|off|Redis ACL compatibility value.`,
 		`lock_timeout|0|Maximum allowed duration of any wait for a lock. Accepted and shown; the driver takes no locks.`,
+		`max_identifier_length|63|Maximum identifier length in bytes.`,
 		`search_path|public|Sets the schema for unqualified names: the first schema of the list, skipping "$user", pg_catalog and pg_temp (adbc.redis.default_schema by default).`,
+		`server_encoding|UTF8|Server character set encoding.`,
+		`server_version|16.0|PostgreSQL compatibility version reported by the Redis ADBC driver.`,
+		`server_version_num|160000|PostgreSQL compatibility version as an integer.`,
 		`standard_conforming_strings|on|'...' strings treat backslashes literally. Only on is supported.`,
 		`statement_timeout|0|Maximum allowed duration of any statement. Accepted and shown, not enforced.`,
-		`TimeZone|UTC|Time zone for displaying and interpreting time stamps (adbc.redis.time_zone, UTC by default).`)
+		`TimeZone|UTC|Time zone for displaying and interpreting time stamps (adbc.redis.time_zone, UTC by default).`,
+		`transaction_isolation|read committed|Current transaction isolation level (autocommit compatibility value).`)
+	h.expectRows(`SHOW server_version`, "16.0")
+	h.expectRows(`SHOW server_version_num`, "160000")
+	h.expectRows(`SHOW transaction_isolation`, "read committed")
+	h.expectRows(`SHOW TRANSACTION ISOLATION LEVEL`, "read committed")
+	h.expectRows(`SHOW max_identifier_length`, "63")
 
 	// ExecuteSchema of SHOW gives its column.
 	for sql, cols := range map[string]string{`SHOW datestyle`: "DateStyle", `SHOW ALL`: "name|setting|description"} {
@@ -328,7 +340,7 @@ func TestSQLSetParameters(t *testing.T) {
 		{`SET LOCAL nosuch TO DEFAULT`, `unrecognized configuration parameter "nosuch"`},
 		{`RESET nosuch`, `unrecognized configuration parameter "nosuch"`},
 		{`SHOW nosuch`, `unrecognized configuration parameter "nosuch"`},
-		{`SHOW transaction_isolation`, `unrecognized configuration parameter "transaction_isolation"`},
+		{`SET server_version = '17'`, `parameter "server_version" cannot be changed`},
 	} {
 		h.expectErrorText(c.sql, c.want)
 	}

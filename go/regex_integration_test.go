@@ -153,7 +153,7 @@ line2', 60),
 		REGEXP_COUNT(s, 'a') AS c, REGEXP_INSTR(s, 'a') AS i, REGEXP_SUBSTR(s, 'a.') AS sub, REGEXP_MATCH(s, 'a') AS mt,
 		REGEXP_REPLACE(s, 'a', 'b', 1, 0) AS r, SUBSTRING(s FROM 'a.') AS sf, SUBSTRING(s SIMILAR 'a#"%#"' ESCAPE '#') AS ss
 		FROM it_re`)
-	h.expectRows(`SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'it_re_ctas' ORDER BY ordinal_position`,
+	h.expectRows(`SELECT column_name, driver_data_type FROM information_schema.columns WHERE table_name = 'it_re_ctas' ORDER BY ordinal_position`,
 		"id|INTEGER", "m|BOOLEAN", "sim|BOOLEAN", "l|BOOLEAN", "c|BIGINT", "i|BIGINT", "sub|VARCHAR", "mt|VARCHAR",
 		"r|VARCHAR", "sf|VARCHAR", "ss|VARCHAR")
 	h.expectRows(`SELECT id, m, sim, c, i, sub, mt, r, sf, ss FROM it_re_ctas WHERE id IN (1, 3, 4, 8) ORDER BY id`,

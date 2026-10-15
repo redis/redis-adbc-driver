@@ -161,7 +161,7 @@ func TestSQLUnknownOperandWrites(t *testing.T) {
 	h.expectRows(`SELECT id, g FROM it_unkop WHERE id >= 3 ORDER BY id`, "3|12", "4|10")
 
 	h.exec(`CREATE TABLE it_unkop_ctas AS SELECT id + '1' AS a, n * '2' AS b, ts + '1 day' AS c, d - '2024-01-01' AS e FROM it_unkop`)
-	h.expectRows(`SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'it_unkop_ctas' ORDER BY ordinal_position`,
+	h.expectRows(`SELECT column_name, driver_data_type FROM information_schema.columns WHERE table_name = 'it_unkop_ctas' ORDER BY ordinal_position`,
 		"a|INTEGER", "b|NUMERIC(38,2)", "c|TIMESTAMP(6)", "e|BIGINT")
 	h.expectRows(`SELECT a, b, CAST(c AS VARCHAR), e FROM it_unkop_ctas ORDER BY a`,
 		"2|2.50|2024-02-01 10:00:00|30", "3|5.00|2024-02-02 10:00:00|31", "4|NULL|NULL|NULL", "5|NULL|NULL|NULL")

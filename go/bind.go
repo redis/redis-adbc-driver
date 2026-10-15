@@ -1215,6 +1215,11 @@ func (e *executor) resolveFromItem(ctx context.Context, table *TableName, sub *S
 			rel.meta, rel.schema = meta, infoSchema
 			return rel, err
 		}
+		if isPgCatalog(table.Schema) && (table.Catalog == "" || table.Catalog == catalogName) {
+			meta, err := e.pgCatalogTable(ctx, table.Name)
+			rel.meta, rel.schema = meta, pgCatalog
+			return rel, err
+		}
 		if table.Schema == "" && table.Catalog == "" {
 			if def, list := e.lookupCTE(table.Name); def != nil {
 				if m, ok := e.cache.working[def]; ok {
@@ -1228,6 +1233,11 @@ func (e *executor) resolveFromItem(ctx context.Context, table *TableName, sub *S
 				}
 				rel.meta = m
 				return rel, nil
+			}
+			if pgCatalogRelation(table.Name) {
+				meta, err := e.pgCatalogTable(ctx, table.Name)
+				rel.meta, rel.schema = meta, pgCatalog
+				return rel, err
 			}
 		}
 		meta, err := e.loadTable(ctx, *table)

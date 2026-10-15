@@ -1401,7 +1401,13 @@ func (e *executor) indexAggregate(ctx context.Context, plan *selectPlan, wp wher
 		if !col.groupable(e.pushdown) {
 			return nil, false, nil
 		}
-		groupCols = append(groupCols, col)
+		// Postgres treats a repeated GROUP BY expression as one grouping key.
+		// SELECT DISTINCT is planned as GROUP BY its output expressions, so this
+		// also keeps DISTINCT a, a from passing @a twice to RediSearch (which
+		// rejects duplicate GROUPBY properties).
+		if !groupNames[col.Name] {
+			groupCols = append(groupCols, col)
+		}
 		groupNames[col.Name] = true
 	}
 	// Outside aggregate calls, only GROUP BY columns may be referenced.

@@ -114,7 +114,7 @@ func TestSQLIntervalAggregates(t *testing.T) {
 	h.expectRows(`SELECT g, `+ivText("s")+`, `+ivText("a")+`, s > a FROM it_ivagg_ctas ORDER BY g`,
 		"1|1 mon 31 days 03:00:00|20 days 09:00:00|true", "2|00:00:01|00:00:00.333333|true", "3|NULL|NULL|NULL",
 		"4|-1 years +3 days 24:59:58.5|-6 mons +1 day 24:29:59.25|false")
-	h.expectRows(`SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'it_ivagg_ctas'
+	h.expectRows(`SELECT column_name, driver_data_type FROM information_schema.columns WHERE table_name = 'it_ivagg_ctas'
 		ORDER BY column_name`, "a|INTERVAL", "g|INTEGER", "s|INTERVAL")
 }
 

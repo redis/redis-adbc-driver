@@ -135,7 +135,7 @@ func TestSQLUnknownLiteralWrites(t *testing.T) {
 	h.dropTables("it_unklit_ctas")
 	h.exec(`CREATE TABLE it_unklit_ctas AS SELECT id, CASE WHEN id = 1 THEN '1' ELSE id END AS c,
 		COALESCE(n, '0') AS m, CASE WHEN id = 1 THEN '1' END AS t FROM it_unklit`)
-	h.expectRows(`SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'it_unklit_ctas' ORDER BY ordinal_position`,
+	h.expectRows(`SELECT column_name, driver_data_type FROM information_schema.columns WHERE table_name = 'it_unklit_ctas' ORDER BY ordinal_position`,
 		"id|INTEGER", "c|INTEGER", "m|NUMERIC(10,2)", "t|VARCHAR")
 	h.expectRows(`SELECT c + 1, m, t FROM it_unklit_ctas ORDER BY id`, "2|1.50|1", "3|0.00|NULL")
 	h.exec(`INSERT INTO it_unklit (id, n) VALUES (CASE WHEN TRUE THEN '7' ELSE 1 END, 1)`)

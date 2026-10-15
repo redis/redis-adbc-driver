@@ -268,7 +268,7 @@ func TestSQLNaNWritePaths(t *testing.T) {
 	h.nanIngest("it_nan_ing", adbc.OptionValueIngestModeAppend)
 	check("it_nan_ing")
 	h.nanIngest("it_nan_ing2", adbc.OptionValueIngestModeCreate)
-	h.expectRows("SELECT data_type FROM information_schema.columns WHERE table_name = 'it_nan_ing2' ORDER BY ordinal_position",
+	h.expectRows("SELECT driver_data_type FROM information_schema.columns WHERE table_name = 'it_nan_ing2' ORDER BY ordinal_position",
 		"BIGINT", "DOUBLE PRECISION", "DOUBLE PRECISION", "REAL", "REAL")
 	h.expectRows("SELECT id, x, n, r, rn FROM it_nan_ing2 ORDER BY id", "1|1|1|1|1", "2|NaN|NaN|NaN|NaN")
 	h.expectNaNs(raw, "it_nan_ing2", "x", "n", "r", "rn")

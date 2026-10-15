@@ -4337,7 +4337,10 @@ Tables can be qualified as `schema.table` or `redis.schema.table`, and
 `'…'` (`''` for a quote) or dollar-quoted, `$$…$$` or `$tag$…$tag$`, as in
 Postgres. Schemas are key
 namespaces (default `public`; `SET search_path` changes it for the
-connection). There are no transactions (autocommit only; `BEGIN`, `COMMIT`
+connection). String comparison uses byte order, matching a Postgres database
+created with the `C` or `POSIX` collation. `COLLATE "C"`, `COLLATE "POSIX"`
+and `COLLATE "default"` are accepted on expressions and column types; other
+collation names are rejected. There are no transactions (autocommit only; `BEGIN`, `COMMIT`
 and `ROLLBACK` are accepted and do nothing, see "Transactions and settings"
 above). `UPDATE`, `DELETE` and `MERGE` find their rows and compute and check
 every change first (new values and casts, string lengths, `NOT NULL`, `CHECK`, MERGE's
@@ -4369,6 +4372,7 @@ clients can see a partly applied statement.
 | `adbc.redis.stream_results` | database, statement | `true` (default): [stream](#streamed-results) the results of queries that can be. `false`: build every result whole before `ExecuteQuery` returns. The statement option overrides the database's |
 | `adbc.redis.stream_batch_rows` | database, statement | Rows per record batch of a streamed result (default 65,536). A result that fits in the first batch is returned whole. Also an integer option on the statement |
 | `adbc.redis.time_zone` | database, connection | The session time zone, with the values `SET TIME ZONE` takes (default `UTC`; see Session time zone), and what `RESET timezone` and `SET TIME ZONE DEFAULT` go back to. The connection option overrides the database's and replaces a `SET`'s value; reading it gives the current value, as `SHOW timezone` does |
+| `adbc.redis.temporary_objects` | connection, read-only | `true` while the connection owns at least one temporary table or view, otherwise `false`. The value is read from connection-local state without a Redis round trip, so a Flight server can decide whether it is safe to move a scan to another pooled connection. |
 
 Aggregate worker tokens control concurrency; a token does not reserve a
 physical CPU. Connections should reuse one ADBC database handle to share

@@ -67,6 +67,10 @@ func setOpType(a, b ColType) (ColType, bool) {
 		t := finerTime(a, b)
 		t.Kind = KindTimeTZ
 		return t.withFracDigits(t.fracDigits()), true
+	case a.Kind == KindDate && b.Kind == KindTimestamp:
+		return b, true
+	case a.Kind == KindTimestamp && b.Kind == KindDate:
+		return a, true
 	case a.Kind == b.Kind:
 		return commonType(a, b), true
 	}

@@ -1037,14 +1037,14 @@ func TestSQLInformationSchema(t *testing.T) {
 	h.expectRows(`SELECT table_name, table_type FROM information_schema.tables
 		WHERE table_schema = 'public' AND table_name LIKE 'it_%' ORDER BY table_name`,
 		"it_customers|BASE TABLE", "it_is_view|VIEW", "it_orders|BASE TABLE")
-	h.expectRows(`SELECT column_name, ordinal_position, data_type, is_nullable, numeric_precision, numeric_scale, is_indexed
+	h.expectRows(`SELECT column_name, ordinal_position, driver_data_type, is_nullable, numeric_precision, numeric_scale, is_indexed
 		FROM information_schema.columns WHERE table_name = 'it_orders' ORDER BY ordinal_position`,
 		"id|1|INTEGER|NO|32|0|YES",
 		"customer_id|2|INTEGER|YES|32|0|YES",
 		"amount|3|NUMERIC(10,2)|YES|10|2|YES",
 		"qty|4|INTEGER|YES|32|0|YES",
 		"status|5|VARCHAR|YES|NULL|NULL|YES")
-	h.expectRows(`SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'it_is_view' ORDER BY ordinal_position`,
+	h.expectRows(`SELECT column_name, driver_data_type FROM information_schema.columns WHERE table_name = 'it_is_view' ORDER BY ordinal_position`,
 		"id|INTEGER", "amount|NUMERIC(10,2)")
 	h.expectRows(`SELECT view_definition FROM information_schema.views WHERE table_name = 'it_is_view'`,
 		"SELECT id, amount FROM it_orders WHERE qty > 1")
@@ -1334,7 +1334,7 @@ func TestSQLIntervals(t *testing.T) {
 	if dt := schema.Field(0).Type; dt.ID() != arrow.INTERVAL_MONTH_DAY_NANO {
 		t.Errorf("interval column type = %s", dt)
 	}
-	h.expectRows(`SELECT data_type FROM information_schema.columns WHERE table_name = 'it_iv_ctas' AND column_name = 'since'`, "INTERVAL")
+	h.expectRows(`SELECT driver_data_type FROM information_schema.columns WHERE table_name = 'it_iv_ctas' AND column_name = 'since'`, "INTERVAL")
 	h.expectRows(`SELECT id, `+str(`since / 7`)+`, `+str(`since * 0.1`)+`, `+str(`1.5 * since`)+`, `+str(`since / id`)+
 		` FROM it_iv_ctas ORDER BY id`,
 		"1|01:42:51.428571|01:12:00|18:00:00|12:00:00", "2|06:51:25.714286|04:48:00|3 days|1 day",
@@ -1638,7 +1638,7 @@ func TestSQLTruncate(t *testing.T) {
 	if p, i := h.tableNames(raw, "public", "it_trunc2"); p != prefix2 || i != index2 {
 		t.Errorf("it_trunc2 has the names %q, %q, want %q, %q", p, i, prefix2, index2)
 	}
-	h.expectRows(`SELECT column_name, data_type, is_indexed FROM information_schema.columns
+	h.expectRows(`SELECT column_name, driver_data_type, is_indexed FROM information_schema.columns
 		WHERE table_name = 'it_trunc' ORDER BY ordinal_position`,
 		"id|BIGINT|YES", "label|VARCHAR|YES", "note|VARCHAR|NO", "qty|INTEGER|YES")
 
@@ -1922,7 +1922,7 @@ func TestSQLScalarFunctions(t *testing.T) {
 	h.exec(`CREATE TABLE it_fn_ctas AS SELECT id, ROUND(amt, 2) AS r2, ROUND(x) AS rx, FLOOR(id) AS fl, SUBSTRING(s, 1, 3) AS sub,
 		POSITION('o' IN s) AS pos, STARTS_WITH(code, 'ab') AS sw, GREATEST(id, n) AS g, COALESCE(amt, 0) AS c,
 		MOD(n, 7) AS m, SQRT(id) AS sq, NULLIF(id, 1) AS ni, IIF(id > 2, amt, 0) AS ii FROM it_fn`)
-	h.expectRows(`SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'it_fn_ctas' ORDER BY ordinal_position`,
+	h.expectRows(`SELECT column_name, driver_data_type FROM information_schema.columns WHERE table_name = 'it_fn_ctas' ORDER BY ordinal_position`,
 		"id|INTEGER", "r2|NUMERIC(10,2)", "rx|DOUBLE PRECISION", "fl|INTEGER", "sub|VARCHAR", "pos|BIGINT", "sw|BOOLEAN",
 		"g|BIGINT", "c|NUMERIC(10,3)", "m|BIGINT", "sq|DOUBLE PRECISION", "ni|INTEGER", "ii|NUMERIC(38,3)")
 	h.expectRows(`SELECT id, r2, rx, sub, pos, sw, g, c, m, ni, ii FROM it_fn_ctas ORDER BY id`,
@@ -2437,7 +2437,7 @@ func TestSQLConcatNulls(t *testing.T) {
 	h.expectRows("SELECT id FROM it_concat WHERE CONCAT(first, last) = 'Bo'", "2")
 	h.exec("CREATE TABLE it_concat_out AS SELECT id, CONCAT_WS('-', id, first, last) AS label FROM it_concat")
 	h.expectRows("SELECT label FROM it_concat_out ORDER BY id", "1-Ada-Lovelace", "2-Bo", "3")
-	h.expectRows("SELECT data_type FROM information_schema.columns WHERE table_name = 'it_concat_out' AND column_name = 'label'", "VARCHAR")
+	h.expectRows("SELECT driver_data_type FROM information_schema.columns WHERE table_name = 'it_concat_out' AND column_name = 'label'", "VARCHAR")
 	h.expectError("SELECT CONCAT_WS() FROM it_concat", "CONCAT_WS expects at least 1 argument")
 }
 
@@ -2784,7 +2784,7 @@ func TestSQLWindowQueries(t *testing.T) {
 		t.Errorf("CTAS inserted %d rows, want 3", n)
 	}
 	h.expectRows(`SELECT k, payload, rn FROM it_events_dedup WHERE rn = 1 ORDER BY k`, "a|a3|1", "b|b1|1", "c|c1|1")
-	h.expectRows(`SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'it_events_dedup'
+	h.expectRows(`SELECT column_name, driver_data_type FROM information_schema.columns WHERE table_name = 'it_events_dedup'
 		ORDER BY ordinal_position`,
 		"k|VARCHAR", "ts|TIMESTAMP(6)", "payload|VARCHAR", "rn|BIGINT")
 	// Snapshot-style validity ranges with LEAD.
@@ -2800,7 +2800,7 @@ func TestSQLWindowQueries(t *testing.T) {
 		"a|a2|2", "a|a1|3")
 	h.exec(`CREATE VIEW it_events_latest AS SELECT k, payload FROM it_events_ranked WHERE rn = 1`)
 	h.expectRows(`SELECT payload FROM it_events_latest ORDER BY k`, "a3", "b1", "c1")
-	h.expectRows(`SELECT data_type FROM information_schema.columns WHERE table_name = 'it_events_ranked' AND column_name = 'rn'`,
+	h.expectRows(`SELECT driver_data_type FROM information_schema.columns WHERE table_name = 'it_events_ranked' AND column_name = 'rn'`,
 		"BIGINT")
 
 	// LIMIT / OFFSET apply after the windows, also when the ORDER BY could be
@@ -2880,7 +2880,7 @@ func TestSQLWindowQueries(t *testing.T) {
 			PERCENT_RANK() OVER (ORDER BY id) AS pr, SUM(amt) OVER (PARTITION BY g) AS gsum,
 			LAG(v) OVER (ORDER BY id) AS prev_v, AVG(v) OVER () AS av
 		FROM it_win`)
-	h.expectRows(`SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'it_win_ctas'
+	h.expectRows(`SELECT column_name, driver_data_type FROM information_schema.columns WHERE table_name = 'it_win_ctas'
 		ORDER BY ordinal_position`,
 		"id|INTEGER", "rn|BIGINT", "pr|DOUBLE PRECISION", "gsum|NUMERIC(38,2)", "prev_v|INTEGER", "av|DOUBLE PRECISION")
 	h.expectRows(`SELECT id, gsum, prev_v FROM it_win_ctas WHERE rn = 1 ORDER BY id`, "1|13.75|NULL", "5|8.75|8", "8|1.00|2")
@@ -3018,10 +3018,14 @@ func TestSQLSelectDistinct(t *testing.T) {
 	// Duplicates go; NULLs are equal to each other (and sort last).
 	h.expectRows("SELECT DISTINCT g FROM it_dist ORDER BY g", "a", "b", "NULL")
 	h.expectRows("SELECT DISTINCT g, v FROM it_dist ORDER BY g, v", "a|1", "a|2", "b|NULL", "NULL|3")
+	h.expectRows("SELECT DISTINCT g, g FROM it_dist ORDER BY g", "a|a", "b|b", "NULL|NULL")
+	h.expectRows("SELECT DISTINCT g, g AS g2 FROM it_dist ORDER BY g", "a|a", "b|b", "NULL|NULL")
 	h.expectRows("SELECT DISTINCT v, s FROM it_dist ORDER BY v", "1|x", "2|NULL", "3|y", "NULL|NULL")
 	h.expectRows("SELECT DISTINCT v * 10 AS x FROM it_dist ORDER BY x", "10", "20", "30", "NULL")
 	h.expectRows("SELECT DISTINCT g FROM it_dist ORDER BY g LIMIT 1 OFFSET 1", "b")
 	h.expectRows("SELECT COUNT(*) FROM (SELECT DISTINCT g, v FROM it_dist) d", "4")
+	h.expectRows("SELECT COUNT(*) FROM (SELECT DISTINCT g, g FROM it_dist) d", "3")
+	h.expectRows("SELECT g FROM it_dist GROUP BY g, g ORDER BY g", "a", "b", "NULL")
 	h.expectRows("SELECT ALL g FROM it_dist WHERE g = 'b'", "b", "b")
 
 	// Over indexed columns DISTINCT is computed in the index (GROUPBY);

@@ -360,7 +360,7 @@ func TestCopyHashes(t *testing.T) {
 	f.h.expectRows(`SELECT COUNT(*), COUNT(age), SUM(balance) FROM it_hc_copy WHERE active`, "15|15|242.40")
 	f.h.expectRows(`SELECT _key, joined, zip FROM it_hc_copy WHERE age = 31 ORDER BY _key`,
 		"it:hc:cp:11|2024-01-12T10:00:00Z|00077")
-	f.h.expectRows(`SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'it_hc_copy' AND column_name IN ('active', 'age', 'joined') ORDER BY 1`,
+	f.h.expectRows(`SELECT column_name, driver_data_type FROM information_schema.columns WHERE table_name = 'it_hc_copy' AND column_name IN ('active', 'age', 'joined') ORDER BY 1`,
 		"active|BOOLEAN", "age|INTEGER", "joined|TIMESTAMP(6) WITH TIME ZONE")
 
 	// The table exists: create fails, append adds the rows again.

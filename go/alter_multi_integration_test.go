@@ -78,7 +78,7 @@ func TestSQLAlterMultiDbt(t *testing.T) {
 
 	// Two added columns (append_new_columns), dbt's exact SQL.
 	h.exec(`alter table it_am_s.osc add column "extra" character varying(256), add column "extra2" BIGINT`)
-	h.expectRows(`SELECT column_name, data_type FROM information_schema.columns
+	h.expectRows(`SELECT column_name, driver_data_type FROM information_schema.columns
 		WHERE table_schema = 'it_am_s' AND table_name = 'osc' ORDER BY ordinal_position`,
 		"id|INTEGER", "g|VARCHAR", "extra|VARCHAR(256)", "extra2|BIGINT")
 	h.expectRows(`SELECT id, g, extra, extra2 FROM it_am_s.osc ORDER BY id`, "1|a|NULL|NULL", "2|b|NULL|NULL")

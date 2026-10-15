@@ -219,3 +219,33 @@ func TestUnknownLiteralSetOps(t *testing.T) {
 		}
 	}
 }
+
+func TestIssue187SetOperationTypes(t *testing.T) {
+	cases := []struct {
+		sql, want string
+	}{
+		{`SELECT CAST('2023-09-01' AS DATE) UNION ALL SELECT '2023-09-02'`, "2023-09-01 DATE\n2023-09-02 DATE"},
+		{`SELECT 1 UNION ALL SELECT '2'`, "1 INTEGER\n2 INTEGER"},
+		{`SELECT DATE '2023-09-01' UNION ALL SELECT TIMESTAMP '2023-09-02 10:00:00'`, "2023-09-01 00:00:00 TIMESTAMP(6)\n2023-09-02 10:00:00 TIMESTAMP(6)"},
+		{`SELECT DATE '2023-09-01' UNION ALL SELECT TIMESTAMPTZ '2023-09-02 10:00:00+00'`, "2023-09-01 00:00:00+00 TIMESTAMP(6) WITH TIME ZONE\n2023-09-02 10:00:00+00 TIMESTAMP(6) WITH TIME ZONE"},
+		{`SELECT CASE WHEN TRUE THEN DATE '2023-09-01' ELSE '2023-09-02' END`, "2023-09-01 DATE"},
+	}
+	for _, c := range cases {
+		stmts, err := ParseScript(c.sql)
+		if err != nil {
+			t.Fatalf("%s: %v", c.sql, err)
+		}
+		rows, err := runInMemory(stmts[0].Stmt.(*SelectStmt))
+		if err != nil {
+			t.Errorf("%s: %v", c.sql, err)
+			continue
+		}
+		var got []string
+		for _, row := range rows {
+			got = append(got, row[0].Text()+" "+row[0].T.SQLName())
+		}
+		if s := strings.Join(got, "\n"); s != c.want {
+			t.Errorf("%s\n got: %s\nwant: %s", c.sql, s, c.want)
+		}
+	}
+}

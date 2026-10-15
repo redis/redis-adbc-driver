@@ -467,6 +467,10 @@ func colTypeFromSQL(spec sqlTypeSpec) (ColType, error) {
 		return stringTypeFromSQL(spec, true)
 	case "TEXT", "STRING", "CLOB":
 		return typeString, nil
+	case "REGCLASS", "REGTYPE", "REGPROC", "REGNAMESPACE":
+		return typeString, nil
+	case "OID":
+		return typeInt32, nil
 	case "VARBINARY", "BLOB", "BYTEA", "BINARY", "BYTES", "BINARY VARYING":
 		return typeBinary, nil
 	case "DATE":

@@ -70,6 +70,17 @@ func TestBugIssueScalarRegressions(t *testing.T) {
 		{`"date_add"(date '2024-01-01', interval '1 day')`, "2024-01-02 00:00:00+00", "TIMESTAMP(6) WITH TIME ZONE"},
 		{`date_subtract(timestamptz '2024-01-01 00:00+00', interval '1 day')`, "2023-12-31 00:00:00+00", "TIMESTAMP(6) WITH TIME ZONE"},
 		{`date_add(timestamptz '2024-03-09 12:00-05', interval '1 day', 'America/New_York')`, "2024-03-10 16:00:00+00", "TIMESTAMP(6) WITH TIME ZONE"},
+		{`version()`, "PostgreSQL 16.0 (Redis ADBC driver)", "VARCHAR"},
+		{`pg_catalog.lower('A')`, "a", "VARCHAR"},
+		{`current_database()`, "redis", "VARCHAR"},
+		{`current_schema()`, "public", "VARCHAR"},
+		{`current_user`, "default", "VARCHAR"},
+		{`session_user`, "default", "VARCHAR"},
+		{`pg_typeof(1)`, "integer", "VARCHAR"},
+		{`current_setting('TimeZone')`, "UTC", "VARCHAR"},
+		{`format_type(23, null)`, "integer", "VARCHAR"},
+		{`'t'::regclass`, "t", "VARCHAR"},
+		{`obj_description('t'::regclass)`, "NULL", "VARCHAR"},
 	})
 	for _, sql := range []string{"2147483647 + 1", "32767::smallint + 1::smallint", "1 is true"} {
 		expr := parseTestExpr(t, sql)
@@ -109,6 +120,9 @@ func TestBugIssueInMemoryQueries(t *testing.T) {
 		{`select "A" from (select 1 as "A",2 as a) s`, "1"},
 		{`select U&"d\0061ta" from (select 3 as data) s`, "3"},
 		{tables + `select variance(score), stddev(score) from t`, "100.0000000000000000|10.0000000000000000"},
+		{tables + `select name from t order by name collate "C"`, "Banana\n_x\napple\ncherry"},
+		{`select 'a' < 'B' collate "POSIX"`, "false"},
+		{tables + `select max(name collate "default") from t`, "cherry"},
 		{tables + `select variance(score::bigint),variance(score::numeric(10,2)) from t`, "100.0000000000000000|100.0000000000000000"},
 	}
 	cases = append(cases, struct{ q, want string }{

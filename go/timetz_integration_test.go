@@ -164,10 +164,10 @@ func TestTimeTZColumns(t *testing.T) {
 	h.expectRows(`SELECT COUNT(*), MIN(d), MAX(d) FROM it_ttz`, "7|12:00:01+05|12:00:01+05")
 
 	// The column's type in the catalog.
-	h.expectRows(`SELECT column_name, data_type, datetime_precision, is_indexed FROM information_schema.columns
+	h.expectRows(`SELECT column_name, driver_data_type, datetime_precision, is_indexed FROM information_schema.columns
 		WHERE table_name = 'it_ttz' AND column_name LIKE 't%' ORDER BY ordinal_position`,
 		"t|TIME(6) WITH TIME ZONE|6|NO", "t3|TIME(3) WITH TIME ZONE|3|NO")
-	h.expectRows(`SELECT data_type FROM information_schema.columns WHERE table_name = 'it_ttz_ctas' AND column_name = 't3'`,
+	h.expectRows(`SELECT driver_data_type FROM information_schema.columns WHERE table_name = 'it_ttz_ctas' AND column_name = 't3'`,
 		"TIME(3) WITH TIME ZONE")
 	if got := strings.Join(h.columnDigits("it_ttz"), ", "); !strings.Contains(got, "t TIME(6) WITH TIME ZONE 6") ||
 		!strings.Contains(got, "t3 TIME(3) WITH TIME ZONE 3") {
@@ -284,7 +284,7 @@ func TestTimeTZIngestAndBind(t *testing.T) {
 		t.Fatal("no batch")
 	}
 	ingest("it_ttz_new", adbc.OptionValueIngestModeCreate, res.RecordBatch())
-	h.expectRows(`SELECT data_type FROM information_schema.columns WHERE table_name = 'it_ttz_new' AND column_name = 't3'`,
+	h.expectRows(`SELECT driver_data_type FROM information_schema.columns WHERE table_name = 'it_ttz_new' AND column_name = 't3'`,
 		"TIME(3) WITH TIME ZONE")
 	h.expectRows(`SELECT id, t3 FROM it_ttz_new ORDER BY id`, "1|10:00:00.123+02", "2|09:00:00.5+01")
 

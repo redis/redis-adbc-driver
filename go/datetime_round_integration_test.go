@@ -157,7 +157,7 @@ func TestRoundPrecisionIssue103(t *testing.T) {
 	// CTAS: the cast's precision is the column's.
 	h.exec(`CREATE TABLE it_rnd_ctas AS SELECT id, CAST(ts9 AS TIMESTAMP(0)) AS ts0, CAST(tz9 AS TIMESTAMPTZ(3)) AS tz3,
 		CAST(t9 AS TIME(0)) AS t0 FROM it_rnd_src`)
-	h.expectRows(`SELECT column_name, data_type, datetime_precision FROM information_schema.columns
+	h.expectRows(`SELECT column_name, driver_data_type, datetime_precision FROM information_schema.columns
 		WHERE table_name = 'it_rnd_ctas' AND column_name <> 'id' ORDER BY ordinal_position`,
 		"ts0|TIMESTAMP(0)|0", "tz3|TIMESTAMP(3) WITH TIME ZONE|3", "t0|TIME(0)|0")
 	h.expectRows(`SELECT id, CAST(ts0 AS TEXT), CAST(tz3 AS TEXT), CAST(t0 AS TEXT) FROM it_rnd_ctas ORDER BY id`,
