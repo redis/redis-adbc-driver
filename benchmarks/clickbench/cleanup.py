@@ -49,8 +49,10 @@ def runner(ec2, state):
         raise ValueError("Unexpected runner lookup")
     instance = instances[0]
     tags = {t["Key"]: t["Value"] for t in instance.get("Tags", [])}
+    terminated = instance["State"]["Name"] == "terminated"
     if (instance["InstanceId"] != state["instance_id"] or
-            instance["VpcId"] != state["vpc_id"] or
+            (not terminated and instance.get("VpcId") != state["vpc_id"]) or
+            (terminated and instance.get("VpcId") not in (None, state["vpc_id"])) or
             tags.get("BenchmarkRun") != state["name"] or
             tags.get("Name") != state["name"] + "-runner"):
         raise ValueError("Runner ownership differs")

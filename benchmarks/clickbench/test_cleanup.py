@@ -126,6 +126,12 @@ class CleanupTest(unittest.TestCase):
         self.step()
         self.assertEqual(self.ec2.calls[0][0], "delete_group")
 
+    def test_terminated_runner_may_omit_vpc_id(self):
+        self.ec2.instance["State"]["Name"] = "terminated"
+        del self.ec2.instance["VpcId"]
+        self.assertEqual(self.step(), {"pending": True})
+        self.assertEqual(self.ec2.calls[-1][0], "delete_group")
+
     def test_unknown_aws_error_propagates(self):
         self.ec2.describe_error = "UnauthorizedOperation"
         with self.assertRaises(CloudError):
