@@ -1056,5 +1056,6 @@ func (s *store) getTableWith(ctx context.Context, tx *goredis.Tx, schema, table 
 	if err := json.Unmarshal([]byte(raw), &m); err != nil {
 		return nil, errorf(adbc.StatusInternal, "corrupt metadata for table %q.%q: %v", schema, table, err)
 	}
+	hydrateCatalogOIDs(&m)
 	return &m, nil
 }

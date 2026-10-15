@@ -112,7 +112,7 @@ type streamOpts struct {
 func (p *selectPlan) streamable() bool {
 	return !p.noRows && !p.distinct && p.setop == nil && p.grouping == nil && p.meta != nil && !p.meta.isMem &&
 		!p.aggregate && p.having == nil && len(p.outerAggs) == 0 && !p.windowed() && len(p.extraNeed) == 0 &&
-		!p.hasCorrelated()
+		!p.hasCorrelated() && !p.hasSetReturning()
 }
 
 // hasCorrelated reports whether the query holds a correlated subquery,

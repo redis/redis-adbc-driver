@@ -72,6 +72,7 @@ import (
 
 // checkMeta is a CHECK constraint as the table metadata stores it.
 type checkMeta struct {
+	OID  int64  `json:"oid,omitempty"`
 	Name string `json:"name"`
 	Expr string `json:"expr"`
 }

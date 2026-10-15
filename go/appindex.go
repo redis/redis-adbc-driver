@@ -102,6 +102,10 @@ func appAttrFor(attrs []indexAttr, field string, kind Kind) (indexAttr, bool) {
 func applyAppAttrs(meta *tableMeta, attrs []indexAttr) {
 	for i := range meta.Columns {
 		c := &meta.Columns[i]
+		if c.Encoding == "text" {
+			c.Indexed, c.App = false, nil
+			continue
+		}
 		a, ok := appAttrFor(attrs, c.field(), c.Type.Kind)
 		c.Indexed, c.App = ok, nil
 		if !ok {
@@ -132,6 +136,9 @@ func appIndexProblem(info indexInfo, prefix string) string {
 // applies to its documents first, or "": the index of a table with
 // AppIndex also holds the HASHes under the prefix that aren't rows.
 func (t *tableMeta) rowFilter() string {
+	if t.Foreign {
+		return ""
+	}
 	if !t.AppIndex {
 		return ""
 	}
@@ -141,6 +148,9 @@ func (t *tableMeta) rowFilter() string {
 // loadAppIndex reads the application's index of a table with AppIndex,
 // and marks what its attributes answer (applyAppAttrs).
 func (s *store) loadAppIndex(ctx context.Context, meta *tableMeta) error {
+	if meta.Foreign {
+		return nil
+	}
 	idx := meta.index()
 	name := fmt.Sprintf("%q.%q", displaySchema(meta.Schema), meta.Name)
 	reply, err := s.searchDo(ctx, idx, "FT.INFO", idx).Result()

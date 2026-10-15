@@ -79,8 +79,8 @@ func TestBugIssueScalarRegressions(t *testing.T) {
 		{`pg_typeof(1)`, "integer", "VARCHAR"},
 		{`current_setting('TimeZone')`, "UTC", "VARCHAR"},
 		{`format_type(23, null)`, "integer", "VARCHAR"},
-		{`'t'::regclass`, "t", "VARCHAR"},
-		{`obj_description('t'::regclass)`, "NULL", "VARCHAR"},
+		{`'pg_class'::regclass`, "pg_class", "VARCHAR"},
+		{`obj_description('pg_class'::regclass)`, "NULL", "VARCHAR"},
 	})
 	for _, sql := range []string{"2147483647 + 1", "32767::smallint + 1::smallint", "1 is true"} {
 		expr := parseTestExpr(t, sql)

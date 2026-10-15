@@ -1342,15 +1342,18 @@ func (e *executor) selectWithoutTable(ctx context.Context, plan *selectPlan, par
 			return nil, err
 		}
 	}
-	row := make([]Value, len(plan.items))
-	for i, it := range plan.items {
-		v, err := env.eval(it.expr)
-		if err != nil {
-			return nil, invalidArg(err)
-		}
-		row[i] = v
+	rows, err := evalExpandedItems(env, plan.items)
+	if err != nil {
+		return nil, err
 	}
-	return applyLimit([][]Value{row}, plan.sel.Offset, plan.sel.Limit), nil
+	if plan.hasSetReturning() && len(plan.order) > 0 {
+		keys, err := expandedOrderKeys(env, plan, rows)
+		if err != nil {
+			return nil, err
+		}
+		rows = sortExpandedRows(rows, keys, plan.order)
+	}
+	return applyLimit(rows, plan.sel.Offset, plan.sel.Limit), nil
 }
 
 // ---- aggregates ----
@@ -1643,7 +1646,7 @@ func newRowChange(meta *tableMeta, key string, cols []int, vals []Value) rowChan
 				ch.set = append(ch.set, nullMarker(col.field()), "1")
 			}
 		} else {
-			ch.set = append(ch.set, col.field(), encodeStored(v))
+			ch.set = append(ch.set, col.field(), col.encode(v, col.TextFormat))
 			if marked {
 				ch.del = append(ch.del, nullMarker(col.field()))
 			}
@@ -1663,6 +1666,9 @@ func (e *executor) writeUpdates(ctx context.Context, meta *tableMeta, changes []
 		return nil
 	}
 	if err := e.store.checkWritable(ctx, meta); err != nil {
+		return err
+	}
+	if err := e.store.preserveTextFormats(ctx, meta, changes); err != nil {
 		return err
 	}
 	if err := e.store.raiseNeeds(ctx, meta, changeNeeds(meta, changes)); err != nil {

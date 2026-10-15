@@ -147,6 +147,11 @@ func cutRunes(s string, n int) (string, bool) {
 // that a cast to a bounded string type cuts the text to its length, as
 // Postgres's explicit casts do.
 func castValue(v Value, t ColType, z tzZone) (Value, error) {
+	if t.Kind == KindString && t.Text {
+		out, err := coerceIn(v, t, z)
+		out.T = t
+		return out, err
+	}
 	if t.Kind != KindString || t.Length == 0 || v.Null {
 		return coerceIn(v, t, z)
 	}

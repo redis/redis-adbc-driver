@@ -105,9 +105,14 @@ const (
 )
 
 type columnMeta struct {
-	Name     string  `json:"name"`
-	Type     ColType `json:"type"`
-	Nullable bool    `json:"nullable"`
+	DefaultOID int64 `json:"default_oid,omitempty"`
+	// Encoding is "text" for application-owned booleans and date/time text.
+	// Such columns are read and compared in the driver, never as NUMERIC.
+	Encoding   string  `json:"encoding,omitempty"`
+	TextFormat string  `json:"text_format,omitempty"`
+	Name       string  `json:"name"`
+	Type       ColType `json:"type"`
+	Nullable   bool    `json:"nullable"`
 	// Indexed columns are part of the RediSearch index.
 	Indexed bool `json:"indexed"`
 	// Field is the HASH field / index attribute when it differs from Name:
@@ -197,9 +202,12 @@ func (t *tableMeta) applyIndexPolicy(only map[string]bool, noIndex map[string]bo
 }
 
 type tableMeta struct {
-	Schema  string       `json:"schema"`
-	Name    string       `json:"name"`
-	Columns []columnMeta `json:"columns"`
+	OID      int64        `json:"oid,omitempty"`
+	IndexOID int64        `json:"index_oid,omitempty"`
+	Foreign  bool         `json:"-"`
+	Schema   string       `json:"schema"`
+	Name     string       `json:"name"`
+	Columns  []columnMeta `json:"columns"`
 	// FoldedIdentifiers is set on metadata created after unquoted SQL
 	// identifiers began following PostgreSQL's lower-case folding rules.
 	// Older metadata did not record whether a mixed-case column was quoted,
@@ -838,6 +846,9 @@ func (s *store) updateTableTx(ctx context.Context, schema, table string, atRowID
 			if err := fn(m, last); err != nil {
 				return err
 			}
+			if err := s.assignCatalogOIDs(ctx, m); err != nil {
+				return err
+			}
 			raw, err := marshalMeta(m)
 			if err != nil {
 				return err
@@ -885,6 +896,7 @@ func wrapRedis(err error, context string) error {
 // ---- store ----
 
 type store struct {
+	foreignIndexes bool
 	searchCapsOnce sync.Once
 	searchCaps     [2]int64
 	// client is a *goredis.Client, or a *goredis.ClusterClient when the
@@ -1033,6 +1045,9 @@ func (s *store) migrateLegacyMetadata(ctx context.Context) error {
 }
 
 func (s *store) getTable(ctx context.Context, schema, table string) (*tableMeta, error) {
+	if schema == foreignSchema {
+		return s.foreignTable(ctx, table)
+	}
 	readAt := time.Now()
 	raw, err := s.client.Get(ctx, metaKey(schema, table)).Result()
 	if errors.Is(err, goredis.Nil) {
@@ -1046,6 +1061,7 @@ func (s *store) getTable(ctx context.Context, schema, table string) (*tableMeta,
 		return nil, errorf(adbc.StatusInternal, "corrupt metadata for table %q.%q: %v", schema, table, err)
 	}
 	meta.readAt = readAt
+	hydrateCatalogOIDs(&meta)
 	return &meta, nil
 }
 
@@ -1069,6 +1085,9 @@ func (s *store) createTable(ctx context.Context, meta *tableMeta, ifNotExists bo
 	meta.FoldedIdentifiers = true
 	seen := map[string]bool{}
 	for _, c := range meta.Columns {
+		if c.Type.Kind == KindArray {
+			return false, errorf(adbc.StatusNotImplemented, "array table columns are not supported; arrays are supported in expressions and catalogs")
+		}
 		if c.Name == "" {
 			return false, errorf(adbc.StatusInvalidArgument, "column names must not be empty")
 		}
@@ -1122,6 +1141,10 @@ func (s *store) createTable(ctx context.Context, meta *tableMeta, ifNotExists bo
 		pipe.SRem(bg, prefixesKey, meta.KeyPrefix)
 		pipe.SRem(bg, indexesKey, meta.IndexName)
 		_, _ = pipe.Exec(bg)
+	}
+	if err := s.assignCatalogOIDs(ctx, meta); err != nil {
+		release()
+		return false, err
 	}
 	raw, err := json.Marshal(meta)
 	if err != nil {
@@ -1404,6 +1427,9 @@ var testHookDropping func()
 //     meanwhile, so that the new index and key prefix don't outlive the
 //     table.
 func (s *store) dropTable(ctx context.Context, schema, table string, ifExists bool) error {
+	if schema == foreignSchema || schema == pgCatalog {
+		return virtualReadOnly(schema)
+	}
 	name := table // as the statement names it
 	// dropped is the table whose index this dropped last.
 	var dropped *tableMeta
@@ -1546,11 +1572,17 @@ func (s *store) listSchemas(ctx context.Context) ([]string, error) {
 	if !slices.Contains(members, defaultSchema) {
 		members = append(members, defaultSchema)
 	}
+	if s.foreignIndexes && !slices.Contains(members, foreignSchema) {
+		members = append(members, foreignSchema)
+	}
 	slices.Sort(members)
 	return members, nil
 }
 
 func (s *store) schemaExists(ctx context.Context, schema string) (bool, error) {
+	if schema == foreignSchema {
+		return s.foreignIndexes, nil
+	}
 	if schema == defaultSchema {
 		return true, nil
 	}
@@ -1565,6 +1597,9 @@ func (s *store) schemaExists(ctx context.Context, schema string) (bool, error) {
 }
 
 func (s *store) createSchema(ctx context.Context, schema string, ifNotExists bool) error {
+	if schema == foreignSchema || schema == pgCatalog {
+		return virtualReadOnly(schema)
+	}
 	if schema == "" {
 		return errorf(adbc.StatusInvalidArgument, "schema name must not be empty")
 	}
@@ -1584,13 +1619,16 @@ func (s *store) createSchema(ctx context.Context, schema string, ifNotExists boo
 	if (n == 0 || schema == defaultSchema) && !ifNotExists {
 		return stateErrorf(stateDuplicateSchema, "schema %q already exists", schema)
 	}
-	return nil
+	return s.ensureNamespaceOID(ctx, schema)
 }
 
 // dropSchema drops an empty schema or, with cascade, its views and tables
 // first. Views are dropped before tables; views in other schemas that read
 // these tables are not dropped (dependencies aren't tracked).
 func (s *store) dropSchema(ctx context.Context, schema string, ifExists, cascade bool) error {
+	if schema == foreignSchema || schema == pgCatalog {
+		return virtualReadOnly(schema)
+	}
 	exists, err := s.schemaExists(ctx, schema)
 	if err != nil {
 		return err
@@ -1629,10 +1667,16 @@ func (s *store) dropSchema(ctx context.Context, schema string, ifExists, cascade
 	if err := s.client.SRem(ctx, schemasKey, schema).Err(); err != nil {
 		return wrapRedis(err, "failed to drop schema")
 	}
+	if err := s.client.Del(ctx, namespaceOIDKey(schema)).Err(); err != nil {
+		return wrapRedis(err, "failed to drop namespace OID")
+	}
 	return nil
 }
 
 func (s *store) listTables(ctx context.Context, schema string) ([]string, error) {
+	if schema == foreignSchema {
+		return s.foreignNames(ctx)
+	}
 	members, err := s.client.SMembers(ctx, tablesKey(schema)).Result()
 	if err != nil {
 		return nil, wrapRedis(err, "failed to list tables")

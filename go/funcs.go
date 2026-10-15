@@ -30,8 +30,8 @@ package redis
 //
 //   - The parser stores a call's name in upper case, so function names are
 //     case-insensitive. A quoted name followed by "(" is not a call (a
-//     syntax error, except for a table function in FROM), and
-//     schema-qualified calls such as pg_catalog.lower(x) are not supported.
+//     syntax error, except for a table function in FROM). pg_catalog-qualified
+//     built-in calls resolve like unqualified calls.
 //   - Aliases are other names of the same function: LCASE is LOWER, NOW is
 //     CURRENT_TIMESTAMP. A call keeps the name it was written with, which
 //     its errors use.
@@ -179,6 +179,13 @@ type funcDef struct {
 
 // funcDefs are the driver's functions (see the top of this file).
 var funcDefs = []funcDef{
+	{name: "__ARRAY", min: 0, max: many, internal: true},
+	{name: "__ARRAY_COMPARE", min: 4, max: 4, internal: true},
+	{name: "UNNEST", min: 1, max: 1},
+	{name: "GENERATE_SUBSCRIPTS", min: 2, max: 3},
+	{name: "ARRAY_LENGTH", min: 2, max: 2},
+	{name: "CARDINALITY", min: 1, max: 1},
+	{name: "ARRAY_AGG", kind: aggregateKind, min: 1, max: 1},
 	// ---- Postgres session and catalog compatibility ----
 	{name: "VERSION", min: 0, max: 0},
 	{name: "CURRENT_DATABASE", min: 0, max: 0},
@@ -190,6 +197,24 @@ var funcDefs = []funcDef{
 	{name: "FORMAT_TYPE", min: 2, max: 2},
 	{name: "OBJ_DESCRIPTION", min: 1, max: 2},
 	{name: "TO_REGCLASS", min: 1, max: 1},
+	{name: "TO_REGTYPE", min: 1, max: 1},
+	{name: "TO_REGPROC", min: 1, max: 1},
+	{name: "TO_REGNAMESPACE", min: 1, max: 1},
+	{name: "PG_GET_EXPR", min: 2, max: 3},
+	{name: "PG_GET_CONSTRAINTDEF", min: 1, max: 2},
+	{name: "PG_GET_INDEXDEF", min: 1, max: 3},
+	{name: "PG_GET_VIEWDEF", min: 1, max: 2},
+	{name: "COL_DESCRIPTION", min: 2, max: 2},
+	{name: "PG_TABLE_IS_VISIBLE", min: 1, max: 1},
+	{name: "PG_TYPE_IS_VISIBLE", min: 1, max: 1},
+	{name: "PG_COLLATION_IS_VISIBLE", min: 1, max: 1},
+	{name: "HAS_TABLE_PRIVILEGE", min: 2, max: 3},
+	{name: "HAS_SCHEMA_PRIVILEGE", min: 2, max: 3},
+	{name: "HAS_COLUMN_PRIVILEGE", min: 3, max: 4},
+	{name: "PG_GET_SERIAL_SEQUENCE", min: 2, max: 2},
+	{name: "PG_RELATION_SIZE", min: 1, max: 2},
+	{name: "PG_TOTAL_RELATION_SIZE", min: 1, max: 1},
+	{name: "QUOTE_IDENT", min: 1, max: 1},
 
 	// ---- math (scalar.go) ----
 	{name: "ROUND", min: 1, max: 2, impl: implScalar},

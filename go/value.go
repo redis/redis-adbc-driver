@@ -722,6 +722,8 @@ func (v Value) textIn(z tzZone) string {
 		return formatInterval(v)
 	case KindRecord:
 		return recordText(v, z)
+	case KindArray:
+		return arrayText(v, z)
 	}
 	return ""
 }
@@ -813,7 +815,12 @@ func (v Value) asFloat() (float64, bool) {
 
 // Coerce converts a value to the given type, as done on INSERT and CAST,
 // in the time zone UTC (see coerceIn).
-func Coerce(v Value, t ColType) (Value, error) { return coerceIn(v, t, utcZone) }
+func Coerce(v Value, t ColType) (Value, error) {
+	if t.Kind == KindArray {
+		return coerceArray(v, t)
+	}
+	return coerceIn(v, t, utcZone)
+}
 
 // coerceIn converts a value to the given type, as done on INSERT and CAST,
 // in the session time zone z, as Postgres converts in its session time
@@ -826,6 +833,12 @@ func Coerce(v Value, t ColType) (Value, error) { return coerceIn(v, t, utcZone) 
 // fractional digits (roundUnit), so a TIMESTAMP(2) holds milliseconds
 // rounded to 2 digits.
 func coerceIn(v Value, t ColType, z tzZone) (Value, error) {
+	if t.Kind == KindArray {
+		return coerceArray(v, t)
+	}
+	if v.T.Alias != "" && t.Kind.isInteger() && !v.Null {
+		return intValue(t, v.I), nil
+	}
 	if v.Null || t.Kind == KindNull {
 		return nullValue(t), nil
 	}
@@ -1256,6 +1269,8 @@ func compareIn(a, b Value, z tzZone) (int, bool) {
 	switch {
 	case ak == KindRecord && bk == KindRecord:
 		return compareRecords(a, b, z)
+	case ak == KindArray && bk == KindArray:
+		return compareArrays(a, b, z)
 	case ak == KindRecord || bk == KindRecord:
 		return 0, false
 	case ak == KindInterval && bk == KindInterval:

@@ -46,6 +46,7 @@ const (
 	// KindRecord is a row value, (a, b) or ROW(…): Postgres's anonymous
 	// record type (see record.go). It is never a column's type.
 	KindRecord
+	KindArray
 )
 
 var kindNames = map[Kind]string{
@@ -65,6 +66,7 @@ var kindNames = map[Kind]string{
 	KindInterval:  "interval",
 	KindTimeTZ:    "timetz",
 	KindRecord:    "record",
+	KindArray:     "array",
 }
 
 func (k Kind) String() string { return kindNames[k] }
@@ -101,6 +103,10 @@ type ColType struct {
 	// lengths.go).
 	Length int32
 	Fixed  bool
+	// Text distinguishes a declared PostgreSQL TEXT from VARCHAR in catalogs.
+	Text      bool
+	Alias     string
+	Collation string
 	// Rec holds a record's field types (recordOf); nil for a record whose
 	// fields aren't known (CAST(x AS RECORD), NULL::record).
 	Rec *recordType
@@ -114,6 +120,9 @@ type colTypeJSON struct {
 	Scale     int32  `json:"scale,omitempty"`
 	Length    int32  `json:"length,omitempty"`
 	Fixed     bool   `json:"fixed,omitempty"`
+	Text      bool   `json:"text,omitempty"`
+	Alias     string `json:"alias,omitempty"`
+	Collation string `json:"collation,omitempty"`
 }
 
 var unitNames = map[arrow.TimeUnit]string{
@@ -125,6 +134,8 @@ var unitNames = map[arrow.TimeUnit]string{
 
 func (t ColType) MarshalJSON() ([]byte, error) {
 	j := colTypeJSON{Kind: t.Kind.String()}
+	j.Alias = t.Alias
+	j.Collation = t.Collation
 	if t.isTimeOfDay() || t.Kind == KindTimestamp {
 		j.Unit = unitNames[t.Unit]
 		j.TZ = t.TZ
@@ -137,6 +148,7 @@ func (t ColType) MarshalJSON() ([]byte, error) {
 	if t.Kind == KindString {
 		j.Length = t.Length
 		j.Fixed = t.Fixed
+		j.Text = t.Text
 	}
 	return json.Marshal(j)
 }
@@ -163,10 +175,13 @@ func (t *ColType) UnmarshalJSON(data []byte) error {
 		}
 	}
 	t.TZ = j.TZ
+	t.Alias = j.Alias
+	t.Collation = j.Collation
 	t.Precision = j.Precision
 	t.Scale = j.Scale
 	t.Length = j.Length
 	t.Fixed = j.Fixed
+	t.Text = j.Text
 	if t.isTimeOfDay() || t.Kind == KindTimestamp {
 		// Without a precision (metadata written before it was kept), the
 		// unit's digits.
@@ -312,6 +327,8 @@ func (t ColType) ArrowType() arrow.DataType {
 		return arrow.BinaryTypes.String
 	case KindRecord:
 		return t.Rec.arrowType()
+	case KindArray:
+		return arrow.ListOf(t.element().ArrowType())
 	default:
 		return arrow.Null
 	}
@@ -364,6 +381,8 @@ func (t ColType) SQLName() string {
 		return "INTERVAL"
 	case KindRecord:
 		return "RECORD"
+	case KindArray:
+		return t.element().SQLName() + "[]"
 	default:
 		return "NULL"
 	}
@@ -465,12 +484,14 @@ func colTypeFromSQL(spec sqlTypeSpec) (ColType, error) {
 		return stringTypeFromSQL(spec, false)
 	case "CHAR", "CHARACTER", "NCHAR", "BPCHAR":
 		return stringTypeFromSQL(spec, true)
-	case "TEXT", "STRING", "CLOB":
+	case "TEXT":
+		return ColType{Kind: KindString, Text: true}, nil
+	case "STRING", "CLOB":
 		return typeString, nil
 	case "REGCLASS", "REGTYPE", "REGPROC", "REGNAMESPACE":
-		return typeString, nil
+		return ColType{Kind: KindString, Alias: strings.ToLower(spec.Name)}, nil
 	case "OID":
-		return typeInt32, nil
+		return ColType{Kind: KindInt64, Alias: "oid"}, nil
 	case "VARBINARY", "BLOB", "BYTEA", "BINARY", "BYTES", "BINARY VARYING":
 		return typeBinary, nil
 	case "DATE":

@@ -96,7 +96,7 @@ def test_ingest(tz_conn) -> None:
         field = pyarrow.field("t", pyarrow.string(), metadata={TYPE_NAME: b"TIME(3) WITH TIME ZONE"})
         data = pyarrow.table({"t": pyarrow.array(["10:00:00.5-05:30"])}, schema=pyarrow.schema([field]))
         cur.adbc_ingest(NEW_TABLE, data, mode="create")
-        cur.execute(f"SELECT data_type FROM information_schema.columns WHERE table_name = '{NEW_TABLE}'")
-        assert cur.fetchall() == [("TIME(3) WITH TIME ZONE",)]
+        cur.execute(f"SELECT data_type, datetime_precision, driver_data_type FROM information_schema.columns WHERE table_name = '{NEW_TABLE}'")
+        assert cur.fetchall() == [("time with time zone", 3, "TIME(3) WITH TIME ZONE")]
         cur.execute(f"SELECT t FROM {NEW_TABLE}")
         assert cur.fetchall() == [("10:00:00.5-05:30",)]

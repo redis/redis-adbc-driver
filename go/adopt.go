@@ -31,12 +31,14 @@ import (
 // HashAdoptOptions selects the HASHes that AdoptHashes adopts, and the
 // table they become.
 type HashAdoptOptions struct {
-	Prefix string
+	// Encodings overrides inferred storage encodings (column -> text/native).
+	Encodings map[string]string
+	Prefix    string
 	// Schema and Table name the table (by default the database's schema,
 	// and a name made from the prefix).
 	Schema, Table string
 	// Types sets columns' types in place; every stored value must be
-	// readable as one (booleans as 0 and 1, and so on).
+	// readable in its inferred or explicitly selected storage encoding.
 	Types map[string]string
 	// Renames gives fields other column names (field → column).
 	Renames map[string]string
@@ -227,7 +229,7 @@ func (a *adopter) run(ctx context.Context) (*HashAdoption, error) {
 // will be a row (isRowKey).
 func (a *adopter) read(ctx context.Context) error {
 	c, o, r := a.c, a.o, a.res.Report
-	gopts := guessOptions{types: o.Types, renames: o.Renames}
+	gopts := guessOptions{types: o.Types, renames: o.Renames, encodings: o.Encodings}
 	gs, err := newGuesserFor(gopts)
 	if err != nil {
 		return err
@@ -274,7 +276,7 @@ func (a *adopter) read(ctx context.Context) error {
 	}
 	a.cols, r.Skipped = cols, skipped
 	for _, col := range cols {
-		r.Columns = append(r.Columns, HashColumn{Name: col.name, Field: col.field, Type: col.t.SQLName(),
+		r.Columns = append(r.Columns, HashColumn{Name: col.name, Field: col.field, Type: col.t.SQLName(), Encoding: col.encoding,
 			InPlaceType: col.inPlace.SQLName(), Present: col.guess.present, Notes: col.notes})
 	}
 	return nil
@@ -290,11 +292,14 @@ func (a *adopter) plan() (*tableMeta, error) {
 	}
 	n := 0
 	for _, col := range a.cols {
-		cm := columnMeta{Name: col.name, Type: col.inPlace, Nullable: true}
+		cm := columnMeta{Name: col.name, Type: col.inPlace, Nullable: true, Encoding: col.encoding}
+		if cm.Encoding == "text" {
+			cm.TextFormat = col.guess.format
+		}
 		if col.field != col.name {
 			cm.Field = col.field
 		}
-		want := indexable(cm.Type) && simpleName(cm.field()) && (o.IndexColumns == nil || only[col.name])
+		want := cm.Encoding != "text" && indexable(cm.Type) && simpleName(cm.field()) && (o.IndexColumns == nil || only[col.name])
 		cm.Indexed = want && n < maxIndexed
 		if cm.Indexed {
 			n++
@@ -538,6 +543,9 @@ func (a *adopter) waitIndexed(ctx context.Context) error {
 // commit writes the table's metadata, and finishes the adoption record.
 func (a *adopter) commit(ctx context.Context, meta *tableMeta) error {
 	c := a.c
+	if err := c.st.assignCatalogOIDs(ctx, meta); err != nil {
+		return err
+	}
 	key := metaKey(a.schema, a.table)
 	for attempt := 0; attempt < 20; attempt++ {
 		err := c.client.Watch(ctx, func(tx *goredis.Tx) error {
@@ -579,7 +587,7 @@ func (a *adopter) adopted(ctx context.Context, meta *tableMeta, tables []*tableM
 	r := a.res.Report
 	for _, cm := range meta.Columns {
 		r.Columns = append(r.Columns, HashColumn{Name: cm.Name, Field: cm.Field, Type: cm.Type.SQLName(),
-			InPlaceType: cm.Type.SQLName()})
+			InPlaceType: cm.Type.SQLName(), Encoding: cm.Encoding})
 	}
 	t := inPlaceTarget{prefix: meta.prefix(), schema: meta.Schema, table: meta.Name, full: true, existing: meta}
 	cl, err := a.c.checkInPlace(ctx, r, nil, &a.stats, tables, indexes, t)

@@ -110,6 +110,7 @@ type unseenRel struct {
 
 // execCache holds per-statement results shared by nested executors.
 type execCache struct {
+	catalog       *catalogSnapshot
 	sub           map[*Subquery][][]Value
 	inSets        map[*Subquery]*inSet
 	rowSets       map[*Subquery]*rowSet

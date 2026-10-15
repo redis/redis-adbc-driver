@@ -61,7 +61,11 @@ func TestAdoptHashes(t *testing.T) {
 	}
 	expectItem(t, cl, CheckOK, "31 HASHes under it:ad:user: are rows")
 	expectItem(t, cl, CheckWarn, "1 key (such as it:ad:user:7:prefs) has another ':' after it:ad:user:, and stays out of the table")
-	expectItem(t, cl, CheckWarn, "active is VARCHAR in place (BOOLEAN when copied)")
+	for _, c := range res.Report.Columns {
+		if c.Name == "active" && c.InPlaceType != "BOOLEAN" {
+			t.Fatalf("active type: %s", c.InPlaceType)
+		}
+	}
 	if n, _ := f.raw.Exists(f.h.ctx, metaKey("public", "it_ad_users")).Result(); n != 0 {
 		t.Fatal("the dry run wrote the metadata")
 	}
@@ -286,7 +290,7 @@ func TestAdoptBlockers(t *testing.T) {
 	f.hset("it:ad:blk:x", "n", "2")
 	f.hset("it:ad:blk:3", "n", "3", "flag", "true")
 	res, err := AdoptHashes(f.h.ctx, f.opts, HashAdoptOptions{Prefix: f.prefix, Table: "it_ad_blk", Apply: true,
-		Types: map[string]string{"flag": "BOOLEAN"}})
+		Types: map[string]string{"flag": "BOOLEAN"}, Encodings: map[string]string{"flag": "native"}})
 	if err != nil {
 		t.Fatal(err)
 	}

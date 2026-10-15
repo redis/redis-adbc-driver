@@ -99,7 +99,8 @@ type HashServer struct {
 
 // HashColumn is a guessed column.
 type HashColumn struct {
-	Name string `json:"name"`
+	Encoding string `json:"encoding,omitempty"`
+	Name     string `json:"name"`
 	// Field is the HASH field it reads; empty for the key column.
 	Field string `json:"field,omitempty"`
 	// Type is the column's SQL type in a copy.
@@ -272,7 +273,7 @@ func InspectHashes(ctx context.Context, options map[string]string, o HashInspect
 	}
 	r.Skipped = skipped
 	for _, col := range cols {
-		hc := HashColumn{Name: col.name, Field: col.field, Type: col.t.SQLName(), Notes: col.notes}
+		hc := HashColumn{Name: col.name, Field: col.field, Type: col.t.SQLName(), Notes: col.notes, Encoding: col.encoding}
 		if col.field != "" {
 			hc.InPlaceType = col.inPlace.SQLName()
 		}

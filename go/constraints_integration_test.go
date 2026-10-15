@@ -701,8 +701,13 @@ func TestSQLCheckMetadata(t *testing.T) {
 	if err := json.Unmarshal([]byte(js), &m); err != nil {
 		t.Fatal(err)
 	}
-	if got := fmt.Sprint(m["checks"]); got != "[map[expr:a > 0 name:it_chk_meta_a_check]]" {
-		t.Errorf("stored checks %s", got)
+	checks := m["checks"].([]any)
+	if len(checks) != 1 {
+		t.Fatalf("stored checks %v", checks)
+	}
+	ck := checks[0].(map[string]any)
+	if ck["expr"] != "a > 0" || ck["name"] != "it_chk_meta_a_check" || ck["oid"].(float64) <= 0 {
+		t.Errorf("stored checks %v", checks)
 	}
 	// A rename that kept the text, as an older client's would.
 	cols := m["columns"].([]any)

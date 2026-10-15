@@ -214,6 +214,12 @@ func (env *evalEnv) eval(e Expr) (Value, error) {
 		if err != nil {
 			return Value{}, err
 		}
+		if x.T.Alias != "" {
+			return env.castOID(v, x.T)
+		}
+		if v.T.Alias != "" && x.T.Kind.isInteger() {
+			return intValue(x.T, v.I), nil
+		}
 		c, err := castValue(v, x.T, env.zone())
 		if err != nil && x.OnError != nil && castable(v.T, x.T) {
 			// TRY_CAST and DEFAULT … ON CONVERSION ERROR: a value that
@@ -534,6 +540,12 @@ func concatValues(sep string, args []Value, z tzZone) Value {
 // evalFunc evaluates a call. The registry (funcs.go) says which code
 // evaluates it; binding has checked its name and arguments.
 func (env *evalEnv) evalFunc(f *Func) (Value, error) {
+	if v, ok, err := env.evalCatalogFunc(f); ok {
+		return v, err
+	}
+	if v, ok, err := env.evalArrayFunc(f); ok {
+		return v, err
+	}
 	d, ok := callee(f)
 	if !ok {
 		return Value{}, fmt.Errorf("unsupported function %s", f.Name)
@@ -618,12 +630,9 @@ func (env *evalEnv) evalFunc(f *Func) (Value, error) {
 	if f.Name == "PG_TYPEOF" && (unknownLiteral(f.Args[0]) || args[0].T.Kind == KindNull) {
 		return stringValue("unknown"), nil
 	}
-	if f.Name == "FORMAT_TYPE" && len(args) == 2 && !args[0].Null {
-		names := map[int64]string{16: "boolean", 17: "bytea", 20: "bigint", 21: "smallint", 23: "integer", 25: "text", 700: "real", 701: "double precision", 1043: "character varying", 1082: "date", 1114: "timestamp without time zone", 1184: "timestamp with time zone", 1186: "interval", 1700: "numeric"}
-		if name, ok := names[args[0].I]; ok {
-			return stringValue(name), nil
-		}
-		return stringValue("???"), nil
+	if f.Name == "PG_TYPEOF" {
+		name, _ := postgresTypeNames(args[0].T)
+		return str(name), nil
 	}
 	for _, a := range args {
 		if a.Null {
@@ -655,7 +664,11 @@ func (env *evalEnv) evalFunc(f *Func) (Value, error) {
 		}
 		return stringValue(env.exec.sess.user), nil
 	case "PG_TYPEOF":
-		return stringValue(sigTypeName(args[0].T)), nil
+		if args[0].T.Alias != "" {
+			return stringValue(args[0].T.Alias), nil
+		}
+		name, _ := postgresTypeNames(args[0].T)
+		return stringValue(name), nil
 	case "CURRENT_SETTING":
 		name := strings.ToLower(args[0].Text())
 		def, ok := settings[name]
@@ -701,10 +714,6 @@ func (env *evalEnv) evalFunc(f *Func) (Value, error) {
 			delete(env.exec.sess.local, name)
 		}
 		return stringValue(v.text), nil
-	case "OBJ_DESCRIPTION":
-		return nullValue(typeString), nil
-	case "TO_REGCLASS":
-		return args[0], nil
 	case "FROM_HEX", "UNHEX", "DECODE_HEX":
 		b, err := hex.DecodeString(args[0].S)
 		if err != nil {
@@ -982,6 +991,26 @@ func inferFuncType(f *Func, args []ColType) ColType {
 }
 
 func funcType(f *Func, args []ColType) ColType {
+	if t, ok := catalogFuncType(f.Name); ok {
+		return t
+	}
+	switch f.Name {
+	case "__ARRAY", "ARRAY_AGG":
+		t := typeNull
+		for _, a := range args {
+			t = commonType(t, a)
+		}
+		return arrayOf(t)
+	case "__ARRAY_COMPARE":
+		return typeBool
+	case "UNNEST":
+		if len(args) > 0 {
+			return args[0].element()
+		}
+		return typeNull
+	case "GENERATE_SUBSCRIPTS", "ARRAY_LENGTH", "CARDINALITY":
+		return typeInt32
+	}
 	if t, ok := dateTimeFuncType(f, args); ok {
 		return t
 	}
@@ -1234,6 +1263,9 @@ func commonType(a, b ColType) ColType {
 // or a DATE and an INTERVAL, which Postgres doesn't match either.
 func matchTypes(a, b ColType) (ColType, bool) {
 	switch {
+	case a.Kind == KindArray && b.Kind == KindArray:
+		t, ok := matchTypes(a.element(), b.element())
+		return arrayOf(t), ok
 	case a.Kind == KindNull:
 		return b, true
 	case b.Kind == KindNull || a == b:

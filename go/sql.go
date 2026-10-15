@@ -758,6 +758,7 @@ func syntaxErr(format string, args ...any) error {
 
 func lex(src string) ([]token, error) {
 	var toks []token
+	arrayDepth := 0
 	i := 0
 	for i < len(src) {
 		c := src[i]
@@ -822,12 +823,22 @@ func lex(src string) ([]token, error) {
 			toks = append(toks, token{kind: tokQuotedIdent, text: s, pos: i, end: i + n})
 			i += n
 		case c == '[':
+			if arrayDepth > 0 || (len(toks) > 0 && toks[len(toks)-1].kind == tokIdent && strings.EqualFold(toks[len(toks)-1].text, "ARRAY")) {
+				toks = append(toks, token{kind: tokOp, text: "[", pos: i, end: i + 1})
+				i++
+				arrayDepth++
+				continue
+			}
 			end := strings.IndexByte(src[i:], ']')
 			if end < 0 {
 				return nil, syntaxErr("unterminated identifier")
 			}
 			toks = append(toks, token{kind: tokQuotedIdent, text: src[i+1 : i+end], pos: i, end: i + end + 1})
 			i += end + 1
+		case c == ']' && arrayDepth > 0:
+			toks = append(toks, token{kind: tokOp, text: "]", pos: i, end: i + 1})
+			i++
+			arrayDepth--
 		case c >= '0' && c <= '9' || (c == '.' && i+1 < len(src) && src[i+1] >= '0' && src[i+1] <= '9'):
 			start := i
 			for i < len(src) && (src[i] >= '0' && src[i] <= '9' || src[i] == '.') {
@@ -2186,9 +2197,11 @@ func (p *parser) parseColumnDef() (ColumnDef, error) {
 	}
 	col := ColumnDef{Name: name, Type: ct}
 	if p.acceptKeyword("COLLATE") {
-		if err := p.parseCollation(); err != nil {
+		coll, err := p.parseCollationName()
+		if err != nil {
 			return ColumnDef{}, err
 		}
+		col.Type.Collation = coll
 	}
 	for {
 		named, constraint := "", false
@@ -2502,9 +2515,11 @@ func (p *parser) parseAlterType(cmd *AlterCmd) error {
 		return &sqlError{msg: fmt.Sprintf("column %q has pseudo-type record", cmd.Column), state: stateTableDefinition}
 	}
 	if p.acceptKeyword("COLLATE") {
-		if err := p.parseCollation(); err != nil {
+		coll, err := p.parseCollationName()
+		if err != nil {
 			return err
 		}
+		ct.Collation = coll
 	}
 	cmd.Action, cmd.Def.Type = AlterColumnType, ct
 	if p.acceptKeyword("USING") {
@@ -3551,10 +3566,16 @@ func (p *parser) parseQuantified(x Expr, op string) (Expr, bool, error) {
 	if !(all || p.isKeyword("ANY") || p.isKeyword("SOME")) || !(p.peekAt(1).kind == tokOp && p.peekAt(1).text == "(") {
 		return nil, false, nil
 	}
-	word := strings.ToUpper(p.peek().text)
 	p.pos += 2
 	if !p.isQueryStart() && !p.isParenQueryStart() {
-		return nil, false, syntaxErr("%s (…) needs a subquery near %q", word, p.peek().text)
+		a, err := p.parseExpr()
+		if err != nil {
+			return nil, false, err
+		}
+		if err = p.expectOp(")"); err != nil {
+			return nil, false, err
+		}
+		return &Func{Name: "__ARRAY_COMPARE", Args: []Expr{x, a, &Literal{V: stringValue(op)}, &Literal{V: boolValue(all)}}}, true, nil
 	}
 	sub, err := p.parseSubquery()
 	if err != nil {
@@ -3709,22 +3730,30 @@ func (p *parser) parsePostfix(x Expr) (Expr, error) {
 // COLLATE is otherwise a semantic no-op because all string comparison is
 // already bytewise. A schema qualifier is accepted for pg_catalog."C".
 func (p *parser) parseCollation() error {
+	_, err := p.parseCollationName()
+	return err
+}
+
+func (p *parser) parseCollationName() (string, error) {
 	name, err := p.parseIdent()
 	if err != nil {
-		return err
+		return "", err
 	}
 	if p.acceptOp(".") {
 		if name != "pg_catalog" {
-			return stateErrorf(stateUndefinedObject, "collation %q for encoding UTF8 does not exist", name)
+			return "", stateErrorf(stateUndefinedObject, "collation %q for encoding UTF8 does not exist", name)
 		}
 		if name, err = p.parseIdent(); err != nil {
-			return err
+			return "", err
 		}
 	}
 	if !strings.EqualFold(name, "C") && !strings.EqualFold(name, "POSIX") && !strings.EqualFold(name, "default") {
-		return stateErrorf(stateUndefinedObject, "collation %q for encoding UTF8 does not exist", name)
+		return "", stateErrorf(stateUndefinedObject, "collation %q for encoding UTF8 does not exist", name)
 	}
-	return nil
+	if strings.EqualFold(name, "default") {
+		return "default", nil
+	}
+	return strings.ToUpper(name), nil
 }
 
 // parseFieldSelect parses the field selections that may follow a
@@ -3826,6 +3855,26 @@ func (p *parser) parsePrimary() (Expr, error) {
 		return p.parseColumnRef(t.text)
 	case tokIdent:
 		upper := strings.ToUpper(t.text)
+		if upper == "ARRAY" && p.peekAt(1).text == "[" {
+			p.pos += 2
+			var args []Expr
+			if !p.acceptOp("]") {
+				for {
+					x, err := p.parseExpr()
+					if err != nil {
+						return nil, err
+					}
+					args = append(args, x)
+					if !p.acceptOp(",") {
+						break
+					}
+				}
+				if err := p.expectOp("]"); err != nil {
+					return nil, err
+				}
+			}
+			return &Func{Name: "__ARRAY", Args: args}, nil
+		}
 		// Postgres clients qualify built-in calls with pg_catalog.
 		if strings.EqualFold(t.text, "pg_catalog") && p.peekAt(1).kind == tokOp && p.peekAt(1).text == "." &&
 			(p.peekAt(2).kind == tokIdent || p.peekAt(2).kind == tokQuotedIdent) && p.peekAt(3).kind == tokOp && p.peekAt(3).text == "(" {

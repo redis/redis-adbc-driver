@@ -24,14 +24,12 @@ package redis
 //     row, including those the application writes later.
 //   - a search index in the driver's format: each column as indexAttrArgs
 //     makes it, and a __rowid NUMERIC attribute that no HASH needs (FT.CREATE
-//     needs one attribute, and noMatchQuery names it). The application's own
-//     index can't serve (the driver never checks an index's attributes, and
-//     its queries assume them), so adopting creates a second one, whose
+//     needs one attribute, and noMatchQuery names it), or the application's
+//     existing index when its attributes can serve (appindex.go).
 //     FILTER (rowKeyFilter) leaves out the HASHes that aren't rows.
-//   - values stored as the driver stores them (decodeStored): numbers as
-//     numbers, but booleans as 0 and 1 and dates and times as integers. So
-//     a column is only BIGINT, NUMERIC or DOUBLE PRECISION in place if every
-//     value is such a number; true/false text or ISO dates are VARCHAR.
+//   - per-column native numeric or application text encoding. Text boolean
+//     and date/time columns are parsed by SQL casts, never indexed as numbers,
+//     and evaluated in the driver (textencoding.go).
 //   - the table's metadata, marked adopted (see refuseAdopted for what the
 //     driver then refuses), and its prefix registered.
 //
@@ -189,9 +187,13 @@ func (c *hashConn) checkInPlace(ctx context.Context, r *HashReport, cols []*gues
 		}
 		g := col.guess
 		if col.override != "" && g != nil && g.misfits > 0 {
+			fitErr := storedFits(g.misfit.value, col.inPlace)
+			if col.encoding == "text" {
+				fitErr = textFits(g.misfit.value, col.inPlace)
+			}
 			cl.add(CheckBlocker, fmt.Sprintf("-type %s=%s: %s %s (such as %s in %s: %v)", col.name, col.override,
 				plural(int64(g.misfits), "value", "values"), verb(int64(g.misfits), "doesn't fit", "don't fit"),
-				quoteValue(g.misfit.value), g.misfit.key, storedFits(g.misfit.value, col.inPlace)),
+				quoteValue(g.misfit.value), g.misfit.key, fitErr),
 				"pick another type, or copy the HASHes instead")
 			continue
 		}

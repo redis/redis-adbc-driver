@@ -65,6 +65,8 @@ func (c *connectionImpl) executor() *executor {
 
 func (c *connectionImpl) GetOption(ctx context.Context, key string) (string, error) {
 	switch key {
+	case OptionStringForeignIndexes:
+		return strconv.FormatBool(c.store.foreignIndexes), nil
 	case OptionStringAggregateMetrics:
 		return c.aggregateMetrics.Load().json(), nil
 	case OptionIntQueryWorkersLastGrant:
@@ -89,6 +91,13 @@ func (c *connectionImpl) GetOption(ctx context.Context, key string) (string, err
 
 func (c *connectionImpl) SetOption(ctx context.Context, key, value string) error {
 	switch key {
+	case OptionStringForeignIndexes:
+		v, err := parseForeignIndexes(value)
+		if err != nil {
+			return err
+		}
+		c.store.foreignIndexes = v
+		return nil
 	case adbc.OptionKeyAutoCommit:
 		switch value {
 		case adbc.OptionValueEnabled:

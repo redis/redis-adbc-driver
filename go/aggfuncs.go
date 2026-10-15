@@ -239,7 +239,7 @@ func aggregateType(f *Func, cols map[string]ColType, params []ColType, over bool
 
 // usesOrder reports whether an aggregate's result depends on its ORDER BY.
 func usesOrder(f *Func) bool {
-	return f.Name == "STRING_AGG" || f.Name == "LISTAGG" || orderedSetFuncs[f.Name] || jsonAggregates[f.Name]
+	return f.Name == "ARRAY_AGG" || f.Name == "STRING_AGG" || f.Name == "LISTAGG" || orderedSetFuncs[f.Name] || jsonAggregates[f.Name]
 }
 
 // aggInput evaluates the input of an aggregate call for the row in env into
@@ -280,6 +280,8 @@ type aggState interface {
 
 func newAggState(f *Func) aggState {
 	switch {
+	case f.Name == "ARRAY_AGG":
+		return &arrayAgg{jsonAgg: jsonAgg{fn: f}}
 	case f.Name == "STRING_AGG" || f.Name == "LISTAGG":
 		return &stringAgg{fn: f}
 	case f.Name == "BOOL_OR" || f.Name == "BOOL_AND" || f.Name == "EVERY":

@@ -542,6 +542,8 @@ func joinKey(v Value) (string, bool) {
 		return k.String()[:2] + strconv.FormatInt(sec, 10) + "." + strconv.FormatInt(frac, 10), true
 	case k == KindRecord:
 		return recordJoinKey(v), true
+	case k == KindArray:
+		return "a" + rowKey(v.fields()), true
 	}
 	return v.T.Kind.String() + v.Text(), true
 }

@@ -48,6 +48,8 @@ const (
 	classSpecial                     // NaN or an infinity
 	classDate                        // YYYY-MM-DD
 	classTimestamp                   // ISO 8601 date and time
+	classTime                        // ISO time without an offset
+	classTimeTZ                      // ISO time with an offset
 	classText                        // anything else that is UTF-8
 	classBinary                      // not UTF-8
 	numValueClasses
@@ -117,27 +119,37 @@ func classify(s string) classified {
 		if _, _, digits, _, zoned, err := parseTimestamp(s); err == nil {
 			return classified{class: classTimestamp, zoned: zoned, fracDigits: digits}
 		}
+	case strings.Contains(s, ":") && !strings.ContainsAny(s, " T"):
+		if v, err := parseTimeTZ(s, utcZone); err == nil && !timeTZLocal(s) {
+			return classified{class: classTimeTZ, fracDigits: v.T.fracDigits()}
+		}
+		if v, err := timeLiteral(s); err == nil {
+			return classified{class: classTime, fracDigits: v.T.fracDigits()}
+		}
 	}
 	return classified{class: classText}
 }
 
 // fieldGuess collects what the sampled values of one field look like.
 type fieldGuess struct {
-	field      string
-	present    int // HASHes that have the field
-	empty      int
-	counts     [numValueClasses]int
-	examples   [numValueClasses]example
-	scale      int
-	intDigits  int
-	zoned      int
-	unzoned    int
-	fracDigits int
-	leadZero   int
-	zeroOne    bool // every integer is 0 or 1
-	zero, one  bool // some integer is 0, or 1
-	json       int
-	nul        int
+	format      string
+	textMisfits int
+	textMisfit  example
+	field       string
+	present     int // HASHes that have the field
+	empty       int
+	counts      [numValueClasses]int
+	examples    [numValueClasses]example
+	scale       int
+	intDigits   int
+	zoned       int
+	unzoned     int
+	fracDigits  int
+	leadZero    int
+	zeroOne     bool // every integer is 0 or 1
+	zero, one   bool // some integer is 0, or 1
+	json        int
+	nul         int
 	// tagLevel is the level (see tags.go) that the values need as an
 	// indexed string column.
 	tagLevel string
@@ -153,6 +165,15 @@ type example struct{ key, value string }
 
 func (g *fieldGuess) add(key, v string) {
 	g.present++
+	if g.format == "" && v != "" {
+		g.format = v
+	}
+	if g.fits != nil && textFits(v, *g.fits) != nil {
+		if g.textMisfits == 0 {
+			g.textMisfit = example{key, v}
+		}
+		g.textMisfits++
+	}
 	if l := tagLevelOf(v); tagRank(l) > tagRank(g.tagLevel) {
 		g.tagLevel = l
 	}
@@ -180,7 +201,7 @@ func (g *fieldGuess) add(key, v string) {
 		}
 		g.zeroOne = g.zeroOne && (v == "0" || v == "1")
 		g.zero, g.one = g.zero || v == "0", g.one || v == "1"
-	case classTimestamp:
+	case classTimestamp, classTime, classTimeTZ:
 		if c.zoned {
 			g.zoned++
 		} else {
@@ -232,6 +253,10 @@ func (g *fieldGuess) typeOf(counts [numValueClasses]int) ColType {
 		return typeFloat64
 	case has(classDate):
 		return typeDate
+	case has(classTime):
+		return fracType(KindTime, max(6, g.fracDigits), "")
+	case has(classTimeTZ):
+		return fracType(KindTimeTZ, max(6, g.fracDigits), "")
 	case has(classDate, classTimestamp):
 		tz := ""
 		if g.zoned > 0 {
@@ -260,6 +285,9 @@ func onlyClasses(counts [numValueClasses]int, cs ...valueClass) bool {
 // dates and times are stored as numbers.
 func (g *fieldGuess) inPlaceType() ColType {
 	c := g.counts
+	if t := g.typeOf(c); textEncodedKind(t.Kind) {
+		return t
+	}
 	switch {
 	case c[classBinary] > 0:
 		return typeBinary
@@ -335,10 +363,11 @@ func storedFits(v string, t ColType) error {
 
 // guessedColumn is a column of the guessed table.
 type guessedColumn struct {
-	name  string
-	field string // "" for the key column
-	t     ColType
-	guess *fieldGuess
+	encoding string
+	name     string
+	field    string // "" for the key column
+	t        ColType
+	guess    *fieldGuess
 	// override is the -type text the column's type came from.
 	override string
 	// inPlace is the column's type when the HASHes are adopted in place
@@ -354,6 +383,7 @@ type guessedColumn struct {
 
 // guessOptions are the choices that shape a guessed table.
 type guessOptions struct {
+	encodings map[string]string
 	keyColumn string            // column for the key; "" for none
 	types     map[string]string // column → SQL type text
 	renames   map[string]string // field → column
@@ -479,6 +509,9 @@ func (gs *guesser) columns(o guessOptions) (cols []*guessedColumn, skipped []str
 			continue
 		}
 		c := &guessedColumn{name: name, field: f, guess: g, t: g.typeOf(g.counts), inPlace: g.inPlaceType()}
+		if textEncodedKind(c.inPlace.Kind) {
+			c.encoding = "text"
+		}
 		c.describe()
 		cols = append(cols, c)
 	}
@@ -506,6 +539,39 @@ func (gs *guesser) columns(o guessOptions) (cols []*guessedColumn, skipped []str
 			return nil, nil, errorf(adbc.StatusInvalidArgument, "-type %s: there is no column %q", name, name)
 		}
 		col.t, col.inPlace, col.override = t, t, o.types[name]
+		col.encoding = ""
+		if textEncodedKind(t.Kind) && col.guess != nil && col.guess.misfits > 0 && col.guess.textMisfits == 0 {
+			col.encoding = "text"
+		}
+	}
+	for name, encoding := range o.encodings {
+		if encoding != "text" && encoding != "native" {
+			return nil, nil, errorf(adbc.StatusInvalidArgument, "invalid encoding %q for %s (want text or native)", encoding, name)
+		}
+		var col *guessedColumn
+		for _, c := range cols {
+			if c.name == name {
+				col = c
+			}
+		}
+		if col == nil {
+			return nil, nil, errorf(adbc.StatusInvalidArgument, "encoding: column %q does not exist", name)
+		}
+		col.encoding = ""
+		if encoding == "text" {
+			if !textEncodedKind(col.inPlace.Kind) {
+				return nil, nil, errorf(adbc.StatusInvalidArgument, "text encoding is only supported for boolean, date and time columns (%s is %s)", name, col.inPlace.SQLName())
+			}
+			col.encoding = "text"
+		} else if col.override == "" && textEncodedKind(col.inPlace.Kind) && col.guess != nil && storedFits(col.guess.format, col.inPlace) != nil {
+			return nil, nil, errorf(adbc.StatusInvalidArgument, "native encoding cannot read %s's application text %q; use text encoding", name, col.guess.format)
+		}
+	}
+	for _, col := range cols {
+		if col.encoding == "text" && col.guess != nil && col.override != "" {
+			col.guess.misfits = col.guess.textMisfits
+			col.guess.misfit = col.guess.textMisfit
+		}
 	}
 	return cols, skipped, nil
 }

@@ -1105,6 +1105,9 @@ func movingErr(meta *tableMeta) error {
 // back (or finished) first, or the statement waits while another connection
 // does; then a statement whose table is back as it was goes on.
 func (s *store) checkWritable(ctx context.Context, meta *tableMeta) error {
+	if meta.Foreign {
+		return virtualReadOnly(meta.Schema)
+	}
 	if meta.RekeyTo == "" {
 		return nil
 	}
@@ -1265,6 +1268,12 @@ func (s *store) checkReads(ctx context.Context, metas []*tableMeta) error {
 // to readers once it has switched). Otherwise the metadata counts as read
 // again now.
 func (s *store) checkKeys(ctx context.Context, meta *tableMeta, writing bool) error {
+	if meta.Foreign {
+		if writing {
+			return virtualReadOnly(meta.Schema)
+		}
+		return nil
+	}
 	sent := time.Now()
 	pipe := s.client.Pipeline()
 	job := pipe.HGet(ctx, rekeyKey, meta.prefix())

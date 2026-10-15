@@ -901,8 +901,8 @@ Guessed columns (as table public.users):
   _key        VARCHAR                      -                 100%     each HASH's key
   name        VARCHAR                      VARCHAR           100%
   age         VARCHAR                      VARCHAR           100%     2 of 501 values aren't BIGINT (such as "n/a" in user:500)
-  active      BOOLEAN                      VARCHAR           99.8%    true/false text
-  created_at  TIMESTAMP(6) WITH TIME ZONE  VARCHAR           99.8%    ISO 8601 text
+  active      BOOLEAN                      BOOLEAN           99.8%    true/false text
+  created_at  TIMESTAMP(6) WITH TIME ZONE  TIMESTAMP(6) WITH TIME ZONE  99.8%    ISO 8601 text
   balance     NUMERIC(38,2)                NUMERIC(38,2)     99.8%
   zip         VARCHAR                      VARCHAR           99.8%    numbers with leading zeros, kept as text
   avatar      VARBINARY                    VARBINARY         10.0%    not UTF-8; 50 values have a NUL byte
@@ -924,8 +924,6 @@ SQL, adopted in place (redis-adbc adopt): READY
   [ok]      no driver table's rows can be under user:
   [ok]      public.users doesn't exist yet
   [ok]      every HASH under user: is a row (501)
-  [warn]    active is VARCHAR in place (BOOLEAN when copied): the driver stores booleans as 0 and 1
-  [warn]    created_at is VARCHAR in place (TIMESTAMP(6) WITH TIME ZONE when copied): the driver stores dates and times as numbers
   [warn]    the application's index idx:users can't serve: it has had 2 indexing failures, so it may leave HASHes out
   [missing] a search index in the driver's format on user:
             fix: adopt creates idx:public:users:adopted, over the HASHes that are rows, including those the application writes later; it takes memory of its own (the application's idx:users stays as it is, and isn't used)
@@ -1099,15 +1097,22 @@ Adopted: public.users now reads the HASHes under user:, and those the applicatio
   `SELECT __key` reads it, and `WHERE __key = 'user:42'` reads that HASH
   directly. Without `ORDER BY`, rows come in the index's order (there is
   no insertion order).
-- **Columns.** Every field is a column, as in a copy, but in place a column
-  is only `BIGINT`, `NUMERIC(38, s)` or `DOUBLE PRECISION` if every HASH
-  that has the field holds such a number. The driver reads the stored
-  text as it is: it stores booleans as 0 and 1, and dates and times as
-  integers, so `true`/`false` text and ISO dates are `VARCHAR`. A field
-  that is empty in some HASH is `VARCHAR`, since RediSearch doesn't index a
-  HASH whose `NUMERIC` field isn't a number. `-type col=TYPE` sets a type
-  that every value is stored as (`-type flag=BOOLEAN` for 0/1 flags), and
-  `-index-columns` picks the indexed columns. Every column is nullable.
+- **Columns.** Every field is a column, as in a copy. Booleans and ISO dates,
+  times and timestamps infer their SQL types with per-column `text` storage
+  encoding. Reads use the same conversions as SQL casts; empty text reads as
+  NULL. These columns are stored without a numeric index and are filtered,
+  sorted and aggregated by the driver. Updates preserve each row's boolean
+  vocabulary/case and timestamp separator/offset; a previously absent field
+  uses the format sampled at adoption. No fields are rewritten during adoption.
+  `-type col=TYPE` overrides the inferred SQL type and selects the compatible
+  encoding. `-encoding col=text` or `-encoding col=native` explicitly selects
+  storage (repeatable); native BOOLEAN expects 0/1, and native date/time types
+  expect the driver's integer representation. Invalid overrides are rejected.
+  Finite numeric columns retain NUMERIC indexes; a numeric field that is empty
+  in some HASH remains VARCHAR. `-index-columns` picks indexed columns; text
+  encoded boolean/date/time columns always use driver evaluation. Every column
+  is nullable. Metadata written before text encoding support keeps its types;
+  drop the adopted table and adopt again to infer typed text columns.
 - **Strings.** The application's later writes don't tell the driver which
   strings the index doesn't hold exactly (see "Strings in the index"
   below), so an adopted table's indexed string columns count as
@@ -1418,6 +1423,30 @@ Deleted 13 HASHes under 2 prefixes.
     timestamps between 1685 and 2255 never tie, and nanosecond ones only
     within about 256 ns of each other.
 
+### Discover application indexes without adopting
+
+Set `adbc.redis.foreign_indexes=true` on a database or connection to expose
+existing HASH search indexes as read-only tables in `redis_foreign`. It is
+disabled by default. Each table has the index's exact name; quote punctuation,
+for example `SELECT * FROM redis_foreign."idx:users"`. `__key` holds each row's
+full Redis key. Information-schema and ADBC metadata include these tables.
+
+Discovery reads the index definition and up to 128 indexed HASHes. Indexed
+attributes supply columns even for empty indexes, and sampled fields add
+columns and refine types. The definition and sample are refreshed for each
+statement; no table metadata or application data is written. Types inferred
+from a sample can fail on incompatible values elsewhere, as with an adopted
+table. Only HASH indexes are included; unindexed HASH collections still need
+`copy` or `adopt`. Driver-owned search indexes are excluded.
+
+Queries respect the application's prefixes and FILTER, including indexes with
+multiple prefixes. Numeric and TAG pushdown follows the same attribute checks
+as adopted tables; other predicates run in the driver. INSERT, UPDATE, DELETE,
+TRUNCATE, ALTER and DROP cannot change these tables or their indexes. Readers
+need the documented read-only ACL commands plus `+ft.info` and access to the
+application key prefixes. An index the ACL user cannot inspect is omitted.
+Unbounded foreign-index queries require an unrestricted aggregate result cap.
+
 ### Metadata and key naming
 
 - **Metadata**, all in one hash slot: `adbc:{meta}:table:<schema>:<table>`
@@ -1431,6 +1460,10 @@ Deleted 13 HASHes under 2 prefixes.
   table's rows can never be shared with a new table of the old name.
   `adbc:{meta}:names:next` holds the last `~N` handed out for each table
   name (see "Key prefixes" below).
+  New objects store stable catalog OIDs in their metadata, allocated with
+  `adbc:{meta}:oid:next`; custom schema OIDs use `adbc:{meta}:namespace:<schema>`.
+  Legacy metadata remains readable without a migration write, using stable
+  IDs derived from its physical identity until those IDs are saved by a change.
   `adbc:{meta}:cleanup` lists tables with a dropped-column cleanup in progress.
   `adbc:{meta}:rekey` records renames that are moving a table's rows
   (`adbc.redis.rename_rekey`), and `ALTER COLUMN … TYPE`s rewriting them
@@ -4198,15 +4231,19 @@ field, even if later rows have it.
 
     The same settings through ADBC options are not supported, other than
     the current schema and the time zone (`adbc.redis.time_zone`).
-- Not supported: mutually recursive CTEs, `ANY` / `ALL` over arrays or
-  value lists, set-returning functions in the SELECT list
-  (`SELECT generate_series(1, 3)`), table functions other than
+- One-dimensional `ARRAY[...]` expressions, `ARRAY_AGG` (including ORDER BY),
+  `ANY` / `SOME` / `ALL` comparisons against arrays, `ARRAY_LENGTH` and
+  `CARDINALITY` are supported for catalog queries and in-memory results.
+  `UNNEST` and `GENERATE_SUBSCRIPTS` expand SELECT-list results in lockstep.
+  Stored array columns and array-typed view columns are not yet supported.
+- Not supported: mutually recursive CTEs, `ANY` / `ALL` over bare value
+  lists, SELECT-list `GENERATE_SERIES`, table functions other than
   `GENERATE_SERIES`, data-modifying statements in `WITH` (`WITH d AS
   (DELETE … RETURNING …) INSERT …`), `RETURNING OLD.* / NEW.*` (Postgres
   18), `GROUP BY DISTINCT` (which drops repeated grouping sets),
   `GROUPING()` of an enclosing query's columns inside a subquery,
   `PERCENTILE_CONT` / `PERCENTILE_DISC` of an array of fractions (there is
-  no array type), and the ordered-set aggregates and `MEDIAN` as window
+  no stored array type), and the ordered-set aggregates and `MEDIAN` as window
   functions
 - Types: `BOOLEAN, SMALLINT, INTEGER, BIGINT, REAL, DOUBLE PRECISION,
   NUMERIC(p,s), VARCHAR(n), CHAR(n), VARCHAR/TEXT, VARBINARY/BLOB, DATE,
@@ -4259,9 +4296,10 @@ field, even if later rows have it.
       column, so comparisons with it are checked by the driver on the rows
       the rest of the query finds, and it is sorted and grouped by the
       driver
-    - `information_schema.columns` shows `data_type` `TIME(6) WITH TIME
-      ZONE` and `datetime_precision` 6, and `GetObjects` the same
-      `xdbc_type_name` and `xdbc_decimal_digits`
+    - `information_schema.columns` shows `data_type` `time with time zone`,
+      `datetime_precision` 6 and `driver_data_type` `TIME(6) WITH TIME ZONE`;
+      `GetObjects` reports that driver spelling as `xdbc_type_name` and the
+      precision as `xdbc_decimal_digits`
     - **Upgrading from v0.0.12 and earlier:** they read `TIME WITH TIME
       ZONE` as `TIME`, dropping a value's offset (`'10:00+02'` was
       `10:00:00`), and had no `TIMETZ`. Columns they created are `TIME`
@@ -4301,7 +4339,7 @@ field, even if later rows have it.
     `23:59:59`). The text, the Arrow value and what index queries compare
     with are the rounded value
     - **The type** keeps `p`: in the table's metadata, `information_schema`
-      (`data_type` `TIMESTAMP(2)`, `datetime_precision` 2) and `GetObjects`
+      (`driver_data_type` `TIMESTAMP(2)`, `datetime_precision` 2) and `GetObjects`
       (`xdbc_type_name` `TIMESTAMP(2)`, `xdbc_decimal_digits` 2). A column,
       a cast, a scalar subquery, and `CASE`, `COALESCE`, `NULLIF`,
       `GREATEST`, `LEAST` and set operations keep it, with the most digits
@@ -4350,6 +4388,52 @@ deletes, then inserts). If a write fails part-way, for example because the
 connection drops, the batches already written stay written, and other
 clients can see a partly applied statement.
 
+## PostgreSQL catalogs and session discovery
+
+`information_schema.columns` uses PostgreSQL `data_type` and `udt_name`
+spellings, with precision/length in their standard fields. New TEXT declarations
+remain distinct from VARCHAR. `driver_data_type` preserves the exact driver
+spelling, including typmods; `is_indexed` and `comment` remain extension columns.
+An explicit column `COLLATE "C"` or `"POSIX"` is recorded in collation metadata.
+Older TEXT declarations were saved as VARCHAR and cannot be distinguished.
+
+Read-only `pg_catalog` relations expose namespaces, relations, attributes,
+defaults, built-in types, CHECK/primary-key constraints, indexes, descriptions,
+settings, the current database/role, functions, access methods and collations.
+`pg_tables`, `pg_views`, `pg_matviews`, `pg_indexes` and `pg_stat_user_tables`
+are also available. Unsupported domains, enums, sequences, inheritance,
+dependencies and rewrite rules have empty typed catalogs. `pg_stat_user_tables`
+reports live indexed row counts; cumulative PostgreSQL statistics are unavailable.
+Catalog names are searched implicitly before the current schema.
+
+OID aliases (`oid`, `regclass`, `regtype`, `regproc`, `regnamespace`) support
+name/OID casts and the `to_reg*` lookups; missing-name lookups return NULL while
+casts fail. `format_type` understands built-in OIDs and typmods. The
+`pg_get_expr`, `pg_get_constraintdef`, `pg_get_indexdef`, `pg_get_viewdef`,
+`obj_description`, `col_description` and visibility functions read metadata.
+Privilege compatibility functions return true; Redis ACLs still authorize each
+operation. `pg_get_serial_sequence` returns NULL because sequences are unsupported.
+Relation-size functions measure Redis HASH memory (requiring `+memory|usage`);
+`pg_total_relation_size` includes the search-index memory reported by FT.INFO.
+These are Redis bytes rather than PostgreSQL disk pages. Physical search indexes use the access-method
+name `redis_search`; primary-key metadata retains the documented unenforced
+uniqueness semantics.
+
+Stock SQLAlchemy PostgreSQL reflection is checked through the ADBC shared
+library with `go/validation/check_catalog_reflection.py`: schemas, tables,
+views, columns, defaults, comments, composite primary keys, indexes and CHECKs.
+
+`pg_catalog.f(...)` resolves built-in calls. `version()` returns
+`PostgreSQL 16.0 (Redis ADBC driver)`, `current_database()` returns `redis`,
+`current_schema()` returns the connection's selected schema, and `current_user`,
+`session_user`, `user` and `current_role` return its configured Redis ACL user
+(or `default`). `pg_typeof` reports the PostgreSQL type name.
+`current_setting` and `set_config` use the same settings as SET/SHOW. Read-only
+values are `server_version=16.0`, `server_version_num=160000`,
+`transaction_isolation=read committed`, `max_identifier_length=63`,
+`server_encoding=UTF8`, `integer_datetimes=on`, and `is_superuser=off`.
+These are client compatibility values; the driver remains autocommit-only.
+
 ## Options
 
 | Option | Level | Meaning |
@@ -4373,6 +4457,7 @@ clients can see a partly applied statement.
 | `adbc.redis.stream_batch_rows` | database, statement | Rows per record batch of a streamed result (default 65,536). A result that fits in the first batch is returned whole. Also an integer option on the statement |
 | `adbc.redis.time_zone` | database, connection | The session time zone, with the values `SET TIME ZONE` takes (default `UTC`; see Session time zone), and what `RESET timezone` and `SET TIME ZONE DEFAULT` go back to. The connection option overrides the database's and replaces a `SET`'s value; reading it gives the current value, as `SHOW timezone` does |
 | `adbc.redis.temporary_objects` | connection, read-only | `true` while the connection owns at least one temporary table or view, otherwise `false`. The value is read from connection-local state without a Redis round trip, so a Flight server can decide whether it is safe to move a scan to another pooled connection. |
+| `adbc.redis.foreign_indexes` | database, connection | `false` (default); `true` exposes application HASH indexes as read-only tables in `redis_foreign`, with connection-local, dynamically inferred metadata. |
 
 Aggregate worker tokens control concurrency; a token does not reserve a
 physical CPU. Connections should reuse one ADBC database handle to share

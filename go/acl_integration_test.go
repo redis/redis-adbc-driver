@@ -403,7 +403,7 @@ func TestACLExecAbort(t *testing.T) {
 	a.exec(`INSERT INTO it_acl_x VALUES (1)`)
 	a.exec(`CREATE VIEW it_acl_xv AS SELECT id FROM it_acl_x`)
 	// Every command the driver needs, but read-only keys.
-	a.user("it_acl_keys", append(a.driverCommands(true), "%R~adbc:*", "%R~public:*")...)
+	a.user("it_acl_keys", append(a.driverCommands(true), "%R~adbc:*", "%R~public:*", "~adbc:{meta}:oid:next")...)
 	u := a.connect("it_acl_keys", map[string]string{OptionStringReadTimeout: "60s"})
 	const denied = "NOPERM No permissions to access a key"
 	for _, c := range []struct{ sql, want string }{

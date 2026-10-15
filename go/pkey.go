@@ -55,8 +55,10 @@ import (
 // keyMeta is a PRIMARY KEY as the table metadata stores it: its name and
 // the HASH fields of its columns, in key order.
 type keyMeta struct {
-	Name   string   `json:"name"`
-	Fields []string `json:"fields"`
+	OID      int64    `json:"oid,omitempty"`
+	IndexOID int64    `json:"index_oid,omitempty"`
+	Name     string   `json:"name"`
+	Fields   []string `json:"fields"`
 }
 
 // keyColumns returns the names of the columns of the table's primary key,

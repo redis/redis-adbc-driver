@@ -30,6 +30,8 @@ func runAdopt(ctx context.Context, args []string, stdout, stderr io.Writer) erro
 	cf.register(fs)
 	var hf hashFlags
 	hf.register(fs)
+	encodings := options{}
+	fs.Var(encodings, "encoding", "storage `column=text` or column=native (repeatable; default: inferred)")
 	schema := fs.String("schema", "", "the table's schema (default: the database's)")
 	table := fs.String("table", "", "the table's name (default: made from the prefix)")
 	index := fs.String("index-columns", "", "comma-separated `columns` to index (default: every one that can be)")
@@ -45,6 +47,7 @@ func runAdopt(ctx context.Context, args []string, stdout, stderr io.Writer) erro
 		return errors.New("-prefix is required (redis-adbc check lists the collections)")
 	}
 	o := redis.HashAdoptOptions{Prefix: hf.prefix, Schema: *schema, Table: *table, Types: hf.types, Renames: hf.renames,
+		Encodings:    encodings,
 		IndexColumns: indexColumns(*index), TrustStrings: *trust, Index: *appIndex, OwnIndex: *ownIndex, Apply: *apply,
 		Progress: func(msg string) { fmt.Fprintln(stderr, msg) }}
 	res, err := redis.AdoptHashes(ctx, cf.options(), o)

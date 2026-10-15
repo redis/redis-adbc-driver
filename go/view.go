@@ -51,6 +51,7 @@ import (
 )
 
 type viewMeta struct {
+	OID     int64        `json:"oid,omitempty"`
 	Schema  string       `json:"schema"`
 	Name    string       `json:"name"`
 	SQL     string       `json:"sql"`
@@ -110,8 +111,16 @@ func (s *store) putView(ctx context.Context, v *viewMeta) error {
 			if err == nil {
 				var replaced viewMeta
 				if json.Unmarshal([]byte(old), &replaced) == nil {
+					put.OID = viewOID(&replaced)
 					keepComments(&replaced, &put)
 				}
+			}
+			if put.OID == 0 {
+				id, err := s.nextCatalogOID(ctx)
+				if err != nil {
+					return err
+				}
+				put.OID = id
 			}
 			raw, err := json.Marshal(&put)
 			if err != nil {
@@ -235,6 +244,9 @@ func (s *store) renameView(ctx context.Context, schema, name string, to TableNam
 			} else if n > 0 {
 				return stateErrorf(stateDuplicateTable, "%q.%q already exists as a table", displaySchema(schema), newName)
 			}
+			if v.OID == 0 {
+				v.OID = viewOID(&v)
+			}
 			v.Name = newName
 			out, err := json.Marshal(&v)
 			if err != nil {
@@ -262,6 +274,9 @@ func (s *store) renameView(ctx context.Context, schema, name string, to TableNam
 }
 
 func (s *store) listViews(ctx context.Context, schema string) ([]string, error) {
+	if schema == foreignSchema {
+		return nil, nil
+	}
 	members, err := s.client.SMembers(ctx, viewsKey(schema)).Result()
 	if err != nil {
 		return nil, wrapRedis(err, "failed to list views")
@@ -360,6 +375,9 @@ func (e *executor) runCreateView(ctx context.Context, st *CreateViewStmt, numPar
 	}
 	seen := map[string]bool{}
 	for i, c := range cols {
+		if c.Type.Kind == KindArray {
+			return errorf(adbc.StatusNotImplemented, "array view columns are not supported; arrays are supported in expressions and catalogs")
+		}
 		n := c.Name
 		if st.Columns != nil {
 			n = st.Columns[i]

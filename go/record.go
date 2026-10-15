@@ -83,7 +83,7 @@ func recordOf(fields []ColType) ColType {
 func recordSignature(fields []ColType) string {
 	var b strings.Builder
 	for _, t := range fields {
-		fmt.Fprintf(&b, "%d/%d/%s/%d/%d/%d/%t/%p;", t.Kind, t.Unit, t.TZ, t.Precision, t.Scale, t.Length, t.Fixed, t.Rec)
+		fmt.Fprintf(&b, "%d/%d/%s/%d/%d/%d/%t/%t/%s/%s/%p;", t.Kind, t.Unit, t.TZ, t.Precision, t.Scale, t.Length, t.Fixed, t.Text, t.Alias, t.Collation, t.Rec)
 	}
 	return b.String()
 }

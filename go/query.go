@@ -183,6 +183,9 @@ func (e *executor) planWhere(ctx context.Context, where Expr, meta *tableMeta, p
 		if !ok || op != "=" || !isSystemColumn(col.Name) {
 			continue
 		}
+		if meta.Foreign {
+			continue
+		}
 		v, err := env.eval(other)
 		if err != nil {
 			return wp, invalidArg(err)
@@ -451,7 +454,7 @@ func decodeRow(meta *tableMeta, row aggRow, only map[string]bool) (map[string]Va
 			out[c.Name] = v
 			continue
 		}
-		v, err := decodeStored(raw, c.Type)
+		v, err := c.decode(raw)
 		if err != nil {
 			return nil, errorf(adbc.StatusInternal, "column %q: %v", c.Name, err)
 		}
@@ -971,7 +974,7 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 	sel := plan.sel
 	// With window functions, LIMIT applies once they are computed (and
 	// QUALIFY has filtered), so it never runs in the index.
-	pushLimit := !plan.windowed() && wp.residual == nil && indexSort && wp.keys == nil && sel.Limit != nil
+	pushLimit := !plan.hasSetReturning() && !plan.windowed() && wp.residual == nil && indexSort && wp.keys == nil && sel.Limit != nil
 	if pushLimit {
 		off := int64(0)
 		if sel.Offset != nil {
@@ -985,7 +988,7 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 	}
 	// A residual predicate prevents index LIMIT. Read only its inputs (and
 	// exact tie-sort inputs), then fetch output fields for surviving rows.
-	if wp.residual != nil && indexSort && !meta.KeyRows && !plan.windowed() &&
+	if !plan.hasSetReturning() && wp.residual != nil && indexSort && !meta.KeyRows && !plan.windowed() &&
 		!plan.hasCorrelated() && len(plan.extraNeed) == 0 && sel.Limit != nil {
 		predicate := map[string]bool{}
 		columnRefs(wp.residual, predicate)
@@ -1006,6 +1009,9 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 		}
 	}
 	if !meta.isMem && wp.keys == nil && req.limit == nil && caps[1] < 1<<31 {
+		if meta.Foreign {
+			return selectScan{}, errorf(adbc.StatusNotImplemented, "unbounded foreign-index queries require an unrestricted aggregate result cap")
+		}
 		// A configured aggregate cap limits the entire cursor, not its page.
 		// Fetch HASHes and apply the full predicate instead of truncating rows.
 		req.hashScan = true
@@ -1063,20 +1069,34 @@ func (e *executor) selectScanned(ctx context.Context, plan *selectPlan, sc selec
 		}
 		sort.SliceStable(idx, func(a, b int) bool { return lessKeys(keys[idx[a]], keys[idx[b]], plan.order) })
 	}
-	if !pushLimit && sc.req.late == nil {
+	if !plan.hasSetReturning() && !pushLimit && sc.req.late == nil {
 		idx = applyLimit(idx, sel.Offset, sel.Limit)
 	}
 	out := make([][]Value, 0, len(idx))
+	var expandedKeys [][]Value
 	for _, i := range idx {
 		if err := cancelled(ctx); err != nil {
 			return nil, err
 		}
 		setRow(i)
-		row, err := evalItems(env, plan.items)
+		rows, err := evalExpandedItems(env, plan.items)
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, row)
+		out = append(out, rows...)
+		if plan.hasSetReturning() && len(plan.order) > 0 {
+			keys, err := expandedOrderKeys(env, plan, rows)
+			if err != nil {
+				return nil, err
+			}
+			expandedKeys = append(expandedKeys, keys...)
+		}
+	}
+	if plan.hasSetReturning() {
+		if len(plan.order) > 0 {
+			out = sortExpandedRows(out, expandedKeys, plan.order)
+		}
+		out = applyLimit(out, sel.Offset, sel.Limit)
 	}
 	return out, nil
 }

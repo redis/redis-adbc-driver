@@ -517,7 +517,7 @@ func TestSQLQuantifiedComparisons(t *testing.T) {
 		t.Errorf("correlated <> ALL: %+v, want an anti-join", w)
 	}
 
-	h.expectError(`SELECT id FROM it_qf_g WHERE id = ANY (1, 2)`, "ANY (…) needs a subquery")
+	h.expectError(`SELECT id FROM it_qf_g WHERE id = ANY (1, 2)`, `expected ")"`)
 	h.expectError(`SELECT id FROM it_qf_g WHERE v > ALL (SELECT id, v FROM it_qf_g)`, "subquery has too many columns")
 	h.expectError(`SELECT id FROM it_qf_g WHERE v > ANY (SELECT k FROM it_qf_g WHERE k IS NOT NULL)`, `invalid input syntax for type integer: "`)
 }

@@ -199,6 +199,9 @@ func optString(s string) Value {
 
 // postgresTypeNames are information_schema.columns' data_type and udt_name.
 func postgresTypeNames(t ColType) (string, string) {
+	if t.Alias != "" {
+		return t.Alias, t.Alias
+	}
 	switch t.Kind {
 	case KindBool:
 		return "boolean", "bool"
@@ -215,6 +218,9 @@ func postgresTypeNames(t ColType) (string, string) {
 	case KindDecimal:
 		return "numeric", "numeric"
 	case KindString:
+		if t.Text {
+			return "text", "text"
+		}
 		if t.Fixed {
 			return "character", "bpchar"
 		}
@@ -275,7 +281,7 @@ func columnRow(schema, table string, pos int, c columnMeta) []Value {
 	}
 	dataType, udtName := postgresTypeNames(t)
 	nullString := nullValue(typeString)
-	return []Value{
+	row := []Value{
 		stringValue(catalogName), stringValue(schema), stringValue(table),
 		stringValue(c.Name), intValue(typeInt32, int64(pos)), optString(c.Default), yesNo(c.Nullable), stringValue(dataType),
 		chars, octets, prec, radix, scale, dtPrec,
@@ -285,9 +291,13 @@ func columnRow(schema, table string, pos int, c columnMeta) []Value {
 		nullString, nullString, nullString, null,
 		stringValue(strconv.Itoa(pos)), yesNo(false), yesNo(false),
 		nullString, nullString, nullString, nullString, nullString, nullString,
-		stringValue("NEVER"), nullString, yesNo(true), stringValue(t.SQLName()),
+		stringValue("NEVER"), nullString, yesNo(schema != foreignSchema), stringValue(t.SQLName()),
 		yesNo(c.Indexed), optString(c.Comment),
 	}
+	if t.Collation != "" && t.Collation != "default" {
+		row[19], row[20], row[21] = str(catalogName), str(pgCatalog), str(t.Collation)
+	}
+	return row
 }
 
 // infoSchemaTable builds one information_schema table.
@@ -436,6 +446,17 @@ func constraintRows(key, schema string, m *tableMeta) [][]Value {
 // information_schema.columns, a table whose metadata can't be read (it was
 // dropped meanwhile) is nil.
 func (s *store) getTables(ctx context.Context, schema string, tables []string) ([]*tableMeta, error) {
+	if schema == foreignSchema {
+		out := make([]*tableMeta, len(tables))
+		for i, t := range tables {
+			m, err := s.foreignTable(ctx, t)
+			if err != nil {
+				return nil, err
+			}
+			out[i] = m
+		}
+		return out, nil
+	}
 	return getMetas[tableMeta](ctx, s, tables, func(t string) string { return metaKey(schema, t) })
 }
 

@@ -139,7 +139,7 @@ func TestSQLPrimaryKeyCreate(t *testing.T) {
 	h.exec(`INSERT INTO it_pk VALUES (1, 'b'), (2, 'c')`)
 	h.exec(`UPDATE it_pk SET id = 1 WHERE id = 2`)
 	h.expectRows(`SELECT id, v FROM it_pk ORDER BY v`, "1|a", "1|b", "1|c")
-	if got := h.rawMeta(raw, defaultSchema, "it_pk"); !strings.Contains(got, `"primary_key":{"name":"it_pk_pkey","fields":["id"]}`) {
+	if got := h.rawMeta(raw, defaultSchema, "it_pk"); !strings.Contains(got, `"name":"it_pk_pkey","fields":["id"]}`) {
 		t.Errorf("metadata %s", got)
 	}
 

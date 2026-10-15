@@ -110,6 +110,12 @@ jobs:
         working-directory: go/validation
         run: uv run pytest -q tests/
 
+      - name: SQLAlchemy PostgreSQL reflection
+        working-directory: go/validation
+        env:
+          REDIS_ADBC_LIBRARY: ${{ github.workspace }}/go/build/libadbc_driver_redis.so
+        run: uv run --with 'sqlalchemy>=2.1' python check_catalog_reflection.py
+
       - name: Redis logs on failure
         if: failure()
         working-directory: go

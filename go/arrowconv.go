@@ -178,6 +178,13 @@ func appendValue(b array.Builder, t ColType, v Value) error {
 		bb.Append(arrow.MonthDayNanoInterval{Months: v.Months, Days: v.Days, Nanoseconds: v.I})
 	case *array.StructBuilder:
 		return appendRecord(bb, t, v)
+	case *array.ListBuilder:
+		bb.Append(true)
+		for _, v := range v.fields() {
+			if err := appendValue(bb.ValueBuilder(), t.element(), v); err != nil {
+				return err
+			}
+		}
 	default:
 		return fmt.Errorf("unsupported builder %T for %s", b, t.Kind)
 	}

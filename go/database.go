@@ -28,6 +28,7 @@ import (
 )
 
 type databaseImpl struct {
+	foreignIndexes bool
 	driverbase.DatabaseImplBase
 
 	uri          string
@@ -262,6 +263,7 @@ func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, er
 	}
 	// Drop temporary objects of connections that exited without closing.
 	st.sweepTemp(ctx)
+	st.foreignIndexes = d.foreignIndexes
 	conn := &connectionImpl{
 		ConnectionImplBase: driverbase.NewConnectionImplBase(&d.DatabaseImplBase),
 		store:              st,
@@ -361,6 +363,9 @@ func clusterParamsError(params []string, why string) error {
 func (d *databaseImpl) Close(ctx context.Context) error { return nil }
 
 func (d *databaseImpl) GetOption(ctx context.Context, key string) (string, error) {
+	if key == OptionStringForeignIndexes {
+		return strconv.FormatBool(d.foreignIndexes), nil
+	}
 	switch key {
 	case adbc.OptionKeyURI:
 		return d.uri, nil
@@ -406,6 +411,12 @@ func (d *databaseImpl) GetOption(ctx context.Context, key string) (string, error
 
 func (d *databaseImpl) SetOption(ctx context.Context, key, value string) error {
 	switch key {
+	case OptionStringForeignIndexes:
+		v, err := parseForeignIndexes(value)
+		if err != nil {
+			return err
+		}
+		d.foreignIndexes = v
 	case adbc.OptionKeyURI:
 		d.uri = value
 	case adbc.OptionKeyUsername:

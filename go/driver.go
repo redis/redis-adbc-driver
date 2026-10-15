@@ -109,6 +109,8 @@ const (
 	// owns any temporary tables or views. It is read-only and answered from
 	// connection-local state, without contacting Redis.
 	OptionStringTemporaryObjects = "adbc.redis.temporary_objects"
+	// OptionStringForeignIndexes enables read-only tables in redis_foreign.
+	OptionStringForeignIndexes = "adbc.redis.foreign_indexes"
 
 	// OptionStringStreamResults (database or statement) controls whether a
 	// query's rows are read from Redis as the result is read: "true" (the
