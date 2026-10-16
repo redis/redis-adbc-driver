@@ -122,6 +122,11 @@ coverage inventories, pinned sources, type-comparison limits and manual CI run.
 
 ## Data tools and integration status
 
+See [ADBC support across 20 data engineering tools](docs/data-engineering-adbc-support.md)
+for an ecosystem comparison covering Redis ADBC, Redis Arrow Flight SQL, connectors
+built by Redis versus third parties, full API / Query Engine access, and suggested
+integration targets.
+
 The driver exposes ADBC and returns Apache Arrow data. Tools can connect
 through an ADBC driver manager or consume the Arrow results in memory.
 The table distinguishes repository-backed testing from potential integrations
