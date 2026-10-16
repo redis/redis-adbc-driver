@@ -127,57 +127,6 @@ for an ecosystem comparison covering Redis ADBC, Redis Arrow Flight SQL, connect
 built by Redis versus third parties, full API / Query Engine access, and suggested
 integration targets.
 
-The driver exposes ADBC and returns Apache Arrow data. Tools can connect
-through an ADBC driver manager or consume the Arrow results in memory.
-The table distinguishes repository-backed testing from potential integrations
-based on the tools' documented APIs. **Untested** means there is no recorded
-end-to-end test of that tool with this Redis driver; it is not a compatibility
-guarantee. No new tool integration tests were run for this documentation update.
-
-The related [Redis Arrow Flight server](https://github.com/alberttwong/redis-apache-arrow-flight)
-exposes this driver's SQL tables over **Flight SQL**. It provides a network
-connection option for ADBC Flight SQL and Arrow Flight SQL JDBC clients.
-Its separate **Flight datasets** interface stores Arrow IPC and does not
-query this driver's SQL tables. The testing notes below identify evidence
-from that project's README and CI configuration; they do not imply testing
-against the current checkout of this driver.
-
-| Data tool | Connection path and missing pieces | Tested with this driver? |
-|-|-|-|
-| Python ADBC driver manager (`adbc_driver_manager`) | Load the Redis shared library and connect using `db_kwargs={"uri": "redis://…"}` with `autocommit=True`; execute SQL, bind parameters, fetch results, or bulk ingest. See [Python usage](#python-usage). | **Yes.** The [validation suite](go/validation/tests/) exercises the Python connection through the driver library, including queries, metadata, ingestion, errors, and cancellation. See [Compatibility and validation](#compatibility-and-validation) for recorded runs and skips. |
-| PyArrow | Fetch `pyarrow.Table` results with `cursor.fetch_arrow_table()` and ingest Arrow tables or batches with `cursor.adbc_ingest()`. | **Yes.** [Python validation tests](go/validation/tests/test_row_values.py), [sample loading](go/examples/load_sample.py), and [benchmark validation](benchmarks/clickbench/loading-improvements.md) use PyArrow with this driver. |
-| [pandas 2.2+](https://pandas.pydata.org/docs/reference/api/pandas.read_sql.html) | Pass an already-open Python ADBC connection to `pandas.read_sql(query, conn)`, or convert a fetched Arrow table with `table.to_pandas()`. | **Untested.** pandas documents ADBC reads, but this repository has no recorded pandas integration run. |
-| [Polars](https://docs.pola.rs/api/python/stable/reference/api/polars.read_database.html) | Pass an already-open Python ADBC connection to `polars.read_database(query, conn)`, or use [`polars.from_arrow(table)`](https://docs.pola.rs/api/python/stable/reference/api/polars.from_arrow.html) on a fetched Arrow table. | **Untested.** Polars documents ADBC connections and Arrow conversion, but neither path has a recorded integration run here. |
-| [DuckDB (direct ADBC)](https://duckdb.org/community_extensions/extensions/adbc) | Install and load the community extension with `INSTALL adbc FROM community; LOAD adbc;`, configure an ADBC connection profile for the Redis driver library and database `uri`, then use `read_adbc('profile://redis', '<SQL>')` or `ATTACH 'profile://redis' AS redis_db (TYPE adbc)`. See the [extension guide](https://github.com/columnar-tech/duckdb-adbc-client). **Missing:** a tested Redis connection profile and end-to-end validation of library loading, reads, attached-table metadata, type mappings, and writes. | **Untested with this Redis driver.** DuckDB has an ADBC client extension; this repository has no recorded run of that extension against Redis. Driver-specific compatibility still needs verification. |
-| [DuckDB (Python Arrow results)](https://duckdb.org/docs/stable/clients/python/overview) | Fetch an Arrow table through Redis ADBC, then register it in DuckDB with `duckdb_conn.register("redis_results", table)` for local analysis. | **Arrow-result integration untested.** DuckDB was used as an independent source-data reference in the [ClickBench loading pilot](benchmarks/clickbench/loading-improvements.md); that comparison did not test querying Redis ADBC results inside DuckDB. |
-| [R ADBC driver manager (`adbcdrivermanager`)](https://arrow.apache.org/adbc/main/r/adbcdrivermanager/index.html) | Load the Redis shared library through the R driver manager, set the database `uri` option, and consume Arrow results in R. | **Untested.** The R client supports ADBC drivers, but this repository has no recorded R integration run. |
-| ADBC Flight SQL clients (Python, Go, R) | Connect an ADBC Flight SQL client to the [Redis Arrow Flight server](https://github.com/alberttwong/redis-apache-arrow-flight#client-examples), which calls this driver on the server side. Python uses `adbc_driver_flightsql.dbapi.connect("grpc://localhost:8815", autocommit=True)`. **Missing:** deployment and client-specific validation for your environment. | **Related-project coverage.** Its README documents Python ADBC and Go client tests, and CI runs the Python quickstart. R and other clients are not established as tested by that evidence. No new tests were run here. |
-| [Tableau](https://help.tableau.com/current/pro/desktop/en-gb/examples_connector_sdk.htm) | The [Redis Arrow Flight server](https://github.com/alberttwong/redis-apache-arrow-flight#jdbc-dbeaver-and-others) provides a Flight SQL endpoint that could be used through the Arrow Flight SQL JDBC driver and Tableau's JDBC/Connector SDK path. **Missing:** Tableau connector configuration and packaging, and validation of metadata discovery, generated SQL, extracts, live queries, and refresh. | **Tableau untested.** The related project documents JDBC smoke tests, which do not establish Tableau compatibility. |
-| [Power BI](https://learn.microsoft.com/en-us/power-query/adbc) | A custom Power Query connector could use `Adbc.Connection` with the Flight SQL ADBC driver to reach the [Redis Arrow Flight server](https://github.com/alberttwong/redis-apache-arrow-flight). Microsoft documents this approach with a Flight SQL sample. An ODBC bridge is another option. **Missing:** the Redis Flight SQL Power Query connector, authentication/navigation configuration, type mappings, query-folding validation, and gateway deployment/testing where required. | **Power BI untested.** Import, refresh, and DirectQuery have not been tested; DirectQuery capability needs separate validation. |
-| [DBeaver](https://dbeaver.com/docs/dbeaver/Database-drivers/) | Connect the Arrow Flight SQL JDBC driver to the [Redis Arrow Flight server](https://github.com/alberttwong/redis-apache-arrow-flight#jdbc-dbeaver-and-others). The related project's guide provides the JDBC URL and DBeaver JVM settings. Direct loading of arbitrary ADBC libraries was not confirmed in DBeaver's checked documentation. **Missing:** end-to-end DBeaver validation of connection setup, catalog/schema browsing, type mappings, SQL execution, and paged results. | **JDBC tested in the related project; DBeaver UI untested.** Its README reports JDBC driver 19.0.0 smoke tests on Java 17, 21, and 25; CI includes those tests. This does not establish an application-level DBeaver test. |
-| [Apache Superset](https://superset.apache.org/user-docs/6.0.0/configuration/databases/) | A Flight SQL DB-API/SQLAlchemy integration could target the [Redis Arrow Flight server](https://github.com/alberttwong/redis-apache-arrow-flight), or a Redis-specific SQLAlchemy dialect could wrap this driver's Python ADBC connection directly. **Missing:** a selected and validated dialect/DB-API combination, connection configuration, metadata reflection, autocommit handling, generated-SQL/type-mapping validation, and a Superset engine specification where needed. | **Superset untested.** SQL Lab, dataset discovery, charts, and dashboard queries have not been tested through either route. |
-
-For pandas and Polars, create the connection as shown in [Python usage](#python-usage)
-and pass that connection object to the tool. The Redis URI configures this
-driver; a tool accepting database URIs does not by itself establish that it
-can locate and load the Redis ADBC library.
-
-**dbt: SQL coverage, not an end-to-end integration result.** The
-[differential harness](go/pgdiff/README.md) replays SQL captured from
-`dbt-postgres` against this driver, with the results reported under
-[Compatibility and validation](#compatibility-and-validation). The capture
-runs dbt against Postgres; the replay runs the SQL through Redis ADBC.
-It does not validate a Redis dbt adapter, a full `dbt run`, snapshots, or
-`dbt docs generate` against Redis.
-
-The Flight SQL server supplies the network endpoint and has documented JDBC
-client coverage; Tableau, Power BI, DBeaver, and Superset still need the
-application-specific setup and validation listed above. pandas, Polars,
-DuckDB's ADBC extension, and R can also use a Flight SQL ADBC connection as
-an alternative to loading the Redis library locally, subject to their own
-client configuration and testing. An intermediate export is another route.
-The driver's PostgreSQL-like SQL syntax alone does not provide JDBC, ODBC,
-SQLAlchemy, or PostgreSQL wire-protocol compatibility.
 
 ## Server requirements
 

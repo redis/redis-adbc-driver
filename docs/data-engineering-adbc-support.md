@@ -22,7 +22,7 @@ All Redis tool integrations below are **untested end to end in this repository**
 "Candidate" describes an inferred connection path from documented APIs, not
 confirmed compatibility. General Python ADBC validation and the related server's
 Python/Go/JDBC coverage do not constitute tests of all 20 tools. See the
-[README testing notes](../README.md#data-tools-and-integration-status).
+[Testing status](#testing-status).
 
 The connector columns distinguish **Redis-built / maintained** projects from
 **third-party-built** projects. Redis Field Engineering and the former RedisLabs
@@ -109,7 +109,25 @@ a larger investment because the driver is only one part of database compatibilit
 Selected ADBC destinations in dlt do not establish an arbitrary Redis destination.
 Fivetran would require a custom connector and validation of driver deployment.
 
-For actual repository-backed testing, missing integration pieces, and the
-alternative Flight SQL connection path, see the README's
-[Data tools and integration status](../README.md#data-tools-and-integration-status).
-No new integration tests were run for this comparison.
+## Testing status
+
+The [Python ADBC validation suite](../go/validation/tests/) exercises the Redis
+shared library, including queries, metadata, ingestion, errors, and cancellation.
+PyArrow is used by the [row-value tests](../go/validation/tests/test_row_values.py)
+and [sample loader](../go/examples/load_sample.py). See the README's
+[Compatibility and validation](../README.md#compatibility-and-validation) and
+[Python usage](../README.md#python-usage) for recorded results and connection setup.
+This coverage does not establish end-to-end compatibility with every tool above.
+
+The [differential harness](../go/pgdiff/README.md) replays captured dbt-postgres SQL
+through Redis ADBC. It does not validate a Redis dbt adapter or a full dbt run,
+snapshots, or documentation generation against Redis.
+
+The related [Redis Arrow Flight server](https://github.com/alberttwong/redis-apache-arrow-flight#development)
+documents Python ADBC, Go, and JDBC client coverage. Those results do not establish
+tests of each application against this driver's current checkout. Application
+configuration, metadata discovery, generated SQL, type mappings, authentication,
+and refresh behavior still require validation where applicable.
+
+No new integration tests were run for this comparison. SQL syntax similarity alone
+does not establish JDBC, ODBC, SQLAlchemy, or PostgreSQL wire-protocol compatibility.
