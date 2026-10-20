@@ -23,6 +23,9 @@ An [ADBC](https://arrow.apache.org/adbc/) driver built on
 with the [ADBC driver validation suite](https://github.com/adbc-drivers/validation).
 It supports SQL queries and Arrow bulk ingestion.
 
+For repository context and the development artifact workflow, see the
+[AI-native SDLC records](docs/sdlc/README.md).
+
 ## Contents
 
 - [Compatibility and validation](#compatibility-and-validation)
