@@ -6,7 +6,16 @@ not provide rollback or isolation. Use a dedicated Redis database for tests.
 
 ## Install and discover the driver
 
-Install a wheel attached to a release (Linux amd64/arm64 or macOS arm64):
+Install from [PyPI](https://pypi.org/project/adbc-driver-redis/) (Python 3.10+;
+Linux amd64/arm64 or macOS arm64):
+
+```sh
+python -m pip install 'adbc-driver-redis[dbapi]' polars
+```
+
+Pip selects the platform wheel, which bundles the native driver. Redis with
+Search must be running separately. Windows, macOS Intel and musl-based Linux
+wheels are not provided. You can also install a wheel attached to a release:
 
 ```sh
 python -m pip install '/path/to/adbc_driver_redis-<version>-py3-none-<platform>.whl[dbapi]'
@@ -14,8 +23,7 @@ python -m pip install '/path/to/adbc_driver_redis-<version>-py3-none-<platform>.
 
 The wheel bundles the native library. macOS release wheels target macOS 12+
 (the Go 1.26 runtime minimum); the builder checks the library deployment target
-before tagging. Publishing to PyPI is not configured;
-`pip install adbc-driver-redis` requires a future publication. For development:
+before tagging. For development:
 
 ```sh
 make -C go build

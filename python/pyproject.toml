@@ -6,9 +6,15 @@ build-backend = "setuptools.build_meta"
 name = "adbc-driver-redis"
 version = "0.1.0"
 description = "Redis ADBC driver and analytics integrations"
+readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
 dependencies = ["adbc-driver-manager>=1.8"]
+
+[project.urls]
+Homepage = "https://github.com/alberttwong/redis-adbc-driver"
+Documentation = "https://github.com/alberttwong/redis-adbc-driver/blob/main/docs/python-integrations.md"
+Issues = "https://github.com/alberttwong/redis-adbc-driver/issues"
 
 [project.optional-dependencies]
 dbapi = ["pyarrow>=14"]
