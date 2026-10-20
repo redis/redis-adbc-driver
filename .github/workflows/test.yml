@@ -27,6 +27,9 @@ on:
     paths:
       - .github/workflows/test.yml
       - go/**
+      - python/**
+      - scripts/build_python_wheel.py
+      - scripts/install*
       - benchmarks/clickbench/**
       - benchmarks/qpf/**
       - benchmarks/workers/**
@@ -102,6 +105,29 @@ jobs:
 
       # The Go packages share a database. Keep them sequential within each
       # job; opening a connection can roll back another package's test moves.
+      - name: Python analytics integrations
+        if: matrix.environment == 'oss-single'
+        env:
+          REDIS_ADBC_LIBRARY: ${{ github.workspace }}/go/build/libadbc_driver_redis.so
+          QUERY_FARM_TELEMETRY_OPT_OUT: '1'
+          RUN_DUCKDB_TESTS: '1'
+        run: |
+          uv venv --python 3.12 /tmp/redis-python-tests
+          uv pip install --python /tmp/redis-python-tests/bin/python './python[test]'
+          /tmp/redis-python-tests/bin/python -m pytest -q python/tests/
+
+      - name: Superset integration
+        if: matrix.arch == 'amd64' && matrix.environment == 'oss-single'
+        env:
+          REDIS_ADBC_LIBRARY: ${{ github.workspace }}/go/build/libadbc_driver_redis.so
+          RUN_SUPERSET_TESTS: '1'
+        run: |
+          uv venv --python 3.12 /tmp/redis-superset-tests
+          # Superset 6.1 currently needs these transitive dependency constraints.
+          uv pip install --python /tmp/redis-superset-tests/bin/python \
+            'apache-superset==6.1.0' 'flask-caching==2.3.1' cachetools './python[sqlalchemy]' pytest
+          /tmp/redis-superset-tests/bin/python -m pytest -q python/tests/test_sqlalchemy.py python/tests/test_superset.py
+
       - name: Go tests
         working-directory: go
         run: go test -count=1 -p 1 ./...

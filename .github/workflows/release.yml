@@ -24,7 +24,10 @@
 #
 # Runs when a release is published, or by hand for an existing release tag
 # (its assets are replaced). A run by hand can skip Go tests that are wrong at
-# that tag (skip, a go test -skip pattern). Pull requests that change this
+# that tag (skip, a go test -skip pattern). Builds platform Python wheels when
+# the selected ref includes python/, installs native driver manifests on request
+# via the tarball installer, and attaches wheels alongside the tarballs.
+# Pull requests that change this
 # file run the builds and tests without uploading anything.
 name: Release binaries
 
@@ -43,6 +46,9 @@ on:
     paths:
       - .github/workflows/release.yml
       - go/build-linux.sh
+      - python/**
+      - scripts/build_python_wheel.py
+      - scripts/install*
 
 permissions:
   contents: read
@@ -108,6 +114,17 @@ jobs:
           file build/redis-adbc
           file build/redis-adbc | grep -q 'statically linked'
 
+      - name: Build Python wheel
+        if: hashFiles('python/pyproject.toml') != ''
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          platform=manylinux_2_28_x86_64
+          if [ "$ARCH" = arm64 ]; then platform=manylinux_2_28_aarch64; fi
+          uv run --no-project --with build --with setuptools --with wheel --with packaging python scripts/build_python_wheel.py \
+            --library go/build/libadbc_driver_redis.so --platform "$platform" --version "$VERSION" --out dist
+          for wheel in dist/*.whl; do sha256sum "$wheel" > "$wheel.sha256"; done
+
       - name: Start Redis Software
         working-directory: go
         run: make redis-up
@@ -122,6 +139,15 @@ jobs:
         run: |
           go test -count=1 -p 1 -skip "$SKIP" ./...
           cd validation && uv run pytest -q tests/
+
+      - name: Smoke test installed Python wheel
+        if: hashFiles('python/pyproject.toml') != ''
+        env:
+          REDIS_URI: redis://localhost:6379/0
+        run: |
+          uv venv --python 3.12 /tmp/redis-wheel-smoke
+          uv pip install --python /tmp/redis-wheel-smoke/bin/python dist/*.whl pyarrow polars pytest
+          /tmp/redis-wheel-smoke/bin/python -m pytest -q python/tests/test_driver.py
 
       - name: Start OSS compatibility cluster
         working-directory: go
@@ -144,6 +170,10 @@ jobs:
           name="adbc_driver_redis-$VERSION-linux-$ARCH"
           mkdir -p "dist/$name"
           cp go/build/libadbc_driver_redis.so go/build/libadbc_driver_redis.h README.md "dist/$name/"
+          if [ -f scripts/install.sh ]; then
+            cp scripts/install.sh scripts/install_manifest.py python/adbc_driver_redis/manifest.py "dist/$name/"
+            printf '%s\n' "$VERSION" > "dist/$name/VERSION"
+          fi
           cd dist
           tar czf "$name.tar.gz" "$name"
           sha256sum "$name.tar.gz" > "$name.tar.gz.sha256"
@@ -247,6 +277,10 @@ jobs:
   macos:
     name: darwin-arm64
     runs-on: macos-15
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '12.0'
+      CGO_CFLAGS: '-mmacosx-version-min=12.0'
+      CGO_LDFLAGS: '-mmacosx-version-min=12.0'
     steps:
       - uses: actions/checkout@v7
         with:
@@ -256,9 +290,21 @@ jobs:
           go-version-file: go/go.mod
           cache-dependency-path: go/go.sum
 
+      - uses: astral-sh/setup-uv@v10.2.0
+
       - name: Build
         working-directory: go
         run: make build VERSION="$VERSION"
+
+      - name: Build and load Python wheel
+        if: hashFiles('python/pyproject.toml') != ''
+        run: |
+          uv run --no-project --with build --with setuptools --with wheel --with packaging python scripts/build_python_wheel.py \
+            --library go/build/libadbc_driver_redis.dylib --platform macosx_12_0_arm64 --version "$VERSION" --out dist
+          for wheel in dist/*.whl; do shasum -a 256 "$wheel" > "$wheel.sha256"; done
+          uv venv --python 3.12 /tmp/redis-wheel-smoke
+          uv pip install --python /tmp/redis-wheel-smoke/bin/python dist/*.whl
+          /tmp/redis-wheel-smoke/bin/python -c "import ctypes; from adbc_driver_redis import _driver_path; ctypes.CDLL(_driver_path()).AdbcDriverInit"
 
       - name: Build redis-adbc
         if: hashFiles('go/cmd/redis-adbc/main.go') != ''
@@ -280,6 +326,10 @@ jobs:
           name="adbc_driver_redis-$VERSION-darwin-arm64"
           mkdir -p "dist/$name"
           cp go/build/libadbc_driver_redis.dylib go/build/libadbc_driver_redis.h README.md "dist/$name/"
+          if [ -f scripts/install.sh ]; then
+            cp scripts/install.sh scripts/install_manifest.py python/adbc_driver_redis/manifest.py "dist/$name/"
+            printf '%s\n' "$VERSION" > "dist/$name/VERSION"
+          fi
           cd dist
           tar czf "$name.tar.gz" "$name"
           shasum -a 256 "$name.tar.gz" > "$name.tar.gz.sha256"

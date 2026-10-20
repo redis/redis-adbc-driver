@@ -73,6 +73,10 @@ For repository context and the development artifact workflow, see the
   - [Redis Flex](#redis-flex)
   - [Cross-platform builds and releases](#cross-platform-builds-and-releases)
   - [Python usage](#python-usage)
+  - [ADBC driver manifests](#adbc-driver-manifests)
+  - [SQLAlchemy and Superset](#sqlalchemy-and-superset)
+  - [Dagster](#dagster)
+  - [DuckDB](#duckdb)
 
 ## Compatibility and validation
 
@@ -4891,20 +4895,62 @@ gh workflow run release.yml -f tag=v0.0.8 -f skip=TestScalarTrigonometry
 
 ### Python usage
 
-Use the driver from Python through the ADBC driver manager:
+Install the platform wheel attached to a release, then use the bundled driver:
+
+```sh
+python -m pip install '/path/to/adbc_driver_redis-<version>-py3-none-<platform>.whl[dbapi]'
+```
 
 ```python
-import adbc_driver_manager.dbapi as dbapi
-conn = dbapi.connect(driver="go/build/libadbc_driver_redis.so",
-                     db_kwargs={"uri": "redis://localhost:6379/0"})
-cur = conn.cursor()
-cur.adbc_ingest("my_table", arrow_table, mode="create")  # any pyarrow.Table
-cur.execute("SELECT country, SUM(quantity) FROM sales WHERE quantity > 10 GROUP BY country")
-print(cur.fetch_arrow_table())
+from adbc_driver_redis import dbapi
+
+with dbapi.connect("redis://localhost:6379/0") as conn:
+    with conn.cursor() as cur:
+        cur.adbc_ingest("my_table", arrow_table, mode="create")
+        cur.execute("SELECT country, SUM(quantity) FROM sales WHERE quantity > 10 GROUP BY country")
+        print(cur.fetch_arrow_table())
 ```
+
+Connections default to `autocommit=True`; transactions remain unsupported.
+PyPI publication is not configured. Source checkout installation, Polars URI
+loading, TLS aliases, option enums and driver discovery are covered in
+[Python integrations](docs/python-integrations.md).
 
 The C FFI shim in `go/pkg` was generated with driverbase-go's `ffitemplate`
 (`go run main.go -prefix Redis -driver <path>/go`).
+
+### ADBC driver manifests
+
+Run `python -m adbc_driver_redis install-manifest --user` after installing a wheel,
+or `./install.sh --user` in an unpacked native release. Both install `redis.toml`
+and `rediss.toml` with absolute library paths. Tools can then use `driver="redis"`
+or resolve the driver from a `redis://` URI. Keep the library in place; rerun the
+installer if it moves. See [manifest installation](docs/python-integrations.md#install-and-discover-the-driver).
+
+### SQLAlchemy and Superset
+
+The wheel's `sqlalchemy` extra registers `redis+adbc://` and `rediss+adbc://`,
+with PostgreSQL SQL compilation and catalog reflection. Superset engine specs
+support schema/table browsing, datasets, SQL Lab, and PostgreSQL `DATE_TRUNC`
+time grains. This is an autocommit analytics connector; SQLAlchemy rollback
+cannot undo writes. See [setup and limitations](docs/python-integrations.md#sqlalchemy-and-superset).
+
+### Dagster
+
+`adbc_driver_redis.dagster.RedisADBCIOManager` stores Arrow, pandas and polars
+asset outputs as Redis tables, loads selected columns into downstream assets,
+and replaces static or time-window partitions on retries. Connections use
+`autocommit=True`. Staging protects the old version during ingest; DROP/RENAME
+has a missing-table window, and partition DELETE/append can partially apply.
+See the [Definitions example and write caveats](docs/python-integrations.md#dagster).
+
+### DuckDB
+
+Use the community `adbc_scanner` extension to read, join and bulk-load Redis
+with Arrow. Current builds support attached-table autocommit writes; explicit
+transactions remain unsupported. Use `r.public.t` for schema-qualified access.
+See [tested examples, telemetry opt-out, filter behavior and version caveats](docs/duckdb.md).
+Columnar's separate `adbc` extension remains untested.
 
 ### PostgreSQL compatibility upgrade notes
 
