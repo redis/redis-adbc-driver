@@ -1,5 +1,10 @@
 # DuckDB
 
+The standalone [`redis_adbc` extension](../duckdb-extension/README.md) embeds
+the driver for streaming SELECT queries without a separate driver installation.
+Its community-registry submission is pending. The integration below uses the
+existing `adbc_scanner` extension and supports attached catalogs and writes.
+
 [Query.Farm's adbc_scanner](https://query.farm/products/extensions/adbc_scanner/)
 loads the native driver into DuckDB. Install a driver manifest first (see
 [Python and native installation](python-integrations.md#install-and-discover-the-driver)),

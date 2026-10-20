@@ -11,3 +11,4 @@ python/build/
 python/dist/
 dist/
 .pytest_cache/
+build/
