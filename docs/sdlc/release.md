@@ -44,6 +44,34 @@ release evidence; it is not proof that omitted behavior passed.
 No environment approval gate or rollback job is declared in this workflow.
 GitHub organization settings may add controls; they were not inspected.
 
+## Python publication
+
+`adbc-driver-redis` 0.0.15 was published to PyPI from the existing release
+wheels on 2026-10-20. The release run
+[39470185455](https://github.com/alberttwong/redis-adbc-driver/actions/runs/39470185455)
+passed its platform checks. SHA-256 checksums matched the release files; a fresh
+PyPI installation loaded the macOS native library and constructed the Dagster
+IO manager. This installation check did not run queries against Redis.
+
+The `pypi` job depends on the successful GitHub release upload and publishes
+only wheels from that run's artifacts. It skips pull requests and historical
+releases without wheels. Already-published files are skipped on retries;
+PyPI files cannot be replaced. The publishing action is pinned to a commit.
+
+Trusted Publishing requires these exact PyPI project settings:
+
+- Owner: `alberttwong`
+- Repository: `redis-adbc-driver`
+- Workflow filename: `release.yml`
+- Environment: `pypi`
+
+Configure these at the project's
+[publishing settings](https://pypi.org/manage/project/adbc-driver-redis/settings/publishing/).
+The job requests `id-token: write` only for publishing. No PyPI API token is
+stored in GitHub. The GitHub `pypi` environment must exist; this workflow does
+not itself add required reviewers. Registration in PyPI and a successful OIDC
+run must be verified separately before claiming tokenless publication works.
+
 ## Recovery limits
 
 For a consumer binary regression, preserve the failing version, query/repro,

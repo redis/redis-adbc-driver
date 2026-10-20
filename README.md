@@ -4895,10 +4895,11 @@ gh workflow run release.yml -f tag=v0.0.8 -f skip=TestScalarTrigonometry
 
 ### Python usage
 
-Install the platform wheel attached to a release, then use the bundled driver:
+Install from [PyPI](https://pypi.org/project/adbc-driver-redis/), then use the
+bundled driver (Python 3.10 or later):
 
 ```sh
-python -m pip install '/path/to/adbc_driver_redis-<version>-py3-none-<platform>.whl[dbapi]'
+python -m pip install 'adbc-driver-redis[dbapi]'
 ```
 
 ```python
@@ -4912,7 +4913,9 @@ with dbapi.connect("redis://localhost:6379/0") as conn:
 ```
 
 Connections default to `autocommit=True`; transactions remain unsupported.
-PyPI publication is not configured. Source checkout installation, Polars URI
+Use `adbc-driver-redis[dagster]` for the Dagster IO manager. Wheels support
+Linux x86-64/ARM64 (glibc 2.28 or later) and macOS ARM64 (12 or later).
+Release wheels are also attached to GitHub releases. Source checkout installation, Polars URI
 loading, TLS aliases, option enums and driver discovery are covered in
 [Python integrations](docs/python-integrations.md).
 
