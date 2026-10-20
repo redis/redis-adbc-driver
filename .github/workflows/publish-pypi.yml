@@ -8,6 +8,12 @@ on:
         required: true
         type: string
 
+      description_revision:
+        description: 'Optional metadata-only post-release revision (e.g. 1 for .post1)'
+        required: false
+        default: ''
+        type: string
+
 permissions:
   contents: read
 
@@ -74,6 +80,24 @@ jobs:
               shutil.copy2(wheel, pathlib.Path('dist') / name)
               print(name, digest)
           PY
+      - uses: actions/checkout@v7
+        if: inputs.description_revision != ''
+        with:
+          sparse-checkout: |
+            python/README.md
+            python/pyproject.toml
+            scripts/repackage_python_description.py
+          sparse-checkout-cone-mode: false
+          path: description-source
+      - name: Prepare metadata-only description post-release
+        if: inputs.description_revision != ''
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          DESCRIPTION_REVISION: ${{ inputs.description_revision }}
+        run: |
+          python description-source/scripts/repackage_python_description.py \
+            --version "${RELEASE_TAG#v}" --revision "$DESCRIPTION_REVISION" \
+            --package description-source/python --dist dist
       - name: Check distribution metadata
         run: |
           python -m pip install twine
