@@ -46,9 +46,12 @@ on:
     paths:
       - .github/workflows/release.yml
       - go/build-linux.sh
+      - go/compose.yaml
+      - go/cluster-ready.sh
       - python/**
       - scripts/build_python_wheel.py
       - scripts/install*
+      - scripts/test_cluster_ready.py
 
 permissions:
   contents: read
@@ -87,6 +90,10 @@ jobs:
           path: .workflow
           sparse-checkout: go/build-linux.sh
           sparse-checkout-cone-mode: false
+
+      - name: Check cluster readiness gate
+        if: hashFiles('scripts/test_cluster_ready.py') != ''
+        run: python3 -m unittest discover -s scripts -p test_cluster_ready.py -v
 
       # Built on AlmaLinux 8 against glibc 2.28 (checked), so the library
       # loads on RHEL 8 and 9, Ubuntu 20.04 and later, and Amazon Linux 2023.
@@ -162,6 +169,20 @@ jobs:
         run: |
           go test -count=1 -p 1 -skip "$SKIP" ./...
           cd validation && uv run pytest -q tests/
+
+      - name: Redis diagnostics on failure
+        if: failure()
+        working-directory: go
+        run: |
+          docker compose --profile cluster ps -a
+          docker compose --profile cluster logs --no-color
+          if docker compose --profile cluster ps --status running --services | grep -qx redis-cluster; then
+            for port in 7001 7002 7003; do
+              docker compose exec -T redis-cluster redis-cli -p "$port" CLUSTER INFO || true
+              docker compose exec -T redis-cluster redis-cli -p "$port" CLUSTER NODES || true
+              docker compose exec -T redis-cluster redis-cli -e -p "$port" FT._LIST || true
+            done
+          fi
 
       - name: Package
         env:

@@ -30,6 +30,7 @@ on:
       - python/**
       - scripts/build_python_wheel.py
       - scripts/install*
+      - scripts/test_cluster_ready.py
       - benchmarks/clickbench/**
       - benchmarks/qpf/**
       - benchmarks/workers/**
@@ -60,6 +61,10 @@ jobs:
       REDIS_URI: redis://localhost:6379/0
     steps:
       - uses: actions/checkout@v7
+      - name: Check cluster readiness gate
+        if: hashFiles('scripts/test_cluster_ready.py') != ''
+        run: python3 -m unittest discover -s scripts -p test_cluster_ready.py -v
+
       - uses: actions/setup-go@v7
         with:
           go-version-file: go/go.mod
