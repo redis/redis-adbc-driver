@@ -35,6 +35,7 @@ on:
       - benchmarks/qpf/**
       - benchmarks/workers/**
       - benchmarks/worker-autotune/**
+      - '!**/*.md'
 
 permissions:
   contents: read

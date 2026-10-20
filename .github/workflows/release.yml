@@ -52,12 +52,14 @@ on:
       - scripts/build_python_wheel.py
       - scripts/install*
       - scripts/test_cluster_ready.py
+      - '!**/*.md'
 
 permissions:
   contents: read
 
 concurrency:
   group: release-${{ github.event.release.tag_name || inputs.tag || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   # The version stamped into the library and used in asset names.
