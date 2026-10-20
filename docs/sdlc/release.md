@@ -53,24 +53,26 @@ passed its platform checks. SHA-256 checksums matched the release files; a fresh
 PyPI installation loaded the macOS native library and constructed the Dagster
 IO manager. This installation check did not run queries against Redis.
 
-The `pypi` job depends on the successful GitHub release upload and publishes
-only wheels from that run's artifacts. It skips pull requests and historical
-releases without wheels. Already-published files are skipped on retries;
-PyPI files cannot be replaced. The publishing action is pinned to a commit.
+Run `gh workflow run publish-pypi.yml --ref main -f tag=v0.0.15` (substitute
+the intended release tag) to publish existing GitHub release wheels. The
+workflow runs only on `main`, validates a stable release, the exact platform
+set, wheel metadata and checksums, then uses a commit-pinned publishing action.
+Already-published files are skipped on retries; PyPI files cannot be replaced.
 
 Trusted Publishing requires these exact PyPI project settings:
 
 - Owner: `alberttwong`
 - Repository: `redis-adbc-driver`
-- Workflow filename: `release.yml`
+- Workflow filename: `publish-pypi.yml`
 - Environment: `pypi`
 
 Configure these at the project's
 [publishing settings](https://pypi.org/manage/project/adbc-driver-redis/settings/publishing/).
-The job requests `id-token: write` only for publishing. No PyPI API token is
-stored in GitHub. The GitHub `pypi` environment must exist; this workflow does
-not itself add required reviewers. Registration in PyPI and a successful OIDC
-run must be verified separately before claiming tokenless publication works.
+The job requests `id-token: write` for publishing. No PyPI API token is
+stored in GitHub. The GitHub `pypi` environment exists without required
+reviewers or branch restrictions; the workflow enforces its `main` restriction.
+The publisher is registered in PyPI. A successful OIDC run must be verified
+separately before claiming tokenless publication works.
 
 ## Recovery limits
 
