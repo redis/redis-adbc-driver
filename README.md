@@ -29,12 +29,47 @@ For repository context and the development artifact workflow, see the
 
 ## Contents
 
+- [Why a Redis ADBC driver?](#why-a-redis-adbc-driver)
 - [Compatibility and validation](#compatibility-and-validation)
 - [Apache Arrow feature matrix](#apache-arrow-feature-matrix)
 - [Redis Software feature matrix](#redis-software-feature-matrix)
 - [Data tools and integration status](#data-tools-and-integration-status)
 - [Quick start](#quick-start)
 - [Driver reference](docs/driver-reference.md): server requirements, existing HASH collections, architecture, SQL, options, performance, building and testing
+
+## Why a Redis ADBC driver?
+
+Redis clients expose commands and data structures, while analytics applications
+work with tables, SQL, and columnar data. This driver connects those workflows:
+it gives Redis HASH data an [ADBC interface](https://arrow.apache.org/adbc/current/index.html)
+for SQL queries, schema discovery, Arrow results, and bulk ingestion.
+
+The value is in making Redis data easier to use across the data engineering
+workflow:
+
+- **Analyze operational data where it lives.** Query driver-managed tables or
+  [explicitly adopted HASH collections](docs/driver-reference.md#existing-hash-collections-redis-adbc)
+  through supported SQL, without first exporting them to another database for
+  every analysis. Redis HASHes remain the authoritative row storage.
+- **Reuse analytics and pipeline tooling.** Use typed Arrow results in dataframe
+  workflows and the project's [Python integrations](docs/python-integrations.md)
+  for tools such as Polars, SQLAlchemy, Dask, and Dagster. A shared database
+  interface reduces the custom Redis command handling and table-conversion code
+  each integration needs. See the [integration status](docs/data-engineering-adbc-support.md)
+  for the capabilities and validation limits of individual tools.
+- **Exchange data in batches.** Fetch Arrow record batches with schemas and NULL
+  information, or bulk-ingest Arrow data into Redis. Applications can pass a
+  common columnar representation between processing steps. The driver still
+  decodes Redis replies and converts values to Arrow; Redis storage remains
+  row-oriented HASHes.
+
+The intended use cases are operational reporting, data exploration, and Arrow
+data pipelines over supported HASH data. Redis with the Query Engine and RESP3
+is required. SQL follows the driver's documented subset; writes autocommit, and
+transactions and atomic source snapshots are unavailable. Native Redis clients
+provide the broader Redis command and data-structure interface. See
+[server requirements](docs/driver-reference.md#server-requirements) and the
+feature matrices below when choosing an access path.
 
 ## Compatibility and validation
 
