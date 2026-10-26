@@ -17,6 +17,9 @@ See [intent](intent.md), [plan](plan.md), and [validation](validation.md).
 - Describe Flight SQL/JDBC as an integration path requiring a compatible service
   and end-to-end validation, rather than a built-in server or validated DBeaver
   connection.
+- Identify the Redis Arrow Flight server at redis/redis-apache-arrow-flight as
+  the companion implementation, and link its client examples and compatibility
+  matrix without broadening the stated client validation.
 - Change no runtime code, dependencies, release files, or historical results.
 
 Review: [PR for this branch](https://github.com/redis/redis-adbc-driver/pulls?q=is%3Apr+head%3Acodex%2Fexplain-redis-adbc-value).

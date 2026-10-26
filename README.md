@@ -62,12 +62,14 @@ workflow:
   common columnar representation between processing steps. The driver still
   decodes Redis replies and converts values to Arrow; Redis storage remains
   row-oriented HASHes.
-- **Enable Flight SQL and JDBC integration.** This driver can provide the Redis
-  SQL/Arrow backend for a separately deployed Flight SQL service. JDBC tools such
-  as DBeaver can access that service through the
+- **Enable Flight SQL and JDBC integration.** The
+  [Redis Arrow Flight server](https://github.com/redis/redis-apache-arrow-flight)
+  uses this driver as its Redis SQL/Arrow backend. JDBC tools such as DBeaver can
+  access that separately deployed server through the
   [Flight SQL JDBC driver](https://arrow.apache.org/java/current/flight_sql_jdbc_driver.html).
-  This path requires a compatible server implementation and end-to-end validation
-  of SQL, metadata, types, and authentication.
+  See its [client examples](https://github.com/redis/redis-apache-arrow-flight#client-examples)
+  and [client compatibility matrix](https://github.com/redis/redis-apache-arrow-flight/blob/main/docs/client-compatibility.md)
+  for setup and tested compatibility.
 
 The intended use cases are operational reporting, data exploration, and Arrow
 data pipelines over supported HASH data. Redis with the Query Engine and RESP3
@@ -169,7 +171,7 @@ for those rows cover scope or companion integration decisions.
 | Statement cancellation | 🟡 Partial | Cancels driver work and interrupts execution-owned socket waits, including blocked cursor pages/pipelines. Remote server work may continue; sorts finish before checking cancellation. See [cancellation](docs/driver-reference.md#cancelling-a-statement). | [#212](https://github.com/redis/redis-adbc-driver/issues/212) |
 | Transactions and rollback through ADBC | 🔴 Unsupported | Autocommit only; disabling autocommit is rejected. | [#113](https://github.com/redis/redis-adbc-driver/issues/113) |
 | Substrait plans | 🔴 Unsupported | `SetSubstraitPlan` returns NotImplemented. | [#213](https://github.com/redis/redis-adbc-driver/issues/213) |
-| Arrow Flight / Flight SQL endpoint | ⚪ N/A | A Flight endpoint belongs to a separately deployed service, such as the [Redis Flight server](https://github.com/alberttwong/redis-apache-arrow-flight). This native ADBC driver supplies an in-process client interface. | [#214](https://github.com/redis/redis-adbc-driver/issues/214) |
+| Arrow Flight / Flight SQL endpoint | ⚪ N/A | A Flight endpoint belongs to a separately deployed service, such as the [Redis Flight server](https://github.com/redis/redis-apache-arrow-flight). This native ADBC driver supplies an in-process client interface. | [#214](https://github.com/redis/redis-adbc-driver/issues/214) |
 | Continuous subscriptions / CDC | ⚪ N/A | Durable change feeds and snapshot-to-live handoff need a separately designed source/service contract. Finite SQL query results are the driver's current interface; [#196](https://github.com/redis/redis-adbc-driver/issues/196) evaluates where CDC should live. | [#196](https://github.com/redis/redis-adbc-driver/issues/196) |
 | Arrow C Device interface | 🔴 Unsupported | No device-buffer ingestion or Arrow C Device interchange contract. Device-buffer interoperability is separate from executing SQL on a GPU. | [#215](https://github.com/redis/redis-adbc-driver/issues/215) |
 | GPU query execution | ⚪ N/A | GPU execution is the responsibility of a compute engine consuming Arrow results; this driver runs its SQL evaluator on the CPU and delegates eligible work to Redis Search. | — |
