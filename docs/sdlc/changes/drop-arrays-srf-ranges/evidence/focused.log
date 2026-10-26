@@ -1,0 +1,131 @@
+=== RUN   TestFourIssueSQL
+=== RUN   TestFourIssueSQL/select_array[1,2]_||_array[3,4]
+=== RUN   TestFourIssueSQL/select_array(select_generate_series(1,3))
+=== RUN   TestFourIssueSQL/select_array_position(array[1,null,3],null),_array_positions(array[1,2,1],1)
+=== RUN   TestFourIssueSQL/select_array_remove(array[1,null,1],1),array_replace(array[1,null],null,2)
+=== RUN   TestFourIssueSQL/select_array_upper(array[1,2],1),array_lower(array[1,2],1),array_dims(array[1,2])
+=== RUN   TestFourIssueSQL/select_array_to_string(array['a',null,'b'],',','N')
+=== RUN   TestFourIssueSQL/select_array[1,2]_@>_array[2],array[1]_<@_array[1,2],array[1]_&&_array[2]
+=== RUN   TestFourIssueSQL/select_generate_series(1,2)+10,unnest(array['a','b','c'])
+=== RUN   TestFourIssueSQL/select_*_from_unnest(array[1,2],array['a'])_with_ordinality_u(a,b,i)
+=== RUN   TestFourIssueSQL/select_*_from_regexp_matches('a1_b2','([a-z])([0-9])','g')_r(m)
+=== RUN   TestFourIssueSQL/select_regexp_split_to_array('a,b',',')
+=== RUN   TestFourIssueSQL/select_*_from_generate_series(1,2)_g,_lateral_generate_series(1,g)_x
+=== RUN   TestFourIssueSQL/select_(array[1,2,3])[2]
+=== RUN   TestFourIssueSQL/select_'{1,2,NULL}'::integer[]
+=== RUN   TestFourIssueSQL/select_string_to_array('a,b',',')
+=== RUN   TestFourIssueSQL/select_array_append(array[1,2],3)
+=== RUN   TestFourIssueSQL/select_array[1,2,3][2:3]
+=== RUN   TestFourIssueSQL/select_generate_series(1,3)
+=== RUN   TestFourIssueSQL/select_*_from_generate_series(1,3)_with_ordinality_as_g(n,i)
+=== RUN   TestFourIssueSQL/select_*_from_string_to_table('a,b',',')
+=== RUN   TestFourIssueSQL/select_*_from_pg_catalog.unnest(array[1,2])
+=== RUN   TestFourIssueSQL/select_*_from_regexp_split_to_table('a,b',',')
+=== RUN   TestFourIssueSQL/select_*_from_unnest(array[1,2])_x(n)
+=== RUN   TestFourIssueSQL/select_*_from_rows_from_(generate_series(1,2),generate_series(1,3))_r(a,b)
+--- PASS: TestFourIssueSQL (0.00s)
+    --- PASS: TestFourIssueSQL/select_array[1,2]_||_array[3,4] (0.00s)
+    --- PASS: TestFourIssueSQL/select_array(select_generate_series(1,3)) (0.00s)
+    --- PASS: TestFourIssueSQL/select_array_position(array[1,null,3],null),_array_positions(array[1,2,1],1) (0.00s)
+    --- PASS: TestFourIssueSQL/select_array_remove(array[1,null,1],1),array_replace(array[1,null],null,2) (0.00s)
+    --- PASS: TestFourIssueSQL/select_array_upper(array[1,2],1),array_lower(array[1,2],1),array_dims(array[1,2]) (0.00s)
+    --- PASS: TestFourIssueSQL/select_array_to_string(array['a',null,'b'],',','N') (0.00s)
+    --- PASS: TestFourIssueSQL/select_array[1,2]_@>_array[2],array[1]_<@_array[1,2],array[1]_&&_array[2] (0.00s)
+    --- PASS: TestFourIssueSQL/select_generate_series(1,2)+10,unnest(array['a','b','c']) (0.00s)
+    --- PASS: TestFourIssueSQL/select_*_from_unnest(array[1,2],array['a'])_with_ordinality_u(a,b,i) (0.00s)
+    --- PASS: TestFourIssueSQL/select_*_from_regexp_matches('a1_b2','([a-z])([0-9])','g')_r(m) (0.00s)
+    --- PASS: TestFourIssueSQL/select_regexp_split_to_array('a,b',',') (0.00s)
+    --- PASS: TestFourIssueSQL/select_*_from_generate_series(1,2)_g,_lateral_generate_series(1,g)_x (0.00s)
+    --- PASS: TestFourIssueSQL/select_(array[1,2,3])[2] (0.00s)
+    --- PASS: TestFourIssueSQL/select_'{1,2,NULL}'::integer[] (0.00s)
+    --- PASS: TestFourIssueSQL/select_string_to_array('a,b',',') (0.00s)
+    --- PASS: TestFourIssueSQL/select_array_append(array[1,2],3) (0.00s)
+    --- PASS: TestFourIssueSQL/select_array[1,2,3][2:3] (0.00s)
+    --- PASS: TestFourIssueSQL/select_generate_series(1,3) (0.00s)
+    --- PASS: TestFourIssueSQL/select_*_from_generate_series(1,3)_with_ordinality_as_g(n,i) (0.00s)
+    --- PASS: TestFourIssueSQL/select_*_from_string_to_table('a,b',',') (0.00s)
+    --- PASS: TestFourIssueSQL/select_*_from_pg_catalog.unnest(array[1,2]) (0.00s)
+    --- PASS: TestFourIssueSQL/select_*_from_regexp_split_to_table('a,b',',') (0.00s)
+    --- PASS: TestFourIssueSQL/select_*_from_unnest(array[1,2])_x(n) (0.00s)
+    --- PASS: TestFourIssueSQL/select_*_from_rows_from_(generate_series(1,2),generate_series(1,3))_r(a,b) (0.00s)
+=== RUN   TestFourIssueDropPreflight
+--- PASS: TestFourIssueDropPreflight (0.02s)
+=== RUN   TestArrayStorage
+--- PASS: TestArrayStorage (0.02s)
+=== RUN   TestSRFPlacement
+--- PASS: TestSRFPlacement (0.00s)
+=== RUN   TestDropViewPreflight
+--- PASS: TestDropViewPreflight (0.01s)
+=== RUN   TestArrayView
+--- PASS: TestArrayView (0.01s)
+=== RUN   TestArrayStoredScalarRoundTrip
+=== RUN   TestArrayStoredScalarRoundTrip/ARRAY[true,false,NULL]
+=== RUN   TestArrayStoredScalarRoundTrip/ARRAY[1::smallint,NULL]
+=== RUN   TestArrayStoredScalarRoundTrip/ARRAY[9007199254740993::bigint,NULL]
+=== RUN   TestArrayStoredScalarRoundTrip/ARRAY[1.25::numeric(20,2),NULL]
+=== RUN   TestArrayStoredScalarRoundTrip/ARRAY[1.25::real,NULL]
+=== RUN   TestArrayStoredScalarRoundTrip/ARRAY[1.25::double_precision,NULL]
+=== RUN   TestArrayStoredScalarRoundTrip/ARRAY['a,b','NULL','',NULL]
+=== RUN   TestArrayStoredScalarRoundTrip/ARRAY[from_hex('00ff'),NULL]
+=== RUN   TestArrayStoredScalarRoundTrip/ARRAY[DATE_'2024-02-29',NULL]
+=== RUN   TestArrayStoredScalarRoundTrip/ARRAY[TIME_'12:34:56.123456',NULL]
+=== RUN   TestArrayStoredScalarRoundTrip/ARRAY[TIMETZ_'12:34:56+05:30',NULL]
+=== RUN   TestArrayStoredScalarRoundTrip/ARRAY[TIMESTAMP_'2024-01-02_03:04:05.123456',NULL]
+=== RUN   TestArrayStoredScalarRoundTrip/ARRAY[TIMESTAMPTZ_'2024-01-02_03:04:05+05:30',NULL]
+=== RUN   TestArrayStoredScalarRoundTrip/ARRAY[INTERVAL_'1_month_2_days_3_seconds',NULL]
+--- PASS: TestArrayStoredScalarRoundTrip (0.00s)
+    --- PASS: TestArrayStoredScalarRoundTrip/ARRAY[true,false,NULL] (0.00s)
+    --- PASS: TestArrayStoredScalarRoundTrip/ARRAY[1::smallint,NULL] (0.00s)
+    --- PASS: TestArrayStoredScalarRoundTrip/ARRAY[9007199254740993::bigint,NULL] (0.00s)
+    --- PASS: TestArrayStoredScalarRoundTrip/ARRAY[1.25::numeric(20,2),NULL] (0.00s)
+    --- PASS: TestArrayStoredScalarRoundTrip/ARRAY[1.25::real,NULL] (0.00s)
+    --- PASS: TestArrayStoredScalarRoundTrip/ARRAY[1.25::double_precision,NULL] (0.00s)
+    --- PASS: TestArrayStoredScalarRoundTrip/ARRAY['a,b','NULL','',NULL] (0.00s)
+    --- PASS: TestArrayStoredScalarRoundTrip/ARRAY[from_hex('00ff'),NULL] (0.00s)
+    --- PASS: TestArrayStoredScalarRoundTrip/ARRAY[DATE_'2024-02-29',NULL] (0.00s)
+    --- PASS: TestArrayStoredScalarRoundTrip/ARRAY[TIME_'12:34:56.123456',NULL] (0.00s)
+    --- PASS: TestArrayStoredScalarRoundTrip/ARRAY[TIMETZ_'12:34:56+05:30',NULL] (0.00s)
+    --- PASS: TestArrayStoredScalarRoundTrip/ARRAY[TIMESTAMP_'2024-01-02_03:04:05.123456',NULL] (0.00s)
+    --- PASS: TestArrayStoredScalarRoundTrip/ARRAY[TIMESTAMPTZ_'2024-01-02_03:04:05+05:30',NULL] (0.00s)
+    --- PASS: TestArrayStoredScalarRoundTrip/ARRAY[INTERVAL_'1_month_2_days_3_seconds',NULL] (0.00s)
+=== RUN   TestSRFResourceBounds
+--- PASS: TestSRFResourceBounds (0.00s)
+=== RUN   TestSQLFunctionsIssueTable
+--- PASS: TestSQLFunctionsIssueTable (0.03s)
+=== RUN   TestSQLFunctionsArgCounts
+--- PASS: TestSQLFunctionsArgCounts (0.08s)
+=== RUN   TestSQLFunctionsEveryPosition
+--- PASS: TestSQLFunctionsEveryPosition (0.05s)
+=== RUN   TestSQLFunctionsErrorOrder
+--- PASS: TestSQLFunctionsErrorOrder (0.01s)
+=== RUN   TestSQLFunctionsValueErrors
+--- PASS: TestSQLFunctionsValueErrors (0.04s)
+=== RUN   TestSQLFunctionsNamesAndForms
+--- PASS: TestSQLFunctionsNamesAndForms (0.02s)
+=== RUN   TestSQLFunctionsStoredBefore
+--- PASS: TestSQLFunctionsStoredBefore (0.03s)
+=== RUN   TestSQLFunctionsRoutines
+--- PASS: TestSQLFunctionsRoutines (0.00s)
+=== RUN   TestSQLGenerateSeries
+--- PASS: TestSQLGenerateSeries (0.02s)
+=== RUN   TestSharedScanExactResults
+=== RUN   TestSharedScanExactResults/SELECT_id_FROM_it_shared_scan_exact
+=== RUN   TestSharedScanExactResults/SELECT_id,amount,label_FROM_it_shared_scan_exact_WHERE_id_>=_20_AND_qty_%_3_=_0_LIMIT_400_OFFSET_130
+=== RUN   TestSharedScanExactResults/SELECT_id_+_?,_COALESCE(label,'missing'),_amount_FROM_it_shared_scan_exact_WHERE_id_>=_?_LIMIT_300_OFFSET_140
+=== RUN   TestSharedScanExactResults/SELECT_id_FROM_it_shared_scan_exact_ORDER_BY___rowid_LIMIT_500_OFFSET_150
+=== RUN   TestSharedScanExactResults/SELECT_id_FROM_it_shared_scan_exact_WHERE_id_>_99999
+--- PASS: TestSharedScanExactResults (2.57s)
+    --- PASS: TestSharedScanExactResults/SELECT_id_FROM_it_shared_scan_exact (0.70s)
+    --- PASS: TestSharedScanExactResults/SELECT_id,amount,label_FROM_it_shared_scan_exact_WHERE_id_>=_20_AND_qty_%_3_=_0_LIMIT_400_OFFSET_130 (0.63s)
+    --- PASS: TestSharedScanExactResults/SELECT_id_+_?,_COALESCE(label,'missing'),_amount_FROM_it_shared_scan_exact_WHERE_id_>=_?_LIMIT_300_OFFSET_140 (0.50s)
+    --- PASS: TestSharedScanExactResults/SELECT_id_FROM_it_shared_scan_exact_ORDER_BY___rowid_LIMIT_500_OFFSET_150 (0.47s)
+    --- PASS: TestSharedScanExactResults/SELECT_id_FROM_it_shared_scan_exact_WHERE_id_>_99999 (0.12s)
+=== RUN   TestSQLWideHashFetchBothAPIs
+    wide_fetch_integration_test.go:82: explicit range: ranges=&{1 5000 65536 0} limit=<nil> sort=[{field:__rowid desc:false}] residual=<nil> hashFetch=true loadAll=false
+    wide_fetch_integration_test.go:82: inexact boundary: ranges=&{1 5000 65536 0} limit=<nil> sort=[{field:__rowid desc:false}] residual=*redis.Binary hashFetch=false loadAll=true
+    wide_fetch_integration_test.go:82: residual: ranges=&{1 5000 65536 0} limit=<nil> sort=[{field:__rowid desc:false}] residual=*redis.Binary hashFetch=false loadAll=true
+    wide_fetch_integration_test.go:82: pushed limit: ranges=<nil> limit=&[1 2] sort=[{field:__rowid desc:false}] residual=<nil> hashFetch=false loadAll=true
+    wide_fetch_integration_test.go:82: descending: ranges=<nil> limit=<nil> sort=[{field:__rowid desc:true}] residual=<nil> hashFetch=false loadAll=true
+--- PASS: TestSQLWideHashFetchBothAPIs (5.40s)
+PASS
+ok  	github.com/adbc-drivers/redis/go	8.972s

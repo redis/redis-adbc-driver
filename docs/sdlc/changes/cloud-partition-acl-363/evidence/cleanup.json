@@ -1,0 +1,14 @@
+{
+  "verified_at_utc": "2026-10-21T21:32:41Z",
+  "owner": "Albert Wong",
+  "subscription_id": 3457712,
+  "database_id": 14709262,
+  "database_delete_task": "c7b911d2-a39b-4cac-8664-a4f8d7c26ccf",
+  "subscription_delete_task": "ff2df005-c094-4188-9381-5fbb0a7ec59c",
+  "database_get_status": 404,
+  "subscription_get_status": 404,
+  "acl_cleanup": "Both client runs removed their six owned resources; final replay verified six minimum-client IDs absent.",
+  "local_fixture_credentials_and_private_keys_removed": true,
+  "owned_native_oss_process_stopped": true,
+  "actual_invoice_cost": "not available; estimate components retained in deployment.json"
+}

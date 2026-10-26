@@ -1,0 +1,6 @@
+=== RUN   TestRetainedPartitionCorruptLeaseCannotExtendOrphanLifetime
+    partition_retained_store_integration_test.go:387: corrupt metadata extended a provisional chunk beyond its original lease
+--- FAIL: TestRetainedPartitionCorruptLeaseCannotExtendOrphanLifetime (0.01s)
+FAIL
+FAIL	github.com/adbc-drivers/redis/go	0.662s
+FAIL

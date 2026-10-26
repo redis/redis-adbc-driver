@@ -1,0 +1,14 @@
+File: candidate-profile.test
+Build ID: 93ec35a7ea78f31eac5edce93ae774effa0bf32f
+Type: cpu
+Time: 2026-10-21 22:49:41 PDT
+Duration: 77.78ms, Total samples = 10ms (12.86%)
+Showing nodes accounting for 10ms, 100% of 10ms total
+      flat  flat%   sum%        cum   cum%
+      10ms   100%   100%       10ms   100%  runtime.releasepNoTrace
+         0     0%   100%       10ms   100%  runtime.findRunnable
+         0     0%   100%       10ms   100%  runtime.mcall
+         0     0%   100%       10ms   100%  runtime.park_m
+         0     0%   100%       10ms   100%  runtime.releasep
+         0     0%   100%       10ms   100%  runtime.schedule
+

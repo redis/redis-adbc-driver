@@ -1,0 +1,26 @@
+File: go.test
+Type: cpu
+Time: 2026-10-21 15:19:43 PDT
+Duration: 12.22s, Total samples = 7.19s (58.85%)
+Showing nodes accounting for 6.01s, 83.59% of 7.19s total
+Dropped 119 nodes (cum <= 0.04s)
+Showing top 18 nodes out of 159
+      flat  flat%   sum%        cum   cum%
+     2.01s 27.96% 27.96%      2.01s 27.96%  syscall.rawsyscalln
+     0.48s  6.68% 34.63%      0.48s  6.68%  runtime.madvise
+     0.47s  6.54% 41.17%      1.34s 18.64%  github.com/adbc-drivers/redis/go.(*scanProjection).decodeInto
+     0.34s  4.73% 45.90%      2.70s 37.55%  github.com/adbc-drivers/redis/go.(*streamReader).appendArrow
+     0.33s  4.59% 50.49%      0.57s  7.93%  github.com/adbc-drivers/redis/go.Coerce
+     0.31s  4.31% 54.80%      0.31s  4.31%  runtime.memmove
+     0.26s  3.62% 58.41%      0.26s  3.62%  internal/runtime/maps.memHashAES
+     0.23s  3.20% 61.61%      0.23s  3.20%  runtime.pthread_cond_wait
+     0.22s  3.06% 64.67%      0.34s  4.73%  github.com/adbc-drivers/redis/go.decodeStored
+     0.21s  2.92% 67.59%      0.55s  7.65%  github.com/adbc-drivers/redis/go.columnMeta.decode
+     0.19s  2.64% 70.24%      0.24s  3.34%  github.com/adbc-drivers/redis/go.coerceIn
+     0.19s  2.64% 72.88%      0.19s  2.64%  runtime.pthread_cond_signal
+     0.17s  2.36% 75.24%      0.17s  2.36%  runtime.usleep
+     0.16s  2.23% 77.47%      0.33s  4.59%  runtime.mapaccess2_faststr
+     0.16s  2.23% 79.69%      0.39s  5.42%  runtime.mapassign_faststr
+     0.11s  1.53% 81.22%      0.12s  1.67%  runtime.tryDeferToSpanScan
+     0.10s  1.39% 82.61%      0.10s  1.39%  runtime.pthread_kill
+     0.07s  0.97% 83.59%      0.07s  0.97%  internal/strconv.ParseUint

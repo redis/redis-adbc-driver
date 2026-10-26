@@ -1,0 +1,9 @@
+{
+  "original_report_sha256": "bf2c935ce0ca4240331b63af18bb50baf3f1ec7fa2483961c4e2d583a14dc0dd",
+  "status": "complete",
+  "executions": 24,
+  "all_valid": true,
+  "baseline_source": "e692a704d2b70428086e145df00e73db7b1a253f",
+  "candidate_source": "8310e07",
+  "candidate_binary_sha256": "4a1c893bd675c9d24c345cbc926b0e257d26b60642fb7b6847f9819a5cd386ff"
+}

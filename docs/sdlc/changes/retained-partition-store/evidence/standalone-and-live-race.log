@@ -1,0 +1,132 @@
+=== RUN   TestPartitionUnsupportedLayoutOwnership
+=== RUN   TestPartitionUnsupportedLayoutOwnership/adopted
+=== RUN   TestPartitionUnsupportedLayoutOwnership/application_index
+=== RUN   TestPartitionUnsupportedLayoutOwnership/foreign_index
+--- PASS: TestPartitionUnsupportedLayoutOwnership (0.17s)
+    --- PASS: TestPartitionUnsupportedLayoutOwnership/adopted (0.12s)
+    --- PASS: TestPartitionUnsupportedLayoutOwnership/application_index (0.03s)
+    --- PASS: TestPartitionUnsupportedLayoutOwnership/foreign_index (0.03s)
+=== RUN   TestPartitionLegacyMetadataNotMigrated
+--- PASS: TestPartitionLegacyMetadataNotMigrated (0.00s)
+=== RUN   TestPartitionParameterEncoding
+--- PASS: TestPartitionParameterEncoding (0.01s)
+=== RUN   TestPartitionBindingLimits
+--- PASS: TestPartitionBindingLimits (0.00s)
+=== RUN   TestPartitionIncrementalOptions
+--- PASS: TestPartitionIncrementalOptions (0.00s)
+=== RUN   TestPartitionParameterStreamError
+--- PASS: TestPartitionParameterStreamError (0.00s)
+=== RUN   TestPartitionParameterTypeMetadata
+--- PASS: TestPartitionParameterTypeMetadata (0.00s)
+=== RUN   TestPartitionPredicateBounds
+=== RUN   TestPartitionPredicateBounds/__rowid=42
+=== RUN   TestPartitionPredicateBounds/__rowid_IN(9,2,2,3)
+=== RUN   TestPartitionPredicateBounds/__rowid_BETWEEN_10_AND_20
+=== RUN   TestPartitionPredicateBounds/__rowid_>_95_AND___rowid_<_100
+=== RUN   TestPartitionPredicateBounds/20_>___rowid
+=== RUN   TestPartitionPredicateBounds/__rowid_<=_0
+=== RUN   TestPartitionPredicateBounds/__rowid=2_AND___rowid=3
+=== RUN   TestPartitionPredicateBounds/__rowid_>=_?
+=== RUN   TestPartitionPredicateBounds/__rowid_>_?
+=== RUN   TestPartitionPredicateBounds/__rowid_<_?
+=== RUN   TestPartitionPredicateBounds/__rowid_=_?
+=== RUN   TestPartitionPredicateBounds/__rowid_=_?#01
+=== RUN   TestPartitionPredicateBounds/__rowid='2'
+=== RUN   TestPartitionPredicateBounds/id=2
+=== RUN   TestPartitionPredicateBounds/__rowid=2_OR_id=3
+=== RUN   TestPartitionPredicateBounds/(__rowid=2_OR_id=3)_AND___rowid<10
+=== RUN   TestPartitionPredicateBounds/NOT_(__rowid=2)
+=== RUN   TestPartitionPredicateBounds/__rowid=2_AND_id>5
+=== RUN   TestPartitionPredicateBounds/__rowid>=80_OR___rowid<3
+=== RUN   TestPartitionPredicateBounds/__rowid=2.1
+=== RUN   TestPartitionPredicateBounds/__rowid=CAST(2_AS_BIGINT)
+=== RUN   TestPartitionPredicateBounds/__rowid=2_OR___rowid=NULL
+--- PASS: TestPartitionPredicateBounds (0.00s)
+    --- PASS: TestPartitionPredicateBounds/__rowid=42 (0.00s)
+    --- PASS: TestPartitionPredicateBounds/__rowid_IN(9,2,2,3) (0.00s)
+    --- PASS: TestPartitionPredicateBounds/__rowid_BETWEEN_10_AND_20 (0.00s)
+    --- PASS: TestPartitionPredicateBounds/__rowid_>_95_AND___rowid_<_100 (0.00s)
+    --- PASS: TestPartitionPredicateBounds/20_>___rowid (0.00s)
+    --- PASS: TestPartitionPredicateBounds/__rowid_<=_0 (0.00s)
+    --- PASS: TestPartitionPredicateBounds/__rowid=2_AND___rowid=3 (0.00s)
+    --- PASS: TestPartitionPredicateBounds/__rowid_>=_? (0.00s)
+    --- PASS: TestPartitionPredicateBounds/__rowid_>_? (0.00s)
+    --- PASS: TestPartitionPredicateBounds/__rowid_<_? (0.00s)
+    --- PASS: TestPartitionPredicateBounds/__rowid_=_? (0.00s)
+    --- PASS: TestPartitionPredicateBounds/__rowid_=_?#01 (0.00s)
+    --- PASS: TestPartitionPredicateBounds/__rowid='2' (0.00s)
+    --- PASS: TestPartitionPredicateBounds/id=2 (0.00s)
+    --- PASS: TestPartitionPredicateBounds/__rowid=2_OR_id=3 (0.00s)
+    --- PASS: TestPartitionPredicateBounds/(__rowid=2_OR_id=3)_AND___rowid<10 (0.00s)
+    --- PASS: TestPartitionPredicateBounds/NOT_(__rowid=2) (0.00s)
+    --- PASS: TestPartitionPredicateBounds/__rowid=2_AND_id>5 (0.00s)
+    --- PASS: TestPartitionPredicateBounds/__rowid>=80_OR___rowid<3 (0.00s)
+    --- PASS: TestPartitionPredicateBounds/__rowid=2.1 (0.00s)
+    --- PASS: TestPartitionPredicateBounds/__rowid=CAST(2_AS_BIGINT) (0.00s)
+    --- PASS: TestPartitionPredicateBounds/__rowid=2_OR___rowid=NULL (0.00s)
+=== RUN   TestPartitionPredicateBudgets
+--- PASS: TestPartitionPredicateBudgets (0.00s)
+=== RUN   TestRetainedPartitionPublicationAndReplay
+--- PASS: TestRetainedPartitionPublicationAndReplay (0.01s)
+=== RUN   TestRetainedPartitionQuotaRaces
+--- PASS: TestRetainedPartitionQuotaRaces (0.01s)
+=== RUN   TestRetainedPartitionRevokeRacingUpload
+--- PASS: TestRetainedPartitionRevokeRacingUpload (0.00s)
+=== RUN   TestRetainedPartitionRevokeUsesCompleteJobKeySpace
+--- PASS: TestRetainedPartitionRevokeUsesCompleteJobKeySpace (0.00s)
+=== RUN   TestRetainedPartitionJobQuotaAndCancelledPublication
+--- PASS: TestRetainedPartitionJobQuotaAndCancelledPublication (0.01s)
+=== RUN   TestRetainedPartitionCorruptLeaseCannotExtendOrphanLifetime
+--- PASS: TestRetainedPartitionCorruptLeaseCannotExtendOrphanLifetime (0.00s)
+=== RUN   TestRetainedPartitionMissingCorruptAndUnpublished
+--- PASS: TestRetainedPartitionMissingCorruptAndUnpublished (0.01s)
+=== RUN   TestRetainedPartitionManifestEvictionStopsReplay
+--- PASS: TestRetainedPartitionManifestEvictionStopsReplay (0.00s)
+=== RUN   TestRetainedPartitionControlStateDoesNotPolluteApplicationIndexes
+--- PASS: TestRetainedPartitionControlStateDoesNotPolluteApplicationIndexes (0.00s)
+=== RUN   TestRetainedPartitionExpiryAndAbandonedUpload
+--- PASS: TestRetainedPartitionExpiryAndAbandonedUpload (1.51s)
+=== RUN   TestRetainedPartitionIndependentACL
+--- PASS: TestRetainedPartitionIndependentACL (0.01s)
+=== RUN   TestRetainedPartitionNamespaceAndLimits
+--- PASS: TestRetainedPartitionNamespaceAndLimits (0.00s)
+=== RUN   TestPartitionReads
+=== RUN   TestPartitionReads/SELECT_id_FROM_it_partition_api
+=== RUN   TestPartitionReads/SELECT_id_FROM_it_partition_api_WHERE_qty_IS_NULL_OR_qty_>=_4
+=== RUN   TestPartitionReads/SELECT_id_FROM_it_partition_api_WHERE___rowid=2
+=== RUN   TestPartitionReads/SELECT_id_FROM_it_partition_api_WHERE___rowid_IN_(1,4)
+=== RUN   TestPartitionReads/SELECT_id_FROM_it_partition_api_WHERE_false
+=== RUN   TestPartitionReads/SELECT_id_FROM_it_partition_api_WHERE_id=100
+=== RUN   TestPartitionReads/SELECT_a.id_AS_key_FROM_it_partition_api_a_WHERE_a.qty_IS_NULL
+--- PASS: TestPartitionReads (0.06s)
+    --- PASS: TestPartitionReads/SELECT_id_FROM_it_partition_api (0.01s)
+    --- PASS: TestPartitionReads/SELECT_id_FROM_it_partition_api_WHERE_qty_IS_NULL_OR_qty_>=_4 (0.01s)
+    --- PASS: TestPartitionReads/SELECT_id_FROM_it_partition_api_WHERE___rowid=2 (0.00s)
+    --- PASS: TestPartitionReads/SELECT_id_FROM_it_partition_api_WHERE___rowid_IN_(1,4) (0.00s)
+    --- PASS: TestPartitionReads/SELECT_id_FROM_it_partition_api_WHERE_false (0.00s)
+    --- PASS: TestPartitionReads/SELECT_id_FROM_it_partition_api_WHERE_id=100 (0.01s)
+    --- PASS: TestPartitionReads/SELECT_a.id_AS_key_FROM_it_partition_api_a_WHERE_a.qty_IS_NULL (0.01s)
+=== RUN   TestPartitionStreamingLifecycle
+--- PASS: TestPartitionStreamingLifecycle (0.42s)
+=== RUN   TestPartitionReaderPermissions
+--- PASS: TestPartitionReaderPermissions (0.01s)
+=== RUN   TestPartitionLimitsAndScope
+--- PASS: TestPartitionLimitsAndScope (0.03s)
+=== RUN   TestPartitionTimeZone
+--- PASS: TestPartitionTimeZone (0.01s)
+=== RUN   TestPartitionCapRanges
+--- PASS: TestPartitionCapRanges (0.21s)
+=== RUN   TestPartitionIncrementalLifecycle
+--- PASS: TestPartitionIncrementalLifecycle (0.01s)
+=== RUN   TestPartitionRuntimeCapDiscovery
+--- PASS: TestPartitionRuntimeCapDiscovery (0.24s)
+=== RUN   TestPartitionLiveReadConsistency
+--- PASS: TestPartitionLiveReadConsistency (0.01s)
+=== RUN   TestPartitionSQLScope
+--- PASS: TestPartitionSQLScope (0.00s)
+=== RUN   TestPartitionDescriptorValidation
+--- PASS: TestPartitionDescriptorValidation (0.00s)
+=== RUN   TestPartitionCountOption
+--- PASS: TestPartitionCountOption (0.00s)
+PASS
+ok  	github.com/adbc-drivers/redis/go	4.470s

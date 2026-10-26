@@ -1,0 +1,69 @@
+=== RUN   TestRetainedPartitionDescriptor
+--- PASS: TestRetainedPartitionDescriptor (0.00s)
+=== RUN   TestRetainedPartitionIPCBoundedReplay
+--- PASS: TestRetainedPartitionIPCBoundedReplay (0.00s)
+=== RUN   TestRetainedPartitionIPCOutputTypesAndEmpty
+--- PASS: TestRetainedPartitionIPCOutputTypesAndEmpty (0.00s)
+=== RUN   TestRetainedPartitionIPCRejectsCompressionAndFraming
+--- PASS: TestRetainedPartitionIPCRejectsCompressionAndFraming (0.00s)
+=== RUN   TestRetainedPartitionIPCRejectsOversizedMetadataBeforeDecode
+=== RUN   TestRetainedPartitionIPCRejectsOversizedMetadataBeforeDecode/schema-vector
+=== RUN   TestRetainedPartitionIPCRejectsOversizedMetadataBeforeDecode/row-count
+=== RUN   TestRetainedPartitionIPCRejectsOversizedMetadataBeforeDecode/body-length
+=== RUN   TestRetainedPartitionIPCRejectsOversizedMetadataBeforeDecode/buffer-offset
+--- PASS: TestRetainedPartitionIPCRejectsOversizedMetadataBeforeDecode (0.00s)
+    --- PASS: TestRetainedPartitionIPCRejectsOversizedMetadataBeforeDecode/schema-vector (0.00s)
+    --- PASS: TestRetainedPartitionIPCRejectsOversizedMetadataBeforeDecode/row-count (0.00s)
+    --- PASS: TestRetainedPartitionIPCRejectsOversizedMetadataBeforeDecode/body-length (0.00s)
+    --- PASS: TestRetainedPartitionIPCRejectsOversizedMetadataBeforeDecode/buffer-offset (0.00s)
+=== RUN   TestRetainedPartitionReaderBatchingAndLocalRelease
+--- PASS: TestRetainedPartitionReaderBatchingAndLocalRelease (0.05s)
+=== RUN   TestRetainedPartitionReaderCancellationAndOwnerClose
+--- PASS: TestRetainedPartitionReaderCancellationAndOwnerClose (0.04s)
+=== RUN   TestRetainedPartitionReaderMidReadFailure
+=== RUN   TestRetainedPartitionReaderMidReadFailure/revoke
+=== RUN   TestRetainedPartitionReaderMidReadFailure/evict-manifest
+=== RUN   TestRetainedPartitionReaderMidReadFailure/corrupt-chunk
+=== RUN   TestRetainedPartitionReaderMidReadFailure/wrong-rows
+=== RUN   TestRetainedPartitionReaderMidReadFailure/wrong-schema
+--- PASS: TestRetainedPartitionReaderMidReadFailure (0.21s)
+    --- PASS: TestRetainedPartitionReaderMidReadFailure/revoke (0.04s)
+    --- PASS: TestRetainedPartitionReaderMidReadFailure/evict-manifest (0.04s)
+    --- PASS: TestRetainedPartitionReaderMidReadFailure/corrupt-chunk (0.03s)
+    --- PASS: TestRetainedPartitionReaderMidReadFailure/wrong-rows (0.05s)
+    --- PASS: TestRetainedPartitionReaderMidReadFailure/wrong-schema (0.06s)
+=== RUN   TestRetainedPartitionReaderCloseRace
+--- PASS: TestRetainedPartitionReaderCloseRace (0.07s)
+=== RUN   TestRetainedPartitionReaderExpiryBetweenChunks
+--- PASS: TestRetainedPartitionReaderExpiryBetweenChunks (1.06s)
+=== RUN   TestRetainedPartitionReaderProcessHelper
+    partition_retained_reader_integration_test.go:265: internal subprocess helper
+--- SKIP: TestRetainedPartitionReaderProcessHelper (0.00s)
+=== RUN   TestRetainedPartitionReaderIndependentProcess
+--- PASS: TestRetainedPartitionReaderIndependentProcess (2.22s)
+=== RUN   TestRetainedPartitionPublicationAndReplay
+--- PASS: TestRetainedPartitionPublicationAndReplay (0.07s)
+=== RUN   TestRetainedPartitionQuotaRaces
+--- PASS: TestRetainedPartitionQuotaRaces (0.06s)
+=== RUN   TestRetainedPartitionRevokeRacingUpload
+--- PASS: TestRetainedPartitionRevokeRacingUpload (0.05s)
+=== RUN   TestRetainedPartitionRevokeUsesCompleteJobKeySpace
+--- PASS: TestRetainedPartitionRevokeUsesCompleteJobKeySpace (0.04s)
+=== RUN   TestRetainedPartitionJobQuotaAndCancelledPublication
+--- PASS: TestRetainedPartitionJobQuotaAndCancelledPublication (0.06s)
+=== RUN   TestRetainedPartitionCorruptLeaseCannotExtendOrphanLifetime
+--- PASS: TestRetainedPartitionCorruptLeaseCannotExtendOrphanLifetime (0.04s)
+=== RUN   TestRetainedPartitionMissingCorruptAndUnpublished
+--- PASS: TestRetainedPartitionMissingCorruptAndUnpublished (0.05s)
+=== RUN   TestRetainedPartitionManifestEvictionStopsReplay
+--- PASS: TestRetainedPartitionManifestEvictionStopsReplay (0.04s)
+=== RUN   TestRetainedPartitionControlStateDoesNotPolluteApplicationIndexes
+--- PASS: TestRetainedPartitionControlStateDoesNotPolluteApplicationIndexes (0.05s)
+=== RUN   TestRetainedPartitionExpiryAndAbandonedUpload
+--- PASS: TestRetainedPartitionExpiryAndAbandonedUpload (1.55s)
+=== RUN   TestRetainedPartitionIndependentACL
+--- PASS: TestRetainedPartitionIndependentACL (0.11s)
+=== RUN   TestRetainedPartitionNamespaceAndLimits
+--- PASS: TestRetainedPartitionNamespaceAndLimits (0.00s)
+PASS
+ok  	github.com/adbc-drivers/redis/go	7.451s

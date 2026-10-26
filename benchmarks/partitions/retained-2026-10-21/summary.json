@@ -1,0 +1,954 @@
+[
+  {
+    "layout": "dense",
+    "rows_ingested": 10000,
+    "payload_width": 0,
+    "mode": "live",
+    "requested_partitions": 1,
+    "actual_partitions": [
+      1
+    ],
+    "workers": 1,
+    "repeats": 3,
+    "rows": 10000,
+    "median_planning_seconds": 0.0012576250010170043,
+    "median_end_to_end_seconds": 0.1758283749804832,
+    "median_rows_per_second": 56873.64170379207,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "dense",
+    "rows_ingested": 10000,
+    "payload_width": 0,
+    "mode": "live",
+    "requested_partitions": 1,
+    "actual_partitions": [
+      1
+    ],
+    "workers": 4,
+    "repeats": 3,
+    "rows": 10000,
+    "median_planning_seconds": 0.0006024999893270433,
+    "median_end_to_end_seconds": 0.17445566700189374,
+    "median_rows_per_second": 57321.15311502864,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "dense",
+    "rows_ingested": 10000,
+    "payload_width": 0,
+    "mode": "live",
+    "requested_partitions": 4,
+    "actual_partitions": [
+      4
+    ],
+    "workers": 1,
+    "repeats": 3,
+    "rows": 10000,
+    "median_planning_seconds": 0.0005189999938011169,
+    "median_end_to_end_seconds": 0.17992895800853148,
+    "median_rows_per_second": 55577.49075346639,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "dense",
+    "rows_ingested": 10000,
+    "payload_width": 0,
+    "mode": "live",
+    "requested_partitions": 4,
+    "actual_partitions": [
+      4
+    ],
+    "workers": 4,
+    "repeats": 3,
+    "rows": 10000,
+    "median_planning_seconds": 0.00044791700202040374,
+    "median_end_to_end_seconds": 0.1844482919841539,
+    "median_rows_per_second": 54215.73652120947,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "dense",
+    "rows_ingested": 10000,
+    "payload_width": 0,
+    "mode": "retained",
+    "requested_partitions": 1,
+    "actual_partitions": [
+      1
+    ],
+    "workers": 1,
+    "repeats": 3,
+    "rows": 10000,
+    "median_planning_seconds": 0.038386083993827924,
+    "median_end_to_end_seconds": 0.18747808400075883,
+    "median_rows_per_second": 53339.567946296724,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "dense",
+    "rows_ingested": 10000,
+    "payload_width": 0,
+    "mode": "retained",
+    "requested_partitions": 1,
+    "actual_partitions": [
+      1
+    ],
+    "workers": 4,
+    "repeats": 3,
+    "rows": 10000,
+    "median_planning_seconds": 0.040128499997081235,
+    "median_end_to_end_seconds": 0.18239162501413375,
+    "median_rows_per_second": 54827.078815845234,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "dense",
+    "rows_ingested": 10000,
+    "payload_width": 0,
+    "mode": "retained",
+    "requested_partitions": 4,
+    "actual_partitions": [
+      1
+    ],
+    "workers": 1,
+    "repeats": 3,
+    "rows": 10000,
+    "median_planning_seconds": 0.04031445799046196,
+    "median_end_to_end_seconds": 0.20237300000735559,
+    "median_rows_per_second": 49413.70637207796,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "dense",
+    "rows_ingested": 10000,
+    "payload_width": 0,
+    "mode": "retained",
+    "requested_partitions": 4,
+    "actual_partitions": [
+      1
+    ],
+    "workers": 4,
+    "repeats": 3,
+    "rows": 10000,
+    "median_planning_seconds": 0.042092625022633,
+    "median_end_to_end_seconds": 0.1909255830105394,
+    "median_rows_per_second": 52376.42772811637,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "dense",
+    "rows_ingested": 10000,
+    "payload_width": 1024,
+    "mode": "live",
+    "requested_partitions": 1,
+    "actual_partitions": [
+      1
+    ],
+    "workers": 1,
+    "repeats": 3,
+    "rows": 10000,
+    "median_planning_seconds": 0.0015643340011592954,
+    "median_end_to_end_seconds": 0.1935423339891713,
+    "median_rows_per_second": 51668.28256064898,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "dense",
+    "rows_ingested": 10000,
+    "payload_width": 1024,
+    "mode": "live",
+    "requested_partitions": 1,
+    "actual_partitions": [
+      1
+    ],
+    "workers": 4,
+    "repeats": 3,
+    "rows": 10000,
+    "median_planning_seconds": 0.0005622080061584711,
+    "median_end_to_end_seconds": 0.18519433299661614,
+    "median_rows_per_second": 53997.33262994997,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "dense",
+    "rows_ingested": 10000,
+    "payload_width": 1024,
+    "mode": "live",
+    "requested_partitions": 4,
+    "actual_partitions": [
+      4
+    ],
+    "workers": 1,
+    "repeats": 3,
+    "rows": 10000,
+    "median_planning_seconds": 0.0005620410083793104,
+    "median_end_to_end_seconds": 0.1901189170021098,
+    "median_rows_per_second": 52598.658553735746,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "dense",
+    "rows_ingested": 10000,
+    "payload_width": 1024,
+    "mode": "live",
+    "requested_partitions": 4,
+    "actual_partitions": [
+      4
+    ],
+    "workers": 4,
+    "repeats": 3,
+    "rows": 10000,
+    "median_planning_seconds": 0.00048433299525640905,
+    "median_end_to_end_seconds": 0.18290370801696554,
+    "median_rows_per_second": 54673.57719763906,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "dense",
+    "rows_ingested": 10000,
+    "payload_width": 1024,
+    "mode": "retained",
+    "requested_partitions": 1,
+    "actual_partitions": [
+      1
+    ],
+    "workers": 1,
+    "repeats": 3,
+    "rows": 10000,
+    "median_planning_seconds": 0.06245845800731331,
+    "median_end_to_end_seconds": 0.21999099999084137,
+    "median_rows_per_second": 45456.40503664385,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "dense",
+    "rows_ingested": 10000,
+    "payload_width": 1024,
+    "mode": "retained",
+    "requested_partitions": 1,
+    "actual_partitions": [
+      1
+    ],
+    "workers": 4,
+    "repeats": 3,
+    "rows": 10000,
+    "median_planning_seconds": 0.06626537500414997,
+    "median_end_to_end_seconds": 0.21802479200414382,
+    "median_rows_per_second": 45866.34349276177,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "dense",
+    "rows_ingested": 10000,
+    "payload_width": 1024,
+    "mode": "retained",
+    "requested_partitions": 4,
+    "actual_partitions": [
+      4
+    ],
+    "workers": 1,
+    "repeats": 3,
+    "rows": 10000,
+    "median_planning_seconds": 0.06576950001181103,
+    "median_end_to_end_seconds": 0.2467675420048181,
+    "median_rows_per_second": 40523.96809870867,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "dense",
+    "rows_ingested": 10000,
+    "payload_width": 1024,
+    "mode": "retained",
+    "requested_partitions": 4,
+    "actual_partitions": [
+      4
+    ],
+    "workers": 4,
+    "repeats": 3,
+    "rows": 10000,
+    "median_planning_seconds": 0.0655853750067763,
+    "median_end_to_end_seconds": 0.2333652079978492,
+    "median_rows_per_second": 42851.289126578646,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "dense",
+    "rows_ingested": 100000,
+    "payload_width": 64,
+    "mode": "live",
+    "requested_partitions": 1,
+    "actual_partitions": [
+      1
+    ],
+    "workers": 1,
+    "repeats": 3,
+    "rows": 100000,
+    "median_planning_seconds": 0.0012339169916231185,
+    "median_end_to_end_seconds": 0.4146034590085037,
+    "median_rows_per_second": 241194.32153109208,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "dense",
+    "rows_ingested": 100000,
+    "payload_width": 64,
+    "mode": "live",
+    "requested_partitions": 1,
+    "actual_partitions": [
+      1
+    ],
+    "workers": 4,
+    "repeats": 3,
+    "rows": 100000,
+    "median_planning_seconds": 0.0005236669967416674,
+    "median_end_to_end_seconds": 0.404747042019153,
+    "median_rows_per_second": 247067.8957927206,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "dense",
+    "rows_ingested": 100000,
+    "payload_width": 64,
+    "mode": "live",
+    "requested_partitions": 4,
+    "actual_partitions": [
+      4
+    ],
+    "workers": 1,
+    "repeats": 3,
+    "rows": 100000,
+    "median_planning_seconds": 0.0005557920085266232,
+    "median_end_to_end_seconds": 0.43406058399705216,
+    "median_rows_per_second": 230382.58641028582,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "dense",
+    "rows_ingested": 100000,
+    "payload_width": 64,
+    "mode": "live",
+    "requested_partitions": 4,
+    "actual_partitions": [
+      4
+    ],
+    "workers": 4,
+    "repeats": 3,
+    "rows": 100000,
+    "median_planning_seconds": 0.0005897500086575747,
+    "median_end_to_end_seconds": 0.29521300000487827,
+    "median_rows_per_second": 338738.47018372343,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "dense",
+    "rows_ingested": 100000,
+    "payload_width": 64,
+    "mode": "retained",
+    "requested_partitions": 1,
+    "actual_partitions": [
+      1
+    ],
+    "workers": 1,
+    "repeats": 3,
+    "rows": 100000,
+    "median_planning_seconds": 0.3733683330065105,
+    "median_end_to_end_seconds": 0.536651291011367,
+    "median_rows_per_second": 186340.74244290203,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "dense",
+    "rows_ingested": 100000,
+    "payload_width": 64,
+    "mode": "retained",
+    "requested_partitions": 1,
+    "actual_partitions": [
+      1
+    ],
+    "workers": 4,
+    "repeats": 3,
+    "rows": 100000,
+    "median_planning_seconds": 0.3994038329983596,
+    "median_end_to_end_seconds": 0.5748550419812091,
+    "median_rows_per_second": 173956.8981692411,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "dense",
+    "rows_ingested": 100000,
+    "payload_width": 64,
+    "mode": "retained",
+    "requested_partitions": 4,
+    "actual_partitions": [
+      4
+    ],
+    "workers": 1,
+    "repeats": 3,
+    "rows": 100000,
+    "median_planning_seconds": 0.4326871669909451,
+    "median_end_to_end_seconds": 0.6124654579907656,
+    "median_rows_per_second": 163274.51400778873,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "dense",
+    "rows_ingested": 100000,
+    "payload_width": 64,
+    "mode": "retained",
+    "requested_partitions": 4,
+    "actual_partitions": [
+      4
+    ],
+    "workers": 4,
+    "repeats": 3,
+    "rows": 100000,
+    "median_planning_seconds": 0.38853112497599795,
+    "median_end_to_end_seconds": 0.5670156669802964,
+    "median_rows_per_second": 176361.96991268493,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "skewed",
+    "rows_ingested": 10000,
+    "payload_width": 0,
+    "mode": "live",
+    "requested_partitions": 1,
+    "actual_partitions": [
+      1
+    ],
+    "workers": 1,
+    "repeats": 3,
+    "rows": 1000,
+    "median_planning_seconds": 0.0006217909976840019,
+    "median_end_to_end_seconds": 0.1685975000145845,
+    "median_rows_per_second": 5931.286050584944,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "skewed",
+    "rows_ingested": 10000,
+    "payload_width": 0,
+    "mode": "live",
+    "requested_partitions": 1,
+    "actual_partitions": [
+      1
+    ],
+    "workers": 4,
+    "repeats": 3,
+    "rows": 1000,
+    "median_planning_seconds": 0.0006196250033099204,
+    "median_end_to_end_seconds": 0.15039291701395996,
+    "median_rows_per_second": 6649.249312101425,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "skewed",
+    "rows_ingested": 10000,
+    "payload_width": 0,
+    "mode": "live",
+    "requested_partitions": 4,
+    "actual_partitions": [
+      4
+    ],
+    "workers": 1,
+    "repeats": 3,
+    "rows": 1000,
+    "median_planning_seconds": 0.0004974999756086618,
+    "median_end_to_end_seconds": 0.16662950001773424,
+    "median_rows_per_second": 6001.338297801834,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "skewed",
+    "rows_ingested": 10000,
+    "payload_width": 0,
+    "mode": "live",
+    "requested_partitions": 4,
+    "actual_partitions": [
+      4
+    ],
+    "workers": 4,
+    "repeats": 3,
+    "rows": 1000,
+    "median_planning_seconds": 0.0005554579838644713,
+    "median_end_to_end_seconds": 0.23254341699066572,
+    "median_rows_per_second": 4300.272237077087,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "skewed",
+    "rows_ingested": 10000,
+    "payload_width": 0,
+    "mode": "retained",
+    "requested_partitions": 1,
+    "actual_partitions": [
+      1
+    ],
+    "workers": 1,
+    "repeats": 3,
+    "rows": 1000,
+    "median_planning_seconds": 0.007672999985516071,
+    "median_end_to_end_seconds": 0.1591915839817375,
+    "median_rows_per_second": 6281.739115773358,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "skewed",
+    "rows_ingested": 10000,
+    "payload_width": 0,
+    "mode": "retained",
+    "requested_partitions": 1,
+    "actual_partitions": [
+      1
+    ],
+    "workers": 4,
+    "repeats": 3,
+    "rows": 1000,
+    "median_planning_seconds": 0.00847137501114048,
+    "median_end_to_end_seconds": 0.15111908302060328,
+    "median_rows_per_second": 6617.297961394207,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "skewed",
+    "rows_ingested": 10000,
+    "payload_width": 0,
+    "mode": "retained",
+    "requested_partitions": 4,
+    "actual_partitions": [
+      1
+    ],
+    "workers": 1,
+    "repeats": 3,
+    "rows": 1000,
+    "median_planning_seconds": 0.008126916975015774,
+    "median_end_to_end_seconds": 0.15084362498600967,
+    "median_rows_per_second": 6629.3819184784725,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "skewed",
+    "rows_ingested": 10000,
+    "payload_width": 0,
+    "mode": "retained",
+    "requested_partitions": 4,
+    "actual_partitions": [
+      1
+    ],
+    "workers": 4,
+    "repeats": 3,
+    "rows": 1000,
+    "median_planning_seconds": 0.008130542002618313,
+    "median_end_to_end_seconds": 0.1550689580035396,
+    "median_rows_per_second": 6448.743919316038,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "skewed",
+    "rows_ingested": 10000,
+    "payload_width": 1024,
+    "mode": "live",
+    "requested_partitions": 1,
+    "actual_partitions": [
+      1
+    ],
+    "workers": 1,
+    "repeats": 3,
+    "rows": 1000,
+    "median_planning_seconds": 0.0006716659991070628,
+    "median_end_to_end_seconds": 0.15022162499371916,
+    "median_rows_per_second": 6656.831198849104,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "skewed",
+    "rows_ingested": 10000,
+    "payload_width": 1024,
+    "mode": "live",
+    "requested_partitions": 1,
+    "actual_partitions": [
+      1
+    ],
+    "workers": 4,
+    "repeats": 3,
+    "rows": 1000,
+    "median_planning_seconds": 0.000522624992299825,
+    "median_end_to_end_seconds": 0.14787416698527522,
+    "median_rows_per_second": 6762.50639572209,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "skewed",
+    "rows_ingested": 10000,
+    "payload_width": 1024,
+    "mode": "live",
+    "requested_partitions": 4,
+    "actual_partitions": [
+      4
+    ],
+    "workers": 1,
+    "repeats": 3,
+    "rows": 1000,
+    "median_planning_seconds": 0.0005364590033423156,
+    "median_end_to_end_seconds": 0.15641054100706242,
+    "median_rows_per_second": 6393.430989762045,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "skewed",
+    "rows_ingested": 10000,
+    "payload_width": 1024,
+    "mode": "live",
+    "requested_partitions": 4,
+    "actual_partitions": [
+      4
+    ],
+    "workers": 4,
+    "repeats": 3,
+    "rows": 1000,
+    "median_planning_seconds": 0.00044891599100083113,
+    "median_end_to_end_seconds": 0.17275275001884438,
+    "median_rows_per_second": 5788.619862149327,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "skewed",
+    "rows_ingested": 10000,
+    "payload_width": 1024,
+    "mode": "retained",
+    "requested_partitions": 1,
+    "actual_partitions": [
+      1
+    ],
+    "workers": 1,
+    "repeats": 3,
+    "rows": 1000,
+    "median_planning_seconds": 0.010085582995088771,
+    "median_end_to_end_seconds": 0.15695016700192355,
+    "median_rows_per_second": 6371.449098157023,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "skewed",
+    "rows_ingested": 10000,
+    "payload_width": 1024,
+    "mode": "retained",
+    "requested_partitions": 1,
+    "actual_partitions": [
+      1
+    ],
+    "workers": 4,
+    "repeats": 3,
+    "rows": 1000,
+    "median_planning_seconds": 0.011272291012573987,
+    "median_end_to_end_seconds": 0.15407054100069217,
+    "median_rows_per_second": 6490.5334498404045,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "skewed",
+    "rows_ingested": 10000,
+    "payload_width": 1024,
+    "mode": "retained",
+    "requested_partitions": 4,
+    "actual_partitions": [
+      2
+    ],
+    "workers": 1,
+    "repeats": 3,
+    "rows": 1000,
+    "median_planning_seconds": 0.010976582998409867,
+    "median_end_to_end_seconds": 0.15497912498540245,
+    "median_rows_per_second": 6452.481907445215,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "skewed",
+    "rows_ingested": 10000,
+    "payload_width": 1024,
+    "mode": "retained",
+    "requested_partitions": 4,
+    "actual_partitions": [
+      2
+    ],
+    "workers": 4,
+    "repeats": 3,
+    "rows": 1000,
+    "median_planning_seconds": 0.01118208299158141,
+    "median_end_to_end_seconds": 0.16588120799860917,
+    "median_rows_per_second": 6028.410403234973,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "sparse",
+    "rows_ingested": 10000,
+    "payload_width": 0,
+    "mode": "live",
+    "requested_partitions": 1,
+    "actual_partitions": [
+      1
+    ],
+    "workers": 1,
+    "repeats": 3,
+    "rows": 1000,
+    "median_planning_seconds": 0.0005888330051675439,
+    "median_end_to_end_seconds": 0.14886983300675638,
+    "median_rows_per_second": 6717.277636461213,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "sparse",
+    "rows_ingested": 10000,
+    "payload_width": 0,
+    "mode": "live",
+    "requested_partitions": 1,
+    "actual_partitions": [
+      1
+    ],
+    "workers": 4,
+    "repeats": 3,
+    "rows": 1000,
+    "median_planning_seconds": 0.0005524169828277081,
+    "median_end_to_end_seconds": 0.14768962500966154,
+    "median_rows_per_second": 6770.956320964198,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "sparse",
+    "rows_ingested": 10000,
+    "payload_width": 0,
+    "mode": "live",
+    "requested_partitions": 4,
+    "actual_partitions": [
+      4
+    ],
+    "workers": 1,
+    "repeats": 3,
+    "rows": 1000,
+    "median_planning_seconds": 0.0005367080157157034,
+    "median_end_to_end_seconds": 0.15857495801174082,
+    "median_rows_per_second": 6306.165945356646,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "sparse",
+    "rows_ingested": 10000,
+    "payload_width": 0,
+    "mode": "live",
+    "requested_partitions": 4,
+    "actual_partitions": [
+      4
+    ],
+    "workers": 4,
+    "repeats": 3,
+    "rows": 1000,
+    "median_planning_seconds": 0.0004664579755626619,
+    "median_end_to_end_seconds": 0.17965525001636706,
+    "median_rows_per_second": 5566.2164056374495,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "sparse",
+    "rows_ingested": 10000,
+    "payload_width": 0,
+    "mode": "retained",
+    "requested_partitions": 1,
+    "actual_partitions": [
+      1
+    ],
+    "workers": 1,
+    "repeats": 3,
+    "rows": 1000,
+    "median_planning_seconds": 0.007776333979563788,
+    "median_end_to_end_seconds": 0.15897224997752346,
+    "median_rows_per_second": 6290.406030872599,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "sparse",
+    "rows_ingested": 10000,
+    "payload_width": 0,
+    "mode": "retained",
+    "requested_partitions": 1,
+    "actual_partitions": [
+      1
+    ],
+    "workers": 4,
+    "repeats": 3,
+    "rows": 1000,
+    "median_planning_seconds": 0.008488124993164092,
+    "median_end_to_end_seconds": 0.1573441670043394,
+    "median_rows_per_second": 6355.494576245848,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "sparse",
+    "rows_ingested": 10000,
+    "payload_width": 0,
+    "mode": "retained",
+    "requested_partitions": 4,
+    "actual_partitions": [
+      1
+    ],
+    "workers": 1,
+    "repeats": 3,
+    "rows": 1000,
+    "median_planning_seconds": 0.008239750022767112,
+    "median_end_to_end_seconds": 0.16115966701181605,
+    "median_rows_per_second": 6205.026471832317,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "sparse",
+    "rows_ingested": 10000,
+    "payload_width": 0,
+    "mode": "retained",
+    "requested_partitions": 4,
+    "actual_partitions": [
+      1
+    ],
+    "workers": 4,
+    "repeats": 3,
+    "rows": 1000,
+    "median_planning_seconds": 0.008202249999158084,
+    "median_end_to_end_seconds": 0.16201683299732395,
+    "median_rows_per_second": 6172.198169165034,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "sparse",
+    "rows_ingested": 10000,
+    "payload_width": 1024,
+    "mode": "live",
+    "requested_partitions": 1,
+    "actual_partitions": [
+      1
+    ],
+    "workers": 1,
+    "repeats": 3,
+    "rows": 1000,
+    "median_planning_seconds": 0.0006463330064434558,
+    "median_end_to_end_seconds": 0.15393833300913684,
+    "median_rows_per_second": 6496.107762454762,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "sparse",
+    "rows_ingested": 10000,
+    "payload_width": 1024,
+    "mode": "live",
+    "requested_partitions": 1,
+    "actual_partitions": [
+      1
+    ],
+    "workers": 4,
+    "repeats": 3,
+    "rows": 1000,
+    "median_planning_seconds": 0.000575500016566366,
+    "median_end_to_end_seconds": 0.1502032910066191,
+    "median_rows_per_second": 6657.643739350107,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "sparse",
+    "rows_ingested": 10000,
+    "payload_width": 1024,
+    "mode": "live",
+    "requested_partitions": 4,
+    "actual_partitions": [
+      4
+    ],
+    "workers": 1,
+    "repeats": 3,
+    "rows": 1000,
+    "median_planning_seconds": 0.0005323329824022949,
+    "median_end_to_end_seconds": 0.15988883399404585,
+    "median_rows_per_second": 6254.345441266019,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "sparse",
+    "rows_ingested": 10000,
+    "payload_width": 1024,
+    "mode": "live",
+    "requested_partitions": 4,
+    "actual_partitions": [
+      4
+    ],
+    "workers": 4,
+    "repeats": 3,
+    "rows": 1000,
+    "median_planning_seconds": 0.00045783299719914794,
+    "median_end_to_end_seconds": 0.17187695900793187,
+    "median_rows_per_second": 5818.1155040906415,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "sparse",
+    "rows_ingested": 10000,
+    "payload_width": 1024,
+    "mode": "retained",
+    "requested_partitions": 1,
+    "actual_partitions": [
+      1
+    ],
+    "workers": 1,
+    "repeats": 3,
+    "rows": 1000,
+    "median_planning_seconds": 0.010072083998238668,
+    "median_end_to_end_seconds": 0.1561609590135049,
+    "median_rows_per_second": 6403.649198347452,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "sparse",
+    "rows_ingested": 10000,
+    "payload_width": 1024,
+    "mode": "retained",
+    "requested_partitions": 1,
+    "actual_partitions": [
+      1
+    ],
+    "workers": 4,
+    "repeats": 3,
+    "rows": 1000,
+    "median_planning_seconds": 0.011040041979867965,
+    "median_end_to_end_seconds": 0.15415133399073966,
+    "median_rows_per_second": 6487.131665432575,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "sparse",
+    "rows_ingested": 10000,
+    "payload_width": 1024,
+    "mode": "retained",
+    "requested_partitions": 4,
+    "actual_partitions": [
+      2
+    ],
+    "workers": 1,
+    "repeats": 3,
+    "rows": 1000,
+    "median_planning_seconds": 0.011444792005931959,
+    "median_end_to_end_seconds": 0.15912733299774118,
+    "median_rows_per_second": 6284.275499132478,
+    "exact_result_and_schema": true
+  },
+  {
+    "layout": "sparse",
+    "rows_ingested": 10000,
+    "payload_width": 1024,
+    "mode": "retained",
+    "requested_partitions": 4,
+    "actual_partitions": [
+      2
+    ],
+    "workers": 4,
+    "repeats": 3,
+    "rows": 1000,
+    "median_planning_seconds": 0.011045542021747679,
+    "median_end_to_end_seconds": 0.1647381660004612,
+    "median_rows_per_second": 6070.238756920484,
+    "exact_result_and_schema": true
+  }
+]

@@ -1,0 +1,38 @@
+=== RUN   TestFourIssueSQL
+=== RUN   TestFourIssueSQL/select_(array[1,2,3])[2]
+    four_issues_test.go:18: got "{1,2,3}" want "2"
+=== RUN   TestFourIssueSQL/select_'{1,2,NULL}'::integer[]
+    four_issues_test.go:18: got "error: invalid input syntax for type integer: \"{1,2,NULL}\"" want "{1,2,NULL}"
+=== RUN   TestFourIssueSQL/select_string_to_array('a,b',',')
+    four_issues_test.go:18: got "error: function string_to_array(varchar, varchar) does not exist" want "{a,b}"
+=== RUN   TestFourIssueSQL/select_array_append(array[1,2],3)
+    four_issues_test.go:18: got "error: function array_append(integer[], integer) does not exist" want "{1,2,3}"
+=== RUN   TestFourIssueSQL/select_array[1,2,3][2:3]
+    four_issues_test.go:18: got "{1,2,3}" want "{2,3}"
+=== RUN   TestFourIssueSQL/select_generate_series(1,3)
+    four_issues_test.go:18: got "error: generate_series is only supported in FROM (SELECT … FROM generate_series(…) AS g)" want "1\n2\n3"
+=== RUN   TestFourIssueSQL/select_*_from_generate_series(1,3)_with_ordinality_as_g(n,i)
+    four_issues_test.go:18: got "error: syntax error: unexpected \"ordinality\"" want "1|1\n2|2\n3|3"
+=== RUN   TestFourIssueSQL/select_*_from_string_to_table('a,b',',')
+    four_issues_test.go:18: got "error: table function string_to_table is not supported (only GENERATE_SERIES is)" want "a\nb"
+=== RUN   TestFourIssueSQL/select_*_from_regexp_split_to_table('a,b',',')
+    four_issues_test.go:18: got "error: table function regexp_split_to_table is not supported (only GENERATE_SERIES is)" want "a\nb"
+=== RUN   TestFourIssueSQL/select_*_from_unnest(array[1,2])_x(n)
+    four_issues_test.go:18: got "error: table function unnest is not supported (only GENERATE_SERIES is)" want "1\n2"
+=== RUN   TestFourIssueSQL/select_*_from_rows_from_(generate_series(1,2),generate_series(1,3))_r(a,b)
+    four_issues_test.go:18: got "error: syntax error: unexpected \"from\"" want "1|1\n2|2\nNULL|3"
+--- FAIL: TestFourIssueSQL (0.00s)
+    --- FAIL: TestFourIssueSQL/select_(array[1,2,3])[2] (0.00s)
+    --- FAIL: TestFourIssueSQL/select_'{1,2,NULL}'::integer[] (0.00s)
+    --- FAIL: TestFourIssueSQL/select_string_to_array('a,b',',') (0.00s)
+    --- FAIL: TestFourIssueSQL/select_array_append(array[1,2],3) (0.00s)
+    --- FAIL: TestFourIssueSQL/select_array[1,2,3][2:3] (0.00s)
+    --- FAIL: TestFourIssueSQL/select_generate_series(1,3) (0.00s)
+    --- FAIL: TestFourIssueSQL/select_*_from_generate_series(1,3)_with_ordinality_as_g(n,i) (0.00s)
+    --- FAIL: TestFourIssueSQL/select_*_from_string_to_table('a,b',',') (0.00s)
+    --- FAIL: TestFourIssueSQL/select_*_from_regexp_split_to_table('a,b',',') (0.00s)
+    --- FAIL: TestFourIssueSQL/select_*_from_unnest(array[1,2])_x(n) (0.00s)
+    --- FAIL: TestFourIssueSQL/select_*_from_rows_from_(generate_series(1,2),generate_series(1,3))_r(a,b) (0.00s)
+FAIL
+FAIL	github.com/adbc-drivers/redis/go	0.645s
+FAIL

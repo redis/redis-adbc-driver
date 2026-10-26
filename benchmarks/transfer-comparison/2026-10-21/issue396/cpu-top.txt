@@ -1,0 +1,33 @@
+File: main.test
+Type: cpu
+Time: 2026-10-21 12:35:30 PDT
+Duration: 39.61s, Total samples = 37.79s (95.41%)
+Showing nodes accounting for 33.15s, 87.72% of 37.79s total
+Dropped 286 nodes (cum <= 0.19s)
+Showing top 25 nodes out of 177
+      flat  flat%   sum%        cum   cum%
+     9.53s 25.22% 25.22%      9.53s 25.22%  runtime.madvise
+     4.19s 11.09% 36.31%      4.19s 11.09%  syscall.rawsyscalln
+     3.25s  8.60% 44.91%      3.25s  8.60%  runtime.usleep
+     2.80s  7.41% 52.32%      2.80s  7.41%  runtime.pthread_cond_wait
+     2.31s  6.11% 58.43%      2.31s  6.11%  runtime.pthread_kill
+     2.05s  5.42% 63.85%      2.26s  5.98%  runtime.tryDeferToSpanScan
+     1.73s  4.58% 68.43%      1.73s  4.58%  runtime.kevent
+     1.23s  3.25% 71.69%      1.23s  3.25%  runtime.pthread_cond_signal
+     0.84s  2.22% 73.91%      1.52s  4.02%  runtime.scanObjectsSmall
+     0.54s  1.43% 75.34%      2.59s  6.85%  runtime.scanObject
+     0.48s  1.27% 76.61%      0.48s  1.27%  internal/runtime/maps.memHashAES
+     0.47s  1.24% 77.85%      1.10s  2.91%  runtime.mapassign_faststr
+     0.45s  1.19% 79.04%      1.77s  4.68%  github.com/adbc-drivers/redis/go.buildRecord
+     0.43s  1.14% 80.18%      0.66s  1.75%  runtime.mapaccess2_faststr
+     0.41s  1.08% 81.26%      0.53s  1.40%  github.com/adbc-drivers/redis/go.coerceIn
+     0.37s  0.98% 82.24%      0.91s  2.41%  github.com/adbc-drivers/redis/go.Coerce
+     0.36s  0.95% 83.20%      2.95s  7.81%  github.com/adbc-drivers/redis/go.decodeRow
+     0.36s  0.95% 84.15%      0.99s  2.62%  github.com/adbc-drivers/redis/go.evalItems
+     0.28s  0.74% 84.89%      0.28s  0.74%  runtime.extractHeapBitsSmall
+     0.25s  0.66% 85.55%      0.75s  1.98%  github.com/adbc-drivers/redis/go.columnMeta.decode
+     0.22s  0.58% 86.13%      0.52s  1.38%  github.com/adbc-drivers/redis/go.decodeStored
+     0.19s   0.5% 86.64%      0.52s  1.38%  github.com/adbc-drivers/redis/go.(*evalEnv).eval
+     0.19s   0.5% 87.14%      1.05s  2.78%  runtime.mapassign
+     0.13s  0.34% 87.48%      0.68s  1.80%  runtime.mallocgcSmallScanNoHeader
+     0.09s  0.24% 87.72%      0.38s  1.01%  github.com/adbc-drivers/redis/go.appendValue

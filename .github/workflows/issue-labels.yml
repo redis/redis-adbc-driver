@@ -1,0 +1,42 @@
+name: Require issue labels
+
+on:
+  issues:
+    types: [opened, reopened, unlabeled]
+
+permissions:
+  issues: write
+
+concurrency:
+  group: issue-labels-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v8
+        with:
+          script: |
+            const repo = context.repo;
+            const issue_number = context.issue.number;
+            // Read current labels: queued events can contain stale state.
+            const { data: issue } = await github.rest.issues.get({ ...repo, issue_number });
+            if (issue.pull_request || issue.labels.length > 0) return;
+            const name = 'needs-triage';
+            try {
+              await github.rest.issues.getLabel({ ...repo, name });
+            } catch (error) {
+              if (error.status !== 404) throw error;
+              try {
+                await github.rest.issues.createLabel({
+                  ...repo, name, color: 'ededed',
+                  description: 'Awaiting issue classification',
+                });
+              } catch (creationError) {
+                // Another issue's run may have created the label concurrently.
+                if (creationError.status !== 422) throw creationError;
+                await github.rest.issues.getLabel({ ...repo, name });
+              }
+            }
+            await github.rest.issues.addLabels({ ...repo, issue_number, labels: [name] });

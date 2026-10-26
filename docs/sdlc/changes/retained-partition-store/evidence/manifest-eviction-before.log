@@ -1,0 +1,6 @@
+=== RUN   TestRetainedPartitionManifestEvictionStopsReplay
+    partition_retained_store_integration_test.go:282: reader replayed a chunk after its manifest was evicted <nil>
+--- FAIL: TestRetainedPartitionManifestEvictionStopsReplay (0.01s)
+FAIL
+FAIL	github.com/adbc-drivers/redis/go	0.613s
+FAIL

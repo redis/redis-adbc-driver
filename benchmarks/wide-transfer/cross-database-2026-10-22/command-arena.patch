@@ -1,0 +1,43 @@
+diff --git a/go/store.go b/go/store.go
+index 112f20c..b01f3e7 100644
+--- a/go/store.go
++++ b/go/store.go
+@@ -1981,12 +1981,36 @@ func (s *store) fetchHashCommands(ctx context.Context, keys []string, fields []s
+ 	}
+ 	pipe := s.client.Pipeline()
+ 	cmds := make([]*goredis.SliceCmd, 0, len(keys))
+-	for _, key := range keys {
++	// Wide reads share immutable field-name boxes across the page. Each command
++	// owns its argument slice, including spare capacity, so retries and Cluster
++	// routing cannot overwrite another command's key or fields.
++	var template, arena []any
++	if len(fields) >= 64 {
++		template = make([]any, len(fields)+2)
++		template[0] = "hmget"
++		for i, field := range fields {
++			template[i+2] = field
++		}
++		arena = make([]any, len(keys)*len(template))
++	}
++	for i, key := range keys {
+ 		if key == "" {
+ 			cmds = append(cmds, nil)
+ 			continue
+ 		}
+-		cmds = append(cmds, pipe.HMGet(ctx, key, fields...))
++		if template == nil {
++			cmds = append(cmds, pipe.HMGet(ctx, key, fields...))
++			continue
++		}
++		lo, hi := i*len(template), (i+1)*len(template)
++		args := arena[lo:hi:hi]
++		copy(args, template)
++		args[1] = key
++		cmd := goredis.NewSliceCmd(ctx, args...)
++		if err := pipe.Process(ctx, cmd); err != nil {
++			return nil, wrapRedis(err, "failed to queue row read")
++		}
++		cmds = append(cmds, cmd)
+ 	}
+ 	if _, err := pipe.Exec(ctx); err != nil && !errors.Is(err, goredis.Nil) {
+ 		return nil, wrapRedis(err, "failed to read rows")

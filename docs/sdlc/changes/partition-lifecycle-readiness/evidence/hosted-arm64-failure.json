@@ -1,0 +1,103 @@
+{
+  "kind": "local native partition TLS/independent ACL validation",
+  "status": "failed",
+  "library_sha256": "33b13f62bc713b0a3f3a94a6a5b029acf364f4047c86dedcc5e61ef9831f21ba",
+  "installed_wheel": false,
+  "python": "3.13.16",
+  "pyarrow": "26.0.0",
+  "certificate_verification": true,
+  "platform": "Linux-7.0.0-1017-azure-aarch64-with-glibc2.39",
+  "machine": "aarch64",
+  "packages": {
+    "adbc-driver-manager": "1.12.0",
+    "redis": "8.1.0"
+  },
+  "aggregate_cap": 137,
+  "cluster_mode": "auto",
+  "checks": [
+    "verified_three_primary_tls_caps",
+    "verified_admin_tls_and_real_cap",
+    "hostname_mismatch_rejected",
+    "fixture_rows_span_advertised_cluster_primaries",
+    "closed_planner_and_credential_free_descriptors",
+    "restricted_cross_process_search_full_values_schema",
+    "restricted_cross_process_direct_hash_duplicates_deleted",
+    "native_untrusted_ca_rejected",
+    "native_hostname_mismatch_rejected",
+    "worker_config_and_writes_denied",
+    "malformed_descriptor_rejected",
+    "search_readiness_acl_required_direct_hash_independent",
+    "direct_hash_reader_obeys_worker_acl",
+    "connection_cancel_in_independent_tls_worker",
+    "early_release_in_independent_tls_worker",
+    "persistent_workers_follow_ask_and_moved_with_restricted_acl",
+    "post_reshard_search_full_values_and_physical_owners"
+  ],
+  "server_cluster_enabled": 1,
+  "topology": {
+    "deployment": "owned OSS Cluster TLS",
+    "container_id": "46c63b5a8c476900ceb05a0305d13b43fc2a7c07c8c43af6725f5170bb63c26c",
+    "ports": [
+      16394,
+      16395,
+      16396
+    ],
+    "primary_node_ids": {
+      "16394": "0aa54711909abbe37afa4aa043856c792d258ed8",
+      "16395": "af20a8593c4041ae097548bf39448d5d5e34a858",
+      "16396": "3b706c7c135c6be22ab15c3e4db1e2cd52e17bfb"
+    }
+  },
+  "redis_version": "8.6.2",
+  "modules": [
+    {
+      "name": "vectorset",
+      "ver": 1,
+      "path": "",
+      "args": []
+    },
+    {
+      "name": "search",
+      "ver": 80600,
+      "path": "/usr/local/lib/redis/modules/redisearch.so",
+      "args": []
+    }
+  ],
+  "cluster_distribution": {
+    "primary_count": 3,
+    "slot_range_count": 3,
+    "minimum_primary_count": 3,
+    "physical_row_presence_verified": true,
+    "owned_rows_per_primary": [
+      373,
+      355,
+      371
+    ],
+    "covered_slots": 16384
+  },
+  "resharding": {
+    "slot": 15835,
+    "source_port": 16396,
+    "target_port": 16394,
+    "migrated_keys": 1,
+    "ask_observed": true,
+    "moved_observed": true,
+    "asking_acl_denial_verified": true,
+    "persistent_native_connections": 2,
+    "exact_arrow_values_and_schema": true,
+    "ownership_finalized": true,
+    "search_convergence_attempts": 1
+  },
+  "post_reshard_distribution": {
+    "primary_count": 3,
+    "slot_range_count": 5,
+    "minimum_primary_count": 3,
+    "physical_row_presence_verified": true,
+    "owned_rows_per_primary": [
+      374,
+      355,
+      370
+    ],
+    "covered_slots": 16384
+  }
+}

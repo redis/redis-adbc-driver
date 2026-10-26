@@ -1,0 +1,80 @@
+{
+  "date": "2026-10-21",
+  "base": "20de269",
+  "command": "REDIS_URI=redis://127.0.0.1:17780/0 REDIS_PARTITION_CAP_TEST=1 GOTOOLCHAIN=go1.26.6 go -C go test -json -count=1 -p 1 ./...",
+  "platform": "macOS arm64 26.7.1",
+  "go": "1.26.6",
+  "redis": "8.10.2",
+  "search": "8.10.1",
+  "test_and_subtest_events": {
+    "pass": 973,
+    "skip": 12
+  },
+  "packages": [
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Action": "pass",
+      "Elapsed": 79.741
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go/cmd/redis-adbc",
+      "Action": "pass",
+      "Elapsed": 0.888
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go/internal/benchproxy",
+      "Action": "pass",
+      "Elapsed": 0.251
+    }
+  ],
+  "skips": [
+    {
+      "test": "TestAggregateInputLoadProfile",
+      "output": "=== RUN   TestAggregateInputLoadProfile\n    aggregate_inputs_bench_test.go:112: set REDIS_INPUT_LOAD_PROFILE_TABLE to profile a preloaded fixture\n--- SKIP: TestAggregateInputLoadProfile (0.00s)"
+    },
+    {
+      "test": "TestAggregatePagesProfile",
+      "output": "=== RUN   TestAggregatePagesProfile\n    aggregate_pages_profile_test.go:31: set REDIS_AGG_PROFILE_QUERY to profile an existing test fixture\n--- SKIP: TestAggregatePagesProfile (0.00s)"
+    },
+    {
+      "test": "TestClickBenchExecutionProfile",
+      "output": "=== RUN   TestClickBenchExecutionProfile\n    clickbench_execution_profile_test.go:30: set REDIS_EXECUTION_PROFILE_DIR to a fresh output directory\n--- SKIP: TestClickBenchExecutionProfile (0.00s)"
+    },
+    {
+      "test": "TestExactDistinctProfile",
+      "output": "=== RUN   TestExactDistinctProfile\n    exact_distinct_profile_test.go:35: set REDIS_AGG_PROFILE_QUERY to profile an existing test fixture\n--- SKIP: TestExactDistinctProfile (0.00s)"
+    },
+    {
+      "test": "TestFlexRefused",
+      "output": "=== RUN   TestFlexRefused\n    flex_integration_test.go:38: set REDIS_FLEX_URI to a Redis Flex database to run this test\n--- SKIP: TestFlexRefused (0.00s)"
+    },
+    {
+      "test": "TestLateProjectionProfile",
+      "output": "=== RUN   TestLateProjectionProfile\n    late_projection_profile_test.go:70: set REDIS_LATE_PROFILE_QUERY on preloaded table\n--- SKIP: TestLateProjectionProfile (0.00s)"
+    },
+    {
+      "test": "TestNarrowScanProfile",
+      "output": "=== RUN   TestNarrowScanProfile\n    narrow_scan_profile_test.go:59: set REDIS_SCAN_PROFILE=1 for the 105-column scan profile\n--- SKIP: TestNarrowScanProfile (0.00s)"
+    },
+    {
+      "test": "TestRangeReadinessChecksAllPrimaries",
+      "output": "=== RUN   TestRangeReadinessChecksAllPrimaries\n    partition_readiness_integration_test.go:188: OSS Cluster-specific non-coordinator check\n--- SKIP: TestRangeReadinessChecksAllPrimaries (0.00s)"
+    },
+    {
+      "test": "TestQ19Profile",
+      "output": "=== RUN   TestQ19Profile\n    q19_profile_test.go:38: set REDIS_Q19_PROFILE=1\n--- SKIP: TestQ19Profile (0.00s)"
+    },
+    {
+      "test": "TestTimeoutServerPaused",
+      "output": "=== RUN   TestTimeoutServerPaused\n    timeout_integration_test.go:373: set REDIS_PAUSE_TESTS=1 to run tests that pause the Redis server at REDIS_URI (CLIENT PAUSE)\n--- SKIP: TestTimeoutServerPaused (0.00s)"
+    },
+    {
+      "test": "TestAggregateWorkerConcurrencyProfile",
+      "output": "=== RUN   TestAggregateWorkerConcurrencyProfile\n    worker_budget_profile_test.go:45: set REDIS_WORKER_PROFILE_ROWS >= 2048\n--- SKIP: TestAggregateWorkerConcurrencyProfile (0.00s)"
+    },
+    {
+      "test": "TestAggregateWorkerMixedProbe",
+      "output": "=== RUN   TestAggregateWorkerMixedProbe\n    worker_tuner_mixed_profile_test.go:39: set REDIS_WORKER_PROFILE_MIXED_ROWS >= 8192 on an isolated disposable server\n--- SKIP: TestAggregateWorkerMixedProbe (0.00s)"
+    }
+  ]
+}

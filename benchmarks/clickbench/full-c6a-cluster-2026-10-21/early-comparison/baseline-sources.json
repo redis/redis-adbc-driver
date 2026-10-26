@@ -1,0 +1,23 @@
+[
+  {
+    "name": "clickhouse",
+    "path": "clickhouse/results/20261008/c6a.4xlarge.json",
+    "commit": "e90045879276f75cc398f1ab8a73541a7716058d",
+    "url": "https://github.com/ClickHouse/ClickBench/blob/e90045879276f75cc398f1ab8a73541a7716058d/clickhouse/results/20261008/c6a.4xlarge.json",
+    "source_sha256": "172c4316cdefc2ef304f3ebe7e28a3ed5ea66d5f4d70b9e92b243b9111c15dde"
+  },
+  {
+    "name": "duckdb",
+    "path": "duckdb/results/20260511/c6a.4xlarge.json",
+    "commit": "e90045879276f75cc398f1ab8a73541a7716058d",
+    "url": "https://github.com/ClickHouse/ClickBench/blob/e90045879276f75cc398f1ab8a73541a7716058d/duckdb/results/20260511/c6a.4xlarge.json",
+    "source_sha256": "5916d2e536c8be4a5aa9c57213a1d3e40bad754a759437688ac4bbb4dac4bd6e"
+  },
+  {
+    "name": "postgresql",
+    "path": "postgresql/results/20260921/c6a.4xlarge.json",
+    "commit": "e90045879276f75cc398f1ab8a73541a7716058d",
+    "url": "https://github.com/ClickHouse/ClickBench/blob/e90045879276f75cc398f1ab8a73541a7716058d/postgresql/results/20260921/c6a.4xlarge.json",
+    "source_sha256": "a495a311979756cccadbf5d3a69d3ba8d2ad793386ced16a46b10a673d21e41f"
+  }
+]

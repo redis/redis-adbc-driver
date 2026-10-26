@@ -1,0 +1,58 @@
+{
+  "area": "datetime",
+  "source": "https://github.com/alberttwong/redis-adbc-driver/issues/249",
+  "setup": [
+    "CREATE TABLE t (id integer, name varchar(20), score integer, grp varchar(10))",
+    "INSERT INTO t VALUES (1, 'apple', 10, 'a'), (2, 'Banana', NULL, 'a'), (3, 'cherry', 30, 'b'), (4, '_x', 20, 'b')",
+    "CREATE TABLE u (id integer, label text)",
+    "INSERT INTO u VALUES (1, 'one'), (2, 'two')"
+  ],
+  "cases": [
+    {
+      "id": "row-1",
+      "sql": "select date 'Jan 5 2024'",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-2",
+      "sql": "select date '20240105'",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-3",
+      "sql": "select date '2024-1-5'",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-4",
+      "sql": "select time '10:00 PM'",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-5",
+      "sql": "select timestamp '2024-01-05 10:00 PM'",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-6",
+      "sql": "select timestamp 'infinity'",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-7",
+      "sql": "select date 'epoch'",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-8",
+      "sql": "select date 'today' = current_date",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-9",
+      "sql": "select 'infinity'::timestamptz > now()",
+      "expect_postgres": null
+    }
+  ],
+  "tier": "issues"
+}

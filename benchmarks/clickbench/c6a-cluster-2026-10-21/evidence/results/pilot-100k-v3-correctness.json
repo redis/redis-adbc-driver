@@ -1,0 +1,915 @@
+{
+  "checks": [
+    {
+      "query": 1,
+      "trial": 1,
+      "status": "valid",
+      "raw_sha256": "18b964ee158aec2f78aff06599b32727c4cefc40d88940ee6b598cad701b5af8",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 1,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "e644e529ae1e505dfaff99b480e9972985391e97bdfe48b5507b0b4cbb3a6e2f",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 1,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "a9bcd93ad18403f4a0dba774f9c126e0d32d1252d1abab06b643171ef7d9ccff",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 2,
+      "trial": 1,
+      "status": "valid",
+      "raw_sha256": "602345385b6e3276de43d5fc7e475077e4c869559121b244b9a342da85ed722f",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 2,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "07d7ca6a17a99b035eab2d62d447fbe9495105f2e27705f7ef7fc89c253369b4",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 2,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "a9668e44ac3b2e33f75839083517ee678a2767ec8a2d2037f65bf2e32a5f39e0",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 3,
+      "trial": 1,
+      "status": "valid",
+      "raw_sha256": "23bab21bb5584c7aae1b87ef393f813c4f2157fac3ee4fbb4f99ee43a060d94f",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 3,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "0ddf400ab25197bb7c8d953fc0113268a615c0180944b691fa58e56dd0867e02",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 3,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "02f7bca6d0ec2880755788f6232a46d471175009885afad0fc532bd0b0c837ca",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 4,
+      "trial": 1,
+      "status": "valid",
+      "raw_sha256": "fb53e385fd949b2ce8480be1b04ed9f81f0f3ba96167d828289931aaf7bc157e",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 4,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "99a2d0c65d15d707e19a0ad7a8bf184d4d4adfb0b370b082d08864bc5dcd2507",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 4,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "d09ba47d0759328715f027b3b2ffa26d1e928afe8ac62f4ac83bd7387b907783",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 5,
+      "trial": 1,
+      "status": "valid",
+      "raw_sha256": "6a3ea711a5c29ca59e40e078ed6fb95c858ca2eb54fcb4945cd30fc582139322",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 5,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "b9b3b7feb3418d8dd0589fbc0892b8961ab8b8022cf521c003223d884b6da194",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 5,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "cddf5dd3cacf63f937f64fef9e44f5d691cd78e53f23824713c29e9439cb0b31",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 6,
+      "trial": 1,
+      "status": "valid",
+      "raw_sha256": "a271e84ff3a42514336eb1b277ec85027c3526062db23a8f3682d4b1239a964e",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 6,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "6be9d61a2ff56ea55f3afec559c8cd92363e4761c0714dce994e1c23c2e2c3f7",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 6,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "6989af4a3729bf0af869abb4f0e9521c3d71c383b174479285337507e392d62c",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 7,
+      "trial": 1,
+      "status": "valid",
+      "raw_sha256": "c98b40f8e8a1dc39e17441a9865358db65d8ecba1bd0b51c299f23c15d4a5bd6",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 7,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "c6950868c151b838ce3ee6e0cabe320db1d68fc3371763a5095a7a8d3c3a7be3",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 7,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "199da9bca2b844c21b096085ec97f0eb26f8565018338fe4a9750912911636b5",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 8,
+      "trial": 1,
+      "status": "valid",
+      "raw_sha256": "6d9bbfb1ac55b8ee0ab5aa0a99a6f48ca3bc83e733ab86281f8c0471541d3777",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 8,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "53b6127fa1f972acebd994223f54e85ac244b8e8737495ac293c5fc985a65b24",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 8,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "5b2549750efcfae313a697bf53ba1f5099a639c9bbcfaed1a784b308c93a5f7a",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 9,
+      "trial": 1,
+      "status": "valid",
+      "raw_sha256": "0f919c8d1283220572007b7307269e229c50a8ef6409b7c0c116f212b51433cb",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 9,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "f34b087a1dd8dfbc1508af0a19ce3ab6de1a852489804e4f1bbb817f963c5b8e",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 9,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "ea8ac25cd153918e3de5850e708b2119830e8968f4eea23fa97614b7e8e143f6",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 10,
+      "trial": 1,
+      "status": "valid",
+      "raw_sha256": "0ef49f740c1b56433669babb76aae42e64cd2efa7475efd3ced27a1b4729ad7c",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 10,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "8fb8a5a7bd9b9bc3ef2b1e50d8fd9c735da1b3250b4f2033c93e546bbe32b718",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 10,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "0f358ef14ce6dd53c5b5d14caa8303656704ee4f9c2acf842669605485438773",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 11,
+      "trial": 1,
+      "status": "valid",
+      "raw_sha256": "58f767f4332d92a34e321afff53a527265fd44013e51e1c388d17c8280d377ea",
+      "validation_method": "independent_limit_membership_and_ranks"
+    },
+    {
+      "query": 11,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "c105a3511c98db6a9fc59e8a5e057f129ef31f25b13ed4bff3dc44dca7cb0602",
+      "validation_method": "independent_limit_membership_and_ranks"
+    },
+    {
+      "query": 11,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "9dda08900411cb261b82b3a5435a32867d7e20b56452fe9375e3c9d1d85eaf2e",
+      "validation_method": "independent_limit_membership_and_ranks"
+    },
+    {
+      "query": 12,
+      "trial": 1,
+      "status": "valid",
+      "raw_sha256": "e5d3425f2c30d4f183e84fcf9f85cbb4fc2eea33187d5f34e60dc8c261f56715",
+      "validation_method": "independent_limit_membership_and_ranks"
+    },
+    {
+      "query": 12,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "81642228c10d8da6d8b94ce9d507a7737fa1a96336fca842bb8ac8b27fb9c197",
+      "validation_method": "independent_limit_membership_and_ranks"
+    },
+    {
+      "query": 12,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "407e4135372295bab56006b56c77e7b2df6283bd892be5491afd7efb50b219ef",
+      "validation_method": "independent_limit_membership_and_ranks"
+    },
+    {
+      "query": 13,
+      "trial": 1,
+      "status": "valid",
+      "raw_sha256": "d71ff2cbadb19d91b0e2cb6c01d8d16a90532f0d9cd6d0183714c9d4d5b3180e",
+      "validation_method": "independent_limit_membership_and_ranks"
+    },
+    {
+      "query": 13,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "b97225c804e154321d3107b4927a360599b4f9cc7787cf0f3a41738d96c290e5",
+      "validation_method": "independent_limit_membership_and_ranks"
+    },
+    {
+      "query": 13,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "ef1ef8c543d1c948977d19b83da18d7b22e1894976f716716fb11795ad138a70",
+      "validation_method": "independent_limit_membership_and_ranks"
+    },
+    {
+      "query": 14,
+      "trial": 1,
+      "status": "valid",
+      "raw_sha256": "eba7bba7c8e85f96c4462b90b028cd3bce00dbeb326ffca3858f9fb001240d21",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 14,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "eb4e427ef4d8462f9ad4de03339f2e1f963e604d16e747978ea443b25da2d113",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 14,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "270ddbee8d4fb42786b856c19da68cc730fa4f870d5e58d6e86ae9b22b32f969",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 15,
+      "trial": 1,
+      "status": "valid",
+      "raw_sha256": "28f836c8884e487932e26336004b1691c62f3fc09be8b94986a894170dc230d7",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 15,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "bc419cf67b3f0aa8192de67a020d94ced8214efbdaca60bc05ba52b66e66f9ae",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 15,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "937b65acac88bd9511228d88893a5527968925633a7f97698d92ad896fc5c397",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 16,
+      "trial": 1,
+      "status": "valid",
+      "raw_sha256": "85027869c4b26137dc2e3db3ab0471d56ad31ab9889b4a09630906e627ecffb5",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 16,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "350ab8859f1a0f0d5fd6e3242e4b0e22dd1aad18ece39f328f652de53083af6f",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 16,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "732be5c12fd99374012e82daec1219ae4545e076ae5bdd87f3bd61373236fe36",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 17,
+      "trial": 1,
+      "status": "valid",
+      "raw_sha256": "593ac8c81c71d053daf4578520ce041fea51ae3cc4972ac14e2e68c6a74c8c94",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 17,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "06ec541b7c158d1a691a77f6a13550f8d137a88529ef929cad6c552ee99369b5",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 17,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "57d13310c871787b2f42f5bb2aff9945bf3e112282c6c22959c3ad7d9c8657e6",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 18,
+      "trial": 1,
+      "status": "valid",
+      "raw_sha256": "7e7623415d584be05c20e0d0e0d00cd4871338b9898d8014d9d434a2e647bc55",
+      "validation_method": "independent_limit_membership_and_ranks"
+    },
+    {
+      "query": 18,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "9e2406c8bddb37e3aaf4db9307948f8ff633502dc78b2ab32b3fa616b2d0ae46",
+      "validation_method": "independent_limit_membership_and_ranks"
+    },
+    {
+      "query": 18,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "83518f59f23972d337287174feb03bee93b825e56bd74b04a990121c84b849c7",
+      "validation_method": "independent_limit_membership_and_ranks"
+    },
+    {
+      "query": 19,
+      "trial": 1,
+      "status": "needs_tie_validation",
+      "raw_sha256": "3bf899d12d142752236aef44cb644fd163ac40ff9047e0c5db7e2eccf9b64afc",
+      "validation_method": "independent_limit_membership_and_ranks"
+    },
+    {
+      "query": 19,
+      "trial": 2,
+      "status": "needs_tie_validation",
+      "raw_sha256": "6cc64c89607e1f04b50d93b8f433d1f10bfe900744f76ba10688a332ba654470",
+      "validation_method": "independent_limit_membership_and_ranks"
+    },
+    {
+      "query": 19,
+      "trial": 3,
+      "status": "needs_tie_validation",
+      "raw_sha256": "3d6366202a7a6fb65468f66c4740b7efd2dd23b6ba056e0bc2050f3888e72dd8",
+      "validation_method": "independent_limit_membership_and_ranks"
+    },
+    {
+      "query": 20,
+      "trial": 1,
+      "status": "valid",
+      "raw_sha256": "26c79d2693207d7a4ff96d2b912b5f2ae8e52e0b32e86a7fd9ba589eb3721895",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 20,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "b7357f98958020572b744f01c4c881470a0a425ff97f295ba857d10147611937",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 20,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "b90710a8a640bcee0f1c2fcbd899225e216bb22994370991fb70507035f59368",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 21,
+      "trial": 1,
+      "status": "valid",
+      "raw_sha256": "876846023bb3e80c26866d30379216a4921c6ebdf521e85bd08cc1ed91264166",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 21,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "3ee2496a3394e2d297001caf09e7d53ee2a5d0e300fc038b7897b9b66f6fe08e",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 21,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "ca6b9a7536e08b846725bcc6ca7a381ddf113febc94ee3531d6bb648366bc80f",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 22,
+      "trial": 1,
+      "status": "valid",
+      "raw_sha256": "9432524074ba01bb7f60ab38a894971fc17933a4d9910f9c5c1d5c6444d2b12c",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 22,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "2ab1503a118ce8ef8613090ea7b848f0a7bab118241706ac55e7a78eb2230f0d",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 22,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "af99709b3cc7cfc604d239dee924e7c1afdcf973b27839d8990916dbceebdb47",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 23,
+      "trial": 1,
+      "status": "valid",
+      "raw_sha256": "99fc9ad38dfc5e8eb7722b0569e1d8e38c6d878f666eb3cf29fa543181a8d4f1",
+      "validation_method": "independent_limit_membership_and_ranks"
+    },
+    {
+      "query": 23,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "66e88e068cb621f96cbcaa28f99ff0c261e7cc51c8073beba82251c84a3e8591",
+      "validation_method": "independent_limit_membership_and_ranks"
+    },
+    {
+      "query": 23,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "ce18ed54f5ff0051082fbe2ec648c04b1113d1e5d6b1f5029bd949ee14f50df8",
+      "validation_method": "independent_limit_membership_and_ranks"
+    },
+    {
+      "query": 24,
+      "trial": 1,
+      "status": "valid",
+      "raw_sha256": "7d728706f957b539b4b7fefc78aa0179da0a4e788aed42f6d4e15d7f201573ca",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 24,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "1265b6e3050a789a7897e9e6664148bb6f3ae7cd01a23800f4a98b3398fdba60",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 24,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "66d7a16ba9d6f2602a36e8e28e1d1e2e98b260efba0130fb13c2b93d5b2d2be2",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 25,
+      "trial": 1,
+      "status": "valid",
+      "raw_sha256": "ebe4910c1043a4e366ec2b67fa00f249ea9b922ab5dbece2f4ac485661cbf146",
+      "validation_method": "independent_limit_membership_and_ranks"
+    },
+    {
+      "query": 25,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "abcc7089d490d8c6e835d97115af22b833a124cf0eb6d03b7ec7e67a4094f099",
+      "validation_method": "independent_limit_membership_and_ranks"
+    },
+    {
+      "query": 25,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "ee3ab3ddd6543d439a385018da4d25d0bb2bf65f56eea25fc3f7c411c830be25",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 26,
+      "trial": 1,
+      "status": "valid",
+      "raw_sha256": "c37a3260326e2f0f8fedf32deaa113b0cdf97c0fcd3c8359248344c71d34ae92",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 26,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "3227765749a37f01498ecb8a07e3d7dc0830e1f450fc6a3bf07a4c409f2dfd96",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 26,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "f71e04215a1b8db2f2172a7e82d6cd6c7f89b61122b031d302e1aa6fb2163c3d",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 27,
+      "trial": 1,
+      "status": "valid",
+      "raw_sha256": "e842307623be23836e49e9bf1ae3891d59a84e3b7e184529d6e5e66490acae5c",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 27,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "d40c3f75859d60d826ecf6f702b14ac81f5fa2361628a6c42248755c005b44cd",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 27,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "a55d4594355fba4cc5027372c1920c26903c146629beab9b9b3ed311538a906f",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 28,
+      "trial": 1,
+      "status": "valid",
+      "raw_sha256": "89c9f4a1234c83a54e0e0cf0c024f246e97c182a5472f70463ca9a2f6b2b0e1e",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 28,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "cb9e5f19134718b4e65bdeeba5372ca649bc43f72183d4576254e5f49641d9c9",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 28,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "182d0515db99fa074d6483dd3720a040ebc3cd172c836728b1edd9181201fd0e",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 29,
+      "trial": 1,
+      "status": "valid",
+      "raw_sha256": "4e9721658851655a59861462c37228479ab243a0faccdcda0fbf7c9e7f90a362",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 29,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "ee6af0accc45641575e428ee8d6d0d3b91d9e20b9b434d78750bd6077a71d8d1",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 29,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "f3a3e6a04fc470414c3554f4f2eed35e4356c3f2ed93667f73bdbb44158f21ab",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 30,
+      "trial": 1,
+      "status": "valid",
+      "raw_sha256": "8e0135842b7154b5fc964ec78b7a16061f02e52256e169f6a49670fa01ef4f94",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 30,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "97ab37275079222471131195df1e3ac29685849416485b2a474a4c8946d86f51",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 30,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "4b450a16d28e5a57e3b85340c0c016006a8ebb2e26ed46854c30d68e10ad6b15",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 31,
+      "trial": 1,
+      "status": "valid",
+      "raw_sha256": "905b2d88fab6cbea94f8fbd37b7047a8b41c5a244a732b530621bc20934251fe",
+      "validation_method": "independent_limit_membership_and_ranks"
+    },
+    {
+      "query": 31,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "72bd376bec221dbbbf5711b46e429a557793eec8434bfa3e8f5dddcf78fc3b2c",
+      "validation_method": "independent_limit_membership_and_ranks"
+    },
+    {
+      "query": 31,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "f9c0682acbb15511b0bffe523e30ec88e61208999110a9ddd109d434b928bd97",
+      "validation_method": "independent_limit_membership_and_ranks"
+    },
+    {
+      "query": 32,
+      "trial": 1,
+      "status": "valid",
+      "raw_sha256": "73e7bc777ce916b91512fe949f6f5fb2aa072670b58f4d611a64303baea0fb68",
+      "validation_method": "independent_limit_membership_and_ranks"
+    },
+    {
+      "query": 32,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "9958d6ff5756b491b87dee1c92674d21152249e84e3a3c1b9ff8784ab65fa15a",
+      "validation_method": "independent_limit_membership_and_ranks"
+    },
+    {
+      "query": 32,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "5b69d3aa5e04672ea9ed1c1328963903adec334a54ddc6ad1450c88e579dad85",
+      "validation_method": "independent_limit_membership_and_ranks"
+    },
+    {
+      "query": 33,
+      "trial": 1,
+      "status": "valid",
+      "raw_sha256": "492ff378ee42b1bc5dac905c7dc5087e58da90cb6acfc2a656c014df89edddf4",
+      "validation_method": "independent_limit_membership_and_ranks"
+    },
+    {
+      "query": 33,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "fd941a4c2a18d216f4b28e19b68c0cfc1b694ac2038a3f24cef8300c4f45add0",
+      "validation_method": "independent_limit_membership_and_ranks"
+    },
+    {
+      "query": 33,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "2dc5495860321bf43f2faafc1416a7733be8a77b268d91fb48305286300ff12b",
+      "validation_method": "independent_limit_membership_and_ranks"
+    },
+    {
+      "query": 34,
+      "trial": 1,
+      "status": "valid",
+      "raw_sha256": "6e2dfd7003096e522991a60d814f23f0a0ae0657d5f97a02c2dd31e3f58bde89",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 34,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "82bb91e5266f3e7c3b3bf855f8f72b45c094d2af68fc8414a2ae2983f158c0a3",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 34,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "df79bc93810c1a14f0b9b53d0661a069974c391bfc77f2c2abc5d3816664a767",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 35,
+      "trial": 1,
+      "status": "valid",
+      "raw_sha256": "7413ad4661e3cfeb1f410f803b4734df14289a03dbc8a9c90f3a2fbb60a28844",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 35,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "98bacc505f9484d9bf6ae9b9e3c1ce4958511f3f795158e9079d878126d5bf4b",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 35,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "effbec1cea8f47ec5c7bc1269820da5e2d1bfede21291f7fa853fc9f2ca8f955",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 36,
+      "trial": 1,
+      "status": "valid",
+      "raw_sha256": "503c4d39bf699780bbf2aed28e5a804459fbefc5b89f3a9714453576148083f5",
+      "validation_method": "independent_limit_membership_and_ranks"
+    },
+    {
+      "query": 36,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "d2477fe591a3a6555844125458b53352addf23c8a6587018c1ec15fd5902bd5a",
+      "validation_method": "independent_limit_membership_and_ranks"
+    },
+    {
+      "query": 36,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "dcc764fb77a5c809c7180c61a4f2440d6ec228c1f6ee03b4ff8a6334d65fb834",
+      "validation_method": "independent_limit_membership_and_ranks"
+    },
+    {
+      "query": 37,
+      "trial": 1,
+      "status": "valid",
+      "raw_sha256": "05993bf409491641693a3cd7ed6edfac57334af023ba5569541f0e10922fc543",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 37,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "755e9ac18826c691928f73a4dc4d2e95853623f9b20da756f5aee55d09965c70",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 37,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "ee029024992e3b3db70f77555b6209cc962a7149ad908ddec9b0d664dd7b347e",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 38,
+      "trial": 1,
+      "status": "valid",
+      "raw_sha256": "c7c7a913530710cde5c64e27b057fee016e259ac63fe4e104e435ffc6f3613b9",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 38,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "4417b311d760607374678290afc08207bad8f83bd839c114236c5055782afa1b",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 38,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "e406786022be7bc1e79a918b1d24690d3e598bb59f495d14b5880c8a80119c20",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 39,
+      "trial": 1,
+      "status": "valid",
+      "raw_sha256": "985dfbfbab96a567a153e3b203b328535417358c7d7c15c0bea7281ec44e1b4e",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 39,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "8b0332d86358cd79cbda34a79f027704a8d6ff9a7d8ad4e1842874c89ab37445",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 39,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "4d3c06c8f318785462bc6bc4857f1a3b3722044115d928099855f5b72f90e921",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 40,
+      "trial": 1,
+      "status": "valid",
+      "raw_sha256": "1da8d3409bf83737e46222a0867af27935f762c9e0ae1487bd8fbed278c48621",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 40,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "dc757fba773181d45976aab4eb9a58aca3bcf540e6fc2e14fa6f12e9ac2a01ed",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 40,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "cf7b35493d2c56ade58ecc9ce6cadbcb5e3e126d0f44e5a49e41397be467c9ef",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 41,
+      "trial": 1,
+      "status": "valid",
+      "raw_sha256": "26747c344a843c7e55920abd27f1a701b66ac074864421ff13300065ca72318e",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 41,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "646db7e7d615142f2bba0267ad8857b64b44c9c55226f5bcb3248b7f6e498d23",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 41,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "6b2e1815f04ac17dc860582c08cae42a86c08ca29b1cb79e7a10d5dfc5d34541",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 42,
+      "trial": 1,
+      "status": "valid",
+      "raw_sha256": "09695d6687aa628ab0d8d72b4e59297c16edb5533d156835b1abac3d1af1cf74",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 42,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "b2b64a3573aaadcb68c7e3f47b84e88cc4c2845f5db6d7bb6362e6cdc9165890",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 42,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "50a5c2c802cf13176ad33914903a4d5ad7c1e1557e6bed3fcbfbe0f46e7dd26e",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 43,
+      "trial": 1,
+      "status": "valid",
+      "raw_sha256": "deb881755955cd0a839803b7a81be9209c774f8b807879dbb7388f8545dcf04c",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 43,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "d07a847e3031e25db1d4c1bad6348532a2c62647524ed1ce0a4219955b13d7c0",
+      "validation_method": "reference_rows"
+    },
+    {
+      "query": 43,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "2368cdebec627a86ad9eaaf015a0fd876bbd34ba98964b009a167bc3f01276bc",
+      "validation_method": "reference_rows"
+    }
+  ],
+  "reference_engine": "DuckDB",
+  "reference_engine_version": "2.0.0",
+  "reference_metadata": {
+    "loaded_rows": 100000,
+    "source": "Arrow-decoded prefix"
+  },
+  "float_relative_tolerance": 1e-10,
+  "float_absolute_tolerance": 1e-08
+}

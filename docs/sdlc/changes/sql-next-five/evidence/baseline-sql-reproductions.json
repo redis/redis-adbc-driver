@@ -1,0 +1,93 @@
+[
+  {
+    "issue": 188,
+    "sql": "select date('2099-12-31')",
+    "error": "NOT_FOUND: [redis] function date(varchar) does not exist. SQLSTATE: 42883",
+    "state": "42883",
+    "expected_error": null
+  },
+  {
+    "issue": 188,
+    "sql": "select date(timestamp '2023-09-02 10:00:00')",
+    "error": "NOT_FOUND: [redis] function date(timestamp) does not exist. SQLSTATE: 42883",
+    "state": "42883",
+    "expected_error": null
+  },
+  {
+    "issue": 188,
+    "sql": "select date(timestamptz '2023-09-02 10:00:00+00')",
+    "error": "NOT_FOUND: [redis] function date(timestamp with time zone) does not exist. SQLSTATE: 42883",
+    "state": "42883",
+    "expected_error": null
+  },
+  {
+    "issue": 241,
+    "sql": "select id from t order by id limit all",
+    "error": "INVALID_ARGUMENT: [redis] syntax error: expected a number near \"all\". SQLSTATE: 42601",
+    "state": "42601",
+    "expected_error": null
+  },
+  {
+    "issue": 241,
+    "sql": "select id from t order by id limit 1 + 1",
+    "error": "INVALID_ARGUMENT: [redis] syntax error: unexpected \"+\". SQLSTATE: 42601",
+    "state": "42601",
+    "expected_error": null
+  },
+  {
+    "issue": 241,
+    "sql": "select id from t order by id limit $1",
+    "error": "INVALID_ARGUMENT: [redis] syntax error: expected a number near \"1\". SQLSTATE: 42601",
+    "state": "42601",
+    "expected_error": null
+  },
+  {
+    "issue": 241,
+    "sql": "select id from t order by id offset $1",
+    "error": "INVALID_ARGUMENT: [redis] syntax error: expected a number near \"1\". SQLSTATE: 42601",
+    "state": "42601",
+    "expected_error": null
+  },
+  {
+    "issue": 242,
+    "sql": "select count(*)",
+    "error": "NOT_IMPLEMENTED: [redis] aggregates require a FROM clause",
+    "state": null,
+    "expected_error": null
+  },
+  {
+    "issue": 242,
+    "sql": "select count(*) where false",
+    "error": "NOT_IMPLEMENTED: [redis] aggregates require a FROM clause",
+    "state": null,
+    "expected_error": null
+  },
+  {
+    "issue": 242,
+    "sql": "select sum(1), max(2)",
+    "error": "NOT_IMPLEMENTED: [redis] aggregates require a FROM clause",
+    "state": null,
+    "expected_error": null
+  },
+  {
+    "issue": 244,
+    "sql": "select * from (values (1, 'a'), (2, 'b')) as v(n, s)",
+    "error": "INVALID_ARGUMENT: [redis] syntax error: expected identifier near \"(\". SQLSTATE: 42601",
+    "state": "42601",
+    "expected_error": null
+  },
+  {
+    "issue": 244,
+    "sql": "values (1, 'a'), (2, 'b')",
+    "error": "INVALID_ARGUMENT: [redis] unsupported statement starting with \"values\"",
+    "state": null,
+    "expected_error": null
+  },
+  {
+    "issue": 244,
+    "sql": "select * from t where (id, grp) in (values (1, 'a'))",
+    "error": "NOT_FOUND: [redis] function values(integer, varchar) does not exist. SQLSTATE: 42883",
+    "state": "42883",
+    "expected_error": null
+  }
+]

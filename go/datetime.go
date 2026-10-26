@@ -1,0 +1,977 @@
+// Copyright (c) 2026 ADBC Drivers Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//         http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package redis
+
+// Date/time functions. Timestamps with time zone are stored as UTC
+// instants; their fields (EXTRACT, DATE_TRUNC, AGE, …) are those of their
+// local time in the session time zone (timezone.go), as in Postgres. The
+// current time is fixed once per statement.
+
+import (
+	"fmt"
+	"math"
+	"math/big"
+	"strings"
+	"time"
+
+	"github.com/apache/arrow-go/v18/arrow"
+)
+
+var (
+	typeTimestampTZ = timestampType(arrow.Microsecond, "UTC")
+	typeTimestamp   = timestampType(arrow.Microsecond, "")
+	typeTimeUS      = timeType(arrow.Microsecond)
+)
+
+// now returns the statement's fixed current time.
+func (env *evalEnv) now() time.Time {
+	if env.exec != nil {
+		if env.exec.now.IsZero() {
+			env.exec.now = time.Now().UTC()
+		}
+		return env.exec.now
+	}
+	return time.Now().UTC()
+}
+
+// toTime converts a date, time or timestamp value to a UTC time.Time (times
+// of day are placed on 1970-01-01). Strings are parsed as timestamps.
+func toTime(v Value) (time.Time, error) {
+	switch v.T.Kind {
+	case KindDate:
+		return time.Unix(v.I*86400, 0).UTC(), nil
+	case KindTimestamp, KindTime:
+		per := unitsPerSecond[v.T.Unit]
+		sec := floorDiv(v.I, per)
+		return time.Unix(sec, (v.I-sec*per)*(1_000_000_000/per)).UTC(), nil
+	case KindString:
+		ts, err := Coerce(v, timestampType(arrow.Nanosecond, ""))
+		if err != nil {
+			ts, err = Coerce(v, typeTimestamp)
+		}
+		if err != nil {
+			return time.Time{}, err
+		}
+		return toTime(ts)
+	}
+	return time.Time{}, fmt.Errorf("expected a date, time or timestamp, got %s", v.T.Kind)
+}
+
+// dateValue is the DATE days after the epoch. A DATE is an Arrow date32, so
+// beyond the int32 range of days it is "date out of range", as in Postgres.
+func dateValue(days int64) (Value, error) {
+	if days < math.MinInt32 || days > math.MaxInt32 {
+		return Value{}, stateErr(stateDatetimeRange, "date out of range")
+	}
+	return intValue(typeDate, days), nil
+}
+
+// fromTime converts a UTC time.Time to a value of type t.
+func fromTime(tm time.Time, t ColType) (Value, error) {
+	switch t.Kind {
+	case KindDate:
+		return dateValue(floorDiv(tm.Unix(), 86400))
+	case KindTime:
+		day := tm.Unix() - floorDiv(tm.Unix(), 86400)*86400
+		i, err := secondsNanosToUnit(day, int64(tm.Nanosecond()), t.Unit)
+		return intValue(t, i), err
+	default:
+		i, err := secondsNanosToUnit(tm.Unix(), int64(tm.Nanosecond()), t.Unit)
+		return intValue(t, i), err
+	}
+}
+
+// currentTime is the current time tm (UTC, or a local time as UTC) as a
+// value of type t: read in microseconds, the precision of Postgres's clock,
+// and then rounded to t's fractional digits, as Postgres rounds
+// CURRENT_TIMESTAMP(p) (CURRENT_TIMESTAMP(0) is whole seconds). So all of a
+// statement's current times agree: CURRENT_TIMESTAMP(6) is
+// CURRENT_TIMESTAMP, and CURRENT_TIMESTAMP(2) is CURRENT_TIMESTAMP cast to
+// TIMESTAMPTZ(2).
+func currentTime(tm time.Time, t ColType) (Value, error) {
+	if t.Kind != KindTime && t.Kind != KindTimestamp {
+		return fromTime(tm, t)
+	}
+	us := t
+	us.Unit, us.Precision = arrow.Microsecond, 0
+	v, err := fromTime(tm, us)
+	if err != nil {
+		return Value{}, err
+	}
+	return Coerce(v, t)
+}
+
+// currentTimeFuncs are the functions of the current time that take a
+// precision, by all their names.
+var currentTimeFuncs = map[string]bool{"CURRENT_TIMESTAMP": true, "NOW": true, "TRANSACTION_TIMESTAMP": true,
+	"STATEMENT_TIMESTAMP": true, "LOCALTIMESTAMP": true, "CURRENT_TIME": true, "LOCALTIME": true}
+
+// currentTimeType is the type of a current time function f whose type
+// without a precision argument is t: with one, CURRENT_TIMESTAMP(p), t with
+// p fractional digits.
+func currentTimeType(f *Func, t ColType) ColType {
+	if p, ok := currentTimePrecision(f); ok {
+		return t.withFracDigits(p)
+	}
+	return t
+}
+
+// currentTimePrecision is the precision argument of CURRENT_TIMESTAMP(p),
+// LOCALTIMESTAMP(p), CURRENT_TIME(p), LOCALTIME(p) and NOW(p): an integer
+// constant from 0 to 9 (checkPrecisionArg). ok is false without one.
+func currentTimePrecision(f *Func) (int, bool) {
+	if len(f.Args) != 1 {
+		return 0, false
+	}
+	lit, ok := f.Args[0].(*Literal)
+	if !ok || lit.V.Null || !lit.V.T.Kind.isInteger() || lit.V.I < 0 || lit.V.I > 9 {
+		return 0, false
+	}
+	return int(lit.V.I), true
+}
+
+func epochSeconds(v Value, tm time.Time) float64 {
+	if v.T.Kind == KindTime {
+		// The time of day itself, so that 24:00:00 is 86400.
+		sec, nanos := splitUnits(v.I, v.T.Unit)
+		return float64(sec) + float64(nanos)/1e9
+	}
+	return float64(tm.Unix()) + float64(tm.Nanosecond())/1e9
+}
+
+// datePartType is the result type of DATE_PART / EXTRACT for a field.
+func datePartType(field string) ColType {
+	switch normalizeField(field) {
+	case "second", "milliseconds", "epoch":
+		return typeFloat64
+	}
+	return typeInt64
+}
+
+func normalizeField(f string) string {
+	f = strings.ToLower(strings.TrimSpace(f))
+	switch f {
+	case "years", "y", "yr", "yrs":
+		return "year"
+	case "months", "mon", "mons":
+		return "month"
+	case "days", "d":
+		return "day"
+	case "hours", "h", "hr", "hrs":
+		return "hour"
+	case "minutes", "m", "min", "mins":
+		return "minute"
+	case "seconds", "s", "sec", "secs":
+		return "second"
+	case "millisecond", "ms", "msec", "msecs":
+		return "milliseconds"
+	case "microsecond", "us", "usec", "usecs":
+		return "microseconds"
+	case "weeks", "w":
+		return "week"
+	case "quarters":
+		return "quarter"
+	case "dayofweek", "weekday":
+		return "dow"
+	case "dayofyear":
+		return "doy"
+	case "decades":
+		return "decade"
+	case "centuries":
+		return "century"
+	case "millennia", "millenniums":
+		return "millennium"
+	}
+	return f
+}
+
+// datePart implements DATE_PART / EXTRACT, in the session time zone z: the
+// fields of a timestamp with time zone are those of its local time, and
+// timezone, timezone_hour and timezone_minute its offset there (seconds,
+// hours and minutes east of UTC).
+func datePart(field string, v Value, z tzZone) (Value, error) {
+	utc, err := toTime(v)
+	if err != nil {
+		return Value{}, err
+	}
+	tm, off := utc, 0
+	withTZ := isTimestampTZ(v.T)
+	if withTZ {
+		off = z.offsetAt(utc.Unix())
+		tm = utc.Add(time.Duration(off) * time.Second)
+	}
+	f := normalizeField(field)
+	switch f {
+	case "timezone", "timezone_hour", "timezone_minute":
+		if !withTZ {
+			typ := "timestamp without time zone"
+			switch v.T.Kind {
+			case KindDate:
+				typ = "date"
+			case KindTime:
+				typ = "time without time zone"
+			}
+			return Value{}, stateErr(stateFeatureNotSupported, "unit %q not supported for type %s", field, typ)
+		}
+		n := off
+		switch f {
+		case "timezone_hour":
+			n = off / 3600
+		case "timezone_minute":
+			n = off / 60 % 60
+		}
+		return intValue(typeInt64, int64(n)), nil
+	}
+	if v.T.Kind == KindTime {
+		switch f {
+		case "hour", "minute", "second", "milliseconds", "microseconds", "epoch":
+		default:
+			return Value{}, stateErr(stateFeatureNotSupported, "field %q is not valid for TIME values", field)
+		}
+		if f == "hour" {
+			// Of the time of day itself: 24 for 24:00:00, which rounding to
+			// a lower precision can give (as in Postgres).
+			sec, _ := splitUnits(v.I, v.T.Unit)
+			return intValue(typeInt64, sec/3600), nil
+		}
+	}
+	i := func(n int) (Value, error) { return intValue(typeInt64, int64(n)), nil }
+	frac := float64(tm.Nanosecond()) / 1e9
+	switch f {
+	case "year":
+		return i(tm.Year())
+	case "isoyear":
+		y, _ := tm.ISOWeek()
+		return i(y)
+	case "quarter":
+		return i((int(tm.Month())-1)/3 + 1)
+	case "month":
+		return i(int(tm.Month()))
+	case "week":
+		_, w := tm.ISOWeek()
+		return i(w)
+	case "day":
+		return i(tm.Day())
+	case "dow":
+		return i(int(tm.Weekday()))
+	case "isodow":
+		d := int(tm.Weekday())
+		if d == 0 {
+			d = 7
+		}
+		return i(d)
+	case "doy":
+		return i(tm.YearDay())
+	case "hour":
+		return i(tm.Hour())
+	case "minute":
+		return i(tm.Minute())
+	case "second":
+		return floatValue(typeFloat64, float64(tm.Second())+frac), nil
+	case "milliseconds":
+		// Whole and fractional parts separately, avoiding float error.
+		return floatValue(typeFloat64, float64(tm.Second()*1000)+float64(tm.Nanosecond())/1e6), nil
+	case "microseconds":
+		return i(tm.Second()*1_000_000 + tm.Nanosecond()/1000)
+	case "epoch":
+		return floatValue(typeFloat64, epochSeconds(v, utc)), nil
+	case "decade":
+		return i(int(math.Floor(float64(tm.Year()) / 10)))
+	case "century":
+		y := tm.Year()
+		if y > 0 {
+			return i((y-1)/100 + 1)
+		}
+		return i(-((-y)/100 + 1))
+	case "millennium":
+		y := tm.Year()
+		if y > 0 {
+			return i((y-1)/1000 + 1)
+		}
+		return i(-((-y)/1000 + 1))
+	}
+	return Value{}, stateErr(stateInvalidParameter, "unknown date/time field %q", field)
+}
+
+// truncIn truncates an instant to the start of the given unit of its local
+// time in z, as Postgres truncates a timestamp with time zone: a day or a
+// longer unit starts at that local time, read back with the DST rule
+// (localToUTC); a shorter one keeps the instant's offset, so 01:30 PST on
+// a fall-back day truncates to 01:00 PST, not PDT.
+func truncIn(unit string, tm time.Time, z tzZone) (time.Time, error) {
+	if z.isUTC() {
+		return truncTime(unit, tm)
+	}
+	off := time.Duration(z.offsetAt(tm.Unix())) * time.Second
+	tr, err := truncTime(unit, tm.Add(off))
+	if err != nil {
+		return time.Time{}, err
+	}
+	switch normalizeField(unit) {
+	case "microseconds", "milliseconds", "second", "minute", "hour":
+		return tr.Add(-off), nil
+	}
+	return z.instant(tr), nil
+}
+
+// truncTime truncates a time to the start of the given unit.
+func truncTime(unit string, tm time.Time) (time.Time, error) {
+	y, mo, d := tm.Date()
+	switch normalizeField(unit) {
+	case "microseconds":
+		return tm.Truncate(time.Microsecond), nil
+	case "milliseconds":
+		return tm.Truncate(time.Millisecond), nil
+	case "second":
+		return time.Date(y, mo, d, tm.Hour(), tm.Minute(), tm.Second(), 0, time.UTC), nil
+	case "minute":
+		return time.Date(y, mo, d, tm.Hour(), tm.Minute(), 0, 0, time.UTC), nil
+	case "hour":
+		return time.Date(y, mo, d, tm.Hour(), 0, 0, 0, time.UTC), nil
+	case "day":
+		return time.Date(y, mo, d, 0, 0, 0, 0, time.UTC), nil
+	case "week":
+		// ISO weeks start on Monday.
+		wd := (int(tm.Weekday()) + 6) % 7
+		return time.Date(y, mo, d-wd, 0, 0, 0, 0, time.UTC), nil
+	case "month":
+		return time.Date(y, mo, 1, 0, 0, 0, 0, time.UTC), nil
+	case "quarter":
+		return time.Date(y, time.Month((int(mo)-1)/3*3+1), 1, 0, 0, 0, 0, time.UTC), nil
+	case "year":
+		return time.Date(y, 1, 1, 0, 0, 0, 0, time.UTC), nil
+	case "decade":
+		return time.Date(int(math.Floor(float64(y)/10))*10, 1, 1, 0, 0, 0, 0, time.UTC), nil
+	case "century":
+		c := (y-1)/100*100 + 1
+		return time.Date(c, 1, 1, 0, 0, 0, 0, time.UTC), nil
+	case "millennium":
+		m := (y-1)/1000*1000 + 1
+		return time.Date(m, 1, 1, 0, 0, 0, 0, time.UTC), nil
+	}
+	return time.Time{}, stateErr(stateInvalidParameter, "unknown DATE_TRUNC unit %q", unit)
+}
+
+// dateTruncType: dates stay dates; strings become timestamps.
+func dateTruncType(arg ColType) ColType {
+	switch arg.Kind {
+	case KindDate, KindTimestamp:
+		return arg
+	}
+	return typeTimestamp
+}
+
+// dateDiff counts the unit boundaries crossed from a to b (b - a).
+func dateDiff(unit string, a, b time.Time) (int64, error) {
+	months := func(t time.Time) int64 { return int64(t.Year())*12 + int64(t.Month()) - 1 }
+	switch u := normalizeField(unit); u {
+	case "year":
+		return int64(b.Year() - a.Year()), nil
+	case "quarter":
+		return floorDiv(months(b), 3) - floorDiv(months(a), 3), nil
+	case "month":
+		return months(b) - months(a), nil
+	case "decade", "century", "millennium":
+		ta, err := truncTime(u, a)
+		if err != nil {
+			return 0, err
+		}
+		tb, _ := truncTime(u, b)
+		span := map[string]int{"decade": 10, "century": 100, "millennium": 1000}[u]
+		return int64((tb.Year() - ta.Year()) / span), nil
+	case "week":
+		ta, _ := truncTime("week", a)
+		tb, _ := truncTime("week", b)
+		return floorDiv(tb.Unix()-ta.Unix(), 7*86400), nil
+	default:
+		ta, err := truncTime(u, a)
+		if err != nil {
+			return 0, err
+		}
+		tb, _ := truncTime(u, b)
+		per := map[string]int64{"day": 86400e9, "hour": 3600e9, "minute": 60e9, "second": 1e9,
+			"milliseconds": 1e6, "microseconds": 1e3}[u]
+		d := tb.Sub(ta)
+		if d == math.MaxInt64 || d == math.MinInt64 {
+			// Out of time.Duration range: fall back to seconds.
+			return floorDiv(tb.Unix()-ta.Unix(), per/1e9), nil
+		}
+		return floorDiv(int64(d), per), nil
+	}
+}
+
+// datePartNames maps the date parts of DATEADD and DATEDIFF, and their
+// abbreviations in Snowflake and SQL Server, to the part. As in Snowflake, m
+// is minute and w is week (SQL Server reads them as month and weekday).
+var datePartNames = func() map[string]string {
+	m := map[string]string{}
+	for part, aliases := range map[string][]string{
+		"year":        {"years", "y", "yy", "yyy", "yyyy", "yr", "yrs"},
+		"quarter":     {"quarters", "q", "qq", "qtr", "qtrs"},
+		"month":       {"months", "mm", "mon", "mons"},
+		"week":        {"weeks", "w", "wk", "ww", "wy", "woy", "weekofyear"},
+		"day":         {"days", "d", "dd", "dayofmonth"},
+		"hour":        {"hours", "h", "hh", "hr", "hrs"},
+		"minute":      {"minutes", "m", "mi", "n", "min", "mins"},
+		"second":      {"seconds", "s", "ss", "sec", "secs"},
+		"millisecond": {"milliseconds", "ms", "msec", "msecs"},
+		"microsecond": {"microseconds", "us", "usec", "usecs", "mcs"},
+		"decade":      {"decades"},
+		"century":     {"centuries"},
+		"millennium":  {"millennia", "millenniums"},
+	} {
+		m[part] = part
+		for _, a := range aliases {
+			m[a] = part
+		}
+	}
+	return m
+}()
+
+// datePartOf returns the date part that s names in DATEADD or DATEDIFF.
+func datePartOf(s string) (string, bool) {
+	p, ok := datePartNames[strings.ToLower(strings.TrimSpace(s))]
+	return p, ok
+}
+
+// dateAddType is the result type of DATEADD(part, n, x). As in Snowflake, a
+// date stays a date when the part is a day or longer and becomes a timestamp
+// otherwise; text is read as a timestamp.
+func dateAddType(part Expr, x ColType) ColType {
+	switch x.Kind {
+	case KindTimestamp, KindTime:
+		return x
+	case KindDate:
+		if lit, ok := part.(*Literal); ok && !lit.V.Null {
+			if p, ok := datePartOf(lit.V.Text()); ok && intervalUnits[p].nanos == 0 {
+				return typeDate
+			}
+		}
+	}
+	return typeTimestamp
+}
+
+// dateAdd implements DATEADD(part, n, x), and DATE_SUB with sign -1: x plus
+// n parts, as a value of type t, in the session time zone z. Months clamp to
+// the end of the month, as with intervals.
+func dateAdd(name string, args []Value, sign int64, t ColType, z tzZone) (Value, error) {
+	part, ok := datePartOf(args[0].Text())
+	if !ok {
+		return Value{}, stateErr(stateInvalidParameter, "%s: unknown date part %q", name, args[0].Text())
+	}
+	n, err := intArg(name, "number of units", args[1])
+	if err != nil {
+		return Value{}, err
+	}
+	if sign < 0 {
+		if n == math.MinInt64 {
+			return Value{}, stateErr(stateDatetimeRange, "%s: interval out of range", name)
+		}
+		n = -n
+	}
+	u := intervalUnits[part]
+	x := args[2]
+	switch x.T.Kind {
+	case KindDate, KindTimestamp:
+	case KindTime:
+		if u.nanos == 0 {
+			return Value{}, stateErr(stateFeatureNotSupported, "%s: date part %s is not valid for TIME values", name, part)
+		}
+	case KindString:
+		if x, err = coerceIn(x, t, z); err != nil {
+			return Value{}, fmt.Errorf("%s: %w", name, err)
+		}
+	default:
+		return Value{}, fmt.Errorf("%s expects a date, time or timestamp, got %s", name, x.T.SQLName())
+	}
+	// The interval of n parts. A part shorter than a day carries whole days
+	// into the days field, so that large counts don't overflow nanoseconds.
+	var iv Value
+	if u.nanos == 0 {
+		if n < math.MinInt32 || n > math.MaxInt32 {
+			return Value{}, stateErr(stateDatetimeRange, "%s: interval out of range", name)
+		}
+		iv, err = intervalValue(n*int64(u.months), n*int64(u.days), 0)
+	} else {
+		ns := int64(u.nanos)
+		iv, err = intervalValue(0, n/(nsPerDay/ns), n%(nsPerDay/ns)*ns)
+	}
+	if err == nil {
+		x, err = temporalOp("+", x, iv, t, z)
+	}
+	if err != nil {
+		return Value{}, fmt.Errorf("%s: %w", name, err)
+	}
+	return x, nil
+}
+
+// makeYear is the astronomical year of a MAKE_DATE or MAKE_TIMESTAMP year,
+// as Postgres reads it: a negative year is BC (-44 is 44 BC, year -43), and
+// there is no year 0. ok is false for 0, and for -2147483648, which
+// Postgres can't negate.
+func makeYear(y int) (int, bool) {
+	switch {
+	case y == 0 || y == math.MinInt32:
+		return 0, false
+	case y < 0:
+		return y + 1, true
+	}
+	return y, true
+}
+
+// ---- dispatch ----
+
+// dateTimeFuncType returns the result type of a date/time function.
+func dateTimeFuncType(f *Func, args []ColType) (ColType, bool) {
+	switch f.Name {
+	case "CURRENT_DATE", "MAKE_DATE", "TO_DATE", "LAST_DAY":
+		return typeDate, true
+	case "CURRENT_TIMESTAMP", "NOW", "TRANSACTION_TIMESTAMP", "STATEMENT_TIMESTAMP":
+		return currentTimeType(f, typeTimestampTZ), true
+	case "LOCALTIMESTAMP":
+		return currentTimeType(f, typeTimestamp), true
+	case "CURRENT_TIME":
+		return currentTimeType(f, typeTimeTZ), true
+	case "LOCALTIME":
+		return currentTimeType(f, typeTimeUS), true
+	case "TO_TIMESTAMP", "MAKE_TIMESTAMPTZ":
+		return typeTimestampTZ, true
+	case "MAKE_TIMESTAMP":
+		return typeTimestamp, true
+	case "MAKE_TIME":
+		return typeTimeUS, true
+	case "YEAR", "QUARTER", "MONTH", "WEEK", "DAY", "DAYOFMONTH", "DAYOFYEAR", "HOUR", "MINUTE", "SECOND",
+		"DATE_DIFF", "DATEDIFF", "TIMESTAMPDIFF", "EPOCH_MS":
+		return typeInt64, true
+	case "__PG_DATE_ADD", "DATE_SUBTRACT":
+		return typeTimestampTZ, true
+	case "DATEADD", "DATE_ADD", "DATE_SUB", "TIMESTAMPADD":
+		if len(args) == 3 {
+			return dateAddType(f.Args[0], args[2]), true
+		}
+		return typeTimestamp, true
+	case "EPOCH":
+		return typeFloat64, true
+	case "TO_CHAR":
+		return typeString, true
+	case "TIMEZONE":
+		if len(args) == 0 {
+			return typeTimestamp, true
+		}
+		return timezoneType(args[len(args)-1]), true
+	case "CONVERT_TIMEZONE":
+		if len(args) == 0 {
+			return typeTimestamp, true
+		}
+		return convertTimezoneType(args[len(args)-1]), true
+	case "__INTERVAL", "AGE":
+		return typeInterval, true
+	case "DATE_PART":
+		if len(f.Args) > 0 {
+			if lit, ok := f.Args[0].(*Literal); ok && !lit.V.Null {
+				return datePartType(lit.V.Text()), true
+			}
+		}
+		return typeFloat64, true
+	case "DATE_TRUNC":
+		if len(args) == 2 {
+			return dateTruncType(args[1]), true
+		}
+		return typeTimestamp, true
+	case "DATE_BIN":
+		if len(args) == 3 {
+			return dateBinType(args[1], args[2]), true
+		}
+		return typeTimestampTZ, true
+	}
+	return ColType{}, false
+}
+
+// evalDateTimeFunc evaluates a date/time function; ok is false if f is not
+// one. Arguments are non-NULL (NULLs are handled by the caller), and there
+// are as many as the registry allows (funcs.go).
+func (env *evalEnv) evalDateTimeFunc(f *Func, args []Value) (Value, bool, error) {
+	t, ok := dateTimeFuncType(f, argTypes(args))
+	if !ok {
+		return Value{}, false, nil
+	}
+	if !currentTimeFuncs[f.Name] {
+		t = t.withoutTypmod() // as inferFuncType: DATEADD of a TIMESTAMP(2) has 3 digits
+	}
+	intArg := func(v Value) (int, error) {
+		c, err := Coerce(v, typeInt64)
+		if err != nil {
+			return 0, err
+		}
+		return int(c.I), nil
+	}
+	done := func(v Value, err error) (Value, bool, error) { return v, true, err }
+	z := env.zone()
+	// local is the wall-clock time whose fields a function reads.
+	local := func(v Value) (time.Time, error) { return localFields(v, z) }
+	switch f.Name {
+	case "CURRENT_TIMESTAMP", "NOW", "TRANSACTION_TIMESTAMP", "STATEMENT_TIMESTAMP":
+		return done(currentTime(env.now(), t))
+	case "CURRENT_DATE", "LOCALTIMESTAMP", "LOCALTIME":
+		// The local date and time in the session time zone.
+		return done(currentTime(z.localTime(env.now()), t))
+	case "CURRENT_TIME":
+		// The local time in the session time zone, and its offset there.
+		now, tt := env.now(), t
+		tt.Kind = KindTime
+		v, err := currentTime(z.localTime(now), tt)
+		if err != nil {
+			return done(Value{}, err)
+		}
+		return done(Value{T: t, I: v.I, Off: int32(z.offsetAt(now.Unix()))}, nil)
+	case "DATE_PART":
+		switch args[1].T.Kind {
+		case KindInterval:
+			return done(intervalPart(args[0].Text(), args[1]))
+		case KindTimeTZ:
+			return done(timeTZPart(args[0].Text(), args[1]))
+		}
+		return done(datePart(args[0].Text(), args[1], z))
+	case "__INTERVAL":
+		// INTERVAL n UNIT / INTERVAL 'n' UNIT
+		u, ok := intervalUnits[args[1].Text()]
+		if !ok {
+			return done(Value{}, fmt.Errorf("unknown interval unit %q", args[1].Text()))
+		}
+		// A unit that is a field of Postgres's interval typmods (YEAR,
+		// MONTH, DAY, HOUR, MINUTE or SECOND) is that typmod: text is read
+		// as a literal of it (INTERVAL '1 day 02:30' HOUR is 1 day
+		// 02:00:00), and a number of the unit drops the fields after it too
+		// (INTERVAL 1.5 HOUR is 01:00:00).
+		fields, typmod := typmodFields[args[1].Text()]
+		tm := intervalTypmod{fields: fields, precision: -1}
+		if typmod && args[0].T.Kind == KindString {
+			return done(typedIntervalLiteral(args[0].S, tm))
+		}
+		// n is read as in a literal, rounded to the microsecond.
+		val, fval, e := unitCount(args[0])
+		if e == litBadFormat {
+			return done(Value{}, stateErr(stateInvalidText, "INTERVAL %s needs a number, got %q", strings.ToUpper(args[1].Text()), args[0].Text()))
+		}
+		var it itmIn
+		if e != 0 || !it.addUnit(val, fval, u) {
+			return done(Value{}, stateErr(stateDatetimeRange, "interval out of range"))
+		}
+		return done(it.typedValue(tm))
+	case "AGE":
+		var a, b time.Time
+		var err error
+		// The fields of the local times, as Postgres subtracts them.
+		if len(args) == 1 {
+			// AGE(x) is measured from the start of the current day.
+			n := z.localTime(env.now())
+			a = time.Date(n.Year(), n.Month(), n.Day(), 0, 0, 0, 0, time.UTC)
+			b, err = local(args[0])
+		} else {
+			if a, err = local(args[0]); err == nil {
+				b, err = local(args[1])
+			}
+		}
+		if err != nil {
+			return done(Value{}, err)
+		}
+		return done(age(a, b))
+	case "YEAR", "QUARTER", "MONTH", "WEEK", "DAY", "DAYOFMONTH", "DAYOFYEAR", "HOUR", "MINUTE", "SECOND":
+		field := map[string]string{"DAYOFMONTH": "day", "DAYOFYEAR": "doy"}[f.Name]
+		if field == "" {
+			field = strings.ToLower(f.Name)
+		}
+		var v Value
+		var err error
+		if args[0].T.Kind == KindTimeTZ {
+			v, err = timeTZPart(field, args[0])
+		} else {
+			v, err = datePart(field, args[0], z)
+		}
+		if err == nil && v.T.Kind == KindFloat64 {
+			v = intValue(typeInt64, int64(math.Floor(v.F))) // SECOND() is whole seconds
+		}
+		return done(v, err)
+	case "EPOCH", "EPOCH_MS":
+		tm, err := toTime(args[0])
+		if err != nil {
+			return done(Value{}, err)
+		}
+		if f.Name == "EPOCH_MS" {
+			return done(intValue(typeInt64, tm.Unix()*1000+int64(tm.Nanosecond()/1_000_000)), nil)
+		}
+		return done(floatValue(typeFloat64, epochSeconds(args[0], tm)), nil)
+	case "DATE_TRUNC":
+		tm, err := toTime(args[1])
+		if err != nil {
+			return done(Value{}, err)
+		}
+		var tr time.Time
+		if isTimestampTZ(args[1].T) {
+			tr, err = truncIn(args[0].Text(), tm, z)
+		} else {
+			tr, err = truncTime(args[0].Text(), tm)
+		}
+		if err != nil {
+			return done(Value{}, err)
+		}
+		return done(fromTime(tr, t))
+	case "DATE_BIN":
+		return done(dateBin(args, t, z))
+	case "DATE_DIFF", "DATEDIFF", "TIMESTAMPDIFF":
+		// Boundaries crossed in local time.
+		a, err := local(args[1])
+		if err != nil {
+			return done(Value{}, err)
+		}
+		b, err := local(args[2])
+		if err != nil {
+			return done(Value{}, err)
+		}
+		unit := args[0].Text()
+		if p, ok := datePartOf(unit); ok {
+			unit = p
+		}
+		n, err := dateDiff(unit, a, b)
+		return done(intValue(typeInt64, n), err)
+	case "__PG_DATE_ADD", "DATE_SUBTRACT":
+		arithmeticZone := z
+		if len(args) == 3 {
+			var err error
+			arithmeticZone, err = resolveZone(args[2].Text())
+			if err != nil {
+				return done(Value{}, err)
+			}
+		}
+		x, err := coerceIn(args[0], typeTimestampTZ, z)
+		if err != nil {
+			return done(Value{}, err)
+		}
+		iv, err := coerceIn(args[1], typeInterval, z)
+		if err != nil {
+			return done(Value{}, err)
+		}
+		op := "+"
+		if f.Name == "DATE_SUBTRACT" {
+			op = "-"
+		}
+		return done(temporalOp(op, x, iv, typeTimestampTZ, arithmeticZone))
+	case "DATEADD", "DATE_ADD", "DATE_SUB", "TIMESTAMPADD":
+		sign := int64(1)
+		if f.Name == "DATE_SUB" {
+			sign = -1
+		}
+		return done(dateAdd(f.Name, args, sign, t, z))
+	case "LAST_DAY":
+		tm, err := local(args[0])
+		if err != nil {
+			return done(Value{}, err)
+		}
+		return done(fromTime(time.Date(tm.Year(), tm.Month()+1, 0, 0, 0, 0, 0, time.UTC), typeDate))
+	case "MAKE_DATE":
+		var ymd [3]int
+		for i := range ymd {
+			n, err := intArg(args[i])
+			if err != nil {
+				return done(Value{}, err)
+			}
+			ymd[i] = n
+		}
+		// A year past int32 is far outside the date range, and could
+		// overflow time.Date.
+		if ymd[0] < math.MinInt32 || ymd[0] > math.MaxInt32 {
+			return done(Value{}, stateErr(stateDatetimeRange, "date out of range: %d-%02d-%02d", ymd[0], ymd[1], ymd[2]))
+		}
+		// Postgres's messages show a BC year as the astronomical year
+		// (-43-02-30 for MAKE_DATE(-44, 2, 30)).
+		y, ok := makeYear(ymd[0])
+		shown := ymd[0]
+		if ok {
+			shown = y
+		}
+		ymdText := fmt.Sprintf("%d-%02d-%02d", shown, ymd[1], ymd[2])
+		tm := time.Date(y, time.Month(ymd[1]), ymd[2], 0, 0, 0, 0, time.UTC)
+		if !ok || int(tm.Month()) != ymd[1] || tm.Day() != ymd[2] {
+			return done(Value{}, stateErr(stateDatetimeRange, "date field value out of range: %s", ymdText))
+		}
+		v, err := fromTime(tm, typeDate)
+		if err != nil {
+			return done(Value{}, stateErr(stateDatetimeRange, "date out of range: %s", ymdText))
+		}
+		return done(v, nil)
+	case "MAKE_TIMESTAMP", "MAKE_TIMESTAMPTZ", "MAKE_TIME":
+		want := 6
+		if f.Name == "MAKE_TIME" {
+			want = 3
+		}
+		parts := make([]int, want-1)
+		for i := range parts {
+			n, err := intArg(args[i])
+			if err != nil {
+				return done(Value{}, err)
+			}
+			parts[i] = n
+		}
+		secV, err := Coerce(args[want-1], typeFloat64)
+		if err != nil {
+			return done(Value{}, err)
+		}
+		whole := math.Floor(secV.F)
+		nanos := int(math.Round((secV.F - whole) * 1e9))
+		if f.Name == "MAKE_TIME" {
+			if parts[0] < 0 || parts[0] > 23 || parts[1] < 0 || parts[1] > 59 || whole < 0 || whole > 59 {
+				return done(Value{}, stateErr(stateDatetimeRange, "time field value out of range"))
+			}
+			return done(fromTime(time.Date(1970, 1, 1, parts[0], parts[1], int(whole), nanos, time.UTC), t))
+		}
+		// The date, as MAKE_DATE reads it; Postgres's messages show the
+		// year as given.
+		ymdText := fmt.Sprintf("%d-%02d-%02d", parts[0], parts[1], parts[2])
+		if parts[0] < math.MinInt32 || parts[0] > math.MaxInt32 {
+			return done(Value{}, stateErr(stateDatetimeRange, "date out of range: %s", ymdText))
+		}
+		y, ok := makeYear(parts[0])
+		if d := time.Date(y, time.Month(parts[1]), parts[2], 0, 0, 0, 0, time.UTC); !ok || int(d.Month()) != parts[1] || d.Day() != parts[2] {
+			return done(Value{}, stateErr(stateDatetimeRange, "date field value out of range: %s", ymdText))
+		}
+		tm := time.Date(y, time.Month(parts[1]), parts[2], parts[3], parts[4], int(whole), nanos, time.UTC)
+		if int(tm.Month()) != parts[1] || tm.Day() != parts[2] || parts[3] > 23 || parts[4] > 59 || whole > 59 {
+			return done(Value{}, stateErr(stateDatetimeRange, "date/time field value out of range"))
+		}
+		if f.Name == "MAKE_TIMESTAMPTZ" {
+			tm = z.instant(tm) // a local time in the session time zone
+		}
+		return done(fromTime(tm, t))
+	case "TO_TIMESTAMP", "TO_DATE":
+		if f.Name == "TO_TIMESTAMP" && len(args) == 1 {
+			// Seconds since the epoch.
+			sv, err := Coerce(args[0], typeFloat64)
+			if err != nil {
+				return done(Value{}, err)
+			}
+			whole := math.Floor(sv.F)
+			return done(fromTime(time.Unix(int64(whole), int64(math.Round((sv.F-whole)*1e9))).UTC(), t))
+		}
+		if f.Name == "TO_DATE" {
+			return done(toDate(args[0].Text(), args[1].Text()))
+		}
+		return done(toTimestamp(args[0].Text(), args[1].Text(), z, t))
+	case "TO_CHAR":
+		if args[0].T.Kind == KindTimeTZ {
+			// Postgres has no TO_CHAR of a time with time zone (nor a cast
+			// to an interval, which a TIME has).
+			return done(Value{}, noSuchFunction(f.Name, false, argTypes(args)))
+		}
+		if args[1].Text() == "" {
+			return done(nullValue(typeString), nil) // as in Postgres
+		}
+		s, err := toChar(args[0], args[1].Text(), z)
+		return done(stringValue(s), err)
+	case "TIMEZONE":
+		return done(atTimeZone(f, args, t, z))
+	case "CONVERT_TIMEZONE":
+		return done(convertTimezone(f, args, t))
+	}
+	return Value{}, false, nil
+}
+
+// dateBinType is the result type of DATE_BIN(stride, source, origin), as
+// Postgres picks between its TIMESTAMP and TIMESTAMP WITH TIME ZONE forms:
+// a TIMESTAMP when the source or the origin is one and neither has a time
+// zone, otherwise a TIMESTAMP WITH TIME ZONE (dates and text are read as
+// one, Postgres's preferred type). The unit is microseconds, or the
+// arguments' finer one.
+func dateBinType(source, origin ColType) ColType {
+	naive := func(t ColType) bool { return t.Kind == KindTimestamp && t.TZ == "" }
+	tz := "UTC"
+	if (naive(source) || naive(origin)) && !isTimestampTZ(source) && !isTimestampTZ(origin) {
+		tz = ""
+	}
+	unit := arrow.Microsecond
+	for _, a := range []ColType{source, origin} {
+		if a.Kind == KindTimestamp && unitsPerSecond[a.Unit] > unitsPerSecond[unit] {
+			unit = a.Unit
+		}
+	}
+	return timestampType(unit, tz)
+}
+
+// dateBin implements DATE_BIN(stride, source, origin), of type t, as
+// Postgres does: the start of the stride-long bin, counted from origin,
+// that source falls in (also when origin is after source). The stride is
+// elapsed time, without months (a day is 24 hours), so the session time
+// zone z only matters for reading a TIMESTAMP, a DATE or text as a
+// timestamp with time zone.
+func dateBin(args []Value, t ColType, z tzZone) (Value, error) {
+	stride := args[0]
+	if stride.T.Kind == KindString {
+		iv, err := intervalLiteral(stride.S)
+		if err != nil {
+			return Value{}, err
+		}
+		stride = iv
+	}
+	if stride.T.Kind != KindInterval {
+		return Value{}, noSuchFunction("date_bin", false, argTypes(args))
+	}
+	if stride.Months != 0 {
+		return Value{}, stateErr(stateFeatureNotSupported, "timestamps cannot be binned into intervals containing months or years")
+	}
+	step := new(big.Int).Mul(big.NewInt(int64(stride.Days)), big.NewInt(nsPerDay))
+	step.Add(step, big.NewInt(stride.I))
+	if step.Sign() <= 0 {
+		return Value{}, stateErr(stateDatetimeRange, "stride must be greater than zero")
+	}
+	// at is a source or origin in nanoseconds since the epoch, as t.
+	at := func(v Value) (*big.Int, error) {
+		switch v.T.Kind {
+		case KindTimestamp, KindDate, KindString:
+		default:
+			return nil, noSuchFunction("date_bin", false, argTypes(args))
+		}
+		c, err := coerceIn(v, t, z)
+		if err != nil {
+			return nil, err
+		}
+		sec, nanos := splitUnits(c.I, c.T.Unit)
+		n := new(big.Int).Mul(big.NewInt(sec), big.NewInt(nsPerSecond))
+		return n.Add(n, big.NewInt(nanos)), nil
+	}
+	src, err := at(args[1])
+	if err != nil {
+		return Value{}, err
+	}
+	origin, err := at(args[2])
+	if err != nil {
+		return Value{}, err
+	}
+	// source - ((source - origin) mod stride), the mod rounding down.
+	_, m := new(big.Int).DivMod(new(big.Int).Sub(src, origin), step, new(big.Int))
+	units, _ := new(big.Int).DivMod(m.Sub(src, m), big.NewInt(nsPerSecond/unitsPerSecond[t.Unit]), new(big.Int))
+	if !units.IsInt64() {
+		return Value{}, errTimestampRange
+	}
+	return intValue(t, units.Int64()), nil
+}
+
+// datePartLiteral distinguishes the extension overload from PostgreSQL's.
+func datePartLiteral(e Expr) bool {
+	l, ok := e.(*Literal)
+	if !ok || l.V.T.Kind != KindString {
+		return false
+	}
+	_, ok = datePartOf(l.V.S)
+	return ok
+}

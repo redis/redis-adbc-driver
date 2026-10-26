@@ -1,0 +1,42 @@
+# Go 1.26.10 matches go/go.mod and requires macOS 12+. Older Go versions in
+# DuckDB's extension build images cannot bootstrap this module themselves.
+# Downloads stay in the build directory and are verified against go.dev hashes.
+include(FetchContent)
+if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
+  set(REDIS_GO_OS darwin)
+elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
+  set(REDIS_GO_OS linux)
+else()
+  message(FATAL_ERROR "Unsupported Go build host: ${CMAKE_HOST_SYSTEM_NAME}")
+endif()
+if(CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "^(arm64|aarch64)$")
+  set(REDIS_GO_HOST_ARCH arm64)
+elseif(CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64)$")
+  set(REDIS_GO_HOST_ARCH amd64)
+else()
+  message(FATAL_ERROR "Unsupported Go build host: ${CMAKE_HOST_SYSTEM_PROCESSOR}")
+endif()
+set(REDIS_GO_HASH_darwin_amd64 e820ab780c273ae4a340b79d0f3c4313b74ee029aa3874792145d44b9f4f91da)
+set(REDIS_GO_HASH_darwin_arm64 0b5183492292ada170f9b561a834863808dd02edba599e4ad0e89899330020b3)
+set(REDIS_GO_HASH_linux_amd64 ccfe7ae822d2c2f41f4fe7c956199967a4dac22d0ee0d2b2bfdb440aab3b20c5)
+set(REDIS_GO_HASH_linux_arm64 3f4227ce7b206a513e794f1393adb473a07b46e94d18bd15d1c684bbb7319797)
+FetchContent_Declare(redis_go
+  URL "https://go.dev/dl/go1.26.10.${REDIS_GO_OS}-${REDIS_GO_HOST_ARCH}.tar.gz"
+  URL_HASH "SHA256=${REDIS_GO_HASH_${REDIS_GO_OS}_${REDIS_GO_HOST_ARCH}}")
+FetchContent_MakeAvailable(redis_go)
+set(REDIS_GO_EXECUTABLE "${redis_go_SOURCE_DIR}/bin/go")
+
+# macOS CI can cross-compile an Intel binary on an Apple Silicon host.
+set(REDIS_GO_TARGET_ARCH "${CMAKE_SYSTEM_PROCESSOR}")
+if(APPLE AND OSX_BUILD_ARCH)
+  set(REDIS_GO_TARGET_ARCH "${OSX_BUILD_ARCH}")
+elseif(APPLE AND CMAKE_OSX_ARCHITECTURES)
+  set(REDIS_GO_TARGET_ARCH "${CMAKE_OSX_ARCHITECTURES}")
+endif()
+if(REDIS_GO_TARGET_ARCH MATCHES "^(arm64|aarch64)$")
+  set(REDIS_GO_ARCH arm64)
+elseif(REDIS_GO_TARGET_ARCH MATCHES "^(x86_64|AMD64)$")
+  set(REDIS_GO_ARCH amd64)
+else()
+  message(FATAL_ERROR "Unsupported Go target: ${REDIS_GO_TARGET_ARCH}")
+endif()

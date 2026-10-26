@@ -1,0 +1,61 @@
+{
+  "date": "2026-10-22",
+  "scope": "Benchmark runner and preserved results; no production driver changes",
+  "measurement_checkout": "c5d09a3",
+  "publication_base": "f3f74e7",
+  "driver_source_equivalent": "7a42b2d",
+  "benchmark": {
+    "command": "python benchmarks/incremental-read/run.py --driver <pinned-422.dylib> --uri 'redis://127.0.0.1:18445/0?protocol=3' --parquet <hits-prefix-374.parquet> --clickbench <ClickBench-374> --work <new-directory> --repeats 6",
+    "status": "passed",
+    "executions": 98,
+    "warmups": 14,
+    "measured": 84,
+    "cases": 14,
+    "all_complete_values_and_multiplicities_validated": true,
+    "first_batch_rows_match_requested_ceiling": true,
+    "separate_smoke_executions": 14,
+    "separate_smoke_status": "passed",
+    "skips": 0,
+    "raw_results": "../../../../benchmarks/incremental-read/2026-10-22/results.json",
+    "manifest": "../../../../benchmarks/incremental-read/2026-10-22/manifest.json"
+  },
+  "publication_checks": {
+    "syntax": {
+      "command": "python -m py_compile benchmarks/incremental-read/run.py",
+      "status": "passed"
+    },
+    "cli": {
+      "command": "python benchmarks/incremental-read/run.py --help",
+      "status": "passed"
+    },
+    "artifact_integrity": {
+      "checks": [
+        "Recorded artifact, canonical runner and reused-helper SHA-256 hashes",
+        "Reconstruct historical smoke runner without UTC metadata and verify its hash",
+        "All full-value validation flags, row/column counts and batch sizes",
+        "Recalculate every median/minimum/maximum from measured trials",
+        "First-batch and first-IPC-flush timestamps precede total completion",
+        "Changed Markdown relative links resolve"
+      ],
+      "status": "passed"
+    },
+    "diff_check": {
+      "command": "git diff --check",
+      "status": "passed"
+    }
+  },
+  "review": {
+    "reviewer": "Codex",
+    "correctness_lifecycle": "Complete fetch, common Arrow boundary, balanced rounds, full-value validation and context-managed client/IPC cleanup inspected.",
+    "security_ownership": "Dedicated loopback test fixture; no application database, credentials or unrelated local artifacts published. Task container removed.",
+    "intent_evidence": "Historical #422 driver explicitly pinned; fixed-range and shared-host limits retained; no first-batch or current-main superiority claim.",
+    "result": "No actionable findings remain in benchmark/evidence scope; not independent human approval."
+  },
+  "not_run": [
+    "Production Go/native suites: no production code changed",
+    "Current-main performance rerun: deliberately held the prior #422 library constant"
+  ],
+  "ci": "Ordinary Test workflow does not select this benchmark directory; inspect PR checks for external coverage.",
+  "merge": "Not requested or performed",
+  "pull_request": "https://github.com/alberttwong/redis-adbc-driver/pull/451"
+}

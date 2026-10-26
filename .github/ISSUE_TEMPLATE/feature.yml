@@ -1,0 +1,11 @@
+name: Feature request
+description: Propose a driver improvement.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: details
+    attributes:
+      label: Proposed improvement
+      description: Describe the problem, desired behavior, and how to verify success.
+    validations:
+      required: true

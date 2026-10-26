@@ -1,0 +1,65 @@
+--- a/benchmarks/wide-transfer/cross_database.py
++++ b/benchmarks/wide-transfer/cross_database.py
+@@ -148,10 +148,7 @@
+             if engine == 'postgres':
+                 cur.adbc_statement.set_options(**{'adbc.postgresql.use_copy': True,
+                                                   'adbc.postgresql.batch_size_hint_bytes': cfg['pg_batch_bytes']})
+-            if engine.startswith('redis') and isinstance(bounds, bytes):
+-                cur.adbc_read_partition(bounds)
+-            else:
+-                cur.execute(query(engine, schema.names, bounds, cfg))
++            cur.execute(query(engine, schema.names, bounds, cfg))
+             reader = stack.enter_context(cur.fetch_record_batch())
+         sink = stack.enter_context(pa.OSFile(str(output), 'wb'))
+         writer = stack.enter_context(pa.ipc.new_stream(sink, schema))
+@@ -212,14 +209,6 @@
+         before_cpu = cpu()
+         before_traffic = meter.snapshot() if meter else None
+         started = time.perf_counter()
+-        if engine.startswith('redis') and workers > 1 and cfg.get('redis_layout') == 'partitions':
+-            with contextlib.ExitStack() as planning:
+-                conn = connections[0] if mode == 'persistent' else planning.enter_context(connection(engine, cfg))
+-                cur = planning.enter_context(conn.cursor())
+-                cur.adbc_statement.set_options(**{'adbc.redis.partition_count': workers})
+-                bounds, _ = cur.adbc_execute_partitions(query(engine, expected.column_names, None, cfg))
+-                if len(bounds) != workers:
+-                    raise AssertionError('Fixture must produce one descriptor per reader')
+         if mode == 'spawned':
+             with concurrent.futures.ProcessPoolExecutor(workers, mp_context=multiprocessing.get_context('spawn')) as process_pool:
+                 results = list(process_pool.map(spawned_fetch,
+@@ -227,7 +216,6 @@
+         else:
+             futures = [pool.submit(fetch, engine, cfg, expected.schema, b, p, c)
+                        for b, p, c in zip(bounds, paths, connections)]
+-            concurrent.futures.wait(futures)  # Join readers before connections unwind on failure.
+             results = [f.result() for f in futures]
+         elapsed = time.perf_counter() - started
+         after_traffic = meter.snapshot() if meter else None
+@@ -267,8 +255,6 @@
+                    default=['redis', 'postgres', 'clickhouse'])
+     p.add_argument('--columns', nargs='+')
+     p.add_argument('--meter', action='store_true', help='Separate proxied byte diagnostic; do not mix with direct timings')
+-    p.add_argument('--redis-layout', choices=['ranges', 'partitions'], default='partitions',
+-                   help='Four-reader Redis API; explicit SQL ranges can select a different execution path')
+     for engine in ['redis', 'postgres', 'clickhouse']:
+         p.add_argument('--' + engine + '-container')
+     args = p.parse_args()
+@@ -283,7 +269,6 @@
+     cfg = {'redis_uri': args.redis_uri, 'postgres_uri': args.postgres_uri,
+            'clickhouse_url': args.clickhouse_url, 'batch_rows': args.batch_rows,
+            'pg_batch_bytes': args.pg_batch_bytes, 'rows': source.num_rows,
+-           'redis_layout': args.redis_layout,
+            'drivers': {'redis': args.redis_driver, 'redis_candidate': args.redis_candidate},
+            'containers': {e: getattr(args, e + '_container') for e in ['redis', 'postgres', 'clickhouse']}}
+     if args.load:
+@@ -294,9 +279,7 @@
+         'clickhouse_arrow_compression': 'none', 'clickhouse_http_compression': False,
+         'traffic_meter': args.meter,
+         'ordering': 'unordered multiset equivalence; Redis may impose internal row-ID order',
+-        'four_readers': {'redis': args.redis_layout,
+-                         'references': 'four explicit disjoint ordinal SQL ranges'},
+-        'runner_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
++        'four_readers': 'four explicit disjoint ordinal SQL ranges, not public ADBC partitions',
+         'source_sha256': hashlib.sha256(args.source.read_bytes()).hexdigest(),
+         'driver_sha256': {k: hashlib.sha256(Path(v).read_bytes()).hexdigest() for k, v in cfg['drivers'].items() if v}},
+         'environment': {'platform': platform.platform(), 'python': platform.python_version(),

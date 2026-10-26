@@ -1,0 +1,89 @@
+{
+  "date": "2026-10-21",
+  "source_revision": "35ddb9b",
+  "deployment": "Redis Cloud Pro",
+  "provider": "AWS",
+  "region": "us-west-2",
+  "topology": "single shard through proxy endpoint",
+  "subscription_id": 3457671,
+  "database_id": 14709177,
+  "dataset_size_gb": 0.1,
+  "throughput_ops_per_sec": 1000,
+  "replication": false,
+  "persistence": "none",
+  "eviction_policy": "noeviction",
+  "tls": {
+    "enabled": true,
+    "certificate_verification": true,
+    "trust": "OS roots, no skip_verify",
+    "hostname_mismatch_rejected": true
+  },
+  "estimate": {
+    "minimum_usd_per_hour": 0.274,
+    "one_shard_usd_per_hour": 0.043,
+    "source": "Cloud API dry run",
+    "actual_invoice_cost": "not yet available"
+  },
+  "owner": "Albert Wong",
+  "library_build_toolchain": "Go 1.26.6, macOS deployment target 12.0",
+  "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+  "python": "3.13.16",
+  "packages": {
+    "adbc-driver-manager": "1.12.0",
+    "pyarrow": "26.0.0",
+    "redis": "8.1.0",
+    "pytest": "9.1.1"
+  },
+  "server": {
+    "ping": true,
+    "redis_version": "8.6.2",
+    "modules": [
+      {
+        "name": "bf",
+        "ver": 80604,
+        "path": "/enterprise-managed",
+        "args": []
+      },
+      {
+        "name": "ReJSON",
+        "ver": 80606,
+        "path": "/enterprise-managed",
+        "args": []
+      },
+      {
+        "name": "search",
+        "ver": 80611,
+        "path": "/enterprise-managed",
+        "args": []
+      },
+      {
+        "name": "vectorset",
+        "ver": 1,
+        "path": "/enterprise-managed",
+        "args": []
+      },
+      {
+        "name": "timeseries",
+        "ver": 80608,
+        "path": "/enterprise-managed",
+        "args": []
+      }
+    ],
+    "aggregate_cap": {
+      "search-max-aggregate-results": "2147483648"
+    },
+    "hostname_mismatch_rejected": true
+  },
+  "scope_limits": [
+    "single primary shard only",
+    "shared default identity for planner and workers",
+    "macOS arm64 client only",
+    "Python 3.13 / ADBC manager 1.12 only",
+    "no Cloud benchmark measurements"
+  ],
+  "initial_library_sha256": "11feed6e3767389a4caa9e28497c8d3e09400f25c6736f6a1e98aa18e39a0d2e",
+  "initial_library_driver_version": "(unknown or development build)",
+  "library_sha256": "03fd390b526dc126a702d1609fb857be9d562750ddde0dd4ca5cdfd2d9e342e2",
+  "library_driver_version": "v0.1.0 (Makefile default)",
+  "library_build_command": "env GOTOOLCHAIN=go1.26.6 MACOSX_DEPLOYMENT_TARGET=12.0 CGO_CFLAGS='-O2 -g -mmacosx-version-min=12.0' CGO_LDFLAGS='-O2 -g -mmacosx-version-min=12.0' make -B -C go build"
+}

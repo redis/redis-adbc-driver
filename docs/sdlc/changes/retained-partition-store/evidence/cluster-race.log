@@ -1,0 +1,26 @@
+=== RUN   TestRetainedPartitionPublicationAndReplay
+--- PASS: TestRetainedPartitionPublicationAndReplay (0.06s)
+=== RUN   TestRetainedPartitionQuotaRaces
+--- PASS: TestRetainedPartitionQuotaRaces (0.04s)
+=== RUN   TestRetainedPartitionRevokeRacingUpload
+--- PASS: TestRetainedPartitionRevokeRacingUpload (0.05s)
+=== RUN   TestRetainedPartitionRevokeUsesCompleteJobKeySpace
+--- PASS: TestRetainedPartitionRevokeUsesCompleteJobKeySpace (0.04s)
+=== RUN   TestRetainedPartitionJobQuotaAndCancelledPublication
+--- PASS: TestRetainedPartitionJobQuotaAndCancelledPublication (0.05s)
+=== RUN   TestRetainedPartitionCorruptLeaseCannotExtendOrphanLifetime
+--- PASS: TestRetainedPartitionCorruptLeaseCannotExtendOrphanLifetime (0.05s)
+=== RUN   TestRetainedPartitionMissingCorruptAndUnpublished
+--- PASS: TestRetainedPartitionMissingCorruptAndUnpublished (0.05s)
+=== RUN   TestRetainedPartitionManifestEvictionStopsReplay
+--- PASS: TestRetainedPartitionManifestEvictionStopsReplay (0.04s)
+=== RUN   TestRetainedPartitionControlStateDoesNotPolluteApplicationIndexes
+--- PASS: TestRetainedPartitionControlStateDoesNotPolluteApplicationIndexes (0.05s)
+=== RUN   TestRetainedPartitionExpiryAndAbandonedUpload
+--- PASS: TestRetainedPartitionExpiryAndAbandonedUpload (1.55s)
+=== RUN   TestRetainedPartitionIndependentACL
+--- PASS: TestRetainedPartitionIndependentACL (0.08s)
+=== RUN   TestRetainedPartitionNamespaceAndLimits
+--- PASS: TestRetainedPartitionNamespaceAndLimits (0.00s)
+PASS
+ok  	github.com/adbc-drivers/redis/go	3.673s

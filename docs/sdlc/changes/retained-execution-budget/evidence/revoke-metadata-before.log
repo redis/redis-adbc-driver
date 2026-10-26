@@ -1,0 +1,11 @@
+=== RUN   TestRetainedPartitionRevokeRepairsMissingOrCorruptMetadata
+=== RUN   TestRetainedPartitionRevokeRepairsMissingOrCorruptMetadata/missing
+    partition_retained_store_integration_test.go:663: explicit revoke left output after metadata loss 2 <nil>
+=== RUN   TestRetainedPartitionRevokeRepairsMissingOrCorruptMetadata/corrupt
+    partition_retained_store_integration_test.go:660: explicit publisher revoke could not repair job metadata I/O: [redis] retained partition state operation failed: ERR user_script:4: Expected value but found invalid token at character 1 script: 8ba2037cb945cd366676aec332fbc002d3bb0363, on @user_script:4.
+--- FAIL: TestRetainedPartitionRevokeRepairsMissingOrCorruptMetadata (0.01s)
+    --- FAIL: TestRetainedPartitionRevokeRepairsMissingOrCorruptMetadata/missing (0.00s)
+    --- FAIL: TestRetainedPartitionRevokeRepairsMissingOrCorruptMetadata/corrupt (0.00s)
+FAIL
+FAIL	github.com/adbc-drivers/redis/go	0.632s
+FAIL

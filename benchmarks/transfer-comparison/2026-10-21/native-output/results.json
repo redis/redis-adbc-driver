@@ -1,0 +1,1448 @@
+{
+  "methodology": "Matched local 100K x 105 full-result Arrow transfer comparison.\n\nUses only dedicated benchmark databases. Loads are outside timing. Every trial\nincludes fresh spawned processes/connections, query execution, complete Arrow\nfetch, normalization and IPC writes. Full-value validation is outside timing.\n",
+  "trials": [
+    {
+      "engine": "redis",
+      "profile": "single_reader",
+      "repeat": -1,
+      "warmup": true,
+      "seconds": 5.467643124997267,
+      "rows": 100000,
+      "columns": 105,
+      "arrow_payload_bytes": 79228019,
+      "logical_dataset_arrow_bytes": 79228019,
+      "rows_per_second": 18289.416063534685,
+      "arrow_mib_per_second": 13.819067033582986,
+      "output_format": "Arrow IPC stream",
+      "time_to_first_batch_seconds": 3.7201257499982603,
+      "workers": 1,
+      "partitions": 1,
+      "exact_full_values_validated": true,
+      "metrics": [
+        {
+          "rows": 100000,
+          "arrow_payload_bytes": 80540519,
+          "first_batch_at": 129709.181346625,
+          "worker_seconds": 5.264465583008132,
+          "worker_lifetime_peak_rss_bytes": 2063269888,
+          "ipc_bytes": 79245656
+        }
+      ]
+    },
+    {
+      "engine": "redis_py",
+      "profile": "single_reader",
+      "repeat": -1,
+      "warmup": true,
+      "seconds": 3.045459833010682,
+      "rows": 100000,
+      "columns": 105,
+      "arrow_payload_bytes": 79228019,
+      "logical_dataset_arrow_bytes": 79228019,
+      "rows_per_second": 32835.76388565991,
+      "arrow_mib_per_second": 24.809956789136667,
+      "output_format": "Arrow IPC stream",
+      "time_to_first_batch_seconds": 0.1782934579969151,
+      "workers": 1,
+      "partitions": 1,
+      "exact_full_values_validated": true,
+      "metrics": [
+        {
+          "rows": 100000,
+          "arrow_payload_bytes": 79228019,
+          "first_batch_at": 129711.143108083,
+          "worker_seconds": 2.886504041001899,
+          "worker_lifetime_peak_rss_bytes": 119652352,
+          "ipc_bytes": 79819216
+        }
+      ]
+    },
+    {
+      "engine": "redis_py_raw",
+      "profile": "single_reader",
+      "repeat": -1,
+      "warmup": true,
+      "seconds": 2.789597082999535,
+      "rows": 100000,
+      "columns": 105,
+      "arrow_payload_bytes": null,
+      "logical_dataset_arrow_bytes": 79228019,
+      "rows_per_second": 35847.47080839153,
+      "arrow_mib_per_second": null,
+      "output_format": "Python Redis byte values, pickle protocol 5",
+      "time_to_first_batch_seconds": 0.18435820798913483,
+      "workers": 1,
+      "partitions": 1,
+      "exact_full_values_validated": true,
+      "metrics": [
+        {
+          "rows": 100000,
+          "arrow_payload_bytes": null,
+          "first_batch_at": 129714.252524666,
+          "worker_seconds": 2.6146391249931185,
+          "worker_lifetime_peak_rss_bytes": 107839488,
+          "ipc_bytes": 93987275,
+          "output_format": "Python Redis byte values, pickle protocol 5; no Arrow conversion/output in timed path"
+        }
+      ]
+    },
+    {
+      "engine": "redis",
+      "profile": "four_readers",
+      "repeat": -1,
+      "warmup": true,
+      "seconds": 2.9325043330027256,
+      "rows": 100000,
+      "columns": 105,
+      "arrow_payload_bytes": 79228019,
+      "logical_dataset_arrow_bytes": 79228019,
+      "rows_per_second": 34100.54637416526,
+      "arrow_mib_per_second": 25.765597687175237,
+      "output_format": "Arrow IPC stream",
+      "time_to_first_batch_seconds": 1.5225227500050096,
+      "workers": 4,
+      "partitions": 8,
+      "exact_full_values_validated": true,
+      "metrics": [
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 10023191,
+          "first_batch_at": 129719.107751375,
+          "worker_seconds": 1.3101362079905812,
+          "worker_lifetime_peak_rss_bytes": 483934208,
+          "ipc_bytes": 9870856
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 10120856,
+          "first_batch_at": 129719.1072315,
+          "worker_seconds": 1.3097157500014873,
+          "worker_lifetime_peak_rss_bytes": 465911808,
+          "ipc_bytes": 9968520
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 10035595,
+          "first_batch_at": 129719.10272725,
+          "worker_seconds": 1.3030288340087282,
+          "worker_lifetime_peak_rss_bytes": 470597632,
+          "ipc_bytes": 9883232
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9993045,
+          "first_batch_at": 129719.106324625,
+          "worker_seconds": 1.2987194159941282,
+          "worker_lifetime_peak_rss_bytes": 495190016,
+          "ipc_bytes": 9840688
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9978968,
+          "first_batch_at": 129720.385698958,
+          "worker_seconds": 1.2791492499964079,
+          "worker_lifetime_peak_rss_bytes": 491896832,
+          "ipc_bytes": 9826624
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 10080251,
+          "first_batch_at": 129720.388116833,
+          "worker_seconds": 1.2761565830005566,
+          "worker_lifetime_peak_rss_bytes": 530087936,
+          "ipc_bytes": 9927896
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 10136679,
+          "first_batch_at": 129720.381654541,
+          "worker_seconds": 1.2740852499991888,
+          "worker_lifetime_peak_rss_bytes": 469925888,
+          "ipc_bytes": 9984312
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 10172354,
+          "first_batch_at": 129720.466838375,
+          "worker_seconds": 1.3468914999975823,
+          "worker_lifetime_peak_rss_bytes": 501448704,
+          "ipc_bytes": 10020000
+        }
+      ]
+    },
+    {
+      "engine": "redis_py",
+      "profile": "four_readers",
+      "repeat": -1,
+      "warmup": true,
+      "seconds": 1.6042250830068951,
+      "rows": 100000,
+      "columns": 105,
+      "arrow_payload_bytes": 79228019,
+      "logical_dataset_arrow_bytes": 79228019,
+      "rows_per_second": 62335.39237060426,
+      "arrow_mib_per_second": 47.09920550451936,
+      "output_format": "Arrow IPC stream",
+      "time_to_first_batch_seconds": 0.2230079580040183,
+      "workers": 4,
+      "partitions": 8,
+      "exact_full_values_validated": true,
+      "metrics": [
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9859076,
+          "first_batch_at": 129720.7764095,
+          "worker_seconds": 0.6147496670018882,
+          "worker_lifetime_peak_rss_bytes": 112771072,
+          "ipc_bytes": 9941144
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9956741,
+          "first_batch_at": 129720.77621825,
+          "worker_seconds": 0.6803972079942469,
+          "worker_lifetime_peak_rss_bytes": 114114560,
+          "ipc_bytes": 10038736
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9871480,
+          "first_batch_at": 129720.775932958,
+          "worker_seconds": 0.6801647919928655,
+          "worker_lifetime_peak_rss_bytes": 112672768,
+          "ipc_bytes": 9953432
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9828930,
+          "first_batch_at": 129720.776513083,
+          "worker_seconds": 0.6771806250035297,
+          "worker_lifetime_peak_rss_bytes": 112885760,
+          "ipc_bytes": 9910888
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9814853,
+          "first_batch_at": 129721.384012625,
+          "worker_seconds": 0.6828916669910541,
+          "worker_lifetime_peak_rss_bytes": 118915072,
+          "ipc_bytes": 9896768
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9916136,
+          "first_batch_at": 129721.468402916,
+          "worker_seconds": 0.7232438330102013,
+          "worker_lifetime_peak_rss_bytes": 113786880,
+          "ipc_bytes": 9998080
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9972564,
+          "first_batch_at": 129721.455745041,
+          "worker_seconds": 0.6212480829999549,
+          "worker_lifetime_peak_rss_bytes": 115884032,
+          "ipc_bytes": 10054560
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 10008239,
+          "first_batch_at": 129721.468422833,
+          "worker_seconds": 0.7232866249978542,
+          "worker_lifetime_peak_rss_bytes": 115933184,
+          "ipc_bytes": 10090200
+        }
+      ]
+    },
+    {
+      "engine": "redis_py_raw",
+      "profile": "four_readers",
+      "repeat": -1,
+      "warmup": true,
+      "seconds": 1.5399976659973618,
+      "rows": 100000,
+      "columns": 105,
+      "arrow_payload_bytes": null,
+      "logical_dataset_arrow_bytes": 79228019,
+      "rows_per_second": 64935.163349897775,
+      "arrow_mib_per_second": null,
+      "output_format": "Python Redis byte values, pickle protocol 5",
+      "time_to_first_batch_seconds": 0.23498204098723363,
+      "workers": 4,
+      "partitions": 8,
+      "exact_full_values_validated": true,
+      "metrics": [
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": null,
+          "first_batch_at": 129722.458549958,
+          "worker_seconds": 0.6861141249974025,
+          "worker_lifetime_peak_rss_bytes": 107266048,
+          "ipc_bytes": 11704768,
+          "output_format": "Python Redis byte values, pickle protocol 5; no Arrow conversion/output in timed path"
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": null,
+          "first_batch_at": 129722.458541166,
+          "worker_seconds": 0.6861295419948874,
+          "worker_lifetime_peak_rss_bytes": 108183552,
+          "ipc_bytes": 11804697,
+          "output_format": "Python Redis byte values, pickle protocol 5; no Arrow conversion/output in timed path"
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": null,
+          "first_batch_at": 129722.458628041,
+          "worker_seconds": 0.6856931670045014,
+          "worker_lifetime_peak_rss_bytes": 108216320,
+          "ipc_bytes": 11719862,
+          "output_format": "Python Redis byte values, pickle protocol 5; no Arrow conversion/output in timed path"
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": null,
+          "first_batch_at": 129722.469626958,
+          "worker_seconds": 0.6834268329985207,
+          "worker_lifetime_peak_rss_bytes": 109985792,
+          "ipc_bytes": 11671506,
+          "output_format": "Python Redis byte values, pickle protocol 5; no Arrow conversion/output in timed path"
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": null,
+          "first_batch_at": 129723.145755875,
+          "worker_seconds": 0.6502875419973861,
+          "worker_lifetime_peak_rss_bytes": 108249088,
+          "ipc_bytes": 11661937,
+          "output_format": "Python Redis byte values, pickle protocol 5; no Arrow conversion/output in timed path"
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": null,
+          "first_batch_at": 129723.13507175,
+          "worker_seconds": 0.6497902080009226,
+          "worker_lifetime_peak_rss_bytes": 110592000,
+          "ipc_bytes": 11755437,
+          "output_format": "Python Redis byte values, pickle protocol 5; no Arrow conversion/output in timed path"
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": null,
+          "first_batch_at": 129723.134604791,
+          "worker_seconds": 0.6497919999965234,
+          "worker_lifetime_peak_rss_bytes": 108216320,
+          "ipc_bytes": 11801886,
+          "output_format": "Python Redis byte values, pickle protocol 5; no Arrow conversion/output in timed path"
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": null,
+          "first_batch_at": 129723.13557725,
+          "worker_seconds": 0.6497281670017401,
+          "worker_lifetime_peak_rss_bytes": 108331008,
+          "ipc_bytes": 11869259,
+          "output_format": "Python Redis byte values, pickle protocol 5; no Arrow conversion/output in timed path"
+        }
+      ]
+    },
+    {
+      "engine": "redis",
+      "profile": "single_reader",
+      "repeat": 0,
+      "warmup": false,
+      "seconds": 5.353045000010752,
+      "rows": 100000,
+      "columns": 105,
+      "arrow_payload_bytes": 79228019,
+      "logical_dataset_arrow_bytes": 79228019,
+      "rows_per_second": 18680.956352842008,
+      "arrow_mib_per_second": 14.114905975924847,
+      "output_format": "Arrow IPC stream",
+      "time_to_first_batch_seconds": 3.62095137500728,
+      "workers": 1,
+      "partitions": 1,
+      "exact_full_values_validated": true,
+      "metrics": [
+        {
+          "rows": 100000,
+          "arrow_payload_bytes": 80540519,
+          "first_batch_at": 129728.1384485,
+          "worker_seconds": 5.113409541998408,
+          "worker_lifetime_peak_rss_bytes": 2495840256,
+          "ipc_bytes": 79245656
+        }
+      ]
+    },
+    {
+      "engine": "redis_py",
+      "profile": "single_reader",
+      "repeat": 0,
+      "warmup": false,
+      "seconds": 3.203368208007305,
+      "rows": 100000,
+      "columns": 105,
+      "arrow_payload_bytes": 79228019,
+      "logical_dataset_arrow_bytes": 79228019,
+      "rows_per_second": 31217.14192893431,
+      "arrow_mib_per_second": 23.5869628321772,
+      "output_format": "Arrow IPC stream",
+      "time_to_first_batch_seconds": 0.2065827500045998,
+      "workers": 1,
+      "partitions": 1,
+      "exact_full_values_validated": true,
+      "metrics": [
+        {
+          "rows": 100000,
+          "arrow_payload_bytes": 79228019,
+          "first_batch_at": 129730.124525458,
+          "worker_seconds": 3.010625250011799,
+          "worker_lifetime_peak_rss_bytes": 120684544,
+          "ipc_bytes": 79819216
+        }
+      ]
+    },
+    {
+      "engine": "redis_py_raw",
+      "profile": "single_reader",
+      "repeat": 0,
+      "warmup": false,
+      "seconds": 2.8268778329947963,
+      "rows": 100000,
+      "columns": 105,
+      "arrow_payload_bytes": null,
+      "logical_dataset_arrow_bytes": 79228019,
+      "rows_per_second": 35374.7158199829,
+      "arrow_mib_per_second": null,
+      "output_format": "Python Redis byte values, pickle protocol 5",
+      "time_to_first_batch_seconds": 0.17275445799168665,
+      "workers": 1,
+      "partitions": 1,
+      "exact_full_values_validated": true,
+      "metrics": [
+        {
+          "rows": 100000,
+          "arrow_payload_bytes": null,
+          "first_batch_at": 129733.355772916,
+          "worker_seconds": 2.6642936669959454,
+          "worker_lifetime_peak_rss_bytes": 107741184,
+          "ipc_bytes": 93987275,
+          "output_format": "Python Redis byte values, pickle protocol 5; no Arrow conversion/output in timed path"
+        }
+      ]
+    },
+    {
+      "engine": "redis",
+      "profile": "four_readers",
+      "repeat": 0,
+      "warmup": false,
+      "seconds": 2.971782416003407,
+      "rows": 100000,
+      "columns": 105,
+      "arrow_payload_bytes": 79228019,
+      "logical_dataset_arrow_bytes": 79228019,
+      "rows_per_second": 33649.83905331963,
+      "arrow_mib_per_second": 25.425053480752464,
+      "output_format": "Arrow IPC stream",
+      "time_to_first_batch_seconds": 1.589887207999709,
+      "workers": 4,
+      "partitions": 8,
+      "exact_full_values_validated": true,
+      "metrics": [
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 10023191,
+          "first_batch_at": 129738.352620666,
+          "worker_seconds": 1.3982826670107897,
+          "worker_lifetime_peak_rss_bytes": 465895424,
+          "ipc_bytes": 9870856
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 10120856,
+          "first_batch_at": 129738.336355958,
+          "worker_seconds": 1.3629041660024086,
+          "worker_lifetime_peak_rss_bytes": 488488960,
+          "ipc_bytes": 9968520
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 10035595,
+          "first_batch_at": 129738.354777958,
+          "worker_seconds": 1.395105000003241,
+          "worker_lifetime_peak_rss_bytes": 532332544,
+          "ipc_bytes": 9883232
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9993045,
+          "first_batch_at": 129738.34969075,
+          "worker_seconds": 1.389135500008706,
+          "worker_lifetime_peak_rss_bytes": 455770112,
+          "ipc_bytes": 9840688
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9978968,
+          "first_batch_at": 129739.672935916,
+          "worker_seconds": 1.3282253750076052,
+          "worker_lifetime_peak_rss_bytes": 489832448,
+          "ipc_bytes": 9826624
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 10080251,
+          "first_batch_at": 129739.667961625,
+          "worker_seconds": 1.2872449999995297,
+          "worker_lifetime_peak_rss_bytes": 478314496,
+          "ipc_bytes": 9927896
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 10136679,
+          "first_batch_at": 129739.655905,
+          "worker_seconds": 1.2749814589915331,
+          "worker_lifetime_peak_rss_bytes": 470138880,
+          "ipc_bytes": 9984312
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 10172354,
+          "first_batch_at": 129739.671153875,
+          "worker_seconds": 1.2888974999950733,
+          "worker_lifetime_peak_rss_bytes": 533790720,
+          "ipc_bytes": 10020000
+        }
+      ]
+    },
+    {
+      "engine": "redis_py",
+      "profile": "four_readers",
+      "repeat": 0,
+      "warmup": false,
+      "seconds": 1.6013538329862058,
+      "rows": 100000,
+      "columns": 105,
+      "arrow_payload_bytes": 79228019,
+      "logical_dataset_arrow_bytes": 79228019,
+      "rows_per_second": 62447.16060879557,
+      "arrow_mib_per_second": 47.18365504464824,
+      "output_format": "Arrow IPC stream",
+      "time_to_first_batch_seconds": 0.22548333299346268,
+      "workers": 4,
+      "partitions": 8,
+      "exact_full_values_validated": true,
+      "metrics": [
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9859076,
+          "first_batch_at": 129739.987324791,
+          "worker_seconds": 0.7148415830015438,
+          "worker_lifetime_peak_rss_bytes": 112902144,
+          "ipc_bytes": 9941144
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9956741,
+          "first_batch_at": 129739.9884275,
+          "worker_seconds": 0.6590244160033762,
+          "worker_lifetime_peak_rss_bytes": 113868800,
+          "ipc_bytes": 10038736
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9871480,
+          "first_batch_at": 129739.991524541,
+          "worker_seconds": 0.7101378340012161,
+          "worker_lifetime_peak_rss_bytes": 112885760,
+          "ipc_bytes": 9953432
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9828930,
+          "first_batch_at": 129739.993119083,
+          "worker_seconds": 0.7043625420046737,
+          "worker_lifetime_peak_rss_bytes": 112885760,
+          "ipc_bytes": 9910888
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9814853,
+          "first_batch_at": 129740.627248583,
+          "worker_seconds": 0.5974123750056606,
+          "worker_lifetime_peak_rss_bytes": 115130368,
+          "ipc_bytes": 9896768
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9916136,
+          "first_batch_at": 129740.709865375,
+          "worker_seconds": 0.647406875010347,
+          "worker_lifetime_peak_rss_bytes": 119062528,
+          "ipc_bytes": 9998080
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9972564,
+          "first_batch_at": 129740.711301583,
+          "worker_seconds": 0.6476517080009216,
+          "worker_lifetime_peak_rss_bytes": 118456320,
+          "ipc_bytes": 10054560
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 10008239,
+          "first_batch_at": 129740.711891041,
+          "worker_seconds": 0.6825952080107527,
+          "worker_lifetime_peak_rss_bytes": 114573312,
+          "ipc_bytes": 10090200
+        }
+      ]
+    },
+    {
+      "engine": "redis_py_raw",
+      "profile": "four_readers",
+      "repeat": 0,
+      "warmup": false,
+      "seconds": 1.4907863340049516,
+      "rows": 100000,
+      "columns": 105,
+      "arrow_payload_bytes": null,
+      "logical_dataset_arrow_bytes": 79228019,
+      "rows_per_second": 67078.69378662271,
+      "arrow_mib_per_second": null,
+      "output_format": "Python Redis byte values, pickle protocol 5",
+      "time_to_first_batch_seconds": 0.21553975000279024,
+      "workers": 4,
+      "partitions": 8,
+      "exact_full_values_validated": true,
+      "metrics": [
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": null,
+          "first_batch_at": 129741.651097666,
+          "worker_seconds": 0.6436937499966007,
+          "worker_lifetime_peak_rss_bytes": 106840064,
+          "ipc_bytes": 11704768,
+          "output_format": "Python Redis byte values, pickle protocol 5; no Arrow conversion/output in timed path"
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": null,
+          "first_batch_at": 129741.650449291,
+          "worker_seconds": 0.6467015840025852,
+          "worker_lifetime_peak_rss_bytes": 110526464,
+          "ipc_bytes": 11804697,
+          "output_format": "Python Redis byte values, pickle protocol 5; no Arrow conversion/output in timed path"
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": null,
+          "first_batch_at": 129741.651781458,
+          "worker_seconds": 0.6404360419983277,
+          "worker_lifetime_peak_rss_bytes": 108036096,
+          "ipc_bytes": 11719862,
+          "output_format": "Python Redis byte values, pickle protocol 5; no Arrow conversion/output in timed path"
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": null,
+          "first_batch_at": 129741.651691416,
+          "worker_seconds": 0.6391897499997867,
+          "worker_lifetime_peak_rss_bytes": 107757568,
+          "ipc_bytes": 11671506,
+          "output_format": "Python Redis byte values, pickle protocol 5; no Arrow conversion/output in timed path"
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": null,
+          "first_batch_at": 129742.301306166,
+          "worker_seconds": 0.6532666659913957,
+          "worker_lifetime_peak_rss_bytes": 107806720,
+          "ipc_bytes": 11661937,
+          "output_format": "Python Redis byte values, pickle protocol 5; no Arrow conversion/output in timed path"
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": null,
+          "first_batch_at": 129742.300284583,
+          "worker_seconds": 0.6529856670094887,
+          "worker_lifetime_peak_rss_bytes": 108101632,
+          "ipc_bytes": 11755437,
+          "output_format": "Python Redis byte values, pickle protocol 5; no Arrow conversion/output in timed path"
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": null,
+          "first_batch_at": 129742.3014655,
+          "worker_seconds": 0.6528684170043562,
+          "worker_lifetime_peak_rss_bytes": 107888640,
+          "ipc_bytes": 11801886,
+          "output_format": "Python Redis byte values, pickle protocol 5; no Arrow conversion/output in timed path"
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": null,
+          "first_batch_at": 129742.3013745,
+          "worker_seconds": 0.6504881670116447,
+          "worker_lifetime_peak_rss_bytes": 110592000,
+          "ipc_bytes": 11869259,
+          "output_format": "Python Redis byte values, pickle protocol 5; no Arrow conversion/output in timed path"
+        }
+      ]
+    },
+    {
+      "engine": "redis",
+      "profile": "four_readers",
+      "repeat": 1,
+      "warmup": false,
+      "seconds": 2.9278367920051096,
+      "rows": 100000,
+      "columns": 105,
+      "arrow_payload_bytes": 79228019,
+      "logical_dataset_arrow_bytes": 79228019,
+      "rows_per_second": 34154.90927399531,
+      "arrow_mib_per_second": 25.80667305854203,
+      "output_format": "Arrow IPC stream",
+      "time_to_first_batch_seconds": 1.5286477920017205,
+      "workers": 4,
+      "partitions": 8,
+      "exact_full_values_validated": true,
+      "metrics": [
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 10023191,
+          "first_batch_at": 129745.186652875,
+          "worker_seconds": 1.3283356659958372,
+          "worker_lifetime_peak_rss_bytes": 462700544,
+          "ipc_bytes": 9870856
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 10120856,
+          "first_batch_at": 129745.187197666,
+          "worker_seconds": 1.328138333003153,
+          "worker_lifetime_peak_rss_bytes": 471121920,
+          "ipc_bytes": 9968520
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 10035595,
+          "first_batch_at": 129745.189718583,
+          "worker_seconds": 1.331640458010952,
+          "worker_lifetime_peak_rss_bytes": 488849408,
+          "ipc_bytes": 9883232
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9993045,
+          "first_batch_at": 129745.189140333,
+          "worker_seconds": 1.3278329580061836,
+          "worker_lifetime_peak_rss_bytes": 485834752,
+          "ipc_bytes": 9840688
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9978968,
+          "first_batch_at": 129746.487368916,
+          "worker_seconds": 1.2908794590039179,
+          "worker_lifetime_peak_rss_bytes": 487505920,
+          "ipc_bytes": 9826624
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 10080251,
+          "first_batch_at": 129746.482848583,
+          "worker_seconds": 1.2844983329996467,
+          "worker_lifetime_peak_rss_bytes": 474497024,
+          "ipc_bytes": 9927896
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 10136679,
+          "first_batch_at": 129746.488367083,
+          "worker_seconds": 1.288055874989368,
+          "worker_lifetime_peak_rss_bytes": 533299200,
+          "ipc_bytes": 9984312
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 10172354,
+          "first_batch_at": 129746.541395208,
+          "worker_seconds": 1.3374464590015123,
+          "worker_lifetime_peak_rss_bytes": 491012096,
+          "ipc_bytes": 10020000
+        }
+      ]
+    },
+    {
+      "engine": "redis_py",
+      "profile": "four_readers",
+      "repeat": 1,
+      "warmup": false,
+      "seconds": 1.6379687080043368,
+      "rows": 100000,
+      "columns": 105,
+      "arrow_payload_bytes": 79228019,
+      "logical_dataset_arrow_bytes": 79228019,
+      "rows_per_second": 61051.227359427205,
+      "arrow_mib_per_second": 46.12891961294192,
+      "output_format": "Arrow IPC stream",
+      "time_to_first_batch_seconds": 0.22634429100435227,
+      "workers": 4,
+      "partitions": 8,
+      "exact_full_values_validated": true,
+      "metrics": [
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9859076,
+          "first_batch_at": 129746.852383916,
+          "worker_seconds": 0.7213244169979589,
+          "worker_lifetime_peak_rss_bytes": 112377856,
+          "ipc_bytes": 9941144
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9956741,
+          "first_batch_at": 129746.852955041,
+          "worker_seconds": 0.6995172909955727,
+          "worker_lifetime_peak_rss_bytes": 114098176,
+          "ipc_bytes": 10038736
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9871480,
+          "first_batch_at": 129746.852840583,
+          "worker_seconds": 0.7063606250012526,
+          "worker_lifetime_peak_rss_bytes": 112738304,
+          "ipc_bytes": 9953432
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9828930,
+          "first_batch_at": 129746.852995916,
+          "worker_seconds": 0.7507616660004715,
+          "worker_lifetime_peak_rss_bytes": 112820224,
+          "ipc_bytes": 9910888
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9814853,
+          "first_batch_at": 129747.542908083,
+          "worker_seconds": 0.7441401249961928,
+          "worker_lifetime_peak_rss_bytes": 115752960,
+          "ipc_bytes": 9896768
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9916136,
+          "first_batch_at": 129747.542074958,
+          "worker_seconds": 0.7354829160030931,
+          "worker_lifetime_peak_rss_bytes": 113901568,
+          "ipc_bytes": 9998080
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9972564,
+          "first_batch_at": 129747.547439541,
+          "worker_seconds": 0.6527825000084704,
+          "worker_lifetime_peak_rss_bytes": 119537664,
+          "ipc_bytes": 10054560
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 10008239,
+          "first_batch_at": 129747.597708416,
+          "worker_seconds": 0.6861606669990579,
+          "worker_lifetime_peak_rss_bytes": 118996992,
+          "ipc_bytes": 10090200
+        }
+      ]
+    },
+    {
+      "engine": "redis_py_raw",
+      "profile": "four_readers",
+      "repeat": 1,
+      "warmup": false,
+      "seconds": 1.470714416995179,
+      "rows": 100000,
+      "columns": 105,
+      "arrow_payload_bytes": null,
+      "logical_dataset_arrow_bytes": 79228019,
+      "rows_per_second": 67994.165858733,
+      "arrow_mib_per_second": null,
+      "output_format": "Python Redis byte values, pickle protocol 5",
+      "time_to_first_batch_seconds": 0.21286387500003912,
+      "workers": 4,
+      "partitions": 8,
+      "exact_full_values_validated": true,
+      "metrics": [
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": null,
+          "first_batch_at": 129748.541187958,
+          "worker_seconds": 0.6466882919921773,
+          "worker_lifetime_peak_rss_bytes": 107200512,
+          "ipc_bytes": 11704768,
+          "output_format": "Python Redis byte values, pickle protocol 5; no Arrow conversion/output in timed path"
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": null,
+          "first_batch_at": 129748.539018291,
+          "worker_seconds": 0.6466618749982445,
+          "worker_lifetime_peak_rss_bytes": 107773952,
+          "ipc_bytes": 11804697,
+          "output_format": "Python Redis byte values, pickle protocol 5; no Arrow conversion/output in timed path"
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": null,
+          "first_batch_at": 129748.542548625,
+          "worker_seconds": 0.644559250009479,
+          "worker_lifetime_peak_rss_bytes": 107692032,
+          "ipc_bytes": 11719862,
+          "output_format": "Python Redis byte values, pickle protocol 5; no Arrow conversion/output in timed path"
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": null,
+          "first_batch_at": 129748.542510083,
+          "worker_seconds": 0.640430125000421,
+          "worker_lifetime_peak_rss_bytes": 107872256,
+          "ipc_bytes": 11671506,
+          "output_format": "Python Redis byte values, pickle protocol 5; no Arrow conversion/output in timed path"
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": null,
+          "first_batch_at": 129749.193196,
+          "worker_seconds": 0.6304308749968186,
+          "worker_lifetime_peak_rss_bytes": 108167168,
+          "ipc_bytes": 11661937,
+          "output_format": "Python Redis byte values, pickle protocol 5; no Arrow conversion/output in timed path"
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": null,
+          "first_batch_at": 129749.193963791,
+          "worker_seconds": 0.6301911659975303,
+          "worker_lifetime_peak_rss_bytes": 107855872,
+          "ipc_bytes": 11755437,
+          "output_format": "Python Redis byte values, pickle protocol 5; no Arrow conversion/output in timed path"
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": null,
+          "first_batch_at": 129749.193875333,
+          "worker_seconds": 0.6301599169964902,
+          "worker_lifetime_peak_rss_bytes": 107937792,
+          "ipc_bytes": 11801886,
+          "output_format": "Python Redis byte values, pickle protocol 5; no Arrow conversion/output in timed path"
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": null,
+          "first_batch_at": 129749.193199083,
+          "worker_seconds": 0.6301640419987962,
+          "worker_lifetime_peak_rss_bytes": 107773952,
+          "ipc_bytes": 11869259,
+          "output_format": "Python Redis byte values, pickle protocol 5; no Arrow conversion/output in timed path"
+        }
+      ]
+    },
+    {
+      "engine": "redis",
+      "profile": "single_reader",
+      "repeat": 1,
+      "warmup": false,
+      "seconds": 5.468445125006838,
+      "rows": 100000,
+      "columns": 105,
+      "arrow_payload_bytes": 79228019,
+      "logical_dataset_arrow_bytes": 79228019,
+      "rows_per_second": 18286.733744973797,
+      "arrow_mib_per_second": 13.817040334651233,
+      "output_format": "Arrow IPC stream",
+      "time_to_first_batch_seconds": 3.783249165993766,
+      "workers": 1,
+      "partitions": 1,
+      "exact_full_values_validated": true,
+      "metrics": [
+        {
+          "rows": 100000,
+          "arrow_payload_bytes": 80540519,
+          "first_batch_at": 129754.322242791,
+          "worker_seconds": 5.25396970899601,
+          "worker_lifetime_peak_rss_bytes": 2272821248,
+          "ipc_bytes": 79245656
+        }
+      ]
+    },
+    {
+      "engine": "redis_py",
+      "profile": "single_reader",
+      "repeat": 1,
+      "warmup": false,
+      "seconds": 3.41963633299747,
+      "rows": 100000,
+      "columns": 105,
+      "arrow_payload_bytes": 79228019,
+      "logical_dataset_arrow_bytes": 79228019,
+      "rows_per_second": 29242.87563418925,
+      "arrow_mib_per_second": 22.09525209770377,
+      "output_format": "Arrow IPC stream",
+      "time_to_first_batch_seconds": 0.1972692499984987,
+      "workers": 1,
+      "partitions": 1,
+      "exact_full_values_validated": true,
+      "metrics": [
+        {
+          "rows": 100000,
+          "arrow_payload_bytes": 79228019,
+          "first_batch_at": 129756.243457875,
+          "worker_seconds": 3.237937708996469,
+          "worker_lifetime_peak_rss_bytes": 120455168,
+          "ipc_bytes": 79819216
+        }
+      ]
+    },
+    {
+      "engine": "redis_py_raw",
+      "profile": "single_reader",
+      "repeat": 1,
+      "warmup": false,
+      "seconds": 2.785681666995515,
+      "rows": 100000,
+      "columns": 105,
+      "arrow_payload_bytes": null,
+      "logical_dataset_arrow_bytes": 79228019,
+      "rows_per_second": 35897.85623561739,
+      "arrow_mib_per_second": null,
+      "output_format": "Python Redis byte values, pickle protocol 5",
+      "time_to_first_batch_seconds": 0.19197029199858662,
+      "workers": 1,
+      "partitions": 1,
+      "exact_full_values_validated": true,
+      "metrics": [
+        {
+          "rows": 100000,
+          "arrow_payload_bytes": null,
+          "first_batch_at": 129759.722672958,
+          "worker_seconds": 2.61009037499025,
+          "worker_lifetime_peak_rss_bytes": 107954176,
+          "ipc_bytes": 93987275,
+          "output_format": "Python Redis byte values, pickle protocol 5; no Arrow conversion/output in timed path"
+        }
+      ]
+    },
+    {
+      "engine": "redis",
+      "profile": "single_reader",
+      "repeat": 2,
+      "warmup": false,
+      "seconds": 5.383904500005883,
+      "rows": 100000,
+      "columns": 105,
+      "arrow_payload_bytes": 79228019,
+      "logical_dataset_arrow_bytes": 79228019,
+      "rows_per_second": 18573.88072167527,
+      "arrow_mib_per_second": 14.034002062994212,
+      "output_format": "Arrow IPC stream",
+      "time_to_first_batch_seconds": 3.6581966250087135,
+      "workers": 1,
+      "partitions": 1,
+      "exact_full_values_validated": true,
+      "metrics": [
+        {
+          "rows": 100000,
+          "arrow_payload_bytes": 80540519,
+          "first_batch_at": 129766.7675485,
+          "worker_seconds": 5.153493457997683,
+          "worker_lifetime_peak_rss_bytes": 2289811456,
+          "ipc_bytes": 79245656
+        }
+      ]
+    },
+    {
+      "engine": "redis_py",
+      "profile": "single_reader",
+      "repeat": 2,
+      "warmup": false,
+      "seconds": 3.299395583002479,
+      "rows": 100000,
+      "columns": 105,
+      "arrow_payload_bytes": 79228019,
+      "logical_dataset_arrow_bytes": 79228019,
+      "rows_per_second": 30308.58152177046,
+      "arrow_mib_per_second": 22.900475241373815,
+      "output_format": "Arrow IPC stream",
+      "time_to_first_batch_seconds": 0.1919110409944551,
+      "workers": 1,
+      "partitions": 1,
+      "exact_full_values_validated": true,
+      "metrics": [
+        {
+          "rows": 100000,
+          "arrow_payload_bytes": 79228019,
+          "first_batch_at": 129768.726450291,
+          "worker_seconds": 3.117355915994267,
+          "worker_lifetime_peak_rss_bytes": 120537088,
+          "ipc_bytes": 79819216
+        }
+      ]
+    },
+    {
+      "engine": "redis_py_raw",
+      "profile": "single_reader",
+      "repeat": 2,
+      "warmup": false,
+      "seconds": 2.749620833012159,
+      "rows": 100000,
+      "columns": 105,
+      "arrow_payload_bytes": null,
+      "logical_dataset_arrow_bytes": 79228019,
+      "rows_per_second": 36368.65083337758,
+      "arrow_mib_per_second": null,
+      "output_format": "Python Redis byte values, pickle protocol 5",
+      "time_to_first_batch_seconds": 0.19575595800415613,
+      "workers": 1,
+      "partitions": 1,
+      "exact_full_values_validated": true,
+      "metrics": [
+        {
+          "rows": 100000,
+          "arrow_payload_bytes": null,
+          "first_batch_at": 129772.099232208,
+          "worker_seconds": 2.5601717910030857,
+          "worker_lifetime_peak_rss_bytes": 107085824,
+          "ipc_bytes": 93987275,
+          "output_format": "Python Redis byte values, pickle protocol 5; no Arrow conversion/output in timed path"
+        }
+      ]
+    },
+    {
+      "engine": "redis",
+      "profile": "four_readers",
+      "repeat": 2,
+      "warmup": false,
+      "seconds": 3.2710491250036284,
+      "rows": 100000,
+      "columns": 105,
+      "arrow_payload_bytes": 79228019,
+      "logical_dataset_arrow_bytes": 79228019,
+      "rows_per_second": 30571.231485216253,
+      "arrow_mib_per_second": 23.0989275833522,
+      "output_format": "Arrow IPC stream",
+      "time_to_first_batch_seconds": 1.808728375006467,
+      "workers": 4,
+      "partitions": 8,
+      "exact_full_values_validated": true,
+      "metrics": [
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 10023191,
+          "first_batch_at": 129777.29075325,
+          "worker_seconds": 1.5708668750012293,
+          "worker_lifetime_peak_rss_bytes": 489390080,
+          "ipc_bytes": 9870856
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 10120856,
+          "first_batch_at": 129777.284909958,
+          "worker_seconds": 1.5645916249923175,
+          "worker_lifetime_peak_rss_bytes": 457523200,
+          "ipc_bytes": 9968520
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 10035595,
+          "first_batch_at": 129777.288214291,
+          "worker_seconds": 1.5680212500010384,
+          "worker_lifetime_peak_rss_bytes": 492830720,
+          "ipc_bytes": 9883232
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9993045,
+          "first_batch_at": 129777.288946875,
+          "worker_seconds": 1.5684365000051912,
+          "worker_lifetime_peak_rss_bytes": 485818368,
+          "ipc_bytes": 9840688
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9978968,
+          "first_batch_at": 129778.697877416,
+          "worker_seconds": 1.403116624991526,
+          "worker_lifetime_peak_rss_bytes": 462225408,
+          "ipc_bytes": 9826624
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 10080251,
+          "first_batch_at": 129778.69921625,
+          "worker_seconds": 1.3998980000033043,
+          "worker_lifetime_peak_rss_bytes": 501039104,
+          "ipc_bytes": 9927896
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 10136679,
+          "first_batch_at": 129778.696911708,
+          "worker_seconds": 1.396439250005642,
+          "worker_lifetime_peak_rss_bytes": 487440384,
+          "ipc_bytes": 9984312
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 10172354,
+          "first_batch_at": 129778.6950755,
+          "worker_seconds": 1.3935105420096079,
+          "worker_lifetime_peak_rss_bytes": 491503616,
+          "ipc_bytes": 10020000
+        }
+      ]
+    },
+    {
+      "engine": "redis_py",
+      "profile": "four_readers",
+      "repeat": 2,
+      "warmup": false,
+      "seconds": 1.6105030000035185,
+      "rows": 100000,
+      "columns": 105,
+      "arrow_payload_bytes": 79228019,
+      "logical_dataset_arrow_bytes": 79228019,
+      "rows_per_second": 62092.40218725549,
+      "arrow_mib_per_second": 46.91560764548797,
+      "output_format": "Arrow IPC stream",
+      "time_to_first_batch_seconds": 0.24476770899491385,
+      "workers": 4,
+      "partitions": 8,
+      "exact_full_values_validated": true,
+      "metrics": [
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9859076,
+          "first_batch_at": 129779.038376666,
+          "worker_seconds": 0.6771183749951888,
+          "worker_lifetime_peak_rss_bytes": 113098752,
+          "ipc_bytes": 9941144
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9956741,
+          "first_batch_at": 129779.038513375,
+          "worker_seconds": 0.6998410829983186,
+          "worker_lifetime_peak_rss_bytes": 114475008,
+          "ipc_bytes": 10038736
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9871480,
+          "first_batch_at": 129779.035559,
+          "worker_seconds": 0.6453828750090906,
+          "worker_lifetime_peak_rss_bytes": 112967680,
+          "ipc_bytes": 9953432
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9828930,
+          "first_batch_at": 129779.037108583,
+          "worker_seconds": 0.6868820000090636,
+          "worker_lifetime_peak_rss_bytes": 113442816,
+          "ipc_bytes": 9910888
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9814853,
+          "first_batch_at": 129779.680519791,
+          "worker_seconds": 0.6748598750127712,
+          "worker_lifetime_peak_rss_bytes": 114442240,
+          "ipc_bytes": 9896768
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9916136,
+          "first_batch_at": 129779.719003791,
+          "worker_seconds": 0.7172615839954233,
+          "worker_lifetime_peak_rss_bytes": 119275520,
+          "ipc_bytes": 9998080
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9972564,
+          "first_batch_at": 129779.720226833,
+          "worker_seconds": 0.7033894170017447,
+          "worker_lifetime_peak_rss_bytes": 118996992,
+          "ipc_bytes": 10054560
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 10008239,
+          "first_batch_at": 129779.729735916,
+          "worker_seconds": 0.6938413750031032,
+          "worker_lifetime_peak_rss_bytes": 116244480,
+          "ipc_bytes": 10090200
+        }
+      ]
+    },
+    {
+      "engine": "redis_py_raw",
+      "profile": "four_readers",
+      "repeat": 2,
+      "warmup": false,
+      "seconds": 1.4890782080037752,
+      "rows": 100000,
+      "columns": 105,
+      "arrow_payload_bytes": null,
+      "logical_dataset_arrow_bytes": 79228019,
+      "rows_per_second": 67155.63995396707,
+      "arrow_mib_per_second": null,
+      "output_format": "Python Redis byte values, pickle protocol 5",
+      "time_to_first_batch_seconds": 0.22696270800952334,
+      "workers": 4,
+      "partitions": 8,
+      "exact_full_values_validated": true,
+      "metrics": [
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": null,
+          "first_batch_at": 129780.70558625,
+          "worker_seconds": 0.6415154580026865,
+          "worker_lifetime_peak_rss_bytes": 110264320,
+          "ipc_bytes": 11704768,
+          "output_format": "Python Redis byte values, pickle protocol 5; no Arrow conversion/output in timed path"
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": null,
+          "first_batch_at": 129780.696057791,
+          "worker_seconds": 0.641459250007756,
+          "worker_lifetime_peak_rss_bytes": 112820224,
+          "ipc_bytes": 11804697,
+          "output_format": "Python Redis byte values, pickle protocol 5; no Arrow conversion/output in timed path"
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": null,
+          "first_batch_at": 129780.705926125,
+          "worker_seconds": 0.641174582997337,
+          "worker_lifetime_peak_rss_bytes": 111050752,
+          "ipc_bytes": 11719862,
+          "output_format": "Python Redis byte values, pickle protocol 5; no Arrow conversion/output in timed path"
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": null,
+          "first_batch_at": 129780.716862708,
+          "worker_seconds": 0.6610607920010807,
+          "worker_lifetime_peak_rss_bytes": 111329280,
+          "ipc_bytes": 11671506,
+          "output_format": "Python Redis byte values, pickle protocol 5; no Arrow conversion/output in timed path"
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": null,
+          "first_batch_at": 129781.333464458,
+          "worker_seconds": 0.6071915000065928,
+          "worker_lifetime_peak_rss_bytes": 112885760,
+          "ipc_bytes": 11661937,
+          "output_format": "Python Redis byte values, pickle protocol 5; no Arrow conversion/output in timed path"
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": null,
+          "first_batch_at": 129781.334325666,
+          "worker_seconds": 0.6170635419985047,
+          "worker_lifetime_peak_rss_bytes": 111083520,
+          "ipc_bytes": 11755437,
+          "output_format": "Python Redis byte values, pickle protocol 5; no Arrow conversion/output in timed path"
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": null,
+          "first_batch_at": 129781.334499208,
+          "worker_seconds": 0.633925709000323,
+          "worker_lifetime_peak_rss_bytes": 111181824,
+          "ipc_bytes": 11801886,
+          "output_format": "Python Redis byte values, pickle protocol 5; no Arrow conversion/output in timed path"
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": null,
+          "first_batch_at": 129781.342532666,
+          "worker_seconds": 0.5843969170091441,
+          "worker_lifetime_peak_rss_bytes": 111443968,
+          "ipc_bytes": 11869259,
+          "output_format": "Python Redis byte values, pickle protocol 5; no Arrow conversion/output in timed path"
+        }
+      ]
+    }
+  ],
+  "status": "complete",
+  "summary": [
+    {
+      "engine": "redis",
+      "profile": "single_reader",
+      "median_seconds": 5.383904500005883,
+      "rows_per_second": 18573.88072167527,
+      "arrow_mib_per_second": 14.034002062994212,
+      "min_seconds": 5.353045000010752,
+      "max_seconds": 5.468445125006838,
+      "trials": 3
+    },
+    {
+      "engine": "redis_py",
+      "profile": "single_reader",
+      "median_seconds": 3.299395583002479,
+      "rows_per_second": 30308.58152177046,
+      "arrow_mib_per_second": 22.900475241373815,
+      "min_seconds": 3.203368208007305,
+      "max_seconds": 3.41963633299747,
+      "trials": 3
+    },
+    {
+      "engine": "redis_py_raw",
+      "profile": "single_reader",
+      "median_seconds": 2.785681666995515,
+      "rows_per_second": 35897.85623561739,
+      "arrow_mib_per_second": null,
+      "min_seconds": 2.749620833012159,
+      "max_seconds": 2.8268778329947963,
+      "trials": 3
+    },
+    {
+      "engine": "redis",
+      "profile": "four_readers",
+      "median_seconds": 2.971782416003407,
+      "rows_per_second": 33649.83905331963,
+      "arrow_mib_per_second": 25.425053480752464,
+      "min_seconds": 2.9278367920051096,
+      "max_seconds": 3.2710491250036284,
+      "trials": 3
+    },
+    {
+      "engine": "redis_py",
+      "profile": "four_readers",
+      "median_seconds": 1.6105030000035185,
+      "rows_per_second": 62092.40218725549,
+      "arrow_mib_per_second": 46.91560764548797,
+      "min_seconds": 1.6013538329862058,
+      "max_seconds": 1.6379687080043368,
+      "trials": 3
+    },
+    {
+      "engine": "redis_py_raw",
+      "profile": "four_readers",
+      "median_seconds": 1.4890782080037752,
+      "rows_per_second": 67155.63995396707,
+      "arrow_mib_per_second": null,
+      "min_seconds": 1.470714416995179,
+      "max_seconds": 1.4907863340049516,
+      "trials": 3
+    }
+  ]
+}

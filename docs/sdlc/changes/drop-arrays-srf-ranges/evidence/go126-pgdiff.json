@@ -1,0 +1,3178 @@
+{
+  "reference": {
+    "image": "postgres:16.10 (cached local UTF8/C disposable reference)",
+    "postgres": "PostgreSQL 16.10 (Debian 16.10-1.pgdg13+1) on aarch64-unknown-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit",
+    "collation": "C",
+    "corpus": "/private/tmp/redis-four-pgcorpus"
+  },
+  "summary": {
+    "counts": {
+      "pass": 63
+    },
+    "scored": 63,
+    "pass_rate": 1.0
+  },
+  "infrastructure_errors": [],
+  "groups": {
+    "file": {
+      "issue-253.json": {
+        "counts": {
+          "pass": 30
+        },
+        "scored": 30,
+        "pass_rate": 1.0
+      },
+      "issue-256.json": {
+        "counts": {
+          "pass": 23
+        },
+        "scored": 23,
+        "pass_rate": 1.0
+      },
+      "issue-262.json": {
+        "counts": {
+          "pass": 10
+        },
+        "scored": 10,
+        "pass_rate": 1.0
+      }
+    },
+    "area": {
+      "arrays": {
+        "counts": {
+          "pass": 30
+        },
+        "scored": 30,
+        "pass_rate": 1.0
+      },
+      "ddl": {
+        "counts": {
+          "pass": 10
+        },
+        "scored": 10,
+        "pass_rate": 1.0
+      },
+      "srf": {
+        "counts": {
+          "pass": 23
+        },
+        "scored": 23,
+        "pass_rate": 1.0
+      }
+    },
+    "tier": {
+      "issues": {
+        "counts": {
+          "pass": 63
+        },
+        "scored": 63,
+        "pass_rate": 1.0
+      }
+    }
+  },
+  "results": [
+    {
+      "file": "issue-253.json",
+      "area": "arrays",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/253",
+      "provenance": null,
+      "id": "row-1",
+      "sql": "select array[1, 2, 3]",
+      "expect_postgres": null,
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [
+          "list<int32>"
+        ],
+        "raw_types": [
+          "1007"
+        ],
+        "type_details": [
+          {
+            "oid": 1007,
+            "typmod": -1
+          }
+        ],
+        "rows": [
+          [
+            [
+              1,
+              2,
+              3
+            ]
+          ]
+        ]
+      },
+      "redis": {
+        "types": [
+          "list<int32>"
+        ],
+        "raw_types": [
+          "list<item: int32>"
+        ],
+        "type_details": [
+          {
+            "arrow": "list<item: int32>"
+          }
+        ],
+        "rows": [
+          [
+            [
+              1,
+              2,
+              3
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "file": "issue-253.json",
+      "area": "arrays",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/253",
+      "provenance": null,
+      "id": "row-2",
+      "sql": "select (array[1, 2, 3])[2]",
+      "expect_postgres": null,
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [
+          "int32"
+        ],
+        "raw_types": [
+          "23"
+        ],
+        "type_details": [
+          {
+            "oid": 23,
+            "typmod": -1
+          }
+        ],
+        "rows": [
+          [
+            2
+          ]
+        ]
+      },
+      "redis": {
+        "types": [
+          "int32"
+        ],
+        "raw_types": [
+          "int32"
+        ],
+        "type_details": [
+          {
+            "arrow": "int32"
+          }
+        ],
+        "rows": [
+          [
+            2
+          ]
+        ]
+      }
+    },
+    {
+      "file": "issue-253.json",
+      "area": "arrays",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/253",
+      "provenance": null,
+      "id": "row-3",
+      "sql": "select 2 = any(array[1, 2, 3])",
+      "expect_postgres": null,
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [
+          "bool"
+        ],
+        "raw_types": [
+          "16"
+        ],
+        "type_details": [
+          {
+            "oid": 16,
+            "typmod": -1
+          }
+        ],
+        "rows": [
+          [
+            true
+          ]
+        ]
+      },
+      "redis": {
+        "types": [
+          "bool"
+        ],
+        "raw_types": [
+          "bool"
+        ],
+        "type_details": [
+          {
+            "arrow": "bool"
+          }
+        ],
+        "rows": [
+          [
+            true
+          ]
+        ]
+      }
+    },
+    {
+      "file": "issue-253.json",
+      "area": "arrays",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/253",
+      "provenance": null,
+      "id": "row-4",
+      "sql": "select array_agg(id order by id) from t",
+      "expect_postgres": null,
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [
+          "list<int32>"
+        ],
+        "raw_types": [
+          "1007"
+        ],
+        "type_details": [
+          {
+            "oid": 1007,
+            "typmod": -1
+          }
+        ],
+        "rows": [
+          [
+            [
+              1,
+              2,
+              3,
+              4
+            ]
+          ]
+        ]
+      },
+      "redis": {
+        "types": [
+          "list<int32>"
+        ],
+        "raw_types": [
+          "list<item: int32>"
+        ],
+        "type_details": [
+          {
+            "arrow": "list<item: int32>"
+          }
+        ],
+        "rows": [
+          [
+            [
+              1,
+              2,
+              3,
+              4
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "file": "issue-253.json",
+      "area": "arrays",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/253",
+      "provenance": null,
+      "id": "row-5",
+      "sql": "select * from unnest(array[1, 2]) as x(n)",
+      "expect_postgres": null,
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [
+          "int32"
+        ],
+        "raw_types": [
+          "23"
+        ],
+        "type_details": [
+          {
+            "oid": 23,
+            "typmod": -1
+          }
+        ],
+        "rows": [
+          [
+            1
+          ],
+          [
+            2
+          ]
+        ]
+      },
+      "redis": {
+        "types": [
+          "int32"
+        ],
+        "raw_types": [
+          "int32"
+        ],
+        "type_details": [
+          {
+            "arrow": "int32"
+          }
+        ],
+        "rows": [
+          [
+            1
+          ],
+          [
+            2
+          ]
+        ]
+      }
+    },
+    {
+      "file": "issue-253.json",
+      "area": "arrays",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/253",
+      "provenance": null,
+      "id": "row-6",
+      "sql": "select string_to_array('a,b', ',')",
+      "expect_postgres": null,
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [
+          "list<string>"
+        ],
+        "raw_types": [
+          "1009"
+        ],
+        "type_details": [
+          {
+            "oid": 1009,
+            "typmod": -1
+          }
+        ],
+        "rows": [
+          [
+            [
+              "a",
+              "b"
+            ]
+          ]
+        ]
+      },
+      "redis": {
+        "types": [
+          "list<string>"
+        ],
+        "raw_types": [
+          "list<item: string>"
+        ],
+        "type_details": [
+          {
+            "arrow": "list<item: string>"
+          }
+        ],
+        "rows": [
+          [
+            [
+              "a",
+              "b"
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "file": "issue-253.json",
+      "area": "arrays",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/253",
+      "provenance": null,
+      "id": "row-7",
+      "sql": "select '{1,2}'::integer[]",
+      "expect_postgres": null,
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [
+          "list<int32>"
+        ],
+        "raw_types": [
+          "1007"
+        ],
+        "type_details": [
+          {
+            "oid": 1007,
+            "typmod": -1
+          }
+        ],
+        "rows": [
+          [
+            [
+              1,
+              2
+            ]
+          ]
+        ]
+      },
+      "redis": {
+        "types": [
+          "list<int32>"
+        ],
+        "raw_types": [
+          "list<item: int32>"
+        ],
+        "type_details": [
+          {
+            "arrow": "list<item: int32>"
+          }
+        ],
+        "rows": [
+          [
+            [
+              1,
+              2
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "file": "issue-253.json",
+      "area": "arrays",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/253",
+      "provenance": null,
+      "id": "row-8",
+      "sql": "create table arr (tags text[])",
+      "expect_postgres": null,
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [],
+        "rows": []
+      },
+      "redis": {
+        "types": [],
+        "raw_types": [],
+        "type_details": [],
+        "rows": []
+      }
+    },
+    {
+      "file": "issue-253.json",
+      "area": "arrays",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/253",
+      "provenance": null,
+      "id": "row-9",
+      "sql": "select [id] from t order by id",
+      "expect_postgres": "42601",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "sqlstate": "42601",
+        "message": "syntax error at or near \"[\"\nLINE 1: select [id] from t order by id\n               ^"
+      },
+      "redis": {
+        "sqlstate": "42601",
+        "message": "INVALID_ARGUMENT: [redis] syntax error: unexpected \"[\". SQLSTATE: 42601"
+      }
+    },
+    {
+      "file": "issue-253.json",
+      "area": "arrays",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/253",
+      "provenance": null,
+      "id": "edge-1",
+      "sql": "select array(select id from t order by id)",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [
+          "list<int32>"
+        ],
+        "raw_types": [
+          "1007"
+        ],
+        "type_details": [
+          {
+            "oid": 1007,
+            "typmod": -1
+          }
+        ],
+        "rows": [
+          [
+            [
+              1,
+              2,
+              3,
+              4
+            ]
+          ]
+        ]
+      },
+      "redis": {
+        "types": [
+          "list<int32>"
+        ],
+        "raw_types": [
+          "list<item: int32>"
+        ],
+        "type_details": [
+          {
+            "arrow": "list<item: int32>"
+          }
+        ],
+        "rows": [
+          [
+            [
+              1,
+              2,
+              3,
+              4
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "file": "issue-253.json",
+      "area": "arrays",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/253",
+      "provenance": null,
+      "id": "edge-2",
+      "sql": "select (array[1,2,3])[2:3],(array[1,2,3])[:2],(array[1,2,3])[2:]",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [
+          "list<int32>",
+          "list<int32>",
+          "list<int32>"
+        ],
+        "raw_types": [
+          "1007",
+          "1007",
+          "1007"
+        ],
+        "type_details": [
+          {
+            "oid": 1007,
+            "typmod": -1
+          },
+          {
+            "oid": 1007,
+            "typmod": -1
+          },
+          {
+            "oid": 1007,
+            "typmod": -1
+          }
+        ],
+        "rows": [
+          [
+            [
+              2,
+              3
+            ],
+            [
+              1,
+              2
+            ],
+            [
+              2,
+              3
+            ]
+          ]
+        ]
+      },
+      "redis": {
+        "types": [
+          "list<int32>",
+          "list<int32>",
+          "list<int32>"
+        ],
+        "raw_types": [
+          "list<item: int32>",
+          "list<item: int32>",
+          "list<item: int32>"
+        ],
+        "type_details": [
+          {
+            "arrow": "list<item: int32>"
+          },
+          {
+            "arrow": "list<item: int32>"
+          },
+          {
+            "arrow": "list<item: int32>"
+          }
+        ],
+        "rows": [
+          [
+            [
+              2,
+              3
+            ],
+            [
+              1,
+              2
+            ],
+            [
+              2,
+              3
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "file": "issue-253.json",
+      "area": "arrays",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/253",
+      "provenance": null,
+      "id": "edge-3",
+      "sql": "select (array[1,2,3])[null:2]",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [
+          "list<int32>"
+        ],
+        "raw_types": [
+          "1007"
+        ],
+        "type_details": [
+          {
+            "oid": 1007,
+            "typmod": -1
+          }
+        ],
+        "rows": [
+          [
+            null
+          ]
+        ]
+      },
+      "redis": {
+        "types": [
+          "list<int32>"
+        ],
+        "raw_types": [
+          "list<item: int32>"
+        ],
+        "type_details": [
+          {
+            "arrow": "list<item: int32>"
+          }
+        ],
+        "rows": [
+          [
+            null
+          ]
+        ]
+      }
+    },
+    {
+      "file": "issue-253.json",
+      "area": "arrays",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/253",
+      "provenance": null,
+      "id": "edge-4",
+      "sql": "select array[1,2] @> array[2],array[1] <@ array[1,2],array[1] && array[2]",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [
+          "bool",
+          "bool",
+          "bool"
+        ],
+        "raw_types": [
+          "16",
+          "16",
+          "16"
+        ],
+        "type_details": [
+          {
+            "oid": 16,
+            "typmod": -1
+          },
+          {
+            "oid": 16,
+            "typmod": -1
+          },
+          {
+            "oid": 16,
+            "typmod": -1
+          }
+        ],
+        "rows": [
+          [
+            true,
+            true,
+            false
+          ]
+        ]
+      },
+      "redis": {
+        "types": [
+          "bool",
+          "bool",
+          "bool"
+        ],
+        "raw_types": [
+          "bool",
+          "bool",
+          "bool"
+        ],
+        "type_details": [
+          {
+            "arrow": "bool"
+          },
+          {
+            "arrow": "bool"
+          },
+          {
+            "arrow": "bool"
+          }
+        ],
+        "rows": [
+          [
+            true,
+            true,
+            false
+          ]
+        ]
+      }
+    },
+    {
+      "file": "issue-253.json",
+      "area": "arrays",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/253",
+      "provenance": null,
+      "id": "edge-5",
+      "sql": "select array[1,2] || array[3],array_prepend(0,array[1]),array_cat(array[1],null)",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [
+          "list<int32>",
+          "list<int32>",
+          "list<int32>"
+        ],
+        "raw_types": [
+          "1007",
+          "1007",
+          "1007"
+        ],
+        "type_details": [
+          {
+            "oid": 1007,
+            "typmod": -1
+          },
+          {
+            "oid": 1007,
+            "typmod": -1
+          },
+          {
+            "oid": 1007,
+            "typmod": -1
+          }
+        ],
+        "rows": [
+          [
+            [
+              1,
+              2,
+              3
+            ],
+            [
+              0,
+              1
+            ],
+            [
+              1
+            ]
+          ]
+        ]
+      },
+      "redis": {
+        "types": [
+          "list<int32>",
+          "list<int32>",
+          "list<int32>"
+        ],
+        "raw_types": [
+          "list<item: int32>",
+          "list<item: int32>",
+          "list<item: int32>"
+        ],
+        "type_details": [
+          {
+            "arrow": "list<item: int32>"
+          },
+          {
+            "arrow": "list<item: int32>"
+          },
+          {
+            "arrow": "list<item: int32>"
+          }
+        ],
+        "rows": [
+          [
+            [
+              1,
+              2,
+              3
+            ],
+            [
+              0,
+              1
+            ],
+            [
+              1
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "file": "issue-253.json",
+      "area": "arrays",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/253",
+      "provenance": null,
+      "id": "edge-6",
+      "sql": "select array_position(array[1,null,1],null),array_positions(array[1,2,1],1)",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [
+          "int32",
+          "list<int32>"
+        ],
+        "raw_types": [
+          "23",
+          "1007"
+        ],
+        "type_details": [
+          {
+            "oid": 23,
+            "typmod": -1
+          },
+          {
+            "oid": 1007,
+            "typmod": -1
+          }
+        ],
+        "rows": [
+          [
+            2,
+            [
+              1,
+              3
+            ]
+          ]
+        ]
+      },
+      "redis": {
+        "types": [
+          "int32",
+          "list<int32>"
+        ],
+        "raw_types": [
+          "int32",
+          "list<item: int32>"
+        ],
+        "type_details": [
+          {
+            "arrow": "int32"
+          },
+          {
+            "arrow": "list<item: int32>"
+          }
+        ],
+        "rows": [
+          [
+            2,
+            [
+              1,
+              3
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "file": "issue-253.json",
+      "area": "arrays",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/253",
+      "provenance": null,
+      "id": "edge-7",
+      "sql": "select array_remove(array[1,null,1],1),array_replace(array[1,null],null,2)",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [
+          "list<int32>",
+          "list<int32>"
+        ],
+        "raw_types": [
+          "1007",
+          "1007"
+        ],
+        "type_details": [
+          {
+            "oid": 1007,
+            "typmod": -1
+          },
+          {
+            "oid": 1007,
+            "typmod": -1
+          }
+        ],
+        "rows": [
+          [
+            [
+              null
+            ],
+            [
+              1,
+              2
+            ]
+          ]
+        ]
+      },
+      "redis": {
+        "types": [
+          "list<int32>",
+          "list<int32>"
+        ],
+        "raw_types": [
+          "list<item: int32>",
+          "list<item: int32>"
+        ],
+        "type_details": [
+          {
+            "arrow": "list<item: int32>"
+          },
+          {
+            "arrow": "list<item: int32>"
+          }
+        ],
+        "rows": [
+          [
+            [
+              null
+            ],
+            [
+              1,
+              2
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "file": "issue-253.json",
+      "area": "arrays",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/253",
+      "provenance": null,
+      "id": "edge-8",
+      "sql": "select array_upper(array[1,2],1),array_lower(array[1,2],1),array_dims(array[1,2])",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [
+          "int32",
+          "int32",
+          "string"
+        ],
+        "raw_types": [
+          "23",
+          "23",
+          "25"
+        ],
+        "type_details": [
+          {
+            "oid": 23,
+            "typmod": -1
+          },
+          {
+            "oid": 23,
+            "typmod": -1
+          },
+          {
+            "oid": 25,
+            "typmod": -1
+          }
+        ],
+        "rows": [
+          [
+            2,
+            1,
+            "[1:2]"
+          ]
+        ]
+      },
+      "redis": {
+        "types": [
+          "int32",
+          "int32",
+          "string"
+        ],
+        "raw_types": [
+          "int32",
+          "int32",
+          "string"
+        ],
+        "type_details": [
+          {
+            "arrow": "int32"
+          },
+          {
+            "arrow": "int32"
+          },
+          {
+            "arrow": "string"
+          }
+        ],
+        "rows": [
+          [
+            2,
+            1,
+            "[1:2]"
+          ]
+        ]
+      }
+    },
+    {
+      "file": "issue-253.json",
+      "area": "arrays",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/253",
+      "provenance": null,
+      "id": "edge-9",
+      "sql": "select string_to_array('a,NULL,b',',','NULL'),array_to_string(array['a',null,'b'],',','N')",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [
+          "list<string>",
+          "string"
+        ],
+        "raw_types": [
+          "1009",
+          "25"
+        ],
+        "type_details": [
+          {
+            "oid": 1009,
+            "typmod": -1
+          },
+          {
+            "oid": 25,
+            "typmod": -1
+          }
+        ],
+        "rows": [
+          [
+            [
+              "a",
+              null,
+              "b"
+            ],
+            "a,N,b"
+          ]
+        ]
+      },
+      "redis": {
+        "types": [
+          "list<string>",
+          "string"
+        ],
+        "raw_types": [
+          "list<item: string>",
+          "string"
+        ],
+        "type_details": [
+          {
+            "arrow": "list<item: string>"
+          },
+          {
+            "arrow": "string"
+          }
+        ],
+        "rows": [
+          [
+            [
+              "a",
+              null,
+              "b"
+            ],
+            "a,N,b"
+          ]
+        ]
+      }
+    },
+    {
+      "file": "issue-253.json",
+      "area": "arrays",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/253",
+      "provenance": null,
+      "id": "edge-10",
+      "sql": "insert into arr values(array['a,b','NULL','']),('{}'),(null)",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [],
+        "rows": []
+      },
+      "redis": {
+        "types": [],
+        "raw_types": [],
+        "type_details": [],
+        "rows": []
+      }
+    },
+    {
+      "file": "issue-253.json",
+      "area": "arrays",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/253",
+      "provenance": null,
+      "id": "edge-11",
+      "sql": "select tags from arr",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [
+          "list<string>"
+        ],
+        "raw_types": [
+          "1009"
+        ],
+        "type_details": [
+          {
+            "oid": 1009,
+            "typmod": -1
+          }
+        ],
+        "rows": [
+          [
+            [
+              "a,b",
+              "NULL",
+              ""
+            ]
+          ],
+          [
+            []
+          ],
+          [
+            null
+          ]
+        ]
+      },
+      "redis": {
+        "types": [
+          "list<string>"
+        ],
+        "raw_types": [
+          "list<item: string>"
+        ],
+        "type_details": [
+          {
+            "arrow": "list<item: string>"
+          }
+        ],
+        "rows": [
+          [
+            [
+              "a,b",
+              "NULL",
+              ""
+            ]
+          ],
+          [
+            []
+          ],
+          [
+            null
+          ]
+        ]
+      }
+    },
+    {
+      "file": "issue-253.json",
+      "area": "arrays",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/253",
+      "provenance": null,
+      "id": "edge-12",
+      "sql": "select tags from arr group by tags order by tags",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [
+          "list<string>"
+        ],
+        "raw_types": [
+          "1009"
+        ],
+        "type_details": [
+          {
+            "oid": 1009,
+            "typmod": -1
+          }
+        ],
+        "rows": [
+          [
+            []
+          ],
+          [
+            [
+              "a,b",
+              "NULL",
+              ""
+            ]
+          ],
+          [
+            null
+          ]
+        ]
+      },
+      "redis": {
+        "types": [
+          "list<string>"
+        ],
+        "raw_types": [
+          "list<item: string>"
+        ],
+        "type_details": [
+          {
+            "arrow": "list<item: string>"
+          }
+        ],
+        "rows": [
+          [
+            []
+          ],
+          [
+            [
+              "a,b",
+              "NULL",
+              ""
+            ]
+          ],
+          [
+            null
+          ]
+        ]
+      }
+    },
+    {
+      "file": "issue-253.json",
+      "area": "arrays",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/253",
+      "provenance": null,
+      "id": "edge-13",
+      "sql": "select 1=any(array[1,null]),2=all(array[1,null]),3=any(array[]::int[])",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [
+          "bool",
+          "bool",
+          "bool"
+        ],
+        "raw_types": [
+          "16",
+          "16",
+          "16"
+        ],
+        "type_details": [
+          {
+            "oid": 16,
+            "typmod": -1
+          },
+          {
+            "oid": 16,
+            "typmod": -1
+          },
+          {
+            "oid": 16,
+            "typmod": -1
+          }
+        ],
+        "rows": [
+          [
+            true,
+            false,
+            false
+          ]
+        ]
+      },
+      "redis": {
+        "types": [
+          "bool",
+          "bool",
+          "bool"
+        ],
+        "raw_types": [
+          "bool",
+          "bool",
+          "bool"
+        ],
+        "type_details": [
+          {
+            "arrow": "bool"
+          },
+          {
+            "arrow": "bool"
+          },
+          {
+            "arrow": "bool"
+          }
+        ],
+        "rows": [
+          [
+            true,
+            false,
+            false
+          ]
+        ]
+      }
+    },
+    {
+      "file": "issue-253.json",
+      "area": "arrays",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/253",
+      "provenance": null,
+      "id": "edge-14",
+      "sql": "select regexp_split_to_array('a,b',',')",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [
+          "list<string>"
+        ],
+        "raw_types": [
+          "1009"
+        ],
+        "type_details": [
+          {
+            "oid": 1009,
+            "typmod": -1
+          }
+        ],
+        "rows": [
+          [
+            [
+              "a",
+              "b"
+            ]
+          ]
+        ]
+      },
+      "redis": {
+        "types": [
+          "list<string>"
+        ],
+        "raw_types": [
+          "list<item: string>"
+        ],
+        "type_details": [
+          {
+            "arrow": "list<item: string>"
+          }
+        ],
+        "rows": [
+          [
+            [
+              "a",
+              "b"
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "file": "issue-253.json",
+      "area": "arrays",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/253",
+      "provenance": null,
+      "id": "edge-15",
+      "sql": "select '{\"a,b\",\"NULL\",NULL,\"\"}'::text[]",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [
+          "list<string>"
+        ],
+        "raw_types": [
+          "1009"
+        ],
+        "type_details": [
+          {
+            "oid": 1009,
+            "typmod": -1
+          }
+        ],
+        "rows": [
+          [
+            [
+              "a,b",
+              "NULL",
+              null,
+              ""
+            ]
+          ]
+        ]
+      },
+      "redis": {
+        "types": [
+          "list<string>"
+        ],
+        "raw_types": [
+          "list<item: string>"
+        ],
+        "type_details": [
+          {
+            "arrow": "list<item: string>"
+          }
+        ],
+        "rows": [
+          [
+            [
+              "a,b",
+              "NULL",
+              null,
+              ""
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "file": "issue-253.json",
+      "area": "arrays",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/253",
+      "provenance": null,
+      "id": "typing-1",
+      "sql": "select array[1,'2'],array[null,null]",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [
+          "list<int32>",
+          "list<string>"
+        ],
+        "raw_types": [
+          "1007",
+          "1009"
+        ],
+        "type_details": [
+          {
+            "oid": 1007,
+            "typmod": -1
+          },
+          {
+            "oid": 1009,
+            "typmod": -1
+          }
+        ],
+        "rows": [
+          [
+            [
+              1,
+              2
+            ],
+            [
+              null,
+              null
+            ]
+          ]
+        ]
+      },
+      "redis": {
+        "types": [
+          "list<int32>",
+          "list<string>"
+        ],
+        "raw_types": [
+          "list<item: int32>",
+          "list<item: string>"
+        ],
+        "type_details": [
+          {
+            "arrow": "list<item: int32>"
+          },
+          {
+            "arrow": "list<item: string>"
+          }
+        ],
+        "rows": [
+          [
+            [
+              1,
+              2
+            ],
+            [
+              null,
+              null
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "file": "issue-253.json",
+      "area": "arrays",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/253",
+      "provenance": null,
+      "id": "typing-2",
+      "sql": "select array[true,1]",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "sqlstate": "42804",
+        "message": "ARRAY types boolean and integer cannot be matched\nLINE 1: select array[true,1]\n                          ^"
+      },
+      "redis": {
+        "sqlstate": "42804",
+        "message": "INVALID_ARGUMENT: [redis] ARRAY types boolean and integer cannot be matched. SQLSTATE: 42804"
+      }
+    },
+    {
+      "file": "issue-253.json",
+      "area": "arrays",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/253",
+      "provenance": null,
+      "id": "typing-3",
+      "sql": "select array[1,'bad'] where false",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "sqlstate": "22P02",
+        "message": "invalid input syntax for type integer: \"bad\"\nLINE 1: select array[1,'bad'] where false\n                       ^"
+      },
+      "redis": {
+        "sqlstate": "22P02",
+        "message": "INVALID_DATA: [redis] invalid input syntax for type integer: \"bad\". SQLSTATE: 22P02"
+      }
+    },
+    {
+      "file": "issue-253.json",
+      "area": "arrays",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/253",
+      "provenance": null,
+      "id": "typing-4",
+      "sql": "set time zone 'Asia/Kolkata'",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [],
+        "rows": []
+      },
+      "redis": {
+        "types": [],
+        "raw_types": [],
+        "type_details": [],
+        "rows": []
+      }
+    },
+    {
+      "file": "issue-253.json",
+      "area": "arrays",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/253",
+      "provenance": null,
+      "id": "typing-5",
+      "sql": "select array[date '2024-01-01',timestamptz '2024-01-02 00:00:00+00']",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [
+          "list<timestamptz>"
+        ],
+        "raw_types": [
+          "1185"
+        ],
+        "type_details": [
+          {
+            "oid": 1185,
+            "typmod": -1
+          }
+        ],
+        "rows": [
+          [
+            [
+              "2023-12-31T18:30:00+00:00",
+              "2024-01-02T00:00:00+00:00"
+            ]
+          ]
+        ]
+      },
+      "redis": {
+        "types": [
+          "list<timestamptz>"
+        ],
+        "raw_types": [
+          "list<item: timestamp[us, tz=UTC]>"
+        ],
+        "type_details": [
+          {
+            "arrow": "list<item: timestamp[us, tz=UTC]>"
+          }
+        ],
+        "rows": [
+          [
+            [
+              "2023-12-31T18:30:00+00:00",
+              "2024-01-02T00:00:00+00:00"
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "file": "issue-253.json",
+      "area": "arrays",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/253",
+      "provenance": null,
+      "id": "typing-6",
+      "sql": "set time zone 'UTC'",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [],
+        "rows": []
+      },
+      "redis": {
+        "types": [],
+        "raw_types": [],
+        "type_details": [],
+        "rows": []
+      }
+    },
+    {
+      "file": "issue-256.json",
+      "area": "srf",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/256",
+      "provenance": null,
+      "id": "row-1",
+      "sql": "select generate_series(1, 3)",
+      "expect_postgres": null,
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [
+          "int32"
+        ],
+        "raw_types": [
+          "23"
+        ],
+        "type_details": [
+          {
+            "oid": 23,
+            "typmod": -1
+          }
+        ],
+        "rows": [
+          [
+            1
+          ],
+          [
+            2
+          ],
+          [
+            3
+          ]
+        ]
+      },
+      "redis": {
+        "types": [
+          "int32"
+        ],
+        "raw_types": [
+          "int32"
+        ],
+        "type_details": [
+          {
+            "arrow": "int32"
+          }
+        ],
+        "rows": [
+          [
+            1
+          ],
+          [
+            2
+          ],
+          [
+            3
+          ]
+        ]
+      }
+    },
+    {
+      "file": "issue-256.json",
+      "area": "srf",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/256",
+      "provenance": null,
+      "id": "row-2",
+      "sql": "select * from generate_series(1, 3) with ordinality as g(n, i)",
+      "expect_postgres": null,
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [
+          "int32",
+          "int64"
+        ],
+        "raw_types": [
+          "23",
+          "20"
+        ],
+        "type_details": [
+          {
+            "oid": 23,
+            "typmod": -1
+          },
+          {
+            "oid": 20,
+            "typmod": -1
+          }
+        ],
+        "rows": [
+          [
+            1,
+            1
+          ],
+          [
+            2,
+            2
+          ],
+          [
+            3,
+            3
+          ]
+        ]
+      },
+      "redis": {
+        "types": [
+          "int32",
+          "int64"
+        ],
+        "raw_types": [
+          "int32",
+          "int64"
+        ],
+        "type_details": [
+          {
+            "arrow": "int32"
+          },
+          {
+            "arrow": "int64"
+          }
+        ],
+        "rows": [
+          [
+            1,
+            1
+          ],
+          [
+            2,
+            2
+          ],
+          [
+            3,
+            3
+          ]
+        ]
+      }
+    },
+    {
+      "file": "issue-256.json",
+      "area": "srf",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/256",
+      "provenance": null,
+      "id": "row-3",
+      "sql": "select * from regexp_split_to_table('a,b', ',')",
+      "expect_postgres": null,
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [
+          "string"
+        ],
+        "raw_types": [
+          "25"
+        ],
+        "type_details": [
+          {
+            "oid": 25,
+            "typmod": -1
+          }
+        ],
+        "rows": [
+          [
+            "a"
+          ],
+          [
+            "b"
+          ]
+        ]
+      },
+      "redis": {
+        "types": [
+          "string"
+        ],
+        "raw_types": [
+          "string"
+        ],
+        "type_details": [
+          {
+            "arrow": "string"
+          }
+        ],
+        "rows": [
+          [
+            "a"
+          ],
+          [
+            "b"
+          ]
+        ]
+      }
+    },
+    {
+      "file": "issue-256.json",
+      "area": "srf",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/256",
+      "provenance": null,
+      "id": "row-4",
+      "sql": "select * from string_to_table('a,b', ',')",
+      "expect_postgres": null,
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [
+          "string"
+        ],
+        "raw_types": [
+          "25"
+        ],
+        "type_details": [
+          {
+            "oid": 25,
+            "typmod": -1
+          }
+        ],
+        "rows": [
+          [
+            "a"
+          ],
+          [
+            "b"
+          ]
+        ]
+      },
+      "redis": {
+        "types": [
+          "string"
+        ],
+        "raw_types": [
+          "string"
+        ],
+        "type_details": [
+          {
+            "arrow": "string"
+          }
+        ],
+        "rows": [
+          [
+            "a"
+          ],
+          [
+            "b"
+          ]
+        ]
+      }
+    },
+    {
+      "file": "issue-256.json",
+      "area": "srf",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/256",
+      "provenance": null,
+      "id": "row-5",
+      "sql": "select * from rows from (generate_series(1, 2), generate_series(1, 3)) as r(a, b)",
+      "expect_postgres": null,
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [
+          "int32",
+          "int32"
+        ],
+        "raw_types": [
+          "23",
+          "23"
+        ],
+        "type_details": [
+          {
+            "oid": 23,
+            "typmod": -1
+          },
+          {
+            "oid": 23,
+            "typmod": -1
+          }
+        ],
+        "rows": [
+          [
+            1,
+            1
+          ],
+          [
+            2,
+            2
+          ],
+          [
+            null,
+            3
+          ]
+        ]
+      },
+      "redis": {
+        "types": [
+          "int32",
+          "int32"
+        ],
+        "raw_types": [
+          "int32",
+          "int32"
+        ],
+        "type_details": [
+          {
+            "arrow": "int32"
+          },
+          {
+            "arrow": "int32"
+          }
+        ],
+        "rows": [
+          [
+            1,
+            1
+          ],
+          [
+            2,
+            2
+          ],
+          [
+            null,
+            3
+          ]
+        ]
+      }
+    },
+    {
+      "file": "issue-256.json",
+      "area": "srf",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/256",
+      "provenance": null,
+      "id": "edge-1",
+      "sql": "select generate_series(1,2)+10,unnest(array['a','b','c'])",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [
+          "int32",
+          "string"
+        ],
+        "raw_types": [
+          "23",
+          "25"
+        ],
+        "type_details": [
+          {
+            "oid": 23,
+            "typmod": -1
+          },
+          {
+            "oid": 25,
+            "typmod": -1
+          }
+        ],
+        "rows": [
+          [
+            11,
+            "a"
+          ],
+          [
+            12,
+            "b"
+          ],
+          [
+            null,
+            "c"
+          ]
+        ]
+      },
+      "redis": {
+        "types": [
+          "int32",
+          "string"
+        ],
+        "raw_types": [
+          "int32",
+          "string"
+        ],
+        "type_details": [
+          {
+            "arrow": "int32"
+          },
+          {
+            "arrow": "string"
+          }
+        ],
+        "rows": [
+          [
+            11,
+            "a"
+          ],
+          [
+            12,
+            "b"
+          ],
+          [
+            null,
+            "c"
+          ]
+        ]
+      }
+    },
+    {
+      "file": "issue-256.json",
+      "area": "srf",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/256",
+      "provenance": null,
+      "id": "edge-2",
+      "sql": "select * from unnest(array[1,2],array['a']) with ordinality as u(a,b,i)",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [
+          "int32",
+          "string",
+          "int64"
+        ],
+        "raw_types": [
+          "23",
+          "25",
+          "20"
+        ],
+        "type_details": [
+          {
+            "oid": 23,
+            "typmod": -1
+          },
+          {
+            "oid": 25,
+            "typmod": -1
+          },
+          {
+            "oid": 20,
+            "typmod": -1
+          }
+        ],
+        "rows": [
+          [
+            1,
+            "a",
+            1
+          ],
+          [
+            2,
+            null,
+            2
+          ]
+        ]
+      },
+      "redis": {
+        "types": [
+          "int32",
+          "string",
+          "int64"
+        ],
+        "raw_types": [
+          "int32",
+          "string",
+          "int64"
+        ],
+        "type_details": [
+          {
+            "arrow": "int32"
+          },
+          {
+            "arrow": "string"
+          },
+          {
+            "arrow": "int64"
+          }
+        ],
+        "rows": [
+          [
+            1,
+            "a",
+            1
+          ],
+          [
+            2,
+            null,
+            2
+          ]
+        ]
+      }
+    },
+    {
+      "file": "issue-256.json",
+      "area": "srf",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/256",
+      "provenance": null,
+      "id": "edge-3",
+      "sql": "select * from generate_series(1,2) g, lateral generate_series(1,g) x",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [
+          "int32",
+          "int32"
+        ],
+        "raw_types": [
+          "23",
+          "23"
+        ],
+        "type_details": [
+          {
+            "oid": 23,
+            "typmod": -1
+          },
+          {
+            "oid": 23,
+            "typmod": -1
+          }
+        ],
+        "rows": [
+          [
+            1,
+            1
+          ],
+          [
+            2,
+            1
+          ],
+          [
+            2,
+            2
+          ]
+        ]
+      },
+      "redis": {
+        "types": [
+          "int32",
+          "int32"
+        ],
+        "raw_types": [
+          "int32",
+          "int32"
+        ],
+        "type_details": [
+          {
+            "arrow": "int32"
+          },
+          {
+            "arrow": "int32"
+          }
+        ],
+        "rows": [
+          [
+            1,
+            1
+          ],
+          [
+            2,
+            1
+          ],
+          [
+            2,
+            2
+          ]
+        ]
+      }
+    },
+    {
+      "file": "issue-256.json",
+      "area": "srf",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/256",
+      "provenance": null,
+      "id": "edge-4",
+      "sql": "select * from rows from(string_to_table('a,b',','),generate_series(1,3)) with ordinality as r(a,b,i)",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [
+          "string",
+          "int32",
+          "int64"
+        ],
+        "raw_types": [
+          "25",
+          "23",
+          "20"
+        ],
+        "type_details": [
+          {
+            "oid": 25,
+            "typmod": -1
+          },
+          {
+            "oid": 23,
+            "typmod": -1
+          },
+          {
+            "oid": 20,
+            "typmod": -1
+          }
+        ],
+        "rows": [
+          [
+            "a",
+            1,
+            1
+          ],
+          [
+            "b",
+            2,
+            2
+          ],
+          [
+            null,
+            3,
+            3
+          ]
+        ]
+      },
+      "redis": {
+        "types": [
+          "string",
+          "int32",
+          "int64"
+        ],
+        "raw_types": [
+          "string",
+          "int32",
+          "int64"
+        ],
+        "type_details": [
+          {
+            "arrow": "string"
+          },
+          {
+            "arrow": "int32"
+          },
+          {
+            "arrow": "int64"
+          }
+        ],
+        "rows": [
+          [
+            "a",
+            1,
+            1
+          ],
+          [
+            "b",
+            2,
+            2
+          ],
+          [
+            null,
+            3,
+            3
+          ]
+        ]
+      }
+    },
+    {
+      "file": "issue-256.json",
+      "area": "srf",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/256",
+      "provenance": null,
+      "id": "edge-5",
+      "sql": "select * from regexp_matches('a1 b2','([a-z])([0-9])','g') r(m)",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [
+          "list<string>"
+        ],
+        "raw_types": [
+          "1009"
+        ],
+        "type_details": [
+          {
+            "oid": 1009,
+            "typmod": -1
+          }
+        ],
+        "rows": [
+          [
+            [
+              "a",
+              "1"
+            ]
+          ],
+          [
+            [
+              "b",
+              "2"
+            ]
+          ]
+        ]
+      },
+      "redis": {
+        "types": [
+          "list<string>"
+        ],
+        "raw_types": [
+          "list<item: string>"
+        ],
+        "type_details": [
+          {
+            "arrow": "list<item: string>"
+          }
+        ],
+        "rows": [
+          [
+            [
+              "a",
+              "1"
+            ]
+          ],
+          [
+            [
+              "b",
+              "2"
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "file": "issue-256.json",
+      "area": "srf",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/256",
+      "provenance": null,
+      "id": "edge-6",
+      "sql": "select case when true then generate_series(1,2) end",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "sqlstate": "0A000",
+        "message": "set-returning functions are not allowed in CASE\nLINE 1: select case when true then generate_series(1,2) end\n                                   ^\nHINT:  You might be able to move the set-returning function into a LATERAL FROM item."
+      },
+      "redis": {
+        "sqlstate": "0A000",
+        "message": "NOT_IMPLEMENTED: [redis] set-returning functions are not allowed in CASE. SQLSTATE: 0A000"
+      }
+    },
+    {
+      "file": "issue-256.json",
+      "area": "srf",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/256",
+      "provenance": null,
+      "id": "edge-7",
+      "sql": "select coalesce(unnest(array[1]),0)",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "sqlstate": "0A000",
+        "message": "set-returning functions are not allowed in COALESCE\nLINE 1: select coalesce(unnest(array[1]),0)\n                        ^\nHINT:  You might be able to move the set-returning function into a LATERAL FROM item."
+      },
+      "redis": {
+        "sqlstate": "0A000",
+        "message": "NOT_IMPLEMENTED: [redis] set-returning functions are not allowed in COALESCE. SQLSTATE: 0A000"
+      }
+    },
+    {
+      "file": "issue-256.json",
+      "area": "srf",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/256",
+      "provenance": null,
+      "id": "edge-8",
+      "sql": "select sum(generate_series(1,2))",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "sqlstate": "0A000",
+        "message": "aggregate function calls cannot contain set-returning function calls\nLINE 1: select sum(generate_series(1,2))\n                   ^\nHINT:  You might be able to move the set-returning function into a LATERAL FROM item."
+      },
+      "redis": {
+        "sqlstate": "0A000",
+        "message": "NOT_IMPLEMENTED: [redis] set-returning functions are not allowed in SUM. SQLSTATE: 0A000"
+      }
+    },
+    {
+      "file": "issue-256.json",
+      "area": "srf",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/256",
+      "provenance": null,
+      "id": "edge-9",
+      "sql": "select 1 where generate_series(1,2)>0",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "sqlstate": "0A000",
+        "message": "set-returning functions are not allowed in WHERE\nLINE 1: select 1 where generate_series(1,2)>0\n                       ^"
+      },
+      "redis": {
+        "sqlstate": "0A000",
+        "message": "NOT_IMPLEMENTED: [redis] set-returning functions are not allowed in WHERE. SQLSTATE: 0A000"
+      }
+    },
+    {
+      "file": "issue-256.json",
+      "area": "srf",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/256",
+      "provenance": null,
+      "id": "edge-10",
+      "sql": "select * from string_to_table('',',')",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [
+          "string"
+        ],
+        "raw_types": [
+          "25"
+        ],
+        "type_details": [
+          {
+            "oid": 25,
+            "typmod": -1
+          }
+        ],
+        "rows": []
+      },
+      "redis": {
+        "types": [
+          "string"
+        ],
+        "raw_types": [
+          "string"
+        ],
+        "type_details": [
+          {
+            "arrow": "string"
+          }
+        ],
+        "rows": []
+      }
+    },
+    {
+      "file": "issue-256.json",
+      "area": "srf",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/256",
+      "provenance": null,
+      "id": "edge-11",
+      "sql": "select * from regexp_split_to_table('abc','')",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [
+          "string"
+        ],
+        "raw_types": [
+          "25"
+        ],
+        "type_details": [
+          {
+            "oid": 25,
+            "typmod": -1
+          }
+        ],
+        "rows": [
+          [
+            "a"
+          ],
+          [
+            "b"
+          ],
+          [
+            "c"
+          ]
+        ]
+      },
+      "redis": {
+        "types": [
+          "string"
+        ],
+        "raw_types": [
+          "string"
+        ],
+        "type_details": [
+          {
+            "arrow": "string"
+          }
+        ],
+        "rows": [
+          [
+            "a"
+          ],
+          [
+            "b"
+          ],
+          [
+            "c"
+          ]
+        ]
+      }
+    },
+    {
+      "file": "issue-256.json",
+      "area": "srf",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/256",
+      "provenance": null,
+      "id": "edge-12",
+      "sql": "select generate_series(3,1,-1)",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [
+          "int32"
+        ],
+        "raw_types": [
+          "23"
+        ],
+        "type_details": [
+          {
+            "oid": 23,
+            "typmod": -1
+          }
+        ],
+        "rows": [
+          [
+            3
+          ],
+          [
+            2
+          ],
+          [
+            1
+          ]
+        ]
+      },
+      "redis": {
+        "types": [
+          "int32"
+        ],
+        "raw_types": [
+          "int32"
+        ],
+        "type_details": [
+          {
+            "arrow": "int32"
+          }
+        ],
+        "rows": [
+          [
+            3
+          ],
+          [
+            2
+          ],
+          [
+            1
+          ]
+        ]
+      }
+    },
+    {
+      "file": "issue-256.json",
+      "area": "srf",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/256",
+      "provenance": null,
+      "id": "edge-13",
+      "sql": "select unnest(array[]::int[]),generate_series(1,2)",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [
+          "int32",
+          "int32"
+        ],
+        "raw_types": [
+          "23",
+          "23"
+        ],
+        "type_details": [
+          {
+            "oid": 23,
+            "typmod": -1
+          },
+          {
+            "oid": 23,
+            "typmod": -1
+          }
+        ],
+        "rows": [
+          [
+            null,
+            1
+          ],
+          [
+            null,
+            2
+          ]
+        ]
+      },
+      "redis": {
+        "types": [
+          "int32",
+          "int32"
+        ],
+        "raw_types": [
+          "int32",
+          "int32"
+        ],
+        "type_details": [
+          {
+            "arrow": "int32"
+          },
+          {
+            "arrow": "int32"
+          }
+        ],
+        "rows": [
+          [
+            null,
+            1
+          ],
+          [
+            null,
+            2
+          ]
+        ]
+      }
+    },
+    {
+      "file": "issue-256.json",
+      "area": "srf",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/256",
+      "provenance": null,
+      "id": "placement-1",
+      "sql": "create table bad_default(id integer default generate_series(1,2))",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "sqlstate": "0A000",
+        "message": "set-returning functions are not allowed in DEFAULT expressions\nLINE 1: create table bad_default(id integer default generate_series(...\n                                                    ^"
+      },
+      "redis": {
+        "sqlstate": "0A000",
+        "message": "NOT_IMPLEMENTED: [redis] set-returning functions are not allowed in DEFAULT expressions. SQLSTATE: 0A000"
+      }
+    },
+    {
+      "file": "issue-256.json",
+      "area": "srf",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/256",
+      "provenance": null,
+      "id": "placement-2",
+      "sql": "create table bad_check(id integer check(unnest(array[true])))",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "sqlstate": "0A000",
+        "message": "set-returning functions are not allowed in check constraints\nLINE 1: create table bad_check(id integer check(unnest(array[true]))...\n                                                ^"
+      },
+      "redis": {
+        "sqlstate": "0A000",
+        "message": "NOT_IMPLEMENTED: [redis] set-returning functions are not allowed in check constraints. SQLSTATE: 0A000"
+      }
+    },
+    {
+      "file": "issue-256.json",
+      "area": "srf",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/256",
+      "provenance": null,
+      "id": "placement-3",
+      "sql": "select generate_series(1,5) limit 2 offset 2",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [
+          "int32"
+        ],
+        "raw_types": [
+          "23"
+        ],
+        "type_details": [
+          {
+            "oid": 23,
+            "typmod": -1
+          }
+        ],
+        "rows": [
+          [
+            3
+          ],
+          [
+            4
+          ]
+        ]
+      },
+      "redis": {
+        "types": [
+          "int32"
+        ],
+        "raw_types": [
+          "int32"
+        ],
+        "type_details": [
+          {
+            "arrow": "int32"
+          }
+        ],
+        "rows": [
+          [
+            3
+          ],
+          [
+            4
+          ]
+        ]
+      }
+    },
+    {
+      "file": "issue-256.json",
+      "area": "srf",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/256",
+      "provenance": null,
+      "id": "placement-4",
+      "sql": "select t.id,u.n from t left join lateral unnest(case when t.id=2 then array[]::int[] else array[t.id] end)u(n) on true order by t.id",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [
+          "int32",
+          "int32"
+        ],
+        "raw_types": [
+          "23",
+          "23"
+        ],
+        "type_details": [
+          {
+            "oid": 23,
+            "typmod": -1
+          },
+          {
+            "oid": 23,
+            "typmod": -1
+          }
+        ],
+        "rows": [
+          [
+            1,
+            1
+          ],
+          [
+            2,
+            null
+          ],
+          [
+            3,
+            3
+          ],
+          [
+            4,
+            4
+          ]
+        ]
+      },
+      "redis": {
+        "types": [
+          "int32",
+          "int32"
+        ],
+        "raw_types": [
+          "int32",
+          "int32"
+        ],
+        "type_details": [
+          {
+            "arrow": "int32"
+          },
+          {
+            "arrow": "int32"
+          }
+        ],
+        "rows": [
+          [
+            1,
+            1
+          ],
+          [
+            2,
+            null
+          ],
+          [
+            3,
+            3
+          ],
+          [
+            4,
+            4
+          ]
+        ]
+      }
+    },
+    {
+      "file": "issue-256.json",
+      "area": "srf",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/256",
+      "provenance": null,
+      "id": "placement-5",
+      "sql": "select sum(unnest(array[1,2])) over ()",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "sqlstate": "0A000",
+        "message": "window function calls cannot contain set-returning function calls\nLINE 1: select sum(unnest(array[1,2])) over ()\n                   ^\nHINT:  You might be able to move the set-returning function into a LATERAL FROM item."
+      },
+      "redis": {
+        "sqlstate": "0A000",
+        "message": "NOT_IMPLEMENTED: [redis] set-returning functions are not allowed in window function arguments. SQLSTATE: 0A000"
+      }
+    },
+    {
+      "file": "issue-262.json",
+      "area": "ddl",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/262",
+      "provenance": null,
+      "id": "row-1",
+      "sql": "drop table d1, d2",
+      "expect_postgres": null,
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [],
+        "rows": []
+      },
+      "redis": {
+        "types": [],
+        "raw_types": [],
+        "type_details": [],
+        "rows": []
+      }
+    },
+    {
+      "file": "issue-262.json",
+      "area": "ddl",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/262",
+      "provenance": null,
+      "id": "edge-1",
+      "sql": "create view v1 as select 1 a",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [],
+        "rows": []
+      },
+      "redis": {
+        "types": [],
+        "raw_types": [],
+        "type_details": [],
+        "rows": []
+      }
+    },
+    {
+      "file": "issue-262.json",
+      "area": "ddl",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/262",
+      "provenance": null,
+      "id": "edge-2",
+      "sql": "create view v2 as select 2 a",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [],
+        "rows": []
+      },
+      "redis": {
+        "types": [],
+        "raw_types": [],
+        "type_details": [],
+        "rows": []
+      }
+    },
+    {
+      "file": "issue-262.json",
+      "area": "ddl",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/262",
+      "provenance": null,
+      "id": "edge-3",
+      "sql": "drop view v1,missing",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "sqlstate": "42P01",
+        "message": "view \"missing\" does not exist"
+      },
+      "redis": {
+        "sqlstate": "42P01",
+        "message": "NOT_FOUND: [redis] view \"pgdiff_d169cc05fb3642ed9c70c260dacea800\".\"missing\" does not exist. SQLSTATE: 42P01"
+      }
+    },
+    {
+      "file": "issue-262.json",
+      "area": "ddl",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/262",
+      "provenance": null,
+      "id": "edge-4",
+      "sql": "select * from v1",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [
+          "int32"
+        ],
+        "raw_types": [
+          "23"
+        ],
+        "type_details": [
+          {
+            "oid": 23,
+            "typmod": -1
+          }
+        ],
+        "rows": [
+          [
+            1
+          ]
+        ]
+      },
+      "redis": {
+        "types": [
+          "int32"
+        ],
+        "raw_types": [
+          "int32"
+        ],
+        "type_details": [
+          {
+            "arrow": "int32"
+          }
+        ],
+        "rows": [
+          [
+            1
+          ]
+        ]
+      }
+    },
+    {
+      "file": "issue-262.json",
+      "area": "ddl",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/262",
+      "provenance": null,
+      "id": "edge-5",
+      "sql": "drop view v1,v2",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [],
+        "rows": []
+      },
+      "redis": {
+        "types": [],
+        "raw_types": [],
+        "type_details": [],
+        "rows": []
+      }
+    },
+    {
+      "file": "issue-262.json",
+      "area": "ddl",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/262",
+      "provenance": null,
+      "id": "edge-6",
+      "sql": "create table d3(id int)",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [],
+        "rows": []
+      },
+      "redis": {
+        "types": [],
+        "raw_types": [],
+        "type_details": [],
+        "rows": []
+      }
+    },
+    {
+      "file": "issue-262.json",
+      "area": "ddl",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/262",
+      "provenance": null,
+      "id": "edge-7",
+      "sql": "drop table d3,missing",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "sqlstate": "42P01",
+        "message": "table \"missing\" does not exist"
+      },
+      "redis": {
+        "sqlstate": "42P01",
+        "message": "NOT_FOUND: [redis] table \"pgdiff_d169cc05fb3642ed9c70c260dacea800\".\"missing\" does not exist. SQLSTATE: 42P01"
+      }
+    },
+    {
+      "file": "issue-262.json",
+      "area": "ddl",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/262",
+      "provenance": null,
+      "id": "edge-8",
+      "sql": "select count(*) from d3",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [
+          "int64"
+        ],
+        "raw_types": [
+          "20"
+        ],
+        "type_details": [
+          {
+            "oid": 20,
+            "typmod": -1
+          }
+        ],
+        "rows": [
+          [
+            0
+          ]
+        ]
+      },
+      "redis": {
+        "types": [
+          "int64"
+        ],
+        "raw_types": [
+          "int64"
+        ],
+        "type_details": [
+          {
+            "arrow": "int64"
+          }
+        ],
+        "rows": [
+          [
+            0
+          ]
+        ]
+      }
+    },
+    {
+      "file": "issue-262.json",
+      "area": "ddl",
+      "tier": "issues",
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/262",
+      "provenance": null,
+      "id": "edge-9",
+      "sql": "drop table if exists d3,missing",
+      "connection": "default",
+      "status": "pass",
+      "postgres": {
+        "types": [],
+        "rows": []
+      },
+      "redis": {
+        "types": [],
+        "raw_types": [],
+        "type_details": [],
+        "rows": []
+      }
+    }
+  ]
+}

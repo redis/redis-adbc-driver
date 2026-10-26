@@ -1,0 +1,82 @@
+{
+  "rows": 100000,
+  "columns": 105,
+  "arrow_payload_bytes": 79228019,
+  "source_prefix_sha256": "d053397f7aa5b2e1ee9160779a9e9307b162c6994aebba829c7ea1411076c4d0",
+  "driver_sha256": "0f7ab204ebf12f6190610d5c5fcb08ebae237933e690fa16942f2f49c637b008",
+  "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+  "host_logical_cpus": 18,
+  "host_memory_bytes": 38654705664,
+  "packages": {
+    "pyarrow": "26.0.0",
+    "duckdb": "1.5.6",
+    "redis": "8.1.0",
+    "psutil": "7.2.2",
+    "adbc-driver-manager": "1.12.0",
+    "adbc-driver-postgresql": "1.12.0"
+  },
+  "load_seconds": {
+    "redis": 7.486443834000966,
+    "postgresql": 1.8790522089984734,
+    "clickhouse": 0.32177379199129064,
+    "duckdb": 0.34421054199629
+  },
+  "versions": {
+    "redis": {
+      "redis": "8.6.2",
+      "modules": [
+        {
+          "name": "bf",
+          "ver": 80600,
+          "path": "/usr/local/lib/redis/modules//redisbloom.so",
+          "args": []
+        },
+        {
+          "name": "vectorset",
+          "ver": 1,
+          "path": "",
+          "args": []
+        },
+        {
+          "name": "search",
+          "ver": 80600,
+          "path": "/usr/local/lib/redis/modules//redisearch.so",
+          "args": []
+        },
+        {
+          "name": "timeseries",
+          "ver": 80600,
+          "path": "/usr/local/lib/redis/modules//redistimeseries.so",
+          "args": []
+        },
+        {
+          "name": "ReJSON",
+          "ver": 80600,
+          "path": "/usr/local/lib/redis/modules//rejson.so",
+          "args": []
+        }
+      ]
+    },
+    "postgresql": "PostgreSQL 16.10 (Debian 16.10-1.pgdg13+1) on aarch64-unknown-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit",
+    "clickhouse": "25.8.33.6",
+    "duckdb": "v1.5.6"
+  },
+  "run_date": "2026-10-21",
+  "redis_driver_installed_package_metadata_version": "0.1.0",
+  "redis_driver_binary_source_revision": "not independently attested; use exact SHA-256",
+  "upstream_commit": "ccda3033f3c7303d9d7f9634d6dae118ef085f96",
+  "benchmark_script_sha256": "c25015e33e0e2f22df690d1ebb5c39adb3d4f88ed759b30e95c20b3b04ba20a2",
+  "docker_server_limits": {
+    "cpu_cores": 4,
+    "memory_bytes": 2147483648,
+    "localhost_only": true,
+    "tls": false
+  },
+  "duckdb_reference_limits": {
+    "threads_per_connection": 4,
+    "memory_limit_per_connection": "2GB",
+    "container_cpu_quota": null,
+    "container_memory_quota": null
+  },
+  "network": "Host Python clients to three dedicated Docker Desktop localhost TCP endpoints. DuckDB is an embedded reference without a server hop."
+}

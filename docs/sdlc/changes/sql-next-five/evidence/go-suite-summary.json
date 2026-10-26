@@ -1,0 +1,43 @@
+{
+  "passed": 1244,
+  "skipped": [
+    "TestAggregateInputLoadProfile",
+    "TestAggregatePagesProfile",
+    "TestClickBenchExecutionProfile",
+    "TestExactDistinctProfile",
+    "TestFlexRefused",
+    "TestLateProjectionProfile",
+    "TestNarrowScanProfile",
+    "TestRangeReadinessChecksAllPrimaries",
+    "TestRetainedPartitionAPIProcessHelper",
+    "TestRetainedPartitionAPIControlPolicyAdmission",
+    "TestRetainedPartitionAPICoordinatorDeathHelper",
+    "TestRetainedPartitionReaderProcessHelper",
+    "TestRetainedSourceRESPPreservesTLSVerification",
+    "TestPartitionRuntimeCapDiscovery",
+    "TestPerformance406Profile",
+    "TestQ19Profile",
+    "TestSearchReplyScanProfile",
+    "TestTimeoutServerPaused",
+    "TestAggregateWorkerConcurrencyProfile",
+    "TestAggregateWorkerMixedProbe"
+  ],
+  "failed": [],
+  "packages": [
+    {
+      "name": "github.com/adbc-drivers/redis/go",
+      "result": "pass",
+      "elapsed": 180.495
+    },
+    {
+      "name": "github.com/adbc-drivers/redis/go/cmd/redis-adbc",
+      "result": "pass",
+      "elapsed": 0.932
+    },
+    {
+      "name": "github.com/adbc-drivers/redis/go/internal/benchproxy",
+      "result": "pass",
+      "elapsed": 0.15
+    }
+  ]
+}

@@ -1,0 +1,1766 @@
+[
+  {
+    "case": [
+      "software",
+      32768,
+      1,
+      "aggregate-response-2ms",
+      "waves",
+      1
+    ],
+    "policy": "tuned",
+    "repetition": 0,
+    "warm_phase_query_counts": {
+      "holding": 6,
+      "probe": 6,
+      "verify": 6
+    },
+    "warm_target_query_counts": {
+      "2": 12,
+      "1": 6
+    },
+    "warm_reason_snapshots": {
+      "holding measured allocation": 6,
+      "bounded candidate probe": 6,
+      "rechecking retained allocation after probe": 6
+    },
+    "holding_query_fraction": 0.3333333333333333,
+    "target_changes": 5,
+    "retained_changes": 1,
+    "final_tuning": {
+      "budget": 2,
+      "cached_models": 0,
+      "candidate_workers": 1,
+      "exploration_ceiling": 2,
+      "observations": 77,
+      "phase": "verify",
+      "reason": "rechecking retained allocation after probe",
+      "retained_workers": 2,
+      "signals": {
+        "concurrency": 1,
+        "fetch_seconds": 0.236255584,
+        "rows": 32768,
+        "runtime_cpu_utilization": 0.7286026446691775,
+        "runtime_memory_pressure": 0,
+        "seconds": 0.130044167,
+        "tail_seconds": 0.130035
+      },
+      "target_workers": 2
+    }
+  },
+  {
+    "case": [
+      "software",
+      32768,
+      1,
+      "aggregate-response-2ms",
+      "waves",
+      2
+    ],
+    "policy": "tuned",
+    "repetition": 0,
+    "warm_phase_query_counts": {
+      "holding": 12,
+      "probe": 12,
+      "verify": 12
+    },
+    "warm_target_query_counts": {
+      "2": 24,
+      "1": 12
+    },
+    "warm_reason_snapshots": {
+      "holding measured allocation": 6,
+      "bounded candidate probe": 6,
+      "rechecking retained allocation after probe": 6
+    },
+    "holding_query_fraction": 0.3333333333333333,
+    "target_changes": 5,
+    "retained_changes": 1,
+    "final_tuning": {
+      "budget": 2,
+      "cached_models": 1,
+      "candidate_workers": 1,
+      "exploration_ceiling": 2,
+      "observations": 77,
+      "phase": "verify",
+      "reason": "rechecking retained allocation after probe",
+      "retained_workers": 2,
+      "signals": {
+        "concurrency": 2,
+        "fetch_seconds": 0.488198083,
+        "rows": 65536,
+        "runtime_cpu_utilization": 0.6001395160265752,
+        "runtime_memory_pressure": 0,
+        "seconds": 0.262559083,
+        "tail_seconds": 0.242791125
+      },
+      "target_workers": 2
+    }
+  },
+  {
+    "case": [
+      "software",
+      32768,
+      1,
+      "aggregate-response-2ms",
+      "waves",
+      4
+    ],
+    "policy": "tuned",
+    "repetition": 0,
+    "warm_phase_query_counts": {
+      "holding": 24,
+      "probe": 24,
+      "verify": 24
+    },
+    "warm_target_query_counts": {
+      "2": 48,
+      "1": 24
+    },
+    "warm_reason_snapshots": {
+      "holding measured allocation": 6,
+      "bounded candidate probe": 6,
+      "rechecking retained allocation after probe": 6
+    },
+    "holding_query_fraction": 0.3333333333333333,
+    "target_changes": 5,
+    "retained_changes": 1,
+    "final_tuning": {
+      "budget": 2,
+      "cached_models": 2,
+      "candidate_workers": 1,
+      "exploration_ceiling": 2,
+      "observations": 77,
+      "phase": "verify",
+      "reason": "rechecking retained allocation after probe",
+      "retained_workers": 2,
+      "signals": {
+        "concurrency": 4,
+        "fetch_seconds": 0.979102043,
+        "rows": 131072,
+        "runtime_cpu_utilization": 0.5897212769999012,
+        "runtime_memory_pressure": 0,
+        "seconds": 0.587246334,
+        "tail_seconds": 0.565651334
+      },
+      "target_workers": 2
+    }
+  },
+  {
+    "case": [
+      "oss",
+      32768,
+      1,
+      "direct",
+      "waves",
+      1
+    ],
+    "policy": "tuned",
+    "repetition": 0,
+    "warm_phase_query_counts": {
+      "holding": 6,
+      "probe": 6,
+      "verify": 6
+    },
+    "warm_target_query_counts": {
+      "2": 12,
+      "1": 6
+    },
+    "warm_reason_snapshots": {
+      "holding measured allocation": 6,
+      "bounded candidate probe": 6,
+      "rechecking retained allocation after probe": 6
+    },
+    "holding_query_fraction": 0.3333333333333333,
+    "target_changes": 5,
+    "retained_changes": 1,
+    "final_tuning": {
+      "budget": 2,
+      "cached_models": 0,
+      "candidate_workers": 1,
+      "exploration_ceiling": 2,
+      "observations": 77,
+      "phase": "verify",
+      "reason": "rechecking retained allocation after probe",
+      "retained_workers": 2,
+      "signals": {
+        "concurrency": 1,
+        "fetch_seconds": 0.20575829,
+        "rows": 32768,
+        "runtime_cpu_utilization": 0.7595449710361186,
+        "runtime_memory_pressure": 0,
+        "seconds": 0.109175292,
+        "tail_seconds": 0.10917275
+      },
+      "target_workers": 2
+    }
+  },
+  {
+    "case": [
+      "oss",
+      32768,
+      1,
+      "direct",
+      "waves",
+      2
+    ],
+    "policy": "tuned",
+    "repetition": 0,
+    "warm_phase_query_counts": {
+      "holding": 36
+    },
+    "warm_target_query_counts": {
+      "2": 36
+    },
+    "warm_reason_snapshots": {
+      "holding measured allocation": 18
+    },
+    "holding_query_fraction": 1.0,
+    "target_changes": 3,
+    "retained_changes": 1,
+    "final_tuning": {
+      "budget": 2,
+      "cached_models": 1,
+      "candidate_workers": 2,
+      "exploration_ceiling": 2,
+      "observations": 77,
+      "phase": "holding",
+      "reason": "holding measured allocation",
+      "retained_workers": 2,
+      "signals": {
+        "concurrency": 2,
+        "fetch_seconds": 0.399247708,
+        "rows": 65536,
+        "runtime_cpu_utilization": 0.7157261563417485,
+        "runtime_memory_pressure": 0,
+        "seconds": 0.221884167,
+        "tail_seconds": 0.221845084
+      },
+      "target_workers": 2
+    }
+  },
+  {
+    "case": [
+      "oss",
+      32768,
+      1,
+      "direct",
+      "waves",
+      4
+    ],
+    "policy": "tuned",
+    "repetition": 0,
+    "warm_phase_query_counts": {
+      "holding": 24,
+      "probe": 24,
+      "verify": 24
+    },
+    "warm_target_query_counts": {
+      "2": 48,
+      "1": 24
+    },
+    "warm_reason_snapshots": {
+      "holding measured allocation": 6,
+      "bounded candidate probe": 6,
+      "rechecking retained allocation after probe": 6
+    },
+    "holding_query_fraction": 0.3333333333333333,
+    "target_changes": 5,
+    "retained_changes": 1,
+    "final_tuning": {
+      "budget": 2,
+      "cached_models": 2,
+      "candidate_workers": 1,
+      "exploration_ceiling": 2,
+      "observations": 77,
+      "phase": "verify",
+      "reason": "rechecking retained allocation after probe",
+      "retained_workers": 2,
+      "signals": {
+        "concurrency": 4,
+        "fetch_seconds": 0.676207253,
+        "rows": 131072,
+        "runtime_cpu_utilization": 0.7479050208779485,
+        "runtime_memory_pressure": 0,
+        "seconds": 0.414043625,
+        "tail_seconds": 0.372805625
+      },
+      "target_workers": 2
+    }
+  },
+  {
+    "case": [
+      "oss",
+      100000,
+      2,
+      "direct",
+      "waves",
+      1
+    ],
+    "policy": "tuned",
+    "repetition": 0,
+    "warm_phase_query_counts": {
+      "holding": 18
+    },
+    "warm_target_query_counts": {
+      "4": 18
+    },
+    "warm_reason_snapshots": {
+      "holding measured allocation": 18
+    },
+    "holding_query_fraction": 1.0,
+    "target_changes": 5,
+    "retained_changes": 2,
+    "final_tuning": {
+      "budget": 4,
+      "cached_models": 0,
+      "candidate_workers": 4,
+      "exploration_ceiling": 4,
+      "observations": 77,
+      "phase": "holding",
+      "reason": "holding measured allocation",
+      "retained_workers": 4,
+      "signals": {
+        "concurrency": 1,
+        "fetch_seconds": 0.756066751,
+        "rows": 100000,
+        "runtime_cpu_utilization": 0.6335064546166135,
+        "runtime_memory_pressure": 0,
+        "seconds": 0.202035625,
+        "tail_seconds": 0.202032625
+      },
+      "target_workers": 4
+    }
+  },
+  {
+    "case": [
+      "oss",
+      100000,
+      2,
+      "direct",
+      "waves",
+      2
+    ],
+    "policy": "tuned",
+    "repetition": 0,
+    "warm_phase_query_counts": {
+      "holding": 36
+    },
+    "warm_target_query_counts": {
+      "2": 36
+    },
+    "warm_reason_snapshots": {
+      "holding measured allocation": 18
+    },
+    "holding_query_fraction": 1.0,
+    "target_changes": 2,
+    "retained_changes": 0,
+    "final_tuning": {
+      "budget": 2,
+      "cached_models": 1,
+      "candidate_workers": 3,
+      "exploration_ceiling": 4,
+      "observations": 77,
+      "phase": "holding",
+      "reason": "holding measured allocation",
+      "retained_workers": 2,
+      "signals": {
+        "concurrency": 2,
+        "fetch_seconds": 0.926813458,
+        "rows": 200000,
+        "runtime_cpu_utilization": 0.5747430501727855,
+        "runtime_memory_pressure": 0,
+        "seconds": 0.484602875,
+        "tail_seconds": 0.484555709
+      },
+      "target_workers": 2
+    }
+  },
+  {
+    "case": [
+      "oss",
+      100000,
+      2,
+      "direct",
+      "waves",
+      4
+    ],
+    "policy": "tuned",
+    "repetition": 0,
+    "warm_phase_query_counts": {
+      "holding": 72
+    },
+    "warm_target_query_counts": {
+      "3": 72
+    },
+    "warm_reason_snapshots": {
+      "holding measured allocation": 18
+    },
+    "holding_query_fraction": 1.0,
+    "target_changes": 4,
+    "retained_changes": 1,
+    "final_tuning": {
+      "budget": 3,
+      "cached_models": 2,
+      "candidate_workers": 4,
+      "exploration_ceiling": 4,
+      "observations": 77,
+      "phase": "holding",
+      "reason": "holding measured allocation",
+      "retained_workers": 3,
+      "signals": {
+        "concurrency": 4,
+        "fetch_seconds": 2.325301795,
+        "rows": 400000,
+        "runtime_cpu_utilization": 0.6470370077341611,
+        "runtime_memory_pressure": 0,
+        "seconds": 0.863257417,
+        "tail_seconds": 0.853187458
+      },
+      "target_workers": 3
+    }
+  },
+  {
+    "case": [
+      "software",
+      32768,
+      2,
+      "direct",
+      "waves",
+      1
+    ],
+    "policy": "tuned",
+    "repetition": 0,
+    "warm_phase_query_counts": {
+      "holding": 18
+    },
+    "warm_target_query_counts": {
+      "2": 18
+    },
+    "warm_reason_snapshots": {
+      "holding measured allocation": 18
+    },
+    "holding_query_fraction": 1.0,
+    "target_changes": 2,
+    "retained_changes": 0,
+    "final_tuning": {
+      "budget": 2,
+      "cached_models": 0,
+      "candidate_workers": 3,
+      "exploration_ceiling": 4,
+      "observations": 77,
+      "phase": "holding",
+      "reason": "holding measured allocation",
+      "retained_workers": 2,
+      "signals": {
+        "concurrency": 1,
+        "fetch_seconds": 0.163799292,
+        "rows": 32768,
+        "runtime_cpu_utilization": 0.5618780446521777,
+        "runtime_memory_pressure": 0,
+        "seconds": 0.084827834,
+        "tail_seconds": 0.084824709
+      },
+      "target_workers": 2
+    }
+  },
+  {
+    "case": [
+      "software",
+      32768,
+      2,
+      "direct",
+      "waves",
+      2
+    ],
+    "policy": "tuned",
+    "repetition": 0,
+    "warm_phase_query_counts": {
+      "holding": 36
+    },
+    "warm_target_query_counts": {
+      "2": 36
+    },
+    "warm_reason_snapshots": {
+      "holding measured allocation": 18
+    },
+    "holding_query_fraction": 1.0,
+    "target_changes": 2,
+    "retained_changes": 0,
+    "final_tuning": {
+      "budget": 2,
+      "cached_models": 1,
+      "candidate_workers": 3,
+      "exploration_ceiling": 4,
+      "observations": 77,
+      "phase": "holding",
+      "reason": "holding measured allocation",
+      "retained_workers": 2,
+      "signals": {
+        "concurrency": 2,
+        "fetch_seconds": 0.316089374,
+        "rows": 65536,
+        "runtime_cpu_utilization": 0.5433609603958937,
+        "runtime_memory_pressure": 0,
+        "seconds": 0.166912666,
+        "tail_seconds": 0.166862417
+      },
+      "target_workers": 2
+    }
+  },
+  {
+    "case": [
+      "software",
+      32768,
+      2,
+      "direct",
+      "waves",
+      4
+    ],
+    "policy": "tuned",
+    "repetition": 0,
+    "warm_phase_query_counts": {
+      "holding": 72
+    },
+    "warm_target_query_counts": {
+      "3": 72
+    },
+    "warm_reason_snapshots": {
+      "holding measured allocation": 18
+    },
+    "holding_query_fraction": 1.0,
+    "target_changes": 4,
+    "retained_changes": 1,
+    "final_tuning": {
+      "budget": 3,
+      "cached_models": 2,
+      "candidate_workers": 4,
+      "exploration_ceiling": 4,
+      "observations": 77,
+      "phase": "holding",
+      "reason": "holding measured allocation",
+      "retained_workers": 3,
+      "signals": {
+        "concurrency": 4,
+        "fetch_seconds": 0.808457875,
+        "rows": 131072,
+        "runtime_cpu_utilization": 0.6677136279793099,
+        "runtime_memory_pressure": 0,
+        "seconds": 0.285190417,
+        "tail_seconds": 0.285137083
+      },
+      "target_workers": 3
+    }
+  },
+  {
+    "case": [
+      "software",
+      32768,
+      1,
+      "direct",
+      "waves",
+      1
+    ],
+    "policy": "tuned",
+    "repetition": 0,
+    "warm_phase_query_counts": {
+      "holding": 6,
+      "probe": 6,
+      "verify": 6
+    },
+    "warm_target_query_counts": {
+      "2": 12,
+      "1": 6
+    },
+    "warm_reason_snapshots": {
+      "holding measured allocation": 6,
+      "bounded candidate probe": 6,
+      "rechecking retained allocation after probe": 6
+    },
+    "holding_query_fraction": 0.3333333333333333,
+    "target_changes": 5,
+    "retained_changes": 1,
+    "final_tuning": {
+      "budget": 2,
+      "cached_models": 0,
+      "candidate_workers": 1,
+      "exploration_ceiling": 2,
+      "observations": 77,
+      "phase": "verify",
+      "reason": "rechecking retained allocation after probe",
+      "retained_workers": 2,
+      "signals": {
+        "concurrency": 1,
+        "fetch_seconds": 0.184692542,
+        "rows": 32768,
+        "runtime_cpu_utilization": 0.8122773693121903,
+        "runtime_memory_pressure": 0,
+        "seconds": 0.103282875,
+        "tail_seconds": 0.103279333
+      },
+      "target_workers": 2
+    }
+  },
+  {
+    "case": [
+      "software",
+      32768,
+      1,
+      "direct",
+      "waves",
+      2
+    ],
+    "policy": "tuned",
+    "repetition": 0,
+    "warm_phase_query_counts": {
+      "holding": 12,
+      "probe": 12,
+      "verify": 12
+    },
+    "warm_target_query_counts": {
+      "2": 24,
+      "1": 12
+    },
+    "warm_reason_snapshots": {
+      "holding measured allocation": 6,
+      "bounded candidate probe": 6,
+      "rechecking retained allocation after probe": 6
+    },
+    "holding_query_fraction": 0.3333333333333333,
+    "target_changes": 5,
+    "retained_changes": 1,
+    "final_tuning": {
+      "budget": 2,
+      "cached_models": 1,
+      "candidate_workers": 1,
+      "exploration_ceiling": 2,
+      "observations": 77,
+      "phase": "verify",
+      "reason": "rechecking retained allocation after probe",
+      "retained_workers": 2,
+      "signals": {
+        "concurrency": 2,
+        "fetch_seconds": 0.408918291,
+        "rows": 65536,
+        "runtime_cpu_utilization": 0.7586959888076604,
+        "runtime_memory_pressure": 0,
+        "seconds": 0.224576416,
+        "tail_seconds": 0.224549709
+      },
+      "target_workers": 2
+    }
+  },
+  {
+    "case": [
+      "software",
+      32768,
+      1,
+      "direct",
+      "waves",
+      4
+    ],
+    "policy": "tuned",
+    "repetition": 0,
+    "warm_phase_query_counts": {
+      "holding": 24,
+      "probe": 24,
+      "verify": 24
+    },
+    "warm_target_query_counts": {
+      "2": 48,
+      "1": 24
+    },
+    "warm_reason_snapshots": {
+      "holding measured allocation": 6,
+      "bounded candidate probe": 6,
+      "rechecking retained allocation after probe": 6
+    },
+    "holding_query_fraction": 0.3333333333333333,
+    "target_changes": 5,
+    "retained_changes": 1,
+    "final_tuning": {
+      "budget": 2,
+      "cached_models": 2,
+      "candidate_workers": 1,
+      "exploration_ceiling": 2,
+      "observations": 77,
+      "phase": "verify",
+      "reason": "rechecking retained allocation after probe",
+      "retained_workers": 2,
+      "signals": {
+        "concurrency": 4,
+        "fetch_seconds": 0.72136771,
+        "rows": 131072,
+        "runtime_cpu_utilization": 0.7519175487132065,
+        "runtime_memory_pressure": 0,
+        "seconds": 0.433812708,
+        "tail_seconds": 0.389881251
+      },
+      "target_workers": 2
+    }
+  },
+  {
+    "case": [
+      "oss",
+      32768,
+      4,
+      "aggregate-response-2ms",
+      "waves",
+      1
+    ],
+    "policy": "legacy-tuned",
+    "repetition": 0,
+    "warm_phase_query_counts": {
+      "legacy-unreported": 18
+    },
+    "warm_target_query_counts": {
+      "1": 3,
+      "2": 12,
+      "3": 3
+    },
+    "warm_reason_snapshots": {
+      "bounded one-worker exploration": 6,
+      "probe rolled back: gain or tail bound not met": 3,
+      "holding measured allocation": 9
+    },
+    "holding_query_fraction": 0.0,
+    "target_changes": 13,
+    "retained_changes": 0,
+    "final_tuning": {
+      "budget": 3,
+      "exploration_ceiling": 8,
+      "observations": 77,
+      "reason": "bounded one-worker exploration",
+      "signals": {
+        "concurrency": 1,
+        "fetch_seconds": 0.221259918,
+        "rows": 32768,
+        "runtime_cpu_utilization": 0.33130930585494495,
+        "runtime_memory_pressure": 0,
+        "seconds": 0.07758825,
+        "tail_seconds": 0.0775845
+      },
+      "target_workers": 3
+    }
+  },
+  {
+    "case": [
+      "oss",
+      32768,
+      4,
+      "aggregate-response-2ms",
+      "waves",
+      2
+    ],
+    "policy": "legacy-tuned",
+    "repetition": 0,
+    "warm_phase_query_counts": {
+      "legacy-unreported": 36
+    },
+    "warm_target_query_counts": {
+      "4": 30,
+      "5": 6
+    },
+    "warm_reason_snapshots": {
+      "holding measured allocation": 12,
+      "bounded one-worker exploration": 3,
+      "probe rolled back: gain or tail bound not met": 3
+    },
+    "holding_query_fraction": 0.0,
+    "target_changes": 10,
+    "retained_changes": 0,
+    "final_tuning": {
+      "budget": 4,
+      "exploration_ceiling": 8,
+      "observations": 77,
+      "reason": "holding measured allocation",
+      "signals": {
+        "concurrency": 2,
+        "fetch_seconds": 0.608053961,
+        "rows": 65536,
+        "runtime_cpu_utilization": 0.42297633266420476,
+        "runtime_memory_pressure": 0,
+        "seconds": 0.166528334,
+        "tail_seconds": 0.166455709
+      },
+      "target_workers": 4
+    }
+  },
+  {
+    "case": [
+      "oss",
+      32768,
+      4,
+      "aggregate-response-2ms",
+      "waves",
+      4
+    ],
+    "policy": "legacy-tuned",
+    "repetition": 0,
+    "warm_phase_query_counts": {
+      "legacy-unreported": 72
+    },
+    "warm_target_query_counts": {
+      "3": 60,
+      "4": 12
+    },
+    "warm_reason_snapshots": {
+      "holding measured allocation": 12,
+      "bounded one-worker exploration": 3,
+      "probe rolled back: gain or tail bound not met": 3
+    },
+    "holding_query_fraction": 0.0,
+    "target_changes": 11,
+    "retained_changes": 0,
+    "final_tuning": {
+      "budget": 3,
+      "exploration_ceiling": 8,
+      "observations": 77,
+      "reason": "holding measured allocation",
+      "signals": {
+        "concurrency": 4,
+        "fetch_seconds": 0.858305416,
+        "rows": 131072,
+        "runtime_cpu_utilization": 0.43559808163991925,
+        "runtime_memory_pressure": 0,
+        "seconds": 0.301187251,
+        "tail_seconds": 0.301078209
+      },
+      "target_workers": 3
+    }
+  },
+  {
+    "case": [
+      "oss",
+      32768,
+      4,
+      "aggregate-response-2ms",
+      "waves",
+      1
+    ],
+    "policy": "tuned",
+    "repetition": 0,
+    "warm_phase_query_counts": {
+      "holding": 18
+    },
+    "warm_target_query_counts": {
+      "4": 18
+    },
+    "warm_reason_snapshots": {
+      "holding measured allocation": 18
+    },
+    "holding_query_fraction": 1.0,
+    "target_changes": 2,
+    "retained_changes": 0,
+    "final_tuning": {
+      "budget": 4,
+      "cached_models": 0,
+      "candidate_workers": 5,
+      "exploration_ceiling": 8,
+      "observations": 77,
+      "phase": "holding",
+      "reason": "holding measured allocation",
+      "retained_workers": 4,
+      "signals": {
+        "concurrency": 1,
+        "fetch_seconds": 0.288450916,
+        "rows": 32768,
+        "runtime_cpu_utilization": 0.4261796667909726,
+        "runtime_memory_pressure": 0,
+        "seconds": 0.079707084,
+        "tail_seconds": 0.079701709
+      },
+      "target_workers": 4
+    }
+  },
+  {
+    "case": [
+      "oss",
+      32768,
+      4,
+      "aggregate-response-2ms",
+      "waves",
+      2
+    ],
+    "policy": "tuned",
+    "repetition": 0,
+    "warm_phase_query_counts": {
+      "holding": 36
+    },
+    "warm_target_query_counts": {
+      "4": 36
+    },
+    "warm_reason_snapshots": {
+      "holding measured allocation": 18
+    },
+    "holding_query_fraction": 1.0,
+    "target_changes": 2,
+    "retained_changes": 0,
+    "final_tuning": {
+      "budget": 4,
+      "cached_models": 1,
+      "candidate_workers": 5,
+      "exploration_ceiling": 8,
+      "observations": 77,
+      "phase": "holding",
+      "reason": "holding measured allocation",
+      "retained_workers": 4,
+      "signals": {
+        "concurrency": 2,
+        "fetch_seconds": 0.562259078,
+        "rows": 65536,
+        "runtime_cpu_utilization": 0.32140552984439485,
+        "runtime_memory_pressure": 0,
+        "seconds": 0.156098208,
+        "tail_seconds": 0.156048083
+      },
+      "target_workers": 4
+    }
+  },
+  {
+    "case": [
+      "oss",
+      32768,
+      4,
+      "aggregate-response-2ms",
+      "waves",
+      4
+    ],
+    "policy": "tuned",
+    "repetition": 0,
+    "warm_phase_query_counts": {
+      "holding": 72
+    },
+    "warm_target_query_counts": {
+      "4": 72
+    },
+    "warm_reason_snapshots": {
+      "holding measured allocation": 18
+    },
+    "holding_query_fraction": 1.0,
+    "target_changes": 2,
+    "retained_changes": 0,
+    "final_tuning": {
+      "budget": 4,
+      "cached_models": 2,
+      "candidate_workers": 5,
+      "exploration_ceiling": 8,
+      "observations": 77,
+      "phase": "holding",
+      "reason": "holding measured allocation",
+      "retained_workers": 4,
+      "signals": {
+        "concurrency": 4,
+        "fetch_seconds": 0.985881582,
+        "rows": 131072,
+        "runtime_cpu_utilization": 0.40379617139644297,
+        "runtime_memory_pressure": 0,
+        "seconds": 0.296366334,
+        "tail_seconds": 0.296359125
+      },
+      "target_workers": 4
+    }
+  },
+  {
+    "case": [
+      "oss",
+      100000,
+      2,
+      "direct",
+      "continuous",
+      1
+    ],
+    "policy": "tuned",
+    "repetition": 0,
+    "warm_phase_query_counts": {
+      "holding": 18
+    },
+    "warm_target_query_counts": {
+      "3": 18
+    },
+    "warm_reason_snapshots": {
+      "holding measured allocation": 18
+    },
+    "holding_query_fraction": 1.0,
+    "target_changes": 4,
+    "retained_changes": 1,
+    "final_tuning": {
+      "budget": 3,
+      "cached_models": 0,
+      "candidate_workers": 4,
+      "exploration_ceiling": 4,
+      "observations": 77,
+      "phase": "holding",
+      "reason": "holding measured allocation",
+      "retained_workers": 3,
+      "signals": {
+        "concurrency": 1,
+        "fetch_seconds": 0.635880123,
+        "rows": 100000,
+        "runtime_cpu_utilization": 0.5530712871525075,
+        "runtime_memory_pressure": 0,
+        "seconds": 0.219860458,
+        "tail_seconds": 0.219857416
+      },
+      "target_workers": 3
+    }
+  },
+  {
+    "case": [
+      "oss",
+      100000,
+      2,
+      "direct",
+      "continuous",
+      2
+    ],
+    "policy": "tuned",
+    "repetition": 0,
+    "warm_phase_query_counts": {
+      "verify": 7,
+      "baseline": 29
+    },
+    "warm_target_query_counts": {
+      "3": 7,
+      "2": 29
+    },
+    "warm_reason_snapshots": {
+      "rechecking retained allocation after probe": 7,
+      "resumed retained workload allocation": 8,
+      "discarded failed, mixed, or allocation-transition window": 21
+    },
+    "holding_query_fraction": 0.0,
+    "target_changes": 5,
+    "retained_changes": 2,
+    "final_tuning": {
+      "budget": 2,
+      "cached_models": 2,
+      "candidate_workers": 0,
+      "exploration_ceiling": 4,
+      "observations": 14,
+      "phase": "baseline",
+      "reason": "discarded failed, mixed, or allocation-transition window",
+      "retained_workers": 2,
+      "signals": {
+        "concurrency": 2,
+        "fetch_seconds": 1.80137496,
+        "rows": 400000,
+        "runtime_cpu_utilization": 0.5480830724421004,
+        "runtime_memory_pressure": 0,
+        "seconds": 0.945307084,
+        "tail_seconds": 0.477561167
+      },
+      "target_workers": 2
+    }
+  },
+  {
+    "case": [
+      "oss",
+      100000,
+      2,
+      "direct",
+      "continuous",
+      4
+    ],
+    "policy": "tuned",
+    "repetition": 0,
+    "warm_phase_query_counts": {
+      "holding": 72
+    },
+    "warm_target_query_counts": {
+      "2": 72
+    },
+    "warm_reason_snapshots": {
+      "holding measured allocation": 72
+    },
+    "holding_query_fraction": 1.0,
+    "target_changes": 2,
+    "retained_changes": 0,
+    "final_tuning": {
+      "budget": 2,
+      "cached_models": 2,
+      "candidate_workers": 3,
+      "exploration_ceiling": 4,
+      "observations": 36,
+      "phase": "holding",
+      "reason": "holding measured allocation",
+      "retained_workers": 2,
+      "signals": {
+        "concurrency": 4,
+        "fetch_seconds": 2.452534506,
+        "rows": 800000,
+        "runtime_cpu_utilization": 0.7038864206434686,
+        "runtime_memory_pressure": 0,
+        "seconds": 1.268493751,
+        "tail_seconds": 0.842991251
+      },
+      "target_workers": 2
+    }
+  },
+  {
+    "case": [
+      "oss",
+      32768,
+      2,
+      "direct",
+      "waves",
+      1
+    ],
+    "policy": "tuned",
+    "repetition": 0,
+    "warm_phase_query_counts": {
+      "holding": 18
+    },
+    "warm_target_query_counts": {
+      "3": 18
+    },
+    "warm_reason_snapshots": {
+      "holding measured allocation": 18
+    },
+    "holding_query_fraction": 1.0,
+    "target_changes": 4,
+    "retained_changes": 1,
+    "final_tuning": {
+      "budget": 3,
+      "cached_models": 0,
+      "candidate_workers": 4,
+      "exploration_ceiling": 4,
+      "observations": 77,
+      "phase": "holding",
+      "reason": "holding measured allocation",
+      "retained_workers": 3,
+      "signals": {
+        "concurrency": 1,
+        "fetch_seconds": 0.203944958,
+        "rows": 32768,
+        "runtime_cpu_utilization": 0.5078629448115186,
+        "runtime_memory_pressure": 0,
+        "seconds": 0.071432334,
+        "tail_seconds": 0.071429292
+      },
+      "target_workers": 3
+    }
+  },
+  {
+    "case": [
+      "oss",
+      32768,
+      2,
+      "direct",
+      "waves",
+      2
+    ],
+    "policy": "tuned",
+    "repetition": 0,
+    "warm_phase_query_counts": {
+      "holding": 36
+    },
+    "warm_target_query_counts": {
+      "3": 36
+    },
+    "warm_reason_snapshots": {
+      "holding measured allocation": 18
+    },
+    "holding_query_fraction": 1.0,
+    "target_changes": 4,
+    "retained_changes": 1,
+    "final_tuning": {
+      "budget": 3,
+      "cached_models": 1,
+      "candidate_workers": 4,
+      "exploration_ceiling": 4,
+      "observations": 77,
+      "phase": "holding",
+      "reason": "holding measured allocation",
+      "retained_workers": 3,
+      "signals": {
+        "concurrency": 2,
+        "fetch_seconds": 0.383899126,
+        "rows": 65536,
+        "runtime_cpu_utilization": 0.4845014997074841,
+        "runtime_memory_pressure": 0,
+        "seconds": 0.139311834,
+        "tail_seconds": 0.139304708
+      },
+      "target_workers": 3
+    }
+  },
+  {
+    "case": [
+      "oss",
+      32768,
+      2,
+      "direct",
+      "waves",
+      4
+    ],
+    "policy": "tuned",
+    "repetition": 0,
+    "warm_phase_query_counts": {
+      "holding": 72
+    },
+    "warm_target_query_counts": {
+      "3": 72
+    },
+    "warm_reason_snapshots": {
+      "holding measured allocation": 18
+    },
+    "holding_query_fraction": 1.0,
+    "target_changes": 4,
+    "retained_changes": 1,
+    "final_tuning": {
+      "budget": 3,
+      "cached_models": 2,
+      "candidate_workers": 4,
+      "exploration_ceiling": 4,
+      "observations": 77,
+      "phase": "holding",
+      "reason": "holding measured allocation",
+      "retained_workers": 3,
+      "signals": {
+        "concurrency": 4,
+        "fetch_seconds": 0.682996582,
+        "rows": 131072,
+        "runtime_cpu_utilization": 0.5895133332530265,
+        "runtime_memory_pressure": 0,
+        "seconds": 0.259384375,
+        "tail_seconds": 0.249128709
+      },
+      "target_workers": 3
+    }
+  },
+  {
+    "case": [
+      "software",
+      32768,
+      2,
+      "direct",
+      "server-transition",
+      1
+    ],
+    "policy": "tuned",
+    "repetition": 0,
+    "warm_phase_query_counts": {
+      "holding": 18
+    },
+    "warm_target_query_counts": {
+      "2": 18
+    },
+    "warm_reason_snapshots": {
+      "holding measured allocation": 18
+    },
+    "holding_query_fraction": 1.0,
+    "target_changes": 2,
+    "retained_changes": 0,
+    "final_tuning": {
+      "budget": 2,
+      "cached_models": 0,
+      "candidate_workers": 3,
+      "exploration_ceiling": 4,
+      "observations": 77,
+      "phase": "holding",
+      "reason": "holding measured allocation",
+      "retained_workers": 2,
+      "signals": {
+        "concurrency": 1,
+        "fetch_seconds": 0.162522916,
+        "rows": 32768,
+        "runtime_cpu_utilization": 0.5473077572801024,
+        "runtime_memory_pressure": 0,
+        "seconds": 0.088445833,
+        "tail_seconds": 0.088442541
+      },
+      "target_workers": 2
+    }
+  },
+  {
+    "case": [
+      "software",
+      32768,
+      2,
+      "direct",
+      "server-transition",
+      2
+    ],
+    "policy": "tuned",
+    "repetition": 0,
+    "warm_phase_query_counts": {
+      "probe": 12,
+      "verify": 12,
+      "holding": 12
+    },
+    "warm_target_query_counts": {
+      "2": 12,
+      "3": 24
+    },
+    "warm_reason_snapshots": {
+      "bounded candidate probe": 6,
+      "rechecking retained allocation after probe": 6,
+      "candidate rejected: baseline drift": 6
+    },
+    "holding_query_fraction": 0.3333333333333333,
+    "target_changes": 6,
+    "retained_changes": 1,
+    "final_tuning": {
+      "budget": 3,
+      "cached_models": 1,
+      "candidate_workers": 2,
+      "exploration_ceiling": 4,
+      "observations": 77,
+      "phase": "holding",
+      "reason": "candidate rejected: baseline drift",
+      "retained_workers": 3,
+      "signals": {
+        "concurrency": 2,
+        "fetch_seconds": 0.435126165,
+        "rows": 65536,
+        "runtime_cpu_utilization": 0.5955264701088967,
+        "runtime_memory_pressure": 0,
+        "seconds": 0.157958417,
+        "tail_seconds": 0.10374075
+      },
+      "target_workers": 3
+    }
+  },
+  {
+    "case": [
+      "software",
+      32768,
+      2,
+      "direct",
+      "server-transition",
+      4
+    ],
+    "policy": "tuned",
+    "repetition": 0,
+    "warm_phase_query_counts": {
+      "holding": 72
+    },
+    "warm_target_query_counts": {
+      "3": 72
+    },
+    "warm_reason_snapshots": {
+      "holding measured allocation": 18
+    },
+    "holding_query_fraction": 1.0,
+    "target_changes": 4,
+    "retained_changes": 1,
+    "final_tuning": {
+      "budget": 3,
+      "cached_models": 2,
+      "candidate_workers": 4,
+      "exploration_ceiling": 4,
+      "observations": 77,
+      "phase": "holding",
+      "reason": "holding measured allocation",
+      "retained_workers": 3,
+      "signals": {
+        "concurrency": 4,
+        "fetch_seconds": 0.809468792,
+        "rows": 131072,
+        "runtime_cpu_utilization": 0.667130368060609,
+        "runtime_memory_pressure": 0,
+        "seconds": 0.29616725,
+        "tail_seconds": 0.296083
+      },
+      "target_workers": 3
+    }
+  },
+  {
+    "case": [
+      "oss",
+      32768,
+      4,
+      "direct",
+      "waves",
+      1
+    ],
+    "policy": "tuned",
+    "repetition": 0,
+    "warm_phase_query_counts": {
+      "holding": 18
+    },
+    "warm_target_query_counts": {
+      "6": 18
+    },
+    "warm_reason_snapshots": {
+      "holding measured allocation": 18
+    },
+    "holding_query_fraction": 1.0,
+    "target_changes": 6,
+    "retained_changes": 2,
+    "final_tuning": {
+      "budget": 6,
+      "cached_models": 0,
+      "candidate_workers": 7,
+      "exploration_ceiling": 8,
+      "observations": 77,
+      "phase": "holding",
+      "reason": "holding measured allocation",
+      "retained_workers": 6,
+      "signals": {
+        "concurrency": 1,
+        "fetch_seconds": 0.321491961,
+        "rows": 32768,
+        "runtime_cpu_utilization": 0.44797318630806704,
+        "runtime_memory_pressure": 0,
+        "seconds": 0.059717625,
+        "tail_seconds": 0.059715084
+      },
+      "target_workers": 6
+    }
+  },
+  {
+    "case": [
+      "oss",
+      32768,
+      4,
+      "direct",
+      "waves",
+      2
+    ],
+    "policy": "tuned",
+    "repetition": 0,
+    "warm_phase_query_counts": {
+      "holding": 36
+    },
+    "warm_target_query_counts": {
+      "4": 36
+    },
+    "warm_reason_snapshots": {
+      "holding measured allocation": 18
+    },
+    "holding_query_fraction": 1.0,
+    "target_changes": 2,
+    "retained_changes": 0,
+    "final_tuning": {
+      "budget": 4,
+      "cached_models": 1,
+      "candidate_workers": 5,
+      "exploration_ceiling": 8,
+      "observations": 77,
+      "phase": "holding",
+      "reason": "holding measured allocation",
+      "retained_workers": 4,
+      "signals": {
+        "concurrency": 2,
+        "fetch_seconds": 0.493087873,
+        "rows": 65536,
+        "runtime_cpu_utilization": 0.46611299048417265,
+        "runtime_memory_pressure": 0,
+        "seconds": 0.131766459,
+        "tail_seconds": 0.131761416
+      },
+      "target_workers": 4
+    }
+  },
+  {
+    "case": [
+      "oss",
+      32768,
+      4,
+      "direct",
+      "waves",
+      4
+    ],
+    "policy": "tuned",
+    "repetition": 0,
+    "warm_phase_query_counts": {
+      "holding": 72
+    },
+    "warm_target_query_counts": {
+      "4": 72
+    },
+    "warm_reason_snapshots": {
+      "holding measured allocation": 18
+    },
+    "holding_query_fraction": 1.0,
+    "target_changes": 2,
+    "retained_changes": 0,
+    "final_tuning": {
+      "budget": 4,
+      "cached_models": 2,
+      "candidate_workers": 5,
+      "exploration_ceiling": 8,
+      "observations": 77,
+      "phase": "holding",
+      "reason": "holding measured allocation",
+      "retained_workers": 4,
+      "signals": {
+        "concurrency": 4,
+        "fetch_seconds": 0.880670959,
+        "rows": 131072,
+        "runtime_cpu_utilization": 0.44432935067027557,
+        "runtime_memory_pressure": 0,
+        "seconds": 0.2730585,
+        "tail_seconds": 0.239226625
+      },
+      "target_workers": 4
+    }
+  },
+  {
+    "case": [
+      "oss",
+      32768,
+      4,
+      "direct",
+      "waves",
+      1
+    ],
+    "policy": "legacy-tuned",
+    "repetition": 0,
+    "warm_phase_query_counts": {
+      "legacy-unreported": 18
+    },
+    "warm_target_query_counts": {
+      "2": 6,
+      "3": 9,
+      "4": 3
+    },
+    "warm_reason_snapshots": {
+      "holding measured allocation": 9,
+      "bounded one-worker exploration": 6,
+      "probe rolled back: gain or tail bound not met": 3
+    },
+    "holding_query_fraction": 0.0,
+    "target_changes": 15,
+    "retained_changes": 0,
+    "final_tuning": {
+      "budget": 3,
+      "exploration_ceiling": 8,
+      "observations": 77,
+      "reason": "holding measured allocation",
+      "signals": {
+        "concurrency": 1,
+        "fetch_seconds": 0.197224541,
+        "rows": 32768,
+        "runtime_cpu_utilization": 0.439694715821024,
+        "runtime_memory_pressure": 0,
+        "seconds": 0.072041958,
+        "tail_seconds": 0.072039416
+      },
+      "target_workers": 3
+    }
+  },
+  {
+    "case": [
+      "oss",
+      32768,
+      4,
+      "direct",
+      "waves",
+      2
+    ],
+    "policy": "legacy-tuned",
+    "repetition": 0,
+    "warm_phase_query_counts": {
+      "legacy-unreported": 36
+    },
+    "warm_target_query_counts": {
+      "5": 12,
+      "4": 6,
+      "3": 12,
+      "2": 6
+    },
+    "warm_reason_snapshots": {
+      "holding measured allocation": 6,
+      "measured throughput or tail regression": 3,
+      "bounded one-worker exploration": 6,
+      "probe rolled back: gain or tail bound not met": 3
+    },
+    "holding_query_fraction": 0.0,
+    "target_changes": 13,
+    "retained_changes": 0,
+    "final_tuning": {
+      "budget": 3,
+      "exploration_ceiling": 8,
+      "observations": 77,
+      "reason": "probe rolled back: gain or tail bound not met",
+      "signals": {
+        "concurrency": 2,
+        "fetch_seconds": 0.373400249,
+        "rows": 65536,
+        "runtime_cpu_utilization": 0.4295986950239771,
+        "runtime_memory_pressure": 0,
+        "seconds": 0.13582625,
+        "tail_seconds": 0.135788291
+      },
+      "target_workers": 3
+    }
+  },
+  {
+    "case": [
+      "oss",
+      32768,
+      4,
+      "direct",
+      "waves",
+      4
+    ],
+    "policy": "legacy-tuned",
+    "repetition": 0,
+    "warm_phase_query_counts": {
+      "legacy-unreported": 72
+    },
+    "warm_target_query_counts": {
+      "3": 60,
+      "4": 12
+    },
+    "warm_reason_snapshots": {
+      "holding measured allocation": 12,
+      "bounded one-worker exploration": 3,
+      "probe rolled back: gain or tail bound not met": 3
+    },
+    "holding_query_fraction": 0.0,
+    "target_changes": 11,
+    "retained_changes": 0,
+    "final_tuning": {
+      "budget": 3,
+      "exploration_ceiling": 8,
+      "observations": 77,
+      "reason": "holding measured allocation",
+      "signals": {
+        "concurrency": 4,
+        "fetch_seconds": 0.714310712,
+        "rows": 131072,
+        "runtime_cpu_utilization": 0.44291397995710524,
+        "runtime_memory_pressure": 0,
+        "seconds": 0.25916925,
+        "tail_seconds": 0.259106917
+      },
+      "target_workers": 3
+    }
+  },
+  {
+    "case": [
+      "software",
+      100000,
+      2,
+      "direct",
+      "waves",
+      1
+    ],
+    "policy": "tuned",
+    "repetition": 0,
+    "warm_phase_query_counts": {
+      "holding": 18
+    },
+    "warm_target_query_counts": {
+      "3": 18
+    },
+    "warm_reason_snapshots": {
+      "holding measured allocation": 18
+    },
+    "holding_query_fraction": 1.0,
+    "target_changes": 4,
+    "retained_changes": 1,
+    "final_tuning": {
+      "budget": 3,
+      "cached_models": 0,
+      "candidate_workers": 4,
+      "exploration_ceiling": 4,
+      "observations": 77,
+      "phase": "holding",
+      "reason": "holding measured allocation",
+      "retained_workers": 3,
+      "signals": {
+        "concurrency": 1,
+        "fetch_seconds": 0.612039082,
+        "rows": 100000,
+        "runtime_cpu_utilization": 0.5877763542437293,
+        "runtime_memory_pressure": 0,
+        "seconds": 0.212234709,
+        "tail_seconds": 0.212230792
+      },
+      "target_workers": 3
+    }
+  },
+  {
+    "case": [
+      "software",
+      100000,
+      2,
+      "direct",
+      "waves",
+      2
+    ],
+    "policy": "tuned",
+    "repetition": 0,
+    "warm_phase_query_counts": {
+      "holding": 36
+    },
+    "warm_target_query_counts": {
+      "3": 36
+    },
+    "warm_reason_snapshots": {
+      "holding measured allocation": 18
+    },
+    "holding_query_fraction": 1.0,
+    "target_changes": 4,
+    "retained_changes": 1,
+    "final_tuning": {
+      "budget": 3,
+      "cached_models": 1,
+      "candidate_workers": 4,
+      "exploration_ceiling": 4,
+      "observations": 77,
+      "phase": "holding",
+      "reason": "holding measured allocation",
+      "retained_workers": 3,
+      "signals": {
+        "concurrency": 2,
+        "fetch_seconds": 1.185836665,
+        "rows": 200000,
+        "runtime_cpu_utilization": 0.6099069025847401,
+        "runtime_memory_pressure": 0,
+        "seconds": 0.413076667,
+        "tail_seconds": 0.413048708
+      },
+      "target_workers": 3
+    }
+  },
+  {
+    "case": [
+      "software",
+      100000,
+      2,
+      "direct",
+      "waves",
+      4
+    ],
+    "policy": "tuned",
+    "repetition": 0,
+    "warm_phase_query_counts": {
+      "holding": 72
+    },
+    "warm_target_query_counts": {
+      "3": 72
+    },
+    "warm_reason_snapshots": {
+      "holding measured allocation": 18
+    },
+    "holding_query_fraction": 1.0,
+    "target_changes": 4,
+    "retained_changes": 1,
+    "final_tuning": {
+      "budget": 3,
+      "cached_models": 2,
+      "candidate_workers": 4,
+      "exploration_ceiling": 4,
+      "observations": 77,
+      "phase": "holding",
+      "reason": "holding measured allocation",
+      "retained_workers": 3,
+      "signals": {
+        "concurrency": 4,
+        "fetch_seconds": 2.639635709,
+        "rows": 400000,
+        "runtime_cpu_utilization": 0.5890466347793533,
+        "runtime_memory_pressure": 0,
+        "seconds": 0.919670375,
+        "tail_seconds": 0.912501001
+      },
+      "target_workers": 3
+    }
+  }
+]

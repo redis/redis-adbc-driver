@@ -1,0 +1,108 @@
+name: DuckDB extension
+
+on:
+  schedule:
+    - cron: '47 9 * * *'
+  release:
+    types: [published]
+  pull_request:
+    paths:
+      - .github/workflows/duckdb-extension.yml
+      - .github/actions/duckdb-build-cache/**
+      - CMakeLists.txt
+      - Makefile
+      - vcpkg.json
+      - extension_config.cmake
+      - duckdb-extension/**
+      - test/sql/**
+      - go/pkg/**
+      - go/Makefile
+      - go/go.mod
+      - go/go.sum
+      - duckdb
+      - extension-ci-tools
+      - '!**/*.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: duckdb-extension-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  native:
+    env:
+      # The pinned submodule matches the community registry's 2.0 source.
+      DUCKDB_TEST_VERSION: '2.0.0'
+      DUCKDB_VCPKG_COMMIT: cd61e1e26a038e82d6550a3ebbe0fbbfe7da78e3
+    strategy:
+      fail-fast: false
+      matrix:
+        # PRs compile once; nightly, release and manual runs check all platforms.
+        runner: ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-24.04"]' || '["ubuntu-24.04","ubuntu-24.04-arm","macos-14"]') }}
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/duckdb-build-cache
+        with:
+          variant: native-v2
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go/go.mod
+          cache-dependency-path: go/go.sum
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - run: python -m pip install cmake ninja pyarrow adbc-driver-manager
+      - name: Enable the community registry's vcpkg toolchain
+        if: matrix.runner == 'ubuntu-24.04'
+        run: |
+          git init "$RUNNER_TEMP/duckdb-vcpkg"
+          git -C "$RUNNER_TEMP/duckdb-vcpkg" fetch --depth 1 https://github.com/microsoft/vcpkg.git "$DUCKDB_VCPKG_COMMIT"
+          git -C "$RUNNER_TEMP/duckdb-vcpkg" checkout --detach FETCH_HEAD
+          bash "$RUNNER_TEMP/duckdb-vcpkg/bootstrap-vcpkg.sh" -disableMetrics
+          echo "VCPKG_TOOLCHAIN_PATH=$RUNNER_TEMP/duckdb-vcpkg/scripts/buildsystems/vcpkg.cmake" >> "$GITHUB_ENV"
+      - name: Build DuckDB 2.0, distributable extension and SQLLogicTest runner
+        # Shallow submodule checkouts may lack tags, making DuckDB fall back to
+        # v0.0.1. Stamp the registry's ABI version explicitly.
+        run: OVERRIDE_GIT_DESCRIBE="v$DUCKDB_TEST_VERSION" GEN=ninja make release
+      - name: Offline SQLLogicTests
+        env:
+          LOCAL_EXTENSION_REPO: ${{ github.workspace }}/build/release/repository
+          DUCKDB_TEST_ON_INIT: SET extension_directory='${{ runner.temp }}/redis-adbc-duckdb-extensions'
+        run: |
+          set -o pipefail
+          # Show the loader's real error before `require` can turn it into a
+          # missing-requirement skip in the SQLLogicTest runner.
+          ./build/release/duckdb -unsigned -c "LOAD '$PWD/build/release/extension/redis_adbc/redis_adbc.duckdb_extension';"
+          make test 2>&1 | tee "$RUNNER_TEMP/duckdb-sql-tests.log"
+          python -c 'import pathlib, re, sys; log = pathlib.Path(sys.argv[1]).read_text(); assert re.search(r"ran tests: [1-9][0-9]* passed, 0 skipped", log) and not re.search(r"\b[1-9][0-9]* (?:partially )?skipped", log), "SQLLogicTests must run and pass without skips"' "$RUNNER_TEMP/duckdb-sql-tests.log"
+      - name: Start disposable Redis with Search
+        if: runner.os == 'Linux'
+        run: |
+          docker run -d --rm --name redis-duckdb-test -p 127.0.0.1:16389:6379 redis:8.6.2
+          for attempt in $(seq 1 30); do
+            if docker exec redis-duckdb-test redis-cli ping; then exit 0; fi
+            sleep 1
+          done
+          exit 1
+      - name: Build fixture driver and run DuckDB 2.0 Redis runtime tests
+        if: runner.os == 'Linux'
+        env:
+          REDIS_URI: redis://localhost:16389/0
+          REDIS_ADBC_EXTENSION: ${{ github.workspace }}/build/release/extension/redis_adbc/redis_adbc.duckdb_extension
+          REDIS_ADBC_LIBRARY: ${{ github.workspace }}/go/build/libadbc_driver_redis.so
+          REDIS_DUCKDB_CLI: ${{ github.workspace }}/build/release/duckdb
+        run: |
+          make -C go build
+          python duckdb-extension/verify_cli.py
+      - name: Stop test Redis
+        if: always() && runner.os == 'Linux'
+        run: docker stop redis-duckdb-test || true
+      - name: Compiler cache statistics
+        if: always()
+        run: ccache --show-stats

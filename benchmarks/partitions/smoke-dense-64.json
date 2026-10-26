@@ -1,0 +1,182 @@
+{
+  "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+  "python": "3.13.16 (main, Oct 14 2026, 00:55:38) [Clang 23.1.3 ]",
+  "packages": {
+    "pyarrow": "26.0.0",
+    "adbc-driver-manager": "1.12.0",
+    "redis": "8.1.0"
+  },
+  "revision": "edbd2996e9231eaa5d9b05edf4506a94b022f3e2",
+  "driver_sha256": "6d26423123c7e4d5ff0abf47f05278952ca882adfca7e1f4b24deea6f1b3b7e7",
+  "rows_ingested": 1000,
+  "payload_width": 64,
+  "layout": "dense",
+  "scan_cap": 0,
+  "measurements": [
+    {
+      "partitions": 1,
+      "workers": 1,
+      "planning_seconds": 0.0016616250068182126,
+      "end_to_end_seconds": 0.18891804199665785,
+      "rows": 1000,
+      "rows_per_second": 5293.300679125666,
+      "exact_result_and_schema": true,
+      "worker_metrics": [
+        {
+          "rows": 1000,
+          "seconds": 0.024102124996716157,
+          "process_peak_rss_bytes": 97484800
+        }
+      ],
+      "server_before": {
+        "used_memory": 19104200,
+        "used_memory_peak": 175515480,
+        "total_net_input_bytes": 127572476,
+        "total_net_output_bytes": 255311053
+      },
+      "server_after": {
+        "used_memory": 19089864,
+        "used_memory_peak": 175515480,
+        "total_net_input_bytes": 127573870,
+        "total_net_output_bytes": 255563852
+      },
+      "coordinator_process_peak_rss_bytes": 146587648
+    },
+    {
+      "partitions": 1,
+      "workers": 2,
+      "planning_seconds": 0.0015973339905031025,
+      "end_to_end_seconds": 0.1596012499940116,
+      "rows": 1000,
+      "rows_per_second": 6265.615087836223,
+      "exact_result_and_schema": true,
+      "worker_metrics": [
+        {
+          "rows": 1000,
+          "seconds": 0.020625499993911944,
+          "process_peak_rss_bytes": 96976896
+        }
+      ],
+      "server_before": {
+        "used_memory": 19089864,
+        "used_memory_peak": 175515480,
+        "total_net_input_bytes": 127573884,
+        "total_net_output_bytes": 255570700
+      },
+      "server_after": {
+        "used_memory": 19091912,
+        "used_memory_peak": 175515480,
+        "total_net_input_bytes": 127575278,
+        "total_net_output_bytes": 255823510
+      },
+      "coordinator_process_peak_rss_bytes": 146702336
+    },
+    {
+      "partitions": 4,
+      "workers": 1,
+      "planning_seconds": 0.0011070420005125925,
+      "end_to_end_seconds": 0.20087091700406745,
+      "rows": 1000,
+      "rows_per_second": 4978.321475874733,
+      "exact_result_and_schema": true,
+      "worker_metrics": [
+        {
+          "rows": 250,
+          "seconds": 0.014789499997277744,
+          "process_peak_rss_bytes": 95223808
+        },
+        {
+          "rows": 250,
+          "seconds": 0.008241584000643343,
+          "process_peak_rss_bytes": 95633408
+        },
+        {
+          "rows": 250,
+          "seconds": 0.00838724999630358,
+          "process_peak_rss_bytes": 95895552
+        },
+        {
+          "rows": 250,
+          "seconds": 0.01570424999226816,
+          "process_peak_rss_bytes": 96075776
+        }
+      ],
+      "server_before": {
+        "used_memory": 19096008,
+        "used_memory_peak": 175515480,
+        "total_net_input_bytes": 127575292,
+        "total_net_output_bytes": 255830358
+      },
+      "server_after": {
+        "used_memory": 19096008,
+        "used_memory_peak": 175515480,
+        "total_net_input_bytes": 127579998,
+        "total_net_output_bytes": 256099209
+      },
+      "coordinator_process_peak_rss_bytes": 147210240
+    },
+    {
+      "partitions": 4,
+      "workers": 2,
+      "planning_seconds": 0.0012940410088049248,
+      "end_to_end_seconds": 0.20206741600122768,
+      "rows": 1000,
+      "rows_per_second": 4948.843409735711,
+      "exact_result_and_schema": true,
+      "worker_metrics": [
+        {
+          "rows": 250,
+          "seconds": 0.01874770800350234,
+          "process_peak_rss_bytes": 95322112
+        },
+        {
+          "rows": 250,
+          "seconds": 0.01858995799557306,
+          "process_peak_rss_bytes": 95961088
+        },
+        {
+          "rows": 250,
+          "seconds": 0.009197542007314041,
+          "process_peak_rss_bytes": 96174080
+        },
+        {
+          "rows": 250,
+          "seconds": 0.009545209002681077,
+          "process_peak_rss_bytes": 96092160
+        }
+      ],
+      "server_before": {
+        "used_memory": 19096008,
+        "used_memory_peak": 175515480,
+        "total_net_input_bytes": 127580012,
+        "total_net_output_bytes": 256106062
+      },
+      "server_after": {
+        "used_memory": 19095992,
+        "used_memory_peak": 175515480,
+        "total_net_input_bytes": 127584718,
+        "total_net_output_bytes": 256374914
+      },
+      "coordinator_process_peak_rss_bytes": 147341312
+    }
+  ],
+  "redis_version": "8.6.2",
+  "ordinary": {
+    "seconds": 0.007421416012221016,
+    "rows": 1000,
+    "rows_per_second": 134745.17509236472,
+    "server_before": {
+      "used_memory": 19103976,
+      "used_memory_peak": 175515480,
+      "total_net_input_bytes": 127571770,
+      "total_net_output_bytes": 255035054
+    },
+    "server_after": {
+      "used_memory": 19104200,
+      "used_memory_peak": 175515480,
+      "total_net_input_bytes": 127572462,
+      "total_net_output_bytes": 255304216
+    }
+  },
+  "source_dirty": true
+}

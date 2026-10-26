@@ -1,0 +1,86 @@
+{
+  "kind": "Redis Cloud Pro native partition TLS/independent ACL validation",
+  "status": "failed",
+  "library_sha256": "619ad1fb7ec7d00116d471441ee088ab3a6e00b9071f03e6428b9d9ef923c421",
+  "installed_wheel": true,
+  "python": "3.13.16",
+  "pyarrow": "26.0.0",
+  "certificate_verification": true,
+  "platform": "Linux-7.0.14-linuxkit-aarch64-with-glibc2.28",
+  "machine": "aarch64",
+  "packages": {
+    "adbc-driver-manager": "1.12.0",
+    "redis": "8.1.0"
+  },
+  "aggregate_cap": 137,
+  "cluster_mode": "auto",
+  "checks": [
+    "verified_admin_tls_and_real_cap",
+    "hostname_mismatch_rejected"
+  ],
+  "server_cluster_enabled": 1,
+  "redis_version": "8.6.2",
+  "modules": [
+    {
+      "name": "vectorset",
+      "ver": 1,
+      "path": "/enterprise-managed",
+      "args": []
+    },
+    {
+      "name": "timeseries",
+      "ver": 80608,
+      "path": "/enterprise-managed",
+      "args": []
+    },
+    {
+      "name": "ReJSON",
+      "ver": 80606,
+      "path": "/enterprise-managed",
+      "args": []
+    },
+    {
+      "name": "clusterplugin",
+      "ver": 1,
+      "path": "/enterprise-managed",
+      "args": [
+        "cluster-db-id",
+        "14709372",
+        "cluster-topology-uri",
+        "grpc://127.0.0.1:3350",
+        "cluster-topology-poll-interval",
+        "1",
+        "cluster-my-id",
+        "1",
+        "cluster-node-id",
+        "3"
+      ]
+    },
+    {
+      "name": "search",
+      "ver": 80611,
+      "path": "/enterprise-managed",
+      "args": []
+    },
+    {
+      "name": "bf",
+      "ver": 80604,
+      "path": "/enterprise-managed",
+      "args": []
+    }
+  ],
+  "topology": {
+    "disposable": true,
+    "subscription_id": 3457767,
+    "database_id": 14709372,
+    "subscription_name": "codex-adbc-routing-20261021",
+    "database_name": "codex-adbc-routing-20261021",
+    "endpoint": "shoes-shake-sinewy-12858.db.redis.io:14735",
+    "redis_version": "8.6",
+    "shards": 2,
+    "minimum_shards": 2,
+    "oss_cluster_api": true,
+    "external_cluster_endpoints": true
+  },
+  "server_aggregate_cap": 2147483648
+}

@@ -1,0 +1,21 @@
+{
+  "factors": [
+    2,
+    0,
+    8,
+    4
+  ],
+  "rows": 32768,
+  "cpu": 2,
+  "server_cpu": 16,
+  "warmup": 60,
+  "rounds": 18,
+  "repetitions": 3,
+  "arrivals": "waves",
+  "concurrency": [
+    1,
+    2,
+    4
+  ],
+  "note": "Factors blocked in fixed order; no production/global readiness claim."
+}

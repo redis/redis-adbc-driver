@@ -1,0 +1,32 @@
+{
+  "area": "unsupported",
+  "tier": "scope",
+  "source": "https://github.com/alberttwong/redis-adbc-driver/issues/274",
+  "setup": [],
+  "cases": [
+    {
+      "id": "xml",
+      "sql": "SELECT '<a/>'::xml",
+      "expect_postgres": null,
+      "unsupported": {
+        "reason": "XML is explicitly out of scope in #274.",
+        "expected_redis": {
+          "sqlstate": "MISSING",
+          "message": "INVALID_ARGUMENT: [redis] unsupported SQL type XML"
+        }
+      }
+    },
+    {
+      "id": "procedural",
+      "sql": "DO $$ BEGIN NULL; END $$",
+      "expect_postgres": null,
+      "unsupported": {
+        "reason": "PL/pgSQL and DO are explicitly out of scope in #274.",
+        "expected_redis": {
+          "sqlstate": "MISSING",
+          "message": "INVALID_ARGUMENT: [redis] unsupported statement starting with \"do\""
+        }
+      }
+    }
+  ]
+}

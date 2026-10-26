@@ -1,0 +1,249 @@
+{
+  "schema_version": 1,
+  "publication_date": "2026-10-22",
+  "publication_base": "e5a0b2c2c73981548b80d14badc0ea708b355b4e",
+  "path_base": "repository root",
+  "note": "Pre-publication identities captured from the remaining local files; these are not independent attestations of historical execution. All original source, raw data, logs, and profile bytes are preserved. Only two report files have publication edits.",
+  "original_files": [
+    {
+      "original_path": "benchmarks/transfer-comparison/2026-10-21/benchmark-original.py",
+      "sha256": "c25015e33e0e2f22df690d1ebb5c39adb3d4f88ed759b30e95c20b3b04ba20a2",
+      "bytes": 13939,
+      "published_path": "benchmarks/transfer-comparison/2026-10-21/benchmark-original.py",
+      "published_sha256": "c25015e33e0e2f22df690d1ebb5c39adb3d4f88ed759b30e95c20b3b04ba20a2"
+    },
+    {
+      "original_path": "benchmarks/transfer-comparison/2026-10-21/containers.txt",
+      "sha256": "1524166a565bdcd63c79b4fc216c10f142698a6fa32e628c9df10da22fcc131e",
+      "bytes": 462,
+      "published_path": "benchmarks/transfer-comparison/2026-10-21/containers.txt",
+      "published_sha256": "1524166a565bdcd63c79b4fc216c10f142698a6fa32e628c9df10da22fcc131e"
+    },
+    {
+      "original_path": "benchmarks/transfer-comparison/2026-10-21/issue396/alloc-top.txt",
+      "sha256": "4ede6a2e234740c4da49d06d5e1558a772abea567f70dfd9fec937be7c01399d",
+      "bytes": 2192,
+      "published_path": "benchmarks/transfer-comparison/2026-10-21/issue396/alloc-top.txt",
+      "published_sha256": "4ede6a2e234740c4da49d06d5e1558a772abea567f70dfd9fec937be7c01399d"
+    },
+    {
+      "original_path": "benchmarks/transfer-comparison/2026-10-21/issue396/benchmark.py",
+      "sha256": "d16197cb4c3b7d8fe67c6ad3c40370b8b51e67ea0b47286108cde2861c3b70ea",
+      "bytes": 18245,
+      "published_path": "benchmarks/transfer-comparison/2026-10-21/issue396/benchmark.py",
+      "published_sha256": "d16197cb4c3b7d8fe67c6ad3c40370b8b51e67ea0b47286108cde2861c3b70ea"
+    },
+    {
+      "original_path": "benchmarks/transfer-comparison/2026-10-21/issue396/cpu-top.txt",
+      "sha256": "265819a942df47395f6a0d3cd86ce7a3beed13af7619f49268df5a11d0ef146b",
+      "bytes": 2157,
+      "published_path": "benchmarks/transfer-comparison/2026-10-21/issue396/cpu-top.txt",
+      "published_sha256": "265819a942df47395f6a0d3cd86ce7a3beed13af7619f49268df5a11d0ef146b"
+    },
+    {
+      "original_path": "benchmarks/transfer-comparison/2026-10-21/issue396/discovery-results.json",
+      "sha256": "e5a1f7f8a9cc6e892418388964ec7ea898e8df7c44a1406b1e6bf755a26bf9f8",
+      "bytes": 30274,
+      "published_path": "benchmarks/transfer-comparison/2026-10-21/issue396/discovery-results.json",
+      "published_sha256": "e5a1f7f8a9cc6e892418388964ec7ea898e8df7c44a1406b1e6bf755a26bf9f8"
+    },
+    {
+      "original_path": "benchmarks/transfer-comparison/2026-10-21/issue396/discovery.log",
+      "sha256": "260a2887f498f92b38cf082fe91a62d5f7a8c77ff3beb351e436e22f3bc7ff60",
+      "bytes": 1448,
+      "published_path": "benchmarks/transfer-comparison/2026-10-21/issue396/discovery.log",
+      "published_sha256": "260a2887f498f92b38cf082fe91a62d5f7a8c77ff3beb351e436e22f3bc7ff60"
+    },
+    {
+      "original_path": "benchmarks/transfer-comparison/2026-10-21/issue396/discovery.py",
+      "sha256": "60bdac4069431efef34632fa5882d1ef02d43b6f946f5bbfe99a1c4c1d7505b7",
+      "bytes": 3016,
+      "published_path": "benchmarks/transfer-comparison/2026-10-21/issue396/discovery.py",
+      "published_sha256": "60bdac4069431efef34632fa5882d1ef02d43b6f946f5bbfe99a1c4c1d7505b7"
+    },
+    {
+      "original_path": "benchmarks/transfer-comparison/2026-10-21/issue396/main-alloc.pprof",
+      "sha256": "c81da936d3373d17bd0fec4b4b45fb193d8c215a8de9783cc675ee7209526997",
+      "bytes": 15820,
+      "published_path": "benchmarks/transfer-comparison/2026-10-21/issue396/main-alloc.pprof",
+      "published_sha256": "c81da936d3373d17bd0fec4b4b45fb193d8c215a8de9783cc675ee7209526997"
+    },
+    {
+      "original_path": "benchmarks/transfer-comparison/2026-10-21/issue396/main-cpu.pprof",
+      "sha256": "d72043452ca29a2af8280c753e43c0a0cf615498f9f469480d510def2dba1789",
+      "bytes": 37205,
+      "published_path": "benchmarks/transfer-comparison/2026-10-21/issue396/main-cpu.pprof",
+      "published_sha256": "d72043452ca29a2af8280c753e43c0a0cf615498f9f469480d510def2dba1789"
+    },
+    {
+      "original_path": "benchmarks/transfer-comparison/2026-10-21/issue396/main-stages.log",
+      "sha256": "3db8be350b966b67fd26258e4404229d65a8dc30412f124581e5fa555c1be870",
+      "bytes": 2808,
+      "published_path": "benchmarks/transfer-comparison/2026-10-21/issue396/main-stages.log",
+      "published_sha256": "3db8be350b966b67fd26258e4404229d65a8dc30412f124581e5fa555c1be870"
+    },
+    {
+      "original_path": "benchmarks/transfer-comparison/2026-10-21/issue396/manifest.json",
+      "sha256": "9e8de3c21ed632d69c17f958039a67ea1e850a1dca0792b462ad2a42c45bcf39",
+      "bytes": 2487,
+      "published_path": "benchmarks/transfer-comparison/2026-10-21/issue396/manifest.json",
+      "published_sha256": "9e8de3c21ed632d69c17f958039a67ea1e850a1dca0792b462ad2a42c45bcf39"
+    },
+    {
+      "original_path": "benchmarks/transfer-comparison/2026-10-21/issue396/report.md",
+      "sha256": "9330b57cbff3cad63e7b3f0c7345fc23b0d51661aae6008667c4de589dfe0571",
+      "bytes": 11982,
+      "published_path": "benchmarks/transfer-comparison/2026-10-21/issue396/report.md",
+      "published_sha256": "4e59e17ae66af2abd41141898ad9aef46f36ab9bc7ac12ac5b1a78f1b28f5882",
+      "publication_edit": "Add historical-context notice; #396 report also corrects the relocated profiler copy path."
+    },
+    {
+      "original_path": "benchmarks/transfer-comparison/2026-10-21/issue396/stage-results.json",
+      "sha256": "748ced2f578a80b5de3746b64a01d51970ba7721f05b014059d5a6280f7bab73",
+      "bytes": 3458,
+      "published_path": "benchmarks/transfer-comparison/2026-10-21/issue396/stage-results.json",
+      "published_sha256": "748ced2f578a80b5de3746b64a01d51970ba7721f05b014059d5a6280f7bab73"
+    },
+    {
+      "original_path": "benchmarks/transfer-comparison/2026-10-21/issue396/stream-tests.log",
+      "sha256": "fd20d64101b15ec3a3cefcce4ea76b280fac81ac725040011b51163d8f67c208",
+      "bytes": 2061,
+      "published_path": "benchmarks/transfer-comparison/2026-10-21/issue396/stream-tests.log",
+      "published_sha256": "fd20d64101b15ec3a3cefcce4ea76b280fac81ac725040011b51163d8f67c208"
+    },
+    {
+      "original_path": "benchmarks/transfer-comparison/2026-10-21/issue396/sweep-results.json",
+      "sha256": "97727c0a62a0acf4af4873b5b75beb39f4c833d2bea8b28173072b61bcca6773",
+      "bytes": 61295,
+      "published_path": "benchmarks/transfer-comparison/2026-10-21/issue396/sweep-results.json",
+      "published_sha256": "97727c0a62a0acf4af4873b5b75beb39f4c833d2bea8b28173072b61bcca6773"
+    },
+    {
+      "original_path": "benchmarks/transfer-comparison/2026-10-21/issue396/sweep.log",
+      "sha256": "ab55465a1573a03e811d0f32df34fecdf9c3d836539b91e1ec550d0f07db2786",
+      "bytes": 3815,
+      "published_path": "benchmarks/transfer-comparison/2026-10-21/issue396/sweep.log",
+      "published_sha256": "ab55465a1573a03e811d0f32df34fecdf9c3d836539b91e1ec550d0f07db2786"
+    },
+    {
+      "original_path": "benchmarks/transfer-comparison/2026-10-21/issue396/sweep.py",
+      "sha256": "f5df1b9073b078975a8a0bc2c57bebf25700380aee0f7ac01114267fe4ea7e00",
+      "bytes": 2101,
+      "published_path": "benchmarks/transfer-comparison/2026-10-21/issue396/sweep.py",
+      "published_sha256": "f5df1b9073b078975a8a0bc2c57bebf25700380aee0f7ac01114267fe4ea7e00"
+    },
+    {
+      "original_path": "benchmarks/transfer-comparison/2026-10-21/issue396/validate_stages.py",
+      "sha256": "d798f47b05dc90ebe01b577796772e5fdaf08fa3eae94b4f878980964292d846",
+      "bytes": 1092,
+      "published_path": "benchmarks/transfer-comparison/2026-10-21/issue396/validate_stages.py",
+      "published_sha256": "d798f47b05dc90ebe01b577796772e5fdaf08fa3eae94b4f878980964292d846"
+    },
+    {
+      "original_path": "benchmarks/transfer-comparison/2026-10-21/manifest.json",
+      "sha256": "220365a1cee59125ec862e347b9355ad1af2b1db30f88182c9a5a5bd822ad13e",
+      "bytes": 2569,
+      "published_path": "benchmarks/transfer-comparison/2026-10-21/manifest.json",
+      "published_sha256": "220365a1cee59125ec862e347b9355ad1af2b1db30f88182c9a5a5bd822ad13e"
+    },
+    {
+      "original_path": "benchmarks/transfer-comparison/2026-10-21/native-arrow/benchmark.py",
+      "sha256": "8bac7d5ff4f7796952c433a5fd0701b8a3d0ec232cf6a9ac2f862d1540e509e5",
+      "bytes": 15955,
+      "published_path": "benchmarks/transfer-comparison/2026-10-21/native-arrow/benchmark.py",
+      "published_sha256": "8bac7d5ff4f7796952c433a5fd0701b8a3d0ec232cf6a9ac2f862d1540e509e5"
+    },
+    {
+      "original_path": "benchmarks/transfer-comparison/2026-10-21/native-arrow/manifest.json",
+      "sha256": "88e82a0f3d2a56c1a773b794309534bdf059a8fa2f2fa98b4439106ca3ffecf3",
+      "bytes": 1461,
+      "published_path": "benchmarks/transfer-comparison/2026-10-21/native-arrow/manifest.json",
+      "published_sha256": "88e82a0f3d2a56c1a773b794309534bdf059a8fa2f2fa98b4439106ca3ffecf3"
+    },
+    {
+      "original_path": "benchmarks/transfer-comparison/2026-10-21/native-arrow/results.json",
+      "sha256": "293ac6e955a2d0ec31cbe30bf7ca4fc6f5127442a3501f526f323ae5b044a80d",
+      "bytes": 28918,
+      "published_path": "benchmarks/transfer-comparison/2026-10-21/native-arrow/results.json",
+      "published_sha256": "293ac6e955a2d0ec31cbe30bf7ca4fc6f5127442a3501f526f323ae5b044a80d"
+    },
+    {
+      "original_path": "benchmarks/transfer-comparison/2026-10-21/native-arrow/trials.log",
+      "sha256": "01fd81471972b639417da713a03625438f4f3dcd14e2acbc3a4e7674cbb3f485",
+      "bytes": 1835,
+      "published_path": "benchmarks/transfer-comparison/2026-10-21/native-arrow/trials.log",
+      "published_sha256": "01fd81471972b639417da713a03625438f4f3dcd14e2acbc3a4e7674cbb3f485"
+    },
+    {
+      "original_path": "benchmarks/transfer-comparison/2026-10-21/native-output/benchmark.py",
+      "sha256": "67b36766188f550d3805b638dc9329d5a0a89aab73bb5931a98c63d6b0452449",
+      "bytes": 18111,
+      "published_path": "benchmarks/transfer-comparison/2026-10-21/native-output/benchmark.py",
+      "published_sha256": "67b36766188f550d3805b638dc9329d5a0a89aab73bb5931a98c63d6b0452449"
+    },
+    {
+      "original_path": "benchmarks/transfer-comparison/2026-10-21/native-output/containers.txt",
+      "sha256": "5ba4debac05a3033d1bb768229974accbf0b502b5e4b329084840efe59341284",
+      "bytes": 150,
+      "published_path": "benchmarks/transfer-comparison/2026-10-21/native-output/containers.txt",
+      "published_sha256": "5ba4debac05a3033d1bb768229974accbf0b502b5e4b329084840efe59341284"
+    },
+    {
+      "original_path": "benchmarks/transfer-comparison/2026-10-21/native-output/manifest.json",
+      "sha256": "33c242d95bd6bc6efa34593c0b930af43fde394c5e6c8db9df2cb10741159a82",
+      "bytes": 2511,
+      "published_path": "benchmarks/transfer-comparison/2026-10-21/native-output/manifest.json",
+      "published_sha256": "33c242d95bd6bc6efa34593c0b930af43fde394c5e6c8db9df2cb10741159a82"
+    },
+    {
+      "original_path": "benchmarks/transfer-comparison/2026-10-21/native-output/results.json",
+      "sha256": "0cbb2404ecefb573e9d40b750bcb12c8632faecb4c4dd3bf5ce0b68036a8a1b6",
+      "bytes": 49507,
+      "published_path": "benchmarks/transfer-comparison/2026-10-21/native-output/results.json",
+      "published_sha256": "0cbb2404ecefb573e9d40b750bcb12c8632faecb4c4dd3bf5ce0b68036a8a1b6"
+    },
+    {
+      "original_path": "benchmarks/transfer-comparison/2026-10-21/native-output/trials.log",
+      "sha256": "9ad05ead2750c3fc6a6ce4191a01a0bcaa7983f0c5d014080a37a04d0f3ed7b3",
+      "bytes": 2773,
+      "published_path": "benchmarks/transfer-comparison/2026-10-21/native-output/trials.log",
+      "published_sha256": "9ad05ead2750c3fc6a6ce4191a01a0bcaa7983f0c5d014080a37a04d0f3ed7b3"
+    },
+    {
+      "original_path": "benchmarks/transfer-comparison/2026-10-21/report.md",
+      "sha256": "6038a05db0dbaa6778a930e1e8ae0e8bad7bb959482273c5e70ae5a58067379d",
+      "bytes": 9335,
+      "published_path": "benchmarks/transfer-comparison/2026-10-21/report.md",
+      "published_sha256": "420a57f5137338768a6777153ca27731d887016206c4639151a962af80bf1376",
+      "publication_edit": "Add historical-context notice; #396 report also corrects the relocated profiler copy path."
+    },
+    {
+      "original_path": "benchmarks/transfer-comparison/2026-10-21/results.json",
+      "sha256": "b9ba2f662e5e7a25dcd2c7f148f07d9939a77d82760960aabe37be4758f6dd0f",
+      "bytes": 57672,
+      "published_path": "benchmarks/transfer-comparison/2026-10-21/results.json",
+      "published_sha256": "b9ba2f662e5e7a25dcd2c7f148f07d9939a77d82760960aabe37be4758f6dd0f"
+    },
+    {
+      "original_path": "benchmarks/transfer-comparison/2026-10-21/trials.log",
+      "sha256": "53266e6743b6dfc246acf37d5197082d60ea3d9ced401ef687a7d6c4015f3702",
+      "bytes": 3724,
+      "published_path": "benchmarks/transfer-comparison/2026-10-21/trials.log",
+      "published_sha256": "53266e6743b6dfc246acf37d5197082d60ea3d9ced401ef687a7d6c4015f3702"
+    },
+    {
+      "original_path": "benchmarks/transfer-comparison/benchmark.py",
+      "sha256": "67b36766188f550d3805b638dc9329d5a0a89aab73bb5931a98c63d6b0452449",
+      "bytes": 18111,
+      "published_path": "benchmarks/transfer-comparison/benchmark.py",
+      "published_sha256": "67b36766188f550d3805b638dc9329d5a0a89aab73bb5931a98c63d6b0452449"
+    },
+    {
+      "original_path": "go/wide_transfer_profile_test.go",
+      "sha256": "01431f767ea80b09f3629392e339b9b95b0ae29d025b62608409c4d0bec1a3bc",
+      "bytes": 5797,
+      "published_path": "benchmarks/transfer-comparison/2026-10-21/issue396/wide_transfer_profile_test.go",
+      "published_sha256": "01431f767ea80b09f3629392e339b9b95b0ae29d025b62608409c4d0bec1a3bc"
+    }
+  ]
+}

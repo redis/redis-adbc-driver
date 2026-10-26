@@ -1,0 +1,6 @@
+=== RUN   TestRetainedSourceIdentityPreservesBinaryDefinitions
+    partition_retained_capture_test.go:25: different binary index prefixes collapsed to one identity
+--- FAIL: TestRetainedSourceIdentityPreservesBinaryDefinitions (0.00s)
+FAIL
+FAIL	github.com/adbc-drivers/redis/go	0.654s
+FAIL

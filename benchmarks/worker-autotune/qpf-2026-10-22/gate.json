@@ -1,0 +1,73 @@
+{
+  "status": "cancelled",
+  "infrastructure": [
+    {
+      "case": [
+        "software",
+        32768,
+        2,
+        "direct",
+        "continuous",
+        1
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "software",
+        32768,
+        2,
+        "direct",
+        "continuous",
+        2
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "software",
+        32768,
+        2,
+        "direct",
+        "continuous",
+        4
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "software",
+        32768,
+        2,
+        "direct",
+        "waves",
+        1
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "software",
+        32768,
+        2,
+        "direct",
+        "waves",
+        2
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "software",
+        32768,
+        2,
+        "direct",
+        "waves",
+        4
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    }
+  ],
+  "cases": [],
+  "note": "Superseded by the requested Standard/2x/4x/8x comparison with equal server CPU limits. Partial evidence only."
+}

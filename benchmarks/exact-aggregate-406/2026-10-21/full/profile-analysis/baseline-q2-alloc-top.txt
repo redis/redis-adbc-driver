@@ -1,0 +1,37 @@
+File: baseline-profile.test
+Build ID: 1eaf8555b19f816ad65f9f7a34bac76f51876d47
+Type: alloc_space
+Time: 2026-10-21 22:49:41 PDT
+Showing nodes accounting for 184676.18MB, 100% of 184708.21MB total
+Dropped 141 nodes (cum <= 923.54MB)
+      flat  flat%   sum%        cum   cum%
+   64057MB 34.68% 34.68% 92505.64MB 50.08%  github.com/redis/go-redis/v9/internal/proto.(*Reader).readMap
+55271.36MB 29.92% 64.60% 55271.36MB 29.92%  github.com/adbc-drivers/redis/go.decodeRow
+27590.58MB 14.94% 79.54% 27590.58MB 14.94%  github.com/adbc-drivers/redis/go.setAggregateField
+17626.79MB  9.54% 89.08% 92506.14MB 50.08%  github.com/redis/go-redis/v9/internal/proto.(*Reader).ReadReply
+ 9237.28MB  5.00% 94.09%  9241.78MB  5.00%  github.com/redis/go-redis/v9/internal/proto.(*Reader).readStringReply
+ 4612.21MB  2.50% 96.58% 32202.79MB 17.43%  github.com/adbc-drivers/redis/go.parseAggregateRow
+ 2360.80MB  1.28% 97.86% 57632.16MB 31.20%  github.com/adbc-drivers/redis/go.(*scanIter).keep
+ 1577.06MB  0.85% 98.71% 92506.14MB 50.08%  github.com/redis/go-redis/v9/internal/proto.(*Reader).readSlice
+ 1552.11MB  0.84% 99.55% 184484.73MB 99.88%  github.com/adbc-drivers/redis/go.(*scanIter).nextPage
+  787.98MB  0.43%   100% 32990.76MB 17.86%  github.com/adbc-drivers/redis/go.parseCursorReplyLists
+    2.50MB 0.0014%   100% 184685.68MB   100%  github.com/adbc-drivers/redis/go.(*executor).parallelAggregate.func2
+    0.50MB 0.00027%   100% 125300.45MB 67.84%  github.com/adbc-drivers/redis/go.(*aggCursor).next
+         0     0%   100% 92510.19MB 50.08%  github.com/adbc-drivers/redis/go.(*errorHook).ProcessHook.errorHook.ProcessHook.func1
+         0     0%   100% 184683.18MB   100%  github.com/adbc-drivers/redis/go.(*executor).scanPages
+         0     0%   100% 184484.73MB 99.88%  github.com/adbc-drivers/redis/go.(*scanIter).next
+         0     0%   100% 92507.14MB 50.08%  github.com/adbc-drivers/redis/go.diagnosticsHook.ProcessHook.func1
+         0     0%   100% 92507.14MB 50.08%  github.com/adbc-drivers/redis/go.once
+         0     0%   100% 92507.14MB 50.08%  github.com/adbc-drivers/redis/go.searchConn.Do (inline)
+         0     0%   100% 92507.14MB 50.08%  github.com/redis/go-redis/v9.(*Client).Process
+         0     0%   100% 92506.14MB 50.08%  github.com/redis/go-redis/v9.(*Cmd).readReply
+         0     0%   100% 92507.14MB 50.08%  github.com/redis/go-redis/v9.(*baseClient)._process
+         0     0%   100% 92507.14MB 50.08%  github.com/redis/go-redis/v9.(*baseClient)._process.func1
+         0     0%   100% 92507.14MB 50.08%  github.com/redis/go-redis/v9.(*baseClient)._process.func1.3
+         0     0%   100% 92507.14MB 50.08%  github.com/redis/go-redis/v9.(*baseClient).process
+         0     0%   100% 92507.14MB 50.08%  github.com/redis/go-redis/v9.(*baseClient).processCommand
+         0     0%   100% 92507.14MB 50.08%  github.com/redis/go-redis/v9.(*baseClient).processWithRetry
+         0     0%   100% 92507.14MB 50.08%  github.com/redis/go-redis/v9.(*baseClient).withConn
+         0     0%   100% 92510.19MB 50.08%  github.com/redis/go-redis/v9.(*hooksMixin).processHook (inline)
+         0     0%   100% 92507.14MB 50.08%  github.com/redis/go-redis/v9/internal/pool.(*Conn).WithReader
+

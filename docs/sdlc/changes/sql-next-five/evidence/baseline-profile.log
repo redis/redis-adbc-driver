@@ -1,0 +1,4 @@
+=== RUN   TestSearchReplyScanProfile
+    search_reply_profile_test.go:37: three scans: elapsed=10.009394833s allocated_bytes=3479293960 allocations=99109736 GCs=98
+--- PASS: TestSearchReplyScanProfile (10.02s)
+PASS

@@ -1,0 +1,1921 @@
+{
+  "rows": 99997497,
+  "source_sha256": "a390f6cb782f6aaef278c72fc1dd86c4f30bc843ebab3c159e9bd4d45ddb079f",
+  "builds": {
+    "baseline": {
+      "sha256": "86f5324d2a50a9b93b2e60ff4d496e48f93dda0650ad6a59cd3238faf4af5309"
+    },
+    "candidate": {
+      "sha256": "7ac480ba91e0105cc7a7cb1c0eb2cb3d5339834d4c14e21edb94118412a0d610"
+    }
+  },
+  "provenance": {
+    "source": {
+      "baseline": "e692a704d2b70428086e145df00e73db7b1a253f",
+      "candidate": "b40b88fe683780cdc17b05cb0e5c7e4108a42014",
+      "test_followup": "c064caaca0e2894a1e828795bc8ce34e46bb3de8",
+      "runner": "bd0c039bc5d9e079c13c1dd6c050bd40cf0e5775"
+    },
+    "production_file_sha256": {
+      "go/aggregate.go": "8b55f192684176bcebdc03bf89e758a2b373d5dfc39b9f5b584c1299ef2c961a",
+      "go/aggregate_compact_integer.go": "3a7bf8434eb67b4cdae104aef356f153a187d47ebca4c4f57e7041d17dc1d6d4",
+      "go/aggregate_metrics.go": "b71ed068f9611866804b09f00bf6de2693919b31e2624fc637b201e6800bbd6e",
+      "go/execution_diagnostics.go": "8469d6d6bab5a67840345b68b3c062c36d2d05ac4bd14a10bd55b6dc64b718e0",
+      "go/parallel_aggregate.go": "fbc94b493fa234167d4c1b60de8c1873038568ba0f7800af95e94fd21889245f",
+      "go/partitioned_aggregate.go": "43410953fc167a95e40787f9fc4facc78d8af3f63db3430cf64ddc1d142d5b37",
+      "go/query.go": "bef4ace45cc50d960e82c7390aa3c2f4ae340fdd03458a94675c0027aa24746f",
+      "go/scalar_aggregate_scan.go": "6f484f2d778690e7c9cfd8056b04746c0c3978d89c946f333caf25bcdb932557",
+      "go/scan_hash_slices.go": "79f4e7fc255036ef5086fb953242ece9bd8671c09115bfbb1c9f0c11b44b43ff",
+      "go/scan_projection.go": "f4dcadac00093d90381045af0a5af35f770a657ceb4b33c00ff4c9943b4b327d"
+    },
+    "go_mod_sha256": "8f7ab2a6de205790164be618e567deff1f4186611e9aee83b54d01b57d6acb84",
+    "go_sum_sha256": "f720f3ef9b6ca3629b098fa28736526b2d2b8a1ec0683c6a3a2f5fad4db2b93c",
+    "scope": "ordinary SQL, exact aggregates, fully consumed Arrow; matched internal worker/budget settings recorded by the actual run",
+    "timing_claim": "Full-scale comparison, conditional on verified backup/restore window; no full-scale result exists before execution.",
+    "build_version": "v0.1.0",
+    "libraries": {
+      "baseline": {
+        "path": "/private/tmp/redis-remaining/linux-build/baseline.so",
+        "sha256": "86f5324d2a50a9b93b2e60ff4d496e48f93dda0650ad6a59cd3238faf4af5309"
+      },
+      "candidate": {
+        "path": "/private/tmp/redis-remaining/linux-build/candidate-b40b88f.so",
+        "sha256": "7ac480ba91e0105cc7a7cb1c0eb2cb3d5339834d4c14e21edb94118412a0d610"
+      }
+    },
+    "go_version": "go version go1.26.6 linux/amd64",
+    "image": "golang:1.26.6-bookworm@sha256:116d58cbd88c1297624acc6e967a060012422bacf9930927e23fb719189c6f36",
+    "build_flags": "CGO_ENABLED=1 -trimpath -buildvcs=false -buildmode=c-shared -tags driverlib -ldflags -s -w -X github.com/adbc-drivers/driverbase-go/driverbase.infoDriverVersion=v0.1.0",
+    "note": "Both immutable archives cross-built in the same constrained local Linux amd64 image, four CPU/8GiB, using the same compiler and flags; runtime resources/topology are recorded by the actual comparison.",
+    "intended_full_workers": 16
+  },
+  "valid_trials": 24,
+  "queries": {
+    "2": {
+      "baseline": {
+        "metrics": {
+          "seconds": {
+            "n": 3,
+            "median": 95.52620976000617,
+            "min": 95.42875481100054,
+            "max": 98.44288334599696
+          },
+          "client_cpu_seconds": {
+            "n": 3,
+            "median": 628.406279,
+            "min": 626.771691,
+            "max": 629.020487
+          },
+          "process_peak_rss_bytes": {
+            "n": 3,
+            "median": 298627072,
+            "min": 297304064,
+            "max": 330182656
+          },
+          "cgroup_peak_bytes": null,
+          "native_execute_allocated_bytes": {
+            "n": 3,
+            "median": 192966679464,
+            "min": 192966662656,
+            "max": 192966724392
+          },
+          "redis_commands": {
+            "n": 3,
+            "median": 10020,
+            "min": 10020,
+            "max": 10020
+          },
+          "connection_resp_bytes": {
+            "n": 3,
+            "median": 14679824993,
+            "min": 14679821280,
+            "max": 14679830628
+          },
+          "server_cpu_seconds": {
+            "n": 3,
+            "median": 684.8950299999997,
+            "min": 684.8725059999997,
+            "max": 711.1073370000013
+          },
+          "server_commands": {
+            "n": 3,
+            "median": 132306,
+            "min": 132130,
+            "max": 132983
+          },
+          "server_request_reply_bytes": {
+            "n": 3,
+            "median": 28807465778,
+            "min": 28807348392,
+            "max": 28808477879
+          },
+          "max_primary_sampled_rss_bytes": {
+            "n": 3,
+            "median": 17703403520,
+            "min": 17702354944,
+            "max": 17709744128
+          },
+          "max_primary_sampled_used_bytes": {
+            "n": 3,
+            "median": 17280044872,
+            "min": 17279557424,
+            "max": 17281810448
+          },
+          "processed_rows": {
+            "n": 3,
+            "median": 99997497,
+            "min": 99997497,
+            "max": 99997497
+          },
+          "returned_tuples": null,
+          "represented_rows": null,
+          "spill_written_bytes": null,
+          "spill_read_bytes": null,
+          "merge_wall_seconds": null,
+          "partition_fetch_worker_seconds": null,
+          "compact_tuple_worker_seconds": null,
+          "spill_sort_worker_seconds": null,
+          "spill_write_worker_seconds": null,
+          "socket_read_worker_seconds": {
+            "n": 3,
+            "median": 1045.440816174,
+            "min": 1044.471966913,
+            "max": 1095.942113966
+          },
+          "redis_round_trip_worker_seconds": {
+            "n": 3,
+            "median": 1192.494385489,
+            "min": 1192.256847035,
+            "max": 1242.257787364
+          }
+        },
+        "plans": [
+          {
+            "trial": 1,
+            "phase": "parallel_aggregate",
+            "worker_grant": 16,
+            "plan": {
+              "checked_integer_inputs": true,
+              "kind": "parallel_exact",
+              "residual": {
+                "Op": "<>",
+                "L": {
+                  "Name": "advengineid",
+                  "Qualifier": "",
+                  "Schema": "",
+                  "Catalog": "",
+                  "Outer": 0,
+                  "OuterType": {
+                    "kind": "int16"
+                  }
+                },
+                "R": {
+                  "V": {
+                    "T": {
+                      "kind": "int32"
+                    },
+                    "Null": false,
+                    "Off": 0,
+                    "I": 0,
+                    "F": 0,
+                    "S": "",
+                    "D": null,
+                    "Months": 0,
+                    "Days": 0
+                  },
+                  "Unknown": false
+                }
+              },
+              "workers": 16
+            }
+          },
+          {
+            "trial": 2,
+            "phase": "parallel_aggregate",
+            "worker_grant": 16,
+            "plan": {
+              "checked_integer_inputs": true,
+              "kind": "parallel_exact",
+              "residual": {
+                "Op": "<>",
+                "L": {
+                  "Name": "advengineid",
+                  "Qualifier": "",
+                  "Schema": "",
+                  "Catalog": "",
+                  "Outer": 0,
+                  "OuterType": {
+                    "kind": "int16"
+                  }
+                },
+                "R": {
+                  "V": {
+                    "T": {
+                      "kind": "int32"
+                    },
+                    "Null": false,
+                    "Off": 0,
+                    "I": 0,
+                    "F": 0,
+                    "S": "",
+                    "D": null,
+                    "Months": 0,
+                    "Days": 0
+                  },
+                  "Unknown": false
+                }
+              },
+              "workers": 16
+            }
+          },
+          {
+            "trial": 3,
+            "phase": "parallel_aggregate",
+            "worker_grant": 16,
+            "plan": {
+              "checked_integer_inputs": true,
+              "kind": "parallel_exact",
+              "residual": {
+                "Op": "<>",
+                "L": {
+                  "Name": "advengineid",
+                  "Qualifier": "",
+                  "Schema": "",
+                  "Catalog": "",
+                  "Outer": 0,
+                  "OuterType": {
+                    "kind": "int16"
+                  }
+                },
+                "R": {
+                  "V": {
+                    "T": {
+                      "kind": "int32"
+                    },
+                    "Null": false,
+                    "Off": 0,
+                    "I": 0,
+                    "F": 0,
+                    "S": "",
+                    "D": null,
+                    "Months": 0,
+                    "Days": 0
+                  },
+                  "Unknown": false
+                }
+              },
+              "workers": 16
+            }
+          }
+        ]
+      },
+      "candidate": {
+        "metrics": {
+          "seconds": {
+            "n": 3,
+            "median": 0.06360325399873545,
+            "min": 0.06180062799830921,
+            "max": 0.07501790000242181
+          },
+          "client_cpu_seconds": {
+            "n": 3,
+            "median": 0.04224100000000001,
+            "min": 0.04134999999999999,
+            "max": 0.044511999999999996
+          },
+          "process_peak_rss_bytes": {
+            "n": 3,
+            "median": 112029696,
+            "min": 111747072,
+            "max": 112353280
+          },
+          "cgroup_peak_bytes": null,
+          "native_execute_allocated_bytes": {
+            "n": 3,
+            "median": 221936,
+            "min": 221072,
+            "max": 222384
+          },
+          "redis_commands": {
+            "n": 3,
+            "median": 2,
+            "min": 2,
+            "max": 2
+          },
+          "connection_resp_bytes": {
+            "n": 3,
+            "median": 10295,
+            "min": 10295,
+            "max": 10295
+          },
+          "server_cpu_seconds": {
+            "n": 3,
+            "median": 2.411219000001438,
+            "min": 2.403663000000961,
+            "max": 2.4430319999955827
+          },
+          "server_commands": {
+            "n": 3,
+            "median": 246,
+            "min": 246,
+            "max": 257
+          },
+          "server_request_reply_bytes": {
+            "n": 3,
+            "median": 641400,
+            "min": 638968,
+            "max": 641420
+          },
+          "max_primary_sampled_rss_bytes": {
+            "n": 3,
+            "median": 17701552128,
+            "min": 17700855808,
+            "max": 17703215104
+          },
+          "max_primary_sampled_used_bytes": {
+            "n": 3,
+            "median": 17278687512,
+            "min": 17278436064,
+            "max": 17278689072
+          },
+          "processed_rows": {
+            "n": 3,
+            "median": 0,
+            "min": 0,
+            "max": 0
+          },
+          "returned_tuples": null,
+          "represented_rows": null,
+          "spill_written_bytes": null,
+          "spill_read_bytes": null,
+          "merge_wall_seconds": null,
+          "partition_fetch_worker_seconds": null,
+          "compact_tuple_worker_seconds": null,
+          "spill_sort_worker_seconds": null,
+          "spill_write_worker_seconds": null,
+          "socket_read_worker_seconds": {
+            "n": 3,
+            "median": 0.060450937,
+            "min": 0.05860592,
+            "max": 0.072109497
+          },
+          "redis_round_trip_worker_seconds": {
+            "n": 3,
+            "median": 0.060510938,
+            "min": 0.058671061,
+            "max": 0.072171177
+          }
+        },
+        "plans": [
+          {
+            "trial": 1,
+            "phase": "planning",
+            "worker_grant": 0,
+            "plan": null
+          },
+          {
+            "trial": 2,
+            "phase": "planning",
+            "worker_grant": 0,
+            "plan": null
+          },
+          {
+            "trial": 3,
+            "phase": "planning",
+            "worker_grant": 0,
+            "plan": null
+          }
+        ]
+      },
+      "speedup": 1501.9075873367328,
+      "elapsed_reduction_percent": 99.93341800731073
+    },
+    "4": {
+      "baseline": {
+        "metrics": {
+          "seconds": {
+            "n": 3,
+            "median": 80.60027956799604,
+            "min": 80.38474924500042,
+            "max": 81.56829701000242
+          },
+          "client_cpu_seconds": {
+            "n": 3,
+            "median": 941.989783,
+            "min": 940.460941,
+            "max": 942.54533
+          },
+          "process_peak_rss_bytes": {
+            "n": 3,
+            "median": 476164096,
+            "min": 472014848,
+            "max": 478703616
+          },
+          "cgroup_peak_bytes": null,
+          "native_execute_allocated_bytes": {
+            "n": 3,
+            "median": 264932598128,
+            "min": 264932319176,
+            "max": 264932787352
+          },
+          "redis_commands": {
+            "n": 3,
+            "median": 100007706,
+            "min": 100007702,
+            "max": 100007706
+          },
+          "connection_resp_bytes": {
+            "n": 3,
+            "median": 24926355181,
+            "min": 24926354118,
+            "max": 24926355327
+          },
+          "server_cpu_seconds": {
+            "n": 3,
+            "median": 772.3292819999988,
+            "min": 768.826645000001,
+            "max": 776.632375000001
+          },
+          "server_commands": {
+            "n": 3,
+            "median": 100126440,
+            "min": 100126218,
+            "max": 100126483
+          },
+          "server_request_reply_bytes": {
+            "n": 3,
+            "median": 36848952464,
+            "min": 36848765193,
+            "max": 36849222117
+          },
+          "max_primary_sampled_rss_bytes": {
+            "n": 3,
+            "median": 17790406656,
+            "min": 17774804992,
+            "max": 17803706368
+          },
+          "max_primary_sampled_used_bytes": {
+            "n": 3,
+            "median": 17288236000,
+            "min": 17287293456,
+            "max": 17294331352
+          },
+          "processed_rows": {
+            "n": 3,
+            "median": 99997497,
+            "min": 99997497,
+            "max": 99997497
+          },
+          "returned_tuples": null,
+          "represented_rows": null,
+          "spill_written_bytes": null,
+          "spill_read_bytes": null,
+          "merge_wall_seconds": null,
+          "partition_fetch_worker_seconds": null,
+          "compact_tuple_worker_seconds": null,
+          "spill_sort_worker_seconds": null,
+          "spill_write_worker_seconds": null,
+          "socket_read_worker_seconds": {
+            "n": 3,
+            "median": 485.92681754,
+            "min": 476.947800623,
+            "max": 500.226890767
+          },
+          "redis_round_trip_worker_seconds": {
+            "n": 3,
+            "median": 723.491013447,
+            "min": 714.1768943,
+            "max": 736.764617287
+          }
+        },
+        "plans": [
+          {
+            "trial": 1,
+            "phase": "parallel_aggregate",
+            "worker_grant": 16,
+            "plan": {
+              "checked_integer_inputs": true,
+              "kind": "parallel_exact",
+              "residual": null,
+              "workers": 16
+            }
+          },
+          {
+            "trial": 2,
+            "phase": "parallel_aggregate",
+            "worker_grant": 16,
+            "plan": {
+              "checked_integer_inputs": true,
+              "kind": "parallel_exact",
+              "residual": null,
+              "workers": 16
+            }
+          },
+          {
+            "trial": 3,
+            "phase": "parallel_aggregate",
+            "worker_grant": 16,
+            "plan": {
+              "checked_integer_inputs": true,
+              "kind": "parallel_exact",
+              "residual": null,
+              "workers": 16
+            }
+          }
+        ]
+      },
+      "candidate": {
+        "metrics": {
+          "seconds": {
+            "n": 3,
+            "median": 78.14915362899774,
+            "min": 77.99329366299935,
+            "max": 79.6492684900004
+          },
+          "client_cpu_seconds": {
+            "n": 3,
+            "median": 472.505659,
+            "min": 468.64416800000004,
+            "max": 475.603352
+          },
+          "process_peak_rss_bytes": {
+            "n": 3,
+            "median": 282886144,
+            "min": 280854528,
+            "max": 292724736
+          },
+          "cgroup_peak_bytes": null,
+          "native_execute_allocated_bytes": {
+            "n": 3,
+            "median": 174551765416,
+            "min": 174550872664,
+            "max": 174551805928
+          },
+          "redis_commands": {
+            "n": 3,
+            "median": 100007662,
+            "min": 100007658,
+            "max": 100007677
+          },
+          "connection_resp_bytes": {
+            "n": 3,
+            "median": 24926341164,
+            "min": 24926338135,
+            "max": 24926344510
+          },
+          "server_cpu_seconds": {
+            "n": 3,
+            "median": 783.7344900000026,
+            "min": 782.1300289999999,
+            "max": 788.5381450000023
+          },
+          "server_commands": {
+            "n": 3,
+            "median": 100125870,
+            "min": 100125823,
+            "max": 100126306
+          },
+          "server_request_reply_bytes": {
+            "n": 3,
+            "median": 36848289182,
+            "min": 36848258512,
+            "max": 36848863249
+          },
+          "max_primary_sampled_rss_bytes": {
+            "n": 3,
+            "median": 17716740096,
+            "min": 17703677952,
+            "max": 17735012352
+          },
+          "max_primary_sampled_used_bytes": {
+            "n": 3,
+            "median": 17279823728,
+            "min": 17279655280,
+            "max": 17279854128
+          },
+          "processed_rows": {
+            "n": 3,
+            "median": 99997497,
+            "min": 99997497,
+            "max": 99997497
+          },
+          "returned_tuples": null,
+          "represented_rows": null,
+          "spill_written_bytes": null,
+          "spill_read_bytes": null,
+          "merge_wall_seconds": null,
+          "partition_fetch_worker_seconds": null,
+          "compact_tuple_worker_seconds": null,
+          "spill_sort_worker_seconds": null,
+          "spill_write_worker_seconds": null,
+          "socket_read_worker_seconds": {
+            "n": 3,
+            "median": 910.054634588,
+            "min": 901.356653793,
+            "max": 933.652820393
+          },
+          "redis_round_trip_worker_seconds": {
+            "n": 3,
+            "median": 1102.199333131,
+            "min": 1095.810718212,
+            "max": 1126.261912878
+          }
+        },
+        "plans": [
+          {
+            "trial": 1,
+            "phase": "parallel_aggregate",
+            "worker_grant": 16,
+            "plan": {
+              "checked_integer_inputs": true,
+              "kind": "parallel_exact",
+              "residual": null,
+              "workers": 16
+            }
+          },
+          {
+            "trial": 2,
+            "phase": "parallel_aggregate",
+            "worker_grant": 16,
+            "plan": {
+              "checked_integer_inputs": true,
+              "kind": "parallel_exact",
+              "residual": null,
+              "workers": 16
+            }
+          },
+          {
+            "trial": 3,
+            "phase": "parallel_aggregate",
+            "worker_grant": 16,
+            "plan": {
+              "checked_integer_inputs": true,
+              "kind": "parallel_exact",
+              "residual": null,
+              "workers": 16
+            }
+          }
+        ]
+      },
+      "speedup": 1.0313647151015184,
+      "elapsed_reduction_percent": 3.041088631622535
+    },
+    "9": {
+      "baseline": {
+        "metrics": {
+          "seconds": {
+            "n": 3,
+            "median": 159.6626560759978,
+            "min": 158.87180670600355,
+            "max": 162.37206617999618
+          },
+          "client_cpu_seconds": {
+            "n": 3,
+            "median": 445.139273,
+            "min": 443.519325,
+            "max": 448.53790599999996
+          },
+          "process_peak_rss_bytes": {
+            "n": 3,
+            "median": 4714885120,
+            "min": 4535033856,
+            "max": 4759064576
+          },
+          "cgroup_peak_bytes": null,
+          "native_execute_allocated_bytes": {
+            "n": 3,
+            "median": 158641335256,
+            "min": 158638009120,
+            "max": 158654430048
+          },
+          "redis_commands": {
+            "n": 3,
+            "median": 3022,
+            "min": 3022,
+            "max": 3022
+          },
+          "connection_resp_bytes": {
+            "n": 3,
+            "median": 5881997507,
+            "min": 5881997447,
+            "max": 5881997628
+          },
+          "server_cpu_seconds": {
+            "n": 3,
+            "median": 3429.0955170000016,
+            "min": 3428.696796999997,
+            "max": 3444.047756
+          },
+          "server_commands": {
+            "n": 3,
+            "median": 142365,
+            "min": 142260,
+            "max": 142829
+          },
+          "server_request_reply_bytes": {
+            "n": 3,
+            "median": 33278439508,
+            "min": 33278186689,
+            "max": 33278976993
+          },
+          "max_primary_sampled_rss_bytes": {
+            "n": 3,
+            "median": 18102845440,
+            "min": 18090205184,
+            "max": 18106843136
+          },
+          "max_primary_sampled_used_bytes": {
+            "n": 3,
+            "median": 17296023136,
+            "min": 17291890272,
+            "max": 17308862024
+          },
+          "processed_rows": {
+            "n": 3,
+            "median": 0,
+            "min": 0,
+            "max": 0
+          },
+          "returned_tuples": {
+            "n": 3,
+            "median": 21927941,
+            "min": 21927941,
+            "max": 21927941
+          },
+          "represented_rows": {
+            "n": 3,
+            "median": 99997497,
+            "min": 99997497,
+            "max": 99997497
+          },
+          "spill_written_bytes": {
+            "n": 3,
+            "median": 1656755877,
+            "min": 1656355351,
+            "max": 1656805576
+          },
+          "spill_read_bytes": {
+            "n": 3,
+            "median": 1656755877,
+            "min": 1656355351,
+            "max": 1656805576
+          },
+          "merge_wall_seconds": {
+            "n": 3,
+            "median": 11.119167411,
+            "min": 10.949206147,
+            "max": 11.241755198
+          },
+          "partition_fetch_worker_seconds": {
+            "n": 3,
+            "median": 2251.155921853,
+            "min": 2235.989369706,
+            "max": 2291.827406292
+          },
+          "compact_tuple_worker_seconds": null,
+          "spill_sort_worker_seconds": {
+            "n": 3,
+            "median": 13.763804291,
+            "min": 13.666727855,
+            "max": 14.714789408
+          },
+          "spill_write_worker_seconds": {
+            "n": 3,
+            "median": 0.59410642,
+            "min": 0.583849271,
+            "max": 0.594659383
+          },
+          "socket_read_worker_seconds": {
+            "n": 3,
+            "median": 2132.338881926,
+            "min": 2116.651063178,
+            "max": 2167.304037312
+          },
+          "redis_round_trip_worker_seconds": {
+            "n": 3,
+            "median": 2202.299619337,
+            "min": 2188.547201804,
+            "max": 2239.389634256
+          }
+        },
+        "plans": [
+          {
+            "trial": 1,
+            "phase": "aggregate_merge",
+            "worker_grant": 16,
+            "plan": {
+              "count_groups": false,
+              "encoded_group_key_mask": [
+                true
+              ],
+              "group_expressions": [
+                {
+                  "Name": "regionid",
+                  "Qualifier": "",
+                  "Schema": "",
+                  "Catalog": "",
+                  "Outer": 0,
+                  "OuterType": {
+                    "kind": "int32"
+                  }
+                }
+              ],
+              "input_columns": [
+                {
+                  "name": "regionid",
+                  "type": {
+                    "kind": "int32"
+                  },
+                  "nullable": false,
+                  "indexed": true
+                },
+                {
+                  "name": "userid",
+                  "type": {
+                    "kind": "int64"
+                  },
+                  "nullable": false,
+                  "indexed": true
+                }
+              ],
+              "kind": "partitioned_exact",
+              "partial_groups": false,
+              "partition_rows": 65536,
+              "residual": null,
+              "search_query": "*",
+              "server_source_tuples": true
+            }
+          },
+          {
+            "trial": 2,
+            "phase": "aggregate_merge",
+            "worker_grant": 16,
+            "plan": {
+              "count_groups": false,
+              "encoded_group_key_mask": [
+                true
+              ],
+              "group_expressions": [
+                {
+                  "Name": "regionid",
+                  "Qualifier": "",
+                  "Schema": "",
+                  "Catalog": "",
+                  "Outer": 0,
+                  "OuterType": {
+                    "kind": "int32"
+                  }
+                }
+              ],
+              "input_columns": [
+                {
+                  "name": "regionid",
+                  "type": {
+                    "kind": "int32"
+                  },
+                  "nullable": false,
+                  "indexed": true
+                },
+                {
+                  "name": "userid",
+                  "type": {
+                    "kind": "int64"
+                  },
+                  "nullable": false,
+                  "indexed": true
+                }
+              ],
+              "kind": "partitioned_exact",
+              "partial_groups": false,
+              "partition_rows": 65536,
+              "residual": null,
+              "search_query": "*",
+              "server_source_tuples": true
+            }
+          },
+          {
+            "trial": 3,
+            "phase": "aggregate_merge",
+            "worker_grant": 16,
+            "plan": {
+              "count_groups": false,
+              "encoded_group_key_mask": [
+                true
+              ],
+              "group_expressions": [
+                {
+                  "Name": "regionid",
+                  "Qualifier": "",
+                  "Schema": "",
+                  "Catalog": "",
+                  "Outer": 0,
+                  "OuterType": {
+                    "kind": "int32"
+                  }
+                }
+              ],
+              "input_columns": [
+                {
+                  "name": "regionid",
+                  "type": {
+                    "kind": "int32"
+                  },
+                  "nullable": false,
+                  "indexed": true
+                },
+                {
+                  "name": "userid",
+                  "type": {
+                    "kind": "int64"
+                  },
+                  "nullable": false,
+                  "indexed": true
+                }
+              ],
+              "kind": "partitioned_exact",
+              "partial_groups": false,
+              "partition_rows": 65536,
+              "residual": null,
+              "search_query": "*",
+              "server_source_tuples": true
+            }
+          }
+        ]
+      },
+      "candidate": {
+        "metrics": {
+          "seconds": {
+            "n": 3,
+            "median": 96.58600259300147,
+            "min": 96.10331262100226,
+            "max": 96.91312027899403
+          },
+          "client_cpu_seconds": {
+            "n": 3,
+            "median": 1004.46002,
+            "min": 1002.3026689999999,
+            "max": 1012.400344
+          },
+          "process_peak_rss_bytes": {
+            "n": 3,
+            "median": 6364823552,
+            "min": 6341332992,
+            "max": 6434955264
+          },
+          "cgroup_peak_bytes": null,
+          "native_execute_allocated_bytes": {
+            "n": 3,
+            "median": 293424900952,
+            "min": 293415358168,
+            "max": 293516291912
+          },
+          "redis_commands": {
+            "n": 3,
+            "median": 100023646,
+            "min": 100023641,
+            "max": 100023647
+          },
+          "connection_resp_bytes": {
+            "n": 3,
+            "median": 27209224276,
+            "min": 27209220391,
+            "max": 27209225941
+          },
+          "server_cpu_seconds": {
+            "n": 3,
+            "median": 946.0139190000045,
+            "min": 943.1960240000008,
+            "max": 946.6499309999999
+          },
+          "server_commands": {
+            "n": 3,
+            "median": 100192098,
+            "min": 100192049,
+            "max": 100192328
+          },
+          "server_request_reply_bytes": {
+            "n": 3,
+            "median": 39164399285,
+            "min": 39164321950,
+            "max": 39164653347
+          },
+          "max_primary_sampled_rss_bytes": {
+            "n": 3,
+            "median": 17726926848,
+            "min": 17717067776,
+            "max": 17741025280
+          },
+          "max_primary_sampled_used_bytes": {
+            "n": 3,
+            "median": 17279328664,
+            "min": 17279154720,
+            "max": 17279366032
+          },
+          "processed_rows": {
+            "n": 3,
+            "median": 99997497,
+            "min": 99997497,
+            "max": 99997497
+          },
+          "returned_tuples": {
+            "n": 3,
+            "median": 45656884,
+            "min": 45650614,
+            "max": 45704235
+          },
+          "represented_rows": {
+            "n": 3,
+            "median": 99997497,
+            "min": 99997497,
+            "max": 99997497
+          },
+          "spill_written_bytes": {
+            "n": 3,
+            "median": 1697713933,
+            "min": 1697331567,
+            "max": 1697817144
+          },
+          "spill_read_bytes": {
+            "n": 3,
+            "median": 1697713933,
+            "min": 1697331567,
+            "max": 1697817144
+          },
+          "merge_wall_seconds": {
+            "n": 3,
+            "median": 11.482044584,
+            "min": 11.475646697,
+            "max": 11.569258605
+          },
+          "partition_fetch_worker_seconds": {
+            "n": 3,
+            "median": 1093.929128106,
+            "min": 1091.310388718,
+            "max": 1100.403304454
+          },
+          "compact_tuple_worker_seconds": {
+            "n": 3,
+            "median": 247.947786495,
+            "min": 246.735429648,
+            "max": 251.873005942
+          },
+          "spill_sort_worker_seconds": {
+            "n": 3,
+            "median": 65.68862762,
+            "min": 61.866590606,
+            "max": 66.448953778
+          },
+          "spill_write_worker_seconds": {
+            "n": 3,
+            "median": 0.837927934,
+            "min": 0.837418223,
+            "max": 0.851271027
+          },
+          "socket_read_worker_seconds": {
+            "n": 3,
+            "median": 1002.19293558,
+            "min": 999.110715787,
+            "max": 1009.350415732
+          },
+          "redis_round_trip_worker_seconds": {
+            "n": 3,
+            "median": 1271.630901748,
+            "min": 1269.610998331,
+            "max": 1278.50202013
+          }
+        },
+        "plans": [
+          {
+            "trial": 1,
+            "phase": "aggregate_merge",
+            "worker_grant": 16,
+            "plan": {
+              "client_compact_tuples": true,
+              "compact_probe_max_seconds": 0.001213012,
+              "count_groups": false,
+              "encoded_group_key_mask": [
+                true
+              ],
+              "group_expressions": [
+                {
+                  "Name": "regionid",
+                  "Qualifier": "",
+                  "Schema": "",
+                  "Catalog": "",
+                  "Outer": 0,
+                  "OuterType": {
+                    "kind": "int32"
+                  }
+                }
+              ],
+              "input_columns": [
+                {
+                  "name": "regionid",
+                  "type": {
+                    "kind": "int32"
+                  },
+                  "nullable": false,
+                  "indexed": true
+                },
+                {
+                  "name": "userid",
+                  "type": {
+                    "kind": "int64"
+                  },
+                  "nullable": false,
+                  "indexed": true
+                }
+              ],
+              "kind": "partitioned_exact",
+              "partial_groups": false,
+              "partition_rows": 65536,
+              "residual": null,
+              "search_query": "*",
+              "server_source_tuples": false
+            }
+          },
+          {
+            "trial": 2,
+            "phase": "aggregate_merge",
+            "worker_grant": 16,
+            "plan": {
+              "client_compact_tuples": true,
+              "compact_probe_max_seconds": 0.001097419,
+              "count_groups": false,
+              "encoded_group_key_mask": [
+                true
+              ],
+              "group_expressions": [
+                {
+                  "Name": "regionid",
+                  "Qualifier": "",
+                  "Schema": "",
+                  "Catalog": "",
+                  "Outer": 0,
+                  "OuterType": {
+                    "kind": "int32"
+                  }
+                }
+              ],
+              "input_columns": [
+                {
+                  "name": "regionid",
+                  "type": {
+                    "kind": "int32"
+                  },
+                  "nullable": false,
+                  "indexed": true
+                },
+                {
+                  "name": "userid",
+                  "type": {
+                    "kind": "int64"
+                  },
+                  "nullable": false,
+                  "indexed": true
+                }
+              ],
+              "kind": "partitioned_exact",
+              "partial_groups": false,
+              "partition_rows": 65536,
+              "residual": null,
+              "search_query": "*",
+              "server_source_tuples": false
+            }
+          },
+          {
+            "trial": 3,
+            "phase": "aggregate_merge",
+            "worker_grant": 16,
+            "plan": {
+              "client_compact_tuples": true,
+              "compact_probe_max_seconds": 0.00167338,
+              "count_groups": false,
+              "encoded_group_key_mask": [
+                true
+              ],
+              "group_expressions": [
+                {
+                  "Name": "regionid",
+                  "Qualifier": "",
+                  "Schema": "",
+                  "Catalog": "",
+                  "Outer": 0,
+                  "OuterType": {
+                    "kind": "int32"
+                  }
+                }
+              ],
+              "input_columns": [
+                {
+                  "name": "regionid",
+                  "type": {
+                    "kind": "int32"
+                  },
+                  "nullable": false,
+                  "indexed": true
+                },
+                {
+                  "name": "userid",
+                  "type": {
+                    "kind": "int64"
+                  },
+                  "nullable": false,
+                  "indexed": true
+                }
+              ],
+              "kind": "partitioned_exact",
+              "partial_groups": false,
+              "partition_rows": 65536,
+              "residual": null,
+              "search_query": "*",
+              "server_source_tuples": false
+            }
+          }
+        ]
+      },
+      "speedup": 1.6530620565051402,
+      "elapsed_reduction_percent": 39.50620328711837
+    },
+    "10": {
+      "baseline": {
+        "metrics": {
+          "seconds": {
+            "n": 3,
+            "median": 280.191976326998,
+            "min": 280.1067360989982,
+            "max": 281.50200964700343
+          },
+          "client_cpu_seconds": {
+            "n": 3,
+            "median": 763.492668,
+            "min": 762.2121589999999,
+            "max": 764.0237749999999
+          },
+          "process_peak_rss_bytes": {
+            "n": 3,
+            "median": 5247086592,
+            "min": 5224566784,
+            "max": 5485465600
+          },
+          "cgroup_peak_bytes": null,
+          "native_execute_allocated_bytes": {
+            "n": 3,
+            "median": 270430196488,
+            "min": 270428202240,
+            "max": 270430673352
+          },
+          "redis_commands": {
+            "n": 3,
+            "median": 3051,
+            "min": 3051,
+            "max": 3051
+          },
+          "connection_resp_bytes": {
+            "n": 3,
+            "median": 9938732300,
+            "min": 9938732217,
+            "max": 9938732802
+          },
+          "server_cpu_seconds": {
+            "n": 3,
+            "median": 4061.202428000004,
+            "min": 4044.314134,
+            "max": 4074.5280730000013
+          },
+          "server_commands": {
+            "n": 3,
+            "median": 170766,
+            "min": 170568,
+            "max": 171197
+          },
+          "server_request_reply_bytes": {
+            "n": 3,
+            "median": 59290008259,
+            "min": 59289495621,
+            "max": 59290527818
+          },
+          "max_primary_sampled_rss_bytes": {
+            "n": 3,
+            "median": 18565308416,
+            "min": 18512097280,
+            "max": 18629349376
+          },
+          "max_primary_sampled_used_bytes": {
+            "n": 3,
+            "median": 17564899592,
+            "min": 17551509192,
+            "max": 17598874880
+          },
+          "processed_rows": {
+            "n": 3,
+            "median": 0,
+            "min": 0,
+            "max": 0
+          },
+          "returned_tuples": {
+            "n": 3,
+            "median": 22334744,
+            "min": 22334744,
+            "max": 22334744
+          },
+          "represented_rows": {
+            "n": 3,
+            "median": 99997497,
+            "min": 99997497,
+            "max": 99997497
+          },
+          "spill_written_bytes": {
+            "n": 3,
+            "median": 2262757782,
+            "min": 2262470876,
+            "max": 2262988478
+          },
+          "spill_read_bytes": {
+            "n": 3,
+            "median": 2262757782,
+            "min": 2262470876,
+            "max": 2262988478
+          },
+          "merge_wall_seconds": {
+            "n": 3,
+            "median": 16.127736846,
+            "min": 15.993336769,
+            "max": 16.235077115
+          },
+          "partition_fetch_worker_seconds": {
+            "n": 3,
+            "median": 4028.813704396,
+            "min": 4024.898307845,
+            "max": 4047.493547609
+          },
+          "compact_tuple_worker_seconds": null,
+          "spill_sort_worker_seconds": {
+            "n": 3,
+            "median": 16.552943239,
+            "min": 15.783204326,
+            "max": 16.900300305
+          },
+          "spill_write_worker_seconds": {
+            "n": 3,
+            "median": 0.787407468,
+            "min": 0.783729413,
+            "max": 0.79152966
+          },
+          "socket_read_worker_seconds": {
+            "n": 3,
+            "median": 3822.66013826,
+            "min": 3818.524828699,
+            "max": 3842.412297671
+          },
+          "redis_round_trip_worker_seconds": {
+            "n": 3,
+            "median": 3942.584838998,
+            "min": 3939.339071306,
+            "max": 3961.893870158
+          }
+        },
+        "plans": [
+          {
+            "trial": 1,
+            "phase": "aggregate_merge",
+            "worker_grant": 16,
+            "plan": {
+              "count_groups": false,
+              "encoded_group_key_mask": [
+                true
+              ],
+              "group_expressions": [
+                {
+                  "Name": "regionid",
+                  "Qualifier": "",
+                  "Schema": "",
+                  "Catalog": "",
+                  "Outer": 0,
+                  "OuterType": {
+                    "kind": "int32"
+                  }
+                }
+              ],
+              "input_columns": [
+                {
+                  "name": "regionid",
+                  "type": {
+                    "kind": "int32"
+                  },
+                  "nullable": false,
+                  "indexed": true
+                },
+                {
+                  "name": "userid",
+                  "type": {
+                    "kind": "int64"
+                  },
+                  "nullable": false,
+                  "indexed": true
+                },
+                {
+                  "name": "advengineid",
+                  "type": {
+                    "kind": "int16"
+                  },
+                  "nullable": false,
+                  "indexed": true
+                },
+                {
+                  "name": "resolutionwidth",
+                  "type": {
+                    "kind": "int16"
+                  },
+                  "nullable": false,
+                  "indexed": true
+                }
+              ],
+              "kind": "partitioned_exact",
+              "partial_groups": false,
+              "partition_rows": 65536,
+              "residual": null,
+              "search_query": "*",
+              "server_source_tuples": true
+            }
+          },
+          {
+            "trial": 2,
+            "phase": "aggregate_merge",
+            "worker_grant": 16,
+            "plan": {
+              "count_groups": false,
+              "encoded_group_key_mask": [
+                true
+              ],
+              "group_expressions": [
+                {
+                  "Name": "regionid",
+                  "Qualifier": "",
+                  "Schema": "",
+                  "Catalog": "",
+                  "Outer": 0,
+                  "OuterType": {
+                    "kind": "int32"
+                  }
+                }
+              ],
+              "input_columns": [
+                {
+                  "name": "regionid",
+                  "type": {
+                    "kind": "int32"
+                  },
+                  "nullable": false,
+                  "indexed": true
+                },
+                {
+                  "name": "userid",
+                  "type": {
+                    "kind": "int64"
+                  },
+                  "nullable": false,
+                  "indexed": true
+                },
+                {
+                  "name": "advengineid",
+                  "type": {
+                    "kind": "int16"
+                  },
+                  "nullable": false,
+                  "indexed": true
+                },
+                {
+                  "name": "resolutionwidth",
+                  "type": {
+                    "kind": "int16"
+                  },
+                  "nullable": false,
+                  "indexed": true
+                }
+              ],
+              "kind": "partitioned_exact",
+              "partial_groups": false,
+              "partition_rows": 65536,
+              "residual": null,
+              "search_query": "*",
+              "server_source_tuples": true
+            }
+          },
+          {
+            "trial": 3,
+            "phase": "aggregate_merge",
+            "worker_grant": 16,
+            "plan": {
+              "count_groups": false,
+              "encoded_group_key_mask": [
+                true
+              ],
+              "group_expressions": [
+                {
+                  "Name": "regionid",
+                  "Qualifier": "",
+                  "Schema": "",
+                  "Catalog": "",
+                  "Outer": 0,
+                  "OuterType": {
+                    "kind": "int32"
+                  }
+                }
+              ],
+              "input_columns": [
+                {
+                  "name": "regionid",
+                  "type": {
+                    "kind": "int32"
+                  },
+                  "nullable": false,
+                  "indexed": true
+                },
+                {
+                  "name": "userid",
+                  "type": {
+                    "kind": "int64"
+                  },
+                  "nullable": false,
+                  "indexed": true
+                },
+                {
+                  "name": "advengineid",
+                  "type": {
+                    "kind": "int16"
+                  },
+                  "nullable": false,
+                  "indexed": true
+                },
+                {
+                  "name": "resolutionwidth",
+                  "type": {
+                    "kind": "int16"
+                  },
+                  "nullable": false,
+                  "indexed": true
+                }
+              ],
+              "kind": "partitioned_exact",
+              "partial_groups": false,
+              "partition_rows": 65536,
+              "residual": null,
+              "search_query": "*",
+              "server_source_tuples": true
+            }
+          }
+        ]
+      },
+      "candidate": {
+        "metrics": {
+          "seconds": {
+            "n": 3,
+            "median": 113.82644761299889,
+            "min": 113.4484135360035,
+            "max": 114.01824559600209
+          },
+          "client_cpu_seconds": {
+            "n": 3,
+            "median": 1301.51506,
+            "min": 1298.529235,
+            "max": 1305.1185020000003
+          },
+          "process_peak_rss_bytes": {
+            "n": 3,
+            "median": 6014205952,
+            "min": 5977903104,
+            "max": 6039683072
+          },
+          "cgroup_peak_bytes": null,
+          "native_execute_allocated_bytes": {
+            "n": 3,
+            "median": 381468537720,
+            "min": 381363207712,
+            "max": 381629188728
+          },
+          "redis_commands": {
+            "n": 3,
+            "median": 100023656,
+            "min": 100023654,
+            "max": 100023660
+          },
+          "connection_resp_bytes": {
+            "n": 3,
+            "median": 32897573322,
+            "min": 32897572762,
+            "max": 32897574174
+          },
+          "server_cpu_seconds": {
+            "n": 3,
+            "median": 1005.3773669999973,
+            "min": 1004.4576300000008,
+            "max": 1007.3259810000018
+          },
+          "server_commands": {
+            "n": 3,
+            "median": 100196087,
+            "min": 100195940,
+            "max": 100196092
+          },
+          "server_request_reply_bytes": {
+            "n": 3,
+            "median": 44858131335,
+            "min": 44857877058,
+            "max": 44858133899
+          },
+          "max_primary_sampled_rss_bytes": {
+            "n": 3,
+            "median": 17741172736,
+            "min": 17739939840,
+            "max": 17744343040
+          },
+          "max_primary_sampled_used_bytes": {
+            "n": 3,
+            "median": 17279156960,
+            "min": 17279151432,
+            "max": 17279293064
+          },
+          "processed_rows": {
+            "n": 3,
+            "median": 99997497,
+            "min": 99997497,
+            "max": 99997497
+          },
+          "returned_tuples": {
+            "n": 3,
+            "median": 46757873,
+            "min": 46705634,
+            "max": 46817930
+          },
+          "represented_rows": {
+            "n": 3,
+            "median": 99997497,
+            "min": 99997497,
+            "max": 99997497
+          },
+          "spill_written_bytes": {
+            "n": 3,
+            "median": 2337973179,
+            "min": 2335135186,
+            "max": 2338387167
+          },
+          "spill_read_bytes": {
+            "n": 3,
+            "median": 2337973179,
+            "min": 2335135186,
+            "max": 2338387167
+          },
+          "merge_wall_seconds": {
+            "n": 3,
+            "median": 16.992304371,
+            "min": 16.978689426,
+            "max": 17.194082219
+          },
+          "partition_fetch_worker_seconds": {
+            "n": 3,
+            "median": 1158.67179892,
+            "min": 1148.606820807,
+            "max": 1158.73018941
+          },
+          "compact_tuple_worker_seconds": {
+            "n": 3,
+            "median": 377.496228508,
+            "min": 375.695353436,
+            "max": 379.654883919
+          },
+          "spill_sort_worker_seconds": {
+            "n": 3,
+            "median": 72.792401042,
+            "min": 71.599777705,
+            "max": 73.913919269
+          },
+          "spill_write_worker_seconds": {
+            "n": 3,
+            "median": 1.156181585,
+            "min": 1.151920865,
+            "max": 1.175119503
+          },
+          "socket_read_worker_seconds": {
+            "n": 3,
+            "median": 1087.112215402,
+            "min": 1073.651393341,
+            "max": 1088.910459153
+          },
+          "redis_round_trip_worker_seconds": {
+            "n": 3,
+            "median": 1435.222066532,
+            "min": 1422.430661304,
+            "max": 1437.87048414
+          }
+        },
+        "plans": [
+          {
+            "trial": 1,
+            "phase": "aggregate_merge",
+            "worker_grant": 16,
+            "plan": {
+              "client_compact_tuples": true,
+              "compact_probe_max_seconds": 0.00113176,
+              "count_groups": false,
+              "encoded_group_key_mask": [
+                true
+              ],
+              "group_expressions": [
+                {
+                  "Name": "regionid",
+                  "Qualifier": "",
+                  "Schema": "",
+                  "Catalog": "",
+                  "Outer": 0,
+                  "OuterType": {
+                    "kind": "int32"
+                  }
+                }
+              ],
+              "input_columns": [
+                {
+                  "name": "regionid",
+                  "type": {
+                    "kind": "int32"
+                  },
+                  "nullable": false,
+                  "indexed": true
+                },
+                {
+                  "name": "userid",
+                  "type": {
+                    "kind": "int64"
+                  },
+                  "nullable": false,
+                  "indexed": true
+                },
+                {
+                  "name": "advengineid",
+                  "type": {
+                    "kind": "int16"
+                  },
+                  "nullable": false,
+                  "indexed": true
+                },
+                {
+                  "name": "resolutionwidth",
+                  "type": {
+                    "kind": "int16"
+                  },
+                  "nullable": false,
+                  "indexed": true
+                }
+              ],
+              "kind": "partitioned_exact",
+              "partial_groups": false,
+              "partition_rows": 65536,
+              "residual": null,
+              "search_query": "*",
+              "server_source_tuples": false
+            }
+          },
+          {
+            "trial": 2,
+            "phase": "aggregate_merge",
+            "worker_grant": 16,
+            "plan": {
+              "client_compact_tuples": true,
+              "compact_probe_max_seconds": 0.001230222,
+              "count_groups": false,
+              "encoded_group_key_mask": [
+                true
+              ],
+              "group_expressions": [
+                {
+                  "Name": "regionid",
+                  "Qualifier": "",
+                  "Schema": "",
+                  "Catalog": "",
+                  "Outer": 0,
+                  "OuterType": {
+                    "kind": "int32"
+                  }
+                }
+              ],
+              "input_columns": [
+                {
+                  "name": "regionid",
+                  "type": {
+                    "kind": "int32"
+                  },
+                  "nullable": false,
+                  "indexed": true
+                },
+                {
+                  "name": "userid",
+                  "type": {
+                    "kind": "int64"
+                  },
+                  "nullable": false,
+                  "indexed": true
+                },
+                {
+                  "name": "advengineid",
+                  "type": {
+                    "kind": "int16"
+                  },
+                  "nullable": false,
+                  "indexed": true
+                },
+                {
+                  "name": "resolutionwidth",
+                  "type": {
+                    "kind": "int16"
+                  },
+                  "nullable": false,
+                  "indexed": true
+                }
+              ],
+              "kind": "partitioned_exact",
+              "partial_groups": false,
+              "partition_rows": 65536,
+              "residual": null,
+              "search_query": "*",
+              "server_source_tuples": false
+            }
+          },
+          {
+            "trial": 3,
+            "phase": "aggregate_merge",
+            "worker_grant": 16,
+            "plan": {
+              "client_compact_tuples": true,
+              "compact_probe_max_seconds": 0.000839975,
+              "count_groups": false,
+              "encoded_group_key_mask": [
+                true
+              ],
+              "group_expressions": [
+                {
+                  "Name": "regionid",
+                  "Qualifier": "",
+                  "Schema": "",
+                  "Catalog": "",
+                  "Outer": 0,
+                  "OuterType": {
+                    "kind": "int32"
+                  }
+                }
+              ],
+              "input_columns": [
+                {
+                  "name": "regionid",
+                  "type": {
+                    "kind": "int32"
+                  },
+                  "nullable": false,
+                  "indexed": true
+                },
+                {
+                  "name": "userid",
+                  "type": {
+                    "kind": "int64"
+                  },
+                  "nullable": false,
+                  "indexed": true
+                },
+                {
+                  "name": "advengineid",
+                  "type": {
+                    "kind": "int16"
+                  },
+                  "nullable": false,
+                  "indexed": true
+                },
+                {
+                  "name": "resolutionwidth",
+                  "type": {
+                    "kind": "int16"
+                  },
+                  "nullable": false,
+                  "indexed": true
+                }
+              ],
+              "kind": "partitioned_exact",
+              "partial_groups": false,
+              "partition_rows": 65536,
+              "residual": null,
+              "search_query": "*",
+              "server_source_tuples": false
+            }
+          }
+        ]
+      },
+      "speedup": 2.46157182449925,
+      "elapsed_reduction_percent": 59.375550611714246
+    }
+  },
+  "scope_notes": [
+    "All three trials included; no discarded warmups or best-of selection.",
+    "Connection/setup excluded from query elapsed; complete Arrow fetch included.",
+    "CPU is per-process CPU; server INFO includes monitor/control and cluster traffic.",
+    "Worker-duration counters overlap and must not be summed into elapsed time.",
+    "Process RSS from getrusage; cgroup MemoryPeak can be unavailable after transient unit exit."
+  ]
+}

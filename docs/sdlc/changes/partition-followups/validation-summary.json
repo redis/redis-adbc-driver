@@ -1,0 +1,128 @@
+{
+  "native": {
+    "counts": [
+      {
+        "tests": "380",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "8",
+        "time": "7.140"
+      }
+    ],
+    "skips": [
+      {
+        "test": "tests.test_connection.TestConnection.test_get_objects_constraints_foreign[redis:8]",
+        "reason": "not implemented"
+      },
+      {
+        "test": "tests.test_connection.TestConnection.test_get_objects_constraints_unique[redis:8]",
+        "reason": "not implemented"
+      },
+      {
+        "test": "tests.test_connection.TestConnection.test_get_statistics[redis:8]",
+        "reason": "connection_get_statistics not supported"
+      },
+      {
+        "test": "tests.test_connection.TestConnection.test_get_table_schema_catalog[redis:8]",
+        "reason": "secondary_catalog_schema not supported"
+      },
+      {
+        "test": "tests.test_connection.TestConnection.test_set_current_catalog[redis:8]",
+        "reason": "not implemented"
+      },
+      {
+        "test": "tests.test_ingest.TestIngest.test_catalog[redis:8]",
+        "reason": "not implemented"
+      },
+      {
+        "test": "tests.test_ingest.TestIngest.test_replace_catalog[redis:8:ingest/string]",
+        "reason": "not implemented"
+      },
+      {
+        "test": "tests.test_statement.TestStatement.test_transaction_toggle[redis:8]",
+        "reason": "Driver does not support transactions"
+      }
+    ]
+  },
+  "tls": {
+    "counts": [
+      {
+        "tests": "7",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "1.612"
+      }
+    ],
+    "skips": []
+  },
+  "minimum-client": {
+    "counts": [
+      {
+        "tests": "7",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "2.036"
+      }
+    ],
+    "skips": []
+  },
+  "packaged-macos": {
+    "counts": [
+      {
+        "tests": "380",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "8",
+        "time": "7.419"
+      }
+    ],
+    "skips": [
+      {
+        "test": "tests.test_connection.TestConnection.test_get_objects_constraints_foreign[redis:8]",
+        "reason": "not implemented"
+      },
+      {
+        "test": "tests.test_connection.TestConnection.test_get_objects_constraints_unique[redis:8]",
+        "reason": "not implemented"
+      },
+      {
+        "test": "tests.test_connection.TestConnection.test_get_statistics[redis:8]",
+        "reason": "connection_get_statistics not supported"
+      },
+      {
+        "test": "tests.test_connection.TestConnection.test_get_table_schema_catalog[redis:8]",
+        "reason": "secondary_catalog_schema not supported"
+      },
+      {
+        "test": "tests.test_connection.TestConnection.test_set_current_catalog[redis:8]",
+        "reason": "not implemented"
+      },
+      {
+        "test": "tests.test_ingest.TestIngest.test_catalog[redis:8]",
+        "reason": "not implemented"
+      },
+      {
+        "test": "tests.test_ingest.TestIngest.test_replace_catalog[redis:8:ingest/string]",
+        "reason": "not implemented"
+      },
+      {
+        "test": "tests.test_statement.TestStatement.test_transaction_toggle[redis:8]",
+        "reason": "Driver does not support transactions"
+      }
+    ]
+  },
+  "final-native": {
+    "counts": [
+      {
+        "tests": "7",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "1.472"
+      }
+    ],
+    "skips": []
+  }
+}

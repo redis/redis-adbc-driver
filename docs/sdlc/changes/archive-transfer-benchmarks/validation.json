@@ -1,0 +1,41 @@
+{
+  "date": "2026-10-22",
+  "publication_base": "e5a0b2c2c73981548b80d14badc0ea708b355b4e",
+  "historical_profile_source": "20de26967b9974fa344f15de2b71491039321d86",
+  "scope": "Archive publication checks; historical performance measurements were not rerun.",
+  "checks": {
+    "historical_json_files_parsed": 10,
+    "python_files_ast_parsed": 8,
+    "cli_help_import_checks_passed": 6,
+    "historical_end_to_end_executions_inspected": 120,
+    "historical_warmups": 30,
+    "historical_measured_runs": 90,
+    "summaries_recomputed": 30,
+    "stage_trials_matched_to_log": 8,
+    "original_script_manifest_hashes_verified": 2,
+    "original_files_retained": 34,
+    "byte_identical_original_files": 32,
+    "reports_with_publication_edits": 2,
+    "pprof_files_parsed": 2
+  },
+  "python_environment": "Python 3.13.16 with the historical transfer-comparison environment; PYTHONPATH points to benchmarks/clickbench; REDIS_TRANSFER_REPO_ROOT points to the publication checkout.",
+  "cli_checks": "--help for all five benchmark.py/benchmark-original.py entry points and validate_stages.py; sweep.py and discovery.py received syntax checks only.",
+  "summary_checks": "All matrices have complete status, exact full-value validation recorded for every execution, and 100000 rows/105 columns. Recomputed median/min/max, first-batch/RSS medians where present, and rows/second. Each case has three measured runs. Stage JSON exactly matches its log; only final outputs of the two strategies have recorded full-value validation.",
+  "go_check": {
+    "setup": "Export the historical profile source with git archive, then copy the archived wide_transfer_profile_test.go into its go directory unchanged.",
+    "command": "env -u REDIS_URI -u REDIS_WIDE_PROFILE_DIR go test -count=1 -p 1 -run '^TestWideTransferProfile$' -v .",
+    "exit_code": 0,
+    "result": "Compilation passed; one opt-in diagnostic skipped as expected. No Redis connection or benchmark execution.",
+    "go_version": "go1.27.2 darwin/arm64"
+  },
+  "profile_checks": [
+    "go tool pprof -top benchmarks/transfer-comparison/2026-10-21/issue396/main-cpu.pprof",
+    "go tool pprof -top -alloc_space benchmarks/transfer-comparison/2026-10-21/issue396/main-alloc.pprof"
+  ],
+  "limitations": [
+    "Source parquet, Arrow output files and compiled libraries are not included or revalidated during publication.",
+    "The original cross-product/native driver binary's source revision remains unattested.",
+    "Historical RESP2 settings and source snapshots are preserved; this is not current-main performance evidence.",
+    "Current production Go/native integration suites were not rerun for this archive-only change."
+  ]
+}

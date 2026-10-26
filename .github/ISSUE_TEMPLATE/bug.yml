@@ -1,0 +1,11 @@
+name: Bug report
+description: Report unexpected driver behavior.
+labels: [bug]
+body:
+  - type: textarea
+    id: details
+    attributes:
+      label: Bug details
+      description: Describe the expected behavior, actual behavior, and steps to reproduce. Include driver and server versions; remove credentials and private data.
+    validations:
+      required: true

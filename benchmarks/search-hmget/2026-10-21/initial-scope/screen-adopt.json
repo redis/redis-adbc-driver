@@ -1,0 +1,135 @@
+{
+  "status": "running",
+  "trials": [
+    {
+      "build": "baseline",
+      "api": "regular",
+      "repeat": -1,
+      "warmup": true,
+      "seconds": 4.196491375012556,
+      "client_cpu_seconds": 3.2657469999999997,
+      "server_cpu_seconds": 1.7423129999999993,
+      "server_net_output_bytes": 336595176,
+      "first_batch_seconds": 2.869084500009194,
+      "max_worker_peak_rss_bytes": 278806528,
+      "workers": 1,
+      "partitions": 1,
+      "rows": 100000,
+      "columns": 105,
+      "logical_arrow_bytes": 79578019,
+      "exact_full_values_validated": true
+    },
+    {
+      "build": "candidate",
+      "api": "regular",
+      "repeat": -1,
+      "warmup": true,
+      "seconds": 4.713461417006329,
+      "client_cpu_seconds": 3.2945320000000002,
+      "server_cpu_seconds": 1.759658000000004,
+      "server_net_output_bytes": 336595188,
+      "first_batch_seconds": 3.382782500004396,
+      "max_worker_peak_rss_bytes": 293683200,
+      "workers": 1,
+      "partitions": 1,
+      "rows": 100000,
+      "columns": 105,
+      "logical_arrow_bytes": 79578019,
+      "exact_full_values_validated": true
+    },
+    {
+      "build": "baseline",
+      "api": "partition",
+      "repeat": -1,
+      "warmup": true,
+      "seconds": 2.7270118340093177,
+      "client_cpu_seconds": 4.679638000000001,
+      "server_cpu_seconds": 1.5842100000000003,
+      "server_net_output_bytes": 338824450,
+      "first_batch_seconds": 1.374630625010468,
+      "max_worker_peak_rss_bytes": 184156160,
+      "workers": 4,
+      "partitions": 8,
+      "rows": 100000,
+      "columns": 105,
+      "logical_arrow_bytes": 79578019,
+      "exact_full_values_validated": true
+    },
+    {
+      "build": "candidate",
+      "api": "partition",
+      "repeat": -1,
+      "warmup": true,
+      "seconds": 2.0232188329973724,
+      "client_cpu_seconds": 4.703982999999999,
+      "server_cpu_seconds": 1.0437449999999993,
+      "server_net_output_bytes": 153513346,
+      "first_batch_seconds": 1.0920766659837682,
+      "max_worker_peak_rss_bytes": 158154752,
+      "workers": 4,
+      "partitions": 8,
+      "rows": 100000,
+      "columns": 105,
+      "logical_arrow_bytes": 79578019,
+      "exact_full_values_validated": true
+    },
+    {
+      "build": "candidate",
+      "api": "partition",
+      "repeat": 0,
+      "warmup": false,
+      "seconds": 2.1167793330096174,
+      "client_cpu_seconds": 4.593367999999998,
+      "server_cpu_seconds": 1.0517119999999982,
+      "server_net_output_bytes": 153513357,
+      "first_batch_seconds": 1.0568000830244273,
+      "max_worker_peak_rss_bytes": 158531584,
+      "workers": 4,
+      "partitions": 8,
+      "rows": 100000,
+      "columns": 105,
+      "logical_arrow_bytes": 79578019,
+      "exact_full_values_validated": true
+    },
+    {
+      "build": "baseline",
+      "api": "partition",
+      "repeat": 0,
+      "warmup": false,
+      "seconds": 2.8608096670068335,
+      "client_cpu_seconds": 4.948195999999999,
+      "server_cpu_seconds": 1.5770200000000012,
+      "server_net_output_bytes": 338824468,
+      "first_batch_seconds": 1.3895361250033602,
+      "max_worker_peak_rss_bytes": 182894592,
+      "workers": 4,
+      "partitions": 8,
+      "rows": 100000,
+      "columns": 105,
+      "logical_arrow_bytes": 79578019,
+      "exact_full_values_validated": true
+    }
+  ],
+  "binaries": {
+    "baseline": {
+      "sha256": "f9fed9d1c1f360e976a7b41030838d58f2fd900f6d6d7ee502f463f575352d4c"
+    },
+    "candidate": {
+      "sha256": "662341d98d7bf73eee5191e71c3f2f3d01b5a01670214d96fb61523d7c559c82"
+    }
+  },
+  "parquet_sha256": "d053397f7aa5b2e1ee9160779a9e9307b162c6994aebba829c7ea1411076c4d0",
+  "environment": {
+    "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+    "logical_cpus": 18,
+    "protocol": 3,
+    "observed_control_protocol": 3,
+    "packages": {
+      "pyarrow": "26.0.0",
+      "redis": "8.1.0",
+      "adbc-driver-manager": "1.12.0"
+    },
+    "native_references": false,
+    "profile_note": "Native regular/partition labels mean 1 reader / 4 readers with 8 ranges; native paths do not use ADBC APIs."
+  }
+}

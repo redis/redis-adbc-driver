@@ -1,0 +1,68 @@
+=== RUN   TestRetainedSourceCaptureExactLargeIDsAndMissingValues
+--- PASS: TestRetainedSourceCaptureExactLargeIDsAndMissingValues (4.15s)
+=== RUN   TestRetainedSourceCaptureApplicationOwnership
+=== RUN   TestRetainedSourceCaptureApplicationOwnership/adopted
+=== RUN   TestRetainedSourceCaptureApplicationOwnership/application_index
+=== RUN   TestRetainedSourceCaptureApplicationOwnership/foreign_index
+--- PASS: TestRetainedSourceCaptureApplicationOwnership (42.13s)
+    --- PASS: TestRetainedSourceCaptureApplicationOwnership/adopted (16.00s)
+    --- PASS: TestRetainedSourceCaptureApplicationOwnership/application_index (16.57s)
+    --- PASS: TestRetainedSourceCaptureApplicationOwnership/foreign_index (9.55s)
+=== RUN   TestRetainedSourceCaptureLimitsDoNotTruncate
+=== RUN   TestRetainedSourceCaptureLimitsDoNotTruncate/rows
+=== RUN   TestRetainedSourceCaptureLimitsDoNotTruncate/keys
+=== RUN   TestRetainedSourceCaptureLimitsDoNotTruncate/bytes
+--- PASS: TestRetainedSourceCaptureLimitsDoNotTruncate (4.05s)
+    --- PASS: TestRetainedSourceCaptureLimitsDoNotTruncate/rows (1.04s)
+    --- PASS: TestRetainedSourceCaptureLimitsDoNotTruncate/keys (0.91s)
+    --- PASS: TestRetainedSourceCaptureLimitsDoNotTruncate/bytes (0.65s)
+=== RUN   TestRetainedSourceCaptureLegacyWithoutMigration
+=== RUN   TestRetainedSourceCaptureLegacyWithoutMigration/fresh
+=== RUN   TestRetainedSourceCaptureLegacyWithoutMigration/reused
+--- PASS: TestRetainedSourceCaptureLegacyWithoutMigration (6.54s)
+    --- PASS: TestRetainedSourceCaptureLegacyWithoutMigration/fresh (3.17s)
+    --- PASS: TestRetainedSourceCaptureLegacyWithoutMigration/reused (3.37s)
+=== RUN   TestRetainedSourceCaptureForeignPrefixesAndFilter
+--- PASS: TestRetainedSourceCaptureForeignPrefixesAndFilter (3.33s)
+=== RUN   TestRetainedExecutionGlobalSQLMatchesExecuteQuery
+=== RUN   TestRetainedExecutionGlobalSQLMatchesExecuteQuery/SELECT_id_FROM_it_retained_execution_LIMIT_3_OFFSET_1
+=== RUN   TestRetainedExecutionGlobalSQLMatchesExecuteQuery/SELECT_ARRAY_AGG(id)_FROM_it_retained_execution
+=== RUN   TestRetainedExecutionGlobalSQLMatchesExecuteQuery/SELECT_id,label,amount_FROM_it_retained_execution_ORDER_BY_id_DESC_LIMIT_3_OFFSET_1
+=== RUN   TestRetainedExecutionGlobalSQLMatchesExecuteQuery/SELECT_DISTINCT_label_FROM_it_retained_execution_ORDER_BY_label_NULLS_FIRST
+=== RUN   TestRetainedExecutionGlobalSQLMatchesExecuteQuery/SELECT_DISTINCT_ON_(grp)_grp,id_FROM_it_retained_execution_ORDER_BY_grp,id_DESC
+=== RUN   TestRetainedExecutionGlobalSQLMatchesExecuteQuery/SELECT_grp,_COUNT(*),_SUM(amount),_MIN(id),_MAX(id)_FROM_it_retained_execution_GROUP_BY_grp_HAVING_COUNT(*)>=2_ORDER_BY_grp
+=== RUN   TestRetainedExecutionGlobalSQLMatchesExecuteQuery/SELECT_id,_ROW_NUMBER()_OVER_(PARTITION_BY_grp_ORDER_BY_id)_AS_pos,_SUM(amount)_OVER_(PARTITION_BY_grp)_AS_total_FROM_it_retained_execution_QUALIFY_pos<=1_ORDER_BY_id
+=== RUN   TestRetainedExecutionGlobalSQLMatchesExecuteQuery/SELECT_grp_FROM_it_retained_execution_WHERE_grp<3_UNION_SELECT_grp_FROM_it_retained_execution_WHERE_grp>1_ORDER_BY_grp
+=== RUN   TestRetainedExecutionGlobalSQLMatchesExecuteQuery/SELECT_grp_FROM_it_retained_execution_INTERSECT_SELECT_grp_FROM_it_retained_execution_WHERE_grp=2
+=== RUN   TestRetainedExecutionGlobalSQLMatchesExecuteQuery/SELECT_grp_FROM_it_retained_execution_EXCEPT_SELECT_grp_FROM_it_retained_execution_WHERE_grp<>2
+=== RUN   TestRetainedExecutionGlobalSQLMatchesExecuteQuery/SELECT_a.id,b.label_FROM_it_retained_execution_a_JOIN_it_retained_execution_b_ON_a.grp=b.grp_WHERE_a.id<10_ORDER_BY_a.id,b.id
+=== RUN   TestRetainedExecutionGlobalSQLMatchesExecuteQuery/WITH_a_AS_(SELECT_grp,COUNT(*)_AS_n_FROM_it_retained_execution_GROUP_BY_grp)_SELECT_grp,n_FROM_a_WHERE_n>1_ORDER_BY_grp
+=== RUN   TestRetainedExecutionGlobalSQLMatchesExecuteQuery/SELECT_id_FROM_it_retained_execution_WHERE_grp_IN_(SELECT_grp_FROM_it_retained_execution_GROUP_BY_grp_HAVING_COUNT(*)=2)_ORDER_BY_id
+=== RUN   TestRetainedExecutionGlobalSQLMatchesExecuteQuery/SELECT_a.id,(SELECT_COUNT(*)_FROM_it_retained_execution_b_WHERE_b.grp=a.grp)_AS_n_FROM_it_retained_execution_a_ORDER_BY_id
+=== RUN   TestRetainedExecutionGlobalSQLMatchesExecuteQuery/SELECT_grp,total_FROM_it_retained_execution_view_ORDER_BY_grp
+=== RUN   TestRetainedExecutionGlobalSQLMatchesExecuteQuery/SELECT_ARRAY_AGG(id_ORDER_BY_id),_(COUNT(*),MIN(id))_FROM_it_retained_execution
+=== RUN   TestRetainedExecutionGlobalSQLMatchesExecuteQuery/SELECT_id_FROM_it_retained_execution_WHERE_false
+=== RUN   TestRetainedExecutionGlobalSQLMatchesExecuteQuery/SELECT_id_FROM_it_retained_execution_LIMIT_0
+=== RUN   TestRetainedExecutionGlobalSQLMatchesExecuteQuery/SELECT_9007199254740993::BIGINT_AS_exact,_NULL::TEXT_AS_missing
+--- PASS: TestRetainedExecutionGlobalSQLMatchesExecuteQuery (31.85s)
+    --- PASS: TestRetainedExecutionGlobalSQLMatchesExecuteQuery/SELECT_id_FROM_it_retained_execution_LIMIT_3_OFFSET_1 (1.55s)
+    --- PASS: TestRetainedExecutionGlobalSQLMatchesExecuteQuery/SELECT_ARRAY_AGG(id)_FROM_it_retained_execution (1.44s)
+    --- PASS: TestRetainedExecutionGlobalSQLMatchesExecuteQuery/SELECT_id,label,amount_FROM_it_retained_execution_ORDER_BY_id_DESC_LIMIT_3_OFFSET_1 (1.41s)
+    --- PASS: TestRetainedExecutionGlobalSQLMatchesExecuteQuery/SELECT_DISTINCT_label_FROM_it_retained_execution_ORDER_BY_label_NULLS_FIRST (1.34s)
+    --- PASS: TestRetainedExecutionGlobalSQLMatchesExecuteQuery/SELECT_DISTINCT_ON_(grp)_grp,id_FROM_it_retained_execution_ORDER_BY_grp,id_DESC (1.50s)
+    --- PASS: TestRetainedExecutionGlobalSQLMatchesExecuteQuery/SELECT_grp,_COUNT(*),_SUM(amount),_MIN(id),_MAX(id)_FROM_it_retained_execution_GROUP_BY_grp_HAVING_COUNT(*)>=2_ORDER_BY_grp (1.45s)
+    --- PASS: TestRetainedExecutionGlobalSQLMatchesExecuteQuery/SELECT_id,_ROW_NUMBER()_OVER_(PARTITION_BY_grp_ORDER_BY_id)_AS_pos,_SUM(amount)_OVER_(PARTITION_BY_grp)_AS_total_FROM_it_retained_execution_QUALIFY_pos<=1_ORDER_BY_id (1.41s)
+    --- PASS: TestRetainedExecutionGlobalSQLMatchesExecuteQuery/SELECT_grp_FROM_it_retained_execution_WHERE_grp<3_UNION_SELECT_grp_FROM_it_retained_execution_WHERE_grp>1_ORDER_BY_grp (2.33s)
+    --- PASS: TestRetainedExecutionGlobalSQLMatchesExecuteQuery/SELECT_grp_FROM_it_retained_execution_INTERSECT_SELECT_grp_FROM_it_retained_execution_WHERE_grp=2 (2.30s)
+    --- PASS: TestRetainedExecutionGlobalSQLMatchesExecuteQuery/SELECT_grp_FROM_it_retained_execution_EXCEPT_SELECT_grp_FROM_it_retained_execution_WHERE_grp<>2 (2.34s)
+    --- PASS: TestRetainedExecutionGlobalSQLMatchesExecuteQuery/SELECT_a.id,b.label_FROM_it_retained_execution_a_JOIN_it_retained_execution_b_ON_a.grp=b.grp_WHERE_a.id<10_ORDER_BY_a.id,b.id (1.65s)
+    --- PASS: TestRetainedExecutionGlobalSQLMatchesExecuteQuery/WITH_a_AS_(SELECT_grp,COUNT(*)_AS_n_FROM_it_retained_execution_GROUP_BY_grp)_SELECT_grp,n_FROM_a_WHERE_n>1_ORDER_BY_grp (1.49s)
+    --- PASS: TestRetainedExecutionGlobalSQLMatchesExecuteQuery/SELECT_id_FROM_it_retained_execution_WHERE_grp_IN_(SELECT_grp_FROM_it_retained_execution_GROUP_BY_grp_HAVING_COUNT(*)=2)_ORDER_BY_id (1.72s)
+    --- PASS: TestRetainedExecutionGlobalSQLMatchesExecuteQuery/SELECT_a.id,(SELECT_COUNT(*)_FROM_it_retained_execution_b_WHERE_b.grp=a.grp)_AS_n_FROM_it_retained_execution_a_ORDER_BY_id (1.78s)
+    --- PASS: TestRetainedExecutionGlobalSQLMatchesExecuteQuery/SELECT_grp,total_FROM_it_retained_execution_view_ORDER_BY_grp (1.65s)
+    --- PASS: TestRetainedExecutionGlobalSQLMatchesExecuteQuery/SELECT_ARRAY_AGG(id_ORDER_BY_id),_(COUNT(*),MIN(id))_FROM_it_retained_execution (1.49s)
+    --- PASS: TestRetainedExecutionGlobalSQLMatchesExecuteQuery/SELECT_id_FROM_it_retained_execution_WHERE_false (1.47s)
+    --- PASS: TestRetainedExecutionGlobalSQLMatchesExecuteQuery/SELECT_id_FROM_it_retained_execution_LIMIT_0 (1.41s)
+    --- PASS: TestRetainedExecutionGlobalSQLMatchesExecuteQuery/SELECT_9007199254740993::BIGINT_AS_exact,_NULL::TEXT_AS_missing (0.29s)
+PASS
+ok  	github.com/adbc-drivers/redis/go	92.675s

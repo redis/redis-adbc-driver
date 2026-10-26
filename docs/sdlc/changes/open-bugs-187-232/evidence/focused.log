@@ -1,0 +1,18 @@
+=== RUN   TestSQLIssue232RepeatedGrouping
+=== RUN   TestSQLIssue232RepeatedGrouping/exact
+=== RUN   TestSQLIssue232RepeatedGrouping/all
+=== RUN   TestSQLIssue232RepeatedGrouping/none
+--- PASS: TestSQLIssue232RepeatedGrouping (0.07s)
+    --- PASS: TestSQLIssue232RepeatedGrouping/exact (0.03s)
+    --- PASS: TestSQLIssue232RepeatedGrouping/all (0.02s)
+    --- PASS: TestSQLIssue232RepeatedGrouping/none (0.02s)
+=== RUN   TestSQLIssue187NullSetOperationSchema
+--- PASS: TestSQLIssue187NullSetOperationSchema (0.00s)
+=== RUN   TestSQLSelectDistinct
+--- PASS: TestSQLSelectDistinct (0.04s)
+=== RUN   TestUnknownLiteralSetOps
+--- PASS: TestUnknownLiteralSetOps (0.00s)
+=== RUN   TestIssue187SetOperationTypes
+--- PASS: TestIssue187SetOperationTypes (0.00s)
+PASS
+ok  	github.com/adbc-drivers/redis/go	0.781s

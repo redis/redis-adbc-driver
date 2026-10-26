@@ -1,0 +1,108 @@
+=== RUN   TestSQLAliasesInExpressions
+--- PASS: TestSQLAliasesInExpressions (0.08s)
+=== RUN   TestAliasesInExpressions
+--- PASS: TestAliasesInExpressions (0.00s)
+=== RUN   TestSQLEmptyErrors
+--- PASS: TestSQLEmptyErrors (0.03s)
+=== RUN   TestSQLGroupingSetsErrors
+--- PASS: TestSQLGroupingSetsErrors (0.01s)
+=== RUN   TestTypedArrowAgainstGeneric
+=== RUN   TestTypedArrowAgainstGeneric/SMALLINT
+=== RUN   TestTypedArrowAgainstGeneric/INTEGER
+=== RUN   TestTypedArrowAgainstGeneric/BIGINT
+=== RUN   TestTypedArrowAgainstGeneric/BOOLEAN
+=== RUN   TestTypedArrowAgainstGeneric/REAL
+=== RUN   TestTypedArrowAgainstGeneric/DOUBLE_PRECISION
+=== RUN   TestTypedArrowAgainstGeneric/VARCHAR
+=== RUN   TestTypedArrowAgainstGeneric/CHAR(5)
+=== RUN   TestTypedArrowAgainstGeneric/VARBINARY
+=== RUN   TestTypedArrowAgainstGeneric/DATE
+=== RUN   TestTypedArrowAgainstGeneric/TIME(6)
+=== RUN   TestTypedArrowAgainstGeneric/TIMESTAMP(6)
+=== RUN   TestTypedArrowAgainstGeneric/TIMESTAMP(6)_WITH_TIME_ZONE
+=== RUN   TestTypedArrowAgainstGeneric/TIME(6)_WITH_TIME_ZONE
+=== RUN   TestTypedArrowAgainstGeneric/INTERVAL
+=== RUN   TestTypedArrowAgainstGeneric/NUMERIC(12,3)
+--- PASS: TestTypedArrowAgainstGeneric (0.00s)
+    --- PASS: TestTypedArrowAgainstGeneric/SMALLINT (0.00s)
+    --- PASS: TestTypedArrowAgainstGeneric/INTEGER (0.00s)
+    --- PASS: TestTypedArrowAgainstGeneric/BIGINT (0.00s)
+    --- PASS: TestTypedArrowAgainstGeneric/BOOLEAN (0.00s)
+    --- PASS: TestTypedArrowAgainstGeneric/REAL (0.00s)
+    --- PASS: TestTypedArrowAgainstGeneric/DOUBLE_PRECISION (0.00s)
+    --- PASS: TestTypedArrowAgainstGeneric/VARCHAR (0.00s)
+    --- PASS: TestTypedArrowAgainstGeneric/CHAR(5) (0.00s)
+    --- PASS: TestTypedArrowAgainstGeneric/VARBINARY (0.00s)
+    --- PASS: TestTypedArrowAgainstGeneric/DATE (0.00s)
+    --- PASS: TestTypedArrowAgainstGeneric/TIME(6) (0.00s)
+    --- PASS: TestTypedArrowAgainstGeneric/TIMESTAMP(6) (0.00s)
+    --- PASS: TestTypedArrowAgainstGeneric/TIMESTAMP(6)_WITH_TIME_ZONE (0.00s)
+    --- PASS: TestTypedArrowAgainstGeneric/TIME(6)_WITH_TIME_ZONE (0.00s)
+    --- PASS: TestTypedArrowAgainstGeneric/INTERVAL (0.00s)
+    --- PASS: TestTypedArrowAgainstGeneric/NUMERIC(12,3) (0.00s)
+=== RUN   TestTypedProjectionWideDefaultsAndAliases
+--- PASS: TestTypedProjectionWideDefaultsAndAliases (0.00s)
+=== RUN   TestTypedWideArrowLifetimeAndErrorOrder
+=== RUN   TestTypedWideArrowLifetimeAndErrorOrder/0
+=== RUN   TestTypedWideArrowLifetimeAndErrorOrder/256
+--- PASS: TestTypedWideArrowLifetimeAndErrorOrder (0.00s)
+    --- PASS: TestTypedWideArrowLifetimeAndErrorOrder/0 (0.00s)
+    --- PASS: TestTypedWideArrowLifetimeAndErrorOrder/256 (0.00s)
+=== RUN   TestNextSQLInMemory
+=== RUN   TestNextSQLInMemory/select_date('2099-12-31')
+=== RUN   TestNextSQLInMemory/select_date(timestamp_'2023-09-02_10:00:00')
+=== RUN   TestNextSQLInMemory/select_count(*)
+=== RUN   TestNextSQLInMemory/select_count(*)_where_false
+=== RUN   TestNextSQLInMemory/select_sum(1),_max(2)
+=== RUN   TestNextSQLInMemory/select_count(*)_having_count(*)_=_1
+=== RUN   TestNextSQLInMemory/select_count(*)_having_false
+=== RUN   TestNextSQLInMemory/select_count(*)_group_by_()
+=== RUN   TestNextSQLInMemory/select_count(*)_group_by_grouping_sets_((),_())
+=== RUN   TestNextSQLInMemory/select_count(*)_where_false_group_by_1+0
+=== RUN   TestNextSQLInMemory/values_(1,'a'),(2,'b')
+=== RUN   TestNextSQLInMemory/select_*_from_(values_(1,'a'),(2,'b'))_v(n,s)_order_by_n_desc
+=== RUN   TestNextSQLInMemory/values_(null),('2'),(1)
+=== RUN   TestNextSQLInMemory/values_(3),(1),(2)_order_by_column1_limit_1+1_offset_1
+=== RUN   TestNextSQLInMemory/with_v(x)_as_(values_(1),(2))_select_sum(x)_from_v
+=== RUN   TestNextSQLInMemory/values_(1)_union_all_values_(2)
+=== RUN   TestNextSQLInMemory/select_1_where_1_in_(values_(1),(2))
+=== RUN   TestNextSQLInMemory/select_1_limit_all_offset_null
+=== RUN   TestNextSQLInMemory/select_1_limit_null
+=== RUN   TestNextSQLInMemory/values_(1),(2),(3)_limit_1.5
+=== RUN   TestNextSQLInMemory/with_n(x)_as_(values_(1))_select_1_limit_(select_x_from_n)
+=== RUN   TestNextSQLInMemory/select_1_limit_0
+=== RUN   TestNextSQLInMemory/select_1_fetch_first_(1+1)_rows_only
+=== RUN   TestNextSQLInMemory/select_1_offset_1_rows_fetch_next_1_row_only
+=== RUN   TestNextSQLInMemory/select_1_limit_(select_1)
+--- PASS: TestNextSQLInMemory (0.00s)
+    --- PASS: TestNextSQLInMemory/select_date('2099-12-31') (0.00s)
+    --- PASS: TestNextSQLInMemory/select_date(timestamp_'2023-09-02_10:00:00') (0.00s)
+    --- PASS: TestNextSQLInMemory/select_count(*) (0.00s)
+    --- PASS: TestNextSQLInMemory/select_count(*)_where_false (0.00s)
+    --- PASS: TestNextSQLInMemory/select_sum(1),_max(2) (0.00s)
+    --- PASS: TestNextSQLInMemory/select_count(*)_having_count(*)_=_1 (0.00s)
+    --- PASS: TestNextSQLInMemory/select_count(*)_having_false (0.00s)
+    --- PASS: TestNextSQLInMemory/select_count(*)_group_by_() (0.00s)
+    --- PASS: TestNextSQLInMemory/select_count(*)_group_by_grouping_sets_((),_()) (0.00s)
+    --- PASS: TestNextSQLInMemory/select_count(*)_where_false_group_by_1+0 (0.00s)
+    --- PASS: TestNextSQLInMemory/values_(1,'a'),(2,'b') (0.00s)
+    --- PASS: TestNextSQLInMemory/select_*_from_(values_(1,'a'),(2,'b'))_v(n,s)_order_by_n_desc (0.00s)
+    --- PASS: TestNextSQLInMemory/values_(null),('2'),(1) (0.00s)
+    --- PASS: TestNextSQLInMemory/values_(3),(1),(2)_order_by_column1_limit_1+1_offset_1 (0.00s)
+    --- PASS: TestNextSQLInMemory/with_v(x)_as_(values_(1),(2))_select_sum(x)_from_v (0.00s)
+    --- PASS: TestNextSQLInMemory/values_(1)_union_all_values_(2) (0.00s)
+    --- PASS: TestNextSQLInMemory/select_1_where_1_in_(values_(1),(2)) (0.00s)
+    --- PASS: TestNextSQLInMemory/select_1_limit_all_offset_null (0.00s)
+    --- PASS: TestNextSQLInMemory/select_1_limit_null (0.00s)
+    --- PASS: TestNextSQLInMemory/values_(1),(2),(3)_limit_1.5 (0.00s)
+    --- PASS: TestNextSQLInMemory/with_n(x)_as_(values_(1))_select_1_limit_(select_x_from_n) (0.00s)
+    --- PASS: TestNextSQLInMemory/select_1_limit_0 (0.00s)
+    --- PASS: TestNextSQLInMemory/select_1_fetch_first_(1+1)_rows_only (0.00s)
+    --- PASS: TestNextSQLInMemory/select_1_offset_1_rows_fetch_next_1_row_only (0.00s)
+    --- PASS: TestNextSQLInMemory/select_1_limit_(select_1) (0.00s)
+=== RUN   TestNextPaginationErrorsAndRebinding
+--- PASS: TestNextPaginationErrorsAndRebinding (0.00s)
+=== RUN   TestNextSQLIntegration
+--- PASS: TestNextSQLIntegration (0.01s)
+PASS
+ok  	github.com/adbc-drivers/redis/go	0.739s

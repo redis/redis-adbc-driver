@@ -1,0 +1,50 @@
+File: baseline-profile.test
+Build ID: 1eaf8555b19f816ad65f9f7a34bac76f51876d47
+Type: cpu
+Time: 2026-10-21 22:41:09 PDT
+Duration: 81.54s, Total samples = 931.91s (1142.94%)
+Showing nodes accounting for 657.21s, 70.52% of 931.91s total
+Dropped 783 nodes (cum <= 4.66s)
+Showing top 40 nodes out of 213
+      flat  flat%   sum%        cum   cum%
+    86.74s  9.31%  9.31%    329.82s 35.39%  github.com/adbc-drivers/redis/go.decodeRow
+    82.39s  8.84% 18.15%    163.82s 17.58%  internal/runtime/maps.(*Map).getWithoutKeySmallFastStr
+    70.90s  7.61% 25.76%     70.90s  7.61%  aeshashbody
+    48.14s  5.17% 30.92%     90.14s  9.67%  runtime.scanObjectsSmall
+    47.83s  5.13% 36.05%     67.13s  7.20%  runtime.tryDeferToSpanScan
+    23.01s  2.47% 38.52%    177.19s 19.01%  runtime.mapaccess1_faststr
+    22.19s  2.38% 40.91%    138.16s 14.83%  runtime.mallocgcSmallScanNoHeader
+    21.78s  2.34% 43.24%     21.78s  2.34%  runtime.nextFreeFast (inline)
+    19.66s  2.11% 45.35%     19.66s  2.11%  internal/runtime/maps.h2 (inline)
+    16.81s  1.80% 47.16%     16.81s  1.80%  runtime.memclrNoHeapPointers
+    16.06s  1.72% 48.88%     18.33s  1.97%  runtime.(*mspan).writeHeapBitsSmall
+    15.83s  1.70% 50.58%    182.53s 19.59%  runtime.mallocgc
+    14.80s  1.59% 52.17%     14.80s  1.59%  internal/runtime/syscall/linux.Syscall6
+    11.51s  1.24% 53.40%     11.52s  1.24%  github.com/redis/go-redis/v9/internal/hashtag.crc16sum
+    10.55s  1.13% 54.53%     16.64s  1.79%  internal/runtime/maps.(*Iter).Next
+    10.39s  1.11% 55.65%     10.67s  1.14%  runtime.(*mspan).moveInlineMarks
+     9.88s  1.06% 56.71%      9.88s  1.06%  runtime.memmove
+     8.34s  0.89% 57.60%     20.14s  2.16%  bufio.(*Reader).ReadSlice
+     7.80s  0.84% 58.44%      7.80s  0.84%  runtime.spanClass.sizeclass (inline)
+     7.64s  0.82% 59.26%      7.64s  0.82%  indexbytebody
+     7.51s  0.81% 60.07%      7.51s  0.81%  internal/strconv.ParseUint
+     7.46s   0.8% 60.87%      8.76s  0.94%  runtime.heapArenaOf (inline)
+     7.10s  0.76% 61.63%     26.44s  2.84%  runtime.sweepone
+     6.77s  0.73% 62.35%      6.77s  0.73%  runtime.extractHeapBitsSmall
+     6.54s   0.7% 63.06%      9.71s  1.04%  runtime.typePointers.next
+     5.89s  0.63% 63.69%     28.17s  3.02%  gcWriteBarrier
+     5.53s  0.59% 64.28%      5.53s  0.59%  runtime.(*mspan).base (inline)
+     5.23s  0.56% 64.84%     15.80s  1.70%  github.com/adbc-drivers/redis/go.decodeStored
+     5.09s  0.55% 65.39%      5.09s  0.55%  runtime.strhash
+     4.98s  0.53% 65.92%      4.98s  0.53%  runtime.getMCache (inline)
+     4.78s  0.51% 66.44%      4.78s  0.51%  runtime.madvise
+     4.76s  0.51% 66.95%     14.46s  1.55%  runtime.gcmarknewobject
+     4.69s   0.5% 67.45%      4.69s   0.5%  internal/strconv.Atoi
+     4.36s  0.47% 67.92%     24.96s  2.68%  runtime.scanObject
+     4.33s  0.46% 68.38%    178.26s 19.13%  github.com/redis/go-redis/v9/internal/proto.(*Reader).ReadReply
+     4.24s  0.45% 68.84%     10.90s  1.17%  internal/runtime/maps.(*Map).putSlotSmallFastStr
+     4.17s  0.45% 69.29%     41.45s  4.45%  runtime.mapassign_faststr
+     4.04s  0.43% 69.72%      8.43s   0.9%  bufio.(*Reader).Read
+     3.75s   0.4% 70.12%    335.14s 35.96%  github.com/adbc-drivers/redis/go.(*scanIter).keep
+     3.74s   0.4% 70.52%     12.98s  1.39%  github.com/adbc-drivers/redis/go.columnMeta.decode
+

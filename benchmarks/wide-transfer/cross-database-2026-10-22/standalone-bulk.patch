@@ -1,0 +1,49 @@
+diff --git a/go/store.go b/go/store.go
+index 112f20c..c860671 100644
+--- a/go/store.go
++++ b/go/store.go
+@@ -1979,6 +1979,44 @@ func (s *store) fetchHashCommands(ctx context.Context, keys []string, fields []s
+ 	if err := cancelled(ctx); err != nil {
+ 		return nil, err
+ 	}
++	// EXPERIMENT ONLY (#442): standalone immutable-fixture bulk read. This is
++	// not a supported Cluster/ACL/concurrent-update implementation.
++	if len(fields) >= 64 {
++		args := make([]any, len(fields))
++		for i, field := range fields {
++			args[i] = field
++		}
++		live := make([]string, 0, len(keys))
++		for _, key := range keys {
++			if key != "" {
++				live = append(live, key)
++			}
++		}
++		values, err := s.client.EvalRO(ctx, `local rows = {}
++for i, key in ipairs(KEYS) do rows[i] = redis.call('HMGET', key, unpack(ARGV)) end
++return rows`, live, args...).Slice()
++		if err != nil {
++			return nil, wrapRedis(err, "experimental bulk read")
++		}
++		if len(values) != len(live) {
++			return nil, errorf(adbc.StatusInternal, "unexpected bulk row count")
++		}
++		cmds := make([]*goredis.SliceCmd, len(keys))
++		j := 0
++		for i, key := range keys {
++			if key == "" {
++				continue
++			}
++			row, ok := values[j].([]any)
++			if !ok || len(row) != len(fields) {
++				return nil, errorf(adbc.StatusInternal, "unexpected bulk row shape")
++			}
++			cmds[i] = goredis.NewSliceCmd(ctx)
++			cmds[i].SetVal(row)
++			j++
++		}
++		return cmds, nil
++	}
+ 	pipe := s.client.Pipeline()
+ 	cmds := make([]*goredis.SliceCmd, 0, len(keys))
+ 	for _, key := range keys {

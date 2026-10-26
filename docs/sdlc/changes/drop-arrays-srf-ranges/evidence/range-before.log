@@ -1,0 +1,6 @@
+=== RUN   TestSQLWideHashFetchBothAPIs
+    wide_fetch_integration_test.go:133: wide fetch not selected: *redis.streamReader
+--- FAIL: TestSQLWideHashFetchBothAPIs (3.41s)
+FAIL
+FAIL	github.com/adbc-drivers/redis/go	4.276s
+FAIL

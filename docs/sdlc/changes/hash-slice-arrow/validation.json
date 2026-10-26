@@ -1,0 +1,112 @@
+{
+  "date": "2026-10-21",
+  "status": "local verification complete; CI/human review pending",
+  "production_source": "c4a819bb19dc5c55c437eec184eaa98491e4b9fe",
+  "built_source": "0727c7bfe19ccf16eacb10dc1290c3221903d95a",
+  "built_source_note": "After rebasing onto merged #419/#420, all five changed production Go files match the built source byte for byte. #420 adds tests/harness changes only.",
+  "baseline": "a937c55b3f9e877f6da950698f3ad2f2b5f83979",
+  "current_main": "a90c6b4d33ed09fa7ccc144e6f27b5d57233e0d4",
+  "go_full": {
+    "command": "REDIS_URI='redis://127.0.0.1:18123/0?protocol=3' go test -json -count=1 -p 1 ./...",
+    "pass_events": 1015,
+    "skip_events": 15,
+    "failures": 0,
+    "skips": [
+      "TestAggregateInputLoadProfile",
+      "TestAggregatePagesProfile",
+      "TestClickBenchExecutionProfile",
+      "TestExactDistinctProfile",
+      "TestFlexRefused",
+      "TestLateProjectionProfile",
+      "TestNarrowScanProfile",
+      "TestRangeReadinessChecksAllPrimaries",
+      "TestPartitionRuntimeCapDiscovery",
+      "TestQ19Profile",
+      "TestSearchReplyScanProfile",
+      "TestTimeoutServerPaused",
+      "TestWideTransferProfile",
+      "TestAggregateWorkerConcurrencyProfile",
+      "TestAggregateWorkerMixedProbe"
+    ],
+    "packages": [
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "seconds": 186.633
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go/cmd/redis-adbc",
+        "seconds": 1.895
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go/internal/benchproxy",
+        "seconds": 0.251
+      }
+    ]
+  },
+  "race": [
+    {
+      "environment": "Cluster RESP3",
+      "log": "cluster-race.log",
+      "status": "passed"
+    },
+    {
+      "environment": "Cluster RESP2",
+      "log": "cluster2-race.log",
+      "status": "passed"
+    }
+  ],
+  "native": [
+    {
+      "environment": "standalone RESP3",
+      "passed": 372,
+      "skipped": 8,
+      "subtests": 3
+    },
+    {
+      "environment": "standalone RESP2",
+      "passed": 372,
+      "skipped": 8,
+      "subtests": 3
+    },
+    {
+      "environment": "Cluster RESP3",
+      "passed": 372,
+      "skipped": 8,
+      "subtests": 3
+    }
+  ],
+  "tls": {
+    "harness_source": "a90c6b4",
+    "native_library_sha256": "24a5ad1697e648bd8af931383f05e85d1afab3ce4460d498818dc4dfd2ea371f",
+    "status": "passed",
+    "note": "Uses current main #420 harness, not the alternate readiness experiments. Exact Arrow values and schemas; restricted independent workers, trusted CA/hostname negatives, ASK/MOVED/ASKING ACL, live writes, cancellation/release and stale target."
+  },
+  "benchmark_counts": {
+    "executions": 164,
+    "warmups": 32,
+    "measured": 132,
+    "all_full_values_and_multiplicity_validated": true
+  },
+  "review": {
+    "correctness_lifecycle": "Differential decode and active positional update/delete tests, metadata order, default/null semantics, aliases, callbacks/diagnostics, retained strings and cancellation reviewed; no remaining actionable finding.",
+    "security_ownership": "Parent managed ownership/strategy guard retained. No guessed keys, writes, ACL/URI/TLS option changes or server retries. Existing client commands unchanged.",
+    "intent_design_evidence": "Five-round confirmed improvement on both APIs, negative command screens and investigated narrow variation retained; native partition gap and allocator/scope limits explicit. Human review/CI pending."
+  },
+  "cleanup": {
+    "removed": [
+      "codex-hash-arrow-test",
+      "codex-hash-arrow-cluster",
+      "codex-hash-arrow-tls",
+      "codex-hmget-args-bench"
+    ],
+    "private_tls_directory_removed": true,
+    "benchmark": "removed after profiling",
+    "remote_obsolete_parent_branch": "left intact after automatic approval review rejected deleting a remote branch without explicit authorization; cleanup is not required for this change"
+  },
+  "remaining_limits": [
+    "No Windows/Linux/other-architecture elapsed performance measured.",
+    "No full 100M transfer, production WAN or generic/missing-default-heavy workload speed claim.",
+    "Native four-reader paths remain faster.",
+    "CI/human review pending."
+  ]
+}

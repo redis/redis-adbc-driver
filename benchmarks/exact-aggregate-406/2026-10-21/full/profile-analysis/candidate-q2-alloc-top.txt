@@ -1,0 +1,48 @@
+File: candidate-profile.test
+Build ID: 93ec35a7ea78f31eac5edce93ae774effa0bf32f
+Type: alloc_space
+Time: 2026-10-21 22:49:41 PDT
+Showing nodes accounting for 11989.29kB, 100% of 11989.29kB total
+Showing top 40 nodes out of 137
+      flat  flat%   sum%        cum   cum%
+ 2059.04kB 17.17% 17.17%  2059.04kB 17.17%  runtime.mallocgc
+ 1184.27kB  9.88% 27.05%  1184.27kB  9.88%  runtime/pprof.StartCPUProfile
+ 1048.19kB  8.74% 35.79%  1048.19kB  8.74%  github.com/redis/go-redis/v9/maintnotifications.newHandoffWorkerManager
+  902.59kB  7.53% 43.32%  1553.21kB 12.95%  compress/flate.NewWriter (inline)
+  650.62kB  5.43% 48.75%   650.62kB  5.43%  compress/flate.(*compressor).init
+  512.12kB  4.27% 53.02%  2072.41kB 17.29%  github.com/redis/go-redis/v9.NewClient
+  512.10kB  4.27% 57.29%   512.10kB  4.27%  github.com/apache/arrow-go/v18/arrow/internal/flatbuf.init
+  512.10kB  4.27% 61.56%   512.10kB  4.27%  github.com/redis/go-redis/v9/push.(*Registry).RegisterHandler
+  512.05kB  4.27% 65.83%   512.05kB  4.27%  regexp.newQueue (inline)
+  512.04kB  4.27% 70.11%   512.04kB  4.27%  context.withCancel (inline)
+  512.04kB  4.27% 74.38%   512.04kB  4.27%  github.com/apache/arrow-go/v18/arrow/compute/internal/kernels.GetArithmeticBinaryKernels
+  512.03kB  4.27% 78.65%   512.03kB  4.27%  github.com/apache/arrow-go/v18/arrow/compute/internal/kernels.genCompareKernel[go.shape.int64]
+  512.03kB  4.27% 82.92%   512.03kB  4.27%  github.com/redis/go-redis/v9/internal/proto.ParseErrorReply (inline)
+  512.02kB  4.27% 87.19%   512.02kB  4.27%  github.com/redis/go-redis/v9/internal/proto.(*Reader).readStringReply
+  512.02kB  4.27% 91.46%   512.02kB  4.27%  strings.Fields
+  512.02kB  4.27% 95.73%   512.02kB  4.27%  syscall.anyToSockaddr
+  512.01kB  4.27%   100%   512.01kB  4.27%  github.com/redis/go-redis/v9.(*hooksMixin).clone
+         0     0%   100%  1553.21kB 12.95%  compress/gzip.(*Writer).Write
+         0     0%   100%   512.04kB  4.27%  context.WithCancel
+         0     0%   100%  4120.51kB 34.37%  github.com/adbc-drivers/redis/go.(*databaseImpl).Open
+         0     0%   100%  3608.51kB 30.10%  github.com/adbc-drivers/redis/go.(*databaseImpl).connect
+         0     0%   100%  3608.51kB 30.10%  github.com/adbc-drivers/redis/go.(*databaseImpl).dial
+         0     0%   100%  4120.51kB 34.37%  github.com/adbc-drivers/redis/go.(*errorHook).ProcessHook.errorHook.ProcessHook.func1
+         0     0%   100%   512.01kB  4.27%  github.com/adbc-drivers/redis/go.(*store).searchDo
+         0     0%   100%  1184.27kB  9.88%  github.com/adbc-drivers/redis/go.TestMain
+         0     0%   100%  4120.51kB 34.37%  github.com/adbc-drivers/redis/go.TestPerformance406Profile
+         0     0%   100%   512.02kB  4.27%  github.com/adbc-drivers/redis/go.diagnosticsHook.DialHook.func1
+         0     0%   100%  2048.10kB 17.08%  github.com/adbc-drivers/redis/go.diagnosticsHook.ProcessHook.func1
+         0     0%   100%  1024.07kB  8.54%  github.com/adbc-drivers/redis/go.init
+         0     0%   100%   512.02kB  4.27%  github.com/adbc-drivers/redis/go.init.func14 (inline)
+         0     0%   100%   512.01kB  4.27%  github.com/adbc-drivers/redis/go.once
+         0     0%   100%  4120.51kB 34.37%  github.com/adbc-drivers/redis/go.openWith
+         0     0%   100%   512.01kB  4.27%  github.com/adbc-drivers/redis/go.searchConn.Do (inline)
+         0     0%   100%  1024.07kB  8.54%  github.com/apache/arrow-go/v18/arrow/compute.GetFunctionRegistry
+         0     0%   100%  1024.07kB  8.54%  github.com/apache/arrow-go/v18/arrow/compute.GetFunctionRegistry.func1
+         0     0%   100%   512.04kB  4.27%  github.com/apache/arrow-go/v18/arrow/compute.RegisterScalarArithmetic
+         0     0%   100%   512.03kB  4.27%  github.com/apache/arrow-go/v18/arrow/compute.RegisterScalarComparisons
+         0     0%   100%  1024.07kB  8.54%  github.com/apache/arrow-go/v18/arrow/compute.init.0
+         0     0%   100%   512.03kB  4.27%  github.com/apache/arrow-go/v18/arrow/compute/internal/kernels.CompareKernels
+         0     0%   100%   512.03kB  4.27%  github.com/apache/arrow-go/v18/arrow/compute/internal/kernels.GetCompareKernel
+

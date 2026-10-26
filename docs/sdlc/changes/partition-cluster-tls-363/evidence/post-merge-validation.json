@@ -1,0 +1,22 @@
+{
+  "status": "passed",
+  "integrated_main": "4b0fdb5",
+  "feature_parent": "baf4306",
+  "library_sha256": "8de7df9de8155b7960ca9552507361c06cf6b48d5e69aac9934b5255673bced6",
+  "scope": "macOS ARM64 native library rebuilt with main Search parser; historical wheel runs were not repeated",
+  "passed": {
+    "cluster_tls": 17,
+    "standalone_tls": 15,
+    "management_fault_tests": 25,
+    "ci_matrix_tests": 5,
+    "focused_go_parser_tests": 6
+  },
+  "workflow_syntax": "actionlint passed for Test, Release and DuckDB extension workflows",
+  "ci_policy": "Preserved main matrix.integrations condition and scoped Release PR triggers",
+  "cleanup": {
+    "cluster_container_removed": true,
+    "native_owned_pid_stopped": true,
+    "private_fixture_directories_removed": true,
+    "paid_resources_created": false
+  }
+}

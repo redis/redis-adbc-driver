@@ -1,0 +1,1048 @@
+{
+  "name": "Release binaries",
+  "headSha": "ff4963abea5b55b3e50c314543d0590f5ee792d6",
+  "status": "completed",
+  "conclusion": "success",
+  "url": "https://github.com/alberttwong/redis-adbc-driver/actions/runs/39717747137",
+  "createdAt": "2026-10-22T03:36:15Z",
+  "updatedAt": "2026-10-22T03:51:06Z",
+  "jobs": [
+    {
+      "name": "linux-arm64",
+      "conclusion": "success",
+      "url": "https://github.com/alberttwong/redis-adbc-driver/actions/runs/39717747137/job/119623821448",
+      "steps": [
+        {
+          "name": "Identify release toolchain",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run docker/setup-buildx-action@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build cached AlmaLinux 8 toolchain",
+          "conclusion": "success"
+        },
+        {
+          "name": "Restore container Go caches",
+          "conclusion": "success"
+        },
+        {
+          "name": "Check cluster readiness gate",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build",
+          "conclusion": "success"
+        },
+        {
+          "name": "Save container Go caches",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build redis-adbc",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build Python wheel",
+          "conclusion": "success"
+        },
+        {
+          "name": "Start Redis Software",
+          "conclusion": "success"
+        },
+        {
+          "name": "Test (Redis Software)",
+          "conclusion": "success"
+        },
+        {
+          "name": "Smoke test installed Python wheel",
+          "conclusion": "success"
+        },
+        {
+          "name": "Installed wheel over verified Software proxy TLS",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload installed wheel Software TLS evidence",
+          "conclusion": "success"
+        },
+        {
+          "name": "Remove Software TLS private material",
+          "conclusion": "success"
+        },
+        {
+          "name": "Start OSS compatibility cluster",
+          "conclusion": "success"
+        },
+        {
+          "name": "Start TLS-only partition fixture",
+          "conclusion": "success"
+        },
+        {
+          "name": "Installed wheel partitions over verified TLS",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload installed wheel TLS evidence",
+          "conclusion": "success"
+        },
+        {
+          "name": "Remove TLS partition fixture",
+          "conclusion": "success"
+        },
+        {
+          "name": "Installed wheel through three verified TLS primary endpoints",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload installed wheel three-primary TLS evidence",
+          "conclusion": "success"
+        },
+        {
+          "name": "Remove owned three-primary TLS fixture",
+          "conclusion": "success"
+        },
+        {
+          "name": "Test (OSS 3-shard compatibility)",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload native validation reports",
+          "conclusion": "success"
+        },
+        {
+          "name": "Package",
+          "conclusion": "success"
+        },
+        {
+          "name": "Package redis-adbc",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "darwin-arm64",
+      "conclusion": "success",
+      "url": "https://github.com/alberttwong/redis-adbc-driver/actions/runs/39717747137/job/119623821760",
+      "steps": [
+        {
+          "name": "Build",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build and load Python wheel",
+          "conclusion": "success"
+        },
+        {
+          "name": "Start native macOS Redis with Search",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build redis-adbc",
+          "conclusion": "success"
+        },
+        {
+          "name": "Test",
+          "conclusion": "success"
+        },
+        {
+          "name": "Full macOS installed-wheel ADBC validation at real cap 137",
+          "conclusion": "success"
+        },
+        {
+          "name": "Minimum supported ADBC client on the installed macOS wheel",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verified TLS on the installed macOS wheel",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload macOS native partition evidence",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop owned native macOS Redis",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop owned native macOS TLS Redis",
+          "conclusion": "success"
+        },
+        {
+          "name": "Package",
+          "conclusion": "success"
+        },
+        {
+          "name": "Package redis-adbc",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "linux-amd64",
+      "conclusion": "success",
+      "url": "https://github.com/alberttwong/redis-adbc-driver/actions/runs/39717747137/job/119623821903",
+      "steps": [
+        {
+          "name": "Identify release toolchain",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run docker/setup-buildx-action@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build cached AlmaLinux 8 toolchain",
+          "conclusion": "success"
+        },
+        {
+          "name": "Restore container Go caches",
+          "conclusion": "success"
+        },
+        {
+          "name": "Check cluster readiness gate",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build",
+          "conclusion": "success"
+        },
+        {
+          "name": "Save container Go caches",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build redis-adbc",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build Python wheel",
+          "conclusion": "success"
+        },
+        {
+          "name": "Start Redis Software",
+          "conclusion": "success"
+        },
+        {
+          "name": "Test (Redis Software)",
+          "conclusion": "success"
+        },
+        {
+          "name": "Smoke test installed Python wheel",
+          "conclusion": "success"
+        },
+        {
+          "name": "Installed wheel over verified Software proxy TLS",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload installed wheel Software TLS evidence",
+          "conclusion": "success"
+        },
+        {
+          "name": "Remove Software TLS private material",
+          "conclusion": "success"
+        },
+        {
+          "name": "Start OSS compatibility cluster",
+          "conclusion": "success"
+        },
+        {
+          "name": "Start TLS-only partition fixture",
+          "conclusion": "success"
+        },
+        {
+          "name": "Installed wheel partitions over verified TLS",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload installed wheel TLS evidence",
+          "conclusion": "success"
+        },
+        {
+          "name": "Remove TLS partition fixture",
+          "conclusion": "success"
+        },
+        {
+          "name": "Installed wheel through three verified TLS primary endpoints",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload installed wheel three-primary TLS evidence",
+          "conclusion": "success"
+        },
+        {
+          "name": "Remove owned three-primary TLS fixture",
+          "conclusion": "success"
+        },
+        {
+          "name": "Test (OSS 3-shard compatibility)",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload native validation reports",
+          "conclusion": "success"
+        },
+        {
+          "name": "Package",
+          "conclusion": "success"
+        },
+        {
+          "name": "Package redis-adbc",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "almalinux:8 (amd64)",
+      "conclusion": "success",
+      "url": "https://github.com/alberttwong/redis-adbc-driver/actions/runs/39717747137/job/119627572346",
+      "steps": [
+        {
+          "name": "Start Redis Software",
+          "conclusion": "success"
+        },
+        {
+          "name": "Pull validation image",
+          "conclusion": "success"
+        },
+        {
+          "name": "Validation suite",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop validation container",
+          "conclusion": "success"
+        },
+        {
+          "name": "redis-adbc",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "almalinux:8 (arm64)",
+      "conclusion": "success",
+      "url": "https://github.com/alberttwong/redis-adbc-driver/actions/runs/39717747137/job/119627572350",
+      "steps": [
+        {
+          "name": "Start Redis Software",
+          "conclusion": "success"
+        },
+        {
+          "name": "Pull validation image",
+          "conclusion": "success"
+        },
+        {
+          "name": "Validation suite",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop validation container",
+          "conclusion": "success"
+        },
+        {
+          "name": "redis-adbc",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "almalinux:9 (amd64)",
+      "conclusion": "success",
+      "url": "https://github.com/alberttwong/redis-adbc-driver/actions/runs/39717747137/job/119627572361",
+      "steps": [
+        {
+          "name": "Start Redis Software",
+          "conclusion": "success"
+        },
+        {
+          "name": "Pull validation image",
+          "conclusion": "success"
+        },
+        {
+          "name": "Validation suite",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop validation container",
+          "conclusion": "success"
+        },
+        {
+          "name": "redis-adbc",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "ubuntu:20.04 (amd64)",
+      "conclusion": "success",
+      "url": "https://github.com/alberttwong/redis-adbc-driver/actions/runs/39717747137/job/119627572430",
+      "steps": [
+        {
+          "name": "Start Redis Software",
+          "conclusion": "success"
+        },
+        {
+          "name": "Pull validation image",
+          "conclusion": "success"
+        },
+        {
+          "name": "Validation suite",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop validation container",
+          "conclusion": "success"
+        },
+        {
+          "name": "redis-adbc",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "amazonlinux:2023 (amd64)",
+      "conclusion": "success",
+      "url": "https://github.com/alberttwong/redis-adbc-driver/actions/runs/39717747137/job/119627572435",
+      "steps": [
+        {
+          "name": "Start Redis Software",
+          "conclusion": "success"
+        },
+        {
+          "name": "Pull validation image",
+          "conclusion": "success"
+        },
+        {
+          "name": "Validation suite",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop validation container",
+          "conclusion": "success"
+        },
+        {
+          "name": "redis-adbc",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "ubuntu:20.04 (arm64)",
+      "conclusion": "success",
+      "url": "https://github.com/alberttwong/redis-adbc-driver/actions/runs/39717747137/job/119627572446",
+      "steps": [
+        {
+          "name": "Start Redis Software",
+          "conclusion": "success"
+        },
+        {
+          "name": "Pull validation image",
+          "conclusion": "success"
+        },
+        {
+          "name": "Validation suite",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop validation container",
+          "conclusion": "success"
+        },
+        {
+          "name": "redis-adbc",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "ubuntu:22.04 (amd64)",
+      "conclusion": "success",
+      "url": "https://github.com/alberttwong/redis-adbc-driver/actions/runs/39717747137/job/119627572451",
+      "steps": [
+        {
+          "name": "Start Redis Software",
+          "conclusion": "success"
+        },
+        {
+          "name": "Pull validation image",
+          "conclusion": "success"
+        },
+        {
+          "name": "Validation suite",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop validation container",
+          "conclusion": "success"
+        },
+        {
+          "name": "redis-adbc",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "ubuntu:22.04 (arm64)",
+      "conclusion": "success",
+      "url": "https://github.com/alberttwong/redis-adbc-driver/actions/runs/39717747137/job/119627572473",
+      "steps": [
+        {
+          "name": "Start Redis Software",
+          "conclusion": "success"
+        },
+        {
+          "name": "Pull validation image",
+          "conclusion": "success"
+        },
+        {
+          "name": "Validation suite",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop validation container",
+          "conclusion": "success"
+        },
+        {
+          "name": "redis-adbc",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "almalinux:9 (arm64)",
+      "conclusion": "success",
+      "url": "https://github.com/alberttwong/redis-adbc-driver/actions/runs/39717747137/job/119627572492",
+      "steps": [
+        {
+          "name": "Start Redis Software",
+          "conclusion": "success"
+        },
+        {
+          "name": "Pull validation image",
+          "conclusion": "success"
+        },
+        {
+          "name": "Validation suite",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop validation container",
+          "conclusion": "success"
+        },
+        {
+          "name": "redis-adbc",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "amazonlinux:2023 (arm64)",
+      "conclusion": "success",
+      "url": "https://github.com/alberttwong/redis-adbc-driver/actions/runs/39717747137/job/119627572555",
+      "steps": [
+        {
+          "name": "Start Redis Software",
+          "conclusion": "success"
+        },
+        {
+          "name": "Pull validation image",
+          "conclusion": "success"
+        },
+        {
+          "name": "Validation suite",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop validation container",
+          "conclusion": "success"
+        },
+        {
+          "name": "redis-adbc",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "wheel-linux-amd64-py3.13-adbc1.8.0",
+      "conclusion": "success",
+      "url": "https://github.com/alberttwong/redis-adbc-driver/actions/runs/39717747137/job/119627572564",
+      "steps": [
+        {
+          "name": "Detect partition checker at the selected release ref",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install the packaged wheel and selected client",
+          "conclusion": "success"
+        },
+        {
+          "name": "Start owned Linux TLS fixture",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify independent partitions from the installed wheel",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload wheel client evidence",
+          "conclusion": "success"
+        },
+        {
+          "name": "Remove owned Linux TLS fixture",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "wheel-linux-arm64-py3.13-adbc1.8.0",
+      "conclusion": "success",
+      "url": "https://github.com/alberttwong/redis-adbc-driver/actions/runs/39717747137/job/119627572567",
+      "steps": [
+        {
+          "name": "Detect partition checker at the selected release ref",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install the packaged wheel and selected client",
+          "conclusion": "success"
+        },
+        {
+          "name": "Start owned Linux TLS fixture",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify independent partitions from the installed wheel",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload wheel client evidence",
+          "conclusion": "success"
+        },
+        {
+          "name": "Remove owned Linux TLS fixture",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "wheel-linux-amd64-py3.14-adbc1.12.0",
+      "conclusion": "success",
+      "url": "https://github.com/alberttwong/redis-adbc-driver/actions/runs/39717747137/job/119627572582",
+      "steps": [
+        {
+          "name": "Detect partition checker at the selected release ref",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install the packaged wheel and selected client",
+          "conclusion": "success"
+        },
+        {
+          "name": "Start owned Linux TLS fixture",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify independent partitions from the installed wheel",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload wheel client evidence",
+          "conclusion": "success"
+        },
+        {
+          "name": "Remove owned Linux TLS fixture",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "wheel-linux-amd64-py3.13-adbc1.12.0",
+      "conclusion": "success",
+      "url": "https://github.com/alberttwong/redis-adbc-driver/actions/runs/39717747137/job/119627572594",
+      "steps": [
+        {
+          "name": "Detect partition checker at the selected release ref",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install the packaged wheel and selected client",
+          "conclusion": "success"
+        },
+        {
+          "name": "Start owned Linux TLS fixture",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify independent partitions from the installed wheel",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload wheel client evidence",
+          "conclusion": "success"
+        },
+        {
+          "name": "Remove owned Linux TLS fixture",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "wheel-darwin-arm64-py3.13-adbc1.8.0",
+      "conclusion": "success",
+      "url": "https://github.com/alberttwong/redis-adbc-driver/actions/runs/39717747137/job/119627572601",
+      "steps": [
+        {
+          "name": "Detect partition checker at the selected release ref",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install the packaged wheel and selected client",
+          "conclusion": "success"
+        },
+        {
+          "name": "Start owned macOS TLS fixture",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify independent partitions from the installed wheel",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload wheel client evidence",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop owned macOS TLS fixture and remove private material",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "wheel-darwin-arm64-py3.14-adbc1.8.0",
+      "conclusion": "success",
+      "url": "https://github.com/alberttwong/redis-adbc-driver/actions/runs/39717747137/job/119627572613",
+      "steps": [
+        {
+          "name": "Detect partition checker at the selected release ref",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install the packaged wheel and selected client",
+          "conclusion": "success"
+        },
+        {
+          "name": "Start owned macOS TLS fixture",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify independent partitions from the installed wheel",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload wheel client evidence",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop owned macOS TLS fixture and remove private material",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "wheel-linux-arm64-py3.14-adbc1.12.0",
+      "conclusion": "success",
+      "url": "https://github.com/alberttwong/redis-adbc-driver/actions/runs/39717747137/job/119627572659",
+      "steps": [
+        {
+          "name": "Detect partition checker at the selected release ref",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install the packaged wheel and selected client",
+          "conclusion": "success"
+        },
+        {
+          "name": "Start owned Linux TLS fixture",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify independent partitions from the installed wheel",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload wheel client evidence",
+          "conclusion": "success"
+        },
+        {
+          "name": "Remove owned Linux TLS fixture",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "wheel-linux-arm64-py3.13-adbc1.12.0",
+      "conclusion": "success",
+      "url": "https://github.com/alberttwong/redis-adbc-driver/actions/runs/39717747137/job/119627572673",
+      "steps": [
+        {
+          "name": "Detect partition checker at the selected release ref",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install the packaged wheel and selected client",
+          "conclusion": "success"
+        },
+        {
+          "name": "Start owned Linux TLS fixture",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify independent partitions from the installed wheel",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload wheel client evidence",
+          "conclusion": "success"
+        },
+        {
+          "name": "Remove owned Linux TLS fixture",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "wheel-darwin-arm64-py3.13-adbc1.12.0",
+      "conclusion": "success",
+      "url": "https://github.com/alberttwong/redis-adbc-driver/actions/runs/39717747137/job/119627572695",
+      "steps": [
+        {
+          "name": "Detect partition checker at the selected release ref",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install the packaged wheel and selected client",
+          "conclusion": "success"
+        },
+        {
+          "name": "Start owned macOS TLS fixture",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify independent partitions from the installed wheel",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload wheel client evidence",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop owned macOS TLS fixture and remove private material",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "wheel-darwin-arm64-py3.14-adbc1.12.0",
+      "conclusion": "success",
+      "url": "https://github.com/alberttwong/redis-adbc-driver/actions/runs/39717747137/job/119627572700",
+      "steps": [
+        {
+          "name": "Detect partition checker at the selected release ref",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install the packaged wheel and selected client",
+          "conclusion": "success"
+        },
+        {
+          "name": "Start owned macOS TLS fixture",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify independent partitions from the installed wheel",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload wheel client evidence",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop owned macOS TLS fixture and remove private material",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "wheel-linux-arm64-py3.14-adbc1.8.0",
+      "conclusion": "success",
+      "url": "https://github.com/alberttwong/redis-adbc-driver/actions/runs/39717747137/job/119627572711",
+      "steps": [
+        {
+          "name": "Detect partition checker at the selected release ref",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install the packaged wheel and selected client",
+          "conclusion": "success"
+        },
+        {
+          "name": "Start owned Linux TLS fixture",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify independent partitions from the installed wheel",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload wheel client evidence",
+          "conclusion": "success"
+        },
+        {
+          "name": "Remove owned Linux TLS fixture",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "wheel-linux-amd64-py3.14-adbc1.8.0",
+      "conclusion": "success",
+      "url": "https://github.com/alberttwong/redis-adbc-driver/actions/runs/39717747137/job/119627574281",
+      "steps": [
+        {
+          "name": "Detect partition checker at the selected release ref",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install the packaged wheel and selected client",
+          "conclusion": "success"
+        },
+        {
+          "name": "Start owned Linux TLS fixture",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify independent partitions from the installed wheel",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload wheel client evidence",
+          "conclusion": "success"
+        },
+        {
+          "name": "Remove owned Linux TLS fixture",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "upload",
+      "conclusion": "skipped",
+      "url": "https://github.com/alberttwong/redis-adbc-driver/actions/runs/39717747137/job/119628183682",
+      "steps": []
+    }
+  ]
+}

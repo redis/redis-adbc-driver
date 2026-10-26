@@ -1,0 +1,17 @@
+test_count_only_readiness_does_not_prove_migrated_row_membership (test_oss_cluster_partition_tls.ClusterManagementSafety.test_count_only_readiness_does_not_prove_migrated_row_membership) ... FAIL
+
+======================================================================
+FAIL: test_count_only_readiness_does_not_prove_migrated_row_membership (test_oss_cluster_partition_tls.ClusterManagementSafety.test_count_only_readiness_does_not_prove_migrated_row_membership)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/albert.wong/.codex/worktrees/c863/redis-adbc-driver/scripts/test_oss_cluster_partition_tls.py", line 19, in test_count_only_readiness_does_not_prove_migrated_row_membership
+    self.assertTrue(any('WITHCURSOR' in call.args for call in client.execute_command.call_args_list),
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                    'readiness accepted global count without reading cursor membership')
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : readiness accepted global count without reading cursor membership
+
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+FAILED (failures=1)

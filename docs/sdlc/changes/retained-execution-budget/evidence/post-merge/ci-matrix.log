@@ -1,0 +1,10 @@
+test_cli_uses_entire_diff_and_catches_renamed_sensitive_files (test_ci_test_matrix.MatrixTests.test_cli_uses_entire_diff_and_catches_renamed_sensitive_files) ... ok
+test_docs_do_not_expand_coverage (test_ci_test_matrix.MatrixTests.test_docs_do_not_expand_coverage) ... ok
+test_non_pr_events_always_run_everything (test_ci_test_matrix.MatrixTests.test_non_pr_events_always_run_everything) ... ok
+test_routine_pr_keeps_two_distinct_connection_paths (test_ci_test_matrix.MatrixTests.test_routine_pr_keeps_two_distinct_connection_paths) ... ok
+test_sensitive_prs_keep_all_platforms (test_ci_test_matrix.MatrixTests.test_sensitive_prs_keep_all_platforms) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.323s
+
+OK

@@ -1,0 +1,63 @@
+{
+  "area": "json",
+  "source": "https://github.com/alberttwong/redis-adbc-driver/issues/254",
+  "setup": [
+    "CREATE TABLE t (id integer, name varchar(20), score integer, grp varchar(10))",
+    "INSERT INTO t VALUES (1, 'apple', 10, 'a'), (2, 'Banana', NULL, 'a'), (3, 'cherry', 30, 'b'), (4, '_x', 20, 'b')",
+    "CREATE TABLE u (id integer, label text)",
+    "INSERT INTO u VALUES (1, 'one'), (2, 'two')"
+  ],
+  "cases": [
+    {
+      "id": "row-1",
+      "sql": "create table j (doc jsonb)",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-2",
+      "sql": "select '{\"a\":1}'::jsonb @> '{\"a\":1}'",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-3",
+      "sql": "select '{\"a\":1}'::jsonb ? 'a'",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-4",
+      "sql": "select '{\"a\":1,\"b\":2}'::jsonb - 'a'",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-5",
+      "sql": "select '{\"a\":{\"b\":1}}'::jsonb #- '{a,b}'",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-6",
+      "sql": "select * from json_each('{\"a\":1}')",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-7",
+      "sql": "select * from jsonb_array_elements('[1,2]')",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-8",
+      "sql": "select jsonb_set('{\"a\":1}', '{a}', '2')",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-9",
+      "sql": "select json_object_keys('{\"a\":1}')",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-10",
+      "sql": "select row_to_json(t) from t where id = 1",
+      "expect_postgres": null
+    }
+  ],
+  "tier": "issues"
+}

@@ -1,0 +1,25 @@
+# Reusing the full-scale backup
+
+Backup destination: `s3://adbc-clickbench-adbc-main-20261014-1936-735486936198/backups/full-c6a-20261021/`.
+The bucket has versioning enabled and no lifecycle expiration rule. It carries lowercase `owner`, `RedisLabsIdentifier`, and `skip_deletion` tags. Retention is user-managed; infrastructure teardown must never delete this prefix or bucket.
+
+The backup service waits until the timed query sweep ends. Check `manifest.json`: **only `complete: true` means all 48 snapshots and supporting artifacts were uploaded**. A partial manifest is diagnostic evidence, not a complete backup. The manifest explicitly records `restore_tested`; successful export and RDB checksum checks do not constitute a restore test.
+
+## Restore preparation
+
+1. Download the manifest and all files from its `files` list. Verify each byte count and SHA256. Preserve the original S3 version IDs. Verify supporting artifacts similarly. Use the exact pinned Redis image recorded in the manifest, including its Search module, before attempting upgrades.
+2. Provision 48 private Redis primaries with sufficient indexed-memory capacity plus a dedicated client. Apply the required owner, run, skip-deletion and expiry tags at creation to instances and volumes. Verify termination protection, bounded cleanup, root-volume tags and placement. The original 48 c6a.4xlarge primaries use 24 GiB Redis maxmemory and 27 GiB container limits, with no replicas. Different shapes or primary counts require a separately validated migration.
+3. Map every original Redis node ID in `nodes` to exactly one new private IP. Preserve node IDs, config epochs and slot ownership. Each snapshot belongs to that node ID; do not arbitrarily exchange files. Each saved `cluster_nodes` entry provides the full original topology and marks its own node `myself`. Replace old endpoints with the mapped private addresses in all nodes.conf files, retaining flags, epochs, links and slot ranges. Validate all 16,384 slots are assigned once and no migration markers remain.
+4. Place the corresponding RDB as `/data/dump.rdb` and the rewritten topology as `/data/nodes.conf` on each stopped node. Use a writable persistent data volume with adequate free disk, correct container UID/GID ownership, and the pinned image. Start with `--entrypoint redis-server`, `--loadmodule /usr/local/lib/redis/modules/redisearch.so`, `--cluster-enabled yes`, `--cluster-config-file /data/nodes.conf`, `--cluster-announce-ip <new-private-ip>`, `--appendonly no`, `--save ''`, and the original memory policy. Restrict access to the private benchmark security group; the benchmark configuration has no TLS/authentication and must not be exposed publicly.
+
+## Validate before timing
+
+Wait for every node to finish loading and report `cluster_state:ok`. Verify 48 primaries, no replicas, full slot coverage, expected per-node DBSIZE values, no failed links, and the restored driver catalog/namespace recorded in the manifest. Verify the global `FT.INFO idx:<namespace>:hits` document count is 99,997,497 and indexing is zero from every coordinator; do not add these global counts together. The source checksum, all 105 column types and exact query definitions must match the supporting reference manifest.
+
+Use the restored namespace for read-only queries and independently validate results against the saved typed DuckDB references. The current `run.py` creates a fresh namespace and ingests by default; `--resume-result` explicitly rejects clustered/parallel loads. Do not use either as an implicit restore or reuse mechanism. A repeat benchmark against restored data must explicitly run the read-only trial phase with the existing namespace, maintain per-query isolation and deadline checks, and label loading time as restored rather than claim an ingestion measurement. The saved `full_job.py`, source archive and trial job JSONs provide the exact original commands and query/isolation configuration.
+
+Changing the number of primaries requires a controlled restore followed by resharding and revalidation; simply loading 48 RDBs onto another primary count is unsafe. Any image or driver change should first pass catalog, index and result correctness checks.
+
+## Repeating the supported scan comparison
+
+The source archive includes `benchmarks/clickbench/scan_paths.py`, `scan_trial.py` and `scan_validate.py`. After restoring and checking the existing namespace, use the scan harness command documented in the archived benchmark README. Preserve the prior-run JSON, driver hash, verified endpoint/placement and a finite deadline. It compares statement execution with actual ExecutePartitions/ReadPartition calls, using matching Arrow IPC output work and exact validation outside timing. Raw scan Arrow files are retained under `support/scan-data/`, with jobs/validation under `support/results/scan-jobs/`; paths in the JSON refer to the original client and must be mapped to downloaded locations for independent revalidation. The 43 original ClickBench SQL queries remain a separate statement-path result.

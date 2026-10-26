@@ -1,0 +1,75 @@
+redis: 2026/10/22 11:15:32 pool.go:1404: Conn has unread data (not push notification), removing it
+--- FAIL: TestSQLFunctionsArgCounts (0.08s)
+    funcs_integration_test.go:220: SELECT @>(1) FROM it_fx_e
+         error: "syntax error: unexpected \"@>\""
+          want: "@> expects 2 arguments"
+    funcs_integration_test.go:220: SELECT @>(1, 1, 1) FROM it_fx_e
+         error: "syntax error: unexpected \"@>\""
+          want: "@> expects 2 arguments"
+    funcs_integration_test.go:220: SELECT <@(1) FROM it_fx_e
+         error: "syntax error: unexpected \"<@\""
+          want: "<@ expects 2 arguments"
+    funcs_integration_test.go:220: SELECT <@(1, 1, 1) FROM it_fx_e
+         error: "syntax error: unexpected \"<@\""
+          want: "<@ expects 2 arguments"
+    funcs_integration_test.go:220: SELECT &&(1) FROM it_fx_e
+         error: "syntax error: unexpected \"&&\""
+          want: "&& expects 2 arguments"
+    funcs_integration_test.go:220: SELECT &&(1, 1, 1) FROM it_fx_e
+         error: "syntax error: unexpected \"&&\""
+          want: "&& expects 2 arguments"
+    funcs_integration_test.go:220: SELECT * FROM GENERATE_SERIES(1)
+         error: "function generate_series(integer) does not exist"
+          want: "GENERATE_SERIES expects 2 or 3 arguments"
+    funcs_integration_test.go:220: SELECT * FROM GENERATE_SERIES(1, 1, 1, 1)
+         error: "function generate_series(integer, integer, integer, integer) does not exist"
+          want: "GENERATE_SERIES expects 2 or 3 arguments"
+    funcs_integration_test.go:238: SELECT * FROM generate_series(1)
+         error: "function generate_series(integer) does not exist"
+          want: "GENERATE_SERIES expects 2 or 3 arguments"
+--- FAIL: TestSQLFunctionsNamesAndForms (0.02s)
+    funcs_integration_test.go:442: SELECT * FROM nosuchfunc(1)
+         error: "function nosuchfunc(integer) does not exist"
+          want: "table function nosuchfunc is not supported (only GENERATE_SERIES is)"
+    funcs_integration_test.go:478: SELECT generate_series(1, 2) FROM it_fx_e: no error, want "generate_series is only supported in FROM (SELECT … FROM generate_series(…) AS g)"
+--- FAIL: TestFuncRegistryEvaluates (0.01s)
+    funcs_test.go:200: <@ has no sample call in funcSamples
+    funcs_test.go:200: ARRAY_TO_STRING has no sample call in funcSamples
+    funcs_test.go:200: __ARRAY_SUBSCRIPT has no sample call in funcSamples
+    funcs_test.go:200: __ARRAY_QUERY has no sample call in funcSamples
+    funcs_test.go:200: ARRAY_REMOVE has no sample call in funcSamples
+    funcs_test.go:200: REGEXP_MATCHES has no sample call in funcSamples
+    funcs_test.go:200: ARRAY_UPPER has no sample call in funcSamples
+    funcs_test.go:200: ARRAY_DIMS has no sample call in funcSamples
+    funcs_test.go:200: @> has no sample call in funcSamples
+    funcs_test.go:200: ARRAY_PREPEND has no sample call in funcSamples
+    funcs_test.go:200: ARRAY_POSITION has no sample call in funcSamples
+    funcs_test.go:200: REGEXP_SPLIT_TO_TABLE has no sample call in funcSamples
+    funcs_test.go:200: REGEXP_SPLIT_TO_ARRAY has no sample call in funcSamples
+    funcs_test.go:200: ARRAY_APPEND has no sample call in funcSamples
+    funcs_test.go:200: STRING_TO_TABLE has no sample call in funcSamples
+    funcs_test.go:200: ARRAY_POSITIONS has no sample call in funcSamples
+    funcs_test.go:200: && has no sample call in funcSamples
+    funcs_test.go:200: ARRAY_REPLACE has no sample call in funcSamples
+    funcs_test.go:200: ARRAY_CAT has no sample call in funcSamples
+    funcs_test.go:200: STRING_TO_ARRAY has no sample call in funcSamples
+    funcs_test.go:200: ARRAY_LOWER has no sample call in funcSamples
+--- FAIL: TestFuncRegistryCoversEvaluator (0.06s)
+    funcs_test.go:351: set_returning.go:19:15: "__ORDINALITY" is used as a function name but isn't registered in funcs.go
+    funcs_test.go:351: set_returning.go:19:43: "__ROWS_FROM" is used as a function name but isn't registered in funcs.go
+    funcs_test.go:351: set_returning.go:25:15: "__ORDINALITY" is used as a function name but isn't registered in funcs.go
+    funcs_test.go:351: set_returning.go:29:15: "__ROWS_FROM" is used as a function name but isn't registered in funcs.go
+    funcs_test.go:351: set_returning.go:153:15: "__ORDINALITY" is used as a function name but isn't registered in funcs.go
+    funcs_test.go:351: set_returning.go:160:15: "__ROWS_FROM" is used as a function name but isn't registered in funcs.go
+    funcs_test.go:351: sql.go:1749:26: "__ROWS_FROM" is used as a function name but isn't registered in funcs.go
+    funcs_test.go:351: sql.go:1782:26: "__ORDINALITY" is used as a function name but isn't registered in funcs.go
+--- FAIL: TestFuncUnboundErrors (0.00s)
+    funcs_test.go:431: checkCalls(generate_series(1, 2)) = <nil>, want an error containing "generate_series is only supported in FROM"
+redis: 2026/10/22 11:17:00 pool.go:770: redis: connection pool: failed to dial after 5 attempts: private dialer sentinel
+--- FAIL: TestSQLGenerateSeries (0.05s)
+    query_forms_integration_test.go:685: SELECT generate_series(1, 3): expected an error containing "generate_series is only supported in FROM"
+FAIL
+FAIL	github.com/adbc-drivers/redis/go	162.497s
+ok  	github.com/adbc-drivers/redis/go/cmd/redis-adbc	0.828s
+ok  	github.com/adbc-drivers/redis/go/internal/benchproxy	0.251s
+FAIL

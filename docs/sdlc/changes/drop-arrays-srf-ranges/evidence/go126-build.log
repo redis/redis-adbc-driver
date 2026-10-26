@@ -1,0 +1,2 @@
+mkdir -p build
+CGO_ENABLED=1 go build -buildmode=c-shared -tags driverlib -ldflags "-s -w -X github.com/adbc-drivers/driverbase-go/driverbase.infoDriverVersion=v0.1.0" -o /private/tmp/redis-four-go126.dylib ./pkg

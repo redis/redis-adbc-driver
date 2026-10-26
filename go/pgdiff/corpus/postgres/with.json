@@ -1,0 +1,64 @@
+{
+  "area": "with",
+  "tier": "postgres",
+  "source": "https://raw.githubusercontent.com/postgres/postgres/7d3e000c5961a544302072058a1184e9a588837b/src/test/regress/sql/with.sql",
+  "provenance": {
+    "version": "REL_16_15",
+    "commit": "7d3e000c5961a544302072058a1184e9a588837b",
+    "sha256": "e76fa662f0679f7220b78799c948244d62982f7c65ebbfa0c8e40f8aeeceb921",
+    "fixture": "Curated independent subset; reduced fixtures, not the full upstream regression database."
+  },
+  "setup": [],
+  "cases": [
+    {
+      "id": "statement-0000",
+      "sql": "WITH q1(x,y) AS (SELECT 1,2)\nSELECT * FROM q1, q1 AS q2;",
+      "source_statement": 0,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0002",
+      "sql": "WITH RECURSIVE t(n) AS (\n    VALUES (1)\nUNION ALL\n    SELECT n+1 FROM t WHERE n < 100\n)\nSELECT sum(n) FROM t;",
+      "source_statement": 2,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0003",
+      "sql": "WITH RECURSIVE t(n) AS (\n    SELECT (VALUES(1))\nUNION ALL\n    SELECT n+1 FROM t WHERE n < 5\n)\nSELECT * FROM t;",
+      "source_statement": 3,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0009",
+      "sql": "WITH RECURSIVE t(n) AS (\n    SELECT 1\nUNION\n    SELECT 10-n FROM t)\nSELECT * FROM t;",
+      "source_statement": 9,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0010",
+      "sql": "WITH RECURSIVE t(n) AS (\n    VALUES (1)\nUNION ALL\n    SELECT n+1 FROM t)\nSELECT * FROM t LIMIT 10;",
+      "source_statement": 10,
+      "expect_postgres": null,
+      "ordered": false
+    },
+    {
+      "id": "statement-0011",
+      "sql": "WITH RECURSIVE t(n) AS (\n    SELECT 1\nUNION\n    SELECT n+1 FROM t)\nSELECT * FROM t LIMIT 10;",
+      "source_statement": 11,
+      "expect_postgres": null,
+      "ordered": false
+    },
+    {
+      "id": "statement-0015",
+      "sql": "WITH RECURSIVE w1(c1) AS\n (WITH w2(c2) AS\n  (WITH w3(c3) AS\n   (WITH w4(c4) AS\n    (WITH w5(c5) AS\n     (WITH RECURSIVE w6(c6) AS\n      (WITH w6(c6) AS\n       (WITH w8(c8) AS\n        (SELECT 1)\n        SELECT * FROM w8)\n       SELECT * FROM w6)\n      SELECT * FROM w6)\n     SELECT * FROM w5)\n    SELECT * FROM w4)\n   SELECT * FROM w3)\n  SELECT * FROM w2)\nSELECT * FROM w1;",
+      "source_statement": 15,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0016",
+      "sql": "WITH RECURSIVE outermost(x) AS (\n SELECT 1\n UNION (WITH innermost1 AS (\n  SELECT 2\n  UNION (WITH innermost2 AS (\n   SELECT 3\n   UNION (WITH innermost3 AS (\n    SELECT 4\n    UNION (WITH innermost4 AS (\n     SELECT 5\n     UNION (WITH innermost5 AS (\n      SELECT 6\n      UNION (WITH innermost6 AS\n       (SELECT 7)\n       SELECT * FROM innermost6))\n      SELECT * FROM innermost5))\n     SELECT * FROM innermost4))\n    SELECT * FROM innermost3))\n   SELECT * FROM innermost2))\n  SELECT * FROM outermost\n  UNION SELECT * FROM innermost1)\n )\n SELECT * FROM outermost ORDER BY 1;",
+      "source_statement": 16,
+      "expect_postgres": null
+    }
+  ]
+}

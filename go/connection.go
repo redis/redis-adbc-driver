@@ -1,0 +1,489 @@
+// Copyright (c) 2026 ADBC Drivers Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//         http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package redis
+
+import (
+	"context"
+	"regexp"
+	"slices"
+	"strconv"
+	"strings"
+	"sync/atomic"
+
+	"github.com/adbc-drivers/driverbase-go/driverbase"
+	"github.com/apache/arrow-adbc/go/adbc"
+	"github.com/apache/arrow-go/v18/arrow"
+	goredis "github.com/redis/go-redis/v9"
+)
+
+type connectionImpl struct {
+	retainedNamespace           string
+	partitionControlPersistence string
+	retainedLimits              retainedLimits
+	readerOnly                  bool
+	retainedClient              goredis.UniversalClient
+	driverbase.ConnectionImplBase
+
+	store *store
+	// sess holds the settings: the current schema, and what SET changes.
+	sess             *session
+	pushdown         string
+	queryWorkers     int
+	workerBudget     *workerBudget
+	workerGrant      atomic.Int64
+	aggregateMetrics atomic.Pointer[partitionMetrics]
+	version          string
+	// rekey is adbc.redis.rename_rekey (from the database unless set on the
+	// connection).
+	rekey bool
+	// stream is adbc.redis.stream_results and stream_batch_rows, from the
+	// database; streams are the results being streamed (see stream.go).
+	stream  streamSettings
+	streams streams
+
+	// clientCfg is what the client was made from, and timeouts its
+	// timeouts (see timeout.go). writeFollows is set while the write
+	// timeout follows the read timeout.
+	clientCfg    *clientConfig
+	timeouts     timeouts
+	writeFollows bool
+}
+
+func (c *connectionImpl) executor() *executor {
+	metrics := &partitionMetrics{}
+	c.aggregateMetrics.Store(metrics)
+	return &executor{store: c.store, partitionNamespace: c.retainedNamespace, sess: c.sess, schema: c.sess.currentSchema(), pushdown: c.pushdown, queryWorkers: c.queryWorkers, workerBudget: c.workerBudget, workerGrant: &c.workerGrant, aggregateMetrics: metrics, rekey: c.rekey}
+}
+
+func (c *connectionImpl) GetOption(ctx context.Context, key string) (string, error) {
+	switch key {
+	case OptionStringPartitionResultNamespace:
+		return c.retainedNamespace, nil
+	case OptionStringPartitionReaderOnly:
+		return strconv.FormatBool(c.readerOnly), nil
+	case OptionStringPartitionResultLimits:
+		return retainedJSON(c.retainedLimits), nil
+	case OptionStringForeignIndexes:
+		return strconv.FormatBool(c.store.foreignIndexes), nil
+	case OptionStringAggregateMetrics:
+		return c.aggregateMetrics.Load().json(), nil
+	case OptionIntQueryWorkersLastGrant:
+		return strconv.FormatInt(c.workerGrant.Load(), 10), nil
+	case OptionStringQueryWorkerBudget, OptionIntQueryWorkersActive, OptionIntQueryWorkersQueued, OptionStringQueryWorkerTuning:
+		return c.workerBudget.option(key), nil
+	case OptionStringQueryWorkers:
+		return strconv.Itoa(effectiveQueryWorkers(c.queryWorkers)), nil
+	case OptionStringRenameRekey:
+		return strconv.FormatBool(c.rekey), nil
+	case OptionStringReadTimeout:
+		return formatTimeout(c.timeouts.read), nil
+	case OptionStringWriteTimeout:
+		return formatTimeout(c.timeouts.write), nil
+	case OptionStringTimeZone:
+		return c.sess.value("timezone").text, nil
+	case OptionStringTemporaryObjects:
+		return strconv.FormatBool(c.store != nil && c.store.hasTempObjects()), nil
+	}
+	return c.ConnectionImplBase.GetOption(ctx, key)
+}
+
+func (c *connectionImpl) SetOption(ctx context.Context, key, value string) error {
+	switch key {
+	case OptionStringForeignIndexes:
+		v, err := parseForeignIndexes(value)
+		if err != nil {
+			return err
+		}
+		c.store.foreignIndexes = v
+		return nil
+	case adbc.OptionKeyAutoCommit:
+		switch value {
+		case adbc.OptionValueEnabled:
+			return nil
+		case adbc.OptionValueDisabled:
+			return errorf(adbc.StatusNotImplemented, "transactions are not supported (autocommit only)")
+		default:
+			return errorf(adbc.StatusInvalidArgument, "invalid autocommit value %q: expected true or false", value)
+		}
+	case OptionStringRenameRekey:
+		rekey, err := parseRenameRekey(value)
+		if err != nil {
+			return err
+		}
+		c.rekey = rekey
+		return nil
+	case OptionStringReadTimeout, OptionStringWriteTimeout:
+		d, err := parseTimeout(key, value)
+		if err != nil {
+			return err
+		}
+		t, follows := c.timeouts, c.writeFollows
+		if key == OptionStringReadTimeout {
+			t.read = d
+			if follows {
+				t.write = d
+			}
+		} else {
+			t.write, follows = d, false
+		}
+		if err := c.setTimeouts(ctx, t); err != nil {
+			return err
+		}
+		c.writeFollows = follows
+		return nil
+	case OptionStringTimeZone:
+		tz, err := timeZoneParam(value)
+		if err != nil {
+			return err
+		}
+		c.sess.setDefaultZone(tz)
+		return nil
+	case OptionStringTemporaryObjects:
+		return errorf(adbc.StatusInvalidArgument, "%s is read-only", key)
+	}
+	return c.ConnectionImplBase.SetOption(ctx, key, value)
+}
+
+// setTimeouts gives the connection a client with other timeouts. go-redis
+// fixes them when a client is made, so this makes a new one. The old one
+// stays open until the connection closes, for background work that still
+// uses it (cleanups, string column checks, the temporary schema's
+// heartbeat, a rename's lease).
+func (c *connectionImpl) setTimeouts(ctx context.Context, t timeouts) error {
+	if t == c.timeouts {
+		return nil
+	}
+	if c.store == nil || c.store.isClosed() {
+		return errConnClosed
+	}
+	_, cluster := c.store.client.(*goredis.ClusterClient)
+	client := newClient(c.clientCfg, cluster, t)
+	if err := client.Ping(ctx).Err(); err != nil {
+		_ = client.Close()
+		return wrapRedis(err, "failed to connect to Redis")
+	}
+	c.store.mu.Lock()
+	c.store.retired = append(c.store.retired, c.store.client)
+	c.retainedClient = nil
+	c.store.mu.Unlock()
+	c.store.client = client
+	c.timeouts = t
+	return nil
+}
+
+// errConnClosed refuses what needs the connection once it is closed.
+var errConnClosed = errorf(adbc.StatusInvalidState, "the connection is closed")
+
+func (c *connectionImpl) Close(ctx context.Context) error {
+	// Mark closed before taking the owner snapshot, while clients remain open
+	// for cursor cleanup. A newly registered coordinator can then see closure.
+	if c.store == nil || !c.store.setClosed() {
+		return nil
+	}
+	// Renames running on other goroutines stop, and are rolled back, while
+	// the client is open (see rekey.go).
+	c.store.stopRekeys(ctx)
+	c.streams.closeAll(errorf(adbc.StatusInvalidState, "the connection was closed while its result was being read"))
+	// Best effort: whatever can't be dropped now is swept by a later
+	// connection (see temp.go).
+	_ = c.store.dropTempSchema(ctx)
+	// The client stays set: a statement still running on another goroutine
+	// fails with "redis: client is closed".
+	err := c.store.client.Close()
+	c.store.mu.Lock()
+	retired := c.store.retired
+	c.store.retired = nil
+	c.store.mu.Unlock()
+	for _, old := range retired {
+		_ = old.Close()
+	}
+	return err
+}
+
+func (c *connectionImpl) PrepareDriverInfo(ctx context.Context, infoCodes []adbc.InfoCode) error {
+	if c.version == "" {
+		v, err := c.store.serverVersion(ctx)
+		if err != nil {
+			return err
+		}
+		c.version = v
+	}
+	if err := c.DriverInfo.RegisterInfoCode(adbc.InfoVendorName, "Redis"); err != nil {
+		return err
+	}
+	return c.DriverInfo.RegisterInfoCode(adbc.InfoVendorVersion, c.version)
+}
+
+func (c *connectionImpl) Commit(ctx context.Context) error {
+	return errorf(adbc.StatusInvalidState, "transactions are not supported (autocommit only)")
+}
+
+func (c *connectionImpl) Rollback(ctx context.Context) error {
+	return errorf(adbc.StatusInvalidState, "transactions are not supported (autocommit only)")
+}
+
+func (c *connectionImpl) NewStatement(ctx context.Context) (adbc.StatementWithContext, error) {
+	st := &statementImpl{
+		StatementImplBase: driverbase.NewStatementImplBase(&c.ConnectionImplBase, c.ErrorHelper),
+		conn:              c,
+		ingest:            driverbase.NewBulkIngestOptions(),
+		stream:            c.stream,
+	}
+	// Not driverbase.NewStatement(st): its wrapper embeds the StatementImpl
+	// interface, which hides Cancel from AdbcStatementCancel (it looks for
+	// driverbase.StatementCanceler).
+	return st, nil
+}
+
+// ---- CurrentNamespacer ----
+
+func (c *connectionImpl) GetCurrentCatalog(ctx context.Context) (string, error) {
+	return catalogName, nil
+}
+
+func (c *connectionImpl) GetCurrentDbSchema(ctx context.Context) (string, error) {
+	return c.sess.currentSchema(), nil
+}
+
+func (c *connectionImpl) SetCurrentCatalog(ctx context.Context, catalog string) error {
+	if catalog != catalogName {
+		return errorf(adbc.StatusNotFound, "catalog %q does not exist", catalog)
+	}
+	return nil
+}
+
+func (c *connectionImpl) SetCurrentDbSchema(ctx context.Context, schema string) error {
+	ok, err := c.store.schemaExists(ctx, schema)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return stateErrorf(stateUndefinedSchema, "schema %q does not exist", schema)
+	}
+	c.sess.setSchema(schema)
+	return nil
+}
+
+// ---- metadata ----
+
+func (c *connectionImpl) ListTableTypes(ctx context.Context) ([]string, error) {
+	return []string{"TABLE", "VIEW"}, nil
+}
+
+func (c *connectionImpl) GetTableSchema(ctx context.Context, catalog *string, dbSchema *string, tableName string) (*arrow.Schema, error) {
+	name := TableName{Name: tableName}
+	if catalog != nil {
+		name.Catalog = *catalog
+	}
+	if dbSchema != nil {
+		name.Schema = *dbSchema
+	}
+	// Without a schema, a temporary table or view comes first.
+	schema, _, err := c.executor().resolveTable(name)
+	if err != nil {
+		return nil, err
+	}
+	meta, err := c.store.getTable(ctx, schema, tableName)
+	if err != nil {
+		v, verr := c.store.getView(ctx, schema, tableName)
+		if verr != nil {
+			return nil, err
+		}
+		meta = &tableMeta{Schema: schema, Name: tableName, Columns: v.Columns}
+	}
+	fields := make([]arrow.Field, len(meta.Columns))
+	for i, col := range meta.Columns {
+		fields[i] = arrowField(col.Name, col.Type, col.Nullable)
+		if col.Comment != "" {
+			md := fields[i].Metadata
+			keys := append(slices.Clone(md.Keys()), remarksKey)
+			fields[i].Metadata = arrow.NewMetadata(keys, append(slices.Clone(md.Values()), col.Comment))
+		}
+	}
+	return arrow.NewSchema(fields, nil), nil
+}
+
+// matchPattern implements SQL LIKE matching with '%' and '_'.
+func matchPattern(value string, pattern *string) bool {
+	if pattern == nil {
+		return true
+	}
+	var b strings.Builder
+	b.WriteString("(?s)^")
+	for _, r := range *pattern {
+		switch r {
+		case '%':
+			b.WriteString(".*")
+		case '_':
+			b.WriteString(".")
+		default:
+			b.WriteString(regexp.QuoteMeta(string(r)))
+		}
+	}
+	b.WriteString("$")
+	re, err := regexp.Compile(b.String())
+	if err != nil {
+		return false
+	}
+	return re.MatchString(value)
+}
+
+func (c *connectionImpl) GetCatalogs(ctx context.Context, catalogFilter *string) ([]string, error) {
+	if !matchPattern(catalogName, catalogFilter) {
+		return nil, nil
+	}
+	return []string{catalogName}, nil
+}
+
+func (c *connectionImpl) GetDBSchemasForCatalog(ctx context.Context, catalog string, schemaFilter *string) ([]string, error) {
+	if catalog != catalogName {
+		return nil, nil
+	}
+	all, err := c.store.listSchemas(ctx)
+	if err != nil {
+		return nil, err
+	}
+	// The connection's own temporary objects are listed under pg_temp.
+	if c.store.hasTempObjects() {
+		all = append(all, tempAlias)
+		slices.Sort(all)
+	}
+	var out []string
+	for _, s := range all {
+		if matchPattern(s, schemaFilter) {
+			out = append(out, s)
+		}
+	}
+	return out, nil
+}
+
+func (c *connectionImpl) GetTablesForDBSchema(ctx context.Context, catalog string, schema string, tableFilter *string, columnFilter *string, includeColumns bool) ([]driverbase.TableInfo, error) {
+	if catalog != catalogName {
+		return nil, nil
+	}
+	if isTempAlias(schema) {
+		schema = c.store.tempSchema()
+	} else if isTempSchema(schema) {
+		return []driverbase.TableInfo{}, nil
+	}
+	tables, err := c.store.listTables(ctx, schema)
+	if err != nil {
+		return nil, err
+	}
+	views, err := c.store.listViews(ctx, schema)
+	if err != nil {
+		return nil, err
+	}
+	type entry struct{ name, kind string }
+	var entries []entry
+	for _, n := range tables {
+		entries = append(entries, entry{n, "TABLE"})
+	}
+	for _, n := range views {
+		entries = append(entries, entry{n, "VIEW"})
+	}
+	slices.SortFunc(entries, func(a, b entry) int { return strings.Compare(a.name, b.name) })
+
+	out := []driverbase.TableInfo{}
+	for _, ent := range entries {
+		if !matchPattern(ent.name, tableFilter) {
+			continue
+		}
+		info := driverbase.TableInfo{TableName: ent.name, TableType: ent.kind}
+		if includeColumns {
+			var cols []columnMeta
+			var meta *tableMeta
+			var err error
+			if ent.kind == "VIEW" {
+				var v *viewMeta
+				if v, err = c.store.getView(ctx, schema, ent.name); err == nil {
+					cols = v.Columns
+				}
+			} else if meta, err = c.store.getTable(ctx, schema, ent.name); err == nil {
+				cols = meta.Columns
+			}
+			if err != nil {
+				var ae adbc.Error
+				if asAdbc(err, &ae) && ae.Code == adbc.StatusNotFound {
+					continue
+				}
+				return nil, err
+			}
+			info.TableColumns = []driverbase.ColumnInfo{}
+			for i, col := range cols {
+				if !matchPattern(col.Name, columnFilter) {
+					continue
+				}
+				pos := int32(i + 1)
+				typeName := col.Type.SQLName()
+				nullable := int16(0)
+				isNullable := "NO"
+				if col.Nullable {
+					nullable = 1
+					isNullable = "YES"
+				}
+				ci := driverbase.ColumnInfo{
+					ColumnName:      col.Name,
+					OrdinalPosition: &pos,
+					XdbcTypeName:    &typeName,
+					XdbcNullable:    &nullable,
+					XdbcIsNullable:  &isNullable,
+				}
+				if n := col.Type.Length; col.Type.Kind == KindString && n > 0 {
+					// Characters, and bytes at up to 4 per UTF-8 character.
+					size, octets := n, 4*n
+					ci.XdbcColumnSize, ci.XdbcCharOctetLength = &size, &octets
+				}
+				if k := col.Type.Kind; k == KindTime || k == KindTimeTZ || k == KindTimestamp {
+					// The fractional-second digits, TIMESTAMP(p)'s p.
+					digits := int16(col.Type.fracDigits())
+					ci.XdbcDecimalDigits = &digits
+				}
+				if col.Default != "" {
+					def := col.Default
+					ci.XdbcColumnDef = &def
+				}
+				if col.Comment != "" {
+					remarks := col.Comment
+					ci.Remarks = &remarks
+				}
+				info.TableColumns = append(info.TableColumns, ci)
+			}
+			// The primary key (its columns in key order, see pkey.go) and
+			// the CHECK constraints are the only ones kept (see check.go).
+			info.TableConstraints = []driverbase.ConstraintInfo{}
+			if meta != nil {
+				if k := meta.PrimaryKey; k != nil {
+					name := k.Name
+					info.TableConstraints = append(info.TableConstraints, driverbase.ConstraintInfo{
+						ConstraintName:        &name,
+						ConstraintType:        "PRIMARY KEY",
+						ConstraintColumnNames: driverbase.RequiredList(meta.keyColumns()),
+					})
+				}
+				for _, chk := range meta.Checks {
+					name := chk.Name
+					info.TableConstraints = append(info.TableConstraints, driverbase.ConstraintInfo{
+						ConstraintName:        &name,
+						ConstraintType:        "CHECK",
+						ConstraintColumnNames: driverbase.RequiredList(checkColumns(meta, chk.Expr)),
+					})
+				}
+			}
+		}
+		out = append(out, info)
+	}
+	return out, nil
+}

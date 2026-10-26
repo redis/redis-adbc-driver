@@ -1,0 +1,1250 @@
+{
+  "kind": "local ClickBench API comparison pilot; not a leaderboard result",
+  "cpu_count": 18,
+  "host_memory_bytes": 38654705664,
+  "rows_ingested": 1000,
+  "rows_retained": 1000,
+  "layout": "dense",
+  "columns": 105,
+  "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+  "upstream_commit": "ccda3033f3c7303d9d7f9634d6dae118ef085f96",
+  "driver_revision": "4b92de6e55c6ac7cf3fc9903ff60ee8379abdfe8",
+  "source_dirty": true,
+  "driver_sha256": "f42eba950e767cc3c2bed3346e10f6ed2091493955a3bd4e91be4c747197ec75",
+  "source_prefix_sha256": "d053397f7aa5b2e1ee9160779a9e9307b162c6994aebba829c7ea1411076c4d0",
+  "redis_version": "8.6.2",
+  "search_module": [
+    {
+      "name": "bf",
+      "ver": 80600,
+      "path": "/usr/local/lib/redis/modules//redisbloom.so",
+      "args": []
+    },
+    {
+      "name": "search",
+      "ver": 80600,
+      "path": "/usr/local/lib/redis/modules//redisearch.so",
+      "args": []
+    },
+    {
+      "name": "vectorset",
+      "ver": 1,
+      "path": "",
+      "args": []
+    },
+    {
+      "name": "timeseries",
+      "ver": 80600,
+      "path": "/usr/local/lib/redis/modules//redistimeseries.so",
+      "args": []
+    },
+    {
+      "name": "ReJSON",
+      "ver": 80600,
+      "path": "/usr/local/lib/redis/modules//rejson.so",
+      "args": []
+    }
+  ],
+  "aggregate_cap": "2147483648",
+  "packages": {
+    "pyarrow": "26.0.0",
+    "adbc-driver-manager": "1.12.0",
+    "duckdb": "2.0.0",
+    "redis": "8.1.0",
+    "psutil": "7.2.2"
+  },
+  "measurement_notes": [
+    "End-to-end includes planning, fresh child process/connection startup, full fetch and Arrow IPC writes; parent validation is outside the timer.",
+    "Process-tree RSS sums shared pages and includes coordinator/source/oracle state; sampled peak can miss short transients. Worker rusage is lifetime peak including imports.",
+    "Network deltas include INFO telemetry and other traffic to this dedicated server; server memory is sampled, not isolated per query.",
+    "Local reduced-data pilot with no enforced process memory limit; not full-scale or Cloud ClickBench scores.",
+    "Ingest and expected field names fold to lowercase to match unquoted PostgreSQL identifiers; official SQL is unchanged apart from schema qualification."
+  ],
+  "official_partition_coverage": [
+    {
+      "query": 1,
+      "sql": "SELECT COUNT(*) FROM hits;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partition projection contains an unsupported expression"
+    },
+    {
+      "query": 2,
+      "sql": "SELECT COUNT(*) FROM hits WHERE AdvEngineID <> 0;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partition projection contains an unsupported expression"
+    },
+    {
+      "query": 3,
+      "sql": "SELECT SUM(AdvEngineID), COUNT(*), AVG(ResolutionWidth) FROM hits;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partition projection contains an unsupported expression"
+    },
+    {
+      "query": 4,
+      "sql": "SELECT AVG(UserID) FROM hits;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partition projection contains an unsupported expression"
+    },
+    {
+      "query": 5,
+      "sql": "SELECT COUNT(DISTINCT UserID) FROM hits;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partition projection contains an unsupported expression"
+    },
+    {
+      "query": 6,
+      "sql": "SELECT COUNT(DISTINCT SearchPhrase) FROM hits;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partition projection contains an unsupported expression"
+    },
+    {
+      "query": 7,
+      "sql": "SELECT MIN(EventDate), MAX(EventDate) FROM hits;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partition projection contains an unsupported expression"
+    },
+    {
+      "query": 8,
+      "sql": "SELECT AdvEngineID, COUNT(*) FROM hits WHERE AdvEngineID <> 0 GROUP BY AdvEngineID ORDER BY COUNT(*) DESC;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 9,
+      "sql": "SELECT RegionID, COUNT(DISTINCT UserID) AS u FROM hits GROUP BY RegionID ORDER BY u DESC LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 10,
+      "sql": "SELECT RegionID, SUM(AdvEngineID), COUNT(*) AS c, AVG(ResolutionWidth), COUNT(DISTINCT UserID) FROM hits GROUP BY RegionID ORDER BY c DESC LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 11,
+      "sql": "SELECT MobilePhoneModel, COUNT(DISTINCT UserID) AS u FROM hits WHERE MobilePhoneModel <> '' GROUP BY MobilePhoneModel ORDER BY u DESC LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 12,
+      "sql": "SELECT MobilePhone, MobilePhoneModel, COUNT(DISTINCT UserID) AS u FROM hits WHERE MobilePhoneModel <> '' GROUP BY MobilePhone, MobilePhoneModel ORDER BY u DESC LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 13,
+      "sql": "SELECT SearchPhrase, COUNT(*) AS c FROM hits WHERE SearchPhrase <> '' GROUP BY SearchPhrase ORDER BY c DESC LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 14,
+      "sql": "SELECT SearchPhrase, COUNT(DISTINCT UserID) AS u FROM hits WHERE SearchPhrase <> '' GROUP BY SearchPhrase ORDER BY u DESC LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 15,
+      "sql": "SELECT SearchEngineID, SearchPhrase, COUNT(*) AS c FROM hits WHERE SearchPhrase <> '' GROUP BY SearchEngineID, SearchPhrase ORDER BY c DESC LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 16,
+      "sql": "SELECT UserID, COUNT(*) FROM hits GROUP BY UserID ORDER BY COUNT(*) DESC LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 17,
+      "sql": "SELECT UserID, SearchPhrase, COUNT(*) FROM hits GROUP BY UserID, SearchPhrase ORDER BY COUNT(*) DESC LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 18,
+      "sql": "SELECT UserID, SearchPhrase, COUNT(*) FROM hits GROUP BY UserID, SearchPhrase LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 19,
+      "sql": "SELECT UserID, extract(minute FROM EventTime) AS m, SearchPhrase, COUNT(*) FROM hits GROUP BY UserID, m, SearchPhrase ORDER BY COUNT(*) DESC LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 20,
+      "sql": "SELECT UserID FROM hits WHERE UserID = 435090932899640449;",
+      "status": "supported"
+    },
+    {
+      "query": 21,
+      "sql": "SELECT COUNT(*) FROM hits WHERE URL LIKE '%google%';",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partition predicate contains an unsupported expression"
+    },
+    {
+      "query": 22,
+      "sql": "SELECT SearchPhrase, MIN(URL), COUNT(*) AS c FROM hits WHERE URL LIKE '%google%' AND SearchPhrase <> '' GROUP BY SearchPhrase ORDER BY c DESC LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 23,
+      "sql": "SELECT SearchPhrase, MIN(URL), MIN(Title), COUNT(*) AS c, COUNT(DISTINCT UserID) FROM hits WHERE Title LIKE '%Google%' AND URL NOT LIKE '%.google.%' AND SearchPhrase <> '' GROUP BY SearchPhrase ORDER BY c DESC LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 24,
+      "sql": "SELECT * FROM hits WHERE URL LIKE '%google%' ORDER BY EventTime LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 25,
+      "sql": "SELECT SearchPhrase FROM hits WHERE SearchPhrase <> '' ORDER BY EventTime LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 26,
+      "sql": "SELECT SearchPhrase FROM hits WHERE SearchPhrase <> '' ORDER BY SearchPhrase LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 27,
+      "sql": "SELECT SearchPhrase FROM hits WHERE SearchPhrase <> '' ORDER BY EventTime, SearchPhrase LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 28,
+      "sql": "SELECT CounterID, AVG(length(URL)) AS l, COUNT(*) AS c FROM hits WHERE URL <> '' GROUP BY CounterID HAVING COUNT(*) > 100000 ORDER BY l DESC LIMIT 25;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 29,
+      "sql": "SELECT REGEXP_REPLACE(Referer, '^https?://(?:www\\.)?([^/]+)/.*$', '\\1') AS k, AVG(length(Referer)) AS l, COUNT(*) AS c, MIN(Referer) FROM hits WHERE Referer <> '' GROUP BY k HAVING COUNT(*) > 100000 ORDER BY l DESC LIMIT 25;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 30,
+      "sql": "SELECT SUM(ResolutionWidth), SUM(ResolutionWidth + 1), SUM(ResolutionWidth + 2), SUM(ResolutionWidth + 3), SUM(ResolutionWidth + 4), SUM(ResolutionWidth + 5), SUM(ResolutionWidth + 6), SUM(ResolutionWidth + 7), SUM(ResolutionWidth + 8), SUM(ResolutionWidth + 9), SUM(ResolutionWidth + 10), SUM(ResolutionWidth + 11), SUM(ResolutionWidth + 12), SUM(ResolutionWidth + 13), SUM(ResolutionWidth + 14), SUM(ResolutionWidth + 15), SUM(ResolutionWidth + 16), SUM(ResolutionWidth + 17), SUM(ResolutionWidth + 18), SUM(ResolutionWidth + 19), SUM(ResolutionWidth + 20), SUM(ResolutionWidth + 21), SUM(ResolutionWidth + 22), SUM(ResolutionWidth + 23), SUM(ResolutionWidth + 24), SUM(ResolutionWidth + 25), SUM(ResolutionWidth + 26), SUM(ResolutionWidth + 27), SUM(ResolutionWidth + 28), SUM(ResolutionWidth + 29), SUM(ResolutionWidth + 30), SUM(ResolutionWidth + 31), SUM(ResolutionWidth + 32), SUM(ResolutionWidth + 33), SUM(ResolutionWidth + 34), SUM(ResolutionWidth + 35), SUM(ResolutionWidth + 36), SUM(ResolutionWidth + 37), SUM(ResolutionWidth + 38), SUM(ResolutionWidth + 39), SUM(ResolutionWidth + 40), SUM(ResolutionWidth + 41), SUM(ResolutionWidth + 42), SUM(ResolutionWidth + 43), SUM(ResolutionWidth + 44), SUM(ResolutionWidth + 45), SUM(ResolutionWidth + 46), SUM(ResolutionWidth + 47), SUM(ResolutionWidth + 48), SUM(ResolutionWidth + 49), SUM(ResolutionWidth + 50), SUM(ResolutionWidth + 51), SUM(ResolutionWidth + 52), SUM(ResolutionWidth + 53), SUM(ResolutionWidth + 54), SUM(ResolutionWidth + 55), SUM(ResolutionWidth + 56), SUM(ResolutionWidth + 57), SUM(ResolutionWidth + 58), SUM(ResolutionWidth + 59), SUM(ResolutionWidth + 60), SUM(ResolutionWidth + 61), SUM(ResolutionWidth + 62), SUM(ResolutionWidth + 63), SUM(ResolutionWidth + 64), SUM(ResolutionWidth + 65), SUM(ResolutionWidth + 66), SUM(ResolutionWidth + 67), SUM(ResolutionWidth + 68), SUM(ResolutionWidth + 69), SUM(ResolutionWidth + 70), SUM(ResolutionWidth + 71), SUM(ResolutionWidth + 72), SUM(ResolutionWidth + 73), SUM(ResolutionWidth + 74), SUM(ResolutionWidth + 75), SUM(ResolutionWidth + 76), SUM(ResolutionWidth + 77), SUM(ResolutionWidth + 78), SUM(ResolutionWidth + 79), SUM(ResolutionWidth + 80), SUM(ResolutionWidth + 81), SUM(ResolutionWidth + 82), SUM(ResolutionWidth + 83), SUM(ResolutionWidth + 84), SUM(ResolutionWidth + 85), SUM(ResolutionWidth + 86), SUM(ResolutionWidth + 87), SUM(ResolutionWidth + 88), SUM(ResolutionWidth + 89) FROM hits;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partition projection contains an unsupported expression"
+    },
+    {
+      "query": 31,
+      "sql": "SELECT SearchEngineID, ClientIP, COUNT(*) AS c, SUM(IsRefresh), AVG(ResolutionWidth) FROM hits WHERE SearchPhrase <> '' GROUP BY SearchEngineID, ClientIP ORDER BY c DESC LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 32,
+      "sql": "SELECT WatchID, ClientIP, COUNT(*) AS c, SUM(IsRefresh), AVG(ResolutionWidth) FROM hits WHERE SearchPhrase <> '' GROUP BY WatchID, ClientIP ORDER BY c DESC LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 33,
+      "sql": "SELECT WatchID, ClientIP, COUNT(*) AS c, SUM(IsRefresh), AVG(ResolutionWidth) FROM hits GROUP BY WatchID, ClientIP ORDER BY c DESC LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 34,
+      "sql": "SELECT URL, COUNT(*) AS c FROM hits GROUP BY URL ORDER BY c DESC LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 35,
+      "sql": "SELECT 1, URL, COUNT(*) AS c FROM hits GROUP BY 1, URL ORDER BY c DESC LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 36,
+      "sql": "SELECT ClientIP, ClientIP - 1, ClientIP - 2, ClientIP - 3, COUNT(*) AS c FROM hits GROUP BY ClientIP, ClientIP - 1, ClientIP - 2, ClientIP - 3 ORDER BY c DESC LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 37,
+      "sql": "SELECT URL, COUNT(*) AS PageViews FROM hits WHERE CounterID = 62 AND EventDate >= '2013-07-01' AND EventDate <= '2013-07-31' AND DontCountHits = 0 AND IsRefresh = 0 AND URL <> '' GROUP BY URL ORDER BY PageViews DESC LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 38,
+      "sql": "SELECT Title, COUNT(*) AS PageViews FROM hits WHERE CounterID = 62 AND EventDate >= '2013-07-01' AND EventDate <= '2013-07-31' AND DontCountHits = 0 AND IsRefresh = 0 AND Title <> '' GROUP BY Title ORDER BY PageViews DESC LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 39,
+      "sql": "SELECT URL, COUNT(*) AS PageViews FROM hits WHERE CounterID = 62 AND EventDate >= '2013-07-01' AND EventDate <= '2013-07-31' AND IsRefresh = 0 AND IsLink <> 0 AND IsDownload = 0 GROUP BY URL ORDER BY PageViews DESC LIMIT 10 OFFSET 1000;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 40,
+      "sql": "SELECT TraficSourceID, SearchEngineID, AdvEngineID, CASE WHEN (SearchEngineID = 0 AND AdvEngineID = 0) THEN Referer ELSE '' END AS Src, URL AS Dst, COUNT(*) AS PageViews FROM hits WHERE CounterID = 62 AND EventDate >= '2013-07-01' AND EventDate <= '2013-07-31' AND IsRefresh = 0 GROUP BY TraficSourceID, SearchEngineID, AdvEngineID, Src, Dst ORDER BY PageViews DESC LIMIT 10 OFFSET 1000;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 41,
+      "sql": "SELECT URLHash, EventDate, COUNT(*) AS PageViews FROM hits WHERE CounterID = 62 AND EventDate >= '2013-07-01' AND EventDate <= '2013-07-31' AND IsRefresh = 0 AND TraficSourceID IN (-1, 6) AND RefererHash = 3594120000172545465 GROUP BY URLHash, EventDate ORDER BY PageViews DESC LIMIT 10 OFFSET 100;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 42,
+      "sql": "SELECT WindowClientWidth, WindowClientHeight, COUNT(*) AS PageViews FROM hits WHERE CounterID = 62 AND EventDate >= '2013-07-01' AND EventDate <= '2013-07-31' AND IsRefresh = 0 AND DontCountHits = 0 AND URLHash = 2868770270353813622 GROUP BY WindowClientWidth, WindowClientHeight ORDER BY PageViews DESC LIMIT 10 OFFSET 10000;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 43,
+      "sql": "SELECT DATE_TRUNC('minute', EventTime) AS M, COUNT(*) AS PageViews FROM hits WHERE CounterID = 62 AND EventDate >= '2013-07-14' AND EventDate <= '2013-07-15' AND IsRefresh = 0 AND DontCountHits = 0 GROUP BY DATE_TRUNC('minute', EventTime) ORDER BY DATE_TRUNC('minute', EventTime) LIMIT 10 OFFSET 1000;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    }
+  ],
+  "trials": [
+    {
+      "workload": "rowid_point",
+      "sql": "SELECT __rowid AS source_ordinal, WatchID, UserID FROM hits WHERE __rowid=1000",
+      "official": false,
+      "method": "execute_query",
+      "workers": 1,
+      "partitions": null,
+      "requested_partitions": null,
+      "strategy": null,
+      "repeat": 0,
+      "rows": 1,
+      "end_to_end_seconds": 0.24371983399032615,
+      "planning_seconds": 0,
+      "exact_values": true,
+      "arrow_schema": "source_ordinal: int64\nwatchid: int64\nuserid: int64",
+      "worker_metrics": [
+        {
+          "rows": 1,
+          "read_and_ipc_seconds": 0.006542375005665235,
+          "first_batch_seconds": 0.005181792002986185,
+          "process_peak_rss_bytes": 105005056
+        }
+      ],
+      "telemetry": {
+        "command_calls_delta": {
+          "FT._LIST": 1,
+          "smembers": 2,
+          "hmget": 1,
+          "exists": 2,
+          "get": 1,
+          "hello": 1,
+          "hgetall": 1,
+          "info": 8,
+          "FT.AGGREGATE": 1,
+          "ping": 1
+        },
+        "sample_interval_seconds": 0.05,
+        "samples": 5,
+        "client_process_tree_baseline_rss_bytes": 279658496,
+        "client_process_tree_sampled_peak_rss_bytes": 382205952,
+        "server_baseline_used_memory_bytes": 26995752,
+        "server_sampled_peak_used_memory_bytes": 26995144,
+        "server_after_used_memory_bytes": 26996776,
+        "server_net_input_bytes_delta": 814,
+        "server_net_output_bytes_delta": 34187
+      }
+    },
+    {
+      "workload": "rowid_point",
+      "sql": "SELECT __rowid AS source_ordinal, WatchID, UserID FROM hits WHERE __rowid=1000",
+      "official": false,
+      "method": "partitions",
+      "workers": 4,
+      "partitions": 8,
+      "requested_partitions": 8,
+      "strategy": "rowid",
+      "repeat": 0,
+      "rows": 1,
+      "end_to_end_seconds": 0.6140982500073733,
+      "planning_seconds": 0.03534574998775497,
+      "exact_values": true,
+      "arrow_schema": "source_ordinal: int64\nwatchid: int64\nuserid: int64",
+      "worker_metrics": [
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.06920941700809635,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106135552
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.08472008300304879,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106250240
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.08516641698952299,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 107479040
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.07991637499071658,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106610688
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.0540919580089394,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 107151360
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.08179466699948534,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 107266048
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.08126333300606348,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 107921408
+        },
+        {
+          "rows": 1,
+          "read_and_ipc_seconds": 0.1597755000111647,
+          "first_batch_seconds": 0.14552983301109634,
+          "process_peak_rss_bytes": 107626496
+        }
+      ],
+      "telemetry": {
+        "command_calls_delta": {
+          "FT._LIST": 8,
+          "sismember": 1,
+          "hget": 2,
+          "smembers": 16,
+          "hmget": 1000,
+          "exists": 16,
+          "get": 19,
+          "hello": 8,
+          "config|get": 16,
+          "hgetall": 8,
+          "FT.INFO": 48,
+          "info": 20,
+          "FT.AGGREGATE": 16,
+          "ping": 8
+        },
+        "sample_interval_seconds": 0.05,
+        "samples": 10,
+        "client_process_tree_baseline_rss_bytes": 281722880,
+        "client_process_tree_sampled_peak_rss_bytes": 732561408,
+        "server_baseline_used_memory_bytes": 26996776,
+        "server_sampled_peak_used_memory_bytes": 27225320,
+        "server_after_used_memory_bytes": 26983344,
+        "server_net_input_bytes_delta": 109208,
+        "server_net_output_bytes_delta": 1903988
+      }
+    },
+    {
+      "workload": "rowid_point",
+      "sql": "SELECT __rowid AS source_ordinal, WatchID, UserID FROM hits WHERE __rowid=1000",
+      "official": false,
+      "method": "partitions",
+      "workers": 4,
+      "partitions": 8,
+      "requested_partitions": 8,
+      "strategy": "rowid",
+      "repeat": 1,
+      "rows": 1,
+      "end_to_end_seconds": 0.5945452919986565,
+      "planning_seconds": 0.022234209012822248,
+      "exact_values": true,
+      "arrow_schema": "source_ordinal: int64\nwatchid: int64\nuserid: int64",
+      "worker_metrics": [
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.04991575000167359,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106938368
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.06445133399392944,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106774528
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.0672200410044752,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106217472
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.09224191700923257,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106463232
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.07145483299973421,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 107823104
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.05274570800247602,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 107347968
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.07104704200173728,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 107102208
+        },
+        {
+          "rows": 1,
+          "read_and_ipc_seconds": 0.1658807500061812,
+          "first_batch_seconds": 0.15055329201277345,
+          "process_peak_rss_bytes": 107954176
+        }
+      ],
+      "telemetry": {
+        "command_calls_delta": {
+          "FT._LIST": 8,
+          "sismember": 1,
+          "hget": 2,
+          "smembers": 16,
+          "hmget": 1000,
+          "exists": 16,
+          "get": 19,
+          "hello": 8,
+          "config|get": 16,
+          "hgetall": 8,
+          "FT.INFO": 48,
+          "info": 20,
+          "FT.AGGREGATE": 16,
+          "ping": 8
+        },
+        "sample_interval_seconds": 0.05,
+        "samples": 10,
+        "client_process_tree_baseline_rss_bytes": 281952256,
+        "client_process_tree_sampled_peak_rss_bytes": 733200384,
+        "server_baseline_used_memory_bytes": 26983344,
+        "server_sampled_peak_used_memory_bytes": 27192760,
+        "server_after_used_memory_bytes": 26913912,
+        "server_net_input_bytes_delta": 109208,
+        "server_net_output_bytes_delta": 1904015
+      }
+    },
+    {
+      "workload": "rowid_point",
+      "sql": "SELECT __rowid AS source_ordinal, WatchID, UserID FROM hits WHERE __rowid=1000",
+      "official": false,
+      "method": "execute_query",
+      "workers": 1,
+      "partitions": null,
+      "requested_partitions": null,
+      "strategy": null,
+      "repeat": 1,
+      "rows": 1,
+      "end_to_end_seconds": 0.21605091699166223,
+      "planning_seconds": 0,
+      "exact_values": true,
+      "arrow_schema": "source_ordinal: int64\nwatchid: int64\nuserid: int64",
+      "worker_metrics": [
+        {
+          "rows": 1,
+          "read_and_ipc_seconds": 0.023539749992778525,
+          "first_batch_seconds": 0.0225640409917105,
+          "process_peak_rss_bytes": 104906752
+        }
+      ],
+      "telemetry": {
+        "command_calls_delta": {
+          "FT._LIST": 1,
+          "smembers": 2,
+          "hmget": 1,
+          "exists": 2,
+          "get": 1,
+          "hello": 1,
+          "hgetall": 1,
+          "info": 8,
+          "FT.AGGREGATE": 1,
+          "ping": 1
+        },
+        "sample_interval_seconds": 0.05,
+        "samples": 5,
+        "client_process_tree_baseline_rss_bytes": 282034176,
+        "client_process_tree_sampled_peak_rss_bytes": 407994368,
+        "server_baseline_used_memory_bytes": 26913912,
+        "server_sampled_peak_used_memory_bytes": 26912296,
+        "server_after_used_memory_bytes": 26913928,
+        "server_net_input_bytes_delta": 814,
+        "server_net_output_bytes_delta": 34195
+      }
+    },
+    {
+      "workload": "rowid_point",
+      "sql": "SELECT __rowid AS source_ordinal, WatchID, UserID FROM hits WHERE __rowid=1000",
+      "official": false,
+      "method": "execute_query",
+      "workers": 1,
+      "partitions": null,
+      "requested_partitions": null,
+      "strategy": null,
+      "repeat": 2,
+      "rows": 1,
+      "end_to_end_seconds": 0.21386345800419804,
+      "planning_seconds": 0,
+      "exact_values": true,
+      "arrow_schema": "source_ordinal: int64\nwatchid: int64\nuserid: int64",
+      "worker_metrics": [
+        {
+          "rows": 1,
+          "read_and_ipc_seconds": 0.02460649999557063,
+          "first_batch_seconds": 0.02361791700241156,
+          "process_peak_rss_bytes": 104759296
+        }
+      ],
+      "telemetry": {
+        "command_calls_delta": {
+          "FT._LIST": 1,
+          "smembers": 2,
+          "hmget": 1,
+          "exists": 2,
+          "get": 1,
+          "hello": 1,
+          "hgetall": 1,
+          "info": 8,
+          "FT.AGGREGATE": 1,
+          "ping": 1
+        },
+        "sample_interval_seconds": 0.05,
+        "samples": 5,
+        "client_process_tree_baseline_rss_bytes": 282034176,
+        "client_process_tree_sampled_peak_rss_bytes": 407846912,
+        "server_baseline_used_memory_bytes": 26913928,
+        "server_sampled_peak_used_memory_bytes": 26912296,
+        "server_after_used_memory_bytes": 26913928,
+        "server_net_input_bytes_delta": 814,
+        "server_net_output_bytes_delta": 34194
+      }
+    },
+    {
+      "workload": "rowid_point",
+      "sql": "SELECT __rowid AS source_ordinal, WatchID, UserID FROM hits WHERE __rowid=1000",
+      "official": false,
+      "method": "partitions",
+      "workers": 4,
+      "partitions": 8,
+      "requested_partitions": 8,
+      "strategy": "rowid",
+      "repeat": 2,
+      "rows": 1,
+      "end_to_end_seconds": 0.6177118750056252,
+      "planning_seconds": 0.02787241699115839,
+      "exact_values": true,
+      "arrow_schema": "source_ordinal: int64\nwatchid: int64\nuserid: int64",
+      "worker_metrics": [
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.08383579200017266,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106053632
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.08503308299987111,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106627072
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.07763337499636691,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106430464
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.09569233299407642,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 105562112
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.0924169579957379,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 107216896
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.09341516699350905,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 107364352
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.09431237500393763,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 107216896
+        },
+        {
+          "rows": 1,
+          "read_and_ipc_seconds": 0.14763458399102092,
+          "first_batch_seconds": 0.132802541993442,
+          "process_peak_rss_bytes": 106921984
+        }
+      ],
+      "telemetry": {
+        "command_calls_delta": {
+          "FT._LIST": 8,
+          "sismember": 1,
+          "hget": 2,
+          "smembers": 16,
+          "hmget": 1000,
+          "exists": 16,
+          "get": 19,
+          "hello": 8,
+          "config|get": 16,
+          "hgetall": 8,
+          "FT.INFO": 48,
+          "info": 20,
+          "FT.AGGREGATE": 16,
+          "ping": 8
+        },
+        "sample_interval_seconds": 0.05,
+        "samples": 10,
+        "client_process_tree_baseline_rss_bytes": 282034176,
+        "client_process_tree_sampled_peak_rss_bytes": 731840512,
+        "server_baseline_used_memory_bytes": 26913928,
+        "server_sampled_peak_used_memory_bytes": 27119120,
+        "server_after_used_memory_bytes": 26895472,
+        "server_net_input_bytes_delta": 109208,
+        "server_net_output_bytes_delta": 1904047
+      }
+    },
+    {
+      "workload": "rowid_in",
+      "sql": "SELECT __rowid AS source_ordinal, WatchID, UserID FROM hits WHERE __rowid IN (1000,990,1000,980)",
+      "official": false,
+      "method": "execute_query",
+      "workers": 1,
+      "partitions": null,
+      "requested_partitions": null,
+      "strategy": null,
+      "repeat": 0,
+      "rows": 3,
+      "end_to_end_seconds": 0.21725141700881068,
+      "planning_seconds": 0,
+      "exact_values": true,
+      "arrow_schema": "source_ordinal: int64\nwatchid: int64\nuserid: int64",
+      "worker_metrics": [
+        {
+          "rows": 3,
+          "read_and_ipc_seconds": 0.02457562499330379,
+          "first_batch_seconds": 0.022941666989936493,
+          "process_peak_rss_bytes": 105119744
+        }
+      ],
+      "telemetry": {
+        "command_calls_delta": {
+          "FT._LIST": 1,
+          "smembers": 2,
+          "hmget": 3,
+          "FT.SEARCH": 1,
+          "exists": 2,
+          "get": 1,
+          "hello": 1,
+          "config|get": 1,
+          "hgetall": 1,
+          "info": 8,
+          "FT.AGGREGATE": 2,
+          "ping": 1
+        },
+        "sample_interval_seconds": 0.05,
+        "samples": 5,
+        "client_process_tree_baseline_rss_bytes": 282181632,
+        "client_process_tree_sampled_peak_rss_bytes": 408354816,
+        "server_baseline_used_memory_bytes": 26895472,
+        "server_sampled_peak_used_memory_bytes": 26894024,
+        "server_after_used_memory_bytes": 26877256,
+        "server_net_input_bytes_delta": 1721,
+        "server_net_output_bytes_delta": 35032
+      }
+    },
+    {
+      "workload": "rowid_in",
+      "sql": "SELECT __rowid AS source_ordinal, WatchID, UserID FROM hits WHERE __rowid IN (1000,990,1000,980)",
+      "official": false,
+      "method": "partitions",
+      "workers": 4,
+      "partitions": 8,
+      "requested_partitions": 8,
+      "strategy": "rowid",
+      "repeat": 0,
+      "rows": 3,
+      "end_to_end_seconds": 0.4861110420024488,
+      "planning_seconds": 0.02778862499690149,
+      "exact_values": true,
+      "arrow_schema": "source_ordinal: int64\nwatchid: int64\nuserid: int64",
+      "worker_metrics": [
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.046103417000267655,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 105742336
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.04584141599480063,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 105857024
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.05593824999232311,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 105857024
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.04808500000217464,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 105791488
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.02210529199510347,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106905600
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.022415125000406988,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106889216
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.0702064580109436,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106659840
+        },
+        {
+          "rows": 3,
+          "read_and_ipc_seconds": 0.1262160829937784,
+          "first_batch_seconds": 0.11156254098750651,
+          "process_peak_rss_bytes": 107347968
+        }
+      ],
+      "telemetry": {
+        "command_calls_delta": {
+          "FT._LIST": 8,
+          "sismember": 1,
+          "hget": 2,
+          "smembers": 16,
+          "hmget": 3,
+          "exists": 16,
+          "get": 19,
+          "hello": 8,
+          "config|get": 24,
+          "hgetall": 8,
+          "FT.INFO": 48,
+          "info": 19,
+          "FT.AGGREGATE": 16,
+          "ping": 8
+        },
+        "sample_interval_seconds": 0.05,
+        "samples": 9,
+        "client_process_tree_baseline_rss_bytes": 282181632,
+        "client_process_tree_sampled_peak_rss_bytes": 729939968,
+        "server_baseline_used_memory_bytes": 26877256,
+        "server_sampled_peak_used_memory_bytes": 27006376,
+        "server_after_used_memory_bytes": 26840456,
+        "server_net_input_bytes_delta": 13048,
+        "server_net_output_bytes_delta": 1720022
+      }
+    },
+    {
+      "workload": "rowid_in",
+      "sql": "SELECT __rowid AS source_ordinal, WatchID, UserID FROM hits WHERE __rowid IN (1000,990,1000,980)",
+      "official": false,
+      "method": "partitions",
+      "workers": 4,
+      "partitions": 8,
+      "requested_partitions": 8,
+      "strategy": "rowid",
+      "repeat": 1,
+      "rows": 3,
+      "end_to_end_seconds": 0.5183594170084689,
+      "planning_seconds": 0.027455834002466872,
+      "exact_values": true,
+      "arrow_schema": "source_ordinal: int64\nwatchid: int64\nuserid: int64",
+      "worker_metrics": [
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.05720874998951331,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106233856
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.05771308399562258,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 105988096
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.05670454200298991,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106151936
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.05708062500343658,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106233856
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.027418249999755062,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 107167744
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.02763454199885018,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 107134976
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.027825333003420383,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 107069440
+        },
+        {
+          "rows": 3,
+          "read_and_ipc_seconds": 0.12268170800234657,
+          "first_batch_seconds": 0.10793358299997635,
+          "process_peak_rss_bytes": 107659264
+        }
+      ],
+      "telemetry": {
+        "command_calls_delta": {
+          "FT._LIST": 8,
+          "sismember": 1,
+          "hget": 2,
+          "smembers": 16,
+          "hmget": 3,
+          "exists": 16,
+          "get": 19,
+          "hello": 8,
+          "config|get": 24,
+          "hgetall": 8,
+          "FT.INFO": 48,
+          "info": 19,
+          "FT.AGGREGATE": 16,
+          "ping": 8
+        },
+        "sample_interval_seconds": 0.05,
+        "samples": 9,
+        "client_process_tree_baseline_rss_bytes": 282198016,
+        "client_process_tree_sampled_peak_rss_bytes": 732299264,
+        "server_baseline_used_memory_bytes": 26840456,
+        "server_sampled_peak_used_memory_bytes": 26987696,
+        "server_after_used_memory_bytes": 26785224,
+        "server_net_input_bytes_delta": 13048,
+        "server_net_output_bytes_delta": 1720020
+      }
+    },
+    {
+      "workload": "rowid_in",
+      "sql": "SELECT __rowid AS source_ordinal, WatchID, UserID FROM hits WHERE __rowid IN (1000,990,1000,980)",
+      "official": false,
+      "method": "execute_query",
+      "workers": 1,
+      "partitions": null,
+      "requested_partitions": null,
+      "strategy": null,
+      "repeat": 1,
+      "rows": 3,
+      "end_to_end_seconds": 0.21599058400897775,
+      "planning_seconds": 0,
+      "exact_values": true,
+      "arrow_schema": "source_ordinal: int64\nwatchid: int64\nuserid: int64",
+      "worker_metrics": [
+        {
+          "rows": 3,
+          "read_and_ipc_seconds": 0.02599704200110864,
+          "first_batch_seconds": 0.025008167009218596,
+          "process_peak_rss_bytes": 104529920
+        }
+      ],
+      "telemetry": {
+        "command_calls_delta": {
+          "FT._LIST": 1,
+          "smembers": 2,
+          "hmget": 3,
+          "FT.SEARCH": 1,
+          "exists": 2,
+          "get": 1,
+          "hello": 1,
+          "config|get": 1,
+          "hgetall": 1,
+          "info": 8,
+          "FT.AGGREGATE": 2,
+          "ping": 1
+        },
+        "sample_interval_seconds": 0.05,
+        "samples": 5,
+        "client_process_tree_baseline_rss_bytes": 282263552,
+        "client_process_tree_sampled_peak_rss_bytes": 407830528,
+        "server_baseline_used_memory_bytes": 26785224,
+        "server_sampled_peak_used_memory_bytes": 26783704,
+        "server_after_used_memory_bytes": 26785336,
+        "server_net_input_bytes_delta": 1721,
+        "server_net_output_bytes_delta": 35031
+      }
+    },
+    {
+      "workload": "rowid_in",
+      "sql": "SELECT __rowid AS source_ordinal, WatchID, UserID FROM hits WHERE __rowid IN (1000,990,1000,980)",
+      "official": false,
+      "method": "execute_query",
+      "workers": 1,
+      "partitions": null,
+      "requested_partitions": null,
+      "strategy": null,
+      "repeat": 2,
+      "rows": 3,
+      "end_to_end_seconds": 0.21530662498844322,
+      "planning_seconds": 0,
+      "exact_values": true,
+      "arrow_schema": "source_ordinal: int64\nwatchid: int64\nuserid: int64",
+      "worker_metrics": [
+        {
+          "rows": 3,
+          "read_and_ipc_seconds": 0.027111957999295555,
+          "first_batch_seconds": 0.026138750006793998,
+          "process_peak_rss_bytes": 104857600
+        }
+      ],
+      "telemetry": {
+        "command_calls_delta": {
+          "FT._LIST": 1,
+          "smembers": 2,
+          "hmget": 3,
+          "FT.SEARCH": 1,
+          "exists": 2,
+          "get": 1,
+          "hello": 1,
+          "config|get": 1,
+          "hgetall": 1,
+          "info": 8,
+          "FT.AGGREGATE": 2,
+          "ping": 1
+        },
+        "sample_interval_seconds": 0.05,
+        "samples": 5,
+        "client_process_tree_baseline_rss_bytes": 282263552,
+        "client_process_tree_sampled_peak_rss_bytes": 408158208,
+        "server_baseline_used_memory_bytes": 26785336,
+        "server_sampled_peak_used_memory_bytes": 26783720,
+        "server_after_used_memory_bytes": 26785352,
+        "server_net_input_bytes_delta": 1721,
+        "server_net_output_bytes_delta": 35031
+      }
+    },
+    {
+      "workload": "rowid_in",
+      "sql": "SELECT __rowid AS source_ordinal, WatchID, UserID FROM hits WHERE __rowid IN (1000,990,1000,980)",
+      "official": false,
+      "method": "partitions",
+      "workers": 4,
+      "partitions": 8,
+      "requested_partitions": 8,
+      "strategy": "rowid",
+      "repeat": 2,
+      "rows": 3,
+      "end_to_end_seconds": 0.5752802080096444,
+      "planning_seconds": 0.025961958002881147,
+      "exact_values": true,
+      "arrow_schema": "source_ordinal: int64\nwatchid: int64\nuserid: int64",
+      "worker_metrics": [
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.07871254099882208,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 105824256
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.07792129198787734,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 105529344
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.06431483400228899,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106528768
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.07621441700030118,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 105791488
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.06395466699905228,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106512384
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.06323166700894944,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106823680
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.11982300000090618,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 107249664
+        },
+        {
+          "rows": 3,
+          "read_and_ipc_seconds": 0.15038508300494868,
+          "first_batch_seconds": 0.13536258299427573,
+          "process_peak_rss_bytes": 107511808
+        }
+      ],
+      "telemetry": {
+        "command_calls_delta": {
+          "FT._LIST": 8,
+          "sismember": 2,
+          "hget": 4,
+          "smembers": 16,
+          "hmget": 3,
+          "exists": 16,
+          "get": 19,
+          "hello": 8,
+          "config|get": 24,
+          "hgetall": 8,
+          "FT.INFO": 48,
+          "info": 20,
+          "FT.AGGREGATE": 16,
+          "ping": 8
+        },
+        "sample_interval_seconds": 0.05,
+        "samples": 10,
+        "client_process_tree_baseline_rss_bytes": 282279936,
+        "client_process_tree_sampled_peak_rss_bytes": 730710016,
+        "server_baseline_used_memory_bytes": 26785352,
+        "server_sampled_peak_used_memory_bytes": 26856184,
+        "server_after_used_memory_bytes": 26726768,
+        "server_net_input_bytes_delta": 13325,
+        "server_net_output_bytes_delta": 1721720
+      }
+    }
+  ],
+  "summary": [
+    {
+      "workload": "rowid_point",
+      "method": "execute_query",
+      "workers": 1,
+      "partitions": null,
+      "strategy": null,
+      "median_seconds": 0.21605091699166223,
+      "median_rows_per_second": 4.6285385589851105,
+      "ratio_to_execute_query": 1.0,
+      "rows": 1,
+      "all_exact_values_and_schema": true,
+      "median_first_batch_seconds": 0.0225640409917105,
+      "max_sampled_client_rss_bytes": 407994368,
+      "max_sampled_server_used_memory_bytes": 26995144
+    },
+    {
+      "workload": "rowid_point",
+      "method": "partitions",
+      "workers": 4,
+      "partitions": 8,
+      "strategy": "rowid",
+      "median_seconds": 0.6140982500073733,
+      "median_rows_per_second": 1.6284039239453838,
+      "ratio_to_execute_query": 2.8423774291644057,
+      "rows": 1,
+      "all_exact_values_and_schema": true,
+      "median_first_batch_seconds": 0.14552983301109634,
+      "max_sampled_client_rss_bytes": 733200384,
+      "max_sampled_server_used_memory_bytes": 27225320
+    },
+    {
+      "workload": "rowid_in",
+      "method": "execute_query",
+      "workers": 1,
+      "partitions": null,
+      "strategy": null,
+      "median_seconds": 0.21599058400897775,
+      "median_rows_per_second": 13.889494367380864,
+      "ratio_to_execute_query": 1.0,
+      "rows": 3,
+      "all_exact_values_and_schema": true,
+      "median_first_batch_seconds": 0.025008167009218596,
+      "max_sampled_client_rss_bytes": 408354816,
+      "max_sampled_server_used_memory_bytes": 26894024
+    },
+    {
+      "workload": "rowid_in",
+      "method": "partitions",
+      "workers": 4,
+      "partitions": 8,
+      "strategy": "rowid",
+      "median_seconds": 0.5183594170084689,
+      "median_rows_per_second": 5.787490111231039,
+      "ratio_to_execute_query": 2.3999167342726526,
+      "rows": 3,
+      "all_exact_values_and_schema": true,
+      "median_first_batch_seconds": 0.11156254098750651,
+      "max_sampled_client_rss_bytes": 732299264,
+      "max_sampled_server_used_memory_bytes": 27006376
+    }
+  ],
+  "status": "complete",
+  "load_index_readiness": {
+    "wait_seconds": 0.0013197500084061176,
+    "state": {
+      "num_docs": 1000,
+      "indexing": 0,
+      "percent_indexed": 1.0
+    }
+  },
+  "load_seconds": 0.11618962499778718,
+  "final_index_readiness": {
+    "wait_seconds": 0.0012676250044023618,
+    "state": {
+      "num_docs": 1000,
+      "indexing": 0,
+      "percent_indexed": 1.0
+    }
+  }
+}

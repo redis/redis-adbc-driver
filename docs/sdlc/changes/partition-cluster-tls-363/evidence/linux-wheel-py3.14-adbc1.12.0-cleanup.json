@@ -1,0 +1,10 @@
+{
+  "status": "passed",
+  "owned_names": [
+    "planner_2aabe4eff750",
+    "worker_2aabe4eff750"
+  ],
+  "primary_count": 3,
+  "failed_primary_indexes": [],
+  "absence_verified_on_all_primaries": true
+}

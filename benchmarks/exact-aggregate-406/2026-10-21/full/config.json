@@ -1,0 +1,22 @@
+{
+  "root": "/opt/clickbench/performance-406",
+  "runner": "/opt/clickbench/performance-406/benchmarks/exact-aggregate-406/compare.py",
+  "gate": "/opt/clickbench/performance-406/window.json",
+  "schema": "clickbench_82a0eefa2f50",
+  "deadline": 1792651800.0,
+  "supervisor_unit": "adbc-performance-406-20261022-0448.service",
+  "credential_file": "/opt/clickbench-private/performance-406-credentials.json",
+  "work": "/opt/clickbench/performance-406/work",
+  "control_output": "/opt/clickbench/performance-406/control.json",
+  "baseline": "/opt/clickbench/performance-406/lib/baseline.so",
+  "candidate": "/opt/clickbench/performance-406/lib/candidate.so",
+  "parquet": "/opt/clickbench/hits.parquet",
+  "provenance": "/opt/clickbench/performance-406/provenance.json",
+  "profiles": true,
+  "profile_controller": "/opt/clickbench/performance-406/ops/profiles.py",
+  "profile_worker": "/opt/clickbench/performance-406/ops/profile_worker.py",
+  "profile_work": "/opt/clickbench/performance-406/profiles",
+  "baseline_profile_binary": "/opt/clickbench/performance-406/bin/baseline-profile.test",
+  "candidate_profile_binary": "/opt/clickbench/performance-406/bin/candidate-profile.test",
+  "metadata_output": "/opt/clickbench/performance-406/server-settings.json"
+}

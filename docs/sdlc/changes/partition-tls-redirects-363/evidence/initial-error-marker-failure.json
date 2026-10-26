@@ -1,0 +1,76 @@
+{
+  "kind": "local native partition TLS/independent ACL validation",
+  "status": "failed",
+  "library_sha256": "8de7df9de8155b7960ca9552507361c06cf6b48d5e69aac9934b5255673bced6",
+  "installed_wheel": false,
+  "python": "3.13.16",
+  "pyarrow": "26.0.0",
+  "certificate_verification": true,
+  "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+  "machine": "arm64",
+  "packages": {
+    "adbc-driver-manager": "1.12.0",
+    "redis": "8.1.0"
+  },
+  "aggregate_cap": 137,
+  "cluster_mode": "auto",
+  "checks": [
+    "verified_three_primary_tls_caps",
+    "verified_admin_tls_and_real_cap",
+    "hostname_mismatch_rejected",
+    "fixture_rows_span_advertised_cluster_primaries",
+    "closed_planner_and_credential_free_descriptors",
+    "restricted_cross_process_search_full_values_schema",
+    "restricted_cross_process_direct_hash_duplicates_deleted",
+    "native_untrusted_ca_rejected",
+    "native_hostname_mismatch_rejected",
+    "worker_config_and_writes_denied",
+    "malformed_descriptor_rejected",
+    "search_readiness_acl_required_direct_hash_independent",
+    "direct_hash_reader_obeys_worker_acl",
+    "connection_cancel_in_independent_tls_worker",
+    "early_release_in_independent_tls_worker"
+  ],
+  "server_cluster_enabled": 1,
+  "topology": {
+    "deployment": "owned OSS Cluster TLS",
+    "container_id": "4af16ba0857e166b8e2d89ebf399eda242c462a19b6d2e9443ff0b681114c9d2",
+    "ports": [
+      16461,
+      16462,
+      16463
+    ],
+    "primary_node_ids": {
+      "16461": "d08d8f1b166c5426c38327a596d060cb6b88b49f",
+      "16462": "052bfb13e0dddc4a26b69d6823bd7e4fcce5ff5c",
+      "16463": "2d5dc43e0b049fc8d0b50ff97d8dbcfc310f4258"
+    }
+  },
+  "redis_version": "8.6.2",
+  "modules": [
+    {
+      "name": "search",
+      "ver": 80600,
+      "path": "/usr/local/lib/redis/modules/redisearch.so",
+      "args": []
+    },
+    {
+      "name": "vectorset",
+      "ver": 1,
+      "path": "",
+      "args": []
+    }
+  ],
+  "cluster_distribution": {
+    "primary_count": 3,
+    "slot_range_count": 3,
+    "minimum_primary_count": 3,
+    "physical_row_presence_verified": true,
+    "owned_rows_per_primary": [
+      360,
+      377,
+      362
+    ],
+    "covered_slots": 16384
+  }
+}

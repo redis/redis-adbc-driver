@@ -1,0 +1,64 @@
+{
+  "purpose": "Matched incremental Arrow reads and four-reader ADBC explicit-range diagnostic",
+  "driver_source": "7a42b2d",
+  "binary_source": "0727c7bfe19ccf16eacb10dc1290c3221903d95a",
+  "binary_note": "Same SHA-256 as the #422 wide-transfer client comparison. Production source equivalence is recorded in the original hash-slice-arrow and stream-byte-budget manifests. Later main changes are not included.",
+  "driver_sha256": "24a5ad1697e648bd8af931383f05e85d1afab3ce4460d498818dc4dfd2ea371f",
+  "fixture_sha256": "d053397f7aa5b2e1ee9160779a9e9307b162c6994aebba829c7ea1411076c4d0",
+  "upstream_clickbench_commit": "ccda3033f3c7303d9d7f9634d6dae118ef085f96",
+  "server": {
+    "container": "codex-incremental-20261022",
+    "image": "redis:8.6.2",
+    "image_id": "sha256:832d7785830f3f4b559300e6191fc914b15642c1935252338825cf4332200148",
+    "cpus": 4,
+    "memory_bytes": 2147483648,
+    "transport": "localhost TCP, no TLS",
+    "persistence": "AOF disabled, automatic RDB snapshots disabled"
+  },
+  "host_note": "Shared macOS arm64 workstation (18 logical CPUs, 36 GiB). Other workloads were not stopped; unrelated benchmark containers were observed idle before the run. Results apply to this interleaved local experiment.",
+  "schedule": "One warmup per case followed by six measured rounds. Forward/reverse case order alternates, balancing three rounds in each order.",
+  "cases": {
+    "rows": 100000,
+    "columns": 105,
+    "output": "Complete typed Arrow IPC",
+    "readers": [
+      1,
+      4
+    ],
+    "tasks_for_four_readers": 8,
+    "output_batch_rows": [
+      512,
+      4096
+    ],
+    "native_HMGET_and_Search_page_bound": 4096,
+    "adbc_byte_budget": "disabled; use row ceiling only"
+  },
+  "timing": "First normalized Arrow batch and first IPC flush use a common producer-side measurement boundary. Total includes fresh worker startup/imports, connections, planning, full reads, Arrow conversion, IPC output and shutdown. Exact source validation is outside timing.",
+  "explicit_ranges_note": "Externally supplied dense row-ID intervals on an immutable fixture; no partition planner. This is a benchmark application pattern, not a change to production driver APIs, a snapshot guarantee or a general replacement for discovery.",
+  "smoke_executions": 14,
+  "smoke_status": "All complete values and row multiplicities passed.",
+  "execution_counts": {
+    "warmup": 14,
+    "measured": 84,
+    "total": 98,
+    "smoke": 14
+  },
+  "started_at": "2026-10-22T16:56:38.475210+00:00",
+  "completed_at": "2026-10-22T17:00:28.000067+00:00",
+  "artifact_sha256": {
+    "results.json": "bf147023f09a9cc0657b813abd4ea06d9870a3b7c4886252e5cf7bca3f94b0ea",
+    "smoke-results.json": "2d1779c75395c465e0f2f2c35ff8318bb32cb2cb1fe71b77e0cbe722aefb9625",
+    "README.md": "f7e436c2fb084283deb0da0b790ee948cf638262a937e2216f47108d838fa2a2"
+  },
+  "cleanup": {
+    "temporary_container_removed": "codex-incremental-20261022",
+    "other_containers_unchanged": true
+  },
+  "measurement_checkout": "c5d09a3",
+  "publication_base": "f3f74e7",
+  "smoke_runner_note": "Smoke runner differs only by the absence of UTC started_at/completed_at metadata and its datetime import. Reconstructed historical bytes match the smoke runner SHA-256; canonical results match the committed runner exactly.",
+  "helper_sha256": {
+    "benchmarks/wide-transfer/compare.py": "9f571f1b0e855d3c55c54fc9ed1905a8a0883c4b22f782125701d2965218a0f6",
+    "benchmarks/clickbench/run.py": "9f8a50f74a9c47b140e6d596a07703d487afce8c0eb70ae9f6f19ffeb584172a"
+  }
+}

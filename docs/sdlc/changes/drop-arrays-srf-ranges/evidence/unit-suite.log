@@ -1,0 +1,3 @@
+ok  	github.com/adbc-drivers/redis/go	11.382s
+ok  	github.com/adbc-drivers/redis/go/cmd/redis-adbc	0.483s
+ok  	github.com/adbc-drivers/redis/go/internal/benchproxy	0.167s

@@ -1,0 +1,39 @@
+{
+  "source_base": "70a0d43",
+  "runtime_source": "4b0fdb5 (no Go changes in 417 or this change)",
+  "library_sha256": "8de7df9de8155b7960ca9552507361c06cf6b48d5e69aac9934b5255673bced6",
+  "harness_sha256": {
+    "scripts/check_partition_tls.py": "cb2a5ad5a3653f91e6937c553616c18a723ad43c7d1060215ddd091659dd7a06",
+    "scripts/partition_tls_resharding.py": "4f38189876d5d7a8f069078369a27db5a184605bb0e472a6ca153a275c60b1a4",
+    "scripts/test_oss_cluster_partition_tls.py": "984cba3c4711098fb11436672ea30b10b4c2df8cc5262ebfa58da178c2e2937c"
+  },
+  "wheel_sha256": {
+    "adbc_driver_redis-0.0.0.dev0-py3-none-macosx_12_0_arm64.whl": "8a4006a2b4991ba6cbcfff76e3e6dc15b9b703b25dc00350bd76f444f542a11f"
+  },
+  "final_checks": {
+    "native_explicit_tls": 19,
+    "installed_wheel_auto_tls": 19,
+    "management_fault_tests": 30
+  },
+  "scope": "macOS ARM64 client, Docker Redis 8.6.2/Search 8.6.0 three-primary TLS fixture; fixed-data manual single-slot migration only",
+  "earlier_failures": [
+    "Initial native denial assertion assumed NOPERM text propagated through redirect handling. Final check independently proves ASKING NOPERM on every primary, native failure while denied, and exact native success after grant; it does not require a particular native error string.",
+    "Explicit-mode later UPDATE failed with Query requires unavailable slots after slot finalization. Added bounded all-primary read-only exact-count Search convergence before later checks, with unrelated errors/deadline failures still terminal and no native read/write retries.",
+    "Initial wheel build used validation environment without build module; rebuilt successfully in isolated environment with packaging dependencies."
+  ],
+  "not_run": [
+    "Linux local clients",
+    "replica failover",
+    "concurrent writes during migration",
+    "mid-stream failure/retry",
+    "new Cloud deployments",
+    "full Go/upstream Python suites"
+  ],
+  "cleanup": {
+    "owned_cluster_container_removed": true,
+    "all_primary_acl_absence_verified": true,
+    "private_fixture_directory_removed": true,
+    "isolated_client_environment_removed": true,
+    "paid_resources_created": false
+  }
+}

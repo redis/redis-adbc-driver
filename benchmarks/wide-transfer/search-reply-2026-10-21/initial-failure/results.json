@@ -1,0 +1,137 @@
+{
+  "status": "failed",
+  "trials": [
+    {
+      "build": "baseline",
+      "api": "regular",
+      "repeat": -1,
+      "warmup": true,
+      "seconds": 4.942336458014324,
+      "client_cpu_seconds": 3.9491800000000006,
+      "server_cpu_seconds": 1.9314350000000011,
+      "server_net_output_bytes": 336795236,
+      "first_batch_seconds": 3.485070791997714,
+      "max_worker_peak_rss_bytes": 282771456,
+      "workers": 1,
+      "partitions": 1,
+      "rows": 100000,
+      "columns": 105,
+      "logical_arrow_bytes": 79578019,
+      "exact_full_values_validated": true
+    },
+    {
+      "build": "candidate",
+      "api": "regular",
+      "repeat": -1,
+      "warmup": true,
+      "seconds": 4.668246499990346,
+      "client_cpu_seconds": 3.3266240000000007,
+      "server_cpu_seconds": 1.7531620000000003,
+      "server_net_output_bytes": 336795186,
+      "first_batch_seconds": 3.323068790981779,
+      "max_worker_peak_rss_bytes": 280788992,
+      "workers": 1,
+      "partitions": 1,
+      "rows": 100000,
+      "columns": 105,
+      "logical_arrow_bytes": 79578019,
+      "exact_full_values_validated": true
+    },
+    {
+      "build": "baseline",
+      "api": "partition",
+      "repeat": -1,
+      "warmup": true,
+      "seconds": 2.962744417018257,
+      "client_cpu_seconds": 5.568640999999996,
+      "server_cpu_seconds": 1.6206419999999988,
+      "server_net_output_bytes": 339025046,
+      "first_batch_seconds": 1.503130124998279,
+      "max_worker_peak_rss_bytes": 181649408,
+      "workers": 4,
+      "partitions": 8,
+      "rows": 100000,
+      "columns": 105,
+      "logical_arrow_bytes": 79578019,
+      "exact_full_values_validated": true
+    },
+    {
+      "build": "candidate",
+      "api": "partition",
+      "repeat": -1,
+      "warmup": true,
+      "seconds": 2.859003790974384,
+      "client_cpu_seconds": 5.082267000000002,
+      "server_cpu_seconds": 1.615636999999997,
+      "server_net_output_bytes": 339025140,
+      "first_batch_seconds": 1.5340761659899727,
+      "max_worker_peak_rss_bytes": 185483264,
+      "workers": 4,
+      "partitions": 8,
+      "rows": 100000,
+      "columns": 105,
+      "logical_arrow_bytes": 79578019,
+      "exact_full_values_validated": true
+    },
+    {
+      "build": "redis_py_known",
+      "api": "regular",
+      "repeat": -1,
+      "warmup": true,
+      "seconds": 3.187044042017078,
+      "client_cpu_seconds": 2.8500040000000055,
+      "server_cpu_seconds": 0.836057999999998,
+      "server_net_output_bytes": 138301705,
+      "first_batch_seconds": 0.18057233400759287,
+      "max_worker_peak_rss_bytes": 94683136,
+      "workers": 1,
+      "partitions": 1,
+      "rows": 100000,
+      "columns": 105,
+      "logical_arrow_bytes": 79578019,
+      "exact_full_values_validated": true
+    },
+    {
+      "build": "redis_py_known",
+      "api": "partition",
+      "repeat": -1,
+      "warmup": true,
+      "seconds": 1.4848464579845313,
+      "client_cpu_seconds": 3.610198999999998,
+      "server_cpu_seconds": 0.8187110000000022,
+      "server_net_output_bytes": 138307050,
+      "first_batch_seconds": 0.19402120797894895,
+      "max_worker_peak_rss_bytes": 92864512,
+      "workers": 4,
+      "partitions": 8,
+      "rows": 100000,
+      "columns": 105,
+      "logical_arrow_bytes": 79578019,
+      "exact_full_values_validated": true
+    }
+  ],
+  "binaries": {
+    "baseline": {
+      "sha256": "3839bfdb10c504751bcd57eb6d38381f934694221406c82655e7bcb97005b479"
+    },
+    "candidate": {
+      "sha256": "f4b273b2ae37b6d39a852ee50fe0cfd2af6f7e019b1d21e582b8222b20b7d033"
+    }
+  },
+  "parquet_sha256": "d053397f7aa5b2e1ee9160779a9e9307b162c6994aebba829c7ea1411076c4d0",
+  "environment": {
+    "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+    "logical_cpus": 18,
+    "protocol": 3,
+    "observed_control_protocol": 3,
+    "packages": {
+      "pyarrow": "26.0.0",
+      "redis": "8.1.0",
+      "adbc-driver-manager": "1.12.0",
+      "hiredis": "3.5.0"
+    },
+    "native_references": true,
+    "profile_note": "Native regular/partition labels mean 1 reader / 4 readers with 8 ranges; native paths do not use ADBC APIs."
+  },
+  "failure": "server:ResponseError"
+}

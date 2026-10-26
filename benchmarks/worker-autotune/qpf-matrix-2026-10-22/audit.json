@@ -1,0 +1,10 @@
+{
+  "policy_trials": 48,
+  "concurrency_records": 144,
+  "timed_executions": 26208,
+  "api_top_level_passes": 24,
+  "api_entries_including_subtests": 112,
+  "api_skips": 0,
+  "performance_cases_passed": 7,
+  "performance_cases_total": 12
+}

@@ -1,0 +1,2 @@
+# Unified diff context prefixes precede Go tabs; these files are experiment data.
+*.patch -whitespace

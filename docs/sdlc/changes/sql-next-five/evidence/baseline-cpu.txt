@@ -1,0 +1,20 @@
+File: redis-five-baseline-profile.test
+Type: cpu
+Time: 2026-10-22 10:53:57 PDT
+Duration: 10.15s, Total samples = 5740ms (56.54%)
+Showing nodes accounting for 4150ms, 72.30% of 5740ms total
+Dropped 136 nodes (cum <= 28.70ms)
+Showing top 12 nodes out of 172
+      flat  flat%   sum%        cum   cum%
+    1020ms 17.77% 17.77%     1020ms 17.77%  syscall.rawsyscalln
+     570ms  9.93% 27.70%      570ms  9.93%  runtime.madvise
+     490ms  8.54% 36.24%     1120ms 19.51%  github.com/adbc-drivers/redis/go.(*scanProjection).decodeHashInto
+     330ms  5.75% 41.99%      670ms 11.67%  github.com/adbc-drivers/redis/go.Coerce
+     320ms  5.57% 47.56%      340ms  5.92%  github.com/adbc-drivers/redis/go.coerceIn
+     270ms  4.70% 52.26%      440ms  7.67%  github.com/adbc-drivers/redis/go.decodeStored
+     250ms  4.36% 56.62%      250ms  4.36%  runtime.kevent
+     240ms  4.18% 60.80%     1080ms 18.82%  github.com/adbc-drivers/redis/go.(*streamReader).appendDecodedArrow
+     210ms  3.66% 64.46%      210ms  3.66%  runtime.pthread_cond_signal
+     190ms  3.31% 67.77%      630ms 10.98%  github.com/adbc-drivers/redis/go.columnMeta.decode
+     140ms  2.44% 70.21%      160ms  2.79%  runtime.tryDeferToSpanScan
+     120ms  2.09% 72.30%      120ms  2.09%  runtime.memmove

@@ -1,0 +1,49 @@
+name: Configure DuckDB build cache
+description: Restore compiler output and size build concurrency for the runner
+inputs:
+  variant:
+    description: Separate compiler caches by build target
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Install ccache
+      shell: bash
+      run: |
+        if ! command -v ccache >/dev/null; then
+          if [ "$RUNNER_OS" = macOS ]; then
+            brew install ccache
+          else
+            sudo apt-get update -qq
+            sudo apt-get install -y ccache
+          fi
+        fi
+    - uses: actions/cache@v4
+      with:
+        path: ${{ runner.temp }}/duckdb-ccache
+        key: duckdb-ccache-v1-${{ runner.os }}-${{ runner.arch }}-${{ inputs.variant }}-${{ github.sha }}
+        restore-keys: |
+          duckdb-ccache-v1-${{ runner.os }}-${{ runner.arch }}-${{ inputs.variant }}-
+    - name: Configure compiler cache and workers
+      shell: bash
+      run: |
+        echo "CCACHE_DIR=$RUNNER_TEMP/duckdb-ccache" >> "$GITHUB_ENV"
+        echo 'CCACHE_MAXSIZE=1G' >> "$GITHUB_ENV"
+        # DuckDB discovers ccache automatically. Keep its compiler/flag checks
+        # enabled; cache only compiler output, never a configured build tree.
+        python3 - <<'PY'
+        import os
+        import pathlib
+        import subprocess
+        if os.environ["RUNNER_OS"] == "macOS":
+            memory = int(subprocess.check_output(["sysctl", "-n", "hw.memsize"]))
+        else:
+            info = dict(line.split(":", 1) for line in pathlib.Path("/proc/meminfo").read_text().splitlines())
+            memory = int(info["MemAvailable"].split()[0]) * 1024
+        # Unity compilation needs substantial memory per worker. Cap at four
+        # CPUs and budget 3 GiB per worker to avoid swapping or OOM failures.
+        workers = max(1, min(os.cpu_count() or 1, 4, memory // (3 * 1024**3)))
+        with open(os.environ["GITHUB_ENV"], "a") as env:
+            env.write(f"CMAKE_BUILD_PARALLEL_LEVEL={workers}\n")
+        print(f"DuckDB build workers: {workers}; available memory: {memory / 1024**3:.1f} GiB")
+        PY

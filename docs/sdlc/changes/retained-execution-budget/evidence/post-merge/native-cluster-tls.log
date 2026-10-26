@@ -1,0 +1,4 @@
+test_retained_partitions_native_byte_budget: PASS
+test_retained_partitions_native_global_sql_equivalence: PASS
+test_retained_partitions_native_planner_exit_and_worker_death: PASS
+test_retained_partitions_native_replay_types_and_revoke: PASS

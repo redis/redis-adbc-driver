@@ -1,0 +1,24 @@
+test_cleanup_uses_created_id_even_after_name_changes (test_cloud_partition_tls.CloudManagementSafety.test_cleanup_uses_created_id_even_after_name_changes) ... Owned Cloud ACL resources deleted; absence verified.
+ok
+test_cluster_distribution_rejects_incomplete_slot_map (test_cloud_partition_tls.CloudManagementSafety.test_cluster_distribution_rejects_incomplete_slot_map) ... ok
+test_cluster_distribution_resp2_and_resp3_exact_keys (test_cloud_partition_tls.CloudManagementSafety.test_cluster_distribution_resp2_and_resp3_exact_keys) ... ok
+test_cluster_requirement_cannot_pass_in_proxy_mode (test_cloud_partition_tls.CloudManagementSafety.test_cluster_requirement_cannot_pass_in_proxy_mode) ... ok
+test_interrupted_journal_blocks_new_run_and_can_be_recovered (test_cloud_partition_tls.CloudManagementSafety.test_interrupted_journal_blocks_new_run_and_can_be_recovered) ... ok
+test_interrupted_journal_replacement_preserves_previous_record (test_cloud_partition_tls.CloudManagementSafety.test_interrupted_journal_replacement_preserves_previous_record) ... ok
+test_management_trust_survives_test_ca_environment (test_cloud_partition_tls.CloudManagementSafety.test_management_trust_survives_test_ca_environment) ... ok
+test_no_post_replay_or_response_secret_disclosure (test_cloud_partition_tls.CloudManagementSafety.test_no_post_replay_or_response_secret_disclosure) ... ok
+test_partial_post_reconciled_cleanup_continues_after_failure (test_cloud_partition_tls.CloudManagementSafety.test_partial_post_reconciled_cleanup_continues_after_failure) ... ok
+test_permission_update_omits_unchanged_name (test_cloud_partition_tls.CloudManagementSafety.test_permission_update_omits_unchanged_name) ... ok
+test_required_topology_uses_live_shard_count (test_cloud_partition_tls.CloudManagementSafety.test_required_topology_uses_live_shard_count) ... ok
+test_role_scoped_to_only_owned_database (test_cloud_partition_tls.CloudManagementSafety.test_role_scoped_to_only_owned_database) ... Cloud database principal authenticated: worker
+ok
+test_shared_subscription_rejected_before_any_mutation (test_cloud_partition_tls.CloudManagementSafety.test_shared_subscription_rejected_before_any_mutation) ... ok
+test_unknown_creation_cannot_be_reported_as_cleaned (test_cloud_partition_tls.CloudManagementSafety.test_unknown_creation_cannot_be_reported_as_cleaned) ... ok
+test_cleanup_continues_after_failure_and_preserves_other_roles (test_software_partition_tls.ManagementSafety.test_cleanup_continues_after_failure_and_preserves_other_roles) ... ok
+test_container_ownership_before_api_or_certificates (test_software_partition_tls.ManagementSafety.test_container_ownership_before_api_or_certificates) ... ok
+test_retry_only_rejected_database_put (test_software_partition_tls.ManagementSafety.test_retry_only_rejected_database_put) ... ok
+
+----------------------------------------------------------------------
+Ran 17 tests in 0.156s
+
+OK

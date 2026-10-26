@@ -1,0 +1,12 @@
+=== RUN   TestRetainedSourceCaptureApplicationOwnership
+=== RUN   TestRetainedSourceCaptureApplicationOwnership/adopted
+=== RUN   TestRetainedSourceCaptureApplicationOwnership/application_index
+=== RUN   TestRetainedSourceCaptureApplicationOwnership/foreign_index
+--- PASS: TestRetainedSourceCaptureApplicationOwnership (41.45s)
+    --- PASS: TestRetainedSourceCaptureApplicationOwnership/adopted (15.76s)
+    --- PASS: TestRetainedSourceCaptureApplicationOwnership/application_index (16.44s)
+    --- PASS: TestRetainedSourceCaptureApplicationOwnership/foreign_index (9.25s)
+=== RUN   TestRetainedSourceCaptureForeignPrefixesAndFilter
+--- PASS: TestRetainedSourceCaptureForeignPrefixesAndFilter (3.29s)
+PASS
+ok  	github.com/adbc-drivers/redis/go	45.373s

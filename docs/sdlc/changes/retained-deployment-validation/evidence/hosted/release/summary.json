@@ -1,0 +1,433 @@
+{
+  "reports": [
+    {
+      "file": "macos-partition-validation/_temp/macos-partition-tls-minimum-client.json",
+      "sha256": "e68e03007747af4e8958b9ce3fe003bd2b841d31a7441730ab636cfd98f77e28",
+      "status": "passed",
+      "checks": 16,
+      "library_sha256": "0c8e1775efe209e4d41faa82ea760e787007e6924191b16ec12326372e0d13ba"
+    },
+    {
+      "file": "macos-partition-validation/_temp/macos-partition-tls-result.json",
+      "sha256": "0241c3e6e3a008212b893d3e2ee72047aa00df4971eb3c96d01993019253aaf5",
+      "status": "passed",
+      "checks": 16,
+      "library_sha256": "0c8e1775efe209e4d41faa82ea760e787007e6924191b16ec12326372e0d13ba"
+    },
+    {
+      "file": "wheel-client-darwin-arm64-py3.13-adbc1.12.0/wheel-client-darwin-arm64-py3.13-adbc1.12.0.json",
+      "sha256": "fb655a4ac9f552c515ad58bbb8bde06607494fe686d82c1426169dd7bfd9d05f",
+      "status": "passed",
+      "checks": 16,
+      "library_sha256": "0c8e1775efe209e4d41faa82ea760e787007e6924191b16ec12326372e0d13ba"
+    },
+    {
+      "file": "wheel-client-darwin-arm64-py3.13-adbc1.8.0/wheel-client-darwin-arm64-py3.13-adbc1.8.0.json",
+      "sha256": "e5be9ee508b2315a91e9f612d49ebcb6e123783fccf76e28bf5275133980741a",
+      "status": "passed",
+      "checks": 16,
+      "library_sha256": "0c8e1775efe209e4d41faa82ea760e787007e6924191b16ec12326372e0d13ba"
+    },
+    {
+      "file": "wheel-client-darwin-arm64-py3.14-adbc1.12.0/wheel-client-darwin-arm64-py3.14-adbc1.12.0.json",
+      "sha256": "cab41a266c4f360b1aa94bc0a03dd092c0d68e7ff831e9462670e24cced19354",
+      "status": "passed",
+      "checks": 16,
+      "library_sha256": "0c8e1775efe209e4d41faa82ea760e787007e6924191b16ec12326372e0d13ba"
+    },
+    {
+      "file": "wheel-client-darwin-arm64-py3.14-adbc1.8.0/wheel-client-darwin-arm64-py3.14-adbc1.8.0.json",
+      "sha256": "a3e02ddd0d326068e3c79ecf379534a29de89500464bb307ff84fd9b237fec3e",
+      "status": "passed",
+      "checks": 16,
+      "library_sha256": "0c8e1775efe209e4d41faa82ea760e787007e6924191b16ec12326372e0d13ba"
+    },
+    {
+      "file": "wheel-client-linux-amd64-py3.13-adbc1.12.0/wheel-client-linux-amd64-py3.13-adbc1.12.0.json",
+      "sha256": "cf08f62c5c63a9dee39859042881fcb4109e9580569c9fc3132c154d9638ba04",
+      "status": "passed",
+      "checks": 16,
+      "library_sha256": "f7e44c75819390787fbf91c7cfd328f811dd66920316fa622da57ab8d2460494"
+    },
+    {
+      "file": "wheel-client-linux-amd64-py3.13-adbc1.8.0/wheel-client-linux-amd64-py3.13-adbc1.8.0.json",
+      "sha256": "404c922c87fcb8eba5f7c25ee78515859969984d21c11a6ef7d4d4e7fea350a2",
+      "status": "passed",
+      "checks": 16,
+      "library_sha256": "f7e44c75819390787fbf91c7cfd328f811dd66920316fa622da57ab8d2460494"
+    },
+    {
+      "file": "wheel-client-linux-amd64-py3.14-adbc1.12.0/wheel-client-linux-amd64-py3.14-adbc1.12.0.json",
+      "sha256": "da790a01ecaf53f27717667bf8cdaccec82fcdf79399a1dc1a01f5b61694e972",
+      "status": "passed",
+      "checks": 16,
+      "library_sha256": "f7e44c75819390787fbf91c7cfd328f811dd66920316fa622da57ab8d2460494"
+    },
+    {
+      "file": "wheel-client-linux-amd64-py3.14-adbc1.8.0/wheel-client-linux-amd64-py3.14-adbc1.8.0.json",
+      "sha256": "80f776697cbf5667456adee1403d97214773699e6929b4ea521010282bb144cd",
+      "status": "passed",
+      "checks": 16,
+      "library_sha256": "f7e44c75819390787fbf91c7cfd328f811dd66920316fa622da57ab8d2460494"
+    },
+    {
+      "file": "wheel-client-linux-arm64-py3.13-adbc1.12.0/wheel-client-linux-arm64-py3.13-adbc1.12.0.json",
+      "sha256": "681250afd19dc0657e46ce4c9701d9ec9099782d8f79e41231ea4ec4ed1b3f16",
+      "status": "passed",
+      "checks": 16,
+      "library_sha256": "964e4310d1b1f8f643ed910f685a71d0e380532804915633b9f18cc515a44824"
+    },
+    {
+      "file": "wheel-client-linux-arm64-py3.13-adbc1.8.0/wheel-client-linux-arm64-py3.13-adbc1.8.0.json",
+      "sha256": "da792b8285da4e0a0d54205d6b105176c30b810f52d398ce0a5e694bce3725cb",
+      "status": "passed",
+      "checks": 16,
+      "library_sha256": "964e4310d1b1f8f643ed910f685a71d0e380532804915633b9f18cc515a44824"
+    },
+    {
+      "file": "wheel-client-linux-arm64-py3.14-adbc1.12.0/wheel-client-linux-arm64-py3.14-adbc1.12.0.json",
+      "sha256": "bf333279835814c729b80fc0ba7913defc8c1ae51e59e38fcf9ce279e5bc59b1",
+      "status": "passed",
+      "checks": 16,
+      "library_sha256": "964e4310d1b1f8f643ed910f685a71d0e380532804915633b9f18cc515a44824"
+    },
+    {
+      "file": "wheel-client-linux-arm64-py3.14-adbc1.8.0/wheel-client-linux-arm64-py3.14-adbc1.8.0.json",
+      "sha256": "c6af4082139f6c5071c1ca4071a597acea8b2a1e6c8179d0e29d0012dc6feb94",
+      "status": "passed",
+      "checks": 16,
+      "library_sha256": "964e4310d1b1f8f643ed910f685a71d0e380532804915633b9f18cc515a44824"
+    },
+    {
+      "file": "wheel-partition-cluster-tls-amd64/partition-cluster-tls-result.json",
+      "sha256": "195af387b6e530d07aaa13ba31a9aa5c9d144b96b061a71d2506076e1da5fec4",
+      "status": "passed",
+      "checks": 20,
+      "library_sha256": "f7e44c75819390787fbf91c7cfd328f811dd66920316fa622da57ab8d2460494"
+    },
+    {
+      "file": "wheel-partition-cluster-tls-arm64/partition-cluster-tls-result.json",
+      "sha256": "b70715c999285d97f42e6dbb3a400e99925afc06498c3faa8547bf4423b97b39",
+      "status": "passed",
+      "checks": 20,
+      "library_sha256": "964e4310d1b1f8f643ed910f685a71d0e380532804915633b9f18cc515a44824"
+    },
+    {
+      "file": "wheel-partition-tls-amd64/partition-tls-result.json",
+      "sha256": "a6857bad00291cbb60fd14289823b72c8a435bb8af3341332c29ed223d2d7095",
+      "status": "passed",
+      "checks": 16,
+      "library_sha256": "f7e44c75819390787fbf91c7cfd328f811dd66920316fa622da57ab8d2460494"
+    },
+    {
+      "file": "wheel-partition-tls-arm64/partition-tls-result.json",
+      "sha256": "5a77501b3b034855db4dbfc0be176ff43e4249ae6135f05177ed2480ed7abb52",
+      "status": "passed",
+      "checks": 16,
+      "library_sha256": "964e4310d1b1f8f643ed910f685a71d0e380532804915633b9f18cc515a44824"
+    },
+    {
+      "file": "wheel-software-partition-tls-amd64/software-partition-tls-result.json",
+      "sha256": "f4158c4ed885ba94bf6533f98b85f3298c7948681ce28cb966e8f3811451a94b",
+      "status": "passed",
+      "checks": 17,
+      "library_sha256": "f7e44c75819390787fbf91c7cfd328f811dd66920316fa622da57ab8d2460494"
+    },
+    {
+      "file": "wheel-software-partition-tls-arm64/software-partition-tls-result.json",
+      "sha256": "b4384ab8f6b40c9ab9e38da52760481b4c6eb1447a8220608621fddfdbedca7c",
+      "status": "passed",
+      "checks": 17,
+      "library_sha256": "964e4310d1b1f8f643ed910f685a71d0e380532804915633b9f18cc515a44824"
+    }
+  ],
+  "native_suites": [
+    {
+      "file": "macos-partition-validation/redis-adbc-driver/redis-adbc-driver/go/validation/macos-minimum-client-validation.xml",
+      "sha256": "6307d2d55c39404916d8fa1b92ccbe1ecc6d661ddf957f25341255b2b24bc793",
+      "passed": 14,
+      "required_partition_cases": 14,
+      "skips": []
+    },
+    {
+      "file": "macos-partition-validation/redis-adbc-driver/redis-adbc-driver/go/validation/macos-wheel-validation.xml",
+      "sha256": "2b1e4fdf3ef28597874e8e494d5e9a695aae2c4fe577a33480683e4ef7784d85",
+      "passed": 380,
+      "required_partition_cases": 14,
+      "skips": [
+        {
+          "name": "test_get_objects_constraints_foreign[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_get_objects_constraints_unique[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_get_statistics[redis:8]",
+          "reason": "connection_get_statistics not supported"
+        },
+        {
+          "name": "test_get_table_schema_catalog[redis:8]",
+          "reason": "secondary_catalog not supported"
+        },
+        {
+          "name": "test_set_current_catalog[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_catalog[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_replace_catalog[redis:8:ingest/string]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_transaction_toggle[redis:8]",
+          "reason": "Driver does not support transactions"
+        }
+      ]
+    },
+    {
+      "file": "release-validation-amd64/cluster-validation.xml",
+      "sha256": "1ceef4ad5c0623c61fff6b554de6ac05f334472183fd4b408a9dafed4043b44d",
+      "passed": 380,
+      "required_partition_cases": 14,
+      "skips": [
+        {
+          "name": "test_get_objects_constraints_foreign[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_get_objects_constraints_unique[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_get_statistics[redis:8]",
+          "reason": "connection_get_statistics not supported"
+        },
+        {
+          "name": "test_get_table_schema_catalog[redis:8]",
+          "reason": "secondary_catalog_schema not supported"
+        },
+        {
+          "name": "test_set_current_catalog[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_catalog[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_replace_catalog[redis:8:ingest/string]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_transaction_toggle[redis:8]",
+          "reason": "Driver does not support transactions"
+        }
+      ]
+    },
+    {
+      "file": "release-validation-amd64/software-validation.xml",
+      "sha256": "1f06ce4f71ca3b804f3ba2ff907dd1f5e3f24bf5ebec3ad86db22df0130192ac",
+      "passed": 380,
+      "required_partition_cases": 14,
+      "skips": [
+        {
+          "name": "test_get_objects_constraints_foreign[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_get_objects_constraints_unique[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_get_statistics[redis:8]",
+          "reason": "connection_get_statistics not supported"
+        },
+        {
+          "name": "test_get_table_schema_catalog[redis:8]",
+          "reason": "secondary_catalog not supported"
+        },
+        {
+          "name": "test_set_current_catalog[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_catalog[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_replace_catalog[redis:8:ingest/string]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_transaction_toggle[redis:8]",
+          "reason": "Driver does not support transactions"
+        }
+      ]
+    },
+    {
+      "file": "release-validation-amd64/wheel-validation.xml",
+      "sha256": "af2ddde8a9da8f76707922066cd5a0926b2e861c7dcb0544696d097682718eac",
+      "passed": 380,
+      "required_partition_cases": 14,
+      "skips": [
+        {
+          "name": "test_get_objects_constraints_foreign[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_get_objects_constraints_unique[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_get_statistics[redis:8]",
+          "reason": "connection_get_statistics not supported"
+        },
+        {
+          "name": "test_get_table_schema_catalog[redis:8]",
+          "reason": "secondary_catalog_schema not supported"
+        },
+        {
+          "name": "test_set_current_catalog[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_catalog[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_replace_catalog[redis:8:ingest/string]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_transaction_toggle[redis:8]",
+          "reason": "Driver does not support transactions"
+        }
+      ]
+    },
+    {
+      "file": "release-validation-arm64/cluster-validation.xml",
+      "sha256": "242581d7094d481f022c5bfec72f6e0edc12ec4a997b2618feb45663d54a0355",
+      "passed": 380,
+      "required_partition_cases": 14,
+      "skips": [
+        {
+          "name": "test_get_objects_constraints_foreign[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_get_objects_constraints_unique[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_get_statistics[redis:8]",
+          "reason": "connection_get_statistics not supported"
+        },
+        {
+          "name": "test_get_table_schema_catalog[redis:8]",
+          "reason": "secondary_catalog_schema not supported"
+        },
+        {
+          "name": "test_set_current_catalog[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_catalog[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_replace_catalog[redis:8:ingest/string]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_transaction_toggle[redis:8]",
+          "reason": "Driver does not support transactions"
+        }
+      ]
+    },
+    {
+      "file": "release-validation-arm64/software-validation.xml",
+      "sha256": "af47d3e8167828bb52bae4b6c0e8d01a5dc56e4984b4534372a96d85d597ecf9",
+      "passed": 380,
+      "required_partition_cases": 14,
+      "skips": [
+        {
+          "name": "test_get_objects_constraints_foreign[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_get_objects_constraints_unique[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_get_statistics[redis:8]",
+          "reason": "connection_get_statistics not supported"
+        },
+        {
+          "name": "test_get_table_schema_catalog[redis:8]",
+          "reason": "secondary_catalog not supported"
+        },
+        {
+          "name": "test_set_current_catalog[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_catalog[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_replace_catalog[redis:8:ingest/string]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_transaction_toggle[redis:8]",
+          "reason": "Driver does not support transactions"
+        }
+      ]
+    },
+    {
+      "file": "release-validation-arm64/wheel-validation.xml",
+      "sha256": "ad86388d272c8bb9e49319efd8c3eb85596347166d9b5ac98d78f4fe3aac7a20",
+      "passed": 380,
+      "required_partition_cases": 14,
+      "skips": [
+        {
+          "name": "test_get_objects_constraints_foreign[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_get_objects_constraints_unique[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_get_statistics[redis:8]",
+          "reason": "connection_get_statistics not supported"
+        },
+        {
+          "name": "test_get_table_schema_catalog[redis:8]",
+          "reason": "secondary_catalog not supported"
+        },
+        {
+          "name": "test_set_current_catalog[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_catalog[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_replace_catalog[redis:8:ingest/string]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_transaction_toggle[redis:8]",
+          "reason": "Driver does not support transactions"
+        }
+      ]
+    }
+  ]
+}

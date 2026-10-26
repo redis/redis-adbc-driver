@@ -1,0 +1,87 @@
+{
+  "query": 10,
+  "sql": "SELECT RegionID, SUM(AdvEngineID), COUNT(*) AS c, AVG(ResolutionWidth), COUNT(DISTINCT UserID) FROM hits GROUP BY RegionID ORDER BY c DESC LIMIT 10;",
+  "metadata": {
+    "source_rows": 99997497,
+    "loaded_rows": 99997497,
+    "columns": 105,
+    "source_sha256": "a390f6cb782f6aaef278c72fc1dd86c4f30bc843ebab3c159e9bd4d45ddb079f",
+    "schema_sha256": "42d28575fd59fb4ae5d556683323c17937daaae8ff800e9089ddaaf91d1b2be7",
+    "upstream_commit": "e90045879276f75cc398f1ab8a73541a7716058d",
+    "engine": "DuckDB",
+    "engine_version": "1.5.6",
+    "normalization": "official epoch-day DATE and epoch-second TIMESTAMP"
+  },
+  "rows": [
+    [
+      229,
+      2077656,
+      18295832,
+      1506.085243130785,
+      2845673
+    ],
+    [
+      2,
+      441662,
+      6687587,
+      1479.8386542111527,
+      1081016
+    ],
+    [
+      208,
+      285925,
+      4261812,
+      1285.2593246722286,
+      831676
+    ],
+    [
+      169,
+      100887,
+      3320229,
+      1465.9073732564832,
+      604583
+    ],
+    [
+      32,
+      81498,
+      1843518,
+      1538.0376568061718,
+      216010
+    ],
+    [
+      34,
+      161779,
+      1792369,
+      1548.360152401654,
+      299479
+    ],
+    [
+      184,
+      55526,
+      1755192,
+      1506.8082967561384,
+      322661
+    ],
+    [
+      42,
+      108820,
+      1542717,
+      1587.1085208758313,
+      243181
+    ],
+    [
+      107,
+      120470,
+      1516690,
+      1548.6028970982863,
+      272448
+    ],
+    [
+      51,
+      98212,
+      1435578,
+      1579.8860354505293,
+      211505
+    ]
+  ]
+}

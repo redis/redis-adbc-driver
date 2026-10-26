@@ -1,0 +1,5 @@
+=== RUN   TestSearchReplyScanProfile
+    search_reply_profile_test.go:37: three scans: elapsed=8.972774666s allocated_bytes=3479541904 allocations=99111805 GCs=94
+--- PASS: TestSearchReplyScanProfile (8.98s)
+PASS
+ok  	github.com/adbc-drivers/redis/go	9.828s

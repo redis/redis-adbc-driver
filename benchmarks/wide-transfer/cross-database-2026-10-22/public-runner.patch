@@ -1,0 +1,10 @@
+--- a/benchmarks/wide-transfer/cross_database.py
++++ b/benchmarks/wide-transfer/cross_database.py
+@@ -227,7 +227,6 @@
+         else:
+             futures = [pool.submit(fetch, engine, cfg, expected.schema, b, p, c)
+                        for b, p, c in zip(bounds, paths, connections)]
+-            concurrent.futures.wait(futures)  # Join readers before connections unwind on failure.
+             results = [f.result() for f in futures]
+         elapsed = time.perf_counter() - started
+         after_traffic = meter.snapshot() if meter else None

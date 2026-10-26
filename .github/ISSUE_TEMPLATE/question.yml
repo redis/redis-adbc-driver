@@ -1,0 +1,11 @@
+name: Question or other issue
+description: Ask a question or raise another topic.
+labels: [question]
+body:
+  - type: textarea
+    id: details
+    attributes:
+      label: Issue details
+      description: Describe your question or topic. Remove credentials and private data.
+    validations:
+      required: true

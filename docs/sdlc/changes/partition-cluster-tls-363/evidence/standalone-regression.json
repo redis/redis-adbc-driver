@@ -1,0 +1,50 @@
+{
+  "kind": "local native partition TLS/independent ACL validation",
+  "status": "passed",
+  "library_sha256": "205724cf0292fc2945f0793bb4afafef90a27b3c75ca757d4793831bb8e54344",
+  "installed_wheel": false,
+  "python": "3.13.16",
+  "pyarrow": "26.0.0",
+  "certificate_verification": true,
+  "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+  "machine": "arm64",
+  "packages": {
+    "adbc-driver-manager": "1.12.0",
+    "redis": "8.1.0"
+  },
+  "aggregate_cap": 137,
+  "cluster_mode": "auto",
+  "checks": [
+    "verified_admin_tls_and_real_cap",
+    "hostname_mismatch_rejected",
+    "closed_planner_and_credential_free_descriptors",
+    "restricted_cross_process_search_full_values_schema",
+    "restricted_cross_process_direct_hash_duplicates_deleted",
+    "native_untrusted_ca_rejected",
+    "native_hostname_mismatch_rejected",
+    "worker_config_and_writes_denied",
+    "malformed_descriptor_rejected",
+    "search_readiness_acl_required_direct_hash_independent",
+    "direct_hash_reader_obeys_worker_acl",
+    "connection_cancel_in_independent_tls_worker",
+    "early_release_in_independent_tls_worker",
+    "live_updates_deletes_and_later_insert_exclusion",
+    "stale_target_rejected"
+  ],
+  "server_cluster_enabled": 0,
+  "redis_version": "8.10.2",
+  "modules": [
+    {
+      "name": "vectorset",
+      "ver": 1,
+      "path": "",
+      "args": []
+    },
+    {
+      "name": "search",
+      "ver": 81001,
+      "path": "/private/tmp/codex-macos363-native/redis/8.10.2_1/lib/redis/modules/redisearch.so",
+      "args": []
+    }
+  ]
+}

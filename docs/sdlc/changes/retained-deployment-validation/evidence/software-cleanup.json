@@ -1,0 +1,10 @@
+{
+  "time_utc": "2026-10-22T03:12:28.752090+00:00",
+  "container_id": "327683a09910984d113b8f30c7fad2e26291103fad5790bc8b08d1693e700c00",
+  "compose_project": "codex-retained-software",
+  "owner_labels_verified": true,
+  "container_removed": true,
+  "network_removed": true,
+  "private_tls_directory_removed": true,
+  "cloud_validation_still_active": true
+}

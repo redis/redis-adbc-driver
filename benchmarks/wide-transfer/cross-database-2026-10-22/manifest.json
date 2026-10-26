@@ -1,0 +1,119 @@
+{
+  "date": "2026-10-22",
+  "baseline_commit": "aab9612c7f08f92568b35175e48ed14867b67343",
+  "supported_production_changes": false,
+  "build_command": "GOCACHE=/tmp/redis-442/go-cache make -C go build",
+  "build_flags": "CGO_ENABLED=1 go build -buildmode=c-shared -tags driverlib -ldflags '-s -w -X github.com/adbc-drivers/driverbase-go/driverbase.infoDriverVersion=v0.1.0'",
+  "go_version": "go version go1.27.2 darwin/arm64",
+  "production_sha256": {
+    "go/store.go": "9acadefb136e92f4c2907cd3af158cada83aa6fdf3efad0ea431a7ef8162bc2d",
+    "go/scan_arrow.go": "938cb887a45f950872b6a286a0ab79d6e7f6060e289c89e45ae0e08f53308331",
+    "go/scan_projection.go": "f4dcadac00093d90381045af0a5af35f770a657ceb4b33c00ff4c9943b4b327d",
+    "go/scan_hash_slices.go": "79f4e7fc255036ef5086fb953242ece9bd8671c09115bfbb1c9f0c11b44b43ff",
+    "go/query.go": "bcfee0d9b9af342ad76c9c10957ffd88a7a50e11ca58eaeab3485fb0318b8249",
+    "go/go.mod": "15eaf334912e751abc012059569726232ee4c7d1dc8518628cea2d2eae9aaf09",
+    "go/go.sum": "71cd4040a7d8b07f36e0f77e29ce3900824ea6f70abf347a2da6db4bdf7530a2"
+  },
+  "binaries_sha256": {
+    "baseline": "6148461d61dce4ba2415679bcc3ea6d6acd87766e383d48d1a5fde9469a0e334",
+    "candidate": "530243ebe24f7c4d579bac74a49e8ceb5d433d08963bedda593848108306195a",
+    "bulk": "3fb7fb1dd17ff5645b2821367cb6569a8bfe6ac04861a8cea20a3724bc434b2b"
+  },
+  "binary_labels": {
+    "candidate": "command-arena.patch",
+    "bulk": "standalone-bulk.patch"
+  },
+  "fixture": {
+    "parquet_sha256": "d053397f7aa5b2e1ee9160779a9e9307b162c6994aebba829c7ea1411076c4d0",
+    "ddl_sha256": "42d28575fd59fb4ae5d556683323c17937daaae8ff800e9089ddaaf91d1b2be7",
+    "source_arrow_sha256": "a9f58367a9bb3af0e244043640e967ec618b4f96b759cd144be900030f2bf5a2",
+    "upstream_clickbench_commit": "ccda3033f3c7303d9d7f9634d6dae118ef085f96",
+    "rows": 100000,
+    "columns": 105
+  },
+  "servers": {
+    "limits_each": {
+      "cpus": 4,
+      "memory_bytes": 2147483648
+    },
+    "redis": "8.6.2 / Search 8.6.0",
+    "postgres": "16.10",
+    "clickhouse": "25.8.33.6",
+    "image_digests": [
+      "[redis:8.6.2] [redis@sha256:832d7785830f3f4b559300e6191fc914b15642c1935252338825cf4332200148]",
+      "[postgres:16.10] [postgres@sha256:21f6013073bc6b92830a2129570e2f5ec42a6c734b5a985a41e83aa58f54c3c1]",
+      "[clickhouse/clickhouse-server:25.8] [clickhouse/clickhouse-server@sha256:0152dd511befe6a2c2ef53e930726179669b08116da78500b37c51c96ff5ee77]"
+    ],
+    "container_checks": [
+      "/redis-442-bench|sha256:832d7785830f3f4b559300e6191fc914b15642c1935252338825cf4332200148|4000000000|2147483648|false",
+      "/postgres-442-bench|sha256:21f6013073bc6b92830a2129570e2f5ec42a6c734b5a985a41e83aa58f54c3c1|4000000000|2147483648|false",
+      "/clickhouse-442-bench|sha256:0152dd511befe6a2c2ef53e930726179669b08116da78500b37c51c96ff5ee77|4000000000|2147483648|false"
+    ],
+    "transport": "localhost plaintext TCP; no ClickHouse Arrow/HTTP compression",
+    "cleanup": "All three task-owned containers and their anonymous volumes removed; no Cloud resources created"
+  },
+  "host": {
+    "logical_cpus": 18,
+    "memory_bytes": 38654705664
+  },
+  "environment": {
+    "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+    "python": "3.13.16",
+    "logical_cpus": 18,
+    "packages": {
+      "pyarrow": "26.0.0",
+      "adbc-driver-manager": "1.12.0",
+      "adbc-driver-postgresql": "1.12.0",
+      "redis": "8.1.0"
+    }
+  },
+  "primary_counts": {
+    "executions": 260,
+    "warmups": 50,
+    "measured": 210
+  },
+  "tests": {
+    "passed": 6,
+    "log": "harness-tests.log"
+  },
+  "diagnostic": {
+    "scans": 3,
+    "allocated_bytes": 3479276992,
+    "allocations": 99109715,
+    "GCs": 93,
+    "log": "current-profile.log"
+  },
+  "runner_snapshots": {
+    "public_wide": "35d87e1d7fa4361799af71f81334af8fd127a14de3d01c2b38f3fb58df08ac97",
+    "explicit_range": "0660c5df3d049c87323c28e2cac915e1d777da15f2d02bc7b34022d84a3d9db7",
+    "final": "618c206a5d557b8a1545d39aeb56350e5c07331ecf15fccc5c38a271079c796b"
+  },
+  "runner_sha256": {
+    "benchmarks/wide-transfer/cross_database.py": "618c206a5d557b8a1545d39aeb56350e5c07331ecf15fccc5c38a271079c796b",
+    "benchmarks/wide-transfer/traffic_meter.py": "a7f25fb7f23c58a1e40c163efb62f0ceb0c147f8cdaf63f1e9d6679b6806635f",
+    "benchmarks/wide-transfer/compare.py": "9f571f1b0e855d3c55c54fc9ed1905a8a0883c4b22f782125701d2965218a0f6"
+  },
+  "artifact_sha256": {
+    ".gitattributes": "5af15074e76d220cfb03e02c4013d09fce3b958879e3a8313146f50cff782705",
+    "README.md": "8b5c4bdfc91550c1e885518912c0259583b4fd4546a77c21ad7d240583757da0",
+    "architecture.md": "ea69d8cc5285e9ae106d320867b0756eb1a0415e3b814bdab3082864578bad6f",
+    "command-arena-screen.json": "376cde695d9d2ea5e18cb4f4959375dfa0c9861a41de0cda78f88e7dce2aed11",
+    "command-arena.patch": "916c6dffb8a9eaa1cad772e745e3cb667c70e61c9e31238c41a28b88fb6583cf",
+    "current-alloc-top.txt": "87927194bdd6a8b3f4906be5bdfb1785485b3fab8a4364cb33053115e2ef8013",
+    "current-alloc.pprof": "f9b32822a14bc163ec67ff0f17e182cb971eafd4bd6aba9805039992f44c138f",
+    "current-cpu-top.txt": "777718148926891b15b3b2dfec0fa5c70b972939d8812c6a0595ec08c67cfcae",
+    "current-cpu.pprof": "46a0652ee62dec9b1d47a1235576e28b2e4318db4f85c42185c44b2992989b9d",
+    "current-profile.log": "fae02aa595b80e5b39b3de45cad81e8fe0afb44864c30d3ac91681be3639e0ee",
+    "explicit-range-wide.json": "02a1929dd56e228f3443ff9017e27c85a8252dff181fc3047148554268544b3c",
+    "failed-attempts.json": "78750e3cdd1d2f8b53f9f9bb003cc01788129f91becdd80f34f06271e2e0ca58",
+    "harness-tests.log": "1d7d8ab51a26cba2a5a61026a47497fa41a6470bea315203fba46f32e17de1e1",
+    "narrow.json": "8fb2b5a379eb6bd1d81a5eeb52741ccd3f97c8719c371849e3aefd310c6abaf9",
+    "public-runner.patch": "4d330a1e3a7c24d2720225c03767badc87147887192e7cb4a12008e759275d9e",
+    "ranges-runner.patch": "96ed866537e6046f8d152c5f3e80be8a52b9aabd0491ae04e25c4f10d6443adb",
+    "requirements.txt": "c0980ecb793e5ccb051693a9745f663a1a09b9aa233666522655622975a0a16b",
+    "standalone-bulk-screen.json": "ae0aba58be6fdd42b5715f1fd259715baeb5287045087eba2690315ac658a426",
+    "standalone-bulk.patch": "4e05e8535cc75bdff587b06c0d41dc20992036c1a3bc72dc8d5ef9178cfe0e35",
+    "traffic-wide.json": "8eb82a8e0d5347e54b0fbff29b8933ba71ce3a1d3d0058b6aad1ca2f36ed0e38",
+    "wide.json": "e61dddb28be427137f9624da3d812e7db22a99db9e7560837c7748dcfea341df"
+  }
+}

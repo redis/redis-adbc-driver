@@ -1,0 +1,65 @@
+# Explicitly dispatched against an owner-provided disposable deployment.
+name: Partition deployment validation
+on:
+  workflow_dispatch:
+    inputs:
+      scan_cap:
+        description: Guaranteed positive Search aggregate cap lower bound on every serving node
+        required: true
+        type: number
+      deployment:
+        description: Service/version/topology, cost cap and cleanup date (no credentials)
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  validate:
+    environment: partition-validation
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm, macos-15]
+        python: ["3.14"]
+        manager: ["1.12.0"]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    env:
+      ADBC_MANAGER: ${{ matrix.manager }}
+      UV_PYTHON: ${{ matrix.python }}
+      REDIS_URI: ${{ secrets.REDIS_URI }}
+      REDIS_WORKER_URI: ${{ secrets.REDIS_WORKER_URI }}
+      REDIS_PARTITION_SCAN_CAP: ${{ inputs.scan_cap }}
+      DEPLOYMENT: ${{ inputs.deployment }}
+      OWNER: ${{ vars.PARTITION_TEST_OWNER }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Require disposable deployment and ownership configuration
+        run: |
+          test -n "$REDIS_URI" && test -n "$OWNER" && test -n "$DEPLOYMENT"
+          python3 -c 'import os; assert 0 < int(os.environ["REDIS_PARTITION_SCAN_CAP"]) <= 2147483648'
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go/go.mod
+          cache-dependency-path: go/go.sum
+      - uses: astral-sh/setup-uv@v10.2.0
+      - name: Build library once
+        working-directory: go
+        run: make build
+      - name: Full configured ADBC validation and required native partitions
+        working-directory: go/validation
+        run: |
+          uv run --with "adbc-driver-manager==$ADBC_MANAGER" pytest -q -ra --junitxml=deployment-validation.xml tests/
+          python3 ../../scripts/check_partition_junit.py deployment-validation.xml
+      - name: Capture public deployment record
+        if: always()
+        run: |
+          python3 -c 'import json,os,platform; print(json.dumps({"deployment":os.environ["DEPLOYMENT"],"owner":os.environ["OWNER"],"platform":platform.platform(),"revision":os.environ["GITHUB_SHA"]},indent=2))' > deployment.json
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: partition-deployment-${{ matrix.runner }}-${{ matrix.python }}-${{ matrix.manager }}
+          path: |
+            go/validation/deployment-validation.xml
+            deployment.json

@@ -1,0 +1,32 @@
+{
+  "status": "passed",
+  "owned_principal_names": [
+    [
+      "redisRules",
+      "planner_3d516f5ab024-rule"
+    ],
+    [
+      "roles",
+      "planner_3d516f5ab024-role"
+    ],
+    [
+      "users",
+      "planner_3d516f5ab024"
+    ],
+    [
+      "redisRules",
+      "worker_3d516f5ab024-rule"
+    ],
+    [
+      "roles",
+      "worker_3d516f5ab024-role"
+    ],
+    [
+      "users",
+      "worker_3d516f5ab024"
+    ]
+  ],
+  "uncertain_creations": [],
+  "pending_tasks": [],
+  "errors": []
+}

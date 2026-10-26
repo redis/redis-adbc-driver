@@ -1,0 +1,49 @@
+{
+  "date": "2026-10-22",
+  "baseline": "d72b730bf24074942609e9f0f839c1f46e10d365",
+  "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+  "go_version": "go version go1.27.2 darwin/arm64",
+  "redis": "8.6.2 / Search 8.6.0",
+  "redis_benchmark_limits": {
+    "cpus": 4,
+    "memory_bytes": 2147483648
+  },
+  "postgres": "16.10, local cached image, C collation and UTF-8 client encoding; actual version in postgres-comparison.json",
+  "binary_sha256": {
+    "baseline": "1281497ec2e31afe7770587361df04d645b9f698d7c3b21e0f1f70aa973e364f",
+    "candidate": "12cef20945e5fa4ccc00ab216384b9aa3cbc8ce545202ccea6a747d699836a38"
+  },
+  "fixture_sha256": "d053397f7aa5b2e1ee9160779a9e9307b162c6994aebba829c7ea1411076c4d0",
+  "timing": "Fresh-process startup, connection/planning, full Arrow fetch, safe normalization, IPC writing and teardown. Independent full-value/multiplicity validation outside timing. One warmup plus five alternating-order measured trials per build/API/shape. Both builds RESP3, 4096-row batches. Regular: one reader; public partitions: four readers/eight descriptors.",
+  "profile_note": "Three separate Go-allocator scans per build; cumulative allocations are not RSS. Profiles excluded from timed matrices. Native timed workers use C Arrow allocation.",
+  "limitations": [
+    "local macOS arm64 and standalone Redis only",
+    "PostgreSQL reference is 16.10 rather than the harness default 16.15 digest",
+    "full Go suite followed by focused tests for final VALUES-category check and prepared/schema regressions",
+    "no external dbt functional suite, Redis Software, Cluster/TLS matrix or full ADBC validation suite in this change"
+  ],
+  "measured_source_sha256": {
+    "go/sql.go": "3e26800ca6f891b182047637446616a2d861b10fb9154004471a7977d877278a",
+    "go/exec.go": "f689044f6ede09e17466d0551d11fcf9a0e3a6bdf306c77b4c8102cba9e52fec",
+    "go/query.go": "35320eb178baa98cdde1939bb0614f2fbd8d3d28dd2b61e251ae7b0ca21552ab",
+    "go/values.go": "f99be1220ed0efe2daea7c010463998a6426e833beeff70047033396c9371e36",
+    "go/pagination.go": "0274843c6e0e302caee57ef20accd6f6310a76ff69bb3484fe0af1c2b42c8f97",
+    "go/scan_typed.go": "431b3541e0093b712e77ee5cd3e5f255e0316586e893c3672e367187debaebbb",
+    "go/scan_arrow.go": "dca97cc8ded00cf7bd5638b282d4af5aee50dad94415a7d86f4f5fb913acc928",
+    "go/scan_projection.go": "9c0bc584e9a19c2be84d0da6f508f1aee13e946ed31f23546bd6f074840a7c51",
+    "benchmarks/wide-transfer/compare.py": "e34a90563f5ca06bbdb7036494e2eac434d2d6792f4474e671b1473168050c43"
+  },
+  "final_source_sha256": {
+    "go/sql.go": "3e26800ca6f891b182047637446616a2d861b10fb9154004471a7977d877278a",
+    "go/exec.go": "f689044f6ede09e17466d0551d11fcf9a0e3a6bdf306c77b4c8102cba9e52fec",
+    "go/query.go": "35320eb178baa98cdde1939bb0614f2fbd8d3d28dd2b61e251ae7b0ca21552ab",
+    "go/values.go": "0bcb1ddd1dcae20f056c96644e493d4606ddcb2ef4ec9ca4dc3c813e2aaf1473",
+    "go/pagination.go": "0274843c6e0e302caee57ef20accd6f6310a76ff69bb3484fe0af1c2b42c8f97",
+    "go/scan_typed.go": "431b3541e0093b712e77ee5cd3e5f255e0316586e893c3672e367187debaebbb",
+    "go/scan_arrow.go": "dca97cc8ded00cf7bd5638b282d4af5aee50dad94415a7d86f4f5fb913acc928",
+    "go/scan_projection.go": "9c0bc584e9a19c2be84d0da6f508f1aee13e946ed31f23546bd6f074840a7c51",
+    "benchmarks/wide-transfer/compare.py": "e34a90563f5ca06bbdb7036494e2eac434d2d6792f4474e671b1473168050c43"
+  },
+  "post_measurement_change": "Only VALUES stored-view local-time literal freezing was added after measurement; scan, batching, query and typed Arrow source hashes are unchanged. Final focused tests verify the stored-view behavior.",
+  "final_native_binary_sha256": "35a99e0f5a7baa67deb23b19b4c71488f52e82599a2f9f162ad5f381890ce862"
+}

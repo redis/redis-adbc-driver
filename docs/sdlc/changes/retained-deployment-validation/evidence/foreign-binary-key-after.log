@@ -1,0 +1,18 @@
+=== RUN   TestRetainedSourceCaptureApplicationOwnership
+=== RUN   TestRetainedSourceCaptureApplicationOwnership/adopted
+=== RUN   TestRetainedSourceCaptureApplicationOwnership/application_index
+=== RUN   TestRetainedSourceCaptureApplicationOwnership/foreign_index
+--- PASS: TestRetainedSourceCaptureApplicationOwnership (0.12s)
+    --- PASS: TestRetainedSourceCaptureApplicationOwnership/adopted (0.05s)
+    --- PASS: TestRetainedSourceCaptureApplicationOwnership/application_index (0.04s)
+    --- PASS: TestRetainedSourceCaptureApplicationOwnership/foreign_index (0.03s)
+=== RUN   TestSearchKeyRepliesPreserveBinaryIdentity
+=== RUN   TestSearchKeyRepliesPreserveBinaryIdentity/RESP2
+=== RUN   TestSearchKeyRepliesPreserveBinaryIdentity/RESP3
+--- PASS: TestSearchKeyRepliesPreserveBinaryIdentity (0.00s)
+    --- PASS: TestSearchKeyRepliesPreserveBinaryIdentity/RESP2 (0.00s)
+    --- PASS: TestSearchKeyRepliesPreserveBinaryIdentity/RESP3 (0.00s)
+=== RUN   TestSearchKeyRepliesRejectMalformedIdentity
+--- PASS: TestSearchKeyRepliesRejectMalformedIdentity (0.00s)
+PASS
+ok  	github.com/adbc-drivers/redis/go	1.143s

@@ -1,0 +1,42 @@
+{
+  "date": "2026-10-21",
+  "baseline_source_commit": "20de26967b9974fa344f15de2b71491039321d86",
+  "candidate_production_source_commit": "7d373ac578fde7801a996490c8db1c1953f8f6d9",
+  "go_version": "go version go1.27.2 darwin/arm64",
+  "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+  "host_logical_cpus": 18,
+  "host_memory_bytes": 38654705664,
+  "server": {
+    "image": "redis:8.6.2",
+    "cpus": 4,
+    "memory_bytes": 2147483648,
+    "transport": "localhost TCP, no TLS; dedicated server; no concurrent correctness runs",
+    "redis_version": "8.6.2",
+    "search_version": "8.6.0"
+  },
+  "upstream_clickbench_commit": "ccda3033f3c7303d9d7f9634d6dae118ef085f96",
+  "parquet_sha256": "d053397f7aa5b2e1ee9160779a9e9307b162c6994aebba829c7ea1411076c4d0",
+  "build_command": "CGO_ENABLED=1 go build -buildmode=c-shared -tags driverlib -ldflags '-s -w -X github.com/adbc-drivers/driverbase-go/driverbase.infoDriverVersion=v0.1.0' -o OUTPUT ./pkg",
+  "binaries": {
+    "baseline": "420c52de45bedd5f41d1c12172e795dc5f5309a34f270a3193f86d6c7bb3aacd",
+    "candidate": "883caba0c0459ad588d0578951419497dc89eaa793137114a70e28b8df976443"
+  },
+  "candidate_changed_production_files": {
+    "go/query.go": "1cea52cd5777860db76634acb8e7f3f31d7d40da16cb57caf09bca8eb895e127",
+    "go/shared_scan.go": "4179a3033e047aac67e62720cdfdee6804d3e13facbc4341102afa3b2810221c",
+    "go/stream.go": "195462c9e1e4ff3f6bb1110a0f53e87f45b80071c3f63cd98ac65ba069fef57e",
+    "go/scan_projection.go": "e849b1c966dfd2f96e101623e227712b91e80ab0e8084c30e6a91ac9f4c86231"
+  },
+  "benchmark_runner_sha256": "99f5b40ae31e33f45bdd53dcc594ba4750b758c56c378f246318c9b631332f2d",
+  "notes": [
+    "The optional --columns CLI was added for the narrow follow-up; wide and narrow use identical worker/trial code.",
+    "Returned Arrow validity-buffer layout affects nbytes: wide-results logical_arrow_bytes is the canonical sorted validation table size, 79,578,019 bytes, not RESP bytes. Source before canonical sorting is 79,228,019 bytes.",
+    "Release builds differ only in production source and VCS metadata; all stated compiler/linker flags match."
+  ],
+  "python_version": "3.13.16",
+  "packages": {
+    "adbc-driver-manager": "1.12.0",
+    "pyarrow": "26.0.0",
+    "redis": "8.1.0"
+  }
+}

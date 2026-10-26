@@ -1,0 +1,49 @@
+File: baseline-profile.test
+Build ID: 1eaf8555b19f816ad65f9f7a34bac76f51876d47
+Type: alloc_space
+Time: 2026-10-21 22:39:13 PDT
+Showing nodes accounting for 255082.92MB, 99.00% of 257670.64MB total
+Dropped 179 nodes (cum <= 1288.35MB)
+Showing top 40 nodes out of 54
+      flat  flat%   sum%        cum   cum%
+50639.98MB 19.65% 19.65% 50639.98MB 19.65%  github.com/adbc-drivers/redis/go.(*tupleAggregatePlan).row (inline)
+33292.01MB 12.92% 32.57% 57343.09MB 22.25%  github.com/redis/go-redis/v9/internal/proto.(*Reader).readMap
+27237.62MB 10.57% 43.14% 28542.65MB 11.08%  github.com/adbc-drivers/redis/go.distinctValues
+26693.57MB 10.36% 53.50% 53251.65MB 20.67%  github.com/adbc-drivers/redis/go.parseCursorReplyLists
+26558.08MB 10.31% 63.81% 26558.08MB 10.31%  github.com/adbc-drivers/redis/go.redisReplyMap (inline)
+21908.44MB  8.50% 72.31% 49297.62MB 19.13%  github.com/adbc-drivers/redis/go.(*tupleAggregatePlan).tuple
+15146.25MB  5.88% 78.19% 57343.59MB 22.25%  github.com/redis/go-redis/v9/internal/proto.(*Reader).ReadReply
+11447.48MB  4.44% 82.63% 11447.48MB  4.44%  github.com/adbc-drivers/redis/go.(*tupleAggregatePlan).values
+ 7153.63MB  2.78% 85.41%  7156.13MB  2.78%  github.com/redis/go-redis/v9/internal/proto.(*Reader).readStringReply
+ 6208.95MB  2.41% 87.82%  6208.95MB  2.41%  github.com/adbc-drivers/redis/go.(*tupleAggregatePlan).groupValues
+ 4097.83MB  1.59% 89.41%  6557.71MB  2.54%  github.com/adbc-drivers/redis/go.(*tupleSpill).add
+ 3433.12MB  1.33% 90.74%  4000.13MB  1.55%  github.com/adbc-drivers/redis/go.readSpillString
+ 3015.06MB  1.17% 91.91%  3015.06MB  1.17%  internal/strconv.FormatInt
+ 2860.11MB  1.11% 93.02%  2860.11MB  1.11%  strings.(*Builder).WriteString (inline)
+ 2807.43MB  1.09% 94.11% 51652.90MB 20.05%  github.com/adbc-drivers/redis/go.(*executor).reduceTupleRuns.func2
+ 2039.69MB  0.79% 94.90%  2039.69MB  0.79%  github.com/adbc-drivers/redis/go.(*spillHeap).Pop
+ 2019.68MB  0.78% 95.69% 61639.34MB 23.92%  github.com/adbc-drivers/redis/go.mergeSpillRunsWith
+ 2005.18MB  0.78% 96.47%  3063.01MB  1.19%  github.com/adbc-drivers/redis/go.(*tupleSpill).flush
+ 1746.70MB  0.68% 97.14% 57343.09MB 22.25%  github.com/redis/go-redis/v9/internal/proto.(*Reader).readSlice
+ 1566.03MB  0.61% 97.75%  2670.06MB  1.04%  github.com/adbc-drivers/redis/go.joinKey
+ 1544.08MB   0.6% 98.35%  5878.72MB  2.28%  github.com/adbc-drivers/redis/go.readSpillTuple
+ 1311.05MB  0.51% 98.86%  1311.05MB  0.51%  math/big.nat.make (inline)
+  350.46MB  0.14% 99.00% 110951.20MB 43.06%  github.com/adbc-drivers/redis/go.(*store).aggregate
+    0.50MB 0.00019% 99.00% 60245.77MB 23.38%  github.com/adbc-drivers/redis/go.(*store).openAggregate
+         0     0% 99.00%  2039.69MB  0.79%  container/heap.Pop
+         0     0% 99.00% 50354.97MB 19.54%  github.com/adbc-drivers/redis/go.(*aggCursor).next
+         0     0% 99.00% 57346.09MB 22.26%  github.com/adbc-drivers/redis/go.(*errorHook).ProcessHook.errorHook.ProcessHook.func1
+         0     0% 99.00% 195400.52MB 75.83%  github.com/adbc-drivers/redis/go.(*executor).aggregateTuplePartition
+         0     0% 99.00% 55855.33MB 21.68%  github.com/adbc-drivers/redis/go.(*executor).aggregateTuplePartition.func1 (inline)
+         0     0% 99.00% 196003.65MB 76.07%  github.com/adbc-drivers/redis/go.(*executor).partitionedAggregate.func3
+         0     0% 99.00%  6557.71MB  2.54%  github.com/adbc-drivers/redis/go.(*executor).partitionedAggregate.func3.1
+         0     0% 99.00% 61640.35MB 23.92%  github.com/adbc-drivers/redis/go.(*executor).partitionedAggregate.func4
+         0     0% 99.00% 61640.35MB 23.92%  github.com/adbc-drivers/redis/go.(*executor).reduceTupleRuns
+         0     0% 99.00% 61639.34MB 23.92%  github.com/adbc-drivers/redis/go.(*tupleSpill).merge
+         0     0% 99.00%  1311.05MB  0.51%  github.com/adbc-drivers/redis/go.addWeightedInteger
+         0     0% 99.00% 26558.08MB 10.31%  github.com/adbc-drivers/redis/go.aggregateReplyFields
+         0     0% 99.00% 57345.09MB 22.26%  github.com/adbc-drivers/redis/go.diagnosticsHook.ProcessHook.func1
+         0     0% 99.00%  1909.04MB  0.74%  github.com/adbc-drivers/redis/go.encodeStored
+         0     0% 99.00% 57345.09MB 22.26%  github.com/adbc-drivers/redis/go.once
+         0     0% 99.00%  6002.18MB  2.33%  github.com/adbc-drivers/redis/go.rowKey
+

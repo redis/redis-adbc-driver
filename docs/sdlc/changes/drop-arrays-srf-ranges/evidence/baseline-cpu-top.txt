@@ -1,0 +1,183 @@
+File: go.test
+Type: cpu
+Time: 2026-10-22 11:24:38 PDT
+Duration: 19.48s, Total samples = 11.16s (57.29%)
+Showing nodes accounting for 10s, 89.61% of 11.16s total
+Dropped 153 nodes (cum <= 0.06s)
+      flat  flat%   sum%        cum   cum%
+     2.86s 25.63% 25.63%      2.86s 25.63%  runtime.madvise
+     1.50s 13.44% 39.07%      1.50s 13.44%  syscall.rawsyscalln
+     0.51s  4.57% 43.64%      0.51s  4.57%  runtime.memclrNoHeapPointers
+     0.45s  4.03% 47.67%      0.45s  4.03%  runtime.(*mspan).typePointersOfUnchecked
+     0.35s  3.14% 50.81%      1.26s 11.29%  github.com/adbc-drivers/redis/go.buildRecord
+     0.33s  2.96% 53.76%      0.34s  3.05%  github.com/adbc-drivers/redis/go.coerceIn
+     0.31s  2.78% 56.54%      0.31s  2.78%  runtime.usleep
+     0.25s  2.24% 58.78%      0.93s  8.33%  github.com/adbc-drivers/redis/go.evalItems
+     0.23s  2.06% 60.84%      0.57s  5.11%  github.com/adbc-drivers/redis/go.Coerce
+     0.22s  1.97% 62.81%      0.98s  8.78%  runtime.scanObject
+     0.19s  1.70% 64.52%      0.79s  7.08%  runtime.mapassign
+     0.18s  1.61% 66.13%      0.44s  3.94%  github.com/adbc-drivers/redis/go.(*evalEnv).evalUnbudgeted
+     0.18s  1.61% 67.74%      1.42s 12.72%  github.com/adbc-drivers/redis/go.decodeRow
+     0.18s  1.61% 69.35%      0.18s  1.61%  internal/runtime/maps.memHashAES
+     0.14s  1.25% 70.61%      0.14s  1.25%  runtime.memmove
+     0.14s  1.25% 71.86%      0.14s  1.25%  runtime.pthread_kill
+     0.14s  1.25% 73.12%      0.15s  1.34%  runtime.tryDeferToSpanScan
+     0.11s  0.99% 74.10%      0.16s  1.43%  github.com/adbc-drivers/redis/go.decodeStored
+     0.11s  0.99% 75.09%      0.22s  1.97%  runtime.mapaccess2_faststr
+     0.10s   0.9% 75.99%      0.26s  2.33%  github.com/adbc-drivers/redis/go.columnMeta.decode
+     0.08s  0.72% 76.70%      0.13s  1.16%  internal/runtime/maps.(*Iter).Next
+     0.08s  0.72% 77.42%      0.08s  0.72%  internal/runtime/maps.(*ctrlGroup).setEmpty (inline)
+     0.08s  0.72% 78.14%      0.08s  0.72%  runtime.(*mspan).moveInlineMarks
+     0.08s  0.72% 78.85%      0.26s  2.33%  runtime.mapaccess2
+     0.08s  0.72% 79.57%      0.08s  0.72%  runtime.pthread_cond_signal
+     0.08s  0.72% 80.29%      0.09s  0.81%  runtime.typePointers.next
+     0.07s  0.63% 80.91%      0.51s  4.57%  github.com/adbc-drivers/redis/go.(*evalEnv).eval
+     0.07s  0.63% 81.54%      0.07s  0.63%  runtime.memequal
+     0.07s  0.63% 82.17%      0.07s  0.63%  runtime.typePointers.nextFast (inline)
+     0.06s  0.54% 82.71%      0.32s  2.87%  github.com/adbc-drivers/redis/go.appendValue
+     0.06s  0.54% 83.24%      0.06s  0.54%  runtime.(*gcBits).bytep (inline)
+     0.06s  0.54% 83.78%      0.06s  0.54%  runtime.(*pallocBits).summarize
+     0.06s  0.54% 84.32%      0.06s  0.54%  runtime.kevent
+     0.06s  0.54% 84.86%      0.10s   0.9%  runtime.mallocgcSmallScanNoHeaderSC2
+     0.05s  0.45% 85.30%      1.05s  9.41%  io.ReadAtLeast
+     0.05s  0.45% 85.75%      0.49s  4.39%  runtime.mallocgcSmallScanNoHeader
+     0.05s  0.45% 86.20%      0.10s   0.9%  runtime.scanObjectsSmall
+     0.04s  0.36% 86.56%      0.46s  4.12%  github.com/adbc-drivers/redis/go.parseAggregateRow
+     0.04s  0.36% 86.92%      0.10s   0.9%  internal/runtime/maps.MemHash
+     0.03s  0.27% 87.19%         1s  8.96%  bufio.(*Reader).Read
+     0.03s  0.27% 87.46%      0.09s  0.81%  runtime.mallocgcTinySC2
+     0.03s  0.27% 87.72%      0.13s  1.16%  runtime.mapassign_faststr
+     0.02s  0.18% 87.90%      0.15s  1.34%  github.com/adbc-drivers/redis/go.setAggregateField
+     0.02s  0.18% 88.08%      0.43s  3.85%  github.com/redis/go-redis/v9/internal/proto.(*Reader).readLine
+     0.02s  0.18% 88.26%      0.26s  2.33%  runtime.(*sweepLocked).sweep
+     0.02s  0.18% 88.44%      0.29s  2.60%  runtime.makeslice
+     0.02s  0.18% 88.62%      1.10s  9.86%  runtime.mallocgc
+     0.02s  0.18% 88.80%      0.10s   0.9%  runtime.mapaccess1_faststr
+     0.01s  0.09% 88.89%      1.43s 12.81%  github.com/adbc-drivers/redis/go.(*scanIter).keep
+     0.01s  0.09% 88.98%      4.93s 44.18%  github.com/adbc-drivers/redis/go.(*streamReader).fill
+     0.01s  0.09% 89.07%      0.16s  1.43%  github.com/apache/arrow-go/v18/arrow/array.(*BinaryBuilder).Append
+     0.01s  0.09% 89.16%      0.45s  4.03%  github.com/redis/go-redis/v9/internal/proto.(*Reader).ReadLine
+     0.01s  0.09% 89.25%      1.96s 17.56%  github.com/redis/go-redis/v9/internal/proto.(*Reader).ReadReply
+     0.01s  0.09% 89.34%      1.96s 17.56%  github.com/redis/go-redis/v9/internal/proto.(*Reader).readMap
+     0.01s  0.09% 89.43%      2.99s 26.79%  runtime.(*mheap).allocSpan
+     0.01s  0.09% 89.52%      0.09s  0.81%  runtime.(*mheap).freeSpanLocked
+     0.01s  0.09% 89.61%      0.11s  0.99%  runtime.newMarkBits
+         0     0% 89.61%      0.41s  3.67%  bufio.(*Reader).ReadSlice
+         0     0% 89.61%      0.38s  3.41%  bufio.(*Reader).fill
+         0     0% 89.61%      0.18s  1.61%  bufio.(*Writer).Flush
+         0     0% 89.61%      2.34s 20.97%  github.com/adbc-drivers/redis/go.(*aggCursor).next
+         0     0% 89.61%      1.32s 11.83%  github.com/adbc-drivers/redis/go.(*diagnosticConn).Read
+         0     0% 89.61%      0.18s  1.61%  github.com/adbc-drivers/redis/go.(*diagnosticConn).Write
+         0     0% 89.61%      3.21s 28.76%  github.com/adbc-drivers/redis/go.(*executor).execute
+         0     0% 89.61%      0.07s  0.63%  github.com/adbc-drivers/redis/go.(*executor).openScan
+         0     0% 89.61%      3.21s 28.76%  github.com/adbc-drivers/redis/go.(*executor).streamSelect
+         0     0% 89.61%      0.07s  0.63%  github.com/adbc-drivers/redis/go.(*rowIDRanges).open
+         0     0% 89.61%      0.18s  1.61%  github.com/adbc-drivers/redis/go.(*scanIter).checkReadiness
+         0     0% 89.61%      3.98s 35.66%  github.com/adbc-drivers/redis/go.(*scanIter).next
+         0     0% 89.61%      3.96s 35.48%  github.com/adbc-drivers/redis/go.(*scanIter).nextPage
+         0     0% 89.61%      3.21s 28.76%  github.com/adbc-drivers/redis/go.(*sqlHarness).openStmtStream
+         0     0% 89.61%      3.21s 28.76%  github.com/adbc-drivers/redis/go.(*sqlHarness).openStream
+         0     0% 89.61%      3.21s 28.76%  github.com/adbc-drivers/redis/go.(*statementImpl).ExecuteQuery
+         0     0% 89.61%      3.21s 28.76%  github.com/adbc-drivers/redis/go.(*statementImpl).run
+         0     0% 89.61%      0.19s  1.70%  github.com/adbc-drivers/redis/go.(*store).checkRangeReadiness
+         0     0% 89.61%      0.19s  1.70%  github.com/adbc-drivers/redis/go.(*store).checkRangeReadiness.func1 (inline)
+         0     0% 89.61%      0.07s  0.63%  github.com/adbc-drivers/redis/go.(*store).openAggregate
+         0     0% 89.61%      3.04s 27.24%  github.com/adbc-drivers/redis/go.(*streamReader).Next
+         0     0% 89.61%      6.25s 56.00%  github.com/adbc-drivers/redis/go.TestSearchReplyScanProfile
+         0     0% 89.61%      2.14s 19.18%  github.com/adbc-drivers/redis/go.diagnosticsHook.ProcessHook.func1
+         0     0% 89.61%      2.14s 19.18%  github.com/adbc-drivers/redis/go.errorHook.ProcessHook.func1
+         0     0% 89.61%      2.14s 19.18%  github.com/adbc-drivers/redis/go.once
+         0     0% 89.61%      0.46s  4.12%  github.com/adbc-drivers/redis/go.parseCursorReplyLists
+         0     0% 89.61%      2.14s 19.18%  github.com/adbc-drivers/redis/go.searchConn.Do (inline)
+         0     0% 89.61%      0.16s  1.43%  github.com/apache/arrow-go/v18/arrow/array.(*StringBuilder).Append (inline)
+         0     0% 89.61%      0.12s  1.08%  github.com/apache/arrow-go/v18/arrow/array.(*bufferBuilder).Append
+         0     0% 89.61%      0.10s   0.9%  github.com/apache/arrow-go/v18/arrow/array.(*bufferBuilder).unsafeAppend (inline)
+         0     0% 89.61%      2.14s 19.18%  github.com/redis/go-redis/v9.(*Client).Process
+         0     0% 89.61%      1.96s 17.56%  github.com/redis/go-redis/v9.(*Cmd).readReply
+         0     0% 89.61%      2.14s 19.18%  github.com/redis/go-redis/v9.(*baseClient)._process
+         0     0% 89.61%      2.14s 19.18%  github.com/redis/go-redis/v9.(*baseClient)._process.func1
+         0     0% 89.61%      1.96s 17.56%  github.com/redis/go-redis/v9.(*baseClient)._process.func1.3
+         0     0% 89.61%      2.14s 19.18%  github.com/redis/go-redis/v9.(*baseClient).process
+         0     0% 89.61%      2.14s 19.18%  github.com/redis/go-redis/v9.(*baseClient).processCommand
+         0     0% 89.61%      2.14s 19.18%  github.com/redis/go-redis/v9.(*baseClient).processStartingAt
+         0     0% 89.61%      2.14s 19.18%  github.com/redis/go-redis/v9.(*baseClient).processWithRetry
+         0     0% 89.61%      2.14s 19.18%  github.com/redis/go-redis/v9.(*baseClient).withConn
+         0     0% 89.61%      2.14s 19.18%  github.com/redis/go-redis/v9.(*hooksMixin).processHook (inline)
+         0     0% 89.61%      1.96s 17.56%  github.com/redis/go-redis/v9/internal/pool.(*Conn).WithReader
+         0     0% 89.61%      0.18s  1.61%  github.com/redis/go-redis/v9/internal/pool.(*Conn).WithWriter
+         0     0% 89.61%      1.95s 17.47%  github.com/redis/go-redis/v9/internal/proto.(*Reader).readSlice
+         0     0% 89.61%      1.16s 10.39%  github.com/redis/go-redis/v9/internal/proto.(*Reader).readStringReply
+         0     0% 89.61%      1.32s 11.83%  internal/poll.(*FD).Read
+         0     0% 89.61%      0.18s  1.61%  internal/poll.(*FD).Write
+         0     0% 89.61%      1.50s 13.44%  internal/poll.ignoringEINTRIO (inline)
+         0     0% 89.61%      0.28s  2.51%  internal/runtime/maps.(*table).reset
+         0     0% 89.61%      0.30s  2.69%  internal/runtime/maps.NewMap
+         0     0% 89.61%      0.10s   0.9%  internal/runtime/maps.StrHash (inline)
+         0     0% 89.61%      0.20s  1.79%  internal/runtime/maps.newGroups (inline)
+         0     0% 89.61%      0.29s  2.60%  internal/runtime/maps.newTable
+         0     0% 89.61%      0.20s  1.79%  internal/runtime/maps.newarray
+         0     0% 89.61%      0.49s  4.39%  internal/runtime/maps.newobject
+         0     0% 89.61%      1.05s  9.41%  io.ReadFull (inline)
+         0     0% 89.61%      1.32s 11.83%  net.(*conn).Read
+         0     0% 89.61%      0.18s  1.61%  net.(*conn).Write
+         0     0% 89.61%      1.32s 11.83%  net.(*netFD).Read
+         0     0% 89.61%      0.18s  1.61%  net.(*netFD).Write
+         0     0% 89.61%      0.17s  1.52%  runtime.(*gcControllerState).enlistWorker
+         0     0% 89.61%      0.50s  4.48%  runtime.(*mcache).nextFree
+         0     0% 89.61%      0.50s  4.48%  runtime.(*mcache).refill
+         0     0% 89.61%      0.48s  4.30%  runtime.(*mcentral).cacheSpan
+         0     0% 89.61%      0.38s  3.41%  runtime.(*mcentral).grow
+         0     0% 89.61%      0.14s  1.25%  runtime.(*mheap).alloc
+         0     0% 89.61%      2.99s 26.79%  runtime.(*mheap).alloc.func1
+         0     0% 89.61%      0.09s  0.81%  runtime.(*mheap).freeSpan (inline)
+         0     0% 89.61%      0.13s  1.16%  runtime.(*mheap).freeSpan.func1
+         0     0% 89.61%      0.12s  1.08%  runtime.(*mheap).initSpan
+         0     0% 89.61%      0.25s  2.24%  runtime.(*mspan).initHeapBits
+         0     0% 89.61%      0.06s  0.54%  runtime.(*mspan).refillAllocCache
+         0     0% 89.61%      0.09s  0.81%  runtime.(*pageAlloc).scavenge.func1
+         0     0% 89.61%      0.09s  0.81%  runtime.(*pageAlloc).scavengeOne
+         0     0% 89.61%      0.06s  0.54%  runtime.(*pageAlloc).update
+         0     0% 89.61%      0.24s  2.15%  runtime.bgsweep
+         0     0% 89.61%      0.12s  1.08%  runtime.convTstring
+         0     0% 89.61%      0.34s  3.05%  runtime.findRunnable
+         0     0% 89.61%      1.10s  9.86%  runtime.gcBgMarkWorker
+         0     0% 89.61%      1.28s 11.47%  runtime.gcBgMarkWorker.func2
+         0     0% 89.61%      1.28s 11.47%  runtime.gcDrain
+         0     0% 89.61%      0.41s  3.67%  runtime.gcDrainMarkWorkerDedicated (inline)
+         0     0% 89.61%      0.87s  7.80%  runtime.gcDrainMarkWorkerIdle (inline)
+         0     0% 89.61%      0.30s  2.69%  runtime.lock (partial-inline)
+         0     0% 89.61%      0.30s  2.69%  runtime.lock2
+         0     0% 89.61%      0.30s  2.69%  runtime.lockWithRank (inline)
+         0     0% 89.61%      0.30s  2.69%  runtime.makemap
+         0     0% 89.61%      0.37s  3.32%  runtime.mallocgcSmallScanHeader
+         0     0% 89.61%      0.11s  0.99%  runtime.mapIterNext
+         0     0% 89.61%      0.35s  3.14%  runtime.mcall
+         0     0% 89.61%      0.06s  0.54%  runtime.netpoll
+         0     0% 89.61%      0.20s  1.79%  runtime.newarray
+         0     0% 89.61%      0.50s  4.48%  runtime.newobject (inline)
+         0     0% 89.61%      0.07s  0.63%  runtime.notewakeup
+         0     0% 89.61%      0.31s  2.78%  runtime.osyield (inline)
+         0     0% 89.61%      0.34s  3.05%  runtime.park_m
+         0     0% 89.61%      0.14s  1.25%  runtime.preemptM
+         0     0% 89.61%      0.14s  1.25%  runtime.preemptone
+         0     0% 89.61%      0.10s   0.9%  runtime.scanSpan
+         0     0% 89.61%      0.34s  3.05%  runtime.schedule
+         0     0% 89.61%      0.08s  0.72%  runtime.semawakeup
+         0     0% 89.61%      0.14s  1.25%  runtime.signalM (inline)
+         0     0% 89.61%      0.07s  0.63%  runtime.startm
+         0     0% 89.61%      0.09s  0.81%  runtime.stopm
+         0     0% 89.61%      0.10s   0.9%  runtime.strhash
+         0     0% 89.61%      0.24s  2.15%  runtime.sweepone
+         0     0% 89.61%      0.09s  0.81%  runtime.sysUnused (inline)
+         0     0% 89.61%      0.09s  0.81%  runtime.sysUnusedOS (inline)
+         0     0% 89.61%      2.77s 24.82%  runtime.sysUsed (inline)
+         0     0% 89.61%      2.77s 24.82%  runtime.sysUsedOS (inline)
+         0     0% 89.61%      4.54s 40.68%  runtime.systemstack
+         0     0% 89.61%      0.07s  0.63%  runtime.wakep
+         0     0% 89.61%      1.32s 11.83%  syscall.Read (inline)
+         0     0% 89.61%      0.18s  1.61%  syscall.Write (inline)
+         0     0% 89.61%      1.32s 11.83%  syscall.read
+         0     0% 89.61%      1.50s 13.44%  syscall.syscall
+         0     0% 89.61%      1.50s 13.44%  syscall.syscalln
+         0     0% 89.61%      0.18s  1.61%  syscall.write
+         0     0% 89.61%      6.25s 56.00%  testing.tRunner

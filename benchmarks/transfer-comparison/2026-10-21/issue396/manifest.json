@@ -1,0 +1,79 @@
+{
+  "source_commit": "20de26967b9974fa344f15de2b71491039321d86",
+  "go_version": "go version go1.27.2 darwin/arm64",
+  "base_checkout_commit": "9f5188c411f1e3a3bf1423a72089e2441b7995bd",
+  "binary_sha256": {
+    "main.dylib": "d730fd9b7d7743f5f8689098d2c68ff6ec65b28fb62620bf4c07ac935d1c023b",
+    "main.test": "e64a58b69e606e4f841650014a1e64b32df784cd947d5372baee85a6cdc29501"
+  },
+  "source_arrow_sha256": "a9f58367a9bb3af0e244043640e967ec618b4f96b759cd144be900030f2bf5a2",
+  "fixture_manifest": {
+    "rows": 100000,
+    "columns": 105,
+    "arrow_payload_bytes": 79228019,
+    "source_prefix_sha256": "d053397f7aa5b2e1ee9160779a9e9307b162c6994aebba829c7ea1411076c4d0",
+    "driver_sha256": "0f7ab204ebf12f6190610d5c5fcb08ebae237933e690fa16942f2f49c637b008",
+    "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+    "host_logical_cpus": 18,
+    "host_memory_bytes": 38654705664,
+    "packages": {
+      "pyarrow": "26.0.0",
+      "duckdb": "1.5.6",
+      "redis": "8.1.0",
+      "psutil": "7.2.2",
+      "adbc-driver-manager": "1.12.0",
+      "adbc-driver-postgresql": "1.12.0"
+    },
+    "load_seconds": {
+      "redis": 7.646069584006909
+    },
+    "versions": {
+      "redis": {
+        "redis": "8.6.2",
+        "modules": [
+          {
+            "name": "search",
+            "ver": 80600,
+            "path": "/usr/local/lib/redis/modules//redisearch.so",
+            "args": []
+          },
+          {
+            "name": "bf",
+            "ver": 80600,
+            "path": "/usr/local/lib/redis/modules//redisbloom.so",
+            "args": []
+          },
+          {
+            "name": "vectorset",
+            "ver": 1,
+            "path": "",
+            "args": []
+          },
+          {
+            "name": "timeseries",
+            "ver": 80600,
+            "path": "/usr/local/lib/redis/modules//redistimeseries.so",
+            "args": []
+          },
+          {
+            "name": "ReJSON",
+            "ver": 80600,
+            "path": "/usr/local/lib/redis/modules//rejson.so",
+            "args": []
+          }
+        ]
+      }
+    }
+  },
+  "container_limits": {
+    "cpus": 4,
+    "memory": "2g",
+    "image": "redis:8.6.2",
+    "port": "127.0.0.1:17979"
+  },
+  "notes": "Fixture loaded with historical wheel, then read using the verified main-source build. Stage profiling and sweeps ran sequentially.",
+  "build_commands": [
+    "go test -c -o main.test .",
+    "CGO_ENABLED=1 go build -buildmode=c-shared -tags driverlib -o main.dylib ./pkg"
+  ]
+}

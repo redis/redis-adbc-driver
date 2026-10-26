@@ -1,0 +1,49 @@
+File: candidate-profile.test
+Build ID: 93ec35a7ea78f31eac5edce93ae774effa0bf32f
+Type: alloc_space
+Time: 2026-10-21 22:43:48 PDT
+Showing nodes accounting for 167035.34MB, 100% of 167108.48MB total
+Dropped 159 nodes (cum <= 835.54MB)
+Showing top 40 nodes out of 56
+      flat  flat%   sum%        cum   cum%
+64489.61MB 38.59% 38.59% 86668.54MB 51.86%  github.com/redis/go-redis/v9/internal/proto.(*Reader).readMap
+27688.10MB 16.57% 55.16% 27688.10MB 16.57%  github.com/adbc-drivers/redis/go.setAggregateField
+15974.26MB  9.56% 64.72% 93546.17MB 55.98%  github.com/redis/go-redis/v9/internal/proto.(*Reader).ReadReply
+   12310MB  7.37% 72.09%    12310MB  7.37%  github.com/redis/go-redis/v9.NewSliceCmd (inline)
+11490.33MB  6.88% 78.96% 11493.83MB  6.88%  github.com/redis/go-redis/v9/internal/proto.(*Reader).readStringReply
+10621.94MB  6.36% 85.32% 26292.82MB 15.73%  github.com/redis/go-redis/v9.cmdable.HMGet
+ 4595.05MB  2.75% 88.07% 96554.76MB 57.78%  github.com/redis/go-redis/v9/internal/proto.(*Reader).readSlice
+ 4544.21MB  2.72% 90.79% 32232.31MB 19.29%  github.com/adbc-drivers/redis/go.parseAggregateRow
+ 3377.06MB  2.02% 92.81%  3377.06MB  2.02%  github.com/redis/go-redis/v9.(*cmdsMap).Add
+ 3360.88MB  2.01% 94.82%  3360.88MB  2.01%  github.com/redis/go-redis/v9.(*Pipeline).BatchProcess (inline)
+ 2369.18MB  1.42% 96.24% 34346.31MB 20.55%  github.com/adbc-drivers/redis/go.(*store).fetchRowSlices
+ 1578.89MB  0.94% 97.18% 156969.25MB 93.93%  github.com/adbc-drivers/redis/go.(*scanIter).nextPage
+ 1573.65MB  0.94% 98.12% 35919.96MB 21.49%  github.com/adbc-drivers/redis/go.(*scanIter).nextHashValues
+ 1476.02MB  0.88% 99.01%  1476.02MB  0.88%  strings.genSplit
+  800.22MB  0.48% 99.49% 31977.12MB 19.14%  github.com/adbc-drivers/redis/go.(*store).fetchHashCommands
+  766.91MB  0.46% 99.94% 32999.22MB 19.75%  github.com/adbc-drivers/redis/go.parseCursorReplyLists
+      10MB 0.006%   100%  4875.59MB  2.92%  github.com/redis/go-redis/v9.(*ClusterClient).processPipeline
+    5.50MB 0.0033%   100%  9904.21MB  5.93%  github.com/redis/go-redis/v9.(*ClusterClient).processPipelineNode
+    2.50MB 0.0015%   100% 157171.62MB 94.05%  github.com/adbc-drivers/redis/go.(*executor).parallelAggregate.func2
+       1MB 0.0006%   100% 119470.40MB 71.49%  github.com/adbc-drivers/redis/go.(*aggCursor).next
+         0     0%   100% 86670.06MB 51.86%  github.com/adbc-drivers/redis/go.(*errorHook).ProcessHook.errorHook.ProcessHook.func1
+         0     0%   100% 14769.30MB  8.84%  github.com/adbc-drivers/redis/go.(*errorHook).ProcessPipelineHook.errorHook.ProcessPipelineHook.func1
+         0     0%   100% 157169.12MB 94.05%  github.com/adbc-drivers/redis/go.(*executor).scanScalarAggregateValues
+         0     0%   100% 156969.25MB 93.93%  github.com/adbc-drivers/redis/go.(*scanIter).next
+         0     0%   100% 86669.54MB 51.86%  github.com/adbc-drivers/redis/go.diagnosticsHook.ProcessHook.func1
+         0     0%   100%  9893.71MB  5.92%  github.com/adbc-drivers/redis/go.diagnosticsHook.ProcessPipelineHook.func1
+         0     0%   100% 86670.04MB 51.86%  github.com/adbc-drivers/redis/go.once
+         0     0%   100% 86670.04MB 51.86%  github.com/adbc-drivers/redis/go.searchConn.Do (inline)
+         0     0%   100% 86669.54MB 51.86%  github.com/redis/go-redis/v9.(*Client).Process
+         0     0%   100%  4853.09MB  2.90%  github.com/redis/go-redis/v9.(*ClusterClient).mapCmdsByNode
+         0     0%   100%  9893.21MB  5.92%  github.com/redis/go-redis/v9.(*ClusterClient).pipelineReadCmds
+         0     0%   100%  9904.21MB  5.93%  github.com/redis/go-redis/v9.(*ClusterClient).processPipeline.func1
+         0     0%   100%  9893.21MB  5.92%  github.com/redis/go-redis/v9.(*ClusterClient).processPipelineNode.func1
+         0     0%   100%  9893.21MB  5.92%  github.com/redis/go-redis/v9.(*ClusterClient).processPipelineNode.func1.1
+         0     0%   100%  9893.21MB  5.92%  github.com/redis/go-redis/v9.(*ClusterClient).processPipelineNodeConn
+         0     0%   100%  9893.21MB  5.92%  github.com/redis/go-redis/v9.(*ClusterClient).processPipelineNodeConn.func2
+         0     0%   100% 86668.54MB 51.86%  github.com/redis/go-redis/v9.(*Cmd).readReply
+         0     0%   100%  4875.59MB  2.92%  github.com/redis/go-redis/v9.(*Pipeline).Exec
+         0     0%   100%  3360.88MB  2.01%  github.com/redis/go-redis/v9.(*Pipeline).Process
+         0     0%   100%  9886.21MB  5.92%  github.com/redis/go-redis/v9.(*SliceCmd).readReply
+

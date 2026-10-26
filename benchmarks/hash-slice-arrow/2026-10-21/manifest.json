@@ -1,0 +1,98 @@
+{
+  "date": "2026-10-21",
+  "screen_baseline": "a937c55b3f9e877f6da950698f3ad2f2b5f83979",
+  "current_main": "a90c6b4d33ed09fa7ccc144e6f27b5d57233e0d4",
+  "initial_candidate_source": "0727c7bfe19ccf16eacb10dc1290c3221903d95a",
+  "rebased_candidate_source": "c4a819bb19dc5c55c437eec184eaa98491e4b9fe",
+  "production_sha256": {
+    "go/query.go": "4bb4faeafb4bc32f69eabae832d294af90b5fdb4e36f6597e12cf4d4789e29c0",
+    "go/scan_arrow.go": "d814305a12301748ab06e05de3717059dce1b0368db931b006a4595f408abe7a",
+    "go/scan_projection.go": "b1fb4668c57d24b24d91a6fe9e2c4e67490bb6d53b20f64143e72ab56052edb3",
+    "go/store.go": "19b90072e9dafd46e65f6d19560eb004b0fa956d85a6a78aa5efb1a1b5aecc35",
+    "go/scan_hash_slices.go": "191b62601076c8c95dca0f89310d3786a5e55b88a7d9c890279336e5eed83ac7"
+  },
+  "binaries": {
+    "base": "fe7cb50e0fd4a65c32383f1a18be18fda88a9cefea17ac579553a9a02c5687e7",
+    "boxed": "2f7a15881cc06c48757c203949dab3a7662e1ebb0a95b0f8c7441dd728deb9ff",
+    "arena": "943f1f278f65501f8d8b5a0e4af12913bc24bcfe5747447f1fb5709ab7c0e3ea",
+    "slices": "15c9ab534f593bd528dbe0d4ab30102115030f82e3a7b79f5f9003eacb5ff4d7",
+    "slices-arena": "c7d117bbb94456aa8627ef6ce76338e03308e21b787ae8e9afd916f804ce9cde",
+    "candidate": "24a5ad1697e648bd8af931383f05e85d1afab3ce4460d498818dc4dfd2ea371f"
+  },
+  "notes": [
+    "Parent #419 and independent TLS fixture fix #420 merged during this task. The follow-up is rebased onto current main. Alternate readiness experiments were kept on a local backup branch and are not part of this PR.",
+    "Baseline and current main have identical Go production source; #420 adds ownership/process tests and TLS harness changes. Production candidate files are byte-identical to the original built candidate after rebasing.",
+    "Initial argument screens and positional prototype screens use exact a937 baseline archive. Patches under experiments reproduce isolated variants; only direct slices are promoted."
+  ],
+  "benchmark_counts": {
+    "executions": 164,
+    "warmups": 32,
+    "measured": 132
+  },
+  "fixture_sha256": "d053397f7aa5b2e1ee9160779a9e9307b162c6994aebba829c7ea1411076c4d0",
+  "runner_sha256": "dbfa35a95d8406d82154c13d815ebe8207f424b3994c9c9d951cbbdbb282e922",
+  "build_command": "CGO_ENABLED=1 go build -buildmode=c-shared -tags driverlib -ldflags '-s -w -X github.com/adbc-drivers/driverbase-go/driverbase.infoDriverVersion=v0.1.0' -o OUTPUT ./pkg",
+  "protocol": 3,
+  "go_version": "go version go1.27.2 darwin/arm64",
+  "server": {
+    "image": "redis:8.6.2",
+    "search": "8.6.0",
+    "cpus": 4,
+    "memory_bytes": 2147483648,
+    "transport": "localhost TCP without TLS"
+  },
+  "host": {
+    "platform": "macOS 26.7.1 arm64",
+    "logical_cpus": 18,
+    "memory_bytes": 38654705664
+  },
+  "profile_helper_sha256": "9b2861f6fe746b7504c08bc05504eeec9ed97fa2f66d5d3ba12e2d6564ca36fa",
+  "upstream_clickbench_commit": "ccda3033f3c7303d9d7f9634d6dae118ef085f96",
+  "tls_harness_source": "a90c6b4d33ed09fa7ccc144e6f27b5d57233e0d4",
+  "artifact_sha256": {
+    "base-alloc-top.txt": "fa56e716d683477d1e040c7b955d4d4262ffb5babc4a47c21065820e5bb368d6",
+    "base-alloc.pprof": "35112f5b5860da82ebd1a2952a9e87ad0de9a71664737969fb0e77ac88e12da0",
+    "base-cpu-top.txt": "aa30a6ef490076b51de983421e39e7af08f26aa6cdf1d546d3a53cd02e128b43",
+    "base-cpu.pprof": "74dd8accc5250c8ad2be578a91e38e35fdf2fc786ee5533f78adf91166d92e1b",
+    "base-profile.log": "25cf4e0745f5b87dcd6221b65a8d820b7c8356c93f8ab0a2cdad1972fa340595",
+    "candidate-alloc-top.txt": "018e8cc6e08594a59adbe30ac15fa2592a3d7ee28dd3b04329e2967788eabf7e",
+    "candidate-alloc.pprof": "4e7d39dd6d022abc31636d47dc1ac9a905166ed645fcb40ac81565bb5f405f9a",
+    "candidate-cpu-top.txt": "af678122ea10ae2b05dfae8cac12ad73389b78cfd452e97db89b3be87ee9086b",
+    "candidate-cpu.pprof": "383dc4663b6508b8a162a7e73d413d83a0bd20f52ad7714311f2fd795949b583",
+    "candidate-profile.log": "b1ade1c2c5c7f6b9390b1346f16e8b0d061de97355bc35513d71242b5bcc30e8",
+    "candidate-tls-current.json": "4edc34fced5108481c52a96ba8c07d632126e5e4623aa4651cb5c243914b5e49",
+    "candidate-tls-current.log": "33e7e02dde81972d7ef0a9e061fc0e8188c1c4ea46e75fb157631ecc45837bb1",
+    "cluster-race.log": "ca84f7ce3cf7948fcce6227a5b4ccff41d701251de79e2662c3d183fa5d646ab",
+    "cluster2-race.log": "3eefbccf4d91dffaa4ae22cf0293a9d86d21f203d6a48c7dd0a48c3bfcb63b57",
+    "confirm-narrow.json": "c97df5534742f487c253eea64987a27971c8adb0df149a2caee3058618ec919c",
+    "confirm-wide.json": "9deb95b5176c0be1c0e3d5a891f43008339fc62206bb08ab79de8918d267bc2e",
+    "experiments/arena.patch": "f43bf858893ff4c65d21b3b41410a9e176afab45798851962bc502eaad80d455",
+    "experiments/boxed.patch": "a687df3008b911a819f2e669bbb88f1bd2ccffa56ffadb523d469d3939f1ef1b",
+    "experiments/slices-arena.patch": "781496ed07fc52a29af4c95a0a4f48214d46d6d5c1fae1feb08cdf3bab37bbad",
+    "experiments/slices.patch": "25d82a3528b871e6fec9699ae2e52586acea50a9debfabac30b809385a556a12",
+    "go-tests-main420.jsonl": "304cf8198c756742bbbca627e2793286e8c987e5c2a1fb11952e844d752caecb",
+    "narrow-balanced.json": "3f33a3d7d38a2f2b85c2cfac489d376b9225bae35ac7616ad94166cd60e120fa",
+    "native-current-cluster3.log": "235d522a724440dcb8d8e692ee8112d14d6748174b0e12d26e9b483fb6478044",
+    "native-current-cluster3.xml": "6dd7a41689b24a87716dabc23abe24a045f6b38cfa4b133d0b50ce2fb7a824aa",
+    "native-current-standalone2.log": "bfeb8eabd348eb6982288f1eb1260a7ffa2294efc381eba3a3c451155eb7842a",
+    "native-current-standalone2.xml": "d0e091640002f74b1a05e16dc4b93d53c476fdc96e4befe68a1a7aff43c9c836",
+    "native-current-standalone3.log": "097b4808d536e940bd834b9e33b00b478af49f41df4c93a3a6fa0b2d3d72504c",
+    "native-current-standalone3.xml": "dc609050ef972d825f4db1f0fc6ac7ff003fa4e09306433ec75f24802ea0b9a9",
+    "profile-summary.json": "9330437943e2587de0b8d7c2d370d24db59bd233e9bf954636a5da14d1f5ef27",
+    "screen-arena.json": "546b6507600a0bf398d067cb372051127d4e762cc150c390d517d3a0ff2a921f",
+    "screen-boxed.json": "013770089ab0c95f11272025ad6f8d4e42d1c9c0da71d67596369e8c0bc939c2",
+    "screen-slices-arena.json": "732218e824a3853b1d1cb1677760e56e33c303e2835c88a2ca9bd0ccaed2e0fb",
+    "screen-slices.json": "c692fe0a7d462895c3bfa8cc506518be698092c75d6cb733be9a170fe9c69e2d",
+    "unit.log": "649fc79cf3b79c0a0a7f1c7b0e9dc6af4246d5c66f186d76abe2cb344f613dd6"
+  },
+  "cleanup": {
+    "containers_removed": [
+      "codex-hmget-args-bench",
+      "codex-hash-arrow-test",
+      "codex-hash-arrow-cluster",
+      "codex-hash-arrow-tls"
+    ],
+    "private_tls_directory_removed": true,
+    "other_resources_not_modified": true
+  }
+}

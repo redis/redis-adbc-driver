@@ -1,0 +1,80 @@
+name: Worker autotuning readiness gate
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: worker-autotune-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  controlled:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go/go.mod
+          cache-dependency-path: go/go.sum
+      - name: Check measurement tools
+        run: |
+          python3 -m unittest discover -s benchmarks/worker-autotune/controlled -v
+          cd go
+          go test -race -run 'TestWorkerTuner|TestWorkerBudget' .
+          go test -race ./internal/benchproxy
+      - name: Build native client and observer
+        working-directory: go
+        run: |
+          CGO_ENABLED=0 go test -c -o build/autotune-profile-linux .
+          CGO_ENABLED=0 go build -o build/autotune-proxy-linux ./internal/benchproxy
+      - name: Start isolated Redis deployments
+        working-directory: go
+        env:
+          COMPOSE_PROJECT_NAME: adbc-autotune
+          SOFTWARE_API_PORT: '29443'
+          SOFTWARE_DB_PORT: '16380'
+          SOFTWARE_SHARDS: '1'
+        run: |
+          bash software-setup.sh
+          docker update --cpus 2 --memory 6g --memory-swap 6g adbc-autotune-redis-software-1
+          docker run -d --name autotune-oss --network adbc-autotune_default --network-alias oss \
+            --cpus 2 --memory 1g --memory-swap 1g redis:8.6.2 redis-server --save '' --appendonly no
+          docker pull python:3.14-slim
+          for attempt in $(seq 1 60); do
+            if docker exec autotune-oss redis-cli -e FT._LIST; then break; fi
+            sleep 1
+          done
+          docker exec autotune-oss redis-cli -e FT._LIST
+      - name: Run predeclared randomized gate
+        run: |
+          python3 benchmarks/worker-autotune/controlled/run.py \
+            --binary go/build/autotune-profile-linux --proxy-binary go/build/autotune-proxy-linux \
+            --network adbc-autotune_default \
+            --server oss=redis://oss:6379/0 --server software=redis://adbc-autotune-redis-software-1:12000/0 \
+            --server-container autotune-oss --server-container adbc-autotune-redis-software-1 \
+            --output /tmp/worker-autotune-evaluation
+      - name: Archive evidence even when gate fails
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: worker-autotune-evidence
+          path: /tmp/worker-autotune-evaluation
+          if-no-files-found: warn
+      - name: Deployment logs on failure
+        if: failure()
+        working-directory: go
+        env:
+          COMPOSE_PROJECT_NAME: adbc-autotune
+        run: docker compose logs --no-color redis-software
+      - name: Remove disposable deployments
+        if: always()
+        working-directory: go
+        env:
+          COMPOSE_PROJECT_NAME: adbc-autotune
+        run: |
+          docker rm -f autotune-oss || true
+          docker compose down --volumes

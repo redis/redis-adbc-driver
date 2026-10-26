@@ -1,0 +1,19 @@
+File: go.test
+Type: alloc_space
+Time: 2026-10-22 10:54:21 PDT
+Showing nodes accounting for 3288.14MB, 98.89% of 3325.17MB total
+Dropped 101 nodes (cum <= 16.63MB)
+Showing top 12 nodes out of 97
+      flat  flat%   sum%        cum   cum%
+  961.34MB 28.91% 28.91%  1026.61MB 30.87%  github.com/redis/go-redis/v9.cmdable.HMGet
+  632.41MB 19.02% 47.93%   632.41MB 19.02%  github.com/apache/arrow-go/v18/arrow/memory.(*GoAllocator).Allocate
+  553.70MB 16.65% 64.58%  1534.79MB 46.16%  github.com/redis/go-redis/v9/internal/proto.(*Reader).readSlice
+  460.51MB 13.85% 78.43%   987.85MB 29.71%  github.com/redis/go-redis/v9/internal/proto.(*Reader).ReadReply
+  327.03MB  9.83% 88.27%   327.03MB  9.83%  github.com/redis/go-redis/v9/internal/proto.(*Reader).readStringReply
+  194.05MB  5.84% 94.10%   284.82MB  8.57%  github.com/redis/go-redis/v9/internal/proto.(*Reader).readMap
+   82.52MB  2.48% 96.58%    82.52MB  2.48%  github.com/adbc-drivers/redis/go.setAggregateField
+   49.01MB  1.47% 98.06%    49.01MB  1.47%  github.com/redis/go-redis/v9.NewSliceCmd (inline)
+      12MB  0.36% 98.42%    94.52MB  2.84%  github.com/adbc-drivers/redis/go.parseAggregateRow
+    6.53MB   0.2% 98.61%  2286.70MB 68.77%  github.com/adbc-drivers/redis/go.(*store).fetchRowSlices
+    5.32MB  0.16% 98.77%     3278MB 98.58%  github.com/adbc-drivers/redis/go.(*scanIter).nextPage
+    3.72MB  0.11% 98.89%  2922.83MB 87.90%  github.com/adbc-drivers/redis/go.(*scanIter).nextHashValues

@@ -1,0 +1,142 @@
+{
+  "area": "arrays",
+  "source": "https://github.com/alberttwong/redis-adbc-driver/issues/253",
+  "setup": [
+    "CREATE TABLE t (id integer, name varchar(20), score integer, grp varchar(10))",
+    "INSERT INTO t VALUES (1, 'apple', 10, 'a'), (2, 'Banana', NULL, 'a'), (3, 'cherry', 30, 'b'), (4, '_x', 20, 'b')",
+    "CREATE TABLE u (id integer, label text)",
+    "INSERT INTO u VALUES (1, 'one'), (2, 'two')"
+  ],
+  "cases": [
+    {
+      "id": "row-1",
+      "sql": "select array[1, 2, 3]",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-2",
+      "sql": "select (array[1, 2, 3])[2]",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-3",
+      "sql": "select 2 = any(array[1, 2, 3])",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-4",
+      "sql": "select array_agg(id order by id) from t",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-5",
+      "sql": "select * from unnest(array[1, 2]) as x(n)",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-6",
+      "sql": "select string_to_array('a,b', ',')",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-7",
+      "sql": "select '{1,2}'::integer[]",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-8",
+      "sql": "create table arr (tags text[])",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-9",
+      "sql": "select [id] from t order by id",
+      "expect_postgres": "42601"
+    },
+    {
+      "id": "edge-1",
+      "sql": "select array(select id from t order by id)"
+    },
+    {
+      "id": "edge-2",
+      "sql": "select (array[1,2,3])[2:3],(array[1,2,3])[:2],(array[1,2,3])[2:]"
+    },
+    {
+      "id": "edge-3",
+      "sql": "select (array[1,2,3])[null:2]"
+    },
+    {
+      "id": "edge-4",
+      "sql": "select array[1,2] @> array[2],array[1] <@ array[1,2],array[1] && array[2]"
+    },
+    {
+      "id": "edge-5",
+      "sql": "select array[1,2] || array[3],array_prepend(0,array[1]),array_cat(array[1],null)"
+    },
+    {
+      "id": "edge-6",
+      "sql": "select array_position(array[1,null,1],null),array_positions(array[1,2,1],1)"
+    },
+    {
+      "id": "edge-7",
+      "sql": "select array_remove(array[1,null,1],1),array_replace(array[1,null],null,2)"
+    },
+    {
+      "id": "edge-8",
+      "sql": "select array_upper(array[1,2],1),array_lower(array[1,2],1),array_dims(array[1,2])"
+    },
+    {
+      "id": "edge-9",
+      "sql": "select string_to_array('a,NULL,b',',','NULL'),array_to_string(array['a',null,'b'],',','N')"
+    },
+    {
+      "id": "edge-10",
+      "sql": "insert into arr values(array['a,b','NULL','']),('{}'),(null)"
+    },
+    {
+      "id": "edge-11",
+      "sql": "select tags from arr"
+    },
+    {
+      "id": "edge-12",
+      "sql": "select tags from arr group by tags order by tags"
+    },
+    {
+      "id": "edge-13",
+      "sql": "select 1=any(array[1,null]),2=all(array[1,null]),3=any(array[]::int[])"
+    },
+    {
+      "id": "edge-14",
+      "sql": "select regexp_split_to_array('a,b',',')"
+    },
+    {
+      "id": "edge-15",
+      "sql": "select '{\"a,b\",\"NULL\",NULL,\"\"}'::text[]"
+    },
+    {
+      "id": "typing-1",
+      "sql": "select array[1,'2'],array[null,null]"
+    },
+    {
+      "id": "typing-2",
+      "sql": "select array[true,1]"
+    },
+    {
+      "id": "typing-3",
+      "sql": "select array[1,'bad'] where false"
+    },
+    {
+      "id": "typing-4",
+      "sql": "set time zone 'Asia/Kolkata'"
+    },
+    {
+      "id": "typing-5",
+      "sql": "select array[date '2024-01-01',timestamptz '2024-01-02 00:00:00+00']"
+    },
+    {
+      "id": "typing-6",
+      "sql": "set time zone 'UTC'"
+    }
+  ],
+  "tier": "issues"
+}

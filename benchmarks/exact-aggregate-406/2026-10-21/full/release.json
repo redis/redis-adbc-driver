@@ -1,0 +1,23 @@
+{
+  "run": "albert-clickbench-c6a-full-20261021",
+  "ready": true,
+  "backup_complete": true,
+  "restore_tested": true,
+  "ready_at": "2026-10-22T04:42:43.093441+00:00",
+  "cutoff_utc": "2026-10-22T06:55:00+00:00",
+  "released": true,
+  "results_preserved": true,
+  "no_active_jobs": true,
+  "report_key": "full-c6a-20261021/performance-406/report.json",
+  "report_sha256": "55fb0257d539181d8c4340d96f78f696a0a12fd6785e44553dd5aa875ec9811f",
+  "report_version_id": "tDCCa1L8pv7tR3EyLz_NPnyotuNPluXy",
+  "active_job_units": [],
+  "released_at": "2026-10-22T05:52:01.761351+00:00",
+  "owner_independent_verification": {
+    "accepted": true,
+    "report_version_size_sha256_verified": true,
+    "journaled_inactive_services": 34,
+    "api_resumed_at": "2026-10-22T05:52:30Z",
+    "source": "dataset owner chat acknowledgement"
+  }
+}

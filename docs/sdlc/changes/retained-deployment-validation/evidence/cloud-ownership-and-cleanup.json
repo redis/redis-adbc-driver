@@ -1,0 +1,52 @@
+{
+  "requestor": "Albert Wong",
+  "purpose": "remaining partition issue #363 retained runtime validation",
+  "name": "codex-adbc-retained-20261022",
+  "disposable": true,
+  "plan": "Redis Cloud Pro",
+  "region": "AWS us-west-2",
+  "protocol": "RESP3",
+  "quoted_pricing": [
+    {
+      "type": "MinimumPrice",
+      "quantity": 1,
+      "quantityMeasurement": "subscription",
+      "pricePerUnit": 0.274,
+      "priceCurrency": "USD",
+      "pricePeriod": "hour"
+    },
+    {
+      "databaseName": "codex-adbc-retained-20261022",
+      "type": "Shards",
+      "typeDetails": "high-throughput",
+      "quantity": 1,
+      "quantityMeasurement": "shards",
+      "pricePerUnit": 0.198,
+      "priceCurrency": "USD",
+      "pricePeriod": "hour"
+    }
+  ],
+  "target_lifetime_hours": 2,
+  "cleanup": {
+    "status": "passed",
+    "subscription_id": 3457954,
+    "database_id": 14709753,
+    "name": "codex-adbc-retained-20261022",
+    "ownership_verified": true,
+    "acl_absence_verified": true,
+    "started_at": "2026-10-22T03:33:31.487541+00:00",
+    "database_delete_task": "146431be-7773-48fb-aa20-35cdc95abf93",
+    "database_absence_verified": true,
+    "empty_database_listing_http404": true,
+    "subscription_delete_task": "131c1b8d-2938-42d6-bf3c-310207de2c11",
+    "subscription_absence_verified": true,
+    "completed_at": "2026-10-22T03:36:06.423273+00:00",
+    "private_material_removed": true
+  },
+  "create_started_at": "2026-10-22T02:53:51.378902+00:00",
+  "status": "deleted",
+  "create_task_id": "7b12d736-0924-4fbc-bc9e-bf656425c9af",
+  "subscription_id": 3457954,
+  "database_id": 14709753,
+  "tls_task_id": "b336746d-eecb-421b-9e4d-5a16728a3d4a"
+}

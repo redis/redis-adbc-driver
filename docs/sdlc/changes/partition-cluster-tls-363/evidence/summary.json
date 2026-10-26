@@ -1,0 +1,84 @@
+{
+  "status": "passed",
+  "source": "5232e3083bce6fa846ffc42d1094cf66b3d12408",
+  "cluster_runs": [
+    {
+      "file": "macos-native.json",
+      "python": "3.13.16",
+      "manager": "1.12.0",
+      "cluster_mode": "auto",
+      "installed_wheel": false,
+      "rows_per_primary": [
+        364,
+        371,
+        364
+      ],
+      "library_sha256": "205724cf0292fc2945f0793bb4afafef90a27b3c75ca757d4793831bb8e54344"
+    },
+    {
+      "file": "macos-minimum-wheel.json",
+      "python": "3.14.8",
+      "manager": "1.8.0",
+      "cluster_mode": "auto",
+      "installed_wheel": true,
+      "rows_per_primary": [
+        368,
+        373,
+        358
+      ],
+      "library_sha256": "205724cf0292fc2945f0793bb4afafef90a27b3c75ca757d4793831bb8e54344"
+    },
+    {
+      "file": "linux-wheel-py3.13-adbc1.8.0.json",
+      "python": "3.13.16",
+      "manager": "1.8.0",
+      "cluster_mode": "true",
+      "installed_wheel": true,
+      "rows_per_primary": [
+        363,
+        356,
+        380
+      ],
+      "library_sha256": "260c3c69850d32fc3788c70b622d4f2d23c9cd9a3d66a90f3a308a4b063e06ce"
+    },
+    {
+      "file": "linux-wheel-py3.14-adbc1.12.0.json",
+      "python": "3.14.8",
+      "manager": "1.12.0",
+      "cluster_mode": "auto",
+      "installed_wheel": true,
+      "rows_per_primary": [
+        361,
+        366,
+        372
+      ],
+      "library_sha256": "260c3c69850d32fc3788c70b622d4f2d23c9cd9a3d66a90f3a308a4b063e06ce"
+    }
+  ],
+  "cluster_checks_total": 68,
+  "standalone_checks": 15,
+  "management_fault_tests": 25,
+  "protocol_default": "RESP3",
+  "configuration": "3 primaries, TLS-only client ports, TLS cluster bus with separate clientAuth certificate, no replicas/persistence, cap 137 on every primary",
+  "runtime_source_changes": false,
+  "fixture_cleanup": "passed: every run verified both owned users absent on every primary; exact client and label-verified cluster container removed; native standalone PID stopped; private fixtures/client environment removed",
+  "hosted_predecessor": {
+    "pr": 414,
+    "run": 39687224667,
+    "status": "cancelled before client matrix execution",
+    "coverage_claim": "none"
+  },
+  "harness_sha256": {
+    "scripts/check_partition_tls.py": "28453dc605441da10fe9aaa58303b3ee9ede4ea57272ca763c90bd4de5ada22e",
+    "scripts/oss_cluster_partition_tls.py": "0cee2057b6fd426daeb3d6b7858ac241aa8c656acb2ada58ea341ecc1b5e9614",
+    "scripts/start_partition_tls_cluster.sh": "37b438fd7e225893f2e871f25d452f75c080b9ad48a2cc600a0f3289b0656aec"
+  },
+  "runtime_library_source": "053e638 (Go runtime unchanged by #414)",
+  "cluster_run_harness_sha256": {
+    "scripts/check_partition_tls.py": "28453dc605441da10fe9aaa58303b3ee9ede4ea57272ca763c90bd4de5ada22e",
+    "scripts/oss_cluster_partition_tls.py": "0cee2057b6fd426daeb3d6b7858ac241aa8c656acb2ada58ea341ecc1b5e9614",
+    "scripts/start_partition_tls_cluster.sh": "ae280a040d872220c1e10ab0ad08bdcf2078a1d8396ea53834f7025db7b1b904"
+  },
+  "final_entry_guard": "Added explicit invalid-port rejection before filesystem/Docker mutation; 25 fault tests and one final successful three-primary TLS startup; core fixture TLS settings unchanged after four data/lifecycle runs",
+  "final_startup_fixture_cleanup": "label-verified container and private directory removed"
+}

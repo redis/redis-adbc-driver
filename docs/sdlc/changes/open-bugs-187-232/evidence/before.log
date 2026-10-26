@@ -1,0 +1,17 @@
+--- FAIL: TestUnknownLiteralSetOps (0.00s)
+    unknown_test.go:219: SELECT NULL UNION SELECT NULL UNION SELECT 3: error <nil>, want one containing "types VARCHAR and INTEGER cannot be matched"
+--- FAIL: TestIssue187SetOperationTypes (0.00s)
+    unknown_test.go:254: SELECT NULL UNION SELECT NULL
+         got:  NULL
+        want:  VARCHAR
+    unknown_test.go:254: SELECT NULL UNION ALL SELECT NULL
+         got:  NULL
+         NULL
+        want:  VARCHAR
+         VARCHAR
+    unknown_test.go:254: SELECT NULL INTERSECT SELECT NULL
+         got:  NULL
+        want:  VARCHAR
+FAIL
+FAIL	github.com/adbc-drivers/redis/go	0.795s
+FAIL

@@ -1,0 +1,30 @@
+require redis_adbc
+
+# Invalid requests must fail before attempting a connection.
+statement error
+SELECT * FROM redis_adbc_scan('redis://127.0.0.1:1/0', 'CREATE TABLE forbidden (id integer)');
+----
+exactly one SELECT
+
+statement error
+SELECT * FROM redis_adbc_scan('redis://127.0.0.1:1/0', 'SELECT 1; SELECT 2');
+----
+exactly one SELECT
+
+statement error
+SELECT * FROM redis_adbc_scan(NULL, 'SELECT 1');
+----
+must not be NULL
+
+statement error
+SELECT * FROM redis_adbc_scan('https://localhost', 'SELECT 1');
+----
+requires a redis
+
+statement ok
+SET enable_external_access=false;
+
+statement error
+SELECT * FROM redis_adbc_scan('redis://127.0.0.1:1/0', 'SELECT 1');
+----
+enable_external_access

@@ -1,0 +1,1 @@
+{"arch":"arm64","counts":{"close_failed":0,"completed":50000,"eof":37427,"other":0,"passed":12573,"ping_failed":37427,"read_failed":0,"timeout":0},"go":"go1.26.10","os":"darwin","requested":50000,"seconds":67.383632208}

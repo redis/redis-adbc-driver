@@ -1,0 +1,54 @@
+{
+  "date": "2026-10-21",
+  "baseline_source": "6495522e605c41084364cd993cd665f3c7c06d74",
+  "candidate_source": "99c1141bda457e43ed9bec42ca6436b2a0a95d4d",
+  "protocol": 3,
+  "go_version": "go version go1.27.2 darwin/arm64",
+  "host": {
+    "platform": "macOS 26.7.1 arm64",
+    "logical_cpus": 18,
+    "memory_bytes": 38654705664
+  },
+  "server": {
+    "image": "redis:8.6.2",
+    "search_version": "8.6.0",
+    "cpus": 4,
+    "memory_bytes": 2147483648,
+    "transport": "localhost TCP without TLS"
+  },
+  "binary_sha256": {
+    "baseline": "3839bfdb10c504751bcd57eb6d38381f934694221406c82655e7bcb97005b479",
+    "candidate": "f4b273b2ae37b6d39a852ee50fe0cfd2af6f7e019b1d21e582b8222b20b7d033"
+  },
+  "production_file_sha256": {
+    "go/aggregate.go": "243c390839676892cc7975421e11a4b496f63a62cb860438b21f882ad6fa4ab5"
+  },
+  "runner_sha256": "ab4694c3ef9ad52a5bdd497bda5dead7d4803520c0c70de7d96fa77553e53cd1",
+  "profile_helper_sha256": "9b2861f6fe746b7504c08bc05504eeec9ed97fa2f66d5d3ba12e2d6564ca36fa",
+  "upstream_clickbench_commit": "ccda3033f3c7303d9d7f9634d6dae118ef085f96",
+  "parquet_sha256": "d053397f7aa5b2e1ee9160779a9e9307b162c6994aebba829c7ea1411076c4d0",
+  "build_command": "CGO_ENABLED=1 go build -buildmode=c-shared -tags driverlib -ldflags '-s -w -X github.com/adbc-drivers/driverbase-go/driverbase.infoDriverVersion=v0.1.0' -o OUTPUT ./pkg",
+  "profile_artifact_sha256": {
+    "baseline-profile.log": "698834ca76e1aded6613313515b3f9c64d30043f5e248a0c87b1232c5aa18aee",
+    "candidate-profile.log": "3eec356d8ee88dc9eae1d5dd472618663d427b00686b094c734d80a92b407983",
+    "baseline-cpu-top.txt": "394291284b99ca662730a8ac593fdf07112fe7b4b3b0b53c0c024b16367842c9",
+    "candidate-cpu-top.txt": "3aa9f25fb147d4e0709c9fdbbf9f17f8d8f6a43904ec19881bcc48b75553a1b1",
+    "baseline-alloc-top.txt": "550851900e8cadb124913a966e9af63319b37deee9ec9549539d220655c13a6f",
+    "candidate-alloc-top.txt": "2030281843f693c65aa84e3981f7d06205e80267424fdbe05bc5f586c4e93972",
+    "baseline-parser-cpu.txt": "d7d52a24334b31202a4e6ac0f4c75ec027b0a1357feb7e9ab591f368326e5141",
+    "candidate-parser-cpu.txt": "39d9350c5b4945594a969c77399123d9b8689fdaf42a2bc61a049147393f2d6d",
+    "parser-microbench.txt": "db04ad697ccee621f65a625760ef1deac37f2fe658c2380acf21dc2eac290dd3",
+    "baseline-cpu.pprof": "fc40fdf1b94a752810e52c4c6a0dba855f5562b739109d4e210cd77f103097c8",
+    "candidate-cpu.pprof": "6e82b904ab20ab86a621609effc16c11c0b6860c3fa97f21fd59f0bb7f5fc3c4",
+    "baseline-alloc.pprof": "f9ca4901fae38466c31c01b169f3ae15ed6d55a830ebedb2a7d8a7fd541db785",
+    "candidate-alloc.pprof": "d49fa3112f56bd55028f74e9da04e2656d287649606e2113a86c341d0947ea78"
+  },
+  "notes": [
+    "Profiles are three ordinary Go-driver scans using the Go Arrow allocator; native timings use the C Arrow allocator. Profiles identify allocation/CPU cost, not a clean server/client wall-time split.",
+    "Baseline profile helper is copied onto the exact baseline archive; candidate production source matches the recorded candidate commit. Baseline profile began after an initial RESP3 FT.INFO load-readiness parsing error; the ingested fixture was present, all three profile scans returned 100000 rows. The fixed benchmark loader explicitly verifies readiness before timing.",
+    "Baseline release is built from git archive; candidate has VCS metadata and vcs.modified=true due to pre-existing untracked diagnostic files excluded from its production build.",
+    "Both ADBC and redis-py benchmark paths explicitly request protocol=3; original #408 native references used RESP2 whereas its ADBC driver defaulted to RESP3. Keep those historical numbers separate.",
+    "The initial native-discovery warm-up used a hardcoded index after fixture recreation and failed with No such index. Six preceding warm-ups passed, zero measured rounds completed; retained under initial-failure/. The runner fix uses actual index metadata, and completed results come from a new run directory."
+  ],
+  "benchmark_runner_source": "521583a389a0935887882b5e1e772c2683757e37"
+}

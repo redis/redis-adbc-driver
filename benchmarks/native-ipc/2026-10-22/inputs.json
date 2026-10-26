@@ -1,0 +1,18 @@
+{
+  "narrow-stream": {
+    "bytes": 2714296,
+    "sha256": "1c0ef426152869db7fd9df49eded6f7edd4d993edd6740809559971dbd76caee"
+  },
+  "narrow-file": {
+    "bytes": 2714866,
+    "sha256": "20e3e0ba867e83390255d811c9f61179993b48c0e7084c9eaa1fddbb97bfdd79"
+  },
+  "wide-stream": {
+    "bytes": 42512552,
+    "sha256": "4ac2c765376a05df837ef590f221ad5cf529859b689f722827da8564406dd631"
+  },
+  "wide-file": {
+    "bytes": 42514442,
+    "sha256": "b686357b60a20a61f89dc580410a41abf85458083c45ebc7bfccd84177ebc292"
+  }
+}

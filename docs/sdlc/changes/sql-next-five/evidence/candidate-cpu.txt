@@ -1,0 +1,20 @@
+File: go.test
+Type: cpu
+Time: 2026-10-22 10:54:12 PDT
+Duration: 9.08s, Total samples = 4880ms (53.74%)
+Showing nodes accounting for 3560ms, 72.95% of 4880ms total
+Dropped 75 nodes (cum <= 24.40ms)
+Showing top 12 nodes out of 200
+      flat  flat%   sum%        cum   cum%
+    1180ms 24.18% 24.18%     1180ms 24.18%  syscall.rawsyscalln
+     540ms 11.07% 35.25%      540ms 11.07%  runtime.madvise
+     280ms  5.74% 40.98%      280ms  5.74%  runtime.kevent
+     250ms  5.12% 46.11%      600ms 12.30%  github.com/adbc-drivers/redis/go.(*scanProjection).decodeHashInto
+     250ms  5.12% 51.23%      250ms  5.12%  runtime.memmove
+     240ms  4.92% 56.15%      830ms 17.01%  github.com/adbc-drivers/redis/go.(*streamReader).appendDecodedArrow
+     180ms  3.69% 59.84%      180ms  3.69%  runtime.pthread_cond_wait
+     150ms  3.07% 62.91%      150ms  3.07%  runtime.usleep
+     140ms  2.87% 65.78%      140ms  2.87%  runtime.pthread_cond_signal
+     120ms  2.46% 68.24%      130ms  2.66%  github.com/adbc-drivers/redis/go.bindArrowColumn.func2
+     120ms  2.46% 70.70%      290ms  5.94%  github.com/adbc-drivers/redis/go.bindStoredDecode.func1
+     110ms  2.25% 72.95%      420ms  8.61%  github.com/adbc-drivers/redis/go.bindArrowColumn.func15

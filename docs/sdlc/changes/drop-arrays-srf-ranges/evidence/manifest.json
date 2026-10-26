@@ -1,0 +1,18 @@
+{
+  "base": "403e98f",
+  "fixture_rows": 100000,
+  "fixture_columns": 105,
+  "fixture_arrow_bytes": 79578019,
+  "source_sha256": "a9f58367a9bb3af0e244043640e967ec618b4f96b759cd144be900030f2bf5a2",
+  "driver_sha256": {
+    "baseline": "7fbaa72167b0f07ef5155fb75599dcc511148b27d6d225956ba527ce2711f276",
+    "measured_candidate": "c06b8fb32f9850e7ec0e09cf78647f1bd84f323f54dbaee52051c70507005237",
+    "final_native": "4c1c09b9a02b7bda8718eedbd35ccf6f67c3454eb21e6f3c752c6dbe23e35ed9",
+    "go126_native": "75097648546f6abb0b95ee6b43c6f2fb90e94e0e145c75f54830f2346da64352"
+  },
+  "measured_scan_source_sha256": {
+    "go/query.go": "5d78402c8e869259b40b98c7da899a2ad9e817587d9d3e2739e8ed2f16650219",
+    "go/scan_projection.go": "9c0bc584e9a19c2be84d0da6f508f1aee13e946ed31f23546bd6f074840a7c51",
+    "go/scan_hash_slices.go": "79f4e7fc255036ef5086fb953242ece9bd8671c09115bfbb1c9f0c11b44b43ff"
+  }
+}

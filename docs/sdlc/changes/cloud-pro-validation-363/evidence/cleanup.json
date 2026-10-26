@@ -1,0 +1,22 @@
+{
+  "verified_at_utc": "2026-10-21T20:50:18Z",
+  "owner": "Albert Wong",
+  "essentials": {
+    "subscription_id": 3457668,
+    "database_id": 14709171,
+    "database_delete_task": "d133fe23-a1a9-4b24-8c1c-cba7437f3c58",
+    "subscription_delete_task": "37263831-0607-490e-af86-576c864f8cbe",
+    "database_count_before_subscription_deletion": 0,
+    "subscription_get_status": 404
+  },
+  "pro": {
+    "subscription_id": 3457671,
+    "database_id": 14709177,
+    "database_delete_task": "2242fc07-121c-495e-819d-5ec6e301ce46",
+    "subscription_delete_task": "1f2e29f5-a1ee-4b52-8647-b46c8ee08dea",
+    "database_get_status": 404,
+    "subscription_get_status": 404
+  },
+  "temporary_database_credentials_removed": true,
+  "actual_invoice_cost": "not available at cleanup; estimate components in deployment.json"
+}

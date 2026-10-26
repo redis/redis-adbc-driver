@@ -1,0 +1,115 @@
+{
+  "date": "2026-10-21",
+  "status": "local checks passed; CI and human review pending",
+  "production_source": "dbdafa2f1115fc6ff91eac9ad8c7d50cb6a8b357",
+  "final_test_source": "51baf9d0a4d368c6e7dad433024121a8ec239b32",
+  "current_main_checked": "455acb7",
+  "target_drift": "Subsequent #417/#418 commits add TLS validation scripts/docs/workflows; no Go production or test source changes. Benchmark baseline remains the same driver implementation.",
+  "full_go": {
+    "command": "REDIS_URI='redis://127.0.0.1:18113/0?protocol=3' go test -json -count=1 -p 1 ./...",
+    "passing_test_events": 1008,
+    "skipped_test_events": 15,
+    "failures": 0,
+    "packages": [
+      {
+        "package": "github.com/adbc-drivers/redis/go",
+        "seconds": 175.6
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go/cmd/redis-adbc",
+        "seconds": 1.8159999999999998
+      },
+      {
+        "package": "github.com/adbc-drivers/redis/go/internal/benchproxy",
+        "seconds": 0.251
+      }
+    ],
+    "skips": [
+      "TestAggregateInputLoadProfile",
+      "TestAggregatePagesProfile",
+      "TestClickBenchExecutionProfile",
+      "TestExactDistinctProfile",
+      "TestFlexRefused",
+      "TestLateProjectionProfile",
+      "TestNarrowScanProfile",
+      "TestRangeReadinessChecksAllPrimaries",
+      "TestPartitionRuntimeCapDiscovery",
+      "TestQ19Profile",
+      "TestSearchReplyScanProfile",
+      "TestTimeoutServerPaused",
+      "TestWideTransferProfile",
+      "TestAggregateWorkerConcurrencyProfile",
+      "TestAggregateWorkerMixedProbe"
+    ],
+    "raw": "../../../../benchmarks/search-hmget/2026-10-21/go-tests-final.jsonl"
+  },
+  "race_checks": [
+    {
+      "environment": "standalone RESP2",
+      "log": "final-standalone2-race.log",
+      "status": "passed"
+    },
+    {
+      "environment": "three-primary Cluster RESP3",
+      "log": "final-cluster-race.log",
+      "status": "passed"
+    }
+  ],
+  "native_adbc": [
+    {
+      "environment": "standalone RESP3",
+      "passed": 371,
+      "skipped": 8,
+      "subtests_passed": 3,
+      "log": "native-standalone3.log"
+    },
+    {
+      "environment": "standalone RESP2",
+      "passed": 371,
+      "skipped": 8,
+      "subtests_passed": 3,
+      "log": "native-standalone2.log"
+    },
+    {
+      "environment": "Cluster RESP3",
+      "passed": 371,
+      "skipped": 8,
+      "subtests_passed": 3,
+      "log": "native-cluster3.log"
+    }
+  ],
+  "benchmarks": {
+    "complete_primary_executions": 240,
+    "warmups": 52,
+    "measured": 188,
+    "all_exact_full_values_and_multiplicity": true,
+    "explicit_protocol": 3,
+    "note": "Initial-scope attempts and three-scan Go profiles are separate."
+  },
+  "review": {
+    "correctness_lifecycle": "No remaining actionable findings in scoped code; see plan.md and final test logs.",
+    "security_ownership": "No new commands/writes/TLS changes; managed-ownership guard and actual Search keys.",
+    "intent_design_evidence": "Speed, native partition gap, memory/bidirectional-byte tradeoffs, initial controls and model limits recorded.",
+    "human_approval": "not inferred"
+  },
+  "resource_cleanup": {
+    "containers_removed": [
+      "codex-411-benchmark",
+      "codex-411-test",
+      "codex-411-cluster"
+    ],
+    "proxy": "stopped; final shutdown clean",
+    "new_cloud_deployments": 0,
+    "cloud_cost": 0,
+    "unrelated_containers_not_modified_by_this_task": [
+      "codex-cluster-tls-client",
+      "codex-oss-cluster-tls-363"
+    ]
+  },
+  "remaining_limits": [
+    "No clean wall-time server/socket wait decomposition.",
+    "No Cloud/Software/other-architecture or full-100M transfer speed claim.",
+    "CI and human review pending."
+  ],
+  "pull_request": "https://github.com/alberttwong/redis-adbc-driver/pull/419"
+}

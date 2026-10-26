@@ -1,0 +1,114 @@
+{
+  "kind": "local native partition TLS/independent ACL validation",
+  "status": "passed",
+  "library_sha256": "849a1d110a532ab9cfaea706d34e82f493d093944e5e3b915d988f99cc2c17fa",
+  "installed_wheel": false,
+  "python": "3.13.16",
+  "pyarrow": "26.0.0",
+  "certificate_verification": true,
+  "platform": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39",
+  "machine": "x86_64",
+  "packages": {
+    "adbc-driver-manager": "1.12.0",
+    "redis": "8.1.0"
+  },
+  "aggregate_cap": 137,
+  "cluster_mode": "auto",
+  "checks": [
+    "verified_admin_tls_and_real_cap",
+    "hostname_mismatch_rejected",
+    "closed_planner_and_credential_free_descriptors",
+    "restricted_cross_process_search_full_values_schema",
+    "restricted_cross_process_direct_hash_duplicates_deleted",
+    "native_untrusted_ca_rejected",
+    "native_hostname_mismatch_rejected",
+    "software_proxy_config_get_filtered_empty",
+    "worker_config_mutation_and_writes_denied",
+    "malformed_descriptor_rejected",
+    "search_readiness_acl_required_direct_hash_independent",
+    "direct_hash_reader_obeys_worker_acl",
+    "connection_cancel_in_independent_tls_worker",
+    "early_release_in_independent_tls_worker",
+    "live_updates_deletes_and_later_insert_exclusion",
+    "stale_target_rejected",
+    "retained_global_sql_minimal_acl_lifecycle_and_replay"
+  ],
+  "server_cluster_enabled": 0,
+  "topology": {
+    "deployment": "Redis Software TLS proxy",
+    "api_port": 19443,
+    "bdb_uid": 1,
+    "shards": 1,
+    "redis_version": "8.6.2",
+    "image": "redislabs/redis:8.2.0-78.18",
+    "image_id": "sha256:a965b9f2b7f9316b7eb34c4d0dca6ae77a37e6491b2f2150faacbf1d919c0909",
+    "tls_only": true,
+    "verified_management_api": true,
+    "verified_eviction_policy": "noeviction"
+  },
+  "redis_version": "8.6.2",
+  "modules": [
+    {
+      "name": "timeseries",
+      "ver": 80601,
+      "path": "/enterprise-managed",
+      "args": []
+    },
+    {
+      "name": "bf",
+      "ver": 80604,
+      "path": "/enterprise-managed",
+      "args": []
+    },
+    {
+      "name": "ReJSON",
+      "ver": 80606,
+      "path": "/enterprise-managed",
+      "args": []
+    },
+    {
+      "name": "vectorset",
+      "ver": 1,
+      "path": "/enterprise-managed",
+      "args": []
+    },
+    {
+      "name": "search",
+      "ver": 80611,
+      "path": "/enterprise-managed",
+      "args": []
+    }
+  ],
+  "mutation_rowcounts": {
+    "update": 1,
+    "delete": 1,
+    "insert": 1
+  },
+  "live_result": {
+    "expected_rows": 1098,
+    "actual_rows": 1098,
+    "schema_matches": true,
+    "missing_ids": [],
+    "unexpected_ids": [],
+    "duplicate_ids": [],
+    "changed_value_ids": []
+  },
+  "retained": {
+    "status": "passed",
+    "checks": [
+      "global_sql_exact_schema_and_values_independent_minimal_acl",
+      "typed_replay_after_planner_close_and_source_drop",
+      "different_namespace_acl_denied",
+      "early_release_and_cancel_leave_shared_result_replayable",
+      "explicit_revoke_observed_by_independent_workers"
+    ],
+    "minimal_worker_commands": [
+      "PING",
+      "TIME",
+      "GETRANGE"
+    ],
+    "control_persistence_verification": "managed-api",
+    "verified_eviction_policy": "noeviction",
+    "owned_namespace_cleanup_verified": true
+  }
+}

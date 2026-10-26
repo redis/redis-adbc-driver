@@ -1,0 +1,14 @@
+..................s.s.......ss..s.uuu.....................s............. [ 17%]
+...............................s........................................ [ 36%]
+........................................................................ [ 54%]
+........................................................................ [ 73%]
+........................................................................ [ 92%]
+......................s........                                          [100%]
+=========================== short test summary info ============================
+SKIPPED [2] ../../../../../../private/tmp/redis-396-validation/lib/python3.13/site-packages/adbc_drivers_validation/tests/connection.py: not implemented
+SKIPPED [1] ../../../../../../private/tmp/redis-396-validation/lib/python3.13/site-packages/adbc_drivers_validation/tests/connection.py:1089: connection_get_statistics not supported
+SKIPPED [1] ../../../../../../private/tmp/redis-396-validation/lib/python3.13/site-packages/adbc_drivers_validation/tests/connection.py:1213: secondary_catalog not supported
+SKIPPED [1] ../../../../../../private/tmp/redis-396-validation/lib/python3.13/site-packages/adbc_drivers_validation/tests/connection.py:144: not implemented
+SKIPPED [2] ../../../../../../private/tmp/redis-396-validation/lib/python3.13/site-packages/adbc_drivers_validation/tests/ingest.py: not implemented
+SKIPPED [1] ../../../../../../private/tmp/redis-396-validation/lib/python3.13/site-packages/adbc_drivers_validation/tests/statement.py:196: Driver does not support transactions
+380 passed, 8 skipped, 3 subtests passed in 19.93s

@@ -1,0 +1,172 @@
+{
+  "command": "REDIS_URI=redis://127.0.0.1:18445/0 go test -count=1 -p 1 -json ./...",
+  "environment": {
+    "go": "go1.27.2 darwin/arm64",
+    "redis": "redis:8.6.2",
+    "uri": "redis://127.0.0.1:18445/0"
+  },
+  "counts_including_subtests": {
+    "pass": 1194,
+    "skip": 20
+  },
+  "failures": [],
+  "packages": [
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Action": "pass",
+      "Elapsed": 163.569
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go/cmd/redis-adbc",
+      "Action": "pass",
+      "Elapsed": 0.851
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go/internal/benchproxy",
+      "Action": "pass",
+      "Elapsed": 0.154
+    }
+  ],
+  "skipped": [
+    {
+      "test": "TestAggregateInputLoadProfile",
+      "output": [
+        "aggregate_inputs_bench_test.go:112: set REDIS_INPUT_LOAD_PROFILE_TABLE to profile a preloaded fixture",
+        "--- SKIP: TestAggregateInputLoadProfile (0.00s)"
+      ]
+    },
+    {
+      "test": "TestAggregatePagesProfile",
+      "output": [
+        "aggregate_pages_profile_test.go:31: set REDIS_AGG_PROFILE_QUERY to profile an existing test fixture",
+        "--- SKIP: TestAggregatePagesProfile (0.00s)"
+      ]
+    },
+    {
+      "test": "TestClickBenchExecutionProfile",
+      "output": [
+        "clickbench_execution_profile_test.go:30: set REDIS_EXECUTION_PROFILE_DIR to a fresh output directory",
+        "--- SKIP: TestClickBenchExecutionProfile (0.00s)"
+      ]
+    },
+    {
+      "test": "TestExactDistinctProfile",
+      "output": [
+        "exact_distinct_profile_test.go:35: set REDIS_AGG_PROFILE_QUERY to profile an existing test fixture",
+        "--- SKIP: TestExactDistinctProfile (0.00s)"
+      ]
+    },
+    {
+      "test": "TestFlexRefused",
+      "output": [
+        "flex_integration_test.go:38: set REDIS_FLEX_URI to a Redis Flex database to run this test",
+        "--- SKIP: TestFlexRefused (0.00s)"
+      ]
+    },
+    {
+      "test": "TestLateProjectionProfile",
+      "output": [
+        "late_projection_profile_test.go:70: set REDIS_LATE_PROFILE_QUERY on preloaded table",
+        "--- SKIP: TestLateProjectionProfile (0.00s)"
+      ]
+    },
+    {
+      "test": "TestNarrowScanProfile",
+      "output": [
+        "narrow_scan_profile_test.go:59: set REDIS_SCAN_PROFILE=1 for the 105-column scan profile",
+        "--- SKIP: TestNarrowScanProfile (0.00s)"
+      ]
+    },
+    {
+      "test": "TestRangeReadinessChecksAllPrimaries",
+      "output": [
+        "partition_readiness_integration_test.go:188: OSS Cluster-specific non-coordinator check",
+        "--- SKIP: TestRangeReadinessChecksAllPrimaries (0.05s)"
+      ]
+    },
+    {
+      "test": "TestRetainedPartitionAPIProcessHelper",
+      "output": [
+        "partition_retained_api_integration_test.go:196: internal public API subprocess helper",
+        "--- SKIP: TestRetainedPartitionAPIProcessHelper (0.00s)"
+      ]
+    },
+    {
+      "test": "TestRetainedPartitionAPIControlPolicyAdmission",
+      "output": [
+        "partition_retained_api_integration_test.go:294: requires explicit owned, unlimited standalone policy fixture",
+        "--- SKIP: TestRetainedPartitionAPIControlPolicyAdmission (0.00s)"
+      ]
+    },
+    {
+      "test": "TestRetainedPartitionAPICoordinatorDeathHelper",
+      "output": [
+        "partition_retained_api_integration_test.go:422: internal coordinator death helper",
+        "--- SKIP: TestRetainedPartitionAPICoordinatorDeathHelper (0.00s)"
+      ]
+    },
+    {
+      "test": "TestRetainedPartitionReaderProcessHelper",
+      "output": [
+        "partition_retained_reader_integration_test.go:265: internal subprocess helper",
+        "--- SKIP: TestRetainedPartitionReaderProcessHelper (0.00s)"
+      ]
+    },
+    {
+      "test": "TestRetainedSourceRESPPreservesTLSVerification",
+      "output": [
+        "partition_retained_resp_integration_test.go:116: requires the dedicated TLS fixture",
+        "--- SKIP: TestRetainedSourceRESPPreservesTLSVerification (0.00s)"
+      ]
+    },
+    {
+      "test": "TestPartitionRuntimeCapDiscovery",
+      "output": [
+        "partitions_integration_test.go:459: requires dedicated Redis with permission to change Search configuration",
+        "--- SKIP: TestPartitionRuntimeCapDiscovery (0.00s)"
+      ]
+    },
+    {
+      "test": "TestPerformance406Profile",
+      "output": [
+        "performance_406_profile_test.go:22: set REDIS_406_PROFILE_SCHEMA on an existing immutable hits fixture",
+        "--- SKIP: TestPerformance406Profile (0.00s)"
+      ]
+    },
+    {
+      "test": "TestQ19Profile",
+      "output": [
+        "q19_profile_test.go:38: set REDIS_Q19_PROFILE=1",
+        "--- SKIP: TestQ19Profile (0.00s)"
+      ]
+    },
+    {
+      "test": "TestSearchReplyScanProfile",
+      "output": [
+        "search_reply_profile_test.go:17: set REDIS_REPLY_PROFILE on the immutable 100K transfer fixture",
+        "--- SKIP: TestSearchReplyScanProfile (0.00s)"
+      ]
+    },
+    {
+      "test": "TestTimeoutServerPaused",
+      "output": [
+        "timeout_integration_test.go:373: set REDIS_PAUSE_TESTS=1 to run tests that pause the Redis server at REDIS_URI (CLIENT PAUSE)",
+        "--- SKIP: TestTimeoutServerPaused (0.00s)"
+      ]
+    },
+    {
+      "test": "TestAggregateWorkerConcurrencyProfile",
+      "output": [
+        "worker_budget_profile_test.go:45: set REDIS_WORKER_PROFILE_ROWS >= 2048",
+        "--- SKIP: TestAggregateWorkerConcurrencyProfile (0.00s)"
+      ]
+    },
+    {
+      "test": "TestAggregateWorkerMixedProbe",
+      "output": [
+        "worker_tuner_mixed_profile_test.go:39: set REDIS_WORKER_PROFILE_MIXED_ROWS >= 8192 on an isolated disposable server",
+        "--- SKIP: TestAggregateWorkerMixedProbe (0.00s)"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,110 @@
+{
+  "area": "srf",
+  "source": "https://github.com/alberttwong/redis-adbc-driver/issues/256",
+  "setup": [
+    "CREATE TABLE t (id integer, name varchar(20), score integer, grp varchar(10))",
+    "INSERT INTO t VALUES (1, 'apple', 10, 'a'), (2, 'Banana', NULL, 'a'), (3, 'cherry', 30, 'b'), (4, '_x', 20, 'b')",
+    "CREATE TABLE u (id integer, label text)",
+    "INSERT INTO u VALUES (1, 'one'), (2, 'two')"
+  ],
+  "cases": [
+    {
+      "id": "row-1",
+      "sql": "select generate_series(1, 3)",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-2",
+      "sql": "select * from generate_series(1, 3) with ordinality as g(n, i)",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-3",
+      "sql": "select * from regexp_split_to_table('a,b', ',')",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-4",
+      "sql": "select * from string_to_table('a,b', ',')",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-5",
+      "sql": "select * from rows from (generate_series(1, 2), generate_series(1, 3)) as r(a, b)",
+      "expect_postgres": null
+    },
+    {
+      "id": "edge-1",
+      "sql": "select generate_series(1,2)+10,unnest(array['a','b','c'])"
+    },
+    {
+      "id": "edge-2",
+      "sql": "select * from unnest(array[1,2],array['a']) with ordinality as u(a,b,i)"
+    },
+    {
+      "id": "edge-3",
+      "sql": "select * from generate_series(1,2) g, lateral generate_series(1,g) x"
+    },
+    {
+      "id": "edge-4",
+      "sql": "select * from rows from(string_to_table('a,b',','),generate_series(1,3)) with ordinality as r(a,b,i)"
+    },
+    {
+      "id": "edge-5",
+      "sql": "select * from regexp_matches('a1 b2','([a-z])([0-9])','g') r(m)"
+    },
+    {
+      "id": "edge-6",
+      "sql": "select case when true then generate_series(1,2) end"
+    },
+    {
+      "id": "edge-7",
+      "sql": "select coalesce(unnest(array[1]),0)"
+    },
+    {
+      "id": "edge-8",
+      "sql": "select sum(generate_series(1,2))"
+    },
+    {
+      "id": "edge-9",
+      "sql": "select 1 where generate_series(1,2)>0"
+    },
+    {
+      "id": "edge-10",
+      "sql": "select * from string_to_table('',',')"
+    },
+    {
+      "id": "edge-11",
+      "sql": "select * from regexp_split_to_table('abc','')"
+    },
+    {
+      "id": "edge-12",
+      "sql": "select generate_series(3,1,-1)"
+    },
+    {
+      "id": "edge-13",
+      "sql": "select unnest(array[]::int[]),generate_series(1,2)"
+    },
+    {
+      "id": "placement-1",
+      "sql": "create table bad_default(id integer default generate_series(1,2))"
+    },
+    {
+      "id": "placement-2",
+      "sql": "create table bad_check(id integer check(unnest(array[true])))"
+    },
+    {
+      "id": "placement-3",
+      "sql": "select generate_series(1,5) limit 2 offset 2"
+    },
+    {
+      "id": "placement-4",
+      "sql": "select t.id,u.n from t left join lateral unnest(case when t.id=2 then array[]::int[] else array[t.id] end)u(n) on true order by t.id"
+    },
+    {
+      "id": "placement-5",
+      "sql": "select sum(unnest(array[1,2])) over ()"
+    }
+  ],
+  "tier": "issues"
+}

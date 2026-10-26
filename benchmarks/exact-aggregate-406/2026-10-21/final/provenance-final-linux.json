@@ -1,0 +1,40 @@
+{
+  "source": {
+    "baseline": "e692a704d2b70428086e145df00e73db7b1a253f",
+    "candidate": "b40b88fe683780cdc17b05cb0e5c7e4108a42014",
+    "test_followup": "c064caaca0e2894a1e828795bc8ce34e46bb3de8",
+    "runner": "14208bdc6a6cb0b27f8b85fdf498eb833a4c7e35"
+  },
+  "production_file_sha256": {
+    "go/aggregate.go": "8b55f192684176bcebdc03bf89e758a2b373d5dfc39b9f5b584c1299ef2c961a",
+    "go/aggregate_compact_integer.go": "3a7bf8434eb67b4cdae104aef356f153a187d47ebca4c4f57e7041d17dc1d6d4",
+    "go/aggregate_metrics.go": "b71ed068f9611866804b09f00bf6de2693919b31e2624fc637b201e6800bbd6e",
+    "go/execution_diagnostics.go": "8469d6d6bab5a67840345b68b3c062c36d2d05ac4bd14a10bd55b6dc64b718e0",
+    "go/parallel_aggregate.go": "fbc94b493fa234167d4c1b60de8c1873038568ba0f7800af95e94fd21889245f",
+    "go/partitioned_aggregate.go": "43410953fc167a95e40787f9fc4facc78d8af3f63db3430cf64ddc1d142d5b37",
+    "go/query.go": "bef4ace45cc50d960e82c7390aa3c2f4ae340fdd03458a94675c0027aa24746f",
+    "go/scalar_aggregate_scan.go": "6f484f2d778690e7c9cfd8056b04746c0c3978d89c946f333caf25bcdb932557",
+    "go/scan_hash_slices.go": "79f4e7fc255036ef5086fb953242ece9bd8671c09115bfbb1c9f0c11b44b43ff",
+    "go/scan_projection.go": "f4dcadac00093d90381045af0a5af35f770a657ceb4b33c00ff4c9943b4b327d"
+  },
+  "go_mod_sha256": "8f7ab2a6de205790164be618e567deff1f4186611e9aee83b54d01b57d6acb84",
+  "go_sum_sha256": "f720f3ef9b6ca3629b098fa28736526b2d2b8a1ec0683c6a3a2f5fad4db2b93c",
+  "scope": "ordinary SQL, exact aggregates, fully consumed Arrow; matched internal worker/budget settings recorded by the actual run",
+  "timing_claim": "current prefix confirmation; full-scale results separate",
+  "build_version": "v0.1.0",
+  "libraries": {
+    "baseline": {
+      "path": "/private/tmp/redis-remaining/linux-build/baseline.so",
+      "sha256": "86f5324d2a50a9b93b2e60ff4d496e48f93dda0650ad6a59cd3238faf4af5309"
+    },
+    "candidate": {
+      "path": "/private/tmp/redis-remaining/linux-build/candidate-b40b88f.so",
+      "sha256": "7ac480ba91e0105cc7a7cb1c0eb2cb3d5339834d4c14e21edb94118412a0d610"
+    }
+  },
+  "go_version": "go version go1.26.6 linux/amd64",
+  "image": "golang:1.26.6-bookworm@sha256:116d58cbd88c1297624acc6e967a060012422bacf9930927e23fb719189c6f36",
+  "build_flags": "CGO_ENABLED=1 -trimpath -buildvcs=false -buildmode=c-shared -tags driverlib -ldflags -s -w -X github.com/adbc-drivers/driverbase-go/driverbase.infoDriverVersion=v0.1.0",
+  "note": "Both immutable archives cross-built in the same constrained local Linux amd64 image, four CPU/8GiB, using the same compiler and flags; runtime resources/topology are recorded by the actual comparison.",
+  "intended_full_workers": 16
+}

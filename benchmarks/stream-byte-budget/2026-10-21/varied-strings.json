@@ -1,0 +1,11 @@
+{
+  "source_sha256": "d053397f7aa5b2e1ee9160779a9e9307b162c6994aebba829c7ea1411076c4d0",
+  "derived_sha256": "c3650a4da69d194968cd65f0bdfe12c21d0e68bf187fb3f4bdefc0aa410d170b",
+  "transform": "SearchPhrase := original + NUL + Omega-x repeated [0,16,256,2048][row_index % 4]",
+  "rows": 100000,
+  "columns": 105,
+  "min_utf8_bytes": 1,
+  "max_utf8_bytes": 6375,
+  "mean_utf8_bytes": 1747.6988,
+  "scope": "derived width/string sensitivity control, not unmodified ClickBench"
+}

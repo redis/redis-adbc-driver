@@ -1,0 +1,12 @@
+{
+  "status": "passed",
+  "command": "cd go && GOTOOLCHAIN=go1.26.6 go test -p 1 -count=1 -run '^TestClientURIOptions$' -v .",
+  "test": "TestClientURIOptions",
+  "assertions": [
+    "URI without protocol uses RESP3 for single and cluster clients",
+    "explicit protocol=3 preserved",
+    "explicit protocol=2 remains compatibility option",
+    "address-only Cluster API config defaults to RESP3"
+  ],
+  "runtime_change": "none; go/database.go already assigns Protocol=3 when unspecified"
+}

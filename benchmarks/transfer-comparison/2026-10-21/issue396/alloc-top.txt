@@ -1,0 +1,27 @@
+File: main.test
+Type: alloc_space
+Time: 2026-10-21 12:36:09 PDT
+Showing nodes accounting for 44.71GB, 99.69% of 44.85GB total
+Dropped 179 nodes (cum <= 0.22GB)
+Showing top 20 nodes out of 53
+      flat  flat%   sum%        cum   cum%
+   15.20GB 33.90% 33.90%    15.20GB 33.90%  github.com/adbc-drivers/redis/go.decodeRow
+   12.06GB 26.89% 60.79%    12.06GB 26.89%  github.com/adbc-drivers/redis/go.evalItems
+    3.38GB  7.54% 68.34%    44.84GB   100%  github.com/adbc-drivers/redis/go.TestWideTransferProfile.func3
+    2.06GB  4.60% 72.93%     5.25GB 11.71%  github.com/redis/go-redis/v9/internal/proto.(*Reader).readSlice
+    1.96GB  4.37% 77.31%     3.91GB  8.73%  github.com/adbc-drivers/redis/go.parseCursorReplyLists
+    1.94GB  4.31% 81.62%     1.94GB  4.31%  github.com/adbc-drivers/redis/go.redisReplyFields
+    1.88GB  4.19% 85.81%     4.84GB 10.79%  github.com/adbc-drivers/redis/go.(*store).fetchRows
+    1.77GB  3.94% 89.75%     4.56GB 10.17%  github.com/redis/go-redis/v9/internal/proto.(*Reader).ReadReply
+    1.74GB  3.88% 93.62%     1.74GB  3.88%  github.com/apache/arrow-go/v18/arrow/memory.(*GoAllocator).Allocate
+    1.42GB  3.17% 96.79%     1.42GB  3.17%  github.com/redis/go-redis/v9/internal/proto.(*Reader).readStringReply
+    1.27GB  2.82% 99.62%     1.33GB  2.97%  github.com/redis/go-redis/v9.cmdable.HMGet
+    0.02GB 0.041% 99.66%     1.95GB  4.36%  github.com/adbc-drivers/redis/go.aggregateReplyFields
+    0.01GB 0.029% 99.69%    15.22GB 33.93%  github.com/adbc-drivers/redis/go.(*scanIter).keep
+         0     0% 99.69%     7.39GB 16.48%  github.com/adbc-drivers/redis/go.(*aggCursor).next
+         0     0% 99.69%    44.84GB   100%  github.com/adbc-drivers/redis/go.TestWideTransferProfile
+         0     0% 99.69%     1.74GB  3.89%  github.com/adbc-drivers/redis/go.appendValue
+         0     0% 99.69%     1.78GB  3.97%  github.com/adbc-drivers/redis/go.buildRecord
+         0     0% 99.69%     3.63GB  8.08%  github.com/adbc-drivers/redis/go.once
+         0     0% 99.69%     3.63GB  8.08%  github.com/adbc-drivers/redis/go.searchConn.Do (inline)
+         0     0% 99.69%     1.24GB  2.76%  github.com/apache/arrow-go/v18/arrow/array.(*BinaryBuilder).Append

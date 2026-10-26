@@ -1,0 +1,12 @@
+fuzz: elapsed: 0s, gathering baseline coverage: 0/16 completed
+fuzz: elapsed: 0s, gathering baseline coverage: 16/16 completed, now fuzzing with 2 workers
+fuzz: elapsed: 3s, execs: 33380 (11125/sec), new interesting: 3 (total: 19)
+fuzz: elapsed: 6s, execs: 69797 (12137/sec), new interesting: 6 (total: 22)
+fuzz: elapsed: 9s, execs: 117620 (15941/sec), new interesting: 9 (total: 25)
+fuzz: elapsed: 12s, execs: 156675 (13018/sec), new interesting: 11 (total: 27)
+fuzz: elapsed: 15s, execs: 181388 (8240/sec), new interesting: 13 (total: 29)
+fuzz: elapsed: 18s, execs: 224177 (14258/sec), new interesting: 14 (total: 30)
+fuzz: elapsed: 21s, execs: 284474 (20099/sec), new interesting: 16 (total: 32)
+fuzz: elapsed: 21s, execs: 284474 (0/sec), new interesting: 16 (total: 32)
+PASS
+ok  	github.com/adbc-drivers/redis/go	21.805s

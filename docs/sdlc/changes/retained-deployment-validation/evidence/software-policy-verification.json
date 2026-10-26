@@ -1,0 +1,8 @@
+{
+  "database_id": 1,
+  "redis_version": "8.6.2",
+  "shards": 3,
+  "api_verified_eviction_policy": "noeviction",
+  "data_proxy_config_get_policy": {},
+  "purpose": "owned retained runtime validation"
+}

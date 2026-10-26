@@ -1,0 +1,204 @@
+--- a/go/query.go
++++ b/go/query.go
+@@ -773,6 +773,32 @@
+ 			continue
+ 		}
+ 		keys[i] = r["__key"]
++	}
++	if it.hashFetch && it.projection != nil && it.projection.consumeHash != nil {
++		values, err := it.store.fetchRowSlices(ctx, keys, it.fetch, wideFetchChunk)
++		if err != nil {
++			return nil, nil, err
++		}
++		if it.diagnostics != nil {
++			it.diagnostics.processed.Add(int64(len(values)))
++		}
++		kept := make([]string, 0, len(keys))
++		for i, row := range values {
++			if row == nil {
++				continue
++			}
++			if err := cancelled(it.env.ctx); err != nil {
++				return nil, nil, err
++			}
++			if err := it.projection.consumeHash(row); err != nil {
++				return nil, nil, err
++			}
++			kept = append(kept, keys[i])
++		}
++		if it.diagnostics != nil {
++			it.diagnostics.matched.Add(int64(len(kept)))
++		}
++		return kept, nil, nil
+ 	}
+ 	if len(it.fetch) > 0 {
+ 		// fetchRows includes __rowid, so a row deleted between the cursor
+--- a/go/scan_arrow.go
++++ b/go/scan_arrow.go
+@@ -40,7 +40,8 @@
+ 	}
+ 	p := r.it.projection
+ 	p.consume = r.appendArrow
+-	defer func() { p.consume = nil }()
++	p.consumeHash = r.appendArrowHash
++	defer func() { p.consume = nil; p.consumeHash = nil }()
+ 	for !r.exhausted && len(a.ready) == 0 {
+ 		_, _, err := r.it.next(r.ctx)
+ 		if errors.Is(err, io.EOF) {
+@@ -63,12 +64,24 @@
+ }
+ 
+ func (r *streamReader) appendArrow(raw aggRow) error {
+-	a, p := r.arrow, r.it.projection
++	p := r.it.projection
+ 	// Like keep's row path, validate even skipped rows and the tail of
+ 	// the final cursor page after LIMIT. Never append a partial row.
+-	if err := p.decodeInto(raw, a.scratch); err != nil {
++	if err := p.decodeInto(raw, r.arrow.scratch); err != nil {
+ 		return err
+ 	}
++	return r.appendDecodedArrow()
++}
++
++func (r *streamReader) appendArrowHash(vals []any) error {
++	if err := r.it.projection.decodeHashInto(vals, r.arrow.scratch); err != nil {
++		return err
++	}
++	return r.appendDecodedArrow()
++}
++
++func (r *streamReader) appendDecodedArrow() error {
++	a := r.arrow
+ 	if r.skip > 0 {
+ 		r.skip--
+ 		return nil
+--- a/go/scan_projection.go
++++ b/go/scan_projection.go
+@@ -16,7 +16,10 @@
+ 	rows    [][]Value
+ 	// consume is installed only while a stream fills Arrow builders. Other
+ 	// projection users retain the row-returning diagnostic path.
+-	consume func(aggRow) error
++	consume       func(aggRow) error
++	consumeHash   func([]any) error
++	hashFields    []string
++	hashPositions []int
+ }
+ 
+ type projectionColumn struct {
+@@ -48,6 +51,16 @@
+ 			p.columns[slot].outputs = append(p.columns[slot].outputs, i)
+ 		} else {
+ 			return nil
++		}
++	}
++	if it.hashFetch {
++		p.hashFields = append([]string(nil), it.fetch...)
++		positions := map[string]int{}
++		for i, f := range it.fetch {
++			positions[f] = i + 1
++		}
++		for _, c := range p.columns {
++			p.hashPositions = append(p.hashPositions, positions[c.field])
+ 		}
+ 	}
+ 	return p
+@@ -96,3 +109,51 @@
+ 	}
+ 	return nil
+ }
++
++func (p *scanProjection) decodeHashInto(vals []any, row []Value) error {
++	if len(vals) != len(p.hashFields)+1 {
++		return errorf(adbc.StatusInternal, "unexpected HMGET row width %d", len(vals))
++	}
++	id := nullValue(typeInt64)
++	if raw, ok := vals[0].(string); ok {
++		var err error
++		id, err = decodeStored(raw, typeInt64)
++		if err != nil {
++			return err
++		}
++	}
++	for _, output := range p.rowID {
++		row[output] = id
++	}
++	var missing aggRow
++	for i := range p.columns {
++		c := &p.columns[i]
++		var v Value
++		var err error
++		if raw, ok := vals[p.hashPositions[i]].(string); ok {
++			v, err = c.column.decode(raw)
++		} else if c.column.MissingThrough == 0 {
++			v = nullValue(c.column.Type)
++		} else {
++			if missing == nil {
++				missing = aggRow{}
++				if raw, ok := vals[0].(string); ok {
++					missing[rowIDField] = raw
++				}
++				for j, f := range p.hashFields {
++					if raw, ok := vals[j+1].(string); ok {
++						missing[f] = raw
++					}
++				}
++			}
++			v, err = c.column.missingValue(missing)
++		}
++		if err != nil {
++			return errorf(adbc.StatusInternal, "column %q: %v", c.column.Name, err)
++		}
++		for _, output := range c.outputs {
++			row[output] = v
++		}
++	}
++	return nil
++}
+--- /dev/null
++++ b/go/scan_hash_slices.go
+@@ -0,0 +1,44 @@
++package redis
++
++import (
++	"context"
++	"errors"
++	goredis "github.com/redis/go-redis/v9"
++)
++
++func (s *store) fetchRowSlices(ctx context.Context, keys []string, fields []string, chunk int) ([][]any, error) {
++	fields = append([]string{rowIDField}, fields...)
++	out := make([][]any, len(keys))
++	for start := 0; start < len(keys); start += chunk {
++		if err := cancelled(ctx); err != nil {
++			return nil, err
++		}
++		end := min(start+chunk, len(keys))
++		pipe := s.client.Pipeline()
++		cmds := make([]*goredis.SliceCmd, 0, end-start)
++		for _, k := range keys[start:end] {
++			if k == "" {
++				cmds = append(cmds, nil) // already found deleted by the cursor
++				continue
++			}
++			cmds = append(cmds, pipe.HMGet(ctx, k, fields...))
++		}
++		if _, err := pipe.Exec(ctx); err != nil && !errors.Is(err, goredis.Nil) {
++			return nil, wrapRedis(err, "failed to read rows")
++		}
++		for i, cmd := range cmds {
++			if cmd == nil {
++				continue
++			}
++			vals, err := cmd.Result()
++			if err != nil {
++				return nil, wrapRedis(err, "failed to read rows")
++			}
++			if vals[0] == nil {
++				continue // row vanished
++			}
++			out[start+i] = vals
++		}
++	}
++	return out, nil
++}

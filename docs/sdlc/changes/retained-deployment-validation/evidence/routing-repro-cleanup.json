@@ -1,0 +1,8 @@
+{
+  "status": "passed",
+  "container_id": "d4bc60287012bdc51a6c6ae8ec1999955d6282f70acd3a667aaff76b405a4d1e",
+  "ownership_label": "codex.fixture=partition-tls-cluster",
+  "container_absence_verified": true,
+  "private_directory_removed": true,
+  "completed_at": "2026-10-22T03:32:07.348257+00:00"
+}

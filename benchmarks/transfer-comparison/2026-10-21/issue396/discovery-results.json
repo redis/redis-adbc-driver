@@ -1,0 +1,947 @@
+{
+  "trials": [
+    {
+      "engine": "redis_py",
+      "profile": "single_reader",
+      "repeat": -1,
+      "warmup": true,
+      "seconds": 3.051492500002496,
+      "rows": 100000,
+      "columns": 105,
+      "arrow_payload_bytes": 79228019,
+      "logical_dataset_arrow_bytes": 79228019,
+      "rows_per_second": 32770.84901893687,
+      "arrow_mib_per_second": 24.76090859144651,
+      "output_format": "Arrow IPC stream",
+      "time_to_first_batch_seconds": 0.19868162499915343,
+      "workers": 1,
+      "partitions": 1,
+      "exact_full_values_validated": true,
+      "metrics": [
+        {
+          "rows": 100000,
+          "arrow_payload_bytes": 79228019,
+          "first_batch_at": 130823.835124416,
+          "worker_seconds": 2.8695832079974934,
+          "worker_lifetime_peak_rss_bytes": 119177216,
+          "ipc_bytes": 79819216
+        }
+      ],
+      "discovery_mode": "known_keys"
+    },
+    {
+      "engine": "redis_py",
+      "profile": "single_reader",
+      "repeat": -1,
+      "warmup": true,
+      "seconds": 3.7435859160032123,
+      "rows": 100000,
+      "columns": 105,
+      "arrow_payload_bytes": 79228019,
+      "logical_dataset_arrow_bytes": 79228019,
+      "rows_per_second": 26712.356078837805,
+      "arrow_mib_per_second": 20.183249043931266,
+      "output_format": "Arrow IPC stream",
+      "time_to_first_batch_seconds": 0.2051659160060808,
+      "workers": 1,
+      "partitions": 1,
+      "exact_full_values_validated": true,
+      "metrics": [
+        {
+          "rows": 100000,
+          "arrow_payload_bytes": 79228019,
+          "first_batch_at": 130826.950200791,
+          "worker_seconds": 3.564669582992792,
+          "worker_lifetime_peak_rss_bytes": 119816192,
+          "ipc_bytes": 79874072
+        }
+      ],
+      "discovery_mode": "search_discovery"
+    },
+    {
+      "engine": "redis_py",
+      "profile": "four_readers",
+      "repeat": -1,
+      "warmup": true,
+      "seconds": 1.5154626250005094,
+      "rows": 100000,
+      "columns": 105,
+      "arrow_payload_bytes": 79228019,
+      "logical_dataset_arrow_bytes": 79228019,
+      "rows_per_second": 65986.45083706132,
+      "arrow_mib_per_second": 49.85786228810558,
+      "output_format": "Arrow IPC stream",
+      "time_to_first_batch_seconds": 0.22808479200466536,
+      "workers": 4,
+      "partitions": 8,
+      "exact_full_values_validated": true,
+      "metrics": [
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9859076,
+          "first_batch_at": 130830.773880958,
+          "worker_seconds": 0.7048020420043031,
+          "worker_lifetime_peak_rss_bytes": 112394240,
+          "ipc_bytes": 9941144
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9956741,
+          "first_batch_at": 130830.774436833,
+          "worker_seconds": 0.7045940000098199,
+          "worker_lifetime_peak_rss_bytes": 112754688,
+          "ipc_bytes": 10038736
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9871480,
+          "first_batch_at": 130830.774691083,
+          "worker_seconds": 0.6304394170001615,
+          "worker_lifetime_peak_rss_bytes": 111820800,
+          "ipc_bytes": 9953432
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9828930,
+          "first_batch_at": 130830.793931833,
+          "worker_seconds": 0.7006289999990258,
+          "worker_lifetime_peak_rss_bytes": 111706112,
+          "ipc_bytes": 9910888
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9814853,
+          "first_batch_at": 130831.393434166,
+          "worker_seconds": 0.6187892090092646,
+          "worker_lifetime_peak_rss_bytes": 113262592,
+          "ipc_bytes": 9896768
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9916136,
+          "first_batch_at": 130831.473485291,
+          "worker_seconds": 0.6104314999975031,
+          "worker_lifetime_peak_rss_bytes": 114425856,
+          "ipc_bytes": 9998080
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9972564,
+          "first_batch_at": 130831.473881041,
+          "worker_seconds": 0.6102707079990068,
+          "worker_lifetime_peak_rss_bytes": 117276672,
+          "ipc_bytes": 10054560
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 10008239,
+          "first_batch_at": 130831.4738525,
+          "worker_seconds": 0.6101794999995036,
+          "worker_lifetime_peak_rss_bytes": 117538816,
+          "ipc_bytes": 10090200
+        }
+      ],
+      "discovery_mode": "known_keys"
+    },
+    {
+      "engine": "redis_py",
+      "profile": "four_readers",
+      "repeat": -1,
+      "warmup": true,
+      "seconds": 1.7243434999982128,
+      "rows": 100000,
+      "columns": 105,
+      "arrow_payload_bytes": 79228019,
+      "logical_dataset_arrow_bytes": 79228019,
+      "rows_per_second": 57993.0854844778,
+      "arrow_mib_per_second": 43.81825712807495,
+      "output_format": "Arrow IPC stream",
+      "time_to_first_batch_seconds": 0.2277626659924863,
+      "workers": 4,
+      "partitions": 8,
+      "exact_full_values_validated": true,
+      "metrics": [
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9859076,
+          "first_batch_at": 130832.348946291,
+          "worker_seconds": 0.7929817919939524,
+          "worker_lifetime_peak_rss_bytes": 112066560,
+          "ipc_bytes": 9948728
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9956741,
+          "first_batch_at": 130832.349683083,
+          "worker_seconds": 0.7825949580001179,
+          "worker_lifetime_peak_rss_bytes": 113049600,
+          "ipc_bytes": 10046304
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9871480,
+          "first_batch_at": 130832.351090041,
+          "worker_seconds": 0.7094250829977682,
+          "worker_lifetime_peak_rss_bytes": 114229248,
+          "ipc_bytes": 9961080
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9828930,
+          "first_batch_at": 130832.352009666,
+          "worker_seconds": 0.7860109999892302,
+          "worker_lifetime_peak_rss_bytes": 113344512,
+          "ipc_bytes": 9918552
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9814853,
+          "first_batch_at": 130833.039578541,
+          "worker_seconds": 0.7274482920038281,
+          "worker_lifetime_peak_rss_bytes": 115638272,
+          "ipc_bytes": 9904472
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9916136,
+          "first_batch_at": 130833.121199291,
+          "worker_seconds": 0.7494961670017801,
+          "worker_lifetime_peak_rss_bytes": 114999296,
+          "ipc_bytes": 10005768
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9972564,
+          "first_batch_at": 130833.121254083,
+          "worker_seconds": 0.7432145830098307,
+          "worker_lifetime_peak_rss_bytes": 116736000,
+          "ipc_bytes": 10062176
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 10008239,
+          "first_batch_at": 130833.134796,
+          "worker_seconds": 0.739661542000249,
+          "worker_lifetime_peak_rss_bytes": 117407744,
+          "ipc_bytes": 10097896
+        }
+      ],
+      "discovery_mode": "search_discovery"
+    },
+    {
+      "engine": "redis_py",
+      "profile": "single_reader",
+      "repeat": 0,
+      "warmup": false,
+      "seconds": 3.676685667000129,
+      "rows": 100000,
+      "columns": 105,
+      "arrow_payload_bytes": 79228019,
+      "logical_dataset_arrow_bytes": 79228019,
+      "rows_per_second": 27198.40885435053,
+      "arrow_mib_per_second": 20.55049947244885,
+      "output_format": "Arrow IPC stream",
+      "time_to_first_batch_seconds": 0.18748745899938513,
+      "workers": 1,
+      "partitions": 1,
+      "exact_full_values_validated": true,
+      "metrics": [
+        {
+          "rows": 100000,
+          "arrow_payload_bytes": 79228019,
+          "first_batch_at": 130834.097414125,
+          "worker_seconds": 3.51423766699736,
+          "worker_lifetime_peak_rss_bytes": 119734272,
+          "ipc_bytes": 79874072
+        }
+      ],
+      "discovery_mode": "search_discovery"
+    },
+    {
+      "engine": "redis_py",
+      "profile": "four_readers",
+      "repeat": 0,
+      "warmup": false,
+      "seconds": 1.6645125420036493,
+      "rows": 100000,
+      "columns": 105,
+      "arrow_payload_bytes": 79228019,
+      "logical_dataset_arrow_bytes": 79228019,
+      "rows_per_second": 60077.64884704651,
+      "arrow_mib_per_second": 45.39330581978921,
+      "output_format": "Arrow IPC stream",
+      "time_to_first_batch_seconds": 0.22994595800992101,
+      "workers": 4,
+      "partitions": 8,
+      "exact_full_values_validated": true,
+      "metrics": [
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9859076,
+          "first_batch_at": 130837.875371875,
+          "worker_seconds": 0.7342756669968367,
+          "worker_lifetime_peak_rss_bytes": 112689152,
+          "ipc_bytes": 9941144
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9956741,
+          "first_batch_at": 130837.874764541,
+          "worker_seconds": 0.7341374169918709,
+          "worker_lifetime_peak_rss_bytes": 113016832,
+          "ipc_bytes": 10038736
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9871480,
+          "first_batch_at": 130837.878339333,
+          "worker_seconds": 0.7308431660057977,
+          "worker_lifetime_peak_rss_bytes": 111722496,
+          "ipc_bytes": 9953432
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9828930,
+          "first_batch_at": 130837.878337083,
+          "worker_seconds": 0.7287806669919519,
+          "worker_lifetime_peak_rss_bytes": 111460352,
+          "ipc_bytes": 9910888
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9814853,
+          "first_batch_at": 130838.621187541,
+          "worker_seconds": 0.7272291249973932,
+          "worker_lifetime_peak_rss_bytes": 113164288,
+          "ipc_bytes": 9896768
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9916136,
+          "first_batch_at": 130838.619743625,
+          "worker_seconds": 0.6904760000034003,
+          "worker_lifetime_peak_rss_bytes": 117948416,
+          "ipc_bytes": 9998080
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9972564,
+          "first_batch_at": 130838.620463416,
+          "worker_seconds": 0.7269891670002835,
+          "worker_lifetime_peak_rss_bytes": 115703808,
+          "ipc_bytes": 10054560
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 10008239,
+          "first_batch_at": 130838.621165375,
+          "worker_seconds": 0.72702304199629,
+          "worker_lifetime_peak_rss_bytes": 117637120,
+          "ipc_bytes": 10090200
+        }
+      ],
+      "discovery_mode": "known_keys"
+    },
+    {
+      "engine": "redis_py",
+      "profile": "four_readers",
+      "repeat": 0,
+      "warmup": false,
+      "seconds": 1.791738959000213,
+      "rows": 100000,
+      "columns": 105,
+      "arrow_payload_bytes": 79228019,
+      "logical_dataset_arrow_bytes": 79228019,
+      "rows_per_second": 55811.70153033889,
+      "arrow_mib_per_second": 42.170052998237786,
+      "output_format": "Arrow IPC stream",
+      "time_to_first_batch_seconds": 0.23960587500187103,
+      "workers": 4,
+      "partitions": 8,
+      "exact_full_values_validated": true,
+      "metrics": [
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9859076,
+          "first_batch_at": 130839.60862325,
+          "worker_seconds": 0.8180625829991186,
+          "worker_lifetime_peak_rss_bytes": 112525312,
+          "ipc_bytes": 9948728
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9956741,
+          "first_batch_at": 130839.608596666,
+          "worker_seconds": 0.8177584169898182,
+          "worker_lifetime_peak_rss_bytes": 113164288,
+          "ipc_bytes": 10046304
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9871480,
+          "first_batch_at": 130839.6087215,
+          "worker_seconds": 0.8156860419985605,
+          "worker_lifetime_peak_rss_bytes": 113819648,
+          "ipc_bytes": 9961080
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9828930,
+          "first_batch_at": 130839.608726708,
+          "worker_seconds": 0.7045374169974821,
+          "worker_lifetime_peak_rss_bytes": 113360896,
+          "ipc_bytes": 9918552
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9814853,
+          "first_batch_at": 130840.289822958,
+          "worker_seconds": 0.682920916005969,
+          "worker_lifetime_peak_rss_bytes": 114491392,
+          "ipc_bytes": 9904472
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9916136,
+          "first_batch_at": 130840.416573208,
+          "worker_seconds": 0.7771444999962114,
+          "worker_lifetime_peak_rss_bytes": 115605504,
+          "ipc_bytes": 10005768
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9972564,
+          "first_batch_at": 130840.416475708,
+          "worker_seconds": 0.7411803750001127,
+          "worker_lifetime_peak_rss_bytes": 116080640,
+          "ipc_bytes": 10062176
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 10008239,
+          "first_batch_at": 130840.415683833,
+          "worker_seconds": 0.776975417000358,
+          "worker_lifetime_peak_rss_bytes": 117817344,
+          "ipc_bytes": 10097896
+        }
+      ],
+      "discovery_mode": "search_discovery"
+    },
+    {
+      "engine": "redis_py",
+      "profile": "single_reader",
+      "repeat": 0,
+      "warmup": false,
+      "seconds": 3.163291000004392,
+      "rows": 100000,
+      "columns": 105,
+      "arrow_payload_bytes": 79228019,
+      "logical_dataset_arrow_bytes": 79228019,
+      "rows_per_second": 31612.646449492364,
+      "arrow_mib_per_second": 23.885797057539595,
+      "output_format": "Arrow IPC stream",
+      "time_to_first_batch_seconds": 0.23671850000391714,
+      "workers": 1,
+      "partitions": 1,
+      "exact_full_values_validated": true,
+      "metrics": [
+        {
+          "rows": 100000,
+          "arrow_payload_bytes": 79228019,
+          "first_batch_at": 130841.479809625,
+          "worker_seconds": 2.945284957997501,
+          "worker_lifetime_peak_rss_bytes": 120078336,
+          "ipc_bytes": 79819216
+        }
+      ],
+      "discovery_mode": "known_keys"
+    },
+    {
+      "engine": "redis_py",
+      "profile": "four_readers",
+      "repeat": 1,
+      "warmup": false,
+      "seconds": 1.5429110420081997,
+      "rows": 100000,
+      "columns": 105,
+      "arrow_payload_bytes": 79228019,
+      "logical_dataset_arrow_bytes": 79228019,
+      "rows_per_second": 64812.550612019375,
+      "arrow_mib_per_second": 48.97088996245893,
+      "output_format": "Arrow IPC stream",
+      "time_to_first_batch_seconds": 0.22208916700037662,
+      "workers": 4,
+      "partitions": 8,
+      "exact_full_values_validated": true,
+      "metrics": [
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9859076,
+          "first_batch_at": 130844.687071875,
+          "worker_seconds": 0.6841903340100544,
+          "worker_lifetime_peak_rss_bytes": 112115712,
+          "ipc_bytes": 9941144
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9956741,
+          "first_batch_at": 130844.6862385,
+          "worker_seconds": 0.6860520829941379,
+          "worker_lifetime_peak_rss_bytes": 112443392,
+          "ipc_bytes": 10038736
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9871480,
+          "first_batch_at": 130844.687438541,
+          "worker_seconds": 0.6834615410043625,
+          "worker_lifetime_peak_rss_bytes": 111542272,
+          "ipc_bytes": 9953432
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9828930,
+          "first_batch_at": 130844.685381833,
+          "worker_seconds": 0.6662957500084303,
+          "worker_lifetime_peak_rss_bytes": 111558656,
+          "ipc_bytes": 9910888
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9814853,
+          "first_batch_at": 130845.330553333,
+          "worker_seconds": 0.6530305830092402,
+          "worker_lifetime_peak_rss_bytes": 116883456,
+          "ipc_bytes": 9896768
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9916136,
+          "first_batch_at": 130845.352085625,
+          "worker_seconds": 0.6408278339949902,
+          "worker_lifetime_peak_rss_bytes": 117473280,
+          "ipc_bytes": 9998080
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9972564,
+          "first_batch_at": 130845.3566835,
+          "worker_seconds": 0.6386563749983907,
+          "worker_lifetime_peak_rss_bytes": 115130368,
+          "ipc_bytes": 10054560
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 10008239,
+          "first_batch_at": 130845.357278291,
+          "worker_seconds": 0.6658527500112541,
+          "worker_lifetime_peak_rss_bytes": 113229824,
+          "ipc_bytes": 10090200
+        }
+      ],
+      "discovery_mode": "known_keys"
+    },
+    {
+      "engine": "redis_py",
+      "profile": "four_readers",
+      "repeat": 1,
+      "warmup": false,
+      "seconds": 2.0634928330109688,
+      "rows": 100000,
+      "columns": 105,
+      "arrow_payload_bytes": 79228019,
+      "logical_dataset_arrow_bytes": 79228019,
+      "rows_per_second": 48461.52038923434,
+      "arrow_mib_per_second": 36.616423207923376,
+      "output_format": "Arrow IPC stream",
+      "time_to_first_batch_seconds": 0.22191712500352878,
+      "workers": 4,
+      "partitions": 8,
+      "exact_full_values_validated": true,
+      "metrics": [
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9859076,
+          "first_batch_at": 130846.290701458,
+          "worker_seconds": 0.7922768749995157,
+          "worker_lifetime_peak_rss_bytes": 112197632,
+          "ipc_bytes": 9948728
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9956741,
+          "first_batch_at": 130846.315848916,
+          "worker_seconds": 0.7911774170061108,
+          "worker_lifetime_peak_rss_bytes": 113262592,
+          "ipc_bytes": 10046304
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9871480,
+          "first_batch_at": 130846.32432975,
+          "worker_seconds": 0.8996484160015825,
+          "worker_lifetime_peak_rss_bytes": 114212864,
+          "ipc_bytes": 9961080
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9828930,
+          "first_batch_at": 130846.323651583,
+          "worker_seconds": 0.9305770420032786,
+          "worker_lifetime_peak_rss_bytes": 113901568,
+          "ipc_bytes": 9918552
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9814853,
+          "first_batch_at": 130847.096275,
+          "worker_seconds": 0.7948285000020405,
+          "worker_lifetime_peak_rss_bytes": 114933760,
+          "ipc_bytes": 9904472
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9916136,
+          "first_batch_at": 130847.104074,
+          "worker_seconds": 0.908142415995826,
+          "worker_lifetime_peak_rss_bytes": 116817920,
+          "ipc_bytes": 10005768
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9972564,
+          "first_batch_at": 130847.2241365,
+          "worker_seconds": 0.9476692079915665,
+          "worker_lifetime_peak_rss_bytes": 116277248,
+          "ipc_bytes": 10062176
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 10008239,
+          "first_batch_at": 130847.239015416,
+          "worker_seconds": 0.9005811249953695,
+          "worker_lifetime_peak_rss_bytes": 116703232,
+          "ipc_bytes": 10097896
+        }
+      ],
+      "discovery_mode": "search_discovery"
+    },
+    {
+      "engine": "redis_py",
+      "profile": "single_reader",
+      "repeat": 1,
+      "warmup": false,
+      "seconds": 3.255011250003008,
+      "rows": 100000,
+      "columns": 105,
+      "arrow_payload_bytes": 79228019,
+      "logical_dataset_arrow_bytes": 79228019,
+      "rows_per_second": 30721.86002426492,
+      "arrow_mib_per_second": 23.21273908345987,
+      "output_format": "Arrow IPC stream",
+      "time_to_first_batch_seconds": 0.23387229099171236,
+      "workers": 1,
+      "partitions": 1,
+      "exact_full_values_validated": true,
+      "metrics": [
+        {
+          "rows": 100000,
+          "arrow_payload_bytes": 79228019,
+          "first_batch_at": 130848.446274166,
+          "worker_seconds": 3.037808875000337,
+          "worker_lifetime_peak_rss_bytes": 119717888,
+          "ipc_bytes": 79819216
+        }
+      ],
+      "discovery_mode": "known_keys"
+    },
+    {
+      "engine": "redis_py",
+      "profile": "single_reader",
+      "repeat": 1,
+      "warmup": false,
+      "seconds": 3.888013709001825,
+      "rows": 100000,
+      "columns": 105,
+      "arrow_payload_bytes": 79228019,
+      "logical_dataset_arrow_bytes": 79228019,
+      "rows_per_second": 25720.07392064292,
+      "arrow_mib_per_second": 19.433503201161404,
+      "output_format": "Arrow IPC stream",
+      "time_to_first_batch_seconds": 0.21002283399866428,
+      "workers": 1,
+      "partitions": 1,
+      "exact_full_values_validated": true,
+      "metrics": [
+        {
+          "rows": 100000,
+          "arrow_payload_bytes": 79228019,
+          "first_batch_at": 130851.735775875,
+          "worker_seconds": 3.7034017919941107,
+          "worker_lifetime_peak_rss_bytes": 119848960,
+          "ipc_bytes": 79874072
+        }
+      ],
+      "discovery_mode": "search_discovery"
+    },
+    {
+      "engine": "redis_py",
+      "profile": "four_readers",
+      "repeat": 2,
+      "warmup": false,
+      "seconds": 1.9636817920109024,
+      "rows": 100000,
+      "columns": 105,
+      "arrow_payload_bytes": 79228019,
+      "logical_dataset_arrow_bytes": 79228019,
+      "rows_per_second": 50924.747791033544,
+      "arrow_mib_per_second": 38.477581840116635,
+      "output_format": "Arrow IPC stream",
+      "time_to_first_batch_seconds": 0.24124183400999755,
+      "workers": 4,
+      "partitions": 8,
+      "exact_full_values_validated": true,
+      "metrics": [
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9859076,
+          "first_batch_at": 130855.712902625,
+          "worker_seconds": 0.8626860840013251,
+          "worker_lifetime_peak_rss_bytes": 112508928,
+          "ipc_bytes": 9948728
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9956741,
+          "first_batch_at": 130855.713078416,
+          "worker_seconds": 0.8142155840032501,
+          "worker_lifetime_peak_rss_bytes": 113229824,
+          "ipc_bytes": 10046304
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9871480,
+          "first_batch_at": 130855.713215541,
+          "worker_seconds": 0.862527459001285,
+          "worker_lifetime_peak_rss_bytes": 113917952,
+          "ipc_bytes": 9961080
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9828930,
+          "first_batch_at": 130855.713597791,
+          "worker_seconds": 0.859481791005237,
+          "worker_lifetime_peak_rss_bytes": 113541120,
+          "ipc_bytes": 9918552
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9814853,
+          "first_batch_at": 130856.525690708,
+          "worker_seconds": 0.8292409170098836,
+          "worker_lifetime_peak_rss_bytes": 114737152,
+          "ipc_bytes": 9904472
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9916136,
+          "first_batch_at": 130856.577692583,
+          "worker_seconds": 0.8910734170058277,
+          "worker_lifetime_peak_rss_bytes": 115752960,
+          "ipc_bytes": 10005768
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9972564,
+          "first_batch_at": 130856.577939625,
+          "worker_seconds": 0.8911102919955738,
+          "worker_lifetime_peak_rss_bytes": 117080064,
+          "ipc_bytes": 10062176
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 10008239,
+          "first_batch_at": 130856.5777805,
+          "worker_seconds": 0.8911581660067895,
+          "worker_lifetime_peak_rss_bytes": 117882880,
+          "ipc_bytes": 10097896
+        }
+      ],
+      "discovery_mode": "search_discovery"
+    },
+    {
+      "engine": "redis_py",
+      "profile": "single_reader",
+      "repeat": 2,
+      "warmup": false,
+      "seconds": 3.1051092089910526,
+      "rows": 100000,
+      "columns": 105,
+      "arrow_payload_bytes": 79228019,
+      "logical_dataset_arrow_bytes": 79228019,
+      "rows_per_second": 32204.986449572618,
+      "arrow_mib_per_second": 24.33335569688303,
+      "output_format": "Arrow IPC stream",
+      "time_to_first_batch_seconds": 0.18884562500170432,
+      "workers": 1,
+      "partitions": 1,
+      "exact_full_values_validated": true,
+      "metrics": [
+        {
+          "rows": 100000,
+          "arrow_payload_bytes": 79228019,
+          "first_batch_at": 130857.692585416,
+          "worker_seconds": 2.9307542919996195,
+          "worker_lifetime_peak_rss_bytes": 119554048,
+          "ipc_bytes": 79819216
+        }
+      ],
+      "discovery_mode": "known_keys"
+    },
+    {
+      "engine": "redis_py",
+      "profile": "single_reader",
+      "repeat": 2,
+      "warmup": false,
+      "seconds": 3.758668041002238,
+      "rows": 100000,
+      "columns": 105,
+      "arrow_payload_bytes": 79228019,
+      "logical_dataset_arrow_bytes": 79228019,
+      "rows_per_second": 26605.16941350726,
+      "arrow_mib_per_second": 20.102261236110422,
+      "output_format": "Arrow IPC stream",
+      "time_to_first_batch_seconds": 0.20425574999535456,
+      "workers": 1,
+      "partitions": 1,
+      "exact_full_values_validated": true,
+      "metrics": [
+        {
+          "rows": 100000,
+          "arrow_payload_bytes": 79228019,
+          "first_batch_at": 130860.869899125,
+          "worker_seconds": 3.5814251669944497,
+          "worker_lifetime_peak_rss_bytes": 119586816,
+          "ipc_bytes": 79874072
+        }
+      ],
+      "discovery_mode": "search_discovery"
+    },
+    {
+      "engine": "redis_py",
+      "profile": "four_readers",
+      "repeat": 2,
+      "warmup": false,
+      "seconds": 1.7239645410008961,
+      "rows": 100000,
+      "columns": 105,
+      "arrow_payload_bytes": 79228019,
+      "logical_dataset_arrow_bytes": 79228019,
+      "rows_per_second": 58005.83342737559,
+      "arrow_mib_per_second": 43.827889183949935,
+      "output_format": "Arrow IPC stream",
+      "time_to_first_batch_seconds": 0.23099116599769332,
+      "workers": 4,
+      "partitions": 8,
+      "exact_full_values_validated": true,
+      "metrics": [
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9859076,
+          "first_batch_at": 130864.714143166,
+          "worker_seconds": 0.6882777919963701,
+          "worker_lifetime_peak_rss_bytes": 112394240,
+          "ipc_bytes": 9941144
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9956741,
+          "first_batch_at": 130864.714522,
+          "worker_seconds": 0.6906547079997836,
+          "worker_lifetime_peak_rss_bytes": 112738304,
+          "ipc_bytes": 10038736
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9871480,
+          "first_batch_at": 130864.716204666,
+          "worker_seconds": 0.6865412089973688,
+          "worker_lifetime_peak_rss_bytes": 111542272,
+          "ipc_bytes": 9953432
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9828930,
+          "first_batch_at": 130864.716333791,
+          "worker_seconds": 0.661053208008525,
+          "worker_lifetime_peak_rss_bytes": 111624192,
+          "ipc_bytes": 9910888
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9814853,
+          "first_batch_at": 130865.359947833,
+          "worker_seconds": 0.7444202500046231,
+          "worker_lifetime_peak_rss_bytes": 116899840,
+          "ipc_bytes": 9896768
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9916136,
+          "first_batch_at": 130865.426883416,
+          "worker_seconds": 0.8317877910012612,
+          "worker_lifetime_peak_rss_bytes": 117719040,
+          "ipc_bytes": 9998080
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 9972564,
+          "first_batch_at": 130865.405967583,
+          "worker_seconds": 0.7955974590004189,
+          "worker_lifetime_peak_rss_bytes": 115441664,
+          "ipc_bytes": 10054560
+        },
+        {
+          "rows": 12500,
+          "arrow_payload_bytes": 10008239,
+          "first_batch_at": 130865.426901958,
+          "worker_seconds": 0.8289938329980941,
+          "worker_lifetime_peak_rss_bytes": 113491968,
+          "ipc_bytes": 10090200
+        }
+      ],
+      "discovery_mode": "known_keys"
+    }
+  ],
+  "status": "complete",
+  "summary": [
+    {
+      "profile": "single_reader",
+      "mode": "known_keys",
+      "median_seconds": 3.163291000004392,
+      "min_seconds": 3.1051092089910526,
+      "max_seconds": 3.255011250003008
+    },
+    {
+      "profile": "single_reader",
+      "mode": "search_discovery",
+      "median_seconds": 3.758668041002238,
+      "min_seconds": 3.676685667000129,
+      "max_seconds": 3.888013709001825
+    },
+    {
+      "profile": "four_readers",
+      "mode": "known_keys",
+      "median_seconds": 1.6645125420036493,
+      "min_seconds": 1.5429110420081997,
+      "max_seconds": 1.7239645410008961
+    },
+    {
+      "profile": "four_readers",
+      "mode": "search_discovery",
+      "median_seconds": 1.9636817920109024,
+      "min_seconds": 1.791738959000213,
+      "max_seconds": 2.0634928330109688
+    }
+  ]
+}

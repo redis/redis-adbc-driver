@@ -1,0 +1,10 @@
+{
+  "original_report_sha256": "bc62bf3c56e93ffa273551684feccba18c08043a9babf1e8d95e0fcb8e5742f5",
+  "status": "complete",
+  "executions": 24,
+  "all_valid": true,
+  "baseline_source": "e692a704d2b70428086e145df00e73db7b1a253f",
+  "candidate_source": "uncommitted prototype based on 8310e07",
+  "candidate_binary_sha256": "1ebe6538c3e5636395dd513b18650cca420f20b0fef8ff91fcd111e42475aa1c",
+  "provenance_correction": "Runner received the preceding vector provenance JSON. Candidate binary SHA in the raw report is correct. This exploratory prototype is superseded by pinned 26993e2; do not attribute it to 8310e07."
+}

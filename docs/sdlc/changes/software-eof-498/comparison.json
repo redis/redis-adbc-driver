@@ -1,0 +1,24 @@
+{
+  "go": "go version go1.26.10 darwin/arm64",
+  "linux_arch": "arm64",
+  "runs": {
+    "host": {
+      "returncode": 1,
+      "passed": 184,
+      "failed": 16,
+      "expected_cases": 200,
+      "complete": true,
+      "eof_lines": 18,
+      "seconds": 72.029
+    },
+    "linux_loopback": {
+      "returncode": 0,
+      "passed": 200,
+      "failed": 0,
+      "expected_cases": 200,
+      "complete": true,
+      "eof_lines": 0,
+      "seconds": 33.643
+    }
+  }
+}
