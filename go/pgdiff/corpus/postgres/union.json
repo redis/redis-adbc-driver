@@ -1,0 +1,116 @@
+{
+  "area": "union",
+  "tier": "postgres",
+  "source": "https://raw.githubusercontent.com/postgres/postgres/7d3e000c5961a544302072058a1184e9a588837b/src/test/regress/sql/union.sql",
+  "provenance": {
+    "version": "REL_16_15",
+    "commit": "7d3e000c5961a544302072058a1184e9a588837b",
+    "sha256": "f251eff1e17f131c2e6de785fe4f1cfb69084157e544bbcaf1289650d22ba4e3",
+    "fixture": "Curated independent subset; reduced fixtures, not the full upstream regression database."
+  },
+  "setup": [],
+  "cases": [
+    {
+      "id": "statement-0000",
+      "sql": "SELECT 1 AS two UNION SELECT 2 ORDER BY 1;",
+      "source_statement": 0,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0001",
+      "sql": "SELECT 1 AS one UNION SELECT 1 ORDER BY 1;",
+      "source_statement": 1,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0002",
+      "sql": "SELECT 1 AS two UNION ALL SELECT 2;",
+      "source_statement": 2,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0003",
+      "sql": "SELECT 1 AS two UNION ALL SELECT 1;",
+      "source_statement": 3,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0004",
+      "sql": "SELECT 1 AS three UNION SELECT 2 UNION SELECT 3 ORDER BY 1;",
+      "source_statement": 4,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0005",
+      "sql": "SELECT 1 AS two UNION SELECT 2 UNION SELECT 2 ORDER BY 1;",
+      "source_statement": 5,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0006",
+      "sql": "SELECT 1 AS three UNION SELECT 2 UNION ALL SELECT 2 ORDER BY 1;",
+      "source_statement": 6,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0007",
+      "sql": "SELECT 1.1 AS two UNION SELECT 2.2 ORDER BY 1;",
+      "source_statement": 7,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0008",
+      "sql": "SELECT 1.1 AS two UNION SELECT 2 ORDER BY 1;",
+      "source_statement": 8,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0009",
+      "sql": "SELECT 1 AS two UNION SELECT 2.2 ORDER BY 1;",
+      "source_statement": 9,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0010",
+      "sql": "SELECT 1 AS one UNION SELECT 1.0::float8 ORDER BY 1;",
+      "source_statement": 10,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0011",
+      "sql": "SELECT 1.1 AS two UNION ALL SELECT 2 ORDER BY 1;",
+      "source_statement": 11,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0012",
+      "sql": "SELECT 1.0::float8 AS two UNION ALL SELECT 1 ORDER BY 1;",
+      "source_statement": 12,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0013",
+      "sql": "SELECT 1.1 AS three UNION SELECT 2 UNION SELECT 3 ORDER BY 1;",
+      "source_statement": 13,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0014",
+      "sql": "SELECT 1.1::float8 AS two UNION SELECT 2 UNION SELECT 2.0::float8 ORDER BY 1;",
+      "source_statement": 14,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0015",
+      "sql": "SELECT 1.1 AS three UNION SELECT 2 UNION ALL SELECT 2 ORDER BY 1;",
+      "source_statement": 15,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0016",
+      "sql": "SELECT 1.1 AS two UNION (SELECT 2 UNION ALL SELECT 2) ORDER BY 1;",
+      "source_statement": 16,
+      "expect_postgres": null
+    }
+  ]
+}

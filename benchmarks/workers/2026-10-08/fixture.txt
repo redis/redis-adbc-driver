@@ -1,0 +1,26 @@
+server: redis://localhost:6379/0  nodes: 1  rows: 100000  repeats: 1
+
+bulk ingest: 100000 rows x 10 columns in 1.37s (73,107 rows/s)
+
+query                                 rows    min ms    median       max  redis commands per run
+------------------------------------------------------------------------------------------------
+point lookup by __rowid                  1       2.5       2.5       2.5  0 ()
+indexed filter + top 10                 10       5.5       5.5       5.5  0 ()
+indexed range COUNT                      1       8.7       8.7       8.7  0 ()
+LIKE prefix COUNT                        1      76.5      76.5      76.5  0 ()
+interval range COUNT                     1       1.9       1.9       1.9  0 ()
+GROUP BY, index reduce                   6       9.0       9.0       9.0  0 ()
+GROUP BY, driver (AVG double)            6     665.7     665.7     665.7  160,216 (hset 100,052, hmget 60,022, hget 26)
+GROUP BY expression, driver              5     716.2     716.2     716.2  280,017 (hmget 280,000, hget 6, sismember 3)
+GROUP BY DATE_TRUNC, driver             12     796.7     796.7     796.7  149,006 (hmget 149,000, hget 2, sismember 1)
+non-indexed filter (scan)                1     371.5     371.5     371.5  0 ()
+fetch 10% of rows                    10000      75.4      75.4      75.4  0 ()
+full scan, all columns              100000    1069.1    1069.1    1069.1  8 (ping 2, hget 2, sismember 1)
+selective join (index lookup)            8      35.2      35.2      35.2  0 ()
+unfiltered join (hash join)              6     502.9     502.9     502.9  21 (get 6, FT.SEARCH 6, FT.AGGREGATE 6)
+correlated subquery (50 rows)           50      48.9      48.9      48.9  0 ()
+IN (SELECT …), half the rows             1    1084.6    1084.6    1084.6  120,138 (hmget 120,017, FT.AGGREGATE 104, get 6)
+correlated EXISTS (semi-join)            1    1408.0    1408.0    1408.0  200,536 (hmget 200,017, FT.AGGREGATE 502, hget 6)
+correlated EXISTS, no inner rows         1       2.5       2.5       2.5  0 ()
+UNION of two filters                  1750      52.1      52.1      52.1  0 ()
+view with pushed filter                  1      11.5      11.5      11.5  0 ()

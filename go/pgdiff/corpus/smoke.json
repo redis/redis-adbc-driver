@@ -1,0 +1,61 @@
+{
+  "area": "smoke",
+  "setup": [
+    "CREATE TABLE data (id integer, n numeric(8,2), d date, ts timestamp, tz timestamptz, b boolean, s text)",
+    "INSERT INTO data VALUES (1, 1.25, '2024-02-29', '2024-02-29 12:30:00', '2024-02-29 12:30:00+00', true, 'a'), (2, NULL, NULL, NULL, NULL, NULL, NULL), (1, 1.25, '2024-02-29', '2024-02-29 12:30:00', '2024-02-29 12:30:00+00', true, 'a')"
+  ],
+  "cases": [
+    {
+      "id": "smoke-1",
+      "sql": "SELECT * FROM data"
+    },
+    {
+      "id": "smoke-2",
+      "sql": "SELECT * FROM data ORDER BY id NULLS FIRST"
+    },
+    {
+      "id": "smoke-3",
+      "sql": "SELECT id FROM data WHERE false"
+    },
+    {
+      "id": "smoke-4",
+      "sql": "SELECT count(*) FROM data"
+    },
+    {
+      "id": "smoke-5",
+      "sql": "SELECT sum(id), min(id), max(id) FROM data"
+    },
+    {
+      "id": "smoke-6",
+      "sql": "SELECT id, count(*) FROM data GROUP BY id ORDER BY id"
+    },
+    {
+      "id": "smoke-7",
+      "sql": "WITH c AS (SELECT id FROM data) SELECT * FROM c"
+    },
+    {
+      "id": "smoke-8",
+      "sql": "SELECT id FROM data UNION SELECT id FROM data"
+    },
+    {
+      "id": "smoke-9",
+      "sql": "SELECT CASE WHEN b THEN s ELSE 'no' END FROM data"
+    },
+    {
+      "id": "smoke-10",
+      "sql": "SELECT CAST('abc' AS integer)"
+    },
+    {
+      "id": "smoke-11",
+      "sql": "SELECT 1 / 0"
+    },
+    {
+      "id": "smoke-12",
+      "sql": "SELECT INTERVAL '1 month 2 days 03:04:05.123456'"
+    },
+    {
+      "id": "smoke-13",
+      "sql": "SELECT CAST('NaN' AS double precision), CAST('Infinity' AS double precision)"
+    }
+  ]
+}

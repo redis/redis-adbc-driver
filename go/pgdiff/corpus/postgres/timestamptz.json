@@ -1,0 +1,134 @@
+{
+  "area": "timestamptz",
+  "tier": "postgres",
+  "source": "https://raw.githubusercontent.com/postgres/postgres/7d3e000c5961a544302072058a1184e9a588837b/src/test/regress/sql/timestamptz.sql",
+  "provenance": {
+    "version": "REL_16_15",
+    "commit": "7d3e000c5961a544302072058a1184e9a588837b",
+    "sha256": "343ac9b784dd67c56f1e16c6d1b93a21713cade546609f4c7a08e2de27d9d324",
+    "fixture": "Curated independent subset; reduced fixtures, not the full upstream regression database."
+  },
+  "setup": [],
+  "cases": [
+    {
+      "id": "statement-0028",
+      "sql": "SELECT timestamptz 'infinity' = timestamptz '+infinity' AS t;",
+      "source_statement": 28,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0062",
+      "sql": "SELECT '19970210 173201' AT TIME ZONE 'America/New_York';",
+      "source_statement": 62,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0064",
+      "sql": "SELECT '19970710 173201' AT TIME ZONE 'America/New_York';",
+      "source_statement": 64,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0066",
+      "sql": "SELECT '19970710 173201' AT TIME ZONE 'America/Does_not_exist';",
+      "source_statement": 66,
+      "expect_postgres": "22023"
+    },
+    {
+      "id": "statement-0067",
+      "sql": "SELECT '20500710 173201 Europe/Helsinki'::timestamptz;",
+      "source_statement": 67,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0068",
+      "sql": "SELECT '20500110 173201 Europe/Helsinki'::timestamptz;",
+      "source_statement": 68,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0069",
+      "sql": "SELECT '205000-07-10 17:32:01 Europe/Helsinki'::timestamptz;",
+      "source_statement": 69,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0070",
+      "sql": "SELECT '205000-01-10 17:32:01 Europe/Helsinki'::timestamptz;",
+      "source_statement": 70,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0072",
+      "sql": "SELECT pg_input_is_valid('garbage', 'timestamptz');",
+      "source_statement": 72,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0073",
+      "sql": "SELECT pg_input_is_valid('2001-01-01 00:00 Nehwon/Lankhmar', 'timestamptz');",
+      "source_statement": 73,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0110",
+      "sql": "SELECT 'Wed Jul 11 10:51:14 America/New_York 2001'::timestamptz;",
+      "source_statement": 110,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0111",
+      "sql": "SELECT 'Wed Jul 11 10:51:14 GMT-4 2001'::timestamptz;",
+      "source_statement": 111,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0112",
+      "sql": "SELECT 'Wed Jul 11 10:51:14 GMT+4 2001'::timestamptz;",
+      "source_statement": 112,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0113",
+      "sql": "SELECT 'Wed Jul 11 10:51:14 PST-03:00 2001'::timestamptz;",
+      "source_statement": 113,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0114",
+      "sql": "SELECT 'Wed Jul 11 10:51:14 PST+03:00 2001'::timestamptz;",
+      "source_statement": 114,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0116",
+      "sql": "SELECT '4714-11-24 00:00:00+00 BC'::timestamptz;",
+      "source_statement": 116,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0117",
+      "sql": "SELECT '4714-11-23 16:00:00-08 BC'::timestamptz;",
+      "source_statement": 117,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0118",
+      "sql": "SELECT 'Sun Nov 23 16:00:00 4714 PST BC'::timestamptz;",
+      "source_statement": 118,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0119",
+      "sql": "SELECT '4714-11-23 23:59:59+00 BC'::timestamptz;",
+      "source_statement": 119,
+      "expect_postgres": "22008"
+    },
+    {
+      "id": "statement-0120",
+      "sql": "SELECT '294276-12-31 23:59:59+00'::timestamptz;",
+      "source_statement": 120,
+      "expect_postgres": null
+    }
+  ]
+}

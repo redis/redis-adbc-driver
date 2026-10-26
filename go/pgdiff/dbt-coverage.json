@@ -1,0 +1,1017 @@
+{
+  "captured": 217,
+  "selected_events": [
+    26,
+    27,
+    29,
+    31,
+    32,
+    37,
+    49,
+    50,
+    153,
+    156,
+    158,
+    201,
+    202,
+    204,
+    206,
+    207,
+    208,
+    209,
+    211
+  ],
+  "corpus_cases": 23,
+  "omitted": [
+    {
+      "event": 0,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 1,
+      "sha256": "b242fab1220ae15a5f912ea0f966b99bf0b4f9459ea9f45ae8a780b2f3c9748a",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 2,
+      "sha256": "79663c1d3b43ceaf9ee728e501c64b57ae2e4d6cb36ff5c65eddcda1de27342f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 3,
+      "sha256": "3fc21e3e874107da1d1a4b70b9f741c8f51691ea2acdb6df21894208ef25c474",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 4,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 5,
+      "sha256": "0385d5d0ee3645243c87a923623c03249c03e2c07cde6004f04b17b15ccbcf3b",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 6,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 7,
+      "sha256": "480bcf91e38a16734caf14875d8a1dc75709bddd1c426b09e970b08a2d58841f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 8,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 9,
+      "sha256": "79663c1d3b43ceaf9ee728e501c64b57ae2e4d6cb36ff5c65eddcda1de27342f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 10,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 11,
+      "sha256": "4417957f03aff70ed97546484efca906f50087530030fbbfc28283b36caf13b4",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 12,
+      "sha256": "69af62336e5ebb941c9df5e054a49d8c7bc10c6fd981192bbe2e0e1935309a02",
+      "reason": "Seed bind values come from pinned CSV fixture data."
+    },
+    {
+      "event": 13,
+      "sha256": "79663c1d3b43ceaf9ee728e501c64b57ae2e4d6cb36ff5c65eddcda1de27342f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 14,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 15,
+      "sha256": "79663c1d3b43ceaf9ee728e501c64b57ae2e4d6cb36ff5c65eddcda1de27342f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 16,
+      "sha256": "3fc21e3e874107da1d1a4b70b9f741c8f51691ea2acdb6df21894208ef25c474",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 17,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 18,
+      "sha256": "0385d5d0ee3645243c87a923623c03249c03e2c07cde6004f04b17b15ccbcf3b",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 19,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 20,
+      "sha256": "480bcf91e38a16734caf14875d8a1dc75709bddd1c426b09e970b08a2d58841f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 21,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 22,
+      "sha256": "79663c1d3b43ceaf9ee728e501c64b57ae2e4d6cb36ff5c65eddcda1de27342f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 23,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 24,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 25,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 28,
+      "sha256": "8fe144aff8707cd66a79df7e0919f7b6eb909f21d9fdc520d561aa35c4b4ea82",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 30,
+      "sha256": "79663c1d3b43ceaf9ee728e501c64b57ae2e4d6cb36ff5c65eddcda1de27342f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 33,
+      "sha256": "a0fec0f72942500d4b3226a809e1f0af86f7b2809cc3733d7aa4fd9834131156",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 34,
+      "sha256": "79663c1d3b43ceaf9ee728e501c64b57ae2e4d6cb36ff5c65eddcda1de27342f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 35,
+      "sha256": "79663c1d3b43ceaf9ee728e501c64b57ae2e4d6cb36ff5c65eddcda1de27342f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 36,
+      "sha256": "eb403e0d4248a5624d372c7866180a2b901dd8bafb426b86ff19c986892e3d18",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 38,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 39,
+      "sha256": "79663c1d3b43ceaf9ee728e501c64b57ae2e4d6cb36ff5c65eddcda1de27342f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 40,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 41,
+      "sha256": "0ab0e344d5b41149cb404ce34fc1c751464b74864a46da4085c4ee0173ce6da7",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 42,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 43,
+      "sha256": "0ab0e344d5b41149cb404ce34fc1c751464b74864a46da4085c4ee0173ce6da7",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 44,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 45,
+      "sha256": "0ab0e344d5b41149cb404ce34fc1c751464b74864a46da4085c4ee0173ce6da7",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 46,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 47,
+      "sha256": "0ab0e344d5b41149cb404ce34fc1c751464b74864a46da4085c4ee0173ce6da7",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 48,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 51,
+      "sha256": "1abb2c4fb2bc6e50c44fd84bebf16b538958f7ea2f02cd80c5eae45a3b9a12bf",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 52,
+      "sha256": "15c8ef55a21a0424e2134ebb8ccb71365cd2ee7972a8f4d05f13128484d2614a",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 53,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 54,
+      "sha256": "0385d5d0ee3645243c87a923623c03249c03e2c07cde6004f04b17b15ccbcf3b",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 55,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 56,
+      "sha256": "480bcf91e38a16734caf14875d8a1dc75709bddd1c426b09e970b08a2d58841f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 57,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 58,
+      "sha256": "f2417a6cc92170471d06a0efa17af667161094a43532d2681de311ae75106ce5",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 59,
+      "sha256": "3fc21e3e874107da1d1a4b70b9f741c8f51691ea2acdb6df21894208ef25c474",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 60,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 61,
+      "sha256": "0385d5d0ee3645243c87a923623c03249c03e2c07cde6004f04b17b15ccbcf3b",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 62,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 63,
+      "sha256": "480bcf91e38a16734caf14875d8a1dc75709bddd1c426b09e970b08a2d58841f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 64,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 65,
+      "sha256": "79663c1d3b43ceaf9ee728e501c64b57ae2e4d6cb36ff5c65eddcda1de27342f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 66,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 67,
+      "sha256": "8480ca038cf9a225392a18012f66a8c15a1aaf2931e59a794d8589b741c1b899",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 68,
+      "sha256": "a3fd6387a484bdf00c257aaa11a5511edd1f80690be85835a3784b042bbf40fa",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 69,
+      "sha256": "a0fec0f72942500d4b3226a809e1f0af86f7b2809cc3733d7aa4fd9834131156",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 70,
+      "sha256": "79663c1d3b43ceaf9ee728e501c64b57ae2e4d6cb36ff5c65eddcda1de27342f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 71,
+      "sha256": "eb403e0d4248a5624d372c7866180a2b901dd8bafb426b86ff19c986892e3d18",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 72,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 73,
+      "sha256": "79663c1d3b43ceaf9ee728e501c64b57ae2e4d6cb36ff5c65eddcda1de27342f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 74,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 75,
+      "sha256": "0ab0e344d5b41149cb404ce34fc1c751464b74864a46da4085c4ee0173ce6da7",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 76,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 77,
+      "sha256": "0ab0e344d5b41149cb404ce34fc1c751464b74864a46da4085c4ee0173ce6da7",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 78,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 79,
+      "sha256": "0ab0e344d5b41149cb404ce34fc1c751464b74864a46da4085c4ee0173ce6da7",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 80,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 81,
+      "sha256": "0ab0e344d5b41149cb404ce34fc1c751464b74864a46da4085c4ee0173ce6da7",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 82,
+      "sha256": "3fc21e3e874107da1d1a4b70b9f741c8f51691ea2acdb6df21894208ef25c474",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 83,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 84,
+      "sha256": "0385d5d0ee3645243c87a923623c03249c03e2c07cde6004f04b17b15ccbcf3b",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 85,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 86,
+      "sha256": "480bcf91e38a16734caf14875d8a1dc75709bddd1c426b09e970b08a2d58841f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 87,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 88,
+      "sha256": "79663c1d3b43ceaf9ee728e501c64b57ae2e4d6cb36ff5c65eddcda1de27342f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 89,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 90,
+      "sha256": "85611cdb88fa4739ff0dccc4f20d24897a73a4c2e1396c92be23e3cd0395e6ef",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 91,
+      "sha256": "a3fd6387a484bdf00c257aaa11a5511edd1f80690be85835a3784b042bbf40fa",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 92,
+      "sha256": "a0fec0f72942500d4b3226a809e1f0af86f7b2809cc3733d7aa4fd9834131156",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 93,
+      "sha256": "79663c1d3b43ceaf9ee728e501c64b57ae2e4d6cb36ff5c65eddcda1de27342f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 94,
+      "sha256": "a82a29d197b792a1e02ffc1271a7a210ab822a9d73c37abb092428e905206d72",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 95,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 96,
+      "sha256": "79663c1d3b43ceaf9ee728e501c64b57ae2e4d6cb36ff5c65eddcda1de27342f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 97,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 98,
+      "sha256": "0ab0e344d5b41149cb404ce34fc1c751464b74864a46da4085c4ee0173ce6da7",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 99,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 100,
+      "sha256": "0ab0e344d5b41149cb404ce34fc1c751464b74864a46da4085c4ee0173ce6da7",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 101,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 102,
+      "sha256": "0ab0e344d5b41149cb404ce34fc1c751464b74864a46da4085c4ee0173ce6da7",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 103,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 104,
+      "sha256": "0ab0e344d5b41149cb404ce34fc1c751464b74864a46da4085c4ee0173ce6da7",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 105,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 106,
+      "sha256": "a680d42bd7563ca04159cd557ceeadd1c9b27803a59b5b7635db6353d25cad62",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 107,
+      "sha256": "79663c1d3b43ceaf9ee728e501c64b57ae2e4d6cb36ff5c65eddcda1de27342f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 108,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 109,
+      "sha256": "7ab81d98ca13bc7e9ec68caa69cdd6afc0d985acd933346fe901129f918fb3d3",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 110,
+      "sha256": "79663c1d3b43ceaf9ee728e501c64b57ae2e4d6cb36ff5c65eddcda1de27342f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 111,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 112,
+      "sha256": "25f88c9e3ffcbd29067ff5a42c46d29f3042330841cb1f1155fbcf7eeb95c91c",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 113,
+      "sha256": "79663c1d3b43ceaf9ee728e501c64b57ae2e4d6cb36ff5c65eddcda1de27342f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 114,
+      "sha256": "3fc21e3e874107da1d1a4b70b9f741c8f51691ea2acdb6df21894208ef25c474",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 115,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 116,
+      "sha256": "39b8120343b7627c1f1de348383c3314aa215349025150be6882c9c440991976",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 117,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 118,
+      "sha256": "480bcf91e38a16734caf14875d8a1dc75709bddd1c426b09e970b08a2d58841f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 119,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 120,
+      "sha256": "79663c1d3b43ceaf9ee728e501c64b57ae2e4d6cb36ff5c65eddcda1de27342f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 121,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 122,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 123,
+      "sha256": "21c50fac57e77b8e0be4e839bcd3129b0531c04a65f71122f3e9891c60c0535f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 124,
+      "sha256": "ad224adfb72fec394dc7d40bdfa8d65d841bba86a40199457adbbc4c1b183336",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 125,
+      "sha256": "0741c5472fa82ae60a5614bef652dbd9d1cf2ea0b75239777beeb97243fedb13",
+      "reason": "Seed bind values come from pinned CSV fixture data."
+    },
+    {
+      "event": 126,
+      "sha256": "1dc88a864cfdefc28121a38a24676fc3f7421a50efa21106e60c9509685aab59",
+      "reason": "Seed bind values come from pinned CSV fixture data."
+    },
+    {
+      "event": 127,
+      "sha256": "79663c1d3b43ceaf9ee728e501c64b57ae2e4d6cb36ff5c65eddcda1de27342f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 128,
+      "sha256": "79663c1d3b43ceaf9ee728e501c64b57ae2e4d6cb36ff5c65eddcda1de27342f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 129,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 130,
+      "sha256": "79663c1d3b43ceaf9ee728e501c64b57ae2e4d6cb36ff5c65eddcda1de27342f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 131,
+      "sha256": "3fc21e3e874107da1d1a4b70b9f741c8f51691ea2acdb6df21894208ef25c474",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 132,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 133,
+      "sha256": "39b8120343b7627c1f1de348383c3314aa215349025150be6882c9c440991976",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 134,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 135,
+      "sha256": "480bcf91e38a16734caf14875d8a1dc75709bddd1c426b09e970b08a2d58841f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 136,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 137,
+      "sha256": "79663c1d3b43ceaf9ee728e501c64b57ae2e4d6cb36ff5c65eddcda1de27342f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 138,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 139,
+      "sha256": "7d2235cd0f54aacd791dfa7bd90f4ae81158de50db4dfb04837962ab58caa183",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 140,
+      "sha256": "79663c1d3b43ceaf9ee728e501c64b57ae2e4d6cb36ff5c65eddcda1de27342f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 141,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 142,
+      "sha256": "79663c1d3b43ceaf9ee728e501c64b57ae2e4d6cb36ff5c65eddcda1de27342f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 143,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 144,
+      "sha256": "913e50323ed8d81a74c0b23da52c24ba15f50c6210d3a43979080640d5180e02",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 145,
+      "sha256": "bb0815e15c26c32d7f7bc1cff76775f83624b5af3e6d53e0cc24cca72779d281",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 146,
+      "sha256": "3fc21e3e874107da1d1a4b70b9f741c8f51691ea2acdb6df21894208ef25c474",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 147,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 148,
+      "sha256": "39b8120343b7627c1f1de348383c3314aa215349025150be6882c9c440991976",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 149,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 150,
+      "sha256": "480bcf91e38a16734caf14875d8a1dc75709bddd1c426b09e970b08a2d58841f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 151,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 152,
+      "sha256": "79663c1d3b43ceaf9ee728e501c64b57ae2e4d6cb36ff5c65eddcda1de27342f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 154,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 155,
+      "sha256": "9d6b1a0e05be43eed341f665b0e7d457a47b9c6814ff66207fd122f42da3b9ad",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 157,
+      "sha256": "afee53424ccd15ed090d5f854f881244083036c4c4ae5c7791e6afe41581f953",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 159,
+      "sha256": "79663c1d3b43ceaf9ee728e501c64b57ae2e4d6cb36ff5c65eddcda1de27342f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 160,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 161,
+      "sha256": "79663c1d3b43ceaf9ee728e501c64b57ae2e4d6cb36ff5c65eddcda1de27342f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 162,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 163,
+      "sha256": "8286b15d8b3124416a315afb1675aa6f558896650d928a346e7bb0ba4c4cd2dd",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 164,
+      "sha256": "be7ed8c2917d3d341849568e267cc714427acf56c1a07bcfb051fa7a47841c21",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 165,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 166,
+      "sha256": "39b8120343b7627c1f1de348383c3314aa215349025150be6882c9c440991976",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 167,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 168,
+      "sha256": "480bcf91e38a16734caf14875d8a1dc75709bddd1c426b09e970b08a2d58841f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 169,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 170,
+      "sha256": "d8a138949c863fb2923e4d1c654758fe7e3ed91a4ad8af3a67681280b97984f2",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 171,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 172,
+      "sha256": "7fd0184cec0753f04a004e92b21563e65c6a317ad83829a67a2aea8a743a60b9",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 173,
+      "sha256": "79663c1d3b43ceaf9ee728e501c64b57ae2e4d6cb36ff5c65eddcda1de27342f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 174,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 175,
+      "sha256": "56cf11f5d31c3b50e249cb222a944a07a3df3923597de605d187a23f03a8b9ff",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 176,
+      "sha256": "79663c1d3b43ceaf9ee728e501c64b57ae2e4d6cb36ff5c65eddcda1de27342f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 177,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 178,
+      "sha256": "c367e5750767a34b307f36ce4d185795622a13e27884775f2a7612c5f8963898",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 179,
+      "sha256": "79663c1d3b43ceaf9ee728e501c64b57ae2e4d6cb36ff5c65eddcda1de27342f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 180,
+      "sha256": "3fc21e3e874107da1d1a4b70b9f741c8f51691ea2acdb6df21894208ef25c474",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 181,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 182,
+      "sha256": "7218ca3375f4b1e9824ce569bd118ea7e09eed04c7b696ad55f035f3e0f5bf41",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 183,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 184,
+      "sha256": "480bcf91e38a16734caf14875d8a1dc75709bddd1c426b09e970b08a2d58841f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 185,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 186,
+      "sha256": "79663c1d3b43ceaf9ee728e501c64b57ae2e4d6cb36ff5c65eddcda1de27342f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 187,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 188,
+      "sha256": "1a20be2618b837e97e7b1c05691f7e381869b9631ad9014d9fcc5efd06a13843",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 189,
+      "sha256": "f7877aaedf20c5e84d53576095f1f1c1ff569df0e739d1426aa45738088bbea9",
+      "reason": "Seed bind values come from pinned CSV fixture data."
+    },
+    {
+      "event": 190,
+      "sha256": "79663c1d3b43ceaf9ee728e501c64b57ae2e4d6cb36ff5c65eddcda1de27342f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 191,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 192,
+      "sha256": "79663c1d3b43ceaf9ee728e501c64b57ae2e4d6cb36ff5c65eddcda1de27342f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 193,
+      "sha256": "3fc21e3e874107da1d1a4b70b9f741c8f51691ea2acdb6df21894208ef25c474",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 194,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 195,
+      "sha256": "7218ca3375f4b1e9824ce569bd118ea7e09eed04c7b696ad55f035f3e0f5bf41",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 196,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 197,
+      "sha256": "480bcf91e38a16734caf14875d8a1dc75709bddd1c426b09e970b08a2d58841f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 198,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 199,
+      "sha256": "79663c1d3b43ceaf9ee728e501c64b57ae2e4d6cb36ff5c65eddcda1de27342f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 200,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 203,
+      "sha256": "79663c1d3b43ceaf9ee728e501c64b57ae2e4d6cb36ff5c65eddcda1de27342f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 205,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 210,
+      "sha256": "79663c1d3b43ceaf9ee728e501c64b57ae2e4d6cb36ff5c65eddcda1de27342f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 212,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 213,
+      "sha256": "79663c1d3b43ceaf9ee728e501c64b57ae2e4d6cb36ff5c65eddcda1de27342f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 214,
+      "sha256": "a8402858d4f1e1d27afee976520485ebb4b96a5387355b823f0d0b8079729032",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 215,
+      "sha256": "481a2f5befaa004817e69861b85a79329a0f00ae7be64c66c4db8312443c7ff3",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    },
+    {
+      "event": 216,
+      "sha256": "79663c1d3b43ceaf9ee728e501c64b57ae2e4d6cb36ff5c65eddcda1de27342f",
+      "reason": "Adapter connection lifecycle, global catalog discovery, repeated materialization, or test cleanup outside the isolated selected scenarios."
+    }
+  ]
+}

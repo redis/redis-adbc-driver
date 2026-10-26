@@ -1,0 +1,16 @@
+{
+  "area": "float",
+  "source": "https://github.com/alberttwong/redis-adbc-driver/issues/251",
+  "setup": [],
+  "cases": [
+    {
+      "id": "repro-1",
+      "sql": "select round(2.5::float8), round(-0.5::float8), round(3.5::float8)"
+    },
+    {
+      "id": "repro-2",
+      "sql": "select 2.5::float8::integer, 3.5::float8::integer, (-2.5)::float8::integer"
+    }
+  ],
+  "tier": "issues"
+}

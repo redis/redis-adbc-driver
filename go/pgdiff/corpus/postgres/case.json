@@ -1,0 +1,129 @@
+{
+  "area": "case",
+  "tier": "postgres",
+  "source": "https://raw.githubusercontent.com/postgres/postgres/7d3e000c5961a544302072058a1184e9a588837b/src/test/regress/sql/case.sql",
+  "provenance": {
+    "version": "REL_16_15",
+    "commit": "7d3e000c5961a544302072058a1184e9a588837b",
+    "sha256": "1979a7667d5632a0c7d5a164533f604688d9eecac98521749e0d332e6f82482b",
+    "fixture": "Curated independent subset; reduced fixtures, not the full upstream regression database."
+  },
+  "setup": [
+    "CREATE TABLE CASE_TBL (\n  i integer,\n  f double precision\n);",
+    "CREATE TABLE CASE2_TBL (\n  i integer,\n  j integer\n);",
+    "INSERT INTO CASE_TBL VALUES (1, 10.1);",
+    "INSERT INTO CASE_TBL VALUES (2, 20.2);",
+    "INSERT INTO CASE_TBL VALUES (3, -30.3);",
+    "INSERT INTO CASE_TBL VALUES (4, NULL);",
+    "INSERT INTO CASE2_TBL VALUES (1, -1);",
+    "INSERT INTO CASE2_TBL VALUES (2, -2);",
+    "INSERT INTO CASE2_TBL VALUES (3, -3);",
+    "INSERT INTO CASE2_TBL VALUES (2, -4);",
+    "INSERT INTO CASE2_TBL VALUES (1, NULL);",
+    "INSERT INTO CASE2_TBL VALUES (NULL, -6);"
+  ],
+  "cases": [
+    {
+      "id": "statement-0012",
+      "sql": "SELECT '3' AS \"One\",\n  CASE\n    WHEN 1 < 2 THEN 3\n  END AS \"Simple WHEN\";",
+      "source_statement": 12,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0013",
+      "sql": "SELECT '<NULL>' AS \"One\",\n  CASE\n    WHEN 1 > 2 THEN 3\n  END AS \"Simple default\";",
+      "source_statement": 13,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0014",
+      "sql": "SELECT '3' AS \"One\",\n  CASE\n    WHEN 1 < 2 THEN 3\n    ELSE 4\n  END AS \"Simple ELSE\";",
+      "source_statement": 14,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0015",
+      "sql": "SELECT '4' AS \"One\",\n  CASE\n    WHEN 1 > 2 THEN 3\n    ELSE 4\n  END AS \"ELSE default\";",
+      "source_statement": 15,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0016",
+      "sql": "SELECT '6' AS \"One\",\n  CASE\n    WHEN 1 > 2 THEN 3\n    WHEN 4 < 5 THEN 6\n    ELSE 7\n  END AS \"Two WHEN with default\";",
+      "source_statement": 16,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0018",
+      "sql": "SELECT CASE WHEN 1=0 THEN 1/0 WHEN 1=1 THEN 1 ELSE 2/0 END;",
+      "source_statement": 18,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0019",
+      "sql": "SELECT CASE 1 WHEN 0 THEN 1/0 WHEN 1 THEN 1 ELSE 2/0 END;",
+      "source_statement": 19,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0020",
+      "sql": "SELECT CASE WHEN i > 100 THEN 1/0 ELSE 0 END FROM case_tbl;",
+      "source_statement": 20,
+      "expect_postgres": "22012"
+    },
+    {
+      "id": "statement-0021",
+      "sql": "SELECT CASE 'a' WHEN 'a' THEN 1 ELSE 2 END;",
+      "source_statement": 21,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0022",
+      "sql": "SELECT\n  CASE\n    WHEN i >= 3 THEN i\n  END AS \">= 3 or Null\"\n  FROM CASE_TBL;",
+      "source_statement": 22,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0023",
+      "sql": "SELECT\n  CASE WHEN i >= 3 THEN (i + i)\n       ELSE i\n  END AS \"Simplest Math\"\n  FROM CASE_TBL;",
+      "source_statement": 23,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0024",
+      "sql": "SELECT i AS \"Value\",\n  CASE WHEN (i < 0) THEN 'small'\n       WHEN (i = 0) THEN 'zero'\n       WHEN (i = 1) THEN 'one'\n       WHEN (i = 2) THEN 'two'\n       ELSE 'big'\n  END AS \"Category\"\n  FROM CASE_TBL;",
+      "source_statement": 24,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0025",
+      "sql": "SELECT\n  CASE WHEN ((i < 0) or (i < 0)) THEN 'small'\n       WHEN ((i = 0) or (i = 0)) THEN 'zero'\n       WHEN ((i = 1) or (i = 1)) THEN 'one'\n       WHEN ((i = 2) or (i = 2)) THEN 'two'\n       ELSE 'big'\n  END AS \"Category\"\n  FROM CASE_TBL;",
+      "source_statement": 25,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0026",
+      "sql": "SELECT * FROM CASE_TBL WHERE COALESCE(f,i) = 4;",
+      "source_statement": 26,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0027",
+      "sql": "SELECT * FROM CASE_TBL WHERE NULLIF(f,i) = 2;",
+      "source_statement": 27,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0028",
+      "sql": "SELECT COALESCE(a.f, b.i, b.j)\n  FROM CASE_TBL a, CASE2_TBL b;",
+      "source_statement": 28,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0029",
+      "sql": "SELECT *\n  FROM CASE_TBL a, CASE2_TBL b\n  WHERE COALESCE(a.f, b.i, b.j) = 2;",
+      "source_statement": 29,
+      "expect_postgres": null
+    }
+  ]
+}

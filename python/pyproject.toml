@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "adbc-driver-redis"
+version = "0.1.0"
+description = "Redis ADBC driver and analytics integrations"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+dependencies = ["adbc-driver-manager>=1.8"]
+
+[project.urls]
+Homepage = "https://github.com/alberttwong/redis-adbc-driver"
+Documentation = "https://github.com/alberttwong/redis-adbc-driver/blob/main/docs/python-integrations.md"
+Issues = "https://github.com/alberttwong/redis-adbc-driver/issues"
+
+[project.optional-dependencies]
+dbapi = ["pyarrow>=14"]
+sqlalchemy = ["sqlalchemy>=1.4", "pyarrow>=14"]
+dagster = ["dagster>=1.9", "pyarrow>=14"]
+dask = ["dask[dataframe,distributed]>=2024.5", "pandas>=2", "pyarrow>=14"]
+test = ["tomli; python_version < '3.11'", "pytest", "pyarrow", "sqlalchemy>=1.4", "dagster>=1.9", "pandas", "polars", "duckdb", "dask[dataframe,distributed]>=2024.5"]
+
+[project.entry-points."sqlalchemy.dialects"]
+"redis.adbc" = "adbc_driver_redis.sqlalchemy:RedisDialect"
+"rediss.adbc" = "adbc_driver_redis.sqlalchemy:RedisDialect"
+
+[project.entry-points."superset.db_engine_specs"]
+redis = "adbc_driver_redis.superset:RedisEngineSpec"
+rediss = "adbc_driver_redis.superset:RedisTLSEngineSpec"
+
+[tool.setuptools.packages.find]
+include = ["adbc_driver_redis*", "adbc_driver_rediss*"]
+
+[tool.setuptools.package-data]
+adbc_driver_redis = ["*.so", "*.dylib", "*.dll"]

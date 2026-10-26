@@ -1,0 +1,134 @@
+{
+  "area": "interval",
+  "tier": "postgres",
+  "source": "https://raw.githubusercontent.com/postgres/postgres/7d3e000c5961a544302072058a1184e9a588837b/src/test/regress/sql/interval.sql",
+  "provenance": {
+    "version": "REL_16_15",
+    "commit": "7d3e000c5961a544302072058a1184e9a588837b",
+    "sha256": "d0250948638904fcb7f039d85ca99337c3041d805ff8475a7258faa576eab6b8",
+    "fixture": "Curated independent subset; reduced fixtures, not the full upstream regression database."
+  },
+  "setup": [],
+  "cases": [
+    {
+      "id": "statement-0002",
+      "sql": "SELECT INTERVAL '01:00' AS \"One hour\";",
+      "source_statement": 2,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0003",
+      "sql": "SELECT INTERVAL '+02:00' AS \"Two hours\";",
+      "source_statement": 3,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0004",
+      "sql": "SELECT INTERVAL '-08:00' AS \"Eight hours\";",
+      "source_statement": 4,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0005",
+      "sql": "SELECT INTERVAL '-1 +02:03' AS \"22 hours ago...\";",
+      "source_statement": 5,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0006",
+      "sql": "SELECT INTERVAL '-1 days +02:03' AS \"22 hours ago...\";",
+      "source_statement": 6,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0007",
+      "sql": "SELECT INTERVAL '1.5 weeks' AS \"Ten days twelve hours\";",
+      "source_statement": 7,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0008",
+      "sql": "SELECT INTERVAL '1.5 months' AS \"One month 15 days\";",
+      "source_statement": 8,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0009",
+      "sql": "SELECT INTERVAL '10 years -11 month -12 days +13:14' AS \"9 years...\";",
+      "source_statement": 9,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0023",
+      "sql": "SELECT pg_input_is_valid('1.5 weeks', 'interval');",
+      "source_statement": 23,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0024",
+      "sql": "SELECT pg_input_is_valid('garbage', 'interval');",
+      "source_statement": 24,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0025",
+      "sql": "SELECT pg_input_is_valid('@ 30 eons ago', 'interval');",
+      "source_statement": 25,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0060",
+      "sql": "SELECT '3000000 months'::interval * 1000;",
+      "source_statement": 60,
+      "expect_postgres": "22008"
+    },
+    {
+      "id": "statement-0061",
+      "sql": "SELECT '3000000 months'::interval / 0.001;",
+      "source_statement": 61,
+      "expect_postgres": "22008"
+    },
+    {
+      "id": "statement-0062",
+      "sql": "SELECT '3000000 days'::interval * 1000;",
+      "source_statement": 62,
+      "expect_postgres": "22008"
+    },
+    {
+      "id": "statement-0063",
+      "sql": "SELECT '3000000 days'::interval / 0.001;",
+      "source_statement": 63,
+      "expect_postgres": "22008"
+    },
+    {
+      "id": "statement-0064",
+      "sql": "SELECT '1 month 2146410 days'::interval * 1000.5002;",
+      "source_statement": 64,
+      "expect_postgres": "22008"
+    },
+    {
+      "id": "statement-0065",
+      "sql": "SELECT '4611686018427387904 usec'::interval / 0.1;",
+      "source_statement": 65,
+      "expect_postgres": "22008"
+    },
+    {
+      "id": "statement-0067",
+      "sql": "select '4 millenniums 5 centuries 4 decades 1 year 4 months 4 days 17 minutes 31 seconds'::interval;",
+      "source_statement": 67,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0068",
+      "sql": "select '100000000y 10mon -1000000000d -100000h -10min -10.000001s ago'::interval;",
+      "source_statement": 68,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0069",
+      "sql": "SELECT justify_hours(interval '6 months 3 days 52 hours 3 minutes 2 seconds') as \"6 mons 5 days 4 hours 3 mins 2 seconds\";",
+      "source_statement": 69,
+      "expect_postgres": null
+    }
+  ]
+}

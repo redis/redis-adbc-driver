@@ -1,0 +1,58 @@
+{
+  "area": "arrays",
+  "source": "https://github.com/alberttwong/redis-adbc-driver/issues/253",
+  "setup": [
+    "CREATE TABLE t (id integer, name varchar(20), score integer, grp varchar(10))",
+    "INSERT INTO t VALUES (1, 'apple', 10, 'a'), (2, 'Banana', NULL, 'a'), (3, 'cherry', 30, 'b'), (4, '_x', 20, 'b')",
+    "CREATE TABLE u (id integer, label text)",
+    "INSERT INTO u VALUES (1, 'one'), (2, 'two')"
+  ],
+  "cases": [
+    {
+      "id": "row-1",
+      "sql": "select array[1, 2, 3]",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-2",
+      "sql": "select (array[1, 2, 3])[2]",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-3",
+      "sql": "select 2 = any(array[1, 2, 3])",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-4",
+      "sql": "select array_agg(id order by id) from t",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-5",
+      "sql": "select * from unnest(array[1, 2]) as x(n)",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-6",
+      "sql": "select string_to_array('a,b', ',')",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-7",
+      "sql": "select '{1,2}'::integer[]",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-8",
+      "sql": "create table arr (tags text[])",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-9",
+      "sql": "select [id] from t order by id",
+      "expect_postgres": "42601"
+    }
+  ],
+  "tier": "issues"
+}

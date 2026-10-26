@@ -1,0 +1,28 @@
+{
+  "area": "numeric",
+  "source": "https://github.com/alberttwong/redis-adbc-driver/issues/248",
+  "setup": [],
+  "cases": [
+    {
+      "id": "repro-1",
+      "sql": "select 1"
+    },
+    {
+      "id": "repro-2",
+      "sql": "select 2147483647 + 1"
+    },
+    {
+      "id": "repro-3",
+      "sql": "create table lit as select 1 as one, 2147483648 as big"
+    },
+    {
+      "id": "repro-4",
+      "sql": "select 9223372036854775808"
+    },
+    {
+      "id": "ctas-types",
+      "sql": "SELECT one, big FROM lit"
+    }
+  ],
+  "tier": "issues"
+}

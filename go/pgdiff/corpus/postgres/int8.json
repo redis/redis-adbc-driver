@@ -1,0 +1,185 @@
+{
+  "area": "int8",
+  "tier": "postgres",
+  "source": "https://raw.githubusercontent.com/postgres/postgres/7d3e000c5961a544302072058a1184e9a588837b/src/test/regress/sql/int8.sql",
+  "provenance": {
+    "version": "REL_16_15",
+    "commit": "7d3e000c5961a544302072058a1184e9a588837b",
+    "sha256": "58b758f1acb22358cd53f1eb59e662159fe4f79345ed43dac6d95f2ab785b1cf",
+    "fixture": "Curated independent subset; reduced fixtures, not the full upstream regression database."
+  },
+  "setup": [
+    "CREATE TABLE INT8_TBL (q1 bigint, q2 bigint)",
+    "INSERT INTO INT8_TBL VALUES (123,456),(123,4567890123456789),(4567890123456789,123),(-4567890123456789,4567890123456789),(4567890123456789,-4567890123456789)"
+  ],
+  "cases": [
+    {
+      "id": "statement-0007",
+      "sql": "SELECT * FROM INT8_TBL;",
+      "source_statement": 7,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0008",
+      "sql": "SELECT pg_input_is_valid('34', 'int8');",
+      "source_statement": 8,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0009",
+      "sql": "SELECT pg_input_is_valid('asdf', 'int8');",
+      "source_statement": 9,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0010",
+      "sql": "SELECT pg_input_is_valid('10000000000000000000', 'int8');",
+      "source_statement": 10,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0012",
+      "sql": "SELECT * FROM INT8_TBL WHERE q2 = 4567890123456789;",
+      "source_statement": 12,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0013",
+      "sql": "SELECT * FROM INT8_TBL WHERE q2 <> 4567890123456789;",
+      "source_statement": 13,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0014",
+      "sql": "SELECT * FROM INT8_TBL WHERE q2 < 4567890123456789;",
+      "source_statement": 14,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0015",
+      "sql": "SELECT * FROM INT8_TBL WHERE q2 > 4567890123456789;",
+      "source_statement": 15,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0016",
+      "sql": "SELECT * FROM INT8_TBL WHERE q2 <= 4567890123456789;",
+      "source_statement": 16,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0017",
+      "sql": "SELECT * FROM INT8_TBL WHERE q2 >= 4567890123456789;",
+      "source_statement": 17,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0018",
+      "sql": "SELECT * FROM INT8_TBL WHERE q2 = 456;",
+      "source_statement": 18,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0019",
+      "sql": "SELECT * FROM INT8_TBL WHERE q2 <> 456;",
+      "source_statement": 19,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0020",
+      "sql": "SELECT * FROM INT8_TBL WHERE q2 < 456;",
+      "source_statement": 20,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0021",
+      "sql": "SELECT * FROM INT8_TBL WHERE q2 > 456;",
+      "source_statement": 21,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0022",
+      "sql": "SELECT * FROM INT8_TBL WHERE q2 <= 456;",
+      "source_statement": 22,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0023",
+      "sql": "SELECT * FROM INT8_TBL WHERE q2 >= 456;",
+      "source_statement": 23,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0024",
+      "sql": "SELECT * FROM INT8_TBL WHERE 123 = q1;",
+      "source_statement": 24,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0025",
+      "sql": "SELECT * FROM INT8_TBL WHERE 123 <> q1;",
+      "source_statement": 25,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0026",
+      "sql": "SELECT * FROM INT8_TBL WHERE 123 < q1;",
+      "source_statement": 26,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0027",
+      "sql": "SELECT * FROM INT8_TBL WHERE 123 > q1;",
+      "source_statement": 27,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0028",
+      "sql": "SELECT * FROM INT8_TBL WHERE 123 <= q1;",
+      "source_statement": 28,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0029",
+      "sql": "SELECT * FROM INT8_TBL WHERE 123 >= q1;",
+      "source_statement": 29,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0030",
+      "sql": "SELECT * FROM INT8_TBL WHERE q2 = '456'::int2;",
+      "source_statement": 30,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0031",
+      "sql": "SELECT * FROM INT8_TBL WHERE q2 <> '456'::int2;",
+      "source_statement": 31,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0032",
+      "sql": "SELECT * FROM INT8_TBL WHERE q2 < '456'::int2;",
+      "source_statement": 32,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0033",
+      "sql": "SELECT * FROM INT8_TBL WHERE q2 > '456'::int2;",
+      "source_statement": 33,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0034",
+      "sql": "SELECT * FROM INT8_TBL WHERE q2 <= '456'::int2;",
+      "source_statement": 34,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0035",
+      "sql": "SELECT * FROM INT8_TBL WHERE q2 >= '456'::int2;",
+      "source_statement": 35,
+      "expect_postgres": null
+    }
+  ]
+}

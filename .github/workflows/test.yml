@@ -1,0 +1,154 @@
+# Copyright (c) 2026 ADBC Drivers Contributors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Run each Redis environment on its own runner so independent suites run in
+# parallel. Both architectures are covered because floating-point behavior
+# differs between amd64 and arm64. Redis Software uses its proxy endpoint;
+# its three primary shards share one disposable Software node.
+# All four environments include Search.
+#
+# Runs on pull requests that change the driver or this file. A newer push to
+# the same pull request cancels the run in progress.
+name: Test
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/test.yml
+      - go/**
+      - python/**
+      - scripts/build_python_wheel.py
+      - scripts/install*
+      - scripts/test_cluster_ready.py
+      - benchmarks/clickbench/**
+      - benchmarks/qpf/**
+      - benchmarks/workers/**
+      - benchmarks/worker-autotune/**
+      - '!**/*.md'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    name: linux-${{ matrix.arch }}-${{ matrix.environment }}
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [amd64, arm64]
+        environment: [software-single, software-cluster, oss-single, oss-cluster]
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    env:
+      REDIS_URI: redis://localhost:6379/0
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check cluster readiness gate
+        if: hashFiles('scripts/test_cluster_ready.py') != ''
+        run: python3 -m unittest discover -s scripts -p test_cluster_ready.py -v
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go/go.mod
+          cache-dependency-path: go/go.sum
+      - uses: astral-sh/setup-uv@v10.2.0
+
+      - name: Check ClickBench loading helpers
+        run: |
+          uv run --no-project --with pyarrow --with redis --with adbc-driver-manager --with duckdb \
+            python -m unittest discover -s benchmarks/clickbench -v
+
+      - name: Check performance benchmark syntax
+        run: python3 -m py_compile benchmarks/qpf/*.py benchmarks/workers/*.py
+
+      - name: Check autotuning measurement gate
+        run: python3 -m unittest discover -s benchmarks/worker-autotune/controlled -v
+
+      # The validation suite loads go/build/libadbc_driver_redis.so.
+      - name: Build
+        working-directory: go
+        run: make build
+
+      - name: Start Redis with Search
+        working-directory: go
+        env:
+          REDIS_ENVIRONMENT: ${{ matrix.environment }}
+        run: |
+          case "$REDIS_ENVIRONMENT" in
+            software-single) SOFTWARE_SHARDS=1 make redis-up ;;
+            software-cluster) SOFTWARE_SHARDS=3 make redis-up ;;
+            oss-single)
+              make redis-oss-up
+              docker compose exec -T redis redis-cli -e FT._LIST
+              ;;
+            oss-cluster)
+              docker compose --profile cluster up --detach --wait redis-cluster
+              for port in 7001 7002 7003; do
+                docker compose exec -T redis-cluster redis-cli -e -p "$port" FT._LIST
+              done
+              echo 'REDIS_URI=redis://localhost:7001/0' >> "$GITHUB_ENV"
+              ;;
+          esac
+
+      # The Go packages share a database. Keep them sequential within each
+      # job; opening a connection can roll back another package's test moves.
+      - name: Python analytics integrations
+        if: matrix.environment == 'oss-single'
+        env:
+          REDIS_ADBC_LIBRARY: ${{ github.workspace }}/go/build/libadbc_driver_redis.so
+          QUERY_FARM_TELEMETRY_OPT_OUT: '1'
+          RUN_DUCKDB_TESTS: '1'
+        run: |
+          uv venv --python 3.12 /tmp/redis-python-tests
+          uv pip install --python /tmp/redis-python-tests/bin/python './python[test]'
+          /tmp/redis-python-tests/bin/python -m pytest -q python/tests/
+
+      - name: Superset integration
+        if: matrix.arch == 'amd64' && matrix.environment == 'oss-single'
+        env:
+          REDIS_ADBC_LIBRARY: ${{ github.workspace }}/go/build/libadbc_driver_redis.so
+          RUN_SUPERSET_TESTS: '1'
+        run: |
+          uv venv --python 3.12 /tmp/redis-superset-tests
+          # Superset 6.1 currently needs these transitive dependency constraints.
+          uv pip install --python /tmp/redis-superset-tests/bin/python \
+            'apache-superset==6.1.0' 'flask-caching==2.3.1' cachetools './python[sqlalchemy]' pytest
+          /tmp/redis-superset-tests/bin/python -m pytest -q python/tests/test_sqlalchemy.py python/tests/test_superset.py
+
+      - name: Go tests
+        working-directory: go
+        run: go test -count=1 -p 1 ./...
+
+      - name: Python ADBC validation
+        working-directory: go/validation
+        run: uv run pytest -q tests/
+
+      - name: SQLAlchemy PostgreSQL reflection
+        working-directory: go/validation
+        env:
+          REDIS_ADBC_LIBRARY: ${{ github.workspace }}/go/build/libadbc_driver_redis.so
+        run: uv run --with 'sqlalchemy>=2.1' python check_catalog_reflection.py
+
+      - name: Redis logs on failure
+        if: failure()
+        working-directory: go
+        run: docker compose --profile oss --profile cluster logs --no-color
