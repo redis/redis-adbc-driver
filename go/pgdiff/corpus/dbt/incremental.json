@@ -1,0 +1,66 @@
+{
+  "area": "incremental",
+  "tier": "dbt",
+  "source": "https://github.com/dbt-labs/dbt-core/tree/v1.9.1/tests/adapter/basic",
+  "provenance": {
+    "versions": {
+      "dbt-core": "1.9.1",
+      "dbt-postgres": "1.9.1",
+      "dbt-tests-adapter": "1.9.1"
+    },
+    "dbt-utils": {
+      "version": "1.3.0",
+      "commit": "e164c645238ca98f21b2ecc558912b94b3d75a9f"
+    },
+    "adapter_tests": [
+      "dbt.tests.adapter.basic.test_base.BaseSimpleMaterializations.test_base",
+      "dbt.tests.adapter.basic.test_incremental.BaseIncremental.test_incremental"
+    ],
+    "utils_test": "go/pgdiff/capture/test_generated.py:TestUtils.test_generated",
+    "source": "https://github.com/dbt-labs/dbt-core/tree/v1.9.1/tests/adapter/basic",
+    "record_count": 217
+  },
+  "setup": [
+    "CREATE TABLE base (id integer, name text, some_date timestamp without time zone)",
+    "INSERT INTO base VALUES (1, 'Easton', '1981-05-20T06:46:51'),(2, 'Lillian', '1978-09-03T18:10:33'),(3, 'Jeremiah', '1982-03-11T03:59:51'),(4, 'Nolan', '1976-05-06T20:21:35'),(5, 'Hannah', '1982-06-23T05:41:26'),(6, 'Eleanor', '1991-08-10T23:12:21'),(7, 'Lily', '1971-03-29T14:58:02'),(8, 'Jonathan', '1988-02-26T02:55:24'),(9, 'Adrian', '1994-02-09T13:14:23'),(10, 'Nora', '1976-03-01T16:51:39')",
+    "CREATE TABLE added (id integer, name text, some_date timestamp without time zone)",
+    "INSERT INTO added VALUES (1, 'Easton', '1981-05-20T06:46:51'),(2, 'Lillian', '1978-09-03T18:10:33'),(3, 'Jeremiah', '1982-03-11T03:59:51'),(4, 'Nolan', '1976-05-06T20:21:35'),(5, 'Hannah', '1982-06-23T05:41:26'),(6, 'Eleanor', '1991-08-10T23:12:21'),(7, 'Lily', '1971-03-29T14:58:02'),(8, 'Jonathan', '1988-02-26T02:55:24'),(9, 'Adrian', '1994-02-09T13:14:23'),(10, 'Nora', '1976-03-01T16:51:39'),(11, 'Mateo', '2014-09-07T17:04:27'),(12, 'Julian', '2000-02-04T11:48:30'),(13, 'Gabriel', '2001-07-10T07:32:52'),(14, 'Isaac', '2002-11-24T03:22:28'),(15, 'Levi', '2009-11-15T11:57:15'),(16, 'Elizabeth', '2005-04-09T03:50:11'),(17, 'Grayson', '2019-08-06T19:28:17'),(18, 'Dylan', '2014-03-01T11:50:41'),(19, 'Jayden', '2009-06-06T07:12:49'),(20, 'Luke', '2003-12-05T21:42:18')",
+    "CREATE TABLE incremental AS SELECT * FROM base"
+  ],
+  "cases": [
+    {
+      "id": "event-0153-0",
+      "sql": "create temporary table \"incremental__dbt_tmp\"\n  \n  \n    as\n  \n  (\n    \nselect * from \"{{schema}}\".\"added\"\n\nwhere id > (select max(id) from \"{{schema}}\".\"incremental\")\n\n  );",
+      "expect_postgres": null,
+      "source_event": 153,
+      "source_sql_sha256": "4d5065c545b5dad2af2190c031a3398f7ea511045da6a4e84dd347a32d7967e3",
+      "adaptation": "Strip query comments; substitute isolated schema and temporary suffix; remove the environment-specific catalog qualifier."
+    },
+    {
+      "id": "event-0156-0",
+      "sql": "select\n          column_name,\n          data_type,\n          character_maximum_length,\n          numeric_precision,\n          numeric_scale\n\n      from INFORMATION_SCHEMA.columns\n      where table_name = 'incremental'\n        \n        and table_schema = '{{schema}}'\n        \n      order by ordinal_position",
+      "expect_postgres": null,
+      "source_event": 156,
+      "source_sql_sha256": "afee53424ccd15ed090d5f854f881244083036c4c4ae5c7791e6afe41581f953",
+      "adaptation": "Strip query comments; substitute isolated schema and temporary suffix; remove the environment-specific catalog qualifier."
+    },
+    {
+      "id": "event-0158-0",
+      "sql": "insert into \"{{schema}}\".\"incremental\" (\"id\", \"name\", \"some_date\")\n    (\n        select \"id\", \"name\", \"some_date\"\n        from \"incremental__dbt_tmp\"\n    )",
+      "expect_postgres": null,
+      "source_event": 158,
+      "source_sql_sha256": "d7ed520e0a4969f8560a34c94e11c6e37cd7315c270711abe174da233d918a26",
+      "adaptation": "Strip query comments; substitute isolated schema and temporary suffix; remove the environment-specific catalog qualifier."
+    },
+    {
+      "id": "read-incremental",
+      "sql": "SELECT * FROM incremental ORDER BY id",
+      "expect_postgres": null
+    },
+    {
+      "id": "cleanup-temp",
+      "sql": "DROP TABLE IF EXISTS incremental__dbt_tmp",
+      "expect_postgres": null
+    }
+  ]
+}

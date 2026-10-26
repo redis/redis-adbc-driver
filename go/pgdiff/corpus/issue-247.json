@@ -1,0 +1,66 @@
+{
+  "area": "identifiers",
+  "source": "https://github.com/alberttwong/redis-adbc-driver/issues/247",
+  "setup": [
+    "CREATE TABLE t (id integer, name varchar(20), score integer, grp varchar(10))",
+    "INSERT INTO t VALUES (1, 'apple', 10, 'a'), (2, 'Banana', NULL, 'a'), (3, 'cherry', 30, 'b'), (4, '_x', 20, 'b')",
+    "CREATE TABLE u (id integer, label text)",
+    "INSERT INTO u VALUES (1, 'one'), (2, 'two')",
+    "create table Foo (x integer)",
+    "insert into Foo values (1)",
+    "create table \"Bar\" (x integer)",
+    "create table qc (\"Col\" integer, other integer)",
+    "insert into qc values (1,2)"
+  ],
+  "cases": [
+    {
+      "id": "row-1",
+      "sql": "select * from foo",
+      "adaptation": "Prerequisite tables/rows are explicit setup statements.",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-2",
+      "sql": "select * from \"Foo\"",
+      "adaptation": "Prerequisite tables/rows are explicit setup statements.",
+      "expect_postgres": "42P01"
+    },
+    {
+      "id": "row-3",
+      "sql": "create table foo (y integer)",
+      "adaptation": "Prerequisite tables/rows are explicit setup statements.",
+      "expect_postgres": "42P07"
+    },
+    {
+      "id": "row-4",
+      "sql": "select * from BAR",
+      "adaptation": "Prerequisite tables/rows are explicit setup statements.",
+      "expect_postgres": "42P01"
+    },
+    {
+      "id": "row-5",
+      "sql": "create table qi (\"Id\" integer, \"id\" integer)",
+      "adaptation": "Prerequisite tables/rows are explicit setup statements.",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-6",
+      "sql": "select col from qc",
+      "adaptation": "Prerequisite tables/rows are explicit setup statements.",
+      "expect_postgres": "42703"
+    },
+    {
+      "id": "row-7",
+      "sql": "select \"OTHER\" from qc",
+      "adaptation": "Prerequisite tables/rows are explicit setup statements.",
+      "expect_postgres": "42703"
+    },
+    {
+      "id": "row-8",
+      "sql": "select a from (select 1 as \"A\", 2 as a) s",
+      "adaptation": "Prerequisite tables/rows are explicit setup statements.",
+      "expect_postgres": null
+    }
+  ],
+  "tier": "issues"
+}

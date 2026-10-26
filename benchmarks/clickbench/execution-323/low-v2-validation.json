@@ -1,0 +1,347 @@
+{
+  "fixture_rows": 20000,
+  "fixture_sha256": "c8e886f5d6c02431e9a03a87513a8f83958a4532f5e720820fd3dd9f48f0b31d",
+  "duckdb_version": "1.5.6",
+  "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+  "checks": [
+    {
+      "file": "q26-baseline-1.json",
+      "valid": true,
+      "validation": "exact_rows"
+    },
+    {
+      "file": "q26-baseline-2.json",
+      "valid": true,
+      "validation": "exact_rows"
+    },
+    {
+      "file": "q26-baseline-3.json",
+      "valid": true,
+      "validation": "exact_rows"
+    },
+    {
+      "file": "q26-candidate-1.json",
+      "valid": true,
+      "validation": "exact_rows"
+    },
+    {
+      "file": "q26-candidate-2.json",
+      "valid": true,
+      "validation": "exact_rows"
+    },
+    {
+      "file": "q26-candidate-3.json",
+      "valid": true,
+      "validation": "exact_rows"
+    },
+    {
+      "file": "q29-baseline-1.json",
+      "valid": true,
+      "validation": "complete_groups_and_rank_boundary"
+    },
+    {
+      "file": "q29-baseline-2.json",
+      "valid": true,
+      "validation": "complete_groups_and_rank_boundary"
+    },
+    {
+      "file": "q29-baseline-3.json",
+      "valid": true,
+      "validation": "complete_groups_and_rank_boundary"
+    },
+    {
+      "file": "q29-candidate-1.json",
+      "valid": true,
+      "validation": "complete_groups_and_rank_boundary"
+    },
+    {
+      "file": "q29-candidate-2.json",
+      "valid": true,
+      "validation": "complete_groups_and_rank_boundary"
+    },
+    {
+      "file": "q29-candidate-3.json",
+      "valid": true,
+      "validation": "complete_groups_and_rank_boundary"
+    },
+    {
+      "file": "q30-baseline-1.json",
+      "valid": true,
+      "validation": "exact_rows"
+    },
+    {
+      "file": "q30-baseline-2.json",
+      "valid": true,
+      "validation": "exact_rows"
+    },
+    {
+      "file": "q30-baseline-3.json",
+      "valid": true,
+      "validation": "exact_rows"
+    },
+    {
+      "file": "q30-candidate-1.json",
+      "valid": true,
+      "validation": "exact_rows"
+    },
+    {
+      "file": "q30-candidate-2.json",
+      "valid": true,
+      "validation": "exact_rows"
+    },
+    {
+      "file": "q30-candidate-3.json",
+      "valid": true,
+      "validation": "exact_rows"
+    },
+    {
+      "file": "q32-baseline-1.json",
+      "valid": true,
+      "validation": "complete_groups_and_rank_boundary"
+    },
+    {
+      "file": "q32-baseline-2.json",
+      "valid": true,
+      "validation": "complete_groups_and_rank_boundary"
+    },
+    {
+      "file": "q32-baseline-3.json",
+      "valid": true,
+      "validation": "complete_groups_and_rank_boundary"
+    },
+    {
+      "file": "q32-candidate-1.json",
+      "valid": true,
+      "validation": "complete_groups_and_rank_boundary"
+    },
+    {
+      "file": "q32-candidate-2.json",
+      "valid": true,
+      "validation": "complete_groups_and_rank_boundary"
+    },
+    {
+      "file": "q32-candidate-3.json",
+      "valid": true,
+      "validation": "complete_groups_and_rank_boundary"
+    },
+    {
+      "file": "q33-baseline-1.json",
+      "valid": true,
+      "validation": "complete_groups_and_rank_boundary"
+    },
+    {
+      "file": "q33-baseline-2.json",
+      "valid": true,
+      "validation": "complete_groups_and_rank_boundary"
+    },
+    {
+      "file": "q33-baseline-3.json",
+      "valid": true,
+      "validation": "complete_groups_and_rank_boundary"
+    },
+    {
+      "file": "q33-candidate-1.json",
+      "valid": true,
+      "validation": "complete_groups_and_rank_boundary"
+    },
+    {
+      "file": "q33-candidate-2.json",
+      "valid": true,
+      "validation": "complete_groups_and_rank_boundary"
+    },
+    {
+      "file": "q33-candidate-3.json",
+      "valid": true,
+      "validation": "complete_groups_and_rank_boundary"
+    },
+    {
+      "file": "q36-baseline-1.json",
+      "valid": true,
+      "validation": "complete_groups_and_rank_boundary"
+    },
+    {
+      "file": "q36-baseline-2.json",
+      "valid": true,
+      "validation": "complete_groups_and_rank_boundary"
+    },
+    {
+      "file": "q36-baseline-3.json",
+      "valid": true,
+      "validation": "complete_groups_and_rank_boundary"
+    },
+    {
+      "file": "q36-candidate-1.json",
+      "valid": true,
+      "validation": "complete_groups_and_rank_boundary"
+    },
+    {
+      "file": "q36-candidate-2.json",
+      "valid": true,
+      "validation": "complete_groups_and_rank_boundary"
+    },
+    {
+      "file": "q36-candidate-3.json",
+      "valid": true,
+      "validation": "complete_groups_and_rank_boundary"
+    }
+  ],
+  "all_valid": true,
+  "medians": [
+    {
+      "query": 26,
+      "strategy": "baseline",
+      "trials": 3,
+      "seconds": 0.40580975,
+      "process_cpu_seconds": 0.13743700000000003,
+      "allocated_bytes": 74520656,
+      "connection_read_bytes": 2971557,
+      "merge_seconds": 0,
+      "merge_cpu_seconds": 0,
+      "merge_allocated_bytes": 0,
+      "spill_written_bytes": 0
+    },
+    {
+      "query": 26,
+      "strategy": "candidate",
+      "trials": 3,
+      "seconds": 0.889866916,
+      "process_cpu_seconds": 0.17288799999999993,
+      "allocated_bytes": 73194696,
+      "connection_read_bytes": 2971555,
+      "merge_seconds": 0,
+      "merge_cpu_seconds": 0,
+      "merge_allocated_bytes": 0,
+      "spill_written_bytes": 0
+    },
+    {
+      "query": 29,
+      "strategy": "baseline",
+      "trials": 3,
+      "seconds": 0.289947625,
+      "process_cpu_seconds": 0.14158000000000026,
+      "allocated_bytes": 79701320,
+      "connection_read_bytes": 3436508,
+      "merge_seconds": 0,
+      "merge_cpu_seconds": 0,
+      "merge_allocated_bytes": 0,
+      "spill_written_bytes": 0
+    },
+    {
+      "query": 29,
+      "strategy": "candidate",
+      "trials": 3,
+      "seconds": 0.325445917,
+      "process_cpu_seconds": 0.22243999999999975,
+      "allocated_bytes": 121202224,
+      "connection_read_bytes": 3438705,
+      "merge_seconds": 0,
+      "merge_cpu_seconds": 0,
+      "merge_allocated_bytes": 0,
+      "spill_written_bytes": 18026
+    },
+    {
+      "query": 30,
+      "strategy": "baseline",
+      "trials": 3,
+      "seconds": 0.568067666,
+      "process_cpu_seconds": 0.20750599999999997,
+      "allocated_bytes": 58032216,
+      "connection_read_bytes": 2946676,
+      "merge_seconds": 0,
+      "merge_cpu_seconds": 0,
+      "merge_allocated_bytes": 0,
+      "spill_written_bytes": 0
+    },
+    {
+      "query": 30,
+      "strategy": "candidate",
+      "trials": 3,
+      "seconds": 0.435618792,
+      "process_cpu_seconds": 0.24976399999999988,
+      "allocated_bytes": 58997736,
+      "connection_read_bytes": 2948873,
+      "merge_seconds": 0,
+      "merge_cpu_seconds": 0,
+      "merge_allocated_bytes": 0,
+      "spill_written_bytes": 0
+    },
+    {
+      "query": 32,
+      "strategy": "baseline",
+      "trials": 3,
+      "seconds": 1.8502961660000001,
+      "process_cpu_seconds": 0.46410099999999943,
+      "allocated_bytes": 285098824,
+      "connection_read_bytes": 10754621,
+      "merge_seconds": 0.086052208,
+      "merge_cpu_seconds": 0.09677200000000052,
+      "merge_allocated_bytes": 80337624,
+      "spill_written_bytes": 2292924
+    },
+    {
+      "query": 32,
+      "strategy": "candidate",
+      "trials": 3,
+      "seconds": 0.4993425,
+      "process_cpu_seconds": 0.21511600000000008,
+      "allocated_bytes": 139419088,
+      "connection_read_bytes": 4641532,
+      "merge_seconds": 0.021639375,
+      "merge_cpu_seconds": 0.026472999999999303,
+      "merge_allocated_bytes": 6811432,
+      "spill_written_bytes": 33555
+    },
+    {
+      "query": 33,
+      "strategy": "baseline",
+      "trials": 3,
+      "seconds": 0.811654459,
+      "process_cpu_seconds": 0.3145899999999999,
+      "allocated_bytes": 255104800,
+      "connection_read_bytes": 8653104,
+      "merge_seconds": 0.04263325,
+      "merge_cpu_seconds": 0.07385600000000014,
+      "merge_allocated_bytes": 78986632,
+      "spill_written_bytes": 1846427
+    },
+    {
+      "query": 33,
+      "strategy": "candidate",
+      "trials": 3,
+      "seconds": 0.428199167,
+      "process_cpu_seconds": 0.15833500000000011,
+      "allocated_bytes": 139586416,
+      "connection_read_bytes": 4322074,
+      "merge_seconds": 0.011046459,
+      "merge_cpu_seconds": 0.015423999999999438,
+      "merge_allocated_bytes": 7121952,
+      "spill_written_bytes": 29779
+    },
+    {
+      "query": 36,
+      "strategy": "baseline",
+      "trials": 3,
+      "seconds": 0.143048083,
+      "process_cpu_seconds": 0.09741799999999934,
+      "allocated_bytes": 72715672,
+      "connection_read_bytes": 2823416,
+      "merge_seconds": 0,
+      "merge_cpu_seconds": 0,
+      "merge_allocated_bytes": 0,
+      "spill_written_bytes": 0
+    },
+    {
+      "query": 36,
+      "strategy": "candidate",
+      "trials": 3,
+      "seconds": 0.122825417,
+      "process_cpu_seconds": 0.16741700000000037,
+      "allocated_bytes": 121841184,
+      "connection_read_bytes": 2825615,
+      "merge_seconds": 0,
+      "merge_cpu_seconds": 0,
+      "merge_allocated_bytes": 0,
+      "spill_written_bytes": 29960
+    }
+  ]
+}

@@ -1,0 +1,601 @@
+{
+  "status": "cancelled",
+  "infrastructure": [
+    {
+      "case": [
+        "oss",
+        32768,
+        1,
+        "aggregate-response-2ms",
+        "waves",
+        1
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "oss",
+        32768,
+        1,
+        "aggregate-response-2ms",
+        "waves",
+        2
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "oss",
+        32768,
+        1,
+        "aggregate-response-2ms",
+        "waves",
+        4
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "oss",
+        32768,
+        1,
+        "direct",
+        "waves",
+        1
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "oss",
+        32768,
+        1,
+        "direct",
+        "waves",
+        2
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "oss",
+        32768,
+        1,
+        "direct",
+        "waves",
+        4
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "oss",
+        32768,
+        2,
+        "aggregate-response-2ms",
+        "waves",
+        1
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "oss",
+        32768,
+        2,
+        "aggregate-response-2ms",
+        "waves",
+        2
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "oss",
+        32768,
+        2,
+        "aggregate-response-2ms",
+        "waves",
+        4
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "oss",
+        32768,
+        2,
+        "direct",
+        "server-transition",
+        1
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "oss",
+        32768,
+        2,
+        "direct",
+        "server-transition",
+        2
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "oss",
+        32768,
+        2,
+        "direct",
+        "server-transition",
+        4
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "oss",
+        32768,
+        2,
+        "direct",
+        "waves",
+        1
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "oss",
+        32768,
+        2,
+        "direct",
+        "waves",
+        2
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "oss",
+        32768,
+        2,
+        "direct",
+        "waves",
+        4
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "oss",
+        32768,
+        4,
+        "aggregate-response-2ms",
+        "waves",
+        1
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "oss",
+        32768,
+        4,
+        "aggregate-response-2ms",
+        "waves",
+        2
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "oss",
+        32768,
+        4,
+        "aggregate-response-2ms",
+        "waves",
+        4
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "oss",
+        32768,
+        4,
+        "direct",
+        "waves",
+        1
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "oss",
+        32768,
+        4,
+        "direct",
+        "waves",
+        2
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "oss",
+        32768,
+        4,
+        "direct",
+        "waves",
+        4
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "oss",
+        100000,
+        2,
+        "direct",
+        "continuous",
+        1
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "oss",
+        100000,
+        2,
+        "direct",
+        "continuous",
+        2
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "oss",
+        100000,
+        2,
+        "direct",
+        "continuous",
+        4
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "oss",
+        100000,
+        2,
+        "direct",
+        "waves",
+        1
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "oss",
+        100000,
+        2,
+        "direct",
+        "waves",
+        2
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "oss",
+        100000,
+        2,
+        "direct",
+        "waves",
+        4
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "software",
+        32768,
+        1,
+        "aggregate-response-2ms",
+        "waves",
+        1
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "software",
+        32768,
+        1,
+        "aggregate-response-2ms",
+        "waves",
+        2
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "software",
+        32768,
+        1,
+        "aggregate-response-2ms",
+        "waves",
+        4
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "software",
+        32768,
+        1,
+        "direct",
+        "waves",
+        1
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "software",
+        32768,
+        1,
+        "direct",
+        "waves",
+        2
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "software",
+        32768,
+        1,
+        "direct",
+        "waves",
+        4
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "software",
+        32768,
+        2,
+        "aggregate-response-2ms",
+        "waves",
+        1
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "software",
+        32768,
+        2,
+        "aggregate-response-2ms",
+        "waves",
+        2
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "software",
+        32768,
+        2,
+        "aggregate-response-2ms",
+        "waves",
+        4
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "software",
+        32768,
+        2,
+        "direct",
+        "server-transition",
+        1
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "software",
+        32768,
+        2,
+        "direct",
+        "server-transition",
+        2
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "software",
+        32768,
+        2,
+        "direct",
+        "server-transition",
+        4
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "software",
+        32768,
+        2,
+        "direct",
+        "waves",
+        1
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "software",
+        32768,
+        2,
+        "direct",
+        "waves",
+        2
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "software",
+        32768,
+        2,
+        "direct",
+        "waves",
+        4
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "software",
+        32768,
+        4,
+        "aggregate-response-2ms",
+        "waves",
+        1
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "software",
+        32768,
+        4,
+        "aggregate-response-2ms",
+        "waves",
+        2
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "software",
+        32768,
+        4,
+        "aggregate-response-2ms",
+        "waves",
+        4
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "software",
+        32768,
+        4,
+        "direct",
+        "waves",
+        1
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "software",
+        32768,
+        4,
+        "direct",
+        "waves",
+        2
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "software",
+        32768,
+        4,
+        "direct",
+        "waves",
+        4
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "software",
+        100000,
+        2,
+        "direct",
+        "continuous",
+        1
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "software",
+        100000,
+        2,
+        "direct",
+        "continuous",
+        2
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "software",
+        100000,
+        2,
+        "direct",
+        "continuous",
+        4
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "software",
+        100000,
+        2,
+        "direct",
+        "waves",
+        1
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "software",
+        100000,
+        2,
+        "direct",
+        "waves",
+        2
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    },
+    {
+      "case": [
+        "software",
+        100000,
+        2,
+        "direct",
+        "waves",
+        4
+      ],
+      "error": "missing, duplicate, or unexpected policy/repetition"
+    }
+  ],
+  "cases": [],
+  "note": "Stopped by user request after 47 of 222 invocations (141 of 666 records). Missing repetitions are incomplete coverage, not measured Redis failures. No complete three-repetition comparison exists; readiness is unproven. Medians and full min/max spread across independent repeated trials; these are not confidence intervals. Warmed windows can still include probes. Local allocation is not a global optimum guarantee."
+}

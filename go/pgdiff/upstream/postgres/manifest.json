@@ -1,0 +1,96 @@
+{
+  "version": "REL_16_15",
+  "commit": "7d3e000c5961a544302072058a1184e9a588837b",
+  "files": [
+    {
+      "path": "COPYRIGHT",
+      "source": "https://raw.githubusercontent.com/postgres/postgres/7d3e000c5961a544302072058a1184e9a588837b/COPYRIGHT",
+      "sha256": "3d6af92ff8a4c2cdf69afb1cf44edea727922f5cd0cf8b5f72b11cdecac8fdfd"
+    },
+    {
+      "path": "select.sql",
+      "source": "https://raw.githubusercontent.com/postgres/postgres/7d3e000c5961a544302072058a1184e9a588837b/src/test/regress/sql/select.sql",
+      "sha256": "76a06a847e20ca5ad6e53b29c6825784b0b992aff0ac691fcb9c9ff12d0db6a5"
+    },
+    {
+      "path": "join.sql",
+      "source": "https://raw.githubusercontent.com/postgres/postgres/7d3e000c5961a544302072058a1184e9a588837b/src/test/regress/sql/join.sql",
+      "sha256": "bc818cf50a59c730d30428949009e1d691f0c2fbce36fec5b0235e2b73b9fbc7"
+    },
+    {
+      "path": "aggregates.sql",
+      "source": "https://raw.githubusercontent.com/postgres/postgres/7d3e000c5961a544302072058a1184e9a588837b/src/test/regress/sql/aggregates.sql",
+      "sha256": "f762ebe588a81404b826b45b1db59018ee3fe2d087612b4fc6561b00be6c4d0b"
+    },
+    {
+      "path": "window.sql",
+      "source": "https://raw.githubusercontent.com/postgres/postgres/7d3e000c5961a544302072058a1184e9a588837b/src/test/regress/sql/window.sql",
+      "sha256": "3162a5b338f09f991625ea800fd1998eed25b038ef1a8fb7e1a0ba980d356b95"
+    },
+    {
+      "path": "with.sql",
+      "source": "https://raw.githubusercontent.com/postgres/postgres/7d3e000c5961a544302072058a1184e9a588837b/src/test/regress/sql/with.sql",
+      "sha256": "e76fa662f0679f7220b78799c948244d62982f7c65ebbfa0c8e40f8aeeceb921"
+    },
+    {
+      "path": "union.sql",
+      "source": "https://raw.githubusercontent.com/postgres/postgres/7d3e000c5961a544302072058a1184e9a588837b/src/test/regress/sql/union.sql",
+      "sha256": "f251eff1e17f131c2e6de785fe4f1cfb69084157e544bbcaf1289650d22ba4e3"
+    },
+    {
+      "path": "case.sql",
+      "source": "https://raw.githubusercontent.com/postgres/postgres/7d3e000c5961a544302072058a1184e9a588837b/src/test/regress/sql/case.sql",
+      "sha256": "1979a7667d5632a0c7d5a164533f604688d9eecac98521749e0d332e6f82482b"
+    },
+    {
+      "path": "strings.sql",
+      "source": "https://raw.githubusercontent.com/postgres/postgres/7d3e000c5961a544302072058a1184e9a588837b/src/test/regress/sql/strings.sql",
+      "sha256": "a7828ef7fed9179d3de172fba7a81b75268606b7d43acda8943bce17c72480db"
+    },
+    {
+      "path": "numeric.sql",
+      "source": "https://raw.githubusercontent.com/postgres/postgres/7d3e000c5961a544302072058a1184e9a588837b/src/test/regress/sql/numeric.sql",
+      "sha256": "8dfb0dd51f3d987938900bd12f193888873c11348c85147a88e250ea23531801"
+    },
+    {
+      "path": "int4.sql",
+      "source": "https://raw.githubusercontent.com/postgres/postgres/7d3e000c5961a544302072058a1184e9a588837b/src/test/regress/sql/int4.sql",
+      "sha256": "f49ceb73a72f32fa2cd671099fea4b74b2a40a845be26213739a20c450896c44"
+    },
+    {
+      "path": "int8.sql",
+      "source": "https://raw.githubusercontent.com/postgres/postgres/7d3e000c5961a544302072058a1184e9a588837b/src/test/regress/sql/int8.sql",
+      "sha256": "58b758f1acb22358cd53f1eb59e662159fe4f79345ed43dac6d95f2ab785b1cf"
+    },
+    {
+      "path": "float8.sql",
+      "source": "https://raw.githubusercontent.com/postgres/postgres/7d3e000c5961a544302072058a1184e9a588837b/src/test/regress/sql/float8.sql",
+      "sha256": "561b5d429ec23fccbeb6a393f98280d5afde3c92c6dd16956a5df1211888dcc4"
+    },
+    {
+      "path": "date.sql",
+      "source": "https://raw.githubusercontent.com/postgres/postgres/7d3e000c5961a544302072058a1184e9a588837b/src/test/regress/sql/date.sql",
+      "sha256": "616424ff98227d02b301013b618711b85ad1ff9e1619c7ec9f7bc362c265a1b0"
+    },
+    {
+      "path": "timestamp.sql",
+      "source": "https://raw.githubusercontent.com/postgres/postgres/7d3e000c5961a544302072058a1184e9a588837b/src/test/regress/sql/timestamp.sql",
+      "sha256": "68b4cd1d083eac4379f7603fa5ca8c7580d5f755d0682161753da4b4ef69f99b"
+    },
+    {
+      "path": "timestamptz.sql",
+      "source": "https://raw.githubusercontent.com/postgres/postgres/7d3e000c5961a544302072058a1184e9a588837b/src/test/regress/sql/timestamptz.sql",
+      "sha256": "343ac9b784dd67c56f1e16c6d1b93a21713cade546609f4c7a08e2de27d9d324"
+    },
+    {
+      "path": "interval.sql",
+      "source": "https://raw.githubusercontent.com/postgres/postgres/7d3e000c5961a544302072058a1184e9a588837b/src/test/regress/sql/interval.sql",
+      "sha256": "d0250948638904fcb7f039d85ca99337c3041d805ff8475a7258faa576eab6b8"
+    },
+    {
+      "path": "json.sql",
+      "source": "https://raw.githubusercontent.com/postgres/postgres/7d3e000c5961a544302072058a1184e9a588837b/src/test/regress/sql/json.sql",
+      "sha256": "021fa336d00f94afbc026e2d7d6eb6e526cc1af139452e7eb726a638fafe29a3"
+    }
+  ]
+}

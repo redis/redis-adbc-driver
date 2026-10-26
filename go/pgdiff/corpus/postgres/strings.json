@@ -1,0 +1,182 @@
+{
+  "area": "strings",
+  "tier": "postgres",
+  "source": "https://raw.githubusercontent.com/postgres/postgres/7d3e000c5961a544302072058a1184e9a588837b/src/test/regress/sql/strings.sql",
+  "provenance": {
+    "version": "REL_16_15",
+    "commit": "7d3e000c5961a544302072058a1184e9a588837b",
+    "sha256": "a7828ef7fed9179d3de172fba7a81b75268606b7d43acda8943bce17c72480db",
+    "fixture": "Curated independent subset; reduced fixtures, not the full upstream regression database."
+  },
+  "setup": [],
+  "cases": [
+    {
+      "id": "statement-0000",
+      "sql": "SELECT 'first line'\n' - next line'\n\t' - third line'\n\tAS \"Three lines to one\";",
+      "source_statement": 0,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0001",
+      "sql": "SELECT 'first line'\n' - next line'  \n' - third line'\n\tAS \"Illegal comment within continuation\";",
+      "source_statement": 1,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0003",
+      "sql": "SELECT U&'d\\0061t\\+000061' AS U&\"d\\0061t\\+000061\";",
+      "source_statement": 3,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0004",
+      "sql": "SELECT U&'d!0061t\\+000061' UESCAPE '!' AS U&\"d*0061t\\+000061\" UESCAPE '*';",
+      "source_statement": 4,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0005",
+      "sql": "SELECT U&'a\\\\b' AS \"a\\b\";",
+      "source_statement": 5,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0006",
+      "sql": "SELECT U&' \\' UESCAPE '!' AS \"tricky\";",
+      "source_statement": 6,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0007",
+      "sql": "SELECT 'tricky' AS U&\"\\\" UESCAPE '!';",
+      "source_statement": 7,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0008",
+      "sql": "SELECT U&'wrong: \\061';",
+      "source_statement": 8,
+      "expect_postgres": "42601"
+    },
+    {
+      "id": "statement-0009",
+      "sql": "SELECT U&'wrong: \\+0061';",
+      "source_statement": 9,
+      "expect_postgres": "42601"
+    },
+    {
+      "id": "statement-0010",
+      "sql": "SELECT U&'wrong: +0061' UESCAPE +;",
+      "source_statement": 10,
+      "expect_postgres": "42601"
+    },
+    {
+      "id": "statement-0011",
+      "sql": "SELECT U&'wrong: +0061' UESCAPE '+';",
+      "source_statement": 11,
+      "expect_postgres": "42601"
+    },
+    {
+      "id": "statement-0012",
+      "sql": "SELECT U&'wrong: \\db99';",
+      "source_statement": 12,
+      "expect_postgres": "42601"
+    },
+    {
+      "id": "statement-0013",
+      "sql": "SELECT U&'wrong: \\db99xy';",
+      "source_statement": 13,
+      "expect_postgres": "42601"
+    },
+    {
+      "id": "statement-0014",
+      "sql": "SELECT U&'wrong: \\db99\\\\';",
+      "source_statement": 14,
+      "expect_postgres": "42601"
+    },
+    {
+      "id": "statement-0015",
+      "sql": "SELECT U&'wrong: \\db99\\0061';",
+      "source_statement": 15,
+      "expect_postgres": "42601"
+    },
+    {
+      "id": "statement-0016",
+      "sql": "SELECT U&'wrong: \\+00db99\\+000061';",
+      "source_statement": 16,
+      "expect_postgres": "42601"
+    },
+    {
+      "id": "statement-0017",
+      "sql": "SELECT U&'wrong: \\+2FFFFF';",
+      "source_statement": 17,
+      "expect_postgres": "42601"
+    },
+    {
+      "id": "statement-0018",
+      "sql": "SELECT E'd\\u0061t\\U00000061' AS \"data\";",
+      "source_statement": 18,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0019",
+      "sql": "SELECT E'a\\\\b' AS \"a\\b\";",
+      "source_statement": 19,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0020",
+      "sql": "SELECT E'wrong: \\u061';",
+      "source_statement": 20,
+      "expect_postgres": "22025"
+    },
+    {
+      "id": "statement-0021",
+      "sql": "SELECT E'wrong: \\U0061';",
+      "source_statement": 21,
+      "expect_postgres": "22025"
+    },
+    {
+      "id": "statement-0022",
+      "sql": "SELECT E'wrong: \\udb99';",
+      "source_statement": 22,
+      "expect_postgres": "42601"
+    },
+    {
+      "id": "statement-0023",
+      "sql": "SELECT E'wrong: \\udb99xy';",
+      "source_statement": 23,
+      "expect_postgres": "42601"
+    },
+    {
+      "id": "statement-0024",
+      "sql": "SELECT E'wrong: \\udb99\\\\';",
+      "source_statement": 24,
+      "expect_postgres": "42601"
+    },
+    {
+      "id": "statement-0025",
+      "sql": "SELECT E'wrong: \\udb99\\u0061';",
+      "source_statement": 25,
+      "expect_postgres": "42601"
+    },
+    {
+      "id": "statement-0026",
+      "sql": "SELECT E'wrong: \\U0000db99\\U00000061';",
+      "source_statement": 26,
+      "expect_postgres": "42601"
+    },
+    {
+      "id": "statement-0027",
+      "sql": "SELECT E'wrong: \\U002FFFFF';",
+      "source_statement": 27,
+      "expect_postgres": "42601"
+    },
+    {
+      "id": "statement-0029",
+      "sql": "SELECT U&'d\\0061t\\+000061' AS U&\"d\\0061t\\+000061\";",
+      "source_statement": 29,
+      "expect_postgres": null
+    }
+  ]
+}

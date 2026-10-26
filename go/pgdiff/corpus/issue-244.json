@@ -1,0 +1,25 @@
+{
+  "area": "values",
+  "source": "https://github.com/alberttwong/redis-adbc-driver/issues/244",
+  "setup": [
+    "CREATE TABLE t (id integer, name varchar(20), score integer, grp varchar(10))",
+    "INSERT INTO t VALUES (1, 'apple', 10, 'a'), (2, 'Banana', NULL, 'a'), (3, 'cherry', 30, 'b'), (4, '_x', 20, 'b')",
+    "CREATE TABLE u (id integer, label text)",
+    "INSERT INTO u VALUES (1, 'one'), (2, 'two')"
+  ],
+  "cases": [
+    {
+      "id": "repro-1",
+      "sql": "select * from (values (1, 'a'), (2, 'b')) as v(n, s)"
+    },
+    {
+      "id": "repro-2",
+      "sql": "values (1, 'a'), (2, 'b')"
+    },
+    {
+      "id": "repro-3",
+      "sql": "select * from t where (id, grp) in (values (1, 'a'))"
+    }
+  ],
+  "tier": "issues"
+}

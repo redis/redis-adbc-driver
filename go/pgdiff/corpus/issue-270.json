@@ -1,0 +1,39 @@
+{
+  "area": "constraints",
+  "source": "https://github.com/alberttwong/redis-adbc-driver/issues/270",
+  "setup": [
+    "create table pk (id integer primary key, v text)",
+    "insert into pk values (1,'a')",
+    "create table uq (e text unique)",
+    "insert into uq values ('x')",
+    "create table fk (pid integer references pk(id))"
+  ],
+  "cases": [
+    {
+      "id": "row-1",
+      "sql": "insert into pk values (1,'b')",
+      "expect_postgres": "23505"
+    },
+    {
+      "id": "row-2",
+      "sql": "insert into uq values ('x')",
+      "expect_postgres": "23505"
+    },
+    {
+      "id": "row-3",
+      "sql": "insert into fk values (99)",
+      "expect_postgres": "23503"
+    },
+    {
+      "id": "row-4",
+      "sql": "insert into pk values (1,'c') on conflict (id) do update set v=excluded.v",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-5",
+      "sql": "insert into pk values (1,'c') on conflict do nothing",
+      "expect_postgres": null
+    }
+  ],
+  "tier": "issues"
+}

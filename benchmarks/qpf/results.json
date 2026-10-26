@@ -1,0 +1,1812 @@
+{
+  "metadata": {
+    "rows": 100000,
+    "seconds_per_trial": 3,
+    "rounds": 3,
+    "concurrency": [
+      1,
+      16
+    ],
+    "server": "8.6.2",
+    "modules": [
+      [
+        "b'name'",
+        "b'search'",
+        "b'ver'",
+        80611,
+        "b'path'",
+        "b'/enterprise-managed'",
+        "b'args'",
+        []
+      ],
+      [
+        "b'name'",
+        "b'vectorset'",
+        "b'ver'",
+        1,
+        "b'path'",
+        "b'/enterprise-managed'",
+        "b'args'",
+        []
+      ],
+      [
+        "b'name'",
+        "b'ReJSON'",
+        "b'ver'",
+        80606,
+        "b'path'",
+        "b'/enterprise-managed'",
+        "b'args'",
+        []
+      ],
+      [
+        "b'name'",
+        "b'bf'",
+        "b'ver'",
+        80604,
+        "b'path'",
+        "b'/enterprise-managed'",
+        "b'args'",
+        []
+      ],
+      [
+        "b'name'",
+        "b'timeseries'",
+        "b'ver'",
+        80601,
+        "b'path'",
+        "b'/enterprise-managed'",
+        "b'args'",
+        []
+      ]
+    ],
+    "configs": [
+      {
+        "round": 1,
+        "factor": 0,
+        "effective": {
+          "query_performance_factor": {
+            "active": false,
+            "scaling_factor": 0
+          },
+          "sched_policy": "cmp",
+          "conns": 5,
+          "module_list": [
+            {
+              "module_args": "",
+              "module_id": "ea2cb38fd9f84531377fb4546c0f67be",
+              "module_name": "bf",
+              "semantic_version": "8.6.4"
+            },
+            {
+              "module_args": "",
+              "module_id": "d98befb0dee1336a498f3ec5bb82493b",
+              "module_name": "ReJSON",
+              "semantic_version": "8.6.6"
+            },
+            {
+              "module_args": "",
+              "module_id": "30992425191e7f4170d6495c0970ddf9",
+              "module_name": "search",
+              "semantic_version": "8.6.11"
+            },
+            {
+              "module_args": "",
+              "module_id": "d77ea295188e8a2e17adbdd8af0dc98d",
+              "module_name": "timeseries",
+              "semantic_version": "8.6.1"
+            }
+          ]
+        }
+      },
+      {
+        "round": 1,
+        "factor": 2,
+        "effective": {
+          "query_performance_factor": {
+            "active": true,
+            "scaling_factor": 2
+          },
+          "sched_policy": "mnp",
+          "conns": 32,
+          "module_list": [
+            {
+              "module_args": "",
+              "module_id": "ea2cb38fd9f84531377fb4546c0f67be",
+              "module_name": "bf",
+              "semantic_version": "8.6.4"
+            },
+            {
+              "module_args": "",
+              "module_id": "d98befb0dee1336a498f3ec5bb82493b",
+              "module_name": "ReJSON",
+              "semantic_version": "8.6.6"
+            },
+            {
+              "module_args": "",
+              "module_id": "30992425191e7f4170d6495c0970ddf9",
+              "module_name": "search",
+              "semantic_version": "8.6.11"
+            },
+            {
+              "module_args": "",
+              "module_id": "d77ea295188e8a2e17adbdd8af0dc98d",
+              "module_name": "timeseries",
+              "semantic_version": "8.6.1"
+            }
+          ]
+        }
+      },
+      {
+        "round": 1,
+        "factor": 4,
+        "effective": {
+          "query_performance_factor": {
+            "active": true,
+            "scaling_factor": 4
+          },
+          "sched_policy": "mnp",
+          "conns": 32,
+          "module_list": [
+            {
+              "module_args": "",
+              "module_id": "ea2cb38fd9f84531377fb4546c0f67be",
+              "module_name": "bf",
+              "semantic_version": "8.6.4"
+            },
+            {
+              "module_args": "",
+              "module_id": "d98befb0dee1336a498f3ec5bb82493b",
+              "module_name": "ReJSON",
+              "semantic_version": "8.6.6"
+            },
+            {
+              "module_args": "",
+              "module_id": "30992425191e7f4170d6495c0970ddf9",
+              "module_name": "search",
+              "semantic_version": "8.6.11"
+            },
+            {
+              "module_args": "",
+              "module_id": "d77ea295188e8a2e17adbdd8af0dc98d",
+              "module_name": "timeseries",
+              "semantic_version": "8.6.1"
+            }
+          ]
+        }
+      },
+      {
+        "round": 2,
+        "factor": 4,
+        "effective": {
+          "query_performance_factor": {
+            "active": true,
+            "scaling_factor": 4
+          },
+          "sched_policy": "mnp",
+          "conns": 32,
+          "module_list": [
+            {
+              "module_args": "",
+              "module_id": "ea2cb38fd9f84531377fb4546c0f67be",
+              "module_name": "bf",
+              "semantic_version": "8.6.4"
+            },
+            {
+              "module_args": "",
+              "module_id": "d98befb0dee1336a498f3ec5bb82493b",
+              "module_name": "ReJSON",
+              "semantic_version": "8.6.6"
+            },
+            {
+              "module_args": "",
+              "module_id": "30992425191e7f4170d6495c0970ddf9",
+              "module_name": "search",
+              "semantic_version": "8.6.11"
+            },
+            {
+              "module_args": "",
+              "module_id": "d77ea295188e8a2e17adbdd8af0dc98d",
+              "module_name": "timeseries",
+              "semantic_version": "8.6.1"
+            }
+          ]
+        }
+      },
+      {
+        "round": 2,
+        "factor": 0,
+        "effective": {
+          "query_performance_factor": {
+            "active": false,
+            "scaling_factor": 0
+          },
+          "sched_policy": "mnp",
+          "conns": 32,
+          "module_list": [
+            {
+              "module_args": "",
+              "module_id": "ea2cb38fd9f84531377fb4546c0f67be",
+              "module_name": "bf",
+              "semantic_version": "8.6.4"
+            },
+            {
+              "module_args": "",
+              "module_id": "d98befb0dee1336a498f3ec5bb82493b",
+              "module_name": "ReJSON",
+              "semantic_version": "8.6.6"
+            },
+            {
+              "module_args": "",
+              "module_id": "30992425191e7f4170d6495c0970ddf9",
+              "module_name": "search",
+              "semantic_version": "8.6.11"
+            },
+            {
+              "module_args": "",
+              "module_id": "d77ea295188e8a2e17adbdd8af0dc98d",
+              "module_name": "timeseries",
+              "semantic_version": "8.6.1"
+            }
+          ]
+        }
+      },
+      {
+        "round": 2,
+        "factor": 2,
+        "effective": {
+          "query_performance_factor": {
+            "active": true,
+            "scaling_factor": 2
+          },
+          "sched_policy": "mnp",
+          "conns": 32,
+          "module_list": [
+            {
+              "module_args": "",
+              "module_id": "ea2cb38fd9f84531377fb4546c0f67be",
+              "module_name": "bf",
+              "semantic_version": "8.6.4"
+            },
+            {
+              "module_args": "",
+              "module_id": "d98befb0dee1336a498f3ec5bb82493b",
+              "module_name": "ReJSON",
+              "semantic_version": "8.6.6"
+            },
+            {
+              "module_args": "",
+              "module_id": "30992425191e7f4170d6495c0970ddf9",
+              "module_name": "search",
+              "semantic_version": "8.6.11"
+            },
+            {
+              "module_args": "",
+              "module_id": "d77ea295188e8a2e17adbdd8af0dc98d",
+              "module_name": "timeseries",
+              "semantic_version": "8.6.1"
+            }
+          ]
+        }
+      },
+      {
+        "round": 3,
+        "factor": 2,
+        "effective": {
+          "query_performance_factor": {
+            "active": true,
+            "scaling_factor": 2
+          },
+          "sched_policy": "mnp",
+          "conns": 32,
+          "module_list": [
+            {
+              "module_args": "",
+              "module_id": "ea2cb38fd9f84531377fb4546c0f67be",
+              "module_name": "bf",
+              "semantic_version": "8.6.4"
+            },
+            {
+              "module_args": "",
+              "module_id": "d98befb0dee1336a498f3ec5bb82493b",
+              "module_name": "ReJSON",
+              "semantic_version": "8.6.6"
+            },
+            {
+              "module_args": "",
+              "module_id": "30992425191e7f4170d6495c0970ddf9",
+              "module_name": "search",
+              "semantic_version": "8.6.11"
+            },
+            {
+              "module_args": "",
+              "module_id": "d77ea295188e8a2e17adbdd8af0dc98d",
+              "module_name": "timeseries",
+              "semantic_version": "8.6.1"
+            }
+          ]
+        }
+      },
+      {
+        "round": 3,
+        "factor": 4,
+        "effective": {
+          "query_performance_factor": {
+            "active": true,
+            "scaling_factor": 4
+          },
+          "sched_policy": "mnp",
+          "conns": 32,
+          "module_list": [
+            {
+              "module_args": "",
+              "module_id": "ea2cb38fd9f84531377fb4546c0f67be",
+              "module_name": "bf",
+              "semantic_version": "8.6.4"
+            },
+            {
+              "module_args": "",
+              "module_id": "d98befb0dee1336a498f3ec5bb82493b",
+              "module_name": "ReJSON",
+              "semantic_version": "8.6.6"
+            },
+            {
+              "module_args": "",
+              "module_id": "30992425191e7f4170d6495c0970ddf9",
+              "module_name": "search",
+              "semantic_version": "8.6.11"
+            },
+            {
+              "module_args": "",
+              "module_id": "d77ea295188e8a2e17adbdd8af0dc98d",
+              "module_name": "timeseries",
+              "semantic_version": "8.6.1"
+            }
+          ]
+        }
+      },
+      {
+        "round": 3,
+        "factor": 0,
+        "effective": {
+          "query_performance_factor": {
+            "active": false,
+            "scaling_factor": 0
+          },
+          "sched_policy": "mnp",
+          "conns": 32,
+          "module_list": [
+            {
+              "module_args": "",
+              "module_id": "ea2cb38fd9f84531377fb4546c0f67be",
+              "module_name": "bf",
+              "semantic_version": "8.6.4"
+            },
+            {
+              "module_args": "",
+              "module_id": "d98befb0dee1336a498f3ec5bb82493b",
+              "module_name": "ReJSON",
+              "semantic_version": "8.6.6"
+            },
+            {
+              "module_args": "",
+              "module_id": "30992425191e7f4170d6495c0970ddf9",
+              "module_name": "search",
+              "semantic_version": "8.6.11"
+            },
+            {
+              "module_args": "",
+              "module_id": "d77ea295188e8a2e17adbdd8af0dc98d",
+              "module_name": "timeseries",
+              "semantic_version": "8.6.1"
+            }
+          ]
+        }
+      }
+    ],
+    "index_docs": 100000,
+    "queries": {
+      "search_text_count": [
+        "FT.SEARCH",
+        "qpf_idx",
+        "alpha|beta",
+        "NOCONTENT",
+        "LIMIT",
+        0,
+        0,
+        "DIALECT",
+        2
+      ],
+      "search_tag_projection": [
+        "FT.SEARCH",
+        "qpf_idx",
+        "@country:{US}",
+        "SORTBY",
+        "id",
+        "ASC",
+        "RETURN",
+        2,
+        "id",
+        "amount",
+        "LIMIT",
+        0,
+        10,
+        "DIALECT",
+        2
+      ],
+      "search_full_document": [
+        "FT.SEARCH",
+        "qpf_idx",
+        "@country:{US}",
+        "SORTBY",
+        "id",
+        "ASC",
+        "LIMIT",
+        0,
+        100,
+        "DIALECT",
+        2
+      ],
+      "aggregate_sortable": [
+        "FT.AGGREGATE",
+        "qpf_idx",
+        "*",
+        "GROUPBY",
+        1,
+        "@country",
+        "REDUCE",
+        "SUM",
+        1,
+        "@amount",
+        "AS",
+        "total",
+        "SORTBY",
+        2,
+        "@country",
+        "ASC",
+        "DIALECT",
+        2
+      ],
+      "aggregate_load": [
+        "FT.AGGREGATE",
+        "qpf_idx",
+        "*",
+        "LOAD",
+        1,
+        "@amount_raw",
+        "GROUPBY",
+        1,
+        "@country",
+        "REDUCE",
+        "SUM",
+        1,
+        "@amount_raw",
+        "AS",
+        "total",
+        "SORTBY",
+        2,
+        "@country",
+        "ASC",
+        "DIALECT",
+        2
+      ],
+      "search_numeric_count": [
+        "FT.SEARCH",
+        "qpf_idx",
+        "@amount:[100 110]",
+        "NOCONTENT",
+        "LIMIT",
+        0,
+        0,
+        "DIALECT",
+        2
+      ]
+    },
+    "result_hashes": {
+      "search_text_count": "f538091d54517bbbe7998a1af742f2c85affb3436bedea94f8a2074f597d6313",
+      "search_tag_projection": "230b69c649244c89698043e35906c0af56f50d8fd71f50977596cd24ebd48e3a",
+      "search_full_document": "85556e7a43b0ddc389aa5517eda4a3b398efd6e9842313116b3b854b9dc368d7",
+      "aggregate_sortable": "04f7ce9f7538ce3205af38d5ce08a391b154f5b7198f90fe2012fc2820f5e1d2",
+      "aggregate_load": "04f7ce9f7538ce3205af38d5ce08a391b154f5b7198f90fe2012fc2820f5e1d2",
+      "search_numeric_count": "e90727249e1a1ff17943a5cd4675f7fe13344c99778dc1214f917ec2d335a2e7"
+    }
+  },
+  "trials": [
+    {
+      "round": 1,
+      "qpf": 0,
+      "concurrency": 1,
+      "query": "search_text_count",
+      "requests": 217,
+      "elapsed_s": 3.002654874988366,
+      "qps": 72.26937794535604,
+      "p50_ms": 15.74649999383837,
+      "p95_ms": 18.661625013919547,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 0,
+      "concurrency": 1,
+      "query": "search_tag_projection",
+      "requests": 355,
+      "elapsed_s": 3.012090917007299,
+      "qps": 117.85832824485747,
+      "p50_ms": 12.101708009140566,
+      "p95_ms": 16.336500004399568,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 0,
+      "concurrency": 1,
+      "query": "search_full_document",
+      "requests": 245,
+      "elapsed_s": 3.0235779579961672,
+      "qps": 81.02982737788254,
+      "p50_ms": 15.591416013194248,
+      "p95_ms": 22.09204199607484,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 0,
+      "concurrency": 1,
+      "query": "aggregate_sortable",
+      "requests": 188,
+      "elapsed_s": 3.0554455000092275,
+      "qps": 61.52948890740556,
+      "p50_ms": 15.83674999710638,
+      "p95_ms": 27.838666981551796,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 0,
+      "concurrency": 1,
+      "query": "aggregate_load",
+      "requests": 83,
+      "elapsed_s": 3.0063819579954725,
+      "qps": 27.607935771188856,
+      "p50_ms": 33.939374989131466,
+      "p95_ms": 50.61520900926553,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 0,
+      "concurrency": 1,
+      "query": "search_numeric_count",
+      "requests": 795,
+      "elapsed_s": 3.0045961670111865,
+      "qps": 264.5946263024172,
+      "p50_ms": 0.8250829996541142,
+      "p95_ms": 13.952707988210022,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 0,
+      "concurrency": 16,
+      "query": "search_text_count",
+      "requests": 1043,
+      "elapsed_s": 3.030717582994839,
+      "qps": 344.1429204265702,
+      "p50_ms": 44.482791010523215,
+      "p95_ms": 64.86641700030304,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 0,
+      "concurrency": 16,
+      "query": "search_tag_projection",
+      "requests": 2726,
+      "elapsed_s": 3.0147103339841124,
+      "qps": 904.2328111163619,
+      "p50_ms": 14.921354508260265,
+      "p95_ms": 32.94570799334906,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 0,
+      "concurrency": 16,
+      "query": "search_full_document",
+      "requests": 1890,
+      "elapsed_s": 3.0346457079867832,
+      "qps": 622.8074648140215,
+      "p50_ms": 23.200166499009356,
+      "p95_ms": 46.304166986374184,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 0,
+      "concurrency": 16,
+      "query": "aggregate_sortable",
+      "requests": 611,
+      "elapsed_s": 3.04217320799944,
+      "qps": 200.84326506898634,
+      "p50_ms": 70.99574999301694,
+      "p95_ms": 130.96283399499953,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 0,
+      "concurrency": 16,
+      "query": "aggregate_load",
+      "requests": 97,
+      "elapsed_s": 3.1424077919800766,
+      "qps": 30.86804973166099,
+      "p50_ms": 442.65070802066475,
+      "p95_ms": 759.3952919996809,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 0,
+      "concurrency": 16,
+      "query": "search_numeric_count",
+      "requests": 16613,
+      "elapsed_s": 3.0019386659841985,
+      "qps": 5534.090415719189,
+      "p50_ms": 2.784417010843754,
+      "p95_ms": 3.8847920077387244,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 2,
+      "concurrency": 1,
+      "query": "search_text_count",
+      "requests": 1038,
+      "elapsed_s": 3.0032314589770976,
+      "qps": 345.6277060821491,
+      "p50_ms": 2.5107705005211756,
+      "p95_ms": 4.8777079791761935,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 2,
+      "concurrency": 1,
+      "query": "search_tag_projection",
+      "requests": 2825,
+      "elapsed_s": 3.0002112920046784,
+      "qps": 941.6003491248758,
+      "p50_ms": 0.9846669854596257,
+      "p95_ms": 1.5056670235935599,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 2,
+      "concurrency": 1,
+      "query": "search_full_document",
+      "requests": 182,
+      "elapsed_s": 3.011290291993646,
+      "qps": 60.439207898321094,
+      "p50_ms": 16.512083006091416,
+      "p95_ms": 17.951082991203293,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 2,
+      "concurrency": 1,
+      "query": "aggregate_sortable",
+      "requests": 775,
+      "elapsed_s": 3.0040063750057016,
+      "qps": 257.98880003992304,
+      "p50_ms": 3.770874987822026,
+      "p95_ms": 4.652083007385954,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 2,
+      "concurrency": 1,
+      "query": "aggregate_load",
+      "requests": 98,
+      "elapsed_s": 3.019664166000439,
+      "qps": 32.45394011142687,
+      "p50_ms": 30.484478993457742,
+      "p95_ms": 34.565707988804206,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 2,
+      "concurrency": 1,
+      "query": "search_numeric_count",
+      "requests": 6434,
+      "elapsed_s": 3.0005192500248086,
+      "qps": 2144.295524831845,
+      "p50_ms": 0.4552080063149333,
+      "p95_ms": 0.5661250033881515,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 2,
+      "concurrency": 16,
+      "query": "search_text_count",
+      "requests": 4055,
+      "elapsed_s": 3.012118791026296,
+      "qps": 1346.2284462620316,
+      "p50_ms": 11.192375008249655,
+      "p95_ms": 16.11170801334083,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 2,
+      "concurrency": 16,
+      "query": "search_tag_projection",
+      "requests": 10058,
+      "elapsed_s": 3.0127153749926947,
+      "qps": 3338.51650357923,
+      "p50_ms": 3.7809375062352046,
+      "p95_ms": 9.169832977931947,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 2,
+      "concurrency": 16,
+      "query": "search_full_document",
+      "requests": 2738,
+      "elapsed_s": 3.0098891249799635,
+      "qps": 909.6680596227034,
+      "p50_ms": 13.952979497844353,
+      "p95_ms": 35.40812499704771,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 2,
+      "concurrency": 16,
+      "query": "aggregate_sortable",
+      "requests": 1561,
+      "elapsed_s": 3.030407958984142,
+      "qps": 515.11216348682,
+      "p50_ms": 30.653583991806954,
+      "p95_ms": 39.07066700048745,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 2,
+      "concurrency": 16,
+      "query": "aggregate_load",
+      "requests": 60,
+      "elapsed_s": 3.8887293330044486,
+      "qps": 15.429204468093888,
+      "p50_ms": 1070.2209994924488,
+      "p95_ms": 1466.144957987126,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 2,
+      "concurrency": 16,
+      "query": "search_numeric_count",
+      "requests": 12878,
+      "elapsed_s": 3.01093087499612,
+      "qps": 4277.082581650631,
+      "p50_ms": 2.818229506374337,
+      "p95_ms": 9.123415977228433,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 4,
+      "concurrency": 1,
+      "query": "search_text_count",
+      "requests": 423,
+      "elapsed_s": 3.0073687080002856,
+      "qps": 140.65451930610428,
+      "p50_ms": 5.212209012825042,
+      "p95_ms": 17.878999991808087,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 4,
+      "concurrency": 1,
+      "query": "search_tag_projection",
+      "requests": 201,
+      "elapsed_s": 3.0042124169995077,
+      "qps": 66.90605459941182,
+      "p50_ms": 10.768500011181459,
+      "p95_ms": 31.450957991182804,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 4,
+      "concurrency": 1,
+      "query": "search_full_document",
+      "requests": 130,
+      "elapsed_s": 3.0105882920033764,
+      "qps": 43.18092923741902,
+      "p50_ms": 20.091332989977673,
+      "p95_ms": 43.21954201441258,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 4,
+      "concurrency": 1,
+      "query": "aggregate_sortable",
+      "requests": 204,
+      "elapsed_s": 3.0780894170165993,
+      "qps": 66.27487780966563,
+      "p50_ms": 9.826187495491467,
+      "p95_ms": 45.43758399086073,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 4,
+      "concurrency": 1,
+      "query": "aggregate_load",
+      "requests": 12,
+      "elapsed_s": 3.1074934159987606,
+      "qps": 3.861633282380794,
+      "p50_ms": 183.28731250949204,
+      "p95_ms": 785.764583008131,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 4,
+      "concurrency": 1,
+      "query": "search_numeric_count",
+      "requests": 3652,
+      "elapsed_s": 3.000837291998323,
+      "qps": 1216.9936736450159,
+      "p50_ms": 0.6165415106806904,
+      "p95_ms": 1.8082500027958304,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 4,
+      "concurrency": 16,
+      "query": "search_text_count",
+      "requests": 2902,
+      "elapsed_s": 3.3157975829963107,
+      "qps": 875.2042087495631,
+      "p50_ms": 13.573020507465117,
+      "p95_ms": 32.84325002459809,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 4,
+      "concurrency": 16,
+      "query": "search_tag_projection",
+      "requests": 4178,
+      "elapsed_s": 3.01007612500689,
+      "qps": 1388.004763497613,
+      "p50_ms": 7.4229369929526,
+      "p95_ms": 35.80437498749234,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 4,
+      "concurrency": 16,
+      "query": "search_full_document",
+      "requests": 1951,
+      "elapsed_s": 3.012156708020484,
+      "qps": 647.708664959251,
+      "p50_ms": 21.11820800928399,
+      "p95_ms": 52.54262499511242,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 4,
+      "concurrency": 16,
+      "query": "aggregate_sortable",
+      "requests": 1517,
+      "elapsed_s": 3.0351376670005266,
+      "qps": 499.81258395411584,
+      "p50_ms": 27.429292007582262,
+      "p95_ms": 68.54837498394772,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 4,
+      "concurrency": 16,
+      "query": "aggregate_load",
+      "requests": 36,
+      "elapsed_s": 5.921167916996637,
+      "qps": 6.079881622114187,
+      "p50_ms": 1592.508978996193,
+      "p95_ms": 4175.715207995381,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 4,
+      "concurrency": 16,
+      "query": "search_numeric_count",
+      "requests": 5395,
+      "elapsed_s": 3.009003917017253,
+      "qps": 1792.952135917431,
+      "p50_ms": 5.303334008203819,
+      "p95_ms": 26.98183400207199,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 4,
+      "concurrency": 1,
+      "query": "search_text_count",
+      "requests": 684,
+      "elapsed_s": 3.0086567089892924,
+      "qps": 227.34398309928096,
+      "p50_ms": 3.425333008635789,
+      "p95_ms": 9.540834027575329,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 4,
+      "concurrency": 1,
+      "query": "search_tag_projection",
+      "requests": 429,
+      "elapsed_s": 3.0013741249858867,
+      "qps": 142.9345300303131,
+      "p50_ms": 4.833457991480827,
+      "p95_ms": 17.391875007888302,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 4,
+      "concurrency": 1,
+      "query": "search_full_document",
+      "requests": 259,
+      "elapsed_s": 3.0030294169846456,
+      "qps": 86.24624139048993,
+      "p50_ms": 8.55512500857003,
+      "p95_ms": 26.144000003114343,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 4,
+      "concurrency": 1,
+      "query": "aggregate_sortable",
+      "requests": 300,
+      "elapsed_s": 3.0011326669773553,
+      "qps": 99.96225868353577,
+      "p50_ms": 8.239728995249607,
+      "p95_ms": 20.911749976221472,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 4,
+      "concurrency": 1,
+      "query": "aggregate_load",
+      "requests": 32,
+      "elapsed_s": 3.1961396660190076,
+      "qps": 10.012078114176408,
+      "p50_ms": 78.07910449628253,
+      "p95_ms": 223.82608300540596,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 4,
+      "concurrency": 1,
+      "query": "search_numeric_count",
+      "requests": 1557,
+      "elapsed_s": 3.001302916993154,
+      "qps": 518.7746932121985,
+      "p50_ms": 1.0232090135104954,
+      "p95_ms": 8.28391601680778,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 4,
+      "concurrency": 16,
+      "query": "search_text_count",
+      "requests": 2542,
+      "elapsed_s": 3.03353733298718,
+      "qps": 837.9656226273787,
+      "p50_ms": 15.491041995119303,
+      "p95_ms": 42.47295798268169,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 4,
+      "concurrency": 16,
+      "query": "search_tag_projection",
+      "requests": 4979,
+      "elapsed_s": 3.0272610420070123,
+      "qps": 1644.7210633342095,
+      "p50_ms": 7.004166982369497,
+      "p95_ms": 21.084582986077294,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 4,
+      "concurrency": 16,
+      "query": "search_full_document",
+      "requests": 613,
+      "elapsed_s": 3.1702662910101935,
+      "qps": 193.35915148145799,
+      "p50_ms": 59.15316700702533,
+      "p95_ms": 207.1109999960754,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 4,
+      "concurrency": 16,
+      "query": "aggregate_sortable",
+      "requests": 887,
+      "elapsed_s": 3.0339165419864003,
+      "qps": 292.36137109402927,
+      "p50_ms": 41.16824999800883,
+      "p95_ms": 128.65637498907745,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 4,
+      "concurrency": 16,
+      "query": "aggregate_load",
+      "requests": 124,
+      "elapsed_s": 3.349735541996779,
+      "qps": 37.017847661515255,
+      "p50_ms": 397.1687295124866,
+      "p95_ms": 533.3532499789726,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 4,
+      "concurrency": 16,
+      "query": "search_numeric_count",
+      "requests": 26655,
+      "elapsed_s": 3.0020092919876333,
+      "qps": 8879.05312989611,
+      "p50_ms": 1.6717500111553818,
+      "p95_ms": 2.790750004351139,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 0,
+      "concurrency": 1,
+      "query": "search_text_count",
+      "requests": 1034,
+      "elapsed_s": 3.001195208984427,
+      "qps": 344.52940511986714,
+      "p50_ms": 2.655978998518549,
+      "p95_ms": 3.8581250119023025,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 0,
+      "concurrency": 1,
+      "query": "search_tag_projection",
+      "requests": 2705,
+      "elapsed_s": 3.0011731249978766,
+      "qps": 901.3142152543812,
+      "p50_ms": 1.0354170226491988,
+      "p95_ms": 1.56879099085927,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 0,
+      "concurrency": 1,
+      "query": "search_full_document",
+      "requests": 180,
+      "elapsed_s": 3.0028279169928282,
+      "qps": 59.943494924031604,
+      "p50_ms": 16.68320849421434,
+      "p95_ms": 17.903333995491266,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 0,
+      "concurrency": 1,
+      "query": "aggregate_sortable",
+      "requests": 494,
+      "elapsed_s": 3.0069665829942096,
+      "qps": 164.28516458872508,
+      "p50_ms": 5.825958491186611,
+      "p95_ms": 8.500583004206419,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 0,
+      "concurrency": 1,
+      "query": "aggregate_load",
+      "requests": 47,
+      "elapsed_s": 3.0041276249976363,
+      "qps": 15.645140908431605,
+      "p50_ms": 54.41866701585241,
+      "p95_ms": 111.95079100434668,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 0,
+      "concurrency": 1,
+      "query": "search_numeric_count",
+      "requests": 2732,
+      "elapsed_s": 3.001357708009891,
+      "qps": 910.2547132949061,
+      "p50_ms": 1.003854486043565,
+      "p95_ms": 1.9529169949237257,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 0,
+      "concurrency": 16,
+      "query": "search_text_count",
+      "requests": 2809,
+      "elapsed_s": 3.0151808749942575,
+      "qps": 931.6190691231251,
+      "p50_ms": 15.5676249996759,
+      "p95_ms": 31.011917017167434,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 0,
+      "concurrency": 16,
+      "query": "search_tag_projection",
+      "requests": 6096,
+      "elapsed_s": 3.006125374988187,
+      "qps": 2027.8595333116987,
+      "p50_ms": 6.931812997208908,
+      "p95_ms": 16.07262500328943,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 0,
+      "concurrency": 16,
+      "query": "search_full_document",
+      "requests": 2336,
+      "elapsed_s": 3.1046118329977617,
+      "qps": 752.429007443548,
+      "p50_ms": 18.394791506580077,
+      "p95_ms": 40.67800001939759,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 0,
+      "concurrency": 16,
+      "query": "aggregate_sortable",
+      "requests": 1297,
+      "elapsed_s": 3.0201328749826644,
+      "qps": 429.4513035316186,
+      "p50_ms": 30.299500009277835,
+      "p95_ms": 81.36224999907427,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 0,
+      "concurrency": 16,
+      "query": "aggregate_load",
+      "requests": 114,
+      "elapsed_s": 4.389417291997233,
+      "qps": 25.971556681986993,
+      "p50_ms": 446.2649170163786,
+      "p95_ms": 1513.2605000108015,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 0,
+      "concurrency": 16,
+      "query": "search_numeric_count",
+      "requests": 17505,
+      "elapsed_s": 3.0028986250108574,
+      "qps": 5829.367616409864,
+      "p50_ms": 2.2997500200290233,
+      "p95_ms": 5.54329200531356,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 2,
+      "concurrency": 1,
+      "query": "search_text_count",
+      "requests": 478,
+      "elapsed_s": 3.0019245829898864,
+      "qps": 159.2311821251408,
+      "p50_ms": 3.847999993013218,
+      "p95_ms": 18.19837497896515,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 2,
+      "concurrency": 1,
+      "query": "search_tag_projection",
+      "requests": 470,
+      "elapsed_s": 3.0317271670210175,
+      "qps": 155.02714265077591,
+      "p50_ms": 1.6988544957712293,
+      "p95_ms": 30.318958015413955,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 2,
+      "concurrency": 1,
+      "query": "search_full_document",
+      "requests": 57,
+      "elapsed_s": 3.0006692500028294,
+      "qps": 18.995762361995162,
+      "p50_ms": 26.96920800372027,
+      "p95_ms": 216.1952080205083,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 2,
+      "concurrency": 1,
+      "query": "aggregate_sortable",
+      "requests": 221,
+      "elapsed_s": 3.0164801250211895,
+      "qps": 73.2641989472573,
+      "p50_ms": 10.907582996878773,
+      "p95_ms": 28.388916980475187,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 2,
+      "concurrency": 1,
+      "query": "aggregate_load",
+      "requests": 34,
+      "elapsed_s": 3.3366389170114417,
+      "qps": 10.18989493488648,
+      "p50_ms": 61.32600001001265,
+      "p95_ms": 512.6972080033738,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 2,
+      "concurrency": 1,
+      "query": "search_numeric_count",
+      "requests": 998,
+      "elapsed_s": 3.003739334002603,
+      "qps": 332.25253226954453,
+      "p50_ms": 1.4939795073587447,
+      "p95_ms": 11.033749993657693,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 2,
+      "concurrency": 16,
+      "query": "search_text_count",
+      "requests": 952,
+      "elapsed_s": 3.050596957997186,
+      "qps": 312.07006795975377,
+      "p50_ms": 42.72402099741157,
+      "p95_ms": 109.84308298793621,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 2,
+      "concurrency": 16,
+      "query": "search_tag_projection",
+      "requests": 5280,
+      "elapsed_s": 3.082414290984161,
+      "qps": 1712.943005566649,
+      "p50_ms": 5.642604504828341,
+      "p95_ms": 25.74524999363348,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 2,
+      "concurrency": 16,
+      "query": "search_full_document",
+      "requests": 530,
+      "elapsed_s": 3.427576250018319,
+      "qps": 154.62821578284868,
+      "p50_ms": 45.78954150201753,
+      "p95_ms": 353.43412501970306,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 2,
+      "concurrency": 16,
+      "query": "aggregate_sortable",
+      "requests": 177,
+      "elapsed_s": 3.300735958007863,
+      "qps": 53.62440445155364,
+      "p50_ms": 274.9175000062678,
+      "p95_ms": 525.5167079740204,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 2,
+      "concurrency": 16,
+      "query": "aggregate_load",
+      "requests": 22,
+      "elapsed_s": 13.216078125027707,
+      "qps": 1.6646390700685934,
+      "p50_ms": 6603.1837915070355,
+      "p95_ms": 10988.041083008284,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 2,
+      "concurrency": 16,
+      "query": "search_numeric_count",
+      "requests": 2388,
+      "elapsed_s": 3.0112624169851188,
+      "qps": 793.0228818751937,
+      "p50_ms": 13.102708515361883,
+      "p95_ms": 58.68962497333996,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 2,
+      "concurrency": 1,
+      "query": "search_text_count",
+      "requests": 40,
+      "elapsed_s": 3.0718368329980876,
+      "qps": 13.021524961975382,
+      "p50_ms": 41.333833505632356,
+      "p95_ms": 172.24887499469332,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 2,
+      "concurrency": 1,
+      "query": "search_tag_projection",
+      "requests": 24,
+      "elapsed_s": 3.0022043329954613,
+      "qps": 7.994126094693197,
+      "p50_ms": 62.9652705101762,
+      "p95_ms": 400.0760829949286,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 2,
+      "concurrency": 1,
+      "query": "search_full_document",
+      "requests": 47,
+      "elapsed_s": 3.0078765830257908,
+      "qps": 15.62564111347949,
+      "p50_ms": 26.137500011827797,
+      "p95_ms": 224.49770901584998,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 2,
+      "concurrency": 1,
+      "query": "aggregate_sortable",
+      "requests": 107,
+      "elapsed_s": 3.033825790975243,
+      "qps": 35.268999399469195,
+      "p50_ms": 22.901374992216006,
+      "p95_ms": 60.10279100155458,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 2,
+      "concurrency": 1,
+      "query": "aggregate_load",
+      "requests": 16,
+      "elapsed_s": 3.1014672919991426,
+      "qps": 5.158848536392827,
+      "p50_ms": 115.87749951286241,
+      "p95_ms": 611.5952919935808,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 2,
+      "concurrency": 1,
+      "query": "search_numeric_count",
+      "requests": 1055,
+      "elapsed_s": 3.008151916990755,
+      "qps": 350.7136704237276,
+      "p50_ms": 0.9896669944282621,
+      "p95_ms": 18.506749998778105,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 2,
+      "concurrency": 16,
+      "query": "search_text_count",
+      "requests": 1773,
+      "elapsed_s": 3.019632500014268,
+      "qps": 587.1575431750792,
+      "p50_ms": 24.468041985528544,
+      "p95_ms": 50.83337501855567,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 2,
+      "concurrency": 16,
+      "query": "search_tag_projection",
+      "requests": 3996,
+      "elapsed_s": 3.0052134160068817,
+      "qps": 1329.689258911138,
+      "p50_ms": 9.396228997502476,
+      "p95_ms": 28.518499981146306,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 2,
+      "concurrency": 16,
+      "query": "search_full_document",
+      "requests": 2420,
+      "elapsed_s": 3.015795999992406,
+      "qps": 802.441544456619,
+      "p50_ms": 18.13322950329166,
+      "p95_ms": 35.98516702186316,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 2,
+      "concurrency": 16,
+      "query": "aggregate_sortable",
+      "requests": 1292,
+      "elapsed_s": 3.0447367080196273,
+      "qps": 424.3388259473999,
+      "p50_ms": 33.098958010668866,
+      "p95_ms": 62.105749995680526,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 2,
+      "concurrency": 16,
+      "query": "aggregate_load",
+      "requests": 72,
+      "elapsed_s": 3.5606617919984274,
+      "qps": 20.220960092811815,
+      "p50_ms": 656.3591459998861,
+      "p95_ms": 1339.2049590183888,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 2,
+      "concurrency": 16,
+      "query": "search_numeric_count",
+      "requests": 10650,
+      "elapsed_s": 3.0051262080087326,
+      "qps": 3543.9443347229467,
+      "p50_ms": 3.091228994890116,
+      "p95_ms": 12.401500018313527,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 4,
+      "concurrency": 1,
+      "query": "search_text_count",
+      "requests": 280,
+      "elapsed_s": 3.002965083986055,
+      "qps": 93.24117735939025,
+      "p50_ms": 6.817166504333727,
+      "p95_ms": 23.717125004623085,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 4,
+      "concurrency": 1,
+      "query": "search_tag_projection",
+      "requests": 463,
+      "elapsed_s": 3.0171416249941103,
+      "qps": 153.4565020629099,
+      "p50_ms": 3.127499978290871,
+      "p95_ms": 20.769208000274375,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 4,
+      "concurrency": 1,
+      "query": "search_full_document",
+      "requests": 271,
+      "elapsed_s": 3.008225625002524,
+      "qps": 90.08632788299336,
+      "p50_ms": 7.1823330072220415,
+      "p95_ms": 24.79916700394824,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 4,
+      "concurrency": 1,
+      "query": "aggregate_sortable",
+      "requests": 268,
+      "elapsed_s": 3.014876583009027,
+      "qps": 88.89252764453794,
+      "p50_ms": 10.78720849181991,
+      "p95_ms": 21.44866599701345,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 4,
+      "concurrency": 1,
+      "query": "aggregate_load",
+      "requests": 47,
+      "elapsed_s": 3.0027364999987185,
+      "qps": 15.652389079101699,
+      "p50_ms": 56.0972910025157,
+      "p95_ms": 129.02491699787788,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 4,
+      "concurrency": 1,
+      "query": "search_numeric_count",
+      "requests": 3390,
+      "elapsed_s": 3.011748416989576,
+      "qps": 1125.5920251760301,
+      "p50_ms": 0.6923745095264167,
+      "p95_ms": 1.6767919878475368,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 4,
+      "concurrency": 16,
+      "query": "search_text_count",
+      "requests": 2118,
+      "elapsed_s": 3.0595565410039853,
+      "qps": 692.2571855151871,
+      "p50_ms": 19.037728998227976,
+      "p95_ms": 52.895500004524365,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 4,
+      "concurrency": 16,
+      "query": "search_tag_projection",
+      "requests": 7272,
+      "elapsed_s": 3.004629709001165,
+      "qps": 2420.2649591777636,
+      "p50_ms": 5.635458495817147,
+      "p95_ms": 13.95341701572761,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 4,
+      "concurrency": 16,
+      "query": "search_full_document",
+      "requests": 2499,
+      "elapsed_s": 3.013181499991333,
+      "qps": 829.3559481920315,
+      "p50_ms": 17.05379199120216,
+      "p95_ms": 38.65658299764618,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 4,
+      "concurrency": 16,
+      "query": "aggregate_sortable",
+      "requests": 1784,
+      "elapsed_s": 3.0275839579990134,
+      "qps": 589.2487292669759,
+      "p50_ms": 23.62147899111733,
+      "p95_ms": 50.438832986401394,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 4,
+      "concurrency": 16,
+      "query": "aggregate_load",
+      "requests": 98,
+      "elapsed_s": 3.460024500003783,
+      "qps": 28.323498865367238,
+      "p50_ms": 532.9340415046318,
+      "p95_ms": 736.0516670159996,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 4,
+      "concurrency": 16,
+      "query": "search_numeric_count",
+      "requests": 14308,
+      "elapsed_s": 3.003707708005095,
+      "qps": 4763.446177491958,
+      "p50_ms": 2.9273335094330832,
+      "p95_ms": 6.484582991106436,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 0,
+      "concurrency": 1,
+      "query": "search_text_count",
+      "requests": 618,
+      "elapsed_s": 3.0010957499907818,
+      "qps": 205.92478597255626,
+      "p50_ms": 4.2973749950760975,
+      "p95_ms": 8.717874996364117,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 0,
+      "concurrency": 1,
+      "query": "search_tag_projection",
+      "requests": 1107,
+      "elapsed_s": 3.00107054199907,
+      "qps": 368.8683703058197,
+      "p50_ms": 1.2210000131744891,
+      "p95_ms": 10.10770897846669,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 0,
+      "concurrency": 1,
+      "query": "search_full_document",
+      "requests": 179,
+      "elapsed_s": 3.002984499995364,
+      "qps": 59.60736727088546,
+      "p50_ms": 16.540249984245747,
+      "p95_ms": 20.506041997577995,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 0,
+      "concurrency": 1,
+      "query": "aggregate_sortable",
+      "requests": 662,
+      "elapsed_s": 3.005576374998782,
+      "qps": 220.2572543179071,
+      "p50_ms": 4.41420849529095,
+      "p95_ms": 5.454958009067923,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 0,
+      "concurrency": 1,
+      "query": "aggregate_load",
+      "requests": 76,
+      "elapsed_s": 3.0214699580101296,
+      "qps": 25.153319760310257,
+      "p50_ms": 36.35127101733815,
+      "p95_ms": 55.886249989271164,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 0,
+      "concurrency": 1,
+      "query": "search_numeric_count",
+      "requests": 5360,
+      "elapsed_s": 3.0003195829922333,
+      "qps": 1786.4763575133707,
+      "p50_ms": 0.5256659933365881,
+      "p95_ms": 0.7499579805880785,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 0,
+      "concurrency": 16,
+      "query": "search_text_count",
+      "requests": 4360,
+      "elapsed_s": 3.011931082990486,
+      "qps": 1447.5762824131564,
+      "p50_ms": 9.63366698124446,
+      "p95_ms": 20.209665992297232,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 0,
+      "concurrency": 16,
+      "query": "search_tag_projection",
+      "requests": 6546,
+      "elapsed_s": 3.007803957996657,
+      "qps": 2176.338648200979,
+      "p50_ms": 6.247145996894687,
+      "p95_ms": 15.226332994643599,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 0,
+      "concurrency": 16,
+      "query": "search_full_document",
+      "requests": 2484,
+      "elapsed_s": 3.0230350409983657,
+      "qps": 821.6907731177513,
+      "p50_ms": 17.98295798653271,
+      "p95_ms": 35.57933398406021,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 0,
+      "concurrency": 16,
+      "query": "aggregate_sortable",
+      "requests": 1940,
+      "elapsed_s": 3.010333875019569,
+      "qps": 644.4467891414167,
+      "p50_ms": 22.095874999649823,
+      "p95_ms": 45.26004201034084,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 0,
+      "concurrency": 16,
+      "query": "aggregate_load",
+      "requests": 101,
+      "elapsed_s": 3.448331874998985,
+      "qps": 29.289524228299438,
+      "p50_ms": 470.477957976982,
+      "p95_ms": 695.5940420157276,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 0,
+      "concurrency": 16,
+      "query": "search_numeric_count",
+      "requests": 21184,
+      "elapsed_s": 3.001822083024308,
+      "qps": 7057.0471580571875,
+      "p50_ms": 1.8704999965848401,
+      "p95_ms": 4.3966669763904065,
+      "errors": 0
+    }
+  ]
+}

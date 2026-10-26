@@ -1,0 +1,88 @@
+{
+  "area": "locking",
+  "source": "https://github.com/alberttwong/redis-adbc-driver/issues/272",
+  "setup": [
+    "CREATE TABLE t (id integer, name varchar(20), score integer, grp varchar(10))",
+    "INSERT INTO t VALUES (1, 'apple', 10, 'a'), (2, 'Banana', NULL, 'a'), (3, 'cherry', 30, 'b'), (4, '_x', 20, 'b')",
+    "CREATE TABLE u (id integer, label text)",
+    "INSERT INTO u VALUES (1, 'one'), (2, 'two')"
+  ],
+  "cases": [
+    {
+      "id": "row-1",
+      "steps": [
+        {
+          "sql": "begin",
+          "connection": "a",
+          "expect_postgres": null
+        },
+        {
+          "sql": "select id from t where id=1 for update",
+          "connection": "a",
+          "expect_postgres": null
+        },
+        {
+          "sql": "rollback",
+          "connection": "a",
+          "expect_postgres": null
+        }
+      ],
+      "adaptation": "Explicit transactions; the SKIP LOCKED repro uses two connections and deterministic ordering."
+    },
+    {
+      "id": "row-2",
+      "steps": [
+        {
+          "sql": "begin",
+          "connection": "a",
+          "expect_postgres": null
+        },
+        {
+          "sql": "select id from t where id=1 for update",
+          "connection": "a",
+          "expect_postgres": null
+        },
+        {
+          "sql": "begin",
+          "connection": "b",
+          "expect_postgres": null
+        },
+        {
+          "sql": "select id from t order by id for update skip locked",
+          "connection": "b",
+          "expect_postgres": null
+        },
+        {
+          "sql": "rollback",
+          "connection": "b",
+          "expect_postgres": null
+        },
+        {
+          "sql": "rollback",
+          "connection": "a",
+          "expect_postgres": null
+        }
+      ],
+      "adaptation": "Explicit transactions; the SKIP LOCKED repro uses two connections and deterministic ordering."
+    },
+    {
+      "id": "row-3",
+      "steps": [
+        {
+          "sql": "begin",
+          "expect_postgres": null
+        },
+        {
+          "sql": "lock table t in exclusive mode",
+          "expect_postgres": null
+        },
+        {
+          "sql": "rollback",
+          "expect_postgres": null
+        }
+      ],
+      "adaptation": "Explicit transactions; the SKIP LOCKED repro uses two connections and deterministic ordering."
+    }
+  ],
+  "tier": "issues"
+}

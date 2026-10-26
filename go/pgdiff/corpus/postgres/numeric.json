@@ -1,0 +1,164 @@
+{
+  "area": "numeric",
+  "tier": "postgres",
+  "source": "https://raw.githubusercontent.com/postgres/postgres/7d3e000c5961a544302072058a1184e9a588837b/src/test/regress/sql/numeric.sql",
+  "provenance": {
+    "version": "REL_16_15",
+    "commit": "7d3e000c5961a544302072058a1184e9a588837b",
+    "sha256": "8dfb0dd51f3d987938900bd12f193888873c11348c85147a88e250ea23531801",
+    "fixture": "Curated independent subset; reduced fixtures, not the full upstream regression database."
+  },
+  "setup": [],
+  "cases": [
+    {
+      "id": "statement-0526",
+      "sql": "SELECT 'inf'::numeric / '0';",
+      "source_statement": 526,
+      "expect_postgres": "22012"
+    },
+    {
+      "id": "statement-0527",
+      "sql": "SELECT '-inf'::numeric / '0';",
+      "source_statement": 527,
+      "expect_postgres": "22012"
+    },
+    {
+      "id": "statement-0528",
+      "sql": "SELECT 'nan'::numeric / '0';",
+      "source_statement": 528,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0529",
+      "sql": "SELECT '0'::numeric / '0';",
+      "source_statement": 529,
+      "expect_postgres": "22012"
+    },
+    {
+      "id": "statement-0530",
+      "sql": "SELECT 'inf'::numeric % '0';",
+      "source_statement": 530,
+      "expect_postgres": "22012"
+    },
+    {
+      "id": "statement-0531",
+      "sql": "SELECT '-inf'::numeric % '0';",
+      "source_statement": 531,
+      "expect_postgres": "22012"
+    },
+    {
+      "id": "statement-0532",
+      "sql": "SELECT 'nan'::numeric % '0';",
+      "source_statement": 532,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0533",
+      "sql": "SELECT '0'::numeric % '0';",
+      "source_statement": 533,
+      "expect_postgres": "22012"
+    },
+    {
+      "id": "statement-0534",
+      "sql": "SELECT div('inf'::numeric, '0');",
+      "source_statement": 534,
+      "expect_postgres": "22012"
+    },
+    {
+      "id": "statement-0535",
+      "sql": "SELECT div('-inf'::numeric, '0');",
+      "source_statement": 535,
+      "expect_postgres": "22012"
+    },
+    {
+      "id": "statement-0536",
+      "sql": "SELECT div('nan'::numeric, '0');",
+      "source_statement": 536,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0537",
+      "sql": "SELECT div('0'::numeric, '0');",
+      "source_statement": 537,
+      "expect_postgres": "22012"
+    },
+    {
+      "id": "statement-0542",
+      "sql": "SELECT sqrt('-1'::numeric);",
+      "source_statement": 542,
+      "expect_postgres": "2201F"
+    },
+    {
+      "id": "statement-0543",
+      "sql": "SELECT sqrt('-inf'::numeric);",
+      "source_statement": 543,
+      "expect_postgres": "2201F"
+    },
+    {
+      "id": "statement-0545",
+      "sql": "SELECT ln('0'::numeric);",
+      "source_statement": 545,
+      "expect_postgres": "2201E"
+    },
+    {
+      "id": "statement-0546",
+      "sql": "SELECT ln('-1'::numeric);",
+      "source_statement": 546,
+      "expect_postgres": "2201E"
+    },
+    {
+      "id": "statement-0547",
+      "sql": "SELECT ln('-inf'::numeric);",
+      "source_statement": 547,
+      "expect_postgres": "2201E"
+    },
+    {
+      "id": "statement-0549",
+      "sql": "SELECT log('0'::numeric, '10');",
+      "source_statement": 549,
+      "expect_postgres": "2201E"
+    },
+    {
+      "id": "statement-0550",
+      "sql": "SELECT log('10'::numeric, '0');",
+      "source_statement": 550,
+      "expect_postgres": "2201E"
+    },
+    {
+      "id": "statement-0551",
+      "sql": "SELECT log('-inf'::numeric, '10');",
+      "source_statement": 551,
+      "expect_postgres": "2201E"
+    },
+    {
+      "id": "statement-0552",
+      "sql": "SELECT log('10'::numeric, '-inf');",
+      "source_statement": 552,
+      "expect_postgres": "2201E"
+    },
+    {
+      "id": "statement-0553",
+      "sql": "SELECT log('inf'::numeric, '0');",
+      "source_statement": 553,
+      "expect_postgres": "2201E"
+    },
+    {
+      "id": "statement-0554",
+      "sql": "SELECT log('inf'::numeric, '-inf');",
+      "source_statement": 554,
+      "expect_postgres": "2201E"
+    },
+    {
+      "id": "statement-0555",
+      "sql": "SELECT log('-inf'::numeric, 'inf');",
+      "source_statement": 555,
+      "expect_postgres": "2201E"
+    },
+    {
+      "id": "statement-0557",
+      "sql": "SELECT power('0'::numeric, '-1');",
+      "source_statement": 557,
+      "expect_postgres": "2201F"
+    }
+  ]
+}

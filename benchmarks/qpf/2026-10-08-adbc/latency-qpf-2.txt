@@ -1,0 +1,24 @@
+server: redis://localhost:6379/0  nodes: 1  rows: 100000  repeats: 5
+
+query                                 rows    min ms    median       max  redis commands per run
+------------------------------------------------------------------------------------------------
+point lookup by __rowid                  1       1.0       1.4       2.2  0 ()
+indexed filter + top 10                 10       2.4       2.8       3.3  0 ()
+indexed range COUNT                      1       5.4       5.8       6.9  0 ()
+LIKE prefix COUNT                        1      75.2      91.9      94.1  0 ()
+interval range COUNT                     1       1.2       1.4       1.8  0 ()
+GROUP BY, index reduce                   6       7.7       8.4       8.6  0 ()
+GROUP BY, driver (AVG double)            6     613.5     626.6     662.7  85,251 (hmget 85,240, FT.AGGREGATE 4, get 4)
+GROUP BY expression, driver              5     644.7     664.7     686.9  118,967 (hmget 118,960, hget 2, sismember 1)
+GROUP BY DATE_TRUNC, driver             12     811.5     863.7     921.6  129,809 (hmget 129,800, hget 2, hello 2)
+non-indexed filter (scan)                1     357.0     366.3     388.3  26,004 (hmget 26,000, hget 2, sismember 1)
+fetch 10% of rows                    10000      68.5      80.8      82.3  0 ()
+full scan, all columns              100000     947.4    1067.4    1140.8  7 (hget 2, sismember 1, get 1)
+selective join (index lookup)            8      30.4      36.4      42.0  0 ()
+unfiltered join (hash join)              6     456.3     496.1     496.7  17 (get 4, FT.SEARCH 4, FT.AGGREGATE 4)
+correlated subquery (50 rows)           50      50.5      52.8      61.9  0 ()
+IN (SELECT …), half the rows             1    1030.6    1100.3    1211.0  150,097 (hmget 150,017, FT.AGGREGATE 63, hget 5)
+correlated EXISTS (semi-join)            1    1131.0    1183.6    1317.2  152,137 (hmget 151,617, FT.AGGREGATE 502, hget 7)
+correlated EXISTS, no inner rows         1       1.9       2.0       2.4  0 ()
+UNION of two filters                  1750      51.6      54.1      55.4  0 ()
+view with pushed filter                  1      11.0      23.5      28.5  0 ()

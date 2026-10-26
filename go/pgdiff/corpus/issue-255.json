@@ -1,0 +1,16 @@
+{
+  "area": "json",
+  "source": "https://github.com/alberttwong/redis-adbc-driver/issues/255",
+  "setup": [],
+  "cases": [
+    {
+      "id": "repro-1",
+      "sql": "select '{\"a\":1}'::jsonb || '{\"b\":2}'"
+    },
+    {
+      "id": "repro-2",
+      "sql": "select '[1]'::jsonb || '[2]'"
+    }
+  ],
+  "tier": "issues"
+}
