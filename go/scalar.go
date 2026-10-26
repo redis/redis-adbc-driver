@@ -1,0 +1,1178 @@
+// Copyright (c) 2026 ADBC Drivers Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//         http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package redis
+
+// Math, string and conditional scalar functions. Semantics follow Postgres:
+//
+//   - A NULL argument gives NULL, except for COALESCE, NULLIF, GREATEST,
+//     LEAST and IIF.
+//   - ROUND rounds half away from zero, also for DOUBLE PRECISION (where
+//     Postgres rounds half to even), and NUMERIC rounding is exact.
+//   - String positions are 1-based and count characters, not bytes.
+//   - COALESCE, GREATEST and LEAST widen their arguments to a common type.
+//
+// RANDOM() is volatile: it is never treated as a constant, so it is not
+// pushed into index queries.
+
+import (
+	"crypto/md5"
+	"encoding/hex"
+	"fmt"
+	"math"
+	"math/big"
+	"math/rand/v2"
+	"regexp"
+	"slices"
+	"strconv"
+	"strings"
+	"sync"
+	"unicode"
+	"unicode/utf8"
+)
+
+// hasVolatile reports whether an expression calls a volatile function.
+func hasVolatile(e Expr) bool {
+	found := false
+	walkExpr(e, func(x Expr) {
+		if f, ok := x.(*Func); ok && volatileFuncs[f.Name] {
+			found = true
+		}
+	})
+	return found
+}
+
+// checkArity checks a call of a scalar function: its argument count, no *
+// or DISTINCT, a current time's precision (checkPrecisionArg) and the JSON
+// functions' own rules (checkJSONArgs). Binding does this for every call
+// (resolveCall); type inference and evaluation check again for expressions
+// that aren't bound.
+func checkArity(f *Func) error {
+	d, ok := lookupFunc(f.Name)
+	if !ok || d.kind != scalarKind {
+		return nil
+	}
+	if err := d.argsError(f); err != nil {
+		return err
+	}
+	if err := checkPrecisionArg(f); err != nil {
+		return err
+	}
+	return checkJSONArgs(f)
+}
+
+// maxStringLen bounds the results of LPAD, RPAD (characters) and REPEAT
+// (bytes).
+const maxStringLen = 64 << 20
+
+// ---- types ----
+
+// scalarFuncType returns the result type of a scalar function; ok is false
+// if f is not one.
+func scalarFuncType(f *Func, args []ColType) (ColType, bool) {
+	arg := func(i int) ColType {
+		if i < len(args) {
+			return args[i]
+		}
+		return typeNull
+	}
+	switch f.Name {
+	case "ROUND", "TRUNC", "FLOOR", "CEIL", "CEILING":
+		return roundType(f, arg(0)), true
+	case "SIGN":
+		t := numericArgType(arg(0))
+		if t.Kind == KindDecimal {
+			return decimalType(1, 0), true
+		}
+		return t, true
+	case "MOD":
+		return modType(f, args), true
+	case "POWER", "POW", "SQRT", "CBRT", "LN", "LOG", "LOG10", "EXP", "RANDOM", "PI",
+		"SIN", "COS", "TAN", "COT", "ASIN", "ACOS", "ATAN", "ATAN2",
+		"SIND", "COSD", "TAND", "COTD", "ASIND", "ACOSD", "ATAND", "ATAN2D", "RADIANS", "DEGREES":
+		return typeFloat64, true
+	case "SUBSTRING", "SUBSTR":
+		if arg(0).Kind == KindBinary {
+			return typeBinary, true
+		}
+		return typeString, true
+	case "LEFT", "RIGHT", "REPLACE", "BTRIM", "LTRIM", "RTRIM", "SPLIT_PART", "LPAD", "RPAD",
+		"REVERSE", "REPEAT", "INITCAP", "MD5", "REGEXP_REPLACE":
+		return typeString, true
+	case "POSITION", "STRPOS":
+		return typeInt64, true
+	case "STARTS_WITH":
+		return typeBool, true
+	case "~", "~*", "SIMILAR TO", "REGEXP_LIKE":
+		return typeBool, true
+	case "REGEXP_COUNT", "REGEXP_INSTR":
+		return typeInt64, true
+	case "REGEXP_SUBSTR", "REGEXP_MATCH":
+		return typeString, true
+	case "NULLIF":
+		if arg(0).Kind == KindNull {
+			return arg(1), true
+		}
+		if len(f.Args) == 2 && unknownLiteral(f.Args[0]) && !unknownLiteral(f.Args[1]) && arg(1).Kind != KindNull {
+			// The literal is read as the other argument's type, as = reads
+			// it: NULLIF('1', int_col) is an INTEGER.
+			return literalType(f.Args[0], arg(1)), true
+		}
+		return arg(0), true
+	case "GREATEST", "LEAST":
+		return unifiedType(f, args), true
+	case "IIF":
+		// The type of its results, as a CASE's.
+		if len(f.Args) != 3 || len(args) != 3 {
+			return commonType(arg(1), arg(2)), true
+		}
+		t, err := commonExprType(f.Name, f.Args[1:], args[1:], false)
+		if err != nil {
+			return typeString, true
+		}
+		return t, true
+	}
+	return ColType{}, false
+}
+
+// numericArgType is the type a math function works in for an argument of
+// type t: text is read as DOUBLE PRECISION, and REAL is widened.
+func numericArgType(t ColType) ColType {
+	if t.Kind == KindString || t.Kind == KindFloat32 {
+		return typeFloat64
+	}
+	return t
+}
+
+// capPrecision limits a computed decimal precision, staying within 38 digits
+// (Decimal128) unless the input was already wider.
+func capPrecision(p, orig int32) int32 {
+	return max(min(p, max(orig, 38)), 1)
+}
+
+// constIntArg returns the value of an integer literal, such as the digits
+// argument of ROUND(x, 2).
+func constIntArg(e Expr) (int64, bool) {
+	neg := false
+	if u, ok := e.(*Unary); ok && u.Op == "-" {
+		neg, e = true, u.X
+	}
+	l, ok := e.(*Literal)
+	if !ok || l.V.Null || !l.V.T.Kind.isInteger() {
+		return 0, false
+	}
+	if neg {
+		return -l.V.I, true
+	}
+	return l.V.I, true
+}
+
+// roundType is the result type of ROUND / TRUNC / FLOOR / CEIL. Integers and
+// doubles keep their type. A NUMERIC(p, s) gets the scale of the result:
+// ROUND(x, 2) has scale 2 (or s if smaller), ROUND(x) and FLOOR(x) scale 0,
+// with room for a carry (ROUND(9.5) = 10). If the digits argument is not a
+// literal, the input scale is kept.
+func roundType(f *Func, t ColType) ColType {
+	t = numericArgType(t)
+	if t.Kind != KindDecimal {
+		return t
+	}
+	carry := int32(1)
+	if f.Name == "TRUNC" {
+		carry = 0
+	}
+	n, isConst := int64(0), true
+	if len(f.Args) > 1 {
+		n, isConst = constIntArg(f.Args[1])
+	}
+	if !isConst {
+		return decimalType(capPrecision(t.Precision+carry, t.Precision), t.Scale)
+	}
+	if n >= int64(t.Scale) {
+		return t
+	}
+	s := int32(max(n, 0))
+	ip := max(t.Precision-t.Scale, 0) // integer digits
+	return decimalType(capPrecision(ip+s+carry, t.Precision), s)
+}
+
+// modType is the result type of MOD: the common type of its arguments.
+func modType(f *Func, args []ColType) ColType {
+	t := numericArgType(unifiedType(f, args))
+	if t.Kind == KindBool {
+		return typeInt64
+	}
+	return t
+}
+
+// unifiedType is the common type of the arguments of COALESCE, GREATEST,
+// LEAST and MOD (commonExprType): as with untyped literals in Postgres, a
+// string literal, or a numeric literal that the other arguments' type holds
+// exactly, takes the type of the other arguments: COALESCE(int_col, 0) and
+// COALESCE(int_col, '0') are INTEGERs, and GREATEST(d, '2024-01-01') is a
+// DATE. Types that don't match give text (inferType reports them).
+func unifiedType(f *Func, args []ColType) ColType {
+	t, err := commonExprType(f.Name, f.Args, args, true)
+	if err != nil {
+		return typeString
+	}
+	return t
+}
+
+// ---- evaluation ----
+
+// zonedText gives the arguments of a function that reads them as text with
+// each timestamp with time zone as its text in the session time zone z.
+func zonedText(args []Value, z tzZone) []Value {
+	if z.isUTC() {
+		return args
+	}
+	var out []Value
+	for i, a := range args {
+		if a.T.Kind == KindTimestamp && a.T.TZ != "" && !a.Null {
+			if out == nil {
+				out = slices.Clone(args)
+			}
+			out[i] = stringValue(a.textIn(z))
+		}
+	}
+	if out == nil {
+		return args
+	}
+	return out
+}
+
+// evalConditional evaluates the functions that accept NULL arguments:
+// NULLIF, GREATEST and LEAST (COALESCE and IIF are handled by the caller),
+// of type t, in the session time zone z.
+func evalConditional(f *Func, args []Value, t ColType, z tzZone) (Value, error) {
+	if f.Name == "NULLIF" {
+		a, b := args[0], args[1]
+		if a.Null {
+			return nullValue(t), nil
+		}
+		if unknownLiteral(f.Args[0]) && a.T != t && t.Kind != KindNull {
+			// A quoted literal is a value of the other argument's type.
+			var err error
+			if a, err = coerceIn(a, t, z); err != nil {
+				return Value{}, err
+			}
+		}
+		if b.Null {
+			return a, nil
+		}
+		c, ok := compareIn(a, b, z)
+		if !ok {
+			return Value{}, fmt.Errorf("NULLIF cannot compare %s with %s", a.T.SQLName(), b.T.SQLName())
+		}
+		if c == 0 {
+			return nullValue(t), nil
+		}
+		return a, nil
+	}
+	// GREATEST / LEAST ignore NULLs. Values of unrelated types (whose common
+	// type falls back to text) are not compared.
+	if t.Kind == KindString {
+		var names []string
+		mixed := false
+		for _, a := range args {
+			if a.Null {
+				continue
+			}
+			if a.T.Kind != KindString && a.T.Kind != KindBinary {
+				mixed = true
+			}
+			if n := sigTypeName(a.T); !slices.Contains(names, n) {
+				names = append(names, n)
+			}
+		}
+		if mixed && len(names) > 1 {
+			// As typeMatchError, where the types weren't known before.
+			return Value{}, stateErr(stateDatatypeMismatch, "%s types %s cannot be matched", f.Name, strings.Join(names, " and "))
+		}
+	}
+	var best Value
+	has := false
+	for _, a := range args {
+		if a.Null {
+			continue
+		}
+		v, err := coerceIn(a, t, z)
+		if err != nil {
+			return Value{}, fmt.Errorf("%s: %w", f.Name, err)
+		}
+		if !has {
+			best, has = v, true
+			continue
+		}
+		c, ok := compareIn(v, best, z)
+		if !ok {
+			return Value{}, fmt.Errorf("%s cannot compare %s with %s", f.Name, v.T.SQLName(), best.T.SQLName())
+		}
+		if (f.Name == "GREATEST" && c > 0) || (f.Name == "LEAST" && c < 0) {
+			best = v
+		}
+	}
+	if !has {
+		return nullValue(t), nil
+	}
+	return best, nil
+}
+
+// evalIIF evaluates IIF(cond, a, b) like CASE WHEN cond THEN a ELSE b END:
+// only the chosen branch is evaluated.
+func (env *evalEnv) evalIIF(f *Func) (Value, error) {
+	c, err := env.eval(f.Args[0])
+	if err != nil {
+		return Value{}, err
+	}
+	if b, ok := truthy(c); ok && b {
+		return env.branchValue(f, f.Args[1])
+	}
+	return env.branchValue(f, f.Args[2])
+}
+
+// scalarFunc evaluates a math, string or regular-expression function
+// (implScalar in funcs.go). Arguments are non-NULL (NULLs are handled by the
+// caller); z is the session time zone, in which a timestamp with time zone
+// is text.
+func scalarFunc(f *Func, args []Value, z tzZone) (Value, error) {
+	text := func(i int) string { return args[i].textIn(z) }
+	switch f.Name {
+	// ---- math ----
+	case "ROUND", "TRUNC", "FLOOR", "CEIL", "CEILING":
+		return roundFunc(f, args)
+	case "SIGN":
+		x, err := numericArg(f.Name, args[0])
+		if err != nil {
+			return Value{}, err
+		}
+		switch {
+		case x.T.Kind.isInteger():
+			return intValue(x.T, int64(cmpInt(x.I, 0))), nil
+		case x.T.Kind == KindDecimal:
+			return decimalValue(big.NewInt(int64(x.D.Sign())), 1, 0), nil
+		}
+		if math.IsNaN(x.F) {
+			return floatValue(typeFloat64, x.F), nil
+		}
+		return floatValue(typeFloat64, float64(cmpFloat(x.F, 0))), nil
+	case "MOD":
+		return modFunc(f, args)
+	case "POWER", "POW", "SQRT", "CBRT", "LN", "LOG", "LOG10", "EXP", "RADIANS", "DEGREES":
+		return floatFunc(f, args)
+	case "SIN", "COS", "TAN", "COT", "ASIN", "ACOS", "ATAN", "ATAN2",
+		"SIND", "COSD", "TAND", "COTD", "ASIND", "ACOSD", "ATAND", "ATAN2D":
+		return trigFunc(f, args)
+	case "PI":
+		return floatValue(typeFloat64, math.Pi), nil
+	case "RANDOM":
+		return floatValue(typeFloat64, rand.Float64()), nil
+
+	// ---- strings ----
+	case "SUBSTRING", "SUBSTR":
+		// As in Postgres, text arguments make SUBSTRING a pattern match:
+		// SUBSTRING(s FROM pattern) and SUBSTRING(s SIMILAR pattern ESCAPE e).
+		if f.Name == "SUBSTRING" && args[0].T.Kind != KindBinary && args[1].T.Kind == KindString {
+			switch {
+			case len(args) == 2:
+				return regexpSubstring(text(0), text(1))
+			case args[2].T.Kind == KindString:
+				return similarSubstring(text(0), text(1), text(2))
+			}
+		}
+		start, err := intArg(f.Name, "start position", args[1])
+		if err != nil {
+			return Value{}, err
+		}
+		count, hasCount := int64(0), len(args) == 3
+		if hasCount {
+			if count, err = intArg(f.Name, "length", args[2]); err != nil {
+				return Value{}, err
+			}
+			if count < 0 {
+				return Value{}, stateErr(stateSubstring, "%s: negative substring length not allowed", f.Name)
+			}
+		}
+		if args[0].T.Kind == KindBinary {
+			b := args[0].S
+			from, to := substringRange(len(b), start, count, hasCount)
+			return binaryValue(b[from:to]), nil
+		}
+		r := []rune(text(0))
+		from, to := substringRange(len(r), start, count, hasCount)
+		return stringValue(string(r[from:to])), nil
+	case "LEFT", "RIGHT":
+		n, err := intArg(f.Name, "length", args[1])
+		if err != nil {
+			return Value{}, err
+		}
+		r := []rune(text(0))
+		size := int64(len(r))
+		// Characters to keep: n, or all but -n when n is negative.
+		keep := min(n, size)
+		if n < 0 {
+			keep = max(size+n, 0)
+		}
+		if f.Name == "LEFT" {
+			return stringValue(string(r[:keep])), nil
+		}
+		return stringValue(string(r[size-keep:])), nil
+	case "REPLACE":
+		s, from := text(0), text(1)
+		if from == "" {
+			return stringValue(s), nil
+		}
+		return stringValue(strings.ReplaceAll(s, from, text(2))), nil
+	case "BTRIM", "LTRIM", "RTRIM":
+		chars := " "
+		if len(args) == 2 {
+			chars = text(1)
+		}
+		switch f.Name {
+		case "LTRIM":
+			return stringValue(strings.TrimLeft(text(0), chars)), nil
+		case "RTRIM":
+			return stringValue(strings.TrimRight(text(0), chars)), nil
+		}
+		return stringValue(strings.Trim(text(0), chars)), nil
+	case "POSITION", "STRPOS":
+		s, sub := text(0), text(1)
+		if f.Name == "POSITION" { // POSITION(sub IN s)
+			s, sub = sub, s
+		}
+		i := strings.Index(s, sub)
+		if i < 0 {
+			return intValue(typeInt64, 0), nil
+		}
+		return intValue(typeInt64, int64(utf8.RuneCountInString(s[:i]))+1), nil
+	case "SPLIT_PART":
+		n, err := intArg(f.Name, "field position", args[2])
+		if err != nil {
+			return Value{}, err
+		}
+		if n == 0 {
+			return Value{}, stateErr(stateInvalidParameter, "SPLIT_PART: field position must not be zero")
+		}
+		s, delim := text(0), text(1)
+		fields := []string{s}
+		if delim != "" {
+			fields = strings.Split(s, delim)
+		}
+		size := int64(len(fields))
+		switch {
+		case n > 0 && n <= size:
+			return stringValue(fields[n-1]), nil
+		case n < 0 && n >= -size: // counted from the end
+			return stringValue(fields[size+n]), nil
+		}
+		return stringValue(""), nil
+	case "LPAD", "RPAD":
+		n, err := intArg(f.Name, "length", args[1])
+		if err != nil {
+			return Value{}, err
+		}
+		fill := " "
+		if len(args) == 3 {
+			fill = text(2)
+		}
+		return pad(f.Name, text(0), n, fill)
+	case "REVERSE":
+		r := []rune(text(0))
+		for i, j := 0, len(r)-1; i < j; i, j = i+1, j-1 {
+			r[i], r[j] = r[j], r[i]
+		}
+		return stringValue(string(r)), nil
+	case "REPEAT":
+		n, err := intArg(f.Name, "count", args[1])
+		if err != nil {
+			return Value{}, err
+		}
+		s := text(0)
+		if n <= 0 || s == "" {
+			return stringValue(""), nil
+		}
+		if n > int64(maxStringLen/len(s)) {
+			return Value{}, fmt.Errorf("REPEAT: requested length too large")
+		}
+		return stringValue(strings.Repeat(s, int(n))), nil
+	case "INITCAP":
+		return stringValue(initcap(text(0))), nil
+	case "MD5":
+		// Of the UTF-8 text, or of the bytes of a binary value.
+		sum := md5.Sum([]byte(text(0)))
+		return stringValue(hex.EncodeToString(sum[:])), nil
+	case "REGEXP_REPLACE":
+		return regexpReplaceFunc(zonedText(args, z))
+	case "STARTS_WITH":
+		return boolValue(strings.HasPrefix(text(0), text(1))), nil
+	case "~", "~*", "SIMILAR TO", "REGEXP_LIKE", "REGEXP_COUNT", "REGEXP_INSTR", "REGEXP_SUBSTR", "REGEXP_MATCH":
+		return regexpFunc(f, zonedText(args, z))
+	}
+	return Value{}, fmt.Errorf("unsupported function %s", f.Name)
+}
+
+// numericArg checks that a math function's argument is a number; text is
+// read as DOUBLE PRECISION.
+func numericArg(name string, v Value) (Value, error) {
+	switch {
+	case v.T.Kind.isInteger(), v.T.Kind.isFloat(), v.T.Kind == KindDecimal:
+		return v, nil
+	case v.T.Kind == KindString:
+		c, err := Coerce(v, typeFloat64)
+		if err != nil {
+			return Value{}, fmt.Errorf("%s: %w", name, err)
+		}
+		return c, nil
+	}
+	return Value{}, fmt.Errorf("%s expects a number, got %s", name, v.T.SQLName())
+}
+
+// intArg reads an integer argument (a position, length or count).
+func intArg(name, what string, v Value) (int64, error) {
+	if v.T.Kind == KindBool {
+		return 0, fmt.Errorf("%s: the %s must be an integer, got BOOLEAN", name, what)
+	}
+	c, err := Coerce(v, typeInt64)
+	if err != nil {
+		return 0, fmt.Errorf("%s: the %s must be an integer: %w", name, what, err)
+	}
+	return c.I, nil
+}
+
+// ---- rounding ----
+
+type roundMode int
+
+const (
+	roundHalfAway roundMode = iota
+	roundTrunc
+	roundFloor
+	roundCeil
+)
+
+func roundModeOf(name string) roundMode {
+	switch name {
+	case "TRUNC":
+		return roundTrunc
+	case "FLOOR":
+		return roundFloor
+	case "CEIL", "CEILING":
+		return roundCeil
+	}
+	return roundHalfAway
+}
+
+// roundUnscaled rounds the decimal v (unscaled, at the given scale) to n
+// decimal places (n < 0 rounds to tens, hundreds, …). It returns the result
+// unscaled at scale max(n, 0), or v unchanged if it has no more than n
+// decimal places.
+func roundUnscaled(v *big.Int, scale int32, n int64, mode roundMode) (*big.Int, int32) {
+	if n >= int64(scale) {
+		return new(big.Int).Set(v), scale
+	}
+	n = max(n, -400) // beyond that every value rounds to zero
+	div := pow10(scale - int32(n))
+	q, r := new(big.Int).QuoRem(v, div, new(big.Int))
+	if r.Sign() != 0 {
+		switch mode {
+		case roundHalfAway:
+			twice := new(big.Int).Abs(r)
+			if twice.Lsh(twice, 1).Cmp(div) >= 0 {
+				q.Add(q, big.NewInt(int64(v.Sign())))
+			}
+		case roundFloor:
+			if v.Sign() < 0 {
+				q.Sub(q, big.NewInt(1))
+			}
+		case roundCeil:
+			if v.Sign() > 0 {
+				q.Add(q, big.NewInt(1))
+			}
+		}
+	}
+	if n < 0 {
+		return q.Mul(q, pow10(int32(-n))), 0
+	}
+	return q, int32(n)
+}
+
+// roundFloat rounds a double through its shortest decimal representation,
+// so ROUND(2.675, 2) is 2.68 even though the nearest double is slightly
+// below 2.675. bits is 32 for REAL values.
+func roundFloat(x float64, bits int, n int64, mode roundMode) float64 {
+	if math.IsNaN(x) || math.IsInf(x, 0) || x == 0 {
+		return x
+	}
+	d, s, err := parseDecimal(strconv.FormatFloat(x, 'g', -1, bits))
+	if err != nil {
+		return x
+	}
+	r, rs := roundUnscaled(d, s, n, mode)
+	f, err := strconv.ParseFloat(formatDecimal(r, rs), 64)
+	if err != nil {
+		return x
+	}
+	return f
+}
+
+func roundFunc(f *Func, args []Value) (Value, error) {
+	x, err := numericArg(f.Name, args[0])
+	if err != nil {
+		return Value{}, err
+	}
+	mode := roundModeOf(f.Name)
+	n := int64(0)
+	if len(args) == 2 {
+		if n, err = intArg(f.Name, "number of decimal places", args[1]); err != nil {
+			return Value{}, err
+		}
+	}
+	switch {
+	case x.T.Kind.isInteger():
+		if n >= 0 {
+			return x, nil
+		}
+		r, _ := roundUnscaled(big.NewInt(x.I), 0, n, mode)
+		if !r.IsInt64() {
+			return Value{}, stateErr(stateNumericRange, "%s: integer out of range", f.Name)
+		}
+		return Coerce(intValue(typeInt64, r.Int64()), x.T)
+	case x.T.Kind.isFloat():
+		switch mode {
+		case roundFloor:
+			return floatValue(typeFloat64, math.Floor(x.F)), nil
+		case roundCeil:
+			return floatValue(typeFloat64, math.Ceil(x.F)), nil
+		}
+		bits := 64
+		if x.T.Kind == KindFloat32 {
+			bits = 32
+		}
+		return floatValue(typeFloat64, roundFloat(x.F, bits, n, mode)), nil
+	}
+	rt := roundType(f, x.T)
+	r, rs := roundUnscaled(x.D, x.T.Scale, n, mode)
+	return decimalValue(rescaleDecimal(r, rs, rt.Scale), rt.Precision, rt.Scale), nil
+}
+
+func modFunc(f *Func, args []Value) (Value, error) {
+	t := modType(f, argTypes(args))
+	var ops [2]Value
+	for i := range ops {
+		v, err := numericArg(f.Name, args[i])
+		if err == nil {
+			v, err = Coerce(v, t)
+		}
+		if err != nil {
+			return Value{}, err
+		}
+		ops[i] = v
+	}
+	a, b := ops[0], ops[1]
+	switch {
+	case t.Kind.isInteger():
+		if b.I == 0 {
+			return Value{}, stateErr(stateDivisionByZero, "MOD: division by zero")
+		}
+		if b.I == -1 {
+			return intValue(t, 0), nil
+		}
+		return intValue(t, a.I%b.I), nil
+	case t.Kind == KindDecimal:
+		if b.D.Sign() == 0 {
+			return Value{}, stateErr(stateDivisionByZero, "MOD: division by zero")
+		}
+		// Rem truncates toward zero: the result has the sign of a.
+		return decimalValue(new(big.Int).Rem(a.D, b.D), t.Precision, t.Scale), nil
+	}
+	if b.F == 0 {
+		return Value{}, stateErr(stateDivisionByZero, "MOD: division by zero")
+	}
+	return floatValue(typeFloat64, math.Mod(a.F, b.F)), nil
+}
+
+// floatArgs converts a math function's arguments to doubles.
+func floatArgs(f *Func, args []Value) ([]float64, error) {
+	xs := make([]float64, len(args))
+	for i, a := range args {
+		v, err := numericArg(f.Name, a)
+		if err != nil {
+			return nil, err
+		}
+		xs[i], _ = v.asFloat()
+	}
+	return xs, nil
+}
+
+// floatFunc evaluates the DOUBLE PRECISION functions, with Postgres's
+// domain errors.
+func floatFunc(f *Func, args []Value) (Value, error) {
+	xs, err := floatArgs(f, args)
+	if err != nil {
+		return Value{}, err
+	}
+	fail := func(state, msg string) (Value, error) { return Value{}, stateErr(state, "%s: %s", f.Name, msg) }
+	logArg := func(v float64) error {
+		switch {
+		case v == 0:
+			return stateErr(stateLogarithm, "%s: cannot take logarithm of zero", f.Name)
+		case v < 0:
+			return stateErr(stateLogarithm, "%s: cannot take logarithm of a negative number", f.Name)
+		}
+		return nil
+	}
+	x := xs[0]
+	var r float64
+	switch f.Name {
+	case "SQRT":
+		if x < 0 {
+			return fail(statePower, "cannot take square root of a negative number")
+		}
+		r = math.Sqrt(x)
+	case "LN":
+		if err := logArg(x); err != nil {
+			return Value{}, err
+		}
+		r = math.Log(x)
+	case "LOG10":
+		if err := logArg(x); err != nil {
+			return Value{}, err
+		}
+		r = math.Log10(x)
+	case "LOG":
+		if len(xs) == 1 { // base 10, as in Postgres
+			if err := logArg(x); err != nil {
+				return Value{}, err
+			}
+			r = math.Log10(x)
+			break
+		}
+		base, v := xs[0], xs[1]
+		if err := logArg(base); err != nil {
+			return Value{}, err
+		}
+		if err := logArg(v); err != nil {
+			return Value{}, err
+		}
+		switch base {
+		case 1:
+			return fail(stateDivisionByZero, "division by zero")
+		case 10:
+			r = math.Log10(v)
+		default:
+			r = math.Log2(v) / math.Log2(base)
+		}
+	case "EXP":
+		r = math.Exp(x)
+		// As in Postgres, a double that underflows to zero is an error, but
+		// the exp of a NUMERIC is then 0.
+		if r == 0 && !math.IsInf(x, -1) && args[0].T.Kind != KindDecimal {
+			return fail(stateNumericRange, "value out of range: underflow")
+		}
+	case "POWER", "POW":
+		y := xs[1]
+		switch {
+		case x == 0 && y < 0:
+			return fail(statePower, "zero raised to a negative power is undefined")
+		case x < 0 && !math.IsInf(y, 0) && !math.IsNaN(y) && y != math.Trunc(y):
+			return fail(statePower, "a negative number raised to a non-integer power yields a complex result")
+		}
+		r = math.Pow(x, y)
+	case "CBRT":
+		r = math.Cbrt(x)
+	case "RADIANS":
+		r = x * radiansPerDegree
+		if r == 0 && x != 0 {
+			return fail(stateNumericRange, "value out of range: underflow")
+		}
+	case "DEGREES":
+		r = x / radiansPerDegree
+	}
+	if math.IsInf(r, 0) && !math.IsInf(x, 0) && (len(xs) < 2 || !math.IsInf(xs[1], 0)) {
+		return fail(stateNumericRange, "value out of range: overflow")
+	}
+	return floatValue(typeFloat64, r), nil
+}
+
+// radiansPerDegree is Postgres's RADIANS_PER_DEGREE (a variable, so that
+// products with it are rounded like any other).
+var radiansPerDegree = 0.0174532925199432957692
+
+// The constants of Postgres's degree functions, which make them exact at
+// 0, 30, 45, 60 and 90 degrees.
+var (
+	sin30         = math.Sin(30 * radiansPerDegree)
+	oneMinusCos60 = 1 - math.Cos(60*radiansPerDegree)
+	asinHalf      = math.Asin(0.5)
+	acosHalf      = math.Acos(0.5)
+	atanOne       = math.Atan(1)
+	tan45         = sindQ1(45) / cosdQ1(45)
+	cot45         = cosdQ1(45) / sindQ1(45)
+)
+
+// trigFunc evaluates the trigonometric functions as Postgres does (float.c):
+// a NaN argument gives NaN, an infinite one is out of range for the sine,
+// cosine, tangent and cotangent, and so is one beyond [-1, 1] for the
+// inverse sine and cosine. The degree versions reduce their argument to the
+// first quadrant and scale the radian functions so that 0, 30, 45, 60 and
+// 90 degrees give exact results. The float64 conversions keep products
+// from being fused into FMAs, which would round differently.
+func trigFunc(f *Func, args []Value) (Value, error) {
+	xs, err := floatArgs(f, args)
+	if err != nil {
+		return Value{}, err
+	}
+	x := xs[0]
+	if math.IsNaN(x) || (len(xs) > 1 && math.IsNaN(xs[1])) {
+		return floatValue(typeFloat64, math.NaN()), nil
+	}
+	outOfRange := func() (Value, error) {
+		return Value{}, stateErr(stateNumericRange, "%s: input is out of range", f.Name)
+	}
+	var r float64
+	switch f.Name {
+	case "SIN", "COS", "TAN", "COT", "SIND", "COSD", "TAND", "COTD":
+		if math.IsInf(x, 0) {
+			return outOfRange()
+		}
+	case "ASIN", "ACOS", "ASIND", "ACOSD":
+		if x < -1 || x > 1 {
+			return outOfRange()
+		}
+	}
+	switch f.Name {
+	case "SIN":
+		r = math.Sin(x)
+	case "COS":
+		r = math.Cos(x)
+	case "TAN":
+		r = math.Tan(x)
+	case "COT":
+		r = 1 / math.Tan(x) // cot(0) is Infinity, not an overflow
+	case "ASIN":
+		r = math.Asin(x)
+	case "ACOS":
+		r = math.Acos(x)
+	case "ATAN":
+		r = math.Atan(x)
+	case "ATAN2":
+		r = math.Atan2(x, xs[1])
+	case "SIND", "COSD", "TAND", "COTD":
+		// Reduce the argument to [0, 90] degrees.
+		sign := 1.0
+		x = math.Mod(x, 360)
+		if x < 0 {
+			x = -x // sind(-x) = -sind(x), cosd(-x) = cosd(x), tand(-x) = -tand(x)
+			if f.Name != "COSD" {
+				sign = -sign
+			}
+		}
+		if x > 180 {
+			x = 360 - x // sind(360-x) = -sind(x), cosd(360-x) = cosd(x), …
+			if f.Name != "COSD" {
+				sign = -sign
+			}
+		}
+		if x > 90 {
+			x = 180 - x // sind(180-x) = sind(x), cosd(180-x) = -cosd(x), …
+			if f.Name != "SIND" {
+				sign = -sign
+			}
+		}
+		switch f.Name {
+		case "SIND":
+			r = sign * sindQ1(x)
+		case "COSD":
+			r = sign * cosdQ1(x)
+		case "TAND":
+			r = sign * (sindQ1(x) / cosdQ1(x) / tan45) // tand(90) is Infinity
+		default:
+			r = sign * (cosdQ1(x) / sindQ1(x) / cot45) // cotd(0) is Infinity
+		}
+		if r == 0 {
+			r = 0 // not -0, as in Postgres
+		}
+	case "ASIND":
+		if x >= 0 {
+			r = asindQ1(x)
+		} else {
+			r = -asindQ1(-x)
+		}
+	case "ACOSD":
+		if x >= 0 {
+			r = acosdQ1(x)
+		} else {
+			r = 90 + asindQ1(-x)
+		}
+	case "ATAND":
+		r = math.Atan(x) / atanOne * 45
+	case "ATAN2D":
+		r = math.Atan2(x, xs[1]) / atanOne * 45
+	}
+	return floatValue(typeFloat64, r), nil
+}
+
+// sind0To30 is the sine of x in [0, 30] degrees: exactly 0 at 0 and 0.5 at
+// 30.
+func sind0To30(x float64) float64 {
+	return math.Sin(float64(x*radiansPerDegree)) / sin30 / 2
+}
+
+// cosd0To60 is the cosine of x in [0, 60] degrees: exactly 1 at 0 and 0.5
+// at 60.
+func cosd0To60(x float64) float64 {
+	return 1 - (1-math.Cos(float64(x*radiansPerDegree)))/oneMinusCos60/2
+}
+
+// sindQ1 and cosdQ1 are the sine and cosine of x in [0, 90] degrees,
+// stitched from sind0To30 and cosd0To60 so that they are exact at 0, 30,
+// 60 and 90 and monotonic.
+func sindQ1(x float64) float64 {
+	if x <= 30 {
+		return sind0To30(x)
+	}
+	return cosd0To60(90 - x)
+}
+
+func cosdQ1(x float64) float64 {
+	if x <= 60 {
+		return cosd0To60(x)
+	}
+	return sind0To30(90 - x)
+}
+
+// asindQ1 and acosdQ1 are the inverse sine and cosine of x in [0, 1], in
+// degrees: exactly 30 and 60 at 0.5.
+func asindQ1(x float64) float64 {
+	if x <= 0.5 {
+		return math.Asin(x) / asinHalf * 30
+	}
+	return 90 - float64(math.Acos(x)/acosHalf*60)
+}
+
+func acosdQ1(x float64) float64 {
+	if x <= 0.5 {
+		return 90 - float64(math.Asin(x)/asinHalf*30)
+	}
+	return math.Acos(x) / acosHalf * 60
+}
+
+// ---- strings ----
+
+// substringRange returns the 0-based [from, to) range of SUBSTRING(s, start
+// [, count]) over n characters (or bytes). As in Postgres, start may be
+// before the first character: SUBSTRING('abc', 0, 2) is 'a'.
+func substringRange(n int, start, count int64, hasCount bool) (int, int) {
+	end := int64(n) + 1
+	if hasCount && (start <= 0 || count <= math.MaxInt64-start) { // start+count does not overflow
+		end = min(start+count, end)
+	}
+	from := max(start, 1)
+	if end <= from {
+		return 0, 0
+	}
+	if from > int64(n) {
+		return n, n
+	}
+	return int(from - 1), int(end - 1)
+}
+
+// pad implements LPAD / RPAD: s is padded with fill (repeated) to n
+// characters, or truncated to n characters if longer.
+func pad(name, s string, n int64, fill string) (Value, error) {
+	if n <= 0 {
+		return stringValue(""), nil
+	}
+	if n > maxStringLen {
+		return Value{}, fmt.Errorf("%s: requested length too large", name)
+	}
+	r := []rune(s)
+	if int64(len(r)) >= n {
+		return stringValue(string(r[:n])), nil
+	}
+	if fill == "" {
+		return stringValue(s), nil
+	}
+	fr := []rune(fill)
+	need := int(n) - len(r)
+	padding := make([]rune, need)
+	for i := range padding {
+		padding[i] = fr[i%len(fr)]
+	}
+	if name == "LPAD" {
+		return stringValue(string(padding) + s), nil
+	}
+	return stringValue(s + string(padding)), nil
+}
+
+// initcap upper-cases the first letter of each word and lower-cases the
+// rest; words are runs of letters and digits.
+func initcap(s string) string {
+	var b strings.Builder
+	b.Grow(len(s))
+	inWord := false
+	for _, r := range s {
+		alnum := unicode.IsLetter(r) || unicode.IsDigit(r) || (inWord && unicode.IsMark(r))
+		switch {
+		case alnum && !inWord:
+			r = unicode.ToUpper(r)
+		case alnum:
+			r = unicode.ToLower(r)
+		}
+		inWord = alnum
+		b.WriteRune(r)
+	}
+	return b.String()
+}
+
+// regexpCache keeps compiled patterns across rows and statements.
+var regexpCache struct {
+	sync.Mutex
+	m map[string]*regexp.Regexp
+}
+
+func compileRegexp(expr string) (*regexp.Regexp, error) {
+	regexpCache.Lock()
+	re, ok := regexpCache.m[expr]
+	regexpCache.Unlock()
+	if ok {
+		return re, nil
+	}
+	re, err := regexp.Compile(expr)
+	if err != nil {
+		return nil, err
+	}
+	regexpCache.Lock()
+	if regexpCache.m == nil || len(regexpCache.m) >= 256 {
+		regexpCache.m = map[string]*regexp.Regexp{}
+	}
+	regexpCache.m[expr] = re
+	regexpCache.Unlock()
+	return re, nil
+}
+
+// regexpFlags are the options of a regular expression, from the flags
+// argument of the REGEXP_* functions.
+type regexpFlags struct {
+	global          bool // g: every match
+	caseInsensitive bool // i
+	literal         bool // q: the pattern is a literal string
+	dotNL           bool // '.' matches a newline
+	multiLine       bool // ^ and $ also match at line breaks
+}
+
+// parseRegexpFlags reads a flags argument with Postgres's meanings. Without
+// flags, '.' matches newlines and ^ and $ anchor the whole string.
+func parseRegexpFlags(name, flags string) (regexpFlags, error) {
+	fl := regexpFlags{dotNL: true}
+	for _, c := range flags {
+		switch c {
+		case 'g':
+			fl.global = true
+		case 'i':
+			fl.caseInsensitive = true
+		case 'c':
+			fl.caseInsensitive = false
+		case 'n', 'm':
+			fl.dotNL, fl.multiLine = false, true
+		case 's':
+			fl.dotNL, fl.multiLine = true, false
+		case 'p':
+			fl.dotNL, fl.multiLine = false, false
+		case 'w':
+			fl.dotNL, fl.multiLine = true, true
+		case 'q':
+			fl.literal = true
+		case 't':
+		case 'x', 'b', 'e':
+			return fl, stateErr(stateFeatureNotSupported, "%s: regular expression option %q is not supported", name, string(c))
+		default:
+			return fl, stateErr(stateInvalidParameter, "%s: invalid regular expression option %q", name, string(c))
+		}
+	}
+	return fl, nil
+}
+
+// regexpReplace implements REGEXP_REPLACE with Postgres's flags and
+// replacement syntax: the n-th match at or after byte offset from is
+// replaced, or every one of them if n is 0, and \1 … \9 and \& in the
+// replacement insert the groups and the whole match. Patterns use RE2
+// syntax (no backreferences or lookaround).
+func regexpReplace(s, pattern, repl string, fl regexpFlags, from int, n int64) (string, error) {
+	rs, err := compilePattern("REGEXP_REPLACE", pattern, fl)
+	if err != nil {
+		return "", err
+	}
+	if from < 0 {
+		return s, nil
+	}
+	limit := -1
+	if n > 0 {
+		// There are at most len(s)+1 matches.
+		limit = int(min(n, int64(len(s))+2))
+	}
+	matches, err := rs.all(s, from, limit)
+	if err != nil {
+		return "", err
+	}
+	if n > 0 {
+		if int64(len(matches)) < n {
+			return s, nil
+		}
+		matches = matches[n-1:]
+	}
+	if len(matches) == 0 {
+		return s, nil
+	}
+	var b strings.Builder
+	last := 0
+	for _, m := range matches {
+		b.WriteString(s[last:m[0]])
+		expandReplacement(&b, repl, s, m)
+		last = m[1]
+	}
+	b.WriteString(s[last:])
+	return b.String(), nil
+}
+
+// expandReplacement writes a REGEXP_REPLACE replacement for one match:
+// \1 … \9 are groups (empty if absent), \& is the whole match, \\ is a
+// backslash, and any other character is copied.
+func expandReplacement(b *strings.Builder, repl, src string, m []int) {
+	for i := 0; i < len(repl); i++ {
+		c := repl[i]
+		if c == '\\' && i+1 < len(repl) {
+			next := repl[i+1]
+			switch {
+			case next >= '1' && next <= '9':
+				g := int(next - '0')
+				if 2*g+1 < len(m) && m[2*g] >= 0 {
+					b.WriteString(src[m[2*g]:m[2*g+1]])
+				}
+				i++
+				continue
+			case next == '&':
+				b.WriteString(src[m[0]:m[1]])
+				i++
+				continue
+			case next == '\\':
+				b.WriteByte('\\')
+				i++
+				continue
+			}
+		}
+		b.WriteByte(c)
+	}
+}
