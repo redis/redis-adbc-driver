@@ -1,0 +1,20 @@
+{
+  "status": "passed",
+  "subscription_id": 3457767,
+  "database_id": 14709372,
+  "database_delete_task": "3edbef86-6b0b-4dfd-a3ce-d9318e025d16",
+  "acl_runs": [
+    "macos-proxy-cleanup.json",
+    "initial-linux-cluster-auto-cleanup.json",
+    "linux-cluster-auto-cleanup.json"
+  ],
+  "acl_cleanup_status": "passed; each run verified created resource IDs absent",
+  "database_absence_http": 404,
+  "database_absence_utc": "2026-10-21T22:17:28Z",
+  "subscription_delete_task": "64f0a5d0-5237-4d65-a0e7-44abb5935e65",
+  "subscription_absence_http": 404,
+  "subscription_absence_utc": "2026-10-21T22:18:56Z",
+  "linux_client_container": "removed by exact created container ID",
+  "private_tls_fixture": "removed",
+  "api_credential_sessions": "closed"
+}

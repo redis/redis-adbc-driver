@@ -1,0 +1,6 @@
+=== RUN   TestRetainedPartitionRevokeUsesCompleteJobKeySpace
+    partition_retained_store_integration_test.go:300: revocation left unaccounted chunks with different local limits 1 <nil>
+--- FAIL: TestRetainedPartitionRevokeUsesCompleteJobKeySpace (0.01s)
+FAIL
+FAIL	github.com/adbc-drivers/redis/go	0.633s
+FAIL

@@ -1,0 +1,189 @@
+{
+  "status": "complete",
+  "recorded_at": "2026-10-22T05:50:53.860189+00:00",
+  "scope": "#406 Q2/Q4/Q9/Q10; ordinary statement/internal aggregate workers; not a product ranking",
+  "rows": 99997497,
+  "primary_status": "complete",
+  "primary_trials": 24,
+  "valid_primary_trials": 24,
+  "summary": [
+    {
+      "query": 2,
+      "build": "baseline",
+      "trials": 3,
+      "seconds": 95.52620976000617,
+      "client_user_cpu_seconds": 598.259865,
+      "client_system_cpu_seconds": 30.334784000000003,
+      "process_peak_rss_bytes": 298627072,
+      "range_seconds": [
+        95.42875481100054,
+        98.44288334599696
+      ]
+    },
+    {
+      "query": 2,
+      "build": "candidate",
+      "trials": 3,
+      "seconds": 0.06360325399873545,
+      "client_user_cpu_seconds": 0.024783,
+      "client_system_cpu_seconds": 0.019443999999999996,
+      "process_peak_rss_bytes": 112029696,
+      "range_seconds": [
+        0.06180062799830921,
+        0.07501790000242181
+      ]
+    },
+    {
+      "query": 4,
+      "build": "baseline",
+      "trials": 3,
+      "seconds": 80.60027956799604,
+      "client_user_cpu_seconds": 895.356017,
+      "client_system_cpu_seconds": 46.633766,
+      "process_peak_rss_bytes": 476164096,
+      "range_seconds": [
+        80.38474924500042,
+        81.56829701000242
+      ]
+    },
+    {
+      "query": 4,
+      "build": "candidate",
+      "trials": 3,
+      "seconds": 78.14915362899774,
+      "client_user_cpu_seconds": 429.935497,
+      "client_system_cpu_seconds": 42.570162,
+      "process_peak_rss_bytes": 282886144,
+      "range_seconds": [
+        77.99329366299935,
+        79.6492684900004
+      ]
+    },
+    {
+      "query": 9,
+      "build": "baseline",
+      "trials": 3,
+      "seconds": 159.6626560759978,
+      "client_user_cpu_seconds": 425.90736300000003,
+      "client_system_cpu_seconds": 20.229655,
+      "process_peak_rss_bytes": 4714885120,
+      "range_seconds": [
+        158.87180670600355,
+        162.37206617999618
+      ]
+    },
+    {
+      "query": 9,
+      "build": "candidate",
+      "trials": 3,
+      "seconds": 96.58600259300147,
+      "client_user_cpu_seconds": 951.945845,
+      "client_system_cpu_seconds": 52.514175,
+      "process_peak_rss_bytes": 6364823552,
+      "range_seconds": [
+        96.10331262100226,
+        96.91312027899403
+      ]
+    },
+    {
+      "query": 10,
+      "build": "baseline",
+      "trials": 3,
+      "seconds": 280.191976326998,
+      "client_user_cpu_seconds": 727.1280409999999,
+      "client_system_cpu_seconds": 35.580692,
+      "process_peak_rss_bytes": 5247086592,
+      "range_seconds": [
+        280.1067360989982,
+        281.50200964700343
+      ]
+    },
+    {
+      "query": 10,
+      "build": "candidate",
+      "trials": 3,
+      "seconds": 113.82644761299889,
+      "client_user_cpu_seconds": 1236.879888,
+      "client_system_cpu_seconds": 64.625668,
+      "process_peak_rss_bytes": 6014205952,
+      "range_seconds": [
+        113.4484135360035,
+        114.01824559600209
+      ]
+    }
+  ],
+  "profiles_status": "complete",
+  "profile_count": 8,
+  "failure": null,
+  "provenance": {
+    "source": {
+      "baseline": "e692a704d2b70428086e145df00e73db7b1a253f",
+      "candidate": "b40b88fe683780cdc17b05cb0e5c7e4108a42014",
+      "test_followup": "c064caaca0e2894a1e828795bc8ce34e46bb3de8",
+      "runner": "bd0c039bc5d9e079c13c1dd6c050bd40cf0e5775"
+    },
+    "production_file_sha256": {
+      "go/aggregate.go": "8b55f192684176bcebdc03bf89e758a2b373d5dfc39b9f5b584c1299ef2c961a",
+      "go/aggregate_compact_integer.go": "3a7bf8434eb67b4cdae104aef356f153a187d47ebca4c4f57e7041d17dc1d6d4",
+      "go/aggregate_metrics.go": "b71ed068f9611866804b09f00bf6de2693919b31e2624fc637b201e6800bbd6e",
+      "go/execution_diagnostics.go": "8469d6d6bab5a67840345b68b3c062c36d2d05ac4bd14a10bd55b6dc64b718e0",
+      "go/parallel_aggregate.go": "fbc94b493fa234167d4c1b60de8c1873038568ba0f7800af95e94fd21889245f",
+      "go/partitioned_aggregate.go": "43410953fc167a95e40787f9fc4facc78d8af3f63db3430cf64ddc1d142d5b37",
+      "go/query.go": "bef4ace45cc50d960e82c7390aa3c2f4ae340fdd03458a94675c0027aa24746f",
+      "go/scalar_aggregate_scan.go": "6f484f2d778690e7c9cfd8056b04746c0c3978d89c946f333caf25bcdb932557",
+      "go/scan_hash_slices.go": "79f4e7fc255036ef5086fb953242ece9bd8671c09115bfbb1c9f0c11b44b43ff",
+      "go/scan_projection.go": "f4dcadac00093d90381045af0a5af35f770a657ceb4b33c00ff4c9943b4b327d"
+    },
+    "go_mod_sha256": "8f7ab2a6de205790164be618e567deff1f4186611e9aee83b54d01b57d6acb84",
+    "go_sum_sha256": "f720f3ef9b6ca3629b098fa28736526b2d2b8a1ec0683c6a3a2f5fad4db2b93c",
+    "scope": "ordinary SQL, exact aggregates, fully consumed Arrow; matched internal worker/budget settings recorded by the actual run",
+    "timing_claim": "Full-scale comparison, conditional on verified backup/restore window; no full-scale result exists before execution.",
+    "build_version": "v0.1.0",
+    "libraries": {
+      "baseline": {
+        "path": "/private/tmp/redis-remaining/linux-build/baseline.so",
+        "sha256": "86f5324d2a50a9b93b2e60ff4d496e48f93dda0650ad6a59cd3238faf4af5309"
+      },
+      "candidate": {
+        "path": "/private/tmp/redis-remaining/linux-build/candidate-b40b88f.so",
+        "sha256": "7ac480ba91e0105cc7a7cb1c0eb2cb3d5339834d4c14e21edb94118412a0d610"
+      }
+    },
+    "go_version": "go version go1.26.6 linux/amd64",
+    "image": "golang:1.26.6-bookworm@sha256:116d58cbd88c1297624acc6e967a060012422bacf9930927e23fb719189c6f36",
+    "build_flags": "CGO_ENABLED=1 -trimpath -buildvcs=false -buildmode=c-shared -tags driverlib -ldflags -s -w -X github.com/adbc-drivers/driverbase-go/driverbase.infoDriverVersion=v0.1.0",
+    "note": "Both immutable archives cross-built in the same constrained local Linux amd64 image, four CPU/8GiB, using the same compiler and flags; runtime resources/topology are recorded by the actual comparison.",
+    "intended_full_workers": 16
+  },
+  "source_sha256": "a390f6cb782f6aaef278c72fc1dd86c4f30bc843ebab3c159e9bd4d45ddb079f",
+  "artifacts": {
+    "package.tar.gz": {
+      "key": "full-c6a-20261021/performance-406/package.tar.gz",
+      "bytes": 95938597,
+      "sha256": "62447612e4d24dec8ec8f0fcc5627ab48be942c50a67384528f7ddbea904ed62",
+      "version_id": "T_mXvhgB7butK_cd.Lg3oKSVz151LoZM"
+    },
+    "run-evidence.tar.gz": {
+      "key": "full-c6a-20261021/performance-406/run-evidence.tar.gz",
+      "bytes": 2564630,
+      "sha256": "4598ddff633acdb025405a9476f460bf64bf60de94c4c0a796d1d78a101f4d89",
+      "version_id": "7iFHjZQIcdsaKmbnw1qUfnhDLytVosDz"
+    },
+    "results.json": {
+      "key": "full-c6a-20261021/performance-406/results.json",
+      "bytes": 111190,
+      "sha256": "443d9d5c92dedc4d1f5ec0aa4400ef11a10c40f40d135ce4e97e613ad4d8360e",
+      "version_id": "4_fDgR.IKTctAsG0L0zxvbW3vILmjhC8"
+    },
+    "server-settings.json": {
+      "key": "full-c6a-20261021/performance-406/server-settings.json",
+      "bytes": 153424,
+      "sha256": "0e6ffe0357e78ba7937dce69203be9e7b6de115ac956968f4adf82575203c416",
+      "version_id": "60HM8NxQzeJpX4D83FFSG__5Wyry5dgk"
+    }
+  },
+  "no_active_jobs": true,
+  "journaled_units": 34,
+  "backup_manifest_key": "backups/full-c6a-20261021/manifest.json",
+  "restore_evidence_key": "backups/full-c6a-20261021/restore-drill.json"
+}

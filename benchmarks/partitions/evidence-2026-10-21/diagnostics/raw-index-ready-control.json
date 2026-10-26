@@ -1,0 +1,89 @@
+{
+  "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+  "redis_version": "8.6.2",
+  "search_module": [
+    [
+      "name",
+      "bf",
+      "ver",
+      80600,
+      "path",
+      "/usr/local/lib/redis/modules//redisbloom.so",
+      "args",
+      []
+    ],
+    [
+      "name",
+      "search",
+      "ver",
+      80600,
+      "path",
+      "/usr/local/lib/redis/modules//redisearch.so",
+      "args",
+      []
+    ],
+    [
+      "name",
+      "vectorset",
+      "ver",
+      1,
+      "path",
+      "",
+      "args",
+      []
+    ],
+    [
+      "name",
+      "timeseries",
+      "ver",
+      80600,
+      "path",
+      "/usr/local/lib/redis/modules//redistimeseries.so",
+      "args",
+      []
+    ],
+    [
+      "name",
+      "ReJSON",
+      "ver",
+      80600,
+      "path",
+      "/usr/local/lib/redis/modules//rejson.so",
+      "args",
+      []
+    ]
+  ],
+  "aggregate_cap": 2147483648,
+  "rows_ingested": 100000,
+  "rows_after_delete": 10000,
+  "repeats_per_protocol": 200,
+  "trials": 400,
+  "failures": [],
+  "index_after_delete": {
+    "num_docs": 10000,
+    "indexing": 1,
+    "percent_indexed": "1.9471348090821146",
+    "gc_stats": [
+      "bytes_collected",
+      "0",
+      "total_ms_run",
+      "0",
+      "total_cycles",
+      "0",
+      "average_cycle_time_ms",
+      "nan",
+      "last_run_time_ms",
+      "0",
+      "gc_numeric_trees_missed",
+      "0",
+      "gc_blocks_denied",
+      "0"
+    ]
+  },
+  "readiness_wait_seconds": 0.05128691600111779,
+  "index_before_reads": {
+    "num_docs": 10000,
+    "indexing": 0,
+    "percent_indexed": "1"
+  }
+}

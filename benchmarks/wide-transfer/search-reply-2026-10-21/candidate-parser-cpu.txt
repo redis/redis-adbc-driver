@@ -1,0 +1,17 @@
+File: go.test
+Type: cpu
+Time: 2026-10-21 15:19:43 PDT
+Duration: 12.22s, Total samples = 7.19s (58.85%)
+Active filters:
+   focus=parseCursorReplyLists
+Showing nodes accounting for 0.02s, 0.28% of 7.19s total
+Showing top 8 nodes out of 59
+      flat  flat%   sum%        cum   cum%
+         0     0%     0%      0.56s  7.79%  github.com/adbc-drivers/redis/go.TestSearchReplyScanProfile
+     0.01s  0.14%  0.14%      0.56s  7.79%  github.com/adbc-drivers/redis/go.parseCursorReplyLists
+         0     0%  0.14%      0.56s  7.79%  testing.tRunner
+     0.01s  0.14%  0.28%      0.55s  7.65%  github.com/adbc-drivers/redis/go.parseAggregateRow
+         0     0%  0.28%      0.54s  7.51%  github.com/adbc-drivers/redis/go.(*aggCursor).next
+         0     0%  0.28%      0.54s  7.51%  github.com/adbc-drivers/redis/go.(*scanIter).next
+         0     0%  0.28%      0.54s  7.51%  github.com/adbc-drivers/redis/go.(*scanIter).nextPage
+         0     0%  0.28%      0.54s  7.51%  github.com/adbc-drivers/redis/go.(*streamReader).fillArrow

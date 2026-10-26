@@ -1,0 +1,52 @@
+{
+  "date": "2026-10-21 America/Los_Angeles",
+  "base": "0a84794",
+  "author": "Codex",
+  "requestor": "Albert Wong",
+  "public_retained_execution_enabled": false,
+  "go": "1.26.6",
+  "platform": "macOS ARM64",
+  "fixtures": {
+    "standalone": "Redis 8.10.2/Search 8.10.1; RESP3; localhost:16483",
+    "cluster": "Redis 8.6.2/Search 8.6.0; three primaries; RESP3; localhost:16701-16703"
+  },
+  "results": {
+    "standalone_race": {
+      "passed": 44,
+      "skipped": 1,
+      "skip": "internal subprocess helper; actually executed by two child replay processes"
+    },
+    "cluster_race": {
+      "passed": 23,
+      "skipped": 1,
+      "skip": "internal subprocess helper; actually executed by two child replay processes"
+    },
+    "native_python": {
+      "passed": 372,
+      "skipped": 8,
+      "subtests": 3,
+      "partition_cases": 10
+    },
+    "fuzz_final": {
+      "cases": 284474,
+      "failures": 0
+    }
+  },
+  "cleanup": {
+    "owned_keys_users_indexes_remaining": 0,
+    "native_fixture_stopped": true,
+    "label_verified_cluster_removed": true,
+    "cloud_resources_created": false
+  },
+  "sha256": {
+    "go/partition_retained_ipc.go": "500cfc75f3586e938571c019a1068c96e9c294fcb325aa51a6382268c6cbf48a",
+    "go/partition_retained_ipc_test.go": "96d3553904c5a3d96e58bc2cb7a10cde901bac62f0406bddf6666d79b1843ded",
+    "go/partition_retained_reader.go": "e1a2cd7fc03ddbd5887f453a4dbe98481ee424b5ead4696818d7cfb384b8da04",
+    "go/partition_retained_reader_integration_test.go": "9869323b0b47ed959b73a5ecc949165d3e8583675c8531d6f04a9fda66ee7dca",
+    "go/partition_retained_descriptor.go": "79cd3cbceb1503bdeadfb39bbe8ec78a3ff4e1aab18e26f413d2607014d3a902",
+    "go/partition_retained_descriptor_test.go": "b3929943ca50ca6332ea688e6481e1b6cb17594258ae4efb417923c74d4cbf07",
+    "go/partition_retained_store_integration_test.go": "1c2412599001371cd963a218b826965956720c52b4e1193bc52d34b877708f15",
+    "go/stream.go": "eeb494740704e8a913385d790d5da6cffdea0c6afa42f84936c9e27ec820e070",
+    "go/build/libadbc_driver_redis.dylib": "a14ef671847d108ddb6d557f934bf1024dde8de9d64a274eff9c2782b3b9c5f2"
+  }
+}

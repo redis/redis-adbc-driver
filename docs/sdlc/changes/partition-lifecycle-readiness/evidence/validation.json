@@ -1,0 +1,109 @@
+{
+  "source_base": "455acb7",
+  "runtime_source": "4b0fdb5; no production Go changes in this change",
+  "harness_sha256": {
+    "scripts/check_partition_tls.py": "98d873914a343f285dace44749321fdf4b451733d646dcdfb5bca61f050808ff",
+    "scripts/partition_tls_resharding.py": "fd64c4939d6ab2ca3b4f684d28936b332c2abe1eee377188360ade53d42522a9",
+    "scripts/test_oss_cluster_partition_tls.py": "14e344811525ad06fa81be07eeeea2746d3e47b0a69452701f1e6e8a526b5e66",
+    "go/validation/tests/test_partitions.py": "9cc06aa347e556ae77d7f4a42e7676eec0637e12a577e1f99cc9223b4bd7591c",
+    "go/partition_ownership_integration_test.go": "51768648a2f393430fd1d5ef66e2cbbbad1beb7116b52a5f79f18388c0ffbb0a",
+    "scripts/check_partition_junit.py": "5249bece6535b3f3f769e8971a4d6a01086d57295ec520afdebe874e4983d3e9"
+  },
+  "library_sha256": "8de7df9de8155b7960ca9552507361c06cf6b48d5e69aac9934b5255673bced6",
+  "tls_runs": 12,
+  "tls_checks": 228,
+  "routing_modes": [
+    "auto",
+    "true"
+  ],
+  "management_fault_checks": 32,
+  "repetition_summary": [
+    {
+      "run": 0,
+      "mode": "auto",
+      "convergence_attempts": 10
+    },
+    {
+      "run": 1,
+      "mode": "true",
+      "convergence_attempts": 6
+    },
+    {
+      "run": 2,
+      "mode": "auto",
+      "convergence_attempts": 4
+    },
+    {
+      "run": 3,
+      "mode": "true",
+      "convergence_attempts": 7
+    },
+    {
+      "run": 4,
+      "mode": "auto",
+      "convergence_attempts": 4
+    },
+    {
+      "run": 5,
+      "mode": "true",
+      "convergence_attempts": 6
+    },
+    {
+      "run": 6,
+      "mode": "auto",
+      "convergence_attempts": 5
+    },
+    {
+      "run": 7,
+      "mode": "true",
+      "convergence_attempts": 9
+    },
+    {
+      "run": 8,
+      "mode": "auto",
+      "convergence_attempts": 11
+    },
+    {
+      "run": 9,
+      "mode": "true",
+      "convergence_attempts": 5
+    },
+    {
+      "run": 10,
+      "mode": "auto",
+      "convergence_attempts": 11
+    },
+    {
+      "run": 11,
+      "mode": "true",
+      "convergence_attempts": 9
+    }
+  ],
+  "native_python": {
+    "partition_cases_passed": 10,
+    "full_passed": 372,
+    "feature_skips": 8,
+    "subtests_passed": 3
+  },
+  "hosted_failure": {
+    "run": 39691875576,
+    "job": 119539821225,
+    "platform": "Linux ARM64"
+  },
+  "limits": [
+    "The exact underlying Search/driver race is not attributed conclusively. This strengthens fixture readiness, not runtime retries or snapshot semantics.",
+    "New runtime features requested for #359/#360/#362 remain pending; none is closed by this change."
+  ],
+  "go_partitions_race": {
+    "passed": 21,
+    "skipped": 0,
+    "runtime_cap_test_enabled": true,
+    "seconds": 3.446
+  },
+  "cleanup": {
+    "owned_native_pid_stopped": true,
+    "owned_tls_container_removed": true,
+    "private_directories_removed": true,
+    "paid_resources_created": false
+  }
+}

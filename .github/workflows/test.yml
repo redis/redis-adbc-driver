@@ -1,0 +1,328 @@
+# Copyright (c) 2026 ADBC Drivers Contributors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Routine PRs use amd64 Software single shard and OSS Cluster API. Sensitive
+# changes, nightly runs, releases and manual runs retain all eight combinations.
+# Both architectures matter because floating-point behavior differs.
+name: Test
+
+on:
+  schedule:
+    - cron: '17 9 * * *'
+  release:
+    types: [published]
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/test.yml
+      - scripts/ci_test_matrix.py
+      - scripts/test_ci_test_matrix.py
+      - .github/actions/build-adbc-scanner/**
+      - .github/actions/duckdb-build-cache/**
+      - go/**
+      - python/**
+      - scripts/build_python_wheel.py
+      - scripts/install*
+      - scripts/test_cluster_ready.py
+      - scripts/*partition*
+      - benchmarks/clickbench/**
+      - benchmarks/qpf/**
+      - benchmarks/workers/**
+      - benchmarks/worker-autotune/**
+      - '!**/*.md'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  coverage:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.select.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Select Redis coverage from the complete PR diff
+        id: select
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          matrix=$(python3 scripts/ci_test_matrix.py --event "$EVENT" --base "$BASE" --head "$HEAD")
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "$matrix" >> "$GITHUB_STEP_SUMMARY"
+
+  helpers:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check CI coverage selection
+        run: python3 -m unittest discover -s scripts -p test_ci_test_matrix.py -v
+      - name: Check cluster readiness gate
+        if: hashFiles('scripts/test_cluster_ready.py') != ''
+        run: python3 -m unittest discover -s scripts -p test_cluster_ready.py -v
+
+      - uses: astral-sh/setup-uv@v10.2.0
+
+      - name: Check ClickBench loading helpers
+        run: |
+          uv run --no-project --with pyarrow --with redis --with adbc-driver-manager --with 'duckdb==2.0.*' \
+            python -m unittest discover -s benchmarks/clickbench -v
+
+      - name: Check performance benchmark syntax
+        run: python3 -m py_compile benchmarks/qpf/*.py benchmarks/workers/*.py
+
+      - name: Check autotuning measurement gate
+        run: python3 -m unittest discover -s benchmarks/worker-autotune/controlled -v
+
+  linux:
+    needs: coverage
+    name: linux-${{ matrix.arch }}-${{ matrix.environment }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.coverage.outputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
+    env:
+      REDIS_URI: redis://localhost:6379/0
+      REDIS_PARTITION_SCAN_CAP: "2147483648"
+      # software-setup.sh verifies noeviction through the owned management API;
+      # Software filters CONFIG GET maxmemory-policy at its data proxy.
+      REDIS_RETAINED_CONTROL_PERSISTENCE: ${{ startsWith(matrix.environment, 'software-') && 'guaranteed' || 'auto' }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go/go.mod
+          cache-dependency-path: go/go.sum
+      - uses: astral-sh/setup-uv@v10.2.0
+
+      # The validation suite loads go/build/libadbc_driver_redis.so.
+      - name: Build
+        working-directory: go
+        run: make build
+
+      - name: Start Redis with Search
+        working-directory: go
+        env:
+          REDIS_ENVIRONMENT: ${{ matrix.environment }}
+        run: |
+          case "$REDIS_ENVIRONMENT" in
+            software-single) SOFTWARE_SHARDS=1 make redis-up ;;
+            software-cluster) SOFTWARE_SHARDS=3 make redis-up ;;
+            oss-single)
+              make redis-oss-up
+              docker compose exec -T redis redis-cli -e FT._LIST
+              ;;
+            oss-cluster)
+              docker compose --profile cluster up --detach --wait redis-cluster
+              for port in 7001 7002 7003; do
+                docker compose exec -T redis-cluster redis-cli -e -p "$port" FT._LIST
+              done
+              echo 'REDIS_URI=redis://localhost:7001/0' >> "$GITHUB_ENV"
+              ;;
+          esac
+
+      # The Go packages share a database. Keep them sequential within each
+      # job; opening a connection can roll back another package's test moves.
+      - name: Install Python analytics integrations
+        if: matrix.integrations
+        run: |
+          uv venv --python 3.14 /tmp/redis-python-tests
+          uv pip install --python /tmp/redis-python-tests/bin/python './python[test]' 'duckdb==2.0.*'
+          echo "DUCKDB_TEST_VERSION=$(/tmp/redis-python-tests/bin/python -c 'import duckdb; print(duckdb.__version__)')" >> "$GITHUB_ENV"
+
+      - name: Build matching DuckDB 2.0 ADBC scanner
+        if: matrix.integrations
+        id: scanner
+        uses: ./.github/actions/build-adbc-scanner
+        with:
+          duckdb-version: ${{ env.DUCKDB_TEST_VERSION }}
+
+      - name: Python analytics integrations
+        if: matrix.integrations
+        env:
+          REDIS_ADBC_LIBRARY: ${{ github.workspace }}/go/build/libadbc_driver_redis.so
+          ADBC_SCANNER_EXTENSION: ${{ steps.scanner.outputs.extension }}
+          QUERY_FARM_TELEMETRY_OPT_OUT: '1'
+          RUN_DUCKDB_TESTS: '1'
+        run: |
+          /tmp/redis-python-tests/bin/python -m pytest -q python/tests/
+
+      - name: Superset integration
+        if: matrix.arch == 'amd64' && matrix.integrations
+        env:
+          REDIS_ADBC_LIBRARY: ${{ github.workspace }}/go/build/libadbc_driver_redis.so
+          RUN_SUPERSET_TESTS: '1'
+        run: |
+          uv venv --python 3.12 /tmp/redis-superset-tests
+          # Superset 6.1 needs Python 3.12 and SQLAlchemy 1.4; keep it isolated.
+          uv pip install --python /tmp/redis-superset-tests/bin/python \
+            './python[superset]' 'pytest>=9.1.1'
+          /tmp/redis-superset-tests/bin/python -m pytest -q python/tests/test_sqlalchemy.py python/tests/test_superset.py
+
+      - name: Go tests
+        working-directory: go
+        run: |
+          if [[ "${{ matrix.environment }}" == oss-* ]]; then
+            # Probe actual runtime limits; a fixed positive option would bypass
+            # discovery. The test saves/restores every OSS primary's setting.
+            env -u REDIS_PARTITION_SCAN_CAP REDIS_PARTITION_CAP_TEST=1 go test -count=1 -p 1 ./...
+          else
+            go test -count=1 -p 1 ./...
+          fi
+
+      - name: Python ADBC validation
+        working-directory: go/validation
+        run: |
+          uv run pytest -q -ra --junitxml=validation.xml tests/
+          python3 ../../scripts/check_partition_junit.py validation.xml
+
+      - name: Owned TLS fixture management fault checks
+        if: matrix.integrations
+        run: go/validation/.venv/bin/python -m unittest discover -s scripts -p 'test_*partition_tls.py' -v
+
+      - name: Upload validation results (including feature skips)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: validation-${{ matrix.arch }}-${{ matrix.environment }}
+          path: go/validation/validation.xml
+          if-no-files-found: warn
+
+      - name: Partition benchmark smoke (exact schema and values)
+        if: matrix.arch == 'amd64' && matrix.integrations
+        working-directory: go/validation
+        run: |
+          uv run python ../../benchmarks/partitions/run.py \
+            --driver "$PWD/../build/libadbc_driver_redis.so" --rows 1000 \
+            --partitions 1 4 --workers 1 2 --output partition-smoke.json
+
+      - name: Upload partition measurement
+        if: always() && matrix.arch == 'amd64' && matrix.integrations
+        uses: actions/upload-artifact@v7
+        with:
+          name: partition-smoke
+          path: go/validation/partition-smoke.json
+          if-no-files-found: warn
+
+      - name: SQLAlchemy PostgreSQL reflection
+        working-directory: go/validation
+        env:
+          REDIS_ADBC_LIBRARY: ${{ github.workspace }}/go/build/libadbc_driver_redis.so
+        run: uv run --with 'sqlalchemy>=2.1' python check_catalog_reflection.py
+
+      - name: Start disposable TLS-only partition fixture
+        if: matrix.integrations
+        run: bash scripts/start_partition_tls.sh "$RUNNER_TEMP/partition-tls" redis-partition-tls 16390
+
+      - name: Native partitions over verified TLS and restricted worker ACLs
+        if: matrix.integrations
+        env:
+          REDIS_ADBC_LIBRARY: ${{ github.workspace }}/go/build/libadbc_driver_redis.so
+        run: |
+          export REDIS_TLS_ADMIN_URI="$(cat "$RUNNER_TEMP/partition-tls/admin.uri")"
+          export SSL_CERT_FILE="$RUNNER_TEMP/partition-tls/ca.crt"
+          go/validation/.venv/bin/python scripts/check_partition_tls.py --output "$RUNNER_TEMP/partition-tls-result.json"
+
+      - name: Upload TLS partition evidence
+        if: always() && matrix.integrations
+        uses: actions/upload-artifact@v7
+        with:
+          name: partition-tls-${{ matrix.arch }}
+          path: ${{ runner.temp }}/partition-tls-result.json
+          if-no-files-found: warn
+
+      - name: Remove TLS partition fixture
+        if: always() && matrix.integrations
+        run: |
+          if docker container inspect redis-partition-tls >/dev/null 2>&1; then docker rm -f redis-partition-tls; fi
+          rm -rf "$RUNNER_TEMP/partition-tls"
+
+      - name: Start owned three-primary TLS Cluster fixture
+        if: matrix.environment == 'oss-cluster'
+        run: bash scripts/start_partition_tls_cluster.sh "$RUNNER_TEMP/partition-cluster-tls" redis-partition-cluster-tls 16394
+
+      - name: Native partitions through three verified TLS primary endpoints
+        if: matrix.environment == 'oss-cluster'
+        env:
+          REDIS_ADBC_LIBRARY: ${{ github.workspace }}/go/build/libadbc_driver_redis.so
+        run: |
+          export REDIS_TLS_ADMIN_URI="$(cat "$RUNNER_TEMP/partition-cluster-tls/admin.uri")"
+          export SSL_CERT_FILE="$RUNNER_TEMP/partition-cluster-tls/ca.crt"
+          go/validation/.venv/bin/python scripts/check_partition_tls.py \
+            --oss-cluster-fixture "$RUNNER_TEMP/partition-cluster-tls" --minimum-cluster-primaries 3 \
+            --output "$RUNNER_TEMP/partition-cluster-tls-result.json"
+
+      - name: Upload three-primary TLS evidence
+        if: always() && matrix.environment == 'oss-cluster'
+        uses: actions/upload-artifact@v7
+        with:
+          name: partition-cluster-tls-${{ matrix.arch }}
+          path: |
+            ${{ runner.temp }}/partition-cluster-tls-result.json
+            ${{ runner.temp }}/partition-cluster-tls/cluster-acl-cleanup.json
+          if-no-files-found: warn
+
+      - name: Remove owned three-primary TLS fixture
+        if: always() && matrix.environment == 'oss-cluster'
+        run: |
+          if docker container inspect redis-partition-cluster-tls >/dev/null 2>&1; then
+            test "$(docker inspect -f '{{index .Config.Labels "codex.fixture"}}' redis-partition-cluster-tls)" = partition-tls-cluster
+            docker rm -f redis-partition-cluster-tls
+          fi
+          rm -rf "$RUNNER_TEMP/partition-cluster-tls"
+
+      - name: Prepare verified Redis Software proxy TLS
+        if: startsWith(matrix.environment, 'software-')
+        run: |
+          go/validation/.venv/bin/python -m unittest discover -s scripts -p test_software_partition_tls.py -v
+          shards=1
+          if [ "${{ matrix.environment }}" = software-cluster ]; then shards=3; fi
+          go/validation/.venv/bin/python scripts/software_partition_tls.py "$RUNNER_TEMP/software-partition-tls" \
+            --container "$(docker compose -f go/compose.yaml ps -q redis-software)" \
+            --api-port 19443 --db-port 6379 --shards "$shards"
+
+      - name: Native partitions over Software proxy TLS and independent RBAC
+        if: startsWith(matrix.environment, 'software-')
+        env:
+          REDIS_ADBC_LIBRARY: ${{ github.workspace }}/go/build/libadbc_driver_redis.so
+        run: |
+          export REDIS_TLS_ADMIN_URI="$(cat "$RUNNER_TEMP/software-partition-tls/admin.uri")"
+          export SSL_CERT_FILE="$RUNNER_TEMP/software-partition-tls/ca.crt"
+          go/validation/.venv/bin/python scripts/check_partition_tls.py \
+            --software-fixture "$RUNNER_TEMP/software-partition-tls" \
+            --output "$RUNNER_TEMP/software-partition-tls-result.json"
+
+      - name: Upload Software proxy TLS evidence
+        if: always() && startsWith(matrix.environment, 'software-')
+        uses: actions/upload-artifact@v7
+        with:
+          name: software-partition-tls-${{ matrix.arch }}-${{ matrix.environment }}
+          path: ${{ runner.temp }}/software-partition-tls-result.json
+          if-no-files-found: warn
+
+      - name: Remove Software TLS private material
+        if: always() && startsWith(matrix.environment, 'software-')
+        run: rm -rf "$RUNNER_TEMP/software-partition-tls"
+
+      - name: Redis logs on failure
+        if: failure()
+        working-directory: go
+        run: docker compose --profile oss --profile cluster logs --no-color

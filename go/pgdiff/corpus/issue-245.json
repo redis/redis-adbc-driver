@@ -1,0 +1,35 @@
+{
+  "area": "metadata",
+  "source": "https://github.com/alberttwong/redis-adbc-driver/issues/245",
+  "setup": [
+    "CREATE TABLE t (id integer, name varchar(20), score integer, grp varchar(10))",
+    "INSERT INTO t VALUES (1, 'apple', 10, 'a'), (2, 'Banana', NULL, 'a'), (3, 'cherry', 30, 'b'), (4, '_x', 20, 'b')",
+    "CREATE TABLE u (id integer, label text)",
+    "INSERT INTO u VALUES (1, 'one'), (2, 'two')"
+  ],
+  "cases": [
+    {
+      "id": "row-1",
+      "sql": "select column_name, data_type from information_schema.columns where table_schema = '{{schema}}' and table_name = 't' order by ordinal_position",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-2",
+      "sql": "select udt_name from information_schema.columns where table_schema = '{{schema}}' and table_name = 't' and column_name = 'name'",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-3",
+      "sql": "select table_catalog, is_identity, is_generated, collation_name from information_schema.columns where table_schema = '{{schema}}' and table_name = 't' order by ordinal_position",
+      "adaptation": "Expanded the ellipsis with an explicit current-schema/table filter.",
+      "expect_postgres": null,
+      "context_values": {
+        "0": {
+          "postgres": "postgres",
+          "redis": "redis"
+        }
+      }
+    }
+  ],
+  "tier": "issues"
+}

@@ -1,0 +1,97 @@
+{
+  "metadata": {
+    "dataset": "synthetic 105-column fixture, 100000 rows",
+    "protocol": "RESP3",
+    "server": "local Redis OSS with Search",
+    "execution": "one partition caller, 65536-ID ranges; three trials per strategy",
+    "baseline": "baa9610 execution shape (server source tuples; original spill keys; general merge)",
+    "candidate": "narrow rows, complete COUNT group keys, count-only top-K merge",
+    "correctness": "Identical selected group keys and exact counts in all six trials; COUNT ties share deterministic SQL group-key order",
+    "limitation": "Not the full ClickBench data, Cloud 40-shard endpoint, 300-second process deadline, or 62126-MiB cgroup cap",
+    "redis_version": "8.6.2",
+    "go_version": "go1.26.6",
+    "client_os_arch": "darwin/arm64",
+    "redis_os_arch": "Linux/aarch64",
+    "order": "Three baseline trials, then three candidate trials; in-memory local server, not controlled cloud cold/hot trials"
+  },
+  "trials": [
+    {
+      "allocated_bytes": 1434650760,
+      "allocations": 15800662,
+      "logical_value_bytes": 12341174,
+      "merge_seconds": 0.277943917,
+      "partition_seconds": 2.655518625,
+      "redis_read_bytes": 37483524,
+      "rows": 100000,
+      "spill_bytes": 12506722,
+      "strategy": "server_source_tuples",
+      "trial": 1,
+      "tuples": 100000
+    },
+    {
+      "allocated_bytes": 1434645696,
+      "allocations": 15800655,
+      "logical_value_bytes": 12341174,
+      "merge_seconds": 0.276141417,
+      "partition_seconds": 2.570251584,
+      "redis_read_bytes": 37483524,
+      "rows": 100000,
+      "spill_bytes": 12506722,
+      "strategy": "server_source_tuples",
+      "trial": 2,
+      "tuples": 100000
+    },
+    {
+      "allocated_bytes": 1434644832,
+      "allocations": 15800654,
+      "logical_value_bytes": 12341174,
+      "merge_seconds": 0.258445959,
+      "partition_seconds": 2.547221166,
+      "redis_read_bytes": 37483521,
+      "rows": 100000,
+      "spill_bytes": 12506722,
+      "strategy": "server_source_tuples",
+      "trial": 3,
+      "tuples": 100000
+    },
+    {
+      "allocated_bytes": 734792208,
+      "allocations": 9302473,
+      "logical_value_bytes": 5141174,
+      "merge_seconds": 0.054379417,
+      "partition_seconds": 2.233422291,
+      "redis_read_bytes": 19809063,
+      "rows": 100000,
+      "spill_bytes": 10806722,
+      "strategy": "narrow_rows",
+      "trial": 1,
+      "tuples": 100000
+    },
+    {
+      "allocated_bytes": 734792272,
+      "allocations": 9302474,
+      "logical_value_bytes": 5141174,
+      "merge_seconds": 0.054432792,
+      "partition_seconds": 2.143044166,
+      "redis_read_bytes": 19809063,
+      "rows": 100000,
+      "spill_bytes": 10806722,
+      "strategy": "narrow_rows",
+      "trial": 2,
+      "tuples": 100000
+    },
+    {
+      "allocated_bytes": 734792256,
+      "allocations": 9302475,
+      "logical_value_bytes": 5141174,
+      "merge_seconds": 0.053401959,
+      "partition_seconds": 2.1922085,
+      "redis_read_bytes": 19809063,
+      "rows": 100000,
+      "spill_bytes": 10806722,
+      "strategy": "narrow_rows",
+      "trial": 3,
+      "tuples": 100000
+    }
+  ]
+}

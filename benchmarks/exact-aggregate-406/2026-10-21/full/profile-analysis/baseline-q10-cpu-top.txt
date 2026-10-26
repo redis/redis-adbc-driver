@@ -1,0 +1,50 @@
+File: baseline-profile.test
+Build ID: 1eaf8555b19f816ad65f9f7a34bac76f51876d47
+Type: cpu
+Time: 2026-10-21 22:34:34 PDT
+Duration: 279.44s, Total samples = 779.08s (278.80%)
+Showing nodes accounting for 547.25s, 70.24% of 779.08s total
+Dropped 687 nodes (cum <= 3.90s)
+Showing top 40 nodes out of 180
+      flat  flat%   sum%        cum   cum%
+   121.88s 15.64% 15.64%    121.88s 15.64%  runtime.spanClass.sizeclass (inline)
+    68.34s  8.77% 24.42%    205.46s 26.37%  runtime.tryDeferToSpanScan
+    20.91s  2.68% 27.10%     20.91s  2.68%  aeshashbody
+    20.85s  2.68% 29.78%     79.86s 10.25%  runtime.scanObjectsSmall
+    18.25s  2.34% 32.12%     18.25s  2.34%  runtime.nextFreeFast (inline)
+    17.79s  2.28% 34.40%     17.79s  2.28%  internal/runtime/maps.ctrlGroup.matchH2 (inline)
+       16s  2.05% 36.46%     28.06s  3.60%  internal/runtime/maps.(*Iter).Next
+    15.93s  2.04% 38.50%     15.93s  2.04%  runtime.memmove
+    15.75s  2.02% 40.52%     15.75s  2.02%  runtime.memclrNoHeapPointers
+    14.15s  1.82% 42.34%    167.53s 21.50%  runtime.scanObject
+    13.17s  1.69% 44.03%    152.02s 19.51%  runtime.mallocgc
+    12.81s  1.64% 45.67%     12.81s  1.64%  memeqbody
+    12.44s  1.60% 47.27%     69.41s  8.91%  runtime.mallocgcSmallScanNoHeader
+    10.12s  1.30% 48.57%     10.12s  1.30%  cmpbody
+     9.92s  1.27% 49.84%     11.63s  1.49%  runtime.heapArenaOf (inline)
+     9.74s  1.25% 51.09%      9.96s  1.28%  runtime.heapSetTypeSmallHeader (inline)
+     9.74s  1.25% 52.34%     21.21s  2.72%  runtime.mallocgcTiny
+     8.61s  1.11% 53.45%     28.65s  3.68%  runtime.mapaccess2_faststr
+     8.53s  1.09% 54.54%     52.76s  6.77%  github.com/adbc-drivers/redis/go.redisReplyMap
+     8.01s  1.03% 55.57%     11.64s  1.49%  runtime.typePointers.next
+     7.88s  1.01% 56.58%     55.86s  7.17%  github.com/adbc-drivers/redis/go.distinctValues
+     6.77s  0.87% 57.45%      7.64s  0.98%  runtime.(*mspan).writeHeapBitsSmall
+     6.75s  0.87% 58.32%      6.75s  0.87%  runtime.typePointers.nextFast (inline)
+     6.73s  0.86% 59.18%     22.99s  2.95%  runtime.sweepone
+     6.71s  0.86% 60.04%     41.49s  5.33%  github.com/adbc-drivers/redis/go.(*tupleAggregatePlan).row (inline)
+     6.44s  0.83% 60.87%     29.09s  3.73%  runtime.mapassign_faststr
+     6.04s  0.78% 61.64%     11.88s  1.52%  bufio.(*Reader).Read
+     5.94s  0.76% 62.41%      6.15s  0.79%  runtime.(*mspan).moveInlineMarks
+     5.51s  0.71% 63.11%     14.20s  1.82%  bufio.(*Reader).ReadSlice
+     5.45s   0.7% 63.81%     56.59s  7.26%  github.com/adbc-drivers/redis/go.(*tupleAggregatePlan).tuple
+     5.45s   0.7% 64.51%      5.45s   0.7%  runtime.getMCache (inline)
+     5.34s  0.69% 65.20%      5.34s  0.69%  internal/runtime/syscall/linux.Syscall6
+     5.28s  0.68% 65.88%      5.28s  0.68%  indexbytebody
+     5.17s  0.66% 66.54%     17.05s  2.19%  io.ReadAtLeast
+     5.06s  0.65% 67.19%      9.09s  1.17%  internal/strconv.ParseInt
+        5s  0.64% 67.83%      9.19s  1.18%  runtime.findObject
+     4.99s  0.64% 68.47%     15.56s  2.00%  github.com/adbc-drivers/redis/go.writeSpillTuple
+     4.70s   0.6% 69.08%      4.70s   0.6%  runtime.acquirem (inline)
+     4.66s   0.6% 69.67%     43.96s  5.64%  runtime.mapassign
+     4.44s  0.57% 70.24%      4.44s  0.57%  runtime.madvise
+

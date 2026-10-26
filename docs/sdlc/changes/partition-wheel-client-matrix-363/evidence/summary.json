@@ -1,0 +1,99 @@
+{
+  "source": "053e638",
+  "status": "passed",
+  "local_cells": [
+    {
+      "file": "linux-arm64-py3.13-adbc1.12.0.json",
+      "platform": "Linux-7.0.14-linuxkit-aarch64-with-glibc2.28",
+      "machine": "aarch64",
+      "python": "3.13.16",
+      "manager": "1.12.0",
+      "native_sha256": "260c3c69850d32fc3788c70b622d4f2d23c9cd9a3d66a90f3a308a4b063e06ce",
+      "checks": 15
+    },
+    {
+      "file": "linux-arm64-py3.13-adbc1.8.0.json",
+      "platform": "Linux-7.0.14-linuxkit-aarch64-with-glibc2.28",
+      "machine": "aarch64",
+      "python": "3.13.16",
+      "manager": "1.8.0",
+      "native_sha256": "260c3c69850d32fc3788c70b622d4f2d23c9cd9a3d66a90f3a308a4b063e06ce",
+      "checks": 15
+    },
+    {
+      "file": "linux-arm64-py3.14-adbc1.12.0.json",
+      "platform": "Linux-7.0.14-linuxkit-aarch64-with-glibc2.28",
+      "machine": "aarch64",
+      "python": "3.14.8",
+      "manager": "1.12.0",
+      "native_sha256": "260c3c69850d32fc3788c70b622d4f2d23c9cd9a3d66a90f3a308a4b063e06ce",
+      "checks": 15
+    },
+    {
+      "file": "linux-arm64-py3.14-adbc1.8.0.json",
+      "platform": "Linux-7.0.14-linuxkit-aarch64-with-glibc2.28",
+      "machine": "aarch64",
+      "python": "3.14.8",
+      "manager": "1.8.0",
+      "native_sha256": "260c3c69850d32fc3788c70b622d4f2d23c9cd9a3d66a90f3a308a4b063e06ce",
+      "checks": 15
+    },
+    {
+      "file": "macos-py3.13-adbc1.12.0.json",
+      "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+      "machine": "arm64",
+      "python": "3.13.16",
+      "manager": "1.12.0",
+      "native_sha256": "205724cf0292fc2945f0793bb4afafef90a27b3c75ca757d4793831bb8e54344",
+      "checks": 15
+    },
+    {
+      "file": "macos-py3.13-adbc1.8.0.json",
+      "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+      "machine": "arm64",
+      "python": "3.13.16",
+      "manager": "1.8.0",
+      "native_sha256": "205724cf0292fc2945f0793bb4afafef90a27b3c75ca757d4793831bb8e54344",
+      "checks": 15
+    },
+    {
+      "file": "macos-py3.14-adbc1.12.0.json",
+      "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+      "machine": "arm64",
+      "python": "3.14.8",
+      "manager": "1.12.0",
+      "native_sha256": "205724cf0292fc2945f0793bb4afafef90a27b3c75ca757d4793831bb8e54344",
+      "checks": 15
+    },
+    {
+      "file": "macos-py3.14-adbc1.8.0.json",
+      "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+      "machine": "arm64",
+      "python": "3.14.8",
+      "manager": "1.8.0",
+      "native_sha256": "205724cf0292fc2945f0793bb4afafef90a27b3c75ca757d4793831bb8e54344",
+      "checks": 15
+    }
+  ],
+  "hosted_cells_expected": 12,
+  "local_checks_total": 120,
+  "not_locally_run": "native Linux x86_64 four cells",
+  "native_rebuilds": "one per locally tested platform, reused for four client combinations",
+  "go_version": "1.26.6",
+  "python_versions": [
+    "3.13.16",
+    "3.14.8"
+  ],
+  "manager_versions": [
+    "1.8.0",
+    "1.12.0"
+  ],
+  "runtime_source_changes": false,
+  "checker_sha256": "8c524478a3d0956049f3e2c7d2e35c09656ff35f55dd4418de2911090117c9a1",
+  "wheel_sha256": {
+    "adbc_driver_redis-0.0.0.dev0-py3-none-macosx_12_0_arm64.whl": "934ab7b3a94a421cdf099806334cdc1ab75da8eba48856fb115e091fd5a65e3d",
+    "adbc_driver_redis-0.0.0.dev0-py3-none-manylinux_2_28_aarch64.whl": "f2aea57c2be6b0f41d8200a7c28a5f84f15fd799ed513fc7ef4ec834effe4136"
+  },
+  "adbc_manager_source_build": "Python 3.14 / ADBC 1.8 built from source on macOS; compiler available on CI runners",
+  "cleanup": "macOS owned process stopped; exact Linux client and label-verified Redis container removed; private fixtures removed; no paid Cloud deployment"
+}

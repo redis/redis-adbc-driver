@@ -1,0 +1,46 @@
+{
+  "scale": "pilot",
+  "rows": 100000,
+  "columns": 105,
+  "queries": 43,
+  "trials": 129,
+  "successful_trials": 129,
+  "standard_correctness": {
+    "needs_tie_validation": 3,
+    "valid": 126
+  },
+  "supplemental_q19": [
+    {
+      "query": 19,
+      "trial": 1,
+      "status": "valid",
+      "raw_sha256": "3bf899d12d142752236aef44cb644fd163ac40ff9047e0c5db7e2eccf9b64afc"
+    },
+    {
+      "query": 19,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "6cc64c89607e1f04b50d93b8f433d1f10bfe900744f76ba10688a332ba654470"
+    },
+    {
+      "query": 19,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "3d6366202a7a6fb65468f66c4740b7efd2dd23b6ba056e0bc2050f3888e72dd8"
+    }
+  ],
+  "load_seconds": 5.80244940700004,
+  "hot_query_median_seconds": 0.3456403449999925,
+  "hot_query_min_seconds": 0.004780650000043352,
+  "hot_query_max_seconds": 1.3808217159999003,
+  "redis_used_memory_bytes": 939249056,
+  "redis_rss_bytes": 1127727104,
+  "simple_linear_full_scale_projection_gib": 874.7219542005363,
+  "projection_is_measurement": false,
+  "full_scale_attempted": false,
+  "full_scale_decision": "Do not attempt: pilot-based memory projection far exceeds 192 GiB host RAM / 144 GiB Redis maxmemory; no full-data ranking",
+  "driver_commit": "9f5188c411f1e3a3bf1423a72089e2441b7995bd",
+  "driver_binary_sha256": "0ee09756ff90cc51ecc46be0c2106de6bbd62456630618a1f8c03a28bc23225e",
+  "upstream_commit": "ccda3033f3c7303d9d7f9634d6dae118ef085f96",
+  "source_prefix_sha256": "d053397f7aa5b2e1ee9160779a9e9307b162c6994aebba829c7ea1411076c4d0"
+}

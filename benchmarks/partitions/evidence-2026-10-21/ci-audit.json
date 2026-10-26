@@ -1,0 +1,325 @@
+{
+  "reports": [
+    {
+      "source_revision": "669fd784ca3ec2374d6382d8f290d795829b6f85",
+      "workflow_run": 39628538180,
+      "artifact": "release-validation-amd64",
+      "file": "cluster-validation.xml",
+      "sha256": "b59a11ebf8f1b1979e17c0f290b5e6c294b6f40d30878fa8e669ac754473fc95",
+      "cases": 377,
+      "skips": 8,
+      "failures": 0,
+      "partition_tests": [
+        "test_incremental_lifecycle[False]",
+        "test_incremental_lifecycle[True]",
+        "test_partition_bound_expressions_cross_process[False]",
+        "test_partition_bound_expressions_cross_process[True]",
+        "test_partition_connection_cancel",
+        "test_partition_validation_and_empty",
+        "test_partitions_cross_process"
+      ],
+      "partition_nonpasses": 0
+    },
+    {
+      "source_revision": "669fd784ca3ec2374d6382d8f290d795829b6f85",
+      "workflow_run": 39628538180,
+      "artifact": "release-validation-amd64",
+      "file": "software-validation.xml",
+      "sha256": "4c9e4dad9c12dcac5ac7610205b6e29e356186bcf679bcd88866d5f9be694a87",
+      "cases": 377,
+      "skips": 8,
+      "failures": 0,
+      "partition_tests": [
+        "test_incremental_lifecycle[False]",
+        "test_incremental_lifecycle[True]",
+        "test_partition_bound_expressions_cross_process[False]",
+        "test_partition_bound_expressions_cross_process[True]",
+        "test_partition_connection_cancel",
+        "test_partition_validation_and_empty",
+        "test_partitions_cross_process"
+      ],
+      "partition_nonpasses": 0
+    },
+    {
+      "source_revision": "669fd784ca3ec2374d6382d8f290d795829b6f85",
+      "workflow_run": 39628538180,
+      "artifact": "release-validation-amd64",
+      "file": "wheel-validation.xml",
+      "sha256": "1fa14b74538a8a6c4ff5c53a2de66de3e19801be649fddd347e1743d5016fc9e",
+      "cases": 377,
+      "skips": 8,
+      "failures": 0,
+      "partition_tests": [
+        "test_incremental_lifecycle[False]",
+        "test_incremental_lifecycle[True]",
+        "test_partition_bound_expressions_cross_process[False]",
+        "test_partition_bound_expressions_cross_process[True]",
+        "test_partition_connection_cancel",
+        "test_partition_validation_and_empty",
+        "test_partitions_cross_process"
+      ],
+      "partition_nonpasses": 0
+    },
+    {
+      "source_revision": "669fd784ca3ec2374d6382d8f290d795829b6f85",
+      "workflow_run": 39628538180,
+      "artifact": "release-validation-arm64",
+      "file": "cluster-validation.xml",
+      "sha256": "326d0b1255a7f0f157324ca926b57279c73cd6caf148bd3c07e2cbd506454e9d",
+      "cases": 377,
+      "skips": 8,
+      "failures": 0,
+      "partition_tests": [
+        "test_incremental_lifecycle[False]",
+        "test_incremental_lifecycle[True]",
+        "test_partition_bound_expressions_cross_process[False]",
+        "test_partition_bound_expressions_cross_process[True]",
+        "test_partition_connection_cancel",
+        "test_partition_validation_and_empty",
+        "test_partitions_cross_process"
+      ],
+      "partition_nonpasses": 0
+    },
+    {
+      "source_revision": "669fd784ca3ec2374d6382d8f290d795829b6f85",
+      "workflow_run": 39628538180,
+      "artifact": "release-validation-arm64",
+      "file": "software-validation.xml",
+      "sha256": "f40a412e8d7502437c256bd4643084a5211ae43bef3cb8d96df196c97db5ca77",
+      "cases": 377,
+      "skips": 8,
+      "failures": 0,
+      "partition_tests": [
+        "test_incremental_lifecycle[False]",
+        "test_incremental_lifecycle[True]",
+        "test_partition_bound_expressions_cross_process[False]",
+        "test_partition_bound_expressions_cross_process[True]",
+        "test_partition_connection_cancel",
+        "test_partition_validation_and_empty",
+        "test_partitions_cross_process"
+      ],
+      "partition_nonpasses": 0
+    },
+    {
+      "source_revision": "669fd784ca3ec2374d6382d8f290d795829b6f85",
+      "workflow_run": 39628538180,
+      "artifact": "release-validation-arm64",
+      "file": "wheel-validation.xml",
+      "sha256": "ab06ad37e4840429bf68343411ebf25d265c1c540b8c1ce8969ef751d847f466",
+      "cases": 377,
+      "skips": 8,
+      "failures": 0,
+      "partition_tests": [
+        "test_incremental_lifecycle[False]",
+        "test_incremental_lifecycle[True]",
+        "test_partition_bound_expressions_cross_process[False]",
+        "test_partition_bound_expressions_cross_process[True]",
+        "test_partition_connection_cancel",
+        "test_partition_validation_and_empty",
+        "test_partitions_cross_process"
+      ],
+      "partition_nonpasses": 0
+    },
+    {
+      "source_revision": "669fd784ca3ec2374d6382d8f290d795829b6f85",
+      "workflow_run": 39628538333,
+      "artifact": "validation-amd64-oss-cluster",
+      "file": "validation.xml",
+      "sha256": "1de2379c711ce07b080037ac1b83d9230bac6551c45847c64c63c2c8df5f816e",
+      "cases": 377,
+      "skips": 8,
+      "failures": 0,
+      "partition_tests": [
+        "test_incremental_lifecycle[False]",
+        "test_incremental_lifecycle[True]",
+        "test_partition_bound_expressions_cross_process[False]",
+        "test_partition_bound_expressions_cross_process[True]",
+        "test_partition_connection_cancel",
+        "test_partition_validation_and_empty",
+        "test_partitions_cross_process"
+      ],
+      "partition_nonpasses": 0
+    },
+    {
+      "source_revision": "669fd784ca3ec2374d6382d8f290d795829b6f85",
+      "workflow_run": 39628538333,
+      "artifact": "validation-amd64-software-single",
+      "file": "validation.xml",
+      "sha256": "458f321194aea88951730e7692c21f3c3a8c2306b96f1bf81ec67ade6a2421b3",
+      "cases": 377,
+      "skips": 8,
+      "failures": 0,
+      "partition_tests": [
+        "test_incremental_lifecycle[False]",
+        "test_incremental_lifecycle[True]",
+        "test_partition_bound_expressions_cross_process[False]",
+        "test_partition_bound_expressions_cross_process[True]",
+        "test_partition_connection_cancel",
+        "test_partition_validation_and_empty",
+        "test_partitions_cross_process"
+      ],
+      "partition_nonpasses": 0
+    },
+    {
+      "source_revision": "669fd784ca3ec2374d6382d8f290d795829b6f85",
+      "workflow_run": 39628538333,
+      "artifact": "validation-arm64-oss-cluster",
+      "file": "validation.xml",
+      "sha256": "39b763c00d033e663eb7b6a4a514e97b44b130fe30ff7522be23f07d9399dacc",
+      "cases": 377,
+      "skips": 8,
+      "failures": 0,
+      "partition_tests": [
+        "test_incremental_lifecycle[False]",
+        "test_incremental_lifecycle[True]",
+        "test_partition_bound_expressions_cross_process[False]",
+        "test_partition_bound_expressions_cross_process[True]",
+        "test_partition_connection_cancel",
+        "test_partition_validation_and_empty",
+        "test_partitions_cross_process"
+      ],
+      "partition_nonpasses": 0
+    },
+    {
+      "source_revision": "669fd784ca3ec2374d6382d8f290d795829b6f85",
+      "workflow_run": 39628538333,
+      "artifact": "validation-arm64-software-single",
+      "file": "validation.xml",
+      "sha256": "bb0e7c71163dd175ceed032e974c86dc1a12747cac48d8194ee33f9ac06a2f1a",
+      "cases": 377,
+      "skips": 8,
+      "failures": 0,
+      "partition_tests": [
+        "test_incremental_lifecycle[False]",
+        "test_incremental_lifecycle[True]",
+        "test_partition_bound_expressions_cross_process[False]",
+        "test_partition_bound_expressions_cross_process[True]",
+        "test_partition_connection_cancel",
+        "test_partition_validation_and_empty",
+        "test_partitions_cross_process"
+      ],
+      "partition_nonpasses": 0
+    },
+    {
+      "source_revision": "96f75c1f68f4b1515eb7e591f1895d7444437c8a",
+      "workflow_run": 39632592892,
+      "artifact": "validation-amd64-oss-cluster",
+      "file": "validation.xml",
+      "sha256": "cfdb2eedefb0228c8d7087cec20c5740e835907ae07941741e326439fe3e305c",
+      "cases": 377,
+      "skips": 8,
+      "failures": 0,
+      "partition_tests": [
+        "test_incremental_lifecycle[False]",
+        "test_incremental_lifecycle[True]",
+        "test_partition_bound_expressions_cross_process[False]",
+        "test_partition_bound_expressions_cross_process[True]",
+        "test_partition_connection_cancel",
+        "test_partition_validation_and_empty",
+        "test_partitions_cross_process"
+      ],
+      "partition_nonpasses": 0
+    },
+    {
+      "source_revision": "96f75c1f68f4b1515eb7e591f1895d7444437c8a",
+      "workflow_run": 39632592892,
+      "artifact": "validation-amd64-software-single",
+      "file": "validation.xml",
+      "sha256": "4ba29856bed1007f72f8e5d9fdcb2832cd89988e2fe55cb504f6d2abefa83be2",
+      "cases": 377,
+      "skips": 8,
+      "failures": 0,
+      "partition_tests": [
+        "test_incremental_lifecycle[False]",
+        "test_incremental_lifecycle[True]",
+        "test_partition_bound_expressions_cross_process[False]",
+        "test_partition_bound_expressions_cross_process[True]",
+        "test_partition_connection_cancel",
+        "test_partition_validation_and_empty",
+        "test_partitions_cross_process"
+      ],
+      "partition_nonpasses": 0
+    },
+    {
+      "source_revision": "96f75c1f68f4b1515eb7e591f1895d7444437c8a",
+      "workflow_run": 39632592892,
+      "artifact": "validation-arm64-oss-cluster",
+      "file": "validation.xml",
+      "sha256": "68f68a17bd0d5cb2eac534c44346a006ab30d49066ea4ccfde6b2f1fea6cd1d3",
+      "cases": 377,
+      "skips": 8,
+      "failures": 0,
+      "partition_tests": [
+        "test_incremental_lifecycle[False]",
+        "test_incremental_lifecycle[True]",
+        "test_partition_bound_expressions_cross_process[False]",
+        "test_partition_bound_expressions_cross_process[True]",
+        "test_partition_connection_cancel",
+        "test_partition_validation_and_empty",
+        "test_partitions_cross_process"
+      ],
+      "partition_nonpasses": 0
+    },
+    {
+      "source_revision": "96f75c1f68f4b1515eb7e591f1895d7444437c8a",
+      "workflow_run": 39632592892,
+      "artifact": "validation-arm64-software-cluster",
+      "file": "validation.xml",
+      "sha256": "bd2e4887829e244f71e9ec594188e9e0bca820e377cac17bffee1915acd719af",
+      "cases": 377,
+      "skips": 8,
+      "failures": 0,
+      "partition_tests": [
+        "test_incremental_lifecycle[False]",
+        "test_incremental_lifecycle[True]",
+        "test_partition_bound_expressions_cross_process[False]",
+        "test_partition_bound_expressions_cross_process[True]",
+        "test_partition_connection_cancel",
+        "test_partition_validation_and_empty",
+        "test_partitions_cross_process"
+      ],
+      "partition_nonpasses": 0
+    },
+    {
+      "source_revision": "96f75c1f68f4b1515eb7e591f1895d7444437c8a",
+      "workflow_run": 39632592892,
+      "artifact": "validation-arm64-software-single",
+      "file": "validation.xml",
+      "sha256": "fa80fa820da944f7227d94c3e8a411aafa10d6b33153eb4b04aeafd4dea3c1db",
+      "cases": 377,
+      "skips": 8,
+      "failures": 0,
+      "partition_tests": [
+        "test_incremental_lifecycle[False]",
+        "test_incremental_lifecycle[True]",
+        "test_partition_bound_expressions_cross_process[False]",
+        "test_partition_bound_expressions_cross_process[True]",
+        "test_partition_connection_cancel",
+        "test_partition_validation_and_empty",
+        "test_partitions_cross_process"
+      ],
+      "partition_nonpasses": 0
+    },
+    {
+      "source_revision": "96f75c1f68f4b1515eb7e591f1895d7444437c8a",
+      "workflow_run": 39632592892,
+      "artifact": "partition-363-refactor-ci-final",
+      "file": "validation.xml",
+      "sha256": "15dfb157266a28a6e5c1a0cfefa2eb6d13903cd3ada98446680b32d4e0d55a23",
+      "cases": 377,
+      "skips": 8,
+      "failures": 0,
+      "partition_tests": [
+        "test_incremental_lifecycle[False]",
+        "test_incremental_lifecycle[True]",
+        "test_partition_bound_expressions_cross_process[False]",
+        "test_partition_bound_expressions_cross_process[True]",
+        "test_partition_connection_cancel",
+        "test_partition_validation_and_empty",
+        "test_partitions_cross_process"
+      ],
+      "partition_nonpasses": 0
+    }
+  ],
+  "note": "Current refactor Test workflow has two OSS-single jobs failing before native validation: DuckDB 2.0.0 community adbc_scanner HTTP404. All six Software/Cluster jobs passed. Prior release wheel reports are evidence for their own revision, not current refactor packaging."
+}

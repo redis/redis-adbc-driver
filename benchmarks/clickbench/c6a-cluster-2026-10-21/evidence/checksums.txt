@@ -1,0 +1,3 @@
+0ee09756ff90cc51ecc46be0c2106de6bbd62456630618a1f8c03a28bc23225e  /opt/clickbench/source/go/build/libadbc_driver_redis.so
+d927e9f151c55d68c2a71fad6a7a45377dd4230c873abbd022daba1a6e3442df  /opt/clickbench/source/benchmarks/clickbench/run.py
+d053397f7aa5b2e1ee9160779a9e9307b162c6994aebba829c7ea1411076c4d0  /opt/clickbench/hits-prefix.parquet

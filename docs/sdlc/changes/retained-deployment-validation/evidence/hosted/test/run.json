@@ -1,0 +1,509 @@
+{
+  "name": "Test",
+  "headSha": "ff4963abea5b55b3e50c314543d0590f5ee792d6",
+  "status": "completed",
+  "conclusion": "success",
+  "url": "https://github.com/alberttwong/redis-adbc-driver/actions/runs/39717747124",
+  "createdAt": "2026-10-22T03:36:15Z",
+  "updatedAt": "2026-10-22T03:57:09Z",
+  "jobs": [
+    {
+      "name": "coverage",
+      "conclusion": "success",
+      "url": "https://github.com/alberttwong/redis-adbc-driver/actions/runs/39717747124/job/119623821323",
+      "steps": [
+        {
+          "name": "Select Redis coverage from the complete PR diff",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "helpers",
+      "conclusion": "success",
+      "url": "https://github.com/alberttwong/redis-adbc-driver/actions/runs/39717747124/job/119623821667",
+      "steps": [
+        {
+          "name": "Check CI coverage selection",
+          "conclusion": "success"
+        },
+        {
+          "name": "Check cluster readiness gate",
+          "conclusion": "success"
+        },
+        {
+          "name": "Check ClickBench loading helpers",
+          "conclusion": "success"
+        },
+        {
+          "name": "Check performance benchmark syntax",
+          "conclusion": "success"
+        },
+        {
+          "name": "Check autotuning measurement gate",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "linux-arm64-software-single",
+      "conclusion": "success",
+      "url": "https://github.com/alberttwong/redis-adbc-driver/actions/runs/39717747124/job/119623863569",
+      "steps": [
+        {
+          "name": "Build",
+          "conclusion": "success"
+        },
+        {
+          "name": "Start Redis with Search",
+          "conclusion": "success"
+        },
+        {
+          "name": "Go tests",
+          "conclusion": "success"
+        },
+        {
+          "name": "Python ADBC validation",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload validation results (including feature skips)",
+          "conclusion": "success"
+        },
+        {
+          "name": "SQLAlchemy PostgreSQL reflection",
+          "conclusion": "success"
+        },
+        {
+          "name": "Prepare verified Redis Software proxy TLS",
+          "conclusion": "success"
+        },
+        {
+          "name": "Native partitions over Software proxy TLS and independent RBAC",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload Software proxy TLS evidence",
+          "conclusion": "success"
+        },
+        {
+          "name": "Remove Software TLS private material",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "linux-amd64-oss-cluster",
+      "conclusion": "success",
+      "url": "https://github.com/alberttwong/redis-adbc-driver/actions/runs/39717747124/job/119623863600",
+      "steps": [
+        {
+          "name": "Build",
+          "conclusion": "success"
+        },
+        {
+          "name": "Start Redis with Search",
+          "conclusion": "success"
+        },
+        {
+          "name": "Go tests",
+          "conclusion": "success"
+        },
+        {
+          "name": "Python ADBC validation",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload validation results (including feature skips)",
+          "conclusion": "success"
+        },
+        {
+          "name": "SQLAlchemy PostgreSQL reflection",
+          "conclusion": "success"
+        },
+        {
+          "name": "Start owned three-primary TLS Cluster fixture",
+          "conclusion": "success"
+        },
+        {
+          "name": "Native partitions through three verified TLS primary endpoints",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload three-primary TLS evidence",
+          "conclusion": "success"
+        },
+        {
+          "name": "Remove owned three-primary TLS fixture",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "linux-amd64-oss-single",
+      "conclusion": "success",
+      "url": "https://github.com/alberttwong/redis-adbc-driver/actions/runs/39717747124/job/119623863612",
+      "steps": [
+        {
+          "name": "Build",
+          "conclusion": "success"
+        },
+        {
+          "name": "Start Redis with Search",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install Python analytics integrations",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build matching DuckDB 2.0 ADBC scanner",
+          "conclusion": "success"
+        },
+        {
+          "name": "Python analytics integrations",
+          "conclusion": "success"
+        },
+        {
+          "name": "Superset integration",
+          "conclusion": "success"
+        },
+        {
+          "name": "Go tests",
+          "conclusion": "success"
+        },
+        {
+          "name": "Python ADBC validation",
+          "conclusion": "success"
+        },
+        {
+          "name": "Owned TLS fixture management fault checks",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload validation results (including feature skips)",
+          "conclusion": "success"
+        },
+        {
+          "name": "Partition benchmark smoke (exact schema and values)",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload partition measurement",
+          "conclusion": "success"
+        },
+        {
+          "name": "SQLAlchemy PostgreSQL reflection",
+          "conclusion": "success"
+        },
+        {
+          "name": "Start disposable TLS-only partition fixture",
+          "conclusion": "success"
+        },
+        {
+          "name": "Native partitions over verified TLS and restricted worker ACLs",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload TLS partition evidence",
+          "conclusion": "success"
+        },
+        {
+          "name": "Remove TLS partition fixture",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "linux-amd64-software-cluster",
+      "conclusion": "success",
+      "url": "https://github.com/alberttwong/redis-adbc-driver/actions/runs/39717747124/job/119623863613",
+      "steps": [
+        {
+          "name": "Build",
+          "conclusion": "success"
+        },
+        {
+          "name": "Start Redis with Search",
+          "conclusion": "success"
+        },
+        {
+          "name": "Go tests",
+          "conclusion": "success"
+        },
+        {
+          "name": "Python ADBC validation",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload validation results (including feature skips)",
+          "conclusion": "success"
+        },
+        {
+          "name": "SQLAlchemy PostgreSQL reflection",
+          "conclusion": "success"
+        },
+        {
+          "name": "Prepare verified Redis Software proxy TLS",
+          "conclusion": "success"
+        },
+        {
+          "name": "Native partitions over Software proxy TLS and independent RBAC",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload Software proxy TLS evidence",
+          "conclusion": "success"
+        },
+        {
+          "name": "Remove Software TLS private material",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "linux-arm64-oss-single",
+      "conclusion": "success",
+      "url": "https://github.com/alberttwong/redis-adbc-driver/actions/runs/39717747124/job/119623863628",
+      "steps": [
+        {
+          "name": "Build",
+          "conclusion": "success"
+        },
+        {
+          "name": "Start Redis with Search",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install Python analytics integrations",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build matching DuckDB 2.0 ADBC scanner",
+          "conclusion": "success"
+        },
+        {
+          "name": "Python analytics integrations",
+          "conclusion": "success"
+        },
+        {
+          "name": "Go tests",
+          "conclusion": "success"
+        },
+        {
+          "name": "Python ADBC validation",
+          "conclusion": "success"
+        },
+        {
+          "name": "Owned TLS fixture management fault checks",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload validation results (including feature skips)",
+          "conclusion": "success"
+        },
+        {
+          "name": "SQLAlchemy PostgreSQL reflection",
+          "conclusion": "success"
+        },
+        {
+          "name": "Start disposable TLS-only partition fixture",
+          "conclusion": "success"
+        },
+        {
+          "name": "Native partitions over verified TLS and restricted worker ACLs",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload TLS partition evidence",
+          "conclusion": "success"
+        },
+        {
+          "name": "Remove TLS partition fixture",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "linux-amd64-software-single",
+      "conclusion": "success",
+      "url": "https://github.com/alberttwong/redis-adbc-driver/actions/runs/39717747124/job/119623863692",
+      "steps": [
+        {
+          "name": "Build",
+          "conclusion": "success"
+        },
+        {
+          "name": "Start Redis with Search",
+          "conclusion": "success"
+        },
+        {
+          "name": "Go tests",
+          "conclusion": "success"
+        },
+        {
+          "name": "Python ADBC validation",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload validation results (including feature skips)",
+          "conclusion": "success"
+        },
+        {
+          "name": "SQLAlchemy PostgreSQL reflection",
+          "conclusion": "success"
+        },
+        {
+          "name": "Prepare verified Redis Software proxy TLS",
+          "conclusion": "success"
+        },
+        {
+          "name": "Native partitions over Software proxy TLS and independent RBAC",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload Software proxy TLS evidence",
+          "conclusion": "success"
+        },
+        {
+          "name": "Remove Software TLS private material",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "linux-arm64-software-cluster",
+      "conclusion": "success",
+      "url": "https://github.com/alberttwong/redis-adbc-driver/actions/runs/39717747124/job/119623863700",
+      "steps": [
+        {
+          "name": "Build",
+          "conclusion": "success"
+        },
+        {
+          "name": "Start Redis with Search",
+          "conclusion": "success"
+        },
+        {
+          "name": "Go tests",
+          "conclusion": "success"
+        },
+        {
+          "name": "Python ADBC validation",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload validation results (including feature skips)",
+          "conclusion": "success"
+        },
+        {
+          "name": "SQLAlchemy PostgreSQL reflection",
+          "conclusion": "success"
+        },
+        {
+          "name": "Prepare verified Redis Software proxy TLS",
+          "conclusion": "success"
+        },
+        {
+          "name": "Native partitions over Software proxy TLS and independent RBAC",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload Software proxy TLS evidence",
+          "conclusion": "success"
+        },
+        {
+          "name": "Remove Software TLS private material",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "linux-arm64-oss-cluster",
+      "conclusion": "success",
+      "url": "https://github.com/alberttwong/redis-adbc-driver/actions/runs/39717747124/job/119623863760",
+      "steps": [
+        {
+          "name": "Build",
+          "conclusion": "success"
+        },
+        {
+          "name": "Start Redis with Search",
+          "conclusion": "success"
+        },
+        {
+          "name": "Go tests",
+          "conclusion": "success"
+        },
+        {
+          "name": "Python ADBC validation",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload validation results (including feature skips)",
+          "conclusion": "success"
+        },
+        {
+          "name": "SQLAlchemy PostgreSQL reflection",
+          "conclusion": "success"
+        },
+        {
+          "name": "Start owned three-primary TLS Cluster fixture",
+          "conclusion": "success"
+        },
+        {
+          "name": "Native partitions through three verified TLS primary endpoints",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload three-primary TLS evidence",
+          "conclusion": "success"
+        },
+        {
+          "name": "Remove owned three-primary TLS fixture",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ]
+}

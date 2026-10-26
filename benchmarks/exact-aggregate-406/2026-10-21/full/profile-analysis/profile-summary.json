@@ -1,0 +1,346 @@
+[
+  {
+    "query": 2,
+    "build": "baseline",
+    "allocated_bytes": 192969661080,
+    "allocations": 2700728732,
+    "allocator": "Go Arrow; native confirmation uses C Arrow",
+    "elapsed_seconds": 95.14439696,
+    "gcs": 5785,
+    "rows": 1,
+    "sql": "SELECT COUNT(*) FROM hits WHERE AdvEngineID <> 0",
+    "values": [
+      [
+        "630500"
+      ]
+    ],
+    "workers": "16"
+  },
+  {
+    "query": 2,
+    "build": "candidate",
+    "allocated_bytes": 233168,
+    "allocations": 1567,
+    "allocator": "Go Arrow; native confirmation uses C Arrow",
+    "elapsed_seconds": 0.061971567,
+    "gcs": 0,
+    "rows": 1,
+    "sql": "SELECT COUNT(*) FROM hits WHERE AdvEngineID <> 0",
+    "values": [
+      [
+        "630500"
+      ]
+    ],
+    "workers": "16"
+  },
+  {
+    "query": 4,
+    "build": "baseline",
+    "allocated_bytes": 264937896856,
+    "allocations": 3605158300,
+    "allocator": "Go Arrow; native confirmation uses C Arrow",
+    "elapsed_seconds": 81.518361353,
+    "gcs": 2414,
+    "rows": 1,
+    "sql": "SELECT AVG(UserID) FROM hits",
+    "values": [
+      [
+        "2.528953029789716e+18"
+      ]
+    ],
+    "workers": "16"
+  },
+  {
+    "query": 4,
+    "build": "candidate",
+    "allocated_bytes": 174554590976,
+    "allocations": 3005160363,
+    "allocator": "Go Arrow; native confirmation uses C Arrow",
+    "elapsed_seconds": 77.445466506,
+    "gcs": 4912,
+    "rows": 1,
+    "sql": "SELECT AVG(UserID) FROM hits",
+    "values": [
+      [
+        "2.528953029789716e+18"
+      ]
+    ],
+    "workers": "16"
+  },
+  {
+    "query": 9,
+    "build": "baseline",
+    "allocated_bytes": 158643181976,
+    "allocations": 2676214100,
+    "allocator": "Go Arrow; native confirmation uses C Arrow",
+    "elapsed_seconds": 160.493423245,
+    "gcs": 1457,
+    "rows": 10,
+    "sql": "SELECT RegionID, COUNT(DISTINCT UserID) AS u FROM hits GROUP BY RegionID ORDER BY u DESC LIMIT 10",
+    "values": [
+      [
+        "229",
+        "2845673"
+      ],
+      [
+        "2",
+        "1081016"
+      ],
+      [
+        "208",
+        "831676"
+      ],
+      [
+        "169",
+        "604583"
+      ],
+      [
+        "184",
+        "322661"
+      ],
+      [
+        "158",
+        "307152"
+      ],
+      [
+        "34",
+        "299479"
+      ],
+      [
+        "55",
+        "286525"
+      ],
+      [
+        "107",
+        "272448"
+      ],
+      [
+        "42",
+        "243181"
+      ]
+    ],
+    "workers": "16"
+  },
+  {
+    "query": 9,
+    "build": "candidate",
+    "allocated_bytes": 293748941792,
+    "allocations": 5103993481,
+    "allocator": "Go Arrow; native confirmation uses C Arrow",
+    "elapsed_seconds": 96.751508798,
+    "gcs": 819,
+    "rows": 10,
+    "sql": "SELECT RegionID, COUNT(DISTINCT UserID) AS u FROM hits GROUP BY RegionID ORDER BY u DESC LIMIT 10",
+    "values": [
+      [
+        "229",
+        "2845673"
+      ],
+      [
+        "2",
+        "1081016"
+      ],
+      [
+        "208",
+        "831676"
+      ],
+      [
+        "169",
+        "604583"
+      ],
+      [
+        "184",
+        "322661"
+      ],
+      [
+        "158",
+        "307152"
+      ],
+      [
+        "34",
+        "299479"
+      ],
+      [
+        "55",
+        "286525"
+      ],
+      [
+        "107",
+        "272448"
+      ],
+      [
+        "42",
+        "243181"
+      ]
+    ],
+    "workers": "16"
+  },
+  {
+    "query": 10,
+    "build": "baseline",
+    "allocated_bytes": 270425864632,
+    "allocations": 4150494493,
+    "allocator": "Go Arrow; native confirmation uses C Arrow",
+    "elapsed_seconds": 279.421819744,
+    "gcs": 1777,
+    "rows": 10,
+    "sql": "SELECT RegionID, SUM(AdvEngineID), COUNT(*) AS c, AVG(ResolutionWidth), COUNT(DISTINCT UserID) FROM hits GROUP BY RegionID ORDER BY c DESC LIMIT 10",
+    "values": [
+      [
+        "229",
+        "2077656",
+        "18295832",
+        "1506.085243130785",
+        "2845673"
+      ],
+      [
+        "2",
+        "441662",
+        "6687587",
+        "1479.8386542111527",
+        "1081016"
+      ],
+      [
+        "208",
+        "285925",
+        "4261812",
+        "1285.2593246722286",
+        "831676"
+      ],
+      [
+        "169",
+        "100887",
+        "3320229",
+        "1465.9073732564832",
+        "604583"
+      ],
+      [
+        "32",
+        "81498",
+        "1843518",
+        "1538.0376568061718",
+        "216010"
+      ],
+      [
+        "34",
+        "161779",
+        "1792369",
+        "1548.360152401654",
+        "299479"
+      ],
+      [
+        "184",
+        "55526",
+        "1755192",
+        "1506.8082967561384",
+        "322661"
+      ],
+      [
+        "42",
+        "108820",
+        "1542717",
+        "1587.1085208758313",
+        "243181"
+      ],
+      [
+        "107",
+        "120470",
+        "1516690",
+        "1548.6028970982863",
+        "272448"
+      ],
+      [
+        "51",
+        "98212",
+        "1435578",
+        "1579.8860354505293",
+        "211505"
+      ]
+    ],
+    "workers": "16"
+  },
+  {
+    "query": 10,
+    "build": "candidate",
+    "allocated_bytes": 381308448360,
+    "allocations": 6564718287,
+    "allocator": "Go Arrow; native confirmation uses C Arrow",
+    "elapsed_seconds": 115.028535245,
+    "gcs": 949,
+    "rows": 10,
+    "sql": "SELECT RegionID, SUM(AdvEngineID), COUNT(*) AS c, AVG(ResolutionWidth), COUNT(DISTINCT UserID) FROM hits GROUP BY RegionID ORDER BY c DESC LIMIT 10",
+    "values": [
+      [
+        "229",
+        "2077656",
+        "18295832",
+        "1506.085243130785",
+        "2845673"
+      ],
+      [
+        "2",
+        "441662",
+        "6687587",
+        "1479.8386542111527",
+        "1081016"
+      ],
+      [
+        "208",
+        "285925",
+        "4261812",
+        "1285.2593246722286",
+        "831676"
+      ],
+      [
+        "169",
+        "100887",
+        "3320229",
+        "1465.9073732564832",
+        "604583"
+      ],
+      [
+        "32",
+        "81498",
+        "1843518",
+        "1538.0376568061718",
+        "216010"
+      ],
+      [
+        "34",
+        "161779",
+        "1792369",
+        "1548.360152401654",
+        "299479"
+      ],
+      [
+        "184",
+        "55526",
+        "1755192",
+        "1506.8082967561384",
+        "322661"
+      ],
+      [
+        "42",
+        "108820",
+        "1542717",
+        "1587.1085208758313",
+        "243181"
+      ],
+      [
+        "107",
+        "120470",
+        "1516690",
+        "1548.6028970982863",
+        "272448"
+      ],
+      [
+        "51",
+        "98212",
+        "1435578",
+        "1579.8860354505293",
+        "211505"
+      ]
+    ],
+    "workers": "16"
+  }
+]

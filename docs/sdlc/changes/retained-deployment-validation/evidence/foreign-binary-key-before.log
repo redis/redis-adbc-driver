@@ -1,0 +1,12 @@
+=== RUN   TestRetainedSourceCaptureApplicationOwnership
+=== RUN   TestRetainedSourceCaptureApplicationOwnership/adopted
+=== RUN   TestRetainedSourceCaptureApplicationOwnership/application_index
+=== RUN   TestRetainedSourceCaptureApplicationOwnership/foreign_index
+    partition_retained_capture_integration_test.go:142: Internal: [redis] unexpected FT.AGGREGATE row map[interface {}]interface {}
+--- FAIL: TestRetainedSourceCaptureApplicationOwnership (0.09s)
+    --- PASS: TestRetainedSourceCaptureApplicationOwnership/adopted (0.04s)
+    --- PASS: TestRetainedSourceCaptureApplicationOwnership/application_index (0.03s)
+    --- FAIL: TestRetainedSourceCaptureApplicationOwnership/foreign_index (0.01s)
+FAIL
+FAIL	github.com/adbc-drivers/redis/go	0.584s
+FAIL

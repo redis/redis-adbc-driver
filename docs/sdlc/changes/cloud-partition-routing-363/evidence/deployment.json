@@ -1,0 +1,48 @@
+{
+  "disposable": true,
+  "subscription_id": 3457767,
+  "database_id": 14709372,
+  "subscription_name": "codex-adbc-routing-20261021",
+  "database_name": "codex-adbc-routing-20261021",
+  "owner": "Albert Wong",
+  "date": "2026-10-21",
+  "provider": "AWS",
+  "region": "us-west-2",
+  "dataset_size_gb": 0.1,
+  "requested_throughput_ops_per_sec": 50000,
+  "replication": false,
+  "persistence": "none",
+  "expected_shards": 2,
+  "source_revision": "cebe808",
+  "estimate": {
+    "minimum_usd_per_hour": 0.274,
+    "shards": 2,
+    "usd_per_shard_hour": 0.198,
+    "task": "45bfa1a5-797f-4b3c-8b96-9eb02b2f7ccc"
+  },
+  "subscription_create_task": "b9f1a9cf-1902-4184-8402-8914cfaf95a7",
+  "cleanup": "Delete own ACLs, database, subscription and verify absence; remove private fixtures.",
+  "actual_invoice_cost": "Unavailable; estimate components recorded separately",
+  "tls_update_task": "79877518-898a-4828-abf8-dd8ef33730f5",
+  "proxy_run_harness_sha256": {
+    "scripts/cloud_partition_tls.py": "55e74da27b862d9f9f2d634fbe5daa395604b17d9aff27f4c7cbf66d2e544aa1",
+    "scripts/check_partition_tls.py": "4e3e41ec333fdba80823ef84920349012dfb7b433e7a308bb657c9bc85a3e29c"
+  },
+  "cluster_api_update_task": "30cedfd6-189c-4a28-8ab4-7a59c5098209",
+  "routing_observation": {
+    "backend_shards": 2,
+    "cluster_enabled": 1,
+    "slot_ranges": 1,
+    "advertised_primary_owners": 1,
+    "covered_slots": 16384,
+    "interpretation": "External Cluster API advertises a single proxy owner, not direct backend-shard endpoints."
+  },
+  "initial_cluster_run_harness_sha256": {
+    "scripts/cloud_partition_tls.py": "4f37634568fed1c5e40f7684b87c5ab8e4748bb0b12ae0e719a4506b0e402809",
+    "scripts/check_partition_tls.py": "47d5bf30cba962bfc8f78a58741692240875a0743cf1d27d2554394f6a273fe3"
+  },
+  "harness_sha256": {
+    "scripts/cloud_partition_tls.py": "4f37634568fed1c5e40f7684b87c5ab8e4748bb0b12ae0e719a4506b0e402809",
+    "scripts/check_partition_tls.py": "8c524478a3d0956049f3e2c7d2e35c09656ff35f55dd4418de2911090117c9a1"
+  }
+}

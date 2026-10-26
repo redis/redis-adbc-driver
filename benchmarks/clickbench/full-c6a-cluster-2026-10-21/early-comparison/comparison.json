@@ -1,0 +1,382 @@
+{
+  "scope": "Preliminary first 11 completed queries only; not a full-run ranking",
+  "observed_at": "2026-10-21T20:36:20.206761+00:00",
+  "source": {
+    "source_rows": 99997497,
+    "loaded_rows": 99997497,
+    "columns": 105,
+    "source_sha256": "a390f6cb782f6aaef278c72fc1dd86c4f30bc843ebab3c159e9bd4d45ddb079f",
+    "schema_sha256": "42d28575fd59fb4ae5d556683323c17937daaae8ff800e9089ddaaf91d1b2be7",
+    "upstream_commit": "e90045879276f75cc398f1ab8a73541a7716058d",
+    "engine": "DuckDB",
+    "engine_version": "1.5.6",
+    "normalization": "official epoch-day DATE and epoch-second TIMESTAMP"
+  },
+  "checks": [
+    {
+      "query": 1,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "c49676807ae43d1c8c5e18e1cf46a84e647ed7f863d6c2b5a5a257efd4cc1d75",
+      "method": "Exact saved typed-reference values; published float tolerances"
+    },
+    {
+      "query": 1,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "a7bc565fb760eab40b18fc04f74ade32168e68f23ba1965a09558d9a8b38d8c6",
+      "method": "Exact saved typed-reference values; published float tolerances"
+    },
+    {
+      "query": 2,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "06832aacd2b431987c9b4306c0dc8a7c1e9ab5e940a7fa1e7196bc0f19e3e6d3",
+      "method": "Exact saved typed-reference values; published float tolerances"
+    },
+    {
+      "query": 2,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "e1be9d550725162e74901a9b2a83d0ebb6081e0f4252b02b1cfbfb6585406b19",
+      "method": "Exact saved typed-reference values; published float tolerances"
+    },
+    {
+      "query": 3,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "681bbae8eb5d9ca404a3911078df31f5eda9a23f34f964296f45b072c6bbfeee",
+      "method": "Exact saved typed-reference values; published float tolerances"
+    },
+    {
+      "query": 3,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "47ed4833c2d9f3b4fa6e7840d61cb4cdaa5c76b1d50808f781b656f948d07216",
+      "method": "Exact saved typed-reference values; published float tolerances"
+    },
+    {
+      "query": 4,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "398dd609ea83acb9964c3aedbbc380c76c6b32aa6c4d6458b0b99a55a4b22cc7",
+      "method": "Exact saved typed-reference values; published float tolerances"
+    },
+    {
+      "query": 4,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "266a4ea68dc2eb456b88589a5c6d99ed66061bf02334efdeb4c9711b43932861",
+      "method": "Exact saved typed-reference values; published float tolerances"
+    },
+    {
+      "query": 5,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "2781e54038e5101a4bdfe0e402816a401eaf7cfe9c03bc6803c96309a7eeb79b",
+      "method": "Exact saved typed-reference values; published float tolerances"
+    },
+    {
+      "query": 5,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "3203de226513216e3329b47d6b4723bb4f60084f4584f6e79baa9293d32d1aa8",
+      "method": "Exact saved typed-reference values; published float tolerances"
+    },
+    {
+      "query": 6,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "fea8f437af14df8e9642011870e46ebbb9976f65608dd274e874d6c3d5c2868d",
+      "method": "Exact saved typed-reference values; published float tolerances"
+    },
+    {
+      "query": 6,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "988cbb0b385edfddc6f6d79208cfe00b4d9f22e09556e74f1aa38c05bc109c03",
+      "method": "Exact saved typed-reference values; published float tolerances"
+    },
+    {
+      "query": 7,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "c911279e8cd6b8e68c4ec7e0a6d5a9093346488936b91c76c192faab94f4842e",
+      "method": "Exact saved typed-reference values; published float tolerances"
+    },
+    {
+      "query": 7,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "7b4b137e8de4cb5c52dc7019f24730285430a5e32c65dc42982d29de70e54262",
+      "method": "Exact saved typed-reference values; published float tolerances"
+    },
+    {
+      "query": 8,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "cb7acac136ce35afd6861ec62be779633d6613404fe43c16d923c376ffb34aec",
+      "method": "Exact saved typed-reference values; published float tolerances"
+    },
+    {
+      "query": 8,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "80e7f07f88fc46032f51b5f859dd6cf8db116313c06e494e8389c69932031718",
+      "method": "Exact saved typed-reference values; published float tolerances"
+    },
+    {
+      "query": 9,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "d69351351d940e00fa42aeaae3fbf52ac68301b6cdf6d7bc848970054ec64ae5",
+      "method": "Exact saved typed-reference values; published float tolerances"
+    },
+    {
+      "query": 9,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "5a1126719a944a7f3b411751eb1af65841b84449f5b48adc4b8596637770b8fd",
+      "method": "Exact saved typed-reference values; published float tolerances"
+    },
+    {
+      "query": 10,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "43b2ec2a46611a4efa877b074afb24595150b50ec3a8ed7471aea0c0cd714676",
+      "method": "Exact saved typed-reference values; published float tolerances"
+    },
+    {
+      "query": 10,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "2a92d86c71bc51a35bab8c5231b48fd6d8cd313fa40c2c7716d543eb317d3604",
+      "method": "Exact saved typed-reference values; published float tolerances"
+    },
+    {
+      "query": 11,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "043d95a0e6b9250b3e08fcd7c51115f12a122b62fc8150aae2d39ef8007f0ad7",
+      "method": "Exact saved typed-reference values; published float tolerances"
+    },
+    {
+      "query": 11,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "717771ab9c2d3588bf9b915c505dfd34e155de8daae51ac116043b4a2e95c366",
+      "method": "Exact saved typed-reference values; published float tolerances"
+    }
+  ],
+  "comparisons": [
+    {
+      "query": 1,
+      "sql": "SELECT COUNT(*) FROM hits;",
+      "redis_seconds": 0.4228038789999573,
+      "baselines": {
+        "clickhouse": {
+          "seconds": 0.001,
+          "redis_over_baseline": 422.8038789999573
+        },
+        "duckdb": {
+          "seconds": 0.018,
+          "redis_over_baseline": 23.489104388886517
+        },
+        "postgresql": {
+          "seconds": 258.348,
+          "redis_over_baseline": 0.0016365672619875413
+        }
+      }
+    },
+    {
+      "query": 2,
+      "sql": "SELECT COUNT(*) FROM hits WHERE AdvEngineID <> 0;",
+      "redis_seconds": 96.97891237099998,
+      "baselines": {
+        "clickhouse": {
+          "seconds": 0.001,
+          "redis_over_baseline": 96978.91237099997
+        },
+        "duckdb": {
+          "seconds": 0.041,
+          "redis_over_baseline": 2365.3393261219508
+        },
+        "postgresql": {
+          "seconds": 258.405,
+          "redis_over_baseline": 0.37529812647201094
+        }
+      }
+    },
+    {
+      "query": 3,
+      "sql": "SELECT SUM(AdvEngineID), COUNT(*), AVG(ResolutionWidth) FROM hits;",
+      "redis_seconds": 1.8238864049999393,
+      "baselines": {
+        "clickhouse": {
+          "seconds": 0.034,
+          "redis_over_baseline": 53.64371779411586
+        },
+        "duckdb": {
+          "seconds": 0.074,
+          "redis_over_baseline": 24.647113581080262
+        },
+        "postgresql": {
+          "seconds": 258.393,
+          "redis_over_baseline": 0.007058575135549103
+        }
+      }
+    },
+    {
+      "query": 4,
+      "sql": "SELECT AVG(UserID) FROM hits;",
+      "redis_seconds": 86.52008501799992,
+      "baselines": {
+        "clickhouse": {
+          "seconds": 0.039,
+          "redis_over_baseline": 2218.4637184102544
+        },
+        "duckdb": {
+          "seconds": 0.086,
+          "redis_over_baseline": 1006.0475002093015
+        },
+        "postgresql": {
+          "seconds": 258.399,
+          "redis_over_baseline": 0.33483134616620003
+        }
+      }
+    },
+    {
+      "query": 5,
+      "sql": "SELECT COUNT(DISTINCT UserID) FROM hits;",
+      "redis_seconds": 122.12888006699995,
+      "baselines": {
+        "clickhouse": {
+          "seconds": 0.242,
+          "redis_over_baseline": 504.6647936652891
+        },
+        "duckdb": {
+          "seconds": 0.348,
+          "redis_over_baseline": 350.945057663793
+        },
+        "postgresql": {
+          "seconds": 272.345,
+          "redis_over_baseline": 0.4484344491986265
+        }
+      }
+    },
+    {
+      "query": 6,
+      "sql": "SELECT COUNT(DISTINCT SearchPhrase) FROM hits;",
+      "redis_seconds": 29.399197476000154,
+      "baselines": {
+        "clickhouse": {
+          "seconds": 0.416,
+          "redis_over_baseline": 70.67114777884653
+        },
+        "duckdb": {
+          "seconds": 0.338,
+          "redis_over_baseline": 86.97987418934956
+        },
+        "postgresql": {
+          "seconds": 278.518,
+          "redis_over_baseline": 0.10555582574914424
+        }
+      }
+    },
+    {
+      "query": 7,
+      "sql": "SELECT MIN(EventDate), MAX(EventDate) FROM hits;",
+      "redis_seconds": 1.0144794890002231,
+      "baselines": {
+        "clickhouse": {
+          "seconds": 0.012,
+          "redis_over_baseline": 84.53995741668525
+        },
+        "duckdb": {
+          "seconds": 0.03,
+          "redis_over_baseline": 33.815982966674106
+        },
+        "postgresql": {
+          "seconds": 258.363,
+          "redis_over_baseline": 0.003926566454949908
+        }
+      }
+    },
+    {
+      "query": 8,
+      "sql": "SELECT AdvEngineID, COUNT(*) FROM hits WHERE AdvEngineID <> 0 GROUP BY AdvEngineID ORDER BY COUNT(*) DESC;",
+      "redis_seconds": 1.6391812209999443,
+      "baselines": {
+        "clickhouse": {
+          "seconds": 0.01,
+          "redis_over_baseline": 163.91812209999443
+        },
+        "duckdb": {
+          "seconds": 0.038,
+          "redis_over_baseline": 43.13634792105117
+        },
+        "postgresql": {
+          "seconds": 258.412,
+          "redis_over_baseline": 0.006343285996780121
+        }
+      }
+    },
+    {
+      "query": 9,
+      "sql": "SELECT RegionID, COUNT(DISTINCT UserID) AS u FROM hits GROUP BY RegionID ORDER BY u DESC LIMIT 10;",
+      "redis_seconds": 159.57434739499968,
+      "baselines": {
+        "clickhouse": {
+          "seconds": 0.479,
+          "redis_over_baseline": 333.14059998956094
+        },
+        "duckdb": {
+          "seconds": 0.443,
+          "redis_over_baseline": 360.212973803611
+        },
+        "postgresql": {
+          "seconds": 284.296,
+          "redis_over_baseline": 0.5612964916671346
+        }
+      }
+    },
+    {
+      "query": 10,
+      "sql": "SELECT RegionID, SUM(AdvEngineID), COUNT(*) AS c, AVG(ResolutionWidth), COUNT(DISTINCT UserID) FROM hits GROUP BY RegionID ORDER BY c DESC LIMIT 10;",
+      "redis_seconds": 280.69609989300034,
+      "baselines": {
+        "clickhouse": {
+          "seconds": 0.539,
+          "redis_over_baseline": 520.7719849591842
+        },
+        "duckdb": {
+          "seconds": 0.612,
+          "redis_over_baseline": 458.6537579950986
+        },
+        "postgresql": {
+          "seconds": 286.07,
+          "redis_over_baseline": 0.9812147372775906
+        }
+      }
+    },
+    {
+      "query": 11,
+      "sql": "SELECT MobilePhoneModel, COUNT(DISTINCT UserID) AS u FROM hits WHERE MobilePhoneModel <> '' GROUP BY MobilePhoneModel ORDER BY u DESC LIMIT 10;",
+      "redis_seconds": 148.85768605900012,
+      "baselines": {
+        "clickhouse": {
+          "seconds": 0.138,
+          "redis_over_baseline": 1078.678884485508
+        },
+        "duckdb": {
+          "seconds": 0.15,
+          "redis_over_baseline": 992.3845737266674
+        },
+        "postgresql": {
+          "seconds": 259.033,
+          "redis_over_baseline": 0.5746668805094336
+        }
+      }
+    }
+  ]
+}

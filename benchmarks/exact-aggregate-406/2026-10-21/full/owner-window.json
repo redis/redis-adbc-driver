@@ -1,0 +1,14 @@
+{
+  "run": "albert-clickbench-c6a-full-20261021",
+  "region": "us-east-1",
+  "node_count": 48,
+  "expires_at": "2026-10-22T07:16:14.601018+00:00",
+  "bucket": "adbc-clickbench-adbc-main-20261014-1936-735486936198",
+  "prefix": "full-c6a-20261021",
+  "instance_count": 49,
+  "availability_zones": [
+    "us-east-1a"
+  ],
+  "source": "owner state captured read-only after ready; no instance or credential changes",
+  "primary_count": 48
+}

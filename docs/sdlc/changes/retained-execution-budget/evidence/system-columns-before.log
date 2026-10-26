@@ -1,0 +1,14 @@
+=== RUN   TestRetainedSourceCaptureApplicationOwnership
+=== RUN   TestRetainedSourceCaptureApplicationOwnership/adopted
+    partition_retained_capture_integration_test.go:161: Not Found: [redis] column "__key" does not exist in table "it_retained_capture_app" (42703)
+=== RUN   TestRetainedSourceCaptureApplicationOwnership/application_index
+    partition_retained_capture_integration_test.go:161: Not Found: [redis] column "__key" does not exist in table "it_retained_capture_app" (42703)
+=== RUN   TestRetainedSourceCaptureApplicationOwnership/foreign_index
+    partition_retained_capture_integration_test.go:161: Not Found: [redis] column "__key" does not exist in table "it_retained_capture_index" (42703)
+--- FAIL: TestRetainedSourceCaptureApplicationOwnership (0.20s)
+    --- FAIL: TestRetainedSourceCaptureApplicationOwnership/adopted (0.12s)
+    --- FAIL: TestRetainedSourceCaptureApplicationOwnership/application_index (0.04s)
+    --- FAIL: TestRetainedSourceCaptureApplicationOwnership/foreign_index (0.04s)
+FAIL
+FAIL	github.com/adbc-drivers/redis/go	0.914s
+FAIL

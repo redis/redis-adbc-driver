@@ -1,0 +1,33 @@
+{
+  "area": "ordering",
+  "source": "https://github.com/alberttwong/redis-adbc-driver/issues/237",
+  "setup": [
+    "CREATE TABLE t (id integer, name varchar(20), score integer, grp varchar(10))",
+    "INSERT INTO t VALUES (1, 'apple', 10, 'a'), (2, 'Banana', NULL, 'a'), (3, 'cherry', 30, 'b'), (4, '_x', 20, 'b')",
+    "CREATE TABLE u (id integer, label text)",
+    "INSERT INTO u VALUES (1, 'one'), (2, 'two')"
+  ],
+  "cases": [
+    {
+      "id": "repro-1",
+      "sql": "select id, score from t order by score desc"
+    },
+    {
+      "id": "repro-2",
+      "sql": "select id from t order by score desc limit 1"
+    },
+    {
+      "id": "repro-3",
+      "sql": "select id, row_number() over (order by score desc) as rn from t order by id"
+    },
+    {
+      "id": "repro-4",
+      "sql": "select string_agg(coalesce(score::text, 'null'), ',' order by score desc) from t"
+    },
+    {
+      "id": "repro-5",
+      "sql": "select id, score from t order by score asc"
+    }
+  ],
+  "tier": "issues"
+}

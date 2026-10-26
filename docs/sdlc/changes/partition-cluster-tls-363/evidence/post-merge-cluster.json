@@ -1,0 +1,78 @@
+{
+  "kind": "local native partition TLS/independent ACL validation",
+  "status": "passed",
+  "library_sha256": "8de7df9de8155b7960ca9552507361c06cf6b48d5e69aac9934b5255673bced6",
+  "installed_wheel": false,
+  "python": "3.13.16",
+  "pyarrow": "26.0.0",
+  "certificate_verification": true,
+  "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+  "machine": "arm64",
+  "packages": {
+    "adbc-driver-manager": "1.12.0",
+    "redis": "8.1.0"
+  },
+  "aggregate_cap": 137,
+  "cluster_mode": "auto",
+  "checks": [
+    "verified_three_primary_tls_caps",
+    "verified_admin_tls_and_real_cap",
+    "hostname_mismatch_rejected",
+    "fixture_rows_span_advertised_cluster_primaries",
+    "closed_planner_and_credential_free_descriptors",
+    "restricted_cross_process_search_full_values_schema",
+    "restricted_cross_process_direct_hash_duplicates_deleted",
+    "native_untrusted_ca_rejected",
+    "native_hostname_mismatch_rejected",
+    "worker_config_and_writes_denied",
+    "malformed_descriptor_rejected",
+    "search_readiness_acl_required_direct_hash_independent",
+    "direct_hash_reader_obeys_worker_acl",
+    "connection_cancel_in_independent_tls_worker",
+    "early_release_in_independent_tls_worker",
+    "live_updates_deletes_and_later_insert_exclusion",
+    "stale_target_rejected"
+  ],
+  "server_cluster_enabled": 1,
+  "topology": {
+    "deployment": "owned OSS Cluster TLS",
+    "container_id": "cb59569b932e7278d35ecc426647b5e79cce9b5609673a14fea22d0415fe0979",
+    "ports": [
+      16441,
+      16442,
+      16443
+    ],
+    "primary_node_ids": {
+      "16441": "4e93d0b90ea849180450f0ac1fff1c351fba6785",
+      "16442": "22004c116bfba889d6b86f1c79362e1c106fe15d",
+      "16443": "76475ef84498b36c602c93b6e2093bc72f3cc5d8"
+    }
+  },
+  "redis_version": "8.6.2",
+  "modules": [
+    {
+      "name": "search",
+      "ver": 80600,
+      "path": "/usr/local/lib/redis/modules/redisearch.so",
+      "args": []
+    },
+    {
+      "name": "vectorset",
+      "ver": 1,
+      "path": "",
+      "args": []
+    }
+  ],
+  "cluster_distribution": {
+    "primary_count": 3,
+    "slot_range_count": 3,
+    "minimum_primary_count": 3,
+    "physical_row_presence_verified": true,
+    "owned_rows_per_primary": [
+      367,
+      367,
+      365
+    ],
+    "covered_slots": 16384
+  }
+}

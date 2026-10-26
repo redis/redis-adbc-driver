@@ -1,0 +1,21 @@
+{
+  "owned_resources": [
+    {
+      "fixture": "codex-retained-budget-native",
+      "pid_verified_shutdown": true,
+      "private_directory_removed": true
+    },
+    {
+      "fixture": "codex-retained-capture-native",
+      "pid_verified_shutdown": true,
+      "private_directory_removed": true
+    },
+    {
+      "fixture": "codex-retained-runtime-tls-cluster",
+      "container_identity_and_label_verified": true,
+      "container_removed": true,
+      "private_keys_passwords_directory_removed": true
+    }
+  ],
+  "paid_cloud_resources_created": 0
+}

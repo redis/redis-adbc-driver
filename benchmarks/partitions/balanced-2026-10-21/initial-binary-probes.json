@@ -1,0 +1,2522 @@
+{
+  "kind": "local ClickBench API comparison pilot; not a leaderboard result",
+  "cpu_count": 18,
+  "host_memory_bytes": 38654705664,
+  "rows_ingested": 100000,
+  "rows_retained": 10000,
+  "layout": "skewed",
+  "columns": 105,
+  "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+  "upstream_commit": "ccda3033f3c7303d9d7f9634d6dae118ef085f96",
+  "driver_revision": "e030bbdc9b725ea826049f91503e507b1c2acf66",
+  "source_dirty": false,
+  "driver_sha256": "ee15cff6e34c02db4f4f8c556f1239b1d80d5f8efc35ce7f3d91130e9b3b4493",
+  "source_prefix_sha256": "d053397f7aa5b2e1ee9160779a9e9307b162c6994aebba829c7ea1411076c4d0",
+  "redis_version": "8.6.2",
+  "search_module": [
+    {
+      "name": "bf",
+      "ver": 80600,
+      "path": "/usr/local/lib/redis/modules//redisbloom.so",
+      "args": []
+    },
+    {
+      "name": "timeseries",
+      "ver": 80600,
+      "path": "/usr/local/lib/redis/modules//redistimeseries.so",
+      "args": []
+    },
+    {
+      "name": "search",
+      "ver": 80600,
+      "path": "/usr/local/lib/redis/modules//redisearch.so",
+      "args": []
+    },
+    {
+      "name": "vectorset",
+      "ver": 1,
+      "path": "",
+      "args": []
+    },
+    {
+      "name": "ReJSON",
+      "ver": 80600,
+      "path": "/usr/local/lib/redis/modules//rejson.so",
+      "args": []
+    }
+  ],
+  "aggregate_cap": "2147483648",
+  "packages": {
+    "pyarrow": "26.0.0",
+    "adbc-driver-manager": "1.12.0",
+    "duckdb": "2.0.0",
+    "redis": "8.1.0",
+    "psutil": "7.2.2"
+  },
+  "measurement_notes": [
+    "End-to-end includes planning, fresh child process/connection startup, full fetch and Arrow IPC writes; parent validation is outside the timer.",
+    "Process-tree RSS sums shared pages and includes coordinator/source/oracle state; sampled peak can miss short transients. Worker rusage is lifetime peak including imports.",
+    "Network deltas include INFO telemetry and other traffic to this dedicated server; server memory is sampled, not isolated per query.",
+    "Local reduced-data pilot with no enforced process memory limit; not full-scale or Cloud ClickBench scores.",
+    "Ingest and expected field names fold to lowercase to match unquoted PostgreSQL identifiers; official SQL is unchanged apart from schema qualification."
+  ],
+  "official_partition_coverage": [
+    {
+      "query": 1,
+      "sql": "SELECT COUNT(*) FROM hits;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partition projection contains an unsupported expression"
+    },
+    {
+      "query": 2,
+      "sql": "SELECT COUNT(*) FROM hits WHERE AdvEngineID <> 0;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partition projection contains an unsupported expression"
+    },
+    {
+      "query": 3,
+      "sql": "SELECT SUM(AdvEngineID), COUNT(*), AVG(ResolutionWidth) FROM hits;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partition projection contains an unsupported expression"
+    },
+    {
+      "query": 4,
+      "sql": "SELECT AVG(UserID) FROM hits;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partition projection contains an unsupported expression"
+    },
+    {
+      "query": 5,
+      "sql": "SELECT COUNT(DISTINCT UserID) FROM hits;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partition projection contains an unsupported expression"
+    },
+    {
+      "query": 6,
+      "sql": "SELECT COUNT(DISTINCT SearchPhrase) FROM hits;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partition projection contains an unsupported expression"
+    },
+    {
+      "query": 7,
+      "sql": "SELECT MIN(EventDate), MAX(EventDate) FROM hits;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partition projection contains an unsupported expression"
+    },
+    {
+      "query": 8,
+      "sql": "SELECT AdvEngineID, COUNT(*) FROM hits WHERE AdvEngineID <> 0 GROUP BY AdvEngineID ORDER BY COUNT(*) DESC;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 9,
+      "sql": "SELECT RegionID, COUNT(DISTINCT UserID) AS u FROM hits GROUP BY RegionID ORDER BY u DESC LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 10,
+      "sql": "SELECT RegionID, SUM(AdvEngineID), COUNT(*) AS c, AVG(ResolutionWidth), COUNT(DISTINCT UserID) FROM hits GROUP BY RegionID ORDER BY c DESC LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 11,
+      "sql": "SELECT MobilePhoneModel, COUNT(DISTINCT UserID) AS u FROM hits WHERE MobilePhoneModel <> '' GROUP BY MobilePhoneModel ORDER BY u DESC LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 12,
+      "sql": "SELECT MobilePhone, MobilePhoneModel, COUNT(DISTINCT UserID) AS u FROM hits WHERE MobilePhoneModel <> '' GROUP BY MobilePhone, MobilePhoneModel ORDER BY u DESC LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 13,
+      "sql": "SELECT SearchPhrase, COUNT(*) AS c FROM hits WHERE SearchPhrase <> '' GROUP BY SearchPhrase ORDER BY c DESC LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 14,
+      "sql": "SELECT SearchPhrase, COUNT(DISTINCT UserID) AS u FROM hits WHERE SearchPhrase <> '' GROUP BY SearchPhrase ORDER BY u DESC LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 15,
+      "sql": "SELECT SearchEngineID, SearchPhrase, COUNT(*) AS c FROM hits WHERE SearchPhrase <> '' GROUP BY SearchEngineID, SearchPhrase ORDER BY c DESC LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 16,
+      "sql": "SELECT UserID, COUNT(*) FROM hits GROUP BY UserID ORDER BY COUNT(*) DESC LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 17,
+      "sql": "SELECT UserID, SearchPhrase, COUNT(*) FROM hits GROUP BY UserID, SearchPhrase ORDER BY COUNT(*) DESC LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 18,
+      "sql": "SELECT UserID, SearchPhrase, COUNT(*) FROM hits GROUP BY UserID, SearchPhrase LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 19,
+      "sql": "SELECT UserID, extract(minute FROM EventTime) AS m, SearchPhrase, COUNT(*) FROM hits GROUP BY UserID, m, SearchPhrase ORDER BY COUNT(*) DESC LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 20,
+      "sql": "SELECT UserID FROM hits WHERE UserID = 435090932899640449;",
+      "status": "supported"
+    },
+    {
+      "query": 21,
+      "sql": "SELECT COUNT(*) FROM hits WHERE URL LIKE '%google%';",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partition predicate contains an unsupported expression"
+    },
+    {
+      "query": 22,
+      "sql": "SELECT SearchPhrase, MIN(URL), COUNT(*) AS c FROM hits WHERE URL LIKE '%google%' AND SearchPhrase <> '' GROUP BY SearchPhrase ORDER BY c DESC LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 23,
+      "sql": "SELECT SearchPhrase, MIN(URL), MIN(Title), COUNT(*) AS c, COUNT(DISTINCT UserID) FROM hits WHERE Title LIKE '%Google%' AND URL NOT LIKE '%.google.%' AND SearchPhrase <> '' GROUP BY SearchPhrase ORDER BY c DESC LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 24,
+      "sql": "SELECT * FROM hits WHERE URL LIKE '%google%' ORDER BY EventTime LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 25,
+      "sql": "SELECT SearchPhrase FROM hits WHERE SearchPhrase <> '' ORDER BY EventTime LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 26,
+      "sql": "SELECT SearchPhrase FROM hits WHERE SearchPhrase <> '' ORDER BY SearchPhrase LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 27,
+      "sql": "SELECT SearchPhrase FROM hits WHERE SearchPhrase <> '' ORDER BY EventTime, SearchPhrase LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 28,
+      "sql": "SELECT CounterID, AVG(length(URL)) AS l, COUNT(*) AS c FROM hits WHERE URL <> '' GROUP BY CounterID HAVING COUNT(*) > 100000 ORDER BY l DESC LIMIT 25;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 29,
+      "sql": "SELECT REGEXP_REPLACE(Referer, '^https?://(?:www\\.)?([^/]+)/.*$', '\\1') AS k, AVG(length(Referer)) AS l, COUNT(*) AS c, MIN(Referer) FROM hits WHERE Referer <> '' GROUP BY k HAVING COUNT(*) > 100000 ORDER BY l DESC LIMIT 25;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 30,
+      "sql": "SELECT SUM(ResolutionWidth), SUM(ResolutionWidth + 1), SUM(ResolutionWidth + 2), SUM(ResolutionWidth + 3), SUM(ResolutionWidth + 4), SUM(ResolutionWidth + 5), SUM(ResolutionWidth + 6), SUM(ResolutionWidth + 7), SUM(ResolutionWidth + 8), SUM(ResolutionWidth + 9), SUM(ResolutionWidth + 10), SUM(ResolutionWidth + 11), SUM(ResolutionWidth + 12), SUM(ResolutionWidth + 13), SUM(ResolutionWidth + 14), SUM(ResolutionWidth + 15), SUM(ResolutionWidth + 16), SUM(ResolutionWidth + 17), SUM(ResolutionWidth + 18), SUM(ResolutionWidth + 19), SUM(ResolutionWidth + 20), SUM(ResolutionWidth + 21), SUM(ResolutionWidth + 22), SUM(ResolutionWidth + 23), SUM(ResolutionWidth + 24), SUM(ResolutionWidth + 25), SUM(ResolutionWidth + 26), SUM(ResolutionWidth + 27), SUM(ResolutionWidth + 28), SUM(ResolutionWidth + 29), SUM(ResolutionWidth + 30), SUM(ResolutionWidth + 31), SUM(ResolutionWidth + 32), SUM(ResolutionWidth + 33), SUM(ResolutionWidth + 34), SUM(ResolutionWidth + 35), SUM(ResolutionWidth + 36), SUM(ResolutionWidth + 37), SUM(ResolutionWidth + 38), SUM(ResolutionWidth + 39), SUM(ResolutionWidth + 40), SUM(ResolutionWidth + 41), SUM(ResolutionWidth + 42), SUM(ResolutionWidth + 43), SUM(ResolutionWidth + 44), SUM(ResolutionWidth + 45), SUM(ResolutionWidth + 46), SUM(ResolutionWidth + 47), SUM(ResolutionWidth + 48), SUM(ResolutionWidth + 49), SUM(ResolutionWidth + 50), SUM(ResolutionWidth + 51), SUM(ResolutionWidth + 52), SUM(ResolutionWidth + 53), SUM(ResolutionWidth + 54), SUM(ResolutionWidth + 55), SUM(ResolutionWidth + 56), SUM(ResolutionWidth + 57), SUM(ResolutionWidth + 58), SUM(ResolutionWidth + 59), SUM(ResolutionWidth + 60), SUM(ResolutionWidth + 61), SUM(ResolutionWidth + 62), SUM(ResolutionWidth + 63), SUM(ResolutionWidth + 64), SUM(ResolutionWidth + 65), SUM(ResolutionWidth + 66), SUM(ResolutionWidth + 67), SUM(ResolutionWidth + 68), SUM(ResolutionWidth + 69), SUM(ResolutionWidth + 70), SUM(ResolutionWidth + 71), SUM(ResolutionWidth + 72), SUM(ResolutionWidth + 73), SUM(ResolutionWidth + 74), SUM(ResolutionWidth + 75), SUM(ResolutionWidth + 76), SUM(ResolutionWidth + 77), SUM(ResolutionWidth + 78), SUM(ResolutionWidth + 79), SUM(ResolutionWidth + 80), SUM(ResolutionWidth + 81), SUM(ResolutionWidth + 82), SUM(ResolutionWidth + 83), SUM(ResolutionWidth + 84), SUM(ResolutionWidth + 85), SUM(ResolutionWidth + 86), SUM(ResolutionWidth + 87), SUM(ResolutionWidth + 88), SUM(ResolutionWidth + 89) FROM hits;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partition projection contains an unsupported expression"
+    },
+    {
+      "query": 31,
+      "sql": "SELECT SearchEngineID, ClientIP, COUNT(*) AS c, SUM(IsRefresh), AVG(ResolutionWidth) FROM hits WHERE SearchPhrase <> '' GROUP BY SearchEngineID, ClientIP ORDER BY c DESC LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 32,
+      "sql": "SELECT WatchID, ClientIP, COUNT(*) AS c, SUM(IsRefresh), AVG(ResolutionWidth) FROM hits WHERE SearchPhrase <> '' GROUP BY WatchID, ClientIP ORDER BY c DESC LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 33,
+      "sql": "SELECT WatchID, ClientIP, COUNT(*) AS c, SUM(IsRefresh), AVG(ResolutionWidth) FROM hits GROUP BY WatchID, ClientIP ORDER BY c DESC LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 34,
+      "sql": "SELECT URL, COUNT(*) AS c FROM hits GROUP BY URL ORDER BY c DESC LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 35,
+      "sql": "SELECT 1, URL, COUNT(*) AS c FROM hits GROUP BY 1, URL ORDER BY c DESC LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 36,
+      "sql": "SELECT ClientIP, ClientIP - 1, ClientIP - 2, ClientIP - 3, COUNT(*) AS c FROM hits GROUP BY ClientIP, ClientIP - 1, ClientIP - 2, ClientIP - 3 ORDER BY c DESC LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 37,
+      "sql": "SELECT URL, COUNT(*) AS PageViews FROM hits WHERE CounterID = 62 AND EventDate >= '2013-07-01' AND EventDate <= '2013-07-31' AND DontCountHits = 0 AND IsRefresh = 0 AND URL <> '' GROUP BY URL ORDER BY PageViews DESC LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 38,
+      "sql": "SELECT Title, COUNT(*) AS PageViews FROM hits WHERE CounterID = 62 AND EventDate >= '2013-07-01' AND EventDate <= '2013-07-31' AND DontCountHits = 0 AND IsRefresh = 0 AND Title <> '' GROUP BY Title ORDER BY PageViews DESC LIMIT 10;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 39,
+      "sql": "SELECT URL, COUNT(*) AS PageViews FROM hits WHERE CounterID = 62 AND EventDate >= '2013-07-01' AND EventDate <= '2013-07-31' AND IsRefresh = 0 AND IsLink <> 0 AND IsDownload = 0 GROUP BY URL ORDER BY PageViews DESC LIMIT 10 OFFSET 1000;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 40,
+      "sql": "SELECT TraficSourceID, SearchEngineID, AdvEngineID, CASE WHEN (SearchEngineID = 0 AND AdvEngineID = 0) THEN Referer ELSE '' END AS Src, URL AS Dst, COUNT(*) AS PageViews FROM hits WHERE CounterID = 62 AND EventDate >= '2013-07-01' AND EventDate <= '2013-07-31' AND IsRefresh = 0 GROUP BY TraficSourceID, SearchEngineID, AdvEngineID, Src, Dst ORDER BY PageViews DESC LIMIT 10 OFFSET 1000;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 41,
+      "sql": "SELECT URLHash, EventDate, COUNT(*) AS PageViews FROM hits WHERE CounterID = 62 AND EventDate >= '2013-07-01' AND EventDate <= '2013-07-31' AND IsRefresh = 0 AND TraficSourceID IN (-1, 6) AND RefererHash = 3594120000172545465 GROUP BY URLHash, EventDate ORDER BY PageViews DESC LIMIT 10 OFFSET 100;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 42,
+      "sql": "SELECT WindowClientWidth, WindowClientHeight, COUNT(*) AS PageViews FROM hits WHERE CounterID = 62 AND EventDate >= '2013-07-01' AND EventDate <= '2013-07-31' AND IsRefresh = 0 AND DontCountHits = 0 AND URLHash = 2868770270353813622 GROUP BY WindowClientWidth, WindowClientHeight ORDER BY PageViews DESC LIMIT 10 OFFSET 10000;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    },
+    {
+      "query": 43,
+      "sql": "SELECT DATE_TRUNC('minute', EventTime) AS M, COUNT(*) AS PageViews FROM hits WHERE CounterID = 62 AND EventDate >= '2013-07-14' AND EventDate <= '2013-07-15' AND IsRefresh = 0 AND DontCountHits = 0 GROUP BY DATE_TRUNC('minute', EventTime) ORDER BY DATE_TRUNC('minute', EventTime) LIMIT 10 OFFSET 1000;",
+      "status": "not_implemented",
+      "reason": "NOT_IMPLEMENTED: [redis] partitioned reads require a single-table SELECT without global operations"
+    }
+  ],
+  "trials": [
+    {
+      "workload": "scan_narrow",
+      "sql": "SELECT __rowid AS source_ordinal, WatchID, UserID, AdvEngineID FROM hits",
+      "official": false,
+      "method": "execute_query",
+      "workers": 1,
+      "partitions": null,
+      "strategy": null,
+      "repeat": 0,
+      "rows": 10000,
+      "end_to_end_seconds": 0.28365404201031197,
+      "planning_seconds": 0,
+      "exact_values": true,
+      "arrow_schema": "source_ordinal: int64\nwatchid: int64\nuserid: int64\nadvengineid: int16",
+      "worker_metrics": [
+        {
+          "rows": 10000,
+          "read_and_ipc_seconds": 0.062134416002663784,
+          "first_batch_seconds": 0.06091154100431595,
+          "process_peak_rss_bytes": 132300800
+        }
+      ],
+      "telemetry": {
+        "sample_interval_seconds": 0.05,
+        "samples": 6,
+        "client_process_tree_baseline_rss_bytes": 850001920,
+        "client_process_tree_sampled_peak_rss_bytes": 996900864,
+        "server_baseline_used_memory_bytes": 148723008,
+        "server_sampled_peak_used_memory_bytes": 148865608,
+        "server_after_used_memory_bytes": 148725560,
+        "server_net_input_bytes_delta": 1001380,
+        "server_net_output_bytes_delta": 2406089
+      }
+    },
+    {
+      "workload": "scan_narrow",
+      "sql": "SELECT __rowid AS source_ordinal, WatchID, UserID, AdvEngineID FROM hits",
+      "official": false,
+      "method": "partitions",
+      "workers": 1,
+      "partitions": 8,
+      "strategy": "rowid",
+      "repeat": 0,
+      "rows": 10000,
+      "end_to_end_seconds": 0.3392930830013938,
+      "planning_seconds": 0.0020341250055935234,
+      "exact_values": true,
+      "arrow_schema": "source_ordinal: int64\nwatchid: int64\nuserid: int64\nadvengineid: int16",
+      "worker_metrics": [
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.0106344590021763,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 105431040
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.006121375001384877,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106102784
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.006110416987212375,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106201088
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.006061000007321127,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106266624
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.006163291996927001,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106283008
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.005943374999333173,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106283008
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.0062140829977579415,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106299392
+        },
+        {
+          "rows": 10000,
+          "read_and_ipc_seconds": 0.06032545800553635,
+          "first_batch_seconds": 0.059020250002504326,
+          "process_peak_rss_bytes": 131956736
+        }
+      ],
+      "telemetry": {
+        "sample_interval_seconds": 0.05,
+        "samples": 7,
+        "client_process_tree_baseline_rss_bytes": 857849856,
+        "client_process_tree_sampled_peak_rss_bytes": 1007583232,
+        "server_baseline_used_memory_bytes": 148725560,
+        "server_sampled_peak_used_memory_bytes": 148789288,
+        "server_after_used_memory_bytes": 148728400,
+        "server_net_input_bytes_delta": 1012107,
+        "server_net_output_bytes_delta": 3907716
+      }
+    },
+    {
+      "workload": "scan_narrow",
+      "sql": "SELECT __rowid AS source_ordinal, WatchID, UserID, AdvEngineID FROM hits",
+      "official": false,
+      "method": "partitions",
+      "workers": 1,
+      "partitions": 8,
+      "strategy": "balanced",
+      "repeat": 0,
+      "rows": 10000,
+      "end_to_end_seconds": 0.543201707987464,
+      "planning_seconds": 0.21540395899501164,
+      "exact_values": true,
+      "arrow_schema": "source_ordinal: int64\nwatchid: int64\nuserid: int64\nadvengineid: int16",
+      "worker_metrics": [
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.01769816700834781,
+          "first_batch_seconds": 0.017097875010222197,
+          "process_peak_rss_bytes": 110706688
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.014725040993653238,
+          "first_batch_seconds": 0.014119790997938253,
+          "process_peak_rss_bytes": 111280128
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.012948416988365352,
+          "first_batch_seconds": 0.012277541987714358,
+          "process_peak_rss_bytes": 111312896
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.012566125005832873,
+          "first_batch_seconds": 0.012043000009725802,
+          "process_peak_rss_bytes": 111624192
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.012623124988749623,
+          "first_batch_seconds": 0.012067791991285048,
+          "process_peak_rss_bytes": 111624192
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.013570582988904789,
+          "first_batch_seconds": 0.013037040989729576,
+          "process_peak_rss_bytes": 111689728
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.012695416997303255,
+          "first_batch_seconds": 0.012116458994569257,
+          "process_peak_rss_bytes": 111689728
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.012680791987804696,
+          "first_batch_seconds": 0.01216570899123326,
+          "process_peak_rss_bytes": 111820800
+        }
+      ],
+      "telemetry": {
+        "sample_interval_seconds": 0.05,
+        "samples": 10,
+        "client_process_tree_baseline_rss_bytes": 859291648,
+        "client_process_tree_sampled_peak_rss_bytes": 992051200,
+        "server_baseline_used_memory_bytes": 148728400,
+        "server_sampled_peak_used_memory_bytes": 148749064,
+        "server_after_used_memory_bytes": 148732584,
+        "server_net_input_bytes_delta": 1026550,
+        "server_net_output_bytes_delta": 3921205
+      }
+    },
+    {
+      "workload": "scan_narrow",
+      "sql": "SELECT __rowid AS source_ordinal, WatchID, UserID, AdvEngineID FROM hits",
+      "official": false,
+      "method": "partitions",
+      "workers": 4,
+      "partitions": 8,
+      "strategy": "rowid",
+      "repeat": 0,
+      "rows": 10000,
+      "end_to_end_seconds": 0.2984072920080507,
+      "planning_seconds": 0.0015284169930964708,
+      "exact_values": true,
+      "arrow_schema": "source_ordinal: int64\nwatchid: int64\nuserid: int64\nadvengineid: int16",
+      "worker_metrics": [
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.009658540991949849,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 105611264
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.009323874997789972,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 105791488
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.011490292003145441,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 105791488
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.01186812500236556,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106201088
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.007967875004396774,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106561536
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.008575416999519803,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106708992
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.02111295799841173,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106561536
+        },
+        {
+          "rows": 10000,
+          "read_and_ipc_seconds": 0.060050750005757436,
+          "first_batch_seconds": 0.05881775000307243,
+          "process_peak_rss_bytes": 133562368
+        }
+      ],
+      "telemetry": {
+        "sample_interval_seconds": 0.05,
+        "samples": 6,
+        "client_process_tree_baseline_rss_bytes": 860585984,
+        "client_process_tree_sampled_peak_rss_bytes": 1327022080,
+        "server_baseline_used_memory_bytes": 148732584,
+        "server_sampled_peak_used_memory_bytes": 148811608,
+        "server_after_used_memory_bytes": 148741512,
+        "server_net_input_bytes_delta": 1012081,
+        "server_net_output_bytes_delta": 3906075
+      }
+    },
+    {
+      "workload": "scan_narrow",
+      "sql": "SELECT __rowid AS source_ordinal, WatchID, UserID, AdvEngineID FROM hits",
+      "official": false,
+      "method": "partitions",
+      "workers": 4,
+      "partitions": 8,
+      "strategy": "balanced",
+      "repeat": 0,
+      "rows": 10000,
+      "end_to_end_seconds": 0.4982038750022184,
+      "planning_seconds": 0.2108368749904912,
+      "exact_values": true,
+      "arrow_schema": "source_ordinal: int64\nwatchid: int64\nuserid: int64\nadvengineid: int16",
+      "worker_metrics": [
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.024168666001060046,
+          "first_batch_seconds": 0.023425249994033948,
+          "process_peak_rss_bytes": 110149632
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.024015333998249844,
+          "first_batch_seconds": 0.02307004199246876,
+          "process_peak_rss_bytes": 110936064
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.027765833990997635,
+          "first_batch_seconds": 0.027045416994951665,
+          "process_peak_rss_bytes": 110133248
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.021424624996143393,
+          "first_batch_seconds": 0.020587542006978765,
+          "process_peak_rss_bytes": 108658688
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.02388799999607727,
+          "first_batch_seconds": 0.023232999999891035,
+          "process_peak_rss_bytes": 111067136
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.02161166699079331,
+          "first_batch_seconds": 0.02090516699536238,
+          "process_peak_rss_bytes": 111640576
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.02305204200092703,
+          "first_batch_seconds": 0.022269084001891315,
+          "process_peak_rss_bytes": 110821376
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.017359457997372374,
+          "first_batch_seconds": 0.01678745799290482,
+          "process_peak_rss_bytes": 110723072
+        }
+      ],
+      "telemetry": {
+        "sample_interval_seconds": 0.05,
+        "samples": 10,
+        "client_process_tree_baseline_rss_bytes": 861093888,
+        "client_process_tree_sampled_peak_rss_bytes": 1323761664,
+        "server_baseline_used_memory_bytes": 148741512,
+        "server_sampled_peak_used_memory_bytes": 148812848,
+        "server_after_used_memory_bytes": 148742088,
+        "server_net_input_bytes_delta": 1026550,
+        "server_net_output_bytes_delta": 3921207
+      }
+    },
+    {
+      "workload": "scan_narrow",
+      "sql": "SELECT __rowid AS source_ordinal, WatchID, UserID, AdvEngineID FROM hits",
+      "official": false,
+      "method": "partitions",
+      "workers": 1,
+      "partitions": 8,
+      "strategy": "rowid",
+      "repeat": 1,
+      "rows": 10000,
+      "end_to_end_seconds": 0.3148573749931529,
+      "planning_seconds": 0.0013881659979233518,
+      "exact_values": true,
+      "arrow_schema": "source_ordinal: int64\nwatchid: int64\nuserid: int64\nadvengineid: int16",
+      "worker_metrics": [
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.007679290996748023,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106528768
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.0063605000032112,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 107102208
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.006075583005440421,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 107134976
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.006204583012731746,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 107151360
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.006070415998692624,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 107151360
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.007610667002154514,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 107184128
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.00625529199896846,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 107184128
+        },
+        {
+          "rows": 10000,
+          "read_and_ipc_seconds": 0.06019416700291913,
+          "first_batch_seconds": 0.05865420900227036,
+          "process_peak_rss_bytes": 133185536
+        }
+      ],
+      "telemetry": {
+        "sample_interval_seconds": 0.05,
+        "samples": 7,
+        "client_process_tree_baseline_rss_bytes": 861175808,
+        "client_process_tree_sampled_peak_rss_bytes": 1015431168,
+        "server_baseline_used_memory_bytes": 148742088,
+        "server_sampled_peak_used_memory_bytes": 151135392,
+        "server_after_used_memory_bytes": 148742832,
+        "server_net_input_bytes_delta": 1012109,
+        "server_net_output_bytes_delta": 3907772
+      }
+    },
+    {
+      "workload": "scan_narrow",
+      "sql": "SELECT __rowid AS source_ordinal, WatchID, UserID, AdvEngineID FROM hits",
+      "official": false,
+      "method": "partitions",
+      "workers": 1,
+      "partitions": 8,
+      "strategy": "balanced",
+      "repeat": 1,
+      "rows": 10000,
+      "end_to_end_seconds": 0.5346859590063104,
+      "planning_seconds": 0.20889237499795854,
+      "exact_values": true,
+      "arrow_schema": "source_ordinal: int64\nwatchid: int64\nuserid: int64\nadvengineid: int16",
+      "worker_metrics": [
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.01776145800249651,
+          "first_batch_seconds": 0.01717099999950733,
+          "process_peak_rss_bytes": 110264320
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.012992292002309114,
+          "first_batch_seconds": 0.012462625003536232,
+          "process_peak_rss_bytes": 111214592
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.01247762500133831,
+          "first_batch_seconds": 0.011815249992650934,
+          "process_peak_rss_bytes": 111378432
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.012550125000416301,
+          "first_batch_seconds": 0.011992624989943579,
+          "process_peak_rss_bytes": 111443968
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.01476741599617526,
+          "first_batch_seconds": 0.014194250004948117,
+          "process_peak_rss_bytes": 111443968
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.012579792004544288,
+          "first_batch_seconds": 0.012023999996017665,
+          "process_peak_rss_bytes": 111476736
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.012760208002873696,
+          "first_batch_seconds": 0.012135249999118969,
+          "process_peak_rss_bytes": 111935488
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.01226608399883844,
+          "first_batch_seconds": 0.011756084000808187,
+          "process_peak_rss_bytes": 111968256
+        }
+      ],
+      "telemetry": {
+        "sample_interval_seconds": 0.05,
+        "samples": 10,
+        "client_process_tree_baseline_rss_bytes": 861192192,
+        "client_process_tree_sampled_peak_rss_bytes": 994115584,
+        "server_baseline_used_memory_bytes": 148742832,
+        "server_sampled_peak_used_memory_bytes": 148851056,
+        "server_after_used_memory_bytes": 148742984,
+        "server_net_input_bytes_delta": 1026550,
+        "server_net_output_bytes_delta": 3921208
+      }
+    },
+    {
+      "workload": "scan_narrow",
+      "sql": "SELECT __rowid AS source_ordinal, WatchID, UserID, AdvEngineID FROM hits",
+      "official": false,
+      "method": "partitions",
+      "workers": 4,
+      "partitions": 8,
+      "strategy": "rowid",
+      "repeat": 1,
+      "rows": 10000,
+      "end_to_end_seconds": 0.28302562500175554,
+      "planning_seconds": 0.0016377919964725152,
+      "exact_values": true,
+      "arrow_schema": "source_ordinal: int64\nwatchid: int64\nuserid: int64\nadvengineid: int16",
+      "worker_metrics": [
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.01120787500985898,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 105758720
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.010690041992347687,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 105529344
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.010103083011927083,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 105545728
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.010940916006802581,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 105594880
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.007565084000816569,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106512384
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.023346208006842062,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106872832
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.02230454199889209,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106643456
+        },
+        {
+          "rows": 10000,
+          "read_and_ipc_seconds": 0.058416708998265676,
+          "first_batch_seconds": 0.05714120899210684,
+          "process_peak_rss_bytes": 132661248
+        }
+      ],
+      "telemetry": {
+        "sample_interval_seconds": 0.05,
+        "samples": 6,
+        "client_process_tree_baseline_rss_bytes": 861192192,
+        "client_process_tree_sampled_peak_rss_bytes": 1334149120,
+        "server_baseline_used_memory_bytes": 148742984,
+        "server_sampled_peak_used_memory_bytes": 148780712,
+        "server_after_used_memory_bytes": 148743744,
+        "server_net_input_bytes_delta": 1012083,
+        "server_net_output_bytes_delta": 3906080
+      }
+    },
+    {
+      "workload": "scan_narrow",
+      "sql": "SELECT __rowid AS source_ordinal, WatchID, UserID, AdvEngineID FROM hits",
+      "official": false,
+      "method": "partitions",
+      "workers": 4,
+      "partitions": 8,
+      "strategy": "balanced",
+      "repeat": 1,
+      "rows": 10000,
+      "end_to_end_seconds": 0.4863469999982044,
+      "planning_seconds": 0.21535850000509527,
+      "exact_values": true,
+      "arrow_schema": "source_ordinal: int64\nwatchid: int64\nuserid: int64\nadvengineid: int16",
+      "worker_metrics": [
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.029335665996768512,
+          "first_batch_seconds": 0.028626832994632423,
+          "process_peak_rss_bytes": 110346240
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.02866366700618528,
+          "first_batch_seconds": 0.027586666998104192,
+          "process_peak_rss_bytes": 109117440
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.02844024999649264,
+          "first_batch_seconds": 0.027581207992625423,
+          "process_peak_rss_bytes": 110804992
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.030504583002766594,
+          "first_batch_seconds": 0.029616915999213234,
+          "process_peak_rss_bytes": 110149632
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.0222689999936847,
+          "first_batch_seconds": 0.021555500003159977,
+          "process_peak_rss_bytes": 111640576
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.021830333993420936,
+          "first_batch_seconds": 0.02102674999332521,
+          "process_peak_rss_bytes": 110542848
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.020616791996872053,
+          "first_batch_seconds": 0.019931333998101763,
+          "process_peak_rss_bytes": 111427584
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.02210775000276044,
+          "first_batch_seconds": 0.021461291005834937,
+          "process_peak_rss_bytes": 111280128
+        }
+      ],
+      "telemetry": {
+        "sample_interval_seconds": 0.05,
+        "samples": 9,
+        "client_process_tree_baseline_rss_bytes": 861257728,
+        "client_process_tree_sampled_peak_rss_bytes": 1324990464,
+        "server_baseline_used_memory_bytes": 148743744,
+        "server_sampled_peak_used_memory_bytes": 148906536,
+        "server_after_used_memory_bytes": 148744024,
+        "server_net_input_bytes_delta": 1026524,
+        "server_net_output_bytes_delta": 3919515
+      }
+    },
+    {
+      "workload": "scan_narrow",
+      "sql": "SELECT __rowid AS source_ordinal, WatchID, UserID, AdvEngineID FROM hits",
+      "official": false,
+      "method": "execute_query",
+      "workers": 1,
+      "partitions": null,
+      "strategy": null,
+      "repeat": 1,
+      "rows": 10000,
+      "end_to_end_seconds": 0.23160508400178514,
+      "planning_seconds": 0,
+      "exact_values": true,
+      "arrow_schema": "source_ordinal: int64\nwatchid: int64\nuserid: int64\nadvengineid: int16",
+      "worker_metrics": [
+        {
+          "rows": 10000,
+          "read_and_ipc_seconds": 0.06363191599666607,
+          "first_batch_seconds": 0.06229054099821951,
+          "process_peak_rss_bytes": 132022272
+        }
+      ],
+      "telemetry": {
+        "sample_interval_seconds": 0.05,
+        "samples": 5,
+        "client_process_tree_baseline_rss_bytes": 861863936,
+        "client_process_tree_sampled_peak_rss_bytes": 1006272512,
+        "server_baseline_used_memory_bytes": 148744024,
+        "server_sampled_peak_used_memory_bytes": 148885304,
+        "server_after_used_memory_bytes": 148745224,
+        "server_net_input_bytes_delta": 1001354,
+        "server_net_output_bytes_delta": 2404408
+      }
+    },
+    {
+      "workload": "scan_narrow",
+      "sql": "SELECT __rowid AS source_ordinal, WatchID, UserID, AdvEngineID FROM hits",
+      "official": false,
+      "method": "partitions",
+      "workers": 1,
+      "partitions": 8,
+      "strategy": "balanced",
+      "repeat": 2,
+      "rows": 10000,
+      "end_to_end_seconds": 0.5570110830012709,
+      "planning_seconds": 0.21808787499321625,
+      "exact_values": true,
+      "arrow_schema": "source_ordinal: int64\nwatchid: int64\nuserid: int64\nadvengineid: int16",
+      "worker_metrics": [
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.016659917004290037,
+          "first_batch_seconds": 0.015973250003298745,
+          "process_peak_rss_bytes": 108560384
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.014770624999073334,
+          "first_batch_seconds": 0.01421391598705668,
+          "process_peak_rss_bytes": 110690304
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.012688333998085,
+          "first_batch_seconds": 0.012149292000685818,
+          "process_peak_rss_bytes": 111263744
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.012448957990272902,
+          "first_batch_seconds": 0.011946375001571141,
+          "process_peak_rss_bytes": 111427584
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.012161000006017275,
+          "first_batch_seconds": 0.011700500006554648,
+          "process_peak_rss_bytes": 112328704
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.013776082996628247,
+          "first_batch_seconds": 0.013176499996916391,
+          "process_peak_rss_bytes": 112345088
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.012456125012249686,
+          "first_batch_seconds": 0.011898500000825152,
+          "process_peak_rss_bytes": 112345088
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.012319624991505407,
+          "first_batch_seconds": 0.011793375000706874,
+          "process_peak_rss_bytes": 112345088
+        }
+      ],
+      "telemetry": {
+        "sample_interval_seconds": 0.05,
+        "samples": 11,
+        "client_process_tree_baseline_rss_bytes": 861863936,
+        "client_process_tree_sampled_peak_rss_bytes": 995229696,
+        "server_baseline_used_memory_bytes": 148745224,
+        "server_sampled_peak_used_memory_bytes": 148782280,
+        "server_after_used_memory_bytes": 148745320,
+        "server_net_input_bytes_delta": 1026576,
+        "server_net_output_bytes_delta": 3922906
+      }
+    },
+    {
+      "workload": "scan_narrow",
+      "sql": "SELECT __rowid AS source_ordinal, WatchID, UserID, AdvEngineID FROM hits",
+      "official": false,
+      "method": "partitions",
+      "workers": 4,
+      "partitions": 8,
+      "strategy": "rowid",
+      "repeat": 2,
+      "rows": 10000,
+      "end_to_end_seconds": 0.2892586669913726,
+      "planning_seconds": 0.0014458750083576888,
+      "exact_values": true,
+      "arrow_schema": "source_ordinal: int64\nwatchid: int64\nuserid: int64\nadvengineid: int16",
+      "worker_metrics": [
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.010306707990821451,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106151936
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.009474584003328346,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106266624
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.01165483299701009,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106004480
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.011127874997328036,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 105971712
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.007541708997450769,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106987520
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.008008125005289912,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106938368
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.008601041001384147,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106971136
+        },
+        {
+          "rows": 10000,
+          "read_and_ipc_seconds": 0.05951087499852292,
+          "first_batch_seconds": 0.0585100419993978,
+          "process_peak_rss_bytes": 129384448
+        }
+      ],
+      "telemetry": {
+        "sample_interval_seconds": 0.05,
+        "samples": 6,
+        "client_process_tree_baseline_rss_bytes": 861896704,
+        "client_process_tree_sampled_peak_rss_bytes": 1331462144,
+        "server_baseline_used_memory_bytes": 148745320,
+        "server_sampled_peak_used_memory_bytes": 148806968,
+        "server_after_used_memory_bytes": 148746072,
+        "server_net_input_bytes_delta": 1012081,
+        "server_net_output_bytes_delta": 3906130
+      }
+    },
+    {
+      "workload": "scan_narrow",
+      "sql": "SELECT __rowid AS source_ordinal, WatchID, UserID, AdvEngineID FROM hits",
+      "official": false,
+      "method": "partitions",
+      "workers": 4,
+      "partitions": 8,
+      "strategy": "balanced",
+      "repeat": 2,
+      "rows": 10000,
+      "end_to_end_seconds": 0.48427025000273716,
+      "planning_seconds": 0.2106218330009142,
+      "exact_values": true,
+      "arrow_schema": "source_ordinal: int64\nwatchid: int64\nuserid: int64\nadvengineid: int16",
+      "worker_metrics": [
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.030164083000272512,
+          "first_batch_seconds": 0.029419582991977222,
+          "process_peak_rss_bytes": 109805568
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.02783083300164435,
+          "first_batch_seconds": 0.027066832990385592,
+          "process_peak_rss_bytes": 108527616
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.028434791005565785,
+          "first_batch_seconds": 0.027546415993128903,
+          "process_peak_rss_bytes": 108118016
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.02857554200454615,
+          "first_batch_seconds": 0.027743458005716093,
+          "process_peak_rss_bytes": 108625920
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.023628957991604693,
+          "first_batch_seconds": 0.02275591599754989,
+          "process_peak_rss_bytes": 109527040
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.02298408400383778,
+          "first_batch_seconds": 0.022061000010580756,
+          "process_peak_rss_bytes": 109346816
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.02423925000766758,
+          "first_batch_seconds": 0.023356999998213723,
+          "process_peak_rss_bytes": 109445120
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.025080916995648295,
+          "first_batch_seconds": 0.024333708002814092,
+          "process_peak_rss_bytes": 110510080
+        }
+      ],
+      "telemetry": {
+        "sample_interval_seconds": 0.05,
+        "samples": 9,
+        "client_process_tree_baseline_rss_bytes": 861896704,
+        "client_process_tree_sampled_peak_rss_bytes": 1319665664,
+        "server_baseline_used_memory_bytes": 148746072,
+        "server_sampled_peak_used_memory_bytes": 148894008,
+        "server_after_used_memory_bytes": 148731480,
+        "server_net_input_bytes_delta": 1026524,
+        "server_net_output_bytes_delta": 3919568
+      }
+    },
+    {
+      "workload": "scan_narrow",
+      "sql": "SELECT __rowid AS source_ordinal, WatchID, UserID, AdvEngineID FROM hits",
+      "official": false,
+      "method": "execute_query",
+      "workers": 1,
+      "partitions": null,
+      "strategy": null,
+      "repeat": 2,
+      "rows": 10000,
+      "end_to_end_seconds": 0.25229891600611154,
+      "planning_seconds": 0,
+      "exact_values": true,
+      "arrow_schema": "source_ordinal: int64\nwatchid: int64\nuserid: int64\nadvengineid: int16",
+      "worker_metrics": [
+        {
+          "rows": 10000,
+          "read_and_ipc_seconds": 0.06402658300066832,
+          "first_batch_seconds": 0.06311933300457895,
+          "process_peak_rss_bytes": 134332416
+        }
+      ],
+      "telemetry": {
+        "sample_interval_seconds": 0.05,
+        "samples": 6,
+        "client_process_tree_baseline_rss_bytes": 861896704,
+        "client_process_tree_sampled_peak_rss_bytes": 987480064,
+        "server_baseline_used_memory_bytes": 148731480,
+        "server_sampled_peak_used_memory_bytes": 148854088,
+        "server_after_used_memory_bytes": 148719120,
+        "server_net_input_bytes_delta": 1001380,
+        "server_net_output_bytes_delta": 2406097
+      }
+    },
+    {
+      "workload": "scan_narrow",
+      "sql": "SELECT __rowid AS source_ordinal, WatchID, UserID, AdvEngineID FROM hits",
+      "official": false,
+      "method": "partitions",
+      "workers": 1,
+      "partitions": 8,
+      "strategy": "rowid",
+      "repeat": 2,
+      "rows": 10000,
+      "end_to_end_seconds": 0.3128996670129709,
+      "planning_seconds": 0.0015698329953011125,
+      "exact_values": true,
+      "arrow_schema": "source_ordinal: int64\nwatchid: int64\nuserid: int64\nadvengineid: int16",
+      "worker_metrics": [
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.006748999992851168,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 105185280
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.006271916005061939,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106086400
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.006102917002863251,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106135552
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.0065521250071469694,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106414080
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.006142625003121793,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106430464
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.006045957998139784,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106479616
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.008154209004715085,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106594304
+        },
+        {
+          "rows": 10000,
+          "read_and_ipc_seconds": 0.05727516699698754,
+          "first_batch_seconds": 0.0563332080055261,
+          "process_peak_rss_bytes": 129810432
+        }
+      ],
+      "telemetry": {
+        "sample_interval_seconds": 0.05,
+        "samples": 7,
+        "client_process_tree_baseline_rss_bytes": 861896704,
+        "client_process_tree_sampled_peak_rss_bytes": 989642752,
+        "server_baseline_used_memory_bytes": 148719120,
+        "server_sampled_peak_used_memory_bytes": 151117064,
+        "server_after_used_memory_bytes": 148724464,
+        "server_net_input_bytes_delta": 1012109,
+        "server_net_output_bytes_delta": 3907820
+      }
+    },
+    {
+      "workload": "scan_wide",
+      "sql": "SELECT __rowid AS source_ordinal, * FROM hits",
+      "official": false,
+      "method": "execute_query",
+      "workers": 1,
+      "partitions": null,
+      "strategy": null,
+      "repeat": 0,
+      "rows": 10000,
+      "end_to_end_seconds": 0.7380120419984451,
+      "planning_seconds": 0,
+      "exact_values": true,
+      "arrow_schema": "source_ordinal: int64\nwatchid: int64\njavaenable: int16\ntitle: string\ngoodevent: int16\neventtime: timestamp[us]\neventdate: date32[day]\ncounterid: int32\nclientip: int32\nregionid: int32\nuserid: int64\ncounterclass: int16\nos: int16\nuseragent: int16\nurl: string\nreferer: string\nisrefresh: int16\nreferercategoryid: int16\nrefererregionid: int32\nurlcategoryid: int16\nurlregionid: int32\nresolutionwidth: int16\nresolutionheight: int16\nresolutiondepth: int16\nflashmajor: int16\nflashminor: int16\nflashminor2: string\nnetmajor: int16\nnetminor: int16\nuseragentmajor: int16\nuseragentminor: string\ncookieenable: int16\njavascriptenable: int16\nismobile: int16\nmobilephone: int16\nmobilephonemodel: string\nparams: string\nipnetworkid: int32\ntraficsourceid: int16\nsearchengineid: int16\nsearchphrase: string\nadvengineid: int16\nisartifical: int16\nwindowclientwidth: int16\nwindowclientheight: int16\nclienttimezone: int16\nclienteventtime: timestamp[us]\nsilverlightversion1: int16\nsilverlightversion2: int16\nsilverlightversion3: int32\nsilverlightversion4: int16\npagecharset: string\ncodeversion: int32\nislink: int16\nisdownload: int16\nisnotbounce: int16\nfuniqid: int64\noriginalurl: string\nhid: int32\nisoldcounter: int16\nisevent: int16\nisparameter: int16\ndontcounthits: int16\nwithhash: int16\nhitcolor: string\nlocaleventtime: timestamp[us]\nage: int16\nsex: int16\nincome: int16\ninterests: int16\nrobotness: int16\nremoteip: int32\nwindowname: int32\nopenername: int32\nhistorylength: int16\nbrowserlanguage: string\nbrowsercountry: string\nsocialnetwork: string\nsocialaction: string\nhttperror: int16\nsendtiming: int32\ndnstiming: int32\nconnecttiming: int32\nresponsestarttiming: int32\nresponseendtiming: int32\nfetchtiming: int32\nsocialsourcenetworkid: int16\nsocialsourcepage: string\nparamprice: int64\nparamorderid: string\nparamcurrency: string\nparamcurrencyid: int16\nopenstatservicename: string\nopenstatcampaignid: string\nopenstatadid: string\nopenstatsourceid: string\nutmsource: string\nutmmedium: string\nutmcampaign: string\nutmcontent: string\nutmterm: string\nfromtag: string\nhasgclid: int16\nrefererhash: int64\nurlhash: int64\nclid: int32",
+      "worker_metrics": [
+        {
+          "rows": 10000,
+          "read_and_ipc_seconds": 0.5446694169950206,
+          "first_batch_seconds": 0.5385814170003869,
+          "process_peak_rss_bytes": 416497664
+        }
+      ],
+      "telemetry": {
+        "sample_interval_seconds": 0.05,
+        "samples": 11,
+        "client_process_tree_baseline_rss_bytes": 861896704,
+        "client_process_tree_sampled_peak_rss_bytes": 1294057472,
+        "server_baseline_used_memory_bytes": 148724464,
+        "server_sampled_peak_used_memory_bytes": 156348056,
+        "server_after_used_memory_bytes": 148734640,
+        "server_net_input_bytes_delta": 2192,
+        "server_net_output_bytes_delta": 33989569
+      }
+    },
+    {
+      "workload": "scan_wide",
+      "sql": "SELECT __rowid AS source_ordinal, * FROM hits",
+      "official": false,
+      "method": "partitions",
+      "workers": 1,
+      "partitions": 8,
+      "strategy": "rowid",
+      "repeat": 0,
+      "rows": 10000,
+      "end_to_end_seconds": 0.817423874992528,
+      "planning_seconds": 0.0032576669909758493,
+      "exact_values": true,
+      "arrow_schema": "source_ordinal: int64\nwatchid: int64\njavaenable: int16\ntitle: string\ngoodevent: int16\neventtime: timestamp[us]\neventdate: date32[day]\ncounterid: int32\nclientip: int32\nregionid: int32\nuserid: int64\ncounterclass: int16\nos: int16\nuseragent: int16\nurl: string\nreferer: string\nisrefresh: int16\nreferercategoryid: int16\nrefererregionid: int32\nurlcategoryid: int16\nurlregionid: int32\nresolutionwidth: int16\nresolutionheight: int16\nresolutiondepth: int16\nflashmajor: int16\nflashminor: int16\nflashminor2: string\nnetmajor: int16\nnetminor: int16\nuseragentmajor: int16\nuseragentminor: string\ncookieenable: int16\njavascriptenable: int16\nismobile: int16\nmobilephone: int16\nmobilephonemodel: string\nparams: string\nipnetworkid: int32\ntraficsourceid: int16\nsearchengineid: int16\nsearchphrase: string\nadvengineid: int16\nisartifical: int16\nwindowclientwidth: int16\nwindowclientheight: int16\nclienttimezone: int16\nclienteventtime: timestamp[us]\nsilverlightversion1: int16\nsilverlightversion2: int16\nsilverlightversion3: int32\nsilverlightversion4: int16\npagecharset: string\ncodeversion: int32\nislink: int16\nisdownload: int16\nisnotbounce: int16\nfuniqid: int64\noriginalurl: string\nhid: int32\nisoldcounter: int16\nisevent: int16\nisparameter: int16\ndontcounthits: int16\nwithhash: int16\nhitcolor: string\nlocaleventtime: timestamp[us]\nage: int16\nsex: int16\nincome: int16\ninterests: int16\nrobotness: int16\nremoteip: int32\nwindowname: int32\nopenername: int32\nhistorylength: int16\nbrowserlanguage: string\nbrowsercountry: string\nsocialnetwork: string\nsocialaction: string\nhttperror: int16\nsendtiming: int32\ndnstiming: int32\nconnecttiming: int32\nresponsestarttiming: int32\nresponseendtiming: int32\nfetchtiming: int32\nsocialsourcenetworkid: int16\nsocialsourcepage: string\nparamprice: int64\nparamorderid: string\nparamcurrency: string\nparamcurrencyid: int16\nopenstatservicename: string\nopenstatcampaignid: string\nopenstatadid: string\nopenstatsourceid: string\nutmsource: string\nutmmedium: string\nutmcampaign: string\nutmcontent: string\nutmterm: string\nfromtag: string\nhasgclid: int16\nrefererhash: int64\nurlhash: int64\nclid: int32",
+      "worker_metrics": [
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.007723500006250106,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106512384
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.006549333003931679,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 107560960
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.006267749995458871,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 107692032
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.006270290992688388,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 107773952
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.006283915994572453,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 107937792
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.006314083002507687,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 107970560
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.00642574999073986,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 108429312
+        },
+        {
+          "rows": 10000,
+          "read_and_ipc_seconds": 0.5441845419991296,
+          "first_batch_seconds": 0.5388586250046501,
+          "process_peak_rss_bytes": 383664128
+        }
+      ],
+      "telemetry": {
+        "sample_interval_seconds": 0.05,
+        "samples": 14,
+        "client_process_tree_baseline_rss_bytes": 977797120,
+        "client_process_tree_sampled_peak_rss_bytes": 1375404032,
+        "server_baseline_used_memory_bytes": 148734640,
+        "server_sampled_peak_used_memory_bytes": 155612208,
+        "server_after_used_memory_bytes": 148739240,
+        "server_net_input_bytes_delta": 13348,
+        "server_net_output_bytes_delta": 35741955
+      }
+    },
+    {
+      "workload": "scan_wide",
+      "sql": "SELECT __rowid AS source_ordinal, * FROM hits",
+      "official": false,
+      "method": "partitions",
+      "workers": 1,
+      "partitions": 8,
+      "strategy": "balanced",
+      "repeat": 0,
+      "rows": 10000,
+      "end_to_end_seconds": 1.047473375001573,
+      "planning_seconds": 0.20680616699974053,
+      "exact_values": true,
+      "arrow_schema": "source_ordinal: int64\nwatchid: int64\njavaenable: int16\ntitle: string\ngoodevent: int16\neventtime: timestamp[us]\neventdate: date32[day]\ncounterid: int32\nclientip: int32\nregionid: int32\nuserid: int64\ncounterclass: int16\nos: int16\nuseragent: int16\nurl: string\nreferer: string\nisrefresh: int16\nreferercategoryid: int16\nrefererregionid: int32\nurlcategoryid: int16\nurlregionid: int32\nresolutionwidth: int16\nresolutionheight: int16\nresolutiondepth: int16\nflashmajor: int16\nflashminor: int16\nflashminor2: string\nnetmajor: int16\nnetminor: int16\nuseragentmajor: int16\nuseragentminor: string\ncookieenable: int16\njavascriptenable: int16\nismobile: int16\nmobilephone: int16\nmobilephonemodel: string\nparams: string\nipnetworkid: int32\ntraficsourceid: int16\nsearchengineid: int16\nsearchphrase: string\nadvengineid: int16\nisartifical: int16\nwindowclientwidth: int16\nwindowclientheight: int16\nclienttimezone: int16\nclienteventtime: timestamp[us]\nsilverlightversion1: int16\nsilverlightversion2: int16\nsilverlightversion3: int32\nsilverlightversion4: int16\npagecharset: string\ncodeversion: int32\nislink: int16\nisdownload: int16\nisnotbounce: int16\nfuniqid: int64\noriginalurl: string\nhid: int32\nisoldcounter: int16\nisevent: int16\nisparameter: int16\ndontcounthits: int16\nwithhash: int16\nhitcolor: string\nlocaleventtime: timestamp[us]\nage: int16\nsex: int16\nincome: int16\ninterests: int16\nrobotness: int16\nremoteip: int32\nwindowname: int32\nopenername: int32\nhistorylength: int16\nbrowserlanguage: string\nbrowsercountry: string\nsocialnetwork: string\nsocialaction: string\nhttperror: int16\nsendtiming: int32\ndnstiming: int32\nconnecttiming: int32\nresponsestarttiming: int32\nresponseendtiming: int32\nfetchtiming: int32\nsocialsourcenetworkid: int16\nsocialsourcepage: string\nparamprice: int64\nparamorderid: string\nparamcurrency: string\nparamcurrencyid: int16\nopenstatservicename: string\nopenstatcampaignid: string\nopenstatadid: string\nopenstatsourceid: string\nutmsource: string\nutmmedium: string\nutmcampaign: string\nutmcontent: string\nutmterm: string\nfromtag: string\nhasgclid: int16\nrefererhash: int64\nurlhash: int64\nclid: int32",
+      "worker_metrics": [
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.0819819160096813,
+          "first_batch_seconds": 0.07914720800181385,
+          "process_peak_rss_bytes": 171376640
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.07645233400398865,
+          "first_batch_seconds": 0.07363879200420342,
+          "process_peak_rss_bytes": 172228608
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.08206691699160729,
+          "first_batch_seconds": 0.0716936669923598,
+          "process_peak_rss_bytes": 172769280
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.07390645799750928,
+          "first_batch_seconds": 0.07111412500671577,
+          "process_peak_rss_bytes": 172883968
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.07416195800760761,
+          "first_batch_seconds": 0.0715174159995513,
+          "process_peak_rss_bytes": 173834240
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.07544174999929965,
+          "first_batch_seconds": 0.07258554099826142,
+          "process_peak_rss_bytes": 174637056
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.07861016599053983,
+          "first_batch_seconds": 0.07462687499355525,
+          "process_peak_rss_bytes": 174653440
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.07433662500989158,
+          "first_batch_seconds": 0.07151841701124795,
+          "process_peak_rss_bytes": 174653440
+        }
+      ],
+      "telemetry": {
+        "sample_interval_seconds": 0.05,
+        "samples": 18,
+        "client_process_tree_baseline_rss_bytes": 983842816,
+        "client_process_tree_sampled_peak_rss_bytes": 1179500544,
+        "server_baseline_used_memory_bytes": 148739240,
+        "server_sampled_peak_used_memory_bytes": 153302984,
+        "server_after_used_memory_bytes": 148749032,
+        "server_net_input_bytes_delta": 26621,
+        "server_net_output_bytes_delta": 35509359
+      }
+    },
+    {
+      "workload": "scan_wide",
+      "sql": "SELECT __rowid AS source_ordinal, * FROM hits",
+      "official": false,
+      "method": "partitions",
+      "workers": 4,
+      "partitions": 8,
+      "strategy": "rowid",
+      "repeat": 0,
+      "rows": 10000,
+      "end_to_end_seconds": 0.7992823749955278,
+      "planning_seconds": 0.0017688329971861094,
+      "exact_values": true,
+      "arrow_schema": "source_ordinal: int64\nwatchid: int64\njavaenable: int16\ntitle: string\ngoodevent: int16\neventtime: timestamp[us]\neventdate: date32[day]\ncounterid: int32\nclientip: int32\nregionid: int32\nuserid: int64\ncounterclass: int16\nos: int16\nuseragent: int16\nurl: string\nreferer: string\nisrefresh: int16\nreferercategoryid: int16\nrefererregionid: int32\nurlcategoryid: int16\nurlregionid: int32\nresolutionwidth: int16\nresolutionheight: int16\nresolutiondepth: int16\nflashmajor: int16\nflashminor: int16\nflashminor2: string\nnetmajor: int16\nnetminor: int16\nuseragentmajor: int16\nuseragentminor: string\ncookieenable: int16\njavascriptenable: int16\nismobile: int16\nmobilephone: int16\nmobilephonemodel: string\nparams: string\nipnetworkid: int32\ntraficsourceid: int16\nsearchengineid: int16\nsearchphrase: string\nadvengineid: int16\nisartifical: int16\nwindowclientwidth: int16\nwindowclientheight: int16\nclienttimezone: int16\nclienteventtime: timestamp[us]\nsilverlightversion1: int16\nsilverlightversion2: int16\nsilverlightversion3: int32\nsilverlightversion4: int16\npagecharset: string\ncodeversion: int32\nislink: int16\nisdownload: int16\nisnotbounce: int16\nfuniqid: int64\noriginalurl: string\nhid: int32\nisoldcounter: int16\nisevent: int16\nisparameter: int16\ndontcounthits: int16\nwithhash: int16\nhitcolor: string\nlocaleventtime: timestamp[us]\nage: int16\nsex: int16\nincome: int16\ninterests: int16\nrobotness: int16\nremoteip: int32\nwindowname: int32\nopenername: int32\nhistorylength: int16\nbrowserlanguage: string\nbrowsercountry: string\nsocialnetwork: string\nsocialaction: string\nhttperror: int16\nsendtiming: int32\ndnstiming: int32\nconnecttiming: int32\nresponsestarttiming: int32\nresponseendtiming: int32\nfetchtiming: int32\nsocialsourcenetworkid: int16\nsocialsourcepage: string\nparamprice: int64\nparamorderid: string\nparamcurrency: string\nparamcurrencyid: int16\nopenstatservicename: string\nopenstatcampaignid: string\nopenstatadid: string\nopenstatsourceid: string\nutmsource: string\nutmmedium: string\nutmcampaign: string\nutmcontent: string\nutmterm: string\nfromtag: string\nhasgclid: int16\nrefererhash: int64\nurlhash: int64\nclid: int32",
+      "worker_metrics": [
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.011807500006398186,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106725376
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.012262874995940365,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106201088
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.011961041003814898,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106119168
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.01058375000138767,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106102784
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.009310041001299396,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 107315200
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.010431082991999574,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106725376
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.009980292001273483,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106872832
+        },
+        {
+          "rows": 10000,
+          "read_and_ipc_seconds": 0.5326310840027872,
+          "first_batch_seconds": 0.5261080420023063,
+          "process_peak_rss_bytes": 422969344
+        }
+      ],
+      "telemetry": {
+        "sample_interval_seconds": 0.05,
+        "samples": 14,
+        "client_process_tree_baseline_rss_bytes": 993165312,
+        "client_process_tree_sampled_peak_rss_bytes": 1750237184,
+        "server_baseline_used_memory_bytes": 148749032,
+        "server_sampled_peak_used_memory_bytes": 155631344,
+        "server_after_used_memory_bytes": 148759432,
+        "server_net_input_bytes_delta": 13348,
+        "server_net_output_bytes_delta": 35741953
+      }
+    },
+    {
+      "workload": "scan_wide",
+      "sql": "SELECT __rowid AS source_ordinal, * FROM hits",
+      "official": false,
+      "method": "partitions",
+      "workers": 4,
+      "partitions": 8,
+      "strategy": "balanced",
+      "repeat": 0,
+      "rows": 10000,
+      "end_to_end_seconds": 0.8509882499929518,
+      "planning_seconds": 0.22208200000750367,
+      "exact_values": true,
+      "arrow_schema": "source_ordinal: int64\nwatchid: int64\njavaenable: int16\ntitle: string\ngoodevent: int16\neventtime: timestamp[us]\neventdate: date32[day]\ncounterid: int32\nclientip: int32\nregionid: int32\nuserid: int64\ncounterclass: int16\nos: int16\nuseragent: int16\nurl: string\nreferer: string\nisrefresh: int16\nreferercategoryid: int16\nrefererregionid: int32\nurlcategoryid: int16\nurlregionid: int32\nresolutionwidth: int16\nresolutionheight: int16\nresolutiondepth: int16\nflashmajor: int16\nflashminor: int16\nflashminor2: string\nnetmajor: int16\nnetminor: int16\nuseragentmajor: int16\nuseragentminor: string\ncookieenable: int16\njavascriptenable: int16\nismobile: int16\nmobilephone: int16\nmobilephonemodel: string\nparams: string\nipnetworkid: int32\ntraficsourceid: int16\nsearchengineid: int16\nsearchphrase: string\nadvengineid: int16\nisartifical: int16\nwindowclientwidth: int16\nwindowclientheight: int16\nclienttimezone: int16\nclienteventtime: timestamp[us]\nsilverlightversion1: int16\nsilverlightversion2: int16\nsilverlightversion3: int32\nsilverlightversion4: int16\npagecharset: string\ncodeversion: int32\nislink: int16\nisdownload: int16\nisnotbounce: int16\nfuniqid: int64\noriginalurl: string\nhid: int32\nisoldcounter: int16\nisevent: int16\nisparameter: int16\ndontcounthits: int16\nwithhash: int16\nhitcolor: string\nlocaleventtime: timestamp[us]\nage: int16\nsex: int16\nincome: int16\ninterests: int16\nrobotness: int16\nremoteip: int32\nwindowname: int32\nopenername: int32\nhistorylength: int16\nbrowserlanguage: string\nbrowsercountry: string\nsocialnetwork: string\nsocialaction: string\nhttperror: int16\nsendtiming: int32\ndnstiming: int32\nconnecttiming: int32\nresponsestarttiming: int32\nresponseendtiming: int32\nfetchtiming: int32\nsocialsourcenetworkid: int16\nsocialsourcepage: string\nparamprice: int64\nparamorderid: string\nparamcurrency: string\nparamcurrencyid: int16\nopenstatservicename: string\nopenstatcampaignid: string\nopenstatadid: string\nopenstatsourceid: string\nutmsource: string\nutmmedium: string\nutmcampaign: string\nutmcontent: string\nutmterm: string\nfromtag: string\nhasgclid: int16\nrefererhash: int64\nurlhash: int64\nclid: int32",
+      "worker_metrics": [
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.1734393750084564,
+          "first_batch_seconds": 0.16873987500730436,
+          "process_peak_rss_bytes": 174243840
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.1723958750080783,
+          "first_batch_seconds": 0.16817312499915715,
+          "process_peak_rss_bytes": 161316864
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.17389129199727904,
+          "first_batch_seconds": 0.16868804200203158,
+          "process_peak_rss_bytes": 165953536
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.1748068750021048,
+          "first_batch_seconds": 0.1675482499995269,
+          "process_peak_rss_bytes": 161021952
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.1570427499973448,
+          "first_batch_seconds": 0.14991125000233296,
+          "process_peak_rss_bytes": 172818432
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.1814713329949882,
+          "first_batch_seconds": 0.1771383750019595,
+          "process_peak_rss_bytes": 175259648
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.1817353340011323,
+          "first_batch_seconds": 0.1775662919972092,
+          "process_peak_rss_bytes": 173080576
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.09232224999868777,
+          "first_batch_seconds": 0.08943120800540783,
+          "process_peak_rss_bytes": 162283520
+        }
+      ],
+      "telemetry": {
+        "sample_interval_seconds": 0.05,
+        "samples": 14,
+        "client_process_tree_baseline_rss_bytes": 996360192,
+        "client_process_tree_sampled_peak_rss_bytes": 1700855808,
+        "server_baseline_used_memory_bytes": 148759432,
+        "server_sampled_peak_used_memory_bytes": 162618624,
+        "server_after_used_memory_bytes": 148737192,
+        "server_net_input_bytes_delta": 28274,
+        "server_net_output_bytes_delta": 35502659
+      }
+    },
+    {
+      "workload": "scan_wide",
+      "sql": "SELECT __rowid AS source_ordinal, * FROM hits",
+      "official": false,
+      "method": "partitions",
+      "workers": 1,
+      "partitions": 8,
+      "strategy": "rowid",
+      "repeat": 1,
+      "rows": 10000,
+      "end_to_end_seconds": 0.8484519170015119,
+      "planning_seconds": 0.001969667006051168,
+      "exact_values": true,
+      "arrow_schema": "source_ordinal: int64\nwatchid: int64\njavaenable: int16\ntitle: string\ngoodevent: int16\neventtime: timestamp[us]\neventdate: date32[day]\ncounterid: int32\nclientip: int32\nregionid: int32\nuserid: int64\ncounterclass: int16\nos: int16\nuseragent: int16\nurl: string\nreferer: string\nisrefresh: int16\nreferercategoryid: int16\nrefererregionid: int32\nurlcategoryid: int16\nurlregionid: int32\nresolutionwidth: int16\nresolutionheight: int16\nresolutiondepth: int16\nflashmajor: int16\nflashminor: int16\nflashminor2: string\nnetmajor: int16\nnetminor: int16\nuseragentmajor: int16\nuseragentminor: string\ncookieenable: int16\njavascriptenable: int16\nismobile: int16\nmobilephone: int16\nmobilephonemodel: string\nparams: string\nipnetworkid: int32\ntraficsourceid: int16\nsearchengineid: int16\nsearchphrase: string\nadvengineid: int16\nisartifical: int16\nwindowclientwidth: int16\nwindowclientheight: int16\nclienttimezone: int16\nclienteventtime: timestamp[us]\nsilverlightversion1: int16\nsilverlightversion2: int16\nsilverlightversion3: int32\nsilverlightversion4: int16\npagecharset: string\ncodeversion: int32\nislink: int16\nisdownload: int16\nisnotbounce: int16\nfuniqid: int64\noriginalurl: string\nhid: int32\nisoldcounter: int16\nisevent: int16\nisparameter: int16\ndontcounthits: int16\nwithhash: int16\nhitcolor: string\nlocaleventtime: timestamp[us]\nage: int16\nsex: int16\nincome: int16\ninterests: int16\nrobotness: int16\nremoteip: int32\nwindowname: int32\nopenername: int32\nhistorylength: int16\nbrowserlanguage: string\nbrowsercountry: string\nsocialnetwork: string\nsocialaction: string\nhttperror: int16\nsendtiming: int32\ndnstiming: int32\nconnecttiming: int32\nresponsestarttiming: int32\nresponseendtiming: int32\nfetchtiming: int32\nsocialsourcenetworkid: int16\nsocialsourcepage: string\nparamprice: int64\nparamorderid: string\nparamcurrency: string\nparamcurrencyid: int16\nopenstatservicename: string\nopenstatcampaignid: string\nopenstatadid: string\nopenstatsourceid: string\nutmsource: string\nutmmedium: string\nutmcampaign: string\nutmcontent: string\nutmterm: string\nfromtag: string\nhasgclid: int16\nrefererhash: int64\nurlhash: int64\nclid: int32",
+      "worker_metrics": [
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.008438707998720929,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106086400
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.008048457995755598,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106790912
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.007336041002417915,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106921984
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.006460250006057322,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106987520
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.00667191699903924,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 107397120
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.006697916993289255,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 107413504
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.006578582993824966,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 107528192
+        },
+        {
+          "rows": 10000,
+          "read_and_ipc_seconds": 0.5610162090015365,
+          "first_batch_seconds": 0.5513111250038492,
+          "process_peak_rss_bytes": 407764992
+        }
+      ],
+      "telemetry": {
+        "sample_interval_seconds": 0.05,
+        "samples": 15,
+        "client_process_tree_baseline_rss_bytes": 997474304,
+        "client_process_tree_sampled_peak_rss_bytes": 1400127488,
+        "server_baseline_used_memory_bytes": 148737192,
+        "server_sampled_peak_used_memory_bytes": 155614088,
+        "server_after_used_memory_bytes": 148742544,
+        "server_net_input_bytes_delta": 13364,
+        "server_net_output_bytes_delta": 35743642
+      }
+    },
+    {
+      "workload": "scan_wide",
+      "sql": "SELECT __rowid AS source_ordinal, * FROM hits",
+      "official": false,
+      "method": "partitions",
+      "workers": 1,
+      "partitions": 8,
+      "strategy": "balanced",
+      "repeat": 1,
+      "rows": 10000,
+      "end_to_end_seconds": 1.0762835830100812,
+      "planning_seconds": 0.22201220800343435,
+      "exact_values": true,
+      "arrow_schema": "source_ordinal: int64\nwatchid: int64\njavaenable: int16\ntitle: string\ngoodevent: int16\neventtime: timestamp[us]\neventdate: date32[day]\ncounterid: int32\nclientip: int32\nregionid: int32\nuserid: int64\ncounterclass: int16\nos: int16\nuseragent: int16\nurl: string\nreferer: string\nisrefresh: int16\nreferercategoryid: int16\nrefererregionid: int32\nurlcategoryid: int16\nurlregionid: int32\nresolutionwidth: int16\nresolutionheight: int16\nresolutiondepth: int16\nflashmajor: int16\nflashminor: int16\nflashminor2: string\nnetmajor: int16\nnetminor: int16\nuseragentmajor: int16\nuseragentminor: string\ncookieenable: int16\njavascriptenable: int16\nismobile: int16\nmobilephone: int16\nmobilephonemodel: string\nparams: string\nipnetworkid: int32\ntraficsourceid: int16\nsearchengineid: int16\nsearchphrase: string\nadvengineid: int16\nisartifical: int16\nwindowclientwidth: int16\nwindowclientheight: int16\nclienttimezone: int16\nclienteventtime: timestamp[us]\nsilverlightversion1: int16\nsilverlightversion2: int16\nsilverlightversion3: int32\nsilverlightversion4: int16\npagecharset: string\ncodeversion: int32\nislink: int16\nisdownload: int16\nisnotbounce: int16\nfuniqid: int64\noriginalurl: string\nhid: int32\nisoldcounter: int16\nisevent: int16\nisparameter: int16\ndontcounthits: int16\nwithhash: int16\nhitcolor: string\nlocaleventtime: timestamp[us]\nage: int16\nsex: int16\nincome: int16\ninterests: int16\nrobotness: int16\nremoteip: int32\nwindowname: int32\nopenername: int32\nhistorylength: int16\nbrowserlanguage: string\nbrowsercountry: string\nsocialnetwork: string\nsocialaction: string\nhttperror: int16\nsendtiming: int32\ndnstiming: int32\nconnecttiming: int32\nresponsestarttiming: int32\nresponseendtiming: int32\nfetchtiming: int32\nsocialsourcenetworkid: int16\nsocialsourcepage: string\nparamprice: int64\nparamorderid: string\nparamcurrency: string\nparamcurrencyid: int16\nopenstatservicename: string\nopenstatcampaignid: string\nopenstatadid: string\nopenstatsourceid: string\nutmsource: string\nutmmedium: string\nutmcampaign: string\nutmcontent: string\nutmterm: string\nfromtag: string\nhasgclid: int16\nrefererhash: int64\nurlhash: int64\nclid: int32",
+      "worker_metrics": [
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.07981779199326411,
+          "first_batch_seconds": 0.07713299999886658,
+          "process_peak_rss_bytes": 161234944
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.07310150000557769,
+          "first_batch_seconds": 0.07052533300884534,
+          "process_peak_rss_bytes": 162234368
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.07550545899721328,
+          "first_batch_seconds": 0.07303708400286268,
+          "process_peak_rss_bytes": 162365440
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.07554754099692218,
+          "first_batch_seconds": 0.07282462500734255,
+          "process_peak_rss_bytes": 173490176
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.07669341600558255,
+          "first_batch_seconds": 0.07409866599482484,
+          "process_peak_rss_bytes": 173998080
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.07700879199546762,
+          "first_batch_seconds": 0.07406979199731722,
+          "process_peak_rss_bytes": 174080000
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.07679912500316277,
+          "first_batch_seconds": 0.07367866700224113,
+          "process_peak_rss_bytes": 174096384
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.07715537499461789,
+          "first_batch_seconds": 0.07430729198677,
+          "process_peak_rss_bytes": 174096384
+        }
+      ],
+      "telemetry": {
+        "sample_interval_seconds": 0.05,
+        "samples": 19,
+        "client_process_tree_baseline_rss_bytes": 982237184,
+        "client_process_tree_sampled_peak_rss_bytes": 1177321472,
+        "server_baseline_used_memory_bytes": 148742544,
+        "server_sampled_peak_used_memory_bytes": 153295736,
+        "server_after_used_memory_bytes": 148753824,
+        "server_net_input_bytes_delta": 26647,
+        "server_net_output_bytes_delta": 35511054
+      }
+    },
+    {
+      "workload": "scan_wide",
+      "sql": "SELECT __rowid AS source_ordinal, * FROM hits",
+      "official": false,
+      "method": "partitions",
+      "workers": 4,
+      "partitions": 8,
+      "strategy": "rowid",
+      "repeat": 1,
+      "rows": 10000,
+      "end_to_end_seconds": 0.8142495409992989,
+      "planning_seconds": 0.0016169169975910336,
+      "exact_values": true,
+      "arrow_schema": "source_ordinal: int64\nwatchid: int64\njavaenable: int16\ntitle: string\ngoodevent: int16\neventtime: timestamp[us]\neventdate: date32[day]\ncounterid: int32\nclientip: int32\nregionid: int32\nuserid: int64\ncounterclass: int16\nos: int16\nuseragent: int16\nurl: string\nreferer: string\nisrefresh: int16\nreferercategoryid: int16\nrefererregionid: int32\nurlcategoryid: int16\nurlregionid: int32\nresolutionwidth: int16\nresolutionheight: int16\nresolutiondepth: int16\nflashmajor: int16\nflashminor: int16\nflashminor2: string\nnetmajor: int16\nnetminor: int16\nuseragentmajor: int16\nuseragentminor: string\ncookieenable: int16\njavascriptenable: int16\nismobile: int16\nmobilephone: int16\nmobilephonemodel: string\nparams: string\nipnetworkid: int32\ntraficsourceid: int16\nsearchengineid: int16\nsearchphrase: string\nadvengineid: int16\nisartifical: int16\nwindowclientwidth: int16\nwindowclientheight: int16\nclienttimezone: int16\nclienteventtime: timestamp[us]\nsilverlightversion1: int16\nsilverlightversion2: int16\nsilverlightversion3: int32\nsilverlightversion4: int16\npagecharset: string\ncodeversion: int32\nislink: int16\nisdownload: int16\nisnotbounce: int16\nfuniqid: int64\noriginalurl: string\nhid: int32\nisoldcounter: int16\nisevent: int16\nisparameter: int16\ndontcounthits: int16\nwithhash: int16\nhitcolor: string\nlocaleventtime: timestamp[us]\nage: int16\nsex: int16\nincome: int16\ninterests: int16\nrobotness: int16\nremoteip: int32\nwindowname: int32\nopenername: int32\nhistorylength: int16\nbrowserlanguage: string\nbrowsercountry: string\nsocialnetwork: string\nsocialaction: string\nhttperror: int16\nsendtiming: int32\ndnstiming: int32\nconnecttiming: int32\nresponsestarttiming: int32\nresponseendtiming: int32\nfetchtiming: int32\nsocialsourcenetworkid: int16\nsocialsourcepage: string\nparamprice: int64\nparamorderid: string\nparamcurrency: string\nparamcurrencyid: int16\nopenstatservicename: string\nopenstatcampaignid: string\nopenstatadid: string\nopenstatsourceid: string\nutmsource: string\nutmmedium: string\nutmcampaign: string\nutmcontent: string\nutmterm: string\nfromtag: string\nhasgclid: int16\nrefererhash: int64\nurlhash: int64\nclid: int32",
+      "worker_metrics": [
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.009752875004778616,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106659840
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.010322417001589201,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106266624
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.010949999996228144,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106086400
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.010407167006633244,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106102784
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.010100250001414679,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 107511808
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.009748707991093397,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106954752
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.010107167006935924,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 107102208
+        },
+        {
+          "rows": 10000,
+          "read_and_ipc_seconds": 0.5513957499933895,
+          "first_batch_seconds": 0.5441398330003722,
+          "process_peak_rss_bytes": 406421504
+        }
+      ],
+      "telemetry": {
+        "sample_interval_seconds": 0.05,
+        "samples": 14,
+        "client_process_tree_baseline_rss_bytes": 985382912,
+        "client_process_tree_sampled_peak_rss_bytes": 1695318016,
+        "server_baseline_used_memory_bytes": 148753824,
+        "server_sampled_peak_used_memory_bytes": 155640632,
+        "server_after_used_memory_bytes": 148766800,
+        "server_net_input_bytes_delta": 13338,
+        "server_net_output_bytes_delta": 35741953
+      }
+    },
+    {
+      "workload": "scan_wide",
+      "sql": "SELECT __rowid AS source_ordinal, * FROM hits",
+      "official": false,
+      "method": "partitions",
+      "workers": 4,
+      "partitions": 8,
+      "strategy": "balanced",
+      "repeat": 1,
+      "rows": 10000,
+      "end_to_end_seconds": 0.8120202909922227,
+      "planning_seconds": 0.22344045800855383,
+      "exact_values": true,
+      "arrow_schema": "source_ordinal: int64\nwatchid: int64\njavaenable: int16\ntitle: string\ngoodevent: int16\neventtime: timestamp[us]\neventdate: date32[day]\ncounterid: int32\nclientip: int32\nregionid: int32\nuserid: int64\ncounterclass: int16\nos: int16\nuseragent: int16\nurl: string\nreferer: string\nisrefresh: int16\nreferercategoryid: int16\nrefererregionid: int32\nurlcategoryid: int16\nurlregionid: int32\nresolutionwidth: int16\nresolutionheight: int16\nresolutiondepth: int16\nflashmajor: int16\nflashminor: int16\nflashminor2: string\nnetmajor: int16\nnetminor: int16\nuseragentmajor: int16\nuseragentminor: string\ncookieenable: int16\njavascriptenable: int16\nismobile: int16\nmobilephone: int16\nmobilephonemodel: string\nparams: string\nipnetworkid: int32\ntraficsourceid: int16\nsearchengineid: int16\nsearchphrase: string\nadvengineid: int16\nisartifical: int16\nwindowclientwidth: int16\nwindowclientheight: int16\nclienttimezone: int16\nclienteventtime: timestamp[us]\nsilverlightversion1: int16\nsilverlightversion2: int16\nsilverlightversion3: int32\nsilverlightversion4: int16\npagecharset: string\ncodeversion: int32\nislink: int16\nisdownload: int16\nisnotbounce: int16\nfuniqid: int64\noriginalurl: string\nhid: int32\nisoldcounter: int16\nisevent: int16\nisparameter: int16\ndontcounthits: int16\nwithhash: int16\nhitcolor: string\nlocaleventtime: timestamp[us]\nage: int16\nsex: int16\nincome: int16\ninterests: int16\nrobotness: int16\nremoteip: int32\nwindowname: int32\nopenername: int32\nhistorylength: int16\nbrowserlanguage: string\nbrowsercountry: string\nsocialnetwork: string\nsocialaction: string\nhttperror: int16\nsendtiming: int32\ndnstiming: int32\nconnecttiming: int32\nresponsestarttiming: int32\nresponseendtiming: int32\nfetchtiming: int32\nsocialsourcenetworkid: int16\nsocialsourcepage: string\nparamprice: int64\nparamorderid: string\nparamcurrency: string\nparamcurrencyid: int16\nopenstatservicename: string\nopenstatcampaignid: string\nopenstatadid: string\nopenstatsourceid: string\nutmsource: string\nutmmedium: string\nutmcampaign: string\nutmcontent: string\nutmterm: string\nfromtag: string\nhasgclid: int16\nrefererhash: int64\nurlhash: int64\nclid: int32",
+      "worker_metrics": [
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.16875120800978038,
+          "first_batch_seconds": 0.16610270799719729,
+          "process_peak_rss_bytes": 174047232
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.164943542011315,
+          "first_batch_seconds": 0.16108300001360476,
+          "process_peak_rss_bytes": 164741120
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.16820487499353476,
+          "first_batch_seconds": 0.16305458400165662,
+          "process_peak_rss_bytes": 161267712
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.16108933399664238,
+          "first_batch_seconds": 0.12050537500181235,
+          "process_peak_rss_bytes": 161431552
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.14015574999211822,
+          "first_batch_seconds": 0.13583549999748357,
+          "process_peak_rss_bytes": 165478400
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.16244666700367816,
+          "first_batch_seconds": 0.15771574999962468,
+          "process_peak_rss_bytes": 175423488
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.16314750000310596,
+          "first_batch_seconds": 0.15962637499615084,
+          "process_peak_rss_bytes": 173588480
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.09042249999765772,
+          "first_batch_seconds": 0.08776683300675359,
+          "process_peak_rss_bytes": 162447360
+        }
+      ],
+      "telemetry": {
+        "sample_interval_seconds": 0.05,
+        "samples": 14,
+        "client_process_tree_baseline_rss_bytes": 949092352,
+        "client_process_tree_sampled_peak_rss_bytes": 1604075520,
+        "server_baseline_used_memory_bytes": 148766800,
+        "server_sampled_peak_used_memory_bytes": 160055224,
+        "server_after_used_memory_bytes": 148780760,
+        "server_net_input_bytes_delta": 28274,
+        "server_net_output_bytes_delta": 35502659
+      }
+    },
+    {
+      "workload": "scan_wide",
+      "sql": "SELECT __rowid AS source_ordinal, * FROM hits",
+      "official": false,
+      "method": "execute_query",
+      "workers": 1,
+      "partitions": null,
+      "strategy": null,
+      "repeat": 1,
+      "rows": 10000,
+      "end_to_end_seconds": 0.7358516669919482,
+      "planning_seconds": 0,
+      "exact_values": true,
+      "arrow_schema": "source_ordinal: int64\nwatchid: int64\njavaenable: int16\ntitle: string\ngoodevent: int16\neventtime: timestamp[us]\neventdate: date32[day]\ncounterid: int32\nclientip: int32\nregionid: int32\nuserid: int64\ncounterclass: int16\nos: int16\nuseragent: int16\nurl: string\nreferer: string\nisrefresh: int16\nreferercategoryid: int16\nrefererregionid: int32\nurlcategoryid: int16\nurlregionid: int32\nresolutionwidth: int16\nresolutionheight: int16\nresolutiondepth: int16\nflashmajor: int16\nflashminor: int16\nflashminor2: string\nnetmajor: int16\nnetminor: int16\nuseragentmajor: int16\nuseragentminor: string\ncookieenable: int16\njavascriptenable: int16\nismobile: int16\nmobilephone: int16\nmobilephonemodel: string\nparams: string\nipnetworkid: int32\ntraficsourceid: int16\nsearchengineid: int16\nsearchphrase: string\nadvengineid: int16\nisartifical: int16\nwindowclientwidth: int16\nwindowclientheight: int16\nclienttimezone: int16\nclienteventtime: timestamp[us]\nsilverlightversion1: int16\nsilverlightversion2: int16\nsilverlightversion3: int32\nsilverlightversion4: int16\npagecharset: string\ncodeversion: int32\nislink: int16\nisdownload: int16\nisnotbounce: int16\nfuniqid: int64\noriginalurl: string\nhid: int32\nisoldcounter: int16\nisevent: int16\nisparameter: int16\ndontcounthits: int16\nwithhash: int16\nhitcolor: string\nlocaleventtime: timestamp[us]\nage: int16\nsex: int16\nincome: int16\ninterests: int16\nrobotness: int16\nremoteip: int32\nwindowname: int32\nopenername: int32\nhistorylength: int16\nbrowserlanguage: string\nbrowsercountry: string\nsocialnetwork: string\nsocialaction: string\nhttperror: int16\nsendtiming: int32\ndnstiming: int32\nconnecttiming: int32\nresponsestarttiming: int32\nresponseendtiming: int32\nfetchtiming: int32\nsocialsourcenetworkid: int16\nsocialsourcepage: string\nparamprice: int64\nparamorderid: string\nparamcurrency: string\nparamcurrencyid: int16\nopenstatservicename: string\nopenstatcampaignid: string\nopenstatadid: string\nopenstatsourceid: string\nutmsource: string\nutmmedium: string\nutmcampaign: string\nutmcontent: string\nutmterm: string\nfromtag: string\nhasgclid: int16\nrefererhash: int64\nurlhash: int64\nclid: int32",
+      "worker_metrics": [
+        {
+          "rows": 10000,
+          "read_and_ipc_seconds": 0.5391882080002688,
+          "first_batch_seconds": 0.5344958750065416,
+          "process_peak_rss_bytes": 417136640
+        }
+      ],
+      "telemetry": {
+        "sample_interval_seconds": 0.05,
+        "samples": 11,
+        "client_process_tree_baseline_rss_bytes": 902217728,
+        "client_process_tree_sampled_peak_rss_bytes": 1331953664,
+        "server_baseline_used_memory_bytes": 148780760,
+        "server_sampled_peak_used_memory_bytes": 156397088,
+        "server_after_used_memory_bytes": 148768328,
+        "server_net_input_bytes_delta": 2192,
+        "server_net_output_bytes_delta": 33989566
+      }
+    },
+    {
+      "workload": "scan_wide",
+      "sql": "SELECT __rowid AS source_ordinal, * FROM hits",
+      "official": false,
+      "method": "partitions",
+      "workers": 1,
+      "partitions": 8,
+      "strategy": "balanced",
+      "repeat": 2,
+      "rows": 10000,
+      "end_to_end_seconds": 1.0464469579892466,
+      "planning_seconds": 0.217375667009037,
+      "exact_values": true,
+      "arrow_schema": "source_ordinal: int64\nwatchid: int64\njavaenable: int16\ntitle: string\ngoodevent: int16\neventtime: timestamp[us]\neventdate: date32[day]\ncounterid: int32\nclientip: int32\nregionid: int32\nuserid: int64\ncounterclass: int16\nos: int16\nuseragent: int16\nurl: string\nreferer: string\nisrefresh: int16\nreferercategoryid: int16\nrefererregionid: int32\nurlcategoryid: int16\nurlregionid: int32\nresolutionwidth: int16\nresolutionheight: int16\nresolutiondepth: int16\nflashmajor: int16\nflashminor: int16\nflashminor2: string\nnetmajor: int16\nnetminor: int16\nuseragentmajor: int16\nuseragentminor: string\ncookieenable: int16\njavascriptenable: int16\nismobile: int16\nmobilephone: int16\nmobilephonemodel: string\nparams: string\nipnetworkid: int32\ntraficsourceid: int16\nsearchengineid: int16\nsearchphrase: string\nadvengineid: int16\nisartifical: int16\nwindowclientwidth: int16\nwindowclientheight: int16\nclienttimezone: int16\nclienteventtime: timestamp[us]\nsilverlightversion1: int16\nsilverlightversion2: int16\nsilverlightversion3: int32\nsilverlightversion4: int16\npagecharset: string\ncodeversion: int32\nislink: int16\nisdownload: int16\nisnotbounce: int16\nfuniqid: int64\noriginalurl: string\nhid: int32\nisoldcounter: int16\nisevent: int16\nisparameter: int16\ndontcounthits: int16\nwithhash: int16\nhitcolor: string\nlocaleventtime: timestamp[us]\nage: int16\nsex: int16\nincome: int16\ninterests: int16\nrobotness: int16\nremoteip: int32\nwindowname: int32\nopenername: int32\nhistorylength: int16\nbrowserlanguage: string\nbrowsercountry: string\nsocialnetwork: string\nsocialaction: string\nhttperror: int16\nsendtiming: int32\ndnstiming: int32\nconnecttiming: int32\nresponsestarttiming: int32\nresponseendtiming: int32\nfetchtiming: int32\nsocialsourcenetworkid: int16\nsocialsourcepage: string\nparamprice: int64\nparamorderid: string\nparamcurrency: string\nparamcurrencyid: int16\nopenstatservicename: string\nopenstatcampaignid: string\nopenstatadid: string\nopenstatsourceid: string\nutmsource: string\nutmmedium: string\nutmcampaign: string\nutmcontent: string\nutmterm: string\nfromtag: string\nhasgclid: int16\nrefererhash: int64\nurlhash: int64\nclid: int32",
+      "worker_metrics": [
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.07822404100443237,
+          "first_batch_seconds": 0.0756138330034446,
+          "process_peak_rss_bytes": 163512320
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.07424041599733755,
+          "first_batch_seconds": 0.07155175000661984,
+          "process_peak_rss_bytes": 164347904
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.07797012499941047,
+          "first_batch_seconds": 0.07519154099281877,
+          "process_peak_rss_bytes": 164429824
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.07674445799784735,
+          "first_batch_seconds": 0.07407066599989776,
+          "process_peak_rss_bytes": 164495360
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.07296741699974518,
+          "first_batch_seconds": 0.07027408300200477,
+          "process_peak_rss_bytes": 164577280
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.07630158300162293,
+          "first_batch_seconds": 0.07326654200733174,
+          "process_peak_rss_bytes": 172785664
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.07529133300704416,
+          "first_batch_seconds": 0.07334145800268743,
+          "process_peak_rss_bytes": 173457408
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.07574666698928922,
+          "first_batch_seconds": 0.07283570899744518,
+          "process_peak_rss_bytes": 173473792
+        }
+      ],
+      "telemetry": {
+        "sample_interval_seconds": 0.05,
+        "samples": 17,
+        "client_process_tree_baseline_rss_bytes": 901169152,
+        "client_process_tree_sampled_peak_rss_bytes": 1095680000,
+        "server_baseline_used_memory_bytes": 148768328,
+        "server_sampled_peak_used_memory_bytes": 153332064,
+        "server_after_used_memory_bytes": 148775024,
+        "server_net_input_bytes_delta": 26595,
+        "server_net_output_bytes_delta": 35507668
+      }
+    },
+    {
+      "workload": "scan_wide",
+      "sql": "SELECT __rowid AS source_ordinal, * FROM hits",
+      "official": false,
+      "method": "partitions",
+      "workers": 4,
+      "partitions": 8,
+      "strategy": "rowid",
+      "repeat": 2,
+      "rows": 10000,
+      "end_to_end_seconds": 0.783325791999232,
+      "planning_seconds": 0.0017352090071653947,
+      "exact_values": true,
+      "arrow_schema": "source_ordinal: int64\nwatchid: int64\njavaenable: int16\ntitle: string\ngoodevent: int16\neventtime: timestamp[us]\neventdate: date32[day]\ncounterid: int32\nclientip: int32\nregionid: int32\nuserid: int64\ncounterclass: int16\nos: int16\nuseragent: int16\nurl: string\nreferer: string\nisrefresh: int16\nreferercategoryid: int16\nrefererregionid: int32\nurlcategoryid: int16\nurlregionid: int32\nresolutionwidth: int16\nresolutionheight: int16\nresolutiondepth: int16\nflashmajor: int16\nflashminor: int16\nflashminor2: string\nnetmajor: int16\nnetminor: int16\nuseragentmajor: int16\nuseragentminor: string\ncookieenable: int16\njavascriptenable: int16\nismobile: int16\nmobilephone: int16\nmobilephonemodel: string\nparams: string\nipnetworkid: int32\ntraficsourceid: int16\nsearchengineid: int16\nsearchphrase: string\nadvengineid: int16\nisartifical: int16\nwindowclientwidth: int16\nwindowclientheight: int16\nclienttimezone: int16\nclienteventtime: timestamp[us]\nsilverlightversion1: int16\nsilverlightversion2: int16\nsilverlightversion3: int32\nsilverlightversion4: int16\npagecharset: string\ncodeversion: int32\nislink: int16\nisdownload: int16\nisnotbounce: int16\nfuniqid: int64\noriginalurl: string\nhid: int32\nisoldcounter: int16\nisevent: int16\nisparameter: int16\ndontcounthits: int16\nwithhash: int16\nhitcolor: string\nlocaleventtime: timestamp[us]\nage: int16\nsex: int16\nincome: int16\ninterests: int16\nrobotness: int16\nremoteip: int32\nwindowname: int32\nopenername: int32\nhistorylength: int16\nbrowserlanguage: string\nbrowsercountry: string\nsocialnetwork: string\nsocialaction: string\nhttperror: int16\nsendtiming: int32\ndnstiming: int32\nconnecttiming: int32\nresponsestarttiming: int32\nresponseendtiming: int32\nfetchtiming: int32\nsocialsourcenetworkid: int16\nsocialsourcepage: string\nparamprice: int64\nparamorderid: string\nparamcurrency: string\nparamcurrencyid: int16\nopenstatservicename: string\nopenstatcampaignid: string\nopenstatadid: string\nopenstatsourceid: string\nutmsource: string\nutmmedium: string\nutmcampaign: string\nutmcontent: string\nutmterm: string\nfromtag: string\nhasgclid: int16\nrefererhash: int64\nurlhash: int64\nclid: int32",
+      "worker_metrics": [
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.01003274999675341,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 105725952
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.009796792000997812,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 105840640
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.010505332989851013,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 105971712
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.01020920800510794,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 105988096
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.010723375002271496,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106692608
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.010194500006036833,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106823680
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.04043995800020639,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 107200512
+        },
+        {
+          "rows": 10000,
+          "read_and_ipc_seconds": 0.5331375410023611,
+          "first_batch_seconds": 0.5276667910075048,
+          "process_peak_rss_bytes": 408240128
+        }
+      ],
+      "telemetry": {
+        "sample_interval_seconds": 0.05,
+        "samples": 12,
+        "client_process_tree_baseline_rss_bytes": 901398528,
+        "client_process_tree_sampled_peak_rss_bytes": 1643528192,
+        "server_baseline_used_memory_bytes": 148775024,
+        "server_sampled_peak_used_memory_bytes": 155652592,
+        "server_after_used_memory_bytes": 148779624,
+        "server_net_input_bytes_delta": 13281,
+        "server_net_output_bytes_delta": 35738559
+      }
+    },
+    {
+      "workload": "scan_wide",
+      "sql": "SELECT __rowid AS source_ordinal, * FROM hits",
+      "official": false,
+      "method": "partitions",
+      "workers": 4,
+      "partitions": 8,
+      "strategy": "balanced",
+      "repeat": 2,
+      "rows": 10000,
+      "end_to_end_seconds": 0.7782760829868494,
+      "planning_seconds": 0.2144754580076551,
+      "exact_values": true,
+      "arrow_schema": "source_ordinal: int64\nwatchid: int64\njavaenable: int16\ntitle: string\ngoodevent: int16\neventtime: timestamp[us]\neventdate: date32[day]\ncounterid: int32\nclientip: int32\nregionid: int32\nuserid: int64\ncounterclass: int16\nos: int16\nuseragent: int16\nurl: string\nreferer: string\nisrefresh: int16\nreferercategoryid: int16\nrefererregionid: int32\nurlcategoryid: int16\nurlregionid: int32\nresolutionwidth: int16\nresolutionheight: int16\nresolutiondepth: int16\nflashmajor: int16\nflashminor: int16\nflashminor2: string\nnetmajor: int16\nnetminor: int16\nuseragentmajor: int16\nuseragentminor: string\ncookieenable: int16\njavascriptenable: int16\nismobile: int16\nmobilephone: int16\nmobilephonemodel: string\nparams: string\nipnetworkid: int32\ntraficsourceid: int16\nsearchengineid: int16\nsearchphrase: string\nadvengineid: int16\nisartifical: int16\nwindowclientwidth: int16\nwindowclientheight: int16\nclienttimezone: int16\nclienteventtime: timestamp[us]\nsilverlightversion1: int16\nsilverlightversion2: int16\nsilverlightversion3: int32\nsilverlightversion4: int16\npagecharset: string\ncodeversion: int32\nislink: int16\nisdownload: int16\nisnotbounce: int16\nfuniqid: int64\noriginalurl: string\nhid: int32\nisoldcounter: int16\nisevent: int16\nisparameter: int16\ndontcounthits: int16\nwithhash: int16\nhitcolor: string\nlocaleventtime: timestamp[us]\nage: int16\nsex: int16\nincome: int16\ninterests: int16\nrobotness: int16\nremoteip: int32\nwindowname: int32\nopenername: int32\nhistorylength: int16\nbrowserlanguage: string\nbrowsercountry: string\nsocialnetwork: string\nsocialaction: string\nhttperror: int16\nsendtiming: int32\ndnstiming: int32\nconnecttiming: int32\nresponsestarttiming: int32\nresponseendtiming: int32\nfetchtiming: int32\nsocialsourcenetworkid: int16\nsocialsourcepage: string\nparamprice: int64\nparamorderid: string\nparamcurrency: string\nparamcurrencyid: int16\nopenstatservicename: string\nopenstatcampaignid: string\nopenstatadid: string\nopenstatsourceid: string\nutmsource: string\nutmmedium: string\nutmcampaign: string\nutmcontent: string\nutmterm: string\nfromtag: string\nhasgclid: int16\nrefererhash: int64\nurlhash: int64\nclid: int32",
+      "worker_metrics": [
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.12607120900065638,
+          "first_batch_seconds": 0.1214992920140503,
+          "process_peak_rss_bytes": 161234944
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.1768802079895977,
+          "first_batch_seconds": 0.1698662919952767,
+          "process_peak_rss_bytes": 161218560
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.17442341698915698,
+          "first_batch_seconds": 0.16816316699259914,
+          "process_peak_rss_bytes": 172474368
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.15453479200368747,
+          "first_batch_seconds": 0.11767329199938104,
+          "process_peak_rss_bytes": 161660928
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.11084487500193063,
+          "first_batch_seconds": 0.10585462499875575,
+          "process_peak_rss_bytes": 172834816
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.13996579201193526,
+          "first_batch_seconds": 0.13153345801401883,
+          "process_peak_rss_bytes": 173686784
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.13974883400078397,
+          "first_batch_seconds": 0.13091508400975727,
+          "process_peak_rss_bytes": 173408256
+        },
+        {
+          "rows": 1250,
+          "read_and_ipc_seconds": 0.08952374999353196,
+          "first_batch_seconds": 0.08677749999333173,
+          "process_peak_rss_bytes": 173604864
+        }
+      ],
+      "telemetry": {
+        "sample_interval_seconds": 0.05,
+        "samples": 14,
+        "client_process_tree_baseline_rss_bytes": 902266880,
+        "client_process_tree_sampled_peak_rss_bytes": 1617199104,
+        "server_baseline_used_memory_bytes": 148779624,
+        "server_sampled_peak_used_memory_bytes": 155450128,
+        "server_after_used_memory_bytes": 148789408,
+        "server_net_input_bytes_delta": 28274,
+        "server_net_output_bytes_delta": 35502657
+      }
+    },
+    {
+      "workload": "scan_wide",
+      "sql": "SELECT __rowid AS source_ordinal, * FROM hits",
+      "official": false,
+      "method": "execute_query",
+      "workers": 1,
+      "partitions": null,
+      "strategy": null,
+      "repeat": 2,
+      "rows": 10000,
+      "end_to_end_seconds": 0.7399952499981737,
+      "planning_seconds": 0,
+      "exact_values": true,
+      "arrow_schema": "source_ordinal: int64\nwatchid: int64\njavaenable: int16\ntitle: string\ngoodevent: int16\neventtime: timestamp[us]\neventdate: date32[day]\ncounterid: int32\nclientip: int32\nregionid: int32\nuserid: int64\ncounterclass: int16\nos: int16\nuseragent: int16\nurl: string\nreferer: string\nisrefresh: int16\nreferercategoryid: int16\nrefererregionid: int32\nurlcategoryid: int16\nurlregionid: int32\nresolutionwidth: int16\nresolutionheight: int16\nresolutiondepth: int16\nflashmajor: int16\nflashminor: int16\nflashminor2: string\nnetmajor: int16\nnetminor: int16\nuseragentmajor: int16\nuseragentminor: string\ncookieenable: int16\njavascriptenable: int16\nismobile: int16\nmobilephone: int16\nmobilephonemodel: string\nparams: string\nipnetworkid: int32\ntraficsourceid: int16\nsearchengineid: int16\nsearchphrase: string\nadvengineid: int16\nisartifical: int16\nwindowclientwidth: int16\nwindowclientheight: int16\nclienttimezone: int16\nclienteventtime: timestamp[us]\nsilverlightversion1: int16\nsilverlightversion2: int16\nsilverlightversion3: int32\nsilverlightversion4: int16\npagecharset: string\ncodeversion: int32\nislink: int16\nisdownload: int16\nisnotbounce: int16\nfuniqid: int64\noriginalurl: string\nhid: int32\nisoldcounter: int16\nisevent: int16\nisparameter: int16\ndontcounthits: int16\nwithhash: int16\nhitcolor: string\nlocaleventtime: timestamp[us]\nage: int16\nsex: int16\nincome: int16\ninterests: int16\nrobotness: int16\nremoteip: int32\nwindowname: int32\nopenername: int32\nhistorylength: int16\nbrowserlanguage: string\nbrowsercountry: string\nsocialnetwork: string\nsocialaction: string\nhttperror: int16\nsendtiming: int32\ndnstiming: int32\nconnecttiming: int32\nresponsestarttiming: int32\nresponseendtiming: int32\nfetchtiming: int32\nsocialsourcenetworkid: int16\nsocialsourcepage: string\nparamprice: int64\nparamorderid: string\nparamcurrency: string\nparamcurrencyid: int16\nopenstatservicename: string\nopenstatcampaignid: string\nopenstatadid: string\nopenstatsourceid: string\nutmsource: string\nutmmedium: string\nutmcampaign: string\nutmcontent: string\nutmterm: string\nfromtag: string\nhasgclid: int16\nrefererhash: int64\nurlhash: int64\nclid: int32",
+      "worker_metrics": [
+        {
+          "rows": 10000,
+          "read_and_ipc_seconds": 0.5529027500015218,
+          "first_batch_seconds": 0.546633624995593,
+          "process_peak_rss_bytes": 412123136
+        }
+      ],
+      "telemetry": {
+        "sample_interval_seconds": 0.05,
+        "samples": 12,
+        "client_process_tree_baseline_rss_bytes": 902299648,
+        "client_process_tree_sampled_peak_rss_bytes": 1330085888,
+        "server_baseline_used_memory_bytes": 148789408,
+        "server_sampled_peak_used_memory_bytes": 156405832,
+        "server_after_used_memory_bytes": 148792448,
+        "server_net_input_bytes_delta": 2218,
+        "server_net_output_bytes_delta": 33991259
+      }
+    },
+    {
+      "workload": "scan_wide",
+      "sql": "SELECT __rowid AS source_ordinal, * FROM hits",
+      "official": false,
+      "method": "partitions",
+      "workers": 1,
+      "partitions": 8,
+      "strategy": "rowid",
+      "repeat": 2,
+      "rows": 10000,
+      "end_to_end_seconds": 0.80546345798939,
+      "planning_seconds": 0.0016019169997889549,
+      "exact_values": true,
+      "arrow_schema": "source_ordinal: int64\nwatchid: int64\njavaenable: int16\ntitle: string\ngoodevent: int16\neventtime: timestamp[us]\neventdate: date32[day]\ncounterid: int32\nclientip: int32\nregionid: int32\nuserid: int64\ncounterclass: int16\nos: int16\nuseragent: int16\nurl: string\nreferer: string\nisrefresh: int16\nreferercategoryid: int16\nrefererregionid: int32\nurlcategoryid: int16\nurlregionid: int32\nresolutionwidth: int16\nresolutionheight: int16\nresolutiondepth: int16\nflashmajor: int16\nflashminor: int16\nflashminor2: string\nnetmajor: int16\nnetminor: int16\nuseragentmajor: int16\nuseragentminor: string\ncookieenable: int16\njavascriptenable: int16\nismobile: int16\nmobilephone: int16\nmobilephonemodel: string\nparams: string\nipnetworkid: int32\ntraficsourceid: int16\nsearchengineid: int16\nsearchphrase: string\nadvengineid: int16\nisartifical: int16\nwindowclientwidth: int16\nwindowclientheight: int16\nclienttimezone: int16\nclienteventtime: timestamp[us]\nsilverlightversion1: int16\nsilverlightversion2: int16\nsilverlightversion3: int32\nsilverlightversion4: int16\npagecharset: string\ncodeversion: int32\nislink: int16\nisdownload: int16\nisnotbounce: int16\nfuniqid: int64\noriginalurl: string\nhid: int32\nisoldcounter: int16\nisevent: int16\nisparameter: int16\ndontcounthits: int16\nwithhash: int16\nhitcolor: string\nlocaleventtime: timestamp[us]\nage: int16\nsex: int16\nincome: int16\ninterests: int16\nrobotness: int16\nremoteip: int32\nwindowname: int32\nopenername: int32\nhistorylength: int16\nbrowserlanguage: string\nbrowsercountry: string\nsocialnetwork: string\nsocialaction: string\nhttperror: int16\nsendtiming: int32\ndnstiming: int32\nconnecttiming: int32\nresponsestarttiming: int32\nresponseendtiming: int32\nfetchtiming: int32\nsocialsourcenetworkid: int16\nsocialsourcepage: string\nparamprice: int64\nparamorderid: string\nparamcurrency: string\nparamcurrencyid: int16\nopenstatservicename: string\nopenstatcampaignid: string\nopenstatadid: string\nopenstatsourceid: string\nutmsource: string\nutmmedium: string\nutmcampaign: string\nutmcontent: string\nutmterm: string\nfromtag: string\nhasgclid: int16\nrefererhash: int64\nurlhash: int64\nclid: int32",
+      "worker_metrics": [
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.0075602080032695085,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 105857024
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.010467000000062399,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 106676224
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.006815290995291434,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 107036672
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.006200084011652507,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 107069440
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.006255957996472716,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 107085824
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.0063807499973336235,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 107102208
+        },
+        {
+          "rows": 0,
+          "read_and_ipc_seconds": 0.006528041005367413,
+          "first_batch_seconds": null,
+          "process_peak_rss_bytes": 107200512
+        },
+        {
+          "rows": 10000,
+          "read_and_ipc_seconds": 0.5279572919971542,
+          "first_batch_seconds": 0.5230611250008224,
+          "process_peak_rss_bytes": 395837440
+        }
+      ],
+      "telemetry": {
+        "sample_interval_seconds": 0.05,
+        "samples": 13,
+        "client_process_tree_baseline_rss_bytes": 902299648,
+        "client_process_tree_sampled_peak_rss_bytes": 1311342592,
+        "server_baseline_used_memory_bytes": 148792448,
+        "server_sampled_peak_used_memory_bytes": 155663616,
+        "server_after_used_memory_bytes": 148775288,
+        "server_net_input_bytes_delta": 13312,
+        "server_net_output_bytes_delta": 35740268
+      }
+    }
+  ],
+  "summary": [
+    {
+      "workload": "scan_narrow",
+      "method": "execute_query",
+      "workers": 1,
+      "partitions": null,
+      "strategy": null,
+      "median_seconds": 0.25229891600611154,
+      "median_rows_per_second": 39635.52502840625,
+      "ratio_to_execute_query": 1.0,
+      "rows": 10000,
+      "all_exact_values_and_schema": true,
+      "median_first_batch_seconds": 0.06229054099821951,
+      "max_sampled_client_rss_bytes": 1006272512,
+      "max_sampled_server_used_memory_bytes": 148885304
+    },
+    {
+      "workload": "scan_narrow",
+      "method": "partitions",
+      "workers": 1,
+      "partitions": 8,
+      "strategy": "rowid",
+      "median_seconds": 0.3148573749931529,
+      "median_rows_per_second": 31760.412155559214,
+      "ratio_to_execute_query": 1.2479537366919404,
+      "rows": 10000,
+      "all_exact_values_and_schema": true,
+      "median_first_batch_seconds": 0.05865420900227036,
+      "max_sampled_client_rss_bytes": 1015431168,
+      "max_sampled_server_used_memory_bytes": 151135392
+    },
+    {
+      "workload": "scan_narrow",
+      "method": "partitions",
+      "workers": 1,
+      "partitions": 8,
+      "strategy": "balanced",
+      "median_seconds": 0.543201707987464,
+      "median_rows_per_second": 18409.36774121995,
+      "ratio_to_execute_query": 2.1530084892410155,
+      "rows": 10000,
+      "all_exact_values_and_schema": true,
+      "median_first_batch_seconds": 0.012142270999902394,
+      "max_sampled_client_rss_bytes": 995229696,
+      "max_sampled_server_used_memory_bytes": 148851056
+    },
+    {
+      "workload": "scan_narrow",
+      "method": "partitions",
+      "workers": 4,
+      "partitions": 8,
+      "strategy": "rowid",
+      "median_seconds": 0.2892586669913726,
+      "median_rows_per_second": 34571.133525614496,
+      "ratio_to_execute_query": 1.1464919135219978,
+      "rows": 10000,
+      "all_exact_values_and_schema": true,
+      "median_first_batch_seconds": 0.0585100419993978,
+      "max_sampled_client_rss_bytes": 1334149120,
+      "max_sampled_server_used_memory_bytes": 148811608
+    },
+    {
+      "workload": "scan_narrow",
+      "method": "partitions",
+      "workers": 4,
+      "partitions": 8,
+      "strategy": "balanced",
+      "median_seconds": 0.4863469999982044,
+      "median_rows_per_second": 20561.450980548703,
+      "ratio_to_execute_query": 1.9276618690919125,
+      "rows": 10000,
+      "all_exact_values_and_schema": true,
+      "median_first_batch_seconds": 0.02329499999905238,
+      "max_sampled_client_rss_bytes": 1324990464,
+      "max_sampled_server_used_memory_bytes": 148906536
+    },
+    {
+      "workload": "scan_wide",
+      "method": "execute_query",
+      "workers": 1,
+      "partitions": null,
+      "strategy": null,
+      "median_seconds": 0.7380120419984451,
+      "median_rows_per_second": 13549.914406438736,
+      "ratio_to_execute_query": 1.0,
+      "rows": 10000,
+      "all_exact_values_and_schema": true,
+      "median_first_batch_seconds": 0.5385814170003869,
+      "max_sampled_client_rss_bytes": 1331953664,
+      "max_sampled_server_used_memory_bytes": 156405832
+    },
+    {
+      "workload": "scan_wide",
+      "method": "partitions",
+      "workers": 1,
+      "partitions": 8,
+      "strategy": "rowid",
+      "median_seconds": 0.817423874992528,
+      "median_rows_per_second": 12233.555081922961,
+      "ratio_to_execute_query": 1.107602353992823,
+      "rows": 10000,
+      "all_exact_values_and_schema": true,
+      "median_first_batch_seconds": 0.5388586250046501,
+      "max_sampled_client_rss_bytes": 1400127488,
+      "max_sampled_server_used_memory_bytes": 155663616
+    },
+    {
+      "workload": "scan_wide",
+      "method": "partitions",
+      "workers": 1,
+      "partitions": 8,
+      "strategy": "balanced",
+      "median_seconds": 1.047473375001573,
+      "median_rows_per_second": 9546.782036330978,
+      "ratio_to_execute_query": 1.4193174574294818,
+      "rows": 10000,
+      "all_exact_values_and_schema": true,
+      "median_first_batch_seconds": 0.07330400000500958,
+      "max_sampled_client_rss_bytes": 1179500544,
+      "max_sampled_server_used_memory_bytes": 153332064
+    },
+    {
+      "workload": "scan_wide",
+      "method": "partitions",
+      "workers": 4,
+      "partitions": 8,
+      "strategy": "rowid",
+      "median_seconds": 0.7992823749955278,
+      "median_rows_per_second": 12511.22295803902,
+      "ratio_to_execute_query": 1.083020776776447,
+      "rows": 10000,
+      "all_exact_values_and_schema": true,
+      "median_first_batch_seconds": 0.5276667910075048,
+      "max_sampled_client_rss_bytes": 1750237184,
+      "max_sampled_server_used_memory_bytes": 155652592
+    },
+    {
+      "workload": "scan_wide",
+      "method": "partitions",
+      "workers": 4,
+      "partitions": 8,
+      "strategy": "balanced",
+      "median_seconds": 0.8120202909922227,
+      "median_rows_per_second": 12314.963198494477,
+      "ratio_to_execute_query": 1.1002805439236094,
+      "rows": 10000,
+      "all_exact_values_and_schema": true,
+      "median_first_batch_seconds": 0.15867106249788776,
+      "max_sampled_client_rss_bytes": 1700855808,
+      "max_sampled_server_used_memory_bytes": 162618624
+    }
+  ],
+  "status": "complete",
+  "load_index_readiness": {
+    "wait_seconds": 0.0015599580074194819,
+    "state": {
+      "num_docs": 100000,
+      "indexing": 0,
+      "percent_indexed": 1.0
+    }
+  },
+  "load_seconds": 8.886255125005846,
+  "final_index_readiness": {
+    "wait_seconds": 0.0013547919952543452,
+    "state": {
+      "num_docs": 10000,
+      "indexing": 0,
+      "percent_indexed": 1.0
+    }
+  }
+}

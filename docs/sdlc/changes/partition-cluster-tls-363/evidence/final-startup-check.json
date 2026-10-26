@@ -1,0 +1,8 @@
+{
+  "status": "passed",
+  "primary_count": 3,
+  "actual_aggregate_cap_each_primary": 137,
+  "cluster_state_each_primary": "ok",
+  "label_verified_cleanup": true,
+  "fixture_script_sha256": "37b438fd7e225893f2e871f25d452f75c080b9ad48a2cc600a0f3289b0656aec"
+}

@@ -1,0 +1,120 @@
+{
+  "load_all": [
+    "Shards",
+    [
+      [
+        "Total profile time",
+        "19.456834",
+        "Parsing time",
+        "0.018",
+        "Pipeline creation time",
+        "0.013709",
+        "Warning",
+        [
+          "None"
+        ],
+        "Iterators profile",
+        [
+          "Type",
+          "WILDCARD",
+          "Time",
+          "0.027466",
+          "Number of reading operations",
+          1000
+        ],
+        "Result processors profile",
+        [
+          [
+            "Type",
+            "Index",
+            "Time",
+            "0.111439",
+            "Results processed",
+            999
+          ],
+          [
+            "Type",
+            "Pager/Limiter",
+            "Time",
+            "0.046467999999999995",
+            "Results processed",
+            1000
+          ],
+          [
+            "Type",
+            "Loader",
+            "Time",
+            "1.357213",
+            "Results processed",
+            1000
+          ],
+          [
+            "Type",
+            "Loader",
+            "Time",
+            "11.27813",
+            "Results processed",
+            1000
+          ]
+        ]
+      ]
+    ],
+    "Coordinator",
+    []
+  ],
+  "narrow": [
+    "Shards",
+    [
+      [
+        "Total profile time",
+        "2.067791",
+        "Parsing time",
+        "0.017125",
+        "Pipeline creation time",
+        "0.004708",
+        "Warning",
+        [
+          "None"
+        ],
+        "Iterators profile",
+        [
+          "Type",
+          "WILDCARD",
+          "Time",
+          "0.015492",
+          "Number of reading operations",
+          1000
+        ],
+        "Result processors profile",
+        [
+          [
+            "Type",
+            "Index",
+            "Time",
+            "0.064938",
+            "Results processed",
+            999
+          ],
+          [
+            "Type",
+            "Pager/Limiter",
+            "Time",
+            "0.033497",
+            "Results processed",
+            1000
+          ],
+          [
+            "Type",
+            "Loader",
+            "Time",
+            "1.039375",
+            "Results processed",
+            1000
+          ]
+        ]
+      ]
+    ],
+    "Coordinator",
+    []
+  ]
+}

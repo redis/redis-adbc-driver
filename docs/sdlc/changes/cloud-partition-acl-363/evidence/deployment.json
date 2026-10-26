@@ -1,0 +1,35 @@
+{
+  "disposable": true,
+  "subscription_id": 3457712,
+  "database_id": 14709262,
+  "subscription_name": "codex-adbc-cloud-acl-20261021",
+  "database_name": "codex-adbc-cloud-acl-20261021",
+  "owner": "Albert Wong",
+  "date": "2026-10-21",
+  "provider": "AWS",
+  "region": "us-west-2",
+  "dataset_size_gb": 0.1,
+  "requested_throughput_ops_per_sec": 1000,
+  "replication": false,
+  "persistence": "none",
+  "estimate": {
+    "minimum_usd_per_hour": 0.274,
+    "one_shard_usd_per_hour": 0.043,
+    "task": "82da4844-d7f7-448c-872c-380f88d72097"
+  },
+  "subscription_create_task": "f85f8f98-2543-4d9b-abd2-261f732d70bd",
+  "cleanup": "delete owned principals then database then subscription; verify absence",
+  "source_revision": "1bb46ca",
+  "tls_verification": true,
+  "expected_shards": 1,
+  "actual_invoice_cost": "not available; estimate components recorded separately",
+  "harness_sha256": {
+    "scripts/cloud_partition_tls.py": "956eaae57d990bc09e07b9bdabcbba976cda4d263e0233330eee2ffaaa53fdc4",
+    "scripts/check_partition_tls.py": "c45c6ed26aec62a0635755452f1a7263a6137e96dbecdfb3a83396b72d9e67bc"
+  },
+  "final_refinement": "Management HTTPS trust context cached before test CA environment; covered by fault tests and live cleanup replay.",
+  "minimum_wheel_run_harness_sha256": {
+    "scripts/cloud_partition_tls.py": "ea3ebeaf451b355a1b222834ce8df8a86ef4db2c19b8e60704739e530296ada8",
+    "scripts/check_partition_tls.py": "c45c6ed26aec62a0635755452f1a7263a6137e96dbecdfb3a83396b72d9e67bc"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "time_utc": "2026-10-22T02:59:25.116744+00:00",
+  "native": [
+    {
+      "name": "codex-retained-main-native",
+      "pid": 22875,
+      "pid_verified_shutdown": true
+    },
+    {
+      "name": "codex-retained-deployment-native-tls",
+      "pid": 25383,
+      "pid_verified_shutdown": true
+    }
+  ],
+  "tls_cluster": {
+    "container_id": "9930e3581a23fabf58c8b33043076a3d567b612eb2340b5ff73070b96b855a6d",
+    "owned_label_verified": true,
+    "removed": true,
+    "private_directory_removed": true
+  },
+  "still_owned_for_active_validation": [
+    "codex-retained-software",
+    "Redis Cloud Pro subscription 3457954 / database 14709753"
+  ]
+}

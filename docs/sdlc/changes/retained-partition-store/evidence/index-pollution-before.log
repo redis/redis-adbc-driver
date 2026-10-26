@@ -1,0 +1,6 @@
+=== RUN   TestRetainedPartitionControlStateDoesNotPolluteApplicationIndexes
+    partition_retained_store_integration_test.go:437: retained metadata changed application HASH index membership 1 <nil>
+--- FAIL: TestRetainedPartitionControlStateDoesNotPolluteApplicationIndexes (0.01s)
+FAIL
+FAIL	github.com/adbc-drivers/redis/go	0.618s
+FAIL

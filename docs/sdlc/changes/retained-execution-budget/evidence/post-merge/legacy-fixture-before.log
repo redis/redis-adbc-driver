@@ -1,0 +1,9 @@
+redis: 2026/10/21 19:41:40 pool.go:1355: Conn has unread data (not push notification), removing it
+--- FAIL: TestRetainedSourceCaptureLegacyWithoutMigration (0.00s)
+    partition_retained_capture_integration_test.go:275: BUSYKEY Target key name already exists.
+redis: 2026/10/21 19:42:23 pool.go:762: redis: connection pool: failed to dial after 5 attempts: private dialer sentinel
+FAIL
+FAIL	github.com/adbc-drivers/redis/go	85.375s
+ok  	github.com/adbc-drivers/redis/go/cmd/redis-adbc	0.723s
+ok  	github.com/adbc-drivers/redis/go/internal/benchproxy	0.230s
+FAIL

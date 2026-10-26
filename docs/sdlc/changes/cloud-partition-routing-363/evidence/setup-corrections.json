@@ -1,0 +1,15 @@
+{
+  "number_of_shards_dry_run": {
+    "task": "74bd33f2-17ce-4ea8-8a79-d384ff6b1ad9",
+    "status": "processing-error",
+    "error": "DATABASE_MODULE_NOT_SUPPORTING_SHARD_THROUGHPUT_OPTION",
+    "resources_created": false
+  },
+  "correction": "Use recommended operations-per-second sizing; 50000 estimate reports two shards. No failed mutation replay.",
+  "initial_cluster_checker_failure": {
+    "error": "KeyError: 0 in new cluster_distribution collector",
+    "cause": "FT.SEARCH RESP3 map was treated as RESP2 array",
+    "correction": "Decode RESP2 and RESP3 explicitly; retain total/unique-key/slot-coverage assertions; add dual-format regression test",
+    "cleanup": "All six ACL resources deleted and absence verified; one-row shape probe index and HASH removed."
+  }
+}

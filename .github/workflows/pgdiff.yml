@@ -1,0 +1,55 @@
+name: Postgres differential corpus
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pgdiff:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go/go.mod
+          cache-dependency-path: go/go.sum
+      - uses: astral-sh/setup-uv@v10.2.0
+      - name: Test harness
+        run: make -C go pgdiff-test
+      - name: Start test Redis
+        working-directory: go
+        run: docker compose --profile oss up --detach --wait redis
+      - name: Compare corpus
+        working-directory: go
+        shell: bash
+        env:
+          REDIS_URI: redis://localhost:6379/0
+        run: |
+          make build
+          set +e
+          uv run --project pgdiff python pgdiff/run.py > build/pgdiff-console.txt 2>&1
+          status=$?
+          set -e
+          cat build/pgdiff-console.txt
+          if [ "$status" -eq 1 ]; then
+            echo 'Compatibility differences found; inspect the report artifact.' >> "$GITHUB_STEP_SUMMARY"
+          elif [ "$status" -ne 0 ]; then
+            echo 'Fixture or infrastructure failure; inspect the report artifact.' >> "$GITHUB_STEP_SUMMARY"
+            exit "$status"
+          fi
+      - name: Publish comparison report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: pgdiff-report
+          path: |
+            go/build/pgdiff-report.json
+            go/build/pgdiff-console.txt
+          if-no-files-found: warn
+      - name: Stop test Redis
+        if: always()
+        working-directory: go
+        run: docker compose --profile oss down redis

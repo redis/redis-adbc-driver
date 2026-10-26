@@ -1,0 +1,99 @@
+name: Build DuckDB 2.0 ADBC scanner
+description: Build the upstream scanner against the Python integration's DuckDB patch release
+inputs:
+  duckdb-version:
+    description: Installed stable DuckDB 2.0.x version
+    required: true
+outputs:
+  extension:
+    description: Locally built unsigned scanner
+    value: ${{ steps.prepare.outputs.extension }}
+runs:
+  using: composite
+  steps:
+    - name: Identify scanner binary cache
+      id: prepare
+      shell: bash
+      env:
+        SCANNER_DUCKDB_VERSION: ${{ inputs.duckdb-version }}
+      run: |
+        [[ "$SCANNER_DUCKDB_VERSION" =~ ^2\.0\.[0-9]+$ ]]
+        # Include the compiler/linker identity as well as the pinned source,
+        # toolchain and build flags (hashed below via this action's source).
+        toolchain=$({ c++ --version; ld --version; } | sha256sum | cut -d ' ' -f 1)
+        echo "toolchain=$toolchain" >> "$GITHUB_OUTPUT"
+        echo "extension=$RUNNER_TEMP/adbc-scanner-extension/adbc_scanner.duckdb_extension" >> "$GITHUB_OUTPUT"
+    - uses: actions/cache/restore@v4
+      id: binary-cache
+      with:
+        path: ${{ steps.prepare.outputs.extension }}
+        # Only exact matches can be loaded into the installed DuckDB engine.
+        key: adbc-scanner-binary-v1-${{ runner.os }}-${{ runner.arch }}-${{ inputs.duckdb-version }}-${{ steps.prepare.outputs.toolchain }}-${{ hashFiles('.github/actions/build-adbc-scanner/action.yml', '.github/actions/duckdb-build-cache/action.yml') }}
+    - uses: actions/checkout@v7
+      if: steps.binary-cache.outputs.cache-hit != 'true'
+      with:
+        repository: Query-farm/adbc_scanner
+        # Upstream v2.0, version 2026102101. Community binaries are not available
+        # for DuckDB 2.0; build the real scanner rather than the community stub.
+        ref: b7cd0afb4884ede6533f1534216bcb0de61bb76b
+        path: build/adbc-scanner
+        submodules: recursive
+        persist-credentials: false
+    - uses: ./.github/actions/duckdb-build-cache
+      if: steps.binary-cache.outputs.cache-hit != 'true'
+      with:
+        variant: adbc-scanner-v2
+    - name: Install scanner build dependencies
+      if: steps.binary-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y cmake ninja-build pkg-config zip unzip
+    - uses: actions/checkout@v7
+      if: steps.binary-cache.outputs.cache-hit != 'true'
+      with:
+        repository: microsoft/vcpkg
+        # Match upstream's driver-tests.yml dependency toolchain.
+        ref: 84bab45d415d22042bd0b9081aea57f362da3f35
+        path: build/adbc-scanner-vcpkg
+        persist-credentials: false
+    - name: Build the scanner for the installed DuckDB version
+      if: steps.binary-cache.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        # DuckDB consumes DUCKDB_VERSION before OVERRIDE_GIT_DESCRIBE. Keep
+        # the bare wheel version separate so its ABI stamp retains the v prefix.
+        SCANNER_DUCKDB_VERSION: ${{ inputs.duckdb-version }}
+        CACHED_EXTENSION: ${{ steps.prepare.outputs.extension }}
+      run: |
+        [[ "$SCANNER_DUCKDB_VERSION" =~ ^2\.0\.[0-9]+$ ]]
+        scanner="$GITHUB_WORKSPACE/build/adbc-scanner"
+        vcpkg="$GITHUB_WORKSPACE/build/adbc-scanner-vcpkg"
+        # The wheel and C++ extension must use the exact same engine release.
+        git -C "$scanner/duckdb" fetch --depth 1 origin "refs/tags/v$SCANNER_DUCKDB_VERSION"
+        git -C "$scanner/duckdb" checkout --detach FETCH_HEAD
+        bash "$vcpkg/bootstrap-vcpkg.sh" -disableMetrics
+        cmake -S "$scanner/duckdb" -B "$scanner/build/release" -G Ninja \
+          -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+          -DOVERRIDE_GIT_DESCRIBE="v$SCANNER_DUCKDB_VERSION" \
+          -DDUCKDB_EXTENSION_CONFIGS="$scanner/extension_config.cmake" \
+          -DCMAKE_TOOLCHAIN_FILE="$vcpkg/scripts/buildsystems/vcpkg.cmake" \
+          -DVCPKG_MANIFEST_DIR="$scanner" \
+          -DEXTENSION_STATIC_BUILD=ON -DBUILD_UNITTESTS=OFF -DBUILD_SHELL=OFF
+        cmake --build "$scanner/build/release" --target adbc_scanner_loadable_extension
+        extension="$scanner/build/release/extension/adbc_scanner/adbc_scanner.duckdb_extension"
+        test -s "$extension"
+        mkdir -p "$(dirname "$CACHED_EXTENSION")"
+        cp "$extension" "$CACHED_EXTENSION"
+    # Save before integration tests: a later test failure must not discard a
+    # successful, expensive upstream build.
+    - uses: actions/cache/save@v4
+      if: steps.binary-cache.outputs.cache-hit != 'true'
+      with:
+        path: ${{ steps.prepare.outputs.extension }}
+        key: ${{ steps.binary-cache.outputs.cache-primary-key }}
+    - name: Verify scanner output
+      shell: bash
+      env:
+        EXTENSION: ${{ steps.prepare.outputs.extension }}
+      run: test -s "$EXTENSION"

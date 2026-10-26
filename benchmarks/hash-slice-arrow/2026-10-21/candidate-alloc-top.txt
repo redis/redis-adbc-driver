@@ -1,0 +1,89 @@
+File: go.test
+Type: alloc_space
+Time: 2026-10-21 17:02:12 PDT
+Showing nodes accounting for 3254.45MB, 99.19% of 3280.87MB total
+Dropped 85 nodes (cum <= 16.40MB)
+      flat  flat%   sum%        cum   cum%
+  999.93MB 30.48% 30.48%  1049.09MB 31.98%  github.com/redis/go-redis/v9.cmdable.HMGet
+  630.72MB 19.22% 49.70%   630.72MB 19.22%  github.com/apache/arrow-go/v18/arrow/memory.(*GoAllocator).Allocate (partial-inline)
+  502.32MB 15.31% 65.01%  1471.91MB 44.86%  github.com/redis/go-redis/v9/internal/proto.(*Reader).readSlice
+  437.01MB 13.32% 78.33%   978.57MB 29.83%  github.com/redis/go-redis/v9/internal/proto.(*Reader).ReadReply
+  323.03MB  9.85% 88.18%   323.03MB  9.85%  github.com/redis/go-redis/v9/internal/proto.(*Reader).readStringReply
+  210.05MB  6.40% 94.58%   294.53MB  8.98%  github.com/redis/go-redis/v9/internal/proto.(*Reader).readMap
+   82.52MB  2.52% 97.10%    82.52MB  2.52%  github.com/adbc-drivers/redis/go.setAggregateField
+   34.50MB  1.05% 98.15%    34.50MB  1.05%  github.com/redis/go-redis/v9.NewSliceCmd (inline)
+   12.50MB  0.38% 98.53%    95.02MB  2.90%  github.com/adbc-drivers/redis/go.parseAggregateRow
+    7.13MB  0.22% 98.75%  2236.70MB 68.17%  github.com/adbc-drivers/redis/go.(*store).fetchRowSlices
+    5.32MB  0.16% 98.91%  2872.73MB 87.56%  github.com/adbc-drivers/redis/go.(*scanIter).nextHashValues
+    4.79MB  0.15% 99.05%  3254.61MB 99.20%  github.com/adbc-drivers/redis/go.(*scanIter).nextPage
+    3.09MB 0.094% 99.15%  2229.57MB 67.96%  github.com/adbc-drivers/redis/go.(*store).fetchHashCommands
+    1.54MB 0.047% 99.19%    96.56MB  2.94%  github.com/adbc-drivers/redis/go.parseCursorReplyLists
+         0     0% 99.19%   377.09MB 11.49%  github.com/adbc-drivers/redis/go.(*aggCursor).next
+         0     0% 99.19%  2086.44MB 63.59%  github.com/adbc-drivers/redis/go.(*executor).execute
+         0     0% 99.19%  2086.44MB 63.59%  github.com/adbc-drivers/redis/go.(*executor).streamSelect
+         0     0% 99.19%  3254.61MB 99.20%  github.com/adbc-drivers/redis/go.(*scanIter).next
+         0     0% 99.19%  2086.44MB 63.59%  github.com/adbc-drivers/redis/go.(*sqlHarness).openStmtStream
+         0     0% 99.19%  2086.44MB 63.59%  github.com/adbc-drivers/redis/go.(*sqlHarness).openStream
+         0     0% 99.19%  2086.44MB 63.59%  github.com/adbc-drivers/redis/go.(*statementImpl).ExecuteQuery
+         0     0% 99.19%  2086.44MB 63.59%  github.com/adbc-drivers/redis/go.(*statementImpl).run
+         0     0% 99.19%  1183.18MB 36.06%  github.com/adbc-drivers/redis/go.(*streamReader).Next
+         0     0% 99.19%   630.72MB 19.22%  github.com/adbc-drivers/redis/go.(*streamReader).appendArrowHash
+         0     0% 99.19%   630.72MB 19.22%  github.com/adbc-drivers/redis/go.(*streamReader).appendDecodedArrow
+         0     0% 99.19%  2071.43MB 63.14%  github.com/adbc-drivers/redis/go.(*streamReader).fill
+         0     0% 99.19%  3254.61MB 99.20%  github.com/adbc-drivers/redis/go.(*streamReader).fillArrow
+         0     0% 99.19%  1183.18MB 36.06%  github.com/adbc-drivers/redis/go.(*streamReader).nextArrow
+         0     0% 99.19%  3269.62MB 99.66%  github.com/adbc-drivers/redis/go.TestSearchReplyScanProfile
+         0     0% 99.19%   622.62MB 18.98%  github.com/adbc-drivers/redis/go.appendValue
+         0     0% 99.19%   295.03MB  8.99%  github.com/adbc-drivers/redis/go.diagnosticsHook.ProcessHook.func1
+         0     0% 99.19%  1177.38MB 35.89%  github.com/adbc-drivers/redis/go.diagnosticsHook.ProcessPipelineHook.func1
+         0     0% 99.19%   295.03MB  8.99%  github.com/adbc-drivers/redis/go.errorHook.ProcessHook.func1
+         0     0% 99.19%  1177.38MB 35.89%  github.com/adbc-drivers/redis/go.errorHook.ProcessPipelineHook.func1
+         0     0% 99.19%   295.03MB  8.99%  github.com/adbc-drivers/redis/go.once
+         0     0% 99.19%   295.03MB  8.99%  github.com/adbc-drivers/redis/go.searchConn.Do (inline)
+         0     0% 99.19%   422.42MB 12.88%  github.com/apache/arrow-go/v18/arrow/array.(*BinaryBuilder).Append
+         0     0% 99.19%    92.42MB  2.82%  github.com/apache/arrow-go/v18/arrow/array.(*BinaryBuilder).Reserve
+         0     0% 99.19%    92.42MB  2.82%  github.com/apache/arrow-go/v18/arrow/array.(*BinaryBuilder).Resize
+         0     0% 99.19%    82.22MB  2.51%  github.com/apache/arrow-go/v18/arrow/array.(*Int16Builder).Append
+         0     0% 99.19%    82.72MB  2.52%  github.com/apache/arrow-go/v18/arrow/array.(*Int16Builder).Reserve
+         0     0% 99.19%    82.72MB  2.52%  github.com/apache/arrow-go/v18/arrow/array.(*Int16Builder).Resize
+         0     0% 99.19%    62.80MB  1.91%  github.com/apache/arrow-go/v18/arrow/array.(*Int32Builder).Append
+         0     0% 99.19%    64.81MB  1.98%  github.com/apache/arrow-go/v18/arrow/array.(*Int32Builder).Reserve
+         0     0% 99.19%    64.81MB  1.98%  github.com/apache/arrow-go/v18/arrow/array.(*Int32Builder).Resize
+         0     0% 99.19%    36.87MB  1.12%  github.com/apache/arrow-go/v18/arrow/array.(*Int64Builder).Append
+         0     0% 99.19%    39.42MB  1.20%  github.com/apache/arrow-go/v18/arrow/array.(*Int64Builder).Reserve
+         0     0% 99.19%    39.42MB  1.20%  github.com/apache/arrow-go/v18/arrow/array.(*Int64Builder).Resize
+         0     0% 99.19%   422.42MB 12.88%  github.com/apache/arrow-go/v18/arrow/array.(*StringBuilder).Append (inline)
+         0     0% 99.19%    16.47MB   0.5%  github.com/apache/arrow-go/v18/arrow/array.(*TimestampBuilder).Append
+         0     0% 99.19%    16.98MB  0.52%  github.com/apache/arrow-go/v18/arrow/array.(*TimestampBuilder).Reserve
+         0     0% 99.19%    16.98MB  0.52%  github.com/apache/arrow-go/v18/arrow/array.(*TimestampBuilder).Resize
+         0     0% 99.19%   331.51MB 10.10%  github.com/apache/arrow-go/v18/arrow/array.(*bufferBuilder).Append
+         0     0% 99.19%   420.91MB 12.83%  github.com/apache/arrow-go/v18/arrow/array.(*bufferBuilder).resize
+         0     0% 99.19%   299.20MB  9.12%  github.com/apache/arrow-go/v18/arrow/array.(*builder).reserve (inline)
+         0     0% 99.19%   630.72MB 19.22%  github.com/apache/arrow-go/v18/arrow/memory.(*Buffer).Reserve
+         0     0% 99.19%   209.80MB  6.39%  github.com/apache/arrow-go/v18/arrow/memory.(*Buffer).Resize (inline)
+         0     0% 99.19%   420.91MB 12.83%  github.com/apache/arrow-go/v18/arrow/memory.(*Buffer).ResizeNoShrink (inline)
+         0     0% 99.19%   630.72MB 19.22%  github.com/apache/arrow-go/v18/arrow/memory.(*Buffer).resize
+         0     0% 99.19%   622.62MB 18.98%  github.com/apache/arrow-go/v18/arrow/memory.(*GoAllocator).Reallocate
+         0     0% 99.19%   295.03MB  8.99%  github.com/redis/go-redis/v9.(*Client).Process
+         0     0% 99.19%   295.03MB  8.99%  github.com/redis/go-redis/v9.(*Cmd).readReply
+         0     0% 99.19%  1177.38MB 35.89%  github.com/redis/go-redis/v9.(*Pipeline).Exec
+         0     0% 99.19%  1177.38MB 35.89%  github.com/redis/go-redis/v9.(*SliceCmd).readReply
+         0     0% 99.19%   295.03MB  8.99%  github.com/redis/go-redis/v9.(*baseClient)._process
+         0     0% 99.19%   295.03MB  8.99%  github.com/redis/go-redis/v9.(*baseClient)._process.func1
+         0     0% 99.19%   295.03MB  8.99%  github.com/redis/go-redis/v9.(*baseClient)._process.func1.3
+         0     0% 99.19%  1177.38MB 35.89%  github.com/redis/go-redis/v9.(*baseClient).generalProcessPipeline
+         0     0% 99.19%  1177.38MB 35.89%  github.com/redis/go-redis/v9.(*baseClient).generalProcessPipeline.func1
+         0     0% 99.19%  1177.38MB 35.89%  github.com/redis/go-redis/v9.(*baseClient).pipelineProcessCmds
+         0     0% 99.19%  1177.38MB 35.89%  github.com/redis/go-redis/v9.(*baseClient).pipelineProcessCmds.func2
+         0     0% 99.19%  1177.38MB 35.89%  github.com/redis/go-redis/v9.(*baseClient).pipelineReadCmds
+         0     0% 99.19%   295.03MB  8.99%  github.com/redis/go-redis/v9.(*baseClient).process
+         0     0% 99.19%   295.03MB  8.99%  github.com/redis/go-redis/v9.(*baseClient).processCommand
+         0     0% 99.19%  1177.38MB 35.89%  github.com/redis/go-redis/v9.(*baseClient).processPipeline
+         0     0% 99.19%   295.03MB  8.99%  github.com/redis/go-redis/v9.(*baseClient).processWithRetry
+         0     0% 99.19%  1472.41MB 44.88%  github.com/redis/go-redis/v9.(*baseClient).withConn
+         0     0% 99.19%  1177.38MB 35.89%  github.com/redis/go-redis/v9.(*baseClient).withPipelineConn
+         0     0% 99.19%   295.03MB  8.99%  github.com/redis/go-redis/v9.(*hooksMixin).processHook (inline)
+         0     0% 99.19%  1177.38MB 35.89%  github.com/redis/go-redis/v9.(*hooksMixin).processPipelineHook
+         0     0% 99.19%  1472.41MB 44.88%  github.com/redis/go-redis/v9/internal/pool.(*Conn).WithReader
+         0     0% 99.19%  1177.38MB 35.89%  github.com/redis/go-redis/v9/internal/proto.(*Reader).ReadSlice
+         0     0% 99.19%  3269.62MB 99.66%  testing.tRunner

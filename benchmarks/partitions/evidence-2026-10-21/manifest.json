@@ -1,0 +1,24 @@
+{
+  "driver_build_revision": "2571302ddbd28806a32ef048224f1d8128043b66",
+  "driver_go_tree": "ae698bbba24fa01a99c74e985eefd7d47c2ff432",
+  "files": {
+    "README.md": "9a10240badc945da603334eea41315f452b194685e9078eb72185eb79c768101",
+    "cap137-10k.json": "fab37748c54b40c2e298b50ac82694ca8be556040f6bcca272e0223caefde696",
+    "ci-audit.json": "1725f81e9d991d0a0dd074fa6749a9b1bceb2390700ce4f1e480d0080ce34f1b",
+    "dense-100k.json": "adbac685a698c05abde36f75e1da19731b84e65ff8e2a80503d8e218946c2a3d",
+    "diagnostics/focused-60-pass-ungated.json": "918f33206962d783b7f97286cb3f4384233b09ad6a98fc8f1213d7fbf61f2174",
+    "diagnostics/raw-index-building.json": "60072037596a332ff63a2fe89e179aa844c60a7f9477e077476ecbfe3e36177a",
+    "diagnostics/raw-index-ready-control.json": "0d64271b5b981eaf81ea7f57061e2414df58a0a444acb11a9b39b6e9db6ea415",
+    "diagnostics/sparse-actual.arrow": "c0b35e8eb9ac3468e16ade9f3ab76f017cb33b9d4e490d86b1936be042209976",
+    "diagnostics/sparse-expected.arrow": "26cc757fd957b71e8503dcfc0396c33b37241813398f222dd167285f5d0fe9c0",
+    "diagnostics/sparse-first-failed.json": "bda88b5f96802055052e1e58faabed6098bf393bc4d851e1605d94a898587e67",
+    "diagnostics/sparse-later-pass-ungated.json": "deac72fbd97c98ac87e98d953c77219c85591afe4749fdcc1fc6ac3ee930d6b3",
+    "diagnostics/sparse-second-failed.json": "6c78d1e841e626533f7ff75731b1fde7825b656b14904c4904a169b83bc30705",
+    "diagnostics/stress-300-pass-ungated.json": "1415d44fa1a9654b4a6cad5f661434278c2ccc7ae7be847d47da8eb4180985c2",
+    "macos-wheel.json": "6c67970ba4f5746ea28268ab6279edad75efc29f1f376bc77c32752b53e56e3e",
+    "macos-wheel.xml": "f4f679f8f6f6a24bdcd7883aee0d01b65dd1c23b1bd537bc2bf03eca6b461fef",
+    "skewed-100k.json": "bd093d4c34b3629538f0f85ca42e9d4f85161b01639a9c5d23fc1f97088855bc",
+    "source-prefix.json": "d96bfab706f012e60d31dd6629e692e5991e5c1204544f21894947ee09cf83e6",
+    "sparse-100k.json": "b6f9ae2e5f47eba3365a0d6891d1931fed203ff8ad6c8b98ba20f6f7f459ef93"
+  }
+}

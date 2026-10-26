@@ -1,0 +1,1721 @@
+{
+  "tracking_issue": 274,
+  "entries": [
+    {
+      "issue": 187,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/187",
+      "title": "UNION doesn't resolve column types as Postgres does: untyped literals, DATE with TIMESTAMP (dbt snapshots)",
+      "repros": [
+        {
+          "row": 1,
+          "original": "`select cast('2023-09-01' as date) union all select '2023-09-02'`",
+          "status": "covered",
+          "case": "issue-187.json:row-1",
+          "adaptation": null
+        },
+        {
+          "row": 2,
+          "original": "`select 1 union all select '2'`",
+          "status": "covered",
+          "case": "issue-187.json:row-2",
+          "adaptation": null
+        },
+        {
+          "row": 3,
+          "original": "`select date '2023-09-01' union all select timestamp '2023-09-02 10:00:00'`",
+          "status": "covered",
+          "case": "issue-187.json:row-3",
+          "adaptation": null
+        },
+        {
+          "row": 4,
+          "original": "`select date '2023-09-01' union all select timestamptz '2023-09-02 10:00:00+00'`",
+          "status": "covered",
+          "case": "issue-187.json:row-4",
+          "adaptation": null
+        },
+        {
+          "row": 5,
+          "original": "`select case when true then date '2023-09-01' else '2023-09-02' end`",
+          "status": "covered",
+          "case": "issue-187.json:row-5",
+          "adaptation": null
+        },
+        {
+          "row": 6,
+          "original": "`select coalesce(date '2023-09-01', '2023-09-02')`",
+          "status": "covered",
+          "case": "issue-187.json:row-6",
+          "adaptation": null
+        },
+        {
+          "row": 7,
+          "original": "`select coalesce(date '2023-09-01', timestamp '2023-09-02 10:00:00')`",
+          "status": "covered",
+          "case": "issue-187.json:row-7",
+          "adaptation": null
+        }
+      ],
+      "status": "covered"
+    },
+    {
+      "issue": 187,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/187",
+      "title": "UNION doesn't resolve column types as Postgres does: untyped literals, DATE with TIMESTAMP (dbt snapshots)",
+      "repros": [
+        {
+          "row": 1,
+          "original": "`select cast('2023-09-01' as date) union all select '2023-09-02'`",
+          "status": "covered",
+          "case": "issue-187.json:row-1",
+          "adaptation": null
+        },
+        {
+          "row": 2,
+          "original": "`select 1 union all select '2'`",
+          "status": "covered",
+          "case": "issue-187.json:row-2",
+          "adaptation": null
+        },
+        {
+          "row": 3,
+          "original": "`select date '2023-09-01' union all select timestamp '2023-09-02 10:00:00'`",
+          "status": "covered",
+          "case": "issue-187.json:row-3",
+          "adaptation": null
+        },
+        {
+          "row": 4,
+          "original": "`select date '2023-09-01' union all select timestamptz '2023-09-02 10:00:00+00'`",
+          "status": "covered",
+          "case": "issue-187.json:row-4",
+          "adaptation": null
+        },
+        {
+          "row": 5,
+          "original": "`select case when true then date '2023-09-01' else '2023-09-02' end`",
+          "status": "covered",
+          "case": "issue-187.json:row-5",
+          "adaptation": null
+        },
+        {
+          "row": 6,
+          "original": "`select coalesce(date '2023-09-01', '2023-09-02')`",
+          "status": "covered",
+          "case": "issue-187.json:row-6",
+          "adaptation": null
+        },
+        {
+          "row": 7,
+          "original": "`select coalesce(date '2023-09-01', timestamp '2023-09-02 10:00:00')`",
+          "status": "covered",
+          "case": "issue-187.json:row-7",
+          "adaptation": null
+        }
+      ],
+      "status": "covered"
+    },
+    {
+      "issue": 188,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/188",
+      "title": "SQL: date(x), Postgres's function-style cast to DATE",
+      "repros": [
+        {
+          "row": 1,
+          "original": "`select date('2099-12-31')`",
+          "status": "covered",
+          "case": "issue-188.json:row-1",
+          "adaptation": null
+        },
+        {
+          "row": 2,
+          "original": "`select date(timestamp '2023-09-02 10:00:00')`",
+          "status": "covered",
+          "case": "issue-188.json:row-2",
+          "adaptation": null
+        },
+        {
+          "row": 3,
+          "original": "`select date(timestamptz '2023-09-02 10:00:00+00')`",
+          "status": "covered",
+          "case": "issue-188.json:row-3",
+          "adaptation": null
+        }
+      ],
+      "status": "covered"
+    },
+    {
+      "issue": 188,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/188",
+      "title": "SQL: date(x), Postgres's function-style cast to DATE",
+      "repros": [
+        {
+          "row": 1,
+          "original": "`select date('2099-12-31')`",
+          "status": "covered",
+          "case": "issue-188.json:row-1",
+          "adaptation": null
+        },
+        {
+          "row": 2,
+          "original": "`select date(timestamp '2023-09-02 10:00:00')`",
+          "status": "covered",
+          "case": "issue-188.json:row-2",
+          "adaptation": null
+        },
+        {
+          "row": 3,
+          "original": "`select date(timestamptz '2023-09-02 10:00:00+00')`",
+          "status": "covered",
+          "case": "issue-188.json:row-3",
+          "adaptation": null
+        }
+      ],
+      "status": "covered"
+    },
+    {
+      "issue": 237,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/237",
+      "title": "ORDER BY \u2026 DESC puts NULLs last; Postgres puts them first",
+      "repros": [
+        {
+          "row": 1,
+          "original": "`select id, score from t order by score desc`",
+          "status": "covered",
+          "case": "issue-237.json:repro-1"
+        },
+        {
+          "row": 2,
+          "original": "`select id from t order by score desc limit 1`",
+          "status": "covered",
+          "case": "issue-237.json:repro-2"
+        },
+        {
+          "row": 3,
+          "original": "`select id, row_number() over (order by score desc) as rn from t order by id`",
+          "status": "covered",
+          "case": "issue-237.json:repro-3"
+        },
+        {
+          "row": 4,
+          "original": "`select string_agg(coalesce(score::text, 'null'), ',' order by score desc) from t`",
+          "status": "covered",
+          "case": "issue-237.json:repro-4"
+        },
+        {
+          "row": 5,
+          "original": "`select id, score from t order by score asc`",
+          "status": "covered",
+          "case": "issue-237.json:repro-5"
+        }
+      ],
+      "status": "covered"
+    },
+    {
+      "issue": 238,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/238",
+      "title": "JOIN \u2026 USING keeps both join columns: unqualified references are ambiguous and SELECT * lists them twice",
+      "repros": [
+        {
+          "row": 1,
+          "original": "`select * from t join u using (id)`",
+          "status": "covered",
+          "case": "issue-238.json:repro-1"
+        },
+        {
+          "row": 2,
+          "original": "`select id, label from t join u using (id) order by id`",
+          "status": "covered",
+          "case": "issue-238.json:repro-2"
+        },
+        {
+          "row": 3,
+          "original": "`create table jx as select * from t join u using (id)`",
+          "status": "covered",
+          "case": "issue-238.json:repro-3"
+        },
+        {
+          "row": 4,
+          "original": "`select * from t natural join u`",
+          "status": "covered",
+          "case": "issue-238.json:repro-4"
+        }
+      ],
+      "status": "covered"
+    },
+    {
+      "issue": 239,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/239",
+      "title": "IS [NOT] TRUE / FALSE / UNKNOWN are syntax errors, and ISNULL / NOTNULL are read as column aliases",
+      "repros": [
+        {
+          "row": 1,
+          "original": "`select (1 = 1) is true`",
+          "status": "covered",
+          "case": "issue-239.json:repro-1"
+        },
+        {
+          "row": 2,
+          "original": "`select (1 = 2) is not false`",
+          "status": "covered",
+          "case": "issue-239.json:repro-2"
+        },
+        {
+          "row": 3,
+          "original": "`select null::boolean is unknown`",
+          "status": "covered",
+          "case": "issue-239.json:repro-3"
+        },
+        {
+          "row": 4,
+          "original": "`select count(*) from t where (score > 15) is not true`",
+          "status": "covered",
+          "case": "issue-239.json:repro-4"
+        },
+        {
+          "row": 5,
+          "original": "`select 1 is true`",
+          "status": "covered",
+          "case": "issue-239.json:repro-5"
+        },
+        {
+          "row": 6,
+          "original": "`select null isnull, 1 notnull`",
+          "status": "covered",
+          "case": "issue-239.json:repro-6"
+        }
+      ],
+      "status": "covered"
+    },
+    {
+      "issue": 240,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/240",
+      "title": "E'\u2026' strings keep their backslash escapes as text, and U&'\u2026' strings are a syntax error",
+      "repros": [
+        {
+          "row": 1,
+          "original": "`select length(E'a\\nb')`",
+          "status": "covered",
+          "case": "issue-240.json:repro-1"
+        },
+        {
+          "row": 2,
+          "original": "`select E'it\\'s'`",
+          "status": "covered",
+          "case": "issue-240.json:repro-2"
+        },
+        {
+          "row": 3,
+          "original": "`select E'\\x41\\102'`",
+          "status": "covered",
+          "case": "issue-240.json:repro-3"
+        },
+        {
+          "row": 4,
+          "original": "`select U&'d\\0061t\\+000061'`",
+          "status": "covered",
+          "case": "issue-240.json:repro-4"
+        }
+      ],
+      "status": "covered"
+    },
+    {
+      "issue": 241,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/241",
+      "title": "LIMIT and OFFSET take only a literal number: LIMIT $1, LIMIT ALL and expressions fail",
+      "repros": [
+        {
+          "row": 1,
+          "original": "`select id from t order by id limit all`",
+          "status": "covered",
+          "case": "issue-241.json:repro-1"
+        },
+        {
+          "row": 2,
+          "original": "`select id from t order by id limit 1 + 1`",
+          "status": "covered",
+          "case": "issue-241.json:repro-2"
+        },
+        {
+          "row": 3,
+          "original": "`select id from t order by id limit $1`, with `$1` = 2",
+          "status": "covered",
+          "case": "issue-241.json:row-3",
+          "adaptation": null
+        },
+        {
+          "row": 4,
+          "original": "`select id from t order by id offset $1`",
+          "status": "covered",
+          "case": "issue-241.json:row-4",
+          "adaptation": null
+        }
+      ],
+      "status": "covered"
+    },
+    {
+      "issue": 242,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/242",
+      "title": "Aggregates without FROM fail: SELECT count(*) is \"aggregates require a FROM clause\"",
+      "repros": [
+        {
+          "row": 1,
+          "original": "`select count(*)`",
+          "status": "covered",
+          "case": "issue-242.json:repro-1"
+        },
+        {
+          "row": 2,
+          "original": "`select count(*) where false`",
+          "status": "covered",
+          "case": "issue-242.json:repro-2"
+        },
+        {
+          "row": 3,
+          "original": "`select sum(1), max(2)`",
+          "status": "covered",
+          "case": "issue-242.json:repro-3"
+        }
+      ],
+      "status": "covered"
+    },
+    {
+      "issue": 243,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/243",
+      "title": "A column that is neither grouped nor aggregated is read from the group's first row instead of being an error",
+      "repros": [
+        {
+          "row": 1,
+          "original": "`select grp, name from t group by grp order by grp`",
+          "status": "covered",
+          "case": "issue-243.json:repro-1"
+        }
+      ],
+      "status": "covered"
+    },
+    {
+      "issue": 244,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/244",
+      "title": "VALUES lists: as a query, in FROM, and in IN (VALUES \u2026)",
+      "repros": [
+        {
+          "row": 1,
+          "original": "`select * from (values (1, 'a'), (2, 'b')) as v(n, s)`",
+          "status": "covered",
+          "case": "issue-244.json:repro-1"
+        },
+        {
+          "row": 2,
+          "original": "`values (1, 'a'), (2, 'b')`",
+          "status": "covered",
+          "case": "issue-244.json:repro-2"
+        },
+        {
+          "row": 3,
+          "original": "`select * from t where (id, grp) in (values (1, 'a'))`",
+          "status": "covered",
+          "case": "issue-244.json:repro-3"
+        }
+      ],
+      "status": "covered"
+    },
+    {
+      "issue": 245,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/245",
+      "title": "information_schema.columns: Postgres's data_type names, udt_name and the other standard columns",
+      "repros": [
+        {
+          "row": 1,
+          "original": "`select column_name, data_type from information_schema.columns where table_name = 't' order by ordinal_position`",
+          "status": "covered",
+          "case": "issue-245.json:row-1",
+          "adaptation": null
+        },
+        {
+          "row": 2,
+          "original": "`select udt_name from information_schema.columns where table_name = 't' and column_name = 'name'`",
+          "status": "covered",
+          "case": "issue-245.json:row-2",
+          "adaptation": null
+        },
+        {
+          "row": 3,
+          "original": "`select table_catalog, is_identity, is_generated, collation_name from information_schema.columns where \u2026`",
+          "status": "covered",
+          "case": "issue-245.json:row-3",
+          "adaptation": "Expanded the ellipsis with an explicit current-schema/table filter."
+        }
+      ],
+      "status": "covered"
+    },
+    {
+      "issue": 246,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/246",
+      "title": "System information functions and settings: version(), current_database(), current_schema(), current_user, pg_typeof, current_setting, SHOW server_version, pg_catalog.f()",
+      "repros": [
+        {
+          "row": 1,
+          "original": "`select version()`",
+          "status": "covered",
+          "case": "issue-246.json:row-1",
+          "adaptation": null
+        },
+        {
+          "row": 2,
+          "original": "`select pg_catalog.version()`",
+          "status": "covered",
+          "case": "issue-246.json:row-2",
+          "adaptation": null
+        },
+        {
+          "row": 3,
+          "original": "`select pg_catalog.lower('A')`",
+          "status": "covered",
+          "case": "issue-246.json:row-3",
+          "adaptation": null
+        },
+        {
+          "row": 4,
+          "original": "`select current_database()`",
+          "status": "covered",
+          "case": "issue-246.json:row-4",
+          "adaptation": null
+        },
+        {
+          "row": 5,
+          "original": "`select current_schema()`",
+          "status": "covered",
+          "case": "issue-246.json:row-5",
+          "adaptation": null
+        },
+        {
+          "row": 6,
+          "original": "`select current_user`, `select session_user`",
+          "status": "covered",
+          "case": "issue-246.json:row-6",
+          "adaptation": null
+        },
+        {
+          "row": 7,
+          "original": "`select pg_typeof(1)`",
+          "status": "covered",
+          "case": "issue-246.json:row-7",
+          "adaptation": null
+        },
+        {
+          "row": 8,
+          "original": "`select current_setting('TimeZone')`",
+          "status": "covered",
+          "case": "issue-246.json:row-8",
+          "adaptation": null
+        },
+        {
+          "row": 9,
+          "original": "`show server_version`",
+          "status": "covered",
+          "case": "issue-246.json:row-9",
+          "adaptation": null
+        },
+        {
+          "row": 10,
+          "original": "`show server_version_num`",
+          "status": "covered",
+          "case": "issue-246.json:row-10",
+          "adaptation": null
+        },
+        {
+          "row": 11,
+          "original": "`show transaction_isolation`",
+          "status": "covered",
+          "case": "issue-246.json:row-11",
+          "adaptation": null
+        },
+        {
+          "row": 12,
+          "original": "`show transaction isolation level`",
+          "status": "covered",
+          "case": "issue-246.json:row-12",
+          "adaptation": null
+        },
+        {
+          "row": 13,
+          "original": "`show max_identifier_length`",
+          "status": "covered",
+          "case": "issue-246.json:row-13",
+          "adaptation": null
+        }
+      ],
+      "status": "covered"
+    },
+    {
+      "issue": 247,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/247",
+      "title": "Identifiers don't follow Postgres's case rules: unquoted table names aren't folded to lower case, and quoted column names ignore case",
+      "repros": [
+        {
+          "row": 1,
+          "original": "`create table Foo (x integer)`, then `select * from foo`",
+          "status": "covered",
+          "case": "issue-247.json:row-1",
+          "adaptation": "Prerequisite tables/rows are explicit setup statements."
+        },
+        {
+          "row": 2,
+          "original": "\u2026 then `select * from \"Foo\"`",
+          "status": "covered",
+          "case": "issue-247.json:row-2",
+          "adaptation": "Prerequisite tables/rows are explicit setup statements."
+        },
+        {
+          "row": 3,
+          "original": "\u2026 then `create table foo (y integer)`",
+          "status": "covered",
+          "case": "issue-247.json:row-3",
+          "adaptation": "Prerequisite tables/rows are explicit setup statements."
+        },
+        {
+          "row": 4,
+          "original": "`select * from BAR` after `create table \"Bar\" (x integer)`",
+          "status": "covered",
+          "case": "issue-247.json:row-4",
+          "adaptation": "Prerequisite tables/rows are explicit setup statements."
+        },
+        {
+          "row": 5,
+          "original": "`create table qi (\"Id\" integer, \"id\" integer)`",
+          "status": "covered",
+          "case": "issue-247.json:row-5",
+          "adaptation": "Prerequisite tables/rows are explicit setup statements."
+        },
+        {
+          "row": 6,
+          "original": "`create table qc (\"Col\" integer, other integer)`, then `select col from qc`",
+          "status": "covered",
+          "case": "issue-247.json:row-6",
+          "adaptation": "Prerequisite tables/rows are explicit setup statements."
+        },
+        {
+          "row": 7,
+          "original": "`select \"OTHER\" from qc`",
+          "status": "covered",
+          "case": "issue-247.json:row-7",
+          "adaptation": "Prerequisite tables/rows are explicit setup statements."
+        },
+        {
+          "row": 8,
+          "original": "`select a from (select 1 as \"A\", 2 as a) s`",
+          "status": "covered",
+          "case": "issue-247.json:row-8",
+          "adaptation": "Prerequisite tables/rows are explicit setup statements."
+        }
+      ],
+      "status": "covered"
+    },
+    {
+      "issue": 248,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/248",
+      "title": "Integer literals are BIGINT; Postgres types them INTEGER when they fit",
+      "repros": [
+        {
+          "row": 1,
+          "original": "`select 1`",
+          "status": "covered",
+          "case": "issue-248.json:repro-1"
+        },
+        {
+          "row": 2,
+          "original": "`select 2147483647 + 1`",
+          "status": "covered",
+          "case": "issue-248.json:repro-2"
+        },
+        {
+          "row": 3,
+          "original": "`create table lit as select 1 as one, 2147483648 as big`: the columns' `data_type`",
+          "status": "covered",
+          "case": "issue-248.json:repro-3"
+        },
+        {
+          "row": 4,
+          "original": "`select 9223372036854775808`",
+          "status": "covered",
+          "case": "issue-248.json:repro-4"
+        }
+      ],
+      "status": "covered"
+    },
+    {
+      "issue": 249,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/249",
+      "title": "Date and time input accepts only ISO 8601: Postgres's other formats and its special values (infinity, epoch, today) are errors",
+      "repros": [
+        {
+          "row": 1,
+          "original": "`select date 'Jan 5 2024'`",
+          "status": "covered",
+          "case": "issue-249.json:row-1",
+          "adaptation": null
+        },
+        {
+          "row": 2,
+          "original": "`select date '20240105'`",
+          "status": "covered",
+          "case": "issue-249.json:row-2",
+          "adaptation": null
+        },
+        {
+          "row": 3,
+          "original": "`select date '2024-1-5'`",
+          "status": "covered",
+          "case": "issue-249.json:row-3",
+          "adaptation": null
+        },
+        {
+          "row": 4,
+          "original": "`select time '10:00 PM'`",
+          "status": "covered",
+          "case": "issue-249.json:row-4",
+          "adaptation": null
+        },
+        {
+          "row": 5,
+          "original": "`select timestamp '2024-01-05 10:00 PM'`",
+          "status": "covered",
+          "case": "issue-249.json:row-5",
+          "adaptation": null
+        },
+        {
+          "row": 6,
+          "original": "`select timestamp 'infinity'`",
+          "status": "covered",
+          "case": "issue-249.json:row-6",
+          "adaptation": null
+        },
+        {
+          "row": 7,
+          "original": "`select date 'epoch'`",
+          "status": "covered",
+          "case": "issue-249.json:row-7",
+          "adaptation": null
+        },
+        {
+          "row": 8,
+          "original": "`select date 'today' = current_date`",
+          "status": "covered",
+          "case": "issue-249.json:row-8",
+          "adaptation": null
+        },
+        {
+          "row": 9,
+          "original": "`select 'infinity'::timestamptz > now()`",
+          "status": "covered",
+          "case": "issue-249.json:row-9",
+          "adaptation": null
+        }
+      ],
+      "status": "covered"
+    },
+    {
+      "issue": 250,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/250",
+      "title": "Doubles turn into text in exponent form from 1e6; Postgres writes them in full up to 1e15",
+      "repros": [
+        {
+          "row": 1,
+          "original": "`select 123456::float8::text`",
+          "status": "covered",
+          "case": "issue-250.json:repro-1"
+        },
+        {
+          "row": 2,
+          "original": "`select 1234567::float8::text`",
+          "status": "covered",
+          "case": "issue-250.json:repro-2"
+        },
+        {
+          "row": 3,
+          "original": "`select 100000000000000::float8::text`",
+          "status": "covered",
+          "case": "issue-250.json:repro-3"
+        },
+        {
+          "row": 4,
+          "original": "`select 1e15::float8::text`",
+          "status": "covered",
+          "case": "issue-250.json:repro-4"
+        },
+        {
+          "row": 5,
+          "original": "`select 0.00001::float8::text`",
+          "status": "covered",
+          "case": "issue-250.json:repro-5"
+        },
+        {
+          "row": 6,
+          "original": "`select 1234567::float4::text`",
+          "status": "covered",
+          "case": "issue-250.json:repro-6"
+        },
+        {
+          "row": 7,
+          "original": "`select 'x' \\|\\| 2500000.5::float8`",
+          "status": "covered",
+          "case": "issue-250.json:repro-7"
+        },
+        {
+          "row": 8,
+          "original": "`select to_json(1000000::float8)`",
+          "status": "covered",
+          "case": "issue-250.json:repro-8"
+        },
+        {
+          "row": 9,
+          "original": "`select json_build_object('a', 1000000.0::float8)`",
+          "status": "covered",
+          "case": "issue-250.json:repro-9"
+        }
+      ],
+      "status": "covered"
+    },
+    {
+      "issue": 251,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/251",
+      "title": "ROUND of a double, and casts from a double to an integer, round half away from zero; Postgres rounds half to even",
+      "repros": [
+        {
+          "row": 1,
+          "original": "`select round(2.5::float8), round(-0.5::float8), round(3.5::float8)`",
+          "status": "covered",
+          "case": "issue-251.json:repro-1"
+        },
+        {
+          "row": 2,
+          "original": "`select 2.5::float8::integer, 3.5::float8::integer, (-2.5)::float8::integer`",
+          "status": "covered",
+          "case": "issue-251.json:repro-2"
+        }
+      ],
+      "status": "covered"
+    },
+    {
+      "issue": 252,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/252",
+      "title": "VARIANCE and STDDEV of integers and NUMERIC return DOUBLE PRECISION; Postgres returns NUMERIC",
+      "repros": [
+        {
+          "row": 1,
+          "original": "`select variance(score) from t`",
+          "status": "covered",
+          "case": "issue-252.json:repro-1"
+        }
+      ],
+      "status": "covered"
+    },
+    {
+      "issue": 253,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/253",
+      "title": "Arrays: T[] columns, ARRAY[\u2026], subscripts, = ANY(array), array_agg, unnest and the array functions",
+      "repros": [
+        {
+          "row": 1,
+          "original": "`select array[1, 2, 3]`",
+          "status": "covered",
+          "case": "issue-253.json:row-1",
+          "adaptation": null
+        },
+        {
+          "row": 2,
+          "original": "`select (array[1, 2, 3])[2]`",
+          "status": "covered",
+          "case": "issue-253.json:row-2",
+          "adaptation": null
+        },
+        {
+          "row": 3,
+          "original": "`select 2 = any(array[1, 2, 3])`",
+          "status": "covered",
+          "case": "issue-253.json:row-3",
+          "adaptation": null
+        },
+        {
+          "row": 4,
+          "original": "`select array_agg(id order by id) from t`",
+          "status": "covered",
+          "case": "issue-253.json:row-4",
+          "adaptation": null
+        },
+        {
+          "row": 5,
+          "original": "`select * from unnest(array[1, 2]) as x(n)`",
+          "status": "covered",
+          "case": "issue-253.json:row-5",
+          "adaptation": null
+        },
+        {
+          "row": 6,
+          "original": "`select string_to_array('a,b', ',')`",
+          "status": "covered",
+          "case": "issue-253.json:row-6",
+          "adaptation": null
+        },
+        {
+          "row": 7,
+          "original": "`select '{1,2}'::integer[]`",
+          "status": "covered",
+          "case": "issue-253.json:row-7",
+          "adaptation": null
+        },
+        {
+          "row": 8,
+          "original": "`create table arr (tags text[])`",
+          "status": "covered",
+          "case": "issue-253.json:row-8",
+          "adaptation": null
+        },
+        {
+          "row": 9,
+          "original": "`select [id] from t order by id`",
+          "status": "covered",
+          "case": "issue-253.json:row-9",
+          "adaptation": null
+        }
+      ],
+      "status": "covered"
+    },
+    {
+      "issue": 254,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/254",
+      "title": "json and jsonb columns, and the jsonb operators and functions",
+      "repros": [
+        {
+          "row": 1,
+          "original": "`create table j (doc jsonb)`",
+          "status": "covered",
+          "case": "issue-254.json:row-1",
+          "adaptation": null
+        },
+        {
+          "row": 2,
+          "original": "`select '{\"a\":1}'::jsonb @> '{\"a\":1}'`",
+          "status": "covered",
+          "case": "issue-254.json:row-2",
+          "adaptation": null
+        },
+        {
+          "row": 3,
+          "original": "`select '{\"a\":1}'::jsonb ? 'a'`",
+          "status": "covered",
+          "case": "issue-254.json:row-3",
+          "adaptation": null
+        },
+        {
+          "row": 4,
+          "original": "`select '{\"a\":1,\"b\":2}'::jsonb - 'a'`",
+          "status": "covered",
+          "case": "issue-254.json:row-4",
+          "adaptation": null
+        },
+        {
+          "row": 5,
+          "original": "`select '{\"a\":{\"b\":1}}'::jsonb #- '{a,b}'`",
+          "status": "covered",
+          "case": "issue-254.json:row-5",
+          "adaptation": null
+        },
+        {
+          "row": 6,
+          "original": "`select * from json_each('{\"a\":1}')`",
+          "status": "covered",
+          "case": "issue-254.json:row-6",
+          "adaptation": null
+        },
+        {
+          "row": 7,
+          "original": "`select * from jsonb_array_elements('[1,2]')`",
+          "status": "covered",
+          "case": "issue-254.json:row-7",
+          "adaptation": null
+        },
+        {
+          "row": 8,
+          "original": "`select jsonb_set('{\"a\":1}', '{a}', '2')`",
+          "status": "covered",
+          "case": "issue-254.json:row-8",
+          "adaptation": null
+        },
+        {
+          "row": 9,
+          "original": "`select json_object_keys('{\"a\":1}')`",
+          "status": "covered",
+          "case": "issue-254.json:row-9",
+          "adaptation": null
+        },
+        {
+          "row": 10,
+          "original": "`select row_to_json(t) from t where id = 1`",
+          "status": "covered",
+          "case": "issue-254.json:row-10",
+          "adaptation": null
+        }
+      ],
+      "status": "covered"
+    },
+    {
+      "issue": 255,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/255",
+      "title": "jsonb || jsonb concatenates the text instead of merging the documents",
+      "repros": [
+        {
+          "row": 1,
+          "original": "`select '{\"a\":1}'::jsonb \\|\\| '{\"b\":2}'`",
+          "status": "covered",
+          "case": "issue-255.json:repro-1"
+        },
+        {
+          "row": 2,
+          "original": "`select '[1]'::jsonb \\|\\| '[2]'`",
+          "status": "covered",
+          "case": "issue-255.json:repro-2"
+        }
+      ],
+      "status": "covered"
+    },
+    {
+      "issue": 256,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/256",
+      "title": "Set-returning functions: table functions other than GENERATE_SERIES, SRFs in the select list, WITH ORDINALITY and ROWS FROM",
+      "repros": [
+        {
+          "row": 1,
+          "original": "`select generate_series(1, 3)`",
+          "status": "covered",
+          "case": "issue-256.json:row-1",
+          "adaptation": null
+        },
+        {
+          "row": 2,
+          "original": "`select * from generate_series(1, 3) with ordinality as g(n, i)`",
+          "status": "covered",
+          "case": "issue-256.json:row-2",
+          "adaptation": null
+        },
+        {
+          "row": 3,
+          "original": "`select * from regexp_split_to_table('a,b', ',')`",
+          "status": "covered",
+          "case": "issue-256.json:row-3",
+          "adaptation": null
+        },
+        {
+          "row": 4,
+          "original": "`select * from string_to_table('a,b', ',')`",
+          "status": "covered",
+          "case": "issue-256.json:row-4",
+          "adaptation": null
+        },
+        {
+          "row": 5,
+          "original": "`select * from rows from (generate_series(1, 2), generate_series(1, 3)) as r(a, b)`",
+          "status": "covered",
+          "case": "issue-256.json:row-5",
+          "adaptation": null
+        }
+      ],
+      "status": "covered"
+    },
+    {
+      "issue": 257,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/257",
+      "title": "SERIAL, IDENTITY columns and sequences",
+      "repros": [
+        {
+          "row": 1,
+          "original": "`create table s1 (id serial primary key, v text)`",
+          "status": "covered",
+          "case": "issue-257.json:row-1",
+          "adaptation": null
+        },
+        {
+          "row": 2,
+          "original": "`create table s2 (id bigint generated always as identity, v text)`",
+          "status": "covered",
+          "case": "issue-257.json:row-2",
+          "adaptation": null
+        },
+        {
+          "row": 3,
+          "original": "`create sequence sq`",
+          "status": "covered",
+          "case": "issue-257.json:row-3",
+          "adaptation": null
+        },
+        {
+          "row": 4,
+          "original": "`select nextval('sq')`",
+          "status": "covered",
+          "case": "issue-257.json:row-4",
+          "adaptation": null
+        }
+      ],
+      "status": "covered"
+    },
+    {
+      "issue": 258,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/258",
+      "title": "uuid type and gen_random_uuid()",
+      "repros": [
+        {
+          "row": 1,
+          "original": "`create table uu (id uuid)`",
+          "status": "covered",
+          "case": "issue-258.json:row-1",
+          "adaptation": null
+        },
+        {
+          "row": 2,
+          "original": "`select 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'::uuid`",
+          "status": "covered",
+          "case": "issue-258.json:row-2",
+          "adaptation": null
+        },
+        {
+          "row": 3,
+          "original": "`select gen_random_uuid() is not null`",
+          "status": "covered",
+          "case": "issue-258.json:row-3",
+          "adaptation": null
+        }
+      ],
+      "status": "covered"
+    },
+    {
+      "issue": 259,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/259",
+      "title": "WITH \u2026 INSERT, and INSERT / UPDATE / DELETE \u2026 RETURNING inside WITH",
+      "repros": [
+        {
+          "row": 1,
+          "original": "`with x as (select 5 as id, 'five' as label) insert into w select * from x`",
+          "status": "covered",
+          "case": "issue-259.json:row-1",
+          "adaptation": null
+        },
+        {
+          "row": 2,
+          "original": "`with d as (delete from w where id = 2 returning *) select count(*) from d`",
+          "status": "covered",
+          "case": "issue-259.json:row-2",
+          "adaptation": null
+        }
+      ],
+      "status": "covered"
+    },
+    {
+      "issue": 260,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/260",
+      "title": "CREATE INDEX and DROP INDEX",
+      "repros": [
+        {
+          "row": 1,
+          "original": "`create index t_name_idx on t (name)`",
+          "status": "covered",
+          "case": "issue-260.json:row-1",
+          "adaptation": null
+        },
+        {
+          "row": 2,
+          "original": "`drop index t_name_idx`",
+          "status": "covered",
+          "case": "issue-260.json:row-2",
+          "adaptation": null
+        },
+        {
+          "row": 3,
+          "original": "`create unique index t_id_idx on t (id)`",
+          "status": "covered",
+          "case": "issue-260.json:row-3",
+          "adaptation": null
+        }
+      ],
+      "status": "covered"
+    },
+    {
+      "issue": 261,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/261",
+      "title": "Materialized views: CREATE MATERIALIZED VIEW and REFRESH MATERIALIZED VIEW",
+      "repros": [
+        {
+          "row": 1,
+          "original": "`create materialized view mv as select grp, count(*) as n from t group by grp`",
+          "status": "covered",
+          "case": "issue-261.json:row-1",
+          "adaptation": null
+        },
+        {
+          "row": 2,
+          "original": "`refresh materialized view mv`",
+          "status": "covered",
+          "case": "issue-261.json:row-2",
+          "adaptation": null
+        }
+      ],
+      "status": "covered"
+    },
+    {
+      "issue": 262,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/262",
+      "title": "DROP TABLE and DROP VIEW with several names",
+      "repros": [
+        {
+          "row": 1,
+          "original": "`drop table d1, d2`",
+          "status": "covered",
+          "case": "issue-262.json:row-1",
+          "adaptation": null
+        }
+      ],
+      "status": "covered"
+    },
+    {
+      "issue": 263,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/263",
+      "title": "Enum types: CREATE TYPE \u2026 AS ENUM",
+      "repros": [
+        {
+          "row": 1,
+          "original": "`create type mood as enum ('sad', 'ok', 'happy')`",
+          "status": "covered",
+          "case": "issue-263.json:row-1",
+          "adaptation": null
+        },
+        {
+          "row": 2,
+          "original": "`create table e (m mood)`",
+          "status": "covered",
+          "case": "issue-263.json:row-2",
+          "adaptation": null
+        }
+      ],
+      "status": "covered"
+    },
+    {
+      "issue": 264,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/264",
+      "title": "GRANT and REVOKE",
+      "repros": [
+        {
+          "row": 1,
+          "original": "`grant select on t to public`",
+          "status": "covered",
+          "case": "issue-264.json:row-1",
+          "adaptation": null
+        },
+        {
+          "row": 2,
+          "original": "`revoke select on t from public`",
+          "status": "covered",
+          "case": "issue-264.json:row-2",
+          "adaptation": null
+        }
+      ],
+      "status": "covered"
+    },
+    {
+      "issue": 265,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/265",
+      "title": "pg_catalog: the system catalogs and OID-based functions that Postgres clients introspect with",
+      "repros": [
+        {
+          "row": 1,
+          "original": "`select nspname from pg_catalog.pg_namespace where nspname = 'public'`",
+          "status": "covered",
+          "case": "issue-265.json:row-1",
+          "adaptation": null
+        },
+        {
+          "row": 2,
+          "original": "`select relname from pg_class where relname = 't'`",
+          "status": "covered",
+          "case": "issue-265.json:row-2",
+          "adaptation": null
+        },
+        {
+          "row": 3,
+          "original": "`select tablename from pg_tables where schemaname = 'public' and tablename = 't'`",
+          "status": "covered",
+          "case": "issue-265.json:row-3",
+          "adaptation": "Public-schema filter replaced by the per-file schema."
+        },
+        {
+          "row": 4,
+          "original": "`select 't'::regclass`",
+          "status": "covered",
+          "case": "issue-265.json:row-4",
+          "adaptation": null
+        },
+        {
+          "row": 5,
+          "original": "`select obj_description('t'::regclass)`",
+          "status": "covered",
+          "case": "issue-265.json:row-5",
+          "adaptation": null
+        },
+        {
+          "row": 6,
+          "original": "`select format_type(23, null)`",
+          "status": "covered",
+          "case": "issue-265.json:row-6",
+          "adaptation": null
+        }
+      ],
+      "status": "covered"
+    },
+    {
+      "issue": 266,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/266",
+      "title": "Missing Postgres functions and operators: width_bucket, corr, regr_*, format, encode, to_char(numeric), ^, bitwise operators, OVERLAPS, \u2026",
+      "repros": [
+        {
+          "row": 1,
+          "original": "`select width_bucket(5, 0, 10, 5)`",
+          "status": "covered",
+          "case": "issue-266.json:row-1",
+          "adaptation": null
+        },
+        {
+          "row": 2,
+          "original": "`select corr(score, id) from t`",
+          "status": "covered",
+          "case": "issue-266.json:row-2",
+          "adaptation": null
+        },
+        {
+          "row": 3,
+          "original": "`select covar_pop(score, id) from t`",
+          "status": "covered",
+          "case": "issue-266.json:row-3",
+          "adaptation": null
+        },
+        {
+          "row": 4,
+          "original": "`select regr_slope(score, id) from t`",
+          "status": "covered",
+          "case": "issue-266.json:row-4",
+          "adaptation": null
+        },
+        {
+          "row": 5,
+          "original": "`select bit_and(id), bit_or(id) from t`",
+          "status": "covered",
+          "case": "issue-266.json:row-5",
+          "adaptation": null
+        },
+        {
+          "row": 6,
+          "original": "`select format('%s-%s', 1, 2)`",
+          "status": "covered",
+          "case": "issue-266.json:row-6",
+          "adaptation": null
+        },
+        {
+          "row": 7,
+          "original": "`select translate('abc', 'ab', 'xy')`",
+          "status": "covered",
+          "case": "issue-266.json:row-7",
+          "adaptation": null
+        },
+        {
+          "row": 8,
+          "original": "`select encode('abc'::bytea, 'base64')`",
+          "status": "covered",
+          "case": "issue-266.json:row-8",
+          "adaptation": null
+        },
+        {
+          "row": 9,
+          "original": "`select sha256('abc'::bytea)`",
+          "status": "covered",
+          "case": "issue-266.json:row-9",
+          "adaptation": null
+        },
+        {
+          "row": 10,
+          "original": "`select quote_ident('A b')`, `quote_literal('it''s')`",
+          "status": "covered",
+          "case": "issue-266.json:row-10",
+          "adaptation": null
+        },
+        {
+          "row": 11,
+          "original": "`select to_number('1,234.5', '9G999D9')`",
+          "status": "covered",
+          "case": "issue-266.json:row-11",
+          "adaptation": null
+        },
+        {
+          "row": 12,
+          "original": "`select to_char(1234.5, '9G999D99')`",
+          "status": "covered",
+          "case": "issue-266.json:row-12",
+          "adaptation": null
+        },
+        {
+          "row": 13,
+          "original": "`select make_interval(days => 1)`",
+          "status": "covered",
+          "case": "issue-266.json:row-13",
+          "adaptation": null
+        },
+        {
+          "row": 14,
+          "original": "`select clock_timestamp() is not null`",
+          "status": "covered",
+          "case": "issue-266.json:row-14",
+          "adaptation": null
+        },
+        {
+          "row": 15,
+          "original": "`select date_trunc('day', timestamptz '2024-01-01 20:00+00', 'Asia/Tokyo')`",
+          "status": "covered",
+          "case": "issue-266.json:row-15",
+          "adaptation": null
+        },
+        {
+          "row": 16,
+          "original": "`select div(7, 2), gcd(12, 18), lcm(4, 6)`",
+          "status": "covered",
+          "case": "issue-266.json:row-16",
+          "adaptation": null
+        },
+        {
+          "row": 17,
+          "original": "`select 2 ^ 3`",
+          "status": "covered",
+          "case": "issue-266.json:row-17",
+          "adaptation": null
+        },
+        {
+          "row": 18,
+          "original": "`select 5 & 3, 5 \\| 3, 1 << 2`",
+          "status": "covered",
+          "case": "issue-266.json:row-18",
+          "adaptation": null
+        },
+        {
+          "row": 19,
+          "original": "`select (date '2024-01-01', date '2024-02-01') overlaps (date '2024-01-15', date '2024-03-01')`",
+          "status": "covered",
+          "case": "issue-266.json:row-19",
+          "adaptation": null
+        },
+        {
+          "row": 20,
+          "original": "`select 5 between symmetric 10 and 1`",
+          "status": "covered",
+          "case": "issue-266.json:row-20",
+          "adaptation": null
+        },
+        {
+          "row": 21,
+          "original": "`select chr(65), ascii('A'), octet_length('abc')`",
+          "status": "covered",
+          "case": "issue-266.json:row-21",
+          "adaptation": null
+        },
+        {
+          "row": 22,
+          "original": "`select num_nonnulls(1, null)`",
+          "status": "covered",
+          "case": "issue-266.json:row-22",
+          "adaptation": null
+        },
+        {
+          "row": 23,
+          "original": "`select isfinite(date '2024-01-01')`",
+          "status": "covered",
+          "case": "issue-266.json:row-23",
+          "adaptation": null
+        },
+        {
+          "row": 24,
+          "original": "`select justify_hours(interval '25 hours')`",
+          "status": "covered",
+          "case": "issue-266.json:row-24",
+          "adaptation": null
+        },
+        {
+          "row": 25,
+          "original": "`select sinh(1)`",
+          "status": "covered",
+          "case": "issue-266.json:row-25",
+          "adaptation": null
+        },
+        {
+          "row": 26,
+          "original": "`select trim_scale(1.500), scale(1.50)`",
+          "status": "covered",
+          "case": "issue-266.json:row-26",
+          "adaptation": null
+        }
+      ],
+      "status": "covered"
+    },
+    {
+      "issue": 267,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/267",
+      "title": "Regular expressions use Go's RE2 syntax and leftmost-first matching, not Postgres's",
+      "repros": [
+        {
+          "row": 1,
+          "original": "`select substring('xyz' from 'x\\|xy')`",
+          "status": "covered",
+          "case": "issue-267.json:repro-1"
+        },
+        {
+          "row": 2,
+          "original": "`select 'abab' ~ '(ab)\\1'`",
+          "status": "covered",
+          "case": "issue-267.json:repro-2"
+        },
+        {
+          "row": 3,
+          "original": "`select 'foobar' ~ 'foo(?=bar)'`",
+          "status": "covered",
+          "case": "issue-267.json:repro-3"
+        },
+        {
+          "row": 4,
+          "original": "`select 'hello world' ~ '\\yworld\\y'`",
+          "status": "covered",
+          "case": "issue-267.json:repro-4"
+        },
+        {
+          "row": 5,
+          "original": "`select regexp_replace('hello world', '\\mworld', 'X')`",
+          "status": "covered",
+          "case": "issue-267.json:repro-5"
+        }
+      ],
+      "status": "covered"
+    },
+    {
+      "issue": 268,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/268",
+      "title": "DATE_ADD's MySQL and Snowflake forms shadow Postgres 16's date_add(timestamptz, interval); date_subtract is missing",
+      "repros": [
+        {
+          "row": 1,
+          "original": "`select date_add(timestamptz '2024-01-01 00:00+00', interval '1 day')`",
+          "status": "covered",
+          "case": "issue-268.json:repro-1"
+        },
+        {
+          "row": 2,
+          "original": "`select date_add(date '2024-01-01', interval '1 day')`",
+          "status": "covered",
+          "case": "issue-268.json:repro-2"
+        },
+        {
+          "row": 3,
+          "original": "`select date_subtract(timestamptz '2024-01-01 00:00+00', interval '1 day')`",
+          "status": "covered",
+          "case": "issue-268.json:repro-3"
+        },
+        {
+          "row": 4,
+          "original": "`select date_add(timestamp '2024-01-01 00:00', interval 1 day)` (MySQL form)",
+          "status": "covered",
+          "case": "issue-268.json:repro-4"
+        }
+      ],
+      "status": "covered"
+    },
+    {
+      "issue": 269,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/269",
+      "title": "Transactions: ROLLBACK undoes nothing, statements aren't atomic, and SAVEPOINT is rejected",
+      "repros": [
+        {
+          "row": 1,
+          "original": "`begin; insert into tx values (9); rollback; select count(*) from tx`",
+          "status": "covered",
+          "case": "issue-269.json:row-1",
+          "adaptation": "Original script is run one statement at a time, retaining each outcome."
+        },
+        {
+          "row": 2,
+          "original": "`begin; insert into tx values (10); savepoint s1; insert into tx values (11); rollback to s1; commit; select count(*) from tx where id >= 10`",
+          "status": "covered",
+          "case": "issue-269.json:row-2",
+          "adaptation": "Original script is run one statement at a time, retaining each outcome."
+        },
+        {
+          "row": 3,
+          "original": "ADBC Python DB-API connect() warning",
+          "status": "outside-corpus",
+          "reason": "Connection-API warning behavior is outside the SQL corpus; SQL rollback/savepoint and multi-connection visibility scenarios are included."
+        }
+      ],
+      "status": "covered"
+    },
+    {
+      "issue": 270,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/270",
+      "title": "UNIQUE, PRIMARY KEY uniqueness and FOREIGN KEY aren't enforced; INSERT \u2026 ON CONFLICT is a syntax error",
+      "repros": [
+        {
+          "row": 1,
+          "original": "`create table pk (id integer primary key, v text)`; insert `(1, 'a')`, then `insert into pk values (1, 'b')`",
+          "status": "covered",
+          "case": "issue-270.json:row-1",
+          "adaptation": null
+        },
+        {
+          "row": 2,
+          "original": "`create table uq (e text unique)`; insert `'x'` twice",
+          "status": "covered",
+          "case": "issue-270.json:row-2",
+          "adaptation": null
+        },
+        {
+          "row": 3,
+          "original": "`create table fk (pid integer references pk(id))`; `insert into fk values (99)`",
+          "status": "covered",
+          "case": "issue-270.json:row-3",
+          "adaptation": null
+        },
+        {
+          "row": 4,
+          "original": "`insert into pk values (1, 'c') on conflict (id) do update set v = excluded.v`",
+          "status": "covered",
+          "case": "issue-270.json:row-4",
+          "adaptation": null
+        },
+        {
+          "row": 5,
+          "original": "`insert into pk values (1, 'c') on conflict do nothing`",
+          "status": "covered",
+          "case": "issue-270.json:row-5",
+          "adaptation": null
+        }
+      ],
+      "status": "covered"
+    },
+    {
+      "issue": 271,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/271",
+      "title": "String ordering: the driver compares bytes (Postgres's \"C\" collation); document the reference collation and accept COLLATE",
+      "repros": [
+        {
+          "row": 1,
+          "original": "`select name from t order by name`",
+          "status": "covered",
+          "case": "issue-271.json:repro-1"
+        },
+        {
+          "row": 2,
+          "original": "`select name from t order by name collate \"C\"`",
+          "status": "covered",
+          "case": "issue-271.json:repro-2"
+        },
+        {
+          "row": 3,
+          "original": "`select 'a' < 'B'`",
+          "status": "covered",
+          "case": "issue-271.json:repro-3"
+        },
+        {
+          "row": 4,
+          "original": "`select max(name) from t`",
+          "status": "covered",
+          "case": "issue-271.json:repro-4"
+        }
+      ],
+      "status": "covered"
+    },
+    {
+      "issue": 272,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/272",
+      "title": "Row locking: SELECT \u2026 FOR UPDATE / FOR SHARE [NOWAIT | SKIP LOCKED] and LOCK TABLE",
+      "repros": [
+        {
+          "row": 1,
+          "original": "`select id from t where id = 1 for update`",
+          "status": "covered",
+          "case": "issue-272.json:row-1",
+          "adaptation": "Explicit transactions; the SKIP LOCKED repro uses two connections and deterministic ordering."
+        },
+        {
+          "row": 2,
+          "original": "`select id from t for update skip locked`",
+          "status": "covered",
+          "case": "issue-272.json:row-2",
+          "adaptation": "Explicit transactions; the SKIP LOCKED repro uses two connections and deterministic ordering."
+        },
+        {
+          "row": 3,
+          "original": "`lock table t in exclusive mode` (in a transaction)",
+          "status": "covered",
+          "case": "issue-272.json:row-3",
+          "adaptation": "Explicit transactions; the SKIP LOCKED repro uses two connections and deterministic ordering."
+        }
+      ],
+      "status": "covered"
+    },
+    {
+      "issue": 273,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/273",
+      "title": "Superset support: a SQLAlchemy dialect over ADBC's DB-API, and a Superset engine spec",
+      "repros": [],
+      "status": "outside-corpus",
+      "reason": "Client/tool integration work; differential SQL behavior is covered by the linked language issues."
+    },
+    {
+      "issue": 275,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/275",
+      "title": "Dagster IO manager: store assets as Redis tables through the ADBC driver",
+      "repros": [],
+      "status": "outside-corpus",
+      "reason": "Client/tool integration work; differential SQL behavior is covered by the linked language issues."
+    },
+    {
+      "issue": 276,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/276",
+      "title": "Python wheel: adbc-driver-redis, a pip-installable package that bundles the driver",
+      "repros": [],
+      "status": "outside-corpus",
+      "reason": "Client/tool integration work; differential SQL behavior is covered by the linked language issues."
+    },
+    {
+      "issue": 277,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/277",
+      "title": "ADBC driver manifest (redis.toml), so tools can load the driver by name, or from a redis:// URI alone",
+      "repros": [],
+      "status": "outside-corpus",
+      "reason": "Client/tool integration work; differential SQL behavior is covered by the linked language issues."
+    },
+    {
+      "issue": 278,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/278",
+      "title": "DuckDB: writes through an attached Redis database (INSERT INTO r.\u2026, CREATE TABLE r.\u2026 AS) fail because the driver can't turn autocommit off",
+      "repros": [],
+      "status": "outside-corpus",
+      "reason": "Client/tool integration work; differential SQL behavior is covered by the linked language issues."
+    },
+    {
+      "issue": 279,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/279",
+      "title": "ADBC: setting adbc.connection.autocommit to true is rejected, though autocommit is always on",
+      "repros": [],
+      "status": "outside-corpus",
+      "reason": "Client/tool integration work; differential SQL behavior is covered by the linked language issues."
+    },
+    {
+      "issue": 280,
+      "source": "https://github.com/alberttwong/redis-adbc-driver/issues/280",
+      "title": "DuckDB: document and test using the driver from DuckDB (adbc_scanner, and Columnar's adbc extension)",
+      "repros": [],
+      "status": "outside-corpus",
+      "reason": "Client/tool integration work; differential SQL behavior is covered by the linked language issues."
+    }
+  ]
+}

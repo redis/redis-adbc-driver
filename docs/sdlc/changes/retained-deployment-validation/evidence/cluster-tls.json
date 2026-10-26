@@ -1,0 +1,157 @@
+{
+  "kind": "local native partition TLS/independent ACL validation",
+  "status": "passed",
+  "library_sha256": "399c6e13962911c295685969e032f459ee5b92932c13023b55ddba71166b7f0d",
+  "installed_wheel": false,
+  "python": "3.13.16",
+  "pyarrow": "26.0.0",
+  "certificate_verification": true,
+  "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+  "machine": "arm64",
+  "packages": {
+    "adbc-driver-manager": "1.12.0",
+    "redis": "8.1.0"
+  },
+  "aggregate_cap": 137,
+  "cluster_mode": "true",
+  "checks": [
+    "verified_three_primary_tls_caps",
+    "verified_admin_tls_and_real_cap",
+    "hostname_mismatch_rejected",
+    "fixture_rows_span_advertised_cluster_primaries",
+    "closed_planner_and_credential_free_descriptors",
+    "restricted_cross_process_search_full_values_schema",
+    "restricted_cross_process_direct_hash_duplicates_deleted",
+    "native_untrusted_ca_rejected",
+    "native_hostname_mismatch_rejected",
+    "worker_config_and_writes_denied",
+    "malformed_descriptor_rejected",
+    "search_readiness_acl_required_direct_hash_independent",
+    "direct_hash_reader_obeys_worker_acl",
+    "connection_cancel_in_independent_tls_worker",
+    "early_release_in_independent_tls_worker",
+    "persistent_workers_follow_ask_and_moved_with_restricted_acl",
+    "post_reshard_search_full_values_and_physical_owners",
+    "live_updates_deletes_and_later_insert_exclusion",
+    "stale_target_rejected",
+    "retained_global_sql_minimal_acl_lifecycle_and_replay"
+  ],
+  "server_cluster_enabled": 1,
+  "topology": {
+    "deployment": "owned OSS Cluster TLS",
+    "container_id": "9930e3581a23fabf58c8b33043076a3d567b612eb2340b5ff73070b96b855a6d",
+    "ports": [
+      16811,
+      16812,
+      16813
+    ],
+    "primary_node_ids": {
+      "16811": "8d0ded01d6d22effe91a66bc8a36f468668f7713",
+      "16812": "1578c9865f73d2a25a04b66dc2cf2657a23e77c4",
+      "16813": "e7b106b6929c702ef5bfd9b1d31a48d442cc2844"
+    }
+  },
+  "redis_version": "8.6.2",
+  "modules": [
+    {
+      "name": "search",
+      "ver": 80600,
+      "path": "/usr/local/lib/redis/modules/redisearch.so",
+      "args": []
+    },
+    {
+      "name": "vectorset",
+      "ver": 1,
+      "path": "",
+      "args": []
+    }
+  ],
+  "cluster_distribution": {
+    "primary_count": 3,
+    "slot_range_count": 5,
+    "minimum_primary_count": 3,
+    "physical_row_presence_verified": true,
+    "owned_rows_per_primary": [
+      370,
+      357,
+      372
+    ],
+    "covered_slots": 16384
+  },
+  "resharding": {
+    "slot": 7550,
+    "source_port": 16812,
+    "target_port": 16811,
+    "migrated_keys": 1,
+    "ask_observed": true,
+    "moved_observed": true,
+    "asking_acl_denial_verified": true,
+    "persistent_native_connections": 2,
+    "exact_arrow_values_and_schema": true,
+    "ownership_finalized": true,
+    "search_convergence_attempts": 4
+  },
+  "post_reshard_result": {
+    "expected_rows": 1099,
+    "actual_rows": 1099,
+    "schema_matches": true,
+    "missing_ids": [],
+    "unexpected_ids": [],
+    "duplicate_ids": [],
+    "changed_value_ids": []
+  },
+  "post_reshard_distribution": {
+    "primary_count": 3,
+    "slot_range_count": 7,
+    "minimum_primary_count": 3,
+    "physical_row_presence_verified": true,
+    "owned_rows_per_primary": [
+      371,
+      356,
+      372
+    ],
+    "covered_slots": 16384
+  },
+  "mutation_rowcounts": {
+    "update": 1,
+    "delete": 1,
+    "insert": 1
+  },
+  "live_result": {
+    "expected_rows": 1098,
+    "actual_rows": 1098,
+    "schema_matches": true,
+    "missing_ids": [],
+    "unexpected_ids": [],
+    "duplicate_ids": [],
+    "changed_value_ids": []
+  },
+  "retained": {
+    "status": "passed",
+    "checks": [
+      "global_sql_exact_schema_and_values_independent_minimal_acl",
+      "typed_replay_after_planner_close_and_source_drop",
+      "different_namespace_acl_denied",
+      "early_release_and_cancel_leave_shared_result_replayable",
+      "retained_ask_moved_and_active_migration_publication_guard",
+      "explicit_revoke_observed_by_independent_workers"
+    ],
+    "minimal_worker_commands": [
+      "PING",
+      "TIME",
+      "GETRANGE",
+      "+cluster|slots",
+      "+command",
+      "+asking"
+    ],
+    "routing": {
+      "ask": true,
+      "moved": true,
+      "asking_denial": true,
+      "active_migration_publication_rejected": true,
+      "migrated_keys": 17,
+      "persistent_workers": 2
+    },
+    "owned_namespace_cleanup_verified": true
+  }
+}

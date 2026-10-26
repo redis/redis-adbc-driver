@@ -1,0 +1,213 @@
+{
+  "area": "float8",
+  "tier": "postgres",
+  "source": "https://raw.githubusercontent.com/postgres/postgres/7d3e000c5961a544302072058a1184e9a588837b/src/test/regress/sql/float8.sql",
+  "provenance": {
+    "version": "REL_16_15",
+    "commit": "7d3e000c5961a544302072058a1184e9a588837b",
+    "sha256": "561b5d429ec23fccbeb6a393f98280d5afde3c92c6dd16956a5df1211888dcc4",
+    "fixture": "Curated independent subset; reduced fixtures, not the full upstream regression database."
+  },
+  "setup": [
+    "CREATE TABLE FLOAT8_TBL (f1 double precision)",
+    "INSERT INTO FLOAT8_TBL(f1) VALUES ('    0.0   ');",
+    "INSERT INTO FLOAT8_TBL(f1) VALUES ('1004.30  ');",
+    "INSERT INTO FLOAT8_TBL(f1) VALUES ('   -34.84');",
+    "INSERT INTO FLOAT8_TBL(f1) VALUES ('1.2345678901234e+200');",
+    "INSERT INTO FLOAT8_TBL(f1) VALUES ('1.2345678901234e-200');"
+  ],
+  "cases": [
+    {
+      "id": "statement-0006",
+      "sql": "SELECT '10e400'::float8;",
+      "source_statement": 6,
+      "expect_postgres": "22003"
+    },
+    {
+      "id": "statement-0007",
+      "sql": "SELECT '-10e400'::float8;",
+      "source_statement": 7,
+      "expect_postgres": "22003"
+    },
+    {
+      "id": "statement-0008",
+      "sql": "SELECT '10e-400'::float8;",
+      "source_statement": 8,
+      "expect_postgres": "22003"
+    },
+    {
+      "id": "statement-0009",
+      "sql": "SELECT '-10e-400'::float8;",
+      "source_statement": 9,
+      "expect_postgres": "22003"
+    },
+    {
+      "id": "statement-0010",
+      "sql": "SELECT float8send('2.2250738585072014E-308'::float8);",
+      "source_statement": 10,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0019",
+      "sql": "SELECT pg_input_is_valid('34.5', 'float8');",
+      "source_statement": 19,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0020",
+      "sql": "SELECT pg_input_is_valid('xyz', 'float8');",
+      "source_statement": 20,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0021",
+      "sql": "SELECT pg_input_is_valid('1e4000', 'float8');",
+      "source_statement": 21,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0022",
+      "sql": "SELECT * FROM pg_input_error_info('1e4000', 'float8');",
+      "source_statement": 22,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0023",
+      "sql": "SELECT 'NaN'::float8;",
+      "source_statement": 23,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0024",
+      "sql": "SELECT 'nan'::float8;",
+      "source_statement": 24,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0025",
+      "sql": "SELECT '   NAN  '::float8;",
+      "source_statement": 25,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0026",
+      "sql": "SELECT 'infinity'::float8;",
+      "source_statement": 26,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0027",
+      "sql": "SELECT '          -INFINiTY   '::float8;",
+      "source_statement": 27,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0028",
+      "sql": "SELECT 'N A N'::float8;",
+      "source_statement": 28,
+      "expect_postgres": "22P02"
+    },
+    {
+      "id": "statement-0029",
+      "sql": "SELECT 'NaN x'::float8;",
+      "source_statement": 29,
+      "expect_postgres": "22P02"
+    },
+    {
+      "id": "statement-0030",
+      "sql": "SELECT ' INFINITY    x'::float8;",
+      "source_statement": 30,
+      "expect_postgres": "22P02"
+    },
+    {
+      "id": "statement-0031",
+      "sql": "SELECT 'Infinity'::float8 + 100.0;",
+      "source_statement": 31,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0032",
+      "sql": "SELECT 'Infinity'::float8 / 'Infinity'::float8;",
+      "source_statement": 32,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0033",
+      "sql": "SELECT '42'::float8 / 'Infinity'::float8;",
+      "source_statement": 33,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0034",
+      "sql": "SELECT 'nan'::float8 / 'nan'::float8;",
+      "source_statement": 34,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0035",
+      "sql": "SELECT 'nan'::float8 / '0'::float8;",
+      "source_statement": 35,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0036",
+      "sql": "SELECT 'nan'::numeric::float8;",
+      "source_statement": 36,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0037",
+      "sql": "SELECT * FROM FLOAT8_TBL;",
+      "source_statement": 37,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0038",
+      "sql": "SELECT f.* FROM FLOAT8_TBL f WHERE f.f1 <> '1004.3';",
+      "source_statement": 38,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0039",
+      "sql": "SELECT f.* FROM FLOAT8_TBL f WHERE f.f1 = '1004.3';",
+      "source_statement": 39,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0040",
+      "sql": "SELECT f.* FROM FLOAT8_TBL f WHERE '1004.3' > f.f1;",
+      "source_statement": 40,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0041",
+      "sql": "SELECT f.* FROM FLOAT8_TBL f WHERE  f.f1 < '1004.3';",
+      "source_statement": 41,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0042",
+      "sql": "SELECT f.* FROM FLOAT8_TBL f WHERE '1004.3' >= f.f1;",
+      "source_statement": 42,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0043",
+      "sql": "SELECT f.* FROM FLOAT8_TBL f WHERE  f.f1 <= '1004.3';",
+      "source_statement": 43,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0044",
+      "sql": "SELECT f.f1, f.f1 * '-10' AS x\n   FROM FLOAT8_TBL f\n   WHERE f.f1 > '0.0';",
+      "source_statement": 44,
+      "expect_postgres": null
+    },
+    {
+      "id": "statement-0045",
+      "sql": "SELECT f.f1, f.f1 + '-10' AS x\n   FROM FLOAT8_TBL f\n   WHERE f.f1 > '0.0';",
+      "source_statement": 45,
+      "expect_postgres": null
+    }
+  ]
+}

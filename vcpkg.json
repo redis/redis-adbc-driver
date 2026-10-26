@@ -1,0 +1,7 @@
+{
+  "name": "redis-adbc",
+  "version-string": "0.1.0",
+  "description": "DuckDB extension with an embedded Redis Arrow ADBC driver",
+  "license": "Apache-2.0",
+  "dependencies": []
+}

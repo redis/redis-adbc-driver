@@ -1,0 +1,37 @@
+{
+  "area": "metadata",
+  "tier": "dbt",
+  "source": "https://github.com/dbt-labs/dbt-core/tree/v1.9.1/tests/adapter/basic",
+  "provenance": {
+    "versions": {
+      "dbt-core": "1.9.1",
+      "dbt-postgres": "1.9.1",
+      "dbt-tests-adapter": "1.9.1"
+    },
+    "dbt-utils": {
+      "version": "1.3.0",
+      "commit": "e164c645238ca98f21b2ecc558912b94b3d75a9f"
+    },
+    "adapter_tests": [
+      "dbt.tests.adapter.basic.test_base.BaseSimpleMaterializations.test_base",
+      "dbt.tests.adapter.basic.test_incremental.BaseIncremental.test_incremental"
+    ],
+    "utils_test": "go/pgdiff/capture/test_generated.py:TestUtils.test_generated",
+    "source": "https://github.com/dbt-labs/dbt-core/tree/v1.9.1/tests/adapter/basic",
+    "record_count": 217
+  },
+  "setup": [
+    "CREATE TABLE base (id integer, name text, some_date timestamp without time zone)",
+    "INSERT INTO base VALUES (1, 'Easton', '1981-05-20T06:46:51'),(2, 'Lillian', '1978-09-03T18:10:33'),(3, 'Jeremiah', '1982-03-11T03:59:51'),(4, 'Nolan', '1976-05-06T20:21:35'),(5, 'Hannah', '1982-06-23T05:41:26'),(6, 'Eleanor', '1991-08-10T23:12:21'),(7, 'Lily', '1971-03-29T14:58:02'),(8, 'Jonathan', '1988-02-26T02:55:24'),(9, 'Adrian', '1994-02-09T13:14:23'),(10, 'Nora', '1976-03-01T16:51:39')"
+  ],
+  "cases": [
+    {
+      "id": "event-0049-0",
+      "sql": "select\n          column_name,\n          data_type,\n          character_maximum_length,\n          numeric_precision,\n          numeric_scale\n\n      from INFORMATION_SCHEMA.columns\n      where table_name = 'base'\n        \n        and table_schema = '{{schema}}'\n        \n      order by ordinal_position",
+      "expect_postgres": null,
+      "source_event": 49,
+      "source_sql_sha256": "1e4d4c722bf0d13414457364bddc9e0e46fb3cecbbec34f707360e0fd33d91e9",
+      "adaptation": "Strip query comments; substitute isolated schema and temporary suffix; remove the environment-specific catalog qualifier."
+    }
+  ]
+}

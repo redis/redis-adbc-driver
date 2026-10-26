@@ -1,0 +1,6 @@
+{
+  "status": "passed",
+  "management_tls_context_captured_before_test_ca_environment": true,
+  "recorded_resource_ids_verified_absent": 6,
+  "api_keys_in_stdin_only": true
+}

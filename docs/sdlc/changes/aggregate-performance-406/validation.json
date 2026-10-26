@@ -1,0 +1,190 @@
+{
+  "date": "2026-10-21",
+  "status": "implementation merged; local/CI verification and full-scale acceptance complete",
+  "production_source": "b40b88f",
+  "test_followup": "c064caa",
+  "baseline_source": "e692a704d2b70428086e145df00e73db7b1a253f",
+  "go": {
+    "command": "REDIS_URI='redis://127.0.0.1:18123/0?protocol=3' go test -json -count=1 -p 1 ./...",
+    "pass_test_events": 1075,
+    "skip_test_events": 17,
+    "fail_test_events": 0,
+    "skips": [
+      "TestAggregateInputLoadProfile",
+      "TestAggregatePagesProfile",
+      "TestClickBenchExecutionProfile",
+      "TestExactDistinctProfile",
+      "TestFlexRefused",
+      "TestLateProjectionProfile",
+      "TestNarrowScanProfile",
+      "TestRangeReadinessChecksAllPrimaries",
+      "TestRetainedPartitionReaderProcessHelper",
+      "TestPartitionRuntimeCapDiscovery",
+      "TestPerformance406Profile",
+      "TestQ19Profile",
+      "TestSearchReplyScanProfile",
+      "TestTimeoutServerPaused",
+      "TestWideTransferProfile",
+      "TestAggregateWorkerConcurrencyProfile",
+      "TestAggregateWorkerMixedProbe"
+    ],
+    "note": "Includes the pre-existing untracked TestWideTransferProfile skip; that diagnostic is not in this PR. c064caa expands tests only; its standalone/Cluster regression and race checks pass."
+  },
+  "native": {
+    "per_environment": {
+      "passed": 376,
+      "skipped": 8,
+      "subtests": 3
+    },
+    "environments": [
+      "standalone RESP3",
+      "standalone RESP2",
+      "Cluster RESP3"
+    ],
+    "library": "aggregate-b40b88f.dylib",
+    "sha256": "f36937b8fef09e6467564b95d428f8af5b1272b96307f19305978da56c782177"
+  },
+  "race": {
+    "environments": [
+      "standalone RESP3",
+      "Cluster RESP3",
+      "Cluster RESP2"
+    ],
+    "status": "passed",
+    "scope": "exact compaction, typed scalar inputs, numeric not-equal, timestamp fallback, parallel aggregates and wide HASH reads; strengthened c064caa cases separately repeated on both Cluster protocols"
+  },
+  "benchmark": {
+    "canonical_native_executions": 64,
+    "local_rounds": 5,
+    "delayed_rounds": 3,
+    "independently_validated_profiles": 8,
+    "all_valid": true,
+    "full_scale": "complete:24/24 exact native trials and8/8 exact profiles on99,997,497rows; all34 owned services inactive; S3 preserved and window released",
+    "full_scale_native_executions": 24,
+    "full_scale_independently_validated_profiles": 8,
+    "full_scale_evidence": {
+      "path": "benchmarks/exact-aggregate-406/2026-10-21/full/README.md",
+      "source_rows": 99997497,
+      "queries": [
+        2,
+        4,
+        9,
+        10
+      ],
+      "paired_rounds": 3,
+      "workers": 16,
+      "trial_memory_limit_mib": 16384,
+      "timed_failures": 0,
+      "profile_failures": 0,
+      "report_key": "full-c6a-20261021/performance-406/report.json",
+      "report_sha256": "55fb0257d539181d8c4340d96f78f696a0a12fd6785e44553dd5aa875ec9811f",
+      "report_version_id": "tDCCa1L8pv7tR3EyLz_NPnyotuNPluXy",
+      "released_at": "2026-10-22T05:52:01.761351+00:00",
+      "scope": "Pinned#406b40b88f; later retained-partition changes excluded; ordinary statement/internal aggregate workers"
+    }
+  },
+  "reviews": {
+    "passes_completed": 3,
+    "correctness_finding": "timestamp not-equal timezone regression reproduced and fixed in b40b88f",
+    "remaining_evidence_gap": "none for the accepted#406comparison; scope and metric limitations are recorded in the full report"
+  },
+  "artifacts": {
+    "go-406-b40b88f-full.jsonl": {
+      "sha256": "74f5ad24a7b37f729d918be6b39abc8127c43e892ea91e4b2beda57a0b69efd7",
+      "bytes": 855733
+    },
+    "go-406-b40b88f-full.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "native-406-b40b88f-standalone3.log": {
+      "sha256": "d60728f7a4ea72561268ea7384696da80cba21eb5fb0786ff79b302695098f07",
+      "bytes": 531
+    },
+    "native-406-b40b88f-standalone2.log": {
+      "sha256": "b7b8144708937aedfed677a1ed74d24f78cd41efe4c7851141662804be28c2b1",
+      "bytes": 531
+    },
+    "native-406-b40b88f-cluster3.log": {
+      "sha256": "0d8d945d5aa07aabe4a3a9031028da382265f102e304d2674bf7efbe148b6858",
+      "bytes": 531
+    },
+    "native-406-b40b88f-standalone3.xml": {
+      "sha256": "3c457f99adf9d7a087f95516ca506f6795660b779aa965c6b4a4814e14410920",
+      "bytes": 200774
+    },
+    "native-406-b40b88f-standalone2.xml": {
+      "sha256": "e964de053cd06a9489b4655f78f28bb3e919a17aab1a2684fb04051f0c3af121",
+      "bytes": 200774
+    },
+    "native-406-b40b88f-cluster3.xml": {
+      "sha256": "b5f6075487c98d8d841d32447831f108a13d3e90a64e42dec07270aae738ffd6",
+      "bytes": 200774
+    },
+    "race-406-b40b88f-cluster3.log": {
+      "sha256": "b07381325967959b3162c53da2a9422a2035e3cc18823ee02506e7b815144177",
+      "bytes": 46
+    },
+    "race-406-b40b88f-cluster2.log": {
+      "sha256": "6b7a7a2caf2225a0c513729ee48286bf90b8b460725be07390acdfd577bab4ca",
+      "bytes": 46
+    },
+    "race-406-c064caa-standalone3.log": {
+      "sha256": "d69be58106d8a27b773dc5027adcaa421011cd1e46c66828f2fbb43b462e10cf",
+      "bytes": 46
+    },
+    "race-406-c064caa-cluster3.log": {
+      "sha256": "5a97820822ce0100421656fafe56dcb55e73358b923bfb7bae3fb5cf5250216f",
+      "bytes": 45
+    },
+    "race-406-c064caa-cluster2.log": {
+      "sha256": "3d2b3008b217382c6a67b7c0738823d5ab72c902e4db8b3ba7f41bf713d37eb4",
+      "bytes": 45
+    },
+    "406-review-timestamp-zone-before.log": {
+      "sha256": "452dacfffe3fe56c393bc93ed4dac5e027527e2e4d31b29c28fa58a3b1b73b64",
+      "bytes": 457
+    },
+    "406-review-timestamp-zone-after.log": {
+      "sha256": "489d84a0cf011255ab653301b437f86a16824bed38f0e947ee885184d4225e38",
+      "bytes": 45
+    },
+    "406-review-compact-boundaries.log": {
+      "sha256": "35751769b0dc8b413a8d9ada0e954cfe00473b6ca6e6573d7645c8393207f6fb",
+      "bytes": 45
+    },
+    "406-compare-unit-pinned.log": {
+      "sha256": "e6ec182765cd965f2837d8eeaef5a64af48a104f245cd1a0b7281559194c57c1",
+      "bytes": 102
+    },
+    "isolation-406-final.log": {
+      "sha256": "9ec9e3c52e7908b746c625587944c7e1eb71f90fc834fbb4527d510523684dd2",
+      "bytes": 105
+    },
+    "406-link.log": {
+      "sha256": "fd7fa2942086c983cb32e5b7364d3f96e9aaaf93a4b0abbf96079e7d9337f5ee",
+      "bytes": 86
+    }
+  },
+  "ci": {
+    "run_url": "https://github.com/alberttwong/redis-adbc-driver/actions/runs/39709013144",
+    "head": "ad2faefcc1bdbc4f89cef8e68d330937c6c68f2a",
+    "checks_passed": 10,
+    "checks_failed": 0
+  },
+  "merge": {
+    "pr": 428,
+    "merged_by": "alberttwong",
+    "merged_at": "2026-10-22T02:03:11Z",
+    "merge_commit": "439691c4df9018fd50fa1113d8a8874aa45fa566",
+    "issue_state": "closed",
+    "note": "Maintainer merged before full-scale acceptance; the reserved comparison and profiles subsequently completed exactly, with verified preservation and release."
+  },
+  "followup_harness": {
+    "post_merge_isolation_tests": 8,
+    "post_merge_comparison_tests": 4,
+    "metadata_capture_primaries": 48,
+    "status": "passed; real full-window supervision/preservation also completed",
+    "local_cleanup": "four owned disposable Redis containers removed after preservation"
+  }
+}

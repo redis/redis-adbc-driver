@@ -1,0 +1,29 @@
+{
+  "checks": [
+    {
+      "query": 19,
+      "trial": 1,
+      "status": "valid",
+      "raw_sha256": "3bf899d12d142752236aef44cb644fd163ac40ff9047e0c5db7e2eccf9b64afc"
+    },
+    {
+      "query": 19,
+      "trial": 2,
+      "status": "valid",
+      "raw_sha256": "6cc64c89607e1f04b50d93b8f433d1f10bfe900744f76ba10688a332ba654470"
+    },
+    {
+      "query": 19,
+      "trial": 3,
+      "status": "valid",
+      "raw_sha256": "3d6366202a7a6fb65468f66c4740b7efd2dd23b6ba056e0bc2050f3888e72dd8"
+    }
+  ],
+  "original_sql": "SELECT UserID, extract(minute FROM EventTime) AS m, SearchPhrase, COUNT(*) FROM hits GROUP BY UserID, m, SearchPhrase ORDER BY COUNT(*) DESC LIMIT 10;",
+  "oracle_sql": "SELECT UserID, extract(minute FROM EventTime) AS m, SearchPhrase, COUNT(*) AS __q19_count FROM hits GROUP BY UserID, m, SearchPhrase ORDER BY __q19_count DESC LIMIT 10;",
+  "method": "Independent full group membership, aggregate values, multiplicity and rank bands; alias only the oracle COUNT(*) sort expression",
+  "reference_engine": "DuckDB",
+  "reference_engine_version": "2.0.0",
+  "loaded_rows": 100000,
+  "source_sha256": "d053397f7aa5b2e1ee9160779a9e9307b162c6994aebba829c7ea1411076c4d0"
+}

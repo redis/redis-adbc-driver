@@ -1,0 +1,65 @@
+{
+  "kind": "local native partition TLS/independent ACL validation",
+  "status": "passed",
+  "library_sha256": "e98b8bbf78aaa0651ce0ebeddbad55d4277beb89206997f6176d1ac41d74b234",
+  "installed_wheel": true,
+  "python": "3.12.3",
+  "pyarrow": "26.0.0",
+  "certificate_verification": true,
+  "platform": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39",
+  "machine": "x86_64",
+  "packages": {
+    "adbc-driver-manager": "1.12.0",
+    "redis": "8.1.0"
+  },
+  "aggregate_cap": 137,
+  "checks": [
+    "verified_admin_tls_and_real_cap",
+    "hostname_mismatch_rejected",
+    "closed_planner_and_credential_free_descriptors",
+    "restricted_cross_process_search_full_values_schema",
+    "restricted_cross_process_direct_hash_duplicates_deleted",
+    "native_untrusted_ca_rejected",
+    "worker_config_and_writes_denied",
+    "malformed_descriptor_rejected",
+    "search_readiness_acl_required_direct_hash_independent",
+    "direct_hash_reader_obeys_worker_acl",
+    "connection_cancel_in_independent_tls_worker",
+    "early_release_in_independent_tls_worker",
+    "live_updates_deletes_and_later_insert_exclusion",
+    "stale_target_rejected"
+  ],
+  "redis_version": "8.6.2",
+  "modules": [
+    {
+      "name": "vectorset",
+      "ver": 1,
+      "path": "",
+      "args": []
+    },
+    {
+      "name": "timeseries",
+      "ver": 80600,
+      "path": "/usr/local/lib/redis/modules//redistimeseries.so",
+      "args": []
+    },
+    {
+      "name": "bf",
+      "ver": 80600,
+      "path": "/usr/local/lib/redis/modules//redisbloom.so",
+      "args": []
+    },
+    {
+      "name": "search",
+      "ver": 80600,
+      "path": "/usr/local/lib/redis/modules//redisearch.so",
+      "args": []
+    },
+    {
+      "name": "ReJSON",
+      "ver": 80600,
+      "path": "/usr/local/lib/redis/modules//rejson.so",
+      "args": []
+    }
+  ]
+}

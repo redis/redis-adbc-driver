@@ -1,0 +1,12 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/adbc-drivers/redis/go
+cpu: Apple M5 Max
+BenchmarkWideScanProjection/slots=false-18         	   80916	     13600 ns/op	   37000 B/op	     112 allocs/op
+BenchmarkWideScanProjection/slots=false-18         	   83688	     14370 ns/op	   37000 B/op	     112 allocs/op
+BenchmarkWideScanProjection/slots=false-18         	   79822	     14407 ns/op	   37000 B/op	     112 allocs/op
+BenchmarkWideScanProjection/slots=true-18          	  211557	      6047 ns/op	   16384 B/op	       1 allocs/op
+BenchmarkWideScanProjection/slots=true-18          	  200178	      5901 ns/op	   16384 B/op	       1 allocs/op
+BenchmarkWideScanProjection/slots=true-18          	  208557	      5691 ns/op	   16384 B/op	       1 allocs/op
+PASS
+ok  	github.com/adbc-drivers/redis/go	7.875s

@@ -1,0 +1,10 @@
+{
+  "wheel": "adbc_driver_redis-0.1.0.dev363-py3-none-macosx_26_0_arm64.whl",
+  "wheel_sha256": "d690b73d939e7b0e07b4308de9df92f4082f5f9f8a38a47bc49e34f4f78ab827",
+  "installed_library_sha256": "a69f89043b0bf3f0f279ddfd4dd8a02d79c43e77cda37973204664a233fe13dd",
+  "independent_named_worker": true,
+  "worker_config_denied": true,
+  "guaranteed_scan_cap": 137,
+  "tls": false,
+  "exit_code": 0
+}

@@ -1,0 +1,26 @@
+File: go.test
+Type: cpu
+Time: 2026-10-21 15:18:13 PDT
+Duration: 13.04s, Total samples = 8250ms (63.27%)
+Showing nodes accounting for 6650ms, 80.61% of 8250ms total
+Dropped 141 nodes (cum <= 41.25ms)
+Showing top 18 nodes out of 153
+      flat  flat%   sum%        cum   cum%
+    2150ms 26.06% 26.06%     2150ms 26.06%  syscall.rawsyscalln
+     730ms  8.85% 34.91%      730ms  8.85%  runtime.madvise
+     400ms  4.85% 39.76%      400ms  4.85%  internal/runtime/maps.memHashAES
+     380ms  4.61% 44.36%      420ms  5.09%  github.com/adbc-drivers/redis/go.coerceIn
+     350ms  4.24% 48.61%     1230ms 14.91%  github.com/adbc-drivers/redis/go.(*scanProjection).decodeInto
+     320ms  3.88% 52.48%      740ms  8.97%  github.com/adbc-drivers/redis/go.Coerce
+     250ms  3.03% 55.52%     2600ms 31.52%  github.com/adbc-drivers/redis/go.(*streamReader).appendArrow
+     250ms  3.03% 58.55%      250ms  3.03%  runtime.pthread_cond_wait
+     230ms  2.79% 61.33%      630ms  7.64%  runtime.mapassign_faststr
+     230ms  2.79% 64.12%      290ms  3.52%  runtime.tryDeferToSpanScan
+     220ms  2.67% 66.79%      220ms  2.67%  runtime.pthread_kill
+     210ms  2.55% 69.33%      560ms  6.79%  github.com/adbc-drivers/redis/go.columnMeta.decode
+     190ms  2.30% 71.64%      360ms  4.36%  github.com/adbc-drivers/redis/go.decodeStored
+     180ms  2.18% 73.82%      180ms  2.18%  runtime.pthread_cond_signal
+     160ms  1.94% 75.76%      160ms  1.94%  runtime.memmove
+     150ms  1.82% 77.58%      150ms  1.82%  runtime.usleep
+     140ms  1.70% 79.27%      140ms  1.70%  internal/strconv.ParseUint
+     110ms  1.33% 80.61%      150ms  1.82%  internal/runtime/maps.(*Iter).Next

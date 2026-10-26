@@ -1,0 +1,14 @@
+{
+  "baseline": {
+    "elapsed": "11.956880375s",
+    "allocated_bytes": 5553863080,
+    "allocations": 128749046,
+    "GCs": 140
+  },
+  "candidate": {
+    "elapsed": "7.64757775s",
+    "allocated_bytes": 4925282496,
+    "allocations": 99348398,
+    "GCs": 103
+  }
+}

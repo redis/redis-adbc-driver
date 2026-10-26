@@ -1,0 +1,20 @@
+{
+  "runtime_parent": "13742f38f2867c57437c7b03006324fba665c1be",
+  "cloud_full_native_and_installed_wheel_library_sha256": "399c6e13962911c295685969e032f459ee5b92932c13023b55ddba71166b7f0d",
+  "cloud_full_native": "go/validation/.venv/bin/python -m pytest -q -ra --junitxml=REPORT.xml tests (cwd go/validation; REDIS_ADBC_LIBRARY resolves to installed macOS wheel)",
+  "cloud_source_layouts": "go test -count=1 -p 1 -v -run ^TestRetained(SourceCapture|ExecutionGlobalSQL) .",
+  "final_foreign_and_oss_runtime_revision": "5e68c6fb9b0abc7d544fdfc5542ee497a93dd560 (same runtime change cherry-picked as cd487f3)",
+  "final_cloud_foreign_layouts": "go test -count=1 -p 1 -v -run ^TestRetainedSourceCapture(ApplicationOwnership|ForeignPrefixesAndFilter)$ .",
+  "cloud_environment": {
+    "REDIS_URI": "private owned Pro TLS URI, removed after validation",
+    "REDIS_RETAINED_TLS_CA_FILE": "private fixture bundle with trusted system roots; removed",
+    "REDIS_RETAINED_CONTROL_PERSISTENCE": "guaranteed after API verified volatile-lru",
+    "REDIS_PARTITION_SCAN_CAP": "137",
+    "GOTOOLCHAIN": "go1.26.6"
+  },
+  "final_oss_full_go": "REDIS_URI=redis://127.0.0.1:16490/0 GOTOOLCHAIN=go1.26.6 go test -count=1 -p 1 ./... (owned redis:8.6.2 container; removed)",
+  "production_file_git_blobs": {
+    "go/foreign.go": "e5ceb051338abef463898268eb453d7614a9fab6",
+    "go/search_keys.go": "cf7855ecc4aff0fce8fe9864c244a287bdf034da"
+  }
+}

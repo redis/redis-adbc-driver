@@ -1,0 +1,84 @@
+{
+  "area": "session",
+  "source": "https://github.com/alberttwong/redis-adbc-driver/issues/246",
+  "setup": [
+    "CREATE TABLE t (id integer, name varchar(20), score integer, grp varchar(10))",
+    "INSERT INTO t VALUES (1, 'apple', 10, 'a'), (2, 'Banana', NULL, 'a'), (3, 'cherry', 30, 'b'), (4, '_x', 20, 'b')",
+    "CREATE TABLE u (id integer, label text)",
+    "INSERT INTO u VALUES (1, 'one'), (2, 'two')"
+  ],
+  "cases": [
+    {
+      "id": "row-1",
+      "sql": "select version()",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-2",
+      "sql": "select pg_catalog.version()",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-3",
+      "sql": "select pg_catalog.lower('A')",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-4",
+      "sql": "select current_database()",
+      "expect_postgres": null,
+      "context_values": {
+        "0": {
+          "postgres": "postgres",
+          "redis": "redis"
+        }
+      }
+    },
+    {
+      "id": "row-5",
+      "sql": "select current_schema()",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-6",
+      "sql": "select current_user, session_user",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-7",
+      "sql": "select pg_typeof(1)",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-8",
+      "sql": "select current_setting('TimeZone')",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-9",
+      "sql": "show server_version",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-10",
+      "sql": "show server_version_num",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-11",
+      "sql": "show transaction_isolation",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-12",
+      "sql": "show transaction isolation level",
+      "expect_postgres": null
+    },
+    {
+      "id": "row-13",
+      "sql": "show max_identifier_length",
+      "expect_postgres": null
+    }
+  ],
+  "tier": "issues"
+}

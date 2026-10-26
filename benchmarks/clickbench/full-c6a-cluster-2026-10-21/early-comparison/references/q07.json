@@ -1,0 +1,21 @@
+{
+  "query": 7,
+  "sql": "SELECT MIN(EventDate), MAX(EventDate) FROM hits;",
+  "metadata": {
+    "source_rows": 99997497,
+    "loaded_rows": 99997497,
+    "columns": 105,
+    "source_sha256": "a390f6cb782f6aaef278c72fc1dd86c4f30bc843ebab3c159e9bd4d45ddb079f",
+    "schema_sha256": "42d28575fd59fb4ae5d556683323c17937daaae8ff800e9089ddaaf91d1b2be7",
+    "upstream_commit": "e90045879276f75cc398f1ab8a73541a7716058d",
+    "engine": "DuckDB",
+    "engine_version": "1.5.6",
+    "normalization": "official epoch-day DATE and epoch-second TIMESTAMP"
+  },
+  "rows": [
+    [
+      "2013-07-02",
+      "2013-07-31"
+    ]
+  ]
+}

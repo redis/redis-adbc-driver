@@ -1,0 +1,6 @@
+results*.json
+placement.json
+pilot.json
+full.json
+*.parquet
+results*/

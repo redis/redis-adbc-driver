@@ -1,0 +1,41 @@
+{
+  "date": "2026-10-21",
+  "baseline_source": "cebe8088cca1ff878e3bd3c905f0363bf7c0d6f0",
+  "candidate_source": "85330bd680506499812fe786d307472c1d3c1c8b",
+  "go_version": "go version go1.27.2 darwin/arm64",
+  "platform": "macOS 26.7.1 arm64",
+  "host_logical_cpus": 18,
+  "host_memory_bytes": 38654705664,
+  "server": {
+    "image": "redis:8.6.2",
+    "search_version": "8.6.0",
+    "cpus": 4,
+    "memory_bytes": 2147483648,
+    "transport": "localhost TCP, no TLS",
+    "dedicated": true
+  },
+  "build_command": "CGO_ENABLED=1 go build -buildmode=c-shared -tags driverlib -ldflags '-s -w -X github.com/adbc-drivers/driverbase-go/driverbase.infoDriverVersion=v0.1.0' -o OUTPUT ./pkg",
+  "binary_sha256": {
+    "baseline": "a1ee66a6f7b585c72325b60856d95c20cab1482b4c9c6d286a13ed8d7844eef2",
+    "candidate": "43267c11b9c843f4aabb1fce958f2e503144eeda3766cfce56d921c4c0f31be1"
+  },
+  "production_file_sha256": {
+    "go/exec.go": "be97caf8a796285e9ad7334b464a8e00813d5997692a974583327b641e8014d5",
+    "go/query.go": "898f811cd9c9c13d7901f2a14b0621a6a3e006d33ebbbcfdd095600311b91f1c",
+    "go/scan_projection.go": "eb126de1e779b63e366f2712c989993311d1216535eade0dbbff88d20f3e8b60",
+    "go/scan_arrow.go": "b73772ff9ea26f02fdda4381d83468d6d0bb5a079c923e3e0b4d327fa325445d",
+    "go/shared_scan.go": "899975e4aafd785b088e41e6bdf5f9f80e0892f49787d984bc8bfb753cf276fb",
+    "go/statement.go": "23dfef1dba98eae942c8ba92b1db81cb23dcb4aaa6bd525c3667e87148d18b3d",
+    "go/stream.go": "7b008c636cf13f0751d8dbb82727439d175c7317a4e3b7a88f4f9384af6be86a"
+  },
+  "runner_sha256": "d20c7a1afdaead2a03345a3534e47ef05c873a59c9a541acf8b3885585d29be1",
+  "upstream_clickbench_commit": "ccda3033f3c7303d9d7f9634d6dae118ef085f96",
+  "parquet_sha256": "d053397f7aa5b2e1ee9160779a9e9307b162c6994aebba829c7ea1411076c4d0",
+  "notes": [
+    "Baseline is built from git archive; candidate embeds its commit and vcs.modified=true due to pre-existing untracked diagnostic test/report files, excluded from the production build. All compiled production sources match the candidate commit; individual hashes are recorded.",
+    "No correctness suite or other agent benchmark ran during timed transfer trials.",
+    "RSS is the median across trials of each trial maximum worker lifetime high-water mark, not aggregate RSS across workers. Native first-batch sizes differ from ADBC, so first-batch latencies are not equivalent batch comparisons.",
+    "The final runner limits hiredis package metadata collection to --native-references runs; the measured 85330bd runner collected it unconditionally. No timed worker/trial code changed after these measurements."
+  ],
+  "benchmark_runner_source": "85330bd680506499812fe786d307472c1d3c1c8b"
+}

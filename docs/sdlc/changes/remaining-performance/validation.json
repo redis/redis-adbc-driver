@@ -1,0 +1,76 @@
+{
+  "date": "2026-10-21",
+  "status": "local verification complete; CI and human review pending",
+  "production_source": "8a3f846",
+  "baseline_runtime_source": "7a42b2d",
+  "go": {
+    "command": "REDIS_URI='redis://127.0.0.1:18123/0?protocol=3' go test -json -count=1 -p 1 ./...",
+    "pass_test_events": 1025,
+    "skip_test_events": 15,
+    "fail_events": 0,
+    "skips": [
+      "TestAggregateInputLoadProfile",
+      "TestAggregatePagesProfile",
+      "TestClickBenchExecutionProfile",
+      "TestExactDistinctProfile",
+      "TestFlexRefused",
+      "TestLateProjectionProfile",
+      "TestNarrowScanProfile",
+      "TestRangeReadinessChecksAllPrimaries",
+      "TestPartitionRuntimeCapDiscovery",
+      "TestQ19Profile",
+      "TestSearchReplyScanProfile",
+      "TestTimeoutServerPaused",
+      "TestWideTransferProfile",
+      "TestAggregateWorkerConcurrencyProfile",
+      "TestAggregateWorkerMixedProbe"
+    ],
+    "note": "Includes pre-existing untracked read-only TestWideTransferProfile, skipped; this diagnostic is not part of the PR."
+  },
+  "native": {
+    "environments": [
+      "standalone RESP3",
+      "standalone RESP2",
+      "Cluster RESP3"
+    ],
+    "per_environment": {
+      "passed": 376,
+      "skipped": 8,
+      "subtests": 3
+    },
+    "library": "budget-v4.dylib",
+    "sha256": "9af94b28412c6db54c1ba57fa7cae0086f2c4c6f8275b6b56ca1285afee3ac0e",
+    "command": "REDIS_URI=... REDIS_ADBC_LIBRARY=... python -m pytest go/validation/tests -q --junitxml=..."
+  },
+  "race": {
+    "environments": [
+      "Cluster RESP3",
+      "Cluster RESP2"
+    ],
+    "command": "go test -race -count=1 -p 1 -run 'TestStreamByteBudget|TestSQLScanArrowEarlyReleaseBothAPIs|TestHashSlice' .",
+    "status": "passed"
+  },
+  "benchmark": {
+    "canonical_executions": 148,
+    "warmups": 32,
+    "measured": 116,
+    "all_values_and_multiplicity_validated": true,
+    "protocol": 3,
+    "row_only_default_unchanged": true,
+    "report": "benchmarks/stream-byte-budget/2026-10-21/README.md"
+  },
+  "preliminary": {
+    "note": "Exploratory allocation/coercion/reservation iterations and initial narrow variation retained separately. Initial native fixture used unsupported chr(integer); replaced with supported concatenation, no driver assertions weakened. Final four new native tests pass in every listed environment."
+  },
+  "review": {
+    "correctness_lifecycle": "Both stream paths, partial/oversized/empty batches, byte saturation, type coercion, LIMIT/OFFSET, inherited database versus statement settings, both APIs, cancellation, checked allocator ownership and retained output reviewed. Generic pending-row accounting stays linear; default hot loop preserved. No remaining actionable finding.",
+    "security_ownership": "No Redis command, ownership, namespace, TLS/ACL, routing, readiness, worker-budget or adoption changes. Byte budget is an output batching option, never a process RSS guarantee.",
+    "intent_evidence": "Pinned source/binaries, full-value repeated trials, width/string/budget sweeps, disabled default controls, exploratory variation and throughput tradeoffs retained. Default stays disabled for speed. Human review and CI pending."
+  },
+  "limits": [
+    "localhost macOS arm64 only for timing; no 100M/WAN/TLS or other-architecture speedup",
+    "accounting is not physical allocation/RSS; cursor-page input/completed batches, allocator capacity and consumer retention coexist",
+    "one oversized row may exceed budget",
+    "no universal default change or throughput improvement claim"
+  ]
+}

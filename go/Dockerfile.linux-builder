@@ -1,0 +1,11 @@
+# Keep the release toolchain in a reusable layer, separate from driver source.
+# AlmaLinux 8 preserves the release library's glibc 2.28 compatibility floor.
+FROM almalinux:8
+ARG TARGETARCH
+ARG GO_VERSION
+RUN dnf -q -y install gcc tar gzip \
+    && dnf clean all \
+    && curl -sSfL "https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz" -o /tmp/go.tar.gz \
+    && tar -C /usr/local -xzf /tmp/go.tar.gz \
+    && rm /tmp/go.tar.gz
+ENV PATH="/usr/local/go/bin:${PATH}"

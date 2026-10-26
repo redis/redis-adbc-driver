@@ -1,0 +1,38 @@
+--- a/go/store.go
++++ b/go/store.go
+@@ -1942,6 +1942,11 @@
+ 
+ func (s *store) fetchRowsChunk(ctx context.Context, keys []string, fields []string, chunk int) ([]aggRow, error) {
+ 	fields = append([]string{rowIDField}, fields...)
++	template := make([]any, len(fields)+2)
++	template[0] = "hmget"
++	for i, field := range fields {
++		template[i+2] = field
++	}
+ 	out := make([]aggRow, len(keys))
+ 	for start := 0; start < len(keys); start += chunk {
+ 		if err := cancelled(ctx); err != nil {
+@@ -1950,12 +1955,21 @@
+ 		end := min(start+chunk, len(keys))
+ 		pipe := s.client.Pipeline()
+ 		cmds := make([]*goredis.SliceCmd, 0, end-start)
+-		for _, k := range keys[start:end] {
++		argArena := make([]any, (end-start)*len(template))
++		for i, k := range keys[start:end] {
+ 			if k == "" {
+ 				cmds = append(cmds, nil) // already found deleted by the cursor
+ 				continue
+ 			}
+-			cmds = append(cmds, pipe.HMGet(ctx, k, fields...))
++			lo, hi := i*len(template), (i+1)*len(template)
++			args := argArena[lo:hi:hi]
++			copy(args, template)
++			args[1] = k
++			cmd := goredis.NewSliceCmd(ctx, args...)
++			if err := pipe.Process(ctx, cmd); err != nil {
++				return nil, wrapRedis(err, "failed to queue row read")
++			}
++			cmds = append(cmds, cmd)
+ 		}
+ 		if _, err := pipe.Exec(ctx); err != nil && !errors.Is(err, goredis.Nil) {
+ 			return nil, wrapRedis(err, "failed to read rows")

@@ -1,0 +1,362 @@
+[
+  {
+    "case": "q24",
+    "sql": "SELECT * FROM it_213_issue214 WHERE URL LIKE '%google%' ORDER BY EventTime LIMIT 10 OFFSET 0",
+    "seconds": 5.819325749995187,
+    "execute_seconds": 5.817758166987915,
+    "wire_bytes": {
+      "request": 6006,
+      "reply": 338198111
+    },
+    "rows": 0,
+    "candidate_rows": 0,
+    "validated": true,
+    "strategy": "baseline",
+    "trial": 1
+  },
+  {
+    "case": "offset",
+    "sql": "SELECT * FROM it_213_issue214 WHERE URL LIKE '%produkty%' ORDER BY EventTime LIMIT 10 OFFSET 10",
+    "seconds": 0.24080845899879932,
+    "execute_seconds": 0.24055695900460705,
+    "wire_bytes": {
+      "request": 784,
+      "reply": 6326827
+    },
+    "rows": 10,
+    "candidate_rows": 89286,
+    "validated": true,
+    "strategy": "baseline",
+    "trial": 1
+  },
+  {
+    "case": "rare",
+    "sql": "SELECT * FROM it_213_issue214 WHERE URL LIKE '%gaw.ru%' ORDER BY EventTime LIMIT 10 OFFSET 0",
+    "seconds": 0.3394567500217818,
+    "execute_seconds": 0.33924354100599885,
+    "wire_bytes": {
+      "request": 884,
+      "reply": 12702624
+    },
+    "rows": 10,
+    "candidate_rows": 1151,
+    "validated": true,
+    "strategy": "baseline",
+    "trial": 1
+  },
+  {
+    "case": "none",
+    "sql": "SELECT * FROM it_213_issue214 WHERE URL LIKE '%issue214AbsentSentinel%' ORDER BY EventTime LIMIT 10 OFFSET 0",
+    "seconds": 5.734888166014571,
+    "execute_seconds": 5.734593750035856,
+    "wire_bytes": {
+      "request": 6006,
+      "reply": 338198111
+    },
+    "rows": 0,
+    "candidate_rows": 0,
+    "validated": true,
+    "strategy": "baseline",
+    "trial": 1
+  },
+  {
+    "case": "q24",
+    "sql": "SELECT * FROM it_213_issue214 WHERE URL LIKE '%google%' ORDER BY EventTime LIMIT 10 OFFSET 0",
+    "seconds": 0.7344616249902174,
+    "execute_seconds": 0.7341602920205332,
+    "wire_bytes": {
+      "request": 1724,
+      "reply": 23861043
+    },
+    "rows": 0,
+    "candidate_rows": 0,
+    "validated": true,
+    "strategy": "late",
+    "trial": 1
+  },
+  {
+    "case": "offset",
+    "sql": "SELECT * FROM it_213_issue214 WHERE URL LIKE '%produkty%' ORDER BY EventTime LIMIT 10 OFFSET 10",
+    "seconds": 0.17004695802461356,
+    "execute_seconds": 0.16981354198651388,
+    "wire_bytes": {
+      "request": 20120,
+      "reply": 2408664
+    },
+    "rows": 10,
+    "candidate_rows": 89286,
+    "validated": true,
+    "strategy": "late",
+    "trial": 1
+  },
+  {
+    "case": "rare",
+    "sql": "SELECT * FROM it_213_issue214 WHERE URL LIKE '%gaw.ru%' ORDER BY EventTime LIMIT 10 OFFSET 0",
+    "seconds": 0.1470160000026226,
+    "execute_seconds": 0.14672779204556718,
+    "wire_bytes": {
+      "request": 20122,
+      "reply": 2408631
+    },
+    "rows": 10,
+    "candidate_rows": 1151,
+    "validated": true,
+    "strategy": "late",
+    "trial": 1
+  },
+  {
+    "case": "none",
+    "sql": "SELECT * FROM it_213_issue214 WHERE URL LIKE '%issue214AbsentSentinel%' ORDER BY EventTime LIMIT 10 OFFSET 0",
+    "seconds": 0.7640261669876054,
+    "execute_seconds": 0.7637870829785243,
+    "wire_bytes": {
+      "request": 1724,
+      "reply": 23861043
+    },
+    "rows": 0,
+    "candidate_rows": 0,
+    "validated": true,
+    "strategy": "late",
+    "trial": 1
+  },
+  {
+    "case": "q24",
+    "sql": "SELECT * FROM it_213_issue214 WHERE URL LIKE '%google%' ORDER BY EventTime LIMIT 10 OFFSET 0",
+    "seconds": 0.6802562920493074,
+    "execute_seconds": 0.6799858750309795,
+    "wire_bytes": {
+      "request": 1724,
+      "reply": 23861043
+    },
+    "rows": 0,
+    "candidate_rows": 0,
+    "validated": true,
+    "strategy": "late",
+    "trial": 2
+  },
+  {
+    "case": "offset",
+    "sql": "SELECT * FROM it_213_issue214 WHERE URL LIKE '%produkty%' ORDER BY EventTime LIMIT 10 OFFSET 10",
+    "seconds": 0.14330454100854695,
+    "execute_seconds": 0.14304141601314768,
+    "wire_bytes": {
+      "request": 20120,
+      "reply": 2408664
+    },
+    "rows": 10,
+    "candidate_rows": 89286,
+    "validated": true,
+    "strategy": "late",
+    "trial": 2
+  },
+  {
+    "case": "rare",
+    "sql": "SELECT * FROM it_213_issue214 WHERE URL LIKE '%gaw.ru%' ORDER BY EventTime LIMIT 10 OFFSET 0",
+    "seconds": 0.13611324998782948,
+    "execute_seconds": 0.13585512497229502,
+    "wire_bytes": {
+      "request": 20120,
+      "reply": 2408630
+    },
+    "rows": 10,
+    "candidate_rows": 1151,
+    "validated": true,
+    "strategy": "late",
+    "trial": 2
+  },
+  {
+    "case": "none",
+    "sql": "SELECT * FROM it_213_issue214 WHERE URL LIKE '%issue214AbsentSentinel%' ORDER BY EventTime LIMIT 10 OFFSET 0",
+    "seconds": 0.6803312500123866,
+    "execute_seconds": 0.680044042004738,
+    "wire_bytes": {
+      "request": 1724,
+      "reply": 23861043
+    },
+    "rows": 0,
+    "candidate_rows": 0,
+    "validated": true,
+    "strategy": "late",
+    "trial": 2
+  },
+  {
+    "case": "q24",
+    "sql": "SELECT * FROM it_213_issue214 WHERE URL LIKE '%google%' ORDER BY EventTime LIMIT 10 OFFSET 0",
+    "seconds": 5.271177457994781,
+    "execute_seconds": 5.27084549999563,
+    "wire_bytes": {
+      "request": 5900,
+      "reply": 338198058
+    },
+    "rows": 0,
+    "candidate_rows": 0,
+    "validated": true,
+    "strategy": "baseline",
+    "trial": 2
+  },
+  {
+    "case": "offset",
+    "sql": "SELECT * FROM it_213_issue214 WHERE URL LIKE '%produkty%' ORDER BY EventTime LIMIT 10 OFFSET 10",
+    "seconds": 0.23935733397956938,
+    "execute_seconds": 0.23903962498297915,
+    "wire_bytes": {
+      "request": 782,
+      "reply": 6326826
+    },
+    "rows": 10,
+    "candidate_rows": 89286,
+    "validated": true,
+    "strategy": "baseline",
+    "trial": 2
+  },
+  {
+    "case": "rare",
+    "sql": "SELECT * FROM it_213_issue214 WHERE URL LIKE '%gaw.ru%' ORDER BY EventTime LIMIT 10 OFFSET 0",
+    "seconds": 0.27871966699603945,
+    "execute_seconds": 0.2783556249924004,
+    "wire_bytes": {
+      "request": 884,
+      "reply": 12702624
+    },
+    "rows": 10,
+    "candidate_rows": 1151,
+    "validated": true,
+    "strategy": "baseline",
+    "trial": 2
+  },
+  {
+    "case": "none",
+    "sql": "SELECT * FROM it_213_issue214 WHERE URL LIKE '%issue214AbsentSentinel%' ORDER BY EventTime LIMIT 10 OFFSET 0",
+    "seconds": 5.60774508403847,
+    "execute_seconds": 5.607497000019066,
+    "wire_bytes": {
+      "request": 6006,
+      "reply": 338198111
+    },
+    "rows": 0,
+    "candidate_rows": 0,
+    "validated": true,
+    "strategy": "baseline",
+    "trial": 2
+  },
+  {
+    "case": "q24",
+    "sql": "SELECT * FROM it_213_issue214 WHERE URL LIKE '%google%' ORDER BY EventTime LIMIT 10 OFFSET 0",
+    "seconds": 5.751399874978233,
+    "execute_seconds": 5.75104854197707,
+    "wire_bytes": {
+      "request": 6006,
+      "reply": 338198111
+    },
+    "rows": 0,
+    "candidate_rows": 0,
+    "validated": true,
+    "strategy": "baseline",
+    "trial": 3
+  },
+  {
+    "case": "offset",
+    "sql": "SELECT * FROM it_213_issue214 WHERE URL LIKE '%produkty%' ORDER BY EventTime LIMIT 10 OFFSET 10",
+    "seconds": 0.31743954197736457,
+    "execute_seconds": 0.3171456249547191,
+    "wire_bytes": {
+      "request": 782,
+      "reply": 6326826
+    },
+    "rows": 10,
+    "candidate_rows": 89286,
+    "validated": true,
+    "strategy": "baseline",
+    "trial": 3
+  },
+  {
+    "case": "rare",
+    "sql": "SELECT * FROM it_213_issue214 WHERE URL LIKE '%gaw.ru%' ORDER BY EventTime LIMIT 10 OFFSET 0",
+    "seconds": 0.3287222500075586,
+    "execute_seconds": 0.3284360420075245,
+    "wire_bytes": {
+      "request": 884,
+      "reply": 12702624
+    },
+    "rows": 10,
+    "candidate_rows": 1151,
+    "validated": true,
+    "strategy": "baseline",
+    "trial": 3
+  },
+  {
+    "case": "none",
+    "sql": "SELECT * FROM it_213_issue214 WHERE URL LIKE '%issue214AbsentSentinel%' ORDER BY EventTime LIMIT 10 OFFSET 0",
+    "seconds": 6.267970875022002,
+    "execute_seconds": 6.267407790990546,
+    "wire_bytes": {
+      "request": 5900,
+      "reply": 338198058
+    },
+    "rows": 0,
+    "candidate_rows": 0,
+    "validated": true,
+    "strategy": "baseline",
+    "trial": 3
+  },
+  {
+    "case": "q24",
+    "sql": "SELECT * FROM it_213_issue214 WHERE URL LIKE '%google%' ORDER BY EventTime LIMIT 10 OFFSET 0",
+    "seconds": 0.8518190829781815,
+    "execute_seconds": 0.8514141250052489,
+    "wire_bytes": {
+      "request": 1724,
+      "reply": 23861043
+    },
+    "rows": 0,
+    "candidate_rows": 0,
+    "validated": true,
+    "strategy": "late",
+    "trial": 3
+  },
+  {
+    "case": "offset",
+    "sql": "SELECT * FROM it_213_issue214 WHERE URL LIKE '%produkty%' ORDER BY EventTime LIMIT 10 OFFSET 10",
+    "seconds": 0.16540866595460102,
+    "execute_seconds": 0.16511029098182917,
+    "wire_bytes": {
+      "request": 20122,
+      "reply": 2408665
+    },
+    "rows": 10,
+    "candidate_rows": 89286,
+    "validated": true,
+    "strategy": "late",
+    "trial": 3
+  },
+  {
+    "case": "rare",
+    "sql": "SELECT * FROM it_213_issue214 WHERE URL LIKE '%gaw.ru%' ORDER BY EventTime LIMIT 10 OFFSET 0",
+    "seconds": 0.18063941702712327,
+    "execute_seconds": 0.17949291702825576,
+    "wire_bytes": {
+      "request": 20122,
+      "reply": 2408631
+    },
+    "rows": 10,
+    "candidate_rows": 1151,
+    "validated": true,
+    "strategy": "late",
+    "trial": 3
+  },
+  {
+    "case": "none",
+    "sql": "SELECT * FROM it_213_issue214 WHERE URL LIKE '%issue214AbsentSentinel%' ORDER BY EventTime LIMIT 10 OFFSET 0",
+    "seconds": 0.7214187920326367,
+    "execute_seconds": 0.721159125037957,
+    "wire_bytes": {
+      "request": 1724,
+      "reply": 23861043
+    },
+    "rows": 0,
+    "candidate_rows": 0,
+    "validated": true,
+    "strategy": "late",
+    "trial": 3
+  }
+]

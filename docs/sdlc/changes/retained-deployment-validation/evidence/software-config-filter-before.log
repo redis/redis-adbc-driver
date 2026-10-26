@@ -1,0 +1,6 @@
+=== RUN   TestRetainedPartitionAPIEmptyAndBudgetFailure
+    partition_retained_api_integration_test.go:162: Invalid State: [redis] retained quotas require noeviction or a volatile eviction policy that preserves persistent control keys
+--- FAIL: TestRetainedPartitionAPIEmptyAndBudgetFailure (0.02s)
+FAIL
+FAIL	github.com/adbc-drivers/redis/go	0.639s
+FAIL

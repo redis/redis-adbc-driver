@@ -1,0 +1,50 @@
+File: candidate-profile.test
+Build ID: 93ec35a7ea78f31eac5edce93ae774effa0bf32f
+Type: cpu
+Time: 2026-10-21 22:46:29 PDT
+Duration: 96.77s, Total samples = 1023.16s (1057.32%)
+Showing nodes accounting for 646.15s, 63.15% of 1023.16s total
+Dropped 841 nodes (cum <= 5.12s)
+Showing top 40 nodes out of 257
+      flat  flat%   sum%        cum   cum%
+   118.80s 11.61% 11.61%    118.80s 11.61%  runtime.spanClass.sizeclass (inline)
+    76.19s  7.45% 19.06%    207.73s 20.30%  runtime.tryDeferToSpanScan
+    28.41s  2.78% 21.83%     28.41s  2.78%  cmpbody
+    28.02s  2.74% 24.57%     28.02s  2.74%  runtime.nextFreeFast (inline)
+       28s  2.74% 27.31%        28s  2.74%  runtime.memmove
+    23.69s  2.32% 29.62%    148.88s 14.55%  runtime.mallocgcSmallScanNoHeader
+    23.31s  2.28% 31.90%    255.30s 24.95%  runtime.mallocgc
+    19.66s  1.92% 33.82%     19.66s  1.92%  runtime.memclrNoHeapPointers
+    18.95s  1.85% 35.68%     18.95s  1.85%  internal/runtime/syscall/linux.Syscall6
+    17.40s  1.70% 37.38%     19.85s  1.94%  runtime.(*mspan).writeHeapBitsSmall
+    13.65s  1.33% 38.71%     57.71s  5.64%  runtime.scanObjectsSmall
+    12.82s  1.25% 39.96%     12.82s  1.25%  memeqbody
+    12.41s  1.21% 41.18%     12.76s  1.25%  runtime.(*mspan).moveInlineMarks
+    11.53s  1.13% 42.30%     11.53s  1.13%  aeshashbody
+    11.48s  1.12% 43.43%     39.75s  3.89%  github.com/adbc-drivers/redis/go.(*scanProjection).decodeHashInto
+    11.01s  1.08% 44.50%    146.47s 14.32%  runtime.scanObject
+    10.16s  0.99% 45.50%     14.89s  1.46%  runtime.typePointers.next
+    10.09s  0.99% 46.48%     10.10s  0.99%  github.com/redis/go-redis/v9/internal/hashtag.crc16sum
+    10.02s  0.98% 47.46%     10.02s  0.98%  internal/strconv.ParseUint
+     9.63s  0.94% 48.40%     23.09s  2.26%  bufio.(*Reader).ReadSlice
+     9.63s  0.94% 49.34%     25.09s  2.45%  runtime.mallocgcTiny
+     9.39s  0.92% 50.26%     51.20s  5.00%  runtime.bulkBarrierPreWrite
+     9.32s  0.91% 51.17%      9.32s  0.91%  runtime.(*mspan).base (inline)
+     8.26s  0.81% 51.98%     11.89s  1.16%  internal/runtime/maps.(*Iter).Next
+        8s  0.78% 52.76%         8s  0.78%  indexbytebody
+     7.92s  0.77% 53.54%      9.30s  0.91%  runtime.heapArenaOf (inline)
+     7.58s  0.74% 54.28%      7.58s  0.74%  runtime.typePointers.nextFast (inline)
+     7.48s  0.73% 55.01%    112.36s 10.98%  github.com/adbc-drivers/redis/go.(*tupleAggregatePlan).tuple
+     7.40s  0.72% 55.73%      7.40s  0.72%  internal/strconv.formatBase10
+     7.29s  0.71% 56.44%     29.39s  2.87%  runtime.sweepone
+     7.26s  0.71% 57.15%      7.26s  0.71%  internal/runtime/maps.ctrlGroup.matchH2
+     7.25s  0.71% 57.86%     22.46s  2.20%  github.com/adbc-drivers/redis/go.decodeStored
+     7.22s  0.71% 58.57%     22.58s  2.21%  runtime.gcmarknewobject
+     7.16s   0.7% 59.27%     13.67s  1.34%  bufio.(*Reader).Read
+     6.93s  0.68% 59.94%      6.93s  0.68%  runtime.acquirem (inline)
+     6.92s  0.68% 60.62%    225.16s 22.01%  github.com/adbc-drivers/redis/go.(*executor).compactIntegerTuplePartition.func1
+     6.82s  0.67% 61.29%      6.82s  0.67%  time.runtimeNow
+     6.67s  0.65% 61.94%      6.67s  0.65%  runtime.getMCache (inline)
+     6.25s  0.61% 62.55%     26.11s  2.55%  gcWriteBarrier
+     6.17s   0.6% 63.15%     18.50s  1.81%  github.com/adbc-drivers/redis/go.writeSpillTuple
+

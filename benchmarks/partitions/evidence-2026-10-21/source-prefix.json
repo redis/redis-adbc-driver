@@ -1,0 +1,10 @@
+{
+  "url": "https://datasets.clickhouse.com/hits_compatible/hits.parquet",
+  "source_bytes": 14779976446,
+  "source_rows": 99997497,
+  "prefix_rows": 100000,
+  "columns": 105,
+  "downloaded_bytes": 54590540,
+  "prefix_sha256": "d053397f7aa5b2e1ee9160779a9e9307b162c6994aebba829c7ea1411076c4d0",
+  "prefix_parquet_bytes": 11342025
+}

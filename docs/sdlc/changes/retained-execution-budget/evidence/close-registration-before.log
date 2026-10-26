@@ -1,0 +1,6 @@
+=== RUN   TestRetainedPartitionAPICloseBeforeReaderRegistration
+    partition_retained_api_integration_test.go:523: reader escaped a connection closed before registration
+--- FAIL: TestRetainedPartitionAPICloseBeforeReaderRegistration (0.02s)
+FAIL
+FAIL	github.com/adbc-drivers/redis/go	0.759s
+FAIL

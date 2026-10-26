@@ -1,0 +1,76 @@
+{
+  "source": {
+    "baseline": "e692a704d2b70428086e145df00e73db7b1a253f",
+    "candidate": "b40b88fe683780cdc17b05cb0e5c7e4108a42014",
+    "test_followup": "c064caaca0e2894a1e828795bc8ce34e46bb3de8",
+    "runner": "14208bdc6a6cb0b27f8b85fdf498eb833a4c7e35"
+  },
+  "production_file_sha256": {
+    "go/aggregate.go": "8b55f192684176bcebdc03bf89e758a2b373d5dfc39b9f5b584c1299ef2c961a",
+    "go/aggregate_compact_integer.go": "3a7bf8434eb67b4cdae104aef356f153a187d47ebca4c4f57e7041d17dc1d6d4",
+    "go/aggregate_metrics.go": "b71ed068f9611866804b09f00bf6de2693919b31e2624fc637b201e6800bbd6e",
+    "go/execution_diagnostics.go": "8469d6d6bab5a67840345b68b3c062c36d2d05ac4bd14a10bd55b6dc64b718e0",
+    "go/parallel_aggregate.go": "fbc94b493fa234167d4c1b60de8c1873038568ba0f7800af95e94fd21889245f",
+    "go/partitioned_aggregate.go": "43410953fc167a95e40787f9fc4facc78d8af3f63db3430cf64ddc1d142d5b37",
+    "go/query.go": "bef4ace45cc50d960e82c7390aa3c2f4ae340fdd03458a94675c0027aa24746f",
+    "go/scalar_aggregate_scan.go": "6f484f2d778690e7c9cfd8056b04746c0c3978d89c946f333caf25bcdb932557",
+    "go/scan_hash_slices.go": "79f4e7fc255036ef5086fb953242ece9bd8671c09115bfbb1c9f0c11b44b43ff",
+    "go/scan_projection.go": "f4dcadac00093d90381045af0a5af35f770a657ceb4b33c00ff4c9943b4b327d"
+  },
+  "go_mod_sha256": "8f7ab2a6de205790164be618e567deff1f4186611e9aee83b54d01b57d6acb84",
+  "go_sum_sha256": "f720f3ef9b6ca3629b098fa28736526b2d2b8a1ec0683c6a3a2f5fad4db2b93c",
+  "scope": "ordinary SQL, exact aggregates, fully consumed Arrow; explicit four internal query workers and budget four",
+  "timing_claim": "current prefix confirmation; full-scale results separate",
+  "build_version": "v0.1.0",
+  "libraries": {
+    "baseline": {
+      "path": "/private/tmp/redis-remaining/aggregate-base.dylib",
+      "sha256": "b4dc0775ef49b8fc72e4038c6b809e4db72ff37f78b7802df6dc38bc88ff9381"
+    },
+    "candidate": {
+      "path": "/private/tmp/redis-remaining/aggregate-b40b88f.dylib",
+      "sha256": "f36937b8fef09e6467564b95d428f8af5b1272b96307f19305978da56c782177"
+    }
+  },
+  "go_version": "go version go1.27.2 darwin/arm64",
+  "host": "macOS 26.7.1 arm64, 18 logical CPU, 36GiB RAM",
+  "build_flags": "CGO_ENABLED=1 -buildmode=c-shared -tags driverlib -ldflags -s -w -X github.com/adbc-drivers/driverbase-go/driverbase.infoDriverVersion=v0.1.0",
+  "server": {
+    "image": "redis:8.6.2",
+    "search": "8.6.0",
+    "cpus": 4,
+    "memory_bytes": 2147483648,
+    "transport": "loopback TCP without TLS"
+  },
+  "note": "Baseline built from archive; candidate VCS metadata may say modified due to runner/evidence files. Listed production file hashes match b40b88f.",
+  "link": {
+    "configured_added_rtt_ms": 10,
+    "mbps_per_connection_per_direction": 1000,
+    "shared_bandwidth_cap": false,
+    "ping_seconds": [
+      0.013602458988316357,
+      0.013544166984502226,
+      0.013417625013971701,
+      0.013333624985534698,
+      0.013277791993459687,
+      0.013456124986987561,
+      0.013334084011148661,
+      0.012363499990897253,
+      0.013257832993986085,
+      0.013343166996492073,
+      0.01342270799796097,
+      0.013586374989245087,
+      0.013527584000257775,
+      0.013294250005856156,
+      0.013319833000423387,
+      0.013590041984571144,
+      0.013398250011960045,
+      0.012886166980024427,
+      0.012521666998509318,
+      0.01279258300201036
+    ],
+    "ping_median_seconds": 0.013338625503820367,
+    "helper_sha256": "f5af5272254869aa12cf5271385bfbf28d22adb5f1e369ff6e070d7c9167d770",
+    "scope": "userspace full-duplex propagation/bandwidth model; not a production network"
+  }
+}

@@ -1,0 +1,5181 @@
+{
+  "status": "complete",
+  "rows": 100000,
+  "workers": 4,
+  "trials": [
+    {
+      "seconds": 0.3365876669995487,
+      "query": 2,
+      "sql": "SELECT COUNT(*) FROM hits WHERE AdvEngineID <> 0;",
+      "execute_seconds": 0.33638208400225267,
+      "fetch_seconds": 0.00020641600713133812,
+      "schema": [
+        "int64"
+      ],
+      "values": [
+        [
+          2885
+        ]
+      ],
+      "rows": 1,
+      "worker_grant": 4,
+      "client_user_cpu_seconds": 0.29403799999999997,
+      "client_system_cpu_seconds": 0.067011,
+      "process_peak_rss_bytes": 177209344,
+      "execution_diagnostics": {
+        "aggregate_metrics": {},
+        "connection_read_bytes": 13291754,
+        "connection_written_bytes": 2075,
+        "execute_elapsed_seconds": 0.334994625,
+        "io_scope": "connection RESP bytes during execute, including concurrent connection maintenance; excludes TLS framing",
+        "matched_rows": 2885,
+        "phase": "parallel_aggregate",
+        "plan": {
+          "checked_integer_inputs": true,
+          "kind": "parallel_exact",
+          "residual": {
+            "Op": "<>",
+            "L": {
+              "Name": "advengineid",
+              "Qualifier": "",
+              "Schema": "",
+              "Catalog": "",
+              "Outer": 0,
+              "OuterType": {
+                "kind": "int16"
+              }
+            },
+            "R": {
+              "V": {
+                "T": {
+                  "kind": "int32"
+                },
+                "Null": false,
+                "Off": 0,
+                "I": 0,
+                "F": 0,
+                "S": "",
+                "D": null,
+                "Months": 0,
+                "Days": 0
+              },
+              "Unknown": false
+            }
+          },
+          "workers": 4
+        },
+        "process_allocated_bytes_during_execute": 190387288,
+        "process_heap_bytes": 7114248,
+        "processed_rows": 100000,
+        "redis_commands": 20,
+        "redis_round_trip_worker_seconds": 1.158857836,
+        "redis_server_profile": null,
+        "sampled_at": "2026-10-22T01:50:58.606397Z",
+        "socket_read_worker_seconds": 0.950026415,
+        "status": "execute_returned",
+        "version": 1,
+        "worker_grant": 4
+      },
+      "build": "baseline",
+      "trial": 1,
+      "isolation": {
+        "exit_code": 0,
+        "trial_isolation": "local process, no hard memory limit"
+      },
+      "server_delta": {
+        "cpu_seconds": 0.24069500000001653,
+        "commands": 33,
+        "request_bytes": 2607,
+        "reply_bytes": 13303797
+      },
+      "max_primary_sampled_rss_bytes": 919277568,
+      "max_primary_sampled_used_bytes": 853767608,
+      "valid": true
+    },
+    {
+      "seconds": 0.02689612499671057,
+      "query": 2,
+      "sql": "SELECT COUNT(*) FROM hits WHERE AdvEngineID <> 0;",
+      "execute_seconds": 0.02679133298806846,
+      "fetch_seconds": 0.00010554201435297728,
+      "schema": [
+        "int64"
+      ],
+      "values": [
+        [
+          2885
+        ]
+      ],
+      "rows": 1,
+      "worker_grant": 0,
+      "client_user_cpu_seconds": 0.007119000000000007,
+      "client_system_cpu_seconds": 0.012566,
+      "process_peak_rss_bytes": 86327296,
+      "execution_diagnostics": {
+        "aggregate_metrics": {},
+        "connection_read_bytes": 9804,
+        "connection_written_bytes": 315,
+        "execute_elapsed_seconds": 0.025550167,
+        "io_scope": "connection RESP bytes during execute, including concurrent connection maintenance; excludes TLS framing",
+        "matched_rows": 0,
+        "phase": "planning",
+        "plan": null,
+        "process_allocated_bytes_during_execute": 209064,
+        "process_heap_bytes": 1950280,
+        "processed_rows": 0,
+        "redis_commands": 2,
+        "redis_round_trip_worker_seconds": 0.024577499,
+        "redis_server_profile": null,
+        "sampled_at": "2026-10-22T01:50:58.750549Z",
+        "socket_read_worker_seconds": 0.02453525,
+        "status": "execute_returned",
+        "version": 1,
+        "worker_grant": 0
+      },
+      "build": "candidate",
+      "trial": 1,
+      "isolation": {
+        "exit_code": 0,
+        "trial_isolation": "local process, no hard memory limit"
+      },
+      "server_delta": {
+        "cpu_seconds": 0.0029159999999706088,
+        "commands": 14,
+        "request_bytes": 821,
+        "reply_bytes": 20155
+      },
+      "max_primary_sampled_rss_bytes": 922226688,
+      "max_primary_sampled_used_bytes": 846267112,
+      "valid": true
+    },
+    {
+      "seconds": 0.48099804201046936,
+      "query": 4,
+      "sql": "SELECT AVG(UserID) FROM hits;",
+      "execute_seconds": 0.48089379200246185,
+      "fetch_seconds": 0.00010516599286347628,
+      "schema": [
+        "double"
+      ],
+      "values": [
+        [
+          -7.588115896856129e+17
+        ]
+      ],
+      "rows": 1,
+      "worker_grant": 4,
+      "client_user_cpu_seconds": 0.318698,
+      "client_system_cpu_seconds": 0.057538,
+      "process_peak_rss_bytes": 162643968,
+      "execution_diagnostics": {
+        "aggregate_metrics": {},
+        "connection_read_bytes": 14781784,
+        "connection_written_bytes": 7290882,
+        "execute_elapsed_seconds": 0.479449625,
+        "io_scope": "connection RESP bytes during execute, including concurrent connection maintenance; excludes TLS framing",
+        "matched_rows": 100000,
+        "phase": "parallel_aggregate",
+        "plan": {
+          "checked_integer_inputs": true,
+          "kind": "parallel_exact",
+          "residual": null,
+          "workers": 4
+        },
+        "process_allocated_bytes_during_execute": 257944936,
+        "process_heap_bytes": 12540008,
+        "processed_rows": 100000,
+        "redis_commands": 100020,
+        "redis_round_trip_worker_seconds": 1.634198585,
+        "redis_server_profile": null,
+        "sampled_at": "2026-10-22T01:50:59.340738Z",
+        "socket_read_worker_seconds": 1.503287936,
+        "status": "execute_returned",
+        "version": 1,
+        "worker_grant": 4
+      },
+      "build": "baseline",
+      "trial": 1,
+      "isolation": {
+        "exit_code": 0,
+        "trial_isolation": "local process, no hard memory limit"
+      },
+      "server_delta": {
+        "cpu_seconds": 0.21545199999997067,
+        "commands": 100034,
+        "request_bytes": 7291440,
+        "reply_bytes": 14795529
+      },
+      "max_primary_sampled_rss_bytes": 922226688,
+      "max_primary_sampled_used_bytes": 848196016,
+      "valid": true
+    },
+    {
+      "seconds": 0.4604232500132639,
+      "query": 4,
+      "sql": "SELECT AVG(UserID) FROM hits;",
+      "execute_seconds": 0.4603038750065025,
+      "fetch_seconds": 0.00012016700929962099,
+      "schema": [
+        "double"
+      ],
+      "values": [
+        [
+          -7.588115896856129e+17
+        ]
+      ],
+      "rows": 1,
+      "worker_grant": 4,
+      "client_user_cpu_seconds": 0.17730599999999996,
+      "client_system_cpu_seconds": 0.054701,
+      "process_peak_rss_bytes": 139968512,
+      "execution_diagnostics": {
+        "aggregate_metrics": {},
+        "connection_read_bytes": 14781786,
+        "connection_written_bytes": 7290886,
+        "execute_elapsed_seconds": 0.458871833,
+        "io_scope": "connection RESP bytes during execute, including concurrent connection maintenance; excludes TLS framing",
+        "matched_rows": 100000,
+        "phase": "parallel_aggregate",
+        "plan": {
+          "checked_integer_inputs": true,
+          "kind": "parallel_exact",
+          "residual": null,
+          "workers": 4
+        },
+        "process_allocated_bytes_during_execute": 167572392,
+        "process_heap_bytes": 6215896,
+        "processed_rows": 100000,
+        "redis_commands": 100020,
+        "redis_round_trip_worker_seconds": 1.582330752,
+        "redis_server_profile": null,
+        "sampled_at": "2026-10-22T01:50:59.918673Z",
+        "socket_read_worker_seconds": 1.456968198,
+        "status": "execute_returned",
+        "version": 1,
+        "worker_grant": 4
+      },
+      "build": "candidate",
+      "trial": 1,
+      "isolation": {
+        "exit_code": 0,
+        "trial_isolation": "local process, no hard memory limit"
+      },
+      "server_delta": {
+        "cpu_seconds": 0.1943220000000565,
+        "commands": 100034,
+        "request_bytes": 7291444,
+        "reply_bytes": 14795541
+      },
+      "max_primary_sampled_rss_bytes": 922226688,
+      "max_primary_sampled_used_bytes": 847982848,
+      "valid": true
+    },
+    {
+      "seconds": 1.1216342500119936,
+      "query": 9,
+      "sql": "SELECT RegionID, COUNT(DISTINCT UserID) AS u FROM hits GROUP BY RegionID ORDER BY u DESC LIMIT 10;",
+      "execute_seconds": 1.1215544999868143,
+      "fetch_seconds": 8.037500083446503e-05,
+      "schema": [
+        "int32",
+        "int64"
+      ],
+      "values": [
+        [
+          229,
+          2755
+        ],
+        [
+          2,
+          1216
+        ],
+        [
+          208,
+          293
+        ],
+        [
+          1,
+          220
+        ],
+        [
+          47,
+          115
+        ],
+        [
+          226,
+          111
+        ],
+        [
+          7,
+          98
+        ],
+        [
+          9,
+          93
+        ],
+        [
+          35,
+          82
+        ],
+        [
+          8,
+          74
+        ]
+      ],
+      "rows": 10,
+      "worker_grant": 2,
+      "client_user_cpu_seconds": 0.09684200000000001,
+      "client_system_cpu_seconds": 0.03989999999999999,
+      "process_peak_rss_bytes": 109314048,
+      "execution_diagnostics": {
+        "aggregate_metrics": {
+          "group_limit_retries": 0,
+          "logical_value_bytes": 645023,
+          "merge_elapsed_seconds": 0.008022583,
+          "merge_wall_seconds": 0.008022875,
+          "partition_attempts": 2,
+          "partition_fetch_worker_seconds": 1.468757125,
+          "partition_worker_seconds": 1.48070725,
+          "redis_reply_seconds": 1.468757458,
+          "represented_rows": 100000,
+          "returned_tuples": 7256,
+          "row_fallbacks": 0,
+          "row_scan_partitions": 0,
+          "spill_read_bytes": 537374,
+          "spill_read_worker_seconds": 0.001006667,
+          "spill_sort_worker_seconds": 0.00100325,
+          "spill_write_worker_seconds": 0.004192336,
+          "spill_written_bytes": 537374,
+          "strategy": "partitioned_exact",
+          "workers": 2
+        },
+        "connection_read_bytes": 1943737,
+        "connection_written_bytes": 1856,
+        "execute_elapsed_seconds": 1.120480041,
+        "io_scope": "connection RESP bytes during execute, including concurrent connection maintenance; excludes TLS framing",
+        "matched_rows": 0,
+        "phase": "aggregate_merge",
+        "plan": {
+          "count_groups": false,
+          "encoded_group_key_mask": [
+            true
+          ],
+          "group_expressions": [
+            {
+              "Name": "regionid",
+              "Qualifier": "",
+              "Schema": "",
+              "Catalog": "",
+              "Outer": 0,
+              "OuterType": {
+                "kind": "int32"
+              }
+            }
+          ],
+          "input_columns": [
+            {
+              "name": "regionid",
+              "type": {
+                "kind": "int32"
+              },
+              "nullable": false,
+              "indexed": true
+            },
+            {
+              "name": "userid",
+              "type": {
+                "kind": "int64"
+              },
+              "nullable": false,
+              "indexed": true
+            }
+          ],
+          "kind": "partitioned_exact",
+          "partial_groups": false,
+          "partition_rows": 65536,
+          "residual": null,
+          "search_query": "*",
+          "server_source_tuples": true
+        },
+        "process_allocated_bytes_during_execute": 60458384,
+        "process_heap_bytes": 2760912,
+        "processed_rows": 0,
+        "redis_commands": 8,
+        "redis_round_trip_worker_seconds": 1.851963042,
+        "redis_server_profile": null,
+        "sampled_at": "2026-10-22T01:51:01.165285Z",
+        "socket_read_worker_seconds": 1.45837575,
+        "status": "execute_returned",
+        "version": 1,
+        "worker_grant": 2
+      },
+      "build": "baseline",
+      "trial": 1,
+      "isolation": {
+        "exit_code": 0,
+        "trial_isolation": "local process, no hard memory limit"
+      },
+      "server_delta": {
+        "cpu_seconds": 1.0644400000000473,
+        "commands": 22,
+        "request_bytes": 2414,
+        "reply_bytes": 1957496
+      },
+      "max_primary_sampled_rss_bytes": 922226688,
+      "max_primary_sampled_used_bytes": 848235120,
+      "valid": true
+    },
+    {
+      "seconds": 0.6984654580010101,
+      "query": 9,
+      "sql": "SELECT RegionID, COUNT(DISTINCT UserID) AS u FROM hits GROUP BY RegionID ORDER BY u DESC LIMIT 10;",
+      "execute_seconds": 0.6983775830012746,
+      "fetch_seconds": 8.858297951519489e-05,
+      "schema": [
+        "int32",
+        "int64"
+      ],
+      "values": [
+        [
+          229,
+          2755
+        ],
+        [
+          2,
+          1216
+        ],
+        [
+          208,
+          293
+        ],
+        [
+          1,
+          220
+        ],
+        [
+          47,
+          115
+        ],
+        [
+          226,
+          111
+        ],
+        [
+          7,
+          98
+        ],
+        [
+          9,
+          93
+        ],
+        [
+          35,
+          82
+        ],
+        [
+          8,
+          74
+        ]
+      ],
+      "rows": 10,
+      "worker_grant": 2,
+      "client_user_cpu_seconds": 0.239302,
+      "client_system_cpu_seconds": 0.069304,
+      "process_peak_rss_bytes": 109330432,
+      "execution_diagnostics": {
+        "aggregate_metrics": {
+          "compact_tuple_worker_seconds": 0.011350816,
+          "group_limit_retries": 0,
+          "logical_value_bytes": 250547,
+          "merge_elapsed_seconds": 0.01084525,
+          "merge_wall_seconds": 0.010845917,
+          "partition_attempts": 2,
+          "partition_fetch_worker_seconds": 0.989505684,
+          "partition_worker_seconds": 1.001029833,
+          "redis_reply_seconds": 0,
+          "represented_rows": 100000,
+          "returned_tuples": 7256,
+          "row_fallbacks": 0,
+          "row_scan_partitions": 2,
+          "spill_read_bytes": 537374,
+          "spill_read_worker_seconds": 0.000392462,
+          "spill_sort_worker_seconds": 0.001588794,
+          "spill_write_worker_seconds": 0.0065695,
+          "spill_written_bytes": 537374,
+          "strategy": "partitioned_exact",
+          "workers": 2
+        },
+        "connection_read_bytes": 15625403,
+        "connection_written_bytes": 8692033,
+        "execute_elapsed_seconds": 0.697181125,
+        "io_scope": "connection RESP bytes during execute, including concurrent connection maintenance; excludes TLS framing",
+        "matched_rows": 100000,
+        "phase": "aggregate_merge",
+        "plan": {
+          "client_compact_tuples": true,
+          "compact_probe_max_seconds": 0.0002295,
+          "count_groups": false,
+          "encoded_group_key_mask": [
+            true
+          ],
+          "group_expressions": [
+            {
+              "Name": "regionid",
+              "Qualifier": "",
+              "Schema": "",
+              "Catalog": "",
+              "Outer": 0,
+              "OuterType": {
+                "kind": "int32"
+              }
+            }
+          ],
+          "input_columns": [
+            {
+              "name": "regionid",
+              "type": {
+                "kind": "int32"
+              },
+              "nullable": false,
+              "indexed": true
+            },
+            {
+              "name": "userid",
+              "type": {
+                "kind": "int64"
+              },
+              "nullable": false,
+              "indexed": true
+            }
+          ],
+          "kind": "partitioned_exact",
+          "partial_groups": false,
+          "partition_rows": 65536,
+          "residual": null,
+          "search_query": "*",
+          "server_source_tuples": false
+        },
+        "process_allocated_bytes_during_execute": 211135496,
+        "process_heap_bytes": 2589944,
+        "processed_rows": 100000,
+        "redis_commands": 100032,
+        "redis_round_trip_worker_seconds": 0.957543003,
+        "redis_server_profile": null,
+        "sampled_at": "2026-10-22T01:51:01.983876Z",
+        "socket_read_worker_seconds": 0.872057143,
+        "status": "execute_returned",
+        "version": 1,
+        "worker_grant": 2
+      },
+      "build": "candidate",
+      "trial": 1,
+      "isolation": {
+        "exit_code": 0,
+        "trial_isolation": "local process, no hard memory limit"
+      },
+      "server_delta": {
+        "cpu_seconds": 0.20915199999996048,
+        "commands": 100051,
+        "request_bytes": 8692617,
+        "reply_bytes": 15640855
+      },
+      "max_primary_sampled_rss_bytes": 922226688,
+      "max_primary_sampled_used_bytes": 846434152,
+      "valid": true
+    },
+    {
+      "seconds": 1.1726727919885889,
+      "query": 10,
+      "sql": "SELECT RegionID, SUM(AdvEngineID), COUNT(*) AS c, AVG(ResolutionWidth), COUNT(DISTINCT UserID) FROM hits GROUP BY RegionID ORDER BY c DESC LIMIT 10;",
+      "execute_seconds": 1.1725416250119451,
+      "fetch_seconds": 0.0001321669842582196,
+      "schema": [
+        "int32",
+        "int64",
+        "int64",
+        "double",
+        "int64"
+      ],
+      "values": [
+        [
+          229,
+          8053,
+          45950,
+          1639.4182372143634,
+          2755
+        ],
+        [
+          2,
+          2650,
+          19102,
+          1578.4341430216732,
+          1216
+        ],
+        [
+          208,
+          423,
+          3823,
+          1457.4132879937222,
+          293
+        ],
+        [
+          1,
+          314,
+          3701,
+          1561.9873007295325,
+          220
+        ],
+        [
+          47,
+          244,
+          2127,
+          1650.602726845322,
+          115
+        ],
+        [
+          7,
+          168,
+          1438,
+          1531.7858136300417,
+          98
+        ],
+        [
+          9,
+          26,
+          1377,
+          1734.962962962963,
+          93
+        ],
+        [
+          35,
+          124,
+          1096,
+          1601.727189781022,
+          82
+        ],
+        [
+          8,
+          352,
+          987,
+          1754.3900709219859,
+          74
+        ],
+        [
+          226,
+          140,
+          774,
+          1564.640826873385,
+          111
+        ]
+      ],
+      "rows": 10,
+      "worker_grant": 2,
+      "client_user_cpu_seconds": 0.140795,
+      "client_system_cpu_seconds": 0.043953,
+      "process_peak_rss_bytes": 132562944,
+      "execution_diagnostics": {
+        "aggregate_metrics": {
+          "group_limit_retries": 0,
+          "logical_value_bytes": 1232836,
+          "merge_elapsed_seconds": 0.01036275,
+          "merge_wall_seconds": 0.01036325,
+          "partition_attempts": 2,
+          "partition_fetch_worker_seconds": 1.878453834,
+          "partition_worker_seconds": 1.896501667,
+          "redis_reply_seconds": 1.878454333,
+          "represented_rows": 100000,
+          "returned_tuples": 7912,
+          "row_fallbacks": 0,
+          "row_scan_partitions": 0,
+          "spill_read_bytes": 791050,
+          "spill_read_worker_seconds": 0.000868539,
+          "spill_sort_worker_seconds": 0.000954791,
+          "spill_write_worker_seconds": 0.004355003,
+          "spill_written_bytes": 791050,
+          "strategy": "partitioned_exact",
+          "workers": 2
+        },
+        "connection_read_bytes": 3518020,
+        "connection_written_bytes": 2934,
+        "execute_elapsed_seconds": 1.171375583,
+        "io_scope": "connection RESP bytes during execute, including concurrent connection maintenance; excludes TLS framing",
+        "matched_rows": 0,
+        "phase": "aggregate_merge",
+        "plan": {
+          "count_groups": false,
+          "encoded_group_key_mask": [
+            true
+          ],
+          "group_expressions": [
+            {
+              "Name": "regionid",
+              "Qualifier": "",
+              "Schema": "",
+              "Catalog": "",
+              "Outer": 0,
+              "OuterType": {
+                "kind": "int32"
+              }
+            }
+          ],
+          "input_columns": [
+            {
+              "name": "regionid",
+              "type": {
+                "kind": "int32"
+              },
+              "nullable": false,
+              "indexed": true
+            },
+            {
+              "name": "userid",
+              "type": {
+                "kind": "int64"
+              },
+              "nullable": false,
+              "indexed": true
+            },
+            {
+              "name": "advengineid",
+              "type": {
+                "kind": "int16"
+              },
+              "nullable": false,
+              "indexed": true
+            },
+            {
+              "name": "resolutionwidth",
+              "type": {
+                "kind": "int16"
+              },
+              "nullable": false,
+              "indexed": true
+            }
+          ],
+          "kind": "partitioned_exact",
+          "partial_groups": false,
+          "partition_rows": 65536,
+          "residual": null,
+          "search_query": "*",
+          "server_source_tuples": true
+        },
+        "process_allocated_bytes_during_execute": 107182768,
+        "process_heap_bytes": 2595072,
+        "processed_rows": 0,
+        "redis_commands": 8,
+        "redis_round_trip_worker_seconds": 2.625522873,
+        "redis_server_profile": null,
+        "sampled_at": "2026-10-22T01:51:03.286014Z",
+        "socket_read_worker_seconds": 1.865835871,
+        "status": "execute_returned",
+        "version": 1,
+        "worker_grant": 2
+      },
+      "build": "baseline",
+      "trial": 1,
+      "isolation": {
+        "exit_code": 0,
+        "trial_isolation": "local process, no hard memory limit"
+      },
+      "server_delta": {
+        "cpu_seconds": 1.1077000000000226,
+        "commands": 22,
+        "request_bytes": 3492,
+        "reply_bytes": 3531780
+      },
+      "max_primary_sampled_rss_bytes": 922816512,
+      "max_primary_sampled_used_bytes": 850152328,
+      "valid": true
+    },
+    {
+      "seconds": 0.638453166000545,
+      "query": 10,
+      "sql": "SELECT RegionID, SUM(AdvEngineID), COUNT(*) AS c, AVG(ResolutionWidth), COUNT(DISTINCT UserID) FROM hits GROUP BY RegionID ORDER BY c DESC LIMIT 10;",
+      "execute_seconds": 0.6383568749879487,
+      "fetch_seconds": 9.708301513455808e-05,
+      "schema": [
+        "int32",
+        "int64",
+        "int64",
+        "double",
+        "int64"
+      ],
+      "values": [
+        [
+          229,
+          8053,
+          45950,
+          1639.4182372143634,
+          2755
+        ],
+        [
+          2,
+          2650,
+          19102,
+          1578.4341430216732,
+          1216
+        ],
+        [
+          208,
+          423,
+          3823,
+          1457.4132879937222,
+          293
+        ],
+        [
+          1,
+          314,
+          3701,
+          1561.9873007295325,
+          220
+        ],
+        [
+          47,
+          244,
+          2127,
+          1650.602726845322,
+          115
+        ],
+        [
+          7,
+          168,
+          1438,
+          1531.7858136300417,
+          98
+        ],
+        [
+          9,
+          26,
+          1377,
+          1734.962962962963,
+          93
+        ],
+        [
+          35,
+          124,
+          1096,
+          1601.727189781022,
+          82
+        ],
+        [
+          8,
+          352,
+          987,
+          1754.3900709219859,
+          74
+        ],
+        [
+          226,
+          140,
+          774,
+          1564.640826873385,
+          111
+        ]
+      ],
+      "rows": 10,
+      "worker_grant": 2,
+      "client_user_cpu_seconds": 0.27275799999999994,
+      "client_system_cpu_seconds": 0.075035,
+      "process_peak_rss_bytes": 109510656,
+      "execution_diagnostics": {
+        "aggregate_metrics": {
+          "compact_tuple_worker_seconds": 0.014619321,
+          "group_limit_retries": 0,
+          "logical_value_bytes": 518161,
+          "merge_elapsed_seconds": 0.012358542,
+          "merge_wall_seconds": 0.01235875,
+          "partition_attempts": 2,
+          "partition_fetch_worker_seconds": 0.910220763,
+          "partition_worker_seconds": 0.924957626,
+          "redis_reply_seconds": 0,
+          "represented_rows": 100000,
+          "returned_tuples": 7912,
+          "row_fallbacks": 0,
+          "row_scan_partitions": 2,
+          "spill_read_bytes": 791050,
+          "spill_read_worker_seconds": 0.00044667,
+          "spill_sort_worker_seconds": 0.001067586,
+          "spill_write_worker_seconds": 0.001923711,
+          "spill_written_bytes": 791050,
+          "strategy": "partitioned_exact",
+          "workers": 2
+        },
+        "connection_read_bytes": 17321544,
+        "connection_written_bytes": 12692001,
+        "execute_elapsed_seconds": 0.637137292,
+        "io_scope": "connection RESP bytes during execute, including concurrent connection maintenance; excludes TLS framing",
+        "matched_rows": 100000,
+        "phase": "aggregate_merge",
+        "plan": {
+          "client_compact_tuples": true,
+          "compact_probe_max_seconds": 0.000206875,
+          "count_groups": false,
+          "encoded_group_key_mask": [
+            true
+          ],
+          "group_expressions": [
+            {
+              "Name": "regionid",
+              "Qualifier": "",
+              "Schema": "",
+              "Catalog": "",
+              "Outer": 0,
+              "OuterType": {
+                "kind": "int32"
+              }
+            }
+          ],
+          "input_columns": [
+            {
+              "name": "regionid",
+              "type": {
+                "kind": "int32"
+              },
+              "nullable": false,
+              "indexed": true
+            },
+            {
+              "name": "userid",
+              "type": {
+                "kind": "int64"
+              },
+              "nullable": false,
+              "indexed": true
+            },
+            {
+              "name": "advengineid",
+              "type": {
+                "kind": "int16"
+              },
+              "nullable": false,
+              "indexed": true
+            },
+            {
+              "name": "resolutionwidth",
+              "type": {
+                "kind": "int16"
+              },
+              "nullable": false,
+              "indexed": true
+            }
+          ],
+          "kind": "partitioned_exact",
+          "partial_groups": false,
+          "partition_rows": 65536,
+          "residual": null,
+          "search_query": "*",
+          "server_source_tuples": false
+        },
+        "process_allocated_bytes_during_execute": 246405408,
+        "process_heap_bytes": 3548584,
+        "processed_rows": 100000,
+        "redis_commands": 100032,
+        "redis_round_trip_worker_seconds": 0.866387962,
+        "redis_server_profile": null,
+        "sampled_at": "2026-10-22T01:51:04.044871Z",
+        "socket_read_worker_seconds": 0.773667563,
+        "status": "execute_returned",
+        "version": 1,
+        "worker_grant": 2
+      },
+      "build": "candidate",
+      "trial": 1,
+      "isolation": {
+        "exit_code": 0,
+        "trial_isolation": "local process, no hard memory limit"
+      },
+      "server_delta": {
+        "cpu_seconds": 0.2166679999999701,
+        "commands": 100050,
+        "request_bytes": 12692559,
+        "reply_bytes": 17335299
+      },
+      "max_primary_sampled_rss_bytes": 922816512,
+      "max_primary_sampled_used_bytes": 846827072,
+      "valid": true
+    },
+    {
+      "seconds": 0.6438256250112318,
+      "query": 10,
+      "sql": "SELECT RegionID, SUM(AdvEngineID), COUNT(*) AS c, AVG(ResolutionWidth), COUNT(DISTINCT UserID) FROM hits GROUP BY RegionID ORDER BY c DESC LIMIT 10;",
+      "execute_seconds": 0.643725000001723,
+      "fetch_seconds": 0.00010129099246114492,
+      "schema": [
+        "int32",
+        "int64",
+        "int64",
+        "double",
+        "int64"
+      ],
+      "values": [
+        [
+          229,
+          8053,
+          45950,
+          1639.4182372143634,
+          2755
+        ],
+        [
+          2,
+          2650,
+          19102,
+          1578.4341430216732,
+          1216
+        ],
+        [
+          208,
+          423,
+          3823,
+          1457.4132879937222,
+          293
+        ],
+        [
+          1,
+          314,
+          3701,
+          1561.9873007295325,
+          220
+        ],
+        [
+          47,
+          244,
+          2127,
+          1650.602726845322,
+          115
+        ],
+        [
+          7,
+          168,
+          1438,
+          1531.7858136300417,
+          98
+        ],
+        [
+          9,
+          26,
+          1377,
+          1734.962962962963,
+          93
+        ],
+        [
+          35,
+          124,
+          1096,
+          1601.727189781022,
+          82
+        ],
+        [
+          8,
+          352,
+          987,
+          1754.3900709219859,
+          74
+        ],
+        [
+          226,
+          140,
+          774,
+          1564.640826873385,
+          111
+        ]
+      ],
+      "rows": 10,
+      "worker_grant": 2,
+      "client_user_cpu_seconds": 0.267895,
+      "client_system_cpu_seconds": 0.072807,
+      "process_peak_rss_bytes": 110395392,
+      "execution_diagnostics": {
+        "aggregate_metrics": {
+          "compact_tuple_worker_seconds": 0.013433227,
+          "group_limit_retries": 0,
+          "logical_value_bytes": 518161,
+          "merge_elapsed_seconds": 0.011442958,
+          "merge_wall_seconds": 0.011443292,
+          "partition_attempts": 2,
+          "partition_fetch_worker_seconds": 0.862819564,
+          "partition_worker_seconds": 0.87638525,
+          "redis_reply_seconds": 0,
+          "represented_rows": 100000,
+          "returned_tuples": 7912,
+          "row_fallbacks": 0,
+          "row_scan_partitions": 2,
+          "spill_read_bytes": 791050,
+          "spill_read_worker_seconds": 0.000454458,
+          "spill_sort_worker_seconds": 0.000989121,
+          "spill_write_worker_seconds": 0.00153462,
+          "spill_written_bytes": 791050,
+          "strategy": "partitioned_exact",
+          "workers": 2
+        },
+        "connection_read_bytes": 17321560,
+        "connection_written_bytes": 12692033,
+        "execute_elapsed_seconds": 0.642623708,
+        "io_scope": "connection RESP bytes during execute, including concurrent connection maintenance; excludes TLS framing",
+        "matched_rows": 100000,
+        "phase": "aggregate_merge",
+        "plan": {
+          "client_compact_tuples": true,
+          "compact_probe_max_seconds": 0.000218084,
+          "count_groups": false,
+          "encoded_group_key_mask": [
+            true
+          ],
+          "group_expressions": [
+            {
+              "Name": "regionid",
+              "Qualifier": "",
+              "Schema": "",
+              "Catalog": "",
+              "Outer": 0,
+              "OuterType": {
+                "kind": "int32"
+              }
+            }
+          ],
+          "input_columns": [
+            {
+              "name": "regionid",
+              "type": {
+                "kind": "int32"
+              },
+              "nullable": false,
+              "indexed": true
+            },
+            {
+              "name": "userid",
+              "type": {
+                "kind": "int64"
+              },
+              "nullable": false,
+              "indexed": true
+            },
+            {
+              "name": "advengineid",
+              "type": {
+                "kind": "int16"
+              },
+              "nullable": false,
+              "indexed": true
+            },
+            {
+              "name": "resolutionwidth",
+              "type": {
+                "kind": "int16"
+              },
+              "nullable": false,
+              "indexed": true
+            }
+          ],
+          "kind": "partitioned_exact",
+          "partial_groups": false,
+          "partition_rows": 65536,
+          "residual": null,
+          "search_query": "*",
+          "server_source_tuples": false
+        },
+        "process_allocated_bytes_during_execute": 246430024,
+        "process_heap_bytes": 4073872,
+        "processed_rows": 100000,
+        "redis_commands": 100032,
+        "redis_round_trip_worker_seconds": 0.819950708,
+        "redis_server_profile": null,
+        "sampled_at": "2026-10-22T01:51:04.809774Z",
+        "socket_read_worker_seconds": 0.72802042,
+        "status": "execute_returned",
+        "version": 1,
+        "worker_grant": 2
+      },
+      "build": "candidate",
+      "trial": 2,
+      "isolation": {
+        "exit_code": 0,
+        "trial_isolation": "local process, no hard memory limit"
+      },
+      "server_delta": {
+        "cpu_seconds": 0.21882199999998875,
+        "commands": 100050,
+        "request_bytes": 12692591,
+        "reply_bytes": 17335316
+      },
+      "max_primary_sampled_rss_bytes": 922816512,
+      "max_primary_sampled_used_bytes": 847254584,
+      "valid": true
+    },
+    {
+      "seconds": 1.146060667000711,
+      "query": 10,
+      "sql": "SELECT RegionID, SUM(AdvEngineID), COUNT(*) AS c, AVG(ResolutionWidth), COUNT(DISTINCT UserID) FROM hits GROUP BY RegionID ORDER BY c DESC LIMIT 10;",
+      "execute_seconds": 1.145970292011043,
+      "fetch_seconds": 9.104199125431478e-05,
+      "schema": [
+        "int32",
+        "int64",
+        "int64",
+        "double",
+        "int64"
+      ],
+      "values": [
+        [
+          229,
+          8053,
+          45950,
+          1639.4182372143634,
+          2755
+        ],
+        [
+          2,
+          2650,
+          19102,
+          1578.4341430216732,
+          1216
+        ],
+        [
+          208,
+          423,
+          3823,
+          1457.4132879937222,
+          293
+        ],
+        [
+          1,
+          314,
+          3701,
+          1561.9873007295325,
+          220
+        ],
+        [
+          47,
+          244,
+          2127,
+          1650.602726845322,
+          115
+        ],
+        [
+          7,
+          168,
+          1438,
+          1531.7858136300417,
+          98
+        ],
+        [
+          9,
+          26,
+          1377,
+          1734.962962962963,
+          93
+        ],
+        [
+          35,
+          124,
+          1096,
+          1601.727189781022,
+          82
+        ],
+        [
+          8,
+          352,
+          987,
+          1754.3900709219859,
+          74
+        ],
+        [
+          226,
+          140,
+          774,
+          1564.640826873385,
+          111
+        ]
+      ],
+      "rows": 10,
+      "worker_grant": 2,
+      "client_user_cpu_seconds": 0.138034,
+      "client_system_cpu_seconds": 0.044873,
+      "process_peak_rss_bytes": 131268608,
+      "execution_diagnostics": {
+        "aggregate_metrics": {
+          "group_limit_retries": 0,
+          "logical_value_bytes": 1232836,
+          "merge_elapsed_seconds": 0.01221025,
+          "merge_wall_seconds": 0.012210542,
+          "partition_attempts": 2,
+          "partition_fetch_worker_seconds": 1.82741775,
+          "partition_worker_seconds": 1.843733,
+          "redis_reply_seconds": 1.827417959,
+          "represented_rows": 100000,
+          "returned_tuples": 7912,
+          "row_fallbacks": 0,
+          "row_scan_partitions": 0,
+          "spill_read_bytes": 791050,
+          "spill_read_worker_seconds": 0.001042129,
+          "spill_sort_worker_seconds": 0.000795585,
+          "spill_write_worker_seconds": 0.001485287,
+          "spill_written_bytes": 791050,
+          "strategy": "partitioned_exact",
+          "workers": 2
+        },
+        "connection_read_bytes": 3518020,
+        "connection_written_bytes": 2934,
+        "execute_elapsed_seconds": 1.1449235,
+        "io_scope": "connection RESP bytes during execute, including concurrent connection maintenance; excludes TLS framing",
+        "matched_rows": 0,
+        "phase": "aggregate_merge",
+        "plan": {
+          "count_groups": false,
+          "encoded_group_key_mask": [
+            true
+          ],
+          "group_expressions": [
+            {
+              "Name": "regionid",
+              "Qualifier": "",
+              "Schema": "",
+              "Catalog": "",
+              "Outer": 0,
+              "OuterType": {
+                "kind": "int32"
+              }
+            }
+          ],
+          "input_columns": [
+            {
+              "name": "regionid",
+              "type": {
+                "kind": "int32"
+              },
+              "nullable": false,
+              "indexed": true
+            },
+            {
+              "name": "userid",
+              "type": {
+                "kind": "int64"
+              },
+              "nullable": false,
+              "indexed": true
+            },
+            {
+              "name": "advengineid",
+              "type": {
+                "kind": "int16"
+              },
+              "nullable": false,
+              "indexed": true
+            },
+            {
+              "name": "resolutionwidth",
+              "type": {
+                "kind": "int16"
+              },
+              "nullable": false,
+              "indexed": true
+            }
+          ],
+          "kind": "partitioned_exact",
+          "partial_groups": false,
+          "partition_rows": 65536,
+          "residual": null,
+          "search_query": "*",
+          "server_source_tuples": true
+        },
+        "process_allocated_bytes_during_execute": 107189848,
+        "process_heap_bytes": 2277360,
+        "processed_rows": 0,
+        "redis_commands": 8,
+        "redis_round_trip_worker_seconds": 2.55753104,
+        "redis_server_profile": null,
+        "sampled_at": "2026-10-22T01:51:06.089968Z",
+        "socket_read_worker_seconds": 1.820589999,
+        "status": "execute_returned",
+        "version": 1,
+        "worker_grant": 2
+      },
+      "build": "baseline",
+      "trial": 2,
+      "isolation": {
+        "exit_code": 0,
+        "trial_isolation": "local process, no hard memory limit"
+      },
+      "server_delta": {
+        "cpu_seconds": 1.0792320000000473,
+        "commands": 22,
+        "request_bytes": 3492,
+        "reply_bytes": 3531781
+      },
+      "max_primary_sampled_rss_bytes": 922963968,
+      "max_primary_sampled_used_bytes": 850153952,
+      "valid": true
+    },
+    {
+      "seconds": 0.7547217500105035,
+      "query": 9,
+      "sql": "SELECT RegionID, COUNT(DISTINCT UserID) AS u FROM hits GROUP BY RegionID ORDER BY u DESC LIMIT 10;",
+      "execute_seconds": 0.7545313340087887,
+      "fetch_seconds": 0.00019212497863918543,
+      "schema": [
+        "int32",
+        "int64"
+      ],
+      "values": [
+        [
+          229,
+          2755
+        ],
+        [
+          2,
+          1216
+        ],
+        [
+          208,
+          293
+        ],
+        [
+          1,
+          220
+        ],
+        [
+          47,
+          115
+        ],
+        [
+          226,
+          111
+        ],
+        [
+          7,
+          98
+        ],
+        [
+          9,
+          93
+        ],
+        [
+          35,
+          82
+        ],
+        [
+          8,
+          74
+        ]
+      ],
+      "rows": 10,
+      "worker_grant": 2,
+      "client_user_cpu_seconds": 0.23647799999999997,
+      "client_system_cpu_seconds": 0.07462999999999999,
+      "process_peak_rss_bytes": 108675072,
+      "execution_diagnostics": {
+        "aggregate_metrics": {
+          "compact_tuple_worker_seconds": 0.010310117,
+          "group_limit_retries": 0,
+          "logical_value_bytes": 250547,
+          "merge_elapsed_seconds": 0.010046875,
+          "merge_wall_seconds": 0.010047208,
+          "partition_attempts": 2,
+          "partition_fetch_worker_seconds": 1.094256134,
+          "partition_worker_seconds": 1.104712333,
+          "redis_reply_seconds": 0,
+          "represented_rows": 100000,
+          "returned_tuples": 7256,
+          "row_fallbacks": 0,
+          "row_scan_partitions": 2,
+          "spill_read_bytes": 537374,
+          "spill_read_worker_seconds": 0.000291703,
+          "spill_sort_worker_seconds": 0.001324543,
+          "spill_write_worker_seconds": 0.002333124,
+          "spill_written_bytes": 537374,
+          "strategy": "partitioned_exact",
+          "workers": 2
+        },
+        "connection_read_bytes": 15625387,
+        "connection_written_bytes": 8692001,
+        "execute_elapsed_seconds": 0.753208125,
+        "io_scope": "connection RESP bytes during execute, including concurrent connection maintenance; excludes TLS framing",
+        "matched_rows": 100000,
+        "phase": "aggregate_merge",
+        "plan": {
+          "client_compact_tuples": true,
+          "compact_probe_max_seconds": 0.000199709,
+          "count_groups": false,
+          "encoded_group_key_mask": [
+            true
+          ],
+          "group_expressions": [
+            {
+              "Name": "regionid",
+              "Qualifier": "",
+              "Schema": "",
+              "Catalog": "",
+              "Outer": 0,
+              "OuterType": {
+                "kind": "int32"
+              }
+            }
+          ],
+          "input_columns": [
+            {
+              "name": "regionid",
+              "type": {
+                "kind": "int32"
+              },
+              "nullable": false,
+              "indexed": true
+            },
+            {
+              "name": "userid",
+              "type": {
+                "kind": "int64"
+              },
+              "nullable": false,
+              "indexed": true
+            }
+          ],
+          "kind": "partitioned_exact",
+          "partial_groups": false,
+          "partition_rows": 65536,
+          "residual": null,
+          "search_query": "*",
+          "server_source_tuples": false
+        },
+        "process_allocated_bytes_during_execute": 211117336,
+        "process_heap_bytes": 2481296,
+        "processed_rows": 100000,
+        "redis_commands": 100032,
+        "redis_round_trip_worker_seconds": 1.060713082,
+        "redis_server_profile": null,
+        "sampled_at": "2026-10-22T01:51:06.963362Z",
+        "socket_read_worker_seconds": 0.975869254,
+        "status": "execute_returned",
+        "version": 1,
+        "worker_grant": 2
+      },
+      "build": "candidate",
+      "trial": 2,
+      "isolation": {
+        "exit_code": 0,
+        "trial_isolation": "local process, no hard memory limit"
+      },
+      "server_delta": {
+        "cpu_seconds": 0.21307000000001608,
+        "commands": 100051,
+        "request_bytes": 8692585,
+        "reply_bytes": 15640840
+      },
+      "max_primary_sampled_rss_bytes": 922963968,
+      "max_primary_sampled_used_bytes": 846835088,
+      "valid": true
+    },
+    {
+      "seconds": 1.097939083003439,
+      "query": 9,
+      "sql": "SELECT RegionID, COUNT(DISTINCT UserID) AS u FROM hits GROUP BY RegionID ORDER BY u DESC LIMIT 10;",
+      "execute_seconds": 1.0978467079985421,
+      "fetch_seconds": 9.304200648330152e-05,
+      "schema": [
+        "int32",
+        "int64"
+      ],
+      "values": [
+        [
+          229,
+          2755
+        ],
+        [
+          2,
+          1216
+        ],
+        [
+          208,
+          293
+        ],
+        [
+          1,
+          220
+        ],
+        [
+          47,
+          115
+        ],
+        [
+          226,
+          111
+        ],
+        [
+          7,
+          98
+        ],
+        [
+          9,
+          93
+        ],
+        [
+          35,
+          82
+        ],
+        [
+          8,
+          74
+        ]
+      ],
+      "rows": 10,
+      "worker_grant": 2,
+      "client_user_cpu_seconds": 0.076205,
+      "client_system_cpu_seconds": 0.032826999999999995,
+      "process_peak_rss_bytes": 112328704,
+      "execution_diagnostics": {
+        "aggregate_metrics": {
+          "group_limit_retries": 0,
+          "logical_value_bytes": 645023,
+          "merge_elapsed_seconds": 0.006147458,
+          "merge_wall_seconds": 0.006147791,
+          "partition_attempts": 2,
+          "partition_fetch_worker_seconds": 1.774751,
+          "partition_worker_seconds": 1.783533791,
+          "redis_reply_seconds": 1.774751625,
+          "represented_rows": 100000,
+          "returned_tuples": 7256,
+          "row_fallbacks": 0,
+          "row_scan_partitions": 0,
+          "spill_read_bytes": 537374,
+          "spill_read_worker_seconds": 0.000305659,
+          "spill_sort_worker_seconds": 0.000681621,
+          "spill_write_worker_seconds": 0.001272168,
+          "spill_written_bytes": 537374,
+          "strategy": "partitioned_exact",
+          "workers": 2
+        },
+        "connection_read_bytes": 1943737,
+        "connection_written_bytes": 1856,
+        "execute_elapsed_seconds": 1.0967035,
+        "io_scope": "connection RESP bytes during execute, including concurrent connection maintenance; excludes TLS framing",
+        "matched_rows": 0,
+        "phase": "aggregate_merge",
+        "plan": {
+          "count_groups": false,
+          "encoded_group_key_mask": [
+            true
+          ],
+          "group_expressions": [
+            {
+              "Name": "regionid",
+              "Qualifier": "",
+              "Schema": "",
+              "Catalog": "",
+              "Outer": 0,
+              "OuterType": {
+                "kind": "int32"
+              }
+            }
+          ],
+          "input_columns": [
+            {
+              "name": "regionid",
+              "type": {
+                "kind": "int32"
+              },
+              "nullable": false,
+              "indexed": true
+            },
+            {
+              "name": "userid",
+              "type": {
+                "kind": "int64"
+              },
+              "nullable": false,
+              "indexed": true
+            }
+          ],
+          "kind": "partitioned_exact",
+          "partial_groups": false,
+          "partition_rows": 65536,
+          "residual": null,
+          "search_query": "*",
+          "server_source_tuples": true
+        },
+        "process_allocated_bytes_during_execute": 60482192,
+        "process_heap_bytes": 2190872,
+        "processed_rows": 0,
+        "redis_commands": 8,
+        "redis_round_trip_worker_seconds": 2.493353084,
+        "redis_server_profile": null,
+        "sampled_at": "2026-10-22T01:51:08.18961Z",
+        "socket_read_worker_seconds": 1.778681832,
+        "status": "execute_returned",
+        "version": 1,
+        "worker_grant": 2
+      },
+      "build": "baseline",
+      "trial": 2,
+      "isolation": {
+        "exit_code": 0,
+        "trial_isolation": "local process, no hard memory limit"
+      },
+      "server_delta": {
+        "cpu_seconds": 1.052005999999949,
+        "commands": 22,
+        "request_bytes": 2414,
+        "reply_bytes": 1957495
+      },
+      "max_primary_sampled_rss_bytes": 922963968,
+      "max_primary_sampled_used_bytes": 848254792,
+      "valid": true
+    },
+    {
+      "seconds": 0.46703966599307023,
+      "query": 4,
+      "sql": "SELECT AVG(UserID) FROM hits;",
+      "execute_seconds": 0.46685500000603497,
+      "fetch_seconds": 0.00018608299433253706,
+      "schema": [
+        "double"
+      ],
+      "values": [
+        [
+          -7.588115896856129e+17
+        ]
+      ],
+      "rows": 1,
+      "worker_grant": 4,
+      "client_user_cpu_seconds": 0.183974,
+      "client_system_cpu_seconds": 0.057495,
+      "process_peak_rss_bytes": 136118272,
+      "execution_diagnostics": {
+        "aggregate_metrics": {},
+        "connection_read_bytes": 14781782,
+        "connection_written_bytes": 7290880,
+        "execute_elapsed_seconds": 0.465101625,
+        "io_scope": "connection RESP bytes during execute, including concurrent connection maintenance; excludes TLS framing",
+        "matched_rows": 100000,
+        "phase": "parallel_aggregate",
+        "plan": {
+          "checked_integer_inputs": true,
+          "kind": "parallel_exact",
+          "residual": null,
+          "workers": 4
+        },
+        "process_allocated_bytes_during_execute": 167567768,
+        "process_heap_bytes": 14296432,
+        "processed_rows": 100000,
+        "redis_commands": 100020,
+        "redis_round_trip_worker_seconds": 1.711288756,
+        "redis_server_profile": null,
+        "sampled_at": "2026-10-22T01:51:08.76855Z",
+        "socket_read_worker_seconds": 1.576341924,
+        "status": "execute_returned",
+        "version": 1,
+        "worker_grant": 4
+      },
+      "build": "candidate",
+      "trial": 2,
+      "isolation": {
+        "exit_code": 0,
+        "trial_isolation": "local process, no hard memory limit"
+      },
+      "server_delta": {
+        "cpu_seconds": 0.19153599999998505,
+        "commands": 100034,
+        "request_bytes": 7291438,
+        "reply_bytes": 14795538
+      },
+      "max_primary_sampled_rss_bytes": 922963968,
+      "max_primary_sampled_used_bytes": 847048168,
+      "valid": true
+    },
+    {
+      "seconds": 0.4101831250009127,
+      "query": 4,
+      "sql": "SELECT AVG(UserID) FROM hits;",
+      "execute_seconds": 0.41010287500103004,
+      "fetch_seconds": 8.104098378680646e-05,
+      "schema": [
+        "double"
+      ],
+      "values": [
+        [
+          -7.588115896856129e+17
+        ]
+      ],
+      "rows": 1,
+      "worker_grant": 4,
+      "client_user_cpu_seconds": 0.33976699999999993,
+      "client_system_cpu_seconds": 0.063161,
+      "process_peak_rss_bytes": 159186944,
+      "execution_diagnostics": {
+        "aggregate_metrics": {},
+        "connection_read_bytes": 14781786,
+        "connection_written_bytes": 7290886,
+        "execute_elapsed_seconds": 0.408806125,
+        "io_scope": "connection RESP bytes during execute, including concurrent connection maintenance; excludes TLS framing",
+        "matched_rows": 100000,
+        "phase": "parallel_aggregate",
+        "plan": {
+          "checked_integer_inputs": true,
+          "kind": "parallel_exact",
+          "residual": null,
+          "workers": 4
+        },
+        "process_allocated_bytes_during_execute": 257951984,
+        "process_heap_bytes": 28965944,
+        "processed_rows": 100000,
+        "redis_commands": 100020,
+        "redis_round_trip_worker_seconds": 1.366104797,
+        "redis_server_profile": null,
+        "sampled_at": "2026-10-22T01:51:09.310899Z",
+        "socket_read_worker_seconds": 1.223110865,
+        "status": "execute_returned",
+        "version": 1,
+        "worker_grant": 4
+      },
+      "build": "baseline",
+      "trial": 2,
+      "isolation": {
+        "exit_code": 0,
+        "trial_isolation": "local process, no hard memory limit"
+      },
+      "server_delta": {
+        "cpu_seconds": 0.19080200000001923,
+        "commands": 100033,
+        "request_bytes": 7291418,
+        "reply_bytes": 14793847
+      },
+      "max_primary_sampled_rss_bytes": 921583616,
+      "max_primary_sampled_used_bytes": 851510552,
+      "valid": true
+    },
+    {
+      "seconds": 0.015294625016395003,
+      "query": 2,
+      "sql": "SELECT COUNT(*) FROM hits WHERE AdvEngineID <> 0;",
+      "execute_seconds": 0.015236000006552786,
+      "fetch_seconds": 5.91249845456332e-05,
+      "schema": [
+        "int64"
+      ],
+      "values": [
+        [
+          2885
+        ]
+      ],
+      "rows": 1,
+      "worker_grant": 0,
+      "client_user_cpu_seconds": 0.007009000000000001,
+      "client_system_cpu_seconds": 0.005287,
+      "process_peak_rss_bytes": 86261760,
+      "execution_diagnostics": {
+        "aggregate_metrics": {},
+        "connection_read_bytes": 9804,
+        "connection_written_bytes": 315,
+        "execute_elapsed_seconds": 0.014154875,
+        "io_scope": "connection RESP bytes during execute, including concurrent connection maintenance; excludes TLS framing",
+        "matched_rows": 0,
+        "phase": "planning",
+        "plan": null,
+        "process_allocated_bytes_during_execute": 203128,
+        "process_heap_bytes": 1955296,
+        "processed_rows": 0,
+        "redis_commands": 2,
+        "redis_round_trip_worker_seconds": 0.013538208,
+        "redis_server_profile": null,
+        "sampled_at": "2026-10-22T01:51:09.448277Z",
+        "socket_read_worker_seconds": 0.013506499,
+        "status": "execute_returned",
+        "version": 1,
+        "worker_grant": 0
+      },
+      "build": "candidate",
+      "trial": 2,
+      "isolation": {
+        "exit_code": 0,
+        "trial_isolation": "local process, no hard memory limit"
+      },
+      "server_delta": {
+        "cpu_seconds": 0.0019059999999626598,
+        "commands": 14,
+        "request_bytes": 821,
+        "reply_bytes": 20169
+      },
+      "max_primary_sampled_rss_bytes": 921583616,
+      "max_primary_sampled_used_bytes": 846276912,
+      "valid": true
+    },
+    {
+      "seconds": 0.22497525002108887,
+      "query": 2,
+      "sql": "SELECT COUNT(*) FROM hits WHERE AdvEngineID <> 0;",
+      "execute_seconds": 0.22489629199844785,
+      "fetch_seconds": 7.983300019986928e-05,
+      "schema": [
+        "int64"
+      ],
+      "values": [
+        [
+          2885
+        ]
+      ],
+      "rows": 1,
+      "worker_grant": 4,
+      "client_user_cpu_seconds": 0.278198,
+      "client_system_cpu_seconds": 0.044315999999999994,
+      "process_peak_rss_bytes": 149323776,
+      "execution_diagnostics": {
+        "aggregate_metrics": {},
+        "connection_read_bytes": 13291750,
+        "connection_written_bytes": 2067,
+        "execute_elapsed_seconds": 0.223652209,
+        "io_scope": "connection RESP bytes during execute, including concurrent connection maintenance; excludes TLS framing",
+        "matched_rows": 2885,
+        "phase": "parallel_aggregate",
+        "plan": {
+          "checked_integer_inputs": true,
+          "kind": "parallel_exact",
+          "residual": {
+            "Op": "<>",
+            "L": {
+              "Name": "advengineid",
+              "Qualifier": "",
+              "Schema": "",
+              "Catalog": "",
+              "Outer": 0,
+              "OuterType": {
+                "kind": "int16"
+              }
+            },
+            "R": {
+              "V": {
+                "T": {
+                  "kind": "int32"
+                },
+                "Null": false,
+                "Off": 0,
+                "I": 0,
+                "F": 0,
+                "S": "",
+                "D": null,
+                "Months": 0,
+                "Days": 0
+              },
+              "Unknown": false
+            }
+          },
+          "workers": 4
+        },
+        "process_allocated_bytes_during_execute": 190384800,
+        "process_heap_bytes": 30623136,
+        "processed_rows": 100000,
+        "redis_commands": 20,
+        "redis_round_trip_worker_seconds": 0.687080335,
+        "redis_server_profile": null,
+        "sampled_at": "2026-10-22T01:51:09.78407Z",
+        "socket_read_worker_seconds": 0.540560254,
+        "status": "execute_returned",
+        "version": 1,
+        "worker_grant": 4
+      },
+      "build": "baseline",
+      "trial": 2,
+      "isolation": {
+        "exit_code": 0,
+        "trial_isolation": "local process, no hard memory limit"
+      },
+      "server_delta": {
+        "cpu_seconds": 0.14302900000001273,
+        "commands": 33,
+        "request_bytes": 2599,
+        "reply_bytes": 13303813
+      },
+      "max_primary_sampled_rss_bytes": 922763264,
+      "max_primary_sampled_used_bytes": 854398640,
+      "valid": true
+    },
+    {
+      "seconds": 0.20709004197851755,
+      "query": 2,
+      "sql": "SELECT COUNT(*) FROM hits WHERE AdvEngineID <> 0;",
+      "execute_seconds": 0.20701254199957475,
+      "fetch_seconds": 7.799998275004327e-05,
+      "schema": [
+        "int64"
+      ],
+      "values": [
+        [
+          2885
+        ]
+      ],
+      "rows": 1,
+      "worker_grant": 4,
+      "client_user_cpu_seconds": 0.281588,
+      "client_system_cpu_seconds": 0.05258,
+      "process_peak_rss_bytes": 147718144,
+      "execution_diagnostics": {
+        "aggregate_metrics": {},
+        "connection_read_bytes": 13291752,
+        "connection_written_bytes": 2071,
+        "execute_elapsed_seconds": 0.205821875,
+        "io_scope": "connection RESP bytes during execute, including concurrent connection maintenance; excludes TLS framing",
+        "matched_rows": 2885,
+        "phase": "parallel_aggregate",
+        "plan": {
+          "checked_integer_inputs": true,
+          "kind": "parallel_exact",
+          "residual": {
+            "Op": "<>",
+            "L": {
+              "Name": "advengineid",
+              "Qualifier": "",
+              "Schema": "",
+              "Catalog": "",
+              "Outer": 0,
+              "OuterType": {
+                "kind": "int16"
+              }
+            },
+            "R": {
+              "V": {
+                "T": {
+                  "kind": "int32"
+                },
+                "Null": false,
+                "Off": 0,
+                "I": 0,
+                "F": 0,
+                "S": "",
+                "D": null,
+                "Months": 0,
+                "Days": 0
+              },
+              "Unknown": false
+            }
+          },
+          "workers": 4
+        },
+        "process_allocated_bytes_during_execute": 190383232,
+        "process_heap_bytes": 26337936,
+        "processed_rows": 100000,
+        "redis_commands": 20,
+        "redis_round_trip_worker_seconds": 0.636913288,
+        "redis_server_profile": null,
+        "sampled_at": "2026-10-22T01:51:10.105996Z",
+        "socket_read_worker_seconds": 0.499864986,
+        "status": "execute_returned",
+        "version": 1,
+        "worker_grant": 4
+      },
+      "build": "baseline",
+      "trial": 3,
+      "isolation": {
+        "exit_code": 0,
+        "trial_isolation": "local process, no hard memory limit"
+      },
+      "server_delta": {
+        "cpu_seconds": 0.13548500000001695,
+        "commands": 33,
+        "request_bytes": 2603,
+        "reply_bytes": 13303818
+      },
+      "max_primary_sampled_rss_bytes": 925122560,
+      "max_primary_sampled_used_bytes": 852505536,
+      "valid": true
+    },
+    {
+      "seconds": 0.017906624998431653,
+      "query": 2,
+      "sql": "SELECT COUNT(*) FROM hits WHERE AdvEngineID <> 0;",
+      "execute_seconds": 0.01785083400318399,
+      "fetch_seconds": 5.6374992709606886e-05,
+      "schema": [
+        "int64"
+      ],
+      "values": [
+        [
+          2885
+        ]
+      ],
+      "rows": 1,
+      "worker_grant": 0,
+      "client_user_cpu_seconds": 0.006929000000000005,
+      "client_system_cpu_seconds": 0.005386000000000002,
+      "process_peak_rss_bytes": 86163456,
+      "execution_diagnostics": {
+        "aggregate_metrics": {},
+        "connection_read_bytes": 9804,
+        "connection_written_bytes": 315,
+        "execute_elapsed_seconds": 0.01676475,
+        "io_scope": "connection RESP bytes during execute, including concurrent connection maintenance; excludes TLS framing",
+        "matched_rows": 0,
+        "phase": "planning",
+        "plan": null,
+        "process_allocated_bytes_during_execute": 209224,
+        "process_heap_bytes": 1955960,
+        "processed_rows": 0,
+        "redis_commands": 2,
+        "redis_round_trip_worker_seconds": 0.016109751,
+        "redis_server_profile": null,
+        "sampled_at": "2026-10-22T01:51:10.253998Z",
+        "socket_read_worker_seconds": 0.016075875,
+        "status": "execute_returned",
+        "version": 1,
+        "worker_grant": 0
+      },
+      "build": "candidate",
+      "trial": 3,
+      "isolation": {
+        "exit_code": 0,
+        "trial_isolation": "local process, no hard memory limit"
+      },
+      "server_delta": {
+        "cpu_seconds": 0.002238000000033935,
+        "commands": 14,
+        "request_bytes": 821,
+        "reply_bytes": 20170
+      },
+      "max_primary_sampled_rss_bytes": 925122560,
+      "max_primary_sampled_used_bytes": 846287352,
+      "valid": true
+    },
+    {
+      "seconds": 0.3837069590226747,
+      "query": 4,
+      "sql": "SELECT AVG(UserID) FROM hits;",
+      "execute_seconds": 0.38362175002112053,
+      "fetch_seconds": 8.604198228567839e-05,
+      "schema": [
+        "double"
+      ],
+      "values": [
+        [
+          -7.588115896856129e+17
+        ]
+      ],
+      "rows": 1,
+      "worker_grant": 4,
+      "client_user_cpu_seconds": 0.33691499999999996,
+      "client_system_cpu_seconds": 0.05896799999999999,
+      "process_peak_rss_bytes": 163938304,
+      "execution_diagnostics": {
+        "aggregate_metrics": {},
+        "connection_read_bytes": 14781782,
+        "connection_written_bytes": 7290882,
+        "execute_elapsed_seconds": 0.382343,
+        "io_scope": "connection RESP bytes during execute, including concurrent connection maintenance; excludes TLS framing",
+        "matched_rows": 100000,
+        "phase": "parallel_aggregate",
+        "plan": {
+          "checked_integer_inputs": true,
+          "kind": "parallel_exact",
+          "residual": null,
+          "workers": 4
+        },
+        "process_allocated_bytes_during_execute": 257951056,
+        "process_heap_bytes": 22983560,
+        "processed_rows": 100000,
+        "redis_commands": 100020,
+        "redis_round_trip_worker_seconds": 1.328264665,
+        "redis_server_profile": null,
+        "sampled_at": "2026-10-22T01:51:10.749899Z",
+        "socket_read_worker_seconds": 1.17843565,
+        "status": "execute_returned",
+        "version": 1,
+        "worker_grant": 4
+      },
+      "build": "baseline",
+      "trial": 3,
+      "isolation": {
+        "exit_code": 0,
+        "trial_isolation": "local process, no hard memory limit"
+      },
+      "server_delta": {
+        "cpu_seconds": 0.19652399999995396,
+        "commands": 100033,
+        "request_bytes": 7291414,
+        "reply_bytes": 14793843
+      },
+      "max_primary_sampled_rss_bytes": 925122560,
+      "max_primary_sampled_used_bytes": 846557472,
+      "valid": true
+    },
+    {
+      "seconds": 0.3641881669755094,
+      "query": 4,
+      "sql": "SELECT AVG(UserID) FROM hits;",
+      "execute_seconds": 0.3641071669990197,
+      "fetch_seconds": 8.166697807610035e-05,
+      "schema": [
+        "double"
+      ],
+      "values": [
+        [
+          -7.588115896856129e+17
+        ]
+      ],
+      "rows": 1,
+      "worker_grant": 4,
+      "client_user_cpu_seconds": 0.182773,
+      "client_system_cpu_seconds": 0.056203,
+      "process_peak_rss_bytes": 138887168,
+      "execution_diagnostics": {
+        "aggregate_metrics": {},
+        "connection_read_bytes": 14781784,
+        "connection_written_bytes": 7290882,
+        "execute_elapsed_seconds": 0.3628295,
+        "io_scope": "connection RESP bytes during execute, including concurrent connection maintenance; excludes TLS framing",
+        "matched_rows": 100000,
+        "phase": "parallel_aggregate",
+        "plan": {
+          "checked_integer_inputs": true,
+          "kind": "parallel_exact",
+          "residual": null,
+          "workers": 4
+        },
+        "process_allocated_bytes_during_execute": 167568152,
+        "process_heap_bytes": 5717176,
+        "processed_rows": 100000,
+        "redis_commands": 100020,
+        "redis_round_trip_worker_seconds": 1.320773582,
+        "redis_server_profile": null,
+        "sampled_at": "2026-10-22T01:51:11.234558Z",
+        "socket_read_worker_seconds": 1.191059846,
+        "status": "execute_returned",
+        "version": 1,
+        "worker_grant": 4
+      },
+      "build": "candidate",
+      "trial": 3,
+      "isolation": {
+        "exit_code": 0,
+        "trial_isolation": "local process, no hard memory limit"
+      },
+      "server_delta": {
+        "cpu_seconds": 0.1891090000000304,
+        "commands": 100033,
+        "request_bytes": 7291414,
+        "reply_bytes": 14793848
+      },
+      "max_primary_sampled_rss_bytes": 925122560,
+      "max_primary_sampled_used_bytes": 846557832,
+      "valid": true
+    },
+    {
+      "seconds": 1.0827162089990452,
+      "query": 9,
+      "sql": "SELECT RegionID, COUNT(DISTINCT UserID) AS u FROM hits GROUP BY RegionID ORDER BY u DESC LIMIT 10;",
+      "execute_seconds": 1.0826416669879109,
+      "fetch_seconds": 7.52079940866679e-05,
+      "schema": [
+        "int32",
+        "int64"
+      ],
+      "values": [
+        [
+          229,
+          2755
+        ],
+        [
+          2,
+          1216
+        ],
+        [
+          208,
+          293
+        ],
+        [
+          1,
+          220
+        ],
+        [
+          47,
+          115
+        ],
+        [
+          226,
+          111
+        ],
+        [
+          7,
+          98
+        ],
+        [
+          9,
+          93
+        ],
+        [
+          35,
+          82
+        ],
+        [
+          8,
+          74
+        ]
+      ],
+      "rows": 10,
+      "worker_grant": 2,
+      "client_user_cpu_seconds": 0.090531,
+      "client_system_cpu_seconds": 0.042578,
+      "process_peak_rss_bytes": 111427584,
+      "execution_diagnostics": {
+        "aggregate_metrics": {
+          "group_limit_retries": 0,
+          "logical_value_bytes": 645023,
+          "merge_elapsed_seconds": 0.008146917,
+          "merge_wall_seconds": 0.008147166,
+          "partition_attempts": 2,
+          "partition_fetch_worker_seconds": 1.7517475,
+          "partition_worker_seconds": 1.761561542,
+          "redis_reply_seconds": 1.751748292,
+          "represented_rows": 100000,
+          "returned_tuples": 7256,
+          "row_fallbacks": 0,
+          "row_scan_partitions": 0,
+          "spill_read_bytes": 537374,
+          "spill_read_worker_seconds": 0.000644911,
+          "spill_sort_worker_seconds": 0.000943037,
+          "spill_write_worker_seconds": 0.003985702,
+          "spill_written_bytes": 537374,
+          "strategy": "partitioned_exact",
+          "workers": 2
+        },
+        "connection_read_bytes": 1943737,
+        "connection_written_bytes": 1856,
+        "execute_elapsed_seconds": 1.081543708,
+        "io_scope": "connection RESP bytes during execute, including concurrent connection maintenance; excludes TLS framing",
+        "matched_rows": 0,
+        "phase": "aggregate_merge",
+        "plan": {
+          "count_groups": false,
+          "encoded_group_key_mask": [
+            true
+          ],
+          "group_expressions": [
+            {
+              "Name": "regionid",
+              "Qualifier": "",
+              "Schema": "",
+              "Catalog": "",
+              "Outer": 0,
+              "OuterType": {
+                "kind": "int32"
+              }
+            }
+          ],
+          "input_columns": [
+            {
+              "name": "regionid",
+              "type": {
+                "kind": "int32"
+              },
+              "nullable": false,
+              "indexed": true
+            },
+            {
+              "name": "userid",
+              "type": {
+                "kind": "int64"
+              },
+              "nullable": false,
+              "indexed": true
+            }
+          ],
+          "kind": "partitioned_exact",
+          "partial_groups": false,
+          "partition_rows": 65536,
+          "residual": null,
+          "search_query": "*",
+          "server_source_tuples": true
+        },
+        "process_allocated_bytes_during_execute": 60493200,
+        "process_heap_bytes": 3030384,
+        "processed_rows": 0,
+        "redis_commands": 8,
+        "redis_round_trip_worker_seconds": 2.450858959,
+        "redis_server_profile": null,
+        "sampled_at": "2026-10-22T01:51:12.438889Z",
+        "socket_read_worker_seconds": 1.743218417,
+        "status": "execute_returned",
+        "version": 1,
+        "worker_grant": 2
+      },
+      "build": "baseline",
+      "trial": 3,
+      "isolation": {
+        "exit_code": 0,
+        "trial_isolation": "local process, no hard memory limit"
+      },
+      "server_delta": {
+        "cpu_seconds": 1.0332319999999982,
+        "commands": 22,
+        "request_bytes": 2414,
+        "reply_bytes": 1957497
+      },
+      "max_primary_sampled_rss_bytes": 925122560,
+      "max_primary_sampled_used_bytes": 848255192,
+      "valid": true
+    },
+    {
+      "seconds": 0.6858261660090648,
+      "query": 9,
+      "sql": "SELECT RegionID, COUNT(DISTINCT UserID) AS u FROM hits GROUP BY RegionID ORDER BY u DESC LIMIT 10;",
+      "execute_seconds": 0.6857262499979697,
+      "fetch_seconds": 0.00010083301458507776,
+      "schema": [
+        "int32",
+        "int64"
+      ],
+      "values": [
+        [
+          229,
+          2755
+        ],
+        [
+          2,
+          1216
+        ],
+        [
+          208,
+          293
+        ],
+        [
+          1,
+          220
+        ],
+        [
+          47,
+          115
+        ],
+        [
+          226,
+          111
+        ],
+        [
+          7,
+          98
+        ],
+        [
+          9,
+          93
+        ],
+        [
+          35,
+          82
+        ],
+        [
+          8,
+          74
+        ]
+      ],
+      "rows": 10,
+      "worker_grant": 2,
+      "client_user_cpu_seconds": 0.215314,
+      "client_system_cpu_seconds": 0.06893,
+      "process_peak_rss_bytes": 108544000,
+      "execution_diagnostics": {
+        "aggregate_metrics": {
+          "compact_tuple_worker_seconds": 0.009197471,
+          "group_limit_retries": 0,
+          "logical_value_bytes": 250547,
+          "merge_elapsed_seconds": 0.007090875,
+          "merge_wall_seconds": 0.007091334,
+          "partition_attempts": 2,
+          "partition_fetch_worker_seconds": 1.021714946,
+          "partition_worker_seconds": 1.031056916,
+          "redis_reply_seconds": 0,
+          "represented_rows": 100000,
+          "returned_tuples": 7256,
+          "row_fallbacks": 0,
+          "row_scan_partitions": 2,
+          "spill_read_bytes": 537374,
+          "spill_read_worker_seconds": 0.000480626,
+          "spill_sort_worker_seconds": 0.000818752,
+          "spill_write_worker_seconds": 0.001554209,
+          "spill_written_bytes": 537374,
+          "strategy": "partitioned_exact",
+          "workers": 2
+        },
+        "connection_read_bytes": 15625411,
+        "connection_written_bytes": 8692049,
+        "execute_elapsed_seconds": 0.684585709,
+        "io_scope": "connection RESP bytes during execute, including concurrent connection maintenance; excludes TLS framing",
+        "matched_rows": 100000,
+        "phase": "aggregate_merge",
+        "plan": {
+          "client_compact_tuples": true,
+          "compact_probe_max_seconds": 0.000241542,
+          "count_groups": false,
+          "encoded_group_key_mask": [
+            true
+          ],
+          "group_expressions": [
+            {
+              "Name": "regionid",
+              "Qualifier": "",
+              "Schema": "",
+              "Catalog": "",
+              "Outer": 0,
+              "OuterType": {
+                "kind": "int32"
+              }
+            }
+          ],
+          "input_columns": [
+            {
+              "name": "regionid",
+              "type": {
+                "kind": "int32"
+              },
+              "nullable": false,
+              "indexed": true
+            },
+            {
+              "name": "userid",
+              "type": {
+                "kind": "int64"
+              },
+              "nullable": false,
+              "indexed": true
+            }
+          ],
+          "kind": "partitioned_exact",
+          "partial_groups": false,
+          "partition_rows": 65536,
+          "residual": null,
+          "search_query": "*",
+          "server_source_tuples": false
+        },
+        "process_allocated_bytes_during_execute": 211142904,
+        "process_heap_bytes": 2986096,
+        "processed_rows": 100000,
+        "redis_commands": 100032,
+        "redis_round_trip_worker_seconds": 0.990513708,
+        "redis_server_profile": null,
+        "sampled_at": "2026-10-22T01:51:13.250356Z",
+        "socket_read_worker_seconds": 0.909873084,
+        "status": "execute_returned",
+        "version": 1,
+        "worker_grant": 2
+      },
+      "build": "candidate",
+      "trial": 3,
+      "isolation": {
+        "exit_code": 0,
+        "trial_isolation": "local process, no hard memory limit"
+      },
+      "server_delta": {
+        "cpu_seconds": 0.20629400000001397,
+        "commands": 100051,
+        "request_bytes": 8692633,
+        "reply_bytes": 15640864
+      },
+      "max_primary_sampled_rss_bytes": 925122560,
+      "max_primary_sampled_used_bytes": 846824424,
+      "valid": true
+    },
+    {
+      "seconds": 1.1450150839809794,
+      "query": 10,
+      "sql": "SELECT RegionID, SUM(AdvEngineID), COUNT(*) AS c, AVG(ResolutionWidth), COUNT(DISTINCT UserID) FROM hits GROUP BY RegionID ORDER BY c DESC LIMIT 10;",
+      "execute_seconds": 1.144925417000195,
+      "fetch_seconds": 9.033299284055829e-05,
+      "schema": [
+        "int32",
+        "int64",
+        "int64",
+        "double",
+        "int64"
+      ],
+      "values": [
+        [
+          229,
+          8053,
+          45950,
+          1639.4182372143634,
+          2755
+        ],
+        [
+          2,
+          2650,
+          19102,
+          1578.4341430216732,
+          1216
+        ],
+        [
+          208,
+          423,
+          3823,
+          1457.4132879937222,
+          293
+        ],
+        [
+          1,
+          314,
+          3701,
+          1561.9873007295325,
+          220
+        ],
+        [
+          47,
+          244,
+          2127,
+          1650.602726845322,
+          115
+        ],
+        [
+          7,
+          168,
+          1438,
+          1531.7858136300417,
+          98
+        ],
+        [
+          9,
+          26,
+          1377,
+          1734.962962962963,
+          93
+        ],
+        [
+          35,
+          124,
+          1096,
+          1601.727189781022,
+          82
+        ],
+        [
+          8,
+          352,
+          987,
+          1754.3900709219859,
+          74
+        ],
+        [
+          226,
+          140,
+          774,
+          1564.640826873385,
+          111
+        ]
+      ],
+      "rows": 10,
+      "worker_grant": 2,
+      "client_user_cpu_seconds": 0.151651,
+      "client_system_cpu_seconds": 0.05651899999999999,
+      "process_peak_rss_bytes": 129302528,
+      "execution_diagnostics": {
+        "aggregate_metrics": {
+          "group_limit_retries": 0,
+          "logical_value_bytes": 1232836,
+          "merge_elapsed_seconds": 0.012320416,
+          "merge_wall_seconds": 0.012320875,
+          "partition_attempts": 2,
+          "partition_fetch_worker_seconds": 1.842116541,
+          "partition_worker_seconds": 1.860334583,
+          "redis_reply_seconds": 1.842117126,
+          "represented_rows": 100000,
+          "returned_tuples": 7912,
+          "row_fallbacks": 0,
+          "row_scan_partitions": 0,
+          "spill_read_bytes": 791050,
+          "spill_read_worker_seconds": 0.000448123,
+          "spill_sort_worker_seconds": 0.001021043,
+          "spill_write_worker_seconds": 0.004454545,
+          "spill_written_bytes": 791050,
+          "strategy": "partitioned_exact",
+          "workers": 2
+        },
+        "connection_read_bytes": 3518020,
+        "connection_written_bytes": 2934,
+        "execute_elapsed_seconds": 1.143722917,
+        "io_scope": "connection RESP bytes during execute, including concurrent connection maintenance; excludes TLS framing",
+        "matched_rows": 0,
+        "phase": "aggregate_merge",
+        "plan": {
+          "count_groups": false,
+          "encoded_group_key_mask": [
+            true
+          ],
+          "group_expressions": [
+            {
+              "Name": "regionid",
+              "Qualifier": "",
+              "Schema": "",
+              "Catalog": "",
+              "Outer": 0,
+              "OuterType": {
+                "kind": "int32"
+              }
+            }
+          ],
+          "input_columns": [
+            {
+              "name": "regionid",
+              "type": {
+                "kind": "int32"
+              },
+              "nullable": false,
+              "indexed": true
+            },
+            {
+              "name": "userid",
+              "type": {
+                "kind": "int64"
+              },
+              "nullable": false,
+              "indexed": true
+            },
+            {
+              "name": "advengineid",
+              "type": {
+                "kind": "int16"
+              },
+              "nullable": false,
+              "indexed": true
+            },
+            {
+              "name": "resolutionwidth",
+              "type": {
+                "kind": "int16"
+              },
+              "nullable": false,
+              "indexed": true
+            }
+          ],
+          "kind": "partitioned_exact",
+          "partial_groups": false,
+          "partition_rows": 65536,
+          "residual": null,
+          "search_query": "*",
+          "server_source_tuples": true
+        },
+        "process_allocated_bytes_during_execute": 107181600,
+        "process_heap_bytes": 3027648,
+        "processed_rows": 0,
+        "redis_commands": 8,
+        "redis_round_trip_worker_seconds": 2.566409083,
+        "redis_server_profile": null,
+        "sampled_at": "2026-10-22T01:51:14.514852Z",
+        "socket_read_worker_seconds": 1.824419456,
+        "status": "execute_returned",
+        "version": 1,
+        "worker_grant": 2
+      },
+      "build": "baseline",
+      "trial": 3,
+      "isolation": {
+        "exit_code": 0,
+        "trial_isolation": "local process, no hard memory limit"
+      },
+      "server_delta": {
+        "cpu_seconds": 1.0872829999999567,
+        "commands": 22,
+        "request_bytes": 3492,
+        "reply_bytes": 3531783
+      },
+      "max_primary_sampled_rss_bytes": 925122560,
+      "max_primary_sampled_used_bytes": 850157360,
+      "valid": true
+    },
+    {
+      "seconds": 0.6651627499959432,
+      "query": 10,
+      "sql": "SELECT RegionID, SUM(AdvEngineID), COUNT(*) AS c, AVG(ResolutionWidth), COUNT(DISTINCT UserID) FROM hits GROUP BY RegionID ORDER BY c DESC LIMIT 10;",
+      "execute_seconds": 0.6650347500108182,
+      "fetch_seconds": 0.0001290829968638718,
+      "schema": [
+        "int32",
+        "int64",
+        "int64",
+        "double",
+        "int64"
+      ],
+      "values": [
+        [
+          229,
+          8053,
+          45950,
+          1639.4182372143634,
+          2755
+        ],
+        [
+          2,
+          2650,
+          19102,
+          1578.4341430216732,
+          1216
+        ],
+        [
+          208,
+          423,
+          3823,
+          1457.4132879937222,
+          293
+        ],
+        [
+          1,
+          314,
+          3701,
+          1561.9873007295325,
+          220
+        ],
+        [
+          47,
+          244,
+          2127,
+          1650.602726845322,
+          115
+        ],
+        [
+          7,
+          168,
+          1438,
+          1531.7858136300417,
+          98
+        ],
+        [
+          9,
+          26,
+          1377,
+          1734.962962962963,
+          93
+        ],
+        [
+          35,
+          124,
+          1096,
+          1601.727189781022,
+          82
+        ],
+        [
+          8,
+          352,
+          987,
+          1754.3900709219859,
+          74
+        ],
+        [
+          226,
+          140,
+          774,
+          1564.640826873385,
+          111
+        ]
+      ],
+      "rows": 10,
+      "worker_grant": 2,
+      "client_user_cpu_seconds": 0.27071199999999995,
+      "client_system_cpu_seconds": 0.07447899999999999,
+      "process_peak_rss_bytes": 109428736,
+      "execution_diagnostics": {
+        "aggregate_metrics": {
+          "compact_tuple_worker_seconds": 0.014373827,
+          "group_limit_retries": 0,
+          "logical_value_bytes": 518161,
+          "merge_elapsed_seconds": 0.011199375,
+          "merge_wall_seconds": 0.011199625,
+          "partition_attempts": 2,
+          "partition_fetch_worker_seconds": 0.957132631,
+          "partition_worker_seconds": 0.971646542,
+          "redis_reply_seconds": 0,
+          "represented_rows": 100000,
+          "returned_tuples": 7912,
+          "row_fallbacks": 0,
+          "row_scan_partitions": 2,
+          "spill_read_bytes": 791050,
+          "spill_read_worker_seconds": 0.000517671,
+          "spill_sort_worker_seconds": 0.001115583,
+          "spill_write_worker_seconds": 0.002039086,
+          "spill_written_bytes": 791050,
+          "strategy": "partitioned_exact",
+          "workers": 2
+        },
+        "connection_read_bytes": 17321560,
+        "connection_written_bytes": 12692033,
+        "execute_elapsed_seconds": 0.663809625,
+        "io_scope": "connection RESP bytes during execute, including concurrent connection maintenance; excludes TLS framing",
+        "matched_rows": 100000,
+        "phase": "aggregate_merge",
+        "plan": {
+          "client_compact_tuples": true,
+          "compact_probe_max_seconds": 0.000350583,
+          "count_groups": false,
+          "encoded_group_key_mask": [
+            true
+          ],
+          "group_expressions": [
+            {
+              "Name": "regionid",
+              "Qualifier": "",
+              "Schema": "",
+              "Catalog": "",
+              "Outer": 0,
+              "OuterType": {
+                "kind": "int32"
+              }
+            }
+          ],
+          "input_columns": [
+            {
+              "name": "regionid",
+              "type": {
+                "kind": "int32"
+              },
+              "nullable": false,
+              "indexed": true
+            },
+            {
+              "name": "userid",
+              "type": {
+                "kind": "int64"
+              },
+              "nullable": false,
+              "indexed": true
+            },
+            {
+              "name": "advengineid",
+              "type": {
+                "kind": "int16"
+              },
+              "nullable": false,
+              "indexed": true
+            },
+            {
+              "name": "resolutionwidth",
+              "type": {
+                "kind": "int16"
+              },
+              "nullable": false,
+              "indexed": true
+            }
+          ],
+          "kind": "partitioned_exact",
+          "partial_groups": false,
+          "partition_rows": 65536,
+          "residual": null,
+          "search_query": "*",
+          "server_source_tuples": false
+        },
+        "process_allocated_bytes_during_execute": 246430992,
+        "process_heap_bytes": 4317608,
+        "processed_rows": 100000,
+        "redis_commands": 100032,
+        "redis_round_trip_worker_seconds": 0.910609705,
+        "redis_server_profile": null,
+        "sampled_at": "2026-10-22T01:51:15.301856Z",
+        "socket_read_worker_seconds": 0.818647697,
+        "status": "execute_returned",
+        "version": 1,
+        "worker_grant": 2
+      },
+      "build": "candidate",
+      "trial": 3,
+      "isolation": {
+        "exit_code": 0,
+        "trial_isolation": "local process, no hard memory limit"
+      },
+      "server_delta": {
+        "cpu_seconds": 0.2177379999999971,
+        "commands": 100051,
+        "request_bytes": 12692617,
+        "reply_bytes": 17337010
+      },
+      "max_primary_sampled_rss_bytes": 925122560,
+      "max_primary_sampled_used_bytes": 846430456,
+      "valid": true
+    },
+    {
+      "seconds": 0.6996707499783952,
+      "query": 10,
+      "sql": "SELECT RegionID, SUM(AdvEngineID), COUNT(*) AS c, AVG(ResolutionWidth), COUNT(DISTINCT UserID) FROM hits GROUP BY RegionID ORDER BY c DESC LIMIT 10;",
+      "execute_seconds": 0.6995825829799287,
+      "fetch_seconds": 8.887500734999776e-05,
+      "schema": [
+        "int32",
+        "int64",
+        "int64",
+        "double",
+        "int64"
+      ],
+      "values": [
+        [
+          229,
+          8053,
+          45950,
+          1639.4182372143634,
+          2755
+        ],
+        [
+          2,
+          2650,
+          19102,
+          1578.4341430216732,
+          1216
+        ],
+        [
+          208,
+          423,
+          3823,
+          1457.4132879937222,
+          293
+        ],
+        [
+          1,
+          314,
+          3701,
+          1561.9873007295325,
+          220
+        ],
+        [
+          47,
+          244,
+          2127,
+          1650.602726845322,
+          115
+        ],
+        [
+          7,
+          168,
+          1438,
+          1531.7858136300417,
+          98
+        ],
+        [
+          9,
+          26,
+          1377,
+          1734.962962962963,
+          93
+        ],
+        [
+          35,
+          124,
+          1096,
+          1601.727189781022,
+          82
+        ],
+        [
+          8,
+          352,
+          987,
+          1754.3900709219859,
+          74
+        ],
+        [
+          226,
+          140,
+          774,
+          1564.640826873385,
+          111
+        ]
+      ],
+      "rows": 10,
+      "worker_grant": 2,
+      "client_user_cpu_seconds": 0.273991,
+      "client_system_cpu_seconds": 0.076973,
+      "process_peak_rss_bytes": 109854720,
+      "execution_diagnostics": {
+        "aggregate_metrics": {
+          "compact_tuple_worker_seconds": 0.014011488,
+          "group_limit_retries": 0,
+          "logical_value_bytes": 518161,
+          "merge_elapsed_seconds": 0.01209725,
+          "merge_wall_seconds": 0.012097583,
+          "partition_attempts": 2,
+          "partition_fetch_worker_seconds": 1.002519138,
+          "partition_worker_seconds": 1.016654958,
+          "redis_reply_seconds": 0,
+          "represented_rows": 100000,
+          "returned_tuples": 7912,
+          "row_fallbacks": 0,
+          "row_scan_partitions": 2,
+          "spill_read_bytes": 791050,
+          "spill_read_worker_seconds": 0.000674711,
+          "spill_sort_worker_seconds": 0.001132834,
+          "spill_write_worker_seconds": 0.004718001,
+          "spill_written_bytes": 791050,
+          "strategy": "partitioned_exact",
+          "workers": 2
+        },
+        "connection_read_bytes": 17321568,
+        "connection_written_bytes": 12692049,
+        "execute_elapsed_seconds": 0.698391959,
+        "io_scope": "connection RESP bytes during execute, including concurrent connection maintenance; excludes TLS framing",
+        "matched_rows": 100000,
+        "phase": "aggregate_merge",
+        "plan": {
+          "client_compact_tuples": true,
+          "compact_probe_max_seconds": 0.000167958,
+          "count_groups": false,
+          "encoded_group_key_mask": [
+            true
+          ],
+          "group_expressions": [
+            {
+              "Name": "regionid",
+              "Qualifier": "",
+              "Schema": "",
+              "Catalog": "",
+              "Outer": 0,
+              "OuterType": {
+                "kind": "int32"
+              }
+            }
+          ],
+          "input_columns": [
+            {
+              "name": "regionid",
+              "type": {
+                "kind": "int32"
+              },
+              "nullable": false,
+              "indexed": true
+            },
+            {
+              "name": "userid",
+              "type": {
+                "kind": "int64"
+              },
+              "nullable": false,
+              "indexed": true
+            },
+            {
+              "name": "advengineid",
+              "type": {
+                "kind": "int16"
+              },
+              "nullable": false,
+              "indexed": true
+            },
+            {
+              "name": "resolutionwidth",
+              "type": {
+                "kind": "int16"
+              },
+              "nullable": false,
+              "indexed": true
+            }
+          ],
+          "kind": "partitioned_exact",
+          "partial_groups": false,
+          "partition_rows": 65536,
+          "residual": null,
+          "search_query": "*",
+          "server_source_tuples": false
+        },
+        "process_allocated_bytes_during_execute": 246432088,
+        "process_heap_bytes": 2683648,
+        "processed_rows": 100000,
+        "redis_commands": 100032,
+        "redis_round_trip_worker_seconds": 0.957339706,
+        "redis_server_profile": null,
+        "sampled_at": "2026-10-22T01:51:16.119741Z",
+        "socket_read_worker_seconds": 0.86396081,
+        "status": "execute_returned",
+        "version": 1,
+        "worker_grant": 2
+      },
+      "build": "candidate",
+      "trial": 4,
+      "isolation": {
+        "exit_code": 0,
+        "trial_isolation": "local process, no hard memory limit"
+      },
+      "server_delta": {
+        "cpu_seconds": 0.22290900000001557,
+        "commands": 100051,
+        "request_bytes": 12692633,
+        "reply_bytes": 17337019
+      },
+      "max_primary_sampled_rss_bytes": 925122560,
+      "max_primary_sampled_used_bytes": 846860152,
+      "valid": true
+    },
+    {
+      "seconds": 1.1369201659981627,
+      "query": 10,
+      "sql": "SELECT RegionID, SUM(AdvEngineID), COUNT(*) AS c, AVG(ResolutionWidth), COUNT(DISTINCT UserID) FROM hits GROUP BY RegionID ORDER BY c DESC LIMIT 10;",
+      "execute_seconds": 1.1368282500188798,
+      "fetch_seconds": 9.279098594561219e-05,
+      "schema": [
+        "int32",
+        "int64",
+        "int64",
+        "double",
+        "int64"
+      ],
+      "values": [
+        [
+          229,
+          8053,
+          45950,
+          1639.4182372143634,
+          2755
+        ],
+        [
+          2,
+          2650,
+          19102,
+          1578.4341430216732,
+          1216
+        ],
+        [
+          208,
+          423,
+          3823,
+          1457.4132879937222,
+          293
+        ],
+        [
+          1,
+          314,
+          3701,
+          1561.9873007295325,
+          220
+        ],
+        [
+          47,
+          244,
+          2127,
+          1650.602726845322,
+          115
+        ],
+        [
+          7,
+          168,
+          1438,
+          1531.7858136300417,
+          98
+        ],
+        [
+          9,
+          26,
+          1377,
+          1734.962962962963,
+          93
+        ],
+        [
+          35,
+          124,
+          1096,
+          1601.727189781022,
+          82
+        ],
+        [
+          8,
+          352,
+          987,
+          1754.3900709219859,
+          74
+        ],
+        [
+          226,
+          140,
+          774,
+          1564.640826873385,
+          111
+        ]
+      ],
+      "rows": 10,
+      "worker_grant": 2,
+      "client_user_cpu_seconds": 0.135614,
+      "client_system_cpu_seconds": 0.041877,
+      "process_peak_rss_bytes": 133087232,
+      "execution_diagnostics": {
+        "aggregate_metrics": {
+          "group_limit_retries": 0,
+          "logical_value_bytes": 1232836,
+          "merge_elapsed_seconds": 0.011283833,
+          "merge_wall_seconds": 0.011284458,
+          "partition_attempts": 2,
+          "partition_fetch_worker_seconds": 1.832044084,
+          "partition_worker_seconds": 1.849654875,
+          "redis_reply_seconds": 1.832044416,
+          "represented_rows": 100000,
+          "returned_tuples": 7912,
+          "row_fallbacks": 0,
+          "row_scan_partitions": 0,
+          "spill_read_bytes": 791050,
+          "spill_read_worker_seconds": 0.000215791,
+          "spill_sort_worker_seconds": 0.000801374,
+          "spill_write_worker_seconds": 0.001406748,
+          "spill_written_bytes": 791050,
+          "strategy": "partitioned_exact",
+          "workers": 2
+        },
+        "connection_read_bytes": 3518020,
+        "connection_written_bytes": 2934,
+        "execute_elapsed_seconds": 1.135722792,
+        "io_scope": "connection RESP bytes during execute, including concurrent connection maintenance; excludes TLS framing",
+        "matched_rows": 0,
+        "phase": "aggregate_merge",
+        "plan": {
+          "count_groups": false,
+          "encoded_group_key_mask": [
+            true
+          ],
+          "group_expressions": [
+            {
+              "Name": "regionid",
+              "Qualifier": "",
+              "Schema": "",
+              "Catalog": "",
+              "Outer": 0,
+              "OuterType": {
+                "kind": "int32"
+              }
+            }
+          ],
+          "input_columns": [
+            {
+              "name": "regionid",
+              "type": {
+                "kind": "int32"
+              },
+              "nullable": false,
+              "indexed": true
+            },
+            {
+              "name": "userid",
+              "type": {
+                "kind": "int64"
+              },
+              "nullable": false,
+              "indexed": true
+            },
+            {
+              "name": "advengineid",
+              "type": {
+                "kind": "int16"
+              },
+              "nullable": false,
+              "indexed": true
+            },
+            {
+              "name": "resolutionwidth",
+              "type": {
+                "kind": "int16"
+              },
+              "nullable": false,
+              "indexed": true
+            }
+          ],
+          "kind": "partitioned_exact",
+          "partial_groups": false,
+          "partition_rows": 65536,
+          "residual": null,
+          "search_query": "*",
+          "server_source_tuples": true
+        },
+        "process_allocated_bytes_during_execute": 107181680,
+        "process_heap_bytes": 4121152,
+        "processed_rows": 0,
+        "redis_commands": 8,
+        "redis_round_trip_worker_seconds": 2.551956667,
+        "redis_server_profile": null,
+        "sampled_at": "2026-10-22T01:51:17.376363Z",
+        "socket_read_worker_seconds": 1.812586331,
+        "status": "execute_returned",
+        "version": 1,
+        "worker_grant": 2
+      },
+      "build": "baseline",
+      "trial": 4,
+      "isolation": {
+        "exit_code": 0,
+        "trial_isolation": "local process, no hard memory limit"
+      },
+      "server_delta": {
+        "cpu_seconds": 1.080759999999941,
+        "commands": 22,
+        "request_bytes": 3492,
+        "reply_bytes": 3531781
+      },
+      "max_primary_sampled_rss_bytes": 925122560,
+      "max_primary_sampled_used_bytes": 850158856,
+      "valid": true
+    },
+    {
+      "seconds": 0.7256383330095559,
+      "query": 9,
+      "sql": "SELECT RegionID, COUNT(DISTINCT UserID) AS u FROM hits GROUP BY RegionID ORDER BY u DESC LIMIT 10;",
+      "execute_seconds": 0.7255505000066478,
+      "fetch_seconds": 8.879200322553515e-05,
+      "schema": [
+        "int32",
+        "int64"
+      ],
+      "values": [
+        [
+          229,
+          2755
+        ],
+        [
+          2,
+          1216
+        ],
+        [
+          208,
+          293
+        ],
+        [
+          1,
+          220
+        ],
+        [
+          47,
+          115
+        ],
+        [
+          226,
+          111
+        ],
+        [
+          7,
+          98
+        ],
+        [
+          9,
+          93
+        ],
+        [
+          35,
+          82
+        ],
+        [
+          8,
+          74
+        ]
+      ],
+      "rows": 10,
+      "worker_grant": 2,
+      "client_user_cpu_seconds": 0.22134900000000002,
+      "client_system_cpu_seconds": 0.06379,
+      "process_peak_rss_bytes": 107905024,
+      "execution_diagnostics": {
+        "aggregate_metrics": {
+          "compact_tuple_worker_seconds": 0.009511531,
+          "group_limit_retries": 0,
+          "logical_value_bytes": 250547,
+          "merge_elapsed_seconds": 0.008481417,
+          "merge_wall_seconds": 0.008481625,
+          "partition_attempts": 2,
+          "partition_fetch_worker_seconds": 1.038844927,
+          "partition_worker_seconds": 1.048491584,
+          "redis_reply_seconds": 0,
+          "represented_rows": 100000,
+          "returned_tuples": 7256,
+          "row_fallbacks": 0,
+          "row_scan_partitions": 2,
+          "spill_read_bytes": 537374,
+          "spill_read_worker_seconds": 0.000517919,
+          "spill_sort_worker_seconds": 0.001006584,
+          "spill_write_worker_seconds": 0.001912996,
+          "spill_written_bytes": 537374,
+          "strategy": "partitioned_exact",
+          "workers": 2
+        },
+        "connection_read_bytes": 15625387,
+        "connection_written_bytes": 8692001,
+        "execute_elapsed_seconds": 0.724219125,
+        "io_scope": "connection RESP bytes during execute, including concurrent connection maintenance; excludes TLS framing",
+        "matched_rows": 100000,
+        "phase": "aggregate_merge",
+        "plan": {
+          "client_compact_tuples": true,
+          "compact_probe_max_seconds": 0.000298708,
+          "count_groups": false,
+          "encoded_group_key_mask": [
+            true
+          ],
+          "group_expressions": [
+            {
+              "Name": "regionid",
+              "Qualifier": "",
+              "Schema": "",
+              "Catalog": "",
+              "Outer": 0,
+              "OuterType": {
+                "kind": "int32"
+              }
+            }
+          ],
+          "input_columns": [
+            {
+              "name": "regionid",
+              "type": {
+                "kind": "int32"
+              },
+              "nullable": false,
+              "indexed": true
+            },
+            {
+              "name": "userid",
+              "type": {
+                "kind": "int64"
+              },
+              "nullable": false,
+              "indexed": true
+            }
+          ],
+          "kind": "partitioned_exact",
+          "partial_groups": false,
+          "partition_rows": 65536,
+          "residual": null,
+          "search_query": "*",
+          "server_source_tuples": false
+        },
+        "process_allocated_bytes_during_execute": 211119216,
+        "process_heap_bytes": 3486064,
+        "processed_rows": 100000,
+        "redis_commands": 100032,
+        "redis_round_trip_worker_seconds": 1.004805206,
+        "redis_server_profile": null,
+        "sampled_at": "2026-10-22T01:51:18.224208Z",
+        "socket_read_worker_seconds": 0.927635071,
+        "status": "execute_returned",
+        "version": 1,
+        "worker_grant": 2
+      },
+      "build": "candidate",
+      "trial": 4,
+      "isolation": {
+        "exit_code": 0,
+        "trial_isolation": "local process, no hard memory limit"
+      },
+      "server_delta": {
+        "cpu_seconds": 0.22025800000000118,
+        "commands": 100051,
+        "request_bytes": 8692585,
+        "reply_bytes": 15640842
+      },
+      "max_primary_sampled_rss_bytes": 925122560,
+      "max_primary_sampled_used_bytes": 846869000,
+      "valid": true
+    },
+    {
+      "seconds": 1.1121361670084298,
+      "query": 9,
+      "sql": "SELECT RegionID, COUNT(DISTINCT UserID) AS u FROM hits GROUP BY RegionID ORDER BY u DESC LIMIT 10;",
+      "execute_seconds": 1.1120493749913294,
+      "fetch_seconds": 8.733401773497462e-05,
+      "schema": [
+        "int32",
+        "int64"
+      ],
+      "values": [
+        [
+          229,
+          2755
+        ],
+        [
+          2,
+          1216
+        ],
+        [
+          208,
+          293
+        ],
+        [
+          1,
+          220
+        ],
+        [
+          47,
+          115
+        ],
+        [
+          226,
+          111
+        ],
+        [
+          7,
+          98
+        ],
+        [
+          9,
+          93
+        ],
+        [
+          35,
+          82
+        ],
+        [
+          8,
+          74
+        ]
+      ],
+      "rows": 10,
+      "worker_grant": 2,
+      "client_user_cpu_seconds": 0.09585099999999999,
+      "client_system_cpu_seconds": 0.043667,
+      "process_peak_rss_bytes": 112066560,
+      "execution_diagnostics": {
+        "aggregate_metrics": {
+          "group_limit_retries": 0,
+          "logical_value_bytes": 645023,
+          "merge_elapsed_seconds": 0.0088025,
+          "merge_wall_seconds": 0.008802833,
+          "partition_attempts": 2,
+          "partition_fetch_worker_seconds": 1.781389376,
+          "partition_worker_seconds": 1.792738333,
+          "redis_reply_seconds": 1.781390207,
+          "represented_rows": 100000,
+          "returned_tuples": 7256,
+          "row_fallbacks": 0,
+          "row_scan_partitions": 0,
+          "spill_read_bytes": 537374,
+          "spill_read_worker_seconds": 0.000488875,
+          "spill_sort_worker_seconds": 0.000802247,
+          "spill_write_worker_seconds": 0.001503707,
+          "spill_written_bytes": 537374,
+          "strategy": "partitioned_exact",
+          "workers": 2
+        },
+        "connection_read_bytes": 1943737,
+        "connection_written_bytes": 1856,
+        "execute_elapsed_seconds": 1.110977458,
+        "io_scope": "connection RESP bytes during execute, including concurrent connection maintenance; excludes TLS framing",
+        "matched_rows": 0,
+        "phase": "aggregate_merge",
+        "plan": {
+          "count_groups": false,
+          "encoded_group_key_mask": [
+            true
+          ],
+          "group_expressions": [
+            {
+              "Name": "regionid",
+              "Qualifier": "",
+              "Schema": "",
+              "Catalog": "",
+              "Outer": 0,
+              "OuterType": {
+                "kind": "int32"
+              }
+            }
+          ],
+          "input_columns": [
+            {
+              "name": "regionid",
+              "type": {
+                "kind": "int32"
+              },
+              "nullable": false,
+              "indexed": true
+            },
+            {
+              "name": "userid",
+              "type": {
+                "kind": "int64"
+              },
+              "nullable": false,
+              "indexed": true
+            }
+          ],
+          "kind": "partitioned_exact",
+          "partial_groups": false,
+          "partition_rows": 65536,
+          "residual": null,
+          "search_query": "*",
+          "server_source_tuples": true
+        },
+        "process_allocated_bytes_during_execute": 60474176,
+        "process_heap_bytes": 2979920,
+        "processed_rows": 0,
+        "redis_commands": 8,
+        "redis_round_trip_worker_seconds": 2.503663459,
+        "redis_server_profile": null,
+        "sampled_at": "2026-10-22T01:51:19.45701Z",
+        "socket_read_worker_seconds": 1.782838081,
+        "status": "execute_returned",
+        "version": 1,
+        "worker_grant": 2
+      },
+      "build": "baseline",
+      "trial": 4,
+      "isolation": {
+        "exit_code": 0,
+        "trial_isolation": "local process, no hard memory limit"
+      },
+      "server_delta": {
+        "cpu_seconds": 1.0504280000000108,
+        "commands": 22,
+        "request_bytes": 2414,
+        "reply_bytes": 1957499
+      },
+      "max_primary_sampled_rss_bytes": 925122560,
+      "max_primary_sampled_used_bytes": 848259584,
+      "valid": true
+    },
+    {
+      "seconds": 0.3595395830052439,
+      "query": 4,
+      "sql": "SELECT AVG(UserID) FROM hits;",
+      "execute_seconds": 0.35945666700717993,
+      "fetch_seconds": 8.358299965038896e-05,
+      "schema": [
+        "double"
+      ],
+      "values": [
+        [
+          -7.588115896856129e+17
+        ]
+      ],
+      "rows": 1,
+      "worker_grant": 4,
+      "client_user_cpu_seconds": 0.180549,
+      "client_system_cpu_seconds": 0.058685,
+      "process_peak_rss_bytes": 135938048,
+      "execution_diagnostics": {
+        "aggregate_metrics": {},
+        "connection_read_bytes": 14781786,
+        "connection_written_bytes": 7290886,
+        "execute_elapsed_seconds": 0.358009292,
+        "io_scope": "connection RESP bytes during execute, including concurrent connection maintenance; excludes TLS framing",
+        "matched_rows": 100000,
+        "phase": "parallel_aggregate",
+        "plan": {
+          "checked_integer_inputs": true,
+          "kind": "parallel_exact",
+          "residual": null,
+          "workers": 4
+        },
+        "process_allocated_bytes_during_execute": 167556592,
+        "process_heap_bytes": 21824224,
+        "processed_rows": 100000,
+        "redis_commands": 100020,
+        "redis_round_trip_worker_seconds": 1.331299955,
+        "redis_server_profile": null,
+        "sampled_at": "2026-10-22T01:51:19.939595Z",
+        "socket_read_worker_seconds": 1.204007366,
+        "status": "execute_returned",
+        "version": 1,
+        "worker_grant": 4
+      },
+      "build": "candidate",
+      "trial": 4,
+      "isolation": {
+        "exit_code": 0,
+        "trial_isolation": "local process, no hard memory limit"
+      },
+      "server_delta": {
+        "cpu_seconds": 0.18545499999999038,
+        "commands": 100033,
+        "request_bytes": 7291418,
+        "reply_bytes": 14793848
+      },
+      "max_primary_sampled_rss_bytes": 919023616,
+      "max_primary_sampled_used_bytes": 846560720,
+      "valid": true
+    },
+    {
+      "seconds": 0.47031854098895565,
+      "query": 4,
+      "sql": "SELECT AVG(UserID) FROM hits;",
+      "execute_seconds": 0.47023245799937285,
+      "fetch_seconds": 8.670799434185028e-05,
+      "schema": [
+        "double"
+      ],
+      "values": [
+        [
+          -7.588115896856129e+17
+        ]
+      ],
+      "rows": 1,
+      "worker_grant": 4,
+      "client_user_cpu_seconds": 0.344708,
+      "client_system_cpu_seconds": 0.059807,
+      "process_peak_rss_bytes": 167002112,
+      "execution_diagnostics": {
+        "aggregate_metrics": {},
+        "connection_read_bytes": 14781790,
+        "connection_written_bytes": 7290894,
+        "execute_elapsed_seconds": 0.468921583,
+        "io_scope": "connection RESP bytes during execute, including concurrent connection maintenance; excludes TLS framing",
+        "matched_rows": 100000,
+        "phase": "parallel_aggregate",
+        "plan": {
+          "checked_integer_inputs": true,
+          "kind": "parallel_exact",
+          "residual": null,
+          "workers": 4
+        },
+        "process_allocated_bytes_during_execute": 257950344,
+        "process_heap_bytes": 7319352,
+        "processed_rows": 100000,
+        "redis_commands": 100020,
+        "redis_round_trip_worker_seconds": 1.610801839,
+        "redis_server_profile": null,
+        "sampled_at": "2026-10-22T01:51:20.536075Z",
+        "socket_read_worker_seconds": 1.472884631,
+        "status": "execute_returned",
+        "version": 1,
+        "worker_grant": 4
+      },
+      "build": "baseline",
+      "trial": 4,
+      "isolation": {
+        "exit_code": 0,
+        "trial_isolation": "local process, no hard memory limit"
+      },
+      "server_delta": {
+        "cpu_seconds": 0.1894580000000019,
+        "commands": 100034,
+        "request_bytes": 7291452,
+        "reply_bytes": 14795550
+      },
+      "max_primary_sampled_rss_bytes": 919171072,
+      "max_primary_sampled_used_bytes": 846556008,
+      "valid": true
+    },
+    {
+      "seconds": 0.015651166992029175,
+      "query": 2,
+      "sql": "SELECT COUNT(*) FROM hits WHERE AdvEngineID <> 0;",
+      "execute_seconds": 0.015591709001455456,
+      "fetch_seconds": 5.9999991208314896e-05,
+      "schema": [
+        "int64"
+      ],
+      "values": [
+        [
+          2885
+        ]
+      ],
+      "rows": 1,
+      "worker_grant": 0,
+      "client_user_cpu_seconds": 0.006974999999999995,
+      "client_system_cpu_seconds": 0.005261999999999999,
+      "process_peak_rss_bytes": 86441984,
+      "execution_diagnostics": {
+        "aggregate_metrics": {},
+        "connection_read_bytes": 9804,
+        "connection_written_bytes": 315,
+        "execute_elapsed_seconds": 0.014496416,
+        "io_scope": "connection RESP bytes during execute, including concurrent connection maintenance; excludes TLS framing",
+        "matched_rows": 0,
+        "phase": "planning",
+        "plan": null,
+        "process_allocated_bytes_during_execute": 202648,
+        "process_heap_bytes": 1949464,
+        "processed_rows": 0,
+        "redis_commands": 2,
+        "redis_round_trip_worker_seconds": 0.013725249,
+        "redis_server_profile": null,
+        "sampled_at": "2026-10-22T01:51:20.672355Z",
+        "socket_read_worker_seconds": 0.013695375,
+        "status": "execute_returned",
+        "version": 1,
+        "worker_grant": 0
+      },
+      "build": "candidate",
+      "trial": 4,
+      "isolation": {
+        "exit_code": 0,
+        "trial_isolation": "local process, no hard memory limit"
+      },
+      "server_delta": {
+        "cpu_seconds": 0.0016590000000178406,
+        "commands": 14,
+        "request_bytes": 821,
+        "reply_bytes": 20171
+      },
+      "max_primary_sampled_rss_bytes": 919171072,
+      "max_primary_sampled_used_bytes": 846284752,
+      "valid": true
+    },
+    {
+      "seconds": 0.23917720900499262,
+      "query": 2,
+      "sql": "SELECT COUNT(*) FROM hits WHERE AdvEngineID <> 0;",
+      "execute_seconds": 0.23910137501661666,
+      "fetch_seconds": 7.650000043213367e-05,
+      "schema": [
+        "int64"
+      ],
+      "values": [
+        [
+          2885
+        ]
+      ],
+      "rows": 1,
+      "worker_grant": 4,
+      "client_user_cpu_seconds": 0.282483,
+      "client_system_cpu_seconds": 0.046915,
+      "process_peak_rss_bytes": 182075392,
+      "execution_diagnostics": {
+        "aggregate_metrics": {},
+        "connection_read_bytes": 13291750,
+        "connection_written_bytes": 2067,
+        "execute_elapsed_seconds": 0.237810875,
+        "io_scope": "connection RESP bytes during execute, including concurrent connection maintenance; excludes TLS framing",
+        "matched_rows": 2885,
+        "phase": "parallel_aggregate",
+        "plan": {
+          "checked_integer_inputs": true,
+          "kind": "parallel_exact",
+          "residual": {
+            "Op": "<>",
+            "L": {
+              "Name": "advengineid",
+              "Qualifier": "",
+              "Schema": "",
+              "Catalog": "",
+              "Outer": 0,
+              "OuterType": {
+                "kind": "int16"
+              }
+            },
+            "R": {
+              "V": {
+                "T": {
+                  "kind": "int32"
+                },
+                "Null": false,
+                "Off": 0,
+                "I": 0,
+                "F": 0,
+                "S": "",
+                "D": null,
+                "Months": 0,
+                "Days": 0
+              },
+              "Unknown": false
+            }
+          },
+          "workers": 4
+        },
+        "process_allocated_bytes_during_execute": 190392672,
+        "process_heap_bytes": 22024432,
+        "processed_rows": 100000,
+        "redis_commands": 20,
+        "redis_round_trip_worker_seconds": 0.718948665,
+        "redis_server_profile": null,
+        "sampled_at": "2026-10-22T01:51:21.022528Z",
+        "socket_read_worker_seconds": 0.56481287,
+        "status": "execute_returned",
+        "version": 1,
+        "worker_grant": 4
+      },
+      "build": "baseline",
+      "trial": 4,
+      "isolation": {
+        "exit_code": 0,
+        "trial_isolation": "local process, no hard memory limit"
+      },
+      "server_delta": {
+        "cpu_seconds": 0.13872600000001967,
+        "commands": 33,
+        "request_bytes": 2599,
+        "reply_bytes": 13303815
+      },
+      "max_primary_sampled_rss_bytes": 919760896,
+      "max_primary_sampled_used_bytes": 854393648,
+      "valid": true
+    },
+    {
+      "seconds": 0.23005049998755567,
+      "query": 2,
+      "sql": "SELECT COUNT(*) FROM hits WHERE AdvEngineID <> 0;",
+      "execute_seconds": 0.2299750829988625,
+      "fetch_seconds": 7.612499757669866e-05,
+      "schema": [
+        "int64"
+      ],
+      "values": [
+        [
+          2885
+        ]
+      ],
+      "rows": 1,
+      "worker_grant": 4,
+      "client_user_cpu_seconds": 0.275241,
+      "client_system_cpu_seconds": 0.043880999999999996,
+      "process_peak_rss_bytes": 152698880,
+      "execution_diagnostics": {
+        "aggregate_metrics": {},
+        "connection_read_bytes": 13291746,
+        "connection_written_bytes": 2061,
+        "execute_elapsed_seconds": 0.228721917,
+        "io_scope": "connection RESP bytes during execute, including concurrent connection maintenance; excludes TLS framing",
+        "matched_rows": 2885,
+        "phase": "parallel_aggregate",
+        "plan": {
+          "checked_integer_inputs": true,
+          "kind": "parallel_exact",
+          "residual": {
+            "Op": "<>",
+            "L": {
+              "Name": "advengineid",
+              "Qualifier": "",
+              "Schema": "",
+              "Catalog": "",
+              "Outer": 0,
+              "OuterType": {
+                "kind": "int16"
+              }
+            },
+            "R": {
+              "V": {
+                "T": {
+                  "kind": "int32"
+                },
+                "Null": false,
+                "Off": 0,
+                "I": 0,
+                "F": 0,
+                "S": "",
+                "D": null,
+                "Months": 0,
+                "Days": 0
+              },
+              "Unknown": false
+            }
+          },
+          "workers": 4
+        },
+        "process_allocated_bytes_during_execute": 190394048,
+        "process_heap_bytes": 26339312,
+        "processed_rows": 100000,
+        "redis_commands": 20,
+        "redis_round_trip_worker_seconds": 0.701076459,
+        "redis_server_profile": null,
+        "sampled_at": "2026-10-22T01:51:21.368963Z",
+        "socket_read_worker_seconds": 0.566427966,
+        "status": "execute_returned",
+        "version": 1,
+        "worker_grant": 4
+      },
+      "build": "baseline",
+      "trial": 5,
+      "isolation": {
+        "exit_code": 0,
+        "trial_isolation": "local process, no hard memory limit"
+      },
+      "server_delta": {
+        "cpu_seconds": 0.13639400000005253,
+        "commands": 33,
+        "request_bytes": 2593,
+        "reply_bytes": 13303811
+      },
+      "max_primary_sampled_rss_bytes": 920645632,
+      "max_primary_sampled_used_bytes": 851483272,
+      "valid": true
+    },
+    {
+      "seconds": 0.013943083002232015,
+      "query": 2,
+      "sql": "SELECT COUNT(*) FROM hits WHERE AdvEngineID <> 0;",
+      "execute_seconds": 0.013872042007278651,
+      "fetch_seconds": 7.166599971242249e-05,
+      "schema": [
+        "int64"
+      ],
+      "values": [
+        [
+          2885
+        ]
+      ],
+      "rows": 1,
+      "worker_grant": 0,
+      "client_user_cpu_seconds": 0.007512999999999999,
+      "client_system_cpu_seconds": 0.006617000000000001,
+      "process_peak_rss_bytes": 86261760,
+      "execution_diagnostics": {
+        "aggregate_metrics": {},
+        "connection_read_bytes": 9804,
+        "connection_written_bytes": 315,
+        "execute_elapsed_seconds": 0.012549125,
+        "io_scope": "connection RESP bytes during execute, including concurrent connection maintenance; excludes TLS framing",
+        "matched_rows": 0,
+        "phase": "planning",
+        "plan": null,
+        "process_allocated_bytes_during_execute": 209336,
+        "process_heap_bytes": 1956088,
+        "processed_rows": 0,
+        "redis_commands": 2,
+        "redis_round_trip_worker_seconds": 0.011829208,
+        "redis_server_profile": null,
+        "sampled_at": "2026-10-22T01:51:21.501438Z",
+        "socket_read_worker_seconds": 0.011781959,
+        "status": "execute_returned",
+        "version": 1,
+        "worker_grant": 0
+      },
+      "build": "candidate",
+      "trial": 5,
+      "isolation": {
+        "exit_code": 0,
+        "trial_isolation": "local process, no hard memory limit"
+      },
+      "server_delta": {
+        "cpu_seconds": 0.0021419999999920947,
+        "commands": 14,
+        "request_bytes": 821,
+        "reply_bytes": 20170
+      },
+      "max_primary_sampled_rss_bytes": 920645632,
+      "max_primary_sampled_used_bytes": 846276360,
+      "valid": true
+    },
+    {
+      "seconds": 0.4366608330165036,
+      "query": 4,
+      "sql": "SELECT AVG(UserID) FROM hits;",
+      "execute_seconds": 0.43658016601693816,
+      "fetch_seconds": 8.154200622811913e-05,
+      "schema": [
+        "double"
+      ],
+      "values": [
+        [
+          -7.588115896856129e+17
+        ]
+      ],
+      "rows": 1,
+      "worker_grant": 4,
+      "client_user_cpu_seconds": 0.333879,
+      "client_system_cpu_seconds": 0.058747,
+      "process_peak_rss_bytes": 152502272,
+      "execution_diagnostics": {
+        "aggregate_metrics": {},
+        "connection_read_bytes": 14781788,
+        "connection_written_bytes": 7290890,
+        "execute_elapsed_seconds": 0.435287833,
+        "io_scope": "connection RESP bytes during execute, including concurrent connection maintenance; excludes TLS framing",
+        "matched_rows": 100000,
+        "phase": "parallel_aggregate",
+        "plan": {
+          "checked_integer_inputs": true,
+          "kind": "parallel_exact",
+          "residual": null,
+          "workers": 4
+        },
+        "process_allocated_bytes_during_execute": 257939024,
+        "process_heap_bytes": 24160760,
+        "processed_rows": 100000,
+        "redis_commands": 100020,
+        "redis_round_trip_worker_seconds": 1.503607041,
+        "redis_server_profile": null,
+        "sampled_at": "2026-10-22T01:51:22.047484Z",
+        "socket_read_worker_seconds": 1.362289843,
+        "status": "execute_returned",
+        "version": 1,
+        "worker_grant": 4
+      },
+      "build": "baseline",
+      "trial": 5,
+      "isolation": {
+        "exit_code": 0,
+        "trial_isolation": "local process, no hard memory limit"
+      },
+      "server_delta": {
+        "cpu_seconds": 0.19663700000000972,
+        "commands": 100034,
+        "request_bytes": 7291448,
+        "reply_bytes": 14795546
+      },
+      "max_primary_sampled_rss_bytes": 920645632,
+      "max_primary_sampled_used_bytes": 846542776,
+      "valid": true
+    },
+    {
+      "seconds": 0.4235230829799548,
+      "query": 4,
+      "sql": "SELECT AVG(UserID) FROM hits;",
+      "execute_seconds": 0.42344170800060965,
+      "fetch_seconds": 8.233397966250777e-05,
+      "schema": [
+        "double"
+      ],
+      "values": [
+        [
+          -7.588115896856129e+17
+        ]
+      ],
+      "rows": 1,
+      "worker_grant": 4,
+      "client_user_cpu_seconds": 0.18139899999999998,
+      "client_system_cpu_seconds": 0.05629100000000001,
+      "process_peak_rss_bytes": 162643968,
+      "execution_diagnostics": {
+        "aggregate_metrics": {},
+        "connection_read_bytes": 14781788,
+        "connection_written_bytes": 7290890,
+        "execute_elapsed_seconds": 0.42214725,
+        "io_scope": "connection RESP bytes during execute, including concurrent connection maintenance; excludes TLS framing",
+        "matched_rows": 100000,
+        "phase": "parallel_aggregate",
+        "plan": {
+          "checked_integer_inputs": true,
+          "kind": "parallel_exact",
+          "residual": null,
+          "workers": 4
+        },
+        "process_allocated_bytes_during_execute": 167568120,
+        "process_heap_bytes": 14863664,
+        "processed_rows": 100000,
+        "redis_commands": 100020,
+        "redis_round_trip_worker_seconds": 1.484923967,
+        "redis_server_profile": null,
+        "sampled_at": "2026-10-22T01:51:22.594415Z",
+        "socket_read_worker_seconds": 1.357133429,
+        "status": "execute_returned",
+        "version": 1,
+        "worker_grant": 4
+      },
+      "build": "candidate",
+      "trial": 5,
+      "isolation": {
+        "exit_code": 0,
+        "trial_isolation": "local process, no hard memory limit"
+      },
+      "server_delta": {
+        "cpu_seconds": 0.18783100000001696,
+        "commands": 100034,
+        "request_bytes": 7291448,
+        "reply_bytes": 14795546
+      },
+      "max_primary_sampled_rss_bytes": 920645632,
+      "max_primary_sampled_used_bytes": 851929192,
+      "valid": true
+    },
+    {
+      "seconds": 1.0993992500007153,
+      "query": 9,
+      "sql": "SELECT RegionID, COUNT(DISTINCT UserID) AS u FROM hits GROUP BY RegionID ORDER BY u DESC LIMIT 10;",
+      "execute_seconds": 1.099278791982215,
+      "fetch_seconds": 0.00012116599828004837,
+      "schema": [
+        "int32",
+        "int64"
+      ],
+      "values": [
+        [
+          229,
+          2755
+        ],
+        [
+          2,
+          1216
+        ],
+        [
+          208,
+          293
+        ],
+        [
+          1,
+          220
+        ],
+        [
+          47,
+          115
+        ],
+        [
+          226,
+          111
+        ],
+        [
+          7,
+          98
+        ],
+        [
+          9,
+          93
+        ],
+        [
+          35,
+          82
+        ],
+        [
+          8,
+          74
+        ]
+      ],
+      "rows": 10,
+      "worker_grant": 2,
+      "client_user_cpu_seconds": 0.095784,
+      "client_system_cpu_seconds": 0.03972099999999999,
+      "process_peak_rss_bytes": 112197632,
+      "execution_diagnostics": {
+        "aggregate_metrics": {
+          "group_limit_retries": 0,
+          "logical_value_bytes": 645023,
+          "merge_elapsed_seconds": 0.008467209,
+          "merge_wall_seconds": 0.008467583,
+          "partition_attempts": 2,
+          "partition_fetch_worker_seconds": 1.779965584,
+          "partition_worker_seconds": 1.790968166,
+          "redis_reply_seconds": 1.779966041,
+          "represented_rows": 100000,
+          "returned_tuples": 7256,
+          "row_fallbacks": 0,
+          "row_scan_partitions": 0,
+          "spill_read_bytes": 537374,
+          "spill_read_worker_seconds": 0.000424124,
+          "spill_sort_worker_seconds": 0.000710129,
+          "spill_write_worker_seconds": 0.001288294,
+          "spill_written_bytes": 537374,
+          "strategy": "partitioned_exact",
+          "workers": 2
+        },
+        "connection_read_bytes": 1943737,
+        "connection_written_bytes": 1856,
+        "execute_elapsed_seconds": 1.098131375,
+        "io_scope": "connection RESP bytes during execute, including concurrent connection maintenance; excludes TLS framing",
+        "matched_rows": 0,
+        "phase": "aggregate_merge",
+        "plan": {
+          "count_groups": false,
+          "encoded_group_key_mask": [
+            true
+          ],
+          "group_expressions": [
+            {
+              "Name": "regionid",
+              "Qualifier": "",
+              "Schema": "",
+              "Catalog": "",
+              "Outer": 0,
+              "OuterType": {
+                "kind": "int32"
+              }
+            }
+          ],
+          "input_columns": [
+            {
+              "name": "regionid",
+              "type": {
+                "kind": "int32"
+              },
+              "nullable": false,
+              "indexed": true
+            },
+            {
+              "name": "userid",
+              "type": {
+                "kind": "int64"
+              },
+              "nullable": false,
+              "indexed": true
+            }
+          ],
+          "kind": "partitioned_exact",
+          "partial_groups": false,
+          "partition_rows": 65536,
+          "residual": null,
+          "search_query": "*",
+          "server_source_tuples": true
+        },
+        "process_allocated_bytes_during_execute": 60470768,
+        "process_heap_bytes": 2800976,
+        "processed_rows": 0,
+        "redis_commands": 8,
+        "redis_round_trip_worker_seconds": 2.487391083,
+        "redis_server_profile": null,
+        "sampled_at": "2026-10-22T01:51:23.820589Z",
+        "socket_read_worker_seconds": 1.76972308,
+        "status": "execute_returned",
+        "version": 1,
+        "worker_grant": 2
+      },
+      "build": "baseline",
+      "trial": 5,
+      "isolation": {
+        "exit_code": 0,
+        "trial_isolation": "local process, no hard memory limit"
+      },
+      "server_delta": {
+        "cpu_seconds": 1.0532049999999913,
+        "commands": 22,
+        "request_bytes": 2414,
+        "reply_bytes": 1957497
+      },
+      "max_primary_sampled_rss_bytes": 920645632,
+      "max_primary_sampled_used_bytes": 848237696,
+      "valid": true
+    },
+    {
+      "seconds": 0.6818517909850925,
+      "query": 9,
+      "sql": "SELECT RegionID, COUNT(DISTINCT UserID) AS u FROM hits GROUP BY RegionID ORDER BY u DESC LIMIT 10;",
+      "execute_seconds": 0.6817257079819683,
+      "fetch_seconds": 0.0001268330088350922,
+      "schema": [
+        "int32",
+        "int64"
+      ],
+      "values": [
+        [
+          229,
+          2755
+        ],
+        [
+          2,
+          1216
+        ],
+        [
+          208,
+          293
+        ],
+        [
+          1,
+          220
+        ],
+        [
+          47,
+          115
+        ],
+        [
+          226,
+          111
+        ],
+        [
+          7,
+          98
+        ],
+        [
+          9,
+          93
+        ],
+        [
+          35,
+          82
+        ],
+        [
+          8,
+          74
+        ]
+      ],
+      "rows": 10,
+      "worker_grant": 2,
+      "client_user_cpu_seconds": 0.23283900000000002,
+      "client_system_cpu_seconds": 0.069129,
+      "process_peak_rss_bytes": 108707840,
+      "execution_diagnostics": {
+        "aggregate_metrics": {
+          "compact_tuple_worker_seconds": 0.011056482,
+          "group_limit_retries": 0,
+          "logical_value_bytes": 250547,
+          "merge_elapsed_seconds": 0.008712667,
+          "merge_wall_seconds": 0.008713,
+          "partition_attempts": 2,
+          "partition_fetch_worker_seconds": 0.978545352,
+          "partition_worker_seconds": 0.989748791,
+          "redis_reply_seconds": 0,
+          "represented_rows": 100000,
+          "returned_tuples": 7256,
+          "row_fallbacks": 0,
+          "row_scan_partitions": 2,
+          "spill_read_bytes": 537374,
+          "spill_read_worker_seconds": 0.000890248,
+          "spill_sort_worker_seconds": 0.001040001,
+          "spill_write_worker_seconds": 0.001833209,
+          "spill_written_bytes": 537374,
+          "strategy": "partitioned_exact",
+          "workers": 2
+        },
+        "connection_read_bytes": 15625411,
+        "connection_written_bytes": 8692049,
+        "execute_elapsed_seconds": 0.680478834,
+        "io_scope": "connection RESP bytes during execute, including concurrent connection maintenance; excludes TLS framing",
+        "matched_rows": 100000,
+        "phase": "aggregate_merge",
+        "plan": {
+          "client_compact_tuples": true,
+          "compact_probe_max_seconds": 0.000289166,
+          "count_groups": false,
+          "encoded_group_key_mask": [
+            true
+          ],
+          "group_expressions": [
+            {
+              "Name": "regionid",
+              "Qualifier": "",
+              "Schema": "",
+              "Catalog": "",
+              "Outer": 0,
+              "OuterType": {
+                "kind": "int32"
+              }
+            }
+          ],
+          "input_columns": [
+            {
+              "name": "regionid",
+              "type": {
+                "kind": "int32"
+              },
+              "nullable": false,
+              "indexed": true
+            },
+            {
+              "name": "userid",
+              "type": {
+                "kind": "int64"
+              },
+              "nullable": false,
+              "indexed": true
+            }
+          ],
+          "kind": "partitioned_exact",
+          "partial_groups": false,
+          "partition_rows": 65536,
+          "residual": null,
+          "search_query": "*",
+          "server_source_tuples": false
+        },
+        "process_allocated_bytes_during_execute": 211118408,
+        "process_heap_bytes": 3263640,
+        "processed_rows": 100000,
+        "redis_commands": 100032,
+        "redis_round_trip_worker_seconds": 0.957327669,
+        "redis_server_profile": null,
+        "sampled_at": "2026-10-22T01:51:24.626397Z",
+        "socket_read_worker_seconds": 0.87448741,
+        "status": "execute_returned",
+        "version": 1,
+        "worker_grant": 2
+      },
+      "build": "candidate",
+      "trial": 5,
+      "isolation": {
+        "exit_code": 0,
+        "trial_isolation": "local process, no hard memory limit"
+      },
+      "server_delta": {
+        "cpu_seconds": 0.2079750000000331,
+        "commands": 100051,
+        "request_bytes": 8692633,
+        "reply_bytes": 15640863
+      },
+      "max_primary_sampled_rss_bytes": 920645632,
+      "max_primary_sampled_used_bytes": 846848768,
+      "valid": true
+    },
+    {
+      "seconds": 1.1427434999786783,
+      "query": 10,
+      "sql": "SELECT RegionID, SUM(AdvEngineID), COUNT(*) AS c, AVG(ResolutionWidth), COUNT(DISTINCT UserID) FROM hits GROUP BY RegionID ORDER BY c DESC LIMIT 10;",
+      "execute_seconds": 1.1426447089761496,
+      "fetch_seconds": 9.962500189431012e-05,
+      "schema": [
+        "int32",
+        "int64",
+        "int64",
+        "double",
+        "int64"
+      ],
+      "values": [
+        [
+          229,
+          8053,
+          45950,
+          1639.4182372143634,
+          2755
+        ],
+        [
+          2,
+          2650,
+          19102,
+          1578.4341430216732,
+          1216
+        ],
+        [
+          208,
+          423,
+          3823,
+          1457.4132879937222,
+          293
+        ],
+        [
+          1,
+          314,
+          3701,
+          1561.9873007295325,
+          220
+        ],
+        [
+          47,
+          244,
+          2127,
+          1650.602726845322,
+          115
+        ],
+        [
+          7,
+          168,
+          1438,
+          1531.7858136300417,
+          98
+        ],
+        [
+          9,
+          26,
+          1377,
+          1734.962962962963,
+          93
+        ],
+        [
+          35,
+          124,
+          1096,
+          1601.727189781022,
+          82
+        ],
+        [
+          8,
+          352,
+          987,
+          1754.3900709219859,
+          74
+        ],
+        [
+          226,
+          140,
+          774,
+          1564.640826873385,
+          111
+        ]
+      ],
+      "rows": 10,
+      "worker_grant": 2,
+      "client_user_cpu_seconds": 0.131477,
+      "client_system_cpu_seconds": 0.046737999999999995,
+      "process_peak_rss_bytes": 135118848,
+      "execution_diagnostics": {
+        "aggregate_metrics": {
+          "group_limit_retries": 0,
+          "logical_value_bytes": 1232836,
+          "merge_elapsed_seconds": 0.01085875,
+          "merge_wall_seconds": 0.010859125,
+          "partition_attempts": 2,
+          "partition_fetch_worker_seconds": 1.845148333,
+          "partition_worker_seconds": 1.862007584,
+          "redis_reply_seconds": 1.845148791,
+          "represented_rows": 100000,
+          "returned_tuples": 7912,
+          "row_fallbacks": 0,
+          "row_scan_partitions": 0,
+          "spill_read_bytes": 791050,
+          "spill_read_worker_seconds": 0.000561373,
+          "spill_sort_worker_seconds": 0.00094875,
+          "spill_write_worker_seconds": 0.001819249,
+          "spill_written_bytes": 791050,
+          "strategy": "partitioned_exact",
+          "workers": 2
+        },
+        "connection_read_bytes": 3518020,
+        "connection_written_bytes": 2934,
+        "execute_elapsed_seconds": 1.141594125,
+        "io_scope": "connection RESP bytes during execute, including concurrent connection maintenance; excludes TLS framing",
+        "matched_rows": 0,
+        "phase": "aggregate_merge",
+        "plan": {
+          "count_groups": false,
+          "encoded_group_key_mask": [
+            true
+          ],
+          "group_expressions": [
+            {
+              "Name": "regionid",
+              "Qualifier": "",
+              "Schema": "",
+              "Catalog": "",
+              "Outer": 0,
+              "OuterType": {
+                "kind": "int32"
+              }
+            }
+          ],
+          "input_columns": [
+            {
+              "name": "regionid",
+              "type": {
+                "kind": "int32"
+              },
+              "nullable": false,
+              "indexed": true
+            },
+            {
+              "name": "userid",
+              "type": {
+                "kind": "int64"
+              },
+              "nullable": false,
+              "indexed": true
+            },
+            {
+              "name": "advengineid",
+              "type": {
+                "kind": "int16"
+              },
+              "nullable": false,
+              "indexed": true
+            },
+            {
+              "name": "resolutionwidth",
+              "type": {
+                "kind": "int16"
+              },
+              "nullable": false,
+              "indexed": true
+            }
+          ],
+          "kind": "partitioned_exact",
+          "partial_groups": false,
+          "partition_rows": 65536,
+          "residual": null,
+          "search_query": "*",
+          "server_source_tuples": true
+        },
+        "process_allocated_bytes_during_execute": 107203392,
+        "process_heap_bytes": 3268464,
+        "processed_rows": 0,
+        "redis_commands": 8,
+        "redis_round_trip_worker_seconds": 2.572377291,
+        "redis_server_profile": null,
+        "sampled_at": "2026-10-22T01:51:25.895708Z",
+        "socket_read_worker_seconds": 1.826691666,
+        "status": "execute_returned",
+        "version": 1,
+        "worker_grant": 2
+      },
+      "build": "baseline",
+      "trial": 5,
+      "isolation": {
+        "exit_code": 0,
+        "trial_isolation": "local process, no hard memory limit"
+      },
+      "server_delta": {
+        "cpu_seconds": 1.0883929999999964,
+        "commands": 22,
+        "request_bytes": 3492,
+        "reply_bytes": 3531780
+      },
+      "max_primary_sampled_rss_bytes": 920645632,
+      "max_primary_sampled_used_bytes": 850130336,
+      "valid": true
+    },
+    {
+      "seconds": 0.6633983749779873,
+      "query": 10,
+      "sql": "SELECT RegionID, SUM(AdvEngineID), COUNT(*) AS c, AVG(ResolutionWidth), COUNT(DISTINCT UserID) FROM hits GROUP BY RegionID ORDER BY c DESC LIMIT 10;",
+      "execute_seconds": 0.6632998339773621,
+      "fetch_seconds": 9.937499999068677e-05,
+      "schema": [
+        "int32",
+        "int64",
+        "int64",
+        "double",
+        "int64"
+      ],
+      "values": [
+        [
+          229,
+          8053,
+          45950,
+          1639.4182372143634,
+          2755
+        ],
+        [
+          2,
+          2650,
+          19102,
+          1578.4341430216732,
+          1216
+        ],
+        [
+          208,
+          423,
+          3823,
+          1457.4132879937222,
+          293
+        ],
+        [
+          1,
+          314,
+          3701,
+          1561.9873007295325,
+          220
+        ],
+        [
+          47,
+          244,
+          2127,
+          1650.602726845322,
+          115
+        ],
+        [
+          7,
+          168,
+          1438,
+          1531.7858136300417,
+          98
+        ],
+        [
+          9,
+          26,
+          1377,
+          1734.962962962963,
+          93
+        ],
+        [
+          35,
+          124,
+          1096,
+          1601.727189781022,
+          82
+        ],
+        [
+          8,
+          352,
+          987,
+          1754.3900709219859,
+          74
+        ],
+        [
+          226,
+          140,
+          774,
+          1564.640826873385,
+          111
+        ]
+      ],
+      "rows": 10,
+      "worker_grant": 2,
+      "client_user_cpu_seconds": 0.27612,
+      "client_system_cpu_seconds": 0.07540599999999999,
+      "process_peak_rss_bytes": 109051904,
+      "execution_diagnostics": {
+        "aggregate_metrics": {
+          "compact_tuple_worker_seconds": 0.014074643,
+          "group_limit_retries": 0,
+          "logical_value_bytes": 518161,
+          "merge_elapsed_seconds": 0.012680416,
+          "merge_wall_seconds": 0.012681083,
+          "partition_attempts": 2,
+          "partition_fetch_worker_seconds": 0.935251691,
+          "partition_worker_seconds": 0.949432333,
+          "redis_reply_seconds": 0,
+          "represented_rows": 100000,
+          "returned_tuples": 7912,
+          "row_fallbacks": 0,
+          "row_scan_partitions": 2,
+          "spill_read_bytes": 791050,
+          "spill_read_worker_seconds": 0.000411255,
+          "spill_sort_worker_seconds": 0.001347668,
+          "spill_write_worker_seconds": 0.001616127,
+          "spill_written_bytes": 791050,
+          "strategy": "partitioned_exact",
+          "workers": 2
+        },
+        "connection_read_bytes": 17321560,
+        "connection_written_bytes": 12692033,
+        "execute_elapsed_seconds": 0.662158166,
+        "io_scope": "connection RESP bytes during execute, including concurrent connection maintenance; excludes TLS framing",
+        "matched_rows": 100000,
+        "phase": "aggregate_merge",
+        "plan": {
+          "client_compact_tuples": true,
+          "compact_probe_max_seconds": 0.000210583,
+          "count_groups": false,
+          "encoded_group_key_mask": [
+            true
+          ],
+          "group_expressions": [
+            {
+              "Name": "regionid",
+              "Qualifier": "",
+              "Schema": "",
+              "Catalog": "",
+              "Outer": 0,
+              "OuterType": {
+                "kind": "int32"
+              }
+            }
+          ],
+          "input_columns": [
+            {
+              "name": "regionid",
+              "type": {
+                "kind": "int32"
+              },
+              "nullable": false,
+              "indexed": true
+            },
+            {
+              "name": "userid",
+              "type": {
+                "kind": "int64"
+              },
+              "nullable": false,
+              "indexed": true
+            },
+            {
+              "name": "advengineid",
+              "type": {
+                "kind": "int16"
+              },
+              "nullable": false,
+              "indexed": true
+            },
+            {
+              "name": "resolutionwidth",
+              "type": {
+                "kind": "int16"
+              },
+              "nullable": false,
+              "indexed": true
+            }
+          ],
+          "kind": "partitioned_exact",
+          "partial_groups": false,
+          "partition_rows": 65536,
+          "residual": null,
+          "search_query": "*",
+          "server_source_tuples": false
+        },
+        "process_allocated_bytes_during_execute": 246425776,
+        "process_heap_bytes": 2814800,
+        "processed_rows": 100000,
+        "redis_commands": 100032,
+        "redis_round_trip_worker_seconds": 0.887896088,
+        "redis_server_profile": null,
+        "sampled_at": "2026-10-22T01:51:26.681381Z",
+        "socket_read_worker_seconds": 0.796321481,
+        "status": "execute_returned",
+        "version": 1,
+        "worker_grant": 2
+      },
+      "build": "candidate",
+      "trial": 5,
+      "isolation": {
+        "exit_code": 0,
+        "trial_isolation": "local process, no hard memory limit"
+      },
+      "server_delta": {
+        "cpu_seconds": 0.2154289999999719,
+        "commands": 100050,
+        "request_bytes": 12692591,
+        "reply_bytes": 17335315
+      },
+      "max_primary_sampled_rss_bytes": 920645632,
+      "max_primary_sampled_used_bytes": 847270296,
+      "valid": true
+    }
+  ],
+  "queries": {
+    "2": "SELECT COUNT(*) FROM hits WHERE AdvEngineID <> 0;",
+    "4": "SELECT AVG(UserID) FROM hits;",
+    "9": "SELECT RegionID, COUNT(DISTINCT UserID) AS u FROM hits GROUP BY RegionID ORDER BY u DESC LIMIT 10;",
+    "10": "SELECT RegionID, SUM(AdvEngineID), COUNT(*) AS c, AVG(ResolutionWidth), COUNT(DISTINCT UserID) FROM hits GROUP BY RegionID ORDER BY c DESC LIMIT 10;"
+  },
+  "source_sha256": "d053397f7aa5b2e1ee9160779a9e9307b162c6994aebba829c7ea1411076c4d0",
+  "binaries": {
+    "baseline": {
+      "sha256": "b4dc0775ef49b8fc72e4038c6b809e4db72ff37f78b7802df6dc38bc88ff9381"
+    },
+    "candidate": {
+      "sha256": "f36937b8fef09e6467564b95d428f8af5b1272b96307f19305978da56c782177"
+    }
+  },
+  "environment": {
+    "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+    "cpus": 18,
+    "protocol": 3,
+    "packages": {
+      "pyarrow": "26.0.0",
+      "redis": "8.1.0",
+      "adbc-driver-manager": "1.12.0",
+      "duckdb": "1.5.6"
+    }
+  },
+  "provenance": {
+    "source": {
+      "baseline": "e692a704d2b70428086e145df00e73db7b1a253f",
+      "candidate": "b40b88fe683780cdc17b05cb0e5c7e4108a42014",
+      "test_followup": "c064caaca0e2894a1e828795bc8ce34e46bb3de8",
+      "runner": "14208bdc6a6cb0b27f8b85fdf498eb833a4c7e35"
+    },
+    "production_file_sha256": {
+      "go/aggregate.go": "8b55f192684176bcebdc03bf89e758a2b373d5dfc39b9f5b584c1299ef2c961a",
+      "go/aggregate_compact_integer.go": "3a7bf8434eb67b4cdae104aef356f153a187d47ebca4c4f57e7041d17dc1d6d4",
+      "go/aggregate_metrics.go": "b71ed068f9611866804b09f00bf6de2693919b31e2624fc637b201e6800bbd6e",
+      "go/execution_diagnostics.go": "8469d6d6bab5a67840345b68b3c062c36d2d05ac4bd14a10bd55b6dc64b718e0",
+      "go/parallel_aggregate.go": "fbc94b493fa234167d4c1b60de8c1873038568ba0f7800af95e94fd21889245f",
+      "go/partitioned_aggregate.go": "43410953fc167a95e40787f9fc4facc78d8af3f63db3430cf64ddc1d142d5b37",
+      "go/query.go": "bef4ace45cc50d960e82c7390aa3c2f4ae340fdd03458a94675c0027aa24746f",
+      "go/scalar_aggregate_scan.go": "6f484f2d778690e7c9cfd8056b04746c0c3978d89c946f333caf25bcdb932557",
+      "go/scan_hash_slices.go": "79f4e7fc255036ef5086fb953242ece9bd8671c09115bfbb1c9f0c11b44b43ff",
+      "go/scan_projection.go": "f4dcadac00093d90381045af0a5af35f770a657ceb4b33c00ff4c9943b4b327d"
+    },
+    "go_mod_sha256": "8f7ab2a6de205790164be618e567deff1f4186611e9aee83b54d01b57d6acb84",
+    "go_sum_sha256": "f720f3ef9b6ca3629b098fa28736526b2d2b8a1ec0683c6a3a2f5fad4db2b93c",
+    "scope": "ordinary SQL, exact aggregates, fully consumed Arrow; explicit four internal query workers and budget four",
+    "timing_claim": "current prefix confirmation; full-scale results separate",
+    "build_version": "v0.1.0",
+    "libraries": {
+      "baseline": {
+        "path": "/private/tmp/redis-remaining/aggregate-base.dylib",
+        "sha256": "b4dc0775ef49b8fc72e4038c6b809e4db72ff37f78b7802df6dc38bc88ff9381"
+      },
+      "candidate": {
+        "path": "/private/tmp/redis-remaining/aggregate-b40b88f.dylib",
+        "sha256": "f36937b8fef09e6467564b95d428f8af5b1272b96307f19305978da56c782177"
+      }
+    },
+    "go_version": "go version go1.27.2 darwin/arm64",
+    "host": "macOS 26.7.1 arm64, 18 logical CPU, 36GiB RAM",
+    "build_flags": "CGO_ENABLED=1 -buildmode=c-shared -tags driverlib -ldflags -s -w -X github.com/adbc-drivers/driverbase-go/driverbase.infoDriverVersion=v0.1.0",
+    "server": {
+      "image": "redis:8.6.2",
+      "search": "8.6.0",
+      "cpus": 4,
+      "memory_bytes": 2147483648,
+      "transport": "loopback TCP without TLS"
+    },
+    "note": "Baseline built from archive; candidate VCS metadata may say modified due to runner/evidence files. Listed production file hashes match b40b88f."
+  },
+  "scope": "ordinary statement; internal aggregate workers, not public ADBC partitions",
+  "server_metric_scope": "INFO deltas include monitor/control traffic; sampled max primary RSS/used_memory, not a cgroup bound",
+  "cpu_scope": "fresh worker process CPU, including connection/setup; elapsed query seconds include execute + complete Arrow fetch",
+  "units": [],
+  "primaries": [
+    [
+      "127.0.0.1",
+      18121
+    ]
+  ],
+  "modules_by_primary": [
+    [
+      {
+        "name": "timeseries",
+        "version": 80600
+      },
+      {
+        "name": "search",
+        "version": 80600
+      },
+      {
+        "name": "vectorset",
+        "version": 1
+      },
+      {
+        "name": "bf",
+        "version": 80600
+      },
+      {
+        "name": "ReJSON",
+        "version": 80600
+      }
+    ]
+  ],
+  "server_versions": [
+    {
+      "redis": "8.6.2",
+      "mode": "standalone",
+      "os": "Linux 7.0.14-linuxkit aarch64"
+    }
+  ],
+  "summary": [
+    {
+      "query": 2,
+      "build": "baseline",
+      "trials": 5,
+      "seconds": 0.23005049998755567,
+      "client_user_cpu_seconds": 0.281588,
+      "client_system_cpu_seconds": 0.046915,
+      "process_peak_rss_bytes": 152698880,
+      "range_seconds": [
+        0.20709004197851755,
+        0.3365876669995487
+      ]
+    },
+    {
+      "query": 2,
+      "build": "candidate",
+      "trials": 5,
+      "seconds": 0.015651166992029175,
+      "client_user_cpu_seconds": 0.007009000000000001,
+      "client_system_cpu_seconds": 0.005386000000000002,
+      "process_peak_rss_bytes": 86261760,
+      "range_seconds": [
+        0.013943083002232015,
+        0.02689612499671057
+      ]
+    },
+    {
+      "query": 4,
+      "build": "baseline",
+      "trials": 5,
+      "seconds": 0.4366608330165036,
+      "client_user_cpu_seconds": 0.33691499999999996,
+      "client_system_cpu_seconds": 0.05896799999999999,
+      "process_peak_rss_bytes": 162643968,
+      "range_seconds": [
+        0.3837069590226747,
+        0.48099804201046936
+      ]
+    },
+    {
+      "query": 4,
+      "build": "candidate",
+      "trials": 5,
+      "seconds": 0.4235230829799548,
+      "client_user_cpu_seconds": 0.18139899999999998,
+      "client_system_cpu_seconds": 0.05629100000000001,
+      "process_peak_rss_bytes": 138887168,
+      "range_seconds": [
+        0.3595395830052439,
+        0.46703966599307023
+      ]
+    },
+    {
+      "query": 9,
+      "build": "baseline",
+      "trials": 5,
+      "seconds": 1.0993992500007153,
+      "client_user_cpu_seconds": 0.095784,
+      "client_system_cpu_seconds": 0.03989999999999999,
+      "process_peak_rss_bytes": 112066560,
+      "range_seconds": [
+        1.0827162089990452,
+        1.1216342500119936
+      ]
+    },
+    {
+      "query": 9,
+      "build": "candidate",
+      "trials": 5,
+      "seconds": 0.6984654580010101,
+      "client_user_cpu_seconds": 0.23283900000000002,
+      "client_system_cpu_seconds": 0.069129,
+      "process_peak_rss_bytes": 108675072,
+      "range_seconds": [
+        0.6818517909850925,
+        0.7547217500105035
+      ]
+    },
+    {
+      "query": 10,
+      "build": "baseline",
+      "trials": 5,
+      "seconds": 1.1450150839809794,
+      "client_user_cpu_seconds": 0.138034,
+      "client_system_cpu_seconds": 0.044873,
+      "process_peak_rss_bytes": 132562944,
+      "range_seconds": [
+        1.1369201659981627,
+        1.1726727919885889
+      ]
+    },
+    {
+      "query": 10,
+      "build": "candidate",
+      "trials": 5,
+      "seconds": 0.6633983749779873,
+      "client_user_cpu_seconds": 0.27275799999999994,
+      "client_system_cpu_seconds": 0.075035,
+      "process_peak_rss_bytes": 109510656,
+      "range_seconds": [
+        0.638453166000545,
+        0.6996707499783952
+      ]
+    }
+  ]
+}

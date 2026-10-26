@@ -1,0 +1,42 @@
+{
+  "date": "2026-10-21 America/Los_Angeles",
+  "source_base": "a90c6b4",
+  "started_from": "1282e4a",
+  "author": "Codex",
+  "requestor": "Albert Wong",
+  "public_runtime_enabled": false,
+  "go": "1.26.6",
+  "platform": "macOS ARM64",
+  "fixtures": {
+    "standalone": "Redis 8.10.2 / Search 8.10.1; RESP3; localhost:16482",
+    "cluster": "Redis 8.6.2 / Search 8.6.0; RESP3; three primaries; localhost:16601-16603"
+  },
+  "results": {
+    "standalone_live_and_retained_race": {
+      "passed": 33,
+      "skipped": 0
+    },
+    "cluster_retained_race": {
+      "passed": 12,
+      "skipped": 0
+    },
+    "python_native": {
+      "passed": 372,
+      "skipped": 8,
+      "subtests": 3,
+      "partition_cases": 10
+    }
+  },
+  "cleanup": {
+    "owned_keys_indexes_acl_users_remaining": 0,
+    "native_fixture_stopped": true,
+    "label_verified_cluster_removed": true,
+    "cloud_resources_created": false
+  },
+  "sha256": {
+    "go/partition_retained_store.go": "e497879d19cb23224b4797a0198266995d8064c2728bf44e8d60f4f350f7bc4f",
+    "go/partition_retained_store_integration_test.go": "ca9d196a71262916f43f0a1206be3ad6512c4d24030b11cbdfed9f133f162e19",
+    "go/partition_retained_store_test.go": "acb7d25ce3c57d03aec5d82fc46189b6997aafc5bc86cb97b72f5213973857fc",
+    "go/build/libadbc_driver_redis.dylib": "bd7e72367c1d0e8630d217145adbb171677bb884596d461823de4aa683e0616c"
+  }
+}

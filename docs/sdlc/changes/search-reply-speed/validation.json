@@ -1,0 +1,191 @@
+{
+  "production_source": "99c1141bda457e43ed9bec42ca6436b2a0a95d4d",
+  "native_library_sha256": "f4b273b2ae37b6d39a852ee50fe0cfd2af6f7e019b1d21e582b8222b20b7d033",
+  "go": {
+    "command": "REDIS_URI='redis://127.0.0.1:18088/0?protocol=3' go test -json -count=1 -p 1 ./...",
+    "exit_code": 0,
+    "events": {
+      "pass": 992,
+      "skip": 15
+    },
+    "packages": [
+      {
+        "name": "github.com/adbc-drivers/redis/go",
+        "seconds": 133.068
+      },
+      {
+        "name": "github.com/adbc-drivers/redis/go/cmd/redis-adbc",
+        "seconds": 0.889
+      },
+      {
+        "name": "github.com/adbc-drivers/redis/go/internal/benchproxy",
+        "seconds": 0.253
+      }
+    ],
+    "skips": [
+      "TestAggregateInputLoadProfile",
+      "TestAggregatePagesProfile",
+      "TestClickBenchExecutionProfile",
+      "TestExactDistinctProfile",
+      "TestFlexRefused",
+      "TestLateProjectionProfile",
+      "TestNarrowScanProfile",
+      "TestRangeReadinessChecksAllPrimaries",
+      "TestPartitionRuntimeCapDiscovery",
+      "TestQ19Profile",
+      "TestSearchReplyScanProfile",
+      "TestTimeoutServerPaused",
+      "TestWideTransferProfile",
+      "TestAggregateWorkerConcurrencyProfile",
+      "TestAggregateWorkerMixedProbe"
+    ]
+  },
+  "native": {
+    "standalone3": {
+      "suite": {
+        "name": "validation",
+        "errors": "0",
+        "failures": "0",
+        "skipped": "8",
+        "tests": "382",
+        "time": "7.379",
+        "timestamp": "2026-10-21T15:31:18.206106-07:00",
+        "hostname": "J3Y2WY6YQW-Albert-Wong"
+      },
+      "summary": "371 passed, 8 skipped, 3 subtests passed in 7.38s",
+      "skips": [
+        {
+          "test": "test_get_objects_constraints_foreign[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "test": "test_get_objects_constraints_unique[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "test": "test_get_statistics[redis:8]",
+          "reason": "connection_get_statistics not supported"
+        },
+        {
+          "test": "test_get_table_schema_catalog[redis:8]",
+          "reason": "secondary_catalog_schema not supported"
+        },
+        {
+          "test": "test_set_current_catalog[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "test": "test_catalog[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "test": "test_replace_catalog[redis:8:ingest/string]",
+          "reason": "not implemented"
+        },
+        {
+          "test": "test_transaction_toggle[redis:8]",
+          "reason": "Driver does not support transactions"
+        }
+      ]
+    },
+    "standalone2": {
+      "suite": {
+        "name": "validation",
+        "errors": "0",
+        "failures": "0",
+        "skipped": "8",
+        "tests": "382",
+        "time": "7.316",
+        "timestamp": "2026-10-21T15:31:25.823190-07:00",
+        "hostname": "J3Y2WY6YQW-Albert-Wong"
+      },
+      "summary": "371 passed, 8 skipped, 3 subtests passed in 7.32s",
+      "skips": [
+        {
+          "test": "test_get_objects_constraints_foreign[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "test": "test_get_objects_constraints_unique[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "test": "test_get_statistics[redis:8]",
+          "reason": "connection_get_statistics not supported"
+        },
+        {
+          "test": "test_get_table_schema_catalog[redis:8]",
+          "reason": "secondary_catalog not supported"
+        },
+        {
+          "test": "test_set_current_catalog[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "test": "test_catalog[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "test": "test_replace_catalog[redis:8:ingest/string]",
+          "reason": "not implemented"
+        },
+        {
+          "test": "test_transaction_toggle[redis:8]",
+          "reason": "Driver does not support transactions"
+        }
+      ]
+    },
+    "cluster3": {
+      "suite": {
+        "name": "validation",
+        "errors": "0",
+        "failures": "0",
+        "skipped": "8",
+        "tests": "382",
+        "time": "8.886",
+        "timestamp": "2026-10-21T15:31:33.372352-07:00",
+        "hostname": "J3Y2WY6YQW-Albert-Wong"
+      },
+      "summary": "371 passed, 8 skipped, 3 subtests passed in 8.89s",
+      "skips": [
+        {
+          "test": "test_get_objects_constraints_foreign[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "test": "test_get_objects_constraints_unique[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "test": "test_get_statistics[redis:8]",
+          "reason": "connection_get_statistics not supported"
+        },
+        {
+          "test": "test_get_table_schema_catalog[redis:8]",
+          "reason": "secondary_catalog_schema not supported"
+        },
+        {
+          "test": "test_set_current_catalog[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "test": "test_catalog[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "test": "test_replace_catalog[redis:8:ingest/string]",
+          "reason": "not implemented"
+        },
+        {
+          "test": "test_transaction_toggle[redis:8]",
+          "reason": "Driver does not support transactions"
+        }
+      ]
+    }
+  },
+  "race": {
+    "command": "REDIS_URI=URI go test -race -count=1 -run '^(TestAggregateRawFieldsCompatibility|TestAggregateReplyMalformedAndReducers|TestScanArrow|TestScanProjection|TestSQLScanProjection|TestSQLScanArrow|TestSharedScan|TestSQLStream|TestPartition)' .",
+    "cluster": "ok  \tgithub.com/adbc-drivers/redis/go\t18.493s",
+    "standalone": "ok  \tgithub.com/adbc-drivers/redis/go\t14.072s"
+  }
+}

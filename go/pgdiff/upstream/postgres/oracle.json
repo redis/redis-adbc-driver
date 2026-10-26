@@ -1,0 +1,1489 @@
+{
+  "reference": "Postgres 16.15, C collation, UTC, ISO MDY, reduced fixtures",
+  "expectations": {
+    "postgres/aggregates.json:statement-0005": {
+      "sql_sha256": "1349231296874edbff4bf4446cd8e7389c60490ca6f043df048b3f5ccf7a647e",
+      "sqlstate": null
+    },
+    "postgres/aggregates.json:statement-0010": {
+      "sql_sha256": "db78fc79cc6ecf9fef953b44ed270857a4cd7ce71eab8ce8a3f9e7b134897d2a",
+      "sqlstate": null
+    },
+    "postgres/aggregates.json:statement-0013": {
+      "sql_sha256": "7c48e0dd426432a6b693fe64e0b3835e10cb7d6e6d794b2d15da5d1f0ac66e81",
+      "sqlstate": null
+    },
+    "postgres/aggregates.json:statement-0014": {
+      "sql_sha256": "6f52447ce310274685a7aa5f9d64f6182fc72f13eddabffcd1fcf9f2508b73ec",
+      "sqlstate": null
+    },
+    "postgres/aggregates.json:statement-0017": {
+      "sql_sha256": "e20a95c1202bc45125a44fc815e88ae0087c81525b8c0ee26fe3a75bb78cb997",
+      "sqlstate": null
+    },
+    "postgres/aggregates.json:statement-0018": {
+      "sql_sha256": "88a51d013347195a9029f43e1c2a9ca08af0a4389f17e108a013a3cc90a56db6",
+      "sqlstate": null
+    },
+    "postgres/aggregates.json:statement-0020": {
+      "sql_sha256": "891aa0f79cdd945aa247c0e92362174abb5c41c7f45c6db744cbbaaa1d19986f",
+      "sqlstate": null
+    },
+    "postgres/aggregates.json:statement-0021": {
+      "sql_sha256": "74ccb875bdb2be0803cbbe084cebcc45efa45bb4d3918c8279f9a9df61e9e6b7",
+      "sqlstate": null
+    },
+    "postgres/aggregates.json:statement-0022": {
+      "sql_sha256": "4df3c50b4224153ff9efaa9e04b7b3deb4c4f11dc1f1fc5ec3d8043fff92308c",
+      "sqlstate": null
+    },
+    "postgres/aggregates.json:statement-0023": {
+      "sql_sha256": "aa004b93927f7c5ed961aa3806384a484cfdea2a52f2b88784a7f734f89ef3e6",
+      "sqlstate": null
+    },
+    "postgres/aggregates.json:statement-0024": {
+      "sql_sha256": "d3edd9162971736e064b7a4513cc5069566bb54688b07a4f0170de0687aad630",
+      "sqlstate": null
+    },
+    "postgres/aggregates.json:statement-0025": {
+      "sql_sha256": "7d89b3814339cd415048d672d35685e9c9a5df92ce0f2a91d21bc18b6e58fe4e",
+      "sqlstate": null
+    },
+    "postgres/aggregates.json:statement-0026": {
+      "sql_sha256": "1e5d1642366fbf744443608452980812c2e8bff681c8818c125ee4b85f66c58e",
+      "sqlstate": null
+    },
+    "postgres/aggregates.json:statement-0027": {
+      "sql_sha256": "77f27687531adc3526d54d943d923a53ba622238efd51f0c097f14f44080a915",
+      "sqlstate": null
+    },
+    "postgres/aggregates.json:statement-0028": {
+      "sql_sha256": "e395143a70ba5304aa2c5fcd39246817e905bafd855be9c173f4248b15521867",
+      "sqlstate": null
+    },
+    "postgres/aggregates.json:statement-0029": {
+      "sql_sha256": "03a0c724f4333a271c99631a9a5d34f5c2f65b64a4f40d2e23c46b741dd7a467",
+      "sqlstate": null
+    },
+    "postgres/aggregates.json:statement-0030": {
+      "sql_sha256": "9beadde1e282a383e90b999f6a5e41f56e32eedd31cdb7803a8081e1b8fc3641",
+      "sqlstate": null
+    },
+    "postgres/aggregates.json:statement-0031": {
+      "sql_sha256": "40db9ec88053add20a20e19e34773363921f9d942ec554658bce74848367f1da",
+      "sqlstate": null
+    },
+    "postgres/aggregates.json:statement-0032": {
+      "sql_sha256": "fa40f4f5959ff2e906e0b3efd81b4b59f24545cc9ec900a6daf21d15f9a6d1f7",
+      "sqlstate": null
+    },
+    "postgres/aggregates.json:statement-0033": {
+      "sql_sha256": "0a1c978f3353a9e379a290169e3630ad05cb538f69a2fba9fa77992f8866bbc9",
+      "sqlstate": null
+    },
+    "postgres/aggregates.json:statement-0034": {
+      "sql_sha256": "2b7a28baf106973c66ffd3d2131e992194078f7cd9ed8f40ade13ad60b4ef162",
+      "sqlstate": null
+    },
+    "postgres/aggregates.json:statement-0035": {
+      "sql_sha256": "a9b9badc03e870647252bf27da2719a87059df39c13bb549cb57c3b4f774936c",
+      "sqlstate": null
+    },
+    "postgres/aggregates.json:statement-0036": {
+      "sql_sha256": "851770b332865d50bcd5f049a0df323dd28cbe720b2e428bbf661325309216f7",
+      "sqlstate": null
+    },
+    "postgres/aggregates.json:statement-0037": {
+      "sql_sha256": "723bb92b333f62b169a1dd0546259189c3ea0ac67b92416c9edf06de0b64476d",
+      "sqlstate": null
+    },
+    "postgres/case.json:statement-0012": {
+      "sql_sha256": "6e090e6f7603552d5ebaba349cd84e51c4b1f1e4a217571bdbb327d619cc94aa",
+      "sqlstate": null
+    },
+    "postgres/case.json:statement-0013": {
+      "sql_sha256": "2d929533a4413f6f617b29f5c9a22d62b64ca4f85492e837c1942f13316e9735",
+      "sqlstate": null
+    },
+    "postgres/case.json:statement-0014": {
+      "sql_sha256": "52f2e77ef184d9dd530872f857c549791e6921e783e1737be38c97041a28f1ff",
+      "sqlstate": null
+    },
+    "postgres/case.json:statement-0015": {
+      "sql_sha256": "027826191686238269cca4d2599618db3035717bcb31107596a106b922c1cb7e",
+      "sqlstate": null
+    },
+    "postgres/case.json:statement-0016": {
+      "sql_sha256": "cd3ba04624f4ad036ff126e29211c06ec61131b7ff30fea0a10cbc0f6faf8f61",
+      "sqlstate": null
+    },
+    "postgres/case.json:statement-0018": {
+      "sql_sha256": "3ba374ad1060c62d772e3270cf010f31431cf698cbe17ba89cd0fb157a23bf85",
+      "sqlstate": null
+    },
+    "postgres/case.json:statement-0019": {
+      "sql_sha256": "b490d60392b830752a65e8d9e00af9cd3b494e32254b1e6e0eb2b76e5d1313c7",
+      "sqlstate": null
+    },
+    "postgres/case.json:statement-0020": {
+      "sql_sha256": "0dc197bada2551735473102040d084756d7dd0557fe5357ef2dd01e0be98a8f1",
+      "sqlstate": "22012"
+    },
+    "postgres/case.json:statement-0021": {
+      "sql_sha256": "1aedebe6e606d466daaa6553ea42bb0833d4d231f1c5c10f440913bb9b4df4ef",
+      "sqlstate": null
+    },
+    "postgres/case.json:statement-0022": {
+      "sql_sha256": "73310d48688864e857a1649a9dc72a63e8fe76c5072ede5a99d85765b7fef2f1",
+      "sqlstate": null
+    },
+    "postgres/case.json:statement-0023": {
+      "sql_sha256": "0ad0ffc7090a44a28263ed2b92ea7b3624b18ba0614022b94748af4001028f1f",
+      "sqlstate": null
+    },
+    "postgres/case.json:statement-0024": {
+      "sql_sha256": "a0994028c191a247bae11fb96700739e68fb273d86e08d3264620e0be4841e92",
+      "sqlstate": null
+    },
+    "postgres/case.json:statement-0025": {
+      "sql_sha256": "e5ffe69fa8330781cde00282251802b83ce3e2537411e12dbdb76be6cac87eec",
+      "sqlstate": null
+    },
+    "postgres/case.json:statement-0026": {
+      "sql_sha256": "26ae24ba9c2d11264a8b048eb38cabb150e968a37edf8b638b90b8b2ddcbe2cb",
+      "sqlstate": null
+    },
+    "postgres/case.json:statement-0027": {
+      "sql_sha256": "596e1bf5d913f5d3d3e4cef3130ac27522e40bba4287a8432e7e3ad7f452664f",
+      "sqlstate": null
+    },
+    "postgres/case.json:statement-0028": {
+      "sql_sha256": "81778099d73f0bafecfa03dbf720d0ec935b964560a362d22aefc9a88d57ee43",
+      "sqlstate": null
+    },
+    "postgres/case.json:statement-0029": {
+      "sql_sha256": "50086738c74394a69b31099b75c3d0d21e53bbed2158e657c0d0cdf2a57c8839",
+      "sqlstate": null
+    },
+    "postgres/date.json:statement-0023": {
+      "sql_sha256": "2814bbd4b989272fde3cc65eba39fcf10a508715723ddc0acf3f508111b82be7",
+      "sqlstate": null
+    },
+    "postgres/date.json:statement-0024": {
+      "sql_sha256": "a16a364cc66ae9b5552f66c7e0dbe14796628f11515cb3bc3876097f0acba7f6",
+      "sqlstate": null
+    },
+    "postgres/date.json:statement-0025": {
+      "sql_sha256": "e85a5631bb647c433cf477a8124f7ec7b14ba9716b8a18b9bcae889bd4890e92",
+      "sqlstate": null
+    },
+    "postgres/date.json:statement-0026": {
+      "sql_sha256": "f5f150601b81859f3ea39d3f2e624ff9605fb8a930aac62787ee446c71d43c0a",
+      "sqlstate": null
+    },
+    "postgres/date.json:statement-0027": {
+      "sql_sha256": "ac4b1040f9df1aee3866c7465eb60f40664402bfe942e6b5bc54c444805da036",
+      "sqlstate": null
+    },
+    "postgres/date.json:statement-0028": {
+      "sql_sha256": "8bceefac27b69e56ab80fd6ea8148505e2d5ce0fa1f09921d03b24f46474b414",
+      "sqlstate": "22008"
+    },
+    "postgres/date.json:statement-0029": {
+      "sql_sha256": "e0ab154db6aa98b447f2419afad4e397974e48c5c5be9d08ca4e5d8e7491f71d",
+      "sqlstate": null
+    },
+    "postgres/date.json:statement-0030": {
+      "sql_sha256": "bfe898642c532dc40bf33cc1187f33584a306d9f0e204b17e4629f6e865205e1",
+      "sqlstate": null
+    },
+    "postgres/date.json:statement-0031": {
+      "sql_sha256": "a9c100a26b69cbbb15df733d8b9494dd266413de8f884ea49c4ef0ff76fb721d",
+      "sqlstate": null
+    },
+    "postgres/date.json:statement-0032": {
+      "sql_sha256": "20e89512b28f2ee465a51df372ab656736d9fe65eece369a2f7dd261f5344172",
+      "sqlstate": null
+    },
+    "postgres/date.json:statement-0033": {
+      "sql_sha256": "1fb54fe045140d568a2a7d86ac821e20e1c05a581731f08b2fb6afbb8dd017aa",
+      "sqlstate": null
+    },
+    "postgres/date.json:statement-0034": {
+      "sql_sha256": "be44decf2ed489bf73966a20f14ca3e29d4b6be93f6444bfd2dc44b2cdfe4aa9",
+      "sqlstate": null
+    },
+    "postgres/date.json:statement-0035": {
+      "sql_sha256": "99bc19d0cd24fbb76761c79b23568de4aa80694fceadc43feb8b0f08f81ceb6d",
+      "sqlstate": "22008"
+    },
+    "postgres/date.json:statement-0036": {
+      "sql_sha256": "0aec13c4b0d41ef7b339bae3b721db01bacc7da10bac40f38d9af5e972e3e4dd",
+      "sqlstate": null
+    },
+    "postgres/date.json:statement-0037": {
+      "sql_sha256": "8a47539c3769f0436ce988cc8224a1d529bce9ad134d2277005a7bc097e49420",
+      "sqlstate": null
+    },
+    "postgres/date.json:statement-0038": {
+      "sql_sha256": "6b6f0dcb46fca7f0f3ba9b0e89f76bd089bde89fd0a254044b32a2b93fedcc8a",
+      "sqlstate": null
+    },
+    "postgres/date.json:statement-0039": {
+      "sql_sha256": "c866afbf45af13e3e1b8a8ea5a38f657cdbfc367203d112c15abcdbc3c65c590",
+      "sqlstate": null
+    },
+    "postgres/date.json:statement-0040": {
+      "sql_sha256": "a7f3d19baf1b0b34b846e24a8a7297c13418ebb74bb772b46310822fbf50b9e7",
+      "sqlstate": null
+    },
+    "postgres/date.json:statement-0041": {
+      "sql_sha256": "39b766e3a27ff04eaecccdfb80a72c688a3b596335e96528ea1ff7c813325c98",
+      "sqlstate": "22007"
+    },
+    "postgres/date.json:statement-0042": {
+      "sql_sha256": "1856693694ca99817bf0634af6ee4ded372a9e1525dbcb125af8512fde129f46",
+      "sqlstate": "22007"
+    },
+    "postgres/date.json:statement-0043": {
+      "sql_sha256": "ca72d478084fbbe8749eb3303010d8015009e7fb9731e57803d362c5885fcaee",
+      "sqlstate": "22007"
+    },
+    "postgres/date.json:statement-0044": {
+      "sql_sha256": "d1fdf4afe86fcd32365309aaa6edf015700880aed03888f968de1835f1563389",
+      "sqlstate": null
+    },
+    "postgres/date.json:statement-0045": {
+      "sql_sha256": "b995ce022049dca60a9d311d71065be250fb80b872a87a4b1baaa4070f44eae0",
+      "sqlstate": null
+    },
+    "postgres/date.json:statement-0046": {
+      "sql_sha256": "0bfc6730fe04612ed7f508d1aa1fc2847821a3eff9cdc64d5b55a11f28c195e5",
+      "sqlstate": null
+    },
+    "postgres/float8.json:statement-0006": {
+      "sql_sha256": "236c7bf01fe6f73196b2bd9b93609d7603797fbc8c6b6a2fdc080cb0f2733124",
+      "sqlstate": "22003"
+    },
+    "postgres/float8.json:statement-0007": {
+      "sql_sha256": "bf0cb9ad8e0457f057507fe282d21c7eec37bd87438f897e0c1f5e4e9db4e3cb",
+      "sqlstate": "22003"
+    },
+    "postgres/float8.json:statement-0008": {
+      "sql_sha256": "daeeb9fa1f8dc578f01013aac3556b788d2c76c6aa24ee8d79b909441aa9bbd5",
+      "sqlstate": "22003"
+    },
+    "postgres/float8.json:statement-0009": {
+      "sql_sha256": "fbf031c0c019bff003fe1652dac8a5c700821aa635f4e18c69b028f80dc451c4",
+      "sqlstate": "22003"
+    },
+    "postgres/float8.json:statement-0010": {
+      "sql_sha256": "6fe64a1b3be7746b838788e2085d329b55a107a741170cc8cc3335f7335e9e50",
+      "sqlstate": null
+    },
+    "postgres/float8.json:statement-0019": {
+      "sql_sha256": "e60d6dd6c1f69a53a18b3504957c5ce1b1a32fdde04ae73804df166a37fadbb4",
+      "sqlstate": null
+    },
+    "postgres/float8.json:statement-0020": {
+      "sql_sha256": "b1845b26ec1f7b357b4f8785be8702b6dc2c04e9dd2510483f9caed1e3bedbc3",
+      "sqlstate": null
+    },
+    "postgres/float8.json:statement-0021": {
+      "sql_sha256": "ee5fbf8c883c4c15948994ab82804fdf83af76a687a2f4069182d4e835f4a18e",
+      "sqlstate": null
+    },
+    "postgres/float8.json:statement-0022": {
+      "sql_sha256": "c76f8f6d9ee0481da4e8b22b5150da50081f8e728c0595384e8220508f51d0f5",
+      "sqlstate": null
+    },
+    "postgres/float8.json:statement-0023": {
+      "sql_sha256": "fd1a1d1ba854aee609e5bd958fbbc1f8e700d255e6110c0507d67f44cef0c88c",
+      "sqlstate": null
+    },
+    "postgres/float8.json:statement-0024": {
+      "sql_sha256": "15234a5b6847b9256dd1c28cbba96b9e13377b0dfd5ac3e1cf0689b178774316",
+      "sqlstate": null
+    },
+    "postgres/float8.json:statement-0025": {
+      "sql_sha256": "d107ed7632bf140ede7fc76ca76d5e5151c1d8aec886015061a5469efdf1410e",
+      "sqlstate": null
+    },
+    "postgres/float8.json:statement-0026": {
+      "sql_sha256": "3902dab35046a13d8f76fe96df4f3bb91fd5a64b1752bb5ff4ed9fec05f3c4f2",
+      "sqlstate": null
+    },
+    "postgres/float8.json:statement-0027": {
+      "sql_sha256": "5ed65b38134da4e6e2b86a7c035ebd2b008de0b62bca641a42d03df33b703dd8",
+      "sqlstate": null
+    },
+    "postgres/float8.json:statement-0028": {
+      "sql_sha256": "8994c07a58690c253a1bfc89191b188a84269c892211f2efbaeb2c280d70dc9c",
+      "sqlstate": "22P02"
+    },
+    "postgres/float8.json:statement-0029": {
+      "sql_sha256": "6b2164d05a3852299342e0ee19db4623a9362f6670f98cc198ada87dd0e6b47d",
+      "sqlstate": "22P02"
+    },
+    "postgres/float8.json:statement-0030": {
+      "sql_sha256": "8ee6ef695e955337190d94f47b987a12b40dbc374bfaa178132f3c6a61741065",
+      "sqlstate": "22P02"
+    },
+    "postgres/float8.json:statement-0031": {
+      "sql_sha256": "206c415b998e27339bac058eac71e42fdbc152b6e8016b5637790651d42d9136",
+      "sqlstate": null
+    },
+    "postgres/float8.json:statement-0032": {
+      "sql_sha256": "eade0d75d39479c67b526d0ef1a5a4b2aeabd8fb65904528e95f67fc37948c21",
+      "sqlstate": null
+    },
+    "postgres/float8.json:statement-0033": {
+      "sql_sha256": "f4ebcd4c61c494786462580fb00542904c6bdfb9c0dd58c7cd07245ce47db25d",
+      "sqlstate": null
+    },
+    "postgres/float8.json:statement-0034": {
+      "sql_sha256": "3b974771012aed14037fa7775cff497f68b63c1836b1568db771430227e555f3",
+      "sqlstate": null
+    },
+    "postgres/float8.json:statement-0035": {
+      "sql_sha256": "f0a271127999611fd7a822f021d6f0afcabdb7844705519fb2cc4df8c000bfbc",
+      "sqlstate": null
+    },
+    "postgres/float8.json:statement-0036": {
+      "sql_sha256": "a52ba0ae135674f9221842ffa872e86c0af7ef37a49b7f666a6c008742ada3e4",
+      "sqlstate": null
+    },
+    "postgres/float8.json:statement-0037": {
+      "sql_sha256": "fcc34c70f8d8568627987522c6a95f35b0af33923d72fafea1d041d5aaa86376",
+      "sqlstate": null
+    },
+    "postgres/float8.json:statement-0038": {
+      "sql_sha256": "13a7f069f3faa20becd67332122d66b1d05ee467c88304af25a2f98e2a1a64bc",
+      "sqlstate": null
+    },
+    "postgres/float8.json:statement-0039": {
+      "sql_sha256": "90fe5f3bde15563b1f5c13fca098bafd8e9e828ac916e5bb6499f84e268d8b4e",
+      "sqlstate": null
+    },
+    "postgres/float8.json:statement-0040": {
+      "sql_sha256": "d013cf440a2a67074d9a16a7eac312de28beffdebe9790d4a6929293a7e3ee06",
+      "sqlstate": null
+    },
+    "postgres/float8.json:statement-0041": {
+      "sql_sha256": "fba63484aa0e52ed7a1e2ff3a14f2a5d8103deec0e9314c729e5f62bc8b62ceb",
+      "sqlstate": null
+    },
+    "postgres/float8.json:statement-0042": {
+      "sql_sha256": "17c90800da31780b70babfa32d73f2ff33f33e215708bca6aa0898e59717054e",
+      "sqlstate": null
+    },
+    "postgres/float8.json:statement-0043": {
+      "sql_sha256": "e4908c3c4c6c39469e5d6733caeacbd5b5d4720f23a4e75abff331af92b48aed",
+      "sqlstate": null
+    },
+    "postgres/float8.json:statement-0044": {
+      "sql_sha256": "2296144665f66a5ef87d3c2ee864db6c3bf6143abc053db5a5cc46bc8d05b44c",
+      "sqlstate": null
+    },
+    "postgres/float8.json:statement-0045": {
+      "sql_sha256": "11b7b6b5a079d702443e1e41b20908969d8c0858d0bf5fffd10a132c12d6b17e",
+      "sqlstate": null
+    },
+    "postgres/int4.json:statement-0008": {
+      "sql_sha256": "56105abb9668179df8623c90f83e4cb339a78de4ebb476021c5056290c6cda29",
+      "sqlstate": null
+    },
+    "postgres/int4.json:statement-0009": {
+      "sql_sha256": "524c1bc54e012158bc3ae908049cf0372d57efe95e78cc80591fdd6e4146d7ca",
+      "sqlstate": null
+    },
+    "postgres/int4.json:statement-0010": {
+      "sql_sha256": "ac958370aab8894303bb175ec3142a47e4f6ddf4c2731bf8c25f45428010067e",
+      "sqlstate": null
+    },
+    "postgres/int4.json:statement-0011": {
+      "sql_sha256": "3901556941f51b0aae1338c4295c66c47a5cb1684a4acb21307be64e5254b7e2",
+      "sqlstate": null
+    },
+    "postgres/int4.json:statement-0013": {
+      "sql_sha256": "ee011a1db1e06c78f2c97a1b3ad7ad1a0f9e454beab6118280cb775854905438",
+      "sqlstate": null
+    },
+    "postgres/int4.json:statement-0014": {
+      "sql_sha256": "db4e605925e6be4dfa02c7297ecc0570d094a156154b87907024e81485a0ab0f",
+      "sqlstate": null
+    },
+    "postgres/int4.json:statement-0015": {
+      "sql_sha256": "087cc341ab1ecda4c4e9aebe987372a895aaebd09ab69bcab4e510d86a4ca69a",
+      "sqlstate": null
+    },
+    "postgres/int4.json:statement-0016": {
+      "sql_sha256": "cf42c3d7ca12c8e771328099a2df0abe720be306c10aaa2eb72fdfbcf3b3519f",
+      "sqlstate": null
+    },
+    "postgres/int4.json:statement-0017": {
+      "sql_sha256": "15f4b3b91edb628be3b2ae15c044e32d212d3129a206fe1e20ce49b84ae04acc",
+      "sqlstate": null
+    },
+    "postgres/int4.json:statement-0018": {
+      "sql_sha256": "ca654fa0c11fcde6b34b25739fe624584d340ecef6e34732a6042b1713274e44",
+      "sqlstate": null
+    },
+    "postgres/int4.json:statement-0019": {
+      "sql_sha256": "402b208f057814dcbdc0a9f9a8c8d38fdd7b38def4c7805b61ef7fae0ceb1223",
+      "sqlstate": null
+    },
+    "postgres/int4.json:statement-0020": {
+      "sql_sha256": "d99fc5f32cab9da2c3335c33cc03d8fb1cc9ad5c031a82b28e61f354caf1b8e3",
+      "sqlstate": null
+    },
+    "postgres/int4.json:statement-0021": {
+      "sql_sha256": "067d0ee39c06f08d90c9bd2963e14484f50ad928b52a6eeac6dc7125b34faba6",
+      "sqlstate": null
+    },
+    "postgres/int4.json:statement-0022": {
+      "sql_sha256": "19837bb33f7ad8186c03b8b4ee636981904b1de7e06021853e7216c2f6377f97",
+      "sqlstate": null
+    },
+    "postgres/int4.json:statement-0023": {
+      "sql_sha256": "75e1ca8586f44ce0ce9e10abfc55117d3a386dabe0e052c82ea2803da79a4007",
+      "sqlstate": null
+    },
+    "postgres/int4.json:statement-0024": {
+      "sql_sha256": "f630f8554c2bd0aa2862ca902e6710c624ad5f781d2bbb41a764b9ee8f12cee5",
+      "sqlstate": null
+    },
+    "postgres/int4.json:statement-0025": {
+      "sql_sha256": "597f6897d709276c4ec7b4aea2fcd36330f4f60ba23ac9b10108ce9df3aede28",
+      "sqlstate": null
+    },
+    "postgres/int4.json:statement-0026": {
+      "sql_sha256": "df51d3aa28518abcf20386ba2bf883b171e10f5c9eb92b664875b7e09fe98d56",
+      "sqlstate": null
+    },
+    "postgres/int4.json:statement-0027": {
+      "sql_sha256": "9930e5f88e245f3333f88a2242cf0a563375441f7c69fbdfe4ef4a36730acbcd",
+      "sqlstate": "22003"
+    },
+    "postgres/int4.json:statement-0028": {
+      "sql_sha256": "1ddff9dc57a2988a1d82d680aea59b3a64b9e770a03b4194b92ec115b2461d4a",
+      "sqlstate": null
+    },
+    "postgres/int4.json:statement-0029": {
+      "sql_sha256": "07757ced7f87481ced1f993eca53b287b32e830245f6f4eee41854e16cfe31c2",
+      "sqlstate": "22003"
+    },
+    "postgres/int4.json:statement-0030": {
+      "sql_sha256": "defd70a59f4d262bb4f8f121c5641565a537e4cb78830a3d7364d566d776e961",
+      "sqlstate": null
+    },
+    "postgres/int4.json:statement-0031": {
+      "sql_sha256": "756e365601e66116d34a24fd70821c5547de2c3e5f99abb959bfca0efbdd8c05",
+      "sqlstate": "22003"
+    },
+    "postgres/int4.json:statement-0032": {
+      "sql_sha256": "7b0097d71d904f454a4ae7f5eaee7527c85b7fdeb4390ad10576319143b5a87d",
+      "sqlstate": null
+    },
+    "postgres/int4.json:statement-0033": {
+      "sql_sha256": "15d75c9fda7ad45b7859306edbe13679b1b6196e07ec63b7e189e7237719705f",
+      "sqlstate": "22003"
+    },
+    "postgres/int8.json:statement-0007": {
+      "sql_sha256": "9eb7923c98d3ead6133de0994f49b2fdebe5823ea909a67d272f92d1a847d1bf",
+      "sqlstate": null
+    },
+    "postgres/int8.json:statement-0008": {
+      "sql_sha256": "8205752e67296364afd1508d4a447947154ae952094a136c525e32071687470b",
+      "sqlstate": null
+    },
+    "postgres/int8.json:statement-0009": {
+      "sql_sha256": "566724e24fcb37a0f20e12b806e4a9578b72ffe39ab62c8688329967095b878f",
+      "sqlstate": null
+    },
+    "postgres/int8.json:statement-0010": {
+      "sql_sha256": "5ffc4d04f3061e21efa3e9175f6ca519a1471d71e99a6e9c73c3dc57b13dfca1",
+      "sqlstate": null
+    },
+    "postgres/int8.json:statement-0012": {
+      "sql_sha256": "ce7c15f560a25f5c71e07bb751a763eae5b8f72894e5febf2ef610325c629e0a",
+      "sqlstate": null
+    },
+    "postgres/int8.json:statement-0013": {
+      "sql_sha256": "9e4fd293eda8eb049d549c258ea4324d446c9161d3a677749e91298dd17e9c32",
+      "sqlstate": null
+    },
+    "postgres/int8.json:statement-0014": {
+      "sql_sha256": "318614f1410ae5fe010dbe1662c3703696cd66f9b71ed4d918b7f9a0018921eb",
+      "sqlstate": null
+    },
+    "postgres/int8.json:statement-0015": {
+      "sql_sha256": "9c4eba07551b8050f8a3f6e1b1810b6776c409791a4fb4eb4ce6a968368cd0f2",
+      "sqlstate": null
+    },
+    "postgres/int8.json:statement-0016": {
+      "sql_sha256": "87f100714d71ba5cae71fd15ad07e0a040092f99ef6718f2278c6568e6c40a51",
+      "sqlstate": null
+    },
+    "postgres/int8.json:statement-0017": {
+      "sql_sha256": "32f0a544d028ae035b7c101c3e5c657b9139035e04c1b4a6789ec01e1717858a",
+      "sqlstate": null
+    },
+    "postgres/int8.json:statement-0018": {
+      "sql_sha256": "a4160777926ca2cbf653dba3b0eef3859dcdfddc6b04f55b941bcd0adc31d519",
+      "sqlstate": null
+    },
+    "postgres/int8.json:statement-0019": {
+      "sql_sha256": "b45c5b44bfb5291a4c6805ef3089d8a60b0b79c2ecd509cb8676ec4635cbcd9a",
+      "sqlstate": null
+    },
+    "postgres/int8.json:statement-0020": {
+      "sql_sha256": "39fc839a28fab2f1084a285e7b455c64354d9ff578a1822052d2ddb99e53de71",
+      "sqlstate": null
+    },
+    "postgres/int8.json:statement-0021": {
+      "sql_sha256": "4cf9108e6b49d1d65056bd08e3c49dbd6b67b05393d74356f1219ec86d0ccf9e",
+      "sqlstate": null
+    },
+    "postgres/int8.json:statement-0022": {
+      "sql_sha256": "6b7a5a588b997435e967c4d4e98b2cfcfc69aad50981edea3ef72b74f3148731",
+      "sqlstate": null
+    },
+    "postgres/int8.json:statement-0023": {
+      "sql_sha256": "9c0ee823f9e162f6522279ffeadb3346f4a61dab5c2c8a082b21587ad756b8a5",
+      "sqlstate": null
+    },
+    "postgres/int8.json:statement-0024": {
+      "sql_sha256": "03182da5aadde12a152f3058600c93d1d451900f1c48b4e8c0d30f92b235fe3f",
+      "sqlstate": null
+    },
+    "postgres/int8.json:statement-0025": {
+      "sql_sha256": "f7d53dde0d5a6934634e9df6ecba6a21a14419f9ba2e21fa3a3a12ba43604f28",
+      "sqlstate": null
+    },
+    "postgres/int8.json:statement-0026": {
+      "sql_sha256": "e7d5d5e1997e457112fed049a3d432a9cb2d56a3d516ab080bef8be9b5c361ff",
+      "sqlstate": null
+    },
+    "postgres/int8.json:statement-0027": {
+      "sql_sha256": "5e8b9f5bf8b0929429704f519e7d1f8c0bba30c1bd7a146267d1561e96334227",
+      "sqlstate": null
+    },
+    "postgres/int8.json:statement-0028": {
+      "sql_sha256": "0aa47dbe2d291b0ea4b5e698e24b2ad085f7a173f913b79c0caec680ca21d888",
+      "sqlstate": null
+    },
+    "postgres/int8.json:statement-0029": {
+      "sql_sha256": "954562821292a46fff9cd495097187bbe4bfeac7289a49adb41b33b0dd850e57",
+      "sqlstate": null
+    },
+    "postgres/int8.json:statement-0030": {
+      "sql_sha256": "c974291638c409273866efbac8046aa695f542abc918f27f8dbe4e55febdaca7",
+      "sqlstate": null
+    },
+    "postgres/int8.json:statement-0031": {
+      "sql_sha256": "6a029566b06fd08860c526a782566bc6d8e0923c5e382f7d0cf2c130ad4dae76",
+      "sqlstate": null
+    },
+    "postgres/int8.json:statement-0032": {
+      "sql_sha256": "702be7b39ff247bc23fe7df2066299b5b995b6e46bcb6500db774c89004c5569",
+      "sqlstate": null
+    },
+    "postgres/int8.json:statement-0033": {
+      "sql_sha256": "a073142f6c74f59ac4dfc46e12dc3689b09578c67d1d0b50a3b8a7c4bf2c9689",
+      "sqlstate": null
+    },
+    "postgres/int8.json:statement-0034": {
+      "sql_sha256": "2586c8f24d07cfa1058374d4e21084c27da3ac69338c0f710bd89c6bb0ff3a80",
+      "sqlstate": null
+    },
+    "postgres/int8.json:statement-0035": {
+      "sql_sha256": "d2b3956078f6ad645a0d40fb1a433fe3b05ed2d10c662873772763c3ef06942c",
+      "sqlstate": null
+    },
+    "postgres/interval.json:statement-0002": {
+      "sql_sha256": "b483cd5b5c36afddac1e569123daeeb49a0091f78f5c488e5d558c34b266ea21",
+      "sqlstate": null
+    },
+    "postgres/interval.json:statement-0003": {
+      "sql_sha256": "b0941a5e15b216c3413919818b4e71a8c9d296fb1201703a6b84aa9f8b2373b7",
+      "sqlstate": null
+    },
+    "postgres/interval.json:statement-0004": {
+      "sql_sha256": "afb31d5cce20217a58f656fdc58983853f9b4256c7106d3da3c84acbcba06595",
+      "sqlstate": null
+    },
+    "postgres/interval.json:statement-0005": {
+      "sql_sha256": "6cb9cacca74ec38298f9c63cadb078c834279071499516d1cca825b4cb10b58a",
+      "sqlstate": null
+    },
+    "postgres/interval.json:statement-0006": {
+      "sql_sha256": "a108e416ccc4b9c80d814cb1be823527bd512f2d56b435f893e2a635894eaba8",
+      "sqlstate": null
+    },
+    "postgres/interval.json:statement-0007": {
+      "sql_sha256": "4e8d18dde84f217d176a1cbb6d2726674087eb9993fb701e30fb3e7c8386e673",
+      "sqlstate": null
+    },
+    "postgres/interval.json:statement-0008": {
+      "sql_sha256": "3a511d3c3e2449b23b04cb19323e4f9b78fa66ed02ed9a8af928546ba5da753c",
+      "sqlstate": null
+    },
+    "postgres/interval.json:statement-0009": {
+      "sql_sha256": "63608895c41fc528f340404315f785f5cfc9465f635c702d9a4517bcdda4e1a3",
+      "sqlstate": null
+    },
+    "postgres/interval.json:statement-0023": {
+      "sql_sha256": "1881e54b236010d4f4c12daa2abdcb2d467420da3ba34024116da0303cfa9214",
+      "sqlstate": null
+    },
+    "postgres/interval.json:statement-0024": {
+      "sql_sha256": "e516fb91d6688fb4c774639170d7db29dc84b9e3b232065a522948ed7beada4c",
+      "sqlstate": null
+    },
+    "postgres/interval.json:statement-0025": {
+      "sql_sha256": "36a267e88610c1ff8627f75a01c07932a159e92c30016b2a78f0a50bfbb64ee6",
+      "sqlstate": null
+    },
+    "postgres/interval.json:statement-0060": {
+      "sql_sha256": "26f0009b51f24f22e96c5aff91f067198e08bc62c517c9ca7e73fac36a2d6e01",
+      "sqlstate": "22008"
+    },
+    "postgres/interval.json:statement-0061": {
+      "sql_sha256": "618806ae11a12b39bd32bf984bf332af5e422385b012cb099b8c3a20ca556914",
+      "sqlstate": "22008"
+    },
+    "postgres/interval.json:statement-0062": {
+      "sql_sha256": "3ef0e40bf5c0262581f378452ef3c9a3b655ce4f0214aa66aae6ed30956f2c29",
+      "sqlstate": "22008"
+    },
+    "postgres/interval.json:statement-0063": {
+      "sql_sha256": "7b22c284f129e88f30e11cfc460cd8e20845663c01e1163e063e76fb81dfecf5",
+      "sqlstate": "22008"
+    },
+    "postgres/interval.json:statement-0064": {
+      "sql_sha256": "d729d37383c0217276a1e6c772ff2138723e3a679108d2f2c270bb2ab0b29aef",
+      "sqlstate": "22008"
+    },
+    "postgres/interval.json:statement-0065": {
+      "sql_sha256": "6c7e3a947acea6f5bb160195f5ca2f219ac40989ba6f51964b2964a3fd3a4dc6",
+      "sqlstate": "22008"
+    },
+    "postgres/interval.json:statement-0067": {
+      "sql_sha256": "e4ba3f31e6325f272c46b227084453fa310ddbb9bc09c69c48944e98f8d7e56a",
+      "sqlstate": null
+    },
+    "postgres/interval.json:statement-0068": {
+      "sql_sha256": "0edfbe810f3f77f1dcfb497485af634fe858022018ae530d547453af1d83b29f",
+      "sqlstate": null
+    },
+    "postgres/interval.json:statement-0069": {
+      "sql_sha256": "d60ecf0b639f0291dbf7310b515eeaea6d77dcc922d3d06659875d8d2dc8c3b5",
+      "sqlstate": null
+    },
+    "postgres/join.json:statement-0025": {
+      "sql_sha256": "4f08ec78c77cd0e690e0bff1bb4e1ea2af6d4552428a0fccde636b2de538a99c",
+      "sqlstate": null
+    },
+    "postgres/join.json:statement-0026": {
+      "sql_sha256": "3f2326c187d46cf554d2154eefc07ac7cde124b868bcd26394e610080476dabd",
+      "sqlstate": null
+    },
+    "postgres/join.json:statement-0027": {
+      "sql_sha256": "00171a9e4ed5e9eee01a183ba43b5fdc9fda31c736a94e04d5815713b771e04b",
+      "sqlstate": null
+    },
+    "postgres/join.json:statement-0028": {
+      "sql_sha256": "033083329efa383984193423e6bb3eb4f801476ea8430970b63cf2db253c2aa9",
+      "sqlstate": null
+    },
+    "postgres/join.json:statement-0029": {
+      "sql_sha256": "9305627399513ecfe7d34cbdcad8cea1c49e560e140f69d28458aca30444d017",
+      "sqlstate": null
+    },
+    "postgres/join.json:statement-0030": {
+      "sql_sha256": "0500215141c668e165ba9669db81c045e9704470bf453e681e6981141d23afdb",
+      "sqlstate": null
+    },
+    "postgres/join.json:statement-0031": {
+      "sql_sha256": "bf57370034ce706b42cf476168bf082c229fb1b503a60df769946617af95eed5",
+      "sqlstate": null
+    },
+    "postgres/join.json:statement-0032": {
+      "sql_sha256": "8ddda7856c6fcd18b133a06355c31c76d4bf384c336b924afef26e52bcc8d5e4",
+      "sqlstate": "42702"
+    },
+    "postgres/join.json:statement-0033": {
+      "sql_sha256": "3d5624bbf5de36e34a8edb920ded525e27bb1d76547958b30ee38f782022cb51",
+      "sqlstate": null
+    },
+    "postgres/join.json:statement-0034": {
+      "sql_sha256": "30bf9979d0787f55749175908551232591646cca528c1be2d5f1854db00f9c60",
+      "sqlstate": null
+    },
+    "postgres/join.json:statement-0035": {
+      "sql_sha256": "c7afc239f470364e4a09d48f1ad7685f0a3d182af089959cd34a62e9b149127c",
+      "sqlstate": null
+    },
+    "postgres/join.json:statement-0036": {
+      "sql_sha256": "063b64e009356578ee139afe7763e4ef209d80a791001519cae3a9a0d4dc10b3",
+      "sqlstate": null
+    },
+    "postgres/join.json:statement-0037": {
+      "sql_sha256": "e236c839f65ee515887a0ac027c59c8f0d24f686b042e3c89c6a8cd22cb6282f",
+      "sqlstate": null
+    },
+    "postgres/join.json:statement-0038": {
+      "sql_sha256": "5bdc5dbcccf3ef6de7b1ce112384aea04e40c578a9c93d427d6f68ba3b3bba99",
+      "sqlstate": null
+    },
+    "postgres/join.json:statement-0039": {
+      "sql_sha256": "2dad50d8e64254b91fbc815372a622d0f94bbd22dadf80c577eae679339b86fe",
+      "sqlstate": null
+    },
+    "postgres/join.json:statement-0040": {
+      "sql_sha256": "0479a0a1d0b9b3eb909365d80b70561329e392af697232c6fb0b88386fd20af0",
+      "sqlstate": null
+    },
+    "postgres/join.json:statement-0041": {
+      "sql_sha256": "e60b1d91656d53a7610741f2806fdf116300e1846592d6a3eff3bc829661a764",
+      "sqlstate": null
+    },
+    "postgres/join.json:statement-0042": {
+      "sql_sha256": "a31fd087bff74210ed74785c2d99301dde01cdff2c59d7041dae86a52c3b2b07",
+      "sqlstate": null
+    },
+    "postgres/join.json:statement-0043": {
+      "sql_sha256": "c69e84b585e35dd9730731e158d6527dc2e6a88a68a2cc646ae4b1075765dc23",
+      "sqlstate": "42P01"
+    },
+    "postgres/join.json:statement-0044": {
+      "sql_sha256": "37b5229c9507444d2b5ebfc1c9c9e6a9e2a091200165c3400c87dcd49f74fe5b",
+      "sqlstate": null
+    },
+    "postgres/join.json:statement-0045": {
+      "sql_sha256": "282b68f827bfd38972a64f8200280310deb9b97aa3b741ada10effededca1091",
+      "sqlstate": "42703"
+    },
+    "postgres/join.json:statement-0046": {
+      "sql_sha256": "28fffda11a491efaf1294646794e4410ec7f8e4ef9a0e966ad1a5682b9da65ee",
+      "sqlstate": "42P01"
+    },
+    "postgres/join.json:statement-0047": {
+      "sql_sha256": "70abdafc2351f036d3c705b57114e22b0575019cc60b0c2f3749d9d399fac8c4",
+      "sqlstate": "42712"
+    },
+    "postgres/join.json:statement-0048": {
+      "sql_sha256": "7c89becdb32571e6af02074e60bec7d6f4681e0854b80b30cc052dd392edc551",
+      "sqlstate": null
+    },
+    "postgres/join.json:statement-0049": {
+      "sql_sha256": "5fe936b59b5c8ba2a5b8307191efae80063f158b82742fa951f02d94b4194f84",
+      "sqlstate": null
+    },
+    "postgres/join.json:statement-0050": {
+      "sql_sha256": "82a31a00811681e2df8d17aadec9fb814a53eb8d5e2ea087e441dee7dbda5bce",
+      "sqlstate": null
+    },
+    "postgres/join.json:statement-0051": {
+      "sql_sha256": "6c42fd545626e99d1842a873003214b9cd33ce386a4676d6c607c7ec49caa51d",
+      "sqlstate": null
+    },
+    "postgres/join.json:statement-0052": {
+      "sql_sha256": "3189f044e148bd9f4fb16f1e13fc9313c5a89a9b14ea6c56eaa1367e5b22a947",
+      "sqlstate": null
+    },
+    "postgres/join.json:statement-0053": {
+      "sql_sha256": "75e6792a21bad6b23b5faa157e3258467c35c07044feeb7ebe6488fe5c099e24",
+      "sqlstate": null
+    },
+    "postgres/join.json:statement-0054": {
+      "sql_sha256": "2c4ec2e465d8474fbc411a92064de9c55c67d27488c9071d99747dd8b9d9544d",
+      "sqlstate": null
+    },
+    "postgres/json.json:statement-0000": {
+      "sql_sha256": "dc67107e7ea2d409f308db7bdf6371caaa892d1736f21205317affede2fc0fef",
+      "sqlstate": null
+    },
+    "postgres/json.json:statement-0001": {
+      "sql_sha256": "16cdcfcf830069bceebc86a0fb7e4756124e4c91def74a60da7fabcfa2b48c56",
+      "sqlstate": "22P02"
+    },
+    "postgres/json.json:statement-0002": {
+      "sql_sha256": "25cfeba72f89367094262decf51da5ddfcb936b9ce6fa1d9ff8959b95032aca1",
+      "sqlstate": null
+    },
+    "postgres/json.json:statement-0003": {
+      "sql_sha256": "90738715b433764e2156b5bd6e7e104fceccbd1b42fad491f3bb0fb4764f6537",
+      "sqlstate": "22P02"
+    },
+    "postgres/json.json:statement-0004": {
+      "sql_sha256": "7dc110ef2b9333975db7f47290d1fab35047113321a3eaab5085f97d47042eea",
+      "sqlstate": "22P02"
+    },
+    "postgres/json.json:statement-0005": {
+      "sql_sha256": "d7aea2763309c2be2673e9addc145b355b0443fe802bc49b8228a98b348f823a",
+      "sqlstate": null
+    },
+    "postgres/json.json:statement-0006": {
+      "sql_sha256": "9f9a567dd02a7a950a3abe247e474cbc7aad2be13998d38cd813ccd20879b8c9",
+      "sqlstate": "22P02"
+    },
+    "postgres/json.json:statement-0009": {
+      "sql_sha256": "48ee614b06940ca40c79314be9cb5381b220ff7087a2ca77ffb54e8f73b8abc4",
+      "sqlstate": null
+    },
+    "postgres/json.json:statement-0010": {
+      "sql_sha256": "03a3d131a528d80cb4db05d453968f17174efc876149b013aa0442ce4ee64ad5",
+      "sqlstate": null
+    },
+    "postgres/json.json:statement-0011": {
+      "sql_sha256": "ae72422e7bbc7420ffa865f48c162fe1adecc07a216c380c5c4bfe6fab0f6a81",
+      "sqlstate": "22P02"
+    },
+    "postgres/json.json:statement-0012": {
+      "sql_sha256": "d880a87149d4dbdd856f483beaac5453ffd67cf5a887c170641673e3354541dd",
+      "sqlstate": null
+    },
+    "postgres/json.json:statement-0013": {
+      "sql_sha256": "d066b8b3e497000bbc57919161cd4fa74b24a16b79e35a9a6b10d546acf4f998",
+      "sqlstate": null
+    },
+    "postgres/json.json:statement-0014": {
+      "sql_sha256": "3925ecb176ee9484c41fa5452ccf634084a4f7fa44483984916426286176ee73",
+      "sqlstate": null
+    },
+    "postgres/json.json:statement-0015": {
+      "sql_sha256": "8c763f1f00c3e18a9afc83e3180588b09210f7cf557e3021066c8cf0eeb4f47a",
+      "sqlstate": null
+    },
+    "postgres/json.json:statement-0016": {
+      "sql_sha256": "8dfdcfa237bc96e31127807c260de3cdb561fb2b950cb58fddc72f1104085c92",
+      "sqlstate": "22P02"
+    },
+    "postgres/json.json:statement-0017": {
+      "sql_sha256": "f1f0b0c4cc6a4bf54220e0e16a0491ec6b507f65a52d908c5c9b20c8b8fd78c1",
+      "sqlstate": "22P02"
+    },
+    "postgres/json.json:statement-0018": {
+      "sql_sha256": "e74c3dbdf1ed300028c2d3e3830cb9c0beaf1317adccf9d16b46a4a1c459b0fd",
+      "sqlstate": "22P02"
+    },
+    "postgres/json.json:statement-0019": {
+      "sql_sha256": "c9ac27013c83e214114a86ead87fce9afb94f7a9c4e216218558d8c96b50cb2c",
+      "sqlstate": null
+    },
+    "postgres/json.json:statement-0020": {
+      "sql_sha256": "b25b4e801ec7bd77bbd12e0c5f643576748f0db15e5248a0bac138eff81b375c",
+      "sqlstate": null
+    },
+    "postgres/json.json:statement-0021": {
+      "sql_sha256": "c4fae85901308c029cb8227f2767edb1070b7518ed84fc3a17d9537c03df0d13",
+      "sqlstate": null
+    },
+    "postgres/json.json:statement-0022": {
+      "sql_sha256": "63a0089e555b7314c9423b4d154dcecf3f48dc0b1cbafa4444a8b2e7c0b9c3b7",
+      "sqlstate": "22P02"
+    },
+    "postgres/json.json:statement-0023": {
+      "sql_sha256": "df95e33c45e4ba5245971157266479d5a5911c66dd85652c90542197978ad19a",
+      "sqlstate": "22P02"
+    },
+    "postgres/json.json:statement-0024": {
+      "sql_sha256": "bed441028d8fada65b3a382c1da1efefb39766a17560d900e8aeb82e2083fa3a",
+      "sqlstate": "22P02"
+    },
+    "postgres/json.json:statement-0025": {
+      "sql_sha256": "0ac672a8ba68ca1254d71db61b1c3d2a0395870365ec10e539654d556964e812",
+      "sqlstate": null
+    },
+    "postgres/json.json:statement-0026": {
+      "sql_sha256": "74575dea14ab88f3cc807843f0a744d2177c44e41b9e75f04de56c87a3678776",
+      "sqlstate": "22P02"
+    },
+    "postgres/json.json:statement-0027": {
+      "sql_sha256": "e65c67b72c8c426000092d3ddc710186b8687fbbdfed5ad4d8e964eac1a0f494",
+      "sqlstate": null
+    },
+    "postgres/json.json:statement-0028": {
+      "sql_sha256": "5124b1470f9d7f6acd55044672a93bbfdcf661460b9ab9d6fd1798653c8487e1",
+      "sqlstate": "22P02"
+    },
+    "postgres/json.json:statement-0029": {
+      "sql_sha256": "4273c1b8350a5ed621f897ff2fb9e6ee4cf15c3a0de8238cdf840e80e349bb9e",
+      "sqlstate": "22P02"
+    },
+    "postgres/json.json:statement-0030": {
+      "sql_sha256": "5d2e641125ef2bac4d9cfdeb71b181f23b01a42c328609093757aab123405c84",
+      "sqlstate": "22P02"
+    },
+    "postgres/json.json:statement-0031": {
+      "sql_sha256": "7172f50b96916442d45d391caf72a9f9971172995f8514a0e5f485e5103093f1",
+      "sqlstate": "22P02"
+    },
+    "postgres/json.json:statement-0032": {
+      "sql_sha256": "00dea11d6be11cf5de5e0baaa0b96d649e4d3f837d92d9145791cbbb7beb9a4c",
+      "sqlstate": null
+    },
+    "postgres/json.json:statement-0033": {
+      "sql_sha256": "6f9960cc1d1974d81116b075a403a616be5c24ae62c87e43e859e5cbec032eda",
+      "sqlstate": "22P02"
+    },
+    "postgres/json.json:statement-0034": {
+      "sql_sha256": "70529a6e92186e998435d5c34cfa7fd9a663315b2a2cc4f6b87dfd796f7cb513",
+      "sqlstate": "22P02"
+    },
+    "postgres/json.json:statement-0039": {
+      "sql_sha256": "25ed2d4ed2967b9804ba0d181076715072e0f55d06a19adba729bec57ae118de",
+      "sqlstate": null
+    },
+    "postgres/json.json:statement-0040": {
+      "sql_sha256": "8accc003e44f33a520353b23ba0dbf55d5210a62230ed34dcf119d744e482fd1",
+      "sqlstate": null
+    },
+    "postgres/json.json:statement-0041": {
+      "sql_sha256": "060efd0e783f11e57b51025c6a4275c4eea46df31e36f31a414059bcb9556a8a",
+      "sqlstate": null
+    },
+    "postgres/json.json:statement-0042": {
+      "sql_sha256": "5b64e43938b46755e86e53305ae2803d8bcb7fa909c9ed2c8a054f83d7c6220a",
+      "sqlstate": null
+    },
+    "postgres/json.json:statement-0043": {
+      "sql_sha256": "3d867bf201fe09668568c985daa6f8818b666edb669a8da4f5151ed2477b9db2",
+      "sqlstate": "22P02"
+    },
+    "postgres/json.json:statement-0044": {
+      "sql_sha256": "d66fa0136f6ea85f4ef9e3f611844e0458704ad0742559a1837bc45a43805926",
+      "sqlstate": "22P02"
+    },
+    "postgres/json.json:statement-0045": {
+      "sql_sha256": "82beab24d318f32c1a88398761c094b57979d292fd25c8ab88e6418978fddac3",
+      "sqlstate": "22P02"
+    },
+    "postgres/numeric.json:statement-0526": {
+      "sql_sha256": "08a197e8d2031bf055418aa54e571c68cfc9ec923b2072861bbf2c2a96f5d33c",
+      "sqlstate": "22012"
+    },
+    "postgres/numeric.json:statement-0527": {
+      "sql_sha256": "7611ea46048414c113c5eed123cf3378c03b55765230009b18ae3e61e4fcd630",
+      "sqlstate": "22012"
+    },
+    "postgres/numeric.json:statement-0528": {
+      "sql_sha256": "d59c08788cc899bd0ac1562b9d3850b67fe28e25ed50c5582067471fcdde97e4",
+      "sqlstate": null
+    },
+    "postgres/numeric.json:statement-0529": {
+      "sql_sha256": "91f97e9f510ec62335cac972b402e08c168a3744699e6d743f3a5eecabcda117",
+      "sqlstate": "22012"
+    },
+    "postgres/numeric.json:statement-0530": {
+      "sql_sha256": "4d6806f3ac1086c8d06126a33c459767db4ea4ccdecffa495a3aeb33f1debcdf",
+      "sqlstate": "22012"
+    },
+    "postgres/numeric.json:statement-0531": {
+      "sql_sha256": "48c7c051536e6d94505b5b072826ae1634609ba10dc2993f5bda2f02015672fb",
+      "sqlstate": "22012"
+    },
+    "postgres/numeric.json:statement-0532": {
+      "sql_sha256": "0d48cde34757d3edf21bccacde2cff564dbae5cbe9b7f44a2465c0bb45d00290",
+      "sqlstate": null
+    },
+    "postgres/numeric.json:statement-0533": {
+      "sql_sha256": "3bb991433ab277f0b310d1def2b5a896f45cd3cb01268fbc86d8148cadf135cb",
+      "sqlstate": "22012"
+    },
+    "postgres/numeric.json:statement-0534": {
+      "sql_sha256": "48341196286128c932cdb65c3491165cd74062325e64c78554c774391731980b",
+      "sqlstate": "22012"
+    },
+    "postgres/numeric.json:statement-0535": {
+      "sql_sha256": "f57e018683dcd0792d171a7440f5c85d01e0bdb165bffc6a6ff931c711213c62",
+      "sqlstate": "22012"
+    },
+    "postgres/numeric.json:statement-0536": {
+      "sql_sha256": "340511863e71fb3ec3761d92e120c4d6a97c17032ab3e492670fd02e7000d703",
+      "sqlstate": null
+    },
+    "postgres/numeric.json:statement-0537": {
+      "sql_sha256": "5da0bb76fa41e0913361ed48f45af03f2f9c50b2f5cbd9accefcae71a194b18c",
+      "sqlstate": "22012"
+    },
+    "postgres/numeric.json:statement-0542": {
+      "sql_sha256": "3742b3f9855205ee37fe423681076c51ea402412f50158b1af4e7e2a9d669c8c",
+      "sqlstate": "2201F"
+    },
+    "postgres/numeric.json:statement-0543": {
+      "sql_sha256": "a50bfe74d69358d1f1fb0ef5252f182d1578777a04a69facc084b0aff6caa78f",
+      "sqlstate": "2201F"
+    },
+    "postgres/numeric.json:statement-0545": {
+      "sql_sha256": "ade9446ba25b686df10d583495d3a5af3153e4c5ca7424a894c82d4671a84ce4",
+      "sqlstate": "2201E"
+    },
+    "postgres/numeric.json:statement-0546": {
+      "sql_sha256": "4643686c2c8fb4e1c33d2603f2a040615a6a26e1eec42a94849461058c864fa5",
+      "sqlstate": "2201E"
+    },
+    "postgres/numeric.json:statement-0547": {
+      "sql_sha256": "1c4378f0ea36ced2be0c816d9e1dca38d5dad1f325beab75b4fb5430df49876d",
+      "sqlstate": "2201E"
+    },
+    "postgres/numeric.json:statement-0549": {
+      "sql_sha256": "59a78be8be52554e11cecdcc73a8a6f434cdc71ab33c1ae9fdf88a2616f0b1a5",
+      "sqlstate": "2201E"
+    },
+    "postgres/numeric.json:statement-0550": {
+      "sql_sha256": "a73fe6e98c73229c3a5f84eefe7d30ce1f1f733632da9371f771286089adea5b",
+      "sqlstate": "2201E"
+    },
+    "postgres/numeric.json:statement-0551": {
+      "sql_sha256": "07e7764bed8a070e3b4fd88154112bd76c921f08b891d48684b20eae255af012",
+      "sqlstate": "2201E"
+    },
+    "postgres/numeric.json:statement-0552": {
+      "sql_sha256": "5659b7c2fa50c101b0d1207de59f94f677d1666e1afa12f07be4ac96089777d7",
+      "sqlstate": "2201E"
+    },
+    "postgres/numeric.json:statement-0553": {
+      "sql_sha256": "51a0059cbfa964ac8b5c8d7a828bc4a7d72912ff3cde067b1f6066444bd80db8",
+      "sqlstate": "2201E"
+    },
+    "postgres/numeric.json:statement-0554": {
+      "sql_sha256": "3e11ecfa92d9638205cc300531f50ca5d4d9f9f8f4403704404542d99cefcdaf",
+      "sqlstate": "2201E"
+    },
+    "postgres/numeric.json:statement-0555": {
+      "sql_sha256": "3e98445e5e2a868ebe16e747106f5623e17129dab423adbc9d6a7692df7db603",
+      "sqlstate": "2201E"
+    },
+    "postgres/numeric.json:statement-0557": {
+      "sql_sha256": "b956938e8ba483f69b52f8950422222c05915955d7546202b8e86e23ce897f91",
+      "sqlstate": "2201F"
+    },
+    "postgres/select.json:statement-0019": {
+      "sql_sha256": "c0c37d5521fdaf1294185922a2e5c47e695e9b288a12dbabc0218ed9e8fc7b03",
+      "sqlstate": null
+    },
+    "postgres/select.json:statement-0020": {
+      "sql_sha256": "3a7ab6cfd848abd2604849dce4e654f4462b4737aad0b3ea0f7d75d4a073e2e3",
+      "sqlstate": null
+    },
+    "postgres/select.json:statement-0021": {
+      "sql_sha256": "3dc4a325936f7715b427c6b2611ecc60102b121bffb79b70c2951a1f2ed59bd2",
+      "sqlstate": null
+    },
+    "postgres/strings.json:statement-0000": {
+      "sql_sha256": "aa80777d28deaa4f8d02df8402b8527232d64141ab43a97deacd1665b80221dd",
+      "sqlstate": null
+    },
+    "postgres/strings.json:statement-0001": {
+      "sql_sha256": "d472f0a0f84b6ae51cd54a31aa763b2ff524677ff4271641592faca37018056a",
+      "sqlstate": null
+    },
+    "postgres/strings.json:statement-0003": {
+      "sql_sha256": "525312bdfbdcb24cedcaea94926123ce9cbfd5732005a6c53705b46f61eb8184",
+      "sqlstate": null
+    },
+    "postgres/strings.json:statement-0004": {
+      "sql_sha256": "cfe6e46e3c56a9f4b7d399b2315a0ef0c7e92f712f96569df7e433f0f4cb2cb0",
+      "sqlstate": null
+    },
+    "postgres/strings.json:statement-0005": {
+      "sql_sha256": "ec3fcc941de01c60be6d47afcf360ab593171da6cef2c22f0072dc272535f68b",
+      "sqlstate": null
+    },
+    "postgres/strings.json:statement-0006": {
+      "sql_sha256": "ba32cc549defa8251a7a26efdefc739a2d03ca55d57a0fc2e34ffaffc3152705",
+      "sqlstate": null
+    },
+    "postgres/strings.json:statement-0007": {
+      "sql_sha256": "66f2b75e0ed0232d1224fed7caef4a059d1910c92c850a51d1e4564b564bc273",
+      "sqlstate": null
+    },
+    "postgres/strings.json:statement-0008": {
+      "sql_sha256": "c5ee87ef93520c607c46b5dee43420f53b2f351b69a2e91aa65d764a5e469522",
+      "sqlstate": "42601"
+    },
+    "postgres/strings.json:statement-0009": {
+      "sql_sha256": "91ba728d74318d79e530afbb09eb8b9c8787b7de03e4cf3c262c7813a0e92e0a",
+      "sqlstate": "42601"
+    },
+    "postgres/strings.json:statement-0010": {
+      "sql_sha256": "c2212e98447da41c5a42a8f477bd898f10123f16c8e8aaf97e8d726fff876354",
+      "sqlstate": "42601"
+    },
+    "postgres/strings.json:statement-0011": {
+      "sql_sha256": "aad7fb9855c97fe91bff56b6f7820ea484c79ecaecb981f824aed4c60e1aa032",
+      "sqlstate": "42601"
+    },
+    "postgres/strings.json:statement-0012": {
+      "sql_sha256": "8f750a2961ff1245df078ef90337dd1cc318127d3e9140fbb68d134a13213c12",
+      "sqlstate": "42601"
+    },
+    "postgres/strings.json:statement-0013": {
+      "sql_sha256": "103df03d7da5ca1c6261bfe9cd38fba72cbb3cc0df1327b2c63905504209edce",
+      "sqlstate": "42601"
+    },
+    "postgres/strings.json:statement-0014": {
+      "sql_sha256": "65e9c0233fd4a348e67030f9f54d3fff3750cdba460b8b88c1bbaad4a8d1f1cb",
+      "sqlstate": "42601"
+    },
+    "postgres/strings.json:statement-0015": {
+      "sql_sha256": "578976f776dd642ddfc8ef7b3d8dd2fd019322320aa6c078ca4d0f0bbd5e40d1",
+      "sqlstate": "42601"
+    },
+    "postgres/strings.json:statement-0016": {
+      "sql_sha256": "3dab7b5de3b77b03b7f16c34dbc54e99d96cded3b31e7306f28d886f3f5f8740",
+      "sqlstate": "42601"
+    },
+    "postgres/strings.json:statement-0017": {
+      "sql_sha256": "7ba22f27566c283867f1e3b4899bbac9bb2faa76e625536061915ca0eb7e9ab3",
+      "sqlstate": "42601"
+    },
+    "postgres/strings.json:statement-0018": {
+      "sql_sha256": "9ff0c732a5298b9c3af4db109683c52434827537e848794b25aba819f5d1a628",
+      "sqlstate": null
+    },
+    "postgres/strings.json:statement-0019": {
+      "sql_sha256": "560c1ac5466b9949bf7514b1db95eb9f46a0a4483b713e0a3f09d96ce18380fa",
+      "sqlstate": null
+    },
+    "postgres/strings.json:statement-0020": {
+      "sql_sha256": "3607732066577a1f82e85567431cb339f06021d6b9161a6dd247512c49b35237",
+      "sqlstate": "22025"
+    },
+    "postgres/strings.json:statement-0021": {
+      "sql_sha256": "103668fa391622831b09a6586691d4e66e04a71c8b313c9bcc5f14cc63dbcaff",
+      "sqlstate": "22025"
+    },
+    "postgres/strings.json:statement-0022": {
+      "sql_sha256": "98a70f0168eab7f1497853c36fd7c6683b665f8ed9fa17e9808e95c8c9182864",
+      "sqlstate": "42601"
+    },
+    "postgres/strings.json:statement-0023": {
+      "sql_sha256": "c0ea6bfa0df0e06fb043239f8ef365dee54d1408611a4f1a97d0b210deb96d13",
+      "sqlstate": "42601"
+    },
+    "postgres/strings.json:statement-0024": {
+      "sql_sha256": "b90ad48c1dbd8462f27e1a4a9d4ed05fab7d9dc51e8619f14d0685758ee2a817",
+      "sqlstate": "42601"
+    },
+    "postgres/strings.json:statement-0025": {
+      "sql_sha256": "ba58ba7b61606b7327a7119adac6e7010db52819921ed3731c2ac07b532c9150",
+      "sqlstate": "42601"
+    },
+    "postgres/strings.json:statement-0026": {
+      "sql_sha256": "8eb440c5900c37aa70f088f7ba1a25faf9eec92c2e29fcadac522b1084182c61",
+      "sqlstate": "42601"
+    },
+    "postgres/strings.json:statement-0027": {
+      "sql_sha256": "57040b5b7ff8d69c714c9c3c4c05b78d8f3b78c1c6180752e5d4e776657196cd",
+      "sqlstate": "42601"
+    },
+    "postgres/strings.json:statement-0029": {
+      "sql_sha256": "525312bdfbdcb24cedcaea94926123ce9cbfd5732005a6c53705b46f61eb8184",
+      "sqlstate": null
+    },
+    "postgres/timestamp.json:statement-0026": {
+      "sql_sha256": "08ca97a4c30c370be7ad4cd5c582936f1dec98abb699a910e62ff03e24b57ac2",
+      "sqlstate": null
+    },
+    "postgres/timestamp.json:statement-0062": {
+      "sql_sha256": "b2dd216950e629e325bb5960a6b09cbb5f5031c801b251163624734058d73beb",
+      "sqlstate": null
+    },
+    "postgres/timestamp.json:statement-0063": {
+      "sql_sha256": "383d9a8ab59d384e5bf76f23ebb893d2a1ebef365efdb07a67d9a4a22ce768c8",
+      "sqlstate": null
+    },
+    "postgres/timestamptz.json:statement-0028": {
+      "sql_sha256": "70aaa4fac1faad059e13544d29383a8bc467ffaf08ac2fd18114910b0d638066",
+      "sqlstate": null
+    },
+    "postgres/timestamptz.json:statement-0062": {
+      "sql_sha256": "c841b2a2d43a5b6014b43d22bd3d9222b4484b72669af6c91ab3b127cff4b859",
+      "sqlstate": null
+    },
+    "postgres/timestamptz.json:statement-0064": {
+      "sql_sha256": "3542a441ec3aba5f90c4337dda4913dcc92afc80da702f22326776a35e39535a",
+      "sqlstate": null
+    },
+    "postgres/timestamptz.json:statement-0066": {
+      "sql_sha256": "d890b6cfaa912d6b8316ce7928017b87ec9b6e22937ff69c2595683c6f4b9289",
+      "sqlstate": "22023"
+    },
+    "postgres/timestamptz.json:statement-0067": {
+      "sql_sha256": "ecca514224027ae599fbfea4d74581c78a427115c717f07ed4c306c48c748ec6",
+      "sqlstate": null
+    },
+    "postgres/timestamptz.json:statement-0068": {
+      "sql_sha256": "5234d60b6ff9587fa33c04524e4bc725eb3b089f093c81de6d6af80bd02b3bf4",
+      "sqlstate": null
+    },
+    "postgres/union.json:statement-0000": {
+      "sql_sha256": "0c3c01cf2487fde7d279854e7de4f9562a1271499207bcbfbc617ef85f00f30f",
+      "sqlstate": null
+    },
+    "postgres/union.json:statement-0001": {
+      "sql_sha256": "39f8353d7df7a66fd51640dd2e715c895c1155638a6313960172e848ae60f212",
+      "sqlstate": null
+    },
+    "postgres/union.json:statement-0002": {
+      "sql_sha256": "4e4a0321ac9fcf8b8564f62f59b50bf2fba001125512a755a38b064670a7270e",
+      "sqlstate": null
+    },
+    "postgres/union.json:statement-0003": {
+      "sql_sha256": "595cd885bc9dcdc71b28f578b081579a10d4e893054d468fa7447b542ecdaff2",
+      "sqlstate": null
+    },
+    "postgres/union.json:statement-0004": {
+      "sql_sha256": "0d966187a47b374f3521af019aea90052e3059152baedcbdc590d8134d7aec4b",
+      "sqlstate": null
+    },
+    "postgres/union.json:statement-0005": {
+      "sql_sha256": "ae7ac72ce61487892b677545dfb26813dbe48b1ca767332d9b82ff4b40275103",
+      "sqlstate": null
+    },
+    "postgres/union.json:statement-0006": {
+      "sql_sha256": "7a67cc34775b6e9ee0316862e738fa9baf239ddecb8195eaf953f139e8728250",
+      "sqlstate": null
+    },
+    "postgres/union.json:statement-0007": {
+      "sql_sha256": "7f1fb3bb9ebb4d76db89b4fd0743af5ea9057591e8ef3d01533178737e67a77f",
+      "sqlstate": null
+    },
+    "postgres/union.json:statement-0008": {
+      "sql_sha256": "7623903343ac32a19eb74225f525f2799b8d8ee9530d851e8e7c716ba9512983",
+      "sqlstate": null
+    },
+    "postgres/union.json:statement-0009": {
+      "sql_sha256": "955b003407e7d0a40799412099b2ff3e23bed7057e0347670eaa431f90a46ff7",
+      "sqlstate": null
+    },
+    "postgres/union.json:statement-0010": {
+      "sql_sha256": "1fad539d5da32af6815915f0d53ff2b8673b78f261985fb90984595c52ba9152",
+      "sqlstate": null
+    },
+    "postgres/union.json:statement-0011": {
+      "sql_sha256": "684fef5056ce531f67db2bd16ee243af961cf415d4fe80ba4cf8a123684828f3",
+      "sqlstate": null
+    },
+    "postgres/union.json:statement-0012": {
+      "sql_sha256": "9c93285682ef399f63d625cff8c1d7a83298f456f8b58babcbf8d862edd96cb4",
+      "sqlstate": null
+    },
+    "postgres/union.json:statement-0013": {
+      "sql_sha256": "8d26c8c60bd2a5ccc318c27c908aa6a8b0e522286d1d3e3fd999369854118c25",
+      "sqlstate": null
+    },
+    "postgres/union.json:statement-0014": {
+      "sql_sha256": "082a240cd64a459cd139cc124c075736e0c8e0897947819e9a467d734ec45d3c",
+      "sqlstate": null
+    },
+    "postgres/union.json:statement-0015": {
+      "sql_sha256": "46f00f181c4fd120c807f8b621df427b2c3ce6b61ebb5827a67bc2c4b37c98ec",
+      "sqlstate": null
+    },
+    "postgres/union.json:statement-0016": {
+      "sql_sha256": "deb4649bc9eef6cd6932e9c64ea41956f39cf95e8b45a9c08bd3f22b299f14b4",
+      "sqlstate": null
+    },
+    "postgres/window.json:statement-0002": {
+      "sql_sha256": "5a17e7321e1a7b77a955ae4b999d09b61907a588a3051e22d8045bcced95cf8e",
+      "sqlstate": null
+    },
+    "postgres/window.json:statement-0003": {
+      "sql_sha256": "e113330c7b8574894f0e43ba5ee8d856a973eedee3e59d168bee892d682c3c54",
+      "sqlstate": null
+    },
+    "postgres/window.json:statement-0005": {
+      "sql_sha256": "d1891aeb8bac4a39919e4d1b29955cae46a53b64a467de531a39ac8cf7d05a99",
+      "sqlstate": null
+    },
+    "postgres/window.json:statement-0006": {
+      "sql_sha256": "aaf8ed813b6dd37cccd028bb0aa60f2a503de6a8a4089340784d3ab95e577820",
+      "sqlstate": null
+    },
+    "postgres/window.json:statement-0036": {
+      "sql_sha256": "eec2d4b8570c8bccfe09b686c95e356d646f4bc381b6cb4953017a754e10acfc",
+      "sqlstate": null
+    },
+    "postgres/window.json:statement-0037": {
+      "sql_sha256": "8b71e3f07291f77706491c485710aa6537a99c55f7add47e8eebcb49587d0400",
+      "sqlstate": null
+    },
+    "postgres/window.json:statement-0040": {
+      "sql_sha256": "5701577e8d46b5dc835e389178cc6cb310f1b528d8db85d4e6334c5c015bb2ea",
+      "sqlstate": null
+    },
+    "postgres/window.json:statement-0041": {
+      "sql_sha256": "bc45e096b8e269cbb6a4e8526871700aa1df6489d4c0599999208782cd2e2265",
+      "sqlstate": null
+    },
+    "postgres/window.json:statement-0109": {
+      "sql_sha256": "c1d0f334327eb7a91c9fb22ce2215208d423316e743bd31475c0b43f9e02b775",
+      "sqlstate": null
+    },
+    "postgres/window.json:statement-0110": {
+      "sql_sha256": "ba6bd25f7ecc50c70e42835b60501e417d461b24d09065ad7ebdebe11cba7acc",
+      "sqlstate": null
+    },
+    "postgres/with.json:statement-0000": {
+      "sql_sha256": "7910c974ed279550e8a24c625dde6a4f33f38080fe71a92e642fe54d426d3805",
+      "sqlstate": null
+    },
+    "postgres/with.json:statement-0002": {
+      "sql_sha256": "88249ffdfce82473b5c37b75caa2243774d63bc9777323485e7d0e41ba912bad",
+      "sqlstate": null
+    },
+    "postgres/with.json:statement-0003": {
+      "sql_sha256": "009c5c6376f1605063cba4fecf5070732d5ff91396383126a76b9d1b2314b849",
+      "sqlstate": null
+    },
+    "postgres/with.json:statement-0009": {
+      "sql_sha256": "b4db7cb0f00762f9f88b193d539d612216209c69b260dd0410b277b982fea04c",
+      "sqlstate": null
+    },
+    "postgres/with.json:statement-0010": {
+      "sql_sha256": "2c204034b29fe6090058be4c01e727a7d7a1f376a34350c50b9885ccb4c8ea57",
+      "sqlstate": null
+    },
+    "postgres/with.json:statement-0011": {
+      "sql_sha256": "baaf2759199047560644c4fe0a26a451979a8a5ed85480b63e41258c212f65f5",
+      "sqlstate": null
+    },
+    "postgres/with.json:statement-0015": {
+      "sql_sha256": "9d68080754574f98dafc63c424bb52b6ecc149f9148d660e5785d5f6130f46a5",
+      "sqlstate": null
+    },
+    "postgres/with.json:statement-0016": {
+      "sql_sha256": "c901049022381011ad88ac941cc4087e6726a40711215034687baf59771eef2e",
+      "sqlstate": null
+    },
+    "postgres/timestamp.json:statement-0101": {
+      "sql_sha256": "754f0e239197d540ee3a6bcc02c60e6db6e866f270d3cfaa7cb6a82574c761f6",
+      "sqlstate": null
+    },
+    "postgres/timestamp.json:statement-0102": {
+      "sql_sha256": "88024b11812276ecabca7328b3d6ad2a5bfba40768338ab2573a652dae9bca50",
+      "sqlstate": "22008"
+    },
+    "postgres/timestamp.json:statement-0103": {
+      "sql_sha256": "71b629d8d93b72158e734a084ec96d0c2bff2c8c601f7f9fb22d0b288e9713ff",
+      "sqlstate": null
+    },
+    "postgres/timestamp.json:statement-0104": {
+      "sql_sha256": "40221e7e997ef04e0625e9aaaa606f03d80b20c36b71bee97cebe84e6dafbfc1",
+      "sqlstate": "22008"
+    },
+    "postgres/timestamp.json:statement-0112": {
+      "sql_sha256": "40f52e13a8034ebe462c6c827334f218e6210cb4bf0ff3b4680e7215af7cb582",
+      "sqlstate": null
+    },
+    "postgres/timestamp.json:statement-0118": {
+      "sql_sha256": "8ddf0c123adc45143a960c70183f6576585c4a54259707f6ef97a3a13f6c54c7",
+      "sqlstate": null
+    },
+    "postgres/timestamp.json:statement-0119": {
+      "sql_sha256": "71b61852078886bfef4369a98f2d6b5f10dd055771a05081634c12a6fa03dfaa",
+      "sqlstate": null
+    },
+    "postgres/timestamp.json:statement-0120": {
+      "sql_sha256": "3683f5562815509ab6d921de37e45686999c44968b9c0850401eb696e453e962",
+      "sqlstate": "0A000"
+    },
+    "postgres/timestamp.json:statement-0121": {
+      "sql_sha256": "08b7c4df2a700176a17d6d5273858b54b56ae53ef65bd25385af925b4081704b",
+      "sqlstate": "0A000"
+    },
+    "postgres/timestamp.json:statement-0122": {
+      "sql_sha256": "f88f8825418ef29dc80a06f9e2d8dc2b6dadca3c5ec4cb036488792acef4335b",
+      "sqlstate": "22008"
+    },
+    "postgres/timestamp.json:statement-0123": {
+      "sql_sha256": "7f1ca978fde011ebe98f18f4f20e8fb6b2910e042e64ac3db7dd9a92ee0510f7",
+      "sqlstate": "22008"
+    },
+    "postgres/timestamp.json:statement-0124": {
+      "sql_sha256": "d21155d5fe9659357751f7918afa3ab8d9728fd57e642dabddd7f3ca7b91f3cd",
+      "sqlstate": "22008"
+    },
+    "postgres/timestamp.json:statement-0125": {
+      "sql_sha256": "54e35f513bbc81006d6b75d6b0358d285b4c44bdf5a6c7bb9628473eb8890d8b",
+      "sqlstate": "22008"
+    },
+    "postgres/timestamp.json:statement-0126": {
+      "sql_sha256": "4809276f03dcfcab3f9e5990f29180090eebd68f4b5a06634ba3ff224b53c42a",
+      "sqlstate": "22008"
+    },
+    "postgres/timestamp.json:statement-0133": {
+      "sql_sha256": "4ef1f9556814d9501c086cf66784d4a5c51767715533fda2df8867c92e090bb7",
+      "sqlstate": null
+    },
+    "postgres/timestamp.json:statement-0136": {
+      "sql_sha256": "e6f96778dea846f9587ef43675a3b73c893167c87252cab6893301c76c51d919",
+      "sqlstate": null
+    },
+    "postgres/timestamp.json:statement-0137": {
+      "sql_sha256": "d3f5379e49202dbb0fcc89b0af53b2bc870f8575fec8a9bed04f61276a74c14c",
+      "sqlstate": "22008"
+    },
+    "postgres/timestamptz.json:statement-0069": {
+      "sql_sha256": "13902ac4664556807e9891067a49f3ae747ad7d1b809fe743a6b38318444101a",
+      "sqlstate": null
+    },
+    "postgres/timestamptz.json:statement-0070": {
+      "sql_sha256": "f49538b31ef08ed9e9234574a73aae1be7d6db35ae18c57e4a9d6f02f4434e2c",
+      "sqlstate": null
+    },
+    "postgres/timestamptz.json:statement-0072": {
+      "sql_sha256": "b5e2836dd67ea9133e0af80c12f6686bd8959f2567be50a1cb5731fb53260329",
+      "sqlstate": null
+    },
+    "postgres/timestamptz.json:statement-0073": {
+      "sql_sha256": "ac7805220e6fac2ff9dfe5c20c4f45e4df48a21ba2ab2c1faad7f7349ce6ba9d",
+      "sqlstate": null
+    },
+    "postgres/timestamptz.json:statement-0110": {
+      "sql_sha256": "fe6089586843d052cd2040de4cda4b3c4c82d651d5549724f1d4f30192b23ce6",
+      "sqlstate": null
+    },
+    "postgres/timestamptz.json:statement-0111": {
+      "sql_sha256": "1d7a1070c4359b61e6bffd2569b267b02d6b05939eca6a03499199f4b2aba467",
+      "sqlstate": null
+    },
+    "postgres/timestamptz.json:statement-0112": {
+      "sql_sha256": "bdff59d074737a6200e68d35a7429a651d5f4a44fe28193b6c93d86b3182be54",
+      "sqlstate": null
+    },
+    "postgres/timestamptz.json:statement-0113": {
+      "sql_sha256": "0a7e6003352d66907bc2ba36f235e764e13f0be165c5168055f5462827b0e438",
+      "sqlstate": null
+    },
+    "postgres/timestamptz.json:statement-0114": {
+      "sql_sha256": "de1472246423630b85661fb78c1b70559225bc1fee2a456b0ed998caeac251cb",
+      "sqlstate": null
+    },
+    "postgres/timestamptz.json:statement-0116": {
+      "sql_sha256": "5ee407913d697a4c568b1f6f470c5fa18563facfd9d140c081da43f688a670a3",
+      "sqlstate": null
+    },
+    "postgres/timestamptz.json:statement-0117": {
+      "sql_sha256": "3e7415493d82bf1b0b9771d5d5c92b23fa97c7103b85999616fc25fbe1823a0b",
+      "sqlstate": null
+    },
+    "postgres/timestamptz.json:statement-0118": {
+      "sql_sha256": "20b81117b0faf7c4f36ae8cf508649d64ce7217b517f901fc52d3236f3c807e2",
+      "sqlstate": null
+    },
+    "postgres/timestamptz.json:statement-0119": {
+      "sql_sha256": "460ab7c6848a26b605644b3c8907cb028254e0924f3c434cc5ce932ccc745efd",
+      "sqlstate": "22008"
+    },
+    "postgres/timestamptz.json:statement-0120": {
+      "sql_sha256": "792fe9592556306efefa648e6d08644517e74502bdd70f453268f71c86255cb1",
+      "sqlstate": null
+    }
+  }
+}

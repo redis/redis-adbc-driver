@@ -1,0 +1,382 @@
+{
+  "reports": [
+    {
+      "file": "partition-cluster-tls-amd64/partition-cluster-tls-result.json",
+      "sha256": "4ac33bfa6c10be8093b9dfc600a7b714f47fe535ff372a6a8e1ac0350a40f484",
+      "status": "passed",
+      "checks": 20,
+      "library_sha256": "849a1d110a532ab9cfaea706d34e82f493d093944e5e3b915d988f99cc2c17fa"
+    },
+    {
+      "file": "partition-cluster-tls-arm64/partition-cluster-tls-result.json",
+      "sha256": "f0cdb7b2e9371cfaf8c2fb855bfd6123caf5e63303fb428e09089b9e0b775cde",
+      "status": "passed",
+      "checks": 20,
+      "library_sha256": "15607d5ed45ef9a6b6e91f48dbb55f98df19198f5c33c1f527a96e0329a15fd3"
+    },
+    {
+      "file": "partition-tls-amd64/partition-tls-result.json",
+      "sha256": "aa004c41fe0aae0fc9b227ec6857f5497e66c21970c37e1e367f81ee0a7beaeb",
+      "status": "passed",
+      "checks": 16,
+      "library_sha256": "849a1d110a532ab9cfaea706d34e82f493d093944e5e3b915d988f99cc2c17fa"
+    },
+    {
+      "file": "partition-tls-arm64/partition-tls-result.json",
+      "sha256": "0af7d705a950c007babee70fbb3ae7caba1595659f359d90194179cec7727006",
+      "status": "passed",
+      "checks": 16,
+      "library_sha256": "15607d5ed45ef9a6b6e91f48dbb55f98df19198f5c33c1f527a96e0329a15fd3"
+    },
+    {
+      "file": "software-partition-tls-amd64-software-cluster/software-partition-tls-result.json",
+      "sha256": "e176e94ec76abc3da572d36df96d692e2a952d75eb6e37aa0012c9d871cd11e3",
+      "status": "passed",
+      "checks": 17,
+      "library_sha256": "849a1d110a532ab9cfaea706d34e82f493d093944e5e3b915d988f99cc2c17fa"
+    },
+    {
+      "file": "software-partition-tls-amd64-software-single/software-partition-tls-result.json",
+      "sha256": "ca93bdb4c8c2e61e02915999f03886d6a9794d198eb294e0ebc2120b6bbccfd4",
+      "status": "passed",
+      "checks": 17,
+      "library_sha256": "849a1d110a532ab9cfaea706d34e82f493d093944e5e3b915d988f99cc2c17fa"
+    },
+    {
+      "file": "software-partition-tls-arm64-software-cluster/software-partition-tls-result.json",
+      "sha256": "f6fb9abab5b455a50b9e43799f834754a4c094fab17338b2a4c8139ff5ced845",
+      "status": "passed",
+      "checks": 17,
+      "library_sha256": "15607d5ed45ef9a6b6e91f48dbb55f98df19198f5c33c1f527a96e0329a15fd3"
+    },
+    {
+      "file": "software-partition-tls-arm64-software-single/software-partition-tls-result.json",
+      "sha256": "5622f7cba14078b49749407ac27093aee7b13207d5ed30056f575ffe31b07b78",
+      "status": "passed",
+      "checks": 17,
+      "library_sha256": "15607d5ed45ef9a6b6e91f48dbb55f98df19198f5c33c1f527a96e0329a15fd3"
+    }
+  ],
+  "native_suites": [
+    {
+      "file": "validation-amd64-oss-cluster/validation.xml",
+      "sha256": "698487853be62f1c45f2f272ddd9db2b281024376d12957b6f0d99696659808b",
+      "passed": 380,
+      "required_partition_cases": 14,
+      "skips": [
+        {
+          "name": "test_get_objects_constraints_foreign[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_get_objects_constraints_unique[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_get_statistics[redis:8]",
+          "reason": "connection_get_statistics not supported"
+        },
+        {
+          "name": "test_get_table_schema_catalog[redis:8]",
+          "reason": "secondary_catalog_schema not supported"
+        },
+        {
+          "name": "test_set_current_catalog[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_catalog[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_replace_catalog[redis:8:ingest/string]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_transaction_toggle[redis:8]",
+          "reason": "Driver does not support transactions"
+        }
+      ]
+    },
+    {
+      "file": "validation-amd64-oss-single/validation.xml",
+      "sha256": "a3dd5a3a7d819b551eb6517238193e0ce360eb866dfd67b1dd7e4dc17102ae1c",
+      "passed": 380,
+      "required_partition_cases": 14,
+      "skips": [
+        {
+          "name": "test_get_objects_constraints_foreign[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_get_objects_constraints_unique[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_get_statistics[redis:8]",
+          "reason": "connection_get_statistics not supported"
+        },
+        {
+          "name": "test_get_table_schema_catalog[redis:8]",
+          "reason": "secondary_catalog not supported"
+        },
+        {
+          "name": "test_set_current_catalog[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_catalog[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_replace_catalog[redis:8:ingest/string]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_transaction_toggle[redis:8]",
+          "reason": "Driver does not support transactions"
+        }
+      ]
+    },
+    {
+      "file": "validation-amd64-software-cluster/validation.xml",
+      "sha256": "1d75536bd8132b709916608f6b635416b75fd0b4fdf346c764f146e360300742",
+      "passed": 380,
+      "required_partition_cases": 14,
+      "skips": [
+        {
+          "name": "test_get_objects_constraints_foreign[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_get_objects_constraints_unique[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_get_statistics[redis:8]",
+          "reason": "connection_get_statistics not supported"
+        },
+        {
+          "name": "test_get_table_schema_catalog[redis:8]",
+          "reason": "secondary_catalog not supported"
+        },
+        {
+          "name": "test_set_current_catalog[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_catalog[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_replace_catalog[redis:8:ingest/string]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_transaction_toggle[redis:8]",
+          "reason": "Driver does not support transactions"
+        }
+      ]
+    },
+    {
+      "file": "validation-amd64-software-single/validation.xml",
+      "sha256": "82ac350a2caffede4c96fe4e20fd2d184263f9b2104000a47aa07c650abfaf6a",
+      "passed": 380,
+      "required_partition_cases": 14,
+      "skips": [
+        {
+          "name": "test_get_objects_constraints_foreign[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_get_objects_constraints_unique[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_get_statistics[redis:8]",
+          "reason": "connection_get_statistics not supported"
+        },
+        {
+          "name": "test_get_table_schema_catalog[redis:8]",
+          "reason": "secondary_catalog not supported"
+        },
+        {
+          "name": "test_set_current_catalog[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_catalog[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_replace_catalog[redis:8:ingest/string]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_transaction_toggle[redis:8]",
+          "reason": "Driver does not support transactions"
+        }
+      ]
+    },
+    {
+      "file": "validation-arm64-oss-cluster/validation.xml",
+      "sha256": "d860e16ecb48dd57fb28cb000268e6b6fd3739697269a2314baf052e00fadce3",
+      "passed": 380,
+      "required_partition_cases": 14,
+      "skips": [
+        {
+          "name": "test_get_objects_constraints_foreign[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_get_objects_constraints_unique[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_get_statistics[redis:8]",
+          "reason": "connection_get_statistics not supported"
+        },
+        {
+          "name": "test_get_table_schema_catalog[redis:8]",
+          "reason": "secondary_catalog_schema not supported"
+        },
+        {
+          "name": "test_set_current_catalog[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_catalog[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_replace_catalog[redis:8:ingest/string]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_transaction_toggle[redis:8]",
+          "reason": "Driver does not support transactions"
+        }
+      ]
+    },
+    {
+      "file": "validation-arm64-oss-single/validation.xml",
+      "sha256": "bd898c162dd0da5f943ec18cbb03c68996dd639185ab1cb8960c97b5b1c3e7a6",
+      "passed": 380,
+      "required_partition_cases": 14,
+      "skips": [
+        {
+          "name": "test_get_objects_constraints_foreign[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_get_objects_constraints_unique[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_get_statistics[redis:8]",
+          "reason": "connection_get_statistics not supported"
+        },
+        {
+          "name": "test_get_table_schema_catalog[redis:8]",
+          "reason": "secondary_catalog not supported"
+        },
+        {
+          "name": "test_set_current_catalog[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_catalog[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_replace_catalog[redis:8:ingest/string]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_transaction_toggle[redis:8]",
+          "reason": "Driver does not support transactions"
+        }
+      ]
+    },
+    {
+      "file": "validation-arm64-software-cluster/validation.xml",
+      "sha256": "fcd60e7c7b9c85abd5b16d7b6bcfcbc195bd78ecce591db30024c09822ecf128",
+      "passed": 380,
+      "required_partition_cases": 14,
+      "skips": [
+        {
+          "name": "test_get_objects_constraints_foreign[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_get_objects_constraints_unique[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_get_statistics[redis:8]",
+          "reason": "connection_get_statistics not supported"
+        },
+        {
+          "name": "test_get_table_schema_catalog[redis:8]",
+          "reason": "secondary_catalog_schema not supported"
+        },
+        {
+          "name": "test_set_current_catalog[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_catalog[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_replace_catalog[redis:8:ingest/string]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_transaction_toggle[redis:8]",
+          "reason": "Driver does not support transactions"
+        }
+      ]
+    },
+    {
+      "file": "validation-arm64-software-single/validation.xml",
+      "sha256": "d9495caaa9c4cfe3bf87219cfe7ab31f9430e81ea198cce191384eeba8ef280d",
+      "passed": 380,
+      "required_partition_cases": 14,
+      "skips": [
+        {
+          "name": "test_get_objects_constraints_foreign[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_get_objects_constraints_unique[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_get_statistics[redis:8]",
+          "reason": "connection_get_statistics not supported"
+        },
+        {
+          "name": "test_get_table_schema_catalog[redis:8]",
+          "reason": "secondary_catalog_schema not supported"
+        },
+        {
+          "name": "test_set_current_catalog[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_catalog[redis:8]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_replace_catalog[redis:8:ingest/string]",
+          "reason": "not implemented"
+        },
+        {
+          "name": "test_transaction_toggle[redis:8]",
+          "reason": "Driver does not support transactions"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "date": "2026-10-21",
+  "setup_failures": [
+    {
+      "type": "ACL_USER_PASSWORD_NOT_VALID",
+      "task": "6c0332d6-5daa-44e7-9a4a-d96a07b1bfe9",
+      "resolution": "Use a 32-character password containing uppercase, lowercase, digits and punctuation.",
+      "cleanup": "All fresh names absent after cleanup."
+    },
+    {
+      "type": "ACL_REDIS_RULE_NAME_ALREADY_EXISTS",
+      "task": "bd2afc42-3bf2-4992-b672-c94008018cb0",
+      "resolution": "Omit the unchanged name from the permission-only PUT; verified on a fresh unassigned rule before full rerun.",
+      "cleanup": "All six fresh names absent after cleanup."
+    }
+  ],
+  "assertions_or_skips_weakened": false
+}

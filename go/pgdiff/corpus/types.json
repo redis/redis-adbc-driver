@@ -1,0 +1,50 @@
+{
+  "area": "types",
+  "tier": "types",
+  "source": "https://github.com/alberttwong/redis-adbc-driver/issues/283",
+  "setup": [
+    "CREATE TABLE typed (n numeric(12,3), ts timestamp(3), tz timestamp(6) with time zone, txt text, vc varchar(5), ch char(3), tm time with time zone)",
+    "INSERT INTO typed VALUES (1.250, '2024-01-01 00:00:00.123', '2024-01-01 00:00+00', 'x', 'x', 'x', '12:00+00')"
+  ],
+  "cases": [
+    {
+      "id": "numeric-typmod",
+      "sql": "SELECT n FROM typed",
+      "type_checks": {
+        "0": [
+          "precision",
+          "scale"
+        ]
+      },
+      "expect_postgres": null
+    },
+    {
+      "id": "timestamp-typmod",
+      "sql": "SELECT ts, tz FROM typed",
+      "type_checks": {
+        "0": [
+          "precision"
+        ],
+        "1": [
+          "precision"
+        ]
+      },
+      "expect_postgres": null
+    },
+    {
+      "id": "semantic-string-types",
+      "sql": "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema='{{schema}}' AND table_name='typed' ORDER BY ordinal_position",
+      "expect_postgres": null
+    },
+    {
+      "id": "timetz",
+      "sql": "SELECT tm FROM typed",
+      "expect_postgres": null
+    },
+    {
+      "id": "json-versus-jsonb",
+      "sql": "SELECT '{\"a\":1}'::json, '{\"a\":1}'::jsonb",
+      "expect_postgres": null
+    }
+  ]
+}

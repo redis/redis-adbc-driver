@@ -1,0 +1,12 @@
+{
+  "initial_status": "fixture startup failed",
+  "observation": {
+    "cluster_state": "fail",
+    "known_nodes": 1,
+    "slots_assigned": 5461
+  },
+  "cause": "Shared TLS server leaf has serverAuth only; cluster bus needs an authenticated client certificate too",
+  "correction": "Separate clientAuth leaf signed by the same private fixture CA; tls-client-cert-file and tls-client-key-file; keep serverAuth leaf and full certificate verification",
+  "reference": "https://redis.io/docs/latest/operate/oss_and_stack/management/security/encryption/",
+  "cleanup": "Initial owned container removed and private fixture deleted before retry"
+}

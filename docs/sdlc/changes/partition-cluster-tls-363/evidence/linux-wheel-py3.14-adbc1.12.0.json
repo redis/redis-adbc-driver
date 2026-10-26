@@ -1,0 +1,78 @@
+{
+  "kind": "local native partition TLS/independent ACL validation",
+  "status": "passed",
+  "library_sha256": "260c3c69850d32fc3788c70b622d4f2d23c9cd9a3d66a90f3a308a4b063e06ce",
+  "installed_wheel": true,
+  "python": "3.14.8",
+  "pyarrow": "26.0.0",
+  "certificate_verification": true,
+  "platform": "Linux-7.0.14-linuxkit-aarch64-with-glibc2.28",
+  "machine": "aarch64",
+  "packages": {
+    "adbc-driver-manager": "1.12.0",
+    "redis": "8.1.0"
+  },
+  "aggregate_cap": 137,
+  "cluster_mode": "auto",
+  "checks": [
+    "verified_three_primary_tls_caps",
+    "verified_admin_tls_and_real_cap",
+    "hostname_mismatch_rejected",
+    "fixture_rows_span_advertised_cluster_primaries",
+    "closed_planner_and_credential_free_descriptors",
+    "restricted_cross_process_search_full_values_schema",
+    "restricted_cross_process_direct_hash_duplicates_deleted",
+    "native_untrusted_ca_rejected",
+    "native_hostname_mismatch_rejected",
+    "worker_config_and_writes_denied",
+    "malformed_descriptor_rejected",
+    "search_readiness_acl_required_direct_hash_independent",
+    "direct_hash_reader_obeys_worker_acl",
+    "connection_cancel_in_independent_tls_worker",
+    "early_release_in_independent_tls_worker",
+    "live_updates_deletes_and_later_insert_exclusion",
+    "stale_target_rejected"
+  ],
+  "server_cluster_enabled": 1,
+  "topology": {
+    "deployment": "owned OSS Cluster TLS",
+    "container_id": "cf33b70da705643ca5c4669394286f84c2c5227acd332e1a8796b5a04cb09771",
+    "ports": [
+      16441,
+      16442,
+      16443
+    ],
+    "primary_node_ids": {
+      "16441": "1532e0ac59cc3962ef7b32f54cf53b44c2f8417e",
+      "16442": "fc573418052f46fdb9ad5c17309b9df3b0876042",
+      "16443": "4d29383cc02ae2705c77735f40e35c1e9adb91c7"
+    }
+  },
+  "redis_version": "8.6.2",
+  "modules": [
+    {
+      "name": "vectorset",
+      "ver": 1,
+      "path": "",
+      "args": []
+    },
+    {
+      "name": "search",
+      "ver": 80600,
+      "path": "/usr/local/lib/redis/modules/redisearch.so",
+      "args": []
+    }
+  ],
+  "cluster_distribution": {
+    "primary_count": 3,
+    "slot_range_count": 3,
+    "minimum_primary_count": 3,
+    "physical_row_presence_verified": true,
+    "owned_rows_per_primary": [
+      361,
+      366,
+      372
+    ],
+    "covered_slots": 16384
+  }
+}

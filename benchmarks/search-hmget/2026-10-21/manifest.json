@@ -1,0 +1,170 @@
+{
+  "date": "2026-10-21",
+  "baseline_source": "4b0fdb5ce2a1a29651bad778aa58e4198ead0e70",
+  "candidate_production_source": "dbdafa2f1115fc6ff91eac9ad8c7d50cb6a8b357",
+  "final_focused_tests_and_link_helper_source": "51baf9d0a4d368c6e7dad433024121a8ec239b32",
+  "runner_sources": {
+    "screens_and_first_confirmations": "4b0fdb5ce2a1a29651bad778aa58e4198ead0e70",
+    "matched_native_and_first_link": "b3ffd6b866e1191b81deb94e56dd4924849c1cb3",
+    "bidirectional_and_final_link": "c5955780befa27da47b4f8f698e87d033e98fefe"
+  },
+  "protocol": 3,
+  "go_version": "go version go1.27.2 darwin/arm64",
+  "link_python": "3.15.0",
+  "host": {
+    "platform": "macOS 26.7.1 arm64",
+    "logical_cpus": 18,
+    "memory_bytes": 38654705664
+  },
+  "server": {
+    "image": "redis:8.6.2",
+    "search_version": "8.6.0",
+    "cpus": 4,
+    "memory_bytes": 2147483648,
+    "transport": "localhost TCP without TLS"
+  },
+  "link_model": {
+    "mbps_per_connection_per_direction": 1000,
+    "configured_added_rtt_ms": 10,
+    "shared_bandwidth_cap": false
+  },
+  "binary_sha256": {
+    "baseline": "f9fed9d1c1f360e976a7b41030838d58f2fd900f6d6d7ee502f463f575352d4c",
+    "candidate": "9b8bbaeb2207d28c1bc82706fbc0271fc29d86bc082b7ec3929fbe5d683229ba"
+  },
+  "production_file_sha256": {
+    "go/aggregate.go": "4cc6321c59c255fbc48276cb8c672d1cf7836d5fd4828ed4afd11aa991e8bd11",
+    "go/query.go": "5dec07ecd33ab77f5316f535a20a6d0d398827b85be39d55a8245e52c69aa37b",
+    "go/store.go": "4381bedc1abe7eddbca7517f56ab369256480a6b02d6ba62cb42f9db6c09e649"
+  },
+  "runner_sha256": "dbfa35a95d8406d82154c13d815ebe8207f424b3994c9c9d951cbbdbb282e922",
+  "link_helper_sha256": "f5af5272254869aa12cf5271385bfbf28d22adb5f1e369ff6e070d7c9167d770",
+  "experiment_preparer_sha256": "ca5cd77fe42151675202875a01c142ceec9535dcf3b630715caf54edc6ba2518",
+  "profile_helper_sha256": "9b2861f6fe746b7504c08bc05504eeec9ed97fa2f66d5d3ba12e2d6564ca36fa",
+  "upstream_clickbench_commit": "ccda3033f3c7303d9d7f9634d6dae118ef085f96",
+  "parquet_sha256": "d053397f7aa5b2e1ee9160779a9e9307b162c6994aebba829c7ea1411076c4d0",
+  "build_command": "CGO_ENABLED=1 go build -buildmode=c-shared -tags driverlib -ldflags '-s -w -X github.com/adbc-drivers/driverbase-go/driverbase.infoDriverVersion=v0.1.0' -o OUTPUT ./pkg",
+  "completed_primary_matrices": {
+    "executions": 240,
+    "warmups": 52,
+    "measured": 188
+  },
+  "notes": [
+    "Candidate was built from the modified baseline checkout before commit; the three production file hashes are verified identical to candidate_production_source. Binary VCS metadata therefore names the base with modified=true; baseline is an exact git archive without VCS metadata.",
+    "Independent exact Arrow value/multiplicity validation follows every timed execution. The 240 executions exclude initial-scope artifacts and the three-scan Go profiles.",
+    "Initial merge/adopt variants excluded regular implicit row-ID sorting; regular samples were unchanged baseline controls. The adopt screen was interrupted; revised screens include the regular path.",
+    "An initial native standalone validation overlapped setup of a Go test; RESP3 passed, RESP2 was interrupted to serialize checks. The canonical native standalone runs were rerun serially and passed. Initial logs are retained.",
+    "First network helper run fully validated values, but shutdown exposed unfinished connection tasks. Helper task cleanup was fixed, calibration repeated, and the complete final network matrix repeated with clean shutdown.",
+    "One controller launch using system Python failed before any trial because pyarrow was missing; it was relaunched using the existing benchmark environment.",
+    "Allocation profiles use the Go Arrow allocator, unlike the native C allocator used in the primary timings. CPU profiles do not provide a clean wall-time server/socket-wait decomposition.",
+    "No task tests/profiling ran during timed matrices. No Cloud or Software deployment was created. Temporary Docker servers are task-owned; cleanup is recorded separately."
+  ],
+  "experimental_builds": {
+    "baseline": {
+      "binary_sha256": "f9fed9d1c1f360e976a7b41030838d58f2fd900f6d6d7ee502f463f575352d4c"
+    },
+    "merge": {
+      "binary_sha256": "d917127b3c6c41c3e47a15774df688c999229842d63cd6400c2f77df62bdbaf0",
+      "source_sha256": {
+        "query.go": "b6e5cbb203a56302e9dfa6193f5ce0e93073d59b1a9852cbc2c8bd29614503c2",
+        "aggregate.go": "141a50827f1ca317bd2a9a256f426b8add49dcd52239957e41e13addcba8f6bb",
+        "store.go": "6d92156092c34fa0def40a6a2a31683d8ce535cec8ee4d911cdcfe007c1f8961"
+      }
+    },
+    "adopt": {
+      "binary_sha256": "662341d98d7bf73eee5191e71c3f2f3d01b5a01670214d96fb61523d7c559c82",
+      "source_sha256": {
+        "query.go": "cee29e9a0915ddfedafee53f3da268b82cf2eedf04cb5cbe9c57aa0b6d9ef054",
+        "aggregate.go": "141a50827f1ca317bd2a9a256f426b8add49dcd52239957e41e13addcba8f6bb",
+        "store.go": "6d92156092c34fa0def40a6a2a31683d8ce535cec8ee4d911cdcfe007c1f8961"
+      }
+    },
+    "batched": {
+      "binary_sha256": "c6ffc79c1a44122ab634bb3a0a0880cbf3cb424daf1e1ab2d69c1d202bcacb8d",
+      "source_sha256": {
+        "query.go": "da78118f37515768c85652775d42c6dd4e54e6783664b26e61c1d56fe3310062",
+        "aggregate.go": "141a50827f1ca317bd2a9a256f426b8add49dcd52239957e41e13addcba8f6bb",
+        "store.go": "9eeaa46fb8eafb2096ad38bcdbaceddd68ebc56f651bff55e33d32a0015b2b0d"
+      }
+    },
+    "merge-v2": {
+      "binary_sha256": "1c582f3673cc9f74d48cdd950287db1e27fe446384bcf58ec3fd44f58ebc0796",
+      "source_sha256": {
+        "query.go": "ac80f13dc7d818dbcf2ac0d4ee7a7039aec8fd1ab2482ee4b4bd44a132a41641",
+        "aggregate.go": "141a50827f1ca317bd2a9a256f426b8add49dcd52239957e41e13addcba8f6bb",
+        "store.go": "6d92156092c34fa0def40a6a2a31683d8ce535cec8ee4d911cdcfe007c1f8961"
+      }
+    },
+    "adopt-v2": {
+      "binary_sha256": "4fa802a3538ceded047620e87fe95c155a3ad44f12c808507630b8c8e4729b94",
+      "source_sha256": {
+        "query.go": "40f0f3b1f46c8301c717b707bd134a96072f968c4aa9c6d2097350ade3aab517",
+        "aggregate.go": "141a50827f1ca317bd2a9a256f426b8add49dcd52239957e41e13addcba8f6bb",
+        "store.go": "6d92156092c34fa0def40a6a2a31683d8ce535cec8ee4d911cdcfe007c1f8961"
+      }
+    },
+    "batched-v2": {
+      "binary_sha256": "32862e122d1050da4636d397d575834c6d309f21a1a99ac0f55b7cb8e7ee4828",
+      "source_sha256": {
+        "query.go": "418a99392fcdb25d85ecf2f3fdbed6124ed48921d58e86df25904b99f2290860",
+        "aggregate.go": "141a50827f1ca317bd2a9a256f426b8add49dcd52239957e41e13addcba8f6bb",
+        "store.go": "9eeaa46fb8eafb2096ad38bcdbaceddd68ebc56f651bff55e33d32a0015b2b0d"
+      }
+    }
+  },
+  "artifact_sha256": {
+    "baseline-alloc-top.txt": "82b40d9effdc41263dd5ddb26de624ef2fe50fa413d85e7c99533d36f69a1851",
+    "baseline-alloc.pprof": "71120bd4e1ce1e7d37d984ffa2729084852bbfcddbd81ac19b412eeb35950cf6",
+    "baseline-cpu-top.txt": "aaf36d05fe85997292329aebee47895a3439b9dc0e4b6b6eba506885bde3abde",
+    "baseline-cpu.pprof": "2c363b60cc4941d5630917abe12a8e593b18bdfbdd0f7e96262339fc81ea65f9",
+    "baseline-profile.log": "69bd90f14261e4a1c4b37608be055c28cbaafca7b17ee011936b72e8f6ccebd4",
+    "bidirectional.json": "0957f86aa8c1b3a63cbd3353c9ef18675152591d5cd22aaa5426f44145d2c4aa",
+    "calibrate-link.py": "184eb8bd440579e917670b4daca925a5ffab2a43b45726f07b883f2ad7a76f4e",
+    "candidate-alloc-top.txt": "e76279e424e45633142eddfb9c8b2674ca48daac974aee4d84fcba348c7387cd",
+    "candidate-alloc.pprof": "59313be36325b8e45997b2f8f78bffe066896bd065b68171a5ea0cf051825b42",
+    "candidate-cpu-top.txt": "aabc7879862e0a29d8a173fe56b570b4a9806a8599b128528248f85facbc01dd",
+    "candidate-cpu.pprof": "fb65868b655de4f6844b7d8e29dab64f4b2aa0bcd34a4405900f82c6f8c1ef72",
+    "candidate-profile.log": "524ca3feb133bd7c7f7c048c617266b2211848cd6feed44918d15993b1bb96fa",
+    "cluster-race.log": "5a9da832a6df2d9c6861443003cb8a98efc1383fd216425167c12e318536d61f",
+    "confirm-64.json": "c511569ecea1e8f21983ce40bc8d589133ad0c630273956395e4f155fa374215",
+    "confirm-narrow.json": "f3e71ccc1420e8ddbad4ad0b8d499e298c11fd357453f479f32a6ae91c940118",
+    "confirm-wide.json": "dcb1b866b351245f5bf20c2a14f39b5ae1dfa84b787716c45265b6ea9f36f8b1",
+    "final-cluster-race.log": "19cf388a504bbd0cb29e11ab28858f51d802af0c6a7fd8e60ebca51511e00e72",
+    "final-standalone2-race.log": "29df2ddae11781be1b9de0f189c1ea33993f5b506c403f00d176db4f1428ed59",
+    "go-tests-final.jsonl": "506ccf165699c37bf7a88abc012fa5eae67173ed804161077723bf24226b5618",
+    "go-tests.jsonl": "66d7f3f48c8d0ebde7602848b8aedad020c026c406dafdda93748c75c6700f08",
+    "initial-scope/native-standalone2-initial.log": "1c00d0372c3e5ea63c076576ca4ac3cdd10c3d457e974791625e17df76a263ac",
+    "initial-scope/native-standalone3-initial.log": "acc35462f5b05924a23397ac584d46ba66c3a0e872911e0d82dde39b3a73c288",
+    "initial-scope/screen-adopt.json": "891e25e764f5ce9ce1e7ff8656662403df20dc22f8ffad82e4eb7c068ab90c3a",
+    "initial-scope/screen-merge.json": "92cf7591934cadcb5b1e9be01c347f96c377943e6fecb021870f6ffc07b7f997",
+    "link-1000mbps-10ms.json": "1f3782dc30dc232c0557d05e14446d40bdcd66dbf2f256c444255f8be253ff0c",
+    "link-calibration-final.log": "f962f45647ece413a55342dce61b95ad453028fa8446b7820b4e94e945979f95",
+    "link-calibration.log": "52b4181ecd07b5fe70e7b5ba27e5ce4bc41a619e250f20e65a6214c2f49f92eb",
+    "link-final.json": "f428436318abd241011a469b77c644736051e47a3bd3ee73e4caebfc16713097",
+    "link-final.log": "d6c6a22af9f2c0f104d705421a8ae32b7244866be8f945d85e72ff4c3641856e",
+    "narrow-repeat.json": "4c4a55b8fe510c9cb44d18e2893e325e98700b476d6e8f0645adc0acd795adb0",
+    "native-4096.json": "000cf64028d1f93b7ff7d7d77772c3978433641a09c4bdf024db3f3d8f0538b0",
+    "native-cluster3.log": "2b7fd79cf39d69726cda2ff8b29aab3318bbbdb099f4996ec2f533b28eec57f1",
+    "native-cluster3.xml": "8c3470a28865f16aa769c3d5df193d259cc6468c9f7a369567ba8fd2810f5146",
+    "native-standalone2.log": "67ab185d5de287892a527afa71d1fc7cf156b940d9286c7b6f46f622412fefe5",
+    "native-standalone2.xml": "22ee141b2a80eeaa3b74a47d45096c842b04d32b3b934ed89a0b903a1bb05ec1",
+    "native-standalone3.log": "fa9f83b6528ec66b3dedfdb53896259137bf178bf8286e065dd8d11a2d4a0243",
+    "native-standalone3.xml": "2e1c36e43c6f47905c02a5f82b89e240830c9726b4f0f21cceb23ef818832c66",
+    "profile-summary.json": "e298ab74112b0ef07b7af0745d744707971fae9a0ba01621ae2af90b96c2cd0f",
+    "screen-adopt-v2.json": "728dcb950faeee4d5814a0f07fb9530793fcbe3a0606710debd2ffe8867a9f88",
+    "screen-batched-v2.json": "018d8b1199ff6d97459f1dab32ebb3b2f804c79ff5cf917279f4428f29aa4d2f",
+    "screen-merge-v2.json": "d03e31c6e259c3c9eae6e5dfe768b8f6e7732ce115ba634aa7300a824269d2ed",
+    "standalone2-race.log": "7923d1870a7e8b7f2b25bdf18360ecb4ab6d70bfbe418a05fcc8966ce50b8f2a",
+    "wide-test.log": "1342b3ac17ac9a66eb93e3b4dcd13a41ced290229347529c59c2b8d3c5d74c6f",
+    "wide-unit.log": "0a6d8b314c4bce31dc55c2bdb83aa111f21cec760ab072c7fdaa18880f817ca2"
+  },
+  "resource_cleanup": {
+    "containers_removed": [
+      "codex-411-benchmark",
+      "codex-411-test",
+      "codex-411-cluster"
+    ],
+    "proxy_stopped": true,
+    "final_proxy_shutdown_clean": true
+  }
+}

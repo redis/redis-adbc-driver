@@ -1,0 +1,40 @@
+{
+  "status": "passed",
+  "owned_principal_names": [
+    [
+      "redisRules",
+      "planner_7ad5c7bcf824-rule"
+    ],
+    [
+      "roles",
+      "planner_7ad5c7bcf824-role"
+    ],
+    [
+      "users",
+      "planner_7ad5c7bcf824"
+    ],
+    [
+      "redisRules",
+      "worker_7ad5c7bcf824-rule"
+    ],
+    [
+      "roles",
+      "worker_7ad5c7bcf824-role"
+    ],
+    [
+      "users",
+      "worker_7ad5c7bcf824"
+    ]
+  ],
+  "resource_ids": {
+    "redisRules/planner_7ad5c7bcf824-rule": 155560,
+    "roles/planner_7ad5c7bcf824-role": 87029,
+    "users/planner_7ad5c7bcf824": 92813,
+    "redisRules/worker_7ad5c7bcf824-rule": 155561,
+    "roles/worker_7ad5c7bcf824-role": 87030,
+    "users/worker_7ad5c7bcf824": 92814
+  },
+  "uncertain_creations": [],
+  "pending_tasks": [],
+  "errors": []
+}

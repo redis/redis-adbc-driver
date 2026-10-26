@@ -1,0 +1,23 @@
+=== RUN   TestErrorHookStructuredADBCError
+=== RUN   TestErrorHookStructuredADBCError/false
+--- FAIL: TestErrorHookStructuredADBCError (0.00s)
+    --- FAIL: TestErrorHookStructuredADBCError/false (0.00s)
+panic: runtime error: comparing uncomparable type adbc.Error [recovered, repanicked]
+
+goroutine 21 [running]:
+testing.tRunner.func1.2({0x103680220, 0x15d41cd5ba60})
+	/Users/albert.wong/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.darwin-arm64/src/testing/testing.go:1974 +0x1a0
+testing.tRunner.func1()
+	/Users/albert.wong/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.darwin-arm64/src/testing/testing.go:1977 +0x318
+panic({0x103680220?, 0x15d41cd5ba60?})
+	/Users/albert.wong/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.darwin-arm64/src/runtime/panic.go:860 +0x12c
+github.com/adbc-drivers/redis/go.TestErrorHookStructuredADBCError.func1.errorHook.ProcessHook.4(...)
+	/Users/albert.wong/.codex/worktrees/c863/redis-adbc-driver/go/timeout.go:173
+github.com/adbc-drivers/redis/go.TestErrorHookStructuredADBCError.func1(0x15d41cbb38c8)
+	/Users/albert.wong/.codex/worktrees/c863/redis-adbc-driver/go/timeout_test.go:622 +0x1b4
+testing.tRunner(0x15d41cbb38c8, 0x15d41ccf4fe0)
+	/Users/albert.wong/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.darwin-arm64/src/testing/testing.go:2036 +0xc4
+created by testing.(*T).Run in goroutine 20
+	/Users/albert.wong/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.darwin-arm64/src/testing/testing.go:2101 +0x3a8
+FAIL	github.com/adbc-drivers/redis/go	0.635s
+FAIL

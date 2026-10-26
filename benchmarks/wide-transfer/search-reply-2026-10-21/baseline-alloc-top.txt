@@ -1,0 +1,21 @@
+File: go.test
+Type: alloc_space
+Time: 2026-10-21 15:18:26 PDT
+Showing nodes accounting for 6781.16MB, 99.85% of 6791.35MB total
+Dropped 89 nodes (cum <= 33.96MB)
+Showing top 14 nodes out of 64
+      flat  flat%   sum%        cum   cum%
+ 1537.02MB 22.63% 22.63%  3256.16MB 47.95%  github.com/redis/go-redis/v9/internal/proto.(*Reader).readMap
+ 1493.29MB 21.99% 44.62%  2889.65MB 42.55%  github.com/adbc-drivers/redis/go.parseCursorReplyLists
+ 1396.36MB 20.56% 65.18%  1396.36MB 20.56%  github.com/adbc-drivers/redis/go.redisReplyMap (inline)
+  909.01MB 13.38% 78.57%  3256.16MB 47.95%  github.com/redis/go-redis/v9/internal/proto.(*Reader).ReadReply
+  807.04MB 11.88% 90.45%   807.04MB 11.88%  github.com/redis/go-redis/v9/internal/proto.(*Reader).readStringReply
+  627.61MB  9.24% 99.69%   627.61MB  9.24%  github.com/apache/arrow-go/v18/arrow/memory.(*GoAllocator).Allocate
+    4.64MB 0.068% 99.76%   632.25MB  9.31%  github.com/adbc-drivers/redis/go.(*scanIter).keep
+    3.09MB 0.046% 99.80%  6656.26MB 98.01%  github.com/adbc-drivers/redis/go.(*scanIter).nextPage
+    3.09MB 0.046% 99.85%  3256.16MB 47.95%  github.com/redis/go-redis/v9/internal/proto.(*Reader).readSlice
+         0     0% 99.85%  6020.92MB 88.66%  github.com/adbc-drivers/redis/go.(*aggCursor).next
+         0     0% 99.85%  4530.52MB 66.71%  github.com/adbc-drivers/redis/go.(*executor).execute
+         0     0% 99.85%   124.89MB  1.84%  github.com/adbc-drivers/redis/go.(*executor).newScanReader
+         0     0% 99.85%   124.89MB  1.84%  github.com/adbc-drivers/redis/go.(*executor).openScan
+         0     0% 99.85%     4530MB 66.70%  github.com/adbc-drivers/redis/go.(*executor).streamSelect

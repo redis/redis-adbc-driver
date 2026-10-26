@@ -1,0 +1,41 @@
+{
+  "status": "passed",
+  "cells": 12,
+  "matrix": {
+    "artifact": [
+      "linux-amd64",
+      "linux-arm64",
+      "darwin-arm64"
+    ],
+    "python": [
+      "3.13",
+      "3.14"
+    ],
+    "manager": [
+      "1.8.0",
+      "1.12.0"
+    ],
+    "include": [
+      {
+        "artifact": "linux-amd64",
+        "runner": "ubuntu-24.04"
+      },
+      {
+        "artifact": "linux-arm64",
+        "runner": "ubuntu-24.04-arm"
+      },
+      {
+        "artifact": "darwin-arm64",
+        "runner": "macos-15"
+      }
+    ]
+  },
+  "checks": [
+    "12 unique platform/Python/ADBC combinations",
+    "native build artifact reuse",
+    "Go-change PR trigger",
+    "publication waits for all client cells",
+    "package-only release downloads",
+    "actionlint and whitespace checks passed separately"
+  ]
+}

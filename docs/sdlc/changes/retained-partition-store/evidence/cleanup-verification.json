@@ -1,0 +1,38 @@
+[
+  {
+    "port": 16482,
+    "redis_version": "8.10.2",
+    "protocol": 3,
+    "owned_namespace_keys_remaining": 0,
+    "owned_application_fixture_keys_remaining": 0,
+    "owned_acl_users_remaining": 0,
+    "owned_application_indexes_remaining": 0
+  },
+  {
+    "port": 16601,
+    "redis_version": "8.6.2",
+    "protocol": 3,
+    "owned_namespace_keys_remaining": 0,
+    "owned_application_fixture_keys_remaining": 0,
+    "owned_acl_users_remaining": 0,
+    "owned_application_indexes_remaining": 0
+  },
+  {
+    "port": 16602,
+    "redis_version": "8.6.2",
+    "protocol": 3,
+    "owned_namespace_keys_remaining": 0,
+    "owned_application_fixture_keys_remaining": 0,
+    "owned_acl_users_remaining": 0,
+    "owned_application_indexes_remaining": 0
+  },
+  {
+    "port": 16603,
+    "redis_version": "8.6.2",
+    "protocol": 3,
+    "owned_namespace_keys_remaining": 0,
+    "owned_application_fixture_keys_remaining": 0,
+    "owned_acl_users_remaining": 0,
+    "owned_application_indexes_remaining": 0
+  }
+]

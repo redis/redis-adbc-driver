@@ -1,0 +1,55 @@
+{
+  "status": "passed",
+  "owned_principal_names": [
+    [
+      "redisRules",
+      "planner_d603f37d8b14-rule"
+    ],
+    [
+      "roles",
+      "planner_d603f37d8b14-role"
+    ],
+    [
+      "users",
+      "planner_d603f37d8b14"
+    ],
+    [
+      "redisRules",
+      "worker_d603f37d8b14-rule"
+    ],
+    [
+      "roles",
+      "worker_d603f37d8b14-role"
+    ],
+    [
+      "users",
+      "worker_d603f37d8b14"
+    ],
+    [
+      "redisRules",
+      "worker_d603f37d8b14_retained-rule"
+    ],
+    [
+      "roles",
+      "worker_d603f37d8b14_retained-role"
+    ],
+    [
+      "users",
+      "worker_d603f37d8b14_retained"
+    ]
+  ],
+  "resource_ids": {
+    "redisRules/planner_d603f37d8b14-rule": 155583,
+    "roles/planner_d603f37d8b14-role": 87053,
+    "users/planner_d603f37d8b14": 92843,
+    "redisRules/worker_d603f37d8b14-rule": 155584,
+    "roles/worker_d603f37d8b14-role": 87054,
+    "users/worker_d603f37d8b14": 92844,
+    "redisRules/worker_d603f37d8b14_retained-rule": 155585,
+    "roles/worker_d603f37d8b14_retained-role": 87055,
+    "users/worker_d603f37d8b14_retained": 92845
+  },
+  "uncertain_creations": [],
+  "pending_tasks": [],
+  "errors": []
+}

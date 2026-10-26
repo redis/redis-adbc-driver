@@ -1,0 +1,93 @@
+# Copyright (c) 2026 ADBC Drivers Contributors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+services:
+  # Default environment: Redis Software with a RAM database and Search.
+  # make redis-up also bootstraps the cluster and creates the database.
+  redis-software:
+    image: redislabs/redis:8.2.0-78.18
+    cap_add: [SYS_RESOURCE]
+    ports:
+      - "127.0.0.1:${SOFTWARE_API_PORT:-19443}:9443"
+      - "127.0.0.1:${SOFTWARE_DB_PORT:-6379}:12000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sk -o /dev/null https://localhost:9443/v1/bootstrap"]
+      interval: 3s
+      timeout: 5s
+      retries: 60
+
+  # Optional Redis Open Source compatibility environment.
+  redis:
+    profiles: ["oss"]
+    image: redis:8.6.2
+    container_name: redis-adbc-test
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  # A 3-shard Redis Cluster (OSS Cluster API) in one container, so the nodes'
+  # announced 127.0.0.1 addresses work from the host. Start it with:
+  #   docker compose --profile cluster up --detach --wait redis-cluster
+  redis-cluster:
+    image: redis:8.6.2
+    container_name: redis-adbc-cluster
+    profiles: ["cluster"]
+    ports:
+      - "7001:7001"
+      - "7002:7002"
+      - "7003:7003"
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        for p in 7001 7002 7003; do
+          mkdir -p /data/$$p
+          redis-server --port $$p --cluster-enabled yes \
+            --cluster-config-file /data/$$p/nodes.conf --dir /data/$$p \
+            --cluster-announce-ip 127.0.0.1 --save "" --appendonly no \
+            --loadmodule /usr/local/lib/redis/modules/redisearch.so --daemonize yes
+        done
+        sleep 1
+        yes yes | redis-cli --cluster create 127.0.0.1:7001 127.0.0.1:7002 127.0.0.1:7003 --cluster-replicas 0
+        exec tail -f /dev/null
+    volumes:
+      - ./cluster-ready.sh:/usr/local/bin/adbc-cluster-ready:ro
+    healthcheck:
+      test: ["CMD", "sh", "/usr/local/bin/adbc-cluster-ready"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # A single-node Redis Software cluster with flash storage, for testing on
+  # Redis Flex (RAM + SSD). flex-setup.sh starts it, creates the cluster and a
+  # Flex database with Search, and prints its URI. Uses the built-in trial
+  # license.
+  redis-flex:
+    image: redislabs/redis:latest
+    container_name: redis-adbc-flex
+    profiles: ["flex"]
+    cap_add: [SYS_RESOURCE]
+    ports:
+      # Bound to localhost only: the admin API uses fixed test credentials.
+      - "127.0.0.1:${FLEX_API_PORT:-9443}:9443"
+      - "127.0.0.1:${FLEX_DB_PORT:-12000}:12000"
+    healthcheck:
+      # Any HTTP reply: the REST API is up (it answers 401 once bootstrapped).
+      test: ["CMD-SHELL", "curl -sk -o /dev/null https://localhost:9443/v1/bootstrap"]
+      interval: 3s
+      timeout: 5s
+      retries: 60

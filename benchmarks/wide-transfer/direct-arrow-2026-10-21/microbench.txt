@@ -1,0 +1,10 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/adbc-drivers/redis/go
+cpu: Apple M5 Max
+BenchmarkScanArrow/columns=3/direct=false-18         	    2904	    398899 ns/op	  760908 B/op	    1140 allocs/op
+BenchmarkScanArrow/columns=3/direct=true-18          	    3614	    331308 ns/op	  269361 B/op	      98 allocs/op
+BenchmarkScanArrow/columns=105/direct=false-18       	     100	  10719165 ns/op	26187059 B/op	    4712 allocs/op
+BenchmarkScanArrow/columns=105/direct=true-18        	     100	  10123965 ns/op	 9405885 B/op	    2956 allocs/op
+PASS
+ok  	github.com/adbc-drivers/redis/go	5.201s

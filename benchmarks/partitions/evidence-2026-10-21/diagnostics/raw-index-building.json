@@ -1,0 +1,166 @@
+{
+  "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+  "redis_version": "8.6.2",
+  "search_module": [
+    [
+      "name",
+      "bf",
+      "ver",
+      80600,
+      "path",
+      "/usr/local/lib/redis/modules//redisbloom.so",
+      "args",
+      []
+    ],
+    [
+      "name",
+      "search",
+      "ver",
+      80600,
+      "path",
+      "/usr/local/lib/redis/modules//redisearch.so",
+      "args",
+      []
+    ],
+    [
+      "name",
+      "vectorset",
+      "ver",
+      1,
+      "path",
+      "",
+      "args",
+      []
+    ],
+    [
+      "name",
+      "timeseries",
+      "ver",
+      80600,
+      "path",
+      "/usr/local/lib/redis/modules//redistimeseries.so",
+      "args",
+      []
+    ],
+    [
+      "name",
+      "ReJSON",
+      "ver",
+      80600,
+      "path",
+      "/usr/local/lib/redis/modules//rejson.so",
+      "args",
+      []
+    ]
+  ],
+  "aggregate_cap": 2147483648,
+  "rows_ingested": 100000,
+  "rows_after_delete": 10000,
+  "repeats_per_protocol": 200,
+  "trials": 400,
+  "failures": [
+    {
+      "protocol": 2,
+      "repeat": 0,
+      "rows": 10011,
+      "pages": [
+        10000,
+        11
+      ],
+      "missing_ids": [],
+      "unexpected_ids": [],
+      "duplicates": [
+        [
+          43940,
+          2
+        ],
+        [
+          43970,
+          2
+        ],
+        [
+          43980,
+          2
+        ],
+        [
+          44070,
+          2
+        ],
+        [
+          44140,
+          2
+        ],
+        [
+          44360,
+          2
+        ],
+        [
+          44880,
+          2
+        ],
+        [
+          44980,
+          2
+        ],
+        [
+          45070,
+          2
+        ],
+        [
+          45130,
+          2
+        ],
+        [
+          45170,
+          2
+        ]
+      ]
+    },
+    {
+      "protocol": 2,
+      "repeat": 1,
+      "rows": 10003,
+      "pages": [
+        10000,
+        3
+      ],
+      "missing_ids": [],
+      "unexpected_ids": [],
+      "duplicates": [
+        [
+          52970,
+          2
+        ],
+        [
+          53430,
+          2
+        ],
+        [
+          53680,
+          2
+        ]
+      ]
+    }
+  ],
+  "index_after_delete": {
+    "num_docs": 10000,
+    "indexing": 1,
+    "percent_indexed": "1.9071871621237124",
+    "gc_stats": [
+      "bytes_collected",
+      "0",
+      "total_ms_run",
+      "0",
+      "total_cycles",
+      "0",
+      "average_cycle_time_ms",
+      "nan",
+      "last_run_time_ms",
+      "0",
+      "gc_numeric_trees_missed",
+      "0",
+      "gc_blocks_denied",
+      "0"
+    ]
+  }
+}

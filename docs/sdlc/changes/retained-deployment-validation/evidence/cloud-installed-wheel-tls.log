@@ -1,0 +1,22 @@
+Cloud partition check passed: verified_admin_tls_and_real_cap
+Cloud partition check passed: hostname_mismatch_rejected
+Cloud database principal authenticated: planner
+Cloud database principal authenticated: worker
+Cloud partition check passed: closed_planner_and_credential_free_descriptors
+Cloud partition check passed: restricted_cross_process_search_full_values_schema
+Cloud partition check passed: restricted_cross_process_direct_hash_duplicates_deleted
+Cloud partition check passed: native_untrusted_ca_rejected
+Cloud partition check passed: native_hostname_mismatch_rejected
+Cloud partition check passed: cloud_proxy_config_get_filtered_empty
+Cloud partition check passed: worker_config_mutation_and_writes_denied
+Cloud partition check passed: malformed_descriptor_rejected
+Cloud partition check passed: search_readiness_acl_required_direct_hash_independent
+Cloud partition check passed: direct_hash_reader_obeys_worker_acl
+Cloud partition check passed: connection_cancel_in_independent_tls_worker
+Cloud partition check passed: early_release_in_independent_tls_worker
+Cloud partition check passed: live_updates_deletes_and_later_insert_exclusion
+Cloud partition check passed: stale_target_rejected
+Cloud database principal authenticated: worker
+Cloud partition check passed: retained_global_sql_minimal_acl_lifecycle_and_replay
+Owned Cloud ACL resources deleted; absence verified.
+Native TLS partitions: 17 checks passed; independent restricted credentials, verified certificates.

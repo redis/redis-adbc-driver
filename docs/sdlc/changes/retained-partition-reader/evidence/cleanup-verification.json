@@ -1,0 +1,34 @@
+[
+  {
+    "port": 16483,
+    "redis_version": "8.10.2",
+    "protocol": 3,
+    "owned_keys_remaining": 0,
+    "owned_users_remaining": 0,
+    "owned_indexes_remaining": 0
+  },
+  {
+    "port": 16701,
+    "redis_version": "8.6.2",
+    "protocol": 3,
+    "owned_keys_remaining": 0,
+    "owned_users_remaining": 0,
+    "owned_indexes_remaining": 0
+  },
+  {
+    "port": 16702,
+    "redis_version": "8.6.2",
+    "protocol": 3,
+    "owned_keys_remaining": 0,
+    "owned_users_remaining": 0,
+    "owned_indexes_remaining": 0
+  },
+  {
+    "port": 16703,
+    "redis_version": "8.6.2",
+    "protocol": 3,
+    "owned_keys_remaining": 0,
+    "owned_users_remaining": 0,
+    "owned_indexes_remaining": 0
+  }
+]
