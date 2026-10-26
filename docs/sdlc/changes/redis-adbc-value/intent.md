@@ -12,5 +12,9 @@ batch data exchange. Preserve the existing SQL, storage, conversion, transaction
 and integration limits. Driver behavior and performance claims are outside this
 change.
 
+Also explain how the driver can back a separate Flight SQL service, enabling a
+JDBC access path through the Flight SQL JDBC driver for tools such as DBeaver.
+Keep the separate-server and validation requirements explicit.
+
 See [specification](spec.md), [plan](plan.md), and [validation](validation.md).
 Review: [PR for this branch](https://github.com/redis/redis-adbc-driver/pulls?q=is%3Apr+head%3Acodex%2Fexplain-redis-adbc-value).

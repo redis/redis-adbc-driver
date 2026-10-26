@@ -62,6 +62,12 @@ workflow:
   common columnar representation between processing steps. The driver still
   decodes Redis replies and converts values to Arrow; Redis storage remains
   row-oriented HASHes.
+- **Enable Flight SQL and JDBC integration.** This driver can provide the Redis
+  SQL/Arrow backend for a separately deployed Flight SQL service. JDBC tools such
+  as DBeaver can access that service through the
+  [Flight SQL JDBC driver](https://arrow.apache.org/java/current/flight_sql_jdbc_driver.html).
+  This path requires a compatible server implementation and end-to-end validation
+  of SQL, metadata, types, and authentication.
 
 The intended use cases are operational reporting, data exploration, and Arrow
 data pipelines over supported HASH data. Redis with the Query Engine and RESP3

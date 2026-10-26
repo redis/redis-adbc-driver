@@ -7,6 +7,10 @@ See [intent](intent.md), [specification](spec.md), and [plan](plan.md).
   and docs/python-integrations.md plus docs/data-engineering-adbc-support.md.
 - Verified the ADBC API background against the Apache Arrow documentation:
   https://arrow.apache.org/adbc/current/index.html.
+- Verified the Flight SQL/JDBC explanation against the Apache Arrow JDBC driver
+  documentation: https://arrow.apache.org/java/current/flight_sql_jdbc_driver.html.
+  The README presents a separate-service integration path and claims no completed
+  Redis Flight SQL/DBeaver end-to-end test.
 - Confirmed the contents entry matches the new heading and all linked local
   files and heading fragments exist.
 - git diff --check passed; the README diff adds the section and contents entry.
