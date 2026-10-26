@@ -2,7 +2,7 @@
 
 2026-10-21. Requested by Albert Wong ("keep going"). Baseline `a937c55b`,
 [PR #419](https://github.com/alberttwong/redis-adbc-driver/pull/419).
-Related [#411](https://github.com/alberttwong/redis-adbc-driver/issues/411).
+Related [#189](https://github.com/redis/redis-adbc-driver/issues/189).
 Status: implementation and local confirmation complete; CI/human review pending. See [spec](spec.md), [plan](plan.md).
 
 Improve elapsed speed of both public APIs after wide Search discovery/HMGET.

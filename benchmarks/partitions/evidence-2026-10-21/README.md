@@ -1,6 +1,6 @@
 # Partition API comparison: local evidence, 2026-10-21
 
-Follow-up to [#363](https://github.com/alberttwong/redis-adbc-driver/issues/363),
+Follow-up to [#170](https://github.com/redis/redis-adbc-driver/issues/170),
 stacked on [refactor #376](https://github.com/alberttwong/redis-adbc-driver/pull/376).
 This is a reduced-data local pilot, not a full-scale or Cloud ClickBench ranking.
 
@@ -24,7 +24,7 @@ on the same index and is not an equivalent test of that initial condition.
 A control waiting for num_docs=10000 and indexing=0 passed all 400 raw reads.
 This supports an index-building condition; the precise mechanism and causal
 connection to every ADBC failure remain unproven. It does not establish a
-complete runtime mitigation. [#377](https://github.com/alberttwong/redis-adbc-driver/issues/377)
+complete runtime mitigation. [#175](https://github.com/redis/redis-adbc-driver/issues/175)
 tracks safe handling while indexing and further deployment verification.
 The benchmark now waits for readiness after ingestion and layout changes.
 The driver itself has not gained a readiness guard or snapshot guarantee.

@@ -54,7 +54,7 @@ supplemental scan workloads, not a complete 43-query ClickBench score or a
 hardware-equivalent comparison with single-instance baselines.
 
 The broader full-scale API work tracked by
-[#421](https://github.com/alberttwong/redis-adbc-driver/issues/421) remains distinct.
+[#190](https://github.com/redis/redis-adbc-driver/issues/190) remains distinct.
 This record does not close that issue.
 
 ## Preserved build identities

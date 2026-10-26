@@ -1,6 +1,6 @@
 # Plan
 
-Date: 2026-10-21. Source: merged #414. Author: Codex; requestor: Albert Wong (keep going). Refs [#363](https://github.com/alberttwong/redis-adbc-driver/issues/363). Status: in progress.
+Date: 2026-10-21. Source: merged #414. Author: Codex; requestor: Albert Wong (keep going). Refs [#170](https://github.com/redis/redis-adbc-driver/issues/170). Status: in progress.
 
 1. Add an owned TLS-only three-primary Docker fixture and all-primary ACL helper.
 2. Reuse the shared checker with strict three-primary routing requirements and all-node denials/caps.

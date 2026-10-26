@@ -43,9 +43,9 @@ Superset 6.1 / SQLAlchemy 1.4 compatibility environment,
 `dagster` for the Redis ADBC IO manager, and `dask` for partitioned DataFrame
 reads with `adbc_driver_redis.dask.read_query`.
 
-See the [installation and integration guide](https://github.com/alberttwong/redis-adbc-driver/blob/main/docs/python-integrations.md)
-and [server requirements](https://github.com/alberttwong/redis-adbc-driver#server-requirements)
+See the [installation and integration guide](https://github.com/redis/redis-adbc-driver/blob/main/docs/python-integrations.md)
+and [server requirements](https://github.com/redis/redis-adbc-driver/blob/main/docs/driver-reference.md#server-requirements)
 for supported Redis deployments, configuration and limitations.
 
 Arrow IPC stream/file serialization is available inside the native driver through
-standard ADBC statement options. See the [IPC contract and example](https://github.com/alberttwong/redis-adbc-driver/blob/main/docs/arrow-ipc.md).
+standard ADBC statement options. See the [IPC contract and example](https://github.com/redis/redis-adbc-driver/blob/main/docs/arrow-ipc.md).

@@ -1,7 +1,7 @@
 # Retained partition storage foundation
 
-This storage component supports opt-in retained ExecutePartitions for #362,
-#359 and #360. See [the public runtime contract](retained-partition-results.md)
+This storage component supports opt-in retained ExecutePartitions for [#169](https://github.com/redis/redis-adbc-driver/issues/169),
+[#166](https://github.com/redis/redis-adbc-driver/issues/166) and [#167](https://github.com/redis/redis-adbc-driver/issues/167). See [the public runtime contract](retained-partition-results.md)
 for options, SQL/layout coverage, quotas and lifecycle. Live row-range partitions
 remain the default.
 

@@ -1,8 +1,8 @@
 # Intent
 
 2026-10-21; baseline `edbd299`; requested by alberttwong: work on issues
-[#358–363](https://github.com/alberttwong/redis-adbc-driver/issues/358) and
-[#372](https://github.com/alberttwong/redis-adbc-driver/issues/372).
+[#165–363](https://github.com/redis/redis-adbc-driver/issues/165) and
+[#173](https://github.com/redis/redis-adbc-driver/issues/173).
 Status: implemented subset locally validated; designs published; no maintainer approval.
 
 Distributed consumers need portable bound expressions, complete reads under

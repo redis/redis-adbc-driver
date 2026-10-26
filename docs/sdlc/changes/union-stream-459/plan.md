@@ -1,7 +1,7 @@
 # Plan: UNION ALL streaming
 
 Date: 2026-10-22. Author: Codex. Base: `d4cbccf`. Status: implemented and verified; awaiting review.
-See [intent](intent.md), [spec](spec.md), [#459](https://github.com/alberttwong/redis-adbc-driver/issues/459).
+See [intent](intent.md), [spec](spec.md), [#197](https://github.com/redis/redis-adbc-driver/issues/197).
 
 1. Capture a failing large UNION ALL query that returns a fully known count.
 2. Add a sequential Value-row source tree and reuse streamReader for batching,

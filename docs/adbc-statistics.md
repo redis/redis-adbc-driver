@@ -37,9 +37,9 @@ follow the [ordinary transport contract](driver-reference.md#cancelling-a-statem
 Object discovery continues to report stored PRIMARY KEY and CHECK names and
 columns. PRIMARY KEY metadata describes declared key columns; it is not a claim
 of enforced uniqueness. UNIQUE and FOREIGN KEY declarations/enforcement are
-tracked by [#270](https://github.com/alberttwong/redis-adbc-driver/issues/270), so
+tracked by [#114](https://github.com/redis/redis-adbc-driver/issues/114), so
 no UNIQUE, FOREIGN KEY or referenced-column usage metadata is invented here.
-These remain gaps under [#476](https://github.com/alberttwong/redis-adbc-driver/issues/476).
+These remain gaps under [#210](https://github.com/redis/redis-adbc-driver/issues/210).
 
 This is source functionality. A successful local library build and validation
 do not establish availability in a published wheel.

@@ -1,7 +1,7 @@
 # Optional accounted-byte stream batches: #410
 
 2026-10-21. [Change records](../../../docs/sdlc/changes/remaining-performance/intent.md),
-[manifest](manifest.json), [issue #410](https://github.com/alberttwong/redis-adbc-driver/issues/410).
+[manifest](manifest.json), [issue #188](https://github.com/redis/redis-adbc-driver/issues/188).
 Baseline runtime: merged #422 (`7a42b2d`); candidate production source `8a3f846`.
 
 ## Behavior and rationale

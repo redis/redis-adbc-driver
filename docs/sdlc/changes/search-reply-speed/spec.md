@@ -1,7 +1,7 @@
 # Contract
 
 2026-10-21. See [intent](intent.md), [plan](plan.md) and
-[issue #409](https://github.com/alberttwong/redis-adbc-driver/issues/409).
+[issue #187](https://github.com/redis/redis-adbc-driver/issues/187).
 
 Preserve RESP2/RESP3 accepted result shapes, unsupported/malformed reply errors,
 cursor IDs for cleanup, internal fields, duplicates and list-length reducers.

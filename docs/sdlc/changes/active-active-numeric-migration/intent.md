@@ -3,7 +3,7 @@
 Date: 2026-10-22. Requestor: Albert Wong. Author: Codex. Status: proposed;
 human review pending. Source: `5cbf91e9968f0d7796ab9c95e0f062fad9522c58`.
 Refs [spec](spec.md), [plan](plan.md), [evidence](evidence.md),
-[#491](https://github.com/alberttwong/redis-adbc-driver/issues/491).
+[#216](https://github.com/redis/redis-adbc-driver/issues/216).
 
 Align ordinary and Active-Active storage around numeric identities, and make
 migration as automatic as possible through opinionated defaults. Preserve keys,

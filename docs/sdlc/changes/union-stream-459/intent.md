@@ -13,5 +13,5 @@ memory bound. Assess these candidates explicitly and retain their existing
 paths. Deliver correctness/lifecycle tests, independent full-value validation
 and measurements across input sizes and duplicate/group cardinalities.
 
-Links: [#459](https://github.com/alberttwong/redis-adbc-driver/issues/459),
+Links: [#197](https://github.com/redis/redis-adbc-driver/issues/197),
 [spec](spec.md), [plan](plan.md), [evidence](evidence.md).

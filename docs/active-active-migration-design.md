@@ -2,7 +2,7 @@
 
 Status: design proposal, 2026-10-22. No migration command, numeric regional
 allocator or automatic cutover described here is implemented or qualified.
-Refs [#491](https://github.com/alberttwong/redis-adbc-driver/issues/491) and the
+Refs [#216](https://github.com/redis/redis-adbc-driver/issues/216) and the
 [change contract](sdlc/changes/active-active-numeric-migration/spec.md).
 
 The product requirement is an opinionated, automatic transition from an ordinary

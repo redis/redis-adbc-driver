@@ -9,4 +9,4 @@ partition readers. Preserve SQL values, validation, lifecycle and fallback
 behavior. No new retrieval strategy, batch-budget policy or approximate SQL.
 
 See [spec](spec.md), [plan](plan.md) and
-[issue #408](https://github.com/alberttwong/redis-adbc-driver/issues/408).
+[issue #186](https://github.com/redis/redis-adbc-driver/issues/186).

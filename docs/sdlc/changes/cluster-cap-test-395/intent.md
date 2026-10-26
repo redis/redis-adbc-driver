@@ -2,7 +2,7 @@
 
 Date: 2026-10-21. Author: Codex; requestor: Albert Wong (continue). Source:
 1674ff7, merged #394. Status: implemented, validation in progress, review pending.
-Issue: [#395](https://github.com/alberttwong/redis-adbc-driver/issues/395).
+Issue: [#180](https://github.com/redis/redis-adbc-driver/issues/180).
 See [spec](spec.md) and [plan](plan.md).
 
 An opt-in full Go run with REDIS_PARTITION_CAP_TEST=1 passed the partition test

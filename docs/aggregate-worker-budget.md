@@ -1,6 +1,6 @@
 # Shared aggregate worker budget
 
-Issue [#224](https://github.com/alberttwong/redis-adbc-driver/issues/224) replaces
+Issue [#76](https://github.com/redis/redis-adbc-driver/issues/76) replaces
 independent per-query automatic allocation with a coordinator shared by all
 connections from one ADBC database handle. Automatic capacity follows current
 `GOMAXPROCS`, including Go runtime CPU-limit adjustments. This is process-local

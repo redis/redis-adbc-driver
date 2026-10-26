@@ -1,6 +1,6 @@
 # Execution diagnostics
 
-Issue #323 adds the optional statement setting
+Issue [#155](https://github.com/redis/redis-adbc-driver/issues/155) adds the optional statement setting
 `adbc.redis.execution_diagnostics_file`. The driver atomically replaces this
 JSON file once per second during execute, then writes `execute_returned` or
 `execute_failed` when execute ends.

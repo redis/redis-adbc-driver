@@ -2,7 +2,7 @@
 
 Date: 2026-10-21. Source: merged #392, revision 6724c8a. Author: Codex;
 requestor: Albert Wong (continue after merge). Status: implemented, review pending.
-Issue: [#393](https://github.com/alberttwong/redis-adbc-driver/issues/393).
+Issue: [#179](https://github.com/redis/redis-adbc-driver/issues/179).
 
 Concurrent ALTER regressed after #391: distributed FT.INFO can compare different
 shard schemas during propagation and report either `Inconsistent index state`

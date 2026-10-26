@@ -1,6 +1,6 @@
 # Intent
 
-Date: 2026-10-21. Source: `70a0d43` (#417). Author: Codex; requestor: Albert Wong (keep going). Status: implemented; review pending. Refs [#363](https://github.com/alberttwong/redis-adbc-driver/issues/363).
+Date: 2026-10-21. Source: `70a0d43` (#417). Author: Codex; requestor: Albert Wong (keep going). Status: implemented; review pending. Refs [#170](https://github.com/redis/redis-adbc-driver/issues/170).
 
 The owned TLS fixture proves steady-state routing across three primaries, but
 not redirects during topology changes. Validate existing independently authenticated

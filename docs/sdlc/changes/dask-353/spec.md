@@ -2,7 +2,7 @@
 
 Date: 2026-10-20. Source: `faa03dd`. Author: Codex. Status: implemented.
 [Intent](intent.md), [plan](plan.md), [validation](validation.md),
-[issue #353](https://github.com/alberttwong/redis-adbc-driver/issues/353).
+[issue #162](https://github.com/redis/redis-adbc-driver/issues/162).
 
 ## Contract
 

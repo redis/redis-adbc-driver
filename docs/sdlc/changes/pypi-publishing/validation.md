@@ -9,7 +9,7 @@ agent review is not independent human approval.
 At inspection, [PyPI 0.0.15](https://pypi.org/project/adbc-driver-redis/0.0.15/)
 already contained all three release wheels. No token was used, stored or uploaded
 by this change, and no duplicate publication was attempted. Downloaded the
-[v0.0.15 release](https://github.com/alberttwong/redis-adbc-driver/releases/tag/v0.0.15)
+[v0.0.15 release](https://github.com/redis/redis-adbc-driver/releases/tag/v0.0.15)
 wheels and checksum files; each SHA-256 matched both the release checksum and
 PyPI JSON metadata:
 

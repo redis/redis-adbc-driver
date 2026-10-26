@@ -461,7 +461,7 @@ make adbc-cli
 ```
 
 Or download `redis-adbc-<version>-<os>-<arch>.tar.gz` from a
-[release](https://github.com/alberttwong/redis-adbc-driver/releases) after
+[release](https://github.com/redis/redis-adbc-driver/releases) after
 v0.0.10. The Linux binaries are statically linked, and each release runs
 them on the same distributions as the driver. On macOS, a binary from a
 tarball downloaded with a browser is quarantined, and macOS refuses to run
@@ -1182,7 +1182,7 @@ and aggregates use authoritative HASH input with full residual/global SQL
 semantics. Managed tables use allocated-ID pages of at most 1000 keys, so this
 fallback adds no SCAN permission. Very sparse ID domains can require more work.
 These checks do not provide a transaction or shared snapshot under concurrent
-or external DDL. See [#390](https://github.com/alberttwong/redis-adbc-driver/issues/390).
+or external DDL. See [#178](https://github.com/redis/redis-adbc-driver/issues/178).
 
 ### Query execution
 
@@ -2257,13 +2257,13 @@ lifecycle and Python API, and the runnable
     the outer row's, since the inner `t` is visible only as `x`. Up to
     v0.0.7, a level with a single FROM item also knew it by its table's
     name, so `t.v` was the inner row's and the query compared each row with
-    itself (#102)
+    itself ([#45](https://github.com/redis/redis-adbc-driver/issues/45))
   - **A FROM item without an alias** is visible by its name. A table or
     view without an alias is also visible as `schema.table.col` (or
     `redis.schema.table.col`), with its own schema only (`pg_temp` for a
     temporary table): in `select s2.t.v from s1.t`, `s2.t` names no FROM
     item. Up to v0.0.8 the schema wasn't checked, so that query read
-    `s1.t`'s `v` (#111). CTEs, derived tables and items with an alias
+    `s1.t`'s `v` ([#50](https://github.com/redis/redis-adbc-driver/issues/50)). CTEs, derived tables and items with an alias
     aren't visible schema-qualified
   - **Two tables or views with the same name** from different schemas can
     be FROM items together without aliases, as in Postgres: `select s1.t.v,
@@ -2529,7 +2529,7 @@ lifecycle and Python API, and the runnable
   - **The error** is Postgres's `subquery uses ungrouped column "g.id" from
     outer query`, for example in `select v from g group by v having exists
     (select 1 from g x where x.id > g.id)`. Up to v0.0.8 the subquery read
-    one row of each group (#112).
+    one row of each group ([#51](https://github.com/redis/redis-adbc-driver/issues/51)).
   - **Aggregates of the outer query:** as in Postgres, an aggregate belongs
     to the innermost query whose columns its arguments, `ORDER BY` and
     `FILTER` read. `max(g.id)` in `(select max(g.id) from x where x.id = 1)`
@@ -2538,7 +2538,7 @@ lifecycle and Python API, and the runnable
     `GROUP BY` an aggregate one, which returns one row. `sum(g.v + x.id)`
     reads the subquery's columns too, so it is the subquery's. Up to v0.0.9
     such aggregates were computed over the subquery's rows, or rejected as
-    not supported (#120).
+    not supported ([#55](https://github.com/redis/redis-adbc-driver/issues/55)).
   - **Where an aggregate may be** is decided at its own level, also for one
     in a subquery: `select id from g where (select max(g.id)) > 1` gives
     Postgres's `aggregate functions are not allowed in WHERE`. These errors

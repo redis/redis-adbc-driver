@@ -2,7 +2,7 @@
 
 Date: 2026-10-22. Requestor: alberttwong. Author: Codex.
 Base: `aab9612`. Status: investigation complete; review pending.
-Issue: [#442](https://github.com/alberttwong/redis-adbc-driver/issues/442).
+Issue: [#191](https://github.com/redis/redis-adbc-driver/issues/191).
 
 Wide readers reconstruct typed Arrow columns from Search and per-row HASH
 replies. Existing Redis-only experiments do not measure the gap to PostgreSQL

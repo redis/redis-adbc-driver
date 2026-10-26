@@ -3,7 +3,7 @@
 Date: 2026-10-21. Source: 20de269, merged #397. Author: Codex; requestor:
 Albert Wong (continue partition compatibility work). Status: implemented;
 validation in progress; human approval pending.
-Issue: [#398](https://github.com/alberttwong/redis-adbc-driver/issues/398).
+Issue: [#182](https://github.com/redis/redis-adbc-driver/issues/182).
 See [spec](spec.md) and [plan](plan.md).
 
 Linux private-CA validation uses SSL_CERT_FILE, which Go's macOS native verifier
