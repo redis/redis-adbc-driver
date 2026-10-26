@@ -2,7 +2,7 @@
 
 Date: 2026-10-22. Author/reviewer: Codex; agent review, not human approval.
 Base: `d4cbccf`. Links: [intent](intent.md), [spec](spec.md), [plan](plan.md),
-[#459](https://github.com/alberttwong/redis-adbc-driver/issues/459).
+[#197](https://github.com/redis/redis-adbc-driver/issues/197).
 
 ## Regression and design evidence
 

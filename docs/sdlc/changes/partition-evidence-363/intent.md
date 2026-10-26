@@ -2,7 +2,7 @@
 
 2026-10-21; requestor alberttwong; author Codex. Baseline `96f75c1`
 ([refactor PR #376](https://github.com/alberttwong/redis-adbc-driver/pull/376)).
-Follow-up to [#363](https://github.com/alberttwong/redis-adbc-driver/issues/363).
+Follow-up to [#170](https://github.com/redis/redis-adbc-driver/issues/170).
 Status: local evidence delivered; deployment/runtime gaps remain; no maintainer approval.
 
 Compare ExecuteQuery with ExecutePartitions/ReadPartition using official

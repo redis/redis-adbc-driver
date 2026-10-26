@@ -1,6 +1,6 @@
 # Wide Arrow transfer: matched PostgreSQL and ClickHouse references
 
-Measured 2026-10-22 for [#442](https://github.com/alberttwong/redis-adbc-driver/issues/442).
+Measured 2026-10-22 for [#191](https://github.com/redis/redis-adbc-driver/issues/191).
 Driver baseline: `aab9612`. **Production driver code is unchanged.**
 The two screened experiments did not improve elapsed time and remain patches.
 [Manifest](manifest.json), [architecture assessment](architecture.md),

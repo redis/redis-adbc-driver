@@ -2,7 +2,7 @@
 
 Measured 2026-10-21. Baseline: merged #416, `4b0fdb5ce2a1a29651bad778aa58e4198ead0e70`.
 Production candidate: `dbdafa2f1115fc6ff91eac9ad8c7d50cb6a8b357`.
-[Issue #411](https://github.com/alberttwong/redis-adbc-driver/issues/411),
+[Issue #189](https://github.com/redis/redis-adbc-driver/issues/189),
 [change records](../../../docs/sdlc/changes/search-hmget-speed/intent.md),
 [manifest](manifest.json). RESP3 remains the default; every comparison here
 explicitly requests RESP3 on both driver and native clients.

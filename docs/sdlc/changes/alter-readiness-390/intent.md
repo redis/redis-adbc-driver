@@ -1,7 +1,7 @@
 # Intent
 
 2026-10-21; baseline dc6f319; requestor alberttwong; author Codex.
-Issue [#390](https://github.com/alberttwong/redis-adbc-driver/issues/390).
+Issue [#178](https://github.com/redis/redis-adbc-driver/issues/178).
 Status: implemented and locally validated; no maintainer approval.
 
 Native macOS coverage for #363 exposed missing ordinary SELECT rows after indexed

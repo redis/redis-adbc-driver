@@ -6,13 +6,13 @@ release approval is implied. [Spec](spec.md), [plan](plan.md), [evidence](valida
 
 ## Problem and consumers
 
-Issues [271](https://github.com/alberttwong/redis-adbc-driver/issues/271),
-[273](https://github.com/alberttwong/redis-adbc-driver/issues/273),
-[275](https://github.com/alberttwong/redis-adbc-driver/issues/275),
-[276](https://github.com/alberttwong/redis-adbc-driver/issues/276),
-[277](https://github.com/alberttwong/redis-adbc-driver/issues/277),
-[278](https://github.com/alberttwong/redis-adbc-driver/issues/278) and
-[280](https://github.com/alberttwong/redis-adbc-driver/issues/280) request useful
+Issues [271](https://github.com/redis/redis-adbc-driver/issues/115),
+[273](https://github.com/redis/redis-adbc-driver/issues/117),
+[275](https://github.com/redis/redis-adbc-driver/issues/119),
+[276](https://github.com/redis/redis-adbc-driver/issues/120),
+[277](https://github.com/redis/redis-adbc-driver/issues/121),
+[278](https://github.com/redis/redis-adbc-driver/issues/122) and
+[280](https://github.com/redis/redis-adbc-driver/issues/124) request useful
 analytics integrations, predictable installation and explicit compatibility.
 Python users otherwise distribute absolute native-library paths themselves;
 Superset needs a dialect and engine registration, Dagster needs asset storage,

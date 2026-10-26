@@ -1,6 +1,6 @@
 # Partitioned exact aggregates
 
-Issues #293–#303 report failures on the 99,997,497-row ClickBench dataset:
+Issues [#128](https://github.com/redis/redis-adbc-driver/issues/128)–[#138](https://github.com/redis/redis-adbc-driver/issues/138) report failures on the 99,997,497-row ClickBench dataset:
 Q5/Q9/Q11/Q12/Q14 exceed Redis Cloud's aggregate group cap, and
 Q8/Q10/Q13/Q15/Q16/Q17 exceed the 300-second isolated-trial deadline.
 A cursor limits returned pages, but does not limit the groups Redis builds.
@@ -80,7 +80,7 @@ MAX_AGGREGATE_GROUPS configuration: the cap fixture wraps real Redis pipelines
 and injects the documented Cloud error above a configured tuple cardinality.
 It does not prove the Cloud service's performance.
 
-Before closing #293–#303, rerun each query three times on the original full
+Before closing [#128](https://github.com/redis/redis-adbc-driver/issues/128)–[#138](https://github.com/redis/redis-adbc-driver/issues/138), rerun each query three times on the original full
 dataset and dedicated runner, in exact mode with the same 300-second deadline
 and memory limit. Preserve old failed trials and write a separate result set.
 Record the new binary checksum, stage metrics, wire/server measurements and
@@ -89,7 +89,7 @@ Local correctness and bounded-state regressions do not establish completion
 within the full-scale deadline. The original cloud sweep was still active
 when these changes were validated locally; it was left running.
 
-## ClickBench follow-up shapes (#305–#311)
+## ClickBench follow-up shapes ([#139](https://github.com/redis/redis-adbc-driver/issues/139)–[#145](https://github.com/redis/redis-adbc-driver/issues/145))
 
 The bounded strategy now evaluates pure `DATE_PART` (including EXTRACT minute)
 and `LENGTH` expressions with the driver environment. Spill keys begin with the
@@ -114,7 +114,7 @@ ordering. Exact index ordering with residual predicates can stop after enough
 surviving rows even when the projection and predicate read the same fields.
 Windowed, correlated and volatile projection forms retain their existing paths.
 These changes bound retained state; they do not prove the seven queries meet
-the 300-second budget on 99,997,497 rows. Keep #305–#311 open until three full
+the 300-second budget on 99,997,497 rows. Keep [#139](https://github.com/redis/redis-adbc-driver/issues/139)–[#145](https://github.com/redis/redis-adbc-driver/issues/145) open until three full
 trials per SQL pass with valid independent references, stage metrics, wire/server
 profiles, CPU, spill I/O, peak memory and the tested commit/binary checksum.
 

@@ -1,7 +1,7 @@
 # Plan and evidence
 
 2026-10-21; baseline `95d6365`; author Codex for alberttwong.
-Issue [#374](https://github.com/alberttwong/redis-adbc-driver/issues/374).
+Issue [#174](https://github.com/redis/redis-adbc-driver/issues/174).
 See [intent](intent.md), [spec](spec.md). Status: implemented and locally validated; awaiting maintainer review.
 
 1. Share reader construction, owner registration and internal range dispatch.

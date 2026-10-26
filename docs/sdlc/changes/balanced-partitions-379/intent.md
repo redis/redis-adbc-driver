@@ -1,7 +1,7 @@
 # Intent
 
 2026-10-21; baseline `d7346f9` (PR #381); requestor alberttwong; author Codex.
-Issue [#379](https://github.com/alberttwong/redis-adbc-driver/issues/379).
+Issue [#176](https://github.com/redis/redis-adbc-driver/issues/176).
 Status: implemented and locally validated; no maintainer approval.
 
 Improve usable parallelism for supported managed-table reads whose live rows

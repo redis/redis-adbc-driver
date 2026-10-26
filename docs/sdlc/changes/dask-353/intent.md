@@ -2,7 +2,7 @@
 
 Date: 2026-10-20. Source: `faa03dd` plus unrelated working-tree changes.
 Requestor: Albert Wong in this chat. Author: Codex. Status: implemented and locally verified.
-[Issue #353](https://github.com/alberttwong/redis-adbc-driver/issues/353),
+[Issue #162](https://github.com/redis/redis-adbc-driver/issues/162),
 [spec](spec.md), [plan](plan.md), [validation](validation.md).
 
 ## Problem and outcome

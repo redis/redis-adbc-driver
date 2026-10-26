@@ -3,7 +3,7 @@
 Date: 2026-10-21. Source: 86b8eaa, merged #399. Author: Codex; requestor:
 Albert Wong (keep going with Software proxy TLS). Status: implemented;
 verification in progress; human review pending.
-Issue: [#400](https://github.com/alberttwong/redis-adbc-driver/issues/400).
+Issue: [#183](https://github.com/redis/redis-adbc-driver/issues/183).
 See [spec](spec.md) and [plan](plan.md).
 
 Close the local Software TLS/proxy coverage gap in #363 using the existing pinned
@@ -13,6 +13,6 @@ Keep exact values, types and failure checks; expose backend policy differences.
 Do not provision Cloud/paid resources, change a system trust store, or imply
 production compatibility/performance from local tests.
 
-Also correct [#401](https://github.com/alberttwong/redis-adbc-driver/issues/401),
+Also correct [#184](https://github.com/redis/redis-adbc-driver/issues/184),
 a hosted macOS TLS dependency-install failure caused by leaking the fixture CA
 into PyPI trust. This is a one-line trust-environment fix in the same TLS workflow.

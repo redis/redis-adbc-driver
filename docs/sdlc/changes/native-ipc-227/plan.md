@@ -2,7 +2,7 @@
 
 Date: 2026-10-22. Author: Codex. Status: verification.
 Source: `9493c647aee33916cfc32840b9ba517388e51b50`.
-Linked [intent](intent.md), [spec](spec.md), and [#227](https://github.com/alberttwong/redis-adbc-driver/issues/227).
+Linked [intent](intent.md), [spec](spec.md), and [#78](https://github.com/redis/redis-adbc-driver/issues/78).
 
 1. Create CDC-only #457 and narrow #227. Completed.
 2. Add native statement input/output/format options and sequential stream/file

@@ -1,6 +1,6 @@
 # Plan
 
-Date: 2026-10-21. Source: merged #407. Author: Codex; requestor: Albert Wong (keep going; Redis Cloud Pro by default). Refs [#363](https://github.com/alberttwong/redis-adbc-driver/issues/363).
+Date: 2026-10-21. Source: merged #407. Author: Codex; requestor: Albert Wong (keep going; Redis Cloud Pro by default). Refs [#170](https://github.com/redis/redis-adbc-driver/issues/170).
 
 1. Estimate then create one dedicated two-shard RAM Pro database.
 2. Add fail-closed topology requirements and evidence to the Cloud runner.

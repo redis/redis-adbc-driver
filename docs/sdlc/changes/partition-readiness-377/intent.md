@@ -1,7 +1,7 @@
 # Intent
 
 2026-10-21; baseline `85d6807`; requestor alberttwong; author Codex.
-Issue [#377](https://github.com/alberttwong/redis-adbc-driver/issues/377).
+Issue [#175](https://github.com/redis/redis-adbc-driver/issues/175).
 Status: implemented and locally validated; awaiting maintainer review.
 
 Prevent bounded Search readers from using an index whose initial backfill can

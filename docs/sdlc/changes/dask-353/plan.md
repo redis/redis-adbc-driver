@@ -2,7 +2,7 @@
 
 Date: 2026-10-20. Source: `faa03dd`. Author: Codex. Status: completed locally.
 [Intent](intent.md), [spec](spec.md), [validation](validation.md),
-[issue #353](https://github.com/alberttwong/redis-adbc-driver/issues/353).
+[issue #162](https://github.com/redis/redis-adbc-driver/issues/162).
 
 1. Verify bound range predicates and existing DB-API lifecycle in the repository.
 2. Add `python/adbc_driver_redis/dask.py` and opt-in/test dependencies.

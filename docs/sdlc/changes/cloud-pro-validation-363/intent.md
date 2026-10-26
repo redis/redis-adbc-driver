@@ -2,7 +2,7 @@
 
 Date: 2026-10-21. Source: 35ddb9b (merged #402). Author: Codex;
 requestor: Albert Wong. Status: implemented, validated and cleaned up; human review pending.
-Issue: [#363](https://github.com/alberttwong/redis-adbc-driver/issues/363).
+Issue: [#170](https://github.com/redis/redis-adbc-driver/issues/170).
 See [spec](spec.md) and [plan](plan.md).
 
 Validate native partitions on a dedicated Redis Cloud Pro database. The requestor

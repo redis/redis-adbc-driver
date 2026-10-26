@@ -1,6 +1,6 @@
 # Where a larger transfer improvement would come from
 
-Assessment dated 2026-10-22 for [#442](https://github.com/alberttwong/redis-adbc-driver/issues/442).
+Assessment dated 2026-10-22 for [#191](https://github.com/redis/redis-adbc-driver/issues/191).
 These are design constraints and hypotheses, not measured speedups.
 
 ## Current client-only boundary

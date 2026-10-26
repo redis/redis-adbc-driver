@@ -1,7 +1,7 @@
 # Specification: incremental UNION ALL
 
 Date: 2026-10-22. Author: Codex. Base: `d4cbccf`. Status: implemented and verified; awaiting review.
-See [intent](intent.md), [plan](plan.md), and [#459](https://github.com/alberttwong/redis-adbc-driver/issues/459).
+See [intent](intent.md), [plan](plan.md), and [#197](https://github.com/redis/redis-adbc-driver/issues/197).
 
 Enable only trees of UNION ALL without ORDER BY, with eligible managed indexed
 row-local leaf scans, or statically empty leaves. Preflight all scan choices

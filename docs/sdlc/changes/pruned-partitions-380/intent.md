@@ -1,6 +1,6 @@
 # Intent
 
-2026-10-21; issue [#380](https://github.com/alberttwong/redis-adbc-driver/issues/380).
+2026-10-21; issue [#177](https://github.com/redis/redis-adbc-driver/issues/177).
 Baseline PR #385; requestor alberttwong; author Codex.
 Status: implemented and locally validated; no maintainer approval.
 

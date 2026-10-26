@@ -11,7 +11,7 @@ Codex. This is an engineering design, not a maintainer approval or a claim of
 implemented compatibility. See [the change records](sdlc/changes/partition-followups/intent.md)
 and [the current API contract](partitioned-reads.md).
 
-## Global and multi-relation SQL — #359
+## Global and multi-relation SQL — [#166](https://github.com/redis/redis-adbc-driver/issues/166)
 
 The chosen extension path is **bounded retained final Arrow results**, rather
 than independently evaluating a complete SQL query on each input range. Only
@@ -61,7 +61,7 @@ DDL during dependency resolution, cancellation at every publication stage,
 early release, budget exhaustion and worker death. Until that exists, retain
 clear NOT_IMPLEMENTED errors for the rows above.
 
-## Additional layouts and large IDs — #360
+## Additional layouts and large IDs — [#167](https://github.com/redis/redis-adbc-driver/issues/167)
 
 | Layout | Safe proposed coverage strategy | Decision / guard |
 |---|---|---|
@@ -87,7 +87,7 @@ and expiry; assert no mutation, ownership transfer, delete or rename. Only
 job-owned retained keys may be removed. This change introduces no such state
 and leaves these layouts rejected.
 
-## Stable retry results — #362
+## Stable retry results — [#169](https://github.com/redis/redis-adbc-driver/issues/169)
 
 | Mechanism | Concurrent writes / retries | Costs and feasibility |
 |---|---|---|

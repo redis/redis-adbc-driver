@@ -2,7 +2,7 @@
 
 Date: 2026-10-22. Author: Codex. Status: implementation.
 Source: `9493c647aee33916cfc32840b9ba517388e51b50`.
-Linked [intent](intent.md), [plan](plan.md), and [#227](https://github.com/alberttwong/redis-adbc-driver/issues/227).
+Linked [intent](intent.md), [plan](plan.md), and [#78](https://github.com/redis/redis-adbc-driver/issues/78).
 
 The [public contract](../../../arrow-ipc.md) defines statement options, formats,
 paths, cleanup, cancellation and autocommit behavior. Use existing standard C

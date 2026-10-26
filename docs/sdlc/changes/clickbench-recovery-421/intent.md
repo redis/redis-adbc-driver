@@ -1,6 +1,6 @@
 # Intent: recover and correct full-scale ClickBench failures
 
-2026-10-21. Requestor: Albert Wong, “fix it” on [issue #421](https://github.com/alberttwong/redis-adbc-driver/issues/421).
+2026-10-21. Requestor: Albert Wong, “fix it” on [issue #190](https://github.com/redis/redis-adbc-driver/issues/190).
 Initial starting revision: 523adb1d75756b7a92a72820effb7e6949a07809.
 The fixes are rebased onto main 0a84794 for separate PR #425; merged PR #403
 retains its original harness scope.

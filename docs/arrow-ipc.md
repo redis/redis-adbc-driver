@@ -3,9 +3,9 @@
 The driver serializes Arrow IPC **inside the native driver**, through standard
 ADBC statement options. No client-side serializer, new C entry point, Redis wire
 format, or custom Arrow C Stream layout is required. This implements the IPC
-portion of [#227](https://github.com/alberttwong/redis-adbc-driver/issues/227).
+portion of [#78](https://github.com/redis/redis-adbc-driver/issues/78).
 Continuous subscriptions and CDC are tracked separately in
-[#457](https://github.com/alberttwong/redis-adbc-driver/issues/457).
+[#196](https://github.com/redis/redis-adbc-driver/issues/196).
 
 ## Capability matrix
 
@@ -16,8 +16,8 @@ Continuous subscriptions and CDC are tracked separately in
 | Arrow IPC streaming format | Yes | Native local-file export/import through statement options; schema followed by sequential batches |
 | Arrow IPC file format | Yes | Native local-file export/import; import requires a seekable regular file; footer metadata grows with batch count |
 | Finite incremental query output | Eligible indexed single-table SELECTs and UNION ALL trees | Cursor pages fetched as batches are consumed; [eligibility and cleanup](driver-reference.md#streamed-results) apply |
-| Incremental aggregate input | Yes for eligible table scans | Page-wise reduction from #212; output still waits for reduction and state grows with groups/distinct/ordered-set inputs |
-| Continuous subscriptions / CDC | Unsupported | Separate scope in #457; no checkpoint, replay, or snapshot-to-live contract |
+| Incremental aggregate input | Yes for eligible table scans | Page-wise reduction from [#72](https://github.com/redis/redis-adbc-driver/issues/72); output still waits for reduction and state grows with groups/distinct/ordered-set inputs |
+| Continuous subscriptions / CDC | Unsupported | Separate scope in [#196](https://github.com/redis/redis-adbc-driver/issues/196); no checkpoint, replay, or snapshot-to-live contract |
 
 ## Statement contract
 
@@ -124,7 +124,7 @@ and error, including early query failure and late batch failure.
 | Eligible UNION ALL trees without ORDER BY | Incremental output over sequential managed indexed-table child scans | Pairwise coercion and per-node LIMIT/OFFSET; only one active child; unsupported leaves/orderings retain materialization |
 | Joins, windows, CTEs/derived tables | Existing materialization paths | Streaming requires operator-specific state and dependency analysis; no blanket eligibility expansion |
 
-Native IPC provides an incremental sink/source. [#459](https://github.com/alberttwong/redis-adbc-driver/issues/459)
+Native IPC provides an incremental sink/source. [#197](https://github.com/redis/redis-adbc-driver/issues/197)
 adds the eligible UNION ALL path described in [streaming documentation](driver-reference.md#streamed-results),
 with [fresh measurements](../benchmarks/union-stream/2026-10-22/README.md).
 Neither feature adds spill or a query-wide memory cap. Existing output byte
@@ -144,10 +144,10 @@ Historical evidence, not measurements of this change:
   records independently validated complete IPC transfers with different row
   ceilings and explicit SQL ranges. It predates these native IPC options.
 
-Other candidates are explicitly deferred in #459: general aggregates require
+Other candidates are explicitly deferred in [#197](https://github.com/redis/redis-adbc-driver/issues/197): general aggregates require
 complete input before finalization; DISTINCT set operations require cardinality-dependent
 deduplication state; joins/windows and CTE/derived-table dependency graphs need
 separate operator designs. Top-K can bound retained winners while still consuming
 all candidates. No new spill engine or limit for those operators is added.
 Further eligibility expansion requires its own correctness, lifecycle and memory evidence.
-CDC remains exclusively in #457.
+CDC remains exclusively in [#196](https://github.com/redis/redis-adbc-driver/issues/196).

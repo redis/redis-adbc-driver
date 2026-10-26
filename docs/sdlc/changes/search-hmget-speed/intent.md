@@ -4,7 +4,7 @@ Review: [PR #419](https://github.com/alberttwong/redis-adbc-driver/pull/419).
 
 2026-10-21. Requested by Albert Wong ("keep going"). Base: merged PR
 [#416](https://github.com/alberttwong/redis-adbc-driver/pull/416), `4b0fdb5`.
-Issue: [#411](https://github.com/alberttwong/redis-adbc-driver/issues/411).
+Issue: [#189](https://github.com/redis/redis-adbc-driver/issues/189).
 Status: guarded implementation and local verification complete; PR/human review pending.
 See [spec](spec.md) and [plan](plan.md).
 

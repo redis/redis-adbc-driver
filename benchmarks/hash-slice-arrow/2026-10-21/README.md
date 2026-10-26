@@ -1,7 +1,7 @@
 # Direct HASH values into Arrow
 
 Measured 2026-10-21. Follow-up to merged [#419](https://github.com/alberttwong/redis-adbc-driver/pull/419)
-and [#411](https://github.com/alberttwong/redis-adbc-driver/issues/411).
+and [#189](https://github.com/redis/redis-adbc-driver/issues/189).
 Screen/benchmark baseline: exact `a937c55b` (#419 head); its Go production source
 is identical to current main `a90c6b4d` after #420's test/harness changes.
 Candidate initially built from `0727c7b`; rebased source is `c4a819b` with identical

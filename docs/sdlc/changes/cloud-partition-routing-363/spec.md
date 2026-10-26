@@ -1,6 +1,6 @@
 # Contract
 
-Date: 2026-10-21. Source: merged #407. Author: Codex; requestor: Albert Wong (keep going; Redis Cloud Pro by default). Refs [#363](https://github.com/alberttwong/redis-adbc-driver/issues/363).
+Date: 2026-10-21. Source: merged #407. Author: Codex; requestor: Albert Wong (keep going; Redis Cloud Pro by default). Refs [#170](https://github.com/redis/redis-adbc-driver/issues/170).
 
 Require real management readback of at least two primary shards before claiming sharded coverage. Preserve all shared checker assertions: full Arrow values/schema, Search and direct HASH reads, denials, lifecycle and TLS. Keep keys in the parent process and touch only newly owned resources. Record routing mode explicitly; a proxy run alone does not prove OSS Cluster API routing. Delete paid resources and verify absence. See [intent](intent.md) and [plan](plan.md).
 

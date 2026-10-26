@@ -1,7 +1,7 @@
 # Intent
 
 2026-10-21; baseline `95d6365` (merged #373). Requestor: alberttwong.
-Issue: [#374](https://github.com/alberttwong/redis-adbc-driver/issues/374).
+Issue: [#174](https://github.com/redis/redis-adbc-driver/issues/174).
 Status: implemented and locally validated; awaiting maintainer review.
 
 Keep ordinary ExecuteQuery and portable partition execution as separate public

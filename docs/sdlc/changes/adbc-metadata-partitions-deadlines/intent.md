@@ -2,9 +2,9 @@
 
 2026-10-22. Author: Codex; requestor: Albert Wong. Base: `6508626`.
 Status: implemented; verification in progress; no maintainer approval inferred.
-Requested work: [#476](https://github.com/alberttwong/redis-adbc-driver/issues/476),
-[#477](https://github.com/alberttwong/redis-adbc-driver/issues/477),
-[#478](https://github.com/alberttwong/redis-adbc-driver/issues/478).
+Requested work: [#210](https://github.com/redis/redis-adbc-driver/issues/210),
+[#211](https://github.com/redis/redis-adbc-driver/issues/211),
+[#212](https://github.com/redis/redis-adbc-driver/issues/212).
 
 Give ADBC consumers useful, accurately scoped statistics, extend a bounded
 retained-query operation family, and bound Redis I/O by caller deadlines.

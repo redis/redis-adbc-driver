@@ -5,8 +5,8 @@ replay. It runs a bounded coordinator query once, stores its completed final
 output, and returns version-2 descriptors over contiguous chunk ordinals.
 `ExecuteQuery` remains the ordinary SQL API. Live row-range partitions remain the
 default and are useful when workers should read current source rows without
-storing a result. This implementation addresses the runtime work in #359, #360
-and #362; the deployment/performance matrix in #363 is tracked separately.
+storing a result. This implementation addresses the runtime work in [#166](https://github.com/redis/redis-adbc-driver/issues/166), [#167](https://github.com/redis/redis-adbc-driver/issues/167)
+and [#169](https://github.com/redis/redis-adbc-driver/issues/169); the deployment/performance matrix in [#170](https://github.com/redis/redis-adbc-driver/issues/170) is tracked separately.
 
 ## Configure and use
 

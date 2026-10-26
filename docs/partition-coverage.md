@@ -21,7 +21,7 @@ Ordinary SQL has its own supported subset and remains autocommit-only.
 | Retry after source changes | Rereads live data | Replays immutable committed output until expiry/revocation | Fresh execution |
 
 The next independently useful expansion selected for
-[#477](https://github.com/alberttwong/redis-adbc-driver/issues/477) is retained
+[#211](https://github.com/redis/redis-adbc-driver/issues/211) is retained
 positional string slicing: SUBSTR, LEFT and RIGHT. These operations select from
 an already bounded value; they do not generate unbounded output or execute
 regex patterns. Existing scalar input, work, allocation and IPC limits remain.

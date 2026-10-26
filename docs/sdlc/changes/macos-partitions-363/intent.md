@@ -1,7 +1,7 @@
 # Intent
 
 2026-10-21; baseline dc6f319; requestor alberttwong; author Codex.
-Refs [#363](https://github.com/alberttwong/redis-adbc-driver/issues/363).
+Refs [#170](https://github.com/redis/redis-adbc-driver/issues/170).
 Status: implemented and locally validated; no maintainer approval.
 
 Replace load-only macOS wheel verification with required native Redis/Search

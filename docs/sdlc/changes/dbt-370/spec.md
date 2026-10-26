@@ -2,7 +2,7 @@
 
 Date: 2026-10-21. Source: `95d6365bb76212a49888bfec423cf8c8b15e61a7`.
 Requestor: repository owner, via chat. Author: Codex. Status: proposed for review.
-Issue: [#370](https://github.com/alberttwong/redis-adbc-driver/issues/370).
+Issue: [#171](https://github.com/redis/redis-adbc-driver/issues/171).
 
 ## Contract and boundaries
 

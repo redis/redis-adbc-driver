@@ -7,7 +7,7 @@ The [coverage comparison](partition-coverage.md) records remaining gaps and
 the source-consistency design boundaries.
 
 `ExecutePartitions` / `ReadPartition` support deferred reads of a single
-permanent, driver-managed Redis table. See [issue #355](https://github.com/alberttwong/redis-adbc-driver/issues/355).
+permanent, driver-managed Redis table. See [issue #163](https://github.com/redis/redis-adbc-driver/issues/163).
 This API supplies the split descriptions for an external scheduler such as Ray
 or Dask; it does not create workers or provide an installed Ray connector.
 Rebuild the native library from this source checkout before using the new API;
@@ -217,7 +217,7 @@ also verify `indexing=0` and expected document counts before distributing work.
 The checks mitigate the observed building-index condition, not every possible
 backend defect or concurrent external index replacement. They do not create a
 snapshot or guarantee stable retries. See
-[issue #377](https://github.com/alberttwong/redis-adbc-driver/issues/377) and the
+[issue #175](https://github.com/redis/redis-adbc-driver/issues/175) and the
 [original evidence](../benchmarks/partitions/evidence-2026-10-21/README.md).
 
 Indexed ALTER operations wait for Search backfill before publishing their new
@@ -300,13 +300,13 @@ incrementally and compares Arrow schemas on each worker; it creates no tables.
 
 The capabilities beyond this initial implementation are tracked separately:
 
-- [#358: Bound parameters and deterministic row expressions](https://github.com/alberttwong/redis-adbc-driver/issues/358) — implemented.
-- [#359: Global operations and multi-relation SQL](https://github.com/alberttwong/redis-adbc-driver/issues/359).
-- [#360: Additional table layouts and larger row IDs](https://github.com/alberttwong/redis-adbc-driver/issues/360).
-- [#361: Lowered or undiscoverable Search aggregate caps](https://github.com/alberttwong/redis-adbc-driver/issues/361) — implemented with the documented cap contract.
-- [#362: Stable snapshots and replayable results](https://github.com/alberttwong/redis-adbc-driver/issues/362).
-- [#363: Compatibility CI and performance evidence](https://github.com/alberttwong/redis-adbc-driver/issues/363).
-- [#372: Incremental partition discovery](https://github.com/alberttwong/redis-adbc-driver/issues/372) — implemented with eager terminal discovery.
+- [#165: Bound parameters and deterministic row expressions](https://github.com/redis/redis-adbc-driver/issues/165) — implemented.
+- [#166: Global operations and multi-relation SQL](https://github.com/redis/redis-adbc-driver/issues/166).
+- [#167: Additional table layouts and larger row IDs](https://github.com/redis/redis-adbc-driver/issues/167).
+- [#168: Lowered or undiscoverable Search aggregate caps](https://github.com/redis/redis-adbc-driver/issues/168) — implemented with the documented cap contract.
+- [#169: Stable snapshots and replayable results](https://github.com/redis/redis-adbc-driver/issues/169).
+- [#170: Compatibility CI and performance evidence](https://github.com/redis/redis-adbc-driver/issues/170).
+- [#173: Incremental partition discovery](https://github.com/redis/redis-adbc-driver/issues/173) — implemented with eager terminal discovery.
 
 ## TLS and independent-worker validation
 
@@ -343,7 +343,7 @@ the built library. Release validation uses installed Linux and macOS wheels.
 The macOS job starts an owned native TLS-only Redis and checks default/minimum
 ADBC clients with 15 TLS checks, including native CA and hostname rejection.
 Local macOS packaged validation passed on 2026-10-21; hosted results are separate
-evidence. Cloud/proxy TLS and remaining compatibility gaps stay tracked in #363.
+evidence. Cloud/proxy TLS and remaining compatibility gaps stay tracked in [#170](https://github.com/redis/redis-adbc-driver/issues/170).
 
 
 Redis Software proxy TLS uses `scripts/software_partition_tls.py` after the
@@ -363,4 +363,4 @@ single-shard TLS proxy. Local macOS single/three-shard and Linux arm64 packaged
 runs passed all 16 Software checks. Each three-shard deployment uses one Software
 node, so this establishes proxy/shard routing coverage, not multi-node failover.
 See [verification](sdlc/changes/software-proxy-tls-400/plan.md). Cloud TLS and
-remaining performance evidence are still open in #363.
+remaining performance evidence are still open in [#170](https://github.com/redis/redis-adbc-driver/issues/170).
