@@ -1,0 +1,568 @@
+{
+  "status": "pass",
+  "infrastructure": [],
+  "cases": [
+    {
+      "legacy_comparison": null,
+      "case": [
+        "software",
+        32768,
+        2,
+        "direct",
+        "waves",
+        1
+      ],
+      "best_fixed": "headroom-fixed",
+      "steady_qps_ratio": 0.9874868451169135,
+      "steady_p95_ratio": 0.9948228703693234,
+      "cold_qps_ratio": 1.0361106137032174,
+      "cold_p95_ratio": 0.9444313165011753,
+      "passed": true,
+      "policies": {
+        "serial": {
+          "queries_per_second": {
+            "median": 13.313044903759977,
+            "minimum": 6.773413572334465,
+            "maximum": 13.337260405684443
+          },
+          "p95_query_seconds": {
+            "median": 0.086494417,
+            "minimum": 0.079560292,
+            "maximum": 0.187376542
+          },
+          "client_cpu_seconds": {
+            "median": 0.97628,
+            "minimum": 0.9213659999999999,
+            "maximum": 1.718331
+          },
+          "client_peak_heap_bytes": {
+            "median": 30290584,
+            "minimum": 30278656,
+            "maximum": 30458584
+          },
+          "client_process_peak_rss_bytes": {
+            "median": 69386240,
+            "minimum": 69353472,
+            "maximum": 70864896
+          },
+          "redis_network_bytes_per_second": {
+            "median": 107962265.60019533,
+            "minimum": 30763455.895760812,
+            "maximum": 109765634.61481018
+          },
+          "redis_cpu_seconds": {
+            "median": 0,
+            "minimum": 0,
+            "maximum": 0
+          },
+          "redis_memory_bytes": {
+            "median": 1791420776,
+            "minimum": 1790051792,
+            "maximum": 1792438672
+          }
+        },
+        "cpu-fixed": {
+          "queries_per_second": {
+            "median": 16.750306405910504,
+            "minimum": 16.331451645250038,
+            "maximum": 17.151894557775325
+          },
+          "p95_query_seconds": {
+            "median": 0.066077875,
+            "minimum": 0.065280541,
+            "maximum": 0.073616125
+          },
+          "client_cpu_seconds": {
+            "median": 0.9450270000000001,
+            "minimum": 0.908436,
+            "maximum": 0.9542199999999998
+          },
+          "client_peak_heap_bytes": {
+            "median": 53980712,
+            "minimum": 53281984,
+            "maximum": 54117440
+          },
+          "client_process_peak_rss_bytes": {
+            "median": 97206272,
+            "minimum": 95457280,
+            "maximum": 97914880
+          },
+          "redis_network_bytes_per_second": {
+            "median": 88319326.62785564,
+            "minimum": 74273802.58631256,
+            "maximum": 88528427.00213231
+          },
+          "redis_cpu_seconds": {
+            "median": 0,
+            "minimum": 0,
+            "maximum": 0
+          },
+          "redis_memory_bytes": {
+            "median": 1795300608,
+            "minimum": 1789905536,
+            "maximum": 1795425992
+          }
+        },
+        "headroom-fixed": {
+          "queries_per_second": {
+            "median": 17.416009268273783,
+            "minimum": 8.393174526671855,
+            "maximum": 18.261554140596683
+          },
+          "p95_query_seconds": {
+            "median": 0.06631725,
+            "minimum": 0.060300583,
+            "maximum": 0.147209417
+          },
+          "client_cpu_seconds": {
+            "median": 1.0178290000000003,
+            "minimum": 0.9526750000000002,
+            "maximum": 1.825265
+          },
+          "client_peak_heap_bytes": {
+            "median": 62719336,
+            "minimum": 57751480,
+            "maximum": 68405368
+          },
+          "client_process_peak_rss_bytes": {
+            "median": 122945536,
+            "minimum": 116965376,
+            "maximum": 125566976
+          },
+          "redis_network_bytes_per_second": {
+            "median": 48236423.58056024,
+            "minimum": 0,
+            "maximum": 94412407.81365232
+          },
+          "redis_cpu_seconds": {
+            "median": 0,
+            "minimum": 0,
+            "maximum": 0
+          },
+          "redis_memory_bytes": {
+            "median": 1799192136,
+            "minimum": 1789949448,
+            "maximum": 1799209320
+          }
+        },
+        "tuned": {
+          "queries_per_second": {
+            "median": 17.198080046854603,
+            "minimum": 15.783990229085704,
+            "maximum": 17.927336025255634
+          },
+          "p95_query_seconds": {
+            "median": 0.065973917,
+            "minimum": 0.057477333,
+            "maximum": 0.08713425
+          },
+          "client_cpu_seconds": {
+            "median": 1.0261850000000003,
+            "minimum": 1.0247240000000004,
+            "maximum": 1.0742049999999996
+          },
+          "client_peak_heap_bytes": {
+            "median": 73954144,
+            "minimum": 54510168,
+            "maximum": 78229664
+          },
+          "client_process_peak_rss_bytes": {
+            "median": 125734912,
+            "minimum": 121360384,
+            "maximum": 127225856
+          },
+          "redis_network_bytes_per_second": {
+            "median": 97713048.58581954,
+            "minimum": 81468126.42000723,
+            "maximum": 187727536.45114434
+          },
+          "redis_cpu_seconds": {
+            "median": 0,
+            "minimum": 0,
+            "maximum": 0
+          },
+          "redis_memory_bytes": {
+            "median": 1790003904,
+            "minimum": 1789878488,
+            "maximum": 1795421264
+          }
+        }
+      }
+    },
+    {
+      "legacy_comparison": null,
+      "case": [
+        "software",
+        32768,
+        2,
+        "direct",
+        "waves",
+        2
+      ],
+      "best_fixed": "headroom-fixed",
+      "steady_qps_ratio": 0.9755015425981254,
+      "steady_p95_ratio": 1.0443030665605015,
+      "cold_qps_ratio": 1.0199625012072586,
+      "cold_p95_ratio": 0.9900092352615034,
+      "passed": true,
+      "policies": {
+        "serial": {
+          "queries_per_second": {
+            "median": 15.750674688025597,
+            "minimum": 15.1657926474323,
+            "maximum": 17.88983365299186
+          },
+          "p95_query_seconds": {
+            "median": 0.135719167,
+            "minimum": 0.119359375,
+            "maximum": 0.147977125
+          },
+          "client_cpu_seconds": {
+            "median": 2.1281039999999987,
+            "minimum": 1.9507980000000007,
+            "maximum": 2.2185879999999987
+          },
+          "client_peak_heap_bytes": {
+            "median": 58057288,
+            "minimum": 58041320,
+            "maximum": 58062992
+          },
+          "client_process_peak_rss_bytes": {
+            "median": 101453824,
+            "minimum": 99852288,
+            "maximum": 101961728
+          },
+          "redis_network_bytes_per_second": {
+            "median": 100270520.331875,
+            "minimum": 97566791.10258505,
+            "maximum": 118982638.05579244
+          },
+          "redis_cpu_seconds": {
+            "median": 0,
+            "minimum": 0,
+            "maximum": 0
+          },
+          "redis_memory_bytes": {
+            "median": 1793575208,
+            "minimum": 1791460760,
+            "maximum": 1795396384
+          }
+        },
+        "cpu-fixed": {
+          "queries_per_second": {
+            "median": 17.030767983658492,
+            "minimum": 16.77554590871989,
+            "maximum": 17.12006434519117
+          },
+          "p95_query_seconds": {
+            "median": 0.124843958,
+            "minimum": 0.1214295,
+            "maximum": 0.13520675
+          },
+          "client_cpu_seconds": {
+            "median": 1.832832999999999,
+            "minimum": 1.7469649999999994,
+            "maximum": 1.8920270000000006
+          },
+          "client_peak_heap_bytes": {
+            "median": 54032984,
+            "minimum": 53709400,
+            "maximum": 55168896
+          },
+          "client_process_peak_rss_bytes": {
+            "median": 97914880,
+            "minimum": 97271808,
+            "maximum": 99987456
+          },
+          "redis_network_bytes_per_second": {
+            "median": 89208772.37708624,
+            "minimum": 86301380.26666085,
+            "maximum": 90268935.04757595
+          },
+          "redis_cpu_seconds": {
+            "median": 0,
+            "minimum": 0,
+            "maximum": 0
+          },
+          "redis_memory_bytes": {
+            "median": 1790180272,
+            "minimum": 1789963288,
+            "maximum": 1790314648
+          }
+        },
+        "headroom-fixed": {
+          "queries_per_second": {
+            "median": 17.137883753474576,
+            "minimum": 15.354733799641982,
+            "maximum": 18.011466162399117
+          },
+          "p95_query_seconds": {
+            "median": 0.127117792,
+            "minimum": 0.115597,
+            "maximum": 0.141135375
+          },
+          "client_cpu_seconds": {
+            "median": 2.0317170000000004,
+            "minimum": 1.9341389999999983,
+            "maximum": 2.312350000000002
+          },
+          "client_peak_heap_bytes": {
+            "median": 64686792,
+            "minimum": 60835360,
+            "maximum": 77220288
+          },
+          "client_process_peak_rss_bytes": {
+            "median": 123019264,
+            "minimum": 117264384,
+            "maximum": 127623168
+          },
+          "redis_network_bytes_per_second": {
+            "median": 96097272.70874175,
+            "minimum": 65069208.813910306,
+            "maximum": 98890361.95053399
+          },
+          "redis_cpu_seconds": {
+            "median": 0,
+            "minimum": 0,
+            "maximum": 0
+          },
+          "redis_memory_bytes": {
+            "median": 1790030752,
+            "minimum": 1789949528,
+            "maximum": 1796855584
+          }
+        },
+        "tuned": {
+          "queries_per_second": {
+            "median": 16.7180320383818,
+            "minimum": 15.582224399878479,
+            "maximum": 17.71823901733749
+          },
+          "p95_query_seconds": {
+            "median": 0.1327495,
+            "minimum": 0.116004167,
+            "maximum": 0.139548292
+          },
+          "client_cpu_seconds": {
+            "median": 2.101082999999999,
+            "minimum": 2.0267490000000006,
+            "maximum": 2.1224290000000003
+          },
+          "client_peak_heap_bytes": {
+            "median": 70167688,
+            "minimum": 53962688,
+            "maximum": 71959776
+          },
+          "client_process_peak_rss_bytes": {
+            "median": 125734912,
+            "minimum": 125333504,
+            "maximum": 127225856
+          },
+          "redis_network_bytes_per_second": {
+            "median": 83735458.4659137,
+            "minimum": 73229987.19062378,
+            "maximum": 96698956.42810689
+          },
+          "redis_cpu_seconds": {
+            "median": 0,
+            "minimum": 0,
+            "maximum": 0
+          },
+          "redis_memory_bytes": {
+            "median": 1798171928,
+            "minimum": 1790012656,
+            "maximum": 1798986360
+          }
+        }
+      }
+    },
+    {
+      "legacy_comparison": null,
+      "case": [
+        "software",
+        32768,
+        2,
+        "direct",
+        "waves",
+        4
+      ],
+      "best_fixed": "headroom-fixed",
+      "steady_qps_ratio": 1.0833871097167924,
+      "steady_p95_ratio": 0.836442236716658,
+      "cold_qps_ratio": 1.1489146424043313,
+      "cold_p95_ratio": 0.9777288763400217,
+      "passed": true,
+      "policies": {
+        "serial": {
+          "queries_per_second": {
+            "median": 16.187568951483915,
+            "minimum": 15.673578279673643,
+            "maximum": 17.302822935615634
+          },
+          "p95_query_seconds": {
+            "median": 0.277928459,
+            "minimum": 0.249140334,
+            "maximum": 0.306340917
+          },
+          "client_cpu_seconds": {
+            "median": 4.184849000000003,
+            "minimum": 4.073613999999999,
+            "maximum": 4.322865000000004
+          },
+          "client_peak_heap_bytes": {
+            "median": 58276152,
+            "minimum": 58264280,
+            "maximum": 58698872
+          },
+          "client_process_peak_rss_bytes": {
+            "median": 104448000,
+            "minimum": 103223296,
+            "maximum": 106041344
+          },
+          "redis_network_bytes_per_second": {
+            "median": 104632246.15238585,
+            "minimum": 84908699.83372086,
+            "maximum": 114667588.82381923
+          },
+          "redis_cpu_seconds": {
+            "median": 0,
+            "minimum": 0,
+            "maximum": 0
+          },
+          "redis_memory_bytes": {
+            "median": 1794697992,
+            "minimum": 1793131224,
+            "maximum": 1795378984
+          }
+        },
+        "cpu-fixed": {
+          "queries_per_second": {
+            "median": 15.244417093024218,
+            "minimum": 10.977075383074684,
+            "maximum": 16.567688301530048
+          },
+          "p95_query_seconds": {
+            "median": 0.279891917,
+            "minimum": 0.253428666,
+            "maximum": 0.393054084
+          },
+          "client_cpu_seconds": {
+            "median": 3.954813999999999,
+            "minimum": 3.5177799999999984,
+            "maximum": 5.624036
+          },
+          "client_peak_heap_bytes": {
+            "median": 58186328,
+            "minimum": 58171112,
+            "maximum": 58194320
+          },
+          "client_process_peak_rss_bytes": {
+            "median": 101056512,
+            "minimum": 100503552,
+            "maximum": 102629376
+          },
+          "redis_network_bytes_per_second": {
+            "median": 89489231.79093505,
+            "minimum": 47105627.36281243,
+            "maximum": 104160990.77128655
+          },
+          "redis_cpu_seconds": {
+            "median": 0,
+            "minimum": 0,
+            "maximum": 0
+          },
+          "redis_memory_bytes": {
+            "median": 1793412344,
+            "minimum": 1792985536,
+            "maximum": 1795498720
+          }
+        },
+        "headroom-fixed": {
+          "queries_per_second": {
+            "median": 17.893597578460437,
+            "minimum": 17.677397431571183,
+            "maximum": 19.861936315178433
+          },
+          "p95_query_seconds": {
+            "median": 0.259963209,
+            "minimum": 0.20916325,
+            "maximum": 0.285894125
+          },
+          "client_cpu_seconds": {
+            "median": 4.290550999999997,
+            "minimum": 3.804235000000002,
+            "maximum": 4.363522000000003
+          },
+          "client_peak_heap_bytes": {
+            "median": 82223112,
+            "minimum": 80798624,
+            "maximum": 84024712
+          },
+          "client_process_peak_rss_bytes": {
+            "median": 135151616,
+            "minimum": 124719104,
+            "maximum": 136740864
+          },
+          "redis_network_bytes_per_second": {
+            "median": 102210990.44968124,
+            "minimum": 90900158.70542283,
+            "maximum": 103469273.40999918
+          },
+          "redis_cpu_seconds": {
+            "median": 0,
+            "minimum": 0,
+            "maximum": 0
+          },
+          "redis_memory_bytes": {
+            "median": 1791835128,
+            "minimum": 1791830680,
+            "maximum": 1800904384
+          }
+        },
+        "tuned": {
+          "queries_per_second": {
+            "median": 19.38569296296365,
+            "minimum": 14.422953643227363,
+            "maximum": 19.790260787670537
+          },
+          "p95_query_seconds": {
+            "median": 0.217444208,
+            "minimum": 0.214304834,
+            "maximum": 0.402588209
+          },
+          "client_cpu_seconds": {
+            "median": 4.083514000000001,
+            "minimum": 3.8711260000000003,
+            "maximum": 5.202386999999998
+          },
+          "client_peak_heap_bytes": {
+            "median": 81152120,
+            "minimum": 72097512,
+            "maximum": 81594960
+          },
+          "client_process_peak_rss_bytes": {
+            "median": 127832064,
+            "minimum": 125861888,
+            "maximum": 128724992
+          },
+          "redis_network_bytes_per_second": {
+            "median": 85464941.52340315,
+            "minimum": 78757834.63180171,
+            "maximum": 119279791.92785878
+          },
+          "redis_cpu_seconds": {
+            "median": 0,
+            "minimum": 0,
+            "maximum": 0
+          },
+          "redis_memory_bytes": {
+            "median": 1792077976,
+            "minimum": 1791735840,
+            "maximum": 1796137384
+          }
+        }
+      }
+    }
+  ],
+  "note": "Medians and full min/max spread across independent repeated trials; these are not confidence intervals. Warmed windows can still include probes. Local allocation is not a global optimum guarantee."
+}

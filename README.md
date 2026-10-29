@@ -24,6 +24,11 @@ with the [ADBC driver validation suite](https://github.com/adbc-drivers/validati
 It runs SQL over Redis HASHes and the Query Engine, returns Arrow record batches,
 and bulk-ingests Arrow data through a native ADBC library.
 
+**Works best with Redis Search (Query Engine) enabled and query performance
+factor (QPF) set to 4× where supported.** Search is required;
+4× QPF is recommended for concurrent query performance. See
+[server requirements](docs/driver-reference.md#server-requirements) for setup guidance.
+
 For repository context and the development artifact workflow, see the
 [AI-native SDLC records](docs/sdlc/README.md).
 
@@ -40,29 +45,28 @@ For repository context and the development artifact workflow, see the
 
 ## Why a Redis ADBC driver?
 
-Redis clients expose commands and data structures, while analytics applications
-work with tables, SQL, and columnar data. This driver connects those workflows:
-it gives Redis HASH data an [ADBC interface](https://arrow.apache.org/adbc/current/index.html)
-for SQL queries, schema discovery, Arrow results, and bulk ingestion.
+Driver users can query Redis with familiar SQL and move data through Apache Arrow,
+making it easier to connect operational data to the tools their teams already use.
 
-The value is in making Redis data easier to use across the data engineering
-workflow:
+**What this means for driver users:**
 
-- **Analyze operational data where it lives.** Query driver-managed tables or
-  [explicitly adopted HASH collections](docs/driver-reference.md#existing-hash-collections-redis-adbc)
-  through supported SQL, without first exporting them to another database for
-  every analysis. Redis HASHes remain the authoritative row storage.
-- **Reuse analytics and pipeline tooling.** Use typed Arrow results in dataframe
-  workflows and the project's [Python integrations](docs/python-integrations.md)
-  for tools such as Polars, SQLAlchemy, Dask, and Dagster. A shared database
-  interface reduces the custom Redis command handling and table-conversion code
-  each integration needs. See the [integration status](docs/data-engineering-adbc-support.md)
-  for the capabilities and validation limits of individual tools.
-- **Exchange data in batches.** Fetch Arrow record batches with schemas and NULL
-  information, or bulk-ingest Arrow data into Redis. Applications can pass a
-  common columnar representation between processing steps. The driver still
-  decodes Redis replies and converts values to Arrow; Redis storage remains
-  row-oriented HASHes.
+- **Use popular data engineering tools:** Bring Redis data into workflows with
+  Dagster, Airflow, Python, pandas, Polars, and other tools that can consume ADBC
+  drivers. Some tools require custom tasks or integration code; see the
+  [integration status guide](docs/data-engineering-adbc-support.md) for details.
+- **Analyze data where it lives:** Query data directly in Redis using products
+  like [Apache Superset](docs/python-integrations.md#sqlalchemy-and-superset)
+  and [DuckDB](docs/duckdb.md), reducing the need to export it elsewhere before
+  analysis.
+- **Less custom integration code:** Use standard SQL and Arrow interfaces to
+  reduce application-specific reads and data conversions.
+- **More value from existing data:** Bring eligible Redis HASH collections into
+  SQL workflows [in place](docs/driver-reference.md#adopt-hashes-in-place),
+  without copying their rows.
+- **Efficient data movement:** Stream typed Arrow results and bulk-load Arrow
+  batches, with supported filters and aggregations pushed down to Redis's
+  Query Engine.
+
 - **Enable Flight SQL and JDBC integration.** The
   [Redis Arrow Flight server](https://github.com/redis/redis-apache-arrow-flight)
   uses this driver as its Redis SQL/Arrow backend. JDBC tools such as DBeaver can
@@ -72,68 +76,19 @@ workflow:
   and [client compatibility matrix](https://github.com/redis/redis-apache-arrow-flight/blob/main/docs/client-compatibility.md)
   for setup and tested compatibility.
 
-The intended use cases are operational reporting, data exploration, and Arrow
-data pipelines over supported HASH data. Redis with the Query Engine and RESP3
-is required. SQL follows the driver's documented subset; writes autocommit, and
-transactions and atomic source snapshots are unavailable. Native Redis clients
-provide the broader Redis command and data-structure interface. See
-[server requirements](docs/driver-reference.md#server-requirements) and the
-feature matrices below when choosing an access path.
+A simpler path from application data to exploration, dashboards, and data
+pipelines—with less glue code to build and maintain.
 
 ## Compatibility and validation
 
-On **2026-10-08**, the validation suite against the default local **Redis
-Software** database (Redis 8.6.2, Search 8.6.11) had **360 passed, 8 skipped,
-3 subtests passed, and 0 failed**. The full Go suite also passed, with explicit
-skips for protocol-level ACL administration and resettable command counters
-that Software blocks. Those checks passed separately on the OSS three-shard
-compatibility environment. See [Building and testing](docs/driver-reference.md#building-and-testing).
-The other validation results below are from earlier runs.
+Tested Redis editions:
 
-| Server | Version | Connection |
-|-|-|-|
-| **Redis Software (default)**, `redislabs/redis:8.2.0-78.18` | Redis 8.6.2, Search 8.6.11 | `redis://` |
-| Redis Open Source (`redis:8.6.2` Docker image) | 8.6.2, Search 8.6.0 | `redis://` |
-| Redis Open Source cluster, 3 shards (OSS Cluster API) | 8.6.2, Search 8.6.0 | `redis://` |
-| Redis Cloud, single shard | 8.6.2, Search 8.6.10 | `redis://` and TLS (`rediss://`)*† |
-| Redis Cloud Pro, 2 shards, through the proxy endpoint | 8.6.2 | `redis://`† |
-| Redis Cloud Pro, 2 shards, OSS Cluster API enabled | 8.6.2 | `redis://`† |
+- Redis Software 8.2.0-78.18 (Redis 8.6.2)
+- Redis Open Source 8.6.2 (standalone and cluster)
+- Redis Cloud, including Redis Cloud Pro (Redis 8.6.2)
 
-**Redis Software with verified 4× Query Performance Factor (QPF) is the
-default development, local test, and CI environment.** All Redis Software
-test fixtures must enable 4× QPF before tests run.
-`make redis-up` starts the pinned `redislabs/redis:8.2.0-78.18` image,
-bootstraps a single-node cluster, and creates a Redis 8.6 RAM database with
-Search and 4× QPF. Setup verifies six Search workers, `mnp` routing, and
-32 connections through the management API, including on reused databases.
-Open Source standalone and cluster environments are optional
-compatibility targets; CI also tests the three-shard OSS Cluster API.
-
-Earlier local and cluster runs had 325 passed, 0 failed. The Cloud runs
-marked † had 322 passed, 0 failed, before the two temporary-table ingest
-tests were enabled; they have not been re-run since. The TLS run marked \*
-predates cluster support and has not been re-run since.
-
-Those historical runs skipped statistics, unsupported constraints, a second
-catalog and transactions. Current source validation also exercises approximate
-row-count statistics. `CHECK` and `PRIMARY KEY` discovery run; `UNIQUE` and
-`FOREIGN KEY` discovery remain skipped.
-
-Redis Flex (RAM + SSD) databases are not supported yet, and the driver
-refuses them when it connects; see
-[Server requirements](docs/driver-reference.md#server-requirements).
-
-The differential harness compares rows, physical Arrow result types and
-SQLSTATEs with digest-pinned amd64 Postgres 16.15 and **C collation** (byte order).
-Run `REDIS_URI=redis://localhost:6379/0 make -C go pgdiff`.
-On October 9, 2026, its expanded curated corpus passes **327/603 scored cases
-(54.2%)**, including **13/13 smoke cases**, **19/23 captured dbt cases**, and
-**229/371 Postgres regression cases**. Four more cases are separately classified
-as documented extensions or explicit scope exclusions, for **607 cases total**.
-This measures the checked-in corpus rather than full Postgres conformance.
-Unresolved differences remain visible; fixture/infrastructure failures have a
-separate exit status. See [the harness guide](go/pgdiff/README.md) for the
-coverage inventories, pinned sources, type-comparison limits and manual CI run.
+See [compatibility and validation details](docs/compatibility.md) for tested
+versions, configurations, results, and limitations.
 
 ## Apache Arrow feature matrix
 
@@ -230,46 +185,68 @@ claim every server version or failover scenario has been validated.
 
 ## Data tools and integration status
 
-See [ADBC support across 22 data engineering tools](docs/data-engineering-adbc-support.md)
-for an ecosystem comparison covering Redis ADBC, Redis Arrow Flight SQL, connectors
-built by Redis versus third parties, full API / Query Engine access, and suggested
-integration targets.
+Examples of working integrations in this repository:
 
-Apache Airflow has a runnable TaskFlow DAG and opt-in integration tests for
-Arrow ingestion and SQL queries, plus checks of the official `AdbcHook` with
-explicit autocommit. See [Airflow setup and limitations](docs/python-integrations.md#apache-airflow).
+| Tool | Example workflow | Setup and examples |
+|---|---|---|
+| pandas | Read SQL results into DataFrames and write or append DataFrames to Redis tables. | [pandas reads and writes](docs/python-integrations.md#pandas-writes-and-round-trips) |
+| Polars | Query Redis with `read_database_uri(..., engine="adbc")` and bulk-load DataFrames through ADBC. | [Python installation and Polars example](docs/python-integrations.md#install-and-discover-the-driver) |
+| DuckDB | Attach Redis tables with `adbc_scanner` to query, join, and ingest data; stream SELECT results with the standalone `redis_adbc` extension. | [DuckDB guide](docs/duckdb.md) |
+| Apache Superset | Browse Redis schemas and tables, run SQL in SQL Lab, and build charts through the SQLAlchemy integration. | [Superset setup](docs/python-integrations.md#sqlalchemy-and-superset) |
+| Dagster | Query Redis from assets with `dagster-adbc`, or store and load Arrow/DataFrame asset outputs with the Redis ADBC IO manager. | [Dagster examples](docs/python-integrations.md#dagster) |
+| Apache Airflow | Bulk-load Arrow batches and query grouped results in a TaskFlow DAG or through the official `AdbcHook` with explicit autocommit. | [Airflow DAG and hook examples](docs/python-integrations.md#apache-airflow) |
+
+See [ADBC support across 22 data engineering tools](docs/data-engineering-adbc-support.md)
+for validation evidence, integration limits, and additional tools, including
+candidate integrations that have not been tested.
 
 ## Quick start
 
-Requirements: Go 1.26.10 or newer, a C toolchain (cgo), Docker, and
-[uv](https://docs.astral.sh/uv/). Run everything from the `go` directory.
+Install the driver from PyPI, start Redis Software, and load the sample dataset.
+You need Git, Docker with Compose, `curl`, `jq`, Make, and Python 3.12+.
 
-The [v0.0.18 release](https://github.com/redis/redis-adbc-driver/releases/tag/v0.0.18)
-has prebuilt libraries for macOS (Apple Silicon) and Linux (x86-64 and
-arm64). The Linux libraries run on every Linux that
-[Redis Software supports](https://redis.io/docs/latest/operate/rs/references/supported-platforms/):
-RHEL 8 and 9 (and compatible distributions), Ubuntu 20.04 and later, and
-Amazon Linux 2023. To use one instead of building, put it at the path
-`make build` would create (`go/build/libadbc_driver_redis.dylib` or `.so`).
-Releases after v0.0.10 also have the
-[`redis-adbc`](docs/driver-reference.md#existing-hash-collections-redis-adbc) command for the same
-platforms.
+### 1. Install the driver
 
-### 1. Start Redis Software and build the driver
+Clone the repository for its Redis startup script and sample data loader:
 
 ```bash
-cd go
-make redis-up
-make build
+git clone --depth 1 https://github.com/redis/redis-adbc-driver.git
+cd redis-adbc-driver
 ```
 
-### 2. Load the sample data set
+Install the [published Python package](https://pypi.org/project/adbc-driver-redis/0.0.18/),
+which bundles the native driver and selects the wheel for your platform:
 
 ```bash
-uv run --project validation python examples/load_sample.py
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install 'adbc-driver-redis[dbapi]==0.0.18'
 ```
 
-This creates two tables in the default `public` schema:
+Wheels support macOS Apple Silicon and Linux x86-64/ARM64 (glibc 2.28+).
+The examples use the installed package to locate the native library automatically.
+For other installation options, see the
+[installation guide](docs/python-integrations.md#install-and-discover-the-driver).
+To compile your own library, see [Building from source](docs/building.md).
+
+### 2. Start Redis Software
+
+```bash
+make -C go redis-up
+```
+
+This starts a disposable local Redis Software database at
+`redis://localhost:6379/0`, enables Redis Search (Query Engine), and verifies
+4× QPF. Keep this terminal's virtual environment active for the following steps.
+
+### 3. Load the sample dataset
+
+```bash
+python go/examples/load_sample.py
+```
+
+This replaces any existing `customers` and `sales` tables in the target database
+and creates two tables in the default `public` schema:
 
 - `customers` (50 rows): created with `CREATE TABLE` / `INSERT`. `email` is
   declared `NOINDEX`, so it is stored in the row HASHes but not in the index.
@@ -278,17 +255,17 @@ This creates two tables in the default `public` schema:
   unit_price NUMERIC(10,2), discount, ordered_at TIMESTAMP WITH TIME ZONE,
   status, notes`. Every column except `notes` is indexed.
 
-### 3. Run SQL
+### 4. Run SQL
 
-`examples/sql.py` runs one statement passed as an argument, or starts an
+`go/examples/sql.py` runs one statement passed as an argument, or starts an
 interactive prompt (statements end with `;`) when given none:
 
 ```bash
-uv run --project validation python examples/sql.py "SELECT COUNT(*) FROM sales"
+python go/examples/sql.py "SELECT COUNT(*) FROM sales"
 ```
 
 ```bash
-uv run --project validation python examples/sql.py
+python go/examples/sql.py
 ```
 
 Common queries to try:
@@ -492,28 +469,27 @@ COMMENT ON COLUMN events.payload IS 'Raw JSON, as received';
 DROP TABLE events;
 ```
 
-### 4. Inspect the data in Redis
+### 5. Inspect the data in Redis
 
 Each row is a plain HASH, and each table has one RediSearch index. A renamed
 table keeps its key names unless `adbc.redis.rename_rekey` is set (see
-`ALTER TABLE` below), and a table created again after `DROP TABLE`, or
-emptied by `TRUNCATE`, gets new ones (`public:sales~2:`, see "Key prefixes"
-below); `information_schema.tables` shows each table's `key_prefix` and
+[ALTER TABLE](docs/driver-reference.md#schema-objects-and-ddl)), and a table created again after `DROP TABLE`, or
+emptied by `TRUNCATE`, gets new ones (`public:sales~2:`, see [Key prefixes](docs/driver-reference.md#metadata-and-key-naming)); `information_schema.tables` shows each table's `key_prefix` and
 `index_name`:
 
 ```bash
-docker compose exec redis-software /opt/redislabs/bin/redis-cli -p 12000 HGETALL public:sales:42
+docker compose -f go/compose.yaml exec redis-software /opt/redislabs/bin/redis-cli -p 12000 HGETALL public:sales:42
 ```
 
 ```bash
-docker compose exec redis-software /opt/redislabs/bin/redis-cli -p 12000 FT.INFO idx:public:sales
+docker compose -f go/compose.yaml exec redis-software /opt/redislabs/bin/redis-cli -p 12000 FT.INFO idx:public:sales
 ```
 
 To see the `FT.AGGREGATE` / `FT.CURSOR` commands the driver sends for each query,
 run `MONITOR` in a second terminal while you run SQL:
 
 ```bash
-docker compose exec redis-software /opt/redislabs/bin/redis-cli -p 12000 MONITOR
+docker compose -f go/compose.yaml exec redis-software /opt/redislabs/bin/redis-cli -p 12000 MONITOR
 ```
 
-Stop and remove the disposable Redis Software database with `make redis-down` (from `go`).
+Stop and remove the disposable Redis Software database with `make -C go redis-down`.

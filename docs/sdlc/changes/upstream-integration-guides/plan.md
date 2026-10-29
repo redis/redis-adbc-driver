@@ -53,3 +53,14 @@ The other three drafts were checked open after submission. Preserved original
 patches as artifacts and updated tracker #236 and existing per-integration issues.
 
 Post-submission status links checked: 52 local links/anchors resolve; `git diff --check` passed.
+
+## PR #237 merge-conflict repair
+
+On 2026-10-29, merged main at `4053b2b` into the PR branch. Resolved the
+introduction conflict in `docs/python-integrations.md` by retaining both the
+dedicated-guide discovery link and main's Redis Search/QPF recommendation.
+No integration runtime behavior changed.
+
+Validation after reconciliation: 25 Python examples compile across the 17
+Markdown files in the PR; 72 local links/anchors resolve; `git diff --check`
+passes. Runtime integration suites and upstream site builds were not rerun.

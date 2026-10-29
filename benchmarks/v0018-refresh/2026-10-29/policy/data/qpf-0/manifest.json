@@ -1,0 +1,23 @@
+{
+  "scenarios": [
+    {
+      "deployment": "software",
+      "rows": 32768,
+      "cpu": 2,
+      "condition": "direct",
+      "mode": "waves",
+      "concurrencies": [
+        1,
+        2,
+        4
+      ]
+    }
+  ],
+  "repetitions": 3,
+  "bounds": {
+    "steady_qps_min": 0.9,
+    "steady_p95_max": 1.15,
+    "cold_qps_min": 0.85,
+    "cold_p95_max": 1.2
+  }
+}
