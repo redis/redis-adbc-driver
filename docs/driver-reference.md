@@ -4473,11 +4473,11 @@ trial license and fixed local test credentials, with the admin API and database
 bound to localhost. The database is in RAM, with no replica or persistence.
 `SOFTWARE_API_PORT` (default 19443) and `SOFTWARE_DB_PORT` (default 6379)
 override host ports; set `REDIS_URI` for tests when changing the database port.
-QPF remains at standard unless explicitly changed for a benchmark.
+The default Redis Software setup enables and verifies 4× QPF.
 
 ### Validation suite
 
-See the [Quick start](../README.md#quick-start) for building. To run the ADBC validation
+See [Building from source](building.md) to build the driver. To run the ADBC validation
 suite against the default local Redis Software database:
 
 ```bash
