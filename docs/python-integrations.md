@@ -250,6 +250,47 @@ not direct ADBC connections. This package also provides a SQLAlchemy dialect
 partitioning requirements. The helper here directly uses ADBC with explicit
 partitions and schema.
 
+## Ray Data
+
+Install `ray[data]` alongside `adbc-driver-redis[dbapi]`. Ray's
+[`read_sql`](https://docs.ray.io/en/latest/data/api/doc/ray.data.read_sql.html)
+accepts a factory that opens a fresh DB-API connection for each task:
+
+```python
+from functools import partial
+import ray
+from adbc_driver_redis import dbapi
+
+ray.init(num_cpus=2, include_dashboard=False)
+connect = partial(dbapi.connect, "redis://localhost:6379/0")
+try:
+    ds = ray.data.read_sql("SELECT 1 AS one", connect, override_num_blocks=1)
+    print(ds.take_all())  # [{'one': 1}]
+finally:
+    ray.shutdown()
+```
+
+`Dataset.write_sql("INSERT INTO existing_table (id) VALUES (?)", connect)`
+also works through the driver's `executemany`. Create the destination table
+first. Writes autocommit; failed or retried tasks can leave partial writes or
+duplicates. This integration does not provide transactional or exactly-once writes.
+
+To retain the driver's Arrow types and avoid Ray's SQL reader converting rows
+through Python objects, fetch with `cur.fetch_arrow_table()` and pass the table
+to `ray.data.from_arrow(table)`. This materializes the query result on the
+calling process before Ray distributes it; it is not a distributed database read.
+
+On 2026-10-29, local Ray 2.59.0 with Python 3.12.14, PyArrow 26.0.0 and
+ADBC driver manager 1.13.0 passed all three opt-in checks against Redis Software 8.6.2 with verified
+active 4x QPF:
+parameterized SQL reads with filters, NULLs and aggregates; a 300-row SQL write
+round trip; and Arrow ingestion, fetch and Ray batch transformation. SQL reads
+used one read task. Multiple input write blocks do not guarantee concurrent
+write tasks because Ray may combine them. Multi-node execution, SQL read sharding
+and performance were not validated. On a remote cluster, install the driver
+and its native library on every worker and use a Redis endpoint reachable by
+all workers; a client-local library path or `localhost` URI will not suffice.
+
 ## Validation
 
 ```sh
@@ -257,10 +298,15 @@ REDIS_URI=redis://localhost:6379/0 python -m pytest -q python/tests/
 REDIS_URI=redis://localhost:6379/0 python -m pytest -q python/tests/test_dask.py
 QUERY_FARM_TELEMETRY_OPT_OUT=1 RUN_DUCKDB_TESTS=1 \
   REDIS_URI=redis://localhost:6379/0 python -m pytest -qs python/tests/test_duckdb.py
+python -m pip install 'ray[data]'
+RUN_RAY_TESTS=1 REDIS_URI=redis://localhost:6379/0 \
+  python -m pytest -qs python/tests/test_ray.py
 ```
 
-The second command downloads a native community extension. Ordinary test runs
-skip that download unless explicitly enabled. Superset smoke tests use a separate
+The DuckDB command downloads a native community extension. Ordinary test runs
+skip that download unless explicitly enabled. Ray tests start a local two-CPU
+runtime only when `RUN_RAY_TESTS=1`; their uniquely named tables are dropped
+after each check. Superset smoke tests use a separate
 Superset environment and a disposable metadata directory; see the change's
 [verification record](sdlc/changes/271-280/validation.md).
 
