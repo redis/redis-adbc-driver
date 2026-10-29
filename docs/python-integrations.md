@@ -131,6 +131,21 @@ defs = Definitions(
 )
 ```
 
+For a runnable smoke test from a source checkout, use a dedicated Redis database
+with Search and follow the development installation steps above. Run:
+
+```sh
+REDIS_URI=redis://localhost:6379/0 python python/examples/dagster_smoke.py
+REDIS_URI=redis://localhost:6379/0 python -m pytest -q python/tests/test_dagster.py
+```
+
+The [smoke example](../python/examples/dagster_smoke.py) materializes `orders`,
+loads it from Redis into the dependent `revenue` asset, and checks the persisted
+result with SQL: three orders totaling 42. Each invocation uses a unique schema
+and drops it on exit. The integration suite also checks Arrow/pandas/polars
+round trips, column projection, partition retries, and failed-stream preservation;
+it creates and removes the fixed `it_python_dagster` schema, so run it serially.
+
 Outputs may be `pyarrow.Table`, `RecordBatchReader`, pandas or polars DataFrames.
 Inputs default to Arrow tables; annotate them with pandas/polars DataFrame or
 RecordBatchReader to request that type. Input `columns` metadata selects columns.
