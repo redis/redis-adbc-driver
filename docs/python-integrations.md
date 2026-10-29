@@ -92,8 +92,49 @@ batches. Local validation used pandas 3.1.0, PyArrow 26.0.0, ADBC manager 1.13.0
 and Redis Software with Redis 8.6.2; see the
 [validation record](sdlc/changes/pandas-direct-reads/validation.md).
 The Arrow backend preserves nullable integer types. These tests cover SQL
-queries; pandas table reads, writes, parameters and `chunksize` are outside
-this validation.
+queries; pandas table reads, parameters and `chunksize` are outside this
+validation. For write coverage, see the next section.
+
+## pandas writes and round trips
+
+pandas 2.2+ accepts an open ADBC connection directly for
+[`read_sql`](https://pandas.pydata.org/docs/reference/api/pandas.read_sql.html)
+and [`DataFrame.to_sql`](https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.to_sql.html).
+Install `adbc-driver-redis[dbapi]` and `pandas>=2.2`. This example creates a
+unique table, verifies the fetched rows and removes the table afterward:
+
+```python
+import uuid
+import pandas as pd
+from adbc_driver_redis import dbapi
+
+table = "pandas_demo_" + uuid.uuid4().hex
+source = pd.DataFrame({"id": [1, 2, 3], "amount": [10.5, 20.0, 30.25]})
+
+with dbapi.connect("redis://localhost:6379/0") as conn:
+    try:
+        source.to_sql(table, conn, index=False)
+        result = pd.read_sql(f'SELECT * FROM "{table}" ORDER BY id', conn)
+        pd.testing.assert_frame_equal(result, source)
+        print(result)
+    finally:
+        with conn.cursor() as cur:
+            cur.execute(f'DROP TABLE IF EXISTS "{table}"')
+```
+
+Use `if_exists="append"` to append rows. `if_exists="replace"` drops and
+recreates the table; writes autocommit and cannot be rolled back. For nullable
+Arrow dtypes on reads, pass `dtype_backend="pyarrow"`. No SQLAlchemy engine is
+needed for this path.
+
+Run the focused integration tests against a disposable Redis with Search:
+
+```sh
+REDIS_URI=redis://localhost:6379/0 python -m pytest -q python/tests/test_pandas_writes.py
+```
+
+The recorded run used pandas 3.1.0, PyArrow 26.0.0 and ADBC manager 1.13.0;
+see [validation](sdlc/changes/pandas-smoke/validation.md).
 
 ## Prefect custom Python tasks
 
