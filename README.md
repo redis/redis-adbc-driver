@@ -193,14 +193,20 @@ claim every server version or failover scenario has been validated.
 
 ## Data tools and integration status
 
-See [ADBC support across 22 data engineering tools](docs/data-engineering-adbc-support.md)
-for an ecosystem comparison covering Redis ADBC, Redis Arrow Flight SQL, connectors
-built by Redis versus third parties, full API / Query Engine access, and suggested
-integration targets.
+Examples of working integrations in this repository:
 
-Apache Airflow has a runnable TaskFlow DAG and opt-in integration tests for
-Arrow ingestion and SQL queries, plus checks of the official `AdbcHook` with
-explicit autocommit. See [Airflow setup and limitations](docs/python-integrations.md#apache-airflow).
+| Tool | Example workflow | Setup and examples |
+|---|---|---|
+| pandas | Read SQL results into DataFrames and write or append DataFrames to Redis tables. | [pandas reads and writes](docs/python-integrations.md#pandas-writes-and-round-trips) |
+| Polars | Query Redis with `read_database_uri(..., engine="adbc")` and bulk-load DataFrames through ADBC. | [Python installation and Polars example](docs/python-integrations.md#install-and-discover-the-driver) |
+| DuckDB | Attach Redis tables with `adbc_scanner` to query, join, and ingest data; stream SELECT results with the standalone `redis_adbc` extension. | [DuckDB guide](docs/duckdb.md) |
+| Apache Superset | Browse Redis schemas and tables, run SQL in SQL Lab, and build charts through the SQLAlchemy integration. | [Superset setup](docs/python-integrations.md#sqlalchemy-and-superset) |
+| Dagster | Query Redis from assets with `dagster-adbc`, or store and load Arrow/DataFrame asset outputs with the Redis ADBC IO manager. | [Dagster examples](docs/python-integrations.md#dagster) |
+| Apache Airflow | Bulk-load Arrow batches and query grouped results in a TaskFlow DAG or through the official `AdbcHook` with explicit autocommit. | [Airflow DAG and hook examples](docs/python-integrations.md#apache-airflow) |
+
+See [ADBC support across 22 data engineering tools](docs/data-engineering-adbc-support.md)
+for validation evidence, integration limits, and additional tools, including
+candidate integrations that have not been tested.
 
 ## Quick start
 
