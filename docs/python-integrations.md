@@ -71,6 +71,30 @@ With manifests installed, Python's manager also accepts
 `driver="redis"`. Older managers may need a library path; the package requires
 manager >=1.12.0.
 
+## pandas SQL reads
+
+Install `adbc-driver-redis[dbapi]` and pandas to pass an open ADBC
+connection directly to `read_sql` or `read_sql_query`:
+
+```python
+import pandas as pd
+from adbc_driver_redis import dbapi
+
+with dbapi.connect("redis://localhost:6379/0") as conn:
+    df = pd.read_sql_query("SELECT 42 AS answer", conn, dtype_backend="pyarrow")
+    print(df)
+```
+
+Direct reads are covered by `python/tests/test_pandas_direct_reads.py`: default and Arrow
+DataFrame types, SQL NULLs, Unicode, integers above 2^53, microsecond timestamps,
+filtering, aggregation, index selection, empty results and multiple Arrow
+batches. Local validation used pandas 3.1.0, PyArrow 26.0.0, ADBC manager 1.13.0
+and Redis Software with Redis 8.6.2; see the
+[validation record](sdlc/changes/pandas-direct-reads/validation.md).
+The Arrow backend preserves nullable integer types. These tests cover SQL
+queries; pandas table reads, writes, parameters and `chunksize` are outside
+this validation.
+
 ## SQLAlchemy and Superset
 
 Install the wheel's `sqlalchemy` extra for SQLAlchemy >=2.1.6. Use the separate
@@ -112,6 +136,38 @@ Enable SQL Lab access as appropriate for that database. No PostgreSQL server or
 psycopg dependency is needed. This does not add SQL constructs the driver lacks.
 
 ## Dagster
+
+The community [`dagster-adbc`](https://pypi.org/project/dagster-adbc/) package
+provides `ADBCResource` for SQL and Arrow access inside assets. Install
+`dagster-adbc` alongside the Redis driver wheel. With the Redis driver manifest
+installed as described above:
+
+```python
+from dagster import Definitions, asset
+from dagster_adbc import ADBCResource
+
+@asset
+def order_count(redis: ADBCResource) -> int:
+    with redis.get_connection() as conn, conn.cursor() as cur:
+        cur.execute("SELECT count(*) FROM analytics.orders")
+        return cur.fetchone()[0]
+
+defs = Definitions(
+    assets=[order_count],
+    resources={"redis": ADBCResource(
+        driver="redis",
+        uri="redis://localhost:6379/0",
+        autocommit=True,
+    )},
+)
+```
+
+Alternatively, set `driver` to the absolute native library path. Use
+`autocommit=True`: Redis does not implement transactions, and the community
+resource's default (`False`) produces a driver-manager warning. Native database
+options can be passed through `db_kwargs`, for example
+`{"adbc.redis.default_schema": "analytics"}`. The resource exposes a connection;
+assets explicitly execute queries or call `cursor.adbc_ingest`.
 
 Install the wheel's `dagster` extra, plus pandas/polars when used. This repository
 ships `RedisADBCIOManager`; it is not part of the community `dagster-adbc` package.

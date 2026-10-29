@@ -8,3 +8,7 @@ pandas, and DuckDB claims from repository APIs and recorded validation. Describe
 the package and current source requirements. Preserve newer Airflow, Ray, Dask,
 and dbt scope. Separate DuckDB extensions and acceptance from publication.
 Link evidence and label historical environments and compatibility limits.
+
+October 29 follow-up: incorporate merged PRs #226–#229 from public main
+`34ae626`; update pandas, community Dagster, and Polars claims without counting
+overlapping suites twice. Preserve all 22 tools and previously linked evidence.
