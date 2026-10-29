@@ -79,14 +79,6 @@ making it easier to connect operational data to the tools their teams already us
 A simpler path from application data to exploration, dashboards, and data
 pipelines—with less glue code to build and maintain.
 
-The intended use cases are operational reporting, data exploration, and Arrow
-data pipelines over supported HASH data. Redis with the Query Engine and RESP3
-is required. SQL follows the driver's documented subset; writes autocommit, and
-transactions and atomic source snapshots are unavailable. Native Redis clients
-provide the broader Redis command and data-structure interface. See
-[server requirements](docs/driver-reference.md#server-requirements) and the
-feature matrices below when choosing an access path.
-
 ## Compatibility and validation
 
 Tested Redis editions:
