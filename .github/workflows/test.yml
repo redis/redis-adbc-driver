@@ -194,6 +194,17 @@ jobs:
           uv pip install --python /tmp/redis-prefect-tests/bin/python './python[prefect]' 'pytest>=9.1.1'
           /tmp/redis-prefect-tests/bin/python -m pytest -q python/tests/test_prefect.py
 
+      - name: Airflow integration
+        if: matrix.arch == 'amd64' && matrix.environment == 'software-single'
+        env:
+          REDIS_ADBC_LIBRARY: ${{ github.workspace }}/go/build/libadbc_driver_redis.so
+          AIRFLOW_HOME: /tmp/redis-airflow-home
+        run: |
+          uv venv --python 3.12 /tmp/redis-airflow-tests
+          uv pip install --python /tmp/redis-airflow-tests/bin/python \
+            'apache-airflow==3.3.2' './python[airflow]' pytest
+          /tmp/redis-airflow-tests/bin/python -m pytest -q python/tests/test_airflow_hook.py
+
       - name: Superset integration
         if: matrix.arch == 'amd64' && matrix.integrations
         env:
