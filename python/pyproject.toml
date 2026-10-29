@@ -22,7 +22,7 @@ sqlalchemy = ["sqlalchemy>=2.1.6", "pyarrow>=26.0.0"]
 superset = ["apache-superset>=6.1.0", "sqlalchemy>=1.4.54,<2", "pyarrow>=18.1.0,<19", "flask-caching==2.3.1", "cachetools>=7.2.4"]
 dagster = ["dagster>=1.13.26", "pyarrow>=26.0.0"]
 dask = ["dask[dataframe,distributed]>=2026.8.0", "pandas>=3.1.0", "pyarrow>=26.0.0"]
-test = ["pytest>=9.1.1", "pyarrow>=26.0.0", "sqlalchemy>=2.1.6", "dagster>=1.13.26", "pandas>=3.1.0", "polars>=2.0.0", "duckdb==2.0.0", "dask[dataframe,distributed]>=2026.8.0"]
+test = ["pytest>=9.1.1", "pyarrow>=26.0.0", "sqlalchemy>=2.1.6", "dagster>=1.13.26", "dagster-adbc>=0.0.2", "pandas>=3.1.0", "polars>=2.0.0", "duckdb==2.0.0", "dask[dataframe,distributed]>=2026.8.0"]
 
 [project.entry-points."sqlalchemy.dialects"]
 "redis.adbc" = "adbc_driver_redis.sqlalchemy:RedisDialect"
