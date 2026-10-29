@@ -4,6 +4,9 @@ These integrations use the Redis ADBC library, not Redis's wire protocol as a
 PostgreSQL server. Search is required. Writes autocommit; transaction scopes do
 not provide rollback or isolation. Use a dedicated Redis database for tests.
 
+See the [dedicated Redis integration guides](integrations/README.md) for individual
+tools and the upstream documentation tracking issue.
+
 ## Install and discover the driver
 
 Install from [PyPI](https://pypi.org/project/adbc-driver-redis/) (Python 3.14 recommended;
