@@ -24,3 +24,6 @@ upstream contribution's acceptance.
 recorded environments from unverified paths. Upstream contributions are tracked
 in [issue #236](https://github.com/redis/redis-adbc-driver/issues/236) and the
 existing per-integration issues linked there.
+
+[Upstream contribution status](../upstream-submissions/status.md) records submitted
+PRs and the prepared changes requiring human or maintainer action.
