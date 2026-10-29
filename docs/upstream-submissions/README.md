@@ -1,14 +1,17 @@
-# Prepared upstream documentation handoffs
+# Upstream documentation submissions and preserved patches
 
-These reviewable patches are not submitted upstream. Dedicated guides are in
+These patches were prepared for review, then submitted as disclosed draft PRs at
+the user's explicit request. See [current submission status](status.md). The
+patches are retained as the original reviewable artifacts; submission does not
+imply that human-review or maintainer-approval requirements have been met. Dedicated guides are in
 [the integration index](../integrations/README.md). Tracking issue: [#236](https://github.com/redis/redis-adbc-driver/issues/236).
 
 | Integration | Patch | Remaining prerequisite |
 |---|---|---|
-| pandas | [Ecosystem guide link](pandas.patch) | Human submission: pandas AGENTS.md prohibits agents from issue/PR actions on the user's behalf. |
-| Ray | [Dedicated guide and loading-page link](ray.patch) | Human review of every changed line and relevant local checks before a PR, as required by Ray's policy. |
-| dlt | [Community destination guide link](dlt.patch) | Maintainer decision on existing proposal #4587 and human-reviewed submission. |
-| SQLAlchemy | [Link from the merged dialect listing to the dedicated guide](sqlalchemy.patch) | A maintainer-approved issue labeled `open for pull requests`; the earlier listing PR #13707 is already merged. |
+| pandas | [Ecosystem guide link](pandas.patch) | Draft [#71772](https://github.com/pandas-dev/pandas/pull/71772) submitted; human review remains pending under pandas policy. |
+| Ray | [Dedicated guide and loading-page link](ray.patch) | Draft [#67560](https://github.com/ray-project/ray/pull/67560) submitted; human review remains pending under Ray policy. |
+| dlt | [Community destination guide link](dlt.patch) | Draft [#4621](https://github.com/dlt-hub/dlt/pull/4621) submitted; maintainer decision on #4587 and human review remain pending. |
+| SQLAlchemy | [Link from the merged dialect listing to the dedicated guide](sqlalchemy.patch) | Draft [#13741](https://github.com/sqlalchemy/sqlalchemy/pull/13741) automatically closed; [approval issue #13742](https://github.com/sqlalchemy/sqlalchemy/issues/13742) requests the required maintainer label. Original listing #13707 is merged. |
 
 ## Policies checked
 
@@ -27,7 +30,8 @@ These reviewable patches are not submitted upstream. Dedicated guides are in
   is closed and has no current approval label.
 
 Apply each patch to its respective repository, not this driver repository.
-Review against the latest upstream branch before submission. Patch guide links
+The submissions were rebased onto current upstream branches before opening the
+drafts. Review against newer upstream changes before further updates. Patch guide links
 pin driver revision `f78bcb7`, so they resolve before the guide-index PR merges.
 Patch validation: `git diff --check`; Ray's Python example compiles and its
 signature matches the implemented reader. No new Redis integration tests or

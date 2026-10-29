@@ -32,3 +32,24 @@ and existing issue links are recorded there. Those patches were not submitted.
 Existing DuckDB and dbt PRs already contain dedicated guides; no duplicate PRs
 were opened. Reused project trackers and created umbrella issue #236 at the user's
 explicit request. No upstream review outcome or human approval is implied.
+
+
+## Explicit submission follow-up
+
+The user explicitly requested submitting pandas, Ray, dlt and SQLAlchemy after
+reviewable patches were published. Rebased the four branches onto current upstream
+bases and submitted disclosed drafts: pandas #71772, Ray #67560, dlt #4621 and
+SQLAlchemy #13741. No independent human review or maintainer approval was asserted.
+Ray's commit carries DCO sign-off; its whitespace/EOF/size pre-commit checks and
+repository-link checker passed, and the example compiles. SQLAlchemy's table and
+references parse without docutils warnings; all four diffs pass whitespace checks.
+No fresh live integrations or full upstream site builds were performed.
+
+SQLAlchemy's gate closed #13741 because it referenced the closed original listing
+issue #13706 without an approved open issue. Created documentation approval issue
+#13742, linking the concrete patch and guide. Leave the PR closed until a maintainer
+labels the approval issue `open for pull requests`; do not claim bypass or approval.
+The other three drafts were checked open after submission. Preserved original
+patches as artifacts and updated tracker #236 and existing per-integration issues.
+
+Post-submission status links checked: 52 local links/anchors resolve; `git diff --check` passed.
