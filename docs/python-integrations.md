@@ -110,6 +110,38 @@ psycopg dependency is needed. This does not add SQL constructs the driver lacks.
 
 ## Dagster
 
+The community [`dagster-adbc`](https://pypi.org/project/dagster-adbc/) package
+provides `ADBCResource` for SQL and Arrow access inside assets. Install
+`dagster-adbc` alongside the Redis driver wheel. With the Redis driver manifest
+installed as described above:
+
+```python
+from dagster import Definitions, asset
+from dagster_adbc import ADBCResource
+
+@asset
+def order_count(redis: ADBCResource) -> int:
+    with redis.get_connection() as conn, conn.cursor() as cur:
+        cur.execute("SELECT count(*) FROM analytics.orders")
+        return cur.fetchone()[0]
+
+defs = Definitions(
+    assets=[order_count],
+    resources={"redis": ADBCResource(
+        driver="redis",
+        uri="redis://localhost:6379/0",
+        autocommit=True,
+    )},
+)
+```
+
+Alternatively, set `driver` to the absolute native library path. Use
+`autocommit=True`: Redis does not implement transactions, and the community
+resource's default (`False`) produces a driver-manager warning. Native database
+options can be passed through `db_kwargs`, for example
+`{"adbc.redis.default_schema": "analytics"}`. The resource exposes a connection;
+assets explicitly execute queries or call `cursor.adbc_ingest`.
+
 Install the wheel's `dagster` extra, plus pandas/polars when used. This repository
 ships `RedisADBCIOManager`; it is not part of the community `dagster-adbc` package.
 

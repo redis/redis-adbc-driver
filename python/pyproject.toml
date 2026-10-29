@@ -20,7 +20,7 @@ Issues = "https://github.com/alberttwong/redis-adbc-driver/issues"
 dbapi = ["pyarrow>=14"]
 sqlalchemy = ["sqlalchemy>=1.4", "pyarrow>=14"]
 dagster = ["dagster>=1.9", "pyarrow>=14"]
-test = ["tomli; python_version < '3.11'", "pytest", "pyarrow", "sqlalchemy>=1.4", "dagster>=1.9", "pandas", "polars", "duckdb"]
+test = ["tomli; python_version < '3.11'", "pytest", "pyarrow", "sqlalchemy>=1.4", "dagster>=1.9", "dagster-adbc>=0.0.2", "pandas", "polars", "duckdb"]
 
 [project.entry-points."sqlalchemy.dialects"]
 "redis.adbc" = "adbc_driver_redis.sqlalchemy:RedisDialect"
