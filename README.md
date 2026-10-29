@@ -29,6 +29,9 @@ factor (QPF) set to 4× where supported.** Search is required;
 4× QPF is recommended for concurrent query performance. See
 [server requirements](docs/driver-reference.md#server-requirements) for setup guidance.
 
+**Installing for a data tool?** Start with [Choose your tool and connect](docs/setup.md)
+for wheel installation, connection diagnostics, manifests and application setup.
+
 For repository context and the development artifact workflow, see the
 [AI-native SDLC records](docs/sdlc/README.md).
 

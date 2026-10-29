@@ -32,6 +32,10 @@ jobs:
       contents: read
       id-token: write
     steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: scripts/check_wheel_libraries.py
+          sparse-checkout-cone-mode: false
       - uses: actions/setup-python@v6
         with:
           python-version: '3.14'
@@ -74,12 +78,15 @@ jobs:
                   metadata = email.message_from_bytes(z.read(metadata_path))
                   assert metadata['Name'] == 'adbc-driver-redis' and metadata['Version'] == version
                   assert 'sqlalchemy' in metadata.get_all('Provides-Extra', [])
-                  assert any(n.endswith('/adbc_driver_redis/libadbc_driver_redis.so') or n == 'adbc_driver_redis/libadbc_driver_redis.so' for n in z.namelist())
+                  # All wheel targets use this filename, including macOS Mach-O.
+                  assert 'adbc_driver_redis/libadbc_driver_redis.so' in z.namelist()
                   assert any(n.endswith('adbc_driver_redis/superset.py') for n in z.namelist())
                   assert any(n.endswith('adbc_driver_redis/sqlalchemy.py') for n in z.namelist())
               shutil.copy2(wheel, pathlib.Path('dist') / name)
               print(name, digest)
           PY
+      - name: Check native wheel formats and architectures
+        run: python scripts/check_wheel_libraries.py dist/*.whl
       - uses: actions/checkout@v7
         if: inputs.description_revision != ''
         with:

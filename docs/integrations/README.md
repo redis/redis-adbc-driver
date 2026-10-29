@@ -1,5 +1,8 @@
 # Redis integration guides
 
+Start with [installation and diagnostics](../setup.md) to choose a package and
+verify the driver before configuring a tool.
+
 Each guide covers Redis prerequisites, installation, a concrete integration path,
 and its limits. These are separately maintained driver integrations; availability
 of a guide does not imply upstream endorsement, release-wheel validation, or an

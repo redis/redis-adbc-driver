@@ -6,8 +6,11 @@ platform wheels for Linux x86_64/arm64 (glibc 2.28+) and macOS arm64 (macOS 12+)
 Use Python 3.14 for the current integrations. Python 3.12+ remains installable
 for the separate Superset compatibility environment. Windows and macOS Intel wheels are not provided.
 
+For installation and diagnostics, see [Choose your tool and connect](https://github.com/redis/redis-adbc-driver/blob/main/docs/setup.md).
+
 ```sh
 python -m pip install 'adbc-driver-redis[dbapi]' polars
+python -m adbc_driver_redis doctor --offline
 ```
 
 **Recommended Redis configuration:** Redis Search (Query Engine) enabled
@@ -16,6 +19,10 @@ Search is required; 4× QPF is recommended for concurrent query performance.
 Configure these on the Redis server; installing this package does not enable them.
 See [server requirements](https://github.com/redis/redis-adbc-driver/blob/main/docs/driver-reference.md#server-requirements)
 for configuration and CPU sizing guidance.
+
+Set `REDIS_URI` and run `python -m adbc_driver_redis doctor` to check connectivity,
+Search and a fetched `SELECT 1`. Add `--check-manifests` after registration for
+native clients that load drivers by name.
 
 With Redis and Search running:
 
