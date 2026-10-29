@@ -24,3 +24,15 @@ Dagster evidence. Linked exact validation counts and source/environment limits;
 Rechecked all 22 rows and 43 local links/anchors. `git diff --check` passed.
 No integration suites rerun for this documentation update. Self-review found no
 remaining stale pandas/community-Dagster/Polars candidate claims.
+
+## Prefect PR follow-up
+
+Integrated main `71289eb` / PR #230. Read the merged tests, guide and recorded
+local results. Updated the Prefect row, badge explanation, coverage overview
+and evidence table: four local tests passed, with Python 3.15.0 and Prefect 3.9.0
+on Redis Software with verified 4x QPF. Retained the untested remote/Cloud,
+prefect-redis and Flight SQL limits and the need for idempotent retry writes.
+
+All 22 rows and 48 local links/anchors checked; `git diff --check` passed.
+No integration suites rerun for this documentation refresh. Self-review found
+no actionable issue; recorded results remain scoped to their original sources.
