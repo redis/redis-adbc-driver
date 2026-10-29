@@ -234,6 +234,10 @@ for an ecosystem comparison covering Redis ADBC, Redis Arrow Flight SQL, connect
 built by Redis versus third parties, full API / Query Engine access, and suggested
 integration targets.
 
+Apache Airflow has a runnable TaskFlow DAG and opt-in integration tests for
+Arrow ingestion and SQL queries, plus checks of the official `AdbcHook` with
+explicit autocommit. See [Airflow setup and limitations](docs/python-integrations.md#apache-airflow).
+
 ## Quick start
 
 Requirements: Go 1.26.10 or newer, a C toolchain (cgo), Docker, and
