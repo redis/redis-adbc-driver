@@ -10,8 +10,8 @@ for the separate Superset compatibility environment. Windows and macOS Intel whe
 python -m pip install 'adbc-driver-redis[dbapi]' polars
 ```
 
-**Recommended Redis configuration:** Query Engine (RediSearch) with Search
-enabled and query performance factor (QPF) set to **4×** where supported.
+**Recommended Redis configuration:** Redis Search (Query Engine) enabled
+and query performance factor (QPF) set to **4×** where supported.
 Search is required; 4× QPF is recommended for concurrent query performance.
 Configure these on the Redis server; installing this package does not enable them.
 See [server requirements](https://github.com/redis/redis-adbc-driver/blob/main/docs/driver-reference.md#server-requirements)

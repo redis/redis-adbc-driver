@@ -24,8 +24,8 @@ with the [ADBC driver validation suite](https://github.com/adbc-drivers/validati
 It runs SQL over Redis HASHes and the Query Engine, returns Arrow record batches,
 and bulk-ingests Arrow data through a native ADBC library.
 
-**Works best with Redis Query Engine (RediSearch), Search enabled, and
-query performance factor (QPF) set to 4× where supported.** Search is required;
+**Works best with Redis Search (Query Engine) enabled and query performance
+factor (QPF) set to 4× where supported.** Search is required;
 4× QPF is recommended for concurrent query performance. See
 [server requirements](docs/driver-reference.md#server-requirements) for setup guidance.
 

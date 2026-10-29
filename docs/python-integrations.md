@@ -4,8 +4,8 @@ These integrations use the Redis ADBC library, not Redis's wire protocol as a
 PostgreSQL server. Search is required. Writes autocommit; transaction scopes do
 not provide rollback or isolation. Use a dedicated Redis database for tests.
 
-**Recommended Redis configuration:** Query Engine (RediSearch) with Search
-enabled and query performance factor (QPF) set to **4×** where supported.
+**Recommended Redis configuration:** Redis Search (Query Engine) enabled
+and query performance factor (QPF) set to **4×** where supported.
 Search is required; 4× QPF is recommended for concurrent query performance
 and needs sufficient server CPU capacity. Configure these on the Redis server;
 see [server requirements](driver-reference.md#server-requirements) and the
