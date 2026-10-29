@@ -170,6 +170,17 @@ jobs:
         run: |
           /tmp/redis-python-tests/bin/python -m pytest -q python/tests/
 
+      - name: Ray worker datasource
+        if: matrix.arch == 'amd64' && matrix.environment == 'software-single'
+        env:
+          REDIS_ADBC_LIBRARY: ${{ github.workspace }}/go/build/libadbc_driver_redis.so
+          RUN_RAY_TESTS: '1'
+          RAY_USAGE_STATS_ENABLED: '0'
+        run: |
+          uv venv --python 3.12 /tmp/redis-ray-tests
+          uv pip install --python /tmp/redis-ray-tests/bin/python './python[ray]' 'pytest>=9.1.1'
+          /tmp/redis-ray-tests/bin/python -m pytest -q python/tests/test_ray_datasource.py
+
       - name: Superset integration
         if: matrix.arch == 'amd64' && matrix.integrations
         env:
