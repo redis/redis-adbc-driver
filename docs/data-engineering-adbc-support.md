@@ -18,7 +18,9 @@ which runs the Redis ADBC driver on the server side. It requires a separate serv
 deployment; it is not a built-in endpoint of Redis. Its Flight datasets API is a
 separate interface and does not establish Flight SQL compatibility.
 
-All Redis tool integrations below are **untested end to end in this repository**.
+Direct pandas SQL query reads were tested on **2026-10-29** against Redis Software;
+see the [test evidence](sdlc/changes/pandas-direct-reads/validation.md).
+Other Redis tool integration paths below retain their stated validation limits.
 "Candidate" describes an inferred connection path from documented APIs, not
 confirmed compatibility. General Python ADBC validation and the related server's
 Python/Go/JDBC coverage do not constitute tests of all 20 tools. See the
@@ -102,7 +104,7 @@ completed end-to-end tests or guarantees for every runtime.
 | 15 | Airbyte | ❌ | Data replication | **No generic ADBC connector verified.** An ADBC driver alone does not automatically become an Airbyte connector. [Connector catalog](https://docs.airbyte.com/integrations), [ADBC feature request](https://github.com/airbytehq/airbyte/issues/24546). | Custom Airbyte connector required; untested. | Custom connector required; no generic Flight SQL connector verified. | None verified. | [Marketplace Redis destination](https://docs.airbyte.com/integrations/destinations/redis), Airbyte ecosystem: data-structure writes. Redis source and full command API / Query Engine access not verified. |
 | 16 | Fivetran | ❌ | Managed data replication | **Custom integration candidate.** Its Python Connector SDK can use database libraries, but ADBC packaging and runtime compatibility need validation. [SDK guide](https://fivetran.com/docs/connector-sdk/getting-started). | Custom Connector SDK source; binary packaging/runtime compatibility untested. | Custom Connector SDK source using the Python Flight SQL driver; untested. | None verified. | [Community Redis Connector SDK example](https://github.com/fivetran/community_connectors/tree/main/redis), Fivetran community: reads keyspace/TimeSeries data for replication. Does not expose unrestricted Redis API or Query Engine commands as a tool connector; custom SDK code could be extended. |
 | 17 | dlt | ❌ | Python data loading | **Yes, for selected destinations.** Documents ADBC loading for MySQL, SQL Server, and SQLite; arbitrary drivers need integration work. [ADBC loading details](https://dlthub.com/blog/arrow-adbc-vs-sqlalchemy). | Custom resource can yield fetched Arrow batches; no packaged Redis source/destination verified. | Custom Python resource using Flight SQL can yield Arrow batches; untested. | None verified. | No packaged Redis keyspace connector verified. [dltHub Redis Labs REST API guide](https://dlthub.com/context/source/redis-labs) targets management APIs, not application rows or Query Engine commands. |
-| 18 | pandas | ✅ 🔌 ✈️ | DataFrame processing | **Yes, directly.** SQL read APIs accept ADBC connections through the Python driver manager. [Integration guide](https://arrow.apache.org/adbc/main/integrations.html). | Documented ADBC connection API; pass the open Redis connection to read_sql. Redis integration untested. | Pass an open ADBC Flight SQL connection to read_sql; tool-level Redis integration untested. | None verified. | No dedicated Redis connector verified. Custom extraction can feed [pandas.DataFrame.from_records](https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.from_records.html). |
+| 18 | pandas | ✅ 🔌 ✈️ | DataFrame processing | **Yes, directly.** SQL read APIs accept ADBC connections through the Python driver manager. [Integration guide](https://arrow.apache.org/adbc/main/integrations.html). | Tested direct `read_sql` / `read_sql_query` with an open Redis ADBC connection; values/types, NULLs, empty results and multiple Arrow batches. [Evidence](sdlc/changes/pandas-direct-reads/validation.md). | Pass an open ADBC Flight SQL connection to read_sql; tool-level Redis integration untested. | None verified. | No dedicated Redis connector verified. Custom extraction can feed [pandas.DataFrame.from_records](https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.from_records.html). |
 | 19 | Polars | ✅ 🔌 ✈️ | Fast DataFrame processing | **Yes, directly.** Database read/write APIs support ADBC connections. [Integration guide](https://arrow.apache.org/adbc/main/integrations.html). | Documented ADBC connection API; pass the open Redis connection to read_database. Redis integration untested. | Pass an open ADBC Flight SQL connection to read_database; tool-level Redis integration untested. | None verified. | No dedicated Redis connector verified. Custom extraction can feed [polars.from_dicts](https://docs.pola.rs/api/python/stable/reference/api/polars.from_dicts.html). |
 | 20 | DuckDB | ✅ 🔌 ✈️ | Embedded analytical SQL | **Yes, in both directions.** DuckDB exposes an ADBC driver, and community extensions let it query other ADBC databases. [Integration guide](https://arrow.apache.org/adbc/main/integrations.html), [Community extension](https://duckdb.org/community_extensions/extensions/adbc). | Candidate through the community adbc extension and a Redis connection profile; untested. | Candidate through the adbc extension with Flight SQL, or fetch Arrow in Python and register it; untested. | None verified. | Experimental [redis extension](https://duckdb.org/community_extensions/extensions/redis), lmangani/gigapi: selected Redis functions, not verified full API / Query Engine access. The ADBC community extension is a separate project. |
 
@@ -133,6 +135,11 @@ Fivetran would require a custom connector and validation of driver deployment.
 
 ## Testing status
 
+Direct pandas `read_sql` and `read_sql_query` coverage is retained in
+[`python/tests/test_pandas.py`](../python/tests/test_pandas.py). On 2026-10-29,
+all seven cases passed against a disposable Redis Software instance; see the
+[environment, command and limitations](sdlc/changes/pandas-direct-reads/validation.md).
+
 The [Python ADBC validation suite](../go/validation/tests/) exercises the Redis
 shared library, including queries, metadata, ingestion, errors, and cancellation.
 PyArrow is used by the [row-value tests](../go/validation/tests/test_row_values.py)
@@ -151,5 +158,6 @@ tests of each application against this driver's current checkout. Application
 configuration, metadata discovery, generated SQL, type mappings, authentication,
 and refresh behavior still require validation where applicable.
 
-No new integration tests were run for this comparison. SQL syntax similarity alone
+No integration tests were run for the original 2026-10-16 comparison; subsequent
+pandas validation is recorded above. SQL syntax similarity alone
 does not establish JDBC, ODBC, SQLAlchemy, or PostgreSQL wire-protocol compatibility.

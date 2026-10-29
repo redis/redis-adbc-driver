@@ -71,6 +71,30 @@ With manifests installed, Python's manager also accepts
 `driver="redis"`. Older managers may need a library path; the package requires
 manager >=1.8 and is tested with 1.12.0.
 
+## pandas SQL reads
+
+Install `adbc-driver-redis[dbapi]` and pandas to pass an open ADBC
+connection directly to `read_sql` or `read_sql_query`:
+
+```python
+import pandas as pd
+from adbc_driver_redis import dbapi
+
+with dbapi.connect("redis://localhost:6379/0") as conn:
+    df = pd.read_sql_query("SELECT 42 AS answer", conn, dtype_backend="pyarrow")
+    print(df)
+```
+
+Direct reads are covered by `python/tests/test_pandas.py`: default and Arrow
+DataFrame types, SQL NULLs, Unicode, integers above 2^53, microsecond timestamps,
+filtering, aggregation, index selection, empty results and multiple Arrow
+batches. Local validation used pandas 3.1.0, PyArrow 26.0.0, ADBC manager 1.13.0
+and Redis Software with Redis 8.6.2; see the
+[validation record](sdlc/changes/pandas-direct-reads/validation.md).
+The Arrow backend preserves nullable integer types. These tests cover SQL
+queries; pandas table reads, writes, parameters and `chunksize` are outside
+this validation.
+
 ## SQLAlchemy and Superset
 
 Install the wheel's `sqlalchemy` extra in the application environment. The dialect
