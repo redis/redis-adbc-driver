@@ -33,6 +33,9 @@ on:
       - go/**
       - python/**
       - scripts/build_python_wheel.py
+      - scripts/check_wheel_libraries.py
+      - scripts/test_check_wheel_libraries.py
+      - .github/workflows/publish-pypi.yml
       - scripts/install*
       - scripts/test_cluster_ready.py
       - scripts/*partition*
@@ -78,6 +81,9 @@ jobs:
       - name: Check cluster readiness gate
         if: hashFiles('scripts/test_cluster_ready.py') != ''
         run: python3 -m unittest discover -s scripts -p test_cluster_ready.py -v
+
+      - name: Check release wheel validation
+        run: python3 -m unittest discover -s scripts -p test_check_wheel_libraries.py -v
 
       - uses: astral-sh/setup-uv@v10.2.0
 

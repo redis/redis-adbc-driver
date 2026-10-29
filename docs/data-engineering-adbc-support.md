@@ -1,5 +1,8 @@
 # ADBC support across 22 data engineering tools
 
+For installation and diagnostics, start with [Choose your tool and connect](setup.md).
+
+
 Support and testing status refreshed on **2026-10-29** against this repository
 and selected upstream ADBC documentation. The broader connector inventory retains
 the **2026-10-16** review baseline; this refresh is not a new audit of every
