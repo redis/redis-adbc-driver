@@ -36,3 +36,15 @@ prefect-redis and Flight SQL limits and the need for idempotent retry writes.
 All 22 rows and 48 local links/anchors checked; `git diff --check` passed.
 No integration suites rerun for this documentation refresh. Self-review found
 no actionable issue; recorded results remain scoped to their original sources.
+
+## Ray worker follow-up
+
+Integrated main `b59f25d` / PR #231. Inspected the merged adapter, guide and
+validation record. Updated Ray to the repository's supported ADBC path and
+replaced the stale pending-datasource text. Linked the final 17-pass TLS suite
+with zero skips and three Ray deprecation warnings, retaining its local-process
+and source-build scope and the live-read/no-snapshot/retry limitations.
+
+All 22 rows and 53 local links/anchors checked; `git diff --check` passed.
+No integration suites rerun for this documentation refresh. Self-review found
+no remaining stale Ray bridge-only claims. Human approval is not implied.

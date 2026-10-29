@@ -353,6 +353,78 @@ partitions and schema.
 
 ## Ray Data
 
+### Worker-side Arrow reader
+
+The source-tree `ray` extra pins Ray 2.59.0. Install this build on the caller
+and every worker (Python 3.12+), including its matching native library:
+
+```sh
+python -m pip install './python[ray]'
+```
+
+```python
+import os
+import ray
+from adbc_driver_redis.ray import read_query
+
+ray.init()
+try:
+    ds = read_query(
+        os.environ["REDIS_URI"],
+        "SELECT id, label FROM public.events WHERE id >= ?",
+        parameters=(100,),
+        partition_count=8,
+        concurrency=2,
+        batch_rows=65536,
+    )
+    print(ds.take(10))
+finally:
+    ray.shutdown()
+```
+
+`read_query` eagerly plans a supported SELECT through `ExecutePartitions` and
+closes the planning handles. Ray read tasks open independent connections and
+consume `ReadPartition` Arrow batches incrementally. Neither Python rows nor the
+complete result are materialized on the caller. Empty reads retain the planned
+Dataset schema; Ray may omit zero-row blocks from `to_arrow_refs()`.
+
+The [live partition SQL subset](partitioned-reads.md#supported-queries) applies.
+Unsupported queries fail at planning; there is no automatic materializing
+fallback. The adapter explicitly selects live mode. Retained results, manual SQL
+splits, writes and Flight SQL are outside this adapter's scope. Existing Ray SQL
+read/write paths below are separate integrations.
+
+`partition_count` requests 1..1024 splits; sparse or empty ranges can make them
+uneven. `concurrency` caps simultaneous Ray read tasks independently of split
+count. `batch_rows` controls native Arrow batch rows, not total pipeline memory;
+Ray can combine or split blocks and buffer data in its object store. Output is
+unordered. Reads and retries have no shared snapshot, stable replay or
+exactly-once guarantee. Concurrent writes can change re-read values. Schema or
+physical table changes can invalidate descriptors and require a new query plan.
+
+`db_kwargs` and `conn_kwargs` are passed to caller and worker connections.
+For private TLS CAs, use a verified `rediss://` URI and
+`db_kwargs={"adbc.redis.tls_ca_file": "/worker/local/ca.crt"}`; the file must
+exist at that path on every node. Use a worker-reachable endpoint, matching
+native builds and a trusted Ray cluster: connection configuration can contain
+credentials, and descriptors can contain SQL literals and bound values.
+Named ACL users may need a positive, deployment-guaranteed
+`partition_scan_cap`; the [partition permission contract](partitioned-reads.md)
+also describes Search readiness and metadata permissions.
+
+Reader, cursor and connection contexts close on completion, errors and
+cooperative cancellation/unwinding. Abrupt worker termination cannot guarantee
+Python cleanup; Redis cursor expiry remains the fallback. A failed attempt can
+have consumed batches before its failure; follow Ray's task retry behavior and
+avoid side effects in downstream processing that assumes exactly-once delivery.
+
+See the [worker validation record](sdlc/changes/ray-worker-164/validation.md).
+This is a repository adapter, not an upstream Ray integration or endorsement.
+The `ray` extra and helper require a build containing this change; an older
+published wheel will not supply them.
+
+### Existing SQL reader and writer
+
 Install `ray[data]` alongside `adbc-driver-redis[dbapi]`. Ray's
 [`read_sql`](https://docs.ray.io/en/latest/data/api/doc/ray.data.read_sql.html)
 accepts a factory that opens a fresh DB-API connection for each task:
@@ -464,6 +536,8 @@ QUERY_FARM_TELEMETRY_OPT_OUT=1 RUN_DUCKDB_TESTS=1 \
 python -m pip install 'ray[data]'
 RUN_RAY_TESTS=1 REDIS_URI=redis://localhost:6379/0 \
   python -m pytest -qs python/tests/test_ray.py
+RUN_RAY_TESTS=1 RAY_USAGE_STATS_ENABLED=0 REDIS_URI=redis://localhost:6379/0 \
+  python -m pytest -q python/tests/test_ray_datasource.py
 ```
 
 The DuckDB command downloads a native community extension. Ordinary test runs

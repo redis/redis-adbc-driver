@@ -5,7 +5,7 @@ and selected upstream ADBC documentation. The broader connector inventory retain
 the **2026-10-16** review baseline; this refresh is not a new audit of every
 third-party connector. This is a selection of prominent tools across the data
 engineering stack, not a measured popularity ranking.
-Ray and Dask documentation checked on **2026-10-20**.
+Dask documentation checked on **2026-10-20**. Ray worker reader checked on **2026-10-29**.
 dbt adapter documentation and linked CI evidence checked on **2026-10-21**.
 
 **ADBC (Arrow Database Connectivity)** is a database interface designed to
@@ -25,11 +25,13 @@ separate interface and does not establish Flight SQL compatibility.
 
 Recorded Redis integration coverage includes direct pandas SQL reads, Polars,
 Dagster's community ADBCResource and this repository's IO manager, two DuckDB
-paths, Airflow TaskFlow, Prefect custom Python tasks, the Ray Arrow-table bridge, and
+paths, Airflow TaskFlow, Prefect custom Python tasks, Ray worker-side reads and
+the Arrow-table bridge, and
 the Dask partitioned reader. The companion dbt adapter project records separate
 v1 and experimental v2 end-to-end validation. See [Testing status](#testing-status)
-for dated evidence and limits. Ray's bridge materializes the full result in the
-caller; it is not a worker-side Redis datasource.
+for dated evidence and limits. Ray's worker reader streams batches in local
+worker-process tests; multi-node operation remains unverified. The older bridge
+materializes the full result in the caller and has separate validation.
 
 "Candidate" describes an inferred connection path from documented APIs, not
 confirmed compatibility. A passing test applies to its recorded versions,
@@ -118,7 +120,7 @@ completed end-to-end tests or guarantees for every runtime.
 | 18 | pandas | ✅ 🔌 ✈️ | DataFrame processing | **Yes, directly.** SQL read APIs accept ADBC connections through the Python driver manager. [Integration guide](https://arrow.apache.org/adbc/main/integrations.html). | Tested direct `read_sql` / `read_sql_query` with an open Redis ADBC connection; values/types, NULLs, empty results and multiple Arrow batches. [Evidence](sdlc/changes/pandas-direct-reads/validation.md). | Pass an open ADBC Flight SQL connection to read_sql; tool-level Redis integration untested. | None verified. | No dedicated Redis connector verified. Custom extraction can feed [pandas.DataFrame.from_records](https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.from_records.html). |
 | 19 | Polars | ✅ 🔌 ✈️ | Fast DataFrame processing | **Yes, directly.** Database read/write APIs support ADBC connections. [Integration guide](https://arrow.apache.org/adbc/main/integrations.html). | **Locally validated, 2026-10-29:** connection/URI reads, typed write/append round trips, filtering and aggregation, NULLs, and empty-result schemas. The unchanged [Polars regression suite](../python/tests/test_polars.py) plus driver tests passed all 8 cases with warnings treated as errors on Redis Software 8.6.2 with verified 4x QPF. [Evidence and reproduction](sdlc/changes/polars-regression-rerun/validation.md). | Pass an open ADBC Flight SQL connection to read_database; tool-level Redis integration untested. | None verified. | No dedicated Redis connector verified. Custom extraction can feed [polars.from_dicts](https://docs.pola.rs/api/python/stable/reference/api/polars.from_dicts.html). |
 | 20 | DuckDB | ✅ 🔌 ✈️ | Embedded analytical SQL | **Yes, in both directions.** DuckDB exposes an ADBC driver, and distinct community extensions consume drivers: [Query.Farm adbc_scanner](https://query.farm/products/extensions/adbc_scanner/) and [Columnar adbc](https://duckdb.org/community_extensions/extensions/adbc). | **Tested:** Query.Farm `adbc_scanner` attachment, reads/joins, ingestion, and autocommit writes; [guide](duckdb.md). Also tested: this repository's standalone [`redis_adbc`](../duckdb-extension/README.md), which embeds the driver and streams SELECT results. The registry submission has merged for DuckDB 2.0; installation still requires a published build for the exact engine/platform. Source builds are documented. Columnar's separate `adbc` remains untested here. | Candidate through a generic ADBC extension with Flight SQL, or fetch Arrow in Python and register it; untested. The standalone `redis_adbc` extension connects directly to Redis and does not consume Flight SQL. | None verified. | Experimental [redis extension](https://duckdb.org/community_extensions/extensions/redis), lmangani/gigapi: selected Redis functions, not verified full API / Query Engine access. Generic `adbc_scanner` and `adbc` are separate projects; Redis test coverage is specific to the extension named in the Redis ADBC column. |
-| 21 | Ray / Ray Data | ❌ | Distributed Python and ML data processing | **Validated custom Arrow-table bridge; no native ADBC reader verified.** `read_sql` accepts a DB-API 2 connection factory; `from_arrow` imports PyArrow tables. Neither establishes native ADBC support. [SQL reader](https://docs.ray.io/en/latest/data/api/doc/ray.data.read_sql.html), [Arrow import](https://docs.ray.io/en/latest/data/api/doc/ray.data.from_arrow.html). | [Locally validated](sdlc/changes/ray-356/validation.md): fetch a table through Redis ADBC, close the connection, then pass it to from_arrow. Ray 2.59.0 preserved rows, NULLs, Arrow types and empty-result schemas, including subsequent worker processing. The complete query result is materialized in the caller. Direct read_sql use remains untested. | Custom Python loading with adbc_driver_flightsql and from_arrow; untested. The Redis ADBC bridge validation does not establish Flight SQL compatibility. | None verified. | No packaged Ray Redis datasource verified. The tested bridge is custom loading code; worker-side datasource work remains tracked in [#164](https://github.com/redis/redis-adbc-driver/issues/164). |
+| 21 | Ray / Ray Data | ✅ 🔌 | Distributed Python and ML data processing | **Via this repository’s Redis adapter; no built-in generic ADBC reader claimed.** Ray’s documented Datasource/ReadTask interface supports worker-side Arrow blocks. [Extension API](https://docs.ray.io/en/latest/data/api/doc/ray.data.Datasource.html). | [adbc_driver_redis.ray.read_query](python-integrations.md#worker-side-arrow-reader) plans live ADBC partitions and streams Arrow batches from worker-local connections. Source build with the ray extra, pinned to Ray 2.59.0; matching native library required on every worker. [Local validation](sdlc/changes/ray-worker-164/validation.md). | Unverified. This adapter loads the Redis driver directly; it does not establish Flight SQL compatibility. | None verified. | This repository’s [Ray adapter](../python/adbc_driver_redis/ray.py) supplies the ADBC path; Redis, Inc. authorship/support and upstream Ray endorsement are not established. Live unordered reads; no shared snapshot or stable retries. |
 | 22 | Dask | ✅ 🔌 | Parallel DataFrames and Python computation | **Via this repository's Redis adapter; no built-in generic ADBC reader verified.** Dask SQL readers use SQLAlchemy URIs; custom readers can use from_map. [SQL integration](https://docs.dask.org/en/stable/dataframe-sql.html), [Custom loading](https://docs.dask.org/en/latest/generated/dask.dataframe.from_map.html). | [adbc_driver_redis.dask.read_query](python-integrations.md#dask) provides lazy partitioned reads with worker-local ADBC connections and pandas Arrow dtypes. [Recorded local validation](sdlc/changes/dask-353/validation.md) includes two worker processes; caller supplies partition parameters and exact schema. | Custom from_map loading with adbc_driver_flightsql and pandas partitions; untested. The bundled Redis helper does not establish Flight SQL compatibility. | None verified. | This repository's [Dask adapter](../python/adbc_driver_redis/dask.py) supplies the ADBC path; Redis, Inc. authorship or support is not established. Native Redis command access is not claimed. |
 
 "No support verified" means the checked documentation did not establish generic
@@ -160,12 +162,14 @@ Flight SQL remains unverified.
 Selected ADBC destinations in dlt do not establish an arbitrary Redis destination.
 Fivetran would require a custom connector and validation of driver deployment.
 
-Ray's Arrow-table bridge is [locally validated](sdlc/changes/ray-356/validation.md),
-but requires custom loading code and materializes the full query result in the
-caller. It remains ❌ under this comparison's tool-specific connector criteria:
-a packaged worker-side Redis datasource is still pending in
-[#164](https://github.com/redis/redis-adbc-driver/issues/164). Its DB-API reader
-and Flight SQL path are separate, untested compatibility candidates.
+Ray is ✅ 🔌 through this repository's worker-side Arrow reader. It uses
+live ADBC partition descriptors, closes planning handles before worker reads,
+and streams batches from independent worker connections. Install a build with
+the `ray` extra and matching native library on every worker. SQL restrictions,
+Search/ACL requirements, unordered live reads and retry limits remain explicit
+in the [Ray guide](python-integrations.md#worker-side-arrow-reader).
+Upstream acceptance and broader rollout remain tracked in
+[#164](https://github.com/redis/redis-adbc-driver/issues/164).
 
 Dask is ✅ 🔌 through
 this repository's partitioned read adapter. Its caller must supply disjoint,
@@ -200,6 +204,16 @@ for this documentation refresh. The latest merged evidence is:
   includes Arrow ingestion/fetch, dependencies, concurrent queries, retry after
   a committed write, and driver-error propagation. [Record](sdlc/changes/prefect-integration/plan.md).
 
+- [#231](https://github.com/redis/redis-adbc-driver/pull/231): Ray worker-side
+  Arrow datasource, **17 passed**, zero skips in the final TLS suite, with three
+  Ray DataContext deprecation warnings. [Record](sdlc/changes/ray-worker-164/validation.md).
+
+The #231 run used macOS arm64, Python 3.12.14, Ray 2.59.0, PyArrow 26.0.0,
+ADBC manager 1.13.0, and a disposable one-shard Redis Software 8.6.2 fixture
+with Search, verified active 4x QPF, and verified TLS. Its two-CPU Ray runtime
+used separate local worker processes, not local mode. This does not validate
+multi-node deployments, Linux execution, release wheels, or performance.
+
 The #230 run used macOS arm64, Python 3.15.0, Prefect 3.9.0, PyArrow 26.0.0,
 ADBC manager 1.13.0, and a disposable one-shard Redis Software 8.6.2 RAM database
 with Search and verified active 4x QPF. Remote workers, Prefect Cloud,
@@ -218,6 +232,7 @@ versions and a disposable Redis 8.6.2 with Search, not the later Software/QPF se
 |---|---|---|
 | Direct pandas SQL reads | [Tests](../python/tests/test_pandas_direct_reads.py) and [record](sdlc/changes/pandas-direct-reads/validation.md): **9 passed** across the two pandas suites; `read_sql` / `read_sql_query`, exact values/dtypes, NULLs, empty results, and multiple Arrow batches. | Table APIs, writes, bound parameters, `chunksize`, TLS, Flight SQL, clusters, other platforms, and other versions were not validated. |
 | DB-API and Polars | [Polars and driver tests](sdlc/changes/polars-regression-rerun/validation.md): **8 passed**, including typed connection/URI reads, writes/appends, filtering, aggregation, NULLs, and empty-result schemas. An earlier clean-wheel smoke run recorded **4 passed**. | Latest rerun used a source build; wheels, other platforms, Cloud, cluster topologies, TLS handshakes, Flight SQL, and performance were not validated by that rerun. |
+| Ray worker-side reader | [Tests](../python/tests/test_ray_datasource.py) and [record](sdlc/changes/ray-worker-164/validation.md): **17 passed**, including partition/type coverage, empty schemas, parameters, worker-local streaming, cleanup/cancellation, retry, and TLS certificate rejection. | Source build pinned to Ray 2.59.0 with a matching native library on each worker. Live unordered reads have no shared snapshot or stable retries. Multi-node, abrupt process death, other versions/platforms, Flight SQL, and release wheels remain unverified. |
 | Prefect custom Python tasks | [Tests](../python/tests/test_prefect.py) and [record](sdlc/changes/prefect-integration/plan.md): **4 passed**, zero skips; local orchestration, Arrow values/types, dependencies, concurrency, retries, and SQL errors. | Custom tasks, not a packaged ADBC connector. Remote workers, Prefect Cloud, `prefect-redis`, Flight SQL, and other platforms remain untested. Writes autocommit; retries need idempotent writes to avoid duplicates. |
 | Airflow TaskFlow | [Recorded local validation](sdlc/changes/airflow-smoke/validation.md): **2 passed** with Airflow 3.3.2 and Arrow provider 0.1.1 on Redis Software with verified 4x QPF. | Remote executors and Flight SQL untested; `AdbcHook.get_records()` fails. Use the documented discovery/autocommit setup. |
 | Dagster community resource and IO manager | [Record](sdlc/changes/dagster-adbc-resource/validation.md): **14 passed** (six community cases, eight IO-manager cases), including library/manifest discovery, ingestion/fetch, bound values, option forwarding, reconnect persistence, assets, and cleanup. | Use `autocommit=True` for ADBCResource. Other platforms, TLS, Redis Cluster API, and other versions remain untested by this run. Multi-dimensional partitions and atomic/transactional replacement are unsupported by the IO manager. |
