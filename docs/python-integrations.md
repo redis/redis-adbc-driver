@@ -92,8 +92,49 @@ batches. Local validation used pandas 3.1.0, PyArrow 26.0.0, ADBC manager 1.13.0
 and Redis Software with Redis 8.6.2; see the
 [validation record](sdlc/changes/pandas-direct-reads/validation.md).
 The Arrow backend preserves nullable integer types. These tests cover SQL
-queries; pandas table reads, writes, parameters and `chunksize` are outside
-this validation.
+queries; pandas table reads, parameters and `chunksize` are outside this
+validation. For write coverage, see the next section.
+
+## pandas writes and round trips
+
+pandas 2.2+ accepts an open ADBC connection directly for
+[`read_sql`](https://pandas.pydata.org/docs/reference/api/pandas.read_sql.html)
+and [`DataFrame.to_sql`](https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.to_sql.html).
+Install `adbc-driver-redis[dbapi]` and `pandas>=2.2`. This example creates a
+unique table, verifies the fetched rows and removes the table afterward:
+
+```python
+import uuid
+import pandas as pd
+from adbc_driver_redis import dbapi
+
+table = "pandas_demo_" + uuid.uuid4().hex
+source = pd.DataFrame({"id": [1, 2, 3], "amount": [10.5, 20.0, 30.25]})
+
+with dbapi.connect("redis://localhost:6379/0") as conn:
+    try:
+        source.to_sql(table, conn, index=False)
+        result = pd.read_sql(f'SELECT * FROM "{table}" ORDER BY id', conn)
+        pd.testing.assert_frame_equal(result, source)
+        print(result)
+    finally:
+        with conn.cursor() as cur:
+            cur.execute(f'DROP TABLE IF EXISTS "{table}"')
+```
+
+Use `if_exists="append"` to append rows. `if_exists="replace"` drops and
+recreates the table; writes autocommit and cannot be rolled back. For nullable
+Arrow dtypes on reads, pass `dtype_backend="pyarrow"`. No SQLAlchemy engine is
+needed for this path.
+
+Run the focused integration tests against a disposable Redis with Search:
+
+```sh
+REDIS_URI=redis://localhost:6379/0 python -m pytest -q python/tests/test_pandas_writes.py
+```
+
+The recorded run used pandas 3.1.0, PyArrow 26.0.0 and ADBC manager 1.13.0;
+see [validation](sdlc/changes/pandas-smoke/validation.md).
 
 ## Prefect custom Python tasks
 
@@ -554,6 +595,71 @@ a separate Python 3.12 environment:
 python -m pip install 'apache-airflow==3.3.2' './python[airflow]' pytest
 REDIS_URI=redis://localhost:6379/0 python -m pytest -q python/tests/test_airflow_hook.py
 ```
+
+## dlt
+
+Install `python -m pip install 'adbc-driver-redis[dlt]'`. This repository ships
+`adbc_driver_redis.dlt.redis_adbc`, an append-only custom destination tested with
+dlt 1.31.0. It sends normalized Parquet Arrow batches to the native driver's
+`adbc_ingest` API; Redis Search must be running separately.
+
+```python
+import os
+import dlt
+from adbc_driver_redis.dlt import redis_adbc
+
+pipeline = dlt.pipeline(
+    pipeline_name="redis_orders",
+    destination=redis_adbc(
+        uri=os.environ["REDIS_URI"],
+        schema_name="analytics",
+        batch_size=1000,
+    ),
+)
+info = pipeline.run(
+    [{"id": 1, "amount": 10.5}, {"id": 2, "amount": 20.0}],
+    table_name="orders",
+    write_disposition="append",
+)
+info.raise_on_failed_jobs()
+```
+
+Query the result with `SELECT * FROM analytics.orders` through the driver.
+The runnable [example](../python/examples/dlt_pipeline.py) loads and reads back
+orders. Every invocation appends its input again.
+
+`uri` can instead come from `DESTINATION__REDIS_ADBC__URI` or dlt's secrets file:
+
+```toml
+[destination.redis_adbc]
+uri = "rediss://user:password@host:port/0"
+```
+
+In that case construct `redis_adbc(schema_name="analytics")` without `uri`.
+TLS verification follows the driver's `rediss://` behavior. `schema_name`
+defaults to `public` and is independent of dlt's `dataset_name`. The schema and
+missing tables are created automatically. dlt normalizes table/column names with
+`snake_case`; its internal tables and columns are omitted. Configure `db_kwargs`
+for native database options and `index_columns` for ingestion indexing (`*` by
+default). Batches default to 1,000 rows, and load jobs run sequentially. Keep
+`loader_file_format="parquet"` and a positive `batch_size`.
+
+Only `append` is implemented. `replace` and `merge` fail as terminal load errors
+before opening a Redis connection. Primary-key hints do not create constraints
+or upsert rows. Existing tables must accept the incoming columns and types;
+apply SQL schema migrations yourself before loading changed resource schemas.
+Empty resources do not create tables. Nested objects follow dlt's default custom
+destination normalization (`max_table_nesting=0`, JSON serialized by its Parquet
+writer); this integration does not add Redis JSON storage.
+
+Writes autocommit without rollback. A failed batch can partially apply, and a
+retry can duplicate those rows. A process failure after ingestion but before
+dlt saves its checkpoint can also replay the batch. Successful checkpointed
+batches are skipped on a resumed load. Serialize independent pipelines writing
+to the same table. Keep or back up the local pipeline directory: custom
+destinations do not restore incremental source state from Redis. See dlt's
+[custom destination contract](https://dlthub.com/docs/dlt-ecosystem/destinations/destination)
+for checkpoint, retry and state limitations.
 
 ## Validation
 
