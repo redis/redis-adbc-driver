@@ -18,8 +18,18 @@ their original server distributions, dates and settings.
 
 ## Server requirements
 
-You don't create any indexes or enable any settings yourself. The one hard
-requirement is the Query Engine.
+**Recommended configuration:** Redis Search (Query Engine) enabled on the
+database and query performance factor (QPF) set to **4×** where supported. Search is required to connect; 4× QPF is a performance
+recommendation, not a connection requirement. The driver creates its own indexes,
+but you enable Search and configure QPF on the Redis server.
+
+For Redis Cloud or Redis Software deployments that offer QPF, enable the Search
+capability and select **4×** in the database's Query performance factor setting.
+Provision enough CPU capacity for that setting; see
+[Redis's QPF configuration and sizing guidance](https://redis.io/docs/latest/operate/oss_and_stack/stack-with-enterprise/search/query-performance-factor/).
+Deployments without QPF can still use the driver if Search is available. The
+[QPF benchmarks](#query-performance-factor-qpf) show the measured benefits and
+workload limits.
 
 The ADBC driver requires commands and functions unavailable in Valkey and
 Redis 7.2 derivatives, including AWS ElastiCache and Google Cloud Memorystore.
@@ -4404,8 +4414,10 @@ QPF increases server Search compute. It cannot eliminate decoding, transfer,
 or driver-side work, and it needs CPU headroom. The test verified 0 background
 Search workers at standard, 3 at 2×, and 6 at 4×. See
 [Redis's QPF sizing guidance](https://redis.io/docs/latest/operate/oss_and_stack/stack-with-enterprise/search/query-performance-factor/).
-Standard remains the default; choose higher QPF from representative concurrent
-measurements and available CPU capacity.
+Standard remains the server default. **For best concurrent query performance
+with this driver, we recommend 4× QPF where supported**, with Redis Search
+(Query Engine) enabled and sufficient CPU capacity. Validate the setting with your
+representative workload; 4× QPF is not a guarantee of a 4× speedup.
 
 [Full report and reproduction commands](../benchmarks/qpf/2026-10-08-adbc/README.md),
 [raw trials and configuration checks](../benchmarks/qpf/2026-10-08-adbc/results.json),
@@ -4441,7 +4453,9 @@ From `go`, using the default Redis Software environment:
 ```bash
 make redis-up
 make build
-REDIS_URI=redis://localhost:6379/0 uv run --project validation python examples/bench.py --rows 100000 --repeat 1
+# Use the built library through the installed Python wrapper (.dylib on macOS).
+export REDIS_ADBC_LIBRARY="$PWD/build/libadbc_driver_redis.so"
+REDIS_URI=redis://localhost:6379/0 uv run --project validation --with-editable '../python[dbapi]' --with redis python examples/bench.py --rows 100000 --repeat 1
 REDIS_URI=redis://localhost:6379/0 uv run --project validation python ../benchmarks/workers/run.py --cpus 10 --output /tmp/adbc-workers-new
 python3 ../benchmarks/workers/summarize.py /tmp/adbc-workers-new
 ```
@@ -4452,7 +4466,8 @@ comparison at standard QPF and saves raw results; the final command produces
 the summary and tables. Use a new output directory for each run. `--cpus`
 fixes client `GOMAXPROCS`, not Docker's CPU allocation. See the
 [method and reproduction details](../benchmarks/workers/2026-10-08/README.md).
-Run `examples/load_sample.py` afterwards to get the quick-start data back.
+Run `uv run --project validation --with-editable '../python[dbapi]' python examples/load_sample.py`
+afterwards to get the quick-start data back.
 
 ## Building and testing
 
@@ -4461,11 +4476,11 @@ trial license and fixed local test credentials, with the admin API and database
 bound to localhost. The database is in RAM, with no replica or persistence.
 `SOFTWARE_API_PORT` (default 19443) and `SOFTWARE_DB_PORT` (default 6379)
 override host ports; set `REDIS_URI` for tests when changing the database port.
-QPF remains at standard unless explicitly changed for a benchmark.
+The default Redis Software setup enables and verifies 4× QPF.
 
 ### Validation suite
 
-See the [Quick start](../README.md#quick-start) for building. To run the ADBC validation
+See [Building from source](building.md) to build the driver. To run the ADBC validation
 suite against the default local Redis Software database:
 
 ```bash

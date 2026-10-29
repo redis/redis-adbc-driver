@@ -16,6 +16,12 @@ successful registry build and publication for your exact engine/platform.
 For local development, build from source and load the resulting file with
 unsigned extensions enabled in your DuckDB client.
 
+**Recommended Redis configuration:** Redis Search (Query Engine) enabled
+and query performance factor (QPF) set to **4×** where supported.
+Search is required; 4× QPF is recommended for concurrent query performance
+and needs sufficient server CPU capacity. Configure these on the Redis server;
+see [server requirements](../docs/driver-reference.md#server-requirements).
+
 ## DuckDB 2.0 build
 
 This submission targets DuckDB **2.0**, using the community registry's exact
