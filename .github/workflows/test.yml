@@ -205,6 +205,16 @@ jobs:
             'apache-airflow==3.3.2' './python[airflow]' pytest
           /tmp/redis-airflow-tests/bin/python -m pytest -q python/tests/test_airflow_hook.py
 
+      - name: dlt integration on Redis Software
+        if: matrix.environment == 'software-single'
+        env:
+          REDIS_ADBC_LIBRARY: ${{ github.workspace }}/go/build/libadbc_driver_redis.so
+          RUNTIME__DLTHUB_TELEMETRY: 'false'
+        run: |
+          uv venv --python 3.12 /tmp/redis-dlt-tests
+          uv pip install --python /tmp/redis-dlt-tests/bin/python './python[dlt]' pytest
+          /tmp/redis-dlt-tests/bin/python -m pytest -q python/tests/test_dlt.py
+
       - name: Superset integration
         if: matrix.arch == 'amd64' && matrix.integrations
         env:
