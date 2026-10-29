@@ -35,6 +35,7 @@ For repository context and the development artifact workflow, see the
 - [Redis Software feature matrix](#redis-software-feature-matrix)
 - [Data tools and integration status](#data-tools-and-integration-status)
 - [Quick start](#quick-start)
+- [dlt integration](docs/python-integrations.md#dlt)
 - [Driver reference](docs/driver-reference.md): server requirements, existing HASH collections, architecture, SQL, options, performance, building and testing
 
 ## Why a Redis ADBC driver?
