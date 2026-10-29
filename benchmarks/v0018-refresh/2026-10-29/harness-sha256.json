@@ -1,0 +1,17 @@
+{
+  "benchmarks/bulk-load/run.py": "c187634b4c954a517dd9bd331eb58e36ff2284c5bda31317a3b0d38ffc4205a1",
+  "benchmarks/incremental-read/run.py": "21621c38e3c3396a82e51aaa67433be39dc5cf72727d860112c6cc43d673ee95",
+  "benchmarks/union-stream/run.py": "6920d57f255567a7dcfd42da4104f5cb675a3cc9465e859ec272a47bd2f5e811",
+  "benchmarks/native-ipc/run.py": "868f611bab7c85675262e32bafe9fd7aab28e3f8a4b4208eb9302198cfd41cda",
+  "benchmarks/native-ipc/summarize.py": "f12c1e130b0109a2e473113436c68469de3766d281030beea6cf0fbb8bfe1bb3",
+  "benchmarks/wide-transfer/compare.py": "5d5a3030d6e1d01bf05b27f00fd10b50d0e2ecb31651afcfe4b076095ce51d03",
+  "benchmarks/wide-transfer/cross_database.py": "9741d097ead558029cbfb4c28fc4e5b35ba6a0d98a37adf16eb946a49201efd2",
+  "benchmarks/wide-transfer/traffic_meter.py": "a7f25fb7f23c58a1e40c163efb62f0ceb0c147f8cdaf63f1e9d6679b6806635f",
+  "benchmarks/clickbench/run.py": "9f8a50f74a9c47b140e6d596a07703d487afce8c0eb70ae9f6f19ffeb584172a",
+  "benchmarks/qpf/adbc.py": "084563c945ef275b7bab5bfe44219936ad9ec085e9671ea3b9bc569137877d59",
+  "benchmarks/worker-autotune/controlled/qpf.py": "7881ec898d25076e546c9f0a8fa7ece188079ac33c0acf7cb2af3f9b42dd7dfd",
+  "benchmarks/worker-autotune/controlled/qpf_matrix.py": "8c875dc876c302e1f25913acdc9e6749393a3aa534cd09ed8f5f02eb729d935f",
+  "benchmarks/worker-autotune/controlled/gate.py": "d46228e338212bdad998f011f003fefb21b0ed55c7629737a8caf55c673e8909",
+  "go/examples/common.py": "2f7e39107e9f409909c09c45d05bfa18c6c617550d71174316a2ba0d27991838",
+  "go/examples/load_sample.py": "7a3ec639b906aa0f19972dc2cfeb1c1f46fab68d0bb0c434528ac86dceb00825"
+}

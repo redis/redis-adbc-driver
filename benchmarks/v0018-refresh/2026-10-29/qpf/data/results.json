@@ -1,0 +1,1234 @@
+{
+  "metadata": {
+    "configs": [
+      {
+        "round": 1,
+        "qpf": 0,
+        "observed": {
+          "query_performance_factor": {
+            "active": true,
+            "scaling_factor": 0
+          },
+          "search": {
+            "search-workers": 0
+          },
+          "sched_policy": "cmp",
+          "conns": 5
+        }
+      },
+      {
+        "round": 1,
+        "qpf": 2,
+        "observed": {
+          "query_performance_factor": {
+            "active": true,
+            "scaling_factor": 2
+          },
+          "search": {
+            "search-workers": 3
+          },
+          "sched_policy": "mnp",
+          "conns": 32
+        }
+      },
+      {
+        "round": 1,
+        "qpf": 4,
+        "observed": {
+          "query_performance_factor": {
+            "active": true,
+            "scaling_factor": 4
+          },
+          "search": {
+            "search-workers": 6
+          },
+          "sched_policy": "mnp",
+          "conns": 32
+        }
+      },
+      {
+        "round": 2,
+        "qpf": 4,
+        "observed": {
+          "query_performance_factor": {
+            "active": true,
+            "scaling_factor": 4
+          },
+          "search": {
+            "search-workers": 6
+          },
+          "sched_policy": "mnp",
+          "conns": 32
+        }
+      },
+      {
+        "round": 2,
+        "qpf": 0,
+        "observed": {
+          "query_performance_factor": {
+            "active": true,
+            "scaling_factor": 0
+          },
+          "search": {
+            "search-workers": 0
+          },
+          "sched_policy": "cmp",
+          "conns": 5
+        }
+      },
+      {
+        "round": 2,
+        "qpf": 2,
+        "observed": {
+          "query_performance_factor": {
+            "active": true,
+            "scaling_factor": 2
+          },
+          "search": {
+            "search-workers": 3
+          },
+          "sched_policy": "mnp",
+          "conns": 32
+        }
+      },
+      {
+        "round": 3,
+        "qpf": 2,
+        "observed": {
+          "query_performance_factor": {
+            "active": true,
+            "scaling_factor": 2
+          },
+          "search": {
+            "search-workers": 3
+          },
+          "sched_policy": "mnp",
+          "conns": 32
+        }
+      },
+      {
+        "round": 3,
+        "qpf": 4,
+        "observed": {
+          "query_performance_factor": {
+            "active": true,
+            "scaling_factor": 4
+          },
+          "search": {
+            "search-workers": 6
+          },
+          "sched_policy": "mnp",
+          "conns": 32
+        }
+      },
+      {
+        "round": 3,
+        "qpf": 0,
+        "observed": {
+          "query_performance_factor": {
+            "active": true,
+            "scaling_factor": 0
+          },
+          "search": {
+            "search-workers": 0
+          },
+          "sched_policy": "cmp",
+          "conns": 5
+        }
+      }
+    ],
+    "restored_qpf": {
+      "query_performance_factor": {
+        "active": true,
+        "scaling_factor": 4
+      },
+      "search": {
+        "search-workers": 6
+      },
+      "sched_policy": "mnp",
+      "conns": 32
+    }
+  },
+  "trials": [
+    {
+      "round": 1,
+      "qpf": 0,
+      "query": "index_group",
+      "concurrency": 1,
+      "requests": 18,
+      "elapsed_s": 5.280106916998193,
+      "qps": 3.4090218783359836,
+      "p50_ms": 290.188812499764,
+      "p95_ms": 345.3358339975239,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 0,
+      "query": "index_group",
+      "concurrency": 16,
+      "requests": 48,
+      "elapsed_s": 6.33301208299963,
+      "qps": 7.579331820454195,
+      "p50_ms": 1766.6969585006882,
+      "p95_ms": 2916.3510840007802,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 0,
+      "query": "index_count",
+      "concurrency": 1,
+      "requests": 794,
+      "elapsed_s": 5.00288300000102,
+      "qps": 158.70848868539161,
+      "p50_ms": 6.043625002348563,
+      "p95_ms": 8.326665996719385,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 0,
+      "query": "index_count",
+      "concurrency": 16,
+      "requests": 1408,
+      "elapsed_s": 5.0406407919981575,
+      "qps": 279.32956504957684,
+      "p50_ms": 57.571811999878264,
+      "p95_ms": 73.1087500025751,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 0,
+      "query": "driver_group",
+      "concurrency": 1,
+      "requests": 10,
+      "elapsed_s": 5.288738832998206,
+      "qps": 1.89080994841467,
+      "p50_ms": 527.9111670006387,
+      "p95_ms": 564.9332089997188,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 0,
+      "query": "driver_group",
+      "concurrency": 4,
+      "requests": 20,
+      "elapsed_s": 6.053780707999977,
+      "qps": 3.3037205945650316,
+      "p50_ms": 1110.4205209994689,
+      "p95_ms": 1574.3047500000102,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 0,
+      "query": "driver_reduce",
+      "concurrency": 1,
+      "requests": 27,
+      "elapsed_s": 5.1701622500004305,
+      "qps": 5.2222732468401265,
+      "p50_ms": 185.33716599995387,
+      "p95_ms": 243.01054200259387,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 0,
+      "query": "driver_reduce",
+      "concurrency": 4,
+      "requests": 33,
+      "elapsed_s": 5.404942749999464,
+      "qps": 6.1055225793100725,
+      "p50_ms": 608.3234170000651,
+      "p95_ms": 872.6882090013532,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 0,
+      "query": "full_scan",
+      "concurrency": 1,
+      "requests": 7,
+      "elapsed_s": 5.327430749999621,
+      "qps": 1.3139541982785037,
+      "p50_ms": 760.8333340031095,
+      "p95_ms": 784.0495829987049,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 0,
+      "query": "full_scan",
+      "concurrency": 4,
+      "requests": 15,
+      "elapsed_s": 6.612799834001635,
+      "qps": 2.268328147915976,
+      "p50_ms": 1739.9291250003444,
+      "p95_ms": 2296.5076670006965,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 2,
+      "query": "index_group",
+      "concurrency": 1,
+      "requests": 16,
+      "elapsed_s": 5.038948207999056,
+      "qps": 3.1752658172991084,
+      "p50_ms": 315.33377099913196,
+      "p95_ms": 345.80204200028675,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 2,
+      "query": "index_group",
+      "concurrency": 16,
+      "requests": 65,
+      "elapsed_s": 5.93403699999908,
+      "qps": 10.953757113413698,
+      "p50_ms": 1300.6123339982878,
+      "p95_ms": 2233.898499998759,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 2,
+      "query": "index_count",
+      "concurrency": 1,
+      "requests": 805,
+      "elapsed_s": 5.006423375001759,
+      "qps": 160.79343269679367,
+      "p50_ms": 6.058082999516046,
+      "p95_ms": 7.6025419984944165,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 2,
+      "query": "index_count",
+      "concurrency": 16,
+      "requests": 3565,
+      "elapsed_s": 5.024284417002491,
+      "qps": 709.5537800240405,
+      "p50_ms": 22.111333997600013,
+      "p95_ms": 24.865040999429766,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 2,
+      "query": "driver_group",
+      "concurrency": 1,
+      "requests": 9,
+      "elapsed_s": 5.1018265829989105,
+      "qps": 1.76407407299793,
+      "p50_ms": 546.9689999990806,
+      "p95_ms": 722.507709000638,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 2,
+      "query": "driver_group",
+      "concurrency": 4,
+      "requests": 28,
+      "elapsed_s": 5.397383083996829,
+      "qps": 5.1876992172409695,
+      "p50_ms": 741.2631664992659,
+      "p95_ms": 846.6337079989898,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 2,
+      "query": "driver_reduce",
+      "concurrency": 1,
+      "requests": 39,
+      "elapsed_s": 5.066882833998534,
+      "qps": 7.69704002988029,
+      "p50_ms": 125.76883300062036,
+      "p95_ms": 156.83904199977405,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 2,
+      "query": "driver_reduce",
+      "concurrency": 4,
+      "requests": 44,
+      "elapsed_s": 5.282527249997656,
+      "qps": 8.329346526327814,
+      "p50_ms": 496.42689599932055,
+      "p95_ms": 593.6558749999676,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 2,
+      "query": "full_scan",
+      "concurrency": 1,
+      "requests": 7,
+      "elapsed_s": 5.767578582999704,
+      "qps": 1.2136809059928433,
+      "p50_ms": 797.671457999968,
+      "p95_ms": 914.5909579965519,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 2,
+      "query": "full_scan",
+      "concurrency": 4,
+      "requests": 20,
+      "elapsed_s": 6.062392792002356,
+      "qps": 3.2990274114841993,
+      "p50_ms": 1114.0579164984956,
+      "p95_ms": 1266.9686249973893,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 4,
+      "query": "index_group",
+      "concurrency": 1,
+      "requests": 20,
+      "elapsed_s": 5.089406208000582,
+      "qps": 3.9297315212450243,
+      "p50_ms": 249.3605830004526,
+      "p95_ms": 286.7947499980801,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 4,
+      "query": "index_group",
+      "concurrency": 16,
+      "requests": 71,
+      "elapsed_s": 6.027368833001674,
+      "qps": 11.779601011183097,
+      "p50_ms": 1246.528917003161,
+      "p95_ms": 2136.015124997357,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 4,
+      "query": "index_count",
+      "concurrency": 1,
+      "requests": 827,
+      "elapsed_s": 5.005144708000444,
+      "qps": 165.2299879917731,
+      "p50_ms": 5.897540999285411,
+      "p95_ms": 7.207540998933837,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 4,
+      "query": "index_count",
+      "concurrency": 16,
+      "requests": 3759,
+      "elapsed_s": 5.016583000000537,
+      "qps": 749.3148224597495,
+      "p50_ms": 13.916500000050291,
+      "p95_ms": 52.80170900005032,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 4,
+      "query": "driver_group",
+      "concurrency": 1,
+      "requests": 10,
+      "elapsed_s": 5.295810042000085,
+      "qps": 1.8882852520562217,
+      "p50_ms": 527.477520499815,
+      "p95_ms": 555.6565410006442,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 4,
+      "query": "driver_group",
+      "concurrency": 4,
+      "requests": 28,
+      "elapsed_s": 5.3641562500015425,
+      "qps": 5.219833035249849,
+      "p50_ms": 737.6446250000299,
+      "p95_ms": 849.9783749975904,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 4,
+      "query": "driver_reduce",
+      "concurrency": 1,
+      "requests": 36,
+      "elapsed_s": 5.151980167000147,
+      "qps": 6.987604539044991,
+      "p50_ms": 138.59339599912346,
+      "p95_ms": 163.99154199825716,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 4,
+      "query": "driver_reduce",
+      "concurrency": 4,
+      "requests": 45,
+      "elapsed_s": 5.419424875002733,
+      "qps": 8.303464119885472,
+      "p50_ms": 494.2870420018153,
+      "p95_ms": 625.4074999997101,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 4,
+      "query": "full_scan",
+      "concurrency": 1,
+      "requests": 7,
+      "elapsed_s": 5.530621916997916,
+      "qps": 1.2656804433667885,
+      "p50_ms": 787.8790830000071,
+      "p95_ms": 813.0012090005039,
+      "errors": 0
+    },
+    {
+      "round": 1,
+      "qpf": 4,
+      "query": "full_scan",
+      "concurrency": 4,
+      "requests": 19,
+      "elapsed_s": 5.999789042001794,
+      "qps": 3.166778009524942,
+      "p50_ms": 1136.78712500041,
+      "p95_ms": 1424.6719169968856,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 4,
+      "query": "index_group",
+      "concurrency": 1,
+      "requests": 20,
+      "elapsed_s": 5.060485292000521,
+      "qps": 3.9521901252465765,
+      "p50_ms": 252.7354585017747,
+      "p95_ms": 268.54116699905717,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 4,
+      "query": "index_group",
+      "concurrency": 16,
+      "requests": 68,
+      "elapsed_s": 5.773955415999808,
+      "qps": 11.777022006711363,
+      "p50_ms": 1163.7114159984776,
+      "p95_ms": 2123.2670830031566,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 4,
+      "query": "index_count",
+      "concurrency": 1,
+      "requests": 826,
+      "elapsed_s": 5.008230208997702,
+      "qps": 164.92852076089122,
+      "p50_ms": 5.9488124989002245,
+      "p95_ms": 6.877374999021413,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 4,
+      "query": "index_count",
+      "concurrency": 16,
+      "requests": 3705,
+      "elapsed_s": 5.028490833999967,
+      "qps": 736.8015816890369,
+      "p50_ms": 13.798375002807006,
+      "p95_ms": 53.66216699985671,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 4,
+      "query": "driver_group",
+      "concurrency": 1,
+      "requests": 10,
+      "elapsed_s": 5.197568584000692,
+      "qps": 1.9239765360253818,
+      "p50_ms": 517.0132705006836,
+      "p95_ms": 549.9308340004063,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 4,
+      "query": "driver_group",
+      "concurrency": 4,
+      "requests": 28,
+      "elapsed_s": 5.268083374998241,
+      "qps": 5.315025979445389,
+      "p50_ms": 735.7621664996259,
+      "p95_ms": 822.1136249994743,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 4,
+      "query": "driver_reduce",
+      "concurrency": 1,
+      "requests": 37,
+      "elapsed_s": 5.040830374997313,
+      "qps": 7.340060515331212,
+      "p50_ms": 134.18145799732883,
+      "p95_ms": 155.3327920009906,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 4,
+      "query": "driver_reduce",
+      "concurrency": 4,
+      "requests": 46,
+      "elapsed_s": 5.343624249999266,
+      "qps": 8.608389708540289,
+      "p50_ms": 475.50152100120613,
+      "p95_ms": 565.1237919992127,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 4,
+      "query": "full_scan",
+      "concurrency": 1,
+      "requests": 7,
+      "elapsed_s": 5.4580073340002855,
+      "qps": 1.2825193466476266,
+      "p50_ms": 777.6212079988909,
+      "p95_ms": 802.2516249984619,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 4,
+      "query": "full_scan",
+      "concurrency": 4,
+      "requests": 19,
+      "elapsed_s": 5.672388124999998,
+      "qps": 3.349559229958371,
+      "p50_ms": 1155.4128330026288,
+      "p95_ms": 1330.2560000011,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 0,
+      "query": "index_group",
+      "concurrency": 1,
+      "requests": 15,
+      "elapsed_s": 5.037700374999986,
+      "qps": 2.9775490567955902,
+      "p50_ms": 310.0297499986482,
+      "p95_ms": 460.82750000277883,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 0,
+      "query": "index_group",
+      "concurrency": 16,
+      "requests": 49,
+      "elapsed_s": 6.159616417000507,
+      "qps": 7.95504081467805,
+      "p50_ms": 1603.9003750011034,
+      "p95_ms": 3236.7682910007716,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 0,
+      "query": "index_count",
+      "concurrency": 1,
+      "requests": 830,
+      "elapsed_s": 5.0037379169989435,
+      "qps": 165.87599386056638,
+      "p50_ms": 5.938312500802567,
+      "p95_ms": 6.831582999438979,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 0,
+      "query": "index_count",
+      "concurrency": 16,
+      "requests": 1512,
+      "elapsed_s": 5.042239708000125,
+      "qps": 299.8667432651067,
+      "p50_ms": 55.59524949785555,
+      "p95_ms": 65.69487500019022,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 0,
+      "query": "driver_group",
+      "concurrency": 1,
+      "requests": 10,
+      "elapsed_s": 5.142914374999236,
+      "qps": 1.9444228059895485,
+      "p50_ms": 515.635249999832,
+      "p95_ms": 541.3272499972663,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 0,
+      "query": "driver_group",
+      "concurrency": 4,
+      "requests": 24,
+      "elapsed_s": 5.748702499997307,
+      "qps": 4.174855108611246,
+      "p50_ms": 942.6161880019208,
+      "p95_ms": 1074.526500000502,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 0,
+      "query": "driver_reduce",
+      "concurrency": 1,
+      "requests": 28,
+      "elapsed_s": 5.16128050000043,
+      "qps": 5.425010324472321,
+      "p50_ms": 180.60981250164332,
+      "p95_ms": 217.14945799976704,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 0,
+      "query": "driver_reduce",
+      "concurrency": 4,
+      "requests": 32,
+      "elapsed_s": 5.379055083001731,
+      "qps": 5.949000243764505,
+      "p50_ms": 667.9622709998512,
+      "p95_ms": 863.3734169998206,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 0,
+      "query": "full_scan",
+      "concurrency": 1,
+      "requests": 7,
+      "elapsed_s": 5.591728791001515,
+      "qps": 1.2518489829593926,
+      "p50_ms": 767.2365420003189,
+      "p95_ms": 919.054458001483,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 0,
+      "query": "full_scan",
+      "concurrency": 4,
+      "requests": 8,
+      "elapsed_s": 6.8485869169999205,
+      "qps": 1.1681241834197915,
+      "p50_ms": 3377.645354001288,
+      "p95_ms": 3884.6577080003044,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 2,
+      "query": "index_group",
+      "concurrency": 1,
+      "requests": 18,
+      "elapsed_s": 5.255391957998654,
+      "qps": 3.425053762660686,
+      "p50_ms": 272.4328334988968,
+      "p95_ms": 466.5222500007076,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 2,
+      "query": "index_group",
+      "concurrency": 16,
+      "requests": 62,
+      "elapsed_s": 5.923354750000726,
+      "qps": 10.467041502113714,
+      "p50_ms": 1424.6178954999777,
+      "p95_ms": 2248.0076669999107,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 2,
+      "query": "index_count",
+      "concurrency": 1,
+      "requests": 805,
+      "elapsed_s": 5.005691374997696,
+      "qps": 160.81694609076266,
+      "p50_ms": 6.027874998835614,
+      "p95_ms": 7.886582996434299,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 2,
+      "query": "index_count",
+      "concurrency": 16,
+      "requests": 3720,
+      "elapsed_s": 5.023638333001145,
+      "qps": 740.4991668215205,
+      "p50_ms": 21.474604500326677,
+      "p95_ms": 22.77495799717144,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 2,
+      "query": "driver_group",
+      "concurrency": 1,
+      "requests": 10,
+      "elapsed_s": 5.282143290998647,
+      "qps": 1.893170906029963,
+      "p50_ms": 525.8184169997548,
+      "p95_ms": 562.3190839978633,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 2,
+      "query": "driver_group",
+      "concurrency": 4,
+      "requests": 30,
+      "elapsed_s": 5.585491750000074,
+      "qps": 5.3710579735436195,
+      "p50_ms": 716.6723124992131,
+      "p95_ms": 806.8987500009825,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 2,
+      "query": "driver_reduce",
+      "concurrency": 1,
+      "requests": 41,
+      "elapsed_s": 5.03276283300147,
+      "qps": 8.146618738151062,
+      "p50_ms": 121.12758300281712,
+      "p95_ms": 143.5242500010645,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 2,
+      "query": "driver_reduce",
+      "concurrency": 4,
+      "requests": 46,
+      "elapsed_s": 5.240107292000175,
+      "qps": 8.778446210486193,
+      "p50_ms": 471.30072900108644,
+      "p95_ms": 580.754959002661,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 2,
+      "query": "full_scan",
+      "concurrency": 1,
+      "requests": 7,
+      "elapsed_s": 5.392097542000556,
+      "qps": 1.2981961000287998,
+      "p50_ms": 770.3003749993513,
+      "p95_ms": 783.5005839988298,
+      "errors": 0
+    },
+    {
+      "round": 2,
+      "qpf": 2,
+      "query": "full_scan",
+      "concurrency": 4,
+      "requests": 17,
+      "elapsed_s": 6.334532041000784,
+      "qps": 2.6837025829163212,
+      "p50_ms": 1255.4073330029496,
+      "p95_ms": 2070.8956249982293,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 2,
+      "query": "index_group",
+      "concurrency": 1,
+      "requests": 21,
+      "elapsed_s": 5.188141250000626,
+      "qps": 4.047692417780157,
+      "p50_ms": 246.70516699916334,
+      "p95_ms": 265.1469160009583,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 2,
+      "query": "index_group",
+      "concurrency": 16,
+      "requests": 66,
+      "elapsed_s": 5.9492498750005325,
+      "qps": 11.093835590490153,
+      "p50_ms": 1418.6055834998115,
+      "p95_ms": 2122.175958000298,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 2,
+      "query": "index_count",
+      "concurrency": 1,
+      "requests": 800,
+      "elapsed_s": 5.004353415999503,
+      "qps": 159.8608118767764,
+      "p50_ms": 6.109686999479891,
+      "p95_ms": 7.80458399822237,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 2,
+      "query": "index_count",
+      "concurrency": 16,
+      "requests": 3729,
+      "elapsed_s": 5.023729832999379,
+      "qps": 742.2771773086431,
+      "p50_ms": 21.46816700042109,
+      "p95_ms": 22.457167000538902,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 2,
+      "query": "driver_group",
+      "concurrency": 1,
+      "requests": 10,
+      "elapsed_s": 5.410042665997025,
+      "qps": 1.8484142579598464,
+      "p50_ms": 544.5692079993023,
+      "p95_ms": 589.0941249999742,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 2,
+      "query": "driver_group",
+      "concurrency": 4,
+      "requests": 30,
+      "elapsed_s": 5.543078958999104,
+      "qps": 5.412154548384244,
+      "p50_ms": 710.9791460006818,
+      "p95_ms": 804.741957999795,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 2,
+      "query": "driver_reduce",
+      "concurrency": 1,
+      "requests": 40,
+      "elapsed_s": 5.046360000000277,
+      "qps": 7.92650544154555,
+      "p50_ms": 124.07329149937141,
+      "p95_ms": 147.7610830006597,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 2,
+      "query": "driver_reduce",
+      "concurrency": 4,
+      "requests": 40,
+      "elapsed_s": 5.375827959000162,
+      "qps": 7.440714305790304,
+      "p50_ms": 550.7177499985119,
+      "p95_ms": 660.9239169993089,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 2,
+      "query": "full_scan",
+      "concurrency": 1,
+      "requests": 7,
+      "elapsed_s": 5.553671874997235,
+      "qps": 1.260427363653616,
+      "p50_ms": 802.2297080024146,
+      "p95_ms": 816.2319999973988,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 2,
+      "query": "full_scan",
+      "concurrency": 4,
+      "requests": 20,
+      "elapsed_s": 5.821158542003104,
+      "qps": 3.4357421904399548,
+      "p50_ms": 1084.1072500006703,
+      "p95_ms": 1236.6559580004832,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 4,
+      "query": "index_group",
+      "concurrency": 1,
+      "requests": 20,
+      "elapsed_s": 5.030579124999349,
+      "qps": 3.975685403815726,
+      "p50_ms": 250.91785450058524,
+      "p95_ms": 263.62820799840847,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 4,
+      "query": "index_group",
+      "concurrency": 16,
+      "requests": 73,
+      "elapsed_s": 5.979989874998864,
+      "qps": 12.207378528381517,
+      "p50_ms": 1198.9629579984467,
+      "p95_ms": 2093.555165996804,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 4,
+      "query": "index_count",
+      "concurrency": 1,
+      "requests": 820,
+      "elapsed_s": 5.004573417001666,
+      "qps": 163.85012900685498,
+      "p50_ms": 6.090812497859588,
+      "p95_ms": 6.876667001051828,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 4,
+      "query": "index_count",
+      "concurrency": 16,
+      "requests": 3781,
+      "elapsed_s": 5.028252333002456,
+      "qps": 751.9511252813957,
+      "p50_ms": 13.631833000545157,
+      "p95_ms": 53.52275000041118,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 4,
+      "query": "driver_group",
+      "concurrency": 1,
+      "requests": 10,
+      "elapsed_s": 5.403887291999126,
+      "qps": 1.8505197202772483,
+      "p50_ms": 530.8188750004774,
+      "p95_ms": 586.0451659973478,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 4,
+      "query": "driver_group",
+      "concurrency": 4,
+      "requests": 29,
+      "elapsed_s": 5.5587616250013525,
+      "qps": 5.216989314592698,
+      "p50_ms": 725.2530000005208,
+      "p95_ms": 783.3165830015787,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 4,
+      "query": "driver_reduce",
+      "concurrency": 1,
+      "requests": 36,
+      "elapsed_s": 5.063787916002184,
+      "qps": 7.109302482087695,
+      "p50_ms": 136.28137500018056,
+      "p95_ms": 178.2617079988995,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 4,
+      "query": "driver_reduce",
+      "concurrency": 4,
+      "requests": 37,
+      "elapsed_s": 5.328884750000725,
+      "qps": 6.9432914645029555,
+      "p50_ms": 544.2125830013538,
+      "p95_ms": 816.0534999988158,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 4,
+      "query": "full_scan",
+      "concurrency": 1,
+      "requests": 7,
+      "elapsed_s": 5.565970499999821,
+      "qps": 1.2576423105369001,
+      "p50_ms": 797.8258750008536,
+      "p95_ms": 810.247083001741,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 4,
+      "query": "full_scan",
+      "concurrency": 4,
+      "requests": 20,
+      "elapsed_s": 5.743431542003236,
+      "qps": 3.482238772018906,
+      "p50_ms": 1097.1872709997115,
+      "p95_ms": 1192.6987910010212,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 0,
+      "query": "index_group",
+      "concurrency": 1,
+      "requests": 18,
+      "elapsed_s": 5.141871666000952,
+      "qps": 3.5006708002884386,
+      "p50_ms": 285.4860624993307,
+      "p95_ms": 321.8767079997633,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 0,
+      "query": "index_group",
+      "concurrency": 16,
+      "requests": 51,
+      "elapsed_s": 6.174434542001109,
+      "qps": 8.259865685363815,
+      "p50_ms": 1468.0777079993277,
+      "p95_ms": 3726.8480409984477,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 0,
+      "query": "index_count",
+      "concurrency": 1,
+      "requests": 823,
+      "elapsed_s": 5.006410709000193,
+      "qps": 164.38922969712917,
+      "p50_ms": 5.986083000607323,
+      "p95_ms": 6.7970839991176035,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 0,
+      "query": "index_count",
+      "concurrency": 16,
+      "requests": 1482,
+      "elapsed_s": 5.030560125000193,
+      "qps": 294.59940109550786,
+      "p50_ms": 55.686083002001396,
+      "p95_ms": 68.68304199815611,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 0,
+      "query": "driver_group",
+      "concurrency": 1,
+      "requests": 9,
+      "elapsed_s": 5.491555666001659,
+      "qps": 1.6388798634454707,
+      "p50_ms": 612.8657920016849,
+      "p95_ms": 682.2776250010065,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 0,
+      "query": "driver_group",
+      "concurrency": 4,
+      "requests": 24,
+      "elapsed_s": 5.577904999998282,
+      "qps": 4.3026907055619255,
+      "p50_ms": 907.8601039982459,
+      "p95_ms": 1052.4143330003426,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 0,
+      "query": "driver_reduce",
+      "concurrency": 1,
+      "requests": 28,
+      "elapsed_s": 5.030340834000526,
+      "qps": 5.566223228999808,
+      "p50_ms": 178.3701664990076,
+      "p95_ms": 211.6293750004843,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 0,
+      "query": "driver_reduce",
+      "concurrency": 4,
+      "requests": 33,
+      "elapsed_s": 5.505906792001042,
+      "qps": 5.9935631398523235,
+      "p50_ms": 658.6272499989718,
+      "p95_ms": 911.8301660018915,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 0,
+      "query": "full_scan",
+      "concurrency": 1,
+      "requests": 7,
+      "elapsed_s": 5.3042520839990175,
+      "qps": 1.3196959513135569,
+      "p50_ms": 753.7420409971674,
+      "p95_ms": 777.6178749991232,
+      "errors": 0
+    },
+    {
+      "round": 3,
+      "qpf": 0,
+      "query": "full_scan",
+      "concurrency": 4,
+      "requests": 14,
+      "elapsed_s": 5.860140458000387,
+      "qps": 2.3890212359819643,
+      "p50_ms": 1615.709625000818,
+      "p95_ms": 2052.122375000181,
+      "errors": 0
+    }
+  ]
+}
