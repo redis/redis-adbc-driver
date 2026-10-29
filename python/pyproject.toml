@@ -20,6 +20,7 @@ Issues = "https://github.com/alberttwong/redis-adbc-driver/issues"
 dbapi = ["pyarrow>=14"]
 sqlalchemy = ["sqlalchemy>=1.4", "pyarrow>=14"]
 dagster = ["dagster>=1.9", "pyarrow>=14"]
+airflow = ["apache-airflow-providers-apache-arrow>=0.1.1", "pyarrow>=14"]
 test = ["tomli; python_version < '3.11'", "pytest", "pyarrow", "sqlalchemy>=1.4", "dagster>=1.9", "pandas", "polars", "duckdb"]
 
 [project.entry-points."sqlalchemy.dialects"]

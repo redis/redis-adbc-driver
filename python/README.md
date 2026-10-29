@@ -38,7 +38,9 @@ are unsupported. SQL support comes from this driver. Installing the package
 does not install or start a Redis server.
 
 Optional extras: `sqlalchemy` for the SQLAlchemy/Superset integration and
-`dagster` for the Redis ADBC IO manager.
+`dagster` for the Redis ADBC IO manager. The `airflow` extra provides dependencies
+for `adbc_driver_redis.airflow.RedisAdbcHook`, which adapts Airflow's Arrow hook
+to Redis's autocommit-only connections.
 
 See the [installation and integration guide](https://github.com/alberttwong/redis-adbc-driver/blob/main/docs/python-integrations.md)
 and [server requirements](https://github.com/alberttwong/redis-adbc-driver#server-requirements)

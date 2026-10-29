@@ -108,6 +108,55 @@ grains for time-series charts; grouped dimensions and `SUM` support bar charts.
 Enable SQL Lab access as appropriate for that database. No PostgreSQL server or
 psycopg dependency is needed. This does not add SQL constructs the driver lacks.
 
+## Apache Airflow
+
+Install `adbc-driver-redis[airflow]` in each Airflow task environment. Use the
+package's `RedisAdbcHook` for Redis queries:
+
+```python
+from adbc_driver_redis.airflow import RedisAdbcHook
+
+hook = RedisAdbcHook(adbc_conn_id="redis_analytics")
+records = hook.get_records("SELECT $1 AS value", parameters=(42,))
+assert records == [(42,)]
+```
+
+Create an Airflow connection named `redis_analytics` with type `adbc` and extras:
+
+```json
+{
+  "dialect": "redis",
+  "db_kwargs": {"uri": "redis://localhost:6379/0"}
+}
+```
+
+Use `rediss://` for TLS and put native database options alongside `uri` in
+`db_kwargs`. Keep credentials in Airflow's connection or secrets configuration.
+The hook resolves the Redis library bundled in the wheel, including macOS, and
+honors `REDIS_ADBC_LIBRARY` for development. It always loads the Redis driver;
+the generic Arrow hook's `driver` extra is unnecessary.
+
+The generic `AdbcHook` in Arrow provider 0.1.1 opens connections with
+`autocommit=False`; its `get_records()` also requests transaction mode. Redis
+rejects that mode even for a SELECT. `RedisAdbcHook` opens connections in
+autocommit mode and defaults `run()`, `get_records()` and `get_first()` to it.
+Explicit `run(..., autocommit=False)` and disabling autocommit are rejected.
+For inherited `insert_rows()`, pass `autocommit=True`; each write takes effect
+immediately and a later failure cannot roll it back. Use native `$1`, `$2`, …
+placeholders for bound queries.
+
+This is an explicitly imported hook, rather than a registered Airflow provider.
+Selecting an `adbc` connection in `SQLExecuteQueryOperator` still selects the
+generic Arrow hook. The example above calls the Redis hook inside a Python task.
+
+The focused tests use Airflow 3.3.2, Arrow provider 0.1.1 and common-sql 2.1.1 in
+a separate Python 3.12 environment:
+
+```sh
+python -m pip install 'apache-airflow==3.3.2' './python[airflow]' pytest
+REDIS_URI=redis://localhost:6379/0 python -m pytest -q python/tests/test_airflow.py
+```
+
 ## Dagster
 
 Install the wheel's `dagster` extra, plus pandas/polars when used. This repository
