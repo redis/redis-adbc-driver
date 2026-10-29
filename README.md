@@ -45,7 +45,7 @@ For repository context and the development artifact workflow, see the
 
 ## Why a Redis ADBC driver?
 
-Customers can query Redis with familiar SQL and move data through Apache Arrow,
+Driver users can query Redis with familiar SQL and move data through Apache Arrow,
 making it easier to connect operational data to the tools their teams already use.
 
 **What this means for customers:**
