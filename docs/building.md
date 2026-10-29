@@ -46,7 +46,7 @@ REDIS_URI=redis://localhost:6379/0 make -C go validate
 The test and validation suites modify the target database. See
 [Building and testing](driver-reference.md#building-and-testing) for test scopes,
 platform builds, and release details. For sample data and SQL examples, follow
-[the walkthrough](sample-dataset.md).
+[the README walkthrough](../README.md#3-load-the-sample-dataset).
 
 When finished:
 
