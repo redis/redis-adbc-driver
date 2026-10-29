@@ -50,6 +50,23 @@ pins Ray 2.59.0 and supplies worker-side Arrow reads through
 [Ray guide](https://github.com/redis/redis-adbc-driver/blob/main/docs/python-integrations.md#ray-data)
 for installation on every worker and live-read consistency limits.
 
+The `dlt` extra provides the append-only dlt destination:
+
+```python
+import dlt
+from adbc_driver_redis.dlt import redis_adbc
+
+pipeline = dlt.pipeline(
+    pipeline_name="redis_orders",
+    destination=redis_adbc(uri="redis://localhost:6379/0", schema_name="analytics"),
+)
+pipeline.run([{"id": 1, "amount": 10.5}], table_name="orders")
+```
+
+Install with `python -m pip install 'adbc-driver-redis[dlt]'`. Loads use Arrow
+batches through ADBC. Only append is supported; retries can duplicate partially
+written batches. Keep the local dlt pipeline directory for checkpoints.
+
 See the [installation and integration guide](https://github.com/redis/redis-adbc-driver/blob/main/docs/python-integrations.md)
 and [server requirements](https://github.com/redis/redis-adbc-driver/blob/main/docs/driver-reference.md#server-requirements)
 for supported Redis deployments, configuration and limitations.
