@@ -1,7 +1,10 @@
 # ADBC support across 22 data engineering tools
 
-Documentation checked on **2026-10-16**. This is a selection of prominent tools
-across the data engineering stack, not a measured popularity ranking.
+Support and testing status refreshed on **2026-10-29** against this repository
+and selected upstream ADBC documentation. The broader connector inventory retains
+the **2026-10-16** review baseline; this refresh is not a new audit of every
+third-party connector. This is a selection of prominent tools across the data
+engineering stack, not a measured popularity ranking.
 Ray and Dask documentation checked on **2026-10-20**.
 dbt adapter documentation and linked CI evidence checked on **2026-10-21**.
 
@@ -20,16 +23,17 @@ which runs the Redis ADBC driver on the server side. It requires a separate serv
 deployment; it is not a built-in endpoint of Redis. Its Flight datasets API is a
 separate interface and does not establish Flight SQL compatibility.
 
-Redis tool integrations below are **untested end to end in this repository**,
-except the Ray Arrow-table bridge and Dask partitioned reader, which have recorded
-local validations linked below. Ray's validation covers caller-side materialization
-and subsequent Ray processing; it does not establish a worker-side Redis datasource.
-The companion dbt adapter project records separate v1 and experimental v2
-end-to-end validation; see [Testing status](#testing-status) for its scope.
+Recorded Redis integration coverage includes Polars, this repository's Dagster
+IO manager, two DuckDB paths, Airflow TaskFlow, the Ray Arrow-table bridge, and
+the Dask partitioned reader. The companion dbt adapter project records separate
+v1 and experimental v2 end-to-end validation. See [Testing status](#testing-status)
+for dated evidence and limits. Ray's bridge materializes the full result in the
+caller; it is not a worker-side Redis datasource.
+
 "Candidate" describes an inferred connection path from documented APIs, not
-confirmed compatibility. General Python ADBC validation and the related server's
-Python/Go/JDBC coverage do not constitute tests of all 22 tools. See the
-[Testing status](#testing-status).
+confirmed compatibility. A passing test applies to its recorded versions,
+environment, and operations. General ADBC validation and the related Flight
+server's client coverage do not constitute tests of all 22 tools.
 
 The connector columns distinguish **Redis-built / maintained** projects from
 **third-party-built** projects. Redis Field Engineering and the former RedisLabs
@@ -100,7 +104,7 @@ completed end-to-end tests or guarantees for every runtime.
 | 6 | Microsoft Fabric / Power Query | ❌ | Data preparation and analytics | **Yes, for supported connectors.** Power Query also documents custom ADBC connectors; availability depends on the host. [Connector development](https://learn.microsoft.com/en-us/power-query/adbc). | Custom Power Query connector required; untested with Redis. | Documented custom connector approach using ADBC Flight SQL; navigation, types, folding, gateway, and host support need validation. | None verified. | [CData Redis Power BI connector](https://www.cdata.com/kb/tech/redis-powerbi-setup.rst), CData: commercial ODBC-based Desktop/Gateway integration. Full Redis command and Query Engine passthrough not verified; not all Fabric hosts. |
 | 7 | dbt | ✅ 🔌 | SQL transformations | **Yes, through adapters.** The Rust-based dbt v2 engine uses ADBC; dbt Core v1 can use it through a database-specific Python adapter. An ADBC driver alone does not register a database in either engine. [ADBC requirements](https://docs.getdbt.com/docs/dbt/adbc), [Adapter development](https://docs.getdbt.com/docs/contribute-dbt-adapters-v2?version=2). | Available: [dbt-redis-adbc for Core 1.10–1.x](https://github.com/alberttwong/redis-dbt-adapter-with-project/tree/main/v1/adapter) and an [experimental native v2 adapter](https://github.com/alberttwong/redis-dbt-adapter-with-project/tree/main/v2) compiled into the [custom engine fork](https://github.com/alberttwong/dbt). The standard v2 binary does not include Redis; install the native Redis driver separately. [Validation scope](https://github.com/alberttwong/redis-dbt-adapter-with-project/blob/main/v2/VALIDATION.md). | Unverified. The existing adapters load the Redis driver directly; they do not establish Flight SQL compatibility. Adapter connection/configuration work and end-to-end validation remain necessary. | None verified. | Community [v1/v2 adapter project](https://github.com/alberttwong/redis-dbt-adapter-with-project), with v2 Rust implementation in the engine fork. Redis, Inc. maintenance or support is not established. |
 | 8 | Apache Airflow | ✅ 🔌 ✈️ 🤝 | Workflow orchestration | **Yes, through the Apache Arrow provider's `AdbcHook`.** Install the provider and database driver. [ADBC connection](https://airflow.apache.org/docs/apache-airflow-providers-apache-arrow/stable/connections/adbc.html). | Locally tested with Airflow 3.3.2 TaskFlow and Arrow provider 0.1.1: ingest, SQL aggregation and cleanup. AdbcHook requires explicit autocommit and driver discovery configuration; `get_records()` fails. [Setup and scope](python-integrations.md#apache-airflow). | Candidate through AdbcHook with the Flight SQL driver, or Python tasks; untested. | None verified. | [Apache Airflow Redis provider / RedisHook](https://airflow.apache.org/docs/apache-airflow-providers-redis/stable/_api/airflow/providers/redis/hooks/redis/index.html), Apache Airflow: get_conn() exposes a native Redis client for command calls. |
-| 9 | Dagster | ✅ 🔌 ✈️ | Data orchestration | **Yes, through a community integration.** `dagster-adbc` provides `ADBCResource`. [Integration guide](https://docs.dagster.io/integrations/libraries/adbc). | Candidate through community ADBCResource and the Redis shared library; untested. | Candidate through ADBCResource with driver="flightsql"; untested. | None verified. | No dedicated Redis connector verified. Community dagster-adbc supplies ADBC integration; native command calls require redis-py in asset code. |
+| 9 | Dagster | ✅ 🔌 ✈️ | Data orchestration | **Yes, through a community integration.** `dagster-adbc` provides `ADBCResource`. [Integration guide](https://docs.dagster.io/integrations/libraries/adbc). | **Tested repository integration:** `adbc_driver_redis.dagster.RedisADBCIOManager` supports Arrow, pandas, Polars, and reader inputs/outputs, including partition tests. Install the `dagster` extra; [guide](python-integrations.md#dagster). Community ADBCResource remains a separate, untested path. | Candidate through ADBCResource with driver="flightsql"; untested. | None verified. | Community dagster-adbc supplies generic ADBC integration. This repository's Redis-specific IO manager is listed in the Redis ADBC column; its presence does not establish Redis, Inc. maintenance. No separate native-command connector verified. |
 | 10 | Prefect | ✅ 🤝 | Python workflow orchestration | **Custom Python integration.** Tasks can call ADBC libraries; a dedicated ADBC connector was not verified. [Python task API](https://reference.prefect.io/prefect/tasks/). | Custom Python tasks using the Redis ADBC driver; untested. | Custom Python tasks using adbc_driver_flightsql; untested. | None verified. | [prefect-redis](https://docs.prefect.io/integrations/prefect-redis), Prefect: RedisDatabase, locks, and messaging. Its [RedisDatabase.get_client()](https://reference.prefect.io/prefect_redis/blocks/#prefect_redis.blocks.RedisDatabase.get_client) exposes a native Redis client for direct command calls; this tool-specific integration is distinct from installing redis-py alone. |
 | 11 | Apache Kafka / Kafka Connect | ✅ 🧩 | Event streaming and integration | **No standard ADBC connector verified.** The common Confluent database connector uses JDBC. [JDBC connector](https://docs.confluent.io/kafka-connectors/jdbc/10.8/overview.html). | Custom Kafka Connect connector required; the JDBC connector cannot directly load an ADBC library. | Candidate through a JDBC source connector plus Flight SQL JDBC; verify polling/incremental SQL and type mappings. Not CDC. | [Redis Kafka Connector](https://redis-field-engineering.github.io/redis-kafka-connect/), Redis Field Engineering: sinks and keys/Streams sources; full command API / Query Engine access not established. | Confluent JDBC connector is a Flight SQL candidate, not a verified unrestricted Redis command connector. |
 | 12 | Apache Flink | ✅ 🧩 | Stream processing | **No built-in generic ADBC connector verified.** Its documented relational database connector uses JDBC. [JDBC connector](https://nightlies.apache.org/flink/flink-docs-stable/docs/connectors/table/jdbc/). | Custom source/sink integration required; untested. | Candidate through the JDBC connector plus Flight SQL JDBC; validate dialect, types, batching, and streaming semantics. | [Redis Flink connector](https://github.com/redis-field-engineering/redis-flink-connector-dist), Redis Field Engineering / Redis, Inc.: Streams sources and Streams/JSON/Hash sinks. Full command API / Query Engine access not established. | Apache Flink JDBC connector is a Flight SQL candidate; check dialect and runtime compatibility. |
@@ -109,9 +113,9 @@ completed end-to-end tests or guarantees for every runtime.
 | 15 | Airbyte | ❌ | Data replication | **No generic ADBC connector verified.** An ADBC driver alone does not automatically become an Airbyte connector. [Connector catalog](https://docs.airbyte.com/integrations), [ADBC feature request](https://github.com/airbytehq/airbyte/issues/24546). | Custom Airbyte connector required; untested. | Custom connector required; no generic Flight SQL connector verified. | None verified. | [Marketplace Redis destination](https://docs.airbyte.com/integrations/destinations/redis), Airbyte ecosystem: data-structure writes. Redis source and full command API / Query Engine access not verified. |
 | 16 | Fivetran | ❌ | Managed data replication | **Custom integration candidate.** Its Python Connector SDK can use database libraries, but ADBC packaging and runtime compatibility need validation. [SDK guide](https://fivetran.com/docs/connector-sdk/getting-started). | Custom Connector SDK source; binary packaging/runtime compatibility untested. | Custom Connector SDK source using the Python Flight SQL driver; untested. | None verified. | [Community Redis Connector SDK example](https://github.com/fivetran/community_connectors/tree/main/redis), Fivetran community: reads keyspace/TimeSeries data for replication. Does not expose unrestricted Redis API or Query Engine commands as a tool connector; custom SDK code could be extended. |
 | 17 | dlt | ❌ | Python data loading | **Yes, for selected destinations.** Documents ADBC loading for MySQL, SQL Server, and SQLite; arbitrary drivers need integration work. [ADBC loading details](https://dlthub.com/blog/arrow-adbc-vs-sqlalchemy). | Custom resource can yield fetched Arrow batches; no packaged Redis source/destination verified. | Custom Python resource using Flight SQL can yield Arrow batches; untested. | None verified. | No packaged Redis keyspace connector verified. [dltHub Redis Labs REST API guide](https://dlthub.com/context/source/redis-labs) targets management APIs, not application rows or Query Engine commands. |
-| 18 | pandas | ✅ 🔌 ✈️ | DataFrame processing | **Yes, directly.** SQL read APIs accept ADBC connections through the Python driver manager. [Integration guide](https://arrow.apache.org/adbc/main/integrations.html). | Documented ADBC connection API; pass the open Redis connection to read_sql. Redis integration untested. | Pass an open ADBC Flight SQL connection to read_sql; tool-level Redis integration untested. | None verified. | No dedicated Redis connector verified. Custom extraction can feed [pandas.DataFrame.from_records](https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.from_records.html). |
-| 19 | Polars | ✅ 🔌 ✈️ | Fast DataFrame processing | **Yes, directly.** Database read/write APIs support ADBC connections. [Integration guide](https://arrow.apache.org/adbc/main/integrations.html). | Documented ADBC connection API; pass the open Redis connection to read_database. Redis integration untested. | Pass an open ADBC Flight SQL connection to read_database; tool-level Redis integration untested. | None verified. | No dedicated Redis connector verified. Custom extraction can feed [polars.from_dicts](https://docs.pola.rs/api/python/stable/reference/api/polars.from_dicts.html). |
-| 20 | DuckDB | ✅ 🔌 ✈️ | Embedded analytical SQL | **Yes, in both directions.** DuckDB exposes an ADBC driver, and community extensions let it query other ADBC databases. [Integration guide](https://arrow.apache.org/adbc/main/integrations.html), [Community extension](https://duckdb.org/community_extensions/extensions/adbc). | Candidate through the community adbc extension and a Redis connection profile; untested. | Candidate through the adbc extension with Flight SQL, or fetch Arrow in Python and register it; untested. | None verified. | Experimental [redis extension](https://duckdb.org/community_extensions/extensions/redis), lmangani/gigapi: selected Redis functions, not verified full API / Query Engine access. The ADBC community extension is a separate project. |
+| 18 | pandas | ✅ 🔌 ✈️ | DataFrame processing | **Yes, directly.** SQL read APIs accept ADBC connections through the Python driver manager. [read_sql](https://pandas.pydata.org/docs/reference/api/pandas.read_sql.html). | Candidate: pass an open Redis ADBC DB-API connection to `read_sql`. Direct pandas SQL reads remain untested here; pandas DataFrame round trips through the Dagster IO manager are recorded separately. | Pass an open ADBC Flight SQL connection to read_sql; tool-level Redis integration untested. | None verified. | No dedicated Redis connector verified. Custom extraction can feed [pandas.DataFrame.from_records](https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.from_records.html). |
+| 19 | Polars | ✅ 🔌 ✈️ | Fast DataFrame processing | **Yes, directly.** Database read/write APIs support ADBC connections; URI reads support `engine="adbc"`. [URI read API](https://docs.pola.rs/api/python/stable/reference/api/polars.read_database_uri.html). | **Tested:** `read_database_uri(query, "redis://...", engine="adbc")` discovers `adbc_driver_redis`; DB-API/URI smoke tests and a clean-wheel run are recorded. The [Polars regression suite](../python/tests/test_polars.py) also covers connection reads, write/append round trips, aggregation, NULLs, and empty-result schemas; this refresh did not rerun it. [Guide](python-integrations.md#install-and-discover-the-driver). | Pass an open ADBC Flight SQL connection to read_database; tool-level Redis integration untested. | None verified. | No dedicated Redis connector verified. Custom extraction can feed [polars.from_dicts](https://docs.pola.rs/api/python/stable/reference/api/polars.from_dicts.html). |
+| 20 | DuckDB | ✅ 🔌 ✈️ | Embedded analytical SQL | **Yes, in both directions.** DuckDB exposes an ADBC driver, and distinct community extensions consume drivers: [Query.Farm adbc_scanner](https://query.farm/products/extensions/adbc_scanner/) and [Columnar adbc](https://duckdb.org/community_extensions/extensions/adbc). | **Tested:** Query.Farm `adbc_scanner` attachment, reads/joins, ingestion, and autocommit writes; [guide](duckdb.md). Also tested: this repository's standalone [`redis_adbc`](../duckdb-extension/README.md), which embeds the driver and streams SELECT results. The registry submission has merged for DuckDB 2.0; installation still requires a published build for the exact engine/platform. Source builds are documented. Columnar's separate `adbc` remains untested here. | Candidate through a generic ADBC extension with Flight SQL, or fetch Arrow in Python and register it; untested. The standalone `redis_adbc` extension connects directly to Redis and does not consume Flight SQL. | None verified. | Experimental [redis extension](https://duckdb.org/community_extensions/extensions/redis), lmangani/gigapi: selected Redis functions, not verified full API / Query Engine access. Generic `adbc_scanner` and `adbc` are separate projects; Redis test coverage is specific to the extension named in the Redis ADBC column. |
 | 21 | Ray / Ray Data | ❌ | Distributed Python and ML data processing | **Validated custom Arrow-table bridge; no native ADBC reader verified.** `read_sql` accepts a DB-API 2 connection factory; `from_arrow` imports PyArrow tables. Neither establishes native ADBC support. [SQL reader](https://docs.ray.io/en/latest/data/api/doc/ray.data.read_sql.html), [Arrow import](https://docs.ray.io/en/latest/data/api/doc/ray.data.from_arrow.html). | [Locally validated](sdlc/changes/ray-356/validation.md): fetch a table through Redis ADBC, close the connection, then pass it to from_arrow. Ray 2.59.0 preserved rows, NULLs, Arrow types and empty-result schemas, including subsequent worker processing. The complete query result is materialized in the caller. Direct read_sql use remains untested. | Custom Python loading with adbc_driver_flightsql and from_arrow; untested. The Redis ADBC bridge validation does not establish Flight SQL compatibility. | None verified. | No packaged Ray Redis datasource verified. The tested bridge is custom loading code; worker-side datasource work remains tracked in [#164](https://github.com/redis/redis-adbc-driver/issues/164). |
 | 22 | Dask | ✅ 🔌 | Parallel DataFrames and Python computation | **Via this repository's Redis adapter; no built-in generic ADBC reader verified.** Dask SQL readers use SQLAlchemy URIs; custom readers can use from_map. [SQL integration](https://docs.dask.org/en/stable/dataframe-sql.html), [Custom loading](https://docs.dask.org/en/latest/generated/dask.dataframe.from_map.html). | [adbc_driver_redis.dask.read_query](python-integrations.md#dask) provides lazy partitioned reads with worker-local ADBC connections and pandas Arrow dtypes. [Recorded local validation](sdlc/changes/dask-353/validation.md) includes two worker processes; caller supplies partition parameters and exact schema. | Custom from_map loading with adbc_driver_flightsql and pandas partitions; untested. The bundled Redis helper does not establish Flight SQL compatibility. | None verified. | This repository's [Dask adapter](../python/adbc_driver_redis/dask.py) supplies the ADBC path; Redis, Inc. authorship or support is not established. Native Redis command access is not claimed. |
 
@@ -131,9 +135,17 @@ on its own. ADBC and Flight SQL paths are evaluated separately.
 
 ## Implications for the Redis ADBC driver
 
-Suggested first integration targets are **pandas, Polars, Airflow, Dagster,
-and DuckDB** because they have documented paths for consuming ADBC drivers.
-This is a prioritization recommendation, not a claim of tested Redis compatibility.
+Start with the implemented **Polars, Dagster, DuckDB, and Airflow** paths in the table.
+The [Python integration guide](python-integrations.md) documents the published
+[`adbc-driver-redis`](https://pypi.org/project/adbc-driver-redis/) package,
+DB-API connection setup, TLS alias, and native driver manifests. Wheels bundle
+the driver for Python 3.12+ (3.14 recommended for current source) on Linux amd64/arm64 (glibc 2.28+) and macOS arm64
+(macOS 12+). Non-Python driver consumers still need a manifest or library path.
+Redis with Search must run separately; see [server requirements](driver-reference.md#server-requirements).
+Writes autocommit, and the driver does not provide transaction rollback or isolation.
+
+Direct pandas SQL reads remain a useful next validation target. Pandas round
+trips through the Dagster IO manager do not establish `pandas.read_sql` coverage.
 
 Fabric / Power Query is another candidate with custom connector work. dbt has
 community Redis adapters for Core 1.10–1.x and experimental v2 support in a custom
@@ -157,7 +169,31 @@ materialized in worker memory, and tasks do not share a snapshot. Install the
 package and native driver on every worker. See the
 [Dask partitioning contract](python-integrations.md#dask).
 
+The package also ships [SQLAlchemy and Superset integrations](python-integrations.md#sqlalchemy-and-superset),
+outside this 22-tool selection. Their recorded checks cover reflection, bound SQL,
+Superset discovery, dataset queries, and the SQL Lab cursor path; they do not
+establish browser-rendered chart coverage or transactional ORM support.
+
 ## Testing status
+
+These are **historical recorded results**, not fresh integration runs performed
+for this documentation update. The [2026-10-20 Python verification record](sdlc/changes/271-280/validation.md)
+used macOS arm64, Python 3.12, and disposable Redis 8.6.2 with Search. It records
+ADBC manager 1.12.0, Polars 2.0.0, pandas 3.0.6, Dagster 1.13.26, and DuckDB 1.5.6.
+
+| Path | Recorded evidence | Limits and remaining gaps |
+|---|---|---|
+| DB-API and Polars URI reads | [Python suite](../python/tests/test_driver.py): part of **17 passed, 1 skipped**; clean-wheel driver smoke run: **4 passed**. | The newer [Polars suite](../python/tests/test_polars.py) extends coverage to connection reads, write/append, aggregation, and empty schemas, but was not rerun for this refresh. Not every query/type or wheel/platform is validated. TLS alias discovery is not a TLS handshake test. |
+| Airflow TaskFlow | [Recorded local validation](sdlc/changes/airflow-smoke/validation.md): **2 passed** with Airflow 3.3.2 and Arrow provider 0.1.1 on Redis Software with verified 4x QPF. | Remote executors and Flight SQL untested; `AdbcHook.get_records()` fails. Use the documented discovery/autocommit setup. |
+| Dagster IO manager | [Tests](../python/tests/test_dagster.py): Arrow, pandas, Polars, readers, materializations, partition retries, and an injected stream failure in the same Python suite. | Community `dagster-adbc` / `ADBCResource` is untested here. Multi-dimensional partitions and atomic/transactional replacement are unsupported. |
+| DuckDB via Query.Farm `adbc_scanner` | [Test](../python/tests/test_duckdb.py) and [verification record](sdlc/changes/duckdb-community/validation.md): reads, joins, ingestion, direct INSERT/CTAS, read-only enforcement, and transaction rejection. | Columnar's `adbc` extension, Flight SQL, older extension builds, and universal predicate pushdown. |
+| Standalone DuckDB `redis_adbc` | [Native tests](../duckdb-extension/test/test_native.py): **16 passed** with DuckDB 1.5.6; matching CLI harness: **12 scenarios** on both 1.5.6 and the pinned DuckDB 2.0 registry source, checking 10,003 rows. [Record](sdlc/changes/duckdb-community/validation.md). | Registry publication for every engine/platform remains unverified; the current build targets DuckDB 2.0. Writes, attached catalogs, and bound query parameters are unsupported; this extension is a SELECT-only interface. |
+| SQLAlchemy / Superset (outside the table) | Separate Superset environment: **3 passed**, including SQLAlchemy reflection and Superset dataset / SQL Lab paths. [Tests](../python/tests/test_superset.py). | Browser-rendered charts, broad application workflows, and transaction semantics beyond autocommit. |
+
+The Python suite's skipped Superset test ran separately in its own environment.
+Configured CI jobs are not evidence that every job has passed; consult the linked
+records for platform limits and the workflows for reproducible commands. Historical
+passes do not certify the current checkout or latest upstream releases.
 
 The [Python ADBC validation suite](../go/validation/tests/) exercises the Redis
 shared library, including queries, metadata, ingestion, errors, and cancellation.
@@ -208,6 +244,7 @@ tests of each application against this driver's current checkout. Application
 configuration, metadata discovery, generated SQL, type mappings, authentication,
 and refresh behavior still require validation where applicable.
 
-No integration suites were rerun for this documentation update; the Ray, Dask and
-dbt claims cite their recorded test runs above. SQL syntax similarity alone
-does not establish JDBC, ODBC, SQLAlchemy, or PostgreSQL wire-protocol compatibility.
+No integration suites were rerun for this refresh. The claims above cite historical
+results. SQL syntax similarity alone does not establish JDBC, ODBC, or PostgreSQL
+wire-protocol compatibility, or SQLAlchemy compatibility beyond the explicitly
+tested dialect operations.
