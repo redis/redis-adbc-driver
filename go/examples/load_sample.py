@@ -16,7 +16,7 @@
 Load the sample data set: a `customers` table created with SQL and a
 `sales` table bulk-ingested from Arrow.
 
-    uv run --project validation python examples/load_sample.py [--rows N]
+    python go/examples/load_sample.py [--rows N]
 """
 
 import argparse

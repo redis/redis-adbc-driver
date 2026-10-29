@@ -202,10 +202,10 @@ candidate integrations that have not been tested.
 
 ## Quick start
 
-Download a prebuilt driver, start Redis Software, and load the sample dataset.
+Install the driver from PyPI, start Redis Software, and load the sample dataset.
 You need Git, Docker with Compose, `curl`, `jq`, Make, and Python 3.12+.
 
-### 1. Download the release
+### 1. Install the driver
 
 Clone the repository for its Redis startup script and sample data loader:
 
@@ -214,28 +214,19 @@ git clone --depth 1 https://github.com/redis/redis-adbc-driver.git
 cd redis-adbc-driver
 ```
 
-Download the [v0.0.18 native driver](https://github.com/redis/redis-adbc-driver/releases/tag/v0.0.18)
-for your platform and unpack it into `go/build`, where the examples find it:
+Install the [published Python package](https://pypi.org/project/adbc-driver-redis/0.0.18/),
+which bundles the native driver and selects the wheel for your platform:
 
 ```bash
-case "$(uname -s)-$(uname -m)" in
-  Darwin-arm64) platform=darwin-arm64 ;;
-  Linux-x86_64) platform=linux-amd64 ;;
-  Linux-aarch64|Linux-arm64) platform=linux-arm64 ;;
-  *) echo "Choose a supported platform from the release page."; exit 1 ;;
-esac
-curl -fL -o /tmp/redis-adbc-driver.tar.gz \
-  "https://github.com/redis/redis-adbc-driver/releases/download/v0.0.18/adbc_driver_redis-v0.0.18-${platform}.tar.gz"
-mkdir -p go/build
-tar -xzf /tmp/redis-adbc-driver.tar.gz --strip-components=1 -C go/build
 python3 -m venv .venv
 . .venv/bin/activate
-python -m pip install adbc-driver-manager pyarrow
+python -m pip install 'adbc-driver-redis[dbapi]==0.0.18'
 ```
 
-The native releases support macOS Apple Silicon and Linux x86-64/ARM64
-(glibc 2.28+). For Python applications, you can also
-[install the packaged driver](docs/python-integrations.md#install-and-discover-the-driver).
+Wheels support macOS Apple Silicon and Linux x86-64/ARM64 (glibc 2.28+).
+The examples use the installed package to locate the native library automatically.
+For other installation options, see the
+[installation guide](docs/python-integrations.md#install-and-discover-the-driver).
 To compile your own library, see [Building from source](docs/building.md).
 
 ### 2. Start Redis Software

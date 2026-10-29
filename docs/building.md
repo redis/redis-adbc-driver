@@ -20,8 +20,19 @@ make -C go build
 ```
 
 The output is `go/build/libadbc_driver_redis.dylib` on macOS or
-`go/build/libadbc_driver_redis.so` on Linux. The sample scripts load this path,
-so the built library can replace the downloaded release in the quick start.
+`go/build/libadbc_driver_redis.so` on Linux. To run the sample scripts against
+your build, install the Python wrapper and set `REDIS_ADBC_LIBRARY` to its
+absolute path (use `.dylib` on macOS):
+
+```bash
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install -e './python[dbapi]'
+export REDIS_ADBC_LIBRARY="$PWD/go/build/libadbc_driver_redis.so"
+```
+
+Start the disposable Redis database as described below before loading data.
+The wrapper honors this override instead of looking for its bundled library.
 
 To build the optional HASH collection adoption CLI:
 

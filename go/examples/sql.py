@@ -15,8 +15,8 @@
 """
 Run SQL against Redis through the ADBC driver and print the result.
 
-    uv run --project validation python examples/sql.py "SELECT COUNT(*) FROM sales"
-    uv run --project validation python examples/sql.py      # interactive
+    python go/examples/sql.py "SELECT COUNT(*) FROM sales"
+    python go/examples/sql.py      # interactive
 """
 
 import sys

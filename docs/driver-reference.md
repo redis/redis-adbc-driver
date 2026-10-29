@@ -4453,7 +4453,9 @@ From `go`, using the default Redis Software environment:
 ```bash
 make redis-up
 make build
-REDIS_URI=redis://localhost:6379/0 uv run --project validation python examples/bench.py --rows 100000 --repeat 1
+# Use the built library through the installed Python wrapper (.dylib on macOS).
+export REDIS_ADBC_LIBRARY="$PWD/build/libadbc_driver_redis.so"
+REDIS_URI=redis://localhost:6379/0 uv run --project validation --with-editable '../python[dbapi]' --with redis python examples/bench.py --rows 100000 --repeat 1
 REDIS_URI=redis://localhost:6379/0 uv run --project validation python ../benchmarks/workers/run.py --cpus 10 --output /tmp/adbc-workers-new
 python3 ../benchmarks/workers/summarize.py /tmp/adbc-workers-new
 ```
@@ -4464,7 +4466,8 @@ comparison at standard QPF and saves raw results; the final command produces
 the summary and tables. Use a new output directory for each run. `--cpus`
 fixes client `GOMAXPROCS`, not Docker's CPU allocation. See the
 [method and reproduction details](../benchmarks/workers/2026-10-08/README.md).
-Run `examples/load_sample.py` afterwards to get the quick-start data back.
+Run `uv run --project validation --with-editable '../python[dbapi]' python examples/load_sample.py`
+afterwards to get the quick-start data back.
 
 ## Building and testing
 

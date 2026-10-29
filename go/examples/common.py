@@ -15,20 +15,10 @@
 """Shared helpers for the example scripts."""
 
 import os
-import sys
-from pathlib import Path
 
-import adbc_driver_manager.dbapi
-
-DRIVER = str(
-    Path(__file__).resolve().parent.parent
-    / "build"
-    / f"libadbc_driver_redis.{ {'darwin': 'dylib', 'win32': 'dll'}.get(sys.platform, 'so') }"
-)
+from adbc_driver_redis import dbapi
 
 
-def connect() -> adbc_driver_manager.dbapi.Connection:
+def connect() -> dbapi.Connection:
     uri = os.environ.get("REDIS_URI", "redis://localhost:6379/0")
-    return adbc_driver_manager.dbapi.connect(
-        driver=DRIVER, db_kwargs={"uri": uri}, autocommit=True
-    )
+    return dbapi.connect(uri, autocommit=True)

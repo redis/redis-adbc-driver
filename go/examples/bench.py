@@ -20,7 +20,9 @@ representative queries several times each, reporting wall time (including
 Arrow transfer to Python) and the Redis commands each query sends (from
 INFO commandstats, summed over all cluster nodes).
 
-    uv run --project validation --with redis python examples/bench.py --rows 100000
+    # Install the quick-start driver package and the optional redis dependency first.
+    python -m pip install redis
+    python go/examples/bench.py --rows 100000
 """
 
 import argparse
