@@ -4,6 +4,13 @@ These integrations use the Redis ADBC library, not Redis's wire protocol as a
 PostgreSQL server. Search is required. Writes autocommit; transaction scopes do
 not provide rollback or isolation. Use a dedicated Redis database for tests.
 
+**Recommended Redis configuration:** Query Engine (RediSearch) with Search
+enabled and query performance factor (QPF) set to **4×** where supported.
+Search is required; 4× QPF is recommended for concurrent query performance
+and needs sufficient server CPU capacity. Configure these on the Redis server;
+see [server requirements](driver-reference.md#server-requirements) and the
+[QPF benchmarks](driver-reference.md#query-performance-factor-qpf).
+
 ## Install and discover the driver
 
 Install from [PyPI](https://pypi.org/project/adbc-driver-redis/) (Python 3.14 recommended;

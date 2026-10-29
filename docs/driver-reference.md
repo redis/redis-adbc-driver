@@ -18,8 +18,19 @@ their original server distributions, dates and settings.
 
 ## Server requirements
 
-You don't create any indexes or enable any settings yourself. The one hard
-requirement is the Query Engine.
+**Recommended configuration:** Redis with the Query Engine (RediSearch),
+Search enabled on the database, and query performance factor (QPF) set to
+**4×** where supported. Search is required to connect; 4× QPF is a performance
+recommendation, not a connection requirement. The driver creates its own indexes,
+but you enable Search and configure QPF on the Redis server.
+
+For Redis Cloud or Redis Software deployments that offer QPF, enable the Search
+capability and select **4×** in the database's Query performance factor setting.
+Provision enough CPU capacity for that setting; see
+[Redis's QPF configuration and sizing guidance](https://redis.io/docs/latest/operate/oss_and_stack/stack-with-enterprise/search/query-performance-factor/).
+Deployments without QPF can still use the driver if Search is available. The
+[QPF benchmarks](#query-performance-factor-qpf) show the measured benefits and
+workload limits.
 
 The ADBC driver requires commands and functions unavailable in Valkey and
 Redis 7.2 derivatives, including AWS ElastiCache and Google Cloud Memorystore.
@@ -4404,8 +4415,10 @@ QPF increases server Search compute. It cannot eliminate decoding, transfer,
 or driver-side work, and it needs CPU headroom. The test verified 0 background
 Search workers at standard, 3 at 2×, and 6 at 4×. See
 [Redis's QPF sizing guidance](https://redis.io/docs/latest/operate/oss_and_stack/stack-with-enterprise/search/query-performance-factor/).
-Standard remains the default; choose higher QPF from representative concurrent
-measurements and available CPU capacity.
+Standard remains the server default. **For best concurrent query performance
+with this driver, we recommend 4× QPF where supported**, with Query Engine /
+Search enabled and sufficient CPU capacity. Validate the setting with your
+representative workload; 4× QPF is not a guarantee of a 4× speedup.
 
 [Full report and reproduction commands](../benchmarks/qpf/2026-10-08-adbc/README.md),
 [raw trials and configuration checks](../benchmarks/qpf/2026-10-08-adbc/results.json),

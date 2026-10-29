@@ -8,6 +8,13 @@ has merged; the public extension list still describes DuckDB 1.5.6.
 The integration below uses the
 existing `adbc_scanner` extension and supports attached catalogs and writes.
 
+**Recommended Redis configuration:** Query Engine (RediSearch) with Search
+enabled and query performance factor (QPF) set to **4×** where supported.
+Search is required; 4× QPF is recommended for concurrent query performance
+and needs sufficient server CPU capacity. Configure these on the Redis server;
+see [server requirements](driver-reference.md#server-requirements) and the
+[QPF benchmarks](driver-reference.md#query-performance-factor-qpf).
+
 Python integration CI selects the latest stable DuckDB **2.0.x** with
 `duckdb==2.0.*`. It builds a pinned commit of
 [Query.Farm's v2.0 source](https://github.com/Query-farm/adbc_scanner/tree/v2.0)

@@ -24,6 +24,11 @@ with the [ADBC driver validation suite](https://github.com/adbc-drivers/validati
 It runs SQL over Redis HASHes and the Query Engine, returns Arrow record batches,
 and bulk-ingests Arrow data through a native ADBC library.
 
+**Works best with Redis Query Engine (RediSearch), Search enabled, and
+query performance factor (QPF) set to 4× where supported.** Search is required;
+4× QPF is recommended for concurrent query performance. See
+[server requirements](docs/driver-reference.md#server-requirements) for setup guidance.
+
 For repository context and the development artifact workflow, see the
 [AI-native SDLC records](docs/sdlc/README.md).
 
@@ -40,29 +45,28 @@ For repository context and the development artifact workflow, see the
 
 ## Why a Redis ADBC driver?
 
-Redis clients expose commands and data structures, while analytics applications
-work with tables, SQL, and columnar data. This driver connects those workflows:
-it gives Redis HASH data an [ADBC interface](https://arrow.apache.org/adbc/current/index.html)
-for SQL queries, schema discovery, Arrow results, and bulk ingestion.
+Customers can query Redis with familiar SQL and move data through Apache Arrow,
+making it easier to connect operational data to the tools their teams already use.
 
-The value is in making Redis data easier to use across the data engineering
-workflow:
+**What this means for customers:**
 
-- **Analyze operational data where it lives.** Query driver-managed tables or
-  [explicitly adopted HASH collections](docs/driver-reference.md#existing-hash-collections-redis-adbc)
-  through supported SQL, without first exporting them to another database for
-  every analysis. Redis HASHes remain the authoritative row storage.
-- **Reuse analytics and pipeline tooling.** Use typed Arrow results in dataframe
-  workflows and the project's [Python integrations](docs/python-integrations.md)
-  for tools such as Polars, SQLAlchemy, Dask, and Dagster. A shared database
-  interface reduces the custom Redis command handling and table-conversion code
-  each integration needs. See the [integration status](docs/data-engineering-adbc-support.md)
-  for the capabilities and validation limits of individual tools.
-- **Exchange data in batches.** Fetch Arrow record batches with schemas and NULL
-  information, or bulk-ingest Arrow data into Redis. Applications can pass a
-  common columnar representation between processing steps. The driver still
-  decodes Redis replies and converts values to Arrow; Redis storage remains
-  row-oriented HASHes.
+- **Use popular data engineering tools:** Bring Redis data into workflows with
+  Dagster, Airflow, Python, pandas, Polars, and other tools that can consume ADBC
+  drivers. Some tools require custom tasks or integration code; see the
+  [integration status guide](docs/data-engineering-adbc-support.md) for details.
+- **Analyze data where it lives:** Query data directly in Redis using products
+  like [Apache Superset](docs/python-integrations.md#sqlalchemy-and-superset)
+  and [DuckDB](docs/duckdb.md), reducing the need to export it elsewhere before
+  analysis.
+- **Less custom integration code:** Use standard SQL and Arrow interfaces to
+  reduce application-specific reads and data conversions.
+- **More value from existing data:** Bring eligible Redis HASH collections into
+  SQL workflows [in place](docs/driver-reference.md#adopt-hashes-in-place),
+  without copying their rows.
+- **Efficient data movement:** Stream typed Arrow results and bulk-load Arrow
+  batches, with supported filters and aggregations pushed down to Redis's
+  Query Engine.
+
 - **Enable Flight SQL and JDBC integration.** The
   [Redis Arrow Flight server](https://github.com/redis/redis-apache-arrow-flight)
   uses this driver as its Redis SQL/Arrow backend. JDBC tools such as DBeaver can
@@ -71,6 +75,9 @@ workflow:
   See its [client examples](https://github.com/redis/redis-apache-arrow-flight#client-examples)
   and [client compatibility matrix](https://github.com/redis/redis-apache-arrow-flight/blob/main/docs/client-compatibility.md)
   for setup and tested compatibility.
+
+A simpler path from application data to exploration, dashboards, and data
+pipelines—with less glue code to build and maintain.
 
 The intended use cases are operational reporting, data exploration, and Arrow
 data pipelines over supported HASH data. Redis with the Query Engine and RESP3
