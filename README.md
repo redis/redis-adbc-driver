@@ -37,6 +37,13 @@ automatic downloads, stable paths, upgrades and uninstall.
 For dbc package creation and the pending public registry submission, see
 [Redis in dbc](docs/dbc.md).
 
+The driver uses an opinionated data model in Redis, with specific requirements
+for rows, indexes, and table metadata (see [Architecture](#architecture-hybrid-index-row-layout)).
+Existing Redis data may be adopted in place when compatible (see
+[Existing HASH collections](#existing-hash-collections-redis-adbc)). If your
+current data model cannot be adopted by the driver, you must migrate your data
+to the driver's opinionated data model to use it.
+
 For repository context and the development artifact workflow, see the
 [AI-native SDLC records](docs/sdlc/README.md).
 
