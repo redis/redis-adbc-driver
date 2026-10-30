@@ -5,6 +5,7 @@
 - Status: implementation complete; PR review pending
 - Requestor: user
 - PR: [#248](https://github.com/redis/redis-adbc-driver/pull/248)
+- PR: [#248](https://github.com/redis/redis-adbc-driver/pull/248)
 
 ## Problem
 
