@@ -78,8 +78,8 @@ jobs:
                   metadata = email.message_from_bytes(z.read(metadata_path))
                   assert metadata['Name'] == 'adbc-driver-redis' and metadata['Version'] == version
                   assert 'sqlalchemy' in metadata.get_all('Provides-Extra', [])
-                  # All wheel targets use this filename, including macOS Mach-O.
-                  assert 'adbc_driver_redis/libadbc_driver_redis.so' in z.namelist()
+                  # The next step checks the native library in root or .data
+                  # install layouts, including its binary format/architecture.
                   assert any(n.endswith('adbc_driver_redis/superset.py') for n in z.namelist())
                   assert any(n.endswith('adbc_driver_redis/sqlalchemy.py') for n in z.namelist())
               shutil.copy2(wheel, pathlib.Path('dist') / name)
