@@ -61,6 +61,9 @@ on:
       - python/adbc_driver_redis/**
       - scripts/build_python_wheel.py
       - scripts/install*
+      - scripts/test_install_driver.py
+      - scripts/check_install_doctor.py
+      - scripts/check_native_install.py
       - scripts/*partition*
       - '!**/*.md'
 
@@ -217,6 +220,10 @@ jobs:
           uv venv --python 3.14 /tmp/redis-wheel-smoke
           uv pip install --python /tmp/redis-wheel-smoke/bin/python dist/*.whl pyarrow polars pytest
           /tmp/redis-wheel-smoke/bin/python -m pytest -q python/tests/test_driver.py
+          if [ -f scripts/check_native_install.py ]; then
+            /tmp/redis-wheel-smoke/bin/python scripts/check_native_install.py \
+              --library go/build/libadbc_driver_redis.so --check-connection
+          fi
           if [ -f scripts/check_partition_junit.py ]; then
             export REDIS_ADBC_LIBRARY="$(/tmp/redis-wheel-smoke/bin/python -c 'from adbc_driver_redis import _driver_path; print(_driver_path())')"
             cd go/validation
@@ -233,6 +240,11 @@ jobs:
             --api-port 19443 --db-port 6379 --shards 1
           export REDIS_TLS_ADMIN_URI="$(cat "$RUNNER_TEMP/software-partition-tls/admin.uri")"
           export SSL_CERT_FILE="$RUNNER_TEMP/software-partition-tls/ca.crt"
+          if [ -f scripts/check_install_doctor.py ]; then
+            REDIS_URI="$REDIS_TLS_ADMIN_URI" env -u REDIS_ADBC_LIBRARY /tmp/redis-wheel-smoke/bin/python \
+              scripts/check_install_doctor.py --software-fixture "$RUNNER_TEMP/software-partition-tls" \
+              --output "$RUNNER_TEMP/install-doctor-result.json"
+          fi
           env -u REDIS_ADBC_LIBRARY /tmp/redis-wheel-smoke/bin/python scripts/check_partition_tls.py --require-wheel \
             --software-fixture "$RUNNER_TEMP/software-partition-tls" \
             --output "$RUNNER_TEMP/software-partition-tls-result.json"
@@ -242,7 +254,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: wheel-software-partition-tls-${{ matrix.arch }}
-          path: ${{ runner.temp }}/software-partition-tls-result.json
+          path: |
+            ${{ runner.temp }}/software-partition-tls-result.json
+            ${{ runner.temp }}/install-doctor-result.json
           if-no-files-found: warn
 
       - name: Remove Software TLS private material
@@ -524,6 +538,9 @@ jobs:
           uv venv --python 3.14 /tmp/redis-wheel-smoke
           uv pip install --python /tmp/redis-wheel-smoke/bin/python dist/*.whl
           /tmp/redis-wheel-smoke/bin/python -c "import ctypes; from adbc_driver_redis import _driver_path; ctypes.CDLL(_driver_path()).AdbcDriverInit"
+          if [ -f scripts/check_native_install.py ]; then
+            python3 scripts/check_native_install.py --library go/build/libadbc_driver_redis.dylib
+          fi
 
       - name: Start native macOS Redis with Search
         if: hashFiles('scripts/native_partition_redis.py') != ''

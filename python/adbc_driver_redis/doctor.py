@@ -27,10 +27,12 @@ def connection_hint(error):
     return "Connection/query failed. Check REDIS_URI, network access, server requirements and ACL permissions."
 
 
-def _query(uri, driver=None):
+def _query(uri, driver=None, *, ca_file=None):
     from . import dbapi
 
     options = {"adbc.redis.read_timeout": "5s", "adbc.redis.write_timeout": "5s"}
+    if ca_file is not None:
+        options["adbc.redis.tls_ca_file"] = str(ca_file)
     if driver is None:
         connection = dbapi.connect(uri, db_kwargs=options)
     else:
@@ -45,7 +47,7 @@ def _query(uri, driver=None):
             raise ValueError("Unexpected SELECT 1 result")
 
 
-def diagnose(*, uri=None, check_manifests=False, output=None):
+def diagnose(*, uri=None, check_manifests=False, ca_file=None, output=None):
     output = output or sys.stdout
 
     def report(status, message):
@@ -79,8 +81,9 @@ def diagnose(*, uri=None, check_manifests=False, output=None):
     if uri is None:
         report("SKIP", "Connection and manifest discovery not tested. Set REDIS_URI and rerun doctor --check-manifests.")
         return 0
+    query_options = {"ca_file": ca_file} if ca_file is not None else {}
     try:
-        _query(uri)
+        _query(uri, **query_options)
     except Exception as error:
         report("FAIL", connection_hint(error))
         return 1
@@ -89,7 +92,7 @@ def diagnose(*, uri=None, check_manifests=False, output=None):
         failed = False
         for driver in ("redis", "rediss"):
             try:
-                _query(uri, driver)
+                _query(uri, driver, **query_options)
             except Exception:
                 report("FAIL", f"{driver} discovery/query failed. Run: python -m adbc_driver_redis install-manifest --user; use --venv for environment-scoped clients, or set ADBC_DRIVER_PATH for a custom manifest directory. Retry after correcting discovery or connection settings.")
                 failed = True

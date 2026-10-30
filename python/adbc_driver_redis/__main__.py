@@ -13,6 +13,7 @@ def main():
     doctor.add_argument("--uri", help="Redis URI (defaults to REDIS_URI; prefer the environment for credentials)")
     doctor.add_argument("--offline", action="store_true", help="Do not connect, even if REDIS_URI is set")
     doctor.add_argument("--check-manifests", action="store_true", help="Also test redis/rediss manifest discovery (requires a URI)")
+    doctor.add_argument("--ca-file", help="PEM trust bundle for a verified rediss:// connection")
     install = commands.add_parser("install-manifest", help="Register the native library for other tools")
     group = install.add_mutually_exclusive_group()
     group.add_argument("--user", dest="scope", action="store_const", const="user")
@@ -29,7 +30,9 @@ def main():
         uri = None if args.offline else args.uri or os.environ.get("REDIS_URI")
         if args.check_manifests and not uri:
             parser.error("--check-manifests requires --uri or REDIS_URI, without --offline")
-        return diagnose(uri=uri, check_manifests=args.check_manifests)
+        if args.ca_file and not uri:
+            parser.error("--ca-file requires --uri or REDIS_URI, without --offline")
+        return diagnose(uri=uri, check_manifests=args.check_manifests, ca_file=args.ca_file)
     for path in install_manifest(
         args.library or _driver_path(),
         directory=args.directory,

@@ -135,3 +135,21 @@ def test_live_driver_and_discovery(uri, tmp_path, monkeypatch):
     install_manifest(_driver_path(), directory=tmp_path)
     monkeypatch.setenv("ADBC_DRIVER_PATH", str(tmp_path))
     assert doctor.diagnose(uri=uri, check_manifests=True) == 0
+
+
+def test_ca_bundle_reaches_all_discovery_queries(installed, monkeypatch):
+    calls = []
+    monkeypatch.setattr(doctor, "_query", lambda *args, **kwargs: calls.append((args, kwargs)))
+    assert doctor.diagnose(uri="rediss://host", ca_file="test-ca.pem", check_manifests=True, output=io.StringIO()) == 0
+    assert len(calls) == 3
+    assert all(kwargs == {"ca_file": "test-ca.pem"} for _, kwargs in calls)
+
+
+def test_cli_ca_bundle_requires_online_uri(monkeypatch):
+    from adbc_driver_redis.__main__ import main
+
+    monkeypatch.delenv("REDIS_URI", raising=False)
+    monkeypatch.setattr(sys, "argv", ["redis", "doctor", "--ca-file", "test.pem"])
+    with pytest.raises(SystemExit) as error:
+        main()
+    assert error.value.code == 2

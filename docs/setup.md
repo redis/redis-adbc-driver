@@ -11,6 +11,10 @@ before they appear as SQL tables.
 
 ## Install without building
 
+For native clients such as DuckDB, use the [managed native installer](native-installation.md)
+for automatic downloads, checksum verification, stable library paths, upgrades
+and uninstall. The Python wheel path below remains the simplest Python setup.
+
 Use Python 3.14 for current integrations; Python 3.12+ remains installable for
 the separate Superset compatibility environment. Wheels include the native library for Linux x86-64/ARM64
 (glibc 2.28+) and macOS ARM64 (macOS 12+). Windows, macOS Intel and musl Linux
@@ -42,6 +46,8 @@ or ingest sample rows. Read/write timeouts are set to five seconds per command;
 connection retries and URI settings can make the total run longer. A successful
 plaintext connection does not test TLS. Use your actual `rediss://` endpoint to
 check TLS, leaving certificate verification enabled.
+For a private CA, add `--ca-file /path/to/ca.pem`; it applies the driver's explicit
+trust-bundle option to the direct connection and both manifest discovery checks.
 
 ## Pick an integration
 
@@ -179,6 +185,10 @@ For native-only installations, download the matching archive and checksum from
 the SHA-256, extract into a stable directory, then run `./install.sh --user` there.
 The native installer requires Python 3.12+ without additional Python packages.
 The Python `doctor` command requires the Python package; it is not in native tarballs.
+
+For a managed installation, use [install, upgrade and uninstall](native-installation.md)
+instead of unpacking into a temporary directory. The existing tarball installer
+remains available for manual library placement.
 
 ## Airflow
 

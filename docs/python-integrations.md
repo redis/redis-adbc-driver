@@ -2,6 +2,8 @@
 
 For a tool-by-tool starting point and the `doctor` command, see
 [Choose your tool and connect](setup.md).
+For native clients outside Python, the [managed installer](native-installation.md)
+downloads and registers the library and supports upgrade/uninstall.
 
 These integrations use the Redis ADBC library, not Redis's wire protocol as a
 PostgreSQL server. Search is required. Writes autocommit; transaction scopes do
