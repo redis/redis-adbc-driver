@@ -15,17 +15,32 @@ installation does not upgrade that wheel.
 From a checkout:
 
 ```sh
-python3 scripts/install_driver.py install --version v0.0.18
+python3 scripts/install_driver.py install --version v0.0.19
 ```
 
 Without a checkout, this single command retrieves and runs the same installer:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/redis/redis-adbc-driver/main/scripts/install_driver.py | python3 - install --version v0.0.18
+curl -fsSL https://raw.githubusercontent.com/redis/redis-adbc-driver/v0.0.19/scripts/install_driver.py | python3 - install --version v0.0.19
 ```
 
 To inspect it first, download `scripts/install_driver.py` from the repository
 and run it locally. Replace the example tag with your chosen stable release.
+The [v0.0.19 release](https://github.com/redis/redis-adbc-driver/releases/tag/v0.0.19)
+also includes `install_driver.py` and its SHA-256 file. Download both into the
+same directory and verify them before running the script:
+
+```sh
+python3 - <<'PY'
+import hashlib
+from pathlib import Path
+expected = Path('install_driver.py.sha256').read_text().split()[0]
+assert hashlib.sha256(Path('install_driver.py').read_bytes()).hexdigest() == expected
+print('Installer checksum verified')
+PY
+python3 install_driver.py install --version v0.0.19
+```
+
 Omit `--version` to resolve the latest published stable release. Downloads and
 redirects use HTTPS; the checksum comes from the selected GitHub release.
 The installer rejects prerelease tags, checksum mismatches, unsafe tar members,
@@ -45,7 +60,7 @@ No elevated privileges are requested. Default locations:
 Use `--prefix` and `--manifest-directory` to choose other locations:
 
 ```sh
-python3 scripts/install_driver.py install --version v0.0.18 \
+python3 scripts/install_driver.py install --version v0.0.19 \
   --prefix /path/to/native/redis --manifest-directory /path/to/manifests
 export ADBC_DRIVER_PATH=/path/to/manifests
 ```
@@ -67,7 +82,7 @@ not create a managed installation for this upgrade/uninstall workflow.
 ```sh
 python3 scripts/install_driver.py upgrade
 # Or pin a stable release:
-python3 scripts/install_driver.py upgrade --version v0.0.18
+python3 scripts/install_driver.py upgrade --version v0.0.19
 ```
 
 If you used the checkout-free install, retrieve the script again or run the
@@ -108,9 +123,9 @@ Transfer the platform archive and its `.sha256` file from the same stable
 [GitHub release](https://github.com/redis/redis-adbc-driver/releases):
 
 ```sh
-python3 scripts/install_driver.py install --version v0.0.18 \
-  --archive /downloads/adbc_driver_redis-v0.0.18-linux-amd64.tar.gz \
-  --checksum-file /downloads/adbc_driver_redis-v0.0.18-linux-amd64.tar.gz.sha256
+python3 scripts/install_driver.py install --version v0.0.19 \
+  --archive /downloads/adbc_driver_redis-v0.0.19-linux-amd64.tar.gz \
+  --checksum-file /downloads/adbc_driver_redis-v0.0.19-linux-amd64.tar.gz.sha256
 ```
 
 Both files and an explicit stable version are required. The checksum entry must
