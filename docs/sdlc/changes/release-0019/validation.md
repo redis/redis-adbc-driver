@@ -1,6 +1,6 @@
 # Validation: v0.0.19 and clean installation
 
-Date: 2026-10-29. Status: native release verified; Python publication awaits PyPI configuration.
+Date: 2026-10-29. Status: GitHub and PyPI released; fresh-install verification passed.
 Source: `9f18518e1daddd209c23cb58cfadaef07b66fb39`.
 Inputs: [intent](intent.md), [spec](spec.md), [plan](plan.md).
 
@@ -38,7 +38,7 @@ Inputs: [intent](intent.md), [spec](spec.md), [plan](plan.md).
   use Query.Farm's signed DuckDB 2.0 repository and documented the checksummed
   installer release asset.
 
-## Pending completion
+## Release and distribution completion
 
 - All tagged native build, distribution and wheel-client validation passed.
   Verified the complete set of 27 published assets, checksum metadata and catalog
@@ -65,9 +65,17 @@ Inputs: [intent](intent.md), [spec](spec.md), [plan](plan.md).
   PyPI returned `invalid-publisher`: no matching publisher for owner `redis`,
   repository `redis-adbc-driver`, workflow `publish-pypi.yml`, environment `pypi`.
   An authorized noninteractive local credential attempt found no configured API
-  token and did not upload files. The user was given the exact publishing-settings
-  link and fields; publication/fresh-PyPI-install verification remain pending
-  that account configuration. No credential material is included in this record.
+  token and did not upload files. The user added the exact trusted-publisher
+  configuration and authorized a retry. Trusted Publishing then succeeded.
+  No credential material is included in this record.
+- [PyPI 0.0.19](https://pypi.org/project/adbc-driver-redis/0.0.19/) contains all
+  three wheels, with SHA-256 values matching the GitHub release. A fresh Python
+  3.14 installation from the official PyPI index loaded bundled native v0.0.19,
+  passed offline doctor, connected to verified Redis Software 4x QPF and fully
+  fetched `SELECT 1`. Explicitly unset source/library-path overrides to ensure
+  the installed package was used. Temporary manifest registration followed by
+  `doctor --check-manifests` passed for both `redis` and `rediss`; the shared
+  endpoint used plaintext, so these checks are not additional TLS evidence.
 - The separate release-triggered standalone DuckDB extension build/test workflow
   also passed on macOS ARM64, Linux ARM64 and Linux amd64.
 - Documentation checks passed for 51 relative links, code/Markdown syntax,
