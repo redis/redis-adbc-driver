@@ -1,5 +1,36 @@
 # Release and recovery runbook
 
+## v0.0.19 publication follow-up (2026-10-29)
+
+[v0.0.19](https://github.com/redis/redis-adbc-driver/releases/tag/v0.0.19)
+contains the native installer/checksum, native libraries and CLI archives,
+Python wheels, and flat dbc packages/catalog. All 27 release assets and the
+tagged native/distribution/wheel validation passed. The
+[clean installation record](changes/release-0019/validation.md) covers macOS and
+Linux DuckDB setup, real upgrade and uninstall, plus the published dbc package.
+
+The Python publishing validator was corrected in
+[PR #243](https://github.com/redis/redis-adbc-driver/pull/243) to accept standard
+wheel `.data` install layouts. The next publication attempt reached PyPI but
+returned `invalid-publisher`. The user added a GitHub trusted publisher at the
+[project publishing settings](https://pypi.org/manage/project/adbc-driver-redis/settings/publishing/)
+with owner `redis`, repository `redis-adbc-driver`, workflow `publish-pypi.yml`
+and environment `pypi`. The retry succeeded, and
+[PyPI 0.0.19](https://pypi.org/project/adbc-driver-redis/0.0.19/) now contains all
+three platform wheels. A fresh Python 3.14 install loaded native v0.0.19 and
+passed live doctor/manifest checks against verified Software 4x QPF. All PyPI
+wheel hashes match their GitHub release counterparts. The dispatch command is:
+
+```sh
+gh workflow run publish-pypi.yml --repo redis/redis-adbc-driver --ref main -f tag=v0.0.19
+```
+
+The original personal-repository publisher below is historical. Do not rebuild
+or rewrite release artifacts to resolve an account-level publisher configuration
+error; correct the publisher and retry the same validated release.
+
+## Historical workflow snapshot
+
 Snapshot: 2026-10-20, `6f42461`. Authority for executable details:
 [release.yml](../../.github/workflows/release.yml) and
 [build-linux.sh](../../go/build-linux.sh). This is a library/CLI distribution

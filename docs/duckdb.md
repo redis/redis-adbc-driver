@@ -21,9 +21,12 @@ see [server requirements](driver-reference.md#server-requirements) and the
 Python integration CI selects the latest stable DuckDB **2.0.x** with
 `duckdb==2.0.*`. It builds a pinned commit of
 [Query.Farm's v2.0 source](https://github.com/Query-farm/adbc_scanner/tree/v2.0)
-against the selected DuckDB release, because matching community binaries are
-unavailable. `ADBC_SCANNER_EXTENSION` points the integration test at that local
-unsigned build; installation and loading failures remain test failures.
+against the selected DuckDB release to validate a known source and matching ABI.
+End users can first try the signed Query.Farm
+repository below; its DuckDB 2.0.0 packages were verified on macOS ARM64 and
+Linux ARM64 in an isolated installation journey. `ADBC_SCANNER_EXTENSION` points
+the integration test at that local unsigned build; installation and loading
+failures remain test failures.
 
 [Query.Farm's adbc_scanner](https://query.farm/products/extensions/adbc_scanner/)
 loads the native driver into DuckDB. Install a driver manifest first (see

@@ -166,8 +166,12 @@ must run as the same user or receive `ADBC_DRIVER_PATH` in its own environment.
 In DuckDB, after registration:
 
 ```sql
-INSTALL adbc_scanner FROM community;
-LOAD adbc_scanner;
+-- DuckDB 2.0 uses Query.Farm's signed extension repository.
+SET allow_extension_repositories = 'allowed';
+CREATE EXTENSION REPOSITORY IF NOT EXISTS query_farm
+  WITH PREFIX 'https://duckdb-extensions.query.farm';
+INSTALL adbc_scanner FROM query_farm;
+LOAD adbc_scanner FROM query_farm;
 ATTACH 'redis://localhost:6379/0' AS r (TYPE adbc, driver 'redis', READ_ONLY);
 SELECT * FROM adbc_scan('r', 'SELECT 1 AS one');
 DETACH r;
