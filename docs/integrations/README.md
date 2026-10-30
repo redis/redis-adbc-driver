@@ -30,3 +30,16 @@ existing per-integration issues linked there.
 
 [Upstream contribution status](../upstream-submissions/status.md) records submitted
 PRs and the prepared changes requiring human or maintainer action.
+
+## Additional workflows under review
+
+[PR #248](https://github.com/redis/redis-adbc-driver/pull/248) adds NumPy,
+scikit-learn, Jupyter notebook, Hugging Face Datasets, Streamlit and SciPy
+workflows. That PR is still unmerged. Their test records describe custom Python
+data paths with specific validation limits; the twelve guides above do not yet
+cover these additions.
+
+See [new workflow documentation status](../upstream-submissions/status.md#new-workflows-in-pr-248)
+for each upstream project, proposed documentation placement, and submission gaps.
+[Issue #249](https://github.com/redis/redis-adbc-driver/issues/249) tracks the
+missing guides and upstream submissions.
