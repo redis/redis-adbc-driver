@@ -10,7 +10,7 @@ Date: 2026-10-29. Source: public main `820d5af`. Status: implemented and locally
    concurrency, retries, retention, authentication, pagination and existing unit suite.
 5. Inspect dashboard and review against REVIEW.md. No release/deployment in scope.
 
-## Validation evidence
+## Initial implementation validation
 
 All commands were run on 2026-10-29 (America/Los_Angeles).
 
@@ -58,3 +58,22 @@ time windows use receipt dates; scripts/batches count as one API execution;
 client buffering is in memory; production hosting/TLS, customer identity mapping,
 Scarf imports, scheduling download snapshots and release publishing remain
 operator configuration. No deployment or release was performed.
+
+
+## Public-main PR port
+
+Ported only the analytics commit onto public main `820d5af`, preserving its
+current IPC execution wrappers, partition lifecycle and dependency versions.
+The unit fixture now supplies the execution transport configuration required
+by that branch. No unrelated source history is part of the PR.
+
+- Public-main Go unit suite: **650 passed, 572 skipped**, no failures. Skips are
+  opt-in Redis/environment checks, not a claim of integration coverage.
+- Collector tests: **5 passed** on the ported branch.
+- Native macOS arm64 shared library rebuilt successfully.
+- The new isolated Software fixture was started via `make redis-up` and verified
+  active **4x QPF**, 6 Search workers, mnp routing and 32 connections before tests.
+- `REDIS_URI=redis://localhost:26379/0 go test -race -count=1 -p 1 -run
+  '^(TestUsage|TestSQLStream|TestSQLCancel|TestSQLBoundStrings)' ./...`: passed
+  against that verified Software 4x QPF fixture, with no race findings.
+- The dedicated Software container and its network were removed after validation.

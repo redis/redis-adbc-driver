@@ -54,7 +54,11 @@ func usageStatement(t *testing.T, u *usageTelemetry, query string) *statementImp
 	if err != nil {
 		t.Fatal(err)
 	}
-	c := &connectionImpl{usage: u, store: &store{}, sess: newSession(defaultSchema), workerBudget: &workerBudget{}, ConnectionImplBase: driverbase.NewConnectionImplBase(&db.DatabaseImplBase)}
+	cfg, err := db.clientConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := &connectionImpl{clientCfg: cfg, usage: u, store: &store{}, sess: newSession(defaultSchema), workerBudget: &workerBudget{}, ConnectionImplBase: driverbase.NewConnectionImplBase(&db.DatabaseImplBase)}
 	return &statementImpl{conn: c, query: query, StatementImplBase: driverbase.NewStatementImplBase(&c.ConnectionImplBase, c.ErrorHelper)}
 }
 func TestUsageDisabledAndValidation(t *testing.T) {
