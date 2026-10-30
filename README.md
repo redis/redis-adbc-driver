@@ -32,6 +32,9 @@ factor (QPF) set to 4× where supported.** Search is required;
 **Installing for a data tool?** Start with [Choose your tool and connect](docs/setup.md)
 for wheel installation, connection diagnostics, manifests and application setup.
 
+For dbc package creation and the pending public registry submission, see
+[Redis in dbc](docs/dbc.md).
+
 For repository context and the development artifact workflow, see the
 [AI-native SDLC records](docs/sdlc/README.md).
 
@@ -496,3 +499,4 @@ docker compose -f go/compose.yaml exec redis-software /opt/redislabs/bin/redis-c
 ```
 
 Stop and remove the disposable Redis Software database with `make -C go redis-down`.
+

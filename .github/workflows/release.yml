@@ -60,6 +60,8 @@ on:
       - python/pyproject.toml
       - python/adbc_driver_redis/**
       - scripts/build_python_wheel.py
+      - scripts/build_dbc_package.py
+      - scripts/test_dbc_package.py
       - scripts/install*
       - scripts/*partition*
       - '!**/*.md'
@@ -141,6 +143,10 @@ jobs:
       - name: Check cluster readiness gate
         if: hashFiles('scripts/test_cluster_ready.py') != ''
         run: python3 -m unittest discover -s scripts -p test_cluster_ready.py -v
+
+      - name: Check dbc packaging
+        if: hashFiles('scripts/test_dbc_package.py') != ''
+        run: python3 -m unittest discover -s scripts -p test_dbc_package.py -v
 
       # Built on AlmaLinux 8 against glibc 2.28 (checked), so the library
       # loads on RHEL 8 and 9, Ubuntu 20.04 and later, and Amazon Linux 2023.
@@ -345,6 +351,10 @@ jobs:
         env:
           ARCH: ${{ matrix.arch }}
         run: |
+          if [ -f scripts/build_dbc_package.py ]; then
+            python3 scripts/build_dbc_package.py --library go/build/libadbc_driver_redis.so \
+              --platform "linux_$ARCH" --version "$VERSION" --out dist
+          fi
           name="adbc_driver_redis-$VERSION-linux-$ARCH"
           mkdir -p "dist/$name"
           cp go/build/libadbc_driver_redis.so go/build/libadbc_driver_redis.h README.md "dist/$name/"
@@ -620,6 +630,10 @@ jobs:
 
       - name: Package
         run: |
+          if [ -f scripts/build_dbc_package.py ]; then
+            python3 scripts/build_dbc_package.py --library go/build/libadbc_driver_redis.dylib \
+              --platform macos_arm64 --version "$VERSION" --out dist
+          fi
           name="adbc_driver_redis-$VERSION-darwin-arm64"
           mkdir -p "dist/$name"
           cp go/build/libadbc_driver_redis.dylib go/build/libadbc_driver_redis.h README.md "dist/$name/"
@@ -745,6 +759,7 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with:
           pattern: linux-*
@@ -754,7 +769,13 @@ jobs:
         with:
           name: darwin-arm64
           path: dist
+      - name: Generate Redis dbc registry entry
+        run: |
+          if compgen -G 'dist/redis_*.tar.gz' > /dev/null; then
+            python3 scripts/build_dbc_package.py --index-only --version "$VERSION" --out dist
+          fi
       - name: Attach to the release
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "$VERSION" dist/* --clobber --repo "$GITHUB_REPOSITORY"
+
