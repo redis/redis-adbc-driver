@@ -31,6 +31,8 @@ factor (QPF) set to 4× where supported.** Search is required;
 
 **Installing for a data tool?** Start with [Choose your tool and connect](docs/setup.md)
 for wheel installation, connection diagnostics, manifests and application setup.
+Native clients can use the [managed installer](docs/native-installation.md) for
+automatic downloads, stable paths, upgrades and uninstall.
 
 For dbc package creation and the pending public registry submission, see
 [Redis in dbc](docs/dbc.md).
