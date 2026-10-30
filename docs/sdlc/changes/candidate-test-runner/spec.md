@@ -3,6 +3,7 @@
 - Date: 2026-10-30
 - Source commit: `22fee6849d0fdb49b894b67e26077d6a2f853b80`
 - Status: implemented; PR review pending
+- PR: [#248](https://github.com/redis/redis-adbc-driver/pull/248)
 - Intent: [intent.md](intent.md)
 - Plan: [plan.md](plan.md)
 

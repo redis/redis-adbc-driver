@@ -4,6 +4,7 @@
 - Source commit: `22fee6849d0fdb49b894b67e26077d6a2f853b80`
 - Status: implementation complete; PR review pending
 - Requestor: user
+- PR: [#248](https://github.com/redis/redis-adbc-driver/pull/248)
 
 ## Problem
 
