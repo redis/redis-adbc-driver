@@ -12,3 +12,6 @@ python/dist/
 dist/
 .pytest_cache/
 build/
+
+# Local adoption analytics databases
+analytics.sqlite3*

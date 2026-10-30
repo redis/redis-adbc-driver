@@ -37,6 +37,10 @@ automatic downloads, stable paths, upgrades and uninstall.
 For dbc package creation and the pending public registry submission, see
 [Redis in dbc](docs/dbc.md).
 
+[Optional adoption analytics](analytics/README.md) provides company/team labels,
+aggregate query metrics, a local dashboard, and download snapshots. Reporting is
+off by default and excludes SQL text and result values.
+
 For repository context and the development artifact workflow, see the
 [AI-native SDLC records](docs/sdlc/README.md).
 

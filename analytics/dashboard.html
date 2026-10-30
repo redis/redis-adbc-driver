@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Redis ADBC · Adoption analytics</title>
+<link rel="stylesheet" href="/dashboard.css">
+<p class="muted">REDIS / ADBC DRIVER</p><h1>Adoption analytics</h1>
+<p class="muted">Opt-in reporting installations · Last 28 days unless labeled · Organization and team labels are self-reported, not verified identities.</p>
+<form id="login"><input id="token" type="password" placeholder="Dashboard read token" aria-label="Dashboard read token" required><button>Load dashboard</button><span id="status" role="status"></span></form>
+<div id="cards" class="cards"></div>
+<section><h2>Query mix and reliability</h2><p class="muted">One attempt = one ExecuteQuery/ExecuteUpdate call, including an entire script or parameter batch. Success requires result exhaustion. Latency includes application fetch time; histogram percentiles are upper bounds.</p><div id="queries" class="scroll"></div></section>
+<section><h2>Organizations, teams and applications</h2><div id="orgs" class="scroll"></div></section>
+<section><h2>SQL features</h2><p class="muted">Top-level SELECT features; one execution may use several features. Nested query bodies are not included.</p><div id="features" class="scroll"></div></section>
+<section><h2>Daily activity</h2><p class="muted">UTC collector receipt date. Offline or delayed reports may move activity into a later day.</p><div id="daily" class="scroll"></div></section>
+<section><h2>Download snapshots</h2><p class="muted">Downloads measure distribution activity, not unique users. GitHub build assets may be fetched by packaging jobs. Channels are shown separately.</p><div id="downloads" class="scroll"></div></section>
+<p class="muted">Week-4 retention: installations with a successful execution 28–35 days after their first observed successful execution; only cohorts with the full 35-day window are eligible. Installation IDs must remain stable. Missing telemetry, blocked networks and opt-out users are outside this view.</p>
+<script src="/dashboard.js"></script>
+</html>
