@@ -72,6 +72,11 @@ from the user's project environments.
 
 ## Compatibility limits and warnings retained
 
+- Open follow-ups from this sweep: [R/DBI binding #252](https://github.com/redis/redis-adbc-driver/issues/252),
+  [upstream Datasets persistence #253](https://github.com/redis/redis-adbc-driver/issues/253),
+  and [Ray private-CA coverage #254](https://github.com/redis/redis-adbc-driver/issues/254).
+  The Ray issue is a coverage gap, not a reproduced TLS defect. The Datasets
+  issue is a local tracker for independently reproduced upstream behavior.
 - R/DBI reads preserve numeric/boolean types, NULLs, Unicode, and empty schemas.
   **adbi 0.1.3's `dbBind()` rejects the driver's unnamed parameter schema** with
   `Expecting named params for named placeholders`. The binding case remains a

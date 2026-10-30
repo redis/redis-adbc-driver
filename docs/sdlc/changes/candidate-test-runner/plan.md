@@ -7,6 +7,11 @@
 - Intent: [intent.md](intent.md)
 - Specification: [spec.md](spec.md)
 
+Open compatibility/coverage follow-ups from the native sweep:
+[#252](https://github.com/redis/redis-adbc-driver/issues/252),
+[#253](https://github.com/redis/redis-adbc-driver/issues/253), and
+[#254](https://github.com/redis/redis-adbc-driver/issues/254).
+
 ## Work completed
 
 1. Added an executable runner that provisions Redis Software and verifies active
