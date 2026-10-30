@@ -60,7 +60,9 @@ The workflow tests and their records are in [PR #248](https://github.com/redis/r
 which was unmerged when this guide was written on October 30, 2026.
 The example uses the public DB-API/Arrow interface, not a new tool-specific helper.
 The saved runner and workflow-test extra require a checkout containing #248.
-No fresh live run of this guide's example is claimed.
+The Python example was also executed against isolated Redis Software 8.6.2 with
+Search and active verified 4x QPF; see the
+[live guide validation](../sdlc/changes/upstream-status-249/validation.md).
 
 The [record](https://github.com/redis/redis-adbc-driver/blob/a99c882b4088aaff32e1abdad449f6e1b575b41a/docs/sdlc/changes/candidate-test-runner/plan.md)
 reports two combined NumPy/scikit-learn tests passed on Redis OSS 8.6.2 with
@@ -73,5 +75,15 @@ training, model serving, TLS or Redis Software coverage.
 From a checkout containing #248, install the driver, pytest, NumPy and scikit-learn,
 then use `python/scripts/run-candidate-tests.sh ml`. The runner provisions
 Redis Software and verifies active 4x QPF; no new result is asserted here.
+
+To rerun this guide's actual Python block with the installed tool and driver:
+
+```sh
+python python/scripts/check_integration_guide.py scikit-learn
+```
+
+Set `REDIS_URI` to a dedicated Redis database with Search first. The checker
+uses the active interpreter; source builds also need `REDIS_ADBC_LIBRARY` and
+`PYTHONPATH=python` available to child processes and kernels.
 
 [All integration guides](README.md) · [Upstream documentation status](../upstream-submissions/status.md#new-workflows-in-pr-248)

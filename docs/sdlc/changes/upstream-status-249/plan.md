@@ -19,3 +19,13 @@ Review: changes only report verified states and preserve historical validation
 limits. No integration suites, upstream site builds or new runtime checks were
 run for this documentation-only update. Maintainer acceptance remains pending
 for the eleven open submissions. No recurring monitoring is configured.
+
+## Subsequent user-requested guide work and live execution
+
+The user expanded scope to the six newer workflows, requested dedicated guides,
+and required Redis execution of all examples. See [scope](new-workflows.md) and
+[live validation](validation.md) for the final result: guides for all eighteen
+indexed paths, live example/workflow checks on isolated Redis Software with
+verified active 4x QPF, a corrected DuckDB default-catalog detach, and a saved
+checker for the six new guides. The larger external taxi project, hosted/browser
+workflows and full documentation-site builds remain outside the recorded run.

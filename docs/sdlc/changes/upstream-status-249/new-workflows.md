@@ -26,11 +26,13 @@ Dataset persistence explicitly uses one shard for empty-result compatibility.
 
 Compiled all six Python examples, checked all new relative links/anchors against
 the changed files and current main tree, checked index coverage and retained
-upstream PR URLs, and checked whitespace. No fresh live guide execution or full
-site build was run. Historical runtime results remain linked and qualified.
+upstream PR URLs, and checked whitespace. Live guide examples were subsequently run against isolated Redis Software with
+Search and verified 4x QPF at the user's request; see [validation](validation.md).
+No full documentation-site build was run. Historical runtime results remain
+linked and qualified.
 
 The original twelve contributions remain tracked; the six new workflows do not
 inherit their submission/acceptance status. All eighteen integration paths now
-have a guide entry (dbt links its existing adapter guide).
+have a guide entry (dbt now has a tested local starter guide).
 Upstream submissions for the six additions and maintainer review remain
 outstanding; no new upstream submission is claimed. No human approval is inferred.

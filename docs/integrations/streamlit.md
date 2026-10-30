@@ -70,7 +70,9 @@ The workflow tests and their records are in [PR #248](https://github.com/redis/r
 which was unmerged when this guide was written on October 30, 2026.
 The example uses the public DB-API/Arrow interface, not a new tool-specific helper.
 The saved runner and workflow-test extra require a checkout containing #248.
-No fresh live run of this guide's example is claimed.
+The Python example was also executed against isolated Redis Software 8.6.2 with
+Search and active verified 4x QPF; see the
+[live guide validation](../sdlc/changes/upstream-status-249/validation.md).
 
 The [record](https://github.com/redis/redis-adbc-driver/blob/a99c882b4088aaff32e1abdad449f6e1b575b41a/docs/sdlc/changes/candidate-test-runner/validation.md)
 reports five cases passed across Jupyter, Datasets, Streamlit and SciPy on Redis
@@ -79,10 +81,20 @@ The [Streamlit test](https://github.com/redis/redis-adbc-driver/blob/a99c882b408
 uses Streamlit 1.66.1 AppTest to display stored rows, change a numeric input,
 rerun the bound query, and compare rows and metrics.
 AppTest is not browser, authentication or Streamlit Community Cloud validation.
-The demo table setup above is additional guide scaffolding, not a claim of a
-fresh runtime test of this exact file.
+The exact guide app, including its unique demo table and cleanup, also passed
+an initial AppTest run and the input-change rerun in the live guide validation.
 
 From a checkout containing #248, install `python[workflow-tests]` and run
 `python/scripts/run-candidate-tests.sh streamlit`.
+
+To rerun this guide's actual Python block with the installed tool and driver:
+
+```sh
+python python/scripts/check_integration_guide.py streamlit
+```
+
+Set `REDIS_URI` to a dedicated Redis database with Search first. The checker
+uses the active interpreter; source builds also need `REDIS_ADBC_LIBRARY` and
+`PYTHONPATH=python` available to child processes and kernels.
 
 [All integration guides](README.md) · [Upstream documentation status](../upstream-submissions/status.md#new-workflows-in-pr-248)

@@ -18,7 +18,7 @@ Checked October 30, 2026. Submission does not imply upstream approval or merge.
 | Dask | [Guide](../integrations/dask.md) | Existing [#12654](https://github.com/dask/dask/pull/12654) updated to link the dedicated guide and retained as a draft with the required AI disclosure. Existing project tracker #162. |
 | SQLAlchemy | [Guide](../integrations/sqlalchemy.md) | Original external-dialect listing [#13707](https://github.com/sqlalchemy/sqlalchemy/pull/13707) is merged. Guide-link follow-up [#13741](https://github.com/sqlalchemy/sqlalchemy/pull/13741) and [approval issue #13742](https://github.com/sqlalchemy/sqlalchemy/issues/13742) are closed without the follow-up merging. [Maintainers prefer the canonical PyPI link](https://github.com/sqlalchemy/sqlalchemy/issues/13742#issuecomment-6523522556), where this project controls its documentation URL. Do not reopen the equivalent follow-up without new maintainer direction. |
 | DuckDB | [Guide](../duckdb.md) | Existing full upstream Redis guide [#21](https://github.com/Query-farm/adbc_scanner/pull/21) remains open. Registry contribution #3157 separately merged. Existing project tracker #124. |
-| dbt | [Guide](https://github.com/redis/redis-dbt-adapter/tree/main/v1) | Existing full upstream v1 setup/configuration guide [#10219](https://github.com/dbt-labs/docs.getdbt.com/pull/10219) remains open. Existing project tracker #171. |
+| dbt | [Guide](../integrations/dbt.md) | Existing full upstream v1 setup/configuration guide [#10219](https://github.com/dbt-labs/docs.getdbt.com/pull/10219) remains open. Existing project tracker #171. |
 
 See [policies and preserved patches](README.md) for exact review and approval
 prerequisites. The four remaining contributions were submitted as drafts at the
@@ -38,7 +38,8 @@ fields, and the SQLAlchemy maintainer responses. The SQLAlchemy follow-up was
 [closed to match the issue response](https://github.com/sqlalchemy/sqlalchemy/pull/13741#issuecomment-6534589590).
 Ready for review describes GitHub's non-draft state; it does not assert human
 review, maintainer approval, passing checks or endorsement. Earlier test evidence
-remains historical; no integration suites were rerun for this status refresh.
+remains historical. A subsequent user-requested live guide run is recorded in
+[validation](../sdlc/changes/upstream-status-249/validation.md).
 
 ## New workflows in PR #248
 
@@ -72,3 +73,9 @@ must disclose that these workflows and their evidence live in an unmerged PR.
 [Issue #249](https://github.com/redis/redis-adbc-driver/issues/249) tracks this
 additional scope as well as the earlier contributions. No new upstream PRs for
 these six workflows have been submitted by this status refresh.
+
+The [live guide validation](../sdlc/changes/upstream-status-249/validation.md)
+also executes all eighteen integration paths against isolated Redis Software
+with Search and active verified 4x QPF. The six new examples passed, including
+notebook-kernel execution and the Streamlit input rerun. Upstream submissions
+remain a separate outstanding step.

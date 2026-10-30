@@ -53,6 +53,7 @@ SELECT * FROM r.public.orders LIMIT 10;
 USE r.public;
 SELECT * FROM orders LIMIT 10;
 SELECT * FROM adbc_scan('r', 'SELECT country, COUNT(*) AS n FROM public.orders GROUP BY country');
+USE memory; -- switch away from the attached default catalog before detaching
 DETACH r;
 ```
 
