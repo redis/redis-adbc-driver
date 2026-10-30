@@ -85,5 +85,27 @@ See the [installation and integration guide](https://github.com/redis/redis-adbc
 and [server requirements](https://github.com/redis/redis-adbc-driver/blob/main/docs/driver-reference.md#server-requirements)
 for supported Redis deployments, configuration and limitations.
 
+## Rerun candidate integration tests
+
+The saved runner starts or reuses a disposable Redis 8.6.2 container with
+Search on `127.0.0.1:16379`, builds the native driver, and runs the local
+candidate suites for NumPy, scikit-learn, pandas, Polars, Dask, Ray Data,
+DuckDB, Airflow, Dagster, Prefect, and dlt.
+Use Python 3.14 as described above. DuckDB may download its ADBC scanner
+extension from Query.Farm on the first run.
+
+```sh
+python3 -m venv .venv-candidates
+.venv-candidates/bin/python -m pip install -e 'python[test,candidate-tests]'
+PYTHON="$PWD/.venv-candidates/bin/python" python/scripts/run-candidate-tests.sh
+```
+
+The runner leaves the container available for another run. Remove it with
+`docker rm -f redis-adbc-python-test`. Set `REDIS_TEST_PORT` and
+`REDIS_TEST_CONTAINER` to use another local port and container name. The Airflow
+end-to-end smoke test runs in a temporary metadata database. Flight SQL,
+Spark/Databricks, hosted runtimes, and remote orchestration workers are outside
+this local harness.
+
 Arrow IPC stream/file serialization is available inside the native driver through
 standard ADBC statement options. See the [IPC contract and example](https://github.com/redis/redis-adbc-driver/blob/main/docs/arrow-ipc.md).
