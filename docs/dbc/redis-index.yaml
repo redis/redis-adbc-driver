@@ -1,0 +1,33 @@
+{
+  "drivers": [
+    {
+      "name": "Redis",
+      "description": "An ADBC driver for Redis with SQL queries and Arrow bulk ingestion",
+      "license": "Apache-2.0",
+      "path": "redis",
+      "urls": [
+        "https://github.com/redis/redis-adbc-driver"
+      ],
+      "docs_url": "https://github.com/redis/redis-adbc-driver#readme",
+      "pkginfo": [
+        {
+          "version": "0.0.18",
+          "packages": [
+            {
+              "platform": "linux_amd64",
+              "url": "https://github.com/redis/redis-adbc-driver/releases/download/v0.0.18/redis_linux_amd64-0.0.18.tar.gz"
+            },
+            {
+              "platform": "linux_arm64",
+              "url": "https://github.com/redis/redis-adbc-driver/releases/download/v0.0.18/redis_linux_arm64-0.0.18.tar.gz"
+            },
+            {
+              "platform": "macos_arm64",
+              "url": "https://github.com/redis/redis-adbc-driver/releases/download/v0.0.18/redis_macos_arm64-0.0.18.tar.gz"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
