@@ -521,7 +521,24 @@ func (s *statementImpl) run(ctx context.Context, stream bool) (result execResult
 	return last, nil
 }
 
-func (s *statementImpl) ExecuteQuery(ctx context.Context) (array.RecordReader, int64, error) {
+func (s *statementImpl) ExecuteQuery(ctx context.Context) (reader array.RecordReader, count int64, resultErr error) {
+	op := s.startUsage()
+	defer func() {
+		if op == nil {
+			return
+		}
+		if resultErr != nil {
+			op.finish(resultErr, false)
+			return
+		}
+		op.ready()
+		if op.kind == "ingest" {
+			op.affected(count)
+			op.finish(nil, false)
+			return
+		}
+		reader = &usageReader{RecordReader: reader, op: op, refs: 1}
+	}()
 	if s.ipc.active() {
 		return nil, -1, errorf(adbc.StatusInvalidState, "IPC input/output requires ExecuteUpdate (ExecuteQuery with a NULL output stream in C)")
 	}
@@ -558,7 +575,14 @@ func (s *statementImpl) executeQuery(ctx context.Context) (array.RecordReader, i
 	return rdr, int64(len(res.rows)), nil
 }
 
-func (s *statementImpl) ExecuteUpdate(ctx context.Context) (int64, error) {
+func (s *statementImpl) ExecuteUpdate(ctx context.Context) (count int64, resultErr error) {
+	op := s.startUsage()
+	defer func() {
+		if op != nil {
+			op.affected(count)
+			op.finish(resultErr, false)
+		}
+	}()
 	if err := s.checkExecution(); err != nil {
 		return -1, err
 	}

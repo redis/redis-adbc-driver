@@ -29,6 +29,7 @@ import (
 )
 
 type connectionImpl struct {
+	usage                       *usageTelemetry
 	retainedNamespace           string
 	partitionControlPersistence string
 	retainedLimits              retainedLimits
@@ -68,6 +69,12 @@ func (c *connectionImpl) executor() *executor {
 }
 
 func (c *connectionImpl) GetOption(ctx context.Context, key string) (string, error) {
+	if key == OptionStringTelemetrySnapshot {
+		if c.usage == nil {
+			return "{}", nil
+		}
+		return string(c.usage.snapshot()), nil
+	}
 	switch key {
 	case OptionStringPartitionResultNamespace:
 		return c.retainedNamespace, nil

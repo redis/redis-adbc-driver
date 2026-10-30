@@ -35,6 +35,19 @@ def connect(uri, db_kwargs=None):
 
 
 class DatabaseOptions(str, enum.Enum):
+    TELEMETRY_ENABLED = "adbc.redis.telemetry.enabled"
+    TELEMETRY_ENDPOINT = "adbc.redis.telemetry.endpoint"
+    TELEMETRY_TOKEN = "adbc.redis.telemetry.token"
+    TELEMETRY_INSTALLATION_ID = "adbc.redis.telemetry.installation_id"
+    TELEMETRY_ORGANIZATION = "adbc.redis.telemetry.organization"
+    TELEMETRY_TEAM = "adbc.redis.telemetry.team"
+    TELEMETRY_APPLICATION = "adbc.redis.telemetry.application"
+    TELEMETRY_ENVIRONMENT = "adbc.redis.telemetry.environment"
+    TELEMETRY_USE_CASE = "adbc.redis.telemetry.use_case"
+    TELEMETRY_INTEGRATION = "adbc.redis.telemetry.integration"
+    TELEMETRY_INTERVAL = "adbc.redis.telemetry.interval"
+    TELEMETRY_SNAPSHOT = "adbc.redis.telemetry.snapshot"
+    TELEMETRY_FLUSH = "adbc.redis.telemetry.flush"
     DEFAULT_SCHEMA = "adbc.redis.default_schema"
     ADDRESS = "adbc.redis.address"
     DB = "adbc.redis.db"
