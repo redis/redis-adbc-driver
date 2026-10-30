@@ -19,6 +19,8 @@
 - Fetch stored typed rows with NULLs/Unicode in a separate notebook kernel,
   an AppTest app with a bound-filter rerun, and a locally persisted HF Dataset.
 - Check a SciPy sparse solve against known results and its residual.
+- Exercise the additional local Spark, model, plotting, orchestration, SDK,
+  Superset, dbt, R, and Quarto paths listed in the [native sweep](native-sweep.md).
 - Document the Python environment, dependencies, command, and container cleanup.
 
 ## Boundaries and risks
@@ -34,4 +36,11 @@ covered. See [validation.md](validation.md) for the recorded limits.
 - The runner is executable and invokes all named test modules.
 - The command is documented in the Python README.
 - The four new workflow suites pass with no skips through the saved runner.
+- The all-native launcher provisions compatible isolated environments, reports
+  each launcher exit code and JUnit outcome, and continues independent groups
+  after a setup failure.
+- The complete runnable native set passes with the exact known R binding
+  incompatibility and private-CA skip preserved, rather than hiding them.
+- The [50-row native accounting](native-sweep.md) records integrations that
+  still need implementation; they are not counted as successful tests.
 - `git diff --check` passes.

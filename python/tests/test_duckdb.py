@@ -40,7 +40,7 @@ def test_duckdb_read_join_ingest_execute_and_transaction_rejection(
         else:
             db.execute("SET allow_extension_repositories = 'allowed'")
             db.execute(
-                "CREATE EXTENSION REPOSITORY query_farm "
+                "CREATE OR REPLACE EXTENSION REPOSITORY query_farm "
                 "WITH PREFIX 'https://duckdb-extensions.query.farm'"
             )
             db.execute("INSTALL adbc_scanner FROM query_farm")

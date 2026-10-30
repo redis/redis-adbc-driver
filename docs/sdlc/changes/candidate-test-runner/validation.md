@@ -1,5 +1,9 @@
 # Additional Python workflow validation
 
+This records the initial four-tool workflow batch. The later
+[complete native sweep](native-sweep.md) adds the remaining executable direct
+paths and validates the isolated all-native launcher.
+
 - Date: 2026-10-30
 - PR: [#248](https://github.com/redis/redis-adbc-driver/pull/248)
 - Source: `6cad4089f93498de7ba4a000b2e071797978236c` plus this PR's workflow
@@ -51,6 +55,7 @@ These are custom local Python data paths, not dedicated Redis connectors. The
 JupyterLab browser interface and Streamlit browser/hosting behavior were not
 tested. HF Hub access, remote datasets/models, distributed computation, training
 at scale, Flight SQL, TLS, and other package/platform versions were not tested.
-The entire suite was not run on this Python 3.15 host because the pinned Ray and
-Dagster runtimes require a different supported interpreter. Existing application
-records remain separate from this five-test workflow run.
+The entire suite was not run in this initial Python 3.15 environment. A later
+run used supported isolated interpreters for Ray/Dagster and the other native
+candidates; see [native-sweep.md](native-sweep.md). Those results remain separate
+from this initial five-test workflow run.

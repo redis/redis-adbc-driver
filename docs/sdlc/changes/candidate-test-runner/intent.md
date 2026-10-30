@@ -19,11 +19,16 @@ Provide one documented command to start or reuse Redis Software with verified
 
 ## Scope
 
-Aggregate the local NumPy, scikit-learn, pandas, Polars, Dask, Ray Data, DuckDB,
-Airflow, Dagster, Prefect, and dlt tests. Add notebook execution, Streamlit app
-reruns, Hugging Face Dataset persistence, and SciPy sparse computation checks.
-Keep the runner local: Flight SQL, hosted products, Spark/Databricks, and remote
-orchestration workers are outside its scope.
+Aggregate the runnable native integration tests and add local notebook,
+application, plotting, model, Spark, SDK, orchestration, R, and document checks.
+Keep the runner local: Flight SQL, hosted products, Databricks, and remote
+orchestration workers are outside its scope. Custom Python compositions are
+identified separately from dedicated database connectors.
+
+The follow-up request covers all runnable direct-ADBC candidates. The complete
+launcher isolates conflicting runtime dependencies and records every comparison
+row's tested path or missing integration. Flight SQL is explicitly excluded by
+the user's scope correction. [Complete native sweep](native-sweep.md).
 
 ## Links
 

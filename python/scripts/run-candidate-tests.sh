@@ -6,14 +6,14 @@ python_bin="${PYTHON:-python3}"
 
 usage() {
   echo "Usage: $0 [all | TOOL ...]"
-  echo "Tools: driver airflow dagster dask duckdb pandas polars ml ray prefect dlt jupyter datasets streamlit scipy"
+  echo "Tools: driver airflow dagster dask duckdb pandas polars ml ray prefect dlt jupyter datasets streamlit scipy plotly matplotlib xgboost pytorch tensorflow keras transformers spark r quarto kubeflow metaflow fivetran sqlalchemy arrow superset dbt"
 }
 if [[ "${1:-}" == --help || "${1:-}" == -h ]]; then
   usage
   exit 0
 fi
 if [[ $# == 0 || ( $# == 1 && "${1:-}" == all ) ]]; then
-  set -- driver airflow dagster dask duckdb pandas polars ml ray prefect dlt jupyter datasets streamlit scipy
+  exec "$repo_root/python/scripts/run-all-native-candidates.sh"
 fi
 tests=()
 for tool in "$@"; do
@@ -33,6 +33,23 @@ for tool in "$@"; do
     datasets) tests+=(test_hf_datasets.py) ;;
     streamlit) tests+=(test_streamlit.py) ;;
     scipy) tests+=(test_scipy.py) ;;
+    plotly) tests+=(test_plotting_candidates.py::test_plotly_html_and_json) ;;
+    matplotlib) tests+=(test_plotting_candidates.py::test_matplotlib_agg_png) ;;
+    xgboost) tests+=(test_model_candidates.py::test_xgboost_train_save_reload) ;;
+    pytorch) tests+=(test_model_candidates.py::test_pytorch_dataloader_and_forward) ;;
+    tensorflow) tests+=(test_model_candidates.py::test_tensorflow_dataset_batches) ;;
+    keras) tests+=(test_model_candidates.py::test_keras_model_input_and_persistence) ;;
+    transformers) tests+=(test_model_candidates.py::test_transformers_local_tokenizer_model) ;;
+    spark) tests+=(test_spark_candidate.py) ;;
+    r) tests+=(test_document_candidates.py::test_r_dbi_native_driver test_document_candidates.py::test_r_dbi_parameter_binding) ;;
+    quarto) tests+=(test_document_candidates.py::test_quarto_python_document) ;;
+    kubeflow) tests+=(test_orchestrator_candidates.py::test_kubeflow_local_component) ;;
+    metaflow) tests+=(test_orchestrator_candidates.py::test_metaflow_local_flow) ;;
+    fivetran) tests+=(test_orchestrator_candidates.py::test_fivetran_sdk_local_tester) ;;
+    sqlalchemy) tests+=(test_sqlalchemy.py) ;;
+    arrow) tests+=(test_arrays.py test_ipc.py test_union_stream.py) ;;
+    superset) tests+=(test_superset.py) ;;
+    dbt) tests+=(test_dbt_candidate.py) ;;
     *) usage >&2; echo "Unknown tool: $tool" >&2; exit 2 ;;
   esac
 done
@@ -60,7 +77,12 @@ export PYTHONPATH="$repo_root/python${PYTHONPATH:+:$PYTHONPATH}"
 export RUN_DUCKDB_TESTS=1
 export RUN_AIRFLOW_TESTS=1
 export RUN_RAY_TESTS=1
+export RUN_SUPERSET_TESTS=1
 export PREFECT_SERVER_ANALYTICS_ENABLED=false
 export PREFECT_LOGGING_LEVEL=ERROR
 
-"$python_bin" -m pytest -q -rs "${paths[@]}"
+pytest_args=(-q -ra)
+if [[ -n "${CANDIDATE_JUNIT_XML:-}" ]]; then
+  pytest_args+=("--junitxml=$CANDIDATE_JUNIT_XML")
+fi
+exec "$python_bin" -m pytest "${pytest_args[@]}" "${paths[@]}"

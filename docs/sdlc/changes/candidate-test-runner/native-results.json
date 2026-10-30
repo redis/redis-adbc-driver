@@ -1,0 +1,83 @@
+{
+  "core": {
+    "status": "completed",
+    "exit_code": 0,
+    "passed": 97,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 1,
+    "xfailed": 0
+  },
+  "workflows": {
+    "status": "completed",
+    "exit_code": 0,
+    "passed": 5,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "xfailed": 0
+  },
+  "models": {
+    "status": "completed",
+    "exit_code": 0,
+    "passed": 7,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "xfailed": 0
+  },
+  "orchestrators": {
+    "status": "completed",
+    "exit_code": 0,
+    "passed": 3,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "xfailed": 0
+  },
+  "spark": {
+    "status": "completed",
+    "exit_code": 0,
+    "passed": 1,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "xfailed": 0
+  },
+  "airflow": {
+    "status": "completed",
+    "exit_code": 0,
+    "passed": 7,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "xfailed": 0
+  },
+  "superset": {
+    "status": "completed",
+    "exit_code": 0,
+    "passed": 1,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "xfailed": 0
+  },
+  "dbt": {
+    "status": "completed",
+    "exit_code": 0,
+    "passed": 1,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "xfailed": 0
+  },
+  "documents": {
+    "status": "completed",
+    "exit_code": 0,
+    "passed": 2,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "xfailed": 1
+  }
+}

@@ -87,12 +87,55 @@ for supported Redis deployments, configuration and limitations.
 
 ## Rerun candidate integration tests
 
-The saved runner starts or reuses an isolated Redis Software database with
-Search on `127.0.0.1:26379`. It uses `make -C go redis-up` to verify active 4x
-QPF and effective Search configuration before every run, then builds the native
-driver. You can select tools individually; omitting tool names runs all suites.
+The runners exercise direct Redis ADBC paths only. They start or reuse isolated
+Redis Software with Search on `127.0.0.1:26379`, verify active 4x QPF through
+`make -C go redis-up` before every group, and build the current native library.
+See the [native sweep record](../docs/sdlc/changes/candidate-test-runner/native-sweep.md)
+for every matrix entry's status, exact coverage, warnings, and compatibility limits.
 
-For the Jupyter, Hugging Face Datasets, Streamlit, and SciPy workflows:
+Run every automated native candidate in separate compatible environments:
+
+```sh
+python3 -m pip install uv
+JAVA_HOME=/path/to/jdk/Contents/Home QUARTO=/path/to/quarto \
+  python/scripts/run-all-native-candidates.sh
+```
+
+Prerequisites are Docker Compose, curl, jq, a Go compiler, Java 21 for Spark,
+R with a working package compiler, and Quarto CLI. On macOS, the Java/R/OpenMP
+dependencies can be installed with `brew install openjdk@21 r libomp`.
+Use the official Quarto installation for the document test. The script creates
+Python 3.12/3.14 environments using uv and installs R DBI/ADBC packages in an
+isolated library. The native dbt adapter is installed from its recorded immutable
+source revision; set `CANDIDATE_DBT_ADAPTER` to use another source requirement.
+DuckDB and Fivetran's local SDK tester may download official runtime artifacts.
+
+The profiles remain separate because Airflow/Prefect have incompatible FastAPI
+requirements and Superset uses an older SQLAlchemy/PyArrow stack:
+
+| Profile | Python | Dependency extras / tools |
+|---|---|---|
+| core | 3.12 | `test,candidate-tests`: pandas, Polars, NumPy/scikit-learn, SQLAlchemy, Arrow, DuckDB, Dask, Dagster, Prefect, dlt, Ray |
+| workflows | 3.12 | `workflow-tests`: Jupyter, HF Datasets, Streamlit, SciPy |
+| models | 3.12 | `plotting-tests,model-tests`: Plotly, Matplotlib, XGBoost, PyTorch, TensorFlow, Keras, Transformers |
+| orchestrators | 3.12 | `orchestrator-tests`: local Kubeflow, Metaflow, Fivetran SDK |
+| spark | 3.12 | `spark-tests`: fetched Arrow results into local Spark; Java required |
+| airflow | 3.14 | `airflow-tests`: packaged hook and TaskFlow |
+| superset | 3.12 | `superset,test-runner`: dataset/chart SQL and SQL Lab |
+| dbt | 3.14 | `dbt-tests` plus native adapter: build, model tests, catalog |
+| documents | 3.12 | `workflow-tests` plus R/Quarto: DBI reads/binding check and HTML render |
+
+Set `CANDIDATE_ENV_ROOT` to choose the environment/cache directory, `UV` to use
+a specific uv executable, and `CANDIDATE_RESULTS_DIR` to choose the report
+directory. Defaults are under the system temporary directory. Each profile
+writes a log, JUnit XML, and launcher exit code; `summary.json` distinguishes
+passes, failures, errors, skips, and expected failures. A setup failure in one
+profile still allows the other profiles to run. RStudio requires the separate
+manual IDE check: source [r_dbi_smoke.R](examples/r_dbi_smoke.R) from an R session
+with the same `REDIS_URI`, `REDIS_ADBC_LIBRARY`, and R library path.
+
+For a focused run, install the corresponding extras in a virtual environment
+and select tools by name. For example:
 
 ```sh
 python3 -m venv .venv-workflows
@@ -100,30 +143,14 @@ python3 -m venv .venv-workflows
 PYTHON="$PWD/.venv-workflows/bin/python" python/scripts/run-candidate-tests.sh jupyter datasets streamlit scipy
 ```
 
-The complete local suite also covers NumPy, scikit-learn, pandas, Polars, Dask,
-Ray Data, DuckDB, Airflow, Dagster, Prefect, and dlt. Use Python 3.14 for the
-complete set of optional runtimes. DuckDB may download its ADBC scanner extension
-from Query.Farm on the first run.
-
-```sh
-python3 -m venv .venv-candidates
-.venv-candidates/bin/python -m pip install -e 'python[test,candidate-tests,workflow-tests]'
-PYTHON="$PWD/.venv-candidates/bin/python" python/scripts/run-candidate-tests.sh
-```
-
-Use `python/scripts/run-candidate-tests.sh --help` for the supported tool names.
-The runner leaves the Redis Software container available for another run. Remove
-it with `COMPOSE_PROJECT_NAME=redis-adbc-candidates make -C go redis-down`.
-Set `SOFTWARE_DB_PORT`, `SOFTWARE_API_PORT` (default `29443`), and
-`CANDIDATE_COMPOSE_PROJECT` to select another isolated fixture. The runner sets
-`REDIS_URI` to that verified database. Docker Compose, curl, jq, a Go compiler,
-and the chosen Python dependencies are required.
-
-The Airflow smoke test uses a temporary metadata database. The Jupyter test
-executes notebook cells in a separate kernel, the Streamlit test uses AppTest,
-and the Hugging Face test saves/loads a local dataset without model downloads.
-Flight SQL, Spark/Databricks, hosted runtimes, browser interaction, and remote
-orchestration workers are outside this local harness.
+Use `python/scripts/run-candidate-tests.sh --help` for tool names. Omitting
+names or passing `all` delegates to the isolated all-native runner. The runner
+leaves Redis Software available; remove it with
+`COMPOSE_PROJECT_NAME=redis-adbc-candidates make -C go redis-down`.
+`SOFTWARE_DB_PORT`, `SOFTWARE_API_PORT` (default `29443`), and
+`CANDIDATE_COMPOSE_PROJECT` select another fixture. `REDIS_URI` is set to the
+verified fixture. Flight SQL paths are excluded. Hosted deployment, GPU/model
+scale, and browser UI coverage are not implied by these local tests.
 
 Arrow IPC stream/file serialization is available inside the native driver through
 standard ADBC statement options. See the [IPC contract and example](https://github.com/redis/redis-adbc-driver/blob/main/docs/arrow-ipc.md).

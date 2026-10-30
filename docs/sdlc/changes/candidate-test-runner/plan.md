@@ -20,6 +20,12 @@
    Datasets, Streamlit, and SciPy so these workflows can run independently.
 5. Validated notebook execution, AppTest input reruns, typed Dataset persistence
    including empty results, and a sparse linear solve; [record](validation.md).
+6. Completed the runnable native candidate sweep, adding plotting, model,
+   local orchestration, Spark, R/DBI, Quarto, and existing dbt-adapter checks.
+   Verified a manual RStudio session with the same saved R script.
+7. Added an all-native launcher with isolated environments and per-group JUnit,
+   logs, exit codes, and a JSON summary. Recorded all 50 table entries and their
+   exact scope in [native-sweep.md](native-sweep.md).
 
 ## Verification evidence
 
@@ -30,6 +36,9 @@
   with Dask/Distributed 2026.8.0.
 - The new four-tool runner selection passed **5 tests, zero skips** against
   Redis Software 8.6.2 with verified active 4x QPF; see [validation.md](validation.md).
-- The complete aggregate runner was not executed. This host uses Python 3.15; the pinned
-  Ray 2.59.0 and Dagster distributions are unavailable for that interpreter.
-  Existing application-level evidence remains linked from the support matrix.
+- The initial attempt used Python 3.15, where pinned Ray/Dagster distributions
+  were unavailable. The complete follow-up used isolated Python 3.12/3.14
+  environments: **124 passed, one private-CA skip, one strict expected R binding
+  failure**, every profile launcher exited 0. [Current evidence](native-sweep.md).
+- Flight SQL was excluded at the user's request. Rows requiring a new native
+  connector/adapter are explicitly listed as implementation gaps, not passes.
