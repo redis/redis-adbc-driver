@@ -1,10 +1,9 @@
 # Candidate test runner intent
 
 - Date: 2026-10-30
-- Source commit: `22fee6849d0fdb49b894b67e26077d6a2f853b80`
+- Source commit: `22fee6883b9440c0d9999e9f967bc390bb0fd0e3`
 - Status: implementation complete; PR review pending
 - Requestor: user
-- PR: [#248](https://github.com/redis/redis-adbc-driver/pull/248)
 - PR: [#248](https://github.com/redis/redis-adbc-driver/pull/248)
 
 ## Problem
@@ -15,17 +14,19 @@ native driver configuration, and remembering the relevant test modules.
 
 ## Desired outcome
 
-Provide one documented command to start or reuse a disposable Redis server and
-run the existing local candidate integration suites together.
+Provide one documented command to start or reuse Redis Software with verified
+4x QPF and run selected local candidate integration suites or the complete set.
 
 ## Scope
 
-Aggregate the existing NumPy, scikit-learn, pandas, Polars, Dask, Ray Data,
-DuckDB, Airflow, Dagster, Prefect, and dlt tests in a repeatable Docker-backed
-runner. Keep the runner local: Flight SQL, hosted products, Spark/Databricks,
-and remote orchestration workers are outside its scope.
+Aggregate the local NumPy, scikit-learn, pandas, Polars, Dask, Ray Data, DuckDB,
+Airflow, Dagster, Prefect, and dlt tests. Add notebook execution, Streamlit app
+reruns, Hugging Face Dataset persistence, and SciPy sparse computation checks.
+Keep the runner local: Flight SQL, hosted products, Spark/Databricks, and remote
+orchestration workers are outside its scope.
 
 ## Links
 
 - Specification: [spec.md](spec.md)
 - Plan and evidence: [plan.md](plan.md)
+- Workflow validation: [validation.md](validation.md)

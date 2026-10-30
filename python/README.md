@@ -87,25 +87,43 @@ for supported Redis deployments, configuration and limitations.
 
 ## Rerun candidate integration tests
 
-The saved runner starts or reuses a disposable Redis 8.6.2 container with
-Search on `127.0.0.1:16379`, builds the native driver, and runs the local
-candidate suites for NumPy, scikit-learn, pandas, Polars, Dask, Ray Data,
-DuckDB, Airflow, Dagster, Prefect, and dlt.
-Use Python 3.14 as described above. DuckDB may download its ADBC scanner
-extension from Query.Farm on the first run.
+The saved runner starts or reuses an isolated Redis Software database with
+Search on `127.0.0.1:26379`. It uses `make -C go redis-up` to verify active 4x
+QPF and effective Search configuration before every run, then builds the native
+driver. You can select tools individually; omitting tool names runs all suites.
+
+For the Jupyter, Hugging Face Datasets, Streamlit, and SciPy workflows:
+
+```sh
+python3 -m venv .venv-workflows
+.venv-workflows/bin/python -m pip install -e 'python[workflow-tests]'
+PYTHON="$PWD/.venv-workflows/bin/python" python/scripts/run-candidate-tests.sh jupyter datasets streamlit scipy
+```
+
+The complete local suite also covers NumPy, scikit-learn, pandas, Polars, Dask,
+Ray Data, DuckDB, Airflow, Dagster, Prefect, and dlt. Use Python 3.14 for the
+complete set of optional runtimes. DuckDB may download its ADBC scanner extension
+from Query.Farm on the first run.
 
 ```sh
 python3 -m venv .venv-candidates
-.venv-candidates/bin/python -m pip install -e 'python[test,candidate-tests]'
+.venv-candidates/bin/python -m pip install -e 'python[test,candidate-tests,workflow-tests]'
 PYTHON="$PWD/.venv-candidates/bin/python" python/scripts/run-candidate-tests.sh
 ```
 
-The runner leaves the container available for another run. Remove it with
-`docker rm -f redis-adbc-python-test`. Set `REDIS_TEST_PORT` and
-`REDIS_TEST_CONTAINER` to use another local port and container name. The Airflow
-end-to-end smoke test runs in a temporary metadata database. Flight SQL,
-Spark/Databricks, hosted runtimes, and remote orchestration workers are outside
-this local harness.
+Use `python/scripts/run-candidate-tests.sh --help` for the supported tool names.
+The runner leaves the Redis Software container available for another run. Remove
+it with `COMPOSE_PROJECT_NAME=redis-adbc-candidates make -C go redis-down`.
+Set `SOFTWARE_DB_PORT`, `SOFTWARE_API_PORT` (default `29443`), and
+`CANDIDATE_COMPOSE_PROJECT` to select another isolated fixture. The runner sets
+`REDIS_URI` to that verified database. Docker Compose, curl, jq, a Go compiler,
+and the chosen Python dependencies are required.
+
+The Airflow smoke test uses a temporary metadata database. The Jupyter test
+executes notebook cells in a separate kernel, the Streamlit test uses AppTest,
+and the Hugging Face test saves/loads a local dataset without model downloads.
+Flight SQL, Spark/Databricks, hosted runtimes, browser interaction, and remote
+orchestration workers are outside this local harness.
 
 Arrow IPC stream/file serialization is available inside the native driver through
 standard ADBC statement options. See the [IPC contract and example](https://github.com/redis/redis-adbc-driver/blob/main/docs/arrow-ipc.md).
