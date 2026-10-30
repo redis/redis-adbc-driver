@@ -226,6 +226,7 @@ func (e *executor) describeParams(ctx context.Context, st Stmt) error {
 		if err != nil {
 			return err
 		}
+		meta = insertMeta(meta)
 		targets, err := insertTargets(meta, st.Columns)
 		if err != nil {
 			return err

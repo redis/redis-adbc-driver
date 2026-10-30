@@ -187,6 +187,9 @@ func (e *executor) insertRows(ctx context.Context, meta *tableMeta, rows [][]Val
 	}
 	for i, vals := range rows {
 		id := map[string]Value{rowIDField: intValue(typeInt64, a.first+int64(i))}
+		if meta.KeyRows {
+			id = map[string]Value{keyField: vals[len(meta.Columns)-1]}
+		}
 		if err := e.returning.addChanged(id, meta, "", nil, vals, ""); err != nil {
 			return 0, err
 		}
