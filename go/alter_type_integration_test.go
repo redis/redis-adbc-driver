@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -605,6 +606,16 @@ func TestSQLAlterTypeLostLease(t *testing.T) {
 	before := h.rawMeta(raw, defaultSchema, "it_atl")
 	prefix, _ := h.tableNames(raw, defaultSchema, "it_atl")
 	other := newSQLHarness(t)
+	// Force failed owner cleanup as well as lease loss. A cancelled context
+	// alone does not deterministically prevent a pooled Redis command from
+	// completing; this case specifically tests recovery of an abandoned job.
+	statement, err := h.conn.NewStatement(h.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hook := &lostLeaseCleanupHook{}
+	statement.(*statementImpl).conn.store.client.AddHook(hook)
+	_ = statement.Close(h.ctx)
 	whileRewriting(t, func(ctx context.Context) {
 		job := h.rekeyRecord(raw, prefix)
 		if job == nil || !job.Rewrite || job.From != "it_atl" || job.To != "it_atl" {
@@ -614,9 +625,12 @@ func TestSQLAlterTypeLostLease(t *testing.T) {
 		raw.Del(h.ctx, rekeyAliveKey(job.Owner))
 		<-ctx.Done() // the lease can't be renewed
 	})
-	_, err := tryExec(h.ctx, h.conn, `ALTER TABLE it_atl ALTER COLUMN c TYPE int USING c::int`)
+	_, err = tryExec(h.ctx, h.conn, `ALTER TABLE it_atl ALTER COLUMN c TYPE int USING c::int`)
 	if !isStatus(err, adbc.StatusIO) || !strings.Contains(err.Error(), "its lease on the rewrite of the table's rows could not be renewed in time") {
 		t.Fatalf("ALTER: %v", err)
+	}
+	if hook.blocked.Load() == 0 {
+		t.Fatal("owner cleanup failure was not injected")
 	}
 	if meta, err := (&store{client: raw}).getTable(h.ctx, defaultSchema, "it_atl"); err != nil || meta.RekeyTo == "" || !meta.Rewriting {
 		t.Fatalf("the abandoned rewrite isn't recorded: %+v %v", meta, err)
@@ -816,4 +830,22 @@ func TestSQLAlterType(t *testing.T) {
 		"5|NULL|5|longer than five|NULL", "6|NULL|5|NULL|NULL", "7|NULL|5|NULL|NULL")
 	h.expectRows(`SELECT column_name, column_default FROM information_schema.columns WHERE table_name = 'it_at' AND column_name = 'n'`, "n|5")
 	h.expectRows(`SELECT id FROM it_at WHERE n = '5' ORDER BY id`, "4", "5", "6", "7")
+}
+
+// Only the expired owner's state read fails; the independent recovery client
+// retains normal Redis behavior and must still roll the job back correctly.
+type lostLeaseCleanupHook struct{ blocked atomic.Int32 }
+
+func (*lostLeaseCleanupHook) DialHook(next goredis.DialHook) goredis.DialHook { return next }
+func (h *lostLeaseCleanupHook) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
+	return func(ctx context.Context, cmd goredis.Cmder) error {
+		if ctx.Err() != nil && cmd.Name() == "hget" && len(cmd.Args()) > 1 && cmd.Args()[1] == rekeyKey {
+			h.blocked.Add(1)
+			return ctx.Err()
+		}
+		return next(ctx, cmd)
+	}
+}
+func (*lostLeaseCleanupHook) ProcessPipelineHook(next goredis.ProcessPipelineHook) goredis.ProcessPipelineHook {
+	return next
 }

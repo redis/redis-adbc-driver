@@ -28,7 +28,7 @@ LIB := build/libadbc_driver_redis.$(EXT)
 ADBC_CLI := build/redis-adbc
 LDFLAGS := -s -w -X github.com/adbc-drivers/driverbase-go/driverbase.infoDriverVersion=$(VERSION)
 
-.PHONY: build adbc-cli test validate clean redis-up redis-down redis-oss-up pgdiff pgdiff-test
+.PHONY: build adbc-cli test test-software validate clean redis-up redis-down redis-oss-up pgdiff pgdiff-test
 
 build: $(LIB)
 
@@ -52,6 +52,11 @@ $(ADBC_CLI): $(wildcard *.go) $(wildcard cmd/redis-adbc/*.go) go.mod go.sum
 # Disable caching because the running integration server is external state.
 test:
 	go test -count=1 -v -p 1 ./...
+
+# The Software data proxy filters eviction-policy introspection. Verify the
+# management API/QPF first, then carry only that owned endpoint's declaration.
+test-software:
+	bash software-setup.sh --exec go test -count=1 -v -p 1 $(TEST_ARGS) ./...
 
 redis-up:
 	bash software-setup.sh

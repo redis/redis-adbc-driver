@@ -44,7 +44,8 @@ const (
 	// (timetz.go).
 	KindTimeTZ
 	// KindRecord is a row value, (a, b) or ROW(…): Postgres's anonymous
-	// record type (see record.go). It is never a column's type.
+	// record type (see record.go), or a stored named Arrow struct
+	// (stored_struct.go).
 	KindRecord
 	KindArray
 )
@@ -113,17 +114,18 @@ type ColType struct {
 }
 
 type colTypeJSON struct {
-	Element   *ColType `json:"element,omitempty"`
-	Kind      string   `json:"kind"`
-	Unit      string   `json:"unit,omitempty"`
-	TZ        string   `json:"tz,omitempty"`
-	Precision int32    `json:"precision,omitempty"`
-	Scale     int32    `json:"scale,omitempty"`
-	Length    int32    `json:"length,omitempty"`
-	Fixed     bool     `json:"fixed,omitempty"`
-	Text      bool     `json:"text,omitempty"`
-	Alias     string   `json:"alias,omitempty"`
-	Collation string   `json:"collation,omitempty"`
+	Fields    []structField `json:"fields,omitempty"`
+	Element   *ColType      `json:"element,omitempty"`
+	Kind      string        `json:"kind"`
+	Unit      string        `json:"unit,omitempty"`
+	TZ        string        `json:"tz,omitempty"`
+	Precision int32         `json:"precision,omitempty"`
+	Scale     int32         `json:"scale,omitempty"`
+	Length    int32         `json:"length,omitempty"`
+	Fixed     bool          `json:"fixed,omitempty"`
+	Text      bool          `json:"text,omitempty"`
+	Alias     string        `json:"alias,omitempty"`
+	Collation string        `json:"collation,omitempty"`
 }
 
 var unitNames = map[arrow.TimeUnit]string{
@@ -135,6 +137,9 @@ var unitNames = map[arrow.TimeUnit]string{
 
 func (t ColType) MarshalJSON() ([]byte, error) {
 	j := colTypeJSON{Kind: t.Kind.String()}
+	if t.namedRecord() {
+		j.Fields = t.Rec.named
+	}
 	if t.Kind == KindArray {
 		el := t.element()
 		j.Element = &el
@@ -189,10 +194,17 @@ func (t *ColType) UnmarshalJSON(data []byte) error {
 	t.Text = j.Text
 	t.Rec = nil
 	if t.Kind == KindArray {
-		if j.Element == nil || j.Element.Kind == KindArray || j.Element.Kind == KindRecord {
+		if j.Element == nil || j.Element.Kind == KindRecord && !j.Element.namedRecord() {
 			return fmt.Errorf("invalid array element type")
 		}
 		t.Rec = arrayOf(*j.Element).Rec
+	}
+	if t.Kind == KindRecord && len(j.Fields) > 0 {
+		named, err := namedRecordOf(j.Fields)
+		if err != nil {
+			return err
+		}
+		t.Rec = named.Rec
 	}
 	if t.isTimeOfDay() || t.Kind == KindTimestamp {
 		// Without a precision (metadata written before it was kept), the
@@ -402,19 +414,24 @@ func (t ColType) SQLName() string {
 
 // colTypeFromArrow maps an Arrow type (from bulk ingest) onto a column type.
 func colTypeFromArrow(dt arrow.DataType) (ColType, error) {
+	if err := checkArrowTypeDepth(dt, 0); err != nil {
+		return ColType{}, err
+	}
 	switch t := dt.(type) {
-	case *arrow.ListType:
-		el, err := colTypeFromArrow(t.Elem())
-		if el.Kind == KindArray {
-			return ColType{}, fmt.Errorf("multidimensional arrays are not supported")
+	case *arrow.ListType, *arrow.LargeListType, *arrow.FixedSizeListType, *arrow.ListViewType, *arrow.LargeListViewType:
+		field := dt.(interface{ ElemField() arrow.Field }).ElemField()
+		el, err := colTypeFromField(field)
+		if err != nil {
+			return ColType{}, err
 		}
-		return arrayOf(el), err
-	case *arrow.LargeListType:
-		el, err := colTypeFromArrow(t.Elem())
-		if el.Kind == KindArray {
-			return ColType{}, fmt.Errorf("multidimensional arrays are not supported")
+		return arrayOf(el), nil
+	case *arrow.RunEndEncodedType:
+		if !t.ValidRunEndsType(t.RunEnds()) {
+			return ColType{}, fmt.Errorf("unsupported run-end index type %s", t.RunEnds())
 		}
-		return arrayOf(el), err
+		return colTypeFromArrow(t.Encoded())
+	case *arrow.StructType:
+		return structFromArrow(t)
 	case *arrow.DictionaryType:
 		return colTypeFromArrow(t.ValueType)
 	case *arrow.BooleanType:
@@ -423,8 +440,12 @@ func colTypeFromArrow(dt arrow.DataType) (ColType, error) {
 		return typeInt16, nil
 	case *arrow.Int32Type, *arrow.Uint16Type:
 		return typeInt32, nil
-	case *arrow.Int64Type, *arrow.Uint32Type, *arrow.Uint64Type:
+	case *arrow.Int64Type, *arrow.Uint32Type:
 		return typeInt64, nil
+	case *arrow.Uint64Type:
+		// SQL has no unsigned integer type. NUMERIC(20,0) holds the entire
+		// domain exactly and uses the established decimal arithmetic/HASH path.
+		return decimalType(20, 0), nil
 	case *arrow.Float16Type, *arrow.Float32Type:
 		return typeFloat32, nil
 	case *arrow.Float64Type:
@@ -444,10 +465,25 @@ func colTypeFromArrow(dt arrow.DataType) (ColType, error) {
 	case *arrow.Date32Type, *arrow.Date64Type:
 		return typeDate, nil
 	case *arrow.Time32Type:
+		if t.Unit != arrow.Second && t.Unit != arrow.Millisecond {
+			return ColType{}, fmt.Errorf("invalid Arrow Time32 unit")
+		}
 		return timeType(t.Unit), nil
 	case *arrow.Time64Type:
+		if t.Unit != arrow.Microsecond && t.Unit != arrow.Nanosecond {
+			return ColType{}, fmt.Errorf("invalid Arrow Time64 unit")
+		}
 		return timeType(t.Unit), nil
 	case *arrow.TimestampType:
+		if t.Unit < arrow.Second || t.Unit > arrow.Nanosecond {
+			return ColType{}, fmt.Errorf("invalid Arrow timestamp unit")
+		}
+		if t.TimeZone == "Local" {
+			return ColType{}, fmt.Errorf("Arrow timestamp zone must be explicit")
+		}
+		if _, err := t.GetZone(); err != nil {
+			return ColType{}, fmt.Errorf("invalid Arrow timestamp zone: %w", err)
+		}
 		tz := ""
 		if t.TimeZone != "" {
 			// Instants are stored normalized to UTC.
@@ -567,4 +603,28 @@ func timeTypeFromSQL(spec sqlTypeSpec, p int) (ColType, error) {
 		return ColType{}, stateErr(stateInvalidParameter, "%s(%d)%s precision must not be negative", name, p, suffix)
 	}
 	return fracType(k, p, tz), nil
+}
+
+// Bound recursive schema work independently of the number of rows/buffers.
+func checkArrowTypeDepth(dt arrow.DataType, depth int) error {
+	if depth > 16 {
+		return fmt.Errorf("Arrow type nesting exceeds 16 levels")
+	}
+	if dec, ok := dt.(arrow.DecimalType); ok {
+		maxPrecision := map[arrow.Type]int32{arrow.DECIMAL32: 9, arrow.DECIMAL64: 18, arrow.DECIMAL128: 38, arrow.DECIMAL256: 76}[dt.ID()]
+		if dec.GetPrecision() < 1 || dec.GetPrecision() > maxPrecision {
+			return fmt.Errorf("invalid Arrow decimal precision %d for %s", dec.GetPrecision(), dt)
+		}
+	}
+	if dict, ok := dt.(*arrow.DictionaryType); ok {
+		return checkArrowTypeDepth(dict.ValueType, depth+1)
+	}
+	if nested, ok := dt.(arrow.NestedType); ok {
+		for _, f := range nested.Fields() {
+			if err := checkArrowTypeDepth(f.Type, depth+1); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

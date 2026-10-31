@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"reflect"
 	"strconv"
 
 	"github.com/apache/arrow-adbc/go/adbc"
@@ -82,7 +83,7 @@ func (p *partitionParam) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("invalid parameter type")
 	}
 	var normalized colTypeJSON
-	if err := json.Unmarshal(canonical, &normalized); err != nil || normalized != j {
+	if err := json.Unmarshal(canonical, &normalized); err != nil || !reflect.DeepEqual(normalized, j) {
 		return fmt.Errorf("noncanonical parameter type")
 	}
 

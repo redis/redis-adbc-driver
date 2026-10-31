@@ -60,6 +60,7 @@ package redis
 // it are checked in the driver.
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -427,6 +428,13 @@ func arrowField(name string, t ColType, nullable bool) arrow.Field {
 // with time zone's text (a string field whose typeNameKey names one, as
 // arrowField makes it).
 func colTypeFromField(f arrow.Field) (ColType, error) {
+	// C import can expose an extension as its storage type plus metadata.
+	// Do not silently interpret those bytes as a supported SQL value.
+	for _, key := range f.Metadata.Keys() {
+		if strings.HasPrefix(key, "ARROW:extension:") {
+			return ColType{}, fmt.Errorf("Arrow extension metadata is not supported (%s)", key)
+		}
+	}
 	switch f.Type.ID() {
 	case arrow.STRING, arrow.LARGE_STRING, arrow.STRING_VIEW:
 		if i := f.Metadata.FindKey(typeNameKey); i >= 0 {

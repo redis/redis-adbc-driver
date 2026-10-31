@@ -1030,6 +1030,8 @@ func TestSQLAlterCleanupResumes(t *testing.T) {
 func TestSQLInformationSchema(t *testing.T) {
 	h := newSQLHarness(t)
 	h.setupOrders()
+	h.dropTables("it_is_unrelated")
+	h.exec(`CREATE TABLE it_is_unrelated (id INTEGER)`)
 	h.exec("DROP VIEW IF EXISTS it_is_view")
 	h.exec(`CREATE VIEW it_is_view AS SELECT id, amount FROM it_orders WHERE qty > 1`)
 	t.Cleanup(func() { h.exec("DROP VIEW IF EXISTS it_is_view") })
@@ -1038,7 +1040,7 @@ func TestSQLInformationSchema(t *testing.T) {
 		WHERE schema_name IN ('public', 'information_schema') ORDER BY schema_name`,
 		"information_schema", "public")
 	h.expectRows(`SELECT table_name, table_type FROM information_schema.tables
-		WHERE table_schema = 'public' AND table_name LIKE 'it_%' ORDER BY table_name`,
+		WHERE table_schema = 'public' AND table_name IN ('it_customers', 'it_is_view', 'it_orders') ORDER BY table_name`,
 		"it_customers|BASE TABLE", "it_is_view|VIEW", "it_orders|BASE TABLE")
 	h.expectRows(`SELECT column_name, ordinal_position, driver_data_type, is_nullable, numeric_precision, numeric_scale, is_indexed
 		FROM information_schema.columns WHERE table_name = 'it_orders' ORDER BY ordinal_position`,

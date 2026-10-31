@@ -156,6 +156,13 @@ func (p *selectPlan) hasCorrelated() bool {
 	return found
 }
 
+// incrementalScan permits a prepared key list without a global sort. The
+// existing scan iterator fetches those HASHes in bounded pipeline chunks.
+// General HASH discovery still needs a global insertion-order sort.
+func incrementalScan(plan *selectPlan, sc selectScan) bool {
+	return !sc.req.hashScan && (sc.indexSort || sc.req.where.keys != nil && len(plan.order) == 0)
+}
+
 // streamSelect runs a query whose plan is streamable. It reads the first
 // batch of rows, and returns the result whole if that was all of it, or
 // else a stream of it.
@@ -173,7 +180,7 @@ func (e *executor) streamSelect(ctx context.Context, plan *selectPlan, params []
 		}
 		return e.fitResult(execResult{isQuery: true, cols: plan.columns(), rows: rows, affected: int64(len(rows))}, nil)
 	}
-	if sc.req.where.keys != nil || sc.req.where.none || !sc.indexSort {
+	if sc.req.where.none || !incrementalScan(plan, sc) {
 		rows, handled, err := e.selectTopK(ctx, plan, sc, params)
 		if !handled {
 			rows, err = e.selectScanned(ctx, plan, sc, params)

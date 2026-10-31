@@ -19,6 +19,15 @@
 # Requires Docker Compose, curl and jq. Fixed credentials and a trial license
 # are for local testing only; both published ports bind to localhost.
 set -euo pipefail
+# Run a command only after this exact owned endpoint's policy and QPF gates.
+# Do not infer a guarantee from an empty CONFIG reply at the data proxy.
+if [ "$#" -gt 0 ]; then
+    if [ "$1" != --exec ] || [ "$#" -lt 2 ]; then
+        echo "Usage: software-setup.sh [--exec command [args...]]" >&2
+        exit 2
+    fi
+    shift
+fi
 cd "$(dirname "$0")"
 for tool in docker curl jq; do
     command -v "$tool" >/dev/null || { echo "Required tool not found: $tool" >&2; exit 1; }
@@ -126,3 +135,9 @@ ready() { docker compose exec -T redis-software /opt/redislabs/bin/redis-cli -e 
 wait_for 'Search endpoint' ready
 call -f "$api/bdbs/$uid" | jq -r '"Redis Software database: Redis \(.version), \(.shards_count) shard(s), QPF 4x verified, modules \([.module_list[].module_name] | join(", "))"' >&2
 echo "REDIS_URI=redis://localhost:$db_port/0"
+
+if [ "$#" -gt 0 ]; then
+    export REDIS_URI="redis://localhost:$db_port/0"
+    export REDIS_RETAINED_CONTROL_PERSISTENCE=guaranteed
+    exec "$@"
+fi

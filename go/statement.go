@@ -16,6 +16,7 @@ package redis
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"slices"
@@ -32,6 +33,7 @@ import (
 func asAdbc(err error, target *adbc.Error) bool { return errors.As(err, target) }
 
 type statementImpl struct {
+	resultLayouts resultLayouts
 	driverbase.StatementImplBase
 
 	conn   *connectionImpl
@@ -76,6 +78,12 @@ func (s *statementImpl) Base() *driverbase.StatementImplBase { return &s.Stateme
 
 func (s *statementImpl) GetOption(ctx context.Context, key string) (string, error) {
 	switch key {
+	case OptionStringResultLayouts:
+		b, _ := json.Marshal(s.resultLayouts)
+		if s.resultLayouts == nil {
+			return "{}", nil
+		}
+		return string(b), nil
 	case OptionStringIPCInput, OptionStringIPCOutput, OptionStringIPCFormat:
 		return s.ipc.get(key), nil
 	case OptionStringPartitionResultMode:
@@ -199,6 +207,14 @@ func (s *statementImpl) SetOption(ctx context.Context, key, val string) error {
 		return err
 	}
 	switch key {
+	case OptionStringResultLayouts:
+		layouts, err := parseResultLayouts(val)
+		if err != nil {
+			return err
+		}
+		s.resultLayouts = layouts
+		s.partitionExecution = nil
+		return nil
 	case OptionStringIPCInput, OptionStringIPCOutput, OptionStringIPCFormat:
 		return s.ipc.set(key, val)
 	case OptionStringPartitionResultMode:
@@ -404,19 +420,21 @@ func (s *statementImpl) paramRows() ([][]Value, []ColType, error) {
 	schema := s.params.Schema()
 	types := make([]ColType, schema.NumFields())
 	for i, f := range schema.Fields() {
-		if f.Type.ID() == arrow.NULL {
-			types[i] = typeNull
-			continue
-		}
-		t, err := colTypeFromArrow(f.Type)
+		t, err := colTypeFromField(f)
 		if err != nil {
 			return nil, nil, errorf(adbc.StatusNotImplemented, "parameter %d: %v", i+1, err)
+		}
+		if f.Type.ID() == arrow.NULL {
+			t = typeNull
 		}
 		types[i] = t
 	}
 	rows := [][]Value{}
 	for s.params.Next() {
 		rec := s.params.RecordBatch()
+		if err := validateInputRecord(rec); err != nil {
+			return nil, nil, errorf(adbc.StatusInvalidArgument, "invalid Arrow parameters: %v", err)
+		}
 		for r := 0; r < int(rec.NumRows()); r++ {
 			row := make([]Value, rec.NumCols())
 			for c := 0; c < int(rec.NumCols()); c++ {
@@ -555,7 +573,8 @@ func (s *statementImpl) executeQuery(ctx context.Context) (array.RecordReader, i
 		return nil, -1, err
 	}
 	if res.stream != nil {
-		return res.stream, res.affected, nil
+		rdr, err := s.resultLayouts.wrap(ctx, s.conn.Alloc, res.stream)
+		return rdr, res.affected, err
 	}
 	if !res.isQuery {
 		rdr, err := recordsReader(s.conn.Alloc, nil, nil)
@@ -565,7 +584,8 @@ func (s *statementImpl) executeQuery(ctx context.Context) (array.RecordReader, i
 	if err != nil {
 		return nil, -1, invalidArg(err)
 	}
-	return rdr, int64(len(res.rows)), nil
+	rdr, err = s.resultLayouts.wrap(ctx, s.conn.Alloc, rdr)
+	return rdr, int64(len(res.rows)), err
 }
 
 func (s *statementImpl) ExecuteUpdate(ctx context.Context) (int64, error) {
@@ -596,8 +616,11 @@ func (s *statementImpl) ExecuteSchema(ctx context.Context) (*arrow.Schema, error
 	var paramTypes []ColType
 	if s.params != nil {
 		for _, f := range s.params.Schema().Fields() {
-			t, err := colTypeFromArrow(f.Type)
+			t, err := colTypeFromField(f)
 			if err != nil {
+				return nil, errorf(adbc.StatusNotImplemented, "parameter %d: %v", len(paramTypes)+1, err)
+			}
+			if f.Type.ID() == arrow.NULL {
 				t = typeNull
 			}
 			paramTypes = append(paramTypes, t)
@@ -610,5 +633,5 @@ func (s *statementImpl) ExecuteSchema(ctx context.Context) (*arrow.Schema, error
 	if !ok {
 		return arrow.NewSchema(nil, nil), nil
 	}
-	return resultSchema(cols), nil
+	return s.resultLayouts.schema(resultSchema(cols))
 }

@@ -292,7 +292,6 @@ func TestUnionAllStreamFallback(t *testing.T) {
 		"SELECT id FROM " + a + " UNION SELECT id FROM " + a,
 		"SELECT id FROM " + a + " INTERSECT ALL SELECT id FROM " + a,
 		"SELECT id FROM " + a + " UNION ALL SELECT 1",
-		"SELECT id FROM " + a + " WHERE __rowid=1 UNION ALL SELECT id FROM " + a,
 		"SELECT row_number() OVER () FROM " + a + " UNION ALL SELECT id FROM " + a,
 		"SELECT id FROM " + a + " WHERE id IN (SELECT id FROM " + a + ") UNION ALL SELECT id FROM " + a,
 	} {
