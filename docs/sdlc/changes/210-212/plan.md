@@ -15,4 +15,8 @@
 
 See [intent](intent.md), [spec](spec.md), and [validation](validation.md).
 
-Implementation and focused/native checks are complete. Full Go EOF failures and the separate TLS-fixture setup attempts remain visible in the [validation record](validation.md); hosted CI and maintainer review are pending.
+Implementation and focused/native checks are complete. Albert Wong merged
+PR #260 after its hosted Test and Release binaries workflows passed. Issues
+#210–#212 are closed with final acceptance mappings. Historical local Go EOF
+failures and TLS-fixture setup attempts remain visible in the
+[validation record](validation.md), alongside the final hosted evidence.
