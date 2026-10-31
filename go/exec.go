@@ -42,6 +42,7 @@ type executor struct {
 	telemetry        *scanTelemetry
 	aggregateMetrics *partitionMetrics
 	diagnostics      *executionDiagnostics
+	truncateAdopted  bool
 	rekey            bool // RENAME TO also moves the rows (see rekey.go)
 
 	// Per-statement state (see bind.go).
@@ -366,6 +367,25 @@ func (e *executor) runTruncate(ctx context.Context, st *TruncateStmt) error {
 			metas = append(metas, meta)
 		}
 	}
+	if slices.ContainsFunc(metas, func(m *tableMeta) bool { return m.Adopted }) && e.truncateAdopted {
+		for _, m := range metas {
+			if !m.Adopted {
+				return errorf(adbc.StatusNotImplemented, "TRUNCATE cannot mix adopted and managed tables")
+			}
+			if !m.KeyRows {
+				return errAdoptedByRowID(m)
+			}
+			if err := e.store.checkKeys(ctx, m, true); err != nil {
+				return err
+			}
+		}
+		for _, m := range metas {
+			if err := e.store.truncateAdoptedRows(ctx, m); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 	return e.store.truncateTables(ctx, metas, st.RestartIdentity)
 }
 
@@ -547,11 +567,13 @@ func (e *executor) runInsert(ctx context.Context, st *InsertStmt, params []Value
 	if err != nil {
 		return 0, err
 	}
+	original := meta
+	meta = insertMeta(meta)
 	targets, err := insertTargets(meta, st.Columns)
 	if err != nil {
 		return 0, err
 	}
-	if _, err := e.planReturning(ctx, st.Returning, []relation{tableRel(meta, "")}, meta, false, nil); err != nil {
+	if _, err := e.planReturning(ctx, st.Returning, []relation{tableRel(original, "")}, original, false, nil); err != nil {
 		return 0, err
 	}
 	if st.Select != nil {
@@ -597,7 +619,10 @@ func (e *executor) runInsert(ctx context.Context, st *InsertStmt, params []Value
 func insertTargets(meta *tableMeta, cols []string) ([]int, error) {
 	targets := make([]int, 0, len(meta.Columns))
 	if len(cols) == 0 {
-		for i := range meta.Columns {
+		for i, c := range meta.Columns {
+			if c.Name == keyField && meta.KeyRows {
+				continue
+			}
 			targets = append(targets, i)
 		}
 		return targets, nil

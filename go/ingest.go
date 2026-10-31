@@ -84,6 +84,9 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 		return -1, err
 	}
 
+	if _, hasKey := wanted.resolve(keyField); hasKey && opts.Mode == adbc.OptionValueIngestModeReplace {
+		return -1, errorf(adbc.StatusInvalidArgument, "__key ingestion requires append or create_append mode")
+	}
 	var meta *tableMeta
 	switch opts.Mode {
 	case adbc.OptionValueIngestModeCreate:
@@ -105,6 +108,19 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 			return -1, err
 		}
 	case adbc.OptionValueIngestModeCreateAppend:
+		// __key is an input to existing adopted tables, never a stored
+		// column of a newly created table.
+		if _, hasKey := wanted.resolve(keyField); hasKey {
+			current, getErr := st.getTable(ctx, schemaName, opts.TableName)
+			if getErr == nil && current.Adopted && current.KeyRows {
+				meta = current
+				break
+			}
+			var ae adbc.Error
+			if getErr != nil && (!errors.As(getErr, &ae) || ae.Code != adbc.StatusNotFound) {
+				return -1, getErr
+			}
+		}
 		created, err := st.createTable(ctx, wanted, true)
 		if err != nil {
 			return -1, err
@@ -117,6 +133,8 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 	default:
 		return -1, errorf(adbc.StatusInvalidArgument, "unknown ingest mode %q", opts.Mode)
 	}
+
+	meta = insertMeta(meta)
 
 	// Map each Arrow field onto a table column; the other columns get their
 	// defaults, with the whole ingest as one statement. Values are converted

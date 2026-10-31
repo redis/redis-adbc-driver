@@ -64,6 +64,7 @@ type statementImpl struct {
 	retainedMode            string
 	retainedTTL             time.Duration
 	retainedExecutionLimits retainedExecutionLimits
+	truncateAdopted         bool
 }
 
 var (
@@ -91,6 +92,8 @@ func (s *statementImpl) GetOption(ctx context.Context, key string) (string, erro
 		return strconv.FormatBool(s.incremental), nil
 	case OptionIntPartitionCount:
 		return strconv.Itoa(s.partitions()), nil
+	case OptionStringTruncateAdopted:
+		return strconv.FormatBool(s.truncateAdopted), nil
 	case OptionStringIngestIndexColumns:
 		if s.indexColumns == nil {
 			return "*", nil
@@ -148,6 +151,7 @@ func (s *statementImpl) SetOptionInt(ctx context.Context, key string, value int6
 
 func (s *statementImpl) executor() *executor {
 	e := s.conn.executor()
+	e.truncateAdopted = s.truncateAdopted
 	if s.aggPushdown != "" {
 		e.pushdown = s.aggPushdown
 	}
@@ -256,6 +260,12 @@ func (s *statementImpl) SetOption(ctx context.Context, key, val string) error {
 	case adbc.OptionKeyIngestTargetTable:
 		s.partitionExecution = nil
 		s.query, s.parsed = "", nil
+	case OptionStringTruncateAdopted:
+		if val != "true" && val != "false" {
+			return errorf(adbc.StatusInvalidArgument, "invalid %s %q (want true or false)", key, val)
+		}
+		s.truncateAdopted = val == "true"
+		return nil
 	case OptionStringIngestIndexColumns:
 		if val == "" || val == "*" {
 			s.indexColumns = nil

@@ -538,7 +538,7 @@ SQL, adopted in place (redis-adbc adopt): READY
   [missing] the table's metadata (adbc:{meta}:table:public:users)
             fix: adopt writes it
   [warn]    a write by the application of a value a numeric column can't hold (text, an empty value, NaN) takes that HASH out of the index, and so out of the table
-  [warn]    SQL UPDATE and DELETE change the application's HASHes (an UPDATE that would leave a HASH without fields is refused); INSERT, TRUNCATE, ADD COLUMN and a re-keying RENAME are refused, and DROP TABLE drops only the metadata and an index adopt created
+  [warn]    SQL UPDATE and DELETE change the application's HASHes (an UPDATE that would leave a HASH without fields is refused); INSERT requires an explicit __key, TRUNCATE requires adbc.redis.truncate_adopted=true, and ADD COLUMN and a re-keying RENAME are refused, and DROP TABLE drops only the metadata and an index adopt created
   run: redis-adbc adopt -prefix user: -table users
 ```
 
@@ -729,9 +729,39 @@ Adopted: public.users now reads the HASHes under user:, and those the applicatio
   `-trust-strings` records the levels measured now instead, for HASHes the
   application no longer writes, or never writes with a string the index
   doesn't hold exactly.
-- **What an adopted table refuses.** Its keys are the application's, so
-  the driver doesn't make new ones, move them, or delete them wholesale:
-  - `INSERT` (and `MERGE … INSERT` and bulk ingest), `TRUNCATE`,
+- **Adding and removing adopted rows.** Supply the complete Redis key in
+  an explicit `__key` column for `INSERT`, `INSERT … SELECT`, `MERGE … INSERT`,
+  or Arrow bulk ingest (`append` or `create_append` mode). For example:
+
+  ```sql
+  INSERT INTO users (__key, name) VALUES ('user:42', 'Alice');
+  ```
+
+  The key must be under the adopted prefix with no further `:`. NULL keys,
+  existing keys of any Redis type, duplicate keys in a batch, and rows with
+  no non-NULL fields are refused. Only non-NULL column fields are written,
+  using the application's sampled text formats; neither `__key` nor
+  `__rowid` is stored in the HASH. `RETURNING *` excludes `__key`; request
+  it explicitly when needed. There is no automatic key allocation or key
+  pattern expansion. Existing restrictions on system columns in joins still
+  apply to the MERGE match condition.
+
+  `TRUNCATE` is refused by default. To delete an adopted collection's row
+  HASHes, set the **statement** option `adbc.redis.truncate_adopted` to
+  `"true"` before executing `TRUNCATE users`. This SCANs each primary and
+  UNLINKs row HASHes in place; nested keys and non-HASH keys stay, as do the
+  metadata and index. `RESTART IDENTITY` has no effect on application keys.
+  A statement mixing adopted and managed tables is refused before deletion.
+  Pause application writers for a complete emptying: this operation is not
+  atomic across rows or tables, and cancellation or failure can leave a
+  partially emptied collection. Opted-in TRUNCATE additionally needs the
+  `+scan +type +unlink` ACL commands (and the adopted-write script permissions
+  listed below). Likewise, an application key collision during
+  a multi-row insert can leave earlier rows inserted; existing keys are never
+  overwritten. Ingest validates one Arrow batch at a time.
+
+- **What an adopted table refuses.** Its keys are the application's:
+  - `TRUNCATE` without the statement opt-in,
     `ALTER TABLE … ADD COLUMN`, and `RENAME TO` with
     `adbc.redis.rename_rekey` fail with `… isn't supported on
     "public"."users", whose rows are HASHes adopted in place (redis-adbc
@@ -803,8 +833,8 @@ A user that only queries an adopted table needs the driver's read-only
 rules, with read access to the collection's keys (`%R~user:*`), and
 `+ft.info` if the table reads the application's index (each statement
 reads its attributes). One that
-updates or deletes its rows needs the driver's rules, write access to the
-keys (`~user:*`), and, for the script that `UPDATE` runs on each HASH:
+inserts, updates or deletes its rows needs the driver's rules, write access to
+the keys (`~user:*`), and the row scripts' permissions:
 
 ```text
 +hlen +eval +evalsha +script|load
