@@ -77,4 +77,18 @@ REDIS_URI=redis://localhost:6379/0 python -m pytest -q python/tests/test_pandas_
 The recorded run used pandas 3.1.0, PyArrow 26.0.0 and ADBC manager 1.13.0;
 see [validation](https://github.com/redis/redis-adbc-driver/blob/main/docs/sdlc/changes/pandas-smoke/validation.md).
 
+## Rerun this guide
+
+From the repository root, with the guide's dependencies and native driver
+installed, set `REDIS_URI` to the dedicated local Software fixture and run:
+
+```sh
+python python/scripts/check_integration_guide.py pandas
+```
+
+This executes the guide's code blocks or its linked runnable example. For
+Superset it exercises the documented backend workflow in an isolated application;
+it does not automate the browser UI. See the
+[per-guide results](../sdlc/changes/integration-guides-262/validation.md).
+
 [All integration guides](README.md)
