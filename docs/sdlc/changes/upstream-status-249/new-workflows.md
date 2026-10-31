@@ -34,7 +34,8 @@ linked and qualified.
 The original twelve contributions remain tracked; the six new workflows do not
 inherit their submission/acceptance status. All eighteen integration paths now
 have a guide entry (dbt now has a tested local starter guide).
-Three disclosed upstream drafts have now been submitted for Jupyter, Datasets
-and Streamlit. NumPy, scikit-learn and SciPy require human review/submission;
-prepared patches and exact policies are recorded in the upstream handoff.
+All six new upstream documentation patches are now submitted as disclosed
+drafts. After the initial handoff, the user explicitly requested submission of
+NumPy, scikit-learn and SciPy on their behalf. Those PRs disclose AI assistance
+and do not assert independent human review. See the upstream submission record.
 Maintainer review and acceptance remain outstanding. No human approval is inferred.
