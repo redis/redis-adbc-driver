@@ -106,3 +106,94 @@ def test_registered_extension_rejected(conn):
         with conn.cursor() as cur:
             with pytest.raises(Exception, match="extension|unsupported Arrow"):
                 cur.adbc_ingest("it_registered_extension", data)
+
+
+def layout_inventory_inputs():
+    i64 = pa.int64()
+    inputs = {
+        "fixed": pa.array([[91, 92], [7, None], None, [-3, 4]], pa.list_(i64, 2)),
+        "nested_fixed": pa.array([[[1], []], None, [None, [2, None]]], pa.list_(pa.list_(i64), 2)),
+        "view": pa.ListViewArray.from_arrays(
+            pa.array([3, 0, 0, 0, 1], pa.int32()), pa.array([1, 2, 0, 0, 2], pa.int32()),
+            pa.array([7, None, 8, 9], i64), mask=pa.array([False, False, True, False, False])),
+        "large_view": pa.LargeListViewArray.from_arrays(
+            pa.array([3, 0, 0, 0, 1], i64), pa.array([1, 2, 0, 0, 2], i64),
+            pa.array([7, None, 8, 9], i64), mask=pa.array([False, False, True, False, False])),
+    }
+    for width in [16, 32, 64]:
+        inputs[f"run_end_{width}"] = pa.RunEndEncodedArray.from_arrays(
+            pa.array([2, 5, 7], getattr(pa, f"int{width}")()),
+            pa.array(["long string that must own its bytes", None, "last"]))
+    inputs["run_end_list"] = pa.RunEndEncodedArray.from_arrays(
+        pa.array([2, 3, 5], pa.int16()), pa.array([[1, None], None, []], pa.list_(i64)))
+    inputs["list_of_run_end"] = pa.ListArray.from_arrays(
+        pa.array([0, 2, 5, 7], pa.int32()), inputs["run_end_16"])
+    inputs["map"] = pa.array([[('duplicate', 1), ('duplicate', None)], None, []], pa.map_(pa.string(), i64))
+    ids = pa.array([3, 7, 3], pa.int8())
+    inputs["dense_union"] = pa.UnionArray.from_dense(
+        ids, pa.array([0, 0, 1], pa.int32()), [pa.array([9, None], i64), pa.array(["text"])],
+        field_names=["n", "s"], type_codes=[3, 7])
+    inputs["sparse_union"] = pa.UnionArray.from_sparse(
+        ids, [pa.array([9, None, None], i64), pa.array([None, "text", None], pa.string())],
+        field_names=["n", "s"], type_codes=[3, 7])
+    return inputs
+
+
+@pytest.mark.parametrize("name", [
+    "fixed", "nested_fixed", "view", "large_view", "run_end_16", "run_end_32", "run_end_64", "run_end_list",
+    "list_of_run_end", "map", "dense_union", "sparse_union",
+])
+def test_layout_inventory_c_bindings(conn, name):
+    source = layout_inventory_inputs()[name]
+    unsupported = name in {"map", "dense_union", "sparse_union"}
+    canonical_type = pa.string() if name.startswith("run_end_") and name != "run_end_list" else pa.list_(pa.int64())
+    if name == "nested_fixed":
+        canonical_type = pa.list_(pa.list_(pa.int64()))
+    elif name == "list_of_run_end":
+        canonical_type = pa.list_(pa.string())
+    with conn.cursor() as cur:
+        for start, length in [(0, len(source)), (1, len(source) - 1), (0, 0)]:
+            sliced = source.slice(start, length)
+            # RecordBatch uses C Bind; Table uses C BindStream. NULLs in Union
+            # are selected-child NULLs because Union has no parent validity bitmap.
+            for stream in [False, True]:
+                table = f"it_c_inventory_{name}"
+                cur.execute(f"DROP TABLE IF EXISTS {table}")
+                batch = pa.RecordBatch.from_arrays([sliced], names=["v"])
+                data = pa.Table.from_batches([batch]) if stream else batch
+                if unsupported:
+                    with pytest.raises(Exception, match="unsupported Arrow type"):
+                        cur.adbc_ingest(table, data)
+                    with pytest.raises(Exception, match="does not exist|not found"):
+                        conn.adbc_get_table_schema(table)
+                    continue
+                try:
+                    cur.adbc_ingest(table, data)
+                    cur.execute(f"SELECT v FROM {table} ORDER BY __rowid")
+                    actual = cur.fetch_arrow_table()
+                    expected = pa.table({"v": pa.array(sliced.to_pylist(), canonical_type)})
+                    assert actual.equals(expected), (name, start, stream, actual, expected)
+                    assert conn.adbc_get_table_schema(table).equals(expected.schema)
+                finally:
+                    cur.execute(f"DROP TABLE IF EXISTS {table}")
+
+
+def test_layout_expansion_rejected_before_rows(conn):
+    sources = [
+        pa.RunEndEncodedArray.from_arrays(pa.array([2**20 + 1], pa.int64()), pa.array([7], pa.int64())),
+        pa.RunEndEncodedArray.from_arrays(pa.array([65], pa.int16()), pa.array(["x" * 2**20])),
+    ]
+    with conn.cursor() as cur:
+        for source in sources:
+            for stream in [False, True]:
+                table = "it_c_layout_expansion_guard"
+                cur.execute(f"DROP TABLE IF EXISTS {table}")
+                batch = pa.RecordBatch.from_arrays([source], names=["v"])
+                data = pa.Table.from_batches([batch]) if stream else batch
+                try:
+                    with pytest.raises(Exception, match="Arrow normalization exceeds"):
+                        cur.adbc_ingest(table, data)
+                    cur.execute(f"SELECT COUNT(*) FROM {table}")
+                    assert cur.fetchall() == [(0,)]
+                finally:
+                    cur.execute(f"DROP TABLE IF EXISTS {table}")

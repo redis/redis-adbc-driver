@@ -146,6 +146,46 @@ query streaming, not CDC. `stream_batch_rows` and optional `stream_batch_bytes`
 bound output batches, not prepared key lists, retained consumer batches, a huge
 row, server sort state, allocator slack or total process memory.
 
+## Layout assessment and decoded-input limits
+
+The [#208 assessment](https://github.com/redis/redis-adbc-driver/issues/208)
+selects the following contracts. Physical encodings are not persisted in HASHes.
+
+| Layout | Decision and validation |
+|---|---|
+| Map | Reject every key/value type, including NULL containers, duplicate keys, empty and sliced arrays. No key/duplicate/order policy is implied by accepting ordinary lists or structs. Future stored Map semantics: [#267](https://github.com/redis/redis-adbc-driver/issues/267). |
+| Dense/sparse Union | Reject both layouts, regardless of type codes, dense offsets or sparse child alignment. A NULL selected child does not make the Union type supported. Future tagged storage: [#268](https://github.com/redis/redis-adbc-driver/issues/268). |
+| FixedSizeList | Validate positive width and sufficient child extent, including slices; normalize to List. Preserve parent NULLs and child NULLs; discard fixed-width identity. |
+| ListView/LargeListView | Validate offset/size ranges without overflowing their sum. Shared, overlapping and non-monotonic views normalize in logical row order to List, with NULL/empty distinctions intact. |
+| Run-end encoding | Accept signed int16/int32/int64 run ends that are positive, strictly increasing, non-NULL and cover the logical slice within the index type's range. Normalize each logical value recursively; encoded NULLs come from the values child. Empty and nonzero-offset slices are supported. |
+
+For any bound batch whose schema contains FixedSizeList, ListView,
+LargeListView or run-end encoding (including inside lists, structs or
+dictionaries), normalization permits at most **1,048,576 decoded values** and
+**67,108,864 decoded string/binary payload bytes** across all its input columns.
+Each logical container, scalar and NULL counts as one value; non-NULL containers
+also count their decoded children. Run-end and dictionary encodings count their
+decoded values. Shared views/repeated runs count every logical occurrence,
+including repeated string/binary bytes. A NULL container does not expand its
+children. Fixed-size binary bytes count toward the same payload limit.
+
+Structural validation and these checks precede ingest-row allocation and writes
+from that batch, and also apply to bound SQL parameters. Exceeding a limit returns
+InvalidArgument; split the input into smaller batches. Input buffers, metadata,
+Value object overhead, output/IPC buffers, retained batches and aggregate work
+are outside the payload counter. These are per-batch decoded-input limits, not
+RSS caps or limits on the total rows in a stream. Existing schemas without these
+layouts retain their existing limits. Table creation and earlier successful
+batches are not rolled back when a later batch rejects.
+
+Canonical normalized output supports IPC streams/files and the existing live
+and retained partition paths. Independent readers see canonical schemas, not
+input encoding identity. The assessment fixtures compare complete values and
+schemas after create/append, fresh-connection metadata reload, IPC, and replay;
+retained replay is checked after the live source is truncated. Existing result
+layout partition restrictions remain as described above. Map/Union rejection
+occurs before table creation and never silently stringifies values.
+
 ## Ownership and extension policy
 
 - C Data/Stream import retains the Arrow objects needed while reading. Caller
