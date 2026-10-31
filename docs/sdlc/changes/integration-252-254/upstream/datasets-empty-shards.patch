@@ -8,7 +8,7 @@ index 9c57117..70ffef9 100644
              # if we have only a few large samples, we should only create as many shards as samples
 -            num_shards = min(len(self.data), num_shards)
 +            num_shards = max(1, min(len(self.data), num_shards))
- 
+
          fs: fsspec.AbstractFileSystem
          fs, _ = url_to_fs(dataset_path, **(storage_options or {}))
 diff --git a/tests/test_arrow_dataset.py b/tests/test_arrow_dataset.py
