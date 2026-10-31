@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify native partitions over trusted TLS with independent restricted workers.
+"""Verify native metadata/partitions over trusted TLS with restricted workers.
 
 Requires REDIS_TLS_ADMIN_URI, SSL_CERT_FILE (fixture CA path) and a TLS-only disposable fixture
 with aggregate cap 137. Uses REDIS_ADBC_LIBRARY, or the installed native wheel.
@@ -249,6 +249,8 @@ def main(argv=None, cloud_principals_factory=None):
               'platform': platform.platform(), 'machine': platform.machine(),
               'packages': {name: importlib.metadata.version(name) for name in ('adbc-driver-manager', 'redis')},
               'aggregate_cap': 137, 'cluster_mode': args.cluster_mode, 'checks': []}
+    if not override:
+        report['packages']['adbc-driver-redis'] = importlib.metadata.version('adbc-driver-redis')
     schema_created = False
     def check(name):
         report['checks'].append(name)
@@ -433,6 +435,8 @@ def main(argv=None, cloud_principals_factory=None):
             for worker_control in worker_controls:
                 worker_control.close()
         check('worker_config_mutation_and_writes_denied' if args.software_fixture or args.cloud_fixture else 'worker_config_and_writes_denied')
+        from partition_metadata_tls import check_metadata_tls
+        report['metadata'] = check_metadata_tls(principals, connect, planner_uri, schema, read_commands)
         assert_failed(b'{}', 'invalid Redis ADBC partition')
         check('malformed_descriptor_rejected')
         principals.command(worker, '-ft.info')
@@ -512,7 +516,8 @@ def main(argv=None, cloud_principals_factory=None):
                     report['status'] = 'failed'
                 args.output.parent.mkdir(parents=True, exist_ok=True)
                 args.output.write_text(json.dumps(report, indent=2) + '\n')
-    print('Native TLS partitions:', len(report['checks']), 'checks passed; independent restricted credentials, verified certificates.')
+    print('Native TLS partitions:', len(report['checks']), 'checks passed; metadata:',
+          len(report['metadata']['checks']), 'checks passed; independent credentials, verified certificates.')
 
 
 if __name__ == '__main__':

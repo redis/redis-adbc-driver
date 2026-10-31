@@ -202,7 +202,9 @@ and rename/type-rewrite rollback use the maintenance pool and can finish after
 execution interruption. Known cursor IDs are deleted using the maintenance pool
 on their original coordinator. If the first reply is lost before its cursor ID
 arrives, the client cannot delete that unknown cursor; server idle expiry is the
-remaining cleanup mechanism. Redis cleanup itself can take its configured timeout.
+remaining cleanup mechanism. Known-cursor deletion makes one best-effort attempt
+with a one-second cleanup deadline, independent of configured read timeouts.
+If deletion cannot complete, server idle expiry remains the fallback.
 
 The local fault matrix covers command/pipeline/cursor interruption, finite and
 disabled read timeouts, client Cluster routing and owner/context cancellation.

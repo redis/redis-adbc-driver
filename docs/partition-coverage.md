@@ -1,14 +1,16 @@
 # Remaining partition coverage
 
-As of 2026-10-22, this table compares source capabilities. Published wheel
-availability has not been verified; keep the source-build caveats in
+As of 2026-10-30, this table compares source capabilities. The published
+`0.0.19` macOS ARM64 wheel has passed native live/retained TLS checks; this is
+platform-specific evidence, not validation of every release asset. See the
+[validation record](sdlc/changes/210-212/validation.md),
 [live reads](partitioned-reads.md) and [retained reads](retained-partition-results.md).
 Ordinary SQL has its own supported subset and remains autocommit-only.
 
 | Operation/source | Live partitions | Retained partitions | Ordinary SQL |
 |---|---|---|---|
 | Managed permanent table, row-local projection/filter | Restricted deterministic allowlist | Bounded evaluator | Supported |
-| SUBSTR, LEFT, RIGHT | Rejected | Admitted in this change | Supported |
+| SUBSTR, LEFT, RIGHT | Rejected | Supported | Supported |
 | Pattern/regex SUBSTRING | Rejected | Rejected | Supported forms |
 | ORDER BY, LIMIT/OFFSET | Rejected | Once over complete captured input | Once per execution |
 | DISTINCT, grouping, aggregates, windows | Rejected | Once at coordinator, within budgets | Supported subset |
@@ -20,8 +22,8 @@ Ordinary SQL has its own supported subset and remains autocommit-only.
 | Atomic source snapshot under concurrent DML/DDL | Unavailable | Unavailable | Unavailable |
 | Retry after source changes | Rereads live data | Replays immutable committed output until expiry/revocation | Fresh execution |
 
-The next independently useful expansion selected for
-[#211](https://github.com/redis/redis-adbc-driver/issues/211) is retained
+The retained expansion selected for
+[#211](https://github.com/redis/redis-adbc-driver/issues/211) added
 positional string slicing: SUBSTR, LEFT and RIGHT. These operations select from
 an already bounded value; they do not generate unbounded output or execute
 regex patterns. Existing scalar input, work, allocation and IPC limits remain.

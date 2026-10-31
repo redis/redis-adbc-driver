@@ -39,9 +39,9 @@ func (c *connectionImpl) GetStatisticNames(ctx context.Context) (array.RecordRea
 	return array.NewRecordReader(adbc.GetStatisticNamesSchema, nil)
 }
 
-// GetStatistics exposes Search's current row count for permanent managed
-// tables. It is always best effort: index lag and concurrent DML prevent an
-// exact source-snapshot count. Other quantities/layouts are omitted.
+// GetStatistics exposes Search or authoritative HASH row counts for permanent
+// managed tables. Both paths are best effort under concurrent DML; neither
+// provides a source snapshot. Other quantities/layouts are omitted.
 func (c *connectionImpl) GetStatistics(ctx context.Context, catalog, dbSchema, tableName *string, approximate bool) (array.RecordReader, error) {
 	if err := c.statisticsAccess(ctx); err != nil {
 		return nil, err

@@ -21,6 +21,7 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/apache/arrow-adbc/go/adbc"
 	goredis "github.com/redis/go-redis/v9"
@@ -244,12 +245,16 @@ func (c *aggCursor) next(ctx context.Context) ([]aggRow, error) {
 	return page, nil
 }
 
+const cursorCleanupTimeout = time.Second
+
 // close deletes the cursor if it is still open. It runs even when ctx is
 // cancelled, so that the cursor doesn't stay on the server until it
-// expires.
+// expires. Cleanup is best effort and bounded independently of user-configured
+// read timeouts: a missing DEL reply must not hang cancellation or Release.
 func (c *aggCursor) close(ctx context.Context) {
 	if c.cursor != 0 {
-		cleanup := context.WithoutCancel(ctx)
+		cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), cursorCleanupTimeout)
+		defer cancel()
 		node := c.node
 		if transport, _ := ctx.Value(transportContextKey{}).(*executionTransport); transport != nil && c.store == transport.owner {
 			// The cursor outlives an interrupted execution socket. Use the
