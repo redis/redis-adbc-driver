@@ -15,6 +15,12 @@ Validation:
   --setopt=retries=2 -y install git` completed successfully in AlmaLinux 9
   arm64 and amd64 (emulated), AlmaLinux 8 arm64, and Amazon Linux 2023 arm64
   disposable containers. `git --version` succeeded in each container.
+- A local HTTP fixture streamed metadata at 80 KiB/s. DNF abandoned the first
+  transfer and issued its next request after 30.0 seconds. The probe observed
+  request timing because DNF buffers its error output across metadata retries;
+  it stopped DNF after 40 seconds rather than waiting for all retries.
+  Parsed DNF CLI configuration also confirmed a 1048576-byte/s minimum and
+  30-second timeout on every real AlmaLinux repository.
 - `actionlint -shellcheck= -pyflakes= .github/workflows/release.yml` passed.
   Separately, all 38 multiline workflow shell scripts passed `bash -n`.
 - `git diff --check` passed. Full Redis/driver suites were not run locally for
