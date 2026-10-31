@@ -148,7 +148,7 @@ func TestAdoptHashes(t *testing.T) {
 
 	// What an adopted table refuses, and what DROP TABLE keeps.
 	for _, c := range []struct{ sql, want string }{
-		{`INSERT INTO it_ad_users (name) VALUES ('x')`, "adding rows (INSERT, MERGE … INSERT, bulk ingest) isn't supported"},
+		{`INSERT INTO it_ad_users (name) VALUES ('x')`, "__key"},
 		{`TRUNCATE it_ad_users`, "TRUNCATE isn't supported"},
 		{`ALTER TABLE it_ad_users ADD COLUMN extra VARCHAR`, "ADD COLUMN isn't supported"},
 	} {

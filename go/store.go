@@ -243,8 +243,8 @@ type tableMeta struct {
 	PrimaryKey *keyMeta `json:"primary_key,omitempty"`
 	// Adopted is set for a table whose rows are HASHes that something else
 	// (an application) wrote, adopted in place with AdoptHashes (adopt.go).
-	// The driver doesn't own their keys, so it never deletes rows wholesale
-	// or moves them: see refuseAdopted.
+	// The driver doesn't own their keys: inserts require __key, wholesale
+	// deletion requires explicit opt-in, and re-keying is refused.
 	Adopted bool `json:"adopted,omitempty"`
 	// KeyRows is set for a table whose rows are identified by their keys,
 	// the system column __key, rather than by __rowid: an adopted table's
@@ -577,8 +577,8 @@ func adoptedOverlapErr(schema, table, adopted string) error {
 }
 
 // refuseAdopted refuses what an adopted table can't do. Its keys are an
-// application's: the driver never allocates row ids among them (the
-// application does), moves them to new keys, or deletes them wholesale.
+// application's: the driver never allocates row ids among them or moves
+// them to new keys. TRUNCATE uses a separate, explicitly enabled path.
 func refuseAdopted(meta *tableMeta, what string) error {
 	if !meta.Adopted {
 		return nil
@@ -1721,8 +1721,11 @@ func (s *store) allocRows(ctx context.Context, meta *tableMeta, rows [][]Value) 
 	if len(rows) == 0 {
 		return rowAlloc{}, nil
 	}
-	if err := refuseAdopted(meta, "adding rows (INSERT, MERGE … INSERT, bulk ingest)"); err != nil {
-		return rowAlloc{}, err
+	if meta.Adopted {
+		if err := s.prepareKeyRows(ctx, meta, rows); err != nil {
+			return rowAlloc{}, err
+		}
+		return rowAlloc{}, nil
 	}
 	for _, row := range rows {
 		for i, c := range meta.Columns {
@@ -1833,6 +1836,9 @@ var testHookRowsWritten func(meta *tableMeta, written int)
 // table still has its keys (checkKeys): if it was dropped or its rows moved
 // meanwhile, the statement stops, deletes the rows it wrote, and fails.
 func (s *store) writeRows(ctx context.Context, meta *tableMeta, a rowAlloc, rows [][]Value) (int64, error) {
+	if meta.Adopted {
+		return s.writeKeyRows(ctx, meta, rows)
+	}
 	if err := s.raiseNeeds(ctx, meta, rowNeeds(meta, rows)); err != nil {
 		return 0, err
 	}

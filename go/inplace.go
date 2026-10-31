@@ -291,7 +291,7 @@ func checkAppIndex(cl *Checklist, ix *searchIndex, cols []*guessedColumn) {
 // adoptHazards are what an adopted table's users should know.
 var adoptHazards = []string{
 	"a write by the application of a value a numeric column can't hold (text, an empty value, NaN) takes that HASH out of the index, and so out of the table",
-	"SQL UPDATE and DELETE change the application's HASHes (an UPDATE that would leave a HASH without fields is refused); INSERT, TRUNCATE, ADD COLUMN and a re-keying RENAME are refused, and DROP TABLE drops only the metadata and an index adopt created",
+	"SQL UPDATE and DELETE change the application's HASHes (an UPDATE that would leave a HASH without fields is refused); INSERT requires an explicit __key, TRUNCATE requires adbc.redis.truncate_adopted=true, and ADD COLUMN and a re-keying RENAME are refused, and DROP TABLE drops only the metadata and an index adopt created",
 }
 
 // checkAdoptPrefix checks that no driver key can be under the prefix.

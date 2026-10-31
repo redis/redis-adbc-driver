@@ -344,6 +344,7 @@ func (e *executor) runMerge(ctx context.Context, st *MergeStmt, params []Value) 
 	if err := inScope(dj.rels, func() error { return e.bindJoin(ctx, dj.sel, dj.jp) }); err != nil {
 		return 0, err
 	}
+	im := insertMeta(dj.meta)
 	clauses := make([]mergeClause, len(st.Clauses))
 	for i := range st.Clauses {
 		c := &mergeClause{MergeClause: &st.Clauses[i]}
@@ -363,7 +364,7 @@ func (e *executor) runMerge(ctx context.Context, st *MergeStmt, params []Value) 
 				return 0, err
 			}
 		case MergeInsert:
-			if c.targets, err = insertTargets(dj.meta, c.Columns); err != nil {
+			if c.targets, err = insertTargets(im, c.Columns); err != nil {
 				return 0, err
 			}
 			if c.Values != nil && len(c.Values) != len(c.targets) {
@@ -390,7 +391,7 @@ func (e *executor) runMerge(ctx context.Context, st *MergeStmt, params []Value) 
 
 	// Decide and check every change before writing any.
 	env := e.newEnv(ctx, dj.joined.types(), params)
-	defs := e.columnDefaults(ctx, dj.meta)
+	defs := e.columnDefaults(ctx, im)
 	var updates []rowChange
 	var deletes []string
 	var inserts [][]Value
@@ -415,12 +416,12 @@ func (e *executor) runMerge(ctx context.Context, st *MergeStmt, params []Value) 
 			continue
 		}
 		if c.Action == MergeInsert {
-			r, err := insertRow(env, dj.meta, defs, checks, c.targets, c.Values)
+			r, err := insertRow(env, im, defs, checks, c.targets, c.Values)
 			if err != nil {
 				return 0, err
 			}
 			inserts = append(inserts, r)
-			if err := ret.addChanged(row, dj.meta, dj.target.prefix, nil, r, "INSERT"); err != nil {
+			if err := ret.addChanged(row, im, dj.target.prefix, nil, r, "INSERT"); err != nil {
 				return 0, err
 			}
 			continue
@@ -450,13 +451,18 @@ func (e *executor) runMerge(ctx context.Context, st *MergeStmt, params []Value) 
 			return 0, err
 		}
 	}
+	if im.Adopted && len(inserts) > 0 {
+		if err := e.store.prepareKeyRows(ctx, im, inserts); err != nil {
+			return 0, err
+		}
+	}
 	if err := e.writeUpdates(ctx, dj.meta, updates); err != nil {
 		return 0, err
 	}
 	if err := e.deleteKeys(ctx, dj.meta, deletes); err != nil {
 		return 0, err
 	}
-	if _, err := e.store.insertRows(ctx, dj.meta, inserts); err != nil {
+	if _, err := e.store.insertRows(ctx, im, inserts); err != nil {
 		return 0, err
 	}
 	return int64(len(updates) + len(deletes) + len(inserts)), nil
