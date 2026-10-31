@@ -1,7 +1,8 @@
 # Additional native candidate plan and evidence
 
 - Date: 2026-10-30
-- Source: `91064e6`
+- Initial source: `91064e6`
+- Final validated main base: `400e24dbd44d210ba72c6364d8e101ba4ac274c2`
 - Status: implemented and validated; PR review pending
 - [Intent](intent.md) · [Specification](spec.md)
 
@@ -48,6 +49,17 @@ errors**. The additional five entries contribute ten passing populated/empty
 workflow cases and one exact MLflow default-digest expected failure. Earlier
 application suites were rerun in the same command. [Complete validation](validation.md)
 and [machine-readable outcomes](native-results.json).
+
+The complete launcher passed again after merging the intervening main changes,
+including its driver updates. Final tested source:
+`6a311640dd71f4c36e26907f13eddb9ce120d7a5`, based on main `400e24d`.
+The native library was rebuilt from that source. This PR has no driver
+implementation diff against the final main base.
+
+Shell/Python/TOML syntax, invalid/empty profile rejection, selected-profile
+reporting, local documentation links, the result totals, and all 50 unchanged
+Flight SQL cells were checked. `git diff --check` passed. Owned application
+test processes exited; the verified Software fixture remains available.
 
 The support matrix now records 37 entries with exercised native paths. The
 thirteen remaining entries are explicitly identified as needing integration

@@ -1,7 +1,8 @@
 # Additional native candidate intent
 
 - Date: 2026-10-30
-- Source: `91064e6` (merged candidate runner PR #248)
+- Initial source: `91064e6` (merged candidate runner PR #248)
+- Final validated main base: `400e24dbd44d210ba72c6364d8e101ba4ac274c2`
 - Requestor: user
 - Status: implemented and validated; PR review pending
 

@@ -1,7 +1,10 @@
 # Additional direct ADBC candidate validation
 
 - Date: 2026-10-30
-- Base: `91064e6` (merged PR #248). Driver implementation unchanged.
+- Final main base: `400e24dbd44d210ba72c6364d8e101ba4ac274c2`.
+- Tested source: `6a311640dd71f4c36e26907f13eddb9ce120d7a5` (this follow-up plus
+  the final main base). The native library was rebuilt from that source.
+- Driver implementation unchanged by this PR. Earlier candidate runner: #248.
 - Scope: native Redis ADBC only. No Flight SQL path was tested.
 - [Intent](intent.md) · [Specification](spec.md) · [Plan](plan.md)
 
