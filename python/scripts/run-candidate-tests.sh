@@ -6,7 +6,7 @@ python_bin="${PYTHON:-python3}"
 
 usage() {
   echo "Usage: $0 [all | TOOL ...]"
-  echo "Tools: driver airflow dagster dask duckdb pandas polars ml ray prefect dlt jupyter datasets streamlit scipy plotly matplotlib xgboost pytorch tensorflow keras transformers spark r quarto kubeflow metaflow fivetran sqlalchemy arrow superset dbt"
+  echo "Tools: driver airflow dagster dask duckdb pandas polars ml ray prefect dlt jupyter datasets streamlit scipy plotly matplotlib xgboost pytorch tensorflow keras transformers spark r quarto kubeflow metaflow fivetran sqlalchemy arrow superset dbt ibis mlflow beam mage kestra"
 }
 if [[ "${1:-}" == --help || "${1:-}" == -h ]]; then
   usage
@@ -50,6 +50,11 @@ for tool in "$@"; do
     arrow) tests+=(test_arrays.py test_ipc.py test_union_stream.py) ;;
     superset) tests+=(test_superset.py) ;;
     dbt) tests+=(test_dbt_candidate.py) ;;
+    ibis) tests+=(test_analysis_candidates.py::test_ibis_arrow_expressions) ;;
+    mlflow) tests+=(test_analysis_candidates.py::test_mlflow_dataset_tracking test_analysis_candidates.py::test_mlflow_default_empty_digest) ;;
+    beam) tests+=(test_beam_candidate.py) ;;
+    mage) tests+=(test_mage_candidate.py) ;;
+    kestra) tests+=(test_kestra_candidate.py) ;;
     *) usage >&2; echo "Unknown tool: $tool" >&2; exit 2 ;;
   esac
 done

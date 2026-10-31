@@ -92,16 +92,19 @@ Redis Software with Search on `127.0.0.1:26379`, verify active 4x QPF through
 `make -C go redis-up` before every group, and build the current native library.
 See the [native sweep record](../docs/sdlc/changes/candidate-test-runner/native-sweep.md)
 for every matrix entry's status, exact coverage, warnings, and compatibility limits.
+The [five-tool follow-up](../docs/sdlc/changes/native-candidate-followup/validation.md)
+adds Ibis, MLflow, Beam, Mage, and Kestra to that earlier coverage.
 
 Run every automated native candidate in separate compatible environments:
 
 ```sh
 python3 -m pip install uv
-JAVA_HOME=/path/to/jdk/Contents/Home QUARTO=/path/to/quarto \
+JAVA_HOME=/path/to/java21/Contents/Home KESTRA_JAVA=/path/to/java25/bin/java QUARTO=/path/to/quarto \
   python/scripts/run-all-native-candidates.sh
 ```
 
 Prerequisites are Docker Compose, curl, jq, a Go compiler, Java 21 for Spark,
+Java 25 or newer for Kestra 2.0.7,
 R with a working package compiler, and Quarto CLI. On macOS, the Java/R/OpenMP
 dependencies can be installed with `brew install openjdk@21 r libomp`.
 Use the official Quarto installation for the document test. The script creates
@@ -109,6 +112,11 @@ Python 3.12/3.14 environments using uv and installs R DBI/ADBC packages in an
 isolated library. The native dbt adapter is installed from its recorded immutable
 source revision; set `CANDIDATE_DBT_ADAPTER` to use another source requirement.
 DuckDB and Fivetran's local SDK tester may download official runtime artifacts.
+The Kestra profile downloads the pinned official 2.0.7 executable, verifies its
+published SHA-256, and installs the Python Script plugin 1.18.6 into the cache.
+Set `KESTRA_JAR` and `KESTRA_PLUGINS_PATH` to reuse a prepared matching runtime.
+Its server runs only for the test, on a loopback endpoint with generated local
+authentication and temporary storage; it is stopped after the tests.
 
 The profiles remain separate because Airflow/Prefect have incompatible FastAPI
 requirements and Superset uses an older SQLAlchemy/PyArrow stack:
@@ -124,12 +132,38 @@ requirements and Superset uses an older SQLAlchemy/PyArrow stack:
 | superset | 3.12 | `superset,test-runner`: dataset/chart SQL and SQL Lab |
 | dbt | 3.14 | `dbt-tests` plus native adapter: build, model tests, catalog |
 | documents | 3.12 | `workflow-tests` plus R/Quarto: DBI reads/binding check and HTML render |
+| analysis | 3.12 | `analysis-tests`: Ibis expressions and MLflow dataset tracking; PyArrow below 26 |
+| beam | 3.12 | `beam-tests`: native ADBC reads inside local FnApi worker subprocesses |
+| mage | 3.12 | `mage-tests`: real local loader/transformer pipeline |
+| kestra | 3.12 | `kestra-tests`: native Python Script tasks, file handoff, checked task outputs; Java 25+ |
+
+Ibis, MLflow, Beam, Mage, and Kestra each cover populated and empty results.
+These are custom native ADBC/Arrow/Python workflows. They do not establish an
+Ibis Redis backend, an MLflow Redis tracking store, a packaged Beam I/O connector,
+or hosted application support. MLflow 3.17.2's automatic digest fails on pandas
+3.1.0 empty string columns; the empty workflow uses its public explicit-digest
+option, while the exact default-path failure is retained as a strict expected
+failure ([upstream bug](https://github.com/mlflow/mlflow/issues/27358)).
+
+MLflow and Beam's released dependency caps require PyArrow below 26. Their
+profiles retain compatible versions. MLflow's PyArrow 26 update already merged
+in [#27216](https://github.com/mlflow/mlflow/pull/27216); Beam's request is
+[#40919](https://github.com/apache/beam/issues/40919).
+
+Run just this follow-up batch with the same saved launcher and isolated profiles:
+
+```sh
+CANDIDATE_PROFILES="analysis beam mage kestra" KESTRA_JAVA=/path/to/java25/bin/java \
+  python/scripts/run-all-native-candidates.sh
+```
 
 Set `CANDIDATE_ENV_ROOT` to choose the environment/cache directory, `UV` to use
 a specific uv executable, and `CANDIDATE_RESULTS_DIR` to choose the report
 directory. Defaults are under the system temporary directory. Each profile
 writes a log, JUnit XML, and launcher exit code; `summary.json` distinguishes
-passes, failures, errors, skips, and expected failures. A setup failure in one
+passes, failures, errors, skips, and expected failures. `CANDIDATE_PROFILES` selects
+which profiles to run and summarize; omitted profiles are not represented as
+current passes. A setup failure in one
 profile still allows the other profiles to run. RStudio requires the separate
 manual IDE check: source [r_dbi_smoke.R](examples/r_dbi_smoke.R) from an R session
 with the same `REDIS_URI`, `REDIS_ADBC_LIBRARY`, and R library path.

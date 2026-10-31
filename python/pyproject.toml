@@ -36,6 +36,10 @@ orchestrator-tests = ["pytest>=9.1.1", "pyarrow>=26.0.0", "duckdb>=2", "kfp>=2.1
 spark-tests = ["pytest>=9.1.1", "pyarrow>=26.0.0", "pandas>=3.1.0", "pyspark>=4"]
 test-runner = ["pytest>=9.1.1"]
 dbt-tests = ["pytest>=9.1.1", "pyarrow>=26.0.0", "dbt-core>=1.10,<2"]
+analysis-tests = ["pytest>=9.1.1", "pyarrow>=18,<26", "pandas>=2.3,<4", "ibis-framework[duckdb]>=12", "mlflow>=3.17.2,<4"]
+beam-tests = ["pytest>=9.1.1", "apache-beam>=2.77,<3"]
+mage-tests = ["pytest>=9.1.1", "mage-ai==0.9.80"]
+kestra-tests = ["pytest>=9.1.1", "pyarrow>=26", "requests>=2.32", "pyyaml>=6", "kestra==2.0.0"]
 
 [project.entry-points."sqlalchemy.dialects"]
 "redis.adbc" = "adbc_driver_redis.sqlalchemy:RedisDialect"

@@ -8,7 +8,7 @@ import xml.etree.ElementTree as ET
 
 def main():
     root = Path(sys.argv[1])
-    profiles = ["core", "workflows", "models", "orchestrators", "spark", "airflow", "superset", "dbt", "documents"]
+    profiles = sys.argv[2:] or ["core", "workflows", "models", "orchestrators", "spark", "airflow", "superset", "dbt", "documents", "analysis", "beam", "mage", "kestra"]
     summary = {}
     failed = False
     for profile in profiles:
