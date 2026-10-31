@@ -44,6 +44,10 @@ Existing Redis data may be adopted in place when compatible (see
 current data model cannot be adopted by the driver, you must migrate your data
 to the driver's opinionated data model to use it.
 
+Substrait plans are currently unsupported (`SetSubstraitPlan` returns
+`NotImplemented`). See the [proposed bounded Substrait subset](docs/substrait.md)
+for the feasibility assessment and implementation gates for issue #213.
+
 For repository context and the development artifact workflow, see the
 [AI-native SDLC records](docs/sdlc/README.md).
 
