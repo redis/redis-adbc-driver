@@ -1,5 +1,7 @@
 # Additional native candidate specification
 
+- PR: [#258](https://github.com/redis/redis-adbc-driver/pull/258)
+
 ## Contract
 
 - Ibis consumes fetched Arrow data with `memtable`; check filters, aggregations,

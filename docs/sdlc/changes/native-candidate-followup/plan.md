@@ -4,6 +4,7 @@
 - Initial source: `91064e6`
 - Final validated main base: `400e24dbd44d210ba72c6364d8e101ba4ac274c2`
 - Status: implemented and validated; PR review pending
+- PR: [#258](https://github.com/redis/redis-adbc-driver/pull/258)
 - [Intent](intent.md) · [Specification](spec.md)
 
 ## Work

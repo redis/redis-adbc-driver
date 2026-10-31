@@ -1,6 +1,7 @@
 # Additional direct ADBC candidate validation
 
 - Date: 2026-10-30
+- PR: [#258](https://github.com/redis/redis-adbc-driver/pull/258)
 - Final main base: `400e24dbd44d210ba72c6364d8e101ba4ac274c2`.
 - Tested source: `6a311640dd71f4c36e26907f13eddb9ce120d7a5` (this follow-up plus
   the final main base). The native library was rebuilt from that source.
