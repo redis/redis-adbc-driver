@@ -46,24 +46,26 @@ remains historical. A subsequent user-requested live guide run is recorded in
 The twelve integrations above are the established guide inventory, not the
 complete set of recent workflow additions. [PR #248](https://github.com/redis/redis-adbc-driver/pull/248)
 adds six additional custom Python paths and is still open and unmerged as of
-October 30, 2026. Dedicated guides are provided below; their upstream proposals remain outstanding.
+October 30, 2026. Dedicated guides are provided below. Three new upstream drafts are submitted;
+three additional patches require human review and submission.
 They are not covered by the eleven existing open documentation PRs.
 
 | New integration | Dedicated guide | Recorded scope in #248 | Upstream documentation target reviewed | Submission status |
 |---|---|---|---|---|
-| NumPy | [Guide](../integrations/numpy.md) | Arrow query column converted to a numeric NumPy array. | [NumPy user guide](https://github.com/numpy/numpy/tree/main/doc/source/user); propose an Arrow/database interoperability example. | Not submitted; document source-build workflow and seek suitable placement. |
-| scikit-learn | [Guide](../integrations/scikit-learn.md) | Arrow-to-NumPy features/labels, then small decision-tree fit/predict. | [Data interoperability](https://github.com/scikit-learn/scikit-learn/blob/main/doc/data_interoperability.rst); propose a data-loading example. | Not submitted; custom pipeline, not a native estimator or connector. |
-| Jupyter | [Guide](../integrations/jupyter.md) | Separate Python kernel executes queries and retains typed results and saved notebook output. | [Jupyter data-science use cases](https://github.com/jupyter/jupyter/tree/master/docs/source/use/use-cases); propose a runnable Redis notebook example. | Not submitted; JupyterLab browser UI is outside the recorded validation. |
-| Hugging Face Datasets | [Guide](../integrations/huggingface-datasets.md) | Arrow-to-Dataset conversion, local save/reload/filter, including empty results. | [PyArrow interoperability](https://github.com/huggingface/datasets/blob/main/docs/source/use_with_pyarrow.mdx); propose an external SQL/Arrow example. | Not submitted; no Hub/model or remote dataset validation. |
-| Streamlit | [Guide](../integrations/streamlit.md) | AppTest displays queried rows and reruns a bound-filter query when an input changes. | [Database tutorials](https://github.com/streamlit/docs/tree/main/content/develop/tutorials/databases); propose a Redis ADBC tutorial. | Not submitted; browser and hosted deployment are outside the recorded validation. |
-| SciPy | [Guide](../integrations/scipy.md) | Stored sparse coefficients become CSR data for a linear solve with solution/residual checks. | [Sparse tutorial](https://github.com/scipy/scipy/blob/main/doc/source/tutorial/sparse.rst); propose an external-data example. | Not submitted; custom application data path, not a SciPy database connector. |
+| NumPy | [Guide](../integrations/numpy.md) | Arrow query column converted to a numeric NumPy array. | [NumPy user guide](https://github.com/numpy/numpy/tree/main/doc/source/user); propose an Arrow/database interoperability example. | Human review/submission required; [prepared patch](new-workflows/numpy.patch) and [fork branch](https://github.com/alberttwong/numpy/tree/codex/docs-redis-adbc-integration). No upstream PR submitted. |
+| scikit-learn | [Guide](../integrations/scikit-learn.md) | Arrow-to-NumPy features/labels, then small decision-tree fit/predict. | [Data interoperability](https://github.com/scikit-learn/scikit-learn/blob/main/doc/data_interoperability.rst); propose a data-loading example. | Human review/submission required by contribution policy; [prepared patch](new-workflows/scikit-learn.patch). No upstream PR submitted. |
+| Jupyter | [Guide](../integrations/jupyter.md) | Separate Python kernel executes queries and retains typed results and saved notebook output. | [Jupyter data-science use cases](https://github.com/jupyter/jupyter/tree/master/docs/source/use/use-cases); propose a runnable Redis notebook example. | Submitted [draft PR #838](https://github.com/jupyter/jupyter/pull/838); review and acceptance pending. |
+| Hugging Face Datasets | [Guide](../integrations/huggingface-datasets.md) | Arrow-to-Dataset conversion, local save/reload/filter, including empty results. | [PyArrow interoperability](https://github.com/huggingface/datasets/blob/main/docs/source/use_with_pyarrow.mdx); propose an external SQL/Arrow example. | Submitted [draft PR #8911](https://github.com/huggingface/datasets/pull/8911); review and acceptance pending. |
+| Streamlit | [Guide](../integrations/streamlit.md) | AppTest displays queried rows and reruns a bound-filter query when an input changes. | [Database tutorials](https://github.com/streamlit/docs/tree/main/content/develop/tutorials/databases); propose a Redis ADBC tutorial. | Submitted [draft PR #1600](https://github.com/streamlit/docs/pull/1600), after explicit user approval of the Apache 2.0 submission terms; review and acceptance pending. |
+| SciPy | [Guide](../integrations/scipy.md) | Stored sparse coefficients become CSR data for a linear solve with solution/residual checks. | [Sparse tutorial](https://github.com/scipy/scipy/blob/main/doc/source/tutorial/sparse.rst); propose an external-data example. | Human review/submission required by AI policy; [prepared patch](new-workflows/scipy.patch). No upstream PR submitted. |
 
 The [source-specific validation record](https://github.com/redis/redis-adbc-driver/blob/a99c882b4088aaff32e1abdad449f6e1b575b41a/docs/sdlc/changes/candidate-test-runner/validation.md)
 reports five passing Jupyter/Datasets/Streamlit/SciPy workflow tests on Redis
 Software 8.6.2 with Search and verified active 4x QPF. NumPy and scikit-learn's
 two passing tests are separately recorded in the
 [plan](https://github.com/redis/redis-adbc-driver/blob/a99c882b4088aaff32e1abdad449f6e1b575b41a/docs/sdlc/changes/candidate-test-runner/plan.md)
-against Redis OSS; they were not rerun on Software by this documentation task.
+against Redis OSS. Those historical suite results are separate from the fresh
+Redis Software guide-example execution recorded below.
 The Dataset workflow explicitly uses `num_shards=1` for empty save/reload.
 
 Before upstream submission, check each project's contribution requirements and
@@ -71,11 +73,11 @@ existing proposals, link the dedicated guide, and state
 the source revision and exact validated scope. Until #248 merges, contributions
 must disclose that these workflows and their evidence live in an unmerged PR.
 [Issue #249](https://github.com/redis/redis-adbc-driver/issues/249) tracks this
-additional scope as well as the earlier contributions. No new upstream PRs for
-these six workflows have been submitted by this status refresh.
+additional scope as well as the earlier contributions. Jupyter, Datasets and Streamlit have disclosed draft PRs. NumPy, scikit-learn and
+SciPy require human review/submission; see the [prepared handoff](new-workflows/README.md).
 
 The [live guide validation](../sdlc/changes/upstream-status-249/validation.md)
 also executes all eighteen integration paths against isolated Redis Software
 with Search and active verified 4x QPF. The six new examples passed, including
-notebook-kernel execution and the Streamlit input rerun. Upstream submissions
-remain a separate outstanding step.
+notebook-kernel execution and the Streamlit input rerun. Upstream review remains separate; the three human-submission patches are
+tracked in the prepared handoff.

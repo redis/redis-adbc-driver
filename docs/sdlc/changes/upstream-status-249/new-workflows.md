@@ -34,5 +34,7 @@ linked and qualified.
 The original twelve contributions remain tracked; the six new workflows do not
 inherit their submission/acceptance status. All eighteen integration paths now
 have a guide entry (dbt now has a tested local starter guide).
-Upstream submissions for the six additions and maintainer review remain
-outstanding; no new upstream submission is claimed. No human approval is inferred.
+Three disclosed upstream drafts have now been submitted for Jupyter, Datasets
+and Streamlit. NumPy, scikit-learn and SciPy require human review/submission;
+prepared patches and exact policies are recorded in the upstream handoff.
+Maintainer review and acceptance remain outstanding. No human approval is inferred.
