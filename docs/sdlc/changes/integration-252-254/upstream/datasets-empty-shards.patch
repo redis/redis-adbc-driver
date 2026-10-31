@@ -1,0 +1,34 @@
+diff --git a/src/datasets/arrow_dataset.py b/src/datasets/arrow_dataset.py
+index 9c57117..70ffef9 100644
+--- a/src/datasets/arrow_dataset.py
++++ b/src/datasets/arrow_dataset.py
+@@ -1836,7 +1836,7 @@ class Dataset(DatasetInfoMixin, IndexableMixin, TensorflowDatasetMixin):
+             num_shards = int(dataset_nbytes / max_shard_size) + 1
+             num_shards = max(num_shards, num_proc or 1)
+             # if we have only a few large samples, we should only create as many shards as samples
+-            num_shards = min(len(self.data), num_shards)
++            num_shards = max(1, min(len(self.data), num_shards))
+ 
+         fs: fsspec.AbstractFileSystem
+         fs, _ = url_to_fs(dataset_path, **(storage_options or {}))
+diff --git a/tests/test_arrow_dataset.py b/tests/test_arrow_dataset.py
+index ca88c5f..5dd3d73 100644
+--- a/tests/test_arrow_dataset.py
++++ b/tests/test_arrow_dataset.py
+@@ -5315,3 +5315,16 @@ def test_dataset_push_to_hub_uploads_every_row_with_num_proc(offline_parquet_upl
+     if num_shards == 1:
+         # a single shard is written without starting a pool of processes
+         assert not mp.get_context.return_value.Pool.called
++
++
++@pytest.mark.parametrize("save_kwargs", [{}, {"num_proc": 2}, {"max_shard_size": "1KB"}])
++def test_empty_typed_dataset_save_reload(tmp_path, save_kwargs):
++    schema = pa.schema([("id", pa.int64()), ("label", pa.string())])
++    dataset = Dataset(pa.Table.from_batches([], schema=schema))
++    dataset.save_to_disk(tmp_path, **save_kwargs)
++    restored = load_from_disk(tmp_path)
++    assert restored.num_rows == 0
++    assert restored.features == dataset.features
++    assert restored.data.schema == dataset.data.schema
++    state = json.loads((tmp_path / "state.json").read_text())
++    assert len(state["_data_files"]) == 1

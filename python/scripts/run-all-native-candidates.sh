@@ -42,12 +42,13 @@ run_profile() {
     "$repo_root/python/scripts/run-candidate-tests.sh" "$@"
 }
 
-for profile in core workflows models orchestrators spark airflow superset dbt documents; do
+for profile in core workflows models orchestrators spark airflow superset dbt documents ray-tls; do
   echo "Running native candidate profile: $profile"
   rm -f "$results/$profile.xml" "$results/$profile.exitcode"
   : > "$results/$profile.log"
   case "$profile" in
     core) args=(3.12 'test,candidate-tests' driver pandas polars ml sqlalchemy arrow duckdb dask dagster prefect dlt ray) ;;
+    ray-tls) args=(3.12 ray-tests ray-tls) ;;
     workflows) args=(3.12 workflow-tests jupyter datasets streamlit scipy) ;;
     models) args=(3.12 'plotting-tests,model-tests' plotly matplotlib xgboost pytorch tensorflow keras transformers) ;;
     orchestrators) args=(3.12 orchestrator-tests kubeflow metaflow fivetran) ;;
