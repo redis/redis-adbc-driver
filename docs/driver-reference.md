@@ -4865,3 +4865,10 @@ to cursor pagination when their arguments exceed Redis Search's caps. A
 lowered total aggregate cap uses bounded Search row-ID ranges for eligible
 managed, row-local reads in insertion/ascending internal-ID order. Other plans
 retain complete HASH scans and driver-side sorting to avoid truncation.
+
+
+## Arrow normalization and physical result layouts
+
+See [Arrow interoperability](arrow-interoperability.md) for the `adbc.redis.result_layouts`
+statement option, full-range uint64 ingestion, recursive arrays, stored named
+structs, extension rejection, ownership, and partition restrictions.

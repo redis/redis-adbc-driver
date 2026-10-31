@@ -379,7 +379,7 @@ func (e *executor) runCreateView(ctx context.Context, st *CreateViewStmt, numPar
 		if st.Columns != nil {
 			n = st.Columns[i]
 		}
-		if c.Type.Kind == KindRecord {
+		if c.Type.Kind == KindRecord && !c.Type.namedRecord() {
 			return pseudoTypeError(n)
 		}
 		if seen[n] {

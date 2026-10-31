@@ -201,6 +201,9 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 // once per cell. Strings still own their bytes after the Arrow batch is freed,
 // and every value passes the same coercion and later row constraint checks.
 func ingestColumn(arr arrow.Array, target ColType, zone tzZone, rows [][]Value, column int) error {
+	if err := validateInputArray(arr); err != nil {
+		return errorf(adbc.StatusInvalidArgument, "invalid Arrow input: %v", err)
+	}
 	var read func(int) Value
 	switch a := arr.(type) {
 	case *array.Int16:

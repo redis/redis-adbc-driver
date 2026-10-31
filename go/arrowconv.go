@@ -28,6 +28,9 @@ import (
 
 // valueAt extracts row i of an Arrow array as a Value.
 func valueAt(arr arrow.Array, i int) (Value, error) {
+	if encoded, ok := arr.(*array.RunEndEncoded); ok {
+		return valueAt(encoded.Values(), encoded.GetPhysicalIndex(i))
+	}
 	if dict, ok := arr.(*array.Dictionary); ok {
 		if dict.IsNull(i) {
 			ct, err := colTypeFromArrow(dict.DataType())
@@ -49,22 +52,28 @@ func valueAt(arr arrow.Array, i int) (Value, error) {
 		return nullValue(ct), nil
 	}
 	switch a := arr.(type) {
-	case *array.List:
-		start, end := a.ValueOffsets(i)
-		values := make([]Value, 0, end-start)
-		for j := start; j < end; j++ {
-			v, err := valueAt(a.ListValues(), int(j))
+	case *array.Struct:
+		values := make([]Value, a.NumField())
+		for j := range values {
+			v, err := valueAt(a.Field(j), i)
 			if err != nil {
 				return Value{}, err
 			}
-			values = append(values, v)
+			values[j] = v
 		}
-		return arrayValue(values, ct.element()), nil
-	case *array.LargeList:
+		return coerceRecord(Value{T: ct, rec: &values}, ct, utcZone)
+	case interface {
+		ListValues() arrow.Array
+		ValueOffsets(int) (int64, int64)
+	}:
 		start, end := a.ValueOffsets(i)
+		child := a.ListValues()
+		if start < 0 || end < start || end > int64(child.Len()) {
+			return Value{}, fmt.Errorf("invalid Arrow list offsets [%d,%d) for child length %d", start, end, child.Len())
+		}
 		values := make([]Value, 0, end-start)
 		for j := start; j < end; j++ {
-			v, err := valueAt(a.ListValues(), int(j))
+			v, err := valueAt(child, int(j))
 			if err != nil {
 				return Value{}, err
 			}
@@ -88,11 +97,7 @@ func valueAt(arr arrow.Array, i int) (Value, error) {
 	case *array.Uint32:
 		return intValue(ct, int64(a.Value(i))), nil
 	case *array.Uint64:
-		v := a.Value(i)
-		if v > 1<<63-1 {
-			return Value{}, stateErr(stateNumericRange, "uint64 value %d out of range", v)
-		}
-		return intValue(ct, int64(v)), nil
+		return decimalValue(new(big.Int).SetUint64(a.Value(i)), ct.Precision, ct.Scale), nil
 	case *array.Float16:
 		return floatValue(ct, float64(a.Value(i).Float32())), nil
 	case *array.Float32:

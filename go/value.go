@@ -1148,6 +1148,9 @@ func parseStringIn(s string, t ColType, z tzZone) (Value, error) {
 // string stored in the row HASH. A NaN is nanStored, which the index holds
 // as +Infinity (see nan.go).
 func encodeStored(v Value) string {
+	if compositeStorage(v.T) {
+		return encodeComposite(v)
+	}
 	switch v.T.Kind {
 	case KindBool, KindInt16, KindInt32, KindInt64, KindDate, KindTime, KindTimestamp:
 		return strconv.FormatInt(v.I, 10)
@@ -1177,6 +1180,9 @@ func encodeStored(v Value) string {
 // computed. A float's nanStored is NaN, and so are the "NaN" of earlier
 // versions and RediSearch's -nan (see parseFloat).
 func decodeStored(s string, t ColType) (Value, error) {
+	if compositeStorage(t) {
+		return decodeComposite(s, t)
+	}
 	if t.Kind == KindArray {
 		return parseArrayText(s, t, utcZone)
 	}

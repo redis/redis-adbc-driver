@@ -151,3 +151,12 @@ separate operator designs. Top-K can bound retained winners while still consumin
 all candidates. No new spill engine or limit for those operators is added.
 Further eligibility expansion requires its own correctness, lifecycle and memory evidence.
 CDC remains exclusively in [#196](https://github.com/redis/redis-adbc-driver/issues/196).
+
+
+## Physical result layouts
+
+The statement option [`adbc.redis.result_layouts`](arrow-interoperability.md#explicit-result-layouts)
+applies to IPC output and schema discovery. Per-batch dictionaries require IPC
+stream format; file output rejects that layout. Other supported layouts work
+with either format. Result layouts do not change ingest normalization or the
+retained-partition IPC validation contract.
