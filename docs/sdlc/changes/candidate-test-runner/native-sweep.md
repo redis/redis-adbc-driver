@@ -1,5 +1,9 @@
 # Direct Redis ADBC candidate sweep
 
+This is the original 32-entry sweep. The later
+[five-tool follow-up](../native-candidate-followup/validation.md) extends native
+coverage to 37 entries; retain the result counts below as historical evidence.
+
 - Date: 2026-10-30
 - PR: [#248](https://github.com/redis/redis-adbc-driver/pull/248)
 - Scope: direct Redis ADBC only, as requested. No Flight SQL path was tested.

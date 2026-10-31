@@ -1,0 +1,51 @@
+{
+  "analysis": {
+    "python": "3.12.16",
+    "packages": {
+      "ibis-framework": "12.0.0",
+      "mlflow": "3.17.2",
+      "pandas": "3.1.0",
+      "pyarrow": "25.0.1",
+      "adbc-driver-manager": "1.13.0",
+      "pytest": "9.2.0"
+    }
+  },
+  "beam": {
+    "python": "3.12.16",
+    "packages": {
+      "apache-beam": "2.77.0",
+      "numpy": "2.4.6",
+      "pyarrow": "25.0.1",
+      "adbc-driver-manager": "1.13.0",
+      "pytest": "9.2.0"
+    }
+  },
+  "mage": {
+    "python": "3.12.16",
+    "packages": {
+      "mage-ai": "0.9.80",
+      "pandas": "2.3.3",
+      "pyarrow": "25.0.1",
+      "adbc-driver-manager": "1.13.0",
+      "pytest": "9.2.0"
+    }
+  },
+  "kestra": {
+    "python": "3.12.16",
+    "packages": {
+      "kestra": "2.0.0",
+      "pyarrow": "26.0.0",
+      "adbc-driver-manager": "1.13.0",
+      "pytest": "9.2.0"
+    }
+  },
+  "ray-tls": {
+    "python": "3.12.16",
+    "packages": {
+      "ray": "2.59.0",
+      "pyarrow": "26.0.0",
+      "adbc-driver-manager": "1.13.0",
+      "pytest": "9.2.0"
+    }
+  }
+}

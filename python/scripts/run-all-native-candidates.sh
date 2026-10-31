@@ -19,6 +19,20 @@ export TF_CPP_MIN_LOG_LEVEL=2
 export OMP_NUM_THREADS=1
 export CANDIDATE_SDK_CACHE="${CANDIDATE_SDK_CACHE:-$env_root/fivetran-tester}"
 status=0
+profiles=(core workflows models orchestrators spark airflow superset dbt documents analysis beam mage kestra ray-tls)
+if [[ -n "${CANDIDATE_PROFILES:-}" ]]; then
+  read -r -a profiles <<< "$CANDIDATE_PROFILES"
+fi
+if [[ ${#profiles[@]} -eq 0 ]]; then
+  echo "CANDIDATE_PROFILES must include at least one profile" >&2
+  exit 2
+fi
+for profile in "${profiles[@]}"; do
+  case "$profile" in
+    core|workflows|models|orchestrators|spark|airflow|superset|dbt|documents|analysis|beam|mage|kestra|ray-tls) ;;
+    *) echo "Unknown native candidate profile: $profile" >&2; exit 2 ;;
+  esac
+done
 
 run_profile() {
   local profile=$1 python_version=$2 extras=$3
@@ -38,11 +52,18 @@ run_profile() {
       return 1
     fi
   fi
+  if [[ "$profile" == kestra ]]; then
+    export KESTRA_JAR="${KESTRA_JAR:-$env_root/kestra-runtime/kestra-2.0.7}"
+    export KESTRA_PLUGINS_PATH="${KESTRA_PLUGINS_PATH:-$env_root/kestra-runtime/plugins}"
+    if ! bash "$repo_root/python/scripts/prepare-kestra-candidate.sh" "$env_root/kestra-runtime"; then
+      return 1
+    fi
+  fi
   PYTHON="$profile_env/bin/python" CANDIDATE_JUNIT_XML="$results/$profile.xml" \
     "$repo_root/python/scripts/run-candidate-tests.sh" "$@"
 }
 
-for profile in core workflows models orchestrators spark airflow superset dbt documents ray-tls; do
+for profile in "${profiles[@]}"; do
   echo "Running native candidate profile: $profile"
   rm -f "$results/$profile.xml" "$results/$profile.exitcode"
   : > "$results/$profile.log"
@@ -56,6 +77,10 @@ for profile in core workflows models orchestrators spark airflow superset dbt do
     airflow) args=(3.14 airflow-tests airflow) ;;
     superset) args=(3.12 'superset,test-runner' superset) ;;
     dbt) args=(3.14 dbt-tests dbt) ;;
+    analysis) args=(3.12 analysis-tests ibis mlflow) ;;
+    beam) args=(3.12 beam-tests beam) ;;
+    mage) args=(3.12 mage-tests mage) ;;
+    kestra) args=(3.12 kestra-tests kestra) ;;
     documents)
       args=(3.12 workflow-tests r quarto)
       if ! command -v "${RSCRIPT:-Rscript}" >/dev/null 2>&1 || \
@@ -83,7 +108,7 @@ for profile in core workflows models orchestrators spark airflow superset dbt do
     status=1
   fi
 done
-if ! python3 "$repo_root/python/scripts/summarize-candidate-results.py" "$results"; then
+if ! python3 "$repo_root/python/scripts/summarize-candidate-results.py" "$results" "${profiles[@]}"; then
   status=1
 fi
 echo "Native candidate reports: $results"
