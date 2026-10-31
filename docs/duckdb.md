@@ -109,3 +109,19 @@ predicate when remote execution matters, and inspect/measure your own queries.
 [Columnar's separate adbc extension](https://github.com/columnar-tech/duckdb-adbc-client)
 (`read_adbc`) has not been tested here. Its commands and capabilities are not
 interchangeable with these examples.
+
+## Rerun the guide SQL
+
+With DuckDB 2.0 and the native Redis driver installed, set `REDIS_URI` to a
+dedicated local Software database, then run from the repository root:
+
+```sh
+python python/scripts/check_integration_guide.py duckdb
+```
+
+The checker executes both SQL blocks above using a temporary driver manifest and
+extension directory. It creates sample `public.orders` rows and checks the
+written `public.duckdb_orders` rows, then removes both tables. It refuses to run
+if either table already exists. The signed Query.Farm extension is downloaded
+on first use. This covers `adbc_scanner`; the standalone `redis_adbc` extension
+has its own build and tests. See the [guide results](sdlc/changes/integration-guides-262/validation.md).

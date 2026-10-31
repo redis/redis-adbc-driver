@@ -1,7 +1,8 @@
 # Intent
 
 2026-10-30. Requestor: Albert Wong. Author: Codex. Base: `9124f0f`.
-Status: implemented; focused/native validation passed, broad Go EOF limitation remains.
+Status: merged in PR #260; hosted validation passed; issues #210–#212 closed.
+Historical local Go EOF failures remain recorded separately.
 
 Work on [#210](https://github.com/redis/redis-adbc-driver/issues/210),
 [#211](https://github.com/redis/redis-adbc-driver/issues/211), and

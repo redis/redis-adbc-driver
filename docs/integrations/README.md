@@ -1,5 +1,9 @@
 # Redis integration guides
 
+All 38 entries in the README examples table link to a guide here or the DuckDB guide.
+The [shared example setup](example-setup.md) supports the additional local workflows.
+See the [per-guide test results](../sdlc/changes/integration-guides-262/validation.md).
+
 Start with [installation and diagnostics](../setup.md) to choose a package and
 verify the driver before configuring a tool.
 
@@ -28,6 +32,26 @@ upstream contribution's acceptance.
 | Hugging Face Datasets | [Arrow conversion and local persistence](huggingface-datasets.md) |
 | Streamlit | [Bound queries and interactive app reruns](streamlit.md) |
 | SciPy | [Sparse matrix construction and solving](scipy.md) |
+| PyArrow | [Setup, example and expected result](pyarrow.md) |
+| PyTorch | [Setup, example and expected result](pytorch.md) |
+| TensorFlow | [Setup, example and expected result](tensorflow.md) |
+| Keras | [Setup, example and expected result](keras.md) |
+| XGBoost | [Setup, example and expected result](xgboost.md) |
+| Hugging Face Transformers | [Setup, example and expected result](transformers.md) |
+| Plotly | [Setup, example and expected result](plotly.md) |
+| Matplotlib | [Setup, example and expected result](matplotlib.md) |
+| Ibis | [Setup, example and expected result](ibis.md) |
+| MLflow | [Setup, example and expected result](mlflow.md) |
+| Apache Spark | [Setup, example and expected result](spark.md) |
+| Kubeflow Pipelines | [Setup, example and expected result](kubeflow.md) |
+| Metaflow | [Setup, example and expected result](metaflow.md) |
+| Fivetran Connector SDK | [Setup, example and expected result](fivetran.md) |
+| Apache Beam | [Setup, example and expected result](beam.md) |
+| Mage | [Setup, example and expected result](mage.md) |
+| R / DBI | [Setup, example and expected result](r-dbi.md) |
+| RStudio | [Setup, example and expected result](rstudio.md) |
+| Quarto | [Setup, example and expected result](quarto.md) |
+| Kestra | [Setup, example and expected result](kestra.md) |
 
 [Support and test evidence](../data-engineering-adbc-support.md) distinguishes
 recorded environments from unverified paths. Upstream contributions are tracked
@@ -37,13 +61,13 @@ existing per-integration issues linked there.
 [Upstream contribution status](../upstream-submissions/status.md) records submitted
 PRs and the prepared changes requiring human or maintainer action.
 
-## Additional workflows under review
+## Workflow provenance
 
 [PR #248](https://github.com/redis/redis-adbc-driver/pull/248) adds NumPy,
 scikit-learn, Jupyter notebook, Hugging Face Datasets, Streamlit and SciPy
-workflows. That PR is still unmerged. The six additional guides above document custom Python
-data paths and their specific validation limits. Their examples use the public
-DB-API/Arrow interface; the saved workflow runner and tests require #248.
+workflows and has merged. Those guides document custom Python data paths and
+their specific validation limits. Their examples use the public DB-API/Arrow
+interface; use a checkout containing #248 for the saved workflow runner and tests.
 
 See [new workflow documentation status](../upstream-submissions/status.md#new-workflows-in-pr-248)
 for each upstream project, proposed documentation placement, and submission gaps.
