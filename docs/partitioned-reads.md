@@ -10,8 +10,11 @@ the source-consistency design boundaries.
 permanent, driver-managed Redis table. See [issue #163](https://github.com/redis/redis-adbc-driver/issues/163).
 This API supplies the split descriptions for an external scheduler such as Ray
 or Dask; it does not create workers or provide an installed Ray connector.
-Rebuild the native library from this source checkout before using the new API;
-these changes have not yet been published in release wheels.
+The published `0.0.19` macOS ARM64 wheel passed native live/retained partition
+checks over verified TLS on Redis Software 8.6.2 with 4x QPF. See the
+[dated validation record](sdlc/changes/210-212/validation.md) for exact scope.
+Other wheel/platform combinations require their own validation. Rebuild from
+source to use changes made after that release, including bounded cursor cleanup.
 
 ## Supported queries
 

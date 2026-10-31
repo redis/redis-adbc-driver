@@ -39,7 +39,10 @@ columns. PRIMARY KEY metadata describes declared key columns; it is not a claim
 of enforced uniqueness. UNIQUE and FOREIGN KEY declarations/enforcement are
 tracked by [#114](https://github.com/redis/redis-adbc-driver/issues/114), so
 no UNIQUE, FOREIGN KEY or referenced-column usage metadata is invented here.
-These remain gaps under [#210](https://github.com/redis/redis-adbc-driver/issues/210).
+Constraint enforcement remains outside this metadata change.
 
-This is source functionality. A successful local library build and validation
-do not establish availability in a published wheel.
+The [2026-10-30 validation](sdlc/changes/210-212/validation.md) exercises native
+metadata under independently authenticated read-only principals over verified
+TLS, including separate Search/SCAN/source-key denials and constraint DDL.
+The published `0.0.19` macOS ARM64 wheel passed those checks on Redis Software
+8.6.2 with 4x QPF. Other release assets are not covered by that evidence.

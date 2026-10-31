@@ -1,0 +1,106 @@
+{
+  "test_subtest_events": {
+    "pass": 1361,
+    "skip": 39,
+    "fail": 25
+  },
+  "failed_tests": [
+    "TestSQLOuterReferencesFromFrom",
+    "TestSQLOuterReferencesFromFromDML",
+    "TestSQLPrimaryKeyAlter",
+    "TestSQLInformationSchema",
+    "TestSQLUnknownOperandWrites",
+    "TestSQLUnknownOperandParams",
+    "TestSQLTruncateOrDropDuringUpdate/UPDATE/TRUNCATE_continue",
+    "TestSQLTruncateOrDropDuringUpdate/UPDATE/TRUNCATE_restart",
+    "TestSQLTruncateOrDropDuringUpdate/UPDATE/DROP",
+    "TestSQLTruncateOrDropDuringUpdate/UPDATE_FROM/TRUNCATE_continue",
+    "TestSQLTruncateOrDropDuringUpdate/UPDATE_FROM/TRUNCATE_restart",
+    "TestSQLTruncateOrDropDuringUpdate/UPDATE_FROM/DROP",
+    "TestSQLTruncateOrDropDuringUpdate/MERGE_UPDATE/TRUNCATE_continue",
+    "TestSQLTruncateOrDropDuringUpdate/MERGE_UPDATE/TRUNCATE_restart",
+    "TestSQLTruncateOrDropDuringUpdate/MERGE_UPDATE/DROP",
+    "TestSQLTruncateOrDropDuringUpdate/MERGE_INSERT/TRUNCATE_continue",
+    "TestSQLTruncateOrDropDuringUpdate",
+    "TestSQLTruncateOrDropDuringDelete/DELETE/TRUNCATE_restart/checks=false",
+    "TestSQLTruncateOrDropDuringDelete/DELETE/TRUNCATE_restart/checks=true",
+    "TestSQLTruncateOrDropDuringDelete/DELETE/DROP/checks=false",
+    "TestSQLTruncateOrDropDuringDelete/DELETE/DROP/checks=true",
+    "TestSQLTruncateOrDropDuringDelete/MERGE_DELETE/TRUNCATE_continue/checks=false",
+    "TestSQLTruncateOrDropDuringDelete/MERGE_DELETE/TRUNCATE_continue/checks=true",
+    "TestSQLTruncateOrDropDuringDelete/MERGE_DELETE/TRUNCATE_restart/checks=false",
+    "TestSQLTruncateOrDropDuringDelete"
+  ],
+  "packages": [
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Action": "fail",
+      "Elapsed": 202.549
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go/cmd/redis-adbc",
+      "Action": "pass",
+      "Elapsed": 1.135
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go/internal/benchproxy",
+      "Action": "pass",
+      "Elapsed": 0.378
+    }
+  ],
+  "metadata_partition_transport_stream_events": {
+    "pass": 262,
+    "skip": 10
+  },
+  "date": "2026-10-30",
+  "go_version": "go1.27.2 darwin/arm64",
+  "deployment": {
+    "distribution": "Redis Software",
+    "redis_version": "8.6.2",
+    "shards": 1,
+    "verified_qpf": 4,
+    "effective_search_workers": 6,
+    "routing": "mnp",
+    "connections": 32,
+    "eviction_policy": "noeviction",
+    "tls": false
+  },
+  "status": "failed",
+  "failure_observation": "EOF during connection/metadata operations and subsequent leftover-object discovery failure; cause not established, consistent with separately tracked #217",
+  "native": {
+    "passed": 383,
+    "skipped": 8,
+    "subtests_passed": 3,
+    "seconds": 14.02,
+    "validation_revision": "5db1f44782f4868c5ae9e89d6ac9812ca6e1758c"
+  },
+  "failed_case_rerun": {
+    "test_subtest_events": {
+      "pass": 31,
+      "fail": 1
+    },
+    "failed_tests": [
+      "TestSQLInformationSchema"
+    ],
+    "packages": [
+      {
+        "Package": "github.com/adbc-drivers/redis/go",
+        "Action": "fail",
+        "Elapsed": 6.854
+      }
+    ]
+  },
+  "discovery_after_cleanup": {
+    "test_subtest_events": {
+      "pass": 1
+    },
+    "failed_tests": [],
+    "packages": [
+      {
+        "Package": "github.com/adbc-drivers/redis/go",
+        "Action": "pass",
+        "Elapsed": 0.81
+      }
+    ]
+  }
+}

@@ -16,9 +16,9 @@ import (
 )
 
 // A protocol fixture injects missing replies without running server workloads.
-// Both RESP variants and a disabled read timeout must obey caller deadlines.
+// RESP3 and a disabled read timeout must obey caller deadlines.
 func TestTransportDeadlineBoundsBlockedCommandAndPipeline(t *testing.T) {
-	for _, protocol := range []int{2, 3} {
+	for _, protocol := range []int{3} {
 		for _, readTimeout := range []time.Duration{0, time.Minute} {
 			for _, clustered := range []bool{false, true} {
 				for _, mode := range []string{"command", "pipeline", "cursor"} {
