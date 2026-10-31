@@ -72,3 +72,24 @@ the current README structure.
 
 The original evidence above records the actual older base and settings; 4x QPF
 was not verified in that earlier run and is not claimed retroactively.
+
+## PR #255 CI assertion correction
+
+The first CI run passed all four Redis Software jobs, both OSS standalone jobs,
+coverage and helpers. Both OSS Cluster jobs failed TestAdoptKeyedWrites at its
+post-TRUNCATE preservation assertion. The assertion issued a multi-key EXISTS
+across slots and discarded its error, turning an unsuccessful read into a
+misleading deletion failure. An earlier zero-count assertion had the same
+problem and could silently pass without checking its keys.
+
+Reproduced the exact original EXISTS command on a disposable Redis OSS Cluster:
+`CROSSSLOT Keys in request don't hash to the same slot`. Replaced both assertions
+with single-key EXISTS calls that check errors and identify the affected key;
+production code and ownership expectations are unchanged.
+
+- Unit-only suite passed all three packages (driver 15.364s).
+- Focused Cluster regressions passed with `go test -race -count=1 -v -p 1
+  -run 'TestAdopt(KeyedWrites|InsertCollisionAtomic)$' .` (2.655s), with no
+  skips or race reports. This is OSS Cluster compatibility evidence, separate
+  from the Redis Software QPF evidence above.
+- `git diff --check` passed. Full CI rerun is pending after push.

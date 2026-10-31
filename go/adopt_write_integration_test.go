@@ -53,8 +53,15 @@ func TestAdoptKeyedWrites(t *testing.T) {
 	} {
 		h.expectError(sql, "")
 	}
-	if n, _ := f.raw.Exists(h.ctx, f.prefix+"before", f.prefix+"dupe", f.prefix+"empty").Result(); n != 0 {
-		t.Fatal("refused batch wrote rows")
+	for _, suffix := range []string{"before", "dupe", "empty"} {
+		key := f.prefix + suffix
+		n, err := f.raw.Exists(h.ctx, key).Result()
+		if err != nil {
+			t.Fatalf("check refused batch key %q: %v", key, err)
+		}
+		if n != 0 {
+			t.Fatalf("refused batch wrote key %q", key)
+		}
 	}
 	if v, _ := f.raw.HGet(h.ctx, f.prefix+"seed", "name").Result(); v != "Seed" {
 		t.Fatal("overwrote existing row")
@@ -140,8 +147,15 @@ func TestAdoptKeyedWrites(t *testing.T) {
 		t.Fatal(err)
 	}
 	h.expectRows(`SELECT COUNT(*) FROM it_aw_users`, "0")
-	if n, _ := f.raw.Exists(h.ctx, f.prefix+"seed:prefs", f.prefix+"string").Result(); n != 2 {
-		t.Fatal("truncate deleted nested or non-HASH keys")
+	for _, suffix := range []string{"seed:prefs", "string"} {
+		key := f.prefix + suffix
+		n, err := f.raw.Exists(h.ctx, key).Result()
+		if err != nil {
+			t.Fatalf("check preserved key %q: %v", key, err)
+		}
+		if n != 1 {
+			t.Fatalf("truncate deleted protected key %q", key)
+		}
 	}
 	h.exec(`INSERT INTO it_aw_users (__key,name) VALUES ('it:aw:users:after','After')`)
 	h.expectRows(`SELECT name FROM it_aw_users`, "After")
