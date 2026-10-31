@@ -378,3 +378,28 @@ func TestArrowLayoutExpansionBudget(t *testing.T) {
 		t.Fatal("shared-view expansion accepted", err)
 	}
 }
+
+func TestCImportedNullValidation(t *testing.T) {
+	data := array.NewData(arrow.Null, 3, nil, nil, 3, 0)
+	defer data.Release()
+	a := array.NewNullData(data)
+	defer a.Release()
+	for _, bounds := range [][2]int64{{0, 3}, {1, 3}, {0, 0}} {
+		sliced := array.NewSlice(a, bounds[0], bounds[1])
+		if err := validateInputArray(sliced); err != nil {
+			t.Fatal(err)
+		}
+		sliced.Release()
+	}
+	if len(a.Data().Buffers()) != 0 {
+		t.Fatal("mutated caller's Null buffers")
+	}
+	st := arrow.StructOf(arrow.Field{Name: "null", Type: arrow.Null, Nullable: true})
+	nestedData := array.NewData(st, 3, []*memory.Buffer{nil}, []arrow.ArrayData{data}, 0, 0)
+	defer nestedData.Release()
+	nested := array.NewStructData(nestedData)
+	defer nested.Release()
+	if err := validateInputArray(nested); err != nil {
+		t.Fatal(err)
+	}
+}

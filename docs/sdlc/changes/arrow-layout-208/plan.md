@@ -73,3 +73,22 @@ duplicates and NULL/empty/nested distinctions and exact schemas. IPC checks
 remain order-sensitive. Native inventory queries also explicitly order by rowid.
 No production partition behavior or assertion of value/schema equality was
 weakened. Updated checks and CI outcomes are recorded in the PR timeline.
+
+The corrected Cluster Go suite passed. Full upstream C validation then exposed
+two gaps not covered by the earlier focused module: valid C Null arrays have
+zero buffers (the same internal nil-placeholder mismatch as run-end parents),
+and a legacy test still expected all Struct ingestion to fail after PR #266.
+The validation-only adapter now handles zero-buffer Null arrays recursively
+without modifying caller-owned data. A new unit case covers full/sliced/empty
+and nested C Null arrays. The legacy test retains anonymous ROW restriction
+assertions and adds a named Struct storage round trip, including parent-null
+versus all-null children and exact schema checks.
+
+Local full upstream validation passed after these fixes: **405 passed, 8 skipped,
+3 subtests passed** (15.73 seconds), through the verified Software runner.
+Command: `software-setup.sh --exec env UV_CACHE_DIR=... UV_PROJECT_ENVIRONMENT=...
+uv run --project validation pytest -q -ra validation/tests`. The isolated
+environment resolved upstream validation revision
+`5db1f44782f4868c5ae9e89d6ac9812ca6e1758c`; the supported default test configuration
+is `redis`. Skips are the existing unsupported connection/filter/catalog/ingest
+and transaction capabilities. No skip or capability flag was broadened.

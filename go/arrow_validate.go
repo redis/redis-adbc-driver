@@ -10,12 +10,12 @@ import (
 	"github.com/apache/arrow-go/v18/arrow/memory"
 )
 
-// Arrow C run-end arrays have no parent buffers. Arrow Go's generic validator
-// expects its internal AlwaysNull placeholder instead. Adapt only that slot,
+// Arrow C run-end and Null arrays have no parent buffers. Arrow Go's generic
+// validator expects its internal AlwaysNull placeholder instead. Adapt that slot,
 // sharing/retaining the original buffers and still running full validation of
 // every run, child, offset and length. Never modify caller-owned array data.
 func validateInputArray(a arrow.Array) error {
-	if !containsRunEnd(a.DataType()) {
+	if !needsValidationPlaceholder(a.DataType()) {
 		return array.ValidateFull(a)
 	}
 	data := validationData(a.Data())
@@ -24,16 +24,16 @@ func validateInputArray(a arrow.Array) error {
 	defer adapted.Release()
 	return array.ValidateFull(adapted)
 }
-func containsRunEnd(dt arrow.DataType) bool {
-	if dt.ID() == arrow.RUN_END_ENCODED {
+func needsValidationPlaceholder(dt arrow.DataType) bool {
+	if dt.ID() == arrow.RUN_END_ENCODED || dt.ID() == arrow.NULL {
 		return true
 	}
 	if d, ok := dt.(*arrow.DictionaryType); ok {
-		return containsRunEnd(d.ValueType)
+		return needsValidationPlaceholder(d.ValueType)
 	}
 	if n, ok := dt.(arrow.NestedType); ok {
 		for _, f := range n.Fields() {
-			if containsRunEnd(f.Type) {
+			if needsValidationPlaceholder(f.Type) {
 				return true
 			}
 		}
@@ -42,7 +42,7 @@ func containsRunEnd(dt arrow.DataType) bool {
 }
 func validationData(data arrow.ArrayData) *array.Data {
 	buffers := data.Buffers()
-	if data.DataType().ID() == arrow.RUN_END_ENCODED && len(buffers) == 0 {
+	if (data.DataType().ID() == arrow.RUN_END_ENCODED || data.DataType().ID() == arrow.NULL) && len(buffers) == 0 {
 		buffers = []*memory.Buffer{nil}
 	}
 	children := make([]arrow.ArrayData, len(data.Children()))
