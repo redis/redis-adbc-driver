@@ -4,6 +4,7 @@ package redis
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
@@ -12,6 +13,46 @@ import (
 	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/apache/arrow-go/v18/arrow/memory"
 )
+
+// Portable/retained SQL without ORDER BY has no row-order contract. Compare
+// complete independently encoded Arrow rows, preserving duplicates, NULLs,
+// empty lists and nested shape, and still require exact batch schemas.
+func assertInventoryUnorderedReader(t *testing.T, reader array.RecordReader, want arrow.RecordBatch) {
+	t.Helper()
+	rowJSON := func(a arrow.Array, i int) string {
+		row := array.NewSlice(a, int64(i), int64(i+1))
+		defer row.Release()
+		data, err := row.MarshalJSON()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(data)
+	}
+	var expected, actual []string
+	for i := 0; i < int(want.NumRows()); i++ {
+		expected = append(expected, rowJSON(want.Column(0), i))
+	}
+	if !reader.Schema().Equal(want.Schema()) {
+		t.Fatal("schema changed", reader.Schema(), want.Schema())
+	}
+	for reader.Next() {
+		r := reader.RecordBatch()
+		if !r.Schema().Equal(want.Schema()) {
+			t.Fatal("batch schema changed", r.Schema(), want.Schema())
+		}
+		for i := 0; i < int(r.NumRows()); i++ {
+			actual = append(actual, rowJSON(r.Column(0), i))
+		}
+	}
+	if reader.Err() != nil {
+		t.Fatal(reader.Err())
+	}
+	slices.Sort(expected)
+	slices.Sort(actual)
+	if !slices.Equal(expected, actual) {
+		t.Fatal("values/duplicate counts changed", actual, expected)
+	}
+}
 
 func TestArrowLayoutInventoryStorage(t *testing.T) {
 	h := newSQLHarness(t)
@@ -101,7 +142,7 @@ func TestArrowLayoutInventoryStorage(t *testing.T) {
 				t.Fatal("metadata reload", schema, err)
 			}
 			query := "SELECT v FROM " + table
-			r, _ := h.openStream(h.ctx, worker.conn, query, nil, map[string]string{OptionIntStreamBatchRows: "1"})
+			r, _ := h.openStream(h.ctx, worker.conn, query+" ORDER BY __rowid", nil, map[string]string{OptionIntStreamBatchRows: "1"})
 			assertInventoryReader(t, r, want)
 			r.Release()
 			st, err := h.conn.NewStatement(h.ctx)
@@ -126,7 +167,7 @@ func TestArrowLayoutInventoryStorage(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			assertInventoryReader(t, r, want)
+			assertInventoryUnorderedReader(t, r, want)
 			r.Release()
 			// Retained publication serializes canonical output, never these physical inputs.
 			storage := retainedFixture(t, h.rawClient(), defaultRetainedLimits())
@@ -158,7 +199,7 @@ func TestArrowLayoutInventoryStorage(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			assertInventoryReader(t, r, want)
+			assertInventoryUnorderedReader(t, r, want)
 			r.Release()
 		})
 	}

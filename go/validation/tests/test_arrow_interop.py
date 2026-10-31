@@ -169,7 +169,7 @@ def test_layout_inventory_c_bindings(conn, name):
                     continue
                 try:
                     cur.adbc_ingest(table, data)
-                    cur.execute(f"SELECT v FROM {table}")
+                    cur.execute(f"SELECT v FROM {table} ORDER BY __rowid")
                     actual = cur.fetch_arrow_table()
                     expected = pa.table({"v": pa.array(sliced.to_pylist(), canonical_type)})
                     assert actual.equals(expected), (name, start, stream, actual, expected)

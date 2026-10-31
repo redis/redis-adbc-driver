@@ -61,3 +61,15 @@ PR/merge links will be recorded in the issue timeline after completion.
 - `git diff --check`, Go formatting and relative links in the changed contract
   and new change records passed. Review found no remaining actionable finding
   in the changed behavior; no human approval is inferred from this review.
+
+## CI follow-up
+
+The first PR #269 OSS Cluster run caught a test-oracle mistake: four live
+partition cases compared insertion order for a query without ORDER BY. The
+logged values/schema were correct but Cluster replay order differed. The test
+now requests ORDER BY __rowid for its ordered ordinary-query check, and compares
+complete Arrow JSON row multisets for unordered live/retained replay, preserving
+duplicates and NULL/empty/nested distinctions and exact schemas. IPC checks
+remain order-sensitive. Native inventory queries also explicitly order by rowid.
+No production partition behavior or assertion of value/schema equality was
+weakened. Updated checks and CI outcomes are recorded in the PR timeline.
