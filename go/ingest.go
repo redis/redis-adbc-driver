@@ -161,6 +161,9 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 	var total int64
 	for s.params.Next() {
 		rec := s.params.RecordBatch()
+		if err := validateInputRecord(rec); err != nil {
+			return -1, errorf(adbc.StatusInvalidArgument, "invalid Arrow input: %v", err)
+		}
 		n := int(rec.NumRows())
 		rows := make([][]Value, n)
 		values := make([]Value, n*len(meta.Columns))
