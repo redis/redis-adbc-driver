@@ -204,20 +204,60 @@ claim every server version or failover scenario has been validated.
 
 ## Data tools and integration status
 
-Examples of working integrations in this repository:
+The [50-tool comparison](docs/data-engineering-adbc-support.md) lists connection
+paths, validation evidence, and remaining gaps. The examples below summarize
+recorded local validation; each entry links to a usage guide with setup, examples
+and validation scope.
 
-| Tool | Example workflow | Setup and examples |
+Integration setup guides:
+
+| Tool | Example workflow | Usage guide |
 |---|---|---|
-| pandas | Read SQL results into DataFrames and write or append DataFrames to Redis tables. | [pandas reads and writes](docs/python-integrations.md#pandas-writes-and-round-trips) |
-| Polars | Query Redis with `read_database_uri(..., engine="adbc")` and bulk-load DataFrames through ADBC. | [Python installation and Polars example](docs/python-integrations.md#install-and-discover-the-driver) |
-| DuckDB | Attach Redis tables with `adbc_scanner` to query, join, and ingest data; stream SELECT results with the standalone `redis_adbc` extension. | [DuckDB guide](docs/duckdb.md) |
-| Apache Superset | Browse Redis schemas and tables, run SQL in SQL Lab, and build charts through the SQLAlchemy integration. | [Superset setup](docs/python-integrations.md#sqlalchemy-and-superset) |
-| Dagster | Query Redis from assets with `dagster-adbc`, or store and load Arrow/DataFrame asset outputs with the Redis ADBC IO manager. | [Dagster examples](docs/python-integrations.md#dagster) |
-| Apache Airflow | Bulk-load Arrow batches and query grouped results in a TaskFlow DAG or through the official `AdbcHook` with explicit autocommit. | [Airflow DAG and hook examples](docs/python-integrations.md#apache-airflow) |
+| pandas | Read SQL results into DataFrames and write or append DataFrames to Redis tables. | [Guide](docs/integrations/pandas.md) |
+| Polars | Read through ADBC and validate typed write/append round trips. | [Guide](docs/integrations/polars.md) |
+| DuckDB | Attach Redis tables to query, join, and ingest data; stream SELECT results with the standalone extension. | [Guide](docs/duckdb.md) |
+| SQLAlchemy | Run engine queries, reflect metadata, and bind query values through the repository dialect. | [Guide](docs/integrations/sqlalchemy.md) |
+| Apache Superset | Run SQL Lab queries and chart SQL through the repository dialect; browser dashboards and hosting remain untested. | [Guide](docs/integrations/superset.md) |
+| Dagster | Load and store Arrow/DataFrame asset outputs with the Redis IO manager, or query through dagster-adbc. | [Guide](docs/integrations/dagster.md) |
+| Apache Airflow | Ingest Arrow batches and query in TaskFlow tasks; use RedisAdbcHook for bound queries and get_records(). | [Guide](docs/integrations/airflow.md) |
+| Prefect | Run local flows with Arrow ingestion, dependent tasks, concurrent queries, and retries. | [Guide](docs/integrations/prefect.md) |
+| Dask | Read lazy query partitions through worker-local ADBC connections and pandas Arrow dtypes. | [Guide](docs/integrations/dask.md) |
+| Ray Data | Stream partitioned Arrow batches from worker-local ADBC connections; install the native driver on each worker. | [Guide](docs/integrations/ray.md) |
+| dlt | Append pipeline data through the repository ADBC destination; replace/merge are unsupported and retries can duplicate rows. | [Guide](docs/integrations/dlt.md) |
 
-See [ADBC support across 22 data engineering tools](docs/data-engineering-adbc-support.md)
-for validation evidence, integration limits, and additional tools, including
-candidate integrations that have not been tested.
+Additional locally validated workflows use custom application code, adapters, or
+Arrow conversion. These examples do not establish built-in Redis connectors,
+remote deployment support, or Redis Flight SQL compatibility.
+
+| Tool | Example workflow | Usage guide |
+|---|---|---|
+| NumPy | Convert fetched Arrow results to arrays and check numeric values. | [Guide](docs/integrations/numpy.md) |
+| SciPy | Build a CSR sparse matrix from fetched coefficients and solve a linear system. | [Guide](docs/integrations/scipy.md) |
+| scikit-learn | Convert fetched results to arrays, then fit and predict with a small decision tree. | [Guide](docs/integrations/scikit-learn.md) |
+| Apache Spark | Convert fetched Arrow data into a local Spark DataFrame, then filter and aggregate; no Spark datasource is supplied. | [Guide](docs/integrations/spark.md) |
+| Jupyter / JupyterLab | Execute ADBC queries in a separate notebook kernel and save outputs; JupyterLab browser UI remains untested. | [Guide](docs/integrations/jupyter.md) |
+| Apache Beam | Run bound ADBC queries in local Python worker subprocesses; remote runners remain untested. | [Guide](docs/integrations/beam.md) |
+| Fivetran Connector SDK | Run a custom native ADBC source with the local SDK tester and verify warehouse output; hosted packaging remains unverified. | [Guide](docs/integrations/fivetran.md) |
+| dbt | Build models, run model tests, and generate a catalog using the community v1 adapter; the v2 adapter requires a custom engine. | [Guide](docs/integrations/dbt.md) |
+| PyArrow | Fetch and ingest Arrow data, including array, IPC, and union-stream interfaces. | [Guide](docs/integrations/pyarrow.md) |
+| R / DBI | Load the native driver through adbi and read typed and empty results; positional binding has documented limitations. | [Guide](docs/integrations/r-dbi.md) |
+| RStudio | Execute the saved R/DBI harness in the IDE; wider IDE workflows remain untested. | [Guide](docs/integrations/rstudio.md) |
+| PyTorch | Build a custom Dataset/DataLoader and run a CPU model forward pass with an explicit NULL mask. | [Guide](docs/integrations/pytorch.md) |
+| TensorFlow | Build a custom tf.data input pipeline from fetched rows and a NULL mask. | [Guide](docs/integrations/tensorflow.md) |
+| Keras | Use fetched values as CPU model inputs and save/reload the model with the TensorFlow backend. | [Guide](docs/integrations/keras.md) |
+| XGBoost | Convert fetched rows to a DMatrix, train a small CPU model, and save/reload it. | [Guide](docs/integrations/xgboost.md) |
+| Hugging Face Transformers | Feed fetched labels to a local tokenizer and tiny randomly initialized model; no pretrained-model or training-scale validation. | [Guide](docs/integrations/transformers.md) |
+| Hugging Face Datasets | Convert Arrow results into datasets and save/reload/filter locally; empty persistence needs the documented workaround. | [Guide](docs/integrations/huggingface-datasets.md) |
+| MLflow | Track datasets and artifacts from fetched Arrow/pandas data; no Redis tracking-store backend is supplied. | [Guide](docs/integrations/mlflow.md) |
+| Streamlit | Display fetched rows and rerun bound filters with AppTest; browser and hosting remain untested. | [Guide](docs/integrations/streamlit.md) |
+| Plotly | Serialize fetched data into figure JSON and interactive HTML; browser interaction remains untested. | [Guide](docs/integrations/plotly.md) |
+| Matplotlib | Render fetched values to a PNG using the Agg backend. | [Guide](docs/integrations/matplotlib.md) |
+| Mage | Pass bound-query results through a local Python loader/transformer pipeline. | [Guide](docs/integrations/mage.md) |
+| Kestra | Query from local Python Script tasks and hand managed output files to a downstream checker. | [Guide](docs/integrations/kestra.md) |
+| Ibis | Build expressions over fetched Arrow tables on a local DuckDB backend; no Redis backend or pushdown is supplied. | [Guide](docs/integrations/ibis.md) |
+| Kubeflow Pipelines | Run a custom ADBC component with the local SubprocessRunner; Kubernetes execution remains untested. | [Guide](docs/integrations/kubeflow.md) |
+| Metaflow | Read through ADBC in a local flow and persist rows between steps; remote backends remain untested. | [Guide](docs/integrations/metaflow.md) |
+| Quarto | Render a Python document containing native ADBC queries to HTML. | [Guide](docs/integrations/quarto.md) |
 
 ## Quick start
 

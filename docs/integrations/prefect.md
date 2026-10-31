@@ -57,4 +57,18 @@ Build the library first as above; use `.so` on Linux. This verifies custom Pytho
 tasks, not a packaged Prefect ADBC connector, `prefect-redis`, Flight SQL, or a
 remote Prefect deployment.
 
+## Rerun this guide
+
+From the repository root, with the guide's dependencies and native driver
+installed, set `REDIS_URI` to the dedicated local Software fixture and run:
+
+```sh
+python python/scripts/check_integration_guide.py prefect
+```
+
+This executes the guide's code blocks or its linked runnable example. For
+Superset it exercises the documented backend workflow in an isolated application;
+it does not automate the browser UI. See the
+[per-guide results](../sdlc/changes/integration-guides-262/validation.md).
+
 [All integration guides](README.md)

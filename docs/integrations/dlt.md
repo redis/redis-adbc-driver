@@ -21,26 +21,30 @@ dlt 1.31.0. It sends normalized Parquet Arrow batches to the native driver's
 
 ```python
 import os
+from uuid import uuid4
 import dlt
+from adbc_driver_redis import dbapi
 from adbc_driver_redis.dlt import redis_adbc
 
+schema = "dlt_guide_" + uuid4().hex
 pipeline = dlt.pipeline(
-    pipeline_name="redis_orders",
-    destination=redis_adbc(
-        uri=os.environ["REDIS_URI"],
-        schema_name="analytics",
-        batch_size=1000,
-    ),
+    pipeline_name=schema,
+    destination=redis_adbc(uri=os.environ["REDIS_URI"], schema_name=schema, batch_size=1000),
 )
-info = pipeline.run(
-    [{"id": 1, "amount": 10.5}, {"id": 2, "amount": 20.0}],
-    table_name="orders",
-    write_disposition="append",
-)
-info.raise_on_failed_jobs()
+with dbapi.connect(os.environ["REDIS_URI"]) as conn, conn.cursor() as cur:
+    try:
+        info = pipeline.run(
+            [{"id": 1, "amount": 10.5}, {"id": 2, "amount": 20.0}],
+            table_name="orders", write_disposition="append",
+        )
+        info.raise_on_failed_jobs()
+        cur.execute(f'SELECT id, amount FROM "{schema}".orders ORDER BY id')
+        assert cur.fetchall() == [(1, 10.5), (2, 20.0)]
+    finally:
+        cur.execute(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE')
 ```
 
-Query the result with `SELECT * FROM analytics.orders` through the driver.
+The example queries its unique schema, checks both rows and removes that schema.
 The runnable [example](https://github.com/redis/redis-adbc-driver/blob/main/python/examples/dlt_pipeline.py) loads and reads back
 orders. Every invocation appends its input again.
 
@@ -76,5 +80,19 @@ to the same table. Keep or back up the local pipeline directory: custom
 destinations do not restore incremental source state from Redis. See dlt's
 [custom destination contract](https://dlthub.com/docs/dlt-ecosystem/destinations/destination)
 for checkpoint, retry and state limitations.
+
+## Rerun this guide
+
+From the repository root, with the guide's dependencies and native driver
+installed, set `REDIS_URI` to the dedicated local Software fixture and run:
+
+```sh
+python python/scripts/check_integration_guide.py dlt
+```
+
+This executes the guide's code blocks or its linked runnable example. For
+Superset it exercises the documented backend workflow in an isolated application;
+it does not automate the browser UI. See the
+[per-guide results](../sdlc/changes/integration-guides-262/validation.md).
 
 [All integration guides](README.md)
