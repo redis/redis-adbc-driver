@@ -19,7 +19,7 @@ export TF_CPP_MIN_LOG_LEVEL=2
 export OMP_NUM_THREADS=1
 export CANDIDATE_SDK_CACHE="${CANDIDATE_SDK_CACHE:-$env_root/fivetran-tester}"
 status=0
-profiles=(core workflows models orchestrators spark airflow superset dbt documents analysis beam mage kestra)
+profiles=(core workflows models orchestrators spark airflow superset dbt documents analysis beam mage kestra ray-tls)
 if [[ -n "${CANDIDATE_PROFILES:-}" ]]; then
   read -r -a profiles <<< "$CANDIDATE_PROFILES"
 fi
@@ -29,7 +29,7 @@ if [[ ${#profiles[@]} -eq 0 ]]; then
 fi
 for profile in "${profiles[@]}"; do
   case "$profile" in
-    core|workflows|models|orchestrators|spark|airflow|superset|dbt|documents|analysis|beam|mage|kestra) ;;
+    core|workflows|models|orchestrators|spark|airflow|superset|dbt|documents|analysis|beam|mage|kestra|ray-tls) ;;
     *) echo "Unknown native candidate profile: $profile" >&2; exit 2 ;;
   esac
 done
@@ -69,6 +69,7 @@ for profile in "${profiles[@]}"; do
   : > "$results/$profile.log"
   case "$profile" in
     core) args=(3.12 'test,candidate-tests' driver pandas polars ml sqlalchemy arrow duckdb dask dagster prefect dlt ray) ;;
+    ray-tls) args=(3.12 ray-tests ray-tls) ;;
     workflows) args=(3.12 workflow-tests jupyter datasets streamlit scipy) ;;
     models) args=(3.12 'plotting-tests,model-tests' plotly matplotlib xgboost pytorch tensorflow keras transformers) ;;
     orchestrators) args=(3.12 orchestrator-tests kubeflow metaflow fivetran) ;;

@@ -258,11 +258,21 @@ def test_ray_task_retry(uri, source, ray_runtime, db_options):
 
 
 def test_tls_worker_requires_ca(uri, source, ray_runtime, db_options):
-    if not db_options:
-        pytest.skip("private CA fixture required")
-    name, _ = source
-    task = RedisDatasource(uri, f'SELECT * FROM "{name}"',
+    if not db_options or not uri.startswith("rediss://"):
+        if os.environ.get("REQUIRE_RAY_TLS") == "1":
+            pytest.fail("ray-tls requires a rediss:// endpoint and private CA")
+        pytest.skip("private CA TLS fixture required")
+    name, expected = source
+    task = RedisDatasource(uri, f'SELECT * FROM "{name}"', partition_count=1,
                            db_kwargs=db_options).get_read_tasks(1)[0]
+
+    @ray.remote
+    def with_ca(task):
+        return os.getpid(), pa.concat_tables(list(task()))
+
+    worker_pid, actual = ray.get(with_ca.remote(task))
+    assert worker_pid != os.getpid()
+    assert actual.sort_by("id").equals(expected, check_metadata=True)
 
     @ray.remote
     def without_ca(task):
@@ -271,5 +281,5 @@ def test_tls_worker_requires_ca(uri, source, ray_runtime, db_options):
         options["db_kwargs"] = {"adbc.redis.stream_batch_rows": "5"}
         return list(_read_partition(*read.args, **options))
 
-    with pytest.raises(ray.exceptions.RayTaskError, match="(?i)certificate"):
+    with pytest.raises(ray.exceptions.RayTaskError, match="(?i)(certificate.*(unknown authority|verify|verification)|x509)"):
         ray.get(without_ca.remote(task))

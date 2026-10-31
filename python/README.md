@@ -136,6 +136,7 @@ requirements and Superset uses an older SQLAlchemy/PyArrow stack:
 | beam | 3.12 | `beam-tests`: native ADBC reads inside local FnApi worker subprocesses |
 | mage | 3.12 | `mage-tests`: real local loader/transformer pipeline |
 | kestra | 3.12 | `kestra-tests`: native Python Script tasks, file handoff, checked task outputs; Java 25+ |
+| ray-tls | 3.12 | `ray-tests`: owned private-CA Software fixture, remote worker reads and trust rejection |
 
 Ibis, MLflow, Beam, Mage, and Kestra each cover populated and empty results.
 These are custom native ADBC/Arrow/Python workflows. They do not establish an
@@ -185,6 +186,46 @@ leaves Redis Software available; remove it with
 `CANDIDATE_COMPOSE_PROJECT` select another fixture. `REDIS_URI` is set to the
 verified fixture. Flight SQL paths are excluded. Hosted deployment, GPU/model
 scale, and browser UI coverage are not implied by these local tests.
+
+### Ray workers with a private CA
+
+Install `python[ray-tests]` and select the dedicated TLS profile:
+
+```sh
+PYTHON=/path/to/ray-venv/bin/python python/scripts/run-candidate-tests.sh ray-tls
+```
+
+This selector runs on its own. It creates a fresh Software project, verifies 4x
+QPF, installs a short-lived private certificate on the Software proxy, and supplies
+its authenticated `rediss://` endpoint and CA to the datasource tests. The worker
+must preserve every row and Arrow schema with trust supplied and reject the
+certificate when trust is removed. The profile fails if the TLS fixture is absent.
+Trust is passed through `adbc.redis.tls_ca_file`; it is not installed globally or
+used for package downloads. Containers, network and private material are removed
+after both successful and failing runs.
+
+`CANDIDATE_TLS_API_PORT`/`CANDIDATE_TLS_DB_PORT` default to `30443`/`27379`.
+`CANDIDATE_TLS_COMPOSE_PROJECT` selects a project name; the default is unique to
+the process. A pre-existing project is rejected. The all-native launcher runs
+this as its own environment and keeps a separate `ray-tls` report. The ordinary
+plaintext Ray group still reports its TLS-case skip explicitly.
+
+### Dependency regressions
+
+R binding tests cover single/multiple parameters, NULLs and rebinding, while
+asserting the driver's unnamed parameter schema. adbi 0.1.3 still has strict
+expected failures; its Arrow binding method also reaches the same name check.
+A proposed upstream correction passes the tests in an isolated package install;
+it is not a supported released dependency yet.
+
+Datasets tests now exercise default saves independently and with fetched ADBC
+results. Datasets 5.1.0's exact zero-shard empty reload error remains a strict
+expected failure. An explicit empty-shard case preserves the tested mitigation;
+nonempty results use defaults. Keep `num_shards=1` for empty results until a
+released fix passes the default-sharding regression.
+
+See the [follow-up validation](../docs/sdlc/changes/integration-252-254/validation.md)
+for results, proposed upstream patches and remaining dependency work.
 
 Arrow IPC stream/file serialization is available inside the native driver through
 standard ADBC statement options. See the [IPC contract and example](https://github.com/redis/redis-adbc-driver/blob/main/docs/arrow-ipc.md).
