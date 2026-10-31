@@ -170,3 +170,14 @@ This is not a claim that custom integrations for those tools are impossible.
 | 48 | Apache Hop | Requires a direct ADBC connection/transform plugin; no generic path established. |
 | 49 | RStudio | Manual IDE check passed using the native R/DBI harness. |
 | 50 | Dataform | Standard target is BigQuery; a Redis adapter/target would need implementation. |
+
+
+## Focused follow-up for #252–#254
+
+The later [integration follow-up](../integration-252-254/validation.md) records
+17 passing private-CA Ray datasource cases with fixture cleanup and no skips,
+expanded R positional/NULL/rebinding regressions, and default-sharding Datasets
+regressions. Proposed dependency patches pass in isolated local copies; released
+packages retain their failures. The runner now uses default sharding for nonempty
+Datasets and retains an explicit-shard empty case. These focused checks do not
+replace this historical full-sweep/initial-run result.

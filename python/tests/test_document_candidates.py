@@ -33,7 +33,13 @@ class RBindingSchemaCompatibilityError(AssertionError):
     strict=True,
     reason="adbi 0.1.3 treats unnamed ADBC parameter fields as named placeholders",
 )
-def test_r_dbi_parameter_binding(uri, workflow_rows, tmp_path):
+@pytest.mark.parametrize("predicate, params, expected", [
+    ("id >= ?", "list(2L)", "c(2, 3)"),
+    ("id >= ? AND id <= ?", "list(2L, 3L)", "c(2, 3)"),
+    ("label = ?", "list(NA_character_)", "numeric(0)"),
+    ("label IS NOT DISTINCT FROM ? AND id >= ?", "list(NA_character_, 1L)", "2"),
+])
+def test_r_dbi_parameter_binding(uri, workflow_rows, tmp_path, predicate, params, expected):
     rscript = os.environ.get("RSCRIPT") or shutil.which("Rscript")
     if not rscript:
         pytest.skip("Rscript and the adbi/adbcdrivermanager packages are required")
@@ -45,13 +51,18 @@ def test_r_dbi_parameter_binding(uri, workflow_rows, tmp_path):
         driver <- adbcdrivermanager::adbc_driver(Sys.getenv("REDIS_ADBC_LIBRARY"))
         con <- dbConnect(adbi(driver), uri=Sys.getenv("REDIS_URI"))
         name <- Sys.getenv("REDIS_ADBC_TEST_TABLE")
-        result <- dbSendQuery(con, sprintf('SELECT id FROM "%s" WHERE id >= ? ORDER BY id', name))
+        result <- dbSendQuery(con, sprintf('SELECT id FROM "%s" WHERE {predicate} ORDER BY id', name))
         cat("ADBI_VERSION=", as.character(packageVersion("adbi")), "\\n", sep="")
-        dbBind(result, list(2L))
-        stopifnot(identical(as.numeric(dbFetch(result)$id), c(2, 3)))
+        schema <- nanoarrow::nanoarrow_schema_parse(
+          adbcdrivermanager::adbc_statement_get_parameter_schema(result@statement), recursive=TRUE)
+        stopifnot(length(schema$children) == length({params}), all(names(schema$children) == ""))
+        for (attempt in 1:2) {
+          dbBind(result, {params})
+          stopifnot(identical(as.numeric(dbFetch(result)$id), {expected}))
+        }
         dbClearResult(result)
         dbDisconnect(con)
-        """))
+        """).replace("{predicate}", predicate).replace("{params}", params).replace("{expected}", expected))
     result = subprocess.run(
         [rscript, str(script)], env={**os.environ, "REDIS_URI": uri, "REDIS_ADBC_TEST_TABLE": name},
         cwd=tmp_path, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=120,

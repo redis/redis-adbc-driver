@@ -59,3 +59,14 @@ The entire suite was not run in this initial Python 3.15 environment. A later
 run used supported isolated interpreters for Ray/Dagster and the other native
 candidates; see [native-sweep.md](native-sweep.md). Those results remain separate
 from this initial five-test workflow run.
+
+
+## Focused follow-up for #252–#254
+
+The later [integration follow-up](../integration-252-254/validation.md) records
+17 passing private-CA Ray datasource cases with fixture cleanup and no skips,
+expanded R positional/NULL/rebinding regressions, and default-sharding Datasets
+regressions. Proposed dependency patches pass in isolated local copies; released
+packages retain their failures. The runner now uses default sharding for nonempty
+Datasets and retains an explicit-shard empty case. These focused checks do not
+replace this historical full-sweep/initial-run result.
