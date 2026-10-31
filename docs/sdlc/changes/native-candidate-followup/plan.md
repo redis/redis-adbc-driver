@@ -2,7 +2,7 @@
 
 - Date: 2026-10-30
 - Initial source: `91064e6`
-- Final validated main base: `400e24dbd44d210ba72c6364d8e101ba4ac274c2`
+- Final validated main base: `95644965357dec801b7a3b69a31908c7536330ac`
 - Status: implemented and validated; PR review pending
 - PR: [#258](https://github.com/redis/redis-adbc-driver/pull/258)
 - [Intent](intent.md) · [Specification](spec.md)
@@ -44,23 +44,27 @@
 
 ## Final complete run
 
-The unchanged saved launcher completed all thirteen profiles with exit 0:
-**134 passed, one private-CA skip, two strict expected failures, zero failures or
-errors**. The additional five entries contribute ten passing populated/empty
+The unchanged saved launcher completed all fourteen profiles with exit 0:
+**152 passed, one plaintext-group TLS skip, seven strict expected-failure cases,
+zero failures or errors**. The additional five entries contribute ten passing populated/empty
 workflow cases and one exact MLflow default-digest expected failure. Earlier
 application suites were rerun in the same command. [Complete validation](validation.md)
 and [machine-readable outcomes](native-results.json).
 
 The complete launcher passed again after merging the intervening main changes,
-including its driver updates. Final tested source:
-`6a311640dd71f4c36e26907f13eddb9ce120d7a5`, based on main `400e24d`.
-The native library was rebuilt from that source. This PR has no driver
+including its driver updates and PR #256's regression/TLS harnesses. Final source:
+`d77d81b7180a86ff6230187b7a4c8c1bc20091a1`, based on main `9564496`.
+The native library was built from the matching Go source tree. This PR has no driver
 implementation diff against the final main base.
 
 Shell/Python/TOML syntax, invalid/empty profile rejection, selected-profile
 reporting, local documentation links, the result totals, and all 50 unchanged
 Flight SQL cells were checked. `git diff --check` passed. Owned application
-test processes exited; the verified Software fixture remains available.
+test processes exited; the verified plaintext Software fixture remains available.
+The dedicated Ray TLS profile passed all 17 cases with no skips and removed its
+owned fixture/private material. Six separate TLS lifecycle/reporting unit checks
+also passed. The seven expected cases cover the existing four R bindings, two
+Datasets default empty saves, and the newly tracked MLflow empty digest.
 
 The support matrix now records 37 entries with exercised native paths. The
 thirteen remaining entries are explicitly identified as needing integration

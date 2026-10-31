@@ -228,9 +228,10 @@ establish browser-rendered chart coverage or transactional ORM support.
 
 ## Testing status
 
-The latest complete direct-driver run finished on **2026-10-30**: **134 passed,
-one TLS-fixture skip, and two strict expected incompatibilities** (R/DBI binding
-and MLflow's default empty-dataframe digest). All thirteen environment profiles
+The latest complete direct-driver run finished on **2026-10-30**: **152 passed,
+one plaintext-group TLS skip, and seven strict expected-failure cases** (four
+R/DBI bindings, two Datasets default empty saves, and one MLflow empty digest).
+The dedicated private-CA Ray profile passed all 17 cases without skips. All fourteen profiles
 exited 0 against Redis Software 8.6.2 with active verified 4x QPF. The
 [five-tool follow-up and complete results](sdlc/changes/native-candidate-followup/validation.md)
 add Ibis, MLflow, Beam, Mage, and Kestra to the

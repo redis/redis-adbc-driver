@@ -2,7 +2,7 @@
 
 - Date: 2026-10-30
 - Initial source: `91064e6` (merged candidate runner PR #248)
-- Final validated main base: `400e24dbd44d210ba72c6364d8e101ba4ac274c2`
+- Final validated main base: `95644965357dec801b7a3b69a31908c7536330ac`
 - Requestor: user
 - Status: implemented and validated; PR review pending
 - PR: [#258](https://github.com/redis/redis-adbc-driver/pull/258)

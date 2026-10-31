@@ -2,9 +2,10 @@
 
 - Date: 2026-10-30
 - PR: [#258](https://github.com/redis/redis-adbc-driver/pull/258)
-- Final main base: `400e24dbd44d210ba72c6364d8e101ba4ac274c2`.
-- Tested source: `6a311640dd71f4c36e26907f13eddb9ce120d7a5` (this follow-up plus
-  the final main base). The native library was rebuilt from that source.
+- Final main base: `95644965357dec801b7a3b69a31908c7536330ac`.
+- Tested source: `d77d81b7180a86ff6230187b7a4c8c1bc20091a1` (this follow-up plus
+  the final main base). The runner built or reused the native library from the
+  matching Go source tree.
 - Driver implementation unchanged by this PR. Earlier candidate runner: #248.
 - Scope: native Redis ADBC only. No Flight SQL path was tested.
 - [Intent](intent.md) · [Specification](spec.md) · [Plan](plan.md)
@@ -15,30 +16,32 @@ All five custom workflows passed their populated and empty-result checks in
 focused runs against Redis Software 8.6.2, Search, one shard, with active verified
 4x QPF. The separate MLflow default-empty-digest regression remains an exact,
 strict expected failure; the empty workflow uses its public explicit-digest API.
-The unchanged complete thirteen-profile launcher also exited **0**: **134 passed,
-one skipped, two strict expected failures, zero failures/errors**. The skip is
-the existing Ray private-CA fixture case. The two expected failures are the
-previously recorded adbi 0.1.3 binding issue and the new exact MLflow digest
-incompatibility. Every profile's launcher exited 0.
+The unchanged complete fourteen-profile launcher exited **0**: **152 passed,
+one skipped, seven strict expected-failure cases, zero failures/errors**. The
+skip is the ordinary plaintext Ray group's TLS-specific case; the dedicated
+private-CA profile passed all 17 cases with no skips. The expected failures are
+four adbi 0.1.3 binding variants, two Datasets 5.1.0 default empty saves, and one
+MLflow automatic empty digest. Every profile's launcher exited 0.
 
 [Machine-readable complete results](native-results.json) ·
-[New profile versions](environment-versions.json).
+[Profile versions](environment-versions.json).
 
 | Profile | Passed | Skipped | Strict expected failures |
 |---|---:|---:|---:|
 | core | 97 | 1 | 0 |
-| workflows | 5 | 0 | 0 |
+| workflows | 6 | 0 | 2 |
 | models | 7 | 0 | 0 |
 | orchestrators | 3 | 0 | 0 |
 | Spark | 1 | 0 | 0 |
 | Airflow | 7 | 0 | 0 |
 | Superset | 1 | 0 | 0 |
 | dbt | 1 | 0 | 0 |
-| documents | 2 | 0 | 1 |
+| documents | 2 | 0 | 4 |
 | analysis: Ibis/MLflow | 4 | 0 | 1 |
 | Beam | 2 | 0 | 0 |
 | Mage | 2 | 0 | 0 |
 | Kestra | 2 | 0 | 0 |
+| Ray TLS | 17 | 0 | 0 |
 
 The final run used macOS arm64. All four new profiles used Python 3.12.16,
 ADBC driver manager 1.13.0, and pytest 9.2.0:
@@ -52,11 +55,18 @@ ADBC driver manager 1.13.0, and pytest 9.2.0:
 
 The earlier nine profiles retain their separate dependency stacks documented in
 the [previous sweep](../candidate-test-runner/native-sweep.md#tested-environments).
-The final complete command also supplied Java 21, R, and Quarto for those groups.
+The final command also incorporates PR #256's expanded R/Datasets cases and Ray
+TLS profile. That profile uses Python 3.12.16, Ray 2.59.0, PyArrow 26.0.0, and a
+fresh owned Software instance; its container, network, and private CA material
+were removed afterward. Six separate TLS launcher ownership/cleanup/reporting
+unit checks passed. They are not added to the pytest totals above.
+The complete command supplied Java 21, R, and Quarto for the earlier groups.
 Each group invoked the repository's Software/QPF verification before testing.
 Runtime logs/JUnit/exit-code artifacts remain outside the repository; only
 sanitized counts and package versions are committed. The earlier 124-pass record
-is retained separately and was not relabeled as this run.
+is retained separately and was not relabeled as this run. The earlier
+thirteen-profile run on `6a31164` reported 134 passed/one skip/two expected
+failures before #256 added its cases; it is not the source of the final totals.
 
 | Entry | Checks and scope |
 |---|---|

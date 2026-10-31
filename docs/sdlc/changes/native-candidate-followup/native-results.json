@@ -11,11 +11,11 @@
   "workflows": {
     "status": "completed",
     "exit_code": 0,
-    "passed": 5,
+    "passed": 6,
     "failed": 0,
     "errors": 0,
     "skipped": 0,
-    "xfailed": 0
+    "xfailed": 2
   },
   "models": {
     "status": "completed",
@@ -78,7 +78,7 @@
     "failed": 0,
     "errors": 0,
     "skipped": 0,
-    "xfailed": 1
+    "xfailed": 4
   },
   "analysis": {
     "status": "completed",
@@ -111,6 +111,15 @@
     "status": "completed",
     "exit_code": 0,
     "passed": 2,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "xfailed": 0
+  },
+  "ray-tls": {
+    "status": "completed",
+    "exit_code": 0,
+    "passed": 17,
     "failed": 0,
     "errors": 0,
     "skipped": 0,

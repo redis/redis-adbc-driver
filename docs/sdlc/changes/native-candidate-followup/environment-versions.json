@@ -38,5 +38,14 @@
       "adbc-driver-manager": "1.13.0",
       "pytest": "9.2.0"
     }
+  },
+  "ray-tls": {
+    "python": "3.12.16",
+    "packages": {
+      "ray": "2.59.0",
+      "pyarrow": "26.0.0",
+      "adbc-driver-manager": "1.13.0",
+      "pytest": "9.2.0"
+    }
   }
 }
