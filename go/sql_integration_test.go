@@ -103,6 +103,12 @@ func (h *sqlHarness) query(sql string) ([]string, *arrow.Schema) {
 			for c := 0; c < int(rec.NumCols()); c++ {
 				col := rec.Column(c)
 				switch dec := col.(type) {
+				case *array.Decimal256:
+					if !col.IsNull(r) {
+						scale := dec.DataType().(*arrow.Decimal256Type).Scale
+						cells[c] = formatDecimal(dec.Value(r).BigInt(), scale)
+						continue
+					}
 				case *array.Decimal128:
 					if !col.IsNull(r) {
 						// Render at the declared scale (ValueStr drops trailing zeros).
@@ -2726,9 +2732,7 @@ func TestSQLWindowGrouped(t *testing.T) {
 			MAX(SUM(amt)) OVER (ORDER BY g ROWS BETWEEN 1 PRECEDING AND CURRENT ROW)
 		FROM it_win GROUP BY g ORDER BY g`,
 		"a|13.75|23.50|13.75", "b|8.75|23.50|13.75", "c|1.00|23.50|8.75")
-	if dt := schema.Field(2).Type; dt.ID() != arrow.DECIMAL128 {
-		t.Errorf("SUM(SUM(amt)) OVER () type = %s, want decimal", dt)
-	}
+	h.expectType(schema, "SUM(SUM(amt)) OVER ()", 2, &arrow.Decimal256Type{Precision: 57, Scale: 2})
 	// After HAVING; in ORDER BY; QUALIFY over aggregates.
 	h.expectRows(`SELECT g, COUNT(*), ROW_NUMBER() OVER (ORDER BY COUNT(*) DESC) FROM it_win
 		GROUP BY g HAVING COUNT(*) > 1 ORDER BY g`, "a|4|1", "b|3|2")
