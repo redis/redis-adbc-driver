@@ -31,6 +31,11 @@ try:
     print(stats.to_pylist())
 finally:
     backend.disconnect()
+
+# Persist the tool's computed output, then read it through a fresh connection.
+from integration_guide_data import write_result
+import pyarrow as pa
+write_result(stats)
 ```
 
 ## Expected result
@@ -55,5 +60,16 @@ python python/scripts/check_integration_guide.py ibis
 
 The broader workflow can also be checked with
 `python/scripts/run-candidate-tests.sh ibis` after installing its test extra.
+
+
+## Write results back to Redis
+
+The runnable example writes the tool's computed output through the shared
+`write_result` Arrow sink and checks exact rows and types on a fresh connection.
+This is custom application code and fully materializes the output; it does not
+add a native connector, distributed sink, model/artifact store, or transactions.
+The helper creates a unique output table and drops it after verification. In a
+production workflow, choose an owned destination and explicit retry policy;
+failed autocommit writes can partially apply and blind append retries duplicate rows.
 
 [All integration guides](README.md)

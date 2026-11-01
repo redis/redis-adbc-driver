@@ -38,6 +38,11 @@ with dbapi.connect(os.environ["REDIS_URI"]) as conn, conn.cursor() as cur:
 values = table.column("value").to_numpy()
 np.testing.assert_array_equal(values, np.array([1, 2, 3]))
 print(values, values.sum())  # [1 2 3] 6
+
+# Persist the tool's computed output, then read it through a fresh connection.
+from integration_guide_data import write_result
+import pyarrow as pa
+write_result(pa.table({'value': values, 'doubled': values * 2}))
 ```
 
 For an existing table, select numeric columns explicitly and use `ORDER BY`
@@ -77,5 +82,16 @@ python python/scripts/check_integration_guide.py numpy
 Set `REDIS_URI` to a dedicated Redis database with Search first. The checker
 uses the active interpreter; source builds also need `REDIS_ADBC_LIBRARY` and
 `PYTHONPATH=python` available to child processes and kernels.
+
+
+## Write results back to Redis
+
+The runnable example writes the tool's computed output through the shared
+`write_result` Arrow sink and checks exact rows and types on a fresh connection.
+This is custom application code and fully materializes the output; it does not
+add a native connector, distributed sink, model/artifact store, or transactions.
+The helper creates a unique output table and drops it after verification. In a
+production workflow, choose an owned destination and explicit retry policy;
+failed autocommit writes can partially apply and blind append retries duplicate rows.
 
 [All integration guides](README.md) · [Upstream documentation status](../upstream-submissions/status.md#new-workflows-in-pr-248)

@@ -29,12 +29,18 @@ with example_table() as name:
 assert table['label'].to_pylist() == ['alpha', None, '雪']
 assert table['amount'].to_pylist() == [2.5, None, 7.5]
 print('ADBC_ROWS_CHECKED=' + str(table.num_rows))
+from integration_guide_data import write_result
+write_result(table.select(['id', 'amount']))
 ```
 ````
 
 Run `quarto render redis-report.qmd --to html` in the configured shell. Open
 `redis-report.html` and check for `ADBC_ROWS_CHECKED=3`. The command must exit
 successfully; a stale output file is not proof of successful execution.
+
+The cell also writes its selected result through Arrow, reads it back on a fresh
+connection, and cleans up the output table. Rendering can re-execute cells; this
+example uses unique temporary names rather than appending to a shared table.
 
 ## Limits and validation
 

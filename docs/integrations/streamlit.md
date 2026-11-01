@@ -50,6 +50,11 @@ with dbapi.connect(os.environ["REDIS_URI"]) as conn, conn.cursor() as cur:
 
 st.dataframe(data)
 st.metric("Rows", data.num_rows)
+
+# Persist the tool's computed output, then read it through a fresh connection.
+from integration_guide_data import write_result
+import pyarrow as pa
+write_result(data)
 ```
 
 Changing the input reruns the script and executes a bound SQL predicate.
@@ -96,5 +101,16 @@ python python/scripts/check_integration_guide.py streamlit
 Set `REDIS_URI` to a dedicated Redis database with Search first. The checker
 uses the active interpreter; source builds also need `REDIS_ADBC_LIBRARY` and
 `PYTHONPATH=python` available to child processes and kernels.
+
+
+## Write results back to Redis
+
+The runnable example writes the tool's computed output through the shared
+`write_result` Arrow sink and checks exact rows and types on a fresh connection.
+This is custom application code and fully materializes the output; it does not
+add a native connector, distributed sink, model/artifact store, or transactions.
+The helper creates a unique output table and drops it after verification. In a
+production workflow, choose an owned destination and explicit retry policy;
+failed autocommit writes can partially apply and blind append retries duplicate rows.
 
 [All integration guides](README.md) · [Upstream documentation status](../upstream-submissions/status.md#new-workflows-in-pr-248)

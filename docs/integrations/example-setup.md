@@ -72,3 +72,35 @@ python -c 'from integration_guide_data import example_table, read_rows; exec("wi
 The driver is built from the checkout to make the examples reproducible; this
 does not validate the contents of a release wheel. See each guide's recorded
 versions and [actual guide test results](../sdlc/changes/integration-guides-262/validation.md).
+
+## Write computed outputs
+
+`write_result(table)` accepts a materialized PyArrow table containing a tool's
+computed output. It creates a unique `guide_output_<UUID>` table, checks the
+affected row count, fetches all rows on an independent connection, compares
+values and Arrow types in the original order, and drops its output table even
+if validation fails. Empty tables preserve their schema. `guide_row_order` is
+reserved for that helper's internal ordering column.
+
+The guide examples use this finite-data sink for predictions, transformed rows,
+chart data and workflow summaries. They do not store model binaries or turn the
+tool into a native Redis backend. Distributed readers such as Dask still need a
+separately designed worker-local sink for outputs too large for caller memory;
+[#273](https://github.com/redis/redis-adbc-driver/issues/273) tracks that gap.
+All writes autocommit. Partial failure and retries need an application policy;
+these examples make no transaction or exactly-once guarantee.
+
+## Require both directions in the harness
+
+```sh
+python python/scripts/check_integration_guide.py numpy --require-read-write
+python python/scripts/run-integration-guides.py --env-root /path/to/isolated-envs \
+  --results /tmp/redis-guide-results --tools numpy scikit-learn pyarrow
+```
+
+The first command fails if execution succeeds without output-write/read-back
+evidence. The multi-environment runner requires that evidence for the 36
+bidirectional guides and reports `read_write` separately from the process exit
+code. Superset and Fivetran's source SDK retain their separate validation scope.
+Existing fixture creation alone does not count as a tool's write integration.
+See the [current verification record](../sdlc/changes/integration-read-write/validation.md).

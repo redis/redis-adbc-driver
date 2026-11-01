@@ -29,6 +29,11 @@ restored = pio.from_json(open('redis-plot.json').read())
 assert list(restored.data[0].y) == [2.5, None, 7.5]
 restored.write_html('redis-plot.html', include_plotlyjs=True, full_html=True)
 print('Wrote redis-plot.html and redis-plot.json')
+
+# Persist the tool's computed output, then read it through a fresh connection.
+from integration_guide_data import write_result
+import pyarrow as pa
+write_result(pa.table({'id': list(restored.data[0].x), 'amount': list(restored.data[0].y)}))
 ```
 
 ## Expected result
@@ -53,5 +58,16 @@ python python/scripts/check_integration_guide.py plotly
 
 The broader workflow can also be checked with
 `python/scripts/run-candidate-tests.sh plotly` after installing its test extra.
+
+
+## Write results back to Redis
+
+The runnable example writes the tool's computed output through the shared
+`write_result` Arrow sink and checks exact rows and types on a fresh connection.
+This is custom application code and fully materializes the output; it does not
+add a native connector, distributed sink, model/artifact store, or transactions.
+The helper creates a unique output table and drops it after verification. In a
+production workflow, choose an owned destination and explicit retry policy;
+failed autocommit writes can partially apply and blind append retries duplicate rows.
 
 [All integration guides](README.md)

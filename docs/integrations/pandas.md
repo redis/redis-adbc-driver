@@ -18,10 +18,11 @@ Install `adbc-driver-redis[dbapi]` and pandas to pass an open ADBC
 connection directly to `read_sql` or `read_sql_query`:
 
 ```python
+import os
 import pandas as pd
 from adbc_driver_redis import dbapi
 
-with dbapi.connect("redis://localhost:6379/0") as conn:
+with dbapi.connect(os.environ["REDIS_URI"]) as conn:
     df = pd.read_sql_query("SELECT 42 AS answer", conn, dtype_backend="pyarrow")
     print(df)
 ```
@@ -45,6 +46,7 @@ Install `adbc-driver-redis[dbapi]` and `pandas>=2.2`. This example creates a
 unique table, verifies the fetched rows and removes the table afterward:
 
 ```python
+import os
 import uuid
 import pandas as pd
 from adbc_driver_redis import dbapi
@@ -52,7 +54,7 @@ from adbc_driver_redis import dbapi
 table = "pandas_demo_" + uuid.uuid4().hex
 source = pd.DataFrame({"id": [1, 2, 3], "amount": [10.5, 20.0, 30.25]})
 
-with dbapi.connect("redis://localhost:6379/0") as conn:
+with dbapi.connect(os.environ["REDIS_URI"]) as conn:
     try:
         source.to_sql(table, conn, index=False)
         result = pd.read_sql(f'SELECT * FROM "{table}" ORDER BY id', conn)
@@ -61,6 +63,8 @@ with dbapi.connect("redis://localhost:6379/0") as conn:
     finally:
         with conn.cursor() as cur:
             cur.execute(f'DROP TABLE IF EXISTS "{table}"')
+
+print("REDIS_ADBC_READ_WRITE_OK")
 ```
 
 Use `if_exists="append"` to append rows. `if_exists="replace"` drops and

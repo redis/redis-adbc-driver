@@ -16,6 +16,7 @@ Save the following as `example.py` in your working directory and run
 rows, including NULLs and Unicode, and removes it when the example finishes.
 
 ```python
+import os
 from integration_guide_data import example_table, read_rows
 import pyarrow as pa
 
@@ -30,6 +31,9 @@ with pa.memory_map('rows.arrow', 'r') as source:
     restored = pa.ipc.open_file(source).read_all()
 assert restored.equals(table)
 print(restored.to_pylist())
+
+from integration_guide_data import write_result
+write_result(restored)
 ```
 
 ## Expected result

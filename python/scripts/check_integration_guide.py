@@ -25,7 +25,19 @@ TOOLS = ("numpy", "scikit-learn", "jupyter", "huggingface-datasets", "streamlit"
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("tool", choices=TOOLS)
+    parser.add_argument("--require-read-write", action="store_true",
+                        help="fail unless the executed workflow verifies an output write and read-back")
     args = parser.parse_args()
+    if args.require_read_write:
+        result = subprocess.run([sys.executable, __file__, args.tool], text=True,
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=400)
+        print(result.stdout, end="", flush=True)
+        if result.returncode:
+            raise SystemExit(result.returncode)
+        if "REDIS_ADBC_READ_WRITE_OK" not in result.stdout:
+            raise RuntimeError(f"{args.tool}: workflow passed without read/write output evidence")
+        print(json.dumps({"guide": args.tool, "read": "passed", "write": "passed"}))
+        return
     if not os.environ.get("REDIS_URI"):
         parser.error("set REDIS_URI to a dedicated Redis database with Search")
     root = Path(__file__).resolve().parents[2]
@@ -60,7 +72,10 @@ def main():
             env = {**os.environ, "QUARTO_PYTHON": sys.executable}
             subprocess.run([os.environ.get("QUARTO", "quarto"), "render", str(document), "--to", "html"],
                            env=env, cwd=directory, check=True, timeout=180)
-            assert "ADBC_ROWS_CHECKED=3" in document.with_suffix(".html").read_text()
+            rendered = document.with_suffix(".html").read_text()
+            assert "ADBC_ROWS_CHECKED=3" in rendered
+            assert "REDIS_ADBC_READ_WRITE_OK" in rendered
+            print("REDIS_ADBC_READ_WRITE_OK")
         elif args.tool == "kestra":
             subprocess.run([sys.executable, str(root / "python/examples/kestra_guide.py")],
                            cwd=directory, check=True, timeout=300)
@@ -91,6 +106,9 @@ def main():
                 cwd=directory, env=env
             )
             assert executed.cells[0].execution_count == 1
+            assert any("REDIS_ADBC_READ_WRITE_OK" in output.get("text", "")
+                       for output in executed.cells[0].outputs)
+            print("REDIS_ADBC_READ_WRITE_OK")
         elif args.tool == "streamlit":
             from streamlit.testing.v1 import AppTest
 

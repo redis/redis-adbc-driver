@@ -214,6 +214,13 @@ paths, validation evidence, and remaining gaps. The examples below summarize
 recorded local validation; each entry links to a usage guide with setup, examples
 and validation scope.
 
+The [read/write guide harness](docs/integrations/example-setup.md#require-both-directions-in-the-harness)
+now verifies both directions for 36 native or custom ADBC workflows, including
+writing model predictions, transformed rows, chart data and task summaries back
+to Redis. [Dated results](docs/sdlc/changes/integration-read-write/validation.md)
+record scope and limits. Custom Arrow output examples materialize their results;
+they do not imply native distributed sinks or Redis model/artifact stores.
+
 Integration setup guides:
 
 | Tool | Example workflow | Usage guide |

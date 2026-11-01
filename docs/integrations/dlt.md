@@ -25,6 +25,12 @@ from uuid import uuid4
 import dlt
 from adbc_driver_redis import dbapi
 from adbc_driver_redis.dlt import redis_adbc
+from integration_guide_data import example_table, read_rows
+
+@dlt.resource(name="orders")
+def redis_source(name):
+    # Custom finite source, not CDC or a packaged incremental source connector.
+    yield read_rows(name).select(["id", "amount"])
 
 schema = "dlt_guide_" + uuid4().hex
 pipeline = dlt.pipeline(
@@ -33,13 +39,12 @@ pipeline = dlt.pipeline(
 )
 with dbapi.connect(os.environ["REDIS_URI"]) as conn, conn.cursor() as cur:
     try:
-        info = pipeline.run(
-            [{"id": 1, "amount": 10.5}, {"id": 2, "amount": 20.0}],
-            table_name="orders", write_disposition="append",
-        )
+        with example_table() as name:
+            info = pipeline.run(redis_source(name), write_disposition="append")
         info.raise_on_failed_jobs()
         cur.execute(f'SELECT id, amount FROM "{schema}".orders ORDER BY id')
-        assert cur.fetchall() == [(1, 10.5), (2, 20.0)]
+        assert cur.fetchall() == [(1, 2.5), (2, None), (3, 7.5)]
+        print("REDIS_ADBC_READ_WRITE_OK")
     finally:
         cur.execute(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE')
 ```
@@ -80,6 +85,14 @@ to the same table. Keep or back up the local pipeline directory: custom
 destinations do not restore incremental source state from Redis. See dlt's
 [custom destination contract](https://dlthub.com/docs/dlt-ecosystem/destinations/destination)
 for checkpoint, retry and state limitations.
+
+## Read source and write destination
+
+The custom resource fetches a finite Redis Arrow query into dlt, then the existing
+append destination writes those rows to another owned schema. This adds a source
+example, not CDC, watermarks, merge/replace, or exactly-once ingestion. A retry
+can duplicate partially written rows. Complete the [shared setup](example-setup.md)
+for the example helper.
 
 ## Rerun this guide
 

@@ -10,7 +10,11 @@ PostgreSQL server. Search is required. Writes autocommit; transaction scopes do
 not provide rollback or isolation. Use a dedicated Redis database for tests.
 
 See the [dedicated Redis integration guides](integrations/README.md) for individual
-tools and the upstream documentation tracking issue.
+tools and the upstream documentation tracking issue. The
+[read/write guide harness](integrations/example-setup.md#require-both-directions-in-the-harness)
+verifies computed-output writes and independent read-back across 36 native or
+custom application paths; [dated evidence](sdlc/changes/integration-read-write/validation.md)
+records the tested versions and remaining gaps.
 
 **Recommended Redis configuration:** Redis Search (Query Engine) enabled
 and query performance factor (QPF) set to **4×** where supported.

@@ -113,6 +113,9 @@ def run_tasks(uri, workflow_rows, server, empty=False):
         assert data["rows"] == EXPECTED_ROWS
         assert data["schema"] == EXPECTED_SCHEMA
         assert data["pid"] != os.getpid()
+        from integration_guide_data import write_result
+        import pyarrow as pa
+        write_result(pa.table({"rows_checked": [len(data["rows"])], "unicode_checked": [True]}))
         Kestra.outputs({"rows_checked": len(data["rows"]), "unicode_checked": True})
         ''').replace("EXPECTED_ROWS", repr(expected.to_pylist())).replace("EXPECTED_SCHEMA", repr(str(expected.schema)))
 
@@ -162,4 +165,5 @@ if __name__ == '__main__':
     with tempfile.TemporaryDirectory(prefix='redis-kestra-guide-') as directory:
         with example_table() as name, kestra_server(Path(directory)) as server:
             run_tasks(os.environ['REDIS_URI'], (name, read_rows(name)), server)
+    print('REDIS_ADBC_READ_WRITE_OK')
     print('KESTRA_GUIDE_OK')

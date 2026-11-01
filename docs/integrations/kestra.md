@@ -23,7 +23,8 @@ creates a flow using `io.kestra.plugin.scripts.python.Script` tasks with the
 `io.kestra.plugin.core.runner.Process` runner. The first task opens native ADBC,
 executes a bound query, and writes `read.json` as an `outputFiles` artifact.
 The downstream task receives it through `inputFiles`, checks rows and Arrow
-schema in a different process, and reports checked values with `Kestra.outputs`.
+schema in a different process, writes its computed summary to Redis with the
+shared Arrow sink, verifies that output on a fresh connection, and reports checked values with `Kestra.outputs`.
 
 Both task environments explicitly receive `REDIS_URI`, `REDIS_ADBC_LIBRARY`,
 `PYTHONPATH`, and the Python interpreter's directory in `PATH`. To adapt the

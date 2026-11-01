@@ -8,7 +8,9 @@ redis_adbc_r_smoke <- function() {
   name <- Sys.getenv("REDIS_ADBC_TEST_TABLE")
   created <- !nzchar(name)
   if (created) name <- paste0("it_r_session_", Sys.getpid())
+  output <- paste0("guide_r_output_", Sys.getpid(), "_", sample.int(1e9, 1))
   on.exit({
+    dbExecute(con, sprintf('DROP TABLE IF EXISTS "%s"', output))
     if (created) dbExecute(con, sprintf('DROP TABLE IF EXISTS "%s"', name))
     dbDisconnect(con)
   }, add = TRUE)
@@ -23,6 +25,14 @@ redis_adbc_r_smoke <- function() {
   stopifnot(identical(data$amount, c(2.5, NA_real_, 7.5)))
   empty <- dbGetQuery(con, sprintf('SELECT * FROM "%s" WHERE FALSE', name))
   stopifnot(nrow(empty) == 0L, identical(names(empty), names(data)))
+  # Persist an R-computed summary, rather than counting fixture setup as a write.
+  dbExecute(con, sprintf('CREATE TABLE "%s" (total DOUBLE)', output))
+  total <- sum(data$amount, na.rm = TRUE)
+  dbExecute(con, sprintf('INSERT INTO "%s" VALUES (%f)', output, total))
+  stored <- dbGetQuery(con, sprintf('SELECT total FROM "%s"', output))
+  stopifnot(identical(stored$total, total))
+  dbExecute(con, sprintf('DROP TABLE "%s"', output))
+  cat("REDIS_ADBC_READ_WRITE_OK\n")
   invisible(data)
 }
 redis_adbc_r_smoke()

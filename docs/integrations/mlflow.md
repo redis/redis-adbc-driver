@@ -40,6 +40,11 @@ stored = mlflow.get_run(run.info.run_id)
 assert stored.data.metrics['rows'] == 3
 assert stored.inputs.dataset_inputs[0].dataset.digest == digest
 print(run.info.run_id)
+
+# Persist the tool's computed output, then read it through a fresh connection.
+from integration_guide_data import write_result
+import pyarrow as pa
+write_result(pa.table({'run_id': [stored.info.run_id], 'rows': [int(stored.data.metrics['rows'])]}))
 ```
 
 ## Expected result
@@ -64,5 +69,16 @@ python python/scripts/check_integration_guide.py mlflow
 
 The broader workflow can also be checked with
 `python/scripts/run-candidate-tests.sh mlflow` after installing its test extra.
+
+
+## Write results back to Redis
+
+The runnable example writes the tool's computed output through the shared
+`write_result` Arrow sink and checks exact rows and types on a fresh connection.
+This is custom application code and fully materializes the output; it does not
+add a native connector, distributed sink, model/artifact store, or transactions.
+The helper creates a unique output table and drops it after verification. In a
+production workflow, choose an owned destination and explicit retry policy;
+failed autocommit writes can partially apply and blind append retries duplicate rows.
 
 [All integration guides](README.md)
