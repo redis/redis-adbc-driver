@@ -87,3 +87,12 @@ validation. Existing strict expected failures and compatibility limits in other
 suites were not broadened. The native Go suite was not rerun because this change
 does not alter native code. The older-checkout exploratory checks made before
 fetching current public main are excluded from these results.
+
+## Application-integration guidance follow-up
+
+The README, Python package README, setup guide, Python integration overview,
+guide index and ecosystem comparison now identify official Redis client
+libraries as the standard application-integration path. Redis ADBC is presented
+as another option for SQL/Arrow workflows. The link to Redis's client-library
+documentation was verified on 2026-11-01. This follow-up changes prose only;
+`git diff --check` passed and no runtime tests were needed.

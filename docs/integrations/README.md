@@ -1,5 +1,10 @@
 # Redis integration guides
 
+The standard way to integrate your application with Redis is to use the
+[official Redis clients and libraries](https://redis.io/docs/latest/develop/clients/)
+for your programming language. Redis ADBC is another option for workflows that
+benefit from SQL and Apache Arrow, including the data-tool integrations described here.
+
 All 38 entries in the README examples table link to a guide here or the DuckDB guide.
 The [shared example setup](example-setup.md) supports the additional local workflows.
 The 36 guides with a bidirectional native or custom ADBC path now verify tool

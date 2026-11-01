@@ -1,5 +1,10 @@
 # ADBC support across 50 popular data engineering and data science tools
 
+The standard way to integrate your application with Redis is to use the
+[official Redis clients and libraries](https://redis.io/docs/latest/develop/clients/)
+for your programming language. Redis ADBC is another option for workflows that
+benefit from SQL and Apache Arrow, including the data-tool integrations described here.
+
 For installation and diagnostics, start with [Choose your tool and connect](setup.md).
 
 

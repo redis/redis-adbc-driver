@@ -1,5 +1,10 @@
 # Redis ADBC driver
 
+The standard way to integrate your application with Redis is to use the
+[official Redis clients and libraries](https://redis.io/docs/latest/develop/clients/)
+for your programming language. Redis ADBC is another option for workflows that
+benefit from SQL and Apache Arrow, including the data-tool integrations described here.
+
 SQL queries and Arrow bulk ingestion over Redis through the Arrow Database
 Connectivity (ADBC) API. This community driver bundles its native library in
 platform wheels for Linux x86_64/arm64 (glibc 2.28+) and macOS arm64 (macOS 12+).
