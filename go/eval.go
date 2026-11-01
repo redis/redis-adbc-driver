@@ -1090,9 +1090,6 @@ func funcType(f *Func, args []ColType) ColType {
 			case args[0].Kind.isInteger() || args[0].Kind == KindBool:
 				return typeInt64
 			case args[0].Kind == KindDecimal:
-				if args[0].Precision == 0 {
-					return decimalType(0, args[0].Scale)
-				}
 				// An int64 row count can add at most 19 coefficient digits.
 				return decimalType(min(int32(76), max(int32(38), args[0].Precision+19)), args[0].Scale)
 			case args[0].Kind == KindInterval:
