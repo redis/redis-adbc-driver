@@ -219,6 +219,15 @@ func (e *executor) execute(ctx context.Context, ps ParsedStmt, params []Value, p
 	if e.now.IsZero() {
 		e.now = time.Now().UTC()
 	}
+	if so != nil && so.required {
+		sel, ok := ps.Stmt.(*SelectStmt)
+		if !ok {
+			return execResult{}, errorf(adbc.StatusNotImplemented, "stream_required accepts only incremental SELECT plans")
+		}
+		if err := e.requireIncrementalSelect(ctx, sel); err != nil {
+			return execResult{}, err
+		}
+	}
 	switch st := ps.Stmt.(type) {
 	case *DropPartitionResultStmt:
 		store, err := newRetainedStore(e.store.redis(ctx), e.partitionNamespace, defaultRetainedLimits())
@@ -238,6 +247,9 @@ func (e *executor) execute(ctx context.Context, ps ParsedStmt, params []Value, p
 			if res, handled, err := e.streamUnionAll(ctx, plan, params, so); handled || err != nil {
 				return res, err
 			}
+		}
+		if so != nil && so.required && !plan.noRows {
+			return execResult{}, errorf(adbc.StatusNotImplemented, "stream_required rejects a blocking or materializing plan")
 		}
 		rows, err := e.runSelect(ctx, plan, params)
 		if err != nil {

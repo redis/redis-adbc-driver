@@ -183,6 +183,9 @@ func (s *statementImpl) partitionParams(ctx context.Context) ([]partitionParam, 
 		return nil, nil, nil, nil
 	}
 	defer s.clearParams()
+	if err := s.prepareExtensionInput(); err != nil {
+		return nil, nil, nil, err
+	}
 	bad := func() ([]partitionParam, []Value, []ColType, error) {
 		return nil, nil, nil, errorf(adbc.StatusInvalidArgument, "partition binding requires exactly one row, at most 1024 fields/batches and 256 KiB of encoded parameters")
 	}
@@ -192,7 +195,7 @@ func (s *statementImpl) partitionParams(ctx context.Context) ([]partitionParam, 
 	}
 	encoded := make([]partitionParam, schema.NumFields())
 	for i, f := range schema.Fields() {
-		t, err := colTypeFromArrow(f.Type)
+		t, err := colTypeFromField(f)
 		if f.Type.ID() == arrow.NULL {
 			t, err = typeNull, nil
 		}
@@ -209,6 +212,9 @@ func (s *statementImpl) partitionParams(ctx context.Context) ([]partitionParam, 
 		}
 		batches++
 		rec := s.params.RecordBatch()
+		if err := validateInputRecord(rec); err != nil {
+			return nil, nil, nil, invalidArg(err)
+		}
 		rows += rec.NumRows()
 		if rows > 1 || batches > 1024 {
 			return bad()
@@ -244,6 +250,10 @@ func (s *statementImpl) partitionParams(ctx context.Context) ([]partitionParam, 
 		}
 	}
 	if err := s.params.Err(); err != nil && !errors.Is(err, io.EOF) {
+		var ae adbc.Error
+		if errors.As(err, &ae) {
+			return nil, nil, nil, err
+		}
 		return nil, nil, nil, errorf(adbc.StatusIO, "failed to read partition parameter stream")
 	}
 	if rows != 1 {

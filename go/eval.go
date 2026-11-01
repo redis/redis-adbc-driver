@@ -980,17 +980,17 @@ func arithmeticType(op string, a, b ColType) (ColType, error) {
 		if a.Kind == KindDecimal && a.Precision == 0 || b.Kind == KindDecimal && b.Precision == 0 {
 			return decimalType(0, 0), nil
 		}
-		as, bs := int32(0), int32(0)
-		if a.Kind == KindDecimal {
-			as = a.Scale
-		}
-		if b.Kind == KindDecimal {
-			bs = b.Scale
-		}
+		ap, as := numericShape(a)
+		bp, bs := numericShape(b)
+		precision, scale := max(ap-as, bp-bs)+max(as, bs)+1, max(as, bs)
 		if op == "*" {
-			return decimalType(38, as+bs), nil
+			precision, scale = ap+bp+1, as+bs
 		}
-		return decimalType(38, max(as, bs)), nil
+		precision = min(int32(76), max(int32(38), precision))
+		if scale > maxNumericScale || int64(precision)-int64(scale) > maxNumericIntDigits {
+			return ColType{}, stateErr(stateNumericRange, "numeric result scale is outside the SQL range")
+		}
+		return decimalType(precision, scale), nil
 	}
 	if a.Kind.isInteger() && b.Kind.isInteger() {
 		if a.Kind == KindInt64 || b.Kind == KindInt64 {
@@ -1002,6 +1002,21 @@ func arithmeticType(op string, a, b ColType) (ColType, error) {
 		return typeInt16, nil
 	}
 	return typeInt64, nil
+}
+
+func numericShape(t ColType) (int32, int32) {
+	if t.Kind == KindDecimal {
+		return t.Precision, t.Scale
+	}
+	switch t.Kind {
+	case KindInt16:
+		return 5, 0
+	case KindInt32:
+		return 10, 0
+	case KindInt64:
+		return 19, 0
+	}
+	return 1, 0
 }
 
 // inferFuncType is the result type of a call: without a type modifier,
@@ -1075,7 +1090,8 @@ func funcType(f *Func, args []ColType) ColType {
 			case args[0].Kind.isInteger() || args[0].Kind == KindBool:
 				return typeInt64
 			case args[0].Kind == KindDecimal:
-				return decimalType(38, args[0].Scale)
+				// An int64 row count can add at most 19 coefficient digits.
+				return decimalType(min(int32(76), max(int32(38), args[0].Precision+19)), args[0].Scale)
 			case args[0].Kind == KindInterval:
 				return typeInterval
 			}
@@ -1338,6 +1354,11 @@ func matchTypes(a, b ColType) (ColType, bool) {
 		if t.Kind == KindDecimal {
 			// Keep enough scale for both sides.
 			t.Scale = max(a.Scale, b.Scale)
+			if t.Precision != 0 {
+				ap, as := numericShape(a)
+				bp, bs := numericShape(b)
+				t.Precision = min(int32(76), max(int32(38), max(ap-as, bp-bs)+t.Scale))
+			}
 		}
 		return t, true
 	case a.Kind == KindTimestamp && b.Kind == KindTimestamp, a.Kind == KindTime && b.Kind == KindTime,

@@ -23,14 +23,22 @@ storage layout. Rebuild the native library to use these changes.
 | List/LargeList/FixedSizeList/ListView/LargeListView | Recursive, potentially ragged arrays; canonical List output | Input offset width, child field metadata and fixed width are normalized |
 | Named Struct | Named stored records, recursively normalized child types | Struct output with stored child names and nullability |
 | Map, dense/sparse Union | Rejected with unsupported-type error | No implicit JSON/text conversion |
-| Extension types or `ARROW:extension:*` field metadata | Rejected, including C imports exposing only storage type | No implicit storage fallback |
+| Extension types or `ARROW:extension:*` field metadata | Rejected by default; explicit allowlisted storage normalization below | No implicit fallback or persisted extension identity |
 
 Decimals validate physical precision (9/18/38/76 digits); scale is retained,
-including negative scales. SQL arithmetic and casts retain existing NUMERIC
-promotion and rounding rules, and may select a different output precision.
+including negative scales. Arrow scales must fit the existing SQL numeric
+domain: at most 16,383 fractional digits and at most 131,072 declared integer
+digits (`precision - scale`); excessive metadata rejects before value work.
+SQL casts retain existing NUMERIC rounding rules. Arithmetic preserves the
+legacy minimum precision 38 and promotes wider declared operands/results to
+Decimal256, up to 76 digits; addition/subtraction reserve a carry digit and
+multiplication reserves the combined operand precision. SUM reserves up to 19
+additional coefficient digits for an int64 row count, capped at 76. Values
+exceeding that capacity reject rather than silently round or use float.
 Mixed uint64/signed arithmetic uses those same exact decimal rules; explicit
 float casts, mixed float expressions and SQL decimal division can use floating
-point. Appending uint64 to an existing signed integer column checks that
+point, as does ordinary numeric AVG. SUM/MIN/MAX retain exact numeric values.
+Appending uint64 to an existing signed integer column checks that
 column's range and reports SQLSTATE 22003 on overflow. Creating from uint64
 always chooses NUMERIC, even when the first batch contains only small values.
 Existing table metadata is unchanged. Authoritative HASH decimal strings retain
@@ -41,6 +49,9 @@ Timestamp zones must be valid Arrow/IANA names or supported numeric offsets;
 zone names normalize to UTC. Epoch ticks identify the instant at a DST overlap;
 output zone selection does not reinterpret local wall time. TIME WITH TIME ZONE
 remains a separate string plus driver SQL-type metadata convention.
+Arrow time-of-day input must fit SQL TIME's 00:00:00 through 24:00:00 range;
+negative/over-day ticks reject. Date64 inputs outside DATE's signed int32-day
+domain reject instead of overflowing.
 
 ## Explicit result layouts
 
@@ -84,7 +95,11 @@ original input dictionaries are not persisted. At most 65,536 distinct entries
 are allowed per batch; exceeding this ends the reader with an error. Reduce
 `stream_batch_rows` for high cardinality. Schema cannot switch to plain arrays
 halfway through a stream. Dictionary payload bytes scale with the batch's
-values; the entry limit is not a byte/RSS cap. IPC stream output supports
+values, with at most **16 MiB of distinct dictionary string/binary payload per
+batch**. Repeated values count once toward that payload limit. Exceeding either
+limit ends the reader with InvalidArgument; reduce `stream_batch_rows`.
+These limits exclude index buffers, bookkeeping, source batches and
+consumer-retained batches and are not RSS caps. IPC stream output supports
 replacement dictionaries across batches; dictionary IPC **file** output is
 explicitly rejected because this policy does not provide a file-wide dictionary.
 
@@ -146,6 +161,30 @@ query streaming, not CDC. `stream_batch_rows` and optional `stream_batch_bytes`
 bound output batches, not prepared key lists, retained consumer batches, a huge
 row, server sort state, allocator slack or total process memory.
 
+Set statement option `adbc.redis.stream_required=true` to reject materializing
+fallback before executing it. This conservative mode accepts unordered
+driver-managed table scans/key lookups and eligible unordered UNION ALL trees.
+It rejects grouping/aggregates, DISTINCT, ORDER BY, windows, joins, views,
+CTEs/derived tables, subqueries, set operations other than UNION ALL and HASH
+discovery/global-sort fallback. It requires `stream_results=true`, ExecuteQuery,
+one SELECT and at most one bound parameter row. A result small enough for the
+first batch can still return whole. Partition publication rejects this option;
+partition execution has its own explicit quotas. The default is false and keeps
+the ordinary fallback behavior.
+
+This is the blocking-state policy for callers requiring incremental execution:
+rejection, rather than an unbounded client-side sort/group/join fallback. It
+does not bound parsed SQL/prepared key lists, binding memory, server-side work,
+one oversized row or consumer-retained buffers. The general executor remains
+plan-dependent: tuple-spill paths use 8 MiB/65,536-row buffers per worker and
+32-way merge fan-in, with cancellation cleanup; those are not universal SQL
+limits. Group state, ordered-set input, sorting, windows, joins and correlation
+caches can grow with cardinality in ordinary mode. For bounded global execution,
+use the separately documented retained execution limits, which reject excessive
+work before publishing output. Neither mode adds a universal constant-memory
+claim. Streaming lifecycle, schemas/duplicates/coercions/limits and repeated
+row-count/cardinality measurements are recorded in the closeout evidence.
+
 ## Layout assessment and decoded-input limits
 
 The [#208 assessment](https://github.com/redis/redis-adbc-driver/issues/208)
@@ -203,13 +242,40 @@ occurs before table creation and never silently stringifies values.
   exceed this). This excludes source buffers, variable payload, allocator slack
   and retained batches. No reduction in copies or allocation speed is claimed.
 
-The extension allowlist is currently empty. Both registered extension types and
-extension metadata on storage fields fail closed, including nested fields and
-bound parameters/schema discovery. Driver TIMETZ SQL metadata is not an Arrow
-extension registration. No executable/plugin loading is driven by metadata.
-Adding a canonical/custom extension later requires a versioned storage mapping,
-metadata bounds, semantic validation, explicit evolution policy and independent
-partition-reader agreement. UUID SQL support remains a separate issue.
+### Explicit extension storage normalization
+
+Statement option `adbc.redis.extension_policy` is `reject` by default. Setting it
+to `storage` explicitly permits the following **registry revision 1** mappings
+for top-level fields, including registered Go/PyArrow types and C-imported
+storage fields carrying extension metadata:
+
+| Extension | Required physical storage/metadata | Stored/default output |
+|---|---|---|
+| `arrow.uuid` | FixedSizeBinary(16), empty serialized metadata; exact 16 bytes, without interpreting a particular UUID version | SQL VARBINARY / Arrow Binary |
+| `arrow.json` | String/LargeString/StringView; empty metadata or a JSON object; non-NULL values must be valid UTF-8 JSON | SQL VARCHAR / Arrow String, preserving input text |
+
+This follows [Arrow's canonical definitions](https://arrow.apache.org/docs/format/CanonicalExtensions.html#json).
+Names are limited to 256 UTF-8 bytes and serialized extension metadata to 16 KiB
+per field. Duplicate/orphan/reserved unknown metadata keys, storage/type
+mismatches, conflicting driver SQL metadata, unknown/custom names and nested
+extension fields reject. UUID metadata parameters/version changes reject;
+JSON metadata may contain future optional fields under its canonical contract.
+No executable/plugin loading or dynamic registry installation is driven by
+metadata. Driver TIMETZ metadata remains separate.
+
+The selected policy deliberately **normalizes** logical type and metadata: only
+canonical SQL storage semantics persist. GetTableSchema, direct queries,
+ExecuteSchema, IPC stream/file and independent partition readers report the
+canonical types without ARROW extension metadata. There is no UUID SQL type or
+generic SQL JSON type added here. To reconstruct an extension, the client must
+explicitly wrap the resulting storage array; original extension identity and
+metadata cannot be recovered from the table. Appending uses canonical SQL
+compatibility rules after extension validation; named Struct schemas must match
+even for empty/all-NULL input. Unknown/malformed extensions reject in ordinary
+binding, ingestion, schema discovery and partition bindings. Changing the policy
+after schema discovery re-checks the original binding schema. Invalid JSON ends
+the input reader before writes from that batch; earlier batches and table
+creation keep existing autocommit behavior. UUID SQL support remains separate.
 
 ## Verification and remaining acceptance
 
@@ -218,6 +284,8 @@ results. The unit suite, Redis Software 4x QPF focused integration tests and
 native C driver-manager tests exercise correctness, schema agreement, ownership
 and IPC. These do not establish throughput improvements, general constant-memory
 execution, all topology compatibility, or every issue's full acceptance matrix.
-Performance measurements, broader partition coverage, extension registration,
-and true Map/Union storage remain follow-up work; the corresponding matrix rows
-stay partial/unsupported.
+See also the [remaining-issues closeout](sdlc/changes/arrow-remaining-closeout/plan.md)
+for the completed acceptance matrices, explicit limits/policies and actual
+measurements. True Map/Union storage remains in separate implementation issues;
+partial matrix classifications describe normalization and allowlist boundaries,
+not an assertion that all Arrow physical encodings persist.

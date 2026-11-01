@@ -135,9 +135,9 @@ func valueAt(arr arrow.Array, i int) (Value, error) {
 	case *array.Date64:
 		return dateValue(floorDiv(int64(a.Value(i)), 86_400_000))
 	case *array.Time32:
-		return intValue(ct, int64(a.Value(i))), nil
+		return arrowTimeValue(ct, int64(a.Value(i)))
 	case *array.Time64:
-		return intValue(ct, int64(a.Value(i))), nil
+		return arrowTimeValue(ct, int64(a.Value(i)))
 	case *array.Timestamp:
 		return intValue(ct, int64(a.Value(i))), nil
 	case *array.MonthDayNanoInterval:
@@ -157,6 +157,13 @@ func valueAt(arr arrow.Array, i int) (Value, error) {
 		return intervalValue(0, 0, ns)
 	}
 	return Value{}, fmt.Errorf("unsupported Arrow type %s", arr.DataType())
+}
+
+func arrowTimeValue(t ColType, ticks int64) (Value, error) {
+	if ticks < 0 || ticks > 86400*unitsPerSecond[t.Unit] {
+		return Value{}, stateErr(stateDatetimeRange, "Arrow time is outside the SQL time-of-day range")
+	}
+	return intValue(t, ticks), nil
 }
 
 // appendValue appends a value (already coerced to t) to a builder created

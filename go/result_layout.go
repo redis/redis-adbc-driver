@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
-	"time"
 
 	"github.com/apache/arrow-adbc/go/adbc"
 	"github.com/apache/arrow-go/v18/arrow"
@@ -24,6 +23,7 @@ import (
 // column name. SQL storage and expression semantics remain canonical.
 const OptionStringResultLayouts = "adbc.redis.result_layouts"
 const maxResultDictionaryEntries = 65536
+const maxResultDictionaryPayload = 16 << 20
 
 type resultLayouts map[string]string
 
@@ -117,7 +117,7 @@ func physicalResultType(src arrow.DataType, layout string) (arrow.DataType, erro
 			target = &arrow.FixedSizeBinaryType{ByteWidth: int(n)}
 		case strings.HasPrefix(layout, "timestamp:"):
 			zone := strings.TrimPrefix(layout, "timestamp:")
-			if _, err := time.LoadLocation(zone); err != nil || zone == "" || zone == "Local" {
+			if _, err := (&arrow.TimestampType{Unit: arrow.Second, TimeZone: zone}).GetZone(); err != nil || zone == "" || zone == "Local" {
 				return nil, fmt.Errorf("invalid explicit timestamp zone %q", zone)
 			}
 			unit := arrow.Microsecond
@@ -282,6 +282,11 @@ func (r *layoutReader) Next() bool {
 			continue
 		}
 		b := array.NewBuilder(r.mem, dt)
+		var dictionarySeen map[string]bool
+		var dictionaryBytes int
+		if dt.ID() == arrow.DICTIONARY {
+			dictionarySeen = make(map[string]bool)
+		}
 		for i := int(r.offset); i < int(end); i++ {
 			if i%1024 == 0 {
 				if err := r.source.Err(); err != nil {
@@ -294,6 +299,14 @@ func (r *layoutReader) Next() bool {
 				}
 			}
 			v, err := valueAt(src.Column(j), i)
+			if err == nil && dictionarySeen != nil && !v.Null && !dictionarySeen[v.S] {
+				if len(v.S) > maxResultDictionaryPayload-dictionaryBytes {
+					err = fmt.Errorf("per-batch dictionary exceeds %d payload bytes; reduce stream_batch_rows", maxResultDictionaryPayload)
+				} else {
+					dictionarySeen[v.S] = true
+					dictionaryBytes += len(v.S)
+				}
+			}
 			if err == nil {
 				err = appendPhysicalResult(b, dt, v)
 			}

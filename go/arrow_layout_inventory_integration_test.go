@@ -55,13 +55,18 @@ func assertInventoryUnorderedReader(t *testing.T, reader array.RecordReader, wan
 }
 
 func TestArrowLayoutInventoryStorage(t *testing.T) {
-	h := newSQLHarness(t)
-	worker := newSQLHarness(t) // separate metadata cache and partition reader
 	cases := layoutInventoryCases(t, memory.DefaultAllocator)
 	defer releaseInventory(cases)
+	checkCanonicalStorage(t, cases, "it_layout_inventory")
+}
+
+func checkCanonicalStorage(t *testing.T, cases []layoutInventoryCase, prefix string) {
+	t.Helper()
+	h := newSQLHarness(t)
+	worker := newSQLHarness(t) // separate metadata cache and partition reader
 	for i, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			table := fmt.Sprintf("it_layout_inventory_%d", i)
+			table := fmt.Sprintf("%s_%d", prefix, i)
 			h.exec("DROP TABLE IF EXISTS " + table)
 			t.Cleanup(func() { h.exec("DROP TABLE IF EXISTS " + table) })
 			bounds := [][2]int64{{0, int64(c.input.Len())}, {1, int64(c.input.Len())}, {0, 0}}
