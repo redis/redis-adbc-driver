@@ -157,6 +157,11 @@ func TestArrowLayoutInventory(t *testing.T) {
 	defer mem.AssertSize(t, 0)
 	cases := layoutInventoryCases(t, poisonAllocator{mem})
 	defer releaseInventory(cases)
+	checkCanonicalRoundTrips(t, mem, cases)
+}
+
+func checkCanonicalRoundTrips(t *testing.T, mem memory.Allocator, cases []layoutInventoryCase) {
+	t.Helper()
 	for _, c := range cases {
 		for _, bounds := range [][2]int64{{0, int64(c.input.Len())}, {1, int64(c.input.Len())}, {0, 0}} {
 			t.Run(fmt.Sprintf("%s/%d:%d", c.name, bounds[0], bounds[1]), func(t *testing.T) {

@@ -33,7 +33,9 @@ import (
 func asAdbc(err error, target *adbc.Error) bool { return errors.As(err, target) }
 
 type statementImpl struct {
-	resultLayouts resultLayouts
+	resultLayouts   resultLayouts
+	extensionPolicy string
+	streamRequired  bool
 	driverbase.StatementImplBase
 
 	conn   *connectionImpl
@@ -78,6 +80,13 @@ func (s *statementImpl) Base() *driverbase.StatementImplBase { return &s.Stateme
 
 func (s *statementImpl) GetOption(ctx context.Context, key string) (string, error) {
 	switch key {
+	case OptionStringStreamRequired:
+		return strconv.FormatBool(s.streamRequired), nil
+	case OptionStringExtensionPolicy:
+		if s.extensionPolicy == "" {
+			return "reject", nil
+		}
+		return s.extensionPolicy, nil
 	case OptionStringResultLayouts:
 		b, _ := json.Marshal(s.resultLayouts)
 		if s.resultLayouts == nil {
@@ -207,6 +216,31 @@ func (s *statementImpl) SetOption(ctx context.Context, key, val string) error {
 		return err
 	}
 	switch key {
+	case OptionStringStreamRequired:
+		on, err := parseStreamResults(val)
+		if err != nil {
+			return err
+		}
+		s.streamRequired = on
+		s.partitionExecution = nil
+		return nil
+	case OptionStringExtensionPolicy:
+		if val != "reject" && val != "storage" {
+			return errorf(adbc.StatusInvalidArgument, "extension_policy must be reject or storage")
+		}
+		// ExecuteSchema may have prepared a storage view without consuming it.
+		// A policy change must re-check the original extension schema.
+		if val != s.extensionPolicy {
+			if r, ok := s.params.(*extensionInputReader); ok {
+				original := r.source
+				original.Retain()
+				r.Release()
+				s.params = original
+			}
+		}
+		s.extensionPolicy = val
+		s.partitionExecution = nil
+		return nil
 	case OptionStringResultLayouts:
 		layouts, err := parseResultLayouts(val)
 		if err != nil {
@@ -417,6 +451,9 @@ func (s *statementImpl) paramRows() ([][]Value, []ColType, error) {
 		return nil, nil, nil
 	}
 	defer s.clearParams()
+	if err := s.prepareExtensionInput(); err != nil {
+		return nil, nil, err
+	}
 	schema := s.params.Schema()
 	types := make([]ColType, schema.NumFields())
 	for i, f := range schema.Fields() {
@@ -448,6 +485,10 @@ func (s *statementImpl) paramRows() ([][]Value, []ColType, error) {
 		}
 	}
 	if err := s.params.Err(); err != nil && !errors.Is(err, io.EOF) {
+		var ae adbc.Error
+		if errors.As(err, &ae) {
+			return nil, nil, err
+		}
 		return nil, nil, errorf(adbc.StatusIO, "failed to read parameters: %v", err)
 	}
 	return rows, types, nil
@@ -490,8 +531,11 @@ func (s *statementImpl) run(ctx context.Context, stream bool) (result execResult
 	exec.script = len(parsed) > 1
 	defer exec.sess.endScript()
 	var so *streamOpts
+	if s.streamRequired && (!stream || s.stream.off || len(parsed) != 1 || len(paramRows) > 1) {
+		return execResult{}, errorf(adbc.StatusInvalidArgument, "stream_required needs ExecuteQuery, stream_results=true, one SELECT and at most one parameter row")
+	}
 	if stream && !s.stream.off && len(parsed) == 1 && len(paramRows) <= 1 {
-		so = &streamOpts{batchRows: s.stream.rows(), batchBytes: s.stream.batchBytes, mem: s.conn.Alloc, owners: []*streams{&s.conn.streams, &s.streams}}
+		so = &streamOpts{required: s.streamRequired, batchRows: s.stream.rows(), batchBytes: s.stream.batchBytes, mem: s.conn.Alloc, owners: []*streams{&s.conn.streams, &s.streams}}
 	}
 	var last execResult
 	for _, ps := range parsed {
@@ -614,6 +658,9 @@ func (s *statementImpl) ExecuteSchema(ctx context.Context) (*arrow.Schema, error
 		return nil, err
 	}
 	var paramTypes []ColType
+	if err := s.prepareExtensionInput(); err != nil {
+		return nil, err
+	}
 	if s.params != nil {
 		for _, f := range s.params.Schema().Fields() {
 			t, err := colTypeFromField(f)

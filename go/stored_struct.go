@@ -44,6 +44,25 @@ func (t ColType) namedRecord() bool {
 	return t.Kind == KindRecord && t.Rec != nil && t.Rec.named != nil
 }
 
+// Check named schema identity even for empty/all-NULL batches, where value
+// coercion cannot observe a field-name/type/nullability mismatch. Scalar and
+// scalar-array append coercions keep their existing SQL behavior.
+func storedRecordAppendCompatible(from, to ColType) bool {
+	if from.namedRecord() || to.namedRecord() {
+		return from == to
+	}
+	if from.Kind == KindArray && to.Kind == KindArray {
+		return storedRecordAppendCompatible(from.element(), to.element())
+	}
+	contains := func(t ColType) bool {
+		for t.Kind == KindArray {
+			t = t.element()
+		}
+		return t.namedRecord()
+	}
+	return !contains(from) && !contains(to)
+}
+
 func structFromArrow(dt *arrow.StructType) (ColType, error) {
 	fields := make([]structField, dt.NumFields())
 	for i, f := range dt.Fields() {

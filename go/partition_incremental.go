@@ -32,6 +32,9 @@ type incrementalPartitions struct {
 }
 
 func (s *statementImpl) ExecutePartitions(ctx context.Context) (*arrow.Schema, adbc.Partitions, int64, error) {
+	if s.streamRequired {
+		return nil, adbc.Partitions{}, -1, errorf(adbc.StatusNotImplemented, "stream_required applies to ExecuteQuery; partition modes have separate execution quotas")
+	}
 	if len(s.resultLayouts) != 0 {
 		return nil, adbc.Partitions{}, -1, errorf(adbc.StatusNotImplemented, "result_layouts is not supported by live or retained partitions")
 	}

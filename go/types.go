@@ -615,6 +615,9 @@ func checkArrowTypeDepth(dt arrow.DataType, depth int) error {
 		if dec.GetPrecision() < 1 || dec.GetPrecision() > maxPrecision {
 			return fmt.Errorf("invalid Arrow decimal precision %d for %s", dec.GetPrecision(), dt)
 		}
+		if dec.GetScale() > maxNumericScale || int64(dec.GetPrecision())-int64(dec.GetScale()) > maxNumericIntDigits {
+			return fmt.Errorf("Arrow decimal scale is outside the SQL numeric range")
+		}
 	}
 	if dict, ok := dt.(*arrow.DictionaryType); ok {
 		return checkArrowTypeDepth(dict.ValueType, depth+1)

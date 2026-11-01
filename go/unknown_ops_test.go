@@ -41,12 +41,15 @@ func TestUnknownOperandTypes(t *testing.T) {
 		{"'1' * i", "INTEGER"},
 		{"i2 - '1'", "SMALLINT"},
 		{"f / '2'", "DOUBLE PRECISION"},
-		{"'1.5' + 1.25", "NUMERIC(38,2)"},
+		// Contextual quoted numerics carry a conservative precision-38
+		// bound. Reserve its possible integer/carry digits instead of
+		// truncating arithmetic metadata back to Decimal128.
+		{"'1.5' + 1.25", "NUMERIC(40,2)"},
 		// A NUMERIC literal has its own digits (Postgres's has no scale).
-		{"n + '0.005'", "NUMERIC(38,3)"},
-		{"n * '2'", "NUMERIC(38,2)"},
-		{"n - '1'", "NUMERIC(38,2)"},
-		{"'1e2' + 1.5", "NUMERIC(38,1)"},
+		{"n + '0.005'", "NUMERIC(39,3)"},
+		{"n * '2'", "NUMERIC(49,2)"},
+		{"n - '1'", "NUMERIC(41,2)"},
+		{"'1e2' + 1.5", "NUMERIC(40,1)"},
 		{"n / '4'", "DOUBLE PRECISION"},
 		{"d - '2024-01-01'", "BIGINT"}, // days
 		{"'2024-03-01' - d", "BIGINT"},
@@ -67,7 +70,7 @@ func TestUnknownOperandTypes(t *testing.T) {
 		{"'2' * (i + '1')", "INTEGER"},
 		{"i + '1' + '2'", "INTEGER"},
 		{"CASE WHEN i = 1 THEN '1' ELSE i END + '1'", "INTEGER"},
-		{"COALESCE(n, '0') + '1'", "NUMERIC(38,2)"},
+		{"COALESCE(n, '0') + '1'", "NUMERIC(41,2)"},
 		{"i || '1'", "VARCHAR"},
 		{"'1' || '1'", "VARCHAR"},
 		// % is MOD, which keeps its arguments' type.

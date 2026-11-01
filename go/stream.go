@@ -66,6 +66,7 @@ import (
 // default).
 
 const defaultStreamBatchRows = 65536
+const OptionStringStreamRequired = "adbc.redis.stream_required"
 
 // streamSettings are adbc.redis.stream_results and stream_batch_rows.
 type streamSettings struct {
@@ -116,6 +117,7 @@ func (s *streamSettings) set(key, value string) error {
 
 // streamOpts asks execute to stream a query's rows if it can.
 type streamOpts struct {
+	required bool
 	// cols are the result's columns, or nil for the plan's.
 	cols       []resultColumn
 	batchRows  int
@@ -171,14 +173,19 @@ func (e *executor) streamSelect(ctx context.Context, plan *selectPlan, params []
 	if err != nil {
 		return execResult{}, err
 	}
+	if so.required && !sc.req.where.none && !incrementalScan(plan, sc) {
+		return execResult{}, errorf(adbc.StatusNotImplemented, "stream_required rejects a materializing scan fallback")
+	}
 	// A residual can prevent LIMIT from running in an otherwise exact index
 	// sort. Redis would then sort the complete match set before this stream saw
 	// its first page. Prefer the bounded partitioned heap when it is eligible.
-	if rows, handled, err := e.parallelSelectTopK(ctx, plan, sc, params); handled {
-		if err != nil {
-			return execResult{}, err
+	if !so.required {
+		if rows, handled, err := e.parallelSelectTopK(ctx, plan, sc, params); handled {
+			if err != nil {
+				return execResult{}, err
+			}
+			return e.fitResult(execResult{isQuery: true, cols: plan.columns(), rows: rows, affected: int64(len(rows))}, nil)
 		}
-		return e.fitResult(execResult{isQuery: true, cols: plan.columns(), rows: rows, affected: int64(len(rows))}, nil)
 	}
 	if sc.req.where.none || !incrementalScan(plan, sc) {
 		rows, handled, err := e.selectTopK(ctx, plan, sc, params)

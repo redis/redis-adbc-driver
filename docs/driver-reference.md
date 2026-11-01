@@ -4207,6 +4207,9 @@ These are client compatibility values; the driver remains autocommit-only.
 
 | Option | Level | Meaning |
 |-|-|-|
+| `adbc.redis.stream_required` | statement | `false` (default) permits existing materializing fallback. `true` requires an unordered incremental managed-table/key-source SELECT or UNION ALL, rejecting blocking plans and fallback before execution. See [policy and limits](arrow-interoperability.md#streaming-inventory). |
+| `adbc.redis.extension_policy` | statement | `reject` (default) or explicit `storage` normalization for top-level allowlisted `arrow.uuid`/`arrow.json` fields. Canonical SQL schemas persist; unknown/nested semantics reject. See [extension policy](arrow-interoperability.md#explicit-extension-storage-normalization). |
+| `adbc.redis.result_layouts` | statement | JSON map of exact result names to explicit physical Arrow layouts; SQL/table schemas remain canonical. See [layout contract](arrow-interoperability.md#explicit-result-layouts). |
 | `uri` | database | `redis://[user:pass@]host:port/db`, or `rediss://…` for TLS, with go-redis's query parameters (see [URI parameters](#uri-parameters)) |
 | `adbc.redis.tls_ca_file` | database | PEM file supplying exclusive TLS trust roots for new `rediss://` connections, including cluster nodes. Empty (default) uses system roots. Requires certificate verification; each partition worker supplies its own local path. |
 | `username`, `password` | database | Credentials (override the URI) |

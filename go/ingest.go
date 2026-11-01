@@ -49,6 +49,9 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 		return -1, errorf(adbc.StatusInvalidState, "bulk ingest requires data to be bound")
 	}
 	defer s.clearParams()
+	if err := s.prepareExtensionInput(); err != nil {
+		return -1, err
+	}
 	if opts.CatalogName != "" && opts.CatalogName != catalogName {
 		return -1, errorf(adbc.StatusNotFound, "catalog %q does not exist", opts.CatalogName)
 	}
@@ -148,6 +151,9 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 		if !ok {
 			return -1, errorf(adbc.StatusAlreadyExists, "column %q does not exist in table %q", f.Name, meta.Name)
 		}
+		if !storedRecordAppendCompatible(wanted.Columns[i].Type, meta.Columns[idx].Type) {
+			return -1, stateErrorf(stateDatatypeMismatch, "stored struct schema must match field names, types and nullability (column %q)", f.Name)
+		}
 		mapping[i], given[idx] = idx, true
 	}
 	e := s.executor()
@@ -195,6 +201,10 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 		total += written
 	}
 	if err := s.params.Err(); err != nil && !errors.Is(err, io.EOF) {
+		var ae adbc.Error
+		if errors.As(err, &ae) {
+			return -1, err
+		}
 		return -1, errorf(adbc.StatusIO, "failed to read ingest data: %v", err)
 	}
 	return total, nil
