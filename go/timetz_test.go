@@ -245,6 +245,7 @@ func TestTimeTZSessionZone(t *testing.T) {
 		{"CAST(TIMESTAMPTZ '2024-01-01 10:00:00+00' AS TIMETZ)", "05:00:00-05", ""},
 		{"CAST(TIMESTAMPTZ '2024-07-01 10:00:00+00' AS TIMETZ)", "06:00:00-04", ""},
 		{"CAST('10:00' AS TIMETZ) = '10:00-04'", "true", ""},
+		{"CAST(TIMESTAMPTZ '2024-01-10 15:00:00+00' AS TIMETZ) = '10:00'", "false", ""},
 		{"TIME '10:00' = TIMETZ '10:00-04'", "true", ""},
 		{"TIME '10:00' < TIMETZ '10:00-05'", "true", ""},
 		{"COALESCE(NULL, TIME '10:00', TIMETZ '10:00+02')", "10:00:00-04", ""},
@@ -261,6 +262,7 @@ func TestTimeTZSessionZone(t *testing.T) {
 	})
 	runZoneCasesAt(t, "America/New_York", januaryNow, []scalarCase{
 		{"CAST('10:00' AS TIMETZ)", "10:00:00-05", ""},
+		{"CAST(TIMESTAMPTZ '2024-01-10 15:00:00+00' AS TIMETZ) = '10:00'", "true", ""},
 		{"TIME '10:00' AT TIME ZONE 'UTC'", "15:00:00+00", ""},
 		{"TIMETZ '10:00+02' AT TIME ZONE 'America/New_York'", "03:00:00-05", ""},
 		{"CURRENT_TIME", "12:00:00-05", ""},

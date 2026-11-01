@@ -205,7 +205,12 @@ func TestTimeTZSessionZoneColumns(t *testing.T) {
 			formatTime(int64((8*3600+nowOff+86400)%86400), arrow.Second)+formatOffset(nowOff, false))
 	h.expectRows(`SELECT CAST('10:00' AS TIME) AT TIME ZONE 'UTC'`,
 		formatTime(int64((10*3600-todayOff)%86400), arrow.Second)+"+00")
-	h.expectRows(`SELECT id FROM it_ttz WHERE t = '10:00' ORDER BY id`, "8")
+	// The January timestamp's 10:00-05 also matches during standard time.
+	matchingIDs := []string{"8"}
+	if todayOff == -5*3600 {
+		matchingIDs = append(matchingIDs, "10")
+	}
+	h.expectRows(`SELECT id FROM it_ttz WHERE t = '10:00' ORDER BY id`, matchingIDs...)
 	h.expectRows(`SELECT CURRENT_TIME = LOCALTIME, CAST(CURRENT_TIME AS TIME) = LOCALTIME, EXTRACT(timezone FROM CURRENT_TIME)`,
 		"true|true|"+strconv.Itoa(nowOff))
 	if _, schema := h.query(`SELECT CURRENT_TIME, CURRENT_TIME(0), LOCALTIME`); schema.Field(0).Type.ID() != arrow.STRING ||
@@ -225,7 +230,11 @@ func TestTimeTZSessionZoneColumns(t *testing.T) {
 	h.expectRows(`SELECT column_default FROM information_schema.columns WHERE table_name = 'it_ttz_def' AND column_name = 't'`,
 		"'10:00:00"+local+"'")
 	utc := newSQLHarness(t)
-	utc.expectRows(`SELECT id, lit, typed FROM it_ttz_v`, "8|10:00:00"+local+"|11:00:00"+local)
+	viewRows := make([]string, len(matchingIDs))
+	for i, id := range matchingIDs {
+		viewRows[i] = id + "|10:00:00" + local + "|11:00:00" + local
+	}
+	utc.expectRows(`SELECT id, lit, typed FROM it_ttz_v ORDER BY id`, viewRows...)
 	utc.exec(`INSERT INTO it_ttz_def (id, u) VALUES (1, '09:30` + local + `')`)
 	utc.expectRows(`SELECT id, t, u FROM it_ttz_def`, "1|10:00:00"+local+"|09:30:00"+local)
 	utc.expectError(`INSERT INTO it_ttz_def (id, u) VALUES (2, '08:30`+local+`')`, "violates check constraint")
