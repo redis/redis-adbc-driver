@@ -16,45 +16,39 @@
   limitations under the License.
 -->
 
-# Arrow Database Connection (ADBC) driver for Redis
+# Arrow Database Connectivity (ADBC) driver for Redis
 
-The standard way to integrate your application with Redis is to use the
+Redis ADBC connects Redis to data tools through SQL and Apache Arrow. It queries
+Redis HASHes using the Query Engine, returns typed Arrow record batches, and
+bulk-loads Arrow data into Redis.
+
+For application development, start with the
 [official Redis clients and libraries](https://redis.io/docs/latest/develop/clients/)
-for your programming language. Redis ADBC is another option for workflows that
-benefit from SQL and Apache Arrow, including the data-tool integrations described here.
+for your programming language. Redis ADBC is another integration option when
+SQL and Arrow fit your analytics, data processing, or pipeline workflows.
 
-An [ADBC](https://arrow.apache.org/adbc/) driver built on
-[driverbase-go](https://github.com/adbc-drivers/driverbase-go) and validated
-with the [ADBC driver validation suite](https://github.com/adbc-drivers/validation).
-It runs SQL over Redis HASHes and the Query Engine, returns Arrow record batches,
-and bulk-ingests Arrow data through a native ADBC library.
+The driver requires **Redis Search (Query Engine)**. For concurrent queries,
+a query performance factor (QPF) of **4×** is recommended where supported,
+with sufficient server CPU capacity. See the [server requirements](docs/driver-reference.md#server-requirements)
+for supported deployments and configuration.
 
-**Works best with Redis Search (Query Engine) enabled and query performance
-factor (QPF) set to 4× where supported.** Search is required;
-4× QPF is recommended for concurrent query performance. See
-[server requirements](docs/driver-reference.md#server-requirements) for setup guidance.
+SQL tables use a defined layout for rows, indexes, and metadata. Compatible
+existing HASH collections can be [adopted in place](docs/driver-reference.md#adopt-hashes-in-place);
+other data must be migrated to that layout. The
+[architecture guide](docs/driver-reference.md#architecture-hybrid-index-row-layout)
+explains how the driver stores and queries tables.
 
-**Installing for a data tool?** Start with [Choose your tool and connect](docs/setup.md)
-for wheel installation, connection diagnostics, manifests and application setup.
-Native clients can use the [managed installer](docs/native-installation.md) for
-automatic downloads, stable paths, upgrades and uninstall.
+Start with [Choose your tool and connect](docs/setup.md) for Python wheels,
+connection diagnostics, and application examples. For native tools such as
+DuckDB, the [managed installer](docs/native-installation.md) handles downloads,
+driver registration, upgrades, and uninstall. See [Redis in dbc](docs/dbc.md)
+for package creation and the pending registry submission.
 
-For dbc package creation and the pending public registry submission, see
-[Redis in dbc](docs/dbc.md).
-
-The driver uses an opinionated data model in Redis, with specific requirements
-for rows, indexes, and table metadata (see [Architecture](#architecture-hybrid-index-row-layout)).
-Existing Redis data may be adopted in place when compatible (see
-[Existing HASH collections](#existing-hash-collections-redis-adbc)). If your
-current data model cannot be adopted by the driver, you must migrate your data
-to the driver's opinionated data model to use it.
-
-Substrait plans are currently unsupported (`SetSubstraitPlan` returns
-`NotImplemented`). See the [proposed bounded Substrait subset](docs/substrait.md)
-for the feasibility assessment and implementation gates for issue #213.
-
-For repository context and the development artifact workflow, see the
-[AI-native SDLC records](docs/sdlc/README.md).
+The implementation builds on [driverbase-go](https://github.com/adbc-drivers/driverbase-go)
+and is validated with the [ADBC driver validation suite](https://github.com/adbc-drivers/validation).
+Substrait plans are currently unsupported; see the
+[Substrait assessment](docs/substrait.md) for the proposed scope. Contributor
+context and development records are in the [SDLC guide](docs/sdlc/README.md).
 
 ## Contents
 
