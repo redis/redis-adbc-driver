@@ -31,6 +31,7 @@ package does not start Redis.
 
 ```python
 import os
+import os
 import polars as pl
 
 result = pl.read_database_uri(
@@ -52,6 +53,7 @@ removes it afterward:
 
 ```python
 import os
+import os
 from uuid import uuid4
 
 import polars as pl
@@ -68,6 +70,8 @@ with dbapi.connect(os.environ["REDIS_URI"]) as connection:
     finally:
         with connection.cursor() as cursor:
             cursor.execute(f'DROP TABLE IF EXISTS "{name}"')
+
+print("REDIS_ADBC_READ_WRITE_OK")
 ```
 
 Use `if_table_exists="append"` for later batches. Writes autocommit; a failed

@@ -26,7 +26,11 @@ def read_redis(redis_uri: str, table_name: str) -> int:
     with dbapi.connect(redis_uri) as conn, conn.cursor() as cur:
         cur.execute(f'SELECT id FROM "{table_name}" ORDER BY id')
         rows = cur.fetch_arrow_table()
-    return sum(rows['id'].to_pylist())
+    from integration_guide_data import write_result
+    import pyarrow as pa
+    total = sum(rows['id'].to_pylist())
+    write_result(pa.table({'total': [total]}))
+    return total
 
 if __name__ == '__main__':
     local.init(runner=local.SubprocessRunner(use_venv=False), pipeline_root='kfp-output')
@@ -58,5 +62,16 @@ python python/scripts/check_integration_guide.py kubeflow
 
 The broader workflow can also be checked with
 `python/scripts/run-candidate-tests.sh kubeflow` after installing its test extra.
+
+
+## Write results back to Redis
+
+The runnable example writes the tool's computed output through the shared
+`write_result` Arrow sink and checks exact rows and types on a fresh connection.
+This is custom application code and fully materializes the output; it does not
+add a native connector, distributed sink, model/artifact store, or transactions.
+The helper creates a unique output table and drops it after verification. In a
+production workflow, choose an owned destination and explicit retry policy;
+failed autocommit writes can partially apply and blind append retries duplicate rows.
 
 [All integration guides](README.md)

@@ -67,6 +67,7 @@ def check_dbt(root, work, env):
             cur.execute("SELECT order_count, total FROM dbt_guide.revenue")
             assert cur.fetchall() == [(3, 42)]
         assert (work / "target/catalog.json").is_file()
+        print("REDIS_ADBC_READ_WRITE_OK")
     finally:
         code = re.findall(r"```python\n(.*?)```", text, re.DOTALL)[0]
         cleanup = work / "cleanup.py"
@@ -93,9 +94,12 @@ def check_duckdb(root, work):
         try:
             with duckdb.connect(config={"extension_directory": str(work / "extensions")}) as db:
                 for block in blocks:
-                    db.execute(block).fetchall()
+                    # The guide shows a default URI; run against the caller's fixture.
+                    uri = os.environ["REDIS_URI"].replace("'", "''")
+                    db.execute(block.replace("redis://localhost:6379/0", uri)).fetchall()
                 cur.execute("SELECT id, country FROM public.duckdb_orders ORDER BY id")
                 assert cur.fetchall() == [(1, "US"), (2, "CA")]
+                print("REDIS_ADBC_READ_WRITE_OK")
         finally:
             cur.execute("DROP TABLE IF EXISTS public.duckdb_orders")
             cur.execute("DROP TABLE IF EXISTS public.orders")

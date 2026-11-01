@@ -33,6 +33,11 @@ model.save_model('redis-model.json')
 restored = xgb.Booster(model_file='redis-model.json')
 np.testing.assert_array_equal(restored.predict(data), model.predict(data))
 print(restored.predict(data).tolist())
+
+# Persist the tool's computed output, then read it through a fresh connection.
+from integration_guide_data import write_result
+import pyarrow as pa
+write_result(pa.table({'prediction': restored.predict(data).astype('float64')}))
 ```
 
 ## Expected result
@@ -57,5 +62,16 @@ python python/scripts/check_integration_guide.py xgboost
 
 The broader workflow can also be checked with
 `python/scripts/run-candidate-tests.sh xgboost` after installing its test extra.
+
+
+## Write results back to Redis
+
+The runnable example writes the tool's computed output through the shared
+`write_result` Arrow sink and checks exact rows and types on a fresh connection.
+This is custom application code and fully materializes the output; it does not
+add a native connector, distributed sink, model/artifact store, or transactions.
+The helper creates a unique output table and drops it after verification. In a
+production workflow, choose an owned destination and explicit retry policy;
+failed autocommit writes can partially apply and blind append retries duplicate rows.
 
 [All integration guides](README.md)

@@ -47,6 +47,9 @@ on:
       - benchmarks/workers/**
       - benchmarks/worker-autotune/**
       - '!**/*.md'
+      # These Markdown files contain executable integration examples.
+      - docs/integrations/**
+      - docs/duckdb.md
 
 permissions:
   contents: read
@@ -183,6 +186,9 @@ jobs:
           PREFECT_HOME: /tmp/redis-prefect-home
         run: |
           /tmp/redis-python-tests/bin/python -m pytest -q python/tests/
+          for tool in pandas polars sqlalchemy pyarrow; do
+            /tmp/redis-python-tests/bin/python python/scripts/check_integration_guide.py "$tool" --require-read-write
+          done
 
       - name: Ray worker datasource
         if: matrix.arch == 'amd64' && matrix.environment == 'software-single'

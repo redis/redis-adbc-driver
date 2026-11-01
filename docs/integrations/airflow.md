@@ -62,9 +62,17 @@ package's `RedisAdbcHook` for Redis queries:
 ```python
 from adbc_driver_redis.airflow import RedisAdbcHook
 
+from uuid import uuid4
 hook = RedisAdbcHook(adbc_conn_id="redis_analytics")
-records = hook.get_records("SELECT $1 AS value", parameters=(42,))
-assert records == [(42,)]
+name = "guide_airflow_" + uuid4().hex
+try:
+    hook.run(f'CREATE TABLE "{name}" (id integer, label text)')
+    hook.insert_rows(name, [(1, "雪"), (2, None)], autocommit=True)
+    records = hook.get_records(f'SELECT * FROM "{name}" WHERE id >= $1 ORDER BY id', parameters=(1,))
+    assert records == [(1, "雪"), (2, None)]
+    print("REDIS_ADBC_READ_WRITE_OK")
+finally:
+    hook.run(f'DROP TABLE IF EXISTS "{name}"')
 ```
 
 Create an Airflow connection named `redis_analytics` with type `adbc` and extras:
@@ -94,6 +102,8 @@ placeholders for bound queries.
 This is an explicitly imported hook, rather than a registered Airflow provider.
 Selecting an `adbc` connection in `SQLExecuteQueryOperator` still selects the
 generic Arrow hook. The example above calls the Redis hook inside a Python task.
+[#272](https://github.com/redis/redis-adbc-driver/issues/272) tracks generic
+provider/operator selection and upstream autocommit configuration.
 
 The focused tests use Airflow 3.3.2, Arrow provider 0.1.1 and common-sql 2.1.1 in
 a separate Python 3.12 environment:

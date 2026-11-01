@@ -55,7 +55,7 @@ for tool in "$@"; do
     metaflow) tests+=(test_orchestrator_candidates.py::test_metaflow_local_flow) ;;
     fivetran) tests+=(test_orchestrator_candidates.py::test_fivetran_sdk_local_tester) ;;
     sqlalchemy) tests+=(test_sqlalchemy.py) ;;
-    arrow) tests+=(test_arrays.py test_ipc.py test_union_stream.py) ;;
+    arrow) tests+=(test_arrays.py test_ipc.py test_union_stream.py test_guide_output.py) ;;
     superset) tests+=(test_superset.py) ;;
     dbt) tests+=(test_dbt_candidate.py) ;;
     ibis) tests+=(test_analysis_candidates.py::test_ibis_arrow_expressions) ;;

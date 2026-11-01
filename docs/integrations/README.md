@@ -2,6 +2,11 @@
 
 All 38 entries in the README examples table link to a guide here or the DuckDB guide.
 The [shared example setup](example-setup.md) supports the additional local workflows.
+The 36 guides with a bidirectional native or custom ADBC path now verify tool
+outputs written back to Redis as well as reads. See the
+[read/write coverage and rerun commands](example-setup.md#require-both-directions-in-the-harness)
+and [2026-11-01 results](../sdlc/changes/integration-read-write/validation.md).
+
 See the [per-guide test results](../sdlc/changes/integration-guides-262/validation.md).
 
 Start with [installation and diagnostics](../setup.md) to choose a package and

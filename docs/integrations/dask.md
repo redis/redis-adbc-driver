@@ -38,7 +38,10 @@ frame = read_query(
     schema=pa.schema([("id", pa.int64()), ("amount", pa.float64())]),
     db_kwargs={"adbc.redis.query_workers": "1"},
 )
-print(frame.groupby("id").amount.sum().compute())
+result = frame.groupby("id").amount.sum().compute().reset_index()
+print(result)
+from integration_guide_data import write_result
+write_result(pa.Table.from_pandas(result, preserve_index=False))
 ```
 
 The driver supports these bound half-open range predicates. This helper does
@@ -93,6 +96,16 @@ not direct ADBC connections. This package also provides a SQLAlchemy dialect
 (`redis+adbc://`); that is a separate route with Dask's SQLAlchemy query and
 partitioning requirements. The helper here directly uses ADBC with explicit
 partitions and schema.
+
+## Write computed results
+
+The example uses the shared [example setup](example-setup.md) sink to write a
+materialized computed pandas result through Arrow and verify it on a fresh
+connection. `read_query` remains a partitioned reader, without a distributed
+write API. Large outputs need a separately designed partitioned sink and retry
+policy. The linked runnable example also checks this output path.
+[#273](https://github.com/redis/redis-adbc-driver/issues/273) tracks a packaged
+worker-local sink.
 
 ## Rerun this guide
 
