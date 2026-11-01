@@ -1,5 +1,10 @@
 # Python analytics integrations
 
+The standard way to integrate your application with Redis is to use the
+[official Redis clients and libraries](https://redis.io/docs/latest/develop/clients/)
+for your programming language. Redis ADBC is another option for workflows that
+benefit from SQL and Apache Arrow, including the data-tool integrations described here.
+
 For a tool-by-tool starting point and the `doctor` command, see
 [Choose your tool and connect](setup.md).
 For native clients outside Python, the [managed installer](native-installation.md)
