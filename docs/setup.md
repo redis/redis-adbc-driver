@@ -1,5 +1,10 @@
 # Choose your tool and connect
 
+The standard way to integrate your application with Redis is to use the
+[official Redis clients and libraries](https://redis.io/docs/latest/develop/clients/)
+for your programming language. Redis ADBC is another option for workflows that
+benefit from SQL and Apache Arrow, including the data-tool integrations described here.
+
 Start here to install Redis ADBC. The driver requires a Redis RAM database with
 Search (Query Engine). Redis Software is the default development target; Redis
 Cloud and supported Redis Open Source deployments also work. Flex, Valkey and
