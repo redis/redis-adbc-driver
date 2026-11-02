@@ -73,9 +73,13 @@ with tempfile.TemporaryDirectory() as directory:
 
     version = str(Version(version))
     pyproject = package / "pyproject.toml"
-    pyproject.write_text(
-        pyproject.read_text().replace('version = "0.1.0"', f'version = "{version}"')
+    contents, count = re.subn(
+        r'^version = "[^"]+"$', f'version = "{version}"',
+        pyproject.read_text(), count=1, flags=re.MULTILINE,
     )
+    if count != 1:
+        parser.error("cannot locate the package version in pyproject.toml")
+    pyproject.write_text(contents)
     # A C ABI library has no CPython ABI, but the wheel is platform-specific.
     (package / "setup.py").write_text(
         """from setuptools import setup

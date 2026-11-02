@@ -14,6 +14,7 @@ and [2026-11-01 results](../sdlc/changes/integration-read-write/validation.md).
 
 See the [per-guide test results](../sdlc/changes/integration-guides-262/validation.md).
 
+See [installation routes for all 50 inventory entries](../integration-installation.md).
 Start with [installation and diagnostics](../setup.md) to choose a package and
 verify the driver before configuring a tool.
 

@@ -13,6 +13,8 @@ SELECT * FROM redis_adbc_scan(
 The [registry submission](https://github.com/duckdb/community-extensions/pull/3157)
 has merged for DuckDB 2.0. `INSTALL redis_adbc FROM community` requires a
 successful registry build and publication for your exact engine/platform.
+Release CI also attaches versioned, checksummed unsigned binaries for the pinned
+DuckDB version; see [release installation](../docs/integration-installation.md#native-clients-r-and-duckdb).
 For local development, build from source and load the resulting file with
 unsigned extensions enabled in your DuckDB client.
 

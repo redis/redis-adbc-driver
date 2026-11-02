@@ -41,6 +41,7 @@ on:
       - scripts/check_install_doctor.py
       - scripts/check_native_install.py
       - scripts/test_cluster_ready.py
+      - scripts/test_software_bootstrap_http.py
       - scripts/*partition*
       - benchmarks/clickbench/**
       - benchmarks/qpf/**
@@ -101,6 +102,9 @@ jobs:
           uv run --no-project --with pyarrow --with redis --with adbc-driver-manager --with 'duckdb==2.0.*' \
             python -m unittest discover -s benchmarks/clickbench -v
 
+      - name: Check management HTTP readiness retries
+        run: python3 -m unittest discover -s scripts -p test_software_bootstrap_http.py -v
+
       - name: Check performance benchmark syntax
         run: python3 -m py_compile benchmarks/qpf/*.py benchmarks/workers/*.py
 
@@ -121,6 +125,9 @@ jobs:
     runs-on: ${{ matrix.runner }}
     env:
       REDIS_PARTITION_SCAN_CAP: "2147483648"
+      # The fixture sets SSL_CERT_FILE to its private CA. Keep public roots
+      # available to uv's Python/package downloads as well as that fixture CA.
+      SSL_CERT_DIR: /etc/ssl/certs
       # software-setup.sh verifies noeviction through the owned management API;
       # Software filters CONFIG GET maxmemory-policy at its data proxy.
       REDIS_RETAINED_CONTROL_PERSISTENCE: ${{ startsWith(matrix.environment, 'software-') && 'guaranteed' || 'auto' }}

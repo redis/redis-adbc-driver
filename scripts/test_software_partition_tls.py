@@ -47,6 +47,32 @@ class ManagementSafety(unittest.TestCase):
                     api.assert_not_called()
                     self.assertFalse(args.directory.exists())
 
+    def test_fresh_owned_tls_fixture_reaches_certificate_setup(self):
+        class CertificateSetupReached(Exception):
+            pass
+        container = {
+            'Config': {'Labels': {'com.docker.compose.service': 'redis-software'}},
+            'NetworkSettings': {'Ports': {
+                '9443/tcp': [{'HostIp': '127.0.0.1', 'HostPort': '19443'}],
+                '12000/tcp': [{'HostIp': '127.0.0.1', 'HostPort': '6379'}],
+            }},
+        }
+        database = {'name': 'adbc-test', 'shards_count': 3, 'port': 12000,
+                    'replication': False, 'tls_mode': 'enabled', 'roles_permissions': []}
+        for changes, accepted in [({}, True), ({'shards_count': 1}, False),
+                                  ({'tls_mode': 'invalid'}, False),
+                                  ({'roles_permissions': [{'role_uid': 2}]}, False)]:
+            with self.subTest(changes=changes), tempfile.TemporaryDirectory() as directory:
+                args = argparse.Namespace(directory=Path(directory) / 'fresh', container='owned',
+                                          api_port=19443, db_port=6379, shards=3)
+                with patch('subprocess.check_output', return_value=json.dumps([container])), patch(
+                    'software_partition_tls.SoftwareAPI'
+                ) as api, patch('subprocess.run', side_effect=CertificateSetupReached) as certificates:
+                    api.return_value.call.return_value = [{**database, **changes}]
+                    with self.assertRaises(CertificateSetupReached if accepted else ValueError):
+                        prepare(args)
+                    self.assertEqual(certificates.called, accepted)
+
     def test_cleanup_continues_after_failure_and_preserves_other_roles(self):
         principals = SoftwarePrincipals.__new__(SoftwarePrincipals)
         principals.config = {'bdb_uid': 1}

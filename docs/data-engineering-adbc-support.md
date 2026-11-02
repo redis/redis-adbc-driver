@@ -6,6 +6,8 @@ for your programming language. Redis ADBC is another option for workflows that
 benefit from SQL and Apache Arrow, including the data-tool integrations described here.
 
 For installation and diagnostics, start with [Choose your tool and connect](setup.md).
+See [installation choices for every integration](integration-installation.md) for
+package routes, worker placement and release automation.
 
 
 Support and testing status refreshed on **2026-10-30** against this repository
