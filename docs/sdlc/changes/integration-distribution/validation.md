@@ -79,3 +79,12 @@ URI/CA (exit 0, no data tests selected). This checks policy setup only.
 Actionlint, every changed shell block's `bash -n`, and `git diff --check` passed.
 A replacement CI run is needed for the full integration and release gates; local
 TLS trust and test-policy checks do not establish full server/runtime success.
+
+The next run reached Go tests and exposed two unit-test assumptions about an
+unset `SSL_CERT_FILE`: `TestClientURIOptions` intentionally parses `skip_verify`,
+and `TestExplicitTLSRoots` asserts that clearing its explicit option returns to
+native trust. Both now use `t.Setenv` to isolate that setting and restore it for
+subsequent integration tests. No security assertion or test selection changed.
+Reproduced both failures locally with the generated fixture CA, then verified the
+two tests pass. The complete unit-only Go suite also passed with the inherited CA
+(`REDIS_URI` unset, `-count=1 -p 1`); live integration tests skipped in that run.
