@@ -133,11 +133,12 @@ excluding test order as the cause. Added verbose native fixture logging and
 an early wide-fetch gate to obtain the server-side connection error without
 waiting for the entire suite. No driver read retries or weakened TLS checks.
 
-Verbose macOS fixture logs expose server TLS read errors (`error:00000000`)
-with the packaged runtime. The native fixture now builds the server and CLI
-from the official Redis archive, checking Homebrew's release checksum and
-matching the installed Search module's version. It retains the large-cap Go
-suite and cap-137 installed-wheel gates. Both packaged and source-built
-8.10.3 fixtures pass wide fetch locally at the actual CI cap (65536); CI is
-still required to determine whether the source-built runtime resolves the
-runner-only disconnect. The helper was exercised with real Homebrew metadata.
+
+Complete CI logs identified the actual wide-fetch disconnect: Redis's TLS
+writer reports `SSL_R_BAD_LENGTH` on the same connection, before Go's broken
+pipe. Rebuilding the same server from source did not resolve it; removed the
+source-build experiment and temporary TLS instrumentation. The isolated macOS
+runner now provisions 4 MiB TCP send/receive buffers for the unchanged wide
+pipeline. Authentication, TLS validation, row assertions, large-cap Go suite
+and cap-137 installed-wheel gates remain required. Local constrained-client
+buffer reproductions still pass, so CI must validate this runner adjustment.

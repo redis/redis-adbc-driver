@@ -51,7 +51,6 @@ on:
       - go/cluster-ready.sh
       - go/software-*.sh
       - scripts/test_software_bootstrap_http.py
-      - scripts/build_native_redis_fixture.sh
       - go/*partition*.go
       - go/foreign.go
       - go/search_keys*.go
@@ -522,20 +521,21 @@ jobs:
       - name: Start authenticated TLS native macOS Redis with Search
         if: hashFiles('scripts/native_partition_redis.py') != ''
         run: |
+          # Redis's nonblocking TLS writer can fail with SSL_R_BAD_LENGTH
+          # under loopback backpressure on this runner. Give the isolated test
+          # endpoint room for the unchanged 4096-row wide-fetch pipeline.
+          sysctl net.inet.tcp.sendspace net.inet.tcp.recvspace net.inet.tcp.autosndbufmax net.inet.tcp.autorcvbufmax
+          sudo sysctl -w net.inet.tcp.autosndbufmax=4194304 net.inet.tcp.autorcvbufmax=4194304
+          sudo sysctl -w net.inet.tcp.sendspace=4194304 net.inet.tcp.recvspace=4194304
           brew update
           env -u HOMEBREW_NO_INSTALL_UPGRADE brew install redis
           prefix="$(brew --prefix redis)"
-          brew info --json=v2 redis > "$RUNNER_TEMP/redis-homebrew.json"
-          bash scripts/build_native_redis_fixture.sh "$RUNNER_TEMP/redis-fixture-source" \
-            "$(brew --prefix openssl@4)" "$RUNNER_TEMP/redis-homebrew.json"
-          fixture_bin="$(find "$RUNNER_TEMP/redis-fixture-source" -path '*/src/redis-server' -type f -print -quit)"
-          fixture_bin="$(dirname "$fixture_bin")"
           python3 scripts/native_partition_redis.py start "$RUNNER_TEMP/native-partition-redis" --tls \
-            --server "$fixture_bin/redis-server" --cli "$fixture_bin/redis-cli" \
+            --server "$prefix/bin/redis-server" --cli "$prefix/bin/redis-cli" \
             --module "$prefix/lib/redis/modules/redisearch.so" --port 16391
-          cp "$RUNNER_TEMP/redis-homebrew.json" "$RUNNER_TEMP/native-partition-redis/homebrew.json"
+          brew info --json=v2 redis > "$RUNNER_TEMP/native-partition-redis/homebrew.json"
           fixture="$RUNNER_TEMP/native-partition-redis/tls"
-          REDISCLI_AUTH="$(cat "$fixture/admin.password")" "$fixture_bin/redis-cli" \
+          REDISCLI_AUTH="$(cat "$fixture/admin.password")" "$prefix/bin/redis-cli" \
             --tls --cacert "$fixture/ca.crt" --user default -p 16391 \
             -e CONFIG SET search-max-aggregate-results 2147483648 loglevel verbose
           # uv reads every PEM in SSL_CERT_DIR alongside the private fixture CA.
