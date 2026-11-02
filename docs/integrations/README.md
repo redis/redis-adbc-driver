@@ -14,6 +14,10 @@ and [2026-11-01 results](../sdlc/changes/integration-read-write/validation.md).
 
 See the [per-guide test results](../sdlc/changes/integration-guides-262/validation.md).
 
+The [upstream acceptance audit and runner](acceptance.md) covers all 50 tools in
+the comparison and wires reusable SQLAlchemy, DBI, Fivetran and ADBC
+contracts into the testing harness, with explicit adapter gaps and skip counts.
+
 Start with [installation and diagnostics](../setup.md) to choose a package and
 verify the driver before configuring a tool.
 

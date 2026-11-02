@@ -28,6 +28,8 @@ on:
       - .github/workflows/test.yml
       - scripts/ci_test_matrix.py
       - scripts/test_ci_test_matrix.py
+      - scripts/test_acceptance_runner.py
+      - .github/workflows/acceptance.yml
       - .github/actions/build-adbc-scanner/**
       - .github/actions/duckdb-build-cache/**
       - go/**
@@ -84,6 +86,8 @@ jobs:
       - uses: actions/checkout@v7
       - name: Check CI coverage selection
         run: python3 -m unittest discover -s scripts -p test_ci_test_matrix.py -v
+      - name: Check upstream acceptance runner
+        run: python3 -m unittest discover -s scripts -p test_acceptance_runner.py -v
       - name: Check cluster readiness gate
         if: hashFiles('scripts/test_cluster_ready.py') != ''
         run: python3 -m unittest discover -s scripts -p test_cluster_ready.py -v

@@ -1,0 +1,38 @@
+{
+  "sqlalchemy": {
+    "status": "failed",
+    "exit_code": 1,
+    "passed": 148,
+    "failed": 81,
+    "errors": 1001,
+    "skipped": 140,
+    "xfailed": 0
+  },
+  "r-dbi": {
+    "status": "failed",
+    "exit_code": 1,
+    "passed": 6848,
+    "failed": 72,
+    "errors": 34,
+    "skipped": 201,
+    "xfailed": 0
+  },
+  "fivetran": {
+    "status": "passed",
+    "exit_code": 0,
+    "passed": 1,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "xfailed": 0
+  },
+  "adbc": {
+    "status": "passed",
+    "exit_code": 0,
+    "passed": 477,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 8,
+    "xfailed": 0
+  }
+}

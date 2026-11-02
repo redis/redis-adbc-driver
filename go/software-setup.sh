@@ -150,6 +150,9 @@ shards_ready() {
 }
 wait_for 'primary shards' shards_ready
 docker compose cp "$tls_dir/ca.pem" redis-software:/tmp/adbc-test-ca.pem >&2
+# cp preserves the host's restrictive umask/UID; redis-cli runs as a different
+# container user. Only this public certificate (never server.key) is shared.
+docker compose exec -T --user root redis-software chmod 644 /tmp/adbc-test-ca.pem
 ready() {
     docker compose exec -T -e REDISCLI_AUTH="$db_pass" redis-software \
         /opt/redislabs/bin/redis-cli --tls --cacert /tmp/adbc-test-ca.pem \

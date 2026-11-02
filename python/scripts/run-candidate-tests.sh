@@ -5,12 +5,16 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 python_bin="${PYTHON:-python3}"
 
 usage() {
-  echo "Usage: $0 [all | TOOL ...]"
+  echo "Usage: $0 [all | acceptance [SUITE ...] | TOOL ...]"
   echo "Tools: driver airflow dagster dask duckdb pandas polars ml ray ray-tls prefect dlt jupyter datasets streamlit scipy plotly matplotlib xgboost pytorch tensorflow keras transformers spark r quarto kubeflow metaflow fivetran sqlalchemy arrow superset dbt ibis mlflow beam mage kestra"
 }
 if [[ "${1:-}" == --help || "${1:-}" == -h ]]; then
   usage
   exit 0
+fi
+if [[ "${1:-}" == acceptance ]]; then
+  shift
+  exec "$python_bin" "$repo_root/python/scripts/run-acceptance.py" "$@"
 fi
 if [[ $# == 0 || ( $# == 1 && "${1:-}" == all ) ]]; then
   exec "$repo_root/python/scripts/run-all-native-candidates.sh"

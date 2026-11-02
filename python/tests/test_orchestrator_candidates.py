@@ -84,7 +84,11 @@ def test_fivetran_sdk_local_tester(uri, workflow_rows, tmp_path):
         import os
         from adbc_driver_redis import dbapi
         from fivetran_connector_sdk import Connector, Operations as op
-        from fivetran_connector_sdk import connector_helper
+        try:
+            from fivetran_connector_sdk import connector_helper
+        except ImportError:
+            # SDK 2.13 moved the tester download/cache helpers to common.
+            from fivetran_connector_sdk_common import connector_helper
 
         # Redirect downloaded tester artifacts only; use the real SDK and tester.
         connector_helper.ROOT_LOCATION = os.environ["REDIS_ADBC_SDK_CACHE"]
