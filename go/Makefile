@@ -32,7 +32,7 @@ LIB := build/libadbc_driver_redis.$(EXT)
 ADBC_CLI := build/redis-adbc
 LDFLAGS := -s -w -X github.com/adbc-drivers/driverbase-go/driverbase.infoDriverVersion=$(VERSION)
 
-.PHONY: check-test-env build adbc-cli test test-software validate clean redis-up redis-down redis-oss-up pgdiff pgdiff-test
+.PHONY: check-test-env build adbc-cli test test-software validate acceptance clean redis-up redis-down redis-oss-up pgdiff pgdiff-test
 
 build: $(LIB)
 
@@ -71,6 +71,9 @@ redis-down:
 
 redis-oss-up:
 	docker compose --profile oss up --detach --wait redis
+
+acceptance: build
+	bash software-setup.sh --exec env REDIS_ADBC_LIBRARY="$(abspath $(LIB))" python3 "$(abspath ../python/scripts/run-acceptance.py)" $(ACCEPTANCE_SUITES) --results "$(abspath build/acceptance)"
 
 validate: build check-test-env
 	cd validation && uv run pytest -vvs -rfEsxX tests/

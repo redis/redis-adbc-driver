@@ -114,7 +114,9 @@ func resolveNumericColumns(cols []resultColumn, rows [][]Value) {
 			integers = max(integers, decimalDigits(v.D)-v.T.Scale)
 		}
 		if !found {
-			scale = 16
+			// Keep the declared unconstrained type when no value can resolve
+			// it, including its canonical Arrow schema used by ExecuteSchema.
+			continue
 		}
 		cols[i].Type = decimalType(max(integers+scale, 1), scale)
 	}

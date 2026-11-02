@@ -69,6 +69,11 @@ See the [binding follow-up](../sdlc/changes/integration-252-254/validation.md) a
 [guide test results](../sdlc/changes/integration-guides-262/validation.md). The
 RStudio guide's console path and broader IDE interactions are distinct checks.
 
+For typed DBI writes, positional binding and the backend acceptance suite, use
+the [Redis DBI adapter and pinned R dependency recipe](../../r/README.md). That
+path uses adbi 0.1.4 plus explicit dependency fixes and keeps its evidence
+separate from the historical adbi 0.1.3 smoke test above.
+
 From the repository root, rerun the guide's query block (not the package-install
 block) with the same R environment:
 

@@ -1566,6 +1566,14 @@ lifecycle and Python API, and the runnable
 
 ## Supported SQL
 
+Division involving `NUMERIC` uses exact decimal arithmetic, preserving operand
+scale and at least 16 significant digits. Floating-point division remains
+floating-point. Unconstrained decimal expressions have value-dependent Arrow
+precision and scale, so their results are materialized before publishing the
+schema. An empty result uses the declared fallback Decimal256(76,16). Cast the
+expression to `NUMERIC(p,s)` for a fixed schema, including empty results, and to
+allow otherwise streamable queries to stream.
+
 ### Schema objects and DDL
 
 - `CREATE TABLE [IF NOT EXISTS] t (col TYPE [column_constraint …] [NOINDEX] [COMMENT 'text'], …

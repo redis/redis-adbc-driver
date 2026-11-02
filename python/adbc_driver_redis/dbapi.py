@@ -7,6 +7,9 @@ from . import _driver_path
 
 paramstyle = "qmark"
 
+# PEP 249 binary constructor, used by SQLAlchemy's LargeBinary binder.
+Binary = bytes
+
 
 def connect(uri, db_kwargs=None, conn_kwargs=None, *, autocommit=True, **kwargs):
     if not autocommit:

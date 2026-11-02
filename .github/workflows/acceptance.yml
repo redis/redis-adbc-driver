@@ -1,0 +1,56 @@
+name: Upstream integration acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: Upstream suite (all runs sequentially on one disposable fixture)
+        type: choice
+        default: all
+        options: [all, sqlalchemy, r-dbi, fivetran, adbc]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: acceptance-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  acceptance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go/go.mod
+          cache-dependency-path: go/go.sum
+      - uses: astral-sh/setup-uv@v10.2.0
+      - name: Check acceptance runner
+        run: python3 -m unittest discover -s scripts -p test_acceptance_runner.py -v
+      - name: Install R and DBI contract dependencies
+        if: inputs.suite == 'all' || inputs.suite == 'r-dbi'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y r-base libcurl4-openssl-dev libssl-dev libxml2-dev
+          mkdir -p "$RUNNER_TEMP/r-library"
+          echo "R_LIBS_USER=$RUNNER_TEMP/r-library" >> "$GITHUB_ENV"
+          R_LIBS_USER="$RUNNER_TEMP/r-library" Rscript r/install_acceptance.R
+      - name: Build current driver
+        run: make -C go build
+      - name: Run upstream contracts on verified disposable TLS Software
+        env:
+          ACCEPTANCE_SUITE: ${{ inputs.suite }}
+          REDIS_ADBC_LIBRARY: ${{ github.workspace }}/go/build/libadbc_driver_redis.so
+        run: bash go/software-setup.sh --exec python3 "$PWD/python/scripts/run-acceptance.py" "$ACCEPTANCE_SUITE" --results "$RUNNER_TEMP/acceptance"
+      - name: Upload acceptance evidence including failures and skips
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: upstream-acceptance
+          path: ${{ runner.temp }}/acceptance
+          if-no-files-found: warn
+      - name: Remove owned fixture
+        if: always()
+        run: docker compose -f go/compose.yaml down --volumes

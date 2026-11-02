@@ -687,6 +687,9 @@ for checkpoint, retry and state limitations.
 
 ## Validation
 
+For upstream compliance contracts in addition to the integration smoke tests,
+see the [acceptance-suite audit and commands](integrations/acceptance.md).
+
 ```sh
 REDIS_URI=redis://localhost:6379/0 python -m pytest -q python/tests/
 REDIS_URI=redis://localhost:6379/0 python -m pytest -q python/tests/test_dask.py

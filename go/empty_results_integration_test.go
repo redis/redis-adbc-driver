@@ -481,7 +481,7 @@ var emptyShapes = []string{
 	`SELECT CAST(id AS BIGINT) AS b, CAST(x AS VARCHAR) AS s, CAST(amount AS DOUBLE) AS dd,
 		CAST('2024-01-01' AS DATE) AS dt, CAST(f AS NUMERIC(12,3)) AS n, x::text AS t2, TRY_CAST(g AS INTEGER) AS gi,
 		CAST(ts AS DATE) AS day FROM it_empty_t`,
-	`SELECT ROUND(amount, 1) AS r1, ROUND(f, 2) AS r2, ROUND(amount) AS r0, amount * 2 AS twice, amount / 3 AS third,
+	`SELECT ROUND(amount, 1) AS r1, ROUND(f, 2) AS r2, ROUND(amount) AS r0, amount * 2 AS twice, CAST(amount / 3 AS NUMERIC(38,20)) AS third,
 		amount + x AS plus, x * 1.5 AS scaled, ABS(x - 30) AS dist, x % 3 AS m FROM it_empty_t`,
 	`SELECT UPPER(g) AS u, LOWER(g) AS l, LENGTH(g) AS n, SUBSTRING(g FROM 1 FOR 1) AS s1,
 		g || '-' || CAST(id AS VARCHAR) AS label, TRIM(g) AS tr, REPLACE(g, 'a', 'b') AS rp, CONCAT(g, x) AS c,

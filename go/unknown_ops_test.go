@@ -50,7 +50,7 @@ func TestUnknownOperandTypes(t *testing.T) {
 		{"n * '2'", "NUMERIC(49,2)"},
 		{"n - '1'", "NUMERIC(41,2)"},
 		{"'1e2' + 1.5", "NUMERIC(40,1)"},
-		{"n / '4'", "DOUBLE PRECISION"},
+		{"n / '4'", "NUMERIC"},         // numeric division preserves decimal precision
 		{"d - '2024-01-01'", "BIGINT"}, // days
 		{"'2024-03-01' - d", "BIGINT"},
 		{"ts + '1 day'", "TIMESTAMP(6)"},

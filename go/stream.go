@@ -131,9 +131,18 @@ type streamOpts struct {
 // streamable reports whether a query's plan allows streaming its rows,
 // before prepareScan decides how they are read.
 func (p *selectPlan) streamable() bool {
-	return !p.noRows && !p.distinct && p.setop == nil && p.grouping == nil && p.meta != nil && !p.meta.isMem &&
+	return !p.unresolvedNumericResult() && !p.noRows && !p.distinct && p.setop == nil && p.grouping == nil && p.meta != nil && !p.meta.isMem &&
 		!p.aggregate && p.having == nil && len(p.outerAggs) == 0 && !p.windowed() && len(p.extraNeed) == 0 &&
 		!p.hasCorrelated() && !p.hasSetReturning()
+}
+
+func (p *selectPlan) unresolvedNumericResult() bool {
+	for _, col := range p.columns() {
+		if col.Type.Kind == KindDecimal && col.Type.Precision == 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // hasCorrelated reports whether the query holds a correlated subquery,

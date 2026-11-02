@@ -1,0 +1,29 @@
+{
+  "sqlalchemy": {
+    "status": "passed",
+    "exit_code": 0,
+    "passed": 677,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 683,
+    "xfailed": 0
+  },
+  "r-dbi": {
+    "status": "passed",
+    "exit_code": 0,
+    "passed": 9385,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 14,
+    "xfailed": 0
+  },
+  "adbc": {
+    "status": "passed",
+    "exit_code": 0,
+    "passed": 477,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 8,
+    "xfailed": 0
+  }
+}

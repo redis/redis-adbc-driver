@@ -566,7 +566,7 @@ func (s *statementImpl) run(ctx context.Context, stream bool) (result execResult
 				return execResult{}, err
 			}
 			combined.isQuery = true
-			combined.cols = cols
+			combined.cols = append([]resultColumn(nil), cols...)
 			if so != nil {
 				so.cols = cols
 			}
@@ -587,6 +587,13 @@ func (s *statementImpl) run(ctx context.Context, stream bool) (result execResult
 			} else {
 				combined.affected = -1
 			}
+		}
+		// resultColumns describes unresolved NUMERIC before execution. Each
+		// parameter row can resolve a different scale; reconcile the combined
+		// schema before Arrow builders consume their unscaled integer values.
+		combined, err = exec.fitResult(combined, nil)
+		if err != nil {
+			return execResult{}, err
 		}
 		last = combined
 	}
