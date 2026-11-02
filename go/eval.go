@@ -944,6 +944,8 @@ func binaryOp(op string, l, r Value, z tzZone) (Value, error) {
 			return decimalValue(x.Sub(x, y), rt.Precision, s), nil
 		case "*":
 			return decimalValue(new(big.Int).Mul(ad, bd), rt.Precision, as+bs), nil
+		case "/":
+			return divideDecimal(ad, as, bd, bs)
 		}
 	}
 	return Value{}, fmt.Errorf("unsupported operator %s for %s and %s", op, l.T.Kind, r.T.Kind)
@@ -975,7 +977,9 @@ func arithmeticType(op string, a, b ColType) (ColType, error) {
 		return typeFloat64, nil
 	case a.Kind == KindDecimal || b.Kind == KindDecimal:
 		if op == "/" {
-			return typeFloat64, nil
+			// Decimal division must not lose integer digits or significant
+			// fractional digits through float64. Resolve Arrow scale from rows.
+			return decimalType(0, 0), nil
 		}
 		if a.Kind == KindDecimal && a.Precision == 0 || b.Kind == KindDecimal && b.Precision == 0 {
 			return decimalType(0, 0), nil

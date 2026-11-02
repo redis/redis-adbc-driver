@@ -10,3 +10,7 @@ dedicated projects, as explicitly requested during this change.
 The detached starting checkout diverged from current main; fetched origin and
 created `codex/integration-acceptance` from origin/main without merging the older
 history. See [spec](spec.md) and [plan](plan.md).
+
+Follow-up request, 2026-11-02: fix the SQLAlchemy and DBI acceptance failures,
+preserving the documented autocommit/explicit-key analytics contract and leaving
+dbt and Airbyte in their dedicated projects.

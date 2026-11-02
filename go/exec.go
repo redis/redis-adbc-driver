@@ -305,6 +305,9 @@ func (e *executor) fitResult(res execResult, err error) (execResult, error) {
 	if err != nil || !res.isQuery {
 		return res, err
 	}
+	// A cached plan retains declared types; resolving one execution's values
+	// must not freeze its scale for another bound parameter row.
+	res.cols = append([]resultColumn(nil), res.cols...)
 	resolveNumericColumns(res.cols, res.rows)
 	z := e.zone()
 	for _, row := range res.rows {

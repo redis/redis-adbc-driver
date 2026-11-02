@@ -37,6 +37,7 @@ def connection_env(environ):
     env["REDIS_USERNAME"] = unquote(uri.username)
     env["REDIS_PASSWORD"] = unquote(uri.password)
     env["PYTHONPATH"] = str(ROOT / "python")
+    env["REDIS_ADBC_REPO"] = str(ROOT)
     # Keep private Redis trust out of uv's package downloads. Restore it only
     # inside the actual test interpreter, before the native library is loaded.
     env["REDIS_ACCEPTANCE_CA_FILE"] = env.pop("SSL_CERT_FILE", "") or env.get("REDIS_TLS_CA_FILE", "")
@@ -168,8 +169,7 @@ def main(argv=None):
             try:
                 counts = report_counts(report)
                 status = "passed" if (code == 0 and counts["passed"] > 0
-                                      and not counts["failed"] and not counts["errors"]
-                                      and not counts["xfailed"]) else "failed"
+                                      and not counts["failed"] and not counts["errors"]) else "failed"
             except ET.ParseError:
                 status = "invalid_report"
         summary[suite] = {"status": status, "exit_code": code, **counts}

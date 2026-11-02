@@ -16,3 +16,12 @@ Redis CLI user. Native test interpreters must also start with the Redis CA
 already in their environment, while uv downloads retain ordinary system trust.
 Fivetran SDK 2.13 moved the tester helper into its common package; support both
 module locations without changing tester assertions.
+
+The November 2 follow-up fixes dialect compilation/binding/reflection, exact
+decimal division and combined parameter-result scales. The R adapter supplies
+Redis-specific types, writes, identifier and temporary-table behavior over a
+pinned adbi 0.1.4 environment. The installation recipe carries focused adbi
+positional/time binding and nanoarrow timestamp conversion fixes. Isolate suite
+schemas and declare unsupported backend capabilities rather than emulate
+transactions, sequences, SQL indexes or uniqueness enforcement. Preserve all
+upstream assertions and record skips separately from successful cases.

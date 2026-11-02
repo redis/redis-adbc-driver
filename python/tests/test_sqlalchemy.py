@@ -1,8 +1,76 @@
 import datetime
+from decimal import Decimal
+from uuid import UUID
 
 import pytest
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.exc import ArgumentError, InvalidRequestError
+
+
+def test_redis_primary_key_ddl_does_not_emit_serial():
+    from sqlalchemy import Column, Identity, Integer, MetaData, Table
+    from sqlalchemy.exc import CompileError
+    from sqlalchemy.schema import CreateTable
+    from adbc_driver_redis.sqlalchemy import RedisDialect
+
+    metadata = MetaData()
+    explicit = Table("explicit_key", metadata, Column("id", Integer, primary_key=True))
+    sql = str(CreateTable(explicit).compile(dialect=RedisDialect()))
+    assert "SERIAL" not in sql and "id INTEGER NOT NULL" in sql
+    identity = Table("identity_key", metadata, Column("id", Integer, Identity(), primary_key=True))
+    with pytest.raises(CompileError, match="does not support identity"):
+        CreateTable(identity).compile(dialect=RedisDialect())
+
+
+def test_typed_bindings_returning_and_reflection(uri):
+    pytest.importorskip("sqlalchemy", minversion="2.0")
+    from sqlalchemy import Column, Float, Integer, LargeBinary, MetaData, Numeric, Table, Uuid, select
+    from uuid import uuid4
+
+    table = Table("it_sa_" + uuid4().hex, MetaData(),
+                  Column("id", Integer, primary_key=True, autoincrement=False),
+                  Column("amount", Numeric(15, 4)), Column("ratio", Float),
+                  Column("payload", LargeBinary), Column("token", Uuid))
+    engine = create_engine(uri.replace("://", "+adbc://", 1))
+    token = UUID("12345678-1234-5678-1234-567812345678")
+    try:
+        with engine.connect() as conn:
+            table.create(conn)
+            try:
+                conn.execute(table.insert(), [
+                    dict(id=1, amount=1.25, ratio=Decimal("2.5"), payload=b"\x00\xff", token=token),
+                    dict(id=2, amount=Decimal("3.1250"), ratio=4.0, payload=b"", token=None),
+                ])
+                rows = conn.execute(select(table).order_by(table.c.id)).all()
+                assert rows[0] == (1, Decimal("1.2500"), 2.5, b"\x00\xff", token)
+                assert rows[1] == (2, Decimal("3.1250"), 4.0, b"", None)
+                assert conn.execute(table.update().where(table.c.id == 1).values(amount=Decimal("7.5")).returning(table.c.amount)).scalar_one() == Decimal("7.5000")
+                assert conn.execute(table.delete().where(table.c.id == 2).returning(table.c.id)).scalar_one() == 2
+                assert conn.execute(table.insert().values(id=3).returning(table.c.id)).scalar_one() == 3
+                assert inspect(conn).get_table_options(table.name) == {}
+                reflected = Table(table.name, MetaData(), autoload_with=conn)
+                assert list(reflected.columns.keys()) == list(table.columns.keys())
+            finally:
+                table.drop(conn)
+    finally:
+        engine.dispose()
+
+
+def test_decimal_division_with_bound_nullif(uri):
+    from sqlalchemy import Numeric, cast, func, literal_column, select
+
+    engine = create_engine(uri.replace("://", "+adbc://", 1))
+    try:
+        with engine.connect() as conn:
+            for left, right, typ, expected in [
+                ("1", "2.00", Numeric(10, 2), Decimal("0.5")),
+                ("0.00000000000049382716", "0.00000000000012345679", Numeric(38, 20), Decimal("4")),
+                ("30000000000000000000000000000000000000", "10000000000000000000000000000000000000", Numeric(38, 0), Decimal("3")),
+            ]:
+                denominator = func.nullif(cast(literal_column(right), typ), 0)
+                assert conn.scalar(select(cast(literal_column(left), typ) / denominator)) == expected
+    finally:
+        engine.dispose()
 
 
 def test_engine_reflection_and_charts(uri):

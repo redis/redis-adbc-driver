@@ -69,6 +69,11 @@ See the [binding follow-up](../sdlc/changes/integration-252-254/validation.md) a
 [guide test results](../sdlc/changes/integration-guides-262/validation.md). The
 RStudio guide's console path and broader IDE interactions are distinct checks.
 
+The [Redis DBI adapter](../../r/README.md) adds typed writes and positional
+binding with the pinned, patched R acceptance environment. Source that helper
+in RStudio to use the same DBI layer as the acceptance tests; it does not add
+IDE UI acceptance coverage.
+
 From the repository root, rerun the guide's query block (not the package-install
 block) with the same R environment:
 

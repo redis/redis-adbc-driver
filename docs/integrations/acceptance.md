@@ -17,8 +17,10 @@ make -C go acceptance ACCEPTANCE_SUITES='sqlalchemy r-dbi'
 ```
 
 `uv` must be on PATH (or set `UV` to its executable). R/DBI additionally needs
-`Rscript` and the R packages `DBI`, `adbi`, `adbcdrivermanager`, `DBItest`,
-`testthat`, and `xml2` (JUnit output). The runner installs Python dependencies
+`Rscript` and the [pinned R acceptance environment](../../r/README.md): set
+`R_LIBS_USER` to a dedicated library and run `Rscript r/install_acceptance.R`.
+It installs adbi 0.1.4 and nanoarrow 0.9.0 with explicit dependency fixes.
+The runner installs Python dependencies
 in isolated uv environments;
 it does not install R packages or provision databases. Use a dedicated empty test
 database: upstream suites create/drop tables, schemas, and other test objects.
@@ -43,14 +45,16 @@ Software proxy cannot expose `CONFIG GET maxmemory-policy` itself.
 
 The **Upstream integration acceptance** GitHub Actions workflow exposes the same
 four choices or `all`, creates its own Software fixture, and uploads the reports.
-It is manually dispatched because these new full contracts can reveal existing
-compatibility gaps; they are not a claim that the dialect/adapter passes them.
+It is manually dispatched because these broader contracts have substantial
+runtime and dependency requirements. Results cover the supported analytics
+contract; skipped identity, index, uniqueness and transaction features do not
+establish full relational database compatibility.
 The regular PR helper job tests the runner's failure/reporting behavior.
 
 | Suite selector | Contract actually executed |
 |---|---|
-| `sqlalchemy` | SQLAlchemy 2.1.6's entire external-dialect compliance suite, imported from `sqlalchemy.testing.suite` with its pytest plugin and default `SuiteRequirements`. No Redis-specific test overrides or blanket xfails. Includes reads, inserts, types, DDL and reflection. |
-| `r-dbi` | `DBItest::test_all()` against `adbi` and this native library, with testthat's JUnit reporter and failure exit status. Includes transactions/binding so existing limitations remain visible. Also covers RStudio's DBI layer, not the IDE UI. |
+| `sqlalchemy` | SQLAlchemy 2.1.6's external-dialect suite, with Redis capability requirements. Reflection fixtures omit unsupported SQL index DDL; unmarked identity cases receive the same requirement as neighboring upstream tests. Assertions remain unchanged. Includes reads, inserts, types, DDL and reflection in an isolated schema. |
+| `r-dbi` | `DBItest::test_all()` against the Redis DBI adapter, patched adbi/nanoarrow and this native library, with testthat's JUnit reporter. Runs binding, typed writes and metadata; skips transaction semantics outside the autocommit contract and the R-package naming convention for this sourced helper. Separate assertions verify transaction rejection. Covers RStudio's DBI layer, not its UI. |
 | `fivetran` | Existing real SDK `Connector.debug()` tester and DuckDB warehouse value checks, reused from `test_fivetran_sdk_local_tester`. Source replication only; not a Redis destination acceptance suite. |
 | `adbc` | Existing `adbc-drivers-validation` contract and Redis extensions under `go/validation/tests`, through that project's dependency environment. |
 
@@ -59,11 +63,14 @@ not rerun here. Their source links are in the audit below.
 
 Each selected suite produces `<suite>.xml`, a sanitized `<suite>.log`, and an
 entry in `summary.json`. Setup errors, nonzero subprocess exits, malformed/missing
-reports, zero passing cases, and xfails fail the runner. Passes, failures, errors,
+reports and zero passing cases fail the runner. Passes, failures, errors,
 skips and xfails are counted separately. A failed suite does not prevent later
 suites from running. Reports are removed before reruns so old passes cannot be
 reused. SQLAlchemy is pinned in the runner. R and the
-other Python dependency ranges follow their configured package repositories.
+other Python dependency ranges follow their configured package repositories,
+except the explicitly pinned adbi and nanoarrow sources. Upstream expected
+failures remain separate from passes and follow pytest's exit status; no local
+xfails are added to mask a Redis regression.
 
 ## Per-tool audit
 
@@ -96,7 +103,7 @@ for native Redis clients, JDBC or Flight SQL do not validate this ADBC driver.
 | 20 | dlt | [Destination load tests](https://github.com/dlt-hub/dlt/tree/devel/tests/load) | Workflow: existing custom resource/append destination tests. SQL destination contracts assume a fuller destination implementation than this callable. |
 | 21 | SQLAlchemy | [External-dialect compliance protocol](https://github.com/sqlalchemy/sqlalchemy/blob/main/README.dialects.rst) | **Integrated: `sqlalchemy`**, entire shipped dialect suite in an independent pytest process. |
 | 22 | Apache Arrow PyArrow | [ADBC validation](https://github.com/adbc-drivers/validation) | **Integrated: `adbc`**, existing driver contract plus Arrow interoperability/regression tests. PyArrow's own general tests are not driver acceptance. |
-| 23 | R / DBI | [DBItest](https://dbitest.r-dbi.org/) | **Integrated: `r-dbi`**, full DBI backend contract without hiding known binding/transaction limits. |
+| 23 | R / DBI | [DBItest](https://dbitest.r-dbi.org/) | **Integrated: `r-dbi`**, supported DBI contract, including binding/type fixes and explicit transaction exclusions/rejection checks. |
 | 24 | SciPy | [Sparse tests](https://github.com/scipy/scipy/tree/main/scipy/sparse/tests) | Workflow: existing matrix conversion/solver, not a database plugin. |
 | 25 | XGBoost | [Project tests](https://github.com/dmlc/xgboost/tree/master/tests) | Workflow: existing CPU training/save/reload and guide output. |
 | 26 | Hugging Face Transformers | [Project tests](https://github.com/huggingface/transformers/tree/main/tests) | Workflow: existing local tokenizer/model; no database backend implemented. |

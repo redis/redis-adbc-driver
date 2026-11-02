@@ -52,6 +52,9 @@ if [ ! -s "$tls_dir/server.key" ] || ! openssl x509 -checkend 86400 -noout -in "
         -addext 'basicConstraints=critical,CA:TRUE' >&2
     chmod 600 "$tls_dir/server.key"
 fi
+# This public certificate must be readable by the container's Redis CLI user.
+# Keep the private key at 0600; docker compose cp preserves the file modes.
+chmod 644 "$tls_dir/ca.pem"
 api="https://localhost:$api_port/v1"
 call() {
     local method=GET i

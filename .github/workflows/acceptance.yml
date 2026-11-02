@@ -36,7 +36,7 @@ jobs:
           sudo apt-get install -y r-base libcurl4-openssl-dev libssl-dev libxml2-dev
           mkdir -p "$RUNNER_TEMP/r-library"
           echo "R_LIBS_USER=$RUNNER_TEMP/r-library" >> "$GITHUB_ENV"
-          R_LIBS_USER="$RUNNER_TEMP/r-library" Rscript -e 'install.packages(c("DBI", "adbi", "adbcdrivermanager", "DBItest", "testthat", "xml2"), lib=Sys.getenv("R_LIBS_USER"), repos="https://cloud.r-project.org")'
+          R_LIBS_USER="$RUNNER_TEMP/r-library" Rscript r/install_acceptance.R
       - name: Build current driver
         run: make -C go build
       - name: Run upstream contracts on verified disposable TLS Software

@@ -3,8 +3,60 @@
 Analytics only: SQLAlchemy transaction scopes cannot undo Redis writes.
 """
 
-from sqlalchemy import exc
-from sqlalchemy.dialects.postgresql.base import PGDialect
+from sqlalchemy import cast, exc
+from sqlalchemy.dialects.postgresql.base import PGCompiler, PGDialect, PGTypeCompiler
+from decimal import Decimal
+
+from sqlalchemy.engine import default
+from sqlalchemy.sql import compiler, sqltypes
+
+
+def _float_value(value):
+    return None if value is None else float(value)
+
+
+class RedisDDLCompiler(compiler.DDLCompiler):
+    """Integer keys require explicit values; Redis has no SERIAL sequences."""
+
+    def get_column_specification(self, column, **kwargs):
+        if column.identity is not None:
+            raise exc.CompileError("Redis ADBC does not support identity columns")
+        return super().get_column_specification(column, **kwargs)
+
+
+class RedisFloat(sqltypes.Float):
+    def bind_processor(self, dialect):
+        # Decimal-preserving NUMERIC support does not make Arrow DOUBLE accept
+        # Decimal Python objects. Coerce only parameters for floating columns.
+        return _float_value
+
+
+class RedisTypeCompiler(PGTypeCompiler):
+    def visit_UUID(self, type_, **kw):
+        return "CHAR(32)"
+
+
+class RedisNumeric(sqltypes.Numeric):
+    def bind_processor(self, dialect):
+        return lambda value: None if value is None else Decimal(str(value))
+
+    def result_processor(self, dialect, coltype):
+        if self.asdecimal:
+            return lambda value: None if value is None else Decimal(str(value))
+        return _float_value
+
+
+class RedisCompiler(PGCompiler):
+    def visit_truediv_binary(self, binary, operator, **kw):
+        if isinstance(binary.left.type, sqltypes.Numeric) and not isinstance(binary.left.type, sqltypes.Float):
+            # Coerce the numerator to its declared precision. PostgreSQL's
+            # default denominator cast uses bare NUMERIC for NULLIF/functions;
+            # Redis's default NUMERIC(38,9) can overflow or round it to zero.
+            return "%s / (%s)" % (
+                self.process(cast(binary.left, binary.left.type), **kw),
+                self.process(binary.right, **kw),
+            )
+        return super().visit_truediv_binary(binary, operator, **kw)
 
 
 class RedisDialect(PGDialect):
@@ -18,9 +70,20 @@ class RedisDialect(PGDialect):
     supports_sane_multi_rowcount = False
     supports_multivalues_insert = True
     supports_sequences = False
-    insert_returning = False
-    update_returning = False
-    delete_returning = False
+    supports_identity_columns = False
+    supports_native_enum = False
+    supports_native_boolean = True
+    supports_constraint_comments = False
+    postfetch_lastrowid = False
+    preexecute_autoincrement_sequences = False
+    ddl_compiler = RedisDDLCompiler
+    statement_compiler = RedisCompiler
+    type_compiler_cls = RedisTypeCompiler
+    type_compiler = RedisTypeCompiler  # SQLAlchemy 1.4 (Superset)
+    colspecs = {**PGDialect.colspecs, sqltypes.Float: RedisFloat, sqltypes.Numeric: RedisNumeric}
+    insert_returning = True
+    update_returning = True
+    delete_returning = True
     use_insertmanyvalues = False
     _backslash_escapes = False
 
@@ -79,6 +142,27 @@ class RedisDialect(PGDialect):
         raise exc.InvalidRequestError(
             "Redis ADBC does not support two-phase transactions"
         )
+
+    def get_table_options(self, connection, table_name, schema=None, **kw):
+        if not self.has_table(connection, table_name, schema=schema):
+            raise exc.NoSuchTableError(table_name)
+        # Redis has no PostgreSQL access methods, tablespaces or inheritance.
+        return {}
+
+    def get_multi_columns(self, connection, schema=None, filter_names=None, **kw):
+        for key, columns in super().get_multi_columns(connection, schema=schema, filter_names=filter_names, **kw):
+            # PostgreSQL derives this from sequence/identity defaults. Neither
+            # exists here; leave SQLAlchemy's generic reflection policy intact.
+            yield key, [{name: value for name, value in column.items() if name != "autoincrement"}
+                        for column in columns]
+
+    def get_multi_pk_constraint(self, connection, schema=None, filter_names=None, **kw):
+        for key, constraint in super().get_multi_pk_constraint(connection, schema=schema, filter_names=filter_names, **kw):
+            yield key, {name: value for name, value in constraint.items() if name != "comment"}
+
+    if hasattr(default.DefaultDialect, "get_multi_table_options"):
+        get_multi_table_options = default.DefaultDialect.get_multi_table_options
+        get_multi_indexes = default.DefaultDialect.get_multi_indexes
 
     def get_indexes(self, connection, table_name, schema=None, **kw):
         # PGDialect 1.4 expects int2vector's space-separated text cast. Redis's

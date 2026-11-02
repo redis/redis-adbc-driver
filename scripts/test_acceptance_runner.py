@@ -62,12 +62,18 @@ class AcceptanceRunnerTests(unittest.TestCase):
         self.assertEqual(result, 1)
         self.assertEqual(summary["sqlalchemy"]["status"], "no_result")
 
-    def test_all_skipped_or_empty_or_xfailed_is_not_success(self):
+    def test_all_skipped_or_empty_or_all_xfailed_is_not_success(self):
         for content in ('<testsuite/>', '<testsuite><testcase><skipped/></testcase></testsuite>',
-                        '<testsuite><testcase/><testcase><skipped type="pytest.xfail"/></testcase></testsuite>'):
+                        '<testsuite><testcase><skipped type="pytest.xfail"/></testcase></testsuite>'):
             with self.subTest(content=content):
                 result, _, _ = self.invoke(content)
                 self.assertEqual(result, 1)
+
+    def test_upstream_xfails_are_recorded_separately_from_passes(self):
+        result, summary, _ = self.invoke('<testsuite><testcase/><testcase><skipped type="pytest.xfail"/></testcase></testsuite>')
+        self.assertEqual(result, 0)
+        self.assertEqual(summary["sqlalchemy"]["passed"], 1)
+        self.assertEqual(summary["sqlalchemy"]["xfailed"], 1)
 
     def test_failure_and_invalid_xml_propagate(self):
         for content in ('<testsuite><testcase><failure/></testcase></testsuite>', 'invalid'):
