@@ -1,6 +1,9 @@
 name: Publish Python wheels to PyPI
 
 on:
+  workflow_run:
+    workflows: [Release binaries]
+    types: [completed]
   workflow_dispatch:
     inputs:
       tag:
@@ -16,14 +19,53 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: pypi-publish
   cancel-in-progress: false
 
 jobs:
+  resolve:
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_repository.full_name == github.repository &&
+       (github.event.workflow_run.event == 'release' || github.event.workflow_run.event == 'workflow_dispatch'))
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+    steps:
+      - name: Resolve validated release (never consume PR artifacts)
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_TAG: ${{ inputs.tag }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          if [ "$EVENT_NAME" = workflow_dispatch ]; then
+            tag="$INPUT_TAG"
+          else
+            gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --name release-metadata --dir metadata
+            tag=$(python3 - <<'PY'
+          import json, pathlib, re
+          release = json.loads(pathlib.Path('metadata/release-metadata.json').read_text())
+          tag = release['tag']
+          if release['skip'] or release['isDraft'] or release['isPrerelease'] or not re.fullmatch(r'v\d+\.\d+\.\d+', tag):
+              print('')  # Prereleases and historical test-skip rebuilds do not auto-publish.
+          else:
+              print(tag)
+          PY
+            )
+          fi
+          if [ -n "$tag" ]; then
+            [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
+            echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          fi
   publish:
-    if: github.ref == 'refs/heads/main'
+    needs: resolve
+    if: needs.resolve.outputs.tag != ''
     runs-on: ubuntu-24.04
     environment:
       name: pypi
@@ -34,59 +76,23 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          sparse-checkout: scripts/check_wheel_libraries.py
-          sparse-checkout-cone-mode: false
+          ref: main
+          persist-credentials: false
       - uses: actions/setup-python@v6
         with:
           python-version: '3.14'
       - name: Download release wheels and checksums
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
         run: |
           gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json tagName,isDraft,isPrerelease,assets > release.json
           gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern '*.whl*' --dir downloads
       - name: Verify exact platform set, checksums, version, and native libraries
         env:
-          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
         run: |
-          python - <<'PY'
-          import email, hashlib, json, os, pathlib, re, shutil, zipfile
-          tag = os.environ['RELEASE_TAG']
-          if not re.fullmatch(r'v\d+\.\d+\.\d+', tag):
-              raise SystemExit('Expected a stable vMAJOR.MINOR.PATCH release tag')
-          release = json.loads(pathlib.Path('release.json').read_text())
-          assert release['tagName'] == tag and not release['isDraft'] and not release['isPrerelease']
-          version = tag[1:]
-          platforms = {'manylinux_2_28_x86_64', 'manylinux_2_28_aarch64', 'macosx_12_0_arm64'}
-          expected = {f'adbc_driver_redis-{version}-py3-none-{p}.whl' for p in platforms}
-          root = pathlib.Path('downloads')
-          assert {p.name for p in root.glob('*.whl')} == expected, 'Missing or unexpected wheel'
-          assets = {a['name']: a for a in release['assets']}
-          pathlib.Path('dist').mkdir(exist_ok=True)
-          for name in sorted(expected):
-              wheel = root / name
-              digest = hashlib.sha256(wheel.read_bytes()).hexdigest()
-              checksum = (root / (name + '.sha256')).read_text().split()[0]
-              assert digest == checksum, f'Checksum mismatch: {name}'
-              api_digest = assets[name].get('digest')
-              if api_digest:
-                  assert api_digest == 'sha256:' + digest, f'GitHub digest mismatch: {name}'
-              with zipfile.ZipFile(wheel) as z:
-                  assert z.testzip() is None
-                  metadata_path, = [n for n in z.namelist() if n.endswith('.dist-info/METADATA')]
-                  metadata = email.message_from_bytes(z.read(metadata_path))
-                  assert metadata['Name'] == 'adbc-driver-redis' and metadata['Version'] == version
-                  assert 'sqlalchemy' in metadata.get_all('Provides-Extra', [])
-                  # The next step checks the native library in root or .data
-                  # install layouts, including its binary format/architecture.
-                  assert any(n.endswith('adbc_driver_redis/superset.py') for n in z.namelist())
-                  assert any(n.endswith('adbc_driver_redis/sqlalchemy.py') for n in z.namelist())
-              shutil.copy2(wheel, pathlib.Path('dist') / name)
-              print(name, digest)
-          PY
-      - name: Check native wheel formats and architectures
-        run: python scripts/check_wheel_libraries.py dist/*.whl
+          python scripts/verify_release_wheels.py --tag "$RELEASE_TAG"
       - uses: actions/checkout@v7
         if: inputs.description_revision != ''
         with:
@@ -99,7 +105,7 @@ jobs:
       - name: Prepare metadata-only description post-release
         if: inputs.description_revision != ''
         env:
-          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
           DESCRIPTION_REVISION: ${{ inputs.description_revision }}
         run: |
           python description-source/scripts/repackage_python_description.py \

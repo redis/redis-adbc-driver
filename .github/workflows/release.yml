@@ -60,6 +60,17 @@ on:
       - python/pyproject.toml
       - python/adbc_driver_redis/**
       - scripts/build_python_wheel.py
+      - scripts/verify_release_wheels.py
+      - scripts/check_wheel_libraries.py
+      - scripts/test_distribution.py
+      - .github/workflows/publish-pypi.yml
+      - .github/workflows/duckdb-extension.yml
+      - .github/actions/duckdb-build-cache/**
+      - duckdb-extension/**
+      - CMakeLists.txt
+      - extension_config.cmake
+      - duckdb
+      - extension-ci-tools
       - scripts/build_dbc_package.py
       - scripts/test_dbc_package.py
       - scripts/install*
@@ -86,6 +97,28 @@ env:
   REDIS_PARTITION_SCAN_CAP: "2147483648"
 
 jobs:
+  distribution:
+    runs-on: ubuntu-24.04
+    outputs:
+      duckdb: ${{ steps.features.outputs.duckdb }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.REF }}
+      - id: features
+        run: echo "duckdb=${{ hashFiles('duckdb-extension/redis_adbc_extension.cpp') != '' }}" >> "$GITHUB_OUTPUT"
+      - name: Test publication validation
+        if: hashFiles('scripts/test_distribution.py') != ''
+        run: python3 -m unittest discover -s scripts -p test_distribution.py -v
+
+  duckdb:
+    needs: distribution
+    if: needs.distribution.outputs.duckdb == 'true'
+    uses: ./.github/workflows/duckdb-extension.yml
+    with:
+      ref: ${{ github.event.release.tag_name || inputs.tag || github.sha }}
+      version: ${{ github.event.release.tag_name || inputs.tag || 'v0.0.0-dev' }}
+
   linux:
     name: linux-${{ matrix.arch }}
     strategy:
@@ -693,8 +726,13 @@ jobs:
           rm -rf "$RUNNER_TEMP/wheel-client-native"
 
   upload:
-    if: github.event_name != 'pull_request'
-    needs: [linux, platforms, macos, wheel-clients]
+    if: >-
+      !cancelled() && github.event_name != 'pull_request' &&
+      needs.distribution.result == 'success' && needs.linux.result == 'success' &&
+      needs.platforms.result == 'success' && needs.macos.result == 'success' &&
+      needs.wheel-clients.result == 'success' &&
+      (needs.duckdb.result == 'success' || needs.duckdb.result == 'skipped')
+    needs: [distribution, linux, platforms, macos, wheel-clients, duckdb]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -709,6 +747,16 @@ jobs:
         with:
           name: darwin-arm64
           path: dist
+      - uses: actions/download-artifact@v8
+        if: needs.duckdb.result == 'success'
+        with:
+          pattern: duckdb-*
+          path: dist
+          merge-multiple: true
+      - name: Package managed native installer
+        run: |
+          cp scripts/install_driver.py dist/
+          (cd dist && sha256sum install_driver.py > install_driver.py.sha256)
       - name: Generate Redis dbc registry entry
         run: |
           if compgen -G 'dist/redis_*.tar.gz' > /dev/null; then
@@ -719,3 +767,22 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "$VERSION" dist/* --clobber --repo "$GITHUB_REPOSITORY"
 
+      - name: Record completed release for automatic PyPI publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p metadata
+          gh release view "$VERSION" --repo "$GITHUB_REPOSITORY"             --json tagName,isDraft,isPrerelease > metadata/release-metadata.json
+          python3 - <<'PY'
+          import json, os, pathlib
+          path = pathlib.Path('metadata/release-metadata.json')
+          release = json.loads(path.read_text())
+          release['tag'] = os.environ['VERSION']
+          release['skip'] = os.environ.get('SKIP', '')
+          path.write_text(json.dumps(release))
+          PY
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-metadata
+          path: metadata/release-metadata.json
+          if-no-files-found: error

@@ -3,8 +3,6 @@ name: DuckDB extension
 on:
   schedule:
     - cron: '47 9 * * *'
-  release:
-    types: [published]
   pull_request:
     paths:
       - .github/workflows/duckdb-extension.yml
@@ -23,12 +21,22 @@ on:
       - extension-ci-tools
       - '!**/*.md'
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      ref:
+        description: Exact source ref to build
+        required: true
+        type: string
+      version:
+        description: Release asset version
+        required: true
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: duckdb-extension-${{ github.event_name }}-${{ github.ref }}
+  group: duckdb-extension-${{ github.workflow }}-${{ github.event_name }}-${{ inputs.version || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -46,6 +54,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: ${{ inputs.ref || github.sha }}
           submodules: recursive
       - uses: ./.github/actions/duckdb-build-cache
         with:
@@ -99,3 +108,27 @@ jobs:
       - name: Compiler cache statistics
         if: always()
         run: ccache --show-stats
+      - name: Package versioned standalone extension
+        env:
+          RELEASE_VERSION: ${{ inputs.version || 'dev' }}
+        run: |
+          target=linux-amd64
+          if [ "$RUNNER_ARCH" = ARM64 ]; then target=linux-arm64; fi
+          if [ "$RUNNER_OS" = macOS ]; then target=darwin-arm64; fi
+          name="redis_adbc-$RELEASE_VERSION-duckdb-v$DUCKDB_TEST_VERSION-$target"
+          mkdir -p "dist/$name"
+          cp build/release/extension/redis_adbc/redis_adbc.duckdb_extension "dist/$name/"
+          cp duckdb-extension/README.md LICENSE "dist/$name/"
+          build/release/duckdb -csv -noheader -c 'PRAGMA platform' > "dist/$name/DUCKDB_PLATFORM"
+          printf '%s\n' "$DUCKDB_TEST_VERSION" > "dist/$name/DUCKDB_VERSION"
+          printf '%s\n' "$RELEASE_VERSION" > "dist/$name/VERSION"
+          tar -C dist -czf "dist/$name.tar.gz" "$name"
+          (cd dist && shasum -a 256 "$name.tar.gz" > "$name.tar.gz.sha256")
+          rm -r "dist/$name"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: duckdb-${{ runner.os }}-${{ runner.arch }}
+          path: |
+            dist/*.tar.gz
+            dist/*.sha256
+          if-no-files-found: error

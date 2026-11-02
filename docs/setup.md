@@ -54,11 +54,14 @@ check TLS, leaving certificate verification enabled.
 For a private CA, add `--ca-file /path/to/ca.pem`; it applies the driver's explicit
 trust-bundle option to the direct connection and both manifest discovery checks.
 
+See [driver installation for all 50 integrations](integration-installation.md) for
+the complete package/placement matrix and automated release distributions.
+
 ## Pick an integration
 
 | Tool | Install/configure | Detailed guide |
 |---|---|---|
-| pandas / Polars | Install the `dbapi` extra plus pandas or Polars; use the bundled driver | [pandas](integrations/pandas.md), [Polars](integrations/polars.md) |
+| pandas / Polars | Install the `pandas` or `polars` extra; use the bundled driver | [pandas](integrations/pandas.md), [Polars](integrations/polars.md) |
 | SQLAlchemy | Install the `sqlalchemy` extra; use `redis+adbc://` or `rediss+adbc://` | [SQLAlchemy](integrations/sqlalchemy.md) |
 | Superset | Install the `superset` extra in a separate compatible environment on every web and SQL Lab worker | [Superset](integrations/superset.md) |
 | Dagster | Install the `dagster` extra; use RedisADBCIOManager or the documented ADBCResource path | [Dagster](integrations/dagster.md) |
@@ -74,7 +77,7 @@ trust-bundle option to the direct connection and both manifest discovery checks.
 | Snowflake / BigQuery | External ingestion pipeline; driver installation does not create native warehouse federation | [Ecosystem comparison](data-engineering-adbc-support.md) |
 
 The [dedicated integration guides](integrations/README.md) document runnable
-examples, version requirements and limitations. The [22-tool ecosystem comparison](data-engineering-adbc-support.md)
+examples, version requirements and limitations. The [50-tool ecosystem comparison](data-engineering-adbc-support.md)
 records test evidence and distinguishes candidate paths from implemented helpers.
 Repository capabilities may require a newer build than the latest published wheel;
 check the relevant guide before assuming an installed release includes a helper.

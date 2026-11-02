@@ -1,5 +1,28 @@
 # Release and recovery runbook
 
+## Automatic integration distributions (2026-11-01)
+
+See the [50-tool installation matrix](../integration-installation.md) and
+[change evidence](changes/integration-distribution/validation.md).
+
+The updated pipeline retains native/platform/wheel-client gates and adds the
+existing DuckDB 2.0 workflow as a release dependency. It uploads the checked
+extension binaries and the existing managed native installer with checksums,
+alongside native, CLI, wheel and dbc artifacts. The dedicated `publish-pypi.yml`
+then runs automatically after a successful `Release binaries` completion. Its
+completed-run metadata identifies the stable tag; draft/prerelease or Go-test-skip
+rebuilds do not auto-publish. Manual stable-tag retries and description-only
+post-releases remain available. A release is complete only after both binary
+and PyPI workflows succeed.
+
+Verified in signed-in browser settings: PyPI already authorizes organization
+`redis`, repository `redis-adbc-driver`, workflow `publish-pypi.yml`, environment
+`pypi`. GitHub's matching environment exists without required reviewers, timer,
+custom protection rule or deployment branch/tag restrictions. No setting was
+changed. The workflow changes must reach `main` and the first updated OIDC run
+must be observed. Historical publication evidence below remains relevant;
+its manual dispatch command is now a retry option rather than the normal path.
+
 ## v0.0.19 publication follow-up (2026-10-29)
 
 [v0.0.19](https://github.com/redis/redis-adbc-driver/releases/tag/v0.0.19)
