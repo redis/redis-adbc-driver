@@ -457,6 +457,9 @@ func (s *store) lastNames(ctx context.Context, c goredis.Cmdable, schema, table 
 // every prefix it handed out instead (see tempSpace).
 func (s *store) claimNames(ctx context.Context, schema, table string) (tableNames, error) {
 	if nm, ok := snapshotNames(ctx, schema, table); ok {
+		if err := s.ownSnapshotData(ctx, snapshotDataID(nm.prefix)); err != nil {
+			return tableNames{}, err
+		}
 		pipe := s.redis(ctx).Pipeline()
 		reserveNames(ctx, pipe, nm)
 		_, err := pipe.Exec(ctx)
@@ -1384,6 +1387,9 @@ func (s *store) truncateTables(ctx context.Context, metas []*tableMeta, restartI
 
 	var first error
 	for _, t := range ts {
+		if s.snapshots && !snapshotOwns(ctx, t.oldPrefix) {
+			continue
+		}
 		if err := s.searchDo(ctx, t.oldIndex, "FT.DROPINDEX", t.oldIndex, "DD").Err(); err != nil &&
 			!isUnknownIndex(err) && first == nil {
 			first = errorf(adbc.StatusIO, "table %q.%q is empty, but deleting its old rows failed: %v; they are left under the key prefix %q, which no table has any more",
@@ -1490,7 +1496,7 @@ func (s *store) dropTable(ctx context.Context, schema, table string, ifExists bo
 		}
 		// DD deletes every document the index knows about; an adopted
 		// table's HASHes stay, and the application's index too (AppIndex).
-		if !meta.AppIndex {
+		if !meta.AppIndex && (!s.snapshots || snapshotOwns(ctx, meta.prefix())) {
 			drop := []any{"FT.DROPINDEX", meta.index(), "DD"}
 			if meta.Adopted {
 				drop = drop[:2]

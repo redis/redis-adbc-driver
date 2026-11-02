@@ -9,10 +9,10 @@ Related: [intent](intent.md), [specification](spec.md), [validation](validation.
 
 1. `go/snapshot.go`: bounded catalog protocol, atomic acquisition/pins,
    server-time leases, root CAS plus durable outcomes, server-side mutation
-   fences, namespace isolation, full-catalog copying, index readiness validation
+   fences, namespace isolation, metadata-manifest copying and target-table detachment, index readiness validation
    and resumable reclamation. Copied and final row images receive completed
-   initial index scans. Rows and metadata occupy one hash slot. Shared
-   per-table generations and cross-slot publication were deferred.
+   initial index scans. Rows and metadata occupy one hash slot. Unchanged table generations are shared; catalog manifests and table data
+   have separate reclamation protocols. Cross-slot publication is deferred.
 2. `go/database.go`, `go/connection.go`: explicit format option, empty-catalog
    initialization, deployment checks, safe option restrictions, scoped discovery
    and timeout-client replacement retaining the namespace hook.
@@ -48,10 +48,9 @@ No merge, release or human approval is implied by these working-tree changes.
 
 ## Deferred work
 
-The first version copies the entire catalog for every write and retains old
-catalogs while readers use them. It is intentionally bounded. Later work may
-introduce per-table sharing, delta generations, finer conflict detection,
-configurable limits and ALTER support. Upgrade/migration work is excluded by
-user direction. Cross-slot publication,
-Active-Active, failover certification and throughput claims require separate
-design and runtime evidence.
+Writes still copy the entire DML target table. Later work may introduce row-level
+delta generations, compaction, finer conflict detection, configurable limits and
+ALTER support. Metadata copying and index validation still involve the catalog.
+Upgrade/migration work is excluded by user direction, including the earlier
+version 1 draft format. Cross-slot publication, Active-Active, failover
+certification and throughput claims require separate design and runtime evidence.

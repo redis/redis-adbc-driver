@@ -5,8 +5,8 @@
 
 package redis
 
-// Snapshot catalogs use complete, private catalog generations. Legacy metadata
-// commands are scoped to one generation at the client boundary. Row HASHes and
+// Snapshot catalogs use private metadata manifests and shared immutable table
+// generations. Legacy metadata commands are scoped to one generation at the client boundary. Row HASHes and
 // metadata share {meta}; publication never spans Redis hash slots. Published
 // generations are immutable. The ordinary SQL planner and scan implementations
 // consequently read precisely the same physical objects for an entire statement.
@@ -43,6 +43,7 @@ type snapshotScope struct {
 	id            string
 	pin           *snapshotPin
 	write         bool
+	owned         map[string]bool
 	mu            sync.Mutex
 	bytes, writes int64
 }
@@ -75,12 +76,12 @@ end
 if op == 'init' then
   if redis.call('EXISTS', k) == 0 then
     if redis.call('DBSIZE') ~= 0 then return redis.error_reply('managed-table snapshots require a fresh empty database; existing storage is not upgraded or modified') end
-    redis.call('HSET', k, 'format', '1', 'root', id, 'w:'..id, cjson.encode({state='committed'}))
+    redis.call('HSET', k, 'format', '2', 'root', id, 'w:'..id, cjson.encode({state='committed'}), 'r:'..id, '[]')
   end
-  if redis.call('HGET', k, 'format') ~= '1' then return redis.error_reply('unsupported snapshot catalog format') end
+  if redis.call('HGET', k, 'format') ~= '2' then return redis.error_reply('unsupported snapshot catalog format') end
   return 1
 end
-if redis.call('HGET', k, 'format') ~= '1' then return redis.error_reply('missing or unsupported snapshot catalog') end
+if redis.call('HGET', k, 'format') ~= '2' then return redis.error_reply('missing or unsupported snapshot catalog') end
 local entries = redis.call('HGETALL', k)
 local pins, works, protected = 0, 0, {}
 for n=1,#entries,2 do
@@ -131,6 +132,23 @@ elseif op == 'reserve' then
   if works >= 16 then return redis.error_reply('snapshot generation limit (16) reached; release old readers or retry cleanup') end
   if not owns_pin() or redis.call('HGET', k, 'root') ~= base then return 0 end
   redis.call('HSET', k, 'w:'..id, cjson.encode({state='staging',token=token,expires=expiry,base=base}))
+  redis.call('HSET', k, 'r:'..id, redis.call('HGET', k, 'r:'..base) or '[]')
+  return 1
+elseif op == 'own_data' then
+  local raw = redis.call('HGET', k, 'w:'..id)
+  if not raw or not owns_pin() then return redis.error_reply('snapshot writer lease lost') end
+  local w = cjson.decode(raw)
+  if w.state ~= 'staging' or w.token ~= token or w.expires <= now then return redis.error_reply('snapshot writer lease lost') end
+  local data = ARGV[6]
+  local prior = redis.call('HGET', k, 'd:'..data)
+  if prior then
+    local d = cjson.decode(prior)
+    if d.owner == id and d.state == 'live' then return 1 end
+    return redis.error_reply('snapshot data generation unavailable')
+  end
+  local refs = cjson.decode(redis.call('HGET', k, 'r:'..id) or '[]')
+  table.insert(refs, data)
+  redis.call('HSET', k, 'd:'..data, cjson.encode({owner=id,state='live'}), 'r:'..id, cjson.encode(refs))
   return 1
 elseif op == 'publish' then
   local raw = redis.call('HGET', k, 'w:'..id)
@@ -139,7 +157,12 @@ elseif op == 'publish' then
   if w.state == 'committed' then return 1 end
   if w.state ~= 'staging' or w.token ~= token or w.expires <= now or not owns_pin() then return -1 end
   if redis.call('HGET', k, 'root') ~= base then return 0 end
-  redis.call('HSET', k, 'root', id, 'w:'..id, cjson.encode({state='committed'}))
+  local refs = cjson.decode(ARGV[6])
+  for _,data in ipairs(refs) do
+    local d = redis.call('HGET', k, 'd:'..data)
+    if not d or cjson.decode(d).state ~= 'live' then return redis.error_reply('snapshot data generation unavailable') end
+  end
+  redis.call('HSET', k, 'root', id, 'w:'..id, cjson.encode({state='committed'}), 'r:'..id, ARGV[6])
   return 1
 elseif op == 'outcome' then
   local raw = redis.call('HGET', k, 'w:'..id)
@@ -170,16 +193,48 @@ elseif op == 'claim' then
   return ''
 elseif op == 'reclaimed' then
   local raw = redis.call('HGET', k, 'w:'..id)
-  if raw and cjson.decode(raw).state == 'deleting' then redis.call('HDEL', k, 'w:'..id) end
+  if raw and cjson.decode(raw).state == 'deleting' then redis.call('HDEL', k, 'w:'..id, 'r:'..id) end
+  return 1
+elseif op == 'claim_data' then
+  local referenced = {}
+  for n=1,#entries,2 do
+    local field = entries[n]
+    if string.sub(field,1,2) == 'w:' then
+      local w = cjson.decode(entries[n+1])
+      if w.state == 'committed' or (w.state == 'staging' and w.expires > now) then
+        local refs = cjson.decode(redis.call('HGET', k, 'r:'..string.sub(field,3)) or '[]')
+        for _,data in ipairs(refs) do referenced[data] = true end
+      end
+    end
+  end
+  for n=1,#entries,2 do
+    if string.sub(entries[n],1,2) == 'd:' then
+      local data = string.sub(entries[n],3)
+      if not referenced[data] then
+        local d = cjson.decode(entries[n+1])
+        d.state = 'deleting'
+        redis.call('HSET', k, entries[n], cjson.encode(d))
+        return data
+      end
+    end
+  end
+  return ''
+elseif op == 'reclaimed_data' then
+  local raw = redis.call('HGET', k, 'd:'..id)
+  if raw and cjson.decode(raw).state == 'deleting' then redis.call('HDEL', k, 'd:'..id) end
   return 1
 end
 return redis.error_reply('unknown snapshot control operation')
 `
 
-func (s *store) snapshotControl(ctx context.Context, op, token, id, base string) *goredis.Cmd {
+func (s *store) snapshotControl(ctx context.Context, op, token, id, base string, extra ...string) *goredis.Cmd {
 	// EVAL is sent once. Acquisition/reservation/renewal are idempotent for their
 	// tokens; publication resolves lost replies through its durable outcome.
-	return once(ctx, s.client, "EVAL", snapshotControl, 1, snapshotCatalogKey, op, token, id, base, snapshotLease.Milliseconds())
+	arg := ""
+	if len(extra) != 0 {
+		arg = extra[0]
+	}
+	return once(ctx, s.client, "EVAL", snapshotControl, 1, snapshotCatalogKey, op, token, id, base, snapshotLease.Milliseconds(), arg)
 }
 
 type snapshotPin struct {
@@ -336,7 +391,13 @@ local now = tonumber(t[1])*1000 + math.floor(tonumber(t[2])/1000)
 if w.state ~= 'staging' or w.token ~= ARGV[2] or w.expires <= now then
   return redis.error_reply('snapshot writer lease lost')
 end
-return redis.call(unpack(ARGV,3))
+for data in string.gmatch(ARGV[3], '[^,]+') do
+  local raw = redis.call('HGET', KEYS[1], 'd:'..data)
+  if not raw then return redis.error_reply('snapshot data generation was reclaimed') end
+  local d = cjson.decode(raw)
+  if d.owner ~= ARGV[1] or d.state ~= 'live' then return redis.error_reply('shared snapshot data is immutable') end
+end
+return redis.call(unpack(ARGV,4))
 `
 
 func fenceSnapshotCommand(ctx context.Context, cmd goredis.Cmder) goredis.Cmder {
@@ -357,7 +418,13 @@ func fenceSnapshotCommand(ctx context.Context, cmd goredis.Cmder) goredis.Cmder 
 		}
 		args := []any{"EVAL", snapshotMutation, len(keys)}
 		args = append(args, keys...)
-		args = append(args, scope.id, scope.pin.token)
+		data := []string{}
+		for _, key := range keys[1:] {
+			if id := snapshotDataID(fmt.Sprint(key)); id != "" {
+				data = append(data, id)
+			}
+		}
+		args = append(args, scope.id, scope.pin.token, strings.Join(data, ","))
 		args = append(args, cmd.Args()...)
 		return snapshotFencedCommand{Cmder: cmd, args: args}
 	}
@@ -427,7 +494,16 @@ func scopeSnapshotCommand(ctx context.Context, cmd goredis.Cmder) error {
 		for n := 1; n < len(args); n++ {
 			scope.bytes += int64(len(fmt.Sprint(args[n])))
 		}
-		if name == "hset" && len(args) > 1 && strings.HasPrefix(fmt.Sprint(args[1]), snapshotRows(scope.id)) {
+		keys := []int{1}
+		if name == "del" || name == "unlink" {
+			keys = positions
+		}
+		for _, n := range keys {
+			if data := snapshotDataID(fmt.Sprint(args[n])); data != "" && !scope.owned[data] {
+				return errorf(adbc.StatusInvalidState, "shared snapshot data is immutable")
+			}
+		}
+		if name == "hset" && len(args) > 1 && strings.HasPrefix(fmt.Sprint(args[1]), snapshotPrefix+"rows:") {
 			scope.writes++
 		}
 		if scope.bytes > snapshotMaxBytes || scope.writes > snapshotMaxWrites {
@@ -443,7 +519,7 @@ func snapshotNames(ctx context.Context, schema, table string) (tableNames, bool)
 		return tableNames{}, false
 	}
 	id := snapshotID()
-	return tableNames{base: rowPrefix(schema, table), prefix: snapshotRows(ss.id) + id + ":", index: snapshotIndexPrefix(ss.id) + id, n: 1}, true
+	return tableNames{base: rowPrefix(schema, table), prefix: snapshotRows(id), index: snapshotIndexPrefix(id) + "working", n: 1}, true
 }
 
 func (s *store) beginSnapshotWrite(ctx context.Context, pin *snapshotPin) (context.Context, string, error) {
@@ -458,17 +534,12 @@ func (s *store) beginSnapshotWrite(ctx context.Context, pin *snapshotPin) (conte
 	pin.mu.Lock()
 	pin.workspace = id
 	pin.mu.Unlock()
-	wctx := context.WithValue(ctx, snapshotContextKey{}, &snapshotScope{id: id, pin: pin, write: true})
+	wctx := context.WithValue(ctx, snapshotContextKey{}, &snapshotScope{id: id, pin: pin, write: true, owned: map[string]bool{}})
 	if err := s.copySnapshot(ctx, wctx, pin.root, id); err != nil {
 		s.abortSnapshot(pin, id)
 		return ctx, "", err
 	}
-	// DML reads its private copy before writing it. Publication validation
-	// alone is too late: an incomplete copied index could omit target rows.
-	if err := s.validateSnapshot(wctx); err != nil {
-		s.abortSnapshot(pin, id)
-		return ctx, "", err
-	}
+
 	return wctx, id, nil
 }
 
@@ -490,7 +561,11 @@ func (s *store) publishSnapshot(ctx context.Context, pin *snapshotPin, id string
 	if err := s.validateSnapshot(ctx); err != nil {
 		return err
 	}
-	n, err := s.snapshotControl(ctx, "publish", pin.token, id, pin.root).Int()
+	refs, err := s.snapshotReferences(ctx)
+	if err != nil {
+		return err
+	}
+	n, err := s.snapshotControl(ctx, "publish", pin.token, id, pin.root, refs).Int()
 	if err != nil {
 		// Resolve with an independent bounded context, including cancellation
 		// racing with EXEC. Never replay the SQL or Arrow input.
@@ -515,8 +590,8 @@ func (s *store) publishSnapshot(ctx context.Context, pin *snapshotPin, id string
 }
 
 func (s *store) copySnapshot(baseCtx, targetCtx context.Context, base, id string) error {
-	// Copy all metadata first. Every key in a workspace is owned by that
-	// generation; opaque encodings, counters and view definitions survive.
+	// Copy only metadata. Table descriptors keep pointing to immutable shared
+	// data until a DML target is detached; counters and view definitions survive.
 	ks := &keyScan{nodes: []goredis.Cmdable{s.client}, match: globEscape(snapshotWorkspace(base)) + "*"}
 	seen := map[string]bool{}
 	for {
@@ -542,78 +617,146 @@ func (s *store) copySnapshot(baseCtx, targetCtx context.Context, base, id string
 			break
 		}
 	}
-	if err := s.client.Del(targetCtx, prefixesKey, indexesKey).Err(); err != nil {
-		return err
-	}
-	schemas, err := s.listSchemas(baseCtx)
+	return snapshotOf(baseCtx).pin.valid(baseCtx)
+}
+
+// prepareSnapshotTable detaches a DML target before planning can capture row
+// keys. Read-only source tables continue to use their shared descriptors.
+func (s *store) prepareSnapshotTable(ctx context.Context, schema, table string) error {
+	meta, err := s.getTable(ctx, schema, table)
 	if err != nil {
 		return err
 	}
-	for _, schema := range schemas {
-		tables, err := s.listTables(baseCtx, schema)
+	scope := snapshotOf(ctx)
+	if scope == nil || !scope.write {
+		return snapshotUnsupported()
+	}
+	if snapshotOwns(ctx, meta.prefix()) {
+		return nil
+	}
+	oldPrefix, oldIndex := meta.prefix(), meta.index()
+	nm, err := s.claimNames(ctx, schema, table)
+	if err != nil {
+		return err
+	}
+	meta.KeyPrefix, meta.IndexName, meta.PrefixGen = nm.prefix, nm.index, 0
+	rows := &keyScan{nodes: []goredis.Cmdable{s.client}, match: globEscape(oldPrefix) + "*", typ: "hash"}
+	copied := map[string]bool{}
+	for {
+		keys, done, err := rows.next(ctx)
 		if err != nil {
 			return err
 		}
-		for _, table := range tables {
-			meta, err := s.getTable(baseCtx, schema, table)
+		pipe := s.redis(ctx).Pipeline()
+		for _, key := range keys {
+			if copied[key] {
+				continue
+			}
+			copied[key] = true
+			fields, err := s.redis(ctx).HGetAll(ctx, key).Result()
 			if err != nil {
 				return err
 			}
-			if meta.Adopted || meta.AppIndex || meta.Foreign || meta.RekeyTo != "" {
-				return errorf(adbc.StatusNotImplemented, "snapshot catalogs require managed, non-moving tables")
+			if len(fields) == 0 {
+				return errorf(adbc.StatusIO, "published snapshot row disappeared")
 			}
-			oldPrefix := meta.prefix()
-			nm, _ := snapshotNames(targetCtx, schema, table)
-			meta.KeyPrefix, meta.IndexName, meta.PrefixGen = nm.prefix, nm.index, 0
-			pipe := s.client.Pipeline()
-			reserveNames(targetCtx, pipe, nm)
-			if _, err := pipe.Exec(targetCtx); err != nil {
-				return err
-			}
-			rows := &keyScan{nodes: []goredis.Cmdable{s.client}, match: globEscape(oldPrefix) + "*", typ: "hash"}
-			copied := map[string]bool{}
-			for {
-				keys, done, err := rows.next(baseCtx)
-				if err != nil {
-					return err
-				}
-				pipe := s.client.Pipeline()
-				for _, key := range keys {
-					if copied[key] {
-						continue
+			pipe.HSet(ctx, nm.prefix+strings.TrimPrefix(key, oldPrefix), fields)
+		}
+		if _, err := pipe.Exec(ctx); err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+	}
+	if err := s.searchDo(ctx, meta.index(), snapshotScannedIndexArgs(meta)...).Err(); err != nil {
+		return wrapRedis(err, "failed to index snapshot copy")
+	}
+	raw, err := json.Marshal(meta)
+	if err != nil {
+		return err
+	}
+	pipe := s.redis(ctx).Pipeline()
+	pipe.Set(ctx, metaKey(schema, table), raw, 0)
+	pipe.SRem(ctx, prefixesKey, oldPrefix)
+	pipe.SRem(ctx, indexesKey, oldIndex)
+	if _, err := pipe.Exec(ctx); err != nil {
+		return err
+	}
+	// A completed private initial scan is required before DML can read it.
+	return s.validateSnapshot(ctx)
+}
+
+func snapshotDataID(key string) string {
+	for _, prefix := range []string{snapshotPrefix + "rows:", "adbc_snapshot_{meta}_"} {
+		if rest, ok := strings.CutPrefix(key, prefix); ok {
+			if len(rest) >= 33 && (rest[32] == ':' || rest[32] == '_') {
+				id := rest[:32]
+				for _, c := range id {
+					if !strings.ContainsRune("0123456789abcdef", c) {
+						return ""
 					}
-					copied[key] = true
-					fields, err := s.client.HGetAll(baseCtx, key).Result()
-					if err != nil {
-						return err
-					}
-					if len(fields) == 0 {
-						return errorf(adbc.StatusIO, "published snapshot row disappeared")
-					}
-					pipe.HSet(targetCtx, nm.prefix+strings.TrimPrefix(key, oldPrefix), fields)
 				}
-				if _, err := pipe.Exec(targetCtx); err != nil {
-					return err
-				}
-				if done {
-					break
-				}
-			}
-			// No index watches this private prefix while its HASHes are copied.
-			// A completed initial scan is the fence before DML can read them.
-			if err := s.searchDo(targetCtx, meta.index(), snapshotScannedIndexArgs(meta)...).Err(); err != nil {
-				return wrapRedis(err, "failed to index snapshot copy")
-			}
-			raw, err := json.Marshal(meta)
-			if err != nil {
-				return err
-			}
-			if err := s.client.Set(targetCtx, metaKey(schema, table), raw, 0).Err(); err != nil {
-				return err
+				return id
 			}
 		}
 	}
-	return snapshotOf(baseCtx).pin.valid(baseCtx)
+	return ""
+}
+
+func (s *store) ownSnapshotData(ctx context.Context, data string) error {
+	scope := snapshotOf(ctx)
+	if scope == nil || !scope.write || data == "" {
+		return snapshotUnsupported()
+	}
+	if err := s.snapshotControl(ctx, "own_data", scope.pin.token, scope.id, scope.pin.root, data).Err(); err != nil {
+		return wrapRedis(err, "failed to reserve table generation")
+	}
+	scope.mu.Lock()
+	scope.owned[data] = true
+	scope.mu.Unlock()
+	return nil
+}
+
+func snapshotOwns(ctx context.Context, key string) bool {
+	scope := snapshotOf(ctx)
+	if scope == nil || !scope.write {
+		return false
+	}
+	scope.mu.Lock()
+	defer scope.mu.Unlock()
+	return scope.owned[snapshotDataID(key)]
+}
+
+func (s *store) snapshotReferences(ctx context.Context) (string, error) {
+	schemas, err := s.listSchemas(ctx)
+	if err != nil {
+		return "", err
+	}
+	refs := []string{}
+	seen := map[string]bool{}
+	for _, schema := range schemas {
+		tables, err := s.listTables(ctx, schema)
+		if err != nil {
+			return "", err
+		}
+		for _, table := range tables {
+			meta, err := s.getTable(ctx, schema, table)
+			if err != nil {
+				return "", err
+			}
+			id := snapshotDataID(meta.prefix())
+			if id == "" || snapshotDataID(meta.index()) != id {
+				return "", errorf(adbc.StatusIO, "invalid table generation descriptor")
+			}
+			if !seen[id] {
+				refs = append(refs, id)
+				seen[id] = true
+			}
+		}
+	}
+	raw, err := json.Marshal(refs)
+	return string(raw), err
 }
 
 func snapshotScannedIndexArgs(meta *tableMeta) []any {
@@ -641,8 +784,11 @@ func (s *store) rebuildSnapshotIndexes(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
+			if !snapshotOwns(ctx, meta.prefix()) {
+				continue
+			}
 			old := meta.index()
-			meta.IndexName = snapshotIndexPrefix(snapshotOf(ctx).id) + snapshotID()
+			meta.IndexName = snapshotIndexPrefix(snapshotDataID(meta.prefix())) + snapshotID()
 			if err := s.searchDo(ctx, meta.index(), snapshotScannedIndexArgs(meta)...).Err(); err != nil {
 				return wrapRedis(err, "failed to index final snapshot rows")
 			}
@@ -679,6 +825,9 @@ func (s *store) validateSnapshot(ctx context.Context) error {
 			meta, err := s.getTable(ctx, schema, table)
 			if err != nil {
 				return err
+			}
+			if !snapshotOwns(ctx, meta.prefix()) {
+				continue
 			}
 			ks := &keyScan{nodes: []goredis.Cmdable{s.client}, match: globEscape(meta.prefix()) + "*", typ: "hash"}
 			seen := map[string]bool{}
@@ -764,41 +913,55 @@ func (s *store) reapSnapshot(parent context.Context) {
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), 5*time.Second)
 	defer cancel()
 	id, err := s.snapshotControl(ctx, "claim", "", "", "").Text()
-	if err != nil || id == "" {
+	if err != nil {
 		return
 	}
-	// Unique generation names make interrupted and competing cleanup safe.
+	if id != "" {
+		if !s.deleteSnapshotKeys(ctx, snapshotWorkspace(id)) {
+			return
+		}
+		if err := s.snapshotControl(ctx, "reclaimed", "", id, "").Err(); err != nil {
+			return
+		}
+	}
+	data, err := s.snapshotControl(ctx, "claim_data", "", "", "").Text()
+	if err != nil || data == "" {
+		return
+	}
 	indexes, err := s.searchDo(ctx, "", "FT._LIST").Slice()
 	if err != nil {
 		return
 	}
 	for _, index := range indexes {
 		name := fmt.Sprint(index)
-		if strings.HasPrefix(name, snapshotIndexPrefix(id)) {
-			err := s.searchDo(ctx, name, "FT.DROPINDEX", name).Err()
-			if err != nil && !isUnknownIndex(err) {
+		if strings.HasPrefix(name, snapshotIndexPrefix(data)) {
+			if err := s.searchDo(ctx, name, "FT.DROPINDEX", name).Err(); err != nil && !isUnknownIndex(err) {
 				return
 			}
 		}
 	}
-	for _, prefix := range []string{snapshotRows(id), snapshotWorkspace(id)} {
-		ks := &keyScan{nodes: []goredis.Cmdable{s.client}, match: globEscape(prefix) + "*"}
-		for {
-			keys, done, err := ks.next(ctx)
-			if err != nil {
-				return
-			}
-			if len(keys) > 0 {
-				if err := s.client.Del(ctx, keys...).Err(); err != nil {
-					return
-				}
-			}
-			if done {
-				break
+	if !s.deleteSnapshotKeys(ctx, snapshotRows(data)) {
+		return
+	}
+	_ = s.snapshotControl(ctx, "reclaimed_data", "", data, "").Err()
+}
+
+func (s *store) deleteSnapshotKeys(ctx context.Context, prefix string) bool {
+	ks := &keyScan{nodes: []goredis.Cmdable{s.client}, match: globEscape(prefix) + "*"}
+	for {
+		keys, done, err := ks.next(ctx)
+		if err != nil {
+			return false
+		}
+		if len(keys) > 0 {
+			if err := s.client.Del(ctx, keys...).Err(); err != nil {
+				return false
 			}
 		}
+		if done {
+			return true
+		}
 	}
-	_ = s.snapshotControl(ctx, "reclaimed", "", id, "").Err()
 }
 
 func (e *executor) executeSnapshot(ctx context.Context, ps ParsedStmt, params []Value, types []ColType, so *streamOpts) (execResult, error) {
@@ -829,6 +992,26 @@ func (e *executor) executeSnapshot(ctx context.Context, ps ParsedStmt, params []
 			return execResult{}, err
 		}
 		defer e.store.abortSnapshot(pin, id)
+		var target *TableName
+		switch stmt := ps.Stmt.(type) {
+		case *InsertStmt:
+			target = &stmt.Table
+		case *UpdateStmt:
+			target = &stmt.Table
+		case *DeleteStmt:
+			target = &stmt.Table
+		case *MergeStmt:
+			target = &stmt.Table
+		}
+		if target != nil {
+			schema, table, err := e.resolveTable(*target)
+			if err != nil {
+				return execResult{}, err
+			}
+			if err := e.store.prepareSnapshotTable(sctx, schema, table); err != nil {
+				return execResult{}, err
+			}
+		}
 	}
 	res, err := e.execute(sctx, ps, params, types, so)
 	if err != nil {

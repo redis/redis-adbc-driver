@@ -90,8 +90,8 @@ mandatory format requires an empty database and old suites assume legacy layouts
 No runtime validation covers Active-Active, Cluster API, multiple shards,
 failover, persistence recovery or old binaries sharing this database. Those are
 excluded or unverified as documented. There is no migration, downgrade,
-multi-statement transaction, shared-generation optimization or throughput claim.
-Full catalog copies and fixed limits are material compatibility/cost risks.
+multi-statement transaction, row-level delta optimization or throughput claim.
+Target-table copies, global traversal costs and fixed limits remain material compatibility/cost risks.
 
 Review covered command scoping/fences, publish ambiguity, writer and reader
 lifetimes, cleanup ownership, Arrow buffer ownership, current transport routing,
@@ -99,3 +99,48 @@ metadata/ingest entry points and public defaults against REVIEW.md. Human review
 is required before merging this material storage change. Issue #113 was read
 through GitHub; its old proposal link returned 404. The pre-existing untracked
 `.codex/` directory is outside this change.
+
+## Shared-table refinement
+
+Revision baseline: PR #284 commit `2bdd3c784198667fcd983262667a914faba73138`.
+The user requested reuse of unchanged tables; the earlier results above describe
+the original full-catalog-copy draft, not this subsequent refinement.
+
+Protocol version 2 gives catalog manifests and physical table generations separate
+lifetimes. Reservation inherits references atomically. New data is registered
+before allocation; publication atomically installs the final reference list.
+Reclamation checks all committed and live staging references before claiming
+physical data. Creator manifest reclamation does not delete shared data.
+Unchanged tables are not copied, row-scanned by validation, or reindexed. DML
+still copies target tables; metadata copying, index checks, prefix-filtered SCAN
+and Search initial scanning retain catalog/database traversal costs.
+
+Additional complete-result integration checks:
+
+- UPDATE A leaves B's physical prefix/index and exact BIGINT HASH payload
+  unchanged. Command inspection checks for copying B or rebuilding its index.
+- Twenty subsequent publications and repeated cleanup preserve both current B
+  and old A held by a pinned manifest. Releasing the pin permits old A rows/index
+  to be deleted without affecting current B.
+- DROP B retains its shared rows/index while a reader is pinned, and reclaims
+  both after the final manifest reference disappears.
+- COMMENT reuses physical data; TRUNCATE replaces only its target, preserving
+  old pinned rows and unrelated tables.
+- Active writers retain inherited/private generations during competing writes.
+  Aborting reclaims private data while preserving pinned base data.
+- Direct forged Lua mutations cannot write inherited shared data. Expired
+  writers cannot recreate their actual owned HASHes/indexes after reclamation.
+- Existing SQL, ingest, nested-read, capacity, cancellation and recovery cases
+  continue to pass under the new ownership protocol.
+
+| Check | Shared-table revision result |
+| --- | --- |
+| Unit-only Go suite | All packages passed; 889 passing / 605 expected skipped test/subtest events |
+| Full snapshot race suite | 26 passing events, no failures/skips |
+| Native shared-library build | Passed, Darwin arm64 |
+| Native snapshot suite | All three passed, no skips, 5.428 seconds |
+
+No throughput benchmark was run. Physical reuse assertions establish elimination
+of unrelated row copies/index rebuilds; they are not a quantified speedup claim.
+The format version 1 draft is rejected without migration, consistent with the
+user's no-upgrade-path instruction. Operational artifacts remain private.

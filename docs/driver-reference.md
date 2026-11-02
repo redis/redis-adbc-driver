@@ -16,8 +16,9 @@ objects, foreign/adopted data, legacy HASH tools and partition production are
 currently rejected. Retained partition reader-only connections consume independent
 immutable Arrow results and do not initialize a managed catalog.
 
-Each write clones the full catalog before atomic publication. Fixed generation,
-reader, staging and time limits apply. This first slice needs a primary single
+Each write copies a metadata manifest and shares unchanged table generations.
+DML and append ingest still copy the target table. Fixed manifest, reader,
+staging and time limits apply. This first slice needs a primary single
 endpoint, no Active-Active replication and verified noeviction. It is not a
 multi-statement transaction implementation.
 

@@ -50,6 +50,15 @@ Multi-statement transactions, ADBC autocommit=false, rollback, savepoints,
 serializable isolation, Active-Active multi-writer publication, external HASH
 snapshots, live migration with old writers, and SQL access to historical roots.
 
+## Shared-table write refinement
+
+The subsequent user request requires unchanged table generations to be reused.
+Updating A must leave B's row HASHes and index untouched. A pinned reader must
+retain A's old image while new manifests publish replacements; shared data may
+be reclaimed only after its final manifest reference disappears. The first
+refinement may still copy a DML target table, while row-level deltas are deferred.
+The no-upgrade requirement applies to the earlier draft format as well.
+
 ## Success criteria
 
 The deterministic concurrency and failure cases in [validation.md](validation.md)

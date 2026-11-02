@@ -162,6 +162,15 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 		return -1, errorf(adbc.StatusInvalidArgument, "unknown ingest mode %q", opts.Mode)
 	}
 
+	if st.snapshots && !snapshotOwns(ctx, meta.prefix()) {
+		if err := st.prepareSnapshotTable(ctx, schemaName, opts.TableName); err != nil {
+			return -1, err
+		}
+		meta, err = st.getTable(ctx, schemaName, opts.TableName)
+		if err != nil {
+			return -1, err
+		}
+	}
 	meta = insertMeta(meta)
 
 	// Map each Arrow field onto a table column; the other columns get their

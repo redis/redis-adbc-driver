@@ -178,6 +178,9 @@ func TestSnapshotConflictsAndExpiredWriterFence(t *testing.T) {
 	}
 	defer s.abortSnapshot(p2, id2)
 	for i, ctx := range []context.Context{w1, w2} {
+		if err := s.prepareSnapshotTable(ctx, "public", "t"); err != nil {
+			t.Fatal(err)
+		}
 		meta, err := s.getTable(ctx, "public", "t")
 		if err != nil {
 			t.Fatal(err)
@@ -196,19 +199,23 @@ func TestSnapshotConflictsAndExpiredWriterFence(t *testing.T) {
 	h.expectRows("SELECT v FROM t", "1")
 	// Expire a private writer and reclaim it while its Go context is still
 	// usable. Both HASH mutations and index creation must be server-fenced.
+	loser, err := s.getTable(w2, "public", "t")
+	if err != nil {
+		t.Fatal(err)
+	}
 	rawRecord, _ := json.Marshal(map[string]any{"state": "staging", "token": p2.token, "base": p2.root, "expires": 0})
 	if err := raw.HSet(h.ctx, snapshotCatalogKey, "w:"+id2, rawRecord).Err(); err != nil {
 		t.Fatal(err)
 	}
 	s.reapSnapshot(h.ctx)
-	key := snapshotRows(id2) + "late:1"
+	key := loser.prefix() + "late:1"
 	if err := s.client.HSet(w2, key, rowIDField, "1").Err(); err == nil {
 		t.Fatal("expired writer resurrected a HASH")
 	}
 	if raw.Exists(h.ctx, key).Val() != 0 {
 		t.Fatal("expired write reached Redis")
 	}
-	meta := &tableMeta{KeyPrefix: snapshotRows(id2) + "late:", IndexName: snapshotIndexPrefix(id2) + "late"}
+	meta := &tableMeta{KeyPrefix: loser.prefix(), IndexName: snapshotIndexPrefix(snapshotDataID(loser.prefix())) + "late"}
 	if err := s.searchDo(w2, meta.index(), indexCreateArgs(meta)...).Err(); err == nil {
 		t.Fatal("expired writer created an index")
 	}
@@ -244,6 +251,9 @@ func TestSnapshotLostPublicationReply(t *testing.T) {
 	defer pin.release()
 	wctx, id, err := s.beginSnapshotWrite(ctx, pin)
 	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.prepareSnapshotTable(wctx, "public", "t"); err != nil {
 		t.Fatal(err)
 	}
 	meta, err := s.getTable(wctx, "public", "t")
@@ -302,8 +312,14 @@ func TestSnapshotPrivateIndexesReadyBeforeDML(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer s.abortSnapshot(pin, id)
+	if err := s.prepareSnapshotTable(wctx, "public", "t"); err != nil {
+		t.Fatal(err)
+	}
 	if hook.reads.Load() < 2 {
 		t.Fatal("private workspace became executable before copied index readiness was checked")
+	}
+	if err := s.prepareSnapshotTable(wctx, "public", "t"); err != nil {
+		t.Fatal(err)
 	}
 	meta, err := s.getTable(wctx, "public", "t")
 	if err != nil {
