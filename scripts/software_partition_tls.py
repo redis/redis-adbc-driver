@@ -87,9 +87,11 @@ def prepare(args):
     if len(databases) != 1:
         raise ValueError('requires the dedicated one-database Software fixture')
     bdb = databases[0]
+    # Current redis-up already enables authenticated TLS; older owned fixtures
+    # started plaintext. Both are reconfigured to our verified TLS/RBAC fixture.
     if (bdb['name'] != 'adbc-test' or bdb['shards_count'] != args.shards
             or bdb['port'] != 12000 or bdb.get('bigstore') or bdb['replication']
-            or bdb['tls_mode'] != 'disabled' or bdb.get('roles_permissions')):
+            or bdb['tls_mode'] not in ('disabled', 'enabled') or bdb.get('roles_permissions')):
         raise ValueError('Software fixture does not match the fresh requested topology')
     subprocess.run(['bash', str(Path(__file__).with_name('create_partition_tls.sh')),
                     str(directory), str(args.db_port)], check=True)

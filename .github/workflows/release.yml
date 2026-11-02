@@ -277,7 +277,7 @@ jobs:
           uv pip install --python /tmp/redis-wheel-smoke/bin/python redis
           /tmp/redis-wheel-smoke/bin/python scripts/software_partition_tls.py "$RUNNER_TEMP/software-partition-tls" \
             --container "$(docker compose -f go/compose.yaml ps -q redis-software)" \
-            --api-port 19443 --db-port 6379 --shards 1
+            --api-port 19443 --db-port 6379 --shards 3
           export REDIS_TLS_ADMIN_URI="$(cat "$RUNNER_TEMP/software-partition-tls/admin.uri")"
           export SSL_CERT_FILE="$RUNNER_TEMP/software-partition-tls/ca.crt"
           if [ -f scripts/check_install_doctor.py ]; then
@@ -592,6 +592,22 @@ jobs:
           env -u SSL_CERT_FILE uv pip install --python /tmp/redis-wheel-smoke/bin/python 'adbc-driver-manager==1.12.0'
           env -u REDIS_ADBC_LIBRARY /tmp/redis-wheel-smoke/bin/python scripts/check_partition_tls.py --require-wheel \
             --output "$RUNNER_TEMP/macos-partition-tls-minimum-client.json"
+
+      - name: Native macOS Redis diagnostics on failure
+        if: failure() && hashFiles('scripts/native_partition_redis.py') != ''
+        run: |
+          python3 - "$RUNNER_TEMP/native-partition-redis" <<'PY'
+          import pathlib, sys
+          root = pathlib.Path(sys.argv[1])
+          log = root / 'redis.log'
+          if log.exists():
+              text = log.read_text(errors='replace')
+              for name in ('admin.password', 'admin.uri'):
+                  path = root / 'tls' / name
+                  if path.exists() and (secret := path.read_text().strip()):
+                      text = text.replace(secret, '[redacted]')
+              print('\n'.join(text.splitlines()[-100:]))
+          PY
 
       - name: Upload macOS native partition evidence
         if: always() && hashFiles('scripts/native_partition_redis.py') != ''

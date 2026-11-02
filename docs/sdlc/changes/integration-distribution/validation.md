@@ -88,3 +88,20 @@ subsequent integration tests. No security assertion or test selection changed.
 Reproduced both failures locally with the generated fixture CA, then verified the
 two tests pass. The complete unit-only Go suite also passed with the inherited CA
 (`REDIS_URI` unset, `-count=1 -p 1`); live integration tests skipped in that run.
+
+Subsequent CI completed Linux Go, ADBC, wheel, partition and reflection checks,
+then rejected the Software proxy TLS handoff: the helper assumed a plaintext
+initial database and the release step requested one shard, while current
+`redis-up` provides authenticated TLS and three shards. The handoff now requests
+three shards and accepts the owned fixture's TLS-enabled initial state, preserving
+port/name/role ownership checks and verified TLS/QPF/RBAC validation after setup.
+A new regression test failed before this fix and passed afterwards; wrong shard
+counts, unknown TLS states and existing role assignments still fail before
+certificate changes. The Software management suite passes all four tests.
+
+A macOS run then reported a broken pipe in the wide-row fetch integration test.
+The exact test passed five consecutive runs against an isolated native macOS
+Redis 8.10.3/Search 8.10.1 TLS fixture obtained from official Homebrew bottles.
+No retries or skips were added to CI; a redacted server-log diagnostic is now
+printed on macOS failure so later failures can be diagnosed without relying on
+artifact downloads. Full-suite reproduction and replacement CI remain required.
