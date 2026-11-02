@@ -9,14 +9,14 @@ from ci_test_matrix import select_matrix
 
 
 class MatrixTests(unittest.TestCase):
-    def test_routine_pr_keeps_two_distinct_connection_paths(self):
+    def test_routine_pr_uses_authenticated_enterprise_cluster(self):
         rows = select_matrix("pull_request", ["go/query.go"])["include"]
         self.assertEqual(
             [(r["arch"], r["environment"]) for r in rows],
-            [("amd64", "software-single"), ("amd64", "oss-cluster")],
+            [("amd64", "software-cluster")],
         )
         self.assertEqual([r["environment"] for r in rows if r["integrations"]],
-                         ["software-single"])
+                         ["software-cluster"])
 
     def test_sensitive_prs_keep_all_platforms(self):
         for path in (
@@ -40,7 +40,7 @@ class MatrixTests(unittest.TestCase):
                 self.assert_full(select_matrix(event, []))
 
     def test_docs_do_not_expand_coverage(self):
-        self.assertEqual(len(select_matrix("pull_request", ["go/partitions.md"])["include"]), 2)
+        self.assertEqual(len(select_matrix("pull_request", ["go/partitions.md"])["include"]), 1)
 
     def test_cli_uses_entire_diff_and_catches_renamed_sensitive_files(self):
         script = Path(__file__).with_name("ci_test_matrix.py").resolve()
@@ -76,11 +76,11 @@ class MatrixTests(unittest.TestCase):
 
     def assert_full(self, matrix):
         rows = matrix["include"]
-        self.assertEqual(len(rows), 8)
-        self.assertEqual(len({(r["arch"], r["environment"]) for r in rows}), 8)
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(len({(r["arch"], r["environment"]) for r in rows}), 2)
         self.assertEqual({r["arch"] for r in rows}, {"amd64", "arm64"})
         self.assertEqual([r["environment"] for r in rows if r["integrations"]],
-                         ["oss-single", "oss-single"])
+                         ["software-cluster", "software-cluster"])
 
 
 if __name__ == "__main__":

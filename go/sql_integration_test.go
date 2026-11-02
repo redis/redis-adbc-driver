@@ -17,7 +17,7 @@ package redis
 // Integration tests for SQL features beyond the ADBC validation suite. They
 // run against the Redis server at REDIS_URI and are skipped when it is unset:
 //
-//	REDIS_URI=redis://localhost:6379/0 go test -run TestSQL ./...
+//	REDIS_URI=rediss://default:<password>@localhost:6379/0 go test -run TestSQL ./...
 
 import (
 	"context"

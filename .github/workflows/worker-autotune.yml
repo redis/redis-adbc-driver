@@ -37,25 +37,18 @@ jobs:
           COMPOSE_PROJECT_NAME: adbc-autotune
           SOFTWARE_API_PORT: '29443'
           SOFTWARE_DB_PORT: '16380'
-          SOFTWARE_SHARDS: '1'
+          SOFTWARE_SHARDS: '3'
         run: |
           bash software-setup.sh
           docker update --cpus 2 --memory 6g --memory-swap 6g adbc-autotune-redis-software-1
-          docker run -d --name autotune-oss --network adbc-autotune_default --network-alias oss \
-            --cpus 2 --memory 1g --memory-swap 1g redis:8.6.2 redis-server --save '' --appendonly no
           docker pull python:3.14-slim
-          for attempt in $(seq 1 60); do
-            if docker exec autotune-oss redis-cli -e FT._LIST; then break; fi
-            sleep 1
-          done
-          docker exec autotune-oss redis-cli -e FT._LIST
       - name: Run predeclared randomized gate
         run: |
           python3 benchmarks/worker-autotune/controlled/run.py \
             --binary go/build/autotune-profile-linux --proxy-binary go/build/autotune-proxy-linux \
             --network adbc-autotune_default \
-            --server oss=redis://oss:6379/0 --server software=redis://adbc-autotune-redis-software-1:12000/0 \
-            --server-container autotune-oss --server-container adbc-autotune-redis-software-1 \
+            --server software="${REDIS_URI/localhost:16380/redis-software:12000}" \
+            --server-container adbc-autotune-redis-software-1 \
             --output /tmp/worker-autotune-evaluation
       - name: Archive evidence even when gate fails
         if: always()
@@ -76,5 +69,4 @@ jobs:
         env:
           COMPOSE_PROJECT_NAME: adbc-autotune
         run: |
-          docker rm -f autotune-oss || true
           docker compose down --volumes

@@ -687,7 +687,7 @@ def run(args, uri):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--redis-uri", default=os.getenv("REDIS_URI", "redis://localhost:6379/0")
+        "--redis-uri", default=os.getenv("REDIS_URI")
     )
     ext = {"darwin": "dylib", "win32": "dll"}.get(sys.platform, "so")
     parser.add_argument(
@@ -699,6 +699,10 @@ def main():
         "--report", type=Path, default=ROOT.parent / "build/pgdiff-report.json"
     )
     args = parser.parse_args()
+    from urllib.parse import urlsplit
+    target = urlsplit(args.redis_uri or "")
+    if target.scheme != "rediss" or not target.username or not target.password:
+        parser.error("provide an authenticated rediss:// Redis Enterprise target via --redis-uri or REDIS_URI")
     try:
         with reference() as uri:
             return run(args, uri)

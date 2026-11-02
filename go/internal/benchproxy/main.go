@@ -19,6 +19,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -32,6 +33,8 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
+
+	"github.com/adbc-drivers/redis/go/internal/tlstrust"
 )
 
 const maxFrame = 128 << 20
@@ -114,8 +117,18 @@ func delayedCommand(raw []byte) bool {
 }
 
 func relay(client net.Conn, upstream string, delay time.Duration, count, failures *atomic.Int64) {
+	relayTLS(client, upstream, nil, delay, count, failures)
+}
+
+func relayTLS(client net.Conn, upstream string, config *tls.Config, delay time.Duration, count, failures *atomic.Int64) {
 	defer client.Close()
-	server, err := net.Dial("tcp", upstream)
+	var server net.Conn
+	var err error
+	if config != nil {
+		server, err = tls.Dial("tcp", upstream, config)
+	} else {
+		server, err = net.Dial("tcp", upstream)
+	}
 	if err != nil {
 		failures.Add(1)
 		return
@@ -186,11 +199,13 @@ func relay(client net.Conn, upstream string, delay time.Duration, count, failure
 }
 
 func main() {
-	endpoint := flag.String("uri", "", "isolated upstream redis:// URI")
+	endpoint := flag.String("uri", "", "isolated upstream Redis URI")
+	certFile := flag.String("tls-cert", "", "TLS proxy certificate")
+	keyFile := flag.String("tls-key", "", "TLS proxy private key")
 	millis := flag.Int("delay-ms", 2, "complete command response delay")
 	flag.Parse()
 	u, err := url.Parse(*endpoint)
-	if err != nil || u.Scheme != "redis" || u.User != nil || u.Hostname() == "" || *millis < 0 {
+	if err != nil || (u.Scheme != "redis" && u.Scheme != "rediss") || u.Hostname() == "" || *millis < 0 {
 		panic("invalid isolated Redis URI/delay")
 	}
 	port := u.Port()
@@ -201,17 +216,32 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	var upstreamTLS *tls.Config
+	if u.Scheme == "rediss" {
+		cert, err := tls.LoadX509KeyPair(*certFile, *keyFile)
+		if err != nil {
+			panic(err)
+		}
+		listener = tls.NewListener(listener, &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS12})
+		roots, err := tlstrust.Roots()
+		if err != nil {
+			panic(err)
+		}
+		upstreamTLS = &tls.Config{ServerName: u.Hostname(), MinVersion: tls.VersionTLS12, RootCAs: roots}
+	}
 	var count, failures atomic.Int64
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGTERM, os.Interrupt)
 	go func() { <-signals; listener.Close() }()
-	json.NewEncoder(os.Stdout).Encode(map[string]any{"uri": "redis://" + listener.Addr().String() + u.Path})
+	proxyURL := *u
+	proxyURL.Host = listener.Addr().String()
+	json.NewEncoder(os.Stdout).Encode(map[string]any{"uri": proxyURL.String()})
 	for {
 		client, err := listener.Accept()
 		if err != nil {
 			break
 		}
-		go relay(client, net.JoinHostPort(u.Hostname(), port), time.Duration(*millis)*time.Millisecond, &count, &failures)
+		go relayTLS(client, net.JoinHostPort(u.Hostname(), port), upstreamTLS, time.Duration(*millis)*time.Millisecond, &count, &failures)
 	}
 	var usage syscall.Rusage
 	syscall.Getrusage(syscall.RUSAGE_SELF, &usage)

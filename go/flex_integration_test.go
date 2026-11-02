@@ -18,7 +18,7 @@ package redis
 // against the Flex database at REDIS_FLEX_URI (flex-setup.sh creates one) and
 // is skipped when it is unset:
 //
-//	REDIS_FLEX_URI=redis://localhost:12000/0 go test -run TestFlex ./...
+//	source build/flex-test.env; go test -run TestFlex ./...
 
 import (
 	"context"
