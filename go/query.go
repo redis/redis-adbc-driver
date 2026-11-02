@@ -220,7 +220,7 @@ func (e *executor) planWhere(ctx context.Context, where Expr, meta *tableMeta, p
 		return wp, nil
 	}
 
-	if len(meta.PendingCleanup) > 0 {
+	if meta.SnapshotOverlay || len(meta.PendingCleanup) > 0 {
 		wp.residual = where
 		return wp, nil
 	}
@@ -518,7 +518,7 @@ func (e *executor) scan(ctx context.Context, req scanRequest, params []Value) ([
 	if req.hashScan || len(req.meta.PendingCleanup) > 0 && req.where.keys == nil {
 		return e.scanBeyondCap(ctx, req, params)
 	}
-	if req.where.keys != nil {
+	if req.where.keys != nil && !req.meta.SnapshotOverlay {
 		it, fields, _ := e.newScanIter(ctx, req, params)
 		fetch := e.store.fetchRows
 		if req.meta.KeyRows {
@@ -552,6 +552,7 @@ func (e *executor) scan(ctx context.Context, req scanRequest, params []Value) ([
 // scanIter reads the rows of a scan: decodes them and applies the residual
 // predicate, a cursor page at a time for a scan through the index.
 type scanIter struct {
+	delta        *snapshotDeltaScan
 	projection   *scanProjection // optional bare-column stream output
 	rowIDRanges  *rowIDRanges
 	directKeys   []string
@@ -607,6 +608,19 @@ func (e *executor) newScanIter(ctx context.Context, req scanRequest, params []Va
 // openScan starts a scan through the index (req.where.keys nil) and reads
 // its first page.
 func (e *executor) openScan(ctx context.Context, req scanRequest, params []Value) (*scanIter, error) {
+	if req.meta.SnapshotOverlay {
+		it, fields, _ := e.newScanIter(ctx, req, params)
+		if fields == nil {
+			fields = []string{}
+		}
+		it.store, it.fetch = e.store, fields
+		if req.where.keys != nil {
+			it.directKeys = req.where.keys
+		} else {
+			it.delta = newSnapshotDeltaScan(e.store, req.meta, fields)
+		}
+		return it, nil
+	}
 	if req.where.keys != nil {
 		it, fields, _ := e.newScanIter(ctx, req, params)
 		it.store, it.fetch, it.directKeys = e.store, fields, req.where.keys
@@ -750,6 +764,13 @@ func (it *scanIter) checkReadiness(ctx context.Context) error {
 
 // nextPage is next in the index's order.
 func (it *scanIter) nextPage(ctx context.Context) ([]string, []map[string]Value, error) {
+	if it.delta != nil {
+		keys, rows, err := it.delta.next(ctx)
+		if err != nil {
+			return nil, nil, err
+		}
+		return it.keep(keys, rows)
+	}
 	if it.directKeys != nil {
 		if it.directOffset == len(it.directKeys) {
 			return nil, nil, io.EOF
@@ -763,7 +784,13 @@ func (it *scanIter) nextPage(ctx context.Context) ([]string, []map[string]Value,
 		if it.meta.KeyRows {
 			fetch = it.store.fetchKeyRows
 		}
-		rows, err := fetch(ctx, keys, it.fetch)
+		var rows []aggRow
+		var err error
+		if it.meta.SnapshotOverlay {
+			rows, err = it.store.fetchSnapshotVisible(ctx, it.meta, keys, it.fetch)
+		} else {
+			rows, err = fetch(ctx, keys, it.fetch)
+		}
 		if err != nil {
 			return nil, nil, err
 		}
@@ -865,6 +892,7 @@ func (it *scanIter) exists(r aggRow) bool {
 
 // close deletes the scan's cursor, if it is still open.
 func (it *scanIter) close(ctx context.Context) {
+	it.delta = nil
 	if it.cur != nil {
 		it.cur.close(ctx)
 	}
@@ -1108,6 +1136,12 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 		columnRefs(plan.qualify, req.need)
 	}
 
+	if meta.SnapshotOverlay {
+		for _, o := range plan.order {
+			columnRefs(o.expr, req.need)
+		}
+		return selectScan{req: req, indexSort: len(plan.order) == 0, pushLimit: false}, nil
+	}
 	// ORDER BY on indexed columns sorts inside the index; anything else is
 	// sorted by the driver after fetching.
 	indexSort := wp.keys == nil && !meta.isMem
@@ -1614,7 +1648,7 @@ var indexReducers = map[string]string{
 // exactly by the index; the caller then aggregates in the driver.
 func (e *executor) indexAggregate(ctx context.Context, plan *selectPlan, wp wherePlan, aggs []*Func) ([]aggGroup, bool, error) {
 	meta := plan.meta
-	if e.pushdown == PushdownNone || len(meta.PendingCleanup) > 0 || wp.residual != nil || wp.keys != nil || wp.none || meta.isMem || len(plan.extraNeed) > 0 {
+	if e.pushdown == PushdownNone || len(meta.PendingCleanup) > 0 || wp.residual != nil || wp.keys != nil || wp.none || meta.SnapshotOverlay || meta.isMem || len(plan.extraNeed) > 0 {
 		return nil, false, nil
 	}
 	groupCols := make([]columnMeta, 0, len(plan.sel.GroupBy))

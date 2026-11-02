@@ -243,6 +243,7 @@ func TestSnapshotStagingReferencesAndServerDataFence(t *testing.T) {
 	if err := s.prepareSnapshotTable(wctx, "public", "t"); err != nil {
 		t.Fatal(err)
 	}
+	snapshotExecuteTest(t, s, wctx, "UPDATE t SET v=70")
 	private := snapshotTableTest(t, s, wctx, "t")
 	if err := s.client.Del(wctx, private.prefix()+"1", shared.prefix()+"1").Err(); err == nil {
 		t.Fatal("mixed-owner DEL passed the Go scope")

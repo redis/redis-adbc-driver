@@ -161,7 +161,7 @@ func (e *executor) parallelAggregate(ctx context.Context, plan *selectPlan, wp w
 	if e.workerBudget != nil {
 		workers = min(workers, e.workerBudget.capacity())
 	}
-	if meta.isMem || meta.Adopted || meta.KeyRows || meta.AppIndex || len(plan.sel.GroupBy) > 0 || len(plan.extraNeed) > 0 || len(plan.outerAggs) > 0 || wp.none || wp.keys != nil || !parallelPredicate(wp.residual) || !parallelAggregates(aggs, meta.types()) {
+	if meta.SnapshotOverlay || meta.isMem || meta.Adopted || meta.KeyRows || meta.AppIndex || len(plan.sel.GroupBy) > 0 || len(plan.extraNeed) > 0 || len(plan.outerAggs) > 0 || wp.none || wp.keys != nil || !parallelPredicate(wp.residual) || !parallelAggregates(aggs, meta.types()) {
 		return nil, false, nil
 	}
 	// The sequence is an upper bound, not a count: deleted rows and gaps do not

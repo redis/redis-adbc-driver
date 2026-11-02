@@ -59,6 +59,16 @@ be reclaimed only after its final manifest reference disappears. The first
 refinement may still copy a DML target table, while row-level deltas are deferred.
 The no-upgrade requirement applies to the earlier draft format as well.
 
+## Row-delta refinement
+
+The next user request authorizes immutable row-level deltas and compaction.
+Ordinary single-row writes must not copy other rows or rebuild old indexes.
+Replacement versions and tombstones suppress older rows before predicates,
+aggregates or limits. The first implementation uses a bounded segment merge
+and synchronous compaction, preserving pinned snapshots and fail-closed recovery.
+This does not authorize weakening exactness or silently retaining unsafe physical
+index pushdowns. No upgrade path for either earlier draft format is included.
+
 ## Success criteria
 
 The deterministic concurrency and failure cases in [validation.md](validation.md)

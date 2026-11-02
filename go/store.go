@@ -205,15 +205,18 @@ func (t *tableMeta) applyIndexPolicy(only map[string]bool, noIndex map[string]bo
 }
 
 type tableMeta struct {
-	// SnapshotRows is fixed at publication for snapshot-format catalogs. It
-	// lets acquisition reject a missing or rebuilding index after recovery.
-	SnapshotRows *int64       `json:"snapshot_rows,omitempty"`
-	OID          int64        `json:"oid,omitempty"`
-	IndexOID     int64        `json:"index_oid,omitempty"`
-	Foreign      bool         `json:"-"`
-	Schema       string       `json:"schema"`
-	Name         string       `json:"name"`
-	Columns      []columnMeta `json:"columns"`
+	// SnapshotRows counts physical row versions (including tombstones) in the
+	// current segment. Prior immutable segments carry their own expected counts.
+	// Acquisition validates indexes and directories against these counts.
+	SnapshotOverlay  bool              `json:"snapshot_overlay,omitempty"`
+	SnapshotSegments []snapshotSegment `json:"snapshot_segments,omitempty"`
+	SnapshotRows     *int64            `json:"snapshot_rows,omitempty"`
+	OID              int64             `json:"oid,omitempty"`
+	IndexOID         int64             `json:"index_oid,omitempty"`
+	Foreign          bool              `json:"-"`
+	Schema           string            `json:"schema"`
+	Name             string            `json:"name"`
+	Columns          []columnMeta      `json:"columns"`
 	// FoldedIdentifiers is set on metadata created after unquoted SQL
 	// identifiers began following PostgreSQL's lower-case folding rules.
 	// Older metadata did not record whether a mixed-case column was quoted,
@@ -1345,6 +1348,7 @@ func (s *store) truncateTables(ctx context.Context, metas []*tableMeta, restartI
 					cur.Columns[j].Missing, cur.Columns[j].MissingThrough = "", 0
 				}
 				cur.PendingCleanup = nil
+				cur.SnapshotSegments, cur.SnapshotOverlay, cur.SnapshotRows = nil, false, nil
 				if raws[i], err = marshalMeta(cur); err != nil {
 					return err
 				}

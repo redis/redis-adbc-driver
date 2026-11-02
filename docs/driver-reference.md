@@ -16,9 +16,11 @@ objects, foreign/adopted data, legacy HASH tools and partition production are
 currently rejected. Retained partition reader-only connections consume independent
 immutable Arrow results and do not initialize a managed catalog.
 
-Each write copies a metadata manifest and shares unchanged table generations.
-DML and append ingest still copy the target table. Fixed manifest, reader,
-staging and time limits apply. This first slice needs a primary single
+Each write copies a metadata manifest, shares unchanged data and appends changed
+row versions/tombstones. A table has at most eight segments; exceeding that bound
+triggers synchronous compaction under the existing staging/time limits. Segmented
+reads merge visibility in the driver and disable unsafe Search pushdowns. Fixed
+manifest, reader, staging and time limits apply. This first slice needs a primary single
 endpoint, no Active-Active replication and verified noeviction. It is not a
 multi-statement transaction implementation.
 

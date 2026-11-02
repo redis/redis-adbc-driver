@@ -70,7 +70,7 @@ type tupleAggregatePlan struct {
 
 func tupleAggregateShape(plan *selectPlan, aggs []*Func) (*tupleAggregatePlan, bool) {
 	meta := plan.meta
-	if meta.isMem || meta.Adopted || meta.KeyRows || meta.AppIndex || len(plan.extraNeed) > 0 || len(plan.outerAggs) > 0 || plan.windowed() || plan.distinct || len(plan.distinctOn) > 0 || plan.qualify != nil || len(aggs) == 0 {
+	if meta.SnapshotOverlay || meta.isMem || meta.Adopted || meta.KeyRows || meta.AppIndex || len(plan.extraNeed) > 0 || len(plan.outerAggs) > 0 || plan.windowed() || plan.distinct || len(plan.distinctOn) > 0 || plan.qualify != nil || len(aggs) == 0 {
 		return nil, false
 	}
 	if len(plan.sel.GroupBy) == 0 {

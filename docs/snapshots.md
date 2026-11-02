@@ -4,7 +4,7 @@ Statement snapshots are **always enabled for managed tables**. No option is
 required. The first connection initializes an **empty, isolated Redis database
 with no existing Search indexes**. Existing unversioned catalogs are rejected
 without modification. No upgrade or migration path is included. The shared-table design uses protocol
-version 2 and also rejects catalogs created by the earlier version 1 draft.
+version 3 and also rejects catalogs created by the earlier version 1 or 2 drafts.
 
 ```python
 import adbc_driver_manager.dbapi
@@ -81,27 +81,46 @@ evict published keys or indexes outside the driver.
 ## Costs, limits and recovery
 
 Each write copies the catalog's **metadata manifest**, but unchanged tables reuse
-their existing immutable rows and indexes. INSERT, UPDATE, DELETE, MERGE and
-append ingestion copy only their target table before execution and rebuild only
-that table's indexes. The data copied and indexes rebuilt for a one-row UPDATE
-are therefore limited to its target table. Read-only source tables in joins, subqueries and INSERT SELECT remain shared.
+their existing immutable rows and indexes. INSERT and append ingestion write new
+rows into a new segment. UPDATE writes complete replacement images for matched
+rows; DELETE writes deletion markers. An ordinary one-row change writes one row
+image or tombstone, rather than copying the target table. Existing row images and
+segment indexes remain unchanged. New segments get their own indexes.
 
-DROP removes a descriptor; TRUNCATE and replace ingestion allocate empty or
-replacement storage without copying the discarded table. Metadata-only changes
-reuse table data. Retired manifests and physical table generations are reclaimed
-separately: a generation survives while any registered manifest references it,
-including pinned readers and active writers. No row-level delta storage or
-compaction is implemented yet. Catalog metadata copying, index checks and root
-publication still involve catalog-wide work. Prefix-filtered SCAN and Search
-initial indexing may also visit database keys outside the target table; this
-change does not eliminate those traversal costs. This is not constant-time writing.
+Each segment has an exact row-ID sorted-set directory. All directory scores are
+zero; zero-padded decimal IDs provide exact lexical ordering without double
+rounding. Reads merge the bounded segment directories in row-ID order. The newest
+version wins, including deletion markers, **before** SQL predicates, grouping,
+aggregates, ordering, OFFSET or LIMIT. Direct row-ID lookups search newest to
+oldest. Unordered results remain streamed with bounded pages; explicit sorting
+may materialize. On segmented tables, Search predicate/aggregate pushdowns and
+parallel physical-index shortcuts are disabled until they can honor visibility.
+This improves write amplification while increasing read work.
+
+A table has at most eight segments. The write which would exceed that bound
+compacts visible rows into a new segment before applying its changes. Compaction
+runs synchronously under the existing statement, row-write and staging budgets;
+it can therefore make that write expensive or fail it without publication. Large
+tables that exceed the compaction budgets cannot keep extending the segment
+chain. No background/incremental compactor is included in this slice. Old
+segments remain available to pinned readers, then are reclaimed along with their
+indexes and directories after their final manifest reference disappears.
+
+DROP removes a descriptor; TRUNCATE and replace ingestion allocate fresh storage
+and discard the descriptor's old segment list. Metadata-only changes reuse data.
+Manifest copying, per-segment readiness checks, cleanup SCAN and Search initial
+index scans retain catalog/database traversal costs. No constant-time or
+throughput claim is made. Published directories and HASHes must not be changed
+outside the protocol; detected missing directory entries or row images fail the
+read instead of exposing an older replacement or a partial successful result.
 
 | Fixed limit | Behavior |
 | --- | --- |
 | 16 catalog manifests | Includes current, retained, staging and pending manifest cleanup; physical table generations have separate lifetimes and can outlive their creator manifests |
+| Eight segments per table | Includes base/current and retained history in one table descriptor; the next write compacts synchronously |
 | 128 active pins | Includes readers, writer base snapshots and metadata operations |
-| 64 MiB staged command data per write | Conservative count before sending mutations, including copied metadata/target-table rows and command arguments; not a physical Redis memory estimate |
-| 100,000 row HSET operations per write | Includes copied target-table rows and subsequent changes; can be reached below 100,000 stored rows |
+| 64 MiB staged command data per write | Conservative count before sending mutations, including metadata, changed rows and compaction copies; not a physical Redis memory estimate |
+| 100,000 row HSET operations per write | Includes changed rows/tombstones and any compaction copies; can be reached below 100,000 stored rows |
 | 15 minutes per statement/ingest | Includes complete streamed consumption |
 | Two-minute lease, renewed every 30 seconds | Ownership loss fails the operation; expired pins cannot be resurrected |
 
@@ -125,7 +144,8 @@ prevent deleting shared table generations while a manifest can still use them.
 Process-crash recovery waits for the abandoned writer's lease to expire.
 
 In addition to ordinary Search/HASH/metadata commands, the mode requires `EVAL`,
-`TIME`, `DBSIZE`, `DUMP`, `RESTORE`, `SCAN` and `INFO`, plus namespace access.
+`TIME`, `DBSIZE`, `DUMP`, `RESTORE`, `SCAN`, `ZRANGE`, `ZCARD`, `ZSCORE` and
+`INFO`, plus namespace access. Lua membership registration also requires `ZADD`.
 Lua fences invoke the underlying write commands, which also need ACL permission.
 Read-only SQL clients still need control-hash write permission for reader pins.
 

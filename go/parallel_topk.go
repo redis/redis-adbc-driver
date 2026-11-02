@@ -42,7 +42,7 @@ func (e *executor) parallelSelectTopK(ctx context.Context, plan *selectPlan, sc 
 	// worker heap. Keep a genuinely pushed LIMIT on the established index path.
 	shapeScan := sc
 	shapeScan.indexSort = false
-	if sc.pushLimit || !selectTopKShape(plan, shapeScan, k) || meta.isMem || meta.Adopted || meta.KeyRows || meta.AppIndex ||
+	if sc.pushLimit || !selectTopKShape(plan, shapeScan, k) || meta.SnapshotOverlay || meta.isMem || meta.Adopted || meta.KeyRows || meta.AppIndex ||
 		sc.req.where.none || sc.req.where.keys != nil || !parallelPredicate(sc.req.where.residual) {
 		return nil, false, nil
 	}

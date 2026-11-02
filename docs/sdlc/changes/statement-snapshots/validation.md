@@ -144,3 +144,54 @@ No throughput benchmark was run. Physical reuse assertions establish elimination
 of unrelated row copies/index rebuilds; they are not a quantified speedup claim.
 The format version 1 draft is rejected without migration, consistent with the
 user's no-upgrade-path instruction. Operational artifacts remain private.
+
+## Row-delta refinement
+
+Revision baseline: shared-table PR commit
+`54500f4b37cee0d6aa3603853112f84714ec3f6c`. The preceding sections record historical
+checks of earlier drafts. Protocol version 3 adds row-version segments and exact
+row-ID directories; there is no migration from either earlier draft format.
+
+Implemented and reviewed against REVIEW.md:
+
+- A one-row UPDATE writes one complete replacement HASH and its directory entry;
+  one-row INSERT/DELETE similarly write one new row/tombstone. Physical-command
+  inspection verifies no base row copy or old index rebuild. Metadata manifests
+  and new segment indexes still incur non-row traversal work.
+- Newest versions and tombstones win before WHERE, ORDER BY, OFFSET/LIMIT,
+  scalar/grouped/distinct aggregates, joins and correlated queries. Unsafe Search
+  and parallel physical-index shortcuts are excluded for overlays.
+- NULL field removal and exact BIGINT values survive repeated updates. Row IDs
+  beyond 2^53 retain exact directory ordering and direct lookup identities. This
+  regression found Lua rounding INCRBY integer replies, which could allocate the
+  same physical key twice. Fences now re-read integer counters as exact bulk
+  strings within the same operation; the typed Go Redis parser preserves int64.
+- Eight segments trigger synchronous compaction. Repeated changes and deletions
+  remain correct while old segment directories/indexes/HASHes stay reachable by
+  pinned streams. After exhaustion/release and reclamation they disappear.
+- Injecting a lost reply after compaction row writes leaves the root unchanged;
+  abandoned private data/directories are reclaimed. Missing row/directory cases
+  fail closed, including removal of both a replacement and its directory.
+- Existing SQL, Arrow modes, writer conflict/fencing, cancellation, capacity,
+  nested snapshot barriers and native C/ADBC checks remain in the final suite.
+- Directory registration shares the fenced Lua operation with HSET, declaring
+  all row/directory/control keys. Read pages, socket I/O and compaction remain
+  covered by cancellation/time/staging limits. Tombstones use a reserved field.
+
+Validation uses the same isolated authenticated TLS, one-shard Redis Software
+8.6.2 / Search 8.6.11 fixture with verified active 4x QPF. Operational details and
+logs stay private. These are complete-value correctness checks, not benchmarks.
+
+| Check | Row-delta result |
+| --- | --- |
+| Full unit-only Go suite | Passed all packages: 890 passing / 611 expected skipped test/subtest events |
+| Snapshot race suite | 33 passing events, no failures or skips |
+| Native shared-library build | Passed, Darwin arm64 |
+| Native snapshot suite | All five passed, no skips, 6.994 seconds |
+| Documentation links and diff whitespace | Passed |
+
+Compaction is foreground and can hit fixed budgets, causing the write to fail
+without publication. No background/incremental compactor or visibility-aware
+Search pushdown is implemented. Multiple shards, Active-Active, Cluster API,
+failover/persistence recovery, historical-binary coexistence and the full legacy
+SQL compatibility/CI matrix remain excluded or unverified. The PR remains draft.

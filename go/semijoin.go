@@ -470,7 +470,7 @@ func (e *executor) semiJoinState(ctx context.Context, sq *Subquery) *semiResult 
 	r := &semiResult{}
 	e.cache.semi[sq] = r
 	plan := sq.semi.plan
-	if plan.meta.isMem {
+	if plan.meta.isMem || plan.meta.SnapshotOverlay {
 		// Each per-row run filters the whole relation anyway.
 		r.eager = true
 		return r

@@ -91,6 +91,44 @@ class SnapshotValidation(unittest.TestCase):
             self.assertEqual(cur.fetchall(), [(9007199254740993,)])
             self.assertEqual(self.conn.adbc_get_table_schema("t").field("v").type, pa.int64())
 
+    def test_delta_visibility_and_compaction(self):
+        with self.conn.cursor() as cur:
+            cur.execute("CREATE TABLE t(id INTEGER,v BIGINT,payload VARCHAR)")
+            cur.execute("INSERT INTO t VALUES(1,10,'first'),(2,20,'second'),(3,30,'third')")
+            cur.execute("UPDATE t SET v=9007199254740993,payload=NULL WHERE __rowid=1")
+            cur.execute("DELETE FROM t WHERE __rowid=2")
+            cur.execute("SELECT id FROM t WHERE v<100 ORDER BY id LIMIT 1")
+            self.assertEqual(cur.fetchall(), [(3,)])
+            cur.execute("SELECT count(*),sum(v) FROM t")
+            self.assertEqual(cur.fetchall(), [(2, 9007199254741023)])
+            for value in range(100, 110):
+                cur.execute(f"UPDATE t SET v={value} WHERE __rowid=1")
+            cur.execute("SELECT id,v,payload FROM t ORDER BY id")
+            self.assertEqual(cur.fetchall(), [(1, 109, None), (3, 30, "third")])
+            cur.execute("INSERT INTO t VALUES(4,40,'fourth')")
+            cur.execute("SELECT __rowid,id FROM t ORDER BY id")
+            self.assertEqual(cur.fetchall(), [(1, 1), (3, 3), (4, 4)])
+
+    def test_delta_stream_survives_compaction(self):
+        with self.conn.cursor() as cur:
+            cur.execute("CREATE TABLE t(id INTEGER,v INTEGER)")
+            cur.execute("INSERT INTO t SELECT i,10 FROM generate_series(1,1001) AS g(i)")
+            cur.execute("UPDATE t SET v=11 WHERE __rowid=1")
+        other = self.connect()
+        self.addCleanup(other.close)
+        with self.conn.cursor() as reader, other.cursor() as writer:
+            reader.adbc_statement.set_options(**{"adbc.redis.stream_batch_rows": "7"})
+            reader.execute("SELECT id,v FROM t")
+            self.assertEqual(reader.rowcount, -1)
+            first = reader.fetchmany(7)
+            writer.execute("DELETE FROM t WHERE __rowid=2")
+            for value in range(100, 110):
+                writer.execute(f"UPDATE t SET v={value} WHERE __rowid=1")
+            self.assertEqual(first + reader.fetchall(),
+                             [(i, 11 if i == 1 else 10) for i in range(1, 1002)])
+            writer.execute("SELECT count(*),min(v),max(v) FROM t")
+            self.assertEqual(writer.fetchall(), [(1000, 10, 109)])
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

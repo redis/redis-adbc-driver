@@ -44,9 +44,14 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.26.10)
   generations in one hash slot; see [snapshots](docs/snapshots.md). There is no
   disable switch or upgrade path for existing catalogs.
   Preserve their server-side writer fences, reader pins and reclamation protocol.
-  Catalog manifests share immutable per-table generations; detach DML targets
-  before planning row keys. Never DROP/TRUNCATE shared physical data directly.
-  Reclaim manifests separately from table data using atomic reference checks.
+  Catalog manifests share immutable row-version segments. DML allocates a new
+  segment before planning logical row keys. Resolve newest versions/tombstones
+  before predicates, aggregates or limits; never push a segmented table directly
+  into a physical-index shortcut. Preserve exact, score-zero row-ID directories
+  registered atomically by writer fences. Eight segments trigger synchronous
+  compaction; old segments stay pinned. Never DROP/TRUNCATE shared data directly.
+  Reclaim manifests separately from segment rows/indexes/directories using atomic
+  reference checks.
   Snapshot suites clear `REDIS_SNAPSHOT_URI` and its indexes: use a disposable
   database and run separately from ordinary suites.
 

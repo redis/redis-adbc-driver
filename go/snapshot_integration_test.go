@@ -325,8 +325,8 @@ func TestSnapshotPrivateIndexesReadyBeforeDML(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if meta.SnapshotRows == nil || *meta.SnapshotRows != 1 {
-		t.Fatal("private copy was not validated before execution")
+	if meta.SnapshotRows == nil || *meta.SnapshotRows != 0 || len(meta.SnapshotSegments) != 1 || meta.SnapshotSegments[0].Rows != 1 {
+		t.Fatal("private empty delta and inherited base were not validated before execution")
 	}
 }
 
@@ -706,10 +706,10 @@ func TestSnapshotNestedReadsShareRoot(t *testing.T) {
 	h.exec("INSERT INTO a VALUES(1,10)")
 	h.exec("INSERT INTO b VALUES(1,20)")
 	for _, test := range []struct{ query, command string }{
-		{"SELECT a.v,b.v FROM a JOIN b ON a.id=b.id", "FT.AGGREGATE"},
-		{"WITH x AS (SELECT v FROM a) SELECT x.v,b.v FROM x CROSS JOIN b", "FT.AGGREGATE"},
-		{"SELECT a.v,(SELECT MAX(b.v) FROM b WHERE b.id=a.id) FROM a", "FT.AGGREGATE"},
-		{"SELECT (SELECT SUM(v) FROM a),(SELECT SUM(v) FROM b)", "FT.AGGREGATE"},
+		{"SELECT a.v,b.v FROM a JOIN b ON a.id=b.id", "ZRANGE"},
+		{"WITH x AS (SELECT v FROM a) SELECT x.v,b.v FROM x CROSS JOIN b", "ZRANGE"},
+		{"SELECT a.v,(SELECT MAX(b.v) FROM b WHERE b.id=a.id) FROM a", "ZRANGE"},
+		{"SELECT (SELECT SUM(v) FROM a),(SELECT SUM(v) FROM b)", "ZRANGE"},
 		{"SELECT v,v*2 FROM a WHERE __rowid=1", "HMGET"},
 	} {
 		t.Run(test.query, func(t *testing.T) {

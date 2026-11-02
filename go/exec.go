@@ -1761,6 +1761,9 @@ func (e *executor) writeUpdates(ctx context.Context, meta *tableMeta, changes []
 	if err := e.store.raiseNeeds(ctx, meta, changeNeeds(meta, changes)); err != nil {
 		return err
 	}
+	if meta.SnapshotOverlay {
+		return e.writeSnapshotUpdates(ctx, meta, changes)
+	}
 	if meta.KeyRows {
 		if err := e.store.checkKeyRowsKept(ctx, meta, changes); err != nil {
 			return err
@@ -1813,6 +1816,9 @@ func (e *executor) deleteKeys(ctx context.Context, meta *tableMeta, keys []strin
 	}
 	if err := e.store.checkWritable(ctx, meta); err != nil {
 		return err
+	}
+	if meta.SnapshotOverlay {
+		return e.writeSnapshotDeletes(ctx, meta, keys)
 	}
 	for start := 0; start < len(keys); start += pipelineChunk {
 		end := min(start+pipelineChunk, len(keys))

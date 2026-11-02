@@ -9,8 +9,8 @@ Related: [intent](intent.md), [specification](spec.md), [validation](validation.
 
 1. `go/snapshot.go`: bounded catalog protocol, atomic acquisition/pins,
    server-time leases, root CAS plus durable outcomes, server-side mutation
-   fences, namespace isolation, metadata-manifest copying and target-table detachment, index readiness validation
-   and resumable reclamation. Copied and final row images receive completed
+   fences, namespace isolation, metadata-manifest copying and delta-segment allocation, index readiness validation
+   and resumable reclamation. Final changed/compacted row images receive completed
    initial index scans. Rows and metadata occupy one hash slot. Unchanged table generations are shared; catalog manifests and table data
    have separate reclamation protocols. Cross-slot publication is deferred.
 2. `go/database.go`, `go/connection.go`: explicit format option, empty-catalog
@@ -46,11 +46,22 @@ private mutation fencing, all writer entry points, context propagation, Arrow
 ownership, option switching and external HASH ownership according to REVIEW.md.
 No merge, release or human approval is implied by these working-tree changes.
 
-## Deferred work
+## Delta refinement
 
-Writes still copy the entire DML target table. Later work may introduce row-level
-delta generations, compaction, finer conflict detection, configurable limits and
-ALTER support. Metadata copying and index validation still involve the catalog.
-Upgrade/migration work is excluded by user direction, including the earlier
-version 1 draft format. Cross-slot publication, Active-Active, failover
-certification and throughput claims require separate design and runtime evidence.
+The delta refinement is implemented in `go/snapshot_delta.go`, with sorted exact
+row-ID directories, newest-version merging, direct lookups, complete replacement
+images, tombstones and an eight-segment compaction threshold. The planner and
+aggregate/join shortcuts reject unsafe physical-index pushdowns on overlays.
+TRUNCATE clears history. Publication/reference tracking and reclamation include
+all segment indexes, HASHes and directories. Fault tests cover failed compaction
+and missing data, while native checks cover visibility and streamed compaction.
+
+## Deferred delta work
+
+Compaction is synchronous and bounded by existing budgets; incremental/background
+compaction, visibility-aware predicate/aggregate pushdowns, finer conflict
+detection, configurable limits and ALTER support remain deferred. Metadata
+copying, index checks and some initial/cleanup scans still traverse the catalog
+or database. Upgrade/migration work is excluded for all earlier draft formats.
+Cross-slot publication, Active-Active, failover certification and throughput
+claims require separate design and runtime evidence.

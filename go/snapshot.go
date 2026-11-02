@@ -76,12 +76,12 @@ end
 if op == 'init' then
   if redis.call('EXISTS', k) == 0 then
     if redis.call('DBSIZE') ~= 0 then return redis.error_reply('managed-table snapshots require a fresh empty database; existing storage is not upgraded or modified') end
-    redis.call('HSET', k, 'format', '2', 'root', id, 'w:'..id, cjson.encode({state='committed'}), 'r:'..id, '[]')
+    redis.call('HSET', k, 'format', '3', 'root', id, 'w:'..id, cjson.encode({state='committed'}), 'r:'..id, '[]')
   end
-  if redis.call('HGET', k, 'format') ~= '2' then return redis.error_reply('unsupported snapshot catalog format') end
+  if redis.call('HGET', k, 'format') ~= '3' then return redis.error_reply('unsupported snapshot catalog format') end
   return 1
 end
-if redis.call('HGET', k, 'format') ~= '2' then return redis.error_reply('missing or unsupported snapshot catalog') end
+if redis.call('HGET', k, 'format') ~= '3' then return redis.error_reply('missing or unsupported snapshot catalog') end
 local entries = redis.call('HGETALL', k)
 local pins, works, protected = 0, 0, {}
 for n=1,#entries,2 do
@@ -397,7 +397,14 @@ for data in string.gmatch(ARGV[3], '[^,]+') do
   local d = cjson.decode(raw)
   if d.owner ~= ARGV[1] or d.state ~= 'live' then return redis.error_reply('shared snapshot data is immutable') end
 end
-return redis.call(unpack(ARGV,4))
+local result = redis.call(unpack(ARGV,5))
+if ARGV[4] ~= '' then redis.call('ZADD', KEYS[#KEYS], 0, ARGV[4]) end
+-- Lua numbers cannot represent all int64 replies. Re-read integer counters
+-- as bulk strings inside this same fence; IntCmd parses them without rounding.
+local command = string.lower(ARGV[5])
+if command == 'incr' or command == 'incrby' then return redis.call('GET', ARGV[6]) end
+if command == 'hincrby' then return redis.call('HGET', ARGV[6], ARGV[7]) end
+return result
 `
 
 func fenceSnapshotCommand(ctx context.Context, cmd goredis.Cmder) goredis.Cmder {
@@ -416,6 +423,13 @@ func fenceSnapshotCommand(ctx context.Context, cmd goredis.Cmder) goredis.Cmder 
 		} else {
 			keys = append(keys, original[1])
 		}
+		member := ""
+		if strings.EqualFold(fmt.Sprint(original[0]), "hset") {
+			member = snapshotDirectoryMember(fmt.Sprint(original[1]))
+			if member != "" {
+				keys = append(keys, snapshotMembers(snapshotDataID(fmt.Sprint(original[1]))))
+			}
+		}
 		args := []any{"EVAL", snapshotMutation, len(keys)}
 		args = append(args, keys...)
 		data := []string{}
@@ -424,7 +438,7 @@ func fenceSnapshotCommand(ctx context.Context, cmd goredis.Cmder) goredis.Cmder 
 				data = append(data, id)
 			}
 		}
-		args = append(args, scope.id, scope.pin.token, strings.Join(data, ","))
+		args = append(args, scope.id, scope.pin.token, strings.Join(data, ","), member)
 		args = append(args, cmd.Args()...)
 		return snapshotFencedCommand{Cmder: cmd, args: args}
 	}
@@ -442,7 +456,7 @@ func scopeSnapshotCommand(ctx context.Context, cmd goredis.Cmder) error {
 	name := strings.ToLower(fmt.Sprint(args[0]))
 	var positions []int
 	switch name {
-	case "get", "set", "setnx", "incr", "incrby", "hget", "hgetall", "hkeys", "hlen", "hexists", "hmget", "hset", "hdel", "hincrby", "sadd", "srem", "smembers", "sismember", "scard", "dump", "restore", "expire", "pexpire", "persist", "ttl", "pttl":
+	case "zrange", "zcard", "get", "set", "setnx", "incr", "incrby", "hget", "hgetall", "hkeys", "hlen", "hexists", "hmget", "hset", "hdel", "hincrby", "sadd", "srem", "smembers", "sismember", "scard", "dump", "restore", "expire", "pexpire", "persist", "ttl", "pttl":
 		positions = []int{1}
 	case "del", "unlink", "exists", "watch", "mget":
 		for n := 1; n < len(args); n++ {
@@ -505,6 +519,9 @@ func scopeSnapshotCommand(ctx context.Context, cmd goredis.Cmder) error {
 		}
 		if name == "hset" && len(args) > 1 && strings.HasPrefix(fmt.Sprint(args[1]), snapshotPrefix+"rows:") {
 			scope.writes++
+			if snapshotDirectoryMember(fmt.Sprint(args[1])) != "" {
+				scope.bytes += int64(20 + len(snapshotMembers(snapshotDataID(fmt.Sprint(args[1])))))
+			}
 		}
 		if scope.bytes > snapshotMaxBytes || scope.writes > snapshotMaxWrites {
 			return errorf(adbc.StatusIO, "snapshot staging budget exceeded (64 MiB command data or 100000 row writes)")
@@ -623,74 +640,13 @@ func (s *store) copySnapshot(baseCtx, targetCtx context.Context, base, id string
 // prepareSnapshotTable detaches a DML target before planning can capture row
 // keys. Read-only source tables continue to use their shared descriptors.
 func (s *store) prepareSnapshotTable(ctx context.Context, schema, table string) error {
-	meta, err := s.getTable(ctx, schema, table)
-	if err != nil {
-		return err
-	}
-	scope := snapshotOf(ctx)
-	if scope == nil || !scope.write {
-		return snapshotUnsupported()
-	}
-	if snapshotOwns(ctx, meta.prefix()) {
-		return nil
-	}
-	oldPrefix, oldIndex := meta.prefix(), meta.index()
-	nm, err := s.claimNames(ctx, schema, table)
-	if err != nil {
-		return err
-	}
-	meta.KeyPrefix, meta.IndexName, meta.PrefixGen = nm.prefix, nm.index, 0
-	rows := &keyScan{nodes: []goredis.Cmdable{s.client}, match: globEscape(oldPrefix) + "*", typ: "hash"}
-	copied := map[string]bool{}
-	for {
-		keys, done, err := rows.next(ctx)
-		if err != nil {
-			return err
-		}
-		pipe := s.redis(ctx).Pipeline()
-		for _, key := range keys {
-			if copied[key] {
-				continue
-			}
-			copied[key] = true
-			fields, err := s.redis(ctx).HGetAll(ctx, key).Result()
-			if err != nil {
-				return err
-			}
-			if len(fields) == 0 {
-				return errorf(adbc.StatusIO, "published snapshot row disappeared")
-			}
-			pipe.HSet(ctx, nm.prefix+strings.TrimPrefix(key, oldPrefix), fields)
-		}
-		if _, err := pipe.Exec(ctx); err != nil {
-			return err
-		}
-		if done {
-			break
-		}
-	}
-	if err := s.searchDo(ctx, meta.index(), snapshotScannedIndexArgs(meta)...).Err(); err != nil {
-		return wrapRedis(err, "failed to index snapshot copy")
-	}
-	raw, err := json.Marshal(meta)
-	if err != nil {
-		return err
-	}
-	pipe := s.redis(ctx).Pipeline()
-	pipe.Set(ctx, metaKey(schema, table), raw, 0)
-	pipe.SRem(ctx, prefixesKey, oldPrefix)
-	pipe.SRem(ctx, indexesKey, oldIndex)
-	if _, err := pipe.Exec(ctx); err != nil {
-		return err
-	}
-	// A completed private initial scan is required before DML can read it.
-	return s.validateSnapshot(ctx)
+	return s.prepareSnapshotDelta(ctx, schema, table)
 }
 
 func snapshotDataID(key string) string {
-	for _, prefix := range []string{snapshotPrefix + "rows:", "adbc_snapshot_{meta}_"} {
+	for _, prefix := range []string{snapshotPrefix + "rows:", snapshotPrefix + "members:", "adbc_snapshot_{meta}_"} {
 		if rest, ok := strings.CutPrefix(key, prefix); ok {
-			if len(rest) >= 33 && (rest[32] == ':' || rest[32] == '_') {
+			if (len(rest) == 32 && prefix == snapshotPrefix+"members:") || (len(rest) >= 33 && (rest[32] == ':' || rest[32] == '_')) {
 				id := rest[:32]
 				for _, c := range id {
 					if !strings.ContainsRune("0123456789abcdef", c) {
@@ -745,13 +701,15 @@ func (s *store) snapshotReferences(ctx context.Context) (string, error) {
 			if err != nil {
 				return "", err
 			}
-			id := snapshotDataID(meta.prefix())
-			if id == "" || snapshotDataID(meta.index()) != id {
-				return "", errorf(adbc.StatusIO, "invalid table generation descriptor")
-			}
-			if !seen[id] {
-				refs = append(refs, id)
-				seen[id] = true
+			for _, seg := range meta.snapshotSegments() {
+				id := snapshotDataID(seg.Prefix)
+				if id == "" || snapshotDataID(seg.Index) != id {
+					return "", errorf(adbc.StatusIO, "invalid table segment descriptor")
+				}
+				if !seen[id] {
+					refs = append(refs, id)
+					seen[id] = true
+				}
 			}
 		}
 	}
@@ -829,20 +787,11 @@ func (s *store) validateSnapshot(ctx context.Context) error {
 			if !snapshotOwns(ctx, meta.prefix()) {
 				continue
 			}
-			ks := &keyScan{nodes: []goredis.Cmdable{s.client}, match: globEscape(meta.prefix()) + "*", typ: "hash"}
-			seen := map[string]bool{}
-			for {
-				keys, done, err := ks.next(ctx)
-				if err != nil {
-					return err
-				}
-				for _, key := range keys {
-					seen[key] = true
-				}
-				if done {
-					break
-				}
+			count, err := s.redis(ctx).ZCard(ctx, snapshotMembers(snapshotDataID(meta.prefix()))).Result()
+			if err != nil {
+				return wrapRedis(err, "failed to validate snapshot directory")
 			}
+
 			for {
 				reply, err := s.searchDo(ctx, meta.index(), "FT.INFO", meta.index()).Result()
 				if err != nil {
@@ -852,7 +801,7 @@ func (s *store) validateSnapshot(ctx context.Context) error {
 				if info.failures != 0 {
 					return errorf(adbc.StatusIO, "snapshot index contains indexing failures")
 				}
-				if !info.indexing && info.percent >= 1 && info.numDocs == int64(len(seen)) {
+				if !info.indexing && info.percent >= 1 && info.numDocs == count {
 					if len(info.prefixes) != 1 || info.prefixes[0] != meta.prefix() {
 						return errorf(adbc.StatusIO, "snapshot index has an unexpected row prefix")
 					}
@@ -864,7 +813,6 @@ func (s *store) validateSnapshot(ctx context.Context) error {
 				case <-time.After(10 * time.Millisecond):
 				}
 			}
-			count := int64(len(seen))
 			meta.SnapshotRows = &count
 			raw, err := json.Marshal(meta)
 			if err != nil {
@@ -896,13 +844,26 @@ func (s *store) validateSnapshotRead(ctx context.Context) error {
 			if meta.SnapshotRows == nil || meta.Adopted || meta.KeyRows || meta.Foreign || meta.AppIndex || meta.RekeyTo != "" {
 				return errorf(adbc.StatusIO, "invalid managed snapshot descriptor")
 			}
-			reply, err := s.searchDo(ctx, meta.index(), "FT.INFO", meta.index()).Result()
-			if err != nil {
-				return wrapRedis(err, "published snapshot index is unavailable")
+			if len(meta.SnapshotSegments) >= snapshotMaxSegments || len(meta.SnapshotSegments) > 0 && !meta.SnapshotOverlay {
+				return errorf(adbc.StatusIO, "invalid snapshot segment manifest")
 			}
-			info := indexInfoOf(reply)
-			if info.indexing || info.percent < 1 || info.failures != 0 || info.numDocs != *meta.SnapshotRows || len(info.prefixes) != 1 || info.prefixes[0] != meta.prefix() {
-				return errorf(adbc.StatusIO, "published snapshot index is incomplete or rebuilding; retry after recovery")
+			for _, seg := range meta.snapshotSegments() {
+				id := snapshotDataID(seg.Prefix)
+				if id == "" || snapshotDataID(seg.Index) != id || seg.Rows < 0 {
+					return errorf(adbc.StatusIO, "invalid snapshot segment descriptor")
+				}
+				reply, err := s.searchDo(ctx, seg.Index, "FT.INFO", seg.Index).Result()
+				if err != nil {
+					return wrapRedis(err, "published snapshot index is unavailable")
+				}
+				info := indexInfoOf(reply)
+				count, err := s.redis(ctx).ZCard(ctx, snapshotMembers(id)).Result()
+				if err != nil {
+					return wrapRedis(err, "snapshot row directory is unavailable")
+				}
+				if count != seg.Rows || info.indexing || info.percent < 1 || info.failures != 0 || info.numDocs != seg.Rows || len(info.prefixes) != 1 || info.prefixes[0] != seg.Prefix {
+					return errorf(adbc.StatusIO, "published snapshot segment is incomplete or rebuilding")
+				}
 			}
 		}
 	}
@@ -941,6 +902,9 @@ func (s *store) reapSnapshot(parent context.Context) {
 		}
 	}
 	if !s.deleteSnapshotKeys(ctx, snapshotRows(data)) {
+		return
+	}
+	if err := s.client.Del(ctx, snapshotMembers(data)).Err(); err != nil {
 		return
 	}
 	_ = s.snapshotControl(ctx, "reclaimed_data", "", data, "").Err()

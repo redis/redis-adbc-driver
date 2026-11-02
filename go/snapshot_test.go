@@ -6,6 +6,8 @@ package redis
 
 import (
 	"context"
+	"sort"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -114,5 +116,29 @@ func TestSnapshotConnectionCapabilityAndPartitionGuard(t *testing.T) {
 	stmt := &statementImpl{conn: c}
 	if _, _, _, err := stmt.ExecutePartitions(ctx); err == nil {
 		t.Fatal("partition production bypassed snapshot ownership")
+	}
+}
+
+func TestSnapshotDeltaDirectoryUsesExactIntegerOrdering(t *testing.T) {
+	id := strings.Repeat("a", 32)
+	var members []string
+	for _, n := range []int64{9223372036854775807, 9007199254740993, 2, 1, 9007199254740992} {
+		member := snapshotDirectoryMember(snapshotRows(id) + strconv.FormatInt(n, 10))
+		if len(member) != 20 {
+			t.Fatalf("invalid exact directory member: %q", member)
+		}
+		members = append(members, member)
+	}
+	sort.Strings(members)
+	for i, want := range []int64{1, 2, 9007199254740992, 9007199254740993, 9223372036854775807} {
+		got, err := strconv.ParseInt(members[i], 10, 64)
+		if err != nil || got != want {
+			t.Fatalf("directory reordered exact IDs: %v %v", members, err)
+		}
+	}
+	for _, suffix := range []string{"0", "-1", "1:extra", "01", "9223372036854775808"} {
+		if got := snapshotDirectoryMember(snapshotRows(id) + suffix); got != "" {
+			t.Fatalf("invalid row identity accepted: %q", suffix)
+		}
 	}
 }

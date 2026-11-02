@@ -803,7 +803,7 @@ func (e *executor) runGroupingSets(ctx context.Context, plan *selectPlan, params
 // computed correctly, only the slower way.
 func (gp *groupingPlan) indexable(e *executor, wp wherePlan, set []int) bool {
 	meta := gp.base.meta
-	if e.pushdown == PushdownNone || wp.residual != nil || wp.keys != nil || meta.isMem || len(gp.base.extraNeed) > 0 {
+	if e.pushdown == PushdownNone || wp.residual != nil || wp.keys != nil || meta.SnapshotOverlay || meta.isMem || len(gp.base.extraNeed) > 0 {
 		return false
 	}
 	indexed := func(x Expr) (columnMeta, bool) {
