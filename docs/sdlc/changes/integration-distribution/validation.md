@@ -52,3 +52,30 @@ compatibility claim is made. The workflows must reach `main`, then the first
 updated binary and automatic PyPI runs must be observed. Account configuration
 and local tests do not establish a completed release. No release was created or
 published, and no upstream registry/connector release process was modified.
+
+## PR CI follow-up
+
+The first PR run exposed two existing fixture/workflow mismatches:
+
+- [Linux integration installation](https://github.com/redis/redis-adbc-driver/actions/runs/41393123229/job/125108644964)
+  stopped before tests: uv's Python download failed with `UnknownIssuer` because
+  the Redis fixture's `SSL_CERT_FILE` replaced public download trust roots.
+  Reproduced with uv 0.13.6 against PyPI using a temporary private CA (exit 2),
+  then resolved the same pinned package with that CA plus a public-root
+  `SSL_CERT_DIR` (exit 0). Linux jobs and distro validation containers now expose
+  the installed public CA directory alongside the unchanged Redis CA. No TLS
+  verification is disabled.
+- [macOS release Go test startup](https://github.com/redis/redis-adbc-driver/actions/runs/41393123355/job/125108610667)
+  rejected the native fixture's plaintext URI under the current authenticated-TLS
+  test policy. The existing native fixture now starts with `--tls`, its generated
+  authenticated URI/CA are exported without logging credentials, and both cap
+  configuration commands use verified TLS. Its public-root directory also keeps
+  uv downloads working. Fixture private material is removed during cleanup.
+
+The Go harness startup check (`go test -run '^$' .`) reproduced rejection of
+the old plaintext fixture (exit 1) and accepted the generated authenticated TLS
+URI/CA (exit 0, no data tests selected). This checks policy setup only.
+
+Actionlint, every changed shell block's `bash -n`, and `git diff --check` passed.
+A replacement CI run is needed for the full integration and release gates; local
+TLS trust and test-policy checks do not establish full server/runtime success.

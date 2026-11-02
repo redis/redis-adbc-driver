@@ -130,6 +130,9 @@ jobs:
           - arch: arm64
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
+    env:
+      # uv must trust public download hosts as well as the Redis fixture CA.
+      SSL_CERT_DIR: /etc/ssl/certs
     steps:
       - uses: actions/checkout@v7
         with:
@@ -396,7 +399,8 @@ jobs:
             -v "$PWD/dist/adbc_driver_redis-$VERSION-linux-$ARCH:/lib-in:ro" \
             -v "$(dirname "$(command -v uv)"):/uv:ro" \
             -v "$PWD/go/build/test-tls:/test-tls:ro" \
-            -e REDIS_URI -e SSL_CERT_FILE=/test-tls/ca.pem -e REDIS_PARTITION_SCAN_CAP=2147483648 \
+            -e REDIS_URI -e SSL_CERT_FILE=/test-tls/ca.pem -e SSL_CERT_DIR=/etc/ssl/certs \
+            -e REDIS_PARTITION_SCAN_CAP=2147483648 \
             -e REDIS_RETAINED_CONTROL_PERSISTENCE=guaranteed \
             -e PYTHONUNBUFFERED=1 -e UV_HTTP_TIMEOUT=60 -e UV_HTTP_RETRIES=2 \
             "$IMAGE" sh -euc '
@@ -410,7 +414,7 @@ jobs:
               else
                 # AlmaLinux mirrors can trickle metadata for the entire step
                 # budget. Reject slow transfers so DNF tries another mirror.
-                dnf --setopt=timeout=30 --setopt=minrate=1M --setopt=retries=2 -y install git
+                dnf --setopt=timeout=30 --setopt=minrate=1M --setopt=retries=2 -y install git ca-certificates
               fi
               echo "=== Preparing validation fixtures ==="
               mkdir -p /work/go/build
@@ -508,17 +512,30 @@ jobs:
             python3 scripts/check_native_install.py --library go/build/libadbc_driver_redis.dylib
           fi
 
-      - name: Start native macOS Redis with Search
+      - name: Start authenticated TLS native macOS Redis with Search
         if: hashFiles('scripts/native_partition_redis.py') != ''
         run: |
           brew update
           env -u HOMEBREW_NO_INSTALL_UPGRADE brew install redis
           prefix="$(brew --prefix redis)"
-          python3 scripts/native_partition_redis.py start "$RUNNER_TEMP/native-partition-redis" \
+          python3 scripts/native_partition_redis.py start "$RUNNER_TEMP/native-partition-redis" --tls \
             --server "$prefix/bin/redis-server" --cli "$prefix/bin/redis-cli" \
             --module "$prefix/lib/redis/modules/redisearch.so" --port 16391
           brew info --json=v2 redis > "$RUNNER_TEMP/native-partition-redis/homebrew.json"
-          echo 'REDIS_URI=redis://127.0.0.1:16391/0' >> "$GITHUB_ENV"
+          fixture="$RUNNER_TEMP/native-partition-redis/tls"
+          REDISCLI_AUTH="$(cat "$fixture/admin.password")" "$prefix/bin/redis-cli" \
+            --tls --cacert "$fixture/ca.crt" --user default -p 16391 \
+            -e CONFIG SET search-max-aggregate-results 2147483648
+          # uv reads every PEM in SSL_CERT_DIR alongside the private fixture CA.
+          mkdir -p "$RUNNER_TEMP/public-ca-roots"
+          cp /etc/ssl/cert.pem "$RUNNER_TEMP/public-ca-roots/system.pem"
+          python3 - "$fixture" >> "$GITHUB_ENV" <<'PY'
+          import pathlib, sys
+          fixture = pathlib.Path(sys.argv[1])
+          print('REDIS_URI=' + (fixture / 'admin.uri').read_text().strip())
+          print('SSL_CERT_FILE=' + str(fixture / 'ca.crt'))
+          PY
+          echo "SSL_CERT_DIR=$RUNNER_TEMP/public-ca-roots" >> "$GITHUB_ENV"
 
       - name: Build redis-adbc
         if: hashFiles('go/cmd/redis-adbc/main.go') != ''
@@ -540,7 +557,10 @@ jobs:
         env:
           REDIS_PARTITION_SCAN_CAP: '137'
         run: |
-          "$(brew --prefix redis)/bin/redis-cli" -p 16391 -e CONFIG SET search-max-aggregate-results 137
+          fixture="$RUNNER_TEMP/native-partition-redis/tls"
+          REDISCLI_AUTH="$(cat "$fixture/admin.password")" "$(brew --prefix redis)/bin/redis-cli" \
+            --tls --cacert "$fixture/ca.crt" --user default -p 16391 \
+            -e CONFIG SET search-max-aggregate-results 137
           export REDIS_ADBC_LIBRARY="$(/tmp/redis-wheel-smoke/bin/python -c 'from adbc_driver_redis import _driver_path; print(_driver_path())')"
           cd go/validation
           uv run pytest -q -ra --junitxml=macos-wheel-validation.xml tests/
@@ -592,6 +612,7 @@ jobs:
         timeout-minutes: 1
         run: |
           python3 scripts/native_partition_redis.py stop "$RUNNER_TEMP/native-partition-redis"
+          rm -rf "$RUNNER_TEMP/native-partition-redis/tls"
 
       - name: Stop owned native macOS TLS Redis
         if: always() && hashFiles('scripts/create_partition_tls.sh') != ''
