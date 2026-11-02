@@ -36,9 +36,10 @@ import (
 )
 
 type sqlHarness struct {
-	t    *testing.T
-	ctx  context.Context
-	conn adbc.ConnectionWithContext
+	afterExec func() // deterministic maintenance steps, snapshot protocol fixtures only
+	t         *testing.T
+	ctx       context.Context
+	conn      adbc.ConnectionWithContext
 }
 
 func newSQLHarness(t *testing.T) *sqlHarness {
@@ -74,6 +75,9 @@ func (h *sqlHarness) exec(sql string) int64 {
 	n, err := st.ExecuteUpdate(h.ctx)
 	if err != nil {
 		h.t.Fatalf("%s: %v", sql, err)
+	}
+	if h.afterExec != nil {
+		h.afterExec()
 	}
 	return n
 }

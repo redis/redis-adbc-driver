@@ -17,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/adbc-drivers/driverbase-go/driverbase"
 	"github.com/adbc-drivers/redis/go/internal/tlstrust"
 	"github.com/apache/arrow-adbc/go/adbc"
 	"github.com/apache/arrow-go/v18/arrow"
@@ -28,6 +29,13 @@ import (
 // REDIS_SNAPSHOT_URI must name a DISPOSABLE database. These tests initialize a
 // different storage format and clear that database before/after each test.
 func newSnapshotHarness(t *testing.T) (*sqlHarness, *goredis.Client, adbc.DatabaseWithContext) {
+	return newSnapshotHarnessMode(t, false, true)
+}
+
+// Protocol tests drive the same durable worker in explicit bounded steps so
+// races with deliberately corrupted indexes/leases remain deterministic. The
+// background integration/native tests use automatic production workers.
+func newSnapshotHarnessMode(t *testing.T, background, drain bool) (*sqlHarness, *goredis.Client, adbc.DatabaseWithContext) {
 	t.Helper()
 	uri := os.Getenv("REDIS_SNAPSHOT_URI")
 	if uri == "" {
@@ -66,16 +74,23 @@ func newSnapshotHarness(t *testing.T) (*sqlHarness, *goredis.Client, adbc.Databa
 		_ = raw.FlushDB(ctx).Err()
 		_ = raw.Close()
 	})
-	db, err := NewDriver(memory.DefaultAllocator).NewDatabaseWithContext(ctx, map[string]string{adbc.OptionKeyURI: uri})
+	impl, err := newDriverImpl(memory.DefaultAllocator).newDatabaseImpl(ctx, map[string]string{adbc.OptionKeyURI: uri})
 	if err != nil {
 		t.Fatal(err)
 	}
+	impl.snapshotCompactionDisabled = !background
+	db := driverbase.NewDatabase(impl)
 	conn, err := db.Open(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = conn.Close(ctx); _ = db.Close(ctx) })
-	return &sqlHarness{t: t, ctx: ctx, conn: conn}, raw, db
+	h := &sqlHarness{t: t, ctx: ctx, conn: conn}
+	if drain {
+		maintenance := snapshotTestStore(t, raw)
+		h.afterExec = func() { snapshotDrainCompactionTest(t, maintenance) }
+	}
+	return h, raw, db
 }
 
 func snapshotTestStore(t *testing.T, raw *goredis.Client) *store {
@@ -636,7 +651,7 @@ func TestSnapshotCapacityAndMissingIndex(t *testing.T) {
 			t.Fatal(err)
 		}
 		pins = append(pins, p)
-		h.exec("INSERT INTO t VALUES(1)")
+		h.exec(fmt.Sprintf("COMMENT ON TABLE t IS 'generation %d'", i))
 	}
 	before := raw.HGet(h.ctx, snapshotCatalogKey, "root").Val()
 	h.expectError("INSERT INTO t VALUES(2)", "generation limit")

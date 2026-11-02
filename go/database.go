@@ -30,6 +30,7 @@ import (
 
 type databaseImpl struct {
 	snapshots                   bool
+	snapshotCompactionDisabled  bool // internal deterministic protocol-test fixture only
 	retainedNamespace           string
 	partitionControlPersistence string
 	retainedLimits              retainedLimits
@@ -333,6 +334,9 @@ func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, er
 	}
 	if cfg.single.Username != "" {
 		conn.sess.user = cfg.single.Username
+	}
+	if st.snapshots && !d.snapshotCompactionDisabled {
+		st.startSnapshotCompactor(cfg, t)
 	}
 	return driverbase.NewConnectionBuilder(conn).
 		WithCurrentNamespacer(conn).

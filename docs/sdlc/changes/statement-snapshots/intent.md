@@ -69,6 +69,15 @@ and synchronous compaction, preserving pinned snapshots and fail-closed recovery
 This does not authorize weakening exactness or silently retaining unsafe physical
 index pushdowns. No upgrade path for either earlier draft format is included.
 
+## Background-compaction refinement
+
+The latest user request requires incremental compaction off ordinary writes,
+with explicit backpressure and pinned-reader preservation. A durable worker must
+resume bounded copy batches after interruption, publish only the selected prefix
+while retaining newer changes, and stop with its connection. A job must be able
+to exceed SQL statement total-copy limits without making one unbounded operation.
+No Search pushdown restoration or throughput claim is implied by this refinement.
+
 ## Success criteria
 
 The deterministic concurrency and failure cases in [validation.md](validation.md)

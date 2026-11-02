@@ -42,6 +42,7 @@ type snapshotContextKey struct{}
 type snapshotScope struct {
 	id            string
 	pin           *snapshotPin
+	maintenance   bool
 	write         bool
 	owned         map[string]bool
 	mu            sync.Mutex
@@ -76,12 +77,12 @@ end
 if op == 'init' then
   if redis.call('EXISTS', k) == 0 then
     if redis.call('DBSIZE') ~= 0 then return redis.error_reply('managed-table snapshots require a fresh empty database; existing storage is not upgraded or modified') end
-    redis.call('HSET', k, 'format', '3', 'root', id, 'w:'..id, cjson.encode({state='committed'}), 'r:'..id, '[]')
+    redis.call('HSET', k, 'format', '4', 'root', id, 'w:'..id, cjson.encode({state='committed'}), 'r:'..id, '[]')
   end
-  if redis.call('HGET', k, 'format') ~= '3' then return redis.error_reply('unsupported snapshot catalog format') end
+  if redis.call('HGET', k, 'format') ~= '4' then return redis.error_reply('unsupported snapshot catalog format') end
   return 1
 end
-if redis.call('HGET', k, 'format') ~= '3' then return redis.error_reply('missing or unsupported snapshot catalog') end
+if redis.call('HGET', k, 'format') ~= '4' then return redis.error_reply('missing or unsupported snapshot catalog') end
 local entries = redis.call('HGETALL', k)
 local pins, works, protected = 0, 0, {}
 for n=1,#entries,2 do
@@ -94,12 +95,73 @@ for n=1,#entries,2 do
     else redis.call('HDEL', k, field) end
   elseif string.sub(field,1,2) == 'w:' then works = works + 1 end
 end
-if op == 'acquire' then
+if op == 'compact_start' then
+  if redis.call('HEXISTS', k, 'compaction') == 1 or works >= 14 or not owns_pin() then return 0 end
+  local job = cjson.decode(ARGV[6])
+  for _,data in ipairs(job.references) do
+    local raw = redis.call('HGET', k, 'd:'..data)
+    if not raw or cjson.decode(raw).state ~= 'live' then return 0 end
+  end
+  if redis.call('HEXISTS', k, 'd:'..job.data) == 1 then return 0 end
+  local refs = job.references
+  table.insert(refs, job.data)
+  redis.call('HSET', k, 'compaction', ARGV[6], 'w:'..id,
+    cjson.encode({state='compacting',token=job.token,expires=expiry}),
+    'r:'..id,cjson.encode(refs), 'd:'..job.data,cjson.encode({owner=id,state='live'}))
+  return 1
+elseif op == 'compact_acquire' then
+  local raw = redis.call('HGET', k, 'compaction')
+  if not raw then return '' end
+  local job = cjson.decode(raw)
+  local wr = redis.call('HGET', k, 'w:'..job.id)
+  if not wr then return redis.error_reply('compaction ownership record is missing') end
+  local w = cjson.decode(wr)
+  if w.state ~= 'compacting' then return redis.error_reply('invalid compaction state') end
+  if w.expires > now and w.token ~= token then return '' end
+  w.token, w.expires, job.token = token, expiry, token
+  if job.phase == 'install' then w.publish_until = now + 5000 end
+  local result = cjson.encode(job)
+  redis.call('HSET', k, 'w:'..job.id,cjson.encode(w),'compaction',result)
+  return result
+elseif op == 'compact_checkpoint' or op == 'compact_release' or op == 'compact_finish' then
+  local raw = redis.call('HGET', k, 'compaction')
+  if not raw then return 0 end
+  local job = cjson.decode(raw)
+  local wr = redis.call('HGET', k, 'w:'..id)
+  if job.id ~= id or not wr then return 0 end
+  local w = cjson.decode(wr)
+  if w.state ~= 'compacting' or w.token ~= token or w.expires <= now then return 0 end
+  if op == 'compact_checkpoint' then
+    w.expires = expiry
+    if cjson.decode(ARGV[6]).phase == 'install' then w.publish_until = now + 5000 end
+    redis.call('HSET', k, 'compaction',ARGV[6],'w:'..id,cjson.encode(w))
+  elseif op == 'compact_release' then
+    w.expires, w.publish_until = 0, 0
+    redis.call('HSET', k, 'w:'..id,cjson.encode(w))
+  else
+    redis.call('HSET', k, 'w:'..id,cjson.encode({state='deleting'}))
+    redis.call('HDEL', k, 'compaction')
+  end
+  return 1
+elseif op == 'acquire' then
+  if ARGV[6] == 'write' then
+    local jr = redis.call('HGET', k, 'compaction')
+    if jr then
+      local job = cjson.decode(jr)
+      local wr = redis.call('HGET', k, 'w:'..job.id)
+      if job.phase == 'install' and wr then
+        local w = cjson.decode(wr)
+        if w.state == 'compacting' and w.expires > now and (w.publish_until or 0) > now then
+          return redis.error_reply('snapshot compaction publication pending')
+        end
+      end
+    end
+  end
   local prior = redis.call('HGET', k, 'p:'..token)
   if prior then return cjson.decode(prior).root end
   if pins >= 128 then return redis.error_reply('snapshot reader limit (128) reached') end
   local root = redis.call('HGET', k, 'root')
-  redis.call('HSET', k, 'p:'..token, cjson.encode({root=root,expires=expiry}))
+  redis.call('HSET', k, 'p:'..token, cjson.encode({root=root,expires=expiry,writing=(ARGV[6] == 'write')}))
   return root
 elseif op == 'renew' or op == 'valid' then
   local raw = redis.call('HGET', k, 'p:'..token)
@@ -150,19 +212,37 @@ elseif op == 'own_data' then
   table.insert(refs, data)
   redis.call('HSET', k, 'd:'..data, cjson.encode({owner=id,state='live'}), 'r:'..id, cjson.encode(refs))
   return 1
-elseif op == 'publish' then
+elseif op == 'publish' or op == 'publish_compaction' then
   local raw = redis.call('HGET', k, 'w:'..id)
   if not raw then return -1 end
   local w = cjson.decode(raw)
   if w.state == 'committed' then return 1 end
   if w.state ~= 'staging' or w.token ~= token or w.expires <= now or not owns_pin() then return -1 end
   if redis.call('HGET', k, 'root') ~= base then return 0 end
+  if op == 'publish_compaction' then
+    for n=1,#entries,2 do
+      if string.sub(entries[n],1,2) == 'p:' then
+        local pin = cjson.decode(entries[n+1])
+        if pin.writing and pin.expires > now then return 0 end
+      end
+      if string.sub(entries[n],1,2) == 'w:' and entries[n] ~= 'w:'..id then
+        local other = cjson.decode(entries[n+1])
+        if other.state == 'staging' and other.expires > now then return 0 end
+      end
+    end
+  end
   local refs = cjson.decode(ARGV[6])
   for _,data in ipairs(refs) do
     local d = redis.call('HGET', k, 'd:'..data)
     if not d or cjson.decode(d).state ~= 'live' then return redis.error_reply('snapshot data generation unavailable') end
   end
   redis.call('HSET', k, 'root', id, 'w:'..id, cjson.encode({state='committed'}), 'r:'..id, ARGV[6])
+  local pr = redis.call('HGET', k, 'p:'..token)
+  if pr then
+    local pin = cjson.decode(pr)
+    pin.writing = false
+    redis.call('HSET', k, 'p:'..token,cjson.encode(pin))
+  end
   return 1
 elseif op == 'outcome' then
   local raw = redis.call('HGET', k, 'w:'..id)
@@ -184,7 +264,7 @@ elseif op == 'claim' then
     if string.sub(field,1,2) == 'w:' then
       local candidate = string.sub(field,3)
       local w = cjson.decode(entries[n+1])
-      if candidate ~= root and not protected[candidate] and (w.state ~= 'staging' or w.expires <= now) then
+      if candidate ~= root and not protected[candidate] and w.state ~= 'compacting' and (w.state ~= 'staging' or w.expires <= now) then
         redis.call('HSET', k, field, cjson.encode({state='deleting'}))
         return candidate
       end
@@ -201,7 +281,7 @@ elseif op == 'claim_data' then
     local field = entries[n]
     if string.sub(field,1,2) == 'w:' then
       local w = cjson.decode(entries[n+1])
-      if w.state == 'committed' or (w.state == 'staging' and w.expires > now) then
+      if w.state == 'committed' or w.state == 'compacting' or (w.state == 'staging' and w.expires > now) then
         local refs = cjson.decode(redis.call('HGET', k, 'r:'..string.sub(field,3)) or '[]')
         for _,data in ipairs(refs) do referenced[data] = true end
       end
@@ -249,14 +329,22 @@ type snapshotPin struct {
 	once        sync.Once
 }
 
-func (s *store) acquireSnapshot(ctx context.Context) (context.Context, *snapshotPin, error) {
+func (s *store) acquireSnapshot(ctx context.Context, writing ...bool) (context.Context, *snapshotPin, error) {
 	if s == nil || !s.snapshots || snapshotOf(ctx) != nil {
 		return ctx, nil, nil
 	}
 	s.reapSnapshot(ctx)
 	p := &snapshotPin{ctx: ctx, store: s, token: snapshotID(), stop: make(chan struct{}), done: make(chan struct{})}
-	root, err := s.snapshotControl(ctx, "acquire", p.token, "", "").Text()
+	mode := ""
+	if len(writing) > 0 && writing[0] {
+		mode = "write"
+	}
+	root, err := s.snapshotControl(ctx, "acquire", p.token, "", "", mode).Text()
 	if err != nil {
+		if strings.Contains(err.Error(), "snapshot compaction publication pending") {
+			s.wakeSnapshotCompactor()
+			return ctx, nil, stateErrorf("40001", "background compaction is publishing; retry the statement")
+		}
 		return ctx, nil, wrapRedis(err, "failed to acquire statement snapshot")
 	}
 	p.root = root
@@ -388,7 +476,7 @@ if not raw then return redis.error_reply('snapshot write generation was reclaime
 local w = cjson.decode(raw)
 local t = redis.call('TIME')
 local now = tonumber(t[1])*1000 + math.floor(tonumber(t[2])/1000)
-if w.state ~= 'staging' or w.token ~= ARGV[2] or w.expires <= now then
+if (w.state ~= 'staging' and w.state ~= 'compacting') or w.token ~= ARGV[2] or w.expires <= now then
   return redis.error_reply('snapshot writer lease lost')
 end
 for data in string.gmatch(ARGV[3], '[^,]+') do
@@ -397,11 +485,22 @@ for data in string.gmatch(ARGV[3], '[^,]+') do
   local d = cjson.decode(raw)
   if d.owner ~= ARGV[1] or d.state ~= 'live' then return redis.error_reply('shared snapshot data is immutable') end
 end
+local command = string.lower(ARGV[5])
+if w.state == 'compacting' then
+  local jr = redis.call('HGET', KEYS[1], 'compaction')
+  if not jr then return redis.error_reply('compaction job is no longer active') end
+  local job = cjson.decode(jr)
+  if job.id ~= ARGV[1] or
+     (command == 'hset' and job.phase ~= 'copy') or
+     (command == 'ft.create' and job.phase ~= 'index') or
+     (command ~= 'hset' and command ~= 'ft.create') then
+    return redis.error_reply('compaction output is sealed for this operation')
+  end
+end
 local result = redis.call(unpack(ARGV,5))
 if ARGV[4] ~= '' then redis.call('ZADD', KEYS[#KEYS], 0, ARGV[4]) end
 -- Lua numbers cannot represent all int64 replies. Re-read integer counters
 -- as bulk strings inside this same fence; IntCmd parses them without rounding.
-local command = string.lower(ARGV[5])
 if command == 'incr' or command == 'incrby' then return redis.call('GET', ARGV[6]) end
 if command == 'hincrby' then return redis.call('HGET', ARGV[6], ARGV[7]) end
 return result
@@ -567,6 +666,7 @@ func (s *store) abortSnapshot(pin *snapshotPin, id string) {
 }
 
 func (s *store) publishSnapshot(ctx context.Context, pin *snapshotPin, id string) error {
+	defer s.wakeSnapshotCompactor()
 	if err := pin.valid(ctx); err != nil {
 		return err
 	}
@@ -582,7 +682,11 @@ func (s *store) publishSnapshot(ctx context.Context, pin *snapshotPin, id string
 	if err != nil {
 		return err
 	}
-	n, err := s.snapshotControl(ctx, "publish", pin.token, id, pin.root, refs).Int()
+	operation := "publish"
+	if snapshotOf(ctx).maintenance {
+		operation = "publish_compaction"
+	}
+	n, err := s.snapshotControl(ctx, operation, pin.token, id, pin.root, refs).Int()
 	if err != nil {
 		// Resolve with an independent bounded context, including cancellation
 		// racing with EXEC. Never replay the SQL or Arrow input.
@@ -871,7 +975,10 @@ func (s *store) validateSnapshotRead(ctx context.Context) error {
 }
 
 func (s *store) reapSnapshot(parent context.Context) {
-	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), 5*time.Second)
+	s.reapSnapshotBudget(parent, 5*time.Second)
+}
+func (s *store) reapSnapshotBudget(parent context.Context, budget time.Duration) {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), budget)
 	defer cancel()
 	id, err := s.snapshotControl(ctx, "claim", "", "", "").Text()
 	if err != nil {
@@ -938,7 +1045,7 @@ func (e *executor) executeSnapshot(ctx context.Context, ps ParsedStmt, params []
 		return execResult{}, errorf(adbc.StatusNotImplemented, "statement is not supported in snapshot catalogs")
 	}
 	ctx, cancel := context.WithTimeout(ctx, snapshotTimeout)
-	sctx, pin, err := e.store.acquireSnapshot(ctx)
+	sctx, pin, err := e.store.acquireSnapshot(ctx, write)
 	if err != nil {
 		cancel()
 		return execResult{}, err

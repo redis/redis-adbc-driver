@@ -53,7 +53,7 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 		}
 		ctx, cancel := context.WithTimeout(ctx, snapshotTimeout)
 		defer cancel()
-		sctx, pin, err := s.conn.store.acquireSnapshot(ctx)
+		sctx, pin, err := s.conn.store.acquireSnapshot(ctx, true)
 		if err != nil {
 			return -1, err
 		}

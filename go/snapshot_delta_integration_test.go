@@ -170,7 +170,7 @@ func TestSnapshotDeltaCompactionRetainsStreamingReader(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer other.Close(h.ctx)
-	writer := &sqlHarness{t: t, ctx: h.ctx, conn: other}
+	writer := &sqlHarness{t: t, ctx: h.ctx, conn: other, afterExec: h.afterExec}
 	sawCompaction := false
 	previous := len(oldSegments)
 	// Include a tombstone before compaction so copied output must exclude it.
@@ -311,41 +311,49 @@ func (h *snapshotFailCompaction) ProcessPipelineHook(next goredis.ProcessPipelin
 	}
 }
 func TestSnapshotDeltaFailedCompactionDoesNotPublish(t *testing.T) {
-	h, raw, _ := newSnapshotHarness(t)
+	h, raw, _ := newSnapshotHarnessMode(t, false, false)
 	h.exec("CREATE TABLE t(id INTEGER,v INTEGER)")
 	h.exec("INSERT INTO t VALUES(1,10),(2,20)")
-	for i := 0; i < snapshotMaxSegments-1; i++ {
+	for i := 0; i < snapshotCompactionTrigger-1; i++ {
 		h.exec(fmt.Sprintf("UPDATE t SET v=%d WHERE __rowid=1", 100+i))
 	}
 	s := snapshotTestStore(t, raw)
-	ctx, pin, err := s.acquireSnapshot(h.ctx)
-	if err != nil {
-		t.Fatal(err)
+	token := snapshotID()
+	if progress, err := s.snapshotCompactionStep(h.ctx, token); err != nil || !progress {
+		t.Fatalf("start: %v %v", progress, err)
 	}
-	defer pin.release()
 	before := raw.HGet(h.ctx, snapshotCatalogKey, "root").Val()
-	wctx, id, err := s.beginSnapshotWrite(ctx, pin)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer s.abortSnapshot(pin, id)
 	hook := &snapshotFailCompaction{}
 	s.client.AddHook(hook)
-	if err := s.prepareSnapshotTable(wctx, "public", "t"); err == nil {
-		t.Fatal("injected compaction error was ignored")
+	if _, err := s.snapshotCompactionStep(h.ctx, token); err == nil {
+		t.Fatal("injected compaction error ignored")
 	}
 	if hook.prefix == "" {
 		t.Fatal("failure did not reach compaction row writes")
 	}
 	if raw.HGet(h.ctx, snapshotCatalogKey, "root").Val() != before {
-		t.Fatal("failed compaction published a root")
+		t.Fatal("failed compaction published")
 	}
-	s.abortSnapshot(pin, id)
-	snapshotReapTest(s, h.ctx)
-	if raw.Exists(h.ctx, hook.prefix+"1", snapshotMembers(snapshotDataID(hook.prefix))).Val() != 0 {
-		t.Fatal("failed compaction leaked private data/directory")
+	job, err := s.readSnapshotCompaction(h.ctx)
+	if err != nil || job == nil || job.After != "" || job.LastError == "" {
+		t.Fatalf("missing durable error/checkpoint: %+v %v", job, err)
 	}
-	h.expectRows("SELECT id,v FROM t ORDER BY id", "1|106", "2|20")
+	h.expectRows("SELECT id,v FROM t ORDER BY id", "1|102", "2|20")
+	if err := s.releaseSnapshotCompaction(h.ctx, token); err != nil {
+		t.Fatal(err)
+	}
+	replacement := snapshotTestStore(t, raw)
+	snapshotDrainCompactionTest(t, replacement)
+	ctx, pin, err := replacement.acquireSnapshot(h.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pin.release()
+	current := snapshotTableTest(t, replacement, ctx, "t")
+	if current.prefix() != hook.prefix {
+		t.Fatal("recovery discarded durable copied output")
+	}
+	h.expectRows("SELECT id,v FROM t ORDER BY id", "1|102", "2|20")
 }
 
 func TestSnapshotDeltaExactRowIDsBeyondDoublePrecision(t *testing.T) {

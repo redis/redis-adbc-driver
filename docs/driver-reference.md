@@ -17,8 +17,9 @@ currently rejected. Retained partition reader-only connections consume independe
 immutable Arrow results and do not initialize a managed catalog.
 
 Each write copies a metadata manifest, shares unchanged data and appends changed
-row versions/tombstones. A table has at most eight segments; exceeding that bound
-triggers synchronous compaction under the existing staging/time limits. Segmented
+row versions/tombstones. Automatic background compaction starts at four segments; a hard eight-segment
+bound applies retryable backpressure instead of foreground copying. Jobs persist
+bounded-batch checkpoints and preserve newer deltas when published. Segmented
 reads merge visibility in the driver and disable unsafe Search pushdowns. Fixed
 manifest, reader, staging and time limits apply. This first slice needs a primary single
 endpoint, no Active-Active replication and verified noeviction. It is not a

@@ -40,7 +40,8 @@ DML targets receive an empty current segment before planning captures logical
 row keys. INSERT appends new rows; UPDATE writes complete replacement images;
 DELETE writes tombstones. Arrow append ingestion stages its complete stream in
 one segment. Unchanged rows and old segment indexes are not copied or rebuilt.
-Bounded synchronous compaction replaces a segment chain when needed.
+Durable background jobs compact prefixes in bounded batches. Foreground writes
+apply retryable backpressure at the hard segment bound.
 
 ## Storage and publication
 
@@ -54,10 +55,11 @@ The control hash `adbc:{meta}:snapshot:catalog` contains:
 
 | Field | Contents |
 | --- | --- |
-| `format` | Protocol version `3`; prior draft versions 1 and 2 are rejected |
+| `format` | Protocol version `4`; prior draft versions 1, 2 and 3 are rejected |
 | `root` | Unique committed catalog generation ID |
-| `w:<generation>` | Staging owner token, base root and lease expiry; committed outcome; or deletion claim |
-| `p:<token>` | Reader/writer base root and lease expiration |
+| `w:<generation>` | Staging owner token/base/lease; compacting owner/lease/publication gate; committed outcome; or deletion claim |
+| `p:<token>` | Reader/writer base root, write intent and lease expiration |
+| `compaction` | One durable job: source descriptors, output ID, exact checkpoint, phase, owner token and last recorded error |
 | `r:<manifest>` | JSON array of referenced physical segment IDs |
 | `d:<segment>` | Original staging owner and live/deleting state; lifetime independent of creator manifest |
 
@@ -100,15 +102,51 @@ visible rows. Non-overlay base tables retain their existing Search paths.
 Explicit ordering may materialize; this is a read-cost tradeoff, not a claim that
 existing pushdown performance is preserved.
 
-A table has at most eight segments. The next write compacts visible rows into a
-fresh current segment, discarding tombstones and obsolete versions, then applies
-its changes there. Compaction preserves exact stored values and row IDs and does
-not modify old segments. It is synchronous, bounded by existing staging/row/time
-budgets, and failure leaves the published root unchanged. Large tables can exceed
-these budgets and block chain extension; incremental/background compaction and
-configurable limits are deferred. DROP removes a descriptor. TRUNCATE/replace
-allocate fresh storage and clear segment history. Metadata-only writes reuse
-segments. Read-only source relations remain shared.
+Automatic maintenance starts at four segments; eight remains the hard bound.
+Ordinary writes allocate a delta and never copy existing rows for compaction.
+Each managed connection owns a separate maintenance pool/controller. A catalog
+has one durable job, leased to one controller, while other connections can take
+over after cooperative release or two-minute crash-lease expiry. Source/output
+references remain protected even while that lease is expired. Closing a
+connection cancels/joins its controller before closing statement resources;
+without open managed connections, progress waits for the next Open.
+
+Copy steps seek each immutable source directory past the persisted exact row-ID
+checkpoint using ZLEXCOUNT. A step processes at most 64 merged row IDs and targets
+1 MiB of output command data. One oversized row can exceed that soft target under
+the existing 64 MiB hard staging budget; source prefetch is row-count bounded.
+Progress is checkpointed only after writes succeed. Lost replies cause safe
+idempotent recopy of immutable rows. Each batch resets its staging counters, so
+jobs can exceed SQL's total 100,000-row and 15-minute limits. Two-second worker
+I/O contexts and separately bounded reclamation limit maintenance operations.
+
+Copy completion durably moves the job to index phase. The server fence rejects
+further row writes to sealed output, even from the same lease owner. Only index
+creation is permitted in index phase. Once that immutable output index validates,
+installation copies the latest metadata manifest and replaces exactly the saved
+source prefix with the compacted segment, retaining newer deltas, metadata and
+row sequence. It registers the output/current physical prefix and index in the
+new manifest. DROP/TRUNCATE/replacement or another incompatible lineage discards
+the job. Publication ambiguity is resolved by inspecting the current chain for
+the output ID and by the existing durable publication outcomes.
+
+Write intent is recorded atomically with ordinary root acquisition. Maintenance
+publication yields to existing write intents and active staging work. A ready
+job briefly gates new writer admission so continuous writes cannot starve its
+metadata installation; that renewed gate expires within five seconds after a
+worker stops. The two-minute copy/index ownership lease remains separate.
+Hard-bound and admission-gate failures return SQLSTATE 40001 before publication;
+clients retry whole statements/input with backoff. SQL/input is never replayed by
+the driver. Read acquisition is unaffected. Failed workers release ownership for
+another connection and record non-cancellation errors with the durable job.
+
+The background worker independently reclaims abandoned publication manifests,
+avoiding work-slot exhaustion when maintenance loses root CAS races. Compaction
+preserves exact values and row IDs and never mutates old segments. Its total copy
+work can still be large and its indexes can take time to build; job concurrency,
+memory pressure and pinned snapshots can limit throughput. No performance or
+latency guarantee is made. DROP removes a descriptor; TRUNCATE/replace clear its
+segment chain and allocate fresh storage. Metadata-only writes reuse segments.
 
 New private segment indexes are created and validated before execution. Fresh
 indexes scan final immutable current-segment HASHes before publication; old
@@ -144,14 +182,16 @@ claim excludes current roots, pinned roots and live staging writers. Claimed
 manifest metadata is deleted, then its outcome/reference record is removed.
 
 An atomic data claim gathers references from every committed manifest and every
-unexpired staging manifest. Only an unreferenced table generation can transition
+unexpired staging manifest, plus every durable compacting work record even after
+its owner lease expires. Only an unreferenced segment can transition
 to deleting. New references cannot be published to deleting data. The reaper then
 drops only that generation's indexes, row keys and directory, then removes its
 data record.
 A physical segment can outlive its creator manifest. Unpinned retired manifests
 conservatively retain data until their own reclamation; pins keep entire
 manifests reachable. Active writers protect inherited and newly allocated data.
-Aborted/expired writers cannot renew or mutate those generations.
+Aborted/expired SQL writers cannot renew or mutate those generations. Compactor
+ownership can be reassigned only through the job lease, fencing the old token.
 
 Both phases are resumable and idempotent, with a five-second budget per
 acquisition and one manifest/data cleanup candidate per attempt. Failed cleanup
@@ -161,7 +201,7 @@ operate on this storage format.
 Fixed limits: eight segments per table, 16 registered catalog manifests, 128 active pins, 64 MiB conservative
 staged command-data accounting and 100,000 row HSET operations per write, and
 15 minutes per SQL statement/ingestion including streamed consumption. Changed rows, tombstones
-and any compaction copies consume the write budget. Limits fail without
+consume the SQL/ingest write budget. Background copy budgets reset per batch. Limits fail without
 publication; no capacity policy deletes pinned data. The command-data budget
 does not measure physical index memory or all Redis overhead.
 

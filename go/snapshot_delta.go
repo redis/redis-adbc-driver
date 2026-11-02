@@ -62,10 +62,12 @@ type snapshotDeltaSource struct {
 	done    bool
 }
 type snapshotDeltaScan struct {
-	store   *store
-	meta    *tableMeta
-	sources []snapshotDeltaSource
-	fields  []string
+	store    *store
+	meta     *tableMeta
+	sources  []snapshotDeltaSource
+	fields   []string
+	last     string
+	pageRows int
 }
 
 func newSnapshotDeltaScan(s *store, m *tableMeta, fields []string) *snapshotDeltaScan {
@@ -100,7 +102,11 @@ func (d *snapshotDeltaScan) head(ctx context.Context, i int) (string, error) {
 }
 func (d *snapshotDeltaScan) next(ctx context.Context) ([]string, []aggRow, error) {
 	var logical, physical []string
-	for len(logical) < snapshotDeltaPage {
+	limit := d.pageRows
+	if limit == 0 {
+		limit = snapshotDeltaPage
+	}
+	for len(logical) < limit {
 		if err := cancelled(ctx); err != nil {
 			return nil, nil, err
 		}
@@ -130,6 +136,7 @@ func (d *snapshotDeltaScan) next(ctx context.Context) ([]string, []aggRow, error
 		if err != nil || n < 1 || fmt.Sprintf("%020d", n) != smallest {
 			return nil, nil, errorf(adbc.StatusIO, "invalid snapshot row identity")
 		}
+		d.last = smallest
 		id := strconv.FormatInt(n, 10)
 		logical = append(logical, d.meta.prefix()+id)
 		physical = append(physical, d.sources[winner].segment.Prefix+id)
@@ -293,9 +300,8 @@ func (e *executor) writeSnapshotDeletes(ctx context.Context, m *tableMeta, keys 
 	return e.store.checkWritten(ctx, m)
 }
 
-// Compaction is bounded by the existing staging/time budgets and happens on
-// the write which would exceed the segment limit. Old physical segments remain
-// referenced by existing manifests until their readers release them.
+// Ordinary writes allocate one empty delta. Compaction runs separately; the
+// hard segment bound applies backpressure without copying table rows here.
 func (s *store) prepareSnapshotDelta(ctx context.Context, schema, table string) error {
 	old, err := s.getTable(ctx, schema, table)
 	if err != nil {
@@ -303,6 +309,10 @@ func (s *store) prepareSnapshotDelta(ctx context.Context, schema, table string) 
 	}
 	if snapshotOwns(ctx, old.prefix()) {
 		return nil
+	}
+	if len(old.snapshotSegments()) >= snapshotMaxSegments {
+		s.wakeSnapshotCompactor()
+		return stateErrorf("40001", "snapshot segment limit reached; background compaction is pending; retry the statement")
 	}
 	nm, err := s.claimNames(ctx, schema, table)
 	if err != nil {
@@ -320,28 +330,7 @@ func (s *store) prepareSnapshotDelta(ctx context.Context, schema, table string) 
 		next.SnapshotSegments = segments
 		next.SnapshotOverlay = true
 	}
-	if len(segments) >= snapshotMaxSegments {
-		next.SnapshotSegments = nil
-		next.SnapshotOverlay = true
-		scan := newSnapshotDeltaScan(s, old, nil)
-		for {
-			keys, rows, err := scan.next(ctx)
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				return err
-			}
-			p := s.redis(ctx).Pipeline()
-			for i, row := range rows {
-				id := strings.TrimPrefix(keys[i], old.prefix())
-				p.HSet(ctx, nm.prefix+id, map[string]string(row))
-			}
-			if _, err := p.Exec(ctx); err != nil {
-				return wrapRedis(err, "snapshot compaction failed")
-			}
-		}
-	}
+
 	if err := s.searchDo(ctx, next.index(), snapshotScannedIndexArgs(&next)...).Err(); err != nil {
 		return wrapRedis(err, "failed to create snapshot segment index")
 	}

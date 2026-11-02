@@ -916,6 +916,7 @@ func wrapRedis(err error, context string) error {
 
 type store struct {
 	snapshots      bool
+	compactor      *snapshotCompactor
 	foreignIndexes bool
 	searchCapsOnce sync.Once
 	searchCaps     [2]int64

@@ -38,7 +38,7 @@ supported writes publish atomically. This changes the storage format: start with
 an empty, isolated database. Existing catalogs are rejected without modification;
 there is no upgrade path. ALTER, temporary/foreign tables and partition production
 are outside this initial slice. Writes share unchanged data and append row-version segments, with bounded
-synchronous compaction and fixed limits; read the deployment and compatibility constraints
+resumable background compaction and fixed limits; read the deployment and compatibility constraints
 before connecting. Historical adoption/layout documentation below describes the
 previous format.
 

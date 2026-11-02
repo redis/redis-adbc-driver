@@ -208,6 +208,7 @@ func (c *connectionImpl) Close(ctx context.Context) error {
 	}
 	// Renames running on other goroutines stop, and are rolled back, while
 	// the client is open (see rekey.go).
+	c.store.stopSnapshotCompactor()
 	c.store.stopRekeys(ctx)
 	c.streams.closeAll(errorf(adbc.StatusInvalidState, "the connection was closed while its result was being read"))
 	// Best effort: whatever can't be dropped now is swept by a later

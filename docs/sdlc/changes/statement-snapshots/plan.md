@@ -50,18 +50,37 @@ No merge, release or human approval is implied by these working-tree changes.
 
 The delta refinement is implemented in `go/snapshot_delta.go`, with sorted exact
 row-ID directories, newest-version merging, direct lookups, complete replacement
-images, tombstones and an eight-segment compaction threshold. The planner and
+images and tombstones. Background compaction now starts at four segments with a
+hard backpressure bound at eight. The planner and
 aggregate/join shortcuts reject unsafe physical-index pushdowns on overlays.
 TRUNCATE clears history. Publication/reference tracking and reclamation include
 all segment indexes, HASHes and directories. Fault tests cover failed compaction
 and missing data, while native checks cover visibility and streamed compaction.
 
-## Deferred delta work
+## Background-compaction refinement
 
-Compaction is synchronous and bounded by existing budgets; incremental/background
-compaction, visibility-aware predicate/aggregate pushdowns, finer conflict
-detection, configurable limits and ALTER support remain deferred. Metadata
-copying, index checks and some initial/cleanup scans still traverse the catalog
-or database. Upgrade/migration work is excluded for all earlier draft formats.
-Cross-slot publication, Active-Active, failover certification and throughput
-claims require separate design and runtime evidence.
+`go/snapshot_compaction.go` implements one durable catalog job, lease takeover,
+bounded row/byte copy batches, exact row-ID checkpoints, output sealing/index
+validation and prefix-only installation preserving newer deltas. Normal writers
+never run the compaction copy loop. Root acquisition records writer intent;
+maintenance yields to existing writers and briefly gates new writer admission
+while publishing. Connection Open starts an independent maintenance pool; Close
+cancels/joins it and releases its job lease when possible. Reclamation retains
+compacting source/output records across expired leases, and background steps
+reclaim failed publication manifests independently of SQL traffic.
+
+Tests exercise sustained writes with pinned streams, 100,001-row compaction
+across batches, byte bounds, restart checkpoints, stale-owner and sealed-phase
+fences, newer tail updates/deletes/inserts, obsolete-job cleanup, writer-priority
+publication and worker shutdown. Deterministic protocol fixtures drive the same
+worker step explicitly; separate automatic-worker/native tests use production
+connection lifecycle.
+
+## Deferred work
+
+Visibility-aware Search pushdowns, compactor fairness/concurrency tuning,
+configurable limits, multi-shard/failover certification and ALTER remain deferred.
+Metadata copying, readiness and initial-index/cleanup traversal costs remain.
+Upgrade/migration work is excluded for all earlier draft formats. No benchmark or
+constant-time claim is made. With no managed connections open, compaction waits
+for the next Open; a standalone maintenance service is outside this change.

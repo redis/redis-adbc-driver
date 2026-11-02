@@ -195,3 +195,62 @@ without publication. No background/incremental compactor or visibility-aware
 Search pushdown is implemented. Multiple shards, Active-Active, Cluster API,
 failover/persistence recovery, historical-binary coexistence and the full legacy
 SQL compatibility/CI matrix remain excluded or unverified. The PR remains draft.
+
+## Incremental background-compaction refinement
+
+Revision baseline: delta PR commit `f604973d176a45d53065cd4224e240e35c7738c9`.
+Earlier sections are historical draft evidence. Protocol version 4 introduces
+durable background jobs; prior draft formats are rejected without migration.
+
+Implemented: automatic connection-owned maintenance pools, one catalog job,
+bounded copy batches/checkpoints, lease takeover, phase sealing, index readiness,
+latest-manifest prefix grafting and retryable backpressure. Ordinary SQL no
+longer runs the compaction row-copy loop. Durable source/output references survive
+expired leases; cooperative Close cancels/joins and releases ownership. Failed
+workers yield ownership, and background reclamation handles aborted publication
+work independently of SQL reads. A short publication gate resolves starvation
+while write intent protects active writers before workspace reservation.
+
+Checks inspected/run against the same isolated authenticated TLS Redis Software
+8.6.2 / Search 8.6.11, one shard, noeviction and verified active 4x QPF:
+
+- Thirty small writes complete through automatic background compactions while an
+  old 2,001-row stream remains open and returns only its original values.
+- Hard-bound backpressure performs zero compaction row writes/index creation on
+  the foreground SQL path and leaves the root unchanged; writes succeed after
+  maintenance reduces the chain.
+- Crash-lease expiry plus unrelated reclamation retains a partial output.
+  Another store resumes the same output after its checkpoint and rejects stale
+  owner writes. Publication preserves newer UPDATE/DELETE/INSERT deltas and the
+  latest row sequence. Server phase fences reject writes after copy sealing.
+- Compaction copies 100,001 visible rows successfully despite SQL's 100,000-row
+  limit; every observed batch is at most 64 rows. Wide-row tests also enforce the
+  1 MiB copy-command target, with complete value/length checks.
+- Connection-worker cancellation at a copy barrier joins the worker, releases
+  its lease and preserves its checkpoint for a replacement worker.
+- DROP/TRUNCATE discard obsolete jobs and reclaim their unused output/directories.
+- Existing write intent blocks maintenance publication; ready maintenance gates
+  new writer admission and publishes after the older writer releases its pin.
+- All previous snapshot consistency, exactness, fault and native tests remain in
+  the suite. Deterministic protocol fixtures explicitly drive the same worker
+  steps; automatic-worker and native tests use production connection lifecycle.
+
+The first automatic run exposed missing output-prefix registration, unreclaimed
+maintenance work slots and publication starvation. These were corrected and
+retained in direct-read, backpressure, sustained-write and writer-priority tests.
+No assertion was weakened to ignore the failures.
+
+| Check | Background-compaction result |
+| --- | --- |
+| Full unit-only Go suite | All packages passed: 891 passing / 620 expected skipped test/subtest events |
+| Snapshot race suite | 43 passing test/subtest events, no failures/skips |
+| Native shared-library build | Passed, Darwin arm64 |
+| Native snapshot suite | All five passed, no skips, 8.746 seconds |
+| Formatting, diff whitespace and snapshot documentation links | Passed |
+
+These are complete-result correctness checks, not throughput/latency benchmarks.
+Index creation and metadata/cleanup traversal costs remain. Job-level memory is
+limited by server capacity, rather than a total 64 MiB/100,000-row cap; one row
+may exceed the soft batch-byte target under the existing hard staging limit.
+Multiple shards, failover/persistence certification and the full legacy SQL/CI
+matrix remain excluded or unverified. The PR stays draft for human review.

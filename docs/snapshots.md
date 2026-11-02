@@ -4,7 +4,7 @@ Statement snapshots are **always enabled for managed tables**. No option is
 required. The first connection initializes an **empty, isolated Redis database
 with no existing Search indexes**. Existing unversioned catalogs are rejected
 without modification. No upgrade or migration path is included. The shared-table design uses protocol
-version 3 and also rejects catalogs created by the earlier version 1 or 2 drafts.
+version 4 and also rejects catalogs created by the earlier version 1, 2 or 3 drafts.
 
 ```python
 import adbc_driver_manager.dbapi
@@ -97,14 +97,39 @@ may materialize. On segmented tables, Search predicate/aggregate pushdowns and
 parallel physical-index shortcuts are disabled until they can honor visibility.
 This improves write amplification while increasing read work.
 
-A table has at most eight segments. The write which would exceed that bound
-compacts visible rows into a new segment before applying its changes. Compaction
-runs synchronously under the existing statement, row-write and staging budgets;
-it can therefore make that write expensive or fail it without publication. Large
-tables that exceed the compaction budgets cannot keep extending the segment
-chain. No background/incremental compactor is included in this slice. Old
-segments remain available to pinned readers, then are reclaimed along with their
-indexes and directories after their final manifest reference disappears.
+Background compaction is automatic while managed connections are open. It starts
+at four segments and copies an immutable prefix in resumable batches of at most
+64 merged row IDs, targeting 1 MiB of write data per batch. One oversized row may
+exceed that target under the normal 64 MiB hard staging limit. Source fetches
+remain bounded by row count, rather than the soft write-byte target. The complete
+job is not subject to the SQL statement's 100,000-row or 15-minute total limit.
+Normal writes allocate deltas and never perform compaction row copies.
+
+A table still has a hard eight-segment bound. If compaction falls behind, writes
+return SQLSTATE `40001` and must be retried with backoff and fresh input. A short
+publication admission gate also returns `40001` while ready maintenance waits for
+existing writers and installs its manifest. The driver never replays SQL or Arrow
+input automatically. Reads remain available. The gate expires within five seconds
+if the worker stops renewing it; compaction ownership uses a separate two-minute
+lease. Existing write intent is registered with root acquisition, so maintenance
+cannot invalidate a writer in the gap before workspace reservation.
+
+One durable job per catalog records its source segments, output identity, last
+completed row ID, phase and last recorded error. Source/output references survive
+worker lease expiration. Another managed connection resumes after cooperative
+release or crash-lease expiration; repeated copies after an uncertain reply are
+idempotent. Connection close stops its worker and releases ownership when
+reachable. With all connections closed, progress waits for the next open.
+
+When copying finishes, the output is sealed against further row mutations before
+its index is built and validated. Publication replaces only the compacted prefix,
+preserving all newer deltas and the latest metadata/row sequence. DROP/TRUNCATE or
+replacement of that lineage discards the obsolete job. Pinned readers retain old
+segments; rows, indexes and directories are reclaimed after the final reference
+is gone. Background reclamation prevents abandoned publication work from filling
+manifest capacity. Each worker uses a separate connection pool and bounded I/O
+contexts. Job concurrency, available memory, retained snapshots and index-building
+costs can still limit progress; this is not a throughput or latency guarantee.
 
 DROP removes a descriptor; TRUNCATE and replace ingestion allocate fresh storage
 and discard the descriptor's old segment list. Metadata-only changes reuse data.
@@ -117,10 +142,12 @@ read instead of exposing an older replacement or a partial successful result.
 | Fixed limit | Behavior |
 | --- | --- |
 | 16 catalog manifests | Includes current, retained, staging and pending manifest cleanup; physical table generations have separate lifetimes and can outlive their creator manifests |
-| Eight segments per table | Includes base/current and retained history in one table descriptor; the next write compacts synchronously |
+| Eight segments per table | Soft compaction trigger at four; writes return retryable backpressure at eight instead of compacting synchronously |
+| One compaction job per catalog | Durable, resumable; holds a work record and protected source/output references |
+| 64 merged IDs / 1 MiB target per copy batch | One oversized row may exceed the byte target, within the 64 MiB hard staging limit |
 | 128 active pins | Includes readers, writer base snapshots and metadata operations |
-| 64 MiB staged command data per write | Conservative count before sending mutations, including metadata, changed rows and compaction copies; not a physical Redis memory estimate |
-| 100,000 row HSET operations per write | Includes changed rows/tombstones and any compaction copies; can be reached below 100,000 stored rows |
+| 64 MiB staged command data per write | Conservative count before sending mutations, including metadata and changed SQL/ingest rows; compaction resets this bound per batch; not a physical Redis memory estimate |
+| 100,000 row HSET operations per write | Applies to SQL/ingest writes; background jobs copy in separately bounded batches; can be reached below 100,000 stored rows |
 | 15 minutes per statement/ingest | Includes complete streamed consumption |
 | Two-minute lease, renewed every 30 seconds | Ownership loss fails the operation; expired pins cannot be resurrected |
 
@@ -144,7 +171,7 @@ prevent deleting shared table generations while a manifest can still use them.
 Process-crash recovery waits for the abandoned writer's lease to expire.
 
 In addition to ordinary Search/HASH/metadata commands, the mode requires `EVAL`,
-`TIME`, `DBSIZE`, `DUMP`, `RESTORE`, `SCAN`, `ZRANGE`, `ZCARD`, `ZSCORE` and
+`TIME`, `DBSIZE`, `DUMP`, `RESTORE`, `SCAN`, `ZRANGE`, `ZLEXCOUNT`, `ZCARD`, `ZSCORE` and
 `INFO`, plus namespace access. Lua membership registration also requires `ZADD`.
 Lua fences invoke the underlying write commands, which also need ACL permission.
 Read-only SQL clients still need control-hash write permission for reader pins.

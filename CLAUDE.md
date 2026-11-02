@@ -48,8 +48,12 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.26.10)
   segment before planning logical row keys. Resolve newest versions/tombstones
   before predicates, aggregates or limits; never push a segmented table directly
   into a physical-index shortcut. Preserve exact, score-zero row-ID directories
-  registered atomically by writer fences. Eight segments trigger synchronous
-  compaction; old segments stay pinned. Never DROP/TRUNCATE shared data directly.
+  registered atomically by writer fences. Background compaction starts at four
+  segments; eight is retryable backpressure, never foreground compaction. Preserve
+  durable copy checkpoints, lease/phase fences, and source/output references even
+  across expired worker leases. Installation grafts only the original prefix and
+  respects write intents plus its short admission gate. Close/join workers before
+  closing connection resources; old segments stay pinned. Never DROP/TRUNCATE shared data directly.
   Reclaim manifests separately from segment rows/indexes/directories using atomic
   reference checks.
   Snapshot suites clear `REDIS_SNAPSHOT_URI` and its indexes: use a disposable
