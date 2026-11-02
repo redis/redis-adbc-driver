@@ -21,12 +21,10 @@ jobs:
         run: make -C go pgdiff-test
       - name: Start test Redis
         working-directory: go
-        run: docker compose --profile oss up --detach --wait redis
+        run: make redis-up
       - name: Compare corpus
         working-directory: go
         shell: bash
-        env:
-          REDIS_URI: redis://localhost:6379/0
         run: |
           make build
           set +e
@@ -52,4 +50,4 @@ jobs:
       - name: Stop test Redis
         if: always()
         working-directory: go
-        run: docker compose --profile oss down redis
+        run: make redis-down

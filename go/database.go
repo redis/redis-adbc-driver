@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -91,7 +92,11 @@ func (d *databaseImpl) clientConfig() (*clientConfig, error) {
 			return nil, errorf(adbc.StatusInvalidArgument, "invalid URI: %v", err)
 		}
 	}
-	if err := configureTLSRoots(opts, d.tlsCAFile); err != nil {
+	caPath := d.tlsCAFile
+	if caPath == "" && opts.TLSConfig != nil {
+		caPath = os.Getenv("SSL_CERT_FILE")
+	}
+	if err := configureTLSRoots(opts, caPath); err != nil {
 		return nil, err
 	}
 	if d.username != "" {

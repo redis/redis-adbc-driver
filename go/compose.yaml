@@ -13,7 +13,7 @@
 # limitations under the License.
 
 services:
-  # Default environment: Redis Software with a RAM database, Search and 4x QPF.
+  # Integration environment: Redis Enterprise, three shards, TLS, password, 4x QPF.
   # make redis-up also bootstraps the cluster and creates the database.
   redis-software:
     image: redislabs/redis:8.2.0-78.18

@@ -41,13 +41,8 @@ def select_matrix(event, paths):
         for path in paths
         for pattern in SENSITIVE_PATHS
     )
-    environments = (
-        ["software-single", "software-cluster", "oss-single", "oss-cluster"]
-        if full else ["software-single", "oss-cluster"]
-    )
-    # Keep Python integrations and the standalone TLS fixture on exactly one
-    # environment per architecture, including when oss-single is omitted.
-    integrations = "oss-single" if full else "software-single"
+    environments = ["software-cluster"]
+    integrations = "software-cluster"
     return {"include": [
         {"arch": arch, "runner": runner, "environment": environment,
          "integrations": environment == integrations}

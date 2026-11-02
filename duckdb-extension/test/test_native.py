@@ -2,7 +2,7 @@
 
 REDIS_ADBC_EXTENSION=/absolute/path/redis_adbc.duckdb_extension \
 REDIS_ADBC_LIBRARY=/absolute/path/libadbc_driver_redis.so \
-REDIS_URI=redis://localhost:16389/0 python -m pytest duckdb-extension/test -q
+REDIS_URI=rediss://default:<password>@localhost:6379/0 python -m pytest duckdb-extension/test -q
 """
 
 import datetime

@@ -14,7 +14,7 @@
 
 # Builds the driver library and the redis-adbc command for Linux (amd64,
 # arm64) and macOS (arm64), tests the Linux builds against Redis Software
-# and an OSS compatibility cluster, runs the validation suite and a redis-adbc check,
+# with TLS and authentication, runs validation and a redis-adbc check,
 # copy and adopt on each Linux tarball on every distribution Redis Software
 # supports, and attaches the tarballs to the release.
 #
@@ -209,7 +209,6 @@ jobs:
       - name: Test (Redis Software)
         working-directory: go
         env:
-          REDIS_URI: redis://localhost:6379/0
           # The preceding owned setup verifies noeviction through its API.
           REDIS_RETAINED_CONTROL_PERSISTENCE: guaranteed
         run: |
@@ -220,7 +219,6 @@ jobs:
       - name: Smoke test installed Python wheel
         if: hashFiles('python/pyproject.toml') != ''
         env:
-          REDIS_URI: redis://localhost:6379/0
           REDIS_RETAINED_CONTROL_PERSISTENCE: guaranteed
         run: |
           uv venv --python 3.14 /tmp/redis-wheel-smoke
@@ -269,76 +267,6 @@ jobs:
         if: always() && hashFiles('scripts/software_partition_tls.py') != ''
         run: rm -rf "$RUNNER_TEMP/software-partition-tls"
 
-      - name: Start OSS compatibility cluster
-        working-directory: go
-        run: |
-          make redis-down
-          docker compose --profile cluster up --detach --wait redis-cluster
-
-      - name: Start TLS-only partition fixture
-        if: hashFiles('scripts/check_partition_tls.py') != ''
-        run: bash scripts/start_partition_tls.sh "$RUNNER_TEMP/partition-tls" redis-partition-tls 16390
-
-      - name: Installed wheel partitions over verified TLS
-        if: hashFiles('scripts/check_partition_tls.py') != ''
-        run: |
-          uv pip install --python /tmp/redis-wheel-smoke/bin/python redis
-          export REDIS_TLS_ADMIN_URI="$(cat "$RUNNER_TEMP/partition-tls/admin.uri")"
-          export SSL_CERT_FILE="$RUNNER_TEMP/partition-tls/ca.crt"
-          /tmp/redis-wheel-smoke/bin/python scripts/check_partition_tls.py --require-wheel --output "$RUNNER_TEMP/partition-tls-result.json"
-
-      - name: Upload installed wheel TLS evidence
-        if: always() && hashFiles('scripts/check_partition_tls.py') != ''
-        uses: actions/upload-artifact@v7
-        with:
-          name: wheel-partition-tls-${{ matrix.arch }}
-          path: ${{ runner.temp }}/partition-tls-result.json
-          if-no-files-found: warn
-
-      - name: Remove TLS partition fixture
-        if: always() && hashFiles('scripts/check_partition_tls.py') != ''
-        run: |
-          if docker container inspect redis-partition-tls >/dev/null 2>&1; then docker rm -f redis-partition-tls; fi
-          rm -rf "$RUNNER_TEMP/partition-tls"
-
-      - name: Installed wheel through three verified TLS primary endpoints
-        if: hashFiles('scripts/start_partition_tls_cluster.sh') != ''
-        run: |
-          bash scripts/start_partition_tls_cluster.sh "$RUNNER_TEMP/partition-cluster-tls" redis-partition-cluster-tls 16394
-          export REDIS_TLS_ADMIN_URI="$(cat "$RUNNER_TEMP/partition-cluster-tls/admin.uri")"
-          export SSL_CERT_FILE="$RUNNER_TEMP/partition-cluster-tls/ca.crt"
-          env -u REDIS_ADBC_LIBRARY /tmp/redis-wheel-smoke/bin/python scripts/check_partition_tls.py --require-wheel \
-            --oss-cluster-fixture "$RUNNER_TEMP/partition-cluster-tls" --minimum-cluster-primaries 3 \
-            --output "$RUNNER_TEMP/partition-cluster-tls-result.json"
-
-      - name: Upload installed wheel three-primary TLS evidence
-        if: always() && hashFiles('scripts/start_partition_tls_cluster.sh') != ''
-        uses: actions/upload-artifact@v7
-        with:
-          name: wheel-partition-cluster-tls-${{ matrix.arch }}
-          path: |
-            ${{ runner.temp }}/partition-cluster-tls-result.json
-            ${{ runner.temp }}/partition-cluster-tls/cluster-acl-cleanup.json
-          if-no-files-found: warn
-
-      - name: Remove owned three-primary TLS fixture
-        if: always() && hashFiles('scripts/start_partition_tls_cluster.sh') != ''
-        run: |
-          if docker container inspect redis-partition-cluster-tls >/dev/null 2>&1; then
-            test "$(docker inspect -f '{{index .Config.Labels "codex.fixture"}}' redis-partition-cluster-tls)" = partition-tls-cluster
-            docker rm -f redis-partition-cluster-tls
-          fi
-          rm -rf "$RUNNER_TEMP/partition-cluster-tls"
-
-      - name: Test (OSS 3-shard compatibility)
-        working-directory: go
-        env:
-          REDIS_URI: redis://localhost:7001/0
-        run: |
-          go test -count=1 -p 1 -skip "$SKIP" ./...
-          cd validation && uv run pytest -q -ra --junitxml=cluster-validation.xml tests/
-          if [ -f ../../scripts/check_partition_junit.py ]; then python3 ../../scripts/check_partition_junit.py cluster-validation.xml; fi
-
       - name: Upload native validation reports
         if: always()
         uses: actions/upload-artifact@v7
@@ -350,16 +278,7 @@ jobs:
       - name: Redis diagnostics on failure
         if: failure()
         working-directory: go
-        run: |
-          docker compose --profile cluster ps -a
-          docker compose --profile cluster logs --no-color
-          if docker compose --profile cluster ps --status running --services | grep -qx redis-cluster; then
-            for port in 7001 7002 7003; do
-              docker compose exec -T redis-cluster redis-cli -p "$port" CLUSTER INFO || true
-              docker compose exec -T redis-cluster redis-cli -p "$port" CLUSTER NODES || true
-              docker compose exec -T redis-cluster redis-cli -e -p "$port" FT._LIST || true
-            done
-          fi
+        run: docker compose logs --no-color redis-software
 
       - name: Package
         env:
@@ -443,7 +362,8 @@ jobs:
             -v "$PWD/go/validation:/src/validation:ro" \
             -v "$PWD/dist/adbc_driver_redis-$VERSION-linux-$ARCH:/lib-in:ro" \
             -v "$(dirname "$(command -v uv)"):/uv:ro" \
-            -e REDIS_URI=redis://localhost:6379/0 -e REDIS_PARTITION_SCAN_CAP=2147483648 \
+            -v "$PWD/go/build/test-tls:/test-tls:ro" \
+            -e REDIS_URI -e SSL_CERT_FILE=/test-tls/ca.pem -e REDIS_PARTITION_SCAN_CAP=2147483648 \
             -e REDIS_RETAINED_CONTROL_PERSISTENCE=guaranteed \
             -e PYTHONUNBUFFERED=1 -e UV_HTTP_TIMEOUT=60 -e UV_HTTP_RETRIES=2 \
             "$IMAGE" sh -euc '
@@ -500,11 +420,12 @@ jobs:
         run: |
           name="redis-adbc-$VERSION-linux-$ARCH"
           tar xzf "dist/$name.tar.gz" -C dist
-          (cd go && docker compose exec -T redis-software /opt/redislabs/bin/redis-cli -p 12000 HSET release:adbc:1 name a n 1 >/dev/null &&
-            docker compose exec -T redis-software /opt/redislabs/bin/redis-cli -p 12000 HSET release:adbc:2 name b n 2 >/dev/null)
+          (cd go && docker compose exec -T -e REDISCLI_AUTH=adbc-enterprise-test redis-software /opt/redislabs/bin/redis-cli --tls --cacert /tmp/adbc-test-ca.pem --user default -p 12000 HSET release:adbc:1 name a n 1 >/dev/null &&
+            docker compose exec -T -e REDISCLI_AUTH=adbc-enterprise-test redis-software /opt/redislabs/bin/redis-cli --tls --cacert /tmp/adbc-test-ca.pem --user default -p 12000 HSET release:adbc:2 name b n 2 >/dev/null)
           docker run --rm --network host \
             -v "$PWD/dist/$name:/cli:ro" \
-            -e REDIS_URI=redis://localhost:6379/0 "$IMAGE" sh -euc '
+            -v "$PWD/go/build/test-tls:/test-tls:ro" \
+            -e REDIS_URI -e SSL_CERT_FILE=/test-tls/ca.pem "$IMAGE" sh -euc '
               cd /tmp
               /cli/redis-adbc check -prefix release:adbc: > out
               grep -qx "SQL, copied into a driver table (redis-adbc copy): READY" out

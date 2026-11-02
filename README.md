@@ -572,3 +572,11 @@ docker compose -f go/compose.yaml exec redis-software /opt/redislabs/bin/redis-c
 
 Stop and remove the disposable Redis Software database with `make -C go redis-down`.
 
+
+### Integration test connection policy
+
+Integration tests use a three-shard Redis Enterprise cluster with verified TLS
+and an explicit username and password. Run `make -C go redis-up`, then source
+`go/build/test.env` for direct commands. Make test targets load these defaults.
+Setup preserves the existing 4x QPF and noeviction verification. The generated
+localhost certificate and disposable credentials are for the owned test fixture.

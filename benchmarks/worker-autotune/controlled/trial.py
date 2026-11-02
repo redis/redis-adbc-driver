@@ -25,7 +25,7 @@ async def main(args):
     uri = args.uri
     proxy = None
     if args.delay_ms:
-        proxy = await asyncio.create_subprocess_exec('/proxy', '-uri', uri, '-delay-ms', str(int(args.delay_ms)), stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+        proxy = await asyncio.create_subprocess_exec('/proxy', '-uri', uri, '-delay-ms', str(int(args.delay_ms)), *(['-tls-cert', '/test-tls/ca.pem', '-tls-key', '/test-tls/server.key'] if uri.startswith('rediss://') else []), stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
         uri = json.loads((await proxy.stdout.readline()).decode())['uri']
     env = dict(os.environ, GOMAXPROCS=str(args.cpu), REDIS_URI=uri,
                REDIS_WORKER_PROFILE_ROWS=str(args.rows), REDIS_WORKER_PROFILE_ROUNDS=str(args.rounds),
