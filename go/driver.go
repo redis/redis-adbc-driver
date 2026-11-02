@@ -215,6 +215,7 @@ func (d *driverImpl) newDatabaseImpl(ctx context.Context, opts map[string]string
 		return nil, err
 	}
 	db := &databaseImpl{
+		snapshots:        true,
 		DatabaseImplBase: dbBase,
 		address:          DefaultAddress,
 		schema:           defaultSchema,

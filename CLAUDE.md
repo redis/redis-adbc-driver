@@ -35,10 +35,17 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.26.10)
   NULLs, ordering, precision and residual predicates; fall back when unsafe.
 - Metadata uses `adbc:{meta}:` to share a cluster slot. Row prefixes are never
   reused. Preserve rename/rekey recovery and external HASH ownership rules.
-- Per maintainer direction (2026-10-22), do not develop driver-level transaction
-  or consistency features. Preserve the documented current limitations.
+- The 2026-11-02 user request authorizes managed-table statement snapshots and
+  supersedes the earlier consistency-feature scope restriction. Multi-statement
+  transactions remain outside this change.
 - Autocommit only; Search is required; Flex is rejected. Do not imply full
   PostgreSQL compatibility or support for Valkey / Redis 7.2 derivatives.
+- Managed-table statement snapshots are always enabled, using immutable
+  generations in one hash slot; see [snapshots](docs/snapshots.md). There is no
+  disable switch or upgrade path for existing catalogs.
+  Preserve their server-side writer fences, reader pins and reclamation protocol.
+  Snapshot suites clear `REDIS_SNAPSHOT_URI` and its indexes: use a disposable
+  database and run separately from ordinary suites.
 
 ## Verification and recurring pitfalls
 

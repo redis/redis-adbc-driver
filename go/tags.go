@@ -365,6 +365,9 @@ const tagCheckRetry = time.Minute
 // table that were never checked: at most one task per table per connection,
 // and after one fails, not again for tagCheckRetry.
 func (s *store) startTagCheck(meta *tableMeta) {
+	if s.snapshots {
+		return
+	}
 	unchecked := false
 	for _, c := range meta.Columns {
 		unchecked = unchecked || (c.Indexed && c.Type.Kind == KindString && !c.TagsChecked)

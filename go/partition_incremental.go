@@ -32,6 +32,9 @@ type incrementalPartitions struct {
 }
 
 func (s *statementImpl) ExecutePartitions(ctx context.Context) (*arrow.Schema, adbc.Partitions, int64, error) {
+	if s.conn.store != nil && s.conn.store.snapshots {
+		return nil, adbc.Partitions{}, -1, errorf(adbc.StatusNotImplemented, "partition production is not supported in snapshot catalogs")
+	}
 	if s.streamRequired {
 		return nil, adbc.Partitions{}, -1, errorf(adbc.StatusNotImplemented, "stream_required applies to ExecuteQuery; partition modes have separate execution quotas")
 	}

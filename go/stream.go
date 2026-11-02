@@ -260,8 +260,11 @@ func (e *executor) streamSelect(ctx context.Context, plan *selectPlan, params []
 // at the same time as each other. closeWith (Connection.Close, statement
 // Cancel) may be called on any goroutine at any time, while Next runs too.
 type streamReader struct {
-	refs      atomic.Int64
-	transport *executionTransport
+	snapshot       *snapshotPin
+	snapshotCancel context.CancelFunc
+	snapshotStop   func() bool
+	refs           atomic.Int64
+	transport      *executionTransport
 
 	// mu guards everything below. closeWith takes it to close the stream.
 	mu     sync.Mutex
@@ -395,6 +398,18 @@ func (r *streamReader) Next() (ok bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	defer func() {
+		if ok {
+			if err := r.snapshot.valid(r.ctx); err != nil {
+				if r.cur != nil {
+					r.cur.Release()
+					r.cur = nil
+				}
+				r.fail(err)
+				ok = false
+			}
+		}
+	}()
+	defer func() {
 		if p := recover(); p != nil {
 			r.err = errorf(adbc.StatusInternal, "failed to read the result: %v", p)
 			ok = false
@@ -506,10 +521,17 @@ func (r *streamReader) closeLocked() {
 		return
 	}
 	r.closed = true
+	if r.snapshotStop != nil {
+		r.snapshotStop()
+	}
 	if r.union != nil {
 		r.union.close()
 	} else {
 		r.it.close(r.ctx)
+	}
+	r.snapshot.release()
+	if r.snapshotCancel != nil {
+		r.snapshotCancel()
 	}
 	r.pending = nil
 	if r.arrow != nil {

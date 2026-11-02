@@ -57,6 +57,14 @@ func dialHashes(ctx context.Context, options map[string]string) (*hashConn, erro
 		_ = db.Base().Close(ctx)
 		return nil, err
 	}
+	if n, err := client.Exists(ctx, snapshotCatalogKey).Result(); err != nil || n != 0 {
+		_ = client.Close()
+		_ = db.Base().Close(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return nil, snapshotUnsupported()
+	}
 	return &hashConn{db: db, client: client, st: &store{client: client}}, nil
 }
 

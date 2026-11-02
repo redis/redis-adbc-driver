@@ -205,12 +205,15 @@ func (t *tableMeta) applyIndexPolicy(only map[string]bool, noIndex map[string]bo
 }
 
 type tableMeta struct {
-	OID      int64        `json:"oid,omitempty"`
-	IndexOID int64        `json:"index_oid,omitempty"`
-	Foreign  bool         `json:"-"`
-	Schema   string       `json:"schema"`
-	Name     string       `json:"name"`
-	Columns  []columnMeta `json:"columns"`
+	// SnapshotRows is fixed at publication for snapshot-format catalogs. It
+	// lets acquisition reject a missing or rebuilding index after recovery.
+	SnapshotRows *int64       `json:"snapshot_rows,omitempty"`
+	OID          int64        `json:"oid,omitempty"`
+	IndexOID     int64        `json:"index_oid,omitempty"`
+	Foreign      bool         `json:"-"`
+	Schema       string       `json:"schema"`
+	Name         string       `json:"name"`
+	Columns      []columnMeta `json:"columns"`
 	// FoldedIdentifiers is set on metadata created after unquoted SQL
 	// identifiers began following PostgreSQL's lower-case folding rules.
 	// Older metadata did not record whether a mixed-case column was quoted,
@@ -453,6 +456,12 @@ func (s *store) lastNames(ctx context.Context, c goredis.Cmdable, schema, table 
 // it. Temporary schemas don't count releases; their connection remembers
 // every prefix it handed out instead (see tempSpace).
 func (s *store) claimNames(ctx context.Context, schema, table string) (tableNames, error) {
+	if nm, ok := snapshotNames(ctx, schema, table); ok {
+		pipe := s.redis(ctx).Pipeline()
+		reserveNames(ctx, pipe, nm)
+		_, err := pipe.Exec(ctx)
+		return nm, err
+	}
 	last, err := s.lastNames(ctx, s.redis(ctx), schema, table)
 	if err != nil {
 		return tableNames{}, wrapRedis(err, "failed to reserve a key prefix")
@@ -900,6 +909,7 @@ func wrapRedis(err error, context string) error {
 // ---- store ----
 
 type store struct {
+	snapshots      bool
 	foreignIndexes bool
 	searchCapsOnce sync.Once
 	searchCaps     [2]int64

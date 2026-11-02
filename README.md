@@ -32,11 +32,15 @@ a query performance factor (QPF) of **4×** is recommended where supported,
 with sufficient server CPU capacity. See the [server requirements](docs/driver-reference.md#server-requirements)
 for supported deployments and configuration.
 
-SQL tables use a defined layout for rows, indexes, and metadata. Compatible
-existing HASH collections can be [adopted in place](docs/driver-reference.md#adopt-hashes-in-place);
-other data must be migrated to that layout. The
-[architecture guide](docs/driver-reference.md#architecture-hybrid-index-row-layout)
-explains how the driver stores and queries tables.
+Managed tables now use [always-on statement snapshots](docs/snapshots.md).
+Each statement reads one committed generation, including streamed results;
+supported writes publish atomically. This changes the storage format: start with
+an empty, isolated database. Existing catalogs are rejected without modification;
+there is no upgrade path. ALTER, temporary/foreign tables and partition production
+are outside this initial slice. Each write copies the catalog, with fixed limits
+and substantial write overhead; read the deployment and compatibility constraints
+before connecting. Historical adoption/layout documentation below describes the
+previous format.
 
 Start with [Choose your tool and connect](docs/setup.md) for Python wheels,
 connection diagnostics, and application examples. For native tools such as

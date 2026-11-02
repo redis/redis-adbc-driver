@@ -5,6 +5,22 @@ reference. Start with the [README](../README.md) for an overview, the Apache Arr
 feature matrix and a quick start. Historical test and benchmark results retain
 their original server distributions, dates and settings.
 
+## Managed-table snapshot format
+
+Managed tables now have [always-on statement snapshots](snapshots.md). The linked
+page defines the current guarantee, limits and supported deployments and takes
+precedence over the historical layout and feature descriptions below. New
+catalogs require an empty isolated database. Existing unversioned catalogs are
+rejected without modification; no upgrade path is provided. ALTER, temporary
+objects, foreign/adopted data, legacy HASH tools and partition production are
+currently rejected. Retained partition reader-only connections consume independent
+immutable Arrow results and do not initialize a managed catalog.
+
+Each write clones the full catalog before atomic publication. Fixed generation,
+reader, staging and time limits apply. This first slice needs a primary single
+endpoint, no Active-Active replication and verified noeviction. It is not a
+multi-statement transaction implementation.
+
 ## Contents
 
 - [Server requirements](#server-requirements)
@@ -4215,6 +4231,7 @@ These are client compatibility values; the driver remains autocommit-only.
 
 | Option | Level | Meaning |
 |-|-|-|
+| `adbc.redis.statement_snapshots` | database, connection | Always `true` for managed tables. Explicit `true` is accepted; `false` is rejected. See [snapshots](snapshots.md). |
 | `adbc.redis.stream_required` | statement | `false` (default) permits existing materializing fallback. `true` requires an unordered incremental managed-table/key-source SELECT or UNION ALL, rejecting blocking plans and fallback before execution. See [policy and limits](arrow-interoperability.md#streaming-inventory). |
 | `adbc.redis.extension_policy` | statement | `reject` (default) or explicit `storage` normalization for top-level allowlisted `arrow.uuid`/`arrow.json` fields. Canonical SQL schemas persist; unknown/nested semantics reject. See [extension policy](arrow-interoperability.md#explicit-extension-storage-normalization). |
 | `adbc.redis.result_layouts` | statement | JSON map of exact result names to explicit physical Arrow layouts; SQL/table schemas remain canonical. See [layout contract](arrow-interoperability.md#explicit-result-layouts). |

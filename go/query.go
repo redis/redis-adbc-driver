@@ -887,6 +887,9 @@ func (it *scanIter) keep(keys []string, fetched []aggRow) ([]string, []map[strin
 	}
 	for i, raw := range fetched {
 		if raw == nil {
+			if snapshotOf(it.env.ctx) != nil && it.cur != nil {
+				return nil, nil, errorf(adbc.StatusIO, "a row from the published snapshot cursor disappeared")
+			}
 			continue
 		}
 		if err := cancelled(it.env.ctx); err != nil {

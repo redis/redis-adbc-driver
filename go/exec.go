@@ -101,6 +101,9 @@ func invalidArg(err error) error {
 // one by that name, and otherwise in the current schema; pg_temp.<name> is
 // always the temporary one.
 func (e *executor) resolveTable(t TableName) (string, string, error) {
+	if e.store != nil && e.store.snapshots && (isTempAlias(t.Schema) || isTempSchema(t.Schema) || t.Schema == foreignSchema || t.Schema == "" && (isTempAlias(e.schema) || isTempSchema(e.schema) || e.schema == foreignSchema)) {
+		return "", "", snapshotUnsupported()
+	}
 	schema := t.Schema
 	if t.Catalog != "" && t.Catalog != catalogName {
 		if schema == "" {
@@ -130,6 +133,9 @@ func (e *executor) resolveTable(t TableName) (string, string, error) {
 // CREATE TEMP and for pg_temp.<name>, otherwise the given or current schema.
 // Unlike resolveTable, an unqualified name never means a temporary object.
 func (e *executor) resolveCreate(ctx context.Context, t TableName, temporary bool) (string, string, error) {
+	if e.store != nil && e.store.snapshots && (temporary || isTempAlias(t.Schema) || isTempSchema(t.Schema) || t.Schema == foreignSchema) {
+		return "", "", snapshotUnsupported()
+	}
 	if t.Catalog != "" && t.Catalog != catalogName {
 		return "", "", errorf(adbc.StatusNotFound, "catalog %q does not exist", t.Catalog)
 	}
@@ -189,6 +195,9 @@ func (e *executor) loadTable(ctx context.Context, t TableName) (*tableMeta, erro
 // execute runs one statement. With so set, a query's rows may be streamed
 // (see stream.go).
 func (e *executor) execute(ctx context.Context, ps ParsedStmt, params []Value, paramTypes []ColType, so *streamOpts) (res execResult, err error) {
+	if e.store != nil && e.store.snapshots && snapshotOf(ctx) == nil {
+		return e.executeSnapshot(ctx, ps, params, paramTypes, so)
+	}
 	if e.retained != nil {
 		if _, ok := ps.Stmt.(*SelectStmt); !ok {
 			return execResult{}, errorf(adbc.StatusNotImplemented, "retained execution requires one SELECT")

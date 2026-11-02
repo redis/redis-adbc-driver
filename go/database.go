@@ -29,6 +29,7 @@ import (
 )
 
 type databaseImpl struct {
+	snapshots                   bool
 	retainedNamespace           string
 	partitionControlPersistence string
 	retainedLimits              retainedLimits
@@ -110,6 +111,11 @@ func (d *databaseImpl) clientConfig() (*clientConfig, error) {
 	opts.Protocol = 3
 	opts.OnConnect = requireRESP3
 	opts.DisableIdentity = true
+	// Snapshot leases, cleanup and statement lifetimes need their context
+	// deadlines enforced on socket I/O, independently of ordinary timeouts.
+	if d.snapshots {
+		opts.ContextTimeoutEnabled = true
+	}
 	cfg := newClientConfig(opts)
 	cfg.clusterParams = params
 	if extra != nil {
@@ -259,6 +265,9 @@ func (d *databaseImpl) dial(ctx context.Context) (client goredis.UniversalClient
 }
 
 func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, error) {
+	if d.snapshots && !d.readerOnly && (d.foreignIndexes || d.rekey || d.schema == foreignSchema) {
+		return nil, snapshotUnsupported()
+	}
 	if d.readerOnly && d.retainedNamespace == "" {
 		return nil, errorf(adbc.StatusInvalidArgument, "reader-only partitions require an explicit result namespace")
 	}
@@ -276,27 +285,33 @@ func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, er
 			_ = client.Close()
 			return nil, err
 		}
-		if err := st.migrateLegacyMetadata(ctx); err != nil {
+		if err := st.openSnapshotCatalog(ctx, d.snapshots); err != nil {
 			_ = client.Close()
 			return nil, err
 		}
-		if err := st.ensureRegistry(ctx); err != nil {
-			_ = client.Close()
-			return nil, err
+		if !st.snapshots {
+			if err := st.migrateLegacyMetadata(ctx); err != nil {
+				_ = client.Close()
+				return nil, err
+			}
+			if err := st.ensureRegistry(ctx); err != nil {
+				_ = client.Close()
+				return nil, err
+			}
+			// Finish removing dropped columns' fields left over by earlier connections.
+			if err := st.resumeCleanups(ctx); err != nil {
+				_ = client.Close()
+				return nil, err
+			}
+			// Roll back or finish renames that were moving rows when their
+			// connection went away, before any statement runs (see rekey.go).
+			if err := st.recoverDead(ctx); err != nil {
+				_ = client.Close()
+				return nil, err
+			}
+			// Drop temporary objects of connections that exited without closing.
+			st.sweepTemp(ctx)
 		}
-		// Finish removing dropped columns' fields left over by earlier connections.
-		if err := st.resumeCleanups(ctx); err != nil {
-			_ = client.Close()
-			return nil, err
-		}
-		// Roll back or finish renames that were moving rows when their
-		// connection went away, before any statement runs (see rekey.go).
-		if err := st.recoverDead(ctx); err != nil {
-			_ = client.Close()
-			return nil, err
-		}
-		// Drop temporary objects of connections that exited without closing.
-		st.sweepTemp(ctx)
 	}
 	st.foreignIndexes = d.foreignIndexes
 	conn := &connectionImpl{
@@ -403,6 +418,8 @@ func (d *databaseImpl) Close(ctx context.Context) error { return nil }
 
 func (d *databaseImpl) GetOption(ctx context.Context, key string) (string, error) {
 	switch key {
+	case OptionStringStatementSnapshots:
+		return strconv.FormatBool(d.snapshots), nil
 	case OptionStringPartitionControlPersistence:
 		if d.partitionControlPersistence == "" {
 			return "auto", nil
@@ -465,6 +482,11 @@ func (d *databaseImpl) GetOption(ctx context.Context, key string) (string, error
 
 func (d *databaseImpl) SetOption(ctx context.Context, key, value string) error {
 	switch key {
+	case OptionStringStatementSnapshots:
+		if value != "true" {
+			return errorf(adbc.StatusInvalidArgument, "managed-table statement snapshots are always enabled; %s cannot be disabled", key)
+		}
+		d.snapshots = true
 	case OptionStringPartitionControlPersistence:
 		if value != "auto" && value != "guaranteed" {
 			return errorf(adbc.StatusInvalidArgument, "partition_control_persistence must be auto or guaranteed")

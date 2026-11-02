@@ -121,6 +121,9 @@ func (s *store) countMatches(ctx context.Context, index, query string) (int64, e
 	if err != nil {
 		return 0, wrapRedis(err, "FT.SEARCH failed")
 	}
+	if s.snapshots && snapshotReplyWarning(reply) {
+		return 0, errorf(adbc.StatusIO, "snapshot search returned a partial-result warning")
+	}
 	return parseSearchCount(reply)
 }
 
@@ -170,10 +173,11 @@ func (s *store) aggregate(ctx context.Context, req *aggRequest) ([]aggRow, error
 // read through the same connection. Redis deletes a cursor left unread for
 // its idle time (300 seconds by default).
 type aggCursor struct {
-	store *store
-	node  searchConn
-	index string
-	count int
+	snapshot bool
+	store    *store
+	node     searchConn
+	index    string
+	count    int
 	// first is the page the pipeline returned, until next returns it.
 	first   []aggRow
 	pending bool
@@ -207,10 +211,14 @@ func (s *store) openAggregate(ctx context.Context, req *aggRequest) (*aggCursor,
 	if err != nil {
 		return nil, wrapRedis(err, "FT.AGGREGATE failed")
 	}
-	c := &aggCursor{store: s, node: node, index: req.index, count: req.pageRows(), pending: true, listLengths: req.listLengths}
+	c := &aggCursor{store: s, snapshot: s.snapshots, node: node, index: req.index, count: req.pageRows(), pending: true, listLengths: req.listLengths}
 	if c.first, c.cursor, err = parseCursorReplyLists(reply, c.listLengths); err != nil {
 		c.close(ctx)
 		return nil, err
+	}
+	if c.snapshot && snapshotReplyWarning(reply) {
+		c.close(ctx)
+		return nil, errorf(adbc.StatusIO, "snapshot aggregation returned a partial-result warning")
 	}
 	return c, nil
 }
@@ -238,6 +246,9 @@ func (c *aggCursor) next(ctx context.Context) ([]aggRow, error) {
 	}
 	page, cursor, err := parseCursorReplyLists(reply, c.listLengths)
 	c.cursor = cursor
+	if err == nil && c.snapshot && snapshotReplyWarning(reply) {
+		err = errorf(adbc.StatusIO, "snapshot cursor returned a partial-result warning")
+	}
 	if err != nil {
 		c.close(ctx)
 		return nil, err

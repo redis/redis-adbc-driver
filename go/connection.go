@@ -69,6 +69,8 @@ func (c *connectionImpl) executor() *executor {
 
 func (c *connectionImpl) GetOption(ctx context.Context, key string) (string, error) {
 	switch key {
+	case OptionStringStatementSnapshots:
+		return strconv.FormatBool(c.store != nil && c.store.snapshots), nil
 	case OptionStringPartitionResultNamespace:
 		return c.retainedNamespace, nil
 	case OptionStringPartitionReaderOnly:
@@ -100,6 +102,15 @@ func (c *connectionImpl) GetOption(ctx context.Context, key string) (string, err
 }
 
 func (c *connectionImpl) SetOption(ctx context.Context, key, value string) error {
+	if key == OptionStringStatementSnapshots {
+		if value == "true" && c.store != nil && c.store.snapshots {
+			return nil
+		}
+		return snapshotUnsupported()
+	}
+	if c.store != nil && c.store.snapshots && ((key == OptionStringForeignIndexes || key == OptionStringRenameRekey) && value != "false") {
+		return snapshotUnsupported()
+	}
 	switch key {
 	case OptionStringForeignIndexes:
 		v, err := parseForeignIndexes(value)
@@ -170,6 +181,9 @@ func (c *connectionImpl) setTimeouts(ctx context.Context, t timeouts) error {
 	}
 	_, cluster := c.store.client.(*goredis.ClusterClient)
 	client := newClient(c.clientCfg, cluster, t)
+	if c.store.snapshots {
+		client.AddHook(snapshotHook{})
+	}
 	if err := client.Ping(ctx).Err(); err != nil {
 		_ = client.Close()
 		return wrapRedis(err, "failed to connect to Redis")
@@ -265,6 +279,11 @@ func (c *connectionImpl) SetCurrentCatalog(ctx context.Context, catalog string) 
 }
 
 func (c *connectionImpl) SetCurrentDbSchema(ctx context.Context, schema string) error {
+	ctx, pin, snapshotErr := c.store.acquireSnapshot(ctx)
+	if snapshotErr != nil {
+		return snapshotErr
+	}
+	defer pin.release()
 	ok, err := c.store.schemaExists(ctx, schema)
 	if err != nil {
 		return err
@@ -283,6 +302,11 @@ func (c *connectionImpl) ListTableTypes(ctx context.Context) ([]string, error) {
 }
 
 func (c *connectionImpl) GetTableSchema(ctx context.Context, catalog *string, dbSchema *string, tableName string) (*arrow.Schema, error) {
+	ctx, pin, snapshotErr := c.store.acquireSnapshot(ctx)
+	if snapshotErr != nil {
+		return nil, snapshotErr
+	}
+	defer pin.release()
 	name := TableName{Name: tableName}
 	if catalog != nil {
 		name.Catalog = *catalog
@@ -348,6 +372,11 @@ func (c *connectionImpl) GetCatalogs(ctx context.Context, catalogFilter *string)
 }
 
 func (c *connectionImpl) GetDBSchemasForCatalog(ctx context.Context, catalog string, schemaFilter *string) ([]string, error) {
+	ctx, pin, snapshotErr := c.store.acquireSnapshot(ctx)
+	if snapshotErr != nil {
+		return nil, snapshotErr
+	}
+	defer pin.release()
 	if catalog != catalogName {
 		return nil, nil
 	}
@@ -370,6 +399,11 @@ func (c *connectionImpl) GetDBSchemasForCatalog(ctx context.Context, catalog str
 }
 
 func (c *connectionImpl) GetTablesForDBSchema(ctx context.Context, catalog string, schema string, tableFilter *string, columnFilter *string, includeColumns bool) ([]driverbase.TableInfo, error) {
+	ctx, pin, snapshotErr := c.store.acquireSnapshot(ctx)
+	if snapshotErr != nil {
+		return nil, snapshotErr
+	}
+	defer pin.release()
 	if catalog != catalogName {
 		return nil, nil
 	}

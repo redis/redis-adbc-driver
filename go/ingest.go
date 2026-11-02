@@ -44,10 +44,35 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 	if transport != nil {
 		defer transport.finish()
 	}
-	opts := s.ingest
 	if s.params == nil {
 		return -1, errorf(adbc.StatusInvalidState, "bulk ingest requires data to be bound")
 	}
+	if s.conn.store.snapshots && snapshotOf(ctx) == nil {
+		if s.ingest.Temporary || isTempAlias(s.ingest.SchemaName) || isTempSchema(s.ingest.SchemaName) {
+			return -1, snapshotUnsupported()
+		}
+		ctx, cancel := context.WithTimeout(ctx, snapshotTimeout)
+		defer cancel()
+		sctx, pin, err := s.conn.store.acquireSnapshot(ctx)
+		if err != nil {
+			return -1, err
+		}
+		defer pin.release()
+		wctx, id, err := s.conn.store.beginSnapshotWrite(sctx, pin)
+		if err != nil {
+			return -1, err
+		}
+		defer s.conn.store.abortSnapshot(pin, id)
+		n, err := s.executeIngest(wctx)
+		if err != nil {
+			return -1, err
+		}
+		if err := s.conn.store.publishSnapshot(wctx, pin, id); err != nil {
+			return -1, err
+		}
+		return n, nil
+	}
+	opts := s.ingest
 	defer s.clearParams()
 	if err := s.prepareExtensionInput(); err != nil {
 		return -1, err
