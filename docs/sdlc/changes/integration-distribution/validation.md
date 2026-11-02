@@ -105,3 +105,21 @@ Redis 8.10.3/Search 8.10.1 TLS fixture obtained from official Homebrew bottles.
 No retries or skips were added to CI; a redacted server-log diagnostic is now
 printed on macOS failure so later failures can be diagnosed without relying on
 artifact downloads. Full-suite reproduction and replacement CI remain required.
+
+The next completed run passed both native Linux builds and nine distribution
+jobs. One ARM distribution job stopped before validation because management
+readiness briefly returned HTTP 503 after container health. Bootstrap GET/PUT
+calls now use bounded curl retries; POST creation is not automatically replayed.
+A real local HTTP regression endpoint returned 503 once, then 200: GET and PUT
+made two requests and succeeded, while POST made one request and returned failure.
+The test also exercises the macOS system Bash used by the setup script.
+
+The macOS wide-fetch failure repeated in CI. It has not reproduced locally:
+15 targeted runs passed using the official Sequoia Redis bottle and constrained
+workers; the cap-discovery-plus-wide-fetch sequence passed three times. Another
+complete native Go suite passed with CI's exact Sequoia Redis/OpenSSL/zstd builds,
+macOS 12 deployment flags, three workers and opt-in runtime-cap tests enabled.
+These results do not establish a fix for the CI-only broken pipe. Expanded CI
+diagnostics retain startup/warning lines and run the failing test alone after a
+full-suite failure; the original full-suite gate stays failed. No driver retry,
+skip, TLS downgrade or assertion relaxation was added.

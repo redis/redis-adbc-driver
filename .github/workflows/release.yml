@@ -49,6 +49,8 @@ on:
       - go/Dockerfile.linux-builder
       - go/compose.yaml
       - go/cluster-ready.sh
+      - go/software-*.sh
+      - scripts/test_software_bootstrap_http.py
       - go/*partition*.go
       - go/foreign.go
       - go/search_keys*.go
@@ -182,6 +184,10 @@ jobs:
       - name: Check cluster readiness gate
         if: hashFiles('scripts/test_cluster_ready.py') != ''
         run: python3 -m unittest discover -s scripts -p test_cluster_ready.py -v
+
+      - name: Check management HTTP readiness retries
+        if: hashFiles('scripts/test_software_bootstrap_http.py') != ''
+        run: python3 -m unittest discover -s scripts -p test_software_bootstrap_http.py -v
 
       - name: Check dbc packaging
         if: hashFiles('scripts/test_dbc_package.py') != ''
@@ -552,6 +558,12 @@ jobs:
           file build/libadbc_driver_redis.dylib | grep -q arm64
           python3 -c "import ctypes; ctypes.CDLL('build/libadbc_driver_redis.dylib').AdbcDriverInit"
 
+      - name: Isolate native wide-fetch failure for diagnostics
+        if: failure() && hashFiles('go/wide_fetch_integration_test.go') != ''
+        working-directory: go
+        # The original full-suite failure remains a failed release gate.
+        run: env -u REDIS_PARTITION_SCAN_CAP REDIS_PARTITION_CAP_TEST=1 go test -count=1 -p 1 -run '^TestSQLWideHashFetchBothAPIs$' -v .
+
       - name: Full macOS installed-wheel ADBC validation at real cap 137
         if: hashFiles('scripts/native_partition_redis.py') != ''
         env:
@@ -606,7 +618,15 @@ jobs:
                   path = root / 'tls' / name
                   if path.exists() and (secret := path.read_text().strip()):
                       text = text.replace(secret, '[redacted]')
-              print('\n'.join(text.splitlines()[-100:]))
+              lines = text.splitlines()
+              print('Redis startup:')
+              print('\n'.join(lines[:25]))
+              print('Redis warnings and connection errors:')
+              print('\n'.join(line for line in lines if ' # ' in line or any(
+                  marker in line.lower() for marker in ('error', 'closing', 'maxclients', 'protocol error')
+              )))
+              print('Redis final activity:')
+              print('\n'.join(lines[-100:]))
           PY
 
       - name: Upload macOS native partition evidence
