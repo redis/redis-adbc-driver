@@ -53,7 +53,24 @@ if [ ! -s "$tls_dir/server.key" ] || ! openssl x509 -checkend 86400 -noout -in "
     chmod 600 "$tls_dir/server.key"
 fi
 api="https://localhost:$api_port/v1"
-call() { curl -sSk -u "$admin_user:$admin_pass" -H 'Content-Type: application/json' "$@"; }
+call() {
+    local method=GET i
+    local args=("$@")
+    for ((i=0; i<${#args[@]}; i++)); do
+        if [ "${args[i]}" = -X ]; then method=${args[i+1]}; fi
+    done
+    # Container health can precede management readiness. Retry only reads and
+    # idempotent updates, including temporary authentication failures while the
+    # new cluster propagates credentials. A create POST must never be replayed.
+    case $method in
+        GET|PUT) set -- --retry 5 --retry-delay 1 --retry-max-time 30 --retry-all-errors "$@" ;;
+    esac
+    curl -sSk -u "$admin_user:$admin_pass" -H 'Content-Type: application/json' "$@" || {
+        local status=$?
+        echo "Management API $method request failed after readiness retries" >&2
+        return "$status"
+    }
+}
 wait_for() {
     local what=$1
     shift
@@ -150,9 +167,6 @@ shards_ready() {
 }
 wait_for 'primary shards' shards_ready
 docker compose cp "$tls_dir/ca.pem" redis-software:/tmp/adbc-test-ca.pem >&2
-# cp preserves the host's restrictive umask/UID; redis-cli runs as a different
-# container user. Only this public certificate (never server.key) is shared.
-docker compose exec -T --user root redis-software chmod 644 /tmp/adbc-test-ca.pem
 ready() {
     docker compose exec -T -e REDISCLI_AUTH="$db_pass" redis-software \
         /opt/redislabs/bin/redis-cli --tls --cacert /tmp/adbc-test-ca.pem \

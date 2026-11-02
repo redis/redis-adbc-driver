@@ -67,3 +67,13 @@ duplication, and no credentials intentionally included in uploaded evidence.
 Reports redact authenticated Redis URIs/passwords before publication by the
 workflow. The workflow uses read-only repository permissions and an ephemeral
 runner-owned fixture. Human review and GitHub workflow execution are outstanding.
+
+## PR synchronization, 2026-11-02
+
+Merged main at `0cc1b67` while preparing the PR. Resolved the integration index
+conflict by preserving both the acceptance audit and new installation guide.
+Main now fixes public CA readability before copying it into Software, so the
+redundant container chmod from this branch was removed. The 12 runner checks,
+shell syntax and diff whitespace checks passed again. The live suite counts
+above remain evidence from the original source revision; they were not rerun
+after this synchronization.
