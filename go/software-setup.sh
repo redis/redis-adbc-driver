@@ -60,11 +60,16 @@ call() {
         if [ "${args[i]}" = -X ]; then method=${args[i+1]}; fi
     done
     # Container health can precede management readiness. Retry only reads and
-    # idempotent updates; a create POST must never be replayed automatically.
+    # idempotent updates, including temporary authentication failures while the
+    # new cluster propagates credentials. A create POST must never be replayed.
     case $method in
-        GET|PUT) set -- --retry 5 --retry-delay 1 --retry-max-time 30 --retry-connrefused "$@" ;;
+        GET|PUT) set -- --retry 5 --retry-delay 1 --retry-max-time 30 --retry-all-errors "$@" ;;
     esac
-    curl -sSk -u "$admin_user:$admin_pass" -H 'Content-Type: application/json' "$@"
+    curl -sSk -u "$admin_user:$admin_pass" -H 'Content-Type: application/json' "$@" || {
+        local status=$?
+        echo "Management API $method request failed after readiness retries" >&2
+        return "$status"
+    }
 }
 wait_for() {
     local what=$1

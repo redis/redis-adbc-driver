@@ -123,3 +123,12 @@ These results do not establish a fix for the CI-only broken pipe. Expanded CI
 diagnostics retain startup/warning lines and run the failing test alone after a
 full-suite failure; the original full-suite gate stays failed. No driver retry,
 skip, TLS downgrade or assertion relaxation was added.
+
+The next CI revision also observed a transient 401 following startup 503.
+Bounded GET/PUT retries now cover this transition; real HTTP regression tests
+verify request bodies, including piped PUT data, survive retries and POSTs
+remain single-attempt. Persistent errors still fail the gate.
+The isolated macOS wide-fetch test reproduced the broken pipe in 2.75 seconds,
+excluding test order as the cause. Added verbose native fixture logging and
+an early wide-fetch gate to obtain the server-side connection error without
+waiting for the entire suite. No driver read retries or weakened TLS checks.

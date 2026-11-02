@@ -531,7 +531,7 @@ jobs:
           fixture="$RUNNER_TEMP/native-partition-redis/tls"
           REDISCLI_AUTH="$(cat "$fixture/admin.password")" "$prefix/bin/redis-cli" \
             --tls --cacert "$fixture/ca.crt" --user default -p 16391 \
-            -e CONFIG SET search-max-aggregate-results 2147483648
+            -e CONFIG SET search-max-aggregate-results 2147483648 loglevel verbose
           # uv reads every PEM in SSL_CERT_DIR alongside the private fixture CA.
           mkdir -p "$RUNNER_TEMP/public-ca-roots"
           cp /etc/ssl/cert.pem "$RUNNER_TEMP/public-ca-roots/system.pem"
@@ -551,18 +551,17 @@ jobs:
           file build/redis-adbc | grep -q arm64
           build/redis-adbc help | grep -q adopt
 
+      - name: Test native wide fetch
+        if: hashFiles('go/wide_fetch_integration_test.go') != ''
+        working-directory: go
+        run: env -u REDIS_PARTITION_SCAN_CAP REDIS_PARTITION_CAP_TEST=1 go test -count=1 -p 1 -run '^TestSQLWideHashFetchBothAPIs$' -v .
+
       - name: Test
         working-directory: go
         run: |
           env -u REDIS_PARTITION_SCAN_CAP REDIS_PARTITION_CAP_TEST=1 go test -count=1 -p 1 -skip "$SKIP" ./...
           file build/libadbc_driver_redis.dylib | grep -q arm64
           python3 -c "import ctypes; ctypes.CDLL('build/libadbc_driver_redis.dylib').AdbcDriverInit"
-
-      - name: Isolate native wide-fetch failure for diagnostics
-        if: failure() && hashFiles('go/wide_fetch_integration_test.go') != ''
-        working-directory: go
-        # The original full-suite failure remains a failed release gate.
-        run: env -u REDIS_PARTITION_SCAN_CAP REDIS_PARTITION_CAP_TEST=1 go test -count=1 -p 1 -run '^TestSQLWideHashFetchBothAPIs$' -v .
 
       - name: Full macOS installed-wheel ADBC validation at real cap 137
         if: hashFiles('scripts/native_partition_redis.py') != ''
