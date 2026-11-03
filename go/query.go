@@ -1262,6 +1262,15 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 		indexSort = true
 	}
 	if meta.SnapshotOverlay {
+		// Wide row-ID scans resolve visibility through exact directories or
+		// candidate probes in openScan. Building ordered-reducer masks here
+		// would read the same directories for a proof that path never uses.
+		if indexSort && wp.keys == nil && plan.sel.Limit == nil {
+			it, _, exactly := e.newScanIter(ctx, req, params)
+			if wideHashFetch(req, it, &aggRequest{loadAll: !exactly}) {
+				return selectScan{req: req, caps: caps, indexSort: true}, nil
+			}
+		}
 		fallback := func() (selectScan, error) {
 			req.sortBy, req.ties = nil, nil
 			return selectScan{req: req, caps: caps, indexSort: len(plan.order) == 0}, nil
