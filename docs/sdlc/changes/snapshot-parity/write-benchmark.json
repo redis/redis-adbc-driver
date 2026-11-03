@@ -1,0 +1,106 @@
+{
+  "date": "2026-11-02",
+  "baseline": {
+    "source": "f8e135291255b7ae9f16c487c08e0a3c547fddb8",
+    "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+    "machine": "arm64",
+    "redis_version": "8.6.2",
+    "software_shards": 3,
+    "qpf": 4,
+    "noeviction": true,
+    "input_rows": 1,
+    "visible_rows": 7,
+    "initial_segments": 2,
+    "unrelated_tables": 32,
+    "repeats": 5,
+    "warmups": 1,
+    "timing": "write/publication + complete RETURNING fetch; independent post-write validation excluded",
+    "cases": {
+      "metadata_comment": {
+        "median_ms": 70.96745798480697,
+        "samples_ms": [
+          71.6807080025319,
+          70.96745798480697,
+          73.09316701139323,
+          67.51400002394803,
+          64.86762498388998
+        ]
+      },
+      "point_update": {
+        "median_ms": 96.30495801684447,
+        "samples_ms": [
+          82.69599999766797,
+          100.3022910153959,
+          243.44991700490937,
+          86.71520798816346,
+          96.30495801684447
+        ]
+      },
+      "arrow_append": {
+        "median_ms": 105.05108299548738,
+        "samples_ms": [
+          85.05674998741597,
+          105.05108299548738,
+          239.66141699929722,
+          84.86337499925867,
+          132.39520898787305
+        ]
+      }
+    }
+  },
+  "current": {
+    "source": "a4379dd4e67ebadd7a416197d63e48e149da7d96",
+    "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+    "machine": "arm64",
+    "redis_version": "8.6.2",
+    "software_shards": 3,
+    "qpf": 4,
+    "noeviction": true,
+    "input_rows": 1,
+    "visible_rows": 7,
+    "initial_segments": 2,
+    "unrelated_tables": 32,
+    "repeats": 5,
+    "warmups": 1,
+    "timing": "write/publication + complete RETURNING fetch; independent post-write validation excluded",
+    "cases": {
+      "metadata_comment": {
+        "median_ms": 68.4950000140816,
+        "samples_ms": [
+          68.4950000140816,
+          68.50729198777117,
+          64.27066700416617,
+          69.71316700219177,
+          60.161834000609815
+        ]
+      },
+      "point_update": {
+        "median_ms": 69.36079199658707,
+        "samples_ms": [
+          69.36079199658707,
+          63.57825000304729,
+          68.36829200619832,
+          153.67533298558556,
+          70.14820899348706
+        ]
+      },
+      "arrow_append": {
+        "median_ms": 98.54237499530427,
+        "samples_ms": [
+          146.6694590053521,
+          98.54237499530427,
+          79.79341701138765,
+          139.26995798829012,
+          83.0258330097422
+        ]
+      }
+    }
+  },
+  "limits": [
+    "Local sequential warm microbenchmark on the same verified Software fixture",
+    "One initial row and 32 unrelated empty tables; six operations per case including one warmup",
+    "Write timing includes publication and complete RETURNING fetch; independent post-write full result validation is outside the timer",
+    "Background compaction/reclamation remains active; these effects are included rather than isolated",
+    "Does not establish all-workload, pre-snapshot, throughput, wide-output or distributed parity"
+  ]
+}

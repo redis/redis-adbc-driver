@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 # Copyright (c) 2026 ADBC Drivers Contributors
 # Licensed under the Apache License, Version 2.0.
-"""Compare complete, independently validated reads on an owned Software fixture.
+"""Compare independently validated reads and small writes on an owned Software fixture.
 
 Run each driver revision in a separate process, with the same verified Software
 fixture and parameters. This deliberately resets the database between revisions;
-never point it at shared or production data. Results exclude setup and include
-execution, full Arrow fetch and result validation. No credentials are emitted.
+never point it at shared or production data. Read timings include execution, complete Arrow fetch and validation. Write timings
+include publication and complete RETURNING fetch; independent post-write checks
+are excluded from the timer. All samples require correct complete results. Setup
+is excluded, and no credentials are emitted.
 """
 
 import argparse

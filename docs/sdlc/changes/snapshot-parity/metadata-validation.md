@@ -71,8 +71,8 @@ Suites ran sequentially against the disposable database. Libraries used `make bu
   unrelated-index and prior-format checks passed under the race detector.
 - `gofmt`, Python benchmark syntax/formatting and `git diff --check` passed.
 
-Physical copy reduction is verified. Comparative write timings are being
-collected; it does not by itself prove a latency or throughput improvement.
+Physical copy reduction is verified. The comparison below measures local write latency; it does not establish
+all-workload or throughput parity.
 
 ## Review and remaining work
 
@@ -87,3 +87,30 @@ row-reference graph work, large atomic operations and compaction throughput rema
 open; see [the next reference/publication design](row-reference-design.md).
 Full feature/platform/Cluster API recovery validation, broader comparisons and
 owned cleanup remain required. No full parity claim is made.
+
+## Comparative small-write results
+
+[Raw samples](write-benchmark.json): `f8e1352` (format 7) versus `a4379dd`
+(format 8), built with the same Go/native version flags. Baseline ran first,
+then current, each in a separate process after resetting the same owned Software
+fixture. One initial row, two initial segments and 32 unrelated empty tables;
+one warmup and five timed samples per case. Writes include publication and
+complete RETURNING fetch. Independent post-write full result comparison is
+outside the timer and must pass before a sample is retained. Setup is excluded.
+Background maintenance remains active.
+
+| Case | Baseline median ms | Current median ms | Baseline/current |
+|---|---:|---:|---:|
+| Metadata COMMENT | 70.97 | 68.50 | 1.04× |
+| One-row UPDATE RETURNING | 96.30 | 69.36 | 1.39× |
+| One-row Arrow append | 105.05 | 98.54 | 1.07× |
+
+Metadata COMMENT and Arrow append show only small differences in this run;
+UPDATE improved, but the remaining catalog-wide reference/maintenance work is
+visible in these latencies. No general latency or throughput parity claim is
+made. The experiment does not isolate copying from dirty-table sealing,
+reference validation or maintenance changes.
+
+Reproduce with the read benchmark runner plus `--writes --rows 1`, using the
+owned fixture API/proxy port flags and explicit `--reset-owned-database`.
+The runner verifies QPF/noeviction/TLS and independently checks every write.
