@@ -47,7 +47,7 @@ type snapshotScope struct {
 	write           bool
 	owned           map[string]bool
 	deferredIndexes map[string]*snapshotIndexState // data ID -> final index layout
-	validated       sync.Map                       // immutable segment descriptor -> *snapshotSegmentValidation
+	validated       *sync.Map                      // immutable segment descriptor -> *snapshotSegmentValidation
 	mu              sync.Mutex
 	bytes, writes   int64
 }
@@ -374,14 +374,30 @@ func (s *store) acquireSnapshot(ctx context.Context, writing ...bool) (context.C
 	if len(writing) > 0 && writing[0] {
 		mode = "write"
 	}
-	root, err := s.snapshotControl(ctx, "acquire", p.token, "", "", mode).Text()
-	if err != nil {
-		if strings.Contains(err.Error(), "snapshot compaction publication pending") {
-			s.wakeSnapshotCompactor()
-			return ctx, nil, stateErrorf("40001", "background compaction is publishing; retry the statement")
+	var root string
+	var err error
+	delay := 5 * time.Millisecond
+	for {
+		root, err = s.snapshotControl(ctx, "acquire", p.token, "", "", mode).Text()
+		if err == nil {
+			break
 		}
-		return ctx, nil, wrapRedis(err, "failed to acquire statement snapshot")
+		if !strings.Contains(err.Error(), "snapshot compaction publication pending") {
+			return ctx, nil, wrapRedis(err, "failed to acquire statement snapshot")
+		}
+		// Only a known admission refusal is polled. SQL planning/execution and
+		// Arrow consumption have not begun; transport errors are never replayed.
+		s.wakeSnapshotCompactor()
+		timer := time.NewTimer(delay)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx, nil, cancelled(ctx)
+		case <-timer.C:
+		}
+		delay = min(delay*2, 100*time.Millisecond)
 	}
+
 	p.root = root
 	go p.heartbeat()
 	sctx := context.WithValue(ctx, snapshotContextKey{}, &snapshotScope{id: root, pin: p})
@@ -732,7 +748,7 @@ func (s *store) beginSnapshotWrite(ctx context.Context, pin *snapshotPin) (conte
 	pin.mu.Lock()
 	pin.workspace = id
 	pin.mu.Unlock()
-	wctx := context.WithValue(ctx, snapshotContextKey{}, &snapshotScope{id: id, pin: pin, write: true, owned: map[string]bool{}})
+	wctx := context.WithValue(ctx, snapshotContextKey{}, &snapshotScope{id: id, pin: pin, write: true, owned: map[string]bool{}, validated: snapshotValidationCache(snapshotOf(ctx))})
 	if err := s.copySnapshot(ctx, wctx, pin.root, id); err != nil {
 		s.abortSnapshot(pin, id)
 		return ctx, "", err
@@ -1032,6 +1048,17 @@ func (s *store) validateSnapshotRead(ctx context.Context) error {
 	return snapshotOf(ctx).pin.valid(ctx)
 }
 
+// A base read and its private workspace share proofs about immutable inputs.
+// Sharing a pointer avoids copying a sync.Map after use and duplicate FT.INFO.
+func snapshotValidationCache(scope *snapshotScope) *sync.Map {
+	scope.mu.Lock()
+	defer scope.mu.Unlock()
+	if scope.validated == nil {
+		scope.validated = &sync.Map{}
+	}
+	return scope.validated
+}
+
 type snapshotSegmentValidation struct {
 	once sync.Once
 	err  error
@@ -1059,7 +1086,7 @@ func (s *store) validateSnapshotTable(ctx context.Context, meta *tableMeta) erro
 		if snapshotOwns(ctx, seg.Prefix) {
 			continue
 		}
-		value, _ := scope.validated.LoadOrStore(seg, &snapshotSegmentValidation{})
+		value, _ := snapshotValidationCache(scope).LoadOrStore(seg, &snapshotSegmentValidation{})
 		check := value.(*snapshotSegmentValidation)
 		check.once.Do(func() { check.err = s.validateSnapshotSegment(ctx, seg) })
 		if check.err != nil {
@@ -1183,8 +1210,30 @@ func (e *executor) executeSnapshot(ctx context.Context, ps ParsedStmt, params []
 	default:
 		return execResult{}, errorf(adbc.StatusNotImplemented, "statement is not supported in snapshot catalogs")
 	}
+	var target *TableName
+	switch stmt := ps.Stmt.(type) {
+	case *InsertStmt:
+		target = &stmt.Table
+	case *UpdateStmt:
+		target = &stmt.Table
+	case *DeleteStmt:
+		target = &stmt.Table
+	case *MergeStmt:
+		target = &stmt.Table
+	}
 	ctx, cancel := context.WithTimeout(ctx, snapshotTimeout)
-	sctx, pin, err := e.store.acquireSnapshot(ctx, write)
+	var sctx context.Context
+	var pin *snapshotPin
+	var err error
+	if write {
+		var resolve func(context.Context) (*tableMeta, error)
+		if target != nil {
+			resolve = func(c context.Context) (*tableMeta, error) { return e.snapshotWriteTarget(c, target) }
+		}
+		sctx, pin, err = e.store.acquireWritableSnapshot(ctx, resolve)
+	} else {
+		sctx, pin, err = e.store.acquireSnapshot(ctx)
+	}
 	if err != nil {
 		cancel()
 		return execResult{}, err
@@ -1212,17 +1261,7 @@ func (e *executor) executeSnapshot(ctx context.Context, ps ParsedStmt, params []
 			return execResult{}, err
 		}
 		defer e.store.abortSnapshot(pin, id)
-		var target *TableName
-		switch stmt := ps.Stmt.(type) {
-		case *InsertStmt:
-			target = &stmt.Table
-		case *UpdateStmt:
-			target = &stmt.Table
-		case *DeleteStmt:
-			target = &stmt.Table
-		case *MergeStmt:
-			target = &stmt.Table
-		}
+
 		if target != nil {
 			schema, table, err := e.resolveTable(*target)
 			if err != nil {

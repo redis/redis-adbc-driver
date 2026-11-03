@@ -87,6 +87,32 @@ class SnapshotValidation(unittest.TestCase):
             self.assertEqual(rows, [(i, exact) for i in range(count)])
         self.assertFalse(any(key.startswith("p:") for key in self.raw.hkeys("adbc:{meta}:snapshot:catalog")))
 
+    def test_repeated_append_admission_without_caller_retry(self):
+        count, exact = 2001, 9007199254740993
+        with self.conn.cursor() as cur:
+            cur.execute("CREATE TABLE t(id INTEGER,v BIGINT)")
+            base = pa.table(
+                {
+                    "id": pa.array(range(count), pa.int32()),
+                    "v": pa.array([exact] * count, pa.int64()),
+                }
+            )
+            self.assertEqual(cur.adbc_ingest("t", base, mode="append"), count)
+            for i in range(20):
+                batch = pa.table(
+                    {
+                        "id": pa.array([count + i], pa.int32()),
+                        "v": pa.array([exact + i], pa.int64()),
+                    }
+                )
+                # Each independent Arrow input is consumed once; ordinary
+                # admission must make room before touching it, without retries.
+                self.assertEqual(cur.adbc_ingest("t", batch, mode="append"), 1)
+            cur.execute("SELECT id,v FROM t ORDER BY id")
+            expected = [(i, exact) for i in range(count)]
+            expected += [(count + i, exact + i) for i in range(20)]
+            self.assertEqual(cur.fetchall(), expected)
+
     def test_late_ingest_error_does_not_publish(self):
         with self.conn.cursor() as cur:
             self.execute_retry(cur, "CREATE TABLE t(v INTEGER NOT NULL)")

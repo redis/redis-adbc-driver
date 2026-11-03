@@ -70,6 +70,18 @@ func TestSnapshotValidationCachesImmutableSourcesPerStatement(t *testing.T) {
 	if err := s.validateSnapshotTable(ctx, &broken); err == nil {
 		t.Fatal("validation cache accepted a changed descriptor")
 	}
+	before := guard.info.Load()
+	wctx, id, err := s.beginSnapshotWrite(ctx, pin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.abortSnapshot(pin, id)
+	if _, err := s.getTable(wctx, "public", "t0"); err != nil {
+		t.Fatal(err)
+	}
+	if guard.info.Load() != before {
+		t.Fatal("private workspace repeated an immutable input proof")
+	}
 }
 
 func TestSnapshotPointReadRejectsMissingBaselineRow(t *testing.T) {

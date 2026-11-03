@@ -50,7 +50,7 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 	if s.conn.store.snapshots && snapshotOf(ctx) == nil {
 		ctx, cancel := context.WithTimeout(ctx, snapshotTimeout)
 		defer cancel()
-		sctx, pin, err := s.conn.store.acquireSnapshot(ctx, true)
+		sctx, pin, err := s.conn.store.acquireWritableSnapshot(ctx, s.snapshotIngestTarget)
 		if err != nil {
 			return -1, err
 		}

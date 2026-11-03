@@ -168,14 +168,21 @@ remain bounded by row count, rather than the soft write-byte target. The complet
 job is not subject to the SQL statement's 100,000-row or 15-minute total limit.
 Normal writes allocate deltas and never perform compaction row copies.
 
-A table still has a hard eight-segment bound. If compaction falls behind, writes
-return SQLSTATE `40001` and must be retried with backoff and fresh input. A short
-publication admission gate also returns `40001` while ready maintenance waits for
-existing writers and installs its manifest. The driver never replays SQL or Arrow
-input automatically. Reads remain available. The gate expires within five seconds
-if the worker stops renewing it; compaction ownership uses a separate two-minute
-lease. Existing write intent is registered with root acquisition, so maintenance
-cannot invalidate a writer in the gap before workspace reservation.
+A table still has a hard eight-segment bound. Writable managed connections wait
+for their background worker to make room before reserving a workspace, planning
+SQL or consuming Arrow input. Waiting releases the write-intent pin so compaction
+can publish, then admits a fresh generation. The short compaction publication
+gate also waits before execution, with bounded polling and the statement's
+cancellation/deadline. Existing immutable-index proofs are shared with the private
+workspace. No SQL or Arrow input is replayed. Reads remain available.
+
+Direct/internal stores without a background worker retain explicit SQLSTATE
+`40001` backpressure at the hard segment limit. Concurrent publication conflicts
+can still return `40001`; independent metadata publication is ongoing work.
+The admission gate expires within five seconds if the worker stops renewing it;
+compaction ownership uses a separate two-minute lease. Existing write intent is
+registered with root acquisition, so maintenance cannot invalidate an admitted
+writer in the gap before workspace reservation.
 
 One durable job per catalog records its source segments, output identity, last
 completed row ID, phase and last recorded error. Source/output references survive

@@ -66,7 +66,10 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.26.10)
   No-op UPDATE/DELETE do not publish empty generations or build indexes.
   Exact-ID/private-index/mask-budget fallbacks must retain the full SQL predicate. Preserve exact, score-zero row-ID directories
   registered atomically by writer fences. Background compaction starts at four
-  segments; eight is retryable backpressure, never foreground compaction. Preserve
+  segments; eight is an admission limit, never foreground compaction. Managed
+  writers release full-lineage pins and wait for their worker before execution
+  or Arrow consumption. Gate waiting honors cancellation; never replay inputs.
+  Stores without workers retain explicit backpressure. Preserve
   durable copy checkpoints, lease/phase fences, and source/output references even
   across expired worker leases. Installation grafts only the original prefix and
   respects write intents plus its short admission gate. Close/join workers before

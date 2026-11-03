@@ -533,9 +533,16 @@ func TestSnapshotCompactionPublicationYieldsToWriteIntent(t *testing.T) {
 	}
 	// The existing writer predates the ready gate; new writers yield while
 	// maintenance waits for that writer to finish.
-	if _, newPin, err := s.acquireSnapshot(h.ctx, true); err == nil {
+	waiting, cancel := context.WithTimeout(h.ctx, 30*time.Millisecond)
+	_, newPin, admissionErr := s.acquireSnapshot(waiting, true)
+	cancel()
+	if newPin != nil {
 		newPin.release()
-		t.Fatal("ready compactor did not apply admission backpressure")
+		t.Fatal("ready compactor admitted a writer before its gate reopened")
+	}
+	var ae adbc.Error
+	if !errors.As(admissionErr, &ae) || ae.Code != adbc.StatusTimeout {
+		t.Fatalf("new writer did not wait at the publication gate: %v", admissionErr)
 	}
 	before := raw.HGet(h.ctx, snapshotCatalogKey, "root").Val()
 	if progress, err := s.snapshotCompactionStep(h.ctx, token); err != nil || progress {

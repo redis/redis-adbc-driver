@@ -148,7 +148,8 @@ def test_native_ipc_rejects_invalid_execution(uri, tmp_path):
         assert not path.exists()
 
 
-def test_native_ipc_late_input_error(uri, tmp_path):
+@pytest.mark.parametrize("existing", [False, True])
+def test_native_ipc_late_input_error(uri, tmp_path, existing):
     name = f"it_ipc_bad_{uuid.uuid4().hex}"
     path = tmp_path / "truncated.arrow"
     schema = pa.schema([("id", pa.int64())])
@@ -160,20 +161,34 @@ def test_native_ipc_late_input_error(uri, tmp_path):
     path.write_bytes(data[:-24])
     with connect(uri) as db, adbc.AdbcConnection(db) as conn:
         try:
+            if existing:
+                with adbc.AdbcStatement(conn) as st:
+                    st.set_sql_query(f'CREATE TABLE "{name}" (id BIGINT)')
+                    st.execute_update()
+                    st.set_sql_query(f'INSERT INTO "{name}" VALUES(99)')
+                    st.execute_update()
             with adbc.AdbcStatement(conn) as st:
-                st.set_options(
-                    **{
-                        "adbc.ingest.target_table": name,
-                        "adbc.redis.ipc.input": str(path),
-                    }
-                )
+                options = {
+                    "adbc.ingest.target_table": name,
+                    "adbc.redis.ipc.input": str(path),
+                }
+                if existing:
+                    options["adbc.ingest.mode"] = "adbc.ingest.mode.append"
+                st.set_options(**options)
                 with pytest.raises(adbc.Error):
                     st.execute_update()
             with adbc.AdbcStatement(conn) as st:
                 st.set_sql_query(f'SELECT id FROM "{name}"')
-                stream, _ = st.execute_query()
-                with pa.RecordBatchReader.from_stream(stream) as reader:
-                    assert reader.read_all().column("id").to_pylist() == [1, 2, 3]
+                if existing:
+                    stream, _ = st.execute_query()
+                    with pa.RecordBatchReader.from_stream(stream) as reader:
+                        assert reader.read_all().column("id").to_pylist() == [99]
+                else:
+                    # Atomic ingestion never publishes the target or the first
+                    # successful batch after a late input error.
+                    with pytest.raises(adbc.ProgrammingError) as error:
+                        st.execute_query()
+                    assert error.value.sqlstate == "42P01"
         finally:
             with adbc.AdbcStatement(conn) as st:
                 st.set_sql_query(f'DROP TABLE IF EXISTS "{name}"')
