@@ -1,7 +1,7 @@
 # Validation: descriptor-owned row references
 
-Date: 2026-11-03. Parent implementation `272ac1a`. Status: final checks and
-comparative measurements in progress; this does not complete the parity plan.
+Date: 2026-11-03. Parent implementation `272ac1a`. Status: implemented and verified
+locally with a comparative small-write measurement; this does not complete the parity plan.
 
 ## Implementation
 
@@ -48,9 +48,10 @@ Owned Software proxy fixture: three primary shards, verified strict TLS, active
 verified 4x QPF and noeviction. Suites run sequentially against the disposable
 database. Native builds use the Makefile version linker flags.
 
-- Initial complete snapshot race run: 94 pass events, seven Cluster API skips,
-  zero failures, 118.504 seconds. Final script changes are being checked again.
-- Initial all-package unit run: 894 pass events, 675 integration skips, no failures.
+- Final complete snapshot race run: **95 pass events, seven expected Cluster API
+  skips, zero failures**, 117.321 seconds.
+- Final all-package unit run: **894 pass events, 676 expected integration skips,
+  zero failures**.
 - Final native snapshot validation: 11 passed, 13.775 seconds.
 - Final native IPC module: nine passed, 1.17 seconds.
 
@@ -61,3 +62,31 @@ Independent-writer publication, bounded bucket construction, resumable large
 statements, sustained compaction, full feature/platform and final Cluster recovery
 checks, broader benchmarks and owned cleanup remain open. No full parity or
 throughput claim is made.
+
+## Comparative small writes
+
+[Raw samples](row-reference-benchmark.json) compare `272ac1a` (format 8) against
+`8c2e336` (format 9), built with identical version flags on the same macOS ARM64
+host and owned Software fixture. Each process resets its disposable database.
+One initial row, two initial segments, one warmup and five timed samples per
+case; baseline runs before current at each catalog size. Background maintenance
+remains active. Execution/publication and complete RETURNING fetch are timed;
+independent complete-result validation follows each write outside the timer.
+All validation passed; setup is excluded. These are local latency samples,
+not throughput or pre-snapshot parity evidence.
+
+| Unrelated tables | Case | Baseline median ms | Current median ms | Baseline/current |
+|---:|---|---:|---:|---:|
+| 32 | Metadata COMMENT | 65.14 | 16.98 | 3.84× |
+| 32 | One-row UPDATE RETURNING | 78.67 | 34.19 | 2.30× |
+| 32 | One-row Arrow append | 79.58 | 32.51 | 2.45× |
+| 128 | Metadata COMMENT | 164.43 | 26.79 | 6.14× |
+| 128 | One-row UPDATE RETURNING | 284.23 | 66.35 | 4.28× |
+| 128 | One-row Arrow append | 289.64 | 91.08 | 3.18× |
+
+Latency still increases with catalog size. This comparison does not isolate row
+reference publication from all maintenance or metadata effects. Catalog-wide
+compaction discovery and unbounded touched-bucket construction remain separate
+costs to remove. Reproduce with `go/validation/snapshot_read_benchmark.py`,
+`--writes --rows 1 --repeats 5`, and `--unrelated-tables 32` or `128`, using the
+owned-fixture verification/reset flags. No ClickBench reload or run is involved.

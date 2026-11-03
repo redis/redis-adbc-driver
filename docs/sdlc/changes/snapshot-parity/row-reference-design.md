@@ -1,7 +1,7 @@
 # Next: incremental row references and independent publication
 
 Status: incremental row references implemented locally in storage format 9;
-validation in progress. Reservation no longer copies `r:<base>` and publication
+local race/native validation passed; see [evidence](row-reference-validation.md). Reservation no longer copies `r:<base>` and publication
 no longer enumerates table descriptors. The data registry/counters share the
 metadata graph, with a separate durable zero-reference queue. Independent
 publication and bounded bucket construction remain pending. Do not claim full
