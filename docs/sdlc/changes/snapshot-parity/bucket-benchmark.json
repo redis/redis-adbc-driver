@@ -1,0 +1,812 @@
+{
+  "initial_candidate": {
+    "source": "1a72c1a020048fd77baf0d9b20a2fdc6d063ff18",
+    "runs": [
+      {
+        "order": "baseline-current",
+        "unrelated_tables": 32,
+        "baseline": {
+          "source": "683404132357296c0161f799e5d46dbf9297b7b2",
+          "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+          "machine": "arm64",
+          "redis_version": "8.6.2",
+          "software_shards": 3,
+          "qpf": 4,
+          "noeviction": true,
+          "input_rows": 1,
+          "visible_rows": 7,
+          "initial_segments": 2,
+          "unrelated_tables": 32,
+          "repeats": 5,
+          "warmups": 1,
+          "timing": "write/publication + complete RETURNING fetch; independent post-write validation excluded",
+          "cases": {
+            "metadata_comment": {
+              "median_ms": 15.549749979982153,
+              "samples_ms": [
+                14.411625015782192,
+                15.985459001967683,
+                16.244957980234176,
+                15.549749979982153,
+                15.012290998129174
+              ]
+            },
+            "point_update": {
+              "median_ms": 33.116209000581875,
+              "samples_ms": [
+                29.614125000080094,
+                39.285500010009855,
+                30.943541991291568,
+                46.08800000278279,
+                33.116209000581875
+              ]
+            },
+            "arrow_append": {
+              "median_ms": 37.51208400353789,
+              "samples_ms": [
+                52.5494159955997,
+                37.51208400353789,
+                35.55175001383759,
+                42.97262500040233,
+                28.780292021110654
+              ]
+            }
+          }
+        },
+        "current": {
+          "source": "1a72c1a",
+          "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+          "machine": "arm64",
+          "redis_version": "8.6.2",
+          "software_shards": 3,
+          "qpf": 4,
+          "noeviction": true,
+          "input_rows": 1,
+          "visible_rows": 7,
+          "initial_segments": 2,
+          "unrelated_tables": 32,
+          "repeats": 5,
+          "warmups": 1,
+          "timing": "write/publication + complete RETURNING fetch; independent post-write validation excluded",
+          "cases": {
+            "metadata_comment": {
+              "median_ms": 20.074666012078524,
+              "samples_ms": [
+                17.317499994533136,
+                17.564792011398822,
+                41.49712499929592,
+                21.688083972549066,
+                20.074666012078524
+              ]
+            },
+            "point_update": {
+              "median_ms": 43.34324999945238,
+              "samples_ms": [
+                40.37791700102389,
+                40.93770799227059,
+                43.34324999945238,
+                59.71662499359809,
+                44.48291700100526
+              ]
+            },
+            "arrow_append": {
+              "median_ms": 39.70912500517443,
+              "samples_ms": [
+                33.129457995528355,
+                45.42199999559671,
+                39.70912500517443,
+                72.69720800104551,
+                27.894291008124128
+              ]
+            }
+          }
+        }
+      },
+      {
+        "order": "baseline-current",
+        "unrelated_tables": 128,
+        "baseline": {
+          "source": "683404132357296c0161f799e5d46dbf9297b7b2",
+          "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+          "machine": "arm64",
+          "redis_version": "8.6.2",
+          "software_shards": 3,
+          "qpf": 4,
+          "noeviction": true,
+          "input_rows": 1,
+          "visible_rows": 7,
+          "initial_segments": 2,
+          "unrelated_tables": 128,
+          "repeats": 5,
+          "warmups": 1,
+          "timing": "write/publication + complete RETURNING fetch; independent post-write validation excluded",
+          "cases": {
+            "metadata_comment": {
+              "median_ms": 27.228334016399458,
+              "samples_ms": [
+                27.1528750017751,
+                27.228334016399458,
+                25.96274999086745,
+                29.830832994775847,
+                41.01850002189167
+              ]
+            },
+            "point_update": {
+              "median_ms": 81.99983299709857,
+              "samples_ms": [
+                57.844750001095235,
+                81.99983299709857,
+                67.68258300144225,
+                90.66400001756847,
+                89.9964580021333
+              ]
+            },
+            "arrow_append": {
+              "median_ms": 87.9326660069637,
+              "samples_ms": [
+                63.51954099955037,
+                87.9326660069637,
+                72.06304199644364,
+                88.34774998831563,
+                213.05595798185095
+              ]
+            }
+          }
+        },
+        "current": {
+          "source": "1a72c1a",
+          "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+          "machine": "arm64",
+          "redis_version": "8.6.2",
+          "software_shards": 3,
+          "qpf": 4,
+          "noeviction": true,
+          "input_rows": 1,
+          "visible_rows": 7,
+          "initial_segments": 2,
+          "unrelated_tables": 128,
+          "repeats": 5,
+          "warmups": 1,
+          "timing": "write/publication + complete RETURNING fetch; independent post-write validation excluded",
+          "cases": {
+            "metadata_comment": {
+              "median_ms": 29.740291996859014,
+              "samples_ms": [
+                27.772000001277775,
+                29.740291996859014,
+                32.91099998750724,
+                27.73987501859665,
+                33.28529201098718
+              ]
+            },
+            "point_update": {
+              "median_ms": 73.3997079951223,
+              "samples_ms": [
+                65.3063329809811,
+                66.03404198540375,
+                73.3997079951223,
+                99.3581670045387,
+                74.66391698108055
+              ]
+            },
+            "arrow_append": {
+              "median_ms": 89.30783299729228,
+              "samples_ms": [
+                103.08320898911916,
+                68.07370801107027,
+                81.77912500104867,
+                260.4122500051744,
+                89.30783299729228
+              ]
+            }
+          }
+        }
+      },
+      {
+        "order": "current-baseline",
+        "unrelated_tables": 32,
+        "baseline": {
+          "source": "683404132357296c0161f799e5d46dbf9297b7b2",
+          "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+          "machine": "arm64",
+          "redis_version": "8.6.2",
+          "software_shards": 3,
+          "qpf": 4,
+          "noeviction": true,
+          "input_rows": 1,
+          "visible_rows": 7,
+          "initial_segments": 2,
+          "unrelated_tables": 32,
+          "repeats": 5,
+          "warmups": 1,
+          "timing": "write/publication + complete RETURNING fetch; independent post-write validation excluded",
+          "cases": {
+            "metadata_comment": {
+              "median_ms": 14.832499990006909,
+              "samples_ms": [
+                13.909874978708103,
+                14.020375005202368,
+                17.98566701472737,
+                14.832499990006909,
+                15.292958007194102
+              ]
+            },
+            "point_update": {
+              "median_ms": 33.05612501571886,
+              "samples_ms": [
+                31.7800419870764,
+                30.501125002047047,
+                41.15366699988954,
+                36.851415992714465,
+                33.05612501571886
+              ]
+            },
+            "arrow_append": {
+              "median_ms": 28.224957990460098,
+              "samples_ms": [
+                27.073708013631403,
+                42.22687499714084,
+                28.224957990460098,
+                28.485874994657934,
+                26.0328330041375
+              ]
+            }
+          }
+        },
+        "current": {
+          "source": "1a72c1a",
+          "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+          "machine": "arm64",
+          "redis_version": "8.6.2",
+          "software_shards": 3,
+          "qpf": 4,
+          "noeviction": true,
+          "input_rows": 1,
+          "visible_rows": 7,
+          "initial_segments": 2,
+          "unrelated_tables": 32,
+          "repeats": 5,
+          "warmups": 1,
+          "timing": "write/publication + complete RETURNING fetch; independent post-write validation excluded",
+          "cases": {
+            "metadata_comment": {
+              "median_ms": 17.020958999637514,
+              "samples_ms": [
+                24.4100829877425,
+                20.670458994572982,
+                16.924333991482854,
+                17.020958999637514,
+                16.093250014819205
+              ]
+            },
+            "point_update": {
+              "median_ms": 42.193583998596296,
+              "samples_ms": [
+                30.883166007697582,
+                45.00775001361035,
+                46.683624997967854,
+                30.201499990653247,
+                42.193583998596296
+              ]
+            },
+            "arrow_append": {
+              "median_ms": 35.72345900465734,
+              "samples_ms": [
+                63.067833019886166,
+                27.87791599985212,
+                35.72345900465734,
+                45.922291988972574,
+                29.166874999646097
+              ]
+            }
+          }
+        }
+      },
+      {
+        "order": "current-baseline",
+        "unrelated_tables": 128,
+        "baseline": {
+          "source": "683404132357296c0161f799e5d46dbf9297b7b2",
+          "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+          "machine": "arm64",
+          "redis_version": "8.6.2",
+          "software_shards": 3,
+          "qpf": 4,
+          "noeviction": true,
+          "input_rows": 1,
+          "visible_rows": 7,
+          "initial_segments": 2,
+          "unrelated_tables": 128,
+          "repeats": 5,
+          "warmups": 1,
+          "timing": "write/publication + complete RETURNING fetch; independent post-write validation excluded",
+          "cases": {
+            "metadata_comment": {
+              "median_ms": 27.008208009647205,
+              "samples_ms": [
+                27.008208009647205,
+                28.237499995157123,
+                29.774958995403722,
+                25.044457986950874,
+                23.658541991608217
+              ]
+            },
+            "point_update": {
+              "median_ms": 54.01737499050796,
+              "samples_ms": [
+                51.93679197691381,
+                54.01737499050796,
+                52.316582994535565,
+                68.21741699241102,
+                109.74479198921472
+              ]
+            },
+            "arrow_append": {
+              "median_ms": 81.41987500130199,
+              "samples_ms": [
+                82.5288750056643,
+                81.41987500130199,
+                78.61541598686017,
+                94.83725001337007,
+                71.65624998742715
+              ]
+            }
+          }
+        },
+        "current": {
+          "source": "1a72c1a",
+          "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+          "machine": "arm64",
+          "redis_version": "8.6.2",
+          "software_shards": 3,
+          "qpf": 4,
+          "noeviction": true,
+          "input_rows": 1,
+          "visible_rows": 7,
+          "initial_segments": 2,
+          "unrelated_tables": 128,
+          "repeats": 5,
+          "warmups": 1,
+          "timing": "write/publication + complete RETURNING fetch; independent post-write validation excluded",
+          "cases": {
+            "metadata_comment": {
+              "median_ms": 30.155125015880913,
+              "samples_ms": [
+                16.663833986967802,
+                44.452000001911074,
+                30.91716702328995,
+                30.155125015880913,
+                28.153999999631196
+              ]
+            },
+            "point_update": {
+              "median_ms": 66.50633402750827,
+              "samples_ms": [
+                84.7974170173984,
+                54.336125002009794,
+                54.07266700058244,
+                66.50633402750827,
+                93.25708300457336
+              ]
+            },
+            "arrow_append": {
+              "median_ms": 79.54333399538882,
+              "samples_ms": [
+                71.03783302591182,
+                77.39987500826828,
+                80.67049999954179,
+                79.81495800777338,
+                79.54333399538882
+              ]
+            }
+          }
+        }
+      }
+    ]
+  },
+  "pipelined_candidate": {
+    "source": "1c8a49a954010c9713d6dd2777e2864bc23bee9c",
+    "runs": [
+      {
+        "order": "baseline-current",
+        "unrelated_tables": 32,
+        "baseline": {
+          "source": "683404132357296c0161f799e5d46dbf9297b7b2",
+          "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+          "machine": "arm64",
+          "redis_version": "8.6.2",
+          "software_shards": 3,
+          "qpf": 4,
+          "noeviction": true,
+          "input_rows": 1,
+          "visible_rows": 7,
+          "initial_segments": 2,
+          "unrelated_tables": 32,
+          "repeats": 5,
+          "warmups": 1,
+          "timing": "write/publication + complete RETURNING fetch; independent post-write validation excluded",
+          "cases": {
+            "metadata_comment": {
+              "median_ms": 14.619709021644667,
+              "samples_ms": [
+                20.01199999358505,
+                14.619709021644667,
+                14.345292001962662,
+                14.752832998055965,
+                14.030541991814971
+              ]
+            },
+            "point_update": {
+              "median_ms": 35.26079098810442,
+              "samples_ms": [
+                39.59216599469073,
+                34.92912498768419,
+                32.25483401911333,
+                50.61229201965034,
+                35.26079098810442
+              ]
+            },
+            "arrow_append": {
+              "median_ms": 43.97908301325515,
+              "samples_ms": [
+                44.6097920066677,
+                27.980292012216523,
+                43.97908301325515,
+                62.39112498587929,
+                27.460082987090573
+              ]
+            }
+          }
+        },
+        "current": {
+          "source": "1c8a49a954010c9713d6dd2777e2864bc23bee9c",
+          "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+          "machine": "arm64",
+          "redis_version": "8.6.2",
+          "software_shards": 3,
+          "qpf": 4,
+          "noeviction": true,
+          "input_rows": 1,
+          "visible_rows": 7,
+          "initial_segments": 2,
+          "unrelated_tables": 32,
+          "repeats": 5,
+          "warmups": 1,
+          "timing": "write/publication + complete RETURNING fetch; independent post-write validation excluded",
+          "cases": {
+            "metadata_comment": {
+              "median_ms": 19.10333300475031,
+              "samples_ms": [
+                25.34595798351802,
+                18.273042020155117,
+                19.10333300475031,
+                18.333958985749632,
+                20.243208011379465
+              ]
+            },
+            "point_update": {
+              "median_ms": 34.383666003122926,
+              "samples_ms": [
+                29.797625000355765,
+                34.383666003122926,
+                43.80854099872522,
+                29.452749993652105,
+                41.75891701015644
+              ]
+            },
+            "arrow_append": {
+              "median_ms": 42.28395901736803,
+              "samples_ms": [
+                45.85041702375747,
+                29.592874983791262,
+                42.28395901736803,
+                50.9848750079982,
+                28.24866698938422
+              ]
+            }
+          }
+        }
+      },
+      {
+        "order": "baseline-current",
+        "unrelated_tables": 128,
+        "baseline": {
+          "source": "683404132357296c0161f799e5d46dbf9297b7b2",
+          "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+          "machine": "arm64",
+          "redis_version": "8.6.2",
+          "software_shards": 3,
+          "qpf": 4,
+          "noeviction": true,
+          "input_rows": 1,
+          "visible_rows": 7,
+          "initial_segments": 2,
+          "unrelated_tables": 128,
+          "repeats": 5,
+          "warmups": 1,
+          "timing": "write/publication + complete RETURNING fetch; independent post-write validation excluded",
+          "cases": {
+            "metadata_comment": {
+              "median_ms": 25.895708007737994,
+              "samples_ms": [
+                25.895708007737994,
+                34.515083010774106,
+                25.96499997889623,
+                25.83495801081881,
+                17.169458005810156
+              ]
+            },
+            "point_update": {
+              "median_ms": 70.60587499290705,
+              "samples_ms": [
+                68.97658298839815,
+                70.60587499290705,
+                76.39216698589735,
+                58.60895899240859,
+                88.78775002085604
+              ]
+            },
+            "arrow_append": {
+              "median_ms": 66.83783399057575,
+              "samples_ms": [
+                59.46266700630076,
+                87.29883399792016,
+                66.83783399057575,
+                65.24125000578351,
+                82.87379198009148
+              ]
+            }
+          }
+        },
+        "current": {
+          "source": "1c8a49a954010c9713d6dd2777e2864bc23bee9c",
+          "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+          "machine": "arm64",
+          "redis_version": "8.6.2",
+          "software_shards": 3,
+          "qpf": 4,
+          "noeviction": true,
+          "input_rows": 1,
+          "visible_rows": 7,
+          "initial_segments": 2,
+          "unrelated_tables": 128,
+          "repeats": 5,
+          "warmups": 1,
+          "timing": "write/publication + complete RETURNING fetch; independent post-write validation excluded",
+          "cases": {
+            "metadata_comment": {
+              "median_ms": 30.54604199132882,
+              "samples_ms": [
+                26.377667003544047,
+                35.341624985449016,
+                31.819083000300452,
+                26.750166987767443,
+                30.54604199132882
+              ]
+            },
+            "point_update": {
+              "median_ms": 72.72387499688193,
+              "samples_ms": [
+                67.11937501677312,
+                72.72387499688193,
+                65.74812499457039,
+                78.81441700737923,
+                97.16949998983182
+              ]
+            },
+            "arrow_append": {
+              "median_ms": 80.24275000207126,
+              "samples_ms": [
+                66.2128750118427,
+                80.24275000207126,
+                65.86837500799447,
+                80.61695800279267,
+                148.5257919994183
+              ]
+            }
+          }
+        }
+      },
+      {
+        "order": "current-baseline",
+        "unrelated_tables": 32,
+        "baseline": {
+          "source": "683404132357296c0161f799e5d46dbf9297b7b2",
+          "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+          "machine": "arm64",
+          "redis_version": "8.6.2",
+          "software_shards": 3,
+          "qpf": 4,
+          "noeviction": true,
+          "input_rows": 1,
+          "visible_rows": 7,
+          "initial_segments": 2,
+          "unrelated_tables": 32,
+          "repeats": 5,
+          "warmups": 1,
+          "timing": "write/publication + complete RETURNING fetch; independent post-write validation excluded",
+          "cases": {
+            "metadata_comment": {
+              "median_ms": 15.437290974659845,
+              "samples_ms": [
+                15.794625011039898,
+                19.129374995827675,
+                15.375000017229468,
+                15.437290974659845,
+                14.639040979091078
+              ]
+            },
+            "point_update": {
+              "median_ms": 34.19104099157266,
+              "samples_ms": [
+                35.92029199353419,
+                30.175041989423335,
+                34.19104099157266,
+                31.051291996845976,
+                57.89087500306778
+              ]
+            },
+            "arrow_append": {
+              "median_ms": 39.240832993527874,
+              "samples_ms": [
+                27.370374999009073,
+                55.28254099772312,
+                39.240832993527874,
+                36.16445799707435,
+                43.25129100470804
+              ]
+            }
+          }
+        },
+        "current": {
+          "source": "1c8a49a954010c9713d6dd2777e2864bc23bee9c",
+          "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+          "machine": "arm64",
+          "redis_version": "8.6.2",
+          "software_shards": 3,
+          "qpf": 4,
+          "noeviction": true,
+          "input_rows": 1,
+          "visible_rows": 7,
+          "initial_segments": 2,
+          "unrelated_tables": 32,
+          "repeats": 5,
+          "warmups": 1,
+          "timing": "write/publication + complete RETURNING fetch; independent post-write validation excluded",
+          "cases": {
+            "metadata_comment": {
+              "median_ms": 16.26337500056252,
+              "samples_ms": [
+                16.531665984075516,
+                16.230583016294986,
+                16.26337500056252,
+                20.47254200442694,
+                16.14129199879244
+              ]
+            },
+            "point_update": {
+              "median_ms": 31.91274998243898,
+              "samples_ms": [
+                38.18166701239534,
+                31.26799999154173,
+                30.55516700260341,
+                31.91274998243898,
+                57.17770798946731
+              ]
+            },
+            "arrow_append": {
+              "median_ms": 28.570166003191844,
+              "samples_ms": [
+                27.2026669990737,
+                46.329750010045245,
+                28.570166003191844,
+                26.113666011951864,
+                62.17016599839553
+              ]
+            }
+          }
+        }
+      },
+      {
+        "order": "current-baseline",
+        "unrelated_tables": 128,
+        "baseline": {
+          "source": "683404132357296c0161f799e5d46dbf9297b7b2",
+          "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+          "machine": "arm64",
+          "redis_version": "8.6.2",
+          "software_shards": 3,
+          "qpf": 4,
+          "noeviction": true,
+          "input_rows": 1,
+          "visible_rows": 7,
+          "initial_segments": 2,
+          "unrelated_tables": 128,
+          "repeats": 5,
+          "warmups": 1,
+          "timing": "write/publication + complete RETURNING fetch; independent post-write validation excluded",
+          "cases": {
+            "metadata_comment": {
+              "median_ms": 24.922334006987512,
+              "samples_ms": [
+                13.708082988159731,
+                24.922334006987512,
+                14.645500021288171,
+                31.78670897614211,
+                27.557875000638887
+              ]
+            },
+            "point_update": {
+              "median_ms": 73.20904100197367,
+              "samples_ms": [
+                99.85741699347273,
+                48.81837501307018,
+                70.99891701363958,
+                73.20904100197367,
+                139.91866700234823
+              ]
+            },
+            "arrow_append": {
+              "median_ms": 80.35850001033396,
+              "samples_ms": [
+                85.43674999964423,
+                61.10399999306537,
+                79.77687500533648,
+                92.49275000183843,
+                80.35850001033396
+              ]
+            }
+          }
+        },
+        "current": {
+          "source": "1c8a49a954010c9713d6dd2777e2864bc23bee9c",
+          "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+          "machine": "arm64",
+          "redis_version": "8.6.2",
+          "software_shards": 3,
+          "qpf": 4,
+          "noeviction": true,
+          "input_rows": 1,
+          "visible_rows": 7,
+          "initial_segments": 2,
+          "unrelated_tables": 128,
+          "repeats": 5,
+          "warmups": 1,
+          "timing": "write/publication + complete RETURNING fetch; independent post-write validation excluded",
+          "cases": {
+            "metadata_comment": {
+              "median_ms": 17.026917019393295,
+              "samples_ms": [
+                17.026917019393295,
+                16.263917001197115,
+                16.523792000953108,
+                26.579582976410165,
+                33.12675000051968
+              ]
+            },
+            "point_update": {
+              "median_ms": 83.70529100648127,
+              "samples_ms": [
+                72.95000000158325,
+                83.70529100648127,
+                132.12233400554396,
+                81.46145800128579,
+                87.75475001311861
+              ]
+            },
+            "arrow_append": {
+              "median_ms": 89.27366699208505,
+              "samples_ms": [
+                89.27366699208505,
+                93.54520900524221,
+                126.9670840119943,
+                59.77995798457414,
+                74.69700000365265
+              ]
+            }
+          }
+        }
+      }
+    ]
+  }
+}

@@ -1,7 +1,7 @@
 # Validation: bounded metadata bucket construction
 
 Date: 2026-11-03. Parent checkpoint `6834041`. Status: locally verified;
-[full parity](plan.md) remains incomplete. Comparative timing is pending.
+[full parity](plan.md) remains incomplete. Comparative timing is recorded below.
 
 ## Layout and ownership
 
@@ -65,12 +65,12 @@ Owned Software proxy fixture: three primary shards, strict TLS, active verified
 `make -C go build` and its version linker flags on macOS ARM64.
 
 - Complete snapshot race suite: **117 pass events, seven expected Cluster API
-  skips, zero failures**, 123.212 seconds.
+  skips, zero failures**, 120.115 seconds.
 - All Go unit packages: **895 pass events, 697 expected integration skips, zero
   failures**.
-- Native C/ADBC snapshot validation: **12 passed**, 13.936 seconds, including
+- Native C/ADBC snapshot validation: **12 passed**, 13.162 seconds, including
   concurrent independent Arrow streams and shared-generation readers.
-- Native IPC module: **nine passed**, 1.20 seconds.
+- Native IPC module: **nine passed**, 1.06 seconds.
 - gofmt and diff whitespace checks passed.
 
 Author self-review checked source-edge transfer, partial-target registration,
@@ -84,3 +84,46 @@ write-throughput or full performance parity claim follows. Large atomic
 operations, sustained compaction/dirty-lineage scheduling, full feature/CI/platform
 and final Cluster API/failover/AOF checks, broader comparisons and owned cleanup
 remain required.
+
+## Comparative small writes
+
+[All raw samples](bucket-benchmark.json) retain both the initial implementation
+`1a72c1a` and the final pipelined lookup `1c8a49a`, each versus published checkpoint
+`6834041` (formats 10 → 11). Both candidates were measured in both orders at
+32 and 128 unrelated tables. Each process uses a fresh disposable database, one
+initial row, two initial segments, one warmup and five timed samples per case.
+The table pools all ten samples per version/catalog size from the final pair of
+orders; no samples are discarded. The same macOS ARM64 host, verified Software
+fixture, version flags and native dependencies were used. Background maintenance
+stays active. Timing includes publication and complete RETURNING fetch;
+independent complete-result validation follows each write outside the timer.
+
+| Unrelated tables | Case | Baseline median ms | Final median ms | Baseline/final |
+|---:|---|---:|---:|---:|
+| 32 | Metadata COMMENT | 15.06 | 18.30 | 0.82× |
+| 32 | One-row UPDATE RETURNING | 35.09 | 33.15 | 1.06× |
+| 32 | One-row Arrow append | 41.25 | 35.94 | 1.15× |
+| 128 | Metadata COMMENT | 25.87 | 26.66 | 0.97× |
+| 128 | One-row UPDATE RETURNING | 72.10 | 80.14 | 0.90× |
+| 128 | One-row Arrow append | 80.07 | 80.43 | 1.00× |
+
+Results are mixed. The initial 32-table UPDATE median regressed from 33.09 to
+42.77 ms across both orders. Lookup and bucket proofs were separate round trips;
+pipelining them removes one round trip for the first field in a bucket while
+preserving all checks. The final table still shows slower COMMENT and 128-table
+UPDATE cases. Bounded work is established; general latency/throughput parity is
+not. The comparison does not isolate all directory, GC or background maintenance
+costs, and catalog-wide compaction discovery still scales with catalog size.
+
+## Full-feature CI gaps inspected
+
+The completed workflows for parent `6834041` passed DuckDB extension checks but
+failed Software Test and native release validation jobs. Reported failures include
+ACL helpers reading the legacy metadata namespace, adoption/sweep expectations,
+wide-fetch setup using legacy metadata/raw row mutation, and Ray expecting old
+live descriptors to observe a later SQL UPDATE. These failures remain open here;
+this checkpoint does not replace their assertions with broad skips or weaker
+ACL grants. Validate schema/table key isolation against snapshot physical names,
+retain wide-fetch optimization checks, and reconcile managed-copy/shared-generation
+contracts before claiming full feature/platform parity. The next pushed head
+must be checked separately; these are parent-workflow observations.
