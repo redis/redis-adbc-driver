@@ -121,23 +121,37 @@ def wide_cases(cur, repeats, rows):
     return results, visible
 
 
-def batch_write_cases(cur, repeats, rows):
+def batch_write_cases(cur, repeats, rows, rewrites=False):
     results = {}
     expected = [(i, 9007199254740993) for i in range(1, rows + 1)]
     batch = pa.table({"id": pa.array(range(1, rows + 1), pa.int64()),
                       "v": pa.array([9007199254740993] * rows, pa.int64())})
-    for mode in ("sql_insert_batch", "arrow_append_batch"):
+    modes = ("update_batch", "delete_batch", "alter_batch") if rewrites else ("sql_insert_batch", "arrow_append_batch")
+    for mode in modes:
+        original = [(i, 9007199254740993) for i in range(1, rows + 1)]
+        expected = ([(i, 9007199254740994) for i in range(1, rows + 1)] if mode == "update_batch"
+                    else [] if mode == "delete_batch"
+                    else [(i, "9007199254740993") for i in range(1, rows + 1)] if mode == "alter_batch"
+                    else original)
         samples = []
         for iteration in range(repeats + 1):
             cur.execute("CREATE TABLE batch_write(id BIGINT,v BIGINT)")
+            if rewrites:
+                cur.execute(f"INSERT INTO batch_write SELECT i,9007199254740993 FROM generate_series(1,{rows}) AS g(i)")
             start = time.perf_counter()
             if mode == "sql_insert_batch":
                 cur.execute(f"INSERT INTO batch_write SELECT i,9007199254740993 FROM generate_series(1,{rows}) AS g(i)")
                 affected = cur.rowcount
-            else:
+            elif mode == "arrow_append_batch":
                 affected = cur.adbc_ingest("batch_write", batch, mode="append")
+            else:
+                sql = {"update_batch": "UPDATE batch_write SET v=v+1",
+                       "delete_batch": "DELETE FROM batch_write",
+                       "alter_batch": "ALTER TABLE batch_write ALTER COLUMN v TYPE VARCHAR"}[mode]
+                cur.execute(sql)
+                affected = cur.rowcount
             elapsed = time.perf_counter() - start
-            if affected != rows:
+            if mode != "alter_batch" and affected != rows:
                 raise AssertionError(f"{mode}: incorrect affected row count")
             cur.execute("SELECT id,v FROM batch_write ORDER BY id")
             if cur.fetchall() != expected:
@@ -146,7 +160,7 @@ def batch_write_cases(cur, repeats, rows):
             if iteration:
                 samples.append(elapsed * 1000)
         results[mode] = {"median_ms": statistics.median(samples), "samples_ms": samples,
-                         "output_rows": rows}
+                         "output_rows": len(expected)}
     return results, expected
 
 
@@ -173,6 +187,8 @@ def main():
     )
     modes.add_argument("--write-batches", action="store_true",
                        help="SQL insert and Arrow append batches with full post-write validation")
+    modes.add_argument("--rewrite-batches", action="store_true",
+                       help="UPDATE, DELETE and ALTER with complete post-write validation")
     parser.add_argument("--unrelated-tables", type=int, default=32)
     parser.add_argument("--repeats", type=int, default=5)
     args = parser.parse_args()
@@ -221,8 +237,8 @@ def main():
         driver=str(args.driver.resolve()), db_kwargs={"uri": uri}, autocommit=True
     ) as conn:
         with conn.cursor() as cur:
-            if args.write_batches:
-                results, logical = batch_write_cases(cur, args.repeats, args.rows)
+            if args.write_batches or args.rewrite_batches:
+                results, logical = batch_write_cases(cur, args.repeats, args.rows, args.rewrite_batches)
             elif args.wide:
                 results, logical = wide_cases(cur, args.repeats, args.rows)
             else:
@@ -314,14 +330,14 @@ def main():
                 "noeviction": True,
                 "input_rows": args.rows,
                 "visible_rows": len(logical),
-                "initial_segments": 1 if args.write_batches else (2 if args.writes else 3),
-                "unrelated_tables": 0 if args.wide or args.write_batches else args.unrelated_tables,
+                "initial_segments": 1 if args.write_batches or args.rewrite_batches else (2 if args.writes else 3),
+                "unrelated_tables": 0 if args.wide or args.write_batches or args.rewrite_batches else args.unrelated_tables,
                 "wide_columns": 64 if args.wide else None,
                 "repeats": args.repeats,
                 "warmups": 1,
                 "timing": (
                     "write through atomic publication; complete independent post-write validation excluded"
-                    if args.write_batches else
+                    if args.write_batches or args.rewrite_batches else
                     "write/publication + complete RETURNING fetch; independent post-write validation excluded"
                     if args.writes
                     else "execute + complete Arrow fetch + independent validation"

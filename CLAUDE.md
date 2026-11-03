@@ -92,12 +92,14 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.26.10)
   directories. Build one final index and wait for readiness before publication.
   Track private tombstones when restoring a baseline's published overlay flag.
   No-op UPDATE/DELETE do not publish empty generations or build indexes.
-  SQL/Arrow inserts use bounded atomic row batches (256 rows, 1 MiB target,
+  SQL/Arrow row writes and ALTER/rekey use bounded atomic batches (256 rows, 1 MiB target,
   64 MiB single-row ceiling) with one serialized durable outcome per workspace.
   Resolve uncertain replies by reading that outcome, never resending rows or
   consuming input again. Register directories before images so runtime failures
-  remain reclaimable. Arrow conversion slices at 4096 rows; generic UPDATE/DDL
-  mutations still retain cumulative staging limits. This is not process resume
+  remain reclaimable. Replacement may clear only registered private HASHes;
+  preserve NULL/provenance and track tombstones plus acknowledged batch writes
+  for no-op detection independently of unbatched quotas. Arrow conversion slices
+  at 4096 rows; metadata/utilities retain their separate staging limits. This is not process resume
   of unread input or a persisted SQL plan.
   Exact-ID/private-index/mask-budget fallbacks must retain the full SQL predicate. Preserve exact, score-zero row-ID directories
   registered atomically by writer fences. Publish dirty-table compaction eligibility atomically with the root; never

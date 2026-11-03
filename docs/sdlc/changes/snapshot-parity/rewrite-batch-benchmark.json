@@ -1,0 +1,96 @@
+{
+  "parent": {
+    "source": "40cc126",
+    "driver_sha256": "e77565ac90f7d01defc5d24e850f60bab5e43702673102257ee7602c015fa5ee",
+    "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+    "machine": "arm64",
+    "redis_version": "8.6.2",
+    "software_shards": 3,
+    "qpf": 4,
+    "noeviction": true,
+    "input_rows": 10000,
+    "visible_rows": 10000,
+    "initial_segments": 1,
+    "unrelated_tables": 0,
+    "wide_columns": null,
+    "repeats": 3,
+    "warmups": 1,
+    "timing": "write through atomic publication; complete independent post-write validation excluded",
+    "cases": {
+      "update_batch": {
+        "median_ms": 3010.5679999978747,
+        "samples_ms": [
+          2933.3922910154797,
+          3052.925708005205,
+          3010.5679999978747
+        ],
+        "output_rows": 10000
+      },
+      "delete_batch": {
+        "median_ms": 776.8154160003178,
+        "samples_ms": [
+          780.3064170002472,
+          776.8154160003178,
+          749.5877500041388
+        ],
+        "output_rows": 0
+      },
+      "alter_batch": {
+        "median_ms": 1405.7668339810334,
+        "samples_ms": [
+          1405.7668339810334,
+          1388.6471249861643,
+          1411.6412920120638
+        ],
+        "output_rows": 10000
+      }
+    }
+  },
+  "current": {
+    "source": "40cc126+bounded-rewrites",
+    "driver_sha256": "939dd37f174eff235b3450c19112b2d7d7288cf694bd201770fa08d70639d23f",
+    "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+    "machine": "arm64",
+    "redis_version": "8.6.2",
+    "software_shards": 3,
+    "qpf": 4,
+    "noeviction": true,
+    "input_rows": 10000,
+    "visible_rows": 10000,
+    "initial_segments": 1,
+    "unrelated_tables": 0,
+    "wide_columns": null,
+    "repeats": 3,
+    "warmups": 1,
+    "timing": "write through atomic publication; complete independent post-write validation excluded",
+    "cases": {
+      "update_batch": {
+        "median_ms": 2669.1412090149242,
+        "samples_ms": [
+          2634.374667017255,
+          2669.1412090149242,
+          2669.3402499950025
+        ],
+        "output_rows": 10000
+      },
+      "delete_batch": {
+        "median_ms": 642.2154580068309,
+        "samples_ms": [
+          640.7693329965696,
+          642.2154580068309,
+          647.7940419863444
+        ],
+        "output_rows": 0
+      },
+      "alter_batch": {
+        "median_ms": 1219.684750016313,
+        "samples_ms": [
+          1206.5445840125903,
+          1219.684750016313,
+          1251.2194159789942
+        ],
+        "output_rows": 10000
+      }
+    }
+  }
+}

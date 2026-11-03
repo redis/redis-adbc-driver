@@ -283,7 +283,7 @@ func (e *executor) writeSnapshotUpdates(ctx context.Context, m *tableMeta, chang
 		if err != nil {
 			return err
 		}
-		p := e.store.redis(ctx).Pipeline()
+		images := make([]snapshotInsertRow, 0, len(rows))
 		for i, row := range rows {
 			if row == nil {
 				return errorf(adbc.StatusIO, "snapshot UPDATE target disappeared")
@@ -296,12 +296,15 @@ func (e *executor) writeSnapshotUpdates(ctx context.Context, m *tableMeta, chang
 				row[fmt.Sprint(ch.set[j])] = fmt.Sprint(ch.set[j+1])
 			}
 			delete(row, snapshotDeletedField)
-			// A previous private version can contain fields this UPDATE removed.
-			// Delete only this writer's own current key before replacing its image.
-			p.Del(ctx, ch.key)
-			p.HSet(ctx, ch.key, map[string]string(row))
+			fields := []any{rowIDField, row[rowIDField]}
+			for field, value := range row {
+				if field != rowIDField {
+					fields = append(fields, field, value)
+				}
+			}
+			images = append(images, snapshotInsertRow{key: ch.key, member: snapshotDirectoryMember(ch.key), fields: fields})
 		}
-		if _, err := p.Exec(ctx); err != nil {
+		if err := e.store.writeSnapshotImages(ctx, m.prefix(), images, true); err != nil {
 			return wrapRedis(err, "failed to stage snapshot replacements")
 		}
 	}
@@ -309,15 +312,15 @@ func (e *executor) writeSnapshotUpdates(ctx context.Context, m *tableMeta, chang
 }
 func (e *executor) writeSnapshotDeletes(ctx context.Context, m *tableMeta, keys []string) error {
 	for start := 0; start < len(keys); start += pipelineChunk {
-		p := e.store.redis(ctx).Pipeline()
+		images := make([]snapshotInsertRow, 0, min(pipelineChunk, len(keys)-start))
 		for _, key := range keys[start:min(start+pipelineChunk, len(keys))] {
 			id, ok := strings.CutPrefix(key, m.prefix())
 			if !ok {
 				return errorf(adbc.StatusIO, "invalid snapshot DELETE target")
 			}
-			p.HSet(ctx, key, rowIDField, id, snapshotDeletedField, "1")
+			images = append(images, snapshotInsertRow{key: key, member: snapshotDirectoryMember(key), fields: []any{rowIDField, id, snapshotDeletedField, "1"}})
 		}
-		if _, err := p.Exec(ctx); err != nil {
+		if err := e.store.writeSnapshotImages(ctx, m.prefix(), images, true); err != nil {
 			return wrapRedis(err, "failed to stage snapshot tombstones")
 		}
 	}

@@ -72,5 +72,5 @@ func snapshotNoopDML(ctx context.Context, ps ParsedStmt) bool {
 	scope := snapshotOf(ctx)
 	scope.mu.Lock()
 	defer scope.mu.Unlock()
-	return scope.writes == 0
+	return scope.writes == 0 && scope.batchedWrites == 0
 }

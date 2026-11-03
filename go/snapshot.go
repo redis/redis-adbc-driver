@@ -55,6 +55,7 @@ type snapshotScope struct {
 	mu                sync.Mutex
 	rowBatchMu        sync.Mutex
 	bytes, writes     int64
+	batchedWrites     int64 // acknowledged row images, outside the cumulative command quota
 }
 
 func snapshotOf(ctx context.Context) *snapshotScope {

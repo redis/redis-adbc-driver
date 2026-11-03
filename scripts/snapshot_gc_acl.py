@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Run row-batch permission regressions with an owned Software API principal.
 
-Creates a temporary principal with DEL/HSET allowed and ZREM/ZADD denied. Credentials and
-infrastructure identifiers stay private. The Go test clears the dedicated DB.
+Creates temporary principals that independently deny directory mutation or DEL
+while permitting the other commands under test. Credentials and infrastructure
+identifiers stay private. The Go tests clear the dedicated DB.
 """
 
 import argparse
@@ -55,12 +56,16 @@ def main():
             principals.create(name, secrets.token_urlsafe(32), [
                 "+ping", "+eval", "+hget", "+hexists", "+zscore", "+zcard", "+del",
                 "+hset", "+exists", "+type", "+time", "~*"])
+            replacement = "replace-preflight-" + uuid.uuid4().hex + "@example.com"
+            principals.create(replacement, secrets.token_urlsafe(32), [
+                "+ping", "+eval", "+hget", "+zscore", "+hset", "+zadd", "+type", "+time", "~*"])
             env = dict(os.environ, REDIS_SNAPSHOT_URI=uri,
                        REDIS_SNAPSHOT_GC_ACL_URI=principals.people[name]["uri"],
-                       REDIS_SNAPSHOT_WRITE_ACL_URI=principals.people[name]["uri"])
+                       REDIS_SNAPSHOT_WRITE_ACL_URI=principals.people[name]["uri"],
+                       REDIS_SNAPSHOT_REPLACE_ACL_URI=principals.people[replacement]["uri"])
             env.pop("REDIS_URI", None)
             subprocess.run(["go", "test", "-race", "-count=1", "-v", "-run",
-                            "^TestSnapshot(GCBatch|InsertBatch)PermissionPreflight$", "."],
+                            "^TestSnapshot(GCBatch|InsertBatch|ReplaceBatch)PermissionPreflight$", "."],
                            cwd=Path(__file__).resolve().parents[1] / "go", env=env, check=True)
         finally:
             principals.cleanup()

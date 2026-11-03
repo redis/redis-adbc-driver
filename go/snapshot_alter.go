@@ -44,7 +44,7 @@ func (e *executor) alterSnapshotTable(ctx context.Context, source *tableMeta, cm
 		if err != nil {
 			return err
 		}
-		pipe := e.store.redis(ctx).Pipeline()
+		images := make([]snapshotInsertRow, 0, len(rows))
 		for _, row := range rows {
 			fields, err := rw.convert(row)
 			if err != nil {
@@ -55,9 +55,10 @@ func (e *executor) alterSnapshotTable(ctx context.Context, source *tableMeta, cm
 					fields = append(fields, snapshotSourceKeyField, key)
 				}
 			}
-			pipe.HSet(ctx, target.prefix()+row[rowIDField], fields...)
+			key := target.prefix() + row[rowIDField]
+			images = append(images, snapshotInsertRow{key: key, member: snapshotDirectoryMember(key), fields: fields})
 		}
-		if _, err := pipe.Exec(ctx); err != nil {
+		if err := e.store.writeSnapshotImages(ctx, target.prefix(), images, false); err != nil {
 			return err
 		}
 	}
