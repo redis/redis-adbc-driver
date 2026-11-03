@@ -40,19 +40,20 @@ const (
 type snapshotContextKey struct{}
 
 type snapshotScope struct {
-	store           *store
-	metadataMu      sync.Mutex
-	metadata        snapshotMetadataState
-	id              string
-	pin             *snapshotPin
-	maintenance     bool
-	tempDead        string
-	write           bool
-	owned           map[string]bool
-	deferredIndexes map[string]*snapshotIndexState // data ID -> final index layout
-	validated       *sync.Map                      // immutable segment descriptor -> *snapshotSegmentValidation
-	mu              sync.Mutex
-	bytes, writes   int64
+	compactionUpdates string
+	store             *store
+	metadataMu        sync.Mutex
+	metadata          snapshotMetadataState
+	id                string
+	pin               *snapshotPin
+	maintenance       bool
+	tempDead          string
+	write             bool
+	owned             map[string]bool
+	deferredIndexes   map[string]*snapshotIndexState // data ID -> final index layout
+	validated         *sync.Map                      // immutable segment descriptor -> *snapshotSegmentValidation
+	mu                sync.Mutex
+	bytes, writes     int64
 }
 
 func snapshotOf(ctx context.Context) *snapshotScope {
@@ -71,7 +72,8 @@ func snapshotID() string                    { return strings.ReplaceAll(uuid.New
 // and reclamation claims each have one metadata-slot linearization point.
 const snapshotControl = snapshotDataEdges + `
 local k = KEYS[1]
-local graph, dataqueue = KEYS[#KEYS-1], KEYS[#KEYS]
+local graph, dataqueue = KEYS[#KEYS-3], KEYS[#KEYS-2]
+local compactionqueue, candidates = KEYS[#KEYS-1], KEYS[#KEYS]
 local op, token, id, base = ARGV[1], ARGV[2], ARGV[3], ARGV[4]
 local t = redis.call('TIME')
 local now = tonumber(t[1])*1000 + math.floor(tonumber(t[2])/1000)
@@ -85,12 +87,12 @@ end
 if op == 'init' then
   if redis.call('EXISTS', k) == 0 then
     if ARGV[6] ~= 'import' and redis.call('DBSIZE') ~= 0 then return redis.error_reply('managed-table snapshots require a fresh empty database; existing storage is not upgraded or modified') end
-    redis.call('HSET', k, 'format', '11', 'root', id, 'w:'..id, cjson.encode({state='committed',metadata_keys=0,metadata_buckets=0}), 'r:'..id, '[]')
+    redis.call('HSET', k, 'format', '12', 'root', id, 'w:'..id, cjson.encode({state='committed',metadata_keys=0,metadata_buckets=0}), 'r:'..id, '[]')
   end
-  if redis.call('HGET', k, 'format') ~= '11' then return redis.error_reply('unsupported snapshot catalog format') end
+  if redis.call('HGET', k, 'format') ~= '12' then return redis.error_reply('unsupported snapshot catalog format') end
   return 1
 end
-if redis.call('HGET', k, 'format') ~= '11' then return redis.error_reply('missing or unsupported snapshot catalog') end
+if redis.call('HGET', k, 'format') ~= '12' then return redis.error_reply('missing or unsupported snapshot catalog') end
 local entries = redis.call('HGETALL', k)
 local pins, works, protected = 0, 0, {}
 for n=1,#entries,2 do
@@ -103,9 +105,28 @@ for n=1,#entries,2 do
     else redis.call('HDEL', k, field) end
   elseif string.sub(field,1,2) == 'w:' then works = works + 1 end
 end
-if op == 'compact_start' then
+if op == 'compact_candidates' then
+  local members=redis.call('ZRANGEBYSCORE',compactionqueue,'-inf',now,'LIMIT',0,16)
+  local result={}
+  for _,key in ipairs(members) do
+    local value=redis.call('HGET',candidates,key)
+    if not value then return redis.error_reply('compaction candidate payload missing') end
+    table.insert(result,key);table.insert(result,value)
+  end
+  return result
+elseif op == 'compact_discard' or op == 'compact_defer' then
+  if redis.call('HGET',candidates,id)~=ARGV[6] then return 0 end
+  if op=='compact_discard' then redis.call('ZREM',compactionqueue,id);redis.call('HDEL',candidates,id)
+  else redis.call('ZADD',compactionqueue,'XX',now+1000,id) end
+  return 1
+elseif op == 'compact_start' then
   if redis.call('HEXISTS', k, 'compaction') == 1 or works >= 14 or not owns_pin() then return 0 end
   local job = cjson.decode(ARGV[6])
+  local candidate=redis.call('HGET',candidates,job.queue_key)
+  if not candidate then return 0 end
+  candidate=cjson.decode(candidate)
+  if candidate.oid~=job.queue_oid or candidate.lineage~=job.source.snapshot_lineage or type(candidate.references)~='table' or #candidate.references<#job.references then return 0 end
+  for i,data in ipairs(job.references) do if candidate.references[i]~=data then return 0 end end
   for _,data in ipairs(job.references) do
     local raw = redis.call('HGET', graph, 'd:'..data)
     if not raw or cjson.decode(raw).state ~= 'live' then return 0 end
@@ -119,6 +140,7 @@ if op == 'compact_start' then
   redis.call('HSET', k, 'compaction', ARGV[6], 'w:'..id,
     cjson.encode({state='compacting',token=job.token,expires=expiry}),
     'r:'..id,cjson.encode(refs))
+  redis.call('ZREM',compactionqueue,job.queue_key);redis.call('HDEL',candidates,job.queue_key)
   return 1
 elseif op == 'compact_acquire' then
   local raw = redis.call('HGET', k, 'compaction')
@@ -258,6 +280,13 @@ elseif op == 'publish' or op == 'publish_compaction' or op == 'publish_temp' the
   if w.state == 'committed' then return 1 end
   if (w.state ~= 'staging' and w.state ~= 'sealed') or w.token ~= token or w.expires <= now or not owns_pin() then return -1 end
   if (w.metadata_builds or 0)>0 then return redis.error_reply('snapshot metadata construction is incomplete') end
+  local queueupdates=cjson.decode(ARGV[7])
+  for _,update in ipairs(queueupdates) do
+    if type(update.key)~='string' or string.sub(update.key,1,6)~='table:' then return redis.error_reply('invalid compaction queue update') end
+    local candidate=update.candidate
+    if candidate and (type(candidate)~='table' or candidate.key~=update.key or candidate.version~=id or type(candidate.schema)~='string' or type(candidate.name)~='string' or type(candidate.oid)~='string' or type(candidate.lineage)~='string' or type(candidate.references)~='table' or #candidate.references<4 or #candidate.references>8) then return redis.error_reply('invalid compaction queue candidate') end
+    if candidate then for _,data in ipairs(candidate.references) do if type(data)~='string' or #data~=32 or string.find(data,'[^0-9a-f]') then return redis.error_reply('invalid compaction queue data identity') end end end
+  end
   -- Seal before the first CAS refusal. The uncontended path seals and commits
   -- in this same operation, without an extra round trip.
   if w.state=='staging' then w.state='sealed';redis.call('HSET',k,'w:'..id,cjson.encode(w)) end
@@ -270,7 +299,7 @@ elseif op == 'publish' or op == 'publish_compaction' or op == 'publish_temp' the
     if not mr or not pr then return -1 end
     local mw,mp=cjson.decode(mr),cjson.decode(pr)
     if mw.state~='staging' or mw.base~=merge.base or mw.token~=merge.token or mw.expires<=now or mp.root~=merge.base or mp.expires<=now or not mw.metadata_ready or (mw.metadata_builds or 0)>0 or #(cjson.decode(redis.call('HGET',k,'r:'..merge.id) or '[]'))~=0 then return -1 end
-    if KEYS[#KEYS-2]~='` + snapshotPrefix + `metadata:root:'..merge.id then return redis.error_reply('invalid snapshot merge map') end
+    if KEYS[#KEYS-4]~='` + snapshotPrefix + `metadata:root:'..merge.id then return redis.error_reply('invalid snapshot merge map') end
   end
   if redis.call('HGET', k, 'root') ~= expected then return 0 end
   if op == 'publish_temp' and redis.call('EXISTS',KEYS[4]) ~= 0 then return -4 end
@@ -291,7 +320,7 @@ elseif op == 'publish' or op == 'publish_compaction' or op == 'publish_temp' the
   data_releasable(graph,refs)
   if merge then
     local oldmap=redis.call('HGETALL',KEYS[3])
-    local newmap=redis.call('HGETALL',KEYS[#KEYS-2])
+    local newmap=redis.call('HGETALL',KEYS[#KEYS-4])
     if #oldmap>512 or #newmap>512 then return redis.error_reply('invalid snapshot merge root') end
     for i=1,#oldmap,2 do
       if tonumber(redis.call('HGET',graph,'b:'..oldmap[i+1]..':'..oldmap[i]) or '0')<=0 then return redis.error_reply('snapshot metadata reference missing') end
@@ -301,15 +330,21 @@ elseif op == 'publish' or op == 'publish_compaction' or op == 'publish_temp' the
     end
     for i=1,#oldmap,2 do
       local field=oldmap[i+1]..':'..oldmap[i]
-      if redis.call('HINCRBY',graph,'b:'..field,-1)==0 then redis.call('ZADD',KEYS[#KEYS-3],0,field) end
+      if redis.call('HINCRBY',graph,'b:'..field,-1)==0 then redis.call('ZADD',KEYS[#KEYS-5],0,field) end
     end
     redis.call('DEL',KEYS[3])
     for i=1,#newmap,2 do redis.call('HSET',KEYS[3],newmap[i],newmap[i+1]) end
-    redis.call('DEL',KEYS[#KEYS-2])
+    redis.call('DEL',KEYS[#KEYS-4])
     redis.call('HSET',k,'w:'..merge.id,cjson.encode({state='deleting'}))
   end
   redis.call('HSET', k, 'root', id, 'w:'..id, cjson.encode({state='committed',metadata_keys=redis.call('ZCARD',KEYS[2]),metadata_buckets=redis.call('HLEN',KEYS[3])}), 'r:'..id, '[]')
   data_release(graph,dataqueue,refs)
+  for _,update in ipairs(queueupdates) do
+    if update.candidate then
+      redis.call('HSET',candidates,update.key,cjson.encode(update.candidate))
+      redis.call('ZADD',compactionqueue,'NX',now,update.key)
+    else redis.call('ZREM',compactionqueue,update.key);redis.call('HDEL',candidates,update.key) end
+  end
   local pr = redis.call('HGET', k, 'p:'..token)
   if pr then
     local pin = cjson.decode(pr)
@@ -395,10 +430,14 @@ func (s *store) snapshotControl(ctx context.Context, op, token, id, base string,
 	if len(extra) > 2 && extra[2] != "" {
 		keys = append(keys, snapshotMetadataBucketQueue, snapshotMetadataMap(extra[2]))
 	}
-	keys = append(keys, snapshotMetadataGraph, snapshotDataQueue)
+	keys = append(keys, snapshotMetadataGraph, snapshotDataQueue, snapshotCompactionQueue, snapshotCompactionCandidates)
 	args := []any{"EVAL", snapshotControl, len(keys)}
 	args = append(args, keys...)
-	args = append(args, op, token, id, base, snapshotLease.Milliseconds(), arg)
+	updates := "[]"
+	if len(extra) > 3 && extra[3] != "" {
+		updates = extra[3]
+	}
+	args = append(args, op, token, id, base, snapshotLease.Milliseconds(), arg, updates)
 	return once(ctx, s.client, args...)
 }
 
@@ -890,7 +929,7 @@ func (s *store) publishSnapshot(ctx context.Context, pin *snapshotPin, id string
 	if snapshotOf(ctx).tempDead != "" {
 		operation = "publish_temp"
 	}
-	n, err := s.snapshotControl(ctx, operation, pin.token, id, pin.root, "", snapshotOf(ctx).tempDead).Int()
+	n, err := s.snapshotControl(ctx, operation, pin.token, id, pin.root, "", snapshotOf(ctx).tempDead, "", snapshotOf(ctx).compactionUpdates).Int()
 	if err == nil && n == 0 {
 		n, err = s.rebaseSnapshotPublication(ctx, pin, id, operation)
 	}
@@ -1061,7 +1100,7 @@ func (s *store) validateSnapshot(ctx context.Context) error {
 			return err
 		}
 	}
-	return nil
+	return prepareSnapshotCompactionQueue(ctx, tables)
 }
 
 // Acquisition checks the committed metadata directory. Row sources are checked

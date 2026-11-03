@@ -23,15 +23,18 @@ const snapshotCompactionBatchBytes = 1 << 20
 const snapshotCompactionStepTimeout = 2 * time.Second
 
 type snapshotCompactionJob struct {
-	ID         string     `json:"id"`
-	Token      string     `json:"token"`
-	Data       string     `json:"data"`
-	Source     *tableMeta `json:"source"`
-	References []string   `json:"references"`
-	After      string     `json:"after"`
-	Phase      string     `json:"phase"`
-	LastError  string     `json:"last_error,omitempty"`
-	Rows       int64      `json:"rows"`
+	QueueOID     string     `json:"queue_oid"`
+	QueueKey     string     `json:"queue_key"`
+	QueueVersion string     `json:"queue_version"`
+	ID           string     `json:"id"`
+	Token        string     `json:"token"`
+	Data         string     `json:"data"`
+	Source       *tableMeta `json:"source"`
+	References   []string   `json:"references"`
+	After        string     `json:"after"`
+	Phase        string     `json:"phase"`
+	LastError    string     `json:"last_error,omitempty"`
+	Rows         int64      `json:"rows"`
 }
 type snapshotCompactor struct {
 	store  *store
@@ -139,7 +142,7 @@ func (c *snapshotCompactor) run(ctx context.Context) {
 	}
 }
 
-// Metadata enumeration needs a pinned manifest but does not read query rows.
+// Maintenance source lookup needs a pinned manifest but does not read query rows.
 // Avoid validating all catalog indexes for each bounded maintenance batch.
 func (s *store) acquireCompactionCatalog(ctx context.Context) (context.Context, *snapshotPin, error) {
 	p := &snapshotPin{ctx: ctx, store: s, token: snapshotID(), stop: make(chan struct{}), done: make(chan struct{})}
@@ -157,7 +160,7 @@ func (s *store) acquireCompactionCatalog(ctx context.Context) (context.Context, 
 }
 func validateSnapshotCompactionJob(j *snapshotCompactionJob) error {
 	valid := func(id string) bool { return len(id) == 32 && snapshotDataID(snapshotRows(id)+"1") == id }
-	if j.Source == nil || !valid(j.ID) || !valid(j.Data) || !valid(j.Token) || len(j.Source.Columns) == 0 || j.Source.SnapshotRows == nil {
+	if j.Source == nil || j.QueueOID != strconv.FormatInt(j.Source.OID, 10) || !valid(j.QueueVersion) || j.QueueKey != strings.TrimPrefix(metaKey(j.Source.Schema, j.Source.Name), metaPrefix) || !valid(j.ID) || !valid(j.Data) || !valid(j.Token) || len(j.Source.Columns) == 0 || j.Source.SnapshotRows == nil {
 		return errorf(adbc.StatusIO, "invalid durable compaction record")
 	}
 	if j.Phase != "copy" && j.Phase != "index" && j.Phase != "install" {
@@ -200,43 +203,6 @@ func (s *store) readSnapshotCompaction(ctx context.Context) (*snapshotCompaction
 	return &job, nil
 }
 
-func (s *store) startSnapshotCompaction(ctx context.Context, token string) (bool, error) {
-	cctx, pin, err := s.acquireCompactionCatalog(ctx)
-	if err != nil {
-		return false, err
-	}
-	defer pin.release()
-	schemas, err := s.snapshotSchemas(cctx)
-	if err != nil {
-		return false, err
-	}
-	for _, schema := range schemas {
-		tables, err := s.listTables(cctx, schema)
-		if err != nil {
-			return false, err
-		}
-		for _, table := range tables {
-			meta, err := s.getTable(cctx, schema, table)
-			if err != nil {
-				return false, err
-			}
-			if len(meta.snapshotSegments()) < snapshotCompactionTrigger {
-				continue
-			}
-			job := &snapshotCompactionJob{ID: snapshotID(), Token: token, Data: snapshotID(), Source: meta, Phase: "copy", References: []string{}}
-			for _, seg := range meta.snapshotSegments() {
-				job.References = append(job.References, snapshotDataID(seg.Prefix))
-			}
-			raw, err := json.Marshal(job)
-			if err != nil {
-				return false, err
-			}
-			n, err := s.snapshotControl(cctx, "compact_start", pin.token, job.ID, pin.root, string(raw)).Int()
-			return n == 1, err
-		}
-	}
-	return false, nil
-}
 func snapshotCompactionPrefix(current *tableMeta, j *snapshotCompactionJob) (matches, installed bool) {
 	if current.OID != j.Source.OID {
 		return false, false

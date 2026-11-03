@@ -133,7 +133,7 @@ func (s *store) rebaseSnapshotPublication(ctx context.Context, pin *snapshotPin,
 			if err != nil {
 				return -1, err
 			}
-			return s.snapshotControl(ctx, operation, pin.token, id, pin.root, string(base), original.tempDead, mergeID).Int()
+			return s.snapshotControl(ctx, operation, pin.token, id, pin.root, string(base), original.tempDead, mergeID, original.compactionUpdates).Int()
 		}()
 		if n == -5 {
 			return 0, nil

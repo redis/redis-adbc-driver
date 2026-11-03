@@ -5,8 +5,8 @@ managed tables and imported copies of application data. No option is required.
 Ordinary Open initializes an empty isolated database. Explicit HASH import and
 foreign-index import may initialize alongside application-owned data and indexes,
 but reject existing legacy driver metadata without modification. No upgrade or
-migration path is included. Storage protocol version 11 rejects prior draft versions
-1–10. It requires an indexed tombstone marker for visibility-safe server reduction.
+migration path is included. Storage protocol version 12 rejects prior draft versions
+1–11. It requires an indexed tombstone marker for visibility-safe server reduction.
 Metadata manifests share immutable buckets and native values through a fixed
 256-slot map. Buckets have exact ordered field directories; point metadata reads
 fetch individual fields with count/reference proofs. Writes copy touched buckets/values; reference-counted retirement
@@ -186,8 +186,14 @@ Large masks (over 4,096 overlapping IDs or 256 coalesced ranges), unsettled priv
 indexes and inexact ID ranges use authoritative bounded fallbacks. Performance
 and remaining parity work are tracked in the [parity record](sdlc/changes/snapshot-parity/plan.md).
 
-Background compaction is automatic while managed connections are open. It starts
-at four segments and copies an immutable prefix in resumable batches of at most
+Background compaction is automatic while managed connections are open. Publication
+updates a durable queue only for changed table descriptors; idle discovery reads
+no table descriptors. Candidates retain their original queue age across updates,
+carry table/lineage identities and generation prefixes, and are consumed atomically
+when a durable job starts. Stale cleanup cannot remove a newer candidate. A worker
+may claim an older immutable prefix across newer deltas; installation preserves
+those tails. Failed candidate checks are deferred so other due work can progress.
+Discovery considers at most 16 due candidates per pass. It starts at four segments and copies an immutable prefix in resumable batches of at most
 64 merged row IDs, targeting 1 MiB of write data per batch. One oversized row may
 exceed that target under the normal 64 MiB hard staging limit. Source fetches
 remain bounded by row count, rather than the soft write-byte target. The complete

@@ -8,7 +8,7 @@ Date: 2026-11-02. Status: in progress. See [intent](intent.md), [spec](spec.md).
 | Visibility-correct Search predicates and parallel reads | Implemented; targeted and race checks passed |
 | Exact index aggregation/grouping/top-K on segmented visibility | Implemented with bounded masks and exact fallbacks; seven-case read comparison recorded |
 | Incremental metadata, independent publication and index lifecycle | Lazy validation and one-build index lifecycle/no-op publication implemented; pre-execution admission and metadata sharing/GC implemented; incremental row references verified locally; independent publication verified locally; bounded bucket construction verified locally |
-| Large atomic writes/ingestion and sustained compaction | Pending |
+| Large atomic writes/ingestion and sustained compaction | Durable dirty-table scheduling verified locally; large atomic operations and broader throughput work remain open |
 | Full feature/native/platform/Cluster API validation | Proxy race/native milestone checked; full feature/platform/Cluster reruns pending |
 | Comparative benchmarks, review, PR evidence and owned cleanup | Seven-case read comparison and self-review recorded; remaining benchmarks/cleanup pending |
 
@@ -47,3 +47,7 @@ bounded bucket construction verified locally.
 The [bounded bucket checkpoint](bucket-validation.md) verifies point metadata
 reads, ordered field directories, resumable construction and reference-safe
 interruption/expiry. Large operations and sustained compaction remain open.
+
+The [compaction queue checkpoint](compaction-queue-validation.md) removes idle
+catalog descriptor discovery and verifies conditional queue ownership, prefix
+admission, lease recovery and two-table writes without caller retries.
