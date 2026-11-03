@@ -624,21 +624,25 @@ func (e *executor) newScanIter(ctx context.Context, req scanRequest, params []Va
 func (e *executor) openScan(ctx context.Context, req scanRequest, params []Value) (*scanIter, error) {
 	if req.meta.SnapshotOverlay {
 		if req.visibility != nil && len(req.sortBy) > 0 {
-			it, _, _ := e.newScanIter(ctx, req, params)
-			ordered, err := e.openSnapshotOrdered(ctx, req, params)
-			if err != nil {
-				return nil, err
+			it, _, exactly := e.newScanIter(ctx, req, params)
+			// Both exact directories and index candidates merge ascending row
+			// IDs already. Eligible wide scans need no separate ordered reducer.
+			if !wideHashFetch(req, it, &aggRequest{loadAll: !exactly}) {
+				ordered, err := e.openSnapshotOrdered(ctx, req, params)
+				if err != nil {
+					return nil, err
+				}
+				it.ordered = ordered
+				// Source predicates ran before the merge; never evaluate volatility twice.
+				it.residual = nil
+				return it, nil
 			}
-			it.ordered = ordered
-			// Source predicates ran before the merge; never evaluate volatility twice.
-			it.residual = nil
-			return it, nil
 		}
 		indexed := req.where.keys == nil && req.where.query != "*" && e.snapshotIndexable(ctx, req.meta) && e.store.paginationCaps(ctx, snapshotSourceIndex(ctx, req.meta))[0] > 0
 		if !indexed && req.where.original != nil {
 			req.where.residual = req.where.original
 		}
-		it, fields, _ := e.newScanIter(ctx, req, params)
+		it, fields, exactly := e.newScanIter(ctx, req, params)
 		if fields == nil {
 			fields = []string{}
 		}
@@ -654,6 +658,12 @@ func (e *executor) openScan(ctx context.Context, req scanRequest, params []Value
 					return nil, err
 				}
 			}
+		}
+		// Exact visibility is resolved before fetching the winning HASHes.
+		// Wide projections can bind positional HMGET values after that merge,
+		// preserving the ordinary path's residual/order/limit restrictions.
+		if req.where.keys == nil && wideHashFetch(req, it, &aggRequest{loadAll: !exactly}) {
+			it.hashFetch = true
 		}
 		return it, nil
 	}
@@ -808,6 +818,13 @@ func (it *scanIter) nextPage(ctx context.Context) ([]string, []map[string]Value,
 		return it.keep(keys, rows)
 	}
 	if it.candidates != nil {
+		if it.hashFetch && it.projection != nil && it.projection.consumeHash != nil {
+			keys, physical, err := it.candidates.nextKeys(ctx)
+			if err != nil {
+				return nil, nil, err
+			}
+			return it.nextSnapshotHashValues(ctx, keys, physical)
+		}
 		keys, rows, err := it.candidates.next(ctx)
 		if err != nil {
 			return nil, nil, err
@@ -815,6 +832,13 @@ func (it *scanIter) nextPage(ctx context.Context) ([]string, []map[string]Value,
 		return it.keep(keys, rows)
 	}
 	if it.delta != nil {
+		if it.hashFetch && it.projection != nil && it.projection.consumeHash != nil {
+			keys, physical, err := it.delta.nextKeys(ctx)
+			if err != nil {
+				return nil, nil, err
+			}
+			return it.nextSnapshotHashValues(ctx, keys, physical)
+		}
 		keys, rows, err := it.delta.next(ctx)
 		if err != nil {
 			return nil, nil, err
@@ -911,8 +935,9 @@ func (it *scanIter) nextPage(ctx context.Context) ([]string, []map[string]Value,
 }
 
 // wideHashFetch limits the measured retrieval strategy to wide managed scans
-// that would otherwise LOAD every HASH field. The index still owns discovery
-// and row ordering; no keys are guessed. Other SQL operators keep their path.
+// that would otherwise LOAD every HASH field. Indexes or exact snapshot
+// directories own discovery and ordering; no keys are guessed. Other SQL
+// operators keep their path.
 func wideHashFetch(req scanRequest, it *scanIter, ar *aggRequest) bool {
 	if !ar.loadAll || !managedRowIDTable(req.meta) || len(it.need) < 64 ||
 		len(it.need)*2 <= len(req.meta.Columns) || req.where.residual != nil ||

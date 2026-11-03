@@ -119,7 +119,7 @@ func (d *snapshotCandidateScan) verify(ctx context.Context) error {
 	}
 	return nil
 }
-func (d *snapshotCandidateScan) next(ctx context.Context) ([]string, []aggRow, error) {
+func (d *snapshotCandidateScan) nextKeys(ctx context.Context) ([]string, []string, error) {
 	var ids []string
 	var winners []int
 	for len(ids) < snapshotDeltaPage {
@@ -217,6 +217,14 @@ func (d *snapshotCandidateScan) next(ctx context.Context) ([]string, []aggRow, e
 	}
 	if len(physical) == 0 {
 		return nil, nil, nil
+	}
+	return logical, physical, nil
+}
+
+func (d *snapshotCandidateScan) next(ctx context.Context) ([]string, []aggRow, error) {
+	logical, physical, err := d.nextKeys(ctx)
+	if err != nil {
+		return nil, nil, err
 	}
 	rows, err := d.store.fetchSnapshotPhysical(ctx, physical, d.fields)
 	if err != nil {

@@ -116,7 +116,7 @@ func (d *snapshotDeltaScan) head(ctx context.Context, i int) (string, error) {
 	}
 	return id, nil
 }
-func (d *snapshotDeltaScan) next(ctx context.Context) ([]string, []aggRow, error) {
+func (d *snapshotDeltaScan) nextKeys(ctx context.Context) ([]string, []string, error) {
 	var logical, physical []string
 	limit := d.pageRows
 	if limit == 0 {
@@ -159,6 +159,14 @@ func (d *snapshotDeltaScan) next(ctx context.Context) ([]string, []aggRow, error
 	}
 	if len(logical) == 0 {
 		return nil, nil, io.EOF
+	}
+	return logical, physical, nil
+}
+
+func (d *snapshotDeltaScan) next(ctx context.Context) ([]string, []aggRow, error) {
+	logical, physical, err := d.nextKeys(ctx)
+	if err != nil {
+		return nil, nil, err
 	}
 	rows, err := d.store.fetchSnapshotPhysical(ctx, physical, d.fields)
 	if err != nil {

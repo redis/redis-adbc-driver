@@ -15,6 +15,7 @@ import (
 // Each reader owns a child lease; descriptor expiry or explicit release prevents
 // new readers while active child leases continue to protect their generation.
 func (e *executor) snapshotPartitionReader(ctx context.Context, plan *selectPlan, sel *SelectStmt, params []Value, d partitionID, c *connectionImpl) (array.RecordReader, error) {
+	predicate := sel.Where
 	bound := &Binary{Op: "AND",
 		L: &Binary{Op: ">=", L: &ColumnRef{Name: rowIDField}, R: &Literal{V: intValue(typeInt64, d.Lo)}},
 		R: &Binary{Op: "<=", L: &ColumnRef{Name: rowIDField}, R: &Literal{V: intValue(typeInt64, d.Hi)}}}
@@ -37,7 +38,11 @@ func (e *executor) snapshotPartitionReader(ctx context.Context, plan *selectPlan
 	meta.SnapshotOverlay = true
 	sc.req.meta = &meta
 	sc.req.ranges = &rowIDRangeScan{lo: d.Lo, hi: d.Hi}
-	sc.req.where.query, sc.req.where.keys, sc.req.where.residual = "*", nil, sel.Where
+	// Exact directory seeking enforces the descriptor bounds. Keep only the
+	// caller's predicate as a residual; adding the proven bounds here would
+	// unnecessarily disable simple positional HASH/Arrow projections.
+	sc.req.where.query, sc.req.where.keys = "*", nil
+	sc.req.where.original, sc.req.where.residual = predicate, predicate
 	sc.req.sortBy, sc.req.ties, sc.req.limit, sc.req.late = nil, nil, nil, nil
 	r, err := e.newScanReader(ctx, plan, sc.req, params, &streamOpts{mem: c.Alloc, batchRows: c.stream.rows(), batchBytes: c.stream.batchBytes})
 	if err != nil {
