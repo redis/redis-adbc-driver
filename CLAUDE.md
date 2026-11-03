@@ -42,12 +42,16 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.26.10)
   PostgreSQL compatibility or support for Valkey / Redis 7.2 derivatives.
 - Managed-table statement snapshots are always enabled, using immutable
   generations in one hash slot; see [snapshots](docs/snapshots.md). Storage
-  protocol version 13 rejects earlier draft formats; there is no disable switch
+  protocol version 14 rejects earlier draft formats; there is no disable switch
   or upgrade path. Row HASHes use escaped schema prefixes with `{meta}`; schema
   `adbc` uses `%61dbc` to stay outside the metadata ACL grant. Durable data records
   retain exact physical prefixes; descriptor registration and row/Search fences
   reject UUID aliases under another prefix. GC uses the registered prefix,
-  including after schema removal. ALTER stages private
+  including after schema removal. Managed imports retain original `__key` in a
+  hidden provenance field, separate from physical IDs and public columns. Keep
+  it in full-row DML, compaction, ALTER/rekey, late projection and partition reads.
+  SQL-added rows have NULL provenance; refresh recaptures source rows/schema.
+  ALTER stages private
   replacement layouts. Temporary descriptors participate in manifest references;
   liveness is global and Close/sweep publish descriptor removal. Application
   HASH adoption and foreign indexes are managed copies with explicit refreshes;

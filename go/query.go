@@ -190,6 +190,9 @@ func (e *executor) planWhere(ctx context.Context, where Expr, meta *tableMeta, p
 		if meta.Foreign {
 			continue
 		}
+		if (meta.KeyRows && col.Name != keyField) || (!meta.KeyRows && col.Name != rowIDField) {
+			continue // source __key provenance must never become a physical row lookup
+		}
 		v, err := env.eval(other)
 		if err != nil {
 			return wp, invalidArg(err)
@@ -489,6 +492,14 @@ func decodeRow(meta *tableMeta, row aggRow, only map[string]bool) (map[string]Va
 		}
 		out[c.Name] = v
 	}
+	// Avoid constructing a copied metadata slice for every decoded row.
+	if meta.SnapshotSourceKey && (only == nil || only[keyField]) {
+		if key, ok := row[snapshotSourceKeyField]; ok {
+			out[keyField] = stringValue(key)
+		} else {
+			out[keyField] = nullValue(typeString)
+		}
+	}
 	return out, nil
 }
 
@@ -606,7 +617,7 @@ func (e *executor) newScanIter(ctx context.Context, req scanRequest, params []Va
 		columnRefs(req.where.residual, need)
 	}
 	exactly = true
-	for _, c := range meta.Columns {
+	for _, c := range meta.scanColumns() {
 		if need[c.Name] {
 			fields = append(fields, c.field())
 			exactly = exactly && loadsExactly(c)
@@ -697,7 +708,7 @@ func (e *executor) openScan(ctx context.Context, req scanRequest, params []Value
 		// justify the extra pipeline round trips. Wider projections and
 		// adopted HASHes retain LOAD *.
 		fields = nil
-		for _, c := range meta.Columns {
+		for _, c := range meta.scanColumns() {
 			if !it.need[c.Name] {
 				continue
 			}
@@ -721,6 +732,9 @@ func (e *executor) openScan(ctx context.Context, req scanRequest, params []Value
 		// no field at all.
 		ar.load, ar.loadAll = []string{"__key"}, true
 		ar.width = len(meta.Columns) + 2
+		if meta.SnapshotSourceKey {
+			ar.width++
+		}
 	}
 	if req.authoritative {
 		it.store, it.fetch, it.hashFetch = e.store, append(fields, it.fetch...), true
@@ -1319,7 +1333,7 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 			if sel.Offset != nil {
 				late.offset = *sel.Offset
 			}
-			for _, c := range meta.Columns {
+			for _, c := range meta.scanColumns() {
 				if late.need[c.Name] {
 					late.fields = append(late.fields, c.field())
 					if c.MissingThrough > 0 {

@@ -86,12 +86,12 @@ end
 if op == 'init' then
   if redis.call('EXISTS', k) == 0 then
     if ARGV[6] ~= 'import' and redis.call('DBSIZE') ~= 0 then return redis.error_reply('managed-table snapshots require a fresh empty database; existing storage is not upgraded or modified') end
-    redis.call('HSET', k, 'format', '13', 'root', id, 'w:'..id, cjson.encode({state='committed',metadata_keys=0,metadata_buckets=0}), 'r:'..id, '[]')
+    redis.call('HSET', k, 'format', '14', 'root', id, 'w:'..id, cjson.encode({state='committed',metadata_keys=0,metadata_buckets=0}), 'r:'..id, '[]')
   end
-  if redis.call('HGET', k, 'format') ~= '13' then return redis.error_reply('unsupported snapshot catalog format') end
+  if redis.call('HGET', k, 'format') ~= '14' then return redis.error_reply('unsupported snapshot catalog format') end
   return 1
 end
-if redis.call('HGET', k, 'format') ~= '13' then return redis.error_reply('missing or unsupported snapshot catalog') end
+if redis.call('HGET', k, 'format') ~= '14' then return redis.error_reply('missing or unsupported snapshot catalog') end
 local entries = redis.call('HGETALL', k)
 local pins, works, protected = 0, 0, {}
 for n=1,#entries,2 do
@@ -1175,6 +1175,9 @@ func validateSnapshotDescriptor(ctx context.Context, meta *tableMeta) error {
 	own := snapshotOwns(ctx, meta.prefix())
 	if (!own && meta.SnapshotRows == nil) || meta.Adopted || meta.KeyRows || meta.Foreign || meta.AppIndex || meta.RekeyTo != "" {
 		return errorf(adbc.StatusIO, "invalid managed snapshot descriptor")
+	}
+	if meta.SnapshotSourceKey && meta.SnapshotImportSource == "" {
+		return errorf(adbc.StatusIO, "source-key provenance requires a managed import identity")
 	}
 	if len(meta.SnapshotSegments) >= snapshotMaxSegments || len(meta.SnapshotSegments) > 0 && !meta.SnapshotOverlay {
 		return errorf(adbc.StatusIO, "invalid snapshot segment manifest")

@@ -50,6 +50,11 @@ func (e *executor) alterSnapshotTable(ctx context.Context, source *tableMeta, cm
 			if err != nil {
 				return err
 			}
+			if target.SnapshotSourceKey {
+				if key, ok := row[snapshotSourceKeyField]; ok {
+					fields = append(fields, snapshotSourceKeyField, key)
+				}
+			}
 			pipe.HSet(ctx, target.prefix()+row[rowIDField], fields...)
 		}
 		if _, err := pipe.Exec(ctx); err != nil {

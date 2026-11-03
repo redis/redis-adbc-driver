@@ -210,6 +210,7 @@ type tableMeta struct {
 	// Acquisition validates indexes and directories against these counts.
 	SnapshotLineage      string            `json:"snapshot_lineage,omitempty"`
 	SnapshotImportSource string            `json:"snapshot_import_source,omitempty"`
+	SnapshotSourceKey    bool              `json:"snapshot_source_key,omitempty"`
 	SnapshotOverlay      bool              `json:"snapshot_overlay,omitempty"`
 	SnapshotSegments     []snapshotSegment `json:"snapshot_segments,omitempty"`
 	SnapshotRows         *int64            `json:"snapshot_rows,omitempty"`
@@ -319,6 +320,8 @@ func (t *tableMeta) column(name string) (columnMeta, bool) {
 	case t.isMem && !t.retainedSource:
 	case t.KeyRows && (name == keyField):
 		return columnMeta{Name: keyField, Type: typeString}, true
+	case t.SnapshotSourceKey && name == keyField:
+		return snapshotSourceKeyColumn(), true
 	case !t.KeyRows && (name == rowIDField):
 		return columnMeta{Name: rowIDField, Type: typeInt64, Indexed: true}, true
 	}
@@ -337,6 +340,9 @@ func (t *tableMeta) types() map[string]ColType {
 	}
 	for _, c := range t.Columns {
 		m[c.Name] = c.Type
+	}
+	if t.SnapshotSourceKey {
+		m[keyField] = typeString
 	}
 	return m
 }
@@ -1249,6 +1255,9 @@ func indexCreateArgs(meta *tableMeta) []any {
 	if snapshotDataID(meta.prefix()) != "" {
 		args = append(args, snapshotDeletedField, "NUMERIC")
 	}
+	if meta.SnapshotSourceKey {
+		args = append(args, indexAttrArgs(snapshotSourceKeyColumn())...)
+	}
 	for _, c := range meta.Columns {
 		if c.Indexed {
 			args = append(args, indexAttrArgs(c)...)
@@ -1773,8 +1782,9 @@ func (s *store) insertRows(ctx context.Context, meta *tableMeta, rows [][]Value)
 // first+1, …, and added holds the fields (name, value, …) of the missing
 // values they must be written with (see addedMissing).
 type rowAlloc struct {
-	first int64
-	added []any
+	first      int64
+	added      []any
+	sourceKeys []Value // import-only provenance, separate from physical row IDs
 }
 
 // allocRows checks rows to be inserted against NOT NULL and allocates their
@@ -1927,6 +1937,9 @@ func (s *store) writeRows(ctx context.Context, meta *tableMeta, a rowAlloc, rows
 			id := strconv.FormatInt(a.first+int64(r), 10)
 			fields := make([]any, 0, 2+2*len(meta.Columns)+len(a.added))
 			fields = append(fields, rowIDField, id)
+			if meta.SnapshotSourceKey && len(a.sourceKeys) > 0 && !a.sourceKeys[r].Null {
+				fields = append(fields, snapshotSourceKeyField, a.sourceKeys[r].S)
+			}
 			for i := range meta.Columns {
 				if v := rows[r][i]; !v.Null {
 					fields = append(fields, fieldNames[i], encodeStored(v))

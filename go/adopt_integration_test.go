@@ -91,7 +91,7 @@ func TestAdoptHashes(t *testing.T) {
 		"Alice|33|NULL|NULL|NULL|NULL|NULL"); schema.NumFields() != 7 {
 		t.Errorf("SELECT * has %d columns, with __key: %v", schema.NumFields(), schema)
 	}
-	h.expectError(`SELECT __rowid FROM it_ad_users`, "__rowid")
+	h.expectRows(`SELECT COUNT(DISTINCT __rowid), COUNT(__key) FROM it_ad_users`, "31|31")
 	// age holds "n/a" (user 5), so it is VARCHAR; balance is NUMERIC in the
 	// index, so this runs there.
 	h.expectRows(`SELECT COUNT(*), SUM(balance) FROM it_ad_users WHERE balance >= 25`, "6|166.65")
@@ -99,94 +99,98 @@ func TestAdoptHashes(t *testing.T) {
 	h.expectRows(`SELECT driver_data_type FROM information_schema.columns WHERE table_name = 'it_ad_users' AND column_name = 'balance'`,
 		"NUMERIC(38,2)")
 
-	// UPDATE and DELETE change the application's HASHes.
+	// SQL modifies the managed copy; the application's HASHes stay unchanged.
 	h.exec(`UPDATE it_ad_users SET name = 'Renamed' WHERE __key = 'it:ad:user:3'`)
-	if v, _ := f.raw.HGet(h.ctx, "it:ad:user:3", "name").Result(); v != "Renamed" {
-		t.Errorf("UPDATE wrote %q", v)
+	h.expectRows(`SELECT name FROM it_ad_users WHERE __key = 'it:ad:user:3'`, "Renamed")
+	if v := f.raw.HGet(h.ctx, "it:ad:user:3", "name").Val(); v != "User 3" {
+		t.Errorf("UPDATE changed source name: %q", v)
 	}
 	h.exec(`UPDATE it_ad_users SET zip = '99999' WHERE name = 'Alice'`)
-	if v, _ := f.raw.HGet(h.ctx, "it:ad:user:alice", "zip").Result(); v != "99999" {
-		t.Errorf("UPDATE wrote %q", v)
-	}
+	h.expectRows(`SELECT zip FROM it_ad_users WHERE __key = 'it:ad:user:alice'`, "99999")
 	h.exec(`DELETE FROM it_ad_users WHERE __key = 'it:ad:user:4'`)
-	if n, _ := f.raw.Exists(h.ctx, "it:ad:user:4").Result(); n != 0 {
-		t.Error("DELETE left it:ad:user:4")
+	h.expectRows(`SELECT COUNT(*) FROM it_ad_users WHERE __key = 'it:ad:user:4'`, "0")
+	if n := f.raw.Exists(h.ctx, "it:ad:user:4").Val(); n != 1 {
+		t.Error("DELETE changed the source HASH")
 	}
-	// Redis deletes a HASH without fields, so an UPDATE doesn't delete the
-	// last ones.
-	h.expectError(`UPDATE it_ad_users SET name = NULL, age = NULL, zip = NULL WHERE __key = 'it:ad:user:alice'`,
-		`UPDATE would leave the HASH it:ad:user:alice of "public"."it_ad_users" without fields`)
-	if v, _ := f.raw.HGet(h.ctx, "it:ad:user:alice", "name").Result(); v != "Alice" {
-		t.Errorf("the refused UPDATE changed the HASH: name %q", v)
+	// A managed all-NULL row retains its internal ID and original key.
+	h.exec(`UPDATE it_ad_users SET name = NULL, age = NULL, zip = NULL WHERE __key = 'it:ad:user:alice'`)
+	h.expectRows(`SELECT __key,name,age,zip FROM it_ad_users WHERE __key = 'it:ad:user:alice'`,
+		"it:ad:user:alice|NULL|NULL|NULL")
+	if v := f.raw.HGet(h.ctx, "it:ad:user:alice", "name").Val(); v != "Alice" {
+		t.Errorf("managed NULL update changed source name: %q", v)
 	}
-	h.exec(`UPDATE it_ad_users SET zip = NULL WHERE __key = 'it:ad:user:alice'`)
-	if ok, _ := f.raw.HExists(h.ctx, "it:ad:user:alice", "zip").Result(); ok {
-		t.Error("UPDATE … SET zip = NULL kept the field")
+	h.exec(`UPDATE it_ad_users SET zip = NULL WHERE __key = 'it:ad:user:1'`)
+	if v := f.raw.HGet(h.ctx, "it:ad:user:1", "zip").Val(); v != "00007" {
+		t.Error("NULL update changed source zip")
 	}
 
-	// A HASH the application writes is a row at once; one with a value its
-	// column can't hold isn't (the index can't hold it).
+	// External changes stay invisible until an explicit refresh. A failed
+	// typed refresh must retain the complete published copy.
 	f.hset("it:ad:user:bob", "name", "Bob", "balance", "1.00", "extra", "x")
 	f.hset("it:ad:user:32", "name", "User 32", "balance", "lots")
-	h.expectRows(`SELECT COUNT(*) FROM it_ad_users`, "31")
-	h.expectRows(`SELECT balance FROM it_ad_users WHERE __key = 'it:ad:user:bob'`, "1.00")
-	h.expectRows(`SELECT name FROM it_ad_users WHERE balance = 1`, "Bob")
-	r := f.inspect(HashInspectOptions{})
-	ip := checklist(t, r, ChecklistSQLInPlace)
-	expectItem(t, ip, CheckOK, "these HASHes are the adopted table public.it_ad_users")
-	// Search versions may prefix the detail with SEARCH_NUMERIC_VALUE_INVALID.
-	if !slices.ContainsFunc(ip.Items, func(item CheckItem) bool {
-		return item.Status == CheckWarn && strings.Contains(item.Text, "(the last: it:ad:user:32:") &&
-			strings.Contains(item.Text, "Invalid numeric value: 'lots')")
-	}) {
-		t.Fatalf("missing last indexing failure detail: %+v", ip.Items)
+	h.expectRows(`SELECT COUNT(*) FROM it_ad_users`, "30")
+	h.expectRows(`SELECT balance FROM it_ad_users WHERE __key = 'it:ad:user:bob'`)
+	root := f.raw.HGet(h.ctx, snapshotCatalogKey, "root").Val()
+	blocked, err := AdoptHashes(h.ctx, f.opts, HashAdoptOptions{Prefix: f.prefix, Table: "it_ad_users", Apply: true,
+		Types: map[string]string{"balance": "NUMERIC(38,2)"}})
+	if err == nil || blocked == nil || len(blocked.Report.Checks) != 1 || blocked.Report.Checks[0].Ready || blocked.Applied {
+		t.Fatal("invalid typed refresh was not blocked with a report")
 	}
-	res = f.adopt(HashAdoptOptions{})
-	if res.Applied || !res.AlreadyAdopted || !res.Report.Checks[0].Ready {
-		t.Errorf("adopt again: %+v", res)
+	if f.raw.HGet(h.ctx, snapshotCatalogKey, "root").Val() != root {
+		t.Fatal("failed refresh published")
 	}
-
-	// What an adopted table refuses, and what DROP TABLE keeps.
-	for _, c := range []struct{ sql, want string }{
-		{`INSERT INTO it_ad_users (name) VALUES ('x')`, "__key"},
-		{`TRUNCATE it_ad_users`, "TRUNCATE isn't supported"},
-		{`ALTER TABLE it_ad_users ADD COLUMN extra VARCHAR`, "ADD COLUMN isn't supported"},
-	} {
-		h.expectError(c.sql, c.want)
-	}
-	if err := h.setConnOption(OptionStringRenameRekey, "true"); err != nil {
+	h.expectRows(`SELECT COUNT(*) FROM it_ad_users`, "30")
+	if err := f.raw.Del(h.ctx, "it:ad:user:32").Err(); err != nil {
 		t.Fatal(err)
 	}
-	h.expectError(`ALTER TABLE it_ad_users RENAME TO it_ad_users2`, "RENAME TO with adbc.redis.rename_rekey")
-	if err := h.setConnOption(OptionStringRenameRekey, "false"); err != nil {
+	res = f.adopt(HashAdoptOptions{Table: "it_ad_users"})
+	if res.Applied || res.AlreadyAdopted || !res.ManagedCopy || !res.Report.Checks[0].Ready {
+		t.Errorf("refresh plan: %+v", res)
+	}
+	h.expectRows(`SELECT COUNT(*) FROM it_ad_users`, "30")
+	res = f.adopt(HashAdoptOptions{Table: "it_ad_users", Apply: true})
+	if !res.Applied || !res.ManagedCopy {
+		t.Fatal("refresh did not publish a managed copy")
+	}
+	h.expectRows(`SELECT COUNT(*) FROM it_ad_users`, "32")
+	h.expectRows(`SELECT balance FROM it_ad_users WHERE __key = 'it:ad:user:bob'`, "1.00")
+	h.expectRows(`SELECT name FROM it_ad_users WHERE balance = 1`, "Bob")
+	h.expectRows(`SELECT name FROM it_ad_users WHERE __key = 'it:ad:user:3'`, "User 3")
+	h.expectRows(`SELECT name FROM it_ad_users WHERE __key = 'it:ad:user:4'`, "User 4")
+
+	// Managed copies support normal writes/DDL while preserving source data.
+	h.exec(`INSERT INTO it_ad_users (name) VALUES ('private only')`)
+	h.expectRows(`SELECT name FROM it_ad_users WHERE __key IS NULL`, "private only")
+	h.exec(`ALTER TABLE it_ad_users ADD COLUMN private_note VARCHAR`)
+	if err := h.setConnOption(OptionStringRenameRekey, "true"); err != nil {
 		t.Fatal(err)
 	}
 	h.exec(`ALTER TABLE it_ad_users RENAME TO it_ad_users_r`)
 	h.expectRows(`SELECT name FROM it_ad_users_r WHERE __key = 'it:ad:user:bob'`, "Bob")
+	if err := h.setConnOption(OptionStringRenameRekey, "false"); err != nil {
+		t.Fatal(err)
+	}
 	h.exec(`ALTER TABLE it_ad_users_r RENAME TO it_ad_users`)
 	h.exec(`ALTER TABLE it_ad_users DROP COLUMN zip`)
-	if v, _ := f.raw.HGet(h.ctx, "it:ad:user:1", "zip").Result(); v != "00007" {
-		t.Errorf("DROP COLUMN removed the application's field: %q", v)
+	if v := f.raw.HGet(h.ctx, "it:ad:user:1", "zip").Val(); v != "00007" {
+		t.Errorf("DROP COLUMN changed source zip: %q", v)
 	}
-	before, _ := f.raw.HGetAll(h.ctx, "it:ad:user:1").Result()
+	before := f.raw.HGetAll(h.ctx, "it:ad:user:1").Val()
+	h.exec(`TRUNCATE it_ad_users`)
+	h.expectRows(`SELECT COUNT(__key) FROM it_ad_users`, "0")
 	h.exec(`DROP TABLE it_ad_users`)
-	// 30 users without user:4, alice, bob, user:32 and the prefs.
+	// Thirty original users, Alice, Bob, and the nested prefs HASH.
 	if n := f.h.prefixKeyCount(f.raw, f.prefix); n != 33 {
-		t.Errorf("DROP TABLE left %d of the 33 HASHes", n)
+		t.Errorf("DROP TABLE left %d of the 33 source HASHes", n)
 	}
-	if after, _ := f.raw.HGetAll(h.ctx, "it:ad:user:1").Result(); fmt.Sprint(after) != fmt.Sprint(before) {
-		t.Errorf("DROP TABLE changed it:ad:user:1: %v, was %v", after, before)
-	}
-
-	// Adopted again after the DROP.
-	if err := f.raw.Del(h.ctx, "it:ad:user:32").Err(); err != nil {
-		t.Fatal(err)
+	if after := f.raw.HGetAll(h.ctx, "it:ad:user:1").Val(); fmt.Sprint(after) != fmt.Sprint(before) {
+		t.Errorf("DROP TABLE changed source HASH: %v, was %v", after, before)
 	}
 	res = f.adopt(HashAdoptOptions{Table: "it_ad_users", Apply: true})
 	if !res.Applied {
-		t.Errorf("adopt again: %+v", res)
+		t.Fatal("re-import after DROP failed")
 	}
-	h.expectRows(`SELECT COUNT(*) FROM it_ad_users`, "31")
+	h.expectRows(`SELECT COUNT(*), COUNT(__key) FROM it_ad_users`, "32|32")
 }
 
 // An UPDATE neither makes again a HASH that the application deleted after

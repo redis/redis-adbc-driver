@@ -245,6 +245,10 @@ class SnapshotValidation(unittest.TestCase):
         foreign = self.connect(**{"adbc.redis.foreign_indexes": "true"})
         self.addCleanup(foreign.close)
         with foreign.cursor() as cur:
+            cur.execute("SELECT __key,v FROM redis_foreign.app_index WHERE __key=?", ("app:1",))
+            table = cur.fetch_arrow_table()
+            self.assertEqual(table["__key"].type, pa.string())
+            self.assertEqual(table.to_pylist(), [{"__key": "app:1", "v": 10}])
             cur.execute("SELECT v FROM redis_foreign.app_index")
             self.assertEqual(cur.fetchall(), [(10,)])
             self.raw.hset("app:1", "v", "99")
@@ -253,8 +257,25 @@ class SnapshotValidation(unittest.TestCase):
             foreign.adbc_connection.set_options(**{"adbc.redis.foreign_indexes_refresh": "true"})
             cur.execute("SELECT v FROM redis_foreign.app_index")
             self.assertEqual(cur.fetchall(), [(99,)])
+            cur.execute("SELECT __key,v FROM redis_foreign.app_index")
+            self.assertEqual(cur.fetchall(), [("app:1", 99)])
+            cur.execute("SELECT * FROM redis_foreign.app_index")
+            self.assertEqual([item[0] for item in cur.description], ["v"])
+            self.assertEqual(cur.fetchall(), [(99,)])
             self.assertEqual(self.raw.hget("app:1", "v"), "99")
             self.raw.execute_command("FT.INFO", "app_index")
+
+    def test_foreign_source_key_residual_limit(self):
+        self.raw.hset("app:origin", mapping={"v": "1", "a": "a", "b": "b", "c": "c"})
+        self.raw.execute_command("FT.CREATE", "app_index", "ON", "HASH", "PREFIX", 1,
+                                 "app:", "SCHEMA", "v", "NUMERIC", "a", "TAG", "b", "TAG", "c", "TAG")
+        foreign = self.connect(**{"adbc.redis.foreign_indexes": "true"})
+        self.addCleanup(foreign.close)
+        with foreign.cursor() as cur:
+            cur.execute("SELECT __key FROM redis_foreign.app_index WHERE LENGTH(a)=1 ORDER BY a LIMIT 1")
+            table = cur.fetch_arrow_table()
+            self.assertEqual(table.schema, pa.schema([("__key", pa.string())]))
+            self.assertEqual(table.to_pylist(), [{"__key": "app:origin"}])
 
     def test_live_partition_visibility(self):
         with self.conn.cursor() as cur:

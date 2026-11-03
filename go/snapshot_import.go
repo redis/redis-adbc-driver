@@ -92,7 +92,7 @@ func (s *store) importSnapshotTable(ctx context.Context, source *tableMeta, sche
 			return err
 		}
 	}
-	target := &tableMeta{Schema: schema, Name: name, SnapshotImportSource: snapshotImportIdentity(source)}
+	target := &tableMeta{Schema: schema, Name: name, SnapshotImportSource: snapshotImportIdentity(source), SnapshotSourceKey: source.KeyRows || source.SnapshotSourceKey}
 	for _, col := range source.Columns {
 		col.Field, col.Encoding, col.TextFormat = "", "", ""
 		col.Missing, col.MissingThrough = "", 0
@@ -119,7 +119,21 @@ func (s *store) importSnapshotTable(ctx context.Context, source *tableMeta, sche
 			}
 		}
 		if len(values) > 0 {
-			if _, err := s.insertRows(wctx, target, values); err != nil {
+			allocation, err := s.allocRows(wctx, target, values)
+			if err != nil {
+				return err
+			}
+			if target.SnapshotSourceKey {
+				allocation.sourceKeys = make([]Value, len(rows))
+				for i, row := range rows {
+					key, ok := row[keyField]
+					if !ok || key.Null || key.T.Kind != KindString {
+						return errorf(adbc.StatusIO, "import source row has no original key")
+					}
+					allocation.sourceKeys[i] = key
+				}
+			}
+			if _, err := s.writeRows(wctx, target, allocation, values); err != nil {
 				return err
 			}
 		}

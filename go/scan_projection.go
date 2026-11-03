@@ -38,7 +38,7 @@ func newScanProjection(it *scanIter, items []planItem) *scanProjection {
 	}
 	p := &scanProjection{width: len(items)}
 	slots := make(map[string]int, len(it.need))
-	for _, c := range it.meta.Columns {
+	for _, c := range it.meta.scanColumns() {
 		if it.need[c.Name] {
 			slots[c.Name] = len(p.columns)
 			decode := c.decode

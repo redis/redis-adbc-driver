@@ -5,8 +5,8 @@ managed tables and imported copies of application data. No option is required.
 Ordinary Open initializes an empty isolated database. Explicit HASH import and
 foreign-index import may initialize alongside application-owned data and indexes,
 but reject existing legacy driver metadata without modification. No upgrade or
-migration path is included. Storage protocol version 13 rejects prior draft versions
-1–12. It requires an indexed tombstone marker for visibility-safe server reduction.
+migration path is included. Storage protocol version 14 rejects prior draft versions
+1–13. It requires an indexed tombstone marker for visibility-safe server reduction.
 Metadata manifests share immutable buckets and native values through a fixed
 256-slot map. Buckets have exact ordered field directories; point metadata reads
 fetch individual fields with count/reference proofs. Writes copy touched buckets/values; reference-counted retirement
@@ -73,6 +73,13 @@ retain their existing compatibility behavior, including no-op ROLLBACK.
   place. Repeating Apply for the same source and destination explicitly refreshes
   that copy. A destination created independently cannot be replaced by adoption.
   CopyHashes supports the existing ingest modes with atomic publication.
+  Adopted and foreign-index managed copies expose their original application
+  key through the system column `__key`, excluded from `SELECT *` and public
+  table schemas. Predicates read copied provenance, never the live application
+  HASH or a guessed physical row ID. UPDATE/DELETE, compaction, ALTER/rekey and
+  shared-generation partitions preserve it. Rows added only through SQL have
+  NULL `__key`. Explicit refresh replaces the copy's rows and inferred schema,
+  including private SQL changes. See the [source-key checkpoint](sdlc/changes/snapshot-parity/source-key-validation.md).
 - `adbc.redis.foreign_indexes=true` imports missing managed copies into the
   read-only `redis_foreign` schema. Existing copies are reused on later Open.
   Set the connection option `adbc.redis.foreign_indexes_refresh=true`, or call

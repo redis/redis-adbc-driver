@@ -12,10 +12,13 @@ page defines the current guarantee, limits and supported deployments and takes
 precedence over the historical layout and feature descriptions below. New
 catalogs normally require an empty isolated database; explicit imports may
 initialize alongside application data after rejecting legacy driver metadata.
-Storage protocol version 8 rejects legacy catalogs and prior draft formats 1–7 without
+Storage protocol version 14 rejects legacy catalogs and prior draft formats 1–13 without
 modification; no upgrade path is provided. ALTER and temporary objects are
 supported. AdoptHashes creates a managed copy; repeating Apply explicitly refreshes
-it. Foreign indexes are exposed as managed copies after enabling foreign_indexes;
+it. Managed imports retain the original application key as a queryable `__key`
+system column, excluded from `SELECT *` and public schemas; SQL-added rows have
+NULL provenance. Refresh replaces the private copy's rows and inferred schema.
+Foreign indexes are exposed as managed copies after enabling foreign_indexes;
 set connection option `adbc.redis.foreign_indexes_refresh=true` (or call Go API
 `RefreshForeignIndexes`) for subsequent refreshes. Capturing external data is not
 atomic with application writers; published copies have normal snapshot guarantees.
@@ -676,7 +679,30 @@ build/redis-adbc copy -prefix user: -table users -type age=BIGINT -on-error null
 - **Memory:** the HASHes are read and ingested in batches of up to 10,000
   rows, whatever the collection's size.
 
+### Import or refresh a managed copy
+
+Current `redis-adbc adopt` and Go `AdoptHashes` read application HASHes into a
+private managed table. A dry run reports what Apply would do. Repeating Apply
+for the same source and destination explicitly refreshes the copy; application
+HASHes and indexes remain unchanged. SQL writes affect the copy. Queries can
+read its original key explicitly:
+
+```sql
+SELECT __key, name FROM users WHERE __key = 'user:42';
+```
+
+`__key` is provenance rather than a Redis address for the managed row. It stays
+out of `SELECT *` and table schema discovery, survives compaction/DDL/partitions,
+and is NULL for private rows inserted through SQL. Source changes remain invisible
+until refresh. Refresh recaptures the source rows/schema and replaces private
+SQL changes. See [current snapshot semantics](snapshots.md) and the
+[source-key evidence](sdlc/changes/snapshot-parity/source-key-validation.md).
+
 ### Adopt HASHes in place
+
+This subsection records historical in-place behavior. Current managed-copy
+imports follow the section above; the ownership and live-read rules below do
+not describe always-on snapshot catalogs.
 
 `adopt` reads every HASH under the prefix, runs the in-place checklist on
 all of them, and prints what it would do. Nothing changes

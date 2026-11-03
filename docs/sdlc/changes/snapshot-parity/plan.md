@@ -69,5 +69,8 @@ explicit refresh. A Software API principal probe confirms that protocol 12's
 `adbc:*` row layout defeats the legacy schema ACL recipe. The
 [protocol-13 namespace checkpoint](schema-namespace-validation.md) repairs that
 HASH/Search access boundary and makes the expanded Software gate pass; complete
-restricted-driver command/pin recipes remain open. Imported `__key` identity
-and the remaining adoption/sweep/ACL regression families also remain open.
+restricted-driver command/pin recipes remain open. The
+[source-key checkpoint](source-key-validation.md) restores imported `__key`
+identity, including generic/positional/late projections and pinned partitions.
+Remaining adoption/sweep/ACL regression families and the broader parity work
+stay open.
