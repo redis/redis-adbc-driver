@@ -232,6 +232,27 @@ func TestSnapshotClusterRecovery(t *testing.T) {
 	if err := s.client.Set(wctx, metaPrefix+"unpublished", "private", 0).Err(); err != nil {
 		t.Fatal(err)
 	}
+	privateRows := &tableMeta{Schema: "public", Name: "unpublished_rows", Columns: []columnMeta{{Name: "v", Type: typeInt64, Nullable: true}}}
+	if _, err := s.createTable(wctx, privateRows, false); err != nil {
+		t.Fatal(err)
+	}
+	input := make([][]Value, 600)
+	for i := range input {
+		input[i] = []Value{intValue(typeInt64, 9007199254740993)}
+	}
+	if n, err := s.insertRows(wctx, privateRows, input); err != nil || n != 600 {
+		t.Fatalf("private row batches not staged: %d %v", n, err)
+	}
+	type batchOutcome struct {
+		ID   string `json:"id"`
+		Rows int    `json:"rows"`
+	}
+	var staged struct {
+		Batch batchOutcome `json:"row_batch"`
+	}
+	if err := json.Unmarshal([]byte(raw.HGet(h.ctx, snapshotCatalogKey, "w:"+wid).Val()), &staged); err != nil || staged.Batch.ID == "" || staged.Batch.Rows != 88 {
+		t.Fatalf("private batch outcome missing: %v", err)
+	}
 	if err := stmt.SetOption(h.ctx, OptionIntStreamBatchRows, "7"); err != nil {
 		t.Fatal(err)
 	}
@@ -305,9 +326,27 @@ func TestSnapshotClusterRecovery(t *testing.T) {
 	} else if len(rows) != 2 || rows[0]["v"] != "102" || rows[1]["v"] != "9007199254740993" {
 		t.Fatal("pinned exact values changed")
 	}
-	root := raw.HGet(h.ctx, snapshotCatalogKey, "root").Val()
-	if raw.Exists(h.ctx, snapshotWorkspace(root)+"unpublished").Val() != 0 {
-		t.Fatal("unpublished metadata became visible")
+	committedCtx, committedPin, err := s.acquireSnapshot(h.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer committedPin.release()
+	// Resolve through the current manifest's shared metadata buckets. A raw
+	// root-prefix absence alone cannot prove visibility in a shared catalog.
+	if err := s.client.Get(committedCtx, metaPrefix+"unpublished").Err(); !errors.Is(err, goredis.Nil) {
+		t.Fatalf("unpublished metadata became visible: %v", err)
+	}
+	if _, err := s.getTable(committedCtx, "public", privateRows.Name); !isStatus(err, adbc.StatusNotFound) {
+		t.Fatalf("private row descriptor became visible: %v", err)
+	}
+	var recovered struct {
+		Batch batchOutcome `json:"row_batch"`
+	}
+	if err := json.Unmarshal([]byte(raw.HGet(h.ctx, snapshotCatalogKey, "w:"+wid).Val()), &recovered); err != nil || recovered.Batch != staged.Batch {
+		t.Fatalf("private batch outcome did not persist: %v", err)
+	}
+	if raw.ZCard(h.ctx, snapshotMembers(snapshotDataID(privateRows.prefix()))).Val() != 600 || raw.HGet(h.ctx, privateRows.prefix()+"1", "v").Val() != "9007199254740993" || raw.HGet(h.ctx, privateRows.prefix()+"600", "v").Val() != "9007199254740993" {
+		t.Fatal("private row batches did not persist exactly")
 	}
 	resumed, err := s.readSnapshotCompaction(h.ctx)
 	if err != nil || resumed == nil || resumed.Data != job.Data || resumed.After != job.After {
@@ -330,7 +369,38 @@ func TestSnapshotClusterRecovery(t *testing.T) {
 	h2.expectRows("SELECT COUNT(*),MIN(v),MAX(v) FROM t", "1001|102|9007199254740993")
 	h2.exec("INSERT INTO t VALUES (1002,77)")
 	h.expectRows("SELECT id,v FROM t WHERE id=1002", "1002|77")
-	t.Log("established and new clients, pinned values, private manifest and durable compaction verified")
+	t.Log("established/new clients, pinned values, private row batches/outcome, shared metadata isolation and durable compaction verified")
+}
+
+func TestSnapshotClusterRowBatchOutcomes(t *testing.T) {
+	h, raw, _ := snapshotClusterHarness(t)
+	h.exec("CREATE TABLE t(v BIGINT)")
+	stmt, err := h.conn.NewStatement(h.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stmt.Close(h.ctx)
+	s := stmt.(*statementImpl).conn.store
+	observer := &snapshotInsertBatchInterruption{after: true}
+	s.client.AddHook(observer)
+	for _, test := range []struct{ sql, want string }{
+		{"INSERT INTO t SELECT i FROM generate_series(1,600) AS g(i)", "600|1|600"},
+		{"UPDATE t SET v=v+1", "600|2|601"},
+		{"ALTER TABLE t ALTER COLUMN v TYPE BIGINT USING v+1", "600|3|602"},
+		{"DELETE FROM t", "0|NULL|NULL"},
+	} {
+		observer.calls, observer.rows, observer.maxRows = 0, 0, 0
+		h.exec(test.sql)
+		if observer.calls != 3 || observer.rows != 600 || observer.maxRows > snapshotWriteBatchRows {
+			t.Fatalf("Cluster batch was replayed or unbounded: calls=%d rows=%d max=%d", observer.calls, observer.rows, observer.maxRows)
+		}
+		h.expectRows("SELECT COUNT(*),MIN(v),MAX(v) FROM t", test.want)
+	}
+	// Prove the catalog still routes through Cluster API after the injected
+	// lost replies; each input was applied once, with no hidden SQL replay.
+	if raw.ClusterKeySlot(h.ctx, snapshotCatalogKey).Val() != raw.ClusterKeySlot(h.ctx, snapshotRows(snapshotID())+"1").Val() {
+		t.Fatal("catalog/row hash slot mismatch")
+	}
 }
 
 func TestSnapshotClusterMetadataDirectoryAndRekey(t *testing.T) {

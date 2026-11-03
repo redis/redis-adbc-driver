@@ -9,7 +9,7 @@ Date: 2026-11-02. Status: in progress. See [intent](intent.md), [spec](spec.md).
 | Exact index aggregation/grouping/top-K on segmented visibility | Implemented with bounded masks and exact fallbacks; seven-case read comparison recorded |
 | Incremental metadata, independent publication and index lifecycle | Lazy validation and one-build index lifecycle/no-op publication implemented; pre-execution admission and metadata sharing/GC implemented; incremental row references verified locally; independent publication verified locally; bounded bucket construction verified locally |
 | Large atomic writes/ingestion and sustained compaction | Durable dirty-table scheduling and GC batch progress verified locally; bounded SQL/Arrow row images and ALTER/rekey with durable outcomes implemented; process/input resume, remaining utility quotas and broader sustained throughput work remain open |
-| Full feature/native/platform/Cluster API validation | Proxy race/native milestone checked; full feature/platform/Cluster reruns pending |
+| Full feature/native/platform/Cluster API validation | Current protocol-14 Cluster Go, primary promotion, all-node AOF restart and replicated proxy race/native checks verified; RDB, hosted CI and full feature/native/platform matrix remain open |
 | Comparative benchmarks, review, PR evidence and owned cleanup | Seven-case read comparison and self-review recorded; remaining benchmarks/cleanup pending |
 
 Implement and verify coherent milestones; keep PR #284 reviewable. Provision
@@ -121,3 +121,9 @@ row images to UPDATE replacements, DELETE tombstones and ALTER/rekey copies,
 with private-only replacement admission, NULL/provenance preservation and
 independent no-op accounting. It supersedes the prior generic UPDATE/DDL row
 ceiling limitation; operation/input resume and broader parity work remain open.
+
+The [current Cluster checkpoint](cluster14-validation.md) reruns multi-primary
+connectivity, managed copies, partitions and node fences on protocol 14, adding
+bounded row-batch outcomes and private-page/shared-metadata recovery assertions.
+Promotion and abrupt all-node AOF restart preserve exact pinned/committed/private
+state and resume compaction; this does not close RDB or the full platform matrix.
