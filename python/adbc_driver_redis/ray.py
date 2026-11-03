@@ -50,7 +50,9 @@ class RedisDatasource(Datasource):
     """A planned live Redis read; construct with :func:`read_query`.
 
     Planning opens and closes a connection immediately. Rows are fetched only
-    by Ray workers. Descriptors may be replayed, but live data can change.
+    by Ray workers. All descriptors retain one shared generation and replay it
+    until their admission lifetime expires or the partition group is released.
+    Construct a new datasource to observe later writes.
     """
 
     def __init__(
@@ -113,8 +115,10 @@ def read_query(
     ``concurrency`` caps simultaneous Ray read tasks. ``batch_rows`` bounds each
     driver Arrow batch, not total Ray object-store or pipeline memory.
 
-    Reads are unordered and live: no shared snapshot, stable retries, CDC or
-    exactly-once guarantee. Unsupported SQL fails during planning, without a
+    Reads are unordered. Workers and retries share the planned snapshot while
+    descriptors remain valid (five minutes by default); expiry or explicit
+    release requires replanning. This does not provide CDC or exactly-once
+    processing. Unsupported SQL fails during planning, without a
     materializing fallback. Worker-local TLS CA paths must exist on all nodes.
     Configuration may contain credentials; use a trusted Ray cluster.
     """

@@ -51,3 +51,8 @@ interruption/expiry. Large operations and sustained compaction remain open.
 The [compaction queue checkpoint](compaction-queue-validation.md) removes idle
 catalog descriptor discovery and verifies conditional queue ownership, prefix
 admission, lease recovery and two-table writes without caller retries.
+
+The [Ray compatibility checkpoint](ray-validation.md) verifies shared-generation
+worker replay after DML/TRUNCATE/DROP, fresh-plan visibility, retries across an
+intervening write and TLS rejection without inherited CA trust: 17 cases passed.
+Native wide fetch and the remaining full feature/platform checks stay open.

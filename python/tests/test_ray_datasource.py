@@ -74,7 +74,7 @@ def test_dataset_types_coverage_and_empty(uri, source, ray_runtime, db_options):
     assert empty.schema().base_schema.equals(table.schema, check_metadata=True)
 
 
-def test_remote_serialization_streaming_and_live_replay(uri, source, ray_runtime, db_options):
+def test_remote_serialization_streaming_and_snapshot_replay(uri, source, ray_runtime, db_options):
     name, table = source
     # All planner handles have closed before tasks are serialized.
     source_ds = RedisDatasource(uri, f'SELECT * FROM "{name}"',
@@ -95,7 +95,33 @@ def test_remote_serialization_streaming_and_live_replay(uri, source, ray_runtime
     with dbapi.connect(uri, db_kwargs=db_options) as conn, conn.cursor() as cur:
         cur.execute(f'UPDATE "{name}" SET label = \'changed\' WHERE id = 0')
     replay = ray.get([consume.remote(task) for task in tasks])
-    assert pa.concat_tables([t for _, _, t in replay]).sort_by("id")["label"][0].as_py() == "changed"
+    replayed = pa.concat_tables([t for _, _, t in replay]).sort_by("id")
+    assert replayed.equals(table, check_metadata=True)
+
+    # Replanning acquires a new generation; retrying the old tasks does not.
+    fresh = RedisDatasource(uri, f'SELECT * FROM "{name}"',
+                            partition_count=4, batch_rows=5, db_kwargs=db_options)
+    results = ray.get([consume.remote(task) for task in fresh.get_read_tasks(4)])
+    expected = table.set_column(
+        table.schema.get_field_index("label"), table.schema.field("label"),
+        pa.array(["changed", *table["label"].to_pylist()[1:]], type=pa.string()),
+    )
+    assert pa.concat_tables([t for _, _, t in results]).sort_by("id").equals(
+        expected, check_metadata=True
+    )
+
+    # Physical replacement/removal must not invalidate unexpired descriptors.
+    with dbapi.connect(uri, db_kwargs=db_options) as conn, conn.cursor() as cur:
+        cur.execute(f'TRUNCATE TABLE "{name}"')
+        cur.execute(f'DROP TABLE "{name}"')
+    replay = ray.get([consume.remote(task) for task in tasks])
+    assert pa.concat_tables([t for _, _, t in replay]).sort_by("id").equals(
+        table, check_metadata=True
+    )
+    fresh_replay = ray.get([consume.remote(task) for task in fresh.get_read_tasks(4)])
+    assert pa.concat_tables([t for _, _, t in fresh_replay]).sort_by("id").equals(
+        expected, check_metadata=True
+    )
 
 
 def test_unsupported_query_fails_planning(uri, source, db_options):
@@ -243,6 +269,8 @@ def test_ray_task_retry(uri, source, ray_runtime, db_options):
         try:
             first = next(stream)
             if attempt == 1:
+                with dbapi.connect(uri, db_kwargs=db_options) as conn, conn.cursor() as cur:
+                    cur.execute(f'UPDATE "{name}" SET label = \'changed during retry\' WHERE id = 0')
                 raise RuntimeError("injected failure after first Arrow batch")
             return attempt, pa.concat_tables([first, *stream])
         finally:
@@ -274,7 +302,10 @@ def test_tls_worker_requires_ca(uri, source, ray_runtime, db_options):
     assert worker_pid != os.getpid()
     assert actual.sort_by("id").equals(expected, check_metadata=True)
 
-    @ray.remote
+    # Native Go reads its environment when the library loads. Start a separate
+    # worker without inherited CA trust rather than changing Python's os.environ
+    # after that worker has loaded the library.
+    @ray.remote(runtime_env={"env_vars": {"SSL_CERT_FILE": "", "SSL_CERT_DIR": ""}})
     def without_ca(task):
         read = task.read_fn
         options = dict(read.keywords)
