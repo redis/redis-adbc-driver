@@ -245,7 +245,7 @@ func (h *snapshotLostReply) ProcessHook(next goredis.ProcessHook) goredis.Proces
 	return func(ctx context.Context, cmd goredis.Cmder) error {
 		err := next(ctx, cmd)
 		args := cmd.Args()
-		if err == nil && len(args) > 4 && fmt.Sprint(args[0]) == "EVAL" && args[1] == snapshotControl && args[4] == "publish" && h.lost.CompareAndSwap(false, true) {
+		if err == nil && len(args) > 5 && fmt.Sprint(args[0]) == "EVAL" && args[1] == snapshotControl && args[5] == "publish" && h.lost.CompareAndSwap(false, true) {
 			cmd.SetErr(io.ErrUnexpectedEOF)
 			return io.ErrUnexpectedEOF
 		}

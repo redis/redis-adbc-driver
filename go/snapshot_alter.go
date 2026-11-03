@@ -70,3 +70,19 @@ func (e *executor) alterSnapshotTable(ctx context.Context, source *tableMeta, cm
 	_, err = pipe.Exec(ctx)
 	return err
 }
+
+// Snapshot rekeying allocates a new immutable physical identity under the
+// catalog tag, then renames its private descriptor in the same publication.
+// It never moves or deletes rows still referenced by an older manifest.
+func (e *executor) rekeySnapshotTable(ctx context.Context, source *tableMeta, to TableName) error {
+	if err := e.alterSnapshotTable(ctx, source, nil); err != nil {
+		return err
+	}
+	next, err := e.store.getTable(ctx, source.Schema, source.Name)
+	if err != nil {
+		return err
+	}
+	exec := *e
+	exec.rekey = false
+	return exec.renameTable(ctx, next, to)
+}

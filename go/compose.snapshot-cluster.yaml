@@ -1,0 +1,60 @@
+# Disposable Redis Software fixture for snapshot routing and recovery tests.
+# All management/client host bindings are loopback. Cluster clients run inside
+# the owned network so advertised private endpoints remain directly reachable.
+x-node: &node
+  image: redislabs/redis:8.2.0-78.18
+  cap_add: [SYS_RESOURCE]
+  labels:
+    codex.fixture: snapshot-software-cluster
+  healthcheck:
+    test: [CMD-SHELL, "curl -sk -o /dev/null https://localhost:9443/v1/bootstrap"]
+    interval: 3s
+    timeout: 5s
+    retries: 60
+
+services:
+  client:
+    image: redislabs/redis:8.2.0-78.18
+    entrypoint: [sleep, infinity]
+    labels:
+      codex.fixture: snapshot-software-client
+  node1:
+    <<: *node
+    networks:
+      default:
+        ipv4_address: ${SNAPSHOT_NODE1_IP:-172.31.249.11}
+    ports:
+      - "127.0.0.1:${SNAPSHOT_API_PORT1:-19563}:9443"
+      - "127.0.0.1:${SNAPSHOT_DB_PORT1:-16410}:12000"
+    volumes: [persist1:/var/opt/redislabs/persist]
+  node2:
+    <<: *node
+    networks:
+      default:
+        ipv4_address: ${SNAPSHOT_NODE2_IP:-172.31.249.12}
+    ports:
+      - "127.0.0.1:${SNAPSHOT_API_PORT2:-19564}:9443"
+      - "127.0.0.1:${SNAPSHOT_DB_PORT2:-16411}:12000"
+    volumes: [persist2:/var/opt/redislabs/persist]
+  node3:
+    <<: *node
+    networks:
+      default:
+        ipv4_address: ${SNAPSHOT_NODE3_IP:-172.31.249.13}
+    ports:
+      - "127.0.0.1:${SNAPSHOT_API_PORT3:-19565}:9443"
+      - "127.0.0.1:${SNAPSHOT_DB_PORT3:-16412}:12000"
+    volumes: [persist3:/var/opt/redislabs/persist]
+
+volumes:
+  persist1:
+  persist2:
+  persist3:
+
+# Stable identities are required when all nodes restart together. Docker rejects
+# overlapping pools; override the subnet and all three addresses if needed.
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: ${SNAPSHOT_SUBNET:-172.31.249.0/24}

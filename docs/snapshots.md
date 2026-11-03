@@ -5,8 +5,10 @@ managed tables and imported copies of application data. No option is required.
 Ordinary Open initializes an empty isolated database. Explicit HASH import and
 foreign-index import may initialize alongside application-owned data and indexes,
 but reject existing legacy driver metadata without modification. No upgrade or
-migration path is included. Protocol version 5 also rejects prior draft versions
-1–4, whose writers do not retain the new temporary/imported data references.
+migration path is included. Storage protocol version 6 rejects prior draft versions
+1–5. Version 6 adds exact metadata key directories and committed directory counts, so manifest copies
+and reclamation do not depend on Redis SCAN cursors across restarts or slot moves.
+This is the driver storage format, separate from Redis versions and RESP3.
 
 ```python
 import adbc_driver_manager.dbapi
@@ -87,13 +89,23 @@ retain their existing compatibility behavior, including no-op ROLLBACK.
   publishes independent Arrow results. Existing partition shape, quota and
   deployment restrictions still apply. Independent retained reader-only
   connections remain available.
-- No live migration, downgrade or physical rename/rekey tool is included.
-- Requires a primary single endpoint, no Active-Active replication and
-  `maxmemory-policy noeviction`. Open verifies INFO and rejects Cluster API
-  connections. Runtime evidence covers Redis Software 8.6.2 with Search 8.6.11,
-  one shard and active 4x QPF.
+- `adbc.redis.rename_rekey=true` creates a new private physical identity during
+  RENAME and publishes it atomically. Pinned readers keep the old identity.
+  Rewrites remain subject to statement staging budgets.
+- Supports primary proxy endpoints and Cluster API connections, with TLS and
+  RESP3. Every primary must use `maxmemory-policy noeviction`; Active-Active is
+  unsupported. Open checks each primary and installs fences on direct node
+  connections, including nodes discovered after topology changes.
+- No live migration or downgrade is included. See the
+  [Cluster API and recovery evidence](sdlc/changes/snapshot-cluster/validation.md)
+  for the tested Software topology and recovery boundaries.
 
-Private copies are indexed by a completed initial scan before DML can read them.
+Distributed Search schema commands run at the top level, bracketed by server-side
+writer admission and validation. Running FT.CREATE inside Lua produces a local
+index outside Software's distributed registry. A late global CREATE after lease
+loss cannot publish; maintenance removes its private orphan index. Row and metadata
+mutations remain inside atomic Lua fences. Private copies are indexed by a
+completed initial scan before DML can read them.
 After all changes, fresh indexes scan the final immutable HASHes before publication;
 document counts alone do not prove that incremental updates have settled.
 
@@ -110,7 +122,8 @@ evict published keys or indexes outside the driver.
 
 ## Costs, limits and recovery
 
-Each write copies the catalog's **metadata manifest**, but unchanged tables reuse
+Each write copies the catalog's **metadata manifest** through its immutable key
+directory and checks its committed count, but unchanged tables reuse
 their existing immutable rows and indexes. INSERT and append ingestion write new
 rows into a new segment. UPDATE writes complete replacement images for matched
 rows; DELETE writes deletion markers. An ordinary one-row change writes one row
@@ -202,7 +215,8 @@ Process-crash recovery waits for the abandoned writer's lease to expire.
 
 In addition to ordinary Search/HASH/metadata commands, the mode requires `EVAL`,
 `TIME`, `DBSIZE`, `DUMP`, `RESTORE`, `SCAN`, `ZRANGE`, `ZLEXCOUNT`, `ZCARD`, `ZSCORE` and
-`INFO`, plus namespace access. Lua membership registration also requires `ZADD`.
+`ZRANGEBYLEX` and `INFO`, plus namespace access. Lua directory registration also
+requires `ZADD` and `ZREM`.
 Lua fences invoke the underlying write commands, which also need ACL permission.
 Read-only SQL clients still need control-hash write permission for reader pins.
 

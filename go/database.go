@@ -266,9 +266,6 @@ func (d *databaseImpl) dial(ctx context.Context) (client goredis.UniversalClient
 }
 
 func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, error) {
-	if d.snapshots && !d.readerOnly && d.rekey {
-		return nil, snapshotUnsupported()
-	}
 	if d.readerOnly && d.retainedNamespace == "" {
 		return nil, errorf(adbc.StatusInvalidArgument, "reader-only partitions require an explicit result namespace")
 	}

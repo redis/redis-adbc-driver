@@ -93,7 +93,7 @@ func newRetainedExecutor(ctx context.Context, base *executor, cfg *clientConfig,
 	client := newRetainedSourceClient(cfg, cluster, t, transport, ctx)
 	st := &store{client: client, foreignIndexes: base.store.foreignIndexes, snapshots: base.store.snapshots}
 	if st.snapshots {
-		client.AddHook(snapshotHook{})
+		addSnapshotHooks(client)
 	}
 	base.store.temp.mu.Lock()
 	st.temp.id = base.store.temp.id

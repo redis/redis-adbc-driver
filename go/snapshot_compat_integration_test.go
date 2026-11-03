@@ -351,14 +351,14 @@ func TestSnapshotImportStartsBesideExternalData(t *testing.T) {
 
 func TestSnapshotCompatibilityRejectsPriorFormat(t *testing.T) {
 	h, raw, db := newSnapshotHarness(t)
-	if err := raw.HSet(h.ctx, snapshotCatalogKey, "format", "4").Err(); err != nil {
+	if err := raw.HSet(h.ctx, snapshotCatalogKey, "format", "5").Err(); err != nil {
 		t.Fatal(err)
 	}
 	if c, err := db.Open(h.ctx); err == nil {
 		_ = c.Close(h.ctx)
 		t.Fatal("prior format was opened")
 	}
-	if format := raw.HGet(h.ctx, snapshotCatalogKey, "format").Val(); format != "4" {
+	if format := raw.HGet(h.ctx, snapshotCatalogKey, "format").Val(); format != "5" {
 		t.Fatal("rejected open modified prior catalog", format)
 	}
 }

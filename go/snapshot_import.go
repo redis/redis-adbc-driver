@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/apache/arrow-adbc/go/adbc"
-	goredis "github.com/redis/go-redis/v9"
 )
 
 type snapshotImportKey struct{}
@@ -30,7 +29,10 @@ func snapshotImporting(ctx context.Context) bool {
 
 func (s *store) checkSnapshotImportNamespace(ctx context.Context) error {
 	for _, prefix := range []string{metaPrefix, "adbc:schemas", "adbc:meta:", "adbc:seq:", "adbc:tables:"} {
-		scan := &keyScan{nodes: []goredis.Cmdable{s.client}, match: globEscape(prefix) + "*"}
+		scan, err := (&hashConn{client: s.client}).scanKeys(ctx, prefix, "")
+		if err != nil {
+			return err
+		}
 		for {
 			keys, done, err := scan.next(ctx)
 			if err != nil {

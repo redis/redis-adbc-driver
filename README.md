@@ -34,7 +34,7 @@ for supported deployments and configuration.
 
 Managed tables now use [always-on statement snapshots](docs/snapshots.md).
 Each statement reads one committed generation, including streamed results;
-supported writes publish atomically. Protocol version 5 rejects legacy catalogs
+supported writes publish atomically. Storage protocol version 6 rejects legacy catalogs
 and earlier draft formats without modification; there is no upgrade path. ALTER
 and connection-owned temporary objects are supported. HASH adoption and foreign
 indexes use private managed copies with explicit refreshes, preserving application
@@ -195,7 +195,7 @@ unsupported deployment; yellow identifies limits in an applicable driver path.
 | Password / ACL-user authentication | 🟢 Supported | URI credentials or username/password options authenticate Redis connections. [ACL requirements](docs/driver-reference.md#acl-users). |
 | Role-based access control (RBAC) | 🟢 Supported | Uses administrator-provisioned Redis users and command/key permissions, including restricted partition workers. SQL schemas are not security boundaries; Search DDL requires the documented permissions. Role provisioning is a server administration task. [Permissions](docs/driver-reference.md#search-commands-and-key-patterns). |
 | Replication | ⚪ N/A | Redis Software manages primary/replica synchronization and replica configuration. The driver connects to the database endpoint; replica read routing is assessed separately below. [Server replication](https://redis.io/docs/latest/operate/rs/databases/durability-ha/). |
-| Automatic failover (client recovery) | 🟢 Supported | Uses go-redis connection recovery and Cluster routing for supported Redis Software proxy / Cluster API connections. Applications must handle interrupted operations, as with standard Redis clients. Dedicated live-failover validation is not recorded. [Retry and timeout limits](docs/driver-reference.md#timeouts), [official client guidance](https://redis.io/docs/latest/develop/clients/go/error-handling/). |
+| Automatic failover (client recovery) | 🟢 Supported | Uses go-redis connection recovery and Cluster routing for supported Redis Software proxy / Cluster API connections. Applications must handle interrupted operations, as with standard Redis clients. An [owned three-node Software run](docs/sdlc/changes/snapshot-cluster/validation.md) verifies planned primary promotion and AOF restart recovery; this does not promise transparent recovery of interrupted operations. [Retry and timeout limits](docs/driver-reference.md#timeouts), [official client guidance](https://redis.io/docs/latest/develop/clients/go/error-handling/). |
 | Read scaling through replicas | 🔴 Unsupported | `read_only=true`, `route_by_latency=true` and `route_randomly=true` are rejected because replicas can lag the driver's writes. |
 | Persistence configuration (AOF / snapshots) | ⚪ N/A | Persistence policy is configured in Redis Software, outside the ADBC interface. Stored driver data follows that server policy; [retained partition control state](docs/retained-partition-storage.md) has additional durability requirements. [Server settings](https://redis.io/docs/latest/operate/rs/databases/configure/database-persistence/). |
 | Backup, restore and disaster recovery | ⚪ N/A | These are server/operator responsibilities. Restore must keep table metadata, HASHes and Search definitions consistent. [Server administration](https://redis.io/docs/latest/operate/rs/databases/configure/). |

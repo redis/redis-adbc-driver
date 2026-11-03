@@ -55,10 +55,11 @@ func snapshotOf(ctx context.Context) *snapshotScope {
 	return s
 }
 
-func snapshotWorkspace(id string) string   { return snapshotPrefix + "workspace:" + id + ":" }
-func snapshotRows(id string) string        { return snapshotPrefix + "rows:" + id + ":" }
-func snapshotIndexPrefix(id string) string { return "adbc_snapshot_{meta}_" + id + "_" }
-func snapshotID() string                   { return strings.ReplaceAll(uuid.NewString(), "-", "") }
+func snapshotWorkspace(id string) string    { return snapshotPrefix + "workspace:" + id + ":" }
+func snapshotMetadataKeys(id string) string { return snapshotWorkspace(id) + "__keys" }
+func snapshotRows(id string) string         { return snapshotPrefix + "rows:" + id + ":" }
+func snapshotIndexPrefix(id string) string  { return "adbc_snapshot_{meta}_" + id + "_" }
+func snapshotID() string                    { return strings.ReplaceAll(uuid.NewString(), "-", "") }
 
 // The bounded catalog contains at most 16 generations and 128 live pins. Redis
 // TIME governs leases. Root acquisition and pin creation, publication/outcome,
@@ -78,12 +79,12 @@ end
 if op == 'init' then
   if redis.call('EXISTS', k) == 0 then
     if ARGV[6] ~= 'import' and redis.call('DBSIZE') ~= 0 then return redis.error_reply('managed-table snapshots require a fresh empty database; existing storage is not upgraded or modified') end
-    redis.call('HSET', k, 'format', '5', 'root', id, 'w:'..id, cjson.encode({state='committed'}), 'r:'..id, '[]')
+    redis.call('HSET', k, 'format', '6', 'root', id, 'w:'..id, cjson.encode({state='committed',metadata_keys=0}), 'r:'..id, '[]')
   end
-  if redis.call('HGET', k, 'format') ~= '5' then return redis.error_reply('unsupported snapshot catalog format') end
+  if redis.call('HGET', k, 'format') ~= '6' then return redis.error_reply('unsupported snapshot catalog format') end
   return 1
 end
-if redis.call('HGET', k, 'format') ~= '5' then return redis.error_reply('missing or unsupported snapshot catalog') end
+if redis.call('HGET', k, 'format') ~= '6' then return redis.error_reply('missing or unsupported snapshot catalog') end
 local entries = redis.call('HGETALL', k)
 local pins, works, protected = 0, 0, {}
 for n=1,#entries,2 do
@@ -220,7 +221,7 @@ elseif op == 'publish' or op == 'publish_compaction' or op == 'publish_temp' the
   if w.state == 'committed' then return 1 end
   if w.state ~= 'staging' or w.token ~= token or w.expires <= now or not owns_pin() then return -1 end
   if redis.call('HGET', k, 'root') ~= base then return 0 end
-  if op == 'publish_temp' and redis.call('EXISTS',KEYS[2]) ~= 0 then return -4 end
+  if op == 'publish_temp' and redis.call('EXISTS',KEYS[3]) ~= 0 then return -4 end
   if op == 'publish_compaction' then
     for n=1,#entries,2 do
       if string.sub(entries[n],1,2) == 'p:' then
@@ -238,7 +239,7 @@ elseif op == 'publish' or op == 'publish_compaction' or op == 'publish_temp' the
     local d = redis.call('HGET', k, 'd:'..data)
     if not d or cjson.decode(d).state ~= 'live' then return redis.error_reply('snapshot data generation unavailable') end
   end
-  redis.call('HSET', k, 'root', id, 'w:'..id, cjson.encode({state='committed'}), 'r:'..id, ARGV[6])
+  redis.call('HSET', k, 'root', id, 'w:'..id, cjson.encode({state='committed',metadata_keys=redis.call('ZCARD',KEYS[2])}), 'r:'..id, ARGV[6])
   local pr = redis.call('HGET', k, 'p:'..token)
   if pr then
     local pin = cjson.decode(pr)
@@ -317,6 +318,9 @@ func (s *store) snapshotControl(ctx context.Context, op, token, id, base string,
 		arg = extra[0]
 	}
 	keys := []any{snapshotCatalogKey}
+	if op == "publish" || op == "publish_compaction" || op == "publish_temp" {
+		keys = append(keys, snapshotMetadataKeys(id))
+	}
 	if op == "publish_temp" && len(extra) > 1 {
 		keys = append(keys, tempAliveKey(extra[1]))
 	}
@@ -436,29 +440,49 @@ func (p *snapshotPin) release() {
 
 // snapshotHook scopes only command key positions, never SQL literals, HASH
 // values, set members or script bodies. Retried commands are already scoped.
-type snapshotHook struct{}
+type snapshotHook struct{ cluster *goredis.ClusterClient }
 
 func (snapshotHook) DialHook(next goredis.DialHook) goredis.DialHook {
 	return next
 }
-func (snapshotHook) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
-	return func(ctx context.Context, cmd goredis.Cmder) error {
+func (h snapshotHook) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
+	return func(ctx context.Context, cmd goredis.Cmder) (err error) {
+		defer func() {
+			if err != nil && h.cluster != nil {
+				h.cluster.ReloadState(ctx)
+			}
+		}()
 		if err := scopeSnapshotCommand(ctx, cmd); err != nil {
 			cmd.SetErr(err)
 			return err
 		}
+		if snapshotSearchMutation(ctx, cmd) {
+			return processSnapshotSearch(ctx, cmd, next)
+		}
 		return next(ctx, fenceSnapshotCommand(ctx, cmd))
 	}
 }
-func (snapshotHook) ProcessPipelineHook(next goredis.ProcessPipelineHook) goredis.ProcessPipelineHook {
-	return func(ctx context.Context, cmds []goredis.Cmder) error {
-		for i, cmd := range cmds {
+func (h snapshotHook) ProcessPipelineHook(next goredis.ProcessPipelineHook) goredis.ProcessPipelineHook {
+	return func(ctx context.Context, cmds []goredis.Cmder) (err error) {
+		defer func() {
+			if err != nil && h.cluster != nil {
+				h.cluster.ReloadState(ctx)
+			}
+		}()
+		hasSearch := false
+		for _, cmd := range cmds {
 			if err := scopeSnapshotCommand(ctx, cmd); err != nil {
 				for _, c := range cmds {
 					c.SetErr(err)
 				}
 				return err
 			}
+			hasSearch = hasSearch || snapshotSearchMutation(ctx, cmd)
+		}
+		if hasSearch {
+			return processSnapshotSearchPipeline(ctx, cmds, next)
+		}
+		for i, cmd := range cmds {
 			cmds[i] = fenceSnapshotCommand(ctx, cmd)
 		}
 		return next(ctx, cmds)
@@ -479,7 +503,7 @@ func (c snapshotFencedCommand) Name() string     { return "eval" }
 func (c snapshotFencedCommand) FullName() string { return "eval" }
 func (c snapshotFencedCommand) NoRetry() bool    { return true }
 
-const snapshotMutation = `
+const snapshotMutationAdmission = `
 local raw = redis.call('HGET', KEYS[1], 'w:'..ARGV[1])
 if not raw then return redis.error_reply('snapshot write generation was reclaimed') end
 local w = cjson.decode(raw)
@@ -506,7 +530,17 @@ if w.state == 'compacting' then
     return redis.error_reply('compaction output is sealed for this operation')
   end
 end
+`
+
+const snapshotMutation = snapshotMutationAdmission + `
 local result = redis.call(unpack(ARGV,5))
+local directory = KEYS[#KEYS]
+if string.sub(directory,1,string.len('` + snapshotPrefix + `workspace:')) == '` + snapshotPrefix + `workspace:' then
+  for i=2,#KEYS-1 do
+    if redis.call('EXISTS',KEYS[i]) == 1 then redis.call('ZADD',directory,0,KEYS[i])
+    else redis.call('ZREM',directory,KEYS[i]) end
+  end
+end
 if ARGV[4] ~= '' then redis.call('ZADD', KEYS[#KEYS], 0, ARGV[4]) end
 -- Lua numbers cannot represent all int64 replies. Re-read integer counters
 -- as bulk strings inside this same fence; IntCmd parses them without rounding.
@@ -538,6 +572,12 @@ func fenceSnapshotCommand(ctx context.Context, cmd goredis.Cmder) goredis.Cmder 
 				keys = append(keys, snapshotMembers(snapshotDataID(fmt.Sprint(original[1]))))
 			}
 		}
+		for _, key := range keys[1:] {
+			if strings.HasPrefix(fmt.Sprint(key), snapshotWorkspace(scope.id)) {
+				keys = append(keys, snapshotMetadataKeys(scope.id))
+				break
+			}
+		}
 		args := []any{"EVAL", snapshotMutation, len(keys)}
 		args = append(args, keys...)
 		data := []string{}
@@ -548,6 +588,10 @@ func fenceSnapshotCommand(ctx context.Context, cmd goredis.Cmder) goredis.Cmder 
 		}
 		args = append(args, scope.id, scope.pin.token, strings.Join(data, ","), member)
 		args = append(args, cmd.Args()...)
+		// Cmder's private stringArg belongs to the original typed command;
+		// Args serializes EVAL. Route by the original key, not envelope slot 3.
+		// All original keys and the control key share the catalog hash tag.
+		cmd.SetFirstKeyPos(1)
 		return snapshotFencedCommand{Cmder: cmd, args: args}
 	}
 	return cmd
@@ -726,21 +770,18 @@ func (s *store) publishSnapshot(ctx context.Context, pin *snapshotPin, id string
 }
 
 func (s *store) copySnapshot(baseCtx, targetCtx context.Context, base, id string) error {
-	// Copy only metadata. Table descriptors keep pointing to immutable shared
-	// data until a DML target is detached; counters and view definitions survive.
-	ks := &keyScan{nodes: []goredis.Cmdable{s.client}, match: globEscape(snapshotWorkspace(base)) + "*"}
-	seen := map[string]bool{}
-	for {
-		keys, done, err := ks.next(baseCtx)
-		if err != nil {
-			return err
-		}
+	if err := s.validateSnapshotMetadata(baseCtx, base); err != nil {
+		return err
+	}
+	err := s.walkSnapshotDirectory(baseCtx, snapshotMetadataKeys(base), func(keys []string) error {
 		for _, key := range keys {
-			if seen[key] {
-				continue
+			if !strings.HasPrefix(key, snapshotWorkspace(base)) || key == snapshotMetadataKeys(base) {
+				return errorf(adbc.StatusIO, "invalid snapshot metadata directory member")
 			}
-			seen[key] = true
 			raw, err := s.client.Dump(baseCtx, key).Result()
+			if err == goredis.Nil {
+				return errorf(adbc.StatusIO, "snapshot metadata key is missing")
+			}
 			if err != nil {
 				return wrapRedis(err, "failed to copy snapshot metadata")
 			}
@@ -749,9 +790,10 @@ func (s *store) copySnapshot(baseCtx, targetCtx context.Context, base, id string
 				return wrapRedis(err, "failed to stage snapshot metadata")
 			}
 		}
-		if done {
-			break
-		}
+		return nil
+	})
+	if err != nil {
+		return err
 	}
 	return snapshotOf(baseCtx).pin.valid(baseCtx)
 }
@@ -946,6 +988,9 @@ func (s *store) validateSnapshot(ctx context.Context) error {
 }
 
 func (s *store) validateSnapshotRead(ctx context.Context) error {
+	if err := s.validateSnapshotMetadata(ctx, snapshotOf(ctx).id); err != nil {
+		return err
+	}
 	schemas, err := s.snapshotSchemas(ctx)
 	if err != nil {
 		return err
@@ -1033,21 +1078,38 @@ func (s *store) reapSnapshotBudget(parent context.Context, budget time.Duration)
 }
 
 func (s *store) deleteSnapshotKeys(ctx context.Context, prefix string) bool {
-	ks := &keyScan{nodes: []goredis.Cmdable{s.client}, match: globEscape(prefix) + "*"}
-	for {
-		keys, done, err := ks.next(ctx)
-		if err != nil {
-			return false
-		}
-		if len(keys) > 0 {
-			if err := s.client.Del(ctx, keys...).Err(); err != nil {
-				return false
+	directory := ""
+	metadata := strings.HasPrefix(prefix, snapshotPrefix+"workspace:")
+	if metadata {
+		directory = prefix + "__keys"
+	} else {
+		directory = snapshotMembers(snapshotDataID(prefix))
+	}
+	err := s.walkSnapshotDirectory(ctx, directory, func(members []string) error {
+		keys := make([]string, 0, len(members))
+		for _, member := range members {
+			if metadata {
+				if !strings.HasPrefix(member, prefix) || member == directory {
+					return errorf(adbc.StatusIO, "invalid snapshot metadata directory member")
+				}
+				keys = append(keys, member)
+			} else {
+				n, err := strconv.ParseInt(member, 10, 64)
+				if err != nil || n < 0 || len(member) != 20 {
+					return errorf(adbc.StatusIO, "invalid snapshot row directory member")
+				}
+				keys = append(keys, prefix+strconv.FormatInt(n, 10))
 			}
 		}
-		if done {
-			return true
+		if len(keys) == 0 {
+			return nil
 		}
+		return s.client.Del(ctx, keys...).Err()
+	})
+	if err != nil {
+		return false
 	}
+	return !metadata || s.client.Del(ctx, directory).Err() == nil
 }
 
 func (e *executor) executeSnapshot(ctx context.Context, ps ParsedStmt, params []Value, types []ColType, so *streamOpts) (execResult, error) {
@@ -1184,9 +1246,6 @@ func (s *store) openSnapshotCatalog(ctx context.Context, enabled bool, importing
 		}
 		return nil
 	}
-	if _, ok := s.client.(*goredis.ClusterClient); ok {
-		return errorf(adbc.StatusNotImplemented, "snapshot catalogs currently require a single endpoint")
-	}
 	if n == 0 && !allowExternal {
 		indexes, err := s.searchDo(ctx, "", "FT._LIST").Slice()
 		if err != nil {
@@ -1196,15 +1255,8 @@ func (s *store) openSnapshotCatalog(ctx context.Context, enabled bool, importing
 			return errorf(adbc.StatusInvalidState, "snapshot initialization requires a database without existing search indexes")
 		}
 	}
-	info, err := s.client.Info(ctx, "all").Result()
-	if err != nil {
-		return wrapRedis(err, "snapshot catalogs require noeviction verification")
-	}
-	if !strings.Contains(info, "maxmemory_policy:noeviction") {
-		return errorf(adbc.StatusInvalidState, "snapshot catalogs require maxmemory-policy noeviction")
-	}
-	if strings.Contains(strings.ToLower(info), "crdt_") || !strings.Contains(info, "role:master") || !strings.Contains(info, "cluster_enabled:0") {
-		return errorf(adbc.StatusNotImplemented, "snapshot catalogs require a primary single endpoint without Active-Active replication")
+	if err := s.checkSnapshotDeployment(ctx, n == 0 && !allowExternal); err != nil {
+		return err
 	}
 	mode := ""
 	if n == 0 && allowExternal {
@@ -1217,6 +1269,5 @@ func (s *store) openSnapshotCatalog(ctx context.Context, enabled bool, importing
 		return wrapRedis(err, "failed to initialize snapshot catalog")
 	}
 	s.snapshots = true
-	s.client.AddHook(snapshotHook{})
-	return nil
+	return addSnapshotHooks(s.client)(ctx)
 }

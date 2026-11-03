@@ -45,8 +45,9 @@ func (s *store) startSnapshotCompactor(cfg *clientConfig, t timeouts, hooks ...g
 	ctx, cancel := context.WithCancel(context.Background())
 	// Maintenance has its own pool and bounded contexts; statement cancellation
 	// or timeout replacement must never close or race this client's sockets.
-	worker := &store{client: newClient(cfg, false, t), snapshots: true}
-	worker.client.AddHook(snapshotHook{})
+	_, cluster := s.client.(*goredis.ClusterClient)
+	worker := &store{client: newClient(cfg, cluster, t), snapshots: true}
+	addSnapshotHooks(worker.client)
 	for _, hook := range hooks {
 		worker.client.AddHook(hook)
 	}
@@ -97,6 +98,7 @@ func (c *snapshotCompactor) run(ctx context.Context) {
 	}()
 	delay := time.Second
 	active := false
+	lastOrphanCheck := time.Time{}
 	for {
 		if !active {
 			select {
@@ -114,6 +116,12 @@ func (c *snapshotCompactor) run(ctx context.Context) {
 		}
 		if ctx.Err() != nil {
 			return
+		}
+		if time.Since(lastOrphanCheck) > 5*time.Second {
+			cleanup, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
+			_ = c.store.reapSnapshotOrphanIndex(cleanup)
+			cancel()
+			lastOrphanCheck = time.Now()
 		}
 		step, cancel := context.WithTimeout(ctx, snapshotCompactionStepTimeout)
 		progress, err := c.store.snapshotCompactionStep(step, c.token)
@@ -141,6 +149,10 @@ func (s *store) acquireCompactionCatalog(ctx context.Context) (context.Context, 
 	}
 	p.root = root
 	go p.heartbeat()
+	if err := s.validateSnapshotMetadata(ctx, root); err != nil {
+		p.release()
+		return ctx, nil, err
+	}
 	return context.WithValue(ctx, snapshotContextKey{}, &snapshotScope{id: root, pin: p}), p, nil
 }
 func validateSnapshotCompactionJob(j *snapshotCompactionJob) error {

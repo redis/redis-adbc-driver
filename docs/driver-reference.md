@@ -12,7 +12,7 @@ page defines the current guarantee, limits and supported deployments and takes
 precedence over the historical layout and feature descriptions below. New
 catalogs normally require an empty isolated database; explicit imports may
 initialize alongside application data after rejecting legacy driver metadata.
-Protocol version 5 rejects legacy catalogs and prior draft formats 1–4 without
+Storage protocol version 6 rejects legacy catalogs and prior draft formats 1–5 without
 modification; no upgrade path is provided. ALTER and temporary objects are
 supported. AdoptHashes creates a managed copy; repeating Apply explicitly refreshes
 it. Foreign indexes are exposed as managed copies after enabling foreign_indexes;
@@ -29,8 +29,12 @@ row versions/tombstones. Automatic background compaction starts at four segments
 bound applies retryable backpressure instead of foreground copying. Jobs persist
 bounded-batch checkpoints and preserve newer deltas when published. Segmented
 reads merge visibility in the driver and disable unsafe Search pushdowns. Fixed
-manifest, reader, staging and time limits apply. This first slice needs a primary single
-endpoint, no Active-Active replication and verified noeviction. It is not a
+manifest, reader, staging and time limits apply. Primary proxy and Cluster API
+connections are supported with RESP3 and TLS.
+Active-Active remains unsupported and verified noeviction is required. Rename/rekey
+allocates a new private identity without moving pinned rows. Metadata copies use
+immutable key directories instead of SCAN cursors. See the
+[recovery evidence](sdlc/changes/snapshot-cluster/validation.md). It is not a
 multi-statement transaction implementation.
 
 ## Contents

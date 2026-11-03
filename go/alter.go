@@ -157,6 +157,9 @@ func (e *executor) renameTable(ctx context.Context, meta *tableMeta, to TableNam
 		return stateErrorf(stateDuplicateTable, "%q.%q already exists as a view", displaySchema(meta.Schema), newName)
 	}
 	if e.rekey {
+		if e.store.snapshots {
+			return e.rekeySnapshotTable(ctx, meta, to)
+		}
 		if err := refuseAdopted(meta, "RENAME TO with "+OptionStringRenameRekey+" (which moves the rows to new keys)"); err != nil {
 			return err
 		}

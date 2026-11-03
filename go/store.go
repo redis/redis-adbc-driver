@@ -1600,7 +1600,7 @@ func (s *store) renamedTo(ctx context.Context, meta *tableMeta) (string, error) 
 func isUnknownIndex(err error) bool {
 	msg := strings.ToLower(err.Error())
 	return strings.Contains(msg, "unknown index") || strings.Contains(msg, "no such index") ||
-		strings.Contains(msg, "not found")
+		strings.Contains(msg, "not found") || strings.Contains(msg, "search_index_not_found")
 }
 
 func (s *store) listSchemas(ctx context.Context) ([]string, error) {

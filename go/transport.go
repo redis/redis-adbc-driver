@@ -136,7 +136,7 @@ func (c *connectionImpl) executionContextWithTimeouts(ctx context.Context, timeo
 	_, isCluster := c.store.client.(*goredis.ClusterClient)
 	t.client = newClient(cfg, isCluster, timeouts)
 	if c.store.snapshots {
-		t.client.AddHook(snapshotHook{})
+		addSnapshotHooks(t.client)
 	}
 	t.client.AddHook(t)
 	if cc, ok := t.client.(*goredis.ClusterClient); ok {

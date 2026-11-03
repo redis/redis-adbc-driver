@@ -108,9 +108,6 @@ func (c *connectionImpl) SetOption(ctx context.Context, key, value string) error
 		}
 		return snapshotUnsupported()
 	}
-	if c.store != nil && c.store.snapshots && (key == OptionStringRenameRekey && value != "false") {
-		return snapshotUnsupported()
-	}
 	switch key {
 	case OptionStringForeignIndexesRefresh:
 		if value != "true" {
@@ -198,7 +195,7 @@ func (c *connectionImpl) setTimeouts(ctx context.Context, t timeouts) error {
 	_, cluster := c.store.client.(*goredis.ClusterClient)
 	client := newClient(c.clientCfg, cluster, t)
 	if c.store.snapshots {
-		client.AddHook(snapshotHook{})
+		addSnapshotHooks(client)
 	}
 	if err := client.Ping(ctx).Err(); err != nil {
 		_ = client.Close()
