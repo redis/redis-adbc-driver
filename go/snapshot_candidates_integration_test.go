@@ -34,7 +34,7 @@ func (h *snapshotCandidateReads) record(c goredis.Cmder) {
 	if name == "ft.search" {
 		h.search.Add(1)
 	}
-	if (name == "hgetall" || name == "hmget") && strings.HasPrefix(key, snapshotPrefix+"rows:") {
+	if (name == "hgetall" || name == "hmget") && snapshotRowPrefix(key) != "" {
 		h.rows.Add(1)
 	}
 }

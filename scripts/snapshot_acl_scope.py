@@ -67,6 +67,7 @@ def main():
         schema = "it_acl_scope_" + suffix
         public = "it_acl_scope_" + suffix
         name = "acl-scope-" + suffix + "@example.com"
+        created_reserved = False
         with adbc_driver_manager.dbapi.connect(
             driver=str(args.driver.resolve()), db_kwargs={"uri": uri}, autocommit=True
         ) as conn, conn.cursor() as cur:
@@ -77,17 +78,36 @@ def main():
                 cur.execute(f"CREATE TABLE public.{public}(v INTEGER)")
                 cur.execute(f"INSERT INTO public.{public} VALUES(271828)")
                 cur.execute(
-                    f"SELECT key_prefix FROM information_schema.tables WHERE table_schema='{schema}' AND table_name='rows'"
+                    f"SELECT key_prefix,index_name FROM information_schema.tables WHERE table_schema='{schema}' AND table_name='rows'"
                 )
-                protected_prefix = cur.fetchone()[0]
+                protected_prefix, protected_index = cur.fetchone()
                 cur.execute(
-                    f"SELECT key_prefix FROM information_schema.tables WHERE table_schema='public' AND table_name='{public}'"
+                    "SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name='adbc'"
                 )
-                public_prefix = cur.fetchone()[0]
+                if cur.fetchone()[0] == 0:
+                    cur.execute("CREATE SCHEMA adbc")
+                    created_reserved = True
+                cur.execute(f"CREATE TABLE adbc.{public}(v INTEGER)")
+                cur.execute(f"INSERT INTO adbc.{public} VALUES(161803)")
+                cur.execute(
+                    f"SELECT key_prefix,index_name FROM information_schema.tables WHERE table_schema='adbc' AND table_name='{public}'"
+                )
+                reserved_prefix, reserved_index = cur.fetchone()
+                cur.execute(
+                    f"SELECT key_prefix,index_name FROM information_schema.tables WHERE table_schema='public' AND table_name='{public}'"
+                )
+                public_prefix, public_index = cur.fetchone()
                 principals.create(
                     name,
                     secrets.token_urlsafe(32),
-                    ["+ping", "+hgetall", "%R~adbc:*", "%R~public:*"],
+                    [
+                        "+ping",
+                        "+hgetall",
+                        "+ft.search",
+                        "+ft.aggregate",
+                        "%R~adbc:*",
+                        "%R~public:*",
+                    ],
                 )
                 with principals.client(name) as limited:
                     if (
@@ -97,10 +117,35 @@ def main():
                         raise RuntimeError("metadata positive control failed")
                     if limited.hgetall(public_prefix + "1").get("v") != "271828":
                         raise RuntimeError("public-row positive control failed")
-                    try:
-                        limited.hgetall(protected_prefix + "1")
-                    except redis.exceptions.NoPermissionError:
-                        isolated = True
+                    search = limited.execute_command(
+                        "FT.SEARCH", public_index, "*", "NOCONTENT", "LIMIT", 0, 1
+                    )
+                    aggregate = limited.execute_command(
+                        "FT.AGGREGATE", public_index, "*", "LOAD", 2, "@__key", "@v"
+                    )
+                    if not isinstance(search, dict) or not isinstance(aggregate, dict):
+                        raise RuntimeError("ACL probe requires RESP3 Search replies")
+                    if (
+                        search.get("total_results") != 1
+                        or aggregate.get("total_results") != 1
+                    ):
+                        raise RuntimeError("public Search positive controls failed")
+                    denied = 0
+                    for prefix, index in (
+                        (protected_prefix, protected_index),
+                        (reserved_prefix, reserved_index),
+                    ):
+                        for command in (
+                            ("HGETALL", prefix + "1"),
+                            ("FT.SEARCH", index, "*", "NOCONTENT", "LIMIT", 0, 1),
+                            ("FT.AGGREGATE", index, "*", "LOAD", 2, "@__key", "@v"),
+                        ):
+                            try:
+                                limited.execute_command(*command)
+                            except redis.exceptions.NoPermissionError:
+                                denied += 1
+                    isolated = denied == 6
+
             finally:
                 try:
                     principals.cleanup()
@@ -108,7 +153,12 @@ def main():
                     try:
                         cur.execute(f"DROP TABLE IF EXISTS public.{public}")
                     finally:
-                        cur.execute(f"DROP SCHEMA IF EXISTS {schema} CASCADE")
+                        try:
+                            cur.execute(f"DROP SCHEMA IF EXISTS {schema} CASCADE")
+                        finally:
+                            cur.execute(f"DROP TABLE IF EXISTS adbc.{public}")
+                            if created_reserved:
+                                cur.execute("DROP SCHEMA adbc")
     print(
         json.dumps(
             {
@@ -117,6 +167,8 @@ def main():
                 "noeviction": True,
                 "strict_tls": True,
                 "schema_isolated": isolated,
+                "protected_schemas_checked": 2,
+                "row_read_commands_checked": 3,
                 "owned_resources_removed": True,
             }
         )

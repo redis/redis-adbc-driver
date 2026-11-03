@@ -462,7 +462,7 @@ func (s *store) lastNames(ctx context.Context, c goredis.Cmdable, schema, table 
 // every prefix it handed out instead (see tempSpace).
 func (s *store) claimNames(ctx context.Context, schema, table string) (tableNames, error) {
 	if nm, ok := snapshotNames(ctx, schema, table); ok {
-		if err := s.ownSnapshotData(ctx, snapshotDataID(nm.prefix)); err != nil {
+		if err := s.ownSnapshotData(ctx, snapshotDataID(nm.prefix), nm.prefix); err != nil {
 			return tableNames{}, err
 		}
 		return nm, nil

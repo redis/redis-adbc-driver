@@ -30,7 +30,7 @@ func snapshotSearchMutation(ctx context.Context, cmd goredis.Cmder) bool {
 func snapshotSearchGate(ctx context.Context, cmd goredis.Cmder) *goredis.Cmd {
 	fenced := fenceSnapshotCommand(ctx, cmd).(snapshotFencedCommand)
 	args := append([]any(nil), fenced.args...)
-	args[1] = snapshotMutationAdmission + "return 1"
+	args[1] = snapshotRowLayoutLua + snapshotMutationAdmission + "return 1"
 	check := goredis.NewCmd(ctx, args...)
 	check.SetFirstKeyPos(3)
 	return check

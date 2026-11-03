@@ -94,7 +94,7 @@ func TestSnapshotExternalCopyCompatibility(t *testing.T) {
 		t.Fatal(err)
 	}
 	h.expectRows("SELECT v FROM redis_foreign.app_index ORDER BY v", "20", "99")
-	h.expectRows("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='redis_foreign' AND table_name='app_index' AND key_prefix LIKE 'adbc:{meta}:snapshot:rows:%'", "1")
+	h.expectRows("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='redis_foreign' AND table_name='app_index' AND key_prefix LIKE 'redis_foreign:{meta}:snapshot:rows:%'", "1")
 	if err := raw.HSet(h.ctx, "app:2", "v", "77").Err(); err != nil {
 		t.Fatal(err)
 	}
@@ -362,7 +362,7 @@ func TestSnapshotImportStartsBesideExternalData(t *testing.T) {
 }
 
 func TestSnapshotCompatibilityRejectsPriorFormat(t *testing.T) {
-	for _, prior := range []string{"6", "7", "8", "9", "10", "11"} {
+	for _, prior := range []string{"6", "7", "8", "9", "10", "11", "12"} {
 		t.Run(prior, func(t *testing.T) {
 			h, raw, db := newSnapshotHarness(t)
 			if err := raw.HSet(h.ctx, snapshotCatalogKey, "format", prior).Err(); err != nil {

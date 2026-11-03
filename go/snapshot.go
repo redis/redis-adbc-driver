@@ -63,7 +63,6 @@ func snapshotOf(ctx context.Context) *snapshotScope {
 
 func snapshotWorkspace(id string) string    { return snapshotPrefix + "workspace:" + id + ":" }
 func snapshotMetadataKeys(id string) string { return snapshotWorkspace(id) + "__keys" }
-func snapshotRows(id string) string         { return snapshotPrefix + "rows:" + id + ":" }
 func snapshotIndexPrefix(id string) string  { return "adbc_snapshot_{meta}_" + id + "_" }
 func snapshotID() string                    { return strings.ReplaceAll(uuid.NewString(), "-", "") }
 
@@ -87,12 +86,12 @@ end
 if op == 'init' then
   if redis.call('EXISTS', k) == 0 then
     if ARGV[6] ~= 'import' and redis.call('DBSIZE') ~= 0 then return redis.error_reply('managed-table snapshots require a fresh empty database; existing storage is not upgraded or modified') end
-    redis.call('HSET', k, 'format', '12', 'root', id, 'w:'..id, cjson.encode({state='committed',metadata_keys=0,metadata_buckets=0}), 'r:'..id, '[]')
+    redis.call('HSET', k, 'format', '13', 'root', id, 'w:'..id, cjson.encode({state='committed',metadata_keys=0,metadata_buckets=0}), 'r:'..id, '[]')
   end
-  if redis.call('HGET', k, 'format') ~= '12' then return redis.error_reply('unsupported snapshot catalog format') end
+  if redis.call('HGET', k, 'format') ~= '13' then return redis.error_reply('unsupported snapshot catalog format') end
   return 1
 end
-if redis.call('HGET', k, 'format') ~= '12' then return redis.error_reply('missing or unsupported snapshot catalog') end
+if redis.call('HGET', k, 'format') ~= '13' then return redis.error_reply('missing or unsupported snapshot catalog') end
 local entries = redis.call('HGETALL', k)
 local pins, works, protected = 0, 0, {}
 for n=1,#entries,2 do
@@ -135,7 +134,8 @@ elseif op == 'compact_start' then
   data_live(graph,job.references)
   local refs = job.references
   table.insert(refs, job.data)
-  redis.call('HSET',graph,'d:'..job.data,cjson.encode({owner=id,state='live'}),'r:'..job.data,0)
+  if not valid_data_prefix(job.prefix,job.data) then return redis.error_reply('invalid compaction output prefix') end
+  redis.call('HSET',graph,'d:'..job.data,cjson.encode({owner=id,state='live',prefix=job.prefix}),'r:'..job.data,0)
   data_retain(graph,refs)
   redis.call('HSET', k, 'compaction', ARGV[6], 'w:'..id,
     cjson.encode({state='compacting',token=job.token,expires=expiry}),
@@ -254,16 +254,18 @@ elseif op == 'own_data' then
   if not raw or not owns_pin() then return redis.error_reply('snapshot writer lease lost') end
   local w = cjson.decode(raw)
   if w.state ~= 'staging' or w.token ~= token or w.expires <= now then return redis.error_reply('snapshot writer lease lost') end
-  local data = ARGV[6]
+  local request=cjson.decode(ARGV[6])
+  local data,prefix=request.id,request.prefix
+  if not valid_data_prefix(prefix,data) then return redis.error_reply('invalid snapshot data prefix') end
   local prior = redis.call('HGET', graph, 'd:'..data)
   if prior then
     local d = cjson.decode(prior)
-    if d.owner == id and d.state == 'live' then return 1 end
+    if d.owner == id and d.state == 'live' and d.prefix==prefix then return 1 end
     return redis.error_reply('snapshot data generation unavailable')
   end
   local refs = cjson.decode(redis.call('HGET', k, 'r:'..id) or '[]')
   table.insert(refs, data)
-  redis.call('HSET',graph,'d:'..data,cjson.encode({owner=id,state='live'}),'r:'..data,1)
+  redis.call('HSET',graph,'d:'..data,cjson.encode({owner=id,state='live',prefix=prefix}),'r:'..data,1)
   redis.call('HSET', k, 'r:'..id,cjson.encode(refs))
   return 1
 elseif op == 'seal' then
@@ -395,9 +397,11 @@ elseif op == 'claim_data' then
     local count=tonumber(redis.call('HGET',graph,'r:'..data) or '-1')
     if not raw or count<0 then return redis.error_reply('snapshot data reference missing') end
     if count==0 then
-      local d=cjson.decode(raw);d.state='deleting'
+      local d=cjson.decode(raw)
+      if not valid_data_prefix(d.prefix,data) then return redis.error_reply('invalid snapshot reclamation prefix') end
+      d.state='deleting'
       redis.call('HSET',graph,'d:'..data,cjson.encode(d))
-      return data
+      return d.prefix
     end
     redis.call('ZREM',dataqueue,data)
   end
@@ -639,13 +643,37 @@ local now = tonumber(t[1])*1000 + math.floor(tonumber(t[2])/1000)
 if (w.state ~= 'staging' and w.state ~= 'compacting') or w.token ~= ARGV[2] or w.expires <= now then
   return redis.error_reply('snapshot writer lease lost')
 end
+local data_prefixes={}
 for data in string.gmatch(ARGV[3], '[^,]+') do
+ if not data_prefixes[data] then
   local raw = redis.call('HGET', KEYS[2], 'd:'..data)
   if not raw then return redis.error_reply('snapshot data generation was reclaimed') end
   local d = cjson.decode(raw)
-  if d.owner ~= ARGV[1] or d.state ~= 'live' then return redis.error_reply('shared snapshot data is immutable') end
+  if d.owner ~= ARGV[1] or d.state ~= 'live' or not valid_data_prefix(d.prefix,data) then return redis.error_reply('shared snapshot data is immutable') end
+  data_prefixes[data]=d.prefix
+ end
+end
+for i=4,#KEYS do
+ local prefix,data=snapshot_row_key(KEYS[i])
+ if prefix then
+  if data_prefixes[data]~=prefix then return redis.error_reply('snapshot physical prefix is not owned') end
+ end
 end
 local command = string.lower(ARGV[5])
+if command=='ft.create' then
+ local data=string.match(ARGV[6],'^adbc_snapshot_{meta}_([0-9a-f]+)_')
+ local expected=data and data_prefixes[data]
+ local found=false
+ for i=7,#ARGV do
+  local argument=string.lower(ARGV[i])
+  if argument=='schema' then break end
+  if argument=='prefix' then
+   if not expected or tonumber(ARGV[i+1])~=1 or ARGV[i+2]~=expected then return redis.error_reply('snapshot index physical prefix is not owned') end
+   found=true;break
+  end
+ end
+ if not found then return redis.error_reply('snapshot index requires its owned physical prefix') end
+end
 if w.state == 'compacting' then
   local jr = redis.call('HGET', KEYS[1], 'compaction')
   if not jr then return redis.error_reply('compaction job is no longer active') end
@@ -663,7 +691,7 @@ const snapshotMutation = snapshotDataEdges + snapshotDescriptorRefs + snapshotMu
 
 // Row operations do not invoke descriptor helpers. Avoid sending their Lua
 // definitions for every HASH write in a large staged input.
-const snapshotRowMutation = snapshotMutationAdmission + snapshotMutationExecute
+const snapshotRowMutation = snapshotRowLayoutLua + snapshotMutationAdmission + snapshotMutationExecute
 
 const snapshotMutationExecute = `
 local private='` + snapshotPrefix + `workspace:'..ARGV[1]..':'
@@ -676,7 +704,7 @@ end
 local newrefs,oldrefs
 local tablekey=ARGV[6]
 if (command=='set' or command=='setnx') and string.sub(tablekey,1,#(private..'table:'))==private..'table:' then
- newrefs=descriptor_refs(ARGV[7])
+ newrefs=descriptor_refs(ARGV[7],KEYS[2])
  oldrefs=cjson.decode(redis.call('HGET',KEYS[2],'t:'..tablekey) or '[]')
  data_live(KEYS[2],newrefs);data_releasable(KEYS[2],oldrefs)
 end
@@ -794,6 +822,9 @@ func scopeSnapshotCommand(ctx context.Context, cmd goredis.Cmder) error {
 	scope := snapshotOf(ctx)
 	for _, n := range positions {
 		key, ok := args[n].(string)
+		if ok && strings.HasPrefix(key, snapshotPrefix+"rows:") {
+			return errorf(adbc.StatusInvalidState, "legacy snapshot row layout is unsupported")
+		}
 		if !ok || !strings.HasPrefix(key, metaPrefix) || strings.HasPrefix(key, snapshotPrefix) || snapshotTempControlKey(key) {
 			continue
 		}
@@ -843,7 +874,7 @@ func scopeSnapshotCommand(ctx context.Context, cmd goredis.Cmder) error {
 				return errorf(adbc.StatusInvalidState, "shared snapshot data is immutable")
 			}
 		}
-		if name == "hset" && len(args) > 1 && strings.HasPrefix(fmt.Sprint(args[1]), snapshotPrefix+"rows:") {
+		if name == "hset" && len(args) > 1 && snapshotRowPrefix(fmt.Sprint(args[1])) != "" {
 			scope.writes++
 			if state := scope.deferredIndexes[snapshotDataID(fmt.Sprint(args[1]))]; state != nil {
 				for i := 2; i+1 < len(args); i += 2 {
@@ -869,7 +900,7 @@ func snapshotNames(ctx context.Context, schema, table string) (tableNames, bool)
 		return tableNames{}, false
 	}
 	id := snapshotID()
-	return tableNames{base: rowPrefix(schema, table), prefix: snapshotRows(id), index: snapshotIndexPrefix(id) + "working", n: 1}, true
+	return tableNames{base: rowPrefix(schema, table), prefix: snapshotRows(id, schema), index: snapshotIndexPrefix(id) + "working", n: 1}, true
 }
 
 func (s *store) beginSnapshotWrite(ctx context.Context, pin *snapshotPin) (context.Context, string, error) {
@@ -970,7 +1001,10 @@ func (s *store) prepareSnapshotTable(ctx context.Context, schema, table string) 
 }
 
 func snapshotDataID(key string) string {
-	for _, prefix := range []string{snapshotPrefix + "rows:", snapshotPrefix + "members:", "adbc_snapshot_{meta}_"} {
+	if prefix := snapshotRowPrefix(key); prefix != "" {
+		return prefix[len(prefix)-33 : len(prefix)-1]
+	}
+	for _, prefix := range []string{snapshotPrefix + "members:", "adbc_snapshot_{meta}_"} {
 		if rest, ok := strings.CutPrefix(key, prefix); ok {
 			if (len(rest) == 32 && prefix == snapshotPrefix+"members:") || (len(rest) >= 33 && (rest[32] == ':' || rest[32] == '_')) {
 				id := rest[:32]
@@ -986,12 +1020,16 @@ func snapshotDataID(key string) string {
 	return ""
 }
 
-func (s *store) ownSnapshotData(ctx context.Context, data string) error {
+func (s *store) ownSnapshotData(ctx context.Context, data, prefix string) error {
 	scope := snapshotOf(ctx)
 	if scope == nil || !scope.write || data == "" {
 		return snapshotUnsupported()
 	}
-	if err := s.snapshotControl(ctx, "own_data", scope.pin.token, scope.id, scope.pin.root, data).Err(); err != nil {
+	request, err := json.Marshal(map[string]string{"id": data, "prefix": prefix})
+	if err != nil {
+		return err
+	}
+	if err := s.snapshotControl(ctx, "own_data", scope.pin.token, scope.id, scope.pin.root, string(request)).Err(); err != nil {
 		return wrapRedis(err, "failed to reserve table generation")
 	}
 	scope.mu.Lock()
@@ -1143,7 +1181,7 @@ func validateSnapshotDescriptor(ctx context.Context, meta *tableMeta) error {
 	}
 	for _, seg := range meta.snapshotSegments() {
 		id := snapshotDataID(seg.Prefix)
-		if id == "" || snapshotDataID(seg.Index) != id || seg.Rows < 0 {
+		if id == "" || seg.Prefix != snapshotRows(id, meta.Schema) || snapshotDataID(seg.Index) != id || seg.Rows < 0 {
 			return errorf(adbc.StatusIO, "invalid snapshot segment descriptor")
 		}
 	}
@@ -1211,8 +1249,9 @@ func (s *store) reapSnapshotBudget(parent context.Context, budget time.Duration)
 	if err := s.collectSnapshotMetadata(ctx); err != nil {
 		return
 	}
-	data, err := s.snapshotControl(ctx, "claim_data", "", "", "").Text()
-	if err != nil || data == "" {
+	prefix, err := s.snapshotControl(ctx, "claim_data", "", "", "").Text()
+	data := snapshotDataID(prefix)
+	if err != nil || data == "" || prefix != snapshotRowPrefix(prefix) {
 		return
 	}
 	indexes, err := s.searchDo(ctx, "", "FT._LIST").Slice()
@@ -1227,7 +1266,7 @@ func (s *store) reapSnapshotBudget(parent context.Context, budget time.Duration)
 			}
 		}
 	}
-	if !s.deleteSnapshotKeys(ctx, snapshotRows(data)) {
+	if !s.deleteSnapshotKeys(ctx, prefix) {
 		return
 	}
 	if err := s.client.Del(ctx, snapshotMembers(data)).Err(); err != nil {
@@ -1238,7 +1277,7 @@ func (s *store) reapSnapshotBudget(parent context.Context, budget time.Duration)
 
 func (s *store) deleteSnapshotKeys(ctx context.Context, prefix string) bool {
 	id := snapshotDataID(prefix)
-	if id == "" || prefix != snapshotRows(id) {
+	if id == "" || prefix != snapshotRowPrefix(prefix) {
 		return false
 	} // Metadata requires reference-counted retirement.
 	err := s.walkSnapshotDirectory(ctx, snapshotMembers(id), func(members []string) error {

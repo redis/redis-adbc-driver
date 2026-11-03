@@ -30,7 +30,7 @@ func (h *snapshotDeltaWrites) check(cmd goredis.Cmder) {
 		return
 	}
 	name, key := strings.ToLower(fmt.Sprint(a[0])), fmt.Sprint(a[1])
-	if name == "hset" && strings.HasPrefix(key, snapshotPrefix+"rows:") {
+	if name == "hset" && snapshotRowPrefix(key) != "" {
 		h.rows++
 		h.prefixes[snapshotDataID(key)] = true
 	}
@@ -299,8 +299,8 @@ func (h *snapshotFailCompaction) ProcessPipelineHook(next goredis.ProcessPipelin
 				cmd = wrapped.Cmder
 			}
 			a := cmd.Args()
-			if len(a) > 1 && strings.EqualFold(fmt.Sprint(a[0]), "HSET") && strings.HasPrefix(fmt.Sprint(a[1]), snapshotPrefix+"rows:") {
-				h.prefix = snapshotRows(snapshotDataID(fmt.Sprint(a[1])))
+			if len(a) > 1 && strings.EqualFold(fmt.Sprint(a[0]), "HSET") && snapshotRowPrefix(fmt.Sprint(a[1])) != "" {
+				h.prefix = snapshotRowPrefix(fmt.Sprint(a[1]))
 				for _, c := range cmds {
 					c.SetErr(io.ErrUnexpectedEOF)
 				}

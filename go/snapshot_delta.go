@@ -40,7 +40,7 @@ func snapshotDirectoryMember(key string) string {
 	if id == "" {
 		return ""
 	}
-	suffix, ok := strings.CutPrefix(key, snapshotRows(id))
+	suffix, ok := strings.CutPrefix(key, snapshotRowPrefix(key))
 	if !ok {
 		return ""
 	}

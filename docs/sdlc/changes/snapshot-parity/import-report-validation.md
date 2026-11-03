@@ -1,7 +1,9 @@
 # Managed HASH import reports and remaining ACL/source-key gaps
 
 Date: 2026-11-03. Parent source `8eb3cf6`. Import-report checkpoint;
-[full parity](plan.md) remains incomplete. Storage protocol remains 12.
+[full parity](plan.md) remains incomplete. This historical checkpoint covers
+protocol 12. The [protocol-13 repair](schema-namespace-validation.md) supersedes
+its schema-isolation failure; the original measurements below are retained.
 
 ## Report fix and checks
 

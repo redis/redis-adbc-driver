@@ -5,8 +5,8 @@ managed tables and imported copies of application data. No option is required.
 Ordinary Open initializes an empty isolated database. Explicit HASH import and
 foreign-index import may initialize alongside application-owned data and indexes,
 but reject existing legacy driver metadata without modification. No upgrade or
-migration path is included. Storage protocol version 12 rejects prior draft versions
-1–11. It requires an indexed tombstone marker for visibility-safe server reduction.
+migration path is included. Storage protocol version 13 rejects prior draft versions
+1–12. It requires an indexed tombstone marker for visibility-safe server reduction.
 Metadata manifests share immutable buckets and native values through a fixed
 256-slot map. Buckets have exact ordered field directories; point metadata reads
 fetch individual fields with count/reference proofs. Writes copy touched buckets/values; reference-counted retirement
@@ -111,10 +111,11 @@ retain their existing compatibility behavior, including no-op ROLLBACK.
 - No live migration or downgrade is included. See the
   [Cluster API and recovery evidence](sdlc/changes/snapshot-cluster/validation.md)
   for the tested Software topology and recovery boundaries.
-- ACL parity remains incomplete. The legacy `%R~adbc:*` metadata grant also
-  covers snapshot row HASHes across schemas; it does not isolate a `public:*`
-  reader. A Software API principal probe confirms direct cross-schema access.
-  See the [ACL evidence and regression gate](sdlc/changes/snapshot-parity/import-report-validation.md).
+- Protocol 13 separates row data from the metadata ACL namespace. Row prefixes
+  are `<escaped-schema>:{meta}:snapshot:rows:<uuid>:`; schema `adbc` uses `%61dbc`
+  so `%R~adbc:*` cannot read its rows. The old protocol-12 cross-schema data
+  exposure is covered by the [schema-isolation checkpoint](sdlc/changes/snapshot-parity/schema-namespace-validation.md).
+  Complete restricted-driver command/pin recipes still require validation.
 
 Distributed Search schema commands run at the top level, bracketed by server-side
 writer admission and validation. Running FT.CREATE inside Lua produces a local
@@ -128,7 +129,11 @@ settled. CREATE/CTAS, ordinary DML, ALTER rewrites and TRUNCATE build no tempora
 working index. UPDATE/DELETE statements that write no row images or tombstones
 return without publishing a new empty segment or building an index.
 
-All snapshot rows, metadata and control records use `{meta}`. This deliberately
+Metadata/control records use `adbc:{meta}:`; row HASHes use their escaped
+schema namespace and retain `{meta}`. The graph records each data generation's
+exact physical prefix. Writer admission and descriptor registration reject
+another prefix with the same UUID; reclamation uses the registered prefix after
+schema removal. All snapshot rows, metadata and control records use `{meta}`. This deliberately
 places data in one hash slot; this version does not distribute a catalog's rows
 across shards. Use a deployment that honors Redis hash tags and reads from the
 primary. Publication inherits Redis's configured persistence/replication

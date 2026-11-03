@@ -29,6 +29,7 @@ type snapshotCompactionJob struct {
 	ID           string     `json:"id"`
 	Token        string     `json:"token"`
 	Data         string     `json:"data"`
+	Prefix       string     `json:"prefix"`
 	Source       *tableMeta `json:"source"`
 	References   []string   `json:"references"`
 	After        string     `json:"after"`
@@ -163,6 +164,9 @@ func validateSnapshotCompactionJob(j *snapshotCompactionJob) error {
 	if j.Source == nil || j.QueueOID != strconv.FormatInt(j.Source.OID, 10) || !valid(j.QueueVersion) || j.QueueKey != strings.TrimPrefix(metaKey(j.Source.Schema, j.Source.Name), metaPrefix) || !valid(j.ID) || !valid(j.Data) || !valid(j.Token) || len(j.Source.Columns) == 0 || j.Source.SnapshotRows == nil {
 		return errorf(adbc.StatusIO, "invalid durable compaction record")
 	}
+	if j.Prefix != snapshotRows(j.Data, j.Source.Schema) {
+		return errorf(adbc.StatusIO, "invalid durable compaction output prefix")
+	}
 	if j.Phase != "copy" && j.Phase != "index" && j.Phase != "install" {
 		return errorf(adbc.StatusIO, "invalid durable compaction phase")
 	}
@@ -172,7 +176,7 @@ func validateSnapshotCompactionJob(j *snapshotCompactionJob) error {
 	}
 	for i, seg := range segments {
 		id := snapshotDataID(seg.Prefix)
-		if id == "" || id != j.References[i] || snapshotDataID(seg.Index) != id || seg.Rows < 0 {
+		if id == "" || seg.Prefix != snapshotRows(id, j.Source.Schema) || id != j.References[i] || snapshotDataID(seg.Index) != id || seg.Rows < 0 {
 			return errorf(adbc.StatusIO, "invalid durable compaction segment")
 		}
 	}
@@ -349,7 +353,7 @@ func (s *store) copySnapshotCompactionBatch(ctx context.Context, j *snapshotComp
 	after := scan.last
 	for i, row := range rows {
 		id := strings.TrimPrefix(keys[i], j.Source.prefix())
-		size := len(snapshotRows(j.Data)+id) + 128
+		size := len(j.Prefix+id) + 128
 		for field, value := range row {
 			size += len(field) + len(value)
 		}
@@ -358,7 +362,7 @@ func (s *store) copySnapshotCompactionBatch(ctx context.Context, j *snapshotComp
 			break
 		}
 		bytes += size
-		p.HSet(wctx, snapshotRows(j.Data)+id, map[string]string(row))
+		p.HSet(wctx, j.Prefix+id, map[string]string(row))
 	}
 	if _, err := p.Exec(wctx); err != nil {
 		return wrapRedis(err, "background compaction batch failed")
@@ -369,7 +373,7 @@ func (s *store) copySnapshotCompactionBatch(ctx context.Context, j *snapshotComp
 }
 func (s *store) indexSnapshotCompaction(ctx context.Context, j *snapshotCompactionJob) (bool, error) {
 	output := *j.Source
-	output.KeyPrefix = snapshotRows(j.Data)
+	output.KeyPrefix = j.Prefix
 	output.IndexName = snapshotIndexPrefix(j.Data) + "compacted"
 	wctx := s.compactionWriteContext(ctx, j)
 	reply, err := s.searchDo(wctx, output.index(), "FT.INFO", output.index()).Result()
@@ -426,7 +430,7 @@ func (s *store) installSnapshotCompaction(ctx context.Context, j *snapshotCompac
 	snapshotOf(wctx).maintenance = true
 	segments := meta.snapshotSegments()
 	tail := segments[len(j.Source.snapshotSegments()):]
-	compacted := snapshotSegment{Prefix: snapshotRows(j.Data), Index: snapshotIndexPrefix(j.Data) + "compacted", Rows: j.Rows}
+	compacted := snapshotSegment{Prefix: j.Prefix, Index: snapshotIndexPrefix(j.Data) + "compacted", Rows: j.Rows}
 	if len(tail) == 0 {
 		meta.KeyPrefix, meta.IndexName = compacted.Prefix, compacted.Index
 		meta.SnapshotRows = &j.Rows

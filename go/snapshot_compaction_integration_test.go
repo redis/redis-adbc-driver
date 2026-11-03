@@ -350,7 +350,7 @@ func (h *snapshotCompactionBatchTracker) ProcessPipelineHook(next goredis.Proces
 				cmd = wrapped.Cmder
 			}
 			a := cmd.Args()
-			if len(a) > 1 && strings.EqualFold(fmt.Sprint(a[0]), "HSET") && strings.HasPrefix(fmt.Sprint(a[1]), snapshotPrefix+"rows:") {
+			if len(a) > 1 && strings.EqualFold(fmt.Sprint(a[0]), "HSET") && snapshotRowPrefix(fmt.Sprint(a[1])) != "" {
 				rows++
 				for _, arg := range a[1:] {
 					bytes += len(fmt.Sprint(arg))
@@ -432,7 +432,7 @@ func (h *snapshotPauseCompaction) ProcessPipelineHook(next goredis.ProcessPipeli
 				cmd = wrapped.Cmder
 			}
 			a := cmd.Args()
-			if len(a) > 1 && strings.EqualFold(fmt.Sprint(a[0]), "HSET") && strings.HasPrefix(fmt.Sprint(a[1]), snapshotPrefix+"rows:") {
+			if len(a) > 1 && strings.EqualFold(fmt.Sprint(a[0]), "HSET") && snapshotRowPrefix(fmt.Sprint(a[1])) != "" {
 				h.once.Do(func() { close(h.reached) })
 				<-ctx.Done()
 				return ctx.Err()

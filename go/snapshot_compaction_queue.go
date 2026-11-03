@@ -138,6 +138,7 @@ func (s *store) startSnapshotCompaction(ctx context.Context, token string) (bool
 			return false, errorf(adbc.StatusIO, "invalid compaction source version")
 		}
 		job := &snapshotCompactionJob{ID: snapshotID(), Token: token, Data: snapshotID(), Source: meta, Phase: "copy", References: []string{}, QueueKey: key, QueueVersion: version, QueueOID: strconv.FormatInt(meta.OID, 10)}
+		job.Prefix = snapshotRows(job.Data, meta.Schema)
 		for _, seg := range meta.snapshotSegments() {
 			job.References = append(job.References, snapshotDataID(seg.Prefix))
 		}

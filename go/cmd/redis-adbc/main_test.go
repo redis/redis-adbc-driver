@@ -269,7 +269,7 @@ func TestAdoptCommand(t *testing.T) {
 	if n := sqlInt(t, uri, "SELECT COUNT(*) FROM "+table); n != 5 {
 		t.Errorf("%d rows", n)
 	}
-	if n := sqlInt(t, uri, "SELECT COUNT(*) FROM information_schema.tables WHERE table_name='it_cli_ad' AND key_prefix LIKE 'adbc:{meta}:snapshot:rows:%'"); n != 1 {
+	if n := sqlInt(t, uri, "SELECT COUNT(*) FROM information_schema.tables WHERE table_name='it_cli_ad' AND key_prefix LIKE 'public:{meta}:snapshot:rows:%'"); n != 1 {
 		t.Fatal("CLI import did not create a private managed layout")
 	}
 	// Application changes become visible only after an explicit refresh.
