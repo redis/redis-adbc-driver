@@ -84,3 +84,31 @@ Remaining work includes other adoption/sweep/ACL regressions, restricted-driver
 command/pin recipes, resumable large operations, sustained compaction performance,
 current Cluster API/failover/persistence recovery, the full platform matrix and
 broader comparative benchmarks. Historical results retain their actual formats.
+
+## Follow-up compatibility inventory and regression reconciliation
+
+The ordinary Software race inventory selected `^(TestAdopt|TestAppIndex|TestSweep)`
+at `ad46699`: three pass events and 14 failure events (including text-encoding
+subtests and their parent). It is a deliberately red inventory, not full-suite
+validation. Failures covered legacy raw metadata lookup, an obsolete schema-prefix
+blocker, blocked-Apply error expectations, old index-creation callbacks and
+adopting registries, explicit application-key INSERT, old index-reuse reports,
+legacy sweep helpers and text-encoding tests expecting live source updates.
+The regex does not include every ACL or foreign-discovery case.
+
+Follow-up tests reconcile text encoding, SQL foreign-index discovery and schema
+prefix overlap with the managed-copy contract. They retain typed Boolean/date/
+time/timestamp queries, original external text formats, source-index survival,
+filtered foreign membership, read-only foreign schema enforcement and discovery
+metadata checks. Added assertions verify canonical private UPDATE results,
+external changes invisible before refresh, source-value restoration on refresh,
+original keys after refresh, and source HASH preservation after same-named schema
+DROP. No production code changed in this follow-up; low-level unmanaged HASH
+race coverage remains intact.
+
+Focused current race run selected
+`^(TestAdoptTextEncoding|TestSQLForeignIndexDiscovery|TestAdoptedPrefixOverlap)$`:
+all three top-level cases and both encoding subcases passed, zero skips/failures,
+3.506 seconds package time. This does not establish that other inventory failures
+are repaired. Remaining families require their own behavior and recovery checks;
+no assertions were skipped or broadened to hide a failure.

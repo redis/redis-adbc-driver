@@ -268,8 +268,8 @@ func TestAdoptV0011Table(t *testing.T) {
 	f.h.expectRows(`SELECT SUM(n) FROM it_ad_old`, "6")
 }
 
-// A schema named after the adopted prefix can't get tables: their rows
-// would be among the application's HASHes.
+// Managed rows have an independent physical namespace even when a schema
+// has the same name as an application prefix.
 func TestAdoptedPrefixOverlap(t *testing.T) {
 	f := newHashFixture(t, "it_ad_s:")
 	f.dropAdopted("it_ad_ov")
@@ -281,7 +281,15 @@ func TestAdoptedPrefixOverlap(t *testing.T) {
 	f.hset("it_ad_s:1", "n", "1")
 	f.adopt(HashAdoptOptions{Table: "it_ad_ov", Apply: true})
 	f.h.exec(`CREATE SCHEMA it_ad_s`)
-	f.h.expectError(`CREATE TABLE it_ad_s.t (a INTEGER)`, `under the key prefix "it_ad_s:" of an adopted table's HASHes`)
+	f.h.exec(`CREATE TABLE it_ad_s.t (a INTEGER)`)
+	f.h.exec(`INSERT INTO it_ad_s.t VALUES (7)`)
+	f.h.expectRows(`SELECT a FROM it_ad_s.t`, "7")
+	f.h.expectRows(`SELECT __key,n FROM it_ad_ov`, "it_ad_s:1|1")
+	f.h.exec(`DROP SCHEMA it_ad_s CASCADE`)
+	f.h.expectRows(`SELECT __key,n FROM it_ad_ov`, "it_ad_s:1|1")
+	if fields := f.raw.HGetAll(f.h.ctx, "it_ad_s:1").Val(); len(fields) != 1 || fields["n"] != "1" {
+		t.Fatal("schema DDL changed the application HASH", fields)
+	}
 }
 
 // What adopt refuses before it writes anything.
