@@ -36,8 +36,9 @@ func (s *store) validateSnapshotMetadata(ctx context.Context, root string) error
 		return wrapRedis(err, "snapshot metadata manifest unavailable")
 	}
 	var work struct {
-		State string `json:"state"`
-		Count *int64 `json:"metadata_keys"`
+		State   string `json:"state"`
+		Count   *int64 `json:"metadata_keys"`
+		Buckets *int64 `json:"metadata_buckets"`
 	}
 	if err := json.Unmarshal(raw, &work); err != nil || work.State != "committed" || work.Count == nil || *work.Count < 0 {
 		return errorf(adbc.StatusIO, "invalid snapshot metadata manifest")
@@ -48,6 +49,16 @@ func (s *store) validateSnapshotMetadata(ctx context.Context, root string) error
 	}
 	if count != *work.Count {
 		return errorf(adbc.StatusIO, "snapshot metadata directory is incomplete")
+	}
+	if work.Buckets == nil || *work.Buckets < 0 || *work.Buckets > 256 {
+		return errorf(adbc.StatusIO, "invalid snapshot metadata bucket manifest")
+	}
+	buckets, err := s.client.HLen(ctx, snapshotMetadataMap(root)).Result()
+	if err != nil {
+		return err
+	}
+	if buckets != *work.Buckets {
+		return errorf(adbc.StatusIO, "snapshot metadata map is incomplete")
 	}
 	return nil
 }

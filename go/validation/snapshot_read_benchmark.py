@@ -21,6 +21,50 @@ from urllib.parse import urlsplit
 
 import adbc_driver_manager.dbapi
 import redis
+import pyarrow as pa
+
+
+def write_cases(cur, repeats, logical):
+    results = {}
+    value = 1
+    for name in ("metadata_comment", "point_update", "arrow_append"):
+        samples = []
+        for iteration in range(repeats + 1):
+            if name == "arrow_append":
+                next_id = 1000 + iteration
+                batch = pa.table(
+                    {
+                        "id": pa.array([next_id], pa.int32()),
+                        "g": pa.array([next_id % 64], pa.int32()),
+                        "v": pa.array([next_id], pa.int32()),
+                        "payload": ["payload"],
+                    }
+                )
+            start = time.perf_counter()
+            if name == "metadata_comment":
+                cur.execute("COMMENT ON TABLE t IS 'metadata benchmark'")
+            elif name == "point_update":
+                value += 1
+                cur.execute("UPDATE t SET v=v+1 WHERE id=1 RETURNING v")
+                if cur.fetchall() != [(value,)]:
+                    raise AssertionError(
+                        "UPDATE returned an incorrect or replayed value"
+                    )
+                logical[0] = (1, 1, value, "payload")
+            else:
+                if cur.adbc_ingest("t", batch, mode="append") != 1:
+                    raise AssertionError("append returned the wrong row count")
+                logical.append((next_id, next_id % 64, next_id, "payload"))
+            elapsed = time.perf_counter() - start
+            # Writes have completed publication. Independent validation is
+            # outside the write timer and must pass before retaining a sample.
+            cur.execute("SELECT id,g,v,payload FROM t ORDER BY id")
+            if cur.fetchall() != sorted(logical):
+                raise AssertionError(f"{name}: independently calculated rows differ")
+            if iteration:
+                samples.append(elapsed * 1000)
+        results[name] = {"median_ms": statistics.median(samples), "samples_ms": samples}
+    return results
 
 
 def main():
@@ -35,17 +79,21 @@ def main():
     )
     parser.add_argument("--reset-owned-database", action="store_true", required=True)
     parser.add_argument("--rows", type=int, default=20000)
+    parser.add_argument(
+        "--writes",
+        action="store_true",
+        help="Small-write metadata benchmark; requires --rows=1",
+    )
     parser.add_argument("--unrelated-tables", type=int, default=32)
     parser.add_argument("--repeats", type=int, default=5)
     args = parser.parse_args()
     if (
-        args.rows < 128
-        or args.rows > 50000
+        (args.rows != 1 if args.writes else not 128 <= args.rows <= 50000)
         or args.repeats < 1
         or args.unrelated_tables < 0
     ):
         parser.error(
-            "require 128..50000 rows, positive repeats, nonnegative table count"
+            "require 128..50000 rows (1 for --writes), positive repeats, nonnegative table count"
         )
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
     from software_partition_tls import SoftwareAPI, qpf_4x_ready
@@ -99,60 +147,64 @@ def main():
                 for i in range(1, args.rows + 1)
                 if i != 2
             ]
-            groups = {}
-            for i, group, value, _ in logical:
-                count, total = groups.get(group, (0, 0))
-                groups[group] = (count + 1, total + value)
-            expected_topk = [
-                (i, v, p)
-                for i, _, v, p in sorted(logical, key=lambda r: (-r[2], r[0]))[5:15]
-            ]
-            cases = [
-                ("selective", "SELECT id,v FROM t WHERE v=1", []),
-                (
-                    "matching_selective",
-                    f"SELECT id,v FROM t WHERE v={args.rows} ORDER BY id",
-                    [(1, args.rows), (args.rows, args.rows)],
-                ),
-                (
-                    "grouped",
-                    "SELECT g,COUNT(*),SUM(v) FROM t GROUP BY g ORDER BY g",
-                    [(g, *groups[g]) for g in sorted(groups)],
-                ),
-                ("distinct", "SELECT COUNT(DISTINCT g) FROM t", [(64,)]),
-                (
-                    "topk",
-                    "SELECT id,v,payload FROM t ORDER BY v DESC,id ASC LIMIT 10 OFFSET 5",
-                    expected_topk,
-                ),
-                (
-                    "topk_nulls_last",
-                    "SELECT id,v,payload FROM t ORDER BY v DESC NULLS LAST,id ASC NULLS LAST LIMIT 10 OFFSET 5",
-                    expected_topk,
-                ),
-                ("point", "SELECT v FROM t WHERE __rowid=1", [(args.rows,)]),
-            ]
-            results = {}
-            for name, sql, expected in cases:
-                samples = []
-                for iteration in range(args.repeats + 1):
-                    start = time.perf_counter()
-                    cur.execute(sql)
-                    table = cur.fetch_arrow_table()
-                    columns = [col.to_pylist() for col in table.columns]
-                    actual = list(zip(*columns))
-                    if actual != expected:
-                        raise AssertionError(
-                            f"{name}: independently calculated results differ"
-                        )
-                    elapsed = time.perf_counter() - start
-                    if iteration:
-                        samples.append(elapsed * 1000)
-                results[name] = {
-                    "median_ms": statistics.median(samples),
-                    "samples_ms": samples,
-                    "output_rows": len(expected),
-                }
+            if args.writes:
+                results = write_cases(cur, args.repeats, logical)
+            else:
+                groups = {}
+                for i, group, value, _ in logical:
+                    count, total = groups.get(group, (0, 0))
+                    groups[group] = (count + 1, total + value)
+                expected_topk = [
+                    (i, v, p)
+                    for i, _, v, p in sorted(logical, key=lambda r: (-r[2], r[0]))[5:15]
+                ]
+                cases = [
+                    ("selective", "SELECT id,v FROM t WHERE v=1", []),
+                    (
+                        "matching_selective",
+                        f"SELECT id,v FROM t WHERE v={args.rows} ORDER BY id",
+                        [(1, args.rows), (args.rows, args.rows)],
+                    ),
+                    (
+                        "grouped",
+                        "SELECT g,COUNT(*),SUM(v) FROM t GROUP BY g ORDER BY g",
+                        [(g, *groups[g]) for g in sorted(groups)],
+                    ),
+                    ("distinct", "SELECT COUNT(DISTINCT g) FROM t", [(64,)]),
+                    (
+                        "topk",
+                        "SELECT id,v,payload FROM t ORDER BY v DESC,id ASC LIMIT 10 OFFSET 5",
+                        expected_topk,
+                    ),
+                    (
+                        "topk_nulls_last",
+                        "SELECT id,v,payload FROM t ORDER BY v DESC NULLS LAST,id ASC NULLS LAST LIMIT 10 OFFSET 5",
+                        expected_topk,
+                    ),
+                    ("point", "SELECT v FROM t WHERE __rowid=1", [(args.rows,)]),
+                ]
+                results = {}
+                for name, sql, expected in cases:
+                    samples = []
+                    for iteration in range(args.repeats + 1):
+                        start = time.perf_counter()
+                        cur.execute(sql)
+                        table = cur.fetch_arrow_table()
+                        columns = [col.to_pylist() for col in table.columns]
+                        actual = list(zip(*columns))
+                        if actual != expected:
+                            raise AssertionError(
+                                f"{name}: independently calculated results differ"
+                            )
+                        elapsed = time.perf_counter() - start
+                        if iteration:
+                            samples.append(elapsed * 1000)
+                    results[name] = {
+                        "median_ms": statistics.median(samples),
+                        "samples_ms": samples,
+                        "output_rows": len(expected),
+                    }
+
     print(
         json.dumps(
             {
@@ -165,11 +217,15 @@ def main():
                 "noeviction": True,
                 "input_rows": args.rows,
                 "visible_rows": len(logical),
-                "segments": 3,
+                "initial_segments": 2 if args.writes else 3,
                 "unrelated_tables": args.unrelated_tables,
                 "repeats": args.repeats,
                 "warmups": 1,
-                "timing": "execute + complete Arrow fetch + independent validation",
+                "timing": (
+                    "write/publication + complete RETURNING fetch; independent post-write validation excluded"
+                    if args.writes
+                    else "execute + complete Arrow fetch + independent validation"
+                ),
                 "cases": results,
             },
             indent=2,

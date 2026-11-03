@@ -5,10 +5,13 @@ managed tables and imported copies of application data. No option is required.
 Ordinary Open initializes an empty isolated database. Explicit HASH import and
 foreign-index import may initialize alongside application-owned data and indexes,
 but reject existing legacy driver metadata without modification. No upgrade or
-migration path is included. Storage protocol version 7 rejects prior draft versions
-1–6. It requires an indexed tombstone marker for visibility-safe server reduction.
-Exact metadata key directories and committed directory counts ensure manifest copies
-and reclamation do not depend on Redis SCAN cursors across restarts or slot moves.
+migration path is included. Storage protocol version 8 rejects prior draft versions
+1–7. It requires an indexed tombstone marker for visibility-safe server reduction.
+Metadata manifests share immutable buckets and native values through a fixed
+256-slot map. Writes copy touched buckets/values; reference-counted retirement
+preserves aliases after their original manifest is removed. Committed map,
+bucket and object checks reject incomplete metadata. Reclamation drains bounded
+batches without persisting Redis SCAN cursors across restarts or slot moves.
 This is the driver storage format, separate from Redis versions and RESP3.
 
 ```python
@@ -133,9 +136,12 @@ evict published keys or indexes outside the driver.
 
 ## Costs, limits and recovery
 
-Each write copies the catalog's **metadata manifest** through its immutable key
-directory and checks its committed count, but unchanged tables reuse
-their existing immutable rows and indexes. INSERT and append ingestion write new
+Each write copies at most 256 metadata bucket references. Touched buckets share
+native metadata values until a logical key is changed; unchanged table descriptors
+and row/index storage remain shared. Final index sealing visits dirty tables.
+Snapshot UUID ownership replaces the legacy catalog-wide prefix/index registries.
+Row-reference publication still enumerates the catalog; removing that cost and
+supporting independent metadata publication remain active work. INSERT and append ingestion write new
 rows into a new segment. UPDATE writes complete replacement images for matched
 rows; DELETE writes deletion markers. An ordinary one-row change writes one row
 image or tombstone, rather than copying the target table. Existing row images and

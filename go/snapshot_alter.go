@@ -68,8 +68,6 @@ func (e *executor) alterSnapshotTable(ctx context.Context, source *tableMeta, cm
 	}
 	pipe := e.store.redis(ctx).Pipeline()
 	pipe.Set(ctx, metaKey(source.Schema, source.Name), raw, 0)
-	pipe.SRem(ctx, prefixesKey, source.prefix())
-	pipe.SRem(ctx, indexesKey, source.index())
 	_, err = pipe.Exec(ctx)
 	return err
 }

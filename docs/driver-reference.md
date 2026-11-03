@@ -12,7 +12,7 @@ page defines the current guarantee, limits and supported deployments and takes
 precedence over the historical layout and feature descriptions below. New
 catalogs normally require an empty isolated database; explicit imports may
 initialize alongside application data after rejecting legacy driver metadata.
-Storage protocol version 7 rejects legacy catalogs and prior draft formats 1–6 without
+Storage protocol version 8 rejects legacy catalogs and prior draft formats 1–7 without
 modification; no upgrade path is provided. ALTER and temporary objects are
 supported. AdoptHashes creates a managed copy; repeating Apply explicitly refreshes
 it. Foreign indexes are exposed as managed copies after enabling foreign_indexes;

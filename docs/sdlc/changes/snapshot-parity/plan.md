@@ -7,7 +7,7 @@ Date: 2026-11-02. Status: in progress. See [intent](intent.md), [spec](spec.md).
 | Shared-generation live partition capabilities, release and expiry | Implemented; proxy/native checks passed |
 | Visibility-correct Search predicates and parallel reads | Implemented; targeted and race checks passed |
 | Exact index aggregation/grouping/top-K on segmented visibility | Implemented with bounded masks and exact fallbacks; seven-case read comparison recorded |
-| Incremental metadata, independent publication and index lifecycle | Lazy validation and one-build index lifecycle/no-op publication implemented; pre-execution compaction admission implemented; metadata sharing/publication pending |
+| Incremental metadata, independent publication and index lifecycle | Lazy validation and one-build index lifecycle/no-op publication implemented; pre-execution admission and metadata sharing/GC implemented; incremental row references and independent publication pending |
 | Large atomic writes/ingestion and sustained compaction | Pending |
 | Full feature/native/platform/Cluster API validation | Proxy race/native milestone checked; full feature/platform/Cluster reruns pending |
 | Comparative benchmarks, review, PR evidence and owned cleanup | Seven-case read comparison and self-review recorded; remaining benchmarks/cleanup pending |
@@ -29,3 +29,8 @@ The [admission checkpoint](admission-validation.md) verifies gate/full-lineage
 waiting before SQL or Arrow execution, cancellation/pin cleanup, one-time input
 consumption and atomic IPC late-error behavior. Remaining CI and performance
 gaps stay in the active plan.
+
+The [metadata sharing checkpoint](metadata-validation.md) removes unrelated native
+value copies and legacy name registries, with independent metadata reclamation.
+The [next reference/publication design](row-reference-design.md) records remaining
+catalog enumeration, row-reference and independent-writer work.

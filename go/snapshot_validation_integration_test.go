@@ -28,6 +28,8 @@ func TestSnapshotValidationOnlyTouchesReferencedTables(t *testing.T) {
 	// A broken unrelated source must not prevent a statement from using a
 	// complete, independently pinned source. The referenced source still fails.
 	h.expectRows("SELECT v FROM healthy", "42")
+	h.exec("UPDATE healthy SET v=v+1")
+	h.expectRows("SELECT v FROM healthy", "43")
 	h.expectError("SELECT COUNT(*) FROM damaged", "snapshot index is unavailable")
 }
 

@@ -354,8 +354,6 @@ func (s *store) prepareSnapshotDelta(ctx context.Context, schema, table string) 
 	}
 	p := s.redis(ctx).Pipeline()
 	p.Set(ctx, metaKey(schema, table), raw, 0)
-	p.SRem(ctx, prefixesKey, old.prefix())
-	p.SRem(ctx, indexesKey, old.index())
 	if _, err := p.Exec(ctx); err != nil {
 		return err
 	}

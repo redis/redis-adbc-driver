@@ -1,7 +1,9 @@
 # Metadata/publication implementation direction
 
-Status: steps 1 and 6 implemented; index lifecycle broad validation in progress.
-Steps 2–5 and 7 remain planned.
+Status: steps 1 and 6 verified in prior checkpoints. Step 2, removal of legacy
+name registries, and independent metadata-object reclamation are implemented;
+full validation is in progress. Row-reference enumeration, independent
+publication, bounded bucket construction and large-operation work remain open.
 Parent implementation: b4b73e0.
 See [plan](plan.md). This is a work record, not a completed parity claim.
 

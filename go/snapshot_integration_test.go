@@ -12,6 +12,7 @@ import (
 	"io"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -245,7 +246,13 @@ func (h *snapshotLostReply) ProcessHook(next goredis.ProcessHook) goredis.Proces
 	return func(ctx context.Context, cmd goredis.Cmder) error {
 		err := next(ctx, cmd)
 		args := cmd.Args()
-		if err == nil && len(args) > 5 && fmt.Sprint(args[0]) == "EVAL" && args[1] == snapshotControl && args[5] == "publish" && h.lost.CompareAndSwap(false, true) {
+		op := -1
+		if len(args) > 2 && fmt.Sprint(args[0]) == "EVAL" && args[1] == snapshotControl {
+			if n, e := strconv.Atoi(fmt.Sprint(args[2])); e == nil {
+				op = 3 + n
+			}
+		}
+		if err == nil && op >= 0 && op < len(args) && args[op] == "publish" && h.lost.CompareAndSwap(false, true) {
 			cmd.SetErr(io.ErrUnexpectedEOF)
 			return io.ErrUnexpectedEOF
 		}

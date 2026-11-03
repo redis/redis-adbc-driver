@@ -465,10 +465,7 @@ func (s *store) claimNames(ctx context.Context, schema, table string) (tableName
 		if err := s.ownSnapshotData(ctx, snapshotDataID(nm.prefix)); err != nil {
 			return tableNames{}, err
 		}
-		pipe := s.redis(ctx).Pipeline()
-		reserveNames(ctx, pipe, nm)
-		_, err := pipe.Exec(ctx)
-		return nm, err
+		return nm, nil
 	}
 	last, err := s.lastNames(ctx, s.redis(ctx), schema, table)
 	if err != nil {
@@ -569,6 +566,9 @@ func (s *store) freeNames(ctx context.Context, tx *goredis.Tx, schema, table str
 // reserveNames adds the commands that reserve names found by freeNames to a
 // transaction; noteTempNames must follow once it has committed.
 func reserveNames(ctx context.Context, p goredis.Pipeliner, nm tableNames) {
+	if snapshotOf(ctx) != nil {
+		return
+	} // UUID ownership and snapshot references replace legacy registries.
 	p.SAdd(ctx, prefixesKey, nm.prefix)
 	p.SAdd(ctx, indexesKey, nm.index)
 	if !nm.temp {
@@ -1071,6 +1071,21 @@ func (s *store) getTable(ctx context.Context, schema, table string) (*tableMeta,
 	if schema == foreignSchema && !s.snapshots {
 		return s.foreignTable(ctx, table)
 	}
+	meta, err := s.getTableMetadata(ctx, schema, table)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.validateSnapshotTable(ctx, meta); err != nil {
+		return nil, err
+	}
+	return meta, nil
+}
+
+// Metadata/reference publication does not need to open unrelated row indexes.
+func (s *store) getTableMetadata(ctx context.Context, schema, table string) (*tableMeta, error) {
+	if schema == foreignSchema && !s.snapshots {
+		return s.foreignTable(ctx, table)
+	}
 	readAt := time.Now()
 	raw, err := s.redis(ctx).Get(ctx, metaKey(schema, table)).Result()
 	if errors.Is(err, goredis.Nil) {
@@ -1082,9 +1097,6 @@ func (s *store) getTable(ctx context.Context, schema, table string) (*tableMeta,
 	var meta tableMeta
 	if err := json.Unmarshal([]byte(raw), &meta); err != nil {
 		return nil, errorf(adbc.StatusInternal, "corrupt metadata for table %q.%q: %v", schema, table, err)
-	}
-	if err := s.validateSnapshotTable(ctx, &meta); err != nil {
-		return nil, err
 	}
 	if _, pending := snapshotDeferredIndex(ctx, &meta); pending {
 		meta.SnapshotOverlay = true
@@ -1554,7 +1566,7 @@ func (s *store) dropTable(ctx context.Context, schema, table string, ifExists bo
 				p.SRem(ctx, tablesKey(schema), table)
 				p.SRem(ctx, prefixesKey, meta.prefix())
 				p.SRem(ctx, indexesKey, meta.index())
-				if !isTempSchema(schema) {
+				if !s.snapshots && !isTempSchema(schema) {
 					p.HIncrBy(ctx, releasedKey, meta.prefix(), 1) // see rekey.go
 				}
 				p.SRem(ctx, cleanupKey, cleanupMember(schema, table))
@@ -1595,7 +1607,7 @@ func (s *store) renamedTo(ctx context.Context, meta *tableMeta) (string, error) 
 	if _, err := pipe.Exec(ctx); err != nil {
 		return "", wrapRedis(err, "failed to drop table")
 	}
-	if !kept.Val() {
+	if !s.snapshots && !kept.Val() {
 		return "", nil
 	}
 	names := listed.Val()

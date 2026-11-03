@@ -153,7 +153,7 @@ func (s *store) acquireCompactionCatalog(ctx context.Context) (context.Context, 
 		p.release()
 		return ctx, nil, err
 	}
-	return context.WithValue(ctx, snapshotContextKey{}, &snapshotScope{id: root, pin: p}), p, nil
+	return context.WithValue(ctx, snapshotContextKey{}, &snapshotScope{id: root, pin: p, store: s}), p, nil
 }
 func validateSnapshotCompactionJob(j *snapshotCompactionJob) error {
 	valid := func(id string) bool { return len(id) == 32 && snapshotDataID(snapshotRows(id)+"1") == id }
@@ -476,12 +476,6 @@ func (s *store) installSnapshotCompaction(ctx context.Context, j *snapshotCompac
 	}
 	pipe := s.redis(wctx).Pipeline()
 	pipe.Set(wctx, metaKey(meta.Schema, meta.Name), raw, 0)
-	pipe.SAdd(wctx, prefixesKey, meta.prefix())
-	pipe.SAdd(wctx, indexesKey, meta.index())
-	if len(tail) == 0 {
-		pipe.SRem(wctx, prefixesKey, j.Source.prefix())
-		pipe.SRem(wctx, indexesKey, j.Source.index())
-	}
 	if _, err := pipe.Exec(wctx); err != nil {
 		return false, err
 	}

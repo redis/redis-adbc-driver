@@ -40,6 +40,9 @@ const (
 type snapshotContextKey struct{}
 
 type snapshotScope struct {
+	store           *store
+	metadataMu      sync.Mutex
+	metadata        snapshotMetadataState
 	id              string
 	pin             *snapshotPin
 	maintenance     bool
@@ -81,12 +84,12 @@ end
 if op == 'init' then
   if redis.call('EXISTS', k) == 0 then
     if ARGV[6] ~= 'import' and redis.call('DBSIZE') ~= 0 then return redis.error_reply('managed-table snapshots require a fresh empty database; existing storage is not upgraded or modified') end
-    redis.call('HSET', k, 'format', '7', 'root', id, 'w:'..id, cjson.encode({state='committed',metadata_keys=0}), 'r:'..id, '[]')
+    redis.call('HSET', k, 'format', '8', 'root', id, 'w:'..id, cjson.encode({state='committed',metadata_keys=0,metadata_buckets=0}), 'r:'..id, '[]')
   end
-  if redis.call('HGET', k, 'format') ~= '7' then return redis.error_reply('unsupported snapshot catalog format') end
+  if redis.call('HGET', k, 'format') ~= '8' then return redis.error_reply('unsupported snapshot catalog format') end
   return 1
 end
-if redis.call('HGET', k, 'format') ~= '7' then return redis.error_reply('missing or unsupported snapshot catalog') end
+if redis.call('HGET', k, 'format') ~= '8' then return redis.error_reply('missing or unsupported snapshot catalog') end
 local entries = redis.call('HGETALL', k)
 local pins, works, protected = 0, 0, {}
 for n=1,#entries,2 do
@@ -243,7 +246,7 @@ elseif op == 'publish' or op == 'publish_compaction' or op == 'publish_temp' the
   if w.state == 'committed' then return 1 end
   if w.state ~= 'staging' or w.token ~= token or w.expires <= now or not owns_pin() then return -1 end
   if redis.call('HGET', k, 'root') ~= base then return 0 end
-  if op == 'publish_temp' and redis.call('EXISTS',KEYS[3]) ~= 0 then return -4 end
+  if op == 'publish_temp' and redis.call('EXISTS',KEYS[4]) ~= 0 then return -4 end
   if op == 'publish_compaction' then
     for n=1,#entries,2 do
       if string.sub(entries[n],1,2) == 'p:' then
@@ -261,7 +264,7 @@ elseif op == 'publish' or op == 'publish_compaction' or op == 'publish_temp' the
     local d = redis.call('HGET', k, 'd:'..data)
     if not d or cjson.decode(d).state ~= 'live' then return redis.error_reply('snapshot data generation unavailable') end
   end
-  redis.call('HSET', k, 'root', id, 'w:'..id, cjson.encode({state='committed',metadata_keys=redis.call('ZCARD',KEYS[2])}), 'r:'..id, ARGV[6])
+  redis.call('HSET', k, 'root', id, 'w:'..id, cjson.encode({state='committed',metadata_keys=redis.call('ZCARD',KEYS[2]),metadata_buckets=redis.call('HLEN',KEYS[3])}), 'r:'..id, ARGV[6])
   local pr = redis.call('HGET', k, 'p:'..token)
   if pr then
     local pin = cjson.decode(pr)
@@ -341,7 +344,7 @@ func (s *store) snapshotControl(ctx context.Context, op, token, id, base string,
 	}
 	keys := []any{snapshotCatalogKey}
 	if op == "publish" || op == "publish_compaction" || op == "publish_temp" {
-		keys = append(keys, snapshotMetadataKeys(id))
+		keys = append(keys, snapshotMetadataKeys(id), snapshotMetadataMap(id))
 	}
 	if op == "publish_temp" && len(extra) > 1 {
 		keys = append(keys, tempAliveKey(extra[1]))
@@ -400,7 +403,7 @@ func (s *store) acquireSnapshot(ctx context.Context, writing ...bool) (context.C
 
 	p.root = root
 	go p.heartbeat()
-	sctx := context.WithValue(ctx, snapshotContextKey{}, &snapshotScope{id: root, pin: p})
+	sctx := context.WithValue(ctx, snapshotContextKey{}, &snapshotScope{id: root, pin: p, store: s})
 	if err := s.validateSnapshotRead(sctx); err != nil {
 		p.release()
 		return ctx, nil, err
@@ -571,12 +574,22 @@ end
 `
 
 const snapshotMutation = snapshotMutationAdmission + `
+local private='` + snapshotPrefix + `workspace:'..ARGV[1]..':'
+for i=2,#KEYS do
+ if string.sub(KEYS[i],1,string.len('` + snapshotPrefix + `workspace:'))=='` + snapshotPrefix + `workspace:' and i~=#KEYS then
+  if string.sub(KEYS[i],1,string.len(private))~=private then return redis.error_reply('shared snapshot metadata is immutable') end
+  if tonumber(redis.call('HGET',KEYS[#KEYS-1],'v:'..KEYS[i]) or '0')<=0 then return redis.error_reply('snapshot metadata object is not registered') end
+ end
+end
 local result = redis.call(unpack(ARGV,5))
 local directory = KEYS[#KEYS]
 if string.sub(directory,1,string.len('` + snapshotPrefix + `workspace:')) == '` + snapshotPrefix + `workspace:' then
-  for i=2,#KEYS-1 do
-    if redis.call('EXISTS',KEYS[i]) == 1 then redis.call('ZADD',directory,0,KEYS[i])
-    else redis.call('ZREM',directory,KEYS[i]) end
+  for i=2,#KEYS-2 do
+    if string.sub(KEYS[i],1,string.len('` + snapshotPrefix + `workspace:'..ARGV[1]..':')) == '` + snapshotPrefix + `workspace:'..ARGV[1]..':' then
+      local present=redis.call('EXISTS',KEYS[i])
+      redis.call('HSET',KEYS[#KEYS-1],'e:'..KEYS[i],present)
+      if present==1 then redis.call('ZADD',directory,0,KEYS[i]) else redis.call('ZREM',directory,KEYS[i]) end
+    end
   end
 end
 if ARGV[4] ~= '' then redis.call('ZADD', KEYS[#KEYS], 0, ARGV[4]) end
@@ -611,8 +624,8 @@ func fenceSnapshotCommand(ctx context.Context, cmd goredis.Cmder) goredis.Cmder 
 			}
 		}
 		for _, key := range keys[1:] {
-			if strings.HasPrefix(fmt.Sprint(key), snapshotWorkspace(scope.id)) {
-				keys = append(keys, snapshotMetadataKeys(scope.id))
+			if strings.HasPrefix(fmt.Sprint(key), snapshotPrefix+"workspace:") {
+				keys = append(keys, snapshotMetadataGraph, snapshotMetadataKeys(scope.id))
 				break
 			}
 		}
@@ -679,7 +692,22 @@ func scopeSnapshotCommand(ctx context.Context, cmd goredis.Cmder) error {
 		if scope == nil {
 			return errorf(adbc.StatusInvalidState, "snapshot catalog access requires a statement snapshot")
 		}
-		args[n] = snapshotWorkspace(scope.id) + strings.TrimPrefix(key, metaPrefix)
+		if scope.store != nil {
+			writing := false
+			switch name {
+			case "set", "setnx", "incr", "incrby", "hset", "hdel", "hincrby", "sadd", "srem", "del", "unlink", "restore", "expire", "pexpire", "persist":
+				writing = true
+			case "watch":
+				writing = scope.write
+			}
+			resolved, err := resolveSnapshotMetadata(ctx, strings.TrimPrefix(key, metaPrefix), writing, name)
+			if err != nil {
+				return err
+			}
+			args[n] = resolved
+		} else {
+			args[n] = snapshotWorkspace(scope.id) + strings.TrimPrefix(key, metaPrefix)
+		}
 	}
 	if scope == nil {
 		return nil
@@ -748,7 +776,7 @@ func (s *store) beginSnapshotWrite(ctx context.Context, pin *snapshotPin) (conte
 	pin.mu.Lock()
 	pin.workspace = id
 	pin.mu.Unlock()
-	wctx := context.WithValue(ctx, snapshotContextKey{}, &snapshotScope{id: id, pin: pin, write: true, owned: map[string]bool{}, validated: snapshotValidationCache(snapshotOf(ctx))})
+	wctx := context.WithValue(ctx, snapshotContextKey{}, &snapshotScope{id: id, pin: pin, store: s, write: true, owned: map[string]bool{}, validated: snapshotValidationCache(snapshotOf(ctx))})
 	if err := s.copySnapshot(ctx, wctx, pin.root, id); err != nil {
 		s.abortSnapshot(pin, id)
 		return ctx, "", err
@@ -774,6 +802,9 @@ func (s *store) publishSnapshot(ctx context.Context, pin *snapshotPin, id string
 		return err
 	}
 	if err := s.validateSnapshot(ctx); err != nil {
+		return err
+	}
+	if err := s.pruneSnapshotMetadata(ctx); err != nil {
 		return err
 	}
 	refs, err := s.snapshotReferences(ctx)
@@ -815,32 +846,7 @@ func (s *store) publishSnapshot(ctx context.Context, pin *snapshotPin, id string
 }
 
 func (s *store) copySnapshot(baseCtx, targetCtx context.Context, base, id string) error {
-	if err := s.validateSnapshotMetadata(baseCtx, base); err != nil {
-		return err
-	}
-	err := s.walkSnapshotDirectory(baseCtx, snapshotMetadataKeys(base), func(keys []string) error {
-		for _, key := range keys {
-			if !strings.HasPrefix(key, snapshotWorkspace(base)) || key == snapshotMetadataKeys(base) {
-				return errorf(adbc.StatusIO, "invalid snapshot metadata directory member")
-			}
-			raw, err := s.client.Dump(baseCtx, key).Result()
-			if err == goredis.Nil {
-				return errorf(adbc.StatusIO, "snapshot metadata key is missing")
-			}
-			if err != nil {
-				return wrapRedis(err, "failed to copy snapshot metadata")
-			}
-			target := snapshotWorkspace(id) + strings.TrimPrefix(key, snapshotWorkspace(base))
-			if err := s.client.RestoreReplace(targetCtx, target, 0, raw).Err(); err != nil {
-				return wrapRedis(err, "failed to stage snapshot metadata")
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-	return snapshotOf(baseCtx).pin.valid(baseCtx)
+	return s.cloneSnapshotMetadata(baseCtx, targetCtx, base, id)
 }
 
 // prepareSnapshotTable detaches a DML target before planning can capture row
@@ -903,8 +909,11 @@ func (s *store) snapshotReferences(ctx context.Context) (string, error) {
 			return "", err
 		}
 		for _, table := range tables {
-			meta, err := s.getTable(ctx, schema, table)
+			meta, err := s.getTableMetadata(ctx, schema, table)
 			if err != nil {
+				return "", err
+			}
+			if err := validateSnapshotDescriptor(ctx, meta); err != nil {
 				return "", err
 			}
 			for _, seg := range meta.snapshotSegments() {
@@ -934,105 +943,83 @@ func snapshotScannedIndexArgs(meta *tableMeta) []any {
 }
 
 func (s *store) rebuildSnapshotIndexes(ctx context.Context) error {
-	schemas, err := s.snapshotSchemas(ctx)
+	tables, err := s.snapshotDirtyTables(ctx)
 	if err != nil {
 		return err
 	}
-	for _, schema := range schemas {
-		tables, err := s.listTables(ctx, schema)
+	for _, meta := range tables {
+		if !snapshotOwns(ctx, meta.prefix()) {
+			continue
+		}
+		old := meta.index()
+		overlay, deferred := snapshotDeferredIndex(ctx, meta)
+		if deferred {
+			meta.SnapshotOverlay = overlay
+		}
+		meta.IndexName = snapshotIndexPrefix(snapshotDataID(meta.prefix())) + snapshotID()
+		if err := s.searchDo(ctx, meta.index(), snapshotScannedIndexArgs(meta)...).Err(); err != nil {
+			return wrapRedis(err, "failed to index final snapshot rows")
+		}
+		raw, err := json.Marshal(meta)
 		if err != nil {
 			return err
 		}
-		for _, table := range tables {
-			meta, err := s.getTable(ctx, schema, table)
-			if err != nil {
-				return err
-			}
-			if !snapshotOwns(ctx, meta.prefix()) {
-				continue
-			}
-			old := meta.index()
-			overlay, deferred := snapshotDeferredIndex(ctx, meta)
-			if deferred {
-				meta.SnapshotOverlay = overlay
-			}
-			meta.IndexName = snapshotIndexPrefix(snapshotDataID(meta.prefix())) + snapshotID()
-			if err := s.searchDo(ctx, meta.index(), snapshotScannedIndexArgs(meta)...).Err(); err != nil {
-				return wrapRedis(err, "failed to index final snapshot rows")
-			}
-			raw, err := json.Marshal(meta)
-			if err != nil {
-				return err
-			}
-			pipe := s.client.Pipeline()
-			pipe.Set(ctx, metaKey(schema, table), raw, 0)
-			pipe.SAdd(ctx, indexesKey, meta.index())
-			pipe.SRem(ctx, indexesKey, old)
-			if _, err := pipe.Exec(ctx); err != nil {
-				return err
-			}
-			if deferred {
-				finishSnapshotIndex(ctx, meta)
-			} else if err := s.searchDo(ctx, old, "FT.DROPINDEX", old).Err(); err != nil && !isUnknownIndex(err) {
-				return wrapRedis(err, "failed to retire private working index")
-			}
+		pipe := s.client.Pipeline()
+		pipe.Set(ctx, metaKey(meta.Schema, meta.Name), raw, 0)
+		if _, err := pipe.Exec(ctx); err != nil {
+			return err
+		}
+		if deferred {
+			finishSnapshotIndex(ctx, meta)
+		} else if err := s.searchDo(ctx, old, "FT.DROPINDEX", old).Err(); err != nil && !isUnknownIndex(err) {
+			return wrapRedis(err, "failed to retire private working index")
 		}
 	}
 	return nil
 }
 
 func (s *store) validateSnapshot(ctx context.Context) error {
-	schemas, err := s.snapshotSchemas(ctx)
+	tables, err := s.snapshotDirtyTables(ctx)
 	if err != nil {
 		return err
 	}
-	for _, schema := range schemas {
-		tables, err := s.listTables(ctx, schema)
+	for _, meta := range tables {
+		if !snapshotOwns(ctx, meta.prefix()) {
+			continue
+		}
+		count, err := s.redis(ctx).ZCard(ctx, snapshotMembers(snapshotDataID(meta.prefix()))).Result()
+		if err != nil {
+			return wrapRedis(err, "failed to validate snapshot directory")
+		}
+
+		for {
+			reply, err := s.searchDo(ctx, meta.index(), "FT.INFO", meta.index()).Result()
+			if err != nil {
+				return wrapRedis(err, "failed to validate snapshot index")
+			}
+			info := indexInfoOf(reply)
+			if info.failures != 0 {
+				return errorf(adbc.StatusIO, "snapshot index contains indexing failures")
+			}
+			if !info.indexing && info.percent >= 1 && info.numDocs == count {
+				if len(info.prefixes) != 1 || info.prefixes[0] != meta.prefix() {
+					return errorf(adbc.StatusIO, "snapshot index has an unexpected row prefix")
+				}
+				break
+			}
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(10 * time.Millisecond):
+			}
+		}
+		meta.SnapshotRows = &count
+		raw, err := json.Marshal(meta)
 		if err != nil {
 			return err
 		}
-		for _, table := range tables {
-			meta, err := s.getTable(ctx, schema, table)
-			if err != nil {
-				return err
-			}
-			if !snapshotOwns(ctx, meta.prefix()) {
-				continue
-			}
-			count, err := s.redis(ctx).ZCard(ctx, snapshotMembers(snapshotDataID(meta.prefix()))).Result()
-			if err != nil {
-				return wrapRedis(err, "failed to validate snapshot directory")
-			}
-
-			for {
-				reply, err := s.searchDo(ctx, meta.index(), "FT.INFO", meta.index()).Result()
-				if err != nil {
-					return wrapRedis(err, "failed to validate snapshot index")
-				}
-				info := indexInfoOf(reply)
-				if info.failures != 0 {
-					return errorf(adbc.StatusIO, "snapshot index contains indexing failures")
-				}
-				if !info.indexing && info.percent >= 1 && info.numDocs == count {
-					if len(info.prefixes) != 1 || info.prefixes[0] != meta.prefix() {
-						return errorf(adbc.StatusIO, "snapshot index has an unexpected row prefix")
-					}
-					break
-				}
-				select {
-				case <-ctx.Done():
-					return ctx.Err()
-				case <-time.After(10 * time.Millisecond):
-				}
-			}
-			meta.SnapshotRows = &count
-			raw, err := json.Marshal(meta)
-			if err != nil {
-				return err
-			}
-			if err := s.client.Set(ctx, metaKey(schema, table), raw, 0).Err(); err != nil {
-				return err
-			}
+		if err := s.client.Set(ctx, metaKey(meta.Schema, meta.Name), raw, 0).Err(); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -1064,7 +1051,7 @@ type snapshotSegmentValidation struct {
 	err  error
 }
 
-func (s *store) validateSnapshotTable(ctx context.Context, meta *tableMeta) error {
+func validateSnapshotDescriptor(ctx context.Context, meta *tableMeta) error {
 	scope := snapshotOf(ctx)
 	if scope == nil {
 		return nil
@@ -1081,6 +1068,19 @@ func (s *store) validateSnapshotTable(ctx context.Context, meta *tableMeta) erro
 		if id == "" || snapshotDataID(seg.Index) != id || seg.Rows < 0 {
 			return errorf(adbc.StatusIO, "invalid snapshot segment descriptor")
 		}
+	}
+	return nil
+}
+
+func (s *store) validateSnapshotTable(ctx context.Context, meta *tableMeta) error {
+	if err := validateSnapshotDescriptor(ctx, meta); err != nil {
+		return err
+	}
+	scope := snapshotOf(ctx)
+	if scope == nil {
+		return nil
+	}
+	for _, seg := range meta.snapshotSegments() {
 		// Private indexes may be unsettled; writer fences and final seal validate
 		// these outputs before publication. Shared inputs still need validation.
 		if snapshotOwns(ctx, seg.Prefix) {
@@ -1123,12 +1123,15 @@ func (s *store) reapSnapshotBudget(parent context.Context, budget time.Duration)
 		return
 	}
 	if id != "" {
-		if !s.deleteSnapshotKeys(ctx, snapshotWorkspace(id)) {
+		if err := s.retireSnapshotMetadata(ctx, id); err != nil {
 			return
 		}
 		if err := s.snapshotControl(ctx, "reclaimed", "", id, "").Err(); err != nil {
 			return
 		}
+	}
+	if err := s.collectSnapshotMetadata(ctx); err != nil {
+		return
 	}
 	data, err := s.snapshotControl(ctx, "claim_data", "", "", "").Text()
 	if err != nil || data == "" {
@@ -1156,38 +1159,25 @@ func (s *store) reapSnapshotBudget(parent context.Context, budget time.Duration)
 }
 
 func (s *store) deleteSnapshotKeys(ctx context.Context, prefix string) bool {
-	directory := ""
-	metadata := strings.HasPrefix(prefix, snapshotPrefix+"workspace:")
-	if metadata {
-		directory = prefix + "__keys"
-	} else {
-		directory = snapshotMembers(snapshotDataID(prefix))
-	}
-	err := s.walkSnapshotDirectory(ctx, directory, func(members []string) error {
+	id := snapshotDataID(prefix)
+	if id == "" || prefix != snapshotRows(id) {
+		return false
+	} // Metadata requires reference-counted retirement.
+	err := s.walkSnapshotDirectory(ctx, snapshotMembers(id), func(members []string) error {
 		keys := make([]string, 0, len(members))
 		for _, member := range members {
-			if metadata {
-				if !strings.HasPrefix(member, prefix) || member == directory {
-					return errorf(adbc.StatusIO, "invalid snapshot metadata directory member")
-				}
-				keys = append(keys, member)
-			} else {
-				n, err := strconv.ParseInt(member, 10, 64)
-				if err != nil || n < 0 || len(member) != 20 {
-					return errorf(adbc.StatusIO, "invalid snapshot row directory member")
-				}
-				keys = append(keys, prefix+strconv.FormatInt(n, 10))
+			n, err := strconv.ParseInt(member, 10, 64)
+			if err != nil || n < 1 || len(member) != 20 {
+				return errorf(adbc.StatusIO, "invalid snapshot row directory member")
 			}
+			keys = append(keys, prefix+strconv.FormatInt(n, 10))
 		}
 		if len(keys) == 0 {
 			return nil
 		}
 		return s.client.Del(ctx, keys...).Err()
 	})
-	if err != nil {
-		return false
-	}
-	return !metadata || s.client.Del(ctx, directory).Err() == nil
+	return err == nil
 }
 
 func (e *executor) executeSnapshot(ctx context.Context, ps ParsedStmt, params []Value, types []ColType, so *streamOpts) (execResult, error) {

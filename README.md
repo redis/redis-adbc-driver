@@ -34,7 +34,7 @@ for supported deployments and configuration.
 
 Managed tables now use [always-on statement snapshots](docs/snapshots.md).
 Each statement reads one committed generation, including streamed results;
-supported writes publish atomically. Storage protocol version 7 rejects legacy catalogs
+supported writes publish atomically. Storage protocol version 8 rejects legacy catalogs
 and earlier draft formats without modification; there is no upgrade path. ALTER
 and connection-owned temporary objects are supported. HASH adoption and foreign
 indexes use private managed copies with explicit refreshes, preserving application
