@@ -36,7 +36,9 @@ SQL tables use a defined layout for rows, indexes, and metadata. Compatible
 existing HASH collections can be [adopted in place](docs/driver-reference.md#adopt-hashes-in-place);
 other data must be migrated to that layout. The
 [architecture guide](docs/driver-reference.md#architecture-hybrid-index-row-layout)
-explains how the driver stores and queries tables.
+explains how the driver stores and queries tables. See a worked
+[SQL INSERT and SELECT example](docs/sql-redis-example.md) showing the Redis
+HASH and commands behind a table.
 
 Start with [Choose your tool and connect](docs/setup.md) for Python wheels,
 connection diagnostics, and application examples. For native tools such as
