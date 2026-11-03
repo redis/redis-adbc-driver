@@ -85,12 +85,12 @@ end
 if op == 'init' then
   if redis.call('EXISTS', k) == 0 then
     if ARGV[6] ~= 'import' and redis.call('DBSIZE') ~= 0 then return redis.error_reply('managed-table snapshots require a fresh empty database; existing storage is not upgraded or modified') end
-    redis.call('HSET', k, 'format', '10', 'root', id, 'w:'..id, cjson.encode({state='committed',metadata_keys=0,metadata_buckets=0}), 'r:'..id, '[]')
+    redis.call('HSET', k, 'format', '11', 'root', id, 'w:'..id, cjson.encode({state='committed',metadata_keys=0,metadata_buckets=0}), 'r:'..id, '[]')
   end
-  if redis.call('HGET', k, 'format') ~= '10' then return redis.error_reply('unsupported snapshot catalog format') end
+  if redis.call('HGET', k, 'format') ~= '11' then return redis.error_reply('unsupported snapshot catalog format') end
   return 1
 end
-if redis.call('HGET', k, 'format') ~= '10' then return redis.error_reply('missing or unsupported snapshot catalog') end
+if redis.call('HGET', k, 'format') ~= '11' then return redis.error_reply('missing or unsupported snapshot catalog') end
 local entries = redis.call('HGETALL', k)
 local pins, works, protected = 0, 0, {}
 for n=1,#entries,2 do
@@ -249,6 +249,7 @@ elseif op == 'seal' then
   if not raw or not owns_pin() then return 0 end
   local w=cjson.decode(raw)
   if (w.state~='staging' and w.state~='sealed') or w.token~=token or w.expires<=now then return 0 end
+  if (w.metadata_builds or 0)>0 then return redis.error_reply('snapshot metadata construction is incomplete') end
   w.state='sealed';redis.call('HSET',k,'w:'..id,cjson.encode(w));return 1
 elseif op == 'publish' or op == 'publish_compaction' or op == 'publish_temp' then
   local raw = redis.call('HGET', k, 'w:'..id)
@@ -256,6 +257,7 @@ elseif op == 'publish' or op == 'publish_compaction' or op == 'publish_temp' the
   local w = cjson.decode(raw)
   if w.state == 'committed' then return 1 end
   if (w.state ~= 'staging' and w.state ~= 'sealed') or w.token ~= token or w.expires <= now or not owns_pin() then return -1 end
+  if (w.metadata_builds or 0)>0 then return redis.error_reply('snapshot metadata construction is incomplete') end
   -- Seal before the first CAS refusal. The uncontended path seals and commits
   -- in this same operation, without an extra round trip.
   if w.state=='staging' then w.state='sealed';redis.call('HSET',k,'w:'..id,cjson.encode(w)) end
@@ -267,7 +269,7 @@ elseif op == 'publish' or op == 'publish_compaction' or op == 'publish_temp' the
     local pr=redis.call('HGET',k,'p:'..merge.token)
     if not mr or not pr then return -1 end
     local mw,mp=cjson.decode(mr),cjson.decode(pr)
-    if mw.state~='staging' or mw.base~=merge.base or mw.token~=merge.token or mw.expires<=now or mp.root~=merge.base or mp.expires<=now or not mw.metadata_ready or #(cjson.decode(redis.call('HGET',k,'r:'..merge.id) or '[]'))~=0 then return -1 end
+    if mw.state~='staging' or mw.base~=merge.base or mw.token~=merge.token or mw.expires<=now or mp.root~=merge.base or mp.expires<=now or not mw.metadata_ready or (mw.metadata_builds or 0)>0 or #(cjson.decode(redis.call('HGET',k,'r:'..merge.id) or '[]'))~=0 then return -1 end
     if KEYS[#KEYS-2]~='` + snapshotPrefix + `metadata:root:'..merge.id then return redis.error_reply('invalid snapshot merge map') end
   end
   if redis.call('HGET', k, 'root') ~= expected then return 0 end
@@ -639,6 +641,7 @@ if (command=='set' or command=='setnx') and string.sub(tablekey,1,#(private..'ta
  oldrefs=cjson.decode(redis.call('HGET',KEYS[2],'t:'..tablekey) or '[]')
  data_live(KEYS[2],newrefs);data_releasable(KEYS[2],oldrefs)
 end
+if (w.metadata_builds or 0)>0 and string.sub(KEYS[#KEYS],1,#private)==private then return redis.error_reply('snapshot metadata construction is incomplete') end
 local result = redis.call(unpack(ARGV,5))
 if newrefs and result and (command~='setnx' or result==1) then
  data_retain(KEYS[2],newrefs);data_release(KEYS[2],KEYS[3],oldrefs)

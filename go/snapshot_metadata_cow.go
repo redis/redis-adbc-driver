@@ -34,13 +34,17 @@ func snapshotMetadataID(id string) bool {
 }
 
 type snapshotMetadataState struct {
-	roots   map[string]string
-	buckets map[string]map[string]string
-	checked map[string]bool
-	dirty   map[string]bool
-	prune   map[string]bool
-	reads   map[string]string // logical key -> original immutable value owner (empty means absent)
-	changed map[string]bool
+	building      map[string]string
+	roots         map[string]string
+	buckets       map[string]map[string]string
+	checked       map[string]bool
+	loaded        map[string]bool
+	bucketChecked map[string]bool
+	ready         map[string]bool
+	dirty         map[string]bool
+	prune         map[string]bool
+	reads         map[string]string // logical key -> original immutable value owner (empty means absent)
+	changed       map[string]bool
 }
 
 // Both maps contain only references. Copying a root touches at most 256 slots;
@@ -60,7 +64,7 @@ local baseRaw=redis.call('HGET',KEYS[1],'w:'..ARGV[3])
 if not baseRaw then return redis.error_reply('snapshot metadata manifest unavailable') end
 local baseWork=cjson.decode(baseRaw)
 local entries=redis.call('HGETALL',KEYS[2])
-if baseWork.state~='committed' or baseWork.metadata_buckets~=#entries/2 or baseWork.metadata_keys~=redis.call('ZCARD',KEYS[5]) then return redis.error_reply('snapshot metadata base is incomplete') end
+if baseWork.state~='committed' or (baseWork.metadata_builds or 0)>0 or baseWork.metadata_buckets~=#entries/2 or baseWork.metadata_keys~=redis.call('ZCARD',KEYS[5]) then return redis.error_reply('snapshot metadata base is incomplete') end
 if #entries>512 then return redis.error_reply('invalid snapshot metadata root') end
 for i=1,#entries,2 do
  local field='b:'..entries[i+1]..':'..entries[i]
@@ -74,46 +78,13 @@ w.metadata_ready=true;redis.call('HSET',KEYS[1],'w:'..ARGV[1],cjson.encode(w))
 return 1
 `
 
-// Bucket construction is protected by the workspace lease. Native values are
-// not copied until their logical key is actually mutated.
-const snapshotMetadataCloneBucket = `
-if KEYS[2]~='` + snapshotPrefix + `metadata:root:'..ARGV[1] or KEYS[3]~='` + snapshotPrefix + `metadata:bucket:'..ARGV[4]..':'..ARGV[3] or KEYS[4]~='` + snapshotPrefix + `metadata:bucket:'..ARGV[1]..':'..ARGV[3] then return redis.error_reply('invalid snapshot metadata bucket keys') end
-local raw=redis.call('HGET',KEYS[1],'w:'..ARGV[1])
-if not raw then return redis.error_reply('snapshot writer lease lost') end
-local w=cjson.decode(raw);local t=redis.call('TIME');local now=tonumber(t[1])*1000+math.floor(tonumber(t[2])/1000)
-if w.state~='staging' or w.token~=ARGV[2] or w.expires<=now then return redis.error_reply('snapshot writer lease lost') end
-local owner=redis.call('HGET',KEYS[2],ARGV[3]) or ''
-if owner==ARGV[1] then return 1 end
-if owner~=ARGV[4] then return redis.error_reply('snapshot metadata root changed') end
-local entries={}
-if owner~='' then
- local expected=redis.call('HGET',KEYS[5],'n:'..owner..':'..ARGV[3])
- if not expected or tonumber(expected)~=redis.call('HLEN',KEYS[3]) then return redis.error_reply('snapshot metadata bucket incomplete') end
- entries=redis.call('HGETALL',KEYS[3])
-end
-for i=1,#entries,2 do
- local key='` + snapshotPrefix + `workspace:'..entries[i+1]..':'..entries[i]
- if tonumber(redis.call('HGET',KEYS[5],'v:'..key) or '0')<=0 then return redis.error_reply('snapshot metadata value unavailable') end
-end
-for i=1,#entries,2 do
- local key='` + snapshotPrefix + `workspace:'..entries[i+1]..':'..entries[i]
- redis.call('HINCRBY',KEYS[5],'v:'..key,1)
- redis.call('HSET',KEYS[4],entries[i],entries[i+1])
-end
-redis.call('HSET',KEYS[2],ARGV[3],ARGV[1])
-redis.call('HSET',KEYS[5],'b:'..ARGV[1]..':'..ARGV[3],1,'n:'..ARGV[1]..':'..ARGV[3],#entries/2)
-if owner~='' then
- if redis.call('HINCRBY',KEYS[5],'b:'..owner..':'..ARGV[3],-1)==0 then redis.call('ZADD',KEYS[6],0,owner..':'..ARGV[3]) end
-end
-return 1
-`
-
 const snapshotMetadataOwnValue = snapshotDataEdges + `
-if KEYS[2]~='` + snapshotPrefix + `metadata:root:'..ARGV[1] or KEYS[3]~='` + snapshotPrefix + `metadata:bucket:'..ARGV[1]..':'..ARGV[3] or KEYS[4]~='` + snapshotPrefix + `workspace:'..ARGV[5]..':'..ARGV[4] or KEYS[5]~='` + snapshotPrefix + `workspace:'..ARGV[1]..':'..ARGV[4] then return redis.error_reply('invalid snapshot metadata value keys') end
+if KEYS[10]~='` + snapshotPrefix + `metadata:fields:'..ARGV[1]..':'..ARGV[3] or KEYS[2]~='` + snapshotPrefix + `metadata:root:'..ARGV[1] or KEYS[3]~='` + snapshotPrefix + `metadata:bucket:'..ARGV[1]..':'..ARGV[3] or KEYS[4]~='` + snapshotPrefix + `workspace:'..ARGV[5]..':'..ARGV[4] or KEYS[5]~='` + snapshotPrefix + `workspace:'..ARGV[1]..':'..ARGV[4] then return redis.error_reply('invalid snapshot metadata value keys') end
 local raw=redis.call('HGET',KEYS[1],'w:'..ARGV[1])
 if not raw then return redis.error_reply('snapshot writer lease lost') end
 local w=cjson.decode(raw);local t=redis.call('TIME');local now=tonumber(t[1])*1000+math.floor(tonumber(t[2])/1000)
 if w.state~='staging' or w.token~=ARGV[2] or w.expires<=now then return redis.error_reply('snapshot writer lease lost') end
+if (w.metadata_builds or 0)>0 then return redis.error_reply('snapshot metadata construction is incomplete') end
 if redis.call('HGET',KEYS[2],ARGV[3])~=ARGV[1] then return redis.error_reply('snapshot metadata bucket is not private') end
 local owner=redis.call('HGET',KEYS[3],ARGV[4]) or ''
 if owner==ARGV[1] then return 1 end
@@ -133,7 +104,7 @@ if owner~='' then
   if #refs>0 then redis.call('HSET',KEYS[6],'t:'..KEYS[5],cjson.encode(refs)) end
  end
 end
-redis.call('HSET',KEYS[3],ARGV[4],ARGV[1])
+redis.call('HSET',KEYS[3],ARGV[4],ARGV[1]);redis.call('ZADD',KEYS[10],0,ARGV[4])
 redis.call('HSET',KEYS[6],'v:'..KEYS[5],1,'e:'..KEYS[5],present,'n:'..ARGV[1]..':'..ARGV[3],redis.call('HLEN',KEYS[3]))
 if present==1 then redis.call('ZADD',KEYS[8],0,KEYS[5]) end
 if owner~='' and redis.call('HINCRBY',KEYS[6],'v:'..KEYS[4],-1)==0 then redis.call('ZADD',KEYS[7],0,KEYS[4]) end
@@ -166,6 +137,10 @@ func resolveSnapshotMetadata(ctx context.Context, suffix string, writing bool, c
 		m.roots = roots
 		m.buckets = map[string]map[string]string{}
 		m.checked = map[string]bool{}
+		m.loaded = map[string]bool{}
+		m.bucketChecked = map[string]bool{}
+		m.ready = map[string]bool{}
+		m.building = map[string]string{}
 		m.dirty = map[string]bool{}
 		m.prune = map[string]bool{}
 		m.changed = map[string]bool{}
@@ -178,26 +153,51 @@ func resolveSnapshotMetadata(ctx context.Context, suffix string, writing bool, c
 	if owner != "" && !snapshotMetadataID(owner) {
 		return "", errorf(adbc.StatusIO, "invalid snapshot metadata bucket identity")
 	}
-	bucket, loaded := m.buckets[slot]
-	if !loaded {
+	if scope.write && !m.ready[slot] {
+		if source, pending := m.building[slot]; pending {
+			if err := s.ownSnapshotMetadataBucket(ctx, slot, source); err != nil {
+				return "", err
+			}
+			owner = m.roots[slot]
+		}
+	}
+	if scope.write && owner == scope.id && !m.ready[slot] {
+		if err := s.ownSnapshotMetadataBucket(ctx, slot, owner); err != nil {
+			return "", err
+		}
+	}
+	bucket := m.buckets[slot]
+	if bucket == nil {
 		bucket = map[string]string{}
+		m.buckets[slot] = bucket
+	}
+	if !m.loaded[suffix] {
 		if owner != "" {
-			var err error
-			bucket, err = s.redis(ctx).HGetAll(ctx, snapshotMetadataBucket(owner, slot)).Result()
-			if err != nil {
+			if !m.bucketChecked[slot] {
+				p := s.redis(ctx).Pipeline()
+				proof := p.HMGet(ctx, snapshotMetadataGraph, "n:"+owner+":"+slot, "b:"+owner+":"+slot)
+				count := p.HLen(ctx, snapshotMetadataBucket(owner, slot))
+				fields := p.ZCard(ctx, snapshotMetadataDirectory(owner, slot))
+				if _, err := p.Exec(ctx); err != nil {
+					return "", err
+				}
+				values := proof.Val()
+				expected, e := strconv.ParseInt(fmt.Sprint(values[0]), 10, 64)
+				refs, r := strconv.ParseInt(fmt.Sprint(values[1]), 10, 64)
+				if e != nil || r != nil || refs <= 0 || expected != count.Val() || expected != fields.Val() {
+					return "", errorf(adbc.StatusIO, "snapshot metadata bucket is incomplete")
+				}
+				m.bucketChecked[slot] = true
+			}
+			value, err := s.redis(ctx).HGet(ctx, snapshotMetadataBucket(owner, slot), suffix).Result()
+			if err != nil && !errors.Is(err, goredis.Nil) {
 				return "", err
 			}
-			proof, err := s.redis(ctx).HMGet(ctx, snapshotMetadataGraph, "n:"+owner+":"+slot, "b:"+owner+":"+slot).Result()
-			if err != nil {
-				return "", err
-			}
-			expected, e := strconv.ParseInt(fmt.Sprint(proof[0]), 10, 64)
-			refs, r := strconv.ParseInt(fmt.Sprint(proof[1]), 10, 64)
-			if e != nil || r != nil || refs <= 0 || expected != int64(len(bucket)) {
-				return "", errorf(adbc.StatusIO, "snapshot metadata bucket is incomplete")
+			if err == nil {
+				bucket[suffix] = value
 			}
 		}
-		m.buckets[slot] = bucket
+		m.loaded[suffix] = true
 	}
 	if _, recorded := m.reads[suffix]; !recorded && !(scope.write && bucket[suffix] == scope.id) {
 		m.reads[suffix] = bucket[suffix]
@@ -217,11 +217,9 @@ func resolveSnapshotMetadata(ctx context.Context, suffix string, writing bool, c
 			return "", errorf(adbc.StatusInvalidState, "published snapshot generations are read-only")
 		}
 		if owner != scope.id {
-			source := snapshotMetadataBucket(owner, slot)
-			if err := once(ctx, s.redis(ctx), "EVAL", snapshotMetadataCloneBucket, 6, snapshotCatalogKey, snapshotMetadataMap(scope.id), source, snapshotMetadataBucket(scope.id, slot), snapshotMetadataGraph, snapshotMetadataBucketQueue, scope.id, scope.pin.token, slot, owner).Err(); err != nil {
+			if err := s.ownSnapshotMetadataBucket(ctx, slot, owner); err != nil {
 				return "", err
 			}
-			m.roots[slot] = scope.id
 			owner = scope.id
 		}
 		valueOwner := bucket[suffix]
@@ -231,7 +229,7 @@ func resolveSnapshotMetadata(ctx context.Context, suffix string, writing bool, c
 			}
 			source := snapshotWorkspace(valueOwner) + suffix
 			target := snapshotWorkspace(scope.id) + suffix
-			if err := once(ctx, s.redis(ctx), "EVAL", snapshotMetadataOwnValue, 9, snapshotCatalogKey, snapshotMetadataMap(scope.id), snapshotMetadataBucket(scope.id, slot), source, target, snapshotMetadataGraph, snapshotMetadataValueQueue, snapshotMetadataKeys(scope.id), snapshotDataQueue, scope.id, scope.pin.token, slot, suffix, valueOwner).Err(); err != nil {
+			if err := once(ctx, s.redis(ctx), "EVAL", snapshotMetadataOwnValue, 10, snapshotCatalogKey, snapshotMetadataMap(scope.id), snapshotMetadataBucket(scope.id, slot), source, target, snapshotMetadataGraph, snapshotMetadataValueQueue, snapshotMetadataKeys(scope.id), snapshotDataQueue, snapshotMetadataDirectory(scope.id, slot), scope.id, scope.pin.token, slot, suffix, valueOwner).Err(); err != nil {
 				return "", err
 			}
 			bucket[suffix] = scope.id
@@ -274,10 +272,20 @@ local entries=redis.call('HGETALL',KEYS[2])
 for i=1,#entries,2 do
  local id=entries[i+1]..':'..entries[i]
  if tonumber(redis.call('HGET',KEYS[3],'b:'..id) or '0')<=0 then return redis.error_reply('snapshot metadata reference is missing') end
+ local build=redis.call('HGET',KEYS[3],'c:'..id)
+ if build then
+  if entries[i+1]~=ARGV[1] or tonumber(redis.call('HGET',KEYS[3],'b:'..cjson.decode(build).source..':'..entries[i]) or '0')<=0 then return redis.error_reply('snapshot construction source reference is missing') end
+ end
 end
 for i=1,#entries,2 do
  local id=entries[i+1]..':'..entries[i]
  if redis.call('HINCRBY',KEYS[3],'b:'..id,-1)==0 then redis.call('ZADD',KEYS[4],0,id) end
+ local build=redis.call('HGET',KEYS[3],'c:'..id)
+ if build then
+  local source=cjson.decode(build).source..':'..entries[i]
+  if redis.call('HINCRBY',KEYS[3],'b:'..source,-1)==0 then redis.call('ZADD',KEYS[4],0,source) end
+  redis.call('HDEL',KEYS[3],'c:'..id)
+ end
 end
 redis.call('DEL',KEYS[2]);return 1
 `
@@ -295,10 +303,10 @@ end
 for i=1,count,2 do
  local key='` + snapshotPrefix + `workspace:'..entries[i+1]..':'..entries[i]
  if redis.call('HINCRBY',KEYS[2],'v:'..key,-1)==0 then redis.call('ZADD',KEYS[4],0,key) end
- redis.call('HDEL',KEYS[1],entries[i])
+ redis.call('HDEL',KEYS[1],entries[i]);redis.call('ZREM',KEYS[5],entries[i])
 end
 if redis.call('HLEN',KEYS[1])==0 then
- redis.call('HDEL',KEYS[2],'b:'..ARGV[1],'n:'..ARGV[1]);redis.call('ZREM',KEYS[3],ARGV[1])
+ redis.call('DEL',KEYS[5]);redis.call('HDEL',KEYS[2],'b:'..ARGV[1],'n:'..ARGV[1]);redis.call('ZREM',KEYS[3],ARGV[1])
 end
 return 1
 `
@@ -330,7 +338,7 @@ func (s *store) collectSnapshotMetadata(ctx context.Context) error {
 		if _, err := strconv.ParseUint(parts[1], 16, 8); err != nil {
 			return err
 		}
-		if err := once(ctx, s.client, "EVAL", snapshotMetadataCollectBucket, 4, snapshotMetadataBucket(parts[0], parts[1]), snapshotMetadataGraph, snapshotMetadataBucketQueue, snapshotMetadataValueQueue, id).Err(); err != nil {
+		if err := once(ctx, s.client, "EVAL", snapshotMetadataCollectBucket, 5, snapshotMetadataBucket(parts[0], parts[1]), snapshotMetadataGraph, snapshotMetadataBucketQueue, snapshotMetadataValueQueue, snapshotMetadataDirectory(parts[0], parts[1]), id).Err(); err != nil {
 			return err
 		}
 	}
@@ -387,11 +395,12 @@ local raw=redis.call('HGET',KEYS[1],'w:'..ARGV[1])
 if not raw then return redis.error_reply('snapshot writer lease lost') end
 local w=cjson.decode(raw);local t=redis.call('TIME');local now=tonumber(t[1])*1000+math.floor(tonumber(t[2])/1000)
 if w.state~='staging' or w.token~=ARGV[2] or w.expires<=now then return redis.error_reply('snapshot writer lease lost') end
-if KEYS[2]~='` + snapshotPrefix + `metadata:bucket:'..ARGV[1]..':'..ARGV[3] or KEYS[3]~='` + snapshotPrefix + `workspace:'..ARGV[1]..':'..ARGV[4] then return redis.error_reply('invalid snapshot metadata pruning keys') end
+if (w.metadata_builds or 0)>0 then return redis.error_reply('snapshot metadata construction is incomplete') end
+if KEYS[6]~='` + snapshotPrefix + `metadata:fields:'..ARGV[1]..':'..ARGV[3] or KEYS[2]~='` + snapshotPrefix + `metadata:bucket:'..ARGV[1]..':'..ARGV[3] or KEYS[3]~='` + snapshotPrefix + `workspace:'..ARGV[1]..':'..ARGV[4] then return redis.error_reply('invalid snapshot metadata pruning keys') end
 if redis.call('HGET',KEYS[2],ARGV[4])~=ARGV[1] then return 0 end
 if redis.call('EXISTS',KEYS[3])~=0 then return 0 end
 if redis.call('HGET',KEYS[4],'e:'..KEYS[3])~='0' or tonumber(redis.call('HGET',KEYS[4],'v:'..KEYS[3]) or '0')~=1 then return redis.error_reply('invalid private metadata deletion') end
-redis.call('HDEL',KEYS[2],ARGV[4]);redis.call('HSET',KEYS[4],'v:'..KEYS[3],0,'n:'..ARGV[1]..':'..ARGV[3],redis.call('HLEN',KEYS[2]))
+redis.call('HDEL',KEYS[2],ARGV[4]);redis.call('ZREM',KEYS[6],ARGV[4]);redis.call('HSET',KEYS[4],'v:'..KEYS[3],0,'n:'..ARGV[1]..':'..ARGV[3],redis.call('HLEN',KEYS[2]))
 redis.call('ZADD',KEYS[5],0,KEYS[3]);return 1
 `
 
@@ -401,7 +410,7 @@ func (s *store) pruneSnapshotMetadata(ctx context.Context) error {
 	defer scope.metadataMu.Unlock()
 	for suffix := range scope.metadata.prune {
 		slot := snapshotMetadataSlot(suffix)
-		n, err := once(ctx, s.redis(ctx), "EVAL", snapshotMetadataPruneValue, 5, snapshotCatalogKey, snapshotMetadataBucket(scope.id, slot), snapshotWorkspace(scope.id)+suffix, snapshotMetadataGraph, snapshotMetadataValueQueue, scope.id, scope.pin.token, slot, suffix).Int()
+		n, err := once(ctx, s.redis(ctx), "EVAL", snapshotMetadataPruneValue, 6, snapshotCatalogKey, snapshotMetadataBucket(scope.id, slot), snapshotWorkspace(scope.id)+suffix, snapshotMetadataGraph, snapshotMetadataValueQueue, snapshotMetadataDirectory(scope.id, slot), scope.id, scope.pin.token, slot, suffix).Int()
 		if err != nil {
 			return err
 		}

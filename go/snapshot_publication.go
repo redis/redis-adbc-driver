@@ -18,8 +18,9 @@ local original=redis.call('HGET',KEYS[1],'w:'..ARGV[6])
 local t=redis.call('TIME');local now=tonumber(t[1])*1000+math.floor(tonumber(t[2])/1000)
 if not raw or not original then return redis.error_reply('snapshot merge ownership missing') end
 local w,source=cjson.decode(raw),cjson.decode(original)
+if (w.metadata_builds or 0)>0 then return redis.error_reply('snapshot metadata construction is incomplete') end
 if w.state~='staging' or w.token~=ARGV[2] or w.expires<=now or source.state~='sealed' or source.token~=ARGV[7] or source.expires<=now then return redis.error_reply('snapshot merge lease lost') end
-if KEYS[2]~='` + snapshotPrefix + `metadata:root:'..ARGV[1] or KEYS[3]~='` + snapshotPrefix + `metadata:bucket:'..ARGV[1]..':'..ARGV[3] or KEYS[6]~='` + snapshotPrefix + `metadata:bucket:'..ARGV[6]..':'..ARGV[3] or KEYS[7]~='` + snapshotPrefix + `metadata:root:'..ARGV[6] then return redis.error_reply('invalid snapshot merge keys') end
+if KEYS[9]~='` + snapshotPrefix + `metadata:fields:'..ARGV[1]..':'..ARGV[3] or KEYS[2]~='` + snapshotPrefix + `metadata:root:'..ARGV[1] or KEYS[3]~='` + snapshotPrefix + `metadata:bucket:'..ARGV[1]..':'..ARGV[3] or KEYS[6]~='` + snapshotPrefix + `metadata:bucket:'..ARGV[6]..':'..ARGV[3] or KEYS[7]~='` + snapshotPrefix + `metadata:root:'..ARGV[6] then return redis.error_reply('invalid snapshot merge keys') end
 if redis.call('HGET',KEYS[2],ARGV[3])~=ARGV[1] or redis.call('HGET',KEYS[7],ARGV[3])~=ARGV[6] or (redis.call('HGET',KEYS[6],ARGV[4]) or '')~=ARGV[5] then return redis.error_reply('snapshot merge mapping changed') end
 local prior=redis.call('HGET',KEYS[3],ARGV[4]) or ''
 if prior==ARGV[5] then return 1 end
@@ -28,8 +29,8 @@ if prior~='' and tonumber(redis.call('HGET',KEYS[4],'v:'..prefix..prior..':'..AR
 if ARGV[5]~='' and (ARGV[5]~=ARGV[6] or tonumber(redis.call('HGET',KEYS[4],'v:'..KEYS[8]) or '0')<=0 or KEYS[8]~=prefix..ARGV[5]..':'..ARGV[4]) then return redis.error_reply('snapshot merge source missing') end
 if ARGV[5]~='' then
  redis.call('HINCRBY',KEYS[4],'v:'..KEYS[8],1)
- redis.call('HSET',KEYS[3],ARGV[4],ARGV[5])
-else redis.call('HDEL',KEYS[3],ARGV[4]) end
+ redis.call('HSET',KEYS[3],ARGV[4],ARGV[5]);redis.call('ZADD',KEYS[9],0,ARGV[4])
+else redis.call('HDEL',KEYS[3],ARGV[4]);redis.call('ZREM',KEYS[9],ARGV[4]) end
 if prior~='' then
  local key=prefix..prior..':'..ARGV[4]
  if redis.call('HINCRBY',KEYS[4],'v:'..key,-1)==0 then redis.call('ZADD',KEYS[5],0,key) end
@@ -50,13 +51,12 @@ func (s *store) mergeSnapshotEntry(ctx context.Context, original *snapshotScope,
 	m := &scope.metadata
 	slot := snapshotMetadataSlot(suffix)
 	owner := m.roots[slot]
-	if owner != scope.id {
-		if err := once(ctx, s.redis(ctx), "EVAL", snapshotMetadataCloneBucket, 6, snapshotCatalogKey, snapshotMetadataMap(scope.id), snapshotMetadataBucket(owner, slot), snapshotMetadataBucket(scope.id, slot), snapshotMetadataGraph, snapshotMetadataBucketQueue, scope.id, scope.pin.token, slot, owner).Err(); err != nil {
+	if owner != scope.id || !m.ready[slot] {
+		if err := s.ownSnapshotMetadataBucket(ctx, slot, owner); err != nil {
 			return err
 		}
-		m.roots[slot] = scope.id
 	}
-	if err := once(ctx, s.redis(ctx), "EVAL", snapshotMetadataMergeEntry, 8, snapshotCatalogKey, snapshotMetadataMap(scope.id), snapshotMetadataBucket(scope.id, slot), snapshotMetadataGraph, snapshotMetadataValueQueue, snapshotMetadataBucket(original.id, slot), snapshotMetadataMap(original.id), snapshotWorkspace(original.id)+suffix, scope.id, scope.pin.token, slot, suffix, sourceOwner, original.id, original.pin.token).Err(); err != nil {
+	if err := once(ctx, s.redis(ctx), "EVAL", snapshotMetadataMergeEntry, 9, snapshotCatalogKey, snapshotMetadataMap(scope.id), snapshotMetadataBucket(scope.id, slot), snapshotMetadataGraph, snapshotMetadataValueQueue, snapshotMetadataBucket(original.id, slot), snapshotMetadataMap(original.id), snapshotWorkspace(original.id)+suffix, snapshotMetadataDirectory(scope.id, slot), scope.id, scope.pin.token, slot, suffix, sourceOwner, original.id, original.pin.token).Err(); err != nil {
 		return err
 	}
 	if sourceOwner == "" {

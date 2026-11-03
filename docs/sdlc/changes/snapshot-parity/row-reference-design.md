@@ -6,7 +6,8 @@ no longer enumerates table descriptors. The data registry/counters share the
 metadata graph, with a separate durable zero-reference queue. Independent
 publication is verified locally in format 10; see
 [publication evidence](publication-validation.md);
-bounded bucket construction remains pending. Do not claim full
+bounded bucket construction is verified locally in format 11; see
+[bucket evidence](bucket-validation.md). Do not claim full
 constant-catalog-cost writes or throughput parity without measurements. See
 [metadata direction](metadata-design.md).
 

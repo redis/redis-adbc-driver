@@ -5,10 +5,11 @@ managed tables and imported copies of application data. No option is required.
 Ordinary Open initializes an empty isolated database. Explicit HASH import and
 foreign-index import may initialize alongside application-owned data and indexes,
 but reject existing legacy driver metadata without modification. No upgrade or
-migration path is included. Storage protocol version 10 rejects prior draft versions
-1–9. It requires an indexed tombstone marker for visibility-safe server reduction.
+migration path is included. Storage protocol version 11 rejects prior draft versions
+1–10. It requires an indexed tombstone marker for visibility-safe server reduction.
 Metadata manifests share immutable buckets and native values through a fixed
-256-slot map. Writes copy touched buckets/values; reference-counted retirement
+256-slot map. Buckets have exact ordered field directories; point metadata reads
+fetch individual fields with count/reference proofs. Writes copy touched buckets/values; reference-counted retirement
 preserves aliases after their original manifest is removed. Committed map,
 bucket and object checks reject incomplete metadata. Reclamation drains bounded
 batches without persisting Redis SCAN cursors across restarts or slot moves.
@@ -136,7 +137,13 @@ evict published keys or indexes outside the driver.
 
 ## Costs, limits and recovery
 
-Each write copies at most 256 metadata bucket references. Touched buckets share
+Each write copies at most 256 metadata bucket references. A touched bucket is
+constructed in renewable, checkpointed batches of at most 64 references, targeting
+1 MiB of copied field/owner bytes; one oversized field may exceed that target,
+subject to server key limits. Checkpoints use logical keys, not Redis SCAN
+cursors. Partial targets and their source buckets retain explicit references;
+abort/expiry retires both, and incomplete construction cannot publish. Native
+values remain private only when actually mutated. Touched buckets share
 native metadata values until a logical key is changed; unchanged table descriptors
 and row/index storage remain shared. Final index sealing visits dirty tables.
 Snapshot UUID ownership replaces the legacy catalog-wide prefix/index registries.

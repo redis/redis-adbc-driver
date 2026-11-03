@@ -176,7 +176,7 @@ func TestSnapshotMetadataOldPinProtectsValuesAcrossDrop(t *testing.T) {
 }
 
 func TestSnapshotMetadataSharingRejectsIncompleteObjects(t *testing.T) {
-	for _, kind := range []string{"root", "bucket", "value"} {
+	for _, kind := range []string{"root", "bucket", "directory", "value"} {
 		t.Run(kind, func(t *testing.T) {
 			h, raw, _ := newSnapshotHarnessMode(t, false, false)
 			h.exec("CREATE TABLE t(v INTEGER)")
@@ -202,6 +202,9 @@ func TestSnapshotMetadataSharingRejectsIncompleteObjects(t *testing.T) {
 				message = "metadata map is incomplete"
 			case "bucket":
 				err = raw.HDel(h.ctx, snapshotMetadataBucket(owner, slot), suffix).Err()
+				message = "metadata bucket is incomplete"
+			case "directory":
+				err = raw.ZRem(h.ctx, snapshotMetadataDirectory(owner, slot), suffix).Err()
 				message = "metadata bucket is incomplete"
 			case "value":
 				err = raw.Del(h.ctx, key).Err()

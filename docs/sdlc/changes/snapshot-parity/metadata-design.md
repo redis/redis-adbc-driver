@@ -4,8 +4,9 @@ Status: steps 1 and 6 verified in prior checkpoints. Step 2, removal of legacy
 name registries, and independent metadata-object reclamation are implemented;
 full validation is in progress. Incremental row references are implemented
 locally in format 9, replacing publication enumeration. Format 10 adds locally
-verified independent publication; bounded bucket
-construction and large-operation work remain open.
+verified independent publication. Format 11 adds ordered field directories,
+point metadata reads and locally verified bounded construction;
+large-operation work remains open.
 Parent implementation: b4b73e0.
 See [plan](plan.md). This is a work record, not a completed parity claim.
 
