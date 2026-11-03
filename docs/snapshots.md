@@ -111,6 +111,10 @@ retain their existing compatibility behavior, including no-op ROLLBACK.
 - No live migration or downgrade is included. See the
   [Cluster API and recovery evidence](sdlc/changes/snapshot-cluster/validation.md)
   for the tested Software topology and recovery boundaries.
+- ACL parity remains incomplete. The legacy `%R~adbc:*` metadata grant also
+  covers snapshot row HASHes across schemas; it does not isolate a `public:*`
+  reader. A Software API principal probe confirms direct cross-schema access.
+  See the [ACL evidence and regression gate](sdlc/changes/snapshot-parity/import-report-validation.md).
 
 Distributed Search schema commands run at the top level, bracketed by server-side
 writer admission and validation. Running FT.CREATE inside Lua produces a local

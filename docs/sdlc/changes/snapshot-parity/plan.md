@@ -62,3 +62,10 @@ reads through exact snapshot visibility and preserves the complete wide test's
 optimized/fallback, value and lifecycle assertions. Local comparative timings
 show selective improvement and approximately unchanged full scans; this does
 not close the remaining full feature/platform or performance requirements.
+
+The [managed-import report and ACL checkpoint](import-report-validation.md)
+restores complete dry-run/Apply/refresh reports and verifies CLI ownership and
+explicit refresh. A Software API principal probe confirms that protocol 12's
+`adbc:*` row layout defeats the legacy schema ACL recipe; the committed manual
+gate remains red until schema isolation is restored. Imported `__key` identity
+and the remaining adoption/sweep/ACL regression families also remain open.

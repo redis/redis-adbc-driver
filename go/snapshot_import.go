@@ -6,6 +6,7 @@ package redis
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/apache/arrow-adbc/go/adbc"
@@ -247,15 +248,30 @@ func (a *adopter) snapshotAdopt(ctx context.Context) (*HashAdoption, error) {
 	if a.app != nil {
 		a.index = a.app.name
 	}
-	meta, err := a.plan()
-	if err != nil {
-		return nil, err
+	meta := &tableMeta{KeyPrefix: a.o.Prefix}
+	if len(a.cols) > 0 {
+		var err error
+		meta, err = a.plan()
+		if err != nil {
+			return nil, err
+		}
 	}
 	a.res.ManagedCopy = true
 	a.res.AppIndex = false
 	a.res.Table = displaySchema(a.schema) + "." + a.table
 	a.res.Report.Schema, a.res.Report.Table = a.schema, a.table
 	a.res.Steps = []string{"copy observed application HASH rows into a private managed segment; atomically publish; keep source HASHes and indexes unchanged; repeat Apply to refresh"}
+	cl, err := a.snapshotAdoptionChecklist(ctx, meta)
+	if err != nil {
+		return nil, err
+	}
+	a.res.Report.Checks = []Checklist{cl}
+	if !cl.Ready {
+		if a.o.Apply {
+			return a.res, errorf(adbc.StatusInvalidState, "managed HASH import is blocked; inspect the report checklist")
+		}
+		return a.res, nil
+	}
 	if !a.o.Apply {
 		return a.res, nil
 	}
@@ -312,6 +328,89 @@ func (a *adopter) snapshotAdopt(ctx context.Context) (*HashAdoption, error) {
 	}
 	a.res.Applied = true
 	return a.res, nil
+}
+
+// Keep the public adoption checklist identifier, while describing its mandatory
+// managed-copy semantics. Planning must never initialize or publish a catalog.
+func (a *adopter) snapshotAdoptionChecklist(ctx context.Context, source *tableMeta) (Checklist, error) {
+	cl := Checklist{Name: ChecklistSQLInPlace, Title: "SQL, imported as a managed copy (redis-adbc adopt)"}
+	a.c.checkServer(&cl, a.res.Report)
+	switch {
+	case a.stats.keys == 0:
+		cl.add(CheckBlocker, fmt.Sprintf("there are no HASH keys under %s", shellQuote(a.o.Prefix)), "check the source prefix")
+	case a.stats.rows == 0:
+		cl.add(CheckBlocker, "no source HASHes qualify as rows", "choose a prefix whose row keys have no further ':'")
+	default:
+		cl.add(CheckOK, fmt.Sprintf("%s under %s %s rows", plural(a.stats.rows, "HASH", "HASHes"), shellQuote(a.o.Prefix), verb(a.stats.rows, "is", "are")), "")
+		if a.stats.nested > 0 {
+			cl.add(CheckWarn, fmt.Sprintf("%s (such as %s) %s another ':' after %s, and %s out of the table",
+				plural(a.stats.nested, "key", "keys"), a.stats.nestedEx, verb(a.stats.nested, "has", "have"), shellQuote(a.o.Prefix), verb(a.stats.nested, "stays", "stay")), "")
+		}
+	}
+	for _, col := range a.cols {
+		if col.override != "" && col.guess != nil && col.guess.misfits > 0 {
+			cl.add(CheckBlocker, fmt.Sprintf("-type %s=%s: %s do not fit the source encoding", col.name, col.override, plural(int64(col.guess.misfits), "value", "values")),
+				"choose a compatible type or encoding; source values are never changed")
+		}
+	}
+	if len(a.cols) == 0 {
+		cl.add(CheckBlocker, "the source has no fields that can become columns", "choose a collection with readable fields")
+	}
+	checkColumnNames(&cl, a.cols)
+	if isTempSchema(a.schema) || isTempAlias(a.schema) {
+		cl.add(CheckBlocker, "the import destination is a temporary schema", "choose a permanent schema")
+	}
+	if a.c.st.snapshots {
+		schema, err := a.c.st.schemaExists(ctx, a.schema)
+		if err != nil {
+			return cl, err
+		}
+		if !schema {
+			cl.add(CheckBlocker, "the destination schema does not exist", "create the schema before importing")
+		}
+		view, err := a.c.st.viewExists(ctx, a.schema, a.table)
+		if err != nil {
+			return cl, err
+		}
+		table, err := a.c.st.tableExists(ctx, a.schema, a.table)
+		if err != nil {
+			return cl, err
+		}
+		switch {
+		case view:
+			cl.add(CheckBlocker, a.res.Table+" is a view", "choose another destination")
+		case table:
+			old, err := a.c.st.getTable(ctx, a.schema, a.table)
+			if err != nil {
+				return cl, err
+			}
+			if old.SnapshotImportSource != snapshotImportIdentity(source) {
+				cl.add(CheckBlocker, a.res.Table+" is not a managed copy of this source", "choose another destination")
+			} else {
+				cl.add(CheckOK, "repeat Apply explicitly refreshes the existing managed copy", "")
+			}
+		}
+	}
+	cl.add(CheckMissing, "a private managed copy and its own Search index", "Apply publishes the observed source rows atomically")
+	cl.add(CheckOK, "source HASHes and application indexes remain unchanged", "")
+	cl.add(CheckWarn, "capture is a scan of observed data, not an atomic snapshot of application writers", "pause source writes if a point-in-time source image is required")
+	command := adoptCommand(a.o.Prefix, a.schema, a.table, a.c.db.schema, a.o.Types, a.o.Renames)
+	for _, name := range sortedKeys(a.o.Encodings) {
+		command += " -encoding " + shellQuote(name+"="+a.o.Encodings[name])
+	}
+	if a.o.Index != "" {
+		command += " -index " + shellQuote(a.o.Index)
+	} else if a.o.OwnIndex {
+		command += " -own-index"
+	}
+	if len(a.o.IndexColumns) > 0 {
+		command += " -index-columns " + shellQuote(strings.Join(a.o.IndexColumns, ","))
+	}
+	if a.o.TrustStrings {
+		command += " -trust-strings"
+	}
+	cl.finish(command + " -apply")
+	return cl, nil
 }
 
 func (s *store) removeSnapshotForeign(ctx context.Context, name string) error {

@@ -322,6 +322,16 @@ the Python exception:
 
 ### ACL users
 
+Snapshot ACL parity is still in progress. The recipes below describe the legacy
+layout. Protocol 12 also stores row HASHes under `adbc:{meta}:snapshot:rows:`;
+granting `%R~adbc:*` therefore grants direct row access across schemas. Adding
+`%R~public:*` does not restrict that broader grant. This was reproduced on
+Redis Software with verified 4x QPF. Snapshot reader pins also require control
+operations absent from the legacy read-only command list. See the
+[current ACL regression evidence](sdlc/changes/snapshot-parity/import-report-validation.md).
+Restoring schema-specific access and validating restricted-user recipes remain
+required before this draft can claim ACL parity.
+
 If the database has ACL users, the driver's user needs these commands. The
 lists were checked with users that have exactly these rules, running the Go
 integration tests and the ADBC validation suite on Redis 8.6.2, standalone

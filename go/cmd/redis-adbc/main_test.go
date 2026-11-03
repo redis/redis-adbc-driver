@@ -248,11 +248,12 @@ func TestAdoptCommand(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, want := range []string{
-		"SQL, adopted in place (redis-adbc adopt): READY",
-		"[ok]      every HASH under it:cli:ad: is a row (5)",
+		"SQL, imported as a managed copy (redis-adbc adopt): READY",
+		"[ok]      5 HASHes under it:cli:ad: are rows",
 		"run: redis-adbc adopt -prefix it:cli:ad: -table it_cli_ad -apply",
 		"Nothing was changed. With -apply, adopt would:",
-		"FT.CREATE idx:public:it_cli_ad:adopted ON HASH PREFIX 1 it:cli:ad:",
+		"copy observed application HASH rows into a private managed segment; atomically publish",
+		"source HASHes and application indexes remain unchanged",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("adopt output lacks %q:\n%s", want, out)
@@ -262,22 +263,39 @@ func TestAdoptCommand(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := "Adopted: public.it_cli_ad now reads the HASHes under it:cli:ad:, and those the application writes later (index idx:public:it_cli_ad:adopted)."; !strings.Contains(out, want) {
+	if want := "Imported: public.it_cli_ad is a managed copy of HASHes under it:cli:ad:. Repeat -apply to refresh; application HASHes and indexes are unchanged."; !strings.Contains(out, want) {
 		t.Errorf("adopt -apply output lacks %q:\n%s", want, out)
 	}
 	if n := sqlInt(t, uri, "SELECT COUNT(*) FROM "+table); n != 5 {
 		t.Errorf("%d rows", n)
 	}
-	// A HASH the application adds is a row at once; adopt has nothing to do.
+	if n := sqlInt(t, uri, "SELECT COUNT(*) FROM information_schema.tables WHERE table_name='it_cli_ad' AND key_prefix LIKE 'adbc:{meta}:snapshot:rows:%'"); n != 1 {
+		t.Fatal("CLI import did not create a private managed layout")
+	}
+	// Application changes become visible only after an explicit refresh.
 	if err := c.HSet(ctx, prefix+"6", "name", "u6", "age", 26, "active", "true", "since", "2024-02-06").Err(); err != nil {
 		t.Fatal(err)
 	}
-	if n := sqlInt(t, uri, "SELECT COUNT(*) FROM "+table); n != 6 {
+	if n := sqlInt(t, uri, "SELECT COUNT(*) FROM "+table); n != 5 {
 		t.Errorf("%d rows after the application's HSET", n)
 	}
 	out, _, err = runCmd(t, "adopt", "-uri", uri, "-prefix", prefix)
-	if err != nil || !strings.Contains(out, "Nothing to do: public.it_cli_ad reads the HASHes under it:cli:ad:.") {
+	if err != nil || !strings.Contains(out, "repeat Apply explicitly refreshes the existing managed copy") {
 		t.Errorf("adopt again: %v\n%s", err, out)
+	}
+	if n := sqlInt(t, uri, "SELECT COUNT(*) FROM "+table); n != 5 {
+		t.Fatal("dry run refreshed source rows")
+	}
+	out, _, err = runCmd(t, "adopt", "-uri", uri, "-prefix", prefix, "-apply", "-json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var refreshed redis.HashAdoption
+	if err := json.Unmarshal([]byte(out), &refreshed); err != nil || !refreshed.Applied || !refreshed.ManagedCopy || refreshed.Report == nil || len(refreshed.Report.Checks) != 1 || !refreshed.Report.Checks[0].Ready {
+		t.Fatalf("refresh JSON: %v %s", err, out)
+	}
+	if n := sqlInt(t, uri, "SELECT COUNT(*) FROM "+table); n != 6 {
+		t.Errorf("%d rows after explicit refresh", n)
 	}
 	sqlInt(t, uri, "DROP TABLE "+table)
 	if n, err := c.Exists(ctx, prefix+"1").Result(); err != nil || n != 1 {
