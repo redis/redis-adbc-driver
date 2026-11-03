@@ -1268,7 +1268,9 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 		if indexSort && wp.keys == nil && plan.sel.Limit == nil {
 			it, _, exactly := e.newScanIter(ctx, req, params)
 			if wideHashFetch(req, it, &aggRequest{loadAll: !exactly}) {
-				return selectScan{req: req, caps: caps, indexSort: true}, nil
+				sc := selectScan{req: req, caps: caps, indexSort: true}
+				e.recordSelectPlan(plan, sc)
+				return sc, nil
 			}
 		}
 		fallback := func() (selectScan, error) {

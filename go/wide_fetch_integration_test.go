@@ -76,7 +76,7 @@ func TestSQLWideHashFetchBothAPIs(t *testing.T) {
 		{"pushed limit", " WHERE __rowid>=1 LIMIT 2 OFFSET 1", false},
 		{"descending", " WHERE __rowid>=1 ORDER BY __rowid DESC", false},
 	} {
-		e := &executor{store: st, schema: defaultSchema, pushdown: PushdownExact, cache: newExecCache(), now: time.Now().UTC(), sess: newSession(defaultSchema)}
+		e := &executor{store: st, schema: defaultSchema, pushdown: PushdownExact, cache: newExecCache(), now: time.Now().UTC(), sess: newSession(defaultSchema), diagnostics: &executionDiagnostics{}}
 		st.searchCapsOnce.Do(func() { st.searchCaps = [2]int64{1_000_000, 1 << 31} })
 		parsed, err := ParseScript(q + tc.suffix)
 		if err != nil {
@@ -89,6 +89,9 @@ func TestSQLWideHashFetchBothAPIs(t *testing.T) {
 		sc, err := e.prepareScan(readCtx, p, nil)
 		if err != nil {
 			t.Fatal(err)
+		}
+		if tc.fast && e.diagnostics.plan.Load() == nil {
+			t.Fatal("wide scan bypassed execution plan diagnostics")
 		}
 		it, err := e.openScan(readCtx, sc.req, nil)
 		if err != nil {

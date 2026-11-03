@@ -55,4 +55,10 @@ admission, lease recovery and two-table writes without caller retries.
 The [Ray compatibility checkpoint](ray-validation.md) verifies shared-generation
 worker replay after DML/TRUNCATE/DROP, fresh-plan visibility, retries across an
 intervening write and TLS rejection without inherited CA trust: 17 cases passed.
-Native wide fetch and the remaining full feature/platform checks stay open.
+The remaining full feature/platform checks stay open.
+
+The [wide-fetch checkpoint](wide-validation.md) restores positional HASH/Arrow
+reads through exact snapshot visibility and preserves the complete wide test's
+optimized/fallback, value and lifecycle assertions. Local comparative timings
+show selective improvement and approximately unchanged full scans; this does
+not close the remaining full feature/platform or performance requirements.

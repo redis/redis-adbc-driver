@@ -1,0 +1,353 @@
+{
+  "status": "complete result validation; local synthetic comparison only",
+  "initial_runs": [
+    {
+      "run": "before-forward",
+      "source": "c06ea05",
+      "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+      "machine": "arm64",
+      "redis_version": "8.6.2",
+      "software_shards": 3,
+      "qpf": 4,
+      "noeviction": true,
+      "input_rows": 5000,
+      "visible_rows": 4286,
+      "initial_segments": 3,
+      "unrelated_tables": 0,
+      "wide_columns": 64,
+      "repeats": 5,
+      "warmups": 1,
+      "timing": "execute + complete Arrow fetch + independent validation",
+      "cases": {
+        "wide_directory": {
+          "median_ms": 397.3454999795649,
+          "samples_ms": [
+            415.0659160222858,
+            397.3454999795649,
+            396.75674997852184,
+            388.4847500012256,
+            433.51375000202097
+          ],
+          "output_rows": 4286
+        },
+        "wide_candidates": {
+          "median_ms": 104.39074999885634,
+          "samples_ms": [
+            104.39074999885634,
+            107.14133299188688,
+            112.76308298693039,
+            101.06070898473263,
+            96.853666997049
+          ],
+          "output_rows": 87
+        }
+      }
+    },
+    {
+      "run": "after-forward",
+      "source": "1943816",
+      "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+      "machine": "arm64",
+      "redis_version": "8.6.2",
+      "software_shards": 3,
+      "qpf": 4,
+      "noeviction": true,
+      "input_rows": 5000,
+      "visible_rows": 4286,
+      "initial_segments": 3,
+      "unrelated_tables": 0,
+      "wide_columns": 64,
+      "repeats": 5,
+      "warmups": 1,
+      "timing": "execute + complete Arrow fetch + independent validation",
+      "cases": {
+        "wide_directory": {
+          "median_ms": 410.5015410168562,
+          "samples_ms": [
+            452.21799999126233,
+            446.0900410194881,
+            408.0647499940824,
+            409.0334999782499,
+            410.5015410168562
+          ],
+          "output_rows": 4286
+        },
+        "wide_candidates": {
+          "median_ms": 100.38891600561328,
+          "samples_ms": [
+            103.6679589888081,
+            96.83504098211415,
+            119.91370801115409,
+            99.9745840090327,
+            100.38891600561328
+          ],
+          "output_rows": 87
+        }
+      }
+    },
+    {
+      "run": "after-reverse",
+      "source": "1943816",
+      "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+      "machine": "arm64",
+      "redis_version": "8.6.2",
+      "software_shards": 3,
+      "qpf": 4,
+      "noeviction": true,
+      "input_rows": 5000,
+      "visible_rows": 4286,
+      "initial_segments": 3,
+      "unrelated_tables": 0,
+      "wide_columns": 64,
+      "repeats": 5,
+      "warmups": 1,
+      "timing": "execute + complete Arrow fetch + independent validation",
+      "cases": {
+        "wide_directory": {
+          "median_ms": 414.9099579954054,
+          "samples_ms": [
+            414.9099579954054,
+            407.8652919852175,
+            397.43116599856876,
+            418.9736249973066,
+            430.6992499914486
+          ],
+          "output_rows": 4286
+        },
+        "wide_candidates": {
+          "median_ms": 96.20095900027081,
+          "samples_ms": [
+            98.93404200556688,
+            83.86124999378808,
+            103.97037499933504,
+            95.77233300660737,
+            96.20095900027081
+          ],
+          "output_rows": 87
+        }
+      }
+    },
+    {
+      "run": "before-reverse",
+      "source": "c06ea05",
+      "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+      "machine": "arm64",
+      "redis_version": "8.6.2",
+      "software_shards": 3,
+      "qpf": 4,
+      "noeviction": true,
+      "input_rows": 5000,
+      "visible_rows": 4286,
+      "initial_segments": 3,
+      "unrelated_tables": 0,
+      "wide_columns": 64,
+      "repeats": 5,
+      "warmups": 1,
+      "timing": "execute + complete Arrow fetch + independent validation",
+      "cases": {
+        "wide_directory": {
+          "median_ms": 410.98491701995954,
+          "samples_ms": [
+            445.4355000052601,
+            429.94979201466776,
+            410.98491701995954,
+            400.1003750017844,
+            409.7759170108475
+          ],
+          "output_rows": 4286
+        },
+        "wide_candidates": {
+          "median_ms": 98.37537497514859,
+          "samples_ms": [
+            98.35608402499929,
+            110.92800000915304,
+            99.03237500111572,
+            98.37537497514859,
+            92.18487498583272
+          ],
+          "output_rows": 87
+        }
+      }
+    }
+  ],
+  "final_runs": [
+    {
+      "run": "before-forward",
+      "source": "c06ea05",
+      "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+      "machine": "arm64",
+      "redis_version": "8.6.2",
+      "software_shards": 3,
+      "qpf": 4,
+      "noeviction": true,
+      "input_rows": 5000,
+      "visible_rows": 4286,
+      "initial_segments": 3,
+      "unrelated_tables": 0,
+      "wide_columns": 64,
+      "repeats": 5,
+      "warmups": 1,
+      "timing": "execute + complete Arrow fetch + independent validation",
+      "cases": {
+        "wide_directory": {
+          "median_ms": 410.05925001809373,
+          "samples_ms": [
+            418.7847079883795,
+            390.80391702009365,
+            388.85941699845716,
+            454.0701670048293,
+            410.05925001809373
+          ],
+          "output_rows": 4286
+        },
+        "wide_candidates": {
+          "median_ms": 98.23908301768824,
+          "samples_ms": [
+            101.76050002337433,
+            115.29108398826793,
+            93.60212500905618,
+            97.95483300695196,
+            98.23908301768824
+          ],
+          "output_rows": 87
+        }
+      }
+    },
+    {
+      "run": "after-forward",
+      "source": "f60de7c",
+      "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+      "machine": "arm64",
+      "redis_version": "8.6.2",
+      "software_shards": 3,
+      "qpf": 4,
+      "noeviction": true,
+      "input_rows": 5000,
+      "visible_rows": 4286,
+      "initial_segments": 3,
+      "unrelated_tables": 0,
+      "wide_columns": 64,
+      "repeats": 5,
+      "warmups": 1,
+      "timing": "execute + complete Arrow fetch + independent validation",
+      "cases": {
+        "wide_directory": {
+          "median_ms": 423.7671250011772,
+          "samples_ms": [
+            431.2400419730693,
+            436.6377920086961,
+            423.7671250011772,
+            413.62095798831433,
+            368.27700000139885
+          ],
+          "output_rows": 4286
+        },
+        "wide_candidates": {
+          "median_ms": 85.9377909800969,
+          "samples_ms": [
+            87.50262498506345,
+            81.37445797910914,
+            111.61349999019876,
+            85.9377909800969,
+            84.35112499864772
+          ],
+          "output_rows": 87
+        }
+      }
+    },
+    {
+      "run": "after-reverse",
+      "source": "f60de7c",
+      "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+      "machine": "arm64",
+      "redis_version": "8.6.2",
+      "software_shards": 3,
+      "qpf": 4,
+      "noeviction": true,
+      "input_rows": 5000,
+      "visible_rows": 4286,
+      "initial_segments": 3,
+      "unrelated_tables": 0,
+      "wide_columns": 64,
+      "repeats": 5,
+      "warmups": 1,
+      "timing": "execute + complete Arrow fetch + independent validation",
+      "cases": {
+        "wide_directory": {
+          "median_ms": 410.9689590113703,
+          "samples_ms": [
+            395.1175000111107,
+            444.23908297903836,
+            356.5884580020793,
+            410.9689590113703,
+            436.2207080121152
+          ],
+          "output_rows": 4286
+        },
+        "wide_candidates": {
+          "median_ms": 85.09204199071974,
+          "samples_ms": [
+            90.82495799520984,
+            80.19295800477266,
+            92.39224999328144,
+            83.21541699115187,
+            85.09204199071974
+          ],
+          "output_rows": 87
+        }
+      }
+    },
+    {
+      "run": "before-reverse",
+      "source": "c06ea05",
+      "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+      "machine": "arm64",
+      "redis_version": "8.6.2",
+      "software_shards": 3,
+      "qpf": 4,
+      "noeviction": true,
+      "input_rows": 5000,
+      "visible_rows": 4286,
+      "initial_segments": 3,
+      "unrelated_tables": 0,
+      "wide_columns": 64,
+      "repeats": 5,
+      "warmups": 1,
+      "timing": "execute + complete Arrow fetch + independent validation",
+      "cases": {
+        "wide_directory": {
+          "median_ms": 422.6368750096299,
+          "samples_ms": [
+            415.4319579829462,
+            434.8377919814084,
+            436.1008749983739,
+            422.6368750096299,
+            408.9716669986956
+          ],
+          "output_rows": 4286
+        },
+        "wide_candidates": {
+          "median_ms": 95.93912502168678,
+          "samples_ms": [
+            98.08612501365133,
+            105.30075000133365,
+            91.85287498985417,
+            95.93912502168678,
+            80.79066700884141
+          ],
+          "output_rows": 87
+        }
+      }
+    }
+  ],
+  "final_pooled_medians": {
+    "wide_directory": {
+      "before_median_ms": 417.10833298566286,
+      "after_median_ms": 418.69404149474576
+    },
+    "wide_candidates": {
+      "before_median_ms": 98.02047901030164,
+      "after_median_ms": 85.51491648540832
+    }
+  }
+}
