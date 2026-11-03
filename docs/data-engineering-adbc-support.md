@@ -507,8 +507,9 @@ build. Python table models, snapshots, contracts, merge, microbatch and persiste
 docs are included in the recorded scenarios. This is experimental custom-engine
 support; the standard dbt v2 executable does not include Redis, static analysis
 remains disabled, and these results do not establish Flight SQL compatibility or
-support for every deployment. SQL grants and materialized views remain unsupported
-in both adapters.
+support for every deployment. SQL grants remain unsupported in both adapters. The driver now provides
+[materialized-view SQL](sql-101-105.md); complete adapter materialization runs
+remain unverified.
 
 The [differential harness](../go/pgdiff/README.md) replays captured dbt-postgres SQL
 through Redis ADBC. It does not validate a Redis dbt adapter or a full dbt run,

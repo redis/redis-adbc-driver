@@ -77,6 +77,9 @@ func (e *executor) planDMLJoin(ctx context.Context, table TableName, alias strin
 	if err != nil {
 		return nil, err
 	}
+	if meta.MaterializedSQL != "" {
+		return nil, matViewWriteError(meta)
+	}
 	rel := tableRel(meta, alias)
 	if alias == "" {
 		rel.name = table.Name

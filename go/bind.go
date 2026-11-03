@@ -1140,6 +1140,9 @@ func (e *executor) lookupCTE(name string) (*CTE, int) {
 // level, from wherever it is read (see lazyRelation), and every query from
 // here up to that level reads what it reads.
 func (e *executor) cteRelation(ctx context.Context, def *CTE, list int) (*tableMeta, error) {
+	if def.Statement != nil && !hasReturning(def.Statement) {
+		return nil, stateErrorf(stateFeatureNotSupported, "WITH query %q does not have a RETURNING clause", def.Name)
+	}
 	// Fewer scopes when a query is planned without its enclosing ones
 	// (semijoin.go): a CTE that reads them fails to plan there.
 	level := min(e.cteLevel[list], len(e.scopes))
@@ -1270,6 +1273,9 @@ func (e *executor) resolveFromItem(ctx context.Context, table *TableName, sub *S
 		}
 		if err != nil {
 			return relation{}, err
+		}
+		if meta.MaterializedSQL != "" && meta.Unpopulated {
+			return relation{}, stateErrorf("55000", "materialized view %q has not been populated", meta.Name)
 		}
 		rel.meta, rel.schema = meta, meta.Schema
 		return rel, nil

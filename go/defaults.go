@@ -154,6 +154,15 @@ func (e *executor) checkDefault(ctx context.Context, def ColumnDef) (string, Val
 	if err != nil {
 		return "", Value{}, err
 	}
+	sequenceCall := false
+	walkExpr(def.Default, func(x Expr) {
+		if f, ok := x.(*Func); ok && sequenceFunction(f.Name) {
+			sequenceCall = true
+		}
+	})
+	if sequenceCall {
+		return def.DefaultText, nullValue(def.Type), nil
+	}
 	v, err := e.newEnv(ctx, nil, nil).eval(def.Default)
 	if err != nil {
 		return "", Value{}, invalidArg(err)

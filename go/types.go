@@ -360,6 +360,9 @@ func (t ColType) ArrowType() arrow.DataType {
 
 // SQLName returns the SQL type name reported through GetObjects.
 func (t ColType) SQLName() string {
+	if t.Alias == "uuid" {
+		return "UUID"
+	}
 	switch t.Kind {
 	case KindBool:
 		return "BOOLEAN"
@@ -554,6 +557,8 @@ func colTypeFromSQL(spec sqlTypeSpec) (ColType, error) {
 		return ColType{Kind: KindString, Text: true}, nil
 	case "STRING", "CLOB":
 		return typeString, nil
+	case "UUID":
+		return typeUUID, nil
 	case "REGCLASS", "REGTYPE", "REGPROC", "REGNAMESPACE":
 		return ColType{Kind: KindString, Alias: strings.ToLower(spec.Name)}, nil
 	case "OID":
