@@ -476,7 +476,7 @@ func (s *store) acquireSnapshot(ctx context.Context, writing ...bool) (context.C
 			break
 		}
 		if !strings.Contains(err.Error(), "snapshot compaction publication pending") {
-			return ctx, nil, wrapRedis(err, "failed to acquire statement snapshot")
+			return ctx, nil, wrapRedis(transportContextError(ctx, err), "failed to acquire statement snapshot")
 		}
 		// Only a known admission refusal is polled. SQL planning/execution and
 		// Arrow consumption have not begun; transport errors are never replayed.

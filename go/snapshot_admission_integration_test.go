@@ -6,6 +6,10 @@ package redis
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net"
+	"os"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -150,4 +154,63 @@ func TestSnapshotSQLAdmissionWaitsForFullLineageWithoutReplay(t *testing.T) {
 	}
 	h.expectRows("SELECT v FROM t WHERE id=1", "28")
 	h.expectRows("SELECT COUNT(*) FROM t", "256")
+}
+
+// Internal stores can run without the client error hook. Acquisition must still
+// distinguish a context deadline from an independent socket timeout, without retry.
+type snapshotAdmissionSocketTimeout struct {
+	snapshotHook
+	deadline bool
+	calls    atomic.Int64
+}
+
+func (h *snapshotAdmissionSocketTimeout) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
+	return func(ctx context.Context, cmd goredis.Cmder) error {
+		args := cmd.Args()
+		if len(args) > 3 && strings.EqualFold(fmt.Sprint(args[0]), "EVAL") {
+			n, _ := strconv.Atoi(fmt.Sprint(args[2]))
+			if n >= 0 && len(args) > 3+n && fmt.Sprint(args[3+n]) == "acquire" {
+				h.calls.Add(1)
+				if h.deadline {
+					<-ctx.Done()
+				}
+				return &net.OpError{Op: "read", Net: "tcp", Err: os.ErrDeadlineExceeded}
+			}
+		}
+		return next(ctx, cmd)
+	}
+}
+func TestSnapshotAdmissionSocketTimeoutClassification(t *testing.T) {
+	for _, deadline := range []bool{false, true} {
+		t.Run(fmt.Sprintf("context_deadline_%t", deadline), func(t *testing.T) {
+			h, raw, _ := newSnapshotHarness(t)
+			s := snapshotTestStore(t, raw)
+			hook := &snapshotAdmissionSocketTimeout{deadline: deadline}
+			s.client.AddHook(hook)
+			ctx, cancel := context.WithTimeout(h.ctx, 2*time.Second)
+			defer cancel()
+			_, pin, err := s.acquireSnapshot(ctx, true)
+			if pin != nil {
+				pin.release()
+				t.Fatal("failed acquisition allocated a pin")
+			}
+			want := adbc.StatusIO
+			if deadline {
+				want = adbc.StatusTimeout
+			}
+			var ae adbc.Error
+			if hook.calls.Load() != 1 || !errors.As(err, &ae) || ae.Code != want {
+				t.Fatalf("acquisition error/replay: calls=%d err=%v", hook.calls.Load(), err)
+			}
+			fields, err := raw.HKeys(h.ctx, snapshotCatalogKey).Result()
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, field := range fields {
+				if strings.HasPrefix(field, "p:") {
+					t.Fatal("failed acquisition leaked a pin")
+				}
+			}
+		})
+	}
 }

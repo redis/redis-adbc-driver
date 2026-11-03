@@ -62,3 +62,31 @@ fetch still need reconciliation and full validation. Full feature/platform and
 Cluster API/recovery runs, incremental metadata/publication, resumable large
 operations, compaction throughput, broader comparative benchmarks and owned
 cleanup remain required. No full feature/performance parity claim is made.
+
+
+## Deadline classification follow-up, 2026-11-03
+
+During the private import-index policy validation (parent 7e09655), a complete
+snapshot race run produced 140 pass events, seven expected Cluster-only skips
+and one admission-gate failure in 136.426 seconds. Its 30 ms context deadline
+surfaced as a raw socket I/O timeout during acquisition. Three immediate focused
+repetitions passed, which did not establish that the intermittent defect was gone.
+
+A deterministic regression then returned a socket timeout from acquisition after
+the context deadline, using an internal store without the client error hook.
+It reproduced the wrong I/O status with exactly one acquisition attempt. The
+control case, an independent socket timeout before the context deadline, retained
+I/O status. Production clients normally install errorHook; internal stores must
+still preserve acquisition's context error contract without relying on that hook.
+
+Acquisition now uses the existing transportContextError helper before wrapping a
+non-admission-refusal error. A deadline becomes ADBC Timeout; an independent
+socket timeout remains I/O. Neither error is polled/replayed, and no pin is
+allocated or leaked. Only known compaction admission refusals remain pollable.
+No timeout constant or assertion was relaxed.
+
+The deterministic two-case regression and the original gate-wait test passed
+under the race detector: two top-level cases, two classification subcases, no
+skips/failures, 4.132 seconds package time. The complete rerun is recorded with
+the import-index checkpoint. This focused fix does
+not prove all cancellation, failover or network-outcome scenarios.
