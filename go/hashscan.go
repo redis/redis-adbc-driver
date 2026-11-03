@@ -52,6 +52,11 @@ type hashConn struct {
 // timeouts, cluster), as Open does. Existing snapshot catalogs pin metadata;
 // application HASHes and indexes are not modified.
 func dialHashes(ctx context.Context, options map[string]string) (*hashConn, error) {
+	return dialHashesMode(ctx, options, true)
+}
+
+// Explicit sweep must preview its candidates before any connection-side GC.
+func dialHashesMode(ctx context.Context, options map[string]string, reap bool) (*hashConn, error) {
 	db, err := newDriverImpl(memory.DefaultAllocator).newDatabaseImpl(ctx, options)
 	if err != nil {
 		return nil, err
@@ -72,7 +77,7 @@ func dialHashes(ctx context.Context, options map[string]string) (*hashConn, erro
 			c.close(ctx)
 			return nil, err
 		}
-		sctx, pin, err := c.st.acquireSnapshot(ctx)
+		sctx, pin, err := c.st.acquireSnapshotMode(ctx, reap)
 		if err != nil {
 			c.close(ctx)
 			return nil, err

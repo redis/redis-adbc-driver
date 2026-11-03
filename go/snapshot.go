@@ -367,7 +367,7 @@ elseif op == 'abort' then
     end
   end
   return 1
-elseif op == 'claim' then
+elseif op == 'claim' or op == 'peek' then
   local root = redis.call('HGET', k, 'root')
   for n=1,#entries,2 do
     local field = entries[n]
@@ -375,7 +375,7 @@ elseif op == 'claim' then
       local candidate = string.sub(field,3)
       local w = cjson.decode(entries[n+1])
       if candidate ~= root and not protected[candidate] and w.state ~= 'compacting' and ((w.state ~= 'staging' and w.state ~= 'sealed') or w.expires <= now) then
-        redis.call('HSET', k, field, cjson.encode({state='deleting'}))
+        if op=='claim' then redis.call('HSET', k, field, cjson.encode({state='deleting'})) end
         return candidate
       end
     end
@@ -458,10 +458,16 @@ type snapshotPin struct {
 }
 
 func (s *store) acquireSnapshot(ctx context.Context, writing ...bool) (context.Context, *snapshotPin, error) {
+	return s.acquireSnapshotMode(ctx, true, writing...)
+}
+
+func (s *store) acquireSnapshotMode(ctx context.Context, reap bool, writing ...bool) (context.Context, *snapshotPin, error) {
 	if s == nil || !s.snapshots || snapshotOf(ctx) != nil {
 		return ctx, nil, nil
 	}
-	s.reapSnapshot(ctx)
+	if reap {
+		s.reapSnapshot(ctx)
+	}
 	p := &snapshotPin{ctx: ctx, store: s, token: snapshotID(), stop: make(chan struct{}), done: make(chan struct{})}
 	mode := ""
 	if len(writing) > 0 && writing[0] {
@@ -1237,53 +1243,89 @@ func (s *store) reapSnapshot(parent context.Context) {
 func (s *store) reapSnapshotBudget(parent context.Context, budget time.Duration) {
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), budget)
 	defer cancel()
+	_, _ = s.reapSnapshotStep(ctx) // background maintenance remains best effort
+}
+
+type snapshotReapResult struct {
+	prefix   string
+	deleted  int64
+	manifest bool
+}
+
+// Explicit maintenance uses the same ownership/retirement protocol, with errors
+// and confirmed deletions returned instead of hidden by background maintenance.
+func (s *store) reapSnapshotStep(ctx context.Context) (result snapshotReapResult, err error) {
 	id, err := s.snapshotControl(ctx, "claim", "", "", "").Text()
 	if err != nil {
-		return
+		return result, err
 	}
 	if id != "" {
 		if err := s.retireSnapshotMetadata(ctx, id); err != nil {
-			return
-		}
-		if err := s.snapshotControl(ctx, "reclaimed", "", id, "").Err(); err != nil {
-			return
+			if !strings.Contains(err.Error(), "snapshot metadata retirement not admitted") {
+				return result, err
+			}
+			// Another collector can finish after both received the same claim.
+			// Confirm its durable outcome; do not replay retirement or hide a
+			// missing map while an unreclaimed work record still exists.
+			pipe := s.client.Pipeline()
+			work := pipe.HExists(ctx, snapshotCatalogKey, "w:"+id)
+			root := pipe.Exists(ctx, snapshotMetadataMap(id))
+			if _, probeErr := pipe.Exec(ctx); probeErr != nil {
+				return result, probeErr
+			}
+			if work.Val() || root.Val() != 0 {
+				return result, err
+			}
+		} else {
+			if err := s.snapshotControl(ctx, "reclaimed", "", id, "").Err(); err != nil {
+				return result, err
+			}
+			result.manifest = true
 		}
 	}
 	if err := s.collectSnapshotMetadata(ctx); err != nil {
-		return
+		return result, err
 	}
 	prefix, err := s.snapshotControl(ctx, "claim_data", "", "", "").Text()
-	data := snapshotDataID(prefix)
-	if err != nil || data == "" || prefix != snapshotRowPrefix(prefix) {
-		return
+	if err != nil {
+		return result, err
 	}
+	if prefix == "" {
+		return result, nil
+	}
+	data := snapshotDataID(prefix)
+	if data == "" || prefix != snapshotRowPrefix(prefix) {
+		return result, errorf(adbc.StatusIO, "invalid snapshot reclamation prefix")
+	}
+	result.prefix = prefix
 	indexes, err := s.searchDo(ctx, "", "FT._LIST").Slice()
 	if err != nil {
-		return
+		return result, err
 	}
 	for _, index := range indexes {
 		name := fmt.Sprint(index)
 		if strings.HasPrefix(name, snapshotIndexPrefix(data)) {
 			if err := s.searchDo(ctx, name, "FT.DROPINDEX", name).Err(); err != nil && !isUnknownIndex(err) {
-				return
+				return result, err
 			}
 		}
 	}
-	if !s.deleteSnapshotKeys(ctx, prefix) {
-		return
+	result.deleted, err = s.deleteSnapshotKeys(ctx, prefix)
+	if err != nil {
+		return result, err
 	}
 	if err := s.client.Del(ctx, snapshotMembers(data)).Err(); err != nil {
-		return
+		return result, err
 	}
-	_ = s.snapshotControl(ctx, "reclaimed_data", "", data, "").Err()
+	return result, s.snapshotControl(ctx, "reclaimed_data", "", data, "").Err()
 }
 
-func (s *store) deleteSnapshotKeys(ctx context.Context, prefix string) bool {
+func (s *store) deleteSnapshotKeys(ctx context.Context, prefix string) (deleted int64, err error) {
 	id := snapshotDataID(prefix)
 	if id == "" || prefix != snapshotRowPrefix(prefix) {
-		return false
-	} // Metadata requires reference-counted retirement.
-	err := s.walkSnapshotDirectory(ctx, snapshotMembers(id), func(members []string) error {
+		return 0, errorf(adbc.StatusIO, "invalid snapshot reclamation prefix")
+	}
+	err = s.walkSnapshotDirectory(ctx, snapshotMembers(id), func(members []string) error {
 		keys := make([]string, 0, len(members))
 		for _, member := range members {
 			n, err := strconv.ParseInt(member, 10, 64)
@@ -1295,9 +1337,13 @@ func (s *store) deleteSnapshotKeys(ctx context.Context, prefix string) bool {
 		if len(keys) == 0 {
 			return nil
 		}
-		return s.client.Del(ctx, keys...).Err()
+		n, err := s.client.Del(ctx, keys...).Result()
+		if err == nil {
+			deleted += n
+		}
+		return err
 	})
-	return err == nil
+	return deleted, err
 }
 
 func (e *executor) executeSnapshot(ctx context.Context, ps ParsedStmt, params []Value, types []ColType, so *streamOpts) (execResult, error) {

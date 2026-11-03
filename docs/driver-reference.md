@@ -926,6 +926,19 @@ the keys (`~user:*`), and the row scripts' permissions:
 
 ### Sweep leftover rows
 
+Current snapshot catalogs use registered reference ownership. `redis-adbc sweep`
+previews currently eligible rows without reclaiming them. `-apply` advances
+bounded metadata/data cleanup, protects active readers/writers and reports
+confirmed deletions. JSON sets `managed_snapshots=true`; `metadata_pending` and
+`more` distinguish deferred work from a completed pass. Repeat Apply when more
+work remains. A failed pass returns an error plus its partial report. Unknown
+objects and application HASHes/indexes are not selected by a broad prefix scan.
+See [snapshot cleanup semantics](snapshots.md) and the
+[sweep validation](sdlc/changes/snapshot-parity/sweep-validation.md).
+
+The remainder of this subsection records historical legacy-prefix behavior;
+those registry, reuse and permission recipes do not describe current snapshot GC.
+
 `DROP TABLE`, `TRUNCATE` and a re-keying rename release the table's key
 prefix, and no table takes it again (see "Key prefixes are
 never reused" below). Rows can still be left under it, where no table or

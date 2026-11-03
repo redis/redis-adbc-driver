@@ -95,3 +95,10 @@ origin through Arrow replacement and binds provenance through joined DML and
 explicit derived/CTE projections. SQL/Arrow private-write compatibility and raw
 keyed collision coverage are retained; sweep/ACL, large operations, sustained
 performance and full platform/Cluster validation remain open.
+
+
+The [sweep checkpoint](sweep-validation.md) replaces the empty snapshot sweep
+result with non-destructive eligibility preview, bounded reference-aware draining,
+confirmed counts and partial errors/resumption. Protocol/CLI lifecycle checks
+protect pins, active writers and unregistered objects. Restricted-schema ACL sweep
+behavior, the full permission recipes and the broader parity work remain open.

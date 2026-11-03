@@ -42,8 +42,8 @@ Commands:
            list what the ADBC driver needs to query it
   copy     copy an existing HASH collection into a driver table
   adopt    import or refresh a managed copy of an existing HASH collection
-  sweep    delete the rows left under the key prefixes of dropped and
-           truncated tables
+  sweep    reclaim retired snapshot rows; legacy catalogs use released
+           key prefixes from dropped or truncated tables
 
 Run "redis-adbc <command> -h" for a command's flags.
 `

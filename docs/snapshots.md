@@ -106,9 +106,18 @@ retain their existing compatibility behavior, including no-op ROLLBACK.
   application writers. Pause source writes during refresh if a point-in-time
   source image is required. Once published, the private managed copy has normal
   atomic statement snapshots; later application writes appear only after refresh.
-- InspectHashes is available alongside snapshot catalogs. SweepReleased uses
-  snapshot reference-aware reclamation in these catalogs; it does not run the
-  legacy released-prefix deletion scan or report legacy row-deletion counts.
+- InspectHashes is available alongside snapshot catalogs. SweepReleased previews
+  registered zero-reference row generations without connection-side reclamation.
+  Preview reports currently eligible HASHes; `metadata_pending` / `more` indicate
+  that retirement can expose additional data. Apply drains at most 256 maintenance
+  rounds with bounded directory pages, returns confirmed row deletion counts and
+  retired-manifest counts, and reports errors with partial progress. Repeat Apply
+  when `more` is true. Active reader/writer references and unregistered application
+  objects remain protected; no legacy prefix scan runs in snapshot mode. Reports
+  set `managed_snapshots=true`; `released` counts eligible data generations observed
+  in that pass, rather than the historical legacy release registry. Concurrent
+  background GC can change eligibility between preview and Apply. See the
+  [sweep checkpoint](sdlc/changes/snapshot-parity/sweep-validation.md).
 - Live partition descriptors (version 3) retain one producer generation for the
   entire set. Independent workers read that generation across concurrent DML,
   schema changes, TRUNCATE/DROP, producer close and compaction. Each active reader

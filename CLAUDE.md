@@ -106,7 +106,10 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.26.10)
   respects write intents plus its short admission gate. Close/join workers before
   closing connection resources; old segments stay pinned. Never DROP/TRUNCATE shared data directly.
   Reclaim manifests separately from segment rows/indexes/directories using atomic
-  reference checks.
+  reference checks. Explicit sweep previews must suppress connection-side GC;
+  report confirmed reclamation and errors through the same ownership protocol.
+  Preview covers currently zero-reference data and reports pending metadata;
+  preserve pins/writer references and never infer ownership from prefix scans.
   Snapshot suites clear `REDIS_SNAPSHOT_URI` and its indexes: use a disposable
   database and run separately from ordinary suites.
 
