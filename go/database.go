@@ -266,7 +266,7 @@ func (d *databaseImpl) dial(ctx context.Context) (client goredis.UniversalClient
 }
 
 func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, error) {
-	if d.snapshots && !d.readerOnly && (d.foreignIndexes || d.rekey || d.schema == foreignSchema) {
+	if d.snapshots && !d.readerOnly && d.rekey {
 		return nil, snapshotUnsupported()
 	}
 	if d.readerOnly && d.retainedNamespace == "" {
@@ -286,7 +286,7 @@ func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, er
 			_ = client.Close()
 			return nil, err
 		}
-		if err := st.openSnapshotCatalog(ctx, d.snapshots); err != nil {
+		if err := st.openSnapshotCatalog(ctx, d.snapshots, d.foreignIndexes); err != nil {
 			_ = client.Close()
 			return nil, err
 		}
@@ -314,7 +314,16 @@ func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, er
 			st.sweepTemp(ctx)
 		}
 	}
+	if st.snapshots {
+		st.sweepTemp(ctx)
+	}
 	st.foreignIndexes = d.foreignIndexes
+	if st.snapshots && d.foreignIndexes {
+		if err := st.refreshSnapshotForeign(ctx, false); err != nil {
+			_ = client.Close()
+			return nil, err
+		}
+	}
 	conn := &connectionImpl{
 		ConnectionImplBase: driverbase.NewConnectionImplBase(&d.DatabaseImplBase),
 		store:              st,

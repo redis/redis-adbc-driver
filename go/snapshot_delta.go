@@ -68,6 +68,7 @@ type snapshotDeltaScan struct {
 	fields   []string
 	last     string
 	pageRows int
+	through  string
 }
 
 func newSnapshotDeltaScan(s *store, m *tableMeta, fields []string) *snapshotDeltaScan {
@@ -76,6 +77,21 @@ func newSnapshotDeltaScan(s *store, m *tableMeta, fields []string) *snapshotDelt
 		d.sources = append(d.sources, snapshotDeltaSource{segment: seg})
 	}
 	return d
+}
+
+// Seek each exact directory to a live partition's lower bound. Directories
+// have score zero and lexically ordered decimal IDs, so no floating point
+// interval or repeated full-table scan is needed.
+func (d *snapshotDeltaScan) seek(ctx context.Context, lo, hi int64) error {
+	d.through = fmt.Sprintf("%020d", hi)
+	for i := range d.sources {
+		n, err := d.store.redis(ctx).ZLexCount(ctx, snapshotMembers(snapshotDataID(d.sources[i].segment.Prefix)), "-", "("+fmt.Sprintf("%020d", lo)).Result()
+		if err != nil {
+			return wrapRedis(err, "failed to seek snapshot partition directory")
+		}
+		d.sources[i].offset = n
+	}
+	return nil
 }
 func (d *snapshotDeltaScan) head(ctx context.Context, i int) (string, error) {
 	src := &d.sources[i]
@@ -122,7 +138,7 @@ func (d *snapshotDeltaScan) next(ctx context.Context) ([]string, []aggRow, error
 				smallest = id
 			}
 		}
-		if smallest == "" {
+		if smallest == "" || d.through != "" && smallest > d.through {
 			break
 		}
 		winner := -1

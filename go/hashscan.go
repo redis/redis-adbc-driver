@@ -21,7 +21,8 @@ package redis
 // such as an application's user:1, user:2, …. They find the keys with
 // SCAN and read them with HGETALL, connected as the driver connects (dial)
 // but without the metadata upkeep of opening a connection. InspectHashes
-// writes nothing.
+// does not modify application HASHes. Snapshot catalogs use control writes for
+// metadata pins and reference-aware maintenance.
 
 import (
 	"context"
@@ -43,10 +44,13 @@ type hashConn struct {
 	db     *databaseImpl
 	client goredis.UniversalClient
 	st     *store
+	pin    *snapshotPin
+	scope  *snapshotScope
 }
 
 // dialHashes connects with the driver's database options (URI, credentials,
-// timeouts, cluster), as Open does, but writes nothing.
+// timeouts, cluster), as Open does. Existing snapshot catalogs pin metadata;
+// application HASHes and indexes are not modified.
 func dialHashes(ctx context.Context, options map[string]string) (*hashConn, error) {
 	db, err := newDriverImpl(memory.DefaultAllocator).newDatabaseImpl(ctx, options)
 	if err != nil {
@@ -57,18 +61,38 @@ func dialHashes(ctx context.Context, options map[string]string) (*hashConn, erro
 		_ = db.Base().Close(ctx)
 		return nil, err
 	}
-	if n, err := client.Exists(ctx, snapshotCatalogKey).Result(); err != nil || n != 0 {
-		_ = client.Close()
-		_ = db.Base().Close(ctx)
-		if err != nil {
+	c := &hashConn{db: db, client: client, st: &store{client: client}}
+	n, err := client.Exists(ctx, snapshotCatalogKey).Result()
+	if err != nil {
+		c.close(ctx)
+		return nil, err
+	}
+	if n != 0 {
+		if err := c.st.openSnapshotCatalog(ctx, true); err != nil {
+			c.close(ctx)
 			return nil, err
 		}
-		return nil, snapshotUnsupported()
+		sctx, pin, err := c.st.acquireSnapshot(ctx)
+		if err != nil {
+			c.close(ctx)
+			return nil, err
+		}
+		c.pin, c.scope = pin, snapshotOf(sctx)
 	}
-	return &hashConn{db: db, client: client, st: &store{client: client}}, nil
+	return c, nil
+}
+
+func (c *hashConn) context(ctx context.Context) context.Context {
+	if c.scope != nil {
+		return context.WithValue(ctx, snapshotContextKey{}, c.scope)
+	}
+	return ctx
 }
 
 func (c *hashConn) close(ctx context.Context) {
+	if c.pin != nil {
+		c.pin.release()
+	}
 	_ = c.client.Close()
 	_ = c.db.Base().Close(ctx)
 }

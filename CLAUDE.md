@@ -41,8 +41,13 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.26.10)
 - Autocommit only; Search is required; Flex is rejected. Do not imply full
   PostgreSQL compatibility or support for Valkey / Redis 7.2 derivatives.
 - Managed-table statement snapshots are always enabled, using immutable
-  generations in one hash slot; see [snapshots](docs/snapshots.md). There is no
-  disable switch or upgrade path for existing catalogs.
+  generations in one hash slot; see [snapshots](docs/snapshots.md). Protocol version 5 rejects earlier draft formats; there is no
+  disable switch or upgrade path for existing catalogs. ALTER stages private
+  replacement layouts. Temporary descriptors participate in manifest references;
+  liveness is global and Close/sweep publish descriptor removal. Application
+  HASH adoption and foreign indexes are managed copies with explicit refreshes;
+  never modify their external sources. Live partitions pin per reader; retained
+  production resolves segmented visibility under one coordinator pin.
   Preserve their server-side writer fences, reader pins and reclamation protocol.
   Catalog manifests share immutable row-version segments. DML allocates a new
   segment before planning logical row keys. Resolve newest versions/tombstones

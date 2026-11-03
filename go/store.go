@@ -208,15 +208,17 @@ type tableMeta struct {
 	// SnapshotRows counts physical row versions (including tombstones) in the
 	// current segment. Prior immutable segments carry their own expected counts.
 	// Acquisition validates indexes and directories against these counts.
-	SnapshotOverlay  bool              `json:"snapshot_overlay,omitempty"`
-	SnapshotSegments []snapshotSegment `json:"snapshot_segments,omitempty"`
-	SnapshotRows     *int64            `json:"snapshot_rows,omitempty"`
-	OID              int64             `json:"oid,omitempty"`
-	IndexOID         int64             `json:"index_oid,omitempty"`
-	Foreign          bool              `json:"-"`
-	Schema           string            `json:"schema"`
-	Name             string            `json:"name"`
-	Columns          []columnMeta      `json:"columns"`
+	SnapshotLineage      string            `json:"snapshot_lineage,omitempty"`
+	SnapshotImportSource string            `json:"snapshot_import_source,omitempty"`
+	SnapshotOverlay      bool              `json:"snapshot_overlay,omitempty"`
+	SnapshotSegments     []snapshotSegment `json:"snapshot_segments,omitempty"`
+	SnapshotRows         *int64            `json:"snapshot_rows,omitempty"`
+	OID                  int64             `json:"oid,omitempty"`
+	IndexOID             int64             `json:"index_oid,omitempty"`
+	Foreign              bool              `json:"-"`
+	Schema               string            `json:"schema"`
+	Name                 string            `json:"name"`
+	Columns              []columnMeta      `json:"columns"`
 	// FoldedIdentifiers is set on metadata created after unquoted SQL
 	// identifiers began following PostgreSQL's lower-case folding rules.
 	// Older metadata did not record whether a mixed-case column was quoted,
@@ -1066,7 +1068,7 @@ func (s *store) migrateLegacyMetadata(ctx context.Context) error {
 }
 
 func (s *store) getTable(ctx context.Context, schema, table string) (*tableMeta, error) {
-	if schema == foreignSchema {
+	if schema == foreignSchema && !s.snapshots {
 		return s.foreignTable(ctx, table)
 	}
 	readAt := time.Now()
@@ -1097,7 +1099,7 @@ func (s *store) tableExists(ctx context.Context, schema, table string) (bool, er
 // createTable registers the table metadata and creates its search index.
 // It returns false (and no error) if the table exists and ifNotExists is set.
 func (s *store) createTable(ctx context.Context, meta *tableMeta, ifNotExists bool) (bool, error) {
-	if err := s.checkWritableSchema(meta.Schema); err != nil {
+	if err := s.checkWritableSchema(meta.Schema); err != nil && !(meta.Schema == foreignSchema && snapshotImporting(ctx)) {
 		return false, err
 	}
 	if len(meta.Columns) == 0 {
@@ -1149,6 +1151,9 @@ func (s *store) createTable(ctx context.Context, meta *tableMeta, ifNotExists bo
 		return false, err
 	}
 	meta.KeyPrefix, meta.IndexName, meta.PrefixGen = nm.prefix, nm.index, 0
+	if s.snapshots {
+		meta.SnapshotLineage = snapshotDataID(nm.prefix)
+	}
 	created := false
 	release := func() {
 		bg := context.WithoutCancel(ctx)
@@ -1345,6 +1350,9 @@ func (s *store) truncateTables(ctx context.Context, metas []*tableMeta, restartI
 				// it: then that one is emptied.
 				t.oldPrefix, t.oldIndex = cur.prefix(), cur.index()
 				cur.KeyPrefix, cur.IndexName, cur.PrefixGen = t.names.prefix, t.names.index, 0
+				if s.snapshots {
+					cur.SnapshotLineage = snapshotDataID(t.names.prefix)
+				}
 				for j := range cur.Columns {
 					cur.Columns[j].Missing, cur.Columns[j].MissingThrough = "", 0
 				}
@@ -1460,7 +1468,7 @@ var testHookDropping func()
 //     meanwhile, so that the new index and key prefix don't outlive the
 //     table.
 func (s *store) dropTable(ctx context.Context, schema, table string, ifExists bool) error {
-	if schema == foreignSchema || schema == pgCatalog {
+	if schema == pgCatalog || schema == foreignSchema && !snapshotImporting(ctx) {
 		return virtualReadOnly(schema)
 	}
 	name := table // as the statement names it
@@ -1601,7 +1609,9 @@ func (s *store) listSchemas(ctx context.Context) ([]string, error) {
 		return nil, wrapRedis(err, "failed to list schemas")
 	}
 	// Temporary schemas are never registered; skip them all the same.
-	members = slices.DeleteFunc(members, reservedSchema)
+	members = slices.DeleteFunc(members, func(schema string) bool {
+		return reservedSchema(schema) || schema == foreignSchema && !s.foreignIndexes
+	})
 	if !slices.Contains(members, defaultSchema) {
 		members = append(members, defaultSchema)
 	}
@@ -1707,7 +1717,7 @@ func (s *store) dropSchema(ctx context.Context, schema string, ifExists, cascade
 }
 
 func (s *store) listTables(ctx context.Context, schema string) ([]string, error) {
-	if schema == foreignSchema {
+	if schema == foreignSchema && !s.snapshots {
 		return s.foreignNames(ctx)
 	}
 	members, err := s.redis(ctx).SMembers(ctx, tablesKey(schema)).Result()

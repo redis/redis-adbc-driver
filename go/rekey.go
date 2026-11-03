@@ -1109,7 +1109,7 @@ func movingErr(meta *tableMeta) error {
 // back (or finished) first, or the statement waits while another connection
 // does; then a statement whose table is back as it was goes on.
 func (s *store) checkWritable(ctx context.Context, meta *tableMeta) error {
-	if meta.Foreign {
+	if meta.Foreign || meta.Schema == foreignSchema && !snapshotImporting(ctx) {
 		return virtualReadOnly(meta.Schema)
 	}
 	if meta.RekeyTo == "" {

@@ -63,6 +63,8 @@ type HashAdoptOptions struct {
 
 // HashAdoption is what AdoptHashes found, planned and did.
 type HashAdoption struct {
+	// ManagedCopy distinguishes explicit-refresh imports from historical in-place adoption.
+	ManagedCopy bool `json:"managed_copy,omitempty"`
 	// Report has the collection, the columns (InPlaceType) and the
 	// ChecklistSQLInPlace checklist.
 	Report *HashReport `json:"report"`
@@ -91,8 +93,9 @@ type adoptRecord struct {
 	Index  string `json:"index"`
 }
 
-// AdoptHashes makes the HASHes under o.Prefix a driver table without
-// copying them (see inplace.go). Without o.Apply, it only reads them,
+// AdoptHashes imports the HASHes under o.Prefix into an immutable managed
+// copy. Repeating Apply for the same source and destination refreshes the copy;
+// source HASHes and indexes stay application-owned. Without o.Apply, it reads them,
 // checks, and says what it would do. The options are the driver's database
 // options.
 func AdoptHashes(ctx context.Context, options map[string]string, o HashAdoptOptions) (*HashAdoption, error) {
@@ -112,7 +115,7 @@ func AdoptHashes(ctx context.Context, options map[string]string, o HashAdoptOpti
 		progress = func(string) {}
 	}
 	a := &adopter{c: c, o: o, progress: progress, res: &HashAdoption{Report: &HashReport{Prefix: o.Prefix}}}
-	return a.run(ctx)
+	return a.snapshotAdopt(c.context(ctx))
 }
 
 type adopter struct {

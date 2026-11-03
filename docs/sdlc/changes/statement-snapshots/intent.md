@@ -32,11 +32,11 @@ disabled. The user explicitly excluded an upgrade path. Connections initialize
 fresh empty catalogs; existing unversioned catalogs fail without modification.
 An isolated database with ACL-restricted writers is the deployment boundary.
 
-Snapshot mode accepts SELECT over permanent managed tables and views
-whose full dependency closure is managed. Adopted HASH tables, application
-indexes, foreign indexes, temporary tables and mixed managed/external queries
-must fail explicitly in this initial format. A public non-snapshot managed-table
-mode is not available.
+Snapshot mode accepts managed tables, views, temporary objects and private
+managed copies of application data. The user subsequently requested the
+[compatibility extension](../snapshot-compatibility/intent.md) and selected
+managed copies with explicit refreshes for external HASHes/indexes. A public
+non-snapshot managed-table mode is not available.
 
 Although the public read guarantee is limited to SELECT, all supported writers
 in a snapshot catalog must publish immutable generations. INSERT, UPDATE,

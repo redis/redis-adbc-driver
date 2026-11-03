@@ -34,13 +34,15 @@ for supported deployments and configuration.
 
 Managed tables now use [always-on statement snapshots](docs/snapshots.md).
 Each statement reads one committed generation, including streamed results;
-supported writes publish atomically. This changes the storage format: start with
-an empty, isolated database. Existing catalogs are rejected without modification;
-there is no upgrade path. ALTER, temporary/foreign tables and partition production
-are outside this initial slice. Writes share unchanged data and append row-version segments, with bounded
-resumable background compaction and fixed limits; read the deployment and compatibility constraints
-before connecting. Historical adoption/layout documentation below describes the
-previous format.
+supported writes publish atomically. Protocol version 5 rejects legacy catalogs
+and earlier draft formats without modification; there is no upgrade path. ALTER
+and connection-owned temporary objects are supported. HASH adoption and foreign
+indexes use private managed copies with explicit refreshes, preserving application
+ownership. Live partition readers pin individual generations; retained production
+captures one managed generation and publishes replayable Arrow results. Writes
+append row-version segments with bounded background compaction. See the snapshot
+contract for import initialization, deployment constraints and fixed limits.
+Historical in-place adoption/layout descriptions below concern the previous format.
 
 Start with [Choose your tool and connect](docs/setup.md) for Python wheels,
 connection diagnostics, and application examples. For native tools such as
@@ -148,7 +150,7 @@ for those rows cover scope or companion integration decisions.
 | Arrow extension types | 🟡 Partial | Reject by default; explicit `extension_policy=storage` normalizes allowlisted top-level UUID/JSON extensions to canonical SQL storage. Unknown/nested semantics reject; extension identity is not persisted. [Policy](docs/arrow-interoperability.md#explicit-extension-storage-normalization). | [#209](https://github.com/redis/redis-adbc-driver/issues/209) |
 | SQL execution, prepared statements and Arrow parameter binding | 🟢 Supported | Supports `Prepare`, `Bind`, `BindStream`, parameter schemas and result-schema discovery for supported SQL. | — |
 | ADBC metadata discovery | 🟡 Partial | Driver info, objects, table schemas/types and approximate managed-table row counts are available. Exact/column statistics and UNIQUE/FOREIGN KEY metadata remain unavailable. See [statistics](docs/adbc-statistics.md). | [#210](https://github.com/redis/redis-adbc-driver/issues/210) |
-| ADBC partitioned reads | 🟡 Partial | Portable row-range descriptors cover a restricted SELECT subset; retained-result mode supports broader SQL with quotas/expiry. No shared source snapshot. Rebuild from source; see [partitioned reads](docs/partitioned-reads.md). | [#211](https://github.com/redis/redis-adbc-driver/issues/211) |
+| ADBC partitioned reads | 🟡 Partial | Portable row-range descriptors cover a restricted SELECT subset; retained-result mode supports broader SQL with quotas/expiry. Managed sources use pinned statement snapshots; deferred live readers pin independently. Rebuild from source; see [partitioned reads](docs/partitioned-reads.md). | [#211](https://github.com/redis/redis-adbc-driver/issues/211) |
 | Statement cancellation | 🟡 Partial | Cancels driver work and interrupts execution-owned socket waits, including blocked cursor pages/pipelines. Remote server work may continue; sorts finish before checking cancellation. See [cancellation](docs/driver-reference.md#cancelling-a-statement). | [#212](https://github.com/redis/redis-adbc-driver/issues/212) |
 | Transactions and rollback through ADBC | 🔴 Unsupported | Autocommit only; disabling autocommit is rejected. | [#113](https://github.com/redis/redis-adbc-driver/issues/113) |
 | Substrait plans | 🔴 Unsupported | `SetSubstraitPlan` returns NotImplemented. | [#213](https://github.com/redis/redis-adbc-driver/issues/213) |

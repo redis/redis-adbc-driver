@@ -41,7 +41,7 @@ Commands:
   check    check an existing HASH collection: guess its table structure, and
            list what the ADBC driver needs to query it
   copy     copy an existing HASH collection into a driver table
-  adopt    make an existing HASH collection a driver table, in place
+  adopt    import or refresh a managed copy of an existing HASH collection
   sweep    delete the rows left under the key prefixes of dropped and
            truncated tables
 

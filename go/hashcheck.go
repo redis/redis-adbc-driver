@@ -182,13 +182,15 @@ const discoverKeys = 10000
 
 // InspectHashes checks a HASH collection, or lists candidates if
 // o.Prefix is empty. The options are the driver's database options (the
-// URI, credentials, timeouts, adbc.redis.cluster, …). It writes nothing.
+// URI, credentials, timeouts, adbc.redis.cluster, …). It does not modify
+// application data; existing snapshot catalogs require metadata pin writes.
 func InspectHashes(ctx context.Context, options map[string]string, o HashInspectOptions) (*HashReport, error) {
 	c, err := dialHashes(ctx, options)
 	if err != nil {
 		return nil, err
 	}
 	defer c.close(ctx)
+	ctx = c.context(ctx)
 	r := &HashReport{Prefix: o.Prefix}
 	c.server(ctx, &r.Server)
 	tables, err := c.driverTables(ctx)

@@ -254,3 +254,11 @@ limited by server capacity, rather than a total 64 MiB/100,000-row cap; one row
 may exceed the soft batch-byte target under the existing hard staging limit.
 Multiple shards, failover/persistence certification and the full legacy SQL/CI
 matrix remain excluded or unverified. The PR stays draft for human review.
+
+## Compatibility extension
+
+The subsequent user request restores ALTER, temporary objects, copied external
+imports, HASH tools and live/retained partition production. It advances to protocol
+5 because old draft writers omit these data references. See the
+[compatibility validation](../snapshot-compatibility/validation.md) for current
+891-unit / 52-race / nine-native evidence. Earlier sections remain historical.

@@ -108,14 +108,30 @@ func (c *connectionImpl) SetOption(ctx context.Context, key, value string) error
 		}
 		return snapshotUnsupported()
 	}
-	if c.store != nil && c.store.snapshots && ((key == OptionStringForeignIndexes || key == OptionStringRenameRekey) && value != "false") {
+	if c.store != nil && c.store.snapshots && (key == OptionStringRenameRekey && value != "false") {
 		return snapshotUnsupported()
 	}
 	switch key {
+	case OptionStringForeignIndexesRefresh:
+		if value != "true" {
+			return errorf(adbc.StatusInvalidArgument, "foreign_indexes_refresh must be true")
+		}
+		if c.store == nil || c.store.isClosed() {
+			return errConnClosed
+		}
+		if !c.store.snapshots || c.readerOnly {
+			return errorf(adbc.StatusInvalidState, "foreign refresh requires a managed connection")
+		}
+		return c.store.refreshSnapshotForeign(ctx, true)
 	case OptionStringForeignIndexes:
 		v, err := parseForeignIndexes(value)
 		if err != nil {
 			return err
+		}
+		if v && c.store.snapshots {
+			if err := c.store.refreshSnapshotForeign(ctx, false); err != nil {
+				return err
+			}
 		}
 		c.store.foreignIndexes = v
 		return nil

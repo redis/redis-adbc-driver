@@ -127,11 +127,15 @@ func partitionTarget(meta *tableMeta) string {
 		cols[i].TagValues, cols[i].TagsChecked, cols[i].NaNs = "", false, false
 		cols[i].Comment, cols[i].Default, cols[i].DefaultOID = "", "", 0
 	}
+	prefix, index, generation := meta.prefix(), meta.index(), meta.PrefixGen
+	if meta.SnapshotLineage != "" {
+		prefix, index, generation = "snapshot:"+meta.SnapshotLineage, "", 0
+	}
 	data, _ := json.Marshal(struct {
 		Prefix, Index string
 		Generation    int64
 		Columns       []columnMeta
-	}{meta.prefix(), meta.index(), meta.PrefixGen, cols})
+	}{prefix, index, generation, cols})
 	sum := sha256.Sum256(data)
 	return hex.EncodeToString(sum[:])
 }
@@ -331,6 +335,40 @@ func (c *connectionImpl) ReadPartition(ctx context.Context, data []byte) (result
 	if err != nil {
 		return nil, err
 	}
+	if c.store.snapshots {
+		var stop context.CancelFunc
+		ctx, stop = context.WithTimeout(ctx, snapshotTimeout)
+		var pin *snapshotPin
+		var err error
+		ctx, pin, err = c.store.acquireSnapshot(ctx)
+		if err != nil {
+			stop()
+			return nil, err
+		}
+		defer func() {
+			if resultErr != nil || result == nil {
+				stop()
+				pin.release()
+				return
+			}
+			if reader, ok := result.(*streamReader); ok {
+				reader.mu.Lock()
+				if reader.closed {
+					reader.mu.Unlock()
+					stop()
+					pin.release()
+					return
+				}
+				reader.snapshot = pin
+				reader.snapshotCancel = stop
+				reader.snapshotStop = context.AfterFunc(ctx, func() { reader.closeWith(cancelled(ctx)) })
+				reader.mu.Unlock()
+			} else {
+				stop()
+				pin.release()
+			}
+		}()
+	}
 	sel, err := partitionSelect(d.Query)
 	if err != nil {
 		return nil, err
@@ -382,6 +420,9 @@ func (c *connectionImpl) ReadPartition(ctx context.Context, data []byte) (result
 			r.attachOwners([]*streams{&c.streams})
 			return r, nil
 		}
+	}
+	if c.store.snapshots {
+		return e.snapshotPartitionReader(ctx, plan, sel, params, d, c)
 	}
 	if len(plan.meta.PendingCleanup) > 0 {
 		return nil, errorf(adbc.StatusInvalidState, "partition table has pending dropped-column cleanup; retry after cleanup completes")

@@ -90,6 +90,9 @@ func (c *retainedCapture) table(ctx context.Context, meta *tableMeta) (*tableMet
 	if meta.isMem || isTempSchema(meta.Schema) && !c.store.ownTempSchema(meta.Schema) || meta.RekeyTo != "" || len(meta.PendingCleanup) > 0 || meta.Adopted && !meta.KeyRows {
 		return nil, errorf(adbc.StatusNotImplemented, "retained source layout is unowned temporary, moving, pending cleanup or requires explicit re-adoption")
 	}
+	if c.store.snapshots && !meta.Adopted && !meta.Foreign && !meta.AppIndex {
+		return c.snapshotTable(ctx, meta)
+	}
 	topology, err := c.store.retainedTopology(ctx)
 	if err != nil {
 		return nil, err

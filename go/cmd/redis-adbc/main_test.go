@@ -55,7 +55,7 @@ func TestCommandLineErrors(t *testing.T) {
 		}
 	}
 	var out bytes.Buffer
-	if err := run(ctx, []string{"help"}, &out, io.Discard); err != nil || !strings.Contains(out.String(), "adopt    make an existing HASH collection") {
+	if err := run(ctx, []string{"help"}, &out, io.Discard); err != nil || !strings.Contains(out.String(), "adopt    import or refresh a managed copy") {
 		t.Errorf("help: %v\n%s", err, out.String())
 	}
 }

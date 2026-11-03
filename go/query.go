@@ -618,6 +618,11 @@ func (e *executor) openScan(ctx context.Context, req scanRequest, params []Value
 			it.directKeys = req.where.keys
 		} else {
 			it.delta = newSnapshotDeltaScan(e.store, req.meta, fields)
+			if req.ranges != nil {
+				if err := it.delta.seek(ctx, req.ranges.lo, req.ranges.hi); err != nil {
+					return nil, err
+				}
+			}
 		}
 		return it, nil
 	}

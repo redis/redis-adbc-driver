@@ -101,8 +101,9 @@ func invalidArg(err error) error {
 // one by that name, and otherwise in the current schema; pg_temp.<name> is
 // always the temporary one.
 func (e *executor) resolveTable(t TableName) (string, string, error) {
-	if e.store != nil && e.store.snapshots && (isTempAlias(t.Schema) || isTempSchema(t.Schema) || t.Schema == foreignSchema || t.Schema == "" && (isTempAlias(e.schema) || isTempSchema(e.schema) || e.schema == foreignSchema)) {
-		return "", "", snapshotUnsupported()
+
+	if (t.Schema == foreignSchema || t.Schema == "" && e.schema == foreignSchema) && !e.store.foreignIndexes {
+		return "", "", tableNotFound(foreignSchema, t.Name)
 	}
 	schema := t.Schema
 	if t.Catalog != "" && t.Catalog != catalogName {
@@ -133,9 +134,6 @@ func (e *executor) resolveTable(t TableName) (string, string, error) {
 // CREATE TEMP and for pg_temp.<name>, otherwise the given or current schema.
 // Unlike resolveTable, an unqualified name never means a temporary object.
 func (e *executor) resolveCreate(ctx context.Context, t TableName, temporary bool) (string, string, error) {
-	if e.store != nil && e.store.snapshots && (temporary || isTempAlias(t.Schema) || isTempSchema(t.Schema) || t.Schema == foreignSchema) {
-		return "", "", snapshotUnsupported()
-	}
 	if t.Catalog != "" && t.Catalog != catalogName {
 		return "", "", errorf(adbc.StatusNotFound, "catalog %q does not exist", t.Catalog)
 	}

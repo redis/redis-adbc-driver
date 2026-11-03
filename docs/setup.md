@@ -12,7 +12,10 @@ Redis 7.2 derivatives are unsupported. See [server requirements](driver-referenc
 for versions and ACL permissions. Set QPF to 4× where supported, with sufficient
 server CPU capacity, for concurrent query performance. Connections use autocommit; transactions are
 unsupported. Existing application HASHes need [copy or adoption](driver-reference.md#existing-hash-collections-redis-adbc)
-before they appear as SQL tables.
+before they appear as SQL tables. These operations now create private managed
+copies; refresh explicitly to observe later application changes. See the
+[current snapshot storage contract](snapshots.md) before opening an existing
+database; legacy driver catalogs are not upgraded.
 
 ## Install without building
 

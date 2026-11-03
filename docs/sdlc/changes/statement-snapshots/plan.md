@@ -24,7 +24,7 @@ Related: [intent](intent.md), [specification](spec.md), [validation](validation.
    cursor-row/partial-result errors and disabled mutable background tag checks.
 5. `go/stream.go`: reader pin/deadline ownership, validation before returning a
    batch and cleanup on cancellation, exhaustion, release and handle close.
-6. `go/hashscan.go`: reject legacy HASH tooling for snapshot catalogs.
+6. `go/hashscan.go`: scope HASH tools to pinned metadata; imports publish managed copies.
 7. `go/snapshot*_test.go`, `go/validation/snapshot_validation.py`: deterministic
    concurrency, fault-injection, lifetime and native C/ADBC value validation.
 8. README and `docs/snapshots.md`: supported scope, automatic snapshots, fixed limits,
@@ -79,7 +79,9 @@ connection lifecycle.
 ## Deferred work
 
 Visibility-aware Search pushdowns, compactor fairness/concurrency tuning,
-configurable limits, multi-shard/failover certification and ALTER remain deferred.
+configurable limits and multi-shard/failover certification remain deferred.
+ALTER and other compatibility work are covered by the
+[compatibility extension](../snapshot-compatibility/plan.md).
 Metadata copying, readiness and initial-index/cleanup traversal costs remain.
 Upgrade/migration work is excluded for all earlier draft formats. No benchmark or
 constant-time claim is made. With no managed connections open, compaction waits

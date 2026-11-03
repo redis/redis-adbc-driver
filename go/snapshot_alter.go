@@ -1,0 +1,72 @@
+// Copyright (c) 2026 ADBC Drivers Contributors
+// Licensed under the Apache License, Version 2.0.
+
+package redis
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"io"
+)
+
+// DDL rewrites into a private segment. No index or row reachable by an older
+// manifest is altered, including when the SQL change only adds an index field.
+// Ordinary DML continues to append deltas without copying existing rows.
+func (e *executor) alterSnapshotTable(ctx context.Context, source *tableMeta, cmds []AlterCmd) error {
+	in := &alterInputs{}
+	if err := e.viewDependencies(ctx, source, cmds, in); err != nil {
+		return err
+	}
+	target := cloneMeta(source)
+	res, err := e.applyAlter(ctx, target, cmds, in)
+	if err != nil {
+		return err
+	}
+	names, err := e.store.claimNames(ctx, source.Schema, source.Name)
+	if err != nil {
+		return err
+	}
+	target.KeyPrefix, target.IndexName, target.PrefixGen = names.prefix, names.index, 0
+	target.SnapshotLineage = snapshotDataID(names.prefix)
+	target.SnapshotSegments, target.SnapshotRows, target.SnapshotOverlay = nil, nil, false
+	rw := &rewrite{start: source, target: target, res: res}
+	if err := rw.prepare(ctx, e); err != nil {
+		return err
+	}
+	scan := newSnapshotDeltaScan(e.store, source, nil)
+	for {
+		_, rows, err := scan.next(ctx)
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		pipe := e.store.redis(ctx).Pipeline()
+		for _, row := range rows {
+			fields, err := rw.convert(row)
+			if err != nil {
+				return err
+			}
+			pipe.HSet(ctx, target.prefix()+row[rowIDField], fields...)
+		}
+		if _, err := pipe.Exec(ctx); err != nil {
+			return err
+		}
+	}
+	target = rw.next(source)
+	if err := e.store.searchDo(ctx, target.index(), snapshotScannedIndexArgs(target)...).Err(); err != nil {
+		return err
+	}
+	raw, err := json.Marshal(target)
+	if err != nil {
+		return err
+	}
+	pipe := e.store.redis(ctx).Pipeline()
+	pipe.Set(ctx, metaKey(source.Schema, source.Name), raw, 0)
+	pipe.SRem(ctx, prefixesKey, source.prefix())
+	pipe.SRem(ctx, indexesKey, source.index())
+	_, err = pipe.Exec(ctx)
+	return err
+}

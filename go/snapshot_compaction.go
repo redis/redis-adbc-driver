@@ -194,7 +194,7 @@ func (s *store) startSnapshotCompaction(ctx context.Context, token string) (bool
 		return false, err
 	}
 	defer pin.release()
-	schemas, err := s.listSchemas(cctx)
+	schemas, err := s.snapshotSchemas(cctx)
 	if err != nil {
 		return false, err
 	}

@@ -32,8 +32,11 @@ be fenced operationally during deployment.
 
 Permanent managed tables, schemas and views are supported. SQL DML, joined DML,
 MERGE, CTAS, table/view/schema creation and removal, TRUNCATE, COMMENT and all
-Arrow ingestion modes publish private generations. ALTER TABLE, temporary
-relations, adopted/foreign/application indexes and legacy HASH tools are rejected.
+Arrow ingestion modes publish private generations. ALTER, temporary objects,
+managed copies of external HASHes/indexes, HASH tools and partition production
+are supported by the [compatibility extension](../snapshot-compatibility/spec.md).
+External sources require explicit refreshes; their publication is atomic, while
+capture is not a transaction with application writers.
 
 Writes copy the metadata manifest and share immutable row-version segments.
 DML targets receive an empty current segment before planning captures logical
@@ -55,7 +58,7 @@ The control hash `adbc:{meta}:snapshot:catalog` contains:
 
 | Field | Contents |
 | --- | --- |
-| `format` | Protocol version `4`; prior draft versions 1, 2 and 3 are rejected |
+| `format` | Protocol version `5`; prior draft versions 1–4 are rejected |
 | `root` | Unique committed catalog generation ID |
 | `w:<generation>` | Staging owner token/base/lease; compacting owner/lease/publication gate; committed outcome; or deletion claim |
 | `p:<token>` | Reader/writer base root, write intent and lease expiration |
@@ -195,8 +198,9 @@ ownership can be reassigned only through the job lease, fencing the old token.
 
 Both phases are resumable and idempotent, with a five-second budget per
 acquisition and one manifest/data cleanup candidate per attempt. Failed cleanup
-retains its record for retry. Legacy sweep/rekey/temporary cleanup does not
-operate on this storage format.
+retains its record for retry. Legacy physical rekey does not operate on this format. Temporary Close/sweep
+publishes descriptor removal; expired-session sweep also checks liveness
+atomically at publication. SweepReleased invokes reference-aware reclamation.
 
 Fixed limits: eight segments per table, 16 registered catalog manifests, 128 active pins, 64 MiB conservative
 staged command-data accounting and 100,000 row HSET operations per write, and

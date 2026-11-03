@@ -43,6 +43,7 @@ type snapshotScope struct {
 	id            string
 	pin           *snapshotPin
 	maintenance   bool
+	tempDead      string
 	write         bool
 	owned         map[string]bool
 	mu            sync.Mutex
@@ -76,13 +77,13 @@ local function owns_pin()
 end
 if op == 'init' then
   if redis.call('EXISTS', k) == 0 then
-    if redis.call('DBSIZE') ~= 0 then return redis.error_reply('managed-table snapshots require a fresh empty database; existing storage is not upgraded or modified') end
-    redis.call('HSET', k, 'format', '4', 'root', id, 'w:'..id, cjson.encode({state='committed'}), 'r:'..id, '[]')
+    if ARGV[6] ~= 'import' and redis.call('DBSIZE') ~= 0 then return redis.error_reply('managed-table snapshots require a fresh empty database; existing storage is not upgraded or modified') end
+    redis.call('HSET', k, 'format', '5', 'root', id, 'w:'..id, cjson.encode({state='committed'}), 'r:'..id, '[]')
   end
-  if redis.call('HGET', k, 'format') ~= '4' then return redis.error_reply('unsupported snapshot catalog format') end
+  if redis.call('HGET', k, 'format') ~= '5' then return redis.error_reply('unsupported snapshot catalog format') end
   return 1
 end
-if redis.call('HGET', k, 'format') ~= '4' then return redis.error_reply('missing or unsupported snapshot catalog') end
+if redis.call('HGET', k, 'format') ~= '5' then return redis.error_reply('missing or unsupported snapshot catalog') end
 local entries = redis.call('HGETALL', k)
 local pins, works, protected = 0, 0, {}
 for n=1,#entries,2 do
@@ -212,13 +213,14 @@ elseif op == 'own_data' then
   table.insert(refs, data)
   redis.call('HSET', k, 'd:'..data, cjson.encode({owner=id,state='live'}), 'r:'..id, cjson.encode(refs))
   return 1
-elseif op == 'publish' or op == 'publish_compaction' then
+elseif op == 'publish' or op == 'publish_compaction' or op == 'publish_temp' then
   local raw = redis.call('HGET', k, 'w:'..id)
   if not raw then return -1 end
   local w = cjson.decode(raw)
   if w.state == 'committed' then return 1 end
   if w.state ~= 'staging' or w.token ~= token or w.expires <= now or not owns_pin() then return -1 end
   if redis.call('HGET', k, 'root') ~= base then return 0 end
+  if op == 'publish_temp' and redis.call('EXISTS',KEYS[2]) ~= 0 then return -4 end
   if op == 'publish_compaction' then
     for n=1,#entries,2 do
       if string.sub(entries[n],1,2) == 'p:' then
@@ -314,7 +316,14 @@ func (s *store) snapshotControl(ctx context.Context, op, token, id, base string,
 	if len(extra) != 0 {
 		arg = extra[0]
 	}
-	return once(ctx, s.client, "EVAL", snapshotControl, 1, snapshotCatalogKey, op, token, id, base, snapshotLease.Milliseconds(), arg)
+	keys := []any{snapshotCatalogKey}
+	if op == "publish_temp" && len(extra) > 1 {
+		keys = append(keys, tempAliveKey(extra[1]))
+	}
+	args := []any{"EVAL", snapshotControl, len(keys)}
+	args = append(args, keys...)
+	args = append(args, op, token, id, base, snapshotLease.Milliseconds(), arg)
+	return once(ctx, s.client, args...)
 }
 
 type snapshotPin struct {
@@ -582,7 +591,7 @@ func scopeSnapshotCommand(ctx context.Context, cmd goredis.Cmder) error {
 	scope := snapshotOf(ctx)
 	for _, n := range positions {
 		key, ok := args[n].(string)
-		if !ok || !strings.HasPrefix(key, metaPrefix) || strings.HasPrefix(key, snapshotPrefix) {
+		if !ok || !strings.HasPrefix(key, metaPrefix) || strings.HasPrefix(key, snapshotPrefix) || snapshotTempControlKey(key) {
 			continue
 		}
 		if scope == nil {
@@ -686,7 +695,10 @@ func (s *store) publishSnapshot(ctx context.Context, pin *snapshotPin, id string
 	if snapshotOf(ctx).maintenance {
 		operation = "publish_compaction"
 	}
-	n, err := s.snapshotControl(ctx, operation, pin.token, id, pin.root, refs).Int()
+	if snapshotOf(ctx).tempDead != "" {
+		operation = "publish_temp"
+	}
+	n, err := s.snapshotControl(ctx, operation, pin.token, id, pin.root, refs, snapshotOf(ctx).tempDead).Int()
 	if err != nil {
 		// Resolve with an independent bounded context, including cancellation
 		// racing with EXEC. Never replay the SQL or Arrow input.
@@ -703,6 +715,9 @@ func (s *store) publishSnapshot(ctx context.Context, pin *snapshotPin, id string
 	}
 	if n == 0 {
 		return stateErrorf("40001", "snapshot catalog changed concurrently; retry the statement")
+	}
+	if n == -4 {
+		return errOwnerAlive
 	}
 	if n != 1 {
 		return errorf(adbc.StatusIO, "snapshot write lease expired before publication")
@@ -789,7 +804,7 @@ func snapshotOwns(ctx context.Context, key string) bool {
 }
 
 func (s *store) snapshotReferences(ctx context.Context) (string, error) {
-	schemas, err := s.listSchemas(ctx)
+	schemas, err := s.snapshotSchemas(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -832,7 +847,7 @@ func snapshotScannedIndexArgs(meta *tableMeta) []any {
 }
 
 func (s *store) rebuildSnapshotIndexes(ctx context.Context) error {
-	schemas, err := s.listSchemas(ctx)
+	schemas, err := s.snapshotSchemas(ctx)
 	if err != nil {
 		return err
 	}
@@ -874,7 +889,7 @@ func (s *store) rebuildSnapshotIndexes(ctx context.Context) error {
 }
 
 func (s *store) validateSnapshot(ctx context.Context) error {
-	schemas, err := s.listSchemas(ctx)
+	schemas, err := s.snapshotSchemas(ctx)
 	if err != nil {
 		return err
 	}
@@ -931,7 +946,7 @@ func (s *store) validateSnapshot(ctx context.Context) error {
 }
 
 func (s *store) validateSnapshotRead(ctx context.Context) error {
-	schemas, err := s.listSchemas(ctx)
+	schemas, err := s.snapshotSchemas(ctx)
 	if err != nil {
 		return err
 	}
@@ -1036,10 +1051,18 @@ func (s *store) deleteSnapshotKeys(ctx context.Context, prefix string) bool {
 }
 
 func (e *executor) executeSnapshot(ctx context.Context, ps ParsedStmt, params []Value, types []ColType, so *streamOpts) (execResult, error) {
+	if drop, ok := ps.Stmt.(*DropPartitionResultStmt); ok {
+		controlCtx := context.WithValue(ctx, snapshotContextKey{}, (*snapshotScope)(nil))
+		store, err := newRetainedStore(e.store.client, e.partitionNamespace, defaultRetainedLimits())
+		if err != nil {
+			return execResult{}, err
+		}
+		return execResult{affected: 0}, store.revoke(controlCtx, drop.JobID, "")
+	}
 	write := false
 	switch ps.Stmt.(type) {
 	case *SelectStmt, *ShowStmt, *SetStmt, *TransactionStmt:
-	case *InsertStmt, *UpdateStmt, *DeleteStmt, *MergeStmt, *CreateTableStmt, *DropTableStmt, *CreateViewStmt, *DropViewStmt, *CreateSchemaStmt, *DropSchemaStmt, *TruncateStmt, *CommentStmt:
+	case *InsertStmt, *UpdateStmt, *DeleteStmt, *MergeStmt, *CreateTableStmt, *DropTableStmt, *CreateViewStmt, *DropViewStmt, *CreateSchemaStmt, *DropSchemaStmt, *TruncateStmt, *CommentStmt, *AlterTableStmt:
 		write = true
 	default:
 		return execResult{}, errorf(adbc.StatusNotImplemented, "statement is not supported in snapshot catalogs")
@@ -1054,6 +1077,16 @@ func (e *executor) executeSnapshot(ctx context.Context, ps ParsedStmt, params []
 		if pin != nil {
 			pin.release()
 			cancel()
+		}
+	}()
+	if err := e.store.refreshSnapshotTemp(sctx); err != nil {
+		return execResult{}, err
+	}
+	baseCtx := sctx
+	published := false
+	defer func() {
+		if write && !published {
+			_ = e.store.refreshSnapshotTemp(baseCtx)
 		}
 	}()
 	id := ""
@@ -1090,6 +1123,7 @@ func (e *executor) executeSnapshot(ctx context.Context, ps ParsedStmt, params []
 	}
 	if write {
 		err = e.store.publishSnapshot(sctx, pin, id)
+		published = err == nil
 	} else {
 		err = pin.valid(sctx)
 	}
@@ -1138,7 +1172,8 @@ func snapshotReplyWarning(reply any) bool {
 }
 
 // openSnapshotCatalog runs before legacy migration/recovery or any driver write.
-func (s *store) openSnapshotCatalog(ctx context.Context, enabled bool) error {
+func (s *store) openSnapshotCatalog(ctx context.Context, enabled bool, importing ...bool) error {
+	allowExternal := len(importing) > 0 && importing[0]
 	n, err := s.client.Exists(ctx, snapshotCatalogKey).Result()
 	if err != nil {
 		return err
@@ -1152,7 +1187,7 @@ func (s *store) openSnapshotCatalog(ctx context.Context, enabled bool) error {
 	if _, ok := s.client.(*goredis.ClusterClient); ok {
 		return errorf(adbc.StatusNotImplemented, "snapshot catalogs currently require a single endpoint")
 	}
-	if n == 0 {
+	if n == 0 && !allowExternal {
 		indexes, err := s.searchDo(ctx, "", "FT._LIST").Slice()
 		if err != nil {
 			return err
@@ -1171,7 +1206,14 @@ func (s *store) openSnapshotCatalog(ctx context.Context, enabled bool) error {
 	if strings.Contains(strings.ToLower(info), "crdt_") || !strings.Contains(info, "role:master") || !strings.Contains(info, "cluster_enabled:0") {
 		return errorf(adbc.StatusNotImplemented, "snapshot catalogs require a primary single endpoint without Active-Active replication")
 	}
-	if err := s.snapshotControl(ctx, "init", "", snapshotID(), "").Err(); err != nil {
+	mode := ""
+	if n == 0 && allowExternal {
+		if err := s.checkSnapshotImportNamespace(ctx); err != nil {
+			return err
+		}
+		mode = "import"
+	}
+	if err := s.snapshotControl(ctx, "init", "", snapshotID(), "", mode).Err(); err != nil {
 		return wrapRedis(err, "failed to initialize snapshot catalog")
 	}
 	s.snapshots = true

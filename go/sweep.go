@@ -111,11 +111,18 @@ func SweepReleased(ctx context.Context, options map[string]string, o SweepOption
 		return nil, err
 	}
 	defer c.close(ctx)
+	ctx = c.context(ctx)
 	progress := o.Progress
 	if progress == nil {
 		progress = func(string) {}
 	}
 	res := &Sweep{Cluster: c.cluster(), Applied: o.Apply}
+	if c.st.snapshots {
+		if o.Apply {
+			c.st.reapSnapshot(context.WithValue(ctx, snapshotContextKey{}, (*snapshotScope)(nil)))
+		}
+		return res, nil
+	}
 	if info, err := c.client.Info(ctx, "server").Result(); err == nil {
 		res.ServerVersion = infoField(info, "redis_version")
 	}

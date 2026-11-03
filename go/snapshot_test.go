@@ -104,7 +104,7 @@ func TestSnapshotAlwaysEnabled(t *testing.T) {
 	}
 }
 
-func TestSnapshotConnectionCapabilityAndPartitionGuard(t *testing.T) {
+func TestSnapshotConnectionCapability(t *testing.T) {
 	ctx := context.Background()
 	c := &connectionImpl{store: &store{snapshots: true}}
 	if err := c.SetOption(ctx, OptionStringStatementSnapshots, "true"); err != nil {
@@ -112,10 +112,6 @@ func TestSnapshotConnectionCapabilityAndPartitionGuard(t *testing.T) {
 	}
 	if err := c.SetOption(ctx, OptionStringStatementSnapshots, "false"); err == nil {
 		t.Fatal("connection disabled snapshots")
-	}
-	stmt := &statementImpl{conn: c}
-	if _, _, _, err := stmt.ExecutePartitions(ctx); err == nil {
-		t.Fatal("partition production bypassed snapshot ownership")
 	}
 }
 

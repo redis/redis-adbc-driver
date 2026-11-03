@@ -119,6 +119,9 @@ func (e *executor) runAlter(ctx context.Context, st *AlterTableStmt) error {
 		}
 		return e.renameColumn(ctx, meta, cmd.Column, cmd.NewColumn)
 	}
+	if e.store.snapshots {
+		return e.alterSnapshotTable(ctx, meta, st.Cmds)
+	}
 	return e.alterTable(ctx, meta, st.Cmds)
 }
 

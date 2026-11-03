@@ -578,7 +578,7 @@ func TestSnapshotExpiredReaderAndCancellation(t *testing.T) {
 func TestSnapshotRejectsUnsupportedAndLegacyAccess(t *testing.T) {
 	h, raw, _ := newSnapshotHarness(t)
 	h.exec("CREATE TABLE t(v INTEGER)")
-	for _, query := range []string{"ALTER TABLE t ADD COLUMN x INTEGER", "CREATE TEMP TABLE tmp(v INTEGER)", "SELECT * FROM pg_temp.t", "SELECT * FROM redis_foreign.t"} {
+	for _, query := range []string{"SELECT * FROM redis_foreign.t"} {
 		before := raw.HGet(h.ctx, snapshotCatalogKey, "root").Val()
 		st, err := h.conn.NewStatement(h.ctx)
 		if err != nil {
@@ -602,8 +602,8 @@ func TestSnapshotRejectsUnsupportedAndLegacyAccess(t *testing.T) {
 		_ = db.Close(h.ctx)
 		t.Fatal("statement snapshots could be disabled")
 	}
-	if _, err := SweepReleased(h.ctx, map[string]string{adbc.OptionKeyURI: uri}, SweepOptions{}); err == nil {
-		t.Fatal("legacy sweep accepted snapshot storage")
+	if _, err := SweepReleased(h.ctx, map[string]string{adbc.OptionKeyURI: uri}, SweepOptions{}); err != nil {
+		t.Fatal("snapshot-aware sweep failed", err)
 	}
 	h.expectRows("SELECT COUNT(*) FROM t", "0")
 }

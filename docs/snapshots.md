@@ -1,10 +1,12 @@
 # Statement snapshots for managed tables
 
-Statement snapshots are **always enabled for managed tables**. No option is
-required. The first connection initializes an **empty, isolated Redis database
-with no existing Search indexes**. Existing unversioned catalogs are rejected
-without modification. No upgrade or migration path is included. The shared-table design uses protocol
-version 4 and also rejects catalogs created by the earlier version 1, 2 or 3 drafts.
+Statement snapshots are **always enabled for managed tables**, including temporary
+managed tables and imported copies of application data. No option is required.
+Ordinary Open initializes an empty isolated database. Explicit HASH import and
+foreign-index import may initialize alongside application-owned data and indexes,
+but reject existing legacy driver metadata without modification. No upgrade or
+migration path is included. Protocol version 5 also rejects prior draft versions
+1–4, whose writers do not retain the new temporary/imported data references.
 
 ```python
 import adbc_driver_manager.dbapi
@@ -53,11 +55,39 @@ retain their existing compatibility behavior, including no-op ROLLBACK.
   creation/removal. All Arrow ingest modes publish their complete input once.
 - Table schema discovery, parameter/schema planning and SQL catalog reads use
   pinned generations.
-- Rejected: ALTER TABLE, temporary tables/views, adopted HASHes,
-  foreign/application indexes and legacy HASH inspection/copy/adoption/sweep
-  utilities and partition production (both live and retained). Independent
-  retained partition reader-only connections remain available. There is no live
-  migration or downgrade tool.
+- ALTER TABLE uses the existing SQL conversion/constraint rules and stages a
+  private replacement segment before atomic publication. Earlier readers keep
+  their old schema and values. DDL rewrites remain subject to statement budgets;
+  ordinary DML continues to append deltas without copying existing rows.
+- Temporary tables/views belong to their connection and shadow unqualified names.
+  Their metadata and references survive other connections' publications. Close
+  and abandoned-session sweep publish removal, preserving pinned storage.
+- AdoptHashes now imports a managed copy rather than adopting mutable HASHes in
+  place. Repeating Apply for the same source and destination explicitly refreshes
+  that copy. A destination created independently cannot be replaced by adoption.
+  CopyHashes supports the existing ingest modes with atomic publication.
+- `adbc.redis.foreign_indexes=true` imports missing managed copies into the
+  read-only `redis_foreign` schema. Existing copies are reused on later Open.
+  Set the connection option `adbc.redis.foreign_indexes_refresh=true`, or call
+  the Go `RefreshForeignIndexes` API, to refresh existing copies explicitly.
+  Each index refresh publishes separately; explicit refresh also removes copies
+  whose source indexes no longer exist. Sources overlapping driver control
+  storage are rejected. HASHes and application indexes remain application-owned.
+- External capture is a scan of observed data, not an atomic transaction with
+  application writers. Pause source writes during refresh if a point-in-time
+  source image is required. Once published, the private managed copy has normal
+  atomic statement snapshots; later application writes appear only after refresh.
+- InspectHashes is available alongside snapshot catalogs. SweepReleased uses
+  snapshot reference-aware reclamation in these catalogs; it does not run the
+  legacy released-prefix deletion scan or report legacy row-deletion counts.
+- Live and retained partition production are available. Each live ReadPartition
+  pins its own generation through consumption; a set of deferred live reads does
+  not share one snapshot, and layout changes can invalidate a descriptor.
+  Retained production captures managed sources from one pinned generation and
+  publishes independent Arrow results. Existing partition shape, quota and
+  deployment restrictions still apply. Independent retained reader-only
+  connections remain available.
+- No live migration, downgrade or physical rename/rekey tool is included.
 - Requires a primary single endpoint, no Active-Active replication and
   `maxmemory-policy noeviction`. Open verifies INFO and rejects Cluster API
   connections. Runtime evidence covers Redis Software 8.6.2 with Search 8.6.11,
@@ -73,8 +103,8 @@ across shards. Use a deployment that honors Redis hash tags and reads from the
 primary. Publication inherits Redis's configured persistence/replication
 durability. Acquisition rejects missing, failed or rebuilding published indexes.
 
-Only protocol-compliant clients may write snapshot data. Use a fresh isolated
-catalog; this release does not upgrade existing storage. An old executable or raw Redis client
+Only protocol-compliant clients may write snapshot data. Use a dedicated
+catalog; this release does not upgrade existing driver storage. An old executable or raw Redis client
 cannot be protected by a new driver's option check. Do not mutate, expire or
 evict published keys or indexes outside the driver.
 

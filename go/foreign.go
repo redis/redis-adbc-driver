@@ -42,7 +42,7 @@ func (s *store) foreignNames(ctx context.Context) ([]string, error) {
 	}
 	var names []string
 	for _, ix := range indexes {
-		if ix.keyType != "HASH" {
+		if ix.keyType != "HASH" || snapshotDataID(ix.name) != "" {
 			continue
 		}
 		owned, err := s.redis(ctx).SIsMember(ctx, indexesKey, ix.name).Result()
