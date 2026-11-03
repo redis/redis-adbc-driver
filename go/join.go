@@ -477,8 +477,11 @@ func (jp *joinPlan) planPushdown(where Expr) {
 // original HASH fields), for scanning it as part of a join.
 func (it *joinItem) view() *tableMeta {
 	v := *it.base
-	v.Columns = make([]columnMeta, len(it.base.Columns))
-	for i, c := range it.base.Columns {
+	columns := it.base.scanColumns()
+	v.Columns = make([]columnMeta, len(columns))
+	// Provenance is represented by its qualified scan column in this view.
+	v.SnapshotSourceKey = false
+	for i, c := range columns {
 		c.Field = c.field()
 		c.Name = it.prefix + c.Name
 		v.Columns[i] = c
@@ -719,7 +722,7 @@ func (e *executor) runJoin(ctx context.Context, jp *joinPlan, need map[string]bo
 	}
 	types := map[string]ColType{}
 	for _, it := range jp.items {
-		for _, c := range it.base.Columns {
+		for _, c := range it.base.scanColumns() {
 			types[it.prefix+c.Name] = c.Type
 		}
 	}

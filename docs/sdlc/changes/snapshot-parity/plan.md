@@ -88,3 +88,10 @@ membership from private native index policy for HASH/foreign copies. Converted
 text values and renamed columns can be indexed; explicit capture indexes and
 private IndexColumns can be combined. Existing SQL copies remain independent of
 source-index DROP/change; broader performance and compatibility work stays open.
+
+
+The [managed write checkpoint](import-write-validation.md) preserves import
+origin through Arrow replacement and binds provenance through joined DML and
+explicit derived/CTE projections. SQL/Arrow private-write compatibility and raw
+keyed collision coverage are retained; sweep/ACL, large operations, sustained
+performance and full platform/Cluster validation remain open.

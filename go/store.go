@@ -328,6 +328,16 @@ func (t *tableMeta) column(name string) (columnMeta, bool) {
 	if i, ok := t.resolve(name); ok {
 		return t.Columns[i], true
 	}
+	if t.join != nil {
+		for _, item := range t.join.items {
+			if item.base.SnapshotSourceKey && name == item.prefix+keyField {
+				col := snapshotSourceKeyColumn()
+				col.Name, col.Field, col.Indexed = name, name, false
+				col.label = keyField
+				return col, true
+			}
+		}
+	}
 	return columnMeta{}, false
 }
 
@@ -343,6 +353,13 @@ func (t *tableMeta) types() map[string]ColType {
 	}
 	if t.SnapshotSourceKey {
 		m[keyField] = typeString
+	}
+	if t.join != nil {
+		for _, item := range t.join.items {
+			if item.base.SnapshotSourceKey {
+				m[item.prefix+keyField] = typeString
+			}
+		}
 	}
 	return m
 }

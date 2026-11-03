@@ -51,6 +51,9 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.26.10)
   hidden provenance field, separate from physical IDs and public columns. Keep
   it in full-row DML, compaction, ALTER/rekey, late projection and partition reads.
   SQL-added rows have NULL provenance; refresh recaptures source rows/schema.
+  Arrow replace must retain import origin/provenance while replacing public
+  schema/data. Joined provenance uses qualified logical fields, with physical row
+  IDs kept separate; keep it out of default star/NATURAL public schemas.
   Import source indexes serve capture only. Apply private index policy after
   native conversion, independently of source attributes/encodings and source
   membership; keep IndexColumns working with explicit source indexes.

@@ -80,6 +80,13 @@ retain their existing compatibility behavior, including no-op ROLLBACK.
   shared-generation partitions preserve it. Rows added only through SQL have
   NULL `__key`. Explicit refresh replaces the copy's rows and inferred schema,
   including private SQL changes. See the [source-key checkpoint](sdlc/changes/snapshot-parity/source-key-validation.md).
+- Imported `__key` is read-only provenance. SQL/MERGE/Arrow inserts create private
+  rows with NULL provenance. Qualified joins and joined UPDATE/DELETE/MERGE can
+  read it, including explicit derived/CTE projections; default stars and NATURAL
+  join columns still use public schemas. Arrow replace uses the supplied public
+  schema/data while retaining the import origin and nullable provenance, so a
+  subsequent explicit refresh remains available. Failed replacement publishes
+  neither a partial schema nor rows; pinned old streams keep their generation.
 - Import source indexes serve capture only. Managed copies build native private
   indexes after decoding; original text encodings and source TAG/NUMERIC choices
   do not limit private index eligibility. AdoptHashes `IndexColumns` selects

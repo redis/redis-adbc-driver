@@ -698,6 +698,12 @@ until refresh. Refresh recaptures the source rows/schema and replaces private
 SQL changes. See [current snapshot semantics](snapshots.md) and the
 [source-key evidence](sdlc/changes/snapshot-parity/source-key-validation.md).
 
+SQL, MERGE and Arrow writes modify the private table; imported `__key` is
+read-only provenance and new rows have NULL `__key`. Qualified joins can read
+it. Arrow replace changes the public schema/data while preserving the import
+origin, so a later explicit refresh can still recapture the application source.
+See the [managed-write evidence](sdlc/changes/snapshot-parity/import-write-validation.md).
+
 The application index is used only during capture. The report's `source_index`
 identifies it; SQL uses the managed copy's private index. `-own-index` captures
 HASHes directly. `-index-columns` controls the private index independently of

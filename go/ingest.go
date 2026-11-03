@@ -130,6 +130,22 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 		}
 		meta = wanted
 	case adbc.OptionValueIngestModeReplace:
+		if st.snapshots {
+			exists, err := st.tableExists(ctx, schemaName, opts.TableName)
+			if err != nil {
+				return -1, err
+			}
+			if exists {
+				current, err := st.getTable(ctx, schemaName, opts.TableName)
+				if err != nil {
+					return -1, err
+				}
+				// Replace changes the private schema/data, while explicit refresh
+				// still addresses the same externally owned import source.
+				wanted.SnapshotImportSource = current.SnapshotImportSource
+				wanted.SnapshotSourceKey = current.SnapshotSourceKey
+			}
+		}
 		if err := st.dropTable(ctx, schemaName, opts.TableName, true); err != nil {
 			return -1, err
 		}

@@ -600,7 +600,7 @@ func (e *executor) findColumn(c *ColumnRef) (int, columnMeta, error) {
 				return 0, columnMeta{}, errAmbiguousColumn(ref.Name)
 			}
 			col, ok := rel.meta.column(ref.Name)
-			if !ok || (rel.prefix != "" && isSystemColumn(col.Name)) || (ref.Qualifier == "" && rel.hidden[col.Name]) {
+			if !ok || rel.hidesSystemColumn(col.Name) || (ref.Qualifier == "" && rel.hidden[col.Name]) {
 				continue
 			}
 			found++
@@ -759,6 +759,17 @@ func (e *executor) lateralColumn(name string) string {
 	return detail
 }
 
+// Managed source keys are logical provenance, so joined relations may read
+// them without exposing physical row IDs or adding them to public star columns.
+func (rel relation) hidesSystemColumn(name string) bool {
+	// A derived relation can explicitly project a system column; it is then
+	// part of that relation's public output, rather than a storage intrinsic.
+	if rel.meta.isMem && !rel.meta.retainedSource {
+		return false
+	}
+	return rel.prefix != "" && isSystemColumn(name) && !(rel.meta.SnapshotSourceKey && name == keyField)
+}
+
 // hasColumn reports whether an unqualified reference to the column name
 // would read rel's (see findColumn).
 func hasColumn(rel relation, name string) bool {
@@ -766,7 +777,7 @@ func hasColumn(rel relation, name string) bool {
 		return false
 	}
 	col, ok := rel.meta.column(name)
-	return ok && !(rel.prefix != "" && isSystemColumn(col.Name)) && !rel.hidden[col.Name] || rel.meta.ambiguous(name)
+	return ok && !rel.hidesSystemColumn(col.Name) && !rel.hidden[col.Name] || rel.meta.ambiguous(name)
 }
 
 // fromColumns counts the FROM items of the query being bound (the innermost
