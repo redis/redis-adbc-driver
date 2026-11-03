@@ -51,6 +51,9 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.26.10)
   hidden provenance field, separate from physical IDs and public columns. Keep
   it in full-row DML, compaction, ALTER/rekey, late projection and partition reads.
   SQL-added rows have NULL provenance; refresh recaptures source rows/schema.
+  Import source indexes serve capture only. Apply private index policy after
+  native conversion, independently of source attributes/encodings and source
+  membership; keep IndexColumns working with explicit source indexes.
   ALTER stages private
   replacement layouts. Temporary descriptors participate in manifest references;
   liveness is global and Close/sweep publish descriptor removal. Application

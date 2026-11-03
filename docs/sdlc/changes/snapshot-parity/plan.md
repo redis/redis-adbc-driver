@@ -81,3 +81,10 @@ lost reports after late private-index failure. Atomic rollback, private-index
 reclamation and source ownership are checked for create and refresh. Legacy
 adoption/unfinished reservations are rejected without migration; current large
 operation resumption and the remaining compatibility families stay open.
+
+
+The [import-index checkpoint](import-index-validation.md) separates source
+membership from private native index policy for HASH/foreign copies. Converted
+text values and renamed columns can be indexed; explicit capture indexes and
+private IndexColumns can be combined. Existing SQL copies remain independent of
+source-index DROP/change; broader performance and compatibility work stays open.

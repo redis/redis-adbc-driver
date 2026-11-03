@@ -17,7 +17,7 @@ package redis
 import (
 	"fmt"
 	"slices"
-	"strings"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -49,24 +49,25 @@ func (f *hashFixture) appIndex(name string, def ...any) {
 }
 
 // indexUses returns how often an index was queried (FT.INFO number_of_uses).
-func (f *hashFixture) indexUses(name string) string {
+func (f *hashFixture) indexUses(name string) int64 {
 	f.h.t.Helper()
 	reply, err := (&store{client: f.raw}).searchDo(f.h.ctx, name, "FT.INFO", name).Result()
 	if err != nil {
 		f.h.t.Fatal(err)
 	}
-	list, _ := reply.([]any)
-	for i := 0; i+1 < len(list); i += 2 {
-		if list[i] == "number_of_uses" {
-			return fmt.Sprint(list[i+1])
-		}
+	fields, ok := redisReplyFields(reply)
+	if !ok || fields["number_of_uses"] == nil {
+		f.h.t.Fatal("FT.INFO has no number_of_uses counter")
 	}
-	return ""
+	count, err := strconv.ParseInt(fmt.Sprint(fields["number_of_uses"]), 10, 64)
+	if err != nil {
+		f.h.t.Fatal(err)
+	}
+	return count
 }
 
-// The application's index: its NUMERIC attributes answer filters (and, if
-// SORTABLE, sorts and aggregates), its TAGs find the rows that may match,
-// which the driver checks, and its other attributes don't serve.
+// Application index capture preserves exact source values in a private copy.
+// SQL predicates and reducers use that copy independently of later source changes.
 func TestAdoptAppIndex(t *testing.T) {
 	f := newHashFixture(t, "it:ad:app:")
 	f.dropAdopted("it_ad_app")
@@ -85,36 +86,30 @@ func TestAdoptAppIndex(t *testing.T) {
 
 	res := f.adopt(HashAdoptOptions{Table: "it_ad_app"})
 	cl := res.Report.Checks[0]
-	if !cl.Ready || !res.AppIndex || res.Index != idx {
+	if !cl.Ready || !res.ManagedCopy || res.AppIndex || res.SourceIndex != idx {
 		t.Fatalf("dry run: %+v", res)
 	}
-	expectItem(t, cl, CheckOK, "adopt reads the rows through the application's index it_ad_app_idx, and creates no index of its own")
-	expectItem(t, cl, CheckOK, "filters, sorts and aggregates on age run in it_ad_app_idx (SORTABLE NUMERIC)")
-	expectItem(t, cl, CheckOK, "filters on score run in it_ad_app_idx (NUMERIC, not SORTABLE")
-	expectItem(t, cl, CheckOK, "=, IN and LIKE 'x%' on city, code look values up in it_ad_app_idx (TAG)")
-	expectItem(t, cl, CheckWarn, "name has no TAG or NUMERIC attribute in it_ad_app_idx")
-	for _, s := range res.Steps {
-		if strings.Contains(s, "FT.CREATE") {
-			t.Errorf("step %q", s)
-		}
-	}
-	r := f.inspect(HashInspectOptions{Table: "it_ad_app"})
-	expectItem(t, checklist(t, r, ChecklistSQLInPlace), CheckOK, "adopt reads the rows through the application's index it_ad_app_idx")
-
+	expectItem(t, cl, CheckOK, "capture source rows through the application's index "+idx+"; SQL uses a private managed index")
+	expectItem(t, cl, CheckMissing, "a private managed copy and its own Search index")
 	res = f.adopt(HashAdoptOptions{Table: "it_ad_app", Apply: true})
-	if !res.Applied || !res.AppIndex {
-		t.Fatalf("adopt: %+v", res)
-	}
-	st := &store{client: f.raw}
-	if own := adoptIndexName("public", "it_ad_app"); st.searchDo(f.h.ctx, own, "FT.INFO", own).Err() == nil {
-		t.Errorf("adopt created %s", own)
+	if !res.Applied || !res.ManagedCopy || res.AppIndex || res.SourceIndex != idx {
+		t.Fatalf("import: %+v", res)
 	}
 	h := f.h
-	before := f.indexUses(idx)
-	h.expectRows(`SELECT COUNT(*) FROM it_ad_app`, "5")
-	if f.indexUses(idx) == before {
-		t.Errorf("the query didn't use %s", idx)
+	indexes, _ := h.query(`SELECT index_name FROM information_schema.tables WHERE table_name='it_ad_app'`)
+	if len(indexes) != 1 || indexes[0] == idx {
+		t.Fatal("managed copy has no independent index", indexes)
 	}
+	privateIndex := indexes[0]
+	// FT.INFO itself increments this Software counter. Calibrate that cost
+	// independently for each index rather than treating a probe as a SQL read.
+	probe := f.indexUses(idx)
+	before := f.indexUses(idx)
+	infoCost := before - probe
+	privateProbe := f.indexUses(privateIndex)
+	privateBefore := f.indexUses(privateIndex)
+	privateInfoCost := privateBefore - privateProbe
+	h.expectRows(`SELECT COUNT(*) FROM it_ad_app`, "5")
 	for _, c := range []struct{ where, want string }{
 		{`city = 'New York'`, "Ann"},
 		{`city = 'new york'`, "Ben"},
@@ -140,21 +135,41 @@ func TestAdoptAppIndex(t *testing.T) {
 	h.expectRows(`SELECT name FROM it_ad_app WHERE score IS NOT NULL ORDER BY score LIMIT 2`, "Cid", "Ann")
 	h.expectRows(`SELECT age, COUNT(*) FROM it_ad_app WHERE age < 30 GROUP BY age ORDER BY age`, "19|1", "25|1")
 
-	// A HASH the application writes is a row at once.
+	if f.indexUses(idx)-before != infoCost {
+		t.Fatal("SQL read the live application index")
+	}
+	if f.indexUses(privateIndex)-privateBefore <= privateInfoCost {
+		t.Fatal("SQL did not use the private managed index")
+	}
+	// Source writes are invisible until an explicit refresh.
 	f.hset("it:ad:app:6", "name", "Fay", "city", "Rome", "age", 33)
+	h.expectRows(`SELECT string_agg(name, ',' ORDER BY name) FROM it_ad_app WHERE city = 'Rome'`, "Eve")
+	if !f.adopt(HashAdoptOptions{Table: "it_ad_app", Apply: true, Index: idx}).Applied {
+		t.Fatal("refresh did not publish")
+	}
 	h.expectRows(`SELECT string_agg(name, ',' ORDER BY name) FROM it_ad_app WHERE city = 'Rome'`, "Eve,Fay")
-
-	// The application drops its index, or makes it so that it can't serve.
+	// Dropping/changing the application's index cannot invalidate a published copy.
+	st := &store{client: f.raw}
 	if err := st.searchDo(h.ctx, idx, "FT.DROPINDEX", idx).Err(); err != nil {
 		t.Fatal(err)
 	}
-	h.expectError(`SELECT COUNT(*) FROM it_ad_app`, `"public"."it_ad_app" reads the application's search index it_ad_app_idx, which is gone`)
+	h.expectRows(`SELECT COUNT(*) FROM it_ad_app`, "6")
+	root := f.raw.HGet(h.ctx, snapshotCatalogKey, "root").Val()
+	blocked, err := AdoptHashes(h.ctx, f.opts, HashAdoptOptions{Prefix: f.prefix, Table: "it_ad_app", Apply: true, Index: idx})
+	if err == nil || blocked == nil || blocked.Applied || blocked.Report.Checks[0].Ready {
+		t.Fatal("missing source index refresh was not blocked")
+	}
 	f.appIndex(idx, append([]any{"FILTER", "@age > 20"}, def...)...)
-	h.expectError(`SELECT COUNT(*) FROM it_ad_app`, `which can't serve anymore (it has the FILTER "@age > 20")`)
+	h.expectRows(`SELECT COUNT(*) FROM it_ad_app`, "6")
+	blocked, err = AdoptHashes(h.ctx, f.opts, HashAdoptOptions{Prefix: f.prefix, Table: "it_ad_app", Apply: true, Index: idx})
+	if err == nil || blocked == nil || blocked.Applied || blocked.Report.Checks[0].Ready {
+		t.Fatal("incompatible source index refresh was not blocked")
+	}
+	if root != f.raw.HGet(h.ctx, snapshotCatalogKey, "root").Val() {
+		t.Fatal("blocked refresh published")
+	}
 	f.appIndex(idx, def...)
 	h.expectRows(`SELECT COUNT(*) FROM it_ad_app WHERE age > 30`, "4")
-	r = f.inspect(HashInspectOptions{})
-	expectItem(t, checklist(t, r, ChecklistSQLInPlace), CheckOK, "it reads them through the application's index it_ad_app_idx")
 
 	// DROP TABLE leaves the application's index, and its HASHes.
 	h.exec(`DROP TABLE it_ad_app`)
@@ -166,8 +181,7 @@ func TestAdoptAppIndex(t *testing.T) {
 	}
 }
 
-// When the application's index can't serve, or isn't wanted, adopt creates
-// its own; -index names one, which must serve.
+// Source selection and private index policy are reported independently.
 func TestAdoptAppIndexChoice(t *testing.T) {
 	f := newHashFixture(t, "it:ad:apc:")
 	f.dropAdopted("it_ad_apc")
@@ -177,31 +191,36 @@ func TestAdoptAppIndexChoice(t *testing.T) {
 	}
 	f.appIndex("it_ad_apc_f", "FILTER", "@n > 0", "SCHEMA", "city", "TAG", "n", "NUMERIC")
 	f.appIndex("it_ad_apc_ok", "SCHEMA", "city", "TAG", "n", "NUMERIC")
-
 	res := f.adopt(HashAdoptOptions{Table: "it_ad_apc"})
-	if res.Index != "it_ad_apc_ok" {
-		t.Errorf("picked %q", res.Index)
+	if !res.ManagedCopy || res.AppIndex || res.SourceIndex != "it_ad_apc_ok" {
+		t.Fatalf("source choice: %+v", res)
 	}
+	expectItem(t, res.Report.Checks[0], CheckWarn, `source index it_ad_apc_f cannot capture this HASH collection: it has the FILTER "@n > 0"`)
 	res = f.adopt(HashAdoptOptions{Table: "it_ad_apc", OwnIndex: true})
-	cl := res.Report.Checks[0]
-	if res.AppIndex || !cl.Ready {
-		t.Errorf("-own-index: %+v", res)
+	if !res.ManagedCopy || res.AppIndex || res.SourceIndex != "" || !res.Report.Checks[0].Ready {
+		t.Fatalf("direct capture: %+v", res)
 	}
-	expectItem(t, cl, CheckWarn, `the application's index it_ad_apc_f can't serve: it has the FILTER "@n > 0"`)
-	expectItem(t, cl, CheckMissing, "a search index in the driver's format on it:ad:apc:")
-	res = f.adopt(HashAdoptOptions{Table: "it_ad_apc", Index: "it_ad_apc_f"})
-	expectItem(t, res.Report.Checks[0], CheckBlocker, `the application's index it_ad_apc_f can't serve: it has the FILTER "@n > 0"`)
-	res = f.adopt(HashAdoptOptions{Table: "it_ad_apc", Index: "nope"})
-	expectItem(t, res.Report.Checks[0], CheckBlocker, "there is no search index named nope on the HASHes under it:ad:apc:")
-	if _, err := AdoptHashes(f.h.ctx, f.opts, HashAdoptOptions{Prefix: f.prefix, Table: "it_ad_apc", IndexColumns: []string{"n"}, Apply: true}); err == nil ||
-		!strings.Contains(err.Error(), "-index-columns picks the columns of the index adopt creates") {
-		t.Errorf("-index-columns with the application's index: %v", err)
+	expectItem(t, res.Report.Checks[0], CheckOK, "capture source HASHes directly; SQL uses a private managed index")
+	for _, index := range []string{"it_ad_apc_f", "nope"} {
+		for _, apply := range []bool{false, true} {
+			root := f.raw.HGet(f.h.ctx, snapshotCatalogKey, "root").Val()
+			blocked, err := AdoptHashes(f.h.ctx, f.opts, HashAdoptOptions{Prefix: f.prefix, Table: "it_ad_apc", Index: index, Apply: apply})
+			if (err != nil) != apply || blocked == nil || blocked.Applied || blocked.Report.Checks[0].Ready || blocked.Report.Checks[0].Command != "" {
+				t.Fatalf("invalid source report: %+v %v", blocked, err)
+			}
+			want := `the application's index it_ad_apc_f can't serve: it has the FILTER "@n > 0"`
+			if index == "nope" {
+				want = "there is no search index named nope on the HASHes under it:ad:apc:"
+			}
+			expectItem(t, blocked.Report.Checks[0], CheckBlocker, want)
+			if root != f.raw.HGet(f.h.ctx, snapshotCatalogKey, "root").Val() {
+				t.Fatal("invalid source plan published")
+			}
+		}
 	}
-
-	// -own-index adopts with the driver's index.
-	res = f.adopt(HashAdoptOptions{Table: "it_ad_apc", OwnIndex: true, Apply: true})
-	if !res.Applied || res.AppIndex || res.Index != adoptIndexName("public", "it_ad_apc") {
-		t.Fatalf("adopt -own-index: %+v", res)
+	res = f.adopt(HashAdoptOptions{Table: "it_ad_apc", Index: "it_ad_apc_ok", IndexColumns: []string{"n"}, Apply: true})
+	if !res.Applied || !res.ManagedCopy || res.AppIndex || res.SourceIndex != "it_ad_apc_ok" {
+		t.Fatalf("independent private index: %+v", res)
 	}
 	f.h.expectRows(`SELECT city FROM it_ad_apc WHERE n = 2`, "Lima")
 }

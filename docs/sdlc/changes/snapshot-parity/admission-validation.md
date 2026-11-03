@@ -88,5 +88,5 @@ No timeout constant or assertion was relaxed.
 The deterministic two-case regression and the original gate-wait test passed
 under the race detector: two top-level cases, two classification subcases, no
 skips/failures, 4.132 seconds package time. The complete rerun is recorded with
-the import-index checkpoint. This focused fix does
+the [import-index checkpoint](import-index-validation.md). This focused fix does
 not prove all cancellation, failover or network-outcome scenarios.

@@ -60,7 +60,7 @@ func (s *store) initializeSnapshotImport(ctx context.Context) error {
 // External scans freeze the rows observed during refresh; concurrent application
 // writes do not share a transaction with capture. Once published, the managed
 // copy has exactly the same immutable storage and atomic reads as any SQL table.
-func (s *store) importSnapshotTable(ctx context.Context, source *tableMeta, schema, name string, replace bool, next func(context.Context) ([]map[string]Value, bool, error)) error {
+func (s *store) importSnapshotTable(ctx context.Context, source *tableMeta, schema, name string, replace bool, only map[string]bool, next func(context.Context) ([]map[string]Value, bool, error)) error {
 	ctx = context.WithValue(ctx, snapshotContextKey{}, (*snapshotScope)(nil))
 	ctx, cancel := context.WithTimeout(ctx, snapshotTimeout)
 	defer cancel()
@@ -98,6 +98,9 @@ func (s *store) importSnapshotTable(ctx context.Context, source *tableMeta, sche
 		col.Missing, col.MissingThrough = "", 0
 		col.TagValues, col.TagsChecked, col.NaNs = "", false, false
 		target.Columns = append(target.Columns, col)
+	}
+	if err := target.applyIndexPolicy(only, nil); err != nil {
+		return err
 	}
 	if _, err := s.createTable(wctx, target, false); err != nil {
 		return err
@@ -209,7 +212,7 @@ func (s *store) refreshSnapshotForeign(ctx context.Context, replace bool) error 
 		if err != nil {
 			return err
 		}
-		if err := s.importSnapshotTable(ctx, meta, foreignSchema, name, true, func(context.Context) ([]map[string]Value, bool, error) { return frozen.mem, true, nil }); err != nil {
+		if err := s.importSnapshotTable(ctx, meta, foreignSchema, name, true, nil, func(context.Context) ([]map[string]Value, bool, error) { return frozen.mem, true, nil }); err != nil {
 			return err
 		}
 	}
@@ -255,12 +258,9 @@ func (a *adopter) snapshotAdopt(ctx context.Context) (*HashAdoption, error) {
 		}
 	}
 	choice := chooseAppIndex(indexes, a.cols, a.o.Prefix, a.stats.keys, a.o.Index, a.o.OwnIndex)
-	if a.o.Index != "" && choice.index == nil {
-		return nil, errorf(adbc.StatusInvalidArgument, "source index cannot serve this HASH collection")
-	}
-	a.app = choice.index
-	if a.app != nil {
-		a.index = a.app.name
+	if choice.index != nil {
+		a.index = choice.index.name
+		a.res.SourceIndex = choice.index.name
 	}
 	meta := &tableMeta{KeyPrefix: a.o.Prefix}
 	if len(a.cols) > 0 {
@@ -270,12 +270,23 @@ func (a *adopter) snapshotAdopt(ctx context.Context) (*HashAdoption, error) {
 			return nil, err
 		}
 	}
+	// Source membership/decoding and the private native index have independent
+	// policies. Do not apply legacy in-place index restrictions to this plan.
+	a.app = choice.index
+	meta.AppIndex = a.app != nil
+	var only map[string]bool
+	if a.o.IndexColumns != nil {
+		only = map[string]bool{}
+		for _, name := range a.o.IndexColumns {
+			only[name] = true
+		}
+	}
 	a.res.ManagedCopy = true
 	a.res.AppIndex = false
 	a.res.Table = displaySchema(a.schema) + "." + a.table
 	a.res.Report.Schema, a.res.Report.Table = a.schema, a.table
 	a.res.Steps = []string{"copy observed application HASH rows into a private managed segment; atomically publish; keep source HASHes and indexes unchanged; repeat Apply to refresh"}
-	cl, err := a.snapshotAdoptionChecklist(ctx, meta)
+	cl, err := a.snapshotAdoptionChecklist(ctx, meta, choice)
 	if err != nil {
 		return nil, err
 	}
@@ -337,7 +348,7 @@ func (a *adopter) snapshotAdopt(ctx context.Context) (*HashAdoption, error) {
 		}
 		return rows, done, nil
 	}
-	if err := a.c.st.importSnapshotTable(ctx, meta, a.schema, a.table, true, reader); err != nil {
+	if err := a.c.st.importSnapshotTable(ctx, meta, a.schema, a.table, true, only, reader); err != nil {
 		return a.res, err
 	}
 	a.res.Applied = true
@@ -346,9 +357,20 @@ func (a *adopter) snapshotAdopt(ctx context.Context) (*HashAdoption, error) {
 
 // Keep the public adoption checklist identifier, while describing its mandatory
 // managed-copy semantics. Planning must never initialize or publish a catalog.
-func (a *adopter) snapshotAdoptionChecklist(ctx context.Context, source *tableMeta) (Checklist, error) {
+func (a *adopter) snapshotAdoptionChecklist(ctx context.Context, source *tableMeta, choice appIndexChoice) (Checklist, error) {
 	cl := Checklist{Name: ChecklistSQLInPlace, Title: "SQL, imported as a managed copy (redis-adbc adopt)"}
 	a.c.checkServer(&cl, a.res.Report)
+	if choice.blocker != "" {
+		cl.add(CheckBlocker, choice.blocker, "choose a compatible source index or capture HASHes directly with -own-index")
+	}
+	for _, name := range sortedKeys(choice.unusable) {
+		cl.add(CheckWarn, fmt.Sprintf("source index %s cannot capture this HASH collection: %s", name, choice.unusable[name]), "")
+	}
+	if choice.index != nil {
+		cl.add(CheckOK, "capture source rows through the application's index "+choice.index.name+"; SQL uses a private managed index", "")
+	} else if choice.blocker == "" {
+		cl.add(CheckOK, "capture source HASHes directly; SQL uses a private managed index", "")
+	}
 	switch {
 	case a.stats.keys == 0:
 		cl.add(CheckBlocker, fmt.Sprintf("there are no HASH keys under %s", shellQuote(a.o.Prefix)), "check the source prefix")

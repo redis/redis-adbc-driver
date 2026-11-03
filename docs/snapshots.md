@@ -80,6 +80,14 @@ retain their existing compatibility behavior, including no-op ROLLBACK.
   shared-generation partitions preserve it. Rows added only through SQL have
   NULL `__key`. Explicit refresh replaces the copy's rows and inferred schema,
   including private SQL changes. See the [source-key checkpoint](sdlc/changes/snapshot-parity/source-key-validation.md).
+- Import source indexes serve capture only. Managed copies build native private
+  indexes after decoding; original text encodings and source TAG/NUMERIC choices
+  do not limit private index eligibility. AdoptHashes `IndexColumns` selects
+  public columns independently of a selected source index (nil: eligible defaults;
+  an empty Go slice: none). Internal row/provenance attributes remain. The report's
+  `SourceIndex` / `source_index` identifies capture, while SQL discovers its private
+  index through information_schema.tables. Requested incompatible/missing source
+  indexes block Apply with a complete report and preserve the previous copy.
 - `adbc.redis.foreign_indexes=true` imports missing managed copies into the
   read-only `redis_foreign` schema. Existing copies are reused on later Open.
   Set the connection option `adbc.redis.foreign_indexes_refresh=true`, or call
