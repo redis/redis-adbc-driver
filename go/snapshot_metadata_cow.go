@@ -173,12 +173,15 @@ func resolveSnapshotMetadata(ctx context.Context, suffix string, writing bool, c
 	}
 	if !m.loaded[suffix] {
 		if owner != "" {
+			var value string
+			var err error
 			if !m.bucketChecked[slot] {
 				p := s.redis(ctx).Pipeline()
 				proof := p.HMGet(ctx, snapshotMetadataGraph, "n:"+owner+":"+slot, "b:"+owner+":"+slot)
 				count := p.HLen(ctx, snapshotMetadataBucket(owner, slot))
 				fields := p.ZCard(ctx, snapshotMetadataDirectory(owner, slot))
-				if _, err := p.Exec(ctx); err != nil {
+				entry := p.HGet(ctx, snapshotMetadataBucket(owner, slot), suffix)
+				if _, err := p.Exec(ctx); err != nil && !errors.Is(err, goredis.Nil) {
 					return "", err
 				}
 				values := proof.Val()
@@ -188,8 +191,10 @@ func resolveSnapshotMetadata(ctx context.Context, suffix string, writing bool, c
 					return "", errorf(adbc.StatusIO, "snapshot metadata bucket is incomplete")
 				}
 				m.bucketChecked[slot] = true
+				value, err = entry.Result()
+			} else {
+				value, err = s.redis(ctx).HGet(ctx, snapshotMetadataBucket(owner, slot), suffix).Result()
 			}
-			value, err := s.redis(ctx).HGet(ctx, snapshotMetadataBucket(owner, slot), suffix).Result()
 			if err != nil && !errors.Is(err, goredis.Nil) {
 				return "", err
 			}
