@@ -1326,18 +1326,10 @@ func (s *store) deleteSnapshotKeys(ctx context.Context, prefix string) (deleted 
 		return 0, errorf(adbc.StatusIO, "invalid snapshot reclamation prefix")
 	}
 	err = s.walkSnapshotDirectory(ctx, snapshotMembers(id), func(members []string) error {
-		keys := make([]string, 0, len(members))
-		for _, member := range members {
-			n, err := strconv.ParseInt(member, 10, 64)
-			if err != nil || n < 1 || len(member) != 20 {
-				return errorf(adbc.StatusIO, "invalid snapshot row directory member")
-			}
-			keys = append(keys, prefix+strconv.FormatInt(n, 10))
-		}
-		if len(keys) == 0 {
+		if len(members) == 0 {
 			return nil
 		}
-		n, err := s.client.Del(ctx, keys...).Result()
+		n, err := s.deleteSnapshotRowBatch(ctx, prefix, members)
 		if err == nil {
 			deleted += n
 		}

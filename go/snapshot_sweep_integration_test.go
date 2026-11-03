@@ -21,6 +21,10 @@ import (
 // Build an actual private generation and retire only its metadata, leaving its
 // zero-reference data/index for the public sweep API to preview and reclaim.
 func snapshotSweepGarbage(t *testing.T, h *sqlHarness, s *store, ready bool) (*tableMeta, string) {
+	return snapshotSweepGarbageRows(t, h, s, ready, 3)
+}
+
+func snapshotSweepGarbageRows(t *testing.T, h *sqlHarness, s *store, ready bool, count int) (*tableMeta, string) {
 	t.Helper()
 	ctx, pin, err := s.acquireSnapshot(h.ctx, true)
 	if err != nil {
@@ -36,7 +40,11 @@ func snapshotSweepGarbage(t *testing.T, h *sqlHarness, s *store, ready bool) (*t
 	if _, err := s.createTable(wctx, meta, false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.insertRows(wctx, meta, [][]Value{{intValue(typeInt32, 1)}, {intValue(typeInt32, 2)}, {intValue(typeInt32, 3)}}); err != nil {
+	rows := make([][]Value, count)
+	for i := range rows {
+		rows[i] = []Value{intValue(typeInt32, int64(i+1))}
+	}
+	if _, err := s.insertRows(wctx, meta, rows); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.rebuildSnapshotIndexes(wctx); err != nil {

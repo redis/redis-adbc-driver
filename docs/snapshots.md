@@ -193,6 +193,12 @@ metadata; descriptor SET updates them inside the writer fence. Publication relea
 only staging-owned output references, without reading unrelated table descriptors.
 Durable compaction jobs retain their own source/output references. A zero-reference
 queue admits row reclamation in bounded batches without scanning all catalog data.
+Each row cleanup batch atomically deletes at most 256 registered row keys and
+removes their directory entries after rechecking the deleting owner and zero
+references. Interruption or a lost reply retains this progress for the next
+collector; acknowledged deletion counts exclude uncertain replies. Cleanup
+preflights DEL/ZREM permissions before either mutation. Stale collectors skip
+already consumed entries rather than deleting unregistered objects at old keys.
 Publication tracks metadata versions read by planning/execution, including reads
 before a workspace is reserved. If another writer publishes unrelated changes,
 the driver seals its outputs, checks those original dependencies against a pinned

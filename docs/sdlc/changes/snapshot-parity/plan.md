@@ -102,3 +102,9 @@ result with non-destructive eligibility preview, bounded reference-aware drainin
 confirmed counts and partial errors/resumption. Protocol/CLI lifecycle checks
 protect pins, active writers and unregistered objects. Restricted-schema ACL sweep
 behavior, the full permission recipes and the broader parity work remain open.
+
+The [durable GC batch checkpoint](gc-batch-validation.md) atomically consumes row
+directory entries with their zero-reference row deletions. Fresh collectors keep
+progress after interrupted replies without SCAN cursors or replay. It supersedes
+the sweep checkpoint's directory-rescan limitation; broader large-operation,
+platform and comparative performance requirements remain open.
