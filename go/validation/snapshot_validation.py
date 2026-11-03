@@ -198,13 +198,45 @@ class SnapshotValidation(unittest.TestCase):
             self.execute_retry(cur, "DELETE FROM t WHERE id=3")
             cur.adbc_statement.set_options(**{"adbc.redis.partition_count": "3"})
             parts, schema = cur.adbc_execute_partitions("SELECT id,v FROM t WHERE v>15")
+            group = cur.adbc_statement.get_option("adbc.redis.partition_snapshot_id")
+            self.assertEqual(len(group), 32)
             self.assertEqual(schema.names, ["id", "v"])
             self.execute_retry(cur, "UPDATE t SET v=88 WHERE id=4")
             rows = []
             for part in parts:
                 cur.adbc_read_partition(part)
                 rows.extend(cur.fetchall())
-            self.assertEqual(sorted(rows), [(2, 99), (4, 88)])
+            self.assertEqual(sorted(rows), [(2, 99), (4, 40)])
+            # The producer generation also survives replacement of the table.
+            self.execute_retry(cur, "TRUNCATE t")
+            rows = []
+            for part in parts:
+                cur.adbc_read_partition(part)
+                rows.extend(cur.fetchall())
+            self.assertEqual(sorted(rows), [(2, 99), (4, 40)])
+            self.execute_retry(cur, f"DROP PARTITION SNAPSHOT '{group}'")
+
+    def test_live_partition_survives_producer_close_and_recreation(self):
+        producer = self.connect()
+        with producer.cursor() as cur:
+            self.execute_retry(cur, "CREATE TABLE t(id BIGINT,v BIGINT)")
+            self.execute_retry(cur, "INSERT INTO t VALUES (1,9007199254740993),(2,42)")
+            parts, schema = cur.adbc_execute_partitions("SELECT id,v FROM t")
+            group = cur.adbc_statement.get_option("adbc.redis.partition_snapshot_id")
+        producer.close()
+        with self.conn.cursor() as cur:
+            self.execute_retry(cur, "DROP TABLE t")
+            self.execute_retry(cur, "CREATE TABLE t(replacement VARCHAR)")
+            self.execute_retry(cur, "INSERT INTO t VALUES ('new')")
+            rows = []
+            for part in parts:
+                cur.adbc_read_partition(part)
+                self.assertEqual(cur.description[0][0], schema.names[0])
+                rows.extend(cur.fetchall())
+            self.assertEqual(sorted(rows), [(1, 9007199254740993), (2, 42)])
+            self.execute_retry(cur, f"DROP PARTITION SNAPSHOT '{group}'")
+            with self.assertRaises(adbc_driver_manager.Error):
+                cur.adbc_read_partition(parts[0])
 
     def test_retained_partition_replay(self):
         retained = self.connect(**{

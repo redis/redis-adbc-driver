@@ -16,6 +16,29 @@ checks over verified TLS on Redis Software 8.6.2 with 4x QPF. See the
 Other wheel/platform combinations require their own validation. Rebuild from
 source to use changes made after that release, including bounded cursor cleanup.
 
+## Current managed snapshot contract
+
+Rebuild from PR #284 to use the current storage format. Managed live descriptors
+are version 3: the entire set retains the producer's committed generation.
+Workers see the original schema and values despite later DML, ALTER, TRUNCATE,
+DROP/recreation, compaction or producer close. Expired or explicitly released
+sets fail on new reads rather than silently acquiring the latest generation.
+Each active reader holds a separate child pin until completion/release.
+
+The statement option `adbc.redis.partition_result_ttl` applies to live and retained
+production: default 300 seconds, range 1..86400. For live results it bounds when
+new workers may acquire the snapshot; an admitted reader retains its own lease.
+Get statement option `adbc.redis.partition_snapshot_id` after successful live
+production. `DROP PARTITION SNAPSHOT '<id>'` releases admission early, without
+invalidating active readers. Statement/connection close and freeing the C
+partition byte array do not revoke descriptor copies. Retained mode remains the
+option for independently stored durable replay. Legacy version-1 live descriptors
+are rejected by managed snapshot catalogs; regenerate them.
+
+This contract supersedes the historical unpinned consistency/lifecycle details
+below, which describe earlier releases. Query-shape and permission restrictions
+remain unless explicitly described by the current snapshot contract.
+
 ## Supported queries
 
 Use column/star projections, arithmetic, casts, CASE, and these deterministic

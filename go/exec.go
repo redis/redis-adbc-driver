@@ -237,6 +237,9 @@ func (e *executor) execute(ctx context.Context, ps ParsedStmt, params []Value, p
 	}
 	switch st := ps.Stmt.(type) {
 	case *DropPartitionResultStmt:
+		if st.Snapshot {
+			return execResult{}, errorf(adbc.StatusInvalidState, "partition snapshots require a managed snapshot catalog")
+		}
 		store, err := newRetainedStore(e.store.redis(ctx), e.partitionNamespace, defaultRetainedLimits())
 		if err != nil {
 			return execResult{}, err

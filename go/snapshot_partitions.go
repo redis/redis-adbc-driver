@@ -11,9 +11,9 @@ import (
 	"github.com/apache/arrow-go/v18/arrow/array"
 )
 
-// Live descriptors remain deferred reads: each worker pins its own statement
-// generation. Retained execution pins one generation for the whole coordinator
-// and publishes independent Arrow results before releasing it.
+// Version 3 live descriptors retain one producer generation for every worker.
+// Each reader owns a child lease; descriptor expiry or explicit release prevents
+// new readers while active child leases continue to protect their generation.
 func (e *executor) snapshotPartitionReader(ctx context.Context, plan *selectPlan, sel *SelectStmt, params []Value, d partitionID, c *connectionImpl) (array.RecordReader, error) {
 	bound := &Binary{Op: "AND",
 		L: &Binary{Op: ">=", L: &ColumnRef{Name: rowIDField}, R: &Literal{V: intValue(typeInt64, d.Lo)}},

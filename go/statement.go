@@ -60,6 +60,7 @@ type statementImpl struct {
 	// Bound parameters (or ingest data).
 	params                  array.RecordReader
 	closed                  bool
+	partitionSnapshotID     string
 	partitionCount          int
 	partitionStrategyName   string
 	incremental             bool
@@ -95,6 +96,8 @@ func (s *statementImpl) GetOption(ctx context.Context, key string) (string, erro
 		return string(b), nil
 	case OptionStringIPCInput, OptionStringIPCOutput, OptionStringIPCFormat:
 		return s.ipc.get(key), nil
+	case OptionStringPartitionSnapshotID:
+		return s.partitionSnapshotID, nil
 	case OptionStringPartitionResultMode:
 		return s.resultMode(), nil
 	case OptionIntPartitionResultTTL:

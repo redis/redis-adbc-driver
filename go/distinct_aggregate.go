@@ -128,8 +128,20 @@ func distinctValues(row aggRow, cols []columnMeta) ([]Value, bool) {
 // universe retains zero-count groups when every aggregate is filtered.
 func (e *executor) indexCountDistinct(ctx context.Context, plan *selectPlan, wp wherePlan, aggs []*Func, params []Value) ([]aggGroup, bool, error) {
 	meta := plan.meta
-	if e.pushdown == PushdownNone || len(meta.PendingCleanup) > 0 || meta.SnapshotOverlay || meta.isMem || meta.Adopted || wp.none || wp.keys != nil || len(plan.extraNeed) > 0 || len(aggs) == 0 {
+	if e.pushdown == PushdownNone || len(meta.PendingCleanup) > 0 || meta.isMem || meta.Adopted || wp.none || wp.keys != nil || len(plan.extraNeed) > 0 || len(aggs) == 0 {
 		return nil, false, nil
+	}
+	var visibility []snapshotIndexQuery
+	if meta.SnapshotOverlay {
+		var ok bool
+		var err error
+		visibility, ok, err = e.snapshotIndexQueries(ctx, meta)
+		if err != nil || !ok {
+			return nil, false, err
+		}
+		if visibility == nil {
+			visibility = []snapshotIndexQuery{}
+		}
 	}
 	var group []columnMeta
 	groupNames := map[string]bool{}
@@ -257,6 +269,11 @@ func (e *executor) indexCountDistinct(ctx context.Context, plan *selectPlan, wp 
 		addGroup(nil)
 	}
 	consume := func(req *aggRequest, c *call) (bool, error) {
+		req.visibility = visibility
+		var seen map[string]bool
+		if visibility != nil {
+			seen = map[string]bool{}
+		}
 		cur, err := e.store.openAggregate(ctx, req)
 		if err != nil {
 			return false, err
@@ -323,6 +340,13 @@ func (e *executor) indexCountDistinct(ctx context.Context, plan *selectPlan, wp 
 					nonNull = nonNull && !v.Null
 				}
 				if nonNull {
+					if seen != nil {
+						key := rowKey(append(append([]Value(nil), vals...), args...))
+						if seen[key] {
+							continue
+						}
+						seen[key] = true
+					}
 					v := g.results[c.fn]
 					v.I++
 					g.results[c.fn] = v

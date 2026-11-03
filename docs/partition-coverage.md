@@ -19,8 +19,8 @@ Ordinary SQL has its own supported subset and remains autocommit-only.
 | Temporary source | Rejected | Producer-owned temporary tables/views | Connection-owned lifetime |
 | Recursive CTEs, generators, lateral/table functions | Rejected | Rejected | Supported subset |
 | Volatile/side-effect functions | Rejected | Rejected | Supported subset |
-| Atomic source snapshot under concurrent DML/DDL | Unavailable | Unavailable | Unavailable |
-| Retry after source changes | Rereads live data | Replays immutable committed output until expiry/revocation | Fresh execution |
+| Atomic source snapshot under concurrent DML/DDL | One producer generation for the live set | One pinned managed generation during capture | One managed generation per statement |
+| Retry after source changes | Same pinned generation until expiry/release | Replays immutable committed output until expiry/revocation | Fresh execution |
 
 The retained expansion selected for
 [#211](https://github.com/redis/redis-adbc-driver/issues/211) added

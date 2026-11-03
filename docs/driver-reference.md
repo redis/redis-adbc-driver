@@ -12,14 +12,14 @@ page defines the current guarantee, limits and supported deployments and takes
 precedence over the historical layout and feature descriptions below. New
 catalogs normally require an empty isolated database; explicit imports may
 initialize alongside application data after rejecting legacy driver metadata.
-Storage protocol version 6 rejects legacy catalogs and prior draft formats 1–5 without
+Storage protocol version 7 rejects legacy catalogs and prior draft formats 1–6 without
 modification; no upgrade path is provided. ALTER and temporary objects are
 supported. AdoptHashes creates a managed copy; repeating Apply explicitly refreshes
 it. Foreign indexes are exposed as managed copies after enabling foreign_indexes;
 set connection option `adbc.redis.foreign_indexes_refresh=true` (or call Go API
 `RefreshForeignIndexes`) for subsequent refreshes. Capturing external data is not
 atomic with application writers; published copies have normal snapshot guarantees.
-Source HASHes/indexes remain unchanged. Live partition reads pin independently;
+Source HASHes/indexes remain unchanged. Live partition sets retain one producer generation;
 retained production pins one managed generation and publishes independent Arrow
 results. Retained reader-only connections do not initialize a managed catalog.
 Snapshot-aware HASH inspection/copy and reference-aware sweep are available.
@@ -1574,11 +1574,16 @@ once, then empty terminal sets on repeated calls. Reset the query/binding or
 option to begin another execution. This is finite partition discovery; it does
 not provide continuous subscriptions or CDC.
 
-Descriptors capture a row-ID high watermark, not a shared snapshot. Later
-inserts are excluded; updates, deletes and retries can change results. Output
-order is unspecified. Close each worker's Arrow reader promptly to release its
-Search cursor. Descriptors contain query data but no URI or password, and do
-not grant access to Redis.
+Managed live descriptors retain one shared producer generation, including its
+schema and values across later writes and DROP/recreation. Output order is
+unspecified. `adbc.redis.partition_result_ttl` bounds admission of new readers;
+active readers own independent renewable pins. Get statement option
+`adbc.redis.partition_snapshot_id` after production, then use
+`DROP PARTITION SNAPSHOT '<id>'` to prevent new readers before expiry. Producer
+close and freeing descriptor bytes do not revoke worker copies. Close worker
+Arrow readers promptly to release their pins and Search cursors. Descriptors
+contain query data but no URI or password and do not grant access to Redis.
+Legacy version-1 live descriptors must be regenerated for snapshot catalogs.
 
 Opt-in `adbc.redis.partition_result_mode=retained` executes a bounded global SQL
 query once and stores immutable final Arrow chunks. It adds ordering, aggregates,
@@ -4278,7 +4283,8 @@ These are client compatibility values; the driver remains autocommit-only.
 | `adbc.redis.partition_result_mode` | statement | `live` (default) or `retained`: bounded global execution and immutable final Arrow replay. See [retained results](../docs/retained-partition-results.md). |
 | `adbc.redis.partition_result_namespace` | database | Explicit tenant namespace for retained publication/replay; 1–64 ASCII letters/digits/underscores/hyphens. |
 | `adbc.redis.partition_reader_only` | database | `true` bypasses source bootstrap and refuses SQL/ingestion; requires a result namespace. Default `false`. |
-| `adbc.redis.partition_result_ttl` | statement | Fixed retained lifetime after publication, integer/string seconds 1–86400 (default 300). Reads do not renew it. |
+| `adbc.redis.partition_result_ttl` | statement | Live snapshot admission lifetime or fixed retained-result lifetime after publication, integer/string seconds 1–86400 (default 300). Reads do not renew the group/result lifetime. |
+| `adbc.redis.partition_snapshot_id` | statement (read only) | Last successful live partition set's release ID. `DROP PARTITION SNAPSHOT '<id>'` blocks new readers; admitted readers retain their pins. |
 | `adbc.redis.partition_result_limits` | database | Partial JSON output/namespace policy: `job_bytes`, `total_bytes`, `chunk_bytes`, `chunks`, `jobs`; publishers must agree. See [limits](../docs/retained-partition-results.md#limits-and-persistence). |
 | `adbc.redis.partition_execution_limits` | statement | Partial JSON cumulative coordinator resource limits; over-budget queries fail before publishing descriptors. See [limits](../docs/retained-partition-results.md#limits-and-persistence). |
 | `adbc.redis.partition_control_persistence` | database | `auto` checks that persistent quota keys are protected from eviction; `guaranteed` requires independent operator verification when CONFIG is restricted. |

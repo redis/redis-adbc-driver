@@ -42,7 +42,7 @@ func (e *executor) parallelSelectTopK(ctx context.Context, plan *selectPlan, sc 
 	// worker heap. Keep a genuinely pushed LIMIT on the established index path.
 	shapeScan := sc
 	shapeScan.indexSort = false
-	if sc.pushLimit || !selectTopKShape(plan, shapeScan, k) || meta.SnapshotOverlay || meta.isMem || meta.Adopted || meta.KeyRows || meta.AppIndex ||
+	if sc.pushLimit || !selectTopKShape(plan, shapeScan, k) || meta.SnapshotOverlay && !e.snapshotIndexable(ctx, meta) || meta.isMem || meta.Adopted || meta.KeyRows || meta.AppIndex ||
 		sc.req.where.none || sc.req.where.keys != nil || !parallelPredicate(sc.req.where.residual) {
 		return nil, false, nil
 	}
@@ -105,6 +105,9 @@ func (e *executor) parallelSelectTopK(ctx context.Context, plan *selectPlan, sc 
 				hi := min(last, lo+aggregatePartitionRows-1)
 				where := partitionWhere(sc.req.where, lo, hi, hi == last)
 				req := scanRequest{meta: meta, where: where, need: need}
+				if meta.SnapshotOverlay {
+					req.ranges = &rowIDRangeScan{lo: lo, hi: hi}
+				}
 				err := local.scanPages(ctx, req, params, func(rows []map[string]Value) error {
 					for _, vals := range rows {
 						if err := cancelled(ctx); err != nil {
@@ -125,7 +128,13 @@ func (e *executor) parallelSelectTopK(ctx context.Context, plan *selectPlan, sc 
 						}
 						if late := sc.req.late; late != nil {
 							key := meta.prefix() + strconv.FormatInt(vals[rowIDField].I, 10)
-							fetched, err := local.store.fetchRows(ctx, []string{key}, late.fields)
+							fetch := local.store.fetchRows
+							if meta.SnapshotOverlay {
+								fetch = func(ctx context.Context, keys, fields []string) ([]aggRow, error) {
+									return local.store.fetchSnapshotVisible(ctx, meta, keys, fields)
+								}
+							}
+							fetched, err := fetch(ctx, []string{key}, late.fields)
 							if err != nil {
 								return err
 							}

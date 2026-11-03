@@ -161,7 +161,7 @@ func (e *executor) parallelAggregate(ctx context.Context, plan *selectPlan, wp w
 	if e.workerBudget != nil {
 		workers = min(workers, e.workerBudget.capacity())
 	}
-	if meta.SnapshotOverlay || meta.isMem || meta.Adopted || meta.KeyRows || meta.AppIndex || len(plan.sel.GroupBy) > 0 || len(plan.extraNeed) > 0 || len(plan.outerAggs) > 0 || wp.none || wp.keys != nil || !parallelPredicate(wp.residual) || !parallelAggregates(aggs, meta.types()) {
+	if meta.SnapshotOverlay && !e.snapshotIndexable(ctx, meta) || meta.isMem || meta.Adopted || meta.KeyRows || meta.AppIndex || len(plan.sel.GroupBy) > 0 || len(plan.extraNeed) > 0 || len(plan.outerAggs) > 0 || wp.none || wp.keys != nil || !parallelPredicate(wp.residual) || !parallelAggregates(aggs, meta.types()) {
 		return nil, false, nil
 	}
 	// The sequence is an upper bound, not a count: deleted rows and gaps do not
@@ -256,7 +256,19 @@ func (e *executor) parallelAggregate(ctx context.Context, plan *selectPlan, wp w
 				part.query = fmt.Sprintf("(%s) %s", wp.query, part.query)
 			}
 
-			handled, scanErr := local.scanScalarAggregateValues(ctx, scanRequest{meta: meta, where: part, need: need}, params, aggs, func(values []Value) error {
+			req := scanRequest{meta: meta, where: part, need: need}
+			if meta.SnapshotOverlay {
+				lower := int64(1)
+				upper := last
+				if w > 0 {
+					lower = int64(w)*step + 1
+				}
+				if w < workers-1 {
+					upper = int64(w+1) * step
+				}
+				req.ranges = &rowIDRangeScan{lo: lower, hi: upper}
+			}
+			handled, scanErr := local.scanScalarAggregateValues(ctx, req, params, aggs, func(values []Value) error {
 				if err := cancelled(ctx); err != nil {
 					return err
 				}
@@ -268,7 +280,7 @@ func (e *executor) parallelAggregate(ctx context.Context, plan *selectPlan, wp w
 			if handled {
 				errs[w] = scanErr
 			} else {
-				errs[w] = local.scanPages(ctx, scanRequest{meta: meta, where: part, need: need}, params, func(rows []map[string]Value) error {
+				errs[w] = local.scanPages(ctx, req, params, func(rows []map[string]Value) error {
 					for _, row := range rows {
 						if err := cancelled(ctx); err != nil {
 							return err

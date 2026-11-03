@@ -295,7 +295,7 @@ type snapshotPendingIndex struct {
 func (h *snapshotPendingIndex) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	return func(ctx context.Context, cmd goredis.Cmder) error {
 		err := next(ctx, cmd)
-		if scope := snapshotOf(ctx); err == nil && scope != nil && scope.write && strings.EqualFold(fmt.Sprint(cmd.Args()[0]), "FT.INFO") {
+		if scope := snapshotOf(ctx); err == nil && scope != nil && scope.write && strings.EqualFold(fmt.Sprint(cmd.Args()[0]), "FT.INFO") && snapshotOwns(ctx, fmt.Sprint(cmd.Args()[1])) {
 			if h.reads.Add(1) == 1 {
 				result := cmd.(interface {
 					Val() any

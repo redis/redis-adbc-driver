@@ -54,6 +54,7 @@ func aggregateSpillShard(key string) int {
 }
 
 type tupleAggregatePlan struct {
+	visibility     []snapshotIndexQuery
 	cols, distinct []columnMeta
 	groupExprs     []Expr
 	argExprs       map[int]Expr
@@ -70,7 +71,7 @@ type tupleAggregatePlan struct {
 
 func tupleAggregateShape(plan *selectPlan, aggs []*Func) (*tupleAggregatePlan, bool) {
 	meta := plan.meta
-	if meta.SnapshotOverlay || meta.isMem || meta.Adopted || meta.KeyRows || meta.AppIndex || len(plan.extraNeed) > 0 || len(plan.outerAggs) > 0 || plan.windowed() || plan.distinct || len(plan.distinctOn) > 0 || plan.qualify != nil || len(aggs) == 0 {
+	if meta.isMem || meta.Adopted || meta.KeyRows || meta.AppIndex || len(plan.extraNeed) > 0 || len(plan.outerAggs) > 0 || plan.windowed() || plan.distinct || len(plan.distinctOn) > 0 || plan.qualify != nil || len(aggs) == 0 {
 		return nil, false
 	}
 	if len(plan.sel.GroupBy) == 0 {
@@ -551,7 +552,11 @@ func (e *executor) aggregateTuplePartition(ctx context.Context, plan *selectPlan
 			local.telemetry = stats
 			defer func() { e.telemetry.fetch.Add(stats.fetch.Load()) }()
 		}
-		return local.scanPages(ctx, scanRequest{meta: plan.meta, where: part, need: need}, params, func(rows []map[string]Value) error {
+		req := scanRequest{meta: plan.meta, where: part, need: need}
+		if plan.meta.SnapshotOverlay {
+			req.ranges = &rowIDRangeScan{lo: lo, hi: hi}
+		}
+		return local.scanPages(ctx, req, params, func(rows []map[string]Value) error {
 			for _, row := range rows {
 				vals := make([]Value, len(p.cols))
 				for i, c := range p.cols {
@@ -583,6 +588,7 @@ func (e *executor) aggregateTuplePartition(ctx context.Context, plan *selectPlan
 		return scan()
 	}
 	req := distinctRequest(plan.meta, part, p.cols, nil)
+	req.visibility = p.visibility
 	req.groupBy = append(req.groupBy, "REDUCE", "COUNT", 0, "AS", p.countAlias)
 	req.width++
 	started := time.Now()
@@ -730,6 +736,20 @@ func (e *executor) partitionedAggregate(ctx context.Context, plan *selectPlan, w
 	if (!force && last < aggregatePartitionRows) || last >= exactDoubleLimit {
 		return nil, false, nil
 	}
+	if plan.meta.SnapshotOverlay {
+		visibility, ok, err := e.snapshotIndexQueries(ctx, plan.meta)
+		if err != nil {
+			return nil, true, err
+		}
+		if !ok {
+			p.server = false
+		} else {
+			p.visibility = visibility
+			if p.visibility == nil {
+				p.visibility = []snapshotIndexQuery{}
+			}
+		}
+	}
 	if e.pushdown == PushdownNone {
 		p.server = false
 	}
@@ -740,7 +760,7 @@ func (e *executor) partitionedAggregate(ctx context.Context, plan *selectPlan, w
 		}
 	}
 	var compactRTT time.Duration
-	if compactIntegerTupleShape(plan.meta, p, wp) {
+	if (!plan.meta.SnapshotOverlay || e.snapshotIndexable(ctx, plan.meta)) && compactIntegerTupleShape(plan.meta, p, wp) {
 		p.compactRows, compactRTT = e.compactIntegerTupleRTT(ctx)
 		if p.compactRows {
 			p.server = false

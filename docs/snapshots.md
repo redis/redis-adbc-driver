@@ -5,8 +5,9 @@ managed tables and imported copies of application data. No option is required.
 Ordinary Open initializes an empty isolated database. Explicit HASH import and
 foreign-index import may initialize alongside application-owned data and indexes,
 but reject existing legacy driver metadata without modification. No upgrade or
-migration path is included. Storage protocol version 6 rejects prior draft versions
-1–5. Version 6 adds exact metadata key directories and committed directory counts, so manifest copies
+migration path is included. Storage protocol version 7 rejects prior draft versions
+1–6. It requires an indexed tombstone marker for visibility-safe server reduction.
+Exact metadata key directories and committed directory counts ensure manifest copies
 and reclamation do not depend on Redis SCAN cursors across restarts or slot moves.
 This is the driver storage format, separate from Redis versions and RESP3.
 
@@ -82,10 +83,17 @@ retain their existing compatibility behavior, including no-op ROLLBACK.
 - InspectHashes is available alongside snapshot catalogs. SweepReleased uses
   snapshot reference-aware reclamation in these catalogs; it does not run the
   legacy released-prefix deletion scan or report legacy row-deletion counts.
-- Live and retained partition production are available. Each live ReadPartition
-  pins its own generation through consumption; a set of deferred live reads does
-  not share one snapshot, and layout changes can invalidate a descriptor.
-  Retained production captures managed sources from one pinned generation and
+- Live partition descriptors (version 3) retain one producer generation for the
+  entire set. Independent workers read that generation across concurrent DML,
+  schema changes, TRUNCATE/DROP, producer close and compaction. Each active reader
+  owns a child pin. `adbc.redis.partition_result_ttl` sets descriptor admission
+  lifetime (default five minutes, maximum 24 hours); expired/released descriptors
+  fail explicitly. Get statement option `adbc.redis.partition_snapshot_id` after
+  production and use `DROP PARTITION SNAPSHOT '<id>'` to release the group early.
+  Release prevents new readers while active child pins can finish. Closing the
+  producer or freeing descriptor bytes does not revoke workers. Managed catalogs
+  reject legacy live descriptors without a shared generation; regenerate them.
+- Retained production captures managed sources from one pinned generation and
   publishes independent Arrow results. Existing partition shape, quota and
   deployment restrictions still apply. Independent retained reader-only
   connections remain available.
@@ -113,7 +121,7 @@ All snapshot rows, metadata and control records use `{meta}`. This deliberately
 places data in one hash slot; this version does not distribute a catalog's rows
 across shards. Use a deployment that honors Redis hash tags and reads from the
 primary. Publication inherits Redis's configured persistence/replication
-durability. Acquisition rejects missing, failed or rebuilding published indexes.
+durability. Referenced row sources reject missing, failed or rebuilding published indexes.
 
 Only protocol-compliant clients may write snapshot data. Use a dedicated
 catalog; this release does not upgrade existing driver storage. An old executable or raw Redis client
@@ -136,9 +144,18 @@ rounding. Reads merge the bounded segment directories in row-ID order. The newes
 version wins, including deletion markers, **before** SQL predicates, grouping,
 aggregates, ordering, OFFSET or LIMIT. Direct row-ID lookups search newest to
 oldest. Unordered results remain streamed with bounded pages; explicit sorting
-may materialize. On segmented tables, Search predicate/aggregate pushdowns and
-parallel physical-index shortcuts are disabled until they can honor visibility.
-This improves write amplification while increasing read work.
+may materialize. Segmented reads can use Search candidates, resolving newer exact-directory
+membership before fetching surviving rows. Numeric keyset pages avoid deep
+OFFSET/cursor truncation. Below 2^53 row IDs, bounded visibility masks restore
+server aggregation, DISTINCT, grouping sets and globally merged ordered scans;
+OFFSET/LIMIT apply once after exact merging, including rounded numeric ties.
+AVG combines SUM and non-NULL COUNT. Parallel exact scalar/top-K and tuple paths
+use the same visibility rules. Empty private tails can use immutable source
+indexes for selective DML discovery; populated private indexes remain on the
+HASH/directory path. Prefix expansion completeness is proved on every segment.
+Large masks (over 4,096 overlapping IDs or 256 coalesced ranges), unsettled private
+indexes and inexact ID ranges use authoritative bounded fallbacks. Performance
+and remaining parity work are tracked in the [parity record](sdlc/changes/snapshot-parity/plan.md).
 
 Background compaction is automatic while managed connections are open. It starts
 at four segments and copies an immutable prefix in resumable batches of at most
@@ -176,7 +193,7 @@ costs can still limit progress; this is not a throughput or latency guarantee.
 
 DROP removes a descriptor; TRUNCATE and replace ingestion allocate fresh storage
 and discard the descriptor's old segment list. Metadata-only changes reuse data.
-Manifest copying, per-segment readiness checks, cleanup SCAN and Search initial
+Manifest copying, per-segment readiness checks and Search initial
 index scans retain catalog/database traversal costs. No constant-time or
 throughput claim is made. Published directories and HASHes must not be changed
 outside the protocol; detected missing directory entries or row images fail the
@@ -204,9 +221,9 @@ indeterminate outcome returns an error containing the operation ID and advising
 against blind retry. Outcomes remain until their generations are reclaimed;
 they are not a permanent audit log.
 
-Acquisition, renewal and cleanup claims are atomic. Private mutations check the
-writer fence on the server, so expired writers cannot recreate reclaimed data
-or indexes. Cancellation, exhaustion, release and handle closure release reader
+Acquisition, renewal and cleanup claims are atomic. Private row/metadata mutations check the writer fence atomically on the server.
+Global Search schema mutations use pre/post admission; a late unreferenced index
+cannot publish and is reclaimed. Cancellation, exhaustion, release and handle closure release reader
 ownership. Later operations reclaim unpinned retired generations and abandoned
 expired staging generations. Cleanup is idempotent and bounded per acquisition;
 failed cleanup retains resources for a later attempt. Atomic reference checks
@@ -234,3 +251,11 @@ REDIS_SNAPSHOT_URI=redis://localhost:16400/0 python validation/snapshot_validati
 ```
 
 See [design and validation evidence](sdlc/changes/statement-snapshots/validation.md).
+
+Statement acquisition checks the committed metadata directory. Each referenced
+table validates its immutable segment indexes and exact directory counts once
+per statement, including concurrent readers within the statement. An unavailable
+index on an unrelated table does not prevent reading a healthy table. Referenced
+missing or rebuilding indexes fail explicitly; direct row-ID reads also reject a
+directory entry whose authoritative HASH is missing. Private outputs are checked
+by writer fences and the final publication seal.

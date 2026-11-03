@@ -39,8 +39,9 @@ import (
 // The fields are loaded last, so only the rows that survive sorting and
 // limiting are read.
 type aggRequest struct {
-	index string
-	query string
+	visibility []snapshotIndexQuery
+	index      string
+	query      string
 	// rowFilter keeps the documents that are rows (tableMeta.rowFilter).
 	rowFilter string
 	groupBy   []any     // raw APPLY/GROUPBY/REDUCE arguments
@@ -173,6 +174,9 @@ func (s *store) aggregate(ctx context.Context, req *aggRequest) ([]aggRow, error
 // read through the same connection. Redis deletes a cursor left unread for
 // its idle time (300 seconds by default).
 type aggCursor struct {
+	sources  []aggRequest
+	child    *aggCursor
+	source   int
 	snapshot bool
 	store    *store
 	node     searchConn
@@ -188,6 +192,16 @@ type aggCursor struct {
 
 // openAggregate runs the pipeline and reads its first page.
 func (s *store) openAggregate(ctx context.Context, req *aggRequest) (*aggCursor, error) {
+	if req.visibility != nil {
+		sources := make([]aggRequest, 0, len(req.visibility))
+		for _, query := range req.visibility {
+			copy := *req
+			copy.visibility = nil
+			copy.index, copy.query, copy.rowFilter = query.segment.Index, andSnapshotQuery(req.query, query.query), query.rowFilter
+			sources = append(sources, copy)
+		}
+		return &aggCursor{store: s, sources: sources}, nil
+	}
 	maxRows := int64(0)
 	if len(req.sortBy) > 0 {
 		if req.limit != nil {
@@ -226,6 +240,34 @@ func (s *store) openAggregate(ctx context.Context, req *aggRequest) (*aggCursor,
 // next returns the next page of rows, or io.EOF after the last one. The
 // cursor is deleted when next fails.
 func (c *aggCursor) next(ctx context.Context) ([]aggRow, error) {
+	if c.sources != nil {
+		for c.source < len(c.sources) {
+			if err := cancelled(ctx); err != nil {
+				c.close(ctx)
+				return nil, err
+			}
+			if c.child == nil {
+				child, err := c.store.openAggregate(ctx, &c.sources[c.source])
+				if err != nil {
+					c.close(ctx)
+					return nil, err
+				}
+				c.child = child
+			}
+			page, err := c.child.next(ctx)
+			if errors.Is(err, io.EOF) {
+				c.child.close(ctx)
+				c.child = nil
+				c.source++
+				continue
+			}
+			if err != nil {
+				c.close(ctx)
+			}
+			return page, err
+		}
+		return nil, io.EOF
+	}
 	if c.pending {
 		c.pending = false
 		page := c.first
@@ -263,6 +305,13 @@ const cursorCleanupTimeout = time.Second
 // expires. Cleanup is best effort and bounded independently of user-configured
 // read timeouts: a missing DEL reply must not hang cancellation or Release.
 func (c *aggCursor) close(ctx context.Context) {
+	if c.child != nil {
+		c.child.close(ctx)
+		c.child = nil
+	}
+	if c.sources != nil {
+		c.source = len(c.sources)
+	}
 	if c.cursor != 0 {
 		cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), cursorCleanupTimeout)
 		defer cancel()

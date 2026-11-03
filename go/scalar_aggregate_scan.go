@@ -13,7 +13,7 @@ import (
 // No callback may retain the slice; accumulator values own their data. false
 // means no rows consumed and the caller must retain the established page path.
 func (e *executor) scanScalarAggregateValues(ctx context.Context, req scanRequest, params []Value, aggs []*Func, visit func([]Value) error) (bool, error) {
-	if !directScalarAggregateInputs(aggs) || req.need == nil || !managedRowIDTable(req.meta) || len(req.meta.PendingCleanup) > 0 || req.where.residual != nil || req.where.keys != nil || req.where.none || req.hashScan || req.ties != nil || req.late != nil || req.ranges != nil || req.limit != nil || len(req.sortBy) > 0 {
+	if !directScalarAggregateInputs(aggs) || req.need == nil || !managedRowIDTable(req.meta) || len(req.meta.PendingCleanup) > 0 || req.where.residual != nil || req.where.keys != nil || req.where.none || req.hashScan || req.ties != nil || req.late != nil || req.ranges != nil && !req.meta.SnapshotOverlay || req.limit != nil || len(req.sortBy) > 0 {
 		return false, nil
 	}
 	items := make([]planItem, len(aggs))

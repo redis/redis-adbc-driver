@@ -591,8 +591,23 @@ func (e *executor) joinOrder(ctx context.Context, jp *joinPlan, wps []wherePlan)
 	for i, it := range jp.items {
 		switch {
 		case it.base.SnapshotOverlay:
-			for _, seg := range it.base.snapshotSegments() {
-				counts[i] += seg.Rows
+			if wps[i].none {
+				continue
+			}
+			if wps[i].keys != nil {
+				counts[i] = int64(len(wps[i].keys))
+				continue
+			}
+			if e.snapshotIndexable(ctx, it.base) {
+				n, err := e.store.countSnapshotCandidates(ctx, it.base, wps[i].query)
+				if err != nil {
+					return nil, err
+				}
+				counts[i] = n
+			} else {
+				for _, seg := range it.base.snapshotSegments() {
+					counts[i] += seg.Rows
+				}
 			}
 		case it.base.isMem:
 			counts[i] = int64(len(it.base.mem))
@@ -858,7 +873,7 @@ func (e *executor) runJoin(ctx context.Context, jp *joinPlan, need map[string]bo
 			}
 			continue
 		}
-		if !first && innerLike && wp.keys == nil && !view.isMem && !view.SnapshotOverlay {
+		if !first && innerLike && wp.keys == nil && !view.isMem && (!view.SnapshotOverlay || e.snapshotIndexable(ctx, view)) {
 			// Index lookup join: fetch only rows whose key matches the left.
 			for _, p := range pairs {
 				cm, ok := lookupColumn(view, p.right)

@@ -138,7 +138,7 @@ func TestSnapshotLivePartitionCompatibility(t *testing.T) {
 			vals := record.Column(1).(*array.Int32)
 			for i := 0; i < col.Len(); i++ {
 				id := int64(col.Value(i))
-				if vals.Value(i) != -col.Value(i) && !(id == 100 && vals.Value(i) == -999) {
+				if vals.Value(i) != -col.Value(i) {
 					t.Fatal("wrong visible value")
 				}
 				ids = append(ids, id)
@@ -154,10 +154,16 @@ func TestSnapshotLivePartitionCompatibility(t *testing.T) {
 		t.Fatalf("partition membership: %v", ids)
 	}
 	h.exec("TRUNCATE t")
-	if r, err := h.conn.ReadPartition(h.ctx, parts.PartitionIDs[0]); err == nil {
+	if r, err := h.conn.ReadPartition(h.ctx, parts.PartitionIDs[0]); err != nil {
+		t.Fatal("TRUNCATE invalidated the shared snapshot", err)
+	} else {
 		r.Release()
-		t.Fatal("TRUNCATE did not invalidate live descriptor")
 	}
+	d, err := decodePartition(parts.PartitionIDs[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.exec("DROP PARTITION SNAPSHOT '" + d.Snapshot.Token + "'")
 }
 
 func TestSnapshotRetainedPartitionCompatibility(t *testing.T) {
@@ -247,6 +253,11 @@ func TestSnapshotLivePartitionPinsStream(t *testing.T) {
 	if count != 1201 {
 		t.Fatalf("partition returned %d rows", count)
 	}
+	d, err := decodePartition(parts.PartitionIDs[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	h2.exec("DROP PARTITION SNAPSHOT '" + d.Snapshot.Token + "'")
 	for field := range raw.HGetAll(h.ctx, snapshotCatalogKey).Val() {
 		if len(field) > 2 && field[:2] == "p:" {
 			t.Fatal("partition leaked reader pin")
@@ -351,14 +362,14 @@ func TestSnapshotImportStartsBesideExternalData(t *testing.T) {
 
 func TestSnapshotCompatibilityRejectsPriorFormat(t *testing.T) {
 	h, raw, db := newSnapshotHarness(t)
-	if err := raw.HSet(h.ctx, snapshotCatalogKey, "format", "5").Err(); err != nil {
+	if err := raw.HSet(h.ctx, snapshotCatalogKey, "format", "6").Err(); err != nil {
 		t.Fatal(err)
 	}
 	if c, err := db.Open(h.ctx); err == nil {
 		_ = c.Close(h.ctx)
 		t.Fatal("prior format was opened")
 	}
-	if format := raw.HGet(h.ctx, snapshotCatalogKey, "format").Val(); format != "5" {
+	if format := raw.HGet(h.ctx, snapshotCatalogKey, "format").Val(); format != "6" {
 		t.Fatal("rejected open modified prior catalog", format)
 	}
 }

@@ -1083,6 +1083,9 @@ func (s *store) getTable(ctx context.Context, schema, table string) (*tableMeta,
 	if err := json.Unmarshal([]byte(raw), &meta); err != nil {
 		return nil, errorf(adbc.StatusInternal, "corrupt metadata for table %q.%q: %v", schema, table, err)
 	}
+	if err := s.validateSnapshotTable(ctx, &meta); err != nil {
+		return nil, err
+	}
 	meta.readAt = readAt
 	hydrateCatalogOIDs(&meta)
 	return &meta, nil
@@ -1225,6 +1228,9 @@ func (s *store) createTable(ctx context.Context, meta *tableMeta, ifNotExists bo
 func indexCreateArgs(meta *tableMeta) []any {
 	args := []any{"FT.CREATE", meta.index(), "ON", "HASH", "PREFIX", 1, meta.prefix(),
 		"SKIPINITIALSCAN", "SCHEMA", rowIDField, "NUMERIC", "SORTABLE"}
+	if snapshotDataID(meta.prefix()) != "" {
+		args = append(args, snapshotDeletedField, "NUMERIC")
+	}
 	for _, c := range meta.Columns {
 		if c.Indexed {
 			args = append(args, indexAttrArgs(c)...)

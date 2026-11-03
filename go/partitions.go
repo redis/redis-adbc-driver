@@ -44,21 +44,23 @@ const (
 	maxPartitionBytes = 1 << 20
 )
 
-// partitionID describes a deferred read, not a retained result or snapshot.
+// partitionID describes a deferred read. Version 3 binds managed readers to
+// one shared statement snapshot; version 1 is the legacy live descriptor.
 // Query literals may be sensitive: callers must treat these bytes as query data.
 // The table fingerprint identifies the logical target without embedding an
 // endpoint or credentials, allowing different cluster seeds/proxy addresses.
 type partitionID struct {
-	Version int              `json:"version"`
-	Query   string           `json:"query"`
-	Schema  string           `json:"schema"`
-	Table   string           `json:"table"`
-	Target  string           `json:"target"`
-	Zone    string           `json:"zone"`
-	Params  []partitionParam `json:"params,omitempty"`
-	ScanCap int64            `json:"scan_cap,omitempty"`
-	Lo      int64            `json:"lo"`
-	Hi      int64            `json:"hi"`
+	Snapshot *partitionSnapshot `json:"snapshot,omitempty"`
+	Version  int                `json:"version"`
+	Query    string             `json:"query"`
+	Schema   string             `json:"schema"`
+	Table    string             `json:"table"`
+	Target   string             `json:"target"`
+	Zone     string             `json:"zone"`
+	Params   []partitionParam   `json:"params,omitempty"`
+	ScanCap  int64              `json:"scan_cap,omitempty"`
+	Lo       int64              `json:"lo"`
+	Hi       int64              `json:"hi"`
 }
 
 func (s *statementImpl) partitions() int {
@@ -237,6 +239,20 @@ func (s *statementImpl) executePartitions(ctx context.Context) (*arrow.Schema, a
 	parts := adbc.Partitions{NumPartitions: uint64(len(spans)), PartitionIDs: make([][]byte, len(spans))}
 	d := partitionID{Version: 1, Query: s.query, Schema: plan.meta.Schema, Table: plan.meta.Name,
 		ScanCap: s.partitionScanCap, Params: encoded, Target: partitionTarget(plan.meta), Zone: s.conn.sess.value("timezone").text}
+	var group *partitionSnapshot
+	complete := false
+	defer func() {
+		if group != nil && !complete {
+			_ = e.store.releasePartitionSnapshot(context.Background(), group.Token)
+		}
+	}()
+	if scope := snapshotOf(ctx); scope != nil {
+		group, err = e.store.retainPartitionSnapshot(ctx, s.resultTTL())
+		if err != nil {
+			return fail(err)
+		}
+		d.Version, d.Snapshot = 3, group
+	}
 	for i, span := range spans {
 		d.Lo, d.Hi = span.lo, span.hi
 		parts.PartitionIDs[i], err = json.Marshal(d)
@@ -244,6 +260,10 @@ func (s *statementImpl) executePartitions(ctx context.Context) (*arrow.Schema, a
 			return fail(errorf(adbc.StatusInvalidArgument, "partition descriptor is too large"))
 		}
 	}
+	if group != nil {
+		s.partitionSnapshotID = group.Token
+	}
+	complete = true
 	return resultSchema(plan.columns()), parts, -1, nil
 }
 
@@ -263,8 +283,11 @@ func decodePartition(data []byte) (partitionID, error) {
 	if err := dec.Decode(new(any)); err != io.EOF {
 		return bad()
 	}
-	if d.ScanCap < 0 || d.ScanCap > 1<<31 || d.Version != 1 || d.Query == "" || d.Schema == "" || d.Table == "" || len(d.Target) != 64 || d.Zone == "" ||
+	if d.ScanCap < 0 || d.ScanCap > 1<<31 || (d.Version != 1 && d.Version != 3) || d.Query == "" || d.Schema == "" || d.Table == "" || len(d.Target) != 64 || d.Zone == "" ||
 		d.Lo < 1 || d.Hi >= exactDoubleLimit || d.Hi < d.Lo && (d.Lo != 1 || d.Hi != 0) {
+		return bad()
+	}
+	if (d.Version == 3 && (d.Snapshot == nil || !d.Snapshot.valid())) || (d.Version == 1 && d.Snapshot != nil) {
 		return bad()
 	}
 	if _, _, err := decodePartitionParams(d.Params); err != nil {
@@ -335,12 +358,15 @@ func (c *connectionImpl) ReadPartition(ctx context.Context, data []byte) (result
 	if err != nil {
 		return nil, err
 	}
+	if !c.store.snapshots && d.Snapshot != nil {
+		return nil, errorf(adbc.StatusInvalidState, "partition snapshot requires a managed snapshot catalog")
+	}
 	if c.store.snapshots {
 		var stop context.CancelFunc
 		ctx, stop = context.WithTimeout(ctx, snapshotTimeout)
 		var pin *snapshotPin
 		var err error
-		ctx, pin, err = c.store.acquireSnapshot(ctx)
+		ctx, pin, err = c.store.acquirePartitionSnapshot(ctx, d.Snapshot)
 		if err != nil {
 			stop()
 			return nil, err

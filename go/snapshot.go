@@ -46,6 +46,7 @@ type snapshotScope struct {
 	tempDead      string
 	write         bool
 	owned         map[string]bool
+	validated     sync.Map // immutable segment descriptor -> *snapshotSegmentValidation
 	mu            sync.Mutex
 	bytes, writes int64
 }
@@ -79,12 +80,12 @@ end
 if op == 'init' then
   if redis.call('EXISTS', k) == 0 then
     if ARGV[6] ~= 'import' and redis.call('DBSIZE') ~= 0 then return redis.error_reply('managed-table snapshots require a fresh empty database; existing storage is not upgraded or modified') end
-    redis.call('HSET', k, 'format', '6', 'root', id, 'w:'..id, cjson.encode({state='committed',metadata_keys=0}), 'r:'..id, '[]')
+    redis.call('HSET', k, 'format', '7', 'root', id, 'w:'..id, cjson.encode({state='committed',metadata_keys=0}), 'r:'..id, '[]')
   end
-  if redis.call('HGET', k, 'format') ~= '6' then return redis.error_reply('unsupported snapshot catalog format') end
+  if redis.call('HGET', k, 'format') ~= '7' then return redis.error_reply('unsupported snapshot catalog format') end
   return 1
 end
-if redis.call('HGET', k, 'format') ~= '6' then return redis.error_reply('missing or unsupported snapshot catalog') end
+if redis.call('HGET', k, 'format') ~= '7' then return redis.error_reply('missing or unsupported snapshot catalog') end
 local entries = redis.call('HGETALL', k)
 local pins, works, protected = 0, 0, {}
 for n=1,#entries,2 do
@@ -144,6 +145,26 @@ elseif op == 'compact_checkpoint' or op == 'compact_release' or op == 'compact_f
     redis.call('HSET', k, 'w:'..id,cjson.encode({state='deleting'}))
     redis.call('HDEL', k, 'compaction')
   end
+  return 1
+elseif op == 'retain_partitions' then
+  if not owns_pin() then return redis.error_reply('partition producer snapshot expired') end
+  if pins >= 128 then return redis.error_reply('snapshot reader limit (128) reached') end
+  local until_ms = now + tonumber(ARGV[6])
+  redis.call('HSET',k,'p:'..id,cjson.encode({root=base,expires=until_ms,partition=true}))
+  return tostring(until_ms)
+elseif op == 'acquire_partition' then
+  local raw = redis.call('HGET',k,'p:'..id)
+  if not raw then return redis.error_reply('partition snapshot expired or released') end
+  local group = cjson.decode(raw)
+  if not group.partition or group.root ~= base or group.expires <= now then
+    return redis.error_reply('partition snapshot expired, released or belongs to another database')
+  end
+  if pins >= 128 then return redis.error_reply('snapshot reader limit (128) reached') end
+  redis.call('HSET',k,'p:'..token,cjson.encode({root=base,expires=expiry}))
+  return base
+elseif op == 'release_partitions' then
+  local raw = redis.call('HGET',k,'p:'..token)
+  if raw and cjson.decode(raw).partition then redis.call('HDEL',k,'p:'..token) end
   return 1
 elseif op == 'acquire' then
   if ARGV[6] == 'write' then
@@ -987,51 +1008,67 @@ func (s *store) validateSnapshot(ctx context.Context) error {
 	return nil
 }
 
+// Acquisition checks the committed metadata directory. Row sources are checked
+// lazily by getTable, so an unrelated missing/rebuilding index cannot disable
+// the whole catalog. Per-statement caching is safe only for immutable segments.
 func (s *store) validateSnapshotRead(ctx context.Context) error {
 	if err := s.validateSnapshotMetadata(ctx, snapshotOf(ctx).id); err != nil {
 		return err
 	}
-	schemas, err := s.snapshotSchemas(ctx)
-	if err != nil {
-		return err
-	}
-	for _, schema := range schemas {
-		tables, err := s.listTables(ctx, schema)
-		if err != nil {
-			return err
-		}
-		for _, table := range tables {
-			meta, err := s.getTable(ctx, schema, table)
-			if err != nil {
-				return err
-			}
-			if meta.SnapshotRows == nil || meta.Adopted || meta.KeyRows || meta.Foreign || meta.AppIndex || meta.RekeyTo != "" {
-				return errorf(adbc.StatusIO, "invalid managed snapshot descriptor")
-			}
-			if len(meta.SnapshotSegments) >= snapshotMaxSegments || len(meta.SnapshotSegments) > 0 && !meta.SnapshotOverlay {
-				return errorf(adbc.StatusIO, "invalid snapshot segment manifest")
-			}
-			for _, seg := range meta.snapshotSegments() {
-				id := snapshotDataID(seg.Prefix)
-				if id == "" || snapshotDataID(seg.Index) != id || seg.Rows < 0 {
-					return errorf(adbc.StatusIO, "invalid snapshot segment descriptor")
-				}
-				reply, err := s.searchDo(ctx, seg.Index, "FT.INFO", seg.Index).Result()
-				if err != nil {
-					return wrapRedis(err, "published snapshot index is unavailable")
-				}
-				info := indexInfoOf(reply)
-				count, err := s.redis(ctx).ZCard(ctx, snapshotMembers(id)).Result()
-				if err != nil {
-					return wrapRedis(err, "snapshot row directory is unavailable")
-				}
-				if count != seg.Rows || info.indexing || info.percent < 1 || info.failures != 0 || info.numDocs != seg.Rows || len(info.prefixes) != 1 || info.prefixes[0] != seg.Prefix {
-					return errorf(adbc.StatusIO, "published snapshot segment is incomplete or rebuilding")
-				}
-			}
-		}
-	}
 	return snapshotOf(ctx).pin.valid(ctx)
+}
+
+type snapshotSegmentValidation struct {
+	once sync.Once
+	err  error
+}
+
+func (s *store) validateSnapshotTable(ctx context.Context, meta *tableMeta) error {
+	scope := snapshotOf(ctx)
+	if scope == nil {
+		return nil
+	}
+	own := snapshotOwns(ctx, meta.prefix())
+	if (!own && meta.SnapshotRows == nil) || meta.Adopted || meta.KeyRows || meta.Foreign || meta.AppIndex || meta.RekeyTo != "" {
+		return errorf(adbc.StatusIO, "invalid managed snapshot descriptor")
+	}
+	if len(meta.SnapshotSegments) >= snapshotMaxSegments || len(meta.SnapshotSegments) > 0 && !meta.SnapshotOverlay {
+		return errorf(adbc.StatusIO, "invalid snapshot segment manifest")
+	}
+	for _, seg := range meta.snapshotSegments() {
+		id := snapshotDataID(seg.Prefix)
+		if id == "" || snapshotDataID(seg.Index) != id || seg.Rows < 0 {
+			return errorf(adbc.StatusIO, "invalid snapshot segment descriptor")
+		}
+		// Private indexes may be unsettled; writer fences and final seal validate
+		// these outputs before publication. Shared inputs still need validation.
+		if snapshotOwns(ctx, seg.Prefix) {
+			continue
+		}
+		value, _ := scope.validated.LoadOrStore(seg, &snapshotSegmentValidation{})
+		check := value.(*snapshotSegmentValidation)
+		check.once.Do(func() { check.err = s.validateSnapshotSegment(ctx, seg) })
+		if check.err != nil {
+			return check.err
+		}
+	}
+	return nil
+}
+
+func (s *store) validateSnapshotSegment(ctx context.Context, seg snapshotSegment) error {
+	reply, err := s.searchDo(ctx, seg.Index, "FT.INFO", seg.Index).Result()
+	if err != nil {
+		return wrapRedis(err, "published snapshot index is unavailable")
+	}
+	info := indexInfoOf(reply)
+	count, err := s.redis(ctx).ZCard(ctx, snapshotMembers(snapshotDataID(seg.Prefix))).Result()
+	if err != nil {
+		return wrapRedis(err, "snapshot row directory is unavailable")
+	}
+	if count != seg.Rows || info.indexing || info.percent < 1 || info.failures != 0 || info.numDocs != seg.Rows || len(info.prefixes) != 1 || info.prefixes[0] != seg.Prefix {
+		return errorf(adbc.StatusIO, "published snapshot segment is incomplete or rebuilding")
+	}
+	return nil
 }
 
 func (s *store) reapSnapshot(parent context.Context) {
@@ -1114,6 +1151,9 @@ func (s *store) deleteSnapshotKeys(ctx context.Context, prefix string) bool {
 
 func (e *executor) executeSnapshot(ctx context.Context, ps ParsedStmt, params []Value, types []ColType, so *streamOpts) (execResult, error) {
 	if drop, ok := ps.Stmt.(*DropPartitionResultStmt); ok {
+		if drop.Snapshot {
+			return execResult{affected: 0}, e.store.releasePartitionSnapshot(ctx, drop.JobID)
+		}
 		controlCtx := context.WithValue(ctx, snapshotContextKey{}, (*snapshotScope)(nil))
 		store, err := newRetainedStore(e.store.client, e.partitionNamespace, defaultRetainedLimits())
 		if err != nil {

@@ -514,6 +514,17 @@ func (s *store) scanTagLevels(ctx context.Context, meta *tableMeta) (map[string]
 // limit. Each query is profiled once per statement; a profile that can't be
 // read (or planning without a server) counts as incomplete.
 func (e *executor) prefixComplete(ctx context.Context, meta *tableMeta, query string) bool {
+	if meta.SnapshotOverlay {
+		for _, seg := range meta.snapshotSegments() {
+			copy := *meta
+			copy.SnapshotOverlay = false
+			copy.KeyPrefix, copy.IndexName = seg.Prefix, seg.Index
+			if !e.prefixComplete(ctx, &copy, query) {
+				return false
+			}
+		}
+		return true
+	}
 	if e.store == nil {
 		return false
 	}

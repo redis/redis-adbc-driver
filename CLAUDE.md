@@ -41,12 +41,12 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.26.10)
 - Autocommit only; Search is required; Flex is rejected. Do not imply full
   PostgreSQL compatibility or support for Valkey / Redis 7.2 derivatives.
 - Managed-table statement snapshots are always enabled, using immutable
-  generations in one hash slot; see [snapshots](docs/snapshots.md). Storage protocol version 6 rejects earlier draft formats; there is no
+  generations in one hash slot; see [snapshots](docs/snapshots.md). Storage protocol version 7 rejects earlier draft formats; there is no
   disable switch or upgrade path for existing catalogs. ALTER stages private
   replacement layouts. Temporary descriptors participate in manifest references;
   liveness is global and Close/sweep publish descriptor removal. Application
   HASH adoption and foreign indexes are managed copies with explicit refreshes;
-  never modify their external sources. Live partitions pin per reader; retained
+  never modify their external sources. Live partition sets retain a shared producer generation; retained
   production resolves segmented visibility under one coordinator pin.
   Preserve their server-side writer fences, reader pins and reclamation protocol.
   Cluster API node clients need snapshot hooks, including newly discovered nodes.
@@ -57,8 +57,10 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.26.10)
   recovery as well as active QPF before resuming SQL.
   Catalog manifests share immutable row-version segments. DML allocates a new
   segment before planning logical row keys. Resolve newest versions/tombstones
-  before predicates, aggregates or limits; never push a segmented table directly
-  into a physical-index shortcut. Preserve exact, score-zero row-ID directories
+  before predicates, aggregates or limits. Search candidates require newer-directory
+  visibility checks. Server reducers and ordered scans require proven immutable
+  per-segment masks (including tombstones); merge globally before OFFSET/LIMIT.
+  Exact-ID/private-index/mask-budget fallbacks must retain the full SQL predicate. Preserve exact, score-zero row-ID directories
   registered atomically by writer fences. Background compaction starts at four
   segments; eight is retryable backpressure, never foreground compaction. Preserve
   durable copy checkpoints, lease/phase fences, and source/output references even
