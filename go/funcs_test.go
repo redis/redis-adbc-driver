@@ -37,6 +37,8 @@ import (
 // parser builds them for. A sample that starts with SELECT is the whole
 // query.
 var funcSamples = map[string]string{
+	"NEXTVAL": "nextval('registry_sequence')", "CURRVAL": "currval('registry_sequence')", "SETVAL": "setval('registry_sequence',1)", "LASTVAL": "lastval()",
+	"GEN_RANDOM_UUID":       "GEN_RANDOM_UUID()",
 	"__ORDINALITY":          "SELECT * FROM generate_series(1,2) WITH ORDINALITY",
 	"__ROWS_FROM":           "SELECT * FROM ROWS FROM(generate_series(1,2))",
 	"__ARRAY_QUERY":         "ARRAY(SELECT 1)",
@@ -240,6 +242,13 @@ func TestFuncRegistryEvaluates(t *testing.T) {
 				v, err := (&evalEnv{action: "INSERT"}).eval(sel.Items[0].Expr)
 				if err != nil || v.Text() != "INSERT" {
 					t.Errorf("%s: %s = %v, %v", name, q, v, err)
+				}
+				continue
+			}
+			if sequenceFunction(name) {
+				_, err := runInMemory(sel)
+				if err == nil || !strings.Contains(err.Error(), "need a database connection") {
+					t.Errorf("%s: expected connection error, got %v", name, err)
 				}
 				continue
 			}

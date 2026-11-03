@@ -164,7 +164,7 @@ func checkOID(m *tableMeta, c checkMeta) int64 {
 }
 
 func postgresTypeOID(t ColType) int64 {
-	if n := map[string]int64{"oid": 26, "regclass": 2205, "regtype": 2206, "regproc": 24, "regnamespace": 4089}[t.Alias]; n != 0 {
+	if n := map[string]int64{"uuid": 2950, "oid": 26, "regclass": 2205, "regtype": 2206, "regproc": 24, "regnamespace": 4089}[t.Alias]; n != 0 {
 		return n
 	}
 	switch t.Kind {

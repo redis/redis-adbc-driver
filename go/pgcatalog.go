@@ -41,6 +41,8 @@ func catalogColumns(spec string) []resultColumn {
 }
 
 var pgCatalogColumns = map[string][]resultColumn{
+	"pg_sequence":         catalogColumns("seqrelid:i seqtypid:i seqstart:i seqincrement:i seqmax:i seqmin:i seqcache:i seqcycle:b"),
+	"pg_sequences":        catalogColumns("schemaname sequencename sequenceowner data_type start_value:i min_value:i max_value:i increment_by:i cycle:b cache_size:i last_value:i"),
 	"pg_namespace":        catalogColumns("oid:i nspname nspowner:i nspacl:s"),
 	"pg_class":            catalogColumns("oid:i relname relnamespace:i reltype:i reloftype:i relowner:i relam:i relfilenode:i reltablespace:i relpages:i reltuples:f relallvisible:i reltoastrelid:i relhasindex:b relisshared:b relpersistence relkind relnatts:i relchecks:i relhasrules:b relhastriggers:b relhassubclass:b relrowsecurity:b relforcerowsecurity:b relispopulated:b relreplident relispartition:b relrewrite:i reloptions:s relacl:s"),
 	"pg_attribute":        catalogColumns("attrelid:i attname atttypid:i attstattarget:i attlen:i attnum:i attndims:i attcacheoff:i atttypmod:i attbyval:b attstorage attalign attnotnull:b atthasdef:b atthasmissing:b attidentity attgenerated attisdropped:b attislocal:b attinhcount:i attcollation:i"),
@@ -62,7 +64,6 @@ var pgCatalogColumns = map[string][]resultColumn{
 	"pg_opclass":          catalogColumns("oid:i opcmethod:i opcname opcnamespace:i opcowner:i opcfamily:i opcintype:i opcdefault:b opckeytype:i"),
 	"pg_collation":        catalogColumns("oid:i collname collnamespace:i collowner:i collprovider collisdeterministic:b collencoding:i collcollate collctype colliculocale collversion"),
 	"pg_enum":             catalogColumns("oid:i enumtypid:i enumsortorder:f enumlabel"),
-	"pg_sequence":         catalogColumns("seqrelid:i seqtypid:i seqstart:i seqincrement:i seqmax:i seqmin:i seqcache:i seqcycle:b"),
 	"pg_inherits":         catalogColumns("inhrelid:i inhparent:i inhseqno:i inhdetachpending:b"),
 	"pg_depend":           catalogColumns("classid:i objid:i objsubid:i refclassid:i refobjid:i refobjsubid:i deptype"),
 	"pg_rewrite":          catalogColumns("oid:i rulename ev_class:i ev_type ev_enabled is_instead:b ev_qual ev_action"),
@@ -149,7 +150,12 @@ func (e *executor) catalog(ctx context.Context) (*catalogSnapshot, error) {
 			}
 			id := tableOID(m)
 			c.tables[id] = m
-			c.addRelation(m, id, "r")
+			kind := "r"
+			if m.MaterializedSQL != "" {
+				kind = "m"
+				c.add("pg_matviews", map[string]Value{"schemaname": str(displaySchema(schema)), "matviewname": str(m.Name), "matviewowner": str(e.catalogUser()), "hasindexes": boolValue(true), "ispopulated": boolValue(!m.Unpopulated), "definition": str(m.MaterializedSQL)})
+			}
+			c.addRelation(m, id, kind)
 			c.add("pg_tables", map[string]Value{"schemaname": str(displaySchema(schema)), "tablename": str(m.Name), "tableowner": str(e.catalogUser()), "hasindexes": boolValue(true), "hasrules": boolValue(false), "hastriggers": boolValue(false), "rowsecurity": boolValue(false)})
 			var fields []string
 			for _, col := range m.Columns {
@@ -159,6 +165,9 @@ func (e *executor) catalog(ctx context.Context) (*catalogSnapshot, error) {
 			}
 			if len(fields) > 0 {
 				c.addIndex(m, indexOID(m), m.index(), fields, false)
+			}
+			for _, idx := range m.NamedIndexes {
+				c.addIndex(m, legacyCatalogOID("named-index", m.Schema, idx.Name), idx.Name, idx.Fields, false)
 			}
 			if m.PrimaryKey != nil {
 				pk := m.PrimaryKey
@@ -171,6 +180,25 @@ func (e *executor) catalog(ctx context.Context) (*catalogSnapshot, error) {
 				c.definitions[cid] = "CHECK (" + ck.Expr + ")"
 				c.add("pg_constraint", map[string]Value{"oid": oidValue(cid), "conname": str(ck.Name), "connamespace": oidValue(c.namespaceOID(schema)), "contype": str("c"), "conrelid": oidValue(id), "contypid": oidValue(0), "conindid": oidValue(0), "confrelid": oidValue(0), "convalidated": boolValue(true), "conislocal": boolValue(true), "conbin": str(ck.Expr)})
 			}
+		}
+		seqNames, err := e.store.redis(ctx).SMembers(ctx, sequencesKey(schema)).Result()
+		if err != nil {
+			return nil, err
+		}
+		for _, name := range seqNames {
+			seq, err := e.store.getSequence(ctx, schema, name)
+			if err != nil {
+				return nil, err
+			}
+			id := legacyCatalogOID("sequence", seq.ID)
+			m := &tableMeta{Schema: schema, Name: name}
+			c.addRelation(m, id, "S")
+			c.add("pg_sequence", map[string]Value{"seqrelid": oidValue(id), "seqtypid": oidValue(postgresTypeOID(ColType{Kind: seq.Kind})), "seqstart": oidValue(seq.Start), "seqincrement": oidValue(seq.Increment), "seqmax": oidValue(seq.Max), "seqmin": oidValue(seq.Min), "seqcache": oidValue(seq.Cache), "seqcycle": boolValue(seq.Cycle)})
+			last := nullValue(typeInt64)
+			if seq.Called {
+				last = oidValue(seq.Last)
+			}
+			c.add("pg_sequences", map[string]Value{"schemaname": str(displaySchema(schema)), "sequencename": str(name), "sequenceowner": str(e.catalogUser()), "data_type": str(strings.ToLower(ColType{Kind: seq.Kind}.SQLName())), "start_value": oidValue(seq.Start), "min_value": oidValue(seq.Min), "max_value": oidValue(seq.Max), "increment_by": oidValue(seq.Increment), "cycle": boolValue(seq.Cycle), "cache_size": oidValue(seq.Cache), "last_value": last})
 		}
 		vs, err := e.store.listViews(ctx, schema)
 		if err != nil {
@@ -203,7 +231,7 @@ func (e *executor) catalog(ctx context.Context) (*catalogSnapshot, error) {
 		id := postgresTypeOID(t)
 		_, name := postgresTypeNames(t)
 		coll := int64(0)
-		if t.Kind == KindString {
+		if t.Kind == KindString && t.Alias != "uuid" {
 			coll = 100
 		}
 		c.add("pg_type", map[string]Value{"oid": oidValue(id), "typname": str(name), "typnamespace": oidValue(11), "typowner": oidValue(10), "typlen": oidValue(-1), "typtype": str("b"), "typcategory": str(typeCategory(t)), "typisdefined": boolValue(true), "typdelim": str(","), "typnotnull": boolValue(false), "typbasetype": oidValue(0), "typtypmod": oidValue(-1), "typcollation": oidValue(coll)})
@@ -249,9 +277,12 @@ func systemRelationOID(name string) int64 {
 	return legacyCatalogOID("catalog", name)
 }
 func builtinCatalogTypes() []ColType {
-	return []ColType{typeBool, typeBinary, typeInt16, typeInt32, typeInt64, typeFloat32, typeFloat64, decimalType(38, 0), typeString, {Kind: KindString, Text: true}, {Kind: KindString, Fixed: true}, typeDate, fracType(KindTime, 6, ""), typeTimeTZ, typeTimestamp, typeTimestampTZ, typeInterval, {Kind: KindInt64, Alias: "oid"}, {Kind: KindString, Alias: "regclass"}, {Kind: KindString, Alias: "regtype"}, {Kind: KindString, Alias: "regproc"}, {Kind: KindString, Alias: "regnamespace"}}
+	return []ColType{typeUUID, typeBool, typeBinary, typeInt16, typeInt32, typeInt64, typeFloat32, typeFloat64, decimalType(38, 0), typeString, {Kind: KindString, Text: true}, {Kind: KindString, Fixed: true}, typeDate, fracType(KindTime, 6, ""), typeTimeTZ, typeTimestamp, typeTimestampTZ, typeInterval, {Kind: KindInt64, Alias: "oid"}, {Kind: KindString, Alias: "regclass"}, {Kind: KindString, Alias: "regtype"}, {Kind: KindString, Alias: "regproc"}, {Kind: KindString, Alias: "regnamespace"}}
 }
 func typeCategory(t ColType) string {
+	if t.Alias == "uuid" {
+		return "U"
+	}
 	if t.Kind.isNumeric() {
 		return "N"
 	}
@@ -296,7 +327,7 @@ func (c *catalogSnapshot) addRelation(m *tableMeta, id int64, kind string) {
 	if isTempSchema(m.Schema) {
 		persistence = "t"
 	}
-	c.add("pg_class", map[string]Value{"oid": oidValue(id), "relname": str(m.Name), "relnamespace": oidValue(c.namespaceOID(m.Schema)), "relowner": oidValue(10), "relkind": str(kind), "relpersistence": str(persistence), "relnatts": oidValue(int64(len(m.Columns))), "relchecks": oidValue(int64(len(m.Checks))), "relhasindex": boolValue(kind == "r"), "relispartition": boolValue(false), "relispopulated": boolValue(true), "relam": oidValue(0), "reltype": oidValue(0)})
+	c.add("pg_class", map[string]Value{"oid": oidValue(id), "relname": str(m.Name), "relnamespace": oidValue(c.namespaceOID(m.Schema)), "relowner": oidValue(10), "relkind": str(kind), "relpersistence": str(persistence), "relnatts": oidValue(int64(len(m.Columns))), "relchecks": oidValue(int64(len(m.Checks))), "relhasindex": boolValue(kind == "r"), "relispartition": boolValue(false), "relispopulated": boolValue(!m.Unpopulated), "relam": oidValue(0), "reltype": oidValue(0)})
 	if m.Comment != "" {
 		c.add("pg_description", map[string]Value{"objoid": oidValue(id), "classoid": oidValue(1259), "objsubid": oidValue(0), "description": str(m.Comment)})
 	}
@@ -311,7 +342,7 @@ func (c *catalogSnapshot) addRelation(m *tableMeta, id int64, kind string) {
 		if col.Type.Collation == "POSIX" {
 			coll = 951
 		}
-		c.add("pg_attribute", map[string]Value{"attrelid": oidValue(id), "attname": str(col.Name), "atttypid": oidValue(postgresTypeOID(col.Type)), "attnum": oidValue(int64(i + 1)), "atttypmod": oidValue(postgresTypmod(col.Type)), "attnotnull": boolValue(!col.Nullable), "atthasdef": boolValue(col.Default != ""), "attidentity": str(""), "attgenerated": str(""), "attisdropped": boolValue(false), "attislocal": boolValue(true), "attcollation": oidValue(coll), "attndims": oidValue(0), "attlen": oidValue(-1)})
+		c.add("pg_attribute", map[string]Value{"attrelid": oidValue(id), "attname": str(col.Name), "atttypid": oidValue(postgresTypeOID(col.Type)), "attnum": oidValue(int64(i + 1)), "atttypmod": oidValue(postgresTypmod(col.Type)), "attnotnull": boolValue(!col.Nullable), "atthasdef": boolValue(col.Default != ""), "attidentity": str(map[string]string{"ALWAYS": "a", "BY DEFAULT": "d"}[col.Identity]), "attgenerated": str(""), "attisdropped": boolValue(false), "attislocal": boolValue(true), "attcollation": oidValue(coll), "attndims": oidValue(0), "attlen": oidValue(-1)})
 		if col.Default != "" {
 			c.add("pg_attrdef", map[string]Value{"oid": oidValue(defaultOID(m, col)), "adrelid": oidValue(id), "adnum": oidValue(int64(i + 1)), "adbin": str(col.Default)})
 		}

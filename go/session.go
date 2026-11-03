@@ -378,6 +378,10 @@ func timeZoneParam(text string) (paramValue, error) {
 
 // session is a connection's settings.
 type session struct {
+	sequenceBlocks   map[string]sequenceBlock
+	lastSequenceName TableName
+	sequenceValues   map[string]int64
+	lastSequence     string
 	// defaultSchema is adbc.redis.default_schema, which RESET search_path
 	// goes back to; defaultZone adbc.redis.time_zone (UTC unless set), which
 	// RESET timezone goes back to.

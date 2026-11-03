@@ -836,8 +836,17 @@ func coerceIn(v Value, t ColType, z tzZone) (Value, error) {
 	if t.Kind == KindArray {
 		return coerceArrayIn(v, t, z)
 	}
-	if v.T.Alias != "" && t.Kind.isInteger() && !v.Null {
+	if !v.Null && v.T.Alias == "uuid" && t.Kind != KindString && t.Kind != KindNull {
+		return Value{}, stateErr(stateCannotCoerce, "cannot cast uuid to %s", t.SQLName())
+	}
+	if v.T.Alias != "" && v.T.Alias != "uuid" && t.Kind.isInteger() && !v.Null {
 		return intValue(t, v.I), nil
+	}
+	if !v.Null && t.Alias == "uuid" {
+		if v.T.Kind != KindString {
+			return Value{}, stateErr(stateCannotCoerce, "cannot cast %s to uuid", v.T.SQLName())
+		}
+		return parseUUID(v.S)
 	}
 	if v.Null || t.Kind == KindNull {
 		return nullValue(t), nil
@@ -951,6 +960,7 @@ func coerceIn(v Value, t ColType, z tzZone) (Value, error) {
 		case t.Fixed:
 			return charValue(v.textIn(z), t), nil
 		case v.T.Kind == KindString && !v.T.Fixed:
+			v.T = t
 			return v, nil
 		}
 		return stringValue(v.textIn(z)), nil
@@ -1094,6 +1104,9 @@ func parseString(s string, t ColType) (Value, error) { return parseStringIn(s, t
 // more digits is read as Postgres reads it, in microseconds (pgMicros),
 // before it is rounded to t (so '….4999995' is 10:00:01 in TIMESTAMP(0)).
 func parseStringIn(s string, t ColType, z tzZone) (Value, error) {
+	if t.Alias == "uuid" {
+		return parseUUID(s)
+	}
 	trimmed := strings.TrimSpace(s)
 	switch t.Kind {
 	case KindBool:
@@ -1180,6 +1193,9 @@ func encodeStored(v Value) string {
 // computed. A float's nanStored is NaN, and so are the "NaN" of earlier
 // versions and RediSearch's -nan (see parseFloat).
 func decodeStored(s string, t ColType) (Value, error) {
+	if t.Alias == "uuid" {
+		return parseUUID(s)
+	}
 	if compositeStorage(t) {
 		return decodeComposite(s, t)
 	}
@@ -1259,6 +1275,14 @@ func textOperand(s Value, t ColType, z tzZone) (Value, error) {
 // textOperandError is the error of text that doesn't convert to the type of
 // the value it is compared with (i = '1.5' for an INTEGER i), or nil.
 func textOperandError(a, b Value, z tzZone) error {
+	if a.T.Alias == "uuid" && b.T.Kind == KindString {
+		_, err := parseUUID(b.S)
+		return err
+	}
+	if b.T.Alias == "uuid" && a.T.Kind == KindString {
+		_, err := parseUUID(a.S)
+		return err
+	}
 	isText := func(v Value) bool { return v.T.Kind == KindString || v.T.Kind == KindBinary }
 	switch {
 	case a.T.Kind == KindString && !isText(b):
@@ -1276,6 +1300,20 @@ func textOperandError(a, b Value, z tzZone) error {
 // DATE compared with one, as local times; ok is false when the values are
 // not comparable.
 func compareIn(a, b Value, z tzZone) (int, bool) {
+	if a.T.Alias == "uuid" || b.T.Alias == "uuid" {
+		if a.T.Kind != KindString || b.T.Kind != KindString {
+			return 0, false
+		}
+		av, err := parseUUID(a.S)
+		if err != nil {
+			return 0, false
+		}
+		bv, err := parseUUID(b.S)
+		if err != nil {
+			return 0, false
+		}
+		return strings.Compare(av.S, bv.S), true
+	}
 	ak, bk := a.T.Kind, b.T.Kind
 	switch {
 	case ak == KindRecord && bk == KindRecord:

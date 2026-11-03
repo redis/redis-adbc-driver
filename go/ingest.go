@@ -98,6 +98,9 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 		}
 		meta = wanted
 	case adbc.OptionValueIngestModeReplace:
+		if old, err := st.getTable(ctx, schemaName, opts.TableName); err == nil && old.MaterializedSQL != "" {
+			return -1, matViewWriteError(old)
+		}
 		if err := st.dropTable(ctx, schemaName, opts.TableName, true); err != nil {
 			return -1, err
 		}
@@ -155,6 +158,14 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 			return -1, stateErrorf(stateDatatypeMismatch, "stored struct schema must match field names, types and nullability (column %q)", f.Name)
 		}
 		mapping[i], given[idx] = idx, true
+	}
+	for i, yes := range given {
+		if yes && meta.Columns[i].Identity == "ALWAYS" {
+			return -1, identityValueError(meta.Columns[i].Name)
+		}
+	}
+	if meta.MaterializedSQL != "" {
+		return -1, matViewWriteError(meta)
 	}
 	e := s.executor()
 	zone := e.zone()

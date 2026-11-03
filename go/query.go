@@ -959,6 +959,9 @@ func loadsExactly(c columnMeta) bool {
 // scanMem filters an in-memory relation.
 func (e *executor) scanMem(ctx context.Context, req scanRequest, params []Value) ([]string, []map[string]Value, error) {
 	source := req.meta.mem
+	if req.meta.sourceKeys != nil {
+		source = cloneMemRows(source)
+	}
 	if req.meta.lazy != nil {
 		rows, err := e.lazyRows(ctx, req.meta, params)
 		if err != nil {
@@ -996,11 +999,12 @@ func (e *executor) scanMem(ctx context.Context, req scanRequest, params []Value)
 		source = joined
 	}
 	if req.where.residual == nil {
-		return nil, source, nil
+		return req.meta.sourceKeys, source, nil
 	}
 	env := e.newEnv(ctx, req.meta.types(), params)
+	var keys []string
 	var rows []map[string]Value
-	for _, r := range source {
+	for i, r := range source {
 		if err := cancelled(ctx); err != nil {
 			return nil, nil, err
 		}
@@ -1011,9 +1015,12 @@ func (e *executor) scanMem(ctx context.Context, req scanRequest, params []Value)
 		}
 		if b, valid := truthy(ok); valid && b {
 			rows = append(rows, r)
+			if req.meta.sourceKeys != nil {
+				keys = append(keys, req.meta.sourceKeys[i])
+			}
 		}
 	}
-	return nil, rows, nil
+	return keys, rows, nil
 }
 
 // ---- SELECT ----

@@ -279,7 +279,7 @@ func (c *connectionImpl) SetCurrentDbSchema(ctx context.Context, schema string) 
 // ---- metadata ----
 
 func (c *connectionImpl) ListTableTypes(ctx context.Context) ([]string, error) {
-	return []string{"TABLE", "VIEW"}, nil
+	return []string{"TABLE", "VIEW", "MATERIALIZED VIEW"}, nil
 }
 
 func (c *connectionImpl) GetTableSchema(ctx context.Context, catalog *string, dbSchema *string, tableName string) (*arrow.Schema, error) {
@@ -388,8 +388,16 @@ func (c *connectionImpl) GetTablesForDBSchema(ctx context.Context, catalog strin
 	}
 	type entry struct{ name, kind string }
 	var entries []entry
-	for _, n := range tables {
-		entries = append(entries, entry{n, "TABLE"})
+	metas, err := c.store.getTables(ctx, schema, tables)
+	if err != nil {
+		return nil, err
+	}
+	for i, n := range tables {
+		kind := "TABLE"
+		if metas[i] != nil && metas[i].MaterializedSQL != "" {
+			kind = "MATERIALIZED VIEW"
+		}
+		entries = append(entries, entry{n, kind})
 	}
 	for _, n := range views {
 		entries = append(entries, entry{n, "VIEW"})

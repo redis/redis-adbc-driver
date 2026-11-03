@@ -160,7 +160,7 @@ Type mappings are implemented in [types.go](go/types.go) and
 [statement.go](go/statement.go) and [connection.go](go/connection.go).
 Supported interchange does not imply support for every Arrow layout or every
 SQL operator. See the [SQL reference](docs/driver-reference.md#supported-sql)
-for type and execution details.
+for type and execution details. [Generated identifiers, UUIDs, modifying CTEs, named indexes and materialized views](docs/sql-101-105.md) describe the additional SQL contracts and limits.
 
 ## Redis Software feature matrix
 
