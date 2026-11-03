@@ -28,6 +28,11 @@ def main():
     parser.add_argument("--driver", type=Path, required=True)
     parser.add_argument("--source", required=True)
     parser.add_argument("--software-api-port", type=int, required=True)
+    parser.add_argument(
+        "--software-data-port",
+        type=int,
+        help="Published loopback proxy port for a Docker fixture",
+    )
     parser.add_argument("--reset-owned-database", action="store_true", required=True)
     parser.add_argument("--rows", type=int, default=20000)
     parser.add_argument("--unrelated-tables", type=int, default=32)
@@ -64,9 +69,8 @@ def main():
     if not uri.startswith("rediss://"):
         raise RuntimeError("owned Software fixture must use verified TLS")
     target = urlsplit(uri)
-    if (
-        target.hostname not in ("localhost", "127.0.0.1")
-        or target.port != database["port"]
+    if target.hostname not in ("localhost", "127.0.0.1") or target.port != (
+        args.software_data_port or database["port"]
     ):
         raise RuntimeError(
             "data endpoint must match the owned local management fixture"
@@ -99,6 +103,10 @@ def main():
             for i, group, value, _ in logical:
                 count, total = groups.get(group, (0, 0))
                 groups[group] = (count + 1, total + value)
+            expected_topk = [
+                (i, v, p)
+                for i, _, v, p in sorted(logical, key=lambda r: (-r[2], r[0]))[5:15]
+            ]
             cases = [
                 ("selective", "SELECT id,v FROM t WHERE v=1", []),
                 (
@@ -115,12 +123,12 @@ def main():
                 (
                     "topk",
                     "SELECT id,v,payload FROM t ORDER BY v DESC,id ASC LIMIT 10 OFFSET 5",
-                    [
-                        (i, v, p)
-                        for i, _, v, p in sorted(logical, key=lambda r: (-r[2], r[0]))[
-                            5:15
-                        ]
-                    ],
+                    expected_topk,
+                ),
+                (
+                    "topk_nulls_last",
+                    "SELECT id,v,payload FROM t ORDER BY v DESC NULLS LAST,id ASC NULLS LAST LIMIT 10 OFFSET 5",
+                    expected_topk,
                 ),
                 ("point", "SELECT v FROM t WHERE __rowid=1", [(args.rows,)]),
             ]
