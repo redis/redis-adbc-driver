@@ -338,7 +338,7 @@ func (a *adopter) snapshotAdopt(ctx context.Context) (*HashAdoption, error) {
 		return rows, done, nil
 	}
 	if err := a.c.st.importSnapshotTable(ctx, meta, a.schema, a.table, true, reader); err != nil {
-		return nil, err
+		return a.res, err
 	}
 	a.res.Applied = true
 	return a.res, nil

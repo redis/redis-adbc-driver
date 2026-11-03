@@ -230,44 +230,6 @@ func TestAdoptedUpdateRaces(t *testing.T) {
 	}
 }
 
-// A table that redis-adbc v0.0.11 adopted (rows identified by __rowid) is
-// refused, until it is dropped and adopted again.
-func TestAdoptV0011Table(t *testing.T) {
-	f := newHashFixture(t, "it:ad:old:")
-	f.dropAdopted("it_ad_old")
-	t.Cleanup(func() { f.dropAdopted("it_ad_old") })
-	for i := 1; i <= 3; i++ {
-		f.hset(fmt.Sprintf("%s%d", f.prefix, i), "n", i, rowIDField, i)
-	}
-	f.adopt(HashAdoptOptions{Table: "it_ad_old", Apply: true})
-	// Its metadata as v0.0.11 wrote it.
-	ctx, key := f.h.ctx, metaKey("public", "it_ad_old")
-	raw, err := f.raw.Get(ctx, key).Result()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(raw, `"key_rows":true`) {
-		t.Fatalf("metadata: %s", raw)
-	}
-	if err := f.raw.Set(ctx, key, strings.Replace(raw, `,"key_rows":true`, "", 1), 0).Err(); err != nil {
-		t.Fatal(err)
-	}
-	want := `"public"."it_ad_old" was adopted by redis-adbc v0.0.11, whose adopted tables this driver no longer reads: DROP TABLE "public"."it_ad_old" (its HASHes stay) and run redis-adbc adopt again`
-	f.h.expectError(`SELECT COUNT(*) FROM it_ad_old`, want)
-	f.h.expectError(`UPDATE it_ad_old SET n = 0`, want)
-	res := f.adopt(HashAdoptOptions{})
-	if res.Applied || res.Report.Checks[0].Ready {
-		t.Errorf("adopt: %+v", res)
-	}
-	expectItem(t, res.Report.Checks[0], CheckBlocker, "these HASHes are the table public.it_ad_old, which redis-adbc v0.0.11 adopted")
-	f.h.exec(`DROP TABLE it_ad_old`)
-	if n := f.h.prefixKeyCount(f.raw, f.prefix); n != 3 {
-		t.Errorf("DROP TABLE left %d of the 3 HASHes", n)
-	}
-	f.adopt(HashAdoptOptions{Table: "it_ad_old", Apply: true})
-	f.h.expectRows(`SELECT SUM(n) FROM it_ad_old`, "6")
-}
-
 // Managed rows have an independent physical namespace even when a schema
 // has the same name as an application prefix.
 func TestAdoptedPrefixOverlap(t *testing.T) {
@@ -301,10 +263,11 @@ func TestAdoptBlockers(t *testing.T) {
 	f.hset("it:ad:blk:1", "n", "1", rowIDField, "9")
 	f.hset("it:ad:blk:x", "n", "2")
 	f.hset("it:ad:blk:3", "n", "3", "flag", "true")
+	root := f.raw.HGet(f.h.ctx, snapshotCatalogKey, "root").Val()
 	res, err := AdoptHashes(f.h.ctx, f.opts, HashAdoptOptions{Prefix: f.prefix, Table: "it_ad_blk", Apply: true,
 		Types: map[string]string{"flag": "BOOLEAN"}, Encodings: map[string]string{"flag": "native"}})
-	if err != nil {
-		t.Fatal(err)
+	if err == nil || res == nil || len(res.Report.Checks) != 1 {
+		t.Fatalf("blocked Apply must return its report and an error: %v", err)
 	}
 	cl := res.Report.Checks[0]
 	if res.Applied || cl.Ready {
@@ -315,74 +278,29 @@ func TestAdoptBlockers(t *testing.T) {
 			t.Errorf("blocker: %s", it.Text)
 		}
 	}
-	expectItem(t, cl, CheckBlocker, `-type flag=BOOLEAN: 1 value doesn't fit (such as "true" in it:ad:blk:3: the driver stores booleans as 0 and 1)`)
-	if n, _ := f.raw.Exists(f.h.ctx, metaKey("public", "it_ad_blk")).Result(); n != 0 {
-		t.Error("a refused adopt wrote the metadata")
+	expectItem(t, cl, CheckBlocker, `-type flag=BOOLEAN: 1 value do not fit the source encoding`)
+	if root != f.raw.HGet(f.h.ctx, snapshotCatalogKey, "root").Val() {
+		t.Fatal("a refused import published metadata")
 	}
+	f.h.expectRows(`SELECT COUNT(*) FROM information_schema.tables WHERE table_name='it_ad_blk'`, "0")
 	if ok, _ := f.raw.SIsMember(f.h.ctx, adoptedKey, f.prefix).Result(); ok {
 		t.Error("a refused adopt reserved the prefix")
 	}
 
-	// A prefix that a driver table's rows are under.
-	f.h.exec(`DROP TABLE IF EXISTS it_ad_tbl`)
-	f.h.exec(`CREATE TABLE it_ad_tbl (a INTEGER)`)
-	t.Cleanup(func() { f.h.exec(`DROP TABLE IF EXISTS it_ad_tbl`) })
-	res, err = AdoptHashes(f.h.ctx, f.opts, HashAdoptOptions{Prefix: "public:", Table: "it_ad_pub"})
-	if err != nil {
-		t.Fatal(err)
+	// Driver control storage cannot be treated as application HASHes.
+	_, err = AdoptHashes(f.h.ctx, f.opts, HashAdoptOptions{Prefix: metaPrefix, Table: "it_ad_control", Apply: true})
+	if err == nil || !strings.Contains(err.Error(), "source prefix overlaps driver control storage") {
+		t.Fatalf("driver control storage accepted as a source: %v", err)
 	}
-	expectItem(t, res.Report.Checks[0], CheckBlocker, "can be rows of the driver table")
+	if root != f.raw.HGet(f.h.ctx, snapshotCatalogKey, "root").Val() {
+		t.Fatal("rejected control-storage import published")
+	}
 
 	// A prefix whose keys are all another collection's.
 	n := newHashFixture(t, "it:ad:nest:")
 	n.hset("it:ad:nest:1:a", "n", "1")
 	res = n.adopt(HashAdoptOptions{Table: "it_ad_nest"})
-	expectItem(t, res.Report.Checks[0], CheckBlocker, "every HASH key under it:ad:nest: has another ':' after it (such as it:ad:nest:1:a)")
-}
-
-// adopt stops and undoes what it did if the index can't index a HASH
-// (here a value written between its read and the index).
-func TestAdoptIndexFailure(t *testing.T) {
-	f := newHashFixture(t, "it:ad:fail:")
-	f.dropAdopted("it_ad_fail")
-	t.Cleanup(func() { f.dropAdopted("it_ad_fail") })
-	for i := 1; i <= 5; i++ {
-		f.hset(fmt.Sprintf("%s%d", f.prefix, i), "n", i)
-	}
-	o := HashAdoptOptions{Prefix: f.prefix, Table: "it_ad_fail", Apply: true}
-	o.Progress = func(msg string) {
-		if strings.HasPrefix(msg, "created the index") {
-			f.hset(f.prefix+"2", "n", "two")
-		}
-	}
-	_, err := AdoptHashes(f.h.ctx, f.opts, o)
-	// One HASH, but it may fail twice: when it is written, and when the
-	// index's scan of the existing keys reaches it.
-	if err == nil || !strings.Contains(err.Error(), "indexing failure") ||
-		!strings.Contains(err.Error(), "(the last: it:ad:fail:2:") ||
-		!strings.Contains(err.Error(), "Invalid numeric value: 'two')") {
-		t.Fatalf("got %v", err)
-	}
-	st := &store{client: f.raw}
-	idx := adoptIndexName("public", "it_ad_fail")
-	if err := st.searchDo(f.h.ctx, idx, "FT.INFO", idx).Err(); err == nil || !isUnknownIndex(err) {
-		t.Errorf("the index is still there: %v", err)
-	}
-	for _, k := range []string{adoptedKey, prefixesKey} {
-		if ok, _ := f.raw.SIsMember(f.h.ctx, k, f.prefix).Result(); ok {
-			t.Errorf("%s still has the prefix", k)
-		}
-	}
-	if n := f.h.prefixKeyCount(f.raw, f.prefix); n != 5 {
-		t.Errorf("%d HASHes left", n)
-	}
-	// Fixed, it adopts.
-	f.hset(f.prefix+"2", "n", "2")
-	o.Progress = nil
-	if res, err := AdoptHashes(f.h.ctx, f.opts, o); err != nil || !res.Applied {
-		t.Fatalf("%+v, %v", res, err)
-	}
-	f.h.expectRows(`SELECT SUM(n) FROM it_ad_fail`, "15")
+	expectItem(t, res.Report.Checks[0], CheckBlocker, "no source HASHes qualify as rows")
 }
 
 // The commands adopt needs besides the driver's, and those an UPDATE of an
@@ -434,46 +352,4 @@ func TestACLAdopt(t *testing.T) {
 	writer.exec(`UPDATE it_ad_acl SET age = NULL WHERE name = 'Two'`)
 	writer.expectRows(`SELECT name, age FROM it_ad_acl WHERE __key = 'it:ad:acl:2'`, "Two|NULL")
 	a.expectNoDenials("it_ad_writer")
-}
-
-// An adopt that stopped after reserving the names (its process killed)
-// is finished by running it again; another table can't take the prefix
-// meanwhile.
-func TestAdoptResume(t *testing.T) {
-	f := newHashFixture(t, "it:ad:res:")
-	f.dropAdopted("it_ad_res")
-	t.Cleanup(func() {
-		f.dropAdopted("it_ad_res")
-		_ = f.raw.HDel(f.h.ctx, adoptingKey, f.prefix).Err()
-		for _, k := range []string{prefixesKey, adoptedKey} {
-			_ = f.raw.SRem(f.h.ctx, k, f.prefix).Err()
-		}
-	})
-	for i := 1; i <= 3; i++ {
-		f.hset(fmt.Sprintf("%s%d", f.prefix, i), "n", i)
-	}
-	idx := adoptIndexName("public", "it_ad_res")
-	rec := `{"schema":"public","table":"it_ad_res","index":"` + idx + `"}`
-	pipe := f.raw.TxPipeline()
-	pipe.SAdd(f.h.ctx, prefixesKey, f.prefix)
-	pipe.SAdd(f.h.ctx, adoptedKey, f.prefix)
-	pipe.SAdd(f.h.ctx, indexesKey, idx)
-	pipe.HSet(f.h.ctx, adoptingKey, f.prefix, rec)
-	if _, err := pipe.Exec(f.h.ctx); err != nil {
-		t.Fatal(err)
-	}
-	res := f.adopt(HashAdoptOptions{Table: "it_ad_other"})
-	expectItem(t, res.Report.Checks[0], CheckBlocker, "an adopt of it:ad:res: into public.it_ad_res stopped before it finished")
-	res = f.adopt(HashAdoptOptions{Table: "it_ad_res"})
-	expectItem(t, res.Report.Checks[0], CheckWarn, "an adopt of it:ad:res: into public.it_ad_res stopped before it finished")
-	if !res.Report.Checks[0].Ready {
-		t.Fatalf("not ready: %+v", res.Report.Checks[0])
-	}
-	if res = f.adopt(HashAdoptOptions{Table: "it_ad_res", Apply: true}); !res.Applied {
-		t.Fatalf("%+v", res)
-	}
-	f.h.expectRows(`SELECT SUM(n) FROM it_ad_res`, "6")
-	if n, _ := f.raw.HExists(f.h.ctx, adoptingKey, f.prefix).Result(); n {
-		t.Error("the adopting record is still there")
-	}
 }

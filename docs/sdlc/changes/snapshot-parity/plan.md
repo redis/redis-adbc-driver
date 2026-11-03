@@ -74,3 +74,10 @@ restricted-driver command/pin recipes remain open. The
 identity, including generic/positional/late projections and pinned partitions.
 Remaining adoption/sweep/ACL regression families and the broader parity work
 stay open.
+
+
+The [import-failure checkpoint](import-failure-validation.md) reproduces and fixes
+lost reports after late private-index failure. Atomic rollback, private-index
+reclamation and source ownership are checked for create and refresh. Legacy
+adoption/unfinished reservations are rejected without migration; current large
+operation resumption and the remaining compatibility families stay open.

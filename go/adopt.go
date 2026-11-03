@@ -96,8 +96,10 @@ type adoptRecord struct {
 // AdoptHashes imports the HASHes under o.Prefix into an immutable managed
 // copy. Repeating Apply for the same source and destination refreshes the copy;
 // source HASHes and indexes stay application-owned. Without o.Apply, it reads them,
-// checks, and says what it would do. The options are the driver's database
-// options.
+// checks, and says what it would do. Copy or publication failures return the
+// completed plan alongside the error. Applied reports acknowledged publication;
+// a publication error can still require resolving an uncertain outcome.
+// The options are the driver's database options.
 func AdoptHashes(ctx context.Context, options map[string]string, o HashAdoptOptions) (*HashAdoption, error) {
 	if o.Prefix == "" {
 		return nil, errorf(adbc.StatusInvalidArgument, "a key prefix is required")
