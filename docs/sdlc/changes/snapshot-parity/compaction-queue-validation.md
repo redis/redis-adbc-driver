@@ -1,7 +1,7 @@
 # Validation: durable dirty-table compaction scheduling
 
 Date: 2026-11-03. Parent checkpoint `989b721`. Status: locally verified;
-[full parity](plan.md) remains incomplete. Comparative timing is pending.
+[full parity](plan.md) remains incomplete. Comparative timing is recorded below.
 
 ## Implementation and scope
 
@@ -77,3 +77,33 @@ exact metadata identities and reference accounting. This is not maintainer appro
 Large atomic operations, broader sustained-throughput work, full feature/CI and
 platform compatibility, final Cluster API/failover/AOF reruns, comparative evidence
 and owned cleanup remain required. No full feature/performance parity is claimed.
+
+## Comparative small writes
+
+[All raw samples](compaction-queue-benchmark.json) compare `989b721` (format 11)
+with `c061af6` (format 12), using the same macOS ARM64 host, verified Software
+fixture, native dependencies and version linker flags. Both measurement orders
+are retained at 32 and 128 unrelated tables. Each process resets the owned
+disposable database and uses one initial row, two initial segments, one warmup
+and five timed samples per case. The table pools all ten samples per version/case
+across the two orders; nothing is discarded. Background maintenance remains
+active. Publication and complete RETURNING fetch are timed; independent complete
+result validation follows every write outside the timer. Setup is excluded.
+
+| Unrelated tables | Case | Baseline median ms | Current median ms | Baseline/current |
+|---:|---|---:|---:|---:|
+| 32 | Metadata COMMENT | 16.85 | 13.63 | 1.24× |
+| 32 | One-row UPDATE RETURNING | 33.77 | 30.95 | 1.09× |
+| 32 | One-row Arrow append | 41.07 | 35.29 | 1.16× |
+| 128 | Metadata COMMENT | 29.35 | 26.48 | 1.11× |
+| 128 | One-row UPDATE RETURNING | 99.78 | 85.39 | 1.17× |
+| 128 | One-row Arrow append | 71.87 | 88.89 | 0.81× |
+
+Results are mixed. All three 32-table cases improved in this run, as did COMMENT
+and UPDATE at 128 tables; 128-table Arrow append regressed. These local latency
+samples include maintenance interactions and do not isolate every source of cost.
+They establish neither write-throughput nor pre-snapshot/all-workload parity.
+Remaining root/bucket copying, index lifecycle, row write overhead, active
+compaction throughput and other maintenance costs require further work/evidence.
+The full-feature compatibility failures recorded in the previous checkpoint also
+remain open; no broad skips or weaker ownership/ACL assertions are introduced.
