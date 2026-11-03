@@ -127,7 +127,7 @@ func TestSnapshotSharesUnchangedTablesAndReclaimsReferences(t *testing.T) {
 		h.exec(fmt.Sprintf("UPDATE a SET v=%d", 100+i))
 	}
 	snapshotReapTest(s, h.ctx)
-	if !raw.HExists(h.ctx, snapshotCatalogKey, "d:"+snapshotDataID(b.prefix())).Val() {
+	if !raw.HExists(h.ctx, snapshotMetadataGraph, "d:"+snapshotDataID(b.prefix())).Val() {
 		t.Fatal("shared data record reclaimed")
 	}
 	if raw.Exists(h.ctx, a.prefix()+"1", bRow).Val() != 2 {

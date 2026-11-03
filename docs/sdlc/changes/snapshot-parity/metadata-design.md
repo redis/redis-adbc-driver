@@ -2,13 +2,15 @@
 
 Status: steps 1 and 6 verified in prior checkpoints. Step 2, removal of legacy
 name registries, and independent metadata-object reclamation are implemented;
-full validation is in progress. Row-reference enumeration, independent
-publication, bounded bucket construction and large-operation work remain open.
+full validation is in progress. Incremental row references are implemented
+locally in format 9, replacing publication enumeration; independent publication,
+bounded bucket construction and large-operation work remain open.
 Parent implementation: b4b73e0.
 See [plan](plan.md). This is a work record, not a completed parity claim.
 
-The current workspace copies every metadata key, enumerates all tables to
-validate private writes and assemble references, and serializes unrelated writers
+The original workspace copied every metadata key and enumerated tables for
+validation/reference publication. Those paths now use shared metadata, dirty-table
+validation and descriptor-owned references. Unrelated writers still serialize
 through a base-root CAS. The immutable-row design must remain intact while
 removing those costs.
 

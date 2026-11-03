@@ -1,9 +1,12 @@
 # Next: incremental row references and independent publication
 
-Status: planned, not implemented. The metadata sharing checkpoint still copies
-`r:<base>` during reservation and enumerates table descriptors to publish exact
-row references. Do not claim constant-catalog-cost writes until these paths are
-removed and measured. See [metadata direction](metadata-design.md).
+Status: incremental row references implemented locally in storage format 9;
+validation in progress. Reservation no longer copies `r:<base>` and publication
+no longer enumerates table descriptors. The data registry/counters share the
+metadata graph, with a separate durable zero-reference queue. Independent
+publication and bounded bucket construction remain pending. Do not claim full
+constant-catalog-cost writes or throughput parity without measurements. See
+[metadata direction](metadata-design.md).
 
 The metadata graph should also own immutable table-descriptor-to-row-data edges.
 A native metadata object's first live reference retains its segment IDs once;

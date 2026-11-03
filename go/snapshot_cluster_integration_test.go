@@ -454,7 +454,7 @@ func TestSnapshotClusterReclaimsLateSearchCreate(t *testing.T) {
 	}
 	s.abortSnapshot(pin, wid)
 	snapshotReapTest(s, h.ctx)
-	if raw.HExists(h.ctx, snapshotCatalogKey, "d:"+snapshotDataID(names.prefix)).Val() {
+	if raw.HExists(h.ctx, snapshotMetadataGraph, "d:"+snapshotDataID(names.prefix)).Val() {
 		t.Fatal("private data reservation was not reclaimed")
 	}
 	resume()

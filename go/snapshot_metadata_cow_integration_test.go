@@ -17,6 +17,7 @@ type snapshotUnrelatedMetadataCopies struct {
 	snapshotHook
 	suffixes []string
 	copies   atomic.Int64
+	reads    atomic.Int64
 }
 
 func (h *snapshotUnrelatedMetadataCopies) record(cmd goredis.Cmder) {
@@ -28,7 +29,18 @@ func (h *snapshotUnrelatedMetadataCopies) record(cmd goredis.Cmder) {
 		return
 	}
 	positions := []int{1}
-	switch strings.ToLower(fmt.Sprint(args[0])) {
+	name := strings.ToLower(fmt.Sprint(args[0]))
+	if name == "get" || name == "mget" {
+		for _, arg := range args[1:] {
+			for _, suffix := range h.suffixes {
+				if strings.HasSuffix(fmt.Sprint(arg), suffix) {
+					h.reads.Add(1)
+				}
+			}
+		}
+		return
+	}
+	switch name {
 	case "dump", "restore":
 	case "copy":
 		positions = append(positions, 2)
@@ -268,4 +280,24 @@ func TestSnapshotMetadataDeletedNamesDoNotAccumulate(t *testing.T) {
 		}
 	}
 	h.expectRows("SELECT COUNT(*) FROM information_schema.tables WHERE table_name LIKE 'gone_%'", "0")
+}
+
+func TestSnapshotDMLDoesNotReadUnrelatedTableDescriptors(t *testing.T) {
+	h, raw, _ := newSnapshotHarnessMode(t, false, false)
+	guard := &snapshotUnrelatedMetadataCopies{}
+	for i := 0; i < 8; i++ {
+		name := fmt.Sprintf("t%d", i)
+		h.exec("CREATE TABLE " + name + "(v INTEGER)")
+		if i != 0 {
+			guard.suffixes = append(guard.suffixes, strings.TrimPrefix(metaKey("public", name), metaPrefix))
+		}
+	}
+	h.exec("INSERT INTO t0 VALUES(1)")
+	s := snapshotTestStore(t, raw)
+	s.client.AddHook(guard)
+	snapshotExecuteTest(t, s, h.ctx, "UPDATE t0 SET v=2")
+	if n := guard.reads.Load(); n != 0 {
+		t.Fatalf("one-row DML read %d unrelated table descriptors; row-reference publication still scans the catalog", n)
+	}
+	h.expectRows("SELECT v FROM t0", "2")
 }

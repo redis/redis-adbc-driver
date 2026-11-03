@@ -106,7 +106,7 @@ end
 return 1
 `
 
-const snapshotMetadataOwnValue = `
+const snapshotMetadataOwnValue = snapshotDataEdges + `
 if KEYS[2]~='` + snapshotPrefix + `metadata:root:'..ARGV[1] or KEYS[3]~='` + snapshotPrefix + `metadata:bucket:'..ARGV[1]..':'..ARGV[3] or KEYS[4]~='` + snapshotPrefix + `workspace:'..ARGV[5]..':'..ARGV[4] or KEYS[5]~='` + snapshotPrefix + `workspace:'..ARGV[1]..':'..ARGV[4] then return redis.error_reply('invalid snapshot metadata value keys') end
 local raw=redis.call('HGET',KEYS[1],'w:'..ARGV[1])
 if not raw then return redis.error_reply('snapshot writer lease lost') end
@@ -121,7 +121,15 @@ if owner~='' then
  local expected=redis.call('HGET',KEYS[6],'e:'..KEYS[4])
  if not expected or tonumber(expected)~=redis.call('EXISTS',KEYS[4]) then return redis.error_reply('snapshot metadata value is missing or corrupt') end
  present=tonumber(expected)
- if present==1 then redis.call('COPY',KEYS[4],KEYS[5],'REPLACE') end
+ if present==1 then
+  local edges=redis.call('HGET',KEYS[6],'t:'..KEYS[4])
+  if string.sub(ARGV[4],1,6)=='table:' and not edges then return redis.error_reply('snapshot descriptor references missing') end
+  local refs=cjson.decode(edges or '[]')
+  data_live(KEYS[6],refs)
+  redis.call('COPY',KEYS[4],KEYS[5],'REPLACE')
+  data_retain(KEYS[6],refs)
+  if #refs>0 then redis.call('HSET',KEYS[6],'t:'..KEYS[5],cjson.encode(refs)) end
+ end
 end
 redis.call('HSET',KEYS[3],ARGV[4],ARGV[1])
 redis.call('HSET',KEYS[6],'v:'..KEYS[5],1,'e:'..KEYS[5],present,'n:'..ARGV[1]..':'..ARGV[3],redis.call('HLEN',KEYS[3]))
@@ -213,7 +221,7 @@ func resolveSnapshotMetadata(ctx context.Context, suffix string, writing bool, c
 			}
 			source := snapshotWorkspace(valueOwner) + suffix
 			target := snapshotWorkspace(scope.id) + suffix
-			if err := once(ctx, s.redis(ctx), "EVAL", snapshotMetadataOwnValue, 8, snapshotCatalogKey, snapshotMetadataMap(scope.id), snapshotMetadataBucket(scope.id, slot), source, target, snapshotMetadataGraph, snapshotMetadataValueQueue, snapshotMetadataKeys(scope.id), scope.id, scope.pin.token, slot, suffix, valueOwner).Err(); err != nil {
+			if err := once(ctx, s.redis(ctx), "EVAL", snapshotMetadataOwnValue, 9, snapshotCatalogKey, snapshotMetadataMap(scope.id), snapshotMetadataBucket(scope.id, slot), source, target, snapshotMetadataGraph, snapshotMetadataValueQueue, snapshotMetadataKeys(scope.id), snapshotDataQueue, scope.id, scope.pin.token, slot, suffix, valueOwner).Err(); err != nil {
 				return "", err
 			}
 			bucket[suffix] = scope.id
@@ -284,13 +292,16 @@ if redis.call('HLEN',KEYS[1])==0 then
 end
 return 1
 `
-const snapshotMetadataCollectValue = `
+const snapshotMetadataCollectValue = snapshotDataEdges + `
 if not redis.call('ZSCORE',KEYS[3],KEYS[1]) then return 1 end
 local refs=redis.call('HGET',KEYS[2],'v:'..KEYS[1])
 if not refs then return redis.error_reply('snapshot metadata object reference missing') end
 if refs and tonumber(refs)>0 then return redis.error_reply('snapshot metadata object is referenced') end
+local refs=cjson.decode(redis.call('HGET',KEYS[2],'t:'..KEYS[1]) or '[]')
+data_releasable(KEYS[2],refs)
+data_release(KEYS[2],KEYS[5],refs)
 redis.call('DEL',KEYS[1]);redis.call('ZREM',KEYS[4],KEYS[1])
-redis.call('HDEL',KEYS[2],'v:'..KEYS[1],'e:'..KEYS[1]);redis.call('ZREM',KEYS[3],KEYS[1]);return 1
+redis.call('HDEL',KEYS[2],'v:'..KEYS[1],'e:'..KEYS[1],'t:'..KEYS[1]);redis.call('ZREM',KEYS[3],KEYS[1]);return 1
 `
 
 func (s *store) retireSnapshotMetadata(ctx context.Context, id string) error {
@@ -322,7 +333,7 @@ func (s *store) collectSnapshotMetadata(ctx context.Context) error {
 		if !ok || len(rest) < 34 || rest[32] != ':' || !snapshotMetadataID(rest[:32]) {
 			return errorf(adbc.StatusIO, "invalid retiring metadata object")
 		}
-		if err := once(ctx, s.client, "EVAL", snapshotMetadataCollectValue, 4, key, snapshotMetadataGraph, snapshotMetadataValueQueue, snapshotMetadataKeys(rest[:32])).Err(); err != nil {
+		if err := once(ctx, s.client, "EVAL", snapshotMetadataCollectValue, 5, key, snapshotMetadataGraph, snapshotMetadataValueQueue, snapshotMetadataKeys(rest[:32]), snapshotDataQueue).Err(); err != nil {
 			return err
 		}
 	}

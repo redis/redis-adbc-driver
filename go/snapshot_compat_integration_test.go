@@ -362,7 +362,7 @@ func TestSnapshotImportStartsBesideExternalData(t *testing.T) {
 }
 
 func TestSnapshotCompatibilityRejectsPriorFormat(t *testing.T) {
-	for _, prior := range []string{"6", "7"} {
+	for _, prior := range []string{"6", "7", "8"} {
 		t.Run(prior, func(t *testing.T) {
 			h, raw, db := newSnapshotHarness(t)
 			if err := raw.HSet(h.ctx, snapshotCatalogKey, "format", prior).Err(); err != nil {

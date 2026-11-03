@@ -118,7 +118,7 @@ func (s *store) reapSnapshotOrphanIndex(ctx context.Context) error {
 		if id == "" {
 			continue
 		}
-		exists, err := s.client.HExists(ctx, snapshotCatalogKey, "d:"+id).Result()
+		exists, err := s.client.HExists(ctx, snapshotMetadataGraph, "d:"+id).Result()
 		if err != nil {
 			return err
 		}

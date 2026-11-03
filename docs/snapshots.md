@@ -5,8 +5,8 @@ managed tables and imported copies of application data. No option is required.
 Ordinary Open initializes an empty isolated database. Explicit HASH import and
 foreign-index import may initialize alongside application-owned data and indexes,
 but reject existing legacy driver metadata without modification. No upgrade or
-migration path is included. Storage protocol version 8 rejects prior draft versions
-1–7. It requires an indexed tombstone marker for visibility-safe server reduction.
+migration path is included. Storage protocol version 9 rejects prior draft versions
+1–8. It requires an indexed tombstone marker for visibility-safe server reduction.
 Metadata manifests share immutable buckets and native values through a fixed
 256-slot map. Writes copy touched buckets/values; reference-counted retirement
 preserves aliases after their original manifest is removed. Committed map,
@@ -140,8 +140,13 @@ Each write copies at most 256 metadata bucket references. Touched buckets share
 native metadata values until a logical key is changed; unchanged table descriptors
 and row/index storage remain shared. Final index sealing visits dirty tables.
 Snapshot UUID ownership replaces the legacy catalog-wide prefix/index registries.
-Row-reference publication still enumerates the catalog; removing that cost and
-supporting independent metadata publication remain active work. INSERT and append ingestion write new
+Each immutable native table descriptor retains its row segments independently of
+bucket aliases. Private copies inherit these references before replacing shared
+metadata; descriptor SET updates them inside the writer fence. Publication releases
+only staging-owned output references, without reading unrelated table descriptors.
+Durable compaction jobs retain their own source/output references. A zero-reference
+queue admits row reclamation in bounded batches without scanning all catalog data.
+Independent metadata publication remains active work. INSERT and append ingestion write new
 rows into a new segment. UPDATE writes complete replacement images for matched
 rows; DELETE writes deletion markers. An ordinary one-row change writes one row
 image or tombstone, rather than copying the target table. Existing row images and
