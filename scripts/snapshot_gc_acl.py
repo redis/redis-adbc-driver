@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Run GC permission-preflight regression with an owned Software API principal.
+"""Run row-batch permission regressions with an owned Software API principal.
 
-Creates a temporary principal with DEL allowed and ZREM denied. Credentials and
+Creates a temporary principal with DEL/HSET allowed and ZREM/ZADD denied. Credentials and
 infrastructure identifiers stay private. The Go test clears the dedicated DB.
 """
 
@@ -53,16 +53,18 @@ def main():
         name = "gc-preflight-" + uuid.uuid4().hex + "@example.com"
         try:
             principals.create(name, secrets.token_urlsafe(32), [
-                "+ping", "+eval", "+hget", "+hexists", "+zscore", "+zcard", "+del", "~*"])
+                "+ping", "+eval", "+hget", "+hexists", "+zscore", "+zcard", "+del",
+                "+hset", "+exists", "+type", "+time", "~*"])
             env = dict(os.environ, REDIS_SNAPSHOT_URI=uri,
-                       REDIS_SNAPSHOT_GC_ACL_URI=principals.people[name]["uri"])
+                       REDIS_SNAPSHOT_GC_ACL_URI=principals.people[name]["uri"],
+                       REDIS_SNAPSHOT_WRITE_ACL_URI=principals.people[name]["uri"])
             env.pop("REDIS_URI", None)
             subprocess.run(["go", "test", "-race", "-count=1", "-v", "-run",
-                            "^TestSnapshotGCBatchPermissionPreflight$", "."],
+                            "^TestSnapshot(GCBatch|InsertBatch)PermissionPreflight$", "."],
                            cwd=Path(__file__).resolve().parents[1] / "go", env=env, check=True)
         finally:
             principals.cleanup()
-    print("GC permission preflight verified; temporary Software principal removed.")
+    print("Row-batch permission preflights verified; temporary Software principal removed.")
 
 
 if __name__ == "__main__":

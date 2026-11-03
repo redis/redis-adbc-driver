@@ -53,6 +53,7 @@ type snapshotScope struct {
 	deferredIndexes   map[string]*snapshotIndexState // data ID -> final index layout
 	validated         *sync.Map                      // immutable segment descriptor -> *snapshotSegmentValidation
 	mu                sync.Mutex
+	rowBatchMu        sync.Mutex
 	bytes, writes     int64
 }
 

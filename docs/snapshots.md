@@ -301,10 +301,20 @@ read instead of exposing an older replacement or a partial successful result.
 | One compaction job per catalog | Durable, resumable; holds a work record and protected source/output references |
 | 64 merged IDs / 1 MiB target per copy batch | One oversized row may exceed the byte target, within the 64 MiB hard staging limit |
 | 128 active pins | Includes readers, writer base snapshots and metadata operations |
-| 64 MiB staged command data per write | Conservative count before sending mutations, including metadata and changed SQL/ingest rows; compaction resets this bound per batch; not a physical Redis memory estimate |
-| 100,000 row HSET operations per write | Applies to SQL/ingest writes; background jobs copy in separately bounded batches; can be reached below 100,000 stored rows |
+| 256 inserted rows / 1 MiB target per atomic insert batch | SQL insert and Arrow ingestion stage complete row images plus exact directory registration; a single wide row may exceed the target up to 64 MiB of command arguments |
+| 4,096 converted Arrow rows per slice | Bounds the driver's additional row conversion; the caller's original Arrow record remains retained while consumed |
+| 64 MiB staged command data per unbatched write | Conservative count for metadata and generic private mutation paths, including UPDATE/DDL rewrites; bounded insert batches and compaction enforce separate per-batch limits; not a Redis memory estimate |
+| 100,000 unbatched row HSET operations per write | Remains on generic UPDATE/DDL rewrite paths; bounded inserts/Arrow ingestion and background copy jobs are not subject to this cumulative limit |
 | 15 minutes per statement/ingest | Includes complete streamed consumption |
 | Two-minute lease, renewed every 30 seconds | Ownership loss fails the operation; expired pins cannot be resurrected |
+
+Insert batches retain one bounded outcome in their private work record. A lost
+reply is resolved with an independent read; the driver never resends an uncertain
+batch or rereads SQL/Arrow input. Rows and directory entries precede the outcome,
+and the final catalog publication still follows complete input, constraints and
+index validation. Failed/unknown batches cannot publish. There is no public
+resume token or process-crash resume for unread Arrow input. SQL planning can
+still materialize complete result rows, and whole-statement timeouts remain.
 
 Redis also needs memory for retained generations, indexes and server overhead.
 Concurrent publication returns SQLSTATE `40001` to the losing writer. Retry the

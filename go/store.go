@@ -1942,6 +1942,9 @@ func (s *store) writeRows(ctx context.Context, meta *tableMeta, a rowAlloc, rows
 		fieldNames[i] = c.field()
 	}
 	meta.wrote.ranges = append(meta.wrote.ranges, [2]int64{a.first, int64(len(rows))})
+	if scope := snapshotOf(ctx); scope != nil && scope.write {
+		return s.writeSnapshotRows(ctx, meta, a, rows, fieldNames)
+	}
 	for start := 0; start < len(rows); start += pipelineChunk {
 		if start > 0 {
 			if err := s.checkWritten(ctx, meta); err != nil {

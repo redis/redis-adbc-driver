@@ -12,6 +12,7 @@ is excluded, and no credentials are emitted.
 """
 
 import argparse
+import hashlib
 import json
 import os
 import platform
@@ -120,6 +121,35 @@ def wide_cases(cur, repeats, rows):
     return results, visible
 
 
+def batch_write_cases(cur, repeats, rows):
+    results = {}
+    expected = [(i, 9007199254740993) for i in range(1, rows + 1)]
+    batch = pa.table({"id": pa.array(range(1, rows + 1), pa.int64()),
+                      "v": pa.array([9007199254740993] * rows, pa.int64())})
+    for mode in ("sql_insert_batch", "arrow_append_batch"):
+        samples = []
+        for iteration in range(repeats + 1):
+            cur.execute("CREATE TABLE batch_write(id BIGINT,v BIGINT)")
+            start = time.perf_counter()
+            if mode == "sql_insert_batch":
+                cur.execute(f"INSERT INTO batch_write SELECT i,9007199254740993 FROM generate_series(1,{rows}) AS g(i)")
+                affected = cur.rowcount
+            else:
+                affected = cur.adbc_ingest("batch_write", batch, mode="append")
+            elapsed = time.perf_counter() - start
+            if affected != rows:
+                raise AssertionError(f"{mode}: incorrect affected row count")
+            cur.execute("SELECT id,v FROM batch_write ORDER BY id")
+            if cur.fetchall() != expected:
+                raise AssertionError(f"{mode}: complete independent row validation failed")
+            cur.execute("DROP TABLE batch_write")
+            if iteration:
+                samples.append(elapsed * 1000)
+        results[mode] = {"median_ms": statistics.median(samples), "samples_ms": samples,
+                         "output_rows": rows}
+    return results, expected
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--driver", type=Path, required=True)
@@ -141,6 +171,8 @@ def main():
         action="store_true",
         help="Small-write metadata benchmark; requires --rows=1",
     )
+    modes.add_argument("--write-batches", action="store_true",
+                       help="SQL insert and Arrow append batches with full post-write validation")
     parser.add_argument("--unrelated-tables", type=int, default=32)
     parser.add_argument("--repeats", type=int, default=5)
     args = parser.parse_args()
@@ -189,7 +221,9 @@ def main():
         driver=str(args.driver.resolve()), db_kwargs={"uri": uri}, autocommit=True
     ) as conn:
         with conn.cursor() as cur:
-            if args.wide:
+            if args.write_batches:
+                results, logical = batch_write_cases(cur, args.repeats, args.rows)
+            elif args.wide:
                 results, logical = wide_cases(cur, args.repeats, args.rows)
             else:
                 cur.execute(
@@ -271,6 +305,7 @@ def main():
         json.dumps(
             {
                 "source": args.source,
+                "driver_sha256": hashlib.sha256(args.driver.read_bytes()).hexdigest(),
                 "platform": platform.platform(),
                 "machine": platform.machine(),
                 "redis_version": server,
@@ -279,12 +314,14 @@ def main():
                 "noeviction": True,
                 "input_rows": args.rows,
                 "visible_rows": len(logical),
-                "initial_segments": 2 if args.writes else 3,
-                "unrelated_tables": 0 if args.wide else args.unrelated_tables,
+                "initial_segments": 1 if args.write_batches else (2 if args.writes else 3),
+                "unrelated_tables": 0 if args.wide or args.write_batches else args.unrelated_tables,
                 "wide_columns": 64 if args.wide else None,
                 "repeats": args.repeats,
                 "warmups": 1,
                 "timing": (
+                    "write through atomic publication; complete independent post-write validation excluded"
+                    if args.write_batches else
                     "write/publication + complete RETURNING fetch; independent post-write validation excluded"
                     if args.writes
                     else "execute + complete Arrow fetch + independent validation"

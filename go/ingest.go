@@ -221,12 +221,7 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 		return -1, err
 	}
 
-	var total int64
-	for s.params.Next() {
-		rec := s.params.RecordBatch()
-		if err := validateInputRecord(rec); err != nil {
-			return -1, errorf(adbc.StatusInvalidArgument, "invalid Arrow input: %v", err)
-		}
+	writeRecord := func(rec arrow.RecordBatch) (int64, error) {
 		n := int(rec.NumRows())
 		rows := make([][]Value, n)
 		values := make([]Value, n*len(meta.Columns))
@@ -245,17 +240,38 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 				return -1, columnErr(col.Name, err)
 			}
 		}
-		// Each batch is checked whole before any of it is written.
+		// Each conversion slice is checked before writing. Snapshot slices stay
+		// private until the entire input succeeds and publishes once.
 		for _, row := range rows {
 			if err := checkNewRow(meta, checks, row); err != nil {
 				return -1, err
 			}
 		}
-		written, err := st.insertRows(ctx, meta, rows)
-		if err != nil {
-			return -1, err
+		return st.insertRows(ctx, meta, rows)
+	}
+	var total int64
+	for s.params.Next() {
+		rec := s.params.RecordBatch()
+		if err := validateInputRecord(rec); err != nil {
+			return -1, errorf(adbc.StatusInvalidArgument, "invalid Arrow input: %v", err)
 		}
-		total += written
+		if scope := snapshotOf(ctx); scope != nil && scope.write {
+			for start := int64(0); start < rec.NumRows(); start += snapshotIngestConvertRows {
+				part := rec.NewSlice(start, min(start+snapshotIngestConvertRows, rec.NumRows()))
+				written, err := writeRecord(part)
+				part.Release()
+				if err != nil {
+					return -1, err
+				}
+				total += written
+			}
+		} else {
+			written, err := writeRecord(rec)
+			if err != nil {
+				return -1, err
+			}
+			total += written
+		}
 	}
 	if err := s.params.Err(); err != nil && !errors.Is(err, io.EOF) {
 		var ae adbc.Error

@@ -8,7 +8,7 @@ Date: 2026-11-02. Status: in progress. See [intent](intent.md), [spec](spec.md).
 | Visibility-correct Search predicates and parallel reads | Implemented; targeted and race checks passed |
 | Exact index aggregation/grouping/top-K on segmented visibility | Implemented with bounded masks and exact fallbacks; seven-case read comparison recorded |
 | Incremental metadata, independent publication and index lifecycle | Lazy validation and one-build index lifecycle/no-op publication implemented; pre-execution admission and metadata sharing/GC implemented; incremental row references verified locally; independent publication verified locally; bounded bucket construction verified locally |
-| Large atomic writes/ingestion and sustained compaction | Durable dirty-table scheduling verified locally; large atomic operations and broader throughput work remain open |
+| Large atomic writes/ingestion and sustained compaction | Durable dirty-table scheduling and GC batch progress verified locally; bounded SQL insert/Arrow batches with durable outcomes implemented; generic large rewrites, process resume and broader throughput work remain open |
 | Full feature/native/platform/Cluster API validation | Proxy race/native milestone checked; full feature/platform/Cluster reruns pending |
 | Comparative benchmarks, review, PR evidence and owned cleanup | Seven-case read comparison and self-review recorded; remaining benchmarks/cleanup pending |
 
@@ -108,3 +108,10 @@ directory entries with their zero-reference row deletions. Fresh collectors keep
 progress after interrupted replies without SCAN cursors or replay. It supersedes
 the sweep checkpoint's directory-rescan limitation; broader large-operation,
 platform and comparative performance requirements remain open.
+
+The [insert batch checkpoint](write-batch-validation.md) stages SQL/Arrow inserts
+in bounded atomic row batches with durable outcomes, resolves lost replies by
+reading rather than resending, and slices Arrow conversion. It removes the old
+cumulative insert ceiling while preserving final publication. Unread-input/process
+resume, generic large rewrites, sustained compaction and the full matrix remain
+required; this is not completion of the large-operation workstream.

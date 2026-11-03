@@ -22,6 +22,10 @@ type snapshotDeltaWrites struct {
 }
 
 func (h *snapshotDeltaWrites) check(cmd goredis.Cmder) {
+	for _, key := range snapshotInsertBatchRowKeys(cmd) {
+		h.rows++
+		h.prefixes[snapshotDataID(fmt.Sprint(key))] = true
+	}
 	if wrapped, ok := cmd.(snapshotFencedCommand); ok {
 		cmd = wrapped.Cmder
 	}

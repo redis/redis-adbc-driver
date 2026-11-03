@@ -22,6 +22,11 @@ type snapshotSharedGuard struct {
 }
 
 func (g *snapshotSharedGuard) check(cmd goredis.Cmder) {
+	for _, key := range snapshotInsertBatchRowKeys(cmd) {
+		if strings.HasPrefix(fmt.Sprint(key), g.prefix) {
+			g.touches++
+		}
+	}
 	if c, ok := cmd.(snapshotFencedCommand); ok {
 		cmd = c.Cmder
 	}
