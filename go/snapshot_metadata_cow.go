@@ -39,6 +39,8 @@ type snapshotMetadataState struct {
 	checked map[string]bool
 	dirty   map[string]bool
 	prune   map[string]bool
+	reads   map[string]string // logical key -> original immutable value owner (empty means absent)
+	changed map[string]bool
 }
 
 // Both maps contain only references. Copying a root touches at most 256 slots;
@@ -166,6 +168,10 @@ func resolveSnapshotMetadata(ctx context.Context, suffix string, writing bool, c
 		m.checked = map[string]bool{}
 		m.dirty = map[string]bool{}
 		m.prune = map[string]bool{}
+		m.changed = map[string]bool{}
+		if m.reads == nil {
+			m.reads = map[string]string{}
+		}
 	}
 	slot := snapshotMetadataSlot(suffix)
 	owner := m.roots[slot]
@@ -193,7 +199,11 @@ func resolveSnapshotMetadata(ctx context.Context, suffix string, writing bool, c
 		}
 		m.buckets[slot] = bucket
 	}
+	if _, recorded := m.reads[suffix]; !recorded && !(scope.write && bucket[suffix] == scope.id) {
+		m.reads[suffix] = bucket[suffix]
+	}
 	if writing {
+		m.changed[suffix] = true
 		if len(command) > 0 {
 			switch command[0] {
 			case "del", "unlink", "srem", "hdel", "expire", "pexpire":

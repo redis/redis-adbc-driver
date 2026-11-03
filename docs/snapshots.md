@@ -5,8 +5,8 @@ managed tables and imported copies of application data. No option is required.
 Ordinary Open initializes an empty isolated database. Explicit HASH import and
 foreign-index import may initialize alongside application-owned data and indexes,
 but reject existing legacy driver metadata without modification. No upgrade or
-migration path is included. Storage protocol version 9 rejects prior draft versions
-1–8. It requires an indexed tombstone marker for visibility-safe server reduction.
+migration path is included. Storage protocol version 10 rejects prior draft versions
+1–9. It requires an indexed tombstone marker for visibility-safe server reduction.
 Metadata manifests share immutable buckets and native values through a fixed
 256-slot map. Writes copy touched buckets/values; reference-counted retirement
 preserves aliases after their original manifest is removed. Committed map,
@@ -146,7 +146,15 @@ metadata; descriptor SET updates them inside the writer fence. Publication relea
 only staging-owned output references, without reading unrelated table descriptors.
 Durable compaction jobs retain their own source/output references. A zero-reference
 queue admits row reclamation in bounded batches without scanning all catalog data.
-Independent metadata publication remains active work. INSERT and append ingestion write new
+Publication tracks metadata versions read by planning/execution, including reads
+before a workspace is reserved. If another writer publishes unrelated changes,
+the driver seals its outputs, checks those original dependencies against a pinned
+latest generation and merges only changed logical keys. Bucket collisions preserve
+both updates. Changed read/target metadata and shared catalog collections still
+cause serialization conflicts; sustained publication contention can also exhaust
+the bounded metadata merge attempts. SQL, Arrow input, defaults and volatile
+expressions are never re-executed. Both the original and latest pins must remain
+valid through publication. INSERT and append ingestion write new
 rows into a new segment. UPDATE writes complete replacement images for matched
 rows; DELETE writes deletion markers. An ordinary one-row change writes one row
 image or tombstone, rather than copying the target table. Existing row images and

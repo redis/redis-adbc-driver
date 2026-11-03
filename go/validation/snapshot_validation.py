@@ -8,6 +8,8 @@ test. Run separately from the ordinary validation suite; see docs/snapshots.md.
 """
 
 import os
+import threading
+from concurrent.futures import ThreadPoolExecutor
 import sys
 import time
 import unittest
@@ -112,6 +114,44 @@ class SnapshotValidation(unittest.TestCase):
             expected = [(i, exact) for i in range(count)]
             expected += [(count + i, exact + i) for i in range(20)]
             self.assertEqual(cur.fetchall(), expected)
+
+    def test_concurrent_independent_ingest_consumes_input_once(self):
+        names = ("append_a", "append_b")
+        with self.conn.cursor() as cur:
+            for name in names:
+                cur.execute(f"CREATE TABLE {name}(id INTEGER,v BIGINT)")
+        ready = threading.Barrier(2, timeout=20)
+        consumed = {name: [] for name in names}
+        schema = pa.schema([("id", pa.int32()), ("v", pa.int64())])
+        exact = 9007199254740993
+
+        def append(name):
+            def batches():
+                for index in range(2):
+                    if index == 1:
+                        # Both native workspaces have consumed their first batch
+                        # before either stream can complete and publish.
+                        ready.wait()
+                    consumed[name].append(index)
+                    yield pa.RecordBatch.from_arrays(
+                        [pa.array([index + 1], pa.int32()),
+                         pa.array([exact + index], pa.int64())],
+                        schema=schema,
+                    )
+
+            with self.connect() as conn, conn.cursor() as cur:
+                return cur.adbc_ingest(
+                    name, pa.RecordBatchReader.from_batches(schema, batches()), mode="append"
+                )
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            futures = [pool.submit(append, name) for name in names]
+            self.assertEqual([future.result(timeout=40) for future in futures], [2, 2])
+        self.assertEqual(consumed, {name: [0, 1] for name in names})
+        with self.conn.cursor() as cur:
+            for name in names:
+                cur.execute(f"SELECT id,v FROM {name} ORDER BY id")
+                self.assertEqual(cur.fetchall(), [(1, exact), (2, exact + 1)])
 
     def test_late_ingest_error_does_not_publish(self):
         with self.conn.cursor() as cur:

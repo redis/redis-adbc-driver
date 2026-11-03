@@ -85,12 +85,12 @@ end
 if op == 'init' then
   if redis.call('EXISTS', k) == 0 then
     if ARGV[6] ~= 'import' and redis.call('DBSIZE') ~= 0 then return redis.error_reply('managed-table snapshots require a fresh empty database; existing storage is not upgraded or modified') end
-    redis.call('HSET', k, 'format', '9', 'root', id, 'w:'..id, cjson.encode({state='committed',metadata_keys=0,metadata_buckets=0}), 'r:'..id, '[]')
+    redis.call('HSET', k, 'format', '10', 'root', id, 'w:'..id, cjson.encode({state='committed',metadata_keys=0,metadata_buckets=0}), 'r:'..id, '[]')
   end
-  if redis.call('HGET', k, 'format') ~= '9' then return redis.error_reply('unsupported snapshot catalog format') end
+  if redis.call('HGET', k, 'format') ~= '10' then return redis.error_reply('unsupported snapshot catalog format') end
   return 1
 end
-if redis.call('HGET', k, 'format') ~= '9' then return redis.error_reply('missing or unsupported snapshot catalog') end
+if redis.call('HGET', k, 'format') ~= '10' then return redis.error_reply('missing or unsupported snapshot catalog') end
 local entries = redis.call('HGETALL', k)
 local pins, works, protected = 0, 0, {}
 for n=1,#entries,2 do
@@ -206,7 +206,7 @@ elseif op == 'renew' or op == 'valid' then
       local wr = redis.call('HGET', k, 'w:'..id)
       if not wr then return 0 end
       local w = cjson.decode(wr)
-      if w.state ~= 'staging' or w.token ~= token or w.expires <= now then return 0 end
+      if (w.state ~= 'staging' and w.state ~= 'sealed') or w.token ~= token or w.expires <= now then return 0 end
       w.expires = expiry
       redis.call('HSET', k, 'w:'..id, cjson.encode(w))
     end
@@ -219,11 +219,11 @@ elseif op == 'reserve' then
   local prior = redis.call('HGET', k, 'w:'..id)
   if prior then
     local w = cjson.decode(prior)
-    if w.state == 'staging' and w.token == token then return 1 end
+    if (w.state == 'staging' or w.state == 'sealed') and w.token == token then return 1 end
     return 0
   end
   if works >= 16 then return redis.error_reply('snapshot generation limit (16) reached; release old readers or retry cleanup') end
-  if not owns_pin() or redis.call('HGET', k, 'root') ~= base then return 0 end
+  if not owns_pin() then return 0 end
   redis.call('HSET', k, 'w:'..id, cjson.encode({state='staging',token=token,expires=expiry,base=base}))
   redis.call('HSET', k, 'r:'..id, '[]')
   return 1
@@ -244,13 +244,33 @@ elseif op == 'own_data' then
   redis.call('HSET',graph,'d:'..data,cjson.encode({owner=id,state='live'}),'r:'..data,1)
   redis.call('HSET', k, 'r:'..id,cjson.encode(refs))
   return 1
+elseif op == 'seal' then
+  local raw=redis.call('HGET',k,'w:'..id)
+  if not raw or not owns_pin() then return 0 end
+  local w=cjson.decode(raw)
+  if (w.state~='staging' and w.state~='sealed') or w.token~=token or w.expires<=now then return 0 end
+  w.state='sealed';redis.call('HSET',k,'w:'..id,cjson.encode(w));return 1
 elseif op == 'publish' or op == 'publish_compaction' or op == 'publish_temp' then
   local raw = redis.call('HGET', k, 'w:'..id)
   if not raw then return -1 end
   local w = cjson.decode(raw)
   if w.state == 'committed' then return 1 end
-  if w.state ~= 'staging' or w.token ~= token or w.expires <= now or not owns_pin() then return -1 end
-  if redis.call('HGET', k, 'root') ~= base then return 0 end
+  if (w.state ~= 'staging' and w.state ~= 'sealed') or w.token ~= token or w.expires <= now or not owns_pin() then return -1 end
+  -- Seal before the first CAS refusal. The uncontended path seals and commits
+  -- in this same operation, without an extra round trip.
+  if w.state=='staging' then w.state='sealed';redis.call('HSET',k,'w:'..id,cjson.encode(w)) end
+  local merge=nil
+  local expected=base
+  if ARGV[6]~='' then
+    merge=cjson.decode(ARGV[6]);expected=merge.base
+    local mr=redis.call('HGET',k,'w:'..merge.id)
+    local pr=redis.call('HGET',k,'p:'..merge.token)
+    if not mr or not pr then return -1 end
+    local mw,mp=cjson.decode(mr),cjson.decode(pr)
+    if mw.state~='staging' or mw.base~=merge.base or mw.token~=merge.token or mw.expires<=now or mp.root~=merge.base or mp.expires<=now or not mw.metadata_ready or #(cjson.decode(redis.call('HGET',k,'r:'..merge.id) or '[]'))~=0 then return -1 end
+    if KEYS[#KEYS-2]~='` + snapshotPrefix + `metadata:root:'..merge.id then return redis.error_reply('invalid snapshot merge map') end
+  end
+  if redis.call('HGET', k, 'root') ~= expected then return 0 end
   if op == 'publish_temp' and redis.call('EXISTS',KEYS[4]) ~= 0 then return -4 end
   if op == 'publish_compaction' then
     for n=1,#entries,2 do
@@ -260,13 +280,32 @@ elseif op == 'publish' or op == 'publish_compaction' or op == 'publish_temp' the
       end
       if string.sub(entries[n],1,2) == 'w:' and entries[n] ~= 'w:'..id then
         local other = cjson.decode(entries[n+1])
-        if other.state == 'staging' and other.expires > now then return 0 end
+        if (other.state == 'staging' or other.state == 'sealed') and other.expires > now and (not merge or entries[n]~='w:'..merge.id) then return 0 end
       end
     end
   end
   local refs = cjson.decode(redis.call('HGET',k,'r:'..id) or '[]')
   data_live(graph,refs)
   data_releasable(graph,refs)
+  if merge then
+    local oldmap=redis.call('HGETALL',KEYS[3])
+    local newmap=redis.call('HGETALL',KEYS[#KEYS-2])
+    if #oldmap>512 or #newmap>512 then return redis.error_reply('invalid snapshot merge root') end
+    for i=1,#oldmap,2 do
+      if tonumber(redis.call('HGET',graph,'b:'..oldmap[i+1]..':'..oldmap[i]) or '0')<=0 then return redis.error_reply('snapshot metadata reference missing') end
+    end
+    for i=1,#newmap,2 do
+      if tonumber(redis.call('HGET',graph,'b:'..newmap[i+1]..':'..newmap[i]) or '0')<=0 then return redis.error_reply('snapshot metadata reference missing') end
+    end
+    for i=1,#oldmap,2 do
+      local field=oldmap[i+1]..':'..oldmap[i]
+      if redis.call('HINCRBY',graph,'b:'..field,-1)==0 then redis.call('ZADD',KEYS[#KEYS-3],0,field) end
+    end
+    redis.call('DEL',KEYS[3])
+    for i=1,#newmap,2 do redis.call('HSET',KEYS[3],newmap[i],newmap[i+1]) end
+    redis.call('DEL',KEYS[#KEYS-2])
+    redis.call('HSET',k,'w:'..merge.id,cjson.encode({state='deleting'}))
+  end
   redis.call('HSET', k, 'root', id, 'w:'..id, cjson.encode({state='committed',metadata_keys=redis.call('ZCARD',KEYS[2]),metadata_buckets=redis.call('HLEN',KEYS[3])}), 'r:'..id, '[]')
   data_release(graph,dataqueue,refs)
   local pr = redis.call('HGET', k, 'p:'..token)
@@ -284,7 +323,7 @@ elseif op == 'abort' then
   local raw = redis.call('HGET', k, 'w:'..id)
   if raw then
     local w = cjson.decode(raw)
-    if w.state == 'staging' and w.token == token then
+    if (w.state == 'staging' or w.state == 'sealed') and w.token == token then
       redis.call('HSET', k, 'w:'..id, cjson.encode({state='deleting'}))
     end
   end
@@ -296,7 +335,7 @@ elseif op == 'claim' then
     if string.sub(field,1,2) == 'w:' then
       local candidate = string.sub(field,3)
       local w = cjson.decode(entries[n+1])
-      if candidate ~= root and not protected[candidate] and w.state ~= 'compacting' and (w.state ~= 'staging' or w.expires <= now) then
+      if candidate ~= root and not protected[candidate] and w.state ~= 'compacting' and ((w.state ~= 'staging' and w.state ~= 'sealed') or w.expires <= now) then
         redis.call('HSET', k, field, cjson.encode({state='deleting'}))
         return candidate
       end
@@ -350,6 +389,9 @@ func (s *store) snapshotControl(ctx context.Context, op, token, id, base string,
 	}
 	if op == "publish_temp" && len(extra) > 1 {
 		keys = append(keys, tempAliveKey(extra[1]))
+	}
+	if len(extra) > 2 && extra[2] != "" {
+		keys = append(keys, snapshotMetadataBucketQueue, snapshotMetadataMap(extra[2]))
 	}
 	keys = append(keys, snapshotMetadataGraph, snapshotDataQueue)
 	args := []any{"EVAL", snapshotControl, len(keys)}
@@ -801,6 +843,13 @@ func (s *store) beginSnapshotWrite(ctx context.Context, pin *snapshotPin) (conte
 	pin.workspace = id
 	pin.mu.Unlock()
 	wctx := context.WithValue(ctx, snapshotContextKey{}, &snapshotScope{id: id, pin: pin, store: s, write: true, owned: map[string]bool{}, validated: snapshotValidationCache(snapshotOf(ctx))})
+	baseScope := snapshotOf(ctx)
+	baseScope.metadataMu.Lock()
+	snapshotOf(wctx).metadata.reads = map[string]string{}
+	for key, owner := range baseScope.metadata.reads {
+		snapshotOf(wctx).metadata.reads[key] = owner
+	}
+	baseScope.metadataMu.Unlock()
 	if err := s.copySnapshot(ctx, wctx, pin.root, id); err != nil {
 		s.abortSnapshot(pin, id)
 		return ctx, "", err
@@ -839,6 +888,9 @@ func (s *store) publishSnapshot(ctx context.Context, pin *snapshotPin, id string
 		operation = "publish_temp"
 	}
 	n, err := s.snapshotControl(ctx, operation, pin.token, id, pin.root, "", snapshotOf(ctx).tempDead).Int()
+	if err == nil && n == 0 {
+		n, err = s.rebaseSnapshotPublication(ctx, pin, id, operation)
+	}
 	if err != nil {
 		// Resolve with an independent bounded context, including cancellation
 		// racing with EXEC. Never replay the SQL or Arrow input.

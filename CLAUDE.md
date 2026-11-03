@@ -41,7 +41,7 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.26.10)
 - Autocommit only; Search is required; Flex is rejected. Do not imply full
   PostgreSQL compatibility or support for Valkey / Redis 7.2 derivatives.
 - Managed-table statement snapshots are always enabled, using immutable
-  generations in one hash slot; see [snapshots](docs/snapshots.md). Storage protocol version 9 rejects earlier draft formats; there is no
+  generations in one hash slot; see [snapshots](docs/snapshots.md). Storage protocol version 10 rejects earlier draft formats; there is no
   disable switch or upgrade path for existing catalogs. ALTER stages private
   replacement layouts. Temporary descriptors participate in manifest references;
   liveness is global and Close/sweep publish descriptor removal. Application
@@ -56,7 +56,11 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.26.10)
   Native table metadata objects retain their row segments; copy those edges before
   replacing shared metadata and update them atomically with descriptor SET. Work
   references hold only private outputs; durable jobs retain their own sources.
-  Data ownership/counters live outside the bounded catalog; drain the durable
+  Metadata dependencies include pre-workspace planning reads. Publication seals
+  outputs before CAS/rebase; merge only dirty logical keys into a pinned latest
+  root and validate both pins/leases. Same-target/read-source changes conflict;
+  never replay SQL or Arrow. Sealed workspaces renew, reject mutations and retire
+  on abort/expiry. Data ownership/counters live outside the bounded catalog; drain the durable
   zero-reference queue with writer fences intact. Never bulk-delete an old metadata workspace: later roots can share its values. Test Software nodes need
   stable private addresses across restarts; verify actual shard roles and Search
   recovery as well as active QPF before resuming SQL.
