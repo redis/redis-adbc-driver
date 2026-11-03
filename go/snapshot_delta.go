@@ -347,9 +347,7 @@ func (s *store) prepareSnapshotDelta(ctx context.Context, schema, table string) 
 		next.SnapshotOverlay = true
 	}
 
-	if err := s.searchDo(ctx, next.index(), snapshotScannedIndexArgs(&next)...).Err(); err != nil {
-		return wrapRedis(err, "failed to create snapshot segment index")
-	}
+	deferSnapshotIndex(ctx, &next)
 	raw, err := json.Marshal(&next)
 	if err != nil {
 		return err
@@ -361,5 +359,5 @@ func (s *store) prepareSnapshotDelta(ctx context.Context, schema, table string) 
 	if _, err := p.Exec(ctx); err != nil {
 		return err
 	}
-	return s.validateSnapshot(ctx)
+	return nil
 }

@@ -112,10 +112,13 @@ Distributed Search schema commands run at the top level, bracketed by server-sid
 writer admission and validation. Running FT.CREATE inside Lua produces a local
 index outside Software's distributed registry. A late global CREATE after lease
 loss cannot publish; maintenance removes its private orphan index. Row and metadata
-mutations remain inside atomic Lua fences. Private copies are indexed by a
-completed initial scan before DML can read them.
-After all changes, fresh indexes scan the final immutable HASHes before publication;
-document counts alone do not prove that incremental updates have settled.
+mutations remain inside atomic Lua fences. Private staging reads resolve
+immutable inputs and their unindexed outputs through authoritative row directories.
+After all changes, a single fresh index scans each final immutable output before
+publication; document counts alone do not prove that incremental updates have
+settled. CREATE/CTAS, ordinary DML, ALTER rewrites and TRUNCATE build no temporary
+working index. UPDATE/DELETE statements that write no row images or tombstones
+return without publishing a new empty segment or building an index.
 
 All snapshot rows, metadata and control records use `{meta}`. This deliberately
 places data in one hash slot; this version does not distribute a catalog's rows

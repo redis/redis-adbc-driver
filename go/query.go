@@ -634,7 +634,7 @@ func (e *executor) openScan(ctx context.Context, req scanRequest, params []Value
 			it.residual = nil
 			return it, nil
 		}
-		indexed := req.where.keys == nil && req.where.query != "*" && e.snapshotIndexable(ctx, req.meta) && e.store.paginationCaps(ctx, req.meta.index())[0] > 0
+		indexed := req.where.keys == nil && req.where.query != "*" && e.snapshotIndexable(ctx, req.meta) && e.store.paginationCaps(ctx, snapshotSourceIndex(ctx, req.meta))[0] > 0
 		if !indexed && req.where.original != nil {
 			req.where.residual = req.where.original
 		}
@@ -1178,7 +1178,7 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 	}
 	var caps [2]int64
 	if !meta.isMem && wp.keys == nil {
-		caps = e.store.paginationCaps(ctx, meta.index())
+		caps = e.store.paginationCaps(ctx, snapshotSourceIndex(ctx, meta))
 	}
 	req := scanRequest{meta: meta, where: wp, need: maps.Clone(plan.extraNeed), dependencies: plan.extraNeed}
 	if req.need == nil {

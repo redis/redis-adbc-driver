@@ -516,6 +516,13 @@ func (s *store) scanTagLevels(ctx context.Context, meta *tableMeta) (map[string]
 func (e *executor) prefixComplete(ctx context.Context, meta *tableMeta, query string) bool {
 	if meta.SnapshotOverlay {
 		for _, seg := range meta.snapshotSegments() {
+			if snapshotOwns(ctx, seg.Prefix) {
+				n, err := e.store.redis(ctx).ZCard(ctx, snapshotMembers(snapshotDataID(seg.Prefix))).Result()
+				if err != nil || n != 0 {
+					return false
+				}
+				continue
+			}
 			copy := *meta
 			copy.SnapshotOverlay = false
 			copy.KeyPrefix, copy.IndexName = seg.Prefix, seg.Index

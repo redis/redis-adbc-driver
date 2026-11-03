@@ -60,6 +60,10 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.26.10)
   before predicates, aggregates or limits. Search candidates require newer-directory
   visibility checks. Server reducers and ordered scans require proven immutable
   per-segment masks (including tombstones); merge globally before OFFSET/LIMIT.
+  Private outputs stay unindexed until final sealing; staging SQL reads exact
+  directories. Build one final index and wait for readiness before publication.
+  Track private tombstones when restoring a baseline's published overlay flag.
+  No-op UPDATE/DELETE do not publish empty generations or build indexes.
   Exact-ID/private-index/mask-budget fallbacks must retain the full SQL predicate. Preserve exact, score-zero row-ID directories
   registered atomically by writer fences. Background compaction starts at four
   segments; eight is retryable backpressure, never foreground compaction. Preserve

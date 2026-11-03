@@ -1,6 +1,7 @@
 # Metadata/publication implementation direction
 
-Status: step 1 implemented and regression tested; steps 2–7 planned.
+Status: steps 1 and 6 implemented; index lifecycle broad validation in progress.
+Steps 2–5 and 7 remain planned.
 Parent implementation: b4b73e0.
 See [plan](plan.md). This is a work record, not a completed parity claim.
 

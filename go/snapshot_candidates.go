@@ -54,7 +54,7 @@ func (e *executor) snapshotIndexable(ctx context.Context, m *tableMeta) bool {
 	return err == nil && n >= 0 && n < exactDoubleLimit
 }
 func newSnapshotCandidateScan(ctx context.Context, s *store, m *tableMeta, query string, fields []string) *snapshotCandidateScan {
-	cap := s.paginationCaps(ctx, m.index())[0]
+	cap := s.paginationCaps(ctx, snapshotSourceIndex(ctx, m))[0]
 	d := &snapshotCandidateScan{store: s, meta: m, query: query, fields: fields, page: int(min(int64(snapshotDeltaPage), cap))}
 	for _, seg := range m.snapshotSegments() {
 		d.sources = append(d.sources, snapshotCandidateSource{segment: seg, done: snapshotOwns(ctx, seg.Prefix)})

@@ -1086,6 +1086,9 @@ func (s *store) getTable(ctx context.Context, schema, table string) (*tableMeta,
 	if err := s.validateSnapshotTable(ctx, &meta); err != nil {
 		return nil, err
 	}
+	if _, pending := snapshotDeferredIndex(ctx, &meta); pending {
+		meta.SnapshotOverlay = true
+	}
 	meta.readAt = readAt
 	hydrateCatalogOIDs(&meta)
 	return &meta, nil
@@ -1157,6 +1160,7 @@ func (s *store) createTable(ctx context.Context, meta *tableMeta, ifNotExists bo
 	if s.snapshots {
 		meta.SnapshotLineage = snapshotDataID(nm.prefix)
 	}
+	deferred := deferSnapshotIndex(ctx, meta)
 	created := false
 	release := func() {
 		bg := context.WithoutCancel(ctx)
@@ -1178,16 +1182,18 @@ func (s *store) createTable(ctx context.Context, meta *tableMeta, ifNotExists bo
 		return false, errorf(adbc.StatusInternal, "failed to encode metadata: %v", err)
 	}
 
-	// The index name was free in the registry, so an index with that name is
-	// left over from an interrupted CREATE/DROP and can be discarded
-	// (claimNames skips names whose index isn't one, see foreignIndex).
-	_ = s.searchDo(ctx, meta.index(), "FT.DROPINDEX", meta.index(), "DD").Err()
+	if !deferred {
+		// The index name was free in the registry, so an index with that name is
+		// left over from an interrupted CREATE/DROP and can be discarded
+		// (claimNames skips names whose index isn't one, see foreignIndex).
+		_ = s.searchDo(ctx, meta.index(), "FT.DROPINDEX", meta.index(), "DD").Err()
 
-	if err := s.searchDo(ctx, meta.index(), indexCreateArgs(meta)...).Err(); err != nil {
-		release()
-		return false, wrapRedis(err, "failed to create search index")
+		if err := s.searchDo(ctx, meta.index(), indexCreateArgs(meta)...).Err(); err != nil {
+			release()
+			return false, wrapRedis(err, "failed to create search index")
+		}
+		created = true
 	}
-	created = true
 	// The metadata, a fresh row id sequence and the registration, in one
 	// transaction, unless the table was created meanwhile.
 	won := false
@@ -1308,15 +1314,18 @@ func (s *store) truncateTables(ctx context.Context, metas []*tableMeta, restartI
 		t.names = nm
 		next := *t.meta
 		next.KeyPrefix, next.IndexName = nm.prefix, nm.index
-		// The index name was free in the registry, so an index with that
-		// name is left over from an interrupted CREATE/DROP and can be
-		// discarded (see foreignIndex).
-		_ = s.searchDo(ctx, nm.index, "FT.DROPINDEX", nm.index, "DD").Err()
-		if err := s.searchDo(ctx, nm.index, indexCreateArgs(&next)...).Err(); err != nil {
-			release()
-			return wrapRedis(err, "failed to create search index")
+		next.SnapshotSegments, next.SnapshotOverlay, next.SnapshotRows = nil, false, nil
+		if !deferSnapshotIndex(ctx, &next) {
+			// The index name was free in the registry, so an index with that
+			// name is left over from an interrupted CREATE/DROP and can be
+			// discarded (see foreignIndex).
+			_ = s.searchDo(ctx, nm.index, "FT.DROPINDEX", nm.index, "DD").Err()
+			if err := s.searchDo(ctx, nm.index, indexCreateArgs(&next)...).Err(); err != nil {
+				release()
+				return wrapRedis(err, "failed to create search index")
+			}
+			t.created = true
 		}
-		t.created = true
 		t.attrs = map[string]string{}
 		for _, c := range t.meta.Columns {
 			if c.Indexed {
@@ -1423,6 +1432,10 @@ func (s *store) truncateTables(ctx context.Context, metas []*tableMeta, restartI
 // ADD COLUMN that committed after TRUNCATE read the metadata added them to
 // the old index only.
 func (s *store) addIndexedColumns(ctx context.Context, t *truncation, cur *tableMeta) error {
+	// The final snapshot index uses the complete committed schema.
+	if s.snapshots {
+		return nil
+	}
 	for _, c := range cur.Columns {
 		if !c.Indexed {
 			continue

@@ -40,15 +40,16 @@ const (
 type snapshotContextKey struct{}
 
 type snapshotScope struct {
-	id            string
-	pin           *snapshotPin
-	maintenance   bool
-	tempDead      string
-	write         bool
-	owned         map[string]bool
-	validated     sync.Map // immutable segment descriptor -> *snapshotSegmentValidation
-	mu            sync.Mutex
-	bytes, writes int64
+	id              string
+	pin             *snapshotPin
+	maintenance     bool
+	tempDead        string
+	write           bool
+	owned           map[string]bool
+	deferredIndexes map[string]*snapshotIndexState // data ID -> final index layout
+	validated       sync.Map                       // immutable segment descriptor -> *snapshotSegmentValidation
+	mu              sync.Mutex
+	bytes, writes   int64
 }
 
 func snapshotOf(ctx context.Context) *snapshotScope {
@@ -692,6 +693,13 @@ func scopeSnapshotCommand(ctx context.Context, cmd goredis.Cmder) error {
 		}
 		if name == "hset" && len(args) > 1 && strings.HasPrefix(fmt.Sprint(args[1]), snapshotPrefix+"rows:") {
 			scope.writes++
+			if state := scope.deferredIndexes[snapshotDataID(fmt.Sprint(args[1]))]; state != nil {
+				for i := 2; i+1 < len(args); i += 2 {
+					if fmt.Sprint(args[i]) == snapshotDeletedField && fmt.Sprint(args[i+1]) == "1" {
+						state.deleted = true
+					}
+				}
+			}
 			if snapshotDirectoryMember(fmt.Sprint(args[1])) != "" {
 				scope.bytes += int64(20 + len(snapshotMembers(snapshotDataID(fmt.Sprint(args[1])))))
 			}
@@ -928,6 +936,10 @@ func (s *store) rebuildSnapshotIndexes(ctx context.Context) error {
 				continue
 			}
 			old := meta.index()
+			overlay, deferred := snapshotDeferredIndex(ctx, meta)
+			if deferred {
+				meta.SnapshotOverlay = overlay
+			}
 			meta.IndexName = snapshotIndexPrefix(snapshotDataID(meta.prefix())) + snapshotID()
 			if err := s.searchDo(ctx, meta.index(), snapshotScannedIndexArgs(meta)...).Err(); err != nil {
 				return wrapRedis(err, "failed to index final snapshot rows")
@@ -943,7 +955,9 @@ func (s *store) rebuildSnapshotIndexes(ctx context.Context) error {
 			if _, err := pipe.Exec(ctx); err != nil {
 				return err
 			}
-			if err := s.searchDo(ctx, old, "FT.DROPINDEX", old).Err(); err != nil && !isUnknownIndex(err) {
+			if deferred {
+				finishSnapshotIndex(ctx, meta)
+			} else if err := s.searchDo(ctx, old, "FT.DROPINDEX", old).Err(); err != nil && !isUnknownIndex(err) {
 				return wrapRedis(err, "failed to retire private working index")
 			}
 		}
@@ -1223,7 +1237,7 @@ func (e *executor) executeSnapshot(ctx context.Context, ps ParsedStmt, params []
 	if err != nil {
 		return execResult{}, err
 	}
-	if write {
+	if write && !snapshotNoopDML(sctx, ps) {
 		err = e.store.publishSnapshot(sctx, pin, id)
 		published = err == nil
 	} else {

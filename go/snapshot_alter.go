@@ -30,6 +30,7 @@ func (e *executor) alterSnapshotTable(ctx context.Context, source *tableMeta, cm
 	target.KeyPrefix, target.IndexName, target.PrefixGen = names.prefix, names.index, 0
 	target.SnapshotLineage = snapshotDataID(names.prefix)
 	target.SnapshotSegments, target.SnapshotRows, target.SnapshotOverlay = nil, nil, false
+	deferred := deferSnapshotIndex(ctx, target)
 	rw := &rewrite{start: source, target: target, res: res}
 	if err := rw.prepare(ctx, e); err != nil {
 		return err
@@ -56,8 +57,10 @@ func (e *executor) alterSnapshotTable(ctx context.Context, source *tableMeta, cm
 		}
 	}
 	target = rw.next(source)
-	if err := e.store.searchDo(ctx, target.index(), snapshotScannedIndexArgs(target)...).Err(); err != nil {
-		return err
+	if !deferred {
+		if err := e.store.searchDo(ctx, target.index(), snapshotScannedIndexArgs(target)...).Err(); err != nil {
+			return err
+		}
 	}
 	raw, err := json.Marshal(target)
 	if err != nil {

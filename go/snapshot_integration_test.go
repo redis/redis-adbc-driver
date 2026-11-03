@@ -312,7 +312,7 @@ func (h *snapshotPendingIndex) ProcessHook(next goredis.ProcessHook) goredis.Pro
 	}
 }
 
-func TestSnapshotPrivateIndexesReadyBeforeDML(t *testing.T) {
+func TestSnapshotPrivateReadsAndSealedIndexReadiness(t *testing.T) {
 	h, raw, _ := newSnapshotHarness(t)
 	h.exec("CREATE TABLE t(v INTEGER)")
 	h.exec("INSERT INTO t VALUES(7)")
@@ -332,8 +332,8 @@ func TestSnapshotPrivateIndexesReadyBeforeDML(t *testing.T) {
 	if err := s.prepareSnapshotTable(wctx, "public", "t"); err != nil {
 		t.Fatal(err)
 	}
-	if hook.reads.Load() < 2 {
-		t.Fatal("private workspace became executable before copied index readiness was checked")
+	if hook.reads.Load() != 0 {
+		t.Fatal("private staging tried to read an unbuilt output index")
 	}
 	if err := s.prepareSnapshotTable(wctx, "public", "t"); err != nil {
 		t.Fatal(err)
@@ -345,6 +345,28 @@ func TestSnapshotPrivateIndexesReadyBeforeDML(t *testing.T) {
 	if meta.SnapshotRows == nil || *meta.SnapshotRows != 0 || len(meta.SnapshotSegments) != 1 || meta.SnapshotSegments[0].Rows != 1 {
 		t.Fatal("private empty delta and inherited base were not validated before execution")
 	}
+	if err := raw.Do(h.ctx, "FT.INFO", meta.index()).Err(); !isUnknownIndex(err) {
+		t.Fatalf("private output index should be absent: %v", err)
+	}
+	if res := snapshotExecuteTest(t, s, wctx, "SELECT v FROM t"); len(res.rows) != 1 || res.rows[0][0].I != 7 {
+		t.Fatal("private directory read lost the shared input", res.rows)
+	}
+	if _, err := s.insertRows(wctx, meta, [][]Value{{intValue(typeInt32, 8)}}); err != nil {
+		t.Fatal(err)
+	}
+	if res := snapshotExecuteTest(t, s, wctx, "SELECT v FROM t WHERE v=8"); len(res.rows) != 1 || res.rows[0][0].I != 8 {
+		t.Fatal("private directory read omitted an unindexed output", res.rows)
+	}
+	if hook.reads.Load() != 0 {
+		t.Fatal("private SQL tried to use an unbuilt output index")
+	}
+	if err := s.publishSnapshot(wctx, pin, id); err != nil {
+		t.Fatal(err)
+	}
+	if hook.reads.Load() < 2 {
+		t.Fatal("publication did not await sealed index readiness")
+	}
+	h.expectRows("SELECT v FROM t ORDER BY v", "7", "8")
 }
 
 func TestSnapshotManagedStatements(t *testing.T) {
