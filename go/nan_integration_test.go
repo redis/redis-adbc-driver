@@ -22,7 +22,10 @@ package redis
 // types, and in every aggregate pushdown mode.
 
 import (
+	"errors"
+	"io"
 	"math"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -90,14 +93,36 @@ func (h *sqlHarness) storedField(c goredis.UniversalClient, schema, table, id, f
 	return v
 }
 
-// expectNoOrphans checks that every HASH under a table's key prefix is a
-// row that COUNT(*), which reads the index, counts.
+// Check every physical segment against its validated index/directory count,
+// then compare SQL COUNT(*) to independently merged visible row identities.
 func (h *sqlHarness) expectNoOrphans(c goredis.UniversalClient, schema, table string) {
 	h.t.Helper()
-	got, _ := h.query("SELECT COUNT(*) FROM " + schema + "." + table)
-	keys := h.prefixKeyCount(c, h.tablePrefix(c, schema, table))
-	if len(got) != 1 || got[0] != strconv.Itoa(keys) {
-		h.t.Errorf("%s.%s: COUNT(*) is %q, and %d HASHes under its prefix", schema, table, got, keys)
+	st, ctx, pin := h.inspectionSnapshot(c)
+	defer pin.release()
+	meta, err := st.getTable(ctx, schema, table)
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	for _, segment := range meta.snapshotSegments() {
+		if keys := h.prefixKeyCount(c, segment.Prefix); int64(keys) != segment.Rows {
+			h.t.Errorf("%s.%s: %d physical HASHes, want %d registered/indexed images", schema, table, keys, segment.Rows)
+		}
+	}
+	scan := newSnapshotDeltaScan(st, meta, nil)
+	var visible int64
+	for {
+		keys, _, err := scan.next(ctx)
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			h.t.Fatal(err)
+		}
+		visible += int64(len(keys))
+	}
+	got := snapshotExecuteTest(h.t, st, ctx, "SELECT COUNT(*) FROM "+schema+"."+table)
+	if len(got.rows) != 1 || len(got.rows[0]) != 1 || got.rows[0][0].I != visible {
+		h.t.Errorf("%s.%s: COUNT(*) %v differs from %d visible identities", schema, table, got.rows, visible)
 	}
 }
 
@@ -105,10 +130,7 @@ func (h *sqlHarness) expectNoOrphans(c goredis.UniversalClient, schema, table st
 // default schema: set on those in nans, clear on the others.
 func (h *sqlHarness) expectNaNs(c goredis.UniversalClient, table string, nans ...string) {
 	h.t.Helper()
-	meta, err := (&store{client: c}).getTable(h.ctx, defaultSchema, table)
-	if err != nil {
-		h.t.Fatal(err)
-	}
+	meta := h.inspectTable(c, defaultSchema, table)
 	for _, col := range meta.Columns {
 		want := false
 		for _, n := range nans {
@@ -168,10 +190,10 @@ func TestSQLNaNIssue110(t *testing.T) {
 		if got := h.storedField(raw, "it_nan_s", "f", "2", "x"); got != "infinity" {
 			t.Errorf("%s: NaN stored as %q", typ, got)
 		}
-		prefix := h.tablePrefix(raw, "it_nan_s", "f")
+		meta := h.inspectTable(raw, "it_nan_s", "f")
 		h.exec("drop table it_nan_s.f")
-		if n := h.prefixKeyCount(raw, prefix); n != 0 {
-			t.Errorf("%s: %d HASHes left after DROP TABLE", typ, n)
+		for _, segment := range meta.snapshotSegments() {
+			h.expectSnapshotReleased(raw, segment.Prefix, segment.Index)
 		}
 	}
 }
@@ -560,49 +582,68 @@ func TestSQLNaNText(t *testing.T) {
 	}
 }
 
-// TestSQLNaNNoOrphans checks that DELETE, TRUNCATE and DROP TABLE remove
-// the HASHes of rows with NaNs (the index lists them now).
+// DELETE removes NaNs from current visibility while pinned rows survive;
+// TRUNCATE/DROP retire their storage for reference-safe reclamation.
 func TestSQLNaNNoOrphans(t *testing.T) {
 	h := newSQLHarness(t)
 	raw := h.rawClient()
 	h.setupNaNTable()
 	h.expectNoOrphans(raw, defaultSchema, "it_nan_t")
-	prefix := h.tablePrefix(raw, defaultSchema, "it_nan_t")
+	st, old, pin := h.inspectionSnapshot(raw)
+	defer pin.release()
 	h.expectAffected("DELETE FROM it_nan_t WHERE x = 'NaN'", 2)
-	if n := h.prefixKeyCount(raw, prefix); n != 5 {
-		t.Errorf("%d HASHes after DELETE, want 5", n)
+	h.expectRows("SELECT COUNT(*) FROM it_nan_t", "5")
+	h.expectNoOrphans(raw, defaultSchema, "it_nan_t")
+	retained := snapshotExecuteTest(t, st, old, "SELECT id FROM it_nan_t WHERE x='NaN' ORDER BY id")
+	if len(retained.rows) != 2 || retained.rows[0][0].I != 2 || retained.rows[1][0].I != 7 {
+		t.Fatalf("DELETE changed pinned NaN rows: %v", retained.rows)
 	}
+	pin.release()
 	h.exec("INSERT INTO it_nan_t VALUES (8, 'NaN', 'NaN', 'NaN', 'NaN')")
+	beforeTruncate := h.inspectTable(raw, defaultSchema, "it_nan_t")
 	h.exec("TRUNCATE it_nan_t")
-	if n := h.prefixKeyCount(raw, prefix); n != 0 {
-		t.Errorf("%d HASHes left under the old prefix after TRUNCATE", n)
+	h.expectRows("SELECT COUNT(*) FROM it_nan_t", "0")
+	for _, segment := range beforeTruncate.snapshotSegments() {
+		h.expectSnapshotReleased(raw, segment.Prefix, segment.Index)
 	}
 	h.expectNaNs(raw, "it_nan_t", "x", "r") // never cleared
 	h.exec("INSERT INTO it_nan_t VALUES (9, 'NaN', 'NaN', 'NaN', 'NaN')")
 	h.expectRows("SELECT id, x FROM it_nan_t", "9|NaN")
-	prefix = h.tablePrefix(raw, defaultSchema, "it_nan_t")
+	beforeDrop := h.inspectTable(raw, defaultSchema, "it_nan_t")
 	h.exec("DROP TABLE it_nan_t")
-	if n := h.prefixKeyCount(raw, prefix); n != 0 {
-		t.Errorf("%d HASHes left after DROP TABLE", n)
+	for _, segment := range beforeDrop.snapshotSegments() {
+		h.expectSnapshotReleased(raw, segment.Prefix, segment.Index)
 	}
 
-	// A row that an earlier version wrote with "NaN" isn't in the index,
-	// but its id finds it, and writing it again indexes it (see the
-	// README).
-	h.setupNaNTable()
-	prefix = h.tablePrefix(raw, defaultSchema, "it_nan_t")
-	got, _ := h.query("SELECT __rowid FROM it_nan_t WHERE id = 2")
-	if err := raw.HSet(h.ctx, prefix+got[0], "x", "NaN").Err(); err != nil {
+	// Raw application NaN input is captured into a managed copy. Published
+	// managed HASHes cannot be changed into an earlier format for repair.
+	prefix := "it_nan_legacy:{meta}:" + snapshotID() + ":"
+	key := prefix + "1"
+	if err := raw.HSet(h.ctx, key, "id", "2", "x", "NaN").Err(); err != nil {
 		t.Fatal(err)
 	}
-	waitFor(t, "the old row to leave the index", func() bool {
-		rows, _ := h.query("SELECT COUNT(*) FROM it_nan_t")
-		return len(rows) == 1 && rows[0] == "6"
-	})
-	h.expectRows("SELECT id, x FROM it_nan_t WHERE __rowid = "+got[0], "2|NaN")
-	h.expectAffected("UPDATE it_nan_t SET x = 'NaN' WHERE __rowid = "+got[0], 1)
-	h.expectRows("SELECT id FROM it_nan_t WHERE x = 'NaN' ORDER BY id", "2", "7")
-	h.expectNoOrphans(raw, defaultSchema, "it_nan_t")
+	t.Cleanup(func() { _ = raw.Del(h.ctx, key).Err() })
+	h.dropTables("it_nan_legacy_copy")
+	result, err := CopyHashes(h.ctx, map[string]string{adbc.OptionKeyURI: os.Getenv("REDIS_URI")},
+		HashCopyOptions{Prefix: prefix, Table: "it_nan_legacy_copy", Types: map[string]string{"id": "INTEGER", "x": "DOUBLE PRECISION"}})
+	if err != nil || result.Rows != 1 {
+		t.Fatalf("capture raw NaN: %v %v", result, err)
+	}
+	h.expectRows("SELECT COUNT(*) FROM it_nan_legacy_copy", "1")
+	h.expectRows("SELECT id,x FROM it_nan_legacy_copy WHERE x='NaN'", "2|NaN")
+	if got := h.storedField(raw, defaultSchema, "it_nan_legacy_copy", "2", "x"); got != "infinity" {
+		t.Fatalf("captured NaN is not natively indexed: %q", got)
+	}
+	h.expectAffected("UPDATE it_nan_legacy_copy SET x='NaN' WHERE id=2", 1)
+	h.expectNoOrphans(raw, defaultSchema, "it_nan_legacy_copy")
+	beforeDrop = h.inspectTable(raw, defaultSchema, "it_nan_legacy_copy")
+	h.exec("DROP TABLE it_nan_legacy_copy")
+	for _, segment := range beforeDrop.snapshotSegments() {
+		h.expectSnapshotReleased(raw, segment.Prefix, segment.Index)
+	}
+	if value, err := raw.HGet(h.ctx, key, "x").Result(); err != nil || value != "NaN" {
+		t.Fatalf("managed capture/write/drop changed application NaN: %q %v", value, err)
+	}
 }
 
 // TestSQLNaNNumeric checks that NUMERIC still refuses NaN and the

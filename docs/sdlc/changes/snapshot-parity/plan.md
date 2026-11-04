@@ -50,6 +50,10 @@ The [late-projection checkpoint](late-projection-validation.md) restores pinned
 planner/cursor inspection, isolates the missing-HASH primitive and verifies
 deferred exact projection reads across managed DML, DROP and GC.
 
+The [NaN checkpoint](nan-validation.md) restores pinned flag inspection,
+all-segment physical coverage, authoritative visible counts and reference-safe
+reclamation, and tests raw application NaNs through a private managed copy.
+
 The [consistency-boundary recommendation](consistency-boundary.md) proposes a
 shared driver consistency layer across execution paths. A new
 Redis server extension is not required by this plan.
