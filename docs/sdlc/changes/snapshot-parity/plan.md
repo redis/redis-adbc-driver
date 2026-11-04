@@ -382,3 +382,9 @@ The [native rekey takeover checkpoint](rekey-takeover-validation.md) restores
 concurrent private-output collectors, earlier-incarnation name reuse, typed expiry/
 serialization diagnostics and DROP recovery. Four race families pass without test
 skips. Full ordinary/platform and performance gates remain open.
+
+The [shared-scan checkpoint](shared-scan-validation.md) holds one pin through
+planning/execution, compares native segmented visibility with independent exact
+rows and an explicit directory reference, and retains separate live-cursor/range
+primitives. Seventeen race events pass reader lifetime through DDL/GC, cancellation
+and cursor reclamation. Full ordinary/platform and performance gates remain open.
