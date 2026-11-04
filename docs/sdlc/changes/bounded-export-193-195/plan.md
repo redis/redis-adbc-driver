@@ -21,10 +21,12 @@
    actual first batch sizes, CPU, allocations, memory and both wire directions.
    Fully validate values and multiplicity outside timing. Promote only if the
    elapsed evidence supports it; otherwise retain the failed screen explicitly.
-8. Pending: obtain the documented server-owner feasibility decision for #195.
-   For a feasible design, build and measure the server prototype; otherwise
-   record the owner-confirmed no-go. The agent recommendation alone is not that
-   external decision.
+8. Done: record the requested no-go recommendation for #195 with the versioned
+   contract and observed stock-server capability/precision diagnostic. No
+   production API/storage change is selected. Server-owner approval remains a
+   prerequisite to any future production integration, not an approval claimed
+   by this client-side no-go investigation. The issue's feasible-prototype
+   performance gate applies if a native capability later becomes available.
 9. Pending: review changes against `REVIEW.md`, close issues only after their
    acceptance work is complete, and then create the requested PR. No premature
    `Closes` claim, issue closure or PR creation while these gates remain open.

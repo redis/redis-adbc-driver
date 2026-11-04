@@ -87,7 +87,7 @@ def trial(cfg, source, build, api, readers, projection, repeat, root):
                   server_counter_scope='INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition')
     if wire is not None:
         result.update(request_bytes=wire[0], reply_bytes=wire[1],
-                      wire_scope='all benchmark client TCP payload through TLS-transparent loopback relay; includes TLS framing/handshake, excludes IP headers and separate INFO control; diagnostic timings only')
+                      wire_scope='TCP payload read from benchmark-client and server relay legs; includes TLS framing/handshake, excludes IP headers and separate INFO control; diagnostic timings only')
     for name in ['used_cpu_user', 'used_cpu_sys', 'total_net_input_bytes', 'total_net_output_bytes']:
         if name in after and name in before:
             result[name+'_delta'] = after[name] - before[name]

@@ -28,9 +28,22 @@ type hashPagePrefetch struct {
 func newHashPagePrefetch(ctx context.Context, fetch func(context.Context) hashPage) *hashPagePrefetch {
 	ctx, cancel := context.WithCancel(ctx)
 	p := &hashPagePrefetch{pages: make(chan hashPage), done: make(chan struct{}), cancel: cancel}
+	transport, _ := ctx.Value(transportContextKey{}).(*executionTransport)
+	if transport != nil && !transport.addBackground(p.done) {
+		cancel()
+		close(p.pages)
+		close(p.done)
+		return p
+	}
 	go func() {
-		defer close(p.done)
-		defer close(p.pages)
+		defer func() {
+			close(p.pages)
+			if transport != nil {
+				transport.completeBackground(p.done)
+			} else {
+				close(p.done)
+			}
+		}()
 		for ctx.Err() == nil {
 			page := func() (page hashPage) {
 				defer func() {

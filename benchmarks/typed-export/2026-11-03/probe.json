@@ -1,0 +1,34 @@
+{
+  "server_version": "8.6.2",
+  "resp": "3",
+  "modules": [
+    {
+      "name": "ReJSON",
+      "ver": 80606
+    },
+    {
+      "name": "vectorset",
+      "ver": 1
+    },
+    {
+      "name": "timeseries",
+      "ver": 80601
+    },
+    {
+      "name": "bf",
+      "ver": 80604
+    },
+    {
+      "name": "search",
+      "ver": 80611
+    }
+  ],
+  "arrow_command_name_matches": [],
+  "naive_lua_numeric_export": {
+    "input_exact_string": "9007199254740993",
+    "returned_string": "9007199254740993",
+    "returned_number": 9007199254740992,
+    "exact": false
+  },
+  "interpretation": "Name matching is diagnostic only, not exhaustive detection. The proposed versioned shard export has no implementation here. Naive Lua numeric conversion fails exact BIGINT semantics; returning the original string preserves that value but retains client typed parsing. No native server capability, elapsed speedup or server-owner approval is established."
+}

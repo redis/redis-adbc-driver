@@ -22,11 +22,18 @@ initialization and teardown. Partitions always request four descriptors; one or
 four concurrent readers consume them. Four ordinary readers use disjoint exact
 internal-ID ranges. Both return the same 100K typed rows.
 
-Prepare `source.arrow` as an Arrow **file** from the first 100K rows of the
-independent official Parquet, using the pinned PostgreSQL DDL and existing
+Prepare `source.arrow` as an Arrow **file** from the independent official
+Parquet, using the pinned PostgreSQL DDL and existing
 `benchmarks/clickbench/run.py` `arrow_schema`/`convert_batch` helpers. Retain the
 Parquet SHA-256, DDL revision and actual conversion code as provenance; do not
 derive the reference from either driver output. Normalize names to lowercase.
+For a restore loaded with parallel writers, internal-ID order is not necessarily
+Parquet order. Read membership independently from the authoritative HASHes,
+validate exact internal IDs and unique WatchIDs, and select the corresponding
+typed official-source rows. Require exactly 100K source matches; obtain **all
+105 expected values from the official source**. Preserve the membership-selection
+code and its provenance. A serial prefix is valid only with verified source-order
+loading. Never reinterpret an output mismatch as expected parallel-load behavior.
 
 A private JSON configuration supplies `uri`, `ca`, `namespace`, `source`,
 `source_sha256`, `source_provenance`, `batch_rows` (65536),

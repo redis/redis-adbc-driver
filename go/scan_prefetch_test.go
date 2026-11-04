@@ -152,3 +152,33 @@ func TestHashPrefetchCanceledClosedQueueIsNotEOF(t *testing.T) {
 		}
 	}
 }
+
+func TestHashPrefetchCancelDuringConsumerCallback(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	converting := make(chan struct{})
+	p := newHashPagePrefetch(ctx, func(context.Context) hashPage {
+		return hashPage{keys: []string{"row"}, values: [][]any{{"1", "value"}}}
+	})
+	it := &scanIter{env: &evalEnv{ctx: ctx}, prefetch: p, projection: &scanProjection{
+		consumeHash: func([]any) error {
+			close(converting)
+			<-ctx.Done() // deterministic cancellation while the consumer owns a reply
+			return cancelled(ctx)
+		},
+	}}
+	done := make(chan struct{})
+	var got error
+	go func() {
+		defer close(done)
+		page := p.next(ctx)
+		_, _, got = it.consumeHashValues(page.keys, page.values)
+		it.close(ctx) // joins the outstanding lookahead before returning
+	}()
+	awaitPrefetch(t, converting)
+	cancel()
+	awaitPrefetch(t, done)
+	if !isStatus(got, adbc.StatusCancelled) || it.prefetch != nil {
+		t.Fatalf("conversion cancellation error=%v, worker joined=%v", got, it.prefetch == nil)
+	}
+}

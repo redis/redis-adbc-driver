@@ -24,10 +24,24 @@ management API. Fixed test credentials and public CA remain under ignored
   (28.942 seconds, no race reports).
 - Default-build unit suite passed all five packages, and the experimental cgo
   shared library built with the repository's version linker flag.
+  After the transport join barrier, the default suite passed again (26.543 s
+  in the driver package), and the focused Software race suite for wide reads,
+  streaming, mutation, prefetch and transport passed (20.054 s).
+- The new public Go ADBC harness independently passed tiny-fixture checks for
+  regular/partition APIs with one/four readers. Three Python checks passed for
+  duplicate/type-sensitive validation, identifier quoting and binary-transparent
+  request/reply counting. The full benchmark additionally records complete-fetch
+  Go allocations, client CPU, sampled heap and lifetime peak RSS; these are Go
+  Arrow allocator results rather than the C shared-library allocator.
 - Prefetch unit/race tests passed: one-page bound and order, reply ownership,
   cancellation at fetch/delivery/conversion, terminal fetch errors/EOF and worker
   panic propagation. Cancellation versus a closed queue has an explicit regression
   test so it cannot silently return successful EOF.
+  A deterministic consumer-callback cancellation test also passes under the race
+  detector and asserts that cleanup joins the outstanding producer.
+  Actual blocked HMGET/cursor READ socket tests pass without command replay.
+  A close observer verifies that pool shutdown waits for worker completion and
+  prevents starting another worker after the transport begins finishing.
 - Synthetic retained-heap diagnostic (race build): one owned 4,096 × 105 string
   page used about 28.42 MB; one additional lookahead used about 28.44 MB.
   Unique roughly 32-byte strings plus Go object/slice overhead are included.
@@ -52,14 +66,32 @@ benchmark deployment is terminated. Do not treat arbitrary running AWS instances
 as owned test resources. Backup checksum/metadata compatibility, QPF and typed
 source identity must be verified again before timing.
 
-The 100K × 105/narrow one/four-reader complete-fetch matrix has **not run**.
+Albert approved a $300 AWS cap and eight-hour hard deadline. A two-instance
+task-owned compatibility pilot and verified automatic cleanup are running;
+the independent 20-row/105-field pilot check passed and the 49-instance full
+fleet is restoring the complete compatible snapshot. Cleanup was reverified
+against all 49 exact owned instances. Do not expose the private operational
+state in the public evidence. One initial snapshot
+restored rows but lacked catalog metadata (which belongs to a different shard);
+the pilot was repeated with the checksum-verified catalog-owning snapshot.
+The backup records eight loading workers, so its first internal IDs cannot be
+assumed to equal the Parquet prefix. The independent reference must match native
+HASH membership to unique official-source WatchIDs and validate all 105 fields.
+The isolated local Docker fixture was removed after the integration checks;
+unrelated containers were left alone.
+
+The 100K × 105/narrow one/four-reader complete-fetch matrix has **not run** yet.
 No elapsed, CPU, allocation or network improvement is claimed, and normal builds
 do not enable prefetch. Issue #193 is not ready to close on these checks alone.
 
-The typed-export document is a contract and engineering recommendation. No
-named server-owner feasibility/contract decision or supported new server API
-was available. Issue #195's external feasibility acceptance remains open. No
-mock codec result is represented as a server prototype or approval.
+The typed-export document records a contract and the requested engineering
+no-go disposition. The dedicated read-only probe reproduced loss of exact
+BIGINT semantics under naive Lua numeric conversion; its sanitized result is
+retained separately. No named server-owner approval or supported new native
+server API was available. No production API/storage change is selected; a future
+integration must obtain that external approval and satisfy the conditional
+feasible-prototype performance gate. This is a no-go investigation result, not
+a mock codec promoted as a native server prototype or an approval.
 
 ## Review status
 

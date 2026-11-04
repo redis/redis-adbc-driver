@@ -23,9 +23,9 @@ class Meter:
                         def relay(source, destination, direction):
                             try:
                                 while data := source.recv(65536):
-                                    destination.sendall(data)
                                     with meter.lock:
                                         meter.counts[direction] += len(data)
+                                    destination.sendall(data)
                             except OSError:
                                 pass
                             finally:

@@ -6,6 +6,9 @@ Baseline: `6d7ac409d8c9f11163b4f4cec63e2d4da00e69f2`.
 Status: design proposal; **no-go for production integration**. This is an
 engineering recommendation, not a Redis server-owner feasibility approval.
 No new server command, module, storage format or deployment support is claimed.
+Disposition: retain the stock-server path and end this client integration
+investigation with a no-go result. A future server implementation is a separate
+decision requiring server-owner feasibility/contract approval before integration.
 
 ## Decision and alternatives
 
@@ -164,8 +167,36 @@ typed/default semantics, memory accounting and interruptible bounded execution.
 No such decision was supplied in this session. Recommendation: **no-go for
 production integration now; retain the contract for feasibility review**. A
 client-only mock or Arrow codec roundtrip cannot substitute for that decision.
-This remaining dependency prevents claiming that #195's acceptance criteria
-have all been completed.
+No production API or storage change is selected here. The issue explicitly
+permits a no-go result when capability/semantic requirements cannot be met; this
+is that disposition, not a claim that the future native API is implemented or
+has server-owner approval. The feasible-prototype performance gate below remains
+mandatory if that disposition is revisited.
+
+### Observed stock-server diagnostic
+
+The [read-only probe](../benchmarks/typed-export/probe.py) ran on the dedicated
+verified 4x QPF Redis Software fixture (Redis 8.6.2, Search 8.6.11, authenticated
+verified TLS and RESP3). [Raw sanitized output](../benchmarks/typed-export/2026-11-03/probe.json)
+records installed module versions, no command names matching `*arrow*`, and a
+concrete exactness failure: `EVAL_RO` returned the original string
+`9007199254740993` intact but `tonumber(ARGV[1])` returned `9007199254740992`.
+The script touched no keys and did not depend on table contents or key slots.
+
+Name matching is diagnostic only: it does not prove the absence of every possible
+server facility. The number test rejects **naive** Lua numeric conversion, not
+all conceivable exact software encoders. Returning strings avoids that failure
+but retains client parsing, and a same-slot wrapper does not satisfy the required
+arbitrary-key per-shard ownership contract. No implementation of the proposed
+negotiated typed-export contract is available in this work. The supported
+[FT.AGGREGATE API](https://redis.io/docs/latest/commands/ft.aggregate/) returns
+row maps/arrays, not this Arrow export contract.
+
+These observations, the historical wrapper elapsed regression, and the absence
+of an approved native server capability support the engineering **no-go now**.
+They do not establish that a new native export is impossible. No module is
+installed, managed-service capability is assumed, or lower-byte result is
+represented as a successful native server prototype.
 
 If feasible, implement a separately deployed prototype, preserve its raw failures
 and compare with the optimized driver at the same source revision. Restore a

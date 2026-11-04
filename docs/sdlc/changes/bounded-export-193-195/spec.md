@@ -29,6 +29,12 @@ join it, then close the cursor and release the existing transport/tokens. Cursor
 READ/DEL cannot race. Worker-side readiness/READ failures retain existing cursor
 cleanup. Context cancellation takes precedence over a concurrently closed queue,
 which must not look like successful EOF. Worker panics become stream errors.
+The execution transport also registers background completion before a worker
+starts. Its independent cancellation/connection-close path interrupts sockets,
+joins registered workers, then closes the pool. Registration cannot race a
+finishing transport; completed workers are removed without accumulating range
+history. Joining only in `streamReader.closeLocked` would be insufficient because
+the transport is independently registered with connection/statement owners.
 
 Concurrent updates/deletes between discovery and fetch are observed at HASH
 fetch time; an existing all-NULL row survives while a vanished row is omitted.
