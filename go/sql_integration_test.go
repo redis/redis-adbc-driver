@@ -1680,26 +1680,44 @@ func TestSQLTruncate(t *testing.T) {
 	h.exec("INSERT INTO it_trunc2 VALUES ('p'), ('q')")
 	h.exec("CREATE VIEW it_trunc_v AS SELECT id FROM it_trunc")
 
-	// The table moves to a new key prefix and index, and the old ones are
-	// released, as by DROP TABLE.
-	n := h.namesN(raw, "public", "it_trunc", "it_trunc")
-	prefix, index := h.tableNames(raw, "public", "it_trunc")
-	prefix2, index2 := h.tableNames(raw, "public", "it_trunc2")
+	// TRUNCATE publishes fresh canonical storage. The previous generation
+	// remains readable and owns all its sources until its final pin releases.
+	oldStore, oldCtx, oldPin := h.inspectionSnapshot(raw)
+	defer oldPin.release()
+	old, err := oldStore.getTable(oldCtx, defaultSchema, "it_trunc")
+	if err != nil {
+		t.Fatal(err)
+	}
+	prefix2, index2 := h.rekeyNativeLayout(raw, defaultSchema, "it_trunc2")
 	h.exec("TRUNCATE TABLE it_trunc")
 	h.expectRows("SELECT COUNT(*) FROM it_trunc", "0")
-	if m := h.namesN(raw, "public", "it_trunc", "it_trunc"); m <= n {
-		t.Errorf("names of N = %d after TRUNCATE, want more than %d", m, n)
+	prefix, index := h.rekeyNativeLayout(raw, defaultSchema, "it_trunc")
+	for _, seg := range old.snapshotSegments() {
+		if prefix == seg.Prefix || index == seg.Index {
+			t.Fatal("TRUNCATE reused retired storage")
+		}
+		if n, err := raw.ZCard(h.ctx, snapshotMembers(snapshotDataID(seg.Prefix))).Result(); err != nil || n != seg.Rows {
+			t.Fatal("TRUNCATE reclaimed pinned source", n, err)
+		}
 	}
-	h.expectReleased(raw, prefix, index)
-	if gen, err := raw.HGet(h.ctx, releasedKey, prefix).Int64(); err != nil || gen != 1 {
-		t.Errorf("released count of %q = %d (%v), want 1", prefix, gen, err)
+	if n := h.prefixKeyCount(raw, prefix); n != 0 {
+		t.Fatal("TRUNCATE output is not empty", n)
 	}
-	if n := h.prefixKeyCount(raw, h.tablePrefix(raw, "public", "it_trunc")); n != 0 {
-		t.Errorf("%d row keys under the new prefix after TRUNCATE", n)
+	retained := snapshotExecuteTest(t, oldStore, oldCtx, "SELECT id,label,note,qty FROM it_trunc ORDER BY id").rows
+	if got, want := strings.Join(valueRows(retained), "\n"), "1|a|x|NULL\n2|b|NULL|NULL\n3|c|z|NULL\n4|d|NULL|7"; got != want {
+		t.Fatal("TRUNCATE changed old rows", got)
+	}
+	retained = snapshotExecuteTest(t, oldStore, oldCtx, "SELECT id FROM it_trunc_v ORDER BY id").rows
+	if strings.Join(valueRows(retained), "|") != "1|2|3|4" {
+		t.Fatal("TRUNCATE changed pinned view")
+	}
+	oldPin.release()
+	for _, seg := range old.snapshotSegments() {
+		h.expectSnapshotReleased(raw, seg.Prefix, seg.Index)
 	}
 	h.expectRows("SELECT COUNT(*) FROM it_trunc2", "2")
-	if p, i := h.tableNames(raw, "public", "it_trunc2"); p != prefix2 || i != index2 {
-		t.Errorf("it_trunc2 has the names %q, %q, want %q, %q", p, i, prefix2, index2)
+	if p, i := h.rekeyNativeLayout(raw, defaultSchema, "it_trunc2"); p != prefix2 || i != index2 {
+		t.Fatal("TRUNCATE changed unrelated physical storage")
 	}
 	h.expectRows(`SELECT column_name, driver_data_type, is_indexed FROM information_schema.columns
 		WHERE table_name = 'it_trunc' ORDER BY ordinal_position`,
@@ -1712,13 +1730,66 @@ func TestSQLTruncate(t *testing.T) {
 	h.expectRows("SELECT __rowid, id FROM it_trunc ORDER BY id", "5|5", "6|6")
 	h.expectRows("SELECT id FROM it_trunc_v ORDER BY id", "5", "6")
 
-	// RESTART IDENTITY, several tables at once (one of them named twice),
-	// and no TABLE keyword.
-	prefix, index = h.tableNames(raw, "public", "it_trunc")
+	// Multi-table publication is atomic even when only one input changed.
+	// The private restart cannot change either public table or row sequence.
+	st := &store{client: raw, snapshots: true}
+	staged, pin, work := snapshotStageSQL(t, st, h.ctx, "", "TRUNCATE it_trunc,it_trunc2 RESTART IDENTITY")
+	var private []*tableMeta
+	for _, name := range []string{"it_trunc", "it_trunc2"} {
+		m, err := st.getTable(staged, defaultSchema, name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		private = append(private, m)
+	}
+	h.exec("INSERT INTO it_trunc2 VALUES ('intervening')")
+	root := raw.HGet(h.ctx, snapshotCatalogKey, "root").Val()
+	if err := st.publishSnapshot(staged, pin, work); sqlState(err) != "40001" {
+		t.Fatal("stale multi-table TRUNCATE published", err)
+	}
+	if raw.HGet(h.ctx, snapshotCatalogKey, "root").Val() != root {
+		t.Fatal("refused TRUNCATE changed root")
+	}
+	h.expectRows("SELECT (SELECT COUNT(*) FROM it_trunc),(SELECT COUNT(*) FROM it_trunc2)", "2|3")
+	h.expectRows("SELECT __rowid,id FROM it_trunc ORDER BY id", "5|5", "6|6")
+	st.abortSnapshot(pin, work)
+	pin.release()
+	for _, m := range private {
+		h.expectSnapshotReleased(raw, m.prefix(), m.index())
+	}
+
+	// RESTART IDENTITY, several tables at once (one named twice), no TABLE
+	// keyword. One old reader retains the consistent pair through publication.
+	prior, priorCtx, priorPin := h.inspectionSnapshot(raw)
+	defer priorPin.release()
+	var retired []*tableMeta
+	for _, name := range []string{"it_trunc", "it_trunc2"} {
+		m, err := prior.getTable(priorCtx, defaultSchema, name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		retired = append(retired, m)
+	}
 	h.exec("TRUNCATE it_trunc, it_trunc2, public.it_trunc RESTART IDENTITY CASCADE")
-	h.expectRows("SELECT COUNT(*) FROM it_trunc2", "0")
-	h.expectReleased(raw, prefix, index)
-	h.expectReleased(raw, prefix2, index2)
+	h.expectRows("SELECT (SELECT COUNT(*) FROM it_trunc),(SELECT COUNT(*) FROM it_trunc2)", "0|0")
+	counts := snapshotExecuteTest(t, prior, priorCtx, "SELECT (SELECT COUNT(*) FROM it_trunc),(SELECT COUNT(*) FROM it_trunc2)").rows
+	if strings.Join(valueRows(counts), "|") != "2|3" {
+		t.Fatal("multi-table TRUNCATE changed old generation", counts)
+	}
+	for at, name := range []string{"it_trunc", "it_trunc2"} {
+		p, i := h.rekeyNativeLayout(raw, defaultSchema, name)
+		for _, seg := range retired[at].snapshotSegments() {
+			if p == seg.Prefix || i == seg.Index {
+				t.Fatal("multi-table TRUNCATE reused storage")
+			}
+		}
+	}
+	priorPin.release()
+	for _, m := range retired {
+		for _, seg := range m.snapshotSegments() {
+			h.expectSnapshotReleased(raw, seg.Prefix, seg.Index)
+		}
+	}
 	h.exec("INSERT INTO it_trunc (id) VALUES (7)")
 	h.expectRows("SELECT __rowid, id FROM it_trunc", "1|7")
 	h.exec("INSERT INTO it_trunc2 VALUES ('r')")
@@ -1729,11 +1800,17 @@ func TestSQLTruncate(t *testing.T) {
 	h.exec("INSERT INTO it_trunc (id) VALUES (8)")
 	h.expectRows("SELECT __rowid, id FROM it_trunc", "2|8")
 
-	// A bad name anywhere in the list leaves every table untouched.
+	// Every validation failure leaves the entire publication and both tables intact.
+	root = raw.HGet(h.ctx, snapshotCatalogKey, "root").Val()
 	h.expectError("TRUNCATE it_trunc, it_trunc_missing", "does not exist")
-	h.expectRows("SELECT COUNT(*) FROM it_trunc", "1")
 	h.expectError("TRUNCATE it_trunc_v", "it is a view")
 	h.expectError("TRUNCATE information_schema.tables", "read-only")
+	if raw.HGet(h.ctx, snapshotCatalogKey, "root").Val() != root {
+		t.Fatal("invalid TRUNCATE published")
+	}
+	h.expectRows("SELECT __rowid,id FROM it_trunc", "2|8")
+	h.expectRows("SELECT __rowid,k FROM it_trunc2", "1|r")
+
 }
 
 func TestSQLDropSchemaCascade(t *testing.T) {

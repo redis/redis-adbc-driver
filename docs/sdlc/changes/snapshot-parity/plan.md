@@ -394,3 +394,9 @@ replaces mutable cleanup markers with real SQL field removal, pinned old images
 and a lost reply after a bounded retired-row batch. A new connection completes
 reclamation without changing current rows or revealing old values on column-name
 reuse. Full ordinary/platform and performance gates remain open.
+
+The [native TRUNCATE checkpoint](truncate-validation.md) verifies fresh storage,
+complete old table/view readers, identity semantics, unrelated-table preservation
+and multi-table publication conflicts without replay. TRUNCATE and the adjacent
+schema-cascade race families pass. Full ordinary/platform and performance gates
+remain open.
