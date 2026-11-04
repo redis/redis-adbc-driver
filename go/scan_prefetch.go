@@ -104,6 +104,31 @@ func (p *hashPagePrefetch) close() {
 	<-p.done // no READ can race DEL, transport close or worker-token release
 }
 
+func (it *scanIter) hasHashLookahead() bool {
+	// Never inspect cursor/discovery state once the worker owns it.
+	if it.prefetch != nil {
+		return true
+	}
+	if it.delta != nil || it.candidates != nil {
+		// Exact immutable image counts are a conservative upper bound on
+		// merged discoveries, including replacements and tombstones. Avoid a
+		// worker when the entire source is proven to fit in one page.
+		limit := int64(snapshotDeltaPage)
+		if it.delta != nil && it.delta.pageRows > 0 {
+			limit = int64(it.delta.pageRows)
+		}
+		for _, segment := range it.meta.snapshotSegments() {
+			if segment.Rows > limit {
+				return true
+			}
+			limit -= segment.Rows
+		}
+		return false
+	}
+	// A zero initial Search cursor proves discovery fit in one reply.
+	return it.cur != nil && it.cur.cursor != 0
+}
+
 func (it *scanIter) nextPrefetchedHash(ctx context.Context) ([]string, []map[string]Value, error) {
 	if it.prefetch == nil {
 		// The worker gets immutable scan metadata and exclusive cursor access.

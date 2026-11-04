@@ -846,10 +846,7 @@ func (it *scanIter) nextPage(ctx context.Context) ([]string, []map[string]Value,
 	}
 	if it.allowPrefetch && it.gpu == nil && it.hashFetch && len(it.need) >= 64 && it.projection != nil && it.projection.consumeHash != nil &&
 		it.directKeys == nil && it.ties == nil && it.late == nil &&
-		(it.prefetch != nil || it.cur != nil && it.cur.cursor != 0) {
-		// A zero initial cursor means discovery already fit in one page:
-		// there is no next page to overlap. Do not read worker-owned cursor
-		// state after prefetch starts (the first operand short-circuits).
+		it.hasHashLookahead() {
 		return it.nextPrefetchedHash(ctx)
 	}
 	if it.candidates != nil {
@@ -2048,9 +2045,13 @@ func (e *executor) indexAggregate(ctx context.Context, plan *selectPlan, wp wher
 				g.results[f] = intValue(typeInt64, count)
 				continue
 			}
-			nn, err := strconv.ParseFloat(r[nonNull[argCol[i].Name]+"_n"], 64)
-			if err != nil {
-				return nil, false, nil
+			var nn float64
+			// Empty global reducers can omit the non-NULL count field.
+			if count != 0 {
+				nn, err = strconv.ParseFloat(r[nonNull[argCol[i].Name]+"_n"], 64)
+				if err != nil {
+					return nil, false, nil
+				}
 			}
 			if f.Name == "COUNT" {
 				g.results[f] = intValue(typeInt64, int64(nn))

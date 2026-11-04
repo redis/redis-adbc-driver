@@ -59,6 +59,63 @@ func TestSnapshotIndexMaskBudgetFallsBackWithoutResurrection(t *testing.T) {
 	h.expectRows("SELECT COUNT(*),SUM(id) FROM t", "513|263169")
 }
 
+func TestSnapshotContiguousMasksAvoidIDEnumeration(t *testing.T) {
+	h, raw, _ := newSnapshotHarnessMode(t, false, false)
+	h.exec("CREATE TABLE t(id INTEGER,v INTEGER)")
+	h.exec("INSERT INTO t SELECT i,1 FROM generate_series(1,6001) AS g(i)")
+	h.exec("DELETE FROM t WHERE id<=5000")
+	s := snapshotTestStore(t, raw)
+	guard := &snapshotCandidateReads{}
+	s.client.AddHook(guard)
+	ctx, pin, err := s.acquireSnapshot(h.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pin.release()
+	meta, err := s.getTable(ctx, defaultSchema, "t")
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := &executor{store: s}
+	queries, ok, err := e.snapshotIndexQueries(ctx, meta)
+	if err != nil || !ok || len(queries) != 2 {
+		t.Fatalf("large contiguous tombstones lost bounded index masks: %d %v %v", len(queries), ok, err)
+	}
+	res := snapshotExecuteTest(t, s, ctx, "SELECT COUNT(*),SUM(id) FROM t")
+	if got := snapshotResultStrings(res.rows); !slices.Equal(got, []string{"1001|5506501"}) {
+		t.Fatal("contiguous tombstones resurrected old rows", got)
+	}
+	if guard.rows.Load() != 0 || guard.masks.Load() != 0 {
+		t.Fatalf("contiguous proof enumerated IDs or fetched HASHes: %d %d", guard.masks.Load(), guard.rows.Load())
+	}
+	// Adjacent/overlapping masks from later replacements and tombstones must
+	// merge exactly, while the old pin keeps the first deletion's generation.
+	h.exec("UPDATE t SET v=2 WHERE id>=5001 AND id<=5100")
+	h.exec("DELETE FROM t WHERE id>=5901")
+	h.exec("DELETE FROM t WHERE id=5501")
+	counts, sums := [3]int64{}, [3]int64{}
+	for id := int64(5001); id < 5901; id++ {
+		if id == 5501 {
+			continue
+		}
+		v := 1
+		if id <= 5100 {
+			v = 2
+		}
+		counts[v]++
+		sums[v] += id
+	}
+	h.expectRows("SELECT v,COUNT(*),SUM(id) FROM t GROUP BY v ORDER BY v",
+		fmt.Sprintf("1|%d|%d", counts[1], sums[1]), fmt.Sprintf("2|%d|%d", counts[2], sums[2]))
+	res = snapshotExecuteTest(t, s, ctx, "SELECT COUNT(*),SUM(id) FROM t")
+	if got := snapshotResultStrings(res.rows); !slices.Equal(got, []string{"1001|5506501"}) {
+		t.Fatal("later masks changed pinned aggregates", got)
+	}
+	if guard.rows.Load() != 0 || guard.masks.Load() != 0 {
+		t.Fatal("pinned contiguous proof lost its bounded index path")
+	}
+}
+
 func TestSnapshotIndexDistinctUnionsVisibleTuples(t *testing.T) {
 	h, raw, _ := newSnapshotHarnessMode(t, false, false)
 	h.exec("CREATE TABLE t(id INTEGER,g VARCHAR,v INTEGER)")

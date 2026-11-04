@@ -359,6 +359,74 @@ class SnapshotValidation(unittest.TestCase):
             self.assertEqual(table.schema, pa.schema([("__key", pa.string())]))
             self.assertEqual(table.to_pylist(), [{"__key": "app:origin"}])
 
+    def test_wide_multi_page_stream_retains_all_exact_columns(self):
+        count, exact = 4097, 9007199254740993
+        values = {f"c{j}": [i*100+j for i in range(count)] for j in range(64)}
+        values["c0"] = list(range(count))
+        values["c1"] = [exact+i for i in range(count)]
+        values["c2"] = [None if i%7 == 0 else i*100+2 for i in range(count)]
+        source = pa.table({name: pa.array(column, pa.int64()) for name, column in values.items()})
+        with self.conn.cursor() as cur:
+            self.assertEqual(cur.adbc_ingest("native_wide", source, mode="create"), count)
+            cur.execute("UPDATE native_wide SET c1=-9007199254740993 WHERE c0=10")
+            cur.execute("DELETE FROM native_wide WHERE c0=11")
+        values["c1"][10] = -exact
+        expected = pa.table({name: pa.array([value for i, value in enumerate(column) if i != 11], pa.int64())
+                             for name, column in values.items()})
+        with self.connect() as writer, self.conn.cursor() as reader, writer.cursor() as cur:
+            reader.adbc_statement.set_options(**{"adbc.redis.stream_batch_rows": "127"})
+            reader.execute("SELECT * FROM native_wide")
+            stream = reader.fetch_record_batch()
+            try:
+                first = stream.read_next_batch()
+                self.assertEqual(first.num_rows, 127)
+                cur.execute("UPDATE native_wide SET c1=0 WHERE c0=1")
+                cur.execute("DELETE FROM native_wide WHERE c0=2")
+                cur.execute("TRUNCATE native_wide")
+                cur.execute("DROP TABLE native_wide")
+                result = pa.Table.from_batches([first, *stream], schema=stream.schema)
+                self.assertTrue(result.sort_by([("c0", "ascending")]).equals(expected))
+            finally:
+                stream.close()
+
+    def test_balanced_partitions_retain_visible_rows_after_producer_close(self):
+        with self.connect() as producer, producer.cursor() as cur:
+            cur.execute("CREATE TABLE balanced(id INTEGER,exact BIGINT,payload VARCHAR)")
+            cur.execute("INSERT INTO balanced SELECT i,9007199254740993+i,"
+                        "CASE WHEN i%7=0 THEN NULL ELSE 'row'||i END "
+                        "FROM generate_series(0,5999) AS g(i)")
+            cur.execute("DELETE FROM balanced WHERE id<5000")
+            cur.adbc_statement.set_options(**{
+                "adbc.redis.partition_strategy": "balanced",
+                "adbc.redis.partition_count": "4",
+            })
+            parts, schema = cur.adbc_execute_partitions("SELECT id,exact,payload FROM balanced")
+            group = cur.adbc_statement.get_option("adbc.redis.partition_snapshot_id")
+            self.assertEqual(len(parts), 4)
+        with self.conn.cursor() as cur:
+            cur.execute("UPDATE balanced SET exact=0 WHERE id=5000")
+            cur.execute("DELETE FROM balanced WHERE id=5001")
+            cur.execute("INSERT INTO balanced VALUES(6000,42,'new')")
+            cur.execute("TRUNCATE balanced")
+            cur.execute("DROP TABLE balanced")
+        with self.connect() as worker, worker.cursor() as cur:
+            actual = []
+            for part in parts:
+                cur.adbc_read_partition(part)
+                table = cur.fetch_arrow_table()
+                self.assertEqual(table.schema, schema)
+                self.assertEqual(table.num_rows, 250)
+                actual.extend(zip(table["id"].to_pylist(), table["exact"].to_pylist(),
+                                  table["payload"].to_pylist()))
+            self.assertEqual(sorted(actual), [
+                (i, 9007199254740993 + i, None if i%7 == 0 else f"row{i}")
+                for i in range(5000, 6000)
+            ])
+            with self.conn.cursor() as owner:
+                owner.execute(f"DROP PARTITION SNAPSHOT '{group}'")
+            with self.assertRaises(adbc_driver_manager.Error):
+                cur.adbc_read_partition(parts[0])
+
     def test_live_partition_visibility(self):
         with self.conn.cursor() as cur:
             self.execute_retry(cur, "CREATE TABLE t(id INTEGER,v INTEGER)")

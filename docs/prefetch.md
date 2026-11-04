@@ -5,7 +5,10 @@ eligible wide managed-table streams. Ordinary reads and public partition reads
 share the same path. Eligibility requires at least 64 needed columns, a positional
 HASH projection and more than one discovery page. Known single-page discoveries,
 narrow projections, GPU execution and unsupported plans retain their existing
-paths. Batch sizes, returned types and row ownership are unchanged.
+paths. Immutable snapshot image counts also avoid a worker when they prove that
+directory/candidate discovery fits in one page. Larger sources use bounded
+lookahead even when no Search cursor is involved. Batch sizes, returned types
+and row ownership are unchanged.
 
 Each reader can retain its current reply page plus **one additional owned page**.
 The lookahead follows the existing 4,096-row discovery-page request; it is not a
@@ -16,8 +19,11 @@ row/byte settings and can contain several discovery pages.
 The producer owns discovery and HASH fetches; the consumer owns typed decoding
 and Arrow construction. Cursor READ/DEL are serialized, cancellation joins the
 producer and its cursor finalizer before pools close, and consumer EOF rechecks
-readiness after final-page conversion. Concurrent updates/deletes are observed
-at HASH fetch time. This provides no snapshot or new consistency guarantee.
+readiness after final-page conversion. Managed streams retain their statement's
+pinned generation through UPDATE, DELETE, DDL and reclamation. Directory/candidate
+discovery resolves winning immutable images before fetch, and the consumer checks
+exact identities and tombstones before Arrow conversion. See
+[statement snapshots](snapshots.md) for the consistency boundary.
 
 The implementation uses the existing Search/HMGET commands and current
 RESP3/TLS/ACL/routing requirements. It needs no server export command or module.
@@ -31,5 +37,6 @@ linker flag. The legacy `scanprefetch` tag remains accepted and is unnecessary
 when default prefetch is enabled; explicit `scanprefetchoff` takes precedence.
 
 See the [benchmark report](../benchmarks/prefetch/2026-11-03-default/README.md) and
-[qualification record](sdlc/changes/prefetch-default/validation.md) for evidence. No universal speedup or strict
+[qualification record](sdlc/changes/prefetch-default/validation.md) for historical
+mainline evidence. Those measurements predate snapshot integration. No universal speedup or strict
 per-query byte cap is promised.

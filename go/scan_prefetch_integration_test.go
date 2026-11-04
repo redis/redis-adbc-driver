@@ -40,8 +40,8 @@ func TestPrefetchAvoidsSinglePageWorker(t *testing.T) {
 	}
 }
 
-// EOF can be discovered while the consumer is still converting its final
-// page. A drop in that interval must retain the ordinary stale-read error.
+// EOF can be discovered while the consumer still converts its final page.
+// An explicitly owned mutable source losing its index must retain the I/O error.
 func TestPrefetchDetectsDropAfterProducerEOF(t *testing.T) {
 	h := newSQLHarness(t)
 	const table = "it_prefetch_eof_drop"
@@ -53,22 +53,26 @@ func TestPrefetchDetectsDropAfterProducerEOF(t *testing.T) {
 	h.exec("CREATE TABLE " + table + " (" + strings.Join(defs, ",") + ")")
 	t.Cleanup(func() { h.exec("DROP TABLE IF EXISTS " + table) })
 	h.exec("INSERT INTO " + table + " (c0) VALUES (1)")
-	e, plan := sharedScanPlan(t, h, "SELECT * FROM "+table, nil)
-	sc, err := e.prepareScan(h.ctx, plan, nil)
+	primitive, meta := prefetchMutableSource(t, h, table, 1)
+	st, ctx, pin := h.inspectionSnapshot(primitive.client)
+	defer pin.release()
+	need := map[string]bool{}
+	for _, col := range meta.Columns {
+		need[col.Name] = true
+	}
+	e := &executor{store: st}
+	it, err := e.openScan(ctx, scanRequest{meta: meta, where: wherePlan{query: "*"}, need: need,
+		ranges: &rowIDRangeScan{lo: 1, hi: 1, cap: 137}}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	it, err := e.openScan(h.ctx, sc.req, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer it.close(h.ctx)
+	defer it.close(ctx)
 	if !it.hashFetch || it.rowIDRanges == nil {
 		t.Fatal("expected bounded wide HASH scan")
 	}
 	worker := *it
 	eof := make(chan struct{})
-	it.prefetch = newHashPagePrefetchWithCleanup(h.ctx, func(ctx context.Context) hashPage {
+	it.prefetch = newHashPagePrefetchWithCleanup(ctx, func(ctx context.Context) hashPage {
 		page := worker.fetchHashPage(ctx)
 		if errors.Is(page.err, io.EOF) {
 			close(eof)
@@ -78,15 +82,47 @@ func TestPrefetchDetectsDropAfterProducerEOF(t *testing.T) {
 	it.allowPrefetch = true
 	it.projection = &scanProjection{consumeHash: func([]any) error {
 		awaitPrefetch(t, eof)
-		h.exec("DROP TABLE " + table)
-		return nil
+		return primitive.searchDo(h.ctx, meta.index(), "FT.DROPINDEX", meta.index()).Err()
 	}}
-	if keys, _, err := it.next(h.ctx); err != nil || len(keys) != 1 {
+	if keys, _, err := it.next(ctx); err != nil || len(keys) != 1 {
 		t.Fatalf("final data page: keys=%v err=%v", keys, err)
 	}
-	if _, _, err := it.next(h.ctx); !isStatus(err, adbc.StatusIO) {
+	if _, _, err := it.next(ctx); !isStatus(err, adbc.StatusIO) {
 		t.Fatalf("drop after producer EOF became successful completion: %v", err)
 	}
+}
+
+func prefetchMutableSource(t *testing.T, h *sqlHarness, table string, count int) (*store, *tableMeta) {
+	t.Helper()
+	raw := h.rawClient()
+	meta := cloneMeta(h.inspectTable(raw, defaultSchema, table))
+	meta.KeyPrefix = "it_prefetch_external:" + snapshotID() + ":"
+	meta.IndexName = "it_prefetch_external_" + snapshotID()
+	meta.SnapshotOverlay, meta.SnapshotSegments, meta.SnapshotRows = false, nil, nil
+	meta.SnapshotLineage = ""
+	st := &store{client: raw}
+	keys := make([]string, count)
+	t.Cleanup(func() {
+		_ = st.searchDo(h.ctx, meta.index(), "FT.DROPINDEX", meta.index()).Err()
+		_ = raw.Del(h.ctx, keys...).Err()
+	})
+	for i := 1; i <= count; i++ {
+		fields := []any{rowIDField, i}
+		if i < 3 {
+			fields = append(fields, "c0", i)
+		}
+		keys[i-1] = meta.prefix() + fmt.Sprint(i)
+		if err := raw.HSet(h.ctx, keys[i-1], fields...).Err(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := st.searchDo(h.ctx, meta.index(), snapshotScannedIndexArgs(meta)...).Err(); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.awaitIndexReady(h.ctx, meta.index()); err != nil {
+		t.Fatal(err)
+	}
+	return st, meta
 }
 
 // Discovery is deliberately complete before mutation. HASHes remain
@@ -105,32 +141,7 @@ func TestPrefetchUpdateDeleteAfterDiscovery(t *testing.T) {
 	// Keep the original live-HASH primitive regression on explicitly unowned
 	// storage. Published managed HASHes are immutable; their SQL consistency is
 	// covered separately by TestSnapshotPrefetchUpdateDeleteAfterDiscovery.
-	raw := h.rawClient()
-	meta := cloneMeta(h.inspectTable(raw, defaultSchema, table))
-	meta.KeyPrefix = "it_prefetch_external:" + snapshotID() + ":"
-	meta.IndexName = "it_prefetch_external_" + snapshotID()
-	meta.SnapshotOverlay, meta.SnapshotSegments, meta.SnapshotRows = false, nil, nil
-	meta.SnapshotLineage = ""
-	st := &store{client: raw}
-	t.Cleanup(func() {
-		_ = st.searchDo(h.ctx, meta.index(), "FT.DROPINDEX", meta.index()).Err()
-		_ = raw.Del(h.ctx, meta.prefix()+"1", meta.prefix()+"2", meta.prefix()+"3").Err()
-	})
-	for i := 1; i <= 3; i++ {
-		fields := []any{rowIDField, i}
-		if i < 3 {
-			fields = append(fields, "c0", i)
-		}
-		if err := raw.HSet(h.ctx, meta.prefix()+fmt.Sprint(i), fields...).Err(); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := st.searchDo(h.ctx, meta.index(), snapshotScannedIndexArgs(meta)...).Err(); err != nil {
-		t.Fatal(err)
-	}
-	if err := st.awaitIndexReady(h.ctx, meta.index()); err != nil {
-		t.Fatal(err)
-	}
+	st, meta := prefetchMutableSource(t, h, table, 3)
 	need := map[string]bool{}
 	for _, col := range meta.Columns {
 		need[col.Name] = true

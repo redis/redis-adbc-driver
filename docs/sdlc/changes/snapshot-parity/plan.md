@@ -66,6 +66,11 @@ The [parallel aggregate checkpoint](parallel-aggregate-validation.md) retains
 full serial/parallel/automatic comparisons, shared worker budgets, tuning and
 cancellation using atomic fixture writes and private scan-error plans.
 
+The [balanced/default-prefetch checkpoint](balanced-prefetch-validation.md)
+integrates current main's default prefetch, preserves snapshot source ownership,
+balances only visible rows, proves large contiguous exclusion runs without ID
+enumeration and retains exact empty-segment reducers on the index path.
+
 The [consistency-boundary recommendation](consistency-boundary.md) proposes a
 shared driver consistency layer across execution paths. A new
 Redis server extension is not required by this plan.

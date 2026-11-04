@@ -154,11 +154,42 @@ func (e *executor) balancedPartitionSpans(ctx context.Context, meta *tableMeta, 
 	}
 	bounded, cancel := context.WithTimeout(ctx, partitionBalanceTimeout)
 	defer cancel()
+	queries := []snapshotIndexQuery{{segment: snapshotSegment{Index: meta.index()}, query: "*"}}
+	if meta.SnapshotOverlay {
+		var ok bool
+		queries, ok, err = e.snapshotIndexQueries(bounded, meta)
+		if ctx.Err() != nil {
+			return nil, cancelled(ctx)
+		}
+		if bounded.Err() != nil {
+			return fallback, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			return fallback, nil
+		}
+	}
+	remaining := partitionBalanceRequests
 	spans, err := balancePartitionSpans(lo, last, n, partitionBalanceRequests, func(lo, hi int64) (int64, error) {
 		if err := cancelled(bounded); err != nil {
 			return 0, err
 		}
-		return e.store.countMatches(bounded, meta.index(), fmt.Sprintf("@%s:[%d %d]", rowIDField, lo, hi))
+		var total int64
+		for _, query := range queries {
+			if remaining == 0 {
+				return 0, errPartitionBalanceBudget
+			}
+			remaining--
+			count, err := e.store.countMatches(bounded, query.segment.Index,
+				andSnapshotQuery(query.query, fmt.Sprintf("@%s:[%d %d]", rowIDField, lo, hi)))
+			if err != nil {
+				return 0, err
+			}
+			total += count
+		}
+		return total, nil
 	})
 	if ctx.Err() != nil {
 		return nil, cancelled(ctx)
@@ -169,8 +200,10 @@ func (e *executor) balancedPartitionSpans(ctx context.Context, meta *tableMeta, 
 	if err != nil {
 		return nil, err
 	}
-	if err := e.store.checkRangeReadiness(ctx, meta.index()); err != nil {
-		return nil, err
+	for _, query := range queries {
+		if err := e.store.checkRangeReadiness(ctx, query.segment.Index); err != nil {
+			return nil, err
+		}
 	}
 	// Balancing must not turn a previously readable sparse range into a reader
 	// exceeding the existing per-descriptor request bound.

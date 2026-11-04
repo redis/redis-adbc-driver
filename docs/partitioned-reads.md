@@ -112,19 +112,23 @@ with its Arrow schema. A previously populated empty table may return more.
 The string statement option `adbc.redis.partition_strategy` defaults to `rowid`
 (equal-width allocated-ID ranges). Opt-in `balanced` chooses live-row count
 quantiles within the inferred candidate envelope, without estimating residual
-selectivity. It performs at most 256 count queries with a two-second internal count-probe deadline; exhaustion discards
+selectivity. Managed planning counts visible versions under the producer's pin,
+using bounded per-segment masks to exclude replacements and tombstones. It
+performs at most 256 count queries across all segments, with a two-second internal
+deadline after readiness/cap discovery; exhaustion discards
 partial cuts and retains equal-width ranges. Sparse/empty tables with fewer
 live rows than requested partitions also retain the default splits. A candidate
 that would exceed the current cap's per-descriptor subrange budget falls back.
 Normal Redis metadata/transport timeouts still apply outside the probe deadline.
 
-Counts are advisory workload estimates, not frozen membership. Every candidate
-allocated ID remains covered, including currently empty gaps and unfinished inserts below
-the captured watermark. Concurrent writes may make counts unbalanced but do not
-create overlapping ranges or a snapshot. Balanced planning requires Search
+Counts estimate workload without estimating residual selectivity. Every captured
+allocated ID remains covered, including empty gaps. Managed workers retain the
+same committed generation through later writes and DDL; balancing preserves that
+membership. Balanced planning requires Search
 readiness and FT.SEARCH; failures remain explicit. It needs a discoverable cap
 or the configured positive contract to protect range width; if automatic cap
-information is unavailable it retains the default splits. Independent workers
+information is unavailable it retains the default splits. If exact visibility
+masks exceed their bounds, planning also retains equal-width ranges. Independent workers
 need no new descriptor fields or scheduler. More planning work can lose on
 small/already-balanced queries; use the default unless measurements justify it.
 

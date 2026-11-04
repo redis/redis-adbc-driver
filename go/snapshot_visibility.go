@@ -4,6 +4,7 @@
 package redis
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"slices"
@@ -16,6 +17,16 @@ import (
 
 const snapshotMaskIDs = 4096
 const snapshotMaskRanges = 256
+
+type snapshotMaskSpan struct{ lo, hi int64 }
+
+func snapshotMaskID(id string) (int64, error) {
+	n, err := strconv.ParseInt(id, 10, 64)
+	if err != nil || n < 1 || n >= exactDoubleLimit || fmt.Sprintf("%020d", n) != id {
+		return 0, errorf(adbc.StatusIO, "invalid snapshot visibility row ID")
+	}
+	return n, nil
+}
 
 type snapshotIndexQuery struct {
 	segment   snapshotSegment
@@ -34,7 +45,8 @@ func andSnapshotQuery(a, b string) string {
 }
 
 // Immutable exact directories define per-segment visibility. Append-only ranges
-// do not intersect, so no exclusion list is transferred. Small scattered changes
+// do not intersect, so no exclusion list is transferred. Complete contiguous
+// runs use cardinality/endpoint proofs; small scattered changes
 // are coalesced into numeric ranges. Excessive masks fall back to the bounded
 // candidate/HASH path rather than constructing unbounded Search expressions.
 func (e *executor) snapshotIndexQueries(ctx context.Context, m *tableMeta) ([]snapshotIndexQuery, bool, error) {
@@ -43,8 +55,9 @@ func (e *executor) snapshotIndexQueries(ctx context.Context, m *tableMeta) ([]sn
 	}
 	segments := m.snapshotSegments()
 	type bounds struct {
-		lo, hi      string
-		first, last *goredis.StringSliceCmd
+		lo, hi          string
+		firstID, lastID int64
+		first, last     *goredis.StringSliceCmd
 	}
 	bs := make([]bounds, len(segments))
 	pipe := e.store.redis(ctx).Pipeline()
@@ -68,12 +81,22 @@ func (e *executor) snapshotIndexQueries(ctx context.Context, m *tableMeta) ([]sn
 			return nil, false, errorf(adbc.StatusIO, "snapshot visibility directory is incomplete")
 		}
 		bs[i].lo, bs[i].hi = first[0], last[0]
+		var err error
+		bs[i].firstID, err = snapshotMaskID(first[0])
+		if err != nil {
+			return nil, false, err
+		}
+		bs[i].lastID, err = snapshotMaskID(last[0])
+		if err != nil {
+			return nil, false, err
+		}
 	}
 	type probe struct {
 		older int
 		cmd   *goredis.StringSliceCmd
 	}
 	var probes []probe
+	spans := make([][]snapshotMaskSpan, len(segments))
 	pipe = e.store.redis(ctx).Pipeline()
 	for i := range segments {
 		if bs[i].lo == "" {
@@ -81,6 +104,13 @@ func (e *executor) snapshotIndexQueries(ctx context.Context, m *tableMeta) ([]sn
 		}
 		for j := i + 1; j < len(segments); j++ {
 			if bs[j].lo == "" || bs[j].hi < bs[i].lo || bs[j].lo > bs[i].hi {
+				continue
+			}
+			// Unique canonical directory IDs plus exact cardinality and bounds
+			// prove a full run. Clip it without transferring every replaced ID.
+			if segments[j].Rows == bs[j].lastID-bs[j].firstID+1 {
+				spans[i] = append(spans[i], snapshotMaskSpan{
+					max(bs[i].firstID, bs[j].firstID), min(bs[i].lastID, bs[j].lastID)})
 				continue
 			}
 			cmd := pipe.ZRangeByLex(ctx, snapshotMembers(snapshotDataID(segments[j].Prefix)), &goredis.ZRangeBy{Min: "[" + bs[i].lo, Max: "[" + bs[i].hi, Count: snapshotMaskIDs + 1})
@@ -113,13 +143,14 @@ func (e *executor) snapshotIndexQueries(ctx context.Context, m *tableMeta) ([]sn
 		if bs[i].lo == "" {
 			continue
 		}
-		ids := slices.Sorted(func(yield func(string) bool) {
-			for id := range masks[i] {
-				if !yield(id) {
-					return
-				}
+		for id := range masks[i] {
+			n, err := snapshotMaskID(id)
+			if err != nil {
+				return nil, false, err
 			}
-		})
+			spans[i] = append(spans[i], snapshotMaskSpan{n, n})
+		}
+		slices.SortFunc(spans[i], func(a, b snapshotMaskSpan) int { return cmp.Compare(a.lo, b.lo) })
 		var ranges []string
 		var lo, hi int64
 		flush := func() {
@@ -127,18 +158,14 @@ func (e *executor) snapshotIndexQueries(ctx context.Context, m *tableMeta) ([]sn
 				ranges = append(ranges, fmt.Sprintf("@%s:[%d %d]", rowIDField, lo, hi))
 			}
 		}
-		for _, id := range ids {
-			n, err := strconv.ParseInt(id, 10, 64)
-			if err != nil || n < 1 || n >= exactDoubleLimit || fmt.Sprintf("%020d", n) != id {
-				return nil, false, errorf(adbc.StatusIO, "invalid snapshot visibility row ID")
-			}
+		for _, span := range spans[i] {
 			if lo == 0 {
-				lo, hi = n, n
-			} else if n == hi+1 {
-				hi = n
+				lo, hi = span.lo, span.hi
+			} else if span.lo <= hi+1 {
+				hi = max(hi, span.hi)
 			} else {
 				flush()
-				lo, hi = n, n
+				lo, hi = span.lo, span.hi
 			}
 		}
 		flush()

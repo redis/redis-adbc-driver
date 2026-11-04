@@ -266,7 +266,10 @@ merges preserve order without a separate ordered reduction. Live partition
 directory bounds are enforced exactly; the caller's predicate remains active.
 Residual predicates, inexact boundaries, pushed LIMIT and descending order retain
 their existing fallbacks.
-Large masks (over 4,096 overlapping IDs or 256 coalesced ranges), unsettled private
+Contiguous directory runs use exact immutable cardinality and endpoint proofs,
+so a large bulk replacement/deletion can become one clipped exclusion range
+without enumerating its IDs. Scattered masks over 4,096 overlapping IDs or 256
+coalesced ranges, unsettled private
 indexes and inexact ID ranges use authoritative bounded fallbacks. Performance
 and remaining parity work are tracked in the [parity record](sdlc/changes/snapshot-parity/plan.md).
 

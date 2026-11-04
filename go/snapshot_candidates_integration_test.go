@@ -19,7 +19,7 @@ import (
 
 type snapshotCandidateReads struct {
 	snapshotHook
-	search, rows, info atomic.Int64
+	search, rows, info, masks atomic.Int64
 }
 
 func (h *snapshotCandidateReads) record(c goredis.Cmder) {
@@ -33,6 +33,9 @@ func (h *snapshotCandidateReads) record(c goredis.Cmder) {
 	}
 	if name == "ft.search" {
 		h.search.Add(1)
+	}
+	if name == "zrangebylex" {
+		h.masks.Add(1)
 	}
 	if (name == "hgetall" || name == "hmget") && snapshotRowPrefix(key) != "" {
 		h.rows.Add(1)

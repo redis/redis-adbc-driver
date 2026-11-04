@@ -19,6 +19,7 @@ func TestSnapshotPrefetchUpdateDeleteAfterDiscovery(t *testing.T) {
 		t.Run(fmt.Sprintf("candidates_%t", indexed), func(t *testing.T) {
 			h := newSQLHarness(t)
 			const table = "it_snapshot_prefetch"
+			const count = snapshotDeltaPage + 1
 			h.dropTables(table)
 			defs, fields, exprs := []string{}, []string{}, []string{}
 			need := map[string]bool{}
@@ -40,7 +41,7 @@ func TestSnapshotPrefetchUpdateDeleteAfterDiscovery(t *testing.T) {
 				exprs = append(exprs, expr)
 			}
 			h.exec("CREATE TABLE " + table + " (" + strings.Join(defs, ",") + ")")
-			h.exec("INSERT INTO " + table + " SELECT " + strings.Join(exprs, ",") + " FROM generate_series(1,600) AS g(i)")
+			h.exec(fmt.Sprintf("INSERT INTO %s SELECT %s FROM generate_series(1,%d) AS g(i)", table, strings.Join(exprs, ","), count))
 			h.exec("UPDATE " + table + " SET c1=-9007199254740993 WHERE c0=10")
 			h.exec("DELETE FROM " + table + " WHERE c0=11")
 			raw := h.rawClient()
@@ -52,14 +53,14 @@ func TestSnapshotPrefetchUpdateDeleteAfterDiscovery(t *testing.T) {
 			}
 			it := &scanIter{meta: meta, store: st, fetch: fields, need: need, hashFetch: true, allowPrefetch: true, env: &evalEnv{ctx: ctx}}
 			if indexed {
-				it.candidates = newSnapshotCandidateScan(ctx, st, meta, "@c0:[1 600]", fields)
+				it.candidates = newSnapshotCandidateScan(ctx, st, meta, fmt.Sprintf("@c0:[1 %d]", count), fields)
 			} else {
 				it.delta = newSnapshotDeltaScan(st, meta, fields)
 			}
 			seen := map[int]bool{}
 			it.projection = &scanProjection{consumeHash: func(values []any) error {
 				id, err := strconv.Atoi(fmt.Sprint(values[1]))
-				if err != nil || id < 1 || id > 600 || id == 11 || seen[id] {
+				if err != nil || id < 1 || id > count || id == 11 || seen[id] {
 					return fmt.Errorf("invalid or duplicate visible id %d: %v", id, err)
 				}
 				seen[id] = true
@@ -101,8 +102,8 @@ func TestSnapshotPrefetchUpdateDeleteAfterDiscovery(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			if len(seen) != 599 {
-				t.Fatalf("snapshot returned %d rows, want 599", len(seen))
+			if len(seen) != count-1 {
+				t.Fatalf("snapshot returned %d rows, want %d", len(seen), count-1)
 			}
 			it.close(ctx)
 			pin.release()

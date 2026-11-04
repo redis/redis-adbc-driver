@@ -6,7 +6,9 @@ package redis
 
 import (
 	"context"
+	"fmt"
 	"github.com/apache/arrow-adbc/go/adbc"
+	"reflect"
 	"slices"
 	"testing"
 )
@@ -17,7 +19,7 @@ func TestBalancedPartitionReads(t *testing.T) {
 	h.setupStreamTable(table, 25000)
 	t.Cleanup(func() { h.exec("DROP TABLE IF EXISTS " + table) })
 	h.exec("DELETE FROM " + table + " WHERE id < 22500")
-	sharedScanPlan(t, h, "SELECT id FROM "+table, nil) // wait for fixture readiness
+	h.inspectTable(h.rawClient(), defaultSchema, table) // validate every pinned segment/index
 	st, err := h.conn.NewStatement(h.ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -45,6 +47,22 @@ func TestBalancedPartitionReads(t *testing.T) {
 	if parts.NumPartitions != 4 {
 		t.Fatal(parts.NumPartitions)
 	}
+	retainRelease := func(parts adbc.Partitions) *partitionSnapshot {
+		t.Helper()
+		d, err := decodePartition(parts.PartitionIDs[0])
+		if err != nil || d.Snapshot == nil {
+			t.Fatal("balanced descriptors lack a shared generation", err)
+		}
+		t.Cleanup(func() { h.exec("DROP PARTITION SNAPSHOT '" + d.Snapshot.Token + "'") })
+		for _, data := range parts.PartitionIDs {
+			part, err := decodePartition(data)
+			if err != nil || part.Snapshot == nil || *part.Snapshot != *d.Snapshot {
+				t.Fatal("balanced descriptors use different generations", err)
+			}
+		}
+		return d.Snapshot
+	}
+	first := retainRelease(parts)
 	_, empty, _, err := st.ExecutePartitions(h.ctx)
 	if err != nil || empty.NumPartitions != 0 {
 		t.Fatal("nonterminal discovery", err)
@@ -57,8 +75,19 @@ func TestBalancedPartitionReads(t *testing.T) {
 	if err != nil || again.NumPartitions != 4 {
 		t.Fatal("strategy did not reset discovery", err)
 	}
+	second := retainRelease(again)
+	if first.Root != second.Root || first.Token == second.Token {
+		t.Fatal("reset did not independently retain the same committed generation")
+	}
 	st.Close(h.ctx)
 	h.exec("INSERT INTO " + table + " (id,label,qty) VALUES(25000,'new',0)")
+	h.exec("UPDATE " + table + " SET id=-1 WHERE id=23000")
+	h.exec("DELETE FROM " + table + " WHERE id=22500")
+	h.expectRows("SELECT COUNT(*) FROM "+table, "2500")
+	h.expectRows("SELECT id FROM "+table+" WHERE id IN (-1,25000) ORDER BY id", "-1", "25000")
+	h.exec("TRUNCATE " + table)
+	h.exec("DROP TABLE " + table)
+	snapshotReapTest(&store{client: h.rawClient(), snapshots: true}, h.ctx)
 	worker := newSQLHarness(t)
 	var actual []int64
 	var previous int64
@@ -106,7 +135,41 @@ func TestBalancedPartitionReads(t *testing.T) {
 	defer st2.Close(h.ctx)
 	st2.SetSqlQuery(h.ctx, "SELECT id FROM "+table)
 	st2.SetOption(h.ctx, OptionStringPartitionStrategy, "balanced")
-	if _, _, _, err := st2.ExecutePartitions(canceled); err == nil {
-		t.Fatal("ignored planning cancellation")
+	if _, _, _, err := st2.ExecutePartitions(canceled); !isStatus(err, adbc.StatusCancelled) {
+		t.Fatal("ignored planning cancellation", err)
 	}
+}
+
+func TestSnapshotBalancedPartitionCountBudget(t *testing.T) {
+	h, raw, _ := newSnapshotHarnessMode(t, false, false)
+	h.exec("CREATE TABLE t(id INTEGER)")
+	for start := 1; start <= 6000; start += 1000 {
+		h.exec(fmt.Sprintf("INSERT INTO t SELECT i FROM generate_series(%d,%d) AS g(i)", start, start+999))
+	}
+	const last = int64(1_000_000_000)
+	const partitions = 128
+	h.sparseSnapshotTable("t", last, nil)
+	s := snapshotTestStore(t, raw)
+	guard := &snapshotCandidateReads{}
+	s.client.AddHook(guard)
+	ctx, pin, err := s.acquireSnapshot(h.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pin.release()
+	meta, err := s.getTable(ctx, defaultSchema, "t")
+	if err != nil {
+		t.Fatal(err)
+	}
+	spans, err := (&executor{store: s}).balancedPartitionSpans(ctx, meta, 1, last, partitions, 0)
+	if err != nil || !reflect.DeepEqual(spans, equalPartitionSpans(1, last, partitions)) {
+		t.Fatalf("partial count budget did not discard quantiles: %v %v", spans, err)
+	}
+	if requests := guard.search.Load(); requests < 1 || requests > partitionBalanceRequests {
+		t.Fatalf("segmented counts escaped the shared request budget: %d", requests)
+	}
+	if guard.rows.Load() != 0 || guard.masks.Load() != 0 {
+		t.Fatal("balancing transferred row images or enumerated contiguous IDs")
+	}
+	h.expectRows("SELECT COUNT(*),MIN(id),MAX(id) FROM t", "6000|1|6000")
 }
