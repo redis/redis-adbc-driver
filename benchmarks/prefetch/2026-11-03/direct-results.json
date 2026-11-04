@@ -1,0 +1,6366 @@
+{
+  "status": "passed",
+  "smoke": false,
+  "wire_diagnostic": false,
+  "trials": [
+    {
+      "allocated_bytes": 1161638712,
+      "allocations": 33040384,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.229725,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 75045192,
+      "heap_before_bytes": 1947128,
+      "metrics": [
+        {
+          "Rows": 100000,
+          "Batches": 2,
+          "FirstRows": 65536,
+          "FirstSeconds": 5.886579652
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 232734720,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 180475808,
+      "seconds": 9.046420062,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "baseline",
+      "projection": "wide",
+      "repeat": -1,
+      "warmup": true,
+      "process_seconds": 9.071526108999933,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 175652200,
+      "total_net_output_bytes_delta": 252481079
+    },
+    {
+      "allocated_bytes": 1161850552,
+      "allocations": 33040664,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.396946,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 75025832,
+      "heap_before_bytes": 1946928,
+      "metrics": [
+        {
+          "Rows": 100000,
+          "Batches": 2,
+          "FirstRows": 65536,
+          "FirstSeconds": 5.098437028
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 156635608,
+      "seconds": 7.832009913,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "candidate",
+      "projection": "wide",
+      "repeat": -1,
+      "warmup": true,
+      "process_seconds": 7.859946257000047,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 193903249,
+      "total_net_output_bytes_delta": 274850422
+    },
+    {
+      "allocated_bytes": 1178023808,
+      "allocations": 33219189,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.722334999999999,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 142621328,
+      "heap_before_bytes": 2507520,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.070635482
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.936426196
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 4.036171525
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.968078851
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 253395672,
+      "seconds": 4.042416711,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "baseline",
+      "projection": "wide",
+      "repeat": -1,
+      "warmup": true,
+      "process_seconds": 4.102370720999716,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 191213542,
+      "total_net_output_bytes_delta": 309748518
+    },
+    {
+      "allocated_bytes": 1178157328,
+      "allocations": 33219442,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.726243,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 127569584,
+      "heap_before_bytes": 2505984,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.755465677
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.6873165500000002
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.596668495
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.585803065
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 249419304,
+      "seconds": 3.603044274,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "candidate",
+      "projection": "wide",
+      "repeat": -1,
+      "warmup": true,
+      "process_seconds": 3.668789621000542,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 189186348,
+      "total_net_output_bytes_delta": 323063703
+    },
+    {
+      "allocated_bytes": 1174445864,
+      "allocations": 32745208,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.756073000000001,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 68098800,
+      "heap_before_bytes": 1946280,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.076986232
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 4.172193103
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 6.240880248
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 8.282881972
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 116949992,
+      "seconds": 8.28969766,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "baseline",
+      "projection": "wide",
+      "repeat": -1,
+      "warmup": true,
+      "process_seconds": 8.315365579000172,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 200246071,
+      "total_net_output_bytes_delta": 314247267
+    },
+    {
+      "allocated_bytes": 1174620728,
+      "allocations": 32745248,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.760626,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 68049032,
+      "heap_before_bytes": 1947232,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.757714378
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.486436759
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 5.246928035
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 6.999826191
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 103852848,
+      "seconds": 7.00666122,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "candidate",
+      "projection": "wide",
+      "repeat": -1,
+      "warmup": true,
+      "process_seconds": 7.035033985000155,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 192203411,
+      "total_net_output_bytes_delta": 294280385
+    },
+    {
+      "allocated_bytes": 1174173200,
+      "allocations": 32745061,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.587742,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 291395360,
+      "heap_before_bytes": 2501432,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.94533023
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.041472729
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.585326705
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.420035377
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 291395360,
+      "seconds": 3.0483873,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "baseline",
+      "projection": "wide",
+      "repeat": -1,
+      "warmup": true,
+      "process_seconds": 3.1129911460002404,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 174581971,
+      "total_net_output_bytes_delta": 257303037
+    },
+    {
+      "allocated_bytes": 1174251488,
+      "allocations": 32745199,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.7142669999999995,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 161974008,
+      "heap_before_bytes": 2511456,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.128237842
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.667191254
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.077025939
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.767540667
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 262877808,
+      "seconds": 2.774464608,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "candidate",
+      "projection": "wide",
+      "repeat": -1,
+      "warmup": true,
+      "process_seconds": 2.834180335000383,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 186117117,
+      "total_net_output_bytes_delta": 287689939
+    },
+    {
+      "allocated_bytes": 231572368,
+      "allocations": 4281797,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.795636,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 15223912,
+      "heap_before_bytes": 1945088,
+      "metrics": [
+        {
+          "Rows": 100000,
+          "Batches": 2,
+          "FirstRows": 65536,
+          "FirstSeconds": 1.558670138
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 26922512,
+      "seconds": 2.438055235,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "baseline",
+      "projection": "narrow",
+      "repeat": -1,
+      "warmup": true,
+      "process_seconds": 2.458079813999575,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 56107403,
+      "total_net_output_bytes_delta": 131953931
+    },
+    {
+      "allocated_bytes": 231605912,
+      "allocations": 4281815,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.789063,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 10297272,
+      "heap_before_bytes": 1944432,
+      "metrics": [
+        {
+          "Rows": 100000,
+          "Batches": 2,
+          "FirstRows": 65536,
+          "FirstSeconds": 1.5507280959999998
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 26212848,
+      "seconds": 2.431512203,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "candidate",
+      "projection": "narrow",
+      "repeat": -1,
+      "warmup": true,
+      "process_seconds": 2.453202305000559,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 8659814,
+      "total_net_output_bytes_delta": 90697878
+    },
+    {
+      "allocated_bytes": 240498584,
+      "allocations": 4441301,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.763382,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 8144880,
+      "heap_before_bytes": 2496840,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.255267746
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.064634273
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.232789911
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.232774631
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 54246192,
+      "seconds": 1.255585063,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "baseline",
+      "projection": "narrow",
+      "repeat": -1,
+      "warmup": true,
+      "process_seconds": 1.3009792780003409,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 6046757,
+      "total_net_output_bytes_delta": 96730070
+    },
+    {
+      "allocated_bytes": 240496520,
+      "allocations": 4441249,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.76268,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 22535720,
+      "heap_before_bytes": 2497784,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.09699242
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.24884775
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.077122238
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.181847785
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 56983792,
+      "seconds": 1.249142996,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "candidate",
+      "projection": "narrow",
+      "repeat": -1,
+      "warmup": true,
+      "process_seconds": 1.2967090869997264,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 10012426,
+      "total_net_output_bytes_delta": 152460547
+    },
+    {
+      "allocated_bytes": 236264872,
+      "allocations": 3965011,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.764117,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 14931824,
+      "heap_before_bytes": 1943608,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.513507312
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.034100828
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.559485161
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.091782442
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 26965832,
+      "seconds": 2.092836934,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "baseline",
+      "projection": "narrow",
+      "repeat": -1,
+      "warmup": true,
+      "process_seconds": 2.1118495580003582,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 11629441,
+      "total_net_output_bytes_delta": 145176520
+    },
+    {
+      "allocated_bytes": 236373792,
+      "allocations": 3965031,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.760666,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 9156632,
+      "heap_before_bytes": 1943856,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.532427995
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.036842523
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.5642640380000001
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.063047612
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 25761840,
+      "seconds": 2.063985281,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "candidate",
+      "projection": "narrow",
+      "repeat": -1,
+      "warmup": true,
+      "process_seconds": 2.0843115029992987,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 9019525,
+      "total_net_output_bytes_delta": 113298345
+    },
+    {
+      "allocated_bytes": 236181256,
+      "allocations": 3964945,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.681832,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 13311752,
+      "heap_before_bytes": 2494352,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.785309648
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.775967839
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.819883796
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.699562704
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 55552808,
+      "seconds": 0.820751124,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "baseline",
+      "projection": "narrow",
+      "repeat": -1,
+      "warmup": true,
+      "process_seconds": 0.8644385779998629,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 5186645,
+      "total_net_output_bytes_delta": 61595247
+    },
+    {
+      "allocated_bytes": 235969384,
+      "allocations": 3964848,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.661567,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 9443840,
+      "heap_before_bytes": 2500312,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.78637128
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.744515814
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.699277319
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.745150356
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 48363040,
+      "seconds": 0.787449951,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "candidate",
+      "projection": "narrow",
+      "repeat": -1,
+      "warmup": true,
+      "process_seconds": 0.8321295050000117,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 8838946,
+      "total_net_output_bytes_delta": 112684020
+    },
+    {
+      "allocated_bytes": 236255856,
+      "allocations": 3964858,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.671115,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 24068000,
+      "heap_before_bytes": 2495232,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.720998128
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.746970523
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.775707605
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.674216633
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 55814312,
+      "seconds": 0.777008011,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "candidate",
+      "projection": "narrow",
+      "repeat": 0,
+      "warmup": false,
+      "process_seconds": 0.8207995860002484,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 8210908,
+      "total_net_output_bytes_delta": 105671646
+    },
+    {
+      "allocated_bytes": 236126544,
+      "allocations": 3964860,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.6768080000000001,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 23989072,
+      "heap_before_bytes": 2500904,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.795891861
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.761538588
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.619816782
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.709667969
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 66632808,
+      "seconds": 0.797043834,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "baseline",
+      "projection": "narrow",
+      "repeat": 0,
+      "warmup": false,
+      "process_seconds": 0.8411347969995404,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 9482568,
+      "total_net_output_bytes_delta": 115312736
+    },
+    {
+      "allocated_bytes": 236330384,
+      "allocations": 3964947,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.7147629999999999,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 9602800,
+      "heap_before_bytes": 1943400,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.503536071
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.004309976
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.5136304520000001
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.015913788
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 25744032,
+      "seconds": 2.0168800669999998,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "candidate",
+      "projection": "narrow",
+      "repeat": 0,
+      "warmup": false,
+      "process_seconds": 2.0370140240002,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 13214158,
+      "total_net_output_bytes_delta": 154526264
+    },
+    {
+      "allocated_bytes": 236392472,
+      "allocations": 3964968,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.758339,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 10396056,
+      "heap_before_bytes": 1945712,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.505638105
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.014432947
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.520448136
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.027535042
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 25766472,
+      "seconds": 2.028775989,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "baseline",
+      "projection": "narrow",
+      "repeat": 0,
+      "warmup": false,
+      "process_seconds": 2.0474333600004684,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 9158532,
+      "total_net_output_bytes_delta": 114131315
+    },
+    {
+      "allocated_bytes": 240665536,
+      "allocations": 4441365,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.778141,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 24197896,
+      "heap_before_bytes": 2502232,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.188632705
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.103695916
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.27854557
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.242922449
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 62097216,
+      "seconds": 1.278806806,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "candidate",
+      "projection": "narrow",
+      "repeat": 0,
+      "warmup": false,
+      "process_seconds": 1.325717751999946,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 7216456,
+      "total_net_output_bytes_delta": 111253174
+    },
+    {
+      "allocated_bytes": 240301144,
+      "allocations": 4441193,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.753012,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 23807240,
+      "heap_before_bytes": 2491792,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.257450174
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.168320555
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.102083102
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.212117863
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 62573544,
+      "seconds": 1.2577139,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "baseline",
+      "projection": "narrow",
+      "repeat": 0,
+      "warmup": false,
+      "process_seconds": 1.300259929999811,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 9615667,
+      "total_net_output_bytes_delta": 142345434
+    },
+    {
+      "allocated_bytes": 231518392,
+      "allocations": 4281818,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.7971109999999999,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 9501272,
+      "heap_before_bytes": 1938488,
+      "metrics": [
+        {
+          "Rows": 100000,
+          "Batches": 2,
+          "FirstRows": 65536,
+          "FirstSeconds": 1.5440066730000002
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 28971064,
+      "seconds": 2.4156116069999998,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "candidate",
+      "projection": "narrow",
+      "repeat": 0,
+      "warmup": false,
+      "process_seconds": 2.436858740000389,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 11684096,
+      "total_net_output_bytes_delta": 142340131
+    },
+    {
+      "allocated_bytes": 231618512,
+      "allocations": 4281827,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.79528,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 10363552,
+      "heap_before_bytes": 1943976,
+      "metrics": [
+        {
+          "Rows": 100000,
+          "Batches": 2,
+          "FirstRows": 65536,
+          "FirstSeconds": 1.572334078
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 26928648,
+      "seconds": 2.457948835,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "baseline",
+      "projection": "narrow",
+      "repeat": 0,
+      "warmup": false,
+      "process_seconds": 2.477707704999375,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 9512975,
+      "total_net_output_bytes_delta": 96050557
+    },
+    {
+      "allocated_bytes": 1174229552,
+      "allocations": 32745168,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.754793,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 139063968,
+      "heap_before_bytes": 2505312,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.073459339
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.006705581
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.179397392
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.045575349
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 321217400,
+      "seconds": 3.080264696,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "candidate",
+      "projection": "wide",
+      "repeat": 0,
+      "warmup": false,
+      "process_seconds": 3.1489558140001463,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 156712454,
+      "total_net_output_bytes_delta": 268980240
+    },
+    {
+      "allocated_bytes": 1174358792,
+      "allocations": 32744967,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.670668,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 325989392,
+      "heap_before_bytes": 2510112,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.531648071
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.914269149
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.565491136
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.774702692
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 325989392,
+      "seconds": 2.9209693850000003,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "baseline",
+      "projection": "wide",
+      "repeat": 0,
+      "warmup": false,
+      "process_seconds": 2.988663482999982,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 181706032,
+      "total_net_output_bytes_delta": 269888826
+    },
+    {
+      "allocated_bytes": 1174541992,
+      "allocations": 32745261,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.811109,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 68089016,
+      "heap_before_bytes": 1946680,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.767515653
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.496018256
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 5.262835076
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 7.001420414
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 107387640,
+      "seconds": 7.008245262,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "candidate",
+      "projection": "wide",
+      "repeat": 0,
+      "warmup": false,
+      "process_seconds": 7.036217477999344,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 217414354,
+      "total_net_output_bytes_delta": 338120742
+    },
+    {
+      "allocated_bytes": 1174288832,
+      "allocations": 32745113,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.714371999999999,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 68005088,
+      "heap_before_bytes": 1947312,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.110528468
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 4.186404843
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 6.223287566
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 8.276465041
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 118704920,
+      "seconds": 8.283186968,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "baseline",
+      "projection": "wide",
+      "repeat": 0,
+      "warmup": false,
+      "process_seconds": 8.308414129000084,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 197439701,
+      "total_net_output_bytes_delta": 303506428
+    },
+    {
+      "allocated_bytes": 1178154976,
+      "allocations": 33219368,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.825021,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 135407152,
+      "heap_before_bytes": 2502680,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.617440989
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.308094698
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.652378958
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.29837521
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 275969976,
+      "seconds": 3.314366465,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "candidate",
+      "projection": "wide",
+      "repeat": 0,
+      "warmup": false,
+      "process_seconds": 3.3724115929999243,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 180958066,
+      "total_net_output_bytes_delta": 284991815
+    },
+    {
+      "allocated_bytes": 1178230552,
+      "allocations": 33219452,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.749773,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 102562984,
+      "heap_before_bytes": 2511096,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.082158031
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.825496651
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.008662199
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.825262536
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 261374104,
+      "seconds": 3.83188034,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "baseline",
+      "projection": "wide",
+      "repeat": 0,
+      "warmup": false,
+      "process_seconds": 3.891915637999773,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 203910754,
+      "total_net_output_bytes_delta": 340742245
+    },
+    {
+      "allocated_bytes": 1161754384,
+      "allocations": 33040567,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.375387,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 75038848,
+      "heap_before_bytes": 1946408,
+      "metrics": [
+        {
+          "Rows": 100000,
+          "Batches": 2,
+          "FirstRows": 65536,
+          "FirstSeconds": 4.984905183
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 156646888,
+      "seconds": 7.71212496,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "candidate",
+      "projection": "wide",
+      "repeat": 0,
+      "warmup": false,
+      "process_seconds": 7.739658137999868,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 200562040,
+      "total_net_output_bytes_delta": 304818219
+    },
+    {
+      "allocated_bytes": 1161723016,
+      "allocations": 33040495,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.390708,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 68440224,
+      "heap_before_bytes": 1946640,
+      "metrics": [
+        {
+          "Rows": 100000,
+          "Batches": 2,
+          "FirstRows": 65536,
+          "FirstSeconds": 5.854453898
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 160401432,
+      "seconds": 9.049612475,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "baseline",
+      "projection": "wide",
+      "repeat": 0,
+      "warmup": false,
+      "process_seconds": 9.07608024000001,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 198043006,
+      "total_net_output_bytes_delta": 280509343
+    },
+    {
+      "allocated_bytes": 1161681992,
+      "allocations": 33040501,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.309647,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 57998360,
+      "heap_before_bytes": 1948176,
+      "metrics": [
+        {
+          "Rows": 100000,
+          "Batches": 2,
+          "FirstRows": 65536,
+          "FirstSeconds": 5.7760844670000004
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 153199040,
+      "seconds": 9.022433609,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "baseline",
+      "projection": "wide",
+      "repeat": 1,
+      "warmup": false,
+      "process_seconds": 9.048073816999931,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 190796083,
+      "total_net_output_bytes_delta": 272206707
+    },
+    {
+      "allocated_bytes": 1161697368,
+      "allocations": 33040630,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.288892,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 75015496,
+      "heap_before_bytes": 1946224,
+      "metrics": [
+        {
+          "Rows": 100000,
+          "Batches": 2,
+          "FirstRows": 65536,
+          "FirstSeconds": 5.080758579
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 166261008,
+      "seconds": 7.870475357,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "candidate",
+      "projection": "wide",
+      "repeat": 1,
+      "warmup": false,
+      "process_seconds": 7.899482583999998,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 189727881,
+      "total_net_output_bytes_delta": 271758132
+    },
+    {
+      "allocated_bytes": 1178166992,
+      "allocations": 33219203,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.7323450000000005,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 109639424,
+      "heap_before_bytes": 2510584,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.835634307
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.804938607
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.726011826
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.7366087500000003
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 281815608,
+      "seconds": 3.742706604,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "baseline",
+      "projection": "wide",
+      "repeat": 1,
+      "warmup": false,
+      "process_seconds": 3.802496063000035,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 185626887,
+      "total_net_output_bytes_delta": 298181196
+    },
+    {
+      "allocated_bytes": 1178223376,
+      "allocations": 33219431,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.708887,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 109701976,
+      "heap_before_bytes": 2507384,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.872263023
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.516393124
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.733399426
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.7889533010000003
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 269146904,
+      "seconds": 3.878427748,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "candidate",
+      "projection": "wide",
+      "repeat": 1,
+      "warmup": false,
+      "process_seconds": 3.936802105999959,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 198728220,
+      "total_net_output_bytes_delta": 334369879
+    },
+    {
+      "allocated_bytes": 1174273520,
+      "allocations": 32745007,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.619902,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 68002024,
+      "heap_before_bytes": 1946656,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.094302461
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 4.147109843
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 6.196818361
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 8.291124151
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 101054080,
+      "seconds": 8.298059571,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "baseline",
+      "projection": "wide",
+      "repeat": 1,
+      "warmup": false,
+      "process_seconds": 8.325601337999615,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 198205724,
+      "total_net_output_bytes_delta": 317489356
+    },
+    {
+      "allocated_bytes": 1174391352,
+      "allocations": 32745276,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.735184,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 68008920,
+      "heap_before_bytes": 1946776,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.74493858
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.54516096
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 5.288005439
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 7.067013207
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 95375248,
+      "seconds": 7.073875706,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "candidate",
+      "projection": "wide",
+      "repeat": 1,
+      "warmup": false,
+      "process_seconds": 7.100120366000738,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 190608794,
+      "total_net_output_bytes_delta": 291137946
+    },
+    {
+      "allocated_bytes": 1174179952,
+      "allocations": 32745000,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.560484,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 310559968,
+      "heap_before_bytes": 2506112,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.877172533
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.454722356
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.558676846
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.9811304720000003
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 310559968,
+      "seconds": 2.987810607,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "baseline",
+      "projection": "wide",
+      "repeat": 1,
+      "warmup": false,
+      "process_seconds": 3.0564420649998283,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 150568878,
+      "total_net_output_bytes_delta": 231246994
+    },
+    {
+      "allocated_bytes": 1174354160,
+      "allocations": 32745291,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.768452,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 52578896,
+      "heap_before_bytes": 2505056,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.024117674
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.752371821
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.137984495
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.650097604
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 254127408,
+      "seconds": 2.759135768,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "candidate",
+      "projection": "wide",
+      "repeat": 1,
+      "warmup": false,
+      "process_seconds": 2.8136287480001556,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 208814030,
+      "total_net_output_bytes_delta": 307215281
+    },
+    {
+      "allocated_bytes": 231576184,
+      "allocations": 4281857,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.822482,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 9492136,
+      "heap_before_bytes": 1943384,
+      "metrics": [
+        {
+          "Rows": 100000,
+          "Batches": 2,
+          "FirstRows": 65536,
+          "FirstSeconds": 1.5698787859999999
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 29388424,
+      "seconds": 2.451898669,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "baseline",
+      "projection": "narrow",
+      "repeat": 1,
+      "warmup": false,
+      "process_seconds": 2.471181219000755,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 63930309,
+      "total_net_output_bytes_delta": 146281442
+    },
+    {
+      "allocated_bytes": 231484952,
+      "allocations": 4281797,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.8089299999999999,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 7698328,
+      "heap_before_bytes": 1943864,
+      "metrics": [
+        {
+          "Rows": 100000,
+          "Batches": 2,
+          "FirstRows": 65536,
+          "FirstSeconds": 1.561365394
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 26599584,
+      "seconds": 2.45529316,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "candidate",
+      "projection": "narrow",
+      "repeat": 1,
+      "warmup": false,
+      "process_seconds": 2.4767053519999536,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 9316991,
+      "total_net_output_bytes_delta": 93832332
+    },
+    {
+      "allocated_bytes": 240371848,
+      "allocations": 4441139,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.765231,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 33634744,
+      "heap_before_bytes": 2495320,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.067420473
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.228742636
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.086502329
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.180358117
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 55642224,
+      "seconds": 1.229289757,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "baseline",
+      "projection": "narrow",
+      "repeat": 1,
+      "warmup": false,
+      "process_seconds": 1.2761155859998325,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 5896042,
+      "total_net_output_bytes_delta": 71523048
+    },
+    {
+      "allocated_bytes": 240434336,
+      "allocations": 4441275,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.775664,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 9515552,
+      "heap_before_bytes": 2500768,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.212564083
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.148424595
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.141067416
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.18130221
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 67345792,
+      "seconds": 1.212885259,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "candidate",
+      "projection": "narrow",
+      "repeat": 1,
+      "warmup": false,
+      "process_seconds": 1.257414800999868,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 8486429,
+      "total_net_output_bytes_delta": 131127963
+    },
+    {
+      "allocated_bytes": 236181560,
+      "allocations": 3964938,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.768678,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 14866072,
+      "heap_before_bytes": 1945424,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.510232653
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.009663316
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.516835867
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.028070658
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 29803672,
+      "seconds": 2.029266682,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "baseline",
+      "projection": "narrow",
+      "repeat": 1,
+      "warmup": false,
+      "process_seconds": 2.0489126000002216,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 12435074,
+      "total_net_output_bytes_delta": 174423658
+    },
+    {
+      "allocated_bytes": 236280200,
+      "allocations": 3965103,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.7452880000000001,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 14790056,
+      "heap_before_bytes": 1943912,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.498088565
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.018006453
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.533957451
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.029859933
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 26208664,
+      "seconds": 2.031109078,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "candidate",
+      "projection": "narrow",
+      "repeat": 1,
+      "warmup": false,
+      "process_seconds": 2.0501835139994,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 9055726,
+      "total_net_output_bytes_delta": 111173519
+    },
+    {
+      "allocated_bytes": 236092080,
+      "allocations": 3964760,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.662317,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 18455240,
+      "heap_before_bytes": 2497504,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.7652392
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.705804768
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.646707682
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.795642006
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 63781120,
+      "seconds": 0.796963222,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "baseline",
+      "projection": "narrow",
+      "repeat": 1,
+      "warmup": false,
+      "process_seconds": 0.8400164140002744,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 5385519,
+      "total_net_output_bytes_delta": 65456094
+    },
+    {
+      "allocated_bytes": 236167976,
+      "allocations": 3964860,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.663246,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 21513864,
+      "heap_before_bytes": 2497224,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.68564133
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.740615063
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.805444604
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.795031583
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 61785912,
+      "seconds": 0.806467705,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "candidate",
+      "projection": "narrow",
+      "repeat": 1,
+      "warmup": false,
+      "process_seconds": 0.8520988669997678,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 7252508,
+      "total_net_output_bytes_delta": 97063939
+    },
+    {
+      "allocated_bytes": 236127976,
+      "allocations": 3964961,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.640945,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 19869056,
+      "heap_before_bytes": 2493136,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.680948035
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.791546656
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.75691782
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.746389239
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 54990488,
+      "seconds": 0.792581207,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "candidate",
+      "projection": "narrow",
+      "repeat": 2,
+      "warmup": false,
+      "process_seconds": 0.8340046840003197,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 10667983,
+      "total_net_output_bytes_delta": 121998407
+    },
+    {
+      "allocated_bytes": 236135760,
+      "allocations": 3964930,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.655064,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 12516032,
+      "heap_before_bytes": 2500896,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.794498386
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.700485678
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.745650485
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.654829071
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 49803464,
+      "seconds": 0.795614808,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "baseline",
+      "projection": "narrow",
+      "repeat": 2,
+      "warmup": false,
+      "process_seconds": 0.8393537259998993,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 9480316,
+      "total_net_output_bytes_delta": 123730497
+    },
+    {
+      "allocated_bytes": 236260872,
+      "allocations": 3965017,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.7763399999999999,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 9573048,
+      "heap_before_bytes": 1942768,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.527042044
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.032342142
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.563506228
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.085228726
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 26328120,
+      "seconds": 2.08644694,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "candidate",
+      "projection": "narrow",
+      "repeat": 2,
+      "warmup": false,
+      "process_seconds": 2.1071592360003706,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 13106808,
+      "total_net_output_bytes_delta": 151012910
+    },
+    {
+      "allocated_bytes": 236376008,
+      "allocations": 3965016,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.758884,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 9947992,
+      "heap_before_bytes": 1944552,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.527136915
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.040646447
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.5584891760000001
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.063782342
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 25761456,
+      "seconds": 2.064880945,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "baseline",
+      "projection": "narrow",
+      "repeat": 2,
+      "warmup": false,
+      "process_seconds": 2.08393778700065,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 8556511,
+      "total_net_output_bytes_delta": 109481327
+    },
+    {
+      "allocated_bytes": 240602864,
+      "allocations": 4441275,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.767099,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 10935016,
+      "heap_before_bytes": 2496600,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.2403971
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.128385342
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.177373685
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.282545107
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 57707296,
+      "seconds": 1.282818562,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "candidate",
+      "projection": "narrow",
+      "repeat": 2,
+      "warmup": false,
+      "process_seconds": 1.3257640239999091,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 7126622,
+      "total_net_output_bytes_delta": 100403596
+    },
+    {
+      "allocated_bytes": 240435024,
+      "allocations": 4441272,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.735973,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 33542496,
+      "heap_before_bytes": 2498648,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.173813834
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.221413679
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.17412671
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.2033382559999999
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 55083368,
+      "seconds": 1.221675124,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "baseline",
+      "projection": "narrow",
+      "repeat": 2,
+      "warmup": false,
+      "process_seconds": 1.2661971280003854,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 8309668,
+      "total_net_output_bytes_delta": 128187457
+    },
+    {
+      "allocated_bytes": 231585176,
+      "allocations": 4281824,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.7961389999999999,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 9529944,
+      "heap_before_bytes": 1943856,
+      "metrics": [
+        {
+          "Rows": 100000,
+          "Batches": 2,
+          "FirstRows": 65536,
+          "FirstSeconds": 1.560318805
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 27516632,
+      "seconds": 2.446588984,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "candidate",
+      "projection": "narrow",
+      "repeat": 2,
+      "warmup": false,
+      "process_seconds": 2.4672654089999924,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 13603859,
+      "total_net_output_bytes_delta": 174937120
+    },
+    {
+      "allocated_bytes": 231577472,
+      "allocations": 4281817,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.7954829999999999,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 15225352,
+      "heap_before_bytes": 1944184,
+      "metrics": [
+        {
+          "Rows": 100000,
+          "Batches": 2,
+          "FirstRows": 65536,
+          "FirstSeconds": 1.5569898599999998
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 26193232,
+      "seconds": 2.4293060300000002,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "baseline",
+      "projection": "narrow",
+      "repeat": 2,
+      "warmup": false,
+      "process_seconds": 2.4491701900005864,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 9006483,
+      "total_net_output_bytes_delta": 93980014
+    },
+    {
+      "allocated_bytes": 1174285008,
+      "allocations": 32745084,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.7369769999999995,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 138989848,
+      "heap_before_bytes": 2504208,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.7620477169999997
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.202963367
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.8521568999999998
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.192136868
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 307709224,
+      "seconds": 2.858876987,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "candidate",
+      "projection": "wide",
+      "repeat": 2,
+      "warmup": false,
+      "process_seconds": 2.92543155400017,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 129724091,
+      "total_net_output_bytes_delta": 235610992
+    },
+    {
+      "allocated_bytes": 1174012120,
+      "allocations": 32744975,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.707227,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 239137040,
+      "heap_before_bytes": 2503888,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.431516461
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.68553149
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.56148353
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.830999892
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 315088920,
+      "seconds": 2.837719648,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "baseline",
+      "projection": "wide",
+      "repeat": 2,
+      "warmup": false,
+      "process_seconds": 2.9032607240005746,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 194733606,
+      "total_net_output_bytes_delta": 289869127
+    },
+    {
+      "allocated_bytes": 1174512992,
+      "allocations": 32745283,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.644982,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 68146544,
+      "heap_before_bytes": 1952400,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.7447865980000001
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.535423873
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 5.295116963
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 7.01316499
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 85775048,
+      "seconds": 7.019732153,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "candidate",
+      "projection": "wide",
+      "repeat": 2,
+      "warmup": false,
+      "process_seconds": 7.0458548509996035,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 226137000,
+      "total_net_output_bytes_delta": 353169812
+    },
+    {
+      "allocated_bytes": 1174308432,
+      "allocations": 32745070,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.7462,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 95618272,
+      "heap_before_bytes": 1946880,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.032108144
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 4.071270272
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 6.152648641
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 8.215331372
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 119217312,
+      "seconds": 8.222031427,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "baseline",
+      "projection": "wide",
+      "repeat": 2,
+      "warmup": false,
+      "process_seconds": 8.248161995000373,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 204008944,
+      "total_net_output_bytes_delta": 308323233
+    },
+    {
+      "allocated_bytes": 1178327024,
+      "allocations": 33219547,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.683764,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 170235776,
+      "heap_before_bytes": 2510976,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.828602341
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.6174644860000003
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.344279176
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.380135121
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 256254568,
+      "seconds": 3.386436528,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "candidate",
+      "projection": "wide",
+      "repeat": 2,
+      "warmup": false,
+      "process_seconds": 3.444909338999423,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 170600866,
+      "total_net_output_bytes_delta": 271435197
+    },
+    {
+      "allocated_bytes": 1178086336,
+      "allocations": 33219247,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.6570670000000005,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 159056424,
+      "heap_before_bytes": 2505888,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.851559385
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.7107437
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.840312418
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.701636196
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 286633872,
+      "seconds": 3.716927924,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "baseline",
+      "projection": "wide",
+      "repeat": 2,
+      "warmup": false,
+      "process_seconds": 3.774194140999498,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 203492893,
+      "total_net_output_bytes_delta": 341135310
+    },
+    {
+      "allocated_bytes": 1161772272,
+      "allocations": 33040619,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.431496999999999,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 75016760,
+      "heap_before_bytes": 1947784,
+      "metrics": [
+        {
+          "Rows": 100000,
+          "Batches": 2,
+          "FirstRows": 65536,
+          "FirstSeconds": 5.09128214
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 161440832,
+      "seconds": 7.804579527,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "candidate",
+      "projection": "wide",
+      "repeat": 2,
+      "warmup": false,
+      "process_seconds": 7.831702712999686,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 206531370,
+      "total_net_output_bytes_delta": 313470398
+    },
+    {
+      "allocated_bytes": 1161646808,
+      "allocations": 33040476,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.424297,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 58669720,
+      "heap_before_bytes": 1946544,
+      "metrics": [
+        {
+          "Rows": 100000,
+          "Batches": 2,
+          "FirstRows": 65536,
+          "FirstSeconds": 5.799229994
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 181327056,
+      "seconds": 9.030942781,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "baseline",
+      "projection": "wide",
+      "repeat": 2,
+      "warmup": false,
+      "process_seconds": 9.058598648000043,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 198580472,
+      "total_net_output_bytes_delta": 281958972
+    },
+    {
+      "allocated_bytes": 1161716760,
+      "allocations": 33040527,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.244906,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 58414512,
+      "heap_before_bytes": 1946920,
+      "metrics": [
+        {
+          "Rows": 100000,
+          "Batches": 2,
+          "FirstRows": 65536,
+          "FirstSeconds": 5.786934007
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 167970184,
+      "seconds": 8.938999267,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "baseline",
+      "projection": "wide",
+      "repeat": 3,
+      "warmup": false,
+      "process_seconds": 8.9635311130005,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 193001996,
+      "total_net_output_bytes_delta": 275089101
+    },
+    {
+      "allocated_bytes": 1161758872,
+      "allocations": 33040604,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.438477,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 56280392,
+      "heap_before_bytes": 1946944,
+      "metrics": [
+        {
+          "Rows": 100000,
+          "Batches": 2,
+          "FirstRows": 65536,
+          "FirstSeconds": 5.102339131
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 166909040,
+      "seconds": 7.822579764,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "candidate",
+      "projection": "wide",
+      "repeat": 3,
+      "warmup": false,
+      "process_seconds": 7.851196781999533,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 191031697,
+      "total_net_output_bytes_delta": 271958112
+    },
+    {
+      "allocated_bytes": 1177978136,
+      "allocations": 33219246,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.620086,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 106582608,
+      "heap_before_bytes": 2503920,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.6993567
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.900350857
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.9359735750000002
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.688884678
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 272031472,
+      "seconds": 3.705403691,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "baseline",
+      "projection": "wide",
+      "repeat": 3,
+      "warmup": false,
+      "process_seconds": 3.7697784109996064,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 187812438,
+      "total_net_output_bytes_delta": 295716257
+    },
+    {
+      "allocated_bytes": 1178150088,
+      "allocations": 33219381,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.760303,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 142802152,
+      "heap_before_bytes": 2504928,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.701536199
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.627498877
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.57036884
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.5598678980000003
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431226880,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 271815040,
+      "seconds": 3.576424892,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "candidate",
+      "projection": "wide",
+      "repeat": 3,
+      "warmup": false,
+      "process_seconds": 3.642651877999924,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 191854921,
+      "total_net_output_bytes_delta": 327333461
+    },
+    {
+      "allocated_bytes": 1174200224,
+      "allocations": 32745042,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.757041,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 67982616,
+      "heap_before_bytes": 1953104,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.145804382
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 4.24991238
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 6.330932147
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 8.423492877
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431235072,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 106245072,
+      "seconds": 8.430290234,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "baseline",
+      "projection": "wide",
+      "repeat": 3,
+      "warmup": false,
+      "process_seconds": 8.456605836000563,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 208429077,
+      "total_net_output_bytes_delta": 332573397
+    },
+    {
+      "allocated_bytes": 1174455744,
+      "allocations": 32745266,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.799266,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 68070448,
+      "heap_before_bytes": 1946872,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.772472587
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.483219355
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 5.232337199
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 7.034405474
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431235072,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 93524896,
+      "seconds": 7.040966646,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "candidate",
+      "projection": "wide",
+      "repeat": 3,
+      "warmup": false,
+      "process_seconds": 7.067410022000331,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 187635332,
+      "total_net_output_bytes_delta": 289713938
+    },
+    {
+      "allocated_bytes": 1174093008,
+      "allocations": 32744942,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.598523,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 134756728,
+      "heap_before_bytes": 2504424,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.554805729
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.480453596
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.077239815
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.171291477
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431280128,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 309958928,
+      "seconds": 3.17785124,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "baseline",
+      "projection": "wide",
+      "repeat": 3,
+      "warmup": false,
+      "process_seconds": 3.2421373799998037,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 178022179,
+      "total_net_output_bytes_delta": 259691850
+    },
+    {
+      "allocated_bytes": 1174281400,
+      "allocations": 32745068,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.932382,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 97384808,
+      "heap_before_bytes": 2505288,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.28034087
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.9341329800000002
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.829390245
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.155682885
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431280128,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 322995184,
+      "seconds": 2.94109082,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "candidate",
+      "projection": "wide",
+      "repeat": 3,
+      "warmup": false,
+      "process_seconds": 2.998967843999708,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 206183144,
+      "total_net_output_bytes_delta": 309867288
+    },
+    {
+      "allocated_bytes": 231515768,
+      "allocations": 4281811,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.816836,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 11121624,
+      "heap_before_bytes": 1949240,
+      "metrics": [
+        {
+          "Rows": 100000,
+          "Batches": 2,
+          "FirstRows": 65536,
+          "FirstSeconds": 1.5692618189999998
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431325184,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 33924192,
+      "seconds": 2.442139011,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "baseline",
+      "projection": "narrow",
+      "repeat": 3,
+      "warmup": false,
+      "process_seconds": 2.4606970439999714,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 37306097,
+      "total_net_output_bytes_delta": 115449107
+    },
+    {
+      "allocated_bytes": 231375952,
+      "allocations": 4281792,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.802272,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 11157888,
+      "heap_before_bytes": 1943744,
+      "metrics": [
+        {
+          "Rows": 100000,
+          "Batches": 2,
+          "FirstRows": 65536,
+          "FirstSeconds": 1.5617648690000001
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431325184,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 26642752,
+      "seconds": 2.428350248,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "candidate",
+      "projection": "narrow",
+      "repeat": 3,
+      "warmup": false,
+      "process_seconds": 2.4494858920006664,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 9180326,
+      "total_net_output_bytes_delta": 88863031
+    },
+    {
+      "allocated_bytes": 240543688,
+      "allocations": 4441251,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.753225,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 25891408,
+      "heap_before_bytes": 2504200,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.25624186
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.156031806
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.073938385
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.24578573
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431325184,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 55166832,
+      "seconds": 1.2566067969999999,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "baseline",
+      "projection": "narrow",
+      "repeat": 3,
+      "warmup": false,
+      "process_seconds": 1.3011976640000285,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 5386698,
+      "total_net_output_bytes_delta": 83463792
+    },
+    {
+      "allocated_bytes": 240411504,
+      "allocations": 4441219,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.789716,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 23835584,
+      "heap_before_bytes": 2499368,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.152482973
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.163320371
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.264311821
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.254249319
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431325184,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 68176168,
+      "seconds": 1.264639328,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "candidate",
+      "projection": "narrow",
+      "repeat": 3,
+      "warmup": false,
+      "process_seconds": 1.3107380340006785,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 9398414,
+      "total_net_output_bytes_delta": 144352216
+    },
+    {
+      "allocated_bytes": 236247528,
+      "allocations": 3965040,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.752191,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 14973912,
+      "heap_before_bytes": 1938896,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.529525523
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.047926423
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.542179896
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.043248367
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431325184,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 25696096,
+      "seconds": 2.044225017,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "baseline",
+      "projection": "narrow",
+      "repeat": 3,
+      "warmup": false,
+      "process_seconds": 2.0644972150003014,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 12307021,
+      "total_net_output_bytes_delta": 156511718
+    },
+    {
+      "allocated_bytes": 236228640,
+      "allocations": 3965061,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.733522,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 14933368,
+      "heap_before_bytes": 1943224,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.511213411
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.01246636
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.534192362
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.029699884
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431325184,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 25556072,
+      "seconds": 2.030738645,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "candidate",
+      "projection": "narrow",
+      "repeat": 3,
+      "warmup": false,
+      "process_seconds": 2.0507250760001625,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 9004927,
+      "total_net_output_bytes_delta": 112635930
+    },
+    {
+      "allocated_bytes": 236102064,
+      "allocations": 3964895,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.648786,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 33776264,
+      "heap_before_bytes": 2497016,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.828520073
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.784658202
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.856097008
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.81740387
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431325184,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 56472872,
+      "seconds": 0.857264831,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "baseline",
+      "projection": "narrow",
+      "repeat": 3,
+      "warmup": false,
+      "process_seconds": 0.9001222020006026,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 5305034,
+      "total_net_output_bytes_delta": 71571415
+    },
+    {
+      "allocated_bytes": 236070432,
+      "allocations": 3964859,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.6754490000000001,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 34185408,
+      "heap_before_bytes": 2496680,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.669424518
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.751452195
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.709295179
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.761684631
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431325184,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 66196944,
+      "seconds": 0.762549209,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "candidate",
+      "projection": "narrow",
+      "repeat": 3,
+      "warmup": false,
+      "process_seconds": 0.8083353679994616,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 8280284,
+      "total_net_output_bytes_delta": 105744067
+    },
+    {
+      "allocated_bytes": 236102800,
+      "allocations": 3964833,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.659981,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 9419944,
+      "heap_before_bytes": 2495856,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.721231478
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.661802234
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.635243871
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.777052539
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431325184,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 54726624,
+      "seconds": 0.778202982,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "candidate",
+      "projection": "narrow",
+      "repeat": 4,
+      "warmup": false,
+      "process_seconds": 0.8204078899998422,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 8993081,
+      "total_net_output_bytes_delta": 105780624
+    },
+    {
+      "allocated_bytes": 236151576,
+      "allocations": 3964656,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.6712410000000001,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 18336824,
+      "heap_before_bytes": 2494880,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.758994177
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.874448418
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.777591481
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.840379782
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431325184,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 57556840,
+      "seconds": 0.875744234,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "baseline",
+      "projection": "narrow",
+      "repeat": 4,
+      "warmup": false,
+      "process_seconds": 0.9192990189994816,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 9713369,
+      "total_net_output_bytes_delta": 120816459
+    },
+    {
+      "allocated_bytes": 236302064,
+      "allocations": 3965015,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.7654679999999999,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 14788200,
+      "heap_before_bytes": 1949024,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.519822532
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.028512031
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.5279942549999999
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.035917109
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431325184,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 26815048,
+      "seconds": 2.036906409,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "candidate",
+      "projection": "narrow",
+      "repeat": 4,
+      "warmup": false,
+      "process_seconds": 2.057126875999529,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 13490388,
+      "total_net_output_bytes_delta": 155092387
+    },
+    {
+      "allocated_bytes": 236375472,
+      "allocations": 3965028,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.78068,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 10394728,
+      "heap_before_bytes": 1944776,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.509949604
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.013563221
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.517206189
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.039381349
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431325184,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 26735064,
+      "seconds": 2.040489952,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "baseline",
+      "projection": "narrow",
+      "repeat": 4,
+      "warmup": false,
+      "process_seconds": 2.059366759999648,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 9044727,
+      "total_net_output_bytes_delta": 117547235
+    },
+    {
+      "allocated_bytes": 240385984,
+      "allocations": 4441257,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.7614970000000001,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 17293816,
+      "heap_before_bytes": 2493504,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.110486157
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.295589015
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.110212422
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.2278907860000001
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431325184,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 55579888,
+      "seconds": 1.295875621,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "candidate",
+      "projection": "narrow",
+      "repeat": 4,
+      "warmup": false,
+      "process_seconds": 1.343781743999898,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 6393994,
+      "total_net_output_bytes_delta": 100870308
+    },
+    {
+      "allocated_bytes": 240272640,
+      "allocations": 4441059,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.793578,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 18190736,
+      "heap_before_bytes": 2497584,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.154644645
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.3155939079999999
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 0.983796383
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.25098677
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431325184,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 66936840,
+      "seconds": 1.315851123,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "baseline",
+      "projection": "narrow",
+      "repeat": 4,
+      "warmup": false,
+      "process_seconds": 1.3628820969997832,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 9372347,
+      "total_net_output_bytes_delta": 140281277
+    },
+    {
+      "allocated_bytes": 231614360,
+      "allocations": 4281802,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.823793,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 15266032,
+      "heap_before_bytes": 1944224,
+      "metrics": [
+        {
+          "Rows": 100000,
+          "Batches": 2,
+          "FirstRows": 65536,
+          "FirstSeconds": 1.582770553
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431325184,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 30671696,
+      "seconds": 2.482781402,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "candidate",
+      "projection": "narrow",
+      "repeat": 4,
+      "warmup": false,
+      "process_seconds": 2.5053826280000067,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 12621508,
+      "total_net_output_bytes_delta": 152965333
+    },
+    {
+      "allocated_bytes": 231514008,
+      "allocations": 4281774,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.817932,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 10352800,
+      "heap_before_bytes": 1949600,
+      "metrics": [
+        {
+          "Rows": 100000,
+          "Batches": 2,
+          "FirstRows": 65536,
+          "FirstSeconds": 1.5896995029999998
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431325184,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 30590624,
+      "seconds": 2.4895625,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "baseline",
+      "projection": "narrow",
+      "repeat": 4,
+      "warmup": false,
+      "process_seconds": 2.5096025140001075,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 9141708,
+      "total_net_output_bytes_delta": 95183413
+    },
+    {
+      "allocated_bytes": 1174144016,
+      "allocations": 32745063,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.658297999999999,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 139162064,
+      "heap_before_bytes": 2503960,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.70759287
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.102780491
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.536983437
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.030108984
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431325184,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 304923696,
+      "seconds": 2.714438039,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "candidate",
+      "projection": "wide",
+      "repeat": 4,
+      "warmup": false,
+      "process_seconds": 2.781590844000675,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 155207363,
+      "total_net_output_bytes_delta": 257848703
+    },
+    {
+      "allocated_bytes": 1174249616,
+      "allocations": 32744953,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.607886000000001,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 67855112,
+      "heap_before_bytes": 2501840,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.9698291340000003
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.515616634
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.452954729
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.893976343
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431325184,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 250617160,
+      "seconds": 2.976673542,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "baseline",
+      "projection": "wide",
+      "repeat": 4,
+      "warmup": false,
+      "process_seconds": 3.0398874089996752,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 184442388,
+      "total_net_output_bytes_delta": 287859933
+    },
+    {
+      "allocated_bytes": 1174449856,
+      "allocations": 32745302,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.777815,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 95482112,
+      "heap_before_bytes": 1946304,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.715456379
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.431272167
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 5.200711957
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 6.914030256
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431783936,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 95482112,
+      "seconds": 6.920849294,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "candidate",
+      "projection": "wide",
+      "repeat": 4,
+      "warmup": false,
+      "process_seconds": 6.949339139000585,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 219569213,
+      "total_net_output_bytes_delta": 335543443
+    },
+    {
+      "allocated_bytes": 1174380816,
+      "allocations": 32745187,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.742878,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 34252240,
+      "heap_before_bytes": 1947304,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.099163839
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 4.162809922
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 6.196844846
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 8.329719075
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431783936,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 113361248,
+      "seconds": 8.336309398,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "baseline",
+      "projection": "wide",
+      "repeat": 4,
+      "warmup": false,
+      "process_seconds": 8.359953385000154,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 200358625,
+      "total_net_output_bytes_delta": 304053835
+    },
+    {
+      "allocated_bytes": 1178017456,
+      "allocations": 33219461,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.703998,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 105853368,
+      "heap_before_bytes": 2500488,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.433082597
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.422274575
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.497481591
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.423487053
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431861760,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 303071432,
+      "seconds": 3.439055898,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "candidate",
+      "projection": "wide",
+      "repeat": 4,
+      "warmup": false,
+      "process_seconds": 3.502902926999923,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 186581332,
+      "total_net_output_bytes_delta": 301917798
+    },
+    {
+      "allocated_bytes": 1178137968,
+      "allocations": 33219286,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.669376,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 139793616,
+      "heap_before_bytes": 2506480,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.683916418
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.822677991
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.910567697
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.69589044
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431861760,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 276153952,
+      "seconds": 3.701877521,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "baseline",
+      "projection": "wide",
+      "repeat": 4,
+      "warmup": false,
+      "process_seconds": 3.7636956910000663,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 195000220,
+      "total_net_output_bytes_delta": 323085416
+    },
+    {
+      "allocated_bytes": 1161788944,
+      "allocations": 33040636,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.402759,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 92904080,
+      "heap_before_bytes": 1942048,
+      "metrics": [
+        {
+          "Rows": 100000,
+          "Batches": 2,
+          "FirstRows": 65536,
+          "FirstSeconds": 5.096174201
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431894528,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 144923208,
+      "seconds": 7.802580551,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "candidate",
+      "projection": "wide",
+      "repeat": 4,
+      "warmup": false,
+      "process_seconds": 7.831172558999242,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 196713457,
+      "total_net_output_bytes_delta": 299003042
+    },
+    {
+      "allocated_bytes": 1161702448,
+      "allocations": 33040504,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.449652,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 57515304,
+      "heap_before_bytes": 1952736,
+      "metrics": [
+        {
+          "Rows": 100000,
+          "Batches": 2,
+          "FirstRows": 65536,
+          "FirstSeconds": 5.754790185
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 431894528,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 147702888,
+      "seconds": 8.948248304,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "baseline",
+      "projection": "wide",
+      "repeat": 4,
+      "warmup": false,
+      "process_seconds": 8.974890492000668,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 198895963,
+      "total_net_output_bytes_delta": 282944785
+    }
+  ],
+  "source_sha256": "7fd6a17c71912db01ad675a12d85e2f2e6fad629be263b2d04e3d9cb318e51c9",
+  "source_provenance": {
+    "rows": 100000,
+    "parquet_sha256": "a390f6cb782f6aaef278c72fc1dd86c4f30bc843ebab3c159e9bd4d45ddb079f",
+    "upstream_commit": "e90045879276f75cc398f1ab8a73541a7716058d",
+    "conversion": "pinned PostgreSQL DDL; tracked arrow_schema/convert_batch; date epoch days and timestamp epoch seconds to microseconds",
+    "source_parquet_sha256": "a390f6cb782f6aaef278c72fc1dd86c4f30bc843ebab3c159e9bd4d45ddb079f",
+    "native_membership_sha256": "350c19e1313a44311f4ce741e8b6eb4d2b877df5846ff73ab3ff415030bddda0",
+    "columns": 105,
+    "membership": "Native exact row IDs 1..100000 and unique WatchIDs; every expected value comes from typed official Parquet; not a Parquet-prefix assumption",
+    "fixture_preparation": "SQL INSERT SELECT of exact internal IDs 1..100000 from the verified full-scale restore into a fresh managed fixture with pinned official DDL. All preparation excluded from timing; no Parquet ingestion or full-scale reload."
+  },
+  "binaries": {
+    "baseline": "344e8cc7d3adb6be664b1502238e54222b4786c24a617603d49fc15880193b74",
+    "candidate": "6e8c924a388ff9258f2496409aa3e56b8c6af2e078004e83cefab27c727e874f"
+  },
+  "environment": {
+    "logical_cpus": 16,
+    "batch_rows": 65536,
+    "protocol": 3,
+    "tls": "verified",
+    "software_qpf": 4
+  }
+}

@@ -1,0 +1,322 @@
+{
+  "source_sha256": "7fd6a17c71912db01ad675a12d85e2f2e6fad629be263b2d04e3d9cb318e51c9",
+  "binaries": {
+    "baseline": "344e8cc7d3adb6be664b1502238e54222b4786c24a617603d49fc15880193b74",
+    "candidate": "6e8c924a388ff9258f2496409aa3e56b8c6af2e078004e83cefab27c727e874f"
+  },
+  "cases": [
+    {
+      "projection": "narrow",
+      "api": "partition",
+      "readers": 1,
+      "baseline": {
+        "elapsed_median_seconds": 2.040489952,
+        "elapsed_range_seconds": [
+          2.028775989,
+          2.064880945
+        ],
+        "trials": 5,
+        "actual_first_batch_rows": [
+          25000
+        ],
+        "client_cpu_seconds_median": 0.758884,
+        "allocated_bytes_median": 236375472,
+        "allocations_median": 3965016,
+        "sampled_peak_go_heap_bytes_median": 25766472,
+        "process_lifetime_peak_rss_bytes_median": 431226880
+      },
+      "candidate": {
+        "elapsed_median_seconds": 2.031109078,
+        "elapsed_range_seconds": [
+          2.0168800669999998,
+          2.08644694
+        ],
+        "trials": 5,
+        "actual_first_batch_rows": [
+          25000
+        ],
+        "client_cpu_seconds_median": 0.7452880000000001,
+        "allocated_bytes_median": 236280200,
+        "allocations_median": 3965017,
+        "sampled_peak_go_heap_bytes_median": 26208664,
+        "process_lifetime_peak_rss_bytes_median": 431226880
+      },
+      "candidate_paired_elapsed_wins": 3,
+      "median_elapsed_change_percent": -0.4597363486551487
+    },
+    {
+      "projection": "narrow",
+      "api": "partition",
+      "readers": 4,
+      "baseline": {
+        "elapsed_median_seconds": 0.797043834,
+        "elapsed_range_seconds": [
+          0.795614808,
+          0.875744234
+        ],
+        "trials": 5,
+        "actual_first_batch_rows": [
+          25000
+        ],
+        "client_cpu_seconds_median": 0.662317,
+        "allocated_bytes_median": 236126544,
+        "allocations_median": 3964860,
+        "sampled_peak_go_heap_bytes_median": 57556840,
+        "process_lifetime_peak_rss_bytes_median": 431226880
+      },
+      "candidate": {
+        "elapsed_median_seconds": 0.778202982,
+        "elapsed_range_seconds": [
+          0.762549209,
+          0.806467705
+        ],
+        "trials": 5,
+        "actual_first_batch_rows": [
+          25000
+        ],
+        "client_cpu_seconds_median": 0.663246,
+        "allocated_bytes_median": 236127976,
+        "allocations_median": 3964859,
+        "sampled_peak_go_heap_bytes_median": 55814312,
+        "process_lifetime_peak_rss_bytes_median": 431226880
+      },
+      "candidate_paired_elapsed_wins": 4,
+      "median_elapsed_change_percent": -2.3638413844124906
+    },
+    {
+      "projection": "narrow",
+      "api": "regular",
+      "readers": 1,
+      "baseline": {
+        "elapsed_median_seconds": 2.451898669,
+        "elapsed_range_seconds": [
+          2.4293060300000002,
+          2.4895625
+        ],
+        "trials": 5,
+        "actual_first_batch_rows": [
+          65536
+        ],
+        "client_cpu_seconds_median": 0.816836,
+        "allocated_bytes_median": 231576184,
+        "allocations_median": 4281817,
+        "sampled_peak_go_heap_bytes_median": 29388424,
+        "process_lifetime_peak_rss_bytes_median": 431226880
+      },
+      "candidate": {
+        "elapsed_median_seconds": 2.446588984,
+        "elapsed_range_seconds": [
+          2.4156116069999998,
+          2.482781402
+        ],
+        "trials": 5,
+        "actual_first_batch_rows": [
+          65536
+        ],
+        "client_cpu_seconds_median": 0.802272,
+        "allocated_bytes_median": 231518392,
+        "allocations_median": 4281802,
+        "sampled_peak_go_heap_bytes_median": 27516632,
+        "process_lifetime_peak_rss_bytes_median": 431226880
+      },
+      "candidate_paired_elapsed_wins": 3,
+      "median_elapsed_change_percent": -0.21655401453298806
+    },
+    {
+      "projection": "narrow",
+      "api": "regular",
+      "readers": 4,
+      "baseline": {
+        "elapsed_median_seconds": 1.2566067969999999,
+        "elapsed_range_seconds": [
+          1.221675124,
+          1.315851123
+        ],
+        "trials": 5,
+        "actual_first_batch_rows": [
+          25000
+        ],
+        "client_cpu_seconds_median": 0.753225,
+        "allocated_bytes_median": 240371848,
+        "allocations_median": 4441193,
+        "sampled_peak_go_heap_bytes_median": 55642224,
+        "process_lifetime_peak_rss_bytes_median": 431226880
+      },
+      "candidate": {
+        "elapsed_median_seconds": 1.278806806,
+        "elapsed_range_seconds": [
+          1.212885259,
+          1.295875621
+        ],
+        "trials": 5,
+        "actual_first_batch_rows": [
+          25000
+        ],
+        "client_cpu_seconds_median": 0.775664,
+        "allocated_bytes_median": 240434336,
+        "allocations_median": 4441275,
+        "sampled_peak_go_heap_bytes_median": 62097216,
+        "process_lifetime_peak_rss_bytes_median": 431226880
+      },
+      "candidate_paired_elapsed_wins": 2,
+      "median_elapsed_change_percent": 1.7666631322542647
+    },
+    {
+      "projection": "wide",
+      "api": "partition",
+      "readers": 1,
+      "baseline": {
+        "elapsed_median_seconds": 8.298059571,
+        "elapsed_range_seconds": [
+          8.222031427,
+          8.430290234
+        ],
+        "trials": 5,
+        "actual_first_batch_rows": [
+          25000
+        ],
+        "client_cpu_seconds_median": 4.742878,
+        "allocated_bytes_median": 1174288832,
+        "allocations_median": 32745070,
+        "sampled_peak_go_heap_bytes_median": 113361248,
+        "process_lifetime_peak_rss_bytes_median": 431226880
+      },
+      "candidate": {
+        "elapsed_median_seconds": 7.019732153,
+        "elapsed_range_seconds": [
+          6.920849294,
+          7.073875706
+        ],
+        "trials": 5,
+        "actual_first_batch_rows": [
+          25000
+        ],
+        "client_cpu_seconds_median": 4.777815,
+        "allocated_bytes_median": 1174455744,
+        "allocations_median": 32745276,
+        "sampled_peak_go_heap_bytes_median": 95375248,
+        "process_lifetime_peak_rss_bytes_median": 431226880
+      },
+      "candidate_paired_elapsed_wins": 5,
+      "median_elapsed_change_percent": -15.405136671559816
+    },
+    {
+      "projection": "wide",
+      "api": "partition",
+      "readers": 4,
+      "baseline": {
+        "elapsed_median_seconds": 2.976673542,
+        "elapsed_range_seconds": [
+          2.837719648,
+          3.17785124
+        ],
+        "trials": 5,
+        "actual_first_batch_rows": [
+          25000
+        ],
+        "client_cpu_seconds_median": 4.607886000000001,
+        "allocated_bytes_median": 1174179952,
+        "allocations_median": 32744967,
+        "sampled_peak_go_heap_bytes_median": 310559968,
+        "process_lifetime_peak_rss_bytes_median": 431226880
+      },
+      "candidate": {
+        "elapsed_median_seconds": 2.858876987,
+        "elapsed_range_seconds": [
+          2.714438039,
+          3.080264696
+        ],
+        "trials": 5,
+        "actual_first_batch_rows": [
+          25000
+        ],
+        "client_cpu_seconds_median": 4.754793,
+        "allocated_bytes_median": 1174281400,
+        "allocations_median": 32745084,
+        "sampled_peak_go_heap_bytes_median": 307709224,
+        "process_lifetime_peak_rss_bytes_median": 431226880
+      },
+      "candidate_paired_elapsed_wins": 3,
+      "median_elapsed_change_percent": -3.957321934633573
+    },
+    {
+      "projection": "wide",
+      "api": "regular",
+      "readers": 1,
+      "baseline": {
+        "elapsed_median_seconds": 9.022433609,
+        "elapsed_range_seconds": [
+          8.938999267,
+          9.049612475
+        ],
+        "trials": 5,
+        "actual_first_batch_rows": [
+          65536
+        ],
+        "client_cpu_seconds_median": 4.390708,
+        "allocated_bytes_median": 1161702448,
+        "allocations_median": 33040501,
+        "sampled_peak_go_heap_bytes_median": 160401432,
+        "process_lifetime_peak_rss_bytes_median": 431226880
+      },
+      "candidate": {
+        "elapsed_median_seconds": 7.804579527,
+        "elapsed_range_seconds": [
+          7.71212496,
+          7.870475357
+        ],
+        "trials": 5,
+        "actual_first_batch_rows": [
+          65536
+        ],
+        "client_cpu_seconds_median": 4.402759,
+        "allocated_bytes_median": 1161758872,
+        "allocations_median": 33040619,
+        "sampled_peak_go_heap_bytes_median": 161440832,
+        "process_lifetime_peak_rss_bytes_median": 431226880
+      },
+      "candidate_paired_elapsed_wins": 5,
+      "median_elapsed_change_percent": -13.498066428387734
+    },
+    {
+      "projection": "wide",
+      "api": "regular",
+      "readers": 4,
+      "baseline": {
+        "elapsed_median_seconds": 3.716927924,
+        "elapsed_range_seconds": [
+          3.701877521,
+          3.83188034
+        ],
+        "trials": 5,
+        "actual_first_batch_rows": [
+          25000
+        ],
+        "client_cpu_seconds_median": 4.669376,
+        "allocated_bytes_median": 1178137968,
+        "allocations_median": 33219247,
+        "sampled_peak_go_heap_bytes_median": 276153952,
+        "process_lifetime_peak_rss_bytes_median": 431226880
+      },
+      "candidate": {
+        "elapsed_median_seconds": 3.439055898,
+        "elapsed_range_seconds": [
+          3.314366465,
+          3.878427748
+        ],
+        "trials": 5,
+        "actual_first_batch_rows": [
+          25000
+        ],
+        "client_cpu_seconds_median": 4.708887,
+        "allocated_bytes_median": 1178154976,
+        "allocations_median": 33219431,
+        "sampled_peak_go_heap_bytes_median": 271815040,
+        "process_lifetime_peak_rss_bytes_median": 431226880
+      },
+      "candidate_paired_elapsed_wins": 4,
+      "median_elapsed_change_percent": -7.47585187772396
+    }
+  ],
+  "interpretation": "Go public ADBC APIs and Go Arrow allocator, including IPC output. Negative elapsed change is faster. Sampled heap is not a strict peak; RSS is process lifetime high-water. No native server-export speedup or Python/C-boundary speedup is established."
+}

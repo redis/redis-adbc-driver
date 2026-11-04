@@ -1,0 +1,7 @@
+{
+  "verified": true,
+  "rows": 100000,
+  "columns": 105,
+  "preparation": "SQL INSERT SELECT of exact internal IDs 1..100000 from the verified full-scale restore into a fresh managed fixture with pinned official DDL. All preparation excluded from timing; no Parquet ingestion or full-scale reload.",
+  "why": "A row-ID predicate on the full table intentionally retains the public partition residual fallback. Predicate-free full-table reads of the derived 100K fixture exercise the eligible path without changing fallback behavior."
+}

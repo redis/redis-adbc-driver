@@ -196,6 +196,10 @@ func (c *connectionImpl) Close(ctx context.Context) error {
 	// the client is open (see rekey.go).
 	c.store.stopRekeys(ctx)
 	c.streams.closeAll(errorf(adbc.StatusInvalidState, "the connection was closed while its result was being read"))
+	// During ExecuteQuery's initial fill the transport is registered before
+	// its public reader. Keep maintenance sockets alive for worker cursor
+	// cleanup even when closeAll could only cancel that transport.
+	c.streams.finishTransports()
 	// Best effort: whatever can't be dropped now is swept by a later
 	// connection (see temp.go).
 	_ = c.store.dropTempSchema(ctx)
