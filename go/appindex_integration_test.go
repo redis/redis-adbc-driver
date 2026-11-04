@@ -225,20 +225,22 @@ func TestAdoptAppIndexChoice(t *testing.T) {
 	f.h.expectRows(`SELECT city FROM it_ad_apc WHERE n = 2`, "Lima")
 }
 
-// A reader of a table that reads the application's index needs FT.INFO
-// besides the read-only rules (README).
+// Restricted-reader permission coverage remains separately gated. Application
+// indexes supply capture; SQL reads a private managed copy and its own index.
 func TestACLAppIndexReader(t *testing.T) {
 	a := newACLHarness(t)
+	// Verify principal setup before importing fixture data. Keep the existing
+	// grants and SETUSER gate; this does not activate a new reader ACL layout.
+	keys := []string{"%R~adbc:*", "%R~it:ad:apr:*"}
+	a.user("it_ad_apr_r", slices.Concat(a.readOnlyCommands(), []string{"+ft.info"}, keys)...)
 	f := newHashFixture(t, "it:ad:apr:")
 	f.dropAdopted("it_ad_apr")
 	t.Cleanup(func() { f.dropAdopted("it_ad_apr") })
 	f.users(5)
 	f.appIndex("it_ad_apr_idx", "SCHEMA", "name", "TAG", "balance", "NUMERIC", "SORTABLE")
-	if res := f.adopt(HashAdoptOptions{Table: "it_ad_apr", Apply: true}); !res.AppIndex {
+	if res := f.adopt(HashAdoptOptions{Table: "it_ad_apr", Apply: true}); !res.Applied || !res.ManagedCopy || res.AppIndex || res.SourceIndex != "it_ad_apr_idx" {
 		t.Fatalf("%+v", res)
 	}
-	keys := []string{"%R~adbc:*", "%R~it:ad:apr:*"}
-	a.user("it_ad_apr_r", slices.Concat(a.readOnlyCommands(), []string{"+ft.info"}, keys)...)
 	reader := a.connect("it_ad_apr_r", nil)
 	reader.expectRows(`SELECT name FROM it_ad_apr WHERE balance > 4.5`, "User 5")
 	a.expectNoDenials("it_ad_apr_r")

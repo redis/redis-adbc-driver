@@ -55,3 +55,11 @@ zero failures; root 77.504 s**. It includes complete wide HASH/Arrow fetch throu
 both APIs and worker/cancellation unit families. The gated worker concurrency and
 mixed probes were not run; no throughput claim follows. A fresh complete ordinary
 race run was started separately rather than combining continuation totals.
+
+The complete ordinary race run at 7fee549 is terminal: **81 pass events, eight
+explicit skips, one failure; root 112.436 s**. TestACLAppIndexReader still expected
+AppIndex=true for live application-index reuse before attempting principal setup.
+Managed snapshots intentionally return ManagedCopy=true, AppIndex=false and the
+capture SourceIndex instead. This is a stale fixture expectation, not proof of a
+snapshot data failure. Later tests did not run. No hosted check records existed
+for 7fee549 when inspected; local selections are not hosted/platform evidence.

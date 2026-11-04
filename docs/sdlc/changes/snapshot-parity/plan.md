@@ -459,3 +459,10 @@ mutable raceDrop/check-age fixtures with acknowledged replacements/tombstones,
 competing TRUNCATE/DROP publications, typed 40001 refusal, exact old/fresh rows
 and reclamation. Twenty-six race test events pass without test skips/failures.
 The complete ordinary/platform and performance gates remain open.
+
+The [application-index reader gate checkpoint](appindex-reader-gate-validation.md)
+updates the managed-copy fixture expectation and checks its unchanged principal
+setup before importing data. Two managed-copy race families pass; Software's
+existing SETUSER gate explicitly skips the reader fixture. Restricted-reader
+support remains unproved. The complete ordinary run at 7fee549 stopped at this
+fixture after 81 passes/eight skips; it is not a full pass.
