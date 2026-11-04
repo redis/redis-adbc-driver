@@ -1,0 +1,46 @@
+name: Integer SIMD experiment
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - go/internal/intpredicate/**
+      - go/integer_simd_profile_test.go
+      - .github/workflows/integer-simd.yml
+permissions:
+  contents: read
+jobs:
+  kernels:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        working-directory: go
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go/go.mod
+          cache-dependency-path: go/go.sum
+      - name: Record public synthetic benchmark environment
+        run: |
+          mkdir -p ../simd-results
+          git rev-parse HEAD > ../simd-results/source.txt
+          go version > ../simd-results/toolchain.txt
+          lscpu > ../simd-results/cpu.txt
+      - name: Native parity and portable fallback
+        run: |
+          go test -count=1 -v ./internal/intpredicate
+          CGO_ENABLED=0 go test -count=1 -v ./internal/intpredicate
+          go test -tags purego -count=1 ./internal/intpredicate
+          go test -race -count=1 ./internal/intpredicate
+      - name: Measure kernels and full conversion
+        run: |
+          go test -run '^$' -bench BenchmarkMatch -benchmem -benchtime=50ms -count=3 ./internal/intpredicate > ../simd-results/kernels.txt
+          go test -run '^$' -bench BenchmarkIntegerBatchConversion -benchmem -benchtime=50ms -count=3 . > ../simd-results/conversion.txt
+      - uses: actions/upload-artifact@v6
+        with:
+          name: integer-simd-${{ runner.arch }}
+          path: simd-results
