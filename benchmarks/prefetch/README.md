@@ -4,6 +4,13 @@ This runner isolates the `scanprefetch` experimental build from the same source
 with the tag disabled. It does not load ClickBench data. Restore an existing
 verified compatible full-scale backup on Redis Software and verify active 4x QPF.
 Keep deployment resources and credentials in private operational records.
+Prepare the required 100K-row managed `hits` fixture with the pinned official DDL
+and SQL `INSERT SELECT` from the restored table's exact internal IDs 1..100000.
+This is a small derived fixture, outside timing; preserve the complete restored
+source and do not re-ingest the official Parquet or reload the full-scale data.
+Predicate-free whole-fixture queries exercise eligible public partition scans.
+Applying a row-ID predicate directly to the full table intentionally retains the
+current public partition residual fallback and does not exercise this prototype.
 
 Build `main.go` from each checkout's `go/` directory with the same Go version
 and linker flags. For example, substitute an absolute harness path:
@@ -63,6 +70,9 @@ files and independently validates all values, Arrow types and duplicate
 multiplicity outside timing. Errors and their raw outputs remain in that run;
 an output directory cannot be reused. `--smoke` results are ineligible for a
 promotion decision.
+The independent source retains DDL nullability. Validation models the driver's
+SELECT schema (all output fields nullable) separately, without changing physical
+types, values or validity buffers. Every NULL bit still participates in equality.
 
 Wire diagnostics use a separate TLS-transparent loopback relay, with the same
 full-value validation. Trust and hostname verification stay enabled (the server

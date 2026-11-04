@@ -1,0 +1,38 @@
+{
+  "summary.json": {
+    "bytes": 10108,
+    "sha256": "5e9bbb7ee893015af22b433321c98b8f5d6b81fd762dac1402b7c0a9b1c825ac"
+  },
+  "direct-results.json": {
+    "bytes": 193017,
+    "sha256": "a143d6e740c49f6ecb75635e8b86cf065c7408fcaf4d6f6ff6c8b54d8e041f5b"
+  },
+  "fixture-preparation.json": {
+    "bytes": 535,
+    "sha256": "77ad2c402c1b280db9e23d1b2ef47baa3f39fadda2c704c6550144930c2cbc68"
+  },
+  "README.md": {
+    "bytes": 10212,
+    "sha256": "937a3c37963f8c518ca5c034d30459dce4df02ee4583b25e749917101a908b83"
+  },
+  "wire-results.json": {
+    "bytes": 73518,
+    "sha256": "f6a61c98cfa8e021357f2c5b6599a31c13bb253ddcf915347697382be52a84a9"
+  },
+  "source-proof.json": {
+    "bytes": 1476,
+    "sha256": "144ea294a7f2efd3ec1fb13999bf85de0ff6c36f8876bff99be4714224bd79be"
+  },
+  "selection-prefetch.json": {
+    "bytes": 197,
+    "sha256": "24a13690b69e52a9b8bd5545f2dd9c595a035b19d4bb4617e2d2de1563e0412b"
+  },
+  "selection-default.json": {
+    "bytes": 200,
+    "sha256": "ed802344a12f2a3147c9135345834acee3e11ce83d5e4c546d82a3d6d8cd2c6c"
+  },
+  "first-warmup-comparison-diagnosis.json": {
+    "bytes": 189,
+    "sha256": "fbb1e4c055ab4c48b1f2269ed8e079141e6fbf4c0c50c656cad24c1b7f755cdb"
+  }
+}

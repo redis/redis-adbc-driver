@@ -31,7 +31,9 @@ cleanup. Context cancellation takes precedence over a concurrently closed queue,
 which must not look like successful EOF. Worker panics become stream errors.
 The execution transport also registers background completion before a worker
 starts. Its independent cancellation/connection-close path interrupts sockets,
-joins registered workers, then closes the pool. Registration cannot race a
+joins registered workers (including their cursor finalizers), then closes the pool.
+Connection Close also joins transports during initial fill, before a public
+reader is attached, keeping the maintenance pool alive for cursor deletion. Registration cannot race a
 finishing transport; completed workers are removed without accumulating range
 history. Joining only in `streamReader.closeLocked` would be insufficient because
 the transport is independently registered with connection/statement owners.
@@ -57,4 +59,4 @@ Promotion requires the issue's complete-fetch, independently validated wide and
 narrow benchmark matrix on verified 4x QPF Redis Software. Historical timings
 do not satisfy this gate. No default enablement before that result.
 
-See [plan](plan.md) and [validation](validation.md) for outstanding evidence.
+See [plan](plan.md) and [validation](validation.md) for completed evidence and remaining scope limitations.

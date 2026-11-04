@@ -24,6 +24,11 @@ def canonical(table):
 
 def validate(paths, expected):
     actual = pa.concat_tables([pa.ipc.open_stream(str(p)).read_all() for p in paths])
+    # resultSchema declares SELECT outputs nullable, even for NOT NULL source
+    # columns. Model that output contract without changing any type/value/
+    # validity buffer. Table.equals still checks every NULL bit and row copy.
+    query_schema = pa.schema([pa.field(field.name, field.type, nullable=True) for field in expected.schema])
+    expected = pa.Table.from_arrays(expected.columns, schema=query_schema)
     if not canonical(actual).equals(canonical(expected), check_metadata=False):
         raise AssertionError('Independent full-value/type/multiplicity mismatch')
 
@@ -31,8 +36,10 @@ def validate(paths, expected):
 def query(namespace, columns, lo, hi):
     def quote(s):
         return '"' + s.replace('"', '""') + '"'
-    return ('SELECT ' + ','.join(map(quote, columns)) + ' FROM ' + quote(namespace)
-            + '.hits WHERE __rowid>=' + str(lo) + ' AND __rowid<=' + str(hi))
+    sql = 'SELECT ' + ','.join(map(quote, columns)) + ' FROM ' + quote(namespace) + '.hits'
+    if lo is not None:
+        sql += ' WHERE __rowid>=' + str(lo) + ' AND __rowid<=' + str(hi)
+    return sql
 
 
 def trial(cfg, source, build, api, readers, projection, repeat, root):
@@ -45,9 +52,10 @@ def trial(cfg, source, build, api, readers, projection, repeat, root):
     selected = source if projection == 'wide' else source.select(['watchid', 'userid', 'searchphrase'])
     target = root / f'{projection}-{api}-{readers}-{build}-{repeat}'
     target.mkdir()  # Never overwrite a previous attempt, including a failure.
-    sql = query(cfg['namespace'], selected.column_names, 1, 100000)
-    queries = [query(cfg['namespace'], selected.column_names, i*100000//readers+1,
-                     (i+1)*100000//readers) for i in range(readers)]
+    sql = query(cfg['namespace'], selected.column_names, None, None)
+    queries = [sql] if readers == 1 else [
+        query(cfg['namespace'], selected.column_names, i*100000//readers+1,
+              (i+1)*100000//readers) for i in range(readers)]
     command = {'URI': cfg['uri'], 'CA': cfg['ca'], 'API': api, 'SQL': sql,
                'Queries': queries, 'Output': str(target), 'Readers': readers,
                'BatchRows': cfg.get('batch_rows', 65536)}

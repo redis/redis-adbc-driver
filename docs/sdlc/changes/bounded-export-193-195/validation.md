@@ -1,4 +1,4 @@
-# Validation and open gates
+# Validation and dispositions
 
 2026-11-03, baseline `6d7ac40`; macOS arm64, Go 1.27.2.
 See [intent](intent.md), [spec](spec.md) and [plan](plan.md).
@@ -31,7 +31,7 @@ management API. Fixed test credentials and public CA remain under ignored
   (48.649 s in the driver package). Unexpected producer panics retain ADBC
   `INTERNAL` status, verified by the terminal-error test.
 - The new public Go ADBC harness independently passed tiny-fixture checks for
-  regular/partition APIs with one/four readers. Five Python checks passed for
+  regular/partition APIs with one/four readers. Six Python checks passed for
   duplicate/type-sensitive validation, identifier quoting and binary-transparent
   request/reply counting, changed source identity and missing/duplicate native
   reference membership. The tracked reference builder obtains every expected
@@ -61,53 +61,82 @@ access passed. The shared default Software container was stopped externally
 after setup, causing connection refusals; the isolated fixture passed instead.
 No assertions or supported-server tests were weakened.
 
-## Performance and feasibility gaps
+## Completed restored-fixture screen
 
-Existing S3 inventory includes the historical full-scale Software-origin backup
-(40 files, 50,181,080,429 compressed bytes, 99,997,497 rows in its manifest) and
-an independent source Parquet object for the historical full backup. These are
-discovery results, not a fresh restore/compatibility validation. The previous
-benchmark deployment is terminated. Do not treat arbitrary running AWS instances
-as owned test resources. Backup checksum/metadata compatibility, QPF and typed
-source identity must be verified again before timing.
+The [full report](../../../../benchmarks/prefetch/2026-11-03/README.md) retains
+all eight cases, elapsed ranges, actual first batches, client CPU, cumulative
+allocations, sampled heap/lifetime RSS interpretation and separate request/reply
+wire diagnostics. It links 96 primary trial records and 32 separate wire records;
+every execution passed independent complete-value, physical-type, NULL-bit and
+duplicate-multiplicity validation. Every requested reader was active. Each trial
+verified Redis Software 8.6.2, 48 shards, TLS/RESP3 and active 4x QPF.
 
-Albert approved a $300 AWS cap and eight-hour hard deadline. A two-instance
-task-owned compatibility pilot and verified automatic cleanup are running;
-the independent 20-row/105-field pilot check passed and the 49-instance full
-fleet is restoring the complete compatible snapshot. Cleanup was reverified
-against all 49 exact owned instances. Do not expose the private operational
-state in the public evidence. One initial snapshot
-restored rows but lacked catalog metadata (which belongs to a different shard);
-the pilot was repeated with the checksum-verified catalog-owning snapshot.
-The backup records eight loading workers, so its first internal IDs cannot be
-assumed to equal the Parquet prefix. The independent reference must match native
-HASH membership to unique official-source WatchIDs and validate all 105 fields.
-The isolated local Docker fixture was removed after the integration checks;
-unrelated containers were left alone.
+All 48 snapshot files passed actual SHA-256 verification. The full compatible
+99,997,497-row backup was restored on Software; historical Community snapshot
+provenance is not relabeled as Software. No Community benchmark was run. The
+100K fixture was copied from exact restored internal IDs using the pinned DDL
+and SQL INSERT SELECT outside timing; no Parquet ingestion or full-scale reload.
+Native ID/unique WatchID membership selects every expected value independently
+from the checksum-verified official Parquet. See the report's source proof.
 
-The 100K × 105/narrow one/four-reader complete-fetch matrix has **not run** yet.
-All 48 source snapshots passed actual SHA-256 checks and the complete Software
-import is in progress. The queued matrix waits for successful restore, full row
-count, QPF readiness and final build status. The final remote candidate sources
-match the worktree byte-for-byte. A read-only restored-fixture selection check
-will verify that prefetch actually starts in the experimental build and remains
-disabled in the default build before recording timings.
-No elapsed, CPU, allocation or network improvement is claimed, and normal builds
-do not enable prefetch. Issue #193 is not ready to close on these checks alone.
+Measured driver revisions: baseline `6d7ac40`, experimental `87a48c5`, Go 1.27.2
+Linux amd64. Wide one-reader medians improved 13.50% regular / 15.41% partition,
+winning all five pairs with nonoverlapping ranges. Four-reader ranges overlap;
+the narrow regular four-reader median regressed 1.77%. Keep the experimental
+build tag **disabled by default**. No native-export or Python/C-boundary speedup
+is established and no universal production performance claim follows.
 
-The typed-export document records a contract and the requested engineering
-no-go disposition. The dedicated read-only probe reproduced loss of exact
-BIGINT semantics under naive Lua numeric conversion; its sanitized result is
-retained separately. No named server-owner approval or supported new native
-server API was available. No production API/storage change is selected; a future
-integration must obtain that external approval and satisfy the conditional
-feasible-prototype performance gate. This is a no-go investigation result, not
-a mock codec promoted as a native server prototype or an approval.
+After the benchmark, final shutdown review reproduced a connection Close race
+during initial ExecuteQuery fill: the transport existed before its public reader,
+so the maintenance pool could close before worker cursor cleanup. The regression
+test failed before the fix. Connection Close now joins transports; the worker
+finishes serialized cursor cleanup before announcing completion. The final full
+experimental unit/race suite passed all five packages (driver 48.727 s); default
+unit suite passed all five (driver 27.087 s). The experimental cgo shared library
+built successfully. These shutdown follow-ups have not been rebenchmarked;
+performance numbers stay pinned to `87a48c5`, not final PR HEAD. Worker finalization
+can intersect terminal stream cleanup, so unchanged final-HEAD elapsed is not
+assumed. This does not promote the prototype.
 
-## Review status
+Setup failures are retained: the first pilot selected a snapshot without catalog
+metadata; the catalog-owning shard passed a fresh independent 20-row × 105-column
+check before expansion. A full-table row-ID predicate correctly failed the
+public partition eligibility guard, requiring the separate small fixture. The
+first baseline warm-up exposed source DDL NOT NULL versus existing SELECT
+nullable field metadata. Diagnosis found no name/type/value/validity differences;
+validation now models output field nullability without changing any NULL bit or
+value. A regression test rejects actual NULL changes. Failed raw outputs remain
+in the private archive. A final local test attempt used the AWS-only Python
+environment without PyArrow; rerunning in the existing Arrow environment passed
+all six Python tests. No assertion was weakened or failed output admitted.
 
-No human review/approval is claimed. Self-review checks stage ownership,
-serialized cursor cleanup, cancellation precedence, fallback eligibility,
-range transitions and retained Arrow ownership. Outstanding performance and
-server feasibility gates are explicit. Do not close either issue or mark the
-overall goal complete until its required evidence is obtained.
+The isolated local Software fixture was removed after integration tests;
+unrelated containers were left alone. Albert approved a $300 total AWS cap and
+eight-hour deadline. All 49 task-owned instances are terminated. Volume deletion
+and final automation cleanup are tracked privately and must be verified before
+finishing the goal; existing backups and shared IAM resources are preserved.
+
+## Typed export disposition
+
+The [typed export document](../../../typed-export-design.md) completes the
+versioned logical contract, four-way alternatives comparison and the requested
+engineering **no-go for production integration**. The dedicated read-only
+Software probe reproduced exact BIGINT loss under naive Lua numeric conversion;
+its sanitized result is retained. This is a limited diagnostic, not an exhaustive
+proof that no server implementation is possible. No named server-owner approval
+or supported new native export API was available. No production API/storage
+change is selected. Future integration requires that external decision and the
+conditional feasible-native-prototype elapsed gate. Closing the design/no-go
+investigation does not claim a native prototype shipped or owner approval.
+
+## Self-review
+
+Reviewed stage ownership, cursor serialization, readiness/existence/fallbacks,
+reply/Arrow lifetime, range transitions, cancellation precedence, blocked sockets,
+initial-fill connection Close, transport registration/join races and diagnostics
+for private data. No unresolved reproduced correctness defect remains. RESP3 is
+the current repository contract; no RESP2 support or standalone/Cluster promotion
+claim is added. No ACL/TLS/routing/storage dependency changes are introduced.
+The two implemented dispositions are a bounded experimental client prototype and
+a typed-server-export no-go recommendation. Maintainer human review is still
+required before merge; no human reviewer or approval is claimed here.

@@ -14,6 +14,21 @@ from reference import build_reference
 
 
 class ScreenTests(unittest.TestCase):
+    def test_select_schema_nullability_preserves_exact_null_validation(self):
+        expected = pa.Table.from_arrays([pa.array([1, 2], type=pa.int64())],
+                                       schema=pa.schema([pa.field('n', pa.int64(), nullable=False)]))
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d)/'result.arrow'
+            def write(values):
+                table = pa.table({'n': pa.array(values, type=pa.int64())})
+                with pa.OSFile(str(path), 'wb') as sink, pa.ipc.new_stream(sink, table.schema) as writer:
+                    writer.write_table(table)
+            write([1, 2])
+            validate([path], expected)
+            write([1, None])
+            with self.assertRaises(AssertionError):
+                validate([path], expected)
+
     def test_reference_rejects_wrong_official_source_identity(self):
         with tempfile.TemporaryDirectory() as d:
             path = Path(d)/'source'
@@ -62,6 +77,8 @@ class ScreenTests(unittest.TestCase):
     def test_projection_identifiers_are_quoted(self):
         self.assertEqual(query('a"b', ['c"d'], 1, 3),
                          'SELECT "c""d" FROM "a""b".hits WHERE __rowid>=1 AND __rowid<=3')
+        self.assertEqual(query('fixture', ['watchid'], None, None),
+                         'SELECT "watchid" FROM "fixture".hits')
 
     def test_meter_preserves_binary_payload_and_both_direction_counts(self):
         payload = bytes(range(256))*1024

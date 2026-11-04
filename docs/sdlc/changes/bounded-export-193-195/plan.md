@@ -15,7 +15,7 @@
 6. Done: verify existing AWS/S3 backup provenance and prepare a temporary,
    cost-bounded restoration. Do not mutate unrelated running instances. Keep
    operational identifiers, credentials, licenses and infrastructure private.
-7. In progress: restore a verified compatible backup and independent typed 100K × 105
+7. Done: restore a verified compatible backup and independent typed 100K × 105
    reference, run one warm-up/five alternating trials for wide/narrow, regular/
    public partitions and one/four readers. Record all failures, elapsed ranges,
    actual first batch sizes, CPU, allocations, memory and both wire directions.
@@ -27,6 +27,7 @@
    prerequisite to any future production integration, not an approval claimed
    by this client-side no-go investigation. The issue's feasible-prototype
    performance gate applies if a native capability later becomes available.
-9. Pending: review changes against `REVIEW.md`, close issues only after their
-   acceptance work is complete, and then create the requested PR. No premature
-   `Closes` claim, issue closure or PR creation while these gates remain open.
+9. Self-review complete against `REVIEW.md`; publish the completed evidence, close
+   both investigation issues with their experimental/no-go dispositions, and
+   then create the requested PR. Human maintainer review is still required
+   before merging; no agent review is represented as approval.

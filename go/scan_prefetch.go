@@ -27,6 +27,10 @@ type hashPagePrefetch struct {
 }
 
 func newHashPagePrefetch(ctx context.Context, fetch func(context.Context) hashPage) *hashPagePrefetch {
+	return newHashPagePrefetchWithCleanup(ctx, fetch, nil)
+}
+
+func newHashPagePrefetchWithCleanup(ctx context.Context, fetch func(context.Context) hashPage, cleanup func(context.Context)) *hashPagePrefetch {
 	ctx, cancel := context.WithCancel(ctx)
 	p := &hashPagePrefetch{pages: make(chan hashPage), done: make(chan struct{}), cancel: cancel}
 	transport, _ := ctx.Value(transportContextKey{}).(*executionTransport)
@@ -38,6 +42,15 @@ func newHashPagePrefetch(ctx context.Context, fetch func(context.Context) hashPa
 	}
 	go func() {
 		defer func() {
+			// The worker owns cursor state through its last READ/DEL. On queue
+			// cancellation it must delete the cursor before publishing done,
+			// including during ExecuteQuery's initial fill.
+			if cleanup != nil {
+				func() {
+					defer func() { _ = recover() }() // cursor cleanup is best effort
+					cleanup(ctx)
+				}()
+			}
 			close(p.pages)
 			if transport != nil {
 				transport.completeBackground(p.done)
@@ -95,7 +108,7 @@ func (it *scanIter) nextPrefetchedHash(ctx context.Context) ([]string, []map[str
 		// It never sees the consumer's mutable projection, env or Arrow builder.
 		worker := *it
 		worker.prefetch, worker.projection = nil, nil
-		it.prefetch = newHashPagePrefetch(ctx, worker.fetchHashPage)
+		it.prefetch = newHashPagePrefetchWithCleanup(ctx, worker.fetchHashPage, worker.close)
 	}
 	page := it.prefetch.next(ctx)
 	if page.err != nil {

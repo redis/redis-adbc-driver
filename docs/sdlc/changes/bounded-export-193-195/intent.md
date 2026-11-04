@@ -2,7 +2,7 @@
 
 2026-11-03; source `6d7ac409d8c9f11163b4f4cec63e2d4da00e69f2`.
 Requested by Albert Wong; author Codex. Status: implementation and design
-recommendation, acceptance gates still open.
+recommendation complete; evidence and limitations recorded in validation.
 
 Resolve [#193](https://github.com/redis/redis-adbc-driver/issues/193) and
 [#195](https://github.com/redis/redis-adbc-driver/issues/195), close them after

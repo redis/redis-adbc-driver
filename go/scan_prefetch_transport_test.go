@@ -57,6 +57,36 @@ func TestHashPrefetchTransportFinishWaitsForWorker(t *testing.T) {
 	}
 }
 
+func TestHashPrefetchConnectionCloseDuringInitialFillJoinsWorker(t *testing.T) {
+	ctx, cancel := context.WithCancelCause(context.Background())
+	var exited, maintenancePremature, executionPremature atomic.Bool
+	connection := &connectionImpl{store: &store{client: prefetchCloseObserver{exited: &exited, premature: &maintenancePremature}}}
+	transport := &executionTransport{owner: connection.store, ctx: ctx, cancel: cancel,
+		client: prefetchCloseObserver{exited: &exited, premature: &executionPremature}, owners: []*streams{&connection.streams}}
+	connection.streams.add(transport) // initial fill: the public reader isn't attached yet
+	ctx = context.WithValue(ctx, transportContextKey{}, transport)
+	started := make(chan struct{})
+	p := newHashPagePrefetchWithCleanup(ctx, func(ctx context.Context) hashPage {
+		close(started)
+		<-ctx.Done()
+		return hashPage{err: io.EOF}
+	}, func(context.Context) {
+		// Model in-flight cursor cleanup after interruption. The maintenance
+		// pool must remain open until this cleanup has joined.
+		time.Sleep(200 * time.Millisecond)
+		exited.Store(true)
+	})
+	awaitPrefetch(t, started)
+	if err := connection.Close(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	p.close()
+	transport.finish()
+	if maintenancePremature.Load() || executionPremature.Load() {
+		t.Fatal("connection closed a pool before initial-fill prefetch cleanup joined")
+	}
+}
+
 func TestHashPrefetchJoinsBlockedNetworkWork(t *testing.T) {
 	for _, command := range []string{"HMGET", "FT.CURSOR"} {
 		t.Run(command, func(t *testing.T) {
