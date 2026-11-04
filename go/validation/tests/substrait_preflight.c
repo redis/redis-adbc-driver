@@ -3,35 +3,47 @@
 #include <assert.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include "libadbc_driver_redis.h"
+#include <dlfcn.h>
+#include <stdio.h>
+#include "adbc.h"
 
 static void release_error(struct AdbcError* e) {
   if (e->release) e->release(e);
 }
-int main(void) {
+int main(int argc, char** argv) {
+  assert(argc == 2);
+  // Wheels need not ship Go-generated headers or retain the build filename.
+  // Load the exact requested library and use the public ADBC vtable instead.
+  void* library = dlopen(argv[1], RTLD_NOW | RTLD_LOCAL);
+  if (!library) { fprintf(stderr, "%s\n", dlerror()); return 1; }
+  AdbcDriverInitFunc init = (AdbcDriverInitFunc)dlsym(library, "AdbcDriverRedisInit");
+  assert(init != NULL);
+  struct AdbcDriver driver = {0};
+  struct AdbcError init_error = {0};
+  assert(init(ADBC_VERSION_1_1_0, &driver, &init_error) == ADBC_STATUS_OK);
   struct AdbcDatabase db = {0};
   struct AdbcConnection conn = {0};
   struct AdbcStatement stmt = {0};
   struct AdbcError err = {0};
-  assert(RedisDatabaseNew(&db, &err) == ADBC_STATUS_OK);
-  assert(RedisDatabaseSetOption(&db, "uri", getenv("REDIS_URI"), &err) == ADBC_STATUS_OK);
-  assert(RedisDatabaseInit(&db, &err) == ADBC_STATUS_OK);
-  assert(RedisConnectionNew(&conn, &err) == ADBC_STATUS_OK);
-  assert(RedisConnectionInit(&conn, &db, &err) == ADBC_STATUS_OK);
-  assert(RedisStatementNew(&conn, &stmt, &err) == ADBC_STATUS_OK);
-  assert(RedisStatementSetSqlQuery(&stmt, "SELECT 42", &err) == ADBC_STATUS_OK);
+  assert(driver.DatabaseNew(&db, &err) == ADBC_STATUS_OK);
+  assert(driver.DatabaseSetOption(&db, "uri", getenv("REDIS_URI"), &err) == ADBC_STATUS_OK);
+  assert(driver.DatabaseInit(&db, &err) == ADBC_STATUS_OK);
+  assert(driver.ConnectionNew(&conn, &err) == ADBC_STATUS_OK);
+  assert(driver.ConnectionInit(&conn, &db, &err) == ADBC_STATUS_OK);
+  assert(driver.StatementNew(&conn, &stmt, &err) == ADBC_STATUS_OK);
+  assert(driver.StatementSetSqlQuery(&stmt, "SELECT 42", &err) == ADBC_STATUS_OK);
   // Neither address may be dereferenced, narrowed or copied.
-  assert(RedisStatementSetSubstraitPlan(&stmt, (const uint8_t*)1, (size_t)1024*1024+1, &err) == ADBC_STATUS_INVALID_ARGUMENT);
+  assert(driver.StatementSetSubstraitPlan(&stmt, (const uint8_t*)1, (size_t)1024*1024+1, &err) == ADBC_STATUS_INVALID_ARGUMENT);
   release_error(&err);
-  assert(RedisStatementSetSubstraitPlan(&stmt, NULL, 1, &err) == ADBC_STATUS_INVALID_ARGUMENT);
+  assert(driver.StatementSetSubstraitPlan(&stmt, NULL, 1, &err) == ADBC_STATUS_INVALID_ARGUMENT);
   release_error(&err);
-  assert(RedisStatementSetSubstraitPlan(&stmt, (const uint8_t*)1, SIZE_MAX, &err) == ADBC_STATUS_INVALID_ARGUMENT);
+  assert(driver.StatementSetSubstraitPlan(&stmt, (const uint8_t*)1, SIZE_MAX, &err) == ADBC_STATUS_INVALID_ARGUMENT);
   release_error(&err);
   // Invalid plans preserve SQL and must not poison the process.
   int64_t affected = -1;
-  assert(RedisStatementExecuteQuery(&stmt, NULL, &affected, &err) == ADBC_STATUS_OK);
-  assert(RedisStatementRelease(&stmt, &err) == ADBC_STATUS_OK);
-  assert(RedisConnectionRelease(&conn, &err) == ADBC_STATUS_OK);
-  assert(RedisDatabaseRelease(&db, &err) == ADBC_STATUS_OK);
+  assert(driver.StatementExecuteQuery(&stmt, NULL, &affected, &err) == ADBC_STATUS_OK);
+  assert(driver.StatementRelease(&stmt, &err) == ADBC_STATUS_OK);
+  assert(driver.ConnectionRelease(&conn, &err) == ADBC_STATUS_OK);
+  assert(driver.DatabaseRelease(&db, &err) == ADBC_STATUS_OK);
   return 0;
 }

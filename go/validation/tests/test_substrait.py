@@ -3,6 +3,8 @@
 """Pinned binary Substrait execution, feature reporting and C admission."""
 from pathlib import Path
 import subprocess
+import shutil
+import sys
 
 import adbc_driver_manager
 import pyarrow as pa
@@ -58,14 +60,26 @@ def test_substrait_get_info(conn):
         assert values[5] == values[6] == "0.108.0"
 
 
-def test_substrait_c_admission(driver_path, tmp_path):
+@pytest.mark.parametrize("relocated", [False, True])
+def test_substrait_c_admission(driver_path, tmp_path, relocated):
     root = Path(__file__).resolve().parents[2]
     exe = tmp_path / "substrait_preflight"
-    subprocess.run([
+    library = Path(driver_path).resolve()
+    if relocated:
+        # Reproduce the installed-wheel layout: no generated header, and a
+        # filename independent of the original library's build/install name.
+        library = tmp_path / "wheel-library.so"
+        shutil.copyfile(driver_path, library)
+    command = [
         "cc", str(Path(__file__).with_name("substrait_preflight.c")),
-        "-I", str(root / "pkg"), "-I", str(Path(driver_path).parent),
-        str(driver_path), "-o", str(exe),
-        "-Wl,-rpath," + str(Path(driver_path).parent),
-    ], check=True, capture_output=True, text=True)
-    result = subprocess.run([str(exe)], cwd=Path(driver_path).parent, capture_output=True, text=True)
+        "-I", str(root / "pkg"), "-o", str(exe),
+    ]
+    if sys.platform.startswith("linux"):
+        command.append("-ldl")
+    compiled = subprocess.run(command, capture_output=True, text=True)
+    assert compiled.returncode == 0, compiled.stderr
+    result = subprocess.run(
+        [str(exe), str(library)],
+        cwd=tmp_path, capture_output=True, text=True,
+    )
     assert result.returncode == 0, result.stderr
