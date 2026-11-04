@@ -19,7 +19,7 @@ See [intent](intent.md), [spec](spec.md), [issue](https://github.com/redis/redis
   and REVOKE statements. The requestor then chose enforced SELECT mapping rather
   than no-ops, so unsupported privilege forms intentionally remain errors.
 - `env -u REDIS_URI -u REDIS_RBAC_TEST_API go test -count=1 -p 1 -json ./...`:
-  exit 0, 927 passing test/subtest events, 604 environment-dependent skips;
+  exit 0, 946 passing test/subtest events after rebasing onto `d2c94f5`, 604 environment-dependent skips;
   all six Go packages passed. Redis/GPU/profile-dependent skips do not prove
   integration compatibility.
 - `make -C go build`: exit 0, macOS arm64 shared library built.
@@ -50,5 +50,7 @@ No human review approval is inferred. Scope limits: Software management API only
 one base-table SELECT privilege/role per SQL statement, single-role readers,
 operator-provisioned bindings and verified API/database association, asynchronous
 propagation, prefix-change re-grants, and explicit cross-system recovery. Use
-non-evicting control storage and reconcile after metadata loss. CI and PR links
-will be recorded after submission.
+non-evicting control storage and reconcile after metadata loss. The live RBAC test is now an explicit Software CI step after sequential Go
+tests. Driver PR: [#310](https://github.com/redis/redis-adbc-driver/pull/310);
+companion dbt PR: [#41](https://github.com/redis/redis-dbt-adapter/pull/41).
+CI is pending.
