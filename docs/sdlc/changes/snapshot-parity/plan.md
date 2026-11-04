@@ -418,3 +418,9 @@ pinned cursor inspection and adds exact multi-segment public streams through DML
 TRUNCATE, DROP/recreation and GC. Forty-five stream/UNION ALL race events pass,
 including consumer Arrow buffers and pin/source reclamation after EOF, release,
 cancellation and Close. Full ordinary/platform and performance gates remain open.
+
+The [sweep primitive checkpoint](sweep-primitive-validation.md) isolates an unmanaged
+reservation primitive from snapshot-aware inspection and checks ACL setup before
+producing fixtures. Two primitive race events pass with one explicit ACL skip;
+eleven separate native ownership/collector race events pass. Driver fences remain
+unchanged; full ordinary/platform, permission and performance gates remain open.

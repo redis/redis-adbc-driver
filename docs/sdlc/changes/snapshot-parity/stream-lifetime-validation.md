@@ -42,6 +42,12 @@ selected tests and is skipped. Mutating selections run sequentially. Compilation
 formatting and diff whitespace checks pass. This is focused Go semantic/lifecycle
 coverage, not a full ordinary-suite, native platform or throughput result.
 
+The fresh 141-name ordinary continuation passes the required-key streaming case,
+records one opt-in acceptance-profile skip, then stops at TestSweepRetakenPrefix
+(root 1.276 s). Its isolated legacy primitive uses a snapshot-aware client for
+an unscoped metadata registry operation; the [sweep primitive checkpoint](sweep-primitive-validation.md)
+restores that separation. Later selected cases did not run.
+
 Reviewed current versus retained source identity, narrow missing-cursor error
 classification, exact complete rows and physical Arrow types, batch bounds,
 actual multi-segment/pin admission, unread-row changes, source retention, EOF/

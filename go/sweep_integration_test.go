@@ -98,12 +98,30 @@ func (h *sqlHarness) keysByNode(c goredis.UniversalClient, prefix string) map[st
 func TestSweepRetakenPrefix(t *testing.T) {
 	f := newHashFixture(t, "it:sw:retaken:")
 	f.hset(f.prefix+"1", "v", "keep")
-	c := &hashConn{client: f.raw, st: &store{client: f.raw}}
+	// Clone connection options, not hooks. This unmanaged primitive has no SQL
+	// descriptor or snapshot catalog; rawClient's metadata admission must stay on.
+	var raw goredis.UniversalClient
+	switch client := f.raw.(type) {
+	case *goredis.Client:
+		opts := *client.Options()
+		raw = goredis.NewClient(&opts)
+	case *goredis.ClusterClient:
+		opts := *client.Options()
+		raw = goredis.NewClusterClient(&opts)
+	default:
+		t.Fatalf("unsupported fixture client %T", f.raw)
+	}
+	defer raw.Close()
+	c := &hashConn{client: raw, st: &store{client: raw}}
 	s := &sweeper{c: c, res: &Sweep{}, cands: map[string]*SweptPrefix{f.prefix: {Prefix: f.prefix, Found: 1}}, apply: true, batch: []string{f.prefix + "1"}}
-	if err := f.raw.SAdd(f.h.ctx, prefixesKey, f.prefix).Err(); err != nil {
+	if err := raw.SAdd(f.h.ctx, prefixesKey, f.prefix).Err(); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = f.raw.SRem(context.Background(), prefixesKey, f.prefix).Err() })
+	defer func() {
+		if err := raw.SRem(context.Background(), prefixesKey, f.prefix).Err(); err != nil {
+			t.Error("primitive reservation cleanup", err)
+		}
+	}()
 	if err := s.flush(f.h.ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -146,6 +164,9 @@ func TestACLSweep(t *testing.T) {
 		t.Errorf("the driver reference doesn't say %s", want)
 	}
 	a := newACLHarness(t)
+	// Verify the existing principal-setup requirement before producing any
+	// cleanup fixtures. The same SETUSER denial remains an explicit skip.
+	a.user("it_sw_acl", slices.Concat(a.driverCommands(false), aclSweepCommands, []string{"~adbc:*", "~public:*"})...)
 	// Sweep what other tests left, so that the user only meets these keys.
 	runSweep(t, sweepOpts(adminURI()), true)
 	leave := func(schema, table string, n int) string {
@@ -168,7 +189,6 @@ func TestACLSweep(t *testing.T) {
 	other := leave("it_sw_acls", "t", 1)
 	t.Cleanup(func() { a.raw.Del(context.Background(), other+"1") })
 
-	a.user("it_sw_acl", slices.Concat(a.driverCommands(false), aclSweepCommands, []string{"~adbc:*", "~public:*"})...)
 	res := runSweep(t, sweepOpts(a.userURI("it_sw_acl")), true)
 	if got := swept(res, public); got.Deleted != 20 {
 		t.Errorf("%+v", got)
