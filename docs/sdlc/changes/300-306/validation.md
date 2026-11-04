@@ -151,3 +151,11 @@ repeated native runs. Provisioned a separate clean three-shard Software fixture
 on separate localhost ports, verified its default unrestricted aggregate cap
 and active 4x QPF, and reran the full suite there. The original fixture/data were
 preserved; test assertions remain unchanged.
+
+The Linux compatibility matrix passed AlmaLinux 8/9 and Amazon Linux 2023 on
+amd64/arm64. Ubuntu 20.04/22.04 exposed a test-only dependency on Python timezone
+conversion: minimal images lack zoneinfo/pytz. The timestamp replay comparator
+now checks exact int64 ticks while separately asserting the complete timestamp
+schema (unit and named zone). This is stricter value validation without adding
+an optional Python timezone dependency; no driver behavior or assertions were
+removed. CI is rerun on the corrected test.

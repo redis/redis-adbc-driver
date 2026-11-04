@@ -64,7 +64,7 @@ def test_partition_layout_independent_replay(driver_path, db_kwargs, layout, sou
                     def values(table):
                         ids = table.column("id").to_pylist()
                         column = table.column("v")
-                        if pa.types.is_duration(target):
+                        if pa.types.is_duration(target) or pa.types.is_timestamp(target):
                             column = column.cast(pa.int64())
                         return sorted(zip(ids, column.to_pylist()))
                     assert values(actual) == values(expected)
