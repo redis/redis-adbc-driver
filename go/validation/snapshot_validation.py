@@ -570,15 +570,23 @@ class SnapshotValidation(unittest.TestCase):
             self.execute_retry(cur, "INSERT INTO t VALUES (1,10),(2,20),(3,30)")
             self.execute_retry(cur, "UPDATE t SET v=99 WHERE id=2")
             self.execute_retry(cur, "DELETE FROM t WHERE id=1")
+            self.execute_retry(cur, "CREATE VIEW retained_v AS SELECT id,v FROM t")
             cur.adbc_statement.set_options(**{"adbc.redis.partition_result_mode": "retained"})
-            parts, schema = cur.adbc_execute_partitions("SELECT id FROM t WHERE v>=30 ORDER BY id")
+            parts, schema = cur.adbc_execute_partitions("SELECT id FROM retained_v WHERE v>=30 ORDER BY id")
             self.assertEqual(schema.names, ["id"])
+            self.execute_retry(cur, "CREATE OR REPLACE VIEW retained_v AS SELECT id+100 AS id,v FROM t")
+            cur.execute("SELECT id FROM retained_v WHERE v>=30 ORDER BY id")
+            self.assertEqual(cur.fetchall(), [(102,), (103,)])
+            self.execute_retry(cur, "DROP VIEW retained_v")
             self.execute_retry(cur, "DROP TABLE t")
-            rows = []
-            for part in parts:
-                cur.adbc_read_partition(part)
-                rows.extend(cur.fetchall())
-            self.assertEqual(rows, [(2,), (3,)])
+            for _ in range(2):
+                rows = []
+                for part in parts:
+                    cur.adbc_read_partition(part)
+                    table = cur.fetch_arrow_table()
+                    self.assertEqual(table.schema, schema)
+                    rows.extend((row["id"],) for row in table.to_pylist())
+                self.assertEqual(rows, [(2,), (3,)])
 
 
 if __name__ == "__main__":

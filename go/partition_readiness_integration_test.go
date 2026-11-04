@@ -52,17 +52,6 @@ func (h *rangeReadinessHook) ProcessHook(next goredis.ProcessHook) goredis.Proce
 		return err
 	}
 }
-func hookRangeClient(t *testing.T, client goredis.UniversalClient, hook goredis.Hook) {
-	t.Helper()
-	switch c := client.(type) {
-	case *goredis.Client:
-		c.AddHook(hook)
-	case *goredis.ClusterClient:
-		if err := c.ForEachMaster(context.Background(), func(_ context.Context, n *goredis.Client) error { n.AddHook(hook); return nil }); err != nil {
-			t.Fatal(err)
-		}
-	}
-}
 
 // Keep cursor-transition primitives on one pinned immutable physical source.
 // This changes only the in-memory test plan, never the published descriptor.

@@ -823,7 +823,7 @@ func scopeSnapshotCommand(ctx context.Context, cmd goredis.Cmder) error {
 	name := strings.ToLower(fmt.Sprint(args[0]))
 	var positions []int
 	switch name {
-	case "zrange", "zrangebylex", "zscore", "zlexcount", "zcard", "zadd", "zrem", "get", "set", "setnx", "incr", "incrby", "hget", "hgetall", "hkeys", "hlen", "hexists", "hmget", "hset", "hdel", "hincrby", "sadd", "srem", "smembers", "sismember", "scard", "dump", "restore", "expire", "pexpire", "persist", "ttl", "pttl":
+	case "zrange", "zrangebylex", "zscore", "zlexcount", "zcard", "zadd", "zrem", "get", "getrange", "set", "setnx", "incr", "incrby", "hget", "hgetall", "hkeys", "hlen", "hexists", "hmget", "hset", "hdel", "hincrby", "sadd", "srem", "smembers", "sismember", "scard", "dump", "restore", "expire", "pexpire", "persist", "ttl", "pttl":
 		positions = []int{1}
 	case "del", "unlink", "exists", "watch", "mget":
 		for n := 1; n < len(args); n++ {

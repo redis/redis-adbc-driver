@@ -323,3 +323,9 @@ pinned cursor-transition and exact HASH fallback checks, with a separate native
 segmented readiness transition preserving newest values, deletions and global
 ordering/limits. Nineteen focused race events pass with one topology skip; full
 ordinary and Cluster API coverage remain open.
+
+The [retained view checkpoint](retained-view-snapshot-validation.md) scopes bounded
+view validation through pinned native metadata and restores publication behavior
+through concurrent DML/DDL, view replacement, rekey and source retirement.
+Cancellation still aborts private uploads without exposing descriptors; full
+ordinary/platform and performance gates remain open.

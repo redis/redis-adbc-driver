@@ -47,8 +47,17 @@ func TestSnapshotCommandScoping(t *testing.T) {
 	if err := scopeSnapshotCommand(readCtx, goredis.NewCmd(readCtx, "HSET", snapshotRows("generation")+"1", "a", "b")); err == nil {
 		t.Fatal("published generation was writable")
 	}
-	if err := scopeSnapshotCommand(context.Background(), goredis.NewCmd(ctx, "GET", metaKey("public", "t"))); err == nil {
-		t.Fatal("unscoped metadata access accepted")
+	for _, args := range [][]any{{"GET", metaKey("public", "t")}, {"GETRANGE", viewKey("public", "v"), int64(0), int64(4096)}} {
+		if err := scopeSnapshotCommand(context.Background(), goredis.NewCmd(ctx, args...)); err == nil {
+			t.Fatal("unscoped metadata read accepted", args)
+		}
+	}
+	cmd := goredis.NewCmd(readCtx, "GETRANGE", viewKey("public", "v"), int64(0), int64(4096))
+	if err := scopeSnapshotCommand(readCtx, cmd); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(cmd.Args()[1].(string), snapshotWorkspace("generation")) || cmd.Args()[2] != int64(0) || cmd.Args()[3] != int64(4096) {
+		t.Fatal("bounded view read lost scope or bounds", cmd.Args())
 	}
 }
 
