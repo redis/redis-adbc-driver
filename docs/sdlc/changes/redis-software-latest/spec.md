@@ -19,3 +19,8 @@ Flex probes used driver revision `95d6583` and are labeled accordingly.
 
 The [default-versus-fixture comparison](../../../compatibility.md#redis-88-defaults-versus-our-test-fixture)
 defines the observed scope, scheduling policies, and concurrency limits.
+
+The managed-proxy TLS/RBAC check accepts either a filtered empty CONFIG GET
+reply or NoPermissionError. Both prevent configuration discovery; readable
+configuration and unrelated errors remain failures. Worker mutation/write
+denials remain separately verified.

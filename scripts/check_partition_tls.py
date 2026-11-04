@@ -67,6 +67,17 @@ def verified_uri(value):
     return uri
 
 
+def managed_config_get_blocked(client):
+    """Managed proxies may filter the reply or explicitly deny CONFIG GET."""
+    try:
+        result = client.config_get('search-max-aggregate-results')
+    except redis.exceptions.NoPermissionError:
+        return 'denied'
+    if result != {}:
+        raise AssertionError('worker could read managed Search configuration')
+    return 'filtered_empty'
+
+
 def worker_failure_summary(result):
     """Fixed diagnostic labels only; child errors may contain private data."""
     markers = {
@@ -425,10 +436,11 @@ def main(argv=None, cloud_principals_factory=None):
                 commands = [('CONFIG', 'SET', 'search-max-aggregate-results', '137'),
                             ('HSET', schema + ':forbidden', 'id', '1')]
                 if args.software_fixture or args.cloud_fixture:
-                    # The managed proxy filters unauthorized CONFIG GET to an empty reply
-                    # instead of NOPERM. The worker cannot discover or raise the cap.
-                    assert worker_control.config_get('search-max-aggregate-results') == {}
-                    check('cloud_proxy_config_get_filtered_empty' if args.cloud_fixture else 'software_proxy_config_get_filtered_empty')
+                    # Older proxies filter the reply; Redis 8.8 returns NOPERM.
+                    # Both block discovery; a nonempty reply still fails.
+                    outcome = managed_config_get_blocked(worker_control)
+                    deployment = 'cloud' if args.cloud_fixture else 'software'
+                    check(f'{deployment}_proxy_config_get_{outcome}')
                 else:
                     commands.insert(0, ('CONFIG', 'GET', '*'))
                 for command in commands:

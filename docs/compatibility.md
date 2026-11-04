@@ -116,3 +116,13 @@ to confirm all five values. It leaves an already compliant database alone
 and refuses to run tests if verification fails. TLS, authentication, and
 the default three-shard topology are fixture requirements preserved by
 this change; they were not inferred from the routing-default observation.
+
+### Restricted CONFIG GET responses in newer Software
+
+The TLS/RBAC smoke check previously required an empty `CONFIG GET` reply
+for a restricted worker. Software 8.2.6-25 / Redis 8.8 instead returned
+`NOPERM` in both Linux architecture jobs. The check now accepts either an
+empty filtered reply or an explicit permission denial, records which one
+occurred, and still rejects any readable configuration. It also retains the
+separate checks that the worker cannot mutate configuration or write data.
+Unrelated server and connection errors are not treated as permission denials.

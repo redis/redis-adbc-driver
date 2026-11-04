@@ -24,3 +24,17 @@ Checks:
 Review: inspected defaults, request payload, unchanged verification gate,
 TLS/authentication/topology preservation, raw evidence, and historical claims.
 No unresolved finding in this diff; no human review or merge approval implied.
+
+## CI follow-up: managed CONFIG GET denial
+
+Both Software-cluster jobs and both Linux release jobs failed at the same
+CONFIG GET assertion: Redis 8.8 returned NOPERM where older proxies returned
+an empty reply. The shared smoke check now recognizes these two blocked
+responses without allowing readable configuration or swallowing other errors.
+
+All 42 partition TLS management/helper tests pass, including regression
+coverage for empty replies, explicit denial, readable configuration, and
+unrelated server/connection failures. The live Software 8.8 TLS/RBAC rerun
+passed all 18 native partition checks and five metadata checks on the owned
+three-shard, verified-4x-QPF fixture, recording `software_proxy_config_get_denied`
+and successful rejection of configuration mutations and data writes.
