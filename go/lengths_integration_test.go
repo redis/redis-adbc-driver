@@ -459,7 +459,9 @@ func TestSQLLengthMetadata(t *testing.T) {
 			t.Errorf("column %s: type %+v, want %+v", col, got, want)
 		}
 	}
-	stored, err := raw.Get(h.ctx, metaKey(defaultSchema, "it_len_m")).Result()
+	st, readCtx, pin := h.inspectionSnapshot(raw)
+	stored, err := st.redis(readCtx).Get(readCtx, metaKey(defaultSchema, "it_len_m")).Result()
+	pin.release()
 	if err != nil {
 		t.Fatal(err)
 	}

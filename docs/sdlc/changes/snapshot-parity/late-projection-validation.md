@@ -60,3 +60,14 @@ one explicit profiling skip and one failure at TestSQLLengthMetadata, root
 package 4.126 seconds: another internal metadata fixture lacks a statement pin.
 Later selected cases did not run. Separate diagnostic counts are not added to
 claim a full ordinary suite pass.
+
+## Stored length metadata follow-up
+
+Parent 3ddc0bc. TestSQLLengthMetadata now reads the actual stored descriptor JSON
+through the existing inspectionSnapshot helper and releases its pin immediately
+after the read. All original exact serialized VARCHAR/CHAR length/fixed-field,
+GetObjects, information_schema, CTAS, aggregate/union/view, ALTER and conversion
+assertions remain. It does not replace raw JSON with remarshaled metadata.
+The complete `^TestSQLLength` race selection passes seven events, zero
+skips/failures, root package 5.642 seconds on the same verified Software fixture.
+This fixture-only follow-up is not another full snapshot/native validation.
