@@ -55,6 +55,10 @@ func (e *executor) openSnapshotOrdered(ctx context.Context, req scanRequest, par
 	if req.limit != nil {
 		d.skip, d.left = req.limit[0], req.limit[1]
 	}
+	if req.late != nil {
+		d.fields = req.late.fields
+		d.skip, d.left = req.late.offset, req.late.limit
+	}
 	for _, query := range req.visibility {
 		meta := *req.meta
 		meta.KeyPrefix, meta.IndexName = query.segment.Prefix, query.segment.Index
@@ -64,6 +68,9 @@ func (e *executor) openSnapshotOrdered(ctx context.Context, req scanRequest, par
 		source := req
 		source.meta = &meta
 		source.visibility = nil
+		// Residuals and visibility run per source; late output and SQL limits
+		// belong to the global merge, never independently to each segment.
+		source.late = nil
 		source.need = maps.Clone(sortNeed)
 		for name := range req.dependencies {
 			source.need[name] = true

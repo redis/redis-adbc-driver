@@ -64,6 +64,29 @@ class SnapshotValidation(unittest.TestCase):
                     raise
                 time.sleep(0.005)
 
+    def test_segmented_ordered_late_projection(self):
+        with self.conn.cursor() as cur:
+            cur.execute("CREATE TABLE t(id INTEGER,url VARCHAR,payload VARCHAR,spare VARCHAR)")
+            cur.execute("INSERT INTO t SELECT i,CASE WHEN i%2=0 THEN 'match' ELSE 'miss' END,'row-'||i||repeat('p',4096),NULL FROM generate_series(1,600) AS g(i)")
+            cur.execute("UPDATE t SET url=CASE WHEN id=2 THEN 'miss' ELSE url END,payload=CASE WHEN id=4 THEN 'changed' ELSE payload END,spare=CASE WHEN id=4 THEN 'x' ELSE spare END WHERE id IN (2,4)")
+            cur.execute("DELETE FROM t WHERE id=6")
+            for stream in ("true", "false"):
+                cur.adbc_statement.set_options(**{
+                    "adbc.redis.stream_results": stream,
+                    "adbc.redis.stream_batch_rows": "1",
+                })
+                for tail, ids in (
+                    ("ORDER BY id LIMIT 2 OFFSET 1", [8, 10]),
+                    ("ORDER BY id DESC NULLS LAST LIMIT 2 OFFSET 1", [598, 596]),
+                    ("ORDER BY id LIMIT 1", [4]),
+                    ("ORDER BY id LIMIT 0", []),
+                    ("ORDER BY id LIMIT 2 OFFSET 1000", []),
+                ):
+                    cur.execute("SELECT id,payload,spare FROM t WHERE url LIKE '%match%' " + tail)
+                    expected = [(i, "changed", "x") if i == 4 else
+                                (i, f"row-{i}" + "p" * 4096, None) for i in ids]
+                    self.assertEqual(cur.fetchall(), expected)
+
     def test_stream_survives_update_and_drop(self):
         count, exact = 12001, 9007199254740993
         with self.conn.cursor() as cur:

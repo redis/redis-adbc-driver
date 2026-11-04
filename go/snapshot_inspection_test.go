@@ -6,11 +6,126 @@ package redis
 import (
 	"context"
 	"fmt"
+	"reflect"
+	"strconv"
+	"strings"
 	"sync/atomic"
 	"testing"
 
 	goredis "github.com/redis/go-redis/v9"
 )
+
+// Sparse worker-range fixtures must publish canonical row keys/directories and
+// native sequence metadata together, rather than edit a pinned source HASH.
+func (h *sqlHarness) sparseSnapshotTable(table string, last int64, moves map[int64]int64) {
+	h.t.Helper()
+	s, ctx, pin := h.inspectionSnapshot(h.rawClient(), true)
+	defer pin.release()
+	old, err := s.getTable(ctx, defaultSchema, table)
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	seq := seqKey(defaultSchema, table)
+	previous, err := s.redis(ctx).Get(ctx, seq).Int64()
+	if err != nil || last < previous {
+		h.t.Fatal("invalid sparse sequence fixture", previous, last, err)
+	}
+	var keys []string
+	for from, to := range moves {
+		if from < 1 || to < 1 || to > last || from == to {
+			h.t.Fatal("invalid sparse row move", from, to)
+		}
+		keys = append(keys, old.prefix()+strconv.FormatInt(from, 10), old.prefix()+strconv.FormatInt(to, 10))
+	}
+	before, err := s.fetchSnapshotVisible(ctx, old, keys, nil)
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	wctx, work, err := s.beginSnapshotWrite(ctx, pin)
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	defer s.abortSnapshot(pin, work)
+	if len(moves) > 0 {
+		if err := s.prepareSnapshotTable(wctx, defaultSchema, table); err != nil {
+			h.t.Fatal(err)
+		}
+		m, err := s.getTable(wctx, defaultSchema, table)
+		if err != nil {
+			h.t.Fatal(err)
+		}
+		var images []snapshotInsertRow
+		seen := map[string]bool{}
+		for i := 0; i < len(keys); i += 2 {
+			from, to := strings.TrimPrefix(keys[i], old.prefix()), strings.TrimPrefix(keys[i+1], old.prefix())
+			if before[i] == nil || before[i+1] != nil || seen[to] {
+				h.t.Fatal("sparse move source missing or destination occupied", from, to)
+			}
+			seen[to] = true
+			fields := []any{rowIDField, to}
+			for name, value := range before[i] {
+				if name != rowIDField {
+					fields = append(fields, name, value)
+				}
+			}
+			for _, row := range []struct {
+				id     string
+				fields []any
+			}{
+				{from, []any{rowIDField, from, snapshotDeletedField, "1"}}, {to, fields},
+			} {
+				key := m.prefix() + row.id
+				images = append(images, snapshotInsertRow{key: key, member: snapshotDirectoryMember(key), fields: row.fields})
+			}
+		}
+		if err := s.writeSnapshotImages(wctx, m.prefix(), images, true); err != nil {
+			h.t.Fatal(err)
+		}
+	}
+	if err := s.redis(wctx).Set(wctx, seq, last, 0).Err(); err != nil {
+		h.t.Fatal(err)
+	}
+	if err := s.publishSnapshot(wctx, pin, work); err != nil {
+		h.t.Fatal(err)
+	}
+	after, err := s.fetchSnapshotVisible(ctx, old, keys, nil)
+	if err != nil || !reflect.DeepEqual(before, after) {
+		h.t.Fatal("sparse fixture changed its pinned source", err)
+	}
+	if n, err := s.redis(ctx).Get(ctx, seq).Int64(); err != nil || n != previous {
+		h.t.Fatal("sparse fixture changed its pinned sequence", n, previous, err)
+	}
+	next, nextPin, err := s.acquireSnapshot(h.ctx)
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	defer nextPin.release()
+	if n, err := s.redis(next).Get(next, seq).Int64(); err != nil || n != last {
+		h.t.Fatal("sparse sequence was not published", n, last, err)
+	}
+	m, err := s.getTable(next, defaultSchema, table)
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	nextKeys := make([]string, len(keys))
+	for i, key := range keys {
+		nextKeys[i] = m.prefix() + strings.TrimPrefix(key, old.prefix())
+	}
+	visible, err := s.fetchSnapshotVisible(next, m, nextKeys, nil)
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	for i := 0; i < len(keys); i += 2 {
+		want := map[string]string{}
+		for name, value := range before[i] {
+			want[name] = value
+		}
+		want[rowIDField] = strings.TrimPrefix(nextKeys[i+1], m.prefix())
+		if visible[i] != nil || !reflect.DeepEqual(map[string]string(visible[i+1]), want) {
+			h.t.Fatal("sparse row move was not published exactly", keys[i], keys[i+1])
+		}
+	}
+}
 
 // Inspect the same immutable metadata as an ordinary SQL statement, using the
 // caller's inspection credentials. A legacy unscoped store cannot find it.

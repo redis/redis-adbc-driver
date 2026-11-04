@@ -214,3 +214,9 @@ CTAS fixture's atomic expectations after a real acknowledged private batch.
 It checks unchanged publication, absent public metadata, reference-safe cleanup
 and name reuse; all fifteen cancellation test events pass under the race detector.
 Full ordinary/platform and performance parity remain open.
+
+The [sparse parallel and late-projection checkpoint](parallel-late-validation.md)
+restores immutable sparse input construction and enables eligible late projection
+after writes create multiple segments. Ordered output limits apply globally and
+cap fallback retains complete projections. Exact result and transfer checks are
+recorded with their remaining full-parity limits.

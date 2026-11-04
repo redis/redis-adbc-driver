@@ -41,13 +41,8 @@ func TestSQLCheckedParallelInputs(t *testing.T) {
 	h.exec("CREATE TABLE it_checked_parallel (v BIGINT,n BIGINT)")
 	h.exec("INSERT INTO it_checked_parallel(v) VALUES (9007199254740993),(-9007199254740993),(7),(NULL)")
 	sql := "SELECT SUM(v+1),AVG(v*2),COUNT(v-1),MIN(v+1),MAX(v+1),SUM(v+1) FROM it_checked_parallel"
+	h.sparseSnapshotTable("it_checked_parallel", 4096, map[int64]int64{2: 3000})
 	e, plan, wp := distinctTestPlan(t, h, sql)
-	if err := e.store.client.HSet(h.ctx, plan.meta.prefix()+"2", rowIDField, 3000).Err(); err != nil {
-		t.Fatal(err)
-	}
-	if err := e.store.client.Set(h.ctx, seqKey(plan.meta.Schema, plan.meta.Name), 4096, 0).Err(); err != nil {
-		t.Fatal(err)
-	}
 	for _, workers := range []int{1, 2, 4} {
 		e.queryWorkers = workers
 		got, handled, err := e.parallelAggregate(h.ctx, plan, wp, plan.aggregateCalls(), nil)
@@ -67,15 +62,13 @@ func TestSQLCheckedParallelInputs(t *testing.T) {
 	// both survive compiled evaluation; division remains in the serial path.
 	h.exec("DELETE FROM it_checked_parallel")
 	h.exec("INSERT INTO it_checked_parallel(v) VALUES (9223372036854775807),(-9223372036854775808),(NULL)")
+	h.sparseSnapshotTable("it_checked_parallel", 8192, nil)
 	for _, query := range []string{
 		"SELECT SUM(v),SUM(v+1) FROM it_checked_parallel",
 		"SELECT SUM(n+(v+1)) FROM it_checked_parallel",
 	} {
 		e, plan, wp = distinctTestPlan(t, h, query)
 		e.queryWorkers = 2
-		if err := e.store.client.Set(h.ctx, seqKey(plan.meta.Schema, plan.meta.Name), 8192, 0).Err(); err != nil {
-			t.Fatal(err)
-		}
 		_, handled, got := e.parallelAggregate(h.ctx, plan, wp, plan.aggregateCalls(), nil)
 		_, want := e.serialDriverAggregate(h.ctx, plan, wp, plan.aggregateCalls(), nil)
 		if !handled || got == nil || want == nil || got.Error() != want.Error() {
@@ -95,6 +88,7 @@ func TestSQLPartitionedExpressionGroups(t *testing.T) {
 	h.exec(`INSERT INTO it_expression_groups VALUES
  (9007199254740993,'https://www.example.com/a'),(9007199254740993,'http://example.com/b'),
  (9007199254740992,'https://other.com/c'),(9007199254740992,''),(NULL,NULL),(NULL,'http://example.com/d')`)
+	h.sparseSnapshotTable("it_expression_groups", aggregatePartitionRows*2, map[int64]int64{2: aggregatePartitionRows + 2})
 	queries := []string{
 		`SELECT REGEXP_REPLACE(referer, '^https?://(?:www\.)?([^/]+)/.*$', '\1') AS k,AVG(length(referer)) AS l,COUNT(*) AS c,MIN(referer) FROM it_expression_groups WHERE referer<>'' GROUP BY k HAVING COUNT(*)>0 ORDER BY l DESC LIMIT 25`,
 		"SELECT ip,ip-1,ip-2,ip-3,COUNT(*) AS c FROM it_expression_groups GROUP BY ip,ip-1,ip-2,ip-3 ORDER BY c DESC LIMIT 10",
@@ -110,12 +104,6 @@ func TestSQLPartitionedExpressionGroups(t *testing.T) {
 		}
 		if strings.Contains(sql, "REGEXP_REPLACE") && !shape.partialGroups {
 			t.Fatal("regex grouping did not use partial final groups")
-		}
-		if err := e.store.client.HSet(h.ctx, plan.meta.prefix()+"2", rowIDField, aggregatePartitionRows+2).Err(); err != nil {
-			t.Fatal(err)
-		}
-		if err := e.store.client.Set(h.ctx, seqKey(plan.meta.Schema, plan.meta.Name), aggregatePartitionRows*2, 0).Err(); err != nil {
-			t.Fatal(err)
 		}
 		e.queryWorkers = 2
 		got, handled, err := e.partitionedAggregate(h.ctx, plan, wp, plan.aggregateCalls(), nil, false)
@@ -292,12 +280,10 @@ func TestSQLParallelExactTopK(t *testing.T) {
 	h.dropTables("it_parallel_topk")
 	h.exec("CREATE TABLE it_parallel_topk (phrase VARCHAR,payload INTEGER)")
 	h.exec("INSERT INTO it_parallel_topk VALUES ('z',1),('a\x00z',2),('a\x00b',3),('',4),('b',5),(NULL,6),('A',7),(' a',8)")
+	h.sparseSnapshotTable("it_parallel_topk", aggregatePartitionRows*2, nil)
 	e, plan, _ := distinctTestPlan(t, h, "SELECT phrase,payload FROM it_parallel_topk WHERE phrase<>'' ORDER BY phrase,payload DESC LIMIT 4 OFFSET 1")
 	// Sparse sequences are valid. Raising the upper bound exercises multiple
 	// disjoint ranges without making this correctness test load 131k rows.
-	if err := e.store.client.Set(h.ctx, seqKey(plan.meta.Schema, plan.meta.Name), aggregatePartitionRows*2, 0).Err(); err != nil {
-		t.Fatal(err)
-	}
 	e.queryWorkers = 2
 	sc, err := e.prepareScan(h.ctx, plan, nil)
 	if err != nil {
@@ -318,10 +304,8 @@ func TestSQLParallelExactTopK(t *testing.T) {
 	h.dropTables("it_parallel_topk_exact")
 	h.exec("CREATE TABLE it_parallel_topk_exact (phrase VARCHAR,payload INTEGER)")
 	h.exec("INSERT INTO it_parallel_topk_exact VALUES ('z',1),('a',2),('',3),('b',4),(NULL,5),('A',6),(' a',7)")
+	h.sparseSnapshotTable("it_parallel_topk_exact", aggregatePartitionRows*2, nil)
 	e, plan, _ = distinctTestPlan(t, h, "SELECT phrase FROM it_parallel_topk_exact WHERE phrase<>'' ORDER BY phrase LIMIT 2")
-	if err := e.store.client.Set(h.ctx, seqKey(plan.meta.Schema, plan.meta.Name), aggregatePartitionRows*2, 0).Err(); err != nil {
-		t.Fatal(err)
-	}
 	e.queryWorkers = 2
 	sc, err = e.prepareScan(h.ctx, plan, nil)
 	if err != nil {

@@ -644,6 +644,10 @@ func (e *executor) openScan(ctx context.Context, req scanRequest, params []Value
 					return nil, err
 				}
 				it.ordered = ordered
+				if req.late != nil {
+					// The ordered merge materializes only globally selected rows.
+					it.need = req.late.need
+				}
 				// Source predicates ran before the merge; never evaluate volatility twice.
 				it.residual = nil
 				return it, nil
@@ -1331,7 +1335,7 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 	}
 	// A residual predicate prevents index LIMIT. Read only its inputs (and
 	// exact tie-sort inputs), then fetch output fields for surviving rows.
-	if !meta.SnapshotOverlay && !plan.hasSetReturning() && wp.residual != nil && indexSort && !meta.KeyRows && !plan.windowed() &&
+	if !plan.hasSetReturning() && wp.residual != nil && indexSort && !meta.KeyRows && !plan.windowed() &&
 		!plan.hasCorrelated() && len(plan.extraNeed) == 0 && sel.Limit != nil {
 		predicate := map[string]bool{}
 		columnRefs(wp.residual, predicate)
@@ -1355,6 +1359,9 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 		if req.limit == nil {
 			for _, seg := range meta.snapshotSegments() {
 				if seg.Rows > caps[1] {
+					if req.late != nil {
+						req.need, req.late = req.late.need, nil
+					}
 					req.visibility, req.sortBy, req.ties = nil, nil, nil
 					return selectScan{req: req, caps: caps, indexSort: len(plan.order) == 0}, nil
 				}
