@@ -25,7 +25,7 @@ import redis
 class SnapshotValidation(unittest.TestCase):
     def setUp(self):
         self.uri = os.environ["REDIS_SNAPSHOT_URI"]
-        kwargs = {"decode_responses": True}
+        kwargs = {"decode_responses": True, "protocol": 3}
         if self.uri.startswith("rediss://") and os.environ.get("SSL_CERT_FILE"):
             kwargs["ssl_ca_certs"] = os.environ["SSL_CERT_FILE"]
         self.raw = redis.Redis.from_url(self.uri, **kwargs)
@@ -346,6 +346,89 @@ class SnapshotValidation(unittest.TestCase):
             self.assertEqual(cur.fetchall(), [(99,)])
             self.assertEqual(self.raw.hget("app:1", "v"), "99")
             self.raw.execute_command("FT.INFO", "app_index")
+
+    def test_foreign_copy_live_partitions_preserve_ownership(self):
+        prefix, index, exact = "partition_app:", "partition_copy_native", 9007199254740993
+        keys = [prefix+"one", prefix+"00002", prefix+"nul\x00λ"]
+        for i, key in enumerate(keys):
+            fields = {"name": "exact\x00value", "n": i, "exact": exact+i}
+            if i == 0:
+                fields.update(payload=b"\x00\xff", maybe="present")
+            self.raw.hset(key, mapping=fields)
+        self.raw.execute_command("FT.CREATE", index, "ON", "HASH", "PREFIX", 1, prefix,
+                                 "SCHEMA", "name", "TAG", "n", "NUMERIC", "exact", "NUMERIC")
+        query = f"SELECT __key,name,n,exact,payload,maybe FROM redis_foreign.{index}"
+        options = {"adbc.redis.foreign_indexes": "true"}
+        binary_options = {"decode_responses": False, "protocol": 3}
+        if self.uri.startswith("rediss://") and os.environ.get("SSL_CERT_FILE"):
+            binary_options["ssl_ca_certs"] = os.environ["SSL_CERT_FILE"]
+
+        def definition():
+            info = self.raw.execute_command("FT.INFO", index)
+            if not isinstance(info, dict):
+                info = dict(zip(info[::2], info[1::2]))
+            return info["index_definition"], info["attributes"]
+
+        with redis.Redis.from_url(self.uri, **binary_options) as raw:
+            before = {key: raw.hgetall(key) for key in keys}
+            source_definition = definition()
+            with self.connect(**options) as producer, producer.cursor() as cur:
+                cur.adbc_statement.set_options(**{"adbc.redis.partition_count": "3"})
+                old_parts, old_schema = cur.adbc_execute_partitions(query)
+                old_group = cur.adbc_statement.get_option("adbc.redis.partition_snapshot_id")
+                self.assertEqual(len(old_parts), 3)
+            with self.connect() as worker, worker.cursor() as cur, \
+                    self.connect(**options) as manager, manager.cursor() as owner:
+                owner.adbc_statement.set_options(**{"adbc.redis.partition_count": "3"})
+
+                def read(parts, schema, changed=False):
+                    actual = {}
+                    for part in parts:
+                        cur.adbc_read_partition(part)
+                        table = cur.fetch_arrow_table()
+                        self.assertEqual(table.schema, schema)
+                        self.assertEqual(table.num_rows, 1)
+                        for row in table.to_pylist():
+                            key = row["__key"]
+                            self.assertNotIn(key, actual)
+                            actual[key] = row
+                    self.assertEqual(actual, {key: {
+                        "__key": key, "name": "exact\x00value",
+                        "n": 99 if changed and i == 0 else i,
+                        "exact": exact+(99 if changed and i == 0 else i),
+                        "payload": b"\x00\xff" if i == 0 else None,
+                        "maybe": "present" if i == 0 else None,
+                    } for i, key in enumerate(keys)})
+
+                with self.assertRaisesRegex(adbc_driver_manager.Error, "does not exist"):
+                    cur.execute(query)
+                read(old_parts, old_schema)
+                self.raw.hset(keys[0], mapping={"n": 99, "exact": exact+99})
+                read(old_parts, old_schema)
+                manager.adbc_connection.set_options(**{"adbc.redis.foreign_indexes_refresh": "true"})
+                new_parts, new_schema = owner.adbc_execute_partitions(query)
+                new_group = owner.adbc_statement.get_option("adbc.redis.partition_snapshot_id")
+                read(new_parts, new_schema, True)
+                read(old_parts, old_schema)
+                with self.assertRaisesRegex(adbc_driver_manager.Error, "does not exist"):
+                    cur.execute(query)
+                self.assertEqual(definition(), source_definition)
+                with self.assertRaisesRegex(adbc_driver_manager.Error, "read-only"):
+                    owner.execute(f"UPDATE redis_foreign.{index} SET n=0")
+                self.raw.execute_command("FT.DROPINDEX", index)
+                manager.adbc_connection.set_options(**{"adbc.redis.foreign_indexes_refresh": "true"})
+                read(old_parts, old_schema)
+                read(new_parts, new_schema, True)
+                expected = {key: dict(fields) for key, fields in before.items()}
+                expected[keys[0]].update({b"n": b"99", b"exact": str(exact+99).encode()})
+                self.assertEqual({key: raw.hgetall(key) for key in keys}, expected)
+                for group in (old_group, new_group):
+                    owner.execute(f"DROP PARTITION SNAPSHOT '{group}'")
+                self.assertEqual(worker.adbc_connection.get_option("adbc.redis.foreign_indexes"), "false")
+                with self.assertRaisesRegex(adbc_driver_manager.Error, "does not exist"):
+                    cur.execute(query)
+                with self.assertRaises(adbc_driver_manager.Error):
+                    cur.adbc_read_partition(old_parts[0])
 
     def test_foreign_source_key_residual_limit(self):
         self.raw.hset("app:origin", mapping={"v": "1", "a": "a", "b": "b", "c": "c"})

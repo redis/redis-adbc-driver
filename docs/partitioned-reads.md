@@ -35,6 +35,13 @@ partition byte array do not revoke descriptor copies. Retained mode remains the
 option for independently stored durable replay. Legacy version-1 live descriptors
 are rejected by managed snapshot catalogs; regenerate them.
 
+Private managed copies created by HASH adoption or foreign-index discovery also
+support live partitions. A regular worker connection reads the captured copy
+without enabling foreign-index discovery or importing unrelated sources. Ordinary
+SQL discovery and explicit refresh retain their existing options and read-only
+foreign-schema behavior. Old descriptors retain their original copied rows after
+refresh or retirement; application HASHes and index definitions remain external.
+
 This contract supersedes the historical unpinned consistency/lifecycle details
 below, which describe earlier releases. Query-shape and permission restrictions
 remain unless explicitly described by the current snapshot contract.
@@ -69,9 +76,10 @@ Parameter stream failures produce IO errors without including values.
 Scripts, subqueries, views, CTEs, joins, aggregates, grouping, DISTINCT, windows,
 set operations, ORDER BY, LIMIT and OFFSET remain unsupported. Volatile,
 user-dependent and other session-dependent functions remain rejected. Captured
-time zone is the only supported session setting used by expressions. Temporary,
-adopted, foreign-index and legacy tables without a persistent unique key prefix
-are unsupported. Flex remains unsupported. See the
+time zone is the only supported session setting used by expressions. Temporary
+tables, live external HASH/index layouts and legacy tables without persistent
+managed row IDs are unsupported. Managed application/foreign copies use the native
+partition path described above. Flex remains unsupported. See the
 [retained runtime contract](retained-partition-results.md) for global SQL,
 additional layouts and stable replay in the opt-in mode.
 

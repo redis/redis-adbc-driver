@@ -38,6 +38,9 @@ type executor struct {
 	store              *store
 	retained           *retainedExecution
 	partitionNamespace string
+	// A validated live capability resolves its one captured foreign copy
+	// without enabling connection-wide discovery or importing other sources.
+	partitionForeignTable string
 	// sess is the connection's settings (session.go), and schema its
 	// current schema.
 	sess             *session
@@ -112,7 +115,8 @@ func invalidArg(err error) error {
 // always the temporary one.
 func (e *executor) resolveTable(t TableName) (string, string, error) {
 
-	if (t.Schema == foreignSchema || t.Schema == "" && e.schema == foreignSchema) && !e.store.foreignIndexes {
+	if (t.Schema == foreignSchema || t.Schema == "" && e.schema == foreignSchema) && !e.store.foreignIndexes &&
+		(e.partitionForeignTable == "" || t.Name != e.partitionForeignTable) {
 		return "", "", tableNotFound(foreignSchema, t.Name)
 	}
 	schema := t.Schema

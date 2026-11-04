@@ -147,7 +147,7 @@ func (e *executor) partitionPlan(ctx context.Context, sel *SelectStmt) (*selectP
 	if err != nil {
 		return nil, err
 	}
-	if isTempSchema(schema) || schema == foreignSchema {
+	if isTempSchema(schema) {
 		return nil, errorf(adbc.StatusNotImplemented, "partitioned reads require a permanent driver-managed table")
 	}
 	meta, err := e.store.getTable(ctx, schema, name)
@@ -415,6 +415,11 @@ func (c *connectionImpl) ReadPartition(ctx context.Context, data []byte) (result
 		return nil, err
 	}
 	e := c.executor()
+	if d.Snapshot != nil && d.Schema == foreignSchema {
+		// acquirePartitionSnapshot above already validated and pinned the
+		// capability. partitionPlan still requires native managed ownership.
+		e.partitionForeignTable = d.Table
+	}
 	e.params, e.paramTypes = params, types
 	e.tz, e.tzKnown = zone.zone, true
 	plan, err := e.partitionPlan(ctx, sel)

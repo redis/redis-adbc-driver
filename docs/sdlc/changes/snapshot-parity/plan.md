@@ -306,3 +306,9 @@ Software Go failures and partial integration passes/skips with a sanitized
 function inventory. It also makes the Ray worker private-CA check required in
 CI; all seventeen cases pass locally with no skips. The hosted rerun and full
 platform/ordinary/performance gates remain open.
+
+The [managed-copy partition checkpoint](partition-copy-ownership-validation.md)
+enables native managed foreign copies on the live partition path and lets a
+validated capability resolve its captured copy on an ordinary worker without
+foreign discovery. Ownership, explicit refresh, old-generation replay and private
+reclamation pass Go/native checks; full parity remains open.
