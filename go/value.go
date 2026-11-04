@@ -862,6 +862,14 @@ func coerceIn(v Value, t ColType, z tzZone) (Value, error) {
 		}
 		return Value{}, stateErr(state, "cannot convert %s value %q to %s", v.T.Kind, v.textIn(z), t.SQLName())
 	}
+	if hasStoredTaggedType(t) || hasStoredTaggedType(v.T) {
+		if t != v.T {
+			return Value{}, stateErr(stateDatatypeMismatch, "Map/Union schemas must match exactly")
+		}
+		if t.taggedNested() {
+			return validateNestedValue(v)
+		}
+	}
 	if t.Kind == KindRecord && v.T.Kind == KindRecord {
 		return coerceRecord(v, t, z)
 	}
@@ -1064,6 +1072,9 @@ func (v Value) wallClock(z tzZone) (int64, error) {
 // to; for the other combinations (such as DATE to BOOLEAN) it always fails.
 func castable(from, to ColType) bool {
 	f := from.Kind
+	if hasStoredTaggedType(from) || hasStoredTaggedType(to) {
+		return from == to || f == KindNull || to.Kind == KindNull
+	}
 	switch {
 	case to.Kind == KindRecord:
 		return f == KindRecord || f == KindNull // text can't be read as a record
@@ -1161,6 +1172,9 @@ func parseStringIn(s string, t ColType, z tzZone) (Value, error) {
 // string stored in the row HASH. A NaN is nanStored, which the index holds
 // as +Infinity (see nan.go).
 func encodeStored(v Value) string {
+	if v.T.taggedNested() {
+		return encodeNested(v)
+	}
 	if compositeStorage(v.T) {
 		return encodeComposite(v)
 	}
@@ -1193,6 +1207,9 @@ func encodeStored(v Value) string {
 // computed. A float's nanStored is NaN, and so are the "NaN" of earlier
 // versions and RediSearch's -nan (see parseFloat).
 func decodeStored(s string, t ColType) (Value, error) {
+	if t.taggedNested() {
+		return decodeNested(s, t)
+	}
 	if t.Alias == "uuid" {
 		return parseUUID(s)
 	}
@@ -1315,6 +1332,18 @@ func compareIn(a, b Value, z tzZone) (int, bool) {
 		return strings.Compare(av.S, bv.S), true
 	}
 	ak, bk := a.T.Kind, b.T.Kind
+	if a.T.taggedNested() || b.T.taggedNested() {
+		if a.T != b.T {
+			return 0, false
+		}
+		if a.I < b.I {
+			return -1, true
+		}
+		if a.I > b.I {
+			return 1, true
+		}
+		return compareArrays(a, b, z)
+	}
 	switch {
 	case ak == KindRecord && bk == KindRecord:
 		return compareRecords(a, b, z)

@@ -201,3 +201,22 @@ def test_partition_byte_length_argument_errors(driver_path, db_kwargs):
                             pytest.fail(f"{mode}: {call} accepted invalid arguments")
             finally:
                 cur.execute(f"DROP TABLE IF EXISTS {table}")
+
+
+@pytest.mark.parametrize("source", [
+    pa.array([[('k', 1)]], pa.map_(pa.string(), pa.int64())),
+    pa.UnionArray.from_dense(pa.array([5], pa.int8()), pa.array([0], pa.int32()),
+                            [pa.array([1], pa.int64())], field_names=['x'], type_codes=[5]),
+])
+def test_stream_distinct_unadmitted_tagged_results(conn, source):
+    table = "it_followup_distinct_tagged"
+    with conn.cursor() as cur:
+        cur.execute(f"DROP TABLE IF EXISTS {table}")
+        cur.adbc_ingest(table, pa.table({"v": source}))
+        try:
+            cur.adbc_statement.set_options(**{"adbc.redis.stream_required": "true"})
+            with pytest.raises(Exception, match="stream_required"):
+                cur.execute(f"SELECT DISTINCT v FROM {table}")
+        finally:
+            cur.adbc_statement.set_options(**{"adbc.redis.stream_required": "false"})
+            cur.execute(f"DROP TABLE IF EXISTS {table}")

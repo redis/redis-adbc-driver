@@ -22,7 +22,8 @@ not wall time: a single large-key comparison or swap may take additional time.
 
 Only explicit `stream_required=true` admits the new path: unordered row-local
 managed-table DISTINCT, with resolved output types and no DISTINCT ON, subquery
-or correlated state. Skip the DISTINCT-to-GROUP-BY optimizer in this mode.
+or correlated state. Map/Union-containing results retain rejection in this
+selected path. Skip the DISTINCT-to-GROUP-BY optimizer in this mode.
 Cap source allocated IDs/prepared keys and projected rows at two million;
 cap retained unique keys at 65,536 entries and 16 MiB charged bytes including
 map overhead. Reject oversized rows before key serialization and exact oversize

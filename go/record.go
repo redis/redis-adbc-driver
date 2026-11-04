@@ -64,6 +64,7 @@ import (
 // recordType is the field types of a record type. recordOf interns them,
 // so that record types with the same fields are the same ColType.
 type recordType struct {
+	codes  []arrow.UnionTypeCode
 	named  []structField
 	fields []ColType
 }
@@ -469,11 +470,27 @@ func (e *executor) checkRecords(expr Expr) error {
 			return false
 		}
 		switch v := x.(type) {
+		case *Binary:
+			err = e.nestedBinaryError(v)
 		case *Unary:
+			if e.mayUseTagged(v.X) {
+				t, e2 := inferType(v.X, e.scopeTypes(), e.paramTypes)
+				if e2 == nil && hasStoredTaggedType(t) {
+					err = stateErr(stateDatatypeMismatch, "operator %s does not support Map/Union values", v.Op)
+					break
+				}
+			}
 			if _, ok := e.recordTypeOf(v.X); ok {
 				err = recordUnaryError(v.Op)
 			}
 		case *Cast:
+			if e.mayUseTagged(v.X) {
+				t, e2 := inferType(v.X, e.scopeTypes(), e.paramTypes)
+				if e2 == nil && hasStoredTaggedType(t) && !castable(t, v.T) {
+					err = stateErr(stateCannotCoerce, "cannot cast Map/Union values to %s", v.T.SQLName())
+					break
+				}
+			}
 			if t, ok := e.recordTypeOf(v.X); ok && !castable(t, v.T) {
 				err = stateErrorf(stateCannotCoerce, "cannot cast type record to %s", sigTypeName(v.T))
 			}
@@ -482,7 +499,10 @@ func (e *executor) checkRecords(expr Expr) error {
 		case *Case:
 			err = e.caseRecordError(v)
 		case *Func:
-			err = e.recordArgError(v)
+			err = e.nestedFunctionError(v)
+			if err == nil {
+				err = e.recordArgError(v)
+			}
 		}
 		return err == nil
 	})
@@ -698,6 +718,12 @@ func (e *executor) recordOperandError(sq *Subquery, plan *selectPlan) error {
 // of clause (WHERE, HAVING, QUALIFY, JOIN conditions), once it is bound;
 // nil for other types.
 func (e *executor) conditionTypeError(x Expr, clause string) error {
+	if e.mayUseTagged(x) {
+		t, err := inferType(x, e.scopeTypes(), e.paramTypes)
+		if err == nil && hasStoredTaggedType(t) {
+			return stateErr(stateDatatypeMismatch, "%s requires boolean, not Map/Union", clause)
+		}
+	}
 	if _, ok := e.recordTypeOf(x); !ok {
 		return nil
 	}

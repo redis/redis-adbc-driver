@@ -24,6 +24,11 @@ func (p *selectPlan) distinctStreamable() bool {
 	if !p.distinct || len(p.distinctOn) > 0 || len(p.order) > 0 || !managedRowIDTable(p.meta) {
 		return false
 	}
+	for _, column := range p.columns() {
+		if hasStoredTaggedType(column.Type) {
+			return false
+		}
+	}
 	inner := *p
 	inner.distinct = false
 	// Reuse the strict row-local UNION leaf/type contract; subqueries and

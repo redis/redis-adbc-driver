@@ -4,6 +4,7 @@ package redis
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"path/filepath"
@@ -105,13 +106,21 @@ func layoutInventoryCases(t *testing.T, mem memory.Allocator) []layoutInventoryC
 	mb.ItemBuilder().(*array.Int64Builder).AppendValues([]int64{1, 0}, []bool{true, false})
 	mb.AppendNull()
 	mb.AppendEmptyValue()
-	cases = append(cases, layoutInventoryCase{name: "map", input: mb.NewArray()})
+	add("map", mb.NewArray(), arrow.MapOf(arrow.BinaryTypes.String, arrow.PrimitiveTypes.Int64), `[[{"key":"duplicate","value":1},{"key":"duplicate","value":null}],null,[]]`)
 	mb.Release()
 	fields := []arrow.Field{{Name: "n", Type: arrow.PrimitiveTypes.Int64, Nullable: true}, {Name: "s", Type: arrow.BinaryTypes.String, Nullable: true}}
 	codes := []arrow.UnionTypeCode{3, 7}
 	for _, dt := range []arrow.DataType{arrow.SparseUnionOf(fields, codes), arrow.DenseUnionOf(fields, codes)} {
-		cases = append(cases, layoutInventoryCase{name: dt.Name(), input: inventoryJSON(t, mem, dt, `[[3,9],[7,"text"],[3,null]]`)})
+		add(dt.Name(), inventoryJSON(t, mem, dt, `[[3,9],[7,"text"],[3,null]]`), arrow.DenseUnionOf(fields, codes), `[[3,9],[7,"text"],[3,null]]`)
 	}
+	nonnullItems := arrow.MapOfFields(arrow.Field{Name: "key", Type: arrow.BinaryTypes.String}, arrow.Field{Name: "value", Type: arrow.PrimitiveTypes.Int64})
+	add("map_nonnull_items", inventoryJSON(t, mem, nonnullItems, `[[{"key":"k","value":2}],[],null]`), arrow.MapOf(arrow.BinaryTypes.String, arrow.PrimitiveTypes.Int64), `[[{"key":"k","value":2}],[],null]`)
+	mapType := arrow.MapOf(arrow.BinaryTypes.String, arrow.ListOf(arrow.PrimitiveTypes.Int64))
+	add("nested_map", inventoryJSON(t, mem, mapType, `[[{"key":"a","value":[1,null]},{"key":"a","value":[]}],null,[]]`), mapType, `[[{"key":"a","value":[1,null]},{"key":"a","value":[]}],null,[]]`)
+	listMap := arrow.ListOf(mapType)
+	add("list_map", inventoryJSON(t, mem, listMap, `[[[{"key":"a","value":[1]}],null],[],null]`), listMap, `[[[{"key":"a","value":[1]}],null],[],null]`)
+	unionMap := arrow.DenseUnionOf([]arrow.Field{{Name: "m", Type: mapType, Nullable: true}, {Name: "xs", Type: list, Nullable: true}}, []arrow.UnionTypeCode{11, 42})
+	add("union_map", inventoryJSON(t, mem, unionMap, `[[11,[{"key":"b","value":[2]}]],[42,[3,null]],[11,null]]`), unionMap, `[[11,[{"key":"b","value":[2]}]],[42,[3,null]],[11,null]]`)
 	return cases
 }
 
@@ -182,6 +191,15 @@ func checkCanonicalRoundTrips(t *testing.T, mem memory.Allocator, cases []layout
 				if err != nil {
 					t.Fatal(err)
 				}
+				data, err := json.Marshal(meta.Columns[0].Type)
+				if err != nil {
+					t.Fatal(err)
+				}
+				var reloaded ColType
+				if err := json.Unmarshal(data, &reloaded); err != nil || reloaded != meta.Columns[0].Type {
+					t.Fatal("metadata reload", err, reloaded)
+				}
+				meta.Columns[0].Type = reloaded
 				rows := make([][]Value, a.Len())
 				for i := range rows {
 					rows[i] = make([]Value, 1)

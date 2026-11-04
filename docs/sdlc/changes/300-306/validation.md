@@ -115,3 +115,14 @@ dictionary visitation independently of compact staging, and rejected pagination
 subqueries before incremental planning can materialize them. Focused regression
 checks cover these final refinements. No release/package/topology performance
 claim or human review approval is inferred.
+
+## Current-main reconciliation
+
+Merged main at `d2c94f5` (Map/Union storage and the verified Software runner fix)
+after opening [PR #311](https://github.com/redis/redis-adbc-driver/pull/311).
+Resolved the README overlap by preserving both contracts. Explicitly reject
+Map/Union-containing results in the selected incremental DISTINCT path until
+separate admission evidence exists; added native Map and Union rejection cases.
+The combined branch passed the complete unit-only Go suite and the complete
+native suite: **555 passed, 8 skipped, 3 subtests passed**, zero failures,
+34.97 seconds. The managed TLS fixture retained verified 4x QPF and cap 137.

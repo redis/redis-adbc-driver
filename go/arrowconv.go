@@ -52,6 +52,12 @@ func valueAt(arr arrow.Array, i int) (Value, error) {
 		return nullValue(ct), nil
 	}
 	switch a := arr.(type) {
+	case *array.Map:
+		return mapValueAt(a, i, ct)
+	case *array.DenseUnion:
+		return unionValueAt(a, i, int(a.ValueOffset(i)), ct)
+	case *array.SparseUnion:
+		return unionValueAt(a, i, i, ct)
 	case *array.Struct:
 		values := make([]Value, a.NumField())
 		for j := range values {
@@ -210,6 +216,24 @@ func appendValue(b array.Builder, t ColType, v Value) error {
 		bb.Append(arrow.Timestamp(v.I))
 	case *array.MonthDayNanoIntervalBuilder:
 		bb.Append(arrow.MonthDayNanoInterval{Months: v.Months, Days: v.Days, Nanoseconds: v.I})
+	case *array.MapBuilder:
+		bb.Append(true)
+		for i, f := range v.fields() {
+			builder := bb.KeyBuilder()
+			if i%2 == 1 {
+				builder = bb.ItemBuilder()
+			}
+			if err := appendValue(builder, t.Rec.fields[i%2], f); err != nil {
+				return err
+			}
+		}
+	case *array.DenseUnionBuilder:
+		id := t.unionChild(v.I)
+		if id < 0 || len(v.fields()) != 1 {
+			return fmt.Errorf("invalid stored union")
+		}
+		bb.Append(arrow.UnionTypeCode(v.I))
+		return appendValue(bb.Child(id), t.Rec.fields[id], v.fields()[0])
 	case *array.StructBuilder:
 		return appendRecord(bb, t, v)
 	case *array.ListBuilder:

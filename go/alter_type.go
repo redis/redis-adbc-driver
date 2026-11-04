@@ -293,6 +293,9 @@ func unknownOrNull(x Expr) bool {
 //	timestamptz        to date, time, timetz, timestamp(tz) and strings
 //	interval           to time, interval and strings
 func assignable(from, to ColType) bool {
+	if hasStoredTaggedType(from) || hasStoredTaggedType(to) {
+		return from == to || from.Kind == KindNull
+	}
 	f, t := from.Kind, to.Kind
 	switch {
 	case f == KindNull || t == KindString:
