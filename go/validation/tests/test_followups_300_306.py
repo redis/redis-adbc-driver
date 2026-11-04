@@ -249,3 +249,42 @@ def test_stream_distinct_numeric_schema_and_equality(conn, source):
         finally:
             cur.adbc_statement.set_options(**{"adbc.redis.stream_required": "false"})
             cur.execute(f"DROP TABLE IF EXISTS {table}")
+
+
+@pytest.mark.parametrize("mode", ["live", "retained"])
+def test_nested_extension_partition_replay(driver_path, db_kwargs, mode):
+    table = "it_followup_extension_partitions"
+    raw_uuid = [bytes(range(16)), None, b"0123456789abcdef"]
+    raw_json = ['{"n":1}', None, '"é"']
+    source = pa.StructArray.from_arrays([
+        pa.ExtensionArray.from_storage(pa.uuid(), pa.array(raw_uuid, pa.binary(16))),
+        pa.ExtensionArray.from_storage(pa.json_(), pa.array(raw_json)),
+    ], names=["u", "j"])
+    expected = pa.table({"v": pa.StructArray.from_arrays([
+        pa.array(raw_uuid, pa.binary()), pa.array(raw_json),
+    ], names=["u", "j"])})
+    with retained_namespace(db_kwargs) as options:
+        with connect(driver_path, options) as producer, producer.cursor() as cur:
+            cur.execute(f"DROP TABLE IF EXISTS {table}")
+            cur.adbc_statement.set_options(**{"adbc.redis.extension_policy": "storage"})
+            cur.adbc_ingest(table, pa.table({"v": source}))
+            cur.adbc_statement.set_options(**{"adbc.redis.partition_result_mode": mode, "adbc.redis.partition_scan_cap": int(os.environ.get("REDIS_PARTITION_SCAN_CAP", "0")), "adbc.redis.stream_batch_rows": "1"})
+            parts, schema = cur.adbc_execute_partitions(f"SELECT v FROM {table}")
+            assert schema == expected.schema
+        try:
+            if mode == "retained":
+                with connect(driver_path, options) as cleaner, cleaner.cursor() as cur:
+                    cur.execute(f"TRUNCATE TABLE {table}")
+            settings = worker_kwargs(options)
+            if mode == "retained": settings["adbc.redis.partition_reader_only"] = "true"
+            with connect(driver_path, settings) as reader, reader.cursor() as cur:
+                results = []
+                for part in parts:
+                    cur.adbc_read_partition(part)
+                    result = cur.fetch_arrow_table()
+                    assert result.schema == expected.schema
+                    results.append(result)
+                assert pa.concat_tables(results).equals(expected)
+        finally:
+            with connect(driver_path, options) as cleaner, cleaner.cursor() as cur:
+                cur.execute(f"DROP TABLE IF EXISTS {table}")

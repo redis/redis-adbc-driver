@@ -159,16 +159,21 @@ HASH field, not individual struct children.
 
 ## Streaming inventory
 
-| Operator/source | Incremental input | Incremental output / retained state |
-|---|---|---|
-| Eligible indexed single-table scan | Cursor or bounded row-ID pages | Batches; one page's decode/Arrow overshoot can coexist |
-| Unordered prepared key lookup | Pipelined HASH chunks | Batches; prepared key list remains O(number of keys) |
-| Eligible UNION ALL | One current leaf | Pairwise coercions and per-node LIMIT/OFFSET; tree state plus leaf batch |
-| Search IDs followed by authoritative HASH fetch | Paged IDs, bounded HASH pipelines | Eligible row-local projection batches |
-| General HASH discovery fallback | SCAN pages | Materialized for insertion-order/global-sort and duplicate handling |
-| Scalar/group aggregates | Eligible scan input can be paged | Final output can block; cardinality/spill policy depends on aggregate |
-| Unordered managed-table DISTINCT with `stream_required=true` | Bounded row-ID pages/key pipelines | Incremental first-encounter output; bounded distinct-key set, explicit rejection on exhaustion |
-| General DISTINCT, sort, windows, joins, correlated/subquery work | Plan-dependent | Existing materialization/caches; no universal memory bound |
+| Operator/source | Incremental input | Incremental output | Retained state and fallback |
+|---|---|---|---|
+| Eligible indexed single-table scan | Cursor or bounded row-ID pages | Yes, in batches | One page's decode/Arrow overshoot can coexist |
+| Unordered prepared key lookup | Pipelined HASH chunks | Yes, in batches | Prepared key list remains O(number of keys) |
+| Eligible UNION ALL | One current leaf | Yes, with pairwise coercions and per-node LIMIT/OFFSET | Tree state plus one leaf batch |
+| Search IDs followed by authoritative HASH fetch | Paged IDs, bounded HASH pipelines | Yes for eligible row-local projections | Page/pipeline state and output batches |
+| General HASH discovery fallback | SCAN pages | Blocks before ordinary insertion-order output | Key deduplication and row/global-sort state; stream_required rejects |
+| Scalar aggregates | Eligible scan input can be paged | Usually only after final input | Function-dependent accumulator or retained ordered-set input; stream_required rejects |
+| Group aggregates | Eligible scan input can be paged | Blocks before final groups | Group-cardinality state; supported exact paths can spill; stream_required rejects |
+| Unordered managed-table DISTINCT with stream_required=true | Bounded row-ID pages/key pipelines | Yes, first-encounter batches | Bounded distinct-key set; explicit rejection on work/state exhaustion |
+| General DISTINCT | Plan-dependent | Can block before deduplication/group output | Unique-row/group state or materialization; no universal memory bound |
+| Global sorting | Input can be scanned in pages | Blocks until sorting finishes | Rows, keys and permutation grow with cardinality; stream_required rejects |
+| Windows | Source input can be paged | Blocks for partition/order/frame evaluation | Rows, partition/order keys, permutations and function state; stream_required rejects |
+| Joins | Plan-dependent source scans/materialization | Not admitted as incremental here | Build/probe and result state can grow with cardinality; stream_required rejects |
+| Correlation/subqueries | Plan-dependent | Not admitted as incremental here | Subquery results and caches can grow with distinct outer keys; stream_required rejects |
 
 Unordered key-source leaves and bounded DISTINCT extend finite streaming. Explicit
 ordering that needs a global sort and general HASH discovery retain ordinary

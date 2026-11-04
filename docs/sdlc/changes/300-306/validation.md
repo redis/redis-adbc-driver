@@ -137,3 +137,17 @@ The full suite's planner contracts require an unrestricted aggregate cap
 (at least 2^31). Stopped the diagnostic run and verified cap 2,147,483,648 with
 effective 4x QPF before rerunning the combined full suite. No assertions were
 weakened for the fixture mismatch.
+
+Final boundary additions passed three native cases: binary dictionary IPC files
+with NUL/invalid-UTF8 payload bytes, plus nested UUID/JSON canonical replay in
+live and retained modes through independent connections after producer closure
+(and retained source truncation). The operator inventory now lists incremental
+input, incremental output and retained state separately for each remaining
+operator family.
+
+On the reused fixture, the unrestricted combined Go run passed 1,778 events but
+its discovery test's top-ten list was displaced by stale test prefixes from
+repeated native runs. Provisioned a separate clean three-shard Software fixture
+on separate localhost ports, verified its default unrestricted aggregate cap
+and active 4x QPF, and reran the full suite there. The original fixture/data were
+preserved; test assertions remain unchanged.
