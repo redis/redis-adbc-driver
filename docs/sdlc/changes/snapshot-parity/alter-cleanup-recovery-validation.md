@@ -45,7 +45,7 @@ The CUDA package has no applicable selected tests and is skipped.
 The next fresh 194-name ordinary continuation passes nine test events, zero
 skips, then stops at TestSQLTruncate's legacy table-name prefix prediction
 (root 6.251 s). Passing cases include information-schema, LIKE, set operations,
-date/time expressions, CASE/COALESCE, CTEs, multi-page SQL scan and parenthesized
+date/time and interval expressions/binds, exact-value and multi-page SQL scans, and parenthesized
 INSERT queries. Later selected cases did not run. Canonical native TRUNCATE
 storage and generation-lifetime fixtures are the next ordinary gate.
 
