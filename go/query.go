@@ -1267,6 +1267,16 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 	if plan.qualify != nil {
 		columnRefs(plan.qualify, req.need)
 	}
+	if len(meta.PendingCleanup) > 0 && wp.keys == nil && !meta.isMem {
+		for _, o := range plan.order {
+			columnRefs(o.expr, req.need)
+		}
+		req.hashScan = true
+		req.where.residual = plan.sel.Where
+		sc := selectScan{req: req, caps: caps, indexSort: len(plan.order) == 0}
+		e.recordSelectPlan(plan, sc)
+		return sc, nil
+	}
 
 	if meta.SnapshotOverlay {
 		for _, o := range plan.order {

@@ -6,9 +6,9 @@ package redis
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"slices"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -108,27 +108,47 @@ func TestPendingCleanupUsesCompleteHashInput(t *testing.T) {
 	h.setupStreamTable(table, 2505)
 	t.Cleanup(func() { h.exec("DROP TABLE IF EXISTS " + table) })
 	h.exec("DELETE FROM " + table + " WHERE id>=100 AND id<200")
-	e, p := sharedScanPlan(t, h, "SELECT id FROM "+table+" WHERE id>=10 ORDER BY id LIMIT 3 OFFSET 4", nil)
-	e.store = &store{client: e.store.client}
-	e.store.searchCapsOnce.Do(func() { e.store.searchCaps = [2]int64{1000000, 1 << 31} })
-	p.meta.PendingCleanup = []string{"retired_field"}
-	sc, err := e.prepareScan(h.ctx, p, nil)
+	const highRowID = int64(9007199254741999)
+	h.sparseSnapshotTable(table, highRowID, map[int64]int64{20: highRowID})
+	e, p, readCtx := cleanupSnapshotPlan(t, h, "SELECT id FROM "+table+" WHERE id>=10 ORDER BY id LIMIT 3 OFFSET 4")
+	readCtx, stop := context.WithTimeout(readCtx, 15*time.Second)
+	defer stop()
+	sc, err := e.prepareScan(readCtx, p, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !sc.req.hashScan || sc.req.limit != nil || sc.req.ranges != nil || sc.indexSort || sc.pushLimit {
-		t.Fatal("unsafe Search/limit during cleanup", sc)
+		t.Error("unsafe Search/limit during cleanup", sc)
 	}
-	_, rows, err := e.scan(h.ctx, sc.req, nil)
+	_, rows, err := e.scan(readCtx, sc.req, nil)
 	if err != nil || len(rows) != 2395 {
 		t.Fatal("incomplete global input", len(rows), err)
 	}
+	seenIDs := map[int64]bool{}
 	for _, row := range rows {
-		if row["id"].I < 10 {
-			t.Fatal("residual lost", row)
+		id := row["id"].I
+		if id < 10 || id > 2504 || id >= 100 && id < 200 || seenIDs[id] {
+			t.Fatal("wrong visible cleanup membership", id)
+		}
+		seenIDs[id] = true
+	}
+	for id := int64(10); id <= 2504; id++ {
+		if !(id >= 100 && id < 200) && !seenIDs[id] {
+			t.Fatal("cleanup omitted a row", id)
 		}
 	}
-	limited, err := e.selectScanned(h.ctx, p, sc, nil)
+	bounded := sc.req
+	bounded.ranges = &rowIDRangeScan{lo: highRowID, hi: highRowID}
+	var boundedIDs []int64
+	if err := e.scanBeyondCapPages(readCtx, bounded, nil, func(_ []string, rows []map[string]Value) error {
+		for _, row := range rows {
+			boundedIDs = append(boundedIDs, row["id"].I)
+		}
+		return nil
+	}); err != nil || !slices.Equal(boundedIDs, []int64{19}) {
+		t.Fatal("exact cleanup bounds lost", boundedIDs, err)
+	}
+	limited, err := e.selectScanned(readCtx, p, sc, nil)
 	if err != nil || len(limited) != 3 {
 		t.Fatal("global LIMIT lost", limited, err)
 	}
@@ -137,17 +157,26 @@ func TestPendingCleanupUsesCompleteHashInput(t *testing.T) {
 			t.Fatal("global ORDER/OFFSET lost", limited)
 		}
 	}
-	ctx, cancel := context.WithCancel(h.ctx)
+	ctx, cancel := context.WithCancel(readCtx)
 	visits := 0
 	err = e.scanAllocatedCleanupPages(ctx, sc.req, nil, func([]string, []map[string]Value) error { visits++; cancel(); return nil })
 	if !isStatus(err, adbc.StatusCancelled) || visits != 1 {
 		t.Fatal("cleanup page cancellation lost", visits, err)
 	}
-	visits = 0
-	err = e.scanAllocatedCleanupPages(h.ctx, sc.req, nil, func([]string, []map[string]Value) error { visits++; h.exec("TRUNCATE " + table); return nil })
-	if !isStatus(err, adbc.StatusIO) || !strings.Contains(err.Error(), "truncated or dropped") || visits != 1 {
-		t.Fatal("stale cleanup page input accepted", visits, err)
+	visits, seen := 0, 0
+	err = e.scanAllocatedCleanupPages(readCtx, sc.req, nil, func(_ []string, rows []map[string]Value) error {
+		visits++
+		seen += len(rows)
+		if visits == 1 {
+			h.exec("TRUNCATE " + table)
+			snapshotReapTest(e.store, h.ctx)
+		}
+		return nil
+	})
+	if err != nil || visits < 2 || seen != 2395 {
+		t.Fatal("pinned cleanup input changed through TRUNCATE/GC", visits, seen, err)
 	}
+	h.expectRows("SELECT COUNT(*) FROM "+table, "0")
 }
 
 func TestPendingCleanupAggregateAndPartitionInputs(t *testing.T) {
@@ -155,13 +184,10 @@ func TestPendingCleanupAggregateAndPartitionInputs(t *testing.T) {
 	const table = "it_cleanup_aggregate"
 	h.setupStreamTable(table, 300)
 	t.Cleanup(func() { h.exec("DROP TABLE IF EXISTS " + table) })
-	e, p := sharedScanPlan(t, h, "SELECT COUNT(*), COUNT(DISTINCT id), SUM(id) FROM "+table+" WHERE id>=10", nil)
-	e.store = &store{client: e.store.client}
-	e.store.searchCapsOnce.Do(func() { e.store.searchCaps = [2]int64{1000000, 1 << 31} })
-	p.meta.PendingCleanup = []string{"retired_field"}
-	hook := &rangeReadinessHook{index: p.meta.index()}
-	hookRangeClient(t, e.store.client, hook)
-	rows, err := e.selectAggregate(h.ctx, p, nil)
+	raw := h.rawClient()
+	hook := &cleanupSearchCounter{}
+	e, p, readCtx := cleanupSnapshotPlan(t, h, "SELECT COUNT(*), COUNT(DISTINCT id), SUM(id) FROM "+table+" WHERE id>=10", hook)
+	rows, err := e.selectAggregate(readCtx, p, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -174,22 +200,64 @@ func TestPendingCleanupAggregateAndPartitionInputs(t *testing.T) {
 	if hook.aggregates.Load() != 0 {
 		t.Fatal("aggregate consumed an unsafe Search input")
 	}
+	e2, p2, ctx2 := cleanupSnapshotPlan(t, h, "SELECT COUNT(*),SUM(id) FROM "+table, hook)
+	all, err := e2.selectAggregate(ctx2, p2, nil)
+	if err != nil || len(all) != 1 || all[0][0].I != 300 {
+		t.Fatal("unfiltered cleanup aggregate lost input", all, err)
+	}
+	if cmp, ok := compareValues(all[0][1], intValue(typeInt64, 44850)); !ok || cmp != 0 {
+		t.Fatal("unfiltered cleanup sum", all)
+	}
+	if hook.aggregates.Load() != 0 {
+		t.Fatal("unfiltered aggregate consumed unsafe Search input")
+	}
 	_, broad := planPartitions(t, h, "SELECT id FROM "+table, 1)
 	_, direct := planPartitions(t, h, "SELECT id FROM "+table+" WHERE __rowid=1", 1)
-	st := &store{client: h.rawClient()}
+	releaseLive := func(parts adbc.Partitions) {
+		t.Helper()
+		d, err := decodePartition(parts.PartitionIDs[0])
+		if err != nil || d.Snapshot == nil {
+			t.Fatal("missing shared generation", err)
+		}
+		t.Cleanup(func() { h.exec("DROP PARTITION SNAPSHOT '" + d.Snapshot.Token + "'") })
+	}
+	releaseLive(broad)
+	releaseLive(direct)
 	setPending := func(fields []string) {
 		t.Helper()
-		if err := st.updateTable(h.ctx, defaultSchema, table, func(meta *tableMeta) error { meta.PendingCleanup = fields; return nil }, nil); err != nil {
+		m := h.inspectTable(raw, defaultSchema, table)
+		m.PendingCleanup = fields
+		doc, err := json.Marshal(m)
+		if err != nil {
 			t.Fatal(err)
 		}
+		h.writeTableJSON(raw, defaultSchema, table, string(doc))
 	}
 	setPending([]string{"retired_field"})
-	if r, err := h.conn.ReadPartition(h.ctx, broad.PartitionIDs[0]); !isStatus(err, adbc.StatusInvalidState) {
-		if r != nil {
-			r.Release()
-		}
-		t.Fatal("unsafe range accepted", err)
+	want := make([]int64, 300)
+	for i := range want {
+		want[i] = int64(i)
 	}
+	readParts := func(parts adbc.Partitions, expected []int64) {
+		t.Helper()
+		var got []int64
+		for _, id := range parts.PartitionIDs {
+			r, err := h.conn.ReadPartition(h.ctx, id)
+			if err != nil {
+				t.Fatal(err)
+			}
+			vals, _, err := readInts(r)
+			r.Release()
+			if err != nil {
+				t.Fatal(err)
+			}
+			got = append(got, vals...)
+		}
+		if !slices.Equal(got, expected) {
+			t.Fatal("partition membership changed", got)
+		}
+	}
+	readParts(broad, want)
 	r, err := h.conn.ReadPartition(h.ctx, direct.PartitionIDs[0])
 	if err != nil {
 		t.Fatal(err)
@@ -199,6 +267,26 @@ func TestPendingCleanupAggregateAndPartitionInputs(t *testing.T) {
 	if err != nil || !slices.Equal(vals, []int64{0}) {
 		t.Fatal(vals, err)
 	}
+	_, duringCleanup := planPartitions(t, h, "SELECT id FROM "+table, 3)
+	releaseLive(duringCleanup)
+	readParts(duringCleanup, want)
+	storage := retainedFixture(t, raw, defaultRetainedLimits())
+	st, err := h.conn.NewStatement(h.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	impl := st.(*statementImpl)
+	impl.conn.retainedNamespace = storage.namespace
+	impl.conn.partitionControlPersistence = "guaranteed" // Software setup verified noeviction.
+	if err := st.Close(h.ctx); err != nil {
+		t.Fatal(err)
+	}
+	retainedSchema, retained, _ := retainedAPIPlan(t, h.conn, "SELECT id FROM "+table+" ORDER BY id")
+	d, err := decodeRetainedPartition(retained.PartitionIDs[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { h.exec("DROP PARTITION RESULT '" + d.Reference.JobID + "'") })
 	setPending(nil)
 	r, err = h.conn.ReadPartition(h.ctx, broad.PartitionIDs[0])
 	if err != nil {
@@ -209,6 +297,15 @@ func TestPendingCleanupAggregateAndPartitionInputs(t *testing.T) {
 	if err != nil || len(vals) != 300 {
 		t.Fatal(len(vals), err)
 	}
+	h.exec("TRUNCATE " + table)
+	h.exec("DROP TABLE " + table)
+	snapshotReapTest(&store{client: raw, snapshots: true}, h.ctx)
+	readParts(broad, want)
+	readParts(duringCleanup, want)
+	readParts(direct, []int64{0})
+	if got := retainedAPIReadIDs(t, h.conn, retainedSchema, retained); !slices.Equal(got, want) {
+		t.Fatal("retained cleanup capture changed", got)
+	}
 }
 
 func TestTruncateAttributeReadinessRetry(t *testing.T) {
@@ -216,23 +313,25 @@ func TestTruncateAttributeReadinessRetry(t *testing.T) {
 	const table = "it_truncate_ready_retry"
 	h.exec("CREATE TABLE " + table + " (id INTEGER)")
 	t.Cleanup(func() { h.exec("DROP TABLE IF EXISTS " + table) })
-	e, p := sharedScanPlan(t, h, "SELECT id FROM "+table, nil)
-	tr := &truncation{names: tableNames{index: p.meta.index()}, attrs: map[string]string{}, attrsPending: true}
-	for _, c := range p.meta.Columns {
+	meta := h.inspectTable(h.rawClient(), defaultSchema, table)
+	tr := &truncation{names: tableNames{index: meta.index()}, attrs: map[string]string{}, attrsPending: true}
+	for _, c := range meta.Columns {
 		if c.Indexed {
 			tr.attrs[c.field()] = fmt.Sprint(indexAttrArgs(c))
 		}
 	}
-	hook := &rangeReadinessHook{index: p.meta.index()}
+	hook := &rangeReadinessHook{index: meta.index()}
 	hook.building.Store(true)
-	hookRangeClient(t, e.store.client, hook)
+	// Exercise the legacy readiness primitive with attributes already present;
+	// this issues only FT.INFO, never FT.ALTER on published snapshot storage.
+	st := &store{client: h.rawClient(hook)}
 	ctx, cancel := context.WithTimeout(h.ctx, time.Millisecond)
 	defer cancel()
-	if err := e.store.addIndexedColumns(ctx, tr, p.meta); !isStatus(err, adbc.StatusTimeout) || !tr.attrsPending {
+	if err := st.addIndexedColumns(ctx, tr, meta); !isStatus(err, adbc.StatusTimeout) || !tr.attrsPending {
 		t.Fatal("lost pending readiness on retry", err, tr.attrsPending)
 	}
 	hook.building.Store(false)
-	if err := e.store.addIndexedColumns(h.ctx, tr, p.meta); err != nil || tr.attrsPending {
+	if err := st.addIndexedColumns(h.ctx, tr, meta); err != nil || tr.attrsPending {
 		t.Fatal("retry did not establish readiness", err, tr.attrsPending)
 	}
 }

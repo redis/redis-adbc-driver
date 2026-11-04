@@ -50,6 +50,9 @@ func (e *executor) scanBeyondCap(ctx context.Context, req scanRequest, params []
 }
 
 func (e *executor) scanBeyondCapPages(ctx context.Context, req scanRequest, params []Value, visit func([]string, []map[string]Value) error) error {
+	if snapshotOf(ctx) != nil && snapshotDataID(req.meta.prefix()) != "" {
+		return e.scanSnapshotFallbackPages(ctx, req, params, visit)
+	}
 	if len(req.meta.PendingCleanup) > 0 && managedRowIDTable(req.meta) {
 		return e.scanAllocatedCleanupPages(ctx, req, params, visit)
 	}

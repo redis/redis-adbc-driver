@@ -38,6 +38,10 @@ The [ALTER readiness checkpoint](alter-readiness-validation.md) restores private
 sealing/publication fixtures and fixes recognized schema-convergence waits plus
 terminal permission classification. Complete feature/platform parity remains open.
 
+The [cleanup fallback checkpoint](cleanup-fallback-validation.md) fixes incomplete
+tail-only reads and global sorting/limit guards, verifies sparse exact IDs and
+preserves native retained capture plus shared-generation partition membership.
+
 The [consistency-boundary recommendation](consistency-boundary.md) proposes a
 shared driver consistency layer across execution paths. A new
 Redis server extension is not required by this plan.
