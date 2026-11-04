@@ -51,9 +51,11 @@ not poison the owner's successful result. No format, ACL or ownership change.
   validation batch, unchanged-descriptor cache reuse, changed-cardinality refusal,
   exact BIGINT/NULL/tombstone results, all numeric NULL-order guard families and
   the complete streaming fixture. CUDA has no applicable tests and is skipped.
-- Current-protocol Cluster/failover and native paired runtime measurements remain
-  pending. Primary routing and server-free grouping do not establish Cluster
-  recovery or a measured read-performance improvement.
+- The [paired native comparison](validation-batch-performance.md) validates every
+  result in four processes and records modest observed median speedups of
+  1.02x–1.15x. This does not explain most remaining read overhead or prove parity.
+  Current-protocol Cluster/failover remains pending; primary routing and
+  server-free grouping do not establish Cluster recovery.
 
 The full ordinary command started at 3736b7c before this implementation was
 edited. Its root-package executable therefore exercises the preceding validation
@@ -67,9 +69,12 @@ assertions independently validate every ID/label in the 25,000-row ordered strea
 and exact materialized ordering/count when a visible NULL exists. Both pass in
 the focused matrix above. The initial new-test compile caught an int/int64
 argument mismatch; it was corrected before the successful run. No failed run is
-passing evidence. The 143 root test families after this fixture have a separate
-continuation pending. Neither disjoint selections nor the preceding binary prove
-a complete current ordinary-suite pass.
+passing evidence. The 143 root test families after this fixture pass in a separate continuation:
+259 race pass events, five explicit skips, zero failures; root 216.360 s. Skips
+are three opt-in acceptance/concurrency profiles, the existing ACL-sweep gate
+and the server-pause timeout fixture. No skip establishes that capability.
+Neither disjoint selections nor the preceding binary prove a complete current
+ordinary-suite pass.
 
 Author review checks visibility fences, source bounds, primary selection,
 statement/workspace cache lifetime, synchronization and failure/cancellation.

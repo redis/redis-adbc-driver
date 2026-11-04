@@ -509,6 +509,9 @@ without test skips/failures; 969 unit race events pass with 888 explicit skips.
 The full preceding ordinary binary reaches 1,567 passes/263 skips before an
 obsolete streaming assumption fails. The corrected fixture preserves explicit
 materialization and independently checks optimized streaming plus actual-NULL
-fallback. The remaining 143 ordinary families have a separate continuation;
-current full ordinary, Cluster/failover and paired runtime evidence remain open.
+fallback. The remaining 143 ordinary families pass in a separate continuation: 259 race
+events, five explicit skips, zero failures. The [paired native measurement](validation-batch-performance.md)
+validates all four runs and records modest observed median speedups of
+1.02x–1.15x; most read overhead remains unexplained. Current full ordinary,
+Cluster/failover and broader performance evidence remain open.
 Current upstream integration also remains required after the latest main pull.
