@@ -1,0 +1,14 @@
+{
+  "passed": true,
+  "build_tags": "normal default build; no scanprefetch tag",
+  "driver_seconds": 356.591,
+  "top_level_passes": 840,
+  "top_level_skips": 43,
+  "server": "Redis Software 8.6.2",
+  "qpf": 4,
+  "shards": 3,
+  "tls": "verified",
+  "protocol": 3,
+  "command": "make -C go test-software TEST_ARGS=\"-race\"; isolated task-owned project and ports",
+  "candidate_commit": "07bf8decabfed75c9f1a93d27051f16970e0c30c"
+}

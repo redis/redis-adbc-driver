@@ -101,7 +101,8 @@ making it easier to connect operational data to the tools their teams already us
   without copying their rows.
 - **Efficient data movement:** Stream typed Arrow results and bulk-load Arrow
   batches, with supported filters and aggregations pushed down to Redis's
-  Query Engine.
+  Query Engine. Eligible wide managed-table scans use bounded
+  [prefetch](docs/prefetch.md) by default to overlap fetching and Arrow conversion.
 
 - **Enable Flight SQL and JDBC integration.** The
   [Redis Arrow Flight server](https://github.com/redis/redis-apache-arrow-flight)

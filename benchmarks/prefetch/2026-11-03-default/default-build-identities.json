@@ -1,0 +1,19 @@
+{
+  "baseline_runtime_commit": "158b8c820c476a7ae116fb677c6f1fffa4722b98",
+  "candidate_commit": "07bf8decabfed75c9f1a93d27051f16970e0c30c",
+  "candidate_tags": {
+    "go": "normal; no opt-in tag",
+    "c_shared": "driverlib"
+  },
+  "same_existing_production_sources_except_prefetch_selectors": true,
+  "matched_production_source_files": 180,
+  "new_isolated_simd_package_not_linked": true,
+  "go_binary_sha256": {
+    "baseline": "4f197504539fd4e0f2025411042535769caf5dd21766d8b4b2dccfe2386fdf34",
+    "candidate": "cc0acdb1cf2f42f451daf445657a8d0a54525e69d290a77d5fd37fabd8462ee0"
+  },
+  "c_library_sha256": {
+    "baseline": "80205a648851507f34b39b4a81aef4c1f2a614de0238f483f647af8cadf56a45",
+    "candidate": "464fef3d0fd2beb3b9046b8a558c4b5fdf1e0361a5595a0d73ea40d977d38954"
+  }
+}

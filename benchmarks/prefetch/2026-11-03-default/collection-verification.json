@@ -1,0 +1,12 @@
+{
+  "passed": true,
+  "independently_validated_executions": 1376,
+  "reports": [
+    "direct-results.json",
+    "direct-64-results.json",
+    "c-shared-results.json",
+    "wire-results.json",
+    "cpu4-results.json"
+  ],
+  "physical_independent_reference_archived": true
+}

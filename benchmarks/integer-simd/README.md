@@ -117,12 +117,17 @@ From `go/`, after the verified Software setup above, run sequentially:
 REDIS_RETAINED_CONTROL_PERSISTENCE=guaranteed REDIS_INTEGER_PROFILE=1 \
   REDIS_INTEGER_PROFILE_ROWS=100000 \
   REDIS_INTEGER_WIDE_REPORT=/private/tmp/integer-wide-default.json \
-  go test -count=1 -run '^TestIntegerSIMDPrefetchProfile$' -v .
+  go test -tags scanprefetchoff -count=1 -run '^TestIntegerSIMDPrefetchProfile$' -v .
 REDIS_RETAINED_CONTROL_PERSISTENCE=guaranteed REDIS_INTEGER_PROFILE=1 \
   REDIS_INTEGER_PROFILE_ROWS=100000 \
   REDIS_INTEGER_WIDE_REPORT=/private/tmp/integer-wide-prefetch.json \
   go test -tags scanprefetch -count=1 -run '^TestIntegerSIMDPrefetchProfile$' -v .
 ```
+
+The explicit `scanprefetchoff` tag forces a synchronous baseline on current
+default-enabled candidates. At the historical measured revision, the baseline
+was already disabled without that tag. The legacy `scanprefetch` tag remains
+accepted; it is unnecessary when prefetch is enabled by default.
 
 Each build verifies its actual selected path, excludes one warmup per mode,
 rotates four modes over three measured trials and fully validates all 64
