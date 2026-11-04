@@ -30,3 +30,13 @@ changes, maintainer approval or release claim.
 
 Hosted replacement checks are pending. The separate statement-snapshot branch's
 ACL/catalog and row-read failures are distinct from the #316 wheel failure.
+
+## Downstream distro follow-up
+
+The first replacement run passed all primary release jobs, installed-wheel
+checks and the complete Test workflow. It then reached the ten distro jobs,
+which exposed additional missing test prerequisites: no cc compiler and no
+go/testdata/substrait/read.bin. The container setup now installs GCC/development
+headers and copies the public ADBC header and testdata into its /work tree.
+No assertion/skip changes or runtime dependency requirements are introduced;
+these packages are confined to CI validation containers.
