@@ -552,16 +552,18 @@ func (e *executor) scan(ctx context.Context, req scanRequest, params []Value) ([
 // scanIter reads the rows of a scan: decodes them and applies the residual
 // predicate, a cursor page at a time for a scan through the index.
 type scanIter struct {
-	projection   *scanProjection // optional bare-column stream output
-	rowIDRanges  *rowIDRanges
-	directKeys   []string
-	directOffset int
-	diagnostics  *executionDiagnostics
-	meta         *tableMeta
-	need         map[string]bool
-	residual     Expr
-	env          *evalEnv
-	cur          *aggCursor
+	allowPrefetch bool
+	prefetch      *hashPagePrefetch // experimental; joined before cursor cleanup
+	projection    *scanProjection   // optional bare-column stream output
+	rowIDRanges   *rowIDRanges
+	directKeys    []string
+	directOffset  int
+	diagnostics   *executionDiagnostics
+	meta          *tableMeta
+	need          map[string]bool
+	residual      Expr
+	env           *evalEnv
+	cur           *aggCursor
 	// fetch holds fields LOAD cannot return exactly. Managed rows can read
 	// these from their HASHes in bounded pipelines after each cursor page.
 	store *store
@@ -716,9 +718,10 @@ func (it *scanIter) next(ctx context.Context) ([]string, []map[string]Value, err
 		if openErr != nil {
 			return nil, nil, openErr
 		}
-		projection := it.projection
+		projection, allowPrefetch := it.projection, it.allowPrefetch
 		*it = *next
 		it.projection = projection
+		it.allowPrefetch = allowPrefetch
 		// Return an empty page; the caller's iteration loop advances again without
 		// recursion even across arbitrarily sparse/empty ranges.
 		return nil, nil, nil
@@ -750,6 +753,10 @@ func (it *scanIter) checkReadiness(ctx context.Context) error {
 
 // nextPage is next in the index's order.
 func (it *scanIter) nextPage(ctx context.Context) ([]string, []map[string]Value, error) {
+	if it.allowPrefetch && it.hashFetch && len(it.need) >= 64 && it.projection != nil && it.projection.consumeHash != nil &&
+		it.directKeys == nil && it.ties == nil && it.late == nil {
+		return it.nextPrefetchedHash(ctx)
+	}
 	if it.directKeys != nil {
 		if it.directOffset == len(it.directKeys) {
 			return nil, nil, io.EOF
@@ -865,6 +872,10 @@ func (it *scanIter) exists(r aggRow) bool {
 
 // close deletes the scan's cursor, if it is still open.
 func (it *scanIter) close(ctx context.Context) {
+	if it.prefetch != nil {
+		it.prefetch.close()
+		it.prefetch = nil
+	}
 	if it.cur != nil {
 		it.cur.close(ctx)
 	}
