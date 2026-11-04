@@ -116,17 +116,102 @@ passing data to ordinary binding, so the producer can release its buffers after
 BindDevice returns. Normal statement cancellation propagates to the underlying
 CPU result stream.
 
-Supported physical layouts are nullable primitive boolean, signed/unsigned
-8/16/32/64-bit integers, float32/float64, or a flat record batch containing those
-types. Root struct offsets must be zero; sliced child arrays are supported.
-Strings, decimals, timestamps, nested structures and dictionaries return clear
-unsupported errors. Each staging batch is bounded to 512 MiB including validity
-buffers; invalid lengths and size overflow are rejected. Metadata lives on CPU;
-callers must follow the normal C interface validity/lifetime contract.
+Physical interchange support is separate from Redis SQL storage and CUDA
+predicate support. A staging-supported physical type does not enable GPU SQL
+operations on that type.
+
+| Arrow physical layout / format | V1 staging | Slice and metadata policy |
+|---|---|---|
+| Boolean `b`, integers `cCsSiIlL`, float32/64 `fg` | CPU/CUDA | Child slices retained; nullable |
+| UTF-8 `u`, binary `z` | CPU/CUDA | Signed 32-bit offsets; slices normalized to zero |
+| Large UTF-8 `U`, large binary `Z` | CPU/CUDA | Signed 64-bit offsets; slices normalized to zero |
+| Flat record batch `+s` | CPU/CUDA | At most 1,024 primitive/variable children; root offset zero; children at least root length |
+| Decimal, timestamps/time/duration, fixed binary, float16 | Unsupported | Metadata/precision/time-zone semantics deferred |
+| Dictionary and extension storage requiring dictionaries | Unsupported | Dictionary ownership and index validation deferred |
+| List, map, union, nested struct, run-end and view layouts | Unsupported | Recursive layout semantics deferred |
+
+Schema names, flags and metadata remain CPU-resident. The Python adapter copies
+schema metadata into its returned Arrow object. Variable-width staging reads
+only the selected offsets and payload, validates nonnegative monotonic offsets
+before accessing payload, rebases offsets and shifts the validity bitmap. Empty
+values may have a NULL data buffer when the selected payload size is zero.
+Offsets are required even for an empty variable array. NULL validity buffers
+mean all-valid when the descriptor does not report positive NULL count.
+
+Each batch has a 512 MiB staging budget, including buffers and temporary host
+offset/validity storage. Length/offset arithmetic is checked before allocation;
+selected data size is checked before data access. CPU/CUDA buffers are copied
+with the appropriate device operation. Traversal is bounded to a root and one
+child level; unsupported schemas are rejected before buffer access. Like the C
+Data Interface itself, this API has no buffer capacity fields: producers must
+supply valid accessible buffers for their advertised descriptor ranges.
+
+The staged plan is (1) numeric/boolean (existing), (2) UTF-8/binary and large
+offsets (this extension), (3) separately specify decimal precision/scale and
+temporal unit/time-zone preservation, (4) separately specify dictionary index,
+dictionary lifetime and nested child-offset semantics. Stages 3/4 remain
+unsupported until implemented and validated. No recursive fallback is enabled.
 
 Never pass device pointers to standard ADBC Bind or BindStream as if they were
 CPU pointers. Those interfaces have no device discriminator. Use the explicit
 C Device entry point or stage to host first.
+
+## Python and driver-manager adapter V1
+
+`adbc_driver_redis.device.DeviceAdapterV1` uses standalone staging helpers and
+ordinary public manager capsule binding. It never passes manager handles to
+native extensions and adds no ADBC function-table slots. Discovery calls
+`RedisDeviceInterfaceVersion()` and requires version 1 and its staging/event
+symbols. Older libraries produce an upgrade/CPU-path error. The adapter accepts
+manager 1.8..1.x and PyArrow 14..26; the recorded local test combination is
+CPython 3.15, manager 1.13.0, PyArrow 26.0.1 on macOS ARM64. Other combinations
+in those ranges need deployment validation. Missing/out-of-range dependencies
+must be resolved before using this optional adapter. Importing the normal CPU
+client or device module loads no CUDA Python package; PyArrow is loaded only
+when constructing an adapter.
+
+```python
+from adbc_driver_redis.device import DeviceAdapterV1
+
+adapter = DeviceAdapterV1()
+# producer implements __arrow_c_device_array__ and returns fresh named capsules.
+# CUDA ordinals are explicit and must match the producer descriptor.
+cpu_batch = adapter.to_host(producer, device_type=2, device_id=0)
+# A manager AdbcStatement uses the ordinary CPU capsule Bind API:
+adapter.bind(statement, producer, device_type=2, device_id=0)
+# Producer may be released here, before statement.execute_update/query().
+
+# For CPU results: fully fetch through ordinary ADBC, then export each batch.
+device_producer = adapter.to_device(cpu_batch, device_id=0)
+# Optional real consumer; imported only by the application:
+# gpu_table = pylibcudf.Table.from_arrow(device_producer)
+```
+
+`to_host` returns an owned PyArrow Array or RecordBatch. Inputs, schema and events
+are borrowed for the call; capsules and producer stay alive until it returns.
+No borrowed release callback is consumed. Each `to_device` capsule export copies
+an Array/RecordBatch to independent owned CUDA allocations, with a CPU schema.
+Capsule destructors release unused exports; consumers move release callbacks
+according to the Arrow capsule protocol. Exported capsules survive deletion of
+the producer, and each export completes synchronously with a NULL sync event.
+Requested-schema conversion is explicitly unsupported.
+
+`to_host` and `bind` accept `cancel=threading.Event()`. Readiness polling uses
+`RedisDeviceArrayEventReady` (zero when ready, `EAGAIN` while pending), checking
+cancellation between polls and around bounded synchronous copies. Cancellation
+raises `concurrent.futures.CancelledError`, releases temporary outputs and leaves
+producer ownership intact. It cannot preempt a copy or terminate producer work;
+the producer must finish that work before freeing its buffers/event. Cancel
+subsequent SQL execution through the public manager statement `cancel()` API.
+
+Errors include unsupported device/layout, mismatched device ID, malformed
+offsets, batch budget, unavailable CUDA or missing extensions. There is no
+implicit fallback on device failure. The explicit CPU path is ordinary PyArrow
+CPU arrays/batches with standard ADBC Bind/BindStream/ExecuteQuery, or
+`to_host(cpu_producer, device_type=1, device_id=-1)` for CPU device capsules.
+These adapters copy/stage through host memory; they do not provide zero-copy
+GPU execution. Contracts follow the [Arrow C Device interface](https://arrow.apache.org/docs/format/CDeviceDataInterface.html)
+and [public manager capsule Bind API](https://arrow.apache.org/adbc/main/python/api/adbc_driver_manager.html#adbc_driver_manager.AdbcStatement.bind).
 
 ## Validation and performance scope
 

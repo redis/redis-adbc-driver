@@ -170,6 +170,88 @@ class DeviceTests(unittest.TestCase):
             release(schema)
 
 
+    def test_variable_width_roundtrip_and_metadata(self):
+        for typ, values in [(pa.string(), ["prefix", "", None, "雪", "end"]),
+                            (pa.large_string(), ["prefix", "", None, "雪", "end"]),
+                            (pa.binary(), [b"prefix", b"", None, b"\x00\xff", b"end"]),
+                            (pa.large_binary(), [b"prefix", b"", None, b"\x00\xff", b"end"])]:
+            for start, length in [(0, 5), (1, 3), (2, 1), (1, 0)]:
+                with self.subTest(typ=typ, start=start, length=length):
+                    field = pa.field("value", typ, metadata={b"source": b"device-test"})
+                    batch = pa.RecordBatch.from_arrays([pa.array(values, typ).slice(start, length)],
+                        schema=pa.schema([field], metadata={b"batch": b"retained"}))
+                    array, schema = exported(batch)
+                    device = DeviceArray(array=array, device_id=-1, device_type=1)
+                    host, error = Array(), c.create_string_buffer(256)
+                    try:
+                        self.assertEqual(self.lib.RedisDeviceArrayToHost(c.byref(device), c.byref(schema), c.byref(host), error, len(error)), 0, error.value)
+                        release(array)
+                        result = import_host(host, batch.schema)
+                        result.validate(full=True)
+                        self.assertEqual(result.to_pylist(), batch.to_pylist())
+                        self.assertTrue(result.schema.equals(batch.schema, check_metadata=True))
+                    finally:
+                        release(host)
+                        release(array)
+                        release(schema)
+
+    def test_empty_payload_allows_null_data_buffer(self):
+        batch = pa.record_batch([pa.array(["", None, ""])], names=["x"])
+        array, schema = exported(batch)
+        child = array.children[0].contents
+        original = child.buffers[2]
+        child.buffers[2] = None
+        host, error = Array(), c.create_string_buffer(256)
+        device = DeviceArray(array=array, device_id=-1, device_type=1)
+        try:
+            self.assertEqual(self.lib.RedisDeviceArrayToHost(c.byref(device), c.byref(schema), c.byref(host), error, len(error)), 0, error.value)
+            self.assertEqual(import_host(host, batch.schema).to_pylist(), batch.to_pylist())
+        finally:
+            child.buffers[2] = original
+            release(host)
+            release(array)
+            release(schema)
+
+    def test_variable_width_size_limit_before_offset_access(self):
+        batch = pa.record_batch([pa.array(["x"])], names=["x"])
+        array, schema = exported(batch)
+        child = array.children[0].contents
+        original, length = child.buffers[1], child.length
+        child.buffers[1] = 1  # Must never be read when advertised offsets exceed budget.
+        child.length = 2**60
+        host, error = Array(), c.create_string_buffer(256)
+        device = DeviceArray(array=array, device_id=-1, device_type=1)
+        try:
+            self.assertNotEqual(self.lib.RedisDeviceArrayToHost(c.byref(device), c.byref(schema), c.byref(host), error, len(error)), 0)
+            self.assertFalse(host.release)
+            self.assertIn(b"512 MiB", error.value)
+        finally:
+            child.buffers[1], child.length = original, length
+            release(host)
+            release(array)
+            release(schema)
+
+    def test_malformed_variable_offsets(self):
+        for typ, ctype in [(pa.string(), c.c_int32), (pa.large_binary(), c.c_int64)]:
+            for offsets in [(-1, 0, 2), (0, 2, 1), (0, 1, 600 * 1024 * 1024)]:
+                batch = pa.record_batch([pa.array(["a", "b"], pa.string()).cast(typ)], names=["x"])
+                array, schema = exported(batch)
+                child = array.children[0].contents
+                old = child.buffers[1]
+                invalid = (ctype * 3)(*offsets)
+                child.buffers[1] = c.addressof(invalid)
+                host, error = Array(), c.create_string_buffer(256)
+                device = DeviceArray(array=array, device_id=-1, device_type=1)
+                try:
+                    self.assertNotEqual(self.lib.RedisDeviceArrayToHost(c.byref(device), c.byref(schema), c.byref(host), error, len(error)), 0)
+                    self.assertFalse(host.release)
+                    self.assertTrue(array.release)
+                finally:
+                    child.buffers[1] = old
+                    release(host)
+                    release(array)
+                    release(schema)
+
     def test_unsupported_device_never_dereferences_device_buffer_as_cpu(self):
         batch = pa.record_batch([pa.array([1], pa.int64())], names=["x"])
         array, schema = exported(batch)
@@ -188,7 +270,9 @@ class DeviceTests(unittest.TestCase):
             release(schema)
 
     def test_unsupported_type_and_invalid_lengths_leave_output_released(self):
-        for batch in [pa.record_batch([["unsupported"]], names=["x"]),
+        for batch in [pa.record_batch([pa.array([[1]], pa.list_(pa.int64()))], names=["x"]),
+                      pa.record_batch([pa.array(["x"]).dictionary_encode()], names=["x"]),
+                      pa.record_batch([pa.array([1], pa.timestamp("ms"))], names=["x"]),
                       pa.record_batch([pa.array([1], pa.int64())], names=["x"])]:
             array, schema = exported(batch)
             old_length = array.length
@@ -203,6 +287,64 @@ class DeviceTests(unittest.TestCase):
                 array.length = old_length
                 release(array)
                 release(schema)
+
+    @unittest.skipUnless(os.environ.get("GPU_TEST") == "1", "set GPU_TEST=1 on CUDA host")
+    def test_cuda_variable_width_external_producer_and_consumer(self):
+        import cupy
+        import numpy
+        for typ in [pa.string(), pa.large_string(), pa.binary(), pa.large_binary()]:
+            for start, length in [(1, 3), (1, 0)]:
+                with self.subTest(typ=typ, start=start, length=length):
+                    values = pa.array(["prefix", "", None, "雪"], pa.string()).cast(typ).slice(start, length)
+                    batch = pa.record_batch([values], names=["x"])
+                    array, schema = exported(batch)
+                    child = array.children[0].contents
+                    originals = [child.buffers[i] for i in range(3)]
+                    allocations = []
+                    stream = cupy.cuda.Stream(non_blocking=True)
+                    with stream:
+                        for i, buffer in enumerate(values.buffers()):
+                            if buffer is None:
+                                continue
+                            gpu = cupy.asarray(numpy.frombuffer(buffer, dtype=numpy.uint8))
+                            allocations.append(gpu)
+                            child.buffers[i] = gpu.data.ptr
+                        event = cupy.cuda.Event()
+                        event.record(stream)
+                    handle = c.c_void_p(event.ptr)
+                    incoming = DeviceArray(array=array, device_id=0, device_type=2, sync_event=c.addressof(handle))
+                    host, device, error = Array(), DeviceArray(), c.create_string_buffer(256)
+                    try:
+                        self.assertEqual(self.lib.RedisDeviceArrayToHost(c.byref(incoming), c.byref(schema), c.byref(host), error, len(error)), 0, error.value)
+                        allocations.clear()  # Staged output no longer depends on producer.
+                        self.assertEqual(self.lib.RedisDeviceArrayFromHost(c.byref(host), c.byref(schema), 0, c.byref(device), error, len(error)), 0, error.value)
+                        release(host)
+                        output = device.array.children[0].contents
+                        width = 8 if pa.types.is_large_string(typ) or pa.types.is_large_binary(typ) else 4
+                        memory = cupy.cuda.UnownedMemory(output.buffers[1], (length+1)*width, device)
+                        offsets = cupy.ndarray((length+1,), dtype=cupy.int64 if width==8 else cupy.int32,
+                            memptr=cupy.cuda.MemoryPointer(memory, 0)).get().tolist()
+                        self.assertEqual(offsets, [0, 0, 0, 3] if length else [0])
+                        del memory
+                        if length:
+                            payload = cupy.cuda.UnownedMemory(output.buffers[2], 3, device)
+                            actual = cupy.ndarray((3,), dtype=cupy.uint8,
+                                memptr=cupy.cuda.MemoryPointer(payload, 0)).get().tobytes()
+                            self.assertEqual(actual, "雪".encode())
+                            del payload
+                        self.assertEqual(self.lib.RedisDeviceArrayToHost(c.byref(device), c.byref(schema), c.byref(host), error, len(error)), 0, error.value)
+                        release(device.array)
+                        result = import_host(host, batch.schema)
+                        result.validate(full=True)
+                        self.assertEqual(result.to_pylist(), batch.to_pylist())
+                    finally:
+                        event.synchronize()
+                        for i, original in enumerate(originals):
+                            child.buffers[i] = original
+                        release(host)
+                        release(device.array)
+                        release(array)
+                        release(schema)
 
     @unittest.skipUnless(os.environ.get("GPU_TEST") == "1", "set GPU_TEST=1 on CUDA host")
     def test_cuda_export_consumer_and_source_release(self):
