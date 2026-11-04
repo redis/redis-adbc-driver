@@ -28,3 +28,12 @@ native text and NULL counts. No production, protocol or ACL change. Author revie
 is not independent maintainer approval. Full ordinary/platform/recovery,
 restricted readers, public input/process resume, sustained compaction and
 comparative performance remain open.
+
+The subsequent 80-name ordinary continuation passed 57 test events with no skips,
+then failed TestSQLTruncateDuringInsertSelect/continue and its parent (root
+3.975 s). The legacy raceDrop hook did not run, so the INSERT returned success
+without an intervening TRUNCATE. This is missing native race coverage, not a
+reproduced lost concurrent write. Later cases did not run. Transport unit fixtures
+in this selection do not establish real Cluster API compatibility or failover.
+The next action is to stage real acknowledged native batches and intervening
+TRUNCATE publications, preserving typed 40001 and exact identity/cleanup checks.
