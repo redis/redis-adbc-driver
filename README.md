@@ -315,19 +315,18 @@ remote deployment support, or Redis Flight SQL compatibility.
 Install the driver from PyPI, start Redis Software, and load the sample dataset.
 You need Git, Docker with Compose, `curl`, `jq`, Make, and Python 3.12+.
 
-### 1. Install the driver
-
-Clone the repository for its Redis startup script and sample data loader:
-
-```
-
 For the complete local Go suite, use `make -C go test-software`. It verifies the
 owned Software database's effective 4× QPF and `noeviction` policy through the
 management API before enabling retained-partition tests. The Software data proxy
 can return an empty `CONFIG GET maxmemory-policy` reply; that reply alone is not
 policy evidence. Concurrent test sessions should use separate
 `COMPOSE_PROJECT_NAME`, `SOFTWARE_API_PORT` and `SOFTWARE_DB_PORT` values.
-bash
+
+### 1. Install the driver
+
+Clone the repository for its Redis startup script and sample data loader:
+
+```bash
 git clone --depth 1 https://github.com/redis/redis-adbc-driver.git
 cd redis-adbc-driver
 ```

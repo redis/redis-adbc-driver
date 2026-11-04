@@ -45,6 +45,7 @@ on:
       - scripts/check_native_install.py
       - scripts/test_cluster_ready.py
       - scripts/test_software_bootstrap_http.py
+      - scripts/test_software_setup_exec.py
       - scripts/*partition*
       - benchmarks/clickbench/**
       - benchmarks/qpf/**
@@ -107,6 +108,9 @@ jobs:
         run: |
           uv run --no-project --with pyarrow --with redis --with adbc-driver-manager --with 'duckdb==2.0.*' \
             python -m unittest discover -s benchmarks/clickbench -v
+
+      - name: Check verified Software test runner
+        run: python3 -m unittest discover -s scripts -p test_software_setup_exec.py -v
 
       - name: Check management HTTP readiness retries
         run: python3 -m unittest discover -s scripts -p test_software_bootstrap_http.py -v
