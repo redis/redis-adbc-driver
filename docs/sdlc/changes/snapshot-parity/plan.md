@@ -400,3 +400,9 @@ complete old table/view readers, identity semantics, unrelated-table preservatio
 and multi-table publication conflicts without replay. TRUNCATE and the adjacent
 schema-cascade race families pass. Full ordinary/platform and performance gates
 remain open.
+
+The [native stale-row race checkpoint](stale-row-races-validation.md) exercises
+real acknowledged private batches against competing create/DROP/recreation for
+SQL, Arrow and owner-local temporary writes. Nine race events pass typed 40001
+refusal, exact replacement values, reader retention, input consumption and private
+reclamation. Remaining TRUNCATE/UPDATE race fixtures and full parity remain open.

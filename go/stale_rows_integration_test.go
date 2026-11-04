@@ -33,8 +33,7 @@ import (
 	goredis "github.com/redis/go-redis/v9"
 )
 
-// srRows is the number of rows the racing statements write: three
-// pipelines.
+// srRows keeps racing writes large enough to cross multiple native batches.
 const srRows = 3 * pipelineChunk
 
 const srWriteErr = "was renamed with its rows moved to new keys, rewritten by ALTER COLUMN … TYPE, truncated or dropped, while this statement was writing to it; some of its changes may be lost or have gone to another table"
@@ -135,17 +134,138 @@ func (h *sqlHarness) setupStaleRows() {
 	h.exec(fmt.Sprintf(`CREATE TABLE it_sr_src AS SELECT x AS id, 'old' AS note FROM generate_series(1, %d) AS g(x)`, srRows))
 }
 
-// The repro of #82: CREATE TABLE … AS, dropped by another connection.
+// Native races run synchronously after one real acknowledged row batch. The
+// callback's statements do not inherit this hook or mutate the private layout.
+type nativeRowRace struct {
+	meta    *tableMeta
+	root    string
+	batches int
+	rows    int64
+}
+
+func (h *sqlHarness) raceNativeRows(raw goredis.UniversalClient, table string, change func(*tableMeta)) *nativeRowRace {
+	h.t.Helper()
+	r := &nativeRowRace{}
+	var hook func(*tableMeta, int)
+	hook = func(meta *tableMeta, written int) {
+		if meta.Name != table {
+			return
+		}
+		count, err := raw.ZCard(h.ctx, snapshotMembers(snapshotDataID(meta.prefix()))).Result()
+		if err != nil {
+			h.t.Fatal(err)
+		}
+		r.batches++
+		r.rows = count
+		if r.meta != nil {
+			return
+		}
+		r.meta = cloneMeta(meta)
+		if written != snapshotWriteBatchRows || count != snapshotWriteBatchRows {
+			h.t.Fatal("race missed first acknowledged native batch", written, count)
+		}
+		data := snapshotDataID(meta.prefix())
+		if data == "" || meta.prefix() != snapshotRows(data, meta.Schema) {
+			h.t.Fatal("race output is not canonical private storage")
+		}
+		// These are exact private images, not partially written published HASHes.
+		members, err := raw.ZRange(h.ctx, snapshotMembers(data), 0, -1).Result()
+		if err != nil || len(members) != snapshotWriteBatchRows {
+			h.t.Fatal("private directory differs", err)
+		}
+		for _, member := range []string{members[0], members[len(members)-1]} {
+			id, err := strconv.ParseInt(member, 10, 64)
+			if err != nil {
+				h.t.Fatal(err)
+			}
+			if value, err := raw.HGet(h.ctx, meta.prefix()+strconv.FormatInt(id, 10), "note").Result(); err != nil || value != "old" {
+				h.t.Fatal("acknowledged private image missing", err)
+			}
+		}
+		testHookRowsWritten = nil
+		defer func() { testHookRowsWritten = hook }()
+		change(meta)
+		r.root, err = raw.HGet(h.ctx, snapshotCatalogKey, "root").Result()
+		if err != nil {
+			h.t.Fatal(err)
+		}
+	}
+	testHookRowsWritten = hook
+	h.t.Cleanup(func() { testHookRowsWritten = nil })
+	return r
+}
+
+func (h *sqlHarness) expectNativeRowRefusal(raw goredis.UniversalClient, r *nativeRowRace, err error) {
+	h.t.Helper()
+	testHookRowsWritten = nil
+	if r.meta == nil || r.batches == 0 || r.rows < snapshotWriteBatchRows {
+		h.t.Fatal("native race never ran")
+	}
+	if !isStatus(err, adbc.StatusIO) || sqlState(err) != "40001" {
+		h.t.Fatal("stale writer did not refuse publication", err)
+	}
+	if raw.HGet(h.ctx, snapshotCatalogKey, "root").Val() != r.root {
+		h.t.Fatal("refused writer changed committed root")
+	}
+	h.expectSnapshotReleased(raw, r.meta.prefix(), r.meta.index())
+	indexes, e := raw.Do(h.ctx, "FT._LIST").StringSlice()
+	if e != nil {
+		h.t.Fatal(e)
+	}
+	for _, index := range indexes {
+		if snapshotDataID(index) == snapshotDataID(r.meta.prefix()) {
+			h.t.Fatal("refused output retained a final index")
+		}
+	}
+}
+
+func (h *sqlHarness) expectNativeReplacement(raw goredis.UniversalClient, r *nativeRowRace, table string) {
+	h.t.Helper()
+	h.expectRows("SELECT id,note FROM "+table, "999999|replacement")
+	schema := defaultSchema
+	name := table
+	if strings.HasPrefix(table, "pg_temp.") {
+		schema = r.meta.Schema
+		name = strings.TrimPrefix(table, "pg_temp.")
+	}
+	current := h.inspectTable(raw, schema, name)
+	if current.prefix() == r.meta.prefix() {
+		h.t.Fatal("replacement inherited refused storage")
+	}
+	h.exec("DROP TABLE " + table)
+	h.exec("CREATE TABLE " + table + " (id BIGINT,note VARCHAR)")
+	h.exec("INSERT INTO " + table + " (id) SELECT id FROM it_sr_src")
+	rows, _ := h.query("SELECT id,note FROM " + table + " ORDER BY id")
+	if len(rows) != srRows {
+		h.t.Fatal("incomplete fresh replacement", len(rows))
+	}
+	for i, row := range rows {
+		if row != fmt.Sprintf("%d|NULL", i+1) {
+			h.t.Fatal("fresh binding read refused values", i, row)
+		}
+	}
+	h.expectRows("SELECT COUNT(*) FROM "+table+" WHERE note='old'", "0")
+}
+
+// A private CTAS is invisible. A competing create/drop/recreate wins its name;
+// the old CTAS must refuse instead of exposing any of its copied rows.
 func TestSQLDropDuringCreateTableAs(t *testing.T) {
 	h := newSQLHarness(t)
 	h.setupStaleRows()
 	raw := h.rawClient()
 	other := newSQLHarness(t)
-	r := h.raceDrop(raw, "it_sr_t", func(*tableMeta) { other.exec(`DROP TABLE it_sr_t`) })
-	_, err := tryExec(h.ctx, h.conn, `CREATE TABLE it_sr_t AS SELECT id, note FROM it_sr_src`)
-	h.expectRaceLost(raw, r, err)
-	h.expectError(`SELECT * FROM it_sr_t`, "does not exist")
-	h.expectNewTable(raw, r, "public", `CREATE TABLE it_sr_t (id BIGINT, note VARCHAR)`, "it_sr_t")
+	r := h.raceNativeRows(raw, "it_sr_t", func(*tableMeta) {
+		if _, err := other.conn.GetTableSchema(h.ctx, nil, nil, "it_sr_t"); !isStatus(err, adbc.StatusNotFound) {
+			t.Fatal("private CTAS became visible", err)
+		}
+		other.exec("CREATE TABLE it_sr_t (id BIGINT,note VARCHAR)")
+		other.exec("DROP TABLE it_sr_t")
+		other.exec("CREATE TABLE it_sr_t (id BIGINT,note VARCHAR)")
+		other.exec("INSERT INTO it_sr_t VALUES (999999,'replacement')")
+	})
+	_, err := tryExec(h.ctx, h.conn, "CREATE TABLE it_sr_t AS SELECT id,note FROM it_sr_src")
+	h.expectNativeRowRefusal(raw, r, err)
+	h.expectNativeReplacement(raw, r, "it_sr_t")
 }
 
 func TestSQLDropDuringInsertSelect(t *testing.T) {
@@ -153,11 +273,30 @@ func TestSQLDropDuringInsertSelect(t *testing.T) {
 	h.setupStaleRows()
 	raw := h.rawClient()
 	other := newSQLHarness(t)
-	h.exec(`CREATE TABLE it_sr_t (id BIGINT, note VARCHAR)`)
-	r := h.raceDrop(raw, "it_sr_t", func(*tableMeta) { other.exec(`DROP TABLE it_sr_t`) })
-	_, err := tryExec(h.ctx, h.conn, `INSERT INTO it_sr_t SELECT id, note FROM it_sr_src`)
-	h.expectRaceLost(raw, r, err)
-	h.expectNewTable(raw, r, "public", `CREATE TABLE it_sr_t (id BIGINT, note VARCHAR)`, "it_sr_t")
+	h.exec("CREATE TABLE it_sr_t (id BIGINT,note VARCHAR)")
+	h.exec("INSERT INTO it_sr_t VALUES (0,'base')")
+	source, oldCtx, oldPin := h.inspectionSnapshot(raw)
+	defer oldPin.release()
+	old, err := source.getTable(oldCtx, defaultSchema, "it_sr_t")
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := h.raceNativeRows(raw, "it_sr_t", func(*tableMeta) {
+		other.exec("DROP TABLE it_sr_t")
+		other.exec("CREATE TABLE it_sr_t (id BIGINT,note VARCHAR)")
+		other.exec("INSERT INTO it_sr_t VALUES (999999,'replacement')")
+	})
+	_, err = tryExec(h.ctx, h.conn, "INSERT INTO it_sr_t SELECT id,note FROM it_sr_src")
+	h.expectNativeRowRefusal(raw, r, err)
+	rows := snapshotExecuteTest(t, source, oldCtx, "SELECT id,note FROM it_sr_t").rows
+	if got := strings.Join(valueRows(rows), "|"); got != "0|base" {
+		t.Fatal("DROP changed pinned input", got)
+	}
+	oldPin.release()
+	for _, seg := range old.snapshotSegments() {
+		h.expectSnapshotReleased(raw, seg.Prefix, seg.Index)
+	}
+	h.expectNativeReplacement(raw, r, "it_sr_t")
 }
 
 // ingestNotes bulk-ingests rows (id, 'old') in batches of the given sizes.
@@ -197,15 +336,19 @@ func (h *sqlHarness) ingestNotes(table, mode string, batches ...int) error {
 			h.t.Fatal(err)
 		}
 	}
-	if err := st.BindStream(h.ctx, rdr); err != nil {
+	input := &snapshotLargeInput{RecordReader: rdr}
+	if err := st.BindStream(h.ctx, input); err != nil {
 		h.t.Fatal(err)
 	}
 	_, err = st.ExecuteUpdate(h.ctx)
+	if input.records > len(batches) || input.next > len(batches)+1 {
+		h.t.Fatal("ingest replayed input", input.records, input.next)
+	}
 	return err
 }
 
-// Bulk ingest, into a table it creates and into an existing one, in two
-// batches: the one written when the DROP lands, and one that is not written.
+// Both Arrow create and append conflict after an acknowledged private batch.
+// The input spans two records, and the helper rejects repeated consumption.
 func TestSQLDropDuringIngest(t *testing.T) {
 	for _, mode := range []string{adbc.OptionValueIngestModeCreate, adbc.OptionValueIngestModeAppend} {
 		t.Run(mode, func(t *testing.T) {
@@ -214,67 +357,84 @@ func TestSQLDropDuringIngest(t *testing.T) {
 			raw := h.rawClient()
 			other := newSQLHarness(t)
 			if mode == adbc.OptionValueIngestModeAppend {
-				h.exec(`CREATE TABLE it_sr_t (id BIGINT, note VARCHAR)`)
+				h.exec("CREATE TABLE it_sr_t (id BIGINT,note VARCHAR)")
 			}
-			r := h.raceDrop(raw, "it_sr_t", func(*tableMeta) { other.exec(`DROP TABLE it_sr_t`) })
+			r := h.raceNativeRows(raw, "it_sr_t", func(*tableMeta) {
+				if mode == adbc.OptionValueIngestModeCreate {
+					if _, err := other.conn.GetTableSchema(h.ctx, nil, nil, "it_sr_t"); !isStatus(err, adbc.StatusNotFound) {
+						t.Fatal("private Arrow create became visible", err)
+					}
+					other.exec("CREATE TABLE it_sr_t (id BIGINT,note VARCHAR)")
+				}
+				other.exec("DROP TABLE it_sr_t")
+				other.exec("CREATE TABLE it_sr_t (id BIGINT,note VARCHAR)")
+				other.exec("INSERT INTO it_sr_t VALUES (999999,'replacement')")
+			})
 			err := h.ingestNotes("it_sr_t", mode, srRows, srRows)
-			h.expectRaceLost(raw, r, err)
-			h.expectNewTable(raw, r, "public", `CREATE TABLE it_sr_t (id BIGINT, note VARCHAR)`, "it_sr_t")
+			h.expectNativeRowRefusal(raw, r, err)
+			h.expectNativeReplacement(raw, r, "it_sr_t")
 		})
 	}
-
-	// A batch written in one pipeline, soon enough not to check, is caught
-	// by the next batch's row id allocation, which then deletes it.
-	h := newSQLHarness(t)
-	h.setupStaleRows()
-	raw := h.rawClient()
-	other := newSQLHarness(t)
-	h.exec(`CREATE TABLE it_sr_t (id BIGINT, note VARCHAR)`)
-	var prefix string
-	testHookRowsWritten = func(meta *tableMeta, written int) {
-		if meta.Name == "it_sr_t" && prefix == "" {
-			prefix = meta.prefix()
-			other.exec(`DROP TABLE it_sr_t`)
-			// The batch's rows are written again after the DROP, as if
-			// they had been on their way.
-			for id := int64(1); id <= int64(written); id++ {
-				if err := raw.HSet(h.ctx, prefix+strconv.FormatInt(id, 10), rowIDField, id, "note", "old").Err(); err != nil {
-					t.Fatal(err)
-				}
+	// Records smaller than a native batch still cannot resurrect a dropped
+	// binding. No out-of-protocol HASH writes are injected into published input.
+	t.Run("small records", func(t *testing.T) {
+		h := newSQLHarness(t)
+		h.setupStaleRows()
+		raw := h.rawClient()
+		other := newSQLHarness(t)
+		h.exec("CREATE TABLE it_sr_t (id BIGINT,note VARCHAR)")
+		var private *tableMeta
+		root := ""
+		testHookRowsWritten = func(meta *tableMeta, written int) {
+			if meta.Name != "it_sr_t" || private != nil {
+				return
 			}
-			meta.readAt = time.Now().Add(time.Hour)
+			private = cloneMeta(meta)
+			if written != snapshotWriteBatchRows/2 {
+				t.Fatal("small record boundary differs", written)
+			}
+			testHookRowsWritten = nil
+			other.exec("DROP TABLE it_sr_t")
+			other.exec("CREATE TABLE it_sr_t (id BIGINT,note VARCHAR)")
+			other.exec("INSERT INTO it_sr_t VALUES (999999,'replacement')")
+			root = raw.HGet(h.ctx, snapshotCatalogKey, "root").Val()
 		}
-	}
-	t.Cleanup(func() { testHookRowsWritten = nil })
-	err := h.ingestNotes("it_sr_t", adbc.OptionValueIngestModeAppend, pipelineChunk/2, pipelineChunk/2)
-	testHookRowsWritten = nil
-	if err == nil || !strings.Contains(err.Error(), srWriteErr) {
-		t.Errorf("writer: got %v, want an error containing %q", err, srWriteErr)
-	}
-	if n := h.prefixKeyCount(raw, prefix); n != 0 {
-		t.Errorf("%d keys left under %q", n, prefix)
-	}
+		t.Cleanup(func() { testHookRowsWritten = nil })
+		err := h.ingestNotes("it_sr_t", adbc.OptionValueIngestModeAppend, snapshotWriteBatchRows/2, snapshotWriteBatchRows/2)
+		testHookRowsWritten = nil
+		if private == nil || sqlState(err) != "40001" {
+			t.Fatal("small record writer did not conflict", err)
+		}
+		if raw.HGet(h.ctx, snapshotCatalogKey, "root").Val() != root {
+			t.Fatal("small record refusal changed root")
+		}
+		h.expectSnapshotReleased(raw, private.prefix(), private.index())
+		h.expectNativeReplacement(raw, &nativeRowRace{meta: private}, "it_sr_t")
+	})
 }
 
-// A temporary table: here the DROP comes from another connection that took
-// its owner for gone (sweepTemp), and the owner then creates it again.
+// A temporary CTAS is private too. The owning connection may create, drop and
+// recreate a competing binding without exposing or mutating the outer workspace.
 func TestSQLDropDuringTempCreateTableAs(t *testing.T) {
 	h := newSQLHarness(t)
 	h.setupStaleRows()
 	raw := h.rawClient()
-	sweeper := &store{client: raw}
-	r := h.raceDrop(raw, "it_sr_tmp", func(meta *tableMeta) {
-		if err := sweeper.dropTable(h.ctx, meta.Schema, meta.Name, false); err != nil {
-			t.Fatal(err)
+	r := h.raceNativeRows(raw, "it_sr_tmp", func(meta *tableMeta) {
+		if !isTempSchema(meta.Schema) {
+			t.Fatal("temporary output has no private owner")
 		}
+		if _, err := h.conn.GetTableSchema(h.ctx, nil, nil, "it_sr_tmp"); !isStatus(err, adbc.StatusNotFound) {
+			t.Fatal("private temporary CTAS became visible", err)
+		}
+		h.exec("CREATE TEMP TABLE it_sr_tmp (id BIGINT,note VARCHAR)")
+		h.exec("DROP TABLE pg_temp.it_sr_tmp")
+		h.exec("CREATE TEMP TABLE it_sr_tmp (id BIGINT,note VARCHAR)")
+		h.exec("INSERT INTO pg_temp.it_sr_tmp VALUES (999999,'replacement')")
 	})
-	_, err := tryExec(h.ctx, h.conn, `CREATE TEMP TABLE it_sr_tmp AS SELECT id, note FROM it_sr_src`)
-	h.expectRaceLost(raw, r, err)
-	schema, _, _ := strings.Cut(r.prefix, ":")
-	h.expectNewTable(raw, r, schema, `CREATE TEMP TABLE it_sr_tmp (id BIGINT, note VARCHAR)`, "pg_temp.it_sr_tmp")
-	if n := h.namesN(raw, schema, "it_sr_tmp", "it_sr_tmp"); n < 2 {
-		t.Errorf("the new temporary table has the names of N = %d", n)
-	}
+	_, err := tryExec(h.ctx, h.conn, "CREATE TEMP TABLE it_sr_tmp AS SELECT id,note FROM it_sr_src")
+	h.expectNativeRowRefusal(raw, r, err)
+	h.expectNativeReplacement(raw, r, "pg_temp.it_sr_tmp")
+	h.exec("DROP TABLE pg_temp.it_sr_tmp")
 }
 
 // sameKeys tells a table's current metadata from another table's of the
@@ -317,41 +477,34 @@ func TestSameKeys(t *testing.T) {
 	}
 }
 
-// Key prefixes and index names are never reused: not after DROP TABLE, not
-// after a rename, and not those that earlier versions released.
+// Canonical physical identities are never reused across DROP/recreation or
+// logical rename. This is native storage ownership, without a legacy migration.
 func TestSQLKeyPrefixesNotReused(t *testing.T) {
 	h := newSQLHarness(t)
 	h.dropTables("it_sr_names", "it_sr_names2")
 	raw := h.rawClient()
 	seen := map[string]bool{}
-	last := int64(0)
-	create := func(what string) {
+	create := func() {
 		t.Helper()
-		h.exec(`CREATE TABLE it_sr_names (id INTEGER)`)
-		n := h.namesN(raw, "public", "it_sr_names", "it_sr_names")
-		prefix, index := h.tableNames(raw, "public", "it_sr_names")
-		if seen[prefix] || seen[index] || n <= last {
-			t.Errorf("%s: names %q, %q (N = %d after %d) were used before", what, prefix, index, n, last)
+		h.exec("CREATE TABLE it_sr_names (id INTEGER)")
+		prefix, index := h.rekeyNativeLayout(raw, defaultSchema, "it_sr_names")
+		if seen[prefix] || seen[index] {
+			t.Fatal("recreated table reused physical identity")
 		}
-		seen[prefix], seen[index], last = true, true, n
+		seen[prefix], seen[index] = true, true
 	}
 	for i := 0; i < 3; i++ {
-		create("after DROP TABLE")
-		h.exec(`INSERT INTO it_sr_names VALUES (1)`)
-		h.exec(`DROP TABLE it_sr_names`)
+		create()
+		h.exec("INSERT INTO it_sr_names VALUES (1)")
+		h.exec("DROP TABLE it_sr_names")
 	}
-	// Without the counter (a database used by v0.0.7, which recorded
-	// releases but no counter), every prefix that was released is skipped.
-	if err := raw.HDel(h.ctx, namesNextKey, rowPrefix("public", "it_sr_names")).Err(); err != nil {
-		t.Fatal(err)
+	create()
+	prefix, index := h.rekeyNativeLayout(raw, defaultSchema, "it_sr_names")
+	h.exec("ALTER TABLE it_sr_names RENAME TO it_sr_names2")
+	if p, i := h.rekeyNativeLayout(raw, defaultSchema, "it_sr_names2"); p != prefix || i != index {
+		t.Fatal("metadata-only rename changed physical identity")
 	}
-	create("without the counter")
-	// A renamed table keeps its names, and the name it leaves takes new ones.
-	h.exec(`ALTER TABLE it_sr_names RENAME TO it_sr_names2`)
-	if n := h.namesN(raw, "public", "it_sr_names2", "it_sr_names"); n != last {
-		t.Errorf("a plain rename changed the names to N = %d, want %d", n, last)
-	}
-	create("after RENAME TO")
-	h.expectRows(`SELECT COUNT(*) FROM it_sr_names`, "0")
-	h.expectRows(`SELECT COUNT(*) FROM it_sr_names2`, "0")
+	create()
+	h.expectRows("SELECT COUNT(*) FROM it_sr_names", "0")
+	h.expectRows("SELECT COUNT(*) FROM it_sr_names2", "0")
 }
