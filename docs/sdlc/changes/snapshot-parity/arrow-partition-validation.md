@@ -77,3 +77,25 @@ This is author review, not maintainer approval.
 The restricted reader-role regression and production lease integration remain
 open. This focused selection is not a green complete ordinary suite, current
 Cluster/failover/persistence proof or evidence of all-workload performance parity.
+
+## Subsequent ordinary diagnostic run
+
+At 875f5f0, a sequential ordinary Software run with `-count=1 -p 1 -failfast`
+and command-line `-skip TestACLAppIndexReader` reaches 388 pass events, nine
+capability skips and one failure in 110.561 seconds for the root package. The
+known ACL test is deliberately excluded to find independent regressions; no
+repository skip was added, and this is not complete ordinary-suite success.
+
+The next failure is TestSQLBugIssues: its raw legacy metadata GET is rejected
+because catalog access requires a statement snapshot. Its intentional removal
+of the folded_identifiers definition flag now uses the existing pinned-read and
+guarded private-publication fixture helpers. They preserve physical identity and
+publish through the normal protocol, rather than changing an immutable source.
+All existing case-folding, quoted identifier, grouping, large LIMIT/OFFSET and
+exact variance/type assertions remain. This does not add a storage migration.
+
+The corrected TestSQLBugIssues, TestSQLPaginationConfiguredCaps and
+TestSQLBoundStringsOutliveTheirBuffers selection passes with `-race -count=1
+-p 1`: three test passes, zero skips/failures; root package 4.324 seconds.
+The broader diagnostic run has not been repeated after this follow-up, and the
+known restricted-reader ACL failure remains open.
