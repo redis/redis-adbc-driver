@@ -19,7 +19,7 @@ package redis
 // straight away, and connections that wait for another one's rollback.
 
 import (
-	"bytes"
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -56,13 +56,15 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-// rekeyChild renames a table with rename_rekey ("<table> <new name>"), with
-// the lease ADBC_REDIS_REKEY_TTL, and is meant to be killed before it ends.
+// The child blocks at an observed native boundary until the parent kills it.
+// No clean Close/abort path runs after that boundary.
+type rekeyChildBoundary struct {
+	ID, Token, Root string
+	Data            []string
+}
+
 func rekeyChild(args string) int {
 	from, to, _ := strings.Cut(args, " ")
-	if d, err := time.ParseDuration(os.Getenv("ADBC_REDIS_REKEY_TTL")); err == nil {
-		rekeyTTL = d
-	}
 	ctx := context.Background()
 	db, err := NewDriver(memory.DefaultAllocator).NewDatabaseWithContext(ctx, map[string]string{
 		adbc.OptionKeyURI: os.Getenv("REDIS_URI"), OptionStringRenameRekey: "true"})
@@ -75,7 +77,41 @@ func rekeyChild(args string) int {
 		fmt.Fprintln(os.Stderr, err)
 		return 2
 	}
-	_, err = tryExec(ctx, conn, fmt.Sprintf("ALTER TABLE %s RENAME TO %s", from, to))
+	stmt, err := conn.NewStatement(ctx)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 2
+	}
+	if err := stmt.SetSqlQuery(ctx, "ALTER TABLE "+from+" RENAME TO "+to); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 2
+	}
+	impl := stmt.(*statementImpl)
+	execCtx, transport := impl.conn.executionContext(ctx, &impl.streams, &impl.conn.streams)
+	ready := make(chan context.Context, 1)
+	if os.Getenv("ADBC_REDIS_REKEY_PHASE") == "committed" {
+		impl.conn.store.client.AddHook(&rekeyCommittedReply{ready: ready, resume: make(chan struct{})})
+	} else {
+		prefix := strings.TrimSuffix(snapshotRows("fixture", defaultSchema), "fixture:")
+		transport.client.AddHook(&snapshotAlterReadBarrier{prefix: prefix, ready: ready, resume: make(chan struct{})})
+	}
+	go func() {
+		scope := snapshotOf(<-ready)
+		if scope == nil {
+			fmt.Fprintln(os.Stderr, "missing child snapshot")
+			os.Exit(2)
+		}
+		boundary := rekeyChildBoundary{ID: scope.id, Token: scope.pin.token, Root: scope.pin.root}
+		scope.mu.Lock()
+		for data := range scope.owned {
+			boundary.Data = append(boundary.Data, data)
+		}
+		scope.mu.Unlock()
+		if err := json.NewEncoder(os.Stdout).Encode(boundary); err != nil {
+			os.Exit(2)
+		}
+	}()
+	_, err = stmt.ExecuteUpdate(execCtx)
 	fmt.Fprintln(os.Stderr, "the rename ended before the process was killed:", err)
 	return 3
 }
@@ -146,160 +182,198 @@ func movingMsg(table string) string {
 		`or the next statement that changes the table, rolls the rename back once its lease (%s) has expired`, table, rekeyTTL)
 }
 
-// Issue #87: a process killed while it moves a table's rows. Connections
-// that open after its lease expired, even ones that close straight away,
-// roll the move back before they are open, so the rename can be run again;
-// a connection that was open all along rolls it back at its next write.
+// Issue #87: SIGKILL before publication rolls private output back, while
+// SIGKILL after publication preserves the committed generation. Owner control
+// expiry is advanced only after Wait confirms process death; natural lease
+// duration is not measured by this test.
 func TestSQLRekeyKilled(t *testing.T) {
-	h := newSQLHarness(t)
-	h.dropTables("it_rk_kill", "it_rk_kill_backup")
-	raw := h.rawClient()
-	const n = 50000
-	ids := make([]int64, n)
-	for i := range ids {
-		ids[i] = int64(i + 1)
-	}
-	if err := h.ingest("it_rk_kill", adbc.OptionValueIngestModeCreate, false, ids...); err != nil {
-		t.Fatal(err)
-	}
-	oldPrefix, oldIndex := h.tableNames(raw, "public", "it_rk_kill")
-	const ttl = 4 * time.Second
-	defer func(was time.Duration) { rekeyTTL = was }(rekeyTTL)
-	rekeyTTL = ttl
-	// A connection that stays open, as dbt's main connection does.
-	long := newSQLHarness(t)
-
-	// kill starts the rename in a child process, and kills it once it has
-	// copied some rows. It returns the job it left.
-	kill := func() *rekeyJob {
-		t.Helper()
-		before := h.dbSize(raw)
-		var out bytes.Buffer
-		cmd := exec.Command(os.Args[0], "-test.run=^$")
-		cmd.Env = append(os.Environ(), "ADBC_REDIS_REKEY_CHILD=it_rk_kill it_rk_kill_backup", "ADBC_REDIS_REKEY_TTL="+ttl.String())
-		cmd.Stdout, cmd.Stderr = &out, &out
-		if err := cmd.Start(); err != nil {
-			t.Fatal(err)
-		}
-		deadline := time.Now().Add(60 * time.Second)
-		for h.dbSize(raw) < before+500 {
-			if time.Now().After(deadline) {
-				_ = cmd.Process.Kill()
-				_ = cmd.Wait()
-				t.Fatalf("the child didn't start copying rows: %s", out.String())
+	for _, mode := range []string{"private_open", "private_write", "committed"} {
+		t.Run(mode, func(t *testing.T) {
+			const from, to, n = "it_rk_kill", "it_rk_kill_backup", 50000
+			h := newSQLHarness(t)
+			h.dropTables(from, to)
+			raw := h.rawClient()
+			ids := make([]int64, n)
+			for i := range ids {
+				ids[i] = int64(i + 1)
 			}
-			time.Sleep(5 * time.Millisecond)
-		}
-		if err := cmd.Process.Kill(); err != nil {
-			t.Fatal(err)
-		}
-		_ = cmd.Wait()
-		if strings.Contains(out.String(), "ended before") {
-			t.Fatalf("child: %s", out.String())
-		}
-		// What the killed process left: the job, its lease, the table
-		// marked as moving, and some of the copies.
-		job := h.rekeyRecord(raw, oldPrefix)
-		if job == nil || job.Switched || job.Recovering || !strings.HasPrefix(job.KeyPrefix, "public:it_rk_kill_backup") ||
-			!strings.HasPrefix(job.IndexName, "idx:public:it_rk_kill_backup") {
-			t.Fatalf("job after the kill: %+v (child: %s)", job, out.String())
-		}
-		if ok, _ := (&store{client: raw}).ownerAlive(h.ctx, job); !ok {
-			t.Fatal("the killed process's lease expired already")
-		}
-		if got := h.prefixKeyCount(raw, job.KeyPrefix); got == 0 || got >= n {
-			t.Fatalf("%d copies after the kill", got)
-		}
-		return job
-	}
-	waitExpired := func(job *rekeyJob) {
-		t.Helper()
-		deadline := time.Now().Add(3 * ttl)
-		for {
-			ok, err := (&store{client: raw}).ownerAlive(h.ctx, job)
+			if err := h.ingest(from, adbc.OptionValueIngestModeCreate, false, ids...); err != nil {
+				t.Fatal(err)
+			}
+			original := h.inspectTable(raw, defaultSchema, from)
+			before := h.rawMeta(raw, defaultSchema, from)
+			long := newSQLHarness(t)
+			source, oldCtx, oldPin := h.inspectionSnapshot(raw)
+			defer oldPin.release()
+			// Stderr stays in the private test directory; stdout contains only the
+			// boundary record, read through a pipe without concurrent buffer access.
+			stderr, err := os.CreateTemp(t.TempDir(), "child-stderr-")
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !ok {
-				return
+			defer stderr.Close()
+			cmd := exec.Command(os.Args[0], "-test.run=^$")
+			phase := "private"
+			if mode == "committed" {
+				phase = "committed"
 			}
-			if time.Now().After(deadline) {
-				t.Fatal("the lease didn't expire")
+			cmd.Env = append(os.Environ(), "ADBC_REDIS_REKEY_CHILD="+from+" "+to, "ADBC_REDIS_REKEY_PHASE="+phase)
+			cmd.Stderr = stderr
+			stdout, err := cmd.StdoutPipe()
+			if err != nil {
+				t.Fatal(err)
 			}
-			time.Sleep(50 * time.Millisecond)
-		}
-	}
-	expectIntact := func(h *sqlHarness, table string, job *rekeyJob, extra int64) {
-		t.Helper()
-		if h.rekeyPending(raw, oldPrefix) {
-			t.Error("the move is still recorded")
-		}
-		if keys := h.aliveKeys(raw); len(keys) != 0 {
-			t.Errorf("lease keys left: %v", keys)
-		}
-		h.expectReleased(raw, job.KeyPrefix, job.IndexName)
-		h.expectRows(fmt.Sprintf(`SELECT COUNT(*), SUM(id), MIN(id), MAX(id) FROM %s`, table),
-			fmt.Sprintf("%d|%d|1|%d", n+extra, n*(n+1)/2+extra*(n+1)+extra*(extra-1)/2, n+extra))
-	}
-
-	job := kill()
-	// While its lease lasts, the move looks alive: writes and renames are
-	// refused, on connections opened before and after the kill.
-	long.expectErrorExact(`INSERT INTO it_rk_kill VALUES (0)`, movingMsg("it_rk_kill"))
-	rk := newRekeyHarness(t, map[string]string{OptionStringRenameRekey: "true"})
-	rk.expectErrorExact(`ALTER TABLE it_rk_kill RENAME TO it_rk_kill_backup`, movingMsg("it_rk_kill"))
-	h.expectRows(`SELECT COUNT(*) FROM it_rk_kill`, fmt.Sprint(n))
-
-	// Once it has expired, a connection that is opened and closed straight
-	// away (as dbt's metadata connections are) rolls the move back first.
-	waitExpired(job)
-	ctx := context.Background()
-	db, err := NewDriver(memory.DefaultAllocator).NewDatabaseWithContext(ctx, map[string]string{adbc.OptionKeyURI: os.Getenv("REDIS_URI")})
-	if err != nil {
-		t.Fatal(err)
-	}
-	short, err := db.Open(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := short.Close(ctx); err != nil {
-		t.Fatal(err)
-	}
-	expectIntact(h, "it_rk_kill", job, 0)
-	if prefix, index := h.tableNames(raw, "public", "it_rk_kill"); prefix != oldPrefix || index != oldIndex {
-		t.Errorf("names after the rollback: %q, %q", prefix, index)
-	}
-
-	// The rename can be run again, on a new connection, and works.
-	again := newRekeyHarness(t, map[string]string{OptionStringRenameRekey: "true"})
-	again.exec(`ALTER TABLE it_rk_kill RENAME TO it_rk_kill_backup`)
-	// It takes new names: the rolled-back move's are never handed out again.
-	h.namesN(raw, "public", "it_rk_kill_backup", "it_rk_kill_backup")
-	if prefix, _ := h.tableNames(raw, "public", "it_rk_kill_backup"); prefix == job.KeyPrefix {
-		t.Errorf("prefix after the rename: %q, the rolled-back move's", prefix)
-	}
-	h.expectReleased(raw, oldPrefix, oldIndex)
-	h.expectRows(`SELECT COUNT(*), SUM(id) FROM it_rk_kill_backup`, fmt.Sprintf("%d|%d", n, n*(n+1)/2))
-	again.exec(`ALTER TABLE it_rk_kill_backup RENAME TO it_rk_kill`)
-	oldPrefix, oldIndex = h.tableNames(raw, "public", "it_rk_kill")
-
-	// Killed again: this time the connection that was open all along is
-	// the first to write once the lease has expired. It rolls the move
-	// back, and its statement goes on.
-	job = kill()
-	waitExpired(job)
-	long.exec(`INSERT INTO it_rk_kill VALUES (50001)`)
-	expectIntact(long, "it_rk_kill", job, 1)
-	if err := long.setConnOption(OptionStringRenameRekey, "true"); err != nil {
-		t.Fatal(err)
-	}
-	long.exec(`ALTER TABLE it_rk_kill RENAME TO it_rk_kill_backup`)
-	long.exec(`INSERT INTO it_rk_kill_backup VALUES (50002)`)
-	h.expectRows(`SELECT COUNT(*), SUM(id), MAX(id) FROM it_rk_kill_backup`,
-		fmt.Sprintf("%d|%d|%d", n+2, (n+2)*(n+3)/2, n+2))
-	h.expectReleased(raw, oldPrefix, oldIndex)
-	if keys := h.aliveKeys(raw); len(keys) != 0 {
-		t.Errorf("lease keys left: %v", keys)
+			if err := cmd.Start(); err != nil {
+				t.Fatal(err)
+			}
+			waited := false
+			defer func() {
+				if !waited {
+					_ = cmd.Process.Kill()
+					_ = cmd.Wait()
+				}
+			}()
+			type observed struct {
+				boundary rekeyChildBoundary
+				err      error
+			}
+			ready := make(chan observed, 1)
+			go func() {
+				var v rekeyChildBoundary
+				scanner := bufio.NewScanner(stdout)
+				if !scanner.Scan() {
+					ready <- observed{err: fmt.Errorf("child ended before boundary: %v", scanner.Err())}
+					return
+				}
+				err := json.Unmarshal(scanner.Bytes(), &v)
+				ready <- observed{v, err}
+			}()
+			var boundary rekeyChildBoundary
+			select {
+			case got := <-ready:
+				if got.err != nil {
+					t.Fatal(got.err)
+				}
+				boundary = got.boundary
+			case <-time.After(45 * time.Second):
+				t.Fatal("child never reached native crash boundary")
+			}
+			if boundary.ID == "" || boundary.Token == "" || boundary.Root == "" || len(boundary.Data) != 1 {
+				t.Fatal("incomplete child boundary")
+			}
+			data := boundary.Data[0]
+			prefix := snapshotRows(data, defaultSchema)
+			payload, err := raw.HGet(h.ctx, snapshotCatalogKey, "w:"+boundary.ID).Bytes()
+			var work struct {
+				State   string `json:"state"`
+				Expires int64  `json:"expires"`
+				Batch   struct {
+					Rows int `json:"rows"`
+				} `json:"row_batch"`
+			}
+			if err != nil || json.Unmarshal(payload, &work) != nil {
+				t.Fatal("missing durable child work", err)
+			}
+			if mode != "committed" {
+				now, err := raw.Time(h.ctx).Result()
+				if err != nil || work.State != "staging" || work.Expires <= now.UnixMilli() || work.Batch.Rows != snapshotDeltaPage {
+					t.Fatal("child did not acknowledge a live private batch", work.State, work.Batch.Rows, err)
+				}
+				if rows := raw.ZCard(h.ctx, snapshotMembers(data)).Val(); rows != snapshotDeltaPage {
+					t.Fatal("wrong private row coverage", rows)
+				}
+				if h.rawMeta(raw, defaultSchema, from) != before {
+					t.Fatal("private child changed published source metadata")
+				}
+				if _, err := h.conn.GetTableSchema(h.ctx, nil, nil, to); !isStatus(err, adbc.StatusNotFound) {
+					t.Fatal("private target exposed", err)
+				}
+			} else {
+				if work.State != "committed" || raw.HGet(h.ctx, snapshotCatalogKey, "root").Val() == boundary.Root {
+					t.Fatal("child did not commit its root")
+				}
+				target := h.inspectTable(raw, defaultSchema, to)
+				if target.prefix() != prefix || target.prefix() == original.prefix() {
+					t.Fatal("committed child identity differs")
+				}
+				expectRekeyExactRows(t, h, to, n)
+			}
+			if err := cmd.Process.Kill(); err != nil {
+				t.Fatal("SIGKILL", err)
+			}
+			err = cmd.Wait()
+			waited = true
+			if err == nil || cmd.ProcessState.Success() {
+				t.Fatal("child exited successfully rather than being killed")
+			}
+			if !raw.HExists(h.ctx, snapshotCatalogKey, "w:"+boundary.ID).Val() || !raw.HExists(h.ctx, snapshotCatalogKey, "p:"+boundary.Token).Val() {
+				t.Fatal("child ran cleanup or lost ownership before the crash")
+			}
+			// No heartbeat can race expiry after the OS has reaped the owner.
+			if mode != "committed" {
+				expireRekeyControl(t, h, raw, "w:"+boundary.ID)
+			}
+			expireRekeyControl(t, h, raw, "p:"+boundary.Token)
+			if mode == "private_open" {
+				// Opening then immediately closing still performs ownership recovery.
+				db, err := NewDriver(memory.DefaultAllocator).NewDatabaseWithContext(h.ctx, map[string]string{adbc.OptionKeyURI: os.Getenv("REDIS_URI")})
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer db.Close(h.ctx)
+				short, err := db.Open(h.ctx)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := short.Close(h.ctx); err != nil {
+					t.Fatal(err)
+				}
+			} else if mode == "private_write" {
+				long.exec("INSERT INTO " + from + " VALUES (50001)")
+			} else {
+				reopened := newSQLHarness(t)
+				expectRekeyExactRows(t, reopened, to, n)
+			}
+			// Independent old readers survive both rollback and commit recovery.
+			rows := snapshotExecuteTest(t, source, oldCtx, "SELECT id FROM "+from+" ORDER BY id").rows
+			if len(rows) != n {
+				t.Fatal("crash recovery changed pinned input count", len(rows))
+			}
+			for i, row := range rows {
+				if len(row) != 1 || row[0].Null || row[0].T != typeInt64 || row[0].I != int64(i+1) {
+					t.Fatal("crash recovery changed pinned input", i)
+				}
+			}
+			oldPin.release()
+			if mode != "committed" {
+				h.expectSnapshotReleased(raw, prefix, snapshotIndexPrefix(data)+"working")
+				count := n
+				if mode == "private_write" {
+					count++
+				}
+				expectRekeyExactRows(t, h, from, count)
+				if err := long.setConnOption(OptionStringRenameRekey, "true"); err != nil {
+					t.Fatal(err)
+				}
+				long.exec("ALTER TABLE " + from + " RENAME TO " + to)
+				target := h.inspectTable(raw, defaultSchema, to)
+				if target.prefix() == prefix || target.prefix() == original.prefix() {
+					t.Fatal("fresh request reused crashed output")
+				}
+				expectRekeyExactRows(t, long, to, count)
+			}
+			if _, err := h.conn.GetTableSchema(h.ctx, nil, nil, from); !isStatus(err, adbc.StatusNotFound) {
+				t.Fatal("old binding survived committed rename", err)
+			}
+			for _, seg := range original.snapshotSegments() {
+				h.expectSnapshotReleased(raw, seg.Prefix, seg.Index)
+			}
+			if raw.HExists(h.ctx, snapshotCatalogKey, "p:"+boundary.Token).Val() {
+				t.Fatal("dead child retained reader control")
+			}
+			long.exec("INSERT INTO " + to + " VALUES (50002)")
+			h.expectRows("SELECT id FROM "+to+" WHERE id=50002", "50002")
+		})
 	}
 }
 

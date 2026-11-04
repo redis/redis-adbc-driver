@@ -371,3 +371,9 @@ abandoned-work recovery, publication conflicts, lease fencing and exact concurre
 write outcomes. Sixteen combined rekey/Close race events and a lost-reply GC check
 pass. Verified admission backpressure remains a sustained-performance concern;
 process-kill, full ordinary/platform and performance gates remain open.
+
+The [native rekey crash checkpoint](rekey-crash-validation.md) kills actual child
+processes at acknowledged private-copy and committed-root boundaries. Three
+50,000-row recovery cases plus their parent pass under the race detector, with
+exact retained values/types, output non-reuse and reader-protected reclamation.
+Natural lease-duration, full ordinary/platform and performance gates remain open.
