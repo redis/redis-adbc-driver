@@ -38,6 +38,7 @@ class ScreenTests(unittest.TestCase):
                              'import json,sys,time\n'
                              'json.load(sys.stdin)\n'
                              'data=bytearray(64*1024*1024)\n'
+                             'data[::4096]=b"x"*(len(data)//4096)\n'
                              'time.sleep(0.2)\n'
                              'print(len(data))\n')
             child.chmod(0o700)
