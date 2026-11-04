@@ -45,8 +45,9 @@ wheels are not provided. You can also install a wheel attached to a release:
 python -m pip install '/path/to/adbc_driver_redis-<version>-py3-none-<platform>.whl[dbapi]'
 ```
 
-The wheel bundles the native library. macOS release wheels target macOS 12+
-(the Go 1.26 runtime minimum); the builder checks the library deployment target
+The wheel bundles the native library. macOS release wheels target macOS 15+
+(the oldest macOS branch receiving Apple's October 2026 security updates);
+the builder checks the library deployment target
 before tagging. For development:
 
 ```sh

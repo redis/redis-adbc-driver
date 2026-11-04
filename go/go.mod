@@ -1,6 +1,6 @@
 module github.com/adbc-drivers/redis/go
 
-go 1.26.10
+go 1.27.3
 
 require (
 	github.com/adbc-drivers/driverbase-go/driverbase v0.0.0-20261015034256-4c82882827b5

@@ -63,6 +63,11 @@ Substrait plans are currently unsupported; see the
 [Substrait assessment](docs/substrait.md) for the proposed scope. Contributor
 context and development records are in the [SDLC guide](docs/sdlc/README.md).
 
+Experimental [CUDA predicates and Arrow C Device staging](docs/gpu-execution.md)
+are opt-in and under validation. CPU execution remains the default. The earlier
+[GPU feasibility experiment](benchmarks/gpu-query/README.md) records its measured
+workload and performance limits.
+
 ## Contents
 
 - [Why a Redis ADBC driver?](#why-a-redis-adbc-driver)
@@ -163,8 +168,8 @@ for those rows cover scope or companion integration decisions.
 | Substrait plans | 🔴 Unsupported | `SetSubstraitPlan` returns NotImplemented. | [#213](https://github.com/redis/redis-adbc-driver/issues/213) |
 | Arrow Flight / Flight SQL endpoint | ⚪ N/A | A Flight endpoint belongs to a separately deployed service, such as the [Redis Flight server](https://github.com/redis/redis-apache-arrow-flight). This native ADBC driver supplies an in-process client interface. | [#214](https://github.com/redis/redis-adbc-driver/issues/214) |
 | Continuous subscriptions / CDC | ⚪ N/A | Durable change feeds and snapshot-to-live handoff need a separately designed source/service contract. Finite SQL query results are the driver's current interface; [#196](https://github.com/redis/redis-adbc-driver/issues/196) evaluates where CDC should live. | [#196](https://github.com/redis/redis-adbc-driver/issues/196) |
-| Arrow C Device interface | 🔴 Unsupported | No device-buffer ingestion or Arrow C Device interchange contract. Device-buffer interoperability is separate from executing SQL on a GPU. | [#215](https://github.com/redis/redis-adbc-driver/issues/215) |
-| GPU query execution | ⚪ N/A | GPU execution is the responsibility of a compute engine consuming Arrow results; this driver runs its SQL evaluator on the CPU and delegates eligible work to Redis Search. | — |
+| Arrow C Device interface | 🟡 Experimental | Native extensions stage flat numeric/boolean CPU/CUDA arrays, bind device input and export device result streams. Explicit synchronization/ownership contract; Validated on NVIDIA A10G with real producer/consumer tests. [API and limits](docs/gpu-execution.md). | [#215](https://github.com/redis/redis-adbc-driver/issues/215) |
+| GPU query execution | 🟡 Experimental | Opt-in Linux CUDA integer predicates; fetching, grouping and exact reducers remain on CPU. Restricted SQL subset, no automatic fallback or speedup claim. [Scope](docs/gpu-execution.md). | [#215](https://github.com/redis/redis-adbc-driver/issues/215) |
 
 See [Arrow normalization, result-layout options and ownership](docs/arrow-interoperability.md) for the precise contracts and remaining acceptance limits.
 

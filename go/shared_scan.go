@@ -97,6 +97,7 @@ func (e *executor) newScanReader(ctx context.Context, plan *selectPlan, req scan
 		return nil, err
 	}
 	it.projection = newScanProjection(it, plan.items)
+	it.allowPrefetch = scanPrefetchEnabled
 	r := &streamReader{ctx: sctx, cancel: cancel, exec: e, cache: e.cache, items: plan.items, it: it,
 		env: e.newEnv(sctx, plan.meta.types(), params), zone: e.zone(), cols: cols, schema: resultSchema(cols), mem: so.mem, batchRows: so.batchRows, batchBytes: so.batchBytes, left: -1}
 	r.refs.Store(1)

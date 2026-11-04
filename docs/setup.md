@@ -25,7 +25,7 @@ and uninstall. The Python wheel path below remains the simplest Python setup.
 
 Use Python 3.14 for current integrations; Python 3.12+ remains installable for
 the separate Superset compatibility environment. Wheels include the native library for Linux x86-64/ARM64
-(glibc 2.28+) and macOS ARM64 (macOS 12+). Windows, macOS Intel and musl Linux
+(glibc 2.28+) and macOS ARM64 (macOS 15+). Windows, macOS Intel and musl Linux
 have no published wheels. Installing a driver does not start a Redis server.
 
 ```sh

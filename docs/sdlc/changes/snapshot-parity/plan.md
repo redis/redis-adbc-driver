@@ -21,6 +21,11 @@ The [foreign ownership checkpoint](foreign-ownership-validation.md) verifies
 external index/HASH preservation and reclamation of a real failed private CREATE
 output without identity reuse. Restricted-role and full-suite evidence remain open.
 
+The [current-main prefetch checkpoint](current-main-prefetch-validation.md)
+integrates incoming scan/device work while retaining snapshot visibility and
+execution cleanup. Experimental directory/candidate prefetch and public wide
+SQL/partition checks pass; full combined validation remains open.
+
 The [consistency-boundary recommendation](consistency-boundary.md) proposes a
 shared driver consistency layer across execution paths. A new
 Redis server extension is not required by this plan.

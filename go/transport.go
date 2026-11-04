@@ -26,6 +26,8 @@ type executionTransport struct {
 	mu          sync.Mutex
 	sockets     map[*executionSocket]bool
 	interrupted bool
+	finishing   bool
+	background  map[<-chan struct{}]struct{}
 	once        sync.Once
 	finished    sync.Once
 	done        chan struct{}
@@ -66,6 +68,16 @@ func (t *executionTransport) closeClient() {
 	t.once.Do(func() {
 		t.cancel(nil)
 		t.interrupt()
+		t.mu.Lock()
+		t.finishing = true
+		pending := make([]<-chan struct{}, 0, len(t.background))
+		for done := range t.background {
+			pending = append(pending, done)
+		}
+		t.mu.Unlock()
+		for _, done := range pending {
+			<-done
+		}
 		_ = t.client.Close()
 		for _, owner := range t.owners {
 			owner.remove(t)
@@ -78,10 +90,14 @@ func (t *executionTransport) closeClient() {
 func (t *executionTransport) finish() {
 	t.closeClient()
 	t.finished.Do(func() {
-		t.owner.mu.Lock()
-		delete(t.owner.executions, t)
-		t.owner.mu.Unlock()
-		close(t.done)
+		if t.owner != nil {
+			t.owner.mu.Lock()
+			delete(t.owner.executions, t)
+			t.owner.mu.Unlock()
+		}
+		if t.done != nil {
+			close(t.done)
+		}
 	})
 }
 
@@ -93,6 +109,28 @@ func (s *store) activeExecutions() []*executionTransport {
 		out = append(out, execution)
 	}
 	return out
+}
+
+// Registration and finish share mu, so a worker cannot start after the pool
+// has begun closing. Socket interruption precedes joining blocked network work.
+func (t *executionTransport) addBackground(done <-chan struct{}) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.finishing || t.ctx.Err() != nil {
+		return false
+	}
+	if t.background == nil {
+		t.background = make(map[<-chan struct{}]struct{})
+	}
+	t.background[done] = struct{}{}
+	return true
+}
+
+func (t *executionTransport) completeBackground(done chan struct{}) {
+	t.mu.Lock()
+	close(done)
+	delete(t.background, done)
+	t.mu.Unlock()
 }
 
 // Arm cancellation for exactly the period during which a command owns sockets.
