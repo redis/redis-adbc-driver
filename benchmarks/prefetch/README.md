@@ -1,7 +1,7 @@
 # Bounded prefetch screen
 
 This runner compares prefetch off/on builds from the same runtime source.
-Current default-enabled candidates use `scanprefetchoff` for the baseline and
+Current builds use `scanprefetchoff` for the baseline and
 normal build flags for the candidate. Historical prototype revisions defaulted
 off and required `scanprefetch` for the candidate. It does not load ClickBench data. Restore an existing
 verified compatible full-scale backup on Redis Software and verify active 4x QPF.
@@ -88,8 +88,10 @@ Go heap (20 ms) is not a strict peak bound or RSS. Per-process lifetime peak RSS
 includes initialization. These allocator/consumer details limit comparisons with
 Python/C Arrow results and must accompany any reported speedup.
 
-A completed restored-fixture screen with raw trial JSON and limitations is in
-[2026-11-03/README.md](2026-11-03/README.md).
+The [default qualification](2026-11-03-default/README.md) retains four twenty-pair
+matrices, final normal-build confirmation and memory/cleanup evidence. The earlier
+[prototype screen](2026-11-03/README.md) remains labeled by its historical source
+and settings.
 
 The runner additionally requires `psutil` for 20 ms samples of the benchmark
 child PID's current RSS. `sampled_process_peak_rss_bytes` excludes the Python

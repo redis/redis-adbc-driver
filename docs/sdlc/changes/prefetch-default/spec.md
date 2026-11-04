@@ -1,5 +1,8 @@
 # Specification
 
+November 3–4, 2026. See [intent](intent.md), [plan](plan.md) and
+[validation](validation.md).
+
 This assessment preserves the merged prototype's stage ownership and semantics.
 The producer alone discovers/fetches a page and finalizes its cursor. The consumer
 alone decodes/appends Arrow. Unbuffered handoff allows the current owned page plus
@@ -8,7 +11,7 @@ byte cap for arbitrary variable-width values. Transport shutdown interrupts
 sockets and joins workers/cursor finalizers before closing pools. Connection
 Close covers initial fill before a public reader is attached.
 
-Default eligibility, if the gate passes, remains restricted to wide managed
+Default eligibility remains restricted to wide managed
 positional HASH streams (at least 64 required columns), with no GPU execution,
 direct-key plan, tie sorting or late materialization. Narrow, adopted, residual,
 short pushed LIMIT and other unsupported plans retain their existing paths.
@@ -36,3 +39,7 @@ conversion; earlier producer lookahead cannot establish end-of-read readiness.
 If the initial discovery reply has a zero cursor, all discovery fit in one page:
 retain the synchronous path because there is no additional page to overlap.
 After worker startup, eligibility must not read worker-owned cursor fields.
+
+Disposition: the completed qualification passes. Normal builds enable prefetch;
+`scanprefetchoff` preserves a build-only synchronous baseline. See
+[validation](validation.md) for the measured revisions and evidence.

@@ -1,0 +1,9 @@
+{
+  "passed": true,
+  "independently_validated_executions": 192,
+  "total_qualification_executions": 1568,
+  "candidate_commit": "07bf8decabfed75c9f1a93d27051f16970e0c30c",
+  "source_and_selection_verified": true,
+  "final_timing_consistent_with_primary_gate": true,
+  "interpretation": "Final normal-source five-pair confirmation is separate from the four predeclared twenty-pair qualification matrices; compare complete records, do not pool"
+}

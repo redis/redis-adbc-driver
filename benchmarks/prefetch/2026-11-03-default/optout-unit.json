@@ -1,0 +1,7 @@
+{
+  "passed": true,
+  "candidate_commit": "07bf8decabfed75c9f1a93d27051f16970e0c30c",
+  "command": "env -u REDIS_URI go test -count=1 -p 1 -tags scanprefetchoff ./...",
+  "driver_seconds": 26.351,
+  "scope": "Unit-only; expected Redis integration skips, supplemented by restored-fixture opt-out selection proof"
+}

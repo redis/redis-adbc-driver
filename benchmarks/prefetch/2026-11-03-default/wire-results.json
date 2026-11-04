@@ -1,0 +1,2336 @@
+{
+  "status": "passed",
+  "smoke": true,
+  "wire_diagnostic": true,
+  "consumer_boundary": "Go public API",
+  "wide_columns": 105,
+  "trials": [
+    {
+      "allocated_bytes": 1161782720,
+      "allocations": 33040549,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.483078000000001,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 59747464,
+      "heap_before_bytes": 1946432,
+      "metrics": [
+        {
+          "Rows": 100000,
+          "Batches": 2,
+          "FirstRows": 65536,
+          "FirstSeconds": 7.198021423
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 213954560,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 155597840,
+      "seconds": 11.086784936,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "baseline",
+      "projection": "wide",
+      "repeat": -1,
+      "warmup": true,
+      "sampled_process_peak_rss_bytes": 205975552,
+      "process_rss_samples": 554,
+      "process_rss_scope": "20ms samples of this child PID current RSS; excludes parent reference memory; not a strict peak",
+      "process_seconds": 11.16764147000049,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "request_bytes": 193463818,
+      "reply_bytes": 153685010,
+      "wire_scope": "TCP payload read from benchmark-client and server relay legs; includes TLS framing/handshake, excludes IP headers and separate INFO control; diagnostic timings only",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 191676364,
+      "total_net_output_bytes_delta": 368125399
+    },
+    {
+      "allocated_bytes": 1162047904,
+      "allocations": 33051027,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.472853,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 110597984,
+      "heap_before_bytes": 1945912,
+      "metrics": [
+        {
+          "Rows": 100000,
+          "Batches": 2,
+          "FirstRows": 65536,
+          "FirstSeconds": 6.07591612
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 430342144,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 168738560,
+      "seconds": 9.635602412,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "candidate",
+      "projection": "wide",
+      "repeat": -1,
+      "warmup": true,
+      "sampled_process_peak_rss_bytes": 218652672,
+      "process_rss_samples": 482,
+      "process_rss_scope": "20ms samples of this child PID current RSS; excludes parent reference memory; not a strict peak",
+      "process_seconds": 9.704856472999381,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "request_bytes": 193463960,
+      "reply_bytes": 153747450,
+      "wire_scope": "TCP payload read from benchmark-client and server relay legs; includes TLS framing/handshake, excludes IP headers and separate INFO control; diagnostic timings only",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 192243886,
+      "total_net_output_bytes_delta": 276974722
+    },
+    {
+      "allocated_bytes": 1178138528,
+      "allocations": 33219129,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.832819000000001,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 70286824,
+      "heap_before_bytes": 2504336,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.679042364
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.748354101
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 4.602403322
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 4.548609242
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 430342144,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 284431264,
+      "seconds": 4.608358352,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "baseline",
+      "projection": "wide",
+      "repeat": -1,
+      "warmup": true,
+      "sampled_process_peak_rss_bytes": 359890944,
+      "process_rss_samples": 240,
+      "process_rss_scope": "20ms samples of this child PID current RSS; excludes parent reference memory; not a strict peak",
+      "process_seconds": 4.827104880000661,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "request_bytes": 193489810,
+      "reply_bytes": 154700172,
+      "wire_scope": "TCP payload read from benchmark-client and server relay legs; includes TLS framing/handshake, excludes IP headers and separate INFO control; diagnostic timings only",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 192829144,
+      "total_net_output_bytes_delta": 318380591
+    },
+    {
+      "allocated_bytes": 1179022896,
+      "allocations": 33245629,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 5.042522,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 67527840,
+      "heap_before_bytes": 2503576,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.704956599
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.624990598
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.369901966
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.550531324
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 432754688,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 330097808,
+      "seconds": 3.711098604,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "candidate",
+      "projection": "wide",
+      "repeat": -1,
+      "warmup": true,
+      "sampled_process_peak_rss_bytes": 382681088,
+      "process_rss_samples": 196,
+      "process_rss_scope": "20ms samples of this child PID current RSS; excludes parent reference memory; not a strict peak",
+      "process_seconds": 3.940268221000224,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "request_bytes": 193489954,
+      "reply_bytes": 154857761,
+      "wire_scope": "TCP payload read from benchmark-client and server relay legs; includes TLS framing/handshake, excludes IP headers and separate INFO control; diagnostic timings only",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 180632190,
+      "total_net_output_bytes_delta": 296545277
+    },
+    {
+      "allocated_bytes": 1174551328,
+      "allocations": 32745177,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.860063,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 68084304,
+      "heap_before_bytes": 1946552,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.939351197
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 5.723930086
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 8.352802341
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 11.019486548
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 434618368,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 91507712,
+      "seconds": 11.026417605,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "baseline",
+      "projection": "wide",
+      "repeat": -1,
+      "warmup": true,
+      "sampled_process_peak_rss_bytes": 145477632,
+      "process_rss_samples": 551,
+      "process_rss_scope": "20ms samples of this child PID current RSS; excludes parent reference memory; not a strict peak",
+      "process_seconds": 11.092864537000423,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "request_bytes": 193480044,
+      "reply_bytes": 151851613,
+      "wire_scope": "TCP payload read from benchmark-client and server relay legs; includes TLS framing/handshake, excludes IP headers and separate INFO control; diagnostic timings only",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 206365337,
+      "total_net_output_bytes_delta": 344230927
+    },
+    {
+      "allocated_bytes": 1175255760,
+      "allocations": 32766172,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.822523,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 68309320,
+      "heap_before_bytes": 1945952,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.336986096
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 4.783735009
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 7.311872372
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 9.628117408
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 435412992,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 92761984,
+      "seconds": 9.634863291,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "candidate",
+      "projection": "wide",
+      "repeat": -1,
+      "warmup": true,
+      "sampled_process_peak_rss_bytes": 151535616,
+      "process_rss_samples": 482,
+      "process_rss_scope": "20ms samples of this child PID current RSS; excludes parent reference memory; not a strict peak",
+      "process_seconds": 9.701802730000054,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "request_bytes": 193480334,
+      "reply_bytes": 151977027,
+      "wire_scope": "TCP payload read from benchmark-client and server relay legs; includes TLS framing/handshake, excludes IP headers and separate INFO control; diagnostic timings only",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 198744706,
+      "total_net_output_bytes_delta": 310470271
+    },
+    {
+      "allocated_bytes": 1174124592,
+      "allocations": 32744942,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.738917,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 158234600,
+      "heap_before_bytes": 2508976,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.47237038
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.184640498
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.67265999
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.178012168
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 435949568,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 369918144,
+      "seconds": 3.679896816,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "baseline",
+      "projection": "wide",
+      "repeat": -1,
+      "warmup": true,
+      "sampled_process_peak_rss_bytes": 425467904,
+      "process_rss_samples": 195,
+      "process_rss_scope": "20ms samples of this child PID current RSS; excludes parent reference memory; not a strict peak",
+      "process_seconds": 3.9096260249998522,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "request_bytes": 193487553,
+      "reply_bytes": 151864403,
+      "wire_scope": "TCP payload read from benchmark-client and server relay legs; includes TLS framing/handshake, excludes IP headers and separate INFO control; diagnostic timings only",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 189862026,
+      "total_net_output_bytes_delta": 277991696
+    },
+    {
+      "allocated_bytes": 1175135072,
+      "allocations": 32766035,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.762795,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 135010184,
+      "heap_before_bytes": 2505208,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.656005595
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.05229494
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.411398326
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.426517926
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 436461568,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 348398224,
+      "seconds": 3.433133336,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "candidate",
+      "projection": "wide",
+      "repeat": -1,
+      "warmup": true,
+      "sampled_process_peak_rss_bytes": 405639168,
+      "process_rss_samples": 182,
+      "process_rss_scope": "20ms samples of this child PID current RSS; excludes parent reference memory; not a strict peak",
+      "process_seconds": 3.6633584669998527,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "request_bytes": 193487855,
+      "reply_bytes": 151989499,
+      "wire_scope": "TCP payload read from benchmark-client and server relay legs; includes TLS framing/handshake, excludes IP headers and separate INFO control; diagnostic timings only",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 175414332,
+      "total_net_output_bytes_delta": 271710991
+    },
+    {
+      "allocated_bytes": 231485136,
+      "allocations": 4281794,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.74955,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 7710216,
+      "heap_before_bytes": 1943544,
+      "metrics": [
+        {
+          "Rows": 100000,
+          "Batches": 2,
+          "FirstRows": 65536,
+          "FirstSeconds": 3.652811792
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 437616640,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 28650632,
+      "seconds": 5.426684629,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "baseline",
+      "projection": "narrow",
+      "repeat": -1,
+      "warmup": true,
+      "sampled_process_peak_rss_bytes": 70328320,
+      "process_rss_samples": 273,
+      "process_rss_scope": "20ms samples of this child PID current RSS; excludes parent reference memory; not a strict peak",
+      "process_seconds": 5.4859898459999386,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "request_bytes": 8713588,
+      "reply_bytes": 24093757,
+      "wire_scope": "TCP payload read from benchmark-client and server relay legs; includes TLS framing/handshake, excludes IP headers and separate INFO control; diagnostic timings only",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 43871959,
+      "total_net_output_bytes_delta": 150570259
+    },
+    {
+      "allocated_bytes": 231458952,
+      "allocations": 4281805,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.7566200000000001,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 15298616,
+      "heap_before_bytes": 1944024,
+      "metrics": [
+        {
+          "Rows": 100000,
+          "Batches": 2,
+          "FirstRows": 65536,
+          "FirstSeconds": 3.846453524
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 437616640,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 30749144,
+      "seconds": 5.622305593,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "candidate",
+      "projection": "narrow",
+      "repeat": -1,
+      "warmup": true,
+      "sampled_process_peak_rss_bytes": 74772480,
+      "process_rss_samples": 282,
+      "process_rss_scope": "20ms samples of this child PID current RSS; excludes parent reference memory; not a strict peak",
+      "process_seconds": 5.682468220999908,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "request_bytes": 8713579,
+      "reply_bytes": 24093198,
+      "wire_scope": "TCP payload read from benchmark-client and server relay legs; includes TLS framing/handshake, excludes IP headers and separate INFO control; diagnostic timings only",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 9382738,
+      "total_net_output_bytes_delta": 100911682
+    },
+    {
+      "allocated_bytes": 240400264,
+      "allocations": 4441153,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.69665,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 55783472,
+      "heap_before_bytes": 2500536,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.9737132910000001
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.868073654
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.830494978
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.8873322049999999
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 437616640,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 59084752,
+      "seconds": 1.9740714910000001,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "baseline",
+      "projection": "narrow",
+      "repeat": -1,
+      "warmup": true,
+      "sampled_process_peak_rss_bytes": 106823680,
+      "process_rss_samples": 108,
+      "process_rss_scope": "20ms samples of this child PID current RSS; excludes parent reference memory; not a strict peak",
+      "process_seconds": 2.1783553679997567,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "request_bytes": 8739314,
+      "reply_bytes": 25063466,
+      "wire_scope": "TCP payload read from benchmark-client and server relay legs; includes TLS framing/handshake, excludes IP headers and separate INFO control; diagnostic timings only",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 5063595,
+      "total_net_output_bytes_delta": 82920502
+    },
+    {
+      "allocated_bytes": 240202768,
+      "allocations": 4441180,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.7287079999999999,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 25658992,
+      "heap_before_bytes": 2496744,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.983200107
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.048124754
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.953130234
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.948591811
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 437616640,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 72176640,
+      "seconds": 2.048513244,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "candidate",
+      "projection": "narrow",
+      "repeat": -1,
+      "warmup": true,
+      "sampled_process_peak_rss_bytes": 119959552,
+      "process_rss_samples": 112,
+      "process_rss_scope": "20ms samples of this child PID current RSS; excludes parent reference memory; not a strict peak",
+      "process_seconds": 2.2557537220000086,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "request_bytes": 8739306,
+      "reply_bytes": 25063195,
+      "wire_scope": "TCP payload read from benchmark-client and server relay legs; includes TLS framing/handshake, excludes IP headers and separate INFO control; diagnostic timings only",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 12587287,
+      "total_net_output_bytes_delta": 176565269
+    },
+    {
+      "allocated_bytes": 236355056,
+      "allocations": 3964952,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.7964819999999999,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 14939664,
+      "heap_before_bytes": 1942960,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.6686589490000001
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.24832733
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 4.984161004
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 6.797076109
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 437616640,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 25774984,
+      "seconds": 6.798337703,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "baseline",
+      "projection": "narrow",
+      "repeat": -1,
+      "warmup": true,
+      "sampled_process_peak_rss_bytes": 71110656,
+      "process_rss_samples": 341,
+      "process_rss_scope": "20ms samples of this child PID current RSS; excludes parent reference memory; not a strict peak",
+      "process_seconds": 6.857950366000296,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "request_bytes": 8729498,
+      "reply_bytes": 22244789,
+      "wire_scope": "TCP payload read from benchmark-client and server relay legs; includes TLS framing/handshake, excludes IP headers and separate INFO control; diagnostic timings only",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 10542937,
+      "total_net_output_bytes_delta": 142722602
+    },
+    {
+      "allocated_bytes": 236427680,
+      "allocations": 3965075,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.787183,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 9274936,
+      "heap_before_bytes": 1943072,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.6566056439999999
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.236760905
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 4.896799723
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 6.563751178
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 437616640,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 26443424,
+      "seconds": 6.564766186,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "candidate",
+      "projection": "narrow",
+      "repeat": -1,
+      "warmup": true,
+      "sampled_process_peak_rss_bytes": 68681728,
+      "process_rss_samples": 329,
+      "process_rss_scope": "20ms samples of this child PID current RSS; excludes parent reference memory; not a strict peak",
+      "process_seconds": 6.623815955999817,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "request_bytes": 8729502,
+      "reply_bytes": 22245761,
+      "wire_scope": "TCP payload read from benchmark-client and server relay legs; includes TLS framing/handshake, excludes IP headers and separate INFO control; diagnostic timings only",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 9381435,
+      "total_net_output_bytes_delta": 116050541
+    },
+    {
+      "allocated_bytes": 236015216,
+      "allocations": 3964728,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.678762,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 31974200,
+      "heap_before_bytes": 2488264,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.835233803
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.733169743
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.854465754
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.770034194
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 437616640,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 60837112,
+      "seconds": 1.855617396,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "baseline",
+      "projection": "narrow",
+      "repeat": -1,
+      "warmup": true,
+      "sampled_process_peak_rss_bytes": 109449216,
+      "process_rss_samples": 103,
+      "process_rss_scope": "20ms samples of this child PID current RSS; excludes parent reference memory; not a strict peak",
+      "process_seconds": 2.062056054000095,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "request_bytes": 8737061,
+      "reply_bytes": 22256615,
+      "wire_scope": "TCP payload read from benchmark-client and server relay legs; includes TLS framing/handshake, excludes IP headers and separate INFO control; diagnostic timings only",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 5312729,
+      "total_net_output_bytes_delta": 75668532
+    },
+    {
+      "allocated_bytes": 235800272,
+      "allocations": 3964878,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.6840350000000001,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 34673496,
+      "heap_before_bytes": 2496336,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.696096017
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.8136700559999999
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.861095723
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.837477392
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 437616640,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 64736800,
+      "seconds": 1.8623365870000002,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "candidate",
+      "projection": "narrow",
+      "repeat": -1,
+      "warmup": true,
+      "sampled_process_peak_rss_bytes": 113020928,
+      "process_rss_samples": 103,
+      "process_rss_scope": "20ms samples of this child PID current RSS; excludes parent reference memory; not a strict peak",
+      "process_seconds": 2.064917833000436,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "request_bytes": 8737065,
+      "reply_bytes": 22256009,
+      "wire_scope": "TCP payload read from benchmark-client and server relay legs; includes TLS framing/handshake, excludes IP headers and separate INFO control; diagnostic timings only",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 8644916,
+      "total_net_output_bytes_delta": 111082262
+    },
+    {
+      "allocated_bytes": 235871928,
+      "allocations": 3964747,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.67243,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 40692072,
+      "heap_before_bytes": 2497088,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.8609372899999999
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.88459014
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.837140915
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.8138590749999999
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 437616640,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 65410160,
+      "seconds": 1.88567529,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "candidate",
+      "projection": "narrow",
+      "repeat": 0,
+      "warmup": false,
+      "sampled_process_peak_rss_bytes": 112205824,
+      "process_rss_samples": 104,
+      "process_rss_scope": "20ms samples of this child PID current RSS; excludes parent reference memory; not a strict peak",
+      "process_seconds": 2.0892120710004747,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "request_bytes": 8737063,
+      "reply_bytes": 22256531,
+      "wire_scope": "TCP payload read from benchmark-client and server relay legs; includes TLS framing/handshake, excludes IP headers and separate INFO control; diagnostic timings only",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 9427192,
+      "total_net_output_bytes_delta": 116127027
+    },
+    {
+      "allocated_bytes": 235819000,
+      "allocations": 3964635,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.7053090000000001,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 12739056,
+      "heap_before_bytes": 2496064,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.757466026
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.775873995
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.913662097
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.705686315
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 437616640,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 66593384,
+      "seconds": 1.9145721409999998,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "baseline",
+      "projection": "narrow",
+      "repeat": 0,
+      "warmup": false,
+      "sampled_process_peak_rss_bytes": 114728960,
+      "process_rss_samples": 105,
+      "process_rss_scope": "20ms samples of this child PID current RSS; excludes parent reference memory; not a strict peak",
+      "process_seconds": 2.117732621999494,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "request_bytes": 8737065,
+      "reply_bytes": 22256399,
+      "wire_scope": "TCP payload read from benchmark-client and server relay legs; includes TLS framing/handshake, excludes IP headers and separate INFO control; diagnostic timings only",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 9637125,
+      "total_net_output_bytes_delta": 119215814
+    },
+    {
+      "allocated_bytes": 236499976,
+      "allocations": 3965061,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.7934950000000001,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 10455704,
+      "heap_before_bytes": 1949496,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.726027016
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.392832079
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 5.044952713
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 6.610121303
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 437616640,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 26106336,
+      "seconds": 6.611368467,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "candidate",
+      "projection": "narrow",
+      "repeat": 0,
+      "warmup": false,
+      "sampled_process_peak_rss_bytes": 71700480,
+      "process_rss_samples": 331,
+      "process_rss_scope": "20ms samples of this child PID current RSS; excludes parent reference memory; not a strict peak",
+      "process_seconds": 6.669724616000167,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "request_bytes": 8729498,
+      "reply_bytes": 22245493,
+      "wire_scope": "TCP payload read from benchmark-client and server relay legs; includes TLS framing/handshake, excludes IP headers and separate INFO control; diagnostic timings only",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 13018645,
+      "total_net_output_bytes_delta": 140635785
+    },
+    {
+      "allocated_bytes": 236358368,
+      "allocations": 3964932,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.7985310000000001,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 14801304,
+      "heap_before_bytes": 1943968,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.786891051
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.3754730139999998
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 4.9508161489999996
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 6.650990501
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 437616640,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 25830024,
+      "seconds": 6.652134892,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "baseline",
+      "projection": "narrow",
+      "repeat": 0,
+      "warmup": false,
+      "sampled_process_peak_rss_bytes": 73949184,
+      "process_rss_samples": 333,
+      "process_rss_scope": "20ms samples of this child PID current RSS; excludes parent reference memory; not a strict peak",
+      "process_seconds": 6.712044545000026,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "request_bytes": 8729496,
+      "reply_bytes": 22245359,
+      "wire_scope": "TCP payload read from benchmark-client and server relay legs; includes TLS framing/handshake, excludes IP headers and separate INFO control; diagnostic timings only",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 9509632,
+      "total_net_output_bytes_delta": 116786271
+    },
+    {
+      "allocated_bytes": 240511344,
+      "allocations": 4441110,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.708459,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 6190824,
+      "heap_before_bytes": 2501144,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.011150497
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.948339802
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.991316801
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.956215254
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 437616640,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 62345608,
+      "seconds": 2.011651211,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "candidate",
+      "projection": "narrow",
+      "repeat": 0,
+      "warmup": false,
+      "sampled_process_peak_rss_bytes": 108265472,
+      "process_rss_samples": 110,
+      "process_rss_scope": "20ms samples of this child PID current RSS; excludes parent reference memory; not a strict peak",
+      "process_seconds": 2.2137663200001043,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "request_bytes": 8739313,
+      "reply_bytes": 25062827,
+      "wire_scope": "TCP payload read from benchmark-client and server relay legs; includes TLS framing/handshake, excludes IP headers and separate INFO control; diagnostic timings only",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 7975254,
+      "total_net_output_bytes_delta": 114381574
+    },
+    {
+      "allocated_bytes": 240293640,
+      "allocations": 4441166,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.684895,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 42388104,
+      "heap_before_bytes": 2496152,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.971122077
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.06381729
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.980047728
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 1.641270808
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 437616640,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 66315696,
+      "seconds": 2.064109268,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "baseline",
+      "projection": "narrow",
+      "repeat": 0,
+      "warmup": false,
+      "sampled_process_peak_rss_bytes": 113184768,
+      "process_rss_samples": 113,
+      "process_rss_scope": "20ms samples of this child PID current RSS; excludes parent reference memory; not a strict peak",
+      "process_seconds": 2.2679188930005694,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "request_bytes": 8739312,
+      "reply_bytes": 25063002,
+      "wire_scope": "TCP payload read from benchmark-client and server relay legs; includes TLS framing/handshake, excludes IP headers and separate INFO control; diagnostic timings only",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 10221783,
+      "total_net_output_bytes_delta": 151338946
+    },
+    {
+      "allocated_bytes": 231555416,
+      "allocations": 4281813,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.74997,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 9519912,
+      "heap_before_bytes": 1942512,
+      "metrics": [
+        {
+          "Rows": 100000,
+          "Batches": 2,
+          "FirstRows": 65536,
+          "FirstSeconds": 3.645505909
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 437616640,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 30269656,
+      "seconds": 5.576706129,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "candidate",
+      "projection": "narrow",
+      "repeat": 0,
+      "warmup": false,
+      "sampled_process_peak_rss_bytes": 75866112,
+      "process_rss_samples": 280,
+      "process_rss_scope": "20ms samples of this child PID current RSS; excludes parent reference memory; not a strict peak",
+      "process_seconds": 5.636615057000199,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "request_bytes": 8713597,
+      "reply_bytes": 24092028,
+      "wire_scope": "TCP payload read from benchmark-client and server relay legs; includes TLS framing/handshake, excludes IP headers and separate INFO control; diagnostic timings only",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 10020647,
+      "total_net_output_bytes_delta": 124870669
+    },
+    {
+      "allocated_bytes": 231481656,
+      "allocations": 4281780,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 0.774625,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 11167528,
+      "heap_before_bytes": 1942784,
+      "metrics": [
+        {
+          "Rows": 100000,
+          "Batches": 2,
+          "FirstRows": 65536,
+          "FirstSeconds": 3.7919663850000003
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 437616640,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 31875208,
+      "seconds": 5.598496838,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "baseline",
+      "projection": "narrow",
+      "repeat": 0,
+      "warmup": false,
+      "sampled_process_peak_rss_bytes": 77971456,
+      "process_rss_samples": 281,
+      "process_rss_scope": "20ms samples of this child PID current RSS; excludes parent reference memory; not a strict peak",
+      "process_seconds": 5.658749842999896,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 3,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "request_bytes": 8713588,
+      "reply_bytes": 24092635,
+      "wire_scope": "TCP payload read from benchmark-client and server relay legs; includes TLS framing/handshake, excludes IP headers and separate INFO control; diagnostic timings only",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 9622540,
+      "total_net_output_bytes_delta": 96832082
+    },
+    {
+      "allocated_bytes": 1175116096,
+      "allocations": 32766082,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.860522,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 219232704,
+      "heap_before_bytes": 2501472,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.103079155
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.052200062
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.177777971
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.94394416
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 437616640,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 347693344,
+      "seconds": 3.184356788,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "candidate",
+      "projection": "wide",
+      "repeat": 0,
+      "warmup": false,
+      "sampled_process_peak_rss_bytes": 401526784,
+      "process_rss_samples": 170,
+      "process_rss_scope": "20ms samples of this child PID current RSS; excludes parent reference memory; not a strict peak",
+      "process_seconds": 3.4150920850006514,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "request_bytes": 193487891,
+      "reply_bytes": 151988077,
+      "wire_scope": "TCP payload read from benchmark-client and server relay legs; includes TLS framing/handshake, excludes IP headers and separate INFO control; diagnostic timings only",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 147666507,
+      "total_net_output_bytes_delta": 239008290
+    },
+    {
+      "allocated_bytes": 1174229344,
+      "allocations": 32744887,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.732071,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 32183560,
+      "heap_before_bytes": 2505888,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.2254273270000002
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.721423043
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.674408845
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.120816594
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 440442880,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 370022800,
+      "seconds": 3.7282659479999998,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "baseline",
+      "projection": "wide",
+      "repeat": 0,
+      "warmup": false,
+      "sampled_process_peak_rss_bytes": 425213952,
+      "process_rss_samples": 197,
+      "process_rss_scope": "20ms samples of this child PID current RSS; excludes parent reference memory; not a strict peak",
+      "process_seconds": 3.9577523810003186,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "request_bytes": 193487613,
+      "reply_bytes": 151865425,
+      "wire_scope": "TCP payload read from benchmark-client and server relay legs; includes TLS framing/handshake, excludes IP headers and separate INFO control; diagnostic timings only",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 215860531,
+      "total_net_output_bytes_delta": 324014131
+    },
+    {
+      "allocated_bytes": 1175225208,
+      "allocations": 32766155,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.7834840000000005,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 68222776,
+      "heap_before_bytes": 1946296,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.305560931
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 4.783539973
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 7.044313796
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 9.454425657
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 440442880,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 108982096,
+      "seconds": 9.461640972,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "candidate",
+      "projection": "wide",
+      "repeat": 0,
+      "warmup": false,
+      "sampled_process_peak_rss_bytes": 155938816,
+      "process_rss_samples": 473,
+      "process_rss_scope": "20ms samples of this child PID current RSS; excludes parent reference memory; not a strict peak",
+      "process_seconds": 9.528227119999428,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "request_bytes": 193480334,
+      "reply_bytes": 151977225,
+      "wire_scope": "TCP payload read from benchmark-client and server relay legs; includes TLS framing/handshake, excludes IP headers and separate INFO control; diagnostic timings only",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 206906579,
+      "total_net_output_bytes_delta": 326220109
+    },
+    {
+      "allocated_bytes": 1174552952,
+      "allocations": 32745073,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "partition",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.812793999999999,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 68104416,
+      "heap_before_bytes": 1945744,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 2.7955607479999998
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 5.599733512
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 8.316089058
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 11.056446001
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 440479744,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 100702304,
+      "seconds": 11.063338626,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "baseline",
+      "projection": "wide",
+      "repeat": 0,
+      "warmup": false,
+      "sampled_process_peak_rss_bytes": 148729856,
+      "process_rss_samples": 553,
+      "process_rss_scope": "20ms samples of this child PID current RSS; excludes parent reference memory; not a strict peak",
+      "process_seconds": 11.1285119639997,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "request_bytes": 193480044,
+      "reply_bytes": 151853769,
+      "wire_scope": "TCP payload read from benchmark-client and server relay legs; includes TLS framing/handshake, excludes IP headers and separate INFO control; diagnostic timings only",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 186739528,
+      "total_net_output_bytes_delta": 293804098
+    },
+    {
+      "allocated_bytes": 1179262816,
+      "allocations": 33245535,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.991726,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 135798792,
+      "heap_before_bytes": 2504152,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.526104548
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 4.488012655
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.510020006
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 4.420822882
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 441032704,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 311364440,
+      "seconds": 4.49526561,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "candidate",
+      "projection": "wide",
+      "repeat": 0,
+      "warmup": false,
+      "sampled_process_peak_rss_bytes": 379453440,
+      "process_rss_samples": 235,
+      "process_rss_scope": "20ms samples of this child PID current RSS; excludes parent reference memory; not a strict peak",
+      "process_seconds": 4.721590000000106,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "request_bytes": 193489942,
+      "reply_bytes": 154853789,
+      "wire_scope": "TCP payload read from benchmark-client and server relay legs; includes TLS framing/handshake, excludes IP headers and separate INFO control; diagnostic timings only",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 188058460,
+      "total_net_output_bytes_delta": 304176617
+    },
+    {
+      "allocated_bytes": 1178331112,
+      "allocations": 33219304,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.921537,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 267271032,
+      "heap_before_bytes": 2502064,
+      "metrics": [
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.785940636
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.562100923
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.748187883
+        },
+        {
+          "Rows": 25000,
+          "Batches": 1,
+          "FirstRows": 25000,
+          "FirstSeconds": 3.869197899
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 441032704,
+      "readers": 4,
+      "sampled_peak_go_heap_bytes": 301190784,
+      "seconds": 3.876743641,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 4,
+      "reader_rows": [
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "build": "baseline",
+      "projection": "wide",
+      "repeat": 0,
+      "warmup": false,
+      "sampled_process_peak_rss_bytes": 366465024,
+      "process_rss_samples": 204,
+      "process_rss_scope": "20ms samples of this child PID current RSS; excludes parent reference memory; not a strict peak",
+      "process_seconds": 4.105324441999983,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "request_bytes": 193489762,
+      "reply_bytes": 154704926,
+      "wire_scope": "TCP payload read from benchmark-client and server relay legs; includes TLS framing/handshake, excludes IP headers and separate INFO control; diagnostic timings only",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 176358587,
+      "total_net_output_bytes_delta": 301225737
+    },
+    {
+      "allocated_bytes": 1162124168,
+      "allocations": 33051086,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.5576740000000004,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 64833448,
+      "heap_before_bytes": 1946168,
+      "metrics": [
+        {
+          "Rows": 100000,
+          "Batches": 2,
+          "FirstRows": 65536,
+          "FirstSeconds": 6.398924564
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 441303040,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 145405472,
+      "seconds": 9.827035598,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "candidate",
+      "projection": "wide",
+      "repeat": 0,
+      "warmup": false,
+      "sampled_process_peak_rss_bytes": 196526080,
+      "process_rss_samples": 491,
+      "process_rss_scope": "20ms samples of this child PID current RSS; excludes parent reference memory; not a strict peak",
+      "process_seconds": 9.894722325000657,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "request_bytes": 193463960,
+      "reply_bytes": 153745778,
+      "wire_scope": "TCP payload read from benchmark-client and server relay legs; includes TLS framing/handshake, excludes IP headers and separate INFO control; diagnostic timings only",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 218857766,
+      "total_net_output_bytes_delta": 336889239
+    },
+    {
+      "allocated_bytes": 1161836712,
+      "allocations": 33040560,
+      "allocator": "Go Arrow allocator; not C shared-library allocation",
+      "api": "regular",
+      "batch_rows": 65536,
+      "client_cpu_seconds": 4.475643000000001,
+      "gomaxprocs": 16,
+      "heap_after_bytes": 110410320,
+      "heap_before_bytes": 1945568,
+      "metrics": [
+        {
+          "Rows": 100000,
+          "Batches": 2,
+          "FirstRows": 65536,
+          "FirstSeconds": 7.172936377
+        }
+      ],
+      "process_lifetime_peak_rss_bytes": 441303040,
+      "readers": 1,
+      "sampled_peak_go_heap_bytes": 139436544,
+      "seconds": 11.221870315,
+      "timing": "public API execute/partition planning plus complete Arrow fetch and IPC output; connections preopened; independent validation excluded",
+      "active_readers": 1,
+      "reader_rows": [
+        100000
+      ],
+      "build": "baseline",
+      "projection": "wide",
+      "repeat": 0,
+      "warmup": false,
+      "sampled_process_peak_rss_bytes": 196571136,
+      "process_rss_samples": 561,
+      "process_rss_scope": "20ms samples of this child PID current RSS; excludes parent reference memory; not a strict peak",
+      "process_seconds": 11.290843163999853,
+      "independent_full_values_validated": true,
+      "rows": 100000,
+      "columns": 105,
+      "qpf_proof": {
+        "verified": true,
+        "distribution": "Redis Software",
+        "version": "8.6.2",
+        "shards": 48,
+        "factor": 4,
+        "search_workers": 6,
+        "sched_policy": "mnp",
+        "conns": 32
+      },
+      "server_counter_scope": "INFO on the Software endpoint; includes control-query overhead; not a per-shard CPU decomposition",
+      "request_bytes": 193463818,
+      "reply_bytes": 153685626,
+      "wire_scope": "TCP payload read from benchmark-client and server relay legs; includes TLS framing/handshake, excludes IP headers and separate INFO control; diagnostic timings only",
+      "used_cpu_user_delta": 0.0,
+      "used_cpu_sys_delta": 0.0,
+      "total_net_input_bytes_delta": 200760435,
+      "total_net_output_bytes_delta": 287767645
+    }
+  ],
+  "source_sha256": "7fd6a17c71912db01ad675a12d85e2f2e6fad629be263b2d04e3d9cb318e51c9",
+  "source_provenance": {
+    "rows": 100000,
+    "parquet_sha256": "a390f6cb782f6aaef278c72fc1dd86c4f30bc843ebab3c159e9bd4d45ddb079f",
+    "upstream_commit": "e90045879276f75cc398f1ab8a73541a7716058d",
+    "conversion": "pinned PostgreSQL DDL; tracked arrow_schema/convert_batch; date epoch days and timestamp epoch seconds to microseconds",
+    "source_parquet_sha256": "a390f6cb782f6aaef278c72fc1dd86c4f30bc843ebab3c159e9bd4d45ddb079f",
+    "native_membership_sha256": "350c19e1313a44311f4ce741e8b6eb4d2b877df5846ff73ab3ff415030bddda0",
+    "columns": 105,
+    "membership": "Native exact row IDs 1..100000 and unique WatchIDs; every expected value comes from typed official Parquet; not a Parquet-prefix assumption",
+    "fixture_preparation": "SQL INSERT SELECT of exact internal IDs 1..100000 from the verified full-scale restore into a fresh managed fixture with pinned official DDL. All preparation excluded from timing; no Parquet ingestion or full-scale reload."
+  },
+  "binaries": {
+    "baseline": "4f197504539fd4e0f2025411042535769caf5dd21766d8b4b2dccfe2386fdf34",
+    "candidate": "beb8bf23e60dd85d2eabf91f4bbd0d945742edc791be1cbd98852fdd77f7d119"
+  },
+  "environment": {
+    "logical_cpus": 16,
+    "batch_rows": 65536,
+    "protocol": 3,
+    "tls": "verified",
+    "software_qpf": 4
+  }
+}

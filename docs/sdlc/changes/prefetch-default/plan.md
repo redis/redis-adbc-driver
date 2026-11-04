@@ -1,5 +1,8 @@
 # Plan
 
+November 3–4, 2026. See [intent](intent.md), [specification](spec.md) and
+[validation](validation.md).
+
 1. Restore the verified compatible full-scale backup on task-owned Redis Software
    with verified active 4x QPF, TLS and RESP3; preserve checksum/source identity.
 2. Build matched off/on binaries from corrected merged-main runtime source with the same Go toolchain and
@@ -26,3 +29,7 @@ additional owned page and report independently sampled process RSS. A separate
 four-logical-CPU client control tests contention before default promotion.
 Use twenty pairs for that control and for the C shared-library consumer too;
 keep all boundaries and resource settings in separate reports.
+
+Completed: all four primary matrices passed the declared elapsed rule, followed
+by separate normal-build Go/C confirmation. Correctness, teardown and source
+identity evidence are linked from [validation](validation.md).

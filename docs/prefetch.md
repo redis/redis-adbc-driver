@@ -1,6 +1,6 @@
 # Wide-read prefetch
 
-The default-enabled candidate overlaps HASH fetching with Arrow conversion for
+The driver overlaps HASH fetching with Arrow conversion for
 eligible wide managed-table streams. Ordinary reads and public partition reads
 share the same path. Eligibility requires at least 64 needed columns, a positional
 HASH projection and more than one discovery page. Known single-page discoveries,
@@ -23,13 +23,13 @@ The implementation uses the existing Search/HMGET commands and current
 RESP3/TLS/ACL/routing requirements. It needs no server export command or module.
 A typed server export remains a separate [server proposal](typed-export-design.md).
 
-Normal Go builds and `make -C go build` include the default candidate. The
+Normal Go builds and `make -C go build` enable prefetch by default. The
 build-only `scanprefetchoff` tag selects the synchronous baseline for measurements
 or troubleshooting. Include it alongside other build tags, for example
 `driverlib,scanprefetchoff` for a C shared library, retaining the Makefile's version
 linker flag. The legacy `scanprefetch` tag remains accepted and is unnecessary
 when default prefetch is enabled; explicit `scanprefetchoff` takes precedence.
 
-See the [qualification record](sdlc/changes/prefetch-default/validation.md) for
-completed checks and the remaining final gate. No universal speedup or strict
+See the [benchmark report](../benchmarks/prefetch/2026-11-03-default/README.md) and
+[qualification record](sdlc/changes/prefetch-default/validation.md) for evidence. No universal speedup or strict
 per-query byte cap is promised.

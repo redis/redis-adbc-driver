@@ -10,5 +10,5 @@
   "tls": "verified",
   "protocol": 3,
   "command": "make -C go test-software TEST_ARGS=\"-race\"; isolated task-owned project and ports",
-  "source_note": "Default-enabled candidate after isolated SIMD/main integration; exact committed revision added with final evidence"
+  "candidate_commit": "07bf8decabfed75c9f1a93d27051f16970e0c30c"
 }
