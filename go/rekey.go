@@ -1279,7 +1279,6 @@ func (s *store) checkKeys(ctx context.Context, meta *tableMeta, writing bool) er
 		if !meta.matviewRead.lease.valid() {
 			return matviewLeaseExpired()
 		}
-		return nil
 	}
 	if meta.Foreign {
 		if writing {

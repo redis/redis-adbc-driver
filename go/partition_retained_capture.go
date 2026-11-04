@@ -214,11 +214,13 @@ func (c *retainedCapture) check(ctx context.Context, source retainedCapturedSour
 	}
 	current, err := c.store.getTable(ctx, source.meta.Schema, source.meta.Name)
 	if source.meta.matviewRead != nil {
-		if !source.meta.matviewRead.lease.valid() {
-			return matviewLeaseExpired()
+		if checkErr := c.store.checkKeys(ctx, source.meta, false); checkErr != nil {
+			return checkErr
 		}
 		// Refresh cannot alter or collect this leased immutable generation.
-		current, err = source.meta, nil
+		if err != nil || !current.sameKeysAs(source.meta) {
+			current, err = source.meta, nil
+		}
 	}
 	if err != nil {
 		return err

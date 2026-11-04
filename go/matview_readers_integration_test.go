@@ -316,3 +316,28 @@ func TestMatviewReadersRacingPublication(t *testing.T) {
 	wg.Wait()
 	h.expectRows("SELECT sum(id),count(*) FROM it_mv_race", "2001000|2000")
 }
+
+func TestMatviewLeasePreservesGenerationFence(t *testing.T) {
+	h := newSQLHarness(t)
+	h.exec("DROP MATERIALIZED VIEW IF EXISTS it_mv_fence")
+	t.Cleanup(func() { h.exec("DROP MATERIALIZED VIEW IF EXISTS it_mv_fence") })
+	h.exec("CREATE MATERIALIZED VIEW it_mv_fence AS SELECT n AS id FROM generate_series(1,12000) s(n)")
+	r, _ := h.openStream(h.ctx, h.conn, "SELECT id FROM it_mv_fence", nil, map[string]string{OptionIntStreamBatchRows: "100"})
+	defer r.Release()
+	raw := h.rawClient()
+	meta, err := (&store{client: raw}).getTable(h.ctx, defaultSchema, "it_mv_fence")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A lease must not bypass the existing ownership fence for destructive
+	// DDL. Refresh keeps this counter unchanged while its readers are alive.
+	if err := raw.HIncrBy(h.ctx, releasedKey, meta.prefix(), 1).Err(); err != nil {
+		t.Fatal(err)
+	}
+	defer raw.HIncrBy(h.ctx, releasedKey, meta.prefix(), -1)
+	for r.Next() {
+	}
+	if r.Err() == nil {
+		t.Fatal("reader lease bypassed the generation ownership fence")
+	}
+}
