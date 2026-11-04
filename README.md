@@ -228,7 +228,7 @@ unsupported deployment; yellow identifies limits in an applicable driver path.
 | TLS and private certificate authorities | 🟢 Supported | `rediss://` verifies server certificates; `adbc.redis.tls_ca_file` supplies explicit trust roots, including cluster nodes and independent partition workers. [TLS evidence](docs/partitioned-reads.md#tls-and-independent-worker-validation). |
 | Mutual TLS with client certificates | 🔴 Unsupported | No public driver options configure a client certificate/private key; server-certificate verification alone does not provide mutual TLS. |
 | Password / ACL-user authentication | 🟢 Supported | URI credentials or username/password options authenticate Redis connections. [ACL requirements](docs/driver-reference.md#acl-users). |
-| Role-based access control (RBAC) | 🟢 Supported | Uses administrator-provisioned Redis users and command/key permissions, including restricted partition workers. SQL schemas are not security boundaries; Search DDL requires the documented permissions. Role provisioning is a server administration task. [Permissions](docs/driver-reference.md#search-commands-and-key-patterns). |
+| Role-based access control (RBAC) | 🟢 Supported | Uses administrator-provisioned Redis users and command/key permissions. Opt-in SQL `GRANT SELECT` / `REVOKE SELECT` manage dedicated Redis Software ACLs for individual base tables; other SQL privilege forms reject. [Setup and limits](docs/sql-rbac.md). |
 | Replication | ⚪ N/A | Redis Software manages primary/replica synchronization and replica configuration. The driver connects to the database endpoint; replica read routing is assessed separately below. [Server replication](https://redis.io/docs/latest/operate/rs/databases/durability-ha/). |
 | Automatic failover (client recovery) | 🟢 Supported | Uses go-redis connection recovery and Cluster routing for supported Redis Software proxy / Cluster API connections. Applications must handle interrupted operations, as with standard Redis clients. Dedicated live-failover validation is not recorded. [Retry and timeout limits](docs/driver-reference.md#timeouts), [official client guidance](https://redis.io/docs/latest/develop/clients/go/error-handling/). |
 | Read scaling through replicas | 🔴 Unsupported | `read_only=true`, `route_by_latency=true` and `route_randomly=true` are rejected because replicas can lag the driver's writes. |
@@ -620,3 +620,11 @@ and an explicit username and password. Run `make -C go redis-up`, then source
 `go/build/test.env` for direct commands. Make test targets load these defaults.
 Setup preserves the existing 4x QPF and noeviction verification. The generated
 localhost certificate and disposable credentials are for the owned test fixture.
+
+### SQL grants and Redis roles
+
+With administrator-configured `adbc.redis.rbac`, `GRANT SELECT ON TABLE t TO role`
+and `REVOKE SELECT ON TABLE t FROM role` update a dedicated Redis Software ACL
+and enforce table-prefix read access. They preserve other ACLs and role
+membership. Unsupported privilege forms return errors; statements are never
+silently ignored. See [SQL RBAC setup, dbt scope and recovery](docs/sql-rbac.md).

@@ -1203,6 +1203,8 @@ func (p *parser) parseStatement() (Stmt, error) {
 		return p.parseAlter()
 	case p.isKeyword("TRUNCATE"):
 		return p.parseTruncate()
+	case p.isKeyword("GRANT"), p.isKeyword("REVOKE"):
+		return p.parsePrivilege()
 	case p.isKeyword("COMMENT"):
 		return p.parseComment()
 	case p.isKeyword("BEGIN"), p.isKeyword("START"), p.isKeyword("COMMIT"), p.isKeyword("END"),

@@ -28,6 +28,7 @@ import (
 
 // executor runs parsed statements against a store.
 type executor struct {
+	rbac               *rbacManager
 	gpuRequested       bool
 	cudaDevice         int
 	gpuMetrics         *gpuMetrics
@@ -328,6 +329,8 @@ func (e *executor) execute(ctx context.Context, ps ParsedStmt, params []Value, p
 		return execResult{affected: -1}, e.runTruncate(ctx, st)
 	case *CommentStmt:
 		return execResult{affected: -1}, e.runComment(ctx, st)
+	case *PrivilegeStmt:
+		return execResult{affected: -1}, e.runPrivilege(ctx, st)
 	case *TransactionStmt, *SetStmt, *ShowStmt:
 		return e.runSession(ps.Stmt)
 	}
