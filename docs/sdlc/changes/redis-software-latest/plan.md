@@ -38,3 +38,16 @@ unrelated server/connection failures. The live Software 8.8 TLS/RBAC rerun
 passed all 18 native partition checks and five metadata checks on the owned
 three-shard, verified-4x-QPF fixture, recording `software_proxy_config_get_denied`
 and successful rejection of configuration mutations and data writes.
+
+## CI follow-up: RBAC propagation assertion
+
+The next amd64 Software job passed the corrected TLS/RBAC path. The arm64
+job exposed a separate propagation race in `TestSQLRBACSelect`: after the
+retry loop fetched a successful query, the assertion issued another query
+outside that loop, which could still reach a shard applying the ACL.
+Validate the same fully fetched result that passed the wait instead. Wrong
+values still fail immediately, and the existing 20-second deadline remains.
+This changes the integration test only, not grant/revoke behavior.
+
+Validation: the focused RBAC test passed three consecutive runs on a fresh
+Software 8.2.6-25 / Redis 8.8.0 three-shard TLS fixture with verified 4x QPF.
