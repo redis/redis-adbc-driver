@@ -141,3 +141,8 @@ The [earlier benchmark](../benchmarks/gpu-query/README.md) measured a different
 consumer-side cuDF prototype at its recorded source revision. Its results do not
 validate this native implementation or establish a native speedup. No automatic
 GPU cost gate or universal query performance improvement is claimed.
+
+The separate [CPU integer SIMD experiment](../benchmarks/integer-simd/README.md)
+measures exact comparison masks and decoded-map conversion without changing SQL
+execution or the CUDA ABI. Its recorded outcome is no-go for automatic batching:
+conversion costs outweigh the resident-kernel gains on the tested workloads.
