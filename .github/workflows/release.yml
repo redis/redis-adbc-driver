@@ -46,6 +46,8 @@ on:
     paths:
       - .github/workflows/release.yml
       - go/build-linux.sh
+      # Native validation changes must exercise the installed-wheel layout.
+      - go/validation/**
       - go/Dockerfile.linux-builder
       - go/compose.yaml
       - go/cluster-ready.sh
