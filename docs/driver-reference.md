@@ -288,6 +288,14 @@ the Python exception:
   convert float64 value "1e+300" to BIGINT` and `value 123456 out of range
   for NUMERIC(5,2)`.
 
+### SQL grants
+
+Opt-in `GRANT SELECT ON [TABLE] table TO role` and `REVOKE SELECT ON [TABLE]
+table FROM role` manage dedicated Redis Software ACLs. Configure the database-only,
+write-only JSON option `adbc.redis.rbac` on a trusted administrator handle. Other
+SQL privilege forms reject. See [provisioning, behavior, dbt scope and interrupted
+update recovery](sql-rbac.md).
+
 ### ACL users
 
 If the database has ACL users, the driver's user needs these commands. The

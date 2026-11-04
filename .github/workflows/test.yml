@@ -258,6 +258,13 @@ jobs:
             go test -count=1 -p 1 ./...
           fi
 
+      - name: Enforced SQL SELECT grants through Software RBAC
+        if: startsWith(matrix.environment, 'software-')
+        working-directory: go
+        env:
+          REDIS_RBAC_TEST_API: https://localhost:19443
+        run: go test -count=1 -p 1 -run '^TestSQLRBACSelect$' -v .
+
       - name: Python ADBC validation
         working-directory: go/validation
         run: |

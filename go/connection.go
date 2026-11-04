@@ -29,6 +29,7 @@ import (
 )
 
 type connectionImpl struct {
+	rbac                        *rbacManager
 	retainedNamespace           string
 	partitionControlPersistence string
 	retainedLimits              retainedLimits
@@ -64,7 +65,7 @@ type connectionImpl struct {
 func (c *connectionImpl) executor() *executor {
 	metrics := &partitionMetrics{}
 	c.aggregateMetrics.Store(metrics)
-	return &executor{store: c.store, partitionNamespace: c.retainedNamespace, sess: c.sess, schema: c.sess.currentSchema(), pushdown: c.pushdown, queryWorkers: c.queryWorkers, workerBudget: c.workerBudget, workerGrant: &c.workerGrant, aggregateMetrics: metrics, rekey: c.rekey}
+	return &executor{store: c.store, rbac: c.rbac, partitionNamespace: c.retainedNamespace, sess: c.sess, schema: c.sess.currentSchema(), pushdown: c.pushdown, queryWorkers: c.queryWorkers, workerBudget: c.workerBudget, workerGrant: &c.workerGrant, aggregateMetrics: metrics, rekey: c.rekey}
 }
 
 func (c *connectionImpl) GetOption(ctx context.Context, key string) (string, error) {
