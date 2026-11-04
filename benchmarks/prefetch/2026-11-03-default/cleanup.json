@@ -1,0 +1,28 @@
+{
+  "verified": true,
+  "terminated_instances": 49,
+  "remaining_active_owned_root_volumes": 0,
+  "aws_async_disk_deletions_pending": 0,
+  "security_group_deleted": true,
+  "key_pair_deleted": true,
+  "cleanup_rule_deleted": true,
+  "cleanup_function_deleted": true,
+  "estimated_compute_upper_bound_usd": 85.75,
+  "previous_run_compute_upper_usd": 46.01,
+  "combined_compute_upper_usd": 131.76,
+  "total_budget_usd": 300,
+  "completed_at": "2026-11-04T09:30:35.832480+00:00",
+  "scope": "Task-owned resources only; existing backups, IAM roles and profiles retained",
+  "local_software_cleanup": {
+    "verified": true,
+    "isolated_software_project_removed": true,
+    "remaining_task_containers": 0,
+    "remaining_task_volumes": 0,
+    "remaining_task_networks": 0,
+    "verified_at": "2026-11-04T09:21:41.401907+00:00",
+    "scope": "Only the task-owned isolated Compose project; unrelated projects untouched"
+  },
+  "conservative_storage_network_allowance_usd": 40,
+  "estimated_combined_compute_plus_allowance_usd": 171.76,
+  "estimate_scope": "Compute upper bounds plus conservative storage/network allowance; not a final AWS invoice"
+}

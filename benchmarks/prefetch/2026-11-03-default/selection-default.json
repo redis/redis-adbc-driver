@@ -1,0 +1,8 @@
+{
+  "experimental_build": false,
+  "partition_hash_fetch": true,
+  "partition_prefetch_eligible": false,
+  "projected_columns": 105,
+  "regular_hash_fetch": true,
+  "regular_prefetch_started": false
+}

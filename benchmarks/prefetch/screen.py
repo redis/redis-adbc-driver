@@ -11,11 +11,50 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import threading
 import time
 import urllib.parse
 
 import pyarrow as pa
 from meter import Meter
+
+
+def run_harness(binary, command, timeout=1200):
+    """Sample this child's current RSS rather than inherited fork high-water."""
+    import psutil
+    process = subprocess.Popen([binary], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE, text=True)
+    child = psutil.Process(process.pid)
+    stopped = threading.Event()
+    peak, samples, failures = 0, 0, []
+
+    def sample():
+        nonlocal peak, samples
+        while not stopped.is_set():
+            try:
+                peak = max(peak, child.memory_info().rss)
+                samples += 1
+            except psutil.NoSuchProcess:
+                return
+            except Exception as error:
+                failures.append(error)
+                return
+            stopped.wait(0.02)
+
+    sampler = threading.Thread(target=sample)
+    sampler.start()
+    try:
+        stdout, stderr = process.communicate(json.dumps(command), timeout=timeout)
+    except BaseException:
+        process.kill()
+        process.communicate()
+        raise
+    finally:
+        stopped.set()
+        sampler.join()
+    if failures:
+        raise RuntimeError('Child RSS sampling failed') from failures[0]
+    return subprocess.CompletedProcess([binary], process.returncode, stdout, stderr), peak, samples
 
 
 def canonical(table):
@@ -50,6 +89,8 @@ def trial(cfg, source, build, api, readers, projection, repeat, root):
             and proof.get('sched_policy') == 'mnp' and proof.get('conns') == 32):
         raise AssertionError('Effective Software 4x QPF gate failed')
     selected = source if projection == 'wide' else source.select(['watchid', 'userid', 'searchphrase'])
+    if projection == 'wide' and cfg.get('wide_columns', 105) != 105:
+        selected = selected.select(selected.column_names[:cfg['wide_columns']])
     target = root / f'{projection}-{api}-{readers}-{build}-{repeat}'
     target.mkdir()  # Never overwrite a previous attempt, including a failure.
     sql = query(cfg['namespace'], selected.column_names, None, None)
@@ -59,6 +100,8 @@ def trial(cfg, source, build, api, readers, projection, repeat, root):
     command = {'URI': cfg['uri'], 'CA': cfg['ca'], 'API': api, 'SQL': sql,
                'Queries': queries, 'Output': str(target), 'Readers': readers,
                'BatchRows': cfg.get('batch_rows', 65536)}
+    if cfg.get('drivers'):
+        command['Driver'] = cfg['drivers'][build]
     with redis.Redis.from_url(cfg['uri'], ssl_ca_certs=cfg['ca'], protocol=3) as control:
         before = control.info()
         meter = None
@@ -72,8 +115,7 @@ def trial(cfg, source, build, api, readers, projection, repeat, root):
                     netloc = endpoint.netloc.rsplit('@', 1)[0] + '@' + netloc
                 command['URI'] = urllib.parse.urlunsplit(endpoint._replace(netloc=netloc))
             started = time.monotonic()
-            process = subprocess.run([cfg['binaries'][build]], input=json.dumps(command),
-                                     text=True, capture_output=True, timeout=1200)
+            process, peak_rss, rss_samples = run_harness(cfg['binaries'][build], command)
             process_seconds = time.monotonic() - started
         finally:
             if meter is not None:
@@ -94,6 +136,8 @@ def trial(cfg, source, build, api, readers, projection, repeat, root):
         raise AssertionError('No complete-fetch output')
     validate(paths, selected)  # Outside harness and process timing.
     result.update(build=build, projection=projection, repeat=repeat, warmup=repeat < 0,
+                  sampled_process_peak_rss_bytes=peak_rss, process_rss_samples=rss_samples,
+                  process_rss_scope='20ms samples of this child PID current RSS; excludes parent reference memory; not a strict peak',
                   process_seconds=process_seconds, independent_full_values_validated=True,
                   rows=selected.num_rows, columns=selected.num_columns,
                   qpf_proof=proof,
@@ -114,11 +158,13 @@ def main():
     ap.add_argument('--repeats', type=int, default=5)
     ap.add_argument('--smoke', action='store_true')
     ap.add_argument('--wire-diagnostic', action='store_true')
+    ap.add_argument('--wide-columns', type=int, choices=[64, 105], default=105)
     args = ap.parse_args()
     if args.repeats < 5 and not args.smoke:
         ap.error('Promotion screen requires at least five measured repeats')
     cfg = json.loads(args.config.read_text())
     cfg['wire_diagnostic'] = args.wire_diagnostic
+    cfg['wide_columns'] = args.wide_columns
     if not cfg.get('verified_software_qpf_4x') or not cfg.get('qpf_probe'):
         ap.error('A verified active Software 4x QPF declaration is required')
     source_path = Path(cfg['source'])
@@ -128,7 +174,9 @@ def main():
     if hashlib.sha256(source_path.read_bytes()).hexdigest() != cfg['source_sha256']:
         ap.error('Independent source identity differs')
     args.output.mkdir(parents=True, exist_ok=False)
-    report = {'status': 'running', 'smoke': args.smoke, 'wire_diagnostic':args.wire_diagnostic, 'trials': [],
+    report = {'status': 'running', 'smoke': args.smoke, 'wire_diagnostic':args.wire_diagnostic,
+              'consumer_boundary': 'C shared library' if cfg.get('drivers') else 'Go public API',
+              'wide_columns': args.wide_columns, 'trials': [],
               'source_sha256': cfg['source_sha256'], 'source_provenance': cfg['source_provenance'],
               'binaries': {name: hashlib.sha256(Path(path).read_bytes()).hexdigest()
                            for name, path in cfg['binaries'].items()},

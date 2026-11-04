@@ -1,7 +1,9 @@
 # Bounded prefetch screen
 
-This runner isolates the `scanprefetch` experimental build from the same source
-with the tag disabled. It does not load ClickBench data. Restore an existing
+This runner compares prefetch off/on builds from the same runtime source.
+Current builds use `scanprefetchoff` for the baseline and
+normal build flags for the candidate. Historical prototype revisions defaulted
+off and required `scanprefetch` for the candidate. It does not load ClickBench data. Restore an existing
 verified compatible full-scale backup on Redis Software and verify active 4x QPF.
 Keep deployment resources and credentials in private operational records.
 Prepare the required 100K-row managed `hits` fixture with the pinned official DDL
@@ -16,8 +18,8 @@ Build `main.go` from each checkout's `go/` directory with the same Go version
 and linker flags. For example, substitute an absolute harness path:
 
 ```sh
-go build -ldflags '-s -w' -o /tmp/baseline-screen /absolute/path/main.go
-go build -tags scanprefetch -ldflags '-s -w' -o /tmp/candidate-screen /absolute/path/main.go
+go build -tags scanprefetchoff -ldflags '-s -w' -o /tmp/baseline-screen /absolute/path/main.go
+go build -ldflags '-s -w' -o /tmp/candidate-screen /absolute/path/main.go
 ```
 
 The executable uses the **public Go ADBC APIs and Go Arrow allocator**, not the
@@ -86,5 +88,22 @@ Go heap (20 ms) is not a strict peak bound or RSS. Per-process lifetime peak RSS
 includes initialization. These allocator/consumer details limit comparisons with
 Python/C Arrow results and must accompany any reported speedup.
 
-A completed restored-fixture screen with raw trial JSON and limitations is in
-[2026-11-03/README.md](2026-11-03/README.md).
+The [default qualification](2026-11-03-default/README.md) retains four twenty-pair
+matrices, final normal-build confirmation and memory/cleanup evidence. The earlier
+[prototype screen](2026-11-03/README.md) remains labeled by its historical source
+and settings.
+
+The runner additionally requires `psutil` for 20 ms samples of the benchmark
+child PID's current RSS. `sampled_process_peak_rss_bytes` excludes the Python
+parent's typed reference memory; it is still a sampled peak. Linux child
+`ru_maxrss` can inherit the parent's fork high-water, so retain that older field
+as a lifetime diagnostic rather than interpreting it as precise per-query RSS.
+
+Use `--wide-columns 64` for the eligibility-threshold control; the default is
+105. Keep these matrices separate. For a C-boundary confirmation, build matched
+shared libraries and configure `drivers` with their baseline/candidate absolute
+paths and `binaries` with executable wrappers for `c_shared.py` in the appropriate
+Python environment. That consumer fetches through public ADBC APIs, writes
+unmodified Arrow batches, and returns the same row/batch timing fields. It
+reports Go allocation counters as unavailable; do not combine its CPU/allocation
+metrics with the Go harness. The parent still independently validates each fetch.

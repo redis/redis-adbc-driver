@@ -1,0 +1,8 @@
+{
+  "complete": true,
+  "files": 8267,
+  "bytes": 61397041122,
+  "manifest_sha256": "e4dda3483b83f30e66bba18d19ad1dca5308111b6f2aa62b2d85b96595ba6837",
+  "scope": "Private uploader completed all files and recorded each SHA-256; public result/source/build reports were independently retrieved and checked against that manifest. This does not claim a second download of every raw IPC object.",
+  "local_validation_archive_manifest_sha256": "bc90e512871743192994856ac550343ea9638d3089fbd138f8e1e9451c6a22e7"
+}

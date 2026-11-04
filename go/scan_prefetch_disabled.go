@@ -1,9 +1,9 @@
-//go:build !scanprefetch
+//go:build scanprefetchoff
 
 // Copyright (c) 2026 ADBC Drivers Contributors
 // Licensed under the Apache License, Version 2.0.
 
 package redis
 
-// Experimental builds only, pending the complete-fetch performance gate.
+// Build-only escape hatch for baseline measurements and troubleshooting.
 const scanPrefetchEnabled = false
