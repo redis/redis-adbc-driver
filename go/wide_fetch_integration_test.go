@@ -96,12 +96,18 @@ func TestSQLWideHashFetchBothAPIs(t *testing.T) {
 		if sr.it.projection == nil || len(sr.it.projection.hashPositions) == 0 || sr.arrow == nil {
 			t.Fatal("wide Arrow projection did not bind positional HASH values")
 		}
+		if sr.it.allowPrefetch != scanPrefetchEnabled {
+			t.Fatal("stream reader did not inherit the experimental build setting")
+		}
 		if sr.it.projection.consume != nil || sr.it.projection.consumeHash != nil {
 			t.Fatal("projection callback escaped a fill")
 		}
 		seen := map[int64]bool{}
 		var previous int64
 		for r.Next() {
+			if !sr.exhausted && (sr.it.prefetch != nil) != scanPrefetchEnabled {
+				t.Fatal("wide stream did not select the expected prefetch path")
+			}
 			rec := r.RecordBatch()
 			for i := 0; i < int(rec.NumRows()); i++ {
 				id := rec.Column(66).(*array.Int64).Value(i)

@@ -52,6 +52,10 @@ func (it *scanIter) nextHashValues(ctx context.Context, keys []string) ([]string
 	if err != nil {
 		return nil, nil, err
 	}
+	return it.consumeHashValues(keys, values)
+}
+
+func (it *scanIter) consumeHashValues(keys []string, values [][]any) ([]string, []map[string]Value, error) {
 	if it.diagnostics != nil {
 		it.diagnostics.processed.Add(int64(len(values)))
 	}

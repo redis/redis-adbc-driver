@@ -580,3 +580,20 @@ func (s *streams) closeAll(err error) int {
 	}
 	return len(open)
 }
+
+// finishTransports joins asynchronous transport cancellation before Connection
+// closes the maintenance pool. Do not hold the owner lock while waiting:
+// transport.finish removes itself from these owners.
+func (s *streams) finishTransports() {
+	s.mu.Lock()
+	var pending []*executionTransport
+	for owner := range s.open {
+		if transport, ok := owner.(*executionTransport); ok {
+			pending = append(pending, transport)
+		}
+	}
+	s.mu.Unlock()
+	for _, transport := range pending {
+		transport.finish()
+	}
+}
