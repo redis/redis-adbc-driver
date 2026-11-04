@@ -5,6 +5,7 @@ on:
     paths:
       - go/internal/intpredicate/**
       - go/integer_simd_profile_test.go
+      - go/integer_simd_prefetch_profile_test.go
       - .github/workflows/integer-simd.yml
 permissions:
   contents: read

@@ -33,3 +33,14 @@ Allocation bytes/counts accompany wall times; pprof labels and runtime trace
 regions allow CPU and blocked-network inspection without attributing waits to
 SIMD. Client traces do not distinguish server execution from network latency.
 All fetched rows and physical types must match an independent fixture oracle.
+
+After merging #297, a separate opt-in `TestIntegerSIMDPrefetchProfile` verifies
+both the ordinary wide positional Arrow path and an actually active prefetch
+worker in the experimental build. It compares a direct Arrow row predicate,
+copying typed values plus scalar or SIMD evaluation, and borrowing existing
+Arrow values plus SIMD. Validity packing and mask allocation are included.
+This is post-Arrow consumer work, not SQL WHERE execution or a planner change.
+Each complete fetch/predicate interval includes execution and stream shutdown;
+every fetched field/type/NULL bit, row multiplicity and mask is independently
+validated afterward using retained Arrow buffers. Four excluded warmups and
+three rotated measured trials per mode run on one 100K × 64-column fixture.

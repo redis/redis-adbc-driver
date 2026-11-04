@@ -18,3 +18,9 @@ Implementation, local Software profiling, native amd64/arm64 measurements and
 self-review are complete. The linked PR carries final repository checks and
 merge/closure status. Outcome: retain the isolated prototype; do not wire it
 into SQL execution.
+
+The requestor identified merged #297 while final validation was in progress.
+Merge current main (`4735cbd`) and retest full wide-scan consumer behavior with
+prefetch both disabled and proved active. Keep historical resident kernel/map
+measurements at their original source revisions; separately report borrowing
+Arrow input, which avoids the map conversion measured by the original harness.

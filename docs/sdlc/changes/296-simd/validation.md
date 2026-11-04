@@ -97,3 +97,26 @@ reductions remain in use. No operational material is included in public results.
 No actionable correctness finding remains from this self-review. Repository
 main had no branch protection at inspection; that is not a claim of maintainer
 approval. The user requested implementation through completion and issue closure.
+
+## Retest after #297
+
+Merged main `4735cbd` into this branch at `be4b1a9`. Default unit tests passed;
+experimental `scanprefetch` race checks for prefetch lifecycle, integer DAG and
+CUDA CPU fallback passed. Verified Software integration passed discovery-time
+update/delete behavior, aggregate exactness/error order and required streaming.
+`TestSQLWideHashFetchBothAPIs` passed with prefetch enabled, including regular
+and partition output, ownership, defaults, NULLs, exact large integers and order.
+The original integer fixture also passed full-fetch validation in that build.
+
+Added `TestIntegerSIMDPrefetchProfile` at `c367645`: 100,000 rows × 64 int64
+columns, direct row, copied scalar/SIMD, and borrowed-value SIMD consumers, with
+verified actual wide/positional Arrow selection and active prefetch in the
+experimental build. It validated every field/type/NULL bit, row multiplicity
+and predicate mask outside timing, including after reader release. All 24
+measured trials and eight excluded warmups passed. See the
+[retest report](../../../../benchmarks/integer-simd/README.md#retesting-with-pr-297)
+and [sanitized trials](../../../../benchmarks/integer-simd/wide-prefetch-results.json).
+Prefetch-on trial ranges overlap, and SIMD preparation/evaluation remains slower
+than direct Arrow row comparison. No end-to-end SIMD benefit is established.
+The no-go for automatic SQL/map batching remains; the original kernel-only
+results are retained at their actual pre-#297 source revision.

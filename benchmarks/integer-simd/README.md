@@ -99,3 +99,73 @@ batches, or several operations can amortize conversion, and independently
 validated execute-through-full-fetch measurements demonstrate a benefit. A
 faster resident-input kernel alone is insufficient. No SQL query speedup or
 universal SIMD crossover is claimed.
+
+## Retesting with PR #297
+
+PR #297's `scanprefetch` build can overlap wide HASH fetches with Arrow
+conversion. Its positional Arrow path bypasses the decoded maps used by the
+original batch-conversion experiment, so the unchanged kernel microbenchmarks
+alone cannot settle the full-pipeline question. A separate consumer experiment
+compares direct Arrow row evaluation, copied values plus scalar/SIMD, and SIMD
+borrowing existing Arrow values. Validity packing is included in SIMD modes.
+This is consumer-side predicate work after a bare-column SQL scan, not a native
+SQL WHERE backend or evidence that prefetched SQL automatically uses SIMD.
+
+From `go/`, after the verified Software setup above, run sequentially:
+
+```sh
+REDIS_RETAINED_CONTROL_PERSISTENCE=guaranteed REDIS_INTEGER_PROFILE=1 \
+  REDIS_INTEGER_PROFILE_ROWS=100000 \
+  REDIS_INTEGER_WIDE_REPORT=/private/tmp/integer-wide-default.json \
+  go test -count=1 -run '^TestIntegerSIMDPrefetchProfile$' -v .
+REDIS_RETAINED_CONTROL_PERSISTENCE=guaranteed REDIS_INTEGER_PROFILE=1 \
+  REDIS_INTEGER_PROFILE_ROWS=100000 \
+  REDIS_INTEGER_WIDE_REPORT=/private/tmp/integer-wide-prefetch.json \
+  go test -tags scanprefetch -count=1 -run '^TestIntegerSIMDPrefetchProfile$' -v .
+```
+
+Each build verifies its actual selected path, excludes one warmup per mode,
+rotates four modes over three measured trials and fully validates all 64
+columns, NULLs, types, multiplicities and predicate bits outside timing.
+Inputs retained for validation remain valid after the reader is released.
+The end-to-end interval includes execute, full fetch, predicate computation and
+stream shutdown. It excludes fixture creation, connection opening and result
+validation. All inputs are retained until validation in both modes; it is a
+bounded 100K-row screen, not a full-scale ClickBench claim. Compare modes within
+a build; separate build runs are not alternating-process causal prefetch trials.
+
+
+Measured at `c367645`, including merged main `4735cbd` (#297), on Apple M5 Max
+(native darwin/arm64, Go 1.27.3) against the same verified TLS/RESP3 Software
+8.2.0-78.18 / Redis 8.6.2 / Search 8.6.11 three-shard 4x-QPF environment.
+The clean prefetch run had no concurrent local regression checks. All 24
+measured executions and eight excluded warmups passed full independent
+validation. Each execution returned 25 batches, initially 4,096 rows.
+[Complete sanitized trials](wide-prefetch-results.json). Times in milliseconds:
+
+| Build | Consumer mode | Full-pipeline median | Full-pipeline range | Predicate/preparation median |
+|---|---|---:|---:|---:|
+| default | row | 2947.027 | 2909.082–2958.208 | 0.192 |
+| default | packed-scalar | 2902.691 | 2776.246–2951.554 | 0.452 |
+| default | packed-simd | 2804.032 | 2803.898–3168.093 | 0.369 |
+| default | borrowed-simd | 3053.656 | 2847.113–3121.690 | 0.299 |
+| prefetch | row | 2604.577 | 2549.170–2883.322 | 0.193 |
+| prefetch | packed-scalar | 2835.459 | 2682.008–2987.476 | 0.450 |
+| prefetch | packed-simd | 2621.518 | 2598.732–2912.576 | 0.387 |
+| prefetch | borrowed-simd | 2618.347 | 2544.829–2848.125 | 0.289 |
+
+`packed-scalar`/`packed-simd` copy Arrow int64 values and pack validity before
+running the kernel. `borrowed-simd` borrows Arrow int64 values and still packs
+validity. `row` reads the existing Arrow arrays directly. This differs from the
+original decoded-map experiment and is reported separately.
+
+Prefetch does not establish a SIMD pipeline improvement in this screen. Within
+each build, full-pipeline trial ranges overlap, and predicate preparation plus
+SIMD takes longer than direct row comparison, even when borrowing values.
+Roughly 0.2 ms of predicate work sits inside a roughly 2.5–3.2 second pipeline.
+Any lower full-pipeline median for SIMD is far larger than the actual predicate
+cost difference and cannot be attributed to SIMD from these noisy trials.
+No production SIMD integration or query speedup is justified. Keep the no-go
+for automatic map batching; revisit stronger/resident multi-operation workloads
+with their own complete-query evidence. These runs do not revalidate #297's
+full-scale performance claim or establish a causal prefetch speedup.
