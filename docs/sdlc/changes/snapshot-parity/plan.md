@@ -317,3 +317,9 @@ The [pruned partition checkpoint](pruned-partition-validation.md) restores
 producer-generation lifetime through DML, TRUNCATE, DROP and GC while preserving
 predicate pruning, cancellation, explicit release and reclamation coverage.
 The focused race selection passes 38 test events; full parity remains open.
+
+The [partition readiness checkpoint](partition-readiness-validation.md) restores
+pinned cursor-transition and exact HASH fallback checks, with a separate native
+segmented readiness transition preserving newest values, deletions and global
+ordering/limits. Nineteen focused race events pass with one topology skip; full
+ordinary and Cluster API coverage remain open.
