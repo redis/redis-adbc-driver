@@ -54,6 +54,10 @@ The [NaN checkpoint](nan-validation.md) restores pinned flag inspection,
 all-segment physical coverage, authoritative visible counts and reference-safe
 reclamation, and tests raw application NaNs through a private managed copy.
 
+The [narrow scan checkpoint](narrow-validation.md) retains exact pinned values
+through DELETE/GC and preserves unsafe numeric fetch, cursor payload and
+missing-HASH/cancellation checks on an owned mutable-source primitive.
+
 The [consistency-boundary recommendation](consistency-boundary.md) proposes a
 shared driver consistency layer across execution paths. A new
 Redis server extension is not required by this plan.

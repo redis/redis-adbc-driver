@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"strconv"
 	"testing"
 
 	"github.com/apache/arrow-adbc/go/adbc"
@@ -43,9 +44,67 @@ func TestSQLNarrowExactScan(t *testing.T) {
 	h.exec("ALTER TABLE it_narrow RENAME COLUMN later TO renamed")
 	h.expectRows("SELECT renamed FROM it_narrow WHERE id = 2", "NULL")
 
-	st := &store{client: h.rawClient()}
-	meta, err := st.getTable(h.ctx, defaultSchema, "it_narrow")
+	raw := h.rawClient()
+	pinned, readCtx, pin := h.inspectionSnapshot(raw)
+	defer pin.release()
+	meta, err := pinned.getTable(readCtx, defaultSchema, "it_narrow")
 	if err != nil {
+		t.Fatal(err)
+	}
+	managed, err := (&executor{store: pinned}).openScan(readCtx, scanRequest{meta: meta, where: wherePlan{query: "*"}, need: map[string]bool{"id": true, "v": true}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer managed.close(readCtx)
+	h.exec("DELETE FROM it_narrow WHERE id=1")
+	h.expectRows("SELECT COUNT(*) FROM it_narrow", "4")
+	pinned.reapSnapshot(h.ctx)
+	seen := map[int64]Value{}
+	for {
+		_, rows, err := managed.next(readCtx)
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, row := range rows {
+			id := row["id"].I
+			if _, duplicate := seen[id]; duplicate {
+				t.Fatal("duplicate pinned narrow row", id)
+			}
+			seen[id] = row["v"]
+		}
+	}
+	if len(seen) != 5 || seen[1].I != 9007199254740993 || seen[2].I != 9007199254740992 ||
+		seen[3].I != -9223372036854775808 || seen[4].I != 9223372036854775807 || !seen[5].Null {
+		t.Fatalf("pinned narrow scan lost exact values/NULL/deleted row: %v", seen)
+	}
+	pin.release()
+	// Missing-HASH refill is a mutable-source primitive. Give it its own
+	// unregistered HASHes/index rather than corrupting a published managed row.
+	primitive := *meta
+	id := snapshotID()
+	primitive.KeyPrefix, primitive.IndexName = "narrow_primitive:{meta}:"+id+":", "narrow_primitive_"+id
+	primitive.SnapshotOverlay, primitive.SnapshotSegments, primitive.SnapshotRows = false, nil, nil
+	meta = &primitive
+	st := &store{client: raw}
+	if err := raw.Do(h.ctx, indexCreateArgs(meta)...).Err(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = raw.Do(h.ctx, "FT.DROPINDEX", meta.index(), "DD").Err() })
+	for i, v := range []string{"9007199254740993", "9007199254740992", "-9223372036854775808", "9223372036854775807", ""} {
+		key := meta.prefix() + strconv.Itoa(i+1)
+		if err := raw.HSet(h.ctx, key, rowIDField, i+1, "id", i+1, "pad", "x").Err(); err != nil {
+			t.Fatal(err)
+		}
+		if v != "" {
+			if err := raw.HSet(h.ctx, key, "v", v).Err(); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if err := st.awaitIndexReady(h.ctx, meta.index()); err != nil {
 		t.Fatal(err)
 	}
 	e := &executor{store: st}
