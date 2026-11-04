@@ -24,8 +24,9 @@ import (
 )
 
 // The owned orchestrator verifies Software/QPF/durability before setting this
-// URI. Every test clears the selected disposable database on all primaries.
-func snapshotClusterHarness(t *testing.T) (*sqlHarness, *goredis.ClusterClient, adbc.DatabaseWithContext) {
+// URI. The SQL harness clears all primaries; the checkpoint-only client must
+// retain the paused recovery test's state.
+func snapshotClusterClient(t *testing.T) *goredis.ClusterClient {
 	t.Helper()
 	uri := os.Getenv("REDIS_SNAPSHOT_CLUSTER_URI")
 	if uri == "" {
@@ -46,7 +47,13 @@ func snapshotClusterHarness(t *testing.T) (*sqlHarness, *goredis.ClusterClient, 
 	if extra != nil {
 		clusterOpts.Addrs = append(clusterOpts.Addrs, extra.Addrs[1:]...)
 	}
-	raw := goredis.NewClusterClient(clusterOpts)
+	return goredis.NewClusterClient(clusterOpts)
+}
+
+func snapshotClusterHarness(t *testing.T) (*sqlHarness, *goredis.ClusterClient, adbc.DatabaseWithContext) {
+	t.Helper()
+	uri := os.Getenv("REDIS_SNAPSHOT_CLUSTER_URI")
+	raw := snapshotClusterClient(t)
 	ctx := context.Background()
 	reset := func() {
 		indexes, err := raw.Do(ctx, "FT._LIST").StringSlice()
@@ -76,6 +83,65 @@ func snapshotClusterHarness(t *testing.T) (*sqlHarness, *goredis.ClusterClient, 
 	}
 	t.Cleanup(func() { _ = conn.Close(ctx); _ = db.Close(ctx) })
 	return &sqlHarness{t: t, ctx: ctx, conn: conn}, raw, db
+}
+
+type snapshotRDBProbe struct{ Key, Value string }
+
+// A second process dirties every routed primary after the recovery test pauses.
+// Do not use the resetting SQL harness here: its state is the recovery subject.
+func TestSnapshotClusterRDBCheckpointWrites(t *testing.T) {
+	if os.Getenv("REDIS_SNAPSHOT_RDB_CHECKPOINT") != "1" {
+		t.Skip("requires owned RDB checkpoint orchestrator")
+	}
+	raw := snapshotClusterClient(t)
+	defer raw.Close()
+	ctx := context.Background()
+	slots, err := raw.ClusterSlots(ctx).Result()
+	if err != nil {
+		t.Fatal(err)
+	}
+	owners := map[string]bool{}
+	var probes []snapshotRDBProbe
+	for i := 0; i < 1000 && len(owners) < 3; i++ {
+		key := fmt.Sprintf("it_snapshot_rdb:{checkpoint_%d}", i)
+		slot, err := raw.ClusterKeySlot(ctx, key).Result()
+		if err != nil {
+			t.Fatal(err)
+		}
+		owner := ""
+		for _, range_ := range slots {
+			if slot >= int64(range_.Start) && slot <= int64(range_.End) && len(range_.Nodes) > 0 {
+				owner = range_.Nodes[0].Addr
+				break
+			}
+		}
+		if owner == "" {
+			t.Fatal("RDB probe slot owner missing")
+		}
+		if owners[owner] {
+			continue
+		}
+		value := snapshotID()
+		if err := raw.Set(ctx, key, value, 0).Err(); err != nil {
+			t.Fatal(err)
+		}
+		if raw.Get(ctx, key).Val() != value {
+			t.Fatal("RDB probe write not visible")
+		}
+		owners[owner] = true
+		probes = append(probes, snapshotRDBProbe{Key: key, Value: value})
+	}
+	if len(owners) != 3 || os.Getenv("REDIS_SNAPSHOT_CLUSTER_PRIMARIES") != "3" {
+		t.Fatal("RDB checkpoint requires three distinct routed primaries")
+	}
+	encoded, err := json.Marshal(probes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(os.Getenv("REDIS_SNAPSHOT_CHAOS_DIR")+"/rdb-probes.json", encoded, 0600); err != nil {
+		t.Fatal(err)
+	}
+	t.Log("RDB checkpoint dirtied and verified all three routed primaries")
 }
 
 func TestSnapshotClusterManagedStatements(t *testing.T) {
@@ -317,6 +383,22 @@ func TestSnapshotClusterRecovery(t *testing.T) {
 	reader.Release()
 	reader = nil
 	snapshotClusterAwaitRecovery(t, h)
+	if os.Getenv("REDIS_SNAPSHOT_RDB_REQUIRED") == "1" {
+		encoded, err := os.ReadFile(dir + "/rdb-probes.json")
+		if err != nil {
+			t.Fatal(err)
+		}
+		var probes []snapshotRDBProbe
+		if err := json.Unmarshal(encoded, &probes); err != nil || len(probes) != 3 {
+			t.Fatal("RDB checkpoint probe record missing/invalid")
+		}
+		for _, probe := range probes {
+			if value, err := raw.Get(h.ctx, probe.Key).Result(); err != nil || value != probe.Value {
+				t.Fatal("a routed primary lost its checkpointed RDB sentinel")
+			}
+		}
+		t.Log("all three primary RDB sentinels recovered exactly")
+	}
 	// Established pools must recover routing without replaying an uncertain SQL
 	// operation. These statements are issued only after deployment readiness.
 	h.expectRows("SELECT COUNT(*),MIN(v),MAX(v) FROM t", "1001|102|9007199254740993")

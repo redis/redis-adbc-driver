@@ -75,6 +75,7 @@ def owned_nodes(project):
 
 
 def prepare(args):
+    args.persistence = args.persistence or "aof"
     directory = args.directory.resolve()
     directory.mkdir(mode=0o700, parents=True, exist_ok=True)
     if (directory / "fixture.json").exists():
@@ -165,7 +166,7 @@ def prepare(args):
         api.call("PUT", "license", {"license": license_file.read_text()})
         print("Private fixture license installed", flush=True)
     existing = api.call("GET", "bdbs")
-    body = database_config(database_password)
+    body = database_config(database_password, persistence=args.persistence)
     if existing:
         if (
             not args.resume
@@ -178,10 +179,10 @@ def prepare(args):
                     "replication",
                     "oss_cluster",
                     "data_persistence",
-                    "aof_policy",
                     "port",
                 )
             )
+            or not persistence_matches(existing[0], args.persistence)
         ):
             raise ValueError("owned fixture contains an unexpected database")
         database = existing[0]
@@ -202,8 +203,7 @@ def prepare(args):
     if not (
         database["oss_cluster"]
         and database["replication"]
-        and database["data_persistence"] == "aof"
-        and database["aof_policy"] == "appendfsync-always"
+        and persistence_matches(database, args.persistence)
         and database["eviction_policy"] == "noeviction"
     ):
         raise ValueError("fixture durability/routing policy mismatch")
@@ -221,17 +221,32 @@ def prepare(args):
         "durability_verified": True,
         "primaries": 3,
         "replication": True,
+        "persistence": args.persistence,
     }
     checkpoint_management(config)
     (directory / "fixture.json").write_text(json.dumps(config))
     os.chmod(directory / "fixture.json", 0o600)
     print(
-        "Verified 3-node / 3-primary / 3-replica Software Cluster API, TLS, AOF-always and active 4x QPF",
+        f"Verified 3-node / 3-primary / 3-replica Software Cluster API, TLS, {args.persistence} persistence and active 4x QPF",
         flush=True,
     )
 
 
-def database_config(database_password, replication=True):
+def persistence_policy(mode):
+    if mode == "aof":
+        return {"data_persistence": "aof", "aof_policy": "appendfsync-always"}
+    if mode == "snapshot":
+        # Test-only frequent checkpoints; the orchestrator dirties every primary.
+        # Persist both roles so recovery cannot depend on an old AOF copy.
+        return {"data_persistence": "snapshot", "snapshot_policy": [{"secs": 5, "writes": 1}], "master_persistence": True}
+    raise ValueError("unsupported fixture persistence mode")
+
+
+def persistence_matches(database, mode):
+    return all(database.get(key) == value for key, value in persistence_policy(mode).items())
+
+
+def database_config(database_password, replication=True, persistence="aof"):
     return {
         "name": "snapshot-cluster-test",
         "type": "redis",
@@ -252,8 +267,7 @@ def database_config(database_password, replication=True):
         "enforce_client_authentication": "disabled",
         "authentication_redis_pass": database_password,
         "eviction_policy": "noeviction",
-        "data_persistence": "aof",
-        "aof_policy": "appendfsync-always",
+        **persistence_policy(persistence),
     }
 
 
@@ -279,13 +293,14 @@ def load_fixture(args):
         or owned_nodes(args.project) != config["nodes"]
     ):
         raise ValueError("owned fixture identity changed")
+    if getattr(args, "persistence", None) not in (None, config.get("persistence", "aof")):
+        raise ValueError("requested persistence does not match the owned fixture")
     api = SoftwareAPI(config["nodes"][0]["api_port"], directory / "ca.pem")
     database = api.call("GET", f"bdbs/{config['bdb_uid']}")
     if not (
         database["oss_cluster"]
         and database["eviction_policy"] == "noeviction"
-        and database["data_persistence"] == "aof"
-        and database["aof_policy"] == "appendfsync-always"
+        and persistence_matches(database, config.get("persistence", "aof"))
         and database["shards_count"] == config["primaries"]
         and database["replication"] == config["replication"]
     ):
@@ -423,7 +438,8 @@ def search_registry(args, config, client):
 
 def checkpoint_management(config):
     # Persist only Software's cluster configuration, on every local CCS. This
-    # never saves or changes the SQL database: its rows/catalog rely on AOF.
+    # never saves or changes the SQL database: its rows/catalog rely on the
+    # separately verified persistence policy/checkpoint.
     # Abrupt full-quorum loss must not restore an older BDB UID or routing mode.
     for node in config["nodes"]:
         result = docker(
@@ -431,6 +447,71 @@ def checkpoint_management(config):
         )
         if result.strip() != "OK":
             raise RuntimeError("owned fixture management checkpoint failed")
+
+
+def redis_info_fields(info):
+    """Flatten Software's per-shard INFO sections, never logging their values."""
+    if not isinstance(info, dict):
+        raise ValueError("per-shard Redis INFO is unavailable")
+    fields = {}
+    for key, value in info.items():
+        if isinstance(value, dict):
+            fields.update(redis_info_fields(value))
+        else:
+            fields[key] = value
+    return fields
+
+
+def rdb_checkpoint_ready(shards, after):
+    if not shards:
+        return False
+    for shard in shards:
+        info = redis_info_fields(shard.get("redis_info"))
+        try:
+            if (int(info["aof_enabled"]) != 0
+                    or int(info["rdb_bgsave_in_progress"]) != 0
+                    or info["rdb_last_bgsave_status"] != "ok"
+                    or int(info["rdb_last_save_time"]) < after):
+                return False
+        except (KeyError, TypeError, ValueError):
+            return False
+    return True
+
+
+def rdb_checkpoint_shards(config, api):
+    ready = ready_shards(api, config["bdb_uid"], config["primaries"], True)
+    if not ready:
+        return None
+    keys = ("aof_enabled", "rdb_bgsave_in_progress", "rdb_last_bgsave_status", "rdb_last_save_time")
+    # Default shard objects deliberately omit INFO values. Request only the
+    # documented persistence fields, then retain exactly our verified shards.
+    reported = api.call("GET", "shards?" + urlencode([("extra_info_keys", key) for key in keys]))
+    selected = [s for s in reported if s["bdb_uid"] == config["bdb_uid"]]
+    if {s["uid"] for s in selected} != {s["uid"] for s in ready}:
+        return None
+    return selected
+
+
+def checkpoint_rdb(config, api, command, output):
+    # Require every shard's completed RDB to be newer than the paused test's final writes.
+    # This is separate from saving Software management CCS configuration.
+    after = int(time.time()) + 1
+    while time.time() < after:
+        time.sleep(0.05)
+    checkpoint = command[:]
+    checkpoint[2:2] = ["-e", "REDIS_SNAPSHOT_RDB_CHECKPOINT=1"]
+    checkpoint[-1] = "^TestSnapshotClusterRDBCheckpointWrites$"
+    result = subprocess.run(checkpoint, stdout=output, stderr=subprocess.STDOUT)
+    if result.returncode:
+        # The command contains private connection environment values.
+        raise RuntimeError("owned RDB checkpoint writes failed")
+    current = rdb_checkpoint_shards(config, api)
+    if rdb_checkpoint_ready(current, after + 3600):
+        raise ValueError("RDB gate accepted a future checkpoint")
+    wait(lambda: rdb_checkpoint_ready(
+        rdb_checkpoint_shards(config, api), after),
+        "fresh completed RDB checkpoint with AOF disabled was not verified", seconds=90)
+    print("Fresh completed RDB checkpoints and disabled AOF verified on every shard", flush=True)
 
 
 def recovery_tests(args):
@@ -443,6 +524,8 @@ def recovery_tests(args):
     docker("exec", client, "mkdir", "-p", chaos)
     docker("exec", client, "rm", "-f", chaos + "/ready", chaos + "/continue")
     command[2:2] = ["-e", "REDIS_SNAPSHOT_CHAOS_DIR=" + chaos]
+    if config.get("persistence", "aof") == "snapshot" and args.action == "restart":
+        command[2:2] = ["-e", "REDIS_SNAPSHOT_RDB_REQUIRED=1"]
     path = args.directory.resolve() / (args.action + "-tests.log")
     with path.open("w") as output:
         process = subprocess.Popen(command, stdout=output, stderr=subprocess.STDOUT)
@@ -496,6 +579,8 @@ def recovery_tests(args):
                 wait(promoted, "catalog primary promotion did not finish")
                 print("Catalog primary failover verified", flush=True)
             else:
+                if config.get("persistence", "aof") == "snapshot":
+                    checkpoint_rdb(config, api, command, output)
                 checkpoint_management(config)
                 containers = [n["container"] for n in config["nodes"]]
                 docker("kill", *containers)
@@ -509,7 +594,7 @@ def recovery_tests(args):
                     lambda: ready_shards(
                         api, config["bdb_uid"], config["primaries"], True
                     ),
-                    "AOF recovery did not finish",
+                    "persistence recovery did not finish",
                     seconds=240,
                 )
                 print("Abrupt all-node restart and shard recovery verified", flush=True)
@@ -522,8 +607,10 @@ def recovery_tests(args):
                 ),
                 "QPF recovery did not finish",
             )
-            if not api.call("GET", f"bdbs/{config['bdb_uid']}")["oss_cluster"]:
-                raise ValueError("Cluster API fixture policy did not persist")
+            recovered = api.call("GET", f"bdbs/{config['bdb_uid']}")
+            if not recovered["oss_cluster"] or not persistence_matches(
+                    recovered, config.get("persistence", "aof")):
+                raise ValueError("Cluster API/persistence fixture policy did not persist")
             wait(
                 lambda: search_registry(args, config, client) == expected_indexes,
                 "distributed Search recovery did not finish",
@@ -635,6 +722,8 @@ if __name__ == "__main__":
         default="prepare",
     )
     parser.add_argument("--proxy-checks", choices=("all", "native"), default="all")
+    parser.add_argument("--persistence", choices=("aof", "snapshot"),
+                        help="Owned fixture persistence policy; snapshot is a test-only frequent RDB policy")
     parser.add_argument(
         "--python",
         type=Path,
