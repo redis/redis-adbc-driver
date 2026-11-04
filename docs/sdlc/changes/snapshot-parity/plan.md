@@ -134,3 +134,11 @@ state and compaction across an abrupt three-node restart. The interrupted stream
 fails explicitly without replay. This closes that RDB restart evidence gap, not
 portable backup import, uninterrupted streaming or the full platform/performance
 requirements.
+
+The [import journal checkpoint](import-journal-validation.md) removes the
+whole-import retained-capture and Apply candidate ceilings through private
+reference-owned capture pages. Input is frozen before destination HASHes are
+produced and consumed after acknowledged output. This is groundwork for large
+operation progress, not a process-resume interface. The measured 10,000-row
+refresh median regressed by 4.9%; import throughput and durable operation/input
+resume remain open.

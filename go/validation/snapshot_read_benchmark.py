@@ -164,6 +164,57 @@ def batch_write_cases(cur, repeats, rows, rewrites=False):
     return results, expected
 
 
+def foreign_import_cases(conn, cur, uri, ca, repeats, rows):
+    """Time explicit recapture/publication; check every source and copied value."""
+    with redis.Redis.from_url(uri, ssl_ca_certs=str(ca), decode_responses=True) as raw:
+        expected = []
+        with raw.pipeline(transaction=False) as pipe:
+            for i in range(rows):
+                key = f"app:import:{i:08d}"
+                payload = f"Redis → {i}"
+                pipe.hset(key, mapping={"n": str(i), "payload": payload})
+                expected.append((key, i, payload))
+                if (i + 1) % 256 == 0:
+                    pipe.execute()
+            pipe.execute()
+        raw.execute_command("FT.CREATE", "app_import", "ON", "HASH", "PREFIX", 1,
+                            "app:import:", "SCHEMA", "n", "NUMERIC", "payload", "TEXT")
+        deadline = time.monotonic() + 60
+        while True:
+            info = raw.execute_command("FT.INFO", "app_import")
+            if not isinstance(info, dict):
+                info = dict(zip(info[::2], info[1::2]))
+            if int(info["num_docs"]) == rows and not int(info.get("indexing", 0)):
+                break
+            if time.monotonic() >= deadline:
+                raise RuntimeError("source index did not finish indexing")
+            time.sleep(0.05)
+        conn.adbc_connection.set_options(**{"adbc.redis.foreign_indexes": "true"})
+        samples = []
+        for iteration in range(repeats + 1):
+            # Change the input outside the timer so a stale copy cannot pass.
+            expected[0] = (expected[0][0], iteration + rows, expected[0][2])
+            raw.hset(expected[0][0], "n", str(iteration + rows))
+            start = time.perf_counter()
+            conn.adbc_connection.set_options(**{"adbc.redis.foreign_indexes_refresh": "true"})
+            elapsed = time.perf_counter() - start
+            cur.execute("SELECT __key,n,payload FROM redis_foreign.app_import ORDER BY __key")
+            if cur.fetchall() != expected:
+                raise AssertionError("foreign refresh: complete copied rows differ")
+            for start_at in range(0, rows, 256):
+                page = expected[start_at:start_at + 256]
+                with raw.pipeline(transaction=False) as pipe:
+                    for key, _, _ in page:
+                        pipe.hgetall(key)
+                    actual = pipe.execute()
+                if actual != [{"n": str(n), "payload": payload} for _, n, payload in page]:
+                    raise AssertionError("foreign refresh modified application HASHes")
+            if iteration:
+                samples.append(elapsed * 1000)
+    return {"foreign_refresh": {"median_ms": statistics.median(samples),
+                                "samples_ms": samples, "output_rows": rows}}, expected
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--driver", type=Path, required=True)
@@ -189,6 +240,8 @@ def main():
                        help="SQL insert and Arrow append batches with full post-write validation")
     modes.add_argument("--rewrite-batches", action="store_true",
                        help="UPDATE, DELETE and ALTER with complete post-write validation")
+    modes.add_argument("--foreign-imports", action="store_true",
+                       help="Explicit foreign refresh with complete source/copy validation")
     parser.add_argument("--unrelated-tables", type=int, default=32)
     parser.add_argument("--repeats", type=int, default=5)
     args = parser.parse_args()
@@ -237,7 +290,9 @@ def main():
         driver=str(args.driver.resolve()), db_kwargs={"uri": uri}, autocommit=True
     ) as conn:
         with conn.cursor() as cur:
-            if args.write_batches or args.rewrite_batches:
+            if args.foreign_imports:
+                results, logical = foreign_import_cases(conn, cur, uri, ca, args.repeats, args.rows)
+            elif args.write_batches or args.rewrite_batches:
                 results, logical = batch_write_cases(cur, args.repeats, args.rows, args.rewrite_batches)
             elif args.wide:
                 results, logical = wide_cases(cur, args.repeats, args.rows)
@@ -330,14 +385,14 @@ def main():
                 "noeviction": True,
                 "input_rows": args.rows,
                 "visible_rows": len(logical),
-                "initial_segments": 1 if args.write_batches or args.rewrite_batches else (2 if args.writes else 3),
-                "unrelated_tables": 0 if args.wide or args.write_batches or args.rewrite_batches else args.unrelated_tables,
+                "initial_segments": 1 if args.foreign_imports or args.write_batches or args.rewrite_batches else (2 if args.writes else 3),
+                "unrelated_tables": 0 if args.foreign_imports or args.wide or args.write_batches or args.rewrite_batches else args.unrelated_tables,
                 "wide_columns": 64 if args.wide else None,
                 "repeats": args.repeats,
                 "warmups": 1,
                 "timing": (
                     "write through atomic publication; complete independent post-write validation excluded"
-                    if args.write_batches or args.rewrite_batches else
+                    if args.foreign_imports or args.write_batches or args.rewrite_batches else
                     "write/publication + complete RETURNING fetch; independent post-write validation excluded"
                     if args.writes
                     else "execute + complete Arrow fetch + independent validation"

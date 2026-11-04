@@ -211,7 +211,7 @@ func resolveSnapshotMetadata(ctx context.Context, suffix string, writing bool, c
 		m.changed[suffix] = true
 		if len(command) > 0 {
 			switch command[0] {
-			case "del", "unlink", "srem", "hdel", "expire", "pexpire":
+			case "del", "unlink", "srem", "hdel", "zrem", "expire", "pexpire":
 				m.prune[suffix] = true
 			}
 		}

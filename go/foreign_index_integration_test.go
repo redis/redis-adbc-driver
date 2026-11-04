@@ -14,12 +14,15 @@
 
 package redis
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // An index that the driver didn't create but that has the index name a new
 // table would take (an application's own idx:public:<table>) isn't dropped
-// with its HASHes: CREATE TABLE, TRUNCATE and a re-keying RENAME take the
-// next names instead.
+// with its HASHes: CREATE TABLE, TRUNCATE and a re-keying RENAME allocate
+// fresh private generation names instead.
 func TestSQLForeignIndexName(t *testing.T) {
 	h := newSQLHarness(t)
 	raw := h.rawClient()
@@ -38,8 +41,8 @@ func TestSQLForeignIndexName(t *testing.T) {
 	tn, un := last("it_fi_t"), last("it_fi_u")
 	// The application's indexes: one on its own prefix, one on exactly the
 	// prefix a table would take but with a document, and one with a filter.
-	t2, t3, t4 := namesFor("public", "it_fi_t", tn+2), namesFor("public", "it_fi_t", tn+3), namesFor("public", "it_fi_t", tn+4)
-	u1, u2 := namesFor("public", "it_fi_u", un+1), namesFor("public", "it_fi_u", un+2)
+	t3 := namesFor("public", "it_fi_t", tn+3)
+	u1 := namesFor("public", "it_fi_u", un+1)
 	apps := []struct{ index, prefix, key string }{
 		{namesFor("public", "it_fi_t", tn+1).index, "it_fi_app:", "it_fi_app:1"},
 		{t3.index, t3.prefix, t3.prefix + "1"},
@@ -85,23 +88,37 @@ func TestSQLForeignIndexName(t *testing.T) {
 			}
 		}
 	}
-	expectNames := func(step, table string, want tableNames) {
+	usedPrefixes, usedIndexes := map[string]bool{}, map[string]bool{}
+	expectNames := func(step, table string) {
 		t.Helper()
-		rows, _ := h.query(`SELECT key_prefix || ' ' || index_name FROM information_schema.tables WHERE table_name = '` + table + `'`)
-		if w := want.prefix + " " + want.index; len(rows) != 1 || rows[0] != w {
-			t.Errorf("%s took %q, want %q", step, rows, w)
+		rows, _ := h.query(`SELECT key_prefix || '|' || index_name FROM information_schema.tables WHERE table_name = '` + table + `'`)
+		if len(rows) != 1 {
+			t.Fatalf("%s: expected one managed table, got %q", step, rows)
+		}
+		prefix, index, ok := strings.Cut(rows[0], "|")
+		if !ok || snapshotRowPrefix(prefix) != prefix || prefix == "" || !strings.HasPrefix(index, snapshotIndexPrefix(snapshotDataID(prefix))) {
+			t.Fatalf("%s: invalid private generation names %q", step, rows)
+		}
+		if usedPrefixes[prefix] || usedIndexes[index] {
+			t.Errorf("%s reused a prior generation: %q", step, rows)
+		}
+		usedPrefixes[prefix], usedIndexes[index] = true, true
+		for _, a := range apps {
+			if prefix == a.prefix || index == a.index {
+				t.Errorf("%s claimed application storage: %q", step, rows)
+			}
 		}
 	}
 
 	h.exec(`CREATE TABLE it_fi_t (a INTEGER)`)
 	expectApps("CREATE TABLE")
-	expectNames("CREATE TABLE", "it_fi_t", t2)
+	expectNames("CREATE TABLE", "it_fi_t")
 	h.exec(`INSERT INTO it_fi_t VALUES (1), (2)`)
 	h.expectRows(`SELECT COUNT(*) FROM it_fi_t`, "2")
 
 	h.exec(`TRUNCATE it_fi_t`)
 	expectApps("TRUNCATE")
-	expectNames("TRUNCATE", "it_fi_t", t4)
+	expectNames("TRUNCATE", "it_fi_t")
 	h.exec(`INSERT INTO it_fi_t VALUES (3)`)
 
 	if err := h.setConnOption(OptionStringRenameRekey, "true"); err != nil {
@@ -109,7 +126,7 @@ func TestSQLForeignIndexName(t *testing.T) {
 	}
 	h.exec(`ALTER TABLE it_fi_t RENAME TO it_fi_u`)
 	expectApps("RENAME")
-	expectNames("RENAME", "it_fi_u", u2)
+	expectNames("RENAME", "it_fi_u")
 	h.expectRows(`SELECT a FROM it_fi_u`, "3")
 }
 

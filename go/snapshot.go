@@ -746,7 +746,7 @@ func fenceSnapshotCommand(ctx context.Context, cmd goredis.Cmder) goredis.Cmder 
 		return cmd
 	}
 	switch strings.ToLower(fmt.Sprint(cmd.Args()[0])) {
-	case "set", "setnx", "incr", "incrby", "hset", "hdel", "hincrby", "sadd", "srem", "del", "unlink", "restore", "expire", "pexpire", "persist", "ft.create", "ft.dropindex", "ft.alter":
+	case "set", "setnx", "incr", "incrby", "hset", "hdel", "hincrby", "sadd", "srem", "zadd", "zrem", "del", "unlink", "restore", "expire", "pexpire", "persist", "ft.create", "ft.dropindex", "ft.alter":
 		// Declare every key, including the original command's keys. All
 		// share {meta}; no script discovers an undeclared data key.
 		keys := []any{snapshotCatalogKey, snapshotMetadataGraph, snapshotDataQueue}
@@ -803,7 +803,7 @@ func scopeSnapshotCommand(ctx context.Context, cmd goredis.Cmder) error {
 	name := strings.ToLower(fmt.Sprint(args[0]))
 	var positions []int
 	switch name {
-	case "zrange", "zcard", "get", "set", "setnx", "incr", "incrby", "hget", "hgetall", "hkeys", "hlen", "hexists", "hmget", "hset", "hdel", "hincrby", "sadd", "srem", "smembers", "sismember", "scard", "dump", "restore", "expire", "pexpire", "persist", "ttl", "pttl":
+	case "zrange", "zrangebylex", "zscore", "zlexcount", "zcard", "zadd", "zrem", "get", "set", "setnx", "incr", "incrby", "hget", "hgetall", "hkeys", "hlen", "hexists", "hmget", "hset", "hdel", "hincrby", "sadd", "srem", "smembers", "sismember", "scard", "dump", "restore", "expire", "pexpire", "persist", "ttl", "pttl":
 		positions = []int{1}
 	case "del", "unlink", "exists", "watch", "mget":
 		for n := 1; n < len(args); n++ {
@@ -842,7 +842,7 @@ func scopeSnapshotCommand(ctx context.Context, cmd goredis.Cmder) error {
 		if scope.store != nil {
 			writing := false
 			switch name {
-			case "set", "setnx", "incr", "incrby", "hset", "hdel", "hincrby", "sadd", "srem", "del", "unlink", "restore", "expire", "pexpire", "persist":
+			case "set", "setnx", "incr", "incrby", "hset", "hdel", "hincrby", "sadd", "srem", "zadd", "zrem", "del", "unlink", "restore", "expire", "pexpire", "persist":
 				writing = true
 			case "watch":
 				writing = scope.write
@@ -861,7 +861,7 @@ func scopeSnapshotCommand(ctx context.Context, cmd goredis.Cmder) error {
 	}
 	write := false
 	switch name {
-	case "set", "setnx", "incr", "incrby", "hset", "hdel", "hincrby", "sadd", "srem", "del", "unlink", "restore", "expire", "pexpire", "persist", "ft.create", "ft.dropindex", "ft.alter":
+	case "set", "setnx", "incr", "incrby", "hset", "hdel", "hincrby", "sadd", "srem", "zadd", "zrem", "del", "unlink", "restore", "expire", "pexpire", "persist", "ft.create", "ft.dropindex", "ft.alter":
 		write = true
 	}
 	if write && !scope.write {

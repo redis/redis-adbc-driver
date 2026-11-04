@@ -105,44 +105,22 @@ func (s *store) importSnapshotTable(ctx context.Context, source *tableMeta, sche
 	if _, err := s.createTable(wctx, target, false); err != nil {
 		return err
 	}
+	spool := newSnapshotImportSpool(wctx, s, target)
+	wctx = context.WithValue(wctx, snapshotImportSpoolKey{}, spool)
 	for {
 		rows, done, err := next(wctx)
 		if err != nil {
 			return err
 		}
-		values := make([][]Value, len(rows))
-		for i, row := range rows {
-			values[i] = make([]Value, len(target.Columns))
-			for j, col := range target.Columns {
-				v, ok := row[col.Name]
-				if !ok {
-					v = nullValue(col.Type)
-				}
-				values[i][j] = v
-			}
-		}
-		if len(values) > 0 {
-			allocation, err := s.allocRows(wctx, target, values)
-			if err != nil {
-				return err
-			}
-			if target.SnapshotSourceKey {
-				allocation.sourceKeys = make([]Value, len(rows))
-				for i, row := range rows {
-					key, ok := row[keyField]
-					if !ok || key.Null || key.T.Kind != KindString {
-						return errorf(adbc.StatusIO, "import source row has no original key")
-					}
-					allocation.sourceKeys[i] = key
-				}
-			}
-			if _, err := s.writeRows(wctx, target, allocation, values); err != nil {
-				return err
-			}
+		if err := spool.append(wctx, rows); err != nil {
+			return err
 		}
 		if done {
 			break
 		}
+	}
+	if err := spool.apply(wctx); err != nil {
+		return err
 	}
 	return s.publishSnapshot(wctx, pin, id)
 }
@@ -207,12 +185,11 @@ func (s *store) refreshSnapshotForeign(ctx context.Context, replace bool) error 
 				return errorf(adbc.StatusInvalidArgument, "source index overlaps driver control storage")
 			}
 		}
-		capture := &retainedCapture{store: source, budget: newRetainedBudget(64 << 20), maxRows: 100000, maxKeys: 200000}
-		frozen, err := capture.table(sctx, meta)
+		reader, err := s.snapshotForeignImportReader(sctx, source, meta)
 		if err != nil {
 			return err
 		}
-		if err := s.importSnapshotTable(ctx, meta, foreignSchema, name, true, nil, func(context.Context) ([]map[string]Value, bool, error) { return frozen.mem, true, nil }); err != nil {
+		if err := s.importSnapshotTable(ctx, meta, foreignSchema, name, true, nil, reader); err != nil {
 			return err
 		}
 	}
@@ -307,7 +284,6 @@ func (a *adopter) snapshotAdopt(ctx context.Context) (*HashAdoption, error) {
 	if err != nil {
 		return nil, err
 	}
-	seen := map[string]bool{}
 	reader := func(ctx context.Context) ([]map[string]Value, bool, error) {
 		page, done, err := keys.next(ctx)
 		if err != nil {
@@ -315,13 +291,13 @@ func (a *adopter) snapshotAdopt(ctx context.Context) (*HashAdoption, error) {
 		}
 		eligible := page[:0:0]
 		for _, key := range page {
-			if !seen[key] && isRowKey(a.o.Prefix, key) {
-				seen[key] = true
+			if isRowKey(a.o.Prefix, key) {
 				eligible = append(eligible, key)
 			}
 		}
-		if len(seen) > 200000 {
-			return nil, false, errorf(adbc.StatusInvalidState, "HASH import candidate-key budget exceeded")
+		eligible, err = snapshotImportUnseen(ctx, eligible)
+		if err != nil {
+			return nil, false, err
 		}
 		if a.app != nil {
 			capture := &retainedCapture{store: &store{client: a.c.client}}

@@ -21,6 +21,8 @@ func TestSnapshotCommandScoping(t *testing.T) {
 	for _, args := range [][]any{
 		{"HSET", metaKey("public", "t"), "field", literal},
 		{"SADD", tablesKey("public"), literal},
+		{"ZADD", metaPrefix + "import:keys:test", 0, literal},
+		{"ZREM", metaPrefix + "import:keys:test", literal},
 		{"SET", metaKey("public", "t"), literal},
 	} {
 		cmd := goredis.NewCmd(ctx, args...)
