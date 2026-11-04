@@ -76,11 +76,11 @@ func TestFractionalPrecisionIssue113(t *testing.T) {
 	}
 	// As stored in the row hash: milliseconds, a multiple of 10.
 	raw := h.rawClient()
-	if got, err := raw.HGet(h.ctx, rowKeyOf(h, "it_prec", 1), "ts2").Result(); err != nil || got != "1704880800120" {
-		t.Errorf("stored ts2 of row 1: %q, %v; want 1704880800120", got, err)
+	if got := h.storedRowByID(raw, "it_prec", 1)["ts2"]; got != "1704880800120" {
+		t.Errorf("stored ts2 of row 1: %q; want 1704880800120", got)
 	}
-	if got, err := raw.HGet(h.ctx, rowKeyOf(h, "it_prec", 1), "t5").Result(); err != nil || got != "36000123460" {
-		t.Errorf("stored t5 of row 1: %q, %v; want 36000123460", got, err)
+	if got := h.storedRowByID(raw, "it_prec", 1)["t5"]; got != "36000123460" {
+		t.Errorf("stored t5 of row 1: %q; want 36000123460", got)
 	}
 
 	// Index queries compare with the stored, rounded values, and give what

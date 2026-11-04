@@ -234,3 +234,9 @@ fixture publication. Default tests retain exact materialization and virtual
 planner guards, while stale INSERT publication must conflict without leaking
 rows or changing the current root. Both focused race selections pass; full
 ordinary and performance parity remain open.
+
+The [timestamp inspection checkpoint](timestamp-inspection-validation.md) resolves
+logical IDs and newest stored images under one pin, retaining exact physical
+timestamp units, replacement/older-segment/NULL coverage and session-zone
+pushdown checks. Seven focused race cases pass; the next ordinary failure is a
+DROP/RENAME race receiving serialization refusal. Full parity remains open.

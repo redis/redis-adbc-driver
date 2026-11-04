@@ -141,6 +141,52 @@ func (h *sqlHarness) inspectionSnapshot(raw goredis.UniversalClient, writing ...
 	return s, ctx, pin
 }
 
+// Resolve a logical SQL id and inspect its newest stored image under the same
+// pin. A latest-segment prefix alone cannot locate unchanged older rows.
+func (h *sqlHarness) storedRowByID(raw goredis.UniversalClient, table string, id int) aggRow {
+	h.t.Helper()
+	s, ctx, pin := h.inspectionSnapshot(raw)
+	defer pin.release()
+	parsed, err := ParseScript("SELECT __rowid FROM " + table + " WHERE id = " + strconv.Itoa(id))
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	e := &executor{store: s, schema: defaultSchema, sess: newSession(defaultSchema), pushdown: PushdownExact, cache: newExecCache()}
+	plan, err := e.planSelect(ctx, parsed[0].Stmt.(*SelectStmt), nil)
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	ids, err := e.runSelect(ctx, plan, nil)
+	if err != nil || len(ids) != 1 || len(ids[0]) != 1 || ids[0][0].Null {
+		h.t.Fatalf("row %d of %s unavailable: %v", id, table, err)
+	}
+	key := plan.meta.prefix() + strconv.FormatInt(ids[0][0].I, 10)
+	rows, err := s.fetchSnapshotVisible(ctx, plan.meta, []string{key}, nil)
+	if err != nil || len(rows) != 1 || rows[0] == nil {
+		h.t.Fatalf("stored row %d of %s unavailable: %v", id, table, err)
+	}
+	return rows[0]
+}
+
+func TestSQLStoredRowInspectionVisibility(t *testing.T) {
+	h := newSQLHarness(t)
+	const table = "it_stored_row_inspection"
+	h.dropTables(table)
+	h.exec("CREATE TABLE " + table + " (id INTEGER,v BIGINT)")
+	h.exec("INSERT INTO " + table + " VALUES (10,9007199254740993),(-1,NULL)")
+	h.exec("UPDATE " + table + " SET v=9007199254740995 WHERE id=10")
+	raw := h.rawClient()
+	if row := h.storedRowByID(raw, table, 10); row["v"] != "9007199254740995" || row["id"] != "10" {
+		t.Fatal("inspection lost exact replacement", row)
+	}
+	if row := h.storedRowByID(raw, table, -1); row["id"] != "-1" || row[rowIDField] != "2" {
+		t.Fatal("inspection lost older-segment row", row)
+	} else if _, ok := row["v"]; ok {
+		t.Fatal("inspection materialized NULL", row)
+	}
+	h.expectRows("SELECT id,v FROM "+table+" ORDER BY id", "-1|NULL", "10|9007199254740995")
+}
+
 func (h *sqlHarness) patchStoredRow(schema, table, id, field, value string) {
 	h.t.Helper()
 	s, ctx, pin := h.inspectionSnapshot(h.rawClient(), true)
