@@ -100,14 +100,31 @@ batch**. Repeated values count once toward that payload limit. Exceeding either
 limit ends the reader with InvalidArgument; reduce `stream_batch_rows`.
 These limits exclude index buffers, bookkeeping, source batches and
 consumer-retained batches and are not RSS caps. IPC stream output supports
-replacement dictionaries across batches; dictionary IPC **file** output is
-explicitly rejected because this policy does not provide a file-wide dictionary.
+replacement dictionaries across batches. Dictionary IPC **file** output stages
+batches in a private, automatically deleted IPC stream, constructs a file-wide
+String/Binary dictionary per column, then remaps int32 indices on replay.
+The file schema stays dictionary-encoded throughout; NULLs remain NULL indices.
+Limits: 65,536 entries and 16 MiB distinct payload per column; 262,144 entries
+and 64 MiB payload across columns; 4,096 fields, 16,777,216 input cells,
+65,536 batches and 256 MiB staging bytes per file. Dictionary entry visits also
+cap at 16,777,216 and cumulative visited dictionary payload at 256 MiB, including
+unused entries and repeated dictionaries; remapping visits each entry once per
+batch before translating row indices. Exceeding admission fails;
+there is no plain-array fallback. Cancellation and errors remove staging and
+partial output files. These counters bound work/state, not total RSS or
+consumer-retained buffers. File output is finite and needs two passes before
+completion; stream output keeps its existing per-batch policy.
 
 Other selected layouts support native IPC stream and file output. Live and
-retained `ExecutePartitions` reject any nonempty result-layout option before
-publishing work. Independent replay keeps its established schema/IPC validation
-contract. Default canonical output remains available to both partition modes,
-subject to their existing expression/type/descriptor limits.
+retained `ExecutePartitions` support all selected **non-dictionary** layouts.
+Live descriptor revision 3 and retained revision 4 carry the bounded layout map;
+old canonical revisions 1 and 2 remain readable. Independent readers validate
+layout syntax and source compatibility and report the producer's physical
+schema. Retained chunks stay canonical under their existing restricted IPC
+validation contract: every conversion is checked before publication and applied
+again during immutable replay. Dictionary layouts reject before work starts.
+Fixed-size output rows above 16 MiB reject, including across multiple selected
+columns. Other conversion errors retain their explicit loss/overflow behavior.
 
 ## Recursive arrays and stored records
 
@@ -149,9 +166,10 @@ HASH field, not individual struct children.
 | Search IDs followed by authoritative HASH fetch | Paged IDs, bounded HASH pipelines | Eligible row-local projection batches |
 | General HASH discovery fallback | SCAN pages | Materialized for insertion-order/global-sort and duplicate handling |
 | Scalar/group aggregates | Eligible scan input can be paged | Final output can block; cardinality/spill policy depends on aggregate |
-| DISTINCT, general sort, windows, joins, correlated/subquery work | Plan-dependent | Existing materialization/caches; no universal memory bound |
+| Unordered managed-table DISTINCT with `stream_required=true` | Bounded row-ID pages/key pipelines | Incremental first-encounter output; bounded distinct-key set, explicit rejection on exhaustion |
+| General DISTINCT, sort, windows, joins, correlated/subquery work | Plan-dependent | Existing materialization/caches; no universal memory bound |
 
-Only unordered key-source leaves are added to finite streaming here. Explicit
+Unordered key-source leaves and bounded DISTINCT extend finite streaming. Explicit
 ordering that needs a global sort and general HASH discovery retain ordinary
 execution. Rows/duplicates, residual predicates, pairwise UNION coercion and
 per-node limits follow the ordinary path. First-fill errors fail execution;
@@ -164,7 +182,18 @@ row, server sort state, allocator slack or total process memory.
 Set statement option `adbc.redis.stream_required=true` to reject materializing
 fallback before executing it. This conservative mode accepts unordered
 driver-managed table scans/key lookups and eligible unordered UNION ALL trees.
-It rejects grouping/aggregates, DISTINCT, ORDER BY, windows, joins, views,
+It also admits unordered, row-local managed-table DISTINCT with resolved result
+types, without DISTINCT ON. Ordinary execution keeps its existing optimizer and
+materialized fallback. This opt-in path retains at most 65,536 unique keys and
+16 MiB of key bytes plus charged map overhead, rejects rows above its key
+serialization budget, and admits at most two million allocated source IDs (or
+prepared keys) and projected rows. There is no spill or materializing retry
+after results have been exposed. Budget exhaustion can therefore be a late reader
+error. DISTINCT consumes input incrementally and emits each first encounter;
+OFFSET/LIMIT apply after deduplication. Without ORDER BY neither ordinary nor
+streaming execution promises a particular ordering; a grouped ordinary plan can
+select different valid LIMIT rows. General HASH discovery still rejects.
+It rejects grouping/aggregates, ORDER BY, windows, joins, views,
 CTEs/derived tables, subqueries, set operations other than UNION ALL and HASH
 discovery/global-sort fallback. It requires `stream_results=true`, ExecuteQuery,
 one SELECT and at most one bound parameter row. A result small enough for the
@@ -238,15 +267,14 @@ occurs before table creation and never silently stringifies values.
   is no end-to-end zero-copy Redis storage/network path.
 - IPC serialization/deserialization and explicit layout conversion can allocate
   additional buffers. Fixed-binary conversion splits source batches to target at
-  most 16 MiB of fixed-width payload per output batch (one oversized row can
-  exceed this). This excludes source buffers, variable payload, allocator slack
+  most 16 MiB of fixed-width payload per output batch; an oversized row rejects. This excludes source buffers, variable payload, allocator slack
   and retained batches. No reduction in copies or allocation speed is claimed.
 
 ### Explicit extension storage normalization
 
 Statement option `adbc.redis.extension_policy` is `reject` by default. Setting it
-to `storage` explicitly permits the following **registry revision 1** mappings
-for top-level fields, including registered Go/PyArrow types and C-imported
+to `storage` explicitly permits the following **registry revision 2** mappings
+for top-level fields and recursively nested STRUCT fields, including registered Go/PyArrow types and C-imported
 storage fields carrying extension metadata:
 
 | Extension | Required physical storage/metadata | Stored/default output |
@@ -257,8 +285,13 @@ storage fields carrying extension metadata:
 This follows [Arrow's canonical definitions](https://arrow.apache.org/docs/format/CanonicalExtensions.html#json).
 Names are limited to 256 UTF-8 bytes and serialized extension metadata to 16 KiB
 per field. Duplicate/orphan/reserved unknown metadata keys, storage/type
-mismatches, conflicting driver SQL metadata, unknown/custom names and nested
-extension fields reject. UUID metadata parameters/version changes reject;
+mismatches, conflicting driver SQL metadata and unknown/custom names reject.
+Nested lists/dictionaries containing extension semantics remain unsupported.
+STRUCT recursion is limited to 16 levels, 4,096 fields and 64 KiB aggregate
+schema/extension metadata. Converted batches permit at most 1,048,576 decoded
+values and 64 MiB decoded string/binary bytes across their columns. Parent NULLs
+do not validate hidden JSON values. Empty and sliced STRUCT arrays retain
+validity/offsets while owned buffers are retained. UUID metadata parameters/version changes reject;
 JSON metadata may contain future optional fields under its canonical contract.
 No executable/plugin loading or dynamic registry installation is driven by
 metadata. Driver TIMETZ metadata remains separate.

@@ -183,10 +183,9 @@ def test_explicit_decimal_physical_schema(conn, bits, scale, tmp_path):
         assert cur.adbc_execute_schema("SELECT ? AS v", batch).equals(batch.schema)
         cur.execute("SELECT ? AS v", batch)
         assert cur.fetch_arrow_table().equals(pa.Table.from_batches([batch]))
-        for mode in ["live", "retained"]:
-            cur.adbc_statement.set_options(**{"adbc.redis.partition_result_mode": mode})
-            with pytest.raises(Exception, match="result_layouts"):
-                cur.adbc_execute_partitions("SELECT ? AS v", batch.slice(0, 1))
+        cur.adbc_statement.set_options(**{"adbc.redis.partition_result_mode": "live"})
+        with pytest.raises(Exception, match="single-table SELECT"):
+            cur.adbc_execute_partitions("SELECT ? AS v", batch.slice(0, 1))
 
 
 @pytest.mark.parametrize("layout", ["large_string", "string_view", "large_binary", "binary_view", "fixed_size_binary:3", "dictionary"])
@@ -218,21 +217,17 @@ def test_result_layout_buffers_and_ipc(conn, layout, tmp_path):
                 path = tmp_path / f"layout_{format}.arrow"
                 cur.adbc_statement.set_options(**{"adbc.redis.ipc.output": str(path), "adbc.redis.ipc.format": format})
                 cur.adbc_statement.set_sql_query(query)
-                if layout == "dictionary" and format == "file":
-                    with pytest.raises(Exception, match="dictionary.*IPC stream|per-batch dictionary"):
-                        cur.adbc_statement.execute_update()
-                    assert not path.exists()
-                    continue
                 assert cur.adbc_statement.execute_update() == len(values)
                 with pa.memory_map(str(path), "r") as data:
                     result = (pa.ipc.open_stream(data) if format == "stream" else pa.ipc.open_file(data)).read_all()
                     assert result.column(0).to_pylist() == values
                     assert result.schema.field("v").type == target
             cur.adbc_statement.set_options(**{"adbc.redis.ipc.output": ""})
-            for mode in ["live", "retained"]:
-                cur.adbc_statement.set_options(**{"adbc.redis.partition_result_mode": mode})
-                with pytest.raises(Exception, match="result_layouts"):
-                    cur.adbc_execute_partitions(query)
+            if layout == "dictionary":
+                for mode in ["live", "retained"]:
+                    cur.adbc_statement.set_options(**{"adbc.redis.partition_result_mode": mode})
+                    with pytest.raises(Exception, match="result_layouts"):
+                        cur.adbc_execute_partitions(f"SELECT v FROM {table}")
         finally:
             cur.adbc_statement.set_options(**{"adbc.redis.ipc.output": "", "adbc.redis.result_layouts": "{}"})
             cur.execute(f"DROP TABLE IF EXISTS {table}")

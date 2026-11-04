@@ -331,7 +331,11 @@ func (e *executor) recursiveResult(def *CTE, cols []resultColumn, tr *tracer, re
 			}
 		}
 		all, names := tr.columns(cols, names)
-		return memTable(def.Name, all, tr.finish(result), names)
+		rows, err := tr.finish(result)
+		if err != nil {
+			return nil, err
+		}
+		return memTable(def.Name, all, rows, names)
 	}
 	return memTable(def.Name, cols, result, def.Columns)
 }

@@ -208,6 +208,10 @@ func (l resultLayouts) wrap(ctx context.Context, mem memory.Allocator, src array
 			fixedBytes += int64(dt.ByteWidth)
 		}
 	}
+	if fixedBytes > 16<<20 {
+		src.Release()
+		return nil, errorf(adbc.StatusInvalidArgument, "fixed-size result row exceeds 16 MiB layout budget")
+	}
 	if fixedBytes > 0 {
 		r.maxRows = max(int64(1), (16<<20)/fixedBytes)
 	}
@@ -384,6 +388,27 @@ func appendPhysicalResult(b array.Builder, dt arrow.DataType, v Value) error {
 		b.Append(arrow.Duration(v.I / factor))
 	default:
 		return appendValue(b, v.T, v)
+	}
+	return nil
+}
+
+// Partition revision 3/4 supports explicit non-dictionary layouts. Retained IPC
+// remains canonical; producer validates conversions, readers replay the layout.
+func (l resultLayouts) partitionCompatible() error {
+	if len(l) == 0 {
+		return nil
+	}
+	data, err := json.Marshal(l)
+	if err != nil || len(data) > 65536 {
+		return errorf(adbc.StatusInvalidArgument, "partition result_layouts exceeds 64 KiB")
+	}
+	if _, err := parseResultLayouts(string(data)); err != nil {
+		return err
+	}
+	for _, layout := range l {
+		if layout == "dictionary" {
+			return errorf(adbc.StatusNotImplemented, "partition result_layouts dictionary is not supported by the retained IPC contract")
+		}
 	}
 	return nil
 }

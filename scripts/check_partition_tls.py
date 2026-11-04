@@ -350,6 +350,9 @@ def main(argv=None, cloud_principals_factory=None):
                 direct, direct_schema = cur.adbc_execute_partitions('SELECT * FROM ' + qualified + ' WHERE __rowid IN(1,1,3,1100)')
                 cur.adbc_statement.set_options(**{'adbc.redis.partition_count': 1})
                 cancellable, _ = cur.adbc_execute_partitions('SELECT * FROM ' + qualified)
+                cur.adbc_statement.set_options(**{'adbc.redis.result_layouts': json.dumps({'label':'large_string','payload':'large_binary','amount':'decimal64'})})
+                layout_parts, layout_schema = cur.adbc_execute_partitions('SELECT * FROM ' + qualified)
+
         if args.cluster_mode == 'true' or (args.cluster_mode == 'auto' and cluster_enabled == 1):
             primary_clients = (dict(zip(sorted(principals.nodes), principals.clients))
                                if args.oss_cluster_fixture else None)
@@ -366,6 +369,10 @@ def main(argv=None, cloud_principals_factory=None):
         actual = pa.concat_tables([read(part) for part in broad]).sort_by('id')
         assert actual.schema.equals(broad_schema) and actual.equals(expected)
         check('restricted_cross_process_search_full_values_schema')
+        layout_actual = pa.concat_tables([read(part) for part in layout_parts]).sort_by('id')
+        assert layout_actual.schema.equals(layout_schema) and layout_actual.equals(expected.cast(layout_schema))
+        check('restricted_cross_process_explicit_layout_values_and_schema')
+
         actual = pa.concat_tables([read(part) for part in direct]).sort_by('id')
         assert actual.schema.equals(direct_schema) and actual.equals(data.take(pa.array([0, 1099])))
         check('restricted_cross_process_direct_hash_duplicates_deleted')

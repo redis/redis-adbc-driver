@@ -101,7 +101,10 @@ func (e *executor) newScanReader(ctx context.Context, plan *selectPlan, req scan
 	r := &streamReader{ctx: sctx, cancel: cancel, exec: e, cache: e.cache, items: plan.items, it: it,
 		env: e.newEnv(sctx, plan.meta.types(), params), zone: e.zone(), cols: cols, schema: resultSchema(cols), mem: so.mem, batchRows: so.batchRows, batchBytes: so.batchBytes, left: -1}
 	r.refs.Store(1)
-	if it.projection != nil {
+	if so.distinct {
+		r.distinct = &streamDistinct{seen: map[string]bool{}}
+	}
+	if it.projection != nil && !so.distinct {
 		r.arrow = &scanArrow{scratch: make([]Value, len(cols))}
 	}
 	return r, nil

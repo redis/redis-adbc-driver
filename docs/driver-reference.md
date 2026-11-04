@@ -169,7 +169,10 @@ with CANCELLED:
 - **The work the driver does in memory** (filtering, joins, aggregates,
   window functions, sorting, set operations, recursive queries, subqueries,
   `generate_series`) checks for the cancel at every row, so it stops within
-  milliseconds. A sort under way finishes first.
+  milliseconds for ordinary scalar rows. Cardinality-dependent query sorts
+  check every 256 comparisons and unwind before publishing results. Cancellation
+  latency still includes the current key comparison and intervening swaps;
+  per-value JSONB canonicalization and metadata ordering keep their existing checks.
 - **Redis commands:** cancellation closes execution-owned sockets, interrupting
   blocked reads, writes and pipelines even when read timeouts are disabled.
   SQL, ingestion, partition discovery and partition readers own separate pools.
@@ -3179,6 +3182,8 @@ allow otherwise streamable queries to stream.
   - So dbt_utils' `haversine_distance` works, in its default form (with
     `radians`) and in its BigQuery form (with `acos(-1)`)
 - String functions; positions are 1-based and count characters, not bytes:
+  `OCTET_LENGTH` and `BIT_LENGTH` instead count bytes/bits of VARCHAR or VARBINARY,
+  return BIGINT, preserve NULL, and reject fixed CHAR/other argument types.
   - `SUBSTRING(s, start [, len])`, `SUBSTRING(s FROM start [FOR len])`
     (with text arguments, the pattern forms below),
     `SUBSTR`, `LEFT(s, n)` / `RIGHT(s, n)` (a negative `n` drops characters

@@ -33,6 +33,8 @@ import (
 // adding a function there does not establish portable partition semantics.
 var partitionFunctions = map[string]bool{
 	"MOD": true, "ABS": true, "LOWER": true, "UPPER": true, "LENGTH": true,
+	// Byte lengths inspect an existing scalar header without allocation or expansion.
+	"OCTET_LENGTH": true, "BIT_LENGTH": true,
 	"COALESCE": true, "NULLIF": true, "GREATEST": true, "LEAST": true,
 }
 

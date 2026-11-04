@@ -118,6 +118,7 @@ func (s *streamSettings) set(key, value string) error {
 // streamOpts asks execute to stream a query's rows if it can.
 type streamOpts struct {
 	required bool
+	distinct bool
 	// cols are the result's columns, or nil for the plan's.
 	cols       []resultColumn
 	batchRows  int
@@ -178,9 +179,24 @@ func incrementalScan(plan *selectPlan, sc selectScan) bool {
 // batch of rows, and returns the result whole if that was all of it, or
 // else a stream of it.
 func (e *executor) streamSelect(ctx context.Context, plan *selectPlan, params []Value, so *streamOpts) (execResult, error) {
+	limits := plan.sel
+	if plan.distinct {
+		inner, sel := *plan, *plan.sel
+		sel.Limit, sel.Offset = nil, nil
+		inner.sel, inner.distinct = &sel, false
+		plan = &inner
+		opts := *so
+		opts.distinct = true
+		so = &opts
+	}
 	sc, err := e.prepareScan(ctx, plan, params)
 	if err != nil {
 		return execResult{}, err
+	}
+	if so.distinct {
+		if err := e.admitDistinctScan(ctx, plan, sc); err != nil {
+			return execResult{}, err
+		}
 	}
 	if so.required && !sc.req.where.none && !incrementalScan(plan, sc) {
 		return execResult{}, errorf(adbc.StatusNotImplemented, "stream_required rejects a materializing scan fallback")
@@ -212,10 +228,10 @@ func (e *executor) streamSelect(ctx context.Context, plan *selectPlan, params []
 	}
 	cols := r.cols
 	if !sc.pushLimit && sc.req.late == nil {
-		if off := plan.sel.Offset; off != nil {
+		if off := limits.Offset; off != nil {
 			r.skip = *off
 		}
-		if lim := plan.sel.Limit; lim != nil {
+		if lim := limits.Limit; lim != nil {
 			r.left = *lim
 		}
 	}
@@ -264,17 +280,18 @@ type streamReader struct {
 	transport *executionTransport
 
 	// mu guards everything below. closeWith takes it to close the stream.
-	mu     sync.Mutex
-	ctx    context.Context
-	cancel context.CancelCauseFunc
-	exec   *executor
-	cache  *execCache // the statement's, for checkReads
-	owners []*streams
-	it     *scanIter
-	union  *unionRows
-	items  []planItem
-	env    *evalEnv
-	zone   tzZone
+	mu       sync.Mutex
+	ctx      context.Context
+	cancel   context.CancelCauseFunc
+	exec     *executor
+	cache    *execCache // the statement's, for checkReads
+	owners   []*streams
+	it       *scanIter
+	union    *unionRows
+	distinct *streamDistinct
+	items    []planItem
+	env      *evalEnv
+	zone     tzZone
 
 	cols       []resultColumn
 	schema     *arrow.Schema
@@ -324,7 +341,7 @@ func (r *streamReader) fill() error {
 			count = len(projection.rows)
 		}
 		for i := 0; i < count; i++ {
-			if r.skip > 0 {
+			if r.skip > 0 && r.distinct == nil {
 				r.skip--
 				continue
 			}
@@ -339,6 +356,22 @@ func (r *streamReader) fill() error {
 				row, err = evalItems(r.env, r.items)
 				if err != nil {
 					return err
+				}
+			}
+			if r.distinct != nil {
+				if err := cancelled(r.ctx); err != nil {
+					return err
+				}
+				keep, err := r.distinct.keep(row)
+				if err != nil {
+					return err
+				}
+				if !keep {
+					continue
+				}
+				if r.skip > 0 {
+					r.skip--
+					continue
 				}
 			}
 			if err := fitRow(row, r.cols, r.zone); err != nil {
@@ -512,6 +545,7 @@ func (r *streamReader) closeLocked() {
 		r.it.close(r.ctx)
 	}
 	r.pending = nil
+	r.distinct = nil
 	if r.arrow != nil {
 		r.arrow.release()
 	}
