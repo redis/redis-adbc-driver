@@ -365,3 +365,9 @@ The [native rekey layout checkpoint](rekey-layout-validation.md) replaces legacy
 name counters and mutable field setup with canonical ownership/freshness and
 public DDL. Six race families pass dbt generation retention, complete multi-page
 copy, option/temporary behavior and dropped-field reclamation; full parity remains open.
+
+The [native rekey recovery checkpoint](rekey-recovery-validation.md) restores
+abandoned-work recovery, publication conflicts, lease fencing and exact concurrent
+write outcomes. Sixteen combined rekey/Close race events and a lost-reply GC check
+pass. Verified admission backpressure remains a sustained-performance concern;
+process-kill, full ordinary/platform and performance gates remain open.

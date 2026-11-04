@@ -18,11 +18,12 @@ package redis
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"reflect"
-	"slices"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -396,290 +397,283 @@ func TestSQLRekeyFieldsAndCleanup(t *testing.T) {
 	}
 }
 
-// A move interrupted before the switch is rolled back by a later
-// connection, or by a statement that the move refuses; one interrupted after
-// the switch is finished.
+// A staged rekey uses the real private rewrite and publication pipeline.
+// It does not install legacy mutable rekey records or change published input.
+type stagedRekeySnapshot struct {
+	store          *store
+	base, ctx      context.Context
+	pin            *snapshotPin
+	id             string
+	source, target *tableMeta
+}
+
+func stageRekeySnapshot(t *testing.T, h *sqlHarness, raw goredis.UniversalClient, from, to string) *stagedRekeySnapshot {
+	t.Helper()
+	st := &store{client: raw, snapshots: true}
+	base, pin, err := st.acquireSnapshot(h.ctx, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	source, err := st.getTable(base, defaultSchema, from)
+	if err != nil {
+		pin.release()
+		t.Fatal(err)
+	}
+	ctx, id, err := st.beginSnapshotWrite(base, pin)
+	if err != nil {
+		pin.release()
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { st.abortSnapshot(pin, id); pin.release() })
+	parsed, err := ParseScript("ALTER TABLE " + from + " RENAME TO " + to)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := &executor{store: st, sess: newSession(defaultSchema), schema: defaultSchema, rekey: true, pushdown: PushdownExact}
+	if _, err := e.execute(ctx, parsed[0], nil, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	target, err := st.getTable(ctx, defaultSchema, to)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data := snapshotDataID(target.prefix())
+	if data == "" || target.prefix() != snapshotRows(data, defaultSchema) || target.prefix() == source.prefix() {
+		t.Fatal("private rekey did not allocate canonical fresh storage")
+	}
+	return &stagedRekeySnapshot{store: st, base: base, ctx: ctx, pin: pin, id: id, source: source, target: target}
+}
+func expectStagedRekeyReleased(t *testing.T, h *sqlHarness, raw goredis.UniversalClient, r *stagedRekeySnapshot) {
+	t.Helper()
+	h.expectSnapshotReleased(raw, r.target.prefix(), r.target.index())
+	indexes, err := raw.Do(h.ctx, "FT._LIST").StringSlice()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, index := range indexes {
+		if snapshotDataID(index) == snapshotDataID(r.target.prefix()) {
+			t.Fatal("retired private rekey left a final index")
+		}
+	}
+}
+
+// Abandoned private output is rolled back; a committed generation survives its
+// coordinator and old input stays pinned until readers release it. Public input
+// resumption is separate from this ownership/recovery contract.
 func TestSQLRekeyResumes(t *testing.T) {
+	const from, to = "it_rk_res", "it_rk_res2"
 	h := newSQLHarness(t)
-	h.dropTables("it_rk_res", "it_rk_res2")
+	h.dropTables(from, to)
+	h.exec("CREATE TABLE " + from + " (id INTEGER,label TEXT)")
+	h.exec("INSERT INTO " + from + " VALUES (1,'a'),(2,'b'),(3,'c')")
 	raw := h.rawClient()
-	st := &store{client: raw}
-	h.exec(`CREATE TABLE it_rk_res (id INTEGER, label VARCHAR)`)
-	h.exec(`INSERT INTO it_rk_res VALUES (1, 'a'), (2, 'b'), (3, 'c')`)
-	oldPrefix, oldIndex := h.tableNames(raw, "public", "it_rk_res")
-
-	// The names that a move took are released when it is rolled back, but
-	// never handed out again.
 	used := map[string]bool{}
-	newNames := func(job *rekeyJob) {
-		t.Helper()
-		if used[job.KeyPrefix] || used[job.IndexName] {
-			t.Errorf("new names %q, %q were used by an earlier move", job.KeyPrefix, job.IndexName)
+	stage := func() *stagedRekeySnapshot {
+		r := stageRekeySnapshot(t, h, raw, from, to)
+		if used[r.target.prefix()] {
+			t.Fatal("private output reused a retired identity")
 		}
-		used[job.KeyPrefix], used[job.IndexName] = true, true
-		if !strings.HasPrefix(job.KeyPrefix, "public:it_rk_res2") || !strings.HasPrefix(job.IndexName, "idx:public:it_rk_res2") {
-			t.Errorf("new names %q, %q", job.KeyPrefix, job.IndexName)
-		}
+		used[r.target.prefix()] = true
+		return r
 	}
-
-	// stop copies the rows and switches if asked, then stops as if the
-	// process had exited: the lease goes, the rest is left over.
-	stop := func(switched bool) *rekeyJob {
-		t.Helper()
-		job, start, err := st.beginRekey(h.ctx, "public", "it_rk_res", "it_rk_res2")
-		if err != nil {
-			t.Fatal(err)
-		}
-		newNames(job)
-		if err := st.moveRows(h.ctx, job, start, time.Now()); err != nil {
-			t.Fatal(err)
-		}
-		if switched {
-			if _, err := st.switchRekey(h.ctx, job, start); err != nil {
-				t.Fatal(err)
-			}
-		}
-		job.lease.release()
-		if err := raw.Del(h.ctx, rekeyAliveKey(job.Owner)).Err(); err != nil {
-			t.Fatal(err)
-		}
-		return job
+	// Live private work leaves the committed input readable and writable. Its
+	// stale publication must refuse the intervening write without changing root.
+	live := stage()
+	before := snapshotExecuteTest(t, live.store, live.base, "SELECT id,label FROM "+from+" ORDER BY id").rows
+	other := newSQLHarness(t)
+	other.exec("INSERT INTO " + from + " VALUES (4,'d')")
+	root := raw.HGet(h.ctx, snapshotCatalogKey, "root").Val()
+	if err := live.store.publishSnapshot(live.ctx, live.pin, live.id); sqlState(err) != "40001" {
+		t.Fatal("live rekey did not conflict", err)
 	}
-	expectRolledBack := func(h *sqlHarness, job *rekeyJob, rows ...string) {
-		t.Helper()
-		h.expectReleased(raw, job.KeyPrefix, job.IndexName)
-		if prefix, index := h.tableNames(raw, "public", "it_rk_res"); prefix != oldPrefix || index != oldIndex {
-			t.Errorf("names after the rollback: %q, %q", prefix, index)
-		}
-		h.expectRows(`SELECT id, label FROM it_rk_res ORDER BY id`, rows...)
+	if got := raw.HGet(h.ctx, snapshotCatalogKey, "root").Val(); got != root {
+		t.Fatal("stale rekey changed root")
 	}
-
-	// While the move runs (its lease is held), the table is intact under its
-	// old name and refuses changes.
-	job, start, err := st.beginRekey(h.ctx, "public", "it_rk_res", "it_rk_res2")
+	after := snapshotExecuteTest(t, live.store, live.base, "SELECT id,label FROM "+from+" ORDER BY id").rows
+	if !reflect.DeepEqual(before, after) {
+		t.Fatal("live workspace changed pinned input")
+	}
+	live.store.abortSnapshot(live.pin, live.id)
+	live.pin.release()
+	expectStagedRekeyReleased(t, h, raw, live)
+	// Stop the owner heartbeat without aborting its durable workspace, then
+	// model lease expiry. A newly opened connection must recover private output.
+	abandoned := stage()
+	abandoned.pin.release()
+	expireRekeyControl(t, h, raw, "w:"+abandoned.id)
+	reopened := newSQLHarness(t)
+	reopened.expectRows("SELECT id,label FROM "+from+" ORDER BY id", "1|a", "2|b", "3|c", "4|d")
+	expectStagedRekeyReleased(t, h, raw, abandoned)
+	// An already-open connection must also recover before its next statement.
+	abandoned = stage()
+	abandoned.pin.release()
+	expireRekeyControl(t, h, raw, "w:"+abandoned.id)
+	reopened.exec("INSERT INTO " + from + " VALUES (5,'e')")
+	expectStagedRekeyReleased(t, h, raw, abandoned)
+	if _, err := h.conn.GetTableSchema(h.ctx, nil, nil, to); !isStatus(err, adbc.StatusNotFound) {
+		t.Fatal("unpublished rename became public", err)
+	}
+	// Commit once, stop the owner, and recover without rerunning its SQL.
+	source, oldCtx, oldPin := h.inspectionSnapshot(raw)
+	defer oldPin.release()
+	old, err := source.getTable(oldCtx, defaultSchema, from)
 	if err != nil {
 		t.Fatal(err)
 	}
-	newNames(job)
-	if err := st.moveRows(h.ctx, job, start, time.Now()); err != nil {
+	before = snapshotExecuteTest(t, source, oldCtx, "SELECT id,label FROM "+from+" ORDER BY id").rows
+	committed := stage()
+	if err := committed.store.publishSnapshot(committed.ctx, committed.pin, committed.id); err != nil {
 		t.Fatal(err)
 	}
-	if got := h.prefixKeyCount(raw, job.KeyPrefix); got != 3 {
-		t.Fatalf("setup: %d copies, want 3", got)
+	committed.pin.release()
+	recovered := newSQLHarness(t)
+	recovered.expectRows("SELECT id,label FROM "+to+" ORDER BY id", "1|a", "2|b", "3|c", "4|d", "5|e")
+	if _, err := recovered.conn.GetTableSchema(h.ctx, nil, nil, from); !isStatus(err, adbc.StatusNotFound) {
+		t.Fatal("old name survived committed rename", err)
 	}
-	h.expectRows(`SELECT id, label FROM it_rk_res ORDER BY id`, "1|a", "2|b", "3|c")
-	for _, sql := range []string{
-		`INSERT INTO it_rk_res VALUES (4, 'd')`,
-		`UPDATE it_rk_res SET label = 'x'`,
-		`DELETE FROM it_rk_res`,
-		`TRUNCATE it_rk_res`,
-		`ALTER TABLE it_rk_res ADD COLUMN z INTEGER`,
-		`ALTER TABLE it_rk_res RENAME TO it_rk_res3`,
-	} {
-		h.expectError(sql, "being renamed")
+	after = snapshotExecuteTest(t, source, oldCtx, "SELECT id,label FROM "+from+" ORDER BY id").rows
+	if !reflect.DeepEqual(before, after) {
+		t.Fatal("coordinator recovery changed old generation")
 	}
-	if err := st.rollbackRekey(h.ctx, job); err != nil {
-		t.Fatal(err)
+	for _, seg := range old.snapshotSegments() {
+		if n, err := raw.ZCard(h.ctx, snapshotMembers(snapshotDataID(seg.Prefix))).Result(); err != nil || n != seg.Rows {
+			t.Fatal("recovery reclaimed pinned source", n, err)
+		}
 	}
-	job.lease.release()
-	expectRolledBack(h, job, "1|a", "2|b", "3|c")
-
-	// Interrupted before the switch: a new connection rolls it back before
-	// it is open.
-	job = stop(false)
-	h2 := newSQLHarness(t)
-	if h2.rekeyPending(raw, oldPrefix) {
-		t.Error("a new connection did not roll back the abandoned move")
+	oldPin.release()
+	final := newSQLHarness(t)
+	for _, seg := range old.snapshotSegments() {
+		final.expectSnapshotReleased(raw, seg.Prefix, seg.Index)
 	}
-	expectRolledBack(h2, job, "1|a", "2|b", "3|c")
-
-	// Or, on a connection that was already open, the first statement that
-	// it would refuse, which then goes on.
-	job = stop(false)
-	h2.exec(`INSERT INTO it_rk_res VALUES (4, 'd')`)
-	if h2.rekeyPending(raw, oldPrefix) {
-		t.Error("a statement did not roll back the abandoned move")
-	}
-	expectRolledBack(h2, job, "1|a", "2|b", "3|c", "4|d")
-
-	// Interrupted after the switch: the table already reads the new keys,
-	// the old ones are left over, and a new connection removes them.
-	stop(true)
-	h2.expectRows(`SELECT id, label FROM it_rk_res2 ORDER BY id`, "1|a", "2|b", "3|c", "4|d")
-	h2.expectError(`SELECT * FROM it_rk_res`, "does not exist")
-	if got := h.prefixKeyCount(raw, oldPrefix); got != 4 {
-		t.Fatalf("setup: %d old keys, want 4", got)
-	}
-	h3 := newSQLHarness(t)
-	if h3.rekeyPending(raw, oldPrefix) {
-		t.Error("a new connection did not finish the abandoned move")
-	}
-	h3.expectReleased(raw, oldPrefix, oldIndex)
-	h3.expectRows(`SELECT id, label FROM it_rk_res2 WHERE label = 'd'`, "4|d")
-	h3.exec(`INSERT INTO it_rk_res2 VALUES (5, 'e')`)
-	h3.expectRows(`SELECT COUNT(*) FROM it_rk_res2`, "5")
+	final.exec("INSERT INTO " + to + " VALUES (6,'f')")
+	final.expectRows("SELECT id,label FROM "+to+" ORDER BY id", "1|a", "2|b", "3|c", "4|d", "5|e", "6|f")
 }
 
-// Statements that read the metadata before a move started find out.
+// Old readers retain their binding while stale writes and destination-name
+// races refuse publication. Name reuse never redirects their private output.
 func TestSQLRekeyConcurrentStatements(t *testing.T) {
-	h := newSQLHarness(t)
-	h.dropTables("it_rk_conc", "it_rk_conc2", "it_rk_conc3")
+	const from, to, third = "it_rk_conc", "it_rk_conc2", "it_rk_conc3"
+	h := newRekeyHarness(t, map[string]string{OptionStringRenameRekey: "true"})
+	h.dropTables(from, to, third)
+	h.exec("DROP VIEW IF EXISTS " + third)
+	t.Cleanup(func() { h.exec("DROP VIEW IF EXISTS " + third) })
+	h.exec("CREATE TABLE " + from + " (id INTEGER)")
+	h.exec("INSERT INTO " + from + " VALUES (1),(2)")
 	raw := h.rawClient()
-	st := &store{client: raw}
-	h.exec(`CREATE TABLE it_rk_conc (id INTEGER)`)
-	h.exec(`INSERT INTO it_rk_conc VALUES (1), (2)`)
-	load := func(table string) *tableMeta {
-		t.Helper()
-		meta, err := st.getTable(h.ctx, "public", table)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return meta
-	}
-	// slow makes metadata look read a while ago.
-	slow := func(m *tableMeta) *tableMeta {
-		m.readAt = time.Now().Add(-time.Second)
-		return m
-	}
-	expectErr := func(err error, want, what string) {
-		t.Helper()
-		if err == nil || !strings.Contains(err.Error(), want) {
-			t.Errorf("%s: got %v, want an error containing %q", what, err, want)
-		}
-	}
-	stale := load("it_rk_conc")
-	row := [][]Value{{intValue(typeInt32, 3)}}
-
-	// A write that read the metadata recently needs no check; one that read
-	// it longer ago checks, and passes while nothing moves the table.
-	fresh := *stale
-	if _, err := st.insertRows(h.ctx, &fresh, row); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := st.insertRows(h.ctx, slow(stale), row); err != nil {
-		t.Fatal(err)
-	}
-	if elapsed(stale.readAt) > time.Second/2 {
-		t.Error("a passed check did not refresh readAt")
-	}
-
-	// Once a move has begun, a slow write fails, but reads pass until the
-	// switch, even through metadata read during the move.
-	job, start, err := st.beginRekey(h.ctx, "public", "it_rk_conc", "it_rk_conc2")
+	st, oldCtx, oldPin := h.inspectionSnapshot(raw, true)
+	defer oldPin.release()
+	old, err := st.getTable(oldCtx, defaultSchema, from)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer job.lease.release()
-	during := load("it_rk_conc")
-	_, err = st.insertRows(h.ctx, slow(stale), row)
-	expectErr(err, "may be lost", "slow write during the move")
-	if err := st.checkReads(h.ctx, []*tableMeta{slow(stale), during}); err != nil {
-		t.Errorf("reads before the switch: %v", err)
-	}
-	if err := st.moveRows(h.ctx, job, start, time.Now()); err != nil {
+	before := snapshotExecuteTest(t, st, oldCtx, "SELECT id FROM "+from+" ORDER BY id").rows
+	ctx, pin, work := snapshotStageSQL(t, st, h.ctx, from, "INSERT INTO "+from+" VALUES (3)")
+	private, err := st.getTable(ctx, defaultSchema, from)
+	if err != nil {
 		t.Fatal(err)
 	}
-	// A view that takes the new name meanwhile makes the switch fail.
-	h.exec(`CREATE VIEW it_rk_conc2 AS SELECT 1 AS x`)
-	_, err = st.switchRekey(h.ctx, job, start)
-	expectErr(err, "already exists as a view", "switch onto a view")
-	h.exec(`DROP VIEW it_rk_conc2`)
-	if _, err := st.switchRekey(h.ctx, job, start); err != nil {
-		t.Fatal(err)
+	h.exec("ALTER TABLE " + from + " RENAME TO " + to)
+	h.exec("CREATE TABLE " + from + " (id INTEGER)")
+	h.exec("INSERT INTO " + from + " VALUES (100)")
+	reused := h.inspectTable(raw, defaultSchema, from)
+	if reused.prefix() == old.prefix() || reused.PrefixGen != 0 {
+		t.Fatal("name reuse retained old physical identity")
 	}
-	expectErr(st.checkReads(h.ctx, []*tableMeta{during}), "while this statement was reading", "read across the switch")
-	if err := st.finishRekey(h.ctx, job); err != nil {
-		t.Fatal(err)
+	root := raw.HGet(h.ctx, snapshotCatalogKey, "root").Val()
+	if err := st.publishSnapshot(ctx, pin, work); sqlState(err) != "40001" {
+		t.Fatal("stale INSERT followed rename/name reuse", err)
 	}
-	err = (&executor{store: st}).deleteKeys(h.ctx, slow(stale), []string{stale.prefix() + "1"})
-	expectErr(err, "may be lost", "slow write after the move")
-	expectErr(st.checkReads(h.ctx, []*tableMeta{slow(stale)}), "while this statement was reading", "slow read after the move")
-	// The failed insert landed before the copy here, so it was moved too; the
-	// failed delete only removed an old key.
-	h.expectRows(`SELECT id FROM it_rk_conc2 ORDER BY id`, "1", "2", "3", "3", "3")
-
-	// A new table of the old name gets new keys (prefixes are never reused).
-	// Statements with the old metadata fail, also fast ones, which find a
-	// different table when they allocate row ids; its own statements pass.
-	h.exec(`CREATE TABLE it_rk_conc (id INTEGER)`)
-	reused := load("it_rk_conc")
-	if reused.prefix() == stale.prefix() || reused.PrefixGen != 0 {
-		t.Fatalf("new table: prefix %q gen %d; old: %q gen %d", reused.prefix(), reused.PrefixGen, stale.prefix(), stale.PrefixGen)
+	if got := raw.HGet(h.ctx, snapshotCatalogKey, "root").Val(); got != root {
+		t.Fatal("stale INSERT changed root")
 	}
-	_, err = st.insertRows(h.ctx, slow(stale), row)
-	expectErr(err, "may be lost", "slow write through the old metadata")
-	freshStale := *stale
-	freshStale.readAt = time.Now()
-	_, err = st.insertRows(h.ctx, &freshStale, row)
-	expectErr(err, "may be lost", "fast write through the old metadata")
-	expectErr(st.checkReads(h.ctx, []*tableMeta{slow(stale)}), "while this statement was reading", "slow read through the old metadata")
-	if _, err := st.insertRows(h.ctx, slow(reused), row); err != nil {
-		t.Errorf("slow write to the new table: %v", err)
+	after := snapshotExecuteTest(t, st, oldCtx, "SELECT id FROM "+from+" ORDER BY id").rows
+	if !reflect.DeepEqual(before, after) {
+		t.Fatal("name reuse changed pinned read")
 	}
-	if err := st.checkReads(h.ctx, []*tableMeta{slow(reused)}); err != nil {
-		t.Errorf("slow read of the new table: %v", err)
+	st.abortSnapshot(pin, work)
+	pin.release()
+	h.expectSnapshotReleased(raw, private.prefix(), private.index())
+	h.expectRows("SELECT id FROM "+from, "100")
+	h.expectRows("SELECT id FROM "+to+" ORDER BY id", "1", "2")
+	// A view created after destination admission wins; no copied output leaks.
+	race := stageRekeySnapshot(t, h, raw, to, third)
+	h.exec("CREATE VIEW " + third + " AS SELECT 7 AS id")
+	root = raw.HGet(h.ctx, snapshotCatalogKey, "root").Val()
+	if err := race.store.publishSnapshot(race.ctx, race.pin, race.id); sqlState(err) != "40001" {
+		t.Fatal("rekey overwrote destination view", err)
 	}
-	h.expectRows(`SELECT COUNT(*) FROM it_rk_conc`, "1")
-	// A re-keying rename into a dropped table's name (dbt's swap: drop, then
-	// rename into place) gets new keys too, and is caught the same way.
-	h.exec(`DROP TABLE it_rk_conc`)
-	other := newRekeyHarness(t, map[string]string{OptionStringRenameRekey: "true"})
-	other.exec(`ALTER TABLE it_rk_conc2 RENAME TO it_rk_conc`)
-	if prefix, _ := h.tableNames(raw, "public", "it_rk_conc"); prefix == reused.prefix() || prefix == stale.prefix() {
-		t.Fatalf("renamed table prefix %q was used before", prefix)
+	if got := raw.HGet(h.ctx, snapshotCatalogKey, "root").Val(); got != root {
+		t.Fatal("destination race changed root")
 	}
-	_, err = st.insertRows(h.ctx, slow(reused), row)
-	expectErr(err, "may be lost", "slow write to a table dropped and replaced by a rename")
-	// None of its rows reached the table that has the name now.
-	h.expectRows(`SELECT COUNT(*) FROM it_rk_conc`, "5")
+	race.store.abortSnapshot(race.pin, race.id)
+	race.pin.release()
+	expectStagedRekeyReleased(t, h, raw, race)
+	h.expectRows("SELECT id FROM "+third, "7")
+	h.expectRows("SELECT id FROM "+to+" ORDER BY id", "1", "2")
+	h.expectError("ALTER TABLE "+to+" RENAME TO "+third, "already exists as a view")
+	h.exec("DROP VIEW " + third)
+	h.exec("ALTER TABLE " + to + " RENAME TO " + third)
+	h.expectRows("SELECT id FROM "+third+" ORDER BY id", "1", "2")
+	// A fresh explicit write targets the new binding only.
+	h.exec("INSERT INTO " + from + " VALUES (101)")
+	h.expectRows("SELECT id FROM "+from+" ORDER BY id", "100", "101")
+	oldPin.release()
+	for _, seg := range old.snapshotSegments() {
+		h.expectSnapshotReleased(raw, seg.Prefix, seg.Index)
+	}
 }
 
-// A move stops once its lease can't be renewed.
+// The native lease cannot be renewed after expiry. Both row and index/publication
+// mutations must fail before changing private or committed state.
 func TestSQLRekeyLease(t *testing.T) {
+	const from, to = "it_rk_lease", "it_rk_lease2"
 	h := newSQLHarness(t)
-	h.dropTables("it_rk_lease", "it_rk_lease2")
+	h.dropTables(from, to)
+	h.exec("CREATE TABLE " + from + " (id INTEGER)")
+	h.exec("INSERT INTO " + from + " VALUES (1),(2),(3)")
 	raw := h.rawClient()
-	st := &store{client: raw}
-	h.exec(`CREATE TABLE it_rk_lease (id INTEGER)`)
-	h.exec(`INSERT INTO it_rk_lease VALUES (1)`)
-	job, start, err := st.beginRekey(h.ctx, "public", "it_rk_lease", "it_rk_lease2")
+	r := stageRekeySnapshot(t, h, raw, from, to)
+	n, err := r.store.snapshotControl(h.ctx, "renew", r.pin.token, r.id, r.pin.root).Int()
+	if err != nil || n != 1 {
+		t.Fatal("live rekey lease could not renew", n, err)
+	}
+	image, err := raw.HGetAll(h.ctx, r.target.prefix()+"1").Result()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer job.lease.release()
-	if !job.lease.renew() || job.mayAct() != nil {
-		t.Fatal("a renewed lease is not valid")
+	expireRekeyControl(t, h, raw, "w:"+r.id)
+	n, err = r.store.snapshotControl(h.ctx, "renew", r.pin.token, r.id, r.pin.root).Int()
+	if err != nil || n != 0 {
+		t.Fatal("expired rekey lease renewed", n, err)
 	}
-	// A lease whose renewals have failed for rekeyTTL/2 is no longer valid.
-	stuck := &lease{ctx: h.ctx, renewed: time.Now().Add(-rekeyTTL / 2)}
-	if stuck.valid() {
-		t.Error("a lease last renewed rekeyTTL/2 ago is valid")
+	err = r.store.redis(r.ctx).HSet(r.ctx, r.target.prefix()+"1", "id", 99).Err()
+	if err == nil || !strings.Contains(err.Error(), "lease") {
+		t.Fatal("expired writer changed private row", err)
 	}
-	// Once the lease key has expired (here: deleted), it can't be renewed,
-	// and no destructive step runs.
-	if err := raw.Del(h.ctx, rekeyAliveKey(job.Owner)).Err(); err != nil {
+	if err := r.store.publishSnapshot(r.ctx, r.pin, r.id); err == nil {
+		t.Fatal("expired rekey published")
+	}
+	if after, err := raw.HGetAll(h.ctx, r.target.prefix()+"1").Result(); err != nil || !reflect.DeepEqual(image, after) {
+		t.Fatal("expired mutation changed row", err)
+	}
+	indexes, err := raw.Do(h.ctx, "FT._LIST").StringSlice()
+	if err != nil {
 		t.Fatal(err)
 	}
-	if job.lease.renew() {
-		t.Error("an expired lease was renewed")
+	for _, index := range indexes {
+		if snapshotDataID(index) == snapshotDataID(r.target.prefix()) {
+			t.Fatal("expired writer built an index")
+		}
 	}
-	job.lease.cancel()
-	lost := func(err error) bool { return err != nil && strings.Contains(err.Error(), "lease could not be renewed") }
-	if err := st.moveRows(h.ctx, job, start, time.Now()); !lost(err) {
-		t.Errorf("move without the lease: %v", err)
+	r.pin.release()
+	recovered := newSQLHarness(t)
+	expectStagedRekeyReleased(t, recovered, raw, r)
+	recovered.expectRows("SELECT id FROM "+from+" ORDER BY id", "1", "2", "3")
+	if _, err := recovered.conn.GetTableSchema(h.ctx, nil, nil, to); !isStatus(err, adbc.StatusNotFound) {
+		t.Fatal("expired target became public", err)
 	}
-	if err := st.rollbackRekey(h.ctx, job); !lost(err) {
-		t.Errorf("rollback without the lease: %v", err)
-	}
-	if h.indexExists(raw, job.IndexName) {
-		t.Error("the new index was created without the lease")
-	}
-	// A new connection rolls the move back.
-	h2 := newSQLHarness(t)
-	waitFor(t, "rollback", func() bool { return !h2.rekeyPending(raw, job.OldPrefix) })
-	h2.expectReleased(raw, job.KeyPrefix, job.IndexName)
-	h2.exec(`INSERT INTO it_rk_lease VALUES (2)`)
-	h2.expectRows(`SELECT id FROM it_rk_lease ORDER BY id`, "1", "2")
+	recovered.exec("INSERT INTO " + from + " VALUES (4)")
+	recovered.expectRows("SELECT id FROM "+from+" ORDER BY id", "1", "2", "3", "4")
 }
 
 func TestSQLRekeyInformationSchema(t *testing.T) {
@@ -692,20 +686,27 @@ func TestSQLRekeyInformationSchema(t *testing.T) {
 	h.exec(`CREATE VIEW it_rk_isv AS SELECT id FROM it_rk_is`)
 	q := `SELECT table_name, table_type, key_prefix, index_name FROM information_schema.tables
 		WHERE table_schema = 'public' AND table_name LIKE 'it_rk_is%' ORDER BY table_name`
-	names := func(table, named string) string {
-		nm := namesFor("public", named, h.namesN(raw, "public", table, named))
-		return nm.prefix + "|" + nm.index
+	names := func(table string) string {
+		prefix, index := h.rekeyNativeLayout(raw, defaultSchema, table)
+		return prefix + "|" + index
 	}
-	h.expectRows(q, "it_rk_is|BASE TABLE|"+names("it_rk_is", "it_rk_is"), "it_rk_isv|VIEW|NULL|NULL")
+	original := names("it_rk_is")
+	h.expectRows(q, "it_rk_is|BASE TABLE|"+names("it_rk_is"), "it_rk_isv|VIEW|NULL|NULL")
 
 	// A plain rename keeps the names; a re-keying one changes them.
 	h.exec(`ALTER TABLE it_rk_is RENAME TO it_rk_is2`)
-	h.expectRows(q, "it_rk_is2|BASE TABLE|"+names("it_rk_is2", "it_rk_is"), "it_rk_isv|VIEW|NULL|NULL")
+	if names("it_rk_is2") != original {
+		t.Fatal("plain rename changed physical identity")
+	}
+	h.expectRows(q, "it_rk_is2|BASE TABLE|"+names("it_rk_is2"), "it_rk_isv|VIEW|NULL|NULL")
 	if err := h.setConnOption(OptionStringRenameRekey, "true"); err != nil {
 		t.Fatal(err)
 	}
 	h.exec(`ALTER TABLE it_rk_is2 RENAME TO it_rk_is3`)
-	h.expectRows(q, "it_rk_is3|BASE TABLE|"+names("it_rk_is3", "it_rk_is3"), "it_rk_isv|VIEW|NULL|NULL")
+	if names("it_rk_is3") == original {
+		t.Fatal("forced rekey retained physical identity")
+	}
+	h.expectRows(q, "it_rk_is3|BASE TABLE|"+names("it_rk_is3"), "it_rk_isv|VIEW|NULL|NULL")
 }
 
 // tryExec runs a statement and returns the rows affected and its error.
@@ -721,27 +722,96 @@ func tryExec(ctx context.Context, conn adbc.ConnectionWithContext, sql string) (
 	return st.ExecuteUpdate(ctx)
 }
 
-// Another connection keeps writing while the table is moved: every write
-// that succeeds is in the renamed table.
+// Detect actual admission conditions rather than require unbounded writes past
+// the segment limit or the compactor's short installation gate.
+func rekeyWriterBackpressure(t *testing.T, h *sqlHarness, raw goredis.UniversalClient, table string) bool {
+	t.Helper()
+	current := h.inspectTable(raw, defaultSchema, table)
+	if len(current.snapshotSegments()) >= snapshotMaxSegments {
+		return true
+	}
+	payload, err := raw.HGet(h.ctx, snapshotCatalogKey, "compaction").Bytes()
+	if err == goredis.Nil {
+		return false
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	var job snapshotCompactionJob
+	if err := json.Unmarshal(payload, &job); err != nil {
+		t.Fatal(err)
+	}
+	if job.Phase != "install" {
+		return false
+	}
+	payload, err = raw.HGet(h.ctx, snapshotCatalogKey, "w:"+job.ID).Bytes()
+	if err == goredis.Nil {
+		return false
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	var work struct {
+		State        string `json:"state"`
+		Expires      int64  `json:"expires"`
+		PublishUntil int64  `json:"publish_until"`
+	}
+	if err := json.Unmarshal(payload, &work); err != nil {
+		t.Fatal(err)
+	}
+	now, err := raw.Time(h.ctx).Result()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return work.State == "compacting" && work.Expires > now.UnixMilli() && work.PublishUntil > now.UnixMilli()
+}
+
+// Continuous writers overlap a real paused copy. Changed input must conflict;
+// bounded admission may wait for that copy to finish. No acknowledged write may
+// disappear, and no rejected INSERT may reach the renamed table.
 func TestSQLRekeyConcurrentWriters(t *testing.T) {
+	const from, to = "it_rk_cw", "it_rk_cw2"
 	h := newRekeyHarness(t, map[string]string{OptionStringRenameRekey: "true"})
-	h.dropTables("it_rk_cw", "it_rk_cw2")
+	h.dropTables(from, to)
 	raw := h.rawClient()
 	ids := make([]int64, 3000)
 	for i := range ids {
 		ids[i] = int64(i + 1)
 	}
-	if err := h.ingest("it_rk_cw", adbc.OptionValueIngestModeCreate, false, ids...); err != nil {
+	if err := h.ingest(from, adbc.OptionValueIngestModeCreate, false, ids...); err != nil {
 		t.Fatal(err)
 	}
-	oldPrefix, oldIndex := h.tableNames(raw, "public", "it_rk_cw")
-
-	// The writer inserts rows and moves one row's id along -1, -2, ….
-	w := newSQLHarness(t)
+	old := h.inspectTable(raw, defaultSchema, from)
+	writer := newSQLHarness(t)
 	stop, stopped := make(chan struct{}), make(chan struct{})
-	var progress atomic.Int64
-	var inserted, unsure []int64
-	moved, movedUnsure := int64(1), false
+	var stopOnce sync.Once
+	stopWriter := func() {
+		stopOnce.Do(func() { close(stop) })
+		select {
+		case <-stopped:
+		case <-time.After(2 * time.Second):
+			_ = writer.conn.Close(h.ctx)
+			select {
+			case <-stopped:
+			case <-time.After(2 * time.Second):
+				t.Error("writer did not stop")
+			}
+		}
+	}
+	t.Cleanup(stopWriter)
+	var progress, acknowledged atomic.Int64
+	var pending atomic.Bool
+	var inserted, rejected []int64
+	var unexpected []error
+	conflicts := 0
+	moved := int64(1)
+	knownRefusal := func(err error) bool {
+		if sqlState(err) == "40001" {
+			conflicts++
+			return true
+		}
+		return isStatus(err, adbc.StatusNotFound)
+	}
 	go func() {
 		defer close(stopped)
 		for i := int64(1); ; i++ {
@@ -750,61 +820,157 @@ func TestSQLRekeyConcurrentWriters(t *testing.T) {
 				return
 			default:
 			}
-			_, err := tryExec(h.ctx, w.conn, fmt.Sprintf(`INSERT INTO it_rk_cw VALUES (%d)`, 100000+i))
-			switch {
-			case err == nil:
-				inserted = append(inserted, 100000+i)
-			case strings.Contains(err.Error(), "may be lost"):
-				unsure = append(unsure, 100000+i)
+			value := 100000 + i
+			pending.Store(true)
+			_, err := tryExec(h.ctx, writer.conn, fmt.Sprintf("INSERT INTO %s VALUES (%d)", from, value))
+			pending.Store(false)
+			if err == nil {
+				inserted = append(inserted, value)
+				acknowledged.Add(1)
+			} else if knownRefusal(err) {
+				rejected = append(rejected, value)
+			} else {
+				unexpected = append(unexpected, err)
 			}
-			n, err := tryExec(h.ctx, w.conn, fmt.Sprintf(`UPDATE it_rk_cw SET id = %d WHERE id = %d`, -i, moved))
-			switch {
-			case err == nil && n == 1:
+			pending.Store(true)
+			n, err := tryExec(h.ctx, writer.conn, fmt.Sprintf("UPDATE %s SET id=%d WHERE id=%d", from, -i, moved))
+			pending.Store(false)
+			if err == nil && n == 1 {
 				moved = -i
-			case err != nil && strings.Contains(err.Error(), "may be lost"):
-				movedUnsure = true // from now on the row may be at either id
+				acknowledged.Add(1)
+			} else if err == nil {
+				unexpected = append(unexpected, fmt.Errorf("moving UPDATE affected %d rows", n))
+			} else if !knownRefusal(err) {
+				unexpected = append(unexpected, err)
 			}
 			progress.Add(1)
 		}
 	}()
-	waitFor(t, "the writer", func() bool { return progress.Load() >= 5 })
-	h.exec(`ALTER TABLE it_rk_cw RENAME TO it_rk_cw2`)
-	time.Sleep(50 * time.Millisecond)
-	close(stop)
-	<-stopped
-
+	waitFor(t, "writer progress", func() bool { return progress.Load() >= 5 })
+	// The source can span changing segment UUIDs; match its native schema prefix.
+	prefix := strings.TrimSuffix(snapshotRows("fixture", defaultSchema), "fixture:")
+	stmt, ctx, _, transport, barrier := snapshotPausedAlter(t, h, "ALTER TABLE "+from+" RENAME TO "+to, prefix)
+	var resumeOnce sync.Once
+	resume := func() { resumeOnce.Do(func() { close(barrier.resume) }) }
+	t.Cleanup(resume)
+	done := make(chan error, 1)
+	go func() { _, err := stmt.ExecuteUpdate(ctx); transport.finish(); done <- err }()
+	scope := snapshotAwaitAlterBatch(t, h, raw, barrier, done)
+	baseCtx := context.WithValue(h.ctx, snapshotContextKey{}, &snapshotScope{id: scope.pin.root, pin: scope.pin, store: scope.store})
+	input, err := scope.store.redis(baseCtx).Get(baseCtx, metaKey(defaultSchema, from)).Result()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sourceChanged, backpressure := false, false
+	waitFor(t, "intervening source change or verified writer admission", func() bool {
+		if h.storedTableJSON(raw, defaultSchema, from) != input {
+			sourceChanged = true
+			return true
+		}
+		if pending.Load() && rekeyWriterBackpressure(t, h, raw, from) {
+			backpressure = true
+			return true
+		}
+		return false
+	})
+	// Release the writer intent before waiting for a backpressured DML statement.
+	resume()
+	renameErr := snapshotAwaitAlterError(t, done)
+	if sourceChanged && sqlState(renameErr) != "40001" {
+		t.Fatal("changed-input rekey did not conflict", renameErr)
+	}
+	if renameErr != nil && sqlState(renameErr) != "40001" {
+		t.Fatal("overlapping rekey", renameErr)
+	}
+	stopWriter()
+	if renameErr != nil {
+		snapshotExpectAlterLeaseReleased(t, h, raw, scope)
+	} else {
+		if exists, err := raw.HExists(h.ctx, snapshotCatalogKey, "p:"+scope.pin.token).Result(); err != nil || exists {
+			t.Fatal("committed rekey retained reader lease", err)
+		}
+		payload, err := raw.HGet(h.ctx, snapshotCatalogKey, "w:"+scope.id).Bytes()
+		if err != goredis.Nil {
+			var work struct {
+				State string `json:"state"`
+			}
+			if err != nil || json.Unmarshal(payload, &work) != nil || work.State != "committed" {
+				t.Fatal("committed rekey retained active writer state", err)
+			}
+		}
+	}
+	if len(unexpected) != 0 {
+		t.Fatal("unexpected writer errors", unexpected)
+	}
+	if len(inserted) == 0 || moved == 1 {
+		t.Fatal("writer made no committed progress")
+	}
+	if renameErr != nil {
+		if _, err := h.conn.GetTableSchema(h.ctx, nil, nil, to); !isStatus(err, adbc.StatusNotFound) {
+			t.Fatal("conflicting rekey exposed target", err)
+		}
+	}
+	// Each additional request follows a proven 40001 refusal. The driver never
+	// resends SQL; background compaction may still publish a source rewrite.
+	renamed := renameErr == nil
+	freshRefusals := 0
+	for attempt := 0; !renamed && attempt < 8; attempt++ {
+		_, err := tryExec(h.ctx, h.conn, "ALTER TABLE "+from+" RENAME TO "+to)
+		if err == nil {
+			renamed = true
+			break
+		}
+		if sqlState(err) != "40001" {
+			t.Fatal("fresh rekey", err)
+		}
+		freshRefusals++
+		if _, err := h.conn.GetTableSchema(h.ctx, nil, nil, to); !isStatus(err, adbc.StatusNotFound) {
+			t.Fatal("refused rekey exposed target", err)
+		}
+	}
+	if !renamed {
+		t.Fatal("fresh explicit rekey did not converge")
+	}
+	expected := map[int64]bool{moved: true}
+	for i := int64(2); i <= 3000; i++ {
+		expected[i] = true
+	}
+	for _, id := range inserted {
+		expected[id] = true
+	}
 	got := map[int64]bool{}
-	rows, _ := h.query(`SELECT id FROM it_rk_cw2`)
-	for _, r := range rows {
+	rows, _ := h.query("SELECT id FROM " + to)
+	for _, row := range rows {
 		var id int64
-		if _, err := fmt.Sscan(r, &id); err != nil {
+		if _, err := fmt.Sscan(row, &id); err != nil {
 			t.Fatal(err)
+		}
+		if got[id] {
+			t.Fatal("duplicate rekey row", id)
 		}
 		got[id] = true
 	}
-	for _, id := range inserted {
-		if !got[id] {
-			t.Errorf("inserted row %d is missing after the move", id)
+	if !reflect.DeepEqual(got, expected) {
+		t.Fatal("renamed rows differ from acknowledged writes", len(got), len(expected))
+	}
+	for _, id := range rejected {
+		if got[id] {
+			t.Fatal("rejected INSERT reached target", id)
 		}
 	}
-	for id := range got {
-		if id > 100000 && !slices.Contains(inserted, id) && !slices.Contains(unsure, id) {
-			t.Errorf("row %d is there after a failed insert", id)
-		}
+	target := h.inspectTable(raw, defaultSchema, to)
+	if n := h.prefixKeyCount(raw, target.prefix()); n != len(rows) {
+		t.Fatal("rekey physical output differs from complete result", n, len(rows))
 	}
-	if !got[moved] && !movedUnsure {
-		t.Errorf("the last successful update (to id %d) is missing", moved)
+	if _, err := h.conn.GetTableSchema(h.ctx, nil, nil, from); !isStatus(err, adbc.StatusNotFound) {
+		t.Fatal("old binding survived rename", err)
 	}
-	if len(rows) != len(got) {
-		t.Errorf("%d rows, %d distinct ids", len(rows), len(got))
+	for _, seg := range old.snapshotSegments() {
+		waitFor(t, "retired source reclamation", func() bool {
+			snapshotReapTest(&store{client: raw, snapshots: true}, h.ctx)
+			return h.prefixKeyCount(raw, seg.Prefix) == 0
+		})
+		h.expectSnapshotReleased(raw, seg.Prefix, seg.Index)
 	}
-	newPrefix, _ := h.tableNames(raw, "public", "it_rk_cw2")
-	if n := h.prefixKeyCount(raw, newPrefix); n != len(rows) {
-		t.Errorf("%d keys under the new prefix, %d rows", n, len(rows))
-	}
-	h.expectReleased(raw, oldPrefix, oldIndex)
-	if len(inserted) == 0 || moved == 1 {
-		t.Errorf("the writer made no progress before the rename")
-	}
-	t.Logf("%d inserts succeeded, %d unsure; the moved row is at %d", len(inserted), len(unsure), moved)
+	t.Logf("acknowledged inserts=%d rejected inserts=%d writer conflicts=%d fresh rekey refusals=%d observed backpressure=%t", len(inserted), len(rejected), conflicts, freshRefusals, backpressure)
 }
