@@ -43,3 +43,8 @@ that path now stays synchronous. Both regressions and the focused wide/prefetch
 race suite pass (15.189 s driver package). The full enabled suite is being
 repeated because these are new runtime changes. Timings have not started: both
 matched remote trees will be rebuilt with these refinements before measurement.
+
+The corrected-source full enabled Software race suite passed again (driver
+417.459 s; 837 top-level passes, 41 unchanged skips). Runtime revision is
+`158b8c820c476a7ae116fb677c6f1fffa4722b98`. The matched measurement build trees are identical
+and include both refinements. Timings are gated on this completed pass.

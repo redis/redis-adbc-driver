@@ -1,0 +1,16 @@
+{
+  "runtime_source": "158b8c820c476a7ae116fb677c6f1fffa4722b98",
+  "cases": [
+    {
+      "test": "TestPrefetchDetectsDropAfterProducerEOF",
+      "before": "FAIL: drop after producer EOF became successful completion: EOF",
+      "after": "PASS under race detector; existing stale-read StatusIO restored"
+    },
+    {
+      "test": "TestPrefetchAvoidsSinglePageWorker",
+      "before": "FAIL: started lookahead although discovery already fit in one page",
+      "after": "PASS under race detector; synchronous known-single-page path preserved"
+    }
+  ],
+  "raw_logs": "Private task archive; failures retained"
+}
