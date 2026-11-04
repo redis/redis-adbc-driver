@@ -28,6 +28,7 @@ on:
       - .github/workflows/test.yml
       - scripts/ci_test_matrix.py
       - scripts/test_ci_test_matrix.py
+      - scripts/test_device_staging.c
       - scripts/test_acceptance_runner.py
       - .github/workflows/acceptance.yml
       - .github/actions/build-adbc-scanner/**
@@ -117,6 +118,11 @@ jobs:
 
       - name: Check performance benchmark syntax
         run: python3 -m py_compile benchmarks/qpf/*.py benchmarks/workers/*.py
+
+      - name: Check C Device allocation failure cleanup
+        run: |
+          cc -Wall -Wextra -Werror -fsanitize=address,undefined -g scripts/test_device_staging.c -o /tmp/device-staging-test
+          /tmp/device-staging-test
 
       - name: Check GPU experiment CPU correctness gates
         run: uv run --no-project --with pyarrow python -m unittest discover -s benchmarks/gpu-query -p test_run.py -v
@@ -266,7 +272,7 @@ jobs:
       - name: Native C Device CPU ownership and binding
         env:
           REDIS_ADBC_LIBRARY: ${{ github.workspace }}/go/build/libadbc_driver_redis.so
-        run: env -u GPU_TEST go/validation/.venv/bin/python -m unittest discover -s benchmarks/gpu-query -p test_native_device.py -v
+        run: env -u GPU_TEST go/validation/.venv/bin/python -m unittest discover -s benchmarks/gpu-query -p 'test_*device*.py' -v
 
       - name: Upload validation results (including feature skips)
         if: always()

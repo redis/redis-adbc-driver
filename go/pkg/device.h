@@ -36,6 +36,12 @@ struct ArrowDeviceArrayStream {
 extern "C" {
 #endif
 
+// Versioned standalone staging capability. No manager handle is accepted.
+ADBC_EXPORT int RedisDeviceInterfaceVersion(void);
+// Returns 0 when ready, EAGAIN while a producer event is pending. Never reads
+// data buffers and never consumes the input. CPU descriptors must have no event.
+ADBC_EXPORT int RedisDeviceArrayEventReady(const struct ArrowDeviceArray*, char*, size_t);
+
 // Borrow input descriptors and buffers. Outputs must be zero initialized and
 // released independently through array.release. Copies are synchronized.
 ADBC_EXPORT int RedisDeviceArrayFromHost(const struct ArrowArray*, const struct ArrowSchema*, int64_t device, struct ArrowDeviceArray*, char* error, size_t capacity);
@@ -47,7 +53,9 @@ ADBC_EXPORT AdbcStatusCode RedisStatementBindDevice(struct AdbcStatement*, struc
 
 // Internal: moves ownership of a CPU stream into the device stream on success.
 int RedisDeviceStreamInit(struct ArrowArrayStream*, int64_t, struct ArrowDeviceArrayStream*, char*, size_t);
-int RedisDeviceSchemaBorrow(const struct ArrowSchema*, struct ArrowSchema*, char*, size_t);
+// Borrow a flat schema through independently releasable wrapper structs.
+// Strings and metadata remain borrowed until this view is released/imported.
+ADBC_EXPORT int RedisDeviceSchemaBorrow(const struct ArrowSchema*, struct ArrowSchema*, char*, size_t);
 #ifdef __cplusplus
 }
 #endif

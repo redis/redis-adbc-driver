@@ -234,3 +234,10 @@ for results, proposed upstream patches and remaining dependency work.
 
 Arrow IPC stream/file serialization is available inside the native driver through
 standard ADBC statement options. See the [IPC contract and example](https://github.com/redis/redis-adbc-driver/blob/main/docs/arrow-ipc.md).
+
+Optional Arrow C Device interchange is available through
+`adbc_driver_redis.device.DeviceAdapterV1`. It stages nullable numeric,
+boolean and UTF-8/binary arrays through host memory and uses ordinary public
+ADBC manager binding. See the [device adapter contract and example](https://github.com/redis/redis-adbc-driver/blob/main/docs/gpu-execution.md#python-and-driver-manager-adapter-v1)
+for explicit device IDs, ownership, cancellation, supported versions and CUDA
+availability. Importing CPU clients does not require CUDA Python packages.
