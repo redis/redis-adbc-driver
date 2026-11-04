@@ -122,37 +122,64 @@ func TestSQLCancel(t *testing.T) {
 		{name: "update", update: true, sql: "update cancel_small set id = id + (select count(*) from generate_series(1, 200000) as b(h) where b.h < cancel_small.id)"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
+			h := &sqlHarness{t: t, ctx: h.ctx, conn: h.conn}
 			lag, err := h.runCancelled(c.sql, c.update, cancelAfter(delay))
 			expectCancelled(t, lag, err)
 		})
 	}
 
-	// Cancelled once it has written its first pipeline of rows, which a
-	// fixed delay can miss on a fast machine: its next command fails
-	// (go-redis), and the rows written stay.
+	// Cancel after an acknowledged private row batch, which a fixed delay
+	// can miss on a fast machine. The output must never become public.
 	t.Run("create table as", func(t *testing.T) {
+		h := &sqlHarness{t: t, ctx: h.ctx, conn: h.conn}
+		raw := retainedTestClient(t, h.rawClient())
+		root, err := raw.HGet(h.ctx, snapshotCatalogKey, "root").Result()
+		if err != nil {
+			t.Fatal(err)
+		}
 		const rows = 300000
 		written := 0
+		var prefix, index string
 		lag, err := h.runCancelled(fmt.Sprintf("create table cancel_ctas as select g from generate_series(1, %d) as s(g)", rows), true, func(cancel func()) func() {
 			testHookRowsWritten = func(meta *tableMeta, n int) {
 				if meta.Name == "cancel_ctas" && written == 0 {
 					written = n
+					prefix, index = meta.prefix(), meta.index()
+					count, err := raw.ZCard(h.ctx, snapshotMembers(snapshotDataID(prefix))).Result()
+					if err != nil || count != int64(n) {
+						t.Fatal("private batch directory was not acknowledged", count, n, err)
+					}
+					for _, id := range []int{1, n} {
+						value, err := raw.HGet(h.ctx, prefix+strconv.Itoa(id), "g").Result()
+						if err != nil || value != strconv.Itoa(id) {
+							t.Fatal("private batch image missing", id, value, err)
+						}
+					}
 					cancel()
 				}
 			}
 			return func() { testHookRowsWritten = nil }
 		})
 		expectCancelled(t, lag, err)
-		if written >= rows {
-			t.Fatalf("cancelled after %d of %d rows were written, want part-way through", written, rows)
+		if written != snapshotWriteBatchRows || written >= rows {
+			t.Fatalf("cancelled after %d of %d rows were written, want one acknowledged batch", written, rows)
 		}
-		if got, _ := h.query("select count(*) from cancel_ctas"); len(got) != 1 || got[0] != strconv.Itoa(written) {
-			t.Errorf("rows: got %v, want %d", got, written)
+		after, err := raw.HGet(h.ctx, snapshotCatalogKey, "root").Result()
+		if err != nil || after != root {
+			t.Fatal("canceled CTAS published a generation", err)
 		}
+		if _, err := h.conn.GetTableSchema(h.ctx, nil, nil, "cancel_ctas"); !isStatus(err, adbc.StatusNotFound) {
+			t.Fatal("canceled CTAS left a public table", err)
+		}
+		h.expectSnapshotReleased(raw, prefix, index)
+		h.exec("CREATE TABLE cancel_ctas (g BIGINT)")
+		h.exec("INSERT INTO cancel_ctas VALUES (7)")
+		h.expectRows("SELECT g FROM cancel_ctas", "7")
 	})
 
 	// go-redis fails a command with a cancelled context at once.
 	t.Run("redis command", func(t *testing.T) {
+		h := &sqlHarness{t: t, ctx: h.ctx, conn: h.conn}
 		ctx, cancel := context.WithCancel(h.ctx)
 		cancel()
 		for _, sql := range []string{"select * from cancel_small", "insert into cancel_small values (0)"} {

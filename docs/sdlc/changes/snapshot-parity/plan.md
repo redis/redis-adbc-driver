@@ -208,3 +208,9 @@ completed live groups are explicitly released, and rejected oversized input must
 leave the root unchanged and its target absent. The six-family race selection
 passes 72 test events without skips/failures. Full ordinary/platform and
 performance parity remain open.
+
+The [SQL cancellation checkpoint](cancel-validation.md) restores the canceled
+CTAS fixture's atomic expectations after a real acknowledged private batch.
+It checks unchanged publication, absent public metadata, reference-safe cleanup
+and name reuse; all fifteen cancellation test events pass under the race detector.
+Full ordinary/platform and performance parity remain open.
