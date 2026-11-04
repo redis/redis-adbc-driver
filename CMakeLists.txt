@@ -23,7 +23,7 @@ add_custom_command(
   OUTPUT "${REDIS_GO_ARCHIVE}"
   COMMAND "${CMAKE_COMMAND}" -E env CGO_ENABLED=1
           "GOARCH=${REDIS_GO_ARCH}" "GOTOOLCHAIN=local"
-          "MACOSX_DEPLOYMENT_TARGET=12.0"
+          "MACOSX_DEPLOYMENT_TARGET=15.0"
           "CC=${CMAKE_C_COMPILER}" "CXX=${CMAKE_CXX_COMPILER}"
           "${REDIS_GO_EXECUTABLE}" build -buildmode=c-archive -tags driverlib,duckdb
           -trimpath -o "${REDIS_GO_ARCHIVE}" ./pkg
@@ -42,8 +42,8 @@ foreach(target redis_adbc_extension redis_adbc_loadable_extension)
   add_dependencies(${target} redis_adbc_driver)
   target_link_libraries(${target} "${REDIS_GO_ARCHIVE}" Threads::Threads ${CMAKE_DL_LIBS})
   if(APPLE)
-    target_compile_options(${target} PRIVATE -mmacosx-version-min=12.0)
-    target_link_options(${target} PRIVATE -mmacosx-version-min=12.0)
+    target_compile_options(${target} PRIVATE -mmacosx-version-min=15.0)
+    target_link_options(${target} PRIVATE -mmacosx-version-min=15.0)
     target_link_libraries(${target} "-framework CoreFoundation" "-framework Security" resolv)
   endif()
 endforeach()

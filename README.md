@@ -1,3 +1,5 @@
+GPU query execution and Arrow C Device interchange are under development; see the [GPU feasibility assessment](docs/gpu-query-feasibility.md) and [host-staged CPU/CUDA experiment](benchmarks/gpu-query/README.md).
+
 <img referrerpolicy="no-referrer-when-downgrade" src="https://static.scarf.sh/a.png?x-pxid=1e10821f-4aa3-466e-8539-4ae9a1f7c571" />
 
 <!--
