@@ -36,3 +36,8 @@ review is not independent maintainer approval. Additional source work is real:
 this checkpoint does not establish performance parity, sustained compaction or
 a comparative benchmark result. Full ordinary/platform/recovery, restricted
 readers and public input/process resumption gates remain open.
+
+The subsequent 106-name ordinary continuation passes 24 test events with one
+explicit CLIENT PAUSE gate skip, then fails TIMETZ fixture metadata inspection
+(root 6.218 s). See the [TIMETZ checkpoint](timetz-validation.md). Later cases
+remain unverified by that run.

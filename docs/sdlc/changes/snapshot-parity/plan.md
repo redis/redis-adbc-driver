@@ -441,3 +441,8 @@ The [rounded-run checkpoint](rounded-runs-validation.md) preserves original
 single-index repair counters and separately validates exact three-source ordering,
 limits and streaming. Two race families pass. Segmented repair work is recorded
 explicitly; performance parity and the full ordinary rerun remain open.
+
+The [TIMETZ checkpoint](timetz-validation.md) validates every stored native time
+text/NULL under one pin while preserving SQL and Arrow feature assertions. Nine
+race test events pass. The preceding continuation passes 24 events with one
+explicit server-pause skip; full ordinary and broader parity gates remain open.

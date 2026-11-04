@@ -20,6 +20,8 @@ package redis
 // York), the offset is today's.
 
 import (
+	"errors"
+	"io"
 	"strconv"
 	"strings"
 	"testing"
@@ -95,27 +97,40 @@ func TestTimeTZColumns(t *testing.T) {
 	if attrs := h.indexAttrs(raw, "public", "it_ttz"); strings.Contains(" "+attrs+" ", " t ") || strings.Contains(attrs, "t3") {
 		t.Errorf("index attributes: %s", attrs)
 	}
-	// Rows store the text.
-	st := &store{client: raw}
-	meta, err := st.getTable(h.ctx, "public", "it_ttz")
+	// Inspect authoritative text from one pinned generation, across all segments.
+	st, inspectCtx, pin := h.inspectionSnapshot(raw)
+	defer pin.release()
+	meta, err := st.getTable(inspectCtx, "public", "it_ttz")
 	if err != nil {
 		t.Fatal(err)
 	}
-	rows, err := st.aggregate(h.ctx, &aggRequest{index: meta.index(), query: "*", load: []string{"__key"}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	stored := map[string]bool{}
-	for _, r := range rows {
-		if v, err := raw.HGet(h.ctx, r["__key"], "t3").Result(); err == nil {
-			stored[v] = true
+	scan := newSnapshotDeltaScan(st, meta, []string{"t3"})
+	stored := map[string]int{}
+	count := 0
+	for {
+		_, rows, err := scan.next(inspectCtx)
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, row := range rows {
+			stored[row["t3"]]++
+			count++
 		}
 	}
-	for _, want := range []string{"10:00:00.123+02", "09:00:00.5+01", "24:00:00+00"} {
-		if !stored[want] {
-			t.Errorf("stored values %v have no %q", stored, want)
+	wantStored := map[string]int{"10:00:00.123+02": 1, "09:00:00.5+01": 1,
+		"08:00:00+00": 1, "23:00:00-05": 1, "04:00:00+00": 1, "24:00:00+00": 1, "": 1}
+	if count != 7 || len(stored) != len(wantStored) {
+		t.Fatalf("stored TIMETZ values: %v (%d rows)", stored, count)
+	}
+	for value, want := range wantStored {
+		if stored[value] != want {
+			t.Errorf("stored TIMETZ %q count %d, want %d", value, stored[value], want)
 		}
 	}
+	pin.release()
 
 	// GROUP BY, DISTINCT and aggregates.
 	h.expectRows(`SELECT t, COUNT(*) FROM it_ttz GROUP BY t ORDER BY t`,
