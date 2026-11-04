@@ -113,7 +113,9 @@ pipelines—with less glue code to build and maintain.
 
 Tested Redis editions:
 
-- Redis Software 8.2.0-78.18 (Redis 8.6.2)
+- Redis Software: the default pulls `redislabs/redis:latest` and creates Redis 8.8 databases.
+  Historical validation used 8.2.0-78.18 (Redis 8.6.2); the 2026-11-04 retest used
+  8.2.6-25 (Redis 8.8.0, Search 8.8.8).
 - Redis Open Source 8.6.2 (standalone and cluster)
 - Redis Cloud, including Redis Cloud Pro (Redis 8.6.2)
 
