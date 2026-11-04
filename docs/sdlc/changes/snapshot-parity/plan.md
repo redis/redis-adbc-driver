@@ -329,3 +329,9 @@ view validation through pinned native metadata and restores publication behavior
 through concurrent DML/DDL, view replacement, rekey and source retirement.
 Cancellation still aborts private uploads without exposing descriptors; full
 ordinary/platform and performance gates remain open.
+
+The [retained capture checkpoint](retained-capture-validation.md) restores
+snapshot-aware bounded capture fixtures, privately published exact sparse IDs,
+materialized SQL defaults and separate missing-value decoder coverage. Managed
+external ownership and retained legacy-producer refusal pass 16 race events;
+full ordinary/platform and performance parity remain open.

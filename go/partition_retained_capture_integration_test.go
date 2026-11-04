@@ -5,22 +5,29 @@
 package redis
 
 import (
-	"encoding/json"
+	"context"
+	"fmt"
 	"maps"
 	"slices"
-	"strconv"
 	"testing"
 
 	"github.com/apache/arrow-adbc/go/adbc"
 	"github.com/apache/arrow-go/v18/arrow/array"
 )
 
-func retainedCaptureFixture(t *testing.T) *retainedCapture {
+func retainedCaptureFixture(t *testing.T, h *sqlHarness) (*retainedCapture, context.Context) {
 	t.Helper()
 	_, _, cfg, timeouts, cluster, _ := retainedSourceFixture(t)
 	client := newRetainedSourceClient(cfg, cluster, timeouts, newRetainedBudget(64<<20))
+	addSnapshotHooks(client)
 	t.Cleanup(func() { _ = client.Close() })
-	return &retainedCapture{store: &store{client: client, foreignIndexes: true}, budget: newRetainedBudget(64 << 20), maxRows: 4096, maxKeys: 10000}
+	st := &store{client: client, foreignIndexes: true, snapshots: true}
+	ctx, pin, err := st.acquireSnapshot(h.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pin.release)
+	return &retainedCapture{store: st, budget: newRetainedBudget(64 << 20), maxRows: 4096, maxKeys: 10000}, ctx
 }
 
 func TestRetainedSourceCaptureExactLargeIDsAndMissingValues(t *testing.T) {
@@ -30,51 +37,42 @@ func TestRetainedSourceCaptureExactLargeIDsAndMissingValues(t *testing.T) {
 	h.exec("CREATE TABLE " + table + " (id BIGINT, label TEXT)")
 	t.Cleanup(func() { h.exec("DROP TABLE IF EXISTS " + table) })
 	h.exec("INSERT INTO " + table + " VALUES (9007199254740993,'exact'),(9223372036854775807,NULL)")
+	ids := []int64{1<<53 + 1, 1<<63 - 1}
+	// Publish sparse IDs and tombstones through the native ownership protocol.
+	// SQL ADD DEFAULT materializes values at both moved IDs.
+	h.sparseSnapshotTable(table, ids[1], map[int64]int64{1: ids[0], 2: ids[1]})
 	h.exec("ALTER TABLE " + table + " ADD COLUMN added BIGINT DEFAULT 17")
 	raw := h.rawClient()
-	meta, err := (&store{client: raw}).getTable(h.ctx, defaultSchema, table)
+	capture, ctx := retainedCaptureFixture(t, h)
+	meta, err := capture.store.getTable(ctx, defaultSchema, table)
 	if err != nil {
 		t.Fatal(err)
 	}
-	ids := []int64{1<<53 + 1, 1<<63 - 1}
-	for index, id := range ids {
-		key := meta.prefix() + strconv.FormatInt(id, 10)
-		oldKey := meta.prefix() + strconv.Itoa(index+1)
-		payload, err := raw.Dump(h.ctx, oldKey).Result()
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := raw.Restore(h.ctx, key, 0, payload).Err(); err != nil {
-			t.Fatal(err)
-		}
-		if err := raw.Del(h.ctx, oldKey).Err(); err != nil {
-			t.Fatal(err)
-		}
-		if err := raw.HSet(h.ctx, key, rowIDField, strconv.FormatInt(id, 10)).Err(); err != nil {
-			t.Fatal(err)
-		}
-		t.Cleanup(func() {
-			if err := raw.Del(h.ctx, key).Err(); err != nil {
-				t.Error(err)
-			}
-		})
+	// Keep the historical missing-value decoder check on a read-only metadata
+	// copy. Current SQL materializes ADD DEFAULT, so published metadata stays native.
+	virtualMissing := func(source *tableMeta) *tableMeta {
+		m := cloneMeta(source)
+		m.Columns = append(m.Columns, columnMeta{Name: "missing", Type: typeInt64, Nullable: true, Default: "23", Missing: "23", MissingThrough: ids[1]})
+		return m
 	}
-	if err := raw.Set(h.ctx, seqKey(defaultSchema, table), strconv.FormatInt(ids[1], 10), 0).Err(); err != nil {
+	keys := []string{meta.prefix() + fmt.Sprint(ids[0]), meta.prefix() + fmt.Sprint(ids[1])}
+	images, err := capture.store.fetchSnapshotVisible(ctx, meta, keys, nil)
+	if err != nil || len(images) != 2 {
+		t.Fatal("exact fixture rows unavailable", err)
+	}
+	for _, image := range images {
+		if image == nil || image["added"] != "17" {
+			t.Fatal("SQL default was not materialized")
+		}
+		if _, exists := image["missing"]; exists {
+			t.Fatal("virtual missing-value fixture field exists")
+		}
+	}
+	before, err := capture.store.redis(ctx).Get(ctx, metaKey(defaultSchema, table)).Bytes()
+	if err != nil {
 		t.Fatal(err)
 	}
-	// Adjust only this fixture's missing-value watermark to cover its moved IDs;
-	// this is source setup, not a capture-side schema migration.
-	for i := range meta.Columns {
-		if meta.Columns[i].Name == "added" {
-			meta.Columns[i].MissingThrough = ids[1]
-		}
-	}
-	before, _ := json.Marshal(meta)
-	if err := raw.Set(h.ctx, metaKey(defaultSchema, table), before, 0).Err(); err != nil {
-		t.Fatal(err)
-	}
-	capture := retainedCaptureFixture(t)
-	snapshot, err := capture.table(h.ctx, meta)
+	snapshot, err := capture.table(ctx, virtualMissing(meta))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,7 +82,8 @@ func TestRetainedSourceCaptureExactLargeIDsAndMissingValues(t *testing.T) {
 	var got []int64
 	for _, row := range snapshot.mem {
 		got = append(got, row[rowIDField].I)
-		if row["id"].I != row[rowIDField].I || row["added"].I != 17 {
+		if row["id"].Null || row[rowIDField].Null || row["added"].Null || row["missing"].Null || row["missing"].I != 23 || row["id"].I != row[rowIDField].I || row["added"].I != 17 ||
+			row["label"].Null != (row["id"].I == ids[1]) || row["id"].I == ids[0] && row["label"].S != "exact" {
 			t.Fatal("exact ID or missing default changed")
 		}
 	}
@@ -92,13 +91,38 @@ func TestRetainedSourceCaptureExactLargeIDsAndMissingValues(t *testing.T) {
 	if !slices.Equal(got, ids) {
 		t.Fatal(got)
 	}
-	if current, err := raw.Get(h.ctx, metaKey(defaultSchema, table)).Bytes(); err != nil || string(current) != string(before) {
-		t.Fatal("capture rewrote source metadata", err)
+	if current, err := capture.store.redis(ctx).Get(ctx, metaKey(defaultSchema, table)).Bytes(); err != nil || string(current) != string(before) {
+		t.Fatal("capture rewrote pinned metadata", err)
 	}
-	// Persistent DDL must invalidate unpublished coordinator state.
+	// Later DDL publishes a new generation; the captured source remains valid.
 	h.exec("ALTER TABLE " + table + " RENAME COLUMN label TO renamed")
-	if err := capture.checkAll(h.ctx); !isStatus(err, adbc.StatusInvalidState) {
-		t.Fatal("source DDL was ignored", err)
+	if err := capture.checkAll(ctx); err != nil {
+		t.Fatal("DDL invalidated immutable input", err)
+	}
+	old, err := capture.store.getTable(ctx, defaultSchema, table)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, oldLabel := old.column("label")
+	_, oldRenamed := old.column("renamed")
+	if !oldLabel || oldRenamed {
+		t.Fatal("pinned definition changed", err)
+	}
+	current := h.inspectTable(raw, defaultSchema, table)
+	_, newLabel := current.column("label")
+	_, newRenamed := current.column("renamed")
+	if !newRenamed || newLabel {
+		t.Fatal("fresh definition did not change")
+	}
+	again, err := capture.table(ctx, virtualMissing(old))
+	if err != nil || len(again.mem) != 2 {
+		t.Fatal("pinned recapture failed", err)
+	}
+	for _, row := range again.mem {
+		if row["id"].Null || row[rowIDField].Null || row["added"].Null || row["missing"].Null || row["missing"].I != 23 || row["id"].I != row[rowIDField].I || row["added"].I != 17 ||
+			row["label"].Null != (row["id"].I == ids[1]) || row["id"].I == ids[0] && row["label"].S != "exact" {
+			t.Fatal("recapture changed exact values")
+		}
 	}
 }
 
@@ -127,6 +151,9 @@ func TestRetainedSourceCaptureApplicationOwnership(t *testing.T) {
 			schema, name := defaultSchema, table
 			if mode == "foreign_index" {
 				schema, name = foreignSchema, index
+				if err := h.setConnOption(OptionStringForeignIndexes, "true"); err != nil {
+					t.Fatal(err)
+				}
 			} else {
 				opts := HashAdoptOptions{Table: table, Apply: true}
 				if mode == "application_index" {
@@ -136,23 +163,35 @@ func TestRetainedSourceCaptureApplicationOwnership(t *testing.T) {
 					t.Fatal("fixture adoption failed")
 				}
 			}
-			capture := retainedCaptureFixture(t)
-			meta, err := capture.store.getTable(h.ctx, schema, name)
+			var definition indexInfo
+			if mode != "adopted" {
+				reply, err := f.raw.Do(h.ctx, "FT.INFO", index).Result()
+				if err != nil {
+					t.Fatal(err)
+				}
+				definition = indexInfoOf(reply)
+			}
+			capture, ctx := retainedCaptureFixture(t, h)
+			meta, err := capture.store.getTable(ctx, schema, name)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if meta.AppIndex {
-				if err := capture.store.loadAppIndex(h.ctx, meta); err != nil {
-					t.Fatal(err)
-				}
+			if meta.Adopted || meta.AppIndex || meta.Foreign || meta.KeyRows || !meta.SnapshotSourceKey || prefixesOverlap(meta.prefix(), f.prefix) {
+				t.Fatal("capture did not use an owned managed copy")
 			}
-			snapshot, err := capture.table(h.ctx, meta)
+
+			snapshot, err := capture.table(ctx, meta)
 			if err != nil {
 				t.Fatal(err)
 			}
 			var found []string
 			for _, row := range snapshot.mem {
-				found = append(found, row[keyField].S)
+				key := row[keyField].S
+				fields, ok := before[key]
+				if !ok || row[keyField].Null || row["name"].Null || row["name"].S != fields["name"] || row["n"].Null || fmt.Sprint(row["n"].I) != fields["n"] {
+					t.Fatal("copied source values changed", key)
+				}
+				found = append(found, key)
 			}
 			slices.Sort(found)
 			slices.Sort(keys)
@@ -166,7 +205,7 @@ func TestRetainedSourceCaptureApplicationOwnership(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			arrowSchema, parts, count := retainedAPIPlan(t, publisher, "SELECT CAST(__key AS BYTEA) AS key,n FROM "+schema+"."+name+" ORDER BY n")
+			arrowSchema, parts, count := retainedAPIPlan(t, publisher, "SELECT CAST(__key AS BYTEA) AS key,CAST(name AS BYTEA) AS name,n FROM "+schema+"."+name+" ORDER BY n")
 			if count != 3 {
 				t.Fatal("public layout capture omitted rows", count)
 			}
@@ -181,9 +220,17 @@ func TestRetainedSourceCaptureApplicationOwnership(t *testing.T) {
 					t.Fatal("public layout schema changed")
 				}
 				for reader.Next() {
-					col := reader.RecordBatch().Column(0).(*array.Binary)
+					batch := reader.RecordBatch()
+					col := batch.Column(0).(*array.Binary)
+					names := batch.Column(1).(*array.Binary)
+					nums := batch.Column(2).(*array.Int64)
 					for i := 0; i < col.Len(); i++ {
-						exact = append(exact, string(col.Value(i)))
+						key := string(col.Value(i))
+						fields, ok := before[key]
+						if !ok || col.IsNull(i) || names.IsNull(i) || nums.IsNull(i) || string(names.Value(i)) != fields["name"] || fmt.Sprint(nums.Value(i)) != fields["n"] {
+							t.Fatal("public retained exact source values changed", key)
+						}
+						exact = append(exact, key)
 					}
 				}
 				err = reader.Err()
@@ -196,6 +243,13 @@ func TestRetainedSourceCaptureApplicationOwnership(t *testing.T) {
 			if !slices.Equal(exact, keys) {
 				t.Fatal("public retained byte-key identities changed")
 			}
+			if mode != "adopted" {
+				reply, err := f.raw.Do(h.ctx, "FT.INFO", index).Result()
+				if err != nil || !partitionIndexDefinitionEqual(definition, indexInfoOf(reply)) {
+					t.Fatal("capture changed external index definition", err)
+				}
+			}
+
 			for key, expected := range before {
 				row, err := f.raw.HGetAll(h.ctx, key).Result()
 				if err != nil || !maps.Equal(row, expected) {
@@ -215,8 +269,8 @@ func TestRetainedSourceCaptureLimitsDoNotTruncate(t *testing.T) {
 	h.exec("INSERT INTO " + table + " VALUES (1),(2),(3)")
 	for _, kind := range []string{"rows", "keys", "bytes"} {
 		t.Run(kind, func(t *testing.T) {
-			c := retainedCaptureFixture(t)
-			meta, err := c.store.getTable(h.ctx, defaultSchema, table)
+			c, ctx := retainedCaptureFixture(t, h)
+			meta, err := c.store.getTable(ctx, defaultSchema, table)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -228,7 +282,7 @@ func TestRetainedSourceCaptureLimitsDoNotTruncate(t *testing.T) {
 			case "bytes":
 				c.budget = newRetainedBudget(1)
 			}
-			snapshot, err := c.table(h.ctx, meta)
+			snapshot, err := c.table(ctx, meta)
 			if snapshot != nil || !isStatus(err, adbc.StatusInvalidState) {
 				t.Fatal("capture silently truncated or exceeded limits", err)
 			}
@@ -239,106 +293,9 @@ func TestRetainedSourceCaptureLimitsDoNotTruncate(t *testing.T) {
 	}
 }
 
-func TestRetainedSourceCaptureLegacyWithoutMigration(t *testing.T) {
-	id, err := retainedRandomID()
-	if err != nil {
-		t.Fatal(err)
-	}
-	table := "it_retained_capture_legacy_" + id
-	for _, name := range []string{"fresh", "reused"} {
-		t.Run(name, func(t *testing.T) { checkRetainedLegacyCapture(t, table) })
-	}
-}
-
-func checkRetainedLegacyCapture(t *testing.T, table string) {
-	h := newSQLHarness(t)
-	h.exec("DROP TABLE IF EXISTS " + table)
-	h.exec("CREATE TABLE " + table + " (id BIGINT)")
-	t.Cleanup(func() { h.exec("DROP TABLE IF EXISTS " + table) })
-	h.exec("INSERT INTO " + table + " VALUES (9007199254740993),(9223372036854775807)")
-	raw := h.rawClient()
-	st := &store{client: raw}
-	meta, err := st.getTable(h.ctx, defaultSchema, table)
-	if err != nil {
-		t.Fatal(err)
-	}
-	original, err := raw.Get(h.ctx, metaKey(defaultSchema, table)).Result()
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		if err := raw.Set(h.ctx, metaKey(defaultSchema, table), original, 0).Err(); err != nil {
-			t.Error(err)
-		}
-	})
-	legacy := *meta
-	legacy.KeyPrefix = ""
-	legacy.IndexName = ""
-	for id := 1; id <= 2; id++ {
-		key := legacy.prefix() + strconv.Itoa(id)
-		oldKey := meta.prefix() + strconv.Itoa(id)
-		t.Cleanup(func() {
-			if err := raw.Del(h.ctx, key).Err(); err != nil {
-				t.Error(err)
-			}
-		})
-		// A never-used table name already has the legacy physical prefix.
-		// Reused names receive a generation suffix and need the fixture copy.
-		if oldKey == key {
-			continue
-		}
-		payload, err := raw.Dump(h.ctx, oldKey).Result()
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := raw.Restore(h.ctx, key, 0, payload).Err(); err != nil {
-			t.Fatal(err)
-		}
-		if err := raw.Del(h.ctx, oldKey).Err(); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := st.searchDo(h.ctx, meta.index(), "FT.DROPINDEX", meta.index()).Err(); err != nil {
-		t.Fatal(err)
-	}
-	args := indexCreateArgs(&legacy)
-	filtered := make([]any, 0, len(args))
-	for _, arg := range args {
-		if value, ok := arg.(string); ok && value == "SKIPINITIALSCAN" {
-			continue
-		}
-		filtered = append(filtered, arg)
-	}
-	if err := st.searchDo(h.ctx, legacy.index(), filtered...).Err(); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		if err := st.searchDo(h.ctx, legacy.index(), "FT.DROPINDEX", legacy.index()).Err(); err != nil {
-			t.Error(err)
-		}
-	})
-	if err := st.awaitIndexReady(h.ctx, legacy.index()); err != nil {
-		t.Fatal(err)
-	}
-	before, _ := json.Marshal(&legacy)
-	if err := raw.Set(h.ctx, metaKey(defaultSchema, table), before, 0).Err(); err != nil {
-		t.Fatal(err)
-	}
-	capture := retainedCaptureFixture(t)
-	snapshot, err := capture.table(h.ctx, &legacy)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var values []int64
-	for _, row := range snapshot.mem {
-		values = append(values, row["id"].I)
-	}
-	slices.Sort(values)
-	if !slices.Equal(values, []int64{1<<53 + 1, 1<<63 - 1}) {
-		t.Fatal("legacy values changed", values)
-	}
-	if got, err := raw.Get(h.ctx, metaKey(defaultSchema, table)).Result(); err != nil || got != string(before) {
-		t.Fatal("capture migrated legacy metadata", err)
+func TestSnapshotRetainedSourceCaptureLegacyWithoutMigration(t *testing.T) {
+	for _, withIndex := range []bool{false, true} {
+		t.Run(fmt.Sprintf("source_index_%t", withIndex), func(t *testing.T) { checkSnapshotLegacyCatalogRefusal(t, withIndex, true) })
 	}
 }
 
@@ -381,15 +338,18 @@ func TestRetainedSourceCaptureForeignPrefixesAndFilter(t *testing.T) {
 	if err := st.awaitIndexReady(h.ctx, index); err != nil {
 		t.Fatal(err)
 	}
-	capture := retainedCaptureFixture(t)
-	meta, err := capture.store.getTable(h.ctx, foreignSchema, index)
+	if err := h.setConnOption(OptionStringForeignIndexes, "true"); err != nil {
+		t.Fatal(err)
+	}
+	capture, ctx := retainedCaptureFixture(t, h)
+	meta, err := capture.store.getTable(ctx, foreignSchema, index)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := capture.store.loadAppIndex(h.ctx, meta); err != nil {
-		t.Fatal(err)
+	if meta.AppIndex || meta.Foreign || meta.Adopted || meta.KeyRows || !meta.SnapshotSourceKey {
+		t.Fatal("foreign source was not converted to a private managed copy")
 	}
-	snapshot, err := capture.table(h.ctx, meta)
+	snapshot, err := capture.table(ctx, meta)
 	if err != nil {
 		t.Fatal(err)
 	}

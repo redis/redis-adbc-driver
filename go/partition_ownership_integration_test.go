@@ -284,78 +284,84 @@ func TestPartitionManagedCopyOwnership(t *testing.T) {
 // cannot be opened. This explicitly disposable test never edits published data.
 func TestSnapshotPartitionLegacyMetadataNotMigrated(t *testing.T) {
 	for _, withIndex := range []bool{false, true} {
-		t.Run(fmt.Sprintf("source_index_%t", withIndex), func(t *testing.T) {
-			h, raw, _ := newSnapshotHarnessMode(t, false, false)
-			if err := h.conn.Close(h.ctx); err != nil {
-				t.Fatal(err)
+		t.Run(fmt.Sprintf("source_index_%t", withIndex), func(t *testing.T) { checkSnapshotLegacyCatalogRefusal(t, withIndex, false) })
+	}
+}
+
+func checkSnapshotLegacyCatalogRefusal(t *testing.T, withIndex, retained bool) {
+	t.Helper()
+	h, raw, _ := newSnapshotHarnessMode(t, false, false)
+	if err := h.conn.Close(h.ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := raw.FlushDB(h.ctx).Err(); err != nil {
+		t.Fatal(err)
+	}
+	const table = "it_partition_legacy_guard"
+	key, row := metaKey(defaultSchema, table), rowPrefix(defaultSchema, table)+"1"
+	legacy, err := json.Marshal(&tableMeta{Schema: defaultSchema, Name: table,
+		Columns: []columnMeta{{Name: "id", Type: typeInt64}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := raw.Set(h.ctx, key, legacy, 0).Err(); err != nil {
+		t.Fatal(err)
+	}
+	if err := raw.HSet(h.ctx, row, rowIDField, "1", "id", "7").Err(); err != nil {
+		t.Fatal(err)
+	}
+	index := indexName(defaultSchema, table)
+	var before indexInfo
+	if withIndex {
+		if err := raw.Do(h.ctx, "FT.CREATE", index, "ON", "HASH", "PREFIX", 1, rowPrefix(defaultSchema, table),
+			"SCHEMA", rowIDField, "NUMERIC", "id", "NUMERIC").Err(); err != nil {
+			t.Fatal(err)
+		}
+		if err := (&store{client: raw}).awaitIndexReady(h.ctx, index); err != nil {
+			t.Fatal(err)
+		}
+		reply, err := raw.Do(h.ctx, "FT.INFO", index).Result()
+		if err != nil {
+			t.Fatal(err)
+		}
+		before = indexInfoOf(reply)
+	}
+	options := map[string]string{adbc.OptionKeyURI: os.Getenv("REDIS_SNAPSHOT_URI")}
+	if retained {
+		options[OptionStringPartitionResultNamespace] = "it_retained_legacy_refusal"
+	}
+	db, err := NewDriver(memory.DefaultAllocator).NewDatabaseWithContext(h.ctx, retainedTestDatabaseOptions(options))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close(h.ctx)
+	for range 3 {
+		conn, err := db.Open(h.ctx)
+		if conn != nil {
+			_ = conn.Close(h.ctx)
+			t.Fatal("legacy storage opened")
+		}
+		message := "require a fresh empty database"
+		if withIndex {
+			message = "requires a database without existing search indexes"
+		}
+		if err == nil || !strings.Contains(err.Error(), message) {
+			t.Fatal("legacy open failed for the wrong reason", err)
+		}
+		if got, err := raw.Get(h.ctx, key).Bytes(); err != nil || string(got) != string(legacy) {
+			t.Fatal("rejected open migrated legacy descriptor", err)
+		}
+		if fields, err := raw.HGetAll(h.ctx, row).Result(); err != nil || !maps.Equal(fields, map[string]string{rowIDField: "1", "id": "7"}) {
+			t.Fatal("rejected open changed legacy row", err)
+		}
+		if n, err := raw.Exists(h.ctx, snapshotCatalogKey).Result(); err != nil || n != 0 {
+			t.Fatal("rejected open initialized a snapshot catalog", n, err)
+		}
+		if withIndex {
+			after, err := raw.Do(h.ctx, "FT.INFO", index).Result()
+			if err != nil || !partitionIndexDefinitionEqual(before, indexInfoOf(after)) {
+				t.Fatal("rejected open changed legacy index definition", err)
 			}
-			if err := raw.FlushDB(h.ctx).Err(); err != nil {
-				t.Fatal(err)
-			}
-			const table = "it_partition_legacy_guard"
-			key, row := metaKey(defaultSchema, table), rowPrefix(defaultSchema, table)+"1"
-			legacy, err := json.Marshal(&tableMeta{Schema: defaultSchema, Name: table,
-				Columns: []columnMeta{{Name: "id", Type: typeInt64}}})
-			if err != nil {
-				t.Fatal(err)
-			}
-			if err := raw.Set(h.ctx, key, legacy, 0).Err(); err != nil {
-				t.Fatal(err)
-			}
-			if err := raw.HSet(h.ctx, row, rowIDField, "1", "id", "7").Err(); err != nil {
-				t.Fatal(err)
-			}
-			index := indexName(defaultSchema, table)
-			var before indexInfo
-			if withIndex {
-				if err := raw.Do(h.ctx, "FT.CREATE", index, "ON", "HASH", "PREFIX", 1, rowPrefix(defaultSchema, table),
-					"SCHEMA", rowIDField, "NUMERIC", "id", "NUMERIC").Err(); err != nil {
-					t.Fatal(err)
-				}
-				if err := (&store{client: raw}).awaitIndexReady(h.ctx, index); err != nil {
-					t.Fatal(err)
-				}
-				reply, err := raw.Do(h.ctx, "FT.INFO", index).Result()
-				if err != nil {
-					t.Fatal(err)
-				}
-				before = indexInfoOf(reply)
-			}
-			db, err := NewDriver(memory.DefaultAllocator).NewDatabaseWithContext(h.ctx,
-				retainedTestDatabaseOptions(map[string]string{adbc.OptionKeyURI: os.Getenv("REDIS_SNAPSHOT_URI")}))
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer db.Close(h.ctx)
-			for range 3 {
-				conn, err := db.Open(h.ctx)
-				if conn != nil {
-					_ = conn.Close(h.ctx)
-					t.Fatal("legacy storage opened")
-				}
-				message := "require a fresh empty database"
-				if withIndex {
-					message = "requires a database without existing search indexes"
-				}
-				if err == nil || !strings.Contains(err.Error(), message) {
-					t.Fatal("legacy open failed for the wrong reason", err)
-				}
-				if got, err := raw.Get(h.ctx, key).Bytes(); err != nil || string(got) != string(legacy) {
-					t.Fatal("rejected open migrated legacy descriptor", err)
-				}
-				if fields, err := raw.HGetAll(h.ctx, row).Result(); err != nil || !maps.Equal(fields, map[string]string{rowIDField: "1", "id": "7"}) {
-					t.Fatal("rejected open changed legacy row", err)
-				}
-				if n, err := raw.Exists(h.ctx, snapshotCatalogKey).Result(); err != nil || n != 0 {
-					t.Fatal("rejected open initialized a snapshot catalog", n, err)
-				}
-				if withIndex {
-					after, err := raw.Do(h.ctx, "FT.INFO", index).Result()
-					if err != nil || !partitionIndexDefinitionEqual(before, indexInfoOf(after)) {
-						t.Fatal("rejected open changed legacy index definition", err)
-					}
-				}
-			}
-		})
+		}
 	}
 }
