@@ -17,41 +17,33 @@ package redis
 // Integration tests for ALTER TABLE with several actions (issue #91).
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
 	"sync"
 	"testing"
 
+	"github.com/apache/arrow-adbc/go/adbc"
 	goredis "github.com/redis/go-redis/v9"
 )
 
 // indexAttrs lists the attributes of a table's search index, in order.
 func (h *sqlHarness) indexAttrs(raw goredis.UniversalClient, schema, table string) string {
 	h.t.Helper()
-	st := &store{client: raw}
-	meta, err := st.getTable(h.ctx, schema, table)
+	st, ctx, pin := h.inspectionSnapshot(raw)
+	defer pin.release()
+	meta, err := st.getTable(ctx, schema, table)
 	if err != nil {
 		h.t.Fatal(err)
 	}
-	reply, err := st.searchDo(h.ctx, meta.index(), "FT.INFO", meta.index()).Result()
+	reply, err := st.searchDo(ctx, meta.index(), "FT.INFO", meta.index()).Result()
 	if err != nil {
 		h.t.Fatal(err)
 	}
 	var names []string
-	info := reply.([]any)
-	for i := 0; i+1 < len(info); i += 2 {
-		if info[i] != "attributes" {
-			continue
-		}
-		for _, a := range info[i+1].([]any) {
-			parts := a.([]any)
-			for j := 0; j+1 < len(parts); j += 2 {
-				if parts[j] == "identifier" {
-					names = append(names, parts[j+1].(string))
-				}
-			}
-		}
+	for _, attr := range indexInfoOf(reply).attrs {
+		names = append(names, attr.identifier)
 	}
 	return strings.Join(names, " ")
 }
@@ -78,7 +70,7 @@ func TestSQLAlterMultiDbt(t *testing.T) {
 		WHERE table_schema = 'it_am_s' AND table_name = 'osc' ORDER BY ordinal_position`,
 		"id|INTEGER", "g|VARCHAR", "extra|VARCHAR(256)", "extra2|BIGINT")
 	h.expectRows(`SELECT id, g, extra, extra2 FROM it_am_s.osc ORDER BY id`, "1|a|NULL|NULL", "2|b|NULL|NULL")
-	if got := h.indexAttrs(raw, "it_am_s", "osc"); got != "__rowid id g extra extra2" {
+	if got := h.indexAttrs(raw, "it_am_s", "osc"); got != "__rowid "+snapshotDeletedField+" id g extra extra2" {
 		t.Errorf("index attributes: %q", got)
 	}
 	h.exec(`INSERT INTO it_am_s.osc VALUES (3, 'c', 'x', 30)`)
@@ -100,10 +92,7 @@ func TestSQLAlterMultiDbt(t *testing.T) {
 		f := h.rowFields(raw, "it_am_s", "osc")
 		return f["extra"] == 0 && f["extra2"] == 0
 	})
-	meta, err := (&store{client: raw}).getTable(h.ctx, "it_am_s", "osc")
-	if err != nil {
-		t.Fatal(err)
-	}
+	meta := h.inspectTable(raw, "it_am_s", "osc")
 	if !slices.Equal(meta.RetiredFields, []string{"g", "extra", "extra2"}) {
 		t.Errorf("retired fields: %q", meta.RetiredFields)
 	}
@@ -189,13 +178,10 @@ func TestSQLAlterMultiMixed(t *testing.T) {
 	// Written the other way round, the drop still comes first.
 	h.exec(`ALTER TABLE it_am_one ADD COLUMN c integer, DROP COLUMN b`)
 	h.expectColumns(`SELECT * FROM it_am_one`, "c", "NULL")
-	if got := h.indexAttrs(raw, defaultSchema, "it_am_one"); got != "__rowid a b c" {
+	if got := h.indexAttrs(raw, defaultSchema, "it_am_one"); got != "__rowid "+snapshotDeletedField+" c" {
 		t.Errorf("index attributes: %q", got)
 	}
-	meta, err := (&store{client: raw}).getTable(h.ctx, defaultSchema, "it_am_one")
-	if err != nil {
-		t.Fatal(err)
-	}
+	meta := h.inspectTable(raw, defaultSchema, "it_am_one")
 	if !slices.Equal(meta.RetiredFields, []string{"a", "b"}) {
 		t.Errorf("retired fields: %q", meta.RetiredFields)
 	}
@@ -340,104 +326,178 @@ func TestSQLAlterMultiErrors(t *testing.T) {
 	h.expectColumns(`SELECT * FROM it_am_err`, "id|w")
 }
 
-// An index attribute that no column uses, as an ADD COLUMN whose metadata
-// change failed after its FT.ALTER leaves, doesn't make adding a column
-// with that name fail.
+// A failed private index build must not leave attributes in the published
+// layout or poison later ADD COLUMN operations. The old generation stays pinned.
 func TestSQLAlterLeftoverAttribute(t *testing.T) {
 	h := newSQLHarness(t)
 	h.dropTables("it_am_left")
-	raw := h.rawClient()
-	h.exec(`CREATE TABLE it_am_left (id integer)`)
-	st := &store{client: raw}
-	meta, err := st.getTable(h.ctx, defaultSchema, "it_am_left")
+	h.exec("CREATE TABLE it_am_left (id integer)")
+	h.exec("INSERT INTO it_am_left VALUES(1),(2)")
+	hook := &managedImportIndexFailure{}
+	raw := h.rawClient(hook)
+	st, oldCtx, oldPin := h.inspectionSnapshot(raw)
+	defer oldPin.release()
+	old, err := st.getTable(oldCtx, defaultSchema, "it_am_left")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := st.searchDo(h.ctx, meta.index(), "FT.ALTER", meta.index(), "SCHEMA", "ADD",
-		"extra", "NUMERIC", "SORTABLE", "more", "TAG").Err(); err != nil {
+	before := h.rawMeta(raw, defaultSchema, "it_am_left")
+	wctx, pin, work := snapshotStageSQL(t, st, h.ctx, "", "ALTER TABLE it_am_left ADD COLUMN extra integer, ADD COLUMN more varchar")
+	private, err := st.getTable(wctx, defaultSchema, "it_am_left")
+	if err != nil {
 		t.Fatal(err)
 	}
-	// One action (main failed with "Duplicate field in schema - extra"),
-	// and several.
-	h.exec(`ALTER TABLE it_am_left ADD COLUMN extra integer`)
-	h.exec(`ALTER TABLE it_am_left ADD COLUMN other varchar, ADD COLUMN more integer`)
-	for col, want := range map[string]string{"extra": "extra_2", "other": "other", "more": "more_2"} {
-		if f := h.tableColumn(raw, "it_am_left", col).field(); f != want {
-			t.Errorf("field of %s: %q, want %q", col, f, want)
+	err = st.rebuildSnapshotIndexes(wctx)
+	if err == nil || !strings.Contains(err.Error(), "injected late private index failure") || !hook.fired.Load() || hook.creates.Load() != 1 || !strings.HasPrefix(hook.index, snapshotIndexPrefix(snapshotDataID(private.prefix()))) {
+		t.Fatalf("private index failure was hidden or replayed: %v creates=%d", err, hook.creates.Load())
+	}
+	reply, err := raw.Do(h.ctx, "FT.INFO", hook.index).Result()
+	if err != nil {
+		t.Fatal("late failure did not leave a real private index", err)
+	}
+	info := indexInfoOf(reply)
+	if info.keyType != "HASH" || !slices.Equal(info.prefixes, []string{private.prefix()}) || len(info.attrs) != 5 {
+		t.Fatal("late index does not belong to staged ALTER output")
+	}
+	st.abortSnapshot(pin, work)
+	pin.release()
+	if got := h.rawMeta(raw, defaultSchema, "it_am_left"); got != before {
+		t.Fatal("failed private ALTER changed published metadata")
+	}
+	h.expectColumns("SELECT * FROM it_am_left ORDER BY id", "id", "1", "2")
+	if got := h.indexAttrs(raw, defaultSchema, "it_am_left"); got != "__rowid "+snapshotDeletedField+" id" {
+		t.Fatalf("failed ALTER changed published index: %q", got)
+	}
+	h.exec("ALTER TABLE it_am_left ADD COLUMN extra integer")
+	h.exec("ALTER TABLE it_am_left ADD COLUMN other varchar, ADD COLUMN more integer")
+	for _, col := range []string{"extra", "other", "more"} {
+		if f := h.tableColumn(raw, "it_am_left", col).field(); f != col {
+			t.Errorf("private leftover contaminated field of %s: %q", col, f)
 		}
 	}
-	if got := h.indexAttrs(raw, defaultSchema, "it_am_left"); got != "__rowid id extra more extra_2 other more_2" {
+	if got := h.indexAttrs(raw, defaultSchema, "it_am_left"); got != "__rowid "+snapshotDeletedField+" id extra other more" {
 		t.Errorf("index attributes: %q", got)
 	}
-	h.exec(`INSERT INTO it_am_left VALUES (1, 5, 'o', 7), (2, 6, 'p', 8)`)
-	h.expectRows(`SELECT id FROM it_am_left WHERE extra = 5 AND other = 'o' AND more = 7`, "1")
-	h.expectRows(`SELECT id, extra FROM it_am_left ORDER BY extra DESC`, "2|6", "1|5")
+	h.exec("UPDATE it_am_left SET extra=id+4, other=CASE WHEN id=1 THEN 'o' ELSE 'p' END, more=id+6")
+	h.expectRows("SELECT id FROM it_am_left WHERE extra=5 AND other='o' AND more=7", "1")
+	h.expectRows("SELECT id,extra FROM it_am_left ORDER BY extra DESC", "2|6", "1|5")
+	rows, err := st.fetchSnapshotVisible(oldCtx, old, []string{old.prefix() + "1", old.prefix() + "2"}, nil)
+	if err != nil || len(rows) != 2 || rows[0]["id"] != "1" || rows[1]["id"] != "2" || len(rows[0]) != 2 || len(rows[1]) != 2 {
+		t.Fatalf("private ALTER changed pinned source: %v %v", rows, err)
+	}
+	reply, err = st.searchDo(oldCtx, old.index(), "FT.INFO", old.index()).Result()
+	if err != nil || len(indexInfoOf(reply).attrs) != 3 {
+		t.Fatal("pinned source index changed", err)
+	}
+	snapshotReapTest(st, h.ctx)
+	if err := raw.Do(h.ctx, "FT.INFO", hook.index).Err(); err == nil || !isUnknownIndex(err) {
+		t.Fatal("failed private index not reclaimed", err)
+	}
+	if raw.Exists(h.ctx, private.prefix()+"1", private.prefix()+"2").Val() != 0 {
+		t.Fatal("failed private rows not reclaimed")
+	}
 }
 
-// Several connections changing a table's columns at once: every change is
-// applied whole.
+// Competing changes publish whole or return the documented serialization
+// conflict. Never replay SQL implicitly to force every attempt to commit.
 func TestSQLAlterMultiConcurrent(t *testing.T) {
 	h := newSQLHarness(t)
 	h.dropTables("it_am_conc")
-	h.exec(`CREATE TABLE it_am_conc (id integer)`)
-	h.exec(`INSERT INTO it_am_conc VALUES (1), (2)`)
+	h.exec("CREATE TABLE it_am_conc (id integer)")
+	h.exec("INSERT INTO it_am_conc VALUES (1), (2)")
+	raw := h.rawClient()
+	st, oldCtx, pin := h.inspectionSnapshot(raw)
+	defer pin.release()
+	old, err := st.getTable(oldCtx, defaultSchema, "it_am_conc")
+	if err != nil {
+		t.Fatal(err)
+	}
 	const conns, each = 3, 6
+	type outcome struct {
+		c, i int
+		err  error
+	}
 	var wg sync.WaitGroup
-	errs := make(chan error, conns*each)
+	results := make(chan outcome, conns*each)
+	start := make(chan struct{})
 	for c := 0; c < conns; c++ {
 		hc := newSQLHarness(t)
 		wg.Add(1)
 		go func(c int) {
 			defer wg.Done()
+			<-start
 			for i := 0; i < each; i++ {
-				sql := fmt.Sprintf(`ALTER TABLE it_am_conc ADD COLUMN a%d_%d integer DEFAULT %d,
-					ADD COLUMN b%d_%d varchar, ADD CONSTRAINT c%d_%d CHECK (a%d_%d >= 0)`, c, i, i, c, i, c, i, c, i)
-				st, err := hc.conn.NewStatement(hc.ctx)
-				if err != nil {
-					errs <- err
-					return
-				}
-				if err := st.SetSqlQuery(hc.ctx, sql); err == nil {
-					_, err = st.ExecuteUpdate(hc.ctx)
-					if err != nil {
-						errs <- fmt.Errorf("%s: %w", sql, err)
+				sql := fmt.Sprintf("ALTER TABLE it_am_conc ADD COLUMN a%d_%d integer DEFAULT %d, ADD COLUMN b%d_%d varchar, ADD CONSTRAINT c%d_%d CHECK (a%d_%d >= 0)", c, i, i, c, i, c, i, c, i)
+				stmt, err := hc.conn.NewStatement(hc.ctx)
+				if err == nil {
+					err = stmt.SetSqlQuery(hc.ctx, sql)
+					if err == nil {
+						_, err = stmt.ExecuteUpdate(hc.ctx)
+					}
+					closeErr := stmt.Close(hc.ctx)
+					if err == nil {
+						err = closeErr
 					}
 				}
-				_ = st.Close(hc.ctx)
+				results <- outcome{c, i, err}
 			}
 		}(c)
 	}
+	close(start)
 	wg.Wait()
-	close(errs)
-	for err := range errs {
-		t.Error(err)
-	}
+	close(results)
+	meta := h.inspectTable(raw, defaultSchema, "it_am_conc")
 	var want []string
-	for c := 0; c < conns; c++ {
-		for i := 0; i < each; i++ {
-			want = append(want, fmt.Sprintf("a%d_%d|%d", c, i, i), fmt.Sprintf("b%d_%d|NULL", c, i))
+	successes, conflicts := 0, 0
+	for r := range results {
+		a, b, check := fmt.Sprintf("a%d_%d", r.c, r.i), fmt.Sprintf("b%d_%d", r.c, r.i), fmt.Sprintf("c%d_%d", r.c, r.i)
+		_, hasA := meta.column(a)
+		_, hasB := meta.column(b)
+		hasCheck := slices.ContainsFunc(meta.Checks, func(c checkMeta) bool { return c.Name == check })
+		if r.err == nil {
+			successes++
+			if !hasA || !hasB || !hasCheck {
+				t.Errorf("successful ALTER partially published: %+v", r)
+			}
+			want = append(want, fmt.Sprintf("%s|%d", a, r.i), b+"|NULL")
+			h.expectRows(fmt.Sprintf("SELECT %s,%s FROM it_am_conc ORDER BY id", a, b), fmt.Sprintf("%d|NULL", r.i), fmt.Sprintf("%d|NULL", r.i))
+			h.expectErrorText(fmt.Sprintf("UPDATE it_am_conc SET %s=-1 WHERE id=1", a), fmt.Sprintf("new row for relation %q violates check constraint %q", "it_am_conc", check))
+		} else {
+			var ae adbc.Error
+			if !errors.As(r.err, &ae) || string(ae.SqlState[:]) != "40001" {
+				t.Errorf("unexpected concurrent ALTER failure: %v", r.err)
+			}
+			conflicts++
+			if hasA || hasB || hasCheck {
+				t.Errorf("rejected ALTER partially published: %+v", r)
+			}
 		}
+	}
+	if successes == 0 || successes+conflicts != conns*each {
+		t.Fatalf("incomplete outcomes: success=%d conflict=%d", successes, conflicts)
 	}
 	slices.Sort(want)
 	var got []string
-	raw := h.rawClient()
-	meta, err := (&store{client: raw}).getTable(h.ctx, defaultSchema, "it_am_conc")
-	if err != nil {
-		t.Fatal(err)
-	}
 	for _, c := range meta.Columns[1:] {
-		rows, _ := h.query(fmt.Sprintf(`SELECT %s FROM it_am_conc WHERE id = 1`, c.Name))
+		rows, _ := h.query(fmt.Sprintf("SELECT %s FROM it_am_conc WHERE id=1", c.Name))
+		if len(rows) != 1 {
+			t.Fatalf("missing row for committed column %s", c.Name)
+		}
 		got = append(got, c.Name+"|"+rows[0])
 	}
 	slices.Sort(got)
-	if strings.Join(got, " ") != strings.Join(want, " ") {
-		t.Errorf("columns\n got: %q\nwant: %q", got, want)
+	if !slices.Equal(got, want) {
+		t.Errorf("columns got=%q want=%q", got, want)
 	}
-	if len(meta.Checks) != conns*each {
-		t.Errorf("%d checks, want %d", len(meta.Checks), conns*each)
+	if len(meta.Checks) != successes {
+		t.Errorf("%d checks for %d committed changes", len(meta.Checks), successes)
 	}
-	attrs := strings.Fields(h.indexAttrs(raw, defaultSchema, "it_am_conc"))
-	if len(attrs) != 2+2*conns*each {
+	if attrs := strings.Fields(h.indexAttrs(raw, defaultSchema, "it_am_conc")); len(attrs) != 3+2*successes {
 		t.Errorf("index attributes: %q", attrs)
 	}
+	rows, err := st.fetchSnapshotVisible(oldCtx, old, []string{old.prefix() + "1", old.prefix() + "2"}, nil)
+	if err != nil || len(rows) != 2 || len(rows[0]) != 2 || len(rows[1]) != 2 || rows[0]["id"] != "1" || rows[1]["id"] != "2" {
+		t.Fatalf("concurrent ALTER changed pinned source: %v %v", rows, err)
+	}
+	t.Logf("atomic concurrent ALTER outcomes: %d committed, %d serialization conflicts; no replay", successes, conflicts)
 }

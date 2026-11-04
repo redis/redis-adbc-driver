@@ -173,3 +173,10 @@ recovery, checked with both deterministic denial and a real Software API princip
 It also restores the independent unmanaged HASH collision race without bypassing
 snapshot admission for driver SQL. Full ordinary/platform and performance parity
 remain open.
+
+The [multi-action ALTER checkpoint](alter-multi-validation.md) restores pinned
+RESP3 inspection and reconciles fresh private indexes and serialization conflicts
+without weakening rejection/atomicity assertions. Nine race cases pass, including
+actual private-index creation followed by a lost reply, orphan cleanup, exact
+concurrent outcomes, pinned-source preservation and seven deterministic stale
+constraint/write conflicts. Broader parity remains open.

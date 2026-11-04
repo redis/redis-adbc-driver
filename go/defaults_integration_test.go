@@ -87,10 +87,7 @@ func (h *sqlHarness) columnDefs(table string) []string {
 // tableColumn returns a column's metadata as stored.
 func (h *sqlHarness) tableColumn(c goredis.UniversalClient, table, column string) columnMeta {
 	h.t.Helper()
-	meta, err := (&store{client: c}).getTable(h.ctx, defaultSchema, table)
-	if err != nil {
-		h.t.Fatal(err)
-	}
+	meta := h.inspectTable(c, defaultSchema, table)
 	col, ok := meta.column(column)
 	if !ok {
 		h.t.Fatalf("column %q of %q not found", column, table)

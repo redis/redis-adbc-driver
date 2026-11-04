@@ -58,7 +58,13 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.26.10)
   native conversion, independently of source attributes/encodings and source
   membership; keep IndexColumns working with explicit source indexes.
   ALTER stages private
-  replacement layouts. Temporary descriptors participate in manifest references;
+  replacement layouts with fresh indexes containing current fields and the
+  deletion marker. A late index-create failure leaves only reclaimable private
+  output. Constraint/schema races validate their pinned input and return 40001
+  after a dependency changes; never silently revalidate or replay SQL. Regression
+  fixtures stage private work and intervening publications rather than mutate
+  published indexes or depend on legacy mutable-ALTER hooks. Temporary descriptors
+  participate in manifest references;
   liveness is global and Close/sweep publish descriptor removal. Application
   HASH adoption and foreign indexes are managed copies with explicit refreshes;
   never modify their external sources. Capture imports into reference-owned
