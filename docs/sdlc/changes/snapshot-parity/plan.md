@@ -472,3 +472,10 @@ CGO-disabled root-package executable in a network-isolated container: 942 pass
 events, 863 explicit skips, zero failures. The timezone-data skip is covered by a
 separate focused pass with matching Go data. This is local unit evidence, not
 Cluster runtime, native C/ADBC, hosted CI or the full platform matrix.
+
+The [TRUNCATE readiness checkpoint](truncate-readiness-validation.md) corrects an
+inactive readiness test hook and adds real private empty-index sealing through
+transient states, cancellation, fresh publication and old-reader reclamation.
+Twenty race test events pass without test skips/failures. The full ordinary run
+at source 21e8509 stopped at that primitive after 680 passes/16 skips; the full
+ordinary rerun and broader parity gates remain open.

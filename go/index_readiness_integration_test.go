@@ -320,18 +320,26 @@ func TestTruncateAttributeReadinessRetry(t *testing.T) {
 			tr.attrs[c.field()] = fmt.Sprint(indexAttrArgs(c))
 		}
 	}
-	hook := &rangeReadinessHook{index: meta.index()}
-	hook.building.Store(true)
+	hook := &alterReadyHook{index: meta.index(), waiting: make(chan struct{})}
+	hook.altered.Store(true)
 	// Exercise the legacy readiness primitive with attributes already present;
 	// this issues only FT.INFO, never FT.ALTER on published snapshot storage.
 	st := &store{client: h.rawClient(hook)}
-	ctx, cancel := context.WithTimeout(h.ctx, time.Millisecond)
+	ctx, cancel := context.WithTimeout(h.ctx, 10*time.Millisecond)
 	defer cancel()
 	if err := st.addIndexedColumns(ctx, tr, meta); !isStatus(err, adbc.StatusTimeout) || !tr.attrsPending {
 		t.Fatal("lost pending readiness on retry", err, tr.attrsPending)
 	}
-	hook.building.Store(false)
+	select {
+	case <-hook.waiting:
+	default:
+		t.Fatal("readiness timeout did not inspect the target index")
+	}
+	hook.ready.Store(true)
 	if err := st.addIndexedColumns(h.ctx, tr, meta); err != nil || tr.attrsPending {
 		t.Fatal("retry did not establish readiness", err, tr.attrsPending)
+	}
+	if hook.alters.Load() != 0 {
+		t.Fatal("readiness retry altered published storage")
 	}
 }

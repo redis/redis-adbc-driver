@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -240,4 +241,116 @@ func testSnapshotAlterReadinessCase(t *testing.T, stateError string, cancelWait 
 	}
 	oldPin.release()
 	h.expectSnapshotReleased(raw, old.prefix(), old.index())
+}
+
+// Empty TRUNCATE output must still seal one fresh index before publication.
+// Polling or cancellation must not mutate the retained source or replay CREATE.
+func TestSnapshotTruncateIndexReadiness(t *testing.T) {
+	for _, state := range []string{"", "Inconsistent index state", "SEARCH_VALUE_BAD Inconsistent index state"} {
+		for _, cancelWait := range []bool{false, true} {
+			t.Run(fmt.Sprint(state, "/", cancelWait), func(t *testing.T) {
+				h := newSQLHarness(t)
+				const table = "it_truncate_private_ready"
+				h.dropTables(table)
+				h.exec("CREATE TABLE " + table + " (id BIGINT,note VARCHAR)")
+				h.exec("INSERT INTO " + table + " VALUES (9007199254740993,NULL)")
+				raw := h.rawClient()
+				oldStore, oldCtx, oldPin := h.inspectionSnapshot(raw)
+				defer oldPin.release()
+				old, err := oldStore.getTable(oldCtx, defaultSchema, table)
+				if err != nil {
+					t.Fatal(err)
+				}
+				before := h.rawMeta(raw, defaultSchema, table)
+				root, err := raw.HGet(h.ctx, snapshotCatalogKey, "root").Result()
+				if err != nil {
+					t.Fatal(err)
+				}
+				hook := &snapshotAlterReadyHook{stateError: state, waiting: make(chan struct{})}
+				st := &store{client: h.rawClient(hook), snapshots: true}
+				ctx, cancel := context.WithCancel(h.ctx)
+				defer cancel()
+				wctx, pin, work := snapshotStageSQL(t, st, ctx, "", "TRUNCATE "+table+" RESTART IDENTITY")
+				private, err := st.getTable(wctx, defaultSchema, table)
+				if err != nil || private.prefix() == old.prefix() {
+					t.Fatal("TRUNCATE did not allocate fresh output", err)
+				}
+				finished := make(chan struct{})
+				var publishErr error
+				go func() { publishErr = st.publishSnapshot(wctx, pin, work); close(finished) }()
+				defer func() {
+					cancel()
+					select {
+					case <-finished:
+					case <-time.After(5 * time.Second):
+						t.Error("TRUNCATE publication did not join")
+					}
+					st.abortSnapshot(pin, work)
+					pin.release()
+				}()
+				select {
+				case <-hook.waiting:
+				case <-finished:
+					t.Fatal("TRUNCATE published without readiness", publishErr)
+				case <-time.After(5 * time.Second):
+					t.Fatal("TRUNCATE never checked private index readiness")
+				}
+				if got, err := raw.HGet(h.ctx, snapshotCatalogKey, "root").Result(); err != nil || got != root {
+					t.Fatal("TRUNCATE changed root before readiness", err)
+				}
+				if h.rawMeta(raw, defaultSchema, table) != before {
+					t.Fatal("TRUNCATE changed definition before readiness")
+				}
+				h.expectRows("SELECT __rowid,id,note FROM "+table, "1|9007199254740993|NULL")
+				if cancelWait {
+					cancel()
+				} else {
+					hook.ready.Store(true)
+				}
+				select {
+				case <-finished:
+				case <-time.After(5 * time.Second):
+					t.Fatal("TRUNCATE readiness did not finish")
+				}
+				if cancelWait {
+					if !errors.Is(publishErr, context.Canceled) && !isStatus(publishErr, adbc.StatusCancelled) {
+						t.Fatal("wrong TRUNCATE cancellation", publishErr)
+					}
+					if got, err := raw.HGet(h.ctx, snapshotCatalogKey, "root").Result(); err != nil || got != root {
+						t.Fatal("cancelled TRUNCATE published", err)
+					}
+					st.abortSnapshot(pin, work)
+					pin.release()
+					index := hook.index.Load()
+					if index == nil {
+						t.Fatal("private index was not created")
+					}
+					h.expectSnapshotReleased(raw, private.prefix(), *index)
+					h.expectRows("SELECT __rowid,id,note FROM "+table, "1|9007199254740993|NULL")
+					h.exec("TRUNCATE " + table + " RESTART IDENTITY")
+				} else {
+					if publishErr != nil {
+						t.Fatal(publishErr)
+					}
+					pin.release()
+				}
+				if hook.creates.Load() != 1 || hook.alters.Load() != 0 || hook.infoReads.Load() == 0 {
+					t.Fatal("TRUNCATE replayed index work or missed readiness", hook.creates.Load(), hook.alters.Load(), hook.infoReads.Load())
+				}
+				h.expectRows("SELECT COUNT(*) FROM "+table, "0")
+				h.exec("INSERT INTO " + table + " (id) VALUES (8)")
+				h.expectRows("SELECT __rowid,id,note FROM "+table, "1|8|NULL")
+				if got, err := oldStore.redis(oldCtx).Get(oldCtx, metaKey(defaultSchema, table)).Result(); err != nil || got != before {
+					t.Fatal("old TRUNCATE definition changed", err)
+				}
+				if got := strings.Join(valueRows(snapshotExecuteTest(t, oldStore, oldCtx, "SELECT __rowid,id,note FROM "+table).rows), "|"); got != "1|9007199254740993|NULL" {
+					t.Fatal("old TRUNCATE rows changed", got)
+				}
+				oldPin.release()
+				for _, seg := range old.snapshotSegments() {
+					h.expectSnapshotReleased(raw, seg.Prefix, seg.Index)
+				}
+			})
+		}
+	}
 }
