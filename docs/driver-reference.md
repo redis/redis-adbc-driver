@@ -1389,8 +1389,9 @@ results are built whole before `ExecuteQuery` returns.
   - without aggregates, `GROUP BY`, `DISTINCT`, set operations, window
     functions or correlated subqueries;
   - in insertion order, or ordered by indexed columns the index sorts
-    exactly. An `ORDER BY` the driver sorts itself (an expression,
-    `NULLS FIRST`, …) reads the rows whole. Rows that tie on a large
+    exactly. Nullable numeric `NULLS FIRST` ordering can use the index when
+    a pinned visibility proof finds no NULL candidates. Other driver-side
+    ordering (such as an expression) reads the rows whole. Rows that tie on a large
     number in the index are sorted again as they stream (see "Ties in the
     sort vector" above).
 
@@ -4964,8 +4965,9 @@ operands to `BIGINT` when the wider range or an Arrow int64 schema is required.
 
 Default descending sorts put NULLs first, including windows and ordered
 aggregates. Write `DESC NULLS LAST` to retain the old ordering. Nullable
-descending sorts with NULLs first are sorted by the driver; `NOT NULL` keys or
-explicit `NULLS LAST` can retain index sorting.
+numeric sorts with NULLs first can retain index ordering when a proof over the
+pinned visible candidates finds no NULLs. Other cases use the exact driver sort;
+`NOT NULL` keys and explicit `NULLS LAST` retain their usual index eligibility.
 
 `DATE_ADD(timestamptz, interval [, zone])` and `DATE_SUBTRACT` implement the
 PostgreSQL 16 overloads, using the session time zone unless a zone is supplied.

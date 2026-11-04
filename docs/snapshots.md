@@ -255,6 +255,13 @@ membership before fetching surviving rows. Numeric keyset pages avoid deep
 OFFSET/cursor truncation. Below 2^53 row IDs, bounded visibility masks restore
 server aggregation, DISTINCT, grouping sets and globally merged ordered scans;
 OFFSET/LIMIT apply once after exact merging, including rounded numeric ties.
+Nullable numeric NULLS FIRST ordering can retain those paths when a proof over
+the pinned visible candidate set finds no missing values. It validates complete
+physical indexes, masks replaced/deleted images and preserves residual predicates;
+NULL facts are not persisted or reused across generations. Known incomplete
+metadata/indexes refuse the read; unavailable optional counts retain exact full
+scans. Strings, inexact row-ID bounds and populated private output keep their
+existing conservative paths.
 AVG combines SUM and non-NULL COUNT. Parallel exact scalar/top-K and tuple paths
 use the same visibility rules. Empty private tails can use immutable source
 indexes for selective DML discovery; populated private indexes remain on the

@@ -1288,6 +1288,8 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 	// ORDER BY on indexed columns sorts inside the index; anything else is
 	// sorted by the driver after fetching.
 	indexSort := wp.keys == nil && !meta.isMem
+	var orderVisibility []snapshotIndexQuery
+	var nullOrderCols []columnMeta
 	var sortCols []columnMeta
 	for _, o := range plan.order {
 		c, ok := o.expr.(*ColumnRef)
@@ -1301,12 +1303,32 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 		// strings cut at a NUL byte sort on what is left, and NaNs tie with
 		// +Infinity. Values the index rounds to the same double are sorted
 		// again by the scan (see ties.go).
-		if !ok || !col.Indexed || col.MissingThrough > 0 || !col.sortsExactly() || (col.Nullable && (o.nullsFirst || o.desc && !o.nullsLast)) {
+		if !ok || !col.Indexed || col.MissingThrough > 0 || !col.sortsExactly() {
 			indexSort = false
 			break
 		}
+		if col.Nullable && (o.nullsFirst || o.desc && !o.nullsLast) {
+			if wp.none || !e.snapshotNullOrderEligible(ctx, meta, col) {
+				indexSort = false
+				break
+			}
+			nullOrderCols = append(nullOrderCols, col)
+		}
 		req.sortBy = append(req.sortBy, sortKey{field: col.field(), desc: o.desc})
 		sortCols = append(sortCols, col)
+	}
+	if indexSort && !wp.none {
+		for _, col := range nullOrderCols {
+			queries, absent, err := e.snapshotOrderNoNulls(ctx, meta, col, wp.query, orderVisibility)
+			if err != nil {
+				return selectScan{}, err
+			}
+			if !absent {
+				indexSort = false
+				break
+			}
+			orderVisibility = queries
+		}
 	}
 	if !indexSort {
 		req.sortBy = nil
@@ -1343,12 +1365,16 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 		if !indexSort || wp.keys != nil {
 			return fallback()
 		}
-		queries, ok, err := e.snapshotIndexQueries(ctx, meta)
-		if err != nil {
-			return selectScan{}, err
-		}
-		if !ok {
-			return fallback()
+		queries := orderVisibility
+		if queries == nil {
+			var ok bool
+			queries, ok, err = e.snapshotIndexQueries(ctx, meta)
+			if err != nil {
+				return selectScan{}, err
+			}
+			if !ok {
+				return fallback()
+			}
 		}
 		req.visibility = queries
 		// A non-nil empty slice identifies a proven empty visible input.
