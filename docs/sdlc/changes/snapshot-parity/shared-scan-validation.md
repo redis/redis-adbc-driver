@@ -46,6 +46,11 @@ Both independently validate every ordered ID. Counters reset after planning and
 are read under their mutex. Single-run elapsed logs on this artificial cap are
 not a controlled comparative benchmark or evidence of full performance parity.
 
+The fresh 391-name ordinary continuation after this checkpoint passes 81 test
+events, records 220 explicit gated skips, and stops at the legacy ALTER cleanup
+fixture (root 25.056 s). The [ALTER retirement checkpoint](alter-cleanup-recovery-validation.md)
+restores that case; this continuation is not a full ordinary-suite result.
+
 Reviewed pin/context lifetime, unchanged published input, independent complete
 results, global predicates/limits/order, exact integer/decimal/NULL behavior,
 explicit native versus primitive sources, release/cancellation, current versus
