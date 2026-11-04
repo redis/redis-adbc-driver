@@ -1,6 +1,6 @@
 # Validation in progress
 
-Runtime baseline: merged main `4735cbd71a3fa89e68929daf258f5fb2216e1582`.
+Initial runtime baseline: merged main `4735cbd71a3fa89e68929daf258f5fb2216e1582`.
 Matched off/on builds use Go 1.27.3. The Go runtime source is identical; only the
 existing compile-time prefetch selection differs. Tooling is tracked separately.
 
@@ -34,3 +34,12 @@ and original eight-hour deadline are preserved across both runs.
 
 Performance matrices, final default disposition and task cleanup are pending.
 No default-enable or final performance claim is made on these checks alone.
+
+Additional audit reproduced a dropped-table error being lost when producer EOF
+preceded final-page consumer conversion. The failing test returned EOF; adding
+consumer EOF readiness preserved the existing stale-read StatusIO. A separate
+failing test showed an unnecessary worker for a known single-page discovery;
+that path now stays synchronous. Both regressions and the focused wide/prefetch
+race suite pass (15.189 s driver package). The full enabled suite is being
+repeated because these are new runtime changes. Timings have not started: both
+matched remote trees will be rebuilt with these refinements before measurement.

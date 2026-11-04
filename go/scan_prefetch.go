@@ -5,6 +5,7 @@ package redis
 
 import (
 	"context"
+	"errors"
 	"io"
 
 	"github.com/apache/arrow-adbc/go/adbc"
@@ -111,6 +112,14 @@ func (it *scanIter) nextPrefetchedHash(ctx context.Context) ([]string, []map[str
 		it.prefetch = newHashPagePrefetchWithCleanup(ctx, worker.fetchHashPage, worker.close)
 	}
 	page := it.prefetch.next(ctx)
+	if errors.Is(page.err, io.EOF) {
+		// The worker may discover EOF while the consumer still converts
+		// its last page. Preserve the ordinary end-of-read readiness check
+		// after that conversion, rather than trusting an earlier lookahead.
+		if err := it.checkReadiness(ctx); err != nil {
+			return nil, nil, err
+		}
+	}
 	if page.err != nil {
 		return nil, nil, page.err
 	}

@@ -16,7 +16,8 @@ Both regular and public partition readers use the same eligibility. Preserve
 order, LIMIT/OFFSET, generation/readiness checks, exact values, ownership and
 current supported RESP3/TLS/routing behavior.
 
-Matched measurements use runtime source `4735cbd` and Go 1.27.3 with prefetch
+Matched measurements use the final readiness/single-page refinements based on
+`4735cbd`, with the exact runtime revision retained in the report, and Go 1.27.3 with prefetch
 compiled off/on, never the historical pre-shutdown version. Independently verify
 the restored official-source fixture and every selected typed value/NULL/row
 multiplicity outside timing. Keep the full 64/105-column and narrow controls,
@@ -29,3 +30,9 @@ primary elapsed results. Preserve failures and regressions.
 The declared elapsed rule and four-logical-CPU control are in [plan](plan.md).
 Any default-selection change needs the completed evidence and tests; a positive
 historical result alone does not authorize claiming that this assessment passed.
+
+A prefetched EOF must recheck readiness on the consumer after final-page
+conversion; earlier producer lookahead cannot establish end-of-read readiness.
+If the initial discovery reply has a zero cursor, all discovery fit in one page:
+retain the synchronous path because there is no additional page to overlap.
+After worker startup, eligibility must not read worker-owned cursor fields.
