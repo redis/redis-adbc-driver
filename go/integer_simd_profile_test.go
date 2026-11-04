@@ -10,7 +10,7 @@ import (
 	"reflect"
 	"runtime"
 	"runtime/pprof"
-	"runtime/trace"
+	runtimetrace "runtime/trace"
 	"strconv"
 	"testing"
 	"time"
@@ -127,7 +127,7 @@ func TestIntegerSIMDProfile(t *testing.T) {
 		var before, after runtime.MemStats
 		runtime.ReadMemStats(&before)
 		start := time.Now()
-		pprof.Do(h.ctx, pprof.Labels("phase", name), func(ctx context.Context) { trace.WithRegion(ctx, name, run) })
+		pprof.Do(h.ctx, pprof.Labels("phase", name), func(ctx context.Context) { runtimetrace.WithRegion(ctx, name, run) })
 		elapsed := time.Since(start)
 		runtime.ReadMemStats(&after)
 		t.Logf("phase=%s wall_ns=%d alloc_bytes=%d allocations=%d", name, elapsed.Nanoseconds(), after.TotalAlloc-before.TotalAlloc, after.Mallocs-before.Mallocs)
