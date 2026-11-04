@@ -56,8 +56,8 @@ before tests. Database-mutating selections sequential.
 - Unit-only packages: **957 pass events, 887 expected integration skips, zero
   failures; root 26.590 s**. Redis environment variables unset. Unit skips do not
   establish server compatibility.
-- Versioned native make build passes. End-to-end comparative timings follow in
-  a separate checkpoint; a successful Go optimization test is not speedup proof.
+- Versioned native make build passes. The [native comparison](numeric-null-order-performance.md)
+  records complete validated before/after and mutable-baseline measurements.
 - Formatting and diff whitespace checks pass. CUDA has no applicable selected
   tests in the integration selections and is skipped.
 

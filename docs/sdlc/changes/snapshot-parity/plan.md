@@ -496,5 +496,7 @@ The [numeric NULL-order checkpoint](numeric-null-order-validation.md) uses pinne
 visibility/cardinality/readiness proofs to retain indexed numeric NULLS FIRST
 ordering when its candidate set contains no NULLs. Eighteen final focused and
 45 broader ordering/NaN race events pass, with unit packages and a versioned native
-build. Runtime measurements, full ordinary/platform/recovery and broader parity
-remain separate open gates.
+build. The [native comparison](numeric-null-order-performance.md) measures a
+25.1x before/after default descending top-K improvement. Six other queries remain
+2.28x–3.83x slower than the mutable baseline. Full ordinary/platform/recovery and
+broader parity remain open gates.
