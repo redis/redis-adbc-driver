@@ -355,3 +355,8 @@ The [primary-key checkpoint](primary-key-validation.md) restores public rejectio
 checks, valid optional-key metadata and private publication races. Four race
 families pass key lifetime/NULL enforcement and explicit 40001 conflicts, with
 fresh revalidation and private reclamation; full parity remains open.
+
+The [rekey Close checkpoint](rekey-close-validation.md) replaces legacy phase hooks
+with acknowledged private-copy and committed-reply boundaries. Ten race events
+plus a focused registration check pass rollback, lost-reply outcome resolution,
+cleanup deadlines and stale-operation fencing; full parity remains open.

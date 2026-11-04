@@ -20,10 +20,11 @@ import (
 // already been converted and acknowledged as a private atomic row batch.
 type snapshotAlterReadBarrier struct {
 	snapshotHook
-	prefix string
-	pages  atomic.Int64
-	ready  chan context.Context
-	resume chan struct{}
+	prefix      string
+	pages       atomic.Int64
+	ready       chan context.Context
+	resume      chan struct{}
+	ignoreClose bool
 }
 
 func (h *snapshotAlterReadBarrier) ProcessPipelineHook(next goredis.ProcessPipelineHook) goredis.ProcessPipelineHook {
@@ -38,9 +39,13 @@ func (h *snapshotAlterReadBarrier) ProcessPipelineHook(next goredis.ProcessPipel
 		err := next(ctx, cmds)
 		if err == nil && source && h.pages.Add(1) == 2 {
 			h.ready <- ctx
-			select {
-			case <-ctx.Done():
-			case <-h.resume:
+			if h.ignoreClose {
+				<-h.resume
+			} else {
+				select {
+				case <-ctx.Done():
+				case <-h.resume:
+				}
 			}
 			// Return the successful read result; production code must notice the real
 			// cancellation/Close and preserve its cause rather than an injected error.

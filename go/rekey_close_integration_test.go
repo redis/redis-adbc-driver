@@ -14,194 +14,320 @@
 
 package redis
 
-// Integration tests for closing a connection while a re-keying rename runs
-// on another goroutine (stopRekeys in rekey.go).
+// Close interrupts private snapshot rewrites and preserves a committed rename.
+// Uncooperative work remains fenced after the caller's bounded Close deadline.
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/apache/arrow-adbc/go/adbc"
+	goredis "github.com/redis/go-redis/v9"
 )
 
-// closeDuringRekey renames from to to with rename_rekey on a connection of
-// its own, on another goroutine, and closes that connection once the rename
-// reaches step ("copy" or "switched"). There the rename waits for Close to
-// stop its move, or for hold if Close doesn't (or if ignoreClose is set, as
-// a command waiting for its reply does). It returns the job as recorded
-// before Close, how long Close took, and a channel with the rename's error.
-func (h *sqlHarness) closeDuringRekey(from, to, step string, hold time.Duration, ignoreClose bool) (*rekeyJob, time.Duration, <-chan error) {
-	h.t.Helper()
+func rekeyCloseFixture(t *testing.T, from, to string) (*sqlHarness, goredis.UniversalClient, *tableMeta, string) {
+	t.Helper()
+	h := newSQLHarness(t)
+	h.dropTables(from, to)
+	h.exec("CREATE TABLE " + from + " (id INTEGER)")
+	h.exec("INSERT INTO " + from + " SELECT i FROM generate_series(1,600) AS g(i)")
 	raw := h.rawClient()
-	oldPrefix, _ := h.tableNames(raw, "public", from)
-	r := newRekeyHarness(h.t, map[string]string{OptionStringRenameRekey: "true"})
-	paused := make(chan struct{})
-	var once sync.Once
-	testHookRekeyStep = func(ctx context.Context, at string) {
-		if at != step {
-			return
-		}
-		once.Do(func() { close(paused) })
-		if ignoreClose {
-			time.Sleep(hold)
-			return
-		}
-		select {
-		case <-ctx.Done():
-		case <-time.After(hold):
-		}
-	}
-	renamed, done := make(chan error, 1), make(chan error, 1)
-	go func() {
-		_, err := tryExec(h.ctx, r.conn, "ALTER TABLE "+from+" RENAME TO "+to)
-		renamed <- err
-	}()
-	// The hook is reset once the rename has ended.
-	go func() {
-		err := <-renamed
-		testHookRekeyStep = nil
-		done <- err
-	}()
-	select {
-	case <-paused:
-	case err := <-done:
-		h.t.Fatalf("the rename ended before it reached %q: %v", step, err)
-	case <-time.After(30 * time.Second):
-		h.t.Fatalf("the rename did not reach %q", step)
-	}
-	job := h.rekeyRecord(raw, oldPrefix)
-	if job == nil {
-		h.t.Fatal("no rename recorded")
-	}
-	if keys := h.aliveKeys(raw); len(keys) != 1 {
-		h.t.Errorf("lease keys during the rename: %v", keys)
-	}
-	began := time.Now()
-	if err := r.conn.Close(h.ctx); err != nil {
-		h.t.Errorf("Close: %v", err)
-	}
-	return job, time.Since(began), done
+	return h, raw, h.inspectTable(raw, defaultSchema, from), h.rawMeta(raw, defaultSchema, from)
 }
 
-// expectClosedRename checks the error of a rename stopped by Close.
+func expectRekeyExactRows(t *testing.T, h *sqlHarness, table string, count int) {
+	t.Helper()
+	rows, _ := h.query("SELECT id FROM " + table + " ORDER BY id")
+	if len(rows) != count {
+		t.Fatal("incomplete rekey rows", len(rows), count)
+	}
+	for i, row := range rows {
+		if row != strconv.Itoa(i+1) {
+			t.Fatal("wrong rekey row", i, row)
+		}
+	}
+}
+
+func pausedCloseRekey(t *testing.T, h *sqlHarness, from, to, prefix string, ignoreClose bool) (*sqlHarness, *snapshotScope, *snapshotAlterReadBarrier, func(), <-chan error) {
+	t.Helper()
+	closing := openWith(t, os.Getenv("REDIS_URI"), map[string]string{OptionStringRenameRekey: "true"})
+	stmt, ctx, _, transport, barrier := snapshotPausedAlter(t, closing, "ALTER TABLE "+from+" RENAME TO "+to, prefix)
+	barrier.ignoreClose = ignoreClose
+	var once sync.Once
+	resume := func() { once.Do(func() { close(barrier.resume) }) }
+	t.Cleanup(resume)
+	done := make(chan error, 1)
+	go func() { _, err := stmt.ExecuteUpdate(ctx); transport.finish(); done <- err }()
+	scope := snapshotAwaitAlterBatch(t, h, h.rawClient(), barrier, done)
+	return closing, scope, barrier, resume, done
+}
+
+func rekeyPrivateOutput(t *testing.T, h *sqlHarness, raw goredis.UniversalClient, scope *snapshotScope) (string, string) {
+	t.Helper()
+	scope.mu.Lock()
+	var ids []string
+	for id := range scope.owned {
+		ids = append(ids, id)
+	}
+	scope.mu.Unlock()
+	if len(ids) != 1 {
+		t.Fatal("expected one private rekey output", len(ids))
+	}
+	data := ids[0]
+	prefix := snapshotRows(data, defaultSchema)
+	payload, err := raw.HGet(h.ctx, snapshotMetadataGraph, "d:"+data).Bytes()
+	var owned struct {
+		Prefix string `json:"prefix"`
+	}
+	if err != nil || json.Unmarshal(payload, &owned) != nil || owned.Prefix != prefix {
+		t.Fatal("private rekey ownership missing", err)
+	}
+	if n, err := raw.ZCard(h.ctx, snapshotMembers(data)).Result(); err != nil || n != snapshotDeltaPage {
+		t.Fatal("private batch directory is not exact", n, err)
+	}
+	return prefix, snapshotIndexPrefix(data) + "working"
+}
+
 func expectClosedRename(t *testing.T, err error) {
 	t.Helper()
-	if err == nil || !strings.Contains(err.Error(), "the connection was closed while the table was being renamed") {
-		t.Errorf("the rename: got %v, want the error of a rename stopped by Close", err)
+	if !isStatus(err, adbc.StatusInvalidState) || !strings.Contains(err.Error(), "closed") {
+		t.Errorf("rename after Close: %v", err)
 	}
 }
 
-// Closing a connection while its rename moves the rows on another goroutine
-// stops the rename and rolls it back before Close returns: no lease is
-// left, so other connections change the table, or rename it, at once.
 func TestSQLRekeyCloseDuringMove(t *testing.T) {
-	h := newSQLHarness(t)
-	h.dropTables("it_rk_cm", "it_rk_cm2")
-	raw := h.rawClient()
-	h.exec(`CREATE TABLE it_rk_cm (id INTEGER)`)
-	h.exec(`INSERT INTO it_rk_cm VALUES (1), (2), (3)`)
-	oldPrefix, oldIndex := h.tableNames(raw, "public", "it_rk_cm")
-
-	job, took, renamed := h.closeDuringRekey("it_rk_cm", "it_rk_cm2", "copy", 3*time.Second, false)
-	if took > 5*time.Second {
-		t.Errorf("Close took %v", took)
-	}
-	if keys := h.aliveKeys(raw); len(keys) != 0 {
-		t.Errorf("lease keys left after Close: %v", keys)
-	}
-	if h.rekeyPending(raw, oldPrefix) {
-		t.Error("the rename is still recorded after Close")
-	}
-	h.expectReleased(raw, job.KeyPrefix, job.IndexName)
-	expectClosedRename(t, <-renamed)
-
-	// The table is as it was, and changes at once.
+	const from, to = "it_rk_cm", "it_rk_cm2"
+	h, raw, old, before := rekeyCloseFixture(t, from, to)
+	closing, scope, _, _, done := pausedCloseRekey(t, h, from, to, old.prefix(), false)
+	prefix, index := rekeyPrivateOutput(t, h, raw, scope)
+	closed := make(chan error, 1)
 	began := time.Now()
-	h.exec(`INSERT INTO it_rk_cm VALUES (4)`)
-	if d := time.Since(began); d > 5*time.Second {
-		t.Errorf("an INSERT after Close took %v", d)
+	go func() { closed <- closing.conn.Close(context.Background()) }()
+	expectClosedRename(t, snapshotAwaitAlterError(t, done))
+	if err := snapshotAwaitAlterError(t, closed); err != nil {
+		t.Fatal("Close", err)
 	}
-	h.expectRows(`SELECT id FROM it_rk_cm ORDER BY id`, "1", "2", "3", "4")
-	if p, i := h.tableNames(raw, "public", "it_rk_cm"); p != oldPrefix || i != oldIndex {
-		t.Errorf("names after the rollback: %q %q, want %q %q", p, i, oldPrefix, oldIndex)
+	if time.Since(began) > 5*time.Second {
+		t.Fatal("Close did not join interrupted rekey")
 	}
-	if err := h.execErr(`SELECT * FROM it_rk_cm2`); err == nil || !strings.Contains(err.Error(), "does not exist") {
-		t.Errorf("the new name after the rollback: %v", err)
+	snapshotExpectAlterLeaseReleased(t, h, raw, scope)
+	h.expectRolledBack(raw, from, before)
+	h.expectSnapshotReleased(raw, prefix, index)
+	if _, err := h.conn.GetTableSchema(h.ctx, nil, nil, to); !isStatus(err, adbc.StatusNotFound) {
+		t.Fatal("aborted target became public", err)
 	}
-	other := newRekeyHarness(t, map[string]string{OptionStringRenameRekey: "true"})
-	other.exec(`ALTER TABLE it_rk_cm RENAME TO it_rk_cm2`)
-	other.expectRows(`SELECT id FROM it_rk_cm2 ORDER BY id`, "1", "2", "3", "4")
-	h.expectReleased(raw, oldPrefix, oldIndex)
+	expectRekeyExactRows(t, h, from, 600)
+	h.exec("INSERT INTO " + from + " VALUES (601)")
+	if err := h.setConnOption(OptionStringRenameRekey, "true"); err != nil {
+		t.Fatal(err)
+	}
+	h.exec("ALTER TABLE " + from + " RENAME TO " + to)
+	expectRekeyExactRows(t, h, to, 601)
+	for _, segment := range old.snapshotSegments() {
+		h.expectSnapshotReleased(raw, segment.Prefix, segment.Index)
+	}
 }
 
-// A rename that has switched the metadata when its connection is closed
-// is finished before Close returns.
+// Pause only after Redis has committed the public root. Returning a lost reply
+// after Close must resolve that durable outcome without rerunning the rewrite.
+type rekeyCommittedReply struct {
+	snapshotHook
+	lose    bool
+	commits atomic.Int64
+	ready   chan context.Context
+	resume  chan struct{}
+}
+
+func (h *rekeyCommittedReply) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
+	return func(ctx context.Context, cmd goredis.Cmder) error {
+		err := next(ctx, cmd)
+		args := cmd.Args()
+		if err != nil || len(args) < 4 || args[1] != snapshotControl {
+			return err
+		}
+		n, parseErr := strconv.Atoi(fmt.Sprint(args[2]))
+		if parseErr != nil || 3+n >= len(args) || args[3+n] != "publish" {
+			return err
+		}
+		val, ok := cmd.(interface{ Val() any })
+		if !ok || val.Val() != int64(1) {
+			return err
+		}
+		if h.commits.Add(1) != 1 {
+			return err
+		}
+		h.ready <- ctx
+		select {
+		case <-ctx.Done():
+		case <-h.resume:
+		}
+		if h.lose {
+			cmd.SetErr(io.ErrUnexpectedEOF)
+			return io.ErrUnexpectedEOF
+		}
+		return nil
+	}
+}
+
 func TestSQLRekeyCloseAfterSwitch(t *testing.T) {
-	h := newSQLHarness(t)
-	h.dropTables("it_rk_cs", "it_rk_cs2")
-	raw := h.rawClient()
-	h.exec(`CREATE TABLE it_rk_cs (id INTEGER)`)
-	h.exec(`INSERT INTO it_rk_cs VALUES (1), (2), (3)`)
-	oldPrefix, oldIndex := h.tableNames(raw, "public", "it_rk_cs")
-
-	job, took, renamed := h.closeDuringRekey("it_rk_cs", "it_rk_cs2", "switched", 3*time.Second, false)
-	if took > 5*time.Second {
-		t.Errorf("Close took %v", took)
+	for _, lose := range []bool{false, true} {
+		t.Run(fmt.Sprintf("lost_reply_%t", lose), func(t *testing.T) {
+			const from, to = "it_rk_cs", "it_rk_cs2"
+			h, raw, old, _ := rekeyCloseFixture(t, from, to)
+			source, oldCtx, oldPin := h.inspectionSnapshot(raw)
+			defer oldPin.release()
+			oldKeys := []string{old.prefix() + "1", old.prefix() + "600"}
+			oldRows, err := source.fetchSnapshotVisible(oldCtx, old, oldKeys, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			closing := openWith(t, os.Getenv("REDIS_URI"), map[string]string{OptionStringRenameRekey: "true"})
+			hook := &rekeyCommittedReply{lose: lose, ready: make(chan context.Context, 1), resume: make(chan struct{})}
+			var once sync.Once
+			t.Cleanup(func() { once.Do(func() { close(hook.resume) }) })
+			stmt, err := closing.conn.NewStatement(h.ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			impl := stmt.(*statementImpl).conn
+			if len(impl.store.activeExecutions()) != 0 {
+				t.Fatal("publication hook requires an idle connection")
+			}
+			// The compactor owns a separate client; install before a statement executes.
+			impl.store.client.AddHook(hook)
+			t.Cleanup(func() { _ = stmt.Close(h.ctx) })
+			if err := stmt.SetSqlQuery(h.ctx, "ALTER TABLE "+from+" RENAME TO "+to); err != nil {
+				t.Fatal(err)
+			}
+			base, cancel := context.WithTimeout(h.ctx, 10*time.Second)
+			defer cancel()
+			ctx, transport := impl.executionContext(base, &stmt.(*statementImpl).streams, &impl.streams)
+			counter := &snapshotAlterReadCounter{prefix: old.prefix()}
+			transport.client.AddHook(counter)
+			t.Cleanup(transport.finish)
+			done := make(chan error, 1)
+			go func() { _, err := stmt.ExecuteUpdate(ctx); transport.finish(); done <- err }()
+			var scope *snapshotScope
+			select {
+			case pubCtx := <-hook.ready:
+				scope = snapshotOf(pubCtx)
+			case err := <-done:
+				t.Fatalf("rename did not reach committed reply: %v", err)
+			case <-time.After(5 * time.Second):
+				t.Fatal("rename did not commit")
+			}
+			if scope == nil {
+				t.Fatal("committed publication had no snapshot scope")
+			}
+			target := h.inspectTable(raw, defaultSchema, to)
+			if target.prefix() == old.prefix() || target.index() == old.index() {
+				t.Fatal("rekey reused source storage")
+			}
+			if _, err := h.conn.GetTableSchema(h.ctx, nil, nil, from); !isStatus(err, adbc.StatusNotFound) {
+				t.Fatal("both names remained public", err)
+			}
+			expectRekeyExactRows(t, h, to, 600)
+			closed := make(chan error, 1)
+			go func() { closed <- closing.conn.Close(context.Background()) }()
+			if err := snapshotAwaitAlterError(t, done); err != nil {
+				t.Fatal("committed rename was downgraded", err)
+			}
+			if err := snapshotAwaitAlterError(t, closed); err != nil {
+				t.Fatal("Close", err)
+			}
+			if hook.commits.Load() != 1 || counter.rows.Load() != 600 || counter.pages.Load() != 3 {
+				t.Fatal("rename replayed or skipped source", hook.commits.Load(), counter.rows.Load(), counter.pages.Load())
+			}
+			if exists, err := raw.HExists(h.ctx, snapshotCatalogKey, "p:"+scope.pin.token).Result(); err != nil || exists {
+				t.Fatal("committed rekey retained reader lease", err)
+			}
+			// A committed outcome record is durable evidence, not active private work.
+			payload, err := raw.HGet(h.ctx, snapshotCatalogKey, "w:"+scope.id).Bytes()
+			if err != goredis.Nil {
+				var work struct {
+					State string `json:"state"`
+				}
+				if err != nil || json.Unmarshal(payload, &work) != nil || work.State != "committed" {
+					t.Fatal("committed rename retained active writer state", err)
+				}
+			}
+			rows, err := source.fetchSnapshotVisible(oldCtx, old, oldKeys, nil)
+			if err != nil || len(rows) != 2 || rows[0]["id"] != oldRows[0]["id"] || rows[1]["id"] != oldRows[1]["id"] {
+				t.Fatal("committed rekey changed pinned source", err)
+			}
+			oldPin.release()
+			for _, segment := range old.snapshotSegments() {
+				h.expectSnapshotReleased(raw, segment.Prefix, segment.Index)
+			}
+			h.exec("INSERT INTO " + to + " VALUES (601)")
+			expectRekeyExactRows(t, h, to, 601)
+		})
 	}
-	if keys := h.aliveKeys(raw); len(keys) != 0 {
-		t.Errorf("lease keys left after Close: %v", keys)
-	}
-	if h.rekeyPending(raw, oldPrefix) {
-		t.Error("the rename is still recorded after Close")
-	}
-	h.expectReleased(raw, oldPrefix, oldIndex)
-	if err := <-renamed; err != nil {
-		t.Errorf("the rename: %v", err)
-	}
-	if p, i := h.tableNames(raw, "public", "it_rk_cs2"); p != job.KeyPrefix || i != job.IndexName {
-		t.Errorf("names after the rename: %q %q, want %q %q", p, i, job.KeyPrefix, job.IndexName)
-	}
-	h.exec(`INSERT INTO it_rk_cs2 VALUES (4)`)
-	h.expectRows(`SELECT id FROM it_rk_cs2 ORDER BY id`, "1", "2", "3", "4")
 }
 
-// A rename that doesn't stop within rekeyTTL/2 of Close (here: it waits
-// for a command's reply) gives its lease up: Close deletes the lease key,
-// so the next connection rolls the rename back at once, and the rename
-// takes no further step.
-func TestSQLRekeyCloseGivesUp(t *testing.T) {
-	defer func(was time.Duration) { rekeyTTL = was }(rekeyTTL)
-	rekeyTTL = 2 * time.Second
-	h := newSQLHarness(t)
-	h.dropTables("it_rk_cg", "it_rk_cg2")
-	raw := h.rawClient()
-	h.exec(`CREATE TABLE it_rk_cg (id INTEGER)`)
-	h.exec(`INSERT INTO it_rk_cg VALUES (1), (2), (3)`)
-	oldPrefix, _ := h.tableNames(raw, "public", "it_rk_cg")
+func expireRekeyControl(t *testing.T, h *sqlHarness, raw goredis.UniversalClient, field string) {
+	t.Helper()
+	// The heartbeat may already have released the reader. Expire atomically so
+	// that this fixture never recreates an already released control record.
+	const script = `local raw=redis.call('HGET',KEYS[1],ARGV[1]);if not raw then return 0 end;local v=cjson.decode(raw);v.expires=0;redis.call('HSET',KEYS[1],ARGV[1],cjson.encode(v));return 1`
+	n, err := raw.Eval(h.ctx, script, []string{snapshotCatalogKey}, field).Int64()
+	if err != nil || n == 0 && strings.HasPrefix(field, "w:") {
+		t.Fatal("private control record unavailable", err)
+	}
+}
 
-	// The lease is renewed every 500 ms meanwhile.
-	job, took, renamed := h.closeDuringRekey("it_rk_cg", "it_rk_cg2", "copy", 3*time.Second, true)
-	if took < rekeyTTL/2 || took > rekeyTTL {
-		t.Errorf("Close took %v, want about %v", took, rekeyTTL/2)
+func TestSQLRekeyCloseGivesUp(t *testing.T) {
+	const from, to = "it_rk_cg", "it_rk_cg2"
+	h, raw, old, before := rekeyCloseFixture(t, from, to)
+	closing, scope, barrier, resume, done := pausedCloseRekey(t, h, from, to, old.prefix(), true)
+	prefix, index := rekeyPrivateOutput(t, h, raw, scope)
+	closeCtx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
+	defer cancel()
+	began := time.Now()
+	err := closing.conn.Close(closeCtx)
+	if err == nil || !strings.Contains(err.Error(), "active execution cleanup did not finish before Close") {
+		t.Fatal("Close did not report bounded incomplete cleanup", err)
 	}
-	if keys := h.aliveKeys(raw); len(keys) != 0 {
-		t.Errorf("lease keys left after Close: %v", keys)
+	if time.Since(began) > time.Second {
+		t.Fatal("uncooperative rewrite exceeded Close bound")
 	}
-	if !h.rekeyPending(raw, oldPrefix) {
-		t.Error("the rename is no longer recorded")
+	if n := len(scope.store.activeExecutions()); n != 1 {
+		t.Fatal("Close hid an unfinished execution", n)
 	}
-	// The rename is still waiting.
-	h2 := newSQLHarness(t)
-	if h2.rekeyPending(raw, oldPrefix) {
-		t.Error("a connection that opened did not roll the rename back")
+	select {
+	case err := <-done:
+		t.Fatalf("uncooperative rewrite stopped before release: %v", err)
+	default:
 	}
-	h2.expectReleased(raw, job.KeyPrefix, job.IndexName)
-	if err := h2.execErr(`INSERT INTO it_rk_cg VALUES (4)`); err != nil {
-		t.Error(err)
+	// Simulate lease time passing on owned control records; no published data is edited.
+	expireRekeyControl(t, h, raw, "w:"+scope.id)
+	expireRekeyControl(t, h, raw, "p:"+scope.pin.token)
+	snapshotReapTest(&store{client: raw, snapshots: true}, h.ctx)
+	h.expectSnapshotReleased(raw, prefix, index)
+	h.expectRolledBack(raw, from, before)
+	if _, err := h.conn.GetTableSchema(h.ctx, nil, nil, to); !isStatus(err, adbc.StatusNotFound) {
+		t.Fatal("partial target became public", err)
 	}
-	expectClosedRename(t, <-renamed)
-	// It copied nothing once it went on.
-	h2.expectReleased(raw, job.KeyPrefix, job.IndexName)
-	h2.expectRows(`SELECT id FROM it_rk_cg ORDER BY id`, "1", "2", "3", "4")
+	fresh := newSQLHarness(t)
+	fresh.exec("INSERT INTO " + from + " VALUES (601)")
+	resume()
+	expectClosedRename(t, snapshotAwaitAlterError(t, done))
+	if n := len(scope.store.activeExecutions()); n != 0 {
+		t.Fatal("completed execution remained registered", n)
+	}
+	if barrier.pages.Load() != 2 {
+		t.Fatal("closed rekey continued reading source", barrier.pages.Load())
+	}
+	snapshotExpectAlterLeaseReleased(t, h, raw, scope)
+	h.expectSnapshotReleased(raw, prefix, index)
+	expectRekeyExactRows(t, h, from, 601)
 }
