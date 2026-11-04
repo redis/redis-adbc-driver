@@ -297,6 +297,10 @@ func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, er
 		}
 		// Drop temporary objects of connections that exited without closing.
 		st.sweepTemp(ctx)
+		if err := st.collectMatviews(ctx); err != nil {
+			_ = client.Close()
+			return nil, wrapRedis(err, "recover retired materialized view generations")
+		}
 	}
 	st.foreignIndexes = d.foreignIndexes
 	conn := &connectionImpl{

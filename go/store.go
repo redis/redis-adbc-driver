@@ -207,7 +207,8 @@ func (t *tableMeta) applyIndexPolicy(only map[string]bool, noIndex map[string]bo
 }
 
 type tableMeta struct {
-	MaterializedSQL string       `json:"materialized_sql,omitempty"`
+	MaterializedSQL string `json:"materialized_sql,omitempty"`
+	matviewRead     *matviewRead
 	Unpopulated     bool         `json:"unpopulated,omitempty"`
 	NamedIndexes    []namedIndex `json:"named_indexes,omitempty"`
 	OID             int64        `json:"oid,omitempty"`

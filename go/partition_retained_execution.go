@@ -123,6 +123,12 @@ func (r *retainedExecution) table(ctx context.Context, schema, name string) (*ta
 	if err != nil {
 		return nil, err
 	}
+	if t, _ := ctx.Value(transportContextKey{}).(*executionTransport); t != nil {
+		meta, err = t.owner.pinMatview(ctx, meta)
+		if err != nil {
+			return nil, err
+		}
+	}
 	if meta.Schema != schema || meta.Name != name {
 		return nil, errorf(adbc.StatusInvalidData, "retained source metadata identity does not match its catalog key")
 	}

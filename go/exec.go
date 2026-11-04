@@ -173,7 +173,19 @@ func (e *executor) loadTable(ctx context.Context, t TableName) (*tableMeta, erro
 	if e.retained != nil {
 		return e.retained.table(ctx, schema, name)
 	}
+	// Repeated references within one statement use the same immutable view
+	// generation. A script's next statement has a new execution cache.
+	if e.cache != nil {
+		for _, loaded := range e.cache.loaded {
+			if loaded.Schema == schema && loaded.Name == name && loaded.matviewRead != nil {
+				return loaded, nil
+			}
+		}
+	}
 	meta, err := e.store.getTable(ctx, schema, name)
+	if err == nil {
+		meta, err = e.store.pinMatview(ctx, meta)
+	}
 	if err == nil && meta.Adopted && !meta.KeyRows {
 		return nil, errAdoptedByRowID(meta)
 	}
@@ -410,6 +422,9 @@ func (e *executor) runTruncate(ctx context.Context, st *TruncateStmt) error {
 		meta, err := e.store.getTable(ctx, schema, name)
 		if err != nil {
 			return err
+		}
+		if meta.MaterializedSQL != "" {
+			return matViewWriteError(meta)
 		}
 		if key := metaKey(schema, name); !seen[key] {
 			seen[key] = true

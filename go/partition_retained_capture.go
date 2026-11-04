@@ -213,6 +213,13 @@ func (c *retainedCapture) check(ctx context.Context, source retainedCapturedSour
 		return errorf(adbc.StatusInvalidState, "retained source Cluster routing changed during execution")
 	}
 	current, err := c.store.getTable(ctx, source.meta.Schema, source.meta.Name)
+	if source.meta.matviewRead != nil {
+		if !source.meta.matviewRead.lease.valid() {
+			return matviewLeaseExpired()
+		}
+		// Refresh cannot alter or collect this leased immutable generation.
+		current, err = source.meta, nil
+	}
 	if err != nil {
 		return err
 	}

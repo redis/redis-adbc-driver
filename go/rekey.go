@@ -1275,6 +1275,12 @@ func (s *store) checkReads(ctx context.Context, metas []*tableMeta) error {
 // to readers once it has switched). Otherwise the metadata counts as read
 // again now.
 func (s *store) checkKeys(ctx context.Context, meta *tableMeta, writing bool) error {
+	if !writing && meta.matviewRead != nil {
+		if !meta.matviewRead.lease.valid() {
+			return matviewLeaseExpired()
+		}
+		return nil
+	}
 	if meta.Foreign {
 		if writing {
 			return virtualReadOnly(meta.Schema)
