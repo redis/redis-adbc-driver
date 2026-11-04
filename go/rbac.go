@@ -313,20 +313,20 @@ func (e *executor) runPrivilege(ctx context.Context, st *PrivilegeStmt) error {
 	}
 	keepLock = true
 	if err := e.rbac.request(ctx, "PUT", "redis_acls/"+strconv.Itoa(acl.UID), map[string]string{"acl": next}, nil); err != nil {
-		return errorf(adbc.StatusIO, "%v; RBAC lock retained: reconcile the ACL before retrying", err)
+		return wrapErr(adbc.StatusIO, err, "RBAC lock retained: reconcile the ACL before retrying")
 	}
 	// Read back before reporting success. Management changes may still take a
 	// short time to propagate to every proxy/shard; existing streams may finish.
 	var observed rbacACL
 	if err := e.rbac.request(ctx, "GET", "redis_acls/"+strconv.Itoa(acl.UID), nil, &observed); err != nil {
-		return errorf(adbc.StatusIO, "RBAC write verification failed; lock retained")
+		return wrapErr(adbc.StatusIO, err, "RBAC write verification failed; lock retained")
 	}
 	if observed.UID != acl.UID || observed.Name != acl.Name || observed.ACL != next {
 		return errorf(adbc.StatusIO, "RBAC ACL changed during update; lock retained")
 	}
 	ledger, _ := json.Marshal(grants)
 	if err := e.store.redis(ctx).Set(ctx, ledgerKey, ledger, 0).Err(); err != nil {
-		return errorf(adbc.StatusIO, "RBAC ledger write failed after ACL update; lock retained")
+		return wrapErr(adbc.StatusIO, err, "RBAC ledger write failed after ACL update; lock retained")
 	}
 	keepLock = false
 	return nil

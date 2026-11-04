@@ -130,6 +130,11 @@ func TestRBACConfigAndTLS(t *testing.T) {
 			t.Fatal("accepted", origin)
 		}
 	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := manager.request(ctx, "GET", "roles/7", nil, new(any)); !isStatus(err, adbc.StatusCancelled) {
+		t.Fatal("lost cancellation status", err)
+	}
 	// Without the explicit test CA, the API certificate must not be trusted.
 	next := manager.cfg
 	next.CAFile = ""
