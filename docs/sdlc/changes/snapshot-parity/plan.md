@@ -446,3 +446,10 @@ The [TIMETZ checkpoint](timetz-validation.md) validates every stored native time
 text/NULL under one pin while preserving SQL and Arrow feature assertions. Nine
 race test events pass. The preceding continuation passes 24 events with one
 explicit server-pause skip; full ordinary and broader parity gates remain open.
+
+The [native TRUNCATE race checkpoint](truncate-races-validation.md) replaces
+legacy mutable pipeline/name-counter hooks with acknowledged native SQL/Arrow
+batches and private DDL publication conflicts. It covers committed identity
+counters, private CTAS visibility, owner-local temporary writes, old readers and
+private/reference reclamation. Remaining UPDATE fixtures and the full ordinary
+rerun remain open; see the checkpoint for actual validation results.

@@ -15,17 +15,14 @@
 package redis
 
 // A table truncated while another statement is still writing to it (#104):
-// TRUNCATE moves the table to new keys, so the writer fails and deletes what
-// it wrote, and the rows inserted afterwards, from row id 1 again after
-// RESTART IDENTITY, are all new. The races are made with the hooks of
-// stale_rows_integration_test.go (raceDrop).
+// TRUNCATE publishes fresh immutable storage. Stale private writers and DDL
+// refuse publication; old readers retain their generation until release.
 
 import (
+	"context"
 	"fmt"
-	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/apache/arrow-adbc/go/adbc"
 	goredis "github.com/redis/go-redis/v9"
@@ -47,28 +44,8 @@ var truncModes = []struct {
 	{"restart", " RESTART IDENTITY", true},
 }
 
-// expectTruncated checks a table that was truncated while a statement was
-// writing to it (r): it is empty and has new names, and the rows inserted
-// now are new. Their note is NULL (none was merged into a row the writer
-// left), and their row ids run from firstID.
-func (h *sqlHarness) expectTruncated(raw goredis.UniversalClient, r *dropRace, schema, table string, firstID int) {
-	h.t.Helper()
-	h.expectRows(fmt.Sprintf(`SELECT COUNT(*) FROM %s`, table), "0")
-	if prefix := h.tablePrefix(raw, schema, strings.TrimPrefix(table, "pg_temp.")); prefix == r.prefix {
-		h.t.Errorf("the truncated table kept its key prefix %q", prefix)
-	}
-	h.exec(fmt.Sprintf(`INSERT INTO %s (id) SELECT id FROM it_tr_src`, table))
-	h.expectRows(fmt.Sprintf(`SELECT COUNT(*), COUNT(note), MIN(__rowid), MAX(__rowid) FROM %s`, table),
-		fmt.Sprintf("%d|0|%d|%d", srRows, firstID, firstID+srRows-1))
-	h.expectRows(fmt.Sprintf(`SELECT COUNT(*) FROM %s WHERE note = 'old'`, table), "0")
-	if n := h.prefixKeyCount(raw, r.prefix); n != 0 {
-		h.t.Errorf("%d keys under the old key prefix %q", n, r.prefix)
-	}
-}
-
-// The repro of #104: INSERT … SELECT, truncated by another connection after
-// the first of its three pipelines. The writer took row ids 1-3000 before
-// the TRUNCATE.
+// The repro of #104 at a real acknowledged native batch. A private writer's
+// reserved IDs do not advance the winning catalog's committed identity counter.
 func TestSQLTruncateDuringInsertSelect(t *testing.T) {
 	for _, m := range truncModes {
 		t.Run(m.name, func(t *testing.T) {
@@ -76,17 +53,53 @@ func TestSQLTruncateDuringInsertSelect(t *testing.T) {
 			h.setupTruncRace()
 			raw := h.rawClient()
 			other := newSQLHarness(t)
-			h.exec(`CREATE TABLE it_tr_t (id BIGINT, note VARCHAR)`)
-			r := h.raceDrop(raw, "it_tr_t", func(*tableMeta) { other.exec(`TRUNCATE TABLE it_tr_t` + m.clause) })
-			_, err := tryExec(h.ctx, h.conn, `INSERT INTO it_tr_t SELECT id, note FROM it_tr_src`)
-			h.expectRaceLost(raw, r, err)
-			h.expectTruncated(raw, r, "public", "it_tr_t", map[bool]int{true: 1, false: srRows + 1}[m.restart])
+			h.exec("CREATE TABLE it_tr_t (id BIGINT,note VARCHAR)")
+			h.exec("INSERT INTO it_tr_t VALUES (-1,'base'),(0,NULL)")
+			st, oldCtx, pin := h.inspectionSnapshot(raw)
+			defer pin.release()
+			old, err := st.getTable(oldCtx, defaultSchema, "it_tr_t")
+			if err != nil {
+				t.Fatal(err)
+			}
+			var winner *tableMeta
+			r := h.raceNativeRows(raw, "it_tr_t", func(*tableMeta) {
+				other.exec("TRUNCATE TABLE it_tr_t" + m.clause)
+				winner = other.inspectTable(raw, defaultSchema, "it_tr_t")
+				other.expectRows("SELECT COUNT(*) FROM it_tr_t", "0")
+			})
+			_, err = tryExec(h.ctx, h.conn, "INSERT INTO it_tr_t SELECT id,note FROM it_tr_src")
+			h.expectNativeRowRefusal(raw, r, err)
+			if winner == nil || winner.prefix() == old.prefix() || winner.prefix() == r.meta.prefix() {
+				t.Fatal("TRUNCATE did not publish fresh independent storage")
+			}
+			if got := strings.Join(valueRows(snapshotExecuteTest(t, st, oldCtx,
+				"SELECT __rowid,id,note FROM it_tr_t ORDER BY __rowid").rows), ";"); got != "1|-1|base;2|0|NULL" {
+				t.Fatal("TRUNCATE changed pinned input", got)
+			}
+			first := 3
+			if m.restart {
+				first = 1
+			}
+			h.exec("INSERT INTO it_tr_t (id) SELECT id FROM it_tr_src")
+			rows, _ := h.query("SELECT __rowid,id,note FROM it_tr_t ORDER BY __rowid")
+			if len(rows) != srRows {
+				t.Fatal("incomplete fresh rows", len(rows))
+			}
+			for i, row := range rows {
+				if row != fmt.Sprintf("%d|%d|NULL", first+i, i+1) {
+					t.Fatal("fresh write inherited refused values or identity", i, row)
+				}
+			}
+			pin.release()
+			for _, seg := range old.snapshotSegments() {
+				h.expectSnapshotReleased(raw, seg.Prefix, seg.Index)
+			}
 		})
 	}
 }
 
-// CREATE TABLE … AS, truncated while it writes its rows; the table it
-// created stays.
+// An unpublished CTAS is invisible. A competing create plus TRUNCATE wins;
+// the private CTAS must conflict rather than append to that winning definition.
 func TestSQLTruncateDuringCreateTableAs(t *testing.T) {
 	for _, m := range truncModes {
 		t.Run(m.name, func(t *testing.T) {
@@ -94,241 +107,282 @@ func TestSQLTruncateDuringCreateTableAs(t *testing.T) {
 			h.setupTruncRace()
 			raw := h.rawClient()
 			other := newSQLHarness(t)
-			r := h.raceDrop(raw, "it_tr_t", func(*tableMeta) { other.exec(`TRUNCATE it_tr_t` + m.clause) })
-			_, err := tryExec(h.ctx, h.conn, `CREATE TABLE it_tr_t AS SELECT id, note FROM it_tr_src`)
-			h.expectRaceLost(raw, r, err)
-			h.expectTruncated(raw, r, "public", "it_tr_t", map[bool]int{true: 1, false: srRows + 1}[m.restart])
+			r := h.raceNativeRows(raw, "it_tr_t", func(*tableMeta) {
+				if _, err := other.conn.GetTableSchema(h.ctx, nil, nil, "it_tr_t"); !isStatus(err, adbc.StatusNotFound) {
+					t.Fatal("unpublished CTAS became visible", err)
+				}
+				other.exec("CREATE TABLE it_tr_t (id BIGINT,note VARCHAR)")
+				other.exec("INSERT INTO it_tr_t VALUES (-1,'winner'),(0,NULL)")
+				other.exec("TRUNCATE it_tr_t" + m.clause)
+			})
+			_, err := tryExec(h.ctx, h.conn, "CREATE TABLE it_tr_t AS SELECT id,note FROM it_tr_src")
+			h.expectNativeRowRefusal(raw, r, err)
+			first := 3
+			if m.restart {
+				first = 1
+			}
+			h.expectNativeTruncated(raw, r, defaultSchema, "it_tr_t", first)
 		})
 	}
 }
 
-// Bulk ingest, into a table it creates and into an existing one, in two
-// batches: the one written when the TRUNCATE lands, and one that is not
-// written.
-func TestSQLTruncateDuringIngest(t *testing.T) {
-	for _, mode := range []string{adbc.OptionValueIngestModeCreate, adbc.OptionValueIngestModeAppend} {
-		for _, m := range truncModes {
-			t.Run(mode+"/"+m.name, func(t *testing.T) {
-				h := newSQLHarness(t)
-				h.setupTruncRace()
-				raw := h.rawClient()
-				other := newSQLHarness(t)
-				if mode == adbc.OptionValueIngestModeAppend {
-					h.exec(`CREATE TABLE it_tr_t (id BIGINT, note VARCHAR)`)
-				}
-				r := h.raceDrop(raw, "it_tr_t", func(*tableMeta) { other.exec(`TRUNCATE it_tr_t` + m.clause) })
-				err := h.ingestNotes("it_tr_t", mode, srRows, srRows)
-				h.expectRaceLost(raw, r, err)
-				h.expectTruncated(raw, r, "public", "it_tr_t", map[bool]int{true: 1, false: srRows + 1}[m.restart])
-			})
+// Check all fresh rows, including NULLs and exact physical identity sequencing.
+func (h *sqlHarness) expectNativeTruncated(raw goredis.UniversalClient, r *nativeRowRace, schema, table string, first int) {
+	h.t.Helper()
+	h.expectRows("SELECT COUNT(*) FROM "+table, "0")
+	current := h.inspectTable(raw, schema, strings.TrimPrefix(table, "pg_temp."))
+	if current.prefix() == r.meta.prefix() {
+		h.t.Fatal("TRUNCATE inherited private output")
+	}
+	h.exec("INSERT INTO " + table + " (id) SELECT id FROM it_tr_src")
+	rows, _ := h.query("SELECT __rowid,id,note FROM " + table + " ORDER BY __rowid")
+	if len(rows) != srRows {
+		h.t.Fatal("incomplete fresh rows", len(rows))
+	}
+	for i, row := range rows {
+		if row != fmt.Sprintf("%d|%d|NULL", first+i, i+1) {
+			h.t.Fatal("fresh write inherited refused values or identity", i, row)
 		}
 	}
+}
 
-	// A batch written in one pipeline, soon enough not to check, is caught
-	// by the next batch's row id allocation, which then deletes it. That
-	// allocation took ids 501-1000 of the counter that RESTART IDENTITY
-	// restarted, so the new rows' ids start after them.
-	for _, m := range truncModes {
-		t.Run("one pipeline/"+m.name, func(t *testing.T) {
-			h := newSQLHarness(t)
-			h.setupTruncRace()
-			raw := h.rawClient()
-			other := newSQLHarness(t)
-			h.exec(`CREATE TABLE it_tr_t (id BIGINT, note VARCHAR)`)
-			r := &dropRace{}
-			testHookRowsWritten = func(meta *tableMeta, written int) {
-				if meta.Name == "it_tr_t" && r.prefix == "" {
-					r.prefix = meta.prefix()
-					other.exec(`TRUNCATE it_tr_t` + m.clause)
-					// The batch's rows are written again after the TRUNCATE,
-					// as if they had been on their way.
-					for id := int64(1); id <= int64(written); id++ {
-						if err := raw.HSet(h.ctx, r.prefix+strconv.FormatInt(id, 10), rowIDField, id, "id", id, "note", "old").Err(); err != nil {
-							t.Fatal(err)
-						}
+// Both Arrow create and append conflict after a real acknowledged batch.
+// Small records also exercise the record boundary before a full native batch.
+func TestSQLTruncateDuringIngest(t *testing.T) {
+	for _, mode := range []string{adbc.OptionValueIngestModeCreate, adbc.OptionValueIngestModeAppend} {
+		for _, size := range []int{srRows, snapshotWriteBatchRows / 2} {
+			for _, m := range truncModes {
+				t.Run(fmt.Sprintf("%s/%d/%s", mode, size, m.name), func(t *testing.T) {
+					h := newSQLHarness(t)
+					h.setupTruncRace()
+					raw := h.rawClient()
+					other := newSQLHarness(t)
+					if mode == adbc.OptionValueIngestModeAppend {
+						h.exec("CREATE TABLE it_tr_t (id BIGINT,note VARCHAR)")
+						h.exec("INSERT INTO it_tr_t VALUES (-1,'base'),(0,NULL)")
 					}
-					meta.readAt = time.Now().Add(time.Hour)
-				}
+					r := h.raceNativeRowsAt(raw, "it_tr_t", min(size, snapshotWriteBatchRows), func(*tableMeta) {
+						if mode == adbc.OptionValueIngestModeCreate {
+							if _, err := other.conn.GetTableSchema(h.ctx, nil, nil, "it_tr_t"); !isStatus(err, adbc.StatusNotFound) {
+								t.Fatal("private Arrow create became visible", err)
+							}
+							other.exec("CREATE TABLE it_tr_t (id BIGINT,note VARCHAR)")
+							other.exec("INSERT INTO it_tr_t VALUES (-1,'winner'),(0,NULL)")
+						}
+						other.exec("TRUNCATE it_tr_t" + m.clause)
+					})
+					err := h.ingestNotes("it_tr_t", mode, size, size)
+					h.expectNativeRowRefusal(raw, r, err)
+					first := 3
+					if m.restart {
+						first = 1
+					}
+					h.expectNativeTruncated(raw, r, defaultSchema, "it_tr_t", first)
+				})
 			}
-			t.Cleanup(func() { testHookRowsWritten = nil })
-			err := h.ingestNotes("it_tr_t", adbc.OptionValueIngestModeAppend, pipelineChunk/2, pipelineChunk/2)
-			testHookRowsWritten = nil
-			if err == nil || !strings.Contains(err.Error(), srWriteErr) {
-				t.Errorf("writer: got %v, want an error containing %q", err, srWriteErr)
-			}
-			if n := h.prefixKeyCount(raw, r.prefix); n != 0 {
-				t.Errorf("%d keys left under %q", n, r.prefix)
-			}
-			h.expectTruncated(raw, r, "public", "it_tr_t", map[bool]int{true: pipelineChunk/2 + 1, false: pipelineChunk + 1}[m.restart])
-		})
+		}
 	}
 }
 
-// A temporary table, truncated by its own connection (the only one that can
-// name it) while a statement of that connection is still writing to it.
+// A temporary CTAS stays invisible to its own connection until publication.
+// A nested create/TRUNCATE of the same name wins without inheriting private rows.
 func TestSQLTruncateDuringTempCreateTableAs(t *testing.T) {
 	for _, m := range truncModes {
 		t.Run(m.name, func(t *testing.T) {
 			h := newSQLHarness(t)
 			h.setupTruncRace()
 			raw := h.rawClient()
-			r := h.raceDrop(raw, "it_tr_tmp", func(*tableMeta) {
-				if _, err := tryExec(h.ctx, h.conn, `TRUNCATE pg_temp.it_tr_tmp`+m.clause); err != nil {
-					t.Fatal(err)
+			r := h.raceNativeRows(raw, "it_tr_tmp", func(meta *tableMeta) {
+				if !isTempSchema(meta.Schema) {
+					t.Fatal("temporary CTAS has no owner-local schema")
 				}
+				if _, err := h.conn.GetTableSchema(h.ctx, nil, nil, "it_tr_tmp"); !isStatus(err, adbc.StatusNotFound) {
+					t.Fatal("private temporary CTAS became visible", err)
+				}
+				h.exec("CREATE TEMP TABLE it_tr_tmp (id BIGINT,note VARCHAR)")
+				h.exec("INSERT INTO pg_temp.it_tr_tmp VALUES (-1,'winner'),(0,NULL)")
+				h.exec("TRUNCATE pg_temp.it_tr_tmp" + m.clause)
 			})
-			_, err := tryExec(h.ctx, h.conn, `CREATE TEMP TABLE it_tr_tmp AS SELECT id, note FROM it_tr_src`)
-			h.expectRaceLost(raw, r, err)
-			schema, _, _ := strings.Cut(r.prefix, ":")
-			h.expectTruncated(raw, r, schema, "pg_temp.it_tr_tmp", map[bool]int{true: 1, false: srRows + 1}[m.restart])
-			if n := h.namesN(raw, schema, "it_tr_tmp", "it_tr_tmp"); n != 2 {
-				t.Errorf("the truncated temporary table has the names of N = %d, want 2", n)
+			_, err := tryExec(h.ctx, h.conn, "CREATE TEMP TABLE it_tr_tmp AS SELECT id,note FROM it_tr_src")
+			h.expectNativeRowRefusal(raw, r, err)
+			first := 3
+			if m.restart {
+				first = 1
 			}
+			h.expectNativeTruncated(raw, r, r.meta.Schema, "pg_temp.it_tr_tmp", first)
 		})
 	}
 }
 
-// A write that allocated its row ids before TRUNCATE … RESTART IDENTITY and
-// sends its rows after it, soon enough not to check (as a small INSERT
-// does), succeeds. Its row stays under the old key prefix, where nothing
-// reads it, and the rows inserted afterwards, from row id 1 again, are new.
+// Even a single-row private write must validate publication after a competing
+// RESTART IDENTITY. It cannot succeed into abandoned storage or consume new IDs.
 func TestSQLTruncateRestartLateWrite(t *testing.T) {
 	h := newSQLHarness(t)
 	h.dropTables("it_tr_late")
 	raw := h.rawClient()
-	h.exec(`CREATE TABLE it_tr_late (id BIGINT, note VARCHAR)`)
-	h.exec(`INSERT INTO it_tr_late VALUES (1, 'a'), (2, 'b')`)
-	st := &store{client: raw}
-	stale, err := st.getTable(h.ctx, defaultSchema, "it_tr_late")
+	other := newSQLHarness(t)
+	h.exec("CREATE TABLE it_tr_late (id BIGINT,note VARCHAR)")
+	h.exec("INSERT INTO it_tr_late VALUES (1,'a'),(2,'b')")
+	st, oldCtx, pin := h.inspectionSnapshot(raw)
+	defer pin.release()
+	old, err := st.getTable(oldCtx, defaultSchema, "it_tr_late")
 	if err != nil {
 		t.Fatal(err)
 	}
-	rows := [][]Value{{intValue(typeInt64, 3), stringValue("old")}}
-	a, err := st.allocRows(h.ctx, stale, rows)
-	if err != nil {
-		t.Fatal(err)
+	r := h.raceNativeRowsAt(raw, "it_tr_late", 1, func(*tableMeta) {
+		other.exec("TRUNCATE it_tr_late RESTART IDENTITY")
+	})
+	_, err = tryExec(h.ctx, h.conn, "INSERT INTO it_tr_late VALUES (3,'old')")
+	h.expectNativeRowRefusal(raw, r, err)
+	if got := strings.Join(valueRows(snapshotExecuteTest(t, st, oldCtx,
+		"SELECT __rowid,id,note FROM it_tr_late ORDER BY __rowid").rows), ";"); got != "1|1|a;2|2|b" {
+		t.Fatal("late writer changed pinned input", got)
 	}
-	h.exec(`TRUNCATE it_tr_late RESTART IDENTITY`)
-	stale.readAt = time.Now().Add(time.Hour) // within rekeyFence: no check
-	if _, err := st.writeRows(h.ctx, stale, a, rows); err != nil {
-		t.Fatal(err)
-	}
-	h.exec(`INSERT INTO it_tr_late (id) VALUES (10), (11), (12), (13)`)
-	h.expectRows(`SELECT __rowid, id, note FROM it_tr_late ORDER BY __rowid`,
+	h.exec("INSERT INTO it_tr_late (id) VALUES (10),(11),(12),(13)")
+	h.expectRows("SELECT __rowid,id,note FROM it_tr_late ORDER BY __rowid",
 		"1|10|NULL", "2|11|NULL", "3|12|NULL", "4|13|NULL")
-	if n := h.prefixKeyCount(raw, stale.prefix()); n != 1 {
-		t.Errorf("%d keys under the old key prefix %q, want the late row's", n, stale.prefix())
+	pin.release()
+	for _, seg := range old.snapshotSegments() {
+		h.expectSnapshotReleased(raw, seg.Prefix, seg.Index)
 	}
 }
 
-// An ADD COLUMN that commits while TRUNCATE makes the new index: the switch
-// adds the column to it.
+// A stale TRUNCATE cannot discard an intervening ADD COLUMN. A new explicit
+// request truncates the winning schema and its new field remains indexed.
 func TestSQLTruncateDuringAddColumn(t *testing.T) {
 	h := newSQLHarness(t)
 	h.dropTables("it_tr_alt")
 	raw := h.rawClient()
-	other := newSQLHarness(t)
-	h.exec(`CREATE TABLE it_tr_alt (id BIGINT)`)
-	h.exec(`INSERT INTO it_tr_alt VALUES (1), (2)`)
-	testHookTruncating = func() {
-		testHookTruncating = nil
-		other.exec(`ALTER TABLE it_tr_alt ADD COLUMN z INTEGER`)
+	h.exec("CREATE TABLE it_tr_alt (id BIGINT)")
+	h.exec("INSERT INTO it_tr_alt VALUES (1),(2)")
+	st := &store{client: raw, snapshots: true}
+	ctx, pin, work := snapshotStageSQL(t, st, h.ctx, "", "TRUNCATE it_tr_alt")
+	private, err := st.getTable(ctx, defaultSchema, "it_tr_alt")
+	if err != nil {
+		t.Fatal(err)
 	}
-	t.Cleanup(func() { testHookTruncating = nil })
-	h.exec(`TRUNCATE it_tr_alt`)
-	testHookTruncating = nil
-	if got := h.indexAttrs(raw, "public", "it_tr_alt"); got != "__rowid id z" {
-		t.Errorf("index attributes %q, want __rowid id z", got)
+	h.exec("ALTER TABLE it_tr_alt ADD COLUMN z INTEGER")
+	h.expectStagedTruncateConflict(raw, st, ctx, pin, work)
+	h.expectSnapshotReleased(raw, private.prefix(), private.index())
+	h.expectRows("SELECT id,z FROM it_tr_alt ORDER BY id", "1|NULL", "2|NULL")
+	h.exec("TRUNCATE it_tr_alt")
+	if got := h.indexAttrs(raw, defaultSchema, "it_tr_alt"); got != "__rowid "+snapshotDeletedField+" id z" {
+		t.Fatal("new column absent from fresh index", got)
 	}
-	h.exec(`INSERT INTO it_tr_alt VALUES (3, 5), (4, 6)`)
-	h.expectRows(`SELECT id FROM it_tr_alt WHERE z = 5`, "3")
+	h.exec("INSERT INTO it_tr_alt VALUES (3,5),(4,6)")
+	h.expectRows("SELECT id FROM it_tr_alt WHERE z=5", "3")
 }
 
-// An ADD COLUMN that added its column to the old index commits after a
-// TRUNCATE: it fails, and works when run again.
+// An ALTER built against pre-TRUNCATE rows conflicts; a fresh explicit ALTER
+// builds on the committed empty generation without replaying the stale request.
 func TestSQLAddColumnDuringTruncate(t *testing.T) {
 	h := newSQLHarness(t)
 	h.dropTables("it_tr_alt2")
 	raw := h.rawClient()
-	other := newSQLHarness(t)
-	h.exec(`CREATE TABLE it_tr_alt2 (id BIGINT)`)
-	h.exec(`INSERT INTO it_tr_alt2 VALUES (1), (2)`)
-	testHookAltered = func(*tableMeta) {
-		testHookAltered = nil
-		other.exec(`TRUNCATE it_tr_alt2`)
+	h.exec("CREATE TABLE it_tr_alt2 (id BIGINT)")
+	h.exec("INSERT INTO it_tr_alt2 VALUES (1),(2)")
+	st := &store{client: raw, snapshots: true}
+	ctx, pin, work := snapshotStageSQL(t, st, h.ctx, "", "ALTER TABLE it_tr_alt2 ADD COLUMN z INTEGER DEFAULT 7")
+	private, err := st.getTable(ctx, defaultSchema, "it_tr_alt2")
+	if err != nil {
+		t.Fatal(err)
 	}
-	t.Cleanup(func() { testHookAltered = nil })
-	h.expectError(`ALTER TABLE it_tr_alt2 ADD COLUMN z INTEGER`, `table "it_tr_alt2" changed concurrently; try again`)
-	testHookAltered = nil
-	h.expectRows(`SELECT column_name FROM information_schema.columns WHERE table_name = 'it_tr_alt2'`, "id")
-	h.exec(`ALTER TABLE it_tr_alt2 ADD COLUMN z INTEGER`)
-	if got := h.indexAttrs(raw, "public", "it_tr_alt2"); got != "__rowid id z" {
-		t.Errorf("index attributes %q, want __rowid id z", got)
+	h.exec("TRUNCATE it_tr_alt2")
+	h.expectStagedTruncateConflict(raw, st, ctx, pin, work)
+	h.expectSnapshotReleased(raw, private.prefix(), private.index())
+	h.expectRows("SELECT column_name FROM information_schema.columns WHERE table_name='it_tr_alt2'", "id")
+	h.expectRows("SELECT COUNT(*) FROM it_tr_alt2", "0")
+	h.exec("ALTER TABLE it_tr_alt2 ADD COLUMN z INTEGER DEFAULT 7")
+	if got := h.indexAttrs(raw, defaultSchema, "it_tr_alt2"); got != "__rowid "+snapshotDeletedField+" id z" {
+		t.Fatal("new column absent from fresh index", got)
 	}
-	h.exec(`INSERT INTO it_tr_alt2 VALUES (3, 5), (4, 6)`)
-	h.expectRows(`SELECT id FROM it_tr_alt2 WHERE z = 5`, "3")
+	h.exec("INSERT INTO it_tr_alt2 (id) VALUES (3),(4)")
+	h.expectRows("SELECT id,z FROM it_tr_alt2 WHERE z=7 ORDER BY id", "3|7", "4|7")
 }
 
-// TRUNCATE of several tables empties all of them or none: here one is
-// dropped while the new indexes are made. The other keeps its rows and
-// names, and the names reserved for it are given back.
+// A multi-table TRUNCATE publishes all targets or none after a competing DROP.
 func TestSQLTruncateAllOrNone(t *testing.T) {
 	h := newSQLHarness(t)
 	h.dropTables("it_tr_a", "it_tr_b")
 	raw := h.rawClient()
-	other := newSQLHarness(t)
-	h.exec(`CREATE TABLE it_tr_a (id BIGINT)`)
-	h.exec(`CREATE TABLE it_tr_b (id BIGINT)`)
-	h.exec(`INSERT INTO it_tr_a VALUES (1), (2)`)
-	h.exec(`INSERT INTO it_tr_b VALUES (3)`)
-	prefix, index := h.tableNames(raw, "public", "it_tr_a")
-	testHookTruncating = func() {
-		testHookTruncating = nil
-		other.exec(`DROP TABLE it_tr_b`)
+	h.exec("CREATE TABLE it_tr_a (id BIGINT)")
+	h.exec("CREATE TABLE it_tr_b (id BIGINT)")
+	h.exec("INSERT INTO it_tr_a VALUES (1),(2)")
+	h.exec("INSERT INTO it_tr_b VALUES (3)")
+	before := h.inspectTable(raw, defaultSchema, "it_tr_a")
+	st := &store{client: raw, snapshots: true}
+	ctx, pin, work := snapshotStageSQL(t, st, h.ctx, "", "TRUNCATE it_tr_a,it_tr_b")
+	var private []*tableMeta
+	for _, name := range []string{"it_tr_a", "it_tr_b"} {
+		meta, err := st.getTable(ctx, defaultSchema, name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		private = append(private, meta)
 	}
-	t.Cleanup(func() { testHookTruncating = nil })
-	h.expectError(`TRUNCATE it_tr_a, it_tr_b`, `table "public"."it_tr_b" does not exist`)
-	testHookTruncating = nil
-	h.expectRows(`SELECT id FROM it_tr_a ORDER BY id`, "1", "2")
-	if p, i := h.tableNames(raw, "public", "it_tr_a"); p != prefix || i != index {
-		t.Errorf("it_tr_a has the names %q, %q, want %q, %q", p, i, prefix, index)
+	h.exec("DROP TABLE it_tr_b")
+	h.expectStagedTruncateConflict(raw, st, ctx, pin, work)
+	h.expectRows("SELECT id FROM it_tr_a ORDER BY id", "1", "2")
+	h.expectError("SELECT * FROM it_tr_b", "does not exist")
+	after := h.inspectTable(raw, defaultSchema, "it_tr_a")
+	if after.prefix() != before.prefix() || after.index() != before.index() {
+		t.Fatal("refused TRUNCATE changed first target storage")
 	}
-	n, err := raw.HGet(h.ctx, namesNextKey, rowPrefix("public", "it_tr_a")).Int64()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if reserved := namesFor("public", "it_tr_a", n); reserved.prefix == prefix {
-		t.Errorf("no names were reserved for it_tr_a")
-	} else {
-		h.expectReleased(raw, reserved.prefix, reserved.index)
+	for _, meta := range private {
+		h.expectSnapshotReleased(raw, meta.prefix(), meta.index())
 	}
 }
 
-// A DROP TABLE that has dropped the table's index when a TRUNCATE moves the
-// table to new keys starts again: it drops the new index too, with the rows
-// written since, and releases the new names.
+// A DROP planned before TRUNCATE cannot remove its newer generation. The
+// current binding survives until a fresh explicit DROP; old readers retain rows.
 func TestSQLDropDuringTruncate(t *testing.T) {
 	h := newSQLHarness(t)
 	h.dropTables("it_tr_drop")
 	raw := h.rawClient()
-	other := newSQLHarness(t)
-	h.exec(`CREATE TABLE it_tr_drop (id BIGINT)`)
-	h.exec(`INSERT INTO it_tr_drop VALUES (1), (2)`)
-	prefix, index := h.tableNames(raw, "public", "it_tr_drop")
-	var newPrefix, newIndex string
-	testHookDropping = func() {
-		testHookDropping = nil
-		other.exec(`TRUNCATE it_tr_drop`)
-		other.exec(`INSERT INTO it_tr_drop VALUES (3)`)
-		newPrefix, newIndex = h.tableNames(raw, "public", "it_tr_drop")
+	h.exec("CREATE TABLE it_tr_drop (id BIGINT)")
+	h.exec("INSERT INTO it_tr_drop VALUES (1),(2)")
+	reader, oldCtx, oldPin := h.inspectionSnapshot(raw)
+	defer oldPin.release()
+	old, err := reader.getTable(oldCtx, defaultSchema, "it_tr_drop")
+	if err != nil {
+		t.Fatal(err)
 	}
-	t.Cleanup(func() { testHookDropping = nil })
-	h.exec(`DROP TABLE it_tr_drop`)
-	testHookDropping = nil
-	h.expectError(`SELECT * FROM it_tr_drop`, "does not exist")
-	h.expectReleased(raw, prefix, index)
-	if newPrefix == prefix {
-		t.Errorf("the TRUNCATE kept the key prefix %q", prefix)
+	st := &store{client: raw, snapshots: true}
+	ctx, pin, work := snapshotStageSQL(t, st, h.ctx, "", "DROP TABLE it_tr_drop")
+	h.exec("TRUNCATE it_tr_drop")
+	h.exec("INSERT INTO it_tr_drop VALUES (3)")
+	current := h.inspectTable(raw, defaultSchema, "it_tr_drop")
+	if current.prefix() == old.prefix() {
+		t.Fatal("TRUNCATE reused old storage")
 	}
-	h.expectReleased(raw, newPrefix, newIndex)
+	h.expectStagedTruncateConflict(raw, st, ctx, pin, work)
+	h.expectRows("SELECT id FROM it_tr_drop", "3")
+	if got := strings.Join(valueRows(snapshotExecuteTest(t, reader, oldCtx, "SELECT id FROM it_tr_drop ORDER BY id").rows), "|"); got != "1|2" {
+		t.Fatal("stale DROP changed old reader", got)
+	}
+	h.exec("DROP TABLE it_tr_drop")
+	h.expectError("SELECT * FROM it_tr_drop", "does not exist")
+	for _, seg := range current.snapshotSegments() {
+		h.expectSnapshotReleased(raw, seg.Prefix, seg.Index)
+	}
+	oldPin.release()
+	for _, seg := range old.snapshotSegments() {
+		h.expectSnapshotReleased(raw, seg.Prefix, seg.Index)
+	}
+}
+
+func (h *sqlHarness) expectStagedTruncateConflict(raw goredis.UniversalClient, st *store, ctx context.Context, pin *snapshotPin, work string) {
+	h.t.Helper()
+	root, err := raw.HGet(h.ctx, snapshotCatalogKey, "root").Result()
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	if err := st.publishSnapshot(ctx, pin, work); !isStatus(err, adbc.StatusIO) || sqlState(err) != "40001" {
+		h.t.Fatal("stale DDL did not refuse publication", err)
+	}
+	if got, err := raw.HGet(h.ctx, snapshotCatalogKey, "root").Result(); err != nil || got != root {
+		h.t.Fatal("refused DDL changed winning root", err)
+	}
+	st.abortSnapshot(pin, work)
+	pin.release()
 }

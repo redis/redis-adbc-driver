@@ -55,6 +55,26 @@ var deleteRaces = []struct{ name, sql string }{
 	{"MERGE DELETE", `MERGE INTO %[1]s t USING %[2]s s ON t.id = s.id WHEN MATCHED THEN DELETE`},
 }
 
+// Legacy UPDATE fixtures still use this helper until their native conversion.
+// expectTruncated checks a table that was truncated while a statement was
+// writing to it (r): it is empty and has new names, and the rows inserted
+// now are new. Their note is NULL (none was merged into a row the writer
+// left), and their row ids run from firstID.
+func (h *sqlHarness) expectTruncated(raw goredis.UniversalClient, r *dropRace, schema, table string, firstID int) {
+	h.t.Helper()
+	h.expectRows(fmt.Sprintf(`SELECT COUNT(*) FROM %s`, table), "0")
+	if prefix := h.tablePrefix(raw, schema, strings.TrimPrefix(table, "pg_temp.")); prefix == r.prefix {
+		h.t.Errorf("the truncated table kept its key prefix %q", prefix)
+	}
+	h.exec(fmt.Sprintf(`INSERT INTO %s (id) SELECT id FROM it_tr_src`, table))
+	h.expectRows(fmt.Sprintf(`SELECT COUNT(*), COUNT(note), MIN(__rowid), MAX(__rowid) FROM %s`, table),
+		fmt.Sprintf("%d|0|%d|%d", srRows, firstID, firstID+srRows-1))
+	h.expectRows(fmt.Sprintf(`SELECT COUNT(*) FROM %s WHERE note = 'old'`, table), "0")
+	if n := h.prefixKeyCount(raw, r.prefix); n != 0 {
+		h.t.Errorf("%d keys under the old key prefix %q", n, r.prefix)
+	}
+}
+
 // fillTarget creates the target of a race: empty, or with the source's rows.
 func (h *sqlHarness) fillTarget(table, src string, empty bool) {
 	h.t.Helper()

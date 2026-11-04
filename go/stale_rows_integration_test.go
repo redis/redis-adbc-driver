@@ -137,15 +137,21 @@ func (h *sqlHarness) setupStaleRows() {
 // Native races run synchronously after one real acknowledged row batch. The
 // callback's statements do not inherit this hook or mutate the private layout.
 type nativeRowRace struct {
-	meta    *tableMeta
-	root    string
-	batches int
-	rows    int64
+	meta      *tableMeta
+	root      string
+	batches   int
+	firstRows int
+	rows      int64
 }
 
 func (h *sqlHarness) raceNativeRows(raw goredis.UniversalClient, table string, change func(*tableMeta)) *nativeRowRace {
 	h.t.Helper()
-	r := &nativeRowRace{}
+	return h.raceNativeRowsAt(raw, table, snapshotWriteBatchRows, change)
+}
+
+func (h *sqlHarness) raceNativeRowsAt(raw goredis.UniversalClient, table string, firstRows int, change func(*tableMeta)) *nativeRowRace {
+	h.t.Helper()
+	r := &nativeRowRace{firstRows: firstRows}
 	var hook func(*tableMeta, int)
 	hook = func(meta *tableMeta, written int) {
 		if meta.Name != table {
@@ -161,7 +167,7 @@ func (h *sqlHarness) raceNativeRows(raw goredis.UniversalClient, table string, c
 			return
 		}
 		r.meta = cloneMeta(meta)
-		if written != snapshotWriteBatchRows || count != snapshotWriteBatchRows {
+		if written != firstRows || count != int64(firstRows) {
 			h.t.Fatal("race missed first acknowledged native batch", written, count)
 		}
 		data := snapshotDataID(meta.prefix())
@@ -170,7 +176,7 @@ func (h *sqlHarness) raceNativeRows(raw goredis.UniversalClient, table string, c
 		}
 		// These are exact private images, not partially written published HASHes.
 		members, err := raw.ZRange(h.ctx, snapshotMembers(data), 0, -1).Result()
-		if err != nil || len(members) != snapshotWriteBatchRows {
+		if err != nil || len(members) != firstRows {
 			h.t.Fatal("private directory differs", err)
 		}
 		for _, member := range []string{members[0], members[len(members)-1]} {
@@ -198,14 +204,14 @@ func (h *sqlHarness) raceNativeRows(raw goredis.UniversalClient, table string, c
 func (h *sqlHarness) expectNativeRowRefusal(raw goredis.UniversalClient, r *nativeRowRace, err error) {
 	h.t.Helper()
 	testHookRowsWritten = nil
-	if r.meta == nil || r.batches == 0 || r.rows < snapshotWriteBatchRows {
+	if r.meta == nil || r.batches == 0 || r.firstRows <= 0 || r.rows < int64(r.firstRows) {
 		h.t.Fatal("native race never ran")
 	}
 	if !isStatus(err, adbc.StatusIO) || sqlState(err) != "40001" {
 		h.t.Fatal("stale writer did not refuse publication", err)
 	}
-	if raw.HGet(h.ctx, snapshotCatalogKey, "root").Val() != r.root {
-		h.t.Fatal("refused writer changed committed root")
+	if root, readErr := raw.HGet(h.ctx, snapshotCatalogKey, "root").Result(); readErr != nil || root != r.root {
+		h.t.Fatal("refused writer changed committed root", readErr)
 	}
 	h.expectSnapshotReleased(raw, r.meta.prefix(), r.meta.index())
 	indexes, e := raw.Do(h.ctx, "FT._LIST").StringSlice()
