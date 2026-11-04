@@ -372,11 +372,31 @@ def main():
                             "output_rows": len(expected),
                         }
 
+    # Identify the selected library's actual storage model after closing its
+    # workers. The benchmark resets this owned database before each revision,
+    # so a pre-snapshot baseline must not be labeled as a segmented catalog.
+    with redis.Redis.from_url(uri, ssl_ca_certs=str(ca), decode_responses=True) as raw:
+        catalog = "adbc:{meta}:snapshot:catalog"
+        storage_format = raw.hget(catalog, "format")
+        if storage_format is not None:
+            if (
+                not storage_format.isascii()
+                or not storage_format.isdecimal()
+                or not raw.hget(catalog, "root")
+            ):
+                raise RuntimeError("invalid snapshot benchmark catalog")
+            storage_model, snapshot_protocol = "snapshot", int(storage_format)
+        elif raw.exists(catalog):
+            raise RuntimeError("snapshot benchmark catalog has no format")
+        else:
+            storage_model, snapshot_protocol = "mutable", None
+
     print(
         json.dumps(
             {
                 "source": args.source,
                 "driver_sha256": hashlib.sha256(args.driver.read_bytes()).hexdigest(),
+                "harness_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                 "platform": platform.platform(),
                 "machine": platform.machine(),
                 "redis_version": server,
@@ -385,7 +405,13 @@ def main():
                 "noeviction": True,
                 "input_rows": args.rows,
                 "visible_rows": len(logical),
-                "initial_segments": 1 if args.foreign_imports or args.write_batches or args.rewrite_batches else (2 if args.writes else 3),
+                "storage_model": storage_model,
+                "snapshot_protocol": snapshot_protocol,
+                "initial_segments": None,
+                "segment_count_note": (
+                    "not sampled; maintenance enabled during workload"
+                    if snapshot_protocol is not None else "not applicable to mutable storage"
+                ),
                 "unrelated_tables": 0 if args.foreign_imports or args.wide or args.write_batches or args.rewrite_batches else args.unrelated_tables,
                 "wide_columns": 64 if args.wide else None,
                 "repeats": args.repeats,

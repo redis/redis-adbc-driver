@@ -485,3 +485,9 @@ The [full-suite budget checkpoint](full-suite-budget-validation.md) records the
 and gives Make/hosted full-package runs a bounded 30-minute clock. Individual
 operation/cancellation deadlines remain in force. Complete ordinary and hosted
 passes remain unproved.
+
+The [pre-snapshot read comparison](pre-snapshot-read-validation.md) validates four
+controlled native runs in both revision orders, all complete results and observed
+storage models. The seven read cases remain 2.24x–6.74x slower than the current-main
+mutable baseline; no performance parity is claimed. Nullable descending top-K
+ordering and broader pin/metadata overhead are concrete next optimization targets.
