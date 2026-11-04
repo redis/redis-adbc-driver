@@ -46,6 +46,10 @@ The [same-target ingest checkpoint](ingest-admission-validation.md) coordinates
 append/create-append before input consumption while preserving independent
 targets, cancellation, uncertain-reply errors and existing publication fences.
 
+The [late-projection checkpoint](late-projection-validation.md) restores pinned
+planner/cursor inspection, isolates the missing-HASH primitive and verifies
+deferred exact projection reads across managed DML, DROP and GC.
+
 The [consistency-boundary recommendation](consistency-boundary.md) proposes a
 shared driver consistency layer across execution paths. A new
 Redis server extension is not required by this plan.
