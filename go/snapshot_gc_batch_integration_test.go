@@ -38,7 +38,7 @@ func (h *snapshotGCPageObserver) ProcessHook(next goredis.ProcessHook) goredis.P
 		}
 		if len(args) > 3 && strings.EqualFold(fmt.Sprint(args[0]), "EVAL") && strings.Contains(fmt.Sprint(args[1]), "snapshot row reclamation batch") {
 			n, _ := strconv.Atoi(fmt.Sprint(args[2]))
-			if n > 3 && len(args) >= 3+n {
+			if n > 3 && len(args) >= 3+n && strings.HasPrefix(fmt.Sprint(args[6]), h.prefix) {
 				rows = args[6 : 3+n]
 			}
 		}

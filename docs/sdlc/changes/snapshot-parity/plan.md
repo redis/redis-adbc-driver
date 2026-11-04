@@ -388,3 +388,9 @@ planning/execution, compares native segmented visibility with independent exact
 rows and an explicit directory reference, and retains separate live-cursor/range
 primitives. Seventeen race events pass reader lifetime through DDL/GC, cancellation
 and cursor reclamation. Full ordinary/platform and performance gates remain open.
+
+The [ALTER retirement recovery checkpoint](alter-cleanup-recovery-validation.md)
+replaces mutable cleanup markers with real SQL field removal, pinned old images
+and a lost reply after a bounded retired-row batch. A new connection completes
+reclamation without changing current rows or revealing old values on column-name
+reuse. Full ordinary/platform and performance gates remain open.

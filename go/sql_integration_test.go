@@ -968,8 +968,8 @@ func TestSQLAlterTable(t *testing.T) {
 	h.expectError(`ALTER TABLE it_alter ADD COLUMN must INTEGER NOT NULL`, `column "must" of relation "it_alter" contains null values`)
 	h.expectError(`ALTER TABLE it_alter ADD COLUMN d INTEGER DEFAULT RANDOM()`, "volatile DEFAULT")
 
-	// DROP COLUMN: gone at once; its field is removed from rows in the
-	// background; re-adding the name never shows the old values.
+	// DROP COLUMN publishes fresh rows without that field. Old snapshots retain
+	// their images until reclamation; re-adding the name never shows old values.
 	h.exec(`ALTER TABLE it_alter DROP COLUMN qty`)
 	h.expectRows(`SELECT * FROM it_alter WHERE id = 1`, "1|a|NULL")
 	h.expectError(`SELECT qty FROM it_alter`, "does not exist")
@@ -1005,46 +1005,88 @@ func TestSQLAlterTable(t *testing.T) {
 }
 
 func TestSQLAlterCleanupResumes(t *testing.T) {
+	const table = "it_resume"
 	h := newSQLHarness(t)
-	h.exec("DROP TABLE IF EXISTS it_resume")
-	t.Cleanup(func() { h.exec("DROP TABLE IF EXISTS it_resume") })
-	h.exec(`CREATE TABLE it_resume (id INTEGER, v INTEGER)`)
-	h.exec(`INSERT INTO it_resume VALUES (1, 1), (2, 2), (3, 3)`)
+	h.exec("DROP TABLE IF EXISTS " + table)
+	h.exec("CREATE TABLE " + table + " (id INTEGER,v INTEGER,ghost TEXT)")
+	h.exec("INSERT INTO " + table + " SELECT i,i,'boo' FROM generate_series(1,600) AS g(i)")
 	raw := h.rawClient()
-
-	// Leave a cleanup pending, as if the process had exited mid-way: the
-	// rows still hold a dropped column's field.
-	st := &store{client: raw}
-	meta, err := st.getTable(h.ctx, "public", "it_resume")
+	source, oldCtx, oldPin := h.inspectionSnapshot(raw)
+	defer oldPin.release()
+	old, err := source.getTable(oldCtx, defaultSchema, table)
 	if err != nil {
 		t.Fatal(err)
 	}
-	pipe := raw.Pipeline()
-	for id := 1; id <= 3; id++ {
-		pipe.HSet(h.ctx, fmt.Sprintf("%s%d", meta.prefix(), id), "ghost", "boo")
+	h.exec("ALTER TABLE " + table + " DROP COLUMN ghost")
+	if n := h.rowFields(raw, defaultSchema, table)["ghost"]; n != 0 {
+		t.Fatal("dropped field remains in current output", n)
 	}
-	if _, err := pipe.Exec(h.ctx); err != nil {
+	rows := snapshotExecuteTest(t, source, oldCtx, "SELECT id,v,ghost FROM "+table+" ORDER BY id").rows
+	if len(rows) != 600 {
+		t.Fatal("incomplete retained ALTER input", len(rows))
+	}
+	for i, row := range rows {
+		if len(row) != 3 || row[0].I != int64(i+1) || row[1].I != int64(i+1) || row[2].Null || row[2].S != "boo" {
+			t.Fatal("DROP changed pinned fields", i)
+		}
+	}
+	// Stop the driver worker before releasing the old pin. Only this explicit
+	// collector can consume the first batch, so the lost reply is deterministic.
+	if err := h.conn.Close(h.ctx); err != nil {
 		t.Fatal(err)
 	}
-	if err := st.updateTable(h.ctx, "public", "it_resume", func(m *tableMeta) error {
-		m.RetiredFields = append(m.RetiredFields, "ghost")
-		m.PendingCleanup = append(m.PendingCleanup, "ghost")
-		return nil
-	}, func(p goredis.Pipeliner) { p.SAdd(h.ctx, cleanupKey, cleanupMember("public", "it_resume")) }); err != nil {
-		t.Fatal(err)
+	observer := &snapshotGCPageObserver{prefix: old.prefix(), interrupt: true}
+	collector := &store{client: h.rawClient(observer), snapshots: true}
+	oldPin.release()
+	interrupted := false
+	for i := 0; i < 64; i++ {
+		result, err := collector.reapSnapshotStep(h.ctx)
+		if err != nil {
+			if !strings.Contains(err.Error(), "injected interruption after GC batch reply") || observer.batches.Load() != 1 || result.deleted != 0 {
+				t.Fatal("unexpected cleanup interruption", result, err)
+			}
+			interrupted = true
+			break
+		}
 	}
-	if h.rowFields(raw, "public", "it_resume")["ghost"] != 3 {
-		t.Fatal("setup: ghost field missing")
+	if !interrupted {
+		t.Fatal("retired ALTER output did not reach injected reply loss")
 	}
-
-	// A new connection resumes and finishes it.
-	h2 := newSQLHarness(t)
-	waitFor(t, "resumed cleanup", func() bool { return h2.rowFields(raw, "public", "it_resume")["ghost"] == 0 })
-	waitFor(t, "cleanup marker removal", func() bool {
-		m, _ := raw.SIsMember(h.ctx, cleanupKey, cleanupMember("public", "it_resume")).Result()
-		return !m
+	directory := snapshotMembers(snapshotDataID(old.prefix()))
+	if n, err := raw.ZCard(h.ctx, directory).Result(); err != nil || n != 344 {
+		t.Fatal("cleanup batch did not durably advance", n, err)
+	}
+	if raw.Exists(h.ctx, old.prefix()+"1", old.prefix()+"256").Val() != 0 || raw.Exists(h.ctx, old.prefix()+"257", old.prefix()+"600").Val() != 2 {
+		t.Fatal("interrupted cleanup coverage differs")
+	}
+	// A new connection resumes reference-owned retirement, never edits current
+	// HASH fields or needs a persisted SCAN cursor/legacy cleanup marker.
+	reopened := newSQLHarness(t)
+	t.Cleanup(func() { reopened.exec("DROP TABLE IF EXISTS " + table) })
+	waitFor(t, "new connection resumed ALTER reclamation", func() bool {
+		n, err := raw.Exists(h.ctx, directory).Result()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return n == 0
 	})
-	h2.expectRows(`SELECT id, v FROM it_resume ORDER BY id`, "1|1", "2|2", "3|3")
+	for _, seg := range old.snapshotSegments() {
+		reopened.expectSnapshotReleased(raw, seg.Prefix, seg.Index)
+	}
+	want := make([]string, 600)
+	for i := range want {
+		want[i] = fmt.Sprintf("%d|%d", i+1, i+1)
+	}
+	reopened.expectRows("SELECT id,v FROM "+table+" ORDER BY id", want...)
+	reopened.exec("ALTER TABLE " + table + " ADD COLUMN ghost TEXT")
+	for i := range want {
+		want[i] += "|NULL"
+	}
+	reopened.expectRows("SELECT id,v,ghost FROM "+table+" ORDER BY id", want...)
+	reopened.exec("UPDATE " + table + " SET ghost='new' WHERE id=600")
+	reopened.expectRows("SELECT COUNT(*) FROM "+table+" WHERE ghost='boo'", "0")
+	reopened.expectRows("SELECT id,v FROM "+table+" WHERE ghost='new'", "600|600")
+	assertSnapshotDataReferences(t, reopened, &store{client: raw, snapshots: true})
 }
 
 func TestSQLInformationSchema(t *testing.T) {
