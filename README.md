@@ -18,7 +18,7 @@
 
 # Arrow Database Connectivity (ADBC) driver for Redis
 
-An Arrow-native Redis database driver supporting both transactional and analytical workloads.
+An Arrow-native Redis database driver built on ADBC—the successor to ODBC and JDBC—supporting both transactional and analytical workloads.
 
 Redis ADBC connects Redis to data tools through SQL and Apache Arrow. It queries
 Redis HASHes using the Query Engine, returns typed Arrow record batches, and
