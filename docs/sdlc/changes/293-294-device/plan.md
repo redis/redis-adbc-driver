@@ -11,5 +11,6 @@ Date: 2026-11-04. See [intent](intent.md), [spec](spec.md), [validation](validat
    on hardware. Record versions/source/hardware, failures and skips accurately.
 6. Review final diff and publish PR; close issues only after required evidence.
 
-Steps 1–4 implemented/run locally. Step 5 remains an external hardware gate;
-prior milestone evidence is not evidence for this change.
+Steps 1–5 complete: local CPU/Software checks and the full real-A10G suite
+passed. Step 6: final evidence review and PR checks before merge/issue closure.
+See the exact revision, hardware, versions and skips in validation.md.

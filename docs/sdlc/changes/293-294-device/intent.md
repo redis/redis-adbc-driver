@@ -1,7 +1,7 @@
 # Intent: Arrow device layouts and manager integration
 
 Date: 2026-11-04. Requestor: repository user. Author: Codex.
-Base: `efb9cbfb1c280f7ba0c11667d5a3a2e6309b167d`. Status: implementation/validation.
+Base: `efb9cbfb1c280f7ba0c11667d5a3a2e6309b167d`. Status: implemented and validated; final PR checks pending.
 Issues: [293](https://github.com/redis/redis-adbc-driver/issues/293),
 [294](https://github.com/redis/redis-adbc-driver/issues/294).
 

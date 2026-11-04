@@ -164,7 +164,9 @@ native extensions and adds no ADBC function-table slots. Discovery calls
 `RedisDeviceInterfaceVersion()` and requires version 1 and its staging/event
 symbols. Older libraries produce an upgrade/CPU-path error. The adapter accepts
 manager 1.8..1.x and PyArrow 14..26; the recorded local test combination is
-CPython 3.15, manager 1.13.0, PyArrow 26.0.1 on macOS ARM64. Other combinations
+CPython 3.15, manager 1.13.0, PyArrow 26.0.1 on macOS ARM64. A real Linux
+amd64/A10G run also passed on CPython 3.12.3, manager 1.13.0,
+PyArrow 26.0.1, CuPy 14.2.0, pylibcudf 26.10.2 and CUDA 12.9. Other combinations
 in those ranges need deployment validation. Missing/out-of-range dependencies
 must be resolved before using this optional adapter. Importing the normal CPU
 client or device module loads no CUDA Python package; PyArrow is loaded only
@@ -224,7 +226,11 @@ and [public manager capsule Bind API](https://arrow.apache.org/adbc/main/python/
 ## Validation and performance scope
 
 Native tests are in [test_native_device.py](../benchmarks/gpu-query/test_native_device.py).
-CPU ownership/rejection checks need `REDIS_ADBC_LIBRARY`. CUDA/Redis tests also
+CPU ownership/rejection checks need `REDIS_ADBC_LIBRARY`. Public adapter tests
+are in [test_device_adapter.py](../benchmarks/gpu-query/test_device_adapter.py).
+See [extended validation evidence](sdlc/changes/293-294-device/validation.md) for
+the actual A10G run, versions, initial failure/correction and explicit skips.
+CUDA/Redis tests also
 need `GPU_TEST=1` and a verified Redis Software/4x-QPF `REDIS_URI`. Tests cover
 native SQL against CPU results, exact large integers, overflow, real CuPy device
 buffers/events, a real Arrow C Device consumer, and arrays retained past stream

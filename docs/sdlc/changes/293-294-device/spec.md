@@ -1,6 +1,6 @@
 # Specification
 
-Date: 2026-11-04. Status: implemented; hardware validation outstanding.
+Date: 2026-11-04. Status: implemented and validated on real A10G hardware.
 See [intent](intent.md) and [plan](plan.md).
 
 The [guide](../../../gpu-execution.md) defines the physical support table,
