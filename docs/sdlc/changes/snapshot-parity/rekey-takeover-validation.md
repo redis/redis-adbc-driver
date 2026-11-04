@@ -41,7 +41,18 @@ Owned strict-TLS Redis Software, noeviction and effective active 4x QPF verified
 before testing. Four focused race families pass, zero test skips/failures; root
 4.609 s. The CUDA package has no applicable selected tests and is skipped.
 Mutating selections are sequential. Compilation, formatting and diff whitespace
-checks pass. These cases supplement the separate actual process-kill checkpoint;
+checks pass.
+
+The next fresh 502-name ordinary continuation passes 152 test events and records
+three explicit environment skips before TestSharedScanExactResults and its first
+child fail on an unpinned internal catalog read (root 102.576 s). Later cases did
+not run. Passing cases include renamed-column behavior, INSERT/UPDATE/DELETE/
+MERGE RETURNING, statement/bound/temporary RETURNING, exact grouping and the
+20,000-row row-value scale fixture. Its timings are semantic-regression logs,
+not a controlled comparative performance result. Skips require resettable server
+command statistics or explicitly gated restored-fixture profiling inputs.
+
+These cases supplement the separate actual process-kill checkpoint;
 synthetic control expiry does not measure natural lease duration.
 
 Reviewed lease non-resurrection, explicit acknowledged boundaries, concurrent GC
