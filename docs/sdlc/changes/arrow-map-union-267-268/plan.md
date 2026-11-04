@@ -65,4 +65,8 @@ Retained partitions explicitly reject these types; no restricted retained IPC
 decoder admission was added. The C Data ABI carries pointers without allocation
 sizes, so producers must still provide readable buffers for declared extents.
 Operational identifiers, credentials, logs and generated certificates stay out
-of git. The PR closes #267 and #268 on merge after CI verification.
+of git. [PR #309](https://github.com/redis/redis-adbc-driver/pull/309) closes
+#267 and #268 on merge. GitHub Actions remained queued without assigned runners
+when inspected, including an earlier repository PR. Main has no branch protection
+or active ruleset requirements. Merge uses the completed local acceptance above;
+remote CI is pending and is not counted as passed.
