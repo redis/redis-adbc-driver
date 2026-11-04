@@ -7,7 +7,7 @@ Status: bounded prototype, disabled in normal builds.
 
 An experimental `scanprefetch` build tag enables overlap only for shared streamed
 readers with a wide authoritative managed HASH fetch and an active positional
-Arrow projection. Generic scans, narrow projections, direct-key reads, tie
+Arrow projection. Generic scans, GPU scans, narrow projections, direct-key reads, tie
 sorting and late materialization retain their existing paths. Both ordinary
 and public partition readers use `newScanReader`; range transitions preserve
 eligibility and start a fresh worker after joining the old one.

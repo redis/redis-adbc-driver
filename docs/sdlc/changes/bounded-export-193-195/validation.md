@@ -116,6 +116,12 @@ eight-hour deadline. All 49 task-owned instances are terminated. Volume deletion
 and final automation cleanup are tracked privately and must be verified before
 finishing the goal; existing backups and shared IAM resources are preserved.
 
+Current main added CUDA execution and Go 1.27.3 while the screen ran. The branch
+integrates that work and explicitly excludes GPU scans from prefetch eligibility,
+preserving its existing path. This integration also postdates the pinned screen. On Go 1.27.3, the combined
+branch passed the complete default suite (driver 26.793 s) and experimental race
+suite (driver 52.015 s), including the additional CUDA stub package.
+
 ## Typed export disposition
 
 The [typed export document](../../../typed-export-design.md) completes the
