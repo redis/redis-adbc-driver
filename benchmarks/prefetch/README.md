@@ -1,7 +1,9 @@
 # Bounded prefetch screen
 
-This runner isolates the `scanprefetch` experimental build from the same source
-with the tag disabled. It does not load ClickBench data. Restore an existing
+This runner compares prefetch off/on builds from the same runtime source.
+Current default-enabled candidates use `scanprefetchoff` for the baseline and
+normal build flags for the candidate. Historical prototype revisions defaulted
+off and required `scanprefetch` for the candidate. It does not load ClickBench data. Restore an existing
 verified compatible full-scale backup on Redis Software and verify active 4x QPF.
 Keep deployment resources and credentials in private operational records.
 Prepare the required 100K-row managed `hits` fixture with the pinned official DDL
@@ -16,8 +18,8 @@ Build `main.go` from each checkout's `go/` directory with the same Go version
 and linker flags. For example, substitute an absolute harness path:
 
 ```sh
-go build -ldflags '-s -w' -o /tmp/baseline-screen /absolute/path/main.go
-go build -tags scanprefetch -ldflags '-s -w' -o /tmp/candidate-screen /absolute/path/main.go
+go build -tags scanprefetchoff -ldflags '-s -w' -o /tmp/baseline-screen /absolute/path/main.go
+go build -ldflags '-s -w' -o /tmp/candidate-screen /absolute/path/main.go
 ```
 
 The executable uses the **public Go ADBC APIs and Go Arrow allocator**, not the

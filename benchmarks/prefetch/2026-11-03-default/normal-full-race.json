@@ -1,0 +1,14 @@
+{
+  "passed": true,
+  "build_tags": "normal default build; no scanprefetch tag",
+  "driver_seconds": 356.591,
+  "top_level_passes": 840,
+  "top_level_skips": 43,
+  "server": "Redis Software 8.6.2",
+  "qpf": 4,
+  "shards": 3,
+  "tls": "verified",
+  "protocol": 3,
+  "command": "make -C go test-software TEST_ARGS=\"-race\"; isolated task-owned project and ports",
+  "source_note": "Default-enabled candidate after isolated SIMD/main integration; exact committed revision added with final evidence"
+}

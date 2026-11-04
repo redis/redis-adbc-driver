@@ -43,7 +43,7 @@ func TestPrefetchScreenSelection(t *testing.T) {
 	if !partition.Next() {
 		t.Fatal(partition.Err())
 	}
-	proof := map[string]any{"experimental_build": scanPrefetchEnabled, "regular_hash_fetch": true,
+	proof := map[string]any{"prefetch_enabled": scanPrefetchEnabled, "regular_hash_fetch": true,
 		"regular_prefetch_started": started, "partition_hash_fetch": true,
 		"partition_prefetch_eligible": p.it.allowPrefetch, "projected_columns": len(regular.cols)}
 	if path := os.Getenv("ADBC_PREFETCH_SCREEN_PROOF"); path != "" {

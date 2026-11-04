@@ -109,7 +109,7 @@ func TestSQLWideHashFetchBothAPIs(t *testing.T) {
 			t.Fatal("wide Arrow projection did not bind positional HASH values")
 		}
 		if sr.it.allowPrefetch != scanPrefetchEnabled {
-			t.Fatal("stream reader did not inherit the experimental build setting")
+			t.Fatal("stream reader did not inherit the prefetch build setting")
 		}
 		if sr.it.projection.consume != nil || sr.it.projection.consumeHash != nil {
 			t.Fatal("projection callback escaped a fill")

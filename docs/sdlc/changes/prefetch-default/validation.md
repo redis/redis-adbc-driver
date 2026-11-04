@@ -67,3 +67,33 @@ owned lookahead page. A live narrow-projection assertion in the existing wide
 API test confirms fewer than 64 required columns and no prefetch worker; the
 focused Software race test passed (14.255 s). The theoretical bound remains one
 additional reply page per active eligible reader; variable-width values matter.
+
+The completed Go 105-column screen passed 336 executions and its declared gate:
+one-reader medians improved 14.10% regular / 14.96% partition, with 20/20 wins.
+Four-reader medians improved 1.10% regular / 6.57% partition. The regular
+four-reader paired interval includes zero and has an upper endpoint +2.06%,
+within the predeclared +5% nonregression margin; do not claim a consistent gain.
+Narrow medians were near unchanged. Go current-RSS medians were close between
+builds; this does not eliminate the theoretical additional owned page.
+
+The completed 64-column screen also passed 336 executions and the gate:
+one-reader medians improved 12.28% regular / 13.10% partition, all 20 pairs won.
+Four-reader medians improved 6.20% regular / 3.10% partition; regular uncertainty
+includes zero, but all wide upper endpoints are within +5%. The constrained-CPU
+screen remains pending. A default-enabled candidate is now under normal-build
+validation; final promotion remains conditional on the last elapsed gate.
+
+Main's #298 merge adds an isolated SIMD prototype/profiling tests, with no
+production SQL/read-path changes. It is integrated for final build/CI checks;
+measured production scan code remains pinned to corrected runtime `158b8c8`.
+The shared local AWS Python environment lost boto3 during monitoring; a fresh
+task-owned control/validation environment restored it. Remote trials continued
+unaffected. It uses the runner's pinned PyArrow/ADBC dependencies; eight Python
+checks pass there too. SSH tooling is now task-owned as well.
+
+The normal default-enabled build (no experimental tag) passed the complete
+Software race suite after main integration: driver 356.591 s, 840 top-level
+passes and 43 unchanged-capability/opt-in skips. All six tested packages passed;
+the CUDA stub package has no test files. The explicit opt-out build is also
+being checked. Final normal-build full-fetch confirmation is queued behind the
+constrained-CPU result; it will use these selectors and both Go/C consumers.
