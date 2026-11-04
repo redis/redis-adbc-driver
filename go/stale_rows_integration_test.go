@@ -24,7 +24,6 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/apache/arrow-adbc/go/adbc"
 	"github.com/apache/arrow-go/v18/arrow"
@@ -35,8 +34,6 @@ import (
 
 // srRows keeps racing writes large enough to cross multiple native batches.
 const srRows = 3 * pipelineChunk
-
-const srWriteErr = "was renamed with its rows moved to new keys, rewritten by ALTER COLUMN … TYPE, truncated or dropped, while this statement was writing to it; some of its changes may be lost or have gone to another table"
 
 // namesN checks that a table's key prefix and index name are those of
 // the name named with some N (namesFor), and returns N. N depends on the
@@ -60,81 +57,13 @@ func (h *sqlHarness) namesN(raw goredis.UniversalClient, schema, table, named st
 	return n
 }
 
-// dropRace is a DROP TABLE that lands while a statement writes a table.
-type dropRace struct {
-	prefix string // the table's key prefix
-	left   int    // keys under it once the statement had written every row
-}
-
-// raceDrop arranges for drop to run after the first pipeline of rows that a
-// statement writes to table. The later pipelines then skip the check
-// between pipelines (as they do within rekeyFence of the last one), so the
-// statement writes the rest of the rows to keys that no table has, like
-// one that was already sending them: the hook counts them after the last
-// pipeline. Only the check after the last pipeline can find out.
-func (h *sqlHarness) raceDrop(raw goredis.UniversalClient, table string, drop func(meta *tableMeta)) *dropRace {
-	h.t.Helper()
-	r := &dropRace{}
-	testHookRowsWritten = func(meta *tableMeta, written int) {
-		if meta.Name != table {
-			return
-		}
-		if r.prefix == "" && written == pipelineChunk {
-			r.prefix = meta.prefix()
-			drop(meta)
-			meta.readAt = time.Now().Add(time.Hour)
-		}
-		if r.prefix != "" && written == srRows {
-			r.left = h.prefixKeyCount(raw, r.prefix)
-		}
-	}
-	h.t.Cleanup(func() { testHookRowsWritten = nil })
-	return r
-}
-
-// expectRaceLost checks the outcome of a statement that raced a DROP: it
-// failed, it had written two pipelines of rows after the DROP, and none is
-// left.
-func (h *sqlHarness) expectRaceLost(raw goredis.UniversalClient, r *dropRace, err error) {
-	h.t.Helper()
-	testHookRowsWritten = nil
-	if err == nil || !strings.Contains(err.Error(), srWriteErr) {
-		h.t.Errorf("writer: got %v, want an error containing %q", err, srWriteErr)
-	}
-	if r.prefix == "" {
-		h.t.Fatal("the DROP did not run")
-	}
-	if want := srRows - pipelineChunk; r.left != want {
-		h.t.Errorf("%d keys under %q after the last write, want %d", r.left, r.prefix, want)
-	}
-	if n := h.prefixKeyCount(raw, r.prefix); n != 0 {
-		h.t.Errorf("%d keys left under %q", n, r.prefix)
-	}
-}
-
-// expectNewTable re-creates a raced table and fills it with rows whose
-// note is NULL: none reads the dropped table's 'old'.
-func (h *sqlHarness) expectNewTable(raw goredis.UniversalClient, r *dropRace, schema, create, table string) {
-	h.t.Helper()
-	h.exec(create)
-	h.exec(fmt.Sprintf(`INSERT INTO %s (id) SELECT id FROM it_sr_src`, table))
-	h.expectRows(fmt.Sprintf(`SELECT COUNT(*), COUNT(note) FROM %s`, table), fmt.Sprintf("%d|0", srRows))
-	h.expectRows(fmt.Sprintf(`SELECT COUNT(*) FROM %s WHERE note = 'old'`, table), "0")
-	if prefix, _ := h.tableNames(raw, schema, strings.TrimPrefix(table, "pg_temp.")); prefix == r.prefix {
-		h.t.Errorf("the new table took the dropped table's key prefix %q", prefix)
-	}
-	if n := h.prefixKeyCount(raw, r.prefix); n != 0 {
-		h.t.Errorf("%d keys under the dropped table's prefix %q", n, r.prefix)
-	}
-}
-
 func (h *sqlHarness) setupStaleRows() {
 	h.t.Helper()
 	h.dropTables("it_sr_src", "it_sr_t")
 	h.exec(fmt.Sprintf(`CREATE TABLE it_sr_src AS SELECT x AS id, 'old' AS note FROM generate_series(1, %d) AS g(x)`, srRows))
 }
 
-// Native races run synchronously after one real acknowledged row batch. The
+// Native races run synchronously after real acknowledged row writes. The
 // callback's statements do not inherit this hook or mutate the private layout.
 type nativeRowRace struct {
 	meta      *tableMeta
@@ -150,6 +79,11 @@ func (h *sqlHarness) raceNativeRows(raw goredis.UniversalClient, table string, c
 }
 
 func (h *sqlHarness) raceNativeRowsAt(raw goredis.UniversalClient, table string, firstRows int, change func(*tableMeta)) *nativeRowRace {
+	h.t.Helper()
+	return h.raceNativeImagesAt(raw, table, firstRows, "note", "old", change)
+}
+
+func (h *sqlHarness) raceNativeImagesAt(raw goredis.UniversalClient, table string, firstRows int, field, want string, change func(*tableMeta)) *nativeRowRace {
 	h.t.Helper()
 	r := &nativeRowRace{firstRows: firstRows}
 	var hook func(*tableMeta, int)
@@ -184,7 +118,7 @@ func (h *sqlHarness) raceNativeRowsAt(raw goredis.UniversalClient, table string,
 			if err != nil {
 				h.t.Fatal(err)
 			}
-			if value, err := raw.HGet(h.ctx, meta.prefix()+strconv.FormatInt(id, 10), "note").Result(); err != nil || value != "old" {
+			if value, err := raw.HGet(h.ctx, meta.prefix()+strconv.FormatInt(id, 10), field).Result(); err != nil || value != want {
 				h.t.Fatal("acknowledged private image missing", err)
 			}
 		}

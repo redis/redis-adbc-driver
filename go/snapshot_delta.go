@@ -307,6 +307,9 @@ func (e *executor) writeSnapshotUpdates(ctx context.Context, m *tableMeta, chang
 		if err := e.store.writeSnapshotImages(ctx, m.prefix(), images, true); err != nil {
 			return wrapRedis(err, "failed to stage snapshot replacements")
 		}
+		if testHookRowsWritten != nil {
+			testHookRowsWritten(m, end)
+		}
 	}
 	return e.store.checkWritten(ctx, m)
 }
@@ -322,6 +325,9 @@ func (e *executor) writeSnapshotDeletes(ctx context.Context, m *tableMeta, keys 
 		}
 		if err := e.store.writeSnapshotImages(ctx, m.prefix(), images, true); err != nil {
 			return wrapRedis(err, "failed to stage snapshot tombstones")
+		}
+		if testHookRowsWritten != nil {
+			testHookRowsWritten(m, min(start+pipelineChunk, len(keys)))
 		}
 	}
 	return e.store.checkWritten(ctx, m)

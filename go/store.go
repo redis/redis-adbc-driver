@@ -1939,9 +1939,10 @@ func sameKeys(meta *tableMeta, raw string) bool {
 	return prefix == meta.prefix() && cur.PrefixGen == meta.PrefixGen
 }
 
-// testHookRowsWritten, when set by a test, runs after each pipeline of rows
-// that writeRows, writeUpdates or deleteKeys sends, with the number of rows
-// written (set or deleted) so far.
+// testHookRowsWritten, when set by a test, runs after acknowledged row writes.
+// Native INSERT reports each atomic batch; native replacements/tombstones report
+// each bounded image group. Legacy paths report each pipeline. The count is the
+// number of rows written (set or deleted) so far.
 var testHookRowsWritten func(meta *tableMeta, written int)
 
 // writeRows writes rows allocated by allocRows as HASHes. A write of more

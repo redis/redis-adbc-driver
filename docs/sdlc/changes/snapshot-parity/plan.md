@@ -453,3 +453,9 @@ batches and private DDL publication conflicts. It covers committed identity
 counters, private CTAS visibility, owner-local temporary writes, old readers and
 private/reference reclamation. Remaining UPDATE fixtures and the full ordinary
 rerun remain open; see the checkpoint for actual validation results.
+
+The [native UPDATE/DELETE/MERGE checkpoint](dml-races-validation.md) replaces
+mutable raceDrop/check-age fixtures with acknowledged replacements/tombstones,
+competing TRUNCATE/DROP publications, typed 40001 refusal, exact old/fresh rows
+and reclamation. Twenty-six race test events pass without test skips/failures.
+The complete ordinary/platform and performance gates remain open.
