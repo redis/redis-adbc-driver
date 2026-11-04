@@ -132,5 +132,8 @@ NaN, signed zero and NULL, including physical schema agreement.
 
 A diagnostic full Go run on the deliberately low cap-137 TLS fixture hit tests
 that require a high server cap (index-plan/cursor expectations and forced-page
-hooks). Restored and verified cap 1,000,000 with effective 4x QPF before the final
-combined full-suite run; no assertions were weakened for that mismatch.
+hooks). A finite cap-1,000,000 retry likewise retained the deliberate HASH fallback.
+The full suite's planner contracts require an unrestricted aggregate cap
+(at least 2^31). Stopped the diagnostic run and verified cap 2,147,483,648 with
+effective 4x QPF before rerunning the combined full suite. No assertions were
+weakened for the fixture mismatch.
