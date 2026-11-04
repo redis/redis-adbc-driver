@@ -287,5 +287,8 @@ execution, all topology compatibility, or every issue's full acceptance matrix.
 See also the [remaining-issues closeout](sdlc/changes/arrow-remaining-closeout/plan.md)
 for the completed acceptance matrices, explicit limits/policies and actual
 measurements. True Map/Union storage remains in separate implementation issues;
-partial matrix classifications describe normalization and allowlist boundaries,
-not an assertion that all Arrow physical encodings persist.
+the [README matrix](../README.md#apache-arrow-feature-matrix) marks completed
+normalization and explicit-layout contracts as supported, with their boundaries
+retained. The [remaining-work inventory](../README.md#remaining-arrow-and-adbc-work)
+links separate open implementation issues. Support does not imply that all Arrow
+physical encodings or extension identities persist.

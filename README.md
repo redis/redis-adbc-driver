@@ -122,7 +122,7 @@ versions, configurations, results, and limitations.
 
 ## Apache Arrow feature matrix
 
-🟢 Supported · 🟡 Partial or restricted · 🔴 Unsupported · ⚪ N/A (outside driver scope)
+🟢 Supported · 🟡 Partial, restricted or experimental · 🔴 Unsupported · ⚪ N/A (outside driver scope)
 
 This matrix describes the current source tree, not every published wheel. It
 covers the [Apache Arrow format and interfaces](https://arrow.apache.org/docs/format/Columnar.html)
@@ -132,38 +132,44 @@ client interchange format. N/A identifies responsibilities of another service or
 execution engine; it does not describe a missing driver capability. Tracking links
 for those rows cover scope or companion integration decisions.
 
+Supported means the documented SQL/Arrow contract is implemented, including
+normalization and explicit result-layout options where described. It does not
+mean the original input encoding or metadata persists unchanged. Closed tracking
+issues record completed contracts; [remaining work](#remaining-arrow-and-adbc-work)
+has separate open issues. Restrictions stay in the behavior column.
+
 | Feature | Support | Driver behavior and limits | Tracking |
 |---|---|---|---|
 | Columnar record batches, schemas and NULL values | 🟢 Supported | Queries return typed Arrow batches with validity information. | — |
 | Arrow C Data and C Stream interfaces | 🟢 Supported | The native ADBC boundary exchanges Arrow schemas, arrays and `ArrowArrayStream` results/bindings. | — |
 | Arrow bulk ingestion | 🟢 Supported | Bind a batch or stream; create, append, replace and create-or-append modes are available. Writes autocommit. | — |
 | Arrow IPC stream and file formats | 🟢 Supported | Native import/export through statement options and local files; [IPC contract and examples](docs/arrow-ipc.md). | — |
-| Incremental query results | 🟡 Partial | Eligible indexed single-table queries, unordered key lookups and eligible `UNION ALL` trees fetch pages/chunks as batches are consumed. Blocking plans can materialize results; this is finite streaming. See [streamed results](docs/driver-reference.md#streamed-results). | [#198](https://github.com/redis/redis-adbc-driver/issues/198) |
+| Incremental scans, key lookups and UNION ALL | 🟢 Supported | Eligible indexed single-table queries, unordered key lookups and eligible `UNION ALL` trees fetch pages/chunks as batches are consumed. Blocking plans can materialize results; this is finite streaming. See [streamed results](docs/driver-reference.md#streamed-results). | [#198](https://github.com/redis/redis-adbc-driver/issues/198) |
 | In-process buffer interchange and ownership | 🟢 Supported | C export shares Arrow buffers under release callbacks; binding/ingest retain or copy as required for lifetime safety. [Ownership contract](docs/arrow-interoperability.md#ownership-and-extension-policy). | [#199](https://github.com/redis/redis-adbc-driver/issues/199) |
 | Redis wire zero-copy transport | 🔴 Unsupported | Redis replies require decoding/conversion; no end-to-end zero-copy storage/network path. | [#199](https://github.com/redis/redis-adbc-driver/issues/199) |
 | Boolean, signed integers, floating point, UTF-8 and binary | 🟢 Supported | Standard SQL/Arrow mappings; int8 and float16 inputs widen to int16 and float32. | — |
-| Unsigned integers | 🟡 Partial | uint8/16/32 widen to signed integers; full-range uint64 normalizes exactly to NUMERIC(20,0). Unsigned physical identity is not preserved. | [#200](https://github.com/redis/redis-adbc-driver/issues/200) |
-| Decimal32/64/128/256 | 🟡 Partial | Inputs normalize to SQL NUMERIC up to 76 digits; explicit result layouts select Decimal32/64/128/256 when precision fits. | [#201](https://github.com/redis/redis-adbc-driver/issues/201) |
-| Date, time and timestamp | 🟡 Partial | Date64 and zoned timestamps normalize to SQL DATE/UTC instants; explicit output selects Date64 or a timestamp zone. | [#202](https://github.com/redis/redis-adbc-driver/issues/202) |
-| Intervals and durations | 🟡 Partial | Inputs normalize to SQL INTERVAL; explicit duration/month/day-time output rejects lossy conversions. | [#203](https://github.com/redis/redis-adbc-driver/issues/203) |
-| Large/view strings and binary; fixed-size binary | 🟡 Partial | Accepted on input; explicit result layouts select large/view or fixed-width output with byte-width checks. | [#204](https://github.com/redis/redis-adbc-driver/issues/204) |
-| Dictionary encoding | 🟡 Partial | Input dictionaries decode; opt-in string/binary output uses bounded per-batch int32 dictionaries. IPC file and partition restrictions apply. | [#205](https://github.com/redis/redis-adbc-driver/issues/205) |
-| List and LargeList | 🟡 Partial | Recursive ragged Arrow lists and named-record elements normalize to List; physical offset widths are not retained. | [#206](https://github.com/redis/redis-adbc-driver/issues/206) |
-| Struct | 🟡 Partial | Named struct ingestion/storage preserves names and nullability with normalized child types; anonymous SQL ROW expressions retain their existing restrictions. | [#207](https://github.com/redis/redis-adbc-driver/issues/207) |
-| FixedSizeList, ListView/LargeListView and run-end encoding | 🟡 Partial | Input normalizes to canonical lists/values with decoded-expansion limits; physical layout identity is not retained. See the [layout assessment](docs/arrow-interoperability.md#layout-assessment-and-decoded-input-limits). | [#208](https://github.com/redis/redis-adbc-driver/issues/208) |
+| Unsigned integers | 🟢 Supported | uint8/16/32 widen to signed integers; full-range uint64 normalizes exactly to NUMERIC(20,0). Unsigned physical identity is not preserved. | [#200](https://github.com/redis/redis-adbc-driver/issues/200) |
+| Decimal32/64/128/256 | 🟢 Supported | Inputs normalize to SQL NUMERIC up to 76 digits; explicit result layouts select Decimal32/64/128/256 when precision fits. | [#201](https://github.com/redis/redis-adbc-driver/issues/201) |
+| Date, time and timestamp | 🟢 Supported | Date64 and zoned timestamps normalize to SQL DATE/UTC instants; explicit output selects Date64 or a timestamp zone. | [#202](https://github.com/redis/redis-adbc-driver/issues/202) |
+| Intervals and durations | 🟢 Supported | Inputs normalize to SQL INTERVAL; explicit duration/month/day-time output rejects lossy conversions. | [#203](https://github.com/redis/redis-adbc-driver/issues/203) |
+| Large/view strings and binary; fixed-size binary | 🟢 Supported | Accepted on input; explicit result layouts select large/view or fixed-width output with byte-width checks. | [#204](https://github.com/redis/redis-adbc-driver/issues/204) |
+| Dictionary input and string/binary output | 🟢 Supported | Input dictionaries decode; opt-in string/binary output uses bounded per-batch int32 dictionaries. IPC file and partition restrictions apply. | [#205](https://github.com/redis/redis-adbc-driver/issues/205) |
+| List and LargeList input normalization | 🟢 Supported | Recursive ragged Arrow lists and named-record elements normalize to List; physical offset widths are not retained. | [#206](https://github.com/redis/redis-adbc-driver/issues/206) |
+| Named Struct ingestion and output | 🟢 Supported | Named struct ingestion/storage preserves names and nullability with normalized child types; anonymous SQL ROW expressions retain their existing restrictions. | [#207](https://github.com/redis/redis-adbc-driver/issues/207) |
+| FixedSizeList, ListView/LargeListView and run-end input normalization | 🟢 Supported | Input normalizes to canonical lists/values with decoded-expansion limits; physical layout identity is not retained. See the [layout assessment](docs/arrow-interoperability.md#layout-assessment-and-decoded-input-limits). | [#208](https://github.com/redis/redis-adbc-driver/issues/208) |
 | Map | 🔴 Unsupported | All Map input schemas reject, including empty/NULL/sliced arrays; stored key/duplicate semantics require a separate implementation. | [#267](https://github.com/redis/redis-adbc-driver/issues/267) |
 | Dense/sparse Union | 🔴 Unsupported | Both layouts reject; tagged-value storage and schema evolution require a separate implementation. | [#268](https://github.com/redis/redis-adbc-driver/issues/268) |
-| Arrow extension types | 🟡 Partial | Reject by default; explicit `extension_policy=storage` normalizes allowlisted top-level UUID/JSON extensions to canonical SQL storage. Unknown/nested semantics reject; extension identity is not persisted. [Policy](docs/arrow-interoperability.md#explicit-extension-storage-normalization). | [#209](https://github.com/redis/redis-adbc-driver/issues/209) |
+| UUID/JSON extension storage normalization | 🟢 Supported | Reject by default; explicit `extension_policy=storage` normalizes allowlisted top-level UUID/JSON extensions to canonical SQL storage. Unknown/nested extensions reject; extension identity is not persisted. [Policy](docs/arrow-interoperability.md#explicit-extension-storage-normalization). | [#209](https://github.com/redis/redis-adbc-driver/issues/209) |
 | SQL execution, prepared statements and Arrow parameter binding | 🟢 Supported | Supports `Prepare`, `Bind`, `BindStream`, parameter schemas and result-schema discovery for supported SQL. | — |
-| ADBC metadata discovery | 🟡 Partial | Driver info, objects, table schemas/types and approximate managed-table row counts are available. Exact/column statistics and UNIQUE/FOREIGN KEY metadata remain unavailable. See [statistics](docs/adbc-statistics.md). | [#210](https://github.com/redis/redis-adbc-driver/issues/210) |
-| ADBC partitioned reads | 🟡 Partial | Portable row-range descriptors cover a restricted SELECT subset; retained-result mode supports broader SQL with quotas/expiry. No shared source snapshot. Rebuild from source; see [partitioned reads](docs/partitioned-reads.md). | [#211](https://github.com/redis/redis-adbc-driver/issues/211) |
-| Statement cancellation | 🟡 Partial | Cancels driver work and interrupts execution-owned socket waits, including blocked cursor pages/pipelines. Remote server work may continue; sorts finish before checking cancellation. See [cancellation](docs/driver-reference.md#cancelling-a-statement). | [#212](https://github.com/redis/redis-adbc-driver/issues/212) |
+| ADBC metadata and row-count statistics | 🟢 Supported | Driver info, objects, table schemas/types and approximate managed-table row counts are available. Counts remain approximate under concurrent writes; column statistics are unavailable. UNIQUE/FOREIGN KEY metadata depends on [#114](https://github.com/redis/redis-adbc-driver/issues/114). See [statistics](docs/adbc-statistics.md). | [#210](https://github.com/redis/redis-adbc-driver/issues/210) |
+| ADBC partitioned reads | 🟢 Supported | Portable row-range descriptors cover a restricted SELECT subset; retained-result mode supports broader SQL with quotas/expiry. No shared source snapshot. Rebuild from source; see [partitioned reads](docs/partitioned-reads.md). | [#211](https://github.com/redis/redis-adbc-driver/issues/211) |
+| Statement cancellation | 🟢 Supported | Cancels driver work and interrupts execution-owned socket waits, including blocked cursor pages/pipelines. Remote server work may continue; sorts finish before checking cancellation. See [cancellation](docs/driver-reference.md#cancelling-a-statement). | [#212](https://github.com/redis/redis-adbc-driver/issues/212) |
 | Transactions and rollback through ADBC | 🔴 Unsupported | Autocommit only; disabling autocommit is rejected. | [#113](https://github.com/redis/redis-adbc-driver/issues/113) |
 | Substrait plans | 🔴 Unsupported | `SetSubstraitPlan` returns NotImplemented. | [#213](https://github.com/redis/redis-adbc-driver/issues/213) |
 | Arrow Flight / Flight SQL endpoint | ⚪ N/A | A Flight endpoint belongs to a separately deployed service, such as the [Redis Flight server](https://github.com/redis/redis-apache-arrow-flight). This native ADBC driver supplies an in-process client interface. | [#214](https://github.com/redis/redis-adbc-driver/issues/214) |
 | Continuous subscriptions / CDC | ⚪ N/A | Durable change feeds and snapshot-to-live handoff need a separately designed source/service contract. Finite SQL query results are the driver's current interface; [#196](https://github.com/redis/redis-adbc-driver/issues/196) evaluates where CDC should live. | [#196](https://github.com/redis/redis-adbc-driver/issues/196) |
-| Arrow C Device interface | 🟡 Experimental | Native extensions stage flat numeric/boolean CPU/CUDA arrays, bind device input and export device result streams. Explicit synchronization/ownership contract; Validated on NVIDIA A10G with real producer/consumer tests. [API and limits](docs/gpu-execution.md). | [#215](https://github.com/redis/redis-adbc-driver/issues/215) |
-| GPU query execution | 🟡 Experimental | Opt-in Linux CUDA integer predicates; fetching, grouping and exact reducers remain on CPU. Restricted SQL subset, no automatic fallback or speedup claim. [Scope](docs/gpu-execution.md). | [#215](https://github.com/redis/redis-adbc-driver/issues/215) |
+| Arrow C Device interface | 🟡 Experimental | Native extensions stage flat numeric/boolean CPU/CUDA arrays, bind device input and export device result streams. Explicit synchronization/ownership contract; Validated on NVIDIA A10G with real producer/consumer tests. [API and limits](docs/gpu-execution.md). | [#293](https://github.com/redis/redis-adbc-driver/issues/293), [#294](https://github.com/redis/redis-adbc-driver/issues/294), [#295](https://github.com/redis/redis-adbc-driver/issues/295) |
+| GPU query execution | 🟡 Experimental | Opt-in Linux CUDA integer predicates; fetching, grouping and exact reducers remain on CPU. Restricted SQL subset, no automatic fallback or speedup claim. [Scope](docs/gpu-execution.md). | [#291](https://github.com/redis/redis-adbc-driver/issues/291), [#292](https://github.com/redis/redis-adbc-driver/issues/292) |
 
 See [Arrow normalization, result-layout options and ownership](docs/arrow-interoperability.md) for the precise contracts and remaining acceptance limits.
 
@@ -173,6 +179,28 @@ Type mappings are implemented in [types.go](go/types.go) and
 Supported interchange does not imply support for every Arrow layout or every
 SQL operator. See the [SQL reference](docs/driver-reference.md#supported-sql)
 for type and execution details. [Generated identifiers, UUIDs, modifying CTEs, named indexes and materialized views](docs/sql-101-105.md) describe the additional SQL contracts and limits.
+
+### Remaining Arrow and ADBC work
+
+These open issues track extensions beyond the supported contracts above.
+Normalization alone is not unfinished work; the gaps below require additional
+implementation. Map and Union already have open trackers in the matrix.
+
+| Remaining capability | Current boundary | Open issue |
+|---|---|---|
+| Incremental execution for more SQL plans | General HASH discovery and blocking/stateful operators can still materialize; `stream_required` rejects materializing fallback. | [#300](https://github.com/redis/redis-adbc-driver/issues/300) |
+| Dictionary-encoded IPC files | Per-batch dictionaries work with IPC streams; file output rejects them. | [#301](https://github.com/redis/redis-adbc-driver/issues/301) |
+| Explicit result layouts in partitioned reads | Both live and retained modes reject nonempty `result_layouts`; canonical output is supported. | [#302](https://github.com/redis/redis-adbc-driver/issues/302) |
+| Column-level statistics | NULL/distinct/min/max/width/size quantities are omitted; row-count statistics are supported. | [#303](https://github.com/redis/redis-adbc-driver/issues/303) |
+| Broader partition SQL coverage | Live reads use a deterministic row-local subset; retained mode still excludes regex SUBSTRING, recursive CTEs, generators and lateral/table functions. | [#304](https://github.com/redis/redis-adbc-driver/issues/304) |
+| Nested extensions and additional explicit mappings | Only top-level UUID/JSON storage normalization is allowlisted; unknown/nested extensions reject. | [#305](https://github.com/redis/redis-adbc-driver/issues/305) |
+| Cancellation during driver-side sorts | A sort already in progress finishes before checking cancellation. | [#306](https://github.com/redis/redis-adbc-driver/issues/306) |
+
+Transaction and constraint gaps remain in [#113](https://github.com/redis/redis-adbc-driver/issues/113)
+and [#114](https://github.com/redis/redis-adbc-driver/issues/114). No shared source
+snapshot, remote server-work termination or rollback guarantee is added by the
+support labels. Experimental GPU/device expansions have their own open trackers
+in the matrix.
 
 ## Redis Software feature matrix
 
