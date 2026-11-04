@@ -220,3 +220,10 @@ restores immutable sparse input construction and enables eligible late projectio
 after writes create multiple segments. Ordered output limits apply globally and
 cap fallback retains complete projections. Exact result and transfer checks are
 recorded with their remaining full-parity limits.
+
+The [comment/rekey checkpoint](comment-validation.md) restores pinned metadata
+inspection and canonical forced-rekey ownership. Deterministic same-definition
+publication races require exact winners and explicit serialization refusals,
+with current metadata checked before fresh client continuation. All nine comment
+family race cases pass; full parity remains open. Earlier PR description evidence
+is preserved in the [history archive](pr-evidence-history.md).
