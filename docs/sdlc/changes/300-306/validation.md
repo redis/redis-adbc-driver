@@ -126,3 +126,11 @@ separate admission evidence exists; added native Map and Union rejection cases.
 The combined branch passed the complete unit-only Go suite and the complete
 native suite: **555 passed, 8 skipped, 3 subtests passed**, zero failures,
 34.97 seconds. The managed TLS fixture retained verified 4x QPF and cap 137.
+
+Two additional native DISTINCT parity cases passed for exact large decimals,
+NaN, signed zero and NULL, including physical schema agreement.
+
+A diagnostic full Go run on the deliberately low cap-137 TLS fixture hit tests
+that require a high server cap (index-plan/cursor expectations and forced-page
+hooks). Restored and verified cap 1,000,000 with effective 4x QPF before the final
+combined full-suite run; no assertions were weakened for that mismatch.

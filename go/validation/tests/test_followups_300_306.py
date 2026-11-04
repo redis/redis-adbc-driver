@@ -220,3 +220,32 @@ def test_stream_distinct_unadmitted_tagged_results(conn, source):
         finally:
             cur.adbc_statement.set_options(**{"adbc.redis.stream_required": "false"})
             cur.execute(f"DROP TABLE IF EXISTS {table}")
+
+
+@pytest.mark.parametrize("source", [
+    pa.array([float('nan'), float('nan'), 0.0, -0.0, 1.5, None, None], pa.float64()),
+    pa.array([decimal.Decimal('9007199254740993.00'), decimal.Decimal('9007199254740993.00'),
+              decimal.Decimal('1.20'), decimal.Decimal('1.2'), None, None], pa.decimal128(20, 2)),
+])
+def test_stream_distinct_numeric_schema_and_equality(conn, source):
+    import math
+    table = "it_followup_distinct_numeric"
+    def logical_values(table):
+        values = table.column(0).to_pylist()
+        return sorted(["NaN" if isinstance(v, float) and math.isnan(v) else v for v in values], key=repr)
+    with conn.cursor() as cur:
+        cur.execute(f"DROP TABLE IF EXISTS {table}")
+        cur.adbc_ingest(table, pa.table({"v": source}))
+        try:
+            query = f"SELECT DISTINCT v FROM {table}"
+            cur.adbc_statement.set_options(**{"adbc.redis.stream_results": "false"})
+            cur.execute(query)
+            expected = cur.fetch_arrow_table()
+            cur.adbc_statement.set_options(**{"adbc.redis.stream_results": "true", "adbc.redis.stream_required": "true", "adbc.redis.stream_batch_rows": "1"})
+            cur.execute(query)
+            actual = cur.fetch_arrow_table()
+            assert actual.schema == expected.schema
+            assert logical_values(actual) == logical_values(expected)
+        finally:
+            cur.adbc_statement.set_options(**{"adbc.redis.stream_required": "false"})
+            cur.execute(f"DROP TABLE IF EXISTS {table}")
