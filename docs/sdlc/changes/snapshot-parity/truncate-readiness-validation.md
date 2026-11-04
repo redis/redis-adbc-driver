@@ -49,3 +49,9 @@ failed fixture was started separately; its results cannot be combined with the
 failed full run into a full pass. Current-protocol Cluster/role/recovery,
 platform/native, public resume, sustained compaction and comparative benchmarks
 remain open.
+
+The subsequent 774-name continuation is terminal at Go's default package deadline:
+879 pass events, 249 explicit skips, no failed assertion events; root fails at
+600.729 s. TestSQLTagExactness began 0.719 s before the timeout. See the
+[bounded suite budget checkpoint](full-suite-budget-validation.md); this is not a
+TAG assertion failure or a completed ordinary run.

@@ -479,3 +479,9 @@ transient states, cancellation, fresh publication and old-reader reclamation.
 Twenty race test events pass without test skips/failures. The full ordinary run
 at source 21e8509 stopped at that primitive after 680 passes/16 skips; the full
 ordinary rerun and broader parity gates remain open.
+
+The [full-suite budget checkpoint](full-suite-budget-validation.md) records the
+774-name continuation's ten-minute package timeout after 879 passes/249 skips,
+and gives Make/hosted full-package runs a bounded 30-minute clock. Individual
+operation/cancellation deadlines remain in force. Complete ordinary and hosted
+passes remain unproved.

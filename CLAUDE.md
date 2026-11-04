@@ -16,7 +16,9 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.27.3).
   curl, jq). Use a dedicated test database; suites modify data.
 - Full default Software suite: `make -C go test-software`. It verifies QPF and
   noeviction through the management API before passing the retained-control
-  policy declaration. Use a dedicated Compose project/ports for concurrent work.
+  policy declaration. Full package runs have a 30-minute budget (override with
+  `GO_TEST_TIMEOUT`); individual statement/cancellation deadlines stay bounded.
+  Use a dedicated Compose project/ports for concurrent work.
 - Other verified endpoints: `REDIS_URI=... make -C go test`; Software requires
   `REDIS_RETAINED_CONTROL_PERSISTENCE=guaranteed` only after API policy verification.
 - ADBC validation: `REDIS_URI=redis://localhost:6379/0 make -C go validate`
