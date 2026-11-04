@@ -84,9 +84,11 @@ func (h *sqlHarness) gsSetPushdown(sql string) []bool {
 	if err != nil {
 		h.t.Fatalf("%s: %v", sql, err)
 	}
-	e := &executor{store: &store{client: h.rawClient()}, schema: "public", pushdown: PushdownExact, now: time.Now().UTC()}
+	st, ctx, pin := h.inspectionSnapshot(h.rawClient())
+	defer pin.release()
+	e := &executor{store: st, schema: "public", pushdown: PushdownExact, now: time.Now().UTC()}
 	e.cache = newExecCache()
-	plan, err := e.planSelect(h.ctx, parsed[0].Stmt.(*SelectStmt), nil)
+	plan, err := e.planSelect(ctx, parsed[0].Stmt.(*SelectStmt), nil)
 	if err != nil {
 		h.t.Fatalf("%s: %v", sql, err)
 	}
@@ -96,7 +98,7 @@ func (h *sqlHarness) gsSetPushdown(sql string) []bool {
 	var out []bool
 	for _, set := range plan.grouping.sets {
 		sub := plan.grouping.setPlan(set, nil)
-		wp, err := e.planWhere(h.ctx, sub.sel.Where, sub.meta, nil)
+		wp, err := e.planWhere(ctx, sub.sel.Where, sub.meta, nil)
 		if err != nil {
 			h.t.Fatalf("%s: %v", sql, err)
 		}
@@ -104,7 +106,7 @@ func (h *sqlHarness) gsSetPushdown(sql string) []bool {
 		for _, it := range sub.items {
 			collectAggregates(it.expr, &aggs)
 		}
-		_, ok, err := e.indexAggregate(h.ctx, sub, wp, aggs)
+		_, ok, err := e.indexAggregate(ctx, sub, wp, aggs)
 		if err != nil {
 			h.t.Fatalf("%s: %v", sql, err)
 		}

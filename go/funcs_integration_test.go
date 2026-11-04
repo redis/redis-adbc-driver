@@ -20,6 +20,7 @@ package redis
 // are still raised only on rows.
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -493,13 +494,43 @@ func TestSQLFunctionsStoredBefore(t *testing.T) {
 	h.dropTables("it_fx_oldc")
 	t.Cleanup(func() { h.dropViews(views...) })
 	raw := h.rawClient()
-	st := &store{client: raw}
 	for i, table := range []string{"it_fx_t", "it_fx_e"} {
-		if err := st.putView(h.ctx, &viewMeta{Schema: defaultSchema, Name: views[i], SQL: "SELECT nosuchfunc(id) AS x FROM " + table,
+		h.exec("CREATE VIEW " + views[i] + " AS SELECT upper(s) AS x FROM " + table)
+	}
+	st, oldCtx, oldPin := h.inspectionSnapshot(raw, true)
+	defer oldPin.release()
+	beforeViews := make([]string, len(views))
+	for i, v := range views {
+		var err error
+		beforeViews[i], err = st.redis(oldCtx).Get(oldCtx, viewKey(defaultSchema, v)).Result()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	wctx, work, err := st.beginSnapshotWrite(oldCtx, oldPin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.abortSnapshot(oldPin, work)
+	for i, table := range []string{"it_fx_t", "it_fx_e"} {
+		if err := st.putView(wctx, &viewMeta{Schema: defaultSchema, Name: views[i], SQL: "SELECT nosuchfunc(id) AS x FROM " + table,
 			Columns: []columnMeta{{Name: "x", Type: typeString, Nullable: true}}}); err != nil {
 			t.Fatal(err)
 		}
 	}
+	if err := st.publishSnapshot(wctx, oldPin, work); err != nil {
+		t.Fatal(err)
+	}
+	for i, v := range views {
+		if got, err := st.redis(oldCtx).Get(oldCtx, viewKey(defaultSchema, v)).Result(); err != nil || got != beforeViews[i] {
+			t.Fatal("private view edit changed pinned definition", err)
+		}
+	}
+	oldRows := snapshotExecuteTest(t, st, oldCtx, "SELECT x FROM it_fx_oldv ORDER BY x")
+	if len(oldRows.rows) != 2 || oldRows.rows[0][0].S != "A" || oldRows.rows[1][0].S != "X" {
+		t.Fatal("old valid view no longer reads its pinned input", oldRows.rows)
+	}
+	oldPin.release()
 	for _, v := range views {
 		msg := fmt.Sprintf(`view %q is no longer valid: function nosuchfunc(integer) does not exist`, v)
 		h.expectErrorText("SELECT * FROM "+v, msg)
@@ -518,29 +549,46 @@ func TestSQLFunctionsStoredBefore(t *testing.T) {
 	// A CHECK, and a DEFAULT, stored with an unknown function.
 	h.exec("CREATE TABLE it_fx_oldc (id INTEGER, s VARCHAR)")
 	h.exec("INSERT INTO it_fx_oldc VALUES (1, 'a')")
-	if err := st.updateTable(h.ctx, defaultSchema, "it_fx_oldc", func(m *tableMeta) error {
-		m.Checks = append(m.Checks, checkMeta{Name: "it_fx_oldc_check", Expr: "nosuchfunc(id) > 0"})
-		return nil
-	}, nil); err != nil {
+	tableStore, tableCtx, tablePin := h.inspectionSnapshot(raw)
+	defer tablePin.release()
+	beforeTable, err := tableStore.redis(tableCtx).Get(tableCtx, metaKey(defaultSchema, "it_fx_oldc")).Result()
+	if err != nil {
 		t.Fatal(err)
 	}
+	editDefinition := func(edit func(*tableMeta)) {
+		t.Helper()
+		m := h.inspectTable(raw, defaultSchema, "it_fx_oldc")
+		edit(m)
+		doc, err := json.Marshal(m)
+		if err != nil {
+			t.Fatal(err)
+		}
+		h.writeTableJSON(raw, defaultSchema, "it_fx_oldc", string(doc))
+	}
+	editDefinition(func(m *tableMeta) {
+		m.Checks = append(m.Checks, checkMeta{Name: "it_fx_oldc_check", Expr: "nosuchfunc(id) > 0"})
+	})
 	msg := `check constraint "it_fx_oldc_check" of relation "it_fx_oldc" can't be evaluated ` +
 		`(function nosuchfunc(integer) does not exist); drop it with ALTER TABLE … DROP CONSTRAINT`
 	h.expectErrorText("INSERT INTO it_fx_oldc VALUES (2, 'b')", msg)
 	h.expectErrorText("INSERT INTO it_fx_oldc SELECT id, s FROM it_fx_e", msg)
 	h.expectErrorText("UPDATE it_fx_oldc SET s = 'c' WHERE false", msg)
 	h.exec("ALTER TABLE it_fx_oldc DROP CONSTRAINT it_fx_oldc_check")
-	if err := st.updateTable(h.ctx, defaultSchema, "it_fx_oldc", func(m *tableMeta) error {
+	editDefinition(func(m *tableMeta) {
 		m.Columns[1].Default = "nosuchfunc(1)"
-		return nil
-	}, nil); err != nil {
-		t.Fatal(err)
-	}
+	})
 	h.expectErrorText("INSERT INTO it_fx_oldc (id) VALUES (2)", "function nosuchfunc(integer) does not exist")
 	h.exec("INSERT INTO it_fx_oldc VALUES (2, 'b')") // the default isn't needed
 	h.exec("ALTER TABLE it_fx_oldc ALTER COLUMN s DROP DEFAULT")
 	h.exec("INSERT INTO it_fx_oldc (id) VALUES (3)")
 	h.expectRows("SELECT id, s FROM it_fx_oldc ORDER BY id", "1|a", "2|b", "3|NULL")
+	if got, err := tableStore.redis(tableCtx).Get(tableCtx, metaKey(defaultSchema, "it_fx_oldc")).Result(); err != nil || got != beforeTable {
+		t.Fatal("invalid CHECK/default edit changed pinned table definition", err)
+	}
+	oldRows = snapshotExecuteTest(t, tableStore, tableCtx, "SELECT id,s FROM it_fx_oldc")
+	if len(oldRows.rows) != 1 || oldRows.rows[0][0].I != 1 || oldRows.rows[0][1].S != "a" {
+		t.Fatal("definition edits or subsequent writes changed pinned rows", oldRows.rows)
+	}
 }
 
 // information_schema.routines lists the registry's functions by each of

@@ -128,17 +128,19 @@ func (h *sqlHarness) indexAggIn(mode, sql string) bool {
 	if err != nil {
 		h.t.Fatalf("%s: %v", sql, err)
 	}
-	e := &executor{store: &store{client: h.rawClient()}, schema: defaultSchema, pushdown: mode, now: time.Now().UTC()}
+	st, ctx, pin := h.inspectionSnapshot(h.rawClient())
+	defer pin.release()
+	e := &executor{store: st, schema: defaultSchema, pushdown: mode, now: time.Now().UTC()}
 	e.cache = newExecCache()
-	plan, err := e.planSelect(h.ctx, parsed[0].Stmt.(*SelectStmt), nil)
+	plan, err := e.planSelect(ctx, parsed[0].Stmt.(*SelectStmt), nil)
 	if err != nil {
 		h.t.Fatalf("%s: %v", sql, err)
 	}
-	wp, err := e.planWhere(h.ctx, plan.sel.Where, plan.meta, nil)
+	wp, err := e.planWhere(ctx, plan.sel.Where, plan.meta, nil)
 	if err != nil {
 		h.t.Fatalf("%s: %v", sql, err)
 	}
-	_, ok, err := e.indexAggregate(h.ctx, plan, wp, plan.aggregateCalls())
+	_, ok, err := e.indexAggregate(ctx, plan, wp, plan.aggregateCalls())
 	if err != nil {
 		h.t.Fatalf("%s: %v", sql, err)
 	}

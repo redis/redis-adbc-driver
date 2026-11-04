@@ -26,6 +26,10 @@ integrates incoming scan/device work while retaining snapshot visibility and
 execution cleanup. Experimental directory/candidate prefetch and public wide
 SQL/partition checks pass; full combined validation remains open.
 
+The [stored-function and aggregate inspection checkpoint](stored-functions-validation.md)
+restores private invalid-definition fixtures, checks pinned metadata/rows and
+holds aggregate inspection on one generation. Full ordinary/platform parity remains open.
+
 The [consistency-boundary recommendation](consistency-boundary.md) proposes a
 shared driver consistency layer across execution paths. A new
 Redis server extension is not required by this plan.
