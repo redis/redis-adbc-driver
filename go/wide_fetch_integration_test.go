@@ -58,6 +58,18 @@ func TestSQLWideHashFetchBothAPIs(t *testing.T) {
 		t.Fatal(err)
 	}
 	outputs = append(outputs, "stamp", "id AS duplicate", "__rowid")
+	func() {
+		r, _ := h.openStream(h.ctx, h.conn, "SELECT id,label,p0 FROM "+table, nil,
+			map[string]string{OptionIntStreamBatchRows: "1"})
+		defer r.Release()
+		s, ok := r.(*streamReader)
+		if !ok || s.it == nil || len(s.it.need) >= 64 || s.it.prefetch != nil {
+			t.Fatalf("narrow projection started a wide prefetch worker: %T", r)
+		}
+		if !r.Next() || r.RecordBatch().NumRows() != 1 {
+			t.Fatalf("missing narrow control batch: %v", r.Err())
+		}
+	}()
 	q := "SELECT " + strings.Join(outputs, ",") + " FROM " + table
 	for _, tc := range []struct {
 		name, suffix string

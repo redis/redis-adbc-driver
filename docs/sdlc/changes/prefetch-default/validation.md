@@ -53,3 +53,17 @@ The C-boundary summary retains unsupported Go heap/allocation counters as null,
 not zero, and rejects mixed missing instrumentation. The eight Python tests
 include that reporting contract. The C and constrained-CPU matrices were both
 extended to twenty pairs before any timings began.
+
+The completed twenty-pair C shared-library screen passed 336 executions. Wide
+median elapsed improved 14.03% regular / 14.35% partition with one reader, and
+5.52% regular / 8.70% partition with four readers. One-reader cases won 20/20
+pairs and four-reader cases won 18/20. All wide paired-bootstrap upper bounds
+were below zero. These are completed C results, not yet the overall promotion
+decision; the Go/64-column/constrained-CPU screens remain pending.
+
+Wide C sampled process-RSS medians increased about 17–24 MB. Narrow controls also
+show a process-RSS offset, so do not call the whole RSS difference the cost of an
+owned lookahead page. A live narrow-projection assertion in the existing wide
+API test confirms fewer than 64 required columns and no prefetch worker; the
+focused Software race test passed (14.255 s). The theoretical bound remains one
+additional reply page per active eligible reader; variable-width values matter.
