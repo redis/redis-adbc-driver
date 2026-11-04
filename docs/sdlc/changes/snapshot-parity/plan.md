@@ -406,3 +406,9 @@ real acknowledged private batches against competing create/DROP/recreation for
 SQL, Arrow and owner-local temporary writes. Nine race events pass typed 40001
 refusal, exact replacement values, reader retention, input consumption and private
 reclamation. Remaining TRUNCATE/UPDATE race fixtures and full parity remain open.
+
+The [statistics checkpoint](statistics-validation.md) fixes an unpinned public
+GetStatistics call and resolves native counts through proven Search visibility or
+bounded authoritative directories. Eight race events, unit-only packages and a
+rebuilt-native C/ADBC test pass; one ACL-principal check explicitly skips. Full
+ordinary/platform, restricted-reader and performance gates remain open.

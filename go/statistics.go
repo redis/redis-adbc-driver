@@ -6,6 +6,9 @@ package redis
 
 import (
 	"context"
+	"errors"
+	"io"
+	"math"
 	"strconv"
 	"time"
 
@@ -40,8 +43,8 @@ func (c *connectionImpl) GetStatisticNames(ctx context.Context) (array.RecordRea
 }
 
 // GetStatistics exposes Search or authoritative HASH row counts for permanent
-// managed tables. Both paths are best effort under concurrent DML; neither
-// provides a source snapshot. Other quantities/layouts are omitted.
+// managed tables. Native catalog discovery and visibility share one snapshot;
+// other quantities/layouts are omitted.
 func (c *connectionImpl) GetStatistics(ctx context.Context, catalog, dbSchema, tableName *string, approximate bool) (array.RecordReader, error) {
 	if err := c.statisticsAccess(ctx); err != nil {
 		return nil, err
@@ -50,6 +53,11 @@ func (c *connectionImpl) GetStatistics(ctx context.Context, catalog, dbSchema, t
 	if transport != nil {
 		defer transport.finish()
 	}
+	ctx, pin, err := c.store.acquireSnapshot(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer pin.release()
 	b := array.NewRecordBuilder(c.Alloc, adbc.GetStatisticsSchema)
 	defer b.Release()
 	if matchPattern(catalogName, catalog) {
@@ -86,7 +94,9 @@ func (c *connectionImpl) GetStatistics(ctx context.Context, catalog, dbSchema, t
 					continue
 				}
 				var n int64
-				if approximate {
+				if snapshotOf(ctx) != nil && snapshotDataID(meta.prefix()) != "" {
+					n, err = c.snapshotStatisticRowCount(ctx, meta, approximate)
+				} else if approximate {
 					if err := c.store.checkRangeReadiness(ctx, meta.index()); err != nil {
 						return nil, err
 					}
@@ -111,9 +121,70 @@ func (c *connectionImpl) GetStatistics(ctx context.Context, catalog, dbSchema, t
 	if err := cancelled(ctx); err != nil {
 		return nil, err
 	}
+	if scope := snapshotOf(ctx); scope != nil {
+		if err := scope.pin.valid(ctx); err != nil {
+			return nil, err
+		}
+	}
 	record := b.NewRecordBatch()
 	defer record.Release()
 	return array.NewRecordReader(adbc.GetStatisticsSchema, []arrow.RecordBatch{record})
+}
+
+// Prefer proven immutable visibility masks for approximate-request counts.
+// Inexact IDs or excess mask work fall back to bounded authoritative merging,
+// never physical document totals that include shadowed versions/tombstones.
+func (c *connectionImpl) snapshotStatisticRowCount(ctx context.Context, meta *tableMeta, approximate bool) (int64, error) {
+	ctx, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
+	if approximate {
+		// A single immutable baseline uses the same proof as a segmented table;
+		// its normal scan flag need not force statistics into a row-by-row scan.
+		indexed := *meta
+		indexed.SnapshotOverlay = true
+		queries, ok, err := (&executor{store: c.store}).snapshotIndexQueries(ctx, &indexed)
+		if err != nil {
+			return 0, err
+		}
+		if ok {
+			var count int64
+			for _, query := range queries {
+				if err := c.store.checkRangeReadiness(ctx, query.segment.Index); err != nil {
+					return 0, err
+				}
+				n, err := c.store.countMatches(ctx, query.segment.Index, query.query)
+				if err != nil {
+					return 0, err
+				}
+				if n < 0 || n > query.segment.Rows || count > math.MaxInt64-n {
+					return 0, errorf(adbc.StatusIO, "invalid snapshot statistic row count")
+				}
+				count += n
+			}
+			return count, nil
+		}
+	}
+	scan := newSnapshotDeltaScan(c.store, meta, []string{rowIDField})
+	var count int64
+	for {
+		_, rows, err := scan.next(ctx)
+		if errors.Is(err, io.EOF) {
+			return count, nil
+		}
+		if err != nil {
+			return 0, err
+		}
+		// Include tombstones and shadowed directory entries in the work budget.
+		var work int64
+		for _, source := range scan.sources {
+			consumed := source.offset - int64(len(source.ids)) + int64(source.at)
+			if consumed < 0 || consumed > 2_000_000-work {
+				return 0, codeStateErrorf(adbc.StatusInvalidState, "53200", "exact statistics scan budget exhausted")
+			}
+			work += consumed
+		}
+		count += int64(len(rows))
+	}
 }
 
 // Exact means a complete, deduplicated scan of authoritative row identities,
