@@ -227,3 +227,10 @@ publication races require exact winners and explicit serialization refusals,
 with current metadata checked before fresh client continuation. All nine comment
 family race cases pass; full parity remains open. Earlier PR description evidence
 is preserved in the [history archive](pr-evidence-history.md).
+
+The [constraint/default checkpoint](constraints-defaults-validation.md) restores
+scoped rejection/metadata checks, fresh-layout rekey ownership and creation-zone
+fixture publication. Default tests retain exact materialization and virtual
+planner guards, while stale INSERT publication must conflict without leaking
+rows or changing the current root. Both focused race selections pass; full
+ordinary and performance parity remain open.
