@@ -16,3 +16,11 @@
    material repeatable elapsed regression, memory is accounted for and lifecycle
    tests pass. Otherwise retain opt-in and document the concrete remaining cause.
 7. Clean up task resources, publish sanitized evidence, and create a follow-up PR.
+
+Decision rule, before collecting timings: require repeatable one-reader wide
+elapsed benefit and no repeatable >5% concurrent-reader elapsed regression in
+matched final-runtime pairs. Report paired ratios and uncertainty rather than
+only comparing pooled medians. Check both 64- and 105-column eligible scans;
+narrow is an unchanged-path noise/control case. Account for each reader's one
+additional owned page and report independently sampled process RSS. A separate
+four-logical-CPU client control tests contention before default promotion.
