@@ -350,3 +350,8 @@ The [public partition fixture checkpoint](public-partition-fixtures-validation.m
 restores retained generation expectations, complete bounded stream replay after
 worker closure and privately published sequence boundaries. Test capabilities
 are released independently of producer lifetime; full parity remains open.
+
+The [primary-key checkpoint](primary-key-validation.md) restores public rejection
+checks, valid optional-key metadata and private publication races. Four race
+families pass key lifetime/NULL enforcement and explicit 40001 conflicts, with
+fresh revalidation and private reclamation; full parity remains open.
