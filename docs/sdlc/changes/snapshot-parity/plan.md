@@ -424,3 +424,9 @@ reservation primitive from snapshot-aware inspection and checks ACL setup before
 producing fixtures. Two primitive race events pass with one explicit ACL skip;
 eleven separate native ownership/collector race events pass. Driver fences remain
 unchanged; full ordinary/platform, permission and performance gates remain open.
+
+The [TAG revalidation checkpoint](tag-revalidation-validation.md) publishes unknown
+facts privately, preserves conservative exact queries, and validates fresh facts
+through public passthrough ALTER while old readers remain immutable. Two race
+families pass, including a competing-writer 40001 refusal and reclamation. Full
+ordinary/platform and performance gates remain open.

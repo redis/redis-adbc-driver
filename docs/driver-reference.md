@@ -1075,19 +1075,16 @@ Deleted 13 HASHes under 2 prefixes.
     driver. A constant with an ASCII control character other than
     whitespace can't be written in a TAG query, so it is checked by the
     driver.
-  - Tables created by earlier versions (no `tags_checked` in their
-    columns' metadata) count as truncated until a background check,
-    started by the first statement that reads one on a connection, has read
-    every row (about 0.4 s for 100,000 rows of 10 columns) and recorded
-    what they hold. It records nothing if the table's metadata changed
-    meanwhile (a writer raising a level), and starts over; a connection
-    whose check failed tries again a minute later.
-  - A statement that read a table's metadata before another connection
-    raised a level may see that connection's new rows as the index holds
-    them (count a new `'ab '` as `'ab'`, or sort or read a new value with a
-    NUL byte up to that byte), in the same window in which it may or may
-    not see them at all. Earlier versions of the driver don't raise levels
-    when they write.
+  - Missing `tags_checked` facts count as truncated. Native catalogs retain
+    those conservative facts in their immutable generation; they do not run
+    the legacy in-place background checker. An explicit converting rewrite,
+    such as `ALTER TABLE t ALTER COLUMN s TYPE VARCHAR USING s`, validates
+    the values into fresh storage. Earlier storage formats remain rejected,
+    with no migration path.
+  - TAG facts and visible row images share the statement's pinned generation.
+    A concurrent writer raising a level cannot change that reader's values
+    or optimizer facts. A private rewrite whose input changes refuses
+    publication with `40001`; the driver does not replay its SQL.
 - **NaNs in the index**: `REAL` and `DOUBLE PRECISION` columns hold `NaN`,
   `Infinity` and `-Infinity`, as in Postgres. RediSearch doesn't index a
   HASH whose `NUMERIC` field is `NaN`, so up to v0.0.8 a row holding one was

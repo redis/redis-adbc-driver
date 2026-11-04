@@ -55,13 +55,10 @@ package redis
 //   - The query syntax has no way to write ASCII control characters other
 //     than whitespace, so a value with one isn't looked up in the index.
 //
-// Tables created before the levels were recorded have columns without
-// TagsChecked, which count as truncated until checked: the first statement
-// that reads such a table on a connection starts a background task that
-// reads every row and records the levels. It records them only if the
-// table's metadata hasn't changed since it started reading, so a writer
-// raising a level meanwhile makes it start over. A connection whose check
-// fails waits tagCheckRetry before it tries again.
+// Missing TagsChecked facts count as truncated. Native catalogs retain those
+// conservative facts in their immutable generation; an explicit converting
+// ALTER can revalidate values into fresh storage. The legacy mutable checker
+// below is disabled for snapshots and does not provide a storage migration.
 //
 // Prefix queries: RediSearch expands @c:{ab*} into at most
 // MAXPREFIXEXPANSIONS tags (search-max-prefix-expansions, 200 by default;
