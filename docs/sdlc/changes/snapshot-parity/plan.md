@@ -194,3 +194,10 @@ fixes connection shutdown ordering: socket interruption no longer ends operation
 tracking before abort/pin cleanup. It preserves outcome diagnostics and bounded
 joining, and restores large immutable-page/cleanup overlap coverage. Full
 ordinary/platform and sustained performance parity remain open.
+
+The [isolated reader-lease design and model](reader-acl-design.md) validates six
+race-enabled cases on verified Software 4x QPF, including actual ACL denials,
+cross-principal retention, stale membership and read-only lost-reply resolution.
+The production catalog is unchanged and remains protocol 15. This is staged
+evidence only: production ACL integration, bounded namespace management and the
+ordinary reader-role regression remain incomplete.
