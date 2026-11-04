@@ -18,14 +18,18 @@
 
 # Arrow Database Connectivity (ADBC) driver for Redis
 
+An Arrow-native Redis database driver supporting both transactional and analytical workloads.
+
 Redis ADBC connects Redis to data tools through SQL and Apache Arrow. It queries
 Redis HASHes using the Query Engine, returns typed Arrow record batches, and
-bulk-loads Arrow data into Redis.
+bulk-loads Arrow data into Redis. It supports single-record SQL reads, inserts,
+updates, and deletes for OLTP workloads, alongside analytical SQL queries and
+Arrow bulk ingestion.
 
 For application development, start with the
 [official Redis clients and libraries](https://redis.io/docs/latest/develop/clients/)
 for your programming language. Redis ADBC is another integration option when
-SQL and Arrow fit your analytics, data processing, or pipeline workflows.
+SQL and Arrow fit your transactional, analytical, data processing, or pipeline workflows.
 
 The driver requires **Redis Search (Query Engine)**. For concurrent queries,
 a query performance factor (QPF) of **4×** is recommended where supported,
