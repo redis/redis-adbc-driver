@@ -254,6 +254,11 @@ func (e *executor) returningColumns(ctx context.Context, st Stmt) (cols []result
 	var ret *returning
 	switch st := st.(type) {
 	case *InsertStmt:
+		pop, err := e.pushCTEs(st.With)
+		if err != nil {
+			return nil, false, err
+		}
+		defer pop()
 		if len(st.Returning) == 0 {
 			return nil, false, nil
 		}

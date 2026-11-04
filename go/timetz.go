@@ -418,7 +418,7 @@ func dateAtTimeTZ(d, x Value, t ColType) (Value, error) {
 // its type (TIME(6) WITH TIME ZONE).
 func arrowField(name string, t ColType, nullable bool) arrow.Field {
 	f := arrow.Field{Name: name, Type: t.ArrowType(), Nullable: nullable}
-	if t.Kind == KindTimeTZ {
+	if t.Kind == KindTimeTZ || t.Alias == "uuid" {
 		f.Metadata = arrow.NewMetadata([]string{typeNameKey}, []string{t.SQLName()})
 	}
 	return f
@@ -438,6 +438,9 @@ func colTypeFromField(f arrow.Field) (ColType, error) {
 	switch f.Type.ID() {
 	case arrow.STRING, arrow.LARGE_STRING, arrow.STRING_VIEW:
 		if i := f.Metadata.FindKey(typeNameKey); i >= 0 {
+			if strings.EqualFold(f.Metadata.Values()[i], "UUID") {
+				return typeUUID, nil
+			}
 			if t, ok := timeTZTypeName(f.Metadata.Values()[i]); ok {
 				return t, nil
 			}

@@ -9,7 +9,7 @@ Date: 2026-11-02. Status: in progress. See [intent](intent.md), [spec](spec.md).
 | Exact index aggregation/grouping/top-K on segmented visibility | Implemented with bounded masks and exact fallbacks; seven-case read comparison recorded |
 | Incremental metadata, independent publication and index lifecycle | Lazy validation and one-build index lifecycle/no-op publication implemented; pre-execution admission and metadata sharing/GC implemented; incremental row references verified locally; independent publication verified locally; bounded bucket construction verified locally |
 | Large atomic writes/ingestion and sustained compaction | Durable dirty-table scheduling and GC batch progress verified locally; bounded SQL/Arrow row images and ALTER/rekey with durable outcomes implemented; process/input resume, remaining utility quotas and broader sustained throughput work remain open |
-| Full feature/native/platform/Cluster API validation | Current protocol-14 Cluster Go, primary promotion, all-node AOF/RDB restart and replicated proxy race/native checks verified; hosted CI and full feature/native/platform matrix remain open |
+| Full feature/native/platform/Cluster API validation | Protocol-14 Cluster Go, primary promotion, all-node AOF/RDB restart and replicated proxy race/native checks verified historically; protocol-15 Cluster reruns, hosted CI and full feature/native/platform matrix remain open |
 | Comparative benchmarks, review, PR evidence and owned cleanup | Seven-case read comparison and self-review recorded; remaining benchmarks/cleanup pending |
 
 Implement and verify coherent milestones; keep PR #284 reviewable. Provision
@@ -153,3 +153,10 @@ The [atomic import output checkpoint](import-output-validation.md) links each
 registered output batch, capture consumption and durable outcome in one script.
 Incomplete runtime outcomes fail closed. This removes an ambiguous continuation
 boundary while the durable job/lease/plan work above remains required.
+
+The [main integration checkpoint](main-merge-validation.md) preserves the newly
+merged SQL features under snapshot execution and introduces protocol 15 to reject
+unsafe mixed-version writes. Focused SQL/lifecycle tests pass, but the complete
+ordinary suite has a [recorded failing inventory](main-merge-failure-inventory.json)
+requiring isolation, compatibility fixes and a complete rerun. Earlier protocol-14
+Cluster and timing reports do not establish current protocol-15 coverage.

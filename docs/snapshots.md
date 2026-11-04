@@ -5,7 +5,7 @@ managed tables and imported copies of application data. No option is required.
 Ordinary Open initializes an empty isolated database. Explicit HASH import and
 foreign-index import may initialize alongside application-owned data and indexes,
 but reject existing legacy driver metadata without modification. No upgrade or
-migration path is included. Storage protocol version 14 rejects prior draft versions
+migration path is included. Storage protocol version 15 rejects prior draft versions
 1–13. It requires an indexed tombstone marker for visibility-safe server reduction.
 Metadata manifests share immutable buckets and native values through a fixed
 256-slot map. Buckets have exact ordered field directories; point metadata reads
@@ -185,6 +185,14 @@ cannot be protected by a new driver's option check. Do not mutate, expire or
 evict published keys or indexes outside the driver.
 
 ## Costs, limits and recovery
+
+SQL sequences preserve their nontransactional allocation semantics. Definitions
+participate in the catalog snapshot; reference-owned volatile counters allocate
+exact int64 values globally with CAS and current-definition/lease checks.
+`nextval` and `setval` may leave gaps after failed SQL. They do not expose partial
+table writes or mutate an immutable sequence definition. Cached blocks belong
+to their connection. Unknown allocation replies fail explicitly without resend;
+counter reclamation waits for the last catalog and reader reference.
 
 Each write copies at most 256 metadata bucket references. A touched bucket is
 constructed in renewable, checkpointed batches of at most 64 references, targeting

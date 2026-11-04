@@ -18,14 +18,18 @@
 
 # Arrow Database Connectivity (ADBC) driver for Redis
 
+An Arrow-native Redis database driver built on ADBC—the successor to ODBC and JDBC—supporting both transactional and analytical workloads.
+
 Redis ADBC connects Redis to data tools through SQL and Apache Arrow. It queries
 Redis HASHes using the Query Engine, returns typed Arrow record batches, and
-bulk-loads Arrow data into Redis.
+bulk-loads Arrow data into Redis. It supports single-record SQL reads, inserts,
+updates, and deletes for OLTP workloads, alongside analytical SQL queries and
+Arrow bulk ingestion.
 
 For application development, start with the
 [official Redis clients and libraries](https://redis.io/docs/latest/develop/clients/)
 for your programming language. Redis ADBC is another integration option when
-SQL and Arrow fit your analytics, data processing, or pipeline workflows.
+SQL and Arrow fit your transactional, analytical, data processing, or pipeline workflows.
 
 The driver requires **Redis Search (Query Engine)**. For concurrent queries,
 a query performance factor (QPF) of **4×** is recommended where supported,
@@ -34,15 +38,18 @@ for supported deployments and configuration.
 
 Managed tables now use [always-on statement snapshots](docs/snapshots.md).
 Each statement reads one committed generation, including streamed results;
-supported writes publish atomically. Storage protocol version 8 rejects legacy catalogs
+supported writes publish atomically. Storage protocol version 15 rejects legacy catalogs
 and earlier draft formats without modification; there is no upgrade path. ALTER
 and connection-owned temporary objects are supported. HASH adoption and foreign
 indexes use private managed copies with explicit refreshes, preserving application
-ownership. Live partition readers pin individual generations; retained production
+ownership. Live partition sets share one producer generation; retained production
 captures one managed generation and publishes replayable Arrow results. Writes
 append row-version segments with bounded background compaction. See the snapshot
 contract for import initialization, deployment constraints and fixed limits.
 Historical in-place adoption/layout descriptions below concern the previous format.
+The [architecture guide](docs/driver-reference.md#architecture-hybrid-index-row-layout)
+explains table storage. The [SQL INSERT and SELECT example](docs/sql-redis-example.md)
+shows managed row storage and snapshot-aware reads.
 
 Start with [Choose your tool and connect](docs/setup.md) for Python wheels,
 connection diagnostics, and application examples. For native tools such as
@@ -166,7 +173,7 @@ Type mappings are implemented in [types.go](go/types.go) and
 [statement.go](go/statement.go) and [connection.go](go/connection.go).
 Supported interchange does not imply support for every Arrow layout or every
 SQL operator. See the [SQL reference](docs/driver-reference.md#supported-sql)
-for type and execution details.
+for type and execution details. [Generated identifiers, UUIDs, modifying CTEs, named indexes and materialized views](docs/sql-101-105.md) describe the additional SQL contracts and limits.
 
 ## Redis Software feature matrix
 

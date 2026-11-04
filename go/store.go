@@ -108,7 +108,9 @@ const (
 )
 
 type columnMeta struct {
-	DefaultOID int64 `json:"default_oid,omitempty"`
+	Identity   string    `json:"identity,omitempty"`
+	Sequence   TableName `json:"sequence,omitempty"`
+	DefaultOID int64     `json:"default_oid,omitempty"`
 	// Encoding is "text" for application-owned booleans and date/time text.
 	// Such columns are read and compared in the driver, never as NUMERIC.
 	Encoding   string  `json:"encoding,omitempty"`
@@ -205,6 +207,9 @@ func (t *tableMeta) applyIndexPolicy(only map[string]bool, noIndex map[string]bo
 }
 
 type tableMeta struct {
+	MaterializedSQL string       `json:"materialized_sql,omitempty"`
+	Unpopulated     bool         `json:"unpopulated,omitempty"`
+	NamedIndexes    []namedIndex `json:"named_indexes,omitempty"`
 	// SnapshotRows counts physical row versions (including tombstones) in the
 	// current segment. Prior immutable segments carry their own expected counts.
 	// Acquisition validates indexes and directories against these counts.
@@ -274,6 +279,7 @@ type tableMeta struct {
 
 	// In-memory relations (CTEs, derived tables) hold their rows here and
 	// have no index or HASHes.
+	sourceKeys     []string
 	isMem          bool
 	retainedSource bool // immutable captured physical rows retain explicit system columns
 	mem            []map[string]Value
@@ -869,9 +875,9 @@ func (s *store) updateTable(ctx context.Context, schema, table string, fn func(*
 // (0 if none), and the change only commits if no row ids were allocated
 // meanwhile. Without it, fn gets 0.
 func (s *store) updateTableTx(ctx context.Context, schema, table string, atRowID bool,
-	fn func(m *tableMeta, lastRowID int64) error, extra func(goredis.Pipeliner)) error {
+	fn func(m *tableMeta, lastRowID int64) error, extra func(goredis.Pipeliner), extraWatch ...string) error {
 	key, seq := metaKey(schema, table), seqKey(schema, table)
-	watch := []string{key}
+	watch := append([]string{key}, extraWatch...)
 	if atRowID {
 		watch = append(watch, seq)
 	}
@@ -1178,7 +1184,7 @@ func (s *store) createTable(ctx context.Context, meta *tableMeta, ifNotExists bo
 		}
 		return false, stateErrorf(stateDuplicateTable, "table %q.%q already exists", displaySchema(meta.Schema), meta.Name)
 	}
-	if n, err := s.redis(ctx).Exists(ctx, key).Result(); err != nil {
+	if n, err := s.redis(ctx).Exists(ctx, key, sequenceKey(meta.Schema, meta.Name), sqlIndexKey(meta.Schema, meta.Name)).Result(); err != nil {
 		return false, wrapRedis(err, "failed to create table")
 	} else if n > 0 {
 		return exists()
@@ -1234,7 +1240,7 @@ func (s *store) createTable(ctx context.Context, meta *tableMeta, ifNotExists bo
 	won := false
 	for attempt := 0; attempt < 20 && !won; attempt++ {
 		err = s.redis(ctx).Watch(ctx, func(tx *goredis.Tx) error {
-			if n, err := tx.Exists(ctx, key).Result(); err != nil || n > 0 {
+			if n, err := tx.Exists(ctx, key, viewKey(meta.Schema, meta.Name), sequenceKey(meta.Schema, meta.Name), sqlIndexKey(meta.Schema, meta.Name)).Result(); err != nil || n > 0 {
 				return err
 			}
 			_, err := tx.TxPipelined(ctx, func(p goredis.Pipeliner) error {
@@ -1248,7 +1254,7 @@ func (s *store) createTable(ctx context.Context, meta *tableMeta, ifNotExists bo
 			})
 			won = err == nil
 			return err
-		}, key)
+		}, key, viewKey(meta.Schema, meta.Name), sequenceKey(meta.Schema, meta.Name), sqlIndexKey(meta.Schema, meta.Name))
 		if !errors.Is(err, goredis.TxFailedErr) {
 			break
 		}
@@ -1589,6 +1595,9 @@ func (s *store) dropTable(ctx context.Context, schema, table string, ifExists bo
 			}
 			_, err = tx.TxPipelined(ctx, func(p goredis.Pipeliner) error {
 				p.Del(ctx, key, seqKey(schema, table))
+				for _, idx := range meta.NamedIndexes {
+					p.Del(ctx, sqlIndexKey(schema, idx.Name))
+				}
 				p.SRem(ctx, tablesKey(schema), table)
 				p.SRem(ctx, prefixesKey, meta.prefix())
 				p.SRem(ctx, indexesKey, meta.index())
@@ -1611,7 +1620,7 @@ func (s *store) dropTable(ctx context.Context, schema, table string, ifExists bo
 			return wrapRedis(err, "failed to drop table")
 		}
 		s.trackTemp(schema, table, false)
-		return nil
+		return s.dropOwnedSequences(ctx, schema, table, tableOID(meta))
 	}
 	return errorf(adbc.StatusIO, "table %q.%q is being changed concurrently; try again", displaySchema(schema), name)
 }
@@ -1747,6 +1756,13 @@ func (s *store) dropSchema(ctx context.Context, schema string, ifExists, cascade
 	if err != nil {
 		return err
 	}
+	sequences, err := s.redis(ctx).SMembers(ctx, sequencesKey(schema)).Result()
+	if err != nil {
+		return err
+	}
+	if len(sequences) > 0 && !cascade {
+		return stateErrorf("2BP01", "schema %q is not empty; use CASCADE", schema)
+	}
 	if len(tables)+len(views) > 0 {
 		if !cascade {
 			return errorf(adbc.StatusInvalidState,
@@ -1763,6 +1779,14 @@ func (s *store) dropSchema(ctx context.Context, schema string, ifExists, cascade
 				return err
 			}
 		}
+	}
+	for _, name := range sequences {
+		if err := s.redis(ctx).Del(ctx, sequenceKey(schema, name)).Err(); err != nil {
+			return err
+		}
+	}
+	if err := s.redis(ctx).Del(ctx, sequencesKey(schema)).Err(); err != nil {
+		return err
 	}
 	if err := s.redis(ctx).SRem(ctx, schemasKey, schema).Err(); err != nil {
 		return wrapRedis(err, "failed to drop schema")

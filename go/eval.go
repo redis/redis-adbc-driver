@@ -232,10 +232,10 @@ func (env *evalEnv) evalUnbudgeted(e Expr) (Value, error) {
 		if err != nil {
 			return Value{}, err
 		}
-		if x.T.Alias != "" {
+		if x.T.Alias != "" && x.T.Alias != "uuid" {
 			return env.castOID(v, x.T)
 		}
-		if v.T.Alias != "" && x.T.Kind.isInteger() {
+		if v.T.Alias != "" && v.T.Alias != "uuid" && x.T.Kind.isInteger() {
 			return intValue(x.T, v.I), nil
 		}
 		c, err := castValue(v, x.T, env.zone())
@@ -558,6 +558,13 @@ func concatValues(sep string, args []Value, z tzZone) Value {
 // evalFunc evaluates a call. The registry (funcs.go) says which code
 // evaluates it; binding has checked its name and arguments.
 func (env *evalEnv) evalFunc(f *Func) (Value, error) {
+	if sequenceFunction(f.Name) {
+		if err := checkArity(f); err != nil {
+			return Value{}, err
+		}
+		v, _, err := env.evalSequence(f)
+		return v, err
+	}
 	if v, ok := env.setValues[f]; ok {
 		return v, nil
 	}
@@ -1035,6 +1042,9 @@ func inferFuncType(f *Func, args []ColType) ColType {
 }
 
 func funcType(f *Func, args []ColType) ColType {
+	if sequenceFunction(f.Name) {
+		return typeInt64
+	}
 	if t, ok := catalogFuncType(f.Name); ok {
 		return t
 	}

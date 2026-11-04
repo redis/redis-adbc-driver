@@ -1818,7 +1818,7 @@ func TestSQLAlterViewRename(t *testing.T) {
 	h.expectError("ALTER VIEW it_av_m RENAME COLUMN id TO k", "ALTER VIEW supports only RENAME TO")
 	h.expectError("ALTER VIEW it_av_m ADD COLUMN z INT", "ALTER VIEW supports only RENAME TO")
 	h.expectError("ALTER VIEW it_av_m SET SCHEMA x", "unsupported ALTER VIEW action")
-	h.expectError("ALTER SEQUENCE s RENAME TO t", "expected ALTER TABLE or ALTER VIEW")
+	h.expectError("ALTER SEQUENCE s RENAME TO t", "ALTER SEQUENCE RENAME is not supported")
 	h.expectRows("SELECT id FROM it_av_m ORDER BY id", "2", "3")
 }
 

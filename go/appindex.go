@@ -102,7 +102,7 @@ func appAttrFor(attrs []indexAttr, field string, kind Kind) (indexAttr, bool) {
 func applyAppAttrs(meta *tableMeta, attrs []indexAttr) {
 	for i := range meta.Columns {
 		c := &meta.Columns[i]
-		if c.Encoding == "text" {
+		if c.Encoding == "text" || c.Type.Alias == "uuid" {
 			c.Indexed, c.App = false, nil
 			continue
 		}

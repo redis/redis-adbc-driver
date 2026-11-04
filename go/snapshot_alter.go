@@ -8,6 +8,9 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"slices"
+
+	"github.com/apache/arrow-adbc/go/adbc"
 )
 
 // DDL rewrites into a private segment. No index or row reachable by an older
@@ -22,6 +25,26 @@ func (e *executor) alterSnapshotTable(ctx context.Context, source *tableMeta, cm
 	res, err := e.applyAlter(ctx, target, cmds, in)
 	if err != nil {
 		return err
+	}
+	if res.dropped {
+		owned, err := e.store.ownedSequences(ctx, source.Schema, source.Name, tableOID(source))
+		if err != nil {
+			return err
+		}
+		for _, seq := range owned {
+			field := seq.OwnerField
+			if field == "" {
+				if i, ok := source.resolve(seq.Column); ok {
+					field = source.Columns[i].field()
+				}
+			}
+			if field != "" && !slices.ContainsFunc(target.Columns, func(c columnMeta) bool { return c.field() == field }) {
+				ref := TableName{Schema: seq.Schema, Name: seq.Name}
+				if !slices.Contains(res.droppedSequences, ref) {
+					res.droppedSequences = append(res.droppedSequences, ref)
+				}
+			}
+		}
 	}
 	names, err := e.store.claimNames(ctx, source.Schema, source.Name)
 	if err != nil {
@@ -74,8 +97,28 @@ func (e *executor) alterSnapshotTable(ctx context.Context, source *tableMeta, cm
 	}
 	pipe := e.store.redis(ctx).Pipeline()
 	pipe.Set(ctx, metaKey(source.Schema, source.Name), raw, 0)
-	_, err = pipe.Exec(ctx)
-	return err
+	for _, name := range res.droppedIndexes {
+		pipe.Del(ctx, sqlIndexKey(source.Schema, name))
+	}
+	if _, err = pipe.Exec(ctx); err != nil {
+		return err
+	}
+	for _, ref := range res.droppedSequences {
+		seq, err := e.store.getSequence(ctx, ref.Schema, ref.Name)
+		var ae adbc.Error
+		if err != nil && asAdbc(err, &ae) && ae.Code == adbc.StatusNotFound {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if (seq.OwnerOID != 0 && seq.OwnerOID == tableOID(source)) || (seq.Owned.Schema == source.Schema && seq.Owned.Name == source.Name) {
+			if err := e.mutateSequence(ctx, ref.Schema, ref.Name, func(*sequenceMeta) error { return nil }, true, true); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // Snapshot rekeying allocates a new immutable physical identity under the

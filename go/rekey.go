@@ -1109,6 +1109,9 @@ func movingErr(meta *tableMeta) error {
 // back (or finished) first, or the statement waits while another connection
 // does; then a statement whose table is back as it was goes on.
 func (s *store) checkWritable(ctx context.Context, meta *tableMeta) error {
+	if meta.MaterializedSQL != "" {
+		return matViewWriteError(meta)
+	}
 	if meta.Foreign || meta.Schema == foreignSchema && !snapshotImporting(ctx) {
 		return virtualReadOnly(meta.Schema)
 	}
@@ -1255,7 +1258,7 @@ func (s *store) checkWritten(ctx context.Context, meta *tableMeta) error {
 // table's when it read them.
 func (s *store) checkReads(ctx context.Context, metas []*tableMeta) error {
 	for _, m := range metas {
-		if m.RekeyTo == "" && elapsed(m.readAt) < rekeyFence {
+		if m.MaterializedSQL == "" && m.RekeyTo == "" && elapsed(m.readAt) < rekeyFence {
 			continue
 		}
 		if err := s.checkKeys(ctx, m, false); err != nil {

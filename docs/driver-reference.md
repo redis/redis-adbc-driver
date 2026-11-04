@@ -1666,6 +1666,8 @@ lifecycle and Python API, and the runnable
 
 ## Supported SQL
 
+See [generated identifiers, UUIDs, modifying CTEs, named indexes and materialized views](sql-101-105.md) for the new statement contracts and limitations.
+
 Division involving `NUMERIC` uses exact decimal arithmetic, preserving operand
 scale and at least 16 significant digits. Floating-point division remains
 floating-point. Unconstrained decimal expressions have value-dependent Arrow
@@ -1736,8 +1738,8 @@ allow otherwise streamable queries to stream.
 - `TRUNCATE [TABLE] [ONLY] t [, …] [RESTART IDENTITY | CONTINUE IDENTITY]
   [CASCADE | RESTRICT]` removes every row and keeps the table: its columns,
   defaults, `CHECK` constraints and comments. Row ids (`__rowid`) continue
-  unless `RESTART IDENTITY` is given; the driver has no identity or serial
-  columns, so the row id counter is all it restarts. There are no foreign
+  unless `RESTART IDENTITY` is given. That also restarts owned SERIAL and
+  IDENTITY sequences, in a separate operation. There are no foreign
   keys, so `CASCADE` and `RESTRICT` do the same:
   - **New keys:** the table moves to a new key prefix and index,
     `<schema>:<table>~N:` and `idx:<schema>:<table>~N` with a new N (see
@@ -4116,14 +4118,13 @@ allow otherwise streamable queries to stream.
   containment and concatenation, and PostgreSQL array manipulation functions.
   Multidimensional arrays and non-default lower bounds are not supported.
 - Not supported: mutually recursive CTEs, `ANY` / `ALL` over bare value
-  lists, JSON set-returning functions, data-modifying statements in `WITH` (`WITH d AS
-  (DELETE … RETURNING …) INSERT …`), `RETURNING OLD.* / NEW.*` (Postgres
+  lists, JSON set-returning functions, `RETURNING OLD.* / NEW.*` (Postgres
   18), `GROUP BY DISTINCT` (which drops repeated grouping sets),
   `GROUPING()` of an enclosing query's columns inside a subquery,
   `PERCENTILE_CONT` / `PERCENTILE_DISC` of an array of fractions, and the ordered-set aggregates and `MEDIAN` as window
   functions
 - Types: `BOOLEAN, SMALLINT, INTEGER, BIGINT, REAL, DOUBLE PRECISION,
-  NUMERIC(p,s), VARCHAR(n), CHAR(n), VARCHAR/TEXT, VARBINARY/BLOB, DATE,
+  NUMERIC(p,s), VARCHAR(n), CHAR(n), VARCHAR/TEXT, UUID, VARBINARY/BLOB, DATE,
   TIME(p) [WITH TIME ZONE], TIMESTAMP(p) [WITH TIME ZONE], INTERVAL`
   (interval and time with time zone columns are stored but not indexed; see
   String lengths for `VARCHAR(n)` / `CHAR(n)`). A `TIMESTAMP WITH TIME ZONE`
@@ -4278,7 +4279,7 @@ Read-only `pg_catalog` relations expose namespaces, relations, attributes,
 defaults, built-in types, CHECK/primary-key constraints, indexes, descriptions,
 settings, the current database/role, functions, access methods and collations.
 `pg_tables`, `pg_views`, `pg_matviews`, `pg_indexes` and `pg_stat_user_tables`
-are also available. Unsupported domains, enums, sequences, inheritance,
+are also available. Unsupported domains, enums, inheritance,
 dependencies and rewrite rules have empty typed catalogs. `pg_stat_user_tables`
 reports live indexed row counts; cumulative PostgreSQL statistics are unavailable.
 Catalog names are searched implicitly before the current schema.
@@ -4289,7 +4290,7 @@ casts fail. `format_type` understands built-in OIDs and typmods. The
 `pg_get_expr`, `pg_get_constraintdef`, `pg_get_indexdef`, `pg_get_viewdef`,
 `obj_description`, `col_description` and visibility functions read metadata.
 Privilege compatibility functions return true; Redis ACLs still authorize each
-operation. `pg_get_serial_sequence` returns NULL because sequences are unsupported.
+operation. `pg_get_serial_sequence` returns the owned sequence name, or NULL without one.
 Relation-size functions measure Redis HASH memory (requiring `+memory|usage`);
 `pg_total_relation_size` includes the search-index memory reported by FT.INFO.
 These are Redis bytes rather than PostgreSQL disk pages. Physical search indexes use the access-method

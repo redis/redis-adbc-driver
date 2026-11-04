@@ -253,6 +253,11 @@ var funcDefs = []funcDef{
 	{name: "EXP", min: 1, max: 1, impl: implScalar},
 	{name: "CBRT", min: 1, max: 1, impl: implScalar},
 	{name: "SIGN", min: 1, max: 1, impl: implScalar},
+	{name: "NEXTVAL", min: 1, max: 1, volatile: true},
+	{name: "CURRVAL", min: 1, max: 1, volatile: true},
+	{name: "SETVAL", min: 2, max: 3, volatile: true},
+	{name: "LASTVAL", min: 0, max: 0, volatile: true},
+	{name: "GEN_RANDOM_UUID", min: 0, max: 0, impl: implScalar, volatile: true},
 	{name: "RANDOM", min: 0, max: 0, impl: implScalar, volatile: true},
 	{name: "ABS", min: 1, max: 1},
 	{name: "PI", min: 0, max: 0, impl: implScalar},
@@ -646,6 +651,9 @@ func checkPrecisionArg(f *Func) error {
 // does: in lower case, without a precision or scale, and "unknown" for NULL
 // or a parameter whose type isn't known.
 func sigTypeName(t ColType) string {
+	if t.Alias == "uuid" {
+		return "uuid"
+	}
 	switch t.Kind {
 	case KindNull:
 		return "unknown"

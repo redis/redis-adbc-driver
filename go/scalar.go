@@ -88,6 +88,8 @@ func scalarFuncType(f *Func, args []ColType) (ColType, bool) {
 		return typeNull
 	}
 	switch f.Name {
+	case "GEN_RANDOM_UUID":
+		return typeUUID, true
 	case "ROUND", "TRUNC", "FLOOR", "CEIL", "CEILING":
 		return roundType(f, arg(0)), true
 	case "SIGN":
@@ -353,6 +355,8 @@ func (env *evalEnv) evalIIF(f *Func) (Value, error) {
 func scalarFunc(f *Func, args []Value, z tzZone) (Value, error) {
 	text := func(i int) string { return args[i].textIn(z) }
 	switch f.Name {
+	case "GEN_RANDOM_UUID":
+		return randomUUID()
 	// ---- math ----
 	case "ROUND", "TRUNC", "FLOOR", "CEIL", "CEILING":
 		return roundFunc(f, args)

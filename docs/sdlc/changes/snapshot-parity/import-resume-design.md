@@ -42,7 +42,7 @@ point and a separately queryable durable outcome. A lost publication reply must
 not turn a committed operation into another import.
 
 New ownership states that old collectors do not understand require a storage
-protocol revision. Do not add a durable job and merely assume older protocol-14
+protocol revision. Do not add a durable job and merely assume older catalog
 clients will protect it. There is no upgrade path; preserve explicit format
 rejection and the existing autocommit, Active-Active and noeviction boundaries.
 

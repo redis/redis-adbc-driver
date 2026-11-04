@@ -130,18 +130,20 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 		}
 		meta = wanted
 	case adbc.OptionValueIngestModeReplace:
-		if st.snapshots {
-			exists, err := st.tableExists(ctx, schemaName, opts.TableName)
+		exists, err := st.tableExists(ctx, schemaName, opts.TableName)
+		if err != nil {
+			return -1, err
+		}
+		if exists {
+			current, err := st.getTable(ctx, schemaName, opts.TableName)
 			if err != nil {
 				return -1, err
 			}
-			if exists {
-				current, err := st.getTable(ctx, schemaName, opts.TableName)
-				if err != nil {
-					return -1, err
-				}
-				// Replace changes the private schema/data, while explicit refresh
-				// still addresses the same externally owned import source.
+			if current.MaterializedSQL != "" {
+				return -1, matViewWriteError(current)
+			}
+			if st.snapshots {
+				// Explicit refresh still addresses the externally owned source.
 				wanted.SnapshotImportSource = current.SnapshotImportSource
 				wanted.SnapshotSourceKey = current.SnapshotSourceKey
 			}
@@ -212,6 +214,14 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 			return -1, stateErrorf(stateDatatypeMismatch, "stored struct schema must match field names, types and nullability (column %q)", f.Name)
 		}
 		mapping[i], given[idx] = idx, true
+	}
+	for i, yes := range given {
+		if yes && meta.Columns[i].Identity == "ALWAYS" {
+			return -1, identityValueError(meta.Columns[i].Name)
+		}
+	}
+	if meta.MaterializedSQL != "" {
+		return -1, matViewWriteError(meta)
 	}
 	e := s.executor()
 	zone := e.zone()

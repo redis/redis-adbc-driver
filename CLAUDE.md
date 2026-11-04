@@ -42,7 +42,7 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.26.10)
   PostgreSQL compatibility or support for Valkey / Redis 7.2 derivatives.
 - Managed-table statement snapshots are always enabled, using immutable
   generations in one hash slot; see [snapshots](docs/snapshots.md). Storage
-  protocol version 14 rejects earlier draft formats; there is no disable switch
+  protocol version 15 rejects earlier draft formats; there is no disable switch
   or upgrade path. Row HASHes use escaped schema prefixes with `{meta}`; schema
   `adbc` uses `%61dbc` to stay outside the metadata ACL grant. Durable data records
   retain exact physical prefixes; descriptor registration and row/Search fences
@@ -72,6 +72,12 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.26.10)
   do not imply process/input resume. Live partition sets retain a shared producer generation; retained
   production resolves segmented visibility under one coordinator pin.
   Preserve their server-side writer fences, reader pins and reclamation protocol.
+  SQL sequence definitions are immutable catalog metadata. Their reference-owned
+  native counters are an explicit volatile-value exception: exact int64 CAS
+  allocation checks the reader/writer lease and current definition, retries only
+  proven refusals and never resends an uncertain allocation. NEXTVAL/SETVAL gaps
+  survive failed SQL; row/schema changes still publish atomically. Counter values
+  remain collectible after their last catalog/pin reference is retired.
   Cluster API node clients need snapshot hooks, including newly discovered nodes.
   Run distributed Search schema commands outside Lua with pre/post admission;
   never replay uncertain operations. Metadata roots share immutable buckets and

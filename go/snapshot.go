@@ -88,12 +88,12 @@ end
 if op == 'init' then
   if redis.call('EXISTS', k) == 0 then
     if ARGV[6] ~= 'import' and redis.call('DBSIZE') ~= 0 then return redis.error_reply('managed-table snapshots require a fresh empty database; existing storage is not upgraded or modified') end
-    redis.call('HSET', k, 'format', '14', 'root', id, 'w:'..id, cjson.encode({state='committed',metadata_keys=0,metadata_buckets=0}), 'r:'..id, '[]')
+    redis.call('HSET', k, 'format', '15', 'root', id, 'w:'..id, cjson.encode({state='committed',metadata_keys=0,metadata_buckets=0}), 'r:'..id, '[]')
   end
-  if redis.call('HGET', k, 'format') ~= '14' then return redis.error_reply('unsupported snapshot catalog format') end
+  if redis.call('HGET', k, 'format') ~= '15' then return redis.error_reply('unsupported snapshot catalog format') end
   return 1
 end
-if redis.call('HGET', k, 'format') ~= '14' then return redis.error_reply('missing or unsupported snapshot catalog') end
+if redis.call('HGET', k, 'format') ~= '15' then return redis.error_reply('missing or unsupported snapshot catalog') end
 local entries = redis.call('HGETALL', k)
 local pins, works, protected = 0, 0, {}
 for n=1,#entries,2 do
@@ -847,7 +847,10 @@ func scopeSnapshotCommand(ctx context.Context, cmd goredis.Cmder) error {
 			case "set", "setnx", "incr", "incrby", "hset", "hdel", "hincrby", "sadd", "srem", "zadd", "zrem", "del", "unlink", "restore", "expire", "pexpire", "persist":
 				writing = true
 			case "watch":
-				writing = scope.write
+				// WATCH records an immutable input dependency. Copy only when
+				// an actual mutation follows; collision probes must not create
+				// permanent absent metadata entries in the new catalog.
+				writing = false
 			}
 			resolved, err := resolveSnapshotMetadata(ctx, strings.TrimPrefix(key, metaPrefix), writing, name)
 			if err != nil {
@@ -1357,10 +1360,13 @@ func (e *executor) executeSnapshot(ctx context.Context, ps ParsedStmt, params []
 	write := false
 	switch ps.Stmt.(type) {
 	case *SelectStmt, *ShowStmt, *SetStmt, *TransactionStmt:
-	case *InsertStmt, *UpdateStmt, *DeleteStmt, *MergeStmt, *CreateTableStmt, *DropTableStmt, *CreateViewStmt, *DropViewStmt, *CreateSchemaStmt, *DropSchemaStmt, *TruncateStmt, *CommentStmt, *AlterTableStmt:
+	case *InsertStmt, *UpdateStmt, *DeleteStmt, *MergeStmt, *CreateTableStmt, *DropTableStmt, *CreateViewStmt, *DropViewStmt, *CreateSchemaStmt, *DropSchemaStmt, *TruncateStmt, *CommentStmt, *AlterTableStmt, *SequenceStmt, *CreateIndexStmt, *DropIndexStmt, *RefreshMatViewStmt, *DropMatViewStmt, *RenameMatViewStmt:
 		write = true
 	default:
 		return execResult{}, errorf(adbc.StatusNotImplemented, "statement is not supported in snapshot catalogs")
+	}
+	for _, cte := range statementWith(ps.Stmt) {
+		write = write || cte.Statement != nil
 	}
 	var target *TableName
 	switch stmt := ps.Stmt.(type) {

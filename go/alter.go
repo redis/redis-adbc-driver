@@ -112,6 +112,26 @@ func (e *executor) runAlter(ctx context.Context, st *AlterTableStmt) error {
 	if err := e.store.checkWritable(ctx, meta); err != nil {
 		return err
 	}
+	identity := slices.ContainsFunc(st.Cmds, func(c AlterCmd) bool {
+		return c.Action == AlterAddIdentity || c.Action == AlterSetIdentity || c.Action == AlterDropIdentity
+	})
+	if identity {
+		for _, cmd := range st.Cmds {
+			if cmd.Action != AlterAddIdentity && cmd.Action != AlterSetIdentity && cmd.Action != AlterDropIdentity {
+				return stateErrorf(stateFeatureNotSupported, "identity alterations must be issued separately from other table alterations")
+			}
+		}
+		for _, cmd := range st.Cmds {
+			if err := e.alterIdentity(ctx, meta, cmd); err != nil {
+				return err
+			}
+			meta, err = e.store.getTable(ctx, schema, name)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 	if rename {
 		cmd := st.Cmds[0]
 		if cmd.Action == AlterRenameTable {
@@ -182,7 +202,7 @@ func (e *executor) renameTable(ctx context.Context, meta *tableMeta, to TableNam
 			if err := movingErr(cur); err != nil {
 				return err
 			}
-			if n, err := tx.Exists(ctx, newKey).Result(); err != nil {
+			if n, err := tx.Exists(ctx, newKey, sequenceKey(meta.Schema, newName), sqlIndexKey(meta.Schema, newName)).Result(); err != nil {
 				return err
 			} else if n > 0 {
 				return stateErrorf(stateDuplicateTable, "table %q.%q already exists", displaySchema(meta.Schema), newName)
@@ -217,7 +237,7 @@ func (e *executor) renameTable(ctx context.Context, meta *tableMeta, to TableNam
 				return nil
 			})
 			return err
-		}, oldKey, newKey, oldSeq)
+		}, oldKey, newKey, oldSeq, sequenceKey(meta.Schema, newName), sqlIndexKey(meta.Schema, newName))
 		if err == goredis.TxFailedErr {
 			continue
 		}
@@ -285,6 +305,8 @@ func freeField(m *tableMeta, name string, taken map[string]bool) string {
 // alterResult is what applying the actions of an ALTER TABLE (other than
 // RENAME) to a table's metadata did.
 type alterResult struct {
+	droppedIndexes   []string
+	droppedSequences []TableName
 	// added are the columns added, with the missing value they get, for
 	// the index and the row checks.
 	added []addedColumn
@@ -427,6 +449,31 @@ func (e *executor) alterTable(ctx context.Context, meta *tableMeta, cmds []Alter
 	if err != nil {
 		return err
 	}
+	var sequenceWatch []string
+	if res.dropped {
+		owned, err := e.store.ownedSequences(ctx, meta.Schema, meta.Name, tableOID(meta))
+		if err != nil {
+			return err
+		}
+		for _, seq := range owned {
+			field := seq.OwnerField
+			if field == "" {
+				if i, ok := meta.resolve(seq.Column); ok {
+					field = meta.Columns[i].field()
+				}
+			}
+			if field != "" && !slices.ContainsFunc(plan.Columns, func(c columnMeta) bool { return c.field() == field }) {
+				ref := TableName{Schema: seq.Schema, Name: seq.Name}
+				if !slices.Contains(res.droppedSequences, ref) {
+					res.droppedSequences = append(res.droppedSequences, ref)
+				}
+			}
+		}
+		for _, seq := range res.droppedSequences {
+			sequenceWatch = append(sequenceWatch, sequenceKey(seq.Schema, seq.Name))
+		}
+	}
+	var dropSequences []TableName
 	if res.rewrite {
 		return e.rewriteTable(ctx, meta, cmds, in, res)
 	}
@@ -499,12 +546,33 @@ func (e *executor) alterTable(ctx context.Context, meta *tableMeta, cmds []Alter
 				m.Columns[i].MissingThrough = lastRowID
 			}
 		}
+		dropSequences = nil
+		for _, ref := range res.droppedSequences {
+			seq, err := e.store.getSequence(ctx, ref.Schema, ref.Name)
+			if err != nil {
+				var ae adbc.Error
+				if asAdbc(err, &ae) && ae.Code == adbc.StatusNotFound {
+					continue
+				}
+				return err
+			}
+			if (seq.OwnerOID != 0 && seq.OwnerOID == tableOID(m)) || (seq.Owned.Schema == m.Schema && seq.Owned.Name == m.Name) {
+				dropSequences = append(dropSequences, ref)
+			}
+		}
 		return nil
 	}, func(p goredis.Pipeliner) {
+		for _, name := range res.droppedIndexes {
+			p.Del(ctx, sqlIndexKey(meta.Schema, name))
+		}
+		for _, seq := range dropSequences {
+			p.Del(ctx, sequenceKey(seq.Schema, seq.Name))
+			p.SRem(ctx, sequencesKey(seq.Schema), seq.Name)
+		}
 		if res.dropped {
 			p.SAdd(ctx, cleanupKey, cleanupMember(meta.Schema, meta.Name))
 		}
-	})
+	}, sequenceWatch...)
 	if err != nil {
 		return err
 	}
@@ -691,6 +759,9 @@ func columnMissing(column, table string) error {
 // they read NULL, so with NOT NULL (or PRIMARY KEY) the table must have no
 // rows (checked with the rows).
 func (e *executor) alterAddColumn(ctx context.Context, m *tableMeta, cmd AlterCmd, taken map[string]bool, res *alterResult) (bool, error) {
+	if cmd.Def.Serial || cmd.Def.Identity != "" {
+		return false, stateErrorf(stateFeatureNotSupported, "ADD COLUMN SERIAL/IDENTITY is not supported; create an integer column and use ALTER COLUMN ADD GENERATED IDENTITY")
+	}
 	// The application may have the field in its HASHes, and missing
 	// values count on row ids that the driver hands out.
 	if err := refuseAdopted(m, "ADD COLUMN"); err != nil {
@@ -805,6 +876,16 @@ func alterDropColumn(m *tableMeta, cmd AlterCmd, res *alterResult) error {
 		gone = append(gone, m.PrimaryKey.Name)
 		m.PrimaryKey = nil
 	}
+	m.NamedIndexes = slices.DeleteFunc(slices.Clone(m.NamedIndexes), func(idx namedIndex) bool {
+		if slices.Contains(idx.Fields, f) {
+			res.droppedIndexes = append(res.droppedIndexes, idx.Name)
+			return true
+		}
+		return false
+	})
+	if c.Sequence.Name != "" {
+		res.droppedSequences = append(res.droppedSequences, c.Sequence)
+	}
 	m.Columns = slices.Delete(m.Columns, i, i+1)
 	res.log("drop %q field %q constraints %q", c.Name, f, gone)
 	return nil
@@ -819,6 +900,9 @@ func (e *executor) alterDefault(ctx context.Context, m *tableMeta, cmd AlterCmd,
 		return columnMissing(cmd.Column, m.Name)
 	}
 	col := m.Columns[i]
+	if col.Identity != "" {
+		return stateErrorf("55000", "column %q is an identity column; alter its identity instead", col.Name)
+	}
 	text := ""
 	if cmd.Action == AlterSetDefault {
 		def := cmd.Def
@@ -843,6 +927,9 @@ func alterNotNull(m *tableMeta, cmd AlterCmd, res *alterResult) error {
 		return columnMissing(cmd.Column, m.Name)
 	}
 	col := &m.Columns[i]
+	if col.Identity != "" && cmd.Action == AlterDropNotNull {
+		return stateErrorf("55000", "identity column %q cannot be nullable", col.Name)
+	}
 	set := cmd.Action == AlterSetNotNull
 	if !set && m.inKey(*col) {
 		return stateErrorf(stateTableDefinition, "column %q is in a primary key", col.Name)

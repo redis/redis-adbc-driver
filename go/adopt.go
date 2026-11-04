@@ -307,7 +307,7 @@ func (a *adopter) plan() (*tableMeta, error) {
 		if col.field != col.name {
 			cm.Field = col.field
 		}
-		want := cm.Encoding != "text" && indexable(cm.Type) && simpleName(cm.field()) && (o.IndexColumns == nil || only[col.name])
+		want := cm.Encoding != "text" && cm.Type.Alias != "uuid" && indexable(cm.Type) && simpleName(cm.field()) && (o.IndexColumns == nil || only[col.name])
 		cm.Indexed = want && n < maxIndexed
 		if cm.Indexed {
 			n++
