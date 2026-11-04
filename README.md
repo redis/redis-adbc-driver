@@ -157,8 +157,8 @@ has separate open issues. Restrictions stay in the behavior column.
 | List and LargeList input normalization | 🟢 Supported | Recursive ragged Arrow lists and named-record elements normalize to List; physical offset widths are not retained. | [#206](https://github.com/redis/redis-adbc-driver/issues/206) |
 | Named Struct ingestion and output | 🟢 Supported | Named struct ingestion/storage preserves names and nullability with normalized child types; anonymous SQL ROW expressions retain their existing restrictions. | [#207](https://github.com/redis/redis-adbc-driver/issues/207) |
 | FixedSizeList, ListView/LargeListView and run-end input normalization | 🟢 Supported | Input normalizes to canonical lists/values with decoded-expansion limits; physical layout identity is not retained. See the [layout assessment](docs/arrow-interoperability.md#layout-assessment-and-decoded-input-limits). | [#208](https://github.com/redis/redis-adbc-driver/issues/208) |
-| Map | 🔴 Unsupported | All Map input schemas reject, including empty/NULL/sliced arrays; stored key/duplicate semantics require a separate implementation. | [#267](https://github.com/redis/redis-adbc-driver/issues/267) |
-| Dense/sparse Union | 🔴 Unsupported | Both layouts reject; tagged-value storage and schema evolution require a separate implementation. | [#268](https://github.com/redis/redis-adbc-driver/issues/268) |
+| Map | 🟢 Supported | Ordered Map storage preserves duplicate/non-null scalar keys and NULL/empty containers; native Map output, IPC and live partitions. Retained partitions reject. | [#267](https://github.com/redis/redis-adbc-driver/issues/267) |
+| Dense/sparse Union | 🟢 Supported | Tagged storage preserves codes and selected-child NULLs; both inputs normalize to dense Union output. Exact-schema append, IPC and live partitions; retained partitions reject. | [#268](https://github.com/redis/redis-adbc-driver/issues/268) |
 | UUID/JSON extension storage normalization | 🟢 Supported | Reject by default; explicit `extension_policy=storage` normalizes allowlisted top-level UUID/JSON extensions to canonical SQL storage. Unknown/nested extensions reject; extension identity is not persisted. [Policy](docs/arrow-interoperability.md#explicit-extension-storage-normalization). | [#209](https://github.com/redis/redis-adbc-driver/issues/209) |
 | SQL execution, prepared statements and Arrow parameter binding | 🟢 Supported | Supports `Prepare`, `Bind`, `BindStream`, parameter schemas and result-schema discovery for supported SQL. | — |
 | ADBC metadata and row-count statistics | 🟢 Supported | Driver info, objects, table schemas/types and approximate managed-table row counts are available. Counts remain approximate under concurrent writes; column statistics are unavailable. UNIQUE/FOREIGN KEY metadata depends on [#114](https://github.com/redis/redis-adbc-driver/issues/114). See [statistics](docs/adbc-statistics.md). | [#210](https://github.com/redis/redis-adbc-driver/issues/210) |
@@ -184,7 +184,8 @@ for type and execution details. [Generated identifiers, UUIDs, modifying CTEs, n
 
 These open issues track extensions beyond the supported contracts above.
 Normalization alone is not unfinished work; the gaps below require additional
-implementation. Map and Union already have open trackers in the matrix.
+implementation. Map and Union have explicit stored contracts and partition
+limits described in the [Arrow guide](docs/arrow-interoperability.md#stored-map-and-union-contract).
 
 | Remaining capability | Current boundary | Open issue |
 |---|---|---|

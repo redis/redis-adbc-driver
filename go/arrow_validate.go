@@ -85,7 +85,7 @@ const (
 
 func hasNormalizingLayout(dt arrow.DataType) bool {
 	switch dt.ID() {
-	case arrow.FIXED_SIZE_LIST, arrow.LIST_VIEW, arrow.LARGE_LIST_VIEW, arrow.RUN_END_ENCODED:
+	case arrow.MAP, arrow.DENSE_UNION, arrow.SPARSE_UNION, arrow.FIXED_SIZE_LIST, arrow.LIST_VIEW, arrow.LARGE_LIST_VIEW, arrow.RUN_END_ENCODED:
 		return true
 	}
 	if d, ok := dt.(*arrow.DictionaryType); ok {
@@ -142,6 +142,10 @@ func (b *normalizationBudget) visit(a arrow.Array, i int) error {
 		return nil
 	}
 	switch a := a.(type) {
+	case *array.DenseUnion:
+		return b.visit(a.Field(a.ChildID(i)), int(a.ValueOffset(i)))
+	case *array.SparseUnion:
+		return b.visit(a.Field(a.ChildID(i)), i)
 	case *array.Struct:
 		for j := 0; j < a.NumField(); j++ {
 			if err := b.visit(a.Field(j), i); err != nil {

@@ -33,6 +33,7 @@ package main
 // #cgo CXXFLAGS: -std=c++17 -DADBC_EXPORTING
 // #include "adbc.h"
 // #include "utils.h"
+// #include "input_preflight.h"
 // #include <errno.h>
 // #include <stdint.h>
 // #include <string.h>
@@ -1668,6 +1669,11 @@ func RedisStatementBind(stmt *C.struct_AdbcStatement, values *C.struct_ArrowArra
 		return C.ADBC_STATUS_INVALID_STATE
 	}
 
+	if message := C.RedisInputPreflight(values, schema); message != nil {
+		setErr(err, "%s", C.GoString(message))
+		cdata.ReleaseCArrowArray(toCdataArray(values))
+		return C.ADBC_STATUS_INVALID_ARGUMENT
+	}
 	rec, e := cdata.ImportCRecordBatch(toCdataArray(values), toCdataSchema(schema))
 	if e != nil {
 		// if there was an error, we need to manually release the input
@@ -1691,6 +1697,10 @@ func RedisStatementBindStream(stmt *C.struct_AdbcStatement, stream *C.struct_Arr
 		return C.ADBC_STATUS_INVALID_STATE
 	}
 
+	if status := C.RedisInputCheckedStream(stream); status != 0 {
+		setErr(err, "invalid Arrow input stream")
+		return C.ADBC_STATUS_INVALID_ARGUMENT
+	}
 	rdr, e := cdata.ImportCRecordReader(toCdataStream(stream), nil)
 	if e != nil {
 		return C.AdbcStatusCode(errToAdbcErr(err, e))
