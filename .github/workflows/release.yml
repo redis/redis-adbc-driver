@@ -485,9 +485,9 @@ jobs:
     name: darwin-arm64
     runs-on: macos-15
     env:
-      MACOSX_DEPLOYMENT_TARGET: '12.0'
-      CGO_CFLAGS: '-mmacosx-version-min=12.0'
-      CGO_LDFLAGS: '-mmacosx-version-min=12.0'
+      MACOSX_DEPLOYMENT_TARGET: '15.0'
+      CGO_CFLAGS: '-mmacosx-version-min=15.0'
+      CGO_LDFLAGS: '-mmacosx-version-min=15.0'
     steps:
       - uses: actions/checkout@v7
         with:
@@ -509,7 +509,7 @@ jobs:
           # Use this source ref's build requirements even when uv has cached older tools.
           python3 -c 'import pathlib, tomllib; print("\n".join(tomllib.loads(pathlib.Path("python/pyproject.toml").read_text())["build-system"]["requires"]))' > "$RUNNER_TEMP/python-build-requirements.txt"
           uv run --no-project --with build --with packaging --with-requirements "$RUNNER_TEMP/python-build-requirements.txt" python scripts/build_python_wheel.py \
-            --library go/build/libadbc_driver_redis.dylib --platform macosx_12_0_arm64 --version "$VERSION" --out dist
+            --library go/build/libadbc_driver_redis.dylib --platform macosx_15_0_arm64 --version "$VERSION" --out dist
           for wheel in dist/*.whl; do shasum -a 256 "$wheel" > "$wheel.sha256"; done
           uv venv --python 3.14 /tmp/redis-wheel-smoke
           uv pip install --python /tmp/redis-wheel-smoke/bin/python dist/*.whl

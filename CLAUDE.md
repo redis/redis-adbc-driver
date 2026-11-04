@@ -3,7 +3,7 @@
 Go implementation of SQL and Arrow bulk ingestion over Redis HASHes and Search,
 built on driverbase-go. Read [the SDLC index](docs/sdlc/README.md) and the relevant
 feature documentation before changing behavior. The module is in `go/`, not the
-repository root; its toolchain is declared in `go/go.mod` (currently Go 1.26.10).
+repository root; its toolchain is declared in `go/go.mod` (currently Go 1.27.3).
 
 ## Commands (from the repository root)
 

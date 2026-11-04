@@ -1,0 +1,5 @@
+{
+  "rows": 1000000,
+  "groups_parameter": 1000,
+  "full_fetch_values_validated": true
+}

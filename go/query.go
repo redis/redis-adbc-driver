@@ -157,6 +157,9 @@ func comparison(c Expr) (*ColumnRef, string, Expr, bool) {
 // bound it implies on its first item (keysetBound) and stays in the
 // residual.
 func (e *executor) planWhere(ctx context.Context, where Expr, meta *tableMeta, params []Value) (wherePlan, error) {
+	if e.gpu != nil {
+		return wherePlan{query: "*", residual: where}, nil
+	}
 	wp := wherePlan{query: "*"}
 	if where == nil {
 		return wp, nil
@@ -552,6 +555,7 @@ func (e *executor) scan(ctx context.Context, req scanRequest, params []Value) ([
 // scanIter reads the rows of a scan: decodes them and applies the residual
 // predicate, a cursor page at a time for a scan through the index.
 type scanIter struct {
+	gpu           *cudaPredicate
 	allowPrefetch bool
 	prefetch      *hashPagePrefetch // experimental; joined before cursor cleanup
 	projection    *scanProjection   // optional bare-column stream output
@@ -564,6 +568,7 @@ type scanIter struct {
 	residual      Expr
 	env           *evalEnv
 	cur           *aggCursor
+
 	// fetch holds fields LOAD cannot return exactly. Managed rows can read
 	// these from their HASHes in bounded pipelines after each cursor page.
 	store *store
@@ -603,6 +608,7 @@ func (e *executor) newScanIter(ctx context.Context, req scanRequest, params []Va
 		}
 	}
 	it = &scanIter{meta: meta, need: need, residual: req.where.residual, env: e.newEnv(ctx, meta.types(), params), diagnostics: e.diagnostics}
+	it.gpu = e.gpu
 	return it, fields, exactly
 }
 
@@ -753,7 +759,7 @@ func (it *scanIter) checkReadiness(ctx context.Context) error {
 
 // nextPage is next in the index's order.
 func (it *scanIter) nextPage(ctx context.Context) ([]string, []map[string]Value, error) {
-	if it.allowPrefetch && it.hashFetch && len(it.need) >= 64 && it.projection != nil && it.projection.consumeHash != nil &&
+	if it.allowPrefetch && it.gpu == nil && it.hashFetch && len(it.need) >= 64 && it.projection != nil && it.projection.consumeHash != nil &&
 		it.directKeys == nil && it.ties == nil && it.late == nil {
 		return it.nextPrefetchedHash(ctx)
 	}
@@ -887,6 +893,9 @@ func (it *scanIter) close(ctx context.Context) {
 func (it *scanIter) keep(keys []string, fetched []aggRow) ([]string, []map[string]Value, error) {
 	if it.diagnostics != nil {
 		it.diagnostics.processed.Add(int64(len(fetched)))
+	}
+	if it.gpu != nil {
+		return it.keepCUDA(keys, fetched)
 	}
 	outKeys := make([]string, 0, len(keys))
 	var rows []map[string]Value
@@ -1037,6 +1046,13 @@ func (e *executor) scanMem(ctx context.Context, req scanRequest, params []Value)
 // ---- SELECT ----
 
 func (e *executor) runSelect(ctx context.Context, plan *selectPlan, params []Value) ([][]Value, error) {
+	if e.gpuRequested {
+		finish, err := e.beginCUDA(ctx, plan)
+		if err != nil {
+			return nil, err
+		}
+		defer finish()
+	}
 	// Once for each subquery run, set operation branch, grouping set and
 	// recursive step too.
 	if err := cancelled(ctx); err != nil {
@@ -1892,6 +1908,9 @@ func (e *executor) indexAggregate(ctx context.Context, plan *selectPlan, wp wher
 // driverAggregate fetches the needed columns from the row HASHes and reduces
 // them in the driver.
 func (e *executor) driverAggregate(ctx context.Context, plan *selectPlan, wp wherePlan, aggs []*Func, params []Value) ([]aggGroup, error) {
+	if e.gpu != nil {
+		return e.serialDriverAggregate(ctx, plan, wp, aggs, params)
+	}
 	if groups, handled, err := e.parallelAggregate(ctx, plan, wp, aggs, params); handled {
 		return groups, err
 	}

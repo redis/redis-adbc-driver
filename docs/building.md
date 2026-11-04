@@ -6,7 +6,7 @@ library. For a prebuilt release and sample dataset, use the
 
 ## Requirements
 
-- Go 1.26.10 or newer and a C compiler with cgo support.
+- Go 1.27.3 or newer and a C compiler with cgo support.
 - Git and Make.
 - Docker with Compose, `curl`, and `jq` for the local Redis Software database.
 - [uv](https://docs.astral.sh/uv/) for the ADBC validation suite.

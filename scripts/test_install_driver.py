@@ -14,6 +14,16 @@ from unittest.mock import patch
 import install_driver as installer
 
 
+class SupportedMacOSTests(unittest.TestCase):
+    def test_current_minimum_and_older_release_rejection(self):
+        with patch.object(installer.sys, 'platform', 'darwin'), patch.object(installer.platform, 'machine', return_value='arm64'):
+            with patch.object(installer.platform, 'mac_ver', return_value=('15.0', ('', '', ''), '')):
+                self.assertEqual(installer.host_target(), ('darwin-arm64', 'macos_arm64', 'dylib'))
+            with patch.object(installer.platform, 'mac_ver', return_value=('14.8', ('', '', ''), '')):
+                with self.assertRaisesRegex(ValueError, 'macOS 15'):
+                    installer.host_target()
+
+
 class NativeInstallerTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()

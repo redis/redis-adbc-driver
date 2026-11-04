@@ -22,9 +22,9 @@ args = parser.parse_args()
 if args.platform not in (
     "manylinux_2_28_x86_64",
     "manylinux_2_28_aarch64",
-) and not re.fullmatch(r"macosx_(?:1[2-9]|[2-9][0-9])_0_arm64", args.platform):
+) and not re.fullmatch(r"macosx_(?:1[5-9]|[2-9][0-9])_0_arm64", args.platform):
     parser.error(
-        "supported targets: manylinux_2_28_{x86_64,aarch64}, macosx_<12 or later>_0_arm64"
+        "supported targets: manylinux_2_28_{x86_64,aarch64}, macosx_<15 or later>_0_arm64"
     )
 header = args.library.read_bytes()[:64]
 if args.platform.startswith("manylinux_"):
