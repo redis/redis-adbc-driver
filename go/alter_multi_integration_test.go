@@ -59,11 +59,7 @@ func (h *sqlHarness) indexAttrs(raw goredis.UniversalClient, schema, table strin
 // rawMeta returns a table's metadata as stored.
 func (h *sqlHarness) rawMeta(raw goredis.UniversalClient, schema, table string) string {
 	h.t.Helper()
-	s, err := raw.Get(h.ctx, metaKey(schema, table)).Result()
-	if err != nil {
-		h.t.Fatal(err)
-	}
-	return s
+	return h.storedTableJSON(raw, schema, table)
 }
 
 // dbt-core's alter_relation_add_remove_columns, as on_schema_change and

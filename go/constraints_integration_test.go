@@ -35,10 +35,7 @@ import (
 // them, "name: expr".
 func (h *sqlHarness) storedChecks(raw goredis.UniversalClient, schema, table string) []string {
 	h.t.Helper()
-	meta, err := (&store{client: raw}).getTable(h.ctx, schema, table)
-	if err != nil {
-		h.t.Fatal(err)
-	}
+	meta := h.inspectTable(raw, schema, table)
 	var out []string
 	for _, c := range meta.Checks {
 		out = append(out, c.Name+": "+c.Expr)
@@ -692,11 +689,7 @@ func TestSQLCheckMetadata(t *testing.T) {
 	h.dropTables("it_chk_meta")
 	raw := h.rawClient()
 	h.exec(`CREATE TABLE it_chk_meta (a integer check (a > 0), b integer)`)
-	key := metaKey("public", "it_chk_meta")
-	js, err := raw.Get(h.ctx, key).Result()
-	if err != nil {
-		t.Fatal(err)
-	}
+	js := h.storedTableJSON(raw, "public", "it_chk_meta")
 	var m map[string]any
 	if err := json.Unmarshal([]byte(js), &m); err != nil {
 		t.Fatal(err)
@@ -714,9 +707,7 @@ func TestSQLCheckMetadata(t *testing.T) {
 	cols[0].(map[string]any)["name"] = "x"
 	cols[0].(map[string]any)["field"] = "a"
 	out, _ := json.Marshal(m)
-	if err := raw.Set(h.ctx, key, out, 0).Err(); err != nil {
-		t.Fatal(err)
-	}
+	h.writeTableJSON(raw, "public", "it_chk_meta", string(out))
 	msg := `check constraint "it_chk_meta_a_check" of relation "it_chk_meta" can't be evaluated (column "a" does not exist in table "it_chk_meta"); drop it with ALTER TABLE … DROP CONSTRAINT`
 	h.expectError(`INSERT INTO it_chk_meta VALUES (1, 1)`, msg)
 	h.expectError(`UPDATE it_chk_meta SET b = 2`, msg)
@@ -725,11 +716,12 @@ func TestSQLCheckMetadata(t *testing.T) {
 	h.expectRows(`SELECT x, b FROM it_chk_meta`, "-1|1")
 
 	// Without the checks field (an older table), nothing is checked.
-	delete(m, "checks")
-	out, _ = json.Marshal(m)
-	if err := raw.Set(h.ctx, key, out, 0).Err(); err != nil {
+	if err := json.Unmarshal([]byte(h.storedTableJSON(raw, "public", "it_chk_meta")), &m); err != nil {
 		t.Fatal(err)
 	}
+	delete(m, "checks")
+	out, _ = json.Marshal(m)
+	h.writeTableJSON(raw, "public", "it_chk_meta", string(out))
 	h.exec(`INSERT INTO it_chk_meta VALUES (-2, 1)`)
 	h.expectRows(`SELECT COUNT(*) FROM it_chk_meta`, "2")
 }

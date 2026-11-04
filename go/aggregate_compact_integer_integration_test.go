@@ -25,8 +25,8 @@ func TestSQLCompactIntegerTuples(t *testing.T) {
 	// More than 4096 unique complete tuples per range; the second half repeats
 	// users from the first. NULL/zero, signed extremes and adjacent >2^53 users
 	// must survive compaction, flush boundaries and the exact global merge.
+	var rows []string
 	for start := 0; start < 10000; start += 250 {
-		var rows []string
 		for i := start; i < start+250; i++ {
 			u := fmt.Sprint(int64(9007199254740992) + int64(i%5000))
 			if i%13 == 0 {
@@ -51,12 +51,22 @@ func TestSQLCompactIntegerTuples(t *testing.T) {
 			}
 			rows = append(rows, "("+g+","+u+","+a+")")
 		}
-		h.exec("INSERT INTO " + table + " (g,u,a) VALUES " + strings.Join(rows, ","))
 	}
+	h.exec("INSERT INTO " + table + " (g,u,a) VALUES " + strings.Join(rows, ","))
 	h.exec("ALTER TABLE " + table + " ADD COLUMN d SMALLINT DEFAULT 11")
 	h.exec("UPDATE " + table + " SET w=NULL WHERE __rowid IN (3,5003)")
 	h.exec("DELETE FROM " + table + " WHERE __rowid IN (4,5004)")
+	h.expectRows("SELECT COUNT(*),MIN(d),MAX(d) FROM "+table, "9998|11|11")
 	_, defaultPlan, _ := distinctTestPlan(t, h, "SELECT g,AVG(d),COUNT(DISTINCT u) FROM "+table+" GROUP BY g")
+	// Snapshot ALTER materializes defaults. Preserve the virtual-column
+	// eligibility regression using only a copy of the planner descriptor.
+	defaultPlan.meta = cloneMeta(defaultPlan.meta)
+	d, _ := defaultPlan.meta.resolve("d")
+	if defaultPlan.meta.Columns[d].MissingThrough != 0 {
+		t.Fatal("snapshot default remained virtual")
+	}
+	defaultPlan.meta.Columns[d].Missing = "11"
+	defaultPlan.meta.Columns[d].MissingThrough = 10000
 	if _, ok := tupleAggregateShape(defaultPlan, defaultPlan.aggregateCalls()); ok {
 		t.Fatal("missing-default column lost fallback")
 	}
@@ -71,24 +81,34 @@ func TestSQLCompactIntegerTuples(t *testing.T) {
 			if !ok || !compactIntegerTupleShape(plan.meta, p, wp) {
 				t.Fatal("shape not eligible")
 			}
+			if _, visible, err := e.snapshotIndexQueries(h.ctx, plan.meta); err != nil || !visible || !p.server {
+				t.Fatalf("server tuple visibility unavailable: %v %v", visible, err)
+			}
 			want, err := e.serialDriverAggregate(h.ctx, plan, wp, plan.aggregateCalls(), nil)
 			if err != nil {
 				t.Fatal(err)
 			}
 			for _, compact := range []bool{false, true} {
 				p.compactRows = compact
-				spill := tupleSpill{dir: t.TempDir(), prefix: "compact"}
-				for _, r := range [][2]int64{{1, 5000}, {5001, 10000}} {
-					if err := e.aggregateTuplePartition(h.ctx, plan, p, wp, nil, r[0], r[1], false, func(row spillTuple) error { return spill.add(h.ctx, row) }); err != nil {
+				for _, tail := range []bool{false, true} {
+					spill := tupleSpill{dir: t.TempDir(), prefix: "compact"}
+					for _, r := range [][2]int64{{1, 5000}, {5001, 10000}} {
+						isTail := tail && r[0] == 5001
+						hi := r[1]
+						if isTail {
+							hi = 0
+						}
+						if err := e.aggregateTuplePartition(h.ctx, plan, p, wp, nil, r[0], hi, isTail, func(row spillTuple) error { return spill.add(h.ctx, row) }); err != nil {
+							t.Fatal(err)
+						}
+					}
+					got, err := e.reduceTupleRuns(h.ctx, plan, p, plan.aggregateCalls(), nil, &spill)
+					if err != nil {
 						t.Fatal(err)
 					}
-				}
-				got, err := e.reduceTupleRuns(h.ctx, plan, p, plan.aggregateCalls(), nil, &spill)
-				if err != nil {
-					t.Fatal(err)
-				}
-				if a, b := aggregateGroupsText(got, plan), aggregateGroupsText(want, plan); !reflect.DeepEqual(a, b) {
-					t.Fatalf("compact=%v got %v want %v", compact, a, b)
+					if a, b := aggregateGroupsText(got, plan), aggregateGroupsText(want, plan); !reflect.DeepEqual(a, b) {
+						t.Fatalf("compact=%v tail=%v got %v want %v", compact, tail, a, b)
+					}
 				}
 			}
 			p.compactRows = true

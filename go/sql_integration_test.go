@@ -21,7 +21,9 @@ package redis
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"sync"
@@ -865,7 +867,7 @@ func adminURI() string {
 
 // rawClient connects to adminURI directly (cluster-aware) so tests can
 // inspect row HASHes.
-func (h *sqlHarness) rawClient() goredis.UniversalClient {
+func (h *sqlHarness) rawClient(hooks ...goredis.Hook) goredis.UniversalClient {
 	h.t.Helper()
 	opts, err := goredis.ParseURL(adminURI())
 	if err != nil {
@@ -874,40 +876,48 @@ func (h *sqlHarness) rawClient() goredis.UniversalClient {
 	if err := configureTLSRoots(opts, os.Getenv("REDIS_RETAINED_TLS_CA_FILE")); err != nil {
 		h.t.Fatal(err)
 	}
-	// Keep the test-inspection client on RESP2: a few helpers below inspect
-	// raw replies directly. Driver connections use the configured protocol.
-	opts.Protocol = 2
+	// Inspection and driver connections both use RESP3. Search replies are
+	// normalized by the same map/list-aware helpers as ordinary execution.
+	opts.Protocol = 3
 	var c goredis.UniversalClient = goredis.NewClient(opts)
 	if info, err := c.Info(h.ctx, "cluster").Result(); err == nil && strings.Contains(info, "cluster_enabled:1") {
 		_ = c.Close()
 		c = goredis.NewClusterClient(&goredis.ClusterOptions{Addrs: []string{opts.Addr}, Password: opts.Password,
-			Username: opts.Username, TLSConfig: opts.TLSConfig, Protocol: 2,
+			Username: opts.Username, TLSConfig: opts.TLSConfig, Protocol: 3,
 			ReadTimeout: opts.ReadTimeout, WriteTimeout: opts.WriteTimeout})
 	}
+	for _, hook := range hooks {
+		c.AddHook(hook)
+	}
+	addSnapshotHooks(c)
 	h.t.Cleanup(func() { _ = c.Close() })
 	return c
 }
 
-// rowFields returns the field names of every row HASH under a table prefix.
+// rowFields counts physical fields in the newest visible HASH images, retaining
+// one generation while older replacements/tombstones remain reference-owned.
 func (h *sqlHarness) rowFields(c goredis.UniversalClient, schema, table string) map[string]int {
 	h.t.Helper()
-	st := &store{client: c}
-	meta, err := st.getTable(h.ctx, schema, table)
-	if err != nil {
-		h.t.Fatal(err)
-	}
-	rows, err := st.aggregate(h.ctx, &aggRequest{index: meta.index(), query: "*", load: []string{"__key"}})
+	st, ctx, pin := h.inspectionSnapshot(c)
+	defer pin.release()
+	meta, err := st.getTable(ctx, schema, table)
 	if err != nil {
 		h.t.Fatal(err)
 	}
 	counts := map[string]int{}
-	for _, r := range rows {
-		fields, err := c.HKeys(h.ctx, r["__key"]).Result()
+	scan := newSnapshotDeltaScan(st, meta, nil)
+	for {
+		_, rows, err := scan.next(ctx)
+		if errors.Is(err, io.EOF) {
+			break
+		}
 		if err != nil {
 			h.t.Fatal(err)
 		}
-		for _, f := range fields {
-			counts[f]++
+		for _, row := range rows {
+			for field := range row {
+				counts[field]++
+			}
 		}
 	}
 	return counts
@@ -1838,13 +1848,15 @@ func (h *sqlHarness) planIn(sql, mode string) (query string, residual, indexAgg 
 	if err != nil {
 		h.t.Fatalf("%s: %v", sql, err)
 	}
-	e := &executor{store: &store{client: h.rawClient()}, schema: "public", pushdown: mode, now: time.Now().UTC()}
+	st, ctx, pin := h.inspectionSnapshot(h.rawClient())
+	defer pin.release()
+	e := &executor{store: st, schema: "public", pushdown: mode, now: time.Now().UTC()}
 	e.cache = newExecCache()
-	plan, err := e.planSelect(h.ctx, parsed[0].Stmt.(*SelectStmt), nil)
+	plan, err := e.planSelect(ctx, parsed[0].Stmt.(*SelectStmt), nil)
 	if err != nil {
 		h.t.Fatalf("%s: %v", sql, err)
 	}
-	wp, err := e.planWhere(h.ctx, plan.sel.Where, plan.meta, nil)
+	wp, err := e.planWhere(ctx, plan.sel.Where, plan.meta, nil)
 	if err != nil {
 		h.t.Fatalf("%s: %v", sql, err)
 	}
@@ -1853,7 +1865,7 @@ func (h *sqlHarness) planIn(sql, mode string) (query string, residual, indexAgg 
 		for _, it := range plan.items {
 			collectAggregates(it.expr, &aggs)
 		}
-		if _, indexAgg, err = e.indexAggregate(h.ctx, plan, wp, aggs); err != nil {
+		if _, indexAgg, err = e.indexAggregate(ctx, plan, wp, aggs); err != nil {
 			h.t.Fatalf("%s: %v", sql, err)
 		}
 	}

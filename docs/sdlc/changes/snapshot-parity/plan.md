@@ -160,3 +160,9 @@ unsafe mixed-version writes. Focused SQL/lifecycle tests pass, but the complete
 ordinary suite has a [recorded failing inventory](main-merge-failure-inventory.json)
 requiring isolation, compatibility fixes and a complete rerun. Earlier protocol-14
 Cluster and timing reports do not establish current protocol-15 coverage.
+
+The [ordinary aggregate checkpoint](ordinary-aggregate-validation.md) restores
+pinned RESP3 inspection/public-write fixtures and exposes/fixes compact tuple
+partition bounds on overlays, preserving exact spill/merge and fallback guards.
+Hosted ordinary jobs still fail; the complete ordinary/Cluster/platform matrix
+and broader parity requirements remain open.

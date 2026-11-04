@@ -102,6 +102,9 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.26.10)
   before predicates, aggregates or limits. Search candidates require newer-directory
   visibility checks. Server reducers and ordered scans require proven immutable
   per-segment masks (including tombstones); merge globally before OFFSET/LIMIT.
+  Tuple partitions establish visibility even when invoked independently of their
+  coordinator. Compact authoritative scans carry exact row-ID bounds, including
+  tails; a pushed Search range alone does not restrict a snapshot directory scan.
   Private outputs stay unindexed until final sealing; staging SQL reads exact
   directories. Build one final index and wait for readiness before publication.
   Track private tombstones when restoring a baseline's published overlay flag.

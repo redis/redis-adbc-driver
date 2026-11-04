@@ -62,10 +62,7 @@ func (h *sqlHarness) setConnOption(key, value string) error {
 // tableNames returns a table's key prefix and index name.
 func (h *sqlHarness) tableNames(raw goredis.UniversalClient, schema, table string) (string, string) {
 	h.t.Helper()
-	meta, err := (&store{client: raw}).getTable(h.ctx, schema, table)
-	if err != nil {
-		h.t.Fatal(err)
-	}
+	meta := h.inspectTable(raw, schema, table)
 	return meta.prefix(), meta.index()
 }
 
