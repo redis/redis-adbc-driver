@@ -24,6 +24,7 @@ import (
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/apache/arrow-go/v18/arrow/memory"
+	goredis "github.com/redis/go-redis/v9"
 )
 
 // Imported __key is captured provenance. New SQL/Arrow rows have independent
@@ -127,14 +128,29 @@ func TestAdoptKeyedWrites(t *testing.T) {
 
 func TestAdoptInsertCollisionAtomic(t *testing.T) {
 	f := newHashFixture(t, "it:aw:race:")
+	// Exercise the unmanaged HASH primitive without the driver's catalog hook.
+	// rawClient is snapshot-aware; its metadata admission correctly rejects an
+	// unscoped reservation. No SQL descriptor is registered by this test.
+	var raw goredis.UniversalClient
+	switch c := f.raw.(type) {
+	case *goredis.Client:
+		opts := *c.Options()
+		raw = goredis.NewClient(&opts)
+	case *goredis.ClusterClient:
+		opts := *c.Options()
+		raw = goredis.NewClusterClient(&opts)
+	default:
+		t.Fatalf("unsupported fixture client %T", f.raw)
+	}
+	defer raw.Close()
 	// Preserve the unmanaged keyed-writer collision test independently of the
 	// managed-import SQL contract. No legacy table descriptor is fabricated.
 	f.hset(f.prefix+"seed", "name", "Seed")
-	if err := f.raw.SAdd(f.h.ctx, prefixesKey, f.prefix).Err(); err != nil {
+	if err := raw.SAdd(f.h.ctx, prefixesKey, f.prefix).Err(); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = f.raw.SRem(f.h.ctx, prefixesKey, f.prefix).Err() })
-	st := &store{client: f.raw}
+	t.Cleanup(func() { _ = raw.SRem(f.h.ctx, prefixesKey, f.prefix).Err() })
+	st := &store{client: raw}
 	meta := &tableMeta{Schema: "public", Name: "it_aw_race", KeyPrefix: f.prefix, Adopted: true, KeyRows: true,
 		Columns: []columnMeta{{Name: "name", Type: typeString, Nullable: true}}}
 	meta = insertMeta(meta)
@@ -168,7 +184,7 @@ func TestAdoptInsertCollisionAtomic(t *testing.T) {
 	if success != 1 {
 		t.Fatal(fmt.Sprintf("successful competing inserts: %d", success))
 	}
-	if n, _ := f.raw.HLen(f.h.ctx, f.prefix+"new").Result(); n != 1 {
+	if n, _ := raw.HLen(f.h.ctx, f.prefix+"new").Result(); n != 1 {
 		t.Fatalf("unexpected fields: %d", n)
 	}
 }

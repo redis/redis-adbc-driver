@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Run row-batch permission regressions with an owned Software API principal.
+"""Run row-batch and cleanup permission regressions with owned Software principals.
 
 Creates temporary principals that independently deny directory mutation or DEL
-while permitting the other commands under test. Credentials and infrastructure
-identifiers stay private. The Go tests clear the dedicated DB.
+or Search index deletion while permitting the other commands under test.
+Credentials and infrastructure identifiers stay private. The Go tests clear the dedicated DB.
 """
 
 import argparse
@@ -59,6 +59,9 @@ def main():
             replacement = "replace-preflight-" + uuid.uuid4().hex + "@example.com"
             principals.create(replacement, secrets.token_urlsafe(32), [
                 "+ping", "+eval", "+hget", "+zscore", "+hset", "+zadd", "+type", "+time", "~*"])
+            cleanup = "cleanup-recovery-" + uuid.uuid4().hex + "@example.com"
+            principals.create(cleanup, secrets.token_urlsafe(32),
+                              ["+@all", "-ft.dropindex", "~*"])
             import_uris = {}
             for denied in ("hdel", "zrem"):
                 person = "import-preflight-" + uuid.uuid4().hex + "@example.com"
@@ -68,16 +71,17 @@ def main():
                 import_uris["REDIS_SNAPSHOT_IMPORT_" + denied.upper() + "_ACL_URI"] = principals.people[person]["uri"]
             env = dict(os.environ, REDIS_SNAPSHOT_URI=uri,
                        REDIS_SNAPSHOT_GC_ACL_URI=principals.people[name]["uri"],
+                       REDIS_SNAPSHOT_CLEANUP_ACL_URI=principals.people[cleanup]["uri"],
                        REDIS_SNAPSHOT_WRITE_ACL_URI=principals.people[name]["uri"],
                        REDIS_SNAPSHOT_REPLACE_ACL_URI=principals.people[replacement]["uri"])
             env.update(import_uris)
             env.pop("REDIS_URI", None)
             subprocess.run(["go", "test", "-race", "-count=1", "-v", "-run",
-                            "^TestSnapshot(GCBatch|InsertBatch|ReplaceBatch|ImportBatch)PermissionPreflight$", "."],
+                            "^TestSnapshot((GCBatch|InsertBatch|ReplaceBatch|ImportBatch)PermissionPreflight|CleanupPermissionRecovery)$", "."],
                            cwd=Path(__file__).resolve().parents[1] / "go", env=env, check=True)
         finally:
             principals.cleanup()
-    print("Row-batch permission preflights verified; temporary Software principal removed.")
+    print("Row-batch permission preflights and cleanup recovery verified; temporary Software principals removed.")
 
 
 if __name__ == "__main__":

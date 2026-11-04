@@ -511,36 +511,21 @@ func TestACLSearchCommandsAndKeys(t *testing.T) {
 	a.exec(`DROP TABLE it_acl_victim`)
 }
 
-// A connection that takes over an abandoned move but can't roll it back
-// (here: no FT.DROPINDEX) gives it up at once, so that the next connection
-// can, rather than after the takeover's lease has expired.
-func TestACLRekeyTakeoverReleased(t *testing.T) {
-	a := newACLHarness(t)
-	a.dropTables("it_acl_rk", "it_acl_rk2")
-	a.exec(`CREATE TABLE it_acl_rk (id INTEGER)`)
-	a.exec(`INSERT INTO it_acl_rk VALUES (1), (2)`)
-	st := &store{client: a.raw}
-	job := a.abandon(st, a.raw, "it_acl_rk", "it_acl_rk2")
-	cmds := slices.DeleteFunc(a.driverCommands(true), func(c string) bool { return c == "+ft.dropindex" })
-	a.user("it_acl_nodrop", append(cmds, "~*")...)
-
-	u := a.connect("it_acl_nodrop", map[string]string{OptionStringReadTimeout: "60s"})
-	if keys := a.aliveKeys(a.raw); len(keys) != 0 {
-		t.Errorf("lease keys left by the failed takeover: %v", keys)
+// Snapshot DDL retires private generations rather than rolling mutable renames
+// back. A refused index cleanup must preserve its rows and remain immediately
+// recoverable by another collector, without waiting for a failed owner's lease.
+func TestSQLSnapshotCleanupDeniedRecovery(t *testing.T) {
+	h := newSQLHarness(t)
+	h.dropTables("it_cleanup_live")
+	h.exec("CREATE TABLE it_cleanup_live(v BIGINT)")
+	h.exec("INSERT INTO it_cleanup_live VALUES(9007199254740993)")
+	raw := h.rawClient()
+	s := &store{client: raw, snapshots: true}
+	meta, _ := snapshotSweepGarbage(t, h, s, false)
+	denied := &snapshotCleanupDenied{index: meta.index()}
+	limited := &store{client: h.rawClient(denied), snapshots: true}
+	snapshotCheckCleanupRecovery(t, h, s, limited, raw, meta)
+	if denied.calls.Load() != 1 {
+		t.Fatalf("denied cleanup replayed: %d calls", denied.calls.Load())
 	}
-	u.expectErrorExact(`INSERT INTO it_acl_rk VALUES (3)`, `I/O: [redis] table "public"."it_acl_rk" is being renamed `+
-		`(adbc.redis.rename_rekey), but the connection renaming it has gone away, and rolling the rename back failed: `+
-		`failed to drop the new search index: NOPERM User it_acl_nodrop has no permissions to run the 'FT.DROPINDEX' command. `+
-		`The next connection to open, or the next statement that changes the table, tries again`)
-	if rec := a.rekeyRecord(a.raw, job.OldPrefix); rec == nil || !rec.Recovering {
-		t.Fatalf("record: %+v", rec)
-	}
-	// The next connection that can, does, straight away.
-	h2 := newSQLHarness(t)
-	if a.rekeyPending(a.raw, job.OldPrefix) {
-		t.Error("the move was not rolled back")
-	}
-	h2.expectReleased(a.raw, job.KeyPrefix, job.IndexName)
-	u.exec(`INSERT INTO it_acl_rk VALUES (3)`)
-	h2.expectRows(`SELECT id FROM it_acl_rk ORDER BY id`, "1", "2", "3")
 }

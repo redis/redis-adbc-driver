@@ -166,3 +166,10 @@ pinned RESP3 inspection/public-write fixtures and exposes/fixes compact tuple
 partition bounds on overlays, preserving exact spill/merge and fallback guards.
 Hosted ordinary jobs still fail; the complete ordinary/Cluster/platform matrix
 and broader parity requirements remain open.
+
+The [cleanup permission checkpoint](cleanup-permission-validation.md) replaces
+legacy mutable-move takeover assumptions with current private-generation cleanup
+recovery, checked with both deterministic denial and a real Software API principal.
+It also restores the independent unmanaged HASH collision race without bypassing
+snapshot admission for driver SQL. Full ordinary/platform and performance parity
+remain open.

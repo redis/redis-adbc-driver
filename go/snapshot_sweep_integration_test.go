@@ -391,3 +391,118 @@ func TestSnapshotSweepConcurrentRetirement(t *testing.T) {
 		t.Fatalf("concurrent cleanup accounting: claims=%d deleted=%d manifests=%d", calls.Load(), deleted, manifests)
 	}
 }
+
+// A deterministic command denial runs in the ordinary suite even when Software
+// disallows protocol ACL SETUSER. The Software API test below separately proves
+// this behavior with an actual server-side permission denial.
+type snapshotCleanupDenied struct {
+	snapshotHook
+	index string
+	calls atomic.Int64
+}
+
+func (h *snapshotCleanupDenied) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
+	return func(ctx context.Context, cmd goredis.Cmder) error {
+		args := cmd.Args()
+		if len(args) > 1 && strings.EqualFold(fmt.Sprint(args[0]), "FT.DROPINDEX") && fmt.Sprint(args[1]) == h.index {
+			h.calls.Add(1)
+			return errors.New("NOPERM injected FT.DROPINDEX denial")
+		}
+		return next(ctx, cmd)
+	}
+}
+
+func snapshotCheckCleanupRecovery(t *testing.T, h *sqlHarness, authorized, limited *store, raw goredis.UniversalClient, meta *tableMeta) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(h.ctx, 10*time.Second)
+	defer cancel()
+	denied := false
+	for range 256 {
+		result, err := limited.reapSnapshotStep(ctx)
+		if err != nil {
+			if result.prefix != meta.prefix() || !strings.Contains(err.Error(), "NOPERM") {
+				t.Fatalf("unexpected cleanup failure: %+v %v", result, err)
+			}
+			if result.deleted != 0 {
+				t.Fatal("denied index cleanup deleted rows")
+			}
+			denied = true
+			break
+		}
+	}
+	if !denied {
+		t.Fatal("index cleanup denial was not exercised")
+	}
+	directory := snapshotMembers(snapshotDataID(meta.prefix()))
+	if raw.Exists(ctx, meta.prefix()+"1", meta.prefix()+"2", meta.prefix()+"3").Val() != 3 || raw.ZCard(ctx, directory).Val() != 3 {
+		t.Fatal("denied cleanup changed private rows/directory")
+	}
+	if err := raw.Do(ctx, "FT.INFO", meta.index()).Err(); err != nil {
+		t.Fatal("denied cleanup removed index", err)
+	}
+	// Pin a committed source across recovery; neither the denied collector nor
+	// its successor may reclaim live data while removing private outputs.
+	readCtx, pin, err := authorized.acquireSnapshotMode(ctx, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pin.release()
+	live, err := authorized.getTable(readCtx, "public", "it_cleanup_live")
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkLive := func() {
+		rows, err := authorized.fetchSnapshotVisible(readCtx, live, []string{live.prefix() + "1"}, nil)
+		if err != nil || len(rows) != 1 || rows[0]["v"] != "9007199254740993" {
+			t.Fatalf("cleanup changed pinned committed source: %v %v", rows, err)
+		}
+	}
+	checkLive()
+	// A fresh collector immediately claims the same zero-reference generation.
+	result, err := authorized.reapSnapshotStep(ctx)
+	if err != nil || result.prefix != meta.prefix() || result.deleted != 3 {
+		t.Fatalf("authorized collector could not immediately resume: %+v %v", result, err)
+	}
+	if raw.Exists(ctx, meta.prefix()+"1", meta.prefix()+"2", meta.prefix()+"3", directory).Val() != 0 || raw.HExists(ctx, snapshotMetadataGraph, "d:"+snapshotDataID(meta.prefix())).Val() {
+		t.Fatal("resumed cleanup left registered garbage")
+	}
+	if err := raw.Do(ctx, "FT.INFO", meta.index()).Err(); err == nil || !isUnknownIndex(err) {
+		t.Fatal("resumed cleanup left index", err)
+	}
+	checkLive()
+	pin.release()
+	h.exec("INSERT INTO it_cleanup_live VALUES(9007199254740994)")
+	h.expectRows("SELECT v FROM it_cleanup_live ORDER BY v", "9007199254740993", "9007199254740994")
+}
+
+func TestSnapshotCleanupPermissionRecovery(t *testing.T) {
+	uri := os.Getenv("REDIS_SNAPSHOT_CLEANUP_ACL_URI")
+	if uri == "" {
+		t.Skip("requires owned Software API principal with FT.DROPINDEX denied")
+	}
+	h, raw, _ := newSnapshotHarnessMode(t, false, false)
+	h.exec("CREATE TABLE it_cleanup_live(v BIGINT)")
+	h.exec("INSERT INTO it_cleanup_live VALUES(9007199254740993)")
+	s := snapshotTestStore(t, raw)
+	meta, _ := snapshotSweepGarbage(t, h, s, true)
+	credentials, err := goredis.ParseURL(uri)
+	if err != nil {
+		t.Fatal("invalid private principal configuration")
+	}
+	opts := *raw.Options()
+	opts.Username, opts.Password = credentials.Username, credentials.Password
+	limited := goredis.NewClient(&opts)
+	defer limited.Close()
+	// Positive controls distinguish FT.DROPINDEX denial from authentication or
+	// catalog/data access failures. The recovery helper requires the real denial.
+	if err := limited.Ping(h.ctx).Err(); err != nil {
+		t.Fatal("authentication positive control failed")
+	}
+	if n, err := limited.ZCard(h.ctx, snapshotMembers(snapshotDataID(meta.prefix()))).Result(); err != nil || n != 3 {
+		t.Fatal("directory positive control failed")
+	}
+	if err := limited.Do(h.ctx, "FT.INFO", meta.index()).Err(); err != nil {
+		t.Fatal("Search positive control failed")
+	}
+	snapshotCheckCleanupRecovery(t, h, s, snapshotTestStore(t, limited), raw, meta)
+}
