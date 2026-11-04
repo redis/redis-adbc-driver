@@ -5,8 +5,8 @@ managed tables and imported copies of application data. No option is required.
 Ordinary Open initializes an empty isolated database. Explicit HASH import and
 foreign-index import may initialize alongside application-owned data and indexes,
 but reject existing legacy driver metadata without modification. No upgrade or
-migration path is included. Storage protocol version 15 rejects prior draft versions
-1–13. It requires an indexed tombstone marker for visibility-safe server reduction.
+migration path is included. Storage protocol version 15 rejects earlier draft
+formats. It requires an indexed tombstone marker for visibility-safe server reduction.
 Metadata manifests share immutable buckets and native values through a fixed
 256-slot map. Buckets have exact ordered field directories; point metadata reads
 fetch individual fields with count/reference proofs. Writes copy touched buckets/values; reference-counted retirement
@@ -49,6 +49,12 @@ Supported writes build private generations and publish with one atomic pointer
 change. Readers see the old or new generation. An error in a later Arrow ingest
 batch leaves the published table unchanged. DML RETURNING is exposed after
 publication succeeds.
+
+Publication waits for private Search indexes and their shard schemas to settle,
+within the statement's cancellation/deadline context. Recognized server schema
+convergence replies repeat readiness checks without replaying SQL or index
+creation. Permission and missing-index errors remain terminal; denied FT.INFO
+validation reports Unauthorized. Cancelled readiness waits publish no changes.
 
 Scripts and bound parameter rows acquire a fresh snapshot for each executed
 statement. Statement snapshots do not enable multi-statement transactions: ADBC

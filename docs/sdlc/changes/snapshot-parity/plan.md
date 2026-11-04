@@ -34,6 +34,10 @@ The [copy-check checkpoint](copy-check-validation.md) removes false blockers fro
 legacy physical-name prediction, verifies catalog-absent first copies and proves
 external HASH/index ownership through private generation reclamation.
 
+The [ALTER readiness checkpoint](alter-readiness-validation.md) restores private
+sealing/publication fixtures and fixes recognized schema-convergence waits plus
+terminal permission classification. Complete feature/platform parity remains open.
+
 The [consistency-boundary recommendation](consistency-boundary.md) proposes a
 shared driver consistency layer across execution paths. A new
 Redis server extension is not required by this plan.

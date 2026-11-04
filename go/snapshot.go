@@ -14,6 +14,7 @@ package redis
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -1123,18 +1124,27 @@ func (s *store) validateSnapshot(ctx context.Context) error {
 
 		for {
 			reply, err := s.searchDo(ctx, meta.index(), "FT.INFO", meta.index()).Result()
-			if err != nil {
+			if err != nil && !inconsistentIndexState(err) {
+				var serverErr interface {
+					error
+					RedisError()
+				}
+				if errors.As(err, &serverErr) && strings.HasPrefix(serverErr.Error(), "NOPERM ") {
+					return wrapErr(adbc.StatusUnauthorized, err, "failed to validate snapshot index")
+				}
 				return wrapRedis(err, "failed to validate snapshot index")
 			}
-			info := indexInfoOf(reply)
-			if info.failures != 0 {
-				return errorf(adbc.StatusIO, "snapshot index contains indexing failures")
-			}
-			if !info.indexing && info.percent >= 1 && info.numDocs == count {
-				if len(info.prefixes) != 1 || info.prefixes[0] != meta.prefix() {
-					return errorf(adbc.StatusIO, "snapshot index has an unexpected row prefix")
+			if err == nil {
+				info := indexInfoOf(reply)
+				if info.failures != 0 {
+					return errorf(adbc.StatusIO, "snapshot index contains indexing failures")
 				}
-				break
+				if !info.indexing && info.percent >= 1 && info.numDocs == count {
+					if len(info.prefixes) != 1 || info.prefixes[0] != meta.prefix() {
+						return errorf(adbc.StatusIO, "snapshot index has an unexpected row prefix")
+					}
+					break
+				}
 			}
 			select {
 			case <-ctx.Done():

@@ -67,75 +67,7 @@ func TestAlterWaitsBeforeMetadataCommit(t *testing.T) {
 	for _, stateError := range []string{"", "Inconsistent index state", "SEARCH_VALUE_BAD Inconsistent index state"} {
 		for _, cancelWait := range []bool{false, true} {
 			t.Run(fmt.Sprint(stateError, "/", cancelWait), func(t *testing.T) {
-				h := newSQLHarness(t)
-				const table = "it_alter_ready"
-				h.exec("CREATE TABLE " + table + " (id INTEGER)")
-				h.exec("INSERT INTO " + table + " VALUES(1)")
-				t.Cleanup(func() { h.exec("DROP TABLE IF EXISTS " + table) })
-				e, p := sharedScanPlan(t, h, "SELECT id FROM "+table, nil)
-				hook := &alterReadyHook{index: p.meta.index(), stateError: stateError, waiting: make(chan struct{})}
-				switch client := e.store.client.(type) {
-				case *goredis.Client:
-					client.AddHook(hook)
-				case *goredis.ClusterClient:
-					if err := client.ForEachMaster(h.ctx, func(_ context.Context, node *goredis.Client) error { node.AddHook(hook); return nil }); err != nil {
-						t.Fatal(err)
-					}
-				}
-				ctx, cancel := context.WithCancel(h.ctx)
-				defer cancel()
-				done := make(chan error, 1)
-				go func() {
-					done <- e.alterTable(ctx, p.meta, parseAlter(t, "ALTER TABLE "+table+" ADD COLUMN extra INTEGER DEFAULT 7").Cmds)
-				}()
-				select {
-				case <-hook.waiting:
-				case err := <-done:
-					t.Fatal("ALTER completed before readiness", err)
-				case <-time.After(5 * time.Second):
-					t.Fatal("ALTER never checked readiness")
-				}
-				meta, err := e.store.getTable(h.ctx, defaultSchema, table)
-				if err != nil {
-					t.Fatal(err)
-				}
-				if slices.ContainsFunc(meta.Columns, func(c columnMeta) bool { return c.Name == "extra" }) {
-					t.Fatal("published metadata before readiness")
-				}
-				if cancelWait {
-					cancel()
-				} else {
-					hook.ready.Store(true)
-				}
-				select {
-				case err = <-done:
-				case <-time.After(5 * time.Second):
-					t.Fatal("ALTER did not finish")
-				}
-				if cancelWait && !isStatus(err, adbc.StatusCancelled) || !cancelWait && err != nil {
-					t.Fatal(err)
-				}
-				if hook.alters.Load() != 1 {
-					t.Fatal("replayed FT.ALTER", hook.alters.Load())
-				}
-				meta, err = e.store.getTable(h.ctx, defaultSchema, table)
-				if err != nil {
-					t.Fatal(err)
-				}
-				if got := slices.ContainsFunc(meta.Columns, func(c columnMeta) bool { return c.Name == "extra" }); got == cancelWait {
-					t.Fatal("wrong commit state", got, cancelWait)
-				}
-				if cancelWait {
-					// The unused physical attribute remains; a new attempt must choose a
-					// fresh field and succeed without publishing the cancelled definition.
-					e.store.client = h.rawClient()
-					if err := e.alterTable(h.ctx, meta, parseAlter(t, "ALTER TABLE "+table+" ADD COLUMN extra INTEGER DEFAULT 9").Cmds); err != nil {
-						t.Fatal(err)
-					}
-					if c := h.tableColumn(h.rawClient(), table, "extra"); c.field() == "extra" || c.Default != "9" {
-						t.Fatal(c)
-					}
-				}
+				testSnapshotAlterReadinessCase(t, stateError, cancelWait)
 			})
 		}
 	}
@@ -158,11 +90,12 @@ func TestRangeReadinessSchemaConvergence(t *testing.T) {
 			const table = "it_readiness_convergence"
 			h.exec("CREATE TABLE " + table + " (id INTEGER)")
 			t.Cleanup(func() { h.exec("DROP TABLE IF EXISTS " + table) })
-			e, p := sharedScanPlan(t, h, "SELECT id FROM "+table, nil)
-			hook := &alterReadyHook{index: p.meta.index(), stateError: tc.message, waiting: make(chan struct{})}
+			meta := h.inspectTable(h.rawClient(), defaultSchema, table)
+			hook := &alterReadyHook{index: meta.index(), stateError: tc.message, waiting: make(chan struct{})}
 			hook.altered.Store(true)
-			hookRangeClient(t, e.store.client, hook)
-			if err := e.store.checkRangeReadiness(h.ctx, p.meta.index()); !isStatus(err, tc.code) {
+			st, ctx, pin := h.inspectionSnapshot(h.rawClient(hook))
+			defer pin.release()
+			if err := st.checkRangeReadiness(ctx, meta.index()); !isStatus(err, tc.code) {
 				t.Fatal("wrong readiness status", err, tc.code)
 			}
 		})
