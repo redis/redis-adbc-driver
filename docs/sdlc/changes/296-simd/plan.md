@@ -13,3 +13,8 @@ See [intent](intent.md), [spec](spec.md), and [validation](validation.md).
    traces and identifiers private. Publish only synthetic measurements and summary.
 6. Submit for review; inspect checks and repository merge requirements before
    merging and closing the linked issue. Do not equate unrun hardware with parity.
+
+Implementation, local Software profiling, native amd64/arm64 measurements and
+self-review are complete. The linked PR carries final repository checks and
+merge/closure status. Outcome: retain the isolated prototype; do not wire it
+into SQL execution.

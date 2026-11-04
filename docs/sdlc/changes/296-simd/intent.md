@@ -1,7 +1,7 @@
 # Intent: exact integer CPU batch experiment
 
 Date: 2026-11-03 (America/Los_Angeles). Requestor: Albert Wong. Author: Codex.
-Source baseline: `36aa28d` (merged #290). Status: implementation and measurement.
+Source baseline: `36aa28d` (merged #290). Status: completed experiment; no-go for automatic SQL integration.
 Issue: [#296](https://github.com/redis/redis-adbc-driver/issues/296).
 
 Measure whether packing decoded maps into contiguous integers can repay its cost
