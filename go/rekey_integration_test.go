@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"reflect"
 	"slices"
 	"strings"
 	"sync/atomic"
@@ -66,6 +67,19 @@ func (h *sqlHarness) tableNames(raw goredis.UniversalClient, schema, table strin
 	return meta.prefix(), meta.index()
 }
 
+// Native storage identity is canonical and registered independently of SQL names.
+func (h *sqlHarness) rekeyNativeLayout(raw goredis.UniversalClient, schema, table string) (string, string) {
+	h.t.Helper()
+	meta := h.inspectTable(raw, schema, table)
+	for _, seg := range meta.snapshotSegments() {
+		id := snapshotDataID(seg.Prefix)
+		if id == "" || seg.Prefix != snapshotRows(id, schema) || snapshotDataID(seg.Index) != id {
+			h.t.Fatal("noncanonical rekey storage")
+		}
+	}
+	return meta.prefix(), meta.index()
+}
+
 // expectReleased checks that a prefix and index name are free in the
 // registry, and that neither keys nor an index use them.
 func (h *sqlHarness) expectReleased(raw goredis.UniversalClient, prefix, index string) {
@@ -104,29 +118,53 @@ func TestSQLRekeyDbtPattern(t *testing.T) {
 
 	h.exec(`CREATE TABLE it_rk_model (id INTEGER, label VARCHAR)`)
 	h.exec(`INSERT INTO it_rk_model VALUES (100, 'old')`)
-	// Key prefixes are never reused, so each run's names take a new ~N.
+	// Physical UUIDs are never reused across builds or renames.
 	seen := map[string]bool{}
-	lastTmp, last := int64(0), h.namesN(raw, "public", "it_rk_model", "it_rk_model")
+	initial, _ := h.rekeyNativeLayout(raw, defaultSchema, "it_rk_model")
+	seen[initial] = true
 	for run := 1; run <= 2; run++ {
 		h.exec(`CREATE TABLE it_rk_model__dbt_tmp (id INTEGER NOT NULL, label VARCHAR, amount NUMERIC(10,2), blob VARBINARY, note VARCHAR NOINDEX)`)
 		h.exec(fmt.Sprintf(`INSERT INTO it_rk_model__dbt_tmp VALUES
 			(1, 'a', 1.50, X'00ff', 'n1'), (2, 'b', NULL, NULL, NULL), (3, 'c', 3.25, X'01', 'n3'), (4, NULL, -4.00, NULL, 'run %d')`, run))
 		tmpPrefix, tmpIndex := h.tableNames(raw, "public", "it_rk_model__dbt_tmp")
-		if n := h.namesN(raw, "public", "it_rk_model__dbt_tmp", "it_rk_model__dbt_tmp"); n <= lastTmp || seen[tmpPrefix] {
-			t.Fatalf("run %d: tmp table names %q, %q were used before", run, tmpPrefix, tmpIndex)
-		} else {
-			lastTmp, seen[tmpPrefix] = n, true
+		h.rekeyNativeLayout(raw, defaultSchema, "it_rk_model__dbt_tmp")
+		if seen[tmpPrefix] {
+			t.Fatal("temporary build reused a physical prefix")
 		}
+		seen[tmpPrefix] = true
+		st, oldCtx, oldPin := h.inspectionSnapshot(raw)
+		t.Cleanup(oldPin.release)
+		oldModel, err := st.getTable(oldCtx, defaultSchema, "it_rk_model")
+		if err != nil {
+			t.Fatal(err)
+		}
+		oldTmp, err := st.getTable(oldCtx, defaultSchema, "it_rk_model__dbt_tmp")
+		if err != nil {
+			t.Fatal(err)
+		}
+		beforeModel := snapshotExecuteTest(t, st, oldCtx, "SELECT id,label FROM it_rk_model ORDER BY id").rows
+		beforeTmp := snapshotExecuteTest(t, st, oldCtx, "SELECT id,label,amount,blob,note FROM it_rk_model__dbt_tmp ORDER BY id").rows
 		h.exec(`DROP TABLE it_rk_model`)
 		h.exec(`ALTER TABLE it_rk_model__dbt_tmp RENAME TO it_rk_model`)
 
 		// The rows and the index carry the new name, and nothing is left
 		// under the old one, on every run.
 		prefix, index := h.tableNames(raw, "public", "it_rk_model")
-		if n := h.namesN(raw, "public", "it_rk_model", "it_rk_model"); n <= last || seen[prefix] {
-			t.Fatalf("run %d: renamed table names %q, %q were used before", run, prefix, index)
-		} else {
-			last, seen[prefix] = n, true
+		h.rekeyNativeLayout(raw, defaultSchema, "it_rk_model")
+		if seen[prefix] {
+			t.Fatal("rekey reused a prior physical prefix")
+		}
+		seen[prefix] = true
+		afterModel := snapshotExecuteTest(t, st, oldCtx, "SELECT id,label FROM it_rk_model ORDER BY id").rows
+		afterTmp := snapshotExecuteTest(t, st, oldCtx, "SELECT id,label,amount,blob,note FROM it_rk_model__dbt_tmp ORDER BY id").rows
+		if !reflect.DeepEqual(beforeModel, afterModel) || !reflect.DeepEqual(beforeTmp, afterTmp) {
+			t.Fatal("dbt rename changed pinned model or build rows")
+		}
+		oldPin.release()
+		for _, meta := range []*tableMeta{oldModel, oldTmp} {
+			for _, seg := range meta.snapshotSegments() {
+				h.expectSnapshotReleased(raw, seg.Prefix, seg.Index)
+			}
 		}
 		if n := h.prefixKeyCount(raw, prefix); n != 4 {
 			t.Errorf("run %d: %d keys under %q, want 4", run, n, prefix)
@@ -134,10 +172,7 @@ func TestSQLRekeyDbtPattern(t *testing.T) {
 		if !h.indexExists(raw, index) {
 			t.Errorf("run %d: index %q missing", run, index)
 		}
-		h.expectReleased(raw, tmpPrefix, tmpIndex)
-		if h.rekeyPending(raw, tmpPrefix) {
-			t.Errorf("run %d: re-key job still recorded", run)
-		}
+		h.expectSnapshotReleased(raw, tmpPrefix, tmpIndex)
 		fields, err := raw.HGetAll(h.ctx, prefix+"1").Result()
 		if err != nil {
 			t.Fatal(err)
@@ -154,7 +189,7 @@ func TestSQLRekeyDbtPattern(t *testing.T) {
 		h.expectRows(`SELECT id FROM it_rk_model WHERE __rowid = 2`, "2")
 		h.expectError(`SELECT * FROM it_rk_model__dbt_tmp`, "does not exist")
 
-		// Row ids continue, and writes go to the new keys.
+		// Row IDs continue; new deltas leave the immutable renamed base unchanged.
 		h.exec(`INSERT INTO it_rk_model (id, label) VALUES (5, 'e')`)
 		h.exec(`UPDATE it_rk_model SET label = 'B' WHERE id = 2`)
 		h.exec(`DELETE FROM it_rk_model WHERE id = 3`)
@@ -198,12 +233,15 @@ func TestSQLRekeyManyPages(t *testing.T) {
 	}
 	oldPrefix, oldIndex := h.tableNames(raw, "public", "it_rk_pages")
 	h.exec(`ALTER TABLE it_rk_pages RENAME TO it_rk_pages2`)
-	h.namesN(raw, "public", "it_rk_pages2", "it_rk_pages2")
-	newPrefix, _ := h.tableNames(raw, "public", "it_rk_pages2")
+	h.rekeyNativeLayout(raw, defaultSchema, "it_rk_pages2")
+	newPrefix, newIndex := h.tableNames(raw, defaultSchema, "it_rk_pages2")
+	if newPrefix == oldPrefix || newIndex == oldIndex {
+		t.Fatal("multipage rekey retained source storage")
+	}
 	if got := h.prefixKeyCount(raw, newPrefix); got != n {
 		t.Errorf("%d keys under the new prefix, want %d", got, n)
 	}
-	h.expectReleased(raw, oldPrefix, oldIndex)
+	h.expectSnapshotReleased(raw, oldPrefix, oldIndex)
 	h.expectRows(`SELECT COUNT(*), SUM(id), MIN(id), MAX(id) FROM it_rk_pages2`,
 		fmt.Sprintf("%d|%d|1|%d", n, n*(n+1)/2, n))
 	h.expectRows(fmt.Sprintf(`SELECT id FROM it_rk_pages2 ORDER BY id LIMIT 2 OFFSET %d`, cursorCount-1),
@@ -256,8 +294,12 @@ func TestSQLRekeyConnectionOption(t *testing.T) {
 	if err := h.setConnOption(OptionStringRenameRekey, "true"); err != nil {
 		t.Fatal(err)
 	}
+	oldPrefix, oldIndex := h.tableNames(raw, defaultSchema, "it_rk_conn")
 	h.exec(`ALTER TABLE it_rk_conn RENAME TO it_rk_conn2`)
-	h.namesN(raw, "public", "it_rk_conn2", "it_rk_conn2")
+	newPrefix, newIndex := h.rekeyNativeLayout(raw, defaultSchema, "it_rk_conn2")
+	if newPrefix == oldPrefix || newIndex == oldIndex {
+		t.Fatal("enabled rekey retained source storage")
+	}
 	movedPrefix, _ := h.tableNames(raw, "public", "it_rk_conn2")
 
 	// Another connection of a database with the option on, turned off.
@@ -288,70 +330,70 @@ func TestSQLRekeyTempTable(t *testing.T) {
 	oldPrefix, oldIndex := h.tableNames(raw, schema, "it_rk_tmp")
 	h.exec(`ALTER TABLE it_rk_tmp RENAME TO it_rk_tmp2`)
 	prefix, index := h.tableNames(raw, schema, "it_rk_tmp2")
-	if prefix != schema+":it_rk_tmp2:" || index != "idx:"+schema+":it_rk_tmp2" {
-		t.Errorf("temporary table names %q, %q", prefix, index)
+	h.rekeyNativeLayout(raw, schema, "it_rk_tmp2")
+	if prefix == oldPrefix || index == oldIndex {
+		t.Fatal("temporary rekey retained source storage")
 	}
-	h.expectReleased(raw, oldPrefix, oldIndex)
+	h.expectSnapshotReleased(raw, oldPrefix, oldIndex)
 	h.expectRows(`SELECT id, label FROM it_rk_tmp2 WHERE label = 'b'`, "2|b")
 	h.expectRows(`SELECT table_schema, table_type, key_prefix FROM information_schema.tables WHERE table_name = 'it_rk_tmp2'`,
 		"pg_temp|LOCAL TEMPORARY|"+prefix)
 	// Moving it back takes new names: the old ones are never reused.
 	h.exec(`ALTER TABLE it_rk_tmp2 RENAME TO it_rk_tmp`)
-	if n := h.namesN(raw, schema, "it_rk_tmp", "it_rk_tmp"); n != 2 {
-		t.Errorf("temporary table moved back to the names of N = %d, want 2", n)
+	restored, restoredIndex := h.rekeyNativeLayout(raw, schema, "it_rk_tmp")
+	if restored == oldPrefix || restored == prefix || restoredIndex == oldIndex || restoredIndex == index {
+		t.Fatal("temporary reverse rekey reused physical storage")
 	}
+	h.expectSnapshotReleased(raw, prefix, index)
 	h.expectRows(`SELECT id, label FROM it_rk_tmp ORDER BY id`, "1|a", "2|b")
 }
 
-// Every field is copied, including __rowid and the fields of dropped
-// columns; a pending DROP COLUMN cleanup carries over to the new keys.
+// Public DROP removes fields through private layouts. Old pins keep the original
+// images through both drop/rekey operations; retirement uses reference-aware GC.
 func TestSQLRekeyFieldsAndCleanup(t *testing.T) {
 	h := newRekeyHarness(t, map[string]string{OptionStringRenameRekey: "true"})
 	h.dropTables("it_rk_fields", "it_rk_fields2", "it_rk_fields3")
+	h.exec(`CREATE TABLE it_rk_fields (id INTEGER,v INTEGER,kept TEXT,ghost TEXT)`)
+	h.exec(`INSERT INTO it_rk_fields VALUES (1,10,'k','boo'),(2,20,'k','boo'),(3,30,'k','boo')`)
 	raw := h.rawClient()
-	st := &store{client: raw}
-	h.exec(`CREATE TABLE it_rk_fields (id INTEGER, v INTEGER)`)
-	h.exec(`INSERT INTO it_rk_fields VALUES (1, 10), (2, 20), (3, 30)`)
-
-	// A retired field that is no longer being cleaned up stays in the rows.
-	prefix, _ := h.tableNames(raw, "public", "it_rk_fields")
-	pipe := raw.Pipeline()
-	for id := 1; id <= 3; id++ {
-		pipe.HSet(h.ctx, fmt.Sprintf("%s%d", prefix, id), "kept", "k", "ghost", "boo")
-	}
-	if _, err := pipe.Exec(h.ctx); err != nil {
+	st, ctx, pin := h.inspectionSnapshot(raw)
+	defer pin.release()
+	old, err := st.getTable(ctx, defaultSchema, "it_rk_fields")
+	if err != nil {
 		t.Fatal(err)
 	}
-	if err := st.updateTable(h.ctx, "public", "it_rk_fields", func(m *tableMeta) error {
-		m.RetiredFields = append(m.RetiredFields, "kept")
-		return nil
-	}, nil); err != nil {
+	keys := []string{old.prefix() + "1", old.prefix() + "2", old.prefix() + "3"}
+	before, err := st.fetchSnapshotVisible(ctx, old, keys, nil)
+	if err != nil {
 		t.Fatal(err)
 	}
+	h.exec(`ALTER TABLE it_rk_fields DROP COLUMN kept`)
 	h.exec(`ALTER TABLE it_rk_fields RENAME TO it_rk_fields2`)
-	if f := h.rowFields(raw, "public", "it_rk_fields2"); f["__rowid"] != 3 || f["id"] != 3 || f["v"] != 3 || f["kept"] != 3 || f["ghost"] != 3 {
-		t.Errorf("fields after the move: %v", f)
+	if f := h.rowFields(raw, defaultSchema, "it_rk_fields2"); f[rowIDField] != 3 || f["id"] != 3 || f["v"] != 3 || f["ghost"] != 3 || f["kept"] != 0 {
+		t.Fatal("fields after first drop/rekey", f)
 	}
-
-	// A dropped column's pending cleanup (left over, as in
-	// TestSQLAlterCleanupResumes) continues on the new keys.
-	if err := st.updateTable(h.ctx, "public", "it_rk_fields2", func(m *tableMeta) error {
-		m.RetiredFields = append(m.RetiredFields, "ghost")
-		m.PendingCleanup = append(m.PendingCleanup, "ghost")
-		return nil
-	}, func(p goredis.Pipeliner) { p.SAdd(h.ctx, cleanupKey, cleanupMember("public", "it_rk_fields2")) }); err != nil {
-		t.Fatal(err)
-	}
+	middle := h.inspectTable(raw, defaultSchema, "it_rk_fields2")
+	h.exec(`ALTER TABLE it_rk_fields2 DROP COLUMN ghost`)
 	h.exec(`ALTER TABLE it_rk_fields2 RENAME TO it_rk_fields3`)
-	waitFor(t, "cleanup on the new keys", func() bool { return h.rowFields(raw, "public", "it_rk_fields3")["ghost"] == 0 })
-	waitFor(t, "cleanup marker removal", func() bool {
-		m, _ := raw.SIsMember(h.ctx, cleanupKey, cleanupMember("public", "it_rk_fields3")).Result()
-		return !m
-	})
-	if f := h.rowFields(raw, "public", "it_rk_fields3"); f["kept"] != 3 || f["v"] != 3 {
-		t.Errorf("fields after the cleanup: %v", f)
+	if f := h.rowFields(raw, defaultSchema, "it_rk_fields3"); f[rowIDField] != 3 || f["id"] != 3 || f["v"] != 3 || f["kept"] != 0 || f["ghost"] != 0 {
+		t.Fatal("fields after final drop/rekey", f)
 	}
-	h.expectRows(`SELECT id, v FROM it_rk_fields3 ORDER BY id`, "1|10", "2|20", "3|30")
+	after, err := st.fetchSnapshotVisible(ctx, old, keys, nil)
+	if err != nil || !reflect.DeepEqual(before, after) {
+		t.Fatal("drop/rekey changed pinned fields", err)
+	}
+	for _, row := range after {
+		if row["kept"] != "k" || row["ghost"] != "boo" {
+			t.Fatal("pinned retired fields disappeared")
+		}
+	}
+	h.expectRows(`SELECT id,v FROM it_rk_fields3 ORDER BY id`, "1|10", "2|20", "3|30")
+	pin.release()
+	for _, meta := range []*tableMeta{old, middle} {
+		for _, seg := range meta.snapshotSegments() {
+			h.expectSnapshotReleased(raw, seg.Prefix, seg.Index)
+		}
+	}
 }
 
 // A move interrupted before the switch is rolled back by a later

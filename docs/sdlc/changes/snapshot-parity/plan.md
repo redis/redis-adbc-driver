@@ -360,3 +360,8 @@ The [rekey Close checkpoint](rekey-close-validation.md) replaces legacy phase ho
 with acknowledged private-copy and committed-reply boundaries. Ten race events
 plus a focused registration check pass rollback, lost-reply outcome resolution,
 cleanup deadlines and stale-operation fencing; full parity remains open.
+
+The [native rekey layout checkpoint](rekey-layout-validation.md) replaces legacy
+name counters and mutable field setup with canonical ownership/freshness and
+public DDL. Six race families pass dbt generation retention, complete multi-page
+copy, option/temporary behavior and dropped-field reclamation; full parity remains open.
