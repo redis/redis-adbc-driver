@@ -412,3 +412,9 @@ GetStatistics call and resolves native counts through proven Search visibility o
 bounded authoritative directories. Eight race events, unit-only packages and a
 rebuilt-native C/ADBC test pass; one ACL-principal check explicitly skips. Full
 ordinary/platform, restricted-reader and performance gates remain open.
+
+The [public stream lifetime checkpoint](stream-lifetime-validation.md) restores
+pinned cursor inspection and adds exact multi-segment public streams through DML,
+TRUNCATE, DROP/recreation and GC. Forty-five stream/UNION ALL race events pass,
+including consumer Arrow buffers and pin/source reclamation after EOF, release,
+cancellation and Close. Full ordinary/platform and performance gates remain open.
