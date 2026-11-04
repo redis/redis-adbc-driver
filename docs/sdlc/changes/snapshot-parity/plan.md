@@ -345,3 +345,8 @@ The [partitioned aggregate fixture checkpoint](partitioned-aggregate-fixtures-va
 restores pinned cap recovery, privately published sparse worker input and confirmed
 live-cursor cancellation. Twenty-three race events pass exact aggregate/top-K
 checks against an independent complete serial reference; full parity remains open.
+
+The [public partition fixture checkpoint](public-partition-fixtures-validation.md)
+restores retained generation expectations, complete bounded stream replay after
+worker closure and privately published sequence boundaries. Test capabilities
+are released independently of producer lifetime; full parity remains open.
