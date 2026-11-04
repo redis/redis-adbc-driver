@@ -1,0 +1,49 @@
+{
+  "version":  {
+    "minorNumber":  108,
+    "producer":  "redis-adbc bounded-subset fixture generator"
+  },
+  "relations":  [
+    {
+      "root":  {
+        "input":  {
+          "read":  {
+            "baseSchema":  {
+              "names":  [
+                "id",
+                "value"
+              ],
+              "struct":  {
+                "types":  [
+                  {
+                    "i64":  {
+                      "nullability":  "NULLABILITY_REQUIRED"
+                    }
+                  },
+                  {
+                    "string":  {
+                      "nullability":  "NULLABILITY_NULLABLE"
+                    }
+                  }
+                ],
+                "nullability":  "NULLABILITY_REQUIRED"
+              }
+            },
+            "namedTable":  {
+              "names":  [
+                "it_substrait"
+              ]
+            }
+          }
+        },
+        "names":  [
+          "id",
+          "value"
+        ]
+      }
+    }
+  ],
+  "executionBehavior":  {
+    "variableEvalMode":  "VARIABLE_EVALUATION_MODE_PER_PLAN"
+  }
+}

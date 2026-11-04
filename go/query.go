@@ -554,6 +554,7 @@ func (e *executor) scan(ctx context.Context, req scanRequest, params []Value) ([
 // scanIter reads the rows of a scan: decodes them and applies the residual
 // predicate, a cursor page at a time for a scan through the index.
 type scanIter struct {
+	subBudget     *subWork // nil for ordinary SQL
 	gpu           *cudaPredicate
 	allowPrefetch bool
 	prefetch      *hashPagePrefetch // experimental; joined before cursor cleanup
@@ -607,6 +608,9 @@ func (e *executor) newScanIter(ctx context.Context, req scanRequest, params []Va
 		}
 	}
 	it = &scanIter{meta: meta, need: need, residual: req.where.residual, env: e.newEnv(ctx, meta.types(), params), diagnostics: e.diagnostics}
+	if ctx != nil {
+		it.subBudget, _ = ctx.Value(subBudgetKey{}).(*subWork)
+	}
 	it.gpu = e.gpu
 	return it, fields, exactly
 }
@@ -930,6 +934,11 @@ func (it *scanIter) keep(keys []string, fetched []aggRow) ([]string, []map[strin
 			it.projection.rows = append(it.projection.rows, row)
 			outKeys = append(outKeys, keys[i])
 			continue
+		}
+		if it.subBudget != nil {
+			if err := it.subBudget.input(raw, len(it.need)); err != nil {
+				return nil, nil, err
+			}
 		}
 		vals, err := decodeRow(it.meta, raw, it.need)
 		if err != nil {

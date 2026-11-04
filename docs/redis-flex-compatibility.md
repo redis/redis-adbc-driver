@@ -314,7 +314,7 @@ Redis Flex server gaps:
 |-|-|
 | Transactions | Autocommit only; connection `Commit` and `Rollback` return unsupported/invalid-state errors. |
 | Partitioned result execution | `ExecutePartitions` and `ReadPartition` return `NotImplemented`. |
-| Substrait plans | `SetSubstraitPlan` returns `NotImplemented`; [subset design](substrait.md) is proposed, not implemented. |
+| Substrait plans | Bounded binary Substrait 0.108.0 read/filter/project; [subset and limits](substrait.md). |
 | Statistics metadata | `GetStatistics` and `GetStatisticNames` are not implemented. |
 | Multiple catalogs | Only the `redis` catalog exists; cross-database references are not implemented. |
 | `UNIQUE` and `FOREIGN KEY` enforcement/metadata | Accepted by the SQL parser but ignored; they are not returned as constraints by `GetObjects`. `CHECK` and `PRIMARY KEY` are supported. |
