@@ -26,7 +26,6 @@ package redis
 
 import (
 	"context"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -303,7 +302,9 @@ func (e *executor) runSetOp(ctx context.Context, plan *selectPlan, params []Valu
 		if err := cancelled(ctx); err != nil {
 			return nil, err
 		}
-		sort.SliceStable(idx, func(a, b int) bool { return lessKeys(keys[idx[a]], keys[idx[b]], order) })
+		if err := sortSlice(ctx, idx, func(a, b int) bool { return lessKeys(keys[idx[a]], keys[idx[b]], order) }); err != nil {
+			return nil, err
+		}
 		sorted := make([][]Value, len(out))
 		for i, j := range idx {
 			sorted[i] = out[j]

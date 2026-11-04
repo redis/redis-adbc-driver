@@ -4,6 +4,7 @@ package redis
 
 import (
 	"context"
+
 	"github.com/apache/arrow-adbc/go/adbc"
 )
 
@@ -12,9 +13,25 @@ import (
 // subset: unordered managed-table leaves and unordered UNION ALL trees.
 func (e *executor) requireIncrementalSelect(ctx context.Context, s *SelectStmt) error {
 	bad := func() error {
-		return errorf(adbc.StatusNotImplemented, "stream_required rejects blocking state, subqueries, views, joins and materializing fallback; use an unordered managed-table SELECT or UNION ALL")
+		return errorf(adbc.StatusNotImplemented, "stream_required rejects blocking state, subqueries, views, joins and materializing fallback; use an unordered managed-table SELECT, bounded DISTINCT, or UNION ALL")
 	}
-	if len(s.With) > 0 || len(s.OrderBy) > 0 || len(s.GroupBy) > 0 || s.GroupingSets != nil || s.Having != nil || s.Distinct || len(s.DistinctOn) > 0 || len(s.Windows) > 0 || s.Qualify != nil {
+	if len(s.With) > 0 || len(s.OrderBy) > 0 || len(s.GroupBy) > 0 || s.GroupingSets != nil || s.Having != nil || len(s.DistinctOn) > 0 || len(s.Windows) > 0 || s.Qualify != nil {
+		return bad()
+	}
+	found := false
+	visit := func(x Expr) {
+		walkExprPruned(x, func(x Expr) bool {
+			if _, ok := x.(*Subquery); ok {
+				found = true
+			}
+			return !found
+		})
+	}
+	// Pagination is resolved before scan planning; a scalar subquery here
+	// must not materialize before the incremental admission decision.
+	visit(s.LimitExpr)
+	visit(s.OffsetExpr)
+	if found {
 		return bad()
 	}
 	if s.SetOp != nil {
@@ -28,15 +45,6 @@ func (e *executor) requireIncrementalSelect(ctx context.Context, s *SelectStmt) 
 	}
 	if s.From == nil || s.FromSelect != nil || s.FromFunc != nil || len(s.Joins) > 0 || len(s.Values) > 0 {
 		return bad()
-	}
-	found := false
-	visit := func(x Expr) {
-		walkExprPruned(x, func(x Expr) bool {
-			if _, ok := x.(*Subquery); ok {
-				found = true
-			}
-			return !found
-		})
 	}
 	visit(s.Where)
 	for _, item := range s.Items {

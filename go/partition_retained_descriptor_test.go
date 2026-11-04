@@ -7,6 +7,7 @@ package redis
 import (
 	"bytes"
 	"encoding/json"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -17,7 +18,7 @@ func TestRetainedPartitionDescriptor(t *testing.T) {
 	d := retainedPartitionID{Version: 2, Reference: retainedReference{Namespace: "tenant_one", JobID: strings.Repeat("a", 32), Manifest: strings.Repeat("b", 64), Expires: 12345678}, Start: 0, End: 1024}
 	raw, _ := json.Marshal(d)
 	got, err := decodeRetainedPartition(raw)
-	if err != nil || got != d {
+	if err != nil || !reflect.DeepEqual(got, d) {
 		t.Fatal(got, err)
 	}
 	for _, mutate := range []func(*retainedPartitionID){

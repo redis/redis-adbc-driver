@@ -14,8 +14,8 @@ import (
 	"github.com/apache/arrow-go/v18/arrow/array"
 )
 
-// Registry revision 1: explicit normalization only, not SQL UUID/JSON types or
-// arbitrary plugin registration. Unknown and nested extension semantics reject.
+// Registry revision 2: explicit normalization only, not SQL UUID/JSON types or
+// arbitrary plugin registration. Unknown semantics reject; nested STRUCT UUID/JSON fields normalize explicitly.
 const OptionStringExtensionPolicy = "adbc.redis.extension_policy"
 const maxExtensionMetadata = 16 << 10
 
@@ -44,6 +44,18 @@ func (s *statementImpl) prepareExtensionInput() error {
 }
 
 func extensionStorageReader(source array.RecordReader) (array.RecordReader, error) {
+	fieldsLeft, metadataLeft := 4096, 64<<10
+	for _, field := range source.Schema().Fields() {
+		if err := extensionSchemaBounds(field, 0, &fieldsLeft, &metadataLeft); err != nil {
+			return nil, invalidArg(err)
+		}
+	}
+	return extensionStorageReaderDepth(source, 0)
+}
+func extensionStorageReaderDepth(source array.RecordReader, depth int) (array.RecordReader, error) {
+	if depth > 16 {
+		return nil, invalidArg(fmt.Errorf("extension STRUCT nesting exceeds 16"))
+	}
 	fields := source.Schema().Fields()
 	names := make([]string, len(fields))
 	changed := false
@@ -86,8 +98,22 @@ func extensionStorageReader(source array.RecordReader) (array.RecordReader, erro
 			if hasMetadata {
 				return nil, invalidArg(fmt.Errorf("extension metadata requires a name"))
 			}
+			if dt, ok := f.Type.(*arrow.StructType); ok {
+				source, _ := array.NewRecordReader(arrow.NewSchema(dt.Fields(), nil), nil)
+				child, err := extensionStorageReaderDepth(source, depth+1)
+				if err != nil {
+					source.Release()
+					return nil, err
+				}
+				normalized := arrow.StructOf(child.Schema().Fields()...)
+				child.Release()
+				if !arrow.TypeEqual(normalized, f.Type, arrow.CheckMetadata()) {
+					fields[i].Type = normalized
+					changed = true
+				}
+			}
 			// The normal field mapper rejects extensions nested inside containers.
-			if _, err := colTypeFromField(f); err != nil {
+			if _, err := colTypeFromField(fields[i]); err != nil {
 				return nil, errorf(adbc.StatusNotImplemented, "column %q: %v", f.Name, err)
 			}
 			continue
@@ -163,12 +189,19 @@ func (r *extensionInputReader) Next() bool {
 		return false
 	}
 	cols := make([]arrow.Array, int(src.NumCols()))
+	budget := normalizationBudget{maxNormalizedInputValues, maxNormalizedInputPayload}
 	for i := range cols {
 		a := src.Column(i)
 		if ext, ok := a.(array.ExtensionArray); ok {
 			a = ext.Storage()
 		}
-		if !arrow.TypeEqual(a.DataType(), r.schema.Field(i).Type) {
+		if !arrow.TypeEqual(a.DataType(), r.schema.Field(i).Type, arrow.CheckMetadata()) {
+			data := extensionStorageData(a.Data(), r.schema.Field(i).Type)
+			a = array.MakeFromData(data)
+			data.Release()
+			defer a.Release()
+		}
+		if !arrow.TypeEqual(a.DataType(), r.schema.Field(i).Type, arrow.CheckMetadata()) {
 			r.err = invalidArg(fmt.Errorf("extension storage array/type mismatch"))
 			return false
 		}
@@ -176,20 +209,100 @@ func (r *extensionInputReader) Next() bool {
 			r.err = invalidArg(err)
 			return false
 		}
-		if r.names[i] == "arrow.json" {
-			for j := 0; j < a.Len(); j++ {
-				if a.IsNull(j) {
-					continue
-				}
-				v, err := valueAt(a, j)
-				if err != nil || !utf8.ValidString(v.S) || !json.Valid([]byte(v.S)) {
-					r.err = invalidArg(fmt.Errorf("invalid arrow.json value in column %q at row %d", r.schema.Field(i).Name, j))
-					return false
-				}
+		if int64(a.Len()) > budget.values {
+			r.err = invalidArg(fmt.Errorf("extension input exceeds decoded value budget"))
+			return false
+		}
+		for row := 0; row < a.Len(); row++ {
+			if err := budget.visit(a, row); err != nil {
+				r.err = invalidArg(err)
+				return false
+			}
+			if err := validateExtensionJSON(a, r.source.Schema().Field(i), row); err != nil {
+				r.err = invalidArg(err)
+				return false
 			}
 		}
+
 		cols[i] = a
 	}
 	r.current = array.NewRecordBatch(r.schema, cols, src.NumRows())
 	return true
+}
+
+// Preserve offsets/null bitmaps and retain every buffer while replacing only
+// approved logical types/metadata. The resulting arrays own their references.
+func extensionStorageData(src arrow.ArrayData, target arrow.DataType) *array.Data {
+	children := make([]arrow.ArrayData, len(src.Children()))
+	for i, child := range src.Children() {
+		ct := child.DataType()
+		if st, ok := target.(*arrow.StructType); ok {
+			ct = st.Field(i).Type
+		}
+		children[i] = extensionStorageData(child, ct)
+		defer children[i].Release()
+	}
+	out := array.NewData(target, src.Len(), src.Buffers(), children, src.NullN(), src.Offset())
+	if src.Dictionary() != nil {
+		out.SetDictionary(src.Dictionary())
+	}
+	return out
+}
+func validateExtensionJSON(a arrow.Array, field arrow.Field, row int) error {
+	if a.IsNull(row) {
+		return nil
+	}
+	name, _ := field.Metadata.GetValue("ARROW:extension:name")
+	if ext, ok := field.Type.(arrow.ExtensionType); ok {
+		name = ext.ExtensionName()
+	}
+	if name == "arrow.json" {
+		v, err := valueAt(a, row)
+		if err != nil || !utf8.ValidString(v.S) || !json.Valid([]byte(v.S)) {
+			return fmt.Errorf("invalid arrow.json value in field %q at row %d", field.Name, row)
+		}
+	}
+	if st, ok := field.Type.(*arrow.StructType); ok {
+		values := a.(*array.Struct)
+		for i, child := range st.Fields() {
+			if err := validateExtensionJSON(values.Field(i), child, row); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// Check every nested schema shape before invoking the ordinary recursive mapper,
+// including containers whose extension children remain deliberately unsupported.
+func extensionSchemaBounds(f arrow.Field, depth int, fields, metadata *int) error {
+	if depth > 16 {
+		return fmt.Errorf("extension schema nesting exceeds 16")
+	}
+	*fields--
+	if *fields < 0 {
+		return fmt.Errorf("extension schema exceeds 4096 fields")
+	}
+	for i, k := range f.Metadata.Keys() {
+		*metadata -= len(k) + len(f.Metadata.Values()[i])
+	}
+	dt := f.Type
+	if ext, ok := dt.(arrow.ExtensionType); ok {
+		*metadata -= len(ext.ExtensionName()) + len(ext.Serialize())
+		dt = ext.StorageType()
+	}
+	if *metadata < 0 {
+		return fmt.Errorf("extension schema metadata exceeds 64 KiB")
+	}
+	if dict, ok := dt.(*arrow.DictionaryType); ok {
+		return extensionSchemaBounds(arrow.Field{Type: dict.ValueType}, depth+1, fields, metadata)
+	}
+	if nested, ok := dt.(arrow.NestedType); ok {
+		for _, child := range nested.Fields() {
+			if err := extensionSchemaBounds(child, depth+1, fields, metadata); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

@@ -255,11 +255,14 @@ func (e *executor) execute(ctx context.Context, ps ParsedStmt, params []Value, p
 		}
 		return execResult{affected: 0}, store.revoke(ctx, st.JobID, "")
 	case *SelectStmt:
+		if so != nil && so.required {
+			ctx = context.WithValue(ctx, streamDistinctPlanKey{}, true)
+		}
 		plan, err := e.planSelect(ctx, st, paramTypes)
 		if err != nil {
 			return execResult{}, err
 		}
-		if so != nil && plan.streamable() {
+		if so != nil && (plan.streamable() || so.required && plan.distinctStreamable()) {
 			return e.streamSelect(ctx, plan, params, so)
 		}
 		if so != nil && plan.setop != nil && plan.unionStreamable() {
@@ -972,7 +975,7 @@ func (e *executor) planSelect(ctx context.Context, sel *SelectStmt, paramTypes [
 	if sel.SetOp != nil {
 		return e.planSetOp(ctx, sel, plan)
 	}
-	if g, ok := distinctAsGroupBy(sel); ok {
+	if g, ok := distinctAsGroupBy(sel); ok && ctx.Value(streamDistinctPlanKey{}) == nil {
 		// SELECT DISTINCT over plain expressions is GROUP BY those
 		// expressions, which the index can often compute (FT.AGGREGATE
 		// GROUPBY) instead of the driver reading every row. If that plan
@@ -1526,7 +1529,10 @@ func (e *executor) selectWithoutTable(ctx context.Context, plan *selectPlan, par
 		if err != nil {
 			return nil, err
 		}
-		rows = sortExpandedRows(rows, keys, plan.order)
+		rows, err = sortExpandedRows(ctx, rows, keys, plan.order)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return applyLimit(rows, plan.sel.Offset, plan.sel.Limit), nil
 }

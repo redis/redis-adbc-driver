@@ -755,6 +755,15 @@ func (env *evalEnv) evalFunc(f *Func) (Value, error) {
 		return stringValue(strings.ToLower(args[0].textIn(env.zone()))), nil
 	case "UPPER", "UCASE":
 		return stringValue(strings.ToUpper(args[0].textIn(env.zone()))), nil
+	case "OCTET_LENGTH", "BIT_LENGTH":
+		if !argBytes.accepts(args[0].T) {
+			return Value{}, noSuchFunction(f.Name, false, argTypes(args))
+		}
+		n := int64(len(args[0].S))
+		if f.Name == "BIT_LENGTH" {
+			n *= 8
+		}
+		return intValue(typeInt64, n), nil
 	case "LENGTH", "CHAR_LENGTH", "CHARACTER_LENGTH", "LEN":
 		if args[0].T.Kind == KindBinary {
 			return intValue(typeInt64, int64(len(args[0].S))), nil
@@ -1081,7 +1090,7 @@ func funcType(f *Func, args []ColType) ColType {
 		return t
 	}
 	switch f.Name {
-	case "COUNT", "LENGTH", "CHAR_LENGTH", "CHARACTER_LENGTH", "LEN":
+	case "COUNT", "OCTET_LENGTH", "BIT_LENGTH", "LENGTH", "CHAR_LENGTH", "CHARACTER_LENGTH", "LEN":
 		return typeInt64
 	case "LIKE", "ILIKE":
 		return typeBool
@@ -1241,6 +1250,9 @@ func inferType(e Expr, cols map[string]ColType, params []ColType) (ColType, erro
 				return ColType{}, err
 			}
 			args[i] = t
+		}
+		if (x.Name == "OCTET_LENGTH" || x.Name == "BIT_LENGTH") && !argBytes.accepts(args[0]) {
+			return ColType{}, noSuchFunction(x.Name, false, args)
 		}
 		if x.Name == "__ARRAY" {
 			t, err := arrayElementType(x.Args, args)

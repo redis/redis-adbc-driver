@@ -62,6 +62,8 @@ def test_statistics_schema_counts_and_filters(conn):
             exact = entries(conn, table_name_filter=table, approximate=False)
             assert exact == [{"table_name": table, "column_name": None,
                               "statistic_key": 6, "statistic_value": 3,
-                              "statistic_is_approximate": True}]
+                              "statistic_is_approximate": True},
+                             {"table_name": table, "column_name": "id", "statistic_key": 5, "statistic_value": 0, "statistic_is_approximate": True},
+                             {"table_name": table, "column_name": "label", "statistic_key": 5, "statistic_value": 1, "statistic_is_approximate": True}]
         finally:
             cur.execute(f"DROP TABLE {table}")

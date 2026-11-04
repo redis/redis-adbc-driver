@@ -1463,11 +1463,15 @@ func (a *jsonAgg) result(env *evalEnv, _ ColType) (Value, error) {
 		for i, o := range f.OrderBy {
 			order[i] = planOrder{expr: o.Expr, desc: o.Desc, nullsFirst: o.Nulls == NullsFirst, nullsLast: o.Nulls == NullsLast}
 		}
-		sort.SliceStable(rows, func(i, j int) bool { return lessKeys(rows[i].keys, rows[j].keys, order) })
+		if err := sortSlice(env.ctx, rows, func(i, j int) bool { return lessKeys(rows[i].keys, rows[j].keys, order) }); err != nil {
+			return Value{}, err
+		}
 	case f.Distinct:
 		// Postgres finds the distinct values by sorting them.
 		order := make([]planOrder, len(f.Args))
-		sort.SliceStable(rows, func(i, j int) bool { return lessKeys(rows[i].args, rows[j].args, order) })
+		if err := sortSlice(env.ctx, rows, func(i, j int) bool { return lessKeys(rows[i].args, rows[j].args, order) }); err != nil {
+			return Value{}, err
+		}
 	}
 	var b strings.Builder
 	object := len(f.Args) == 2

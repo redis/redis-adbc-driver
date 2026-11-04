@@ -14,11 +14,13 @@ import (
 	goredis "github.com/redis/go-redis/v9"
 )
 
-// Version 2 is reserved for retained results. No source SQL, source identities,
+// Versions 2 (canonical) and 4 (explicit layouts) describe retained results.
+// No source SQL, source identities,
 // arbitrary Redis keys, endpoint or credentials travel to independent readers.
 // The chunk range preserves ordinal order within each descriptor.
 type retainedPartitionID struct {
 	Version   int               `json:"version"`
+	Layouts   resultLayouts     `json:"result_layouts,omitempty"`
 	Reference retainedReference `json:"result"`
 	Start     int               `json:"start_chunk"`
 	End       int               `json:"end_chunk"`
@@ -29,15 +31,21 @@ func decodeRetainedPartition(data []byte) (retainedPartitionID, error) {
 	bad := func() (retainedPartitionID, error) {
 		return retainedPartitionID{}, errorf(adbc.StatusInvalidArgument, "invalid retained partition descriptor")
 	}
-	if len(data) == 0 || len(data) > 4096 {
+	if len(data) == 0 || len(data) > 128<<10 {
 		return bad()
 	}
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()
-	if decoder.Decode(&d) != nil || decoder.Decode(new(any)) != io.EOF || d.Version != 2 ||
+	if decoder.Decode(&d) != nil || decoder.Decode(new(any)) != io.EOF || (d.Version != 2 && d.Version != 4) ||
 		!retainedNamespace.MatchString(d.Reference.Namespace) || !retainedIdentity.MatchString(d.Reference.JobID) ||
 		!retainedDigest.MatchString(d.Reference.Manifest) || d.Reference.Expires <= 0 ||
 		d.Start < 0 || d.Start >= d.End || d.End > maxRetainedChunks {
+		return bad()
+	}
+	if d.Version == 2 && len(d.Layouts) > 0 || d.Version == 4 && len(d.Layouts) == 0 {
+		return bad()
+	}
+	if err := d.Layouts.partitionCompatible(); err != nil {
 		return bad()
 	}
 	return d, nil

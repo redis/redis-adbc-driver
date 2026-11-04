@@ -16,7 +16,6 @@ package redis
 
 import (
 	"context"
-	"sort"
 )
 
 // scanBeyondCap reads HASHes when a lowered aggregate cap would truncate an
@@ -37,7 +36,9 @@ func (e *executor) scanBeyondCap(ctx context.Context, req scanRequest, params []
 		for i := range idx {
 			idx[i] = i
 		}
-		sort.SliceStable(idx, func(a, b int) bool { return rows[idx[a]][rowIDField].I < rows[idx[b]][rowIDField].I })
+		if err := sortSlice(ctx, idx, func(a, b int) bool { return rows[idx[a]][rowIDField].I < rows[idx[b]][rowIDField].I }); err != nil {
+			return nil, nil, err
+		}
 		orderedKeys := make([]string, len(keys))
 		orderedRows := make([]map[string]Value, len(rows))
 		for i, j := range idx {

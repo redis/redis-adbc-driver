@@ -36,7 +36,6 @@ import (
 	"maps"
 	"math"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -1315,7 +1314,9 @@ func (e *executor) selectScanned(ctx context.Context, plan *selectPlan, sc selec
 				keys[i] = append(keys[i], k)
 			}
 		}
-		sort.SliceStable(idx, func(a, b int) bool { return lessKeys(keys[idx[a]], keys[idx[b]], plan.order) })
+		if err := sortSlice(ctx, idx, func(a, b int) bool { return lessKeys(keys[idx[a]], keys[idx[b]], plan.order) }); err != nil {
+			return nil, err
+		}
 	}
 	if !plan.hasSetReturning() && !pushLimit && sc.req.late == nil {
 		idx = applyLimit(idx, sel.Offset, sel.Limit)
@@ -1342,7 +1343,10 @@ func (e *executor) selectScanned(ctx context.Context, plan *selectPlan, sc selec
 	}
 	if plan.hasSetReturning() {
 		if len(plan.order) > 0 {
-			out = sortExpandedRows(out, expandedKeys, plan.order)
+			out, err = sortExpandedRows(ctx, out, expandedKeys, plan.order)
+			if err != nil {
+				return nil, err
+			}
 		}
 		out = applyLimit(out, sel.Offset, sel.Limit)
 	}
@@ -1520,7 +1524,9 @@ func (e *executor) selectAggregate(ctx context.Context, plan *selectPlan, params
 	if k > 0 {
 		out = top.rows
 	}
-	sort.SliceStable(out, func(i, j int) bool { return top.better(out[i], out[j]) })
+	if err := sortSlice(ctx, out, func(i, j int) bool { return top.better(out[i], out[j]) }); err != nil {
+		return nil, err
+	}
 	out = applyLimit(out, plan.sel.Offset, plan.sel.Limit)
 	rows := make([][]Value, len(out))
 	for i, r := range out {

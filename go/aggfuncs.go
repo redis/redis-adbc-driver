@@ -39,7 +39,6 @@ import (
 	"math"
 	"math/big"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -394,7 +393,9 @@ func (s *stringAgg) result(env *evalEnv, t ColType) (Value, error) {
 		}
 	}
 	if len(order) > 0 {
-		sort.SliceStable(s.items, func(i, j int) bool { return lessKeys(s.items[i][nargs:], s.items[j][nargs:], order) })
+		if err := sortSlice(env.ctx, s.items, func(i, j int) bool { return lessKeys(s.items[i][nargs:], s.items[j][nargs:], order) }); err != nil {
+			return Value{}, err
+		}
 	}
 	var b strings.Builder
 	z := env.zone()
@@ -515,13 +516,15 @@ func (o *orderedSetAgg) result(env *evalEnv, t ColType) (Value, error) {
 			o.vals[i] = floatValue(typeFloat64, fv)
 		}
 	}
-	sort.SliceStable(o.vals, func(i, j int) bool {
+	if err := sortSlice(env.ctx, o.vals, func(i, j int) bool {
 		c, _ := compareValues(o.vals[i], o.vals[j])
 		if desc {
 			return c > 0
 		}
 		return c < 0
-	})
+	}); err != nil {
+		return Value{}, err
+	}
 	switch f.Name {
 	case "MODE":
 		// The most frequent value; the first in sort order among ties.
