@@ -169,15 +169,24 @@ class DeviceAdapterV1:
             _release(host)
             _release(view)
 
-    def bind(self, statement, producer, *, device_type, device_id, cancel=None):
+    def bind(self, statement, producer, *, device_type, device_id, cancel=None, column_names=None):
         """Stage a record batch and bind via the manager's public CPU capsule API.
 
         The producer may be released immediately on return, before execution.
         Cancel execution itself using the manager statement's ``cancel()``.
+        ``column_names`` supplies explicit names for producers (such as a raw
+        pylibcudf.Table) whose capsule schema does not retain application names.
         """
         batch = self.to_host(producer, device_type=device_type, device_id=device_id, cancel=cancel)
         if not isinstance(batch, self._pa.RecordBatch):
             raise TypeError("ADBC bind requires a record batch struct producer")
+        if column_names is not None:
+            names = list(column_names)
+            if (len(names) != batch.num_columns or
+                    any(not isinstance(name, str) or not name for name in names) or
+                    len(set(names)) != len(names)):
+                raise ValueError("column_names must contain one distinct nonempty string per column")
+            batch = batch.rename_columns(names)
         _check_cancel(cancel)
         schema, array = batch.__arrow_c_array__()
         statement.bind(array, schema)

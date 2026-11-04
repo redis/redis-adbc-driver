@@ -74,6 +74,12 @@ class AdapterTests(unittest.TestCase):
         with self.assertRaises(CancelledError):
             self.adapter.to_host(Producer(), device_type=1, device_id=-1, cancel=event)
 
+    def test_invalid_explicit_names_rejected_before_manager_bind(self):
+        batch = pa.record_batch([[1], [2]], names=["", ""])
+        for names in [["only_one"], ["x", "x"], ["x", ""], ["x", 1]]:
+            with self.assertRaisesRegex(ValueError, "distinct nonempty"):
+                self.adapter.bind(object(), batch, device_type=1, device_id=-1, column_names=names)
+
     def test_missing_extension_is_actionable(self):
         import unittest.mock as mock
         with mock.patch("adbc_driver_redis.device.c.CDLL", return_value=object()):
@@ -163,8 +169,12 @@ class AdapterTests(unittest.TestCase):
         del consumer
         gc.collect()
         result.validate(full=True)
-        self.assertEqual(result.to_pylist(), [{"text": "", "x": 7},
-            {"text": None, "x": None}, {"text": "雪", "x": -9}])
+        # Raw pylibcudf.Table exports unnamed fields; preserve that schema and
+        # compare columns independently rather than losing duplicates in dicts.
+        self.assertEqual(result.schema.names, ["", ""])
+        self.assertEqual(result.num_columns, 2)
+        self.assertEqual(result.column(0).to_pylist(), ["", None, "雪"])
+        self.assertEqual(result.column(1).to_pylist(), [7, None, -9])
 
 
 @unittest.skipUnless(os.environ.get("REDIS_URI") and os.environ.get("REDIS_ADBC_LIBRARY"),
@@ -191,7 +201,8 @@ class ManagerTests(unittest.TestCase):
                 if cuda:
                     import pylibcudf
                     producer = pylibcudf.Table.from_arrow(adapter.to_device(producer, device_id=0))
-                adapter.bind(stmt, producer, device_type=2 if cuda else 1, device_id=0 if cuda else -1)
+                adapter.bind(stmt, producer, device_type=2 if cuda else 1, device_id=0 if cuda else -1,
+                             column_names=["text"])
                 del producer
                 gc.collect()
                 self.assertEqual(stmt.execute_update(), 3)

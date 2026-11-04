@@ -179,6 +179,7 @@ adapter = DeviceAdapterV1()
 cpu_batch = adapter.to_host(producer, device_type=2, device_id=0)
 # A manager AdbcStatement uses the ordinary CPU capsule Bind API:
 adapter.bind(statement, producer, device_type=2, device_id=0)
+# For an unnamed raw pylibcudf.Table, also pass column_names=["text", "x"].
 # Producer may be released here, before statement.execute_update/query().
 
 # For CPU results: fully fetch through ordinary ADBC, then export each batch.
@@ -186,6 +187,13 @@ device_producer = adapter.to_device(cpu_batch, device_id=0)
 # Optional real consumer; imported only by the application:
 # gpu_table = pylibcudf.Table.from_arrow(device_producer)
 ```
+
+Raw `pylibcudf.Table` device capsules export unnamed fields in the tested
+26.10.2 version. The adapter preserves the producer schema; it does not infer
+application names. For manager ingestion, pass `column_names=[...]` to `bind`
+with one distinct nonempty name per column. For `to_host` results, compare by
+column position or explicitly rename columns before making row dictionaries;
+duplicate field names can otherwise hide columns in those dictionaries.
 
 `to_host` returns an owned PyArrow Array or RecordBatch. Inputs, schema and events
 are borrowed for the call; capsules and producer stay alive until it returns.
