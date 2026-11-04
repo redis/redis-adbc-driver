@@ -76,6 +76,11 @@ def trial(cfg, source, build, api, readers, projection, repeat, root):
     if process.returncode:
         raise RuntimeError(f'{build}/{api}/{readers}: harness exit {process.returncode}; raw failure retained')
     result = json.loads(process.stdout)
+    worker_rows = [sum(metric['Rows'] for metric in result['metrics'][i::readers])
+                   for i in range(readers)]
+    if sum(worker_rows) != 100000 or any(rows == 0 for rows in worker_rows):
+        raise AssertionError('Requested reader concurrency did not consume the complete nonempty fixture')
+    result.update(active_readers=sum(rows > 0 for rows in worker_rows), reader_rows=worker_rows)
     paths = sorted(target.glob('*.arrow'))
     if not paths:
         raise AssertionError('No complete-fetch output')

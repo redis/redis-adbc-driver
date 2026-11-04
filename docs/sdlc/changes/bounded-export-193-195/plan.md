@@ -10,12 +10,12 @@
    mutation-after-discovery integration case; measure additional live heap.
 4. Done: draft a versioned shard export contract and the requested no-go
    recommendation for production integration. This is not server-owner approval.
-5. In progress: validate both build configurations and the experimental race
+5. Done: validate both build configurations and the experimental race
    suite on an isolated TLS Redis Software fixture with verified active 4x QPF.
-6. In progress: verify existing AWS/S3 backup provenance and prepare a temporary,
+6. Done: verify existing AWS/S3 backup provenance and prepare a temporary,
    cost-bounded restoration. Do not mutate unrelated running instances. Keep
    operational identifiers, credentials, licenses and infrastructure private.
-7. Pending: restore a verified compatible backup and independent typed 100K × 105
+7. In progress: restore a verified compatible backup and independent typed 100K × 105
    reference, run one warm-up/five alternating trials for wide/narrow, regular/
    public partitions and one/four readers. Record all failures, elapsed ranges,
    actual first batch sizes, CPU, allocations, memory and both wire directions.

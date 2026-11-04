@@ -27,10 +27,15 @@ management API. Fixed test credentials and public CA remain under ignored
   After the transport join barrier, the default suite passed again (26.543 s
   in the driver package), and the focused Software race suite for wide reads,
   streaming, mutation, prefetch and transport passed (20.054 s).
+  The final experimental full unit/race suite also passed all five packages
+  (48.649 s in the driver package). Unexpected producer panics retain ADBC
+  `INTERNAL` status, verified by the terminal-error test.
 - The new public Go ADBC harness independently passed tiny-fixture checks for
-  regular/partition APIs with one/four readers. Three Python checks passed for
+  regular/partition APIs with one/four readers. Five Python checks passed for
   duplicate/type-sensitive validation, identifier quoting and binary-transparent
-  request/reply counting. The full benchmark additionally records complete-fetch
+  request/reply counting, changed source identity and missing/duplicate native
+  reference membership. The tracked reference builder obtains every expected
+  value from the checksum-verified official source. The full benchmark records complete-fetch
   Go allocations, client CPU, sampled heap and lifetime peak RSS; these are Go
   Arrow allocator results rather than the C shared-library allocator.
 - Prefetch unit/race tests passed: one-page bound and order, reply ownership,
@@ -81,6 +86,12 @@ The isolated local Docker fixture was removed after the integration checks;
 unrelated containers were left alone.
 
 The 100K × 105/narrow one/four-reader complete-fetch matrix has **not run** yet.
+All 48 source snapshots passed actual SHA-256 checks and the complete Software
+import is in progress. The queued matrix waits for successful restore, full row
+count, QPF readiness and final build status. The final remote candidate sources
+match the worktree byte-for-byte. A read-only restored-fixture selection check
+will verify that prefetch actually starts in the experimental build and remains
+disabled in the default build before recording timings.
 No elapsed, CPU, allocation or network improvement is claimed, and normal builds
 do not enable prefetch. Issue #193 is not ready to close on these checks alone.
 

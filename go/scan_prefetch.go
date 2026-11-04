@@ -5,8 +5,9 @@ package redis
 
 import (
 	"context"
-	"fmt"
 	"io"
+
+	"github.com/apache/arrow-adbc/go/adbc"
 )
 
 // The worker alone discovers and fetches pages; the consumer alone decodes and
@@ -48,7 +49,7 @@ func newHashPagePrefetch(ctx context.Context, fetch func(context.Context) hashPa
 			page := func() (page hashPage) {
 				defer func() {
 					if v := recover(); v != nil {
-						page = hashPage{err: fmt.Errorf("prefetch failed: %v", v)}
+						page = hashPage{err: errorf(adbc.StatusInternal, "prefetch failed: %v", v)}
 					}
 				}()
 				return fetch(ctx)

@@ -34,6 +34,10 @@ typed official-source rows. Require exactly 100K source matches; obtain **all
 105 expected values from the official source**. Preserve the membership-selection
 code and its provenance. A serial prefix is valid only with verified source-order
 loading. Never reinterpret an output mismatch as expected parallel-load behavior.
+`reference.py` implements this read-only selection and typed-source join, verifies
+the complete Parquet SHA-256, and rejects missing/duplicate membership. It needs
+DuckDB as well as PyArrow/redis-py; point `--helpers` at the tracked ClickBench
+helpers and `--ddl` at the pinned official PostgreSQL DDL.
 
 A private JSON configuration supplies `uri`, `ca`, `namespace`, `source`,
 `source_sha256`, `source_provenance`, `batch_rows` (65536),

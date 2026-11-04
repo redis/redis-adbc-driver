@@ -10,6 +10,8 @@ def summarize(report):
         raise ValueError('A completed direct promotion screen is required')
     if not all(t['independent_full_values_validated'] for t in report['trials']):
         raise ValueError('Every warm-up and measured fetch must be independently validated')
+    if not all(t['active_readers'] == t['readers'] and t['rows'] == 100000 for t in report['trials']):
+        raise ValueError('Every requested reader must consume a nonempty share of the complete fixture')
     groups = {}
     for trial in report['trials']:
         key = (trial['projection'], trial['api'], trial['readers'])

@@ -132,8 +132,8 @@ func TestHashPrefetchTerminalErrors(t *testing.T) {
 		p.close()
 	}
 	p := newHashPagePrefetch(context.Background(), func(context.Context) hashPage { panic("worker panic") })
-	if got := p.next(context.Background()).err; got == nil {
-		t.Fatal("worker panic lost")
+	if got := p.next(context.Background()).err; !isStatus(got, adbc.StatusInternal) {
+		t.Fatalf("worker panic did not become an INTERNAL stream error: %v", got)
 	}
 	p.close()
 }

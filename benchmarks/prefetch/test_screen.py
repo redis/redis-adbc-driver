@@ -1,4 +1,6 @@
 import socket
+import hashlib
+import json
 import tempfile
 import threading
 import unittest
@@ -8,9 +10,39 @@ import pyarrow as pa
 
 from meter import Meter
 from screen import query, validate
+from reference import build_reference
 
 
 class ScreenTests(unittest.TestCase):
+    def test_reference_rejects_wrong_official_source_identity(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d)/'source'
+            path.write_bytes(b'changed source')
+            with self.assertRaisesRegex(ValueError, 'identity differs'):
+                build_reference(None, 'fixture', path, None, None, d, '0'*64)
+
+    def test_reference_rejects_missing_or_duplicate_native_membership(self):
+        class FakeClient:
+            def __init__(self, missing):
+                self.missing = missing
+                self.ids = []
+            def get(self, key):
+                return json.dumps({'key_prefix': 'fixture:', 'columns': [{'name': 'watchid'}]})
+            def pipeline(self, transaction):
+                self.ids = []
+                return self
+            def hmget(self, key, *fields):
+                self.ids.append(int(key.rsplit(':', 1)[-1]))
+            def execute(self):
+                return [[None if self.missing else str(i), '7'] for i in self.ids]
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d)/'source'
+            path.write_bytes(b'checksum-verified fixture placeholder')
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            for missing in [True, False]:
+                with self.subTest(missing=missing), self.assertRaises(ValueError):
+                    build_reference(FakeClient(missing), 'fixture', path, None, None, d, digest)
+
     def test_independent_validation_preserves_duplicate_multiplicity_and_types(self):
         expected = pa.table({'n': pa.array([1, 1, 2], type=pa.int64()), 's': ['a\0b', 'a\0b', None]})
         with tempfile.TemporaryDirectory() as d:
