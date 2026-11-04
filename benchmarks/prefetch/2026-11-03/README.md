@@ -76,3 +76,16 @@ The first derived-fixture baseline warm-up failed schema equality: all 105 sourc
 Machine-readable [direct-results.json](direct-results.json), [wire-results.json](wire-results.json) and [summary.json](summary.json) retain every trial, warm-up, first-batch latency/size, CPU/allocation/memory sample summary and QPF proof. Raw Arrow IPC, failed outputs, source reference and full operational logs are archived privately with checksums; infrastructure identifiers, endpoints, credentials and licenses are intentionally absent here. Reproduce with the [runner instructions](../README.md) and the exact source/binary identities above.
 
 The typed server export investigation has a separate [contract and engineering no-go](../../../docs/typed-export-design.md). These timings do not measure native typed export, prove a server-owner approval, or establish a new server capability.
+
+## Resource cleanup
+
+[Sanitized cleanup verification](cleanup.json): all 49 task-owned instances are
+terminated; no active/attached root volumes or network interfaces remain. Task
+security group, SSH key, cleanup rule/function and task log group were removed.
+Five unattached root disks still report AWS asynchronous `deleting` state;
+deletion has been accepted, but physical disappearance is not claimed. The first
+zero-volume wait timed out and is retained privately; final verification separates
+pending AWS deletion from active resources. Existing backups and shared IAM
+resources were preserved. Completion was within the approved eight-hour deadline.
+The conservative compute-only upper estimate is $46.01, not a final invoice;
+storage/network charges are additional. The approved total cap was $300.

@@ -85,3 +85,6 @@ decomposition. Client CPU covers the whole Go process during the inner interval.
 Go heap (20 ms) is not a strict peak bound or RSS. Per-process lifetime peak RSS
 includes initialization. These allocator/consumer details limit comparisons with
 Python/C Arrow results and must accompany any reported speedup.
+
+A completed restored-fixture screen with raw trial JSON and limitations is in
+[2026-11-03/README.md](2026-11-03/README.md).

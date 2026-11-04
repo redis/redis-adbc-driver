@@ -1,0 +1,14 @@
+{
+  "verified": true,
+  "terminated_instances": 49,
+  "remaining_active_owned_root_volumes": 0,
+  "aws_async_disk_deletions_pending": 5,
+  "security_group_deleted": true,
+  "key_pair_deleted": true,
+  "cleanup_rule_deleted": true,
+  "cleanup_function_deleted": true,
+  "estimated_compute_upper_bound_usd": 46.01,
+  "total_budget_usd": 300,
+  "completed_at": "2026-11-04T06:15:33.132458+00:00",
+  "scope": "Task-owned resources only; existing backups, IAM roles and profiles retained"
+}

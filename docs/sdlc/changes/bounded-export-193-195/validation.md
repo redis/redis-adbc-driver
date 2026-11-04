@@ -112,15 +112,21 @@ all six Python tests. No assertion was weakened or failed output admitted.
 
 The isolated local Software fixture was removed after integration tests;
 unrelated containers were left alone. Albert approved a $300 total AWS cap and
-eight-hour deadline. All 49 task-owned instances are terminated. Volume deletion
-and final automation cleanup are tracked privately and must be verified before
-finishing the goal; existing backups and shared IAM resources are preserved.
+eight-hour deadline. All 49 task-owned instances are terminated. No active/attached disks or network interfaces remain; five disks still report
+AWS asynchronous `deleting` state after deletion was accepted. Do not claim zero
+physical volumes yet. The zero-volume wait timed out; final sanitized verification
+distinguishes this from active resources. Task security group, key and cleanup
+automation are deleted; existing backups and shared IAM resources are preserved.
+See the report's cleanup record. Conservative compute upper estimate: $46.01,
+excluding storage/network and not a final invoice. Cleanup actions completed
+within the eight-hour deadline.
 
 Current main added CUDA execution and Go 1.27.3 while the screen ran. The branch
 integrates that work and explicitly excludes GPU scans from prefetch eligibility,
 preserving its existing path. This integration also postdates the pinned screen. On Go 1.27.3, the combined
 branch passed the complete default suite (driver 26.793 s) and experimental race
-suite (driver 52.015 s), including the additional CUDA stub package.
+suite (driver 52.015 s), including the additional CUDA stub package. The merged experimental cgo shared
+library also built successfully.
 
 ## Typed export disposition
 

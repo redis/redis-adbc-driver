@@ -12,8 +12,12 @@
     "sha256": "77ad2c402c1b280db9e23d1b2ef47baa3f39fadda2c704c6550144930c2cbc68"
   },
   "README.md": {
-    "bytes": 10212,
-    "sha256": "937a3c37963f8c518ca5c034d30459dce4df02ee4583b25e749917101a908b83"
+    "bytes": 11020,
+    "sha256": "b39b5b03e957bd5bae76e1f3d6d431ed47931df8fb7ec8050515f0d05cdbf689"
+  },
+  "cleanup.json": {
+    "bytes": 485,
+    "sha256": "24a8cb13dd4cfc51134586893af8ddcc2f1c1721c844dcd28ca38c2362db010e"
   },
   "wire-results.json": {
     "bytes": 73518,
