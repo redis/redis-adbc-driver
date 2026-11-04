@@ -466,3 +466,9 @@ setup before importing data. Two managed-copy race families pass; Software's
 existing SETUSER gate explicitly skips the reader fixture. Restricted-reader
 support remains unproved. The complete ordinary run at 7fee549 stopped at this
 fixture after 81 passes/eight skips; it is not a full pass.
+
+The [Linux ARM64 unit checkpoint](linux-unit-validation.md) runs the current
+CGO-disabled root-package executable in a network-isolated container: 942 pass
+events, 863 explicit skips, zero failures. The timezone-data skip is covered by a
+separate focused pass with matching Go data. This is local unit evidence, not
+Cluster runtime, native C/ADBC, hosted CI or the full platform matrix.
