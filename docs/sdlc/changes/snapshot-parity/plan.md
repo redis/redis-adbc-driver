@@ -17,6 +17,10 @@ only owned Redis Software fixtures with verified 4x QPF. Keep licenses,
 credentials and operational identifiers private. Do not infer success from unit
 integration skips or incomplete fetches. Record all remaining work explicitly.
 
+The [foreign ownership checkpoint](foreign-ownership-validation.md) verifies
+external index/HASH preservation and reclamation of a real failed private CREATE
+output without identity reuse. Restricted-role and full-suite evidence remain open.
+
 The [consistency-boundary recommendation](consistency-boundary.md) proposes a
 shared driver consistency layer across execution paths. A new
 Redis server extension is not required by this plan.
