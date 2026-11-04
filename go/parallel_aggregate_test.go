@@ -100,34 +100,17 @@ func TestSQLParallelAggregates(t *testing.T) {
 	h := newSQLHarness(t)
 	h.dropTables("it_parallel_aggregate")
 	h.exec("CREATE TABLE it_parallel_aggregate (v BIGINT, f DOUBLE PRECISION, g INTEGER)")
-	st := &store{client: h.rawClient()}
-	meta, err := st.getTable(h.ctx, defaultSchema, "it_parallel_aggregate")
-	if err != nil {
-		t.Fatal(err)
-	}
 	const n = 10003
-	for start := 0; start < n; start += pipelineChunk {
-		pipe := st.client.Pipeline()
-		for i := start; i < min(start+pipelineChunk, n); i++ {
-			fields := []any{rowIDField, i + 1, "g", i % 7}
-			if i%5 != 0 {
-				v := int64(9007199254740993)
-				if i%2 == 1 {
-					v = -v
-				}
-				fields = append(fields, "v", fmt.Sprint(v-int64(i)), "f", fmt.Sprint(float64(i)/7))
-			}
-			pipe.HSet(h.ctx, fmt.Sprint(meta.prefix(), i+1), fields...)
-		}
-		if _, err := pipe.Exec(h.ctx); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := st.client.Set(h.ctx, seqKey(meta.Schema, meta.Name), n, 0).Err(); err != nil {
-		t.Fatal(err)
-	}
+	// Stage authoritative images/directories and publish a genuine generation;
+	// direct HASH/sequence writes would invalidate immutable managed storage.
+	h.expectAffected(fmt.Sprintf(`INSERT INTO it_parallel_aggregate
+		SELECT CASE WHEN i%%5=0 THEN NULL ELSE
+		  (CASE WHEN i%%2=1 THEN -9007199254740993 ELSE 9007199254740993 END)-i END,
+		  CASE WHEN i%%5=0 THEN NULL ELSE CAST(i AS DOUBLE PRECISION)/7 END,i%%7
+		FROM generate_series(0,%d) AS s(i)`, n-1), n)
 	// Include a hole across a partition boundary and rows whose inputs are NULL.
-	st.client.Del(h.ctx, fmt.Sprint(meta.prefix(), 2500), fmt.Sprint(meta.prefix(), 5001))
+	h.expectAffected("DELETE FROM it_parallel_aggregate WHERE __rowid IN (2500,5001)", 2)
+	h.expectRows("SELECT COUNT(*),COUNT(v),COUNT(f),SUM(v) FROM it_parallel_aggregate", "10001|8001|8001|9007199214723489")
 	newHarness := func(workers string) *sqlHarness {
 		db, err := NewDriver(memory.DefaultAllocator).NewDatabaseWithContext(h.ctx, map[string]string{adbc.OptionKeyURI: os.Getenv("REDIS_URI"), OptionStringQueryWorkers: workers, OptionStringAggregatePushdown: PushdownNone})
 		if err != nil {
@@ -255,12 +238,20 @@ func TestSQLParallelAggregates(t *testing.T) {
 	if shared.workerBudget.option(OptionIntQueryWorkersActive) != "0" || shared.workerBudget.option(OptionIntQueryWorkersQueued) != "0" {
 		t.Fatal("cancellation leaked workers")
 	}
-	// A missing index makes the worker scan fail after admission.
-	if err := st.client.Do(h.ctx, "FT.DROPINDEX", meta.index()).Err(); err != nil {
+	// An absent index in a private plan makes the worker scan fail after
+	// admission without deleting an immutable published index.
+	st, readCtx, pin := h.inspectionSnapshot(h.rawClient())
+	defer pin.release()
+	current, err := st.getTable(readCtx, defaultSchema, "it_parallel_aggregate")
+	if err != nil {
 		t.Fatal(err)
 	}
+	failed := *current
+	failed.IndexName += "_missing"
+	failed.SnapshotOverlay, failed.SnapshotSegments = false, nil
+	meta := &failed
 	e := &executor{store: st, queryWorkers: 4, workerBudget: shared.workerBudget}
-	_, handled, scanErr := e.parallelAggregate(h.ctx, &selectPlan{meta: meta, sel: &SelectStmt{}}, wherePlan{query: "*"}, []*Func{{Name: "SUM", Args: []Expr{&ColumnRef{Name: "v"}}}}, nil)
+	_, handled, scanErr := e.parallelAggregate(readCtx, &selectPlan{meta: meta, sel: &SelectStmt{}}, wherePlan{query: "*"}, []*Func{{Name: "SUM", Args: []Expr{&ColumnRef{Name: "v"}}}}, nil)
 	if !handled || scanErr == nil {
 		t.Fatalf("expected admitted scan error: handled=%v err=%v", handled, scanErr)
 	}
@@ -271,8 +262,11 @@ func TestSQLParallelAggregates(t *testing.T) {
 
 	e.queryWorkers = 0
 	e.workerBudget = &workerBudget{}
-	_, handled, scanErr = e.parallelAggregate(h.ctx, &selectPlan{meta: meta, sel: &SelectStmt{}}, wherePlan{query: "*"}, []*Func{{Name: "SUM", Args: []Expr{&ColumnRef{Name: "v"}}}}, nil)
+	_, handled, scanErr = e.parallelAggregate(readCtx, &selectPlan{meta: meta, sel: &SelectStmt{}}, wherePlan{query: "*"}, []*Func{{Name: "SUM", Args: []Expr{&ColumnRef{Name: "v"}}}}, nil)
 	if !handled || scanErr == nil || e.workerBudget.cohort.pending != 0 || e.workerBudget.active != 0 || e.workerBudget.tuner.observations != 0 {
 		t.Fatal("automatic error cleanup leaked or trained on failed query")
+	}
+	if got, _ := serial.query(queries[0]); !reflect.DeepEqual(got, expected) {
+		t.Fatal("failed private plan changed published data", got, expected)
 	}
 }

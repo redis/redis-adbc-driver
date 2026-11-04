@@ -62,6 +62,10 @@ The [bound numeric checkpoint](bound-numeric-validation.md) preserves declared
 schema checks across parameter snapshots while reconciling value-dependent
 decimal scales into one exact Arrow output schema.
 
+The [parallel aggregate checkpoint](parallel-aggregate-validation.md) retains
+full serial/parallel/automatic comparisons, shared worker budgets, tuning and
+cancellation using atomic fixture writes and private scan-error plans.
+
 The [consistency-boundary recommendation](consistency-boundary.md) proposes a
 shared driver consistency layer across execution paths. A new
 Redis server extension is not required by this plan.
