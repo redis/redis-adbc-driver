@@ -172,8 +172,8 @@ func TestExtensionMetadataRejected(t *testing.T) {
 			t.Fatal("accepted nested extension", key)
 		}
 	}
-	for _, dt := range []arrow.DataType{arrow.MapOf(arrow.BinaryTypes.String, arrow.PrimitiveTypes.Int64)} {
-		if _, err := colTypeFromArrow(dt); err == nil || !strings.Contains(err.Error(), "unsupported Arrow type") {
+	for _, dt := range []arrow.DataType{arrow.MapOf(arrow.ListOf(arrow.BinaryTypes.String), arrow.PrimitiveTypes.Int64)} {
+		if _, err := colTypeFromArrow(dt); err == nil || !strings.Contains(err.Error(), "Map keys") {
 			t.Fatal(dt, err)
 		}
 	}
