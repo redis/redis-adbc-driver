@@ -6,7 +6,7 @@ Full [parity](plan.md) remains incomplete.
 The previous fresh ordinary continuation passed 52 events, then stopped at
 TestSQLDropDuringCreateTableAs (root 29.457 s). Its legacy first-pipeline threshold
 never runs the competing DROP at the native 256-row acknowledgement boundary.
-The restored cases now inspect a real private directory and first/last stored
+The main multi-batch cases now inspect a real private directory and first/last stored
 images after one acknowledged batch, then execute the competing public change.
 They do not modify published HASHes or bypass fences by changing metadata age.
 
@@ -44,6 +44,11 @@ Owned strict-TLS Redis Software with noeviction and verified effective active
 12.138 s. This includes the existing SameKeys unit case. The CUDA package has no
 applicable selected tests and is skipped. Mutating selections run sequentially.
 Compilation, formatting and diff whitespace checks pass.
+
+The fresh 150-name ordinary continuation after this checkpoint stopped at the
+public statistics API (zero pass events, root 0.837 s). That production gap is
+fixed by the [statistics checkpoint](statistics-validation.md); this continuation
+did not establish a full ordinary-suite pass.
 
 Reviewed real acknowledgement/image checks, private destination visibility,
 callback hook isolation, typed serialization refusal, unchanged winning roots,

@@ -59,6 +59,12 @@ directories but did not optimize non-overlay baselines; the final implementation
 uses the same mask proof for those baselines. The CUDA package has no applicable
 selected tests and is skipped. Formatting and diff whitespace checks pass.
 
+The next fresh 148-name ordinary continuation passes ten test events, zero
+skips, then stops at TestSQLStreamResults and its first child (root 8.157 s).
+Its cursor-inspection helper reads the catalog without a pin; the public stream
+itself returned rows before that inspection failed. Later cases did not run.
+Stream cursor/lifetime fixtures are the next ordinary gate.
+
 Reviewed nested pin reuse, read-only discovery policy, complete result
 materialization, cross-table DDL consistency, visibility before count, baseline
 Search optimization, exact sparse IDs, bounded directory work, overflow,
