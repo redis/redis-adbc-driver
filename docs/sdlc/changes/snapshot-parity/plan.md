@@ -42,6 +42,10 @@ The [cleanup fallback checkpoint](cleanup-fallback-validation.md) fixes incomple
 tail-only reads and global sorting/limit guards, verifies sparse exact IDs and
 preserves native retained capture plus shared-generation partition membership.
 
+The [same-target ingest checkpoint](ingest-admission-validation.md) coordinates
+append/create-append before input consumption while preserving independent
+targets, cancellation, uncertain-reply errors and existing publication fences.
+
 The [consistency-boundary recommendation](consistency-boundary.md) proposes a
 shared driver consistency layer across execution paths. A new
 Redis server extension is not required by this plan.

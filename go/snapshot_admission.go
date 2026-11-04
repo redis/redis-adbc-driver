@@ -5,7 +5,9 @@ package redis
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/apache/arrow-adbc/go/adbc"
@@ -16,6 +18,21 @@ import (
 // retaining it would block the very compaction publication we need to admit.
 // Only admission is repeated, never statement execution or input consumption.
 func (s *store) acquireWritableSnapshot(ctx context.Context, target func(context.Context) (*tableMeta, error)) (context.Context, *snapshotPin, error) {
+	return s.acquireWritableSnapshotMode(ctx, target, false)
+}
+
+// Appends coordinate before Arrow input is consumed. The hint lives on the
+// existing leased writer pin, whose root/reference/expiry semantics are unchanged.
+func (s *store) acquireIngestSnapshot(ctx context.Context, target func(context.Context) (*tableMeta, error)) (context.Context, *snapshotPin, error) {
+	return s.acquireWritableSnapshotMode(ctx, target, true)
+}
+
+func snapshotIngestAdmissionTarget(meta *tableMeta) string {
+	digest := sha256.Sum256([]byte(metaKey(meta.Schema, meta.Name)))
+	return fmt.Sprintf("%x", digest)
+}
+
+func (s *store) acquireWritableSnapshotMode(ctx context.Context, target func(context.Context) (*tableMeta, error), ingest bool) (context.Context, *snapshotPin, error) {
 	delay := 5 * time.Millisecond
 	for {
 		sctx, pin, err := s.acquireSnapshot(ctx, true)
@@ -30,8 +47,23 @@ func (s *store) acquireWritableSnapshot(ctx context.Context, target func(context
 		s.mu.Lock()
 		worker := s.compactor != nil
 		s.mu.Unlock()
-		if meta == nil || len(meta.snapshotSegments()) < snapshotMaxSegments || !worker {
-			return sctx, pin, nil
+		space := meta == nil || len(meta.snapshotSegments()) < snapshotMaxSegments || !worker
+		if space {
+			if !ingest || meta == nil {
+				return sctx, pin, nil
+			}
+			n, err := s.snapshotControl(sctx, "admit_ingest", pin.token, "", pin.root, snapshotIngestAdmissionTarget(meta)).Int()
+			if err != nil {
+				pin.release()
+				return ctx, nil, wrapRedis(transportContextError(ctx, err), "failed to admit snapshot ingest before input consumption")
+			}
+			if n == 1 {
+				return sctx, pin, nil
+			}
+			if n != 0 {
+				pin.release()
+				return ctx, nil, errorf(adbc.StatusInvalidState, "snapshot ingest admission lease lost before input consumption")
+			}
 		}
 		pin.release()
 		s.wakeSnapshotCompactor()
@@ -76,7 +108,10 @@ func (s *statementImpl) snapshotIngestTarget(ctx context.Context) (*tableMeta, e
 	meta, err := s.conn.store.getTable(ctx, schema, opts.TableName)
 	var ae adbc.Error
 	if errors.As(err, &ae) && ae.Code == adbc.StatusNotFound {
-		return nil, nil
+		if schema == "" || isTempAlias(schema) {
+			return nil, nil
+		}
+		return &tableMeta{Schema: schema, Name: opts.TableName}, nil
 	}
 	return meta, err
 }

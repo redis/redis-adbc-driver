@@ -219,6 +219,23 @@ elseif op == 'acquire' then
   local root = redis.call('HGET', k, 'root')
   redis.call('HSET', k, 'p:'..token, cjson.encode({root=root,expires=expiry,writing=(ARGV[6] == 'write')}))
   return root
+elseif op == 'admit_ingest' then
+  if not owns_pin() then return -1 end
+  local pin=cjson.decode(redis.call('HGET',k,'p:'..token))
+  if not pin.writing then return -1 end
+  local target=ARGV[6]
+  if #target~=64 or string.find(target,'[^0-9a-f]') then return redis.error_reply('invalid snapshot ingest admission target') end
+  if pin.ingest_target and pin.ingest_target~=target then return redis.error_reply('snapshot ingest target already admitted') end
+  if redis.call('HGET',k,'root')~=base then return 0 end
+  for n=1,#entries,2 do
+    if string.sub(entries[n],1,2)=='p:' and entries[n]~='p:'..token then
+      local other=cjson.decode(entries[n+1])
+      if other.writing and other.expires>now and other.ingest_target==target then return 0 end
+    end
+  end
+  pin.ingest_target=target
+  redis.call('HSET',k,'p:'..token,cjson.encode(pin))
+  return 1
 elseif op == 'renew' or op == 'valid' then
   local raw = redis.call('HGET', k, 'p:'..token)
   if not raw then return 0 end

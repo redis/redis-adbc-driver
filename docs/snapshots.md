@@ -289,6 +289,15 @@ gate also waits before execution, with bounded polling and the statement's
 cancellation/deadline. Existing immutable-index proofs are shared with the private
 workspace. No SQL or Arrow input is replayed. Reads remain available.
 
+Append and create-append Arrow ingestion also wait for another participating
+ingest targeting the same logical table before consuming input. Waiting releases
+the provisional pin and reacquires a current generation. Independent targets
+remain concurrent. This admission uses the existing leased writer pin, including
+for a table first created by create-append; it introduces no storage version or
+ownership change. Cancellation and uncertain admission replies terminate before
+input consumption. SQL/DDL writers and clients without this admission can still
+cause a publication conflict; input is never automatically replayed.
+
 Direct/internal stores without a background worker retain explicit SQLSTATE
 `40001` backpressure at the hard segment limit. Concurrent publication conflicts
 can still return `40001`; independent metadata publication is ongoing work.

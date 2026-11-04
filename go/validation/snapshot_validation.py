@@ -176,6 +176,51 @@ class SnapshotValidation(unittest.TestCase):
                 cur.execute(f"SELECT id,v FROM {name} ORDER BY id")
                 self.assertEqual(cur.fetchall(), [(1, exact), (2, exact + 1)])
 
+    def test_concurrent_same_target_ingest_consumes_input_once(self):
+        schema = pa.schema([("id", pa.int32()), ("v", pa.int64()), ("s", pa.string())])
+        exact = 9007199254740993
+        for mode in ("append", "create_append"):
+            with self.subTest(mode=mode):
+                name = "same_" + mode
+                if mode == "append":
+                    with self.conn.cursor() as cur:
+                        cur.execute(f"CREATE TABLE {name}(id INTEGER,v BIGINT,s TEXT)")
+                ready = threading.Barrier(4, timeout=20)
+                consumed = [[] for _ in range(4)]
+
+                def append(worker):
+                    def batches():
+                        for index in range(2):
+                            consumed[worker].append(index)
+                            row = worker * 2 + index
+                            yield pa.RecordBatch.from_arrays(
+                                [pa.array([row], pa.int32()),
+                                 pa.array([exact + row], pa.int64()),
+                                 pa.array([None if index == 0 else str(worker)], pa.string())],
+                                schema=schema,
+                            )
+
+                    with self.connect() as conn, conn.cursor() as cur:
+                        # Synchronize before admission: waiting inputs must stay
+                        # unread, so a barrier inside the generator would deadlock.
+                        ready.wait()
+                        return cur.adbc_ingest(
+                            name, pa.RecordBatchReader.from_batches(schema, batches()), mode=mode
+                        )
+
+                with ThreadPoolExecutor(max_workers=4) as pool:
+                    futures = [pool.submit(append, worker) for worker in range(4)]
+                    self.assertEqual([future.result(timeout=40) for future in futures], [2] * 4)
+                self.assertEqual(consumed, [[0, 1] for _ in range(4)])
+                with self.conn.cursor() as cur:
+                    cur.execute(f"SELECT id,v,s FROM {name} ORDER BY id")
+                    self.assertEqual(cur.fetchall(), [
+                        (row, exact + row, None if row % 2 == 0 else str(row // 2))
+                        for row in range(8)
+                    ])
+                    cur.execute(f"SELECT COUNT(*),COUNT(DISTINCT __rowid),MIN(__rowid),MAX(__rowid) FROM {name}")
+                    self.assertEqual(cur.fetchall(), [(8, 8, 1, 8)])
+
     def test_late_ingest_error_does_not_publish(self):
         with self.conn.cursor() as cur:
             self.execute_retry(cur, "CREATE TABLE t(v INTEGER NOT NULL)")

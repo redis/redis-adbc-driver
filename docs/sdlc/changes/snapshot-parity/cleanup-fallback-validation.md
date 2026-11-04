@@ -95,12 +95,16 @@ The next ordered diagnostic selects the 753 top-level names after
 TestTruncateAttributeReadinessRetry in the earlier test listing. It reaches
 55 passes, zero skips and one failure, root package 1.564 seconds, stopping at
 TestParallelBulkIngest. Three of its four writers receive explicit 40001 conflicts;
-one commits, leaving the seed plus 2000 rows (2001 distinct rows). This does not
-establish loss of acknowledged rows. The fixture's all-writers-succeed expectation
+one commits its complete 2001-row batch (2001 distinct rows). There is no seed
+row in this fixture. This does not establish loss of acknowledged rows.
+The fixture's all-writers-succeed expectation
 remains unmet; concurrent input admission/commit behavior needs separate work
 without replaying consumed Arrow input. Later selected cases did not run. This
 is not a full ordinary run, and separate selections are not summed into a green
 suite claim.
+
+The subsequent [ingest admission checkpoint](ingest-admission-validation.md)
+addresses this failure without replaying input.
 
 ## Author review and remaining work
 
