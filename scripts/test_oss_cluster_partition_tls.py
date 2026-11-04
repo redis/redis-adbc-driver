@@ -11,10 +11,33 @@ import pyarrow as pa
 
 from oss_cluster_partition_tls import ClusterPrincipals, declared_primaries
 from partition_tls_resharding import SlotMigration, RepeatedWorker, wait_search_convergence
-from check_partition_tls import worker_failure_summary, native_search_ready
+from check_partition_tls import worker_failure_summary, native_search_ready, managed_config_get_blocked
 
 
 class ClusterManagementSafety(unittest.TestCase):
+    def test_managed_config_get_accepts_filtered_empty_or_permission_denied(self):
+        client = Mock(spec=redis.Redis)
+        client.config_get.return_value = {}
+        self.assertEqual(managed_config_get_blocked(client), 'filtered_empty')
+        client.config_get.assert_called_once_with('search-max-aggregate-results')
+        client.config_get.side_effect = redis.exceptions.NoPermissionError('NOPERM')
+        self.assertEqual(managed_config_get_blocked(client), 'denied')
+
+    def test_managed_config_get_rejects_readable_configuration(self):
+        client = Mock(spec=redis.Redis)
+        client.config_get.return_value = {'search-max-aggregate-results': '137'}
+        with self.assertRaisesRegex(AssertionError, 'worker could read'):
+            managed_config_get_blocked(client)
+
+    def test_managed_config_get_propagates_unrelated_errors(self):
+        client = Mock(spec=redis.Redis)
+        for error in (redis.exceptions.ResponseError('unexpected server failure'),
+                      redis.exceptions.ConnectionError('disconnected')):
+            with self.subTest(error=type(error).__name__):
+                client.config_get.side_effect = error
+                with self.assertRaises(type(error)):
+                    managed_config_get_blocked(client)
+
     @staticmethod
     def arrow_worker_result(table):
         sink = pa.BufferOutputStream()

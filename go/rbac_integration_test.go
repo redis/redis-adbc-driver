@@ -168,15 +168,24 @@ func TestSQLRBACSelect(t *testing.T) {
 			st, _ := reader.conn.NewStatement(ctx)
 			st.SetSqlQuery(ctx, sql)
 			rr, _, e := st.ExecuteQuery(ctx)
+			var got []string
 			if e == nil {
 				for rr.Next() {
+					batch := rr.RecordBatch()
+					for row := 0; row < int(batch.NumRows()); row++ {
+						got = append(got, batch.Column(0).ValueStr(row))
+					}
 				}
 				e = rr.Err()
 				rr.Release()
 			}
 			st.Close(ctx)
 			if e == nil {
-				reader.expectRows(sql, want)
+				// Assert the fetched result that passed the propagation wait.
+				// A second query can reach a proxy/shard still applying the ACL.
+				if strings.Join(got, "\n") != want {
+					t.Fatalf("%s: got %q, want %q", sql, got, want)
+				}
 				return
 			}
 			if time.Now().After(deadline) {

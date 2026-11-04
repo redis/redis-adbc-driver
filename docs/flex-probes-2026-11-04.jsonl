@@ -1,0 +1,24 @@
+{"probe": "initial keys", "command": ["DBSIZE"], "result": "1", "stderr": ""}
+{"probe": "missing index aggregate", "command": ["FT.AGGREGATE", "adbc-flex-probe:20261104:missing", "*", "LIMIT", 0, 0], "result": "error:\"SEARCH_INDEX_NOT_FOUND Index not found: adbc-flex-probe:20261104:missing\"", "stderr": ""}
+{"probe": "TAG", "command": ["FT.CREATE", "adbc-flex-probe:20261104:TAG", "ON", "HASH", "PREFIX", 1, "adbc-flex-probe:20261104:row:", "SKIPINITIALSCAN", "SCHEMA", "tag", "TAG"], "result": "\"OK\"", "stderr": ""}
+{"probe": "TEXT", "command": ["FT.CREATE", "adbc-flex-probe:20261104:TEXT", "ON", "HASH", "PREFIX", 1, "adbc-flex-probe:20261104:row:", "SKIPINITIALSCAN", "SCHEMA", "text", "TEXT"], "result": "\"OK\"", "stderr": ""}
+{"probe": "NUMERIC", "command": ["FT.CREATE", "adbc-flex-probe:20261104:NUMERIC", "ON", "HASH", "PREFIX", 1, "adbc-flex-probe:20261104:row:", "SKIPINITIALSCAN", "SCHEMA", "n", "NUMERIC"], "result": "\"OK\"", "stderr": ""}
+{"probe": "GEO", "command": ["FT.CREATE", "adbc-flex-probe:20261104:GEO", "ON", "HASH", "PREFIX", 1, "adbc-flex-probe:20261104:row:", "SKIPINITIALSCAN", "SCHEMA", "geo", "GEO"], "result": "\"OK\"", "stderr": ""}
+{"probe": "SORTABLE", "command": ["FT.CREATE", "adbc-flex-probe:20261104:SORTABLE", "ON", "HASH", "PREFIX", 1, "adbc-flex-probe:20261104:row:", "SKIPINITIALSCAN", "SCHEMA", "n", "NUMERIC", "SORTABLE"], "result": "error:\"SEARCH_QUERY_BAD Disk index does not support SORTABLE fields\"", "stderr": ""}
+{"probe": "initial scan", "command": ["FT.CREATE", "adbc-flex-probe:20261104:initial", "ON", "HASH", "PREFIX", 1, "adbc-flex-probe:20261104:row:", "SCHEMA", "tag", "TAG"], "result": "\"OK\"", "stderr": ""}
+{"probe": "insert", "command": ["HSET", "adbc-flex-probe:20261104:row:1", "tag", "hello", "text", "hello world", "n", 42, "geo", "1,2"], "result": "4", "stderr": ""}
+{"probe": "search contents", "command": ["FT.SEARCH", "adbc-flex-probe:20261104:TAG", "*", "RETURN", 2, "tag", "n"], "result": "{\"attributes\":[],\"format\":\"STRING\",\"results\":[{\"id\":\"adbc-flex-probe:20261104:row:1\",\"extra_attributes\":{\"tag\":\"hello\",\"n\":\"42\"},\"values\":[]}],\"total_results\":1,\"warning\":[]}", "stderr": ""}
+{"probe": "search IDs", "command": ["FT.SEARCH", "adbc-flex-probe:20261104:TAG", "*", "NOCONTENT"], "result": "{\"attributes\":[],\"format\":\"STRING\",\"results\":[{\"id\":\"adbc-flex-probe:20261104:row:1\",\"values\":[]}],\"total_results\":1,\"warning\":[]}", "stderr": ""}
+{"probe": "aggregate", "command": ["FT.AGGREGATE", "adbc-flex-probe:20261104:TAG", "*", "LOAD", 2, "@tag", "@n"], "result": "{\"attributes\":[],\"format\":\"STRING\",\"results\":[{\"extra_attributes\":{\"tag\":\"hello\",\"n\":\"42\"},\"values\":[]}],\"total_results\":1,\"warning\":[]}", "stderr": ""}
+{"probe": "aggregate cursor", "command": ["FT.AGGREGATE", "adbc-flex-probe:20261104:TAG", "*", "LOAD", 2, "@tag", "@n", "WITHCURSOR", "COUNT", 1], "result": "error:\"SEARCH_FLEX_UNSUPPORTED_ARGUMENT WITHCURSOR is not supported in Redis Flex\"", "stderr": ""}
+{"probe": "alter", "command": ["FT.ALTER", "adbc-flex-probe:20261104:TAG", "SCHEMA", "ADD", "extra", "TEXT"], "result": "error:\"FT.ALTER is not supported in Redis Flex\"", "stderr": ""}
+{"probe": "drop DD", "command": ["FT.DROPINDEX", "adbc-flex-probe:20261104:initial", "DD"], "result": "error:\"DD is not supported in Redis Flex\"", "stderr": ""}
+{"probe": "cleanup TAG", "command": ["FT.DROPINDEX", "adbc-flex-probe:20261104:TAG"], "result": "\"OK\"", "stderr": ""}
+{"probe": "cleanup TEXT", "command": ["FT.DROPINDEX", "adbc-flex-probe:20261104:TEXT"], "result": "\"OK\"", "stderr": ""}
+{"probe": "cleanup NUMERIC", "command": ["FT.DROPINDEX", "adbc-flex-probe:20261104:NUMERIC"], "result": "\"OK\"", "stderr": ""}
+{"probe": "cleanup GEO", "command": ["FT.DROPINDEX", "adbc-flex-probe:20261104:GEO"], "result": "\"OK\"", "stderr": ""}
+{"probe": "cleanup SORTABLE", "command": ["FT.DROPINDEX", "adbc-flex-probe:20261104:SORTABLE"], "result": "error:\"SEARCH_INDEX_NOT_FOUND Index not found: adbc-flex-probe:20261104:SORTABLE\"", "stderr": ""}
+{"probe": "cleanup initial", "command": ["FT.DROPINDEX", "adbc-flex-probe:20261104:initial"], "result": "\"OK\"", "stderr": ""}
+{"probe": "cleanup row", "command": ["DEL", "adbc-flex-probe:20261104:row:1"], "result": "1", "stderr": ""}
+{"probe": "final keys", "command": ["DBSIZE"], "result": "1", "stderr": ""}
+{"probe": "final indexes", "command": ["FT._LIST"], "result": "[]", "stderr": ""}

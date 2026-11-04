@@ -31,10 +31,10 @@ api_port=${FLEX_API_PORT:-9443}
 db_port=${FLEX_DB_PORT:-12000}
 admin_user=${FLEX_ADMIN_USER:-admin@example.com}
 admin_pass=${FLEX_ADMIN_PASSWORD:-adbc-flex-test}
-redis_version=${FLEX_REDIS_VERSION:-8.6}
+redis_version=${FLEX_REDIS_VERSION:-8.8}
 # The database's size and the part of it kept in RAM; the rest is on flash.
 memory_mb=${FLEX_MEMORY_MB:-1024}
-ram_mb=${FLEX_RAM_MB:-128}
+ram_mb=${FLEX_RAM_MB:-256}
 db_name=adbc-flex
 db_pass=${FLEX_DB_PASSWORD:-adbc-enterprise-test}
 tls_dir="$PWD/build/flex-test-tls"
@@ -109,7 +109,7 @@ if [ -z "$uid" ]; then
 	echo "creating Flex database $db_name: ${memory_mb} MB, ${ram_mb} MB of it in RAM, Redis $redis_version" >&2
 	# Redis 8 databases get Search, JSON and Bloom without a module_list
 	# (passing one fails with an internal error on 8.2.0-78). Search on
-	# Flex needs Redis 8.6 or later.
+	# Flex on Software 8.2.6 needs Redis 8.8 or later.
 	# The port is the container's; compose maps FLEX_DB_PORT to it.
 	body=$(jq -n --arg name "$db_name" --arg version "$redis_version" --arg pass "$db_pass" \
 		--argjson memory "$((memory_mb * 1024 * 1024))" --argjson ram "$((ram_mb * 1024 * 1024))" '{

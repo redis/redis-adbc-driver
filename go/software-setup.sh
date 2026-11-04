@@ -34,6 +34,7 @@ for tool in docker curl jq openssl python3; do
 done
 api_port=${SOFTWARE_API_PORT:-19443}
 db_port=${SOFTWARE_DB_PORT:-6379}
+redis_version=${SOFTWARE_REDIS_VERSION:-8.8}
 shards=${SOFTWARE_SHARDS:-3}
 case $shards in
     1|3) ;;
@@ -123,8 +124,8 @@ jq -n --rawfile cert "$tls_dir/ca.pem" --rawfile key "$tls_dir/server.key" \
 uid=$(call -f "$api/bdbs" | jq -r '[.[] | select(.name == "adbc-test") | .uid][0] // empty')
 if [ -z "$uid" ]; then
     # Redis 8 includes Search; an explicit module_list is unnecessary.
-    body=$(jq -n --argjson shards "$shards" --arg pass "$db_pass" '{
-        name: "adbc-test", type: "redis", redis_version: "8.6", port: 12000,
+    body=$(jq -n --argjson shards "$shards" --arg pass "$db_pass" --arg version "$redis_version" '{
+        name: "adbc-test", type: "redis", redis_version: $version, port: 12000,
         memory_size: 1073741824, replication: false,
         query_performance_factor: {active: true, scaling_factor: 4},
         tls_mode: "enabled", enforce_client_authentication: "disabled",
