@@ -34,6 +34,14 @@ applicable selected tests and is skipped. Mutating selections run sequentially.
 Compilation, formatting and diff whitespace checks pass. This is semantic and
 ownership coverage, not a full ordinary-suite or performance result.
 
+The next fresh 183-name ordinary continuation passes 52 test events, zero skips,
+then stops at TestSQLDropDuringCreateTableAs (root 29.457 s). Its legacy row-
+pipeline hook never performs the competing DROP, so the writer succeeds and the
+fixture reports both a missing old stale-write error and that DROP did not run.
+Later cases did not run. The stale-row SQL/Arrow/temporary-write race fixtures
+need native acknowledged-batch/publication boundaries and snapshot conflict
+expectations. This continuation is not a complete ordinary-suite pass.
+
 Reviewed immutable source lifetime, canonical fresh physical identities,
 unrelated-table preservation, column/index metadata, exact row IDs, private
 multi-table conflicts without replay, one public publication, duplicate target
