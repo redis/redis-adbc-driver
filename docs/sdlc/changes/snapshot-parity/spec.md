@@ -22,3 +22,12 @@ Date: 2026-11-02. Status: in progress. See [intent](intent.md), [plan](plan.md).
 7. Benchmarks require verified Software 4x QPF, isolated owned resources, stated
    baseline/source revisions, full fetch and independently checked values. No
    unmeasured all-workload or all-platform parity claim is permitted.
+
+8. Fetched upstream Arrow/ADBC additions must retain their contracts on snapshots:
+   Map/Union and nested extension storage, dictionary IPC and partition result
+   layouts, bounded incremental execution and authoritative column NULL counts.
+   NULL statistics resolve visibility before probing presence, preserve defaults
+   and avoid arbitrary payload reads. Layout wrappers must retain the underlying
+   snapshot/transport. SQL SELECT grants require isolated reader leases and
+   generation-stable authorization; static-prefix grants or broader catalog writes
+   do not satisfy this requirement.

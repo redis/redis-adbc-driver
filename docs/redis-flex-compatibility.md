@@ -1,6 +1,7 @@
 # Redis Flex compatibility test report
 
-Tested on 2026-10-06 against commit `40da0bf`. The Redis ADBC driver does
+Historical tests below ran on 2026-10-06 against commit `40da0bf`.
+See the 2026-11-04 retest immediately below for the newer release. The Redis ADBC driver does
 not currently support Redis Flex. A local Redis Software Flex database
 confirmed that the driver refuses the connection before writing metadata,
 and direct Search probes identified the missing server capabilities. The live
@@ -8,6 +9,68 @@ Redis Cloud Pro test authenticated to a new minimum-size Flex database.
 The Cloud database had no Redis Search capability, so the driver stopped
 at `FT._LIST` before reaching its Flex-specific
 `FT.AGGREGATE` guard.
+
+## Retest: 2026-11-04, Redis Software 8.2.6-25
+
+Retested against driver commit `95d6583` using an isolated Docker cluster.
+The refreshed `redislabs/redis:latest` image reports Software **8.2.6-25**,
+Redis **8.8.0**, Search **8.8.8**, ReJSON **8.8.2**, and Bloom **8.8.1**
+on `aarch64`. Image index digest:
+`sha256:b3993a5ed453ffe2aeacff63db7dd3702253b7e2f732032676e2b221413e0e06`.
+
+The new `adbc-flex` database used BigStore v2, `search_on_bigstore: true`,
+1,024 MB total, 256 MB RAM (25%), one shard, no replication or persistence,
+and the built-in trial license. Host ports were 29443 (admin API) and 22000
+(database); the existing RAM test clusters were left running.
+
+| Probe | Live result |
+|-|-|
+| `FT.CREATE ... TAG`, `TEXT`, `NUMERIC`, `GEO` | Supported |
+| `FT.CREATE` without `SKIPINITIALSCAN` | Accepted (background population of existing documents was not measured) |
+| `FT.CREATE ... NUMERIC SORTABLE` | `SEARCH_QUERY_BAD Disk index does not support SORTABLE fields` |
+| `FT.SEARCH ... RETURN 2 tag n` | Returned document fields `tag=hello`, `n=42` |
+| `FT.SEARCH ... NOCONTENT` | Returned matching document ID |
+| `FT.AGGREGATE ... LOAD 2 @tag @n` | Returned both field values |
+| `FT.AGGREGATE ... WITHCURSOR COUNT 1` | `SEARCH_FLEX_UNSUPPORTED_ARGUMENT WITHCURSOR is not supported in Redis Flex` |
+| `FT.ALTER` | `FT.ALTER is not supported in Redis Flex` |
+| `FT.DROPINDEX ... DD` | `DD is not supported in Redis Flex` |
+| `FT.DROPINDEX` without `DD` | Supported |
+
+Raw commands and replies are recorded in
+[flex-probes-2026-11-04.jsonl](flex-probes-2026-11-04.jsonl).
+Probe indexes and the temporary HASH were removed; the direct probe key count
+was unchanged (one metadata key before and after), and `FT._LIST` was empty.
+
+### Driver results on the new release
+
+```bash
+cd go
+REDIS_FLEX_URI=redis://localhost:22000/0 go test -count=1 -run TestFlex -v ./...
+REDIS_URI=redis://localhost:22000/0 go test -count=1 -run '^TestSQLAliasesInExpressions$' -v .
+```
+
+Both tests failed, for distinct reasons:
+
+- `TestFlexRefused`: `connected to a Redis Flex database; want an error`.
+  The missing-index aggregate probe now returns `SEARCH_INDEX_NOT_FOUND`,
+  so the driver passes its guard and creates its metadata registry.
+- `TestSQLAliasesInExpressions`: its first `CREATE TABLE` failed with
+  `I/O: [redis] failed to create search index: SEARCH_QUERY_BAD Disk index does not support SORTABLE fields`.
+
+Tracked in [GitHub issue #314](https://github.com/redis/redis-adbc-driver/issues/314).
+
+**Flex remains incompatible with the current driver.** The old refusal guard
+no longer detects this release, and connection success must not be treated as
+support. `SORTABLE` and aggregate cursors remain blockers; schema alteration
+and deletion with `DD` also require alternate implementations.
+The disposable cluster was removed after testing, including driver metadata.
+These runs used the historical `95d6583` fixture, without TLS or a verified
+QPF setting; they do not validate the current default TLS/4x QPF fixture.
+
+Requirements and limitations are documented in Redis's
+[8.2.6-25 release notes](https://redis.io/docs/latest/operate/rs/release-notes/rs-8-2-releases/rs-8-2-6-25/)
+and [Search on Flex documentation](https://redis.io/docs/latest/operate/rs/flex/search/).
+The Word report retains the historical 2026-10-06 results.
 
 ## Test status
 
@@ -152,10 +215,9 @@ current driver from operating on Cloud Flex. Source:
 [Create a Flex database](https://redis.io/docs/latest/operate/rc/databases/create-database/create-flex-database/).
 
 Redis's documentation says Redis Software already has `NUMERIC`, `GEO`, and
-`FT.AGGREGATE` on Flex. The current published `redislabs/redis:latest` image
-tested here still rejects them. Treat the live image result as authoritative
-for this exact container build and retest when a newer Redis Software image
-is published.
+`FT.AGGREGATE` on Flex. The image tested on 2026-10-06 rejected them. The 2026-11-04 retest
+above confirms that the newer build supports all three, with remaining
+limitations on sortable fields and cursors.
 
 ## Redis Cloud test configuration
 

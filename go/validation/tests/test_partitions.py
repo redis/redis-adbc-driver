@@ -7,6 +7,7 @@ import os
 import subprocess
 import sys
 import queue
+import re
 import threading
 
 import adbc_driver_manager.dbapi as dbapi
@@ -38,7 +39,23 @@ def connect(driver_path, db_kwargs):
     return dbapi.connect(driver=driver_path, db_kwargs=db_kwargs, autocommit=True)
 
 
+def release_live_partitions(driver_path, db_kwargs, partitions):
+    """Release only capabilities returned to this test, through the public API."""
+    tokens = set()
+    for partition in partitions:
+        descriptor = json.loads(bytes(partition))
+        if capability := descriptor.get("snapshot"):
+            token = capability["token"]
+            assert re.fullmatch(r"[0-9a-f]{32}", token)
+            tokens.add(token)
+    if tokens:
+        with connect(driver_path, db_kwargs) as owner, owner.cursor() as cur:
+            for token in sorted(tokens):
+                cur.execute(f"DROP PARTITION SNAPSHOT '{token}'")
+
+
 def test_partition_planner_exit_and_worker_death(driver_path, db_kwargs):
+    owned_parts = []
     table = "it_partition_process_death"
     data = pa.table({"id": pa.array(range(300), pa.int64()),
                      "label": [None if i % 3 == 0 else "exact\x00value" for i in range(300)],
@@ -80,6 +97,7 @@ with dbapi.connect(driver=p['driver'], db_kwargs={**p['db'],
             capture_output=True, timeout=60)
         assert result.returncode == 77, "planner did not exit after publishing its descriptor"
         descriptor = result.stdout.strip()
+        owned_parts.append(base64.b64decode(descriptor))
         payload = json.dumps({"driver":driver_path, "db":worker_kwargs(db_kwargs),
                               "partition":descriptor})
         process = subprocess.Popen([sys.executable, "-c", partial_worker],
@@ -101,8 +119,8 @@ with dbapi.connect(driver=p['driver'], db_kwargs={**p['db'],
             process.stdout.close()
             if not process.stdin.closed:
                 process.stdin.close()
-        # A failed worker must not invalidate the descriptor. Retry observes live
-        # updates/deletes, and excludes the insert beyond its planned watermark.
+        # A failed worker must not invalidate the shared producer generation.
+        # Subsequent statements publish updates/deletes; retry retains old values.
         with connect(driver_path, db_kwargs) as conn:
             with conn.cursor() as cur:
                 cur.execute(f"UPDATE {table} SET label='changed' WHERE id=1")
@@ -112,17 +130,23 @@ with dbapi.connect(driver=p['driver'], db_kwargs={**p['db'],
             text=True, capture_output=True, timeout=60)
         assert result.returncode == 0, "new worker could not retry after process death"
         actual = pa.ipc.open_stream(base64.b64decode(result.stdout)).read_all().sort_by("id")
-        expected = [row for row in data.to_pylist() if row["id"] != 3]
-        expected[1]["label"] = "changed"
         assert actual.schema.equals(data.schema)
-        assert actual.to_pylist() == expected
+        assert actual.equals(data)
+        with connect(driver_path, db_kwargs) as fresh, fresh.cursor() as cur:
+            cur.execute(f"SELECT * FROM {table} ORDER BY id")
+            expected = [row for row in data.to_pylist() if row["id"] != 3]
+            expected[1]["label"] = "changed"
+            expected.append({"id": 300, "label": None, "payload": None})
+            assert cur.fetch_arrow_table().to_pylist() == expected
     finally:
+        release_live_partitions(driver_path, db_kwargs, owned_parts)
         with connect(driver_path, db_kwargs) as conn:
             with conn.cursor() as cur:
                 cur.execute(f"DROP TABLE IF EXISTS {table}")
 
 
 def test_partitions_cross_process(driver_path, db_kwargs):
+    owned_parts = []
     table = "it_partition_python"
     data = pa.table({
         "id": pa.array([1, 2, 3, 4, 5], pa.int64()),
@@ -143,6 +167,7 @@ def test_partitions_cross_process(driver_path, db_kwargs):
             cur.adbc_statement.set_options(**{"adbc.redis.partition_count": 4,
                 "adbc.redis.partition_scan_cap": int(os.environ.get("REDIS_PARTITION_SCAN_CAP", "0"))})
             parts, schema = cur.adbc_execute_partitions(f"SELECT * FROM {table}")
+            owned_parts.extend(parts)
             assert cur.rowcount == -1
             assert len(parts) == 4
     # Both planning handles have closed before any descriptor is consumed.
@@ -167,6 +192,7 @@ def test_partitions_cross_process(driver_path, db_kwargs):
                 retry = cur.fetch_arrow_table()
                 assert retry.equals(tables[0])
     finally:
+        release_live_partitions(driver_path, db_kwargs, owned_parts)
         with connect(driver_path, db_kwargs) as conn:
             with conn.cursor() as cur:
                 if os.environ.get("REDIS_PARTITION_SCAN_CAP"):
@@ -175,6 +201,7 @@ def test_partitions_cross_process(driver_path, db_kwargs):
 
 
 def test_partition_validation_and_empty(driver_path, db_kwargs):
+    owned_parts = []
     with connect(driver_path, db_kwargs) as conn:
         with conn.cursor() as cur:
             if os.environ.get("REDIS_PARTITION_SCAN_CAP"):
@@ -184,6 +211,7 @@ def test_partition_validation_and_empty(driver_path, db_kwargs):
             try:
                 for _ in range(20):  # repeated schema/descriptor export and release
                     parts, schema = cur.adbc_execute_partitions("SELECT * FROM it_partition_python_empty")
+                    owned_parts.extend(parts)
                     assert len(parts) == 1
                     cur.adbc_read_partition(parts[0])
                     empty = cur.fetch_arrow_table()
@@ -197,15 +225,20 @@ def test_partition_validation_and_empty(driver_path, db_kwargs):
                 with pytest.raises(dbapi.NotSupportedError):
                     cur.adbc_read_partition(json.dumps(descriptor).encode())
                 cur.execute("ALTER TABLE it_partition_python_empty ADD COLUMN label TEXT")
-                with pytest.raises(dbapi.ProgrammingError):
-                    cur.adbc_read_partition(parts[0])
+                cur.adbc_read_partition(parts[0])
+                old = cur.fetch_arrow_table()
+                assert old.num_rows == 0 and old.schema.equals(schema)
+                cur.execute("SELECT * FROM it_partition_python_empty")
+                assert cur.fetch_arrow_table().column_names == ["id", "label"]
             finally:
+                release_live_partitions(driver_path, db_kwargs, owned_parts)
                 cur.execute("DROP TABLE it_partition_python_empty")
 
 
 def test_partition_connection_cancel(driver_path, db_kwargs):
     # The partition reader belongs to the reading connection, not the otherwise
     # unused DB-API cursor's statement. Cancel the connection after fetching begins.
+    owned_parts = []
     with connect(driver_path, {**db_kwargs, "adbc.redis.stream_batch_rows": "10"}) as conn:
         with conn.cursor() as cur:
             if os.environ.get("REDIS_PARTITION_SCAN_CAP"):
@@ -215,6 +248,7 @@ def test_partition_connection_cancel(driver_path, db_kwargs):
             try:
                 cur.adbc_statement.set_options(**{"adbc.redis.partition_count": 1})
                 parts, _ = cur.adbc_execute_partitions("SELECT * FROM it_partition_python_cancel")
+                owned_parts.extend(parts)
                 cur.adbc_read_partition(parts[0])
                 reader = cur.fetch_record_batch()
                 assert reader.read_next_batch().num_rows == 10
@@ -223,11 +257,13 @@ def test_partition_connection_cancel(driver_path, db_kwargs):
                     reader.read_all()
                 reader.close()
             finally:
+                release_live_partitions(driver_path, db_kwargs, owned_parts)
                 cur.execute("DROP TABLE it_partition_python_cancel")
 
 
 @pytest.mark.parametrize("populated", [False, True])
 def test_incremental_lifecycle(driver_path, db_kwargs, populated):
+    owned_parts = []
     with connect(driver_path, db_kwargs) as conn:
         with conn.cursor() as cur:
             if os.environ.get("REDIS_PARTITION_SCAN_CAP"):
@@ -245,6 +281,7 @@ def test_incremental_lifecycle(driver_path, db_kwargs, populated):
                 st.set_options(**{"adbc.statement.exec.incremental": "true"})
                 st.set_sql_query(f"SELECT id FROM {table}")
                 parts, schema, count = st.execute_partitions()
+                owned_parts.extend(parts)
                 assert parts and count == -1
                 expected_schema = pa.Schema._import_from_c(schema.address)
                 for _ in range(3):
@@ -256,6 +293,7 @@ def test_incremental_lifecycle(driver_path, db_kwargs, populated):
                 expected = cur.fetch_arrow_table()
                 st.set_sql_query(f"SELECT id FROM {table}")
                 parts, _, _ = st.execute_partitions()
+                owned_parts.extend(parts)
                 tables = []
                 for part in parts:
                     cur.adbc_read_partition(part)
@@ -268,15 +306,19 @@ def test_incremental_lifecycle(driver_path, db_kwargs, populated):
                 st.set_options(**{"adbc.statement.exec.incremental": "false"})
                 st.set_sql_query(f"SELECT id FROM {table}")
                 for _ in range(2):
-                    assert st.execute_partitions()[0]
+                    more, _, _ = st.execute_partitions()
+                    owned_parts.extend(more)
+                    assert more
                 with pytest.raises(dbapi.NotSupportedError):
                     st.get_option_float("adbc.statement.exec.progress")
             finally:
+                release_live_partitions(driver_path, db_kwargs, owned_parts)
                 cur.execute(f"DROP TABLE IF EXISTS {table}")
 
 
 @pytest.mark.parametrize("stream", [False, True])
 def test_partition_bound_expressions_cross_process(driver_path, db_kwargs, stream):
+    owned_parts = []
     import datetime
 
     query = """SELECT id + ? AS shifted,
@@ -309,6 +351,7 @@ def test_partition_bound_expressions_cross_process(driver_path, db_kwargs, strea
                 else:
                     st.bind(params)
                 parts, schema, _ = st.execute_partitions()
+                owned_parts.extend(parts)
                 planned_schema = pa.Schema._import_from_c(schema.address)
             except BaseException:
                 cur.execute(f"DROP TABLE IF EXISTS {table}")
@@ -344,6 +387,7 @@ def test_partition_bound_expressions_cross_process(driver_path, db_kwargs, strea
                 with pytest.raises(dbapi.ProgrammingError, match="invalid Redis ADBC partition"):
                     cur.adbc_read_partition(json.dumps(d).encode())
     finally:
+        release_live_partitions(driver_path, db_kwargs, owned_parts)
         with connect(driver_path, db_kwargs) as conn:
             with conn.cursor() as cur:
                 if os.environ.get("REDIS_PARTITION_SCAN_CAP"):
@@ -352,6 +396,7 @@ def test_partition_bound_expressions_cross_process(driver_path, db_kwargs, strea
 
 
 def test_balanced_partition_strategy(driver_path, db_kwargs):
+    owned_parts = []
     import time
 
     table = "it_partition_balanced_python"
@@ -377,6 +422,7 @@ def test_balanced_partition_strategy(driver_path, db_kwargs):
                 while True:
                     try:
                         parts, schema = cur.adbc_execute_partitions(f"SELECT id FROM {table}")
+                        owned_parts.extend(parts)
                         break
                     except dbapi.ProgrammingError as exc:
                         if "still indexing" not in str(exc) or time.monotonic() >= deadline:
@@ -394,10 +440,12 @@ def test_balanced_partition_strategy(driver_path, db_kwargs):
                             actual.extend(result.column("id").to_pylist())
                 assert sorted(actual) == list(range(4500, 5000))
             finally:
+                release_live_partitions(driver_path, db_kwargs, owned_parts)
                 cur.execute(f"DROP TABLE IF EXISTS {table}")
 
 
 def test_pruned_partition_values(driver_path, db_kwargs):
+    owned_parts = []
     table = "it_partition_pruned_python"
     data = pa.table({
         "id": pa.array(range(1, 1101), pa.int64()),
@@ -427,6 +475,7 @@ def test_pruned_partition_values(driver_path, db_kwargs):
                     if params is not None:
                         st.bind(params)
                     parts, exported, _ = st.execute_partitions()
+                    owned_parts.extend(parts)
                     schema = pa.Schema._import_from_c(exported.address)
                     assert len(parts) == count
             # Planner connection is closed. All values/types come from HASHes.
@@ -444,6 +493,7 @@ def test_pruned_partition_values(driver_path, db_kwargs):
                 reader.adbc_statement.set_options(**{"adbc.redis.partition_count": 1})
                 direct, _ = reader.adbc_execute_partitions(
                     f"SELECT * FROM {table} WHERE __rowid BETWEEN 1 AND 1024")
+                owned_parts.extend(direct)
                 reader.adbc_read_partition(direct[0])
                 batches = reader.fetch_record_batch()
                 assert batches.read_next_batch().num_rows == 10
@@ -452,6 +502,41 @@ def test_pruned_partition_values(driver_path, db_kwargs):
                     batches.read_all()
                 batches.close()
     finally:
+        release_live_partitions(driver_path, db_kwargs, owned_parts)
         with connect(driver_path, db_kwargs) as owner:
             with owner.cursor() as cur:
                 cur.execute(f"DROP TABLE IF EXISTS {table}")
+
+
+def test_partition_byte_lengths_independent_reader(driver_path, db_kwargs):
+    """#304: complete results through separately opened live and retained readers."""
+    owned_parts = []
+    # Retained lifecycle is separately covered by its immutable replay suite.
+    table = "it_partition_byte_lengths"
+    data = pa.table({"id": pa.array([1, 2, 3, 4], pa.int64()),
+                     "label": ["é🐉", "", None, "a\x00b"],
+                     "payload": pa.array([b"\x00\xff", b"", None, b"abc"], pa.binary())})
+    with connect(driver_path, db_kwargs) as producer:
+        with producer.cursor() as cur:
+            cur.execute(f"DROP TABLE IF EXISTS {table}")
+            cur.adbc_ingest(table, data)
+            try:
+                query = f"SELECT id, OCTET_LENGTH(label) AS bytes, BIT_LENGTH(label) AS bits, OCTET_LENGTH(payload) AS binary_bytes FROM {table}"
+                cur.execute(query)
+                expected = cur.fetch_arrow_table().sort_by("id")
+                cur.adbc_statement.set_options(**{"adbc.redis.partition_scan_cap": int(os.environ.get("REDIS_PARTITION_SCAN_CAP", "0"))})
+                parts, schema = cur.adbc_execute_partitions(query)
+                owned_parts.extend(parts)
+                batches = []
+                with connect(driver_path, worker_kwargs(db_kwargs)) as reader:
+                    with reader.cursor() as read:
+                        for part in parts:
+                            read.adbc_read_partition(part)
+                            result = read.fetch_arrow_table()
+                            assert result.schema == schema == expected.schema
+                            batches.extend(result.to_batches())
+                actual = pa.Table.from_batches(batches, schema=schema).sort_by("id")
+                assert actual.equals(expected)
+            finally:
+                release_live_partitions(driver_path, db_kwargs, owned_parts)
+                cur.execute(f"DROP TABLE {table}")

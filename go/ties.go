@@ -82,7 +82,6 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"sort"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -702,7 +701,9 @@ func (it *scanIter) sortRun(ctx context.Context, run []tieRow) error {
 	for i := range idx {
 		idx[i] = i
 	}
-	sort.SliceStable(idx, func(a, b int) bool { return lessKeys(sortKeys[idx[a]], sortKeys[idx[b]], t.order) })
+	if err := sortSlice(ctx, idx, func(a, b int) bool { return lessKeys(sortKeys[idx[a]], sortKeys[idx[b]], t.order) }); err != nil {
+		return err
+	}
 	sorted := make([]tieRow, len(run))
 	for i, j := range idx {
 		sorted[i] = run[j]

@@ -200,3 +200,48 @@ func TestSQLCancel(t *testing.T) {
 		}
 	})
 }
+
+// #306: trigger StatementCancel from an active sorting checkpoint, after key
+// collection. No reader may escape; the same connection must remain usable.
+func TestSQLCancelInsideSort(t *testing.T) {
+	t.Cleanup(func() { testHookSortCheckpoint = nil })
+	h := newSQLHarness(t)
+	for _, query := range []string{
+		"SELECT g%11 AS k FROM generate_series(1, 20000) s(g) ORDER BY k",
+		"SELECT g%11 AS k FROM generate_series(1, 10000) s(g) UNION ALL SELECT g%11 FROM generate_series(1, 10000) s(g) ORDER BY k",
+		"SELECT g,ROW_NUMBER() OVER(ORDER BY g%11) FROM generate_series(1, 20000) s(g)",
+		"SELECT ARRAY_AGG(g ORDER BY g%11) FROM generate_series(1, 20000) s(g)",
+	} {
+		st, err := h.conn.NewStatement(h.ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := st.SetSqlQuery(h.ctx, query); err != nil {
+			t.Fatal(err)
+		}
+		checkpoints := 0
+		var at time.Time
+		testHookSortCheckpoint = func() {
+			checkpoints++
+			if checkpoints == 4 {
+				at = time.Now()
+				if err := st.(interface{ Cancel(context.Context) error }).Cancel(h.ctx); err != nil {
+					t.Fatal(err)
+				}
+			}
+		}
+		reader, _, err := st.ExecuteQuery(h.ctx)
+		testHookSortCheckpoint = nil
+		if reader != nil {
+			reader.Release()
+			t.Fatal("partial result escaped sort cancellation")
+		}
+		if checkpoints < 4 {
+			t.Fatalf("sort was never reached: %s: %v", query, err)
+		}
+		expectCancelled(t, time.Since(at), err)
+		t.Logf("active-sort cancellation latency: %s", time.Since(at))
+		_ = st.Close(h.ctx)
+		h.exec("SELECT 1")
+	}
+}

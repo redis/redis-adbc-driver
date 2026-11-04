@@ -1389,6 +1389,8 @@ func (e *executor) executeSnapshot(ctx context.Context, ps ParsedStmt, params []
 	}
 	write := false
 	switch ps.Stmt.(type) {
+	case *PrivilegeStmt:
+		return execResult{}, errorf(adbc.StatusNotImplemented, "SQL GRANT/REVOKE requires isolated snapshot reader leases; management ACL changes are not enabled for snapshot catalogs")
 	case *SelectStmt, *ShowStmt, *SetStmt, *TransactionStmt:
 	case *InsertStmt, *UpdateStmt, *DeleteStmt, *MergeStmt, *CreateTableStmt, *DropTableStmt, *CreateViewStmt, *DropViewStmt, *CreateSchemaStmt, *DropSchemaStmt, *TruncateStmt, *CommentStmt, *AlterTableStmt, *SequenceStmt, *CreateIndexStmt, *DropIndexStmt, *RefreshMatViewStmt, *DropMatViewStmt, *RenameMatViewStmt:
 		write = true

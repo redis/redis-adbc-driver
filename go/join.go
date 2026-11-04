@@ -543,6 +543,8 @@ func joinKey(v Value) (string, bool) {
 		sec := floorDiv(v.I, per)
 		frac := (v.I - sec*per) * (1_000_000_000 / per)
 		return k.String()[:2] + strconv.FormatInt(sec, 10) + "." + strconv.FormatInt(frac, 10), true
+	case v.T.taggedNested():
+		return fmt.Sprintf("%p/%d/%s", v.T.Rec, v.I, rowKey(v.fields())), true
 	case k == KindRecord:
 		return recordJoinKey(v), true
 	case k == KindArray:

@@ -10,6 +10,7 @@ import (
 	"io"
 	"math"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/apache/arrow-adbc/go/adbc"
@@ -42,9 +43,8 @@ func (c *connectionImpl) GetStatisticNames(ctx context.Context) (array.RecordRea
 	return array.NewRecordReader(adbc.GetStatisticNamesSchema, nil)
 }
 
-// GetStatistics exposes Search or authoritative HASH row counts for permanent
-// managed tables. Native catalog discovery and visibility share one snapshot;
-// other quantities/layouts are omitted.
+// GetStatistics exposes pinned row counts and authoritative column NULL counts
+// for permanent managed tables. Other quantities/layouts are omitted.
 func (c *connectionImpl) GetStatistics(ctx context.Context, catalog, dbSchema, tableName *string, approximate bool) (array.RecordReader, error) {
 	if err := c.statisticsAccess(ctx); err != nil {
 		return nil, err
@@ -94,15 +94,20 @@ func (c *connectionImpl) GetStatistics(ctx context.Context, catalog, dbSchema, t
 					continue
 				}
 				var n int64
+				var nulls []int64
 				if snapshotOf(ctx) != nil && snapshotDataID(meta.prefix()) != "" {
-					n, err = c.snapshotStatisticRowCount(ctx, meta, approximate)
+					if approximate {
+						n, err = c.snapshotStatisticRowCount(ctx, meta, true)
+					} else {
+						n, nulls, err = c.snapshotColumnNullCounts(ctx, meta)
+					}
 				} else if approximate {
 					if err := c.store.checkRangeReadiness(ctx, meta.index()); err != nil {
 						return nil, err
 					}
 					n, err = c.store.countMatches(ctx, meta.index(), "*")
 				} else {
-					n, err = c.exactRowCount(ctx, meta)
+					n, nulls, err = c.columnNullCounts(ctx, meta)
 				}
 				if err != nil {
 					return nil, err
@@ -115,6 +120,16 @@ func (c *connectionImpl) GetStatistics(ctx context.Context, catalog, dbSchema, t
 				value.Append(0)
 				value.Child(0).(*array.Int64Builder).Append(n)
 				stats.FieldBuilder(4).(*array.BooleanBuilder).Append(true)
+				for col, count := range nulls {
+					stats.Append(true)
+					stats.FieldBuilder(0).(*array.StringBuilder).Append(table)
+					stats.FieldBuilder(1).(*array.StringBuilder).Append(meta.Columns[col].Name)
+					stats.FieldBuilder(2).(*array.Int16Builder).Append(adbc.StatisticNullCountKey)
+					value.Append(0)
+					value.Child(0).(*array.Int64Builder).Append(count)
+					stats.FieldBuilder(4).(*array.BooleanBuilder).Append(true)
+				}
+
 			}
 		}
 	}
@@ -190,14 +205,18 @@ func (c *connectionImpl) snapshotStatisticRowCount(ctx context.Context, meta *ta
 // Exact means a complete, deduplicated scan of authoritative row identities,
 // not a transaction snapshot. Concurrent DML can change observed membership.
 // Bound the deduplication memory and scan work rather than truncate a count.
-func (c *connectionImpl) exactRowCount(ctx context.Context, meta *tableMeta) (int64, error) {
+func (c *connectionImpl) columnNullCounts(ctx context.Context, meta *tableMeta) (int64, []int64, error) {
 	ctx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 	scan, err := (&hashConn{client: c.store.redis(ctx)}).scanKeys(ctx, meta.prefix(), "hash")
 	if err != nil {
-		return 0, err
+		return 0, nil, err
 	}
 	scan.match = retainedByteGlob(meta.prefix())
+	if len(meta.Columns) > 4096 {
+		return 0, nil, errorf(adbc.StatusNotImplemented, "column statistics exceed 4096 columns")
+	}
+	nulls := make([]int64, len(meta.Columns))
 	seen := map[string]bool{}
 	budget := newRetainedBudget(64 << 20)
 	var count int64
@@ -205,21 +224,21 @@ func (c *connectionImpl) exactRowCount(ctx context.Context, meta *tableMeta) (in
 	for {
 		keys, done, err := scan.next(ctx)
 		if err != nil {
-			return 0, err
+			return 0, nil, err
 		}
 		for _, key := range keys {
 			if err := cancelled(ctx); err != nil {
-				return 0, err
+				return 0, nil, err
 			}
-			work++
+			work += 1 + 2*len(meta.Columns)
 			if work > 2_000_000 {
-				return 0, codeStateErrorf(adbc.StatusInvalidState, "53200", "exact statistics scan budget exhausted")
+				return 0, nil, codeStateErrorf(adbc.StatusInvalidState, "53200", "exact statistics scan budget exhausted")
 			}
 			if seen[key] {
 				continue
 			}
 			if err := budget.reserve(int64(len(key))*2 + 128); err != nil {
-				return 0, err
+				return 0, nil, err
 			}
 			seen[key] = true
 			id, err := c.store.redis(ctx).HGet(ctx, key, rowIDField).Result()
@@ -227,11 +246,14 @@ func (c *connectionImpl) exactRowCount(ctx context.Context, meta *tableMeta) (in
 				continue
 			}
 			if err != nil {
-				return 0, wrapRedis(err, "exact statistics row identity read failed")
+				return 0, nil, wrapRedis(err, "exact statistics row identity read failed")
 			}
 			n, err := strconv.ParseInt(id, 10, 64)
 			if err != nil || n < 1 || key != meta.prefix()+strconv.FormatInt(n, 10) {
-				return 0, errorf(adbc.StatusInvalidData, "exact statistics found an inconsistent physical row identity")
+				return 0, nil, errorf(adbc.StatusInvalidData, "exact statistics found an inconsistent physical row identity")
+			}
+			if err := c.statisticNullFields(ctx, meta, key, id, nulls); err != nil {
+				return 0, nil, err
 			}
 			count++
 		}
@@ -241,10 +263,98 @@ func (c *connectionImpl) exactRowCount(ctx context.Context, meta *tableMeta) (in
 	}
 	current, err := c.store.getTable(ctx, meta.Schema, meta.Name)
 	if err != nil {
-		return 0, err
+		return 0, nil, err
 	}
 	if partitionTarget(current) != partitionTarget(meta) {
-		return 0, errorf(adbc.StatusInvalidState, "table identity changed during exact statistics scan")
+		return 0, nil, errorf(adbc.StatusInvalidState, "table identity changed during exact statistics scan")
 	}
-	return count, nil
+	return count, nulls, nil
+}
+
+func (c *connectionImpl) statisticNullFields(ctx context.Context, meta *tableMeta, key, id string, nulls []int64) error {
+	// HEXISTS bounds response memory independently of source payloads.
+	// Missing fields follow ADD COLUMN's stored default semantics.
+	for first := 0; first < len(meta.Columns); first += 128 {
+		end := min(first+128, len(meta.Columns))
+		pipe := c.store.redis(ctx).Pipeline()
+		commands := make([]*goredis.BoolCmd, end-first)
+		markers := make([]*goredis.BoolCmd, end-first)
+		for col := first; col < end; col++ {
+			commands[col-first] = pipe.HExists(ctx, key, meta.Columns[col].field())
+			markers[col-first] = pipe.HExists(ctx, key, nullMarker(meta.Columns[col].field()))
+		}
+		if _, err := pipe.Exec(ctx); err != nil {
+			return wrapRedis(err, "column statistics field existence read failed")
+		}
+		for col := first; col < end; col++ {
+			if commands[col-first].Val() {
+				continue
+			}
+			row := aggRow{rowIDField: id}
+			if markers[col-first].Val() {
+				row[nullMarker(meta.Columns[col].field())] = "1"
+			}
+			v, err := meta.Columns[col].missingValue(row)
+			if err != nil {
+				return errorf(adbc.StatusInvalidData, "invalid column statistics missing value")
+			}
+			if v.Null {
+				nulls[col]++
+			}
+		}
+	}
+	return nil
+}
+
+// Resolve exact directory visibility before examining physical field presence.
+// Only bounded identity/deletion headers and HEXISTS replies cross the wire;
+// arbitrary column payloads do not enter the statistics allocation budget.
+func (c *connectionImpl) snapshotColumnNullCounts(ctx context.Context, meta *tableMeta) (int64, []int64, error) {
+	ctx, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
+	if len(meta.Columns) > 4096 {
+		return 0, nil, errorf(adbc.StatusNotImplemented, "column statistics exceed 4096 columns")
+	}
+	nulls := make([]int64, len(meta.Columns))
+	scan := newSnapshotDeltaScan(c.store, meta, []string{rowIDField})
+	var count, fieldWork int64
+	for {
+		logical, physical, err := scan.nextKeys(ctx)
+		var directoryWork int64
+		for _, source := range scan.sources {
+			consumed := source.offset - int64(len(source.ids)) + int64(source.at)
+			if consumed < 0 || consumed > 2_000_000-directoryWork-fieldWork {
+				return 0, nil, codeStateErrorf(adbc.StatusInvalidState, "53200", "exact statistics scan budget exhausted")
+			}
+			directoryWork += consumed
+		}
+		if errors.Is(err, io.EOF) {
+			return count, nulls, nil
+		}
+		if err != nil {
+			return 0, nil, err
+		}
+		rows, err := c.store.fetchSnapshotPhysical(ctx, physical, scan.fields)
+		if err != nil {
+			return 0, nil, err
+		}
+		for i, row := range rows {
+			id := strings.TrimPrefix(logical[i], meta.prefix())
+			if row == nil || row[rowIDField] != id {
+				return 0, nil, errorf(adbc.StatusIO, "snapshot statistics references a missing or invalid row")
+			}
+			if row[snapshotDeletedField] == "1" {
+				continue
+			}
+			probes := 2 * int64(len(meta.Columns))
+			if probes > 2_000_000-directoryWork-fieldWork {
+				return 0, nil, codeStateErrorf(adbc.StatusInvalidState, "53200", "exact statistics scan budget exhausted")
+			}
+			fieldWork += probes
+			if err := c.statisticNullFields(ctx, meta, physical[i], id, nulls); err != nil {
+				return 0, nil, err
+			}
+			count++
+		}
+	}
 }

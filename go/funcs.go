@@ -131,12 +131,15 @@ const (
 	argNumber
 	argInt
 	argNumberOrInterval
+	argBytes
 )
 
 func (a argType) accepts(t ColType) bool {
 	switch {
 	case t.Kind == KindNull:
 		return true
+	case a == argBytes:
+		return (t.Kind == KindString && !t.Fixed && t.Alias == "" || t.Kind == KindBinary)
 	case a == argBool:
 		return t.Kind == KindBool
 	case a == argNumber:
@@ -306,6 +309,8 @@ var funcDefs = []funcDef{
 	{name: "REGEXP_REPLACE", min: 3, max: 6, impl: implScalar},
 	{name: "LOWER", aliases: []string{"LCASE"}, min: 1, max: 1},
 	{name: "UPPER", aliases: []string{"UCASE"}, min: 1, max: 1},
+	{name: "OCTET_LENGTH", min: 1, max: 1, args: []argType{argBytes}},
+	{name: "BIT_LENGTH", min: 1, max: 1, args: []argType{argBytes}},
 	{name: "LENGTH", aliases: []string{"CHAR_LENGTH", "CHARACTER_LENGTH", "LEN"}, min: 1, max: 1},
 	{name: "FROM_HEX", aliases: []string{"UNHEX", "DECODE_HEX"}, min: 1, max: 1},
 	{name: "TO_HEX", aliases: []string{"HEX"}, min: 1, max: 1},

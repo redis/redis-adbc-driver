@@ -485,6 +485,16 @@ func TestSQLStreamResults(t *testing.T) {
 		}
 	})
 
+	t.Run("distinct streams complete unique ids", func(t *testing.T) {
+		rdr, n := h.openStream(h.ctx, h.conn, "SELECT DISTINCT id FROM "+table, nil, map[string]string{OptionStringStreamRequired: "true", OptionIntStreamBatchRows: "1000"})
+		defer rdr.Release()
+		ids, batches, err := readInts(rdr)
+		slices.Sort(ids)
+		if err != nil || n != -1 || !slices.Equal(ids, sequence(0, streamRows, 1)) || slices.ContainsFunc(batches, func(n int) bool { return n > 1000 }) {
+			t.Fatalf("distinct stream: count=%d ids=%d batches=%v err=%v", n, len(ids), batches, err)
+		}
+	})
+
 	t.Run("materialized", func(t *testing.T) {
 		h.dropTables("it_stream_k")
 		h.exec("CREATE TABLE it_stream_k (k INTEGER, name VARCHAR)")

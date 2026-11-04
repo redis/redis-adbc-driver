@@ -402,3 +402,17 @@ runs passed all 16 Software checks. Each three-shard deployment uses one Softwar
 node, so this establishes proxy/shard routing coverage, not multi-node failover.
 See [verification](sdlc/changes/software-proxy-tls-400/plan.md). Cloud TLS and
 remaining performance evidence are still open in [#170](https://github.com/redis/redis-adbc-driver/issues/170).
+
+### Explicit layouts and byte lengths (#302/#304)
+
+Non-dictionary `adbc.redis.result_layouts` are carried in revision 3 live
+partition descriptors. Revision 1 canonical descriptors remain readable. Schema
+compatibility is checked independently on every reader; conversion errors remain
+explicit. OCTET_LENGTH/BIT_LENGTH over VARCHAR/VARBINARY are admitted row-local
+functions. See [Arrow result layouts](arrow-interoperability.md#explicit-result-layouts)
+and [coverage](partition-coverage.md#byte-length-expansion-304).
+
+Live revision-3 descriptors may carry a snapshot capability, supported result
+layouts, or both. Managed catalogs require a valid shared snapshot at read time;
+layout metadata alone never enables a live read of a managed catalog. Layout
+wrappers retain the underlying reader and its snapshot/transport ownership.

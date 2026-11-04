@@ -60,7 +60,7 @@ func newBatchSizer(cols []resultColumn) *batchSizer {
 	s := &batchSizer{base: 256 * int64(len(cols))}
 	for i, c := range cols {
 		switch c.Type.Kind {
-		case KindString, KindBinary, KindDecimal, KindRecord, KindArray:
+		case KindMap, KindUnion, KindString, KindBinary, KindDecimal, KindRecord, KindArray:
 			s.variable = append(s.variable, i)
 		}
 	}

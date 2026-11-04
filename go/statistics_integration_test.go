@@ -36,13 +36,14 @@ func TestStatisticsManagedCountsAndFilters(t *testing.T) {
 	for _, phase := range []struct {
 		sql   string
 		count int64
+		nulls int64
 	}{
-		{"", 0},
-		{"INSERT INTO " + table + " VALUES (1,'x'),(1,NULL),(3,'x')", 3},
-		{"UPDATE " + table + " SET label='changed' WHERE id=1", 3},
-		{"DELETE FROM " + table + " WHERE id=3", 2},
-		{"INSERT INTO " + table + " VALUES (4,NULL)", 3},
-		{"TRUNCATE " + table, 0},
+		{"", 0, 0},
+		{"INSERT INTO " + table + " VALUES (1,'x'),(1,NULL),(3,'x')", 3, 1},
+		{"UPDATE " + table + " SET label='changed' WHERE id=1", 3, 0},
+		{"DELETE FROM " + table + " WHERE id=3", 2, 0},
+		{"INSERT INTO " + table + " VALUES (4,NULL)", 3, 1},
+		{"TRUNCATE " + table, 0, 0},
 	} {
 		expected := phase.count
 		if phase.sql != "" {
@@ -62,17 +63,35 @@ func TestStatisticsManagedCountsAndFilters(t *testing.T) {
 				schemas := record.Column(1).(*array.List).ListValues().(*array.Struct)
 				values := schemas.Field(1).(*array.List).ListValues().(*array.Struct)
 				for i := 0; i < values.Len(); i++ {
-					if values.Field(0).(*array.String).Value(i) != table || !values.Field(1).IsNull(i) || values.Field(2).(*array.Int16).Value(i) != adbc.StatisticRowCountKey || !values.Field(4).(*array.Boolean).Value(i) {
+					key := values.Field(2).(*array.Int16).Value(i)
+					want := expected
+					if key == adbc.StatisticNullCountKey && !approximate {
+						col := values.Field(1).(*array.String).Value(i)
+						want = 0
+						if col == "label" {
+							want = phase.nulls
+						}
+						if col != "id" && col != "label" {
+							t.Fatal("unknown column", col)
+						}
+					} else if key != adbc.StatisticRowCountKey || !values.Field(1).IsNull(i) {
+						t.Fatal(values)
+					}
+					if values.Field(0).(*array.String).Value(i) != table || !values.Field(4).(*array.Boolean).Value(i) {
 						t.Fatal(values)
 					}
 					union := values.Field(3).(*array.DenseUnion)
-					if union.TypeCode(i) != 0 || union.Field(0).(*array.Int64).Value(int(union.ValueOffset(i))) != expected {
+					if union.TypeCode(i) != 0 || union.Field(0).(*array.Int64).Value(int(union.ValueOffset(i))) != want {
 						t.Fatal(union)
 					}
 					count++
 				}
 			}
-			if r.Err() != nil || count != 1 {
+			wantCount := 1
+			if !approximate {
+				wantCount = 3
+			}
+			if r.Err() != nil || count != wantCount {
 				t.Fatalf("count=%d error=%v", count, r.Err())
 			}
 			r.Release()
@@ -127,33 +146,61 @@ func TestStatisticsReadOnlyPermissions(t *testing.T) {
 // Read complete materialized statistics after the operation's pin is released.
 func readStatisticCounts(t *testing.T, r array.RecordReader) map[string]int64 {
 	t.Helper()
+	rows, _ := readStatisticValues(t, r)
+	return rows
+}
+func readStatisticValues(t *testing.T, r array.RecordReader) (map[string]int64, map[string]map[string]int64) {
+	t.Helper()
 	defer r.Release()
 	if !r.Schema().Equal(adbc.GetStatisticsSchema) {
 		t.Fatal("noncanonical statistics schema")
 	}
-	out := map[string]int64{}
+	rows := map[string]int64{}
+	nulls := map[string]map[string]int64{}
 	for r.Next() {
 		schemas := r.RecordBatch().Column(1).(*array.List).ListValues().(*array.Struct)
 		values := schemas.Field(1).(*array.List).ListValues().(*array.Struct)
 		for i := 0; i < values.Len(); i++ {
-			name := values.Field(0).(*array.String).Value(i)
-			if _, exists := out[name]; exists {
-				t.Fatal("duplicate table statistic", name)
-			}
-			if !values.Field(1).IsNull(i) || values.Field(2).(*array.Int16).Value(i) != adbc.StatisticRowCountKey || !values.Field(4).(*array.Boolean).Value(i) {
-				t.Fatal("invalid row statistic")
-			}
+			table := values.Field(0).(*array.String).Value(i)
+			key := values.Field(2).(*array.Int16).Value(i)
 			value := values.Field(3).(*array.DenseUnion)
-			if value.TypeCode(i) != 0 {
-				t.Fatal("non-int64 row count")
+			if value.TypeCode(i) != 0 || !values.Field(4).(*array.Boolean).Value(i) {
+				t.Fatal("invalid statistic type/classification")
 			}
-			out[name] = value.Field(0).(*array.Int64).Value(int(value.ValueOffset(i)))
+			n := value.Field(0).(*array.Int64).Value(int(value.ValueOffset(i)))
+			if n < 0 {
+				t.Fatal("negative statistic")
+			}
+			switch key {
+			case adbc.StatisticRowCountKey:
+				if !values.Field(1).IsNull(i) {
+					t.Fatal("row statistic has column")
+				}
+				if _, exists := rows[table]; exists {
+					t.Fatal("duplicate row statistic", table)
+				}
+				rows[table] = n
+			case adbc.StatisticNullCountKey:
+				if values.Field(1).IsNull(i) {
+					t.Fatal("NULL statistic lacks column")
+				}
+				col := values.Field(1).(*array.String).Value(i)
+				if nulls[table] == nil {
+					nulls[table] = map[string]int64{}
+				}
+				if _, exists := nulls[table][col]; exists {
+					t.Fatal("duplicate column statistic", table, col)
+				}
+				nulls[table][col] = n
+			default:
+				t.Fatal("unexpected statistic key", key)
+			}
 		}
 	}
 	if err := r.Err(); err != nil {
 		t.Fatal(err)
 	}
-	return out
+	return rows, nulls
 }
 
 type statisticsReadHook struct {
@@ -234,6 +281,11 @@ func statisticsHookedContext(t *testing.T, h *sqlHarness, hook *statisticsReadHo
 			hook.prefixes[seg.Prefix] = true
 		}
 	}
+	return statisticsHookedTransport(t, h, hook)
+}
+
+func statisticsHookedTransport(t *testing.T, h *sqlHarness, hook goredis.Hook) (context.Context, *connectionImpl) {
+	t.Helper()
 	stmt, err := h.conn.NewStatement(h.ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -346,5 +398,45 @@ func TestStatisticsSparseNativeFallback(t *testing.T) {
 	}
 	if hook.fired {
 		t.Fatal("inexact IDs used Search counting")
+	}
+}
+
+func TestStatisticsSnapshotColumnNullVisibility(t *testing.T) {
+	h := newSQLHarness(t)
+	const table = "it_stat_null_pin"
+	h.dropTables(table)
+	h.exec("CREATE TABLE " + table + "(id BIGINT,v TEXT,payload VARBINARY,f DOUBLE PRECISION)")
+	h.exec("INSERT INTO " + table + " VALUES(1,NULL,NULL,NULL),(2,'',X'','NaN'::DOUBLE PRECISION),(3,'old',X'00',4),(4,NULL,NULL,NULL)")
+	h.exec("UPDATE " + table + " SET v='now',payload=X'01',f='NaN'::DOUBLE PRECISION WHERE id=1")
+	h.exec("DELETE FROM " + table + " WHERE id=3")
+	other := newSQLHarness(t)
+	raw := h.rawClient()
+	hook := &statisticsReadHook{change: func() {
+		other.exec("DROP TABLE " + table)
+		other.exec("CREATE TABLE " + table + "(id BIGINT,v TEXT,payload VARBINARY,f DOUBLE PRECISION,later INTEGER)")
+		other.exec("INSERT INTO " + table + " VALUES(99,'new',X'00',0,NULL)")
+		snapshotReapTest(&store{client: raw, snapshots: true}, h.ctx)
+	}}
+	ctx, impl := statisticsHookedContext(t, h, hook, table)
+	filter := table
+	result, err := impl.GetStatistics(ctx, nil, nil, &filter, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hook.fired {
+		result.Release()
+		t.Fatal("NULL statistics never reached pinned rows")
+	}
+	rows, nulls := readStatisticValues(t, result)
+	if !reflect.DeepEqual(rows, map[string]int64{table: 3}) || !reflect.DeepEqual(nulls, map[string]map[string]int64{table: {"id": 0, "v": 1, "payload": 1, "f": 1}}) {
+		t.Fatal("mixed generation or shadowed NULL counts", rows, nulls)
+	}
+	result, err = h.conn.(adbc.ConnectionGetStatistics).GetStatistics(h.ctx, nil, nil, &filter, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, nulls = readStatisticValues(t, result)
+	if !reflect.DeepEqual(rows, map[string]int64{table: 1}) || !reflect.DeepEqual(nulls, map[string]map[string]int64{table: {"id": 0, "v": 0, "payload": 0, "f": 0, "later": 1}}) {
+		t.Fatal("fresh NULL statistics stayed stale", rows, nulls)
 	}
 }

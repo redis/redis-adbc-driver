@@ -22,7 +22,6 @@ import (
 	"math"
 	"math/big"
 	"os"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -942,7 +941,9 @@ dispatch:
 	// Hash sharding deliberately destroys the old globally sorted merge order.
 	// Restore SQL group-key order so stable ORDER BY ties retain the established
 	// deterministic result and so per-shard top-K pruning composes globally.
-	sort.SliceStable(out, func(i, j int) bool { return out[i].mergeKey < out[j].mergeKey })
+	if err := sortSlice(ctx, out, func(i, j int) bool { return out[i].mergeKey < out[j].mergeKey }); err != nil {
+		return nil, true, err
+	}
 	limit := aggregateTopLimit(plan, math.MaxInt)
 	if len(plan.order) == 0 && plan.sel.Limit != nil && *plan.sel.Limit > 0 {
 		off := int64(0)
@@ -975,7 +976,9 @@ dispatch:
 				}
 			}
 			top := aggregateTopK{order: plan.order}
-			sort.SliceStable(ranked, func(i, j int) bool { return top.better(ranked[i].rank, ranked[j].rank) })
+			if err := sortSlice(ctx, ranked, func(i, j int) bool { return top.better(ranked[i].rank, ranked[j].rank) }); err != nil {
+				return nil, true, err
+			}
 			out = out[:limit]
 			for i := range out {
 				out[i] = ranked[i].group

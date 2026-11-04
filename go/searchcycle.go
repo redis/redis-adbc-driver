@@ -38,7 +38,6 @@ package redis
 
 import (
 	"context"
-	"sort"
 	"strconv"
 	"strings"
 	"unicode"
@@ -49,6 +48,7 @@ import (
 // tracer computes the SEARCH and CYCLE columns of a recursive CTE.
 type tracer struct {
 	def *CTE
+	ctx context.Context
 	// search and cycle are the positions of the BY and CYCLE columns.
 	search, cycle []int
 	// mark and unmark are the CYCLE mark values, of type markType.
@@ -112,7 +112,7 @@ func (e *executor) newTracer(ctx context.Context, def *CTE, rc *recursionCheck, 
 		}
 		return out, nil
 	}
-	tr := &tracer{def: def, mark: boolValue(true), unmark: boolValue(false), markType: typeBool, zone: e.zone()}
+	tr := &tracer{ctx: ctx, def: def, mark: boolValue(true), unmark: boolValue(false), markType: typeBool, zone: e.zone()}
 	var err error
 	if s := def.Search; s != nil {
 		if tr.search, err = positions("search", s.By); err != nil {
@@ -256,20 +256,22 @@ func (tr *tracer) key(t trace) string {
 }
 
 // finish returns the rows with their SEARCH and CYCLE columns.
-func (tr *tracer) finish(rows [][]Value) [][]Value {
+func (tr *tracer) finish(rows [][]Value) ([][]Value, error) {
 	var seq []int64
 	if s := tr.def.Search; s != nil {
 		idx := make([]int, len(rows))
 		for i := range idx {
 			idx[i] = i
 		}
-		sort.SliceStable(idx, func(a, b int) bool {
+		if err := sortSlice(tr.ctx, idx, func(a, b int) bool {
 			x, y := tr.traces[idx[a]], tr.traces[idx[b]]
 			if s.Breadth && x.depth != y.depth {
 				return x.depth < y.depth
 			}
 			return compareTuples(x.order, y.order) < 0
-		})
+		}); err != nil {
+			return nil, err
+		}
 		seq = make([]int64, len(rows))
 		for rank, i := range idx {
 			seq[i] = int64(rank + 1)
@@ -290,7 +292,7 @@ func (tr *tracer) finish(rows [][]Value) [][]Value {
 		}
 		out[i] = row
 	}
-	return out
+	return out, nil
 }
 
 // compareTuples orders lists of rows as Postgres orders arrays of records:

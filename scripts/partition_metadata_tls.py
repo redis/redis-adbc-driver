@@ -23,10 +23,16 @@ def check_metadata_tls(principals, connect, planner_uri, schema, read_commands):
                 for stat in namespace['db_schema_statistics']]
 
     def expect_count(conn, approximate):
-        assert statistics(conn, approximate) == [{
+        expected = [{
             'table_name': table, 'column_name': None, 'statistic_key': 6,
             'statistic_value': 3, 'statistic_is_approximate': True,
         }]
+        if not approximate:
+            expected += [{'table_name': table, 'column_name': column,
+                          'statistic_key': 5, 'statistic_value': count,
+                          'statistic_is_approximate': True}
+                         for column, count in [('a', 0), ('b', 0), ('label', 1)]]
+        assert statistics(conn, approximate) == expected
 
     def expect_denied(conn, approximate):
         try:
@@ -68,7 +74,7 @@ def check_metadata_tls(principals, connect, planner_uri, schema, read_commands):
         cur.execute(f"INSERT INTO {qualified} VALUES (1,2,'x'),(1,2,'x'),(3,4,NULL)")
 
         # Independent identities isolate Search, SCAN and source-key permissions.
-        for role in ('both', 'hash', 'catalog', 'noscan'):
+        for role in ('both', 'hash', 'catalog', 'noscan', 'noexists'):
             # Email principals work with Software's management API and are also
             # valid protocol ACL usernames on the other fixture backends.
             name = schema + '_metadata_' + role + '@metadata.invalid'
@@ -78,7 +84,7 @@ def check_metadata_tls(principals, connect, planner_uri, schema, read_commands):
             keys = ['%R~adbc:*', '%R~idx:' + schema + ':*']
             if role != 'catalog':
                 keys.append('%R~' + schema + ':*')
-            principals.create(name, password, [*commands, *(['+scan'] if role != 'noscan' else []), *keys])
+            principals.create(name, password, [*commands, *(['+scan'] if role != 'noscan' else []), *(['+hexists'] if role not in ('noscan', 'noexists') else []), *keys])
             endpoint = urlsplit(planner_uri)
             uri = urlunsplit((endpoint.scheme, quote(name) + ':' + quote(password)
                 + '@' + endpoint.netloc.split('@')[-1], endpoint.path, '', ''))
@@ -108,6 +114,6 @@ def check_metadata_tls(principals, connect, planner_uri, schema, read_commands):
                 else:
                     expect_count(worker, True)
                     expect_denied(worker, False)
-                    checks.append('search_statistics_without_scan_permission')
+                    checks.append('search_statistics_without_' + ('field_existence' if role == 'noexists' else 'scan') + '_permission')
         cur.execute('DROP TABLE ' + qualified)
     return {'status': 'passed', 'checks': checks}

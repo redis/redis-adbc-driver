@@ -243,6 +243,8 @@ func (s *store) redis(ctx context.Context) goredis.UniversalClient {
 // its existing Arrow, cancellation and cursor lifecycle remain authoritative.
 func (t *executionTransport) reader(reader array.RecordReader) array.RecordReader {
 	switch r := reader.(type) {
+	case *layoutReader:
+		r.source = t.reader(r.source)
 	case *streamReader:
 		r.mu.Lock()
 		if r.closed {

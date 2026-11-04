@@ -515,3 +515,16 @@ validates all four runs and records modest observed median speedups of
 1.02x–1.15x; most read overhead remains unexplained. Current full ordinary,
 Cluster/failover and broader performance evidence remain open.
 Current upstream integration also remains required after the latest main pull.
+
+The [upstream integration checkpoint](upstream-merge-validation.md) combines
+36a9cdd with fetched main f4d5b78, including partition layouts and pinned
+presence-only column NULL statistics. The final selection passes 127 Software
+race events with one existing ACL skip; package units pass 1,032 race events with
+895 explicit integration skips; four native acceptance files pass all 113 cases.
+The latest Software fixture observes Redis 8.8.0 and verified effective 4x QPF;
+prior timings retain their older server labels. Completed native capabilities
+are explicitly released; no retention quota is raised. SQL GRANT/REVOKE remains
+gated on isolated reader leases and generation-stable authorization, so current
+feature parity is still incomplete. Fresh full ordinary/snapshot, broader native
+and platform/recovery, current-source comparisons, public resume and sustained
+compaction gates remain open.

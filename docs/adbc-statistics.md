@@ -31,8 +31,16 @@ Exhaustion fails explicitly rather than returning a partial count.
 
 Both request modes retain `statistic_is_approximate=true` for API compatibility,
 including native visible counts that are exact at their pinned generation.
-NULL/distinct/min/max/width/size quantities remain unavailable and are never
-represented by fabricated zeros. The full restricted-principal snapshot command
+The authoritative (`approximate=false`) path also returns standard column NULL
+count key **5**, as int64 union values, for each physical SQL column. It resolves
+winning versions/tombstones first and probes field/explicit-NULL-marker existence
+without fetching unbounded payloads. Empty values and NaN are non-NULL; missing
+fields follow stored ADD COLUMN defaults. The one-minute deadline and two-million
+work-unit ceiling include physical directory entries plus two field-existence
+probes per visible row/column, with at most 4,096 columns. Empty eligible tables
+return zero for each known column; excluded tables/columns invent no entries.
+Search (`approximate=true`) still returns row counts only.
+Distinct/min/max/width/size quantities remain unavailable and omitted. The full restricted-principal snapshot command
 recipe remains a validation gate; historical read-only grants do not establish
 current-protocol permission compatibility.
 

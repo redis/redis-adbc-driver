@@ -38,8 +38,8 @@ func (s *statementImpl) ExecutePartitions(ctx context.Context) (*arrow.Schema, a
 	if s.streamRequired {
 		return nil, adbc.Partitions{}, -1, errorf(adbc.StatusNotImplemented, "stream_required applies to ExecuteQuery; partition modes have separate execution quotas")
 	}
-	if len(s.resultLayouts) != 0 {
-		return nil, adbc.Partitions{}, -1, errorf(adbc.StatusNotImplemented, "result_layouts is not supported by live or retained partitions")
+	if err := s.resultLayouts.partitionCompatible(); err != nil {
+		return nil, adbc.Partitions{}, -1, err
 	}
 	if s.ipc.active() {
 		return nil, adbc.Partitions{}, -1, errorf(adbc.StatusInvalidState, "IPC input/output requires ExecuteUpdate")

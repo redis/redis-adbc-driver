@@ -31,6 +31,7 @@ import (
 type databaseImpl struct {
 	snapshots                   bool
 	snapshotCompactionDisabled  bool // internal deterministic protocol-test fixture only
+	rbac                        *rbacManager
 	retainedNamespace           string
 	partitionControlPersistence string
 	retainedLimits              retainedLimits
@@ -324,6 +325,7 @@ func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, er
 	conn := &connectionImpl{
 		ConnectionImplBase: driverbase.NewConnectionImplBase(&d.DatabaseImplBase),
 		store:              st,
+		rbac:               d.rbac,
 		retainedNamespace:  d.retainedNamespace, retainedLimits: d.resultLimits(), readerOnly: d.readerOnly, partitionControlPersistence: d.partitionControlPersistence,
 		sess:         d.newSession(),
 		pushdown:     d.pushdown,
@@ -424,7 +426,12 @@ func clusterParamsError(params []string, why string) error {
 		strings.Join(params, ", "), verb, why)
 }
 
-func (d *databaseImpl) Close(ctx context.Context) error { return nil }
+func (d *databaseImpl) Close(ctx context.Context) error {
+	if d.rbac != nil {
+		d.rbac.client.CloseIdleConnections()
+	}
+	return nil
+}
 
 func (d *databaseImpl) GetOption(ctx context.Context, key string) (string, error) {
 	switch key {
@@ -497,6 +504,15 @@ func (d *databaseImpl) SetOption(ctx context.Context, key, value string) error {
 			return errorf(adbc.StatusInvalidArgument, "managed-table statement snapshots are always enabled; %s cannot be disabled", key)
 		}
 		d.snapshots = true
+	case OptionStringRBAC:
+		r, err := newRBAC(value)
+		if err != nil {
+			return err
+		}
+		if d.rbac != nil {
+			d.rbac.client.CloseIdleConnections()
+		}
+		d.rbac = r
 	case OptionStringPartitionControlPersistence:
 		if value != "auto" && value != "guaranteed" {
 			return errorf(adbc.StatusInvalidArgument, "partition_control_persistence must be auto or guaranteed")

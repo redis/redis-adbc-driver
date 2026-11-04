@@ -7,10 +7,12 @@ package redis
 import (
 	"context"
 	"encoding/json"
+	"maps"
 	"time"
 
 	"github.com/apache/arrow-adbc/go/adbc"
 	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/apache/arrow-go/v18/arrow/ipc"
 	goredis "github.com/redis/go-redis/v9"
 )
@@ -168,6 +170,10 @@ func (s *statementImpl) executeRetainedPartitions(ctx context.Context) (*arrow.S
 		return fail(codeStateErrorf(adbc.StatusInvalidState, "53200", "retained result schema exceeds chunk budget"))
 	}
 	schema := resultSchema(result.cols)
+	outputSchema, err := s.resultLayouts.schema(schema)
+	if err != nil {
+		return fail(err)
+	}
 	schemaHash := ""
 	for start := 0; start < len(result.rows) || start == 0; {
 		end := start
@@ -204,6 +210,23 @@ func (s *statementImpl) executeRetainedPartitions(ctx context.Context) (*arrow.S
 		record, err := buildRecord(s.conn.Alloc, result.cols, result.rows[start:end])
 		if err != nil {
 			return fail(invalidArg(err))
+		}
+		// Validate every selected physical conversion before publication.
+		if len(s.resultLayouts) > 0 {
+			source, _ := array.NewRecordReader(schema, []arrow.RecordBatch{record})
+			converted, convErr := s.resultLayouts.wrap(ctx, s.conn.Alloc, source)
+			if convErr != nil {
+				record.Release()
+				return fail(convErr)
+			}
+			for converted.Next() {
+			}
+			convErr = converted.Err()
+			converted.Release()
+			if convErr != nil {
+				record.Release()
+				return fail(convErr)
+			}
 		}
 		output := &retainedOutputBuffer{limit: limits.ChunkBytes}
 		writer := ipc.NewWriter(output, ipc.WithSchema(schema), ipc.WithAllocator(s.conn.Alloc))
@@ -255,13 +278,17 @@ func (s *statementImpl) executeRetainedPartitions(ctx context.Context) (*arrow.S
 	partitions := adbc.Partitions{NumPartitions: uint64(count), PartitionIDs: make([][]byte, count)}
 	for i := range count {
 		descriptor := retainedPartitionID{Version: 2, Reference: reference, Start: i * len(upload.chunks) / count, End: (i + 1) * len(upload.chunks) / count}
+		if len(s.resultLayouts) > 0 {
+			descriptor.Version = 4
+			descriptor.Layouts = maps.Clone(s.resultLayouts)
+		}
 		data, err := json.Marshal(descriptor)
 		if err != nil {
 			return fail(err)
 		}
 		partitions.PartitionIDs[i] = data
 	}
-	return schema, partitions, int64(len(result.rows)), nil
+	return outputSchema, partitions, int64(len(result.rows)), nil
 }
 
 // Retained replay uses a separate, connection-owned pool with bounded socket

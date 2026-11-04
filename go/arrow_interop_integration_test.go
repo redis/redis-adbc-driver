@@ -4,6 +4,7 @@ package redis
 
 import (
 	"fmt"
+	"maps"
 	"math"
 	"path/filepath"
 	"slices"
@@ -157,12 +158,15 @@ func TestArrowResultLayouts(t *testing.T) {
 				t.Fatal(schema, rdr.Schema())
 			}
 			count := int64(0)
+			wantValues := map[string]int{}
 			for rdr.Next() {
 				count += rdr.RecordBatch().NumRows()
 				for i := 0; i < int(rdr.RecordBatch().NumRows()); i++ {
-					if _, err := valueAt(rdr.RecordBatch().Column(0), i); err != nil {
+					v, err := valueAt(rdr.RecordBatch().Column(0), i)
+					if err != nil {
 						t.Fatal(err)
 					}
+					wantValues[rowKey([]Value{v})]++
 				}
 			}
 			err = rdr.Err()
@@ -197,9 +201,43 @@ func TestArrowResultLayouts(t *testing.T) {
 			if err := st.SetOption(h.ctx, OptionStringIPCOutput, ""); err != nil {
 				t.Fatal(err)
 			}
-			_, _, _, err = st.ExecutePartitions(h.ctx)
-			if err == nil {
-				t.Fatal("partition output silently ignored result layouts")
+			partitionSchema, parts, _, err := st.ExecutePartitions(h.ctx)
+			if name == "dictionary" {
+				if !isStatus(err, adbc.StatusNotImplemented) {
+					t.Fatal("dictionary partitions accepted", err)
+				}
+				return
+			}
+			if err != nil || !partitionSchema.Equal(schema) {
+				t.Fatal(partitionSchema, err)
+			}
+			actual := map[string]int{}
+			for _, part := range parts.PartitionIDs {
+				r, err := h.conn.ReadPartition(h.ctx, part)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !r.Schema().Equal(schema) {
+					r.Release()
+					t.Fatal("partition schema changed")
+				}
+				for r.Next() {
+					for row := 0; row < int(r.RecordBatch().NumRows()); row++ {
+						v, e := valueAt(r.RecordBatch().Column(0), row)
+						if e != nil {
+							t.Fatal(e)
+						}
+						actual[rowKey([]Value{v})]++
+					}
+				}
+				err = r.Err()
+				r.Release()
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			if !maps.Equal(actual, wantValues) {
+				t.Fatal("partition values changed", actual, wantValues)
 			}
 		})
 	}

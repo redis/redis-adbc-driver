@@ -3,7 +3,10 @@
 package redis
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -138,7 +141,32 @@ func checkCanonicalStorage(t *testing.T, cases []layoutInventoryCase, prefix str
 			for j, r := range expectedBatches {
 				columns[j] = r.Column(0)
 			}
-			wantArray, err := array.Concatenate(columns, memory.DefaultAllocator)
+			var wantArray arrow.Array
+			var err error
+			if containsTaggedNested(c.want.DataType()) {
+				var rows []json.RawMessage
+				for _, col := range columns {
+					data, err := col.MarshalJSON()
+					if err != nil {
+						t.Fatal(err)
+					}
+					var batch []json.RawMessage
+					if err := json.Unmarshal(data, &batch); err != nil {
+						t.Fatal(err)
+					}
+					rows = append(rows, batch...)
+				}
+				data, e := json.Marshal(rows)
+				if e != nil {
+					t.Fatal(e)
+				}
+				if rows == nil {
+					data = []byte("[]")
+				}
+				wantArray = inventoryJSON(t, memory.DefaultAllocator, c.want.DataType(), string(data))
+			} else {
+				wantArray, err = array.Concatenate(columns, memory.DefaultAllocator)
+			}
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -153,6 +181,32 @@ func checkCanonicalStorage(t *testing.T, cases []layoutInventoryCase, prefix str
 			r, _ := h.openStream(h.ctx, worker.conn, query+" ORDER BY __rowid", nil, map[string]string{OptionIntStreamBatchRows: "1"})
 			assertInventoryReader(t, r, want)
 			r.Release()
+			if containsTaggedNested(c.want.DataType()) {
+				h.expectRows("SELECT COUNT(*) FROM "+table+" WHERE v = v", fmt.Sprint(want.NumRows()-int64(want.Column(0).NullN())))
+				h.expectRows("SELECT COUNT(DISTINCT v) FROM "+table, fmt.Sprint(c.want.Len()-c.want.NullN()))
+				h.expectError("SELECT v FROM "+table+" WHERE v", "Map/Union")
+				for _, format := range []string{"stream", "file"} {
+					path := filepath.Join(t.TempDir(), "query.arrow")
+					n, err := writeIPCOutput(h.ctx, path, format, memory.DefaultAllocator, func() (array.RecordReader, error) {
+						reader, _ := h.openStream(h.ctx, worker.conn, query+" ORDER BY __rowid", nil, nil)
+						return reader, nil
+					})
+					if err != nil || n != want.NumRows() {
+						t.Fatal("query IPC", n, err)
+					}
+					reader, err := openIPCInput(h.ctx, path, format, memory.DefaultAllocator)
+					if err != nil {
+						t.Fatal(err)
+					}
+					assertInventoryReader(t, reader, want)
+					reader.Release()
+				}
+				// These scalars must reject even for empty result sets, rather than
+				// interpreting the container's unused scalar payload as empty text.
+				for _, expr := range []string{"UPPER(v)", "CONCAT(v)", "TO_JSON(v)", "CAST(v AS VARCHAR)", "v || 'x'"} {
+					h.expectError("SELECT "+expr+" FROM "+table+" WHERE false", "Map/Union")
+				}
+			}
 			st, err := h.conn.NewStatement(h.ctx)
 			if err != nil {
 				t.Fatal(err)
@@ -183,6 +237,38 @@ func checkCanonicalStorage(t *testing.T, cases []layoutInventoryCase, prefix str
 			}
 			assertInventoryUnorderedReader(t, r, want)
 			r.Release()
+			if containsTaggedNested(c.want.DataType()) {
+				// A second independent replay uses the same portable descriptor.
+				replay := newSQLHarness(t)
+				r, err = replay.conn.ReadPartition(h.ctx, parts.PartitionIDs[0])
+				if err != nil {
+					t.Fatal(err)
+				}
+				assertInventoryUnorderedReader(t, r, want)
+				r.Release()
+				ctx, cancel := context.WithCancel(h.ctx)
+				reader, _ := h.openStream(ctx, worker.conn, query, nil, map[string]string{OptionIntStreamBatchRows: "1"})
+				if !reader.Next() {
+					t.Fatal(reader.Err())
+				}
+				held := reader.RecordBatch()
+				held.Retain()
+				before, _ := held.Column(0).MarshalJSON()
+				cancel()
+				if reader.Next() || reader.Err() == nil {
+					t.Fatal("cancelled nested reader returned a batch")
+				}
+				reader.Release()
+				after, _ := held.Column(0).MarshalJSON()
+				held.Release()
+				if string(before) != string(after) {
+					t.Fatal("cancellation invalidated retained batch")
+				}
+				// A complete subsequent query demonstrates usable connection state.
+				reader, _ = h.openStream(h.ctx, worker.conn, query+" ORDER BY __rowid", nil, nil)
+				assertInventoryReader(t, reader, want)
+				reader.Release()
+			}
 			// Statement Close intentionally preserves descriptors for independent
 			// workers. Release this completed set before the next case publishes.
 			release()
@@ -210,6 +296,40 @@ func checkCanonicalStorage(t *testing.T, cases []layoutInventoryCase, prefix str
 				}
 			}
 			retSchema, retParts, _, err := pub.ExecutePartitions(h.ctx)
+			if containsTaggedNested(c.want.DataType()) {
+				if !isStatus(err, adbc.StatusNotImplemented) || !strings.Contains(err.Error(), "Map/Union retained") {
+					t.Fatal("retained admission", err)
+				}
+				if retParts.NumPartitions != 0 || len(retParts.PartitionIDs) != 0 {
+					t.Fatal("rejected retained result returned descriptors")
+				}
+				// Revocation keeps a zero-byte tombstone until the upload lease
+				// expires, preventing a racing producer from publishing afterward.
+				quota, e := storage.client.ZRangeWithScores(h.ctx, storage.prefix+"quota-bytes", 0, -1).Result()
+				if e != nil {
+					t.Fatal(e)
+				}
+				for _, entry := range quota {
+					if entry.Score != 0 {
+						t.Fatal("retained rejection reserved payload bytes", entry.Score)
+					}
+					job := fmt.Sprint(entry.Member)
+					raw, e := storage.client.Get(h.ctx, storage.jobKey(job, "meta")).Result()
+					if e != nil {
+						t.Fatal(e)
+					}
+					var tombstone struct {
+						State string `json:"state"`
+					}
+					if e = json.Unmarshal([]byte(raw), &tombstone); e != nil || tombstone.State != "revoked" {
+						t.Fatal("missing revocation tombstone", raw, e)
+					}
+					if n, e := storage.client.Exists(h.ctx, storage.jobKey(job, "manifest")).Result(); e != nil || n != 0 {
+						t.Fatal("rejected result retained a manifest", n, e)
+					}
+				}
+				return
+			}
 			if err != nil {
 				t.Fatal(err)
 			}

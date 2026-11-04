@@ -28,6 +28,7 @@ on:
       - .github/workflows/test.yml
       - scripts/ci_test_matrix.py
       - scripts/test_ci_test_matrix.py
+      - scripts/test_device_staging.c
       - scripts/test_acceptance_runner.py
       - .github/workflows/acceptance.yml
       - .github/actions/build-adbc-scanner/**
@@ -45,6 +46,7 @@ on:
       - scripts/check_native_install.py
       - scripts/test_cluster_ready.py
       - scripts/test_software_bootstrap_http.py
+      - scripts/test_software_setup_exec.py
       - scripts/*partition*
       - benchmarks/clickbench/**
       - benchmarks/qpf/**
@@ -108,11 +110,19 @@ jobs:
           uv run --no-project --with pyarrow --with redis --with adbc-driver-manager --with 'duckdb==2.0.*' \
             python -m unittest discover -s benchmarks/clickbench -v
 
+      - name: Check verified Software test runner
+        run: python3 -m unittest discover -s scripts -p test_software_setup_exec.py -v
+
       - name: Check management HTTP readiness retries
         run: python3 -m unittest discover -s scripts -p test_software_bootstrap_http.py -v
 
       - name: Check performance benchmark syntax
         run: python3 -m py_compile benchmarks/qpf/*.py benchmarks/workers/*.py
+
+      - name: Check C Device allocation failure cleanup
+        run: |
+          cc -Wall -Wextra -Werror -fsanitize=address,undefined -g scripts/test_device_staging.c -o /tmp/device-staging-test
+          /tmp/device-staging-test
 
       - name: Check GPU experiment CPU correctness gates
         run: uv run --no-project --with pyarrow python -m unittest discover -s benchmarks/gpu-query -p test_run.py -v
@@ -237,18 +247,6 @@ jobs:
           uv pip install --python /tmp/redis-dlt-tests/bin/python './python[dlt]' pytest
           /tmp/redis-dlt-tests/bin/python -m pytest -q python/tests/test_dlt.py
 
-      - name: Superset integration
-        if: matrix.arch == 'amd64' && matrix.integrations
-        env:
-          REDIS_ADBC_LIBRARY: ${{ github.workspace }}/go/build/libadbc_driver_redis.so
-          RUN_SUPERSET_TESTS: '1'
-        run: |
-          uv venv --python 3.12 /tmp/redis-superset-tests
-          # Superset 6.1 needs Python 3.12 and SQLAlchemy 1.4; keep it isolated.
-          uv pip install --python /tmp/redis-superset-tests/bin/python \
-            './python[superset]' 'pytest>=9.1.1'
-          /tmp/redis-superset-tests/bin/python -m pytest -q python/tests/test_sqlalchemy.py python/tests/test_superset.py
-
       - name: Go tests
         working-directory: go
         run: |
@@ -259,6 +257,13 @@ jobs:
           else
             go test -count=1 -p 1 -timeout=30m ./...
           fi
+
+      - name: Enforced SQL SELECT grants through Software RBAC
+        if: startsWith(matrix.environment, 'software-')
+        working-directory: go
+        env:
+          REDIS_RBAC_TEST_API: https://localhost:19443
+        run: go test -count=1 -p 1 -run '^TestSQLRBACSelect$' -v .
 
       - name: Python ADBC validation
         working-directory: go/validation
@@ -273,7 +278,7 @@ jobs:
       - name: Native C Device CPU ownership and binding
         env:
           REDIS_ADBC_LIBRARY: ${{ github.workspace }}/go/build/libadbc_driver_redis.so
-        run: env -u GPU_TEST go/validation/.venv/bin/python -m unittest discover -s benchmarks/gpu-query -p test_native_device.py -v
+        run: env -u GPU_TEST go/validation/.venv/bin/python -m unittest discover -s benchmarks/gpu-query -p 'test_*device*.py' -v
 
       - name: Upload validation results (including feature skips)
         if: always()
@@ -403,3 +408,48 @@ jobs:
         if: failure()
         working-directory: go
         run: docker compose logs --no-color redis-software
+
+  # Keep Superset's Python 3.12 / SQLAlchemy 1.4 environment and database
+  # independent so installation and tests can overlap the driver suites.
+  superset:
+    name: linux-amd64-superset
+    runs-on: ubuntu-24.04
+    env:
+      SSL_CERT_DIR: /etc/ssl/certs
+      REDIS_RETAINED_CONTROL_PERSISTENCE: guaranteed
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go/go.mod
+          cache-dependency-path: go/go.sum
+      - uses: astral-sh/setup-uv@v10.2.0
+
+      - name: Build
+        working-directory: go
+        run: make build
+
+      - name: Start authenticated TLS Redis Enterprise cluster
+        working-directory: go
+        run: make redis-up
+
+      - name: Superset integration
+        env:
+          REDIS_ADBC_LIBRARY: ${{ github.workspace }}/go/build/libadbc_driver_redis.so
+          RUN_SUPERSET_TESTS: '1'
+        run: |
+          uv venv --python 3.12 /tmp/redis-superset-tests
+          # Superset 6.1 needs Python 3.12 and SQLAlchemy 1.4; keep it isolated.
+          uv pip install --python /tmp/redis-superset-tests/bin/python \
+            './python[superset]' 'pytest>=9.1.1'
+          /tmp/redis-superset-tests/bin/python -m pytest -q python/tests/test_sqlalchemy.py python/tests/test_superset.py
+
+      - name: Redis logs on failure
+        if: failure()
+        working-directory: go
+        run: docker compose logs --no-color redis-software
+
+      - name: Stop test Redis
+        if: always()
+        working-directory: go
+        run: docker compose down

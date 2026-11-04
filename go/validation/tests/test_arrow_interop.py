@@ -3,6 +3,8 @@
 """Arrow normalization/layouts across the native C driver-manager boundary."""
 import json
 
+import adbc_driver_manager as adm
+
 import pyarrow as pa
 import pytest
 
@@ -145,12 +147,15 @@ def layout_inventory_inputs():
 ])
 def test_layout_inventory_c_bindings(conn, name):
     source = layout_inventory_inputs()[name]
-    unsupported = name in {"map", "dense_union", "sparse_union"}
     canonical_type = pa.string() if name.startswith("run_end_") and name != "run_end_list" else pa.list_(pa.int64())
     if name == "nested_fixed":
         canonical_type = pa.list_(pa.list_(pa.int64()))
     elif name == "list_of_run_end":
         canonical_type = pa.list_(pa.string())
+    elif name == "map":
+        canonical_type = source.type
+    elif name in {"dense_union", "sparse_union"}:
+        canonical_type = pa.union(list(source.type), mode="dense", type_codes=source.type.type_codes)
     with conn.cursor() as cur:
         for start, length in [(0, len(source)), (1, len(source) - 1), (0, 0)]:
             sliced = source.slice(start, length)
@@ -161,17 +166,24 @@ def test_layout_inventory_c_bindings(conn, name):
                 cur.execute(f"DROP TABLE IF EXISTS {table}")
                 batch = pa.RecordBatch.from_arrays([sliced], names=["v"])
                 data = pa.Table.from_batches([batch]) if stream else batch
-                if unsupported:
-                    with pytest.raises(Exception, match="unsupported Arrow type"):
-                        cur.adbc_ingest(table, data)
-                    with pytest.raises(Exception, match="does not exist|not found"):
-                        conn.adbc_get_table_schema(table)
-                    continue
                 try:
                     cur.adbc_ingest(table, data)
                     cur.execute(f"SELECT v FROM {table} ORDER BY __rowid")
                     actual = cur.fetch_arrow_table()
-                    expected = pa.table({"v": pa.array(sliced.to_pylist(), canonical_type)})
+                    if name in {"dense_union", "sparse_union"}:
+                        # Independent dense oracle preserves the selected tag on NULL children.
+                        ids = [source.type_codes[i].as_py() for i in range(start, start + length)]
+                        children, offsets = [[], []], []
+                        for i, code in enumerate(ids):
+                            child = source.type.type_codes.index(code)
+                            offsets.append(len(children[child]))
+                            children[child].append(source[start+i].as_py())
+                        canonical = pa.UnionArray.from_dense(pa.array(ids, pa.int8()), pa.array(offsets, pa.int32()),
+                            [pa.array(children[0], pa.int64()), pa.array(children[1], pa.string())],
+                            field_names=["n", "s"], type_codes=[3, 7])
+                    else:
+                        canonical = pa.array(sliced.to_pylist(), canonical_type)
+                    expected = pa.table({"v": canonical})
                     assert actual.equals(expected), (name, start, stream, actual, expected)
                     assert conn.adbc_get_table_schema(table).equals(expected.schema)
                 finally:
@@ -193,7 +205,203 @@ def test_layout_expansion_rejected_before_rows(conn):
                 try:
                     with pytest.raises(Exception, match="Arrow normalization exceeds"):
                         cur.adbc_ingest(table, data)
-                    cur.execute(f"SELECT COUNT(*) FROM {table}")
-                    assert cur.fetchall() == [(0,)]
+                    # A failed create publishes no descriptor or empty table.
+                    with pytest.raises(adm.ProgrammingError, match="NOT_FOUND:.*42P01"):
+                        cur.execute(f"SELECT COUNT(*) FROM {table}")
+                    # The same preflight rejection must preserve an existing
+                    # table's exact rows when append is requested.
+                    dtype = source.type.value_type
+                    seed = pa.array([7] if pa.types.is_integer(dtype) else ["preserved"], dtype)
+                    cur.adbc_ingest(table, pa.record_batch([seed], names=["v"]))
+                    with pytest.raises(Exception, match="Arrow normalization exceeds"):
+                        cur.adbc_ingest(table, data, mode="append")
+                    cur.execute(f"SELECT v FROM {table}")
+                    assert cur.fetch_arrow_table().column("v").to_pylist() == seed.to_pylist()
                 finally:
                     cur.execute(f"DROP TABLE IF EXISTS {table}")
+
+
+@pytest.mark.parametrize("name", ["map", "dense_union", "sparse_union"])
+@pytest.mark.parametrize("stream", [False, True])
+def test_map_union_append_schema_is_exact(conn, name, stream):
+    source = layout_inventory_inputs()[name]
+    if name == "map":
+        changed = pa.array([], pa.map_(pa.string(), pa.string()))
+    else:
+        changed_type = pa.union([pa.field("n", pa.int64()), pa.field("s", pa.string())],
+                                mode="dense", type_codes=[7, 3])
+        changed = pa.UnionArray.from_dense(pa.array([], pa.int8()), pa.array([], pa.int32()),
+            [pa.array([], pa.int64()), pa.array([], pa.string())],
+            field_names=["n", "s"], type_codes=changed_type.type_codes)
+    table = f"it_c_exact_{name}"
+    with conn.cursor() as cur:
+        cur.execute(f"DROP TABLE IF EXISTS {table}")
+        try:
+            cur.adbc_ingest(table, pa.table({"v": source}))
+            before = conn.adbc_get_table_schema(table)
+            batch = pa.RecordBatch.from_arrays([changed], names=["v"])
+            with pytest.raises(Exception, match="schema|match"):
+                cur.adbc_ingest(table, pa.Table.from_batches([batch]) if stream else batch, mode="append")
+            cur.execute(f"SELECT v FROM {table} ORDER BY __rowid")
+            result = cur.fetch_arrow_table()
+            assert result.column(0).to_pylist() == source.to_pylist()
+            assert result.schema.equals(before)
+        finally:
+            cur.execute(f"DROP TABLE IF EXISTS {table}")
+
+
+@pytest.mark.parametrize("bad", ["negative_tag", "unknown_tag", "negative_offset", "past_child", "map_offset"])
+@pytest.mark.parametrize("stream", [False, True])
+def test_map_union_malformed_buffers(conn, bad, stream):
+    import ctypes
+
+    source = layout_inventory_inputs()["map" if bad == "map_offset" else "dense_union"]
+    if bad.endswith("tag"):
+        cell = ctypes.c_int8.from_address(source.buffers()[1].address)
+        replacement = -1 if bad == "negative_tag" else 4
+    else:
+        buffer = source.buffers()[1 if bad == "map_offset" else 2]
+        cell = ctypes.c_int32.from_address(buffer.address + (4 if bad == "map_offset" else 0))
+        replacement = -1 if bad == "negative_offset" else 2**30
+    original = cell.value
+    cell.value = replacement
+    table = "it_c_malformed_container"
+    try:
+        batch = pa.RecordBatch.from_arrays([source], names=["v"])
+        with conn.cursor() as cur:
+            cur.execute(f"DROP TABLE IF EXISTS {table}")
+            try:
+                with pytest.raises(Exception, match="invalid|offset|type id|bounds"):
+                    cur.adbc_ingest(table, pa.Table.from_batches([batch]) if stream else batch)
+                # Neither malformed rows nor a table descriptor may publish.
+                with pytest.raises(adm.ProgrammingError, match="NOT_FOUND:.*42P01"):
+                    conn.adbc_get_table_schema(table)
+            finally:
+                cur.execute(f"DROP TABLE IF EXISTS {table}")
+    finally:
+        cell.value = original
+
+
+def test_nested_map_union_c_bindings(conn):
+    i64 = pa.int64()
+    map_type = pa.map_(pa.string(), pa.list_(i64))
+    sources = [
+        pa.array([[[("a", [1, None])], None], [], None], pa.list_(map_type)),
+        pa.array([{"m": [("a", [1])]}, None, {"m": []}], pa.struct([pa.field("m", map_type)])),
+        pa.UnionArray.from_dense(pa.array([11, 42, 11], pa.int8()), pa.array([0, 0, 1], pa.int32()),
+            [pa.array([[("b", [2])], None], map_type), pa.array([[3, None]], pa.list_(i64))],
+            field_names=["m", "xs"], type_codes=[11, 42]),
+    ]
+    with conn.cursor() as cur:
+        for i, source in enumerate(sources):
+            for start, length in [(0, len(source)), (1, len(source)-1), (0, 0)]:
+                sliced = source.slice(start, length)
+                for stream in [False, True]:
+                    table = f"it_c_nested_container_{i}"
+                    batch = pa.RecordBatch.from_arrays([sliced], names=["v"])
+                    cur.execute(f"DROP TABLE IF EXISTS {table}")
+                    try:
+                        cur.adbc_ingest(table, pa.Table.from_batches([batch]) if stream else batch)
+                        cur.execute(f"SELECT v FROM {table} ORDER BY __rowid")
+                        actual = cur.fetch_arrow_table()
+                        assert actual.equals(pa.Table.from_batches([batch]))
+                        assert conn.adbc_get_table_schema(table).equals(actual.schema)
+                    finally:
+                        cur.execute(f"DROP TABLE IF EXISTS {table}")
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_map_null_key_c_import_does_not_poison_driver(conn, stream):
+    import ctypes as ct
+    import adbc_driver_manager as adm
+
+    class ArrowArray(ct.Structure):
+        pass
+    ArrowArray._fields_ = [
+        ("length", ct.c_int64), ("null_count", ct.c_int64), ("offset", ct.c_int64),
+        ("n_buffers", ct.c_int64), ("n_children", ct.c_int64), ("buffers", ct.POINTER(ct.c_void_p)),
+        ("children", ct.POINTER(ct.POINTER(ArrowArray))), ("dictionary", ct.POINTER(ArrowArray)),
+        ("release", ct.c_void_p), ("private_data", ct.c_void_p),
+    ]
+    class ArrowStream(ct.Structure):
+        _fields_ = [(name, ct.c_void_p) for name in ["get_schema", "get_next", "get_last_error", "release", "private_data"]]
+
+    def corrupt_key(array):
+        # A known NULL count is sufficient to reject before Arrow Go's Map
+        # constructor. Keep the producer buffers/callbacks intact for cleanup.
+        key = array.children[0].contents.children[0].contents.children[0].contents
+        key.null_count = 1
+
+    data = pa.record_batch([pa.array([[("key", 1)]], pa.map_(pa.string(), pa.int64()))], names=["v"])
+    with conn.cursor() as cur:
+        st = cur.adbc_statement
+        st.set_options(**{"adbc.ingest.target_table": "it_c_null_map_key"})
+        if stream:
+            handle = adm.ArrowArrayStreamHandle()
+            pa.RecordBatchReader.from_batches(data.schema, [data])._export_to_c(handle.address)
+            header = ArrowStream.from_address(handle.address)
+            callback_type = ct.CFUNCTYPE(ct.c_int, ct.POINTER(ArrowStream), ct.POINTER(ArrowArray))
+            original = callback_type(header.get_next)
+            @callback_type
+            def checked_next(source, out):
+                status = original(source, out)
+                if status == 0 and out.contents.release:
+                    corrupt_key(out.contents)
+                return status
+            header.get_next = ct.cast(checked_next, ct.c_void_p).value
+            st.bind_stream(handle)
+            with pytest.raises(Exception, match="Map.*NULL"):
+                st.execute_update()
+        else:
+            array, schema = adm.ArrowArrayHandle(), adm.ArrowSchemaHandle()
+            data._export_to_c(array.address, schema.address)
+            corrupt_key(ArrowArray.from_address(array.address))
+            with pytest.raises(Exception, match="Map.*NULL"):
+                st.bind(array, schema)
+        # Constructor panics poison every statement in the driver. Prove this
+        # malformed producer caused a normal argument error and permits cleanup.
+        cur.execute("DROP TABLE IF EXISTS it_c_null_map_key")
+        cur.execute("SELECT 1")
+        assert cur.fetchall() == [(1,)]
+
+
+def test_map_item_nullability_is_canonical(conn):
+    declared = pa.map_(pa.string(), pa.field("value", pa.int64(), nullable=False))
+    source = pa.array([[("k", 2)], [], None], declared)
+    with conn.cursor() as cur:
+        table = "it_c_map_item_nullability"
+        cur.execute(f"DROP TABLE IF EXISTS {table}")
+        try:
+            cur.adbc_ingest(table, pa.table({"v": source}))
+            cur.execute(f"SELECT v FROM {table} ORDER BY __rowid")
+            expected = pa.table({"v": pa.array(source.to_pylist(), pa.map_(pa.string(), pa.int64()))})
+            assert cur.fetch_arrow_table().equals(expected)
+            assert conn.adbc_get_table_schema(table).equals(expected.schema)
+        finally:
+            cur.execute(f"DROP TABLE IF EXISTS {table}")
+
+
+@pytest.mark.parametrize("nullable", ["entries", "key"])
+def test_map_nullable_key_schema_c_rejected(conn, nullable):
+    import ctypes as ct
+    import adbc_driver_manager as adm
+
+    class ArrowSchema(ct.Structure):
+        pass
+    ArrowSchema._fields_ = [
+        ("format", ct.c_char_p), ("name", ct.c_char_p), ("metadata", ct.c_void_p),
+        ("flags", ct.c_int64), ("n_children", ct.c_int64),
+        ("children", ct.POINTER(ct.POINTER(ArrowSchema))), ("dictionary", ct.POINTER(ArrowSchema)),
+        ("release", ct.c_void_p), ("private_data", ct.c_void_p),
+    ]
+    data = pa.record_batch([pa.array([], pa.map_(pa.string(), pa.int64()))], names=["v"])
+    array, schema = adm.ArrowArrayHandle(), adm.ArrowSchemaHandle()
+    data._export_to_c(array.address, schema.address)
+    entry = ArrowSchema.from_address(schema.address).children[0].contents.children[0].contents
+    child = entry if nullable == "entries" else entry.children[0].contents
+    child.flags |= 2  # ARROW_FLAG_NULLABLE
+    with conn.cursor() as cur:
+        with pytest.raises(Exception, match="Map.*non-nullable"):
+            cur.adbc_statement.bind(array, schema)
+        cur.execute("SELECT 1")
+        assert cur.fetchall() == [(1,)]

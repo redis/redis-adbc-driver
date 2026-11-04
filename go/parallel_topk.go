@@ -19,7 +19,6 @@ import (
 	"errors"
 	"maps"
 	"math"
-	"sort"
 	"strconv"
 	"sync"
 
@@ -186,7 +185,9 @@ dispatch:
 			retainTopK(&merged, row, k)
 		}
 	}
-	sort.Slice(merged.rows, func(i, j int) bool { return merged.better(merged.rows[i], merged.rows[j]) })
+	if err := sortSliceUnstable(ctx, merged.rows, func(i, j int) bool { return merged.better(merged.rows[i], merged.rows[j]) }); err != nil {
+		return nil, true, err
+	}
 	kept := applyLimit(merged.rows, plan.sel.Offset, plan.sel.Limit)
 	out = make([][]Value, len(kept))
 	for i, row := range kept {
