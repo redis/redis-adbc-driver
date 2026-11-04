@@ -570,7 +570,7 @@ SQL, copied into a driver table (redis-adbc copy): READY
   [warn]    age is VARCHAR: 2 of 501 values aren't BIGINT (such as "n/a" in user:500)
             fix: -type age=BIGINT -on-error null reads them as NULL
   [ok]      public.users doesn't exist yet: copy creates it
-  [ok]      its rows go under public:users:, which has no keys, and its index is idx:public:users
+  [ok]      copy uses a fresh private row generation and its own Search index; application HASHes and indexes are left unchanged
   [ok]      a copy needs about 0.10 MB (MEMORY USAGE of the sampled HASHes, scaled to all of them), plus its index; 14 MB are in use, and there is no maxmemory limit
   run: redis-adbc copy -prefix user: -table users
 

@@ -1560,11 +1560,7 @@ func TestSQLScanAcrossCursorPages(t *testing.T) {
 // tablePrefix returns a table's row key prefix.
 func (h *sqlHarness) tablePrefix(c goredis.UniversalClient, schema, table string) string {
 	h.t.Helper()
-	meta, err := (&store{client: c}).getTable(h.ctx, schema, table)
-	if err != nil {
-		h.t.Fatal(err)
-	}
-	return meta.prefix()
+	return h.inspectTable(c, schema, table).prefix()
 }
 
 // prefixKeyCount counts the keys under a row key prefix (on every master of

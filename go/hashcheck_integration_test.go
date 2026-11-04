@@ -161,7 +161,7 @@ func TestHashInspect(t *testing.T) {
 	expectItem(t, checklist(t, r, ChecklistSQLCopy), CheckWarn, "the columns are guessed from 10 of the 41 HASHes")
 }
 
-// What a copy can't do: the names it would take are a view's, or have keys.
+// Views and empty sources block a copy; legacy-looking external keys do not.
 func TestHashInspectCopyBlockers(t *testing.T) {
 	f := newHashFixture(t, "it:hc:blk:")
 	f.users(3)
@@ -185,24 +185,23 @@ func TestHashInspectCopyBlockers(t *testing.T) {
 	}
 	expectItem(t, cp, CheckWarn, "the table public.it_hc_exists exists")
 
-	// Keys already under the prefix the table would take.
-	st := &store{client: f.raw}
-	last, err := st.lastNames(f.h.ctx, f.raw, "public", "it_hc_taken")
-	if err != nil {
-		t.Fatal(err)
-	}
-	taken := namesFor("public", "it_hc_taken", last+1).prefix + "1"
+	// Legacy-looking names are application-owned. Copy allocates a fresh
+	// private generation rather than merging into their physical prefix.
+	taken := namesFor("public", "it_hc_taken", 1).prefix + "1"
 	f.hset(taken, "x", "1")
 	t.Cleanup(func() { _ = f.raw.Del(f.h.ctx, taken).Err() })
 	cp = checklist(t, f.inspect(HashInspectOptions{Table: "it_hc_taken"}), ChecklistSQLCopy)
-	if cp.Ready {
+	if !cp.Ready {
 		t.Errorf("taken prefix: %+v", cp)
 	}
-	expectItem(t, cp, CheckBlocker, "1 key is already under")
+	expectItem(t, cp, CheckOK, "copy uses a fresh private row generation")
 
-	// The collection itself is under the prefix a table would take.
+	// The source may also overlap the old logical destination prefix.
 	cp = checklist(t, f.inspect(HashInspectOptions{Schema: "it", Table: "hc"}), ChecklistSQLCopy)
-	expectItem(t, cp, CheckBlocker, "among the collection's own keys")
+	if !cp.Ready {
+		t.Errorf("overlapping legacy source: %+v", cp)
+	}
+	expectItem(t, cp, CheckOK, "copy uses a fresh private row generation")
 
 	// No HASHes at all.
 	g := newHashFixture(t, "it:hc:none:")

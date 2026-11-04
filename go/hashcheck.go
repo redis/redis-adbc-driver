@@ -22,11 +22,12 @@ package redis
 //
 //   - Copying (CopyHashes, hashcopy.go): a bulk ingest makes a new table.
 //     That needs what every table needs (the Query Engine, a database that
-//     isn't Redis Flex), names that are free, and memory for a second copy
-//     of the data.
-//   - Adopting them in place (AdoptHashes, adopt.go; see inplace.go).
+//     isn't Redis Flex), an available logical target, and memory for a second
+//     copy of the data. Physical storage uses a fresh private generation.
+//   - Importing a managed copy (AdoptHashes, adopt.go; see inplace.go).
 //
-// It writes nothing.
+// Application HASHes are unchanged. Existing snapshot catalogs use control
+// writes for metadata reader pins; inspection does not create a catalog.
 
 import (
 	"context"
@@ -38,7 +39,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/apache/arrow-adbc/go/adbc"
 	goredis "github.com/redis/go-redis/v9"
 )
 
@@ -515,11 +515,11 @@ func (c *hashConn) checkCopy(ctx context.Context, r *HashReport, cols []*guessed
 			"copy -mode replace drops it and creates it again; -mode append adds the rows to it; or pick another name with -table")
 	default:
 		cl.add(CheckOK, fmt.Sprintf("%s doesn't exist yet: copy creates it", target), "")
-		// Without search there are no index names to check.
+		// CopyHashes initializes an always-on snapshot catalog even when this
+		// read-only inspection found no catalog yet. It allocates fresh UUID
+		// storage at execution; legacy table-like prefixes are not destinations.
 		if r.Server.Search {
-			if err := c.checkNames(ctx, &cl, r, o); err != nil {
-				return cl, err
-			}
+			cl.add(CheckOK, "copy uses a fresh private row generation and its own Search index; application HASHes and indexes are left unchanged", "")
 		}
 	}
 	checkColumnNames(&cl, cols)
@@ -542,92 +542,6 @@ func (c *hashConn) checkServer(cl *Checklist, r *HashReport) {
 	if r.Server.Flex {
 		cl.add(CheckBlocker, "this is a Redis Flex database, whose search has no FT.AGGREGATE or NUMERIC fields",
 			"use a database that isn't Flex")
-	}
-}
-
-// checkNames checks the key prefix and index name a new table would take
-// (as claimNames picks them): keys already under that prefix would merge
-// with the table's rows.
-func (c *hashConn) checkNames(ctx context.Context, cl *Checklist, r *HashReport, o HashInspectOptions) error {
-	nm, foreign, err := c.nextNames(ctx, r.Schema, r.Table)
-	if err != nil {
-		return err
-	}
-	if prefixesOverlap(nm.prefix, o.Prefix) {
-		cl.add(CheckBlocker, fmt.Sprintf("the table's rows would be written under %s, among the collection's own keys", shellQuote(nm.prefix)),
-			"pick another table name with -table")
-		return nil
-	}
-	n, example, err := c.countKeys(ctx, nm.prefix)
-	if err != nil {
-		return err
-	}
-	if n > 0 {
-		cl.add(CheckBlocker, fmt.Sprintf("%s already under %s (such as %s), where the table's rows would go and merge with them",
-			plural(n, "key is", "keys are"), shellQuote(nm.prefix), example),
-			"pick another table name with -table, or delete those keys")
-		return nil
-	}
-	cl.add(CheckOK, fmt.Sprintf("its rows go under %s, which has no keys, and its index is %s", shellQuote(nm.prefix), nm.index), "")
-	for _, f := range foreign {
-		cl.add(CheckOK, fmt.Sprintf("the index %s isn't the driver's, so the table doesn't take its name (and leaves it alone)", f), "")
-	}
-	return nil
-}
-
-// nextNames is the names claimNames would give a new table, found without
-// reserving them, and the indexes it would skip because they aren't the
-// driver's.
-func (c *hashConn) nextNames(ctx context.Context, schema, table string) (tableNames, []string, error) {
-	last, err := c.st.lastNames(ctx, c.client, schema, table)
-	if err != nil {
-		return tableNames{}, nil, wrapRedis(err, "failed to read the table names counter")
-	}
-	var skipped []string
-	for n := last + 1; n < last+10000; n++ {
-		nm := namesFor(schema, table, n)
-		pipe := c.client.Pipeline()
-		usedP := pipe.SIsMember(ctx, prefixesKey, nm.prefix)
-		usedI := pipe.SIsMember(ctx, indexesKey, nm.index)
-		released := pipe.HExists(ctx, releasedKey, nm.prefix)
-		if _, err := pipe.Exec(ctx); err != nil {
-			return tableNames{}, nil, wrapRedis(err, "failed to read the table registry")
-		}
-		if usedP.Val() || usedI.Val() || released.Val() {
-			continue
-		}
-		foreign, err := c.st.foreignIndex(ctx, nm)
-		if err != nil {
-			return tableNames{}, nil, err
-		}
-		if !foreign {
-			return nm, skipped, nil
-		}
-		skipped = append(skipped, nm.index)
-	}
-	return tableNames{}, nil, errorf(adbc.StatusInternal, "could not find a free key prefix for %q", rowPrefix(schema, table))
-}
-
-// countKeys counts the keys of any type under a prefix, and returns one.
-func (c *hashConn) countKeys(ctx context.Context, prefix string) (int64, string, error) {
-	ks, err := c.scanKeys(ctx, prefix, "")
-	if err != nil {
-		return 0, "", err
-	}
-	var n int64
-	var first string
-	for {
-		keys, done, err := ks.next(ctx)
-		if err != nil {
-			return 0, "", err
-		}
-		if first == "" && len(keys) > 0 {
-			first = keys[0]
-		}
-		n += int64(len(keys))
-		if done {
-			return n, first, nil
-		}
 	}
 }
 

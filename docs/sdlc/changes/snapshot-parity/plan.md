@@ -30,6 +30,10 @@ The [stored-function and aggregate inspection checkpoint](stored-functions-valid
 restores private invalid-definition fixtures, checks pinned metadata/rows and
 holds aggregate inspection on one generation. Full ordinary/platform parity remains open.
 
+The [copy-check checkpoint](copy-check-validation.md) removes false blockers from
+legacy physical-name prediction, verifies catalog-absent first copies and proves
+external HASH/index ownership through private generation reclamation.
+
 The [consistency-boundary recommendation](consistency-boundary.md) proposes a
 shared driver consistency layer across execution paths. A new
 Redis server extension is not required by this plan.
