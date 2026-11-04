@@ -312,3 +312,8 @@ enables native managed foreign copies on the live partition path and lets a
 validated capability resolve its captured copy on an ordinary worker without
 foreign discovery. Ownership, explicit refresh, old-generation replay and private
 reclamation pass Go/native checks; full parity remains open.
+
+The [pruned partition checkpoint](pruned-partition-validation.md) restores
+producer-generation lifetime through DML, TRUNCATE, DROP and GC while preserving
+predicate pruning, cancellation, explicit release and reclamation coverage.
+The focused race selection passes 38 test events; full parity remains open.
