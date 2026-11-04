@@ -19,7 +19,7 @@ rows, embedded NUL strings and integers above 2^53. All output values, physical
 types, validity and multiplicity were compared outside fetching. This is a
 correctness smoke check, not a ClickBench performance result.
 
-Seven Python validator/meter/RSS sampler tests passed. The new RSS test observes
+Eight Python validator/meter/RSS/summary tests passed. The new RSS test observes
 an actual child allocation; it does not infer RSS from the parent's high-water.
 The temporary Arrow environment initially lacked psutil; installing the standard
 dependency resolved that setup failure. The sampler requires psutil explicitly.
@@ -48,3 +48,8 @@ The corrected-source full enabled Software race suite passed again (driver
 417.459 s; 837 top-level passes, 41 unchanged skips). Runtime revision is
 `158b8c820c476a7ae116fb677c6f1fffa4722b98`. The matched measurement build trees are identical
 and include both refinements. Timings are gated on this completed pass.
+
+The C-boundary summary retains unsupported Go heap/allocation counters as null,
+not zero, and rejects mixed missing instrumentation. The eight Python tests
+include that reporting contract. The C and constrained-CPU matrices were both
+extended to twenty pairs before any timings began.

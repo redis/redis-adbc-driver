@@ -36,7 +36,13 @@ def summarize(report):
                             'actual_first_batch_rows': sorted({m['FirstRows'] for t in trials for m in t['metrics']})}
             for metric in ['client_cpu_seconds', 'allocated_bytes', 'allocations',
                            'sampled_peak_go_heap_bytes', 'process_lifetime_peak_rss_bytes']:
-                result[name][metric+'_median'] = statistics.median(t[metric] for t in trials)
+                values = [t[metric] for t in trials]
+                if all(value is None for value in values):
+                    result[name][metric+'_median'] = None
+                elif any(value is None for value in values):
+                    raise ValueError('Incomplete metric instrumentation: '+metric)
+                else:
+                    result[name][metric+'_median'] = statistics.median(values)
             if all('sampled_process_peak_rss_bytes' in t for t in trials):
                 result[name]['sampled_process_peak_rss_bytes_median'] = statistics.median(
                     t['sampled_process_peak_rss_bytes'] for t in trials)
@@ -46,8 +52,11 @@ def summarize(report):
         result['candidate_paired_elapsed_wins'] = sum(c['seconds'] < b['seconds'] for b, c in pairs)
         result['median_elapsed_change_percent'] = 100*(result['candidate']['elapsed_median_seconds']/result['baseline']['elapsed_median_seconds']-1)
         summaries.append(result)
+    interpretation = 'Go public ADBC APIs and Go Arrow allocator, including IPC output. Negative elapsed change is faster. Sampled heap is not a strict peak; RSS is process lifetime high-water. No native server-export speedup or Python/C-boundary speedup is established.'
+    if report.get('consumer_boundary') == 'C shared library':
+        interpretation = 'Public C ADBC through Python/PyArrow, including IPC output. Go allocation/heap counters are unavailable, not zero. Negative elapsed change is faster. Current child RSS is sampled, not a strict peak. No native server-export speedup is established.'
     return {'source_sha256': report['source_sha256'], 'binaries': report['binaries'], 'cases': summaries,
-            'interpretation': 'Go public ADBC APIs and Go Arrow allocator, including IPC output. Negative elapsed change is faster. Sampled heap is not a strict peak; RSS is process lifetime high-water. No native server-export speedup or Python/C-boundary speedup is established.'}
+            'interpretation': interpretation}
 
 
 if __name__ == '__main__':

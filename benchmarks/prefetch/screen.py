@@ -175,6 +175,7 @@ def main():
         ap.error('Independent source identity differs')
     args.output.mkdir(parents=True, exist_ok=False)
     report = {'status': 'running', 'smoke': args.smoke, 'wire_diagnostic':args.wire_diagnostic,
+              'consumer_boundary': 'C shared library' if cfg.get('drivers') else 'Go public API',
               'wide_columns': args.wide_columns, 'trials': [],
               'source_sha256': cfg['source_sha256'], 'source_provenance': cfg['source_provenance'],
               'binaries': {name: hashlib.sha256(Path(path).read_bytes()).hexdigest()

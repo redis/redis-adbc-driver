@@ -12,9 +12,25 @@ import pyarrow as pa
 from meter import Meter
 from screen import query, run_harness, validate
 from reference import build_reference
+from summarize import summarize
 
 
 class ScreenTests(unittest.TestCase):
+    def test_unavailable_counters_are_not_reported_as_zero(self):
+        report = json.loads((Path(__file__).parent/'2026-11-03/direct-results.json').read_text())
+        report['consumer_boundary'] = 'C shared library'
+        for trial in report['trials']:
+            for name in ['allocated_bytes', 'allocations', 'sampled_peak_go_heap_bytes']:
+                trial[name] = None
+        result = summarize(report)
+        self.assertIn('unavailable, not zero', result['interpretation'])
+        self.assertTrue(all(case[build]['allocated_bytes_median'] is None
+                            for case in result['cases'] for build in ['baseline', 'candidate']))
+        measured = next(t for t in report['trials'] if not t['warmup'])
+        measured['allocated_bytes'] = 1
+        with self.assertRaisesRegex(ValueError, 'Incomplete metric instrumentation'):
+            summarize(report)
+
     def test_child_rss_sampling_observes_live_allocation(self):
         with tempfile.TemporaryDirectory() as d:
             child = Path(d)/'child'
