@@ -70,10 +70,11 @@ package redis
 // nanosecond timestamps of 2026; many rows with the same wide value make a
 // long run, which a LIMIT at its edge reads whole.
 //
-// Concurrency: rows written while a scan reads a run or more rows may move
-// what its LIMIT and OFFSET pick, as between two queries. The HMGET that
-// reads a run's values may see a later value than the index sorted on, as
-// LOAD * may see one later than the index matched.
+// Managed reads pin immutable rows and indexes through run repair and fetch.
+// An overlay repairs each visibility-filtered source before merging exact
+// values globally. OFFSET applies after that merge; each source may need up to
+// offset+limit rows and its boundary runs. Per-source repair work can therefore
+// exceed the work of one compacted index, without changing SQL results.
 
 import (
 	"context"

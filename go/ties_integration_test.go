@@ -201,6 +201,14 @@ func TestSQLOrderByRoundedValues(t *testing.T) {
 // A run of rows that tie in the index can span cursor pages and stream
 // batches.
 func TestSQLOrderByRoundedRuns(t *testing.T) {
+	testSQLOrderByRoundedRuns(t, false)
+}
+
+func TestSQLOrderByRoundedSegmentedRuns(t *testing.T) {
+	testSQLOrderByRoundedRuns(t, true)
+}
+
+func testSQLOrderByRoundedRuns(t *testing.T, segmented bool) {
 	h := newSQLHarness(t)
 	h.dropTables("it_ties_runs")
 	h.exec("CREATE TABLE it_ties_runs (k BIGINT, b BIGINT, s VARCHAR)")
@@ -208,14 +216,34 @@ func TestSQLOrderByRoundedRuns(t *testing.T) {
 	// doubles are 1024 apart, so k up to 512 are one run of 2^62 and the
 	// others another, of 2^62 + 1024: longer than a cursor page.
 	const n = 1500
+	batch := n
+	wantSources := 1
+	wholeWork, limitWork := tieWork{4, 0, 0}, tieWork{3, 0, 3}
+	if segmented {
+		batch, wantSources = 500, 3
+		// Each immutable source repairs its two rounded runs before the
+		// exact global merge. A global OFFSET cannot be applied to each
+		// source: its local top offset+limit includes all 500 rows here.
+		wholeWork, limitWork = tieWork{12, 0, 0}, tieWork{12, 0, 0}
+	}
 	var values []string
 	for i := range n {
 		k := i * 7919 % n
 		values = append(values, fmt.Sprintf("(%d, %d, 'r%d')", k, 1<<62+k, k))
-		if len(values) == 500 {
+		if len(values) == batch {
 			h.exec("INSERT INTO it_ties_runs VALUES " + strings.Join(values, ", "))
 			values = nil
 		}
+	}
+	meta := h.inspectTable(h.rawClient(), defaultSchema, "it_ties_runs")
+	sources := 0
+	for _, segment := range meta.snapshotSegments() {
+		if segment.Rows > 0 {
+			sources++
+		}
+	}
+	if sources != wantSources {
+		t.Fatalf("nonempty snapshot sources: %d, want %d", sources, wantSources)
 	}
 	ks := func(from, to int) []string {
 		var out []string
@@ -239,15 +267,15 @@ func TestSQLOrderByRoundedRuns(t *testing.T) {
 			}
 			return out
 		}()...)
-	}); work != (tieWork{4, 0, 0}) {
-		t.Errorf("ORDER BY b: %+v, want 4 runs sorted", work)
+	}); work != wholeWork {
+		t.Errorf("ORDER BY b: %+v, want %+v", work, wholeWork)
 	}
 	// LIMIT and OFFSET within the second run, and across both.
 	if work := tieWorkOf(func() {
 		h.expectRows("SELECT k FROM it_ties_runs ORDER BY b LIMIT 5 OFFSET 600", ks(600, 605)...)
 		h.expectRows("SELECT k FROM it_ties_runs ORDER BY b DESC NULLS LAST LIMIT 3 OFFSET 986", "513", "512", "511")
-	}); work != (tieWork{3, 0, 3}) {
-		t.Errorf("LIMIT within runs: %+v, want 3 runs read and sorted", work)
+	}); work != limitWork {
+		t.Errorf("LIMIT within runs: %+v, want %+v", work, limitWork)
 	}
 	// After a key that doesn't round, the scan asks for more rows on each
 	// side (twice as many, and at least 256 more) until the run ends within

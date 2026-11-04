@@ -436,3 +436,8 @@ catalog inspection and native storage assertions for temporary tables, isolation
 views, schema removal, Close and expired-owner sweep. Seven race families pass
 without test skips/failures. Full ordinary/platform and performance gates remain
 open.
+
+The [rounded-run checkpoint](rounded-runs-validation.md) preserves original
+single-index repair counters and separately validates exact three-source ordering,
+limits and streaming. Two race families pass. Segmented repair work is recorded
+explicitly; performance parity and the full ordinary rerun remain open.
