@@ -13,7 +13,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+        include:
+          - runner: ubuntu-24.04
+            backend: sse4.2
+          - runner: ubuntu-24.04-arm
+            backend: neon
     runs-on: ${{ matrix.runner }}
     defaults:
       run:
@@ -32,10 +36,13 @@ jobs:
           lscpu > ../simd-results/cpu.txt
       - name: Native parity and portable fallback
         run: |
-          go test -count=1 -v ./internal/intpredicate
+          INTEGER_SIMD_EXPECT=${{ matrix.backend }} go test -count=1 -v ./internal/intpredicate
           CGO_ENABLED=0 go test -count=1 -v ./internal/intpredicate
           go test -tags purego -count=1 ./internal/intpredicate
           go test -race -count=1 ./internal/intpredicate
+      - name: Verify missing SSE4.2 falls back without executing native instructions
+        if: runner.arch == 'X64'
+        run: GODEBUG=cpu.sse42=off INTEGER_SIMD_EXPECT=scalar go test -count=1 ./internal/intpredicate
       - name: Measure kernels and full conversion
         run: |
           go test -run '^$' -bench BenchmarkMatch -benchmem -benchtime=50ms -count=3 ./internal/intpredicate > ../simd-results/kernels.txt

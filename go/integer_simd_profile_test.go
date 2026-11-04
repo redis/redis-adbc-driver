@@ -12,6 +12,7 @@ import (
 	"runtime/pprof"
 	runtimetrace "runtime/trace"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -92,7 +93,13 @@ func TestIntegerSIMDProfile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const n = 10000
+	n := 10000
+	if setting := os.Getenv("REDIS_INTEGER_PROFILE_ROWS"); setting != "" {
+		n, err = strconv.Atoi(setting)
+		if err != nil || n < 1 || n > 1000000 {
+			t.Fatal("profile rows must be between 1 and 1000000")
+		}
+	}
 	keys := make([]string, n)
 	expected := make([]string, 0, n)
 	pipe := client.Pipeline()
@@ -121,8 +128,28 @@ func TestIntegerSIMDProfile(t *testing.T) {
 	if err = client.Set(h.ctx, seqKey(meta.Schema, meta.Name), n, 0).Err(); err != nil {
 		t.Fatal(err)
 	}
-	waitFor(t, "integer SIMD indexed", func() bool { count, err := st.countMatches(h.ctx, meta.index(), "*"); return err == nil && count == n })
+	waitFor(t, "integer SIMD indexed", func() bool {
+		count, err := st.countMatches(h.ctx, meta.index(), "*")
+		return err == nil && count == int64(n)
+	})
 	t.Logf("environment go=%s os=%s arch=%s backend=%s rows=%d", runtime.Version(), runtime.GOOS, runtime.GOARCH, intpredicate.Backend(), n)
+	info, err := client.Info(h.ctx, "server").Result()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var server string
+	for _, line := range strings.Split(info, "\n") {
+		if strings.HasPrefix(line, "redis_version:") {
+			server = strings.TrimSpace(strings.TrimPrefix(line, "redis_version:"))
+		}
+	}
+	if server == "" {
+		t.Fatal("missing server version metadata")
+	}
+	// Software omits Search version from proxy INFO. Record that version from the
+	// management API in the evidence, alongside its required QPF verification.
+	t.Logf("redis_version=%s", server)
+
 	phase := func(name string, run func()) {
 		var before, after runtime.MemStats
 		runtime.ReadMemStats(&before)

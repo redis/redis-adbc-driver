@@ -13,9 +13,10 @@ void integer_match(const int64_t*, const uint64_t*, uint64_t*, size_t, int64_t, 
 import "C"
 
 import (
-	"golang.org/x/sys/cpu"
 	"runtime"
 	"unsafe"
+
+	"golang.org/x/sys/cpu"
 )
 
 func Backend() string {

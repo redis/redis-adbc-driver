@@ -24,7 +24,7 @@ const (
 // Match returns an owned, little-bit-order bitmap. A nil validity bitmap means
 // all rows are valid; NULL comparisons never match. Padding bits are zero.
 // scalar forces the portable reference for measurements and parity checks.
-// Input and output storage must not alias. No pointers are retained by C.
+// Inputs are borrowed for the call and never modified. C retains no pointers.
 func Match(ctx context.Context, values []int64, valid []uint64, rhs int64, op Op, scalar bool) ([]uint64, error) {
 	words := (len(values) + 63) / 64
 	if op > GreaterEqual || (valid != nil && len(valid) != words) {

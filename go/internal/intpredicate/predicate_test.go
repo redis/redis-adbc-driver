@@ -7,12 +7,16 @@ import (
 	"fmt"
 	"math"
 	"math/rand/v2"
+	"os"
 	"reflect"
 	"testing"
 )
 
 func TestParity(t *testing.T) {
 	t.Logf("backend=%s", Backend())
+	if expected := os.Getenv("INTEGER_SIMD_EXPECT"); expected != "" && Backend() != expected {
+		t.Fatalf("expected %s hardware dispatch, got %s", expected, Backend())
+	}
 	edges := []int64{math.MinInt64, math.MinInt64 + 1, -9007199254740993, -1, 0, 1, 9007199254740993, math.MaxInt64 - 1, math.MaxInt64}
 	rng := rand.New(rand.NewPCG(296, 1))
 	for _, n := range []int{0, 1, 2, 3, 63, 64, 65, 127, 128, 129, 1024, 65535, 65536, 65537} {
@@ -115,6 +119,29 @@ func BenchmarkMatch(b *testing.B) {
 					})
 				}
 			}
+		}
+	}
+}
+
+// Cancel between blocks to ensure no partial mask escapes after native work.
+type blockCancelContext struct {
+	context.Context
+	checks int
+}
+
+func (c *blockCancelContext) Err() error {
+	c.checks++
+	if c.checks >= 3 {
+		return context.Canceled
+	}
+	return nil
+}
+func TestCancellationBetweenBlocks(t *testing.T) {
+	for _, scalar := range []bool{false, true} {
+		ctx := &blockCancelContext{Context: context.Background()}
+		out, err := Match(ctx, make([]int64, 65537), nil, 0, Equal, scalar)
+		if err != context.Canceled || out != nil {
+			t.Fatal("partial result escaped cancellation")
 		}
 	}
 }
