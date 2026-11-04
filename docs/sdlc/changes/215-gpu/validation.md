@@ -79,6 +79,10 @@ and TLS/RESP3/partition/release improvements were preserved.
 - CPU-only CLI built with `CGO_ENABLED=0`. macOS shared driver built. The Linux
   CUDA and C Device C sources compiled with `-Wall -Wextra -Werror` in a local
   disposable Linux container.
+- Complete Linux shared-driver linking and final macOS embedded C-archive
+  linking passed. The public C Device header also compiled as C++. CI now runs
+  the CPU experiment gates and native C Device CPU ownership/binding tests;
+  GPU cases remain explicit hardware-only checks.
 - Isolated local Redis Software, 3 shards, authenticated TLS/RESP3, active verified
   4× QPF was provisioned with current main's `make -C go redis-up`. Native CPU
   C Device tests passed: four tests, five GPU-only skips. Native BindDevice
