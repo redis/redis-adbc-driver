@@ -528,3 +528,15 @@ gated on isolated reader leases and generation-stable authorization, so current
 feature parity is still incomplete. Fresh full ordinary/snapshot, broader native
 and platform/recovery, current-source comparisons, public resume and sustained
 compaction gates remain open.
+
+The [complete local 815c355 checkpoint](full-815-validation.md) records one full
+ordinary race command: 1,938 passes, 272 explicit skips, zero failures; root
+1,419.357 s. A separate coverage-checked snapshot selection passes 329 events
+with 21 deployment/permission/model skips; root 374.706 s. Hosted checks remain
+red: release Linux package clocks were still ten minutes, macOS exposes ACL,
+read-counter and writer-progress issues, an AMD64 three-shard job reaches the
+16-generation limit during concurrent comments, and the ARM64 real-reader grant
+fixture fails snapshot initialization permissions. Release commands now use the
+existing 30-minute budget; all other failures remain explicit work. No quota,
+assertion or ACL recipe is weakened. Matched-source baseline/profiling artifacts
+are prepared privately; no unmeasured performance gain is claimed.

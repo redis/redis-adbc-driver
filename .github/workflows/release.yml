@@ -254,7 +254,7 @@ jobs:
           # The preceding owned setup verifies noeviction through its API.
           REDIS_RETAINED_CONTROL_PERSISTENCE: guaranteed
         run: |
-          go test -count=1 -p 1 -skip "$SKIP" ./...
+          go test -count=1 -p 1 -timeout=30m -skip "$SKIP" ./...
           cd validation && uv run pytest -q -ra --junitxml=software-validation.xml tests/
           if [ -f ../../scripts/check_partition_junit.py ]; then python3 ../../scripts/check_partition_junit.py software-validation.xml; fi
 
@@ -560,12 +560,12 @@ jobs:
       - name: Test native wide fetch
         if: hashFiles('go/wide_fetch_integration_test.go') != ''
         working-directory: go
-        run: env -u REDIS_PARTITION_SCAN_CAP REDIS_PARTITION_CAP_TEST=1 go test -count=1 -p 1 -run '^TestSQLWideHashFetchBothAPIs$' -v .
+        run: env -u REDIS_PARTITION_SCAN_CAP REDIS_PARTITION_CAP_TEST=1 go test -count=1 -p 1 -timeout=30m -run '^TestSQLWideHashFetchBothAPIs$' -v .
 
       - name: Test
         working-directory: go
         run: |
-          env -u REDIS_PARTITION_SCAN_CAP REDIS_PARTITION_CAP_TEST=1 go test -count=1 -p 1 -skip "$SKIP" ./...
+          env -u REDIS_PARTITION_SCAN_CAP REDIS_PARTITION_CAP_TEST=1 go test -count=1 -p 1 -timeout=30m -skip "$SKIP" ./...
           file build/libadbc_driver_redis.dylib | grep -q arm64
           python3 -c "import ctypes; ctypes.CDLL('build/libadbc_driver_redis.dylib').AdbcDriverInit"
 
