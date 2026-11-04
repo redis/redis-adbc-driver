@@ -77,6 +77,11 @@ is terminal, so no uninspected primary failure or skip count is inferred.
 That run does not test these restored fixtures or establish complete platform
 parity. Step completion is not treated as a count of unskipped native cases.
 
+The run later completed with both Software jobs failing at Go tests. The
+[terminal hosted checkpoint](hosted-ea20f38-validation.md) records actual
+integration passes/skips, the ARM64 package timeout and the required Ray TLS
+fixture correction; no hosted success is inferred.
+
 ## Author review and remaining work
 
 Reviewed dependency conflicts, exact error states, replacement identity, temporary

@@ -189,10 +189,16 @@ jobs:
         env:
           REDIS_ADBC_LIBRARY: ${{ github.workspace }}/go/build/libadbc_driver_redis.so
           RUN_RAY_TESTS: '1'
+          REQUIRE_RAY_TLS: '1'
           RAY_USAGE_STATS_ENABLED: '0'
         run: |
           uv venv --python 3.12 /tmp/redis-ray-tests
           uv pip install --python /tmp/redis-ray-tests/bin/python './python[ray]' 'pytest>=9.1.1'
+          # The Software fixture verified this CA; require the worker trust
+          # check instead of silently skipping it with an empty db_options.
+          : "${SSL_CERT_FILE:?verified Software fixture must provide its CA}"
+          test -s "$SSL_CERT_FILE"
+          export REDIS_TLS_CA_FILE="$SSL_CERT_FILE"
           /tmp/redis-ray-tests/bin/python -m pytest -q python/tests/test_ray_datasource.py
 
       - name: Prefect integration on Redis Software

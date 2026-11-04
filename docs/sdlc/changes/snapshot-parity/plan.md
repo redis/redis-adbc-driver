@@ -246,3 +246,9 @@ following with exact publication conflicts. Public statement hooks verify name
 reuse safety, pin-protected rekey inputs, temporary ownership and reclamation;
 13 race-test events pass without skips. Full ordinary/platform and performance
 parity remain open.
+
+The [hosted ea20f38 checkpoint](hosted-ea20f38-validation.md) records both Linux
+Software Go failures and partial integration passes/skips with a sanitized
+function inventory. It also makes the Ray worker private-CA check required in
+CI; all seventeen cases pass locally with no skips. The hosted rerun and full
+platform/ordinary/performance gates remain open.
