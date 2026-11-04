@@ -37,6 +37,9 @@ def summarize(report):
             for metric in ['client_cpu_seconds', 'allocated_bytes', 'allocations',
                            'sampled_peak_go_heap_bytes', 'process_lifetime_peak_rss_bytes']:
                 result[name][metric+'_median'] = statistics.median(t[metric] for t in trials)
+            if all('sampled_process_peak_rss_bytes' in t for t in trials):
+                result[name]['sampled_process_peak_rss_bytes_median'] = statistics.median(
+                    t['sampled_process_peak_rss_bytes'] for t in trials)
         if measured['baseline'].keys() != measured['candidate'].keys():
             raise ValueError('Paired repeat identities differ')
         pairs = [(measured['baseline'][r], measured['candidate'][r]) for r in measured['baseline']]

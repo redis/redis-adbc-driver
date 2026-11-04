@@ -1,6 +1,7 @@
 import socket
 import hashlib
 import json
+import sys
 import tempfile
 import threading
 import unittest
@@ -9,11 +10,27 @@ from pathlib import Path
 import pyarrow as pa
 
 from meter import Meter
-from screen import query, validate
+from screen import query, run_harness, validate
 from reference import build_reference
 
 
 class ScreenTests(unittest.TestCase):
+    def test_child_rss_sampling_observes_live_allocation(self):
+        with tempfile.TemporaryDirectory() as d:
+            child = Path(d)/'child'
+            child.write_text('#!' + sys.executable + '\n'
+                             'import json,sys,time\n'
+                             'json.load(sys.stdin)\n'
+                             'data=bytearray(64*1024*1024)\n'
+                             'time.sleep(0.2)\n'
+                             'print(len(data))\n')
+            child.chmod(0o700)
+            process, peak, samples = run_harness(str(child), {})
+            self.assertEqual(process.returncode, 0)
+            self.assertEqual(int(process.stdout), 64*1024*1024)
+            self.assertGreaterEqual(peak, 64*1024*1024)
+            self.assertGreaterEqual(samples, 2)
+
     def test_select_schema_nullability_preserves_exact_null_validation(self):
         expected = pa.Table.from_arrays([pa.array([1, 2], type=pa.int64())],
                                        schema=pa.schema([pa.field('n', pa.int64(), nullable=False)]))

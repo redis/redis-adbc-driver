@@ -88,3 +88,18 @@ Python/C Arrow results and must accompany any reported speedup.
 
 A completed restored-fixture screen with raw trial JSON and limitations is in
 [2026-11-03/README.md](2026-11-03/README.md).
+
+The runner additionally requires `psutil` for 20 ms samples of the benchmark
+child PID's current RSS. `sampled_process_peak_rss_bytes` excludes the Python
+parent's typed reference memory; it is still a sampled peak. Linux child
+`ru_maxrss` can inherit the parent's fork high-water, so retain that older field
+as a lifetime diagnostic rather than interpreting it as precise per-query RSS.
+
+Use `--wide-columns 64` for the eligibility-threshold control; the default is
+105. Keep these matrices separate. For a C-boundary confirmation, build matched
+shared libraries and configure `drivers` with their baseline/candidate absolute
+paths and `binaries` with executable wrappers for `c_shared.py` in the appropriate
+Python environment. That consumer fetches through public ADBC APIs, writes
+unmodified Arrow batches, and returns the same row/batch timing fields. It
+reports Go allocation counters as unavailable; do not combine its CPU/allocation
+metrics with the Go harness. The parent still independently validates each fetch.
