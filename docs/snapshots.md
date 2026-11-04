@@ -60,6 +60,9 @@ Scripts and bound parameter rows acquire a fresh snapshot for each executed
 statement. Statement snapshots do not enable multi-statement transactions: ADBC
 autocommit=false and Commit/Rollback remain unsupported; SQL transaction controls
 retain their existing compatibility behavior, including no-op ROLLBACK.
+Bound query rows share one output schema. Computed NUMERIC results reconcile
+their value-dependent precision/scale across rows without losing exact values;
+an incompatible declared result schema change between executions returns an error.
 
 ## Operations and deployment
 

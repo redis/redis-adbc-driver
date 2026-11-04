@@ -42,3 +42,9 @@ into a full-suite success claim.
 Author review inspected pin/iterator cleanup, current versus pinned visibility,
 exact values/NULLs, real cursor payloads, fixture ownership and cancellation.
 This is not independent maintainer approval.
+
+The subsequent ordinary selection reaches four passes, one profiling skip and
+one failure at TestSQLBoundDecimalDivisionScales, root package 1.283 seconds.
+The [bound numeric checkpoint](bound-numeric-validation.md) addresses that
+production schema-reconciliation failure while retaining the declared-shape
+guard. Later selected tests did not run.

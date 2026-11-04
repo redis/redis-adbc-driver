@@ -88,10 +88,13 @@ type executor struct {
 
 // execResult is the outcome of one statement.
 type execResult struct {
-	isQuery  bool
-	cols     []resultColumn
-	rows     [][]Value
-	affected int64
+	isQuery bool
+	cols    []resultColumn
+	// Keep the pinned declared shape separate from value-resolved NUMERIC
+	// precision/scale when combining bound parameter executions.
+	declaredCols []resultColumn
+	rows         [][]Value
+	affected     int64
 	// stream, if set, holds the rows instead (see stream.go).
 	stream array.RecordReader
 }
@@ -355,6 +358,9 @@ func (e *executor) fitResult(res execResult, err error) (execResult, error) {
 	}
 	// A cached plan retains declared types; resolving one execution's values
 	// must not freeze its scale for another bound parameter row.
+	if res.declaredCols == nil {
+		res.declaredCols = res.cols
+	}
 	res.cols = append([]resultColumn(nil), res.cols...)
 	resolveNumericColumns(res.cols, res.rows)
 	z := e.zone()

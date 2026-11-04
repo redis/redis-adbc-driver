@@ -10,6 +10,7 @@ test. Run separately from the ordinary validation suite; see docs/snapshots.md.
 import os
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from decimal import Decimal
 import sys
 import time
 import unittest
@@ -175,6 +176,19 @@ class SnapshotValidation(unittest.TestCase):
             for name in names:
                 cur.execute(f"SELECT id,v FROM {name} ORDER BY id")
                 self.assertEqual(cur.fetchall(), [(1, exact), (2, exact + 1)])
+
+    def test_bound_decimal_scales_share_one_exact_output_schema(self):
+        values = [Decimal("0.0001"), Decimal("100000000"), None]
+        expected = [Decimal("10000"), Decimal("0.00000001"), None]
+        with self.conn.cursor() as cur:
+            for reverse in (False, True):
+                params = pa.table({"": pa.array(
+                    values[::-1] if reverse else values, type=pa.decimal128(20, 4)
+                )})
+                cur.execute("SELECT CAST(1 AS NUMERIC(10,0)) / $1 AS quotient", params)
+                result = cur.fetch_arrow_table()
+                self.assertEqual(result.schema.field(0).type, pa.decimal128(33, 28))
+                self.assertEqual(result.column(0).to_pylist(), expected[::-1] if reverse else expected)
 
     def test_concurrent_same_target_ingest_consumes_input_once(self):
         schema = pa.schema([("id", pa.int32()), ("v", pa.int64()), ("s", pa.string())])

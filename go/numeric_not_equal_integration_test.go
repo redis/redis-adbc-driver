@@ -35,8 +35,39 @@ func TestSQLNumericNotEqualIndex(t *testing.T) {
 	h.exec("UPDATE it_numeric_neq SET d=NULL WHERE id=2")
 	h.exec("UPDATE it_numeric_neq SET d=0 WHERE id=3")
 	h.expectRows("SELECT COUNT(*) FROM it_numeric_neq WHERE d <> 0", "4")
-	_, residual := h.pushedWhere(h.rawClient(), "SELECT COUNT(*) FROM it_numeric_neq WHERE d <> 0")
-	if !residual {
+	st, ctx, pin := h.inspectionSnapshot(h.rawClient())
+	defer pin.release()
+	e := &executor{store: st, schema: defaultSchema, sess: newSession(defaultSchema), cache: newExecCache()}
+	parsed, err := ParseScript("SELECT COUNT(*) FROM it_numeric_neq WHERE d <> 0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := e.planSelect(ctx, parsed[0].Stmt.(*SelectStmt), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	physical, err := e.planWhere(ctx, plan.sel.Where, plan.meta, nil)
+	if err != nil || physical.residual != nil || !strings.Contains(physical.query, "|") {
+		t.Fatalf("materialized default lost exact range union: %s residual=%v err=%v", physical.query, physical.residual, err)
+	}
+	// Atomic ALTER materializes the default. The virtual-missing primitive
+	// still needs a residual; test that guard on a private descriptor clone.
+	virtual := *plan.meta
+	virtual.Columns = append([]columnMeta(nil), plan.meta.Columns...)
+	d, ok := virtual.column("d")
+	if !ok || d.MissingThrough != 0 || d.Missing != "" {
+		t.Fatal("atomic ALTER did not materialize its default", d)
+	}
+	for i := range virtual.Columns {
+		if virtual.Columns[i].Name == "d" {
+			virtual.Columns[i].MissingThrough, virtual.Columns[i].Missing = 6, "3"
+		}
+	}
+	wp, err := e.planWhere(ctx, plan.sel.Where, &virtual, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if wp.residual == nil {
 		t.Fatal("missing-default recheck lost")
 	}
 }

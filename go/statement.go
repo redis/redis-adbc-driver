@@ -634,10 +634,14 @@ func (s *statementImpl) run(ctx context.Context, stream bool) (result execResult
 				return res, nil // the only row
 			}
 			if res.isQuery {
-				if !combined.isQuery {
-					combined.isQuery, combined.cols = true, res.cols
+				cols := res.declaredCols
+				if cols == nil {
+					cols = res.cols
 				}
-				if exec.store != nil && exec.store.snapshots && !resultSchema(combined.cols).Equal(resultSchema(res.cols)) {
+				if !combined.isQuery {
+					combined.isQuery, combined.cols = true, cols
+				}
+				if exec.store != nil && exec.store.snapshots && !resultSchema(combined.cols).Equal(resultSchema(cols)) {
 					return execResult{}, errorf(adbc.StatusInvalidState, "result schema changed between parameter executions")
 				}
 				combined.rows = append(combined.rows, res.rows...)

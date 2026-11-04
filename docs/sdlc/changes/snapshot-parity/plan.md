@@ -58,6 +58,10 @@ The [narrow scan checkpoint](narrow-validation.md) retains exact pinned values
 through DELETE/GC and preserves unsafe numeric fetch, cursor payload and
 missing-HASH/cancellation checks on an owned mutable-source primitive.
 
+The [bound numeric checkpoint](bound-numeric-validation.md) preserves declared
+schema checks across parameter snapshots while reconciling value-dependent
+decimal scales into one exact Arrow output schema.
+
 The [consistency-boundary recommendation](consistency-boundary.md) proposes a
 shared driver consistency layer across execution paths. A new
 Redis server extension is not required by this plan.
