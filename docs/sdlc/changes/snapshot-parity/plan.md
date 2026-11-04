@@ -240,3 +240,9 @@ logical IDs and newest stored images under one pin, retaining exact physical
 timestamp units, replacement/older-segment/NULL coverage and session-zone
 pushdown checks. Seven focused race cases pass; the next ordinary failure is a
 DROP/RENAME race receiving serialization refusal. Full parity remains open.
+
+The [DROP/RENAME checkpoint](drop-rename-validation.md) replaces legacy rename
+following with exact publication conflicts. Public statement hooks verify name
+reuse safety, pin-protected rekey inputs, temporary ownership and reclamation;
+13 race-test events pass without skips. Full ordinary/platform and performance
+parity remain open.
