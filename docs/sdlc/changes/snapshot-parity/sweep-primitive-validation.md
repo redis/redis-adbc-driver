@@ -41,8 +41,15 @@ diff whitespace checks pass. These selections preserve the difference between a
 legacy unmanaged primitive and native reference-owned reclamation; they are not
 a full ordinary-suite, Cluster API or restricted-principal result.
 
+The fresh 136-name ordinary continuation passes five TAG/string test events,
+zero skips, then stops at TestSQLTagOlderTables on an unscoped metadata read
+(root 24.377 s). Passing families cover exactness, long values, joins/DML, levels
+and prefix expansion. Its unknown-level fixture still directly edits a logical
+metadata key; it needs private native validation coverage without an older-format
+migration path. Later selected cases did not run.
+
 Reviewed client/hook isolation, unchanged driver admission, RESP3/TLS option
-preservation, callback/deferred cleanup order, application HASH preservation,
+preservation, deferred cleanup order, application HASH preservation,
 unchanged ACL setup semantics and explicit native ownership coverage. No
 production, protocol or ACL-grant changes. Author review is not independent
 maintainer approval. Full ordinary/platform, current-protocol Cluster recovery,
