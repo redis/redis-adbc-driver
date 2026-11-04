@@ -973,8 +973,9 @@ type store struct {
 	// rekeys are the re-keys this connection is running or settling, which
 	// Close stops (see stopRekeys); closed is set once Close has begun. The
 	// client stays set after Close, closed.
-	rekeys map[*rekeyRun]struct{}
-	closed bool
+	rekeys     map[*rekeyRun]struct{}
+	executions map[*executionTransport]struct{} // operation cleanup may outlive socket interruption
+	closed     bool
 }
 
 // onceCmd is a command that go-redis must not send again when it fails.

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"github.com/apache/arrow-adbc/go/adbc"
 	goredis "github.com/redis/go-redis/v9"
+	"strings"
 	"testing"
 	"time"
 )
@@ -135,5 +136,82 @@ func TestExecutionTransportChildCancellation(t *testing.T) {
 	}
 	if c.store.redis(context.WithoutCancel(child)) != ordinary {
 		t.Fatal("cleanup did not select maintenance pool")
+	}
+}
+
+// Socket teardown is not execution completion: snapshot aborts and pin releases
+// still need the ordinary maintenance client while SQL unwinds.
+func TestConnectionCloseWaitsForExecutionCleanup(t *testing.T) {
+	server := newFakeRedis(t, "HGET")
+	cfg := newClientConfig(&goredis.Options{Addr: server.addr, Protocol: 3, DisableIdentity: true})
+	ordinary := newClient(cfg, false, timeouts{})
+	c := &connectionImpl{store: &store{client: ordinary}, clientCfg: cfg}
+	active, transport := c.executionContext(context.Background(), &c.streams)
+	defer transport.finish()
+	closed := make(chan error, 1)
+	go func() { closed <- c.Close(context.Background()) }()
+	select {
+	case <-active.Done():
+	case <-time.After(time.Second):
+		t.Fatal("Close did not interrupt execution")
+	}
+	if err := ordinary.Ping(context.Background()).Err(); err != nil {
+		t.Fatal("Close shut maintenance pool before execution cleanup", err)
+	}
+	select {
+	case err := <-closed:
+		t.Fatalf("Close returned before execution cleanup: %v", err)
+	default:
+	}
+	transport.finish()
+	select {
+	case err := <-closed:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Close did not join finished execution")
+	}
+	if err := ordinary.Ping(context.Background()).Err(); err == nil {
+		t.Fatal("Close left maintenance client open")
+	}
+	if len(c.store.activeExecutions()) != 0 {
+		t.Fatal("execution registration leaked")
+	}
+}
+
+func TestConnectionCloseBoundsUncooperativeExecution(t *testing.T) {
+	server := newFakeRedis(t, "HGET")
+	cfg := newClientConfig(&goredis.Options{Addr: server.addr, Protocol: 3, DisableIdentity: true})
+	ordinary := newClient(cfg, false, timeouts{})
+	c := &connectionImpl{store: &store{client: ordinary}, clientCfg: cfg}
+	_, transport := c.executionContext(context.Background(), &c.streams)
+	defer transport.finish()
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	start := time.Now()
+	err := c.Close(ctx)
+	if !isStatus(err, adbc.StatusTimeout) || time.Since(start) > time.Second {
+		t.Fatalf("uncooperative execution left Close unbounded: %v", err)
+	}
+	if err := ordinary.Ping(context.Background()).Err(); err == nil {
+		t.Fatal("timed-out Close left maintenance client open")
+	}
+}
+
+func TestExecutionClosePreservesOutcomeDiagnostics(t *testing.T) {
+	ctx, cancel := context.WithCancelCause(context.Background())
+	cancel(errConnClosed)
+	unknown := errorf(adbc.StatusIO, "snapshot publication outcome is unknown (operation test); do not blindly retry")
+	if err := executionCloseError(ctx, unknown); err.Error() != unknown.Error() {
+		t.Fatal("Close hid indeterminate publication outcome", err)
+	}
+	interrupted := stateErrorf(stateQueryCanceled, "sequence allocation outcome unknown; input was not replayed")
+	err := executionCloseError(ctx, interrupted)
+	if !isStatus(err, adbc.StatusInvalidState) || !strings.Contains(err.Error(), "outcome unknown; input was not replayed") {
+		t.Fatal("Close lost cancellation cause or outcome diagnostics", err)
+	}
+	if err := executionCloseError(ctx, nil); err != nil {
+		t.Fatal("Close converted successful publication into an error", err)
 	}
 }

@@ -138,7 +138,12 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.26.10)
   durable copy checkpoints, lease/phase fences, and source/output references even
   across expired worker leases. Installation grafts only the original prefix and
   respects write intents plus its short admission gate. Close/join workers before
-  closing connection resources; old segments stay pinned. Never DROP/TRUNCATE shared data directly.
+  closing connection resources; old segments stay pinned. Track execution
+  completion separately from socket interruption: Close must leave the maintenance
+  pool usable until private abort/pin cleanup finishes, with a bounded join.
+  Keep registration atomic with the closed flag and register stream owners before
+  exposing an execution to Close. Preserve indeterminate-outcome diagnostics when
+  mapping a canceled command to its connection-close cause. Never DROP/TRUNCATE shared data directly.
   Reclaim manifests separately from segment rows/indexes/directories using atomic
   reference checks. Explicit sweep previews must suppress connection-side GC;
   report confirmed reclamation and errors through the same ownership protocol.

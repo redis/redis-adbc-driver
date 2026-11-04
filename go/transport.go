@@ -27,6 +27,8 @@ type executionTransport struct {
 	sockets     map[*executionSocket]bool
 	interrupted bool
 	once        sync.Once
+	finished    sync.Once
+	done        chan struct{}
 	owners      []*streams
 }
 
@@ -58,9 +60,9 @@ func (t *executionTransport) closeWith(err error) {
 	t.cancel(err)
 	t.interrupt()
 	// Close waits for command machinery; never call it inside a process hook.
-	go t.finish()
+	go t.closeClient()
 }
-func (t *executionTransport) finish() {
+func (t *executionTransport) closeClient() {
 	t.once.Do(func() {
 		t.cancel(nil)
 		t.interrupt()
@@ -69,6 +71,28 @@ func (t *executionTransport) finish() {
 			owner.remove(t)
 		}
 	})
+}
+
+// Socket interruption may finish before SQL/Arrow unwinds its abort and reader
+// lease defers. Keep that operation registered until its normal owner finishes.
+func (t *executionTransport) finish() {
+	t.closeClient()
+	t.finished.Do(func() {
+		t.owner.mu.Lock()
+		delete(t.owner.executions, t)
+		t.owner.mu.Unlock()
+		close(t.done)
+	})
+}
+
+func (s *store) activeExecutions() []*executionTransport {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]*executionTransport, 0, len(s.executions))
+	for execution := range s.executions {
+		out = append(out, execution)
+	}
+	return out
 }
 
 // Arm cancellation for exactly the period during which a command owns sockets.
@@ -106,7 +130,7 @@ func (c *connectionImpl) executionContextWithTimeouts(ctx context.Context, timeo
 		return ctx, nil
 	}
 	parent, cancel := context.WithCancelCause(ctx)
-	t := &executionTransport{owner: c.store, ctx: parent, cancel: cancel, sockets: map[*executionSocket]bool{}, owners: owners}
+	t := &executionTransport{owner: c.store, ctx: parent, cancel: cancel, sockets: map[*executionSocket]bool{}, owners: owners, done: make(chan struct{})}
 	single, cluster := *c.clientCfg.single, *c.clientCfg.cluster
 	dial := single.Dialer
 	if dial == nil {
@@ -145,7 +169,16 @@ func (c *connectionImpl) executionContextWithTimeouts(ctx context.Context, timeo
 	for _, owner := range owners {
 		owner.add(t)
 	}
-	if c.store.isClosed() {
+	c.store.mu.Lock()
+	closed := c.store.closed
+	if !closed {
+		if c.store.executions == nil {
+			c.store.executions = map[*executionTransport]struct{}{}
+		}
+		c.store.executions[t] = struct{}{}
+	}
+	c.store.mu.Unlock()
+	if closed || c.store.isClosed() {
 		t.closeWith(errConnClosed)
 	}
 	return context.WithValue(parent, transportContextKey{}, t), t

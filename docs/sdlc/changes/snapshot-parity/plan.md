@@ -187,3 +187,10 @@ private descriptor/publication protocol. Conversion and validation retain their
 rewrite path; pinned schema, dependency conflicts and exact command counts are
 checked. Ordinary conversion fixtures retain their physical no-rewrite assertions.
 Broader lifecycle/platform and sustained performance parity remain open.
+
+The [ALTER interruption checkpoint](alter-interrupt-validation.md) replaces
+legacy cancellation/lease triggers with actual acknowledged private batches and
+fixes connection shutdown ordering: socket interruption no longer ends operation
+tracking before abort/pin cleanup. It preserves outcome diagnostics and bounded
+joining, and restores large immutable-page/cleanup overlap coverage. Full
+ordinary/platform and sustained performance parity remain open.

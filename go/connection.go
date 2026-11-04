@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/adbc-drivers/driverbase-go/driverbase"
 	"github.com/apache/arrow-adbc/go/adbc"
@@ -223,7 +224,27 @@ func (c *connectionImpl) Close(ctx context.Context) error {
 	// the client is open (see rekey.go).
 	c.store.stopSnapshotCompactor()
 	c.store.stopRekeys(ctx)
-	c.streams.closeAll(errorf(adbc.StatusInvalidState, "the connection was closed while its result was being read"))
+	executions := c.store.activeExecutions()
+	reason := errorf(adbc.StatusInvalidState, "the connection was closed while its result was being read")
+	for _, execution := range executions {
+		execution.closeWith(reason)
+	}
+	c.streams.closeAll(reason)
+	// Abort private work and release pins using the maintenance pool before
+	// closing it. Bound Close even if caller-owned Arrow input ignores cancel.
+	cleanup, cancelCleanup := context.WithTimeout(ctx, 5*time.Second)
+	var cleanupErr error
+	for _, execution := range executions {
+		select {
+		case <-execution.done:
+		case <-cleanup.Done():
+			cleanupErr = wrapRedis(cleanup.Err(), "active execution cleanup did not finish before Close")
+		}
+		if cleanupErr != nil {
+			break
+		}
+	}
+	cancelCleanup()
 	// Best effort: whatever can't be dropped now is swept by a later
 	// connection (see temp.go).
 	_ = c.store.dropTempSchema(ctx)
@@ -236,6 +257,9 @@ func (c *connectionImpl) Close(ctx context.Context) error {
 	c.store.mu.Unlock()
 	for _, old := range retired {
 		_ = old.Close()
+	}
+	if cleanupErr != nil {
+		return cleanupErr
 	}
 	return err
 }

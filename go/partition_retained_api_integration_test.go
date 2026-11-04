@@ -581,10 +581,12 @@ func TestRetainedPartitionAPICloseBeforeReaderRegistration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	closed := make(chan error, 1)
 	readStore.client.AddHook(&retainedCloseReadHook{close: func() {
-		if err := worker.Close(h.ctx); err != nil {
-			t.Error(err)
-		}
+		// Close runs on the caller's goroutine, not inside a Redis process hook:
+		// it joins this execution after the interrupted read has unwound.
+		go func() { closed <- worker.Close(h.ctx) }()
+		<-ctx.Done()
 	}})
 	reader, err := worker.ReadPartition(ctx, parts.PartitionIDs[0])
 	if reader != nil {
@@ -593,5 +595,14 @@ func TestRetainedPartitionAPICloseBeforeReaderRegistration(t *testing.T) {
 	}
 	if !isStatus(err, adbc.StatusInvalidState) {
 		t.Fatal(err)
+	}
+	transport.finish()
+	select {
+	case err := <-closed:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Close did not join interrupted partition read")
 	}
 }

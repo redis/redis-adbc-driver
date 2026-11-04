@@ -519,6 +519,9 @@ func (s *statementImpl) run(ctx context.Context, stream bool) (result execResult
 			}
 		}()
 	}
+	// Preserve a Close cause on context-canceled command failures without
+	// replacing unknown-outcome errors or downgrading a successful publication.
+	defer func() { resultErr = executionCloseError(ctx, resultErr) }()
 	parsed, err := s.parse()
 	if err != nil {
 		return execResult{}, err
