@@ -26,6 +26,11 @@ import (
 )
 
 func distinctTestPlan(t *testing.T, h *sqlHarness, sql string, hooks ...goredis.Hook) (*executor, *selectPlan, wherePlan) {
+	_, e, plan, wp := distinctSnapshotTestPlan(t, h, sql, hooks...)
+	return e, plan, wp
+}
+
+func distinctSnapshotTestPlan(t *testing.T, h *sqlHarness, sql string, hooks ...goredis.Hook) (context.Context, *executor, *selectPlan, wherePlan) {
 	t.Helper()
 	st, ctx := h.frozenPlanStore(hooks...)
 	e := &executor{store: st, schema: defaultSchema, pushdown: PushdownExact, cache: newExecCache(), now: time.Now().UTC()}
@@ -41,7 +46,7 @@ func distinctTestPlan(t *testing.T, h *sqlHarness, sql string, hooks ...goredis.
 	if err != nil {
 		t.Fatal(err)
 	}
-	return e, plan, wp
+	return ctx, e, plan, wp
 }
 
 func TestSQLExactCountDistinct(t *testing.T) {

@@ -340,3 +340,8 @@ The [retained execution checkpoint](retained-execution-validation.md) keeps one
 statement pin through low-level execution and final definition validation.
 Thirty-one race events pass complete Arrow comparisons, temporary-source checks
 and resource/side-effect admission; full parity remains open.
+
+The [partitioned aggregate fixture checkpoint](partitioned-aggregate-fixtures-validation.md)
+restores pinned cap recovery, privately published sparse worker input and confirmed
+live-cursor cancellation. Twenty-three race events pass exact aggregate/top-K
+checks against an independent complete serial reference; full parity remains open.
