@@ -10,5 +10,6 @@ void redis_cuda_filter_free(redis_cuda_filter*);
 int redis_cuda_alloc(int device, void** out, size_t bytes, char*, size_t);
 int redis_cuda_copy(int device, void* dst, const void* src, size_t bytes, int to_device, char*, size_t);
 int redis_cuda_wait(int device, void* event, char*, size_t);
+int redis_cuda_event_ready(int device, void* event, char*, size_t);
 void redis_cuda_free(int device, void* pointer);
 #endif

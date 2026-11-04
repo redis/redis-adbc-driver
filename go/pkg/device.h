@@ -6,6 +6,7 @@
 #include <stddef.h>
 static inline void RedisReleaseCPUStream(struct ArrowArrayStream* stream) { if(stream->release)stream->release(stream); }
 static inline void RedisReleaseHostArray(struct ArrowArray* array) { if(array->release)array->release(array); }
+static inline void RedisReleaseBorrowedSchema(struct ArrowSchema* schema) { if(schema->release)schema->release(schema); }
 #ifndef ARROW_C_DEVICE_DATA_INTERFACE
 #define ARROW_C_DEVICE_DATA_INTERFACE
 typedef int32_t ArrowDeviceType;
@@ -46,6 +47,7 @@ ADBC_EXPORT AdbcStatusCode RedisStatementBindDevice(struct AdbcStatement*, struc
 
 // Internal: moves ownership of a CPU stream into the device stream on success.
 int RedisDeviceStreamInit(struct ArrowArrayStream*, int64_t, struct ArrowDeviceArrayStream*, char*, size_t);
+int RedisDeviceSchemaBorrow(const struct ArrowSchema*, struct ArrowSchema*, char*, size_t);
 #ifdef __cplusplus
 }
 #endif

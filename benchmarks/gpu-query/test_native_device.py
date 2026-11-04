@@ -4,6 +4,8 @@ import os
 import unittest
 import json
 import uuid
+import threading
+import time
 
 import pyarrow as pa
 
@@ -59,6 +61,7 @@ class Native:
             "RedisDatabaseSetOption": [hp, c.c_char_p, c.c_char_p, ep],
             "RedisConnectionNew": [hp, ep], "RedisConnectionInit": [hp, hp, ep],
             "RedisStatementNew": [hp, hp, ep], "RedisStatementSetSqlQuery": [hp, c.c_char_p, ep],
+            "RedisStatementCancel": [hp, ep],
             "RedisStatementSetOption": [hp, c.c_char_p, c.c_char_p, ep],
             "RedisStatementGetOption": [hp, c.c_char_p, c.c_void_p, c.POINTER(c.c_size_t), ep],
             "RedisStatementExecuteQuery": [hp, c.c_void_p, c.POINTER(c.c_int64), ep],
@@ -105,13 +108,15 @@ class Native:
         self.call("RedisConnectionRelease", c.byref(self.conn))
         self.call("RedisDatabaseRelease", c.byref(self.db))
 
-    def bind(self, target, device, schema):
+    def bind(self, target, device, schema, after_bind=None):
         statement = Handle()
         self.call("RedisStatementNew", c.byref(self.conn), c.byref(statement))
         try:
             self.option("adbc.ingest.target_table", target, statement)
             self.option("adbc.ingest.mode", "adbc.ingest.mode.create", statement)
             self.call("RedisStatementBindDevice", c.byref(statement), c.byref(device), c.byref(schema))
+            if after_bind is not None:
+                after_bind()
             affected = c.c_int64()
             self.call("RedisStatementExecuteQuery", c.byref(statement), None, c.byref(affected))
             return affected.value
@@ -266,9 +271,13 @@ class CPUDeviceBindTests(unittest.TestCase):
         array, schema = exported(batch)
         device = DeviceArray(array=array, device_id=-1, device_type=1)
         try:
-            self.assertEqual(native.bind(table, device, schema), 3)
-            self.assertTrue(array.release)
-            release(array)
+            def release_source_before_execute():
+                self.assertTrue(array.release)
+                self.assertTrue(schema.release)
+                release(array)
+                release(schema)
+
+            self.assertEqual(native.bind(table, device, schema, release_source_before_execute), 3)
             self.assertEqual(native.query(f'SELECT x FROM {table}').to_pylist(), batch.to_pylist())
         finally:
             release(array)
@@ -371,6 +380,61 @@ class NativeQueryTests(unittest.TestCase):
             n.call("RedisStatementRelease", c.byref(statement))
             release(schema)
             n.query(f'DROP TABLE IF EXISTS {target}')
+
+    def test_cancel_bind_while_waiting_for_external_device_event(self):
+        import cupy
+
+        n = self.native
+        statement = Handle()
+        n.call("RedisStatementNew", c.byref(n.conn), c.byref(statement))
+        schema = Schema()
+        pa.schema([("x", pa.int64())])._export_to_c(c.addressof(schema))
+        kernel = cupy.RawKernel('''extern "C" __global__ void delayed(long long* out, unsigned long long ticks) {
+            unsigned long long start = clock64();
+            while (clock64() - start < ticks) {}
+            out[0] = 41; out[1] = 42;
+        }''', "delayed")
+        kernel.compile()
+        stream = cupy.cuda.Stream(non_blocking=True)
+        with stream:
+            values = cupy.empty(2, dtype=cupy.int64)
+            kernel((1,), (1,), (values, cupy.uint64(1_000_000_000)))
+            event = cupy.cuda.Event()
+            event.record(stream)
+        event_handle = c.c_void_p(event.ptr)
+        buffers = (c.c_void_p * 2)(None, values.data.ptr)
+        root_buffers = (c.c_void_p * 1)(None)
+        child = Array(length=2, null_count=0, n_buffers=2, buffers=buffers)
+        children = (c.POINTER(Array) * 1)(c.pointer(child))
+        noop = c.CFUNCTYPE(None, c.POINTER(Array))(lambda pointer: None)
+        root = Array(length=2, null_count=0, n_buffers=1, n_children=1,
+                     buffers=root_buffers, children=children, release=c.cast(noop, c.c_void_p))
+        device = DeviceArray(array=root, device_id=0, device_type=2, sync_event=c.addressof(event_handle))
+        outcomes = []
+
+        def bind():
+            try:
+                n.call("RedisStatementBindDevice", c.byref(statement), c.byref(device), c.byref(schema))
+                outcomes.append("unexpected success")
+            except RuntimeError as error:
+                outcomes.append(str(error))
+
+        worker = threading.Thread(target=bind)
+        try:
+            worker.start()
+            time.sleep(0.02)
+            n.call("RedisStatementCancel", c.byref(statement))
+            worker.join(5)
+            self.assertFalse(worker.is_alive(), "device event wait ignored cancellation")
+            self.assertEqual(len(outcomes), 1)
+            self.assertIn("status 11", outcomes[0])
+            self.assertTrue(schema.release)
+            self.assertTrue(device.array.release)
+        finally:
+            event.synchronize()  # Cancellation does not terminate producer-owned work.
+            worker.join(5)
+            n.call("RedisStatementRelease", c.byref(statement))
+            release(schema)
 
 
 

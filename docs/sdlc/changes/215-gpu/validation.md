@@ -85,8 +85,14 @@ and TLS/RESP3/partition/release improvements were preserved.
   GPU cases remain explicit hardware-only checks.
 - Isolated local Redis Software, 3 shards, authenticated TLS/RESP3, active verified
   4× QPF was provisioned with current main's `make -C go redis-up`. Native CPU
-  C Device tests passed: four tests, five GPU-only skips. Native BindDevice
+  C Device tests passed: four tests, six GPU-only skips. Native BindDevice
   ingestion preserved NULLs and integers above 2^53 after the source was released.
+- A stronger regression releases both caller buffers and schema between
+  BindDevice and ExecuteQuery. It exposed Arrow Go's schema-consuming import;
+  temporary schema views now isolate that importer, and the regression passes
+  while leaving the caller descriptors untouched. Producer-event waits now poll
+  with the statement cancellation context; their real-GPU cancellation test is
+  provided separately.
 - Direct Arrow stream consumption reproduced a pre-existing C stream release
   contract failure: the release callback did not clear `stream.release`, causing
   Arrow's lifecycle assertion to abort. The callback now clears it; the same

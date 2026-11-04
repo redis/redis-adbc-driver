@@ -20,6 +20,7 @@ static struct {
   int (*free)(void*);
   int (*memcpy)(void*, const void*, size_t, int);
   int (*event_sync)(void*);
+  int (*event_query)(void*);
   const char* (*error_string)(int);
 } api;
 static pthread_once_t once = PTHREAD_ONCE_INIT;
@@ -37,7 +38,7 @@ static void initialize(void) {
 #define LOAD(field, name) do { *(void**)(&api.field) = dlsym(api.runtime, name); if (!api.field) return; } while (0)
   LOAD(set_device, "cudaSetDevice"); LOAD(get_device, "cudaGetDevice");
   LOAD(malloc, "cudaMalloc"); LOAD(free, "cudaFree"); LOAD(memcpy, "cudaMemcpy");
-  LOAD(event_sync, "cudaEventSynchronize"); LOAD(error_string, "cudaGetErrorString");
+  LOAD(event_sync, "cudaEventSynchronize"); LOAD(event_query, "cudaEventQuery"); LOAD(error_string, "cudaGetErrorString");
 #undef LOAD
 }
 static int report(char* error, size_t capacity, const char* message) {
@@ -88,6 +89,15 @@ int redis_cuda_wait(int device, void* event, char* error, size_t capacity) {
   int previous = 0, rc = enter(device, &previous, error, capacity);
   if (rc) return rc;
   if (event) rc = checked(api.event_sync(*(void**)event), error, capacity);
+  api.set_device(previous);
+  return rc;
+}
+int redis_cuda_event_ready(int device, void* event, char* error, size_t capacity) {
+  int previous=0,rc=enter(device,&previous,error,capacity);
+  if(rc)return rc;
+  int status=event?api.event_query(*(void**)event):0;
+  // cudaErrorNotReady is part of the stable CUDA runtime error ABI.
+  rc=status==34?EAGAIN:checked(status,error,capacity);
   api.set_device(previous);
   return rc;
 }
@@ -186,5 +196,6 @@ void redis_cuda_filter_free(redis_cuda_filter* f){}
 int redis_cuda_alloc(int d,void** o,size_t b,char* e,size_t n){*o=NULL;return unavailable(e,n);}
 int redis_cuda_copy(int d,void* o,const void* i,size_t b,int t,char* e,size_t n){return unavailable(e,n);}
 int redis_cuda_wait(int d,void* v,char* e,size_t n){return unavailable(e,n);}
+int redis_cuda_event_ready(int d,void* v,char* e,size_t n){return unavailable(e,n);}
 void redis_cuda_free(int d,void* p){}
 #endif

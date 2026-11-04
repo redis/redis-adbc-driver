@@ -51,6 +51,33 @@ static int schema_supported(const struct ArrowSchema* schema,int depth,char* err
   if(schema->n_children||!format_bits(schema->format))return failure(error,capacity,ENOTSUP,"unsupported C Device Arrow physical type");
   return 0;
 }
+// Arrow's Go importer consumes schemas recursively. These views own only their
+// wrapper structs, never the caller's strings, metadata or child schemas.
+static void release_schema_view(struct ArrowSchema* schema) {
+  if(!schema||!schema->release)return;
+  schema->release=NULL;
+  for(int64_t i=0;i<schema->n_children;++i)if(schema->children&&schema->children[i]){
+    release_schema_view(schema->children[i]);free(schema->children[i]);
+  }
+  free(schema->children);memset(schema,0,sizeof(*schema));
+}
+static int borrow_schema(const struct ArrowSchema* source,struct ArrowSchema* out) {
+  *out=*source;out->children=NULL;out->private_data=NULL;out->release=release_schema_view;
+  if(!source->n_children)return 0;
+  out->children=calloc((size_t)source->n_children,sizeof(struct ArrowSchema*));
+  if(!out->children){release_schema_view(out);return ENOMEM;}
+  for(int64_t i=0;i<source->n_children;++i){
+    out->children[i]=calloc(1,sizeof(struct ArrowSchema));
+    if(!out->children[i]||borrow_schema(source->children[i],out->children[i])){release_schema_view(out);return ENOMEM;}
+  }
+  return 0;
+}
+int RedisDeviceSchemaBorrow(const struct ArrowSchema* source,struct ArrowSchema* out,char* error,size_t capacity){
+  if(!out||out->release)return failure(error,capacity,EINVAL,"schema view must be zero initialized");
+  int rc=schema_supported(source,0,error,capacity);if(rc)return rc;
+  rc=borrow_schema(source,out);
+  return rc?failure(error,capacity,rc,"schema view allocation failed"):0;
+}
 static int clone_array(const struct ArrowArray* input,const struct ArrowSchema* schema,struct ArrowArray* out,int device,int direction,size_t* budget,char* error,size_t capacity) {
   int structure=!strcmp(schema->format,"+s");
   if(!input||input->length<0||input->offset<0||input->length>INT64_MAX-input->offset||input->null_count < -1||input->null_count>input->length||input->dictionary||input->n_children!=schema->n_children||input->n_buffers!=(structure?1:2)||!input->buffers||(!input->children&&input->n_children))

@@ -98,6 +98,12 @@ CPU descriptors must not supply CUDA events. Device IDs are validated before
 CUDA access. Metal and other device types return unsupported errors before any
 attempt to read their data buffers.
 
+BindDevice polls producer readiness with its statement cancellation context;
+cancellation interrupts that wait without consuming the producer's descriptors.
+It does not cancel producer-owned GPU work. The producer remains responsible
+for completing that work before freeing its own buffers/event. Standalone copy
+helpers have no statement context and synchronously wait for producer readiness.
+
 Export copies host buffers to owned CUDA allocations on the requested device.
 Copies complete synchronously, so output `sync_event` is NULL. A returned batch
 owns its buffers independently of the source CPU batch and the device stream;

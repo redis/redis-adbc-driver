@@ -15,6 +15,7 @@ import "C"
 
 import (
 	"fmt"
+	"time"
 	"unsafe"
 
 	"github.com/apache/arrow-adbc/go/adbc"
@@ -40,21 +41,32 @@ func RedisStatementExecuteDevice(stmt *C.struct_AdbcStatement, device C.int64_t,
 			code = poison(err, "RedisStatementExecuteDevice", e)
 		}
 	}()
-	if checkStmtInit(stmt, err, "RedisStatementExecuteDevice") == nil {
+	st := checkStmtInit(stmt, err, "RedisStatementExecuteDevice")
+	if st == nil {
 		return C.ADBC_STATUS_INVALID_STATE
 	}
 	if out == nil || out.release != nil || device < 0 || device > 65535 {
 		return C.AdbcStatusCode(errToAdbcErr(err, adbc.Error{Code: adbc.StatusInvalidArgument, Msg: "device output must be zero initialized; CUDA device ID must be 0 through 65535"}))
 	}
 	var message [256]C.char
+	ctx := st.executionContext.NewContext()
+	defer st.executionContext.FinishContext(ctx)
 	if rc := C.redis_cuda_probe(C.int(device), &message[0], 256); rc != 0 {
 		return C.AdbcStatusCode(errToAdbcErr(err, deviceError(&message[0], rc)))
 	}
-	var cpu C.struct_ArrowArrayStream
-	code = RedisStatementExecuteQuery(stmt, &cpu, affected, err)
-	if code != C.ADBC_STATUS_OK {
-		return code
+	if ctx.Err() != nil {
+		return C.AdbcStatusCode(errToAdbcErr(err, adbc.Error{Code: adbc.StatusCancelled, Msg: "device execution cancelled during CUDA initialization"}))
 	}
+	var cpu C.struct_ArrowArrayStream
+	reader, n, e := st.stmt.ExecuteQuery(ctx)
+	if e != nil {
+		return C.AdbcStatusCode(errToAdbcErr(err, e))
+	}
+	defer reader.Release()
+	if affected != nil {
+		*affected = C.int64_t(n)
+	}
+	exportRecordReader(reader, &cpu)
 	if rc := C.RedisDeviceStreamInit(&cpu, device, out, &message[0], 256); rc != 0 {
 		// The CPU stream still owns its reader on initialization failure.
 		C.RedisReleaseCPUStream(&cpu)
@@ -79,11 +91,49 @@ func RedisStatementBindDevice(stmt *C.struct_AdbcStatement, input *C.struct_Arro
 	}
 	var host C.struct_ArrowArray
 	var message [256]C.char
-	if rc := C.RedisDeviceArrayToHost(input, schema, &host, &message[0], 256); rc != 0 {
+	var view C.struct_ArrowSchema
+	if rc := C.RedisDeviceSchemaBorrow(schema, &view, &message[0], 256); rc != 0 {
+		return C.AdbcStatusCode(errToAdbcErr(err, deviceError(&message[0], rc)))
+	}
+	defer C.RedisReleaseBorrowedSchema(&view)
+	ctx := st.executionContext.NewContext()
+	defer st.executionContext.FinishContext(ctx)
+	borrowed := *input
+	if borrowed.device_type == C.ARROW_DEVICE_CUDA && borrowed.sync_event != nil {
+		if borrowed.device_id < 0 || borrowed.device_id > 65535 {
+			return C.AdbcStatusCode(errToAdbcErr(err, adbc.Error{Code: adbc.StatusInvalidArgument, Msg: "invalid CUDA device ID"}))
+		}
+		ticker := time.NewTicker(time.Millisecond)
+		defer ticker.Stop()
+		for {
+			if ctx.Err() != nil {
+				return C.AdbcStatusCode(errToAdbcErr(err, adbc.Error{Code: adbc.StatusCancelled, Msg: "device bind cancelled while synchronizing producer event"}))
+			}
+			rc := C.redis_cuda_event_ready(C.int(borrowed.device_id), borrowed.sync_event, &message[0], 256)
+			if rc == 0 {
+				break
+			}
+			if rc != C.EAGAIN {
+				return C.AdbcStatusCode(errToAdbcErr(err, deviceError(&message[0], rc)))
+			}
+			select {
+			case <-ctx.Done():
+			case <-ticker.C:
+			}
+		}
+		borrowed.sync_event = nil
+	}
+	if ctx.Err() != nil {
+		return C.AdbcStatusCode(errToAdbcErr(err, adbc.Error{Code: adbc.StatusCancelled, Msg: "device bind cancelled"}))
+	}
+	if rc := C.RedisDeviceArrayToHost(&borrowed, &view, &host, &message[0], 256); rc != 0 {
 		return C.AdbcStatusCode(errToAdbcErr(err, deviceError(&message[0], rc)))
 	}
 	defer C.RedisReleaseHostArray(&host)
-	field, e := cdata.ImportCArrowField((*cdata.CArrowSchema)(unsafe.Pointer(schema)))
+	if ctx.Err() != nil {
+		return C.AdbcStatusCode(errToAdbcErr(err, adbc.Error{Code: adbc.StatusCancelled, Msg: "device bind cancelled during staging"}))
+	}
+	field, e := cdata.ImportCArrowField((*cdata.CArrowSchema)(unsafe.Pointer(&view)))
 	if e != nil {
 		return C.AdbcStatusCode(errToAdbcErr(err, e))
 	}
@@ -96,5 +146,5 @@ func RedisStatementBindDevice(stmt *C.struct_AdbcStatement, input *C.struct_Arro
 		return C.AdbcStatusCode(errToAdbcErr(err, e))
 	}
 	defer record.Release()
-	return C.AdbcStatusCode(errToAdbcErr(err, st.stmt.Bind(st.NewContext(), record)))
+	return C.AdbcStatusCode(errToAdbcErr(err, st.stmt.Bind(ctx, record)))
 }
