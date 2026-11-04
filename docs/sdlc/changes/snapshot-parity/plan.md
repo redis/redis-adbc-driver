@@ -377,3 +377,8 @@ processes at acknowledged private-copy and committed-root boundaries. Three
 50,000-row recovery cases plus their parent pass under the race detector, with
 exact retained values/types, output non-reuse and reader-protected reclamation.
 Natural lease-duration, full ordinary/platform and performance gates remain open.
+
+The [native rekey takeover checkpoint](rekey-takeover-validation.md) restores
+concurrent private-output collectors, earlier-incarnation name reuse, typed expiry/
+serialization diagnostics and DROP recovery. Four race families pass without test
+skips. Full ordinary/platform and performance gates remain open.
