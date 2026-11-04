@@ -54,3 +54,8 @@ protocol or ACL changes. Author review is not independent maintainer approval.
 Full ordinary/platform, current-protocol Cluster recovery, restricted-reader,
 public input/process resumption, sustained compaction and comparative performance
 remain open.
+
+The subsequent 129-name ordinary continuation passed the temporary-option family,
+then stopped at an unpinned temporary-table metadata inspection (root 1.446 s).
+See the [temporary lifecycle checkpoint](temp-lifecycle-validation.md); this is
+separate continuation evidence, not a full ordinary-suite pass.

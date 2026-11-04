@@ -430,3 +430,9 @@ facts privately, preserves conservative exact queries, and validates fresh facts
 through public passthrough ALTER while old readers remain immutable. Two race
 families pass, including a competing-writer 40001 refusal and reclamation. Full
 ordinary/platform and performance gates remain open.
+
+The [temporary lifecycle checkpoint](temp-lifecycle-validation.md) restores pinned
+catalog inspection and native storage assertions for temporary tables, isolation,
+views, schema removal, Close and expired-owner sweep. Seven race families pass
+without test skips/failures. Full ordinary/platform and performance gates remain
+open.
