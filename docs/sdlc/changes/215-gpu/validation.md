@@ -2,8 +2,9 @@
 
 Date: 2026-11-03 (America/Los_Angeles). Driver baseline:
 `95d6583d2b07bdfdadc6ddf3b6368bf631139c24`; experiment scripts are this change.
-Status: CPU/CUDA checks and Redis Software comparison passed; no driver GPU
-backend recommended from these measurements.
+The original consumer-prototype investigation passed CPU/CUDA checks and the
+Redis Software comparison. The subsequently requested native CUDA/C Device
+implementation is under validation; its separate evidence is below.
 
 ## Actual checks
 
@@ -49,7 +50,8 @@ runtime, C ABI, default dependency or existing execution path was modified.
 The fixture loader creates only a new table in a local disposable database and
 checks fetched value multiplicities. SQL data and connection credentials are
 excluded from benchmark reports; exception details are suppressed by the runner.
-Native GPU cancellation, spilling and C Device lifecycle remain unimplemented.
+That review covered the original prototype. Native implementation review and
+validation are tracked separately below; general GPU spilling remains out of scope.
 This self-review is not maintainer approval.
 
 ## Limits and operational cleanup
@@ -61,3 +63,37 @@ Temporary cloud resources and operational identifiers are tracked privately;
 the EC2 instance is confirmed terminated. The temporary SSH key registration,
 security group, SSM IAM role/profile and local private key were removed. The
 auto-delete root disk was observed in AWS's `deleting` state after termination.
+
+## Native implementation on current main
+
+Base: `6d7ac409d8c9f11163b4f4cec63e2d4da00e69f2`, after transplanting this task's
+changes without the older checkout's unrelated history. Current main dependency
+and TLS/RESP3/partition/release improvements were preserved.
+
+- Current-main unit-only suite passed with Go 1.27.3: 887 test/subtest passes,
+  zero failures and 597 test/subtest skips. The new CUDA shape/option, NULL/order,
+  cancellation and fail-closed tests passed.
+- Full ordinary Software suite passed on the isolated verified 4×-QPF fixture:
+  1,716 test/subtest passes, 40 explicit capability/profile skips, zero failures.
+  These are CPU execution checks; they do not substitute for CUDA validation.
+- CPU-only CLI built with `CGO_ENABLED=0`. macOS shared driver built. The Linux
+  CUDA and C Device C sources compiled with `-Wall -Wextra -Werror` in a local
+  disposable Linux container.
+- Isolated local Redis Software, 3 shards, authenticated TLS/RESP3, active verified
+  4× QPF was provisioned with current main's `make -C go redis-up`. Native CPU
+  C Device tests passed: four tests, five GPU-only skips. Native BindDevice
+  ingestion preserved NULLs and integers above 2^53 after the source was released.
+- Direct Arrow stream consumption reproduced a pre-existing C stream release
+  contract failure: the release callback did not clear `stream.release`, causing
+  Arrow's lifecycle assertion to abort. The callback now clears it; the same
+  native binding test passes without bypassing Arrow's assertion.
+- Real-GPU tests for this native implementation are **not yet run**. A new L4
+  EC2 fixture was launched, but an external IAM-user TerminateInstances API call
+  ended it before SSM delivered the build/test commands. The user has been asked
+  to coordinate the competing EC2 cleanup. Earlier cuDF prototype tests do not
+  substitute for native CUDA validation.
+
+The new API/SQL subset and ownership rules are documented in
+[gpu-execution.md](../../../gpu-execution.md). The PR must remain draft until
+the native GPU producer/consumer, CUDA SQL and early-release tests run on real
+hardware. No native query speedup is claimed.

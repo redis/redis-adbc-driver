@@ -42,3 +42,19 @@ submodule sources and CMake are unavailable; the embedded Go C-archive path was
 built directly. No runtime test was performed on a physical macOS 15 host.
 No SIMD flags were enabled; no query speedup is claimed from this upgrade.
 This self-review is not maintainer approval.
+
+## Current-main transplant
+
+The PR is based on `6d7ac40`, rather than merging the older checkout's divergent
+history. Current main's newer module dependency versions and release workflows
+are retained. The final Go directive moves from 1.26.10 to 1.27.3; the four
+archive hashes remain the verified Go 1.27.3 values.
+
+On this base, the unit suite passed with 887 test/subtest passes and 597 skips.
+The full ordinary Redis Software suite subsequently passed with 1,716
+test/subtest passes, 40 skips and zero failures on the isolated verified 4×-QPF
+fixture (3 shards, authenticated TLS/RESP3).
+The current native installer/publication paths were also updated to macOS 15,
+including extracted release-wheel verification and installer OS detection.
+Four wheel-library tests, seven distribution tests and seventeen installer tests
+passed. Original validation above remains dated evidence for the initial checkout.

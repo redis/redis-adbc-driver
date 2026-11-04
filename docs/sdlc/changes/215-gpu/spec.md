@@ -15,7 +15,15 @@ mode reads an existing stable table, fully fetches both scan and direct SQL,
 and clearly labels modeled pipeline costs. Synthetic trials cannot establish
 Redis query speedup. CUDA failures cannot silently run on CPU.
 
-Native device output is deferred: the pinned ADBC C boundary has no device
-entry points, and arrow-go's async device handler accepts CPU producers only.
-A native GPU executor requires SQL exactness, admission/cost selection,
-cancellation, bounded memory and lifecycle work beyond this experiment.
+The expanded native contract is in [gpu-execution.md](../../../gpu-execution.md).
+CUDA evaluates one integer column/literal comparison in bounded batches; CPU
+fetching, grouping and exact aggregation remain. Explicit CUDA failures cannot
+silently substitute CPU execution. Restricted query shapes return unsupported
+errors. The ordinary CPU path retains existing pushdown/stream behavior.
+
+Add standalone host/device staging, native BindDevice and ExecuteDevice stream
+extensions without changing standard ADBC slots. Accept flat numeric/boolean
+CPU/CUDA arrays with explicit device IDs, event synchronization and independent
+output ownership. Reject unsupported device/types and invalid sizes before data
+access. Cancellation is observed around bounded CUDA batches. Test real CUDA
+producer/consumer lifetime, NULLs, integer boundaries and early stream release.

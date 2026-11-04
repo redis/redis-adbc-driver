@@ -4214,6 +4214,12 @@ These are client compatibility values; the driver remains autocommit-only.
 
 ## Options
 
+Experimental CUDA execution is selected per statement with
+`adbc.redis.execution_backend=cuda` and `adbc.redis.cuda_device` (default 0).
+`adbc.redis.gpu_metrics` reports actual kernel launches/input rows. CPU remains
+the default. See [the supported SQL subset and C Device API](gpu-execution.md)
+before opting in; unsupported CUDA operations return errors without fallback.
+
 | Option | Level | Meaning |
 |-|-|-|
 | `adbc.redis.stream_required` | statement | `false` (default) permits existing materializing fallback. `true` requires an unordered incremental managed-table/key-source SELECT or UNION ALL, rejecting blocking plans and fallback before execution. See [policy and limits](arrow-interoperability.md#streaming-inventory). |
@@ -4767,7 +4773,7 @@ with dbapi.connect("redis://localhost:6379/0") as conn:
 
 Connections default to `autocommit=True`; transactions remain unsupported.
 Use `adbc-driver-redis[dagster]` for the Dagster IO manager. Wheels support
-Linux x86-64/ARM64 (glibc 2.28 or later) and macOS ARM64 (12 or later).
+Linux x86-64/ARM64 (glibc 2.28 or later) and macOS ARM64 (15 or later).
 Release wheels are also attached to GitHub releases. Source checkout installation, Polars URI
 loading, TLS aliases, option enums and driver discovery are covered in
 [Python integrations](../docs/python-integrations.md).

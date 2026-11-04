@@ -17,7 +17,9 @@ find_package(Threads REQUIRED)
 file(GLOB_RECURSE REDIS_GO_SOURCES CONFIGURE_DEPENDS
      "${CMAKE_CURRENT_SOURCE_DIR}/go/*.go"
      "${CMAKE_CURRENT_SOURCE_DIR}/go/pkg/*.c"
-     "${CMAKE_CURRENT_SOURCE_DIR}/go/pkg/*.h")
+     "${CMAKE_CURRENT_SOURCE_DIR}/go/pkg/*.h"
+     "${CMAKE_CURRENT_SOURCE_DIR}/go/internal/cuda/*.c"
+     "${CMAKE_CURRENT_SOURCE_DIR}/go/internal/cuda/*.h")
 set(REDIS_GO_ARCHIVE "${CMAKE_CURRENT_BINARY_DIR}/libredis_adbc_driver.a")
 add_custom_command(
   OUTPUT "${REDIS_GO_ARCHIVE}"

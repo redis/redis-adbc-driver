@@ -22,7 +22,7 @@ class PublicationTests(unittest.TestCase):
                                        downloads=self.root / 'downloads', dist=self.root / 'dist')
         self.args.downloads.mkdir()
         assets = []
-        for target in ('manylinux_2_28_x86_64', 'manylinux_2_28_aarch64', 'macosx_12_0_arm64'):
+        for target in ('manylinux_2_28_x86_64', 'manylinux_2_28_aarch64', 'macosx_15_0_arm64'):
             name = f'adbc_driver_redis-1.2.3-py3-none-{target}.whl'
             native = bytearray(64)
             if target.startswith('manylinux'):

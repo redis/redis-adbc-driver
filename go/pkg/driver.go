@@ -423,6 +423,7 @@ func RedisArrayStreamRelease(stream *C.struct_ArrowArrayStream) {
 	}
 	h := handleFromPtr(stream.private_data)
 	stream.private_data = nil
+	stream.release = nil
 
 	cStream := h.Value().(*cArrayStream)
 	h.Delete()

@@ -1,8 +1,10 @@
 # GPU query feasibility and Arrow device interoperability
 
 Issue: [redis/redis-adbc-driver#215](https://github.com/redis/redis-adbc-driver/issues/215).
-Source review: `95d6583`, 2026-11-03. Status: experimental investigation;
-the shipping driver still executes on CPU and exports host-memory Arrow arrays.
+Source review: `95d6583`, 2026-11-03. This is the historical investigation and
+consumer-prototype assessment at that revision. Subsequent native CUDA predicate
+execution and C Device extensions are described in [the implementation guide](gpu-execution.md).
+Statements below about absent native support refer to the investigated baseline.
 
 ## Interoperability decision
 
