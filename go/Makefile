@@ -29,6 +29,7 @@ SSL_CERT_FILE ?= $(CURDIR)/build/test-tls/ca.pem
 endif
 export REDIS_URI SSL_CERT_FILE
 LIB := build/libadbc_driver_redis.$(EXT)
+CUDA_SOURCES := $(wildcard internal/cuda/*.go internal/cuda/*.c internal/cuda/*.h)
 ADBC_CLI := build/redis-adbc
 LDFLAGS := -s -w -X github.com/adbc-drivers/driverbase-go/driverbase.infoDriverVersion=$(VERSION)
 
@@ -36,7 +37,7 @@ LDFLAGS := -s -w -X github.com/adbc-drivers/driverbase-go/driverbase.infoDriverV
 
 build: $(LIB)
 
-$(LIB): $(wildcard *.go internal/tlstrust/*.go) $(wildcard pkg/*.go) $(wildcard pkg/*.c) $(wildcard pkg/*.h) go.mod go.sum
+$(LIB): $(wildcard *.go internal/tlstrust/*.go) $(wildcard pkg/*.go) $(wildcard pkg/*.c) $(wildcard pkg/*.h) $(CUDA_SOURCES) go.mod go.sum
 	mkdir -p build
 	CGO_ENABLED=1 go build -buildmode=c-shared -tags driverlib -ldflags "$(LDFLAGS)" -o $@ ./pkg
 
@@ -45,7 +46,7 @@ $(LIB): $(wildcard *.go internal/tlstrust/*.go) $(wildcard pkg/*.go) $(wildcard 
 # It links the driver as a Go library, so it needs no cgo.
 adbc-cli: $(ADBC_CLI)
 
-$(ADBC_CLI): $(wildcard *.go internal/tlstrust/*.go) $(wildcard cmd/redis-adbc/*.go) go.mod go.sum
+$(ADBC_CLI): $(wildcard *.go internal/tlstrust/*.go) $(wildcard cmd/redis-adbc/*.go) $(CUDA_SOURCES) go.mod go.sum
 	mkdir -p build
 	CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o $@ ./cmd/redis-adbc
 

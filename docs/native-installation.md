@@ -47,7 +47,7 @@ The installer rejects prerelease tags, checksum mismatches, unsafe tar members,
 unsupported targets and libraries that cannot load/export `AdbcDriverInit`.
 
 Supported published targets are Linux x86-64/ARM64 with glibc 2.28+ and macOS
-ARM64 with macOS 12+. Windows, macOS Intel and musl Linux are unsupported by
+ARM64 with macOS 15+. Windows, macOS Intel and musl Linux are unsupported by
 this installer. Native archives and checksums must exist for the selected tag.
 
 No elevated privileges are requested. Default locations:

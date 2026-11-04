@@ -19,7 +19,7 @@ def verify(args):
     release = json.loads(args.release.read_text())
     assert release['tagName'] == tag and not release['isDraft'] and not release['isPrerelease']
     version = tag[1:]
-    platforms = {'manylinux_2_28_x86_64', 'manylinux_2_28_aarch64', 'macosx_12_0_arm64'}
+    platforms = {'manylinux_2_28_x86_64', 'manylinux_2_28_aarch64', 'macosx_15_0_arm64'}
     expected = {f'adbc_driver_redis-{version}-py3-none-{p}.whl' for p in platforms}
     root = args.downloads
     assert {p.name for p in root.glob('*.whl')} == expected, 'Missing or unexpected wheel'

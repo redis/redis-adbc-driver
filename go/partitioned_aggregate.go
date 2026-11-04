@@ -682,6 +682,9 @@ func addWeightedInteger(a *accumulator, v Value, n int64) {
 }
 
 func (e *executor) partitionedAggregate(ctx context.Context, plan *selectPlan, wp wherePlan, aggs []*Func, params []Value, force bool) (groups []aggGroup, handled bool, resultErr error) {
+	if e.gpu != nil {
+		return nil, false, nil
+	}
 	if len(plan.meta.PendingCleanup) > 0 {
 		return nil, false, nil
 	}

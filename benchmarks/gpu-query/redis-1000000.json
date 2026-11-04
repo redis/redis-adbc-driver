@@ -1,0 +1,87 @@
+{
+  "experiment": "host_staged_filter_groupby_int64",
+  "format_version": 1,
+  "source": "redis",
+  "platform": "Linux-7.0.0-1014-aws-x86_64-with-glibc2.39",
+  "versions": {
+    "pyarrow": "26.0.1",
+    "cudf": "26.10.02",
+    "cupy": "14.2.0",
+    "adbc_driver_manager": "1.13.0"
+  },
+  "device": {
+    "name": "NVIDIA L4",
+    "memory_bytes": 23661248512,
+    "cuda_runtime": 12090,
+    "cuda_driver": 13020
+  },
+  "warmups": 1,
+  "trials": [
+    {
+      "trial": 0,
+      "rows": 1000000,
+      "arrow_bytes": 16250000,
+      "result_groups": 1001,
+      "scan_fetch_seconds": 9.711201533999997,
+      "driver_sql_seconds": 7.423641910000015,
+      "backends": {
+        "cpu": {
+          "host_to_host_seconds": 0.012377136999930372,
+          "estimated_scan_plus_backend_seconds": 9.723578670999927
+        },
+        "cuda": {
+          "upload_seconds": 0.005577682999955869,
+          "compute_seconds": 0.005981281999993371,
+          "download_seconds": 0.0008389719999968293,
+          "host_to_host_seconds": 0.012397936999946069,
+          "estimated_scan_plus_backend_seconds": 9.723599470999943
+        }
+      },
+      "validated": true
+    },
+    {
+      "trial": 1,
+      "rows": 1000000,
+      "arrow_bytes": 16250000,
+      "result_groups": 1001,
+      "scan_fetch_seconds": 9.700148504000026,
+      "driver_sql_seconds": 7.371370494999951,
+      "backends": {
+        "cuda": {
+          "upload_seconds": 0.005761326999959238,
+          "compute_seconds": 0.005935912000040844,
+          "download_seconds": 0.0008228509999526068,
+          "host_to_host_seconds": 0.012520089999952688,
+          "estimated_scan_plus_backend_seconds": 9.712668593999979
+        },
+        "cpu": {
+          "host_to_host_seconds": 0.012530270000070232,
+          "estimated_scan_plus_backend_seconds": 9.712678774000096
+        }
+      },
+      "validated": true
+    },
+    {
+      "trial": 2,
+      "rows": 1000000,
+      "arrow_bytes": 16250000,
+      "result_groups": 1001,
+      "scan_fetch_seconds": 9.64264653500004,
+      "driver_sql_seconds": 7.400472108000031,
+      "backends": {
+        "cpu": {
+          "host_to_host_seconds": 0.012020906999964609,
+          "estimated_scan_plus_backend_seconds": 9.654667442000004
+        },
+        "cuda": {
+          "upload_seconds": 0.005519380999999157,
+          "compute_seconds": 0.005882121000013285,
+          "download_seconds": 0.0009406740000486025,
+          "host_to_host_seconds": 0.012342176000061045,
+          "estimated_scan_plus_backend_seconds": 9.654988711000101
+        }
+      },
+      "validated": true
+    }
+  ]
+}

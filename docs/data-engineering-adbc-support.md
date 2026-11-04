@@ -221,7 +221,7 @@ The [Python integration guide](python-integrations.md) documents the published
 [`adbc-driver-redis`](https://pypi.org/project/adbc-driver-redis/) package,
 DB-API connection setup, TLS alias, and native driver manifests. Wheels bundle
 the driver for Python 3.12+ (3.14 recommended for current source) on Linux amd64/arm64 (glibc 2.28+) and macOS arm64
-(macOS 12+). Non-Python driver consumers still need a manifest or library path.
+(macOS 15+). Non-Python driver consumers still need a manifest or library path.
 Redis with Search must run separately; see [server requirements](driver-reference.md#server-requirements).
 Writes autocommit, and the driver does not provide transaction rollback or isolation.
 

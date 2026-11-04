@@ -24,7 +24,7 @@ def check_wheel(path):
     if target in ("manylinux_2_28_x86_64", "manylinux_2_28_aarch64"):
         machine = 62 if target.endswith("x86_64") else 183
         valid = library[:6] == b"\x7fELF\x02\x01" and struct.unpack_from("<H", library, 18)[0] == machine
-    elif target == "macosx_12_0_arm64":
+    elif target == "macosx_15_0_arm64":
         valid = library[:4] == b"\xcf\xfa\xed\xfe" and struct.unpack_from("<I", library, 4)[0] == 0x0100000C
     else:
         raise ValueError("Unsupported release wheel platform")

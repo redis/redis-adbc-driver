@@ -50,6 +50,7 @@ on:
       - benchmarks/qpf/**
       - benchmarks/workers/**
       - benchmarks/worker-autotune/**
+      - benchmarks/gpu-query/**
       - '!**/*.md'
       # These Markdown files contain executable integration examples.
       - docs/integrations/**
@@ -112,6 +113,9 @@ jobs:
 
       - name: Check performance benchmark syntax
         run: python3 -m py_compile benchmarks/qpf/*.py benchmarks/workers/*.py
+
+      - name: Check GPU experiment CPU correctness gates
+        run: uv run --no-project --with pyarrow python -m unittest discover -s benchmarks/gpu-query -p test_run.py -v
 
       - name: Check Redis Software 4x QPF fixture gate
         run: |
@@ -259,6 +263,11 @@ jobs:
       - name: Owned TLS fixture management fault checks
         if: matrix.integrations
         run: go/validation/.venv/bin/python -m unittest discover -s scripts -p 'test_*partition_tls.py' -v
+
+      - name: Native C Device CPU ownership and binding
+        env:
+          REDIS_ADBC_LIBRARY: ${{ github.workspace }}/go/build/libadbc_driver_redis.so
+        run: env -u GPU_TEST go/validation/.venv/bin/python -m unittest discover -s benchmarks/gpu-query -p test_native_device.py -v
 
       - name: Upload validation results (including feature skips)
         if: always()

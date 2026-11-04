@@ -28,6 +28,10 @@ import (
 
 // executor runs parsed statements against a store.
 type executor struct {
+	gpuRequested       bool
+	cudaDevice         int
+	gpuMetrics         *gpuMetrics
+	gpu                *cudaPredicate
 	dmlSnapshots       map[string]*tableMeta
 	dmlRunning         map[*CTE]bool
 	identityOverride   string
