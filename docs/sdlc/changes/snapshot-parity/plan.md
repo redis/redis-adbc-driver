@@ -142,3 +142,14 @@ produced and consumed after acknowledged output. This is groundwork for large
 operation progress, not a process-resume interface. The measured 10,000-row
 refresh median regressed by 4.9%; import throughput and durable operation/input
 resume remain open.
+
+The [remaining import resume design](import-resume-design.md) specifies the
+durable plan/input-complete transition, independent job references, exclusive
+takeover lease, metadata/index restoration and explicit client continuation still
+required. Atomic output/capture consumption is a prerequisite; no public resume
+API or process-recovery claim follows from the private journal alone.
+
+The [atomic import output checkpoint](import-output-validation.md) links each
+registered output batch, capture consumption and durable outcome in one script.
+Incomplete runtime outcomes fail closed. This removes an ambiguous continuation
+boundary while the durable job/lease/plan work above remains required.

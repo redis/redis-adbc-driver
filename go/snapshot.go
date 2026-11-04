@@ -275,6 +275,7 @@ elseif op == 'seal' then
   if not raw or not owns_pin() then return 0 end
   local w=cjson.decode(raw)
   if (w.state~='staging' and w.state~='sealed') or w.token~=token or w.expires<=now then return 0 end
+  if w.import_pending then return redis.error_reply('incomplete import batch cannot publish') end
   if (w.metadata_builds or 0)>0 then return redis.error_reply('snapshot metadata construction is incomplete') end
   w.state='sealed';redis.call('HSET',k,'w:'..id,cjson.encode(w));return 1
 elseif op == 'publish' or op == 'publish_compaction' or op == 'publish_temp' then
@@ -283,6 +284,7 @@ elseif op == 'publish' or op == 'publish_compaction' or op == 'publish_temp' the
   local w = cjson.decode(raw)
   if w.state == 'committed' then return 1 end
   if (w.state ~= 'staging' and w.state ~= 'sealed') or w.token ~= token or w.expires <= now or not owns_pin() then return -1 end
+  if w.import_pending then return redis.error_reply('incomplete import batch cannot publish') end
   if (w.metadata_builds or 0)>0 then return redis.error_reply('snapshot metadata construction is incomplete') end
   local queueupdates=cjson.decode(ARGV[7])
   for _,update in ipairs(queueupdates) do

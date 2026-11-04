@@ -64,9 +64,12 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.26.10)
   never modify their external sources. Capture imports into reference-owned
   private metadata before emitting destination HASHes, so overlapping application
   indexes cannot capture newly produced rows. Preserve first-observed source-key
-  deduplication, binary keys and exact native values. Consume journal input only
-  after acknowledged bounded output; uncertain journal mutations abort without
-  replay. Journal pages do not imply process/input resume. Live partition sets retain a shared producer generation; retained
+  deduplication, binary keys and exact native values. Commit output images,
+  capture consumption and the row-batch outcome in one script; preflight journal
+  permissions/ownership before mutation. An incomplete import marker blocks
+  further row batches and publication. Uncertain capture mutations abort without
+  replay; uncertain output replies resolve the durable outcome. Journal pages
+  do not imply process/input resume. Live partition sets retain a shared producer generation; retained
   production resolves segmented visibility under one coordinator pin.
   Preserve their server-side writer fences, reader pins and reclamation protocol.
   Cluster API node clients need snapshot hooks, including newly discovered nodes.

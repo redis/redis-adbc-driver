@@ -29,7 +29,13 @@ func snapshotInsertBatchRowKeys(cmd goredis.Cmder) []any {
 	if n < 4 || len(a) < 3+n {
 		return nil
 	}
-	return a[6 : 3+n]
+	var rows []any
+	for _, key := range a[6 : 3+n] {
+		if snapshotRowPrefix(fmt.Sprint(key)) != "" {
+			rows = append(rows, key)
+		}
+	}
+	return rows
 }
 
 type snapshotLargeInput struct {

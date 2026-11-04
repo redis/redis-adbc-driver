@@ -59,13 +59,21 @@ def main():
             replacement = "replace-preflight-" + uuid.uuid4().hex + "@example.com"
             principals.create(replacement, secrets.token_urlsafe(32), [
                 "+ping", "+eval", "+hget", "+zscore", "+hset", "+zadd", "+type", "+time", "~*"])
+            import_uris = {}
+            for denied in ("hdel", "zrem"):
+                person = "import-preflight-" + uuid.uuid4().hex + "@example.com"
+                commands = ["ping", "eval", "hget", "hexists", "zscore", "hset", "zadd", "hdel", "zrem", "type", "time"]
+                principals.create(person, secrets.token_urlsafe(32),
+                                  ["+" + command for command in commands if command != denied] + ["~*"])
+                import_uris["REDIS_SNAPSHOT_IMPORT_" + denied.upper() + "_ACL_URI"] = principals.people[person]["uri"]
             env = dict(os.environ, REDIS_SNAPSHOT_URI=uri,
                        REDIS_SNAPSHOT_GC_ACL_URI=principals.people[name]["uri"],
                        REDIS_SNAPSHOT_WRITE_ACL_URI=principals.people[name]["uri"],
                        REDIS_SNAPSHOT_REPLACE_ACL_URI=principals.people[replacement]["uri"])
+            env.update(import_uris)
             env.pop("REDIS_URI", None)
             subprocess.run(["go", "test", "-race", "-count=1", "-v", "-run",
-                            "^TestSnapshot(GCBatch|InsertBatch|ReplaceBatch)PermissionPreflight$", "."],
+                            "^TestSnapshot(GCBatch|InsertBatch|ReplaceBatch|ImportBatch)PermissionPreflight$", "."],
                            cwd=Path(__file__).resolve().parents[1] / "go", env=env, check=True)
         finally:
             principals.cleanup()

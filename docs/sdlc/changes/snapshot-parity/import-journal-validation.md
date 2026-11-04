@@ -2,6 +2,9 @@
 
 Date: 2026-11-03. Parent source a9a5a78. Storage protocol remains 14;
 no migration. [Full parity](plan.md) remains incomplete.
+The later [atomic output checkpoint](import-output-validation.md) supersedes
+the separately fenced output-consumption behavior described below; these tests
+and timings remain historical evidence for f275963.
 
 ## Reproduction and implementation
 

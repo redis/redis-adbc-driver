@@ -15,6 +15,8 @@ import (
 const snapshotImportPage = 128
 
 type snapshotImportSpoolKey struct{}
+type snapshotImportOutputKey struct{}
+type snapshotImportOutput struct{ rows, keys string }
 type snapshotImportSpool struct {
 	store      *store
 	meta       *tableMeta
@@ -280,16 +282,17 @@ func (p *snapshotImportSpool) applyPage(ctx context.Context, keys []string) erro
 	for i, key := range keys {
 		allocation.sourceKeys[i] = stringValue(key)
 	}
+	physicalRows, err := resolveSnapshotMetadata(ctx, p.rows[len(metaPrefix):], false)
+	if err != nil {
+		return err
+	}
+	physicalKeys, err := resolveSnapshotMetadata(ctx, p.keys[len(metaPrefix):], false)
+	if err != nil {
+		return err
+	}
+	ctx = context.WithValue(ctx, snapshotImportOutputKey{}, &snapshotImportOutput{rows: physicalRows, keys: physicalKeys})
 	if _, err := p.store.writeRows(ctx, p.meta, allocation, rows); err != nil {
 		return err
 	}
-	// Consume captured input only after the private output is acknowledged.
-	args := make([]any, len(keys))
-	for i, key := range keys {
-		args[i] = key
-	}
-	if err := p.mutate(ctx, "hdel", p.rows, args...); err != nil {
-		return err
-	}
-	return p.mutate(ctx, "zrem", p.keys, args...)
+	return nil
 }

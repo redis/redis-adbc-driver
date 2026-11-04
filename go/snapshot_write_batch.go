@@ -23,8 +23,11 @@ const snapshotWriteBatchLua = snapshotRowLayoutLua + `
 -- snapshot insert row batch
 local catalog,graph,directory=KEYS[1],KEYS[2],KEYS[3]
 local workspace,token,data,operation,mode=ARGV[1],ARGV[2],ARGV[3],ARGV[4],ARGV[5]
+local importing=mode=='import'
+local lastrow=#KEYS
+if importing then lastrow=#KEYS-3;mode='insert' end
 if catalog~='` + snapshotCatalogKey + `' or graph~='` + snapshotMetadataGraph + `' or
- directory~='` + snapshotPrefix + `members:'..data or #KEYS<4 or #KEYS>259 or
+ directory~='` + snapshotPrefix + `members:'..data or lastrow<4 or lastrow>259 or
  #operation~=32 or string.find(operation,'[^0-9a-f]') or (mode~='insert' and mode~='replace') then
  return redis.error_reply('invalid snapshot insert batch')
 end
@@ -43,16 +46,29 @@ if d.owner~=workspace or d.state~='live' or not valid_data_prefix(d.prefix,data)
  return redis.error_reply('shared snapshot data is immutable')
 end
 if w.row_batch and w.row_batch.id==operation then return w.row_batch.rows end
+if w.import_pending then return redis.error_reply('incomplete import batch cannot resume') end
+local journal,inputs,metakeys
+if importing then
+ journal,inputs,metakeys=KEYS[lastrow+1],KEYS[lastrow+2],KEYS[lastrow+3]
+ local private='` + snapshotPrefix + `workspace:'..workspace..':'
+ if journal~=private..'import:rows:'..workspace or inputs~=private..'import:keys:'..workspace or metakeys~=private..'__keys' or
+    (w.metadata_builds or 0)>0 or redis.call('TYPE',journal).ok~='hash' or redis.call('TYPE',inputs).ok~='zset' or
+    redis.call('TYPE',metakeys).ok~='zset' or
+    tonumber(redis.call('HGET',graph,'v:'..journal) or '0')<=0 or tonumber(redis.call('HGET',graph,'v:'..inputs) or '0')<=0 or
+    redis.call('HGET',graph,'e:'..journal)~='1' or redis.call('HGET',graph,'e:'..inputs)~='1' then
+  return redis.error_reply('invalid import batch journal')
+ end
+end
 local dirtype=redis.call('TYPE',directory).ok
 if dirtype~='none' and dirtype~='zset' then return redis.error_reply('invalid snapshot row directory type') end
-local rows,members,seen={},{},{}
+local rows,members,seen,sources,source_seen={},{},{},{},{}
 local offset,bytes=6,0
 for _,key in ipairs(KEYS) do bytes=bytes+#key end
 for _,value in ipairs(ARGV) do bytes=bytes+#value end
-if bytes>67108864 or (#KEYS>4 and bytes>1048576) then
+if bytes>67108864 or (lastrow>4 and bytes>1048576) then
  return redis.error_reply('snapshot insert batch byte limit exceeded')
 end
-for i=4,#KEYS do
+for i=4,lastrow do
  local member,count=ARGV[offset],tonumber(ARGV[offset+1])
  if not member or #member~=20 or not string.match(member,'^%d+$') or
     member=='00000000000000000000' or member>'09223372036854775807' or seen[member] or
@@ -74,6 +90,16 @@ for i=4,#KEYS do
  end
  local fields={}
  for n=1,count do fields[n]=ARGV[offset+1+n] end
+ if importing then
+  local source
+  for n=1,count,2 do
+   if fields[n]=='` + snapshotSourceKeyField + `' then source=fields[n+1] end
+  end
+  if not source or source_seen[source] or redis.call('HEXISTS',journal,source)~=1 or redis.call('ZSCORE',inputs,source)~='0' then
+   return redis.error_reply('import batch input is unavailable')
+  end
+  source_seen[source]=true;sources[#sources+1]=source
+ end
  if fields[1]~='` + rowIDField + `' or fields[2]~=suffix then return redis.error_reply('invalid snapshot insert row ID') end
  if not redis.acl_check_cmd('HSET',KEYS[i],unpack(fields)) then
   return redis.error_reply('NOPERM snapshot insert batch requires HSET')
@@ -94,12 +120,30 @@ if not redis.acl_check_cmd('ZADD',directory,unpack(registration)) or
    not redis.acl_check_cmd('HSET',catalog,'w:'..workspace,outcome) then
  return redis.error_reply('NOPERM snapshot insert batch requires ZADD and control HSET')
 end
+if importing then
+ if not redis.acl_check_cmd('HDEL',journal,unpack(sources)) or not redis.acl_check_cmd('ZREM',inputs,unpack(sources)) or
+    not redis.acl_check_cmd('HSET',graph,'e:'..journal,0,'e:'..inputs,0) or
+    not redis.acl_check_cmd('ZREM',metakeys,journal,inputs) then
+  return redis.error_reply('NOPERM import batch requires journal consumption')
+ end
+ -- If an unexpected runtime failure interrupts mutation, retain an explicit
+ -- incomplete marker. A future owner must fail closed rather than duplicate
+ -- private images whose captured inputs may still be present.
+ w.row_batch=nil;w.import_pending=operation
+ redis.call('HSET',catalog,'w:'..workspace,cjson.encode(w))
+end
 -- Register first: even an unexpected later runtime failure leaves every possible
 -- row image discoverable by ownership-aware cleanup; it cannot publish.
 redis.call('ZADD',directory,unpack(registration))
 for i,fields in ipairs(rows) do
  if mode=='replace' then redis.call('DEL',KEYS[i+3]) end
  redis.call('HSET',KEYS[i+3],unpack(fields))
+end
+if importing then
+ redis.call('HDEL',journal,unpack(sources));redis.call('ZREM',inputs,unpack(sources))
+ local present=redis.call('EXISTS',journal)
+ redis.call('HSET',graph,'e:'..journal,present,'e:'..inputs,present)
+ if present==0 then redis.call('ZREM',metakeys,journal,inputs) end
 end
 redis.call('HSET',catalog,'w:'..workspace,outcome)
 return #rows
@@ -130,11 +174,23 @@ func (s *store) snapshotRowBatch(ctx context.Context, prefix string, rows []snap
 		return errorf(adbc.StatusInvalidState, "snapshot insert prefix is not owned")
 	}
 	operation := snapshotID()
-	args := []any{"EVAL", snapshotWriteBatchLua, len(rows) + 3, snapshotCatalogKey, snapshotMetadataGraph, snapshotMembers(data)}
+	journal, _ := ctx.Value(snapshotImportOutputKey{}).(*snapshotImportOutput)
+	keyCount := len(rows) + 3
+	if journal != nil {
+		keyCount += 3
+	}
+	args := []any{"EVAL", snapshotWriteBatchLua, keyCount, snapshotCatalogKey, snapshotMetadataGraph, snapshotMembers(data)}
 	for _, row := range rows {
 		args = append(args, row.key)
 	}
 	mode := "insert"
+	if journal != nil {
+		if replace {
+			return errorf(adbc.StatusInvalidState, "import output cannot replace existing row images")
+		}
+		args = append(args, journal.rows, journal.keys, snapshotMetadataKeys(scope.id))
+		mode = "import"
+	}
 	if replace {
 		mode = "replace"
 	}

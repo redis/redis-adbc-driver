@@ -1,0 +1,152 @@
+{
+  "foreign_refresh": {
+    "baseline": {
+      "source": "f275963",
+      "driver_sha256": "c4bf1677b5ca659e2bc1621d42003ae471bb310d7d707697300b23bddcd98268",
+      "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+      "machine": "arm64",
+      "redis_version": "8.6.2",
+      "software_shards": 3,
+      "qpf": 4,
+      "noeviction": true,
+      "input_rows": 10000,
+      "visible_rows": 10000,
+      "initial_segments": 1,
+      "unrelated_tables": 0,
+      "wide_columns": null,
+      "repeats": 3,
+      "warmups": 1,
+      "timing": "write through atomic publication; complete independent post-write validation excluded",
+      "cases": {
+        "foreign_refresh": {
+          "median_ms": 4492.822333006188,
+          "samples_ms": [
+            4535.806500003673,
+            4492.822333006188,
+            4272.799458994996
+          ],
+          "output_rows": 10000
+        }
+      }
+    },
+    "atomic_output": {
+      "source": "f275963+atomic-import-output",
+      "driver_sha256": "2b981eddbba8315e5c63582c462b1f767d209be5fd888f2417e294e0ec8860d6",
+      "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+      "machine": "arm64",
+      "redis_version": "8.6.2",
+      "software_shards": 3,
+      "qpf": 4,
+      "noeviction": true,
+      "input_rows": 10000,
+      "visible_rows": 10000,
+      "initial_segments": 1,
+      "unrelated_tables": 0,
+      "wide_columns": null,
+      "repeats": 3,
+      "warmups": 1,
+      "timing": "write through atomic publication; complete independent post-write validation excluded",
+      "cases": {
+        "foreign_refresh": {
+          "median_ms": 4122.756417025812,
+          "samples_ms": [
+            4120.460459002061,
+            4122.756417025812,
+            4176.1699589842465
+          ],
+          "output_rows": 10000
+        }
+      }
+    }
+  },
+  "small_writes": {
+    "baseline": {
+      "source": "f275963",
+      "driver_sha256": "c4bf1677b5ca659e2bc1621d42003ae471bb310d7d707697300b23bddcd98268",
+      "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+      "machine": "arm64",
+      "redis_version": "8.6.2",
+      "software_shards": 3,
+      "qpf": 4,
+      "noeviction": true,
+      "input_rows": 1,
+      "visible_rows": 5,
+      "initial_segments": 2,
+      "unrelated_tables": 32,
+      "wide_columns": null,
+      "repeats": 3,
+      "warmups": 1,
+      "timing": "write/publication + complete RETURNING fetch; independent post-write validation excluded",
+      "cases": {
+        "metadata_comment": {
+          "median_ms": 15.574042015941814,
+          "samples_ms": [
+            18.124749971320853,
+            15.574042015941814,
+            14.117374987108633
+          ]
+        },
+        "point_update": {
+          "median_ms": 40.58533298666589,
+          "samples_ms": [
+            36.65766699123196,
+            40.58533298666589,
+            52.010374987730756
+          ]
+        },
+        "arrow_append": {
+          "median_ms": 34.4939170172438,
+          "samples_ms": [
+            34.4939170172438,
+            49.724459007848054,
+            34.14133400656283
+          ]
+        }
+      }
+    },
+    "atomic_output": {
+      "source": "f275963+atomic-import-output",
+      "driver_sha256": "2b981eddbba8315e5c63582c462b1f767d209be5fd888f2417e294e0ec8860d6",
+      "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+      "machine": "arm64",
+      "redis_version": "8.6.2",
+      "software_shards": 3,
+      "qpf": 4,
+      "noeviction": true,
+      "input_rows": 1,
+      "visible_rows": 5,
+      "initial_segments": 2,
+      "unrelated_tables": 32,
+      "wide_columns": null,
+      "repeats": 3,
+      "warmups": 1,
+      "timing": "write/publication + complete RETURNING fetch; independent post-write validation excluded",
+      "cases": {
+        "metadata_comment": {
+          "median_ms": 13.90191598329693,
+          "samples_ms": [
+            13.90191598329693,
+            13.365874998271465,
+            14.12008301122114
+          ]
+        },
+        "point_update": {
+          "median_ms": 30.190249992301688,
+          "samples_ms": [
+            35.183041007258,
+            28.109915991080925,
+            30.190249992301688
+          ]
+        },
+        "arrow_append": {
+          "median_ms": 37.44029198423959,
+          "samples_ms": [
+            37.44029198423959,
+            49.193167011253536,
+            34.2896250076592
+          ]
+        }
+      }
+    }
+  }
+}

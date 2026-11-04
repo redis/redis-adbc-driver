@@ -106,6 +106,15 @@ retain their existing compatibility behavior, including no-op ROLLBACK.
   application writers. Pause source writes during refresh if a point-in-time
   source image is required. Once published, the private managed copy has normal
   atomic statement snapshots; later application writes appear only after refresh.
+- Managed imports capture source rows in private, reference-owned metadata before
+  producing destination HASHes. Source-key deduplication uses that journal rather
+  than an operation-sized Apply map; native encoding retains exact values and raw
+  key bytes. Bounded output batches atomically write row images, consume their
+  captured inputs and record the durable outcome. A lost output reply is resolved
+  without resending rows. There is no whole-import 100,000-row foreign capture or
+  200,000-candidate HASH Apply ceiling. Adoption planning, source-page allocations,
+  single-row limits and statement timeouts still constrain large copies. There is
+  no public import resume handle or process-crash resume contract.
 - InspectHashes is available alongside snapshot catalogs. SweepReleased previews
   registered zero-reference row generations without connection-side reclamation.
   Preview reports currently eligible HASHes; `metadata_pending` / `more` indicate
@@ -250,7 +259,7 @@ Discovery considers at most 16 due candidates per pass. It starts at four segmen
 64 merged row IDs, targeting 1 MiB of write data per batch. One oversized row may
 exceed that target under the normal 64 MiB hard staging limit. Source fetches
 remain bounded by row count, rather than the soft write-byte target. The complete
-job is not subject to the SQL statement's 100,000-row or 15-minute total limit.
+job is not subject to the unbatched utility quota or 15-minute statement limit.
 Normal writes allocate deltas and never perform compaction row copies.
 
 A table still has a hard eight-segment bound. Writable managed connections wait
@@ -304,7 +313,8 @@ read instead of exposing an older replacement or a partial successful result.
 | 256 row images / 1 MiB target per atomic write batch | INSERT/UPDATE/DELETE, Arrow ingestion and ALTER/rekey stage complete images or tombstones plus exact directory registration; a single wide row may exceed the target up to 64 MiB of command arguments |
 | 4,096 converted Arrow rows per slice | Bounds the driver's additional row conversion; the caller's original Arrow record remains retained while consumed |
 | 64 MiB staged command data per unbatched write | Conservative count for metadata and remaining unbatched utility paths; managed row batches and compaction enforce separate per-batch limits; not a Redis memory estimate |
-| 100,000 unbatched row HSET operations per write | Remains on unbatched helper/utility mutations; bounded SQL/Arrow row images and background copy jobs are not subject to this cumulative limit. Imports retain their independent capture quotas |
+| 100,000 unbatched row HSET operations per write | Remains on unbatched helper/utility mutations; bounded SQL/Arrow/import row images and background copy jobs are not subject to this cumulative limit |
+| 128 captured rows / 1 MiB target per import apply group | Payload lengths are inspected before fetching; a single payload may exceed the target within the 64 MiB ceiling. Source capture/decode is page-bounded, not a whole-process memory guarantee |
 | 15 minutes per statement/ingest | Includes complete streamed consumption |
 | Two-minute lease, renewed every 30 seconds | Ownership loss fails the operation; expired pins cannot be resurrected |
 
@@ -319,11 +329,16 @@ Replacement batches can clear only registered HASHes in the writer's private
 generation; published/shared sources and unregistered objects cannot be replaced.
 Complete replacement removes omitted NULL fields, preserves imported provenance
 and tracks tombstones before final index publication.
+Import batches preflight capture membership, private journal ownership and
+HDEL/ZREM permissions before any output mutation. An explicit incomplete-batch
+marker left by an unexpected runtime failure blocks further row batches, sealing
+and publication; the private work is abortable and reclaimable.
 
 Redis also needs memory for retained generations, indexes and server overhead.
 Concurrent publication returns SQLSTATE `40001` to the losing writer. Retry the
 whole statement with fresh input; SQL, volatile expressions and Arrow streams
-are never automatically replayed. Writes to unrelated tables also conflict.
+are never automatically replayed. Writes sharing catalog collections or metadata
+dependencies can still conflict even when their target tables differ.
 
 Lost publication replies are resolved from stored operation outcomes. An
 indeterminate outcome returns an error containing the operation ID and advising
