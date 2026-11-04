@@ -52,8 +52,8 @@ for package creation and the pending registry submission.
 
 The implementation builds on [driverbase-go](https://github.com/adbc-drivers/driverbase-go)
 and is validated with the [ADBC driver validation suite](https://github.com/adbc-drivers/validation).
-Substrait plans are currently unsupported; see the
-[Substrait assessment](docs/substrait.md) for the proposed scope. Contributor
+Binary Substrait 0.108.0 plans support a bounded read/filter/project subset; see
+[the supported subset and limits](docs/substrait.md). Contributor
 context and development records are in the [SDLC guide](docs/sdlc/README.md).
 
 Experimental [CUDA predicates and Arrow C Device staging](docs/gpu-execution.md)
@@ -167,7 +167,7 @@ has separate open issues. Restrictions stay in the behavior column.
 | ADBC partitioned reads | 🟢 Supported | Portable row-range descriptors cover a restricted SELECT subset; retained-result mode supports broader SQL with quotas/expiry. No shared source snapshot. Rebuild from source; see [partitioned reads](docs/partitioned-reads.md). | [#211](https://github.com/redis/redis-adbc-driver/issues/211) |
 | Statement cancellation | 🟢 Supported | Cancels driver work and interrupts execution-owned socket waits, including blocked cursor pages/pipelines. Remote server work may continue; sorts finish before checking cancellation. See [cancellation](docs/driver-reference.md#cancelling-a-statement). | [#212](https://github.com/redis/redis-adbc-driver/issues/212) |
 | Transactions and rollback through ADBC | 🔴 Unsupported | Autocommit only; disabling autocommit is rejected. | [#113](https://github.com/redis/redis-adbc-driver/issues/113) |
-| Substrait plans | 🔴 Unsupported | `SetSubstraitPlan` returns NotImplemented. | [#213](https://github.com/redis/redis-adbc-driver/issues/213) |
+| Substrait plans | 🟡 Bounded subset | Binary Substrait 0.108.0 read/filter/project support; [subset and limits](docs/substrait.md). | [#213](https://github.com/redis/redis-adbc-driver/issues/213) |
 | Arrow Flight / Flight SQL endpoint | ⚪ N/A | A Flight endpoint belongs to a separately deployed service, such as the [Redis Flight server](https://github.com/redis/redis-apache-arrow-flight). This native ADBC driver supplies an in-process client interface. | [#214](https://github.com/redis/redis-adbc-driver/issues/214) |
 | Continuous subscriptions / CDC | ⚪ N/A | Durable change feeds and snapshot-to-live handoff need a separately designed source/service contract. Finite SQL query results are the driver's current interface; [#196](https://github.com/redis/redis-adbc-driver/issues/196) evaluates where CDC should live. | [#196](https://github.com/redis/redis-adbc-driver/issues/196) |
 | Arrow C Device interface | 🟡 Experimental | Native extensions stage flat numeric/boolean CPU/CUDA arrays, bind device input and export device result streams. Explicit synchronization/ownership contract; Validated on NVIDIA A10G with real producer/consumer tests. [API and limits](docs/gpu-execution.md). | [#293](https://github.com/redis/redis-adbc-driver/issues/293), [#294](https://github.com/redis/redis-adbc-driver/issues/294), [#295](https://github.com/redis/redis-adbc-driver/issues/295) |
