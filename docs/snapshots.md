@@ -62,10 +62,15 @@ retain their existing compatibility behavior, including no-op ROLLBACK.
   creation/removal. All Arrow ingest modes publish their complete input once.
 - Table schema discovery, parameter/schema planning and SQL catalog reads use
   pinned generations.
-- ALTER TABLE uses the existing SQL conversion/constraint rules and stages a
-  private replacement segment before atomic publication. Earlier readers keep
-  their old schema and values. DDL rewrites remain subject to statement budgets;
-  ordinary DML continues to append deltas without copying existing rows.
+- ALTER TABLE uses the existing SQL conversion/constraint rules. Definition-only
+  changes that need no conversion, field/index changes or row validation share
+  the existing immutable segments and indexes (for example eligible VARCHAR
+  widening, SET DEFAULT or DROP NOT NULL). They stage private metadata and use
+  the same sealed publication/CAS as other writes. Other ALTERs stage a private
+  replacement segment; explicit rekeying still allocates new physical data.
+  Earlier readers keep their old schema and values. DDL rewrites remain subject
+  to statement budgets; ordinary DML continues to append deltas without copying
+  existing rows.
 - Temporary tables/views belong to their connection and shadow unqualified names.
   Their metadata and references survive other connections' publications. Close
   and abandoned-session sweep publish removal, preserving pinned storage.

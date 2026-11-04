@@ -57,9 +57,11 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.26.10)
   Import source indexes serve capture only. Apply private index policy after
   native conversion, independently of source attributes/encodings and source
   membership; keep IndexColumns working with explicit source indexes.
-  ALTER stages private
-  replacement layouts with fresh indexes containing current fields and the
-  deletion marker. A late index-create failure leaves only reclaimable private
+  ALTER stages private metadata through the guarded descriptor pipeline.
+  Definition-only changes share rows/indexes only when no conversion, field or
+  index change, or row/constraint revalidation is required. Explicit rekeying
+  still allocates a fresh layout. Other ALTERs stage replacement layouts with
+  fresh indexes containing current fields and the deletion marker. A late index-create failure leaves only reclaimable private
   output. Constraint/schema races validate their pinned input and return 40001
   after a dependency changes; never silently revalidate or replay SQL. Regression
   fixtures stage private work and intervening publications rather than mutate

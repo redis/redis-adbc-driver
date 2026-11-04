@@ -180,3 +180,10 @@ without weakening rejection/atomicity assertions. Nine race cases pass, includin
 actual private-index creation followed by a lost reply, orphan cleanup, exact
 concurrent outcomes, pinned-source preservation and seven deterministic stale
 constraint/write conflicts. Broader parity remains open.
+
+The [definition-only ALTER checkpoint](alter-metadata-validation.md) removes row
+copies and index builds for eligible definition changes through the existing
+private descriptor/publication protocol. Conversion and validation retain their
+rewrite path; pinned schema, dependency conflicts and exact command counts are
+checked. Ordinary conversion fixtures retain their physical no-rewrite assertions.
+Broader lifecycle/platform and sustained performance parity remain open.

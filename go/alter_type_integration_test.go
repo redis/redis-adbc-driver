@@ -115,12 +115,13 @@ func (h *sqlHarness) expectTypes(table string, want ...string) {
 // attrTypes lists a table's index attributes as "attribute TYPE", in order.
 func (h *sqlHarness) attrTypes(raw goredis.UniversalClient, table string) string {
 	h.t.Helper()
-	st := &store{client: raw}
-	meta, err := st.getTable(h.ctx, defaultSchema, table)
+	st, ctx, pin := h.inspectionSnapshot(raw)
+	defer pin.release()
+	meta, err := st.getTable(ctx, defaultSchema, table)
 	if err != nil {
 		h.t.Fatal(err)
 	}
-	reply, err := st.searchDo(h.ctx, meta.index(), "FT.INFO", meta.index()).Result()
+	reply, err := st.searchDo(ctx, meta.index(), "FT.INFO", meta.index()).Result()
 	if err != nil {
 		h.t.Fatal(err)
 	}
@@ -143,19 +144,35 @@ func (h *sqlHarness) lastNames(raw goredis.UniversalClient, table string) tableN
 }
 
 // expectRolledBack checks that a failed ALTER left a table as it was: its
-// metadata (meta, as stored before), and nothing of the rewrite: the names
-// it took are free again, with no keys or index, and no job is left.
+// metadata (meta, as stored before), and consistent row ownership after
+// bounded reclamation of its private rewrite.
 func (h *sqlHarness) expectRolledBack(raw goredis.UniversalClient, table, meta string) {
 	h.t.Helper()
 	if got := h.rawMeta(raw, defaultSchema, table); got != meta {
 		h.t.Errorf("%s: metadata changed\n got: %s\nwant: %s", table, got, meta)
 	}
-	prefix, _ := h.tableNames(raw, defaultSchema, table)
-	if h.rekeyPending(raw, prefix) {
-		h.t.Errorf("%s: a rewrite is still recorded", table)
+	// Aborted private generations retire through the snapshot reference graph;
+	// the old mutable rename/name registries do not own these objects.
+	st := &store{client: raw, snapshots: true}
+	snapshotReapTest(st, h.ctx)
+	assertSnapshotDataReferences(h.t, h, st)
+	graph, err := raw.HGetAll(h.ctx, snapshotMetadataGraph).Result()
+	if err != nil {
+		h.t.Fatal(err)
 	}
-	if nm := h.lastNames(raw, table); nm.prefix != prefix {
-		h.expectReleased(raw, nm.prefix, nm.index)
+	for field, count := range graph {
+		if strings.HasPrefix(field, "r:") && count == "0" {
+			h.t.Error("unreferenced rewrite output survived cleanup")
+		}
+	}
+	indexes, err := raw.Do(h.ctx, "FT._LIST").StringSlice()
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	for _, index := range indexes {
+		if data := snapshotDataID(index); data != "" && graph["d:"+data] == "" {
+			h.t.Error("rewrite index survived without registered ownership")
+		}
 	}
 }
 
@@ -352,8 +369,8 @@ func TestSQLAlterTypeMulti(t *testing.T) {
 	if f := h.rowFields(raw, defaultSchema, "it_atm"); len(f) != 4 || f["id"] != 2 || f["c"] != 2 || f["n"] != 2 {
 		t.Errorf("row fields: %v (the dropped columns' fields should be gone)", f)
 	}
-	if ok, err := raw.SIsMember(h.ctx, cleanupKey, cleanupMember(defaultSchema, "it_atm")).Result(); err != nil || ok {
-		t.Errorf("a cleanup is still pending (%v)", err)
+	if meta := h.inspectTable(raw, defaultSchema, "it_atm"); len(meta.PendingCleanup) != 0 {
+		t.Errorf("replacement retained pending cleanup: %v", meta.PendingCleanup)
 	}
 
 	before := h.rawMeta(raw, defaultSchema, "it_atm")
@@ -450,93 +467,75 @@ func whileRewriting(t *testing.T, fn func(ctx context.Context)) {
 	}
 }
 
-// Other statements while the rows are rewritten: writes are refused, a
-// write by a statement that read the table before is lost and fails, and
-// statements that use the old keys after the switch fail. Another change
-// of the table meanwhile, and a DROP TABLE, make the ALTER fail and roll
-// back.
+// Private rewrites do not block a concurrent writer or invalidate an old
+// reader. Changed source/schema dependencies conflict at publication instead;
+// stale writes cannot enter the replacement generation and no SQL is replayed.
 func TestSQLAlterTypeConcurrent(t *testing.T) {
 	h := newSQLHarness(t)
 	h.dropTables("it_atx")
+	h.exec("CREATE TABLE it_atx(id INTEGER,c TEXT)")
+	h.exec("INSERT INTO it_atx VALUES(1,'1'),(2,'2')")
 	raw := h.rawClient()
-	other := newSQLHarness(t)
-	st := &store{client: raw}
-	h.exec(`CREATE TABLE it_atx (id int, c text)`)
-	h.exec(`INSERT INTO it_atx VALUES (1, '1'), (2, '2')`)
-	stale, err := st.getTable(h.ctx, defaultSchema, "it_atx")
+	st, oldCtx, oldPin := h.inspectionSnapshot(raw)
+	defer oldPin.release()
+	old, err := st.getTable(oldCtx, defaultSchema, "it_atx")
 	if err != nil {
 		t.Fatal(err)
 	}
-	oldPrefix, oldIndex := stale.prefix(), stale.index()
-	row := func(id int64, c string) [][]Value { return [][]Value{{intValue(typeInt32, id), stringValue(c)}} }
-	var refused, lost error
-	whileRewriting(t, func(context.Context) {
-		_, refused = tryExec(other.ctx, other.conn, `INSERT INTO it_atx VALUES (3, '3')`)
-		// It read the metadata before the rewrite began, and writes more
-		// than rekeyFence later, after the copy began.
-		stale.readAt = time.Now().Add(-time.Second)
-		_, lost = st.insertRows(h.ctx, stale, row(4, "4"))
-	})
-	h.exec(`ALTER TABLE it_atx ALTER COLUMN c TYPE int USING c::int`)
-	if !isStatus(refused, adbc.StatusIO) || !strings.Contains(refused.Error(),
-		`table "public"."it_atx" is being altered: ALTER COLUMN … TYPE is rewriting its rows to new keys; try again when that has finished`) {
-		t.Errorf("insert while the rows are rewritten: %v", refused)
-	}
-	if !isStatus(lost, adbc.StatusIO) || !strings.Contains(lost.Error(), srWriteErr) {
-		t.Errorf("insert with metadata read before: %v", lost)
-	}
-	h.expectRows(`SELECT id, c FROM it_atx ORDER BY id`, "1|1", "2|2")
-	h.expectReleased(raw, oldPrefix, oldIndex)
-
-	// A read that began before the switch and ended after it fails (the
-	// statement checks when it ends), and so does a write with the old keys.
-	stale, err = st.getTable(h.ctx, defaultSchema, "it_atx")
-	if err != nil {
-		t.Fatal(err)
-	}
-	h.exec(`ALTER TABLE it_atx ALTER COLUMN c TYPE bigint USING c + 10`)
-	stale.readAt = time.Now().Add(-time.Second)
-	if err := st.checkReads(h.ctx, []*tableMeta{stale}); err == nil || !strings.Contains(err.Error(),
-		"was renamed with its rows moved to new keys, rewritten by ALTER COLUMN … TYPE, truncated or dropped, while this statement was reading it") {
-		t.Errorf("read across the switch: %v", err)
-	}
-	if _, err := st.insertRows(h.ctx, stale, row(5, "5")); !isStatus(err, adbc.StatusIO) || !strings.Contains(err.Error(), srWriteErr) {
-		t.Errorf("insert with the old keys: %v", err)
-	}
-	h.expectRows(`SELECT id, c FROM it_atx ORDER BY id`, "1|11", "2|12")
-
-	// Another change of the metadata while the rows are copied (an ALTER
-	// that had begun before): the switch fails, and the ALTER is rolled
-	// back. The other change stays.
-	whileRewriting(t, func(context.Context) {
-		if err := st.updateTable(h.ctx, defaultSchema, "it_atx", func(m *tableMeta) error {
-			m.Comment = "meanwhile"
-			return nil
-		}, nil); err != nil {
-			t.Error(err)
+	conflict := func(ctx context.Context, pin *snapshotPin, work string) {
+		t.Helper()
+		err := st.publishSnapshot(ctx, pin, work)
+		var ae adbc.Error
+		if !errors.As(err, &ae) || string(ae.SqlState[:]) != "40001" {
+			t.Fatalf("stale rewrite/write did not conflict: %v", err)
 		}
-	})
-	h.expectQueryError(`ALTER TABLE it_atx ALTER COLUMN c TYPE text`, adbc.StatusIO,
-		`table "public"."it_atx" was changed while ALTER COLUMN … TYPE rewrote its rows; try again`)
-	meta, err := st.getTable(h.ctx, defaultSchema, "it_atx")
+		st.abortSnapshot(pin, work)
+		pin.release()
+	}
+	staleCtx, stalePin, staleWork := snapshotStageSQL(t, st, h.ctx, "it_atx", "INSERT INTO it_atx VALUES(4,'4')")
+	ctx, pin, work := snapshotStageSQL(t, st, h.ctx, "", "ALTER TABLE it_atx ALTER COLUMN c TYPE INTEGER USING c::INTEGER")
+	h.exec("INSERT INTO it_atx VALUES(3,'3')")
+	conflict(ctx, pin, work)
+	conflict(staleCtx, stalePin, staleWork)
+	h.expectTypes("it_atx", "id INTEGER", "c VARCHAR")
+	h.expectRows("SELECT id,c FROM it_atx ORDER BY id", "1|1", "2|2", "3|3")
+	h.exec("ALTER TABLE it_atx ALTER COLUMN c TYPE INTEGER USING c::INTEGER")
+
+	staleCtx, stalePin, staleWork = snapshotStageSQL(t, st, h.ctx, "it_atx", "INSERT INTO it_atx VALUES(5,5)")
+	h.exec("ALTER TABLE it_atx ALTER COLUMN c TYPE BIGINT USING c+10")
+	conflict(staleCtx, stalePin, staleWork)
+	h.expectRows("SELECT id,c FROM it_atx ORDER BY id", "1|11", "2|12", "3|13")
+	// Reads retain the original values and type across both successful rewrites.
+	rows, err := st.fetchSnapshotVisible(oldCtx, old, []string{old.prefix() + "1", old.prefix() + "2"}, nil)
+	if err != nil || len(rows) != 2 || rows[0]["c"] != "1" || rows[1]["c"] != "2" || old.Columns[1].Type.Kind != KindString {
+		t.Fatalf("rewrites invalidated pinned source: %v %v", rows, err)
+	}
+
+	ctx, pin, work = snapshotStageSQL(t, st, h.ctx, "", "ALTER TABLE it_atx ALTER COLUMN c TYPE TEXT")
+	h.exec("COMMENT ON TABLE it_atx IS 'meanwhile'")
+	conflict(ctx, pin, work)
+	meta := h.inspectTable(raw, defaultSchema, "it_atx")
+	if meta.Comment != "meanwhile" || meta.RekeyTo != "" || meta.Rewriting || meta.Columns[1].Type != typeInt64 {
+		t.Fatalf("failed rewrite lost intervening metadata: %+v", meta)
+	}
+	h.exec("INSERT INTO it_atx VALUES(6,16)")
+
+	ctx, pin, work = snapshotStageSQL(t, st, h.ctx, "", "ALTER TABLE it_atx ALTER COLUMN c TYPE TEXT")
+	private, err := st.getTable(ctx, defaultSchema, "it_atx")
 	if err != nil {
 		t.Fatal(err)
 	}
-	h.expectRolledBack(raw, "it_atx", h.rawMeta(raw, defaultSchema, "it_atx"))
-	if meta.Comment != "meanwhile" || meta.RekeyTo != "" || meta.Rewriting || meta.Columns[1].Type != typeInt64 {
-		t.Errorf("metadata after the failed ALTER: %+v", meta)
+	h.exec("DROP TABLE it_atx")
+	conflict(ctx, pin, work)
+	h.expectError("SELECT * FROM it_atx", "does not exist")
+	h.expectSnapshotReleased(raw, private.prefix(), private.index())
+	rows, err = st.fetchSnapshotVisible(oldCtx, old, []string{old.prefix() + "1", old.prefix() + "2"}, nil)
+	if err != nil || len(rows) != 2 || rows[0]["c"] != "1" || rows[1]["c"] != "2" {
+		t.Fatal("DROP invalidated pinned pre-rewrite source", err)
 	}
-	h.exec(`INSERT INTO it_atx VALUES (6, 16)`)
-
-	// DROP TABLE isn't refused: the ALTER fails, and nothing of the
-	// rewrite is left.
-	whileRewriting(t, func(context.Context) { other.exec(`DROP TABLE it_atx`) })
-	h.expectQueryError(`ALTER TABLE it_atx ALTER COLUMN c TYPE text`, adbc.StatusNotFound, `table "public"."it_atx" does not exist`)
-	nm := h.lastNames(raw, "it_atx")
-	h.expectReleased(raw, nm.prefix, nm.index)
-	if h.rekeyPending(raw, meta.prefix()) {
-		t.Error("the rewrite is still recorded")
-	}
+	oldPin.release()
+	h.expectSnapshotReleased(raw, old.prefix(), old.index())
+	assertSnapshotDataReferences(t, h, st)
 }
 
 // A cancelled ALTER (AdbcStatementCancel) leaves the table as it was.
@@ -677,7 +676,7 @@ func TestSQLAlterTypeBig(t *testing.T) {
 	if f := h.rowFields(raw, defaultSchema, "it_atb"); len(f) != 3 || f["c"] != n || f["id"] != n || f[rowIDField] != n {
 		t.Errorf("row fields: %v", f)
 	}
-	h.expectReleased(raw, oldPrefix, oldIndex)
+	h.expectSnapshotReleased(raw, oldPrefix, oldIndex)
 	if ok, err := raw.SIsMember(h.ctx, cleanupKey, cleanupMember(defaultSchema, "it_atb")).Result(); err != nil || ok {
 		t.Errorf("a cleanup is still pending (%v)", err)
 	}
@@ -734,7 +733,7 @@ func TestSQLAlterType(t *testing.T) {
 	h.exec(`CREATE TABLE it_at (id integer, c text, n integer DEFAULT 5, v varchar(5), f double precision NOINDEX)`)
 	h.exec(`INSERT INTO it_at VALUES (1, '10', 1, 'a', 1.5), (2, '9', 2, 'bb', 2.5), (3, 'abc', 3, NULL, NULL)`)
 	h.expectTypes("it_at", "id INTEGER", "c VARCHAR", "n INTEGER", "v VARCHAR(5)", "f DOUBLE PRECISION")
-	h.expectAttrs(raw, "it_at", "__rowid NUMERIC, id NUMERIC, c TAG, n NUMERIC, v TAG")
+	h.expectAttrs(raw, "it_at", "__rowid NUMERIC, "+snapshotDeletedField+" NUMERIC, id NUMERIC, c TAG, n NUMERIC, v TAG")
 
 	// Postgres's errors, and the table stays as it was.
 	before := h.rawMeta(raw, defaultSchema, "it_at")
@@ -777,15 +776,13 @@ func TestSQLAlterType(t *testing.T) {
 	h.exec(`UPDATE it_at SET c = '11' WHERE id = 3`)
 	h.exec(`ALTER TABLE it_at ALTER COLUMN c TYPE integer USING c::integer`)
 	h.expectTypes("it_at", "id INTEGER", "c INTEGER", "n INTEGER", "v VARCHAR(5)", "f DOUBLE PRECISION")
-	h.expectAttrs(raw, "it_at", "__rowid NUMERIC, id NUMERIC, c NUMERIC, n NUMERIC, v TAG")
+	h.expectAttrs(raw, "it_at", "__rowid NUMERIC, "+snapshotDeletedField+" NUMERIC, id NUMERIC, c NUMERIC, n NUMERIC, v TAG")
 	newPrefix, newIndex := h.tableNames(raw, defaultSchema, "it_at")
 	if newPrefix == oldPrefix || newIndex == oldIndex {
 		t.Errorf("names %s %s: the rows weren't rewritten", newPrefix, newIndex)
 	}
-	h.expectReleased(raw, oldPrefix, oldIndex)
-	if h.rekeyPending(raw, oldPrefix) {
-		t.Error("the rewrite is still recorded")
-	}
+	h.expectSnapshotReleased(raw, oldPrefix, oldIndex)
+	assertSnapshotDataReferences(t, h, &store{client: raw, snapshots: true})
 	h.expectRows(`SELECT id, c FROM it_at ORDER BY c`, "2|9", "1|10", "3|11")
 	h.expectRows(`SELECT id FROM it_at WHERE c BETWEEN 9 AND 10 ORDER BY id`, "1", "2")
 	h.expectRows(`SELECT sum(c), max(c) FROM it_at`, "30|11")
@@ -798,7 +795,7 @@ func TestSQLAlterType(t *testing.T) {
 
 	// And back to text, without USING: c is a TAG again.
 	h.exec(`ALTER TABLE it_at ALTER COLUMN c TYPE text`)
-	h.expectAttrs(raw, "it_at", "__rowid NUMERIC, id NUMERIC, c TAG, n NUMERIC, v TAG")
+	h.expectAttrs(raw, "it_at", "__rowid NUMERIC, "+snapshotDeletedField+" NUMERIC, id NUMERIC, c TAG, n NUMERIC, v TAG")
 	h.expectRows(`SELECT id FROM it_at WHERE c = '10'`, "1")
 	h.expectRows(`SELECT c FROM it_at ORDER BY c`, "10", "11", "12", "9")
 	if q, _ := h.pushedWhere(raw, `SELECT id FROM it_at WHERE c = '10'`); !strings.Contains(q, "@c:{10}") {
@@ -822,7 +819,7 @@ func TestSQLAlterType(t *testing.T) {
 	// NOINDEX column stays out of the index.
 	h.exec(`ALTER TABLE it_at ALTER COLUMN n SET DATA TYPE bigint, ALTER COLUMN f TYPE numeric(4,1)`)
 	h.expectTypes("it_at", "id INTEGER", "c VARCHAR", "n BIGINT", "v VARCHAR", "f NUMERIC(4,1)")
-	h.expectAttrs(raw, "it_at", "__rowid NUMERIC, id NUMERIC, c TAG, n NUMERIC, v TAG")
+	h.expectAttrs(raw, "it_at", "__rowid NUMERIC, "+snapshotDeletedField+" NUMERIC, id NUMERIC, c TAG, n NUMERIC, v TAG")
 	h.exec(`INSERT INTO it_at (id) VALUES (6)`)
 	h.exec(`ALTER TABLE it_at ALTER COLUMN n TYPE text`)
 	h.exec(`INSERT INTO it_at (id) VALUES (7)`)

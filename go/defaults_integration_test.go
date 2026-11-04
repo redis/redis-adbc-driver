@@ -103,18 +103,20 @@ func (h *sqlHarness) pushedWhere(c goredis.UniversalClient, sql string, params .
 	if err != nil {
 		h.t.Fatal(err)
 	}
-	e := &executor{store: &store{client: c}, schema: defaultSchema}
+	st, ctx, pin := h.inspectionSnapshot(c)
+	defer pin.release()
+	e := &executor{store: st, schema: defaultSchema, sess: newSession(defaultSchema)}
 	e.cache = newExecCache()
 	var types []ColType
 	for _, p := range params {
 		types = append(types, p.T)
 	}
 	e.params = params
-	plan, err := e.planSelect(h.ctx, parsed[0].Stmt.(*SelectStmt), types)
+	plan, err := e.planSelect(ctx, parsed[0].Stmt.(*SelectStmt), types)
 	if err != nil {
 		h.t.Fatal(err)
 	}
-	wp, err := e.planWhere(h.ctx, plan.sel.Where, plan.meta, params)
+	wp, err := e.planWhere(ctx, plan.sel.Where, plan.meta, params)
 	if err != nil {
 		h.t.Fatal(err)
 	}

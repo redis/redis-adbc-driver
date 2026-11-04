@@ -13,8 +13,9 @@ import (
 	"github.com/apache/arrow-adbc/go/adbc"
 )
 
-// DDL rewrites into a private segment. No index or row reachable by an older
-// manifest is altered, including when the SQL change only adds an index field.
+// Definition-only DDL shares immutable row/index segments. Changes requiring
+// conversion, fields or validation rewrite privately. Neither path alters rows
+// or indexes reachable by an older manifest.
 // Ordinary DML continues to append deltas without copying existing rows.
 func (e *executor) alterSnapshotTable(ctx context.Context, source *tableMeta, cmds []AlterCmd) error {
 	in := &alterInputs{}
@@ -46,49 +47,58 @@ func (e *executor) alterSnapshotTable(ctx context.Context, source *tableMeta, cm
 			}
 		}
 	}
-	names, err := e.store.claimNames(ctx, source.Schema, source.Name)
-	if err != nil {
-		return err
-	}
-	target.KeyPrefix, target.IndexName, target.PrefixGen = names.prefix, names.index, 0
-	target.SnapshotLineage = snapshotDataID(names.prefix)
-	target.SnapshotSegments, target.SnapshotRows, target.SnapshotOverlay = nil, nil, false
-	deferred := deferSnapshotIndex(ctx, target)
-	rw := &rewrite{start: source, target: target, res: res}
-	if err := rw.prepare(ctx, e); err != nil {
-		return err
-	}
-	scan := newSnapshotDeltaScan(e.store, source, nil)
-	for {
-		_, rows, err := scan.next(ctx)
-		if errors.Is(err, io.EOF) {
-			break
-		}
+	// Retain the existing guarded descriptor pipeline below for both paths.
+	// resolveSnapshotMetadata makes its destination private and retains the
+	// shared row-reference edges; executeSnapshot still seals and CAS-publishes
+	// the workspace. No committed descriptor is written directly.
+	// A nil action list means explicit rekeying and must allocate new data.
+	definitionOnly := len(cmds) > 0 && !res.rewrite && !res.dropped && len(res.added) == 0 &&
+		!res.validates() && len(res.rechecked) == 0 && len(res.droppedIndexes) == 0 && len(res.droppedSequences) == 0
+	if !definitionOnly {
+		names, err := e.store.claimNames(ctx, source.Schema, source.Name)
 		if err != nil {
 			return err
 		}
-		images := make([]snapshotInsertRow, 0, len(rows))
-		for _, row := range rows {
-			fields, err := rw.convert(row)
+		target.KeyPrefix, target.IndexName, target.PrefixGen = names.prefix, names.index, 0
+		target.SnapshotLineage = snapshotDataID(names.prefix)
+		target.SnapshotSegments, target.SnapshotRows, target.SnapshotOverlay = nil, nil, false
+		deferred := deferSnapshotIndex(ctx, target)
+		rw := &rewrite{start: source, target: target, res: res}
+		if err := rw.prepare(ctx, e); err != nil {
+			return err
+		}
+		scan := newSnapshotDeltaScan(e.store, source, nil)
+		for {
+			_, rows, err := scan.next(ctx)
+			if errors.Is(err, io.EOF) {
+				break
+			}
 			if err != nil {
 				return err
 			}
-			if target.SnapshotSourceKey {
-				if key, ok := row[snapshotSourceKeyField]; ok {
-					fields = append(fields, snapshotSourceKeyField, key)
+			images := make([]snapshotInsertRow, 0, len(rows))
+			for _, row := range rows {
+				fields, err := rw.convert(row)
+				if err != nil {
+					return err
 				}
+				if target.SnapshotSourceKey {
+					if key, ok := row[snapshotSourceKeyField]; ok {
+						fields = append(fields, snapshotSourceKeyField, key)
+					}
+				}
+				key := target.prefix() + row[rowIDField]
+				images = append(images, snapshotInsertRow{key: key, member: snapshotDirectoryMember(key), fields: fields})
 			}
-			key := target.prefix() + row[rowIDField]
-			images = append(images, snapshotInsertRow{key: key, member: snapshotDirectoryMember(key), fields: fields})
+			if err := e.store.writeSnapshotImages(ctx, target.prefix(), images, false); err != nil {
+				return err
+			}
 		}
-		if err := e.store.writeSnapshotImages(ctx, target.prefix(), images, false); err != nil {
-			return err
-		}
-	}
-	target = rw.next(source)
-	if !deferred {
-		if err := e.store.searchDo(ctx, target.index(), snapshotScannedIndexArgs(target)...).Err(); err != nil {
-			return err
+		target = rw.next(source)
+		if !deferred {
+			if err := e.store.searchDo(ctx, target.index(), snapshotScannedIndexArgs(target)...).Err(); err != nil {
+				return err
+			}
 		}
 	}
 	raw, err := json.Marshal(target)

@@ -181,3 +181,29 @@ func (h *sqlHarness) frozenPlanStore(hooks ...goredis.Hook) (*store, context.Con
 	h.t.Cleanup(pin.release)
 	return s, ctx
 }
+
+// Snapshot ownership is the reference graph, not the legacy name registries.
+// Reclamation may lag publication but must finish after the final pin retires.
+func (h *sqlHarness) expectSnapshotReleased(raw goredis.UniversalClient, prefix, index string) {
+	h.t.Helper()
+	st := &store{client: raw, snapshots: true}
+	snapshotReapTest(st, h.ctx)
+	if n := h.prefixKeyCount(raw, prefix); n != 0 {
+		h.t.Errorf("%d rows remain in released generation", n)
+	}
+	if err := raw.Do(h.ctx, "FT.INFO", index).Err(); err == nil || !isUnknownIndex(err) {
+		h.t.Errorf("released snapshot index remains: %v", err)
+	}
+	data := snapshotDataID(prefix)
+	if data == "" {
+		h.t.Fatal("invalid released snapshot prefix")
+	}
+	if n, err := raw.Exists(h.ctx, snapshotMembers(data)).Result(); err != nil || n != 0 {
+		h.t.Errorf("released row directory remains: %d %v", n, err)
+	}
+	for _, field := range []string{"d:" + data, "r:" + data} {
+		if exists, err := raw.HExists(h.ctx, snapshotMetadataGraph, field).Result(); err != nil || exists {
+			h.t.Errorf("released ownership field remains: %s %v", field, err)
+		}
+	}
+}

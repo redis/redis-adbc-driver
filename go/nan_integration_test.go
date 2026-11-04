@@ -73,9 +73,19 @@ func (h *sqlHarness) storedField(c goredis.UniversalClient, schema, table, id, f
 	if len(got) != 1 {
 		h.t.Fatalf("row %s of %s.%s: %q", id, schema, table, got)
 	}
-	v, err := c.HGet(h.ctx, h.tablePrefix(c, schema, table)+got[0], field).Result()
+	st, ctx, pin := h.inspectionSnapshot(c)
+	defer pin.release()
+	meta, err := st.getTable(ctx, schema, table)
 	if err != nil {
+		h.t.Fatal(err)
+	}
+	rows, err := st.fetchSnapshotVisible(ctx, meta, []string{meta.prefix() + got[0]}, []string{field})
+	if err != nil || len(rows) != 1 {
 		h.t.Fatalf("row %s of %s.%s, field %s: %v", id, schema, table, field, err)
+	}
+	v, ok := rows[0][field]
+	if !ok {
+		h.t.Fatalf("row %s of %s.%s missing field %s", id, schema, table, field)
 	}
 	return v
 }
