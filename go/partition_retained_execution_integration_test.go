@@ -24,7 +24,15 @@ func retainedExecuteTest(t *testing.T, h *sqlHarness, query string, limits retai
 	}
 	defer statement.Close(h.ctx)
 	_, _, cfg, timeouts, _, _ := retainedSourceFixture(t)
-	ctx, e, execution, close, err := newRetainedExecutor(h.ctx, statement.(*statementImpl).executor(), cfg, timeouts, limits)
+	// Mirror the public statement boundary: retain one source generation until
+	// both execution and final retained-definition validation have finished.
+	base := statement.(*statementImpl).executor()
+	ctx, pin, err := base.store.acquireSnapshot(h.ctx)
+	if err != nil {
+		return execResult{}, err
+	}
+	defer pin.release()
+	ctx, e, execution, close, err := newRetainedExecutor(ctx, base, cfg, timeouts, limits)
 	if err != nil {
 		return execResult{}, err
 	}

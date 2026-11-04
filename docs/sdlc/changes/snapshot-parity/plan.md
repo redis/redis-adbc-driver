@@ -335,3 +335,8 @@ snapshot-aware bounded capture fixtures, privately published exact sparse IDs,
 materialized SQL defaults and separate missing-value decoder coverage. Managed
 external ownership and retained legacy-producer refusal pass 16 race events;
 full ordinary/platform and performance parity remain open.
+
+The [retained execution checkpoint](retained-execution-validation.md) keeps one
+statement pin through low-level execution and final definition validation.
+Thirty-one race events pass complete Arrow comparisons, temporary-source checks
+and resource/side-effect admission; full parity remains open.
