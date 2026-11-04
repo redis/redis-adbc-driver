@@ -263,6 +263,21 @@ class DeviceTests(unittest.TestCase):
 
 @unittest.skipUnless(os.environ.get("REDIS_URI") and os.environ.get("REDIS_ADBC_LIBRARY"), "requires verified Redis Software and library")
 class CPUDeviceBindTests(unittest.TestCase):
+    def test_device_output_rejects_dml_before_execution(self):
+        native = Native(c.CDLL(os.environ["REDIS_ADBC_LIBRARY"]), os.environ["REDIS_URI"])
+        table = "it_device_readonly_" + uuid.uuid4().hex[:12]
+        try:
+            native.query(f'CREATE TABLE {table} (x BIGINT)')
+            native.call("RedisStatementSetSqlQuery", c.byref(native.stmt), f'INSERT INTO {table} VALUES (1) RETURNING x'.encode())
+            stream, affected = DeviceStream(), c.c_int64()
+            with self.assertRaisesRegex(RuntimeError, "one SELECT"):
+                native.call("RedisStatementExecuteDevice", c.byref(native.stmt), 0, c.byref(stream), c.byref(affected))
+            self.assertFalse(stream.release)
+            self.assertEqual(native.query(f'SELECT COUNT(*) FROM {table}').column(0).to_pylist(), [0])
+        finally:
+            native.query(f'DROP TABLE IF EXISTS {table}')
+            native.close()
+
     def test_device_bind_cpu_descriptor_borrows_input_and_preserves_values(self):
         lib = c.CDLL(os.environ["REDIS_ADBC_LIBRARY"])
         native = Native(lib, os.environ["REDIS_URI"])
@@ -389,16 +404,17 @@ class NativeQueryTests(unittest.TestCase):
         n.call("RedisStatementNew", c.byref(n.conn), c.byref(statement))
         schema = Schema()
         pa.schema([("x", pa.int64())])._export_to_c(c.addressof(schema))
-        kernel = cupy.RawKernel('''extern "C" __global__ void delayed(long long* out, unsigned long long ticks) {
-            unsigned long long start = clock64();
-            while (clock64() - start < ticks) {}
-            out[0] = 41; out[1] = 42;
-        }''', "delayed")
-        kernel.compile()
         stream = cupy.cuda.Stream(non_blocking=True)
+        producer_started, producer_release = threading.Event(), threading.Event()
+
+        def hold_producer(stream, status, argument):
+            # Do not call CUDA APIs from a CUDA host callback.
+            producer_started.set()
+            producer_release.wait(10)
+
         with stream:
-            values = cupy.empty(2, dtype=cupy.int64)
-            kernel((1,), (1,), (values, cupy.uint64(1_000_000_000)))
+            values = cupy.asarray([41, 42], dtype=cupy.int64)
+            stream.add_callback(hold_producer, None)
             event = cupy.cuda.Event()
             event.record(stream)
         event_handle = c.c_void_p(event.ptr)
@@ -421,6 +437,8 @@ class NativeQueryTests(unittest.TestCase):
 
         worker = threading.Thread(target=bind)
         try:
+            self.assertTrue(producer_started.wait(5), "producer barrier was not entered")
+            self.assertFalse(event.done, "producer event must still be pending")
             worker.start()
             time.sleep(0.02)
             n.call("RedisStatementCancel", c.byref(statement))
@@ -431,8 +449,10 @@ class NativeQueryTests(unittest.TestCase):
             self.assertTrue(schema.release)
             self.assertTrue(device.array.release)
         finally:
+            producer_release.set()
             event.synchronize()  # Cancellation does not terminate producer-owned work.
-            worker.join(5)
+            if worker.ident is not None:
+                worker.join(5)
             n.call("RedisStatementRelease", c.byref(statement))
             release(schema)
 

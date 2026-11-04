@@ -1,7 +1,7 @@
 # Plan: investigate #215 and measure the consumer prototype
 
 Date: 2026-11-03. Investigation source: `95d6583`; native implementation base:
-`6d7ac40`. Status: native implementation validation in progress.
+`6d7ac40`. Status: native implementation and validation complete; maintainer review pending.
 See [intent](intent.md) and [specification](spec.md).
 
 1. Inspect pinned ADBC/Arrow APIs and CPU query/aggregate paths: complete.
@@ -16,8 +16,7 @@ See [intent](intent.md) and [specification](spec.md).
    complete. Actual results are in [validation](validation.md). Maintainer review
    and issue disposition remain external to this investigation.
 7. Implement native Linux CUDA integer predicates and C Device staging/stream
-   extensions following the user's expanded scope: code complete, validation
-   in progress. CPU/native-binding tests pass. New native GPU tests remain
-   pending after the test EC2 instance was terminated by an external API call.
+   extensions following the user's expanded scope: complete. All 11 native tests pass on NVIDIA A10G, including real CUDA
+   predicates, producer events, cancellation and Arrow C Device consumption.
 8. Transplant onto current redis/redis-adbc-driver main, retain current dependency
-   and release improvements, rerun checks and create the requested draft PR.
+   and release improvements, rerun checks and create the requested PR: complete.

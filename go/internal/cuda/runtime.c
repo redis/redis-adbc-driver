@@ -97,7 +97,7 @@ int redis_cuda_event_ready(int device, void* event, char* error, size_t capacity
   if(rc)return rc;
   int status=event?api.event_query(*(void**)event):0;
   // cudaErrorNotReady is part of the stable CUDA runtime error ABI.
-  rc=status==34?EAGAIN:checked(status,error,capacity);
+  rc=status==600?EAGAIN:checked(status,error,capacity);
   api.set_device(previous);
   return rc;
 }

@@ -18,6 +18,7 @@ import (
 	"time"
 	"unsafe"
 
+	redis "github.com/adbc-drivers/redis/go"
 	"github.com/apache/arrow-adbc/go/adbc"
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/cdata"
@@ -44,6 +45,14 @@ func RedisStatementExecuteDevice(stmt *C.struct_AdbcStatement, device C.int64_t,
 	st := checkStmtInit(stmt, err, "RedisStatementExecuteDevice")
 	if st == nil {
 		return C.ADBC_STATUS_INVALID_STATE
+	}
+	parsed, parseErr := redis.ParseScript(st.sqlQuery)
+	if parseErr != nil || len(parsed) != 1 {
+		return C.AdbcStatusCode(errToAdbcErr(err, adbc.Error{Code: adbc.StatusNotImplemented, Msg: "device output requires one SELECT without WITH; updates and ingestion use ordinary CPU execution"}))
+	}
+	selectStmt, ok := parsed[0].Stmt.(*redis.SelectStmt)
+	if !ok || len(selectStmt.With) != 0 {
+		return C.AdbcStatusCode(errToAdbcErr(err, adbc.Error{Code: adbc.StatusNotImplemented, Msg: "device output requires one SELECT without WITH; updates and ingestion use ordinary CPU execution"}))
 	}
 	if out == nil || out.release != nil || device < 0 || device > 65535 {
 		return C.AdbcStatusCode(errToAdbcErr(err, adbc.Error{Code: adbc.StatusInvalidArgument, Msg: "device output must be zero initialized; CUDA device ID must be 0 through 65535"}))

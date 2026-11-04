@@ -85,7 +85,7 @@ and TLS/RESP3/partition/release improvements were preserved.
   GPU cases remain explicit hardware-only checks.
 - Isolated local Redis Software, 3 shards, authenticated TLS/RESP3, active verified
   4× QPF was provisioned with current main's `make -C go redis-up`. Native CPU
-  C Device tests passed: four tests, six GPU-only skips. Native BindDevice
+  C Device tests passed: five tests, six GPU-only skips. Native BindDevice
   ingestion preserved NULLs and integers above 2^53 after the source was released.
 - A stronger regression releases both caller buffers and schema between
   BindDevice and ExecuteQuery. It exposed Arrow Go's schema-consuming import;
@@ -97,13 +97,33 @@ and TLS/RESP3/partition/release improvements were preserved.
   contract failure: the release callback did not clear `stream.release`, causing
   Arrow's lifecycle assertion to abort. The callback now clears it; the same
   native binding test passes without bypassing Arrow's assertion.
-- Real-GPU tests for this native implementation are **not yet run**. A new L4
-  EC2 fixture was launched, but an external IAM-user TerminateInstances API call
-  ended it before SSM delivered the build/test commands. The user has been asked
-  to coordinate the competing EC2 cleanup. Earlier cuDF prototype tests do not
-  substitute for native CUDA validation.
+- Native real-GPU suite passed: **11 tests, zero skips, zero failures** on Linux
+  amd64 with Go 1.27.3, NVIDIA A10G (23,028 MiB), driver 595.112.07, CUDA 12.9, CuPy 14.2.0,
+  cuDF 26.10.02 and PyArrow 26.0.1. The shared library was rebuilt from the final
+  native sources before testing. Redis Software used authenticated TLS/RESP3
+  and verified active 4× QPF. Tests covered:
+  - All seven integer comparisons against CPU results, NULLs, int64 extrema,
+    integers above 2^53, exact grouping/reducers, SUM overflow and unsupported
+    query rejection. Metrics proved real kernel launches and input processing.
+  - CUDA export consumed by CuPy and by pylibcudf through actual Arrow C Device
+    capsules; independent output remained valid after releasing the source.
+  - Device result batches retained after early stream release.
+  - External CUDA producer input on a non-default stream with an explicit event.
+  - Cancellation while a deterministic producer barrier kept that event pending;
+    caller descriptors remained owned by the caller. This regression exposed an
+    incorrect pending-event status constant; the runtime now recognizes CUDA's
+    `cudaErrorNotReady = 600` and polls with cancellation rather than failing.
+  - CPU binding with caller array/schema released before execution, and rejection
+    of device-output DML before any rows are written.
 
 The new API/SQL subset and ownership rules are documented in
-[gpu-execution.md](../../../gpu-execution.md). The PR must remain draft until
-the native GPU producer/consumer, CUDA SQL and early-release tests run on real
-hardware. No native query speedup is claimed.
+[gpu-execution.md](../../../gpu-execution.md). Native validation establishes
+functional correctness for this subset on one GPU model. No native query speedup
+or general GPU SQL coverage is claimed. The earlier L4 cuDF prototype timings
+remain historical evidence of a different execution path. Maintainer review is
+still required before merging.
+
+Final self-review covered borrowed schema/array ownership, early stream release,
+producer-event cancellation, preflight rejection before DML writes and explicit
+unsupported-query errors. No actionable findings remain from that review;
+maintainer approval and broader GPU/hardware coverage remain external.

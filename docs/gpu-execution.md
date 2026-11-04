@@ -1,9 +1,8 @@
 # Experimental CUDA predicates and Arrow C Device interchange
 
 Issue [#215](https://github.com/redis/redis-adbc-driver/issues/215).
-Status: implementation under validation. CPU execution remains the default.
-Real-device validation of this native implementation is required before treating
-it as production-ready; see [validation](sdlc/changes/215-gpu/validation.md).
+Status: experimental; validated on NVIDIA A10G. CPU execution remains the default.
+See [validation](sdlc/changes/215-gpu/validation.md) for tested cases and limits.
 
 ## CUDA execution
 
@@ -89,6 +88,9 @@ manager's wrapper handles directly to these extension symbols. Managers without
 an extension dispatch mechanism can use the standalone array copy helpers and
 their ordinary CPU Bind/ExecuteQuery APIs. The test harness demonstrates native
 handle creation; no standard ADBC C Device function-table slots are invented.
+ExecuteDevice accepts one SELECT without WITH; updates and ingestion use the
+ordinary CPU execution entry point after optional BindDevice. DML is rejected
+before execution so an unsupported device-output request cannot write rows.
 
 Import accepts CPU or CUDA descriptors. CUDA imports wait on a supplied
 `sync_event` (a CPU pointer to a `cudaEvent_t` handle) before copying device

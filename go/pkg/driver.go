@@ -1302,6 +1302,7 @@ func RedisConnectionRollback(cnxn *C.struct_AdbcConnection, err *C.struct_AdbcEr
 }
 
 type cStmt struct {
+	sqlQuery string // tracked for driver-specific device-output preflight
 	driverbase.CancellableContext
 	// Non-execution calls must not make StatementCancel report success.
 	executionContext driverbase.CancellableContext
@@ -1627,7 +1628,11 @@ func RedisStatementSetSqlQuery(stmt *C.struct_AdbcStatement, query *C.cchar_t, e
 		return C.ADBC_STATUS_INVALID_STATE
 	}
 
-	e := st.stmt.SetSqlQuery(st.NewContext(), C.GoString(query))
+	text := C.GoString(query)
+	e := st.stmt.SetSqlQuery(st.NewContext(), text)
+	if e == nil {
+		st.sqlQuery = text
+	}
 	return C.AdbcStatusCode(errToAdbcErr(err, e))
 }
 
