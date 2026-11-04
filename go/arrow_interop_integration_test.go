@@ -86,6 +86,11 @@ func TestArrowNormalizedStorage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	group, err := st.(adbc.GetSetOptionsWithContext).GetOption(h.ctx, OptionStringPartitionSnapshotID)
+	if err != nil || group == "" {
+		t.Fatal("live partition release ID missing", group, err)
+	}
+	defer h.exec("DROP PARTITION SNAPSHOT '" + group + "'")
 	var partitionRows []string
 	for _, token := range parts.PartitionIDs {
 		r, err := h.conn.ReadPartition(h.ctx, token)

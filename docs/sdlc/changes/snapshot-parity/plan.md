@@ -201,3 +201,10 @@ cross-principal retention, stale membership and read-only lost-reply resolution.
 The production catalog is unchanged and remains protocol 15. This is staged
 evidence only: production ACL integration, bounded namespace management and the
 ordinary reader-role regression remain incomplete.
+
+The [Arrow partition-lifetime checkpoint](arrow-partition-validation.md) restores
+canonical storage/layout validation without exhausting retained generations:
+completed live groups are explicitly released, and rejected oversized input must
+leave the root unchanged and its target absent. The six-family race selection
+passes 72 test events without skips/failures. Full ordinary/platform and
+performance parity remain open.
