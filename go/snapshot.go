@@ -1203,7 +1203,7 @@ func snapshotValidationCache(scope *snapshotScope) *sync.Map {
 }
 
 type snapshotSegmentValidation struct {
-	once sync.Once
+	done chan struct{} // closed only after every reply in this proof was checked
 	err  error
 }
 
@@ -1239,34 +1239,37 @@ func (s *store) validateSnapshotTable(ctx context.Context, meta *tableMeta) erro
 	if scope == nil {
 		return nil
 	}
+	cache := snapshotValidationCache(scope)
+	var checks []*snapshotSegmentValidation
+	var pending []snapshotSegmentProbe
 	for _, seg := range meta.snapshotSegments() {
 		// Private indexes may be unsettled; writer fences and final seal validate
 		// these outputs before publication. Shared inputs still need validation.
 		if snapshotOwns(ctx, seg.Prefix) {
 			continue
 		}
-		value, _ := snapshotValidationCache(scope).LoadOrStore(seg, &snapshotSegmentValidation{})
-		check := value.(*snapshotSegmentValidation)
-		check.once.Do(func() { check.err = s.validateSnapshotSegment(ctx, seg) })
-		if check.err != nil {
-			return check.err
+		proof := &snapshotSegmentValidation{done: make(chan struct{})}
+		value, loaded := cache.LoadOrStore(seg, proof)
+		proof = value.(*snapshotSegmentValidation)
+		checks = append(checks, proof)
+		if !loaded {
+			pending = append(pending, snapshotSegmentProbe{segment: seg, proof: proof})
 		}
 	}
-	return nil
-}
-
-func (s *store) validateSnapshotSegment(ctx context.Context, seg snapshotSegment) error {
-	reply, err := s.searchDo(ctx, seg.Index, "FT.INFO", seg.Index).Result()
-	if err != nil {
-		return wrapRedis(err, "published snapshot index is unavailable")
+	// Finish our reservations before waiting for another validator. Concurrent
+	// readers can reserve different sources; waiting first could deadlock them.
+	if len(pending) != 0 {
+		s.validateSnapshotSegments(ctx, pending)
 	}
-	info := indexInfoOf(reply)
-	count, err := s.redis(ctx).ZCard(ctx, snapshotMembers(snapshotDataID(seg.Prefix))).Result()
-	if err != nil {
-		return wrapRedis(err, "snapshot row directory is unavailable")
-	}
-	if count != seg.Rows || info.indexing || info.percent < 1 || info.failures != 0 || info.numDocs != seg.Rows || len(info.prefixes) != 1 || info.prefixes[0] != seg.Prefix {
-		return errorf(adbc.StatusIO, "published snapshot segment is incomplete or rebuilding")
+	for _, proof := range checks {
+		select {
+		case <-proof.done:
+			if proof.err != nil {
+				return proof.err
+			}
+		case <-ctx.Done():
+			return wrapRedis(ctx.Err(), "snapshot segment validation canceled")
+		}
 	}
 	return nil
 }

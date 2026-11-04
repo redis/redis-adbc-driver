@@ -500,3 +500,15 @@ build. The [native comparison](numeric-null-order-performance.md) measures a
 25.1x before/after default descending top-K improvement. Six other queries remain
 2.28x–3.83x slower than the mutable baseline. Full ordinary/platform/recovery and
 broader parity remain open gates.
+
+The [validation-batch checkpoint](validation-batch-validation.md) reduces the
+per-source FT.INFO/directory checks to a bounded per-table primary pipeline,
+retaining all readiness/cardinality/prefix checks, no-retry behavior and
+statement-local proof/error ownership. Fifty focused Software race events pass
+without test skips/failures; 969 unit race events pass with 888 explicit skips.
+The full preceding ordinary binary reaches 1,567 passes/263 skips before an
+obsolete streaming assumption fails. The corrected fixture preserves explicit
+materialization and independently checks optimized streaming plus actual-NULL
+fallback. The remaining 143 ordinary families have a separate continuation;
+current full ordinary, Cluster/failover and paired runtime evidence remain open.
+Current upstream integration also remains required after the latest main pull.

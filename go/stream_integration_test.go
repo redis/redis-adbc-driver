@@ -451,6 +451,40 @@ func TestSQLStreamResults(t *testing.T) {
 		}
 	})
 
+	t.Run("numeric NULL order follows visible candidates", func(t *testing.T) {
+		rdr, n := h.openStream(h.ctx, h.conn, "SELECT id, label FROM "+table+" ORDER BY qty NULLS FIRST, id", nil, small)
+		defer rdr.Release()
+		var expected []int64
+		for qty := range 10 {
+			expected = append(expected, sequence(int64(qty), streamRows/10, 10)...)
+		}
+		var actual []int64
+		for rdr.Next() {
+			rec := rdr.RecordBatch()
+			ids, labels := rec.Column(0).(*array.Int64), rec.Column(1).(*array.String)
+			for i := range ids.Len() {
+				id := ids.Value(i)
+				if labels.IsNull(i) || labels.Value(i) != fmt.Sprintf("r%d", id) {
+					t.Fatalf("id/label mismatch at %d", id)
+				}
+				actual = append(actual, id)
+			}
+		}
+		if n != -1 || rdr.Err() != nil || !slices.Equal(actual, expected) {
+			t.Fatalf("null-free numeric order: count=%d rows=%d err=%v", n, len(actual), rdr.Err())
+		}
+		// An actual visible NULL still requires the exact materializing fallback.
+		h.dropTables("it_stream_null_order")
+		h.exec("CREATE TABLE it_stream_null_order(id BIGINT, qty INTEGER)")
+		h.exec("INSERT INTO it_stream_null_order VALUES (1,3),(2,1),(0,NULL)")
+		nulls, count := h.openStream(h.ctx, h.conn, "SELECT id FROM it_stream_null_order ORDER BY qty NULLS FIRST,id", nil, small)
+		defer nulls.Release()
+		ids, _, err := readInts(nulls)
+		if count != 3 || err != nil || !slices.Equal(ids, []int64{0, 2, 1}) {
+			t.Fatalf("visible NULL fallback: count=%d ids=%v err=%v", count, ids, err)
+		}
+	})
+
 	t.Run("materialized", func(t *testing.T) {
 		h.dropTables("it_stream_k")
 		h.exec("CREATE TABLE it_stream_k (k INTEGER, name VARCHAR)")
@@ -462,7 +496,7 @@ func TestSQLStreamResults(t *testing.T) {
 		}{
 			{"SELECT id FROM " + table, map[string]string{OptionStringStreamResults: "false"}, streamRows},
 			{"SELECT id FROM " + table + " ORDER BY id % 10, id", small, streamRows},
-			{"SELECT id, label FROM " + table + " ORDER BY qty NULLS FIRST, id", small, streamRows},
+			{"SELECT id, label FROM " + table + " ORDER BY qty NULLS FIRST, id", map[string]string{OptionStringStreamResults: "false"}, streamRows},
 			{"SELECT DISTINCT id FROM " + table, small, streamRows},
 			{"SELECT id, ROW_NUMBER() OVER (ORDER BY id) FROM " + table, small, streamRows},
 			{"SELECT t.id FROM " + table + " t JOIN it_stream_k k ON k.k = t.qty", small, 2 * streamRows / 10},
