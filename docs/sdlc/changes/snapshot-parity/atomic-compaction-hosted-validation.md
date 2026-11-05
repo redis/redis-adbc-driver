@@ -179,3 +179,13 @@ release plus test cleanup passes 20 Ray tests, leaves zero groups and makes the
 same COMMENT case pass. Live capabilities remain protected. This resolves the
 local reproduction; a fresh hosted pass remains required. The 11213c8 observer's
 pipeline-hook caveat and all actual source labels remain applicable.
+
+At [4e0899b](https://github.com/redis/redis-adbc-driver/actions/runs/42103905305),
+AMD64 ordinary Go now passes after the Ray capability cleanup; ARM64 ordinary
+Go also passes. Both separate snapshot and native ADBC steps pass. The overall
+run is nevertheless terminal failure: both restricted-reader grant gates fail
+on catalog EVAL permission, and both TLS partition scripts query the obsolete
+logical index name before worker validation. Later Cluster/proxy checks skip.
+This closes the reproduced hosted ordinary admission defect, not platform or
+reader parity. Current pre-copy-index results retain source 50d6b84 and need
+their own full ordinary/hosted verification.

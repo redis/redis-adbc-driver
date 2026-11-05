@@ -77,3 +77,11 @@ failing amd64 workload sequence after cleanup; the arm64 job has no preceding
 Ray datasource step. At observation the overall run remains live. Do not count
 pending snapshot/native/restricted-reader/platform steps as passed. This run
 covers the Ray release source, before the local 50d6b84 compaction change.
+
+The 4e0899b run subsequently becomes terminal with failure. Both Software
+architectures pass ordinary Go, the separate snapshot regressions and native
+ADBC validation. Both fail the TLS partition script's obsolete logical index
+lookup, and their required SQL SELECT grant gate fails after narrow-reader
+catalog initialization is denied EVAL. Later Cluster/proxy TLS steps skip. The
+Ray admission cause is resolved in the hosted ordinary sequence; these separate
+compatibility/authorization failures remain open.
