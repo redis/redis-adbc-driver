@@ -216,6 +216,10 @@ func (e *executor) refreshMatView(ctx context.Context, m *tableMeta, noData bool
 		return 0, err
 	}
 	key := metaKey(m.Schema, m.Name)
+	retired, err := marshalMeta(m)
+	if err != nil {
+		return 0, err
+	}
 	sent := false
 	err = e.store.redis(ctx).Watch(ctx, func(tx *goredis.Tx) error {
 		cur, err := e.store.getTableWith(ctx, tx, m.Schema, m.Name)
@@ -247,9 +251,7 @@ func (e *executor) refreshMatView(ctx context.Context, m *tableMeta, noData bool
 			p.Set(ctx, seqKey(m.Schema, m.Name), count, 0)
 			p.Del(ctx, metaKey(stage.Schema, stage.Name), seqKey(stage.Schema, stage.Name))
 			p.SRem(ctx, tablesKey(stage.Schema), stage.Name)
-			p.SRem(ctx, prefixesKey, m.prefix())
-			p.SRem(ctx, indexesKey, m.index())
-			p.HIncrBy(ctx, releasedKey, m.prefix(), 1)
+			p.HSet(ctx, matviewRetiredKey, m.prefix(), retired)
 			return nil
 		})
 		return err
@@ -261,7 +263,7 @@ func (e *executor) refreshMatView(ctx context.Context, m *tableMeta, noData bool
 		return 0, wrapRedis(err, "failed to publish materialized view")
 	}
 	published = true
-	if err = e.store.searchDo(ctx, m.index(), "FT.DROPINDEX", m.index(), "DD").Err(); err != nil && !isUnknownIndex(err) {
+	if err = e.store.collectMatviews(ctx); err != nil {
 		return n, wrapRedis(err, "view refreshed but deleting old rows failed")
 	}
 	return n, nil

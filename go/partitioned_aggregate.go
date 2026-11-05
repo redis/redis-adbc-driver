@@ -722,7 +722,7 @@ func (e *executor) partitionedAggregate(ctx context.Context, plan *selectPlan, w
 	if !distinctResidual(wp.residual, p.cols, nil) {
 		return nil, false, nil
 	}
-	last, err := e.store.redis(ctx).Get(ctx, seqKey(plan.meta.Schema, plan.meta.Name)).Int64()
+	last, err := e.store.rowSequence(ctx, plan.meta)
 	if errors.Is(err, goredis.Nil) {
 		return nil, false, nil
 	}

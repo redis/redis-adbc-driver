@@ -317,6 +317,11 @@ func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, er
 		}
 		// Drop temporary objects of connections that exited without closing.
 		st.sweepTemp(ctx)
+		// Retired generations are garbage, not pending catalog changes. Like
+		// temporary-object cleanup, collection must not prevent a restricted
+		// reader from connecting. Keep retirement records for an authorized
+		// connection to retry when cleanup commands are denied or fail.
+		_ = st.collectMatviews(ctx)
 	}
 	st.foreignIndexes = d.foreignIndexes
 	conn := &connectionImpl{

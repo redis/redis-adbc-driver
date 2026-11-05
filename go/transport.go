@@ -30,6 +30,7 @@ type executionTransport struct {
 	background  map[<-chan struct{}]struct{}
 	once        sync.Once
 	owners      []*streams
+	matviews    *matviewReads
 }
 
 type executionSocket struct {
@@ -75,6 +76,9 @@ func (t *executionTransport) finish() {
 		t.mu.Unlock()
 		for _, done := range pending {
 			<-done
+		}
+		if t.matviews != nil {
+			t.matviews.close()
 		}
 		_ = t.client.Close()
 		for _, owner := range t.owners {
@@ -141,6 +145,7 @@ func (c *connectionImpl) executionContextWithTimeouts(ctx context.Context, timeo
 	}
 	parent, cancel := context.WithCancelCause(ctx)
 	t := &executionTransport{owner: c.store, ctx: parent, cancel: cancel, sockets: map[*executionSocket]bool{}, owners: owners}
+	t.matviews = &matviewReads{store: c.store}
 	single, cluster := *c.clientCfg.single, *c.clientCfg.cluster
 	dial := single.Dialer
 	if dial == nil {

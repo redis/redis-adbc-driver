@@ -166,7 +166,7 @@ func (e *executor) parallelAggregate(ctx context.Context, plan *selectPlan, wp w
 	}
 	// The sequence is an upper bound, not a count: deleted rows and gaps do not
 	// matter. The last range extends to +inf so concurrent inserts aren't lost.
-	last, err := e.store.redis(ctx).Get(ctx, seqKey(meta.Schema, meta.Name)).Int64()
+	last, err := e.store.rowSequence(ctx, meta)
 	if errors.Is(err, goredis.Nil) {
 		return nil, false, nil
 	}

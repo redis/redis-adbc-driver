@@ -45,7 +45,7 @@ func (e *executor) parallelSelectTopK(ctx context.Context, plan *selectPlan, sc 
 		sc.req.where.none || sc.req.where.keys != nil || !parallelPredicate(sc.req.where.residual) {
 		return nil, false, nil
 	}
-	last, err := e.store.redis(ctx).Get(ctx, seqKey(meta.Schema, meta.Name)).Int64()
+	last, err := e.store.rowSequence(ctx, meta)
 	if errors.Is(err, goredis.Nil) {
 		return nil, false, nil
 	}

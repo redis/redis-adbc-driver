@@ -18,7 +18,7 @@ import (
 // Gaps/deletes are filtered by fetchRows; raw int64 IDs need no Search doubles.
 func (e *executor) scanAllocatedCleanupPages(ctx context.Context, req scanRequest, params []Value, visit func([]string, []map[string]Value) error) error {
 	meta := req.meta
-	last, err := e.store.redis(ctx).Get(ctx, seqKey(meta.Schema, meta.Name)).Int64()
+	last, err := e.store.rowSequence(ctx, meta)
 	if errors.Is(err, goredis.Nil) {
 		return nil
 	}
