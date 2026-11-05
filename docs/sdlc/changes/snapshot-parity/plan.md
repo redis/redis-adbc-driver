@@ -2,6 +2,11 @@
 
 Date: 2026-11-02. Status: in progress. See [intent](intent.md), [spec](spec.md).
 
+The [implicit-order checkpoint](implicit-order-validation.md) extends the exact
+directory/candidate merge to unbounded narrow implicit-order reads. Matched
+native performance and complete current-source suites remain required; explicit
+sorting under undiscoverable lowered caps is a separate open case.
+
 The [TLS fixture checkpoint](tls-snapshot-fixture-validation.md) records the
 completed current ordinary race suite and restores planner partition readiness,
 producer snapshot lifetime assertions and explicit capability cleanup. The

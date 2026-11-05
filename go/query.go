@@ -1355,12 +1355,14 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 		indexSort = true
 	}
 	if meta.SnapshotOverlay {
-		// Wide row-ID scans resolve visibility through exact directories or
-		// candidate probes in openScan. Building ordered-reducer masks here
-		// would read the same directories for a proof that path never uses.
+		// Exact directories and candidate probes already merge ascending row
+		// IDs, regardless of projection width. Implicit insertion order needs
+		// no per-segment Search sort or visibility masks. This also keeps an
+		// unbounded narrow read independent of an undiscoverable aggregate cap.
+		// Wide row-ID scans retain the same shortcut for explicit safe ordering.
 		if indexSort && wp.keys == nil && plan.sel.Limit == nil {
 			it, _, exactly := e.newScanIter(ctx, req, params)
-			if wideHashFetch(req, it, &aggRequest{loadAll: !exactly}) {
+			if len(plan.order) == 0 || wideHashFetch(req, it, &aggRequest{loadAll: !exactly}) {
 				sc := selectScan{req: req, caps: caps, indexSort: true}
 				e.recordSelectPlan(plan, sc)
 				return sc, nil

@@ -393,6 +393,7 @@ def main():
                         ]
                     ]
                     cases = [
+                        ("implicit_all", "SELECT id,g,v,payload FROM t", logical),
                         ("selective", "SELECT id,v FROM t WHERE v=1", []),
                         (
                             "matching_selective",
@@ -424,6 +425,11 @@ def main():
                             start = time.perf_counter()
                             cur.execute(sql)
                             table = cur.fetch_arrow_table()
+                            if name == "implicit_all" and not table.schema.equals(pa.schema([
+                                ("id", pa.int32()), ("g", pa.int32()),
+                                ("v", pa.int32()), ("payload", pa.string()),
+                            ])):
+                                raise AssertionError("implicit_all: native Arrow schema differs")
                             columns = [col.to_pylist() for col in table.columns]
                             actual = list(zip(*columns))
                             if actual != expected:

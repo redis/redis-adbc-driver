@@ -280,7 +280,9 @@ zero; zero-padded decimal IDs provide exact lexical ordering without double
 rounding. Reads merge the bounded segment directories in row-ID order. The newest
 version wins, including deletion markers, **before** SQL predicates, grouping,
 aggregates, ordering, OFFSET or LIMIT. Direct row-ID lookups search newest to
-oldest. Unordered results remain streamed with bounded pages; explicit sorting
+oldest. Unbounded implicit insertion-order reads use that exact ascending merge
+at every projection width, without redundant per-segment Search sorting or
+visibility masks. Unordered results remain streamed with bounded pages; explicit sorting
 may materialize. Segmented reads can use Search candidates, resolving newer exact-directory
 membership before fetching surviving rows. Numeric keyset pages avoid deep
 OFFSET/cursor truncation. Below 2^53 row IDs, bounded visibility masks restore
