@@ -194,6 +194,20 @@ class Store:
         else:
             basis = 'installation_id:' + payload.get('installation_id_source','unknown')
             anchor = ['installation', payload['installation_id']]
+        # Read-only containers may create a fresh installation ID per handle.
+        # A generated runtime ID associates those handles without any mounted file.
+        if not workload and payload.get('installation_id_source') == 'temporary' and payload.get('instance_id'):
+            installation_alias = hashlib.sha256(json.dumps(anchor, separators=(',',':')).encode()).hexdigest()
+            anchor = ['runtime', payload['instance_id']]
+            runtime_alias = hashlib.sha256(json.dumps(anchor, separators=(',',':')).encode()).hexdigest()
+            key = self.prefix + 'deployment-aliases'
+            inherited = client.hget(key, installation_alias)
+            client.hsetnx(key, runtime_alias, inherited or str(uuid.uuid4()))
+            deployment = client.hget(key, runtime_alias)
+            client.hsetnx(key, installation_alias, deployment)
+            return {'deployment_id':deployment,'instance_id':payload['instance_id'],
+                    'instance_kind':'runtime','basis':'runtime_instance',
+                    'confidence':'identifier_match','identity_verified':False}
         # IP, PTR and hostname are deliberately excluded from confirmed aliases.
         alias = hashlib.sha256(json.dumps(anchor, separators=(',',':')).encode()).hexdigest()
         key = self.prefix + 'deployment-aliases'

@@ -14,7 +14,7 @@ terraform {
 provider "aws" {
   region = var.region
   default_tags {
-    tags = { Project = "redis-adbc-driver", Purpose = "Product usage feedback", ManagedBy = "Terraform", Owner = "Albert Wong" }
+    tags = { Project = "redis-adbc-driver", Purpose = "Product usage feedback", ManagedBy = "Terraform", Owner = "Albert Wong", owner = var.owner_email, RedisLabsIdentifier = "redis-adbc-telemetry", skip_deletion = "true" }
   }
 }
 variable "region" { default = "us-east-1" }
@@ -161,3 +161,28 @@ output "dashboard" { value = "https://${var.hostname}/" }
 output "instance_id" { value = aws_instance.collector.id }
 output "backup_bucket" { value = aws_s3_bucket.backups.id }
 output "public_ip" { value = aws_eip.collector.public_ip }
+
+
+variable "owner_email" {
+  type        = string
+  description = "Account-required lowercase owner tag. Supply privately; do not commit operational tfvars."
+}
+variable "approved_finops_user" {
+  type        = string
+  default     = null
+  nullable    = true
+  description = "Set only after explicit approval of an exception for this collector. Otherwise no FinOps IAM policy is changed."
+}
+resource "aws_iam_user_policy" "approved_collector_exception" {
+  count = var.approved_finops_user == null ? 0 : 1
+  name  = "RedisADBCCollectorApprovedLifecycleException"
+  user  = var.approved_finops_user
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Deny"
+      Action   = ["ec2:StopInstances", "ec2:TerminateInstances"]
+      Resource = aws_instance.collector.arn
+    }]
+  })
+}

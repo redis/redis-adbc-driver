@@ -247,6 +247,21 @@ class AnalyticsTests(unittest.TestCase):
         self.assertEqual(summary['deployments'][0]['installation_ids'],1)
         self.assertFalse(summary['probable_associations'])
 
+    def test_temporary_ids_associate_without_mounted_storage(self):
+        self.require_store()
+        instance=str(uuid.uuid4());events=[]
+        for _ in range(2):
+            p=report();p['installation_id']=str(uuid.uuid4());p['instance_id']=instance;p['installation_id_source']='temporary'
+            self.store.ingest(p);events.append(p)
+        summary=self.store.summary()
+        self.assertEqual(len(summary['deployments']),1)
+        self.assertEqual(summary['deployments'][0]['installation_ids'],2)
+        self.assertEqual(summary['deployments'][0]['runtime_instances'],1)
+        # An existing installation identity also carries continuity into a new runtime.
+        p=copy.deepcopy(events[0]);p['session_id']=str(uuid.uuid4());p['instance_id']=str(uuid.uuid4())
+        self.store.ingest(p)
+        self.assertEqual(len(self.store.summary()['deployments']),1)
+
     def test_deployment_alias_creation_is_concurrent_and_stable(self):
         self.require_store()
         payloads=[]

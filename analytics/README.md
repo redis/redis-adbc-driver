@@ -214,7 +214,9 @@ Automatic discovery currently supports ECS services and Kubernetes workloads:
   names, ARNs, UIDs, service-account tokens, credentials or metadata responses.
 
 When a platform key is unavailable, the collector automatically associates reports
-by the generated installation ID. A changed IP/PTR does not split that association.
+by the generated installation ID. When local ID storage is unavailable, the
+automatic runtime ID also associates multiple handles despite changing temporary
+installation UUIDs. A changed IP/PTR does not split those associations.
 If both UUID and stable platform identity are unavailable/changed, shared IP/PTR
 can create a **probable network-only association**. It never merges deployment IDs
 or reduces their distinct count. Shared NAT/VPNs and recycled addresses make these

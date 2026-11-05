@@ -242,3 +242,21 @@ Focused Redis Software suite: 51 passes, hosted-only check skipped, no failures.
 Collector suite: 15 passes with real isolated Software storage and mocked platform
 metadata/DNS where appropriate. No live Kubernetes or ECS deployment was created
 for provider discovery tests. Python/JS/shell compilation/syntax and diff checks pass.
+
+
+Recovery update: account cleanup automation terminated the original collector
+before the application update. CloudTrail and the repository's existing FinOps
+guidance identified the cause; standard account-specific tags had been missed in
+the initial deployment. The user explicitly approved the concrete recovery plan
+and an exception scoped to the one replacement collector. Terraform recreated
+the same-sized collector and updated tags; no backup/state buckets were deleted.
+The S3 snapshot was checksum-validated and restored with AOF, the existing read
+token retained, archived validation traffic removed, and a fresh backup verified.
+The cleanup principal is explicitly denied stop/terminate on the exact replacement
+instance; owner administration remains allowed. Identifiers, private operator
+variables, IAM simulation output and recovery artifacts remain private.
+
+Historical usage returned to the expected baseline. Data received after the last
+available backup and before termination may be missing; the backup was approximately
+ten minutes before termination. The optional Terraform exception defaults off and
+requires approved operator configuration. No global FinOps automation was disabled.

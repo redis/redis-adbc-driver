@@ -1,18 +1,16 @@
 # AWS Redis analytics deployment
 
-Status (2026-11-05): deployed through Terraform after explicit approval.
-No RDS resources are included or were created.
+Status (2026-11-05): the collector was recovered after account cleanup automation
+terminated the original host. The latest available S3 history was restored, the
+existing dashboard read token preserved, and a fresh backup verified. The updated
+collector/dashboard includes automatic identity association and the revised privacy
+wording. Operational identifiers and recovery records are kept privately.
 
-- Collector: `i-0a0f07f12f13d4b52` (`100.29.239.174`).
-- Initial bootstrap source: `be6c31ed026e9f915615fa4da29c5dfc21e620b0`.
-- Current dashboard/collector source: `34a557a29de96dd8f6c41572b406f34e3cd507e4`
-  (updated through SSM without resource replacement or token rotation).
-- DNS/TLS and the health endpoint passed; collector, Redis and nginx are active.
-- Backup and TLS-renewal timers are enabled. A real S3 RDB backup was downloaded,
-  checksum-verified, checked with `redis-check-rdb`, and loaded in an isolated Redis
-  process with the synthetic reports present.
-- Project, purpose, Terraform management and ownership tags are applied, including
-  the root volume. Descriptive `Name` tags are managed through Terraform.
+The user explicitly approved the recovery and a narrow Terraform-managed exception
+for the replacement collector. It denies only the approved cleanup principal's
+stop/terminate actions on that exact instance; owner administration is unchanged.
+Account-required lowercase ownership, service identification and skip-deletion tags
+are applied. Tags alone do not establish protection from all cleanup callers.
 
 The driver reports by default to
 `https://adbc-telemetry.sa.redislabs.com/v1/usage`. The collector binds to
@@ -60,14 +58,20 @@ termination protection.
 
 ## Deploy with Terraform
 
-The deployed application uses the pinned, tested commit below:
+Keep a private, git-ignored `operator.auto.tfvars` beside the module containing
+`source_commit`, the account-required `owner_email`, and (only after explicit
+approval) `approved_finops_user`. The exception defaults off; preserve approved
+operator settings so a later plan does not inadvertently remove it. Review the
+plan before applying. No real account identifiers or operator variables should
+be committed as deployment evidence.
+
+The running application uses an immutable, tested commit:
 
 ```sh
-export AWS_PROFILE=735486936198_SuperUserAccess
+export AWS_PROFILE=YOUR_APPROVED_PROFILE
 terraform -chdir=analytics/deploy/terraform init
 terraform -chdir=analytics/deploy/terraform validate
-terraform -chdir=analytics/deploy/terraform plan \
-  -var="source_commit=be6c31ed026e9f915615fa4da29c5dfc21e620b0" -out=deploy.tfplan
+terraform -chdir=analytics/deploy/terraform plan -out=deploy.tfplan
 # Review costs, IAM and public ingress before applying the saved plan.
 terraform -chdir=analytics/deploy/terraform apply deploy.tfplan
 ```
@@ -157,3 +161,15 @@ within its existing analytics key prefix. No new infrastructure, IAM permissions
 user UUID configuration or mounted ID volume is required. The deployment map is
 not an authenticated customer directory: reports remain self-reported and shared
 network evidence never performs identity merges.
+
+
+Recovery retains the existing static endpoint and encrypted/versioned state.
+Verify the exact-instance IAM exception by reading it back and simulating the
+known cleanup principal and owner separately. Do not assume API termination
+protection or generic ownership tags prevent privileged account automation from
+terminating the host. A different cleanup caller is outside the narrow exception.
+
+No manual UUID or ID-file volume is required for automatic deployment association.
+Provider discovery needs an updated driver build; the collector also associates
+incoming legacy reports by installation ID and shows network-only suggestions
+without merging deployment identities.

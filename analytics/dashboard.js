@@ -113,7 +113,7 @@ function render(data) {
   table('queries', ['Statement type', 'Attempts', 'Success', 'Errors', 'Canceled', 'Abandoned',
     'p50 elapsed', 'p95 elapsed', 'p99 elapsed', 'p95 ready'], queryRows);
   renderExecutions(data);
-  const basisLabel = value => ({ecs_service:'ECS service identity',kubernetes_controller:'Kubernetes controller identity',
+  const basisLabel = value => ({runtime_instance:'Runtime ID (temporary installation IDs)',ecs_service:'ECS service identity',kubernetes_controller:'Kubernetes controller identity',
     'installation_id:local_file':'Saved installation ID','installation_id:explicit':'Application installation ID',
     'installation_id:temporary':'Temporary installation ID','installation_id:unknown':'Legacy installation ID (storage unknown)'})[value] || value;
   table('deployments', ['Deployment ID', 'Applications', 'Association basis', 'Installation IDs', 'Runtime instances',
