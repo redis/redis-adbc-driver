@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 function dashboard() {
   const elements = new Map();
-  const node = () => ({children: [], value: '', append(...children) { this.children.push(...children); },
+  const node = tagName => ({tagName, children: [], value: '', append(...children) { this.children.push(...children); },
     attributes: {}, events: {}, setAttribute(k,v) {this.attributes[k]=v;},
     replaceChildren(...children) { this.children = children; }, addEventListener(event, callback) {this.events[event]=callback;}});
   const document = {createElement: node, getElementById(id) {
@@ -34,8 +34,30 @@ test('execution table exposes explanations and treats labels as text', () => {
   assert.match(rows[0].children[3].title, /readiness checks/);
   assert.equal(rows[0].children[4].textContent, '0 driver candidates');
   assert.equal(rows[0].children[6].textContent, 'Not applicable');
-  assert.match(rows[0].children[10].textContent, /Index size:/);
-  assert.doesNotMatch(rows[0].children[10].textContent, /Rows changed:/);
+  const details = rows[0].children[10].children[0];
+  assert.equal(details.tagName, 'details');
+  assert.equal(details.open, undefined); // Native details is collapsed unless open is set.
+  assert.equal(details.children[0].textContent, 'Details');
+  assert.equal(details.children[0].attributes['aria-label'], 'Measurement notes for execution abc');
+  assert.match(details.children[1].textContent, /Index size:/);
+  assert.doesNotMatch(details.children[1].textContent, /Rows changed:/);
+});
+
+test('collapsed notes remain searchable and render untrusted text safely', () => {
+  const {context, elements} = dashboard();
+  vm.runInContext(`table('test', ['Notes'], [
+    [{text:'<img src=x onerror=alert(1)> incomplete',details:true,executionId:'abc'}],
+    ['—']
+  ])`, context);
+  const [controls, grid] = elements.get('test').children;
+  const search = controls.children[0];
+  search.value = 'incomplete'; search.events.input();
+  assert.equal(grid.children[1].children.length, 1);
+  const details = grid.children[1].children[0].children[0].children[0];
+  assert.equal(details.children[1].textContent, '<img src=x onerror=alert(1)> incomplete');
+  assert.equal(details.children[1].children.length, 0);
+  search.value = ''; search.events.input();
+  assert.equal(grid.children[1].children[1].children[0].textContent, '—');
 });
 
 test('table controls page, combine search/filters, sort numbers, and reset', () => {

@@ -78,7 +78,19 @@ function table(id, headings, rows) {
       for (const value of values) {
         const cell = document.createElement('td');
         // Labels are user supplied. Never interpret them as HTML.
-        cell.textContent = cellText(value);
+        if (value && typeof value === 'object' && value.details) {
+          const details = document.createElement('details');
+          details.className = 'measurement-details';
+          const summary = document.createElement('summary');
+          summary.textContent = 'Details';
+          summary.setAttribute('aria-label', 'Measurement notes for execution ' + value.executionId);
+          const notes = document.createElement('div');
+          notes.textContent = cellText(value);
+          details.append(summary, notes);
+          cell.append(details);
+        } else {
+          cell.textContent = cellText(value);
+        }
         if (value && typeof value === 'object' && value.reason) cell.title = value.reason;
         row.append(cell);
       }
@@ -158,14 +170,19 @@ function renderExecutions(data) {
     kindLabel(e.kind) + ((e.features || []).length ? ' · ' + e.features.join(', ') : ''),
     measured(e, 'indexed_rows'), inputWork(e), format(e.rows_returned), measured(e, 'rows_affected'), e.status,
     format(e.duration_ms) + ' ms', e.id.slice(0, 8),
-    [
-      !hasMeasurement(e.indexed_rows) && ['Index size', missingMeasurement(e, 'indexed_rows')],
-      !hasMeasurement(e.rows_examined) && !hasMeasurement(e.rows_represented) && ['Input work', missingMeasurement(e, 'input_work')],
-      !hasMeasurement(e.rows_affected) && ['Rows changed', missingMeasurement(e, 'rows_affected')],
-    ].filter(v => v && v[1].text === 'Unavailable').map(([label, value]) => label + ': ' + value.reason).join(' ') || '—',
+    executionNotes(e),
   ]));
   element('execution-count').textContent = rows.length + ' shown of ' + all.length + ' recent samples. '
     + 'Clients retain their latest 24 completed executions per report; this is not a complete query log.';
+}
+
+function executionNotes(e) {
+  const text = [
+    !hasMeasurement(e.indexed_rows) && ['Index size', missingMeasurement(e, 'indexed_rows')],
+    !hasMeasurement(e.rows_examined) && !hasMeasurement(e.rows_represented) && ['Input work', missingMeasurement(e, 'input_work')],
+    !hasMeasurement(e.rows_affected) && ['Rows changed', missingMeasurement(e, 'rows_affected')],
+  ].filter(v => v && v[1].text === 'Unavailable').map(([label, value]) => label + ': ' + value.reason).join(' ');
+  return text ? {text, details: true, executionId: e.id} : '—';
 }
 
 function render(data) {
