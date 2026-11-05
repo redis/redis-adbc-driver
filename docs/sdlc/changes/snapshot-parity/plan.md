@@ -4,7 +4,8 @@ Date: 2026-11-02. Status: in progress. See [intent](intent.md), [spec](spec.md).
 
 The [implicit-order checkpoint](implicit-order-validation.md) extends the exact
 directory/candidate merge to unbounded narrow implicit-order reads. Matched
-native performance and complete current-source suites remain required; explicit
+native medians improve 25.93% for the full implicit read; complete current-source
+suites remain required. Explicit
 sorting under undiscoverable lowered caps is a separate open case.
 
 The [TLS fixture checkpoint](tls-snapshot-fixture-validation.md) records the

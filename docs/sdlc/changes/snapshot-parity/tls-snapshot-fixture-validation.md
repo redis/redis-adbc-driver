@@ -50,6 +50,12 @@ helpers still assume legacy physical index/key layouts; their adaptation and
 real multi-primary verification remain open. The requirement that fixture rows
 span all advertised primaries has not been weakened.
 
+Subsequently, [c06e181](implicit-order-validation.md) reproduces the ordinary
+implicit-order cap failure with the preserved preceding native library and
+passes the same real-cap, named-principal query with the new library. Explicit
+sorting under an undiscoverable cap remains separate work. The original failed
+probe and restricted-worker failure above retain their actual scope/source.
+
 The corrected full ordinary race suite at 27e05c2 passes: 2,025 test pass events,
 340 explicit skips, zero failures, all six tested packages successful; root
 1,158.243 s. Production is unchanged from 50d6b84. The
