@@ -736,3 +736,11 @@ including the increased copy call cost and reduced index waits. See the
 [pre-copy index evidence](compaction-directory-index-design.md). This closes the
 initial-scan optimization checkpoint, not the full parity objective. Current
 ordinary/platform/reader/Cluster/recovery and public-resume gates remain open.
+
+The [adoption/compaction fixture checkpoint](adoption-compaction-validation.md)
+reproduces a false root-freeze assertion exposed by faster maintenance: a real
+compaction publishes during a rejected typed refresh. Complete logical metadata,
+Arrow schema, internal IDs, provenance and every row remain unchanged. The
+corrected original and deterministic cases pass ten race repetitions (20 events).
+Production is unchanged; the complete ordinary run must be repeated and its
+first failed attempt is not counted as a pass.

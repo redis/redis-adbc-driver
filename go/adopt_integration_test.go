@@ -130,15 +130,13 @@ func TestAdoptHashes(t *testing.T) {
 	f.hset("it:ad:user:32", "name", "User 32", "balance", "lots")
 	h.expectRows(`SELECT COUNT(*) FROM it_ad_users`, "30")
 	h.expectRows(`SELECT balance FROM it_ad_users WHERE __key = 'it:ad:user:bob'`)
-	root := f.raw.HGet(h.ctx, snapshotCatalogKey, "root").Val()
+	beforeRefresh := captureAdoptedLogicalState(t, f, "it_ad_users")
 	blocked, err := AdoptHashes(h.ctx, f.opts, HashAdoptOptions{Prefix: f.prefix, Table: "it_ad_users", Apply: true,
 		Types: map[string]string{"balance": "NUMERIC(38,2)"}})
 	if err == nil || blocked == nil || len(blocked.Report.Checks) != 1 || blocked.Report.Checks[0].Ready || blocked.Applied {
 		t.Fatal("invalid typed refresh was not blocked with a report")
 	}
-	if f.raw.HGet(h.ctx, snapshotCatalogKey, "root").Val() != root {
-		t.Fatal("failed refresh published")
-	}
+	assertAdoptedLogicalState(t, beforeRefresh, captureAdoptedLogicalState(t, f, "it_ad_users"))
 	h.expectRows(`SELECT COUNT(*) FROM it_ad_users`, "30")
 	if err := f.raw.Del(h.ctx, "it:ad:user:32").Err(); err != nil {
 		t.Fatal(err)
