@@ -168,7 +168,10 @@ func (s *store) deleteFlexRows(ctx context.Context, meta *tableMeta) error {
 	}
 }
 
-const flexRangeMaxRows = 1000
+// Match the existing aggregate page ceiling. Wide requests retain their
+// width-derived limit; server caps can lower it further. Full or incomplete
+// replies still split before emission, independently of this performance bound.
+const flexRangeMaxRows = 10000
 
 type idRange struct{ lo, hi int64 }
 type rangeReader struct {

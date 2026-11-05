@@ -83,12 +83,12 @@ func TestFlexReadRobustness(t *testing.T) {
 	h.exec("DROP TABLE IF EXISTS " + name)
 	h.exec("CREATE TABLE " + name + " (n BIGINT)")
 	defer h.exec("DROP TABLE IF EXISTS " + name)
-	h.exec("INSERT INTO " + name + " SELECT i FROM generate_series(1,5000) AS t(i)")
+	h.exec("INSERT INTO " + name + " SELECT i FROM generate_series(1,25000) AS t(i)")
 	meta, err := c.store.getTable(h.ctx, defaultSchema, name)
 	if err != nil {
 		t.Fatal(err)
 	}
-	waitFor(t, "robustness fixture indexed", func() bool { n, err := c.store.countMatches(h.ctx, meta.index(), "*"); return err == nil && n == 5000 })
+	waitFor(t, "robustness fixture indexed", func() bool { n, err := c.store.countMatches(h.ctx, meta.index(), "*"); return err == nil && n == 25000 })
 	for _, mode := range []string{"disconnect", "timeout", "cancel"} {
 		t.Run(mode, func(t *testing.T) {
 			options := h.conn.(adbc.GetSetOptionsWithContext)
@@ -177,7 +177,7 @@ func TestFlexReadRobustness(t *testing.T) {
 			case <-time.After(2 * time.Second):
 				t.Fatal("failed read did not terminate promptly")
 			}
-			if delivered >= 5000 || delivered == 0 || fault.fired.Load() != 1 {
+			if delivered >= 25000 || delivered == 0 || fault.fired.Load() != 1 {
 				t.Fatalf("fault delivery accounting: rows=%d fired=%d", delivered, fault.fired.Load())
 			}
 			if reader.Next() {
@@ -189,13 +189,13 @@ func TestFlexReadRobustness(t *testing.T) {
 			// A whole new SQL statement is the retry contract. Check every row once;
 			// partial results from the failed statement must not leak into the retry.
 			var want []string
-			for i := 1; i <= 5000; i++ {
+			for i := 1; i <= 25000; i++ {
 				want = append(want, strconv.Itoa(i))
 			}
 			h.expectRows("SELECT n FROM "+name, want...)
 		})
 	}
-	h.expectRows("SELECT count(*),sum(n) FROM "+name, fmt.Sprint("5000|12502500"))
+	h.expectRows("SELECT count(*),sum(n) FROM "+name, fmt.Sprint("25000|312512500"))
 }
 
 // This opt-in test restarts only a caller-designated disposable Software DB.
@@ -238,12 +238,12 @@ func flexServerTransition(t *testing.T, operation string) {
 			t.Errorf("transition cleanup failed: %v", err)
 		}
 	}()
-	h.exec("INSERT INTO " + name + " SELECT i FROM generate_series(1,5000) AS t(i)")
+	h.exec("INSERT INTO " + name + " SELECT i FROM generate_series(1,25000) AS t(i)")
 	meta, err := c.store.getTable(h.ctx, defaultSchema, name)
 	if err != nil {
 		t.Fatal(err)
 	}
-	waitFor(t, "transition rows indexed", func() bool { n, err := c.store.countMatches(h.ctx, meta.index(), "*"); return err == nil && n == 5000 })
+	waitFor(t, "transition rows indexed", func() bool { n, err := c.store.countMatches(h.ctx, meta.index(), "*"); return err == nil && n == 25000 })
 	st, err := h.conn.NewStatement(h.ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -252,6 +252,7 @@ func flexServerTransition(t *testing.T, operation string) {
 	if err := st.SetOption(h.ctx, OptionIntStreamBatchRows, "2"); err != nil {
 		t.Fatal(err)
 	}
+
 	_ = st.SetSqlQuery(h.ctx, "SELECT n FROM "+name)
 	reader, _, err := st.ExecuteQuery(h.ctx)
 	if err != nil {
@@ -261,13 +262,13 @@ func flexServerTransition(t *testing.T, operation string) {
 	if !reader.Next() {
 		t.Fatal("missing pre-restart batch", reader.Err())
 	}
-	seen := make([]bool, 5001)
+	seen := make([]bool, 25001)
 	count := 0
 	check := func() {
 		rec := reader.RecordBatch()
 		for i := 0; i < int(rec.NumRows()); i++ {
 			n, err := strconv.Atoi(rec.Column(0).ValueStr(i))
-			if err != nil || n < 1 || n > 5000 || seen[n] {
+			if err != nil || n < 1 || n > 25000 || seen[n] {
 				t.Fatal("invalid/duplicate transition row")
 			}
 			seen[n] = true
@@ -301,7 +302,7 @@ func flexServerTransition(t *testing.T, operation string) {
 		check()
 	}
 	err = reader.Err()
-	if err == nil && count != 5000 {
+	if err == nil && count != 25000 {
 		t.Fatalf("transition silently truncated rows: %d", count)
 	}
 	if err != nil && reader.Next() {
@@ -328,7 +329,7 @@ func flexServerTransition(t *testing.T, operation string) {
 			r.Release()
 			_ = s.Close(h.ctx)
 			if e == nil {
-				if len(got) != 1 || got[0] != "5000|12502500" {
+				if len(got) != 1 || got[0] != "25000|312512500" {
 					t.Fatal("post-transition data mismatch", got)
 				}
 				break
@@ -343,7 +344,7 @@ func flexServerTransition(t *testing.T, operation string) {
 		time.Sleep(100 * time.Millisecond)
 	}
 	var want []string
-	for n := 1; n <= 5000; n++ {
+	for n := 1; n <= 25000; n++ {
 		want = append(want, strconv.Itoa(n))
 	}
 	h.expectRows("SELECT n FROM "+name, want...)

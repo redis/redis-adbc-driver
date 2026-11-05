@@ -70,7 +70,7 @@ not add source snapshot isolation. See the [follow-up validation](sdlc/changes/3
 
 Each scan captures the allocated upper row-ID boundary and visits disjoint,
 inclusive numeric ranges in ascending order. FT.SEARCH NOCONTENT requests at most
-1,000 IDs (or the configured lower search cap). A full response or a mismatch
+10,000 IDs, reduced by request width and any configured lower search cap. A full response or a mismatch
 between total matches and returned IDs causes a split before anything from that
 range is emitted. Singleton truncation, malformed replies, duplicate keys,
 inconsistent markers, warnings and request failures abort the query. Responses
