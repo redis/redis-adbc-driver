@@ -61,11 +61,13 @@ are opt-in and under validation. CPU execution remains the default. The earlier
 [GPU feasibility experiment](benchmarks/gpu-query/README.md) records its measured
 workload and performance limits.
 
-[Product usage analytics and feedback](analytics/README.md) helps us understand
-how users use the driver and guide product improvements. Aggregate collection is
-on by default and reports to `https://adbc-telemetry.sa.redislabs.com/v1/usage`;
-opt out with `adbc.redis.telemetry.enabled=false`. Reports exclude SQL text and
-result values. The AWS collector stores analytics in Redis with S3 backups.
+[Product usage analytics and feedback](analytics/README.md) collects high-level
+metrics—such as statement types, execution counts, timings and row counts—to
+understand how the driver is used and help improve it. **Your SQL statements,
+query parameters, query results and database contents are not collected.**
+Reporting is on by default and uses `https://adbc-telemetry.sa.redislabs.com/v1/usage`;
+opt out with `adbc.redis.telemetry.enabled=false`. The analytics documentation
+explains the source and deployment metadata included with these metrics.
 
 
 ## Contents

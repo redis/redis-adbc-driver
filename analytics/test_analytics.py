@@ -33,6 +33,8 @@ class AnalyticsTests(unittest.TestCase):
         self.store = None
         if 'ANALYTICS_TEST_REDIS_URL' in os.environ:
             self.store = Store(os.environ['ANALYTICS_TEST_REDIS_URL'], prefix='adbc:{analytics-test-' + uuid.uuid4().hex + '}:')
+            self.store.redis.set(self.store.prefix+"dns:8.8.8.8","dns.google",ex=60)
+            self.store.redis.set(self.store.prefix+"dns:1.1.1.1","one.one.one.one",ex=60)
             self.addCleanup(self.cleanup_store)
 
     def cleanup_store(self):
@@ -194,6 +196,72 @@ class AnalyticsTests(unittest.TestCase):
         hosts={host['hostname']:host for host in self.store.summary()['hosts']}
         self.assertEqual(hosts['host-0']['public_ip'],'')
         self.assertEqual(hosts['host-1']['public_ip'],'8.8.8.8')
+
+    def test_automatic_deployment_association_and_network_changes(self):
+        self.require_store()
+        def workload(install, instance, key='a'*64):
+            p=report();p['installation_id']=install;p['instance_id']=instance
+            p['workload_identity']={'provider':'ecs_service','key':key}
+            return p
+        first=workload('container-a',str(uuid.uuid4()))
+        second=workload('replacement-container',str(uuid.uuid4()))
+        self.store.ingest(first,source={'public_ip':'8.8.8.8'})
+        self.store.ingest(second,source={'public_ip':'1.1.1.1'})
+        summary=self.store.summary()
+        self.assertEqual(len(summary['deployments']),1)
+        d=summary['deployments'][0]
+        uuid.UUID(d['deployment_id'])
+        self.assertEqual(d['installation_ids'],2)
+        self.assertEqual(d['runtime_instances'],2)
+        self.assertEqual(d['public_ips'],['1.1.1.1','8.8.8.8'])
+        self.assertEqual(summary['weekly_active_deployments'],1)
+        self.assertEqual(summary['weekly_active_installations'],2)
+        other=workload('container-a',str(uuid.uuid4()),key='b'*64)
+        self.store.ingest(other,source={'public_ip':'8.8.8.8'})
+        self.assertEqual(len(self.store.summary()['deployments']),2)
+
+    def test_network_only_matches_do_not_merge_deployments(self):
+        self.require_store()
+        for install in ['new-container-one','new-container-two']:
+            p=report();p['installation_id']=install;p['instance_id']=str(uuid.uuid4())
+            self.store.ingest(p,source={'public_ip':'8.8.8.8'})
+        self.store.redis.set(self.store.prefix+'dns:8.8.8.8','shared.example.test',ex=60)
+        summary=self.store.summary()
+        self.assertEqual(len(summary['deployments']),2)
+        self.assertEqual(summary['weekly_active_deployments'],2)
+        self.assertTrue(summary['probable_associations'])
+        for association in summary['probable_associations']:
+            self.assertEqual(association['confidence'],'probable_network_only')
+            self.assertFalse(association['merged'])
+            self.assertEqual(len(association['deployment_ids']),2)
+
+    def test_same_uuid_across_networks_and_handles(self):
+        self.require_store()
+        instance=str(uuid.uuid4())
+        for address in ['8.8.8.8','1.1.1.1']:
+            p=report();p['instance_id']=instance
+            self.store.ingest(p,source={'public_ip':address})
+        summary=self.store.summary()
+        self.assertEqual(len(summary['deployments']),1)
+        self.assertEqual(summary['deployments'][0]['runtime_instances'],1)
+        self.assertEqual(summary['deployments'][0]['installation_ids'],1)
+        self.assertFalse(summary['probable_associations'])
+
+    def test_deployment_alias_creation_is_concurrent_and_stable(self):
+        self.require_store()
+        payloads=[]
+        for index in range(16):
+            p=report();p['installation_id']='container-'+str(index);p['instance_id']=str(uuid.uuid4())
+            p['workload_identity']={'provider':'kubernetes_controller','key':'f'*64};payloads.append(p)
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            self.assertTrue(all(pool.map(self.store.ingest,payloads)))
+        summary=self.store.summary()
+        self.assertEqual(len(summary['deployments']),1)
+        self.assertEqual(summary['deployments'][0]['runtime_instances'],16)
+        p=copy.deepcopy(payloads[0]);p['sequence']+=1;p['instance_id']=str(uuid.uuid4())
+        with self.assertRaises(ValueError):self.store.ingest(p)
+        p=report();p['workload_identity']={'provider':'ecs_service','key':'raw-service-name'}
+        with self.assertRaises(ValueError):validate(p)
 
     def test_download_asset_pagination(self):
         calls = []

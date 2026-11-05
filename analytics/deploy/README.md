@@ -149,3 +149,11 @@ nginx `X-Real-IP` header and explicit `ANALYTICS_TRUST_PROXY=1`; never trust a
 client-supplied forwarding header from a non-loopback peer. Reverse DNS is cached
 and resolved asynchronously. No AWS resources or IAM permissions are added for
 these dashboard changes.
+
+
+Automatic association adds a Redis alias hash to the existing persisted dataset;
+RDB/S3 backups include it automatically. The collector ACL gains only `HGET`
+within its existing analytics key prefix. No new infrastructure, IAM permissions,
+user UUID configuration or mounted ID volume is required. The deployment map is
+not an authenticated customer directory: reports remain self-reported and shared
+network evidence never performs identity merges.

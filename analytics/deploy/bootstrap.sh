@@ -44,7 +44,7 @@ aclfile /etc/redis/users.acl
 Path('/etc/redis/users.acl').write_text(
     'user default off\n'
     f'user admin on >{admin} ~* &* +@all\n'
-    f'user collector on >{password} ~adbc:{{analytics}}:* +ping +hello +select +get +set +watch +unwatch +multi +exec +discard +xadd +xrange +xrevrange +sadd +sscan +hset +hsetnx +hdel +hmget +zadd +zrem +zrange +zrevrange +client|setinfo\n'
+    f'user collector on >{password} ~adbc:{{analytics}}:* +ping +hello +select +get +set +watch +unwatch +multi +exec +discard +xadd +xrange +xrevrange +sadd +sscan +hset +hget +hsetnx +hdel +hmget +zadd +zrem +zrange +zrevrange +client|setinfo\n'
     f'user backup on >{backup} +ping +hello +psync +replconf +sync +client|setinfo\n')
 # Store the write token in a root-readable proxy snippet, never public clients.
 Path('/etc/nginx/adbc-write-token.conf').write_text(f'proxy_set_header Authorization "Bearer {write}";\n')

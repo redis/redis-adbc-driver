@@ -6,6 +6,7 @@ import hmac
 import hashlib
 import ipaddress
 import queue
+import re
 import threading
 import dns.resolver
 import dns.reversename
@@ -22,7 +23,7 @@ KINDS = {'select', 'insert', 'update', 'delete', 'merge', 'ddl', 'metadata', 'se
 FEATURES = {'join', 'filter', 'aggregate', 'sort', 'limit', 'distinct', 'cte', 'set_operation', 'window', 'subquery'}
 LABELS = {'organization', 'team', 'application', 'environment', 'use_case', 'integration'}
 COUNTERS = {'attempts', 'success', 'errors', 'canceled', 'abandoned', 'rows', 'affected'}
-OPTIONAL = {'source_hostname', 'installation_id_source', 'executions', 'execution_samples_dropped'}
+OPTIONAL = {'instance_id', 'workload_identity', 'source_hostname', 'installation_id_source', 'executions', 'execution_samples_dropped'}
 TOP = OPTIONAL | {'schema_version', 'session_id', 'installation_id', 'sequence', 'started_at', 'observed_at', 'last_query_at', 'driver_version', 'os', 'arch', 'labels', 'connections', 'connection_errors', 'features', 'metrics', 'latency_bounds_ms', 'delivery_failures'}
 
 
@@ -84,6 +85,14 @@ def validate(p):
         finished = sum(m[k] for k in ['success', 'errors', 'canceled', 'abandoned'])
         if finished > m['attempts'] or sum(m['latency']) != finished or sum(m['ready_latency']) > m['attempts']:
             raise ValueError('inconsistent execution counts')
+    if 'instance_id' in p:
+        uuid.UUID(p['instance_id'])
+    if 'workload_identity' in p:
+        identity = p['workload_identity']
+        if not isinstance(identity, dict) or set(identity) != {'provider','key'}:
+            raise ValueError('invalid workload identity')
+        if identity['provider'] not in {'ecs_service','kubernetes_controller'} or not isinstance(identity['key'],str) or not re.fullmatch('[0-9a-f]{64}',identity['key']):
+            raise ValueError('unsupported workload identity')
     if 'source_hostname' in p:
         text(p['source_hostname'])
     if p.get('installation_id_source', 'explicit') not in {'explicit', 'local_file', 'temporary'}:
@@ -176,6 +185,24 @@ class Store:
             try: self.redis.set(self.prefix + 'dns:' + address, name, ex=3600)
             except redis.exceptions.RedisError: pass
 
+    def deployment_identity(self, payload, client=None):
+        if client is None: client = self.redis
+        workload = payload.get('workload_identity')
+        if workload:
+            basis = workload['provider']
+            anchor = ['workload', basis, workload['key']]
+        else:
+            basis = 'installation_id:' + payload.get('installation_id_source','unknown')
+            anchor = ['installation', payload['installation_id']]
+        # IP, PTR and hostname are deliberately excluded from confirmed aliases.
+        alias = hashlib.sha256(json.dumps(anchor, separators=(',',':')).encode()).hexdigest()
+        key = self.prefix + 'deployment-aliases'
+        client.hsetnx(key, alias, str(uuid.uuid4()))
+        deployment = client.hget(key, alias)
+        return {'deployment_id': deployment, 'instance_id': payload.get('instance_id',payload['session_id']),
+                'instance_kind': 'runtime' if 'instance_id' in payload else 'legacy_handle',
+                'basis': basis, 'confidence': 'identifier_match', 'identity_verified': False}
+
     def ingest(self, payload, received_at=None, source=None):
         p = validate(payload)
         source = source or {}
@@ -195,14 +222,18 @@ class Store:
                             raise ValueError('session identity changed')
                     if old and old.get('source_hostname', '') != p.get('source_hostname', ''):
                         raise ValueError('source hostname changed')
+                    if old and any(old.get(k) != p.get(k) for k in ['instance_id','workload_identity']):
+                        raise ValueError('runtime or workload identity changed within session')
                     keys = ['connections', 'connection_errors', 'features', 'metrics', 'delivery_failures']
                     delta = subtract({k: p[k] for k in keys}, {k: old[k] for k in keys} if old else {})
                     received = received_at or datetime.now(timezone.utc)
+                    identity = self.deployment_identity(p, pipe)
                     pipe.multi()
                     pipe.set(session, json.dumps(p))
                     pipe.xadd(self.prefix + 'reports', {
                         'received_at': received.isoformat(), 'installation': p['installation_id'],
                         'labels': json.dumps(p['labels']), 'delta': json.dumps(delta),
+                        'identity': json.dumps(identity),
                         'source': json.dumps({**source, 'hostname': p.get('source_hostname', ''), 'id_source': p.get('installation_id_source','unknown')})})
                     pipe.sadd(self.prefix + 'versions', p['driver_version'])
                     for execution in p.get('executions', []):
@@ -210,7 +241,8 @@ class Store:
                         ident = p['session_id'] + ':' + execution['id']
                         detail = {**execution, 'installation_id': p['installation_id'],
                                   'source_hostname': p.get('source_hostname',''), 'public_ip': source.get('public_ip',''),
-                                  'received_at': received.isoformat(), 'application': p['labels'].get('application','')}
+                                  'received_at': received.isoformat(), 'application': p['labels'].get('application',''),
+                                  'deployment_id': identity['deployment_id'], 'instance_id': identity['instance_id']}
                         pipe.hsetnx(self.prefix + 'executions', ident, json.dumps(detail))
                         pipe.zadd(self.prefix + 'execution-times', {ident: timestamp(execution['completed_at']).timestamp()}, nx=True)
                     pipe.hset(self.prefix + 'sampling', p['session_id'], p.get('execution_samples_dropped',0))
@@ -257,6 +289,8 @@ class Store:
         downloads = [json.loads(p) for p in self.redis.hmget(self.prefix + 'downloads', members) if p] if members else []
         orgs, metrics, features, daily, first, activity = {}, {}, {}, {}, {}, {}
         hosts = {}
+        deployments, network_matches = {}, {}
+        weekly_deployments = set()
         recent = self.redis.zrevrange(self.prefix + 'execution-times', 0, 199)
         executions = [json.loads(p) for p in self.redis.hmget(self.prefix + 'executions', recent) if p] if recent else []
         executions = [e for e in executions if timestamp(e['completed_at']) >= cutoff]
@@ -275,6 +309,24 @@ class Store:
             if received < cutoff:
                 continue
             source = json.loads(row.get('source', '{}'))
+            identity = json.loads(row.get('identity','{}'))
+            if identity.get('deployment_id'):
+                ident = identity['deployment_id']
+                deployment = deployments.setdefault(ident, {'deployment_id':ident, 'bases':set(),
+                    'installation_ids':set(), 'instance_ids':set(), 'legacy_handles':set(),
+                    'hostnames':set(), 'public_ips':set(), 'applications':set(),
+                    'attempts':0, 'last_seen':row['received_at']})
+                deployment['bases'].add(identity['basis'])
+                deployment['installation_ids'].add(install)
+                deployment['instance_ids' if identity['instance_kind']=='runtime' else 'legacy_handles'].add(identity['instance_id'])
+                if source.get('hostname'): deployment['hostnames'].add(source['hostname'])
+                if source.get('public_ip'):
+                    deployment['public_ips'].add(source['public_ip'])
+                    network_matches.setdefault(('public_ip', source['public_ip']),set()).add(ident)
+                if labels.get('application'): deployment['applications'].add(labels['application'])
+                deployment['attempts'] += attempts
+                deployment['last_seen'] = max(deployment['last_seen'],row['received_at'])
+                if attempts and received >= week: weekly_deployments.add(ident)
             key = (source.get('hostname',''), source.get('public_ip',''))
             host = hosts.setdefault(key, {'hostname': key[0], 'public_ip': key[1], 'installations': set(),
                                         'attempts': 0, 'last_seen': row['received_at'], 'id_sources': set()})
@@ -314,7 +366,22 @@ class Store:
             host['installations'] = len(host['installations'])
             host['id_sources'] = sorted(host['id_sources'])
             host['reverse_dns'] = self.reverse_dns(host['public_ip'])
-        return {'hosts': list(hosts.values()), 'executions': executions,
+        for deployment in deployments.values():
+            deployment['installation_ids'] = len(deployment['installation_ids'])
+            deployment['runtime_instances'] = len(deployment.pop('instance_ids'))
+            deployment['legacy_handles'] = len(deployment['legacy_handles'])
+            for field in ['bases','hostnames','public_ips','applications']:
+                deployment[field] = sorted(deployment[field])
+            names = {self.reverse_dns(ip) for ip in deployment['public_ips']}
+            deployment['reverse_dns'] = sorted(name for name in names if name)
+            for name in deployment['reverse_dns']:
+                network_matches.setdefault(('reverse_dns', name),set()).add(deployment['deployment_id'])
+        associations = [{'match_type':kind, 'value':value, 'deployment_ids':sorted(ids),
+                         'confidence':'probable_network_only','merged':False}
+                        for (kind,value),ids in sorted(network_matches.items()) if len(ids)>1]
+        return {'deployments': list(deployments.values()), 'weekly_active_deployments':len(weekly_deployments),
+                'probable_associations':associations[:200],
+                'hosts': list(hosts.values()), 'executions': executions,
                 'execution_sample_limit': 200, 'execution_history_limit': 10000,
                 'window_days': 28, 'weekly_active_installations': len(active_week), 'monthly_active_installations': len(active_month),
                 'self_reported_organizations': len({o['organization'] for o in orgs.values() if o['organization']}),

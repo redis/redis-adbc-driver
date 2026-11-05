@@ -80,6 +80,7 @@ function render(data) {
   const retention = data.retention_week4;
   const cards = [
     ['Distinct active installation IDs · 7 days', data.weekly_active_installations],
+    ['Associated active deployments · 7 days', data.weekly_active_deployments || 0],
     ['Identified reporting sources · 28 days', (data.hosts || []).filter(h => h.hostname || h.public_ip).length],
     ['Active organizations', data.self_reported_organizations],
     ['Active teams', data.self_reported_teams],
@@ -112,6 +113,18 @@ function render(data) {
   table('queries', ['Statement type', 'Attempts', 'Success', 'Errors', 'Canceled', 'Abandoned',
     'p50 elapsed', 'p95 elapsed', 'p99 elapsed', 'p95 ready'], queryRows);
   renderExecutions(data);
+  const basisLabel = value => ({ecs_service:'ECS service identity',kubernetes_controller:'Kubernetes controller identity',
+    'installation_id:local_file':'Saved installation ID','installation_id:explicit':'Application installation ID',
+    'installation_id:temporary':'Temporary installation ID','installation_id:unknown':'Legacy installation ID (storage unknown)'})[value] || value;
+  table('deployments', ['Deployment ID', 'Applications', 'Association basis', 'Installation IDs', 'Runtime instances',
+    'Legacy handles', 'Hostnames', 'Public IPs', 'Query attempts', 'Last received'], (data.deployments || [])
+    .sort((a,b) => b.attempts-a.attempts).map(d => [d.deployment_id, d.applications.join(', ') || 'Not labeled',
+      d.bases.map(basisLabel).join(', '),format(d.installation_ids),format(d.runtime_instances),format(d.legacy_handles),
+      d.hostnames.join(', ') || 'Not reported',d.public_ips.join(', ') || 'Not recorded',format(d.attempts),
+      new Date(d.last_seen).toLocaleString()]));
+  table('associations', ['Network evidence', 'Observed value', 'Possible related deployment IDs', 'Confidence', 'Merged?'],
+    (data.probable_associations || []).map(a => [a.match_type === 'public_ip' ? 'Shared public IP' : 'Shared reverse DNS',
+      a.value,a.deployment_ids.join(', '),'Probable · network only','No']));
   table('hosts', ['Reported hostname', 'Public reverse DNS (PTR)', 'Public egress IP', 'Distinct installation IDs',
     'ID storage', 'Query attempts', 'Last received'], (data.hosts || []).sort((a,b) => b.attempts-a.attempts).map(h => [
       h.hostname || 'Not reported', h.reverse_dns || 'Unavailable / pending', h.public_ip || 'Not recorded',
@@ -151,7 +164,7 @@ async function load(event) {
     element('status').textContent = 'Updated ' + new Date().toLocaleTimeString();
   } catch (error) {
     // Clear previously authorized data if a later request fails.
-    for (const id of ['cards', 'queries', 'orgs', 'features', 'daily', 'downloads', 'hosts', 'executions']) {
+    for (const id of ['cards', 'queries', 'orgs', 'features', 'daily', 'downloads', 'hosts', 'executions', 'deployments', 'associations']) {
       element(id).replaceChildren();
     }
     latest = null;

@@ -620,3 +620,15 @@ func TestUsagePersistedIDStartup(t *testing.T) {
 		state.close()
 	}
 }
+
+func TestUsageRuntimeIdentityAcrossHandles(t *testing.T) {
+	_, a := usageForTest(t, nil)
+	_, b := usageForTest(t, nil)
+	first, second := usageData(t, a), usageData(t, b)
+	if first.InstanceID == "" || first.InstanceID != second.InstanceID {
+		t.Fatal("runtime instance changed between handles")
+	}
+	if first.SessionID == second.SessionID {
+		t.Fatal("database sessions were conflated")
+	}
+}

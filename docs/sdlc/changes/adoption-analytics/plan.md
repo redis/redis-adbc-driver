@@ -209,3 +209,36 @@ and three output rows; index population remains unknown for that particular plan
 rather than borrowing another statement's measurement. Validation screenshots
 were captured before removing labeled smoke data; other sources were preserved.
 No new AWS resources were required and the dashboard read token was preserved.
+
+
+## Automatic deployment association and privacy wording (2026-11-05)
+
+Requestor: Albert Wong. Users should not need to mount ID storage or configure
+UUIDs. Automatically generate runtime IDs and discover stable platform workload
+identity where available; let the collector assign durable deployment UUIDs and
+associate replacement instances. Network-only matches remain probable suggestions,
+not confirmed merges or reductions in distinct deployment counts.
+
+Implementation: background, process-cached ECS service/Kubernetes controller
+metadata discovery, bounded to two seconds and outside SQL execution. Only a
+provider and hashed identity are exported. Existing platform permissions/TLS are
+used without elevation or proxy/redirect credential forwarding. Missing metadata
+falls back automatically to the generated installation ID. Redis atomically maps
+stable aliases to random deployment UUIDs; reports retain runtime instances,
+association basis and network history separately. Old reports remain compatible.
+
+Dashboard: associated active deployments, runtime instances/legacy handles,
+identifier-based associations and probable network-only matches. Installation-ID
+counts remain separate. Metadata matches are self-reported, not verified company
+identity. No new AWS resources or IAM permissions are needed.
+
+Privacy copy explains high-level metrics and product improvement, then reassures
+users that SQL statements, query parameters, query results and database contents
+are not collected. Source/deployment metadata is explained separately.
+
+Validation: [automatic-association-validation.json](evidence/automatic-association-validation.json).
+Full Go race suite: 1021 passes, 616 environment-dependent skips, no failures.
+Focused Redis Software suite: 51 passes, hosted-only check skipped, no failures.
+Collector suite: 15 passes with real isolated Software storage and mocked platform
+metadata/DNS where appropriate. No live Kubernetes or ECS deployment was created
+for provider discovery tests. Python/JS/shell compilation/syntax and diff checks pass.

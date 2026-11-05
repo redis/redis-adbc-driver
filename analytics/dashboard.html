@@ -3,10 +3,15 @@
 <title>Redis ADBC · Adoption analytics</title>
 <link rel="stylesheet" href="/dashboard.css">
 <p class="muted">REDIS / ADBC DRIVER</p><h1>Adoption analytics</h1>
+<p class="muted">We collect high-level usage metrics to understand how the driver is used and help improve it. Your SQL statements, query parameters, query results and database contents are not collected.</p>
 <p class="muted">Opt-out product usage feedback · Last 28 days unless labeled · Organization and team labels are self-reported, not verified identities.</p>
 <form id="login"><input id="token" type="password" placeholder="Dashboard read token" aria-label="Dashboard read token" required><button>Load dashboard</button><span id="status" role="status"></span></form>
 <div id="cards" class="cards"></div>
-<p class="muted">Distinct active installation IDs: each ID counts once if it has a query attempt received in the last 7 days. These are not unique machines or people. New clients save a generated ID in the local user configuration directory and reuse it across handles and restarts. An application-supplied ID takes precedence. Read-only storage falls back to a temporary ID, which can inflate this count. Older clients used a new ID per handle. Container rollouts need a persistent ID file or an application-supplied ID.</p>
+<p class="muted">Distinct active installation IDs: each ID counts once if it has a query attempt received in the last 7 days. These are not unique machines or people. New clients save a generated ID in the local user configuration directory and reuse it across handles and restarts. An application-supplied ID takes precedence. Read-only storage falls back to a temporary ID, which can inflate this count. Older clients used a new ID per handle. Containers can receive new installation IDs; automatic deployment associations below track supported platform workloads across replacements.</p>
+<section><h2>Automatically associated deployments</h2>
+<p class="muted">No UUID configuration or mounted ID file is required. Deployment IDs are assigned automatically. Matching platform workload hashes associate replacement containers; matching installation IDs preserve continuity when networks change. Runtime instances are counted separately. Identifier matches are self-reported, not verified customer identities. Older reports without an association are excluded here.</p><div id="deployments" class="scroll"></div></section>
+<section><h2>Probable network associations</h2>
+<p class="muted">Shared public IP or reverse DNS can suggest related containers, but also occurs with NATs, VPNs and shared infrastructure. These suggestions never merge deployment IDs or reduce the associated-deployment count.</p><div id="associations" class="scroll"></div></section>
 <section><h2>Recent query workloads</h2>
 <p class="muted">See work for each sampled execution, rather than adding rows across unrelated queries. Query text, values, table names and parameters are not collected. An execution ID identifies one call; a script or parameter batch is one call.</p>
 <label for="execution-filter">Filter by host, statement, feature or outcome</label>

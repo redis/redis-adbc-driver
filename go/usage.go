@@ -89,6 +89,8 @@ const usageExecutionLimit = 24
 type usageOperationContextKey struct{}
 
 type usageSnapshot struct {
+	InstanceID           string                  `json:"instance_id,omitempty"`
+	WorkloadIdentity     *usageWorkloadIdentity  `json:"workload_identity,omitempty"`
 	InstallationIDSource string                  `json:"installation_id_source,omitempty"`
 	SourceHostname       string                  `json:"source_hostname,omitempty"`
 	Executions           []usageExecution        `json:"executions,omitempty"`
@@ -251,11 +253,21 @@ func (s *usageState) start() (*usageTelemetry, error) {
 	}
 	t := &usageTelemetry{endpoint: endpoint, token: s.options[OptionStringTelemetryToken], stop: make(chan struct{}), done: make(chan struct{}), wake: make(chan struct{}, 1), interval: interval,
 		client: &http.Client{Timeout: 2 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }},
-		data:   usageSnapshot{InstallationIDSource: idSource, SourceHostname: hostname, SchemaVersion: 1, SessionID: uuid.NewString(), InstallationID: id, StartedAt: now, DriverVersion: "unknown", OS: runtime.GOOS, Arch: runtime.GOARCH, Labels: labels, Features: map[string]int64{}, Metrics: map[string]*usageMetric{}, LatencyBounds: usageLatencyBounds}}
+		data:   usageSnapshot{InstanceID: usageRuntimeInstanceID, InstallationIDSource: idSource, SourceHostname: hostname, SchemaVersion: 1, SessionID: uuid.NewString(), InstallationID: id, StartedAt: now, DriverVersion: "unknown", OS: runtime.GOOS, Arch: runtime.GOARCH, Labels: labels, Features: map[string]int64{}, Metrics: map[string]*usageMetric{}, LatencyBounds: usageLatencyBounds}}
 	s.reporter = t
+	t.identityReady = make(chan struct{})
 	if t.endpoint != "" {
+		ready := usageDiscoverPlatform()
+		go func() {
+			<-ready
+			t.mu.Lock()
+			t.data.WorkloadIdentity = usagePlatformDiscovery.result
+			t.mu.Unlock()
+			close(t.identityReady)
+		}()
 		go t.run()
 	} else {
+		close(t.identityReady)
 		close(t.done)
 	}
 	return t, nil
@@ -278,6 +290,7 @@ type usageTelemetry struct {
 	interval        time.Duration
 	client          *http.Client
 	stop, done      chan struct{}
+	identityReady   chan struct{}
 	wake            chan struct{}
 	once            sync.Once
 }
@@ -341,6 +354,13 @@ func (s *usageState) flush(ctx context.Context) error {
 }
 
 func (t *usageTelemetry) deliver(ctx context.Context) error {
+	if t.identityReady != nil {
+		select {
+		case <-t.identityReady:
+		case <-ctx.Done():
+			return errorf(adbc.StatusCancelled, "telemetry discovery canceled")
+		}
+	}
 	status := 0
 	t.sendMu.Lock()
 	defer t.sendMu.Unlock()

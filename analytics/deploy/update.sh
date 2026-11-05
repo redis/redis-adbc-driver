@@ -28,7 +28,7 @@ password=re.search(r'^user admin on >(\S+)',acl,re.M).group(1)
 lines=acl.splitlines()
 for i,line in enumerate(lines):
     if line.startswith('user collector '):
-        for command in ['+hsetnx','+hdel','+zrange','+zrem']:
+        for command in ['+hget','+hsetnx','+hdel','+zrange','+zrem']:
             if command not in line.split(): line+=' '+command
         lines[i]=line
 acl_path.write_text('\n'.join(lines)+'\n')

@@ -47,3 +47,18 @@ Date: 2026-10-29. Source: public main `820d5af`.
 
 Checks: focused Go race tests and unit suite; Python collector/HTTP/pagination tests;
 local dashboard inspection. Redis-backed integration is separately reported.
+
+
+Automatic association update: a generated runtime UUID spans handles; background
+ECS service/Kubernetes controller discovery supplies only a hashed workload key.
+The collector assigns a durable random deployment UUID through atomic alias
+registration. Workload matches survive new installation UUIDs, and installation
+matches survive IP/PTR changes. Network-only overlaps are probable suggestions
+and never merge IDs. No user-provided UUID/mounted ID file is required. Metadata
+access uses existing platform permissions, verified TLS, no redirects/proxies,
+a two-second background deadline, and non-failing local-ID fallback. Public
+reports are self-reported and not authenticated identities.
+
+Privacy wording explains high-level metrics and product improvement, then states
+that SQL statements, query parameters, query results and database contents are
+not collected; source/deployment metadata is documented separately.
