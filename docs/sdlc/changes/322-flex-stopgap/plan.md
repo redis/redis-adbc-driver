@@ -53,3 +53,14 @@ reader-only partition mode are explicitly excluded from this stopgap.
 - Comparative benchmarks, Cloud, multi-shard Flex and full ADBC validation
   remain pending. Initial RAM regression evidence above belongs to the source
   worktree; current-main integration CI remains separate evidence.
+
+## Comparative measurements and expanded validation
+
+The follow-up request ran comparative resource/latency measurements, live
+read-failure cases, actual server result caps, real large-ID boundaries,
+three-shard coverage, full native ADBC suites and a disposable Cloud Pro Flex
+probe. See [the complete validation record](validation.md) and its linked
+benchmark artifacts. The final Flex suite is not fully passing: unsupported
+retained/schema cases remain failures. Validation drove atomic limit allocation,
+accurate resource diagnostics and early retained-mode rejection. No release or
+issue-closure claim is made.

@@ -34,7 +34,7 @@ or FT.CURSOR is needed by this reader, including string-level checks.
 The initial restrictions are deliberate:
 
 - Driver-created tables only. Adoption, application indexes, foreign-index
-  discovery and pending table rewrites are rejected. Copying into a fresh
+  discovery, retained partitions and pending table rewrites are rejected. Copying into a fresh
   driver-created table remains the alternative to adoption.
 - ALTER TABLE (including rename/type changes), CREATE INDEX, materialized views,
   TRUNCATE and rename rekeying are
@@ -43,8 +43,9 @@ The initial restrictions are deliberate:
   SKIPINITIALSCAN and new driver-owned prefixes.
 - Row IDs must be positive integers at most 2^53. This limit applies to hidden
   IDs, not user BIGINT/DECIMAL values, which retain their exact HASH values.
-  Allocation beyond the limit fails before row writes; the sequence can advance
-  on a failed allocation, as with other allocation failures.
+  Allocation beyond the limit fails atomically before advancing the sequence
+  or writing rows, so existing rows remain readable. Writer ACLs require EVAL,
+  GET and INCRBY on the metadata-slot keys. Other failed writes can leave gaps.
 - No automatic migration of plain indexes to sortable indexes when server
   capabilities change. Plain-index metadata requires opting in on later opens.
 
@@ -109,8 +110,24 @@ forced splitting; injected lower server caps, errors and warnings; cancellation;
 concurrent inserts/updates against the documented boundary; restricted SQL;
 and DROP ownership. Capability-probe key count is unchanged after cleanup.
 
-Performance acceptance remains open: no comparative resource benchmark, flash
-read counts, Cloud validation, multi-shard Flex validation,
-failover test or full ADBC validation is claimed. The issue's independent
-NUMERIC-versus-SORTABLE and cursor-versus-range resource comparisons remain
-follow-up work; correctness test timings are not throughput benchmarks.
+Comparative benchmarks and expanded validation are recorded in the
+[measured report](../benchmarks/redis-flex/2026-11-05/README.md) and
+[validation matrix](sdlc/changes/322-flex-stopgap/validation.md). The stopgap saved
+about 55% of index memory in the synthetic comparison but was substantially
+slower for broad reads, sorting and aggregation. It remains opt-in.
+
+Three-shard Software Flex correctness and race checks were run with authenticated
+TLS and verified 4x QPF. Full native ADBC validation was run on RAM and Flex;
+Flex still has failing cases for its explicitly restricted retained/schema
+features. The native cancellation test asserts zero aggregate cursors in Flex
+mode without skipping its cancellation/reuse checks.
+
+A temporary Cloud Pro Flex deployment in GCP us-west2 (Redis 8.6.2) authenticated
+over TLS/RESP3 but rejected FT._LIST. The driver refused with NotImplemented and
+left the key count unchanged. Cloud SQL support was therefore not established.
+The temporary Cloud database and subscription were deleted and removal verified.
+
+A Software database restart validation exceeded its two-minute operator deadline;
+restart recovery and HA failover remain unproven. Cold/flash-dominant workloads,
+concurrent throughput, general sort spilling and document/flash read counters also
+remain follow-up work. See the reports for measurement limits and exact results.

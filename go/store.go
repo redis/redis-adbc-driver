@@ -1799,20 +1799,29 @@ func (s *store) allocRows(ctx context.Context, meta *tableMeta, rows [][]Value) 
 	// The row ids are allocated in one transaction with a read of the
 	// metadata, which shows columns that ADD COLUMN … DEFAULT added since
 	// meta was read: these rows get their missing values (see defaults.go).
-	tx := s.redis(ctx).TxPipeline()
-	incr := tx.IncrBy(ctx, seqKey(meta.Schema, meta.Name), int64(len(rows)))
-	cur := tx.Get(ctx, metaKey(meta.Schema, meta.Name))
-	if _, err := tx.Exec(ctx); err != nil && !errors.Is(err, goredis.Nil) {
-		return rowAlloc{}, wrapRedis(err, "failed to allocate row ids")
+	var last int64
+	var currentMetadata string
+	if s.flex {
+		var err error
+		last, currentMetadata, err = s.allocateFlexRowIDs(ctx, meta, len(rows))
+		if err != nil {
+			return rowAlloc{}, err
+		}
+	} else {
+		tx := s.redis(ctx).TxPipeline()
+		incr := tx.IncrBy(ctx, seqKey(meta.Schema, meta.Name), int64(len(rows)))
+		cur := tx.Get(ctx, metaKey(meta.Schema, meta.Name))
+		if _, err := tx.Exec(ctx); err != nil && !errors.Is(err, goredis.Nil) {
+			return rowAlloc{}, wrapRedis(err, "failed to allocate row ids")
+		}
+		var err error
+		last, err = incr.Result()
+		if err != nil {
+			return rowAlloc{}, wrapRedis(err, "failed to allocate row ids")
+		}
+		currentMetadata = cur.Val()
 	}
-	last, err := incr.Result()
-	if err != nil {
-		return rowAlloc{}, wrapRedis(err, "failed to allocate row ids")
-	}
-	if s.flex && (last < 0 || last > exactDoubleLimit) {
-		return rowAlloc{}, flexUnsupported("row IDs beyond 2^53")
-	}
-	if !sameKeys(meta, cur.Val()) {
+	if !sameKeys(meta, currentMetadata) {
 		// The table was dropped, renamed or created again since meta was
 		// read, so these ids are not from its sequence: write nothing.
 		if err := s.checkKeys(ctx, meta, true); err != nil {
@@ -1820,10 +1829,10 @@ func (s *store) allocRows(ctx context.Context, meta *tableMeta, rows [][]Value) 
 		}
 		return rowAlloc{}, writeMovedErr(meta)
 	}
-	if err := notNullSince(meta, cur.Val(), rows); err != nil {
+	if err := notNullSince(meta, currentMetadata, rows); err != nil {
 		return rowAlloc{}, err
 	}
-	return rowAlloc{first: last - int64(len(rows)) + 1, added: addedMissing(meta, cur.Val())}, nil
+	return rowAlloc{first: last - int64(len(rows)) + 1, added: addedMissing(meta, currentMetadata)}, nil
 }
 
 // notNullSince checks rows to be inserted with meta against the NOT NULL

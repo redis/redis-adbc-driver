@@ -35,6 +35,17 @@ func flexUnsupported(operation string) error {
 	return errorf(adbc.StatusNotImplemented, "experimental Flex mode does not support %s", operation)
 }
 
+// Resource, permission and transport errors are not evidence that a feature
+// is absent. Preserve their ordinary I/O diagnostic instead of advertising a
+// false capability rejection.
+func flexProbeError(err error, capability string) error {
+	message := strings.ToLower(err.Error())
+	if strings.Contains(message, "not supported") || strings.Contains(message, "unsupported") || strings.Contains(message, "unknown command") {
+		return errorf(adbc.StatusNotImplemented, "Flex requires %s: %v", capability, err)
+	}
+	return wrapRedis(err, "Flex capability probe failed")
+}
+
 // configureSearch probes the exact plain schema used by the opt-in stopgap.
 // Probe objects have unique names and are removed before metadata initialization.
 func (s *store) configureSearch(ctx context.Context, flex bool) (resultErr error) {
@@ -45,7 +56,7 @@ func (s *store) configureSearch(ctx context.Context, flex bool) (resultErr error
 	meta := &tableMeta{IndexName: name, KeyPrefix: name + ":", PlainIndex: true,
 		Columns: []columnMeta{{Name: "n", Type: typeInt64, Indexed: true, PlainIndex: true}, {Name: "s", Type: typeString, Indexed: true, PlainIndex: true}}}
 	if err := s.searchDo(ctx, name, indexCreateArgs(meta)...).Err(); err != nil {
-		return errorf(adbc.StatusNotImplemented, "Flex requires plain NUMERIC and TAG indexes: %v", err)
+		return flexProbeError(err, "plain NUMERIC and TAG indexes")
 	}
 	defer func() {
 		cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
@@ -64,7 +75,7 @@ func (s *store) configureSearch(ctx context.Context, flex bool) (resultErr error
 	for attempt := 0; attempt < 100; attempt++ {
 		reply, err := s.searchDo(ctx, name, "FT.SEARCH", name, "@n:[10 10]", "NOCONTENT", "LIMIT", 0, 2, "TIMEOUT", 0, "DIALECT", 2).Result()
 		if err != nil {
-			return errorf(adbc.StatusNotImplemented, "Flex requires bounded numeric Search reads: %v", err)
+			return flexProbeError(err, "bounded numeric Search reads")
 		}
 		count, keys, err := parseBoundedSearch(reply)
 		if err != nil {
@@ -291,4 +302,38 @@ func parseBoundedSearch(reply any) (int64, []string, error) {
 		return 0, nil, errorf(adbc.StatusIO, "invalid bounded Search count")
 	}
 	return count, keys, nil
+}
+
+// Both keys share {meta}. Redis checks and advances the sequence atomically;
+// a rejected limit allocation must not make the table's reader reject its
+// high-water mark. The accepted arithmetic stays within exact Lua integers.
+const flexAllocateRowIDs = `
+local n = tonumber(ARGV[1])
+local maximum = tonumber(ARGV[2])
+local current = tonumber(redis.call('GET', KEYS[1]) or '0')
+if not current or current < 0 or n < 1 or current > maximum - n then
+    return redis.error_reply('ADBC_FLEX_ROW_ID_LIMIT')
+end
+local metadata = redis.call('GET', KEYS[2]) or ''
+local last = redis.call('INCRBY', KEYS[1], ARGV[1])
+return {last, metadata}
+`
+
+func (s *store) allocateFlexRowIDs(ctx context.Context, meta *tableMeta, n int) (int64, string, error) {
+	reply, err := s.redis(ctx).Eval(ctx, flexAllocateRowIDs, []string{seqKey(meta.Schema, meta.Name), metaKey(meta.Schema, meta.Name)}, n, exactDoubleLimit).Slice()
+	if err != nil {
+		if strings.Contains(err.Error(), "ADBC_FLEX_ROW_ID_LIMIT") {
+			return 0, "", flexUnsupported("row IDs beyond 2^53")
+		}
+		return 0, "", wrapRedis(err, "failed to allocate row ids")
+	}
+	if len(reply) != 2 {
+		return 0, "", errorf(adbc.StatusInternal, "malformed Flex allocation reply")
+	}
+	last, ok := redisReplyInt64(reply[0])
+	raw, rawOK := reply[1].(string)
+	if !ok || !rawOK {
+		return 0, "", errorf(adbc.StatusInternal, "malformed Flex allocation values")
+	}
+	return last, raw, nil
 }

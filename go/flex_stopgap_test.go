@@ -351,15 +351,29 @@ func (h *flexRejectProbeHook) ProcessHook(_ goredis.ProcessHook) goredis.Process
 	}
 }
 func TestFlexRejectsUnsupportedCapabilities(t *testing.T) {
-	for _, reason := range []string{"NUMERIC is not supported in Redis Flex", "INDEXEMPTY is unsupported", "NOPERM index creation denied"} {
+	for _, reason := range []string{"NUMERIC is not supported in Redis Flex", "INDEXEMPTY is unsupported", "NOPERM index creation denied", "SEARCH_DISK_CREATION write-buffer budget exceeds Search disk maximum memory"} {
 		client := goredis.NewClient(&goredis.Options{})
 		hook := &flexRejectProbeHook{reason: reason}
 		client.AddHook(hook)
 		err := (&store{client: client}).configureSearch(context.Background(), true)
 		client.Close()
 		var ae adbc.Error
-		if !errors.As(err, &ae) || ae.Code != adbc.StatusNotImplemented || hook.calls != 1 {
+		expected := adbc.StatusNotImplemented
+		if strings.HasPrefix(reason, "NOPERM") || strings.HasPrefix(reason, "SEARCH_DISK_CREATION") {
+			expected = adbc.StatusIO
+		}
+		if !errors.As(err, &ae) || ae.Code != expected || hook.calls != 1 {
 			t.Fatalf("%s: %v, calls %d", reason, err, hook.calls)
 		}
+	}
+}
+
+// A nil Redis client is deliberate: rejected retained requests must not access
+// Redis, allocate a capture, or publish partial output before failing.
+func TestFlexRetainedPartitionsRejectBeforeIO(t *testing.T) {
+	s := &statementImpl{conn: &connectionImpl{store: &store{flex: true}}, retainedMode: "retained"}
+	schema, parts, n, err := s.ExecutePartitions(context.Background())
+	if !isStatus(err, adbc.StatusNotImplemented) || schema != nil || n != -1 || parts.NumPartitions != 0 {
+		t.Fatalf("unexpected retained rejection: %v %v %d %v", schema, parts, n, err)
 	}
 }
