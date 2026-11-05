@@ -131,6 +131,9 @@ type adopter struct {
 }
 
 func (a *adopter) run(ctx context.Context) (*HashAdoption, error) {
+	if a.c.st.flex {
+		return nil, flexUnsupported("HASH adoption")
+	}
 	c, o, r := a.c, a.o, a.res.Report
 	c.server(ctx, &r.Server)
 	if o.Apply && r.Server.Search {

@@ -37,7 +37,7 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.27.3).
   reused. Preserve rename/rekey recovery and external HASH ownership rules.
 - Per maintainer direction (2026-10-22), do not develop driver-level transaction
   or consistency features. Preserve the documented current limitations.
-- Autocommit only; Search is required; Flex is rejected. Do not imply full
+- Autocommit only; Search is required; Flex has an opt-in restricted stopgap (`adbc.redis.flex=true`, docs/redis-flex-stopgap.md). Do not imply full
   PostgreSQL compatibility or support for Valkey / Redis 7.2 derivatives.
 
 ## Verification and recurring pitfalls

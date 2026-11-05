@@ -125,7 +125,10 @@ def test_cancel_from_another_thread(conn, db_kwargs, table) -> None:
         # must still stop its logical reader and prevent opening later windows.
         cap = aggregate_cap(db_kwargs, index)
         active = open_cursors(db_kwargs, index)
-        if cap is not None and 0 < cap < 10_000:
+        if db_kwargs.get("adbc.redis.flex") == "true":
+            # Independent bounded reads must never allocate an aggregate cursor.
+            assert active == before
+        elif cap is not None and 0 < cap < 10_000:
             assert active == before
         elif cap == 10_000:  # exact page boundary may need one terminal READ
             assert before <= active <= before + 1

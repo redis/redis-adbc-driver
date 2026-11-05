@@ -61,6 +61,7 @@ class RedisQuirks(model.DriverQuirks):
     setup = model.DriverSetup(
         database={
             "uri": model.FromEnv("REDIS_URI"),
+            "adbc.redis.flex": model.FromEnv("REDIS_ADBC_FLEX", optional=True),
             "adbc.redis.tls_ca_file": model.FromEnv("REDIS_RETAINED_TLS_CA_FILE", optional=True),
             "adbc.redis.partition_control_persistence": model.FromEnv("REDIS_RETAINED_CONTROL_PERSISTENCE", optional=True),
         },

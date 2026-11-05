@@ -108,6 +108,7 @@ const (
 )
 
 type columnMeta struct {
+	PlainIndex bool      `json:"plain_index,omitempty"`
 	Identity   string    `json:"identity,omitempty"`
 	Sequence   TableName `json:"sequence,omitempty"`
 	DefaultOID int64     `json:"default_oid,omitempty"`
@@ -207,6 +208,7 @@ func (t *tableMeta) applyIndexPolicy(only map[string]bool, noIndex map[string]bo
 }
 
 type tableMeta struct {
+	PlainIndex      bool   `json:"plain_index,omitempty"`
 	MaterializedSQL string `json:"materialized_sql,omitempty"`
 	matviewRead     *matviewRead
 	Unpopulated     bool         `json:"unpopulated,omitempty"`
@@ -388,6 +390,12 @@ func (t *tableMeta) prefix() string {
 // indexAttrArgs returns the FT.CREATE / FT.ALTER attribute definition of an
 // indexed column.
 func indexAttrArgs(c columnMeta) []any {
+	if c.PlainIndex {
+		if c.Type.Kind == KindString {
+			return []any{c.field(), "TAG", "SEPARATOR", tagSeparator, "CASESENSITIVE", "INDEXEMPTY"}
+		}
+		return []any{c.field(), "NUMERIC"}
+	}
 	if c.Type.Kind == KindString {
 		return []any{c.field(), "TAG", "SEPARATOR", tagSeparator, "CASESENSITIVE", "INDEXEMPTY", "SORTABLE", "UNF"}
 	}
@@ -907,6 +915,7 @@ func wrapRedis(err error, context string) error {
 // ---- store ----
 
 type store struct {
+	flex           bool
 	foreignIndexes bool
 	searchCapsOnce sync.Once
 	searchCaps     [2]int64
@@ -1071,6 +1080,15 @@ func (s *store) getTable(ctx context.Context, schema, table string) (*tableMeta,
 	if err := json.Unmarshal([]byte(raw), &meta); err != nil {
 		return nil, errorf(adbc.StatusInternal, "corrupt metadata for table %q.%q: %v", schema, table, err)
 	}
+	if (s.flex || meta.PlainIndex) && (meta.Adopted || meta.KeyRows || meta.AppIndex || meta.Foreign) {
+		return nil, flexUnsupported("adopted and application indexes")
+	}
+	if s.flex && (meta.RekeyTo != "" || meta.Rewriting || meta.MaterializedSQL != "") {
+		return nil, flexUnsupported("pending schema rewrites or materialized views")
+	}
+	if meta.PlainIndex && !s.flex {
+		return nil, flexUnsupported("plain-index tables require adbc.redis.flex=true")
+	}
 	meta.readAt = readAt
 	hydrateCatalogOIDs(&meta)
 	return &meta, nil
@@ -1094,6 +1112,10 @@ func (s *store) createTable(ctx context.Context, meta *tableMeta, ifNotExists bo
 		return false, errorf(adbc.StatusInvalidArgument, "table %q must have at least one column", meta.Name)
 	}
 	meta.FoldedIdentifiers = true
+	meta.PlainIndex = s.flex
+	for i := range meta.Columns {
+		meta.Columns[i].PlainIndex = s.flex
+	}
 	seen := map[string]bool{}
 	for _, c := range meta.Columns {
 		if c.Name == "" {
@@ -1143,7 +1165,7 @@ func (s *store) createTable(ctx context.Context, meta *tableMeta, ifNotExists bo
 	release := func() {
 		bg := context.WithoutCancel(ctx)
 		if created {
-			_ = s.searchDo(bg, meta.index(), "FT.DROPINDEX", meta.index(), "DD").Err()
+			_ = s.dropEmptyIndex(bg, meta.index())
 		}
 		pipe := s.redis(ctx).Pipeline()
 		pipe.SRem(bg, prefixesKey, meta.KeyPrefix)
@@ -1163,7 +1185,7 @@ func (s *store) createTable(ctx context.Context, meta *tableMeta, ifNotExists bo
 	// The index name was free in the registry, so an index with that name is
 	// left over from an interrupted CREATE/DROP and can be discarded
 	// (claimNames skips names whose index isn't one, see foreignIndex).
-	_ = s.searchDo(ctx, meta.index(), "FT.DROPINDEX", meta.index(), "DD").Err()
+	_ = s.dropEmptyIndex(ctx, meta.index())
 
 	if err := s.searchDo(ctx, meta.index(), indexCreateArgs(meta)...).Err(); err != nil {
 		release()
@@ -1209,9 +1231,13 @@ func (s *store) createTable(ctx context.Context, meta *tableMeta, ifNotExists bo
 // indexed column, plus __rowid so all-NULL rows are still documents.
 func indexCreateArgs(meta *tableMeta) []any {
 	args := []any{"FT.CREATE", meta.index(), "ON", "HASH", "PREFIX", 1, meta.prefix(),
-		"SKIPINITIALSCAN", "SCHEMA", rowIDField, "NUMERIC", "SORTABLE"}
+		"SKIPINITIALSCAN", "SCHEMA", rowIDField, "NUMERIC"}
+	if !meta.PlainIndex {
+		args = append(args, "SORTABLE")
+	}
 	for _, c := range meta.Columns {
 		if c.Indexed {
+			c.PlainIndex = meta.PlainIndex
 			args = append(args, indexAttrArgs(c)...)
 		}
 	}
@@ -1253,6 +1279,9 @@ var testHookTruncating func()
 // of them not indexed), and after RESTART IDENTITY new rows took their keys
 // and were merged into them.
 func (s *store) truncateTables(ctx context.Context, metas []*tableMeta, restartIdentity bool) error {
+	if s.flex {
+		return flexUnsupported("TRUNCATE")
+	}
 	ts := make([]*truncation, len(metas))
 	for i, meta := range metas {
 		if err := refuseAdopted(meta, "TRUNCATE"); err != nil {
@@ -1489,11 +1518,16 @@ func (s *store) dropTable(ctx context.Context, schema, table string, ifExists bo
 		// table's HASHes stay, and the application's index too (AppIndex).
 		if !meta.AppIndex {
 			drop := []any{"FT.DROPINDEX", meta.index(), "DD"}
-			if meta.Adopted {
+			if meta.Adopted || s.flex {
 				drop = drop[:2]
 			}
 			if err := s.searchDo(ctx, meta.index(), drop...).Err(); err != nil && !isUnknownIndex(err) {
 				return wrapRedis(err, "failed to drop search index")
+			}
+		}
+		if s.flex && !meta.Adopted {
+			if err := s.deleteFlexRows(ctx, meta); err != nil {
+				return err
 			}
 		}
 		dropped = meta
@@ -1765,17 +1799,29 @@ func (s *store) allocRows(ctx context.Context, meta *tableMeta, rows [][]Value) 
 	// The row ids are allocated in one transaction with a read of the
 	// metadata, which shows columns that ADD COLUMN … DEFAULT added since
 	// meta was read: these rows get their missing values (see defaults.go).
-	tx := s.redis(ctx).TxPipeline()
-	incr := tx.IncrBy(ctx, seqKey(meta.Schema, meta.Name), int64(len(rows)))
-	cur := tx.Get(ctx, metaKey(meta.Schema, meta.Name))
-	if _, err := tx.Exec(ctx); err != nil && !errors.Is(err, goredis.Nil) {
-		return rowAlloc{}, wrapRedis(err, "failed to allocate row ids")
+	var last int64
+	var currentMetadata string
+	if s.flex {
+		var err error
+		last, currentMetadata, err = s.allocateFlexRowIDs(ctx, meta, len(rows))
+		if err != nil {
+			return rowAlloc{}, err
+		}
+	} else {
+		tx := s.redis(ctx).TxPipeline()
+		incr := tx.IncrBy(ctx, seqKey(meta.Schema, meta.Name), int64(len(rows)))
+		cur := tx.Get(ctx, metaKey(meta.Schema, meta.Name))
+		if _, err := tx.Exec(ctx); err != nil && !errors.Is(err, goredis.Nil) {
+			return rowAlloc{}, wrapRedis(err, "failed to allocate row ids")
+		}
+		var err error
+		last, err = incr.Result()
+		if err != nil {
+			return rowAlloc{}, wrapRedis(err, "failed to allocate row ids")
+		}
+		currentMetadata = cur.Val()
 	}
-	last, err := incr.Result()
-	if err != nil {
-		return rowAlloc{}, wrapRedis(err, "failed to allocate row ids")
-	}
-	if !sameKeys(meta, cur.Val()) {
+	if !sameKeys(meta, currentMetadata) {
 		// The table was dropped, renamed or created again since meta was
 		// read, so these ids are not from its sequence: write nothing.
 		if err := s.checkKeys(ctx, meta, true); err != nil {
@@ -1783,10 +1829,10 @@ func (s *store) allocRows(ctx context.Context, meta *tableMeta, rows [][]Value) 
 		}
 		return rowAlloc{}, writeMovedErr(meta)
 	}
-	if err := notNullSince(meta, cur.Val(), rows); err != nil {
+	if err := notNullSince(meta, currentMetadata, rows); err != nil {
 		return rowAlloc{}, err
 	}
-	return rowAlloc{first: last - int64(len(rows)) + 1, added: addedMissing(meta, cur.Val())}, nil
+	return rowAlloc{first: last - int64(len(rows)) + 1, added: addedMissing(meta, currentMetadata)}, nil
 }
 
 // notNullSince checks rows to be inserted with meta against the NOT NULL

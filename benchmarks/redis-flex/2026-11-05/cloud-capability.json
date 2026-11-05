@@ -1,0 +1,16 @@
+{
+  "driver_open": "rejected_not_implemented",
+  "key_count_unchanged": true,
+  "protocol": "RESP3",
+  "redis_version": "8.6.2",
+  "search_list": "rejected",
+  "transport": "authenticated TLS",
+  "product": "Redis Cloud Pro Flex",
+  "provider": "GCP",
+  "region": "us-west2",
+  "dataset_gb": 250,
+  "quoted_hourly_usd": 2.04,
+  "cleanup_verified": true,
+  "request_to_cleanup_minutes": 23.5,
+  "billing_note": "hourly estimate, not an observed invoice total"
+}

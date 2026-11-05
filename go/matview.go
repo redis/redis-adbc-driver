@@ -92,6 +92,9 @@ func (e *executor) matView(ctx context.Context, t TableName) (*tableMeta, error)
 }
 
 func (e *executor) runCreateMatView(ctx context.Context, st *CreateViewStmt) (int64, error) {
+	if e.store.flexEnabled() {
+		return 0, flexUnsupported("materialized views")
+	}
 	if st.OrReplace || st.Temporary {
 		return 0, stateErrorf(stateFeatureNotSupported, "OR REPLACE and TEMP materialized views are not supported")
 	}
@@ -270,6 +273,9 @@ func (e *executor) refreshMatView(ctx context.Context, m *tableMeta, noData bool
 }
 
 func (e *executor) runRefreshMatView(ctx context.Context, st *RefreshMatViewStmt) (int64, error) {
+	if e.store.flexEnabled() {
+		return 0, flexUnsupported("materialized view refresh")
+	}
 	m, err := e.matView(ctx, st.Name)
 	if err != nil {
 		return 0, err

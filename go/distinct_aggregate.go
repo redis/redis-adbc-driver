@@ -128,7 +128,7 @@ func distinctValues(row aggRow, cols []columnMeta) ([]Value, bool) {
 // universe retains zero-count groups when every aggregate is filtered.
 func (e *executor) indexCountDistinct(ctx context.Context, plan *selectPlan, wp wherePlan, aggs []*Func, params []Value) ([]aggGroup, bool, error) {
 	meta := plan.meta
-	if e.pushdown == PushdownNone || len(meta.PendingCleanup) > 0 || meta.isMem || meta.Adopted || wp.none || wp.keys != nil || len(plan.extraNeed) > 0 || len(aggs) == 0 {
+	if e.store.flexEnabled() || e.pushdown == PushdownNone || len(meta.PendingCleanup) > 0 || meta.isMem || meta.Adopted || wp.none || wp.keys != nil || len(plan.extraNeed) > 0 || len(aggs) == 0 {
 		return nil, false, nil
 	}
 	var group []columnMeta
