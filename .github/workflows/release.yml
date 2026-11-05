@@ -92,6 +92,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
+  REDIS_ADBC_TELEMETRY_DISABLED: "true"
   # The version stamped into the library and used in asset names.
   VERSION: ${{ github.event.release.tag_name || inputs.tag || 'v0.0.0-dev' }}
   REF: ${{ github.event.release.tag_name || inputs.tag || github.sha }}

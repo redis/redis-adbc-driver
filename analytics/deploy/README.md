@@ -1,7 +1,16 @@
 # AWS Redis analytics deployment
 
-Status (2026-11-05): Terraform configuration and read-only plan prepared;
-not yet deployed. No RDS resources are included or were created.
+Status (2026-11-05): deployed through Terraform after explicit approval.
+No RDS resources are included or were created.
+
+- Collector: `i-0a0f07f12f13d4b52` (`100.29.239.174`).
+- Application source: `be6c31ed026e9f915615fa4da29c5dfc21e620b0`.
+- DNS/TLS and the health endpoint passed; collector, Redis and nginx are active.
+- Backup and TLS-renewal timers are enabled. A real S3 RDB backup was downloaded,
+  checksum-verified, checked with `redis-check-rdb`, and loaded in an isolated Redis
+  process with the synthetic reports present.
+- Project, purpose, Terraform management and ownership tags are applied, including
+  the root volume. Descriptive `Name` tags are managed through Terraform.
 
 The driver reports by default to
 `https://adbc-telemetry.sa.redislabs.com/v1/usage`. The collector binds to
@@ -49,24 +58,26 @@ termination protection.
 
 ## Deploy with Terraform
 
-Use a full immutable commit containing the tested collector and bootstrap:
+The deployed application uses the pinned, tested commit below:
 
 ```sh
 export AWS_PROFILE=735486936198_SuperUserAccess
 terraform -chdir=analytics/deploy/terraform init
 terraform -chdir=analytics/deploy/terraform validate
 terraform -chdir=analytics/deploy/terraform plan \
-  -var="source_commit=$(git rev-parse HEAD)" -out=deploy.tfplan
+  -var="source_commit=be6c31ed026e9f915615fa4da29c5dfc21e620b0" -out=deploy.tfplan
 # Review costs, IAM and public ingress before applying the saved plan.
 terraform -chdir=analytics/deploy/terraform apply deploy.tfplan
 ```
 
-State and plans are ignored by git. Preserve the state securely after applying;
-for this initial deployment the backend is local. Copy state to a restricted,
-encrypted operator location or migrate to an organization-approved remote
-backend before sharing maintenance. Do not delete the working directory while
-it contains the only state copy. Never apply a plan whose source commit predates
-`analytics/deploy/bootstrap.sh`.
+State and plans are ignored by git. Terraform state was migrated to the private,
+encrypted, versioned S3 bucket at `terraform/terraform.tfstate`, with native S3
+state locking (`use_lockfile=true`, Terraform >=1.10). The instance role can only
+write `backups/*` and cannot access the Terraform state. The lifecycle expiration
+rule only applies to backups. Keep this backend bucket for the lifetime of the
+deployment. The bucket was created during the initial local-state apply, before
+the backend migration; new operators should initialize against the existing
+backend. Never apply a plan whose source commit predates the bootstrap script.
 
 Allow cloud-init several minutes to install official Redis packages and Python
 dependencies and obtain the TLS certificate. Terraform completion alone does not
@@ -118,3 +129,11 @@ re-enable AOF after verifying data. Never restore over a running database.
 References: [official Redis packages](https://redis.io/docs/latest/operate/oss_and_stack/install/install-stack/apt/),
 [Redis persistence and RDB backups](https://redis.io/docs/latest/operate/oss_and_stack/management/persistence/),
 [SSM instance permissions](https://docs.aws.amazon.com/systems-manager/latest/userguide/setup-instance-permissions.html).
+
+
+Deployment evidence is in
+[aws-deployment.json](../../docs/sdlc/changes/adoption-analytics/evidence/aws-deployment.json).
+Repository CI/tests opt out of hosted telemetry. Initial validation traffic before
+that opt-out may appear as unattributed usage; specifically labeled deployment
+smoke records were removed after backup/restore verification. Public data remains
+self-reported and should not be treated as verified customer adoption.

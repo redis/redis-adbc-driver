@@ -13,6 +13,10 @@ on:
         type: string
 permissions:
   contents: read
+# Validation traffic must not inflate product usage metrics.
+env:
+  REDIS_ADBC_TELEMETRY_DISABLED: "true"
+
 jobs:
   validate:
     environment: partition-validation

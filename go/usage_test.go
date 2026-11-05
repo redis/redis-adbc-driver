@@ -407,3 +407,54 @@ func TestUsageRedisIntegration(t *testing.T) {
 		}
 	}
 }
+
+// Explicit deployment check: never send synthetic reports in ordinary CI runs.
+func TestUsageHostedEndpoint(t *testing.T) {
+	if os.Getenv("REDIS_ADBC_VERIFY_HOSTED_TELEMETRY") != "1" {
+		t.Skip("set REDIS_ADBC_VERIFY_HOSTED_TELEMETRY=1 to verify the deployed AWS endpoint")
+	}
+	t.Setenv("REDIS_ADBC_TELEMETRY_DISABLED", "")
+	var state usageState
+	for key, value := range map[string]string{
+		OptionStringTelemetryInstallationID: "deployment-smoke-go-244",
+		OptionStringTelemetryApplication:    "deployment-smoke-test",
+		OptionStringTelemetryEnvironment:    "validation",
+		OptionStringTelemetryIntegration:    "go-driver",
+	} {
+		if err := state.set(key, value); err != nil {
+			t.Fatal(err)
+		}
+	}
+	u, err := state.start()
+	if err != nil || u == nil {
+		t.Fatalf("default startup: %v", err)
+	}
+	t.Cleanup(func() {
+		state.close()
+		select {
+		case <-u.done:
+		case <-time.After(4 * time.Second):
+			t.Error("hosted reporter did not stop")
+		}
+	})
+	if u.endpoint != defaultUsageEndpoint {
+		t.Fatalf("default endpoint: %s", u.endpoint)
+	}
+	r, _, err := usageStatement(t, u, "SELECT 1").ExecuteQuery(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for r.Next() {
+	}
+	err = r.Err()
+	r.Release()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m := usageData(t, u).Metrics["select"]; m.Success != 1 || m.Rows != 1 {
+		t.Fatalf("hosted query metrics: %+v", m)
+	}
+	if err := state.flush(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+}

@@ -1,7 +1,8 @@
 # Intent
 
 Date: 2026-10-29. Source: public main `820d5af`. Requestor: repository user.
-Status: implemented and locally verified; no release or deployment requested.
+Status: implemented, verified and deployed to AWS through Terraform on 2026-11-05;
+no release published.
 [Specification](spec.md), [plan](plan.md).
 
 Understand companies and teams adopting the driver, download frequency, query

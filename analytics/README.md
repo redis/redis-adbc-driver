@@ -203,6 +203,8 @@ cd go && env -u REDIS_URI REDIS_ADBC_TELEMETRY_DISABLED=true go test -race -coun
 These checks cover wire validation, access control, retry/order handling,
 retention, pagination, Arrow reader ownership, cancellation, late errors,
 privacy filtering and concurrent snapshots. The normal Go suite remains the
-regression check for existing driver behavior. Redis-backed tests need a
+regression check for existing driver behavior. Repository CI and Go TestMain
+opt out of hosted reporting; the explicit hosted smoke test requires
+`REDIS_ADBC_VERIFY_HOSTED_TELEMETRY=1`. Redis-backed tests need a
 dedicated Redis Software database: collector tests use `ANALYTICS_TEST_REDIS_URL`,
 and Go integration tests use `REDIS_URI`. Unconfigured integration tests skip.

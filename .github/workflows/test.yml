@@ -65,6 +65,10 @@ concurrency:
   group: test-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# Validation traffic must not inflate product usage metrics.
+env:
+  REDIS_ADBC_TELEMETRY_DISABLED: "true"
+
 jobs:
   coverage:
     runs-on: ubuntu-24.04

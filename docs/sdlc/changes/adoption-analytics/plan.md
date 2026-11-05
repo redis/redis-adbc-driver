@@ -1,6 +1,8 @@
 # Plan and verification
 
-Date: 2026-10-29. Source: public main `820d5af`. Status: implemented and locally verified; not released or deployed.
+Date: 2026-10-29. Initial source: public main `820d5af`.
+Status updated 2026-11-05: verified and deployed to AWS; not released.
+See the later sections for latest-main merge and live deployment evidence.
 [Intent](intent.md), [specification](spec.md).
 
 1. Add database configuration, shared reporter and Arrow lifecycle instrumentation.
@@ -133,3 +135,29 @@ Deployment awaits explicit approval of the reviewed resource settings following
 an automatic approval-review rejection of an earlier provisioning command. That
 command was never executed. Final deployment verification must include DNS/TLS,
 HTTP ingestion, dashboard authentication, Redis persistence and a real S3 backup.
+
+
+## AWS deployment completed (2026-11-05)
+
+The user explicitly approved the exact resource, access and cost plan. Terraform
+created 14 resources, then applied five in-place descriptive tag updates. All
+supported resources have project/purpose/management/owner tags, including the
+root volume and IAM role. Remote state is encrypted/versioned in S3 with native
+locking; the host role cannot access the state prefix.
+
+- DNS and trusted HTTPS are live at `adbc-telemetry.sa.redislabs.com`.
+- Health 200; accepted report 200; duplicate ignored; SQL payload 400; dashboard
+  without token 401; authenticated summary 200.
+- Real Go driver hosted test passed with the race detector and default AWS URL.
+- Collector, Redis and nginx active; backup and certificate renewal timers enabled.
+- Actual S3 RDB backup downloaded, checksum/encryption/version verified, checked
+  with `redis-check-rdb` and loaded into an isolated Redis process. Test reports
+  were present. Temporary restore process/files removed afterward.
+- Repository tests and CI workflows now opt out to avoid inflating product usage.
+  Clearly labeled deployment smoke reports are removed after backup verification;
+  other unattributed traffic is preserved. Initial CI traffic can remain in totals.
+- Final telemetry race tests, workflow YAML parsing and diff checks passed.
+- [Deployment evidence](evidence/aws-deployment.json) and [runbook](../../../../analytics/deploy/README.md).
+
+No release was published. The original automatic approval rejection was resolved
+by explicit user approval of the concrete resource plan before Terraform apply.

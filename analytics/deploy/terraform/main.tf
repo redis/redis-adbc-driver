@@ -1,5 +1,12 @@
 terraform {
-  required_version = ">= 1.5"
+  required_version = ">= 1.10"
+  backend "s3" {
+    bucket       = "redis-adbc-telemetry-735486936198-us-east-1"
+    key          = "terraform/terraform.tfstate"
+    region       = "us-east-1"
+    encrypt      = true
+    use_lockfile = true
+  }
   required_providers {
     aws = { source = "hashicorp/aws", version = "~> 6.0" }
   }
@@ -34,6 +41,7 @@ locals {
 resource "aws_s3_bucket" "backups" {
   bucket        = local.bucket
   force_destroy = false
+  tags          = { Name = "redis-adbc-telemetry-backups" }
   lifecycle { prevent_destroy = true }
 }
 resource "aws_s3_bucket_public_access_block" "backups" {
@@ -70,6 +78,7 @@ resource "aws_s3_bucket_policy" "backups" {
   policy = jsonencode({ Version = "2012-10-17", Statement = [{ Effect = "Deny", Principal = "*", Action = "s3:*", Resource = [aws_s3_bucket.backups.arn, "${aws_s3_bucket.backups.arn}/*"], Condition = { Bool = { "aws:SecureTransport" = "false" } } }] })
 }
 resource "aws_iam_role" "collector" {
+  tags               = { Name = local.name }
   name               = local.name
   assume_role_policy = jsonencode({ Version = "2012-10-17", Statement = [{ Effect = "Allow", Principal = { Service = "ec2.amazonaws.com" }, Action = "sts:AssumeRole" }] })
 }
@@ -83,11 +92,13 @@ resource "aws_iam_role_policy" "backup_writer" {
   policy = jsonencode({ Version = "2012-10-17", Statement = [{ Effect = "Allow", Action = ["s3:PutObject", "s3:AbortMultipartUpload"], Resource = "${aws_s3_bucket.backups.arn}/backups/*" }] })
 }
 resource "aws_iam_instance_profile" "collector" {
+  tags = { Name = local.name }
   name = local.name
   role = aws_iam_role.collector.name
 }
 resource "aws_security_group" "collector" {
   name        = "${local.name}-https"
+  tags        = { Name = "${local.name}-https" }
   description = "HTTPS analytics; HTTP only for certificate validation and redirects"
   vpc_id      = var.vpc_id
   ingress {
@@ -121,6 +132,7 @@ resource "aws_instance" "collector" {
   associate_public_ip_address = true
   disable_api_termination     = true
   metadata_options { http_tokens = "required" }
+  volume_tags = { Name = "${local.name}-data" }
   root_block_device {
     volume_size = 30
     volume_type = "gp3"
