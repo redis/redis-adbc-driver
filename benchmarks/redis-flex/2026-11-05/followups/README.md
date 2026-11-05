@@ -4,6 +4,8 @@ Date: 2026-11-05. [PR #331](https://github.com/redis/redis-adbc-driver/pull/331)
 
 Larger bounded pages improved broad-query latency by roughly 1.8–2.8x in this fixture, with higher heap peaks for several narrow workloads. The stopgap remains slower than normal RAM execution for broad scans, ordering and aggregates. It remains a capability/index-memory tradeoff, with no general speedup claim.
 
+Across the seven measured warm workloads, weighted equally, **Flex stopgap averaged 6.9× RAM-default latency**, while **RAM stopgap averaged 3.1× RAM-default latency**, using the latest “after” results. These ratios divide each mode's arithmetic mean of the seven per-workload median latencies by RAM default's corresponding mean. Individual workload slowdowns vary considerably.
+
 ## Matched warm comparison
 
 - Same 50,000 rows and 15 columns as the original report: id, group, nullable numeric score and twelve unindexed strings with a 120-byte suffix. Every returned field was validated against formulas and the entire Arrow stream consumed.
