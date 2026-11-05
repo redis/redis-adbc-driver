@@ -1,0 +1,27 @@
+{
+  "flex": {
+    "suite_counts": {
+      "tests": "576",
+      "failures": "6",
+      "errors": "0",
+      "skipped": "8"
+    },
+    "failed_cases": [
+      "test_set_and_drop_not_null",
+      "test_alter_type",
+      "test_column_null_counts_defaults_and_nan",
+      "test_partition_validation_and_empty",
+      "test_primary_key",
+      "test_generated_keys_uuid_cte_indexes_and_materialized_view"
+    ]
+  },
+  "ram": {
+    "suite_counts": {
+      "tests": "576",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "8"
+    },
+    "failed_cases": []
+  }
+}

@@ -1,0 +1,5387 @@
+[
+  {
+    "stage": "after",
+    "kind": "raw",
+    "target": "flex",
+    "schema": "plain",
+    "reader": "bounded",
+    "workload": "broad",
+    "samples": 5,
+    "ms": {
+      "median": 2088.467709,
+      "min": 2044.0665830000003,
+      "max": 2225.9091670000003,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.32013800000000003,
+      "min": 0.31330799999999925,
+      "max": 0.3321879999999986,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 120839488,
+      "min": 120820064,
+      "max": 120856464,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 15541128,
+      "min": 14644888,
+      "max": 16314872,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50017,
+      "min": 50017,
+      "max": 50017,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 10480640,
+      "min": 10480640,
+      "max": 10480640,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 5741610,
+      "min": 5741610,
+      "max": 5741610,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 5.370000000000118,
+      "min": 5.369999999999891,
+      "max": 5.459999999999923,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 340938752,
+      "min": 337121280,
+      "max": 343367680,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "after",
+    "kind": "raw",
+    "target": "flex",
+    "schema": "plain",
+    "reader": "bounded",
+    "workload": "selective",
+    "samples": 5,
+    "ms": {
+      "median": 8.519041,
+      "min": 7.677583,
+      "max": 23.09,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.0011690000000008638,
+      "min": 0.0009060000000005175,
+      "max": 0.0016159999999985075,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 243376,
+      "min": 240552,
+      "max": 243728,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 3113936,
+      "min": 3101536,
+      "max": 3122296,
+      "samples": 5
+    },
+    "commands": {
+      "median": 103,
+      "min": 103,
+      "max": 103,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 12488,
+      "min": 12488,
+      "max": 12488,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 11842,
+      "min": 11842,
+      "max": 11842,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.009999999999990905,
+      "min": 0.0,
+      "max": 0.01999999999998181,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 339210240,
+      "min": 339210240,
+      "max": 339210240,
+      "samples": 3
+    }
+  },
+  {
+    "stage": "after",
+    "kind": "raw",
+    "target": "flex",
+    "schema": "plain",
+    "reader": "bounded",
+    "workload": "wide",
+    "samples": 5,
+    "ms": {
+      "median": 2694.7575420000003,
+      "min": 2632.062458,
+      "max": 2724.610708,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.7542180000000016,
+      "min": 0.7391110000000012,
+      "max": 0.7669929999999994,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 439663640,
+      "min": 439529568,
+      "max": 439731320,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 42675992,
+      "min": 42416840,
+      "max": 42914208,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50017,
+      "min": 50017,
+      "max": 50017,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 90797368,
+      "min": 90797368,
+      "max": 90797368,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 10691610,
+      "min": 10691610,
+      "max": 10691610,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 5.5900000000001455,
+      "min": 5.529999999999973,
+      "max": 5.759999999999991,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 342261760,
+      "min": 339959808,
+      "max": 344383488,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "after",
+    "kind": "raw",
+    "target": "ram",
+    "schema": "plain",
+    "reader": "bounded",
+    "workload": "broad",
+    "samples": 5,
+    "ms": {
+      "median": 951.4025,
+      "min": 927.873375,
+      "max": 1028.631833,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.22648500000000027,
+      "min": 0.20936600000000283,
+      "max": 0.23536400000000057,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 120714360,
+      "min": 120629040,
+      "max": 120753456,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 16694424,
+      "min": 16060552,
+      "max": 16922160,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50017,
+      "min": 50017,
+      "max": 50017,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 10480644,
+      "min": 10480644,
+      "max": 10480644,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 5741610,
+      "min": 5741610,
+      "max": 5741610,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.17999999999999972,
+      "min": 0.1700000000000017,
+      "max": 0.19000000000000483,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 520794112,
+      "min": 519999488,
+      "max": 520884224,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "after",
+    "kind": "raw",
+    "target": "ram",
+    "schema": "plain",
+    "reader": "bounded",
+    "workload": "selective",
+    "samples": 5,
+    "ms": {
+      "median": 1.9375,
+      "min": 1.505792,
+      "max": 6.442209,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.0004920000000012692,
+      "min": 0.00042600000000092564,
+      "max": 0.0007279999999987297,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 243600,
+      "min": 243400,
+      "max": 253216,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 3653808,
+      "min": 3650552,
+      "max": 3654720,
+      "samples": 5
+    },
+    "commands": {
+      "median": 103,
+      "min": 103,
+      "max": 103,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 12492,
+      "min": 12492,
+      "max": 12492,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 11842,
+      "min": 11842,
+      "max": 11842,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.010000000000005116,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": null
+  },
+  {
+    "stage": "after",
+    "kind": "raw",
+    "target": "ram",
+    "schema": "plain",
+    "reader": "bounded",
+    "workload": "wide",
+    "samples": 5,
+    "ms": {
+      "median": 1192.1685420000001,
+      "min": 1149.2859580000002,
+      "max": 1302.058375,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.5921820000000011,
+      "min": 0.5842789999999987,
+      "max": 0.5969880000000032,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 439634232,
+      "min": 439529320,
+      "max": 439675424,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 43792120,
+      "min": 43637656,
+      "max": 44331848,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50017,
+      "min": 50017,
+      "max": 50017,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 90797372,
+      "min": 90797372,
+      "max": 90797372,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 10691610,
+      "min": 10691610,
+      "max": 10691610,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.39000000000000057,
+      "min": 0.38999999999999346,
+      "max": 0.3999999999999986,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 520744960,
+      "min": 520634368,
+      "max": 520896512,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "after",
+    "kind": "raw",
+    "target": "ram",
+    "schema": "plain",
+    "reader": "cursor",
+    "workload": "broad",
+    "samples": 5,
+    "ms": {
+      "median": 788.945,
+      "min": 734.5398749999999,
+      "max": 796.735542,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.17393399999999914,
+      "min": 0.16386400000000023,
+      "max": 0.1809449999999977,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 107096752,
+      "min": 107017720,
+      "max": 107118320,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 29972256,
+      "min": 28369152,
+      "max": 30465144,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50006,
+      "min": 50006,
+      "max": 50006,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 8053091,
+      "min": 8053086,
+      "max": 8053096,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 4539611,
+      "min": 4539606,
+      "max": 4539621,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.14000000000000057,
+      "min": 0.13999999999999346,
+      "max": 0.15000000000000568,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 520499200,
+      "min": 519999488,
+      "max": 520884224,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "after",
+    "kind": "raw",
+    "target": "ram",
+    "schema": "plain",
+    "reader": "cursor",
+    "workload": "selective",
+    "samples": 5,
+    "ms": {
+      "median": 16.661709000000002,
+      "min": 4.382874999999999,
+      "max": 31.155375,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.0011679999999998358,
+      "min": 0.0005879999999969243,
+      "max": 0.0017430000000011603,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 290160,
+      "min": 280688,
+      "max": 290880,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 3692296,
+      "min": 3690448,
+      "max": 3701160,
+      "samples": 5
+    },
+    "commands": {
+      "median": 101,
+      "min": 101,
+      "max": 101,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 16288,
+      "min": 16288,
+      "max": 16288,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 9309,
+      "min": 9309,
+      "max": 9309,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 522354688,
+      "min": 522194944,
+      "max": 523386880,
+      "samples": 3
+    }
+  },
+  {
+    "stage": "after",
+    "kind": "raw",
+    "target": "ram",
+    "schema": "plain",
+    "reader": "cursor",
+    "workload": "wide",
+    "samples": 5,
+    "ms": {
+      "median": 999.189625,
+      "min": 969.1297500000001,
+      "max": 1020.263875,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.5483960000000039,
+      "min": 0.5334409999999963,
+      "max": 0.560452999999999,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 426069232,
+      "min": 425866184,
+      "max": 426095736,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 65660008,
+      "min": 64823504,
+      "max": 66093384,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50006,
+      "min": 50006,
+      "max": 50006,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 88369824,
+      "min": 88369819,
+      "max": 88369824,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 9489621,
+      "min": 9489611,
+      "max": 9489621,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.36999999999999034,
+      "min": 0.3500000000000014,
+      "max": 0.37000000000000455,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 520667136,
+      "min": 519307264,
+      "max": 520794112,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "after",
+    "kind": "raw",
+    "target": "ram",
+    "schema": "sortable",
+    "reader": "bounded",
+    "workload": "broad",
+    "samples": 5,
+    "ms": {
+      "median": 969.648416,
+      "min": 933.743083,
+      "max": 1052.561625,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.21912599999999927,
+      "min": 0.21078299999999928,
+      "max": 0.25238999999999834,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 120695000,
+      "min": 120644528,
+      "max": 120766104,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 16816736,
+      "min": 16576384,
+      "max": 17035760,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50017,
+      "min": 50017,
+      "max": 50017,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 10840644,
+      "min": 10840644,
+      "max": 10840644,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 5891658,
+      "min": 5891658,
+      "max": 5891658,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.1700000000000017,
+      "min": 0.1599999999999966,
+      "max": 0.18000000000000682,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 520183808,
+      "min": 518955008,
+      "max": 520351744,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "after",
+    "kind": "raw",
+    "target": "ram",
+    "schema": "sortable",
+    "reader": "bounded",
+    "workload": "selective",
+    "samples": 5,
+    "ms": {
+      "median": 4.659959,
+      "min": 1.703541,
+      "max": 15.98375,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.0006070000000022446,
+      "min": 0.00046800000000146724,
+      "max": 0.0011759999999974013,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 243632,
+      "min": 243600,
+      "max": 251736,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 3650896,
+      "min": 3643496,
+      "max": 3654152,
+      "samples": 5
+    },
+    "commands": {
+      "median": 103,
+      "min": 103,
+      "max": 103,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 12792,
+      "min": 12792,
+      "max": 12792,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 12148,
+      "min": 12148,
+      "max": 12148,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 522870784.0,
+      "min": 522354688,
+      "max": 523386880,
+      "samples": 2
+    }
+  },
+  {
+    "stage": "after",
+    "kind": "raw",
+    "target": "ram",
+    "schema": "sortable",
+    "reader": "bounded",
+    "workload": "wide",
+    "samples": 5,
+    "ms": {
+      "median": 1197.350958,
+      "min": 1124.15275,
+      "max": 1215.9343330000002,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.5782280000000029,
+      "min": 0.559976000000006,
+      "max": 0.6102980000000002,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 439669104,
+      "min": 439557008,
+      "max": 439780064,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 43812760,
+      "min": 43673936,
+      "max": 44526288,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50017,
+      "min": 50017,
+      "max": 50017,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 91157372,
+      "min": 91157372,
+      "max": 91157372,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 10841658,
+      "min": 10841658,
+      "max": 10841658,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.38000000000000256,
+      "min": 0.35999999999999943,
+      "max": 0.39000000000000057,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 520740864,
+      "min": 519909376,
+      "max": 521179136,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "after",
+    "kind": "raw",
+    "target": "ram",
+    "schema": "sortable",
+    "reader": "cursor",
+    "workload": "broad",
+    "samples": 5,
+    "ms": {
+      "median": 752.680292,
+      "min": 699.419584,
+      "max": 818.671334,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.17980400000000074,
+      "min": 0.1600919999999988,
+      "max": 0.1882749999999973,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 107098248,
+      "min": 107036544,
+      "max": 107119096,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 28389720,
+      "min": 26951912,
+      "max": 31544632,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50006,
+      "min": 50006,
+      "max": 50006,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 8203096,
+      "min": 8203091,
+      "max": 8203096,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 4689639,
+      "min": 4689629,
+      "max": 4689639,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.15000000000000568,
+      "min": 0.12999999999999545,
+      "max": 0.1799999999999926,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 520282112,
+      "min": 519745536,
+      "max": 520728576,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "after",
+    "kind": "raw",
+    "target": "ram",
+    "schema": "sortable",
+    "reader": "cursor",
+    "workload": "selective",
+    "samples": 5,
+    "ms": {
+      "median": 20.0625,
+      "min": 14.421,
+      "max": 31.59775,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.0012430000000023256,
+      "min": 0.0008239999999979375,
+      "max": 0.002237999999998408,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 290840,
+      "min": 280688,
+      "max": 290856,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 3700648,
+      "min": 3690784,
+      "max": 3701160,
+      "samples": 5
+    },
+    "commands": {
+      "median": 101,
+      "min": 101,
+      "max": 101,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 16588,
+      "min": 16588,
+      "max": 16588,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 9612,
+      "min": 9612,
+      "max": 9612,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 523386880,
+      "min": 522354688,
+      "max": 523386880,
+      "samples": 3
+    }
+  },
+  {
+    "stage": "after",
+    "kind": "raw",
+    "target": "ram",
+    "schema": "sortable",
+    "reader": "cursor",
+    "workload": "wide",
+    "samples": 5,
+    "ms": {
+      "median": 991.060375,
+      "min": 943.93925,
+      "max": 1019.1764999999999,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.5450309999999945,
+      "min": 0.5363850000000028,
+      "max": 0.5684280000000044,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 425962560,
+      "min": 425950392,
+      "max": 426103256,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 65486920,
+      "min": 64269880,
+      "max": 67087424,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50006,
+      "min": 50006,
+      "max": 50006,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 88519824,
+      "min": 88519819,
+      "max": 88519824,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 9639639,
+      "min": 9639629,
+      "max": 9639639,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.3500000000000014,
+      "min": 0.3400000000000034,
+      "max": 0.35999999999999943,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 520486912,
+      "min": 519909376,
+      "max": 520929280,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "after",
+    "kind": "sql",
+    "target": "flex",
+    "schema": "plain",
+    "reader": "bounded",
+    "workload": "broad",
+    "samples": 5,
+    "ms": {
+      "median": 2166.921375,
+      "min": 2154.458541,
+      "max": 2399.1842500000002,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.32239700000000004,
+      "min": 0.30672999999999995,
+      "max": 0.33531500000000003,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 122220352,
+      "min": 122172696,
+      "max": 122268904,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 26598608,
+      "min": 25760864,
+      "max": 27869488,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50025,
+      "min": 50025,
+      "max": 50025,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 10056025,
+      "min": 10056025,
+      "max": 10056025,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 5392100,
+      "min": 5392100,
+      "max": 5392100,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 5.480000000000018,
+      "min": 5.329999999999984,
+      "max": 5.639999999999986,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 352530432,
+      "min": 347078656,
+      "max": 354803712,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "after",
+    "kind": "sql",
+    "target": "flex",
+    "schema": "plain",
+    "reader": "bounded",
+    "workload": "grouped",
+    "samples": 5,
+    "ms": {
+      "median": 2427.984417,
+      "min": 2212.667458,
+      "max": 2474.911584,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.37584899999999877,
+      "min": 0.35149599999999914,
+      "max": 0.40282700000000027,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 157622912,
+      "min": 157439400,
+      "max": 157747472,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 22558312,
+      "min": 21217272,
+      "max": 23082208,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50025,
+      "min": 50025,
+      "max": 50025,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 9916264,
+      "min": 9916264,
+      "max": 9916264,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 5392100,
+      "min": 5392100,
+      "max": 5392100,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 5.780000000000086,
+      "min": 5.5400000000000205,
+      "max": 6.039999999999964,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 341372928,
+      "min": 336662528,
+      "max": 344092672,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "after",
+    "kind": "sql",
+    "target": "flex",
+    "schema": "plain",
+    "reader": "bounded",
+    "workload": "scalar",
+    "samples": 5,
+    "ms": {
+      "median": 2245.872167,
+      "min": 2142.603208,
+      "max": 2418.605291,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.3275189999999988,
+      "min": 0.3260400000000008,
+      "max": 0.347645,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 118702088,
+      "min": 118614600,
+      "max": 118759856,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 16847352,
+      "min": 16337560,
+      "max": 17356832,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50025,
+      "min": 50025,
+      "max": 50025,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 10056025,
+      "min": 10056025,
+      "max": 10056025,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 5392100,
+      "min": 5392100,
+      "max": 5392100,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 5.689999999999941,
+      "min": 5.350000000000023,
+      "max": 5.829999999999984,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 344141824,
+      "min": 337448960,
+      "max": 345018368,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "after",
+    "kind": "sql",
+    "target": "flex",
+    "schema": "plain",
+    "reader": "bounded",
+    "workload": "selective",
+    "samples": 5,
+    "ms": {
+      "median": 19.220667,
+      "min": 14.350625,
+      "max": 64.7765,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.005444999999999922,
+      "min": 0.003342000000000178,
+      "max": 0.006553000000000031,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 1002400,
+      "min": 991240,
+      "max": 1009416,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 4266088,
+      "min": 4247472,
+      "max": 4270736,
+      "samples": 5
+    },
+    "commands": {
+      "median": 108,
+      "min": 108,
+      "max": 108,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 15572,
+      "min": 15572,
+      "max": 15572,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 11399,
+      "min": 11399,
+      "max": 11399,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.01999999999998181,
+      "min": 0.0,
+      "max": 0.020000000000038654,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 331677696,
+      "min": 331677696,
+      "max": 331677696,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "after",
+    "kind": "sql",
+    "target": "flex",
+    "schema": "plain",
+    "reader": "bounded",
+    "workload": "sort",
+    "samples": 5,
+    "ms": {
+      "median": 2167.371375,
+      "min": 2133.397708,
+      "max": 2227.089417,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.40349099999999893,
+      "min": 0.3890639999999994,
+      "max": 0.4159550000000003,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 208110736,
+      "min": 208074136,
+      "max": 208279624,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 96238728,
+      "min": 92158992,
+      "max": 99707120,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50025,
+      "min": 50025,
+      "max": 50025,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 10056025,
+      "min": 10056025,
+      "max": 10056025,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 5392100,
+      "min": 5392100,
+      "max": 5392100,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 5.460000000000036,
+      "min": 5.399999999999977,
+      "max": 5.529999999999973,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 341553152,
+      "min": 339832832,
+      "max": 344817664,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "after",
+    "kind": "sql",
+    "target": "flex",
+    "schema": "plain",
+    "reader": "bounded",
+    "workload": "topk",
+    "samples": 5,
+    "ms": {
+      "median": 2122.878834,
+      "min": 2084.726208,
+      "max": 2308.14725,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.35868199999999995,
+      "min": 0.34647200000000034,
+      "max": 0.37978199999999873,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 180227936,
+      "min": 180188984,
+      "max": 180379016,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 20940720,
+      "min": 17958288,
+      "max": 23301432,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50025,
+      "min": 50025,
+      "max": 50025,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 10056025,
+      "min": 10056025,
+      "max": 10056025,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 5392100,
+      "min": 5392100,
+      "max": 5392100,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 5.400000000000034,
+      "min": 5.309999999999945,
+      "max": 5.620000000000061,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 342810624,
+      "min": 340975616,
+      "max": 345374720,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "after",
+    "kind": "sql",
+    "target": "flex",
+    "schema": "plain",
+    "reader": "bounded",
+    "workload": "wide",
+    "samples": 5,
+    "ms": {
+      "median": 2720.376541,
+      "min": 2607.896833,
+      "max": 2888.561083,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.6601590000000002,
+      "min": 0.6316360000000003,
+      "max": 0.6681440000000007,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 486327824,
+      "min": 486232600,
+      "max": 486356224,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 322092496,
+      "min": 301579264,
+      "max": 329947752,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50025,
+      "min": 50025,
+      "max": 50025,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 89804440,
+      "min": 89804440,
+      "max": 89804440,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 9992100,
+      "min": 9992100,
+      "max": 9992100,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 5.699999999999989,
+      "min": 5.649999999999977,
+      "max": 6.110000000000014,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 345608192,
+      "min": 343957504,
+      "max": 349106176,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "after",
+    "kind": "sql",
+    "target": "ram",
+    "schema": "plain",
+    "reader": "bounded",
+    "workload": "broad",
+    "samples": 5,
+    "ms": {
+      "median": 988.839083,
+      "min": 956.8700839999999,
+      "max": 1039.838792,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.21293799999999985,
+      "min": 0.208291,
+      "max": 0.23874700000000004,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 122271776,
+      "min": 122246808,
+      "max": 122321792,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 26334288,
+      "min": 24691344,
+      "max": 27426648,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50025,
+      "min": 50025,
+      "max": 50025,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 10056417,
+      "min": 10056417,
+      "max": 10056417,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 5392100,
+      "min": 5392100,
+      "max": 5392100,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.1700000000000017,
+      "min": 0.1599999999999966,
+      "max": 0.21000000000000085,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 531406848,
+      "min": 519757824,
+      "max": 539963392,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "after",
+    "kind": "sql",
+    "target": "ram",
+    "schema": "plain",
+    "reader": "bounded",
+    "workload": "grouped",
+    "samples": 5,
+    "ms": {
+      "median": 1017.165667,
+      "min": 931.752041,
+      "max": 1075.736459,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.2507640000000002,
+      "min": 0.23379999999999868,
+      "max": 0.257559999999998,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 157627576,
+      "min": 157508576,
+      "max": 157752512,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 20460544,
+      "min": 19762056,
+      "max": 23547784,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50025,
+      "min": 50025,
+      "max": 50025,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 9916656,
+      "min": 9916656,
+      "max": 9916656,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 5392100,
+      "min": 5392100,
+      "max": 5392100,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.1700000000000017,
+      "min": 0.1699999999999946,
+      "max": 0.17999999999999972,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 523644928,
+      "min": 522797056,
+      "max": 526323712,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "after",
+    "kind": "sql",
+    "target": "ram",
+    "schema": "plain",
+    "reader": "bounded",
+    "workload": "scalar",
+    "samples": 5,
+    "ms": {
+      "median": 1011.3308750000001,
+      "min": 985.959042,
+      "max": 1113.2417079999998,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.21566299999999927,
+      "min": 0.2042269999999995,
+      "max": 0.24081800000000086,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 118686944,
+      "min": 118642536,
+      "max": 118739928,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 16958184,
+      "min": 16618040,
+      "max": 18006712,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50025,
+      "min": 50025,
+      "max": 50025,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 10056417,
+      "min": 10056417,
+      "max": 10056417,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 5392100,
+      "min": 5392100,
+      "max": 5392100,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.18999999999999773,
+      "min": 0.1599999999999966,
+      "max": 0.20000000000000284,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 528728064,
+      "min": 524259328,
+      "max": 537493504,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "after",
+    "kind": "sql",
+    "target": "ram",
+    "schema": "plain",
+    "reader": "bounded",
+    "workload": "selective",
+    "samples": 5,
+    "ms": {
+      "median": 8.009792,
+      "min": 7.611792,
+      "max": 10.822125,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.0036529999999999063,
+      "min": 0.003047000000000022,
+      "max": 0.003975000000000062,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 996904,
+      "min": 992088,
+      "max": 999968,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 4480040,
+      "min": 4459288,
+      "max": 4482992,
+      "samples": 5
+    },
+    "commands": {
+      "median": 108,
+      "min": 108,
+      "max": 108,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 15964,
+      "min": 15964,
+      "max": 15964,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 11399,
+      "min": 11399,
+      "max": 11399,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.010000000000005116,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 505012224.0,
+      "min": 505012224,
+      "max": 505012224,
+      "samples": 2
+    }
+  },
+  {
+    "stage": "after",
+    "kind": "sql",
+    "target": "ram",
+    "schema": "plain",
+    "reader": "bounded",
+    "workload": "sort",
+    "samples": 5,
+    "ms": {
+      "median": 987.276833,
+      "min": 908.0811669999999,
+      "max": 1052.235875,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.3022410000000004,
+      "min": 0.28596100000000035,
+      "max": 0.3084309999999988,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 208193440,
+      "min": 208070104,
+      "max": 208233824,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 92768400,
+      "min": 89523296,
+      "max": 96030432,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50025,
+      "min": 50025,
+      "max": 50025,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 10056417,
+      "min": 10056417,
+      "max": 10056417,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 5392100,
+      "min": 5392100,
+      "max": 5392100,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.1600000000000037,
+      "min": 0.1599999999999966,
+      "max": 0.1700000000000017,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 537128960,
+      "min": 522977280,
+      "max": 548032512,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "after",
+    "kind": "sql",
+    "target": "ram",
+    "schema": "plain",
+    "reader": "bounded",
+    "workload": "topk",
+    "samples": 5,
+    "ms": {
+      "median": 915.75775,
+      "min": 859.989,
+      "max": 984.455125,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.2695709999999991,
+      "min": 0.24717500000000037,
+      "max": 0.2727529999999998,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 180228744,
+      "min": 180153488,
+      "max": 180290384,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 23418328,
+      "min": 20495312,
+      "max": 24226184,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50025,
+      "min": 50025,
+      "max": 50025,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 10056417,
+      "min": 10056417,
+      "max": 10056417,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 5392100,
+      "min": 5392100,
+      "max": 5392100,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.17999999999999972,
+      "min": 0.1599999999999966,
+      "max": 0.19999999999999574,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 597196800,
+      "min": 544014336,
+      "max": 703565824,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "after",
+    "kind": "sql",
+    "target": "ram",
+    "schema": "plain",
+    "reader": "bounded",
+    "workload": "wide",
+    "samples": 5,
+    "ms": {
+      "median": 1281.558042,
+      "min": 1226.913,
+      "max": 1359.516208,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.502713,
+      "min": 0.49223200000000045,
+      "max": 0.5215970000000008,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 486339528,
+      "min": 486198120,
+      "max": 486490056,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 307231256,
+      "min": 304933272,
+      "max": 328607344,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50025,
+      "min": 50025,
+      "max": 50025,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 89804832,
+      "min": 89804832,
+      "max": 89804832,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 9992100,
+      "min": 9992100,
+      "max": 9992100,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.4100000000000037,
+      "min": 0.37999999999999545,
+      "max": 0.4200000000000017,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 766156800,
+      "min": 688209920,
+      "max": 826068992,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "after",
+    "kind": "sql",
+    "target": "ram",
+    "schema": "sortable",
+    "reader": "default",
+    "workload": "broad",
+    "samples": 5,
+    "ms": {
+      "median": 328.480125,
+      "min": 281.113,
+      "max": 392.508209,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.1633119999999999,
+      "min": 0.15989500000000012,
+      "max": 0.18076700000000034,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 110495496,
+      "min": 110417536,
+      "max": 110569072,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 41170768,
+      "min": 32397680,
+      "max": 42254112,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50036,
+      "min": 50036,
+      "max": 50036,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 9009570,
+      "min": 9009565,
+      "max": 9009570,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 4341705,
+      "min": 4341695,
+      "max": 4341705,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.18000000000000682,
+      "min": 0.1700000000000017,
+      "max": 0.22999999999999687,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 534233088,
+      "min": 526098432,
+      "max": 539963392,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "after",
+    "kind": "sql",
+    "target": "ram",
+    "schema": "sortable",
+    "reader": "default",
+    "workload": "grouped",
+    "samples": 5,
+    "ms": {
+      "median": 282.768958,
+      "min": 261.341791,
+      "max": 352.397833,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.18019699999999972,
+      "min": 0.16527499999999762,
+      "max": 0.18573799999999707,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 141434376,
+      "min": 141373416,
+      "max": 141502512,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 31755920,
+      "min": 29199032,
+      "max": 33579000,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50016,
+      "min": 50016,
+      "max": 50016,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 7988920,
+      "min": 7988920,
+      "max": 7988925,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 3990296,
+      "min": 3990296,
+      "max": 3990306,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.13000000000000256,
+      "min": 0.12000000000000455,
+      "max": 0.1599999999999966,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 523644928,
+      "min": 523386880,
+      "max": 524034048,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "after",
+    "kind": "sql",
+    "target": "ram",
+    "schema": "sortable",
+    "reader": "default",
+    "workload": "scalar",
+    "samples": 5,
+    "ms": {
+      "median": 223.381208,
+      "min": 217.64808299999999,
+      "max": 278.328875,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.13137000000000043,
+      "min": 0.12413300000000049,
+      "max": 0.14137799999999956,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 88110112,
+      "min": 88038704,
+      "max": 88165824,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 28881704,
+      "min": 27994544,
+      "max": 31761824,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50016,
+      "min": 50016,
+      "max": 50016,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 7778681,
+      "min": 7778681,
+      "max": 7778686,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 4340288,
+      "min": 4340288,
+      "max": 4340298,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.13000000000000256,
+      "min": 0.11000000000000654,
+      "max": 0.14999999999999858,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 529022976,
+      "min": 525881344,
+      "max": 537346048,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "after",
+    "kind": "sql",
+    "target": "ram",
+    "schema": "sortable",
+    "reader": "default",
+    "workload": "selective",
+    "samples": 5,
+    "ms": {
+      "median": 19.008666,
+      "min": 7.884291999999999,
+      "max": 23.0045,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.004178999999999711,
+      "min": 0.003422000000000036,
+      "max": 0.0048560000000001935,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 1065488,
+      "min": 1052528,
+      "max": 1073688,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 4542872,
+      "min": 4535296,
+      "max": 4553248,
+      "samples": 5
+    },
+    "commands": {
+      "median": 108,
+      "min": 108,
+      "max": 108,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 22355,
+      "min": 22355,
+      "max": 22355,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 9522,
+      "min": 9522,
+      "max": 9522,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.00999999999999801,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 505012224.0,
+      "min": 505012224,
+      "max": 505012224,
+      "samples": 4
+    }
+  },
+  {
+    "stage": "after",
+    "kind": "sql",
+    "target": "ram",
+    "schema": "sortable",
+    "reader": "default",
+    "workload": "sort",
+    "samples": 5,
+    "ms": {
+      "median": 419.957375,
+      "min": 365.43629100000004,
+      "max": 489.951459,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.20853400000000022,
+      "min": 0.20551100000000133,
+      "max": 0.23363600000000062,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 177678424,
+      "min": 177633104,
+      "max": 177723528,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 71995624,
+      "min": 70497328,
+      "max": 85333344,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50016,
+      "min": 50016,
+      "max": 50016,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 10138901,
+      "min": 10138896,
+      "max": 10138901,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 4340528,
+      "min": 4340518,
+      "max": 4340528,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.25,
+      "min": 0.23000000000000398,
+      "max": 0.30999999999999517,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 542769152,
+      "min": 530976768,
+      "max": 548032512,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "after",
+    "kind": "sql",
+    "target": "ram",
+    "schema": "sortable",
+    "reader": "default",
+    "workload": "topk",
+    "samples": 5,
+    "ms": {
+      "median": 24.355959,
+      "min": 13.813291,
+      "max": 32.264917,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.005154999999998466,
+      "min": 0.004298000000000357,
+      "max": 0.005874000000000379,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 1085096,
+      "min": 1079760,
+      "max": 1089632,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 4592976,
+      "min": 4579864,
+      "max": 4598616,
+      "samples": 5
+    },
+    "commands": {
+      "median": 108,
+      "min": 108,
+      "max": 108,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 24436,
+      "min": 24436,
+      "max": 24436,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 9502,
+      "min": 9502,
+      "max": 9502,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.00999999999999801,
+      "min": 0.0,
+      "max": 0.010000000000005116,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 566640640,
+      "min": 522395648,
+      "max": 644853760,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "after",
+    "kind": "sql",
+    "target": "ram",
+    "schema": "sortable",
+    "reader": "default",
+    "workload": "wide",
+    "samples": 5,
+    "ms": {
+      "median": 717.535875,
+      "min": 672.967917,
+      "max": 731.9445,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.4906820000000014,
+      "min": 0.4718260000000001,
+      "max": 0.511431,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 474525776,
+      "min": 474520456,
+      "max": 474526648,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 343762672,
+      "min": 324075488,
+      "max": 364705480,
+      "samples": 5
+    },
+    "commands": {
+      "median": 36,
+      "min": 36,
+      "max": 36,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 94986563,
+      "min": 94986553,
+      "max": 94986563,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 2814,
+      "min": 2799,
+      "max": 2814,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.5499999999999972,
+      "min": 0.5200000000000031,
+      "max": 0.5700000000000003,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 800124928,
+      "min": 783097856,
+      "max": 836837376,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "before",
+    "kind": "raw",
+    "target": "flex",
+    "schema": "plain",
+    "reader": "bounded",
+    "workload": "broad",
+    "samples": 5,
+    "ms": {
+      "median": 4399.689791,
+      "min": 4368.362709,
+      "max": 4530.58275,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.4554779999999994,
+      "min": 0.44669700000000034,
+      "max": 0.46296800000000005,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 115267312,
+      "min": 115215256,
+      "max": 115458032,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 7584984,
+      "min": 7498144,
+      "max": 7773096,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50129,
+      "min": 50129,
+      "max": 50129,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 9835349,
+      "min": 9835349,
+      "max": 9835349,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 5660437,
+      "min": 5660437,
+      "max": 5660437,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 6.0800000000000125,
+      "min": 5.939999999999998,
+      "max": 6.189999999999998,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 320266240,
+      "min": 317263872,
+      "max": 320876544,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "before",
+    "kind": "raw",
+    "target": "flex",
+    "schema": "plain",
+    "reader": "bounded",
+    "workload": "selective",
+    "samples": 5,
+    "ms": {
+      "median": 7.635583,
+      "min": 7.235583999999999,
+      "max": 7.927625000000001,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.0009549999999975967,
+      "min": 0.0007820000000009486,
+      "max": 0.0010299999999965337,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 243376,
+      "min": 240552,
+      "max": 243616,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 3104424,
+      "min": 3100336,
+      "max": 3122136,
+      "samples": 5
+    },
+    "commands": {
+      "median": 103,
+      "min": 103,
+      "max": 103,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 12288,
+      "min": 12288,
+      "max": 12288,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 11639,
+      "min": 11639,
+      "max": 11639,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.009999999999990905,
+      "min": 0.0,
+      "max": 0.029999999999972715,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 310292480,
+      "min": 310292480,
+      "max": 310292480,
+      "samples": 1
+    }
+  },
+  {
+    "stage": "before",
+    "kind": "raw",
+    "target": "flex",
+    "schema": "plain",
+    "reader": "bounded",
+    "workload": "wide",
+    "samples": 5,
+    "ms": {
+      "median": 5000.218333000001,
+      "min": 4868.370541,
+      "max": 5012.476334,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.9257680000000015,
+      "min": 0.8890619999999991,
+      "max": 0.9676970000000011,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 434477856,
+      "min": 434384448,
+      "max": 434564928,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 13246480,
+      "min": 12973760,
+      "max": 13385944,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50129,
+      "min": 50129,
+      "max": 50129,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 90152077,
+      "min": 90152077,
+      "max": 90152077,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 10610437,
+      "min": 10610437,
+      "max": 10610437,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 6.430000000000007,
+      "min": 6.340000000000032,
+      "max": 6.46999999999997,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 319610880,
+      "min": 319139840,
+      "max": 321708032,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "before",
+    "kind": "raw",
+    "target": "ram",
+    "schema": "plain",
+    "reader": "bounded",
+    "workload": "broad",
+    "samples": 5,
+    "ms": {
+      "median": 2581.490625,
+      "min": 2488.349125,
+      "max": 2645.3106669999997,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.373505999999999,
+      "min": 0.3333680000000001,
+      "max": 0.42494499999999746,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 115076720,
+      "min": 115040984,
+      "max": 115114648,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 8903760,
+      "min": 8658928,
+      "max": 8991960,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50129,
+      "min": 50129,
+      "max": 50129,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 9835353,
+      "min": 9835353,
+      "max": 9835353,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 5660437,
+      "min": 5660437,
+      "max": 5660437,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.1999999999999993,
+      "min": 0.1999999999999993,
+      "max": 0.22000000000000242,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 511057920,
+      "min": 509337600,
+      "max": 514695168,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "before",
+    "kind": "raw",
+    "target": "ram",
+    "schema": "plain",
+    "reader": "bounded",
+    "workload": "selective",
+    "samples": 5,
+    "ms": {
+      "median": 1.7455,
+      "min": 1.680333,
+      "max": 1.9415,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.0005220000000001335,
+      "min": 0.0004500000000007276,
+      "max": 0.0005740000000002965,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 243600,
+      "min": 242184,
+      "max": 244080,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 3653552,
+      "min": 3650408,
+      "max": 3655632,
+      "samples": 5
+    },
+    "commands": {
+      "median": 103,
+      "min": 103,
+      "max": 103,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 12292,
+      "min": 12292,
+      "max": 12292,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 11639,
+      "min": 11639,
+      "max": 11639,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.010000000000001563,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": null
+  },
+  {
+    "stage": "before",
+    "kind": "raw",
+    "target": "ram",
+    "schema": "plain",
+    "reader": "bounded",
+    "workload": "wide",
+    "samples": 5,
+    "ms": {
+      "median": 2665.044,
+      "min": 2612.3589589999997,
+      "max": 2699.379542,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.7305969999999959,
+      "min": 0.7264809999999997,
+      "max": 0.7540789999999973,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 434416576,
+      "min": 434301856,
+      "max": 434456976,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 14276496,
+      "min": 14200440,
+      "max": 14436776,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50129,
+      "min": 50129,
+      "max": 50129,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 90152081,
+      "min": 90152081,
+      "max": 90152081,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 10610437,
+      "min": 10610437,
+      "max": 10610437,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.4299999999999997,
+      "min": 0.4200000000000017,
+      "max": 0.4399999999999977,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 516956160,
+      "min": 516272128,
+      "max": 518377472,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "before",
+    "kind": "raw",
+    "target": "ram",
+    "schema": "plain",
+    "reader": "cursor",
+    "workload": "broad",
+    "samples": 5,
+    "ms": {
+      "median": 820.9862919999999,
+      "min": 711.6458749999999,
+      "max": 846.575583,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.17623599999999584,
+      "min": 0.17020300000000077,
+      "max": 0.1792100000000012,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 107092600,
+      "min": 107019216,
+      "max": 107153688,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 28385272,
+      "min": 27883472,
+      "max": 29948480,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50006,
+      "min": 50006,
+      "max": 50006,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 7953096,
+      "min": 7953091,
+      "max": 7953096,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 4439609,
+      "min": 4439599,
+      "max": 4439609,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.14000000000000057,
+      "min": 0.129999999999999,
+      "max": 0.15000000000000213,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 514695168,
+      "min": 511221760,
+      "max": 515878912,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "before",
+    "kind": "raw",
+    "target": "ram",
+    "schema": "plain",
+    "reader": "cursor",
+    "workload": "selective",
+    "samples": 5,
+    "ms": {
+      "median": 19.82075,
+      "min": 15.044666,
+      "max": 21.039541,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.0010930000000008988,
+      "min": 0.0008179999999988752,
+      "max": 0.0011779999999994573,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 290688,
+      "min": 280688,
+      "max": 290840,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 3699792,
+      "min": 3692240,
+      "max": 3703816,
+      "samples": 5
+    },
+    "commands": {
+      "median": 101,
+      "min": 101,
+      "max": 101,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 16088,
+      "min": 16088,
+      "max": 16088,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 9107,
+      "min": 9107,
+      "max": 9107,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 513585152.0,
+      "min": 513585152,
+      "max": 513585152,
+      "samples": 4
+    }
+  },
+  {
+    "stage": "before",
+    "kind": "raw",
+    "target": "ram",
+    "schema": "plain",
+    "reader": "cursor",
+    "workload": "wide",
+    "samples": 5,
+    "ms": {
+      "median": 1139.6619580000001,
+      "min": 1068.068375,
+      "max": 1196.718167,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.5809320000000042,
+      "min": 0.5653239999999968,
+      "max": 0.599736,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 426032328,
+      "min": 425952896,
+      "max": 426117752,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 64019888,
+      "min": 63605880,
+      "max": 64645440,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50006,
+      "min": 50006,
+      "max": 50006,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 88269824,
+      "min": 88269819,
+      "max": 88269824,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 9389609,
+      "min": 9389599,
+      "max": 9389609,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.3500000000000014,
+      "min": 0.33000000000000185,
+      "max": 0.370000000000001,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 516960256,
+      "min": 516124672,
+      "max": 518230016,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "before",
+    "kind": "raw",
+    "target": "ram",
+    "schema": "sortable",
+    "reader": "bounded",
+    "workload": "broad",
+    "samples": 5,
+    "ms": {
+      "median": 2546.8892910000004,
+      "min": 2494.472541,
+      "max": 2604.014792,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.3954489999999993,
+      "min": 0.37180100000000493,
+      "max": 0.4314859999999996,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 115177760,
+      "min": 115119512,
+      "max": 115216264,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 8799616,
+      "min": 8760552,
+      "max": 8883992,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50129,
+      "min": 50129,
+      "max": 50129,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 10174353,
+      "min": 10174353,
+      "max": 10174353,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 5810821,
+      "min": 5810821,
+      "max": 5810821,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.2099999999999973,
+      "min": 0.1999999999999993,
+      "max": 0.21999999999999886,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 513794048,
+      "min": 512258048,
+      "max": 514658304,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "before",
+    "kind": "raw",
+    "target": "ram",
+    "schema": "sortable",
+    "reader": "bounded",
+    "workload": "selective",
+    "samples": 5,
+    "ms": {
+      "median": 1.858583,
+      "min": 1.74525,
+      "max": 2.5215419999999997,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.0004950000000008004,
+      "min": 0.0004899999999992133,
+      "max": 0.0006020000000006576,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 243600,
+      "min": 240800,
+      "max": 243832,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 3652056,
+      "min": 3643840,
+      "max": 3656368,
+      "samples": 5
+    },
+    "commands": {
+      "median": 103,
+      "min": 103,
+      "max": 103,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 12592,
+      "min": 12592,
+      "max": 12592,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 11945,
+      "min": 11945,
+      "max": 11945,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.010000000000001563,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": null
+  },
+  {
+    "stage": "before",
+    "kind": "raw",
+    "target": "ram",
+    "schema": "sortable",
+    "reader": "bounded",
+    "workload": "wide",
+    "samples": 5,
+    "ms": {
+      "median": 2613.4148330000003,
+      "min": 2581.702708,
+      "max": 2636.333417,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.7285520000000005,
+      "min": 0.706471999999998,
+      "max": 0.757047,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 434541016,
+      "min": 434491656,
+      "max": 434633776,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 14277888,
+      "min": 14031824,
+      "max": 14724688,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50129,
+      "min": 50129,
+      "max": 50129,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 90491081,
+      "min": 90491081,
+      "max": 90491081,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 10760821,
+      "min": 10760821,
+      "max": 10760821,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.4200000000000017,
+      "min": 0.3900000000000041,
+      "max": 0.4499999999999993,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 516308992,
+      "min": 514400256,
+      "max": 517844992,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "before",
+    "kind": "raw",
+    "target": "ram",
+    "schema": "sortable",
+    "reader": "cursor",
+    "workload": "broad",
+    "samples": 5,
+    "ms": {
+      "median": 780.074208,
+      "min": 741.00775,
+      "max": 808.5315840000001,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.17309000000000196,
+      "min": 0.17175800000000052,
+      "max": 0.176006000000001,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 107078104,
+      "min": 107042120,
+      "max": 107118064,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 30260840,
+      "min": 27977104,
+      "max": 30437856,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50006,
+      "min": 50006,
+      "max": 50006,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 8103096,
+      "min": 8103091,
+      "max": 8103096,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 4589627,
+      "min": 4589617,
+      "max": 4589627,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.15000000000000213,
+      "min": 0.14999999999999858,
+      "max": 0.16000000000000014,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 513548288,
+      "min": 512139264,
+      "max": 516026368,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "before",
+    "kind": "raw",
+    "target": "ram",
+    "schema": "sortable",
+    "reader": "cursor",
+    "workload": "selective",
+    "samples": 5,
+    "ms": {
+      "median": 8.169541,
+      "min": 3.9789589999999997,
+      "max": 19.6945,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.0007130000000010739,
+      "min": 0.00044300000000063733,
+      "max": 0.0012110000000014054,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 290840,
+      "min": 280688,
+      "max": 290840,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 3701688,
+      "min": 3690136,
+      "max": 3703640,
+      "samples": 5
+    },
+    "commands": {
+      "median": 101,
+      "min": 101,
+      "max": 101,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 16388,
+      "min": 16388,
+      "max": 16388,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 9410,
+      "min": 9410,
+      "max": 9410,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 513585152,
+      "min": 513585152,
+      "max": 513585152,
+      "samples": 3
+    }
+  },
+  {
+    "stage": "before",
+    "kind": "raw",
+    "target": "ram",
+    "schema": "sortable",
+    "reader": "cursor",
+    "workload": "wide",
+    "samples": 5,
+    "ms": {
+      "median": 1108.239875,
+      "min": 991.4135,
+      "max": 1180.2599169999999,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.5714570000000023,
+      "min": 0.5442100000000067,
+      "max": 0.6017829999999975,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 426060440,
+      "min": 425984016,
+      "max": 426112008,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 64013896,
+      "min": 63346840,
+      "max": 64760584,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50006,
+      "min": 50006,
+      "max": 50006,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 88419819,
+      "min": 88419819,
+      "max": 88419824,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 9539617,
+      "min": 9539617,
+      "max": 9539627,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.36999999999999744,
+      "min": 0.34999999999999787,
+      "max": 0.39000000000000057,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 516624384,
+      "min": 514252800,
+      "max": 518066176,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "before",
+    "kind": "sql",
+    "target": "flex",
+    "schema": "plain",
+    "reader": "bounded",
+    "workload": "broad",
+    "samples": 5,
+    "ms": {
+      "median": 4537.684,
+      "min": 4501.354584,
+      "max": 4586.709209000001,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.4450649999999998,
+      "min": 0.42890499999999987,
+      "max": 0.4664109999999999,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 116602368,
+      "min": 116433152,
+      "max": 116621200,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 19166600,
+      "min": 18912808,
+      "max": 19210024,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50137,
+      "min": 50137,
+      "max": 50137,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 9410730,
+      "min": 9410730,
+      "max": 9410730,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 5310921,
+      "min": 5310921,
+      "max": 5310921,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 6.050000000000004,
+      "min": 5.919999999999998,
+      "max": 6.09,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 321765376,
+      "min": 316362752,
+      "max": 330469376,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "before",
+    "kind": "sql",
+    "target": "flex",
+    "schema": "plain",
+    "reader": "bounded",
+    "workload": "grouped",
+    "samples": 5,
+    "ms": {
+      "median": 4572.721459,
+      "min": 4443.991041,
+      "max": 4646.23625,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.4851460000000003,
+      "min": 0.4589280000000002,
+      "max": 0.49054399999999987,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 152115616,
+      "min": 152068488,
+      "max": 152257288,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 10271400,
+      "min": 9833264,
+      "max": 10332672,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50137,
+      "min": 50137,
+      "max": 50137,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 9270969,
+      "min": 9270969,
+      "max": 9270969,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 5310921,
+      "min": 5310921,
+      "max": 5310921,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 6.110000000000014,
+      "min": 6.0400000000000205,
+      "max": 6.389999999999986,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 320094208,
+      "min": 318562304,
+      "max": 320974848,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "before",
+    "kind": "sql",
+    "target": "flex",
+    "schema": "plain",
+    "reader": "bounded",
+    "workload": "scalar",
+    "samples": 5,
+    "ms": {
+      "median": 4561.1722500000005,
+      "min": 4247.853542,
+      "max": 4641.212667,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.45461799999999997,
+      "min": 0.4453889999999987,
+      "max": 0.48063199999999817,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 113185432,
+      "min": 113117912,
+      "max": 113276928,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 9191752,
+      "min": 8960280,
+      "max": 9329592,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50137,
+      "min": 50137,
+      "max": 50137,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 9410730,
+      "min": 9410730,
+      "max": 9410730,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 5310921,
+      "min": 5310921,
+      "max": 5310921,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 6.079999999999984,
+      "min": 5.980000000000018,
+      "max": 6.099999999999994,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 319614976,
+      "min": 317751296,
+      "max": 320094208,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "before",
+    "kind": "sql",
+    "target": "flex",
+    "schema": "plain",
+    "reader": "bounded",
+    "workload": "selective",
+    "samples": 5,
+    "ms": {
+      "median": 12.866667,
+      "min": 12.246542,
+      "max": 13.181459,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.00371800000000011,
+      "min": 0.003418000000000143,
+      "max": 0.004526999999999948,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 1005744,
+      "min": 999824,
+      "max": 1012656,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 4265752,
+      "min": 4252840,
+      "max": 4269880,
+      "samples": 5
+    },
+    "commands": {
+      "median": 108,
+      "min": 108,
+      "max": 108,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 15368,
+      "min": 15368,
+      "max": 15368,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 11196,
+      "min": 11196,
+      "max": 11196,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.009999999999999787,
+      "min": 0.0,
+      "max": 0.020000000000000018,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 308506624,
+      "min": 308211712,
+      "max": 308948992,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "before",
+    "kind": "sql",
+    "target": "flex",
+    "schema": "plain",
+    "reader": "bounded",
+    "workload": "sort",
+    "samples": 5,
+    "ms": {
+      "median": 4680.568375,
+      "min": 4443.524834,
+      "max": 4926.356334,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.5493989999999993,
+      "min": 0.5055069999999997,
+      "max": 0.5682489999999998,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 203943488,
+      "min": 203870152,
+      "max": 203980736,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 87243240,
+      "min": 85553592,
+      "max": 90108008,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50137,
+      "min": 50137,
+      "max": 50137,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 9410730,
+      "min": 9410730,
+      "max": 9410730,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 5310921,
+      "min": 5310921,
+      "max": 5310921,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 6.130000000000024,
+      "min": 6.099999999999994,
+      "max": 6.590000000000003,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 316657664,
+      "min": 315174912,
+      "max": 320524288,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "before",
+    "kind": "sql",
+    "target": "flex",
+    "schema": "plain",
+    "reader": "bounded",
+    "workload": "topk",
+    "samples": 5,
+    "ms": {
+      "median": 4618.672917,
+      "min": 4373.258167,
+      "max": 4709.292625,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.5194890000000001,
+      "min": 0.47066799999999986,
+      "max": 0.5277740000000009,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 174782136,
+      "min": 174605712,
+      "max": 174860024,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 10101432,
+      "min": 9966296,
+      "max": 10312904,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50137,
+      "min": 50137,
+      "max": 50137,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 9410730,
+      "min": 9410730,
+      "max": 9410730,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 5310921,
+      "min": 5310921,
+      "max": 5310921,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 6.019999999999996,
+      "min": 6.009999999999991,
+      "max": 6.1000000000000085,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 316121088,
+      "min": 315834368,
+      "max": 316477440,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "before",
+    "kind": "sql",
+    "target": "flex",
+    "schema": "plain",
+    "reader": "bounded",
+    "workload": "wide",
+    "samples": 5,
+    "ms": {
+      "median": 4927.473833999999,
+      "min": 4851.339167,
+      "max": 5014.879167,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.7401109999999997,
+      "min": 0.7261290000000002,
+      "max": 0.7544089999999999,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 480503872,
+      "min": 480369736,
+      "max": 480610200,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 323764816,
+      "min": 315595920,
+      "max": 323820088,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50137,
+      "min": 50137,
+      "max": 50137,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 89159145,
+      "min": 89159145,
+      "max": 89159145,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 9910921,
+      "min": 9910921,
+      "max": 9910921,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 6.36999999999999,
+      "min": 6.340000000000003,
+      "max": 6.420000000000002,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 315760640,
+      "min": 314871808,
+      "max": 316416000,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "before",
+    "kind": "sql",
+    "target": "ram",
+    "schema": "plain",
+    "reader": "bounded",
+    "workload": "broad",
+    "samples": 5,
+    "ms": {
+      "median": 2394.9761249999997,
+      "min": 2251.00625,
+      "max": 2597.782833,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.35932799999999965,
+      "min": 0.3331750000000002,
+      "max": 0.43214299999999994,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 116602576,
+      "min": 116499552,
+      "max": 116685008,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 19948984,
+      "min": 19675776,
+      "max": 20180184,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50137,
+      "min": 50137,
+      "max": 50137,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 9411122,
+      "min": 9411122,
+      "max": 9411122,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 5310921,
+      "min": 5310921,
+      "max": 5310921,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.20000000000000018,
+      "min": 0.17999999999999972,
+      "max": 0.22999999999999998,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 516718592,
+      "min": 510218240,
+      "max": 524034048,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "before",
+    "kind": "sql",
+    "target": "ram",
+    "schema": "plain",
+    "reader": "bounded",
+    "workload": "grouped",
+    "samples": 5,
+    "ms": {
+      "median": 2571.865917,
+      "min": 2467.409125,
+      "max": 2609.871,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.458673000000001,
+      "min": 0.4337069999999983,
+      "max": 0.5233899999999991,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 152115296,
+      "min": 151951616,
+      "max": 152155952,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 10964864,
+      "min": 10788872,
+      "max": 11092776,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50137,
+      "min": 50137,
+      "max": 50137,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 9271361,
+      "min": 9271361,
+      "max": 9271361,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 5310921,
+      "min": 5310921,
+      "max": 5310921,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.19999999999999574,
+      "min": 0.19000000000000128,
+      "max": 0.21999999999999886,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 512376832,
+      "min": 511037440,
+      "max": 513835008,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "before",
+    "kind": "sql",
+    "target": "ram",
+    "schema": "plain",
+    "reader": "bounded",
+    "workload": "scalar",
+    "samples": 5,
+    "ms": {
+      "median": 2599.965709,
+      "min": 2579.4861669999996,
+      "max": 2632.0757500000004,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.41073199999999943,
+      "min": 0.40525300000000186,
+      "max": 0.46033600000000163,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 113053880,
+      "min": 112931376,
+      "max": 113124464,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 9814512,
+      "min": 9745312,
+      "max": 9977104,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50137,
+      "min": 50137,
+      "max": 50137,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 9411122,
+      "min": 9411122,
+      "max": 9411122,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 5310921,
+      "min": 5310921,
+      "max": 5310921,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.1999999999999993,
+      "min": 0.1800000000000015,
+      "max": 0.22999999999999865,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 512663552,
+      "min": 512290816,
+      "max": 516915200,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "before",
+    "kind": "sql",
+    "target": "ram",
+    "schema": "plain",
+    "reader": "bounded",
+    "workload": "selective",
+    "samples": 5,
+    "ms": {
+      "median": 7.620166,
+      "min": 7.024875,
+      "max": 8.240666000000001,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.0033959999999999546,
+      "min": 0.0031159999999998966,
+      "max": 0.0037840000000000096,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 1003720,
+      "min": 1003136,
+      "max": 1006712,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 4487416,
+      "min": 4468816,
+      "max": 4489248,
+      "samples": 5
+    },
+    "commands": {
+      "median": 108,
+      "min": 108,
+      "max": 108,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 15760,
+      "min": 15760,
+      "max": 15760,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 11196,
+      "min": 11196,
+      "max": 11196,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.010000000000000231,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 494338048,
+      "min": 494338048,
+      "max": 494338048,
+      "samples": 1
+    }
+  },
+  {
+    "stage": "before",
+    "kind": "sql",
+    "target": "ram",
+    "schema": "plain",
+    "reader": "bounded",
+    "workload": "sort",
+    "samples": 5,
+    "ms": {
+      "median": 2617.7476669999996,
+      "min": 2588.61425,
+      "max": 2669.617875,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.5014920000000025,
+      "min": 0.474460999999998,
+      "max": 0.5342529999999996,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 203910752,
+      "min": 203880464,
+      "max": 203943672,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 92184152,
+      "min": 91848440,
+      "max": 93628680,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50137,
+      "min": 50137,
+      "max": 50137,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 9411122,
+      "min": 9411122,
+      "max": 9411122,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 5310921,
+      "min": 5310921,
+      "max": 5310921,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.20999999999999908,
+      "min": 0.17999999999999972,
+      "max": 0.21000000000000085,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 523124736,
+      "min": 514846720,
+      "max": 528633856,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "before",
+    "kind": "sql",
+    "target": "ram",
+    "schema": "plain",
+    "reader": "bounded",
+    "workload": "topk",
+    "samples": 5,
+    "ms": {
+      "median": 2520.744542,
+      "min": 2465.736792,
+      "max": 2678.604209,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.47300700000000084,
+      "min": 0.4218239999999991,
+      "max": 0.5019870000000015,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 174735672,
+      "min": 174666928,
+      "max": 174808856,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 10558792,
+      "min": 10408552,
+      "max": 10752528,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50137,
+      "min": 50137,
+      "max": 50137,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 9411122,
+      "min": 9411122,
+      "max": 9411122,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 5310921,
+      "min": 5310921,
+      "max": 5310921,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.2099999999999973,
+      "min": 0.1999999999999993,
+      "max": 0.21000000000000085,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 509661184,
+      "min": 509112320,
+      "max": 628596736,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "before",
+    "kind": "sql",
+    "target": "ram",
+    "schema": "plain",
+    "reader": "bounded",
+    "workload": "wide",
+    "samples": 5,
+    "ms": {
+      "median": 2671.264291,
+      "min": 2528.95975,
+      "max": 2783.360792,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.5821959999999997,
+      "min": 0.5426159999999998,
+      "max": 0.6054450000000013,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 480483856,
+      "min": 480473608,
+      "max": 480618176,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 319791536,
+      "min": 278411496,
+      "max": 324007920,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50137,
+      "min": 50137,
+      "max": 50137,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 89159537,
+      "min": 89159537,
+      "max": 89159537,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 9910921,
+      "min": 9910921,
+      "max": 9910921,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.4200000000000017,
+      "min": 0.40000000000000036,
+      "max": 0.4500000000000002,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 716165120,
+      "min": 664875008,
+      "max": 809455616,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "before",
+    "kind": "sql",
+    "target": "ram",
+    "schema": "sortable",
+    "reader": "default",
+    "workload": "broad",
+    "samples": 5,
+    "ms": {
+      "median": 306.298375,
+      "min": 257.314375,
+      "max": 373.090792,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.15986900000000004,
+      "min": 0.14731700000000014,
+      "max": 0.16797899999999988,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 110509520,
+      "min": 110445768,
+      "max": 110582184,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 33185824,
+      "min": 32387328,
+      "max": 41042968,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50036,
+      "min": 50036,
+      "max": 50036,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 8909476,
+      "min": 8909476,
+      "max": 8909485,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 4241641,
+      "min": 4241641,
+      "max": 4241651,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.16999999999999993,
+      "min": 0.16000000000000014,
+      "max": 0.1900000000000004,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 519290880,
+      "min": 516558848,
+      "max": 524034048,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "before",
+    "kind": "sql",
+    "target": "ram",
+    "schema": "sortable",
+    "reader": "default",
+    "workload": "grouped",
+    "samples": 5,
+    "ms": {
+      "median": 268.754125,
+      "min": 227.488375,
+      "max": 311.101875,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.17572600000000094,
+      "min": 0.17471199999999953,
+      "max": 0.17867100000000136,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 141399568,
+      "min": 141374472,
+      "max": 141457912,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 32833568,
+      "min": 28292944,
+      "max": 34483360,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50016,
+      "min": 50016,
+      "max": 50016,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 7888916,
+      "min": 7888916,
+      "max": 7888916,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 3890278,
+      "min": 3890278,
+      "max": 3890278,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.13999999999999702,
+      "min": 0.12000000000000455,
+      "max": 0.14999999999999858,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 513687552,
+      "min": 513269760,
+      "max": 514101248,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "before",
+    "kind": "sql",
+    "target": "ram",
+    "schema": "sortable",
+    "reader": "default",
+    "workload": "scalar",
+    "samples": 5,
+    "ms": {
+      "median": 270.16075,
+      "min": 225.221,
+      "max": 286.64929099999995,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.1322669999999988,
+      "min": 0.1288109999999989,
+      "max": 0.13595699999999766,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 88106144,
+      "min": 88082360,
+      "max": 88110896,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 28811784,
+      "min": 28328672,
+      "max": 29641120,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50016,
+      "min": 50016,
+      "max": 50016,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 7678677,
+      "min": 7678677,
+      "max": 7678682,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 4240270,
+      "min": 4240270,
+      "max": 4240280,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.13999999999999702,
+      "min": 0.10999999999999943,
+      "max": 0.14999999999999858,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 513650688,
+      "min": 511856640,
+      "max": 516915200,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "before",
+    "kind": "sql",
+    "target": "ram",
+    "schema": "sortable",
+    "reader": "default",
+    "workload": "selective",
+    "samples": 5,
+    "ms": {
+      "median": 8.987667,
+      "min": 7.228916,
+      "max": 24.285125,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.0038879999999998915,
+      "min": 0.00302200000000008,
+      "max": 0.004429000000000016,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 1069152,
+      "min": 1065560,
+      "max": 1074136,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 4551984,
+      "min": 4545008,
+      "max": 4557760,
+      "samples": 5
+    },
+    "commands": {
+      "median": 108,
+      "min": 108,
+      "max": 108,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 22151,
+      "min": 22151,
+      "max": 22151,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 9318,
+      "min": 9318,
+      "max": 9318,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.009999999999999787,
+      "min": 0.0,
+      "max": 0.010000000000000009,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 494264320.0,
+      "min": 494190592,
+      "max": 494338048,
+      "samples": 2
+    }
+  },
+  {
+    "stage": "before",
+    "kind": "sql",
+    "target": "ram",
+    "schema": "sortable",
+    "reader": "default",
+    "workload": "sort",
+    "samples": 5,
+    "ms": {
+      "median": 381.2375,
+      "min": 355.03287500000005,
+      "max": 450.88191700000004,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.20614800000000244,
+      "min": 0.20027699999999982,
+      "max": 0.22347699999999904,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 177655640,
+      "min": 177610712,
+      "max": 177737544,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 76938840,
+      "min": 72998008,
+      "max": 83289168,
+      "samples": 5
+    },
+    "commands": {
+      "median": 50016,
+      "min": 50016,
+      "max": 50016,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 10038892,
+      "min": 10038892,
+      "max": 10038897,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 4240498,
+      "min": 4240498,
+      "max": 4240508,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.2400000000000002,
+      "min": 0.22000000000000064,
+      "max": 0.28000000000000114,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 526696448,
+      "min": 522735616,
+      "max": 528633856,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "before",
+    "kind": "sql",
+    "target": "ram",
+    "schema": "sortable",
+    "reader": "default",
+    "workload": "topk",
+    "samples": 5,
+    "ms": {
+      "median": 21.27375,
+      "min": 17.710417,
+      "max": 24.599791999999997,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.0037989999999989976,
+      "min": 0.003491000000000355,
+      "max": 0.00434300000000043,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 1080976,
+      "min": 1074112,
+      "max": 1085368,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 4604704,
+      "min": 4597824,
+      "max": 4620696,
+      "samples": 5
+    },
+    "commands": {
+      "median": 108,
+      "min": 108,
+      "max": 108,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 24230,
+      "min": 24230,
+      "max": 24230,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 9298,
+      "min": 9298,
+      "max": 9298,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.010000000000001563,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 509202432,
+      "min": 506667008,
+      "max": 555298816,
+      "samples": 5
+    }
+  },
+  {
+    "stage": "before",
+    "kind": "sql",
+    "target": "ram",
+    "schema": "sortable",
+    "reader": "default",
+    "workload": "wide",
+    "samples": 5,
+    "ms": {
+      "median": 682.606708,
+      "min": 659.766584,
+      "max": 700.323833,
+      "samples": 5
+    },
+    "client_cpu_seconds": {
+      "median": 0.44700000000000006,
+      "min": 0.44210499999999975,
+      "max": 0.4901780000000002,
+      "samples": 5
+    },
+    "allocated_bytes": {
+      "median": 474525784,
+      "min": 474520528,
+      "max": 474532688,
+      "samples": 5
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 358445152,
+      "min": 315695384,
+      "max": 366812328,
+      "samples": 5
+    },
+    "commands": {
+      "median": 36,
+      "min": 36,
+      "max": 36,
+      "samples": 5
+    },
+    "resp_read_bytes": {
+      "median": 94886474,
+      "min": 94886469,
+      "max": 94886474,
+      "samples": 5
+    },
+    "resp_write_bytes": {
+      "median": 2760,
+      "min": 2750,
+      "max": 2760,
+      "samples": 5
+    },
+    "server_cpu_seconds": {
+      "median": 0.5200000000000014,
+      "min": 0.5199999999999996,
+      "max": 0.54,
+      "samples": 5
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_write_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "samples": 5
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 718131200,
+      "min": 686886912,
+      "max": 816672768,
+      "samples": 5
+    }
+  }
+]

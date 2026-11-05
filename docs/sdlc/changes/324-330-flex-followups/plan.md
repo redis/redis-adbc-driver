@@ -13,3 +13,7 @@ Date: 2026-11-05. Status: in progress. See [intent](intent.md), [spec](spec.md),
 ## Scope steering
 
 Albert narrowed work to Redis Software Flex and requested skipping issues whose server features are unavailable. #329 (Cloud) is excluded. #325 and #326 are skipped because their existing paths require unsupported FT.ALTER; no replacement schema-rebuild implementation is planned in this task. Retained replay and bounded rekey work continue using supported server operations. Skipped issues remain open.
+
+## Completion evidence
+
+Retained replay, canonical TRUNCATE cleanup, independent HASH rekey copying and recovery checks are implemented. Page-size optimization, 360 warm samples, 18 tiered/concurrent cases, 42 tier snapshots, sampled server peaks and the portable profiling wrapper are complete. Unit, race, native, low-cap, restart and planned multi-node failover results are in [validation](validation.md). #325/#326 remain intentionally skipped and #329 excluded. Changes require maintainer review/merge; no release approval is claimed.

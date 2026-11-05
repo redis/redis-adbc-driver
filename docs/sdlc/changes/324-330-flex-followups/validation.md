@@ -31,3 +31,26 @@ A fresh three-node Software 8.2.6-25 cluster was configured with three primary s
 An earlier attempt to enable replicas on the database populated by full native validation failed during replica Search index loading: Search asserted in indexes.c:1369 (`ok` is not true) during LOADING_ENDED. Source HASHes remained available. The stuck configuration rejected API deletion with 409; only task-owned disposable containers were recreated. Raw logs remain private. The fresh replicated target passed, but that success does not erase the populated-database replica-loading failure or establish every schema's HA compatibility.
 
 After validation, the replicated containers were removed and matched single-shard benchmark fixtures provisioned.
+
+## Performance source a121842 and final regressions
+
+The bounded reader's maximum page increased from 1,000 to 10,000, retaining width-based limits, lower server caps and split-before-emission semantics. Matched one-shard Software RAM/Flex trials produced 360 warm samples and 72 groups. All returned fields were independently checked and every Arrow stream consumed. Larger pages reduced broad-query latency and increased some heap peaks; selective Flex timing did not improve. See the [complete performance/resource report](../../../../benchmarks/redis-flex/2026-11-05/followups/README.md).
+
+A separate 150,000-row workload with 4,096-byte varying payloads exceeded the 256 MiB Flex RAM allocation. Eighteen default/8 MiB Arrow-budget cases at 1/2/4 readers validated 6.3 million returned rows. Database statistics confirmed positive flash-fetch/read activity, about 250–260 MB used RAM and 466–474 MB used BigStore. Per-query process block-read deltas were zero; OS page cache was not flushed, so cold physical SSD amplification remains unproven. General sort spilling is unavailable and skipped under the requestor's scope. No default Arrow batch option changed.
+
+- Final complete unit suite and versioned shared-library build: passed.
+- Three-shard live Flex/fault/boundary/TRUNCATE/rekey race selection: passed. Fault datasets were increased to 25,000 rows so failures still occur after delivered rows with the larger pages.
+- Actual server Search cap of two: passed under race detector; cap restored to 1,000,000 and active effective 4x QPF preserved.
+- Three-shard data-preserving restart with 25,000 rows: passed under race detector, 2.895 seconds, old reader returned all rows and full-query retry matched every value.
+- Full default native ADBC Software RAM: 565 passed, 0 failed, 8 skipped, 3 subtests passed.
+- Full default native ADBC three-shard Software Flex: 559 passed, 6 failed, 8 skipped, 3 subtests passed, zero setup errors. The five ALTER failures and CREATE INDEX failure remain visible; these are the skipped #325/#326 work. No assertions were weakened or Flex-specific skips added.
+- Final 25,000-row multi-node planned failover: passed under race detector in 1.794 seconds. All three former replicas were verified promoted across Software nodes, all six shards active, and effective 4x QPF preserved. Every old-reader and retried-query row matched.
+- Committed portable profiler wrapper smoke check: passed with 1,000 rows and one measured repetition; these smoke samples are excluded from performance claims.
+
+Raw logs/JUnit, API controls, credentials, endpoints and infrastructure identifiers remain private. Published artifacts include only controlled fixture metadata and numeric results. Task-owned fixtures are removed after final checks; cleanup verification is recorded below.
+
+## Cleanup and review
+
+Removed four task-owned containers and both task-owned Docker networks. Verified no owned containers remained and both pre-existing Software fixtures were still running. No Cloud resources were created in this follow-up. [Sanitized cleanup evidence](../../../../benchmarks/redis-flex/2026-11-05/followups/cleanup.json) is committed.
+
+Self-review covered exact row/value/order behavior, terminal reader failure/cancellation, row-ID precision, persisted rekey layout capability, independent HASH copies, rollback/source ownership, retained source mode propagation and reader-only replay. Existing RAM behavior was checked by the complete native suite and focused race tests. No remaining driver change is required within this task's narrowed scope. This self-review is not maintainer approval; PR review/merge and release remain separate. Known server populated-database replica-loading failure, unsupported schema operations, absent general spill and unmeasured physical-host outages/cold-SSD amplification remain explicit limitations.

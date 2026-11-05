@@ -1,0 +1,7 @@
+{
+  "task_owned_containers_removed": 4,
+  "task_owned_networks_removed": 2,
+  "task_owned_containers_remaining": 0,
+  "preexisting_fixtures_still_running": true,
+  "cloud_resources_created_in_followup": false
+}

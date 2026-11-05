@@ -1,0 +1,13 @@
+{
+  "columns": 15,
+  "doc_table_size_mb": 5.341487884521484,
+  "inverted_sz_mb": 0.9161748886108398,
+  "key_table_size_mb": 0,
+  "num_docs": 50000,
+  "rows": 50000,
+  "schema": "sortable",
+  "sortable_values_size_mb": 7.539642333984375,
+  "target": "ram",
+  "total_index_memory_sz_mb": 13.79773235321045,
+  "total_inverted_index_blocks": 2037
+}

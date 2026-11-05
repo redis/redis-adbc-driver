@@ -1,0 +1,18 @@
+{
+  "source": "a121842",
+  "server": "Redis Software 8.2.6-25 / Redis 8.8.0 / Search 8.8.8",
+  "cluster_nodes": 3,
+  "primary_shards": 3,
+  "replicas": 3,
+  "former_replicas_promoted": 3,
+  "all_shards_active_after": true,
+  "primary_node_changed": true,
+  "active_verified_qpf": 4,
+  "rows_validated": 25000,
+  "old_reader_rows": 25000,
+  "old_reader_terminal_error": false,
+  "operation": "planned shard failover",
+  "operator_seconds": 1.794089625,
+  "physical_host_failure_tested": false,
+  "transport": "authenticated TLS/RESP3"
+}

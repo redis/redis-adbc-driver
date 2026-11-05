@@ -151,3 +151,5 @@ excluded at the requestor's direction. ALTER/CREATE INDEX work (#325/#326) is
 skipped because existing paths require FT.ALTER, unavailable on Software Flex.
 See the [current follow-up record](sdlc/changes/324-330-flex-followups/validation.md)
 for actual runs; historical measurements above remain dated evidence.
+
+The [Software Flex follow-up performance report](../benchmarks/redis-flex/2026-11-05/followups/README.md) compares 1,000- and 10,000-row page ceilings and records concurrent reads on a flash-dominant working set. Larger pages reduced broad-query latency but increased some heap peaks. For wide values, configure `adbc.redis.stream_batch_bytes` as well as row batching; the measured 8 MiB Arrow budget reduced client heap, but it is not a total-query memory limit. Full sorts still materialize results and have no general spill implementation.
