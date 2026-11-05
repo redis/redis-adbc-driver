@@ -10,11 +10,15 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"runtime"
+	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -28,18 +32,20 @@ import (
 const usagePrefix = "adbc.redis.telemetry."
 const defaultUsageEndpoint = "https://adbc-telemetry.sa.redislabs.com/v1/usage"
 const (
-	OptionStringTelemetryEnabled        = usagePrefix + "enabled"
-	OptionStringTelemetryEndpoint       = usagePrefix + "endpoint"
-	OptionStringTelemetryToken          = usagePrefix + "token"
-	OptionStringTelemetryInstallationID = usagePrefix + "installation_id"
-	OptionStringTelemetryOrganization   = usagePrefix + "organization"
-	OptionStringTelemetryTeam           = usagePrefix + "team"
-	OptionStringTelemetryApplication    = usagePrefix + "application"
-	OptionStringTelemetryEnvironment    = usagePrefix + "environment"
-	OptionStringTelemetryUseCase        = usagePrefix + "use_case"
-	OptionStringTelemetryIntegration    = usagePrefix + "integration"
-	OptionStringTelemetryInterval       = usagePrefix + "interval"
-	OptionStringTelemetrySnapshot       = usagePrefix + "snapshot"
+	OptionStringTelemetryInstallationIDFile = usagePrefix + "installation_id_file"
+	OptionStringTelemetrySourceHostname     = usagePrefix + "source_hostname"
+	OptionStringTelemetryEnabled            = usagePrefix + "enabled"
+	OptionStringTelemetryEndpoint           = usagePrefix + "endpoint"
+	OptionStringTelemetryToken              = usagePrefix + "token"
+	OptionStringTelemetryInstallationID     = usagePrefix + "installation_id"
+	OptionStringTelemetryOrganization       = usagePrefix + "organization"
+	OptionStringTelemetryTeam               = usagePrefix + "team"
+	OptionStringTelemetryApplication        = usagePrefix + "application"
+	OptionStringTelemetryEnvironment        = usagePrefix + "environment"
+	OptionStringTelemetryUseCase            = usagePrefix + "use_case"
+	OptionStringTelemetryIntegration        = usagePrefix + "integration"
+	OptionStringTelemetryInterval           = usagePrefix + "interval"
+	OptionStringTelemetrySnapshot           = usagePrefix + "snapshot"
 	// Explicit bounded delivery for applications about to exit. Not a query path.
 	OptionStringTelemetryFlush = usagePrefix + "flush"
 )
@@ -59,24 +65,51 @@ type usageMetric struct {
 	Latency      []int64 `json:"latency"`
 	ReadyLatency []int64 `json:"ready_latency"`
 }
+
+// Only fixed classifications, anonymous execution IDs and numeric work counters
+// leave the driver. SQL, plans, predicates and relation names are never exported.
+type usageExecution struct {
+	ID              string    `json:"id"`
+	Kind            string    `json:"kind"`
+	Features        []string  `json:"features"`
+	StartedAt       time.Time `json:"started_at"`
+	CompletedAt     time.Time `json:"completed_at"`
+	Status          string    `json:"status"`
+	DurationMS      int64     `json:"duration_ms"`
+	ReadyMS         *int64    `json:"ready_ms"`
+	RowsReturned    int64     `json:"rows_returned"`
+	RowsAffected    *int64    `json:"rows_affected"`
+	RowsExamined    *int64    `json:"rows_examined"`
+	IndexedRows     *int64    `json:"indexed_rows"`
+	RowsRepresented *int64    `json:"rows_represented"`
+}
+
+const usageExecutionLimit = 24
+
+type usageOperationContextKey struct{}
+
 type usageSnapshot struct {
-	SchemaVersion    int                     `json:"schema_version"`
-	SessionID        string                  `json:"session_id"`
-	InstallationID   string                  `json:"installation_id"`
-	Sequence         uint64                  `json:"sequence"`
-	StartedAt        time.Time               `json:"started_at"`
-	ObservedAt       time.Time               `json:"observed_at"`
-	LastQueryAt      *time.Time              `json:"last_query_at,omitempty"`
-	DriverVersion    string                  `json:"driver_version"`
-	OS               string                  `json:"os"`
-	Arch             string                  `json:"arch"`
-	Labels           map[string]string       `json:"labels"`
-	Connections      int64                   `json:"connections"`
-	ConnectionErrors int64                   `json:"connection_errors"`
-	Features         map[string]int64        `json:"features"`
-	Metrics          map[string]*usageMetric `json:"metrics"`
-	LatencyBounds    []int64                 `json:"latency_bounds_ms"`
-	DeliveryFailures int64                   `json:"delivery_failures"`
+	InstallationIDSource string                  `json:"installation_id_source,omitempty"`
+	SourceHostname       string                  `json:"source_hostname,omitempty"`
+	Executions           []usageExecution        `json:"executions,omitempty"`
+	SamplesDropped       int64                   `json:"execution_samples_dropped,omitempty"`
+	SchemaVersion        int                     `json:"schema_version"`
+	SessionID            string                  `json:"session_id"`
+	InstallationID       string                  `json:"installation_id"`
+	Sequence             uint64                  `json:"sequence"`
+	StartedAt            time.Time               `json:"started_at"`
+	ObservedAt           time.Time               `json:"observed_at"`
+	LastQueryAt          *time.Time              `json:"last_query_at,omitempty"`
+	DriverVersion        string                  `json:"driver_version"`
+	OS                   string                  `json:"os"`
+	Arch                 string                  `json:"arch"`
+	Labels               map[string]string       `json:"labels"`
+	Connections          int64                   `json:"connections"`
+	ConnectionErrors     int64                   `json:"connection_errors"`
+	Features             map[string]int64        `json:"features"`
+	Metrics              map[string]*usageMetric `json:"metrics"`
+	LatencyBounds        []int64                 `json:"latency_bounds_ms"`
+	DeliveryFailures     int64                   `json:"delivery_failures"`
 }
 
 type usageState struct {
@@ -88,6 +121,15 @@ type usageState struct {
 
 func usageDefault(key string) (string, bool) {
 	switch key {
+	case OptionStringTelemetryInstallationIDFile:
+		directory, err := os.UserConfigDir()
+		if err != nil {
+			return "", true
+		}
+		return filepath.Join(directory, "redis-adbc-driver", "installation_id"), true
+	case OptionStringTelemetrySourceHostname:
+		hostname, _ := os.Hostname()
+		return hostname, true
 	case OptionStringTelemetryEnabled:
 		if v := os.Getenv("REDIS_ADBC_TELEMETRY_DISABLED"); v == "1" || strings.EqualFold(v, "true") {
 			return "false", true
@@ -186,8 +228,13 @@ func (s *usageState) start() (*usageTelemetry, error) {
 		}
 	}
 	id := s.options[OptionStringTelemetryInstallationID]
+	idSource := "explicit"
 	if id == "" {
-		id = uuid.NewString()
+		path, supplied := s.options[OptionStringTelemetryInstallationIDFile]
+		if !supplied {
+			path, _ = usageDefault(OptionStringTelemetryInstallationIDFile)
+		}
+		id, idSource = usageInstallationID(path)
 	}
 	interval := time.Minute
 	if v := s.options[OptionStringTelemetryInterval]; v != "" {
@@ -198,9 +245,13 @@ func (s *usageState) start() (*usageTelemetry, error) {
 	if !configured {
 		endpoint, _ = usageDefault(OptionStringTelemetryEndpoint)
 	}
+	hostname, supplied := s.options[OptionStringTelemetrySourceHostname]
+	if !supplied {
+		hostname, _ = usageDefault(OptionStringTelemetrySourceHostname)
+	}
 	t := &usageTelemetry{endpoint: endpoint, token: s.options[OptionStringTelemetryToken], stop: make(chan struct{}), done: make(chan struct{}), wake: make(chan struct{}, 1), interval: interval,
 		client: &http.Client{Timeout: 2 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }},
-		data:   usageSnapshot{SchemaVersion: 1, SessionID: uuid.NewString(), InstallationID: id, StartedAt: now, DriverVersion: "unknown", OS: runtime.GOOS, Arch: runtime.GOARCH, Labels: labels, Features: map[string]int64{}, Metrics: map[string]*usageMetric{}, LatencyBounds: usageLatencyBounds}}
+		data:   usageSnapshot{InstallationIDSource: idSource, SourceHostname: hostname, SchemaVersion: 1, SessionID: uuid.NewString(), InstallationID: id, StartedAt: now, DriverVersion: "unknown", OS: runtime.GOOS, Arch: runtime.GOARCH, Labels: labels, Features: map[string]int64{}, Metrics: map[string]*usageMetric{}, LatencyBounds: usageLatencyBounds}}
 	s.reporter = t
 	if t.endpoint != "" {
 		go t.run()
@@ -327,10 +378,15 @@ func usageBucket(d time.Duration) int {
 }
 
 type usageOperation struct {
-	t       *usageTelemetry
-	kind    string
-	started time.Time
-	once    sync.Once
+	data        usageExecution
+	diagnostics *executionDiagnostics
+	metrics     *partitionMetrics
+	indexesMu   sync.Mutex
+	indexes     map[string]int64
+	t           *usageTelemetry
+	kind        string
+	started     time.Time
+	once        sync.Once
 }
 
 func (s *statementImpl) startUsage() *usageOperation {
@@ -369,7 +425,13 @@ func (s *statementImpl) startUsage() *usageOperation {
 		t.data.Features[f]++
 	}
 	t.mu.Unlock()
-	return &usageOperation{t: t, kind: kind, started: time.Now()}
+	names := make([]string, 0, len(features))
+	for feature := range features {
+		names = append(names, feature)
+	}
+	sort.Strings(names)
+	return &usageOperation{t: t, kind: kind, started: time.Now(), indexes: map[string]int64{},
+		data: usageExecution{ID: uuid.NewString(), Kind: kind, Features: names, StartedAt: now}}
 }
 func usageKind(st Stmt) string {
 	switch st.(type) {
@@ -450,12 +512,16 @@ func usageSelectFeatures(s *SelectStmt, f map[string]bool) {
 func (o *usageOperation) ready() {
 	o.t.mu.Lock()
 	defer o.t.mu.Unlock()
-	o.t.data.Metrics[o.kind].ReadyLatency[usageBucket(time.Since(o.started))]++
+	elapsed := time.Since(o.started)
+	o.t.data.Metrics[o.kind].ReadyLatency[usageBucket(elapsed)]++
+	ms := elapsed.Milliseconds()
+	o.data.ReadyMS = &ms
 }
 func (o *usageOperation) affected(n int64) {
-	if n > 0 {
+	if n >= 0 {
 		o.t.mu.Lock()
 		o.t.data.Metrics[o.kind].Affected += n
+		o.data.RowsAffected = &n
 		o.t.mu.Unlock()
 	}
 }
@@ -468,14 +534,44 @@ func (o *usageOperation) finish(err error, abandoned bool) {
 		switch {
 		case errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || (errors.As(err, &ae) && ae.Code == adbc.StatusCancelled):
 			m.Canceled++
+			o.data.Status = "canceled"
 		case err != nil:
 			m.Errors++
+			o.data.Status = "error"
 		case abandoned:
 			m.Abandoned++
+			o.data.Status = "abandoned"
 		default:
 			m.Success++
+			o.data.Status = "success"
 		}
-		m.Latency[usageBucket(time.Since(o.started))]++
+		elapsed := time.Since(o.started)
+		m.Latency[usageBucket(elapsed)]++
+		o.data.DurationMS = elapsed.Milliseconds()
+		o.data.CompletedAt = time.Now().UTC()
+		if o.diagnostics != nil && o.diagnostics.scanObserved.Load() {
+			n := o.diagnostics.processed.Load()
+			o.data.RowsExamined = &n
+		}
+		if o.metrics != nil && o.metrics.used.Load() {
+			n := o.metrics.rows.Load()
+			o.data.RowsRepresented = &n
+		}
+		o.indexesMu.Lock()
+		if len(o.indexes) > 0 {
+			var n int64
+			for _, count := range o.indexes {
+				n += count
+			}
+			o.data.IndexedRows = &n
+		}
+		o.indexesMu.Unlock()
+		if len(o.t.data.Executions) == usageExecutionLimit {
+			copy(o.t.data.Executions, o.t.data.Executions[1:])
+			o.t.data.Executions = o.t.data.Executions[:usageExecutionLimit-1]
+			o.t.data.SamplesDropped++
+		}
+		o.t.data.Executions = append(o.t.data.Executions, o.data)
 	})
 }
 
@@ -503,8 +599,80 @@ func (r *usageReader) Next() bool {
 	n := r.RecordBatch().NumRows()
 	r.op.t.mu.Lock()
 	r.op.t.data.Metrics[r.op.kind].Rows += n
+	r.op.data.RowsReturned += n
 	r.op.t.mu.Unlock()
 	return true
 }
 
 var _ array.RecordReader = (*usageReader)(nil)
+
+// Reuse index metadata already fetched for execution readiness. No extra Redis
+// commands or table names are added to telemetry. Counts are observed indexed
+// documents, not authoritative table cardinality or Redis internal scan work.
+func usageIndexSize(ctx context.Context, index string, node any, reply any) {
+	op, _ := ctx.Value(usageOperationContextKey{}).(*usageOperation)
+	if op == nil {
+		return
+	}
+	fields, ok := redisReplyFields(reply)
+	if !ok {
+		return
+	}
+	raw, ok := fields["num_docs"]
+	if !ok {
+		return
+	}
+	n, err := strconv.ParseInt(fmt.Sprint(raw), 10, 64)
+	if err != nil || n < 0 {
+		return
+	}
+	op.indexesMu.Lock()
+	op.indexes[index+fmt.Sprintf("/%p", node)] = n
+	op.indexesMu.Unlock()
+}
+
+// Publish a complete ID file atomically, so concurrent database handles/processes
+// all adopt the same value. A read-only/invalid path must never prevent queries.
+func usageInstallationID(path string) (string, string) {
+	read := func() string {
+		file, err := os.Open(path)
+		if err != nil {
+			return ""
+		}
+		defer file.Close()
+		raw, err := io.ReadAll(io.LimitReader(file, 128))
+		if err != nil {
+			return ""
+		}
+		id, err := uuid.Parse(strings.TrimSpace(string(raw)))
+		if err != nil {
+			return ""
+		}
+		return id.String()
+	}
+	if id := read(); id != "" {
+		return id, "local_file"
+	}
+	if path == "" || os.MkdirAll(filepath.Dir(path), 0700) != nil {
+		return uuid.NewString(), "temporary"
+	}
+	file, err := os.CreateTemp(filepath.Dir(path), ".installation-id-*")
+	if err != nil {
+		return uuid.NewString(), "temporary"
+	}
+	defer os.Remove(file.Name())
+	id := uuid.NewString()
+	_, writeErr := file.WriteString(id + "\n")
+	closeErr := file.Close()
+	if writeErr != nil || closeErr != nil {
+		return uuid.NewString(), "temporary"
+	}
+	if os.Link(file.Name(), path) == nil {
+		return id, "local_file"
+	}
+	// Another process won publication; read its already complete value.
+	if existing := read(); existing != "" {
+		return existing, "local_file"
+	}
+	return uuid.NewString(), "temporary"
+}

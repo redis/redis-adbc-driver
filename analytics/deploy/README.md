@@ -137,3 +137,13 @@ Repository CI/tests opt out of hosted telemetry. Initial validation traffic befo
 that opt-out may appear as unattributed usage; specifically labeled deployment
 smoke records were removed after backup/restore verification. Public data remains
 self-reported and should not be treated as verified customer adoption.
+
+
+Application updates can run `analytics/deploy/update.sh FULL_COMMIT_SHA` as root
+through SSM. The script takes a backup before updating, preserves existing tokens,
+stages files and dependencies, updates the proxy source header/local Redis ACLs,
+and retains application rollback files. Source DNS collection uses the overwritten
+nginx `X-Real-IP` header and explicit `ANALYTICS_TRUST_PROXY=1`; never trust a
+client-supplied forwarding header from a non-loopback peer. Reverse DNS is cached
+and resolved asynchronously. No AWS resources or IAM permissions are added for
+these dashboard changes.

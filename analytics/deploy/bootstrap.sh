@@ -25,7 +25,7 @@ write, read = [secrets.token_hex(32) for _ in range(2)]
 env = dict(ANALYTICS_REDIS_URL=f'redis://collector:{password}@127.0.0.1:6379/0',
            ANALYTICS_REDIS_BACKUP_PASSWORD=backup, ANALYTICS_WRITE_TOKEN=write, ANALYTICS_READ_TOKEN=read,
            ANALYTICS_BACKUP_BUCKET=os.environ['ANALYTICS_BACKUP_BUCKET'],
-           ANALYTICS_SOURCE_COMMIT=os.environ['ANALYTICS_SOURCE_COMMIT'], AWS_DEFAULT_REGION=os.environ['AWS_DEFAULT_REGION'])
+           ANALYTICS_SOURCE_COMMIT=os.environ['ANALYTICS_SOURCE_COMMIT'], AWS_DEFAULT_REGION=os.environ['AWS_DEFAULT_REGION'], ANALYTICS_TRUST_PROXY='1')
 Path('/etc/redis-adbc-analytics/collector.env').write_text(''.join(f'{k}={v}\n' for k,v in env.items()))
 Path('/etc/redis/redis.conf').write_text('''bind 127.0.0.1 ::1
 protected-mode yes
@@ -44,7 +44,7 @@ aclfile /etc/redis/users.acl
 Path('/etc/redis/users.acl').write_text(
     'user default off\n'
     f'user admin on >{admin} ~* &* +@all\n'
-    f'user collector on >{password} ~adbc:{{analytics}}:* +ping +hello +select +get +set +watch +unwatch +multi +exec +discard +xadd +xrange +xrevrange +sadd +sscan +hset +hmget +zadd +zrevrange +client|setinfo\n'
+    f'user collector on >{password} ~adbc:{{analytics}}:* +ping +hello +select +get +set +watch +unwatch +multi +exec +discard +xadd +xrange +xrevrange +sadd +sscan +hset +hsetnx +hdel +hmget +zadd +zrem +zrange +zrevrange +client|setinfo\n'
     f'user backup on >{backup} +ping +hello +psync +replconf +sync +client|setinfo\n')
 # Store the write token in a root-readable proxy snippet, never public clients.
 Path('/etc/nginx/adbc-write-token.conf').write_text(f'proxy_set_header Authorization "Bearer {write}";\n')
@@ -152,6 +152,7 @@ server {
         limit_req zone=adbc_ingest burst=10 nodelay;
         limit_req_status 429;
         limit_except POST { deny all; }
+        proxy_set_header X-Real-IP \$remote_addr;
         include /etc/nginx/adbc-write-token.conf;
         proxy_pass http://127.0.0.1:8787;
     }

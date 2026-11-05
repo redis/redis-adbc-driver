@@ -1,6 +1,7 @@
 """Protocol, aggregation, access control and download pagination regressions."""
 import copy
 import os
+from unittest.mock import patch
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 import json
@@ -149,6 +150,50 @@ class AnalyticsTests(unittest.TestCase):
         self.store.save_download(p)
         self.store.save_download(p)
         self.assertEqual(self.store.summary()['downloads'], [p])
+
+    def test_execution_samples_sources_and_retry_deduplication(self):
+        self.require_store()
+        p = report()
+        p['source_hostname'] = 'worker.example.test'
+        p['installation_id_source'] = 'local_file'
+        p['executions'] = [dict(id=str(uuid.uuid4()), kind='select', features=['filter'],
+            started_at=p['started_at'], completed_at=p['observed_at'], status='success', duration_ms=123,
+            ready_ms=20, rows_returned=3, rows_affected=0, rows_examined=1000, indexed_rows=1000000, rows_represented=None)]
+        self.store.redis.set(self.store.prefix+'dns:8.8.8.8','dns.google',ex=60)
+        self.store.ingest(p,source={'public_ip':'8.8.8.8'})
+        p['sequence'] += 1
+        self.store.ingest(p,source={'public_ip':'8.8.8.8'})
+        summary=self.store.summary()
+        self.assertEqual(len(summary['executions']),1)
+        e=summary['executions'][0]
+        self.assertEqual((e['rows_examined'],e['rows_returned'],e['indexed_rows']),(1000,3,1000000))
+        self.assertEqual(e['reverse_dns'],'dns.google')
+        self.assertEqual(summary['hosts'][0]['hostname'],'worker.example.test')
+        self.assertEqual(summary['hosts'][0]['installations'],1)
+        self.assertEqual(summary['hosts'][0]['id_sources'],['local_file'])
+        self.assertEqual(summary['weekly_active_installations'],1)
+        bad=copy.deepcopy(p);bad['executions'][0]['sql']='SELECT secret'
+        with self.assertRaises(ValueError): validate(bad)
+        bad=copy.deepcopy(p);bad['executions'][0]['rows_examined']=-1
+        with self.assertRaises(ValueError): validate(bad)
+        p['executions'][0]['rows_examined']=None
+        validate(p)
+
+    def test_proxy_source_header_requires_explicit_trust(self):
+        self.require_store()
+        server=CollectorServer(('127.0.0.1',0),handler(self.store,'write','read'))
+        thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+        self.addCleanup(server.server_close);self.addCleanup(server.shutdown)
+        url='http://127.0.0.1:'+str(server.server_port)+'/v1/usage'
+        self.store.redis.set(self.store.prefix+'dns:8.8.8.8','dns.google',ex=60)
+        for trust in ['0','1']:
+            p=report();p['source_hostname']='host-'+trust
+            with patch.dict(os.environ,ANALYTICS_TRUST_PROXY=trust):
+                req=urllib.request.Request(url,data=json.dumps(p).encode(),headers={'Authorization':'Bearer write','X-Real-IP':'8.8.8.8'})
+                with urllib.request.urlopen(req,timeout=3) as response: self.assertEqual(response.status,200)
+        hosts={host['hostname']:host for host in self.store.summary()['hosts']}
+        self.assertEqual(hosts['host-0']['public_ip'],'')
+        self.assertEqual(hosts['host-1']['public_ip'],'8.8.8.8')
 
     def test_download_asset_pagination(self):
         calls = []

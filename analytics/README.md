@@ -54,9 +54,11 @@ there separately from the configuration.
 
 Build a new native library (`make -C go build`) or install a wheel containing
 this feature. Existing released wheels will not acquire these options until a
-new release. Use a stable, randomly generated installation ID per deployment;
-persist it in that deployment's configuration. Do not use a machine hostname,
-email address or Redis URI as the ID.
+new release. New clients create a random installation ID once in the local user configuration
+directory and reuse it across database handles and process restarts. For containers,
+persist that file on a volume or supply a stable random deployment ID explicitly.
+Do not use a hostname, email address or Redis URI as the ID. Read-only/unusable
+configuration storage falls back to a temporary ID and marks it as temporary.
 
 ```python
 import os
@@ -94,7 +96,9 @@ They are exported as Go constants in `usage.go` and Python `DatabaseOptions`.
 | `enabled` | `true` | Set `false` to opt out of collection and reporting |
 | `endpoint` | `https://adbc-telemetry.sa.redislabs.com/v1/usage` | AWS collector; explicitly empty means local snapshots only |
 | `token` | empty | Write bearer token; never returned by GetOption or included in reports |
-| `installation_id` | random per database handle | Supply a persisted random ID for retention/deduplication across restarts |
+| `installation_id` | generated and saved locally | Explicit application/deployment ID overrides the generated ID |
+| `installation_id_file` | user configuration directory + `redis-adbc-driver/installation_id` | Shared file used for generated IDs; an empty/unusable path falls back to a temporary ID |
+| `source_hostname` | operating-system hostname | Self-reported source machine name; override with a DNS name or set empty to omit |
 | `organization`, `team`, `application`, `environment`, `use_case`, `integration` | empty | Optional labels, each at most 256 UTF-8 bytes |
 | `interval` | `60s` | Report interval; between `1s` and `24h` |
 | `snapshot` | `{}` when disabled | Read-only JSON cumulative snapshot, readable from database or connection |
@@ -146,7 +150,9 @@ database.set_options(**{"adbc.redis.telemetry.flush": "true"})
   classified. Metadata reflects SQL SHOW calls; ADBC GetObjects/GetInfo and other
   metadata APIs are outside the execution counters.
 - Reports contain fixed query kinds/feature names, counts, histograms, driver
-  version, OS/architecture, timestamps, random IDs and the explicit labels.
+  version, OS/architecture, timestamps, random IDs, ID storage status, the source
+  hostname and explicit labels. Recent per-execution samples contain only fixed
+  classifications/features, anonymous execution IDs, times and numeric work counts.
   They contain no SQL, literals, query hashes, parameter values, schema/table/
   column names, result values, Redis addresses, credentials or error messages.
 - One reporter runs per database handle, shared by its connections. Reports are
@@ -167,9 +173,48 @@ database.set_options(**{"adbc.redis.telemetry.flush": "true"})
   by all terminal outcomes (success, error, canceled, abandoned). Active installations have
   attempts in the relevant window. Week-4 retention uses successful executions
   on days 28–35 after first observed success, with fully elapsed cohorts only.
-  Anonymous IDs generated on every restart cannot measure cross-restart retention.
+  Older clients generated IDs per handle; temporary IDs and recreated container
+  files can still inflate counts. Weekly active installations are distinct IDs
+  with an attempt received during the last seven days, not unique machines/people.
 - Data covers participating, reachable reporting installations only. Unreported
   users and installations are unknown. Labels alone do not verify production use.
+
+## Reporting sources and per-execution workloads
+
+The dashboard lists both the client-reported hostname and reverse DNS (PTR) of the
+public egress IP observed by the HTTPS proxy. A hostname is self-reported; a PTR
+name may identify a NAT/VPN/shared gateway rather than the machine. The proxy
+replaces `X-Real-IP`; the collector trusts it only from a loopback peer when
+`ANALYTICS_TRUST_PROXY=1`. Direct clients cannot supply an observed network name
+in their JSON. Older stored reports cannot be retroactively attributed.
+
+PTR lookups run in two background workers, with two-second DNS deadlines, a
+bounded queue and one-hour cache. They do not block ingestion. Failed/missing
+lookups display as unavailable; reload to see completed lookups. The source list
+shows saved-local, application-supplied, temporary or unknown ID status.
+
+Recent workload samples show one ADBC execution at a time:
+
+- **Index documents observed**: sum of distinct index/shard sizes already read by
+  existing readiness checks. This is point-in-time index population, which can
+  cover more than one logical table. No extra metadata commands or scans run.
+- **Driver row candidates**: candidates fetched for driver-side evaluation,
+  including repeated scans, joins and vanished-row slots. This does not measure
+  Redis internal index work or prove every table row was visited.
+- **Pushdown rows represented**: rows represented by supported aggregate tuples,
+  including retry work; separate from physical driver fetches.
+- **Rows returned/changed**: delivered result rows and known affected counts for
+  that execution. Missing work measurements remain `null` / “Not measured”.
+- **Outcome and elapsed time**: terminal result and time through consumption or
+  release; no success before reader exhaustion.
+
+The client keeps its latest 24 completed execution samples; reporting retries
+resend them safely, deduplicated by session/execution ID. Busy clients can rotate
+samples out before a report, so this is not a complete query log. Redis retains
+10,000 recent samples and the dashboard shows up to 200. Aggregate reliability
+counters remain cumulative. No raw SQL, plans, table names or query fingerprints
+are transmitted. Updated drivers are required for hostname, saved-ID status and
+workload samples; the collector remains compatible with older aggregate reports.
 
 ## Download snapshots
 

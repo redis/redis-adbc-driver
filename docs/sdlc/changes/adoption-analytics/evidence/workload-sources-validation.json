@@ -1,0 +1,28 @@
+{
+  "date": "2026-11-05",
+  "go_unit_race": {
+    "pass": 1017,
+    "skip": 616
+  },
+  "software_integration": {
+    "version": "8.8.0",
+    "qpf": 4,
+    "passed": 47,
+    "skipped": 1,
+    "failed": 0,
+    "skip_reason": "hosted endpoint check is explicitly opt-in"
+  },
+  "collector_tests": {
+    "passed": 11,
+    "failed": 0,
+    "skipped": 0
+  },
+  "checks": [
+    "Python compilation",
+    "JavaScript syntax",
+    "bootstrap/update shell syntax",
+    "diff whitespace"
+  ],
+  "default_id": "atomic local-file publication; concurrent handles and restarts reuse the ID; temporary fallback explicitly reported",
+  "input_work": "observed index population, driver candidates, pushdown represented rows are separate; unknown values remain null"
+}

@@ -65,6 +65,8 @@ func (t *liveTimer) seconds() float64 {
 type diagnosticsContextKey struct{}
 
 type executionDiagnostics struct {
+	metricsOnly                                           bool
+	scanObserved                                          atomic.Bool
 	started                                               time.Time
 	phase                                                 atomic.Pointer[string]
 	plan                                                  atomic.Pointer[json.RawMessage]
@@ -76,13 +78,13 @@ type executionDiagnostics struct {
 }
 
 func (d *executionDiagnostics) setPhase(phase string) {
-	if d != nil {
+	if d != nil && !d.metricsOnly {
 		d.phase.Store(&phase)
 	}
 }
 
 func (d *executionDiagnostics) setPlan(plan any) {
-	if d == nil {
+	if d == nil || d.metricsOnly {
 		return
 	}
 	b, err := json.Marshal(plan)
@@ -225,7 +227,7 @@ func (h diagnosticsHook) DialHook(next goredis.DialHook) goredis.DialHook {
 
 func (h diagnosticsHook) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	return func(ctx context.Context, cmd goredis.Cmder) error {
-		if d, _ := ctx.Value(diagnosticsContextKey{}).(*executionDiagnostics); d != nil {
+		if d, _ := ctx.Value(diagnosticsContextKey{}).(*executionDiagnostics); d != nil && !d.metricsOnly {
 			d.commands.Add(1)
 			defer d.redisWait.start()()
 		}
@@ -235,7 +237,7 @@ func (h diagnosticsHook) ProcessHook(next goredis.ProcessHook) goredis.ProcessHo
 
 func (h diagnosticsHook) ProcessPipelineHook(next goredis.ProcessPipelineHook) goredis.ProcessPipelineHook {
 	return func(ctx context.Context, cmds []goredis.Cmder) error {
-		if d, _ := ctx.Value(diagnosticsContextKey{}).(*executionDiagnostics); d != nil {
+		if d, _ := ctx.Value(diagnosticsContextKey{}).(*executionDiagnostics); d != nil && !d.metricsOnly {
 			d.commands.Add(int64(len(cmds)))
 			defer d.redisWait.start()()
 		}

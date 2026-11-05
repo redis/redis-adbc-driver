@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -31,6 +32,9 @@ func usageForTest(t *testing.T, opts map[string]string) (*usageState, *usageTele
 	// Never deliver synthetic test reports to the production collector.
 	if _, ok := opts[OptionStringTelemetryEndpoint]; !ok {
 		opts[OptionStringTelemetryEndpoint] = ""
+	}
+	if _, ok := opts[OptionStringTelemetryInstallationID]; !ok {
+		opts[OptionStringTelemetryInstallationID] = "unit-test"
 	}
 	for k, v := range opts {
 		if err := s.set(k, v); err != nil {
@@ -394,6 +398,18 @@ func TestUsageRedisIntegration(t *testing.T) {
 	if err = json.Unmarshal([]byte(raw), &d); err != nil {
 		t.Fatal(err)
 	}
+	var consumed bool
+	for _, execution := range d.Executions {
+		if execution.Kind == "select" && execution.Status == "success" && execution.RowsReturned == 250 {
+			consumed = true
+			if execution.RowsExamined == nil || *execution.RowsExamined < 250 {
+				t.Fatalf("SELECT input work not measured: %+v", execution)
+			}
+		}
+	}
+	if !consumed {
+		t.Fatal("missing fully consumed SELECT workload sample")
+	}
 	m := d.Metrics["select"]
 	if m.Attempts != 3 || m.Success != 1 || m.Abandoned != 1 || m.Canceled != 1 || m.Rows != 260 {
 		t.Fatalf("stream metrics %+v", m)
@@ -456,5 +472,115 @@ func TestUsageHostedEndpoint(t *testing.T) {
 	}
 	if err := state.flush(context.Background()); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestUsagePersistedInstallationID(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config", "installation_id")
+	ids := make(chan string, 16)
+	var group sync.WaitGroup
+	for range 16 {
+		group.Add(1)
+		go func() {
+			defer group.Done()
+			id, source := usageInstallationID(path)
+			if source != "local_file" {
+				t.Errorf("source=%s", source)
+			}
+			ids <- id
+		}()
+	}
+	group.Wait()
+	close(ids)
+	var expected string
+	for id := range ids {
+		if expected == "" {
+			expected = id
+		}
+		if id != expected {
+			t.Errorf("concurrent IDs differ: %s != %s", id, expected)
+		}
+	}
+	if id, source := usageInstallationID(path); id != expected || source != "local_file" {
+		t.Fatalf("restart: %s %s", id, source)
+	}
+	if info, err := os.Stat(path); err != nil || info.Mode().Perm() != 0600 {
+		t.Fatalf("file permissions: %v %v", info, err)
+	}
+	bad := filepath.Join(t.TempDir(), "not-a-directory")
+	if err := os.WriteFile(bad, []byte("occupied"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	a, source := usageInstallationID(filepath.Join(bad, "id"))
+	b, _ := usageInstallationID(filepath.Join(bad, "id"))
+	if source != "temporary" || a == b {
+		t.Fatal("unwritable persistence fallback must be temporary")
+	}
+}
+
+func TestUsageExecutionSamples(t *testing.T) {
+	_, u := usageForTest(t, nil)
+	s := usageStatement(t, u, "SELECT 'private-value' AS secret_column LIMIT 1")
+	op := s.startUsage()
+	op.diagnostics = &executionDiagnostics{}
+	op.diagnostics.scanObserved.Store(true)
+	op.diagnostics.processed.Store(1000)
+	ctx := context.WithValue(context.Background(), usageOperationContextKey{}, op)
+	usageIndexSize(ctx, "private_index_name", op, map[string]any{"num_docs": int64(1000000)})
+	op.ready()
+	op.data.RowsReturned = 3
+	op.finish(nil, false)
+	data := usageData(t, u)
+	if len(data.Executions) != 1 {
+		t.Fatal("missing per-execution sample")
+	}
+	e := data.Executions[0]
+	if e.RowsExamined == nil || *e.RowsExamined != 1000 || e.IndexedRows == nil || *e.IndexedRows != 1000000 || e.RowsReturned != 3 || e.Status != "success" {
+		t.Fatalf("execution work: %+v", e)
+	}
+	if e.RowsRepresented != nil {
+		t.Fatal("unmeasured pushdown work reported as zero")
+	}
+	for _, secret := range []string{"private-value", "secret_column", "private_index_name"} {
+		if strings.Contains(string(u.snapshot()), secret) {
+			t.Fatalf("execution sample leaked %s", secret)
+		}
+	}
+	for range usageExecutionLimit + 2 {
+		s.startUsage().finish(nil, false)
+	}
+	data = usageData(t, u)
+	if len(data.Executions) != usageExecutionLimit || data.SamplesDropped != 3 {
+		t.Fatalf("unbounded sample window: %d %d", len(data.Executions), data.SamplesDropped)
+	}
+	if data.Executions[0].RowsExamined != nil {
+		t.Fatal("missing input measurement must remain unknown")
+	}
+}
+
+func TestUsagePersistedIDStartup(t *testing.T) {
+	t.Setenv("REDIS_ADBC_TELEMETRY_DISABLED", "")
+	path := filepath.Join(t.TempDir(), "installation_id")
+	var previous string
+	for range 2 {
+		var state usageState
+		for key, value := range map[string]string{OptionStringTelemetryEndpoint: "", OptionStringTelemetryInstallationIDFile: path, OptionStringTelemetrySourceHostname: "worker.example.test"} {
+			if err := state.set(key, value); err != nil {
+				t.Fatal(err)
+			}
+		}
+		u, err := state.start()
+		if err != nil {
+			t.Fatal(err)
+		}
+		data := usageData(t, u)
+		if data.InstallationIDSource != "local_file" || data.SourceHostname != "worker.example.test" {
+			t.Fatalf("startup identity: %+v", data)
+		}
+		if previous != "" && previous != data.InstallationID {
+			t.Fatal("ID changed across handles")
+		}
+		previous = data.InstallationID
+		state.close()
 	}
 }

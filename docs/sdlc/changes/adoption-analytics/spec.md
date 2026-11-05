@@ -15,7 +15,16 @@ Date: 2026-10-29. Source: public main `820d5af`.
   delivered rows, affected rows, ready and end-to-end latency histograms.
 - Reader exhaustion establishes success. Preserve Retain/Release and late failures.
   Bulk ingest/update complete at API return. Features use a fixed SELECT vocabulary.
-- Optional stable installation ID and organization/team/application/environment/
+- Default generated installation ID saved atomically in the local user config
+  directory, reused across handles and restarts. Explicit IDs take precedence;
+  unusable storage yields a marked temporary ID. Container persistence is external.
+- Report self-reported source hostname and collector-observed public egress/PTR
+  separately. Trust proxy headers only from loopback with explicit configuration.
+- Keep 24 recent completed execution samples per client: fixed kind/features,
+  random execution ID, outcomes/times and numeric per-execution work. Reuse
+  existing scan counters/index metadata; unknown work stays null. Never export
+  SQL, plans, relation names or hashes. Redis retains 10,000 samples, API latest 200.
+- Optional organization/team/application/environment/
   integration/use-case labels. Report driver version and platform. No SQL, schema
   identifiers, values, credentials, endpoint addresses or error messages on the wire.
 - Background HTTP timeout 2 seconds, no redirects, HTTPS except loopback, optional

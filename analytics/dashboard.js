@@ -43,14 +43,44 @@ function percentile(histogram, bounds, fraction) {
   }
 }
 
+const kindLabel = kind => ({select: 'SELECT · query', insert: 'INSERT', update: 'UPDATE', delete: 'DELETE',
+  ingest: 'Arrow ingestion', ddl: 'Schema change', metadata: 'Metadata', script: 'SQL script',
+  session: 'Session settings', merge: 'MERGE', unknown: 'Unclassified', other: 'Other'})[kind] || kind;
+const measured = n => n === null || n === undefined ? 'Not measured' : format(n);
+let latest = null;
+
+function renderExecutions(data) {
+  const filter = element('execution-filter').value.trim().toLowerCase();
+  const all = data.executions || [];
+  const rows = all.filter(e => [e.kind, e.source_hostname, e.reverse_dns, e.public_ip, e.application, e.status, e.id,
+    ...(e.features || [])].some(v => String(v || '').toLowerCase().includes(filter)));
+  const inputWork = e => {
+    const parts = [];
+    if (e.rows_examined !== null && e.rows_examined !== undefined) parts.push(format(e.rows_examined) + ' driver candidates');
+    if (e.rows_represented !== null && e.rows_represented !== undefined) parts.push(format(e.rows_represented) + ' aggregate rows represented');
+    return parts.join(' · ') || 'Not measured';
+  };
+  table('executions', ['Completed (your time)', 'Reporting host', 'Statement / features',
+    'Index documents observed', 'Measured input work', 'Rows returned', 'Rows changed', 'Outcome', 'Elapsed', 'Execution ID'], rows.map(e => [
+    new Date(e.completed_at).toLocaleString(), e.source_hostname || e.reverse_dns || 'Not reported',
+    kindLabel(e.kind) + ((e.features || []).length ? ' · ' + e.features.join(', ') : ''),
+    measured(e.indexed_rows), inputWork(e), format(e.rows_returned), measured(e.rows_affected), e.status,
+    format(e.duration_ms) + ' ms', e.id.slice(0, 8),
+  ]));
+  element('execution-count').textContent = rows.length + ' shown of ' + all.length + ' recent samples. '
+    + 'Clients retain their latest 24 completed executions per report; this is not a complete query log.';
+}
+
 function render(data) {
+  latest = data;
   const metrics = Object.values(data.metrics);
   const attempts = metrics.reduce((n, m) => n + m.attempts, 0);
   const errors = metrics.reduce((n, m) => n + m.errors, 0);
   const finished = metrics.reduce((n, m) => n + m.success + m.errors + m.canceled + m.abandoned, 0);
   const retention = data.retention_week4;
   const cards = [
-    ['Weekly active installs', data.weekly_active_installations],
+    ['Distinct active installation IDs · 7 days', data.weekly_active_installations],
+    ['Reporting sources · 28 days', (data.hosts || []).length],
     ['Active organizations', data.self_reported_organizations],
     ['Active teams', data.self_reported_teams],
     ['Query attempts', format(attempts)],
@@ -74,14 +104,20 @@ function render(data) {
   const queryRows = Object.entries(data.metrics)
     .sort((a, b) => b[1].attempts - a[1].attempts)
     .map(([kind, m]) => [
-      kind,
+      kindLabel(kind),
       ...['attempts', 'success', 'errors', 'canceled', 'abandoned'].map(key => format(m[key])),
-      format(m.rows), format(m.affected),
       ...[.5, .95, .99].map(p => percentile(m.latency, data.latency_bounds_ms, p)),
       percentile(m.ready_latency, data.latency_bounds_ms, .95),
     ]);
-  table('queries', ['Type', 'Attempts', 'Success', 'Errors', 'Canceled', 'Abandoned',
-    'Rows read', 'Rows affected', 'p50', 'p95', 'p99', 'p95 ready'], queryRows);
+  table('queries', ['Statement type', 'Attempts', 'Success', 'Errors', 'Canceled', 'Abandoned',
+    'p50 elapsed', 'p95 elapsed', 'p99 elapsed', 'p95 ready'], queryRows);
+  renderExecutions(data);
+  table('hosts', ['Reported hostname', 'Public reverse DNS (PTR)', 'Public egress IP', 'Distinct installation IDs',
+    'ID storage', 'Query attempts', 'Last received'], (data.hosts || []).sort((a,b) => b.attempts-a.attempts).map(h => [
+      h.hostname || 'Not reported', h.reverse_dns || 'Unavailable / pending', h.public_ip || 'Not recorded',
+      format(h.installations), (h.id_sources || []).map(s => ({local_file:'Saved locally',explicit:'Application supplied',temporary:'Temporary',unknown:'Older client / unknown'})[s] || s).join(', '),
+      format(h.attempts), new Date(h.last_seen).toLocaleString(),
+    ]));
   table('orgs', ['Organization', 'Team', 'Application', 'Environment', 'Integration',
     'Use case', 'Installs', 'Attempts', 'Success', 'Errors'], data.organizations
     .sort((a, b) => b.attempts - a.attempts)
@@ -115,11 +151,15 @@ async function load(event) {
     element('status').textContent = 'Updated ' + new Date().toLocaleTimeString();
   } catch (error) {
     // Clear previously authorized data if a later request fails.
-    for (const id of ['cards', 'queries', 'orgs', 'features', 'daily', 'downloads']) {
+    for (const id of ['cards', 'queries', 'orgs', 'features', 'daily', 'downloads', 'hosts', 'executions']) {
       element(id).replaceChildren();
     }
+    latest = null;
+    element('execution-count').textContent = '';
     element('status').textContent = error.message;
   }
 }
 
 element('login').addEventListener('submit', load);
+
+element('execution-filter').addEventListener('input', () => { if (latest) renderExecutions(latest); });

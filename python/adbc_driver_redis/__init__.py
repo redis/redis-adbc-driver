@@ -35,6 +35,8 @@ def connect(uri, db_kwargs=None):
 
 
 class DatabaseOptions(str, enum.Enum):
+    TELEMETRY_INSTALLATION_ID_FILE = "adbc.redis.telemetry.installation_id_file"
+    TELEMETRY_SOURCE_HOSTNAME = "adbc.redis.telemetry.source_hostname"
     TELEMETRY_ENABLED = "adbc.redis.telemetry.enabled"
     TELEMETRY_ENDPOINT = "adbc.redis.telemetry.endpoint"
     TELEMETRY_TOKEN = "adbc.redis.telemetry.token"

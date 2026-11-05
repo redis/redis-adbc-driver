@@ -161,3 +161,30 @@ locking; the host role cannot access the state prefix.
 
 No release was published. The original automatic approval rejection was resolved
 by explicit user approval of the concrete resource plan before Terraform apply.
+
+
+## Workload details, source DNS and persisted IDs (2026-11-05)
+
+Requestor: Albert Wong. Replace low-value cross-query row totals with recent
+per-execution work and a list of reporting machines and public reverse DNS.
+Clarify that weekly activity deduplicates installation IDs, not machines/people.
+Correct the old per-handle generated-ID default: publish a generated ID file
+atomically and reuse it across handles/process restarts, falling back to an
+explicitly marked temporary ID when persistence is unavailable.
+
+- Reuse existing input candidate counters and index metadata; do not add Redis
+  commands or export plans/SQL/identifiers. Distinguish unknown from zero. Bound
+  completed execution samples to 24 per client and 10,000 stored samples.
+- Preserve older aggregate reports. Deduplicate sample IDs across retry snapshots.
+- Record client hostnames separately from collector-observed public egress IP/PTR.
+  Only trust overwritten proxy headers from loopback with explicit configuration;
+  resolve DNS in bounded background workers rather than request threads.
+- Relabel the seven-day card as distinct active installation IDs with persistence
+  and container caveats. Show individual workloads and a filterable source list.
+- Automated evidence: [workload-sources-validation.json](evidence/workload-sources-validation.json).
+  Full Go race suite: 1017 passes, 616 skips, no failures. Focused Software suite:
+  47 passes, hosted-only check skipped, no failures. Collector tests: 11 passed.
+- The updater takes an S3 backup first, stages and compiles source, preserves
+  current read/write tokens, extends local ACLs, and retains rollback files.
+  New driver builds are needed for hostname, persistent-ID status and samples;
+  historical reports cannot recover missing fields or merge old ephemeral IDs.
