@@ -54,9 +54,49 @@ def select_matrix(event, paths):
     ]}
 
 
+# Changes that can affect the Linux ABI, native loading, dependency resolution,
+# fixture behavior or distribution-specific compatibility retain all images.
+RELEASE_COMPATIBILITY_PATHS = SENSITIVE_PATHS + (
+    ".github/workflows/release.yml",
+    ".github/workflows/wheel-client.yml",
+    "go/build-linux.sh",
+    "go/Dockerfile.linux-builder",
+    "go/validation/**",
+    "go/foreign.go",
+    "go/search_keys*",
+    "go/transport*",
+    "go/aggregate.go",
+    "go/rekey.go",
+    "python/pyproject.toml",
+    "scripts/build_python_wheel.py",
+    "scripts/ci_test_matrix.py",
+    "scripts/test_ci_test_matrix.py",
+    "scripts/check_wheel_libraries.py",
+    "scripts/test_check_wheel_libraries.py",
+    "scripts/check_native_install.py",
+    "scripts/install*",
+    "scripts/test_install_driver.py",
+)
+
+
+def select_release_matrix(event, paths):
+    full = event != "pull_request" or any(
+        not path.endswith(".md") and fnmatch.fnmatchcase(path, pattern)
+        for path in paths
+        for pattern in RELEASE_COMPATIBILITY_PATHS
+    )
+    return {
+        "arch": ["amd64", "arm64"],
+        # AlmaLinux 8 exercises the oldest supported glibc on both architectures.
+        "image": ["ubuntu:20.04", "ubuntu:22.04", "almalinux:8", "almalinux:9",
+                  "amazonlinux:2023"] if full else ["almalinux:8"],
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--event", required=True)
+    parser.add_argument("--suite", choices=("test", "release"), default="test")
     parser.add_argument("--base")
     parser.add_argument("--head")
     args = parser.parse_args()
@@ -71,7 +111,8 @@ def main():
             args.base, args.head, "--",
         ])
         paths = output.decode().rstrip("\0").split("\0")
-    print(json.dumps(select_matrix(args.event, paths), separators=(",", ":")))
+    select = select_release_matrix if args.suite == "release" else select_matrix
+    print(json.dumps(select(args.event, paths), separators=(",", ":")))
 
 
 if __name__ == "__main__":

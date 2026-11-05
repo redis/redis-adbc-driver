@@ -1,0 +1,102 @@
+name: Installed wheel client validation
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        required: true
+        type: string
+      artifact:
+        required: true
+        type: string
+      runner:
+        required: true
+        type: string
+      python:
+        default: '3.14'
+        type: string
+      manager:
+        default: '1.12.0'
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  REDIS_ADBC_TELEMETRY_DISABLED: "true"
+
+jobs:
+  validate:
+    name: wheel-${{ inputs.artifact }}-py${{ inputs.python }}-adbc${{ inputs.manager }}
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+      - name: Detect partition checker at the selected release ref
+        id: capability
+        run: |
+          # Historical releases without this checker keep their existing gates.
+          if [ -f scripts/check_partition_tls.py ] && [ -f scripts/native_partition_redis.py ]; then
+            echo 'enabled=true' >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/download-artifact@v8
+        if: steps.capability.outputs.enabled == 'true'
+        with:
+          name: ${{ inputs.artifact }}
+          path: dist
+      - uses: astral-sh/setup-uv@v10.2.0
+        if: steps.capability.outputs.enabled == 'true'
+      - name: Install the packaged wheel and selected client
+        if: steps.capability.outputs.enabled == 'true'
+        env:
+          CLIENT_PYTHON: ${{ inputs.python }}
+          ADBC_MANAGER: ${{ inputs.manager }}
+        run: |
+          uv venv --python "$CLIENT_PYTHON" "$RUNNER_TEMP/wheel-client"
+          uv pip install --python "$RUNNER_TEMP/wheel-client/bin/python" \
+            dist/*.whl "adbc-driver-manager==$ADBC_MANAGER" pyarrow redis
+      - name: Start owned Linux TLS fixture
+        if: steps.capability.outputs.enabled == 'true' && runner.os == 'Linux'
+        run: bash scripts/start_partition_tls.sh "$RUNNER_TEMP/wheel-client-tls" redis-wheel-client-tls 16390
+      - name: Start owned macOS TLS fixture
+        if: steps.capability.outputs.enabled == 'true' && runner.os == 'macOS'
+        run: |
+          brew update
+          env -u HOMEBREW_NO_INSTALL_UPGRADE brew install redis
+          prefix="$(brew --prefix redis)"
+          python3 scripts/native_partition_redis.py start "$RUNNER_TEMP/wheel-client-native" --tls \
+            --server "$prefix/bin/redis-server" --cli "$prefix/bin/redis-cli" \
+            --module "$prefix/lib/redis/modules/redisearch.so" --port 16390
+      - name: Verify independent partitions from the installed wheel
+        if: steps.capability.outputs.enabled == 'true'
+        env:
+          CLIENT_ARTIFACT: ${{ inputs.artifact }}
+          CLIENT_PYTHON: ${{ inputs.python }}
+          ADBC_MANAGER: ${{ inputs.manager }}
+        run: |
+          fixture="$RUNNER_TEMP/wheel-client-tls"
+          if [ "$RUNNER_OS" = macOS ]; then fixture="$RUNNER_TEMP/wheel-client-native/tls"; fi
+          export REDIS_TLS_ADMIN_URI="$(cat "$fixture/admin.uri")"
+          export SSL_CERT_FILE="$fixture/ca.crt"
+          env -u REDIS_ADBC_LIBRARY "$RUNNER_TEMP/wheel-client/bin/python" scripts/check_partition_tls.py \
+            --require-wheel --output "$RUNNER_TEMP/wheel-client-$CLIENT_ARTIFACT-py$CLIENT_PYTHON-adbc$ADBC_MANAGER.json"
+      - name: Upload wheel client evidence
+        if: always() && steps.capability.outputs.enabled == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: wheel-client-${{ inputs.artifact }}-py${{ inputs.python }}-adbc${{ inputs.manager }}
+          path: ${{ runner.temp }}/wheel-client-*.json
+          if-no-files-found: warn
+      - name: Remove owned Linux TLS fixture
+        if: always() && steps.capability.outputs.enabled == 'true' && runner.os == 'Linux'
+        run: |
+          if docker container inspect redis-wheel-client-tls >/dev/null 2>&1; then docker rm -f redis-wheel-client-tls; fi
+          rm -rf "$RUNNER_TEMP/wheel-client-tls"
+      - name: Stop owned macOS TLS fixture and remove private material
+        if: always() && steps.capability.outputs.enabled == 'true' && runner.os == 'macOS'
+        run: |
+          python3 scripts/native_partition_redis.py stop "$RUNNER_TEMP/wheel-client-native"
+          rm -rf "$RUNNER_TEMP/wheel-client-native"
+

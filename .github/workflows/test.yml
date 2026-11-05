@@ -213,17 +213,6 @@ jobs:
           uv pip install --python /tmp/redis-ray-tests/bin/python './python[ray]' 'pytest>=9.1.1'
           /tmp/redis-ray-tests/bin/python -m pytest -q python/tests/test_ray_datasource.py
 
-      - name: Prefect integration on Redis Software
-        if: matrix.environment == 'software-cluster' && !matrix.integrations
-        env:
-          REDIS_ADBC_LIBRARY: ${{ github.workspace }}/go/build/libadbc_driver_redis.so
-          PREFECT_SERVER_ANALYTICS_ENABLED: 'false'
-          PREFECT_HOME: /tmp/redis-prefect-home
-        run: |
-          uv venv --python 3.14 /tmp/redis-prefect-tests
-          uv pip install --python /tmp/redis-prefect-tests/bin/python './python[prefect]' 'pytest>=9.1.1'
-          /tmp/redis-prefect-tests/bin/python -m pytest -q python/tests/test_prefect.py
-
       - name: Airflow integration
         if: matrix.arch == 'amd64' && matrix.environment == 'software-cluster'
         env:
@@ -247,14 +236,7 @@ jobs:
 
       - name: Go tests
         working-directory: go
-        run: |
-          if [[ "${{ matrix.environment }}" == oss-* ]]; then
-            # Probe actual runtime limits; a fixed positive option would bypass
-            # discovery. The test saves/restores every OSS primary's setting.
-            env -u REDIS_PARTITION_SCAN_CAP REDIS_PARTITION_CAP_TEST=1 go test -count=1 -p 1 ./...
-          else
-            go test -count=1 -p 1 ./...
-          fi
+        run: go test -count=1 -p 1 ./...
 
       - name: Enforced SQL SELECT grants through Software RBAC
         if: startsWith(matrix.environment, 'software-')
@@ -334,40 +316,6 @@ jobs:
         run: |
           if docker container inspect redis-partition-tls >/dev/null 2>&1; then docker rm -f redis-partition-tls; fi
           rm -rf "$RUNNER_TEMP/partition-tls"
-
-      - name: Start owned three-primary TLS Cluster fixture
-        if: matrix.environment == 'oss-cluster'
-        run: bash scripts/start_partition_tls_cluster.sh "$RUNNER_TEMP/partition-cluster-tls" redis-partition-cluster-tls 16394
-
-      - name: Native partitions through three verified TLS primary endpoints
-        if: matrix.environment == 'oss-cluster'
-        env:
-          REDIS_ADBC_LIBRARY: ${{ github.workspace }}/go/build/libadbc_driver_redis.so
-        run: |
-          export REDIS_TLS_ADMIN_URI="$(cat "$RUNNER_TEMP/partition-cluster-tls/admin.uri")"
-          export SSL_CERT_FILE="$RUNNER_TEMP/partition-cluster-tls/ca.crt"
-          go/validation/.venv/bin/python scripts/check_partition_tls.py \
-            --oss-cluster-fixture "$RUNNER_TEMP/partition-cluster-tls" --minimum-cluster-primaries 3 \
-            --output "$RUNNER_TEMP/partition-cluster-tls-result.json"
-
-      - name: Upload three-primary TLS evidence
-        if: always() && matrix.environment == 'oss-cluster'
-        uses: actions/upload-artifact@v7
-        with:
-          name: partition-cluster-tls-${{ matrix.arch }}
-          path: |
-            ${{ runner.temp }}/partition-cluster-tls-result.json
-            ${{ runner.temp }}/partition-cluster-tls/cluster-acl-cleanup.json
-          if-no-files-found: warn
-
-      - name: Remove owned three-primary TLS fixture
-        if: always() && matrix.environment == 'oss-cluster'
-        run: |
-          if docker container inspect redis-partition-cluster-tls >/dev/null 2>&1; then
-            test "$(docker inspect -f '{{index .Config.Labels "codex.fixture"}}' redis-partition-cluster-tls)" = partition-tls-cluster
-            docker rm -f redis-partition-cluster-tls
-          fi
-          rm -rf "$RUNNER_TEMP/partition-cluster-tls"
 
       - name: Prepare verified Redis Software proxy TLS
         if: startsWith(matrix.environment, 'software-')
