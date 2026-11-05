@@ -1649,11 +1649,20 @@ func RedisStatementSetSubstraitPlan(stmt *C.struct_AdbcStatement, plan *C.cuint8
 		return C.ADBC_STATUS_INVALID_STATE
 	}
 
+	// Redis-specific admission must run before narrowing or copying C input.
+	if length > C.size_t(redis.SubstraitMaxPlanBytes) || (length != 0 && plan == nil) {
+		setErr(err, "Substrait: invalid plan pointer or plan_bytes budget exceeded")
+		return C.ADBC_STATUS_INVALID_ARGUMENT
+	}
+
 	var safeLen int
 	if safeLen, code = checkLengthToInt(length, err); code != C.ADBC_STATUS_OK {
 		return code
 	}
 	e := st.stmt.SetSubstraitPlan(st.NewContext(), C.GoBytes(unsafe.Pointer(plan), C.int(safeLen)))
+	if e == nil {
+		st.sqlQuery = ""
+	}
 	return C.AdbcStatusCode(errToAdbcErr(err, e))
 }
 

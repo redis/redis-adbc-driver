@@ -253,6 +253,14 @@ func (t *executionTransport) reader(reader array.RecordReader) array.RecordReade
 			r.transport = t
 		}
 		r.mu.Unlock()
+	case *subReader:
+		r.mu.Lock()
+		if r.closed {
+			t.finish()
+		} else {
+			r.transport = t
+		}
+		r.mu.Unlock()
 	case *retainedReader:
 		r.mu.Lock()
 		if r.closed {

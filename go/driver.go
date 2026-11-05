@@ -155,9 +155,11 @@ func NewDriver(alloc memory.Allocator) driverbase.DriverWithContext {
 func newDriverImpl(alloc memory.Allocator) *driverImpl {
 	info := driverbase.DefaultDriverInfo("Redis")
 	info.MustRegister(map[adbc.InfoCode]any{
-		adbc.InfoDriverName:      driverName,
-		adbc.InfoVendorSql:       true,
-		adbc.InfoVendorSubstrait: false,
+		adbc.InfoDriverName:                driverName,
+		adbc.InfoVendorSql:                 true,
+		adbc.InfoVendorSubstrait:           true,
+		adbc.InfoVendorSubstraitMinVersion: substraitVersion,
+		adbc.InfoVendorSubstraitMaxVersion: substraitVersion,
 	})
 	base := driverbase.NewDriverImplBase(info, alloc)
 	base.ErrorHelper.DriverName = "redis"

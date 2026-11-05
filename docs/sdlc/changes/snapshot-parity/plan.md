@@ -635,14 +635,22 @@ incomplete. An
 explicit sequential verified Software snapshot CI step is staged; reader failure
 remains a required final job gate while independent native checks can run.
 
-Upstream main has advanced through 3aa87e2, including bounded Substrait plan
-execution (4fd0894/23860f8). Those three upstream commits are not yet merged into
-this branch. Full current-feature parity therefore also requires integrating and
-verifying the Substrait metadata/execution reader lifecycle through snapshot
-pins, plus its native C-boundary checks; existing SQL-only checks cannot prove
-that new frontend's consistency. Preserve the upstream supported plan limits.
+Upstream main 3aa87e2, including bounded Substrait plan execution
+(4fd0894/23860f8), is integrated in the Substrait checkpoint. Its metadata and
+execution reader lifetime use snapshot pins; scoped native C-boundary checks
+pass. Existing SQL-only checks could not prove the new frontend's consistency.
+The upstream supported plan limits remain unchanged.
 
-PR #284 currently reports CONFLICTING/DIRTY against main (verified before this
-checkpoint is published). Resolve the three upstream commits after preserving
-this validated milestone; current parity cannot be inferred from an unmergeable
-PR or from the upstream frontend's mutable-storage tests.
+PR #284 reported CONFLICTING/DIRTY against main before integration. The query
+iterator and schema-entry conflicts are resolved while retaining both snapshot
+and Substrait behavior. Remote mergeability still requires verification after
+publishing; the upstream frontend's mutable-storage tests alone do not prove
+snapshot parity.
+
+The [Substrait integration checkpoint](substrait-snapshot-validation.md) resolves
+main's query/statement conflicts while retaining snapshot scanners and schema
+pins. Targeted upstream and new snapshot lifetime/visibility checks pass, as do
+the combined snapshot selection (382 passes / 24 explicit skips), unit race
+checks and 118 selected native tests. Current hosted/ordinary/recovery and
+sustained performance checks remain open. These changes address the new
+frontend without expanding its supported operator/type/parameter/partition scope.

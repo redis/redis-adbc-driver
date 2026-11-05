@@ -59,8 +59,8 @@ for package creation and the pending registry submission.
 
 The implementation builds on [driverbase-go](https://github.com/adbc-drivers/driverbase-go)
 and is validated with the [ADBC driver validation suite](https://github.com/adbc-drivers/validation).
-Substrait plans are currently unsupported; see the
-[Substrait assessment](docs/substrait.md) for the proposed scope. Contributor
+Binary Substrait 0.108.0 plans support a bounded read/filter/project subset; see
+[the supported subset and limits](docs/substrait.md). Contributor
 context and development records are in the [SDLC guide](docs/sdlc/README.md).
 
 Experimental [CUDA predicates and Arrow C Device staging](docs/gpu-execution.md)
@@ -144,8 +144,8 @@ for those rows cover scope or companion integration decisions.
 Supported means the documented SQL/Arrow contract is implemented, including
 normalization and explicit result-layout options where described. It does not
 mean the original input encoding or metadata persists unchanged. Closed tracking
-issues record completed contracts; [remaining work](#remaining-arrow-and-adbc-work)
-has separate open issues. Restrictions stay in the behavior column.
+issues record completed contracts. See [extensions and remaining limits](docs/arrow-adbc-limits.md)
+for their implemented scope and boundaries. Restrictions stay in the behavior column.
 
 | Feature | Support | Driver behavior and limits | Tracking |
 |---|---|---|---|
@@ -174,7 +174,7 @@ has separate open issues. Restrictions stay in the behavior column.
 | ADBC partitioned reads | 🟢 Supported | Portable row-range descriptors cover a restricted SELECT subset; retained-result mode supports broader SQL with quotas/expiry. Managed live partition sets retain one producer generation; retained capture uses a pinned source. Rebuild from source; see [partitioned reads](docs/partitioned-reads.md). | [#211](https://github.com/redis/redis-adbc-driver/issues/211) |
 | Statement cancellation | 🟢 Supported | Cancels driver work and interrupts execution-owned socket waits, including blocked cursor pages/pipelines. Remote server work may continue; sorts finish before checking cancellation. See [cancellation](docs/driver-reference.md#cancelling-a-statement). | [#212](https://github.com/redis/redis-adbc-driver/issues/212) |
 | Transactions and rollback through ADBC | 🔴 Unsupported | Autocommit only; disabling autocommit is rejected. | [#113](https://github.com/redis/redis-adbc-driver/issues/113) |
-| Substrait plans | 🔴 Unsupported | `SetSubstraitPlan` returns NotImplemented. | [#213](https://github.com/redis/redis-adbc-driver/issues/213) |
+| Substrait plans | 🟡 Bounded subset | Binary Substrait 0.108.0 read/filter/project support; [subset and limits](docs/substrait.md). | [#213](https://github.com/redis/redis-adbc-driver/issues/213) |
 | Arrow Flight / Flight SQL endpoint | ⚪ N/A | A Flight endpoint belongs to a separately deployed service, such as the [Redis Flight server](https://github.com/redis/redis-apache-arrow-flight). This native ADBC driver supplies an in-process client interface. | [#214](https://github.com/redis/redis-adbc-driver/issues/214) |
 | Continuous subscriptions / CDC | ⚪ N/A | Durable change feeds and snapshot-to-live handoff need a separately designed source/service contract. Finite SQL query results are the driver's current interface; [#196](https://github.com/redis/redis-adbc-driver/issues/196) evaluates where CDC should live. | [#196](https://github.com/redis/redis-adbc-driver/issues/196) |
 | Arrow C Device interface | 🟡 Experimental | Native extensions stage flat numeric/boolean CPU/CUDA arrays, bind device input and export device result streams. Explicit synchronization/ownership contract; Validated on NVIDIA A10G with real producer/consumer tests. [API and limits](docs/gpu-execution.md). | [#293](https://github.com/redis/redis-adbc-driver/issues/293), [#294](https://github.com/redis/redis-adbc-driver/issues/294), [#295](https://github.com/redis/redis-adbc-driver/issues/295) |
@@ -188,29 +188,6 @@ Type mappings are implemented in [types.go](go/types.go) and
 Supported interchange does not imply support for every Arrow layout or every
 SQL operator. See the [SQL reference](docs/driver-reference.md#supported-sql)
 for type and execution details. [Generated identifiers, UUIDs, modifying CTEs, named indexes and materialized views](docs/sql-101-105.md) describe the additional SQL contracts and limits.
-
-### Remaining Arrow and ADBC work
-
-The scoped extensions below build on the supported contracts above; their
-change records document validation and remaining boundaries. Map and Union
-have explicit stored contracts and partition limits described in the
-[Arrow guide](docs/arrow-interoperability.md#stored-map-and-union-contract).
-
-| Follow-up capability | Implemented scope and remaining boundary | Tracker |
-|---|---|---|
-| Incremental execution for more SQL plans | Bounded unordered DISTINCT is incremental with `stream_required`; general HASH discovery and other blocking operators keep documented fallback/rejection. | [#300](https://github.com/redis/redis-adbc-driver/issues/300) |
-| Dictionary-encoded IPC files | Bounded file-wide dictionary construction/remapping is implemented; per-batch dictionaries remain available for IPC streams. | [#301](https://github.com/redis/redis-adbc-driver/issues/301) |
-| Explicit result layouts in partitioned reads | Non-dictionary layouts replay through versioned live/retained descriptors; dictionary partition output remains rejected. | [#302](https://github.com/redis/redis-adbc-driver/issues/302) |
-| Column-level statistics | Authoritative bounded NULL counts join row counts; distinct/min/max/width/size remain omitted. | [#303](https://github.com/redis/redis-adbc-driver/issues/303) |
-| Broader partition SQL coverage | Live byte-length functions expand the deterministic subset; regex SUBSTRING, recursion, generators and lateral/table functions remain excluded. | [#304](https://github.com/redis/redis-adbc-driver/issues/304) |
-| Nested extensions and additional explicit mappings | UUID/JSON normalization extends through bounded STRUCT nesting; unknown and other nested extension containers reject. | [#305](https://github.com/redis/redis-adbc-driver/issues/305) |
-| Cancellation during driver-side sorts | Query sorting checks every 256 comparisons and aborts before result publication. | [#306](https://github.com/redis/redis-adbc-driver/issues/306) |
-
-Transaction and constraint gaps remain in [#113](https://github.com/redis/redis-adbc-driver/issues/113)
-and [#114](https://github.com/redis/redis-adbc-driver/issues/114). No shared source
-snapshot, remote server-work termination or rollback guarantee is added by the
-support labels. Experimental GPU/device expansions have their own open trackers
-in the matrix.
 
 ## Redis Software feature matrix
 

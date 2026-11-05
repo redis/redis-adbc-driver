@@ -167,6 +167,10 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.27.3).
   report confirmed reclamation and errors through the same ownership protocol.
   Preview covers currently zero-reference data and reports pending metadata;
   preserve pins/writer references and never infer ownership from prefix scans.
+  Substrait metadata binding uses a short-lived snapshot; execution rebinds
+  under a fresh pin retained through the owned reader's lifetime. Keep exact
+  layered visibility, upstream work budgets, buffered-batch lease validation and
+  automatic cancellation cleanup. Installed plans retain no physical generation.
   Snapshot suites clear `REDIS_SNAPSHOT_URI` and its indexes: use a disposable
   database and run separately from ordinary suites.
 

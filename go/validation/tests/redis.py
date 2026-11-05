@@ -47,6 +47,8 @@ class RedisQuirks(model.DriverQuirks):
         # Temporary tables are per connection, in a schema it sees as pg_temp.
         statement_bulk_ingest_temporary=True,
         statement_execute_schema=True,
+        # The generic model has no Substrait feature flag. The bounded 0.108.0
+        # contract and GetInfo version range are covered in test_substrait.py.
         statement_get_parameter_schema=True,
         statement_prepare=True,
         statement_rows_affected=True,

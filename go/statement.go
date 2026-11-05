@@ -41,10 +41,12 @@ type statementImpl struct {
 	streamRequired   bool
 	driverbase.StatementImplBase
 
-	conn   *connectionImpl
-	query  string
-	parsed []ParsedStmt
-	ingest driverbase.BulkIngestOptions
+	conn       *connectionImpl
+	query      string
+	substrait  *subPlan
+	subResults streams
+	parsed     []ParsedStmt
+	ingest     driverbase.BulkIngestOptions
 
 	// indexColumns restricts which columns bulk ingest indexes (nil = all
 	// indexable columns).
@@ -233,6 +235,8 @@ func (s *statementImpl) Close(ctx context.Context) error {
 		return errorf(adbc.StatusInvalidState, "statement already closed")
 	}
 	s.closed = true
+	s.subResults.closeAll(errorf(adbc.StatusInvalidState, "statement is closed"))
+	s.substrait = nil
 	s.clearParams()
 	s.partitionExecution = nil
 	return nil
@@ -337,6 +341,7 @@ func (s *statementImpl) SetOption(ctx context.Context, key, val string) error {
 		s.partitionCount = n
 		return nil
 	case adbc.OptionKeyIngestTargetTable:
+		s.substrait = nil
 		s.partitionExecution = nil
 		s.query, s.parsed = "", nil
 	case OptionStringTruncateAdopted:
@@ -385,6 +390,7 @@ func (s *statementImpl) SetSqlQuery(ctx context.Context, query string) error {
 	}
 	s.partitionExecution = nil
 	s.query = query
+	s.substrait = nil
 	s.parsed = nil
 	s.ingest.TableName = ""
 	s.clearParams()
@@ -413,15 +419,38 @@ func (s *statementImpl) Prepare(ctx context.Context) error {
 	if s.ingest.TableName != "" {
 		return nil
 	}
+	if s.substrait != nil {
+		_, err := s.subSchema(ctx)
+		return err
+	}
 	_, err := s.parse()
 	return err
 }
 
 func (s *statementImpl) SetSubstraitPlan(ctx context.Context, plan []byte) error {
-	return errorf(adbc.StatusNotImplemented, "Substrait is not supported")
+	if err := s.checkOpen(); err != nil {
+		return err
+	}
+	p, err := decodeSubstrait(ctx, plan)
+	if err != nil {
+		return err
+	}
+	if _, err := s.bindSubstraitMetadata(ctx, p); err != nil {
+		return subError(err, "metadata")
+	}
+	s.substrait = p
+	s.query = ""
+	s.parsed = nil
+	s.ingest.TableName = ""
+	s.partitionExecution = nil
+	s.clearParams()
+	return nil
 }
 
 func (s *statementImpl) Bind(ctx context.Context, values arrow.RecordBatch) error {
+	if s.substrait != nil {
+		return subUnsupported("parameters")
+	}
 	if err := s.checkOpen(); err != nil {
 		return err
 	}
@@ -438,6 +467,10 @@ func (s *statementImpl) Bind(ctx context.Context, values arrow.RecordBatch) erro
 }
 
 func (s *statementImpl) BindStream(ctx context.Context, stream array.RecordReader) error {
+	if s.substrait != nil {
+		stream.Release()
+		return subUnsupported("parameters")
+	}
 	if err := s.checkOpen(); err != nil {
 		stream.Release()
 		return err
@@ -452,6 +485,9 @@ func (s *statementImpl) BindStream(ctx context.Context, stream array.RecordReade
 // $2, … and ? numbered as they appear. A parameter's type is the one it is
 // used as (see params.go), or NULL if it can't be told; names are empty.
 func (s *statementImpl) GetParameterSchema(ctx context.Context) (*arrow.Schema, error) {
+	if s.substrait != nil {
+		return arrow.NewSchema(nil, nil), s.checkOpen()
+	}
 	if err := s.checkExecution(); err != nil {
 		return nil, err
 	}
@@ -675,6 +711,9 @@ func (s *statementImpl) executeQuery(ctx context.Context) (array.RecordReader, i
 	if err := s.checkExecution(); err != nil {
 		return nil, -1, err
 	}
+	if s.substrait != nil {
+		return s.subQuery(ctx)
+	}
 	if s.executionBackend == "cuda" && s.ingest.TableName != "" {
 		return nil, -1, errorf(adbc.StatusNotImplemented, "CUDA ingestion uses BindDevice with execution_backend=cpu")
 	}
@@ -710,6 +749,16 @@ func (s *statementImpl) ExecuteUpdate(ctx context.Context) (int64, error) {
 	if err := s.checkExecution(); err != nil {
 		return -1, err
 	}
+	if s.substrait != nil {
+		r, _, err := s.subQuery(ctx)
+		if err != nil {
+			return -1, err
+		}
+		defer r.Release()
+		for r.Next() {
+		}
+		return -1, r.Err()
+	}
 	if s.executionBackend == "cuda" {
 		return -1, errorf(adbc.StatusNotImplemented, "CUDA requires ExecuteQuery; updates and ingestion use execution_backend=cpu")
 	}
@@ -735,6 +784,9 @@ func (s *statementImpl) ExecuteSchema(ctx context.Context) (*arrow.Schema, error
 		return nil, snapshotErr
 	}
 	defer pin.release()
+	if s.substrait != nil {
+		return s.subSchema(ctx)
+	}
 	parsed, err := s.parse()
 	if err != nil {
 		return nil, err
