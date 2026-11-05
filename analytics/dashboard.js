@@ -1,32 +1,107 @@
 const element = id => document.getElementById(id);
 const format = n => Number(n || 0).toLocaleString();
 
+const tableStates = new Map();
+const cellText = value => String(value && typeof value === 'object' ? value.text : (value ?? '—'));
+function sortValue(value, heading) {
+  const text = cellText(value);
+  if (['Unavailable', 'Not applicable', '—', 'Not measured'].includes(text)) return null;
+  if (/date|completed|received|captured/i.test(heading)) {
+    const date = Date.parse(text);
+    if (!Number.isNaN(date)) return date;
+  }
+  const number = text.replaceAll(',', '').match(/^(?:[≤>]\s*)?(-?\d+(?:\.\d+)?)(?:\s*(?:ms|%|driver candidates|aggregate rows represented))?$/);
+  return number ? Number(number[1]) : text;
+}
+function tableRows(rows, headings, state) {
+  const filtered = rows.filter(row => row.some(v => cellText(v).toLowerCase().includes(state.search))
+    && state.filters.every((filter, i) => cellText(row[i]).toLowerCase().includes(filter)));
+  if (state.sort !== null) filtered.sort((a, b) => {
+    const av = sortValue(a[state.sort], headings[state.sort]);
+    const bv = sortValue(b[state.sort], headings[state.sort]);
+    if (av === null || bv === null) return av === bv ? 0 : (av === null ? 1 : -1);
+    const order = typeof av === 'number' && typeof bv === 'number'
+      ? av - bv : String(av).localeCompare(String(bv), undefined, {numeric: true});
+    return order * state.direction;
+  });
+  return filtered;
+}
 function table(id, headings, rows) {
-  const table = document.createElement('table');
-  const header = document.createElement('tr');
-  for (const text of headings) {
-    const cell = document.createElement('th');
-    cell.textContent = text;
-    header.append(cell);
+  const state = tableStates.get(id) || {search: '', filters: headings.map(() => ''), sort: null, direction: 1, page: 0, size: 25};
+  tableStates.set(id, state);
+  const container = element(id);
+  const controls = document.createElement('div');
+  controls.className = 'table-controls';
+  const search = document.createElement('input');
+  search.type = 'search'; search.placeholder = 'Search this table'; search.value = state.search;
+  search.setAttribute('aria-label', id + ': search all columns');
+  const size = document.createElement('select');
+  size.setAttribute('aria-label', id + ': rows per page');
+  for (const n of [10, 25, 50, 100]) {
+    const option = document.createElement('option'); option.value = String(n); option.textContent = n + ' rows'; size.append(option);
   }
-  table.append(header);
-  for (const values of rows) {
-    const row = document.createElement('tr');
-    for (const value of values) {
-      const cell = document.createElement('td');
-      // Labels are user supplied. Never interpret them as HTML.
-      cell.textContent = value ?? '—';
-      row.append(cell);
+  size.value = String(state.size);
+  const reset = document.createElement('button'); reset.type = 'button'; reset.textContent = 'Reset table';
+  controls.append(search, size, reset);
+  const grid = document.createElement('table');
+  const head = document.createElement('thead'); const header = document.createElement('tr');
+  const filters = document.createElement('tr');
+  const headers = []; const inputs = [];
+  headings.forEach((text, i) => {
+    const cell = document.createElement('th'); cell.scope = 'col';
+    const button = document.createElement('button'); button.type = 'button'; button.textContent = text;
+    button.setAttribute('aria-label', 'Sort by ' + text);
+    button.addEventListener('click', () => {state.direction = state.sort === i ? -state.direction : 1; state.sort = i; state.page = 0; draw();});
+    cell.append(button); header.append(cell); headers.push(cell);
+    const filterCell = document.createElement('th');
+    const input = document.createElement('input'); input.type = 'search'; input.placeholder = 'Filter'; input.value = state.filters[i];
+    input.setAttribute('aria-label', id + ': filter ' + text);
+    input.addEventListener('input', () => {state.filters[i] = input.value.trim().toLowerCase(); state.page = 0; draw();});
+    filterCell.append(input); filters.append(filterCell); inputs.push(input);
+  });
+  head.append(header, filters); grid.append(head);
+  const body = document.createElement('tbody'); grid.append(body);
+  const pager = document.createElement('div'); pager.className = 'table-controls';
+  const previous = document.createElement('button'); previous.type = 'button'; previous.textContent = 'Previous';
+  previous.setAttribute('aria-label', id + ': previous page');
+  const next = document.createElement('button'); next.type = 'button'; next.textContent = 'Next';
+  next.setAttribute('aria-label', id + ': next page');
+  const status = document.createElement('span'); status.setAttribute('role', 'status');
+  pager.append(previous, status, next);
+  function draw() {
+    const visible = tableRows(rows, headings, state);
+    const pages = Math.max(1, Math.ceil(visible.length / state.size)); state.page = Math.min(state.page, pages - 1);
+    const offset = state.page * state.size;
+    body.replaceChildren();
+    for (const values of visible.slice(offset, offset + state.size)) {
+      const row = document.createElement('tr');
+      for (const value of values) {
+        const cell = document.createElement('td');
+        // Labels are user supplied. Never interpret them as HTML.
+        cell.textContent = cellText(value);
+        if (value && typeof value === 'object' && value.reason) cell.title = value.reason;
+        row.append(cell);
+      }
+      body.append(row);
     }
-    table.append(row);
+    if (!visible.length) {
+      const row = document.createElement('tr'); const cell = document.createElement('td'); cell.colSpan = headings.length;
+      cell.textContent = rows.length ? 'No rows match your search or filters.' : 'No data reported yet.'; row.append(cell); body.append(row);
+    }
+    headers.forEach((cell, i) => cell.setAttribute('aria-sort', state.sort === i ? (state.direction === 1 ? 'ascending' : 'descending') : 'none'));
+    previous.disabled = state.page === 0; next.disabled = state.page >= pages - 1;
+    status.textContent = 'Page ' + (state.page + 1) + ' of ' + pages + ' · ' + (visible.length ? offset + 1 : 0)
+      + '–' + Math.min(offset + state.size, visible.length) + ' of ' + visible.length + ' matching rows (' + rows.length + ' loaded)';
   }
-  element(id).replaceChildren(table);
-  if (!rows.length) {
-    const message = document.createElement('p');
-    message.textContent = 'No data reported yet.';
-    message.className = 'muted';
-    element(id).append(message);
-  }
+  search.addEventListener('input', () => {state.search = search.value.trim().toLowerCase(); state.page = 0; draw();});
+  size.addEventListener('change', () => {state.size = Number(size.value); state.page = 0; draw();});
+  previous.addEventListener('click', () => {state.page--; draw();});
+  next.addEventListener('click', () => {state.page++; draw();});
+  reset.addEventListener('click', () => {
+    state.search = ''; state.filters.fill(''); state.sort = null; state.page = 0; state.size = 25;
+    search.value = ''; size.value = '25'; inputs.forEach(input => {input.value = '';}); draw();
+  });
+  container.replaceChildren(controls, grid, pager); draw();
 }
 
 function percentile(histogram, bounds, fraction) {
@@ -46,7 +121,24 @@ function percentile(histogram, bounds, fraction) {
 const kindLabel = kind => ({select: 'SELECT · query', insert: 'INSERT', update: 'UPDATE', delete: 'DELETE',
   ingest: 'Arrow ingestion', ddl: 'Schema change', metadata: 'Metadata', script: 'SQL script',
   session: 'Session settings', merge: 'MERGE', unknown: 'Unclassified', other: 'Other'})[kind] || kind;
-const measured = n => n === null || n === undefined ? 'Not measured' : format(n);
+const hasMeasurement = n => n !== null && n !== undefined;
+function missingMeasurement(e, field) {
+  if (field === 'rows_affected' && ['select', 'metadata', 'session'].includes(e.kind)) {
+    return {text: 'Not applicable', reason: 'This statement type does not change data rows.'};
+  }
+  if (field !== 'rows_affected' && ['ingest', 'metadata', 'session'].includes(e.kind)) {
+    return {text: 'Not applicable', reason: 'This operation does not use the query input-work counters.'};
+  }
+  const end = ['error', 'canceled', 'abandoned'].includes(e.status)
+    ? ' The execution ended as ' + e.status + '; counters may be incomplete.' : '';
+  const reasons = {
+    indexed_rows: 'No index population was captured by existing readiness checks. Index size is not rows scanned.',
+    input_work: 'No supported driver-candidate or aggregate counter was reported. Redis internal scan work is not measured.',
+    rows_affected: 'The driver did not report an affected-row count.',
+  };
+  return {text: 'Unavailable', reason: reasons[field] + end};
+}
+const measured = (e, field) => hasMeasurement(e[field]) ? format(e[field]) : missingMeasurement(e, field);
 let latest = null;
 
 function renderExecutions(data) {
@@ -58,14 +150,19 @@ function renderExecutions(data) {
     const parts = [];
     if (e.rows_examined !== null && e.rows_examined !== undefined) parts.push(format(e.rows_examined) + ' driver candidates');
     if (e.rows_represented !== null && e.rows_represented !== undefined) parts.push(format(e.rows_represented) + ' aggregate rows represented');
-    return parts.join(' · ') || 'Not measured';
+    return parts.join(' · ') || missingMeasurement(e, 'input_work');
   };
   table('executions', ['Completed (your time)', 'Reporting host', 'Statement / features',
-    'Index documents observed', 'Measured input work', 'Rows returned', 'Rows changed', 'Outcome', 'Elapsed', 'Execution ID'], rows.map(e => [
+    'Index documents observed', 'Measured input work', 'Rows returned', 'Rows changed', 'Outcome', 'Elapsed', 'Execution ID', 'Measurement notes'], rows.map(e => [
     new Date(e.completed_at).toLocaleString(), e.source_hostname || e.reverse_dns || 'Not reported',
     kindLabel(e.kind) + ((e.features || []).length ? ' · ' + e.features.join(', ') : ''),
-    measured(e.indexed_rows), inputWork(e), format(e.rows_returned), measured(e.rows_affected), e.status,
+    measured(e, 'indexed_rows'), inputWork(e), format(e.rows_returned), measured(e, 'rows_affected'), e.status,
     format(e.duration_ms) + ' ms', e.id.slice(0, 8),
+    [
+      !hasMeasurement(e.indexed_rows) && ['Index size', missingMeasurement(e, 'indexed_rows')],
+      !hasMeasurement(e.rows_examined) && !hasMeasurement(e.rows_represented) && ['Input work', missingMeasurement(e, 'input_work')],
+      !hasMeasurement(e.rows_affected) && ['Rows changed', missingMeasurement(e, 'rows_affected')],
+    ].filter(v => v && v[1].text === 'Unavailable').map(([label, value]) => label + ': ' + value.reason).join(' ') || '—',
   ]));
   element('execution-count').textContent = rows.length + ' shown of ' + all.length + ' recent samples. '
     + 'Clients retain their latest 24 completed executions per report; this is not a complete query log.';

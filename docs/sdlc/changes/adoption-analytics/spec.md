@@ -62,3 +62,16 @@ reports are self-reported and not authenticated identities.
 Privacy wording explains high-level metrics and product improvement, then states
 that SQL statements, query parameters, query results and database contents are
 not collected; source/deployment metadata is documented separately.
+
+
+Measurement clarity follow-up (2026-11-05, requested in PR #244): distinguish known
+inapplicable counters from unavailable counters, preserve measured zero, and show
+per-execution explanations without inferring unreported execution details. Keep
+raw SQL and Substrait plans out of telemetry; plans describe structure rather
+than actual runtime work and may contain identifiers/literals.
+
+Dashboard navigation follow-up (2026-11-05): add per-table search, AND column
+filters, ascending/descending sorting, 10/25/50/100-row pages and reset controls.
+Operate on loaded data, disclose the 200-sample query cap, and preserve text-only
+rendering and authenticated read behavior. Verify measurement labels, numeric sort,
+combined filtering, page reset/clamping and empty states with Node tests and live UI.

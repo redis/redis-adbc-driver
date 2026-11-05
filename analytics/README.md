@@ -257,7 +257,10 @@ Recent workload samples show one ADBC execution at a time:
 - **Pushdown rows represented**: rows represented by supported aggregate tuples,
   including retry work; separate from physical driver fetches.
 - **Rows returned/changed**: delivered result rows and known affected counts for
-  that execution. Missing work measurements remain `null` / “Not measured”.
+  that execution. Missing measurements remain `null`. The dashboard distinguishes “Not applicable”
+  for known inapplicable counters from “Unavailable” for unreported counters, with
+  per-execution notes and tooltips. Explicit zero values remain zero. Missing
+  reports cannot prove which internal execution path caused a missing counter.
 - **Outcome and elapsed time**: terminal result and time through consumption or
   release; no success before reader exhaustion.
 
@@ -306,3 +309,12 @@ opt out of hosted reporting; the explicit hosted smoke test requires
 `REDIS_ADBC_VERIFY_HOSTED_TELEMETRY=1`. Redis-backed tests need a
 dedicated Redis Software database: collector tests use `ANALYTICS_TEST_REDIS_URL`,
 and Go integration tests use `REDIS_URI`. Unconfigured integration tests skip.
+
+
+Dashboard table controls (2026-11-05): each table has search across loaded columns,
+case-insensitive substring filters per column (combined with AND), ascending/descending
+column sorting, page sizes of 10/25/50/100 and Previous/Next navigation. Numeric
+counts sort numerically, dates chronologically, and missing measurements last.
+Reset table clears filters/sort and restores 25 rows. Controls persist across
+refreshes in the current page. Pagination does not fetch additional history: the
+query endpoint still supplies at most 200 recent samples.
