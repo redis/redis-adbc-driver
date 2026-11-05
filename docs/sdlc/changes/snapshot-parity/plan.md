@@ -555,3 +555,12 @@ metadata graph HMGET is exempt; real scan/row-ID positive controls remain.
 Both affected race tests now pass on verified Software 4x QPF with no CONFIG skip
 or quiet-counter retries. Hosted macOS and actual Cluster API verification remain
 open; no production query or ACL behavior changes in this checkpoint.
+
+[Sustained-write diagnostics](sustained-write-validation.md) add a no-retry native
+workload across two populated tables with exact RETURNING and complete final-row
+verification. The parent completed 64 updates on two 20,000-row tables, but slowly
+(147.879 seconds; diagnostic observer probe explicitly recorded). A separate
+failing regression proves compaction requested 256 directory entries per source
+for each 64-row checkpoint. Reads now respect the smaller batch; 35 related race
+test events pass, including 100,001-row compaction. No end-to-end speedup or
+full parity is inferred. Fresh matched-source comparisons remain pending.

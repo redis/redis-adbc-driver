@@ -96,13 +96,20 @@ func (d *snapshotDeltaScan) seek(ctx context.Context, lo, hi int64) error {
 func (d *snapshotDeltaScan) head(ctx context.Context, i int) (string, error) {
 	src := &d.sources[i]
 	if src.at == len(src.ids) && !src.done {
-		ids, err := d.store.redis(ctx).ZRange(ctx, snapshotMembers(snapshotDataID(src.segment.Prefix)), src.offset, src.offset+snapshotDeltaPage-1).Result()
+		// A checkpointed compaction discards this scanner after one batch.
+		// Respect its smaller page bound instead of repeatedly fetching and
+		// throwing away directory entries beyond that checkpoint.
+		page := snapshotDeltaPage
+		if d.pageRows > 0 {
+			page = min(page, d.pageRows)
+		}
+		ids, err := d.store.redis(ctx).ZRange(ctx, snapshotMembers(snapshotDataID(src.segment.Prefix)), src.offset, src.offset+int64(page)-1).Result()
 		if err != nil {
 			return "", wrapRedis(err, "failed to read snapshot row directory")
 		}
 		src.ids, src.at = ids, 0
 		src.offset += int64(len(ids))
-		src.done = len(ids) < snapshotDeltaPage
+		src.done = len(ids) < page
 		if src.done && !snapshotOwns(ctx, src.segment.Prefix) && src.offset != src.segment.Rows {
 			return "", errorf(adbc.StatusIO, "published snapshot row directory changed")
 		}

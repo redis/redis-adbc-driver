@@ -14,6 +14,7 @@ is excluded, and no credentials are emitted.
 import argparse
 import hashlib
 import json
+import math
 import os
 import platform
 import statistics
@@ -215,6 +216,65 @@ def foreign_import_cases(conn, cur, uri, ca, repeats, rows):
                                 "samples_ms": samples, "output_rows": rows}}, expected
 
 
+def sustained_write_cases(cur, repeats, rows, write_count):
+    """Finite sustained load; no SQL retries and no driver-private inspection."""
+    names = ("sustained_a", "sustained_b")
+    initial = 9007199254740993
+    increments = {name: 0 for name in names}
+    for name in names:
+        cur.execute(f"CREATE TABLE {name}(id BIGINT,v BIGINT,payload VARCHAR)")
+        cur.execute(
+            f"INSERT INTO {name} SELECT i,{initial},'row-'||i "
+            f"FROM generate_series(1,{rows}) AS g(i)"
+        )
+    # One warmup round. Every update must actually change a row, even when a
+    # source rewrite races it. Any refusal/error fails; the harness never retries.
+    for name in names:
+        cur.execute(f"UPDATE {name} SET v=v+1 WHERE id=1 RETURNING id,v")
+        increments[name] += 1
+        if cur.fetchall() != [(1, initial + increments[name])]:
+            raise AssertionError("sustained warmup returned an incorrect value")
+    samples, runs, logical = [], [], []
+    for repeat in range(repeats):
+        run_samples = []
+        started = time.perf_counter()
+        for operation in range(write_count):
+            name = names[operation % len(names)]
+            start = time.perf_counter()
+            cur.execute(f"UPDATE {name} SET v=v+1 WHERE id=1 RETURNING id,v")
+            actual = cur.fetchall()
+            elapsed = (time.perf_counter() - start) * 1000
+            increments[name] += 1
+            if actual != [(1, initial + increments[name])]:
+                raise AssertionError("sustained update returned an incorrect/replayed value")
+            run_samples.append(elapsed)
+        seconds = time.perf_counter() - started
+        # Fetch and compare every row/column after each sustained interval.
+        # This is outside the interval timer, not concurrent observer traffic.
+        logical = []
+        for name in names:
+            expected = [
+                (i, initial + (increments[name] if i == 1 else 0), f"row-{i}")
+                for i in range(1, rows + 1)
+            ]
+            cur.execute(f"SELECT id,v,payload FROM {name} ORDER BY id")
+            if cur.fetchall() != expected:
+                raise AssertionError(f"{name}: complete sustained-write result differs")
+            logical.extend(expected)
+        samples.extend(run_samples)
+        runs.append({"repeat": repeat, "operations": write_count,
+                     "elapsed_seconds": seconds, "operations_per_second": write_count / seconds,
+                     "samples_ms": run_samples})
+    return {"sustained_point_update": {
+        "median_ms": statistics.median(samples),
+        "p95_ms": sorted(samples)[math.ceil(len(samples) * .95) - 1],
+        "max_ms": max(samples), "samples_ms": samples, "runs": runs,
+        "tables": len(names), "rows_per_table": rows,
+        "warmup_operations": len(names), "caller_retries": 0,
+        "output_rows": len(logical),
+    }}, logical
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--driver", type=Path, required=True)
@@ -242,6 +302,10 @@ def main():
                        help="UPDATE, DELETE and ALTER with complete post-write validation")
     modes.add_argument("--foreign-imports", action="store_true",
                        help="Explicit foreign refresh with complete source/copy validation")
+    modes.add_argument("--sustained-writes", action="store_true",
+                       help="Alternating point updates on two populated tables; no caller retries")
+    parser.add_argument("--write-count", type=int, default=64,
+                        help="Even updates per sustained interval (at least 32)")
     parser.add_argument("--unrelated-tables", type=int, default=32)
     parser.add_argument("--repeats", type=int, default=5)
     args = parser.parse_args()
@@ -249,9 +313,10 @@ def main():
         (args.rows != 1 if args.writes else not 128 <= args.rows <= 50000)
         or args.repeats < 1
         or args.unrelated_tables < 0
+        or (args.sustained_writes and (args.write_count < 32 or args.write_count % 2))
     ):
         parser.error(
-            "require 128..50000 rows (1 for --writes), positive repeats, nonnegative table count"
+            "require 128..50000 rows (1 for --writes), positive repeats, nonnegative table count; sustained write count must be even and at least 32"
         )
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
     from software_partition_tls import SoftwareAPI, qpf_4x_ready
@@ -290,7 +355,9 @@ def main():
         driver=str(args.driver.resolve()), db_kwargs={"uri": uri}, autocommit=True
     ) as conn:
         with conn.cursor() as cur:
-            if args.foreign_imports:
+            if args.sustained_writes:
+                results, logical = sustained_write_cases(cur, args.repeats, args.rows, args.write_count)
+            elif args.foreign_imports:
                 results, logical = foreign_import_cases(conn, cur, uri, ca, args.repeats, args.rows)
             elif args.write_batches or args.rewrite_batches:
                 results, logical = batch_write_cases(cur, args.repeats, args.rows, args.rewrite_batches)
@@ -412,13 +479,13 @@ def main():
                     "not sampled; maintenance enabled during workload"
                     if snapshot_protocol is not None else "not applicable to mutable storage"
                 ),
-                "unrelated_tables": 0 if args.foreign_imports or args.wide or args.write_batches or args.rewrite_batches else args.unrelated_tables,
+                "unrelated_tables": 0 if args.sustained_writes or args.foreign_imports or args.wide or args.write_batches or args.rewrite_batches else args.unrelated_tables,
                 "wide_columns": 64 if args.wide else None,
                 "repeats": args.repeats,
                 "warmups": 1,
                 "timing": (
-                    "write through atomic publication; complete independent post-write validation excluded"
-                    if args.foreign_imports or args.write_batches or args.rewrite_batches else
+                    "write through atomic publication and complete RETURNING fetch when present; complete independent post-write validation excluded"
+                    if args.sustained_writes or args.foreign_imports or args.write_batches or args.rewrite_batches else
                     "write/publication + complete RETURNING fetch; independent post-write validation excluded"
                     if args.writes
                     else "execute + complete Arrow fetch + independent validation"
