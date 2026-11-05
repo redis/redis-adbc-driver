@@ -63,8 +63,9 @@ workload and performance limits.
 
 [Product usage analytics and feedback](analytics/README.md) helps us understand
 how users use the driver and guide product improvements. Aggregate collection is
-on by default; opt out with `adbc.redis.telemetry.enabled=false`. Sending reports
-requires a configured collector endpoint. Reports exclude SQL text and result values.
+on by default and reports to `https://adbc-telemetry.sa.redislabs.com/v1/usage`;
+opt out with `adbc.redis.telemetry.enabled=false`. Reports exclude SQL text and
+result values. The AWS collector stores analytics in Redis with S3 backups.
 
 
 ## Contents

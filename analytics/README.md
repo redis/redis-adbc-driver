@@ -6,32 +6,49 @@ driver, identify common workloads and reliability issues, and guide product
 improvements. Opt out by setting `adbc.redis.telemetry.enabled` to `false` before
 opening a connection; this disables both collection and reporting.
 
-There is no built-in vendor endpoint. Without a configured collector endpoint,
-usage stays in local in-memory snapshots and is not sent anywhere. Python, SQLAlchemy,
-Superset, Dagster and DuckDB can use the same database options when their
-integration forwards them; the caller supplies the integration label.
+The default reporting endpoint is the AWS collector at
+`https://adbc-telemetry.sa.redislabs.com/v1/usage`, under the `sa.redislabs.com`
+Route 53 zone. Reporting does not require client configuration or a shared
+secret. Python, SQLAlchemy, Superset, Dagster and DuckDB share these options when
+their integration forwards them; the caller supplies the integration label.
+Setting `endpoint` to an empty string keeps collection local without network
+reporting. `REDIS_ADBC_TELEMETRY_DISABLED=true` changes the default to disabled;
+an explicit database `enabled` option takes precedence.
 
 ## Run the collector and dashboard
 
-Requires Python 3.10+ and no third-party packages. From the repository root:
+Requires Python 3.10+, the dependencies in `requirements.txt`, and a dedicated
+Redis database. Redis holds all analytics; no SQLite or RDS database is used.
 
 ```sh
-# Generate two different secrets and store them in your deployment's secret store.
+python3 -m pip install -r analytics/requirements.txt
+export ANALYTICS_REDIS_URL='redis://127.0.0.1:6379/0'
+# Generate two different secrets; do not commit them.
 export ANALYTICS_WRITE_TOKEN="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
 export ANALYTICS_READ_TOKEN="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
-python3 analytics/collector.py --db /private/tmp/redis-adbc-analytics.sqlite3
+python3 analytics/collector.py
 ```
 
-Open <http://127.0.0.1:8787/> and enter the read token. Give reporting clients
-only the write token. The read token protects `/api/summary`; the dashboard shell
-contains no usage data and does not persist the token. `/health` is public.
+Open <http://127.0.0.1:8787/> and enter the read token. The collector binds to
+loopback. `/api/summary` requires the read token; the dashboard shell contains no
+usage data and does not persist the token. `/health` checks Redis availability.
+Self-hosted clients use the write token. The AWS HTTPS proxy injects its private
+write token on public ingestion requests, validates body limits and rate limits
+per IP; clients do not contain a secret. Public reports and labels remain
+unverified and can be spoofed. Tokens are generated on the host, outside Terraform
+state. Access logs are disabled.
 
-This is a small self-hosted collector, using SQLite WAL and Python's HTTP server.
-For a shared deployment, run behind an HTTPS reverse proxy with request timeouts,
-rate limits and restricted dashboard access; bind the backend to loopback.
-Back up the SQLite database, including WAL state using SQLite's backup tooling.
-The server does not log request addresses or tokens. TLS termination and hosting
-are deployment steps; nothing is provisioned or published by this change.
+Redis uses pooled RESP3 connections, per-session WATCH/MULTI retry deduplication,
+a report stream, bounded read pages and indexed download snapshots. The deployment
+uses append-only persistence, `noeviction`, and hourly validated RDB exports to a
+private, encrypted, versioned S3 bucket with 90-day backup retention. Live Redis
+data has no automatic expiry; size the instance as usage grows. The deployment is
+a single server, so it is not highly available. Disk loss can lose up to an hour
+of writes since the last successful S3 backup.
+
+See [Terraform deployment and restore](deploy/README.md) for infrastructure,
+credentials, backup checks and restore instructions. Deployment status is recorded
+there separately from the configuration.
 
 ## Configure reporting or opt out
 
@@ -48,8 +65,6 @@ from adbc_driver_redis import dbapi
 with dbapi.connect(
     os.environ["REDIS_URI"],
     db_kwargs={
-        "adbc.redis.telemetry.endpoint": "http://127.0.0.1:8787/v1/usage",
-        "adbc.redis.telemetry.token": os.environ["ANALYTICS_WRITE_TOKEN"],
         "adbc.redis.telemetry.installation_id": "c2f2a874-fc8f-4214-aada-d265d8fc7233",
         "adbc.redis.telemetry.organization": "Example company",
         "adbc.redis.telemetry.team": "Finance analytics",
@@ -77,7 +92,7 @@ They are exported as Go constants in `usage.go` and Python `DatabaseOptions`.
 | Option suffix after `adbc.redis.telemetry.` | Default | Meaning |
 |---|---|---|
 | `enabled` | `true` | Set `false` to opt out of collection and reporting |
-| `endpoint` | empty | POST destination; empty means local snapshots only |
+| `endpoint` | `https://adbc-telemetry.sa.redislabs.com/v1/usage` | AWS collector; explicitly empty means local snapshots only |
 | `token` | empty | Write bearer token; never returned by GetOption or included in reports |
 | `installation_id` | random per database handle | Supply a persisted random ID for retention/deduplication across restarts |
 | `organization`, `team`, `application`, `environment`, `use_case`, `integration` | empty | Optional labels, each at most 256 UTF-8 bytes |
@@ -87,8 +102,8 @@ They are exported as Go constants in `usage.go` and Python `DatabaseOptions`.
 
 Non-loopback endpoints require HTTPS. URLs cannot contain user info, query strings
 or fragments. Redirects are refused so tokens are not forwarded elsewhere.
-Collection is enabled when `enabled` is omitted. Configuring an endpoint enables
-background reporting unless you opt out. To collect and send nothing:
+Collection and reporting to AWS are enabled when options are omitted. A custom
+endpoint can redirect reports to your own collector. To collect and send nothing:
 
 ```python
 with dbapi.connect(
@@ -159,14 +174,14 @@ database.set_options(**{"adbc.redis.telemetry.flush": "true"})
 ## Download snapshots
 
 ```sh
-# Optional GITHUB_TOKEN increases the API rate limit; never stored in SQLite.
-python3 analytics/downloads.py --db /private/tmp/redis-adbc-analytics.sqlite3 \
+# Optional GITHUB_TOKEN increases the API rate limit; never stored in Redis.
+python3 analytics/downloads.py \
   --repo redis/redis-adbc-driver --package adbc-driver-redis
 ```
 
 Run once daily using your scheduler. This script saves paginated GitHub release
 asset lifetime counters (including per-asset/version data) and PyPI Stats recent
-1/7/30-day counts in the same SQLite database. Each channel is fetched and saved
+1/7/30-day counts in the same Redis database. Each channel is fetched and saved
 independently; partial failures exit nonzero. The dashboard shows recent snapshots.
 GitHub counters include build assets, checksums and possible packaging-job traffic;
 these are not unique installs. Do not add rolling PyPI counts across snapshots or
@@ -181,12 +196,13 @@ References: [PyPI download dataset](https://packaging.python.org/en/latest/guide
 ## Checks
 
 ```sh
-python3 -m unittest discover -s analytics -p 'test_*.py' -v
-cd go && env -u REDIS_URI go test -race -count=1 -p 1 -run '^TestUsage' ./...
+ANALYTICS_TEST_REDIS_URL="$ANALYTICS_REDIS_URL" python3 -m unittest discover -s analytics -p 'test_*.py' -v
+cd go && env -u REDIS_URI REDIS_ADBC_TELEMETRY_DISABLED=true go test -race -count=1 -p 1 -run '^TestUsage' ./...
 ```
 
 These checks cover wire validation, access control, retry/order handling,
 retention, pagination, Arrow reader ownership, cancellation, late errors,
 privacy filtering and concurrent snapshots. The normal Go suite remains the
 regression check for existing driver behavior. Redis-backed tests need a
-dedicated Redis Software database and are skipped without `REDIS_URI`.
+dedicated Redis Software database: collector tests use `ANALYTICS_TEST_REDIS_URL`,
+and Go integration tests use `REDIS_URI`. Unconfigured integration tests skip.

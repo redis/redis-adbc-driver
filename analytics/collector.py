@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
-"""Dependency-free Redis ADBC product usage collector and local dashboard."""
+"""Redis-backed Redis ADBC product usage collector and local dashboard."""
 import argparse
-from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 import hmac
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
 from pathlib import Path
-import sqlite3
+import redis
 from socketserver import TCPServer
 import uuid
 
@@ -95,62 +94,86 @@ def subtract(current, previous):
 
 
 class Store:
-    def __init__(self, path):
-        self.path = str(path)
-        with self.connect() as db:
-            db.executescript('''
-            PRAGMA journal_mode=WAL;
-            CREATE TABLE IF NOT EXISTS sessions(session TEXT PRIMARY KEY, payload TEXT NOT NULL);
-            CREATE TABLE IF NOT EXISTS reports(session TEXT, sequence INTEGER, received_at TEXT, installation TEXT, labels TEXT, delta TEXT, PRIMARY KEY(session, sequence));
-            CREATE INDEX IF NOT EXISTS reports_time ON reports(received_at);
-            CREATE TABLE IF NOT EXISTS downloads(source TEXT, captured_at TEXT, payload TEXT, PRIMARY KEY(source, captured_at));
-            ''')
+    def __init__(self, url, prefix='adbc:{analytics}:'):
+        self.redis = redis.Redis.from_url(
+            url, decode_responses=True, protocol=3, max_connections=32,
+            socket_connect_timeout=2, socket_timeout=5)
+        self.prefix = prefix
+        self.redis.ping()
 
-    @contextmanager
-    def connect(self):
-        db = sqlite3.connect(self.path, timeout=10)
-        try:
-            with db:
-                yield db
-        finally:
-            db.close()
+    def close(self):
+        self.redis.close()
 
-    def ingest(self, payload):
+    def ingest(self, payload, received_at=None):
         p = validate(payload)
-        with self.connect() as db:
-            db.execute('BEGIN IMMEDIATE')
-            row = db.execute('SELECT payload FROM sessions WHERE session=?', (p['session_id'],)).fetchone()
-            old = json.loads(row[0]) if row else {}
-            if old and p['sequence'] <= old['sequence']:
-                return False
-            for k in ['installation_id', 'labels', 'started_at', 'driver_version', 'os', 'arch']:
-                if old and p[k] != old[k]:
-                    raise ValueError('session identity changed')
-            keys = ['connections', 'connection_errors', 'features', 'metrics', 'delivery_failures']
-            delta = subtract({k: p[k] for k in keys}, {k: old[k] for k in keys} if old else {})
-            received = datetime.now(timezone.utc).isoformat()
-            db.execute('INSERT OR REPLACE INTO sessions VALUES(?,?)', (p['session_id'], json.dumps(p)))
-            db.execute('INSERT INTO reports VALUES(?,?,?,?,?,?)', (p['session_id'], p['sequence'], received, p['installation_id'], json.dumps(p['labels']), json.dumps(delta)))
-            return True
+        session = self.prefix + 'session:' + p['session_id']
+        # Optimistic transactions serialize concurrent retries for one session.
+        # The hash tag keeps transaction keys in one slot for future cluster use.
+        for _ in range(32):
+            with self.redis.pipeline() as pipe:
+                try:
+                    pipe.watch(session)
+                    raw = pipe.get(session)
+                    old = json.loads(raw) if raw else {}
+                    if old and p['sequence'] <= old['sequence']:
+                        return False
+                    for k in ['installation_id', 'labels', 'started_at', 'driver_version', 'os', 'arch']:
+                        if old and p[k] != old[k]:
+                            raise ValueError('session identity changed')
+                    keys = ['connections', 'connection_errors', 'features', 'metrics', 'delivery_failures']
+                    delta = subtract({k: p[k] for k in keys}, {k: old[k] for k in keys} if old else {})
+                    received = received_at or datetime.now(timezone.utc)
+                    pipe.multi()
+                    pipe.set(session, json.dumps(p))
+                    pipe.xadd(self.prefix + 'reports', {
+                        'received_at': received.isoformat(), 'installation': p['installation_id'],
+                        'labels': json.dumps(p['labels']), 'delta': json.dumps(delta)})
+                    pipe.sadd(self.prefix + 'versions', p['driver_version'])
+                    pipe.execute()
+                    return True
+                except redis.WatchError:
+                    continue
+        raise redis.exceptions.RedisError('session contention; retry later')
+
+    def save_download(self, payload):
+        member = payload['source'] + ':' + payload['captured_at']
+        with self.redis.pipeline(transaction=True) as pipe:
+            pipe.hset(self.prefix + 'downloads', member, json.dumps(payload))
+            pipe.zadd(self.prefix + 'download-times', {member: timestamp(payload['captured_at']).timestamp()})
+            pipe.execute()
+
+    def reports(self):
+        # Bounded XRANGE pages avoid blocking Redis with the entire report log.
+        cursor = '-'
+        last = self.redis.xrevrange(self.prefix + 'reports', count=1)
+        if not last:
+            return
+        end = last[0][0]
+        while True:
+            page = self.redis.xrange(self.prefix + 'reports', min=cursor, max=end, count=500)
+            if not page:
+                return
+            for _, row in page:
+                yield row
+            cursor = '(' + page[-1][0]
 
     def summary(self):
         now = datetime.now(timezone.utc)
-        cutoff = (now - timedelta(days=28)).isoformat()
-        week = (now - timedelta(days=7)).isoformat()
-        with self.connect() as db:
-            rows = db.execute('SELECT received_at,installation,labels,delta FROM reports ORDER BY received_at').fetchall()
-            sessions = [json.loads(r[0]) for r in db.execute('SELECT payload FROM sessions')]
-            downloads = [json.loads(r[0]) for r in db.execute('SELECT payload FROM downloads ORDER BY captured_at DESC LIMIT 10')]
+        cutoff = now - timedelta(days=28)
+        week = now - timedelta(days=7)
+        members = self.redis.zrevrange(self.prefix + 'download-times', 0, 9)
+        downloads = [json.loads(p) for p in self.redis.hmget(self.prefix + 'downloads', members) if p] if members else []
         orgs, metrics, features, daily, first, activity = {}, {}, {}, {}, {}, {}
         active_week, active_month = set(), set()
         connections = connection_errors = 0
-        for received, install, label_json, delta_json in rows:
-            labels, d = json.loads(label_json), json.loads(delta_json)
+        for row in self.reports():
+            received, install = timestamp(row['received_at']), row['installation']
+            labels, d = json.loads(row['labels']), json.loads(row['delta'])
             attempts = sum(m['attempts'] for m in d['metrics'].values())
             successes = sum(m['success'] for m in d['metrics'].values())
             if successes:
-                first.setdefault(install, timestamp(received))
-                activity.setdefault(install, []).append(timestamp(received))
+                first[install] = min(first.get(install, received), received)
+                activity.setdefault(install, []).append(received)
             if received < cutoff:
                 continue
             connections += d['connections']
@@ -159,7 +182,7 @@ class Store:
                 active_month.add(install)
                 if received >= week:
                     active_week.add(install)
-            day = daily.setdefault(received[:10], {'attempts': 0, 'success': 0})
+            day = daily.setdefault(received.date().isoformat(), {'attempts': 0, 'success': 0})
             day['attempts'] += attempts
             day['success'] += successes
             for k, m in d['metrics'].items():
@@ -187,7 +210,7 @@ class Store:
                 'connections': connections, 'connection_errors': connection_errors,
                 'retention_week4': {'eligible': len(eligible), 'retained': retained, 'rate': retained / len(eligible) if eligible else None},
                 'metrics': metrics, 'features': features, 'daily': daily, 'organizations': list(orgs.values()),
-                'versions': sorted({s['driver_version'] for s in sessions}), 'downloads': downloads,
+                'versions': sorted(self.redis.sscan_iter(self.prefix + 'versions', count=100)), 'downloads': downloads,
                 'latency_bounds_ms': BOUNDS}
 
 
@@ -229,6 +252,8 @@ def handler(store, write_token, read_token):
                 accepted = store.ingest(payload)
             except (ValueError, KeyError, TypeError, AttributeError, OverflowError):
                 return self.reply(400, {'error': 'invalid aggregate report'})
+            except redis.exceptions.RedisError:
+                return self.reply(503, {'error': 'storage unavailable; retry later'})
             self.reply(200, {'accepted': accepted})
 
         def do_GET(self):
@@ -245,25 +270,36 @@ def handler(store, write_token, read_token):
                 self.end_headers()
                 return self.wfile.write(data)
             if self.path == '/health':
+                try:
+                    store.redis.ping()
+                except redis.exceptions.RedisError:
+                    return self.reply(503, {'status': 'storage unavailable'})
                 return self.reply(200, {'status': 'ok'})
             if self.path != '/api/summary':
                 return self.reply(404, {'error': 'not found'})
             if not self.authorized(read_token):
                 return self.reply(401, {'error': 'unauthorized'})
-            self.reply(200, store.summary())
+            try:
+                self.reply(200, store.summary())
+            except redis.exceptions.RedisError:
+                self.reply(503, {'error': 'storage unavailable'})
     return Handler
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--db', default='analytics.sqlite3')
+    parser.add_argument('--redis-url', default=os.environ.get('ANALYTICS_REDIS_URL'),
+                        help='Redis URL (or ANALYTICS_REDIS_URL); use a dedicated database')
     parser.add_argument('--host', default='127.0.0.1')
     parser.add_argument('--port', type=int, default=8787)
     args = parser.parse_args()
     write, read = os.environ.get('ANALYTICS_WRITE_TOKEN'), os.environ.get('ANALYTICS_READ_TOKEN')
     if not write or not read or write == read:
         parser.error('set distinct ANALYTICS_WRITE_TOKEN and ANALYTICS_READ_TOKEN')
-    server = CollectorServer((args.host, args.port), handler(Store(args.db), write, read))
+    if not args.redis_url:
+        parser.error('set ANALYTICS_REDIS_URL or --redis-url')
+    store = Store(args.redis_url)
+    server = CollectorServer((args.host, args.port), handler(store, write, read))
     print(f'Analytics dashboard: http://{args.host}:{args.port}/', flush=True)
     try:
         server.serve_forever()
@@ -271,6 +307,7 @@ def main():
         pass
     finally:
         server.server_close()
+        store.close()
 
 
 if __name__ == '__main__':

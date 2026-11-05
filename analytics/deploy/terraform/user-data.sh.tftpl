@@ -1,0 +1,8 @@
+#!/bin/bash
+set -euo pipefail
+curl --fail --show-error --silent --retry 5 "https://raw.githubusercontent.com/redis/redis-adbc-driver/${source_commit}/analytics/deploy/bootstrap.sh" -o /root/adbc-bootstrap.sh
+export ANALYTICS_HOSTNAME='${hostname}'
+export ANALYTICS_BACKUP_BUCKET='${bucket}'
+export ANALYTICS_SOURCE_COMMIT='${source_commit}'
+export AWS_DEFAULT_REGION='${region}'
+exec bash /root/adbc-bootstrap.sh

@@ -1,0 +1,29 @@
+{
+  "date": "2026-11-05",
+  "base_main": "3aa87e2",
+  "merge_commit": "6d2118c531a101084cbbeb3b5270a91375038f27",
+  "go_command": "env -u REDIS_URI REDIS_ADBC_TELEMETRY_DISABLED=true go test -race -count=1 -p 1 -json ./...",
+  "go_results": {
+    "pass": 1014,
+    "skip": 615
+  },
+  "redis_software": "8.8.0",
+  "qpf": 4,
+  "integration_command": "go test -race -count=1 -p 1 -run '^(TestUsage|TestSQLStream|TestSQLCancel|TestSQLBoundStrings)' -v ./...",
+  "integration_passed": 44,
+  "integration_failed": 0,
+  "integration_skipped": 0,
+  "analytics_tests": {
+    "passed": 9,
+    "skipped": 0,
+    "storage": "isolated Redis Software with verified 4x QPF",
+    "s3": "mocked for backup checks"
+  },
+  "terraform_validate": "passed",
+  "terraform_plan": {
+    "create": 14,
+    "change": 0,
+    "destroy": 0,
+    "applied": false
+  }
+}

@@ -48,17 +48,18 @@ def pypi(package, get=fetch):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--db', default='analytics.sqlite3')
+    parser.add_argument('--redis-url', default=os.environ.get('ANALYTICS_REDIS_URL'))
     parser.add_argument('--repo', default='redis/redis-adbc-driver')
     parser.add_argument('--package', default='adbc-driver-redis')
     args = parser.parse_args()
-    store = Store(args.db)
+    if not args.redis_url:
+        parser.error('set ANALYTICS_REDIS_URL or --redis-url')
+    store = Store(args.redis_url)
     errors = []
     for name, work in [('github', lambda: github(args.repo)), ('pypistats', lambda: pypi(args.package))]:
         try:
             payload = work()
-            with store.connect() as db:
-                db.execute('INSERT OR REPLACE INTO downloads VALUES(?,?,?)', (name, payload['captured_at'], json.dumps(payload)))
+            store.save_download(payload)
             print(json.dumps(payload))
         except (OSError, ValueError, KeyError) as error:
             errors.append(f'{name}: {type(error).__name__}')

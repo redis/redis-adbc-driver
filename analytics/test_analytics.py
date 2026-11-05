@@ -1,9 +1,9 @@
 """Protocol, aggregation, access control and download pagination regressions."""
 import copy
+import os
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 import json
-from pathlib import Path
-import tempfile
 import threading
 import unittest
 import urllib.error
@@ -29,11 +29,22 @@ def report(attempts=1, success=1):
 
 class AnalyticsTests(unittest.TestCase):
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory()
-        self.addCleanup(self.directory.cleanup)
-        self.store = Store(Path(self.directory.name) / 'analytics.sqlite3')
+        self.store = None
+        if 'ANALYTICS_TEST_REDIS_URL' in os.environ:
+            self.store = Store(os.environ['ANALYTICS_TEST_REDIS_URL'], prefix='adbc:{analytics-test-' + uuid.uuid4().hex + '}:')
+            self.addCleanup(self.cleanup_store)
+
+    def cleanup_store(self):
+        for key in self.store.redis.scan_iter(match=self.store.prefix + '*', count=100):
+            self.store.redis.unlink(key)
+        self.store.close()
+
+    def require_store(self):
+        if self.store is None:
+            self.skipTest('set ANALYTICS_TEST_REDIS_URL to a dedicated Redis database')
 
     def test_cumulative_retry_restart_and_out_of_order(self):
+        self.require_store()
         p = report()
         self.assertTrue(self.store.ingest(p))
         self.assertFalse(self.store.ingest(p))
@@ -80,17 +91,17 @@ class AnalyticsTests(unittest.TestCase):
                 validate(p)
 
     def test_retention_needs_full_window_and_success(self):
+        self.require_store()
         now = datetime.now(timezone.utc)
         for install, days in [('retained', [42, 12]), ('lost', [42]), ('young', [20])]:
             for age in days:
                 p = report(); p['installation_id'] = install
-                self.store.ingest(p)
-                with self.store.connect() as db:
-                    db.execute('UPDATE reports SET received_at=? WHERE session=?', ((now-timedelta(days=age)).isoformat(), p['session_id']))
+                self.store.ingest(p, received_at=now-timedelta(days=age))
         r = self.store.summary()['retention_week4']
         self.assertEqual(r, {'eligible': 2, 'retained': 1, 'rate': .5})
 
     def test_http_auth_and_rejection(self):
+        self.require_store()
         server = CollectorServer(('127.0.0.1', 0), handler(self.store, 'write', 'read'))
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
@@ -123,6 +134,21 @@ class AnalyticsTests(unittest.TestCase):
             request('/../collector.py')
         self.assertEqual(ctx.exception.code, 404)
         ctx.exception.close()
+
+    def test_concurrent_retries_are_counted_once(self):
+        self.require_store()
+        p = report()
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            accepted = list(pool.map(lambda _: self.store.ingest(copy.deepcopy(p)), range(24)))
+        self.assertEqual(sum(accepted), 1)
+        self.assertEqual(self.store.summary()['metrics']['select']['attempts'], 1)
+
+    def test_download_snapshots_roundtrip(self):
+        self.require_store()
+        p = dict(source='github', captured_at=datetime.now(timezone.utc).isoformat(), total_asset_downloads=10)
+        self.store.save_download(p)
+        self.store.save_download(p)
+        self.assertEqual(self.store.summary()['downloads'], [p])
 
     def test_download_asset_pagination(self):
         calls = []

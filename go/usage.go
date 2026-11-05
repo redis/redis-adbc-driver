@@ -13,6 +13,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"runtime"
 	"strings"
 	"sync"
@@ -25,6 +26,7 @@ import (
 )
 
 const usagePrefix = "adbc.redis.telemetry."
+const defaultUsageEndpoint = "https://adbc-telemetry.sa.redislabs.com/v1/usage"
 const (
 	OptionStringTelemetryEnabled        = usagePrefix + "enabled"
 	OptionStringTelemetryEndpoint       = usagePrefix + "endpoint"
@@ -87,10 +89,15 @@ type usageState struct {
 func usageDefault(key string) (string, bool) {
 	switch key {
 	case OptionStringTelemetryEnabled:
+		if v := os.Getenv("REDIS_ADBC_TELEMETRY_DISABLED"); v == "1" || strings.EqualFold(v, "true") {
+			return "false", true
+		}
 		return "true", true
 	case OptionStringTelemetryInterval:
 		return "60s", true
-	case OptionStringTelemetryEndpoint, OptionStringTelemetryToken, OptionStringTelemetryInstallationID,
+	case OptionStringTelemetryEndpoint:
+		return defaultUsageEndpoint, true
+	case OptionStringTelemetryToken, OptionStringTelemetryInstallationID,
 		OptionStringTelemetryOrganization, OptionStringTelemetryTeam, OptionStringTelemetryApplication,
 		OptionStringTelemetryEnvironment, OptionStringTelemetryUseCase, OptionStringTelemetryIntegration:
 		return "", true
@@ -165,7 +172,11 @@ func (s *usageState) start() (*usageTelemetry, error) {
 	}
 	s.started = true
 	// Collection is opt-out, including for a zero-value usageState.
-	if s.options[OptionStringTelemetryEnabled] == "false" {
+	enabled, ok := s.options[OptionStringTelemetryEnabled]
+	if !ok {
+		enabled, _ = usageDefault(OptionStringTelemetryEnabled)
+	}
+	if enabled == "false" {
 		return nil, nil
 	}
 	labels := map[string]string{}
@@ -183,7 +194,11 @@ func (s *usageState) start() (*usageTelemetry, error) {
 		interval, _ = time.ParseDuration(v)
 	}
 	now := time.Now().UTC()
-	t := &usageTelemetry{endpoint: s.options[OptionStringTelemetryEndpoint], token: s.options[OptionStringTelemetryToken], stop: make(chan struct{}), done: make(chan struct{}), wake: make(chan struct{}, 1), interval: interval,
+	endpoint, configured := s.options[OptionStringTelemetryEndpoint]
+	if !configured {
+		endpoint, _ = usageDefault(OptionStringTelemetryEndpoint)
+	}
+	t := &usageTelemetry{endpoint: endpoint, token: s.options[OptionStringTelemetryToken], stop: make(chan struct{}), done: make(chan struct{}), wake: make(chan struct{}, 1), interval: interval,
 		client: &http.Client{Timeout: 2 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }},
 		data:   usageSnapshot{SchemaVersion: 1, SessionID: uuid.NewString(), InstallationID: id, StartedAt: now, DriverVersion: "unknown", OS: runtime.GOOS, Arch: runtime.GOARCH, Labels: labels, Features: map[string]int64{}, Metrics: map[string]*usageMetric{}, LatencyBounds: usageLatencyBounds}}
 	s.reporter = t

@@ -12,6 +12,8 @@ query behavior, Arrow ownership, cancellation and customer data confidentiality.
 Company labels are self-reported; company inference and verified customer account
 mapping require external identity sources and are outside this implementation.
 Collection defaults on; users can disable it explicitly. No raw SQL collection,
-remote provisioning or publishing.
+release publishing. The user requested a new AWS HTTPS collector with Route 53,
+Redis storage and S3 backups, provisioned through Terraform. The intermediate
+RDS request was canceled before any resources were created.
 
 Updated 2026-11-05 at the request of Albert Wong in [PR #244](https://github.com/redis/redis-adbc-driver/pull/244).

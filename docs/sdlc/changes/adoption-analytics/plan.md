@@ -96,8 +96,40 @@ workloads, reliability and the product. Preserve the payload exclusions.
    regression: `env -u REDIS_URI go test -race -count=1 -p 1 -json ./...`
    passed: 653 passing test cases, 572 environment-dependent skips, no failures.
    Evidence: [go-tests.json](evidence/opt-out-go-tests.json). `git diff --check` passed.
-5. Route 53 endpoint requested; hostname and collector target pending clarification.
+5. Route 53 endpoint selected: `https://adbc-telemetry.sa.redislabs.com/v1/usage`.
+   Terraform deployment prepared; exact-resource approval pending.
 
 Review: opt-out returns before reporter allocation or background network startup;
 endpoint configuration alone enables reporting. No changes to wire fields, label
 handling, redirect rejection, TLS requirements or Arrow ownership.
+
+
+## Latest main, Redis storage and Terraform (2026-11-05)
+
+Merged public main `3aa87e2` in `6d2118c`; resolved README and database/connection
+field and Close conflicts by retaining telemetry and RBAC cleanup. No RDS was
+created; the user canceled that storage choice and requested Redis with S3 backups.
+
+- Default driver reports go to the AWS hostname, with no required client secret.
+  Explicit empty endpoint selects local snapshots; explicit `enabled=false` opts
+  out. Environment opt-out is available for applications and regression tests.
+- Replaced SQLite with pooled RESP3 Redis storage, WATCH/MULTI deduplication,
+  report stream pagination and download indexes. Storage failures return 503.
+- Terraform prepares 14 AWS resources, including a private versioned/encrypted
+  S3 bucket and prefix-scoped upload role. No resources were created during plan.
+- Host bootstrap configures private Redis with AOF/noeviction, authenticated
+  local collector, public rate-limited HTTPS proxy, protected dashboard reads,
+  automatic TLS renewal and hourly checked RDB-to-S3 backups. Restore validates
+  checksum/size/RDB and refuses to overwrite a file. Secrets stay on the host.
+- Latest-main Go unit race suite: 1014 passes, 615 environment-dependent skips,
+  no failures. Dedicated Redis Software 8.8.0 with verified 4x QPF: 44 focused
+  telemetry/streaming/cancellation test cases passed, no skips or race findings.
+- Redis collector and backup tests: 9 passed, no skips. S3 calls mocked for these
+  tests; Redis storage used the dedicated Software fixture. Terraform validation
+  and read-only plan passed; formatting, Python compilation and shell syntax pass.
+- Evidence: [redis-terraform-validation.json](evidence/redis-terraform-validation.json).
+
+Deployment awaits explicit approval of the reviewed resource settings following
+an automatic approval-review rejection of an earlier provisioning command. That
+command was never executed. Final deployment verification must include DNS/TLS,
+HTTP ingestion, dashboard authentication, Redis persistence and a real S3 backup.

@@ -4,8 +4,11 @@ Date: 2026-10-29. Source: public main `820d5af`.
 [Intent](intent.md), [plan and verification](plan.md).
 
 - Collection defaults on (updated 2026-11-05); `enabled=false` disables collection
-  and reporting even with a configured endpoint. Without an endpoint, only local
-  snapshots are collected. Product usage feedback informs product improvement.
+  and reporting even with a configured endpoint. The default AWS endpoint is
+  `https://adbc-telemetry.sa.redislabs.com/v1/usage`; explicitly empty endpoints
+  keep snapshots local. `REDIS_ADBC_TELEMETRY_DISABLED=true` changes the enabled
+  default, with explicit options taking precedence. Product usage feedback informs
+  product improvement.
   Immutable database-level configuration after first Open, shared across connections.
 - Count ADBC ExecuteQuery/ExecuteUpdate calls, not individual statements within
   scripts/parameter batches. Distinguish type, success/error/cancellation/abandonment,
@@ -20,9 +23,12 @@ Date: 2026-10-29. Source: public main `820d5af`.
   Unsent reports can be lost at process exit. An explicit database flush operation
   synchronously reports for short-lived clients; failure is returned only to that
   caller. No telemetry delivery failure changes query results.
-- Versioned cumulative session snapshots with sequence numbers. SQLite collector
+- Versioned cumulative session snapshots with sequence numbers. Redis collector
   validates schema, monotonic counters, bounded labels, histogram consistency and
-  stable session identity; ignores retries/old reports and aggregates deltas.
+  stable session identity; WATCH/MULTI serializes retries and aggregates deltas.
+  Redis stores session snapshots, a report stream and download indexes. No SQL
+  storage is used. AOF and hourly validated RDB snapshots to private encrypted S3
+  provide persistence and disaster recovery. Terraform provisions AWS resources.
 - Separate write/read tokens; dashboard uses text rendering for untrusted labels.
   Identity labels are self-reported; time windows reflect UTC receipt dates.
 - Dashboard shows 7/28-day installation activity, organizations, teams, query mix,

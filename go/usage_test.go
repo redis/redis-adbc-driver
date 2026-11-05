@@ -26,7 +26,11 @@ func usageForTest(t *testing.T, opts map[string]string) (*usageState, *usageTele
 	t.Helper()
 	s := &usageState{}
 	if opts == nil {
-		opts = map[string]string{}
+		opts = map[string]string{OptionStringTelemetryEnabled: "true"}
+	}
+	// Never deliver synthetic test reports to the production collector.
+	if _, ok := opts[OptionStringTelemetryEndpoint]; !ok {
+		opts[OptionStringTelemetryEndpoint] = ""
 	}
 	for k, v := range opts {
 		if err := s.set(k, v); err != nil {
@@ -62,6 +66,10 @@ func usageStatement(t *testing.T, u *usageTelemetry, query string) *statementImp
 	return &statementImpl{conn: c, query: query, StatementImplBase: driverbase.NewStatementImplBase(&c.ConnectionImplBase, c.ErrorHelper)}
 }
 func TestUsageOptOutDefaults(t *testing.T) {
+	t.Setenv("REDIS_ADBC_TELEMETRY_DISABLED", "")
+	if got, _ := usageDefault(OptionStringTelemetryEndpoint); got != defaultUsageEndpoint {
+		t.Fatalf("default endpoint: %s", got)
+	}
 	for _, enabled := range []string{"", "true"} {
 		t.Run("enabled="+enabled, func(t *testing.T) {
 			opts := map[string]string{}
@@ -89,6 +97,21 @@ func TestUsageOptOutDefaults(t *testing.T) {
 				t.Fatal("reporter started without an endpoint")
 			}
 		})
+	}
+}
+
+func TestUsageEnvironmentOptOut(t *testing.T) {
+	t.Setenv("REDIS_ADBC_TELEMETRY_DISABLED", "true")
+	s, u := usageForTest(t, map[string]string{})
+	if u != nil {
+		t.Fatal("environment opt-out ignored")
+	}
+	if got, _ := s.get(OptionStringTelemetryEnabled); got != "false" {
+		t.Fatalf("environment opt-out readback: %s", got)
+	}
+	_, explicit := usageForTest(t, map[string]string{OptionStringTelemetryEnabled: "true"})
+	if explicit == nil {
+		t.Fatal("explicit database option must override environment default")
 	}
 }
 
@@ -239,6 +262,7 @@ func TestUsageFeaturesAndConcurrency(t *testing.T) {
 	}
 }
 func TestUsageReportingRetriesAndNoRedirect(t *testing.T) {
+	t.Setenv("REDIS_ADBC_TELEMETRY_DISABLED", "")
 	var calls atomic.Int64
 	got := make(chan usageSnapshot, 8)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -298,7 +322,7 @@ func TestUsageRedisIntegration(t *testing.T) {
 		t.Skip("set REDIS_URI to a disposable Redis Software database")
 	}
 	ctx := context.Background()
-	opts := map[string]string{adbc.OptionKeyURI: uri, OptionStringTelemetryEnabled: "true", OptionStringTelemetryInstallationID: "integration-test"}
+	opts := map[string]string{adbc.OptionKeyURI: uri, OptionStringTelemetryEnabled: "true", OptionStringTelemetryInstallationID: "integration-test", OptionStringTelemetryEndpoint: ""}
 	if endpoint := os.Getenv("REDIS_ADBC_TEST_TELEMETRY_ENDPOINT"); endpoint != "" {
 		opts[OptionStringTelemetryEndpoint] = endpoint
 		opts[OptionStringTelemetryToken] = os.Getenv("REDIS_ADBC_TEST_TELEMETRY_TOKEN")
