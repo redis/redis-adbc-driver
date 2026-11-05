@@ -23,19 +23,21 @@ const snapshotCompactionBatchBytes = 1 << 20
 const snapshotCompactionStepTimeout = 2 * time.Second
 
 type snapshotCompactionJob struct {
-	QueueOID     string     `json:"queue_oid"`
-	QueueKey     string     `json:"queue_key"`
-	QueueVersion string     `json:"queue_version"`
-	ID           string     `json:"id"`
-	Token        string     `json:"token"`
-	Data         string     `json:"data"`
-	Prefix       string     `json:"prefix"`
-	Source       *tableMeta `json:"source"`
-	References   []string   `json:"references"`
-	After        string     `json:"after"`
-	Phase        string     `json:"phase"`
-	LastError    string     `json:"last_error,omitempty"`
-	Rows         int64      `json:"rows"`
+	QueueOID     string                         `json:"queue_oid"`
+	QueueKey     string                         `json:"queue_key"`
+	QueueVersion string                         `json:"queue_version"`
+	ID           string                         `json:"id"`
+	Token        string                         `json:"token"`
+	Data         string                         `json:"data"`
+	Prefix       string                         `json:"prefix"`
+	Source       *tableMeta                     `json:"source"`
+	References   []string                       `json:"references"`
+	After        string                         `json:"after"`
+	Phase        string                         `json:"phase"`
+	LastError    string                         `json:"last_error,omitempty"`
+	Rows         int64                          `json:"rows"`
+	CopyBatch    *snapshotCompactionCopyOutcome `json:"copy_batch,omitempty"`
+	CopyPending  *snapshotCompactionCopyOutcome `json:"copy_pending,omitempty"`
 }
 type snapshotCompactor struct {
 	store  *store
@@ -186,6 +188,24 @@ func validateSnapshotCompactionJob(j *snapshotCompactionJob) error {
 			return errorf(adbc.StatusIO, "invalid durable compaction checkpoint")
 		}
 	}
+	for _, outcome := range []*snapshotCompactionCopyOutcome{j.CopyBatch, j.CopyPending} {
+		if outcome == nil {
+			continue
+		}
+		canonical := func(value string) bool {
+			n, err := strconv.ParseInt(value, 10, 64)
+			return err == nil && n > 0 && fmt.Sprintf("%020d", n) == value
+		}
+		if !valid(outcome.ID) || !canonical(outcome.After) || (outcome.Before != "" && !canonical(outcome.Before)) || outcome.After <= outcome.Before || outcome.Rows < 0 || outcome.Rows > snapshotCompactionBatchRows {
+			return errorf(adbc.StatusIO, "invalid compaction copy outcome")
+		}
+	}
+	if j.CopyBatch != nil && j.CopyBatch.After > j.After {
+		return errorf(adbc.StatusIO, "compaction outcome exceeds checkpoint")
+	}
+	if j.CopyPending != nil && (j.Phase != "copy" || j.CopyPending.Before != j.After) {
+		return errorf(adbc.StatusIO, "invalid incomplete compaction copy")
+	}
 	return nil
 }
 
@@ -301,8 +321,9 @@ func (s *store) snapshotCompactionStep(ctx context.Context, token string) (progr
 	}
 	defer func() {
 		if err != nil && ctx.Err() == nil {
-			j.LastError = err.Error()
-			_ = s.checkpointSnapshotCompaction(ctx, j)
+			// Preserve a checkpoint that may have committed before its reply was
+			// lost. Logging must never write our stale local job over it.
+			_ = s.snapshotControl(ctx, "compact_error", j.Token, j.ID, "", err.Error()).Err()
 		}
 	}()
 	_, obsolete, err := s.snapshotCompactionCurrent(ctx, j)
@@ -348,28 +369,31 @@ func (s *store) copySnapshotCompactionBatch(ctx context.Context, j *snapshotComp
 	if err != nil {
 		return err
 	}
-	p := s.redis(wctx).Pipeline()
+	var images []snapshotInsertRow
 	bytes := 0
 	after := scan.last
 	for i, row := range rows {
 		id := strings.TrimPrefix(keys[i], j.Source.prefix())
-		size := len(j.Prefix+id) + 128
+		key := j.Prefix + id
+		fields := []any{rowIDField, row[rowIDField]}
 		for field, value := range row {
-			size += len(field) + len(value)
+			if field != rowIDField {
+				fields = append(fields, field, value)
+			}
+		}
+		member := snapshotDirectoryMember(key)
+		size := len(key) + len(member) + len(strconv.Itoa(len(fields)))
+		for _, field := range fields {
+			size += len(field.(string))
 		}
 		if i > 0 && bytes+size > snapshotCompactionBatchBytes {
 			after = snapshotDirectoryMember(keys[i-1])
 			break
 		}
 		bytes += size
-		p.HSet(wctx, j.Prefix+id, map[string]string(row))
+		images = append(images, snapshotInsertRow{key: key, member: member, fields: fields})
 	}
-	if _, err := p.Exec(wctx); err != nil {
-		return wrapRedis(err, "background compaction batch failed")
-	}
-	j.After = after
-	j.LastError = ""
-	return s.checkpointSnapshotCompaction(ctx, j)
+	return s.commitSnapshotCompactionCopy(ctx, j, after, images)
 }
 func (s *store) indexSnapshotCompaction(ctx context.Context, j *snapshotCompactionJob) (bool, error) {
 	output := *j.Source

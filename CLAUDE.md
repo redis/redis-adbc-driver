@@ -146,7 +146,11 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.27.3).
   or Arrow consumption. Gate waiting honors cancellation; never replay inputs.
   Stores without workers retain explicit backpressure. Preserve
   durable copy checkpoints, lease/phase fences, and source/output references even
-  across expired worker leases. Installation grafts only the original prefix and
+  across expired worker leases. Compaction commits bounded complete images,
+  directory registration and checkpoint together; incomplete batches retain a
+  durable marker until repair and cannot advance through metadata checkpoints.
+  Resolve unknown replies from durable progress without resending mutations;
+  error logging must never overwrite completed progress with a stale job. Installation grafts only the original prefix and
   respects write intents plus its short admission gate. Close/join workers before
   closing connection resources; old segments stay pinned. Track execution
   completion separately from socket interruption: Close must leave the maintenance

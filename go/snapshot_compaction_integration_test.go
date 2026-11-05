@@ -342,6 +342,26 @@ type snapshotCompactionBatchTracker struct {
 	maxRows, totalRows, maxBytes int
 }
 
+func (h *snapshotCompactionBatchTracker) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
+	return func(ctx context.Context, cmd goredis.Cmder) error {
+		a := cmd.Args()
+		if len(a) > 2 && cmd.Name() == "eval" && strings.Contains(fmt.Sprint(a[1]), "snapshot atomic compaction copy batch") {
+			var keys int
+			fmt.Sscan(fmt.Sprint(a[2]), &keys)
+			rows, bytes := keys-3, 0
+			for _, key := range a[6 : 3+keys] {
+				bytes += len(fmt.Sprint(key))
+			}
+			for _, arg := range a[3+keys+7:] {
+				bytes += len(fmt.Sprint(arg))
+			}
+			h.totalRows += rows
+			h.maxRows = max(h.maxRows, rows)
+			h.maxBytes = max(h.maxBytes, bytes)
+		}
+		return next(ctx, cmd)
+	}
+}
 func (h *snapshotCompactionBatchTracker) ProcessPipelineHook(next goredis.ProcessPipelineHook) goredis.ProcessPipelineHook {
 	return func(ctx context.Context, cmds []goredis.Cmder) error {
 		rows, bytes := 0, 0
@@ -425,6 +445,17 @@ type snapshotPauseCompaction struct {
 	once    sync.Once
 }
 
+func (h *snapshotPauseCompaction) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
+	return func(ctx context.Context, cmd goredis.Cmder) error {
+		if compactionPhysicalCopyRows(cmd) >= 0 {
+			h.once.Do(func() { close(h.reached) })
+			<-ctx.Done()
+			cmd.SetErr(ctx.Err())
+			return ctx.Err()
+		}
+		return next(ctx, cmd)
+	}
+}
 func (h *snapshotPauseCompaction) ProcessPipelineHook(next goredis.ProcessPipelineHook) goredis.ProcessPipelineHook {
 	return func(ctx context.Context, cmds []goredis.Cmder) error {
 		for _, cmd := range cmds {

@@ -330,10 +330,20 @@ writer in the gap before workspace reservation.
 
 One durable job per catalog records its source segments, output identity, last
 completed row ID, phase and last recorded error. Source/output references survive
-worker lease expiration. Another managed connection resumes after cooperative
-release or crash-lease expiration; repeated copies after an uncertain reply are
-idempotent. Connection close stops its worker and releases ownership when
-reachable. With all connections closed, progress waits for the next open.
+worker lease expiration. Each copy command preflights the entire bounded batch,
+registers its output rows, writes their complete images and advances the source
+checkpoint in one Lua invocation. A pending marker retains discoverable partial
+output after an unexpected script runtime failure; incomplete batches cannot enter
+indexing. Checkpoints cannot rewind completed progress. Recording an error updates
+only the durable error field, preserving any progress committed before a lost reply.
+
+An uncertain copy reply is resolved by reading the durable checkpoint, without
+resending the mutation. Another managed connection resumes after cooperative
+release or crash-lease expiration; it can repair registered incomplete images from
+the retained immutable source. These optional job outcome fields retain storage
+protocol 15. This recovery does not resume public SQL plans or unread Arrow input.
+Connection close stops its worker and releases ownership when reachable. With all
+connections closed, progress waits for the next open.
 
 When copying finishes, the output is sealed against further row mutations before
 its index is built and validated. Publication replaces only the compacted prefix,

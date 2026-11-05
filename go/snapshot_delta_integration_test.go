@@ -6,7 +6,6 @@ package redis
 import (
 	"context"
 	"fmt"
-	"io"
 	"strings"
 	"testing"
 
@@ -292,26 +291,14 @@ type snapshotFailCompaction struct {
 	prefix string
 }
 
-func (h *snapshotFailCompaction) ProcessPipelineHook(next goredis.ProcessPipelineHook) goredis.ProcessPipelineHook {
-	return func(ctx context.Context, cmds []goredis.Cmder) error {
-		err := next(ctx, cmds)
-		if err != nil || h.prefix != "" {
-			return err
+func (h *snapshotFailCompaction) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
+	partial := &compactionPartialCopyHook{}
+	inject := partial.ProcessHook(next)
+	return func(ctx context.Context, cmd goredis.Cmder) error {
+		if compactionPhysicalCopyRows(cmd) > 0 && h.prefix == "" {
+			h.prefix = snapshotRowPrefix(fmt.Sprint(cmd.Args()[6]))
 		}
-		for _, cmd := range cmds {
-			if wrapped, ok := cmd.(snapshotFencedCommand); ok {
-				cmd = wrapped.Cmder
-			}
-			a := cmd.Args()
-			if len(a) > 1 && strings.EqualFold(fmt.Sprint(a[0]), "HSET") && snapshotRowPrefix(fmt.Sprint(a[1])) != "" {
-				h.prefix = snapshotRowPrefix(fmt.Sprint(a[1]))
-				for _, c := range cmds {
-					c.SetErr(io.ErrUnexpectedEOF)
-				}
-				return io.ErrUnexpectedEOF
-			}
-		}
-		return nil
+		return inject(ctx, cmd)
 	}
 }
 func TestSnapshotDeltaFailedCompactionDoesNotPublish(t *testing.T) {

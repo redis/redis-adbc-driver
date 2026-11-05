@@ -613,3 +613,8 @@ performance-parity gate. Attribute admission/maintenance stalls next, including
 per-row compaction scripts and repeated full-prefix copies; do not hide them
 with larger limits or caller SQL retries. All raw samples and failed-tail result
 remain published.
+
+The [atomic compaction copy checkpoint](atomic-compaction-copy.md) replaces
+per-row copy mutations with bounded atomic images/checkpoints, preserves partial
+output recovery and prevents stale error/checkpoint rewinds. Full validation and
+fresh sustained-write comparisons remain pending.

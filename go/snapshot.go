@@ -160,7 +160,7 @@ elseif op == 'compact_acquire' then
   local result = cjson.encode(job)
   redis.call('HSET', k, 'w:'..job.id,cjson.encode(w),'compaction',result)
   return result
-elseif op == 'compact_checkpoint' or op == 'compact_release' or op == 'compact_finish' then
+elseif op == 'compact_checkpoint' or op == 'compact_error' or op == 'compact_release' or op == 'compact_finish' then
   local raw = redis.call('HGET', k, 'compaction')
   if not raw then return 0 end
   local job = cjson.decode(raw)
@@ -169,9 +169,19 @@ elseif op == 'compact_checkpoint' or op == 'compact_release' or op == 'compact_f
   local w = cjson.decode(wr)
   if w.state ~= 'compacting' or w.token ~= token or w.expires <= now then return 0 end
   if op == 'compact_checkpoint' then
+    local update=cjson.decode(ARGV[6])
+    local phases={copy=1,index=2,install=3}
+    local prior_phase,next_phase=phases[job.phase],phases[update.phase]
+    if update.id~=job.id or update.token~=token or update.data~=job.data or update.prefix~=job.prefix or
+       not prior_phase or not next_phase or next_phase<prior_phase or next_phase>prior_phase+1 or
+       type(update.after)~='string' or update.after<(job.after or '') or
+       job.copy_pending then return 0 end
     w.expires = expiry
-    if cjson.decode(ARGV[6]).phase == 'install' then w.publish_until = now + 5000 end
+    if update.phase == 'install' then w.publish_until = now + 5000 end
     redis.call('HSET', k, 'compaction',ARGV[6],'w:'..id,cjson.encode(w))
+  elseif op == 'compact_error' then
+    job.last_error=ARGV[6]
+    redis.call('HSET',k,'compaction',cjson.encode(job))
   elseif op == 'compact_release' then
     w.expires, w.publish_until = 0, 0
     redis.call('HSET', k, 'w:'..id,cjson.encode(w))
