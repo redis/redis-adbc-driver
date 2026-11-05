@@ -4,7 +4,9 @@ Status (2026-11-05): deployed through Terraform after explicit approval.
 No RDS resources are included or were created.
 
 - Collector: `i-0a0f07f12f13d4b52` (`100.29.239.174`).
-- Application source: `be6c31ed026e9f915615fa4da29c5dfc21e620b0`.
+- Initial bootstrap source: `be6c31ed026e9f915615fa4da29c5dfc21e620b0`.
+- Current dashboard/collector source: `34a557a29de96dd8f6c41572b406f34e3cd507e4`
+  (updated through SSM without resource replacement or token rotation).
 - DNS/TLS and the health endpoint passed; collector, Redis and nginx are active.
 - Backup and TLS-renewal timers are enabled. A real S3 RDB backup was downloaded,
   checksum-verified, checked with `redis-check-rdb`, and loaded in an isolated Redis

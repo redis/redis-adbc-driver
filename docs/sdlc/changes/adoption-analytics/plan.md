@@ -199,3 +199,13 @@ Client hostname, public source and saved-file ID status reach the dashboard.
 A real background PTR lookup resolves 8.8.8.8 to dns.google. The existing read
 token still works. Delivery failures now include safe HTTP status information,
 without response bodies, SQL, tokens or raw transport errors.
+
+
+Final dashboard revision deployed at `34a557a29de96dd8f6c41572b406f34e3cd507e4`.
+Browser inspection verified the distinct-ID label and explanation, saved-local ID
+classification, both source hostname and real public PTR, SELECT filtering, and
+per-execution input/returned counts. A filtered SELECT returns three candidates
+and three output rows; index population remains unknown for that particular plan
+rather than borrowing another statement's measurement. Validation screenshots
+were captured before removing labeled smoke data; other sources were preserved.
+No new AWS resources were required and the dashboard read token was preserved.

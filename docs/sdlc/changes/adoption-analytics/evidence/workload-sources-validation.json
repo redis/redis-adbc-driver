@@ -39,6 +39,9 @@
     "public_egress_present": true,
     "saved_id_status_present": true,
     "background_ptr_check": "dns.google for 8.8.8.8",
-    "read_token_preserved": true
+    "read_token_preserved": true,
+    "deployed_source": "34a557a29de96dd8f6c41572b406f34e3cd507e4",
+    "filtered_select_returned": 3,
+    "application_update": "passed; pre-update S3 backup and existing token preserved"
   }
 }
