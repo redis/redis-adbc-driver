@@ -82,3 +82,19 @@ confirms this outcome while other jobs are still running. Thus pre-clone orphan
 reclamation does **not** resolve the hosted capacity failure. The remaining
 mechanism needs a separate deterministic reproduction; local focused/full
 snapshot passes must not be used as proof that this failure is fixed.
+
+The terminal amd64 job in [Test at 83a9dcd](https://github.com/redis/redis-adbc-driver/actions/runs/42087730073)
+again fails the same first COMMENT staging race with the generation-limit-16
+refusal in 0.10 s, despite the concurrent-retirement fix. Other jobs were still
+pending at observation. The local 2be297e ordinary run passes that COMMENT case
+within its broader sequence but is not yet terminal. The additional reproduced
+mechanisms therefore do not establish the cause of this hosted failure.
+
+Failure-only staging diagnostics now read Redis time and control records and
+report bounded counts of states, live pins, distinct pinned roots, unowned
+private work, old unpinned committed generations and remaining lease ranges.
+They do not print UUIDs, physical keys, metadata contents, SQL, endpoints or
+credentials, change Redis state, broaden permissions or mask the original
+failure. These observations are not one atomic catalog snapshot. Their purpose
+is to distinguish retained live work/pins from a reclaimable admission race in
+the next actual failure, before making another ownership change.

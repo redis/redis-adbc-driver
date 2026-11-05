@@ -26,6 +26,7 @@ func snapshotStageSQL(t *testing.T, s *store, ctx context.Context, target, sql s
 	}
 	wctx, id, err := s.beginSnapshotWrite(base, pin)
 	if err != nil {
+		snapshotAdmissionDiagnostics(t, s, ctx)
 		pin.release()
 		t.Fatal(err)
 	}

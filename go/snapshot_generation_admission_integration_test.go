@@ -52,6 +52,95 @@ func snapshotWorkCount(t *testing.T, s *store, ctx context.Context) int {
 	return n
 }
 
+// Failure-only diagnostics report counts and lease ranges, never physical IDs,
+// keys, SQL, values, credentials or endpoints. Keep the original failure intact.
+func snapshotAdmissionDiagnostics(t *testing.T, s *store, ctx context.Context) {
+	t.Helper()
+	now, err := s.client.Time(ctx).Result()
+	if err != nil {
+		t.Log("snapshot admission diagnostics: server clock unavailable")
+		return
+	}
+	entries, err := s.client.HGetAll(ctx, snapshotCatalogKey).Result()
+	if err != nil {
+		t.Log("snapshot admission diagnostics: control records unavailable")
+		return
+	}
+	type record struct {
+		Root          string `json:"root"`
+		Base          string `json:"base"`
+		Token         string `json:"token"`
+		State         string `json:"state"`
+		Expires       int64  `json:"expires"`
+		Writing       bool   `json:"writing"`
+		MetadataReady bool   `json:"metadata_ready"`
+	}
+	stats := map[string]int64{}
+	owners, protected := map[string]string{}, map[string]bool{}
+	for field, value := range entries {
+		if !strings.HasPrefix(field, "p:") {
+			continue
+		}
+		var pin record
+		if json.Unmarshal([]byte(value), &pin) != nil {
+			stats["invalid_pin_records"]++
+			continue
+		}
+		if pin.Expires <= now.UnixMilli() {
+			stats["expired_pins"]++
+			continue
+		}
+		stats["live_pins"]++
+		if pin.Writing {
+			stats["live_writing_pins"]++
+		}
+		owners[strings.TrimPrefix(field, "p:")] = pin.Root
+		protected[pin.Root] = true
+	}
+	stats["distinct_pinned_roots"] = int64(len(protected))
+	for field, value := range entries {
+		if !strings.HasPrefix(field, "w:") {
+			continue
+		}
+		stats["workspaces"]++
+		var work record
+		if json.Unmarshal([]byte(value), &work) != nil {
+			stats["invalid_work_records"]++
+			continue
+		}
+		state := work.State
+		switch state {
+		case "staging", "sealed", "committed", "deleting", "compacting":
+		default:
+			state = "other"
+		}
+		stats["state_"+state]++
+		if state == "committed" && strings.TrimPrefix(field, "w:") != entries["root"] && !protected[strings.TrimPrefix(field, "w:")] {
+			stats["unpinned_old_committed"]++
+		}
+		if state != "staging" && state != "sealed" && state != "compacting" {
+			continue
+		}
+		remaining := work.Expires - now.UnixMilli()
+		if remaining <= 0 {
+			stats["expired_workspaces"]++
+		} else if stats["minimum_work_remaining_ms"] == 0 || remaining < stats["minimum_work_remaining_ms"] {
+			stats["minimum_work_remaining_ms"] = remaining
+		}
+		if state == "staging" || state == "sealed" {
+			if owners[work.Token] == work.Base && work.Token != "" {
+				stats["live_owned_private"]++
+			} else if work.MetadataReady {
+				stats["unowned_ready_private"]++
+			} else {
+				stats["unowned_preclone_private"]++
+			}
+		}
+	}
+	encoded, _ := json.Marshal(stats)
+	t.Logf("snapshot admission diagnostics (before failed caller pin release): %s", encoded)
+}
+
 type generationReservationObserver struct {
 	snapshotHook
 	mu     sync.Mutex
