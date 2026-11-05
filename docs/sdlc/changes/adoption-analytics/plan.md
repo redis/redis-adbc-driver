@@ -273,3 +273,9 @@ filters, ascending/descending sorting, 10/25/50/100-row pages and reset controls
 Operate on loaded data, disclose the 200-sample query cap, and preserve text-only
 rendering and authenticated read behavior. Verify measurement labels, numeric sort,
 combined filtering, page reset/clamping and empty states with Node tests and live UI.
+
+Validation: `node --test analytics/test_dashboard.cjs`: 3 passed, no skips/failures.
+JavaScript syntax and diff checks pass. Deployed through the existing backup/update
+script; public health passed. Live UI verified pages, combined filters, numeric
+sorting and missing-counter labels; see [evidence](evidence/dashboard-navigation-validation.json).
+Driver execution and telemetry payloads were unchanged; no Redis test fixture needed.
