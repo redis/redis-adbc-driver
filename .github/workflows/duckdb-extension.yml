@@ -39,6 +39,10 @@ concurrency:
   group: duckdb-extension-${{ github.workflow }}-${{ github.event_name }}-${{ inputs.version || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# Validation traffic must not inflate product usage metrics.
+env:
+  REDIS_ADBC_TELEMETRY_DISABLED: "true"
+
 jobs:
   native:
     env:

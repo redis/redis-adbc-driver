@@ -593,9 +593,16 @@ func (s *statementImpl) run(ctx context.Context, stream bool) (result execResult
 		return execResult{}, err
 	}
 	exec := s.executor()
+	op, _ := ctx.Value(usageOperationContextKey{}).(*usageOperation)
+	if op != nil {
+		exec.diagnostics = &executionDiagnostics{metricsOnly: true}
+	}
 	s.conn.workerGrant.Store(0)
 	finishDiagnostics := exec.startDiagnostics(s.diagnosticsFile, s.conn.clientCfg)
 	defer func() { finishDiagnostics(resultErr) }()
+	if op != nil {
+		op.diagnostics, op.metrics = exec.diagnostics, exec.aggregateMetrics
+	}
 	if exec.diagnostics != nil {
 		ctx = context.WithValue(ctx, diagnosticsContextKey{}, exec.diagnostics)
 	}
@@ -673,7 +680,30 @@ func (s *statementImpl) run(ctx context.Context, stream bool) (result execResult
 	return last, nil
 }
 
-func (s *statementImpl) ExecuteQuery(ctx context.Context) (array.RecordReader, int64, error) {
+func (s *statementImpl) ExecuteQuery(ctx context.Context) (reader array.RecordReader, count int64, resultErr error) {
+	op := s.startUsage()
+	if op != nil {
+		ctx = context.WithValue(ctx, usageOperationContextKey{}, op)
+	}
+	defer func() {
+		if op == nil {
+			return
+		}
+		if resultErr != nil {
+			op.finish(resultErr, false)
+			return
+		}
+		op.ready()
+		switch op.kind {
+		case "insert", "update", "delete", "merge", "ddl", "ingest":
+			op.affected(count)
+		}
+		if op.kind == "ingest" {
+			op.finish(nil, false)
+			return
+		}
+		reader = &usageReader{RecordReader: reader, op: op, refs: 1}
+	}()
 	if s.ipc.active() {
 		return nil, -1, errorf(adbc.StatusInvalidState, "IPC input/output requires ExecuteUpdate (ExecuteQuery with a NULL output stream in C)")
 	}
@@ -718,7 +748,17 @@ func (s *statementImpl) executeQuery(ctx context.Context) (array.RecordReader, i
 	return rdr, int64(len(res.rows)), err
 }
 
-func (s *statementImpl) ExecuteUpdate(ctx context.Context) (int64, error) {
+func (s *statementImpl) ExecuteUpdate(ctx context.Context) (count int64, resultErr error) {
+	op := s.startUsage()
+	if op != nil {
+		ctx = context.WithValue(ctx, usageOperationContextKey{}, op)
+	}
+	defer func() {
+		if op != nil {
+			op.affected(count)
+			op.finish(resultErr, false)
+		}
+	}()
 	if err := s.checkExecution(); err != nil {
 		return -1, err
 	}

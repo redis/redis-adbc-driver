@@ -589,6 +589,9 @@ type scanIter struct {
 // fields to read: exactly is set when LOAD reads each of them exactly (see
 // loadsExactly).
 func (e *executor) newScanIter(ctx context.Context, req scanRequest, params []Value) (it *scanIter, fields []string, exactly bool) {
+	if e.diagnostics != nil {
+		e.diagnostics.scanObserved.Store(true)
+	}
 	meta := req.meta
 	need := map[string]bool{}
 	for k := range req.need {

@@ -1,0 +1,19 @@
+{
+  "date": "2026-11-05",
+  "deployed_source_commit": "504e5426add2ba057246fe3df4ffa9ef00b0f916",
+  "node_tests": {
+    "passed": 3,
+    "failed": 0,
+    "skipped": 0
+  },
+  "live_ui_verified": [
+    "200 loaded samples page 2 of 8",
+    "search SELECT plus outcome success gives 50 matching rows",
+    "10-row page size gives 5 pages",
+    "descending numeric rows returned sorts 25000 before 1000",
+    "SELECT rows changed is not applicable",
+    "missing index counters show unavailable with notes"
+  ],
+  "health": "passed",
+  "raw_substrait_plans_collected": false
+}
