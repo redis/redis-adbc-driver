@@ -38,6 +38,32 @@ type compactionPhaseProfile struct {
 func compactionProfileCategory(cmd goredis.Cmder) string {
 	a := cmd.Args()
 	if cmd.Name() == "eval" && len(a) > 3 {
+		switch a[1] {
+		case snapshotMetadataCloneRoot:
+			return "metadata_clone_root"
+		case snapshotMetadataCloneBucket:
+			return "metadata_clone_bucket"
+		case snapshotMetadataOwnValue:
+			return "metadata_own_value"
+		case snapshotMetadataRetireRoot:
+			return "metadata_retire_root"
+		case snapshotMetadataCollectBucket:
+			return "metadata_collect_bucket"
+		case snapshotMetadataCollectValue:
+			return "metadata_collect_value"
+		case snapshotMetadataPruneValue:
+			return "metadata_prune_value"
+		case snapshotMetadataMergeEntry:
+			return "metadata_merge_entry"
+		case snapshotWriteBatchLua:
+			return "row_batch"
+		case snapshotIndexNotifyLua:
+			return "index_notify"
+		case snapshotMutation:
+			return "metadata_mutation"
+		case snapshotRowMutation:
+			return "row_mutation"
+		}
 		if a[1] == snapshotCompactionCopyLua {
 			return "copy_commit"
 		}
@@ -133,6 +159,8 @@ func TestSnapshotCompactionPhaseProfile(t *testing.T) {
 			ctx, cancel := context.WithTimeout(h.ctx, time.Minute)
 			defer cancel()
 			var pacing time.Duration
+			var schedule snapshotCompactionPacing
+			inactiveDelay := time.Second
 			active, complete := true, false
 			started := time.Now()
 			for range 10000 {
@@ -147,7 +175,7 @@ func TestSnapshotCompactionPhaseProfile(t *testing.T) {
 				if paced || !active {
 					delay := 5 * time.Millisecond
 					if !active {
-						delay = time.Second
+						delay = inactiveDelay
 					}
 					wait := time.Now()
 					select {
@@ -164,7 +192,7 @@ func TestSnapshotCompactionPhaseProfile(t *testing.T) {
 				}
 				profile.mu.Unlock()
 				step := time.Now()
-				progress, err := s.snapshotCompactionStep(ctx, token)
+				result, err := s.stepSnapshotCompaction(ctx, token)
 				elapsed := time.Since(step)
 				profile.mu.Lock()
 				profile.phase = ""
@@ -174,7 +202,8 @@ func TestSnapshotCompactionPhaseProfile(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				active = progress
+				active = result.progress
+				inactiveDelay = schedule.inactiveDelay(result, err)
 			}
 			elapsed := time.Since(started)
 			if !complete {

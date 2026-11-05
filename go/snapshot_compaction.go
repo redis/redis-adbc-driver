@@ -48,6 +48,30 @@ type snapshotCompactor struct {
 	token  string
 }
 
+type snapshotCompactionStepResult struct {
+	progress     bool
+	pendingIndex bool // this worker owns a validated job awaiting index readiness
+}
+
+type snapshotCompactionPacing struct{ indexDelay time.Duration }
+
+func (p *snapshotCompactionPacing) inactiveDelay(result snapshotCompactionStepResult, err error) time.Duration {
+	if err != nil {
+		p.indexDelay = 0
+		return 100 * time.Millisecond
+	}
+	if result.pendingIndex {
+		if p.indexDelay == 0 {
+			p.indexDelay = 10 * time.Millisecond
+		} else {
+			p.indexDelay = min(p.indexDelay*2, 100*time.Millisecond)
+		}
+		return p.indexDelay
+	}
+	p.indexDelay = 0
+	return time.Second
+}
+
 func (s *store) startSnapshotCompactor(cfg *clientConfig, t timeouts, hooks ...goredis.Hook) {
 	ctx, cancel := context.WithCancel(context.Background())
 	// Maintenance has its own pool and bounded contexts; statement cancellation
@@ -105,6 +129,7 @@ func (c *snapshotCompactor) run(ctx context.Context) {
 	}()
 	delay := time.Second
 	active := false
+	var pacing snapshotCompactionPacing
 	lastOrphanCheck := time.Time{}
 	for {
 		if !active {
@@ -131,17 +156,16 @@ func (c *snapshotCompactor) run(ctx context.Context) {
 			lastOrphanCheck = time.Now()
 		}
 		step, cancel := context.WithTimeout(ctx, snapshotCompactionStepTimeout)
-		progress, err := c.store.snapshotCompactionStep(step, c.token)
+		result, err := c.store.stepSnapshotCompaction(step, c.token)
 		cancel()
-		active = progress && err == nil
-		delay = time.Second
+		active = result.progress && err == nil
+		delay = pacing.inactiveDelay(result, err)
 		if err != nil {
 			// A failing worker must not monopolize the durable lease while a
 			// healthy connection could resume it with the same checkpoint.
 			release, cancelRelease := context.WithTimeout(context.Background(), snapshotCompactionStepTimeout)
 			_ = c.store.releaseSnapshotCompaction(release, c.token)
 			cancelRelease()
-			delay = 100 * time.Millisecond
 		}
 	}
 }
@@ -299,26 +323,32 @@ func (s *store) releaseSnapshotCompaction(ctx context.Context, token string) err
 	}
 	return s.snapshotControl(ctx, "compact_release", token, j.ID, "").Err()
 }
-func (s *store) snapshotCompactionStep(ctx context.Context, token string) (progress bool, err error) {
+func (s *store) snapshotCompactionStep(ctx context.Context, token string) (bool, error) {
+	result, err := s.stepSnapshotCompaction(ctx, token)
+	return result.progress, err
+}
+
+func (s *store) stepSnapshotCompaction(ctx context.Context, token string) (result snapshotCompactionStepResult, err error) {
 	s.reapSnapshotBudget(ctx, 500*time.Millisecond)
 	raw, err := s.snapshotControl(ctx, "compact_acquire", token, "", "").Text()
 	if err != nil {
-		return false, err
+		return result, err
 	}
 	if raw == "" {
 		job, err := s.readSnapshotCompaction(ctx)
 		if err != nil || job != nil {
-			return false, err
+			return result, err
 		}
-		return s.startSnapshotCompaction(ctx, token)
+		result.progress, err = s.startSnapshotCompaction(ctx, token)
+		return result, err
 	}
 	var job snapshotCompactionJob
 	if err := json.Unmarshal([]byte(raw), &job); err != nil {
-		return false, err
+		return result, err
 	}
 	j := &job
 	if err := validateSnapshotCompactionJob(j); err != nil {
-		return false, err
+		return result, err
 	}
 	defer func() {
 		if err != nil && ctx.Err() == nil {
@@ -329,20 +359,23 @@ func (s *store) snapshotCompactionStep(ctx context.Context, token string) (progr
 	}()
 	_, obsolete, err := s.snapshotCompactionCurrent(ctx, j)
 	if err != nil {
-		return false, err
+		return result, err
 	}
 	if obsolete {
-		return true, s.finishSnapshotCompaction(ctx, j)
+		return snapshotCompactionStepResult{progress: true}, s.finishSnapshotCompaction(ctx, j)
 	}
 	switch j.Phase {
 	case "copy":
-		return true, s.copySnapshotCompactionBatch(ctx, j)
+		return snapshotCompactionStepResult{progress: true}, s.copySnapshotCompactionBatch(ctx, j)
 	case "index":
-		return s.indexSnapshotCompaction(ctx, j)
+		result.progress, err = s.indexSnapshotCompaction(ctx, j)
+		result.pendingIndex = !result.progress && err == nil
+		return result, err
 	case "install":
-		return s.installSnapshotCompaction(ctx, j)
+		result.progress, err = s.installSnapshotCompaction(ctx, j)
+		return result, err
 	default:
-		return false, errorf(adbc.StatusIO, "invalid background compaction phase")
+		return result, errorf(adbc.StatusIO, "invalid background compaction phase")
 	}
 }
 func (s *store) compactionWriteContext(ctx context.Context, j *snapshotCompactionJob) context.Context {
