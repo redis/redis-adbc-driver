@@ -1,7 +1,7 @@
 # Ray plan release and hosted generation pressure
 
-Date: 2026-11-05. Parent source: ce36c86. Status: reproduced and fixed locally;
-fresh hosted confirmation required. See [intent](intent.md), [spec](spec.md),
+Date: 2026-11-05. Parent source: ce36c86. Status: reproduced locally; hosted ordinary Go confirmation passes on both
+architectures. Later platform/authorization steps remain separate gates. See [intent](intent.md), [spec](spec.md),
 [plan](plan.md) and [the hosted record](atomic-compaction-hosted-validation.md).
 
 The terminal amd64 job in [Test at 11213c8](https://github.com/redis/redis-adbc-driver/actions/runs/42098297577)
@@ -68,3 +68,12 @@ Author review checks explicit ownership, validated ID interpolation, preservatio
 of live/retry semantics, acquired-reader lifetime, failure cleanup and complete
 result assertions. This is not maintainer approval or a restricted-reader,
 Cluster/recovery or performance-parity claim. Operational logs remain private.
+
+
+In [fresh Test at 4e0899b](https://github.com/redis/redis-adbc-driver/actions/runs/42103905305),
+the amd64 and arm64 Software jobs both complete their ordinary Go step with
+success and advance to snapshot regressions. This verifies the previously
+failing amd64 workload sequence after cleanup; the arm64 job has no preceding
+Ray datasource step. At observation the overall run remains live. Do not count
+pending snapshot/native/restricted-reader/platform steps as passed. This run
+covers the Ray release source, before the local 50d6b84 compaction change.

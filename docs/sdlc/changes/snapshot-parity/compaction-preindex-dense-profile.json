@@ -1,0 +1,654 @@
+{
+  "scope": "Instrumented Go race full-source compaction phase comparison; one run per source; setup/final verification excluded. Not native sustained throughput or exclusive CPU profiling.",
+  "baseline_production": "4e0899b (Go production unchanged from d1d2778/2be297e)",
+  "current_production": "50d6b84cc90433f3b5398b993220a642d5840ce5",
+  "fixture_sha256": "721a89dd9f5efa584db8dc6fe2ebfec9fb20115ba4bf4f372f37a766fb8383f3",
+  "server": "Redis Software 8.8.0",
+  "qpf": 4,
+  "noeviction": true,
+  "verified_tls": true,
+  "software_shards": 3,
+  "topology": "Software proxy, not Cluster API",
+  "workload": "20000-row table, three dense updates, full-source merge, 20000 unrelated rows; every final BIGINT/payload and unrelated count/bounds checked. Sequential, no concurrent database workload.",
+  "source_sha256": {
+    "before": {
+      "snapshot.go": "c27e7ea5d906fe2a6bf14a0fe531428211a47cb37ce492946dcfbdaf38b34922",
+      "snapshot_compaction.go": "cc491231c5b543801ac3ddf6290c7c2d7e27519709adc04594cd86086b60bb53"
+    },
+    "after": {
+      "snapshot.go": "781a3a8636358d18a68131c1cad930b9658161b3bef03fc88927122b62a6a386",
+      "snapshot_compaction.go": "8ee3317ea98b78e50a409356ba45f3ab64c5c7a0ebb6ef176a34c7d2105420ef"
+    }
+  },
+  "before": {
+    "dense": true,
+    "elapsed_milliseconds": 9892.94375,
+    "paced": true,
+    "pacing_milliseconds": 5730.917536,
+    "phases": {
+      "copy": {
+        "steps": 314,
+        "step_milliseconds": 3839.774035999999,
+        "round_trips": {
+          "control_acquire": {
+            "calls": 314,
+            "commands": 314,
+            "milliseconds": 136.330587
+          },
+          "control_claim": {
+            "calls": 314,
+            "commands": 314,
+            "milliseconds": 179.46513499999995
+          },
+          "control_claim_data": {
+            "calls": 314,
+            "commands": 314,
+            "milliseconds": 136.84763399999994
+          },
+          "control_compact_acquire": {
+            "calls": 314,
+            "commands": 314,
+            "milliseconds": 145.447671
+          },
+          "control_compact_checkpoint": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.606625
+          },
+          "control_reclaimed": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.360875
+          },
+          "control_release": {
+            "calls": 314,
+            "commands": 314,
+            "milliseconds": 152.6686209999999
+          },
+          "copy_commit": {
+            "calls": 313,
+            "commands": 313,
+            "milliseconds": 380.35466199999985
+          },
+          "get": {
+            "calls": 314,
+            "commands": 314,
+            "milliseconds": 91.15811699999998
+          },
+          "hget": {
+            "calls": 314,
+            "commands": 314,
+            "milliseconds": 88.18413100000004
+          },
+          "hgetall": {
+            "calls": 314,
+            "commands": 314,
+            "milliseconds": 89.10300600000004
+          },
+          "hlen": {
+            "calls": 314,
+            "commands": 314,
+            "milliseconds": 87.03267000000007
+          },
+          "metadata_collect_bucket": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.272291
+          },
+          "metadata_collect_value": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.310167
+          },
+          "metadata_retire_root": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.278084
+          },
+          "pipeline_hgetall": {
+            "calls": 313,
+            "commands": 20000,
+            "milliseconds": 244.75024899999997
+          },
+          "pipeline_mixed": {
+            "calls": 942,
+            "commands": 4396,
+            "milliseconds": 633.5871950000003
+          },
+          "zcard": {
+            "calls": 314,
+            "commands": 314,
+            "milliseconds": 88.52549499999989
+          },
+          "zlexcount": {
+            "calls": 1252,
+            "commands": 1252,
+            "milliseconds": 344.1445579999995
+          },
+          "zrange": {
+            "calls": 1884,
+            "commands": 1884,
+            "milliseconds": 581.4958640000003
+          }
+        }
+      },
+      "index": {
+        "steps": 6,
+        "step_milliseconds": 122.67204299999999,
+        "round_trips": {
+          "control_acquire": {
+            "calls": 6,
+            "commands": 6,
+            "milliseconds": 8.559334
+          },
+          "control_claim": {
+            "calls": 6,
+            "commands": 6,
+            "milliseconds": 8.583999
+          },
+          "control_claim_data": {
+            "calls": 6,
+            "commands": 6,
+            "milliseconds": 6.374624000000001
+          },
+          "control_compact_acquire": {
+            "calls": 6,
+            "commands": 6,
+            "milliseconds": 6.601333
+          },
+          "control_compact_checkpoint": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.48025
+          },
+          "control_release": {
+            "calls": 6,
+            "commands": 6,
+            "milliseconds": 8.449834
+          },
+          "eval": {
+            "calls": 2,
+            "commands": 2,
+            "milliseconds": 2.874874
+          },
+          "ft.create": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.498083
+          },
+          "ft.info": {
+            "calls": 6,
+            "commands": 6,
+            "milliseconds": 4.426875000000001
+          },
+          "get": {
+            "calls": 6,
+            "commands": 6,
+            "milliseconds": 7.999458
+          },
+          "hget": {
+            "calls": 6,
+            "commands": 6,
+            "milliseconds": 5.375998999999999
+          },
+          "hgetall": {
+            "calls": 6,
+            "commands": 6,
+            "milliseconds": 2.3656230000000003
+          },
+          "hlen": {
+            "calls": 6,
+            "commands": 6,
+            "milliseconds": 7.111541000000001
+          },
+          "pipeline_mixed": {
+            "calls": 18,
+            "commands": 84,
+            "milliseconds": 28.791501
+          },
+          "zcard": {
+            "calls": 11,
+            "commands": 11,
+            "milliseconds": 9.361206
+          },
+          "zrange": {
+            "calls": 12,
+            "commands": 12,
+            "milliseconds": 8.978622999999999
+          }
+        }
+      },
+      "install": {
+        "steps": 1,
+        "step_milliseconds": 22.737042,
+        "round_trips": {
+          "control_abort": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.470541
+          },
+          "control_acquire": {
+            "calls": 2,
+            "commands": 2,
+            "milliseconds": 0.86225
+          },
+          "control_claim": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.779375
+          },
+          "control_claim_data": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.454375
+          },
+          "control_compact_acquire": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.477333
+          },
+          "control_compact_finish": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.453125
+          },
+          "control_publish_compaction": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.604375
+          },
+          "control_release": {
+            "calls": 2,
+            "commands": 2,
+            "milliseconds": 0.931458
+          },
+          "control_reserve": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.406667
+          },
+          "control_valid": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.511083
+          },
+          "get": {
+            "calls": 6,
+            "commands": 6,
+            "milliseconds": 2.446583
+          },
+          "hget": {
+            "calls": 3,
+            "commands": 3,
+            "milliseconds": 0.9077500000000001
+          },
+          "hgetall": {
+            "calls": 3,
+            "commands": 3,
+            "milliseconds": 0.844791
+          },
+          "hlen": {
+            "calls": 3,
+            "commands": 3,
+            "milliseconds": 0.8037089999999999
+          },
+          "metadata_clone_bucket": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.418042
+          },
+          "metadata_clone_root": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.367042
+          },
+          "metadata_own_value": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.435708
+          },
+          "pipeline_metadata_mutation": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.464
+          },
+          "pipeline_mixed": {
+            "calls": 8,
+            "commands": 34,
+            "milliseconds": 5.412748000000001
+          },
+          "zcard": {
+            "calls": 3,
+            "commands": 3,
+            "milliseconds": 0.753541
+          },
+          "zrange": {
+            "calls": 2,
+            "commands": 2,
+            "milliseconds": 1.333584
+          }
+        }
+      }
+    },
+    "rows": 20000,
+    "unrelated_rows": 20000
+  },
+  "after": {
+    "dense": true,
+    "elapsed_milliseconds": 6559.856417,
+    "paced": true,
+    "pacing_milliseconds": 1736.174288,
+    "phases": {
+      "copy": {
+        "steps": 314,
+        "step_milliseconds": 4600.116438000002,
+        "round_trips": {
+          "control_acquire": {
+            "calls": 314,
+            "commands": 314,
+            "milliseconds": 167.9335399999999
+          },
+          "control_claim": {
+            "calls": 314,
+            "commands": 314,
+            "milliseconds": 216.63961699999976
+          },
+          "control_claim_data": {
+            "calls": 314,
+            "commands": 314,
+            "milliseconds": 160.76437499999997
+          },
+          "control_compact_acquire": {
+            "calls": 314,
+            "commands": 314,
+            "milliseconds": 179.48678999999981
+          },
+          "control_compact_checkpoint": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.623917
+          },
+          "control_reclaimed": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.4265
+          },
+          "control_release": {
+            "calls": 314,
+            "commands": 314,
+            "milliseconds": 181.14267500000005
+          },
+          "copy_commit": {
+            "calls": 313,
+            "commands": 313,
+            "milliseconds": 484.666504
+          },
+          "eval": {
+            "calls": 2,
+            "commands": 2,
+            "milliseconds": 0.637708
+          },
+          "ft.create": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.367125
+          },
+          "ft.info": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.282125
+          },
+          "get": {
+            "calls": 314,
+            "commands": 314,
+            "milliseconds": 105.45341300000003
+          },
+          "hget": {
+            "calls": 314,
+            "commands": 314,
+            "milliseconds": 110.39841700000007
+          },
+          "hgetall": {
+            "calls": 314,
+            "commands": 314,
+            "milliseconds": 104.49329600000004
+          },
+          "hlen": {
+            "calls": 314,
+            "commands": 314,
+            "milliseconds": 99.18412499999998
+          },
+          "metadata_collect_bucket": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.38775
+          },
+          "metadata_collect_value": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.272667
+          },
+          "metadata_retire_root": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.592041
+          },
+          "pipeline_hgetall": {
+            "calls": 313,
+            "commands": 20000,
+            "milliseconds": 281.3312019999999
+          },
+          "pipeline_mixed": {
+            "calls": 942,
+            "commands": 4396,
+            "milliseconds": 724.522634
+          },
+          "zcard": {
+            "calls": 315,
+            "commands": 315,
+            "milliseconds": 117.812585
+          },
+          "zlexcount": {
+            "calls": 1252,
+            "commands": 1252,
+            "milliseconds": 481.6863289999999
+          },
+          "zrange": {
+            "calls": 1884,
+            "commands": 1884,
+            "milliseconds": 712.7529209999999
+          }
+        }
+      },
+      "index": {
+        "steps": 1,
+        "step_milliseconds": 7.642541,
+        "round_trips": {
+          "control_acquire": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.4345
+          },
+          "control_claim": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.479791
+          },
+          "control_claim_data": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.327834
+          },
+          "control_compact_acquire": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.370292
+          },
+          "control_compact_checkpoint": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.38425
+          },
+          "control_release": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.409334
+          },
+          "ft.info": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.565167
+          },
+          "get": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.214291
+          },
+          "hget": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.230916
+          },
+          "hgetall": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.233083
+          },
+          "hlen": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.238042
+          },
+          "pipeline_mixed": {
+            "calls": 3,
+            "commands": 14,
+            "milliseconds": 1.711709
+          },
+          "zcard": {
+            "calls": 2,
+            "commands": 2,
+            "milliseconds": 0.5955410000000001
+          },
+          "zrange": {
+            "calls": 2,
+            "commands": 2,
+            "milliseconds": 0.5155420000000001
+          }
+        }
+      },
+      "install": {
+        "steps": 1,
+        "step_milliseconds": 21.537834,
+        "round_trips": {
+          "control_abort": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.327917
+          },
+          "control_acquire": {
+            "calls": 2,
+            "commands": 2,
+            "milliseconds": 1.071334
+          },
+          "control_claim": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.413625
+          },
+          "control_claim_data": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.431666
+          },
+          "control_compact_acquire": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.374
+          },
+          "control_compact_finish": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.381708
+          },
+          "control_publish_compaction": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.370667
+          },
+          "control_release": {
+            "calls": 2,
+            "commands": 2,
+            "milliseconds": 1.058792
+          },
+          "control_reserve": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.504875
+          },
+          "control_valid": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.331917
+          },
+          "get": {
+            "calls": 6,
+            "commands": 6,
+            "milliseconds": 1.6456659999999999
+          },
+          "hget": {
+            "calls": 3,
+            "commands": 3,
+            "milliseconds": 1.005042
+          },
+          "hgetall": {
+            "calls": 3,
+            "commands": 3,
+            "milliseconds": 1.160792
+          },
+          "hlen": {
+            "calls": 3,
+            "commands": 3,
+            "milliseconds": 1.080708
+          },
+          "metadata_clone_bucket": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.275667
+          },
+          "metadata_clone_root": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.296
+          },
+          "metadata_own_value": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.324667
+          },
+          "pipeline_metadata_mutation": {
+            "calls": 1,
+            "commands": 1,
+            "milliseconds": 0.33
+          },
+          "pipeline_mixed": {
+            "calls": 8,
+            "commands": 34,
+            "milliseconds": 5.756501000000001
+          },
+          "zcard": {
+            "calls": 3,
+            "commands": 3,
+            "milliseconds": 1.4967080000000001
+          },
+          "zrange": {
+            "calls": 2,
+            "commands": 2,
+            "milliseconds": 0.47887500000000005
+          }
+        }
+      }
+    },
+    "rows": 20000,
+    "unrelated_rows": 20000
+  }
+}

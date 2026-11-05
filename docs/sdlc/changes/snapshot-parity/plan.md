@@ -724,3 +724,15 @@ Focused complete-row and interruption/admission cases pass, as do real older
 native copy/index/install handoffs and unchanged atomic/Close/writer-yield
 recovery. Broad current snapshot/native checks and matched benchmarks remain
 required before retaining or claiming a sustained throughput improvement.
+
+
+At implementation 50d6b84, complete snapshot race checks pass 426 events / 25
+explicit skips, unit race checks pass 1,101 / 972 expected skips, and exact-binary
+native validation passes 565 tests plus three subtests / eight skips. A matched
+six-process native comparison improves sustained throughput 8.988x and median
+latency 1.873x; mutable remains 6.701x faster in throughput and 6.120x in median.
+A separate dense full-source phase profile completes about 1.508x faster,
+including the increased copy call cost and reduced index waits. See the
+[pre-copy index evidence](compaction-directory-index-design.md). This closes the
+initial-scan optimization checkpoint, not the full parity objective. Current
+ordinary/platform/reader/Cluster/recovery and public-resume gates remain open.

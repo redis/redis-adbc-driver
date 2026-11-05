@@ -1,7 +1,7 @@
 # Compaction indexes from exact output directories
 
-Date: 2026-11-05. Production parent: ce36c86. Status: pre-copy index implementation and focused recovery checks pass;
-broad snapshot/native/performance verification pending. See [intent](intent.md), [spec](spec.md),
+Date: 2026-11-05. Production parent: ce36c86. Status: local full snapshot/native checks and matched performance comparison pass;
+full ordinary/hosted/platform parity remains open. See [intent](intent.md), [spec](spec.md),
 [plan](plan.md) and [the rejected polling experiment](compaction-readiness-polling.md).
 
 The six-process native comparison finds no write gain from faster readiness
@@ -93,5 +93,77 @@ overlap; their counts are not an independent total.
 
 Owned Software 8.8.0, verified strict TLS, three primaries behind its proxy,
 active/effective 4x QPF and noeviction. The native child uses the existing pinned
-binary hash, not a model of its behavior. Full current snapshot/native checks,
-matched sustained-write measurements and hosted validation remain pending.
+binary hash, not a model of its behavior. Full local snapshot/native and matched sustained-write results follow below;
+hosted/platform validation remains separate work.
+
+
+## Broad checks and dense attribution
+
+At implementation 50d6b84, unit race checks pass 1,101 events / 972 expected
+integration/profile skips, root 53.043 s. The complete snapshot race selection
+passes 426 events / 25 explicit skips, root 722.593 s, including actual preserved
+older-native cases. The 100,001-row compaction case passes in 311.570 s; its
+preceding worktree checkpoint took 174.850 s. Those whole-test times include SQL
+setup and final verification and do not isolate compaction performance.
+
+A new opt-in dense mode in the existing phase fixture separates setup/final
+checks from copy/index/install and pacing. An isolated preceding-production
+checkout and current implementation use identical test bytes, race mode and
+verified fixture, sequentially. [Raw observations and hashes](compaction-preindex-dense-profile.json)
+record 20,000 rows, three dense updates, a full-source merge and 20,000 unrelated
+rows; every final exact BIGINT/payload and unrelated count/bounds is checked.
+
+| Instrumented phase | Preceding | Pre-copy index |
+|---|---:|---:|
+| Complete job ms | 9,892.944 | 6,559.856 |
+| Pacing/wait ms | 5,730.918 | 1,736.174 |
+| Copy steps / call ms | 314 / 3,839.774 | 314 / 4,600.116 |
+| Index steps / call ms | 6 / 122.672 | 1 / 7.643 |
+| Install steps / call ms | 1 / 22.737 | 1 / 21.538 |
+
+Copy call time includes early index creation and increases; eliminating the
+initial-scan waits improves this controlled full job by about 1.508x. This is
+one instrumented Go observation per source, not statistical native throughput or
+CPU attribution. It does not attribute the whole large-test timing difference.
+The default sparse profile behavior and its one-minute budget are preserved;
+the optional dense full-copy mode has a two-minute job budget. Native validation
+and sustained-write results follow below; the profile is not substituted for them.
+
+
+## Exact native validation and sustained comparison
+
+The versioned 50d6b84 library SHA-256 is
+`9471683d6c9b73be51ed5021d801cedec79ff1b49a5479d108809cb8890739a4`.
+Its complete native ADBC suite passes 565 tests, eight capability skips and three
+subtests, 87.34 s, after Go database processes terminated and the owned fixture
+was reset/reverified. Python 3.14.10, PyArrow 26.0.1, manager 1.13.0.
+
+The unchanged native harness then runs six isolated processes: preceding
+snapshot d1d2778, pre-copy 50d6b84, mutable f4d5b78, then reverse order. Each
+process verifies Software/effective 4x QPF/noeviction, performs 64 alternating
+UPDATE RETURNING statements on two 20,000-row tables, and independently checks
+every return and all 40,000 final rows. Caller retries are zero. Setup and final
+verification are outside timing; no local builds, tests or database probes
+compete during measured processes. This is synthetic load, not ClickBench.
+Benchmark Python 3.13.16, PyArrow 26.0.0, manager 1.13.0.
+[All samples, generic machine/settings and exact hashes](compaction-preindex-comparison.json)
+retain each actual source and library. Apple M5 Max / 18 logical host CPUs /
+36 GiB host memory; Docker resource allocation is recorded in the raw data.
+
+| Source | Median ms | p95 ms | Max ms | Updates/s |
+|---|---:|---:|---:|---:|
+| Preceding snapshot d1d2778 | 65.020 | 2,940.930 | 2,990.632 | 2.783 |
+| Pre-copy index 50d6b84 | 34.720 | 67.529 | 81.001 | 25.014 |
+| Mutable f4d5b78 | 5.674 | 7.755 | 19.283 | 167.631 |
+
+Measured throughput improves 8.988x and median latency improves 1.873x against
+the preceding snapshot build. Two pre-copy runs measure 25.407 and 24.634
+updates/s; the preceding runs measure 2.781 and 2.785. These are two isolated
+runs per source, not a statistical or cross-workload performance guarantee.
+Mutable throughput remains 6.701x higher and pre-copy median is 6.120x mutable.
+Full performance parity remains incomplete. Keep the implementation based on
+these exact-row/native/recovery results and measured improvement, while
+continuing foreground metadata/index overhead work, reader authorization,
+public process/input resume and the current platform/Cluster/recovery matrix.
+The complete current ordinary Go suite and fresh hosted checks remain separate
+validation work; prior 4e0899b hosted ordinary passes do not cover this change.

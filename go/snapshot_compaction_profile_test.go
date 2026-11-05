@@ -138,6 +138,7 @@ func TestSnapshotCompactionPhaseProfile(t *testing.T) {
 	if os.Getenv("REDIS_SNAPSHOT_COMPACTION_PROFILE") == "" {
 		t.Skip("set REDIS_SNAPSHOT_COMPACTION_PROFILE for owned-fixture profiling")
 	}
+	dense := os.Getenv("REDIS_SNAPSHOT_COMPACTION_DENSE_PROFILE") != ""
 	for _, paced := range []bool{true, false} {
 		t.Run(fmt.Sprintf("paced_%t", paced), func(t *testing.T) {
 			h, raw, _ := newSnapshotHarnessMode(t, false, false)
@@ -146,7 +147,13 @@ func TestSnapshotCompactionPhaseProfile(t *testing.T) {
 			h.exec("CREATE TABLE unrelated(id BIGINT)")
 			h.exec("INSERT INTO unrelated SELECT i FROM generate_series(1,20000) AS g(i)")
 			for i := 0; i < 3; i++ {
-				h.expectRows("UPDATE t SET v=v+1 WHERE id=1 RETURNING v", strconv.FormatInt(9007199254740994+int64(i), 10))
+				if dense {
+					if n := h.exec("UPDATE t SET v=v+1"); n != 20000 {
+						t.Fatal("incomplete dense profile setup", n)
+					}
+				} else {
+					h.expectRows("UPDATE t SET v=v+1 WHERE id=1 RETURNING v", strconv.FormatInt(9007199254740994+int64(i), 10))
+				}
 			}
 			s := snapshotTestStore(t, raw)
 			token := snapshotID()
@@ -154,9 +161,19 @@ func TestSnapshotCompactionPhaseProfile(t *testing.T) {
 				t.Fatal("compaction did not start", started, err)
 			}
 			defer s.releaseSnapshotCompaction(h.ctx, token)
+			if dense {
+				job, err := s.readSnapshotCompaction(h.ctx)
+				if err != nil || job == nil || job.SourceStart != 0 {
+					t.Fatal("dense profile did not select a full-source merge", err)
+				}
+			}
 			profile := &compactionPhaseProfile{phases: map[string]*compactionProfilePhase{}}
 			s.client.AddHook(profile)
-			ctx, cancel := context.WithTimeout(h.ctx, time.Minute)
+			budget := time.Minute
+			if dense {
+				budget = 2 * time.Minute
+			}
+			ctx, cancel := context.WithTimeout(h.ctx, budget)
 			defer cancel()
 			var pacing time.Duration
 			active, complete := true, false
@@ -212,7 +229,7 @@ func TestSnapshotCompactionPhaseProfile(t *testing.T) {
 			}
 			for i, row := range rows {
 				want := int64(9007199254740993)
-				if i == 0 {
+				if dense || i == 0 {
 					want += 3
 				}
 				if row != fmt.Sprintf("%d|%d|row-%d", i+1, want, i+1) {
@@ -221,7 +238,7 @@ func TestSnapshotCompactionPhaseProfile(t *testing.T) {
 			}
 			h.expectRows("SELECT COUNT(*),MIN(id),MAX(id) FROM unrelated", "20000|1|20000")
 			profile.mu.Lock()
-			encoded, err := json.Marshal(map[string]any{"paced": paced, "rows": len(rows), "unrelated_rows": 20000, "elapsed_milliseconds": float64(elapsed) / float64(time.Millisecond), "pacing_milliseconds": float64(pacing) / float64(time.Millisecond), "phases": profile.phases})
+			encoded, err := json.Marshal(map[string]any{"dense": dense, "paced": paced, "rows": len(rows), "unrelated_rows": 20000, "elapsed_milliseconds": float64(elapsed) / float64(time.Millisecond), "pacing_milliseconds": float64(pacing) / float64(time.Millisecond), "phases": profile.phases})
 			profile.mu.Unlock()
 			if err != nil {
 				t.Fatal(err)
