@@ -585,3 +585,9 @@ Production behavior is unchanged. Next implement and validate bounded,
 directory-driven final indexing with complete ownership/identity/completion and
 failure/recovery proofs before adopting it; do not substitute the prototype
 latency for a production throughput result. Existing full-parity gates stay open.
+
+[Fixture request validation](fixture-request-validation.md) records a stalled
+idempotent certificate update before tests, bounded GET/PUT/bootstrap reads, and
+skipping an already-installed public certificate. Six setup/exec mock tests and
+subsequent actual verified Software setup pass; QPF/noeviction/TLS gates remain.
+No test pass is inferred from the interrupted setup invocation.

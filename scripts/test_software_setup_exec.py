@@ -35,7 +35,12 @@ config = {'uid': 1, 'name': 'adbc-test', 'status': 'active', 'port': 12000,
           'query_performance_factor': {'active': os.environ.get('QPF_ACTIVE', 'true') == 'true',
                                        'scaling_factor': int(os.environ.get('QPF_FACTOR', '4'))},
           'search': {'search-workers': int(os.environ.get('WORKERS', '6'))}, 'sched_policy': 'mnp', 'conns': 32}
-if url.endswith('/bootstrap'):
+if url.endswith('/cluster/certificates') and os.environ.get('CERT_ALREADY_SET') == '1':
+    if 'PUT' in sys.argv:
+        raise SystemExit('identical proxy certificate must not be reinstalled')
+    from pathlib import Path
+    result = {'proxy_cert': Path('build/test-tls/ca.pem').read_text()}
+elif url.endswith('/bootstrap'):
     result = {'bootstrap_status': {'state': 'completed'}}
 elif url.endswith('/bdbs'):
     result = [config]
@@ -74,6 +79,11 @@ print(json.dumps(result))
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(executed, {"REDIS_URI": "rediss://default:fixture%20p%40ss%3A%2F@localhost:26389/0",
                                     "REDIS_RETAINED_CONTROL_PERSISTENCE": "guaranteed"})
+
+    def test_identical_proxy_certificate_does_not_reload(self):
+        result, executed = self.run_fixture("noeviction", CERT_ALREADY_SET="1")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIsNotNone(executed)
 
     def test_unsafe_policy_never_executes_command(self):
         result, executed = self.run_fixture("allkeys-lru")
