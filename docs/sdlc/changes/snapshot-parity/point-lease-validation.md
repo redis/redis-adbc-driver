@@ -2,8 +2,8 @@
 
 Date: 2026-11-05. Parent: 31ade98 (production fdbe75f).
 Status: reproduced regression, implementation, focused Software checks, full
-native validation and matched comparisons complete; full-source Go checks and
-feature/performance parity remain open.
+native validation, full snapshot races and matched comparisons complete;
+full ordinary/platform checks and feature/performance parity remain open.
 See [intent](intent.md), [spec](spec.md), [plan](plan.md) and
 [control-cache evidence](control-script-cache-validation.md).
 
@@ -106,7 +106,11 @@ No SQL reader grants or raw row access are broadened. This is not independent
 maintainer approval; current full Go/platform and reader/Cluster/recovery gates
 remain open.
 
-The complete snapshot race selection at 7c30fa6 is running. Hosted
+The complete snapshot race selection at 7c30fa6 passes 451 test events,
+29 explicit skips, zero failures; root 363.539 s and all six test-bearing
+packages pass. It includes the quota test; the two operator cases require the
+separately verified role fixture. Counts include subtests. This is not a
+controlled timing comparison or full ordinary/Cluster/platform evidence. Hosted
 [Test at 638c308](https://github.com/redis/redis-adbc-driver/actions/runs/42132744174)
 is the new current-source run. The earlier
 [Test at fdbe75f](https://github.com/redis/redis-adbc-driver/actions/runs/42130363002)
