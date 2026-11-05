@@ -548,3 +548,10 @@ race test events pass afterward on verified three-shard Software 4x QPF. Live
 work/pins, the 16-generation bound, unknown-outcome no-replay behavior and explicit
 sweep counts remain intact. This narrows the hosted concurrent-comment failure;
 a hosted rerun and broader parity gates remain open.
+
+[Statement-scoped row-read observation](row-read-observation.md) replaces global
+server counters for empty-query and row-value no-read assertions. Only the fixed
+metadata graph HMGET is exempt; real scan/row-ID positive controls remain.
+Both affected race tests now pass on verified Software 4x QPF with no CONFIG skip
+or quiet-counter retries. Hosted macOS and actual Cluster API verification remain
+open; no production query or ACL behavior changes in this checkpoint.

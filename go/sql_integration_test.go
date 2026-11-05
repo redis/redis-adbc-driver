@@ -38,10 +38,11 @@ import (
 )
 
 type sqlHarness struct {
-	afterExec func() // deterministic maintenance steps, snapshot protocol fixtures only
-	t         *testing.T
-	ctx       context.Context
-	conn      adbc.ConnectionWithContext
+	rowReadObserver *rowReadHook // statement-scoped I/O observer for rowReads
+	afterExec       func()       // deterministic maintenance steps, snapshot protocol fixtures only
+	t               *testing.T
+	ctx             context.Context
+	conn            adbc.ConnectionWithContext
 }
 
 func newSQLHarness(t *testing.T) *sqlHarness {

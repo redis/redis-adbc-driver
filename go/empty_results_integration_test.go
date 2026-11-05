@@ -20,8 +20,8 @@ package redis
 
 import (
 	"context"
+	"fmt"
 	"maps"
-	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -659,71 +659,115 @@ func TestSQLEmptyErrors(t *testing.T) {
 // their cursors, and row fetches.
 var readCommands = []string{"ft.aggregate", "ft.search", "ft.cursor", "ft.profile", "hmget", "scan"}
 
-// rowReads resets the command statistics of every node, runs fn, and
-// returns the calls of readCommands since then (with a cluster's
-// shard-internal _FT.* commands).
-func (h *sqlHarness) rowReads(c goredis.UniversalClient, fn func()) map[string]int64 {
-	h.t.Helper()
-	each := func(do func(ctx context.Context, n *goredis.Client) error) {
-		var err error
-		if cc, ok := c.(*goredis.ClusterClient); ok {
-			err = cc.ForEachShard(h.ctx, do)
-		} else {
-			err = do(h.ctx, c.(*goredis.Client))
-		}
-		if err != nil {
-			// Software exposes delayed proxy counters and blocks RESETSTAT.
-			// This command-count assertion runs on the OSS compatibility job;
-			// the separate empty-query tests still check SQL results here.
-			if strings.Contains(err.Error(), "command 'config|resetstat' is not allowed") {
-				h.t.Skipf("server does not expose resettable command statistics: %v", err)
-			}
-			h.t.Fatal(err)
-		}
-	}
-	each(func(ctx context.Context, n *goredis.Client) error { return n.ConfigResetStat(ctx).Err() })
-	fn()
-	var mu sync.Mutex
-	got := map[string]int64{}
-	each(func(ctx context.Context, n *goredis.Client) error {
-		info, err := n.Info(ctx, "commandstats").Result()
-		if err != nil {
-			return err
-		}
-		for _, line := range strings.Split(info, "\n") {
-			name, stats, ok := strings.Cut(strings.TrimSpace(line), ":")
-			if !ok || !strings.HasPrefix(name, "cmdstat_") {
-				continue
-			}
-			name = strings.ToLower(strings.TrimLeft(strings.TrimPrefix(name, "cmdstat_"), "_"))
-			calls, _, _ := strings.Cut(strings.TrimPrefix(stats, "calls="), ",")
-			n, _ := strconv.ParseInt(calls, 10, 64)
-			for _, r := range readCommands {
-				if name == r && n > 0 {
-					mu.Lock()
-					got[name] += n
-					mu.Unlock()
-				}
-			}
-		}
-		return nil
-	})
-	return got
+// Statement-scoped client tracing distinguishes command keys and excludes
+// unrelated connections. Cluster parent and node hooks share a context marker
+// so a routed command is counted once; direct Search node calls are counted too.
+type rowReadTraceKey struct{}
+type rowReadTraceCounted struct{}
+type rowReadCounts struct {
+	mu    sync.Mutex
+	calls map[string]int64
 }
+type rowReadHook struct{ nodes sync.Map }
 
-// expectNoReads checks that fn issues none of readCommands. The server's
-// statistics also count other connections' background work (tag checks,
-// cleanups), so it tries three times; a statement that reads rows does so
-// every time.
-func (h *sqlHarness) expectNoReads(c goredis.UniversalClient, what string, fn func()) {
-	h.t.Helper()
-	var got map[string]int64
-	for try := 0; try < 3; try++ {
-		if got = h.rowReads(c, fn); len(got) == 0 {
+func (*rowReadHook) DialHook(next goredis.DialHook) goredis.DialHook { return next }
+func (*rowReadHook) record(ctx context.Context, cmd goredis.Cmder) {
+	counts, _ := ctx.Value(rowReadTraceKey{}).(*rowReadCounts)
+	if counts == nil {
+		return
+	}
+	name := strings.ToLower(cmd.Name())
+	// These fixed-key reads prove immutable metadata presence/reference counts;
+	// they contain no table row values. Do not exempt other HMGET keys.
+	args := cmd.Args()
+	if name == "hmget" && len(args) > 1 && fmt.Sprint(args[1]) == snapshotMetadataGraph {
+		return
+	}
+	for _, read := range readCommands {
+		if name == read {
+			counts.mu.Lock()
+			counts.calls[name]++
+			counts.mu.Unlock()
 			return
 		}
 	}
-	h.t.Errorf("%s read rows: %v", what, got)
+}
+func (hook *rowReadHook) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
+	return func(ctx context.Context, cmd goredis.Cmder) error {
+		if ctx.Value(rowReadTraceCounted{}) != hook {
+			hook.record(ctx, cmd)
+			ctx = context.WithValue(ctx, rowReadTraceCounted{}, hook)
+		}
+		return next(ctx, cmd)
+	}
+}
+func (hook *rowReadHook) ProcessPipelineHook(next goredis.ProcessPipelineHook) goredis.ProcessPipelineHook {
+	return func(ctx context.Context, cmds []goredis.Cmder) error {
+		if ctx.Value(rowReadTraceCounted{}) != hook {
+			for _, cmd := range cmds {
+				hook.record(ctx, cmd)
+			}
+			ctx = context.WithValue(ctx, rowReadTraceCounted{}, hook)
+		}
+		return next(ctx, cmds)
+	}
+}
+func (hook *rowReadHook) attach(ctx context.Context, client goredis.UniversalClient) error {
+	if cc, ok := client.(*goredis.ClusterClient); ok {
+		attach := func(node *goredis.Client) {
+			if _, loaded := hook.nodes.LoadOrStore(node, true); !loaded {
+				node.AddHook(hook)
+			}
+		}
+		cc.AddHook(hook)
+		cc.OnNewNode(attach)
+		return cc.ForEachShard(ctx, func(_ context.Context, node *goredis.Client) error { attach(node); return nil })
+	}
+	client.AddHook(hook)
+	return nil
+}
+
+// rowReads observes the complete execution/fetch on both driver pools. It needs
+// no CONFIG permissions and does not count background compactor connections.
+func (h *sqlHarness) rowReads(fn func()) map[string]int64 {
+	h.t.Helper()
+	stmt, err := h.conn.NewStatement(h.ctx)
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	impl := stmt.(*statementImpl).conn
+	if err := stmt.Close(h.ctx); err != nil {
+		h.t.Fatal(err)
+	}
+	if len(impl.store.activeExecutions()) != 0 {
+		h.t.Fatal("row tracing requires an idle connection")
+	}
+	if h.rowReadObserver == nil {
+		h.rowReadObserver = &rowReadHook{}
+		if err := h.rowReadObserver.attach(h.ctx, impl.store.client); err != nil {
+			h.t.Fatal(err)
+		}
+	}
+	ctx, transport := impl.executionContext(h.ctx, &impl.streams)
+	defer transport.finish()
+	if err := h.rowReadObserver.attach(ctx, transport.client); err != nil {
+		h.t.Fatal(err)
+	}
+	counts := &rowReadCounts{calls: map[string]int64{}}
+	prior := h.ctx
+	h.ctx = context.WithValue(ctx, rowReadTraceKey{}, counts)
+	defer func() { h.ctx = prior }()
+	fn()
+	counts.mu.Lock()
+	defer counts.mu.Unlock()
+	return maps.Clone(counts.calls)
+}
+
+func (h *sqlHarness) expectNoReads(what string, fn func()) {
+	h.t.Helper()
+	if got := h.rowReads(fn); len(got) != 0 {
+		h.t.Errorf("%s read rows: %v", what, got)
+	}
 }
 
 func TestSQLEmptyReadsNothing(t *testing.T) {
@@ -734,13 +778,11 @@ func TestSQLEmptyReadsNothing(t *testing.T) {
 	h.exec("INSERT INTO it_empty_w VALUES (1, 'one')")
 	h.exec("DROP VIEW IF EXISTS it_empty_rv")
 	t.Cleanup(func() { h.exec("DROP VIEW IF EXISTS it_empty_rv") })
-	c := h.rawClient()
-
 	// The check sees a query that reads.
-	if got := h.rowReads(c, func() { h.query("SELECT * FROM it_empty_t") }); got["ft.aggregate"] == 0 {
+	if got := h.rowReads(func() { h.query("SELECT * FROM it_empty_t") }); got["ft.aggregate"] == 0 {
 		t.Fatalf("a full scan read %v, want FT.AGGREGATE", got)
 	}
-	if got := h.rowReads(c, func() { h.query("SELECT * FROM it_empty_t WHERE __rowid = 1") }); got["hmget"] == 0 {
+	if got := h.rowReads(func() { h.query("SELECT * FROM it_empty_t WHERE __rowid = 1") }); got["hmget"] == 0 {
 		t.Fatalf("a row id lookup read %v, want HMGET", got)
 	}
 
@@ -793,8 +835,8 @@ func TestSQLEmptyReadsNothing(t *testing.T) {
 			RIGHT JOIN generate_series(1, 2) AS w(n) ON false`,
 	}
 	for _, q := range queries {
-		h.expectNoReads(c, q, func() { h.query(q) })
-		h.expectNoReads(c, "ExecuteSchema("+q+")", func() {
+		h.expectNoReads(q, func() { h.query(q) })
+		h.expectNoReads("ExecuteSchema("+q+")", func() {
 			if _, err := h.executeSchema(q); err != nil {
 				t.Fatal(err)
 			}
@@ -814,11 +856,7 @@ func TestSQLEmptyReadsNothing(t *testing.T) {
 		"SELECT * FROM it_empty_t t FULL JOIN (SELECT * FROM it_empty_u WHERE false) s ON s.t_id = t.id",
 	} {
 		var got, want map[string]int64
-		for try := 0; try < 3; try++ {
-			if want, got = h.rowReads(c, onlyT), h.rowReads(c, func() { h.query(q) }); maps.Equal(got, want) {
-				break
-			}
-		}
+		want, got = h.rowReads(onlyT), h.rowReads(func() { h.query(q) })
 		if !maps.Equal(got, want) {
 			t.Errorf("%s read %v, want %v (it_empty_t alone)", q, got, want)
 		}
@@ -828,7 +866,7 @@ func TestSQLEmptyReadsNothing(t *testing.T) {
 	for _, q := range []string{emptyModel, "SELECT * FROM it_empty_t", "SELECT * FROM (SELECT g, COUNT(*) FROM it_empty_t GROUP BY g) s",
 		"WITH c AS (SELECT * FROM it_empty_t) SELECT * FROM c, LATERAL (SELECT * FROM it_empty_u WHERE t_id = c.id) l",
 		"SELECT * FROM it_empty_vagg", "SELECT * FROM information_schema.columns"} {
-		h.expectNoReads(c, "ExecuteSchema("+q+")", func() {
+		h.expectNoReads("ExecuteSchema("+q+")", func() {
 			if _, err := h.executeSchema(q); err != nil {
 				t.Fatal(err)
 			}
@@ -849,7 +887,7 @@ func TestSQLEmptyReadsNothing(t *testing.T) {
 		"CREATE TEMPORARY TABLE it_empty_rv_t AS (" + dbtEmpty(emptyModel) + ")",
 		"CREATE VIEW it_empty_rv AS " + emptyModel,
 	} {
-		h.expectNoReads(c, sql, func() {
+		h.expectNoReads(sql, func() {
 			h.exec(sql)
 			switch {
 			case strings.HasPrefix(sql, "CREATE TABLE"), strings.HasPrefix(sql, "CREATE TEMPORARY"):
