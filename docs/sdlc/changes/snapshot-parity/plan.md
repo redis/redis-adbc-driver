@@ -705,3 +705,12 @@ control calls are unjustified; the production polling change is removed while
 profiling and exact-source evidence are retained. The experiment remains
 63.570x behind mutable throughput. These results do not close any reader-principal,
 process/input resume, Cluster/recovery or sustained-performance acceptance gate.
+
+
+The [Ray capability-release checkpoint](ray-plan-release-validation.md)
+reproduces the hosted admission failure using the actual preceding Ray workload:
+eight retained plans on seven roots plus nine COMMENT writers exhaust the real
+16-generation limit. Explicit datasource release/context management and test
+cleanup pass 20 Ray tests, leave zero groups, and the same COMMENT case passes.
+No live capability is evicted and capacity stays unchanged. Hosted confirmation,
+reader authorization and the remaining full objective are still required.

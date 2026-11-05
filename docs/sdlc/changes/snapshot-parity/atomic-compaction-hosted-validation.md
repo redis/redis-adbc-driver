@@ -165,3 +165,17 @@ the Arrow layout/inventory and COMMENT race selection passes all 23 test events,
 no skips/failures, root 11.344 s, on the same verified Software fixture. The
 pre-COMMENT live-pin/origin counts are zero. This is a focused local check, not
 an explanation of the still-active 11213c8 hosted run's retained reader roots.
+
+
+## Ray workload reproduces the retained groups
+
+The terminal amd64 job at 11213c8 distinguishes all eight unexplained pins as
+live partition groups, with nine COMMENT writer pins and eight owned workspaces.
+The old Ray suite immediately before Go creates exactly eight unreleased plans
+on seven roots. The [Ray release checkpoint](ray-plan-release-validation.md)
+reproduces the complete sequence locally: 17 passing old Ray tests leave those
+groups, then COMMENT fails with the same counts/capacity. Explicit datasource
+release plus test cleanup passes 20 Ray tests, leaves zero groups and makes the
+same COMMENT case pass. Live capabilities remain protected. This resolves the
+local reproduction; a fresh hosted pass remains required. The 11213c8 observer's
+pipeline-hook caveat and all actual source labels remain applicable.

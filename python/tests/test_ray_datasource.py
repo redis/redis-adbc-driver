@@ -18,6 +18,23 @@ pytestmark = pytest.mark.skipif(
 )
 
 
+@pytest.fixture(autouse=True)
+def release_planned_sources(monkeypatch):
+    # A plan deliberately survives producer Close so Ray can retry/replay it.
+    # Each completed test owns its plans and must explicitly release them.
+    sources = []
+    original = RedisDatasource.__init__
+
+    def tracked(self, *args, **kwargs):
+        original(self, *args, **kwargs)
+        sources.append(self)
+
+    monkeypatch.setattr(RedisDatasource, "__init__", tracked)
+    yield
+    for planned in reversed(sources):
+        planned.close()
+
+
 @pytest.fixture
 def db_options():
     ca = os.environ.get("REDIS_TLS_CA_FILE")
@@ -56,6 +73,53 @@ def source(uri, db_options):
 
 def collect(dataset):
     return pa.concat_tables(ray.get(dataset.to_arrow_refs()))
+
+
+def test_datasource_explicit_release(uri, source, db_options):
+    name, expected = source
+    with RedisDatasource(uri, f'SELECT * FROM "{name}"', partition_count=1,
+                         db_kwargs=db_options) as planned:
+        task = planned.get_read_tasks(1)[0]
+        assert pa.concat_tables(list(task())).sort_by("id").equals(expected)
+    planned.close()
+    with pytest.raises(ValueError, match="closed"):
+        planned.get_read_tasks(1)
+    with pytest.raises(RuntimeError, match="partition snapshot expired or released"):
+        list(task())
+
+
+def test_datasource_close_preserves_acquired_reader(uri, source, db_options):
+    name, expected = source
+    with RedisDatasource(uri, f'SELECT * FROM "{name}"', partition_count=1,
+                         batch_rows=5, db_kwargs=db_options) as planned:
+        task = planned.get_read_tasks(1)[0]
+        stream = task.read_fn()
+        first = next(stream)
+    try:
+        assert pa.concat_tables([first, *stream]).sort_by("id").equals(expected)
+    finally:
+        stream.close()
+    with pytest.raises(RuntimeError, match="partition snapshot expired or released"):
+        list(task())
+
+
+def test_datasource_release_failure_can_retry(uri, source, db_options, monkeypatch):
+    name, expected = source
+    planned = RedisDatasource(uri, f'SELECT * FROM "{name}"', partition_count=1,
+                              db_kwargs=db_options)
+    task = planned.get_read_tasks(1)[0]
+
+    def unavailable(*args, **kwargs):
+        raise RuntimeError("injected cleanup connection failure")
+
+    with monkeypatch.context() as fault:
+        fault.setattr(dbapi, "connect", unavailable)
+        with pytest.raises(RuntimeError, match="injected cleanup connection failure"):
+            planned.close()
+    assert pa.concat_tables(list(task())).sort_by("id").equals(expected)
+    planned.close()
+    with pytest.raises(RuntimeError, match="partition snapshot expired or released"):
+        list(task())
 
 
 def test_dataset_types_coverage_and_empty(uri, source, ray_runtime, db_options):

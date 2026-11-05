@@ -30,15 +30,15 @@ python -m pip install './python[ray]'
 import os
 import ray
 from integration_guide_data import example_table
-from adbc_driver_redis.ray import read_query
+from adbc_driver_redis.ray import RedisDatasource
 
 ray.init(num_cpus=2, include_dashboard=False)
 try:
-    with example_table() as name:
-        ds = read_query(
-            os.environ["REDIS_URI"], f'SELECT id, label FROM "{name}" WHERE id >= ?',
-            parameters=(1,), partition_count=2, concurrency=2, batch_rows=65536,
-        )
+    with example_table() as name, RedisDatasource(
+        os.environ["REDIS_URI"], f'SELECT id, label FROM "{name}" WHERE id >= ?',
+        parameters=(1,), partition_count=2, batch_rows=65536,
+    ) as source:
+        ds = ray.data.read_datasource(source, concurrency=2)
         rows = sorted(ds.take_all(), key=lambda row: row["id"])
         assert rows == [{"id": 1, "label": "alpha"}, {"id": 2, "label": None}, {"id": 3, "label": "雪"}]
         print(rows)
@@ -51,7 +51,7 @@ finally:
     ray.shutdown()
 ```
 
-`read_query` eagerly plans a supported SELECT through `ExecutePartitions` and
+`read_query` and `RedisDatasource` eagerly plan a supported SELECT through `ExecutePartitions` and
 closes the planning handles. Ray read tasks open independent connections and
 consume `ReadPartition` Arrow batches incrementally. Neither Python rows nor the
 complete result are materialized on the caller. Empty reads retain the planned
@@ -67,9 +67,20 @@ read/write paths below are separate integrations.
 uneven. `concurrency` caps simultaneous Ray read tasks independently of split
 count. `batch_rows` controls native Arrow batch rows, not total pipeline memory;
 Ray can combine or split blocks and buffer data in its object store. Output is
-unordered. Reads and retries have no shared snapshot, stable replay or
-exactly-once guarantee. Concurrent writes can change re-read values. Schema or
-physical table changes can invalidate descriptors and require a new query plan.
+unordered. Reads and retries share the planned managed-table snapshot until its
+partition group expires (five minutes by default) or is explicitly released.
+Updates, TRUNCATE and DROP preserve that generation. Construct a new datasource
+to observe later writes. Expired or released descriptors require a new plan;
+there is no exactly-once processing guarantee.
+
+`read_query` leaves the group available for lazy execution and retries until
+expiry. For explicit early release, use the datasource as a context manager and
+finish the complete computation inside it, as in the example above.
+
+`source.close()` also releases the group and is idempotent. Already acquired
+readers retain their own pins, while new task attempts using released descriptors
+fail. Finish computations and desired retries before closing. Explicit release
+avoids retaining completed plans and their old generations until expiry.
 
 `db_kwargs` and `conn_kwargs` are passed to caller and worker connections.
 For private TLS CAs, use a verified `rediss://` URI and
