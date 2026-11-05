@@ -388,6 +388,6 @@ measurements. [Map/Union storage](#stored-map-and-union-contract) adds explicit
 container contracts with separate retained-partition restrictions;
 the [README matrix](../README.md#apache-arrow-feature-matrix) marks completed
 normalization and explicit-layout contracts as supported, with their boundaries
-retained. The [remaining-work inventory](../README.md#remaining-arrow-and-adbc-work)
-links separate open implementation issues. Support does not imply that all Arrow
-physical encodings or extension identities persist.
+retained. The [extensions and remaining limits inventory](arrow-adbc-limits.md)
+links completed follow-ups and documents their remaining boundaries. Support
+does not imply that all Arrow physical encodings or extension identities persist.
