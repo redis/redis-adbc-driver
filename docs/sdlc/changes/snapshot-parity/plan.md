@@ -616,5 +616,7 @@ remain published.
 
 The [atomic compaction copy checkpoint](atomic-compaction-copy.md) replaces
 per-row copy mutations with bounded atomic images/checkpoints, preserves partial
-output recovery and prevents stale error/checkpoint rewinds. Full validation and
-fresh sustained-write comparisons remain pending.
+output recovery and prevents stale error/checkpoint rewinds. Full snapshot race
+and 113 native checks pass. Fresh both-order comparisons improve throughput
+1.095x, but remain 219.95x behind the mutable baseline: the sustained parity gate
+still fails. Complete ordinary and hosted platform validation are pending.
