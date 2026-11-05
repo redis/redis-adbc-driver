@@ -16,3 +16,5 @@ See [intent](intent.md) and [spec](spec.md). Validation (2026-11-05):
 - `git diff --check` and Python compilation passed.
 
 Review: checked explicit unknown precedence, legacy missing fields, cumulative diagnostic deduplication, fixed-vocabulary privacy boundaries, safe text rendering, stale-response suppression and distinct sample/histogram semantics. No actionable findings remain. New driver binaries must be rebuilt/upgraded; no package release was performed.
+
+Production status: expanded collector/dashboard deployment is pending explicit user approval after automatic approval review rejected the production restart. Source is committed and tested; the prior compact-row static fix remains live.
