@@ -1,6 +1,6 @@
 # Directory-driven final indexing
 
-Date: 2026-11-04. Parent: e670a71. Status: implemented; final scoped validation passed, comparative performance pending.
+Date: 2026-11-04. Parent: e670a71. Status: implemented; scoped validation and both-order comparisons completed; performance parity remains incomplete.
 PR: https://github.com/redis/redis-adbc-driver/pull/284.
 See [intent](intent.md), [spec](spec.md), [plan](plan.md),
 [readiness attribution](point-write-profile.md) and
@@ -122,3 +122,46 @@ need comparative measurement. The old 32c9d2f sustained benchmark remains a fail
 parity gate; neither prototype timing nor regression elapsed time replaces a
 fresh validated native comparison. Background compaction still uses its existing
 initial-scan indexing phase and needs separate performance/recovery work.
+
+## Fresh sustained-write comparison
+
+[All six reports and ordered samples](directory-index-comparison.json) use one
+unchanged harness and the same verified fixture, with the order old snapshot,
+current snapshot, mutable, mutable, current snapshot, old snapshot. Each process
+resets the owned database and starts two 20,000-row tables. One warmup update per
+table precedes 64 alternating non-idempotent UPDATE RETURNING operations. Every
+return and all 40,000 final rows/values/payloads are independently checked. No
+caller retries, concurrent builds/tests or database probes occurred during the
+intervals. Background maintenance stays enabled for snapshot drivers.
+
+| Driver | Median update ms | p95 ms | Maximum ms | Updates/second |
+|---|---:|---:|---:|---:|
+| Previous snapshot 32c9d2f | 1712.677 | 6711.108 | 6893.466 | 0.433 |
+| Directory indexing 8d9f02b | 31.553 | 7605.914 | 7756.505 | 0.714 |
+| Mutable f4d5b78 | 5.474 | 6.908 | 37.008 | 164.530 |
+
+Each row pools 128 serial samples from two isolated processes. p95 is nearest
+rank; throughput is total operations divided by total timed interval seconds.
+Setup and complete independent final verification are outside those intervals;
+publication and complete RETURNING fetch are included. All six runs validated
+successfully. Native benchmark dependencies are Python 3.13.16, Arrow 26.0.0 and
+manager 1.13.0, consistently across the three drivers; this differs from the
+Python 3.14.10/Arrow 26.0.1 native acceptance suite above. Driver and harness
+hashes, platform, actual storage models and all samples are retained in JSON.
+Both snapshot binaries report format 15; the mutable baseline reports no snapshot
+catalog. No old metrics from another server/settings cohort are substituted.
+
+Median update latency improves 54.28 times over the previous snapshot driver,
+but throughput improves only 1.65 times. The p95 worsens from 6.71 to 7.61 seconds,
+and maximum latency also worsens. Current median is still 5.76 times mutable;
+mutable throughput is 230.29 times current. These are observed local workload
+results, not confidence bounds or a claim about every deployment.
+
+This closes the ordinary point-output database-wide scan mechanism; it does not
+close the performance-parity gate. Admission/maintenance stalls still dominate
+sustained throughput and need attribution and correction. Background compaction
+still copies complete source prefixes and emits a separately fenced script for
+each output row, then performs its initial-scan indexing phase. Their separate
+contributions to the remaining stalls are not isolated by this benchmark.
+Large-output/AOF overhead, actual restricted-principal compatibility, full
+ordinary/platform/HA/persistence and the other full-goal gates remain open.

@@ -603,3 +603,13 @@ Final exact-source checks: 353 snapshot race pass events/23 explicit skips,
 Arrow/extension/partition/statistics passes with no skips. The old snapshot native
 binary is preserved for fresh comparisons; current latency/throughput and full
 ordinary/platform/recovery gates are still pending. No full parity claim.
+
+Fresh [six-run directory-index comparisons](directory-indexing.md#fresh-sustained-write-comparison)
+complete in both revision orders with all returned/final values checked and no
+retries. Median UPDATE improves from 1,712.677 to 31.553 ms (54.28x), but sustained
+throughput only improves from 0.433 to 0.714 updates/s (1.65x), and p95 worsens to
+7.606 s. Mutable remains 5.474 ms/164.530 updates/s. This is still a failed
+performance-parity gate. Attribute admission/maintenance stalls next, including
+per-row compaction scripts and repeated full-prefix copies; do not hide them
+with larger limits or caller SQL retries. All raw samples and failed-tail result
+remain published.
