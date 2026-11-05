@@ -1,6 +1,6 @@
 module github.com/adbc-drivers/redis/go
 
-go 1.26.10
+go 1.27.3
 
 require (
 	github.com/adbc-drivers/driverbase-go/driverbase v0.0.0-20261015034256-4c82882827b5
@@ -9,6 +9,7 @@ require (
 	github.com/dlclark/regexp2/v2 v2.9.1
 	github.com/google/uuid v1.6.0
 	github.com/redis/go-redis/v9 v9.23.0
+	google.golang.org/protobuf v1.36.12
 )
 
 require (
@@ -48,5 +49,4 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20261019180522-ce908d29299b // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20261019180522-ce908d29299b // indirect
 	google.golang.org/grpc v1.84.0 // indirect
-	google.golang.org/protobuf v1.36.12 // indirect
 )

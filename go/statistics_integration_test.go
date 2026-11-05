@@ -48,17 +48,35 @@ func TestStatisticsManagedCountsAndFilters(t *testing.T) {
 				schemas := record.Column(1).(*array.List).ListValues().(*array.Struct)
 				values := schemas.Field(1).(*array.List).ListValues().(*array.Struct)
 				for i := 0; i < values.Len(); i++ {
-					if values.Field(0).(*array.String).Value(i) != table || !values.Field(1).IsNull(i) || values.Field(2).(*array.Int16).Value(i) != adbc.StatisticRowCountKey || !values.Field(4).(*array.Boolean).Value(i) {
+					key := values.Field(2).(*array.Int16).Value(i)
+					want := expected
+					if key == adbc.StatisticNullCountKey && !approximate {
+						col := values.Field(1).(*array.String).Value(i)
+						want = 0
+						if col == "label" && expected > 0 {
+							want = 1
+						}
+						if col != "id" && col != "label" {
+							t.Fatal("unknown column", col)
+						}
+					} else if key != adbc.StatisticRowCountKey || !values.Field(1).IsNull(i) {
+						t.Fatal(values)
+					}
+					if values.Field(0).(*array.String).Value(i) != table || !values.Field(4).(*array.Boolean).Value(i) {
 						t.Fatal(values)
 					}
 					union := values.Field(3).(*array.DenseUnion)
-					if union.TypeCode(i) != 0 || union.Field(0).(*array.Int64).Value(int(union.ValueOffset(i))) != expected {
+					if union.TypeCode(i) != 0 || union.Field(0).(*array.Int64).Value(int(union.ValueOffset(i))) != want {
 						t.Fatal(union)
 					}
 					count++
 				}
 			}
-			if r.Err() != nil || count != 1 {
+			wantCount := 1
+			if !approximate {
+				wantCount = 3
+			}
+			if r.Err() != nil || count != wantCount {
 				t.Fatalf("count=%d error=%v", count, r.Err())
 			}
 			r.Release()

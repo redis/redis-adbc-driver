@@ -92,7 +92,7 @@ def main():
         harness_sha256={p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in ROOT.glob('*.py')},
         host_load_average=os.getloadavg(),
         seed=args.seed, repetitions=args.repetitions, warmup_rounds=args.warmup, measured_rounds=args.rounds,
-        scenarios=scenarios, schedule=schedule, server_uris=servers,
+        scenarios=scenarios, schedule=schedule, server_uris={name: uri.split('://', 1)[0] + '://' + uri.split('://', 1)[-1].split('@')[-1] for name, uri in servers.items()},
         delay_definition='2 ms once per complete FT.AGGREGATE or FT.CURSOR response, after upstream completion; other commands and TCP chunks are not delayed. Not network RTT.',
         client_memory_bytes=2 * 1024**3,
         phase_definition='Cold learning excludes fixture creation and the serial reference check. Fresh handle per trial, one handle across concurrency phases. Warmed windows may still contain probes. Server-transition measurements include adaptation to the changed quota.', client_image=json.loads(command(['docker', 'image', 'inspect', args.image])),
@@ -131,6 +131,7 @@ def main():
             '--memory', '2g', '--memory-swap', '2g', '--mount', f'type=bind,src={trial_binary},dst=/profile,readonly',
             '--mount', f'type=bind,src={proxy_binary},dst=/proxy,readonly',
             '--mount', f'type=bind,src={ROOT},dst=/runner,readonly',
+            *(['--mount', f'type=bind,src={Path(os.environ["SSL_CERT_FILE"]).parent},dst=/test-tls,readonly', '-e', 'SSL_CERT_FILE=/test-tls/ca.pem'] if os.environ.get('SSL_CERT_FILE') else []),
             '--mount', f'type=bind,src={handoff},dst=/handoff', args.image, *inner], text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         # communicate() drains logs while the handshake watcher changes server
         # quotas. It cannot wait on stdout buffers or guess a phase from time.

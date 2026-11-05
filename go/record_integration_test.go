@@ -167,10 +167,16 @@ func TestSQLRecordStorage(t *testing.T) {
 	if err := st.Bind(h.ctx, srec); err != nil {
 		t.Fatal(err)
 	}
-	if rdr, _, err := st.ExecuteQuery(h.ctx); err == nil {
-		rdr.Release()
-		t.Error("a struct parameter was accepted")
+	rdr, _, err = st.ExecuteQuery(h.ctx)
+	if err != nil {
+		t.Fatal(err)
 	}
+	if !rdr.Next() || !arrow.TypeEqual(rdr.Schema().Field(0).Type, structs.DataType()) {
+		t.Fatal("named struct parameter schema was lost", rdr.Err())
+	}
+	rdr.Release()
+	structs.Release()
+	stb.Release()
 }
 
 // The errors of records have Postgres's SQLSTATEs (psql's \set VERBOSITY

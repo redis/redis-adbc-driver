@@ -7,7 +7,6 @@ package redis
 import (
 	"context"
 	"encoding/json"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -186,7 +185,9 @@ func (c *retainedCapture) table(ctx context.Context, meta *tableMeta) (*tableMet
 	// Preserve ordinary managed-table insertion order for LIMIT/OFFSET,
 	// order-dependent aggregates and stable sort ties. Compare exact int64 IDs.
 	if !meta.KeyRows {
-		sort.Slice(rows, func(i, j int) bool { return rows[i][rowIDField].I < rows[j][rowIDField].I })
+		if err := sortSliceUnstable(ctx, rows, func(i, j int) bool { return rows[i][rowIDField].I < rows[j][rowIDField].I }); err != nil {
+			return nil, err
+		}
 	}
 	// Validate schema/layout after capture and again immediately before public
 	// publication. Committed readers will never consult these sources afterward.

@@ -345,9 +345,10 @@ type SetOperation struct {
 
 // CTE is one `name [(columns)] AS (SELECT …)` of a WITH clause.
 type CTE struct {
-	Name    string
-	Columns []string
-	Select  *SelectStmt
+	Statement Stmt
+	Name      string
+	Columns   []string
+	Select    *SelectStmt
 	// Recursive is set for the CTEs of a WITH RECURSIVE list; those that
 	// refer to themselves are evaluated by iteration (see recursive.go).
 	Recursive bool
@@ -439,9 +440,11 @@ type SelectStmt struct {
 }
 
 type InsertStmt struct {
-	Table   TableName
-	Columns []string
-	Rows    [][]Expr
+	Override string
+	With     []CTE
+	Table    TableName
+	Columns  []string
+	Rows     [][]Expr
 	// Select is set for INSERT INTO … SELECT.
 	Select *SelectStmt
 	// DefaultValues is set for INSERT INTO … DEFAULT VALUES (one row of
@@ -458,9 +461,13 @@ type DefaultValue struct{}
 func (*DefaultValue) exprNode() {}
 
 type ColumnDef struct {
-	Name    string
-	Type    ColType
-	NotNull bool
+	Serial          bool
+	Identity        string
+	SequenceOptions sequenceOptions
+	Sequence        TableName
+	Name            string
+	Type            ColType
+	NotNull         bool
 	// NoIndex keeps the column out of the RediSearch index (it is still
 	// stored in the row HASH).
 	NoIndex bool
@@ -508,6 +515,9 @@ const (
 	AlterSetNotNull
 	AlterDropNotNull
 	AlterColumnType
+	AlterAddIdentity
+	AlterSetIdentity
+	AlterDropIdentity
 )
 
 type AlterTableStmt struct {
@@ -711,13 +721,15 @@ func (*CommentStmt) stmtNode()      {}
 // [(cols)] AS SELECT …; Text is the SELECT's source text, which is what gets
 // stored.
 type CreateViewStmt struct {
-	Name        TableName
-	Columns     []string
-	Select      *SelectStmt
-	Text        string
-	OrReplace   bool
-	IfNotExists bool
-	Temporary   bool
+	Materialized bool
+	NoData       bool
+	Name         TableName
+	Columns      []string
+	Select       *SelectStmt
+	Text         string
+	OrReplace    bool
+	IfNotExists  bool
+	Temporary    bool
 }
 
 type DropViewStmt struct {
@@ -1135,12 +1147,19 @@ func (p *parser) parseTableName() (TableName, error) {
 func (p *parser) parseStatement() (Stmt, error) {
 	switch {
 	case p.isKeyword("WITH"):
-		// WITH … SELECT, or WITH … UPDATE / DELETE / MERGE.
+		// WITH followed by a query or a data modification.
 		with, err := p.parseWith()
 		if err != nil {
 			return nil, err
 		}
 		switch {
+		case p.isKeyword("INSERT"):
+			st, err := p.parseInsert()
+			if err != nil {
+				return nil, err
+			}
+			st.(*InsertStmt).With = with
+			return st, nil
 		case p.isKeyword("UPDATE"):
 			st, err := p.parseUpdate()
 			if err != nil {
@@ -1168,6 +1187,8 @@ func (p *parser) parseStatement() (Stmt, error) {
 		return p.parseSelect()
 	case p.isKeyword("INSERT"):
 		return p.parseInsert()
+	case p.isKeyword("REFRESH"):
+		return p.parseRefreshMatView()
 	case p.isKeyword("CREATE"):
 		return p.parseCreate()
 	case p.isKeyword("DROP"):
@@ -1182,6 +1203,8 @@ func (p *parser) parseStatement() (Stmt, error) {
 		return p.parseAlter()
 	case p.isKeyword("TRUNCATE"):
 		return p.parseTruncate()
+	case p.isKeyword("GRANT"), p.isKeyword("REVOKE"):
+		return p.parsePrivilege()
 	case p.isKeyword("COMMENT"):
 		return p.parseComment()
 	case p.isKeyword("BEGIN"), p.isKeyword("START"), p.isKeyword("COMMIT"), p.isKeyword("END"),
@@ -1210,7 +1233,7 @@ var reservedAfterExpr = map[string]bool{
 	"INTERSECT": true, "EXCEPT": true, "MINUS": true,
 	"JOIN": true, "INNER": true, "LEFT": true, "RIGHT": true, "FULL": true,
 	"CROSS": true, "OUTER": true, "ON": true, "USING": true, "NATURAL": true,
-	"WINDOW": true, "QUALIFY": true, "RETURNING": true, "FETCH": true,
+	"WINDOW": true, "QUALIFY": true, "RETURNING": true, "FETCH": true, "WITH": true,
 }
 
 // isQueryStart reports whether the next token begins a (sub)query.
@@ -1316,11 +1339,25 @@ func (p *parser) parseWith() ([]CTE, error) {
 		if err := p.expectOp("("); err != nil {
 			return nil, err
 		}
-		body, err := p.parseSubquery()
-		if err != nil {
-			return nil, err
+		if p.isKeyword("INSERT") || p.isKeyword("UPDATE") || p.isKeyword("DELETE") || p.isKeyword("MERGE") {
+			body, err := p.parseStatement()
+			if err != nil {
+				return nil, err
+			}
+			if err = p.parseReturning(body); err != nil {
+				return nil, err
+			}
+			if err = p.expectOp(")"); err != nil {
+				return nil, err
+			}
+			cte.Statement = body
+		} else {
+			body, err := p.parseSubquery()
+			if err != nil {
+				return nil, err
+			}
+			cte.Select = body
 		}
-		cte.Select = body
 		if err := p.parseSearchCycle(&cte); err != nil {
 			return nil, err
 		}
@@ -1915,6 +1952,22 @@ func (p *parser) parseInsert() (Stmt, error) {
 			return nil, err
 		}
 	}
+	if p.acceptKeyword("OVERRIDING") {
+		if p.acceptKeyword("SYSTEM") {
+			ins.Override = "SYSTEM"
+		} else if p.acceptKeyword("USER") {
+			ins.Override = "USER"
+		} else {
+			return nil, syntaxErr("expected SYSTEM or USER")
+		}
+		if err = p.expectKeyword("VALUE"); err != nil {
+			return nil, err
+		}
+	}
+	if p.acceptKeyword("DEFAULT", "VALUES") {
+		ins.DefaultValues = true
+		return ins, nil
+	}
 	if (p.isQueryStart() && !p.isKeyword("VALUES")) || p.isParenQueryStart() {
 		sel, err := p.parseSelect()
 		if err != nil {
@@ -2017,6 +2070,12 @@ func (p *parser) parseCreate() (Stmt, error) {
 	if err := p.expectKeyword("CREATE"); err != nil {
 		return nil, err
 	}
+	if p.acceptKeyword("SEQUENCE") {
+		return p.parseSequence("CREATE")
+	}
+	if p.isKeyword("INDEX") || p.isKeyword("UNIQUE") {
+		return p.parseCreateIndex()
+	}
 	if p.acceptKeyword("SCHEMA") {
 		st := &CreateSchemaStmt{}
 		st.IfNotExists = p.acceptKeyword("IF", "NOT", "EXISTS")
@@ -2029,8 +2088,9 @@ func (p *parser) parseCreate() (Stmt, error) {
 	}
 	orReplace := p.acceptKeyword("OR", "REPLACE")
 	temporary := p.acceptKeyword("TEMPORARY") || p.acceptKeyword("TEMP")
+	materialized := p.acceptKeyword("MATERIALIZED")
 	if p.acceptKeyword("VIEW") {
-		st := &CreateViewStmt{OrReplace: orReplace, Temporary: temporary}
+		st := &CreateViewStmt{OrReplace: orReplace, Temporary: temporary, Materialized: materialized}
 		st.IfNotExists = p.acceptKeyword("IF", "NOT", "EXISTS")
 		name, err := p.parseTableName()
 		if err != nil {
@@ -2062,6 +2122,12 @@ func (p *parser) parseCreate() (Stmt, error) {
 		}
 		st.Select = sel.(*SelectStmt)
 		st.Text = strings.TrimSpace(p.src[start:p.toks[p.pos-1].end])
+		if materialized {
+			st.NoData, err = p.parseWithData()
+			if err != nil {
+				return nil, err
+			}
+		}
 		return st, nil
 	}
 	if orReplace {
@@ -2218,6 +2284,18 @@ func (p *parser) parseColumnDef() (ColumnDef, error) {
 	if err != nil {
 		return ColumnDef{}, err
 	}
+	serial := false
+	switch spec.Name {
+	case "SERIAL", "SERIAL4":
+		serial = true
+		spec.Name = "INTEGER"
+	case "SMALLSERIAL", "SERIAL2":
+		serial = true
+		spec.Name = "SMALLINT"
+	case "BIGSERIAL", "SERIAL8":
+		serial = true
+		spec.Name = "BIGINT"
+	}
 	ct, err := colTypeFromSQL(spec)
 	if err != nil {
 		return ColumnDef{}, parseErr(err)
@@ -2225,7 +2303,7 @@ func (p *parser) parseColumnDef() (ColumnDef, error) {
 	if ct.Kind == KindRecord {
 		return ColumnDef{}, &sqlError{msg: fmt.Sprintf("column %q has pseudo-type record", name), state: stateTableDefinition}
 	}
-	col := ColumnDef{Name: name, Type: ct}
+	col := ColumnDef{Name: name, Type: ct, Serial: serial}
 	if p.acceptKeyword("COLLATE") {
 		coll, err := p.parseCollationName()
 		if err != nil {
@@ -2242,6 +2320,14 @@ func (p *parser) parseColumnDef() (ColumnDef, error) {
 			constraint = true
 		}
 		switch {
+		case p.acceptKeyword("GENERATED"):
+			if col.Identity != "" || col.Serial {
+				return ColumnDef{}, syntaxErr("multiple identity specifications")
+			}
+			if col.Identity, col.SequenceOptions, err = p.parseIdentity(); err != nil {
+				return ColumnDef{}, err
+			}
+			col.NotNull = true
 		case p.acceptKeyword("NOT", "NULL"):
 			col.NotNull = true
 		case p.acceptKeyword("NULL"):
@@ -2382,6 +2468,12 @@ func (p *parser) parseAlter() (Stmt, error) {
 	if err := p.expectKeyword("ALTER"); err != nil {
 		return nil, err
 	}
+	if p.acceptKeyword("SEQUENCE") {
+		return p.parseSequence("ALTER")
+	}
+	if p.acceptKeyword("MATERIALIZED") {
+		return p.parseRenameMatView()
+	}
 	st := &AlterTableStmt{}
 	if p.acceptKeyword("VIEW") {
 		st.View = true
@@ -2503,6 +2595,31 @@ func (p *parser) parseAlterCmd(view bool) (AlterCmd, error) {
 			return cmd, err
 		}
 		switch {
+		case p.acceptKeyword("ADD", "GENERATED"):
+			cmd.Action = AlterAddIdentity
+			cmd.Def.Identity, cmd.Def.SequenceOptions, err = p.parseIdentity()
+			if err != nil {
+				return cmd, err
+			}
+		case p.acceptKeyword("SET", "GENERATED"):
+			cmd.Action = AlterSetIdentity
+			if p.acceptKeyword("ALWAYS") {
+				cmd.Def.Identity = "ALWAYS"
+			} else {
+				if err = p.expectKeyword("BY", "DEFAULT"); err != nil {
+					return cmd, err
+				}
+				cmd.Def.Identity = "BY DEFAULT"
+			}
+		case p.acceptKeyword("DROP", "IDENTITY"):
+			cmd.Action = AlterDropIdentity
+			cmd.IfColumnExists = p.acceptKeyword("IF", "EXISTS")
+		case p.isKeyword("RESTART"):
+			cmd.Action = AlterSetIdentity
+			cmd.Def.SequenceOptions, err = p.parseSequenceOptions()
+			if err != nil {
+				return cmd, err
+			}
 		case p.acceptKeyword("SET", "DEFAULT"):
 			if cmd.Def.Default, cmd.Def.DefaultText, err = p.parseDefault(); err != nil {
 				return cmd, err
@@ -2516,6 +2633,13 @@ func (p *parser) parseAlterCmd(view bool) (AlterCmd, error) {
 			cmd.Action = AlterDropNotNull
 		case p.acceptKeyword("SET", "DATA", "TYPE"), p.acceptKeyword("TYPE"):
 			if err := p.parseAlterType(&cmd); err != nil {
+				return cmd, err
+			}
+		case p.isKeyword("SET") && (p.isKeywordAt(1, "INCREMENT") || p.isKeywordAt(1, "MINVALUE") || p.isKeywordAt(1, "MAXVALUE") || p.isKeywordAt(1, "START") || p.isKeywordAt(1, "CACHE") || p.isKeywordAt(1, "CYCLE") || p.isKeywordAt(1, "NO")):
+			p.pos++
+			cmd.Action = AlterSetIdentity
+			cmd.Def.SequenceOptions, err = p.parseSequenceOptions()
+			if err != nil {
 				return cmd, err
 			}
 		default:
@@ -2591,6 +2715,12 @@ func (p *parser) parseDrop() (Stmt, error) {
 	if err := p.expectKeyword("DROP"); err != nil {
 		return nil, err
 	}
+	if p.acceptKeyword("SEQUENCE") {
+		return p.parseSequence("DROP")
+	}
+	if p.acceptKeyword("MATERIALIZED") {
+		return p.parseDropMatView()
+	}
 	if p.acceptKeyword("PARTITION") {
 		if err := p.expectKeyword("RESULT"); err != nil {
 			return nil, err
@@ -2601,6 +2731,9 @@ func (p *parser) parseDrop() (Stmt, error) {
 		}
 		p.pos++
 		return &DropPartitionResultStmt{JobID: token.text}, nil
+	}
+	if p.acceptKeyword("INDEX") {
+		return p.parseDropIndex()
 	}
 	if p.acceptKeyword("VIEW") {
 		st := &DropViewStmt{}
@@ -4093,6 +4226,16 @@ func (p *parser) parsePrimary() (Expr, error) {
 			if p.peekAt(1).kind == tokOp && p.peekAt(1).text == "(" {
 				p.pos += 2
 				return p.parseSQLJSONFunc(upper)
+			}
+		case "UUID":
+			if p.peekAt(1).kind == tokString {
+				input := p.peekAt(1).text
+				p.pos += 2
+				v, err := parseUUID(input)
+				if err != nil {
+					return nil, parseErr(err)
+				}
+				return &Literal{V: v}, nil
 			}
 		case "DATE", "TIME", "TIMESTAMP", "TIMESTAMPTZ", "DATETIME", "TIMETZ":
 			if upper == "DATE" && p.peekAt(1).kind == tokOp && p.peekAt(1).text == "(" {

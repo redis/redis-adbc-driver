@@ -49,6 +49,9 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 		return -1, errorf(adbc.StatusInvalidState, "bulk ingest requires data to be bound")
 	}
 	defer s.clearParams()
+	if err := s.prepareExtensionInput(); err != nil {
+		return -1, err
+	}
 	if opts.CatalogName != "" && opts.CatalogName != catalogName {
 		return -1, errorf(adbc.StatusNotFound, "catalog %q does not exist", opts.CatalogName)
 	}
@@ -84,6 +87,9 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 		return -1, err
 	}
 
+	if _, hasKey := wanted.resolve(keyField); hasKey && opts.Mode == adbc.OptionValueIngestModeReplace {
+		return -1, errorf(adbc.StatusInvalidArgument, "__key ingestion requires append or create_append mode")
+	}
 	var meta *tableMeta
 	switch opts.Mode {
 	case adbc.OptionValueIngestModeCreate:
@@ -92,6 +98,9 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 		}
 		meta = wanted
 	case adbc.OptionValueIngestModeReplace:
+		if old, err := st.getTable(ctx, schemaName, opts.TableName); err == nil && old.MaterializedSQL != "" {
+			return -1, matViewWriteError(old)
+		}
 		if err := st.dropTable(ctx, schemaName, opts.TableName, true); err != nil {
 			return -1, err
 		}
@@ -105,6 +114,19 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 			return -1, err
 		}
 	case adbc.OptionValueIngestModeCreateAppend:
+		// __key is an input to existing adopted tables, never a stored
+		// column of a newly created table.
+		if _, hasKey := wanted.resolve(keyField); hasKey {
+			current, getErr := st.getTable(ctx, schemaName, opts.TableName)
+			if getErr == nil && current.Adopted && current.KeyRows {
+				meta = current
+				break
+			}
+			var ae adbc.Error
+			if getErr != nil && (!errors.As(getErr, &ae) || ae.Code != adbc.StatusNotFound) {
+				return -1, getErr
+			}
+		}
 		created, err := st.createTable(ctx, wanted, true)
 		if err != nil {
 			return -1, err
@@ -118,6 +140,8 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 		return -1, errorf(adbc.StatusInvalidArgument, "unknown ingest mode %q", opts.Mode)
 	}
 
+	meta = insertMeta(meta)
+
 	// Map each Arrow field onto a table column; the other columns get their
 	// defaults, with the whole ingest as one statement. Values are converted
 	// as INSERT converts them, in the session time zone: text without an
@@ -130,7 +154,18 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 		if !ok {
 			return -1, errorf(adbc.StatusAlreadyExists, "column %q does not exist in table %q", f.Name, meta.Name)
 		}
+		if !storedRecordAppendCompatible(wanted.Columns[i].Type, meta.Columns[idx].Type) {
+			return -1, stateErrorf(stateDatatypeMismatch, "stored struct schema must match field names, types and nullability (column %q)", f.Name)
+		}
 		mapping[i], given[idx] = idx, true
+	}
+	for i, yes := range given {
+		if yes && meta.Columns[i].Identity == "ALWAYS" {
+			return -1, identityValueError(meta.Columns[i].Name)
+		}
+	}
+	if meta.MaterializedSQL != "" {
+		return -1, matViewWriteError(meta)
 	}
 	e := s.executor()
 	zone := e.zone()
@@ -143,6 +178,9 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 	var total int64
 	for s.params.Next() {
 		rec := s.params.RecordBatch()
+		if err := validateInputRecord(rec); err != nil {
+			return -1, errorf(adbc.StatusInvalidArgument, "invalid Arrow input: %v", err)
+		}
 		n := int(rec.NumRows())
 		rows := make([][]Value, n)
 		values := make([]Value, n*len(meta.Columns))
@@ -174,6 +212,10 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 		total += written
 	}
 	if err := s.params.Err(); err != nil && !errors.Is(err, io.EOF) {
+		var ae adbc.Error
+		if errors.As(err, &ae) {
+			return -1, err
+		}
 		return -1, errorf(adbc.StatusIO, "failed to read ingest data: %v", err)
 	}
 	return total, nil
@@ -183,6 +225,9 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 // once per cell. Strings still own their bytes after the Arrow batch is freed,
 // and every value passes the same coercion and later row constraint checks.
 func ingestColumn(arr arrow.Array, target ColType, zone tzZone, rows [][]Value, column int) error {
+	if err := validateInputArray(arr); err != nil {
+		return errorf(adbc.StatusInvalidArgument, "invalid Arrow input: %v", err)
+	}
 	var read func(int) Value
 	switch a := arr.(type) {
 	case *array.Int16:

@@ -1,0 +1,254 @@
+{
+  "pandas": {
+    "profile": "core",
+    "exit_code": 0,
+    "seconds": 0.7,
+    "read_write": "passed",
+    "verification_run": "initial"
+  },
+  "polars": {
+    "profile": "core",
+    "exit_code": 0,
+    "seconds": 0.6,
+    "read_write": "passed",
+    "verification_run": "initial"
+  },
+  "sqlalchemy": {
+    "profile": "core",
+    "exit_code": 0,
+    "seconds": 0.6,
+    "read_write": "passed",
+    "verification_run": "initial"
+  },
+  "pyarrow": {
+    "profile": "core",
+    "exit_code": 0,
+    "seconds": 0.7,
+    "read_write": "passed",
+    "verification_run": "recheck"
+  },
+  "numpy": {
+    "profile": "core",
+    "exit_code": 0,
+    "seconds": 0.5,
+    "read_write": "passed",
+    "verification_run": "recheck"
+  },
+  "scikit-learn": {
+    "profile": "core",
+    "exit_code": 0,
+    "seconds": 1.3,
+    "read_write": "passed",
+    "verification_run": "recheck"
+  },
+  "dagster": {
+    "profile": "core",
+    "exit_code": 0,
+    "seconds": 1.4,
+    "read_write": "passed",
+    "verification_run": "initial"
+  },
+  "dask": {
+    "profile": "core",
+    "exit_code": 0,
+    "seconds": 2.0,
+    "read_write": "passed",
+    "verification_run": "recheck"
+  },
+  "prefect": {
+    "profile": "core",
+    "exit_code": 0,
+    "seconds": 4.7,
+    "read_write": "passed",
+    "verification_run": "recheck"
+  },
+  "dlt": {
+    "profile": "core",
+    "exit_code": 0,
+    "seconds": 2.1,
+    "read_write": "passed",
+    "verification_run": "initial"
+  },
+  "ray": {
+    "profile": "core",
+    "exit_code": 0,
+    "seconds": 14.0,
+    "read_write": "passed",
+    "verification_run": "recheck"
+  },
+  "duckdb": {
+    "profile": "core",
+    "exit_code": 0,
+    "seconds": 2.5,
+    "read_write": "passed",
+    "verification_run": "initial"
+  },
+  "jupyter": {
+    "profile": "workflows",
+    "exit_code": 0,
+    "seconds": 1.7,
+    "read_write": "passed",
+    "verification_run": "initial"
+  },
+  "huggingface-datasets": {
+    "profile": "workflows",
+    "exit_code": 0,
+    "seconds": 0.7,
+    "read_write": "passed",
+    "verification_run": "initial"
+  },
+  "streamlit": {
+    "profile": "workflows",
+    "exit_code": 0,
+    "seconds": 0.8,
+    "read_write": "passed",
+    "verification_run": "initial"
+  },
+  "scipy": {
+    "profile": "workflows",
+    "exit_code": 0,
+    "seconds": 0.6,
+    "read_write": "passed",
+    "verification_run": "initial"
+  },
+  "pytorch": {
+    "profile": "models",
+    "exit_code": 0,
+    "seconds": 2.1,
+    "read_write": "passed",
+    "verification_run": "initial"
+  },
+  "tensorflow": {
+    "profile": "models",
+    "exit_code": 0,
+    "seconds": 4.3,
+    "read_write": "passed",
+    "verification_run": "initial"
+  },
+  "keras": {
+    "profile": "models",
+    "exit_code": 0,
+    "seconds": 2.7,
+    "read_write": "passed",
+    "verification_run": "initial"
+  },
+  "xgboost": {
+    "profile": "models",
+    "exit_code": 0,
+    "seconds": 1.3,
+    "read_write": "passed",
+    "verification_run": "initial"
+  },
+  "transformers": {
+    "profile": "models",
+    "exit_code": 0,
+    "seconds": 3.5,
+    "read_write": "passed",
+    "verification_run": "initial"
+  },
+  "plotly": {
+    "profile": "models",
+    "exit_code": 0,
+    "seconds": 0.6,
+    "read_write": "passed",
+    "verification_run": "initial"
+  },
+  "matplotlib": {
+    "profile": "models",
+    "exit_code": 0,
+    "seconds": 0.7,
+    "read_write": "passed",
+    "verification_run": "initial"
+  },
+  "spark": {
+    "profile": "spark",
+    "exit_code": 0,
+    "seconds": 6.3,
+    "read_write": "passed",
+    "verification_run": "initial"
+  },
+  "kubeflow": {
+    "profile": "orchestrators",
+    "exit_code": 0,
+    "seconds": 1.1,
+    "read_write": "passed",
+    "verification_run": "initial"
+  },
+  "metaflow": {
+    "profile": "orchestrators",
+    "exit_code": 0,
+    "seconds": 1.1,
+    "read_write": "passed",
+    "verification_run": "initial"
+  },
+  "ibis": {
+    "profile": "analysis",
+    "exit_code": 0,
+    "seconds": 1.3,
+    "read_write": "passed",
+    "verification_run": "initial"
+  },
+  "mlflow": {
+    "profile": "analysis",
+    "exit_code": 0,
+    "seconds": 2.3,
+    "read_write": "passed",
+    "verification_run": "initial"
+  },
+  "beam": {
+    "profile": "beam",
+    "exit_code": 0,
+    "seconds": 1.9,
+    "read_write": "passed",
+    "verification_run": "initial"
+  },
+  "mage": {
+    "profile": "mage",
+    "exit_code": 0,
+    "seconds": 3.5,
+    "read_write": "passed",
+    "verification_run": "recheck"
+  },
+  "kestra": {
+    "profile": "kestra",
+    "exit_code": 0,
+    "seconds": 11.7,
+    "read_write": "passed",
+    "verification_run": "initial"
+  },
+  "r-dbi": {
+    "profile": "documents",
+    "exit_code": 0,
+    "seconds": 0.8,
+    "read_write": "passed",
+    "verification_run": "initial"
+  },
+  "rstudio": {
+    "profile": "documents",
+    "exit_code": 0,
+    "seconds": 0.6,
+    "read_write": "passed",
+    "verification_run": "initial"
+  },
+  "quarto": {
+    "profile": "documents",
+    "exit_code": 0,
+    "seconds": 3.8,
+    "read_write": "passed",
+    "verification_run": "initial"
+  },
+  "airflow": {
+    "profile": "airflow",
+    "exit_code": 0,
+    "seconds": 8.9,
+    "read_write": "passed",
+    "verification_run": "initial"
+  },
+  "dbt": {
+    "profile": "dbt",
+    "exit_code": 0,
+    "seconds": 10.1,
+    "read_write": "passed",
+    "verification_run": "initial"
+  }
+}

@@ -25,6 +25,7 @@ import (
 	"testing"
 
 	redis "github.com/adbc-drivers/redis/go"
+	"github.com/adbc-drivers/redis/go/internal/testenv"
 	"github.com/apache/arrow-adbc/go/adbc"
 	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/apache/arrow-go/v18/arrow/memory"
@@ -282,4 +283,16 @@ func TestAdoptCommand(t *testing.T) {
 	if n, err := c.Exists(ctx, prefix+"1").Result(); err != nil || n != 1 {
 		t.Errorf("DROP TABLE of the adopted table deleted the HASHes: %d, %v", n, err)
 	}
+}
+
+func TestMain(m *testing.M) {
+	if err := testenv.SetupRoots(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	if err := testenv.ValidateURI(os.Getenv("REDIS_URI")); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	os.Exit(m.Run())
 }

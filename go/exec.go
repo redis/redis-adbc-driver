@@ -28,6 +28,14 @@ import (
 
 // executor runs parsed statements against a store.
 type executor struct {
+	rbac               *rbacManager
+	gpuRequested       bool
+	cudaDevice         int
+	gpuMetrics         *gpuMetrics
+	gpu                *cudaPredicate
+	dmlSnapshots       map[string]*tableMeta
+	dmlRunning         map[*CTE]bool
+	identityOverride   string
 	store              *store
 	retained           *retainedExecution
 	partitionNamespace string
@@ -42,6 +50,7 @@ type executor struct {
 	telemetry        *scanTelemetry
 	aggregateMetrics *partitionMetrics
 	diagnostics      *executionDiagnostics
+	truncateAdopted  bool
 	rekey            bool // RENAME TO also moves the rows (see rekey.go)
 
 	// Per-statement state (see bind.go).
@@ -163,6 +172,9 @@ func (e *executor) loadTable(ctx context.Context, t TableName) (*tableMeta, erro
 	if err != nil {
 		return nil, err
 	}
+	if m := e.dmlSnapshots[metaKey(schema, name)]; m != nil {
+		return m, nil
+	}
 	if e.retained != nil {
 		return e.retained.table(ctx, schema, name)
 	}
@@ -218,6 +230,23 @@ func (e *executor) execute(ctx context.Context, ps ParsedStmt, params []Value, p
 	if e.now.IsZero() {
 		e.now = time.Now().UTC()
 	}
+	if so != nil && so.required {
+		sel, ok := ps.Stmt.(*SelectStmt)
+		if !ok {
+			return execResult{}, errorf(adbc.StatusNotImplemented, "stream_required accepts only incremental SELECT plans")
+		}
+		if err := e.requireIncrementalSelect(ctx, sel); err != nil {
+			return execResult{}, err
+		}
+	}
+	e.dmlSnapshots = nil
+	e.dmlRunning = nil
+	defer func() { e.dmlSnapshots = nil; e.dmlRunning = nil }()
+	if modified, prepErr := e.prepareDMLCTEs(ctx, ps.Stmt); prepErr != nil {
+		return execResult{}, prepErr
+	} else if modified {
+		so = nil
+	}
 	switch st := ps.Stmt.(type) {
 	case *DropPartitionResultStmt:
 		store, err := newRetainedStore(e.store.redis(ctx), e.partitionNamespace, defaultRetainedLimits())
@@ -226,17 +255,23 @@ func (e *executor) execute(ctx context.Context, ps ParsedStmt, params []Value, p
 		}
 		return execResult{affected: 0}, store.revoke(ctx, st.JobID, "")
 	case *SelectStmt:
+		if so != nil && so.required {
+			ctx = context.WithValue(ctx, streamDistinctPlanKey{}, true)
+		}
 		plan, err := e.planSelect(ctx, st, paramTypes)
 		if err != nil {
 			return execResult{}, err
 		}
-		if so != nil && plan.streamable() {
+		if so != nil && (plan.streamable() || so.required && plan.distinctStreamable()) {
 			return e.streamSelect(ctx, plan, params, so)
 		}
 		if so != nil && plan.setop != nil && plan.unionStreamable() {
 			if res, handled, err := e.streamUnionAll(ctx, plan, params, so); handled || err != nil {
 				return res, err
 			}
+		}
+		if so != nil && so.required && !plan.noRows {
+			return execResult{}, errorf(adbc.StatusNotImplemented, "stream_required rejects a blocking or materializing plan")
 		}
 		rows, err := e.runSelect(ctx, plan, params)
 		if err != nil {
@@ -255,6 +290,12 @@ func (e *executor) execute(ctx context.Context, ps ParsedStmt, params []Value, p
 		return e.fitResult(e.dmlResult(e.runDelete(ctx, st, params)))
 	case *MergeStmt:
 		return e.fitResult(e.dmlResult(e.runMerge(ctx, st, params)))
+	case *SequenceStmt:
+		return execResult{affected: -1}, e.runSequence(ctx, st)
+	case *CreateIndexStmt:
+		return execResult{affected: -1}, e.runCreateIndex(ctx, st)
+	case *DropIndexStmt:
+		return execResult{affected: -1}, e.runDropIndex(ctx, st)
 	case *CreateTableStmt:
 		if st.AsSelect != nil {
 			n, err := e.runCreateTableAs(ctx, st)
@@ -265,7 +306,21 @@ func (e *executor) execute(ctx context.Context, ps ParsedStmt, params []Value, p
 		return execResult{affected: -1}, e.runDropObjects(ctx, append([]TableName{st.Table}, st.Tables...), st.IfExists, false)
 	case *AlterTableStmt:
 		return execResult{affected: -1}, e.runAlter(ctx, st)
+	case *RefreshMatViewStmt:
+		n, err := e.runRefreshMatView(ctx, st)
+		return execResult{affected: n}, err
+	case *DropMatViewStmt:
+		return execResult{affected: -1}, e.runDropMatView(ctx, st)
+	case *RenameMatViewStmt:
+		return execResult{affected: -1}, e.runRenameMatView(ctx, st)
 	case *CreateViewStmt:
+		if st.Materialized {
+			if ps.NumParams > 0 {
+				return execResult{}, stateErrorf(stateInvalidParameter, "materialized views cannot contain parameters")
+			}
+			n, err := e.runCreateMatView(ctx, st)
+			return execResult{affected: n}, err
+		}
 		return execResult{affected: -1}, e.runCreateView(ctx, st, ps.NumParams)
 	case *DropViewStmt:
 		return execResult{affected: -1}, e.runDropObjects(ctx, append([]TableName{st.Name}, st.Names...), st.IfExists, true)
@@ -277,6 +332,8 @@ func (e *executor) execute(ctx context.Context, ps ParsedStmt, params []Value, p
 		return execResult{affected: -1}, e.runTruncate(ctx, st)
 	case *CommentStmt:
 		return execResult{affected: -1}, e.runComment(ctx, st)
+	case *PrivilegeStmt:
+		return execResult{affected: -1}, e.runPrivilege(ctx, st)
 	case *TransactionStmt, *SetStmt, *ShowStmt:
 		return e.runSession(ps.Stmt)
 	}
@@ -292,6 +349,9 @@ func (e *executor) fitResult(res execResult, err error) (execResult, error) {
 	if err != nil || !res.isQuery {
 		return res, err
 	}
+	// A cached plan retains declared types; resolving one execution's values
+	// must not freeze its scale for another bound parameter row.
+	res.cols = append([]resultColumn(nil), res.cols...)
 	resolveNumericColumns(res.cols, res.rows)
 	z := e.zone()
 	for _, row := range res.rows {
@@ -366,7 +426,32 @@ func (e *executor) runTruncate(ctx context.Context, st *TruncateStmt) error {
 			metas = append(metas, meta)
 		}
 	}
-	return e.store.truncateTables(ctx, metas, st.RestartIdentity)
+	if slices.ContainsFunc(metas, func(m *tableMeta) bool { return m.Adopted }) && e.truncateAdopted {
+		for _, m := range metas {
+			if !m.Adopted {
+				return errorf(adbc.StatusNotImplemented, "TRUNCATE cannot mix adopted and managed tables")
+			}
+			if !m.KeyRows {
+				return errAdoptedByRowID(m)
+			}
+			if err := e.store.checkKeys(ctx, m, true); err != nil {
+				return err
+			}
+		}
+		for _, m := range metas {
+			if err := e.store.truncateAdoptedRows(ctx, m); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	if err := e.store.truncateTables(ctx, metas, st.RestartIdentity); err != nil {
+		return err
+	}
+	if st.RestartIdentity {
+		return e.restartOwnedSequences(ctx, metas)
+	}
+	return nil
 }
 
 func (e *executor) runCreateTable(ctx context.Context, st *CreateTableStmt) error {
@@ -374,10 +459,27 @@ func (e *executor) runCreateTable(ctx context.Context, st *CreateTableStmt) erro
 	if err != nil {
 		return err
 	}
+	if exists, err := e.store.tableExists(ctx, schema, name); err != nil {
+		return err
+	} else if exists && st.IfNotExists {
+		return nil
+	}
+	defs, created, err := e.autoColumns(ctx, schema, name, st.Columns)
+	keep := false
+	defer func() {
+		if !keep {
+			for _, n := range created {
+				_ = e.mutateSequence(context.WithoutCancel(ctx), n.Schema, n.Name, func(*sequenceMeta) error { return nil }, true, true)
+			}
+		}
+	}()
+	if err != nil {
+		return err
+	}
 	meta := &tableMeta{Schema: schema, Name: name, Comment: st.Comment}
 	noIndex := map[string]bool{}
-	for _, c := range st.Columns {
-		col := columnMeta{Name: c.Name, Type: c.Type, Nullable: !c.NotNull, Comment: c.Comment}
+	for _, c := range defs {
+		col := columnMeta{Identity: c.Identity, Sequence: c.Sequence, Name: c.Name, Type: c.Type, Nullable: !c.NotNull, Comment: c.Comment}
 		if c.Default != nil {
 			if col.Default, _, err = e.checkDefault(ctx, c); err != nil {
 				return err
@@ -398,7 +500,16 @@ func (e *executor) runCreateTable(ctx context.Context, st *CreateTableStmt) erro
 	if err != nil {
 		return err
 	}
-	_, err = e.store.createTable(ctx, meta, st.IfNotExists)
+	keep, err = e.store.createTable(ctx, meta, st.IfNotExists)
+	if err == nil && keep {
+		for _, c := range meta.Columns {
+			if c.Sequence.Name != "" {
+				if err = e.mutateSequence(ctx, c.Sequence.Schema, c.Sequence.Name, func(seq *sequenceMeta) error { seq.OwnerOID = tableOID(meta); seq.OwnerField = c.field(); return nil }, false, false); err != nil {
+					return err
+				}
+			}
+		}
+	}
 	return err
 }
 
@@ -543,15 +654,28 @@ func (e *executor) replaceAliases(expr Expr, aliases map[string]Expr) Expr {
 // ---- INSERT ----
 
 func (e *executor) runInsert(ctx context.Context, st *InsertStmt, params []Value) (int64, error) {
+	savedOverride := e.identityOverride
+	e.identityOverride = st.Override
+	defer func() { e.identityOverride = savedOverride }()
+	pop, err := e.pushCTEs(st.With)
+	if err != nil {
+		return 0, err
+	}
+	defer pop()
 	meta, err := e.loadTable(ctx, st.Table)
 	if err != nil {
 		return 0, err
 	}
+	if meta.MaterializedSQL != "" {
+		return 0, matViewWriteError(meta)
+	}
+	original := meta
+	meta = insertMeta(meta)
 	targets, err := insertTargets(meta, st.Columns)
 	if err != nil {
 		return 0, err
 	}
-	if _, err := e.planReturning(ctx, st.Returning, []relation{tableRel(meta, "")}, meta, false, nil); err != nil {
+	if _, err := e.planReturning(ctx, st.Returning, []relation{tableRel(original, "")}, original, false, nil); err != nil {
 		return 0, err
 	}
 	if st.Select != nil {
@@ -597,7 +721,10 @@ func (e *executor) runInsert(ctx context.Context, st *InsertStmt, params []Value
 func insertTargets(meta *tableMeta, cols []string) ([]int, error) {
 	targets := make([]int, 0, len(meta.Columns))
 	if len(cols) == 0 {
-		for i := range meta.Columns {
+		for i, c := range meta.Columns {
+			if c.Name == keyField && meta.KeyRows {
+				continue
+			}
 			targets = append(targets, i)
 		}
 		return targets, nil
@@ -623,8 +750,15 @@ func insertRow(env *evalEnv, meta *tableMeta, defs *columnDefaults, checks *tabl
 	row := make([]Value, len(meta.Columns))
 	given := make([]bool, len(meta.Columns))
 	for j, expr := range exprs {
+		c := meta.Columns[targets[j]]
+		if c.Identity != "" && env.exec != nil && env.exec.identityOverride == "USER" {
+			continue
+		}
 		if _, ok := expr.(*DefaultValue); ok {
 			continue
+		}
+		if c.Identity == "ALWAYS" && (env.exec == nil || env.exec.identityOverride != "SYSTEM") {
+			return nil, identityValueError(c.Name)
 		}
 		v, err := env.eval(expr)
 		if err != nil {
@@ -700,6 +834,12 @@ func (e *executor) insertSelect(ctx context.Context, st *InsertStmt, meta *table
 		given := make([]bool, len(meta.Columns))
 		for j, v := range res {
 			col := meta.Columns[targets[j]]
+			if col.Identity != "" && st.Override == "USER" {
+				continue
+			}
+			if col.Identity == "ALWAYS" && st.Override != "SYSTEM" {
+				return 0, identityValueError(col.Name)
+			}
 			cv, err := coerceIn(v, col.Type, e.zone())
 			if err != nil {
 				return 0, columnErr(col.Name, err)
@@ -835,7 +975,7 @@ func (e *executor) planSelect(ctx context.Context, sel *SelectStmt, paramTypes [
 	if sel.SetOp != nil {
 		return e.planSetOp(ctx, sel, plan)
 	}
-	if g, ok := distinctAsGroupBy(sel); ok {
+	if g, ok := distinctAsGroupBy(sel); ok && ctx.Value(streamDistinctPlanKey{}) == nil {
 		// SELECT DISTINCT over plain expressions is GROUP BY those
 		// expressions, which the index can often compute (FT.AGGREGATE
 		// GROUPBY) instead of the driver reading every row. If that plan
@@ -1389,7 +1529,10 @@ func (e *executor) selectWithoutTable(ctx context.Context, plan *selectPlan, par
 		if err != nil {
 			return nil, err
 		}
-		rows = sortExpandedRows(rows, keys, plan.order)
+		rows, err = sortExpandedRows(ctx, rows, keys, plan.order)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return applyLimit(rows, plan.sel.Offset, plan.sel.Limit), nil
 }
@@ -1524,6 +1667,9 @@ func (e *executor) runUpdate(ctx context.Context, st *UpdateStmt, params []Value
 	if err != nil {
 		return 0, err
 	}
+	if meta.MaterializedSQL != "" {
+		return 0, matViewWriteError(meta)
+	}
 	name := st.Alias
 	if name == "" {
 		name = meta.Name
@@ -1596,6 +1742,9 @@ func (e *executor) runDelete(ctx context.Context, st *DeleteStmt, params []Value
 	if err != nil {
 		return 0, err
 	}
+	if meta.MaterializedSQL != "" {
+		return 0, matViewWriteError(meta)
+	}
 	need := map[string]bool{}
 	ret, err := e.planReturning(ctx, st.Returning, []relation{tableRel(meta, st.Alias)}, meta, false, need)
 	if err != nil {
@@ -1630,6 +1779,9 @@ func setTargets(meta *tableMeta, alias string, sets []SetClause) ([]int, error) 
 		idx, ok := meta.resolve(s.Column)
 		if !ok {
 			return nil, stateErrorf(stateUndefinedColumn, "column %q does not exist in table %q", s.Column, meta.Name)
+		}
+		if meta.Columns[idx].Identity == "ALWAYS" {
+			return nil, identityValueError(meta.Columns[idx].Name)
 		}
 		cols[i] = idx
 	}

@@ -63,6 +63,7 @@ const (
 	stateInvalidText         = "22P02" // invalid_text_representation
 	stateUntranslatable      = "22P05" // untranslatable_character
 	stateNotNull             = "23502" // not_null_violation
+	stateUnique              = "23505" // unique_violation
 	stateCheck               = "23514" // check_violation
 	stateUndefinedSchema     = "3F000" // invalid_schema_name
 	stateSyntax              = "42601" // syntax_error

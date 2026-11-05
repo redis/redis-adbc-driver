@@ -10,8 +10,11 @@ the source-consistency design boundaries.
 permanent, driver-managed Redis table. See [issue #163](https://github.com/redis/redis-adbc-driver/issues/163).
 This API supplies the split descriptions for an external scheduler such as Ray
 or Dask; it does not create workers or provide an installed Ray connector.
-Rebuild the native library from this source checkout before using the new API;
-these changes have not yet been published in release wheels.
+The published `0.0.19` macOS ARM64 wheel passed native live/retained partition
+checks over verified TLS on Redis Software 8.6.2 with 4x QPF. See the
+[dated validation record](sdlc/changes/210-212/validation.md) for exact scope.
+Other wheel/platform combinations require their own validation. Rebuild from
+source to use changes made after that release, including bounded cursor cleanup.
 
 ## Supported queries
 
@@ -364,3 +367,12 @@ runs passed all 16 Software checks. Each three-shard deployment uses one Softwar
 node, so this establishes proxy/shard routing coverage, not multi-node failover.
 See [verification](sdlc/changes/software-proxy-tls-400/plan.md). Cloud TLS and
 remaining performance evidence are still open in [#170](https://github.com/redis/redis-adbc-driver/issues/170).
+
+### Explicit layouts and byte lengths (#302/#304)
+
+Non-dictionary `adbc.redis.result_layouts` are carried in revision 3 live
+partition descriptors. Revision 1 canonical descriptors remain readable. Schema
+compatibility is checked independently on every reader; conversion errors remain
+explicit. OCTET_LENGTH/BIT_LENGTH over VARCHAR/VARBINARY are admitted row-local
+functions. See [Arrow result layouts](arrow-interoperability.md#explicit-result-layouts)
+and [coverage](partition-coverage.md#byte-length-expansion-304).

@@ -36,6 +36,7 @@ def main():
             rows = cur.fetchall()
         if rows != [(3, 42)]:
             raise AssertionError(f"Unexpected revenue persisted in Redis: {rows!r}")
+        print("REDIS_ADBC_READ_WRITE_OK")
         print("Dagster → Redis → Dagster → Redis: 3 orders, total 42; SQL verification passed.")
     finally:
         # The generated schema belongs exclusively to this invocation.

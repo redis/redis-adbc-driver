@@ -1,0 +1,14 @@
+{
+  "runtime_source": "158b8c820c476a7ae116fb677c6f1fffa4722b98",
+  "passed": true,
+  "top_level_passes": 837,
+  "top_level_skips": 41,
+  "driver_seconds": 417.459,
+  "server": "Redis Software 8.6.2",
+  "qpf": 4,
+  "shards": 3,
+  "tls": "verified",
+  "protocol": 3,
+  "command": "make -C go test-software TEST_ARGS=\"-race -tags scanprefetch\"; isolated task-owned project/ports",
+  "skip_interpretation": "Existing Software proxy ACL/protocol introspection limits, opt-in profiles and unavailable native GPU/extra endpoints; no skip/assertion changes"
+}

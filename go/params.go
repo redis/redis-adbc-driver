@@ -222,10 +222,16 @@ func (e *executor) describeParams(ctx context.Context, st Stmt) error {
 		}
 		return checkStorableColumns(plan.columns())
 	case *InsertStmt:
+		pop, err := e.pushCTEs(st.With)
+		if err != nil {
+			return err
+		}
+		defer pop()
 		meta, err := e.loadTable(ctx, st.Table)
 		if err != nil {
 			return err
 		}
+		meta = insertMeta(meta)
 		targets, err := insertTargets(meta, st.Columns)
 		if err != nil {
 			return err

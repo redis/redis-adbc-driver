@@ -32,6 +32,18 @@ type incrementalPartitions struct {
 }
 
 func (s *statementImpl) ExecutePartitions(ctx context.Context) (*arrow.Schema, adbc.Partitions, int64, error) {
+	if s.substrait != nil {
+		return nil, adbc.Partitions{}, -1, subUnsupported("partition execution")
+	}
+	if s.executionBackend == "cuda" {
+		return nil, adbc.Partitions{}, -1, errorf(adbc.StatusNotImplemented, "CUDA requires ExecuteQuery; partitions use execution_backend=cpu")
+	}
+	if s.streamRequired {
+		return nil, adbc.Partitions{}, -1, errorf(adbc.StatusNotImplemented, "stream_required applies to ExecuteQuery; partition modes have separate execution quotas")
+	}
+	if err := s.resultLayouts.partitionCompatible(); err != nil {
+		return nil, adbc.Partitions{}, -1, err
+	}
 	if s.ipc.active() {
 		return nil, adbc.Partitions{}, -1, errorf(adbc.StatusInvalidState, "IPC input/output requires ExecuteUpdate")
 	}

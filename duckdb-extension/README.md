@@ -13,6 +13,8 @@ SELECT * FROM redis_adbc_scan(
 The [registry submission](https://github.com/duckdb/community-extensions/pull/3157)
 has merged for DuckDB 2.0. `INSTALL redis_adbc FROM community` requires a
 successful registry build and publication for your exact engine/platform.
+Release CI also attaches versioned, checksummed unsigned binaries for the pinned
+DuckDB version; see [release installation](../docs/integration-installation.md#native-clients-r-and-duckdb).
 For local development, build from source and load the resulting file with
 unsigned extensions enabled in your DuckDB client.
 
@@ -30,9 +32,9 @@ source commit `d54cbbe3df17e8e5ce68312f483b4155836112aa` and its
 this target. See [community submission #3157](https://github.com/duckdb/community-extensions/pull/3157).
 
 Requires CMake, Ninja or Make, a C/C++17 compiler, Python 3, and network access
-to fetch the pinned Go 1.26.10 toolchain and Go modules. Linux amd64/arm64 and
+to fetch the pinned Go 1.27.3 toolchain and Go modules. Linux amd64/arm64 and
 macOS amd64/arm64 are build targets; Windows and WebAssembly are excluded.
-macOS requires version 12 or newer. No Go installation is required: CMake
+macOS requires version 15 or newer. No Go installation is required: CMake
 downloads a platform-specific archive from go.dev and verifies its SHA-256.
 
 ```sh

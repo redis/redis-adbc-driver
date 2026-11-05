@@ -16,6 +16,9 @@ that an older published wheel contains every helper documented here.
 
 ### Worker-side Arrow reader
 
+Complete the [shared example setup](example-setup.md) for the sample-data helper
+before running the first block. It creates and removes a unique input table.
+
 The source-tree `ray` extra pins Ray 2.59.0. Install this build on the caller
 and every worker (Python 3.12+), including its matching native library:
 
@@ -26,19 +29,24 @@ python -m pip install './python[ray]'
 ```python
 import os
 import ray
+from integration_guide_data import example_table
 from adbc_driver_redis.ray import read_query
 
-ray.init()
+ray.init(num_cpus=2, include_dashboard=False)
 try:
-    ds = read_query(
-        os.environ["REDIS_URI"],
-        "SELECT id, label FROM public.events WHERE id >= ?",
-        parameters=(100,),
-        partition_count=8,
-        concurrency=2,
-        batch_rows=65536,
-    )
-    print(ds.take(10))
+    with example_table() as name:
+        ds = read_query(
+            os.environ["REDIS_URI"], f'SELECT id, label FROM "{name}" WHERE id >= ?',
+            parameters=(1,), partition_count=2, concurrency=2, batch_rows=65536,
+        )
+        rows = sorted(ds.take_all(), key=lambda row: row["id"])
+        assert rows == [{"id": 1, "label": "alpha"}, {"id": 2, "label": None}, {"id": 3, "label": "雪"}]
+        print(rows)
+
+        # Persist the tool's computed output, then read it through a fresh connection.
+        from integration_guide_data import write_result
+        import pyarrow as pa
+        write_result(pa.Table.from_pylist(rows))
 finally:
     ray.shutdown()
 ```
@@ -91,15 +99,26 @@ Install `ray[data]` alongside `adbc-driver-redis[dbapi]`. Ray's
 accepts a factory that opens a fresh DB-API connection for each task:
 
 ```python
+import os
+from uuid import uuid4
 from functools import partial
 import ray
 from adbc_driver_redis import dbapi
 
 ray.init(num_cpus=2, include_dashboard=False)
-connect = partial(dbapi.connect, "redis://localhost:6379/0")
+connect = partial(dbapi.connect, os.environ["REDIS_URI"])
+name = "guide_ray_sql_" + uuid4().hex
 try:
     ds = ray.data.read_sql("SELECT 1 AS one", connect, override_num_blocks=1)
-    print(ds.take_all())  # [{'one': 1}]
+    with connect() as conn, conn.cursor() as cur:
+        try:
+            cur.execute(f'CREATE TABLE "{name}" (one bigint)')
+            ds.write_sql(f'INSERT INTO "{name}" (one) VALUES (?)', connect)
+            cur.execute(f'SELECT one FROM "{name}"')
+            assert cur.fetchall() == [(1,)]
+            print("REDIS_ADBC_READ_WRITE_OK")
+        finally:
+            cur.execute(f'DROP TABLE IF EXISTS "{name}"')
 finally:
     ray.shutdown()
 ```
@@ -124,5 +143,30 @@ write tasks because Ray may combine them. Multi-node execution, SQL read shardin
 and performance were not validated. On a remote cluster, install the driver
 and its native library on every worker and use a Redis endpoint reachable by
 all workers; a client-local library path or `localhost` URI will not suffice.
+
+## Rerun this guide
+
+From the repository root, with the guide's dependencies and native driver
+installed, set `REDIS_URI` to the dedicated local Software fixture and run:
+
+```sh
+python python/scripts/check_integration_guide.py ray
+```
+
+This executes the guide's code blocks or its linked runnable example. For
+Superset it exercises the documented backend workflow in an isolated application;
+it does not automate the browser UI. See the
+[per-guide results](../sdlc/changes/integration-guides-262/validation.md).
+
+
+## Write results back to Redis
+
+The runnable example writes the tool's computed output through the shared
+`write_result` Arrow sink and checks exact rows and types on a fresh connection.
+This is custom application code and fully materializes the output; it does not
+add a native connector, distributed sink, model/artifact store, or transactions.
+The helper creates a unique output table and drops it after verification. In a
+production workflow, choose an owned destination and explicit retry policy;
+failed autocommit writes can partially apply and blind append retries duplicate rows.
 
 [All integration guides](README.md)

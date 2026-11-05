@@ -335,7 +335,7 @@ func TestRetainedPartitionAPIControlPolicyAdmission(t *testing.T) {
 }
 
 func TestRetainedPartitionAPIPrepublicationFailure(t *testing.T) {
-	for _, failure := range []string{"cancel", "cardinality", "schema", "index", "view"} {
+	for _, failure := range []string{"cancel", "cardinality", "schema", "index", "view", "replace"} {
 		t.Run(failure, func(t *testing.T) {
 			h := newSQLHarness(t)
 			const table = "it_retained_publication_failure"
@@ -381,6 +381,11 @@ func TestRetainedPartitionAPIPrepublicationFailure(t *testing.T) {
 					h.exec("INSERT INTO " + table + " VALUES (4)")
 				case "schema":
 					h.exec("ALTER TABLE " + table + " ADD COLUMN added TEXT")
+				case "replace":
+					// Same schema/cardinality, different physical table identity.
+					h.exec("DROP TABLE " + table)
+					h.exec("CREATE TABLE " + table + " (id BIGINT)")
+					h.exec("INSERT INTO " + table + " VALUES (1),(2),(3)")
 				case "view":
 					h.exec("CREATE OR REPLACE VIEW " + view + " AS SELECT id+1 AS id FROM " + table)
 				case "index":
@@ -413,6 +418,64 @@ func TestRetainedPartitionAPIPrepublicationFailure(t *testing.T) {
 				t.Fatal("failed publication retained byte reservation", err)
 			}
 		})
+	}
+}
+
+// Retained output freezes the completed capture without promising a source
+// snapshot. Exercise an overlapping writer that updates the same number of rows
+// before publication: replay must preserve captured values rather than rerun SQL.
+func TestRetainedPartitionAPIUpdateAfterCapture(t *testing.T) {
+	h := newSQLHarness(t)
+	const table = "it_retained_update_after_capture"
+	h.exec("DROP TABLE IF EXISTS " + table)
+	h.exec("CREATE TABLE " + table + " (id BIGINT)")
+	t.Cleanup(func() { h.exec("DROP TABLE IF EXISTS " + table) })
+	h.exec("INSERT INTO " + table + " VALUES (1),(2),(3)")
+	storage := retainedFixture(t, h.rawClient(), defaultRetainedLimits())
+	publisher := retainedAPIConnection(t, storage.namespace, false)
+	statement, err := publisher.NewStatement(h.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer statement.Close(h.ctx)
+	if err := statement.SetOption(h.ctx, OptionStringPartitionResultMode, "retained"); err != nil {
+		t.Fatal(err)
+	}
+	if err := statement.SetSqlQuery(h.ctx, "SELECT id FROM "+table+" ORDER BY id"); err != nil {
+		t.Fatal(err)
+	}
+	updated := false
+	testHookRetainedBeforePublish = func(_ *retainedUpload) {
+		h.exec("UPDATE " + table + " SET id = id + 10")
+		updated = true
+	}
+	t.Cleanup(func() { testHookRetainedBeforePublish = nil })
+	_, parts, rows, err := statement.ExecutePartitions(h.ctx)
+	testHookRetainedBeforePublish = nil
+	if err != nil || !updated || rows != 3 || parts.NumPartitions == 0 {
+		t.Fatal("publication after same-cardinality update", rows, err)
+	}
+	h.expectRows("SELECT id FROM "+table+" ORDER BY id", "11", "12", "13")
+	reader := retainedAPIConnection(t, storage.namespace, true)
+	for range 2 {
+		var got []int64
+		for _, part := range parts.PartitionIDs {
+			r, err := reader.ReadPartition(h.ctx, part)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for r.Next() {
+				got = append(got, r.RecordBatch().Column(0).(*array.Int64).Int64Values()...)
+			}
+			err = r.Err()
+			r.Release()
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+		if !slices.Equal(got, []int64{1, 2, 3}) {
+			t.Fatal("replay changed after a source update", got)
+		}
 	}
 }
 

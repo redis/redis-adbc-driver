@@ -305,7 +305,7 @@ func TestSQLErrorStates(t *testing.T) {
 	defer uCol.Release()
 	uRec := array.NewRecordBatch(arrow.NewSchema([]arrow.Field{{Name: "id", Type: arrow.PrimitiveTypes.Uint64}}, nil), []arrow.Array{uCol}, 1)
 	defer uRec.Release()
-	checkState(t, "bound uint64 2^63", h.stmtErr(`SELECT $1`, uRec), data, "22003", "parameter 1: uint64 value 9223372036854775808 out of range")
+	checkState(t, "bound uint64 2^63", h.stmtErr(`SELECT CAST($1 AS BIGINT)`, uRec), data, "22003", "bigint out of range")
 
 	// Bulk ingest.
 	ingest := func(rec arrow.RecordBatch) error {
@@ -329,7 +329,7 @@ func TestSQLErrorStates(t *testing.T) {
 		_, err = st.ExecuteUpdate(h.ctx)
 		return err
 	}
-	checkState(t, "ingest of uint64 2^63", ingest(uRec), data, "22003", `column "id": uint64 value 9223372036854775808 out of range`)
+	checkState(t, "ingest of uint64 2^63", ingest(uRec), data, "22003", `column "id": integer out of range`)
 	nb := array.NewInt64Builder(mem)
 	defer nb.Release()
 	nb.AppendNull()

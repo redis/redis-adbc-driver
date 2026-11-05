@@ -131,12 +131,15 @@ const (
 	argNumber
 	argInt
 	argNumberOrInterval
+	argBytes
 )
 
 func (a argType) accepts(t ColType) bool {
 	switch {
 	case t.Kind == KindNull:
 		return true
+	case a == argBytes:
+		return (t.Kind == KindString && !t.Fixed && t.Alias == "" || t.Kind == KindBinary)
 	case a == argBool:
 		return t.Kind == KindBool
 	case a == argNumber:
@@ -253,6 +256,11 @@ var funcDefs = []funcDef{
 	{name: "EXP", min: 1, max: 1, impl: implScalar},
 	{name: "CBRT", min: 1, max: 1, impl: implScalar},
 	{name: "SIGN", min: 1, max: 1, impl: implScalar},
+	{name: "NEXTVAL", min: 1, max: 1, volatile: true},
+	{name: "CURRVAL", min: 1, max: 1, volatile: true},
+	{name: "SETVAL", min: 2, max: 3, volatile: true},
+	{name: "LASTVAL", min: 0, max: 0, volatile: true},
+	{name: "GEN_RANDOM_UUID", min: 0, max: 0, impl: implScalar, volatile: true},
 	{name: "RANDOM", min: 0, max: 0, impl: implScalar, volatile: true},
 	{name: "ABS", min: 1, max: 1},
 	{name: "PI", min: 0, max: 0, impl: implScalar},
@@ -301,6 +309,8 @@ var funcDefs = []funcDef{
 	{name: "REGEXP_REPLACE", min: 3, max: 6, impl: implScalar},
 	{name: "LOWER", aliases: []string{"LCASE"}, min: 1, max: 1},
 	{name: "UPPER", aliases: []string{"UCASE"}, min: 1, max: 1},
+	{name: "OCTET_LENGTH", min: 1, max: 1, args: []argType{argBytes}},
+	{name: "BIT_LENGTH", min: 1, max: 1, args: []argType{argBytes}},
 	{name: "LENGTH", aliases: []string{"CHAR_LENGTH", "CHARACTER_LENGTH", "LEN"}, min: 1, max: 1},
 	{name: "FROM_HEX", aliases: []string{"UNHEX", "DECODE_HEX"}, min: 1, max: 1},
 	{name: "TO_HEX", aliases: []string{"HEX"}, min: 1, max: 1},
@@ -646,6 +656,9 @@ func checkPrecisionArg(f *Func) error {
 // does: in lower case, without a precision or scale, and "unknown" for NULL
 // or a parameter whose type isn't known.
 func sigTypeName(t ColType) string {
+	if t.Alias == "uuid" {
+		return "uuid"
+	}
 	switch t.Kind {
 	case KindNull:
 		return "unknown"

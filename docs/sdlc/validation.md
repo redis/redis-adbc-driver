@@ -13,11 +13,22 @@ abandoned moves. Never target an application database for convenience.
 | CLI | `make -C go adbc-cli` | Exit 0; `go/build/redis-adbc` |
 | Unit pass without Redis | `cd go && env -u REDIS_URI go test -count=1 -p 1 ./...` | Exit 0; Redis integration tests skip |
 | Start default Software | `make -C go redis-up` | Disposable RAM database with Search; Docker Compose/curl/jq required |
-| Go including integration | `REDIS_URI=redis://localhost:6379/0 make -C go test` | Exit 0; inspect skips, retain `-count=1 -p 1` |
-| ADBC validation | `REDIS_URI=redis://localhost:6379/0 make -C go validate` | Exit 0, no failures; uv and Python >=3.13 |
+| Go including default Software integration | `make -C go test-software` | Verifies effective 4x QPF and noeviction before carrying the retained policy declaration; exit 0, inspect skips, retain `-count=1 -p 1` |
+| ADBC validation | `make -C go validate` | Exit 0, no failures; uv and Python >=3.13 |
 | pgdiff harness | `make -C go pgdiff-test` | Exit 0; no compatibility claim from harness tests alone |
-| PostgreSQL comparison | `REDIS_URI=redis://localhost:6379/0 make -C go pgdiff` | Inspect report and underlying runner status; known dialect differences are expected |
+| PostgreSQL comparison | `make -C go pgdiff` | Inspect report and underlying runner status; known dialect differences are expected |
 | Controlled gate tooling | `python3 -m unittest discover -s benchmarks/worker-autotune/controlled -v` | Exit 0; tests measurement tools, not tuner readiness |
+
+Run focused retained publication/capture and policy checks through the same
+verified fixture with `make -C go test-software TEST_ARGS='-run TestRetained'`.
+`test-software` sets the owned TLS endpoint and CA, then declares control
+persistence only in the child process after topology, effective 4x QPF and
+`noeviction` checks pass. It replaces an inherited `REDIS_URI`; use `make test`
+for another endpoint after independently verifying its policy. The declaration
+is not saved in `build/test.env`.
+
+Check the runner without a live server with
+`python3 -m unittest discover -s scripts -p test_software_setup_exec.py -v`.
 
 For catalog changes, CI also runs `uv run --with 'sqlalchemy>=2.1' python
 check_catalog_reflection.py` from `go/validation`, with `REDIS_ADBC_LIBRARY` pointing
@@ -112,3 +123,7 @@ SQL, lifecycle, benchmark and documentation tasks, each with a frozen starting
 revision and externally specified checks. Evaluate guide/skill/hook changes
 against those outcomes and review any reduced pass rate. Do not report the
 product test suite's success rate as an agent-evaluation score.
+
+All integration suites use the authenticated TLS Redis Enterprise cluster.
+Make targets load `go/build/test.env`; source it for direct commands.
+Historical evidence in change records retains the original environment used.

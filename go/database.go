@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -29,6 +30,7 @@ import (
 
 type databaseImpl struct {
 	usage                       usageState
+	rbac                        *rbacManager
 	retainedNamespace           string
 	partitionControlPersistence string
 	retainedLimits              retainedLimits
@@ -92,7 +94,11 @@ func (d *databaseImpl) clientConfig() (*clientConfig, error) {
 			return nil, errorf(adbc.StatusInvalidArgument, "invalid URI: %v", err)
 		}
 	}
-	if err := configureTLSRoots(opts, d.tlsCAFile); err != nil {
+	caPath := d.tlsCAFile
+	if caPath == "" && opts.TLSConfig != nil {
+		caPath = os.Getenv("SSL_CERT_FILE")
+	}
+	if err := configureTLSRoots(opts, caPath); err != nil {
 		return nil, err
 	}
 	if d.username != "" {
@@ -317,6 +323,7 @@ func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, er
 		usage:              u,
 		ConnectionImplBase: driverbase.NewConnectionImplBase(&d.DatabaseImplBase),
 		store:              st,
+		rbac:               d.rbac,
 		retainedNamespace:  d.retainedNamespace, retainedLimits: d.resultLimits(), readerOnly: d.readerOnly, partitionControlPersistence: d.partitionControlPersistence,
 		sess:         d.newSession(),
 		pushdown:     d.pushdown,
@@ -415,7 +422,13 @@ func clusterParamsError(params []string, why string) error {
 		strings.Join(params, ", "), verb, why)
 }
 
-func (d *databaseImpl) Close(ctx context.Context) error { d.usage.close(); return nil }
+func (d *databaseImpl) Close(ctx context.Context) error {
+	d.usage.close()
+	if d.rbac != nil {
+		d.rbac.client.CloseIdleConnections()
+	}
+	return nil
+}
 
 func (d *databaseImpl) GetOption(ctx context.Context, key string) (string, error) {
 	if strings.HasPrefix(key, usagePrefix) {
@@ -493,6 +506,15 @@ func (d *databaseImpl) SetOption(ctx context.Context, key, value string) error {
 		return d.usage.set(key, value)
 	}
 	switch key {
+	case OptionStringRBAC:
+		r, err := newRBAC(value)
+		if err != nil {
+			return err
+		}
+		if d.rbac != nil {
+			d.rbac.client.CloseIdleConnections()
+		}
+		d.rbac = r
 	case OptionStringPartitionControlPersistence:
 		if value != "auto" && value != "guaranteed" {
 			return errorf(adbc.StatusInvalidArgument, "partition_control_persistence must be auto or guaranteed")

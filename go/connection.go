@@ -30,6 +30,7 @@ import (
 
 type connectionImpl struct {
 	usage                       *usageTelemetry
+	rbac                        *rbacManager
 	retainedNamespace           string
 	partitionControlPersistence string
 	retainedLimits              retainedLimits
@@ -65,7 +66,7 @@ type connectionImpl struct {
 func (c *connectionImpl) executor() *executor {
 	metrics := &partitionMetrics{}
 	c.aggregateMetrics.Store(metrics)
-	return &executor{store: c.store, partitionNamespace: c.retainedNamespace, sess: c.sess, schema: c.sess.currentSchema(), pushdown: c.pushdown, queryWorkers: c.queryWorkers, workerBudget: c.workerBudget, workerGrant: &c.workerGrant, aggregateMetrics: metrics, rekey: c.rekey}
+	return &executor{store: c.store, rbac: c.rbac, partitionNamespace: c.retainedNamespace, sess: c.sess, schema: c.sess.currentSchema(), pushdown: c.pushdown, queryWorkers: c.queryWorkers, workerBudget: c.workerBudget, workerGrant: &c.workerGrant, aggregateMetrics: metrics, rekey: c.rekey}
 }
 
 func (c *connectionImpl) GetOption(ctx context.Context, key string) (string, error) {
@@ -203,6 +204,10 @@ func (c *connectionImpl) Close(ctx context.Context) error {
 	// the client is open (see rekey.go).
 	c.store.stopRekeys(ctx)
 	c.streams.closeAll(errorf(adbc.StatusInvalidState, "the connection was closed while its result was being read"))
+	// During ExecuteQuery's initial fill the transport is registered before
+	// its public reader. Keep maintenance sockets alive for worker cursor
+	// cleanup even when closeAll could only cancel that transport.
+	c.streams.finishTransports()
 	// Best effort: whatever can't be dropped now is swept by a later
 	// connection (see temp.go).
 	_ = c.store.dropTempSchema(ctx)
@@ -286,7 +291,7 @@ func (c *connectionImpl) SetCurrentDbSchema(ctx context.Context, schema string) 
 // ---- metadata ----
 
 func (c *connectionImpl) ListTableTypes(ctx context.Context) ([]string, error) {
-	return []string{"TABLE", "VIEW"}, nil
+	return []string{"TABLE", "VIEW", "MATERIALIZED VIEW"}, nil
 }
 
 func (c *connectionImpl) GetTableSchema(ctx context.Context, catalog *string, dbSchema *string, tableName string) (*arrow.Schema, error) {
@@ -395,8 +400,16 @@ func (c *connectionImpl) GetTablesForDBSchema(ctx context.Context, catalog strin
 	}
 	type entry struct{ name, kind string }
 	var entries []entry
-	for _, n := range tables {
-		entries = append(entries, entry{n, "TABLE"})
+	metas, err := c.store.getTables(ctx, schema, tables)
+	if err != nil {
+		return nil, err
+	}
+	for i, n := range tables {
+		kind := "TABLE"
+		if metas[i] != nil && metas[i].MaterializedSQL != "" {
+			kind = "MATERIALIZED VIEW"
+		}
+		entries = append(entries, entry{n, kind})
 	}
 	for _, n := range views {
 		entries = append(entries, entry{n, "VIEW"})

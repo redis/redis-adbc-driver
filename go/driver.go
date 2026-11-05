@@ -91,6 +91,10 @@ const (
 	// takes time proportional to the number of rows.
 	OptionStringRenameRekey = "adbc.redis.rename_rekey"
 
+	// OptionStringTruncateAdopted (statement only) permits deleting an adopted
+	// collection's row HASHes in place. Defaults to false.
+	OptionStringTruncateAdopted = "adbc.redis.truncate_adopted"
+
 	// OptionStringReadTimeout (database or connection) is how long the
 	// client waits for each reply: a duration such as "30s" or "10m", or a
 	// number of seconds; "0" means no timeout. It defaults to the URI's
@@ -151,9 +155,11 @@ func NewDriver(alloc memory.Allocator) driverbase.DriverWithContext {
 func newDriverImpl(alloc memory.Allocator) *driverImpl {
 	info := driverbase.DefaultDriverInfo("Redis")
 	info.MustRegister(map[adbc.InfoCode]any{
-		adbc.InfoDriverName:      driverName,
-		adbc.InfoVendorSql:       true,
-		adbc.InfoVendorSubstrait: false,
+		adbc.InfoDriverName:                driverName,
+		adbc.InfoVendorSql:                 true,
+		adbc.InfoVendorSubstrait:           true,
+		adbc.InfoVendorSubstraitMinVersion: substraitVersion,
+		adbc.InfoVendorSubstraitMaxVersion: substraitVersion,
 	})
 	base := driverbase.NewDriverImplBase(info, alloc)
 	base.ErrorHelper.DriverName = "redis"

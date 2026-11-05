@@ -54,7 +54,16 @@ echo READY
                        search={'search-workers': 0}, sched_policy='cmp', conns=5)
         result, request = self.run_gate(initial, READY)
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(request, {'query_performance_factor': {'active': True, 'scaling_factor': 4}})
+        self.assertEqual(request, {'query_performance_factor': {'active': True, 'scaling_factor': 4},
+                                   'sched_policy': 'mnp', 'conns': 32})
+        self.assertIn('READY', result.stdout)
+
+    def test_qpf_enabled_with_new_routing_defaults_is_reconfigured(self):
+        initial = dict(READY, sched_policy='cmp', conns=5)
+        result, request = self.run_gate(initial, READY)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(request['sched_policy'], 'mnp')
+        self.assertEqual(request['conns'], 32)
         self.assertIn('READY', result.stdout)
 
     def test_already_ready_database_is_not_reconfigured(self):

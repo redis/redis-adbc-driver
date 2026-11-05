@@ -13,10 +13,11 @@
 # limitations under the License.
 
 services:
-  # Default environment: Redis Software with a RAM database, Search and 4x QPF.
+  # Integration environment: Redis Enterprise, three shards, TLS, password, 4x QPF.
   # make redis-up also bootstraps the cluster and creates the database.
   redis-software:
-    image: redislabs/redis:8.2.0-78.18
+    image: redislabs/redis:latest
+    pull_policy: always
     cap_add: [SYS_RESOURCE]
     ports:
       - "127.0.0.1:${SOFTWARE_API_PORT:-19443}:9443"
@@ -78,6 +79,7 @@ services:
   # license.
   redis-flex:
     image: redislabs/redis:latest
+    pull_policy: always
     container_name: redis-adbc-flex
     profiles: ["flex"]
     cap_add: [SYS_RESOURCE]

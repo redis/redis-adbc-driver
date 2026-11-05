@@ -232,10 +232,10 @@ func (env *evalEnv) evalUnbudgeted(e Expr) (Value, error) {
 		if err != nil {
 			return Value{}, err
 		}
-		if x.T.Alias != "" {
+		if x.T.Alias != "" && x.T.Alias != "uuid" {
 			return env.castOID(v, x.T)
 		}
-		if v.T.Alias != "" && x.T.Kind.isInteger() {
+		if v.T.Alias != "" && v.T.Alias != "uuid" && x.T.Kind.isInteger() {
 			return intValue(x.T, v.I), nil
 		}
 		c, err := castValue(v, x.T, env.zone())
@@ -558,6 +558,13 @@ func concatValues(sep string, args []Value, z tzZone) Value {
 // evalFunc evaluates a call. The registry (funcs.go) says which code
 // evaluates it; binding has checked its name and arguments.
 func (env *evalEnv) evalFunc(f *Func) (Value, error) {
+	if sequenceFunction(f.Name) {
+		if err := checkArity(f); err != nil {
+			return Value{}, err
+		}
+		v, _, err := env.evalSequence(f)
+		return v, err
+	}
 	if v, ok := env.setValues[f]; ok {
 		return v, nil
 	}
@@ -748,6 +755,15 @@ func (env *evalEnv) evalFunc(f *Func) (Value, error) {
 		return stringValue(strings.ToLower(args[0].textIn(env.zone()))), nil
 	case "UPPER", "UCASE":
 		return stringValue(strings.ToUpper(args[0].textIn(env.zone()))), nil
+	case "OCTET_LENGTH", "BIT_LENGTH":
+		if !argBytes.accepts(args[0].T) {
+			return Value{}, noSuchFunction(f.Name, false, argTypes(args))
+		}
+		n := int64(len(args[0].S))
+		if f.Name == "BIT_LENGTH" {
+			n *= 8
+		}
+		return intValue(typeInt64, n), nil
 	case "LENGTH", "CHAR_LENGTH", "CHARACTER_LENGTH", "LEN":
 		if args[0].T.Kind == KindBinary {
 			return intValue(typeInt64, int64(len(args[0].S))), nil
@@ -944,6 +960,8 @@ func binaryOp(op string, l, r Value, z tzZone) (Value, error) {
 			return decimalValue(x.Sub(x, y), rt.Precision, s), nil
 		case "*":
 			return decimalValue(new(big.Int).Mul(ad, bd), rt.Precision, as+bs), nil
+		case "/":
+			return divideDecimal(ad, as, bd, bs)
 		}
 	}
 	return Value{}, fmt.Errorf("unsupported operator %s for %s and %s", op, l.T.Kind, r.T.Kind)
@@ -975,22 +993,24 @@ func arithmeticType(op string, a, b ColType) (ColType, error) {
 		return typeFloat64, nil
 	case a.Kind == KindDecimal || b.Kind == KindDecimal:
 		if op == "/" {
-			return typeFloat64, nil
+			// Decimal division must not lose integer digits or significant
+			// fractional digits through float64. Resolve Arrow scale from rows.
+			return decimalType(0, 0), nil
 		}
 		if a.Kind == KindDecimal && a.Precision == 0 || b.Kind == KindDecimal && b.Precision == 0 {
 			return decimalType(0, 0), nil
 		}
-		as, bs := int32(0), int32(0)
-		if a.Kind == KindDecimal {
-			as = a.Scale
-		}
-		if b.Kind == KindDecimal {
-			bs = b.Scale
-		}
+		ap, as := numericShape(a)
+		bp, bs := numericShape(b)
+		precision, scale := max(ap-as, bp-bs)+max(as, bs)+1, max(as, bs)
 		if op == "*" {
-			return decimalType(38, as+bs), nil
+			precision, scale = ap+bp+1, as+bs
 		}
-		return decimalType(38, max(as, bs)), nil
+		precision = min(int32(76), max(int32(38), precision))
+		if scale > maxNumericScale || int64(precision)-int64(scale) > maxNumericIntDigits {
+			return ColType{}, stateErr(stateNumericRange, "numeric result scale is outside the SQL range")
+		}
+		return decimalType(precision, scale), nil
 	}
 	if a.Kind.isInteger() && b.Kind.isInteger() {
 		if a.Kind == KindInt64 || b.Kind == KindInt64 {
@@ -1002,6 +1022,21 @@ func arithmeticType(op string, a, b ColType) (ColType, error) {
 		return typeInt16, nil
 	}
 	return typeInt64, nil
+}
+
+func numericShape(t ColType) (int32, int32) {
+	if t.Kind == KindDecimal {
+		return t.Precision, t.Scale
+	}
+	switch t.Kind {
+	case KindInt16:
+		return 5, 0
+	case KindInt32:
+		return 10, 0
+	case KindInt64:
+		return 19, 0
+	}
+	return 1, 0
 }
 
 // inferFuncType is the result type of a call: without a type modifier,
@@ -1016,6 +1051,9 @@ func inferFuncType(f *Func, args []ColType) ColType {
 }
 
 func funcType(f *Func, args []ColType) ColType {
+	if sequenceFunction(f.Name) {
+		return typeInt64
+	}
 	if t, ok := catalogFuncType(f.Name); ok {
 		return t
 	}
@@ -1052,7 +1090,7 @@ func funcType(f *Func, args []ColType) ColType {
 		return t
 	}
 	switch f.Name {
-	case "COUNT", "LENGTH", "CHAR_LENGTH", "CHARACTER_LENGTH", "LEN":
+	case "COUNT", "OCTET_LENGTH", "BIT_LENGTH", "LENGTH", "CHAR_LENGTH", "CHARACTER_LENGTH", "LEN":
 		return typeInt64
 	case "LIKE", "ILIKE":
 		return typeBool
@@ -1075,7 +1113,8 @@ func funcType(f *Func, args []ColType) ColType {
 			case args[0].Kind.isInteger() || args[0].Kind == KindBool:
 				return typeInt64
 			case args[0].Kind == KindDecimal:
-				return decimalType(38, args[0].Scale)
+				// An int64 row count can add at most 19 coefficient digits.
+				return decimalType(min(int32(76), max(int32(38), args[0].Precision+19)), args[0].Scale)
 			case args[0].Kind == KindInterval:
 				return typeInterval
 			}
@@ -1212,6 +1251,9 @@ func inferType(e Expr, cols map[string]ColType, params []ColType) (ColType, erro
 			}
 			args[i] = t
 		}
+		if (x.Name == "OCTET_LENGTH" || x.Name == "BIT_LENGTH") && !argBytes.accepts(args[0]) {
+			return ColType{}, noSuchFunction(x.Name, false, args)
+		}
 		if x.Name == "__ARRAY" {
 			t, err := arrayElementType(x.Args, args)
 			return arrayOf(t), err
@@ -1338,6 +1380,11 @@ func matchTypes(a, b ColType) (ColType, bool) {
 		if t.Kind == KindDecimal {
 			// Keep enough scale for both sides.
 			t.Scale = max(a.Scale, b.Scale)
+			if t.Precision != 0 {
+				ap, as := numericShape(a)
+				bp, bs := numericShape(b)
+				t.Precision = min(int32(76), max(int32(38), max(ap-as, bp-bs)+t.Scale))
+			}
 		}
 		return t, true
 	case a.Kind == KindTimestamp && b.Kind == KindTimestamp, a.Kind == KindTime && b.Kind == KindTime,

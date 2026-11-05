@@ -169,7 +169,10 @@ with CANCELLED:
 - **The work the driver does in memory** (filtering, joins, aggregates,
   window functions, sorting, set operations, recursive queries, subqueries,
   `generate_series`) checks for the cancel at every row, so it stops within
-  milliseconds. A sort under way finishes first.
+  milliseconds for ordinary scalar rows. Cardinality-dependent query sorts
+  check every 256 comparisons and unwind before publishing results. Cancellation
+  latency still includes the current key comparison and intervening swaps;
+  per-value JSONB canonicalization and metadata ordering keep their existing checks.
 - **Redis commands:** cancellation closes execution-owned sockets, interrupting
   blocked reads, writes and pipelines even when read timeouts are disabled.
   SQL, ingestion, partition discovery and partition readers own separate pools.
@@ -202,7 +205,9 @@ and rename/type-rewrite rollback use the maintenance pool and can finish after
 execution interruption. Known cursor IDs are deleted using the maintenance pool
 on their original coordinator. If the first reply is lost before its cursor ID
 arrives, the client cannot delete that unknown cursor; server idle expiry is the
-remaining cleanup mechanism. Redis cleanup itself can take its configured timeout.
+remaining cleanup mechanism. Known-cursor deletion makes one best-effort attempt
+with a one-second cleanup deadline, independent of configured read timeouts.
+If deletion cannot complete, server idle expiry remains the fallback.
 
 The local fault matrix covers command/pipeline/cursor interruption, finite and
 disabled read timeouts, client Cluster routing and owner/context cancellation.
@@ -285,6 +290,14 @@ the Python exception:
   type's range: `value 3000000000 out of range for INTEGER`, `cannot
   convert float64 value "1e+300" to BIGINT` and `value 123456 out of range
   for NUMERIC(5,2)`.
+
+### SQL grants
+
+Opt-in `GRANT SELECT ON [TABLE] table TO role` and `REVOKE SELECT ON [TABLE]
+table FROM role` manage dedicated Redis Software ACLs. Configure the database-only,
+write-only JSON option `adbc.redis.rbac` on a trusted administrator handle. Other
+SQL privilege forms reject. See [provisioning, behavior, dbt scope and interrupted
+update recovery](sql-rbac.md).
 
 ### ACL users
 
@@ -412,8 +425,10 @@ take (see "Indexes the driver didn't create are left alone" below).
 Tiering) keeps most of a database on SSD, for datasets of a terabyte and
 more. Search on Flex can't index tables the way the driver needs. Every
 table's index has a `NUMERIC SORTABLE` row-ID field, and every query reads
-rows through `FT.AGGREGATE` cursors. A Flex database with Search enabled
-fails with `Redis Flex databases are not supported`, before writing anything.
+rows through `FT.AGGREGATE` cursors. Older Flex builds with Search enabled
+fail with `Redis Flex databases are not supported`, before writing anything.
+Software 8.2.6-25 / Redis 8.8 passes the connection guard and writes metadata,
+but table creation fails because `SORTABLE` is unsupported.
 A database without Search fails earlier with an error that the Redis server
 does not provide the search (RediSearch) module.
 
@@ -422,17 +437,20 @@ does not provide the search (RediSearch) module.
 | Redis Cloud Essentials | Not available | Search itself (the driver reports that search is missing) |
 | Redis Cloud Pro without Search enabled, Redis 8.6 | Unavailable on the newly created test database | `FT._LIST`, `FT.CREATE`, `FT.SEARCH`, and `FT.AGGREGATE` were not registered. The driver reports that search is missing. |
 | Redis Cloud Pro Search on Flex beta | Opt-in beta; not exercised in the live Cloud tests | `FT.AGGREGATE` and `NUMERIC` fields (per Redis's docs) |
+| Redis Software 8.2.6-25, Redis 8.8.0, Search 8.8.8 | Included (`search_on_bigstore`); tested 2026-11-04 | `SORTABLE`, aggregate cursors, `FT.ALTER`, `FT.DROPINDEX … DD` |
 | Redis Software 8.2.0-78, Redis 8.6.2, Search 8.6.11 | Included (`search_on_bigstore`) | `FT.AGGREGATE`, `FT.ALTER`, `FT.DROPINDEX … DD`; `NUMERIC`, `GEO` and `SORTABLE` fields. `FT.SEARCH` returns only keys, and indexes need `SKIPINITIALSCAN` (tested, see [Building and testing](#building-and-testing)) |
 
-Redis's announcement of Search on Flex says Redis Software already offers
-`NUMERIC` fields and `FT.AGGREGATE` on Flex, and that Redis Cloud will follow.
-But the latest Docker image (8.2.0-78, built 2026-09-01) rejects both. The
-connect check tests whether `FT.AGGREGATE` works, not whether the database
-is Flex. So a Flex release that supports it is no longer refused.
+A 2026-11-04 retest of Redis Software **8.2.6-25**, Redis **8.8.0**, and
+Search **8.8.8** confirmed `NUMERIC`, `GEO`, basic `FT.AGGREGATE`, and field
+retrieval now work. `SORTABLE`, aggregate cursors, `FT.ALTER`, and
+`FT.DROPINDEX ... DD` remain unsupported. The connection guard now passes
+and writes metadata, but table creation fails on `SORTABLE`. Consequently
+`TestFlexRefused` fails on this release: connecting does not establish driver
+compatibility. See the report for exact commands and results.
 
-The local and Cloud tests ran on 2026-10-06 against commit `40da0bf`.
-See the [compatibility report](../docs/redis-flex-compatibility.md) or its
-[Word version](../docs/redis-flex-compatibility.docx) for the settings, live
+The historical local and Cloud tests ran on 2026-10-06 against commit `40da0bf`.
+See the [compatibility report](redis-flex-compatibility.md) or its
+[2026-10-06 Word version](redis-flex-compatibility.docx) for the settings, live
 command results, and missing driver and server functions.
 
 ## Existing HASH collections: `redis-adbc`
@@ -538,7 +556,7 @@ SQL, adopted in place (redis-adbc adopt): READY
   [missing] the table's metadata (adbc:{meta}:table:public:users)
             fix: adopt writes it
   [warn]    a write by the application of a value a numeric column can't hold (text, an empty value, NaN) takes that HASH out of the index, and so out of the table
-  [warn]    SQL UPDATE and DELETE change the application's HASHes (an UPDATE that would leave a HASH without fields is refused); INSERT, TRUNCATE, ADD COLUMN and a re-keying RENAME are refused, and DROP TABLE drops only the metadata and an index adopt created
+  [warn]    SQL UPDATE and DELETE change the application's HASHes (an UPDATE that would leave a HASH without fields is refused); INSERT requires an explicit __key, TRUNCATE requires adbc.redis.truncate_adopted=true, and ADD COLUMN and a re-keying RENAME are refused, and DROP TABLE drops only the metadata and an index adopt created
   run: redis-adbc adopt -prefix user: -table users
 ```
 
@@ -729,9 +747,39 @@ Adopted: public.users now reads the HASHes under user:, and those the applicatio
   `-trust-strings` records the levels measured now instead, for HASHes the
   application no longer writes, or never writes with a string the index
   doesn't hold exactly.
-- **What an adopted table refuses.** Its keys are the application's, so
-  the driver doesn't make new ones, move them, or delete them wholesale:
-  - `INSERT` (and `MERGE … INSERT` and bulk ingest), `TRUNCATE`,
+- **Adding and removing adopted rows.** Supply the complete Redis key in
+  an explicit `__key` column for `INSERT`, `INSERT … SELECT`, `MERGE … INSERT`,
+  or Arrow bulk ingest (`append` or `create_append` mode). For example:
+
+  ```sql
+  INSERT INTO users (__key, name) VALUES ('user:42', 'Alice');
+  ```
+
+  The key must be under the adopted prefix with no further `:`. NULL keys,
+  existing keys of any Redis type, duplicate keys in a batch, and rows with
+  no non-NULL fields are refused. Only non-NULL column fields are written,
+  using the application's sampled text formats; neither `__key` nor
+  `__rowid` is stored in the HASH. `RETURNING *` excludes `__key`; request
+  it explicitly when needed. There is no automatic key allocation or key
+  pattern expansion. Existing restrictions on system columns in joins still
+  apply to the MERGE match condition.
+
+  `TRUNCATE` is refused by default. To delete an adopted collection's row
+  HASHes, set the **statement** option `adbc.redis.truncate_adopted` to
+  `"true"` before executing `TRUNCATE users`. This SCANs each primary and
+  UNLINKs row HASHes in place; nested keys and non-HASH keys stay, as do the
+  metadata and index. `RESTART IDENTITY` has no effect on application keys.
+  A statement mixing adopted and managed tables is refused before deletion.
+  Pause application writers for a complete emptying: this operation is not
+  atomic across rows or tables, and cancellation or failure can leave a
+  partially emptied collection. Opted-in TRUNCATE additionally needs the
+  `+scan +type +unlink` ACL commands (and the adopted-write script permissions
+  listed below). Likewise, an application key collision during
+  a multi-row insert can leave earlier rows inserted; existing keys are never
+  overwritten. Ingest validates one Arrow batch at a time.
+
+- **What an adopted table refuses.** Its keys are the application's:
+  - `TRUNCATE` without the statement opt-in,
     `ALTER TABLE … ADD COLUMN`, and `RENAME TO` with
     `adbc.redis.rename_rekey` fail with `… isn't supported on
     "public"."users", whose rows are HASHes adopted in place (redis-adbc
@@ -803,8 +851,8 @@ A user that only queries an adopted table needs the driver's read-only
 rules, with read access to the collection's keys (`%R~user:*`), and
 `+ft.info` if the table reads the application's index (each statement
 reads its attributes). One that
-updates or deletes its rows needs the driver's rules, write access to the
-keys (`~user:*`), and, for the script that `UPDATE` runs on each HASH:
+inserts, updates or deletes its rows needs the driver's rules, write access to
+the keys (`~user:*`), and the row scripts' permissions:
 
 ```text
 +hlen +eval +evalsha +script|load
@@ -1534,6 +1582,16 @@ lifecycle and Python API, and the runnable
 
 ## Supported SQL
 
+See [generated identifiers, UUIDs, modifying CTEs, named indexes and materialized views](sql-101-105.md) for the new statement contracts and limitations.
+
+Division involving `NUMERIC` uses exact decimal arithmetic, preserving operand
+scale and at least 16 significant digits. Floating-point division remains
+floating-point. Unconstrained decimal expressions have value-dependent Arrow
+precision and scale, so their results are materialized before publishing the
+schema. An empty result uses the declared fallback Decimal256(76,16). Cast the
+expression to `NUMERIC(p,s)` for a fixed schema, including empty results, and to
+allow otherwise streamable queries to stream.
+
 ### Schema objects and DDL
 
 - `CREATE TABLE [IF NOT EXISTS] t (col TYPE [column_constraint …] [NOINDEX] [COMMENT 'text'], …
@@ -1596,8 +1654,8 @@ lifecycle and Python API, and the runnable
 - `TRUNCATE [TABLE] [ONLY] t [, …] [RESTART IDENTITY | CONTINUE IDENTITY]
   [CASCADE | RESTRICT]` removes every row and keeps the table: its columns,
   defaults, `CHECK` constraints and comments. Row ids (`__rowid`) continue
-  unless `RESTART IDENTITY` is given; the driver has no identity or serial
-  columns, so the row id counter is all it restarts. There are no foreign
+  unless `RESTART IDENTITY` is given. That also restarts owned SERIAL and
+  IDENTITY sequences, in a separate operation. There are no foreign
   keys, so `CASCADE` and `RESTRICT` do the same:
   - **New keys:** the table moves to a new key prefix and index,
     `<schema>:<table>~N:` and `idx:<schema>:<table>~N` with a new N (see
@@ -3137,6 +3195,8 @@ lifecycle and Python API, and the runnable
   - So dbt_utils' `haversine_distance` works, in its default form (with
     `radians`) and in its BigQuery form (with `acos(-1)`)
 - String functions; positions are 1-based and count characters, not bytes:
+  `OCTET_LENGTH` and `BIT_LENGTH` instead count bytes/bits of VARCHAR or VARBINARY,
+  return BIGINT, preserve NULL, and reject fixed CHAR/other argument types.
   - `SUBSTRING(s, start [, len])`, `SUBSTRING(s FROM start [FOR len])`
     (with text arguments, the pattern forms below),
     `SUBSTR`, `LEFT(s, n)` / `RIGHT(s, n)` (a negative `n` drops characters
@@ -3976,14 +4036,13 @@ lifecycle and Python API, and the runnable
   containment and concatenation, and PostgreSQL array manipulation functions.
   Multidimensional arrays and non-default lower bounds are not supported.
 - Not supported: mutually recursive CTEs, `ANY` / `ALL` over bare value
-  lists, JSON set-returning functions, data-modifying statements in `WITH` (`WITH d AS
-  (DELETE … RETURNING …) INSERT …`), `RETURNING OLD.* / NEW.*` (Postgres
+  lists, JSON set-returning functions, `RETURNING OLD.* / NEW.*` (Postgres
   18), `GROUP BY DISTINCT` (which drops repeated grouping sets),
   `GROUPING()` of an enclosing query's columns inside a subquery,
   `PERCENTILE_CONT` / `PERCENTILE_DISC` of an array of fractions, and the ordered-set aggregates and `MEDIAN` as window
   functions
 - Types: `BOOLEAN, SMALLINT, INTEGER, BIGINT, REAL, DOUBLE PRECISION,
-  NUMERIC(p,s), VARCHAR(n), CHAR(n), VARCHAR/TEXT, VARBINARY/BLOB, DATE,
+  NUMERIC(p,s), VARCHAR(n), CHAR(n), VARCHAR/TEXT, UUID, VARBINARY/BLOB, DATE,
   TIME(p) [WITH TIME ZONE], TIMESTAMP(p) [WITH TIME ZONE], INTERVAL`
   (interval and time with time zone columns are stored but not indexed; see
   String lengths for `VARCHAR(n)` / `CHAR(n)`). A `TIMESTAMP WITH TIME ZONE`
@@ -4138,7 +4197,7 @@ Read-only `pg_catalog` relations expose namespaces, relations, attributes,
 defaults, built-in types, CHECK/primary-key constraints, indexes, descriptions,
 settings, the current database/role, functions, access methods and collations.
 `pg_tables`, `pg_views`, `pg_matviews`, `pg_indexes` and `pg_stat_user_tables`
-are also available. Unsupported domains, enums, sequences, inheritance,
+are also available. Unsupported domains, enums, inheritance,
 dependencies and rewrite rules have empty typed catalogs. `pg_stat_user_tables`
 reports live indexed row counts; cumulative PostgreSQL statistics are unavailable.
 Catalog names are searched implicitly before the current schema.
@@ -4149,7 +4208,7 @@ casts fail. `format_type` understands built-in OIDs and typmods. The
 `pg_get_expr`, `pg_get_constraintdef`, `pg_get_indexdef`, `pg_get_viewdef`,
 `obj_description`, `col_description` and visibility functions read metadata.
 Privilege compatibility functions return true; Redis ACLs still authorize each
-operation. `pg_get_serial_sequence` returns NULL because sequences are unsupported.
+operation. `pg_get_serial_sequence` returns the owned sequence name, or NULL without one.
 Relation-size functions measure Redis HASH memory (requiring `+memory|usage`);
 `pg_total_relation_size` includes the search-index memory reported by FT.INFO.
 These are Redis bytes rather than PostgreSQL disk pages. Physical search indexes use the access-method
@@ -4173,8 +4232,17 @@ These are client compatibility values; the driver remains autocommit-only.
 
 ## Options
 
+Experimental CUDA execution is selected per statement with
+`adbc.redis.execution_backend=cuda` and `adbc.redis.cuda_device` (default 0).
+`adbc.redis.gpu_metrics` reports actual kernel launches/input rows. CPU remains
+the default. See [the supported SQL subset and C Device API](gpu-execution.md)
+before opting in; unsupported CUDA operations return errors without fallback.
+
 | Option | Level | Meaning |
 |-|-|-|
+| `adbc.redis.stream_required` | statement | `false` (default) permits existing materializing fallback. `true` requires an unordered incremental managed-table/key-source SELECT or UNION ALL, rejecting blocking plans and fallback before execution. See [policy and limits](arrow-interoperability.md#streaming-inventory). |
+| `adbc.redis.extension_policy` | statement | `reject` (default) or explicit `storage` normalization for top-level allowlisted `arrow.uuid`/`arrow.json` fields. Canonical SQL schemas persist; unknown/nested semantics reject. See [extension policy](arrow-interoperability.md#explicit-extension-storage-normalization). |
+| `adbc.redis.result_layouts` | statement | JSON map of exact result names to explicit physical Arrow layouts; SQL/table schemas remain canonical. See [layout contract](arrow-interoperability.md#explicit-result-layouts). |
 | `uri` | database | `redis://[user:pass@]host:port/db`, or `rediss://…` for TLS, with go-redis's query parameters (see [URI parameters](#uri-parameters)) |
 | `adbc.redis.tls_ca_file` | database | PEM file supplying exclusive TLS trust roots for new `rediss://` connections, including cluster nodes. Empty (default) uses system roots. Requires certificate verification; each partition worker supplies its own local path. |
 | `username`, `password` | database | Credentials (override the URI) |
@@ -4577,7 +4645,9 @@ cd validation && REDIS_URI=redis://localhost:7001/0 uv run pytest -v tests/
 
 To test against Redis Flex, `flex-setup.sh` (from `go`) starts a
 single-node Redis Software cluster with flash storage in Docker. It then
-creates a Flex database with Search on it, and prints the database's URI.
+creates a Redis 8.8 Flex database with Search on it, and prints the database's URI.
+It pulls the latest Software image and defaults to 1,024 MB total with 256 MB
+in RAM (25%); `FLEX_REDIS_VERSION` overrides the version for a new database.
 The cluster uses about 1.5 GB of memory and the image's trial license. Its
 "flash" is a directory inside the container, and its admin API (port 9443)
 listens on localhost only, with fixed test credentials.
@@ -4586,9 +4656,10 @@ listens on localhost only, with fixed test credentials.
 ./flex-setup.sh
 ```
 
-The driver refuses Flex databases (see
-[Server requirements](#server-requirements)), and `TestFlexRefused` checks
-that it does so without writing to the database. The test is skipped unless
+Flex remains unsupported (see [Server requirements](#server-requirements)).
+`TestFlexRefused` checks the older builds' refusal before writing metadata.
+On Software 8.2.6-25 / Redis 8.8 this test fails because the connection now
+succeeds; table creation still fails on unsupported `SORTABLE` fields. The test is skipped unless
 `REDIS_FLEX_URI` is set:
 
 ```bash
@@ -4599,6 +4670,13 @@ Remove the cluster with `docker compose --profile flex down redis-flex`.
 Name the service: without it, `down` also removes the `redis` container.
 
 #### Verified local result
+
+On 2026-11-04, the latest Software 8.2.6-25 image with Redis 8.8.0 and
+Search 8.8.8 passed the basic aggregate, numeric, geo, and field retrieval
+probes. `TestFlexRefused` failed because connection now succeeds;
+`TestSQLAliasesInExpressions` failed on its first table creation because
+`SORTABLE` is unsupported. Aggregate cursors are also unsupported.
+See the [updated report](redis-flex-compatibility.md) for full results.
 
 On 2026-10-06, `TestFlexRefused` passed against Redis Software `8.2.0-78`,
 Redis `8.6.2`, and Search `8.6.11`. The driver returned ADBC
@@ -4723,7 +4801,7 @@ with dbapi.connect("redis://localhost:6379/0") as conn:
 
 Connections default to `autocommit=True`; transactions remain unsupported.
 Use `adbc-driver-redis[dagster]` for the Dagster IO manager. Wheels support
-Linux x86-64/ARM64 (glibc 2.28 or later) and macOS ARM64 (12 or later).
+Linux x86-64/ARM64 (glibc 2.28 or later) and macOS ARM64 (15 or later).
 Release wheels are also attached to GitHub releases. Source checkout installation, Polars URI
 loading, TLS aliases, option enums and driver discovery are covered in
 [Python integrations](../docs/python-integrations.md).
@@ -4833,3 +4911,10 @@ to cursor pagination when their arguments exceed Redis Search's caps. A
 lowered total aggregate cap uses bounded Search row-ID ranges for eligible
 managed, row-local reads in insertion/ascending internal-ID order. Other plans
 retain complete HASH scans and driver-side sorting to avoid truncation.
+
+
+## Arrow normalization and physical result layouts
+
+See [Arrow interoperability](arrow-interoperability.md) for the `adbc.redis.result_layouts`
+statement option, full-range uint64 ingestion, recursive arrays, stored named
+structs, extension rejection, ownership, and partition restrictions.

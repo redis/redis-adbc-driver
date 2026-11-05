@@ -1,0 +1,63 @@
+{
+  "status": "passed",
+  "installed_wheel": false,
+  "python": "3.15.2",
+  "pyarrow": "26.0.0",
+  "machine": "arm64",
+  "packages": {
+    "adbc-driver-manager": "1.13.0",
+    "redis": "8.1.0"
+  },
+  "library_sha256": "d0e2e83a0b4a3c38a5275712edb7eeabd9f6b5194050fd34033fae135ba3c40f",
+  "checks": [
+    "verified_admin_tls_and_real_cap",
+    "hostname_mismatch_rejected",
+    "closed_planner_and_credential_free_descriptors",
+    "restricted_cross_process_search_full_values_schema",
+    "restricted_cross_process_direct_hash_duplicates_deleted",
+    "native_untrusted_ca_rejected",
+    "native_hostname_mismatch_rejected",
+    "software_proxy_config_get_filtered_empty",
+    "worker_config_mutation_and_writes_denied",
+    "malformed_descriptor_rejected",
+    "search_readiness_acl_required_direct_hash_independent",
+    "direct_hash_reader_obeys_worker_acl",
+    "connection_cancel_in_independent_tls_worker",
+    "early_release_in_independent_tls_worker",
+    "live_updates_deletes_and_later_insert_exclusion",
+    "stale_target_rejected",
+    "retained_global_sql_minimal_acl_lifecycle_and_replay"
+  ],
+  "metadata": {
+    "status": "passed",
+    "checks": [
+      "restricted_statistics_both_paths_and_constraint_ddl",
+      "hash_statistics_without_search_permission",
+      "hash_statistics_key_acl_denial_is_not_zero",
+      "search_statistics_without_scan_permission"
+    ]
+  },
+  "date": "2026-10-30",
+  "retained_checks": [
+    "global_sql_exact_schema_and_values_independent_minimal_acl",
+    "typed_replay_after_planner_close_and_source_drop",
+    "different_namespace_acl_denied",
+    "early_release_and_cancel_leave_shared_result_replayable",
+    "explicit_revoke_observed_by_independent_workers"
+  ],
+  "deployment": {
+    "distribution": "Redis Software",
+    "redis_version": "8.6.2",
+    "shards": 1,
+    "tls_certificate_verification": true,
+    "verified_qpf": 4,
+    "effective_search_workers": 6,
+    "routing": "mnp",
+    "connections": 32,
+    "eviction_policy": "noeviction"
+  },
+  "limitations": [
+    "No new live Cluster API deployment validation",
+    "Retained capture is not an atomic source snapshot"
+  ]
+}

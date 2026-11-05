@@ -28,6 +28,9 @@ import (
 
 // valueAt extracts row i of an Arrow array as a Value.
 func valueAt(arr arrow.Array, i int) (Value, error) {
+	if encoded, ok := arr.(*array.RunEndEncoded); ok {
+		return valueAt(encoded.Values(), encoded.GetPhysicalIndex(i))
+	}
 	if dict, ok := arr.(*array.Dictionary); ok {
 		if dict.IsNull(i) {
 			ct, err := colTypeFromArrow(dict.DataType())
@@ -49,22 +52,34 @@ func valueAt(arr arrow.Array, i int) (Value, error) {
 		return nullValue(ct), nil
 	}
 	switch a := arr.(type) {
-	case *array.List:
-		start, end := a.ValueOffsets(i)
-		values := make([]Value, 0, end-start)
-		for j := start; j < end; j++ {
-			v, err := valueAt(a.ListValues(), int(j))
+	case *array.Map:
+		return mapValueAt(a, i, ct)
+	case *array.DenseUnion:
+		return unionValueAt(a, i, int(a.ValueOffset(i)), ct)
+	case *array.SparseUnion:
+		return unionValueAt(a, i, i, ct)
+	case *array.Struct:
+		values := make([]Value, a.NumField())
+		for j := range values {
+			v, err := valueAt(a.Field(j), i)
 			if err != nil {
 				return Value{}, err
 			}
-			values = append(values, v)
+			values[j] = v
 		}
-		return arrayValue(values, ct.element()), nil
-	case *array.LargeList:
+		return coerceRecord(Value{T: ct, rec: &values}, ct, utcZone)
+	case interface {
+		ListValues() arrow.Array
+		ValueOffsets(int) (int64, int64)
+	}:
 		start, end := a.ValueOffsets(i)
+		child := a.ListValues()
+		if start < 0 || end < start || end > int64(child.Len()) {
+			return Value{}, fmt.Errorf("invalid Arrow list offsets [%d,%d) for child length %d", start, end, child.Len())
+		}
 		values := make([]Value, 0, end-start)
 		for j := start; j < end; j++ {
-			v, err := valueAt(a.ListValues(), int(j))
+			v, err := valueAt(child, int(j))
 			if err != nil {
 				return Value{}, err
 			}
@@ -88,11 +103,7 @@ func valueAt(arr arrow.Array, i int) (Value, error) {
 	case *array.Uint32:
 		return intValue(ct, int64(a.Value(i))), nil
 	case *array.Uint64:
-		v := a.Value(i)
-		if v > 1<<63-1 {
-			return Value{}, stateErr(stateNumericRange, "uint64 value %d out of range", v)
-		}
-		return intValue(ct, int64(v)), nil
+		return decimalValue(new(big.Int).SetUint64(a.Value(i)), ct.Precision, ct.Scale), nil
 	case *array.Float16:
 		return floatValue(ct, float64(a.Value(i).Float32())), nil
 	case *array.Float32:
@@ -130,9 +141,9 @@ func valueAt(arr arrow.Array, i int) (Value, error) {
 	case *array.Date64:
 		return dateValue(floorDiv(int64(a.Value(i)), 86_400_000))
 	case *array.Time32:
-		return intValue(ct, int64(a.Value(i))), nil
+		return arrowTimeValue(ct, int64(a.Value(i)))
 	case *array.Time64:
-		return intValue(ct, int64(a.Value(i))), nil
+		return arrowTimeValue(ct, int64(a.Value(i)))
 	case *array.Timestamp:
 		return intValue(ct, int64(a.Value(i))), nil
 	case *array.MonthDayNanoInterval:
@@ -152,6 +163,13 @@ func valueAt(arr arrow.Array, i int) (Value, error) {
 		return intervalValue(0, 0, ns)
 	}
 	return Value{}, fmt.Errorf("unsupported Arrow type %s", arr.DataType())
+}
+
+func arrowTimeValue(t ColType, ticks int64) (Value, error) {
+	if ticks < 0 || ticks > 86400*unitsPerSecond[t.Unit] {
+		return Value{}, stateErr(stateDatetimeRange, "Arrow time is outside the SQL time-of-day range")
+	}
+	return intValue(t, ticks), nil
 }
 
 // appendValue appends a value (already coerced to t) to a builder created
@@ -198,6 +216,24 @@ func appendValue(b array.Builder, t ColType, v Value) error {
 		bb.Append(arrow.Timestamp(v.I))
 	case *array.MonthDayNanoIntervalBuilder:
 		bb.Append(arrow.MonthDayNanoInterval{Months: v.Months, Days: v.Days, Nanoseconds: v.I})
+	case *array.MapBuilder:
+		bb.Append(true)
+		for i, f := range v.fields() {
+			builder := bb.KeyBuilder()
+			if i%2 == 1 {
+				builder = bb.ItemBuilder()
+			}
+			if err := appendValue(builder, t.Rec.fields[i%2], f); err != nil {
+				return err
+			}
+		}
+	case *array.DenseUnionBuilder:
+		id := t.unionChild(v.I)
+		if id < 0 || len(v.fields()) != 1 {
+			return fmt.Errorf("invalid stored union")
+		}
+		bb.Append(arrow.UnionTypeCode(v.I))
+		return appendValue(bb.Child(id), t.Rec.fields[id], v.fields()[0])
 	case *array.StructBuilder:
 		return appendRecord(bb, t, v)
 	case *array.ListBuilder:

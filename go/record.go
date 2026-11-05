@@ -43,9 +43,10 @@ package redis
 //   - IS NULL is true for a NULL record or one whose fields are all NULL,
 //     IS NOT NULL for a record none of whose fields is NULL; a field that is
 //     a record is not NULL, whatever its fields are.
-//   - A record can't be stored: a table column, CREATE TABLE … AS and
+//   - An anonymous SQL record can't be stored: a table column, CREATE TABLE … AS and
 //     CREATE VIEW can't have type record, nor can a value written to a
-//     column, a parameter or ingested Arrow data be one.
+//     column be one. Named Arrow structs use stored_struct.go and have a
+//     separate persisted field schema.
 
 import (
 	"encoding/hex"
@@ -63,6 +64,8 @@ import (
 // recordType is the field types of a record type. recordOf interns them,
 // so that record types with the same fields are the same ColType.
 type recordType struct {
+	codes  []arrow.UnionTypeCode
+	named  []structField
 	fields []ColType
 }
 
@@ -117,7 +120,11 @@ func recordFieldIndex(name string) int {
 func (r *recordType) arrowType() arrow.DataType {
 	fields := make([]arrow.Field, len(r.fieldTypes()))
 	for i, t := range r.fieldTypes() {
-		fields[i] = arrowField(recordFieldName(i), t, true)
+		name, nullable := recordFieldName(i), true
+		if r.named != nil {
+			name, nullable = r.named[i].Name, r.named[i].Nullable
+		}
+		fields[i] = arrowField(name, t, nullable)
 	}
 	return arrow.StructOf(fields...)
 }
@@ -158,12 +165,18 @@ func coerceRecord(v Value, t ColType, z tzZone) (Value, error) {
 	if t.Rec == nil {
 		return v, nil
 	}
+	if t.namedRecord() && v.T.Rec != t.Rec {
+		return Value{}, stateErr(stateDatatypeMismatch, "stored struct schema must match field names, types and nullability")
+	}
 	in, types := v.fields(), t.Rec.fields
 	if len(in) != len(types) {
 		return Value{}, stateErr(stateDatatypeMismatch, "cannot convert record value %q of %d fields to a record of %d", v.textIn(z), len(in), len(types))
 	}
 	out := make([]Value, len(in))
 	for i, f := range in {
+		if t.namedRecord() && f.Null && !t.Rec.named[i].Nullable {
+			return Value{}, stateErr(stateNotNull, "struct field %q must not be NULL", t.Rec.named[i].Name)
+		}
 		c, err := coerceIn(f, types[i], z)
 		if err != nil {
 			return Value{}, err
@@ -171,6 +184,9 @@ func coerceRecord(v Value, t ColType, z tzZone) (Value, error) {
 		out[i] = c
 	}
 	v.rec = &out
+	if t.namedRecord() {
+		v.T = t
+	}
 	return v, nil
 }
 
@@ -321,7 +337,11 @@ func writeJSONRecord(b *strings.Builder, v Value, z tzZone) {
 		if i > 0 {
 			b.WriteByte(',')
 		}
-		writeJSONString(b, recordFieldName(i))
+		name := recordFieldName(i)
+		if v.T.namedRecord() {
+			name = v.T.Rec.named[i].Name
+		}
+		writeJSONString(b, name)
 		b.WriteByte(':')
 		writeJSONValue(b, f, false, z)
 	}
@@ -363,6 +383,15 @@ func fieldSelectType(fs *FieldSelect, t ColType) (ColType, error) {
 			"column notation .%s applied to type %s, which is not a composite type", fs.Name, sigTypeName(t))
 	}
 	types := t.Rec.fieldTypes()
+	if t.namedRecord() {
+		fs.Index = -1
+		for i, f := range t.Rec.named {
+			if f.Name == fs.Name {
+				fs.Index = i
+				break
+			}
+		}
+	}
 	if fs.Index < 0 || fs.Index >= len(types) {
 		return ColType{}, stateErrorf(stateUndefinedColumn, "could not identify column %q in record data type", fs.Name)
 	}
@@ -400,7 +429,7 @@ func pseudoTypeError(name string) error {
 // table or view can't have (pseudoTypeError).
 func checkStorableColumns(cols []resultColumn) error {
 	for _, c := range cols {
-		if c.Type.Kind == KindRecord {
+		if c.Type.Kind == KindRecord && !c.Type.namedRecord() {
 			return pseudoTypeError(c.Name)
 		}
 	}
@@ -410,7 +439,7 @@ func checkStorableColumns(cols []resultColumn) error {
 // recordColumnError is Postgres's error for a record written to a column
 // (INSERT, UPDATE, MERGE), nil if t isn't a record.
 func recordColumnError(col columnMeta, t ColType) error {
-	if t.Kind != KindRecord {
+	if t.Kind != KindRecord || col.Type.namedRecord() && t == col.Type {
 		return nil
 	}
 	return stateErrorf(stateDatatypeMismatch, "column %q is of type %s but expression is of type record", col.Name, sigTypeName(col.Type))
@@ -441,11 +470,27 @@ func (e *executor) checkRecords(expr Expr) error {
 			return false
 		}
 		switch v := x.(type) {
+		case *Binary:
+			err = e.nestedBinaryError(v)
 		case *Unary:
+			if e.mayUseTagged(v.X) {
+				t, e2 := inferType(v.X, e.scopeTypes(), e.paramTypes)
+				if e2 == nil && hasStoredTaggedType(t) {
+					err = stateErr(stateDatatypeMismatch, "operator %s does not support Map/Union values", v.Op)
+					break
+				}
+			}
 			if _, ok := e.recordTypeOf(v.X); ok {
 				err = recordUnaryError(v.Op)
 			}
 		case *Cast:
+			if e.mayUseTagged(v.X) {
+				t, e2 := inferType(v.X, e.scopeTypes(), e.paramTypes)
+				if e2 == nil && hasStoredTaggedType(t) && !castable(t, v.T) {
+					err = stateErr(stateCannotCoerce, "cannot cast Map/Union values to %s", v.T.SQLName())
+					break
+				}
+			}
 			if t, ok := e.recordTypeOf(v.X); ok && !castable(t, v.T) {
 				err = stateErrorf(stateCannotCoerce, "cannot cast type record to %s", sigTypeName(v.T))
 			}
@@ -454,7 +499,10 @@ func (e *executor) checkRecords(expr Expr) error {
 		case *Case:
 			err = e.caseRecordError(v)
 		case *Func:
-			err = e.recordArgError(v)
+			err = e.nestedFunctionError(v)
+			if err == nil {
+				err = e.recordArgError(v)
+			}
 		}
 		return err == nil
 	})
@@ -670,6 +718,12 @@ func (e *executor) recordOperandError(sq *Subquery, plan *selectPlan) error {
 // of clause (WHERE, HAVING, QUALIFY, JOIN conditions), once it is bound;
 // nil for other types.
 func (e *executor) conditionTypeError(x Expr, clause string) error {
+	if e.mayUseTagged(x) {
+		t, err := inferType(x, e.scopeTypes(), e.paramTypes)
+		if err == nil && hasStoredTaggedType(t) {
+			return stateErr(stateDatatypeMismatch, "%s requires boolean, not Map/Union", clause)
+		}
+	}
 	if _, ok := e.recordTypeOf(x); !ok {
 		return nil
 	}

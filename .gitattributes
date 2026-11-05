@@ -1,0 +1,5 @@
+# Keep pinned generated bindings and binary plan fixtures readable in reviews.
+go/internal/substrait/gen/** linguist-generated=true
+go/internal/substrait/source/** linguist-vendored=true
+go/internal/substrait/descriptor.pb binary
+go/testdata/substrait/*.bin binary

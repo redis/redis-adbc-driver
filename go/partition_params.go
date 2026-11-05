@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"reflect"
 	"strconv"
 
 	"github.com/apache/arrow-adbc/go/adbc"
@@ -32,6 +33,8 @@ import (
 // adding a function there does not establish portable partition semantics.
 var partitionFunctions = map[string]bool{
 	"MOD": true, "ABS": true, "LOWER": true, "UPPER": true, "LENGTH": true,
+	// Byte lengths inspect an existing scalar header without allocation or expansion.
+	"OCTET_LENGTH": true, "BIT_LENGTH": true,
 	"COALESCE": true, "NULLIF": true, "GREATEST": true, "LEAST": true,
 }
 
@@ -82,7 +85,7 @@ func (p *partitionParam) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("invalid parameter type")
 	}
 	var normalized colTypeJSON
-	if err := json.Unmarshal(canonical, &normalized); err != nil || normalized != j {
+	if err := json.Unmarshal(canonical, &normalized); err != nil || !reflect.DeepEqual(normalized, j) {
 		return fmt.Errorf("noncanonical parameter type")
 	}
 
@@ -182,6 +185,9 @@ func (s *statementImpl) partitionParams(ctx context.Context) ([]partitionParam, 
 		return nil, nil, nil, nil
 	}
 	defer s.clearParams()
+	if err := s.prepareExtensionInput(); err != nil {
+		return nil, nil, nil, err
+	}
 	bad := func() ([]partitionParam, []Value, []ColType, error) {
 		return nil, nil, nil, errorf(adbc.StatusInvalidArgument, "partition binding requires exactly one row, at most 1024 fields/batches and 256 KiB of encoded parameters")
 	}
@@ -191,7 +197,7 @@ func (s *statementImpl) partitionParams(ctx context.Context) ([]partitionParam, 
 	}
 	encoded := make([]partitionParam, schema.NumFields())
 	for i, f := range schema.Fields() {
-		t, err := colTypeFromArrow(f.Type)
+		t, err := colTypeFromField(f)
 		if f.Type.ID() == arrow.NULL {
 			t, err = typeNull, nil
 		}
@@ -208,6 +214,9 @@ func (s *statementImpl) partitionParams(ctx context.Context) ([]partitionParam, 
 		}
 		batches++
 		rec := s.params.RecordBatch()
+		if err := validateInputRecord(rec); err != nil {
+			return nil, nil, nil, invalidArg(err)
+		}
 		rows += rec.NumRows()
 		if rows > 1 || batches > 1024 {
 			return bad()
@@ -243,6 +252,10 @@ func (s *statementImpl) partitionParams(ctx context.Context) ([]partitionParam, 
 		}
 	}
 	if err := s.params.Err(); err != nil && !errors.Is(err, io.EOF) {
+		var ae adbc.Error
+		if errors.As(err, &ae) {
+			return nil, nil, nil, err
+		}
 		return nil, nil, nil, errorf(adbc.StatusIO, "failed to read partition parameter stream")
 	}
 	if rows != 1 {

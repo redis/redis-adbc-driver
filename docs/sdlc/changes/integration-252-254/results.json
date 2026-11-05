@@ -1,0 +1,72 @@
+{
+  "date": "2026-10-30",
+  "source_base": "91064e6",
+  "scope": "focused follow-up, not a full native sweep",
+  "reports": {
+    "r_installed": {
+      "passed": 1,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xfailed": 4
+    },
+    "r_upstream_before": {
+      "passed": 0,
+      "failed": 4,
+      "errors": 0,
+      "skipped": 0,
+      "xfailed": 0
+    },
+    "r_upstream_patched": {
+      "passed": 5,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xfailed": 0
+    },
+    "datasets_installed": {
+      "passed": 3,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xfailed": 2
+    },
+    "datasets_patched": {
+      "passed": 5,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xfailed": 0
+    },
+    "datasets_upstream_regressions_patched": {
+      "passed": 3,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xfailed": 0
+    },
+    "ray_tls": {
+      "passed": 17,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xfailed": 0
+    }
+  },
+  "upstream_pr_validation": {
+    "adbi": {
+      "pr": "https://github.com/r-dbi/adbi/pull/128",
+      "assertions_passed": 78,
+      "failed": 0,
+      "warnings": 0,
+      "skipped": 0
+    },
+    "datasets": {
+      "pr": "https://github.com/huggingface/datasets/pull/8913",
+      "persistence_passed": 7,
+      "persistence_skipped": 2,
+      "serialization_passed": 5,
+      "ruff": "passed"
+    }
+  }
+}

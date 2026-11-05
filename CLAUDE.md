@@ -3,7 +3,7 @@
 Go implementation of SQL and Arrow bulk ingestion over Redis HASHes and Search,
 built on driverbase-go. Read [the SDLC index](docs/sdlc/README.md) and the relevant
 feature documentation before changing behavior. The module is in `go/`, not the
-repository root; its toolchain is declared in `go/go.mod` (currently Go 1.26.10).
+repository root; its toolchain is declared in `go/go.mod` (currently Go 1.27.3).
 
 ## Commands (from the repository root)
 
@@ -14,7 +14,11 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.26.10)
   integration skips are expected and do not prove Redis compatibility.
 - Disposable Redis Software with Search: `make -C go redis-up` (Docker Compose,
   curl, jq). Use a dedicated test database; suites modify data.
-- Full Go suite: `REDIS_URI=redis://localhost:6379/0 make -C go test`.
+- Full default Software suite: `make -C go test-software`. It verifies QPF and
+  noeviction through the management API before passing the retained-control
+  policy declaration. Use a dedicated Compose project/ports for concurrent work.
+- Other verified endpoints: `REDIS_URI=... make -C go test`; Software requires
+  `REDIS_RETAINED_CONTROL_PERSISTENCE=guaranteed` only after API policy verification.
 - ADBC validation: `REDIS_URI=redis://localhost:6379/0 make -C go validate`
   (uv, Python >=3.13). Success is zero failures; report skips explicitly.
 - Differential harness tests: `make -C go pgdiff-test`. Full comparison:

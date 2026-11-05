@@ -69,6 +69,9 @@ const infoSchema = "information_schema"
 func isInfoSchema(schema string) bool { return (schema == infoSchema) }
 
 var infoSchemaColumns = map[string][]resultColumn{
+	"role_table_grants": catalogColumns("grantor grantee table_catalog table_schema table_name privilege_type is_grantable with_hierarchy"),
+	"table_privileges":  catalogColumns("grantor grantee table_catalog table_schema table_name privilege_type is_grantable with_hierarchy"),
+	"sequences":         catalogColumns("sequence_catalog sequence_schema sequence_name data_type numeric_precision:i numeric_precision_radix:i numeric_scale:i start_value minimum_value maximum_value increment cycle_option"),
 	"schemata": {
 		{Name: "catalog_name", Type: typeString},
 		{Name: "schema_name", Type: typeString},
@@ -199,6 +202,9 @@ func optString(s string) Value {
 
 // postgresTypeNames are information_schema.columns' data_type and udt_name.
 func postgresTypeNames(t ColType) (string, string) {
+	if t.Alias == "uuid" {
+		return "uuid", "uuid"
+	}
 	if t.Alias != "" {
 		return t.Alias, t.Alias
 	}
@@ -297,6 +303,14 @@ func columnRow(schema, table string, pos int, c columnMeta) []Value {
 		stringValue("NEVER"), nullString, yesNo(schema != foreignSchema), stringValue(t.SQLName()),
 		yesNo(c.Indexed), optString(c.Comment),
 	}
+	if c.Identity != "" {
+		row[5] = nullString
+		row[34] = yesNo(true)
+		row[35] = str(c.Identity)
+	}
+	if t.Alias == "uuid" {
+		row[8], row[9] = null, null
+	}
 	if t.Collation != "" && t.Collation != "default" {
 		row[19], row[20], row[21] = str(catalogName), str(pgCatalog), str(t.Collation)
 	}
@@ -312,6 +326,9 @@ func (e *executor) infoSchemaTable(ctx context.Context, name string) (*tableMeta
 	}
 	if e.planOnly {
 		return memTable(key, cols, nil, nil) // only its columns are wanted (see empty.go)
+	}
+	if key == "role_table_grants" || key == "table_privileges" {
+		return e.rbacGrantTable(ctx, key, cols)
 	}
 	if key == "routines" {
 		return memTable(key, cols, routineRows(), nil)
@@ -352,6 +369,12 @@ func (e *executor) infoSchemaTable(ctx context.Context, name string) (*tableMeta
 			return nil, err
 		}
 		switch key {
+		case "sequences":
+			seqRows, err := e.sequenceRows(ctx, stored)
+			if err != nil {
+				return nil, err
+			}
+			rows = append(rows, seqRows...)
 		case "tables":
 			metas, err := e.store.getTables(ctx, stored, tables)
 			if err != nil {
@@ -382,7 +405,18 @@ func (e *executor) infoSchemaTable(ctx context.Context, name string) (*tableMeta
 					continue // dropped meanwhile
 				}
 				for i, c := range meta.Columns {
-					rows = append(rows, columnRow(schema, t, i+1, c))
+					row := columnRow(schema, t, i+1, c)
+					if c.Identity != "" {
+						seq, err := e.store.getSequence(ctx, c.Sequence.Schema, c.Sequence.Name)
+						if err != nil {
+							return nil, err
+						}
+						for j, n := range []int64{seq.Start, seq.Increment, seq.Max, seq.Min} {
+							row[36+j] = str(strconv.FormatInt(n, 10))
+						}
+						row[40] = yesNo(seq.Cycle)
+					}
+					rows = append(rows, row)
 				}
 			}
 			for _, v := range views {

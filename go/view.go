@@ -102,6 +102,11 @@ func (s *store) putView(ctx context.Context, v *viewMeta) error {
 	key := viewKey(v.Schema, v.Name)
 	for attempt := 0; attempt < 20; attempt++ {
 		err := s.redis(ctx).Watch(ctx, func(tx *goredis.Tx) error {
+			if n, err := tx.Exists(ctx, metaKey(v.Schema, v.Name), sequenceKey(v.Schema, v.Name), sqlIndexKey(v.Schema, v.Name)).Result(); err != nil {
+				return err
+			} else if n > 0 {
+				return stateErrorf(stateDuplicateTable, "relation %q already exists", v.Name)
+			}
 			old, err := tx.Get(ctx, key).Result()
 			if err != nil && !errors.Is(err, goredis.Nil) {
 				return err
@@ -135,7 +140,7 @@ func (s *store) putView(ctx context.Context, v *viewMeta) error {
 				return nil
 			})
 			return err
-		}, key)
+		}, key, metaKey(v.Schema, v.Name), sequenceKey(v.Schema, v.Name), sqlIndexKey(v.Schema, v.Name))
 		if errors.Is(err, goredis.TxFailedErr) {
 			continue // concurrent change: retry
 		}
@@ -234,7 +239,7 @@ func (s *store) renameView(ctx context.Context, schema, name string, to TableNam
 			if err := json.Unmarshal([]byte(raw), &v); err != nil {
 				return errorf(adbc.StatusInternal, "corrupt metadata for view %q.%q: %v", schema, name, err)
 			}
-			if n, err := tx.Exists(ctx, newKey).Result(); err != nil {
+			if n, err := tx.Exists(ctx, newKey, sequenceKey(schema, newName), sqlIndexKey(schema, newName)).Result(); err != nil {
 				return err
 			} else if n > 0 {
 				return stateErrorf(stateDuplicateTable, "view %q.%q already exists", displaySchema(schema), newName)
@@ -260,7 +265,7 @@ func (s *store) renameView(ctx context.Context, schema, name string, to TableNam
 				return nil
 			})
 			return err
-		}, oldKey, newKey, tableKey)
+		}, oldKey, newKey, tableKey, sequenceKey(schema, newName), sqlIndexKey(schema, newName))
 		if errors.Is(err, goredis.TxFailedErr) {
 			continue // concurrent change: retry
 		}
@@ -379,7 +384,7 @@ func (e *executor) runCreateView(ctx context.Context, st *CreateViewStmt, numPar
 		if st.Columns != nil {
 			n = st.Columns[i]
 		}
-		if c.Type.Kind == KindRecord {
+		if c.Type.Kind == KindRecord && !c.Type.namedRecord() {
 			return pseudoTypeError(n)
 		}
 		if seen[n] {

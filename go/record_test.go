@@ -217,7 +217,7 @@ func TestRecordStorageErrors(t *testing.T) {
 	if _, err := parseTypeText("RECORD"); err == nil {
 		t.Error("RECORD is a column type")
 	}
-	if _, err := colTypeFromArrow(arrow.StructOf(arrow.Field{Name: "f1", Type: arrow.PrimitiveTypes.Int64})); err == nil {
-		t.Error("an Arrow struct is a column type")
+	if ct, err := colTypeFromArrow(arrow.StructOf(arrow.Field{Name: "f1", Type: arrow.PrimitiveTypes.Int64})); err != nil || !ct.namedRecord() {
+		t.Error("named Arrow struct did not map to a stored column type", err)
 	}
 }

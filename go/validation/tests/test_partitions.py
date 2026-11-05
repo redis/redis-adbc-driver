@@ -455,3 +455,34 @@ def test_pruned_partition_values(driver_path, db_kwargs):
         with connect(driver_path, db_kwargs) as owner:
             with owner.cursor() as cur:
                 cur.execute(f"DROP TABLE IF EXISTS {table}")
+
+
+def test_partition_byte_lengths_independent_reader(driver_path, db_kwargs):
+    """#304: complete results through separately opened live and retained readers."""
+    # Retained lifecycle is separately covered by its immutable replay suite.
+    table = "it_partition_byte_lengths"
+    data = pa.table({"id": pa.array([1, 2, 3, 4], pa.int64()),
+                     "label": ["é🐉", "", None, "a\x00b"],
+                     "payload": pa.array([b"\x00\xff", b"", None, b"abc"], pa.binary())})
+    with connect(driver_path, db_kwargs) as producer:
+        with producer.cursor() as cur:
+            cur.execute(f"DROP TABLE IF EXISTS {table}")
+            cur.adbc_ingest(table, data)
+            try:
+                query = f"SELECT id, OCTET_LENGTH(label) AS bytes, BIT_LENGTH(label) AS bits, OCTET_LENGTH(payload) AS binary_bytes FROM {table}"
+                cur.execute(query)
+                expected = cur.fetch_arrow_table().sort_by("id")
+                cur.adbc_statement.set_options(**{"adbc.redis.partition_scan_cap": int(os.environ.get("REDIS_PARTITION_SCAN_CAP", "0"))})
+                parts, schema = cur.adbc_execute_partitions(query)
+                batches = []
+                with connect(driver_path, worker_kwargs(db_kwargs)) as reader:
+                    with reader.cursor() as read:
+                        for part in parts:
+                            read.adbc_read_partition(part)
+                            result = read.fetch_arrow_table()
+                            assert result.schema == schema == expected.schema
+                            batches.extend(result.to_batches())
+                actual = pa.Table.from_batches(batches, schema=schema).sort_by("id")
+                assert actual.equals(expected)
+            finally:
+                cur.execute(f"DROP TABLE {table}")

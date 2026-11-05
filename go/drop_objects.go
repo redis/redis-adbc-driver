@@ -39,7 +39,11 @@ func (e *executor) runDropObjects(ctx context.Context, names []TableName, ifExis
 				return viewNotFound(schema, name)
 			}
 		} else {
-			_, err = e.store.getTable(ctx, schema, name)
+			meta, getErr := e.store.getTable(ctx, schema, name)
+			err = getErr
+			if err == nil && meta.MaterializedSQL != "" {
+				return stateErrorf(stateWrongObjectType, "%q is a materialized view; use DROP MATERIALIZED VIEW", name)
+			}
 			if err != nil {
 				var ae adbc.Error
 				if ifExists && asAdbc(err, &ae) && ae.Code == adbc.StatusNotFound {

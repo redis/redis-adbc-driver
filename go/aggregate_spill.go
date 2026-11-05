@@ -26,7 +26,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"sort"
 )
 
 const (
@@ -105,9 +104,12 @@ func (s *tupleSpill) flush(ctx context.Context) error {
 	if s.metrics != nil {
 		sorted = s.metrics.spillSort.start()
 	}
-	sort.Slice(s.rows, func(i, j int) bool { return s.rows[i].key < s.rows[j].key })
+	sortErr := sortSliceUnstable(ctx, s.rows, func(i, j int) bool { return s.rows[i].key < s.rows[j].key })
 	if sorted != nil {
 		sorted()
+	}
+	if sortErr != nil {
+		return sortErr
 	}
 	path := s.path()
 	f, err := os.Create(path)

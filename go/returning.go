@@ -187,6 +187,9 @@ func (e *executor) insertRows(ctx context.Context, meta *tableMeta, rows [][]Val
 	}
 	for i, vals := range rows {
 		id := map[string]Value{rowIDField: intValue(typeInt64, a.first+int64(i))}
+		if meta.KeyRows {
+			id = map[string]Value{keyField: vals[len(meta.Columns)-1]}
+		}
 		if err := e.returning.addChanged(id, meta, "", nil, vals, ""); err != nil {
 			return 0, err
 		}
@@ -251,6 +254,11 @@ func (e *executor) returningColumns(ctx context.Context, st Stmt) (cols []result
 	var ret *returning
 	switch st := st.(type) {
 	case *InsertStmt:
+		pop, err := e.pushCTEs(st.With)
+		if err != nil {
+			return nil, false, err
+		}
+		defer pop()
 		if len(st.Returning) == 0 {
 			return nil, false, nil
 		}

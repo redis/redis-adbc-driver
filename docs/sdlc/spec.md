@@ -13,7 +13,7 @@ Follow-up: [plan](plan.md). Maintainer acceptance: not recorded.
 | Typed Arrow ingestion and result delivery | `go/ingest.go`, `arrowconv.go`, `stream.go` | Bind/ingest/stream tests including NULLs, type widths, buffer lifetime and early close |
 | Search acceleration with exact fallback | Store/search, aggregate and query execution | Same expected results under eligible pushdown and fallback; exactness edge cases |
 | Managed tables and eligible external HASH collections | `go/store.go`, `adopt.go`, `rekey.go`, CLI | Copy/adopt/drop/rename/recovery tests with ownership checks |
-| Standalone, Software proxy and OSS Cluster API paths | `go/database.go` and storage key construction | Relevant matrix jobs and cluster integration cases |
+| Authenticated TLS Enterprise proxy with three primary shards | `go/database.go`, `go/software-setup.sh` and storage key construction | AMD64/ARM64 integration jobs and cluster cases |
 | Shared worker admission and automatic allocation | Worker budget/tuner, parallel aggregate execution | Cancellation/race tests and controlled measurements with complete coverage |
 
 ## Data and execution design

@@ -18,7 +18,9 @@ Install `pip install 'adbc-driver-redis[prefect]'`. Create connections inside ea
 task so concurrent tasks and retries each own their connection and cursor:
 
 ```python
+import os
 from adbc_driver_redis import dbapi
+from integration_guide_data import write_result
 from prefect import flow, task
 from prefect.cache_policies import NO_CACHE
 
@@ -26,13 +28,14 @@ from prefect.cache_policies import NO_CACHE
 def query(uri):
     with dbapi.connect(uri) as conn, conn.cursor() as cur:
         cur.execute("SELECT 1 AS one")
-        return cur.fetch_arrow_table()
+        output = cur.fetch_arrow_table()
+    return write_result(output)
 
 @flow(persist_result=False)
 def pipeline(uri):
     return query.submit(uri).result()
 
-print(pipeline("redis://localhost:6379/0").to_pylist())
+print(pipeline(os.environ["REDIS_URI"]).to_pylist())
 ```
 
 The [Prefect tests](https://github.com/redis/redis-adbc-driver/blob/main/python/tests/test_prefect.py) run real local flows with
@@ -56,5 +59,19 @@ python -m pytest -q python/tests/test_prefect.py
 Build the library first as above; use `.so` on Linux. This verifies custom Python
 tasks, not a packaged Prefect ADBC connector, `prefect-redis`, Flight SQL, or a
 remote Prefect deployment.
+
+## Rerun this guide
+
+From the repository root, with the guide's dependencies and native driver
+installed, set `REDIS_URI` to the dedicated local Software fixture and run:
+
+```sh
+python python/scripts/check_integration_guide.py prefect
+```
+
+This executes the guide's code blocks or its linked runnable example. For
+Superset it exercises the documented backend workflow in an isolated application;
+it does not automate the browser UI. See the
+[per-guide results](../sdlc/changes/integration-guides-262/validation.md).
 
 [All integration guides](README.md)

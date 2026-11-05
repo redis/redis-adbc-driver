@@ -18,7 +18,6 @@ import (
 	"container/heap"
 	"context"
 	"math"
-	"sort"
 )
 
 // Ordered narrow projections whose index ordering is lossy retain only the
@@ -67,7 +66,9 @@ func (e *executor) selectTopK(ctx context.Context, plan *selectPlan, sc selectSc
 	if err != nil {
 		return nil, true, err
 	}
-	sort.Slice(top.rows, func(i, j int) bool { return top.better(top.rows[i], top.rows[j]) })
+	if err := sortSliceUnstable(ctx, top.rows, func(i, j int) bool { return top.better(top.rows[i], top.rows[j]) }); err != nil {
+		return nil, true, err
+	}
 	kept := applyLimit(top.rows, plan.sel.Offset, plan.sel.Limit)
 	out := make([][]Value, len(kept))
 	for i, r := range kept {

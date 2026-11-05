@@ -33,6 +33,7 @@ package main
 // #cgo CXXFLAGS: -std=c++17 -DADBC_EXPORTING
 // #include "adbc.h"
 // #include "utils.h"
+// #include "input_preflight.h"
 // #include <errno.h>
 // #include <stdint.h>
 // #include <string.h>
@@ -423,6 +424,7 @@ func RedisArrayStreamRelease(stream *C.struct_ArrowArrayStream) {
 	}
 	h := handleFromPtr(stream.private_data)
 	stream.private_data = nil
+	stream.release = nil
 
 	cStream := h.Value().(*cArrayStream)
 	h.Delete()
@@ -1301,6 +1303,7 @@ func RedisConnectionRollback(cnxn *C.struct_AdbcConnection, err *C.struct_AdbcEr
 }
 
 type cStmt struct {
+	sqlQuery string // tracked for driver-specific device-output preflight
 	driverbase.CancellableContext
 	// Non-execution calls must not make StatementCancel report success.
 	executionContext driverbase.CancellableContext
@@ -1626,7 +1629,11 @@ func RedisStatementSetSqlQuery(stmt *C.struct_AdbcStatement, query *C.cchar_t, e
 		return C.ADBC_STATUS_INVALID_STATE
 	}
 
-	e := st.stmt.SetSqlQuery(st.NewContext(), C.GoString(query))
+	text := C.GoString(query)
+	e := st.stmt.SetSqlQuery(st.NewContext(), text)
+	if e == nil {
+		st.sqlQuery = text
+	}
 	return C.AdbcStatusCode(errToAdbcErr(err, e))
 }
 
@@ -1642,11 +1649,20 @@ func RedisStatementSetSubstraitPlan(stmt *C.struct_AdbcStatement, plan *C.cuint8
 		return C.ADBC_STATUS_INVALID_STATE
 	}
 
+	// Redis-specific admission must run before narrowing or copying C input.
+	if length > C.size_t(redis.SubstraitMaxPlanBytes) || (length != 0 && plan == nil) {
+		setErr(err, "Substrait: invalid plan pointer or plan_bytes budget exceeded")
+		return C.ADBC_STATUS_INVALID_ARGUMENT
+	}
+
 	var safeLen int
 	if safeLen, code = checkLengthToInt(length, err); code != C.ADBC_STATUS_OK {
 		return code
 	}
 	e := st.stmt.SetSubstraitPlan(st.NewContext(), C.GoBytes(unsafe.Pointer(plan), C.int(safeLen)))
+	if e == nil {
+		st.sqlQuery = ""
+	}
 	return C.AdbcStatusCode(errToAdbcErr(err, e))
 }
 
@@ -1662,6 +1678,11 @@ func RedisStatementBind(stmt *C.struct_AdbcStatement, values *C.struct_ArrowArra
 		return C.ADBC_STATUS_INVALID_STATE
 	}
 
+	if message := C.RedisInputPreflight(values, schema); message != nil {
+		setErr(err, "%s", C.GoString(message))
+		cdata.ReleaseCArrowArray(toCdataArray(values))
+		return C.ADBC_STATUS_INVALID_ARGUMENT
+	}
 	rec, e := cdata.ImportCRecordBatch(toCdataArray(values), toCdataSchema(schema))
 	if e != nil {
 		// if there was an error, we need to manually release the input
@@ -1685,6 +1706,10 @@ func RedisStatementBindStream(stmt *C.struct_AdbcStatement, stream *C.struct_Arr
 		return C.ADBC_STATUS_INVALID_STATE
 	}
 
+	if status := C.RedisInputCheckedStream(stream); status != 0 {
+		setErr(err, "invalid Arrow input stream")
+		return C.ADBC_STATUS_INVALID_ARGUMENT
+	}
 	rdr, e := cdata.ImportCRecordReader(toCdataStream(stream), nil)
 	if e != nil {
 		return C.AdbcStatusCode(errToAdbcErr(err, e))

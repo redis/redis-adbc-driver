@@ -1,0 +1,13 @@
+version: v2
+plugins:
+  - local: protoc-gen-go
+    out: gen
+    opt:
+      - paths=source_relative
+      - Msubstrait/algebra.proto=github.com/adbc-drivers/redis/go/internal/substrait/gen/substrait
+      - Msubstrait/plan.proto=github.com/adbc-drivers/redis/go/internal/substrait/gen/substrait
+      - Msubstrait/type.proto=github.com/adbc-drivers/redis/go/internal/substrait/gen/substrait
+      - Msubstrait/extended_expression.proto=github.com/adbc-drivers/redis/go/internal/substrait/gen/substrait
+      - Msubstrait/extensions/extensions.proto=github.com/adbc-drivers/redis/go/internal/substrait/gen/substrait/extensions
+inputs:
+  - directory: source

@@ -108,7 +108,9 @@ const (
 )
 
 type columnMeta struct {
-	DefaultOID int64 `json:"default_oid,omitempty"`
+	Identity   string    `json:"identity,omitempty"`
+	Sequence   TableName `json:"sequence,omitempty"`
+	DefaultOID int64     `json:"default_oid,omitempty"`
 	// Encoding is "text" for application-owned booleans and date/time text.
 	// Such columns are read and compared in the driver, never as NUMERIC.
 	Encoding   string  `json:"encoding,omitempty"`
@@ -205,12 +207,15 @@ func (t *tableMeta) applyIndexPolicy(only map[string]bool, noIndex map[string]bo
 }
 
 type tableMeta struct {
-	OID      int64        `json:"oid,omitempty"`
-	IndexOID int64        `json:"index_oid,omitempty"`
-	Foreign  bool         `json:"-"`
-	Schema   string       `json:"schema"`
-	Name     string       `json:"name"`
-	Columns  []columnMeta `json:"columns"`
+	MaterializedSQL string       `json:"materialized_sql,omitempty"`
+	Unpopulated     bool         `json:"unpopulated,omitempty"`
+	NamedIndexes    []namedIndex `json:"named_indexes,omitempty"`
+	OID             int64        `json:"oid,omitempty"`
+	IndexOID        int64        `json:"index_oid,omitempty"`
+	Foreign         bool         `json:"-"`
+	Schema          string       `json:"schema"`
+	Name            string       `json:"name"`
+	Columns         []columnMeta `json:"columns"`
 	// FoldedIdentifiers is set on metadata created after unquoted SQL
 	// identifiers began following PostgreSQL's lower-case folding rules.
 	// Older metadata did not record whether a mixed-case column was quoted,
@@ -243,8 +248,8 @@ type tableMeta struct {
 	PrimaryKey *keyMeta `json:"primary_key,omitempty"`
 	// Adopted is set for a table whose rows are HASHes that something else
 	// (an application) wrote, adopted in place with AdoptHashes (adopt.go).
-	// The driver doesn't own their keys, so it never deletes rows wholesale
-	// or moves them: see refuseAdopted.
+	// The driver doesn't own their keys: inserts require __key, wholesale
+	// deletion requires explicit opt-in, and re-keying is refused.
 	Adopted bool `json:"adopted,omitempty"`
 	// KeyRows is set for a table whose rows are identified by their keys,
 	// the system column __key, rather than by __rowid: an adopted table's
@@ -265,6 +270,7 @@ type tableMeta struct {
 
 	// In-memory relations (CTEs, derived tables) hold their rows here and
 	// have no index or HASHes.
+	sourceKeys     []string
 	isMem          bool
 	retainedSource bool // immutable captured physical rows retain explicit system columns
 	mem            []map[string]Value
@@ -577,8 +583,8 @@ func adoptedOverlapErr(schema, table, adopted string) error {
 }
 
 // refuseAdopted refuses what an adopted table can't do. Its keys are an
-// application's: the driver never allocates row ids among them (the
-// application does), moves them to new keys, or deletes them wholesale.
+// application's: the driver never allocates row ids among them or moves
+// them to new keys. TRUNCATE uses a separate, explicitly enabled path.
 func refuseAdopted(meta *tableMeta, what string) error {
 	if !meta.Adopted {
 		return nil
@@ -829,9 +835,9 @@ func (s *store) updateTable(ctx context.Context, schema, table string, fn func(*
 // (0 if none), and the change only commits if no row ids were allocated
 // meanwhile. Without it, fn gets 0.
 func (s *store) updateTableTx(ctx context.Context, schema, table string, atRowID bool,
-	fn func(m *tableMeta, lastRowID int64) error, extra func(goredis.Pipeliner)) error {
+	fn func(m *tableMeta, lastRowID int64) error, extra func(goredis.Pipeliner), extraWatch ...string) error {
 	key, seq := metaKey(schema, table), seqKey(schema, table)
-	watch := []string{key}
+	watch := append([]string{key}, extraWatch...)
 	if atRowID {
 		watch = append(watch, seq)
 	}
@@ -1118,7 +1124,7 @@ func (s *store) createTable(ctx context.Context, meta *tableMeta, ifNotExists bo
 		}
 		return false, stateErrorf(stateDuplicateTable, "table %q.%q already exists", displaySchema(meta.Schema), meta.Name)
 	}
-	if n, err := s.redis(ctx).Exists(ctx, key).Result(); err != nil {
+	if n, err := s.redis(ctx).Exists(ctx, key, sequenceKey(meta.Schema, meta.Name), sqlIndexKey(meta.Schema, meta.Name)).Result(); err != nil {
 		return false, wrapRedis(err, "failed to create table")
 	} else if n > 0 {
 		return exists()
@@ -1168,7 +1174,7 @@ func (s *store) createTable(ctx context.Context, meta *tableMeta, ifNotExists bo
 	won := false
 	for attempt := 0; attempt < 20 && !won; attempt++ {
 		err = s.redis(ctx).Watch(ctx, func(tx *goredis.Tx) error {
-			if n, err := tx.Exists(ctx, key).Result(); err != nil || n > 0 {
+			if n, err := tx.Exists(ctx, key, viewKey(meta.Schema, meta.Name), sequenceKey(meta.Schema, meta.Name), sqlIndexKey(meta.Schema, meta.Name)).Result(); err != nil || n > 0 {
 				return err
 			}
 			_, err := tx.TxPipelined(ctx, func(p goredis.Pipeliner) error {
@@ -1182,7 +1188,7 @@ func (s *store) createTable(ctx context.Context, meta *tableMeta, ifNotExists bo
 			})
 			won = err == nil
 			return err
-		}, key)
+		}, key, viewKey(meta.Schema, meta.Name), sequenceKey(meta.Schema, meta.Name), sqlIndexKey(meta.Schema, meta.Name))
 		if !errors.Is(err, goredis.TxFailedErr) {
 			break
 		}
@@ -1503,6 +1509,9 @@ func (s *store) dropTable(ctx context.Context, schema, table string, ifExists bo
 			}
 			_, err = tx.TxPipelined(ctx, func(p goredis.Pipeliner) error {
 				p.Del(ctx, key, seqKey(schema, table))
+				for _, idx := range meta.NamedIndexes {
+					p.Del(ctx, sqlIndexKey(schema, idx.Name))
+				}
 				p.SRem(ctx, tablesKey(schema), table)
 				p.SRem(ctx, prefixesKey, meta.prefix())
 				p.SRem(ctx, indexesKey, meta.index())
@@ -1525,7 +1534,7 @@ func (s *store) dropTable(ctx context.Context, schema, table string, ifExists bo
 			return wrapRedis(err, "failed to drop table")
 		}
 		s.trackTemp(schema, table, false)
-		return nil
+		return s.dropOwnedSequences(ctx, schema, table, tableOID(meta))
 	}
 	return errorf(adbc.StatusIO, "table %q.%q is being changed concurrently; try again", displaySchema(schema), name)
 }
@@ -1659,6 +1668,13 @@ func (s *store) dropSchema(ctx context.Context, schema string, ifExists, cascade
 	if err != nil {
 		return err
 	}
+	sequences, err := s.redis(ctx).SMembers(ctx, sequencesKey(schema)).Result()
+	if err != nil {
+		return err
+	}
+	if len(sequences) > 0 && !cascade {
+		return stateErrorf("2BP01", "schema %q is not empty; use CASCADE", schema)
+	}
 	if len(tables)+len(views) > 0 {
 		if !cascade {
 			return errorf(adbc.StatusInvalidState,
@@ -1675,6 +1691,14 @@ func (s *store) dropSchema(ctx context.Context, schema string, ifExists, cascade
 				return err
 			}
 		}
+	}
+	for _, name := range sequences {
+		if err := s.redis(ctx).Del(ctx, sequenceKey(schema, name)).Err(); err != nil {
+			return err
+		}
+	}
+	if err := s.redis(ctx).Del(ctx, sequencesKey(schema)).Err(); err != nil {
+		return err
 	}
 	if err := s.redis(ctx).SRem(ctx, schemasKey, schema).Err(); err != nil {
 		return wrapRedis(err, "failed to drop schema")
@@ -1721,8 +1745,11 @@ func (s *store) allocRows(ctx context.Context, meta *tableMeta, rows [][]Value) 
 	if len(rows) == 0 {
 		return rowAlloc{}, nil
 	}
-	if err := refuseAdopted(meta, "adding rows (INSERT, MERGE … INSERT, bulk ingest)"); err != nil {
-		return rowAlloc{}, err
+	if meta.Adopted {
+		if err := s.prepareKeyRows(ctx, meta, rows); err != nil {
+			return rowAlloc{}, err
+		}
+		return rowAlloc{}, nil
 	}
 	for _, row := range rows {
 		for i, c := range meta.Columns {
@@ -1833,6 +1860,9 @@ var testHookRowsWritten func(meta *tableMeta, written int)
 // table still has its keys (checkKeys): if it was dropped or its rows moved
 // meanwhile, the statement stops, deletes the rows it wrote, and fails.
 func (s *store) writeRows(ctx context.Context, meta *tableMeta, a rowAlloc, rows [][]Value) (int64, error) {
+	if meta.Adopted {
+		return s.writeKeyRows(ctx, meta, rows)
+	}
 	if err := s.raiseNeeds(ctx, meta, rowNeeds(meta, rows)); err != nil {
 		return 0, err
 	}

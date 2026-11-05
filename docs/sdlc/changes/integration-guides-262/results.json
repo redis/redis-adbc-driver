@@ -1,0 +1,304 @@
+{
+  "guide_count": 38,
+  "passed": 38,
+  "failed": 0,
+  "skipped": 0,
+  "guides": {
+    "pandas": {
+      "profile": "core",
+      "exit_code": 0,
+      "seconds": 0.9
+    },
+    "polars": {
+      "profile": "core",
+      "exit_code": 0,
+      "seconds": 1.1
+    },
+    "sqlalchemy": {
+      "profile": "core",
+      "exit_code": 0,
+      "seconds": 0.9
+    },
+    "pyarrow": {
+      "profile": "core",
+      "exit_code": 0,
+      "seconds": 0.5
+    },
+    "numpy": {
+      "profile": "core",
+      "exit_code": 0,
+      "seconds": 0.6
+    },
+    "scikit-learn": {
+      "profile": "core",
+      "exit_code": 0,
+      "seconds": 1.5
+    },
+    "dagster": {
+      "profile": "core",
+      "exit_code": 0,
+      "seconds": 1.4
+    },
+    "dask": {
+      "profile": "core",
+      "exit_code": 0,
+      "seconds": 2.1
+    },
+    "prefect": {
+      "profile": "core",
+      "exit_code": 0,
+      "seconds": 4.8
+    },
+    "dlt": {
+      "profile": "core",
+      "exit_code": 0,
+      "seconds": 2.0
+    },
+    "ray": {
+      "profile": "core",
+      "exit_code": 0,
+      "seconds": 14.7
+    },
+    "duckdb": {
+      "profile": "core",
+      "exit_code": 0,
+      "seconds": 1.9
+    },
+    "jupyter": {
+      "profile": "workflows",
+      "exit_code": 0,
+      "seconds": 1.2
+    },
+    "huggingface-datasets": {
+      "profile": "workflows",
+      "exit_code": 0,
+      "seconds": 0.7
+    },
+    "streamlit": {
+      "profile": "workflows",
+      "exit_code": 0,
+      "seconds": 0.7
+    },
+    "scipy": {
+      "profile": "workflows",
+      "exit_code": 0,
+      "seconds": 0.6
+    },
+    "pytorch": {
+      "profile": "models",
+      "exit_code": 0,
+      "seconds": 1.7
+    },
+    "tensorflow": {
+      "profile": "models",
+      "exit_code": 0,
+      "seconds": 3.7
+    },
+    "keras": {
+      "profile": "models",
+      "exit_code": 0,
+      "seconds": 3.2
+    },
+    "xgboost": {
+      "profile": "models",
+      "exit_code": 0,
+      "seconds": 1.2
+    },
+    "transformers": {
+      "profile": "models",
+      "exit_code": 0,
+      "seconds": 3.3
+    },
+    "plotly": {
+      "profile": "models",
+      "exit_code": 0,
+      "seconds": 0.5
+    },
+    "matplotlib": {
+      "profile": "models",
+      "exit_code": 0,
+      "seconds": 0.5
+    },
+    "spark": {
+      "profile": "spark",
+      "exit_code": 0,
+      "seconds": 5.4
+    },
+    "kubeflow": {
+      "profile": "orchestrators",
+      "exit_code": 0,
+      "seconds": 0.9
+    },
+    "metaflow": {
+      "profile": "orchestrators",
+      "exit_code": 0,
+      "seconds": 1.0
+    },
+    "fivetran": {
+      "profile": "orchestrators",
+      "exit_code": 0,
+      "seconds": 4.7
+    },
+    "ibis": {
+      "profile": "analysis",
+      "exit_code": 0,
+      "seconds": 0.9
+    },
+    "mlflow": {
+      "profile": "analysis",
+      "exit_code": 0,
+      "seconds": 2.7
+    },
+    "beam": {
+      "profile": "beam",
+      "exit_code": 0,
+      "seconds": 1.7
+    },
+    "mage": {
+      "profile": "mage",
+      "exit_code": 0,
+      "seconds": 4.4
+    },
+    "kestra": {
+      "profile": "kestra",
+      "exit_code": 0,
+      "seconds": 11.7
+    },
+    "r-dbi": {
+      "profile": "documents",
+      "exit_code": 0,
+      "seconds": 0.5
+    },
+    "rstudio": {
+      "profile": "documents",
+      "exit_code": 0,
+      "seconds": 0.4
+    },
+    "quarto": {
+      "profile": "documents",
+      "exit_code": 0,
+      "seconds": 3.2
+    },
+    "airflow": {
+      "profile": "airflow",
+      "exit_code": 0,
+      "seconds": 11.0
+    },
+    "superset": {
+      "profile": "superset",
+      "exit_code": 0,
+      "seconds": 3.5
+    },
+    "dbt": {
+      "profile": "dbt",
+      "exit_code": 0,
+      "seconds": 10.4
+    }
+  },
+  "environments": {
+    "core": {
+      "python": "3.12.16",
+      "packages": {
+        "pandas": "3.1.0",
+        "polars": "2.1.0",
+        "numpy": "2.5.4",
+        "scikit-learn": "1.9.1",
+        "SQLAlchemy": "2.1.6",
+        "dask": "2026.8.0",
+        "ray": "2.59.0",
+        "dagster": "1.13.28",
+        "dagster-adbc": "0.0.2",
+        "prefect": "3.9.1",
+        "dlt": "1.32.0",
+        "duckdb": "2.0.0",
+        "pyarrow": "26.0.0",
+        "adbc-driver-manager": "1.13.0"
+      }
+    },
+    "workflows": {
+      "python": "3.12.16",
+      "packages": {
+        "nbclient": "0.11.0",
+        "ipykernel": "7.4.0",
+        "datasets": "5.1.0",
+        "streamlit": "1.66.1",
+        "scipy": "1.18.1"
+      }
+    },
+    "models": {
+      "python": "3.12.16",
+      "packages": {
+        "torch": "2.15.0",
+        "tensorflow": "2.21.0",
+        "keras": "3.15.1",
+        "xgboost": "3.4.1",
+        "transformers": "5.22.1",
+        "plotly": "7.1.0",
+        "matplotlib": "3.11.2"
+      }
+    },
+    "spark": {
+      "python": "3.12.16",
+      "packages": {
+        "pyspark": "4.3.0"
+      }
+    },
+    "orchestrators": {
+      "python": "3.12.16",
+      "packages": {
+        "kfp": "2.18.0",
+        "metaflow": "2.19.40",
+        "fivetran-connector-sdk": "2.9.0"
+      }
+    },
+    "analysis": {
+      "python": "3.12.16",
+      "packages": {
+        "ibis-framework": "12.0.0",
+        "mlflow": "3.17.2",
+        "pandas": "3.1.0",
+        "pyarrow": "25.0.1"
+      }
+    },
+    "beam": {
+      "python": "3.12.16",
+      "packages": {
+        "apache-beam": "2.77.0"
+      }
+    },
+    "mage": {
+      "python": "3.12.16",
+      "packages": {
+        "mage-ai": "0.9.80"
+      }
+    },
+    "kestra": {
+      "python": "3.12.16",
+      "packages": {
+        "kestra": "2.0.0"
+      }
+    },
+    "airflow": {
+      "python": "3.14.10",
+      "packages": {
+        "apache-airflow": "3.3.2",
+        "apache-airflow-providers-apache-arrow": "0.1.1"
+      }
+    },
+    "superset": {
+      "python": "3.12.16",
+      "packages": {
+        "apache-superset": "6.1.0",
+        "SQLAlchemy": "1.4.54",
+        "pyarrow": "18.1.0"
+      }
+    },
+    "dbt": {
+      "python": "3.14.10",
+      "packages": {
+        "dbt-core": "1.12.6",
+        "dbt-redis-adbc": "0.1.0"
+      }
+    }
+  }
+}

@@ -87,7 +87,7 @@ def test_record_text_and_schema(rows_conn) -> None:
     assert schema == pyarrow.schema([("row", pyarrow.struct([("f1", pyarrow.int32()), ("f2", pyarrow.string())]))])
 
 
-def test_record_cant_be_stored(rows_conn) -> None:
+def test_anonymous_record_restrictions(rows_conn) -> None:
     with rows_conn.cursor() as cur:
         with pytest.raises(adbc_driver_manager.ProgrammingError, match='column "row" has pseudo-type record') as e:
             cur.execute(f"CREATE TABLE {TABLE}_c AS SELECT (a, b) FROM {TABLE}")
@@ -95,8 +95,17 @@ def test_record_cant_be_stored(rows_conn) -> None:
         with pytest.raises(adbc_driver_manager.ProgrammingError, match=r"function upper\(record\) does not exist") as e:
             cur.execute(f"SELECT upper((a, b)) FROM {TABLE}")
         assert e.value.sqlstate == "42883", e.value
-        with pytest.raises(adbc_driver_manager.dbapi.Error):
-            cur.adbc_ingest(
-                f"{TABLE}_i",
-                pyarrow.table({"r": pyarrow.array([{"f1": 1}], pyarrow.struct([("f1", pyarrow.int64())]))}),
-            )
+
+
+def test_named_struct_can_be_stored(rows_conn) -> None:
+    source = pyarrow.table({"r": pyarrow.array(
+        [{"f1": 1}, None, {"f1": None}], pyarrow.struct([("f1", pyarrow.int64())]))})
+    with rows_conn.cursor() as cur:
+        cur.execute(f"DROP TABLE IF EXISTS {TABLE}_i")
+        try:
+            cur.adbc_ingest(f"{TABLE}_i", source)
+            cur.execute(f"SELECT r FROM {TABLE}_i ORDER BY __rowid")
+            assert cur.fetch_arrow_table().equals(source)
+            assert rows_conn.adbc_get_table_schema(f"{TABLE}_i").equals(source.schema)
+        finally:
+            cur.execute(f"DROP TABLE IF EXISTS {TABLE}_i")

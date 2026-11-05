@@ -124,6 +124,20 @@ func writeIPCOutput(ctx context.Context, path, format string, mem memory.Allocat
 	if err != nil {
 		return -1, err
 	}
+	if format == "file" {
+		hasDictionary := false
+		for _, f := range rdr.Schema().Fields() {
+			if f.Type.ID() == arrow.DICTIONARY {
+				hasDictionary = true
+			}
+		}
+		if hasDictionary {
+			rdr, err = prepareDictionaryFile(ctx, mem, rdr)
+			if err != nil {
+				return -1, err
+			}
+		}
+	}
 	defer rdr.Release()
 	var writer interface {
 		Write(arrow.RecordBatch) error

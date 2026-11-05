@@ -17,17 +17,27 @@ Moving tables and tables with pending index cleanup are also omitted.
 With `approximate=true`, counts use live Search document counts and require
 FT.INFO readiness plus FT.SEARCH access. With `approximate=false`, the driver
 scans authoritative HASH identities, deduplicates keys and validates physical
-row IDs; it does not consult Search counts. That path needs SCAN and HGET plus
+row IDs; it does not consult Search counts. That path needs SCAN, HGET and HEXISTS plus
 normal catalog metadata access. It is bounded by a one-minute deadline, 64 MiB
-identity budget and two million scanned keys. Exhaustion fails explicitly.
+identity budget and two million work units (each candidate key plus two field-existence probes
+per column), with at most 4,096 columns. Exhaustion fails explicitly.
 
 Both paths return `statistic_is_approximate=true`: neither isolates concurrent
 DML/DDL, and SCAN can observe membership from different times. ADBC allows an
 approximate result even when exact statistics were requested. The HASH path
 avoids index lag; it does not provide a transaction snapshot. Quiescent sources
 produce complete counts. Table identity changes fail rather than silently
-switching to replacement data. NULL/distinct/min/max/width/size quantities are
-unavailable and never represented by fabricated zeros.
+switching to replacement data.
+
+The authoritative (`approximate=false`) path also returns standard column NULL
+count key **5**, as int64 union values, for each physical SQL column. Counts use
+field existence rather than fetching unbounded payloads: empty strings/binary
+and NaN are non-NULL. Absent HASH fields follow stored ADD COLUMN defaults and
+explicit NULL markers. An empty eligible table returns zero per known column;
+unknown/filter-excluded columns produce no invented entries. Both row and NULL
+counts are classified approximate under concurrent writes, without a snapshot.
+The Search (`approximate=true`) path continues to return only row counts.
+Distinct/min/max/width/size quantities remain unavailable and omitted.
 
 Permission denial fails explicitly; it does not become a zero count. Named ACL
 users do not require CONFIG for statistics. Reader-only retained
@@ -39,7 +49,10 @@ columns. PRIMARY KEY metadata describes declared key columns; it is not a claim
 of enforced uniqueness. UNIQUE and FOREIGN KEY declarations/enforcement are
 tracked by [#114](https://github.com/redis/redis-adbc-driver/issues/114), so
 no UNIQUE, FOREIGN KEY or referenced-column usage metadata is invented here.
-These remain gaps under [#210](https://github.com/redis/redis-adbc-driver/issues/210).
+Constraint enforcement remains outside this metadata change.
 
-This is source functionality. A successful local library build and validation
-do not establish availability in a published wheel.
+The [2026-10-30 validation](sdlc/changes/210-212/validation.md) exercises native
+metadata under independently authenticated read-only principals over verified
+TLS, including separate Search/SCAN/source-key denials and constraint DDL.
+The published `0.0.19` macOS ARM64 wheel passed those checks on Redis Software
+8.6.2 with 4x QPF. Other release assets are not covered by that evidence.

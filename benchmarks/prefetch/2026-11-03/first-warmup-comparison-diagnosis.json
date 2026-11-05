@@ -1,0 +1,8 @@
+{
+  "actual_rows": 100000,
+  "expected_rows": 100000,
+  "name_differences": 0,
+  "type_differences": 0,
+  "nullability_differences": 105,
+  "columns_with_value_or_validity_difference": []
+}

@@ -6,6 +6,7 @@ package redis
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -66,5 +67,22 @@ func TestRetainedControlPolicyPreservesPersistentQuotas(t *testing.T) {
 		if retainedControlPolicyAllowed(policy) {
 			t.Fatal(policy)
 		}
+	}
+}
+
+func TestRetainedControlPolicyMissingIntrospection(t *testing.T) {
+	for _, config := range []map[string]string{nil, {}, {"maxmemory-policy": ""}} {
+		if err := retainedControlPolicyReply(config, nil); !isStatus(err, adbc.StatusNotImplemented) {
+			t.Fatal(config, err)
+		}
+	}
+	if err := retainedControlPolicyReply(nil, errors.New("filtered CONFIG")); !isStatus(err, adbc.StatusNotImplemented) {
+		t.Fatal(err)
+	}
+	if err := retainedControlPolicyReply(map[string]string{"maxmemory-policy": "allkeys-lru"}, nil); !isStatus(err, adbc.StatusInvalidState) {
+		t.Fatal(err)
+	}
+	if err := retainedControlPolicyReply(map[string]string{"maxmemory-policy": "noeviction"}, nil); err != nil {
+		t.Fatal(err)
 	}
 }

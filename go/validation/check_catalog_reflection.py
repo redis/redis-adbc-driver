@@ -49,7 +49,7 @@ def main():
     with dbapi.connect(
         driver=os.environ["REDIS_ADBC_LIBRARY"],
         entrypoint="AdbcDriverRedisInit",
-        db_kwargs={"uri": os.environ.get("REDIS_URI", "redis://localhost:6379/0")},
+        db_kwargs={"uri": os.environ["REDIS_URI"]},
         autocommit=True,
     ) as raw:
         def execute(sql):

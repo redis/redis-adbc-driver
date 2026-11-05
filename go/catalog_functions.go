@@ -219,6 +219,34 @@ func (env *evalEnv) evalCatalogFunc(f *Func) (Value, bool, error) {
 		return boolValue(true), true, nil
 	}
 	if f.Name == "PG_GET_SERIAL_SEQUENCE" {
+		if a[0].Null || a[1].Null {
+			return nullValue(typeString), true, nil
+		}
+		e := env.catalogExecutor()
+		if e.store == nil {
+			return nullValue(typeString), true, nil
+		}
+		schema, name, err := e.sequenceName(a[0].Text())
+		if err != nil {
+			return Value{}, true, err
+		}
+		m, err := e.store.getTable(env.catalogContext(), schema, name)
+		if err != nil {
+			return Value{}, true, err
+		}
+		columnIndex, ok := m.resolve(a[1].Text())
+		if !ok {
+			return Value{}, true, stateErr(stateUndefinedColumn, "column %q does not exist", a[1].Text())
+		}
+		seqs, err := e.store.ownedSequences(env.catalogContext(), schema, name, tableOID(m))
+		if err != nil {
+			return Value{}, true, err
+		}
+		for _, seq := range seqs {
+			if seq.Column == a[1].Text() || seq.OwnerField == m.Columns[columnIndex].field() {
+				return str(sequenceDisplayName(seq.Schema, seq.Name)), true, nil
+			}
+		}
 		return nullValue(typeString), true, nil
 	}
 	e := env.catalogExecutor()

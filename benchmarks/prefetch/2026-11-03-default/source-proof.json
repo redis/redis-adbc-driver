@@ -1,0 +1,20 @@
+{
+  "source_arrow_sha256": "7fd6a17c71912db01ad675a12d85e2f2e6fad629be263b2d04e3d9cb318e51c9",
+  "rows": 100000,
+  "parquet_sha256": "a390f6cb782f6aaef278c72fc1dd86c4f30bc843ebab3c159e9bd4d45ddb079f",
+  "upstream_commit": "e90045879276f75cc398f1ab8a73541a7716058d",
+  "conversion": "pinned PostgreSQL DDL; tracked arrow_schema/convert_batch; date epoch days and timestamp epoch seconds to microseconds",
+  "source_parquet_sha256": "a390f6cb782f6aaef278c72fc1dd86c4f30bc843ebab3c159e9bd4d45ddb079f",
+  "native_membership_sha256": "350c19e1313a44311f4ce741e8b6eb4d2b877df5846ff73ab3ff415030bddda0",
+  "columns": 105,
+  "membership": "Native exact row IDs 1..100000 and unique WatchIDs; every expected value comes from typed official Parquet; not a Parquet-prefix assumption",
+  "fixture_preparation": "SQL INSERT SELECT of exact internal IDs 1..100000 from the verified full-scale restore into a fresh managed fixture with pinned official DDL. All preparation excluded from timing; no Parquet ingestion or full-scale reload.",
+  "typed_columns": 105,
+  "membership_proof": {
+    "source_parquet_sha256": "a390f6cb782f6aaef278c72fc1dd86c4f30bc843ebab3c159e9bd4d45ddb079f",
+    "native_membership_sha256": "350c19e1313a44311f4ce741e8b6eb4d2b877df5846ff73ab3ff415030bddda0",
+    "rows": 100000,
+    "columns": 105,
+    "membership": "Native exact row IDs 1..100000 and unique WatchIDs; every expected value comes from typed official Parquet; not a Parquet-prefix assumption"
+  }
+}

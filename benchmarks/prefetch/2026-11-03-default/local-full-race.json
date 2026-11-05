@@ -1,0 +1,15 @@
+{
+  "command": "COMPOSE_PROJECT_NAME=task-isolated SOFTWARE_DB_PORT=task-local SOFTWARE_API_PORT=task-local make -C go test-software TEST_ARGS=\"-race -tags scanprefetch\"",
+  "runtime_source": "4735cbd71a3fa89e68929daf258f5fb2216e1582",
+  "passed": true,
+  "top_level_passes": 835,
+  "top_level_skips": 41,
+  "driver_seconds": 420.762,
+  "distribution": "Redis Software",
+  "version": "8.6.2",
+  "shards": 3,
+  "qpf": 4,
+  "tls": "verified",
+  "protocol": 3,
+  "skip_interpretation": "Existing Software proxy ACL/protocol introspection limits, opt-in profiles, and unavailable native GPU/extra endpoints; no skip/assertion changes introduced"
+}

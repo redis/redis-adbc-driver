@@ -143,6 +143,8 @@ func TestTimeoutResolve(t *testing.T) {
 // it does the single-endpoint client, under the driver's own settings
 // (credentials options, RESP3 by default, no CLIENT SETINFO, the timeouts).
 func TestClientURIOptions(t *testing.T) {
+	// URI parsing is independent of any integration fixture trust bundle.
+	t.Setenv("SSL_CERT_FILE", "")
 	fields := func(t *testing.T, what string, opts any, want map[string]any) {
 		t.Helper()
 		v := reflect.ValueOf(opts).Elem()

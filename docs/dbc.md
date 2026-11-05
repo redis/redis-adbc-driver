@@ -1,14 +1,18 @@
 # Redis in dbc
 
-Status (2026-10-29): packaging and catalog submission are prepared; Redis has
-not been added to the default public registry by this change.
+Status (2026-10-29): v0.0.19 flat packages, checksums and the release catalog are
+[published](https://github.com/redis/redis-adbc-driver/releases/tag/v0.0.19). Redis
+is not yet listed in the default public registry; Foundry signing/CDN onboarding
+is pending.
 
 An [existing Redis onboarding discussion](https://github.com/orgs/adbc-drivers/discussions/9)
 already covers this request. On October 26, the author linked the Redis-owned
 repository, and a Foundry maintainer replied that they would set it up when
 they had time. Onboarding is therefore already underway; do not create a
 duplicate request. This confirms the discussion status, not live registry
-availability. No follow-up was posted during this task.
+availability. A [release follow-up](https://github.com/adbc-drivers/.github/discussions/9#discussioncomment-19283982)
+was posted with the user's explicit authorization, linking the actual packages
+and catalog for maintainer review.
 
 [dbc](https://github.com/columnar-tech/dbc) discovers drivers from a hosted
 [registry index](https://docs.columnar.tech/dbc/concepts/driver_registry/).
@@ -36,8 +40,8 @@ To build one package locally, run from the repository root:
 ```sh
 python3 scripts/build_dbc_package.py \
   --library go/build/libadbc_driver_redis.dylib \
-  --platform macos_arm64 --version v0.0.18 --out dist
-python3 scripts/build_dbc_package.py --index-only --version v0.0.18 --out dist
+  --platform macos_arm64 --version v0.0.19 --out dist
+python3 scripts/build_dbc_package.py --index-only --version v0.0.19 --out dist
 ```
 
 Use the intended release version. The upload job generates `redis-index.yaml`
@@ -45,12 +49,11 @@ from the packages present, listing only available platforms with URLs under
 `redis/redis-adbc-driver` GitHub releases. Existing releases do not acquire these
 assets until they are explicitly rebuilt/published with this packaging support.
 
-The proposed entry is [dbc/redis-index.yaml](dbc/redis-index.yaml). Its v0.0.18
-URLs describe the packages to publish; those assets were not present in the
-release when this proposal was prepared. Submit the generated release entry to
-the public registry maintainers after the assets exist. The maintainers must
-merge it into their catalog and arrange signatures under a key trusted by dbc
-before the normal `dbc install redis` experience can work.
+The [released catalog](https://github.com/redis/redis-adbc-driver/releases/download/v0.0.19/redis-index.yaml)
+and checked-in [catalog copy](dbc/redis-index.yaml) list the three actual v0.0.19
+package URLs. All 27 release assets and checksum metadata were verified. The
+maintainers must merge the entry into their catalog and arrange signatures under
+a key trusted by dbc before the normal `dbc install redis` experience can work.
 
 ## Local installation before registry publication
 
@@ -60,7 +63,7 @@ archive flow requires `--no-verify`. Copy the desired platform archive to
 name:
 
 ```sh
-cp dist/redis_macos_arm64-0.0.18.tar.gz /tmp/redis.tar.gz
+cp dist/redis_macos_arm64-0.0.19.tar.gz /tmp/redis.tar.gz
 dbc install --no-verify /tmp/redis.tar.gz
 dbc list
 ```
@@ -83,29 +86,16 @@ with dbapi.connect(
 The server requirements in the [driver reference](driver-reference.md#server-requirements) apply:
 Redis Query Engine/Search is required, and transactions and Flex are unsupported.
 
-## Maintainer submission draft
+## Maintainer handoff
 
-Title: Add Redis ADBC driver to the public dbc registry
+The [v0.0.19 package/catalog update](https://github.com/adbc-drivers/.github/discussions/9#discussioncomment-19283982)
+was posted to the existing onboarding discussion with explicit user authorization.
+It requests review of the flat package format, signing, CDN publication and the
+previously discussed build repository. Redis remains maintained at
+`redis/redis-adbc-driver`; no repository transfer was requested.
 
-Please add the Redis ADBC driver under the ID `redis`.
-
-- Source and documentation: https://github.com/redis/redis-adbc-driver
-- License: Apache-2.0; publisher: ADBC Drivers Contributors.
-- Platforms: `linux_amd64`, `linux_arm64`, `macos_arm64`.
-- Minimum runtime: glibc 2.28 on Linux; macOS 12 on Apple Silicon.
-- Entrypoint: `AdbcDriverRedisInit`; ADBC API version: 1.1.0.
-- Release catalog: attach the generated `redis-index.yaml` after publishing its
-  referenced packages and checksum files.
-- The current v0.0.18 release contains native archives and Python wheels. The
-  additional flat dbc packages and catalog are prepared locally and have not
-  been published. We can provide those artifacts after packaging review.
-- The packages currently have no Columnar signatures. Could a Foundry
-  administrator help onboard this externally maintained driver, confirm the
-  packaging/signing requirements, and arrange publication to the dbc CDN?
-
-If a follow-up becomes necessary, use the
-[existing Redis discussion](https://github.com/orgs/adbc-drivers/discussions/9)
-and adapt this draft to acknowledge the maintainer's ongoing setup. Redis can
-remain maintained at `redis/redis-adbc-driver`; no repository transfer is requested.
-
-This draft has not been posted to GitHub or sent to maintainers.
+The released macOS package was installed with dbc 0.3.1 into an isolated driver
+directory, its manifest version and native entrypoint were verified through a
+fully fetched SQL query against Redis Software, and it was uninstalled. This
+establishes local package usability; it does not establish Columnar signatures
+or default-registry availability. See [release validation](sdlc/changes/release-0019/validation.md).

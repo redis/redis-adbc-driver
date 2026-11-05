@@ -75,8 +75,8 @@ type unionRows struct {
 	closed     bool
 }
 
-// prepareUnionRows performs no cursor reads. A key/HASH fallback discovered in
-// any leaf sends the entire tree to the established materialized executor.
+// prepareUnionRows performs no cursor reads. Leaves needing a global sort or
+// HASH discovery send the tree to the established materialized executor.
 func (e *executor) prepareUnionRows(ctx context.Context, p *selectPlan, params []Value, so *streamOpts) (*unionRows, bool, error) {
 	n := &unionRows{exec: e, plan: p, params: params, opts: *so, left: -1}
 	if p.noRows {
@@ -107,7 +107,7 @@ func (e *executor) prepareUnionRows(ctx context.Context, p *selectPlan, params [
 		n.closed = true
 		return n, true, nil
 	}
-	if sc.req.where.keys != nil || !sc.indexSort || sc.req.hashScan {
+	if !incrementalScan(p, sc) {
 		return nil, false, nil
 	}
 	n.scan = sc

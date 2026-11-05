@@ -20,6 +20,8 @@ import (
 )
 
 func TestExplicitTLSRoots(t *testing.T) {
+	// Test explicit-option clearing without an ambient fixture CA fallback.
+	t.Setenv("SSL_CERT_FILE", "")
 	server := httptest.NewUnstartedServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
 	server.Config.ErrorLog = log.New(io.Discard, "", 0)
 	server.StartTLS()

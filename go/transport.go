@@ -26,6 +26,8 @@ type executionTransport struct {
 	mu          sync.Mutex
 	sockets     map[*executionSocket]bool
 	interrupted bool
+	finishing   bool
+	background  map[<-chan struct{}]struct{}
 	once        sync.Once
 	owners      []*streams
 }
@@ -64,11 +66,43 @@ func (t *executionTransport) finish() {
 	t.once.Do(func() {
 		t.cancel(nil)
 		t.interrupt()
+		t.mu.Lock()
+		t.finishing = true
+		pending := make([]<-chan struct{}, 0, len(t.background))
+		for done := range t.background {
+			pending = append(pending, done)
+		}
+		t.mu.Unlock()
+		for _, done := range pending {
+			<-done
+		}
 		_ = t.client.Close()
 		for _, owner := range t.owners {
 			owner.remove(t)
 		}
 	})
+}
+
+// Registration and finish share mu, so a worker cannot start after the pool
+// has begun closing. Socket interruption precedes joining blocked network work.
+func (t *executionTransport) addBackground(done <-chan struct{}) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.finishing || t.ctx.Err() != nil {
+		return false
+	}
+	if t.background == nil {
+		t.background = make(map[<-chan struct{}]struct{})
+	}
+	t.background[done] = struct{}{}
+	return true
+}
+
+func (t *executionTransport) completeBackground(done chan struct{}) {
+	t.mu.Lock()
+	close(done)
+	delete(t.background, done)
+	t.mu.Unlock()
 }
 
 // Arm cancellation for exactly the period during which a command owns sockets.
@@ -169,7 +203,17 @@ func (s *store) redis(ctx context.Context) goredis.UniversalClient {
 // its existing Arrow, cancellation and cursor lifecycle remain authoritative.
 func (t *executionTransport) reader(reader array.RecordReader) array.RecordReader {
 	switch r := reader.(type) {
+	case *layoutReader:
+		r.source = t.reader(r.source)
 	case *streamReader:
+		r.mu.Lock()
+		if r.closed {
+			t.finish()
+		} else {
+			r.transport = t
+		}
+		r.mu.Unlock()
+	case *subReader:
 		r.mu.Lock()
 		if r.closed {
 			t.finish()

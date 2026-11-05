@@ -51,6 +51,9 @@ def main():
             assert sizes == [1, 2, 2, 0, 1], sizes
             print(f"Partition sizes: {sizes}")
             print(result)
+            from integration_guide_data import write_result
+            # Local, materialized result sink; read_query remains a reader API.
+            write_result(pa.Table.from_pandas(result, preserve_index=False))
         finally:
             cur.execute(f'DROP TABLE "{table}"')
 

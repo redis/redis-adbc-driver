@@ -77,6 +77,9 @@ var (
 // an enclosing query is computed when it is read instead (see
 // lazyRelation).
 func (e *executor) materializeCTE(ctx context.Context, def *CTE) (*tableMeta, error) {
+	if def.Statement != nil {
+		return e.runDMLCTE(ctx, def)
+	}
 	if def.Recursive {
 		rc, err := e.checkRecursion(def)
 		if err != nil {
@@ -328,7 +331,11 @@ func (e *executor) recursiveResult(def *CTE, cols []resultColumn, tr *tracer, re
 			}
 		}
 		all, names := tr.columns(cols, names)
-		return memTable(def.Name, all, tr.finish(result), names)
+		rows, err := tr.finish(result)
+		if err != nil {
+			return nil, err
+		}
+		return memTable(def.Name, all, rows, names)
 	}
 	return memTable(def.Name, cols, result, def.Columns)
 }

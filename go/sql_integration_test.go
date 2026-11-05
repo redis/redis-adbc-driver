@@ -17,7 +17,7 @@ package redis
 // Integration tests for SQL features beyond the ADBC validation suite. They
 // run against the Redis server at REDIS_URI and are skipped when it is unset:
 //
-//	REDIS_URI=redis://localhost:6379/0 go test -run TestSQL ./...
+//	REDIS_URI=rediss://default:<password>@localhost:6379/0 go test -run TestSQL ./...
 
 import (
 	"context"
@@ -103,6 +103,12 @@ func (h *sqlHarness) query(sql string) ([]string, *arrow.Schema) {
 			for c := 0; c < int(rec.NumCols()); c++ {
 				col := rec.Column(c)
 				switch dec := col.(type) {
+				case *array.Decimal256:
+					if !col.IsNull(r) {
+						scale := dec.DataType().(*arrow.Decimal256Type).Scale
+						cells[c] = formatDecimal(dec.Value(r).BigInt(), scale)
+						continue
+					}
 				case *array.Decimal128:
 					if !col.IsNull(r) {
 						// Render at the declared scale (ValueStr drops trailing zeros).
@@ -1030,6 +1036,8 @@ func TestSQLAlterCleanupResumes(t *testing.T) {
 func TestSQLInformationSchema(t *testing.T) {
 	h := newSQLHarness(t)
 	h.setupOrders()
+	h.dropTables("it_is_unrelated")
+	h.exec(`CREATE TABLE it_is_unrelated (id INTEGER)`)
 	h.exec("DROP VIEW IF EXISTS it_is_view")
 	h.exec(`CREATE VIEW it_is_view AS SELECT id, amount FROM it_orders WHERE qty > 1`)
 	t.Cleanup(func() { h.exec("DROP VIEW IF EXISTS it_is_view") })
@@ -1038,7 +1046,7 @@ func TestSQLInformationSchema(t *testing.T) {
 		WHERE schema_name IN ('public', 'information_schema') ORDER BY schema_name`,
 		"information_schema", "public")
 	h.expectRows(`SELECT table_name, table_type FROM information_schema.tables
-		WHERE table_schema = 'public' AND table_name LIKE 'it_%' ORDER BY table_name`,
+		WHERE table_schema = 'public' AND table_name IN ('it_customers', 'it_is_view', 'it_orders') ORDER BY table_name`,
 		"it_customers|BASE TABLE", "it_is_view|VIEW", "it_orders|BASE TABLE")
 	h.expectRows(`SELECT column_name, ordinal_position, driver_data_type, is_nullable, numeric_precision, numeric_scale, is_indexed
 		FROM information_schema.columns WHERE table_name = 'it_orders' ORDER BY ordinal_position`,
@@ -1806,7 +1814,7 @@ func TestSQLAlterViewRename(t *testing.T) {
 	h.expectError("ALTER VIEW it_av_m RENAME COLUMN id TO k", "ALTER VIEW supports only RENAME TO")
 	h.expectError("ALTER VIEW it_av_m ADD COLUMN z INT", "ALTER VIEW supports only RENAME TO")
 	h.expectError("ALTER VIEW it_av_m SET SCHEMA x", "unsupported ALTER VIEW action")
-	h.expectError("ALTER SEQUENCE s RENAME TO t", "expected ALTER TABLE or ALTER VIEW")
+	h.expectError("ALTER SEQUENCE s RENAME TO t", "ALTER SEQUENCE RENAME is not supported")
 	h.expectRows("SELECT id FROM it_av_m ORDER BY id", "2", "3")
 }
 
@@ -2695,7 +2703,7 @@ func TestSQLWindowAggregates(t *testing.T) {
 		"2|5.33|5|10.7|1|old|13",
 		"3|5.33|3|NULL|2|old|NULL",
 		"4|5.33|0|28.6|4|latest|8",
-		"5|3.67|8|25|3|old|4",
+		"5|3.67|8|25.0|3|old|4",
 		"6|3.67|7|7.1|1|old|9",
 		"7|3.67|2|7.1|2|latest|9",
 		"8|1|2|3.6|1|latest|0")
@@ -2724,9 +2732,7 @@ func TestSQLWindowGrouped(t *testing.T) {
 			MAX(SUM(amt)) OVER (ORDER BY g ROWS BETWEEN 1 PRECEDING AND CURRENT ROW)
 		FROM it_win GROUP BY g ORDER BY g`,
 		"a|13.75|23.50|13.75", "b|8.75|23.50|13.75", "c|1.00|23.50|8.75")
-	if dt := schema.Field(2).Type; dt.ID() != arrow.DECIMAL128 {
-		t.Errorf("SUM(SUM(amt)) OVER () type = %s, want decimal", dt)
-	}
+	h.expectType(schema, "SUM(SUM(amt)) OVER ()", 2, &arrow.Decimal256Type{Precision: 57, Scale: 2})
 	// After HAVING; in ORDER BY; QUALIFY over aggregates.
 	h.expectRows(`SELECT g, COUNT(*), ROW_NUMBER() OVER (ORDER BY COUNT(*) DESC) FROM it_win
 		GROUP BY g HAVING COUNT(*) > 1 ORDER BY g`, "a|4|1", "b|3|2")

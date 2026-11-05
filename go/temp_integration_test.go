@@ -17,7 +17,7 @@ package redis
 // Integration tests for temporary tables and views (see temp.go). Like the
 // other SQL integration tests, they need REDIS_URI:
 //
-//	REDIS_URI=redis://localhost:6379/0 go test -run TestSQLTemp ./...
+//	REDIS_URI=rediss://default:<password>@localhost:6379/0 go test -run TestSQLTemp ./...
 
 import (
 	"bytes"

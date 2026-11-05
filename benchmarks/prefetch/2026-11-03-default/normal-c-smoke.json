@@ -1,0 +1,75 @@
+{
+  "passed": true,
+  "cases": [
+    {
+      "build": "off",
+      "api": "regular",
+      "readers": 1,
+      "rows": 5000,
+      "columns": 105,
+      "exact_values_nulls_nul_bigint": true
+    },
+    {
+      "build": "off",
+      "api": "regular",
+      "readers": 4,
+      "rows": 5000,
+      "columns": 105,
+      "exact_values_nulls_nul_bigint": true
+    },
+    {
+      "build": "off",
+      "api": "partition",
+      "readers": 1,
+      "rows": 5000,
+      "columns": 105,
+      "exact_values_nulls_nul_bigint": true
+    },
+    {
+      "build": "off",
+      "api": "partition",
+      "readers": 4,
+      "rows": 5000,
+      "columns": 105,
+      "exact_values_nulls_nul_bigint": true
+    },
+    {
+      "build": "on",
+      "api": "regular",
+      "readers": 1,
+      "rows": 5000,
+      "columns": 105,
+      "exact_values_nulls_nul_bigint": true
+    },
+    {
+      "build": "on",
+      "api": "regular",
+      "readers": 4,
+      "rows": 5000,
+      "columns": 105,
+      "exact_values_nulls_nul_bigint": true
+    },
+    {
+      "build": "on",
+      "api": "partition",
+      "readers": 1,
+      "rows": 5000,
+      "columns": 105,
+      "exact_values_nulls_nul_bigint": true
+    },
+    {
+      "build": "on",
+      "api": "partition",
+      "readers": 4,
+      "rows": 5000,
+      "columns": 105,
+      "exact_values_nulls_nul_bigint": true
+    }
+  ],
+  "candidate_commit": "07bf8decabfed75c9f1a93d27051f16970e0c30c",
+  "architecture": "darwin/arm64",
+  "build_tags": {
+    "baseline": "driverlib,scanprefetchoff",
+    "candidate": "driverlib; normal default"
+  }
+}

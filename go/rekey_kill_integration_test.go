@@ -28,6 +28,8 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+
+	"github.com/adbc-drivers/redis/go/internal/testenv"
 	"time"
 
 	"github.com/apache/arrow-adbc/go/adbc"
@@ -38,6 +40,16 @@ import (
 // The test binary is also the renaming process that TestSQLRekeyKilled
 // kills.
 func TestMain(m *testing.M) {
+	if err := testenv.SetupRoots(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	for _, name := range []string{"REDIS_URI", "REDIS_ADMIN_URI", "REDIS_FLEX_URI"} {
+		if err := testenv.ValidateURI(os.Getenv(name)); err != nil {
+			fmt.Fprintln(os.Stderr, name+":", err)
+			os.Exit(1)
+		}
+	}
 	if args := os.Getenv("ADBC_REDIS_REKEY_CHILD"); args != "" {
 		os.Exit(rekeyChild(args))
 	}

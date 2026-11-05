@@ -1,0 +1,80 @@
+{
+  "experiment": "host_staged_filter_groupby_int64",
+  "format_version": 1,
+  "source": "synthetic",
+  "platform": "Linux-7.0.0-1014-aws-x86_64-with-glibc2.39",
+  "versions": {
+    "pyarrow": "26.0.1",
+    "cudf": "26.10.02",
+    "cupy": "14.2.0"
+  },
+  "device": {
+    "name": "NVIDIA L4",
+    "memory_bytes": 23661248512,
+    "cuda_runtime": 12090,
+    "cuda_driver": 13020
+  },
+  "warmups": 1,
+  "trials": [
+    {
+      "trial": 0,
+      "rows": 100000,
+      "arrow_bytes": 1625000,
+      "result_groups": 1001,
+      "scan_fetch_seconds": null,
+      "driver_sql_seconds": null,
+      "backends": {
+        "cpu": {
+          "host_to_host_seconds": 0.002847101999975621
+        },
+        "cuda": {
+          "upload_seconds": 0.000847742000019025,
+          "compute_seconds": 0.0043059979999497955,
+          "download_seconds": 0.0008447410000371747,
+          "host_to_host_seconds": 0.005998481000005995
+        }
+      },
+      "validated": true
+    },
+    {
+      "trial": 1,
+      "rows": 100000,
+      "arrow_bytes": 1625000,
+      "result_groups": 1001,
+      "scan_fetch_seconds": null,
+      "driver_sql_seconds": null,
+      "backends": {
+        "cuda": {
+          "upload_seconds": 0.0008414719999905174,
+          "compute_seconds": 0.004100573000016539,
+          "download_seconds": 0.0008018000000333814,
+          "host_to_host_seconds": 0.005743845000040437
+        },
+        "cpu": {
+          "host_to_host_seconds": 0.0027664899999990666
+        }
+      },
+      "validated": true
+    },
+    {
+      "trial": 2,
+      "rows": 100000,
+      "arrow_bytes": 1625000,
+      "result_groups": 1001,
+      "scan_fetch_seconds": null,
+      "driver_sql_seconds": null,
+      "backends": {
+        "cpu": {
+          "host_to_host_seconds": 0.0025791749999939384
+        },
+        "cuda": {
+          "upload_seconds": 0.0007960909999837895,
+          "compute_seconds": 0.004062881999971069,
+          "download_seconds": 0.0007965800000420131,
+          "host_to_host_seconds": 0.005655552999996871
+        }
+      },
+      "validated": true
+    }
+  ]
+}

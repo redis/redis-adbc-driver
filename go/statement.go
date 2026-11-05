@@ -16,6 +16,7 @@ package redis
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"slices"
@@ -32,12 +33,20 @@ import (
 func asAdbc(err error, target *adbc.Error) bool { return errors.As(err, target) }
 
 type statementImpl struct {
+	executionBackend string
+	cudaDevice       int
+	gpuMetrics       *gpuMetrics
+	resultLayouts    resultLayouts
+	extensionPolicy  string
+	streamRequired   bool
 	driverbase.StatementImplBase
 
-	conn   *connectionImpl
-	query  string
-	parsed []ParsedStmt
-	ingest driverbase.BulkIngestOptions
+	conn       *connectionImpl
+	query      string
+	substrait  *subPlan
+	subResults streams
+	parsed     []ParsedStmt
+	ingest     driverbase.BulkIngestOptions
 
 	// indexColumns restricts which columns bulk ingest indexes (nil = all
 	// indexable columns).
@@ -64,6 +73,7 @@ type statementImpl struct {
 	retainedMode            string
 	retainedTTL             time.Duration
 	retainedExecutionLimits retainedExecutionLimits
+	truncateAdopted         bool
 }
 
 var (
@@ -75,6 +85,28 @@ func (s *statementImpl) Base() *driverbase.StatementImplBase { return &s.Stateme
 
 func (s *statementImpl) GetOption(ctx context.Context, key string) (string, error) {
 	switch key {
+	case OptionStringExecutionBackend:
+		if s.executionBackend == "" {
+			return "cpu", nil
+		}
+		return s.executionBackend, nil
+	case OptionIntCUDADevice:
+		return strconv.Itoa(s.cudaDevice), nil
+	case OptionStringGPUMetrics:
+		return s.gpuMetrics.json(), nil
+	case OptionStringStreamRequired:
+		return strconv.FormatBool(s.streamRequired), nil
+	case OptionStringExtensionPolicy:
+		if s.extensionPolicy == "" {
+			return "reject", nil
+		}
+		return s.extensionPolicy, nil
+	case OptionStringResultLayouts:
+		b, _ := json.Marshal(s.resultLayouts)
+		if s.resultLayouts == nil {
+			return "{}", nil
+		}
+		return string(b), nil
 	case OptionStringIPCInput, OptionStringIPCOutput, OptionStringIPCFormat:
 		return s.ipc.get(key), nil
 	case OptionStringPartitionResultMode:
@@ -91,6 +123,8 @@ func (s *statementImpl) GetOption(ctx context.Context, key string) (string, erro
 		return strconv.FormatBool(s.incremental), nil
 	case OptionIntPartitionCount:
 		return strconv.Itoa(s.partitions()), nil
+	case OptionStringTruncateAdopted:
+		return strconv.FormatBool(s.truncateAdopted), nil
 	case OptionStringIngestIndexColumns:
 		if s.indexColumns == nil {
 			return "*", nil
@@ -115,6 +149,9 @@ func (s *statementImpl) GetOption(ctx context.Context, key string) (string, erro
 }
 
 func (s *statementImpl) GetOptionInt(ctx context.Context, key string) (int64, error) {
+	if key == OptionIntCUDADevice {
+		return int64(s.cudaDevice), nil
+	}
 	if key == OptionIntPartitionResultTTL {
 		return int64(s.resultTTL() / time.Second), nil
 	}
@@ -134,6 +171,9 @@ func (s *statementImpl) GetOptionInt(ctx context.Context, key string) (int64, er
 }
 
 func (s *statementImpl) SetOptionInt(ctx context.Context, key string, value int64) error {
+	if key == OptionIntCUDADevice {
+		return s.SetOption(ctx, key, strconv.FormatInt(value, 10))
+	}
 	if key == OptionIntPartitionCount || key == OptionIntPartitionScanCap || key == OptionIntPartitionResultTTL {
 		return s.SetOption(ctx, key, strconv.FormatInt(value, 10))
 	}
@@ -148,8 +188,15 @@ func (s *statementImpl) SetOptionInt(ctx context.Context, key string, value int6
 
 func (s *statementImpl) executor() *executor {
 	e := s.conn.executor()
+	e.gpuRequested = s.executionBackend == "cuda"
+	e.cudaDevice = s.cudaDevice
+	e.gpuMetrics = s.gpuMetrics
+	e.truncateAdopted = s.truncateAdopted
 	if s.aggPushdown != "" {
 		e.pushdown = s.aggPushdown
+	}
+	if e.gpuRequested {
+		e.pushdown = PushdownNone
 	}
 	return e
 }
@@ -185,6 +232,8 @@ func (s *statementImpl) Close(ctx context.Context) error {
 		return errorf(adbc.StatusInvalidState, "statement already closed")
 	}
 	s.closed = true
+	s.subResults.closeAll(errorf(adbc.StatusInvalidState, "statement is closed"))
+	s.substrait = nil
 	s.clearParams()
 	s.partitionExecution = nil
 	return nil
@@ -195,6 +244,41 @@ func (s *statementImpl) SetOption(ctx context.Context, key, val string) error {
 		return err
 	}
 	switch key {
+	case OptionStringExecutionBackend, OptionIntCUDADevice:
+		return s.setGPUOption(key, val)
+	case OptionStringStreamRequired:
+		on, err := parseStreamResults(val)
+		if err != nil {
+			return err
+		}
+		s.streamRequired = on
+		s.partitionExecution = nil
+		return nil
+	case OptionStringExtensionPolicy:
+		if val != "reject" && val != "storage" {
+			return errorf(adbc.StatusInvalidArgument, "extension_policy must be reject or storage")
+		}
+		// ExecuteSchema may have prepared a storage view without consuming it.
+		// A policy change must re-check the original extension schema.
+		if val != s.extensionPolicy {
+			if r, ok := s.params.(*extensionInputReader); ok {
+				original := r.source
+				original.Retain()
+				r.Release()
+				s.params = original
+			}
+		}
+		s.extensionPolicy = val
+		s.partitionExecution = nil
+		return nil
+	case OptionStringResultLayouts:
+		layouts, err := parseResultLayouts(val)
+		if err != nil {
+			return err
+		}
+		s.resultLayouts = layouts
+		s.partitionExecution = nil
+		return nil
 	case OptionStringIPCInput, OptionStringIPCOutput, OptionStringIPCFormat:
 		return s.ipc.set(key, val)
 	case OptionStringPartitionResultMode:
@@ -254,8 +338,15 @@ func (s *statementImpl) SetOption(ctx context.Context, key, val string) error {
 		s.partitionCount = n
 		return nil
 	case adbc.OptionKeyIngestTargetTable:
+		s.substrait = nil
 		s.partitionExecution = nil
 		s.query, s.parsed = "", nil
+	case OptionStringTruncateAdopted:
+		if val != "true" && val != "false" {
+			return errorf(adbc.StatusInvalidArgument, "invalid %s %q (want true or false)", key, val)
+		}
+		s.truncateAdopted = val == "true"
+		return nil
 	case OptionStringIngestIndexColumns:
 		if val == "" || val == "*" {
 			s.indexColumns = nil
@@ -296,6 +387,7 @@ func (s *statementImpl) SetSqlQuery(ctx context.Context, query string) error {
 	}
 	s.partitionExecution = nil
 	s.query = query
+	s.substrait = nil
 	s.parsed = nil
 	s.ingest.TableName = ""
 	s.clearParams()
@@ -324,15 +416,38 @@ func (s *statementImpl) Prepare(ctx context.Context) error {
 	if s.ingest.TableName != "" {
 		return nil
 	}
+	if s.substrait != nil {
+		_, err := s.subSchema(ctx)
+		return err
+	}
 	_, err := s.parse()
 	return err
 }
 
 func (s *statementImpl) SetSubstraitPlan(ctx context.Context, plan []byte) error {
-	return errorf(adbc.StatusNotImplemented, "Substrait is not supported")
+	if err := s.checkOpen(); err != nil {
+		return err
+	}
+	p, err := decodeSubstrait(ctx, plan)
+	if err != nil {
+		return err
+	}
+	if _, err := p.bind(ctx, s.executor()); err != nil {
+		return subError(err, "metadata")
+	}
+	s.substrait = p
+	s.query = ""
+	s.parsed = nil
+	s.ingest.TableName = ""
+	s.partitionExecution = nil
+	s.clearParams()
+	return nil
 }
 
 func (s *statementImpl) Bind(ctx context.Context, values arrow.RecordBatch) error {
+	if s.substrait != nil {
+		return subUnsupported("parameters")
+	}
 	if err := s.checkOpen(); err != nil {
 		return err
 	}
@@ -349,6 +464,10 @@ func (s *statementImpl) Bind(ctx context.Context, values arrow.RecordBatch) erro
 }
 
 func (s *statementImpl) BindStream(ctx context.Context, stream array.RecordReader) error {
+	if s.substrait != nil {
+		stream.Release()
+		return subUnsupported("parameters")
+	}
 	if err := s.checkOpen(); err != nil {
 		stream.Release()
 		return err
@@ -363,6 +482,9 @@ func (s *statementImpl) BindStream(ctx context.Context, stream array.RecordReade
 // $2, … and ? numbered as they appear. A parameter's type is the one it is
 // used as (see params.go), or NULL if it can't be told; names are empty.
 func (s *statementImpl) GetParameterSchema(ctx context.Context) (*arrow.Schema, error) {
+	if s.substrait != nil {
+		return arrow.NewSchema(nil, nil), s.checkOpen()
+	}
 	if err := s.checkExecution(); err != nil {
 		return nil, err
 	}
@@ -391,22 +513,27 @@ func (s *statementImpl) paramRows() ([][]Value, []ColType, error) {
 		return nil, nil, nil
 	}
 	defer s.clearParams()
+	if err := s.prepareExtensionInput(); err != nil {
+		return nil, nil, err
+	}
 	schema := s.params.Schema()
 	types := make([]ColType, schema.NumFields())
 	for i, f := range schema.Fields() {
-		if f.Type.ID() == arrow.NULL {
-			types[i] = typeNull
-			continue
-		}
-		t, err := colTypeFromArrow(f.Type)
+		t, err := colTypeFromField(f)
 		if err != nil {
 			return nil, nil, errorf(adbc.StatusNotImplemented, "parameter %d: %v", i+1, err)
+		}
+		if f.Type.ID() == arrow.NULL {
+			t = typeNull
 		}
 		types[i] = t
 	}
 	rows := [][]Value{}
 	for s.params.Next() {
 		rec := s.params.RecordBatch()
+		if err := validateInputRecord(rec); err != nil {
+			return nil, nil, errorf(adbc.StatusInvalidArgument, "invalid Arrow parameters: %v", err)
+		}
 		for r := 0; r < int(rec.NumRows()); r++ {
 			row := make([]Value, rec.NumCols())
 			for c := 0; c < int(rec.NumCols()); c++ {
@@ -420,6 +547,10 @@ func (s *statementImpl) paramRows() ([][]Value, []ColType, error) {
 		}
 	}
 	if err := s.params.Err(); err != nil && !errors.Is(err, io.EOF) {
+		var ae adbc.Error
+		if errors.As(err, &ae) {
+			return nil, nil, err
+		}
 		return nil, nil, errorf(adbc.StatusIO, "failed to read parameters: %v", err)
 	}
 	return rows, types, nil
@@ -446,6 +577,17 @@ func (s *statementImpl) run(ctx context.Context, stream bool) (result execResult
 	if err != nil {
 		return execResult{}, err
 	}
+	s.gpuMetrics = nil
+	if s.executionBackend == "cuda" {
+		if len(parsed) != 1 {
+			return execResult{}, errorf(adbc.StatusNotImplemented, "CUDA requires one SELECT")
+		}
+		sel, ok := parsed[0].Stmt.(*SelectStmt)
+		if !ok || sel.From == nil || sel.FromSelect != nil || len(sel.Joins) != 0 || len(sel.With) != 0 || sel.SetOp != nil {
+			return execResult{}, errorf(adbc.StatusNotImplemented, "CUDA requires one SELECT from a physical table")
+		}
+		s.gpuMetrics = &gpuMetrics{}
+	}
 	paramRows, paramTypes, err := s.paramRows()
 	if err != nil {
 		return execResult{}, err
@@ -462,8 +604,11 @@ func (s *statementImpl) run(ctx context.Context, stream bool) (result execResult
 	exec.script = len(parsed) > 1
 	defer exec.sess.endScript()
 	var so *streamOpts
+	if s.streamRequired && (!stream || s.stream.off || len(parsed) != 1 || len(paramRows) > 1) {
+		return execResult{}, errorf(adbc.StatusInvalidArgument, "stream_required needs ExecuteQuery, stream_results=true, one SELECT and at most one parameter row")
+	}
 	if stream && !s.stream.off && len(parsed) == 1 && len(paramRows) <= 1 {
-		so = &streamOpts{batchRows: s.stream.rows(), batchBytes: s.stream.batchBytes, mem: s.conn.Alloc, owners: []*streams{&s.conn.streams, &s.streams}}
+		so = &streamOpts{required: s.streamRequired, batchRows: s.stream.rows(), batchBytes: s.stream.batchBytes, mem: s.conn.Alloc, owners: []*streams{&s.conn.streams, &s.streams}}
 	}
 	var last execResult
 	for _, ps := range parsed {
@@ -494,7 +639,7 @@ func (s *statementImpl) run(ctx context.Context, stream bool) (result execResult
 				return execResult{}, err
 			}
 			combined.isQuery = true
-			combined.cols = cols
+			combined.cols = append([]resultColumn(nil), cols...)
 			if so != nil {
 				so.cols = cols
 			}
@@ -515,6 +660,13 @@ func (s *statementImpl) run(ctx context.Context, stream bool) (result execResult
 			} else {
 				combined.affected = -1
 			}
+		}
+		// resultColumns describes unresolved NUMERIC before execution. Each
+		// parameter row can resolve a different scale; reconcile the combined
+		// schema before Arrow builders consume their unscaled integer values.
+		combined, err = exec.fitResult(combined, nil)
+		if err != nil {
+			return execResult{}, err
 		}
 		last = combined
 	}
@@ -549,6 +701,12 @@ func (s *statementImpl) executeQuery(ctx context.Context) (array.RecordReader, i
 	if err := s.checkExecution(); err != nil {
 		return nil, -1, err
 	}
+	if s.substrait != nil {
+		return s.subQuery(ctx)
+	}
+	if s.executionBackend == "cuda" && s.ingest.TableName != "" {
+		return nil, -1, errorf(adbc.StatusNotImplemented, "CUDA ingestion uses BindDevice with execution_backend=cpu")
+	}
 	if s.ingest.TableName != "" {
 		n, err := s.executeIngest(ctx)
 		if err != nil {
@@ -557,12 +715,13 @@ func (s *statementImpl) executeQuery(ctx context.Context) (array.RecordReader, i
 		rdr, err := recordsReader(s.conn.Alloc, nil, nil)
 		return rdr, n, err
 	}
-	res, err := s.run(ctx, true)
+	res, err := s.run(ctx, s.executionBackend != "cuda")
 	if err != nil {
 		return nil, -1, err
 	}
 	if res.stream != nil {
-		return res.stream, res.affected, nil
+		rdr, err := s.resultLayouts.wrap(ctx, s.conn.Alloc, res.stream)
+		return rdr, res.affected, err
 	}
 	if !res.isQuery {
 		rdr, err := recordsReader(s.conn.Alloc, nil, nil)
@@ -572,7 +731,8 @@ func (s *statementImpl) executeQuery(ctx context.Context) (array.RecordReader, i
 	if err != nil {
 		return nil, -1, invalidArg(err)
 	}
-	return rdr, int64(len(res.rows)), nil
+	rdr, err = s.resultLayouts.wrap(ctx, s.conn.Alloc, rdr)
+	return rdr, int64(len(res.rows)), err
 }
 
 func (s *statementImpl) ExecuteUpdate(ctx context.Context) (count int64, resultErr error) {
@@ -585,6 +745,19 @@ func (s *statementImpl) ExecuteUpdate(ctx context.Context) (count int64, resultE
 	}()
 	if err := s.checkExecution(); err != nil {
 		return -1, err
+	}
+	if s.substrait != nil {
+		r, _, err := s.subQuery(ctx)
+		if err != nil {
+			return -1, err
+		}
+		defer r.Release()
+		for r.Next() {
+		}
+		return -1, r.Err()
+	}
+	if s.executionBackend == "cuda" {
+		return -1, errorf(adbc.StatusNotImplemented, "CUDA requires ExecuteQuery; updates and ingestion use execution_backend=cpu")
 	}
 	if s.ipc.active() {
 		return s.executeIPC(ctx)
@@ -603,15 +776,24 @@ func (s *statementImpl) ExecuteSchema(ctx context.Context) (*arrow.Schema, error
 	if err := s.checkExecution(); err != nil {
 		return nil, err
 	}
+	if s.substrait != nil {
+		return s.subSchema(ctx)
+	}
 	parsed, err := s.parse()
 	if err != nil {
 		return nil, err
 	}
 	var paramTypes []ColType
+	if err := s.prepareExtensionInput(); err != nil {
+		return nil, err
+	}
 	if s.params != nil {
 		for _, f := range s.params.Schema().Fields() {
-			t, err := colTypeFromArrow(f.Type)
+			t, err := colTypeFromField(f)
 			if err != nil {
+				return nil, errorf(adbc.StatusNotImplemented, "parameter %d: %v", len(paramTypes)+1, err)
+			}
+			if f.Type.ID() == arrow.NULL {
 				t = typeNull
 			}
 			paramTypes = append(paramTypes, t)
@@ -624,5 +806,5 @@ func (s *statementImpl) ExecuteSchema(ctx context.Context) (*arrow.Schema, error
 	if !ok {
 		return arrow.NewSchema(nil, nil), nil
 	}
-	return resultSchema(cols), nil
+	return s.resultLayouts.schema(resultSchema(cols))
 }

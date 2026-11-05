@@ -22,7 +22,7 @@
 # cluster runs on the built-in trial license, and the admin credentials are
 # the fixed defaults below. Needs Docker, curl and jq.
 #
-#   ./flex-setup.sh                                # prints REDIS_URI=redis://localhost:12000/0
+#   ./flex-setup.sh; source build/flex-test.env
 #   docker compose --profile flex down redis-flex  # removes the cluster
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -31,11 +31,23 @@ api_port=${FLEX_API_PORT:-9443}
 db_port=${FLEX_DB_PORT:-12000}
 admin_user=${FLEX_ADMIN_USER:-admin@example.com}
 admin_pass=${FLEX_ADMIN_PASSWORD:-adbc-flex-test}
-redis_version=${FLEX_REDIS_VERSION:-8.6}
+redis_version=${FLEX_REDIS_VERSION:-8.8}
 # The database's size and the part of it kept in RAM; the rest is on flash.
 memory_mb=${FLEX_MEMORY_MB:-1024}
-ram_mb=${FLEX_RAM_MB:-128}
+ram_mb=${FLEX_RAM_MB:-256}
 db_name=adbc-flex
+db_pass=${FLEX_DB_PASSWORD:-adbc-enterprise-test}
+tls_dir="$PWD/build/flex-test-tls"
+mkdir -p "$tls_dir"
+umask 077
+if [ ! -s "$tls_dir/server.key" ] || ! openssl x509 -checkend 86400 -noout -in "$tls_dir/ca.pem" >/dev/null 2>&1; then
+    openssl req -x509 -newkey rsa:2048 -nodes -days 30 \
+        -keyout "$tls_dir/server.key" -out "$tls_dir/ca.pem" \
+        -subj '/CN=localhost' -addext 'subjectAltName=DNS:localhost,DNS:redis-software,IP:127.0.0.1' \
+        -addext 'basicConstraints=critical,CA:TRUE' >&2
+    chmod 600 "$tls_dir/server.key"
+fi
+
 
 api="https://localhost:$api_port/v1"
 # The cluster's certificate is self-signed.
@@ -86,15 +98,20 @@ bootstrapped() {
 	[ "$s" = completed ] && call -f -o /dev/null "$api/cluster"
 }
 wait_for "the cluster" bootstrapped
+# Use a locally trusted proxy certificate, with hostname verification enabled.
+jq -n --rawfile cert "$tls_dir/ca.pem" --rawfile key "$tls_dir/server.key" \
+    '{certificates: [{name: "proxy", certificate: $cert, key: $key}]}' | \
+    call -f -X PUT "$api/cluster/certificates" -d @- >/dev/null
+
 
 uid=$(call -f "$api/bdbs" | jq --arg name "$db_name" '[.[] | select(.name == $name) | .uid][0] // empty')
 if [ -z "$uid" ]; then
 	echo "creating Flex database $db_name: ${memory_mb} MB, ${ram_mb} MB of it in RAM, Redis $redis_version" >&2
 	# Redis 8 databases get Search, JSON and Bloom without a module_list
 	# (passing one fails with an internal error on 8.2.0-78). Search on
-	# Flex needs Redis 8.6 or later.
+	# Flex on Software 8.2.6 needs Redis 8.8 or later.
 	# The port is the container's; compose maps FLEX_DB_PORT to it.
-	body=$(jq -n --arg name "$db_name" --arg version "$redis_version" \
+	body=$(jq -n --arg name "$db_name" --arg version "$redis_version" --arg pass "$db_pass" \
 		--argjson memory "$((memory_mb * 1024 * 1024))" --argjson ram "$((ram_mb * 1024 * 1024))" '{
 		name: $name,
 		type: "redis",
@@ -103,6 +120,8 @@ if [ -z "$uid" ]; then
 		memory_size: $memory,
 		query_performance_factor: {active: true, scaling_factor: 4},
 		bigstore: true,
+        tls_mode: "enabled", enforce_client_authentication: "disabled",
+        authentication_redis_pass: $pass,
 		bigstore_ram_size: $ram,
 		search_on_bigstore: true
 	}')
@@ -122,4 +141,27 @@ software_qpf_4x
 call -f "$api/bdbs/$uid" | jq -r '"\(.name): Redis \(.version), bigstore \(.bigstore) (version \(.bigstore_version)), " +
 	"\(.memory_size / 1048576) MB with \(.bigstore_ram_size / 1048576) MB in RAM, " +
 	"modules: \([.module_list[].module_name] | join(", "))"' >&2
-echo "REDIS_URI=redis://localhost:$db_port/0"
+if ! call -f "$api/bdbs/$uid" | jq -e '.tls_mode == "enabled"' >/dev/null; then
+    echo 'Existing Flex database must require TLS; remove it and rerun setup.' >&2
+    exit 1
+fi
+docker compose cp "$tls_dir/ca.pem" redis-flex:/tmp/adbc-test-ca.pem >&2
+ready() {
+    docker compose exec -T -e REDISCLI_AUTH="$db_pass" redis-flex \
+        /opt/redislabs/bin/redis-cli --tls --cacert /tmp/adbc-test-ca.pem \
+        --user default -e -p 12000 FT._LIST >/dev/null
+}
+wait_for 'Search endpoint' ready
+# Shell-safe exports for local commands, including custom passwords and ports.
+SOFTWARE_TEST_PASSWORD="$db_pass" python3 - "$db_port" "$tls_dir/ca.pem" > build/flex-test.env <<'PYENV'
+import os, shlex, sys
+from urllib.parse import quote
+uri = f"rediss://default:{quote(os.environ['SOFTWARE_TEST_PASSWORD'], safe='')}@localhost:{sys.argv[1]}/0"
+for key, value in {"REDIS_FLEX_URI": uri, "SSL_CERT_FILE": sys.argv[2]}.items():
+    print(f"export {key}={shlex.quote(value)}")
+    if os.environ.get("GITHUB_ENV"):
+        with open(os.environ["GITHUB_ENV"], "a") as env:
+            env.write(f"{key}={value}\n")
+PYENV
+chmod 600 build/flex-test.env
+echo 'Test environment ready. Run: source go/build/flex-test.env (or source build/flex-test.env from go/).' >&2

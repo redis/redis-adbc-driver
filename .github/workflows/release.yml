@@ -14,7 +14,7 @@
 
 # Builds the driver library and the redis-adbc command for Linux (amd64,
 # arm64) and macOS (arm64), tests the Linux builds against Redis Software
-# and an OSS compatibility cluster, runs the validation suite and a redis-adbc check,
+# with TLS and authentication, runs validation and a redis-adbc check,
 # copy and adopt on each Linux tarball on every distribution Redis Software
 # supports, and attaches the tarballs to the release.
 #
@@ -46,9 +46,13 @@ on:
     paths:
       - .github/workflows/release.yml
       - go/build-linux.sh
+      # Native validation changes must exercise the installed-wheel layout.
+      - go/validation/**
       - go/Dockerfile.linux-builder
       - go/compose.yaml
       - go/cluster-ready.sh
+      - go/software-*.sh
+      - scripts/test_software_bootstrap_http.py
       - go/*partition*.go
       - go/foreign.go
       - go/search_keys*.go
@@ -60,6 +64,17 @@ on:
       - python/pyproject.toml
       - python/adbc_driver_redis/**
       - scripts/build_python_wheel.py
+      - scripts/verify_release_wheels.py
+      - scripts/check_wheel_libraries.py
+      - scripts/test_distribution.py
+      - .github/workflows/publish-pypi.yml
+      - .github/workflows/duckdb-extension.yml
+      - .github/actions/duckdb-build-cache/**
+      - duckdb-extension/**
+      - CMakeLists.txt
+      - extension_config.cmake
+      - duckdb
+      - extension-ci-tools
       - scripts/build_dbc_package.py
       - scripts/test_dbc_package.py
       - scripts/install*
@@ -86,6 +101,28 @@ env:
   REDIS_PARTITION_SCAN_CAP: "2147483648"
 
 jobs:
+  distribution:
+    runs-on: ubuntu-24.04
+    outputs:
+      duckdb: ${{ steps.features.outputs.duckdb }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.REF }}
+      - id: features
+        run: echo "duckdb=${{ hashFiles('duckdb-extension/redis_adbc_extension.cpp') != '' }}" >> "$GITHUB_OUTPUT"
+      - name: Test publication validation
+        if: hashFiles('scripts/test_distribution.py') != ''
+        run: python3 -m unittest discover -s scripts -p test_distribution.py -v
+
+  duckdb:
+    needs: distribution
+    if: needs.distribution.outputs.duckdb == 'true'
+    uses: ./.github/workflows/duckdb-extension.yml
+    with:
+      ref: ${{ github.event.release.tag_name || inputs.tag || github.sha }}
+      version: ${{ github.event.release.tag_name || inputs.tag || 'v0.0.0-dev' }}
+
   linux:
     name: linux-${{ matrix.arch }}
     strategy:
@@ -97,6 +134,9 @@ jobs:
           - arch: arm64
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
+    env:
+      # uv must trust public download hosts as well as the Redis fixture CA.
+      SSL_CERT_DIR: /etc/ssl/certs
     steps:
       - uses: actions/checkout@v7
         with:
@@ -146,6 +186,10 @@ jobs:
       - name: Check cluster readiness gate
         if: hashFiles('scripts/test_cluster_ready.py') != ''
         run: python3 -m unittest discover -s scripts -p test_cluster_ready.py -v
+
+      - name: Check management HTTP readiness retries
+        if: hashFiles('scripts/test_software_bootstrap_http.py') != ''
+        run: python3 -m unittest discover -s scripts -p test_software_bootstrap_http.py -v
 
       - name: Check dbc packaging
         if: hashFiles('scripts/test_dbc_package.py') != ''
@@ -209,7 +253,6 @@ jobs:
       - name: Test (Redis Software)
         working-directory: go
         env:
-          REDIS_URI: redis://localhost:6379/0
           # The preceding owned setup verifies noeviction through its API.
           REDIS_RETAINED_CONTROL_PERSISTENCE: guaranteed
         run: |
@@ -220,7 +263,6 @@ jobs:
       - name: Smoke test installed Python wheel
         if: hashFiles('python/pyproject.toml') != ''
         env:
-          REDIS_URI: redis://localhost:6379/0
           REDIS_RETAINED_CONTROL_PERSISTENCE: guaranteed
         run: |
           uv venv --python 3.14 /tmp/redis-wheel-smoke
@@ -243,7 +285,7 @@ jobs:
           uv pip install --python /tmp/redis-wheel-smoke/bin/python redis
           /tmp/redis-wheel-smoke/bin/python scripts/software_partition_tls.py "$RUNNER_TEMP/software-partition-tls" \
             --container "$(docker compose -f go/compose.yaml ps -q redis-software)" \
-            --api-port 19443 --db-port 6379 --shards 1
+            --api-port 19443 --db-port 6379 --shards 3
           export REDIS_TLS_ADMIN_URI="$(cat "$RUNNER_TEMP/software-partition-tls/admin.uri")"
           export SSL_CERT_FILE="$RUNNER_TEMP/software-partition-tls/ca.crt"
           if [ -f scripts/check_install_doctor.py ]; then
@@ -269,76 +311,6 @@ jobs:
         if: always() && hashFiles('scripts/software_partition_tls.py') != ''
         run: rm -rf "$RUNNER_TEMP/software-partition-tls"
 
-      - name: Start OSS compatibility cluster
-        working-directory: go
-        run: |
-          make redis-down
-          docker compose --profile cluster up --detach --wait redis-cluster
-
-      - name: Start TLS-only partition fixture
-        if: hashFiles('scripts/check_partition_tls.py') != ''
-        run: bash scripts/start_partition_tls.sh "$RUNNER_TEMP/partition-tls" redis-partition-tls 16390
-
-      - name: Installed wheel partitions over verified TLS
-        if: hashFiles('scripts/check_partition_tls.py') != ''
-        run: |
-          uv pip install --python /tmp/redis-wheel-smoke/bin/python redis
-          export REDIS_TLS_ADMIN_URI="$(cat "$RUNNER_TEMP/partition-tls/admin.uri")"
-          export SSL_CERT_FILE="$RUNNER_TEMP/partition-tls/ca.crt"
-          /tmp/redis-wheel-smoke/bin/python scripts/check_partition_tls.py --require-wheel --output "$RUNNER_TEMP/partition-tls-result.json"
-
-      - name: Upload installed wheel TLS evidence
-        if: always() && hashFiles('scripts/check_partition_tls.py') != ''
-        uses: actions/upload-artifact@v7
-        with:
-          name: wheel-partition-tls-${{ matrix.arch }}
-          path: ${{ runner.temp }}/partition-tls-result.json
-          if-no-files-found: warn
-
-      - name: Remove TLS partition fixture
-        if: always() && hashFiles('scripts/check_partition_tls.py') != ''
-        run: |
-          if docker container inspect redis-partition-tls >/dev/null 2>&1; then docker rm -f redis-partition-tls; fi
-          rm -rf "$RUNNER_TEMP/partition-tls"
-
-      - name: Installed wheel through three verified TLS primary endpoints
-        if: hashFiles('scripts/start_partition_tls_cluster.sh') != ''
-        run: |
-          bash scripts/start_partition_tls_cluster.sh "$RUNNER_TEMP/partition-cluster-tls" redis-partition-cluster-tls 16394
-          export REDIS_TLS_ADMIN_URI="$(cat "$RUNNER_TEMP/partition-cluster-tls/admin.uri")"
-          export SSL_CERT_FILE="$RUNNER_TEMP/partition-cluster-tls/ca.crt"
-          env -u REDIS_ADBC_LIBRARY /tmp/redis-wheel-smoke/bin/python scripts/check_partition_tls.py --require-wheel \
-            --oss-cluster-fixture "$RUNNER_TEMP/partition-cluster-tls" --minimum-cluster-primaries 3 \
-            --output "$RUNNER_TEMP/partition-cluster-tls-result.json"
-
-      - name: Upload installed wheel three-primary TLS evidence
-        if: always() && hashFiles('scripts/start_partition_tls_cluster.sh') != ''
-        uses: actions/upload-artifact@v7
-        with:
-          name: wheel-partition-cluster-tls-${{ matrix.arch }}
-          path: |
-            ${{ runner.temp }}/partition-cluster-tls-result.json
-            ${{ runner.temp }}/partition-cluster-tls/cluster-acl-cleanup.json
-          if-no-files-found: warn
-
-      - name: Remove owned three-primary TLS fixture
-        if: always() && hashFiles('scripts/start_partition_tls_cluster.sh') != ''
-        run: |
-          if docker container inspect redis-partition-cluster-tls >/dev/null 2>&1; then
-            test "$(docker inspect -f '{{index .Config.Labels "codex.fixture"}}' redis-partition-cluster-tls)" = partition-tls-cluster
-            docker rm -f redis-partition-cluster-tls
-          fi
-          rm -rf "$RUNNER_TEMP/partition-cluster-tls"
-
-      - name: Test (OSS 3-shard compatibility)
-        working-directory: go
-        env:
-          REDIS_URI: redis://localhost:7001/0
-        run: |
-          go test -count=1 -p 1 -skip "$SKIP" ./...
-          cd validation && uv run pytest -q -ra --junitxml=cluster-validation.xml tests/
-          if [ -f ../../scripts/check_partition_junit.py ]; then python3 ../../scripts/check_partition_junit.py cluster-validation.xml; fi
-
       - name: Upload native validation reports
         if: always()
         uses: actions/upload-artifact@v7
@@ -350,16 +322,7 @@ jobs:
       - name: Redis diagnostics on failure
         if: failure()
         working-directory: go
-        run: |
-          docker compose --profile cluster ps -a
-          docker compose --profile cluster logs --no-color
-          if docker compose --profile cluster ps --status running --services | grep -qx redis-cluster; then
-            for port in 7001 7002 7003; do
-              docker compose exec -T redis-cluster redis-cli -p "$port" CLUSTER INFO || true
-              docker compose exec -T redis-cluster redis-cli -p "$port" CLUSTER NODES || true
-              docker compose exec -T redis-cluster redis-cli -e -p "$port" FT._LIST || true
-            done
-          fi
+        run: docker compose logs --no-color redis-software
 
       - name: Package
         env:
@@ -441,9 +404,13 @@ jobs:
           tar xzf "dist/adbc_driver_redis-$VERSION-linux-$ARCH.tar.gz" -C dist
           docker run --rm --init --name redis-release-validation --network host \
             -v "$PWD/go/validation:/src/validation:ro" \
+            -v "$PWD/go/pkg/adbc.h:/src/adbc.h:ro" \
+            -v "$PWD/go/testdata:/src/testdata:ro" \
             -v "$PWD/dist/adbc_driver_redis-$VERSION-linux-$ARCH:/lib-in:ro" \
             -v "$(dirname "$(command -v uv)"):/uv:ro" \
-            -e REDIS_URI=redis://localhost:6379/0 -e REDIS_PARTITION_SCAN_CAP=2147483648 \
+            -v "$PWD/go/build/test-tls:/test-tls:ro" \
+            -e REDIS_URI -e SSL_CERT_FILE=/test-tls/ca.pem -e SSL_CERT_DIR=/etc/ssl/certs \
+            -e REDIS_PARTITION_SCAN_CAP=2147483648 \
             -e REDIS_RETAINED_CONTROL_PERSISTENCE=guaranteed \
             -e PYTHONUNBUFFERED=1 -e UV_HTTP_TIMEOUT=60 -e UV_HTTP_RETRIES=2 \
             "$IMAGE" sh -euc '
@@ -453,13 +420,16 @@ jobs:
               echo "=== Installing system prerequisites ==="
               if command -v apt-get >/dev/null; then
                 apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=60 -o Acquire::https::Timeout=60 update
-                DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=60 -o Acquire::https::Timeout=60 install -y git ca-certificates
+                DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=60 -o Acquire::https::Timeout=60 install -y git ca-certificates gcc libc6-dev
               else
-                dnf --setopt=timeout=60 --setopt=retries=2 -y install git
+                # AlmaLinux mirrors can trickle metadata for the entire step
+                # budget. Reject slow transfers so DNF tries another mirror.
+                dnf --setopt=timeout=30 --setopt=minrate=1M --setopt=retries=2 -y install git ca-certificates gcc glibc-devel
               fi
               echo "=== Preparing validation fixtures ==="
-              mkdir -p /work/go/build
-              cp -r /src/validation /work/go/
+              mkdir -p /work/go/build /work/go/pkg
+              cp -r /src/validation /src/testdata /work/go/
+              cp /src/adbc.h /work/go/pkg/
               cp /lib-in/libadbc_driver_redis.so /work/go/build/
               cd /work/go/validation
               echo "=== Resolving Python and validation dependencies ==="
@@ -498,11 +468,12 @@ jobs:
         run: |
           name="redis-adbc-$VERSION-linux-$ARCH"
           tar xzf "dist/$name.tar.gz" -C dist
-          (cd go && docker compose exec -T redis-software /opt/redislabs/bin/redis-cli -p 12000 HSET release:adbc:1 name a n 1 >/dev/null &&
-            docker compose exec -T redis-software /opt/redislabs/bin/redis-cli -p 12000 HSET release:adbc:2 name b n 2 >/dev/null)
+          (cd go && docker compose exec -T -e REDISCLI_AUTH=adbc-enterprise-test redis-software /opt/redislabs/bin/redis-cli --tls --cacert /tmp/adbc-test-ca.pem --user default -p 12000 HSET release:adbc:1 name a n 1 >/dev/null &&
+            docker compose exec -T -e REDISCLI_AUTH=adbc-enterprise-test redis-software /opt/redislabs/bin/redis-cli --tls --cacert /tmp/adbc-test-ca.pem --user default -p 12000 HSET release:adbc:2 name b n 2 >/dev/null)
           docker run --rm --network host \
             -v "$PWD/dist/$name:/cli:ro" \
-            -e REDIS_URI=redis://localhost:6379/0 "$IMAGE" sh -euc '
+            -v "$PWD/go/build/test-tls:/test-tls:ro" \
+            -e REDIS_URI -e SSL_CERT_FILE=/test-tls/ca.pem "$IMAGE" sh -euc '
               cd /tmp
               /cli/redis-adbc check -prefix release:adbc: > out
               grep -qx "SQL, copied into a driver table (redis-adbc copy): READY" out
@@ -519,9 +490,9 @@ jobs:
     name: darwin-arm64
     runs-on: macos-15
     env:
-      MACOSX_DEPLOYMENT_TARGET: '12.0'
-      CGO_CFLAGS: '-mmacosx-version-min=12.0'
-      CGO_LDFLAGS: '-mmacosx-version-min=12.0'
+      MACOSX_DEPLOYMENT_TARGET: '15.0'
+      CGO_CFLAGS: '-mmacosx-version-min=15.0'
+      CGO_LDFLAGS: '-mmacosx-version-min=15.0'
     steps:
       - uses: actions/checkout@v7
         with:
@@ -543,7 +514,7 @@ jobs:
           # Use this source ref's build requirements even when uv has cached older tools.
           python3 -c 'import pathlib, tomllib; print("\n".join(tomllib.loads(pathlib.Path("python/pyproject.toml").read_text())["build-system"]["requires"]))' > "$RUNNER_TEMP/python-build-requirements.txt"
           uv run --no-project --with build --with packaging --with-requirements "$RUNNER_TEMP/python-build-requirements.txt" python scripts/build_python_wheel.py \
-            --library go/build/libadbc_driver_redis.dylib --platform macosx_12_0_arm64 --version "$VERSION" --out dist
+            --library go/build/libadbc_driver_redis.dylib --platform macosx_15_0_arm64 --version "$VERSION" --out dist
           for wheel in dist/*.whl; do shasum -a 256 "$wheel" > "$wheel.sha256"; done
           uv venv --python 3.14 /tmp/redis-wheel-smoke
           uv pip install --python /tmp/redis-wheel-smoke/bin/python dist/*.whl
@@ -552,17 +523,36 @@ jobs:
             python3 scripts/check_native_install.py --library go/build/libadbc_driver_redis.dylib
           fi
 
-      - name: Start native macOS Redis with Search
+      - name: Start authenticated TLS native macOS Redis with Search
         if: hashFiles('scripts/native_partition_redis.py') != ''
         run: |
+          # Redis's nonblocking TLS writer can fail with SSL_R_BAD_LENGTH
+          # under loopback backpressure on this runner. Give the isolated test
+          # endpoint room for the unchanged 4096-row wide-fetch pipeline.
+          sysctl net.inet.tcp.sendspace net.inet.tcp.recvspace net.inet.tcp.autosndbufmax net.inet.tcp.autorcvbufmax
+          sudo sysctl -w net.inet.tcp.autosndbufmax=4194304 net.inet.tcp.autorcvbufmax=4194304
+          sudo sysctl -w net.inet.tcp.sendspace=4194304 net.inet.tcp.recvspace=4194304
           brew update
           env -u HOMEBREW_NO_INSTALL_UPGRADE brew install redis
           prefix="$(brew --prefix redis)"
-          python3 scripts/native_partition_redis.py start "$RUNNER_TEMP/native-partition-redis" \
+          python3 scripts/native_partition_redis.py start "$RUNNER_TEMP/native-partition-redis" --tls \
             --server "$prefix/bin/redis-server" --cli "$prefix/bin/redis-cli" \
             --module "$prefix/lib/redis/modules/redisearch.so" --port 16391
           brew info --json=v2 redis > "$RUNNER_TEMP/native-partition-redis/homebrew.json"
-          echo 'REDIS_URI=redis://127.0.0.1:16391/0' >> "$GITHUB_ENV"
+          fixture="$RUNNER_TEMP/native-partition-redis/tls"
+          REDISCLI_AUTH="$(cat "$fixture/admin.password")" "$prefix/bin/redis-cli" \
+            --tls --cacert "$fixture/ca.crt" --user default -p 16391 \
+            -e CONFIG SET search-max-aggregate-results 2147483648 loglevel verbose
+          # uv reads every PEM in SSL_CERT_DIR alongside the private fixture CA.
+          mkdir -p "$RUNNER_TEMP/public-ca-roots"
+          cp /etc/ssl/cert.pem "$RUNNER_TEMP/public-ca-roots/system.pem"
+          python3 - "$fixture" >> "$GITHUB_ENV" <<'PY'
+          import pathlib, sys
+          fixture = pathlib.Path(sys.argv[1])
+          print('REDIS_URI=' + (fixture / 'admin.uri').read_text().strip())
+          print('SSL_CERT_FILE=' + str(fixture / 'ca.crt'))
+          PY
+          echo "SSL_CERT_DIR=$RUNNER_TEMP/public-ca-roots" >> "$GITHUB_ENV"
 
       - name: Build redis-adbc
         if: hashFiles('go/cmd/redis-adbc/main.go') != ''
@@ -571,6 +561,11 @@ jobs:
           make adbc-cli VERSION="$VERSION"
           file build/redis-adbc | grep -q arm64
           build/redis-adbc help | grep -q adopt
+
+      - name: Test native wide fetch
+        if: hashFiles('go/wide_fetch_integration_test.go') != ''
+        working-directory: go
+        run: env -u REDIS_PARTITION_SCAN_CAP REDIS_PARTITION_CAP_TEST=1 go test -count=1 -p 1 -run '^TestSQLWideHashFetchBothAPIs$' -v .
 
       - name: Test
         working-directory: go
@@ -584,7 +579,10 @@ jobs:
         env:
           REDIS_PARTITION_SCAN_CAP: '137'
         run: |
-          "$(brew --prefix redis)/bin/redis-cli" -p 16391 -e CONFIG SET search-max-aggregate-results 137
+          fixture="$RUNNER_TEMP/native-partition-redis/tls"
+          REDISCLI_AUTH="$(cat "$fixture/admin.password")" "$(brew --prefix redis)/bin/redis-cli" \
+            --tls --cacert "$fixture/ca.crt" --user default -p 16391 \
+            -e CONFIG SET search-max-aggregate-results 137
           export REDIS_ADBC_LIBRARY="$(/tmp/redis-wheel-smoke/bin/python -c 'from adbc_driver_redis import _driver_path; print(_driver_path())')"
           cd go/validation
           uv run pytest -q -ra --junitxml=macos-wheel-validation.xml tests/
@@ -617,6 +615,30 @@ jobs:
           env -u REDIS_ADBC_LIBRARY /tmp/redis-wheel-smoke/bin/python scripts/check_partition_tls.py --require-wheel \
             --output "$RUNNER_TEMP/macos-partition-tls-minimum-client.json"
 
+      - name: Native macOS Redis diagnostics on failure
+        if: failure() && hashFiles('scripts/native_partition_redis.py') != ''
+        run: |
+          python3 - "$RUNNER_TEMP/native-partition-redis" <<'PY'
+          import pathlib, sys
+          root = pathlib.Path(sys.argv[1])
+          log = root / 'redis.log'
+          if log.exists():
+              text = log.read_text(errors='replace')
+              for name in ('admin.password', 'admin.uri'):
+                  path = root / 'tls' / name
+                  if path.exists() and (secret := path.read_text().strip()):
+                      text = text.replace(secret, '[redacted]')
+              lines = text.splitlines()
+              print('Redis startup:')
+              print('\n'.join(lines[:25]))
+              print('Redis warnings and connection errors:')
+              print('\n'.join(line for line in lines if ' # ' in line or any(
+                  marker in line.lower() for marker in ('error', 'closing', 'maxclients', 'protocol error')
+              )))
+              print('Redis final activity:')
+              print('\n'.join(lines[-100:]))
+          PY
+
       - name: Upload macOS native partition evidence
         if: always() && hashFiles('scripts/native_partition_redis.py') != ''
         uses: actions/upload-artifact@v7
@@ -636,6 +658,7 @@ jobs:
         timeout-minutes: 1
         run: |
           python3 scripts/native_partition_redis.py stop "$RUNNER_TEMP/native-partition-redis"
+          rm -rf "$RUNNER_TEMP/native-partition-redis/tls"
 
       - name: Stop owned native macOS TLS Redis
         if: always() && hashFiles('scripts/create_partition_tls.sh') != ''
@@ -770,8 +793,13 @@ jobs:
           rm -rf "$RUNNER_TEMP/wheel-client-native"
 
   upload:
-    if: github.event_name != 'pull_request'
-    needs: [linux, platforms, macos, wheel-clients]
+    if: >-
+      !cancelled() && github.event_name != 'pull_request' &&
+      needs.distribution.result == 'success' && needs.linux.result == 'success' &&
+      needs.platforms.result == 'success' && needs.macos.result == 'success' &&
+      needs.wheel-clients.result == 'success' &&
+      (needs.duckdb.result == 'success' || needs.duckdb.result == 'skipped')
+    needs: [distribution, linux, platforms, macos, wheel-clients, duckdb]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -786,6 +814,16 @@ jobs:
         with:
           name: darwin-arm64
           path: dist
+      - uses: actions/download-artifact@v8
+        if: needs.duckdb.result == 'success'
+        with:
+          pattern: duckdb-*
+          path: dist
+          merge-multiple: true
+      - name: Package managed native installer
+        run: |
+          cp scripts/install_driver.py dist/
+          (cd dist && sha256sum install_driver.py > install_driver.py.sha256)
       - name: Generate Redis dbc registry entry
         run: |
           if compgen -G 'dist/redis_*.tar.gz' > /dev/null; then
@@ -796,3 +834,22 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "$VERSION" dist/* --clobber --repo "$GITHUB_REPOSITORY"
 
+      - name: Record completed release for automatic PyPI publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p metadata
+          gh release view "$VERSION" --repo "$GITHUB_REPOSITORY"             --json tagName,isDraft,isPrerelease > metadata/release-metadata.json
+          python3 - <<'PY'
+          import json, os, pathlib
+          path = pathlib.Path('metadata/release-metadata.json')
+          release = json.loads(path.read_text())
+          release['tag'] = os.environ['VERSION']
+          release['skip'] = os.environ.get('SKIP', '')
+          path.write_text(json.dumps(release))
+          PY
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-metadata
+          path: metadata/release-metadata.json
+          if-no-files-found: error

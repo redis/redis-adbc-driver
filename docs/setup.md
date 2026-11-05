@@ -1,5 +1,10 @@
 # Choose your tool and connect
 
+The standard way to integrate your application with Redis is to use the
+[official Redis clients and libraries](https://redis.io/docs/latest/develop/clients/)
+for your programming language. Redis ADBC is another option for workflows that
+benefit from SQL and Apache Arrow, including the data-tool integrations described here.
+
 Start here to install Redis ADBC. The driver requires a Redis RAM database with
 Search (Query Engine). Redis Software is the default development target; Redis
 Cloud and supported Redis Open Source deployments also work. Flex, Valkey and
@@ -17,7 +22,7 @@ and uninstall. The Python wheel path below remains the simplest Python setup.
 
 Use Python 3.14 for current integrations; Python 3.12+ remains installable for
 the separate Superset compatibility environment. Wheels include the native library for Linux x86-64/ARM64
-(glibc 2.28+) and macOS ARM64 (macOS 12+). Windows, macOS Intel and musl Linux
+(glibc 2.28+) and macOS ARM64 (macOS 15+). Windows, macOS Intel and musl Linux
 have no published wheels. Installing a driver does not start a Redis server.
 
 ```sh
@@ -49,11 +54,14 @@ check TLS, leaving certificate verification enabled.
 For a private CA, add `--ca-file /path/to/ca.pem`; it applies the driver's explicit
 trust-bundle option to the direct connection and both manifest discovery checks.
 
+See [driver installation for all 50 integrations](integration-installation.md) for
+the complete package/placement matrix and automated release distributions.
+
 ## Pick an integration
 
 | Tool | Install/configure | Detailed guide |
 |---|---|---|
-| pandas / Polars | Install the `dbapi` extra plus pandas or Polars; use the bundled driver | [pandas](integrations/pandas.md), [Polars](integrations/polars.md) |
+| pandas / Polars | Install the `pandas` or `polars` extra; use the bundled driver | [pandas](integrations/pandas.md), [Polars](integrations/polars.md) |
 | SQLAlchemy | Install the `sqlalchemy` extra; use `redis+adbc://` or `rediss+adbc://` | [SQLAlchemy](integrations/sqlalchemy.md) |
 | Superset | Install the `superset` extra in a separate compatible environment on every web and SQL Lab worker | [Superset](integrations/superset.md) |
 | Dagster | Install the `dagster` extra; use RedisADBCIOManager or the documented ADBCResource path | [Dagster](integrations/dagster.md) |
@@ -69,7 +77,7 @@ trust-bundle option to the direct connection and both manifest discovery checks.
 | Snowflake / BigQuery | External ingestion pipeline; driver installation does not create native warehouse federation | [Ecosystem comparison](data-engineering-adbc-support.md) |
 
 The [dedicated integration guides](integrations/README.md) document runnable
-examples, version requirements and limitations. The [22-tool ecosystem comparison](data-engineering-adbc-support.md)
+examples, version requirements and limitations. The [50-tool ecosystem comparison](data-engineering-adbc-support.md)
 records test evidence and distinguishes candidate paths from implemented helpers.
 Repository capabilities may require a newer build than the latest published wheel;
 check the relevant guide before assuming an installed release includes a helper.
@@ -166,8 +174,12 @@ must run as the same user or receive `ADBC_DRIVER_PATH` in its own environment.
 In DuckDB, after registration:
 
 ```sql
-INSTALL adbc_scanner FROM community;
-LOAD adbc_scanner;
+-- DuckDB 2.0 uses Query.Farm's signed extension repository.
+SET allow_extension_repositories = 'allowed';
+CREATE EXTENSION REPOSITORY IF NOT EXISTS query_farm
+  WITH PREFIX 'https://duckdb-extensions.query.farm';
+INSTALL adbc_scanner FROM query_farm;
+LOAD adbc_scanner FROM query_farm;
 ATTACH 'redis://localhost:6379/0' AS r (TYPE adbc, driver 'redis', READ_ONLY);
 SELECT * FROM adbc_scan('r', 'SELECT 1 AS one');
 DETACH r;
