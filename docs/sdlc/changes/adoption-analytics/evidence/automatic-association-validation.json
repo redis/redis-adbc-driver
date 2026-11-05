@@ -13,7 +13,7 @@
     "skip_reason": "hosted verification requires explicit opt-in"
   },
   "collector_tests": {
-    "passed": 15,
+    "passed": 16,
     "failed": 0,
     "skipped": 0
   },
@@ -27,7 +27,12 @@
     "same installation ID survives network changes",
     "shared NAT/PTR never merges deployment IDs",
     "concurrent alias registration assigns one deployment UUID",
-    "legacy aggregate reports remain accepted"
+    "legacy aggregate reports remain accepted",
+    "temporary installation IDs associate within a generated runtime without mounted storage",
+    "live workload association, network separation and collector reopen",
+    "recovery preserves read token and restores verified S3 backup",
+    "approved cleanup-principal exact-instance deny; owner access allowed"
   ],
-  "aws_deployed": false
+  "aws_deployed": true,
+  "deployed_source_commit": "d2c952dfc50f4b5264320cfdafaf50cd7ff50625"
 }

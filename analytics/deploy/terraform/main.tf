@@ -14,7 +14,7 @@ terraform {
 provider "aws" {
   region = var.region
   default_tags {
-    tags = { Project = "redis-adbc-driver", Purpose = "Product usage feedback", ManagedBy = "Terraform", Owner = "Albert Wong", owner = var.owner_email, RedisLabsIdentifier = "redis-adbc-telemetry", skip_deletion = "true" }
+    tags = { Project = "redis-adbc-driver", Purpose = "Product usage feedback", ManagedBy = "Terraform", owner = var.owner_email, RedisLabsIdentifier = "redis-adbc-telemetry", skip_deletion = "true" }
   }
 }
 variable "region" { default = "us-east-1" }
