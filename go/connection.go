@@ -129,9 +129,6 @@ func (c *connectionImpl) SetOption(ctx context.Context, key, value string) error
 			return errorf(adbc.StatusInvalidArgument, "invalid autocommit value %q: expected true or false", value)
 		}
 	case OptionStringRenameRekey:
-		if c.store.flexEnabled() && value == "true" {
-			return flexUnsupported("rename rekeying")
-		}
 		rekey, err := parseRenameRekey(value)
 		if err != nil {
 			return err

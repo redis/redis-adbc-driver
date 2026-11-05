@@ -107,7 +107,7 @@ func (h *sqlHarness) dbSize(raw goredis.UniversalClient) int64 {
 // rekeyRecord returns the re-key recorded for a prefix (nil if none).
 func (h *sqlHarness) rekeyRecord(raw goredis.UniversalClient, prefix string) *rekeyJob {
 	h.t.Helper()
-	job, err := (&store{client: raw}).readRekey(h.ctx, prefix)
+	job, err := (&store{client: raw, flex: os.Getenv("REDIS_ADBC_FLEX") == "true"}).readRekey(h.ctx, prefix)
 	if err != nil {
 		h.t.Fatal(err)
 	}
@@ -206,7 +206,7 @@ func TestSQLRekeyKilled(t *testing.T) {
 			!strings.HasPrefix(job.IndexName, "idx:public:it_rk_kill_backup") {
 			t.Fatalf("job after the kill: %+v (child: %s)", job, out.String())
 		}
-		if ok, _ := (&store{client: raw}).ownerAlive(h.ctx, job); !ok {
+		if ok, _ := (&store{client: raw, flex: os.Getenv("REDIS_ADBC_FLEX") == "true"}).ownerAlive(h.ctx, job); !ok {
 			t.Fatal("the killed process's lease expired already")
 		}
 		if got := h.prefixKeyCount(raw, job.KeyPrefix); got == 0 || got >= n {
@@ -218,7 +218,7 @@ func TestSQLRekeyKilled(t *testing.T) {
 		t.Helper()
 		deadline := time.Now().Add(3 * ttl)
 		for {
-			ok, err := (&store{client: raw}).ownerAlive(h.ctx, job)
+			ok, err := (&store{client: raw, flex: os.Getenv("REDIS_ADBC_FLEX") == "true"}).ownerAlive(h.ctx, job)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -256,7 +256,7 @@ func TestSQLRekeyKilled(t *testing.T) {
 	// away (as dbt's metadata connections are) rolls the move back first.
 	waitExpired(job)
 	ctx := context.Background()
-	db, err := NewDriver(memory.DefaultAllocator).NewDatabaseWithContext(ctx, map[string]string{adbc.OptionKeyURI: os.Getenv("REDIS_URI")})
+	db, err := NewDriver(memory.DefaultAllocator).NewDatabaseWithContext(ctx, retainedTestDatabaseOptions(map[string]string{adbc.OptionKeyURI: os.Getenv("REDIS_URI")}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -330,7 +330,7 @@ func TestSQLRekeyTakeoverWait(t *testing.T) {
 	h := newSQLHarness(t)
 	h.dropTables("it_rk_tw", "it_rk_tw2")
 	raw := h.rawClient()
-	st := &store{client: raw}
+	st := &store{client: raw, flex: os.Getenv("REDIS_ADBC_FLEX") == "true"}
 	h.exec(`CREATE TABLE it_rk_tw (id INTEGER)`)
 	h.exec(`INSERT INTO it_rk_tw VALUES (1), (2)`)
 	job := h.abandon(st, raw, "it_rk_tw", "it_rk_tw2")
@@ -350,7 +350,7 @@ func TestSQLRekeyTakeoverWait(t *testing.T) {
 	}
 	openedCh := make(chan opened, 1)
 	go func() {
-		db, err := NewDriver(memory.DefaultAllocator).NewDatabaseWithContext(h.ctx, map[string]string{adbc.OptionKeyURI: os.Getenv("REDIS_URI")})
+		db, err := NewDriver(memory.DefaultAllocator).NewDatabaseWithContext(h.ctx, retainedTestDatabaseOptions(map[string]string{adbc.OptionKeyURI: os.Getenv("REDIS_URI")}))
 		if err != nil {
 			openedCh <- opened{err: err}
 			return
@@ -402,7 +402,7 @@ func TestSQLRekeyEarlierRename(t *testing.T) {
 	h := newSQLHarness(t)
 	h.dropTables("it_rk_er", "it_rk_er2", "it_rk_er3")
 	raw := h.rawClient()
-	st := &store{client: raw}
+	st := &store{client: raw, flex: os.Getenv("REDIS_ADBC_FLEX") == "true"}
 	h.exec(`CREATE TABLE it_rk_er (id INTEGER)`)
 	n := h.namesN(raw, "public", "it_rk_er", "it_rk_er")
 	h.exec(`INSERT INTO it_rk_er VALUES (1), (2)`)
@@ -466,7 +466,7 @@ func TestSQLRekeyAbandonedMessages(t *testing.T) {
 	h := newSQLHarness(t)
 	h.dropTables("it_rk_am", "it_rk_am2")
 	raw := h.rawClient()
-	st := &store{client: raw}
+	st := &store{client: raw, flex: os.Getenv("REDIS_ADBC_FLEX") == "true"}
 	h.exec(`CREATE TABLE it_rk_am (id INTEGER)`)
 	h.exec(`INSERT INTO it_rk_am VALUES (1)`)
 
@@ -542,7 +542,7 @@ func TestSQLRekeyDropAbandoned(t *testing.T) {
 	h := newSQLHarness(t)
 	h.dropTables("it_rk_drop", "it_rk_drop2")
 	raw := h.rawClient()
-	st := &store{client: raw}
+	st := &store{client: raw, flex: os.Getenv("REDIS_ADBC_FLEX") == "true"}
 	h.exec(`CREATE TABLE it_rk_drop (id INTEGER)`)
 	h.exec(`INSERT INTO it_rk_drop VALUES (1), (2)`)
 	job := h.abandon(st, raw, "it_rk_drop", "it_rk_drop2")

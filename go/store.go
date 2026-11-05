@@ -1083,8 +1083,8 @@ func (s *store) getTable(ctx context.Context, schema, table string) (*tableMeta,
 	if (s.flex || meta.PlainIndex) && (meta.Adopted || meta.KeyRows || meta.AppIndex || meta.Foreign) {
 		return nil, flexUnsupported("adopted and application indexes")
 	}
-	if s.flex && (meta.RekeyTo != "" || meta.Rewriting || meta.MaterializedSQL != "") {
-		return nil, flexUnsupported("pending schema rewrites or materialized views")
+	if s.flex && meta.MaterializedSQL != "" {
+		return nil, flexUnsupported("materialized views")
 	}
 	if meta.PlainIndex && !s.flex {
 		return nil, flexUnsupported("plain-index tables require adbc.redis.flex=true")
@@ -1279,9 +1279,6 @@ var testHookTruncating func()
 // of them not indexed), and after RESTART IDENTITY new rows took their keys
 // and were merged into them.
 func (s *store) truncateTables(ctx context.Context, metas []*tableMeta, restartIdentity bool) error {
-	if s.flex {
-		return flexUnsupported("TRUNCATE")
-	}
 	ts := make([]*truncation, len(metas))
 	for i, meta := range metas {
 		if err := refuseAdopted(meta, "TRUNCATE"); err != nil {
@@ -1297,7 +1294,7 @@ func (s *store) truncateTables(ctx context.Context, metas []*tableMeta, restartI
 		bg := context.WithoutCancel(ctx)
 		for _, t := range ts {
 			if t.created {
-				_ = s.searchDo(bg, t.names.index, "FT.DROPINDEX", t.names.index, "DD").Err()
+				_ = s.dropEmptyIndex(bg, t.names.index)
 			}
 			if t.names.prefix != "" {
 				pipe := s.redis(ctx).Pipeline()
@@ -1319,7 +1316,7 @@ func (s *store) truncateTables(ctx context.Context, metas []*tableMeta, restartI
 		// The index name was free in the registry, so an index with that
 		// name is left over from an interrupted CREATE/DROP and can be
 		// discarded (see foreignIndex).
-		_ = s.searchDo(ctx, nm.index, "FT.DROPINDEX", nm.index, "DD").Err()
+		_ = s.dropEmptyIndex(ctx, nm.index)
 		if err := s.searchDo(ctx, nm.index, indexCreateArgs(&next)...).Err(); err != nil {
 			release()
 			return wrapRedis(err, "failed to create search index")
@@ -1410,7 +1407,7 @@ func (s *store) truncateTables(ctx context.Context, metas []*tableMeta, restartI
 
 	var first error
 	for _, t := range ts {
-		if err := s.searchDo(ctx, t.oldIndex, "FT.DROPINDEX", t.oldIndex, "DD").Err(); err != nil &&
+		if err := s.dropOwnedIndex(ctx, t.oldIndex, t.oldPrefix, t.meta.PlainIndex); err != nil &&
 			!isUnknownIndex(err) && first == nil {
 			first = errorf(adbc.StatusIO, "table %q.%q is empty, but deleting its old rows failed: %v; they are left under the key prefix %q, which no table has any more",
 				displaySchema(t.meta.Schema), t.meta.Name, err, t.oldPrefix)
@@ -1436,6 +1433,11 @@ func (s *store) addIndexedColumns(ctx context.Context, t *truncation, cur *table
 		}
 		if ok {
 			continue
+		}
+		if s.flex {
+			// Flex cannot extend the empty replacement index. Retry with the
+			// current schema before publishing a generation missing attributes.
+			return errorf(adbc.StatusIO, "table schema changed during TRUNCATE; try again")
 		}
 		args := append([]any{"FT.ALTER", t.names.index, "SCHEMA", "ADD"}, indexAttrArgs(c)...)
 		if err := s.searchDo(ctx, t.names.index, args...).Err(); err != nil {

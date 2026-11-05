@@ -262,8 +262,8 @@ func (d *databaseImpl) dial(ctx context.Context) (client goredis.UniversalClient
 }
 
 func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, error) {
-	if d.flex && (d.foreignIndexes || d.rekey || d.readerOnly) {
-		return nil, flexUnsupported("foreign_indexes, rename_rekey or reader-only partitions")
+	if d.flex && d.foreignIndexes {
+		return nil, flexUnsupported("foreign_indexes")
 	}
 	u, err := d.usage.start()
 	if err != nil {
@@ -299,16 +299,6 @@ func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, er
 		if err := st.configureSearch(ctx, d.flex); err != nil {
 			_ = client.Close()
 			return nil, err
-		}
-		if st.flex {
-			n, err := st.redis(ctx).HLen(ctx, rekeyKey).Result()
-			if err != nil || n > 0 {
-				_ = client.Close()
-				if err != nil {
-					return nil, wrapRedis(err, "checking pending Flex rewrites failed")
-				}
-				return nil, flexUnsupported("pending schema rewrites")
-			}
 		}
 		if err := st.migrateLegacyMetadata(ctx); err != nil {
 			_ = client.Close()

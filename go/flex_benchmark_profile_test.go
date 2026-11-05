@@ -29,6 +29,7 @@ import (
 type flexBenchResult struct {
 	Kind, Target, Schema, Reader, Workload                            string
 	Trial, Rows                                                       int
+	StartedUnixNano, FinishedUnixNano                                 int64
 	Seconds, ClientCPUSeconds                                         float64
 	Commands, ReadBytes, WrittenBytes                                 int64
 	AllocatedBytes, SampledPeakHeapBytes, ProcessLifetimePeakRSSBytes uint64
@@ -141,8 +142,11 @@ func flexBenchMeasure(t *testing.T, c *connectionImpl, r flexBenchResult, fn fun
 	ctx := context.WithValue(context.Background(), diagnosticsContextKey{}, d)
 	cpu, _ := flexBenchCPU()
 	started := time.Now()
+	r.StartedUnixNano = started.UnixNano()
 	r.Rows = fn(ctx)
-	r.Seconds = time.Since(started).Seconds()
+	finished := time.Now()
+	r.FinishedUnixNano = finished.UnixNano()
+	r.Seconds = finished.Sub(started).Seconds()
 	cpuAfter, rss := flexBenchCPU()
 	r.ClientCPUSeconds = cpuAfter - cpu
 	c.clientCfg.diagnostics.Store(nil)
@@ -511,7 +515,7 @@ func TestFlexComparativeProfile(t *testing.T) {
 		}
 		t.Logf("completed factorial raw %s", work)
 	}
-	meta := map[string]any{"rows": n, "trials": trials, "warmup": 1, "go": runtime.Version(), "gomaxprocs": runtime.GOMAXPROCS(0), "workers": 1, "payload_columns": 12, "payload_suffix_bytes": 120, "validation": "every field of every fully fetched row against independent formulas", "client_memory": "Go heap sampled at 1ms; process RSS is lifetime HWM including fixture setup", "server_counters": "sum of redis-server and dmcproxy process CPU, RSS and /proc/io endpoints; includes background work, not per-document flash reads"}
+	meta := map[string]any{"rows": n, "trials": trials, "flex_max_page_rows": flexRangeMaxRows, "warmup": 1, "go": runtime.Version(), "gomaxprocs": runtime.GOMAXPROCS(0), "workers": 1, "payload_columns": 12, "payload_suffix_bytes": 120, "validation": "every field of every fully fetched row against independent formulas", "client_memory": "Go heap sampled at 1ms; process RSS is lifetime HWM including fixture setup", "server_counters": "sum of redis-server and dmcproxy process CPU, RSS and /proc/io endpoints; includes background work, not per-document flash reads"}
 	b, _ := json.MarshalIndent(meta, "", "  ")
 	if err := os.WriteFile(filepath.Join(dir, target+"-metadata.json"), b, 0600); err != nil {
 		t.Fatal(err)

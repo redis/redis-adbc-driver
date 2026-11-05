@@ -53,9 +53,6 @@ func (s *statementImpl) ExecutePartitions(ctx context.Context) (*arrow.Schema, a
 	if s.conn.store == nil || s.conn.store.isClosed() {
 		return nil, adbc.Partitions{}, -1, errConnClosed
 	}
-	if s.conn.store.flexEnabled() && s.resultMode() == "retained" {
-		return nil, adbc.Partitions{}, -1, flexUnsupported("retained partitions")
-	}
 	if s.incremental && s.partitionExecution != nil {
 		return s.partitionExecution.schema, adbc.Partitions{}, -1, s.partitionExecution.err
 	}

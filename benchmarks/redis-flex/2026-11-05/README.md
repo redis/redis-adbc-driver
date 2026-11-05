@@ -79,3 +79,7 @@ The 180 measured samples are in [samples.jsonl](samples.jsonl). Grouped medians/
 ## Implication
 
 The stopgap enables restricted Flex queries and saves index memory, but is not a performance replacement for sortable/cursor execution. Broad reads pay repeated Search overhead; top-K loses the server-side shortcut and scans all matches. Keep the mode opt-in. Larger/cold datasets, concurrency, SSD behavior, remote latency, independent page-size tuning, and Cloud performance need separate experiments.
+
+## Software Flex follow-up
+
+The [follow-up measurements](followups/README.md) retain this historical baseline and add a matched before/after page-size comparison, sampled server RSS peaks, a flash-dominant working set, and 1/2/4-reader throughput and batch-memory measurements.

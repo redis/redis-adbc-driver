@@ -83,12 +83,12 @@ func TestFlexReadRobustness(t *testing.T) {
 	h.exec("DROP TABLE IF EXISTS " + name)
 	h.exec("CREATE TABLE " + name + " (n BIGINT)")
 	defer h.exec("DROP TABLE IF EXISTS " + name)
-	h.exec("INSERT INTO " + name + " SELECT i FROM generate_series(1,5000) AS t(i)")
+	h.exec("INSERT INTO " + name + " SELECT i FROM generate_series(1,25000) AS t(i)")
 	meta, err := c.store.getTable(h.ctx, defaultSchema, name)
 	if err != nil {
 		t.Fatal(err)
 	}
-	waitFor(t, "robustness fixture indexed", func() bool { n, err := c.store.countMatches(h.ctx, meta.index(), "*"); return err == nil && n == 5000 })
+	waitFor(t, "robustness fixture indexed", func() bool { n, err := c.store.countMatches(h.ctx, meta.index(), "*"); return err == nil && n == 25000 })
 	for _, mode := range []string{"disconnect", "timeout", "cancel"} {
 		t.Run(mode, func(t *testing.T) {
 			options := h.conn.(adbc.GetSetOptionsWithContext)
@@ -177,7 +177,7 @@ func TestFlexReadRobustness(t *testing.T) {
 			case <-time.After(2 * time.Second):
 				t.Fatal("failed read did not terminate promptly")
 			}
-			if delivered >= 5000 || delivered == 0 || fault.fired.Load() != 1 {
+			if delivered >= 25000 || delivered == 0 || fault.fired.Load() != 1 {
 				t.Fatalf("fault delivery accounting: rows=%d fired=%d", delivered, fault.fired.Load())
 			}
 			if reader.Next() {
@@ -189,22 +189,28 @@ func TestFlexReadRobustness(t *testing.T) {
 			// A whole new SQL statement is the retry contract. Check every row once;
 			// partial results from the failed statement must not leak into the retry.
 			var want []string
-			for i := 1; i <= 5000; i++ {
+			for i := 1; i <= 25000; i++ {
 				want = append(want, strconv.Itoa(i))
 			}
 			h.expectRows("SELECT n FROM "+name, want...)
 		})
 	}
-	h.expectRows("SELECT count(*),sum(n) FROM "+name, fmt.Sprint("5000|12502500"))
+	h.expectRows("SELECT count(*),sum(n) FROM "+name, fmt.Sprint("25000|312512500"))
 }
 
 // This opt-in test restarts only a caller-designated disposable Software DB.
 // It requests a data-preserving restart; it does not attempt HA failover.
-func TestFlexServerRestart(t *testing.T) {
-	container := os.Getenv("REDIS_FLEX_RESTART_CONTAINER")
-	dbid := os.Getenv("REDIS_FLEX_RESTART_DB")
+func TestFlexServerRestart(t *testing.T) { flexServerTransition(t, "restart") }
+
+// Run only on a caller-designated replicated multi-node Software Flex DB.
+func TestFlexServerFailover(t *testing.T) { flexServerTransition(t, "failover") }
+
+func flexServerTransition(t *testing.T, operation string) {
+	prefix := "REDIS_FLEX_" + strings.ToUpper(operation)
+	container := os.Getenv(prefix + "_CONTAINER")
+	dbid := os.Getenv(prefix + "_DB")
 	if container == "" || dbid == "" {
-		t.Skip("set owned REDIS_FLEX_RESTART_CONTAINER and REDIS_FLEX_RESTART_DB")
+		t.Skip("set caller-owned " + prefix + "_CONTAINER and " + prefix + "_DB")
 	}
 	if n, err := strconv.Atoi(dbid); err != nil || n < 1 {
 		t.Fatal("invalid disposable database ID")
@@ -215,7 +221,7 @@ func TestFlexServerRestart(t *testing.T) {
 	}
 	t.Setenv("REDIS_URI", uri)
 	h, c := flexBenchConn(t, true)
-	name := "it_flex_restart"
+	name := "it_flex_" + operation
 	h.exec("DROP TABLE IF EXISTS " + name)
 	h.exec("CREATE TABLE " + name + " (n BIGINT)")
 	defer func() {
@@ -223,21 +229,21 @@ func TestFlexServerRestart(t *testing.T) {
 		defer cancel()
 		st, err := h.conn.NewStatement(ctx)
 		if err != nil {
-			t.Errorf("restart cleanup statement: %v", err)
+			t.Errorf("transition cleanup statement: %v", err)
 			return
 		}
 		defer st.Close(ctx)
 		_ = st.SetSqlQuery(ctx, "DROP TABLE IF EXISTS "+name)
 		if _, err = st.ExecuteUpdate(ctx); err != nil {
-			t.Errorf("restart cleanup failed: %v", err)
+			t.Errorf("transition cleanup failed: %v", err)
 		}
 	}()
-	h.exec("INSERT INTO " + name + " SELECT i FROM generate_series(1,5000) AS t(i)")
+	h.exec("INSERT INTO " + name + " SELECT i FROM generate_series(1,25000) AS t(i)")
 	meta, err := c.store.getTable(h.ctx, defaultSchema, name)
 	if err != nil {
 		t.Fatal(err)
 	}
-	waitFor(t, "restart rows indexed", func() bool { n, err := c.store.countMatches(h.ctx, meta.index(), "*"); return err == nil && n == 5000 })
+	waitFor(t, "transition rows indexed", func() bool { n, err := c.store.countMatches(h.ctx, meta.index(), "*"); return err == nil && n == 25000 })
 	st, err := h.conn.NewStatement(h.ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -246,6 +252,7 @@ func TestFlexServerRestart(t *testing.T) {
 	if err := st.SetOption(h.ctx, OptionIntStreamBatchRows, "2"); err != nil {
 		t.Fatal(err)
 	}
+
 	_ = st.SetSqlQuery(h.ctx, "SELECT n FROM "+name)
 	reader, _, err := st.ExecuteQuery(h.ctx)
 	if err != nil {
@@ -255,14 +262,14 @@ func TestFlexServerRestart(t *testing.T) {
 	if !reader.Next() {
 		t.Fatal("missing pre-restart batch", reader.Err())
 	}
-	seen := make([]bool, 5001)
+	seen := make([]bool, 25001)
 	count := 0
 	check := func() {
 		rec := reader.RecordBatch()
 		for i := 0; i < int(rec.NumRows()); i++ {
 			n, err := strconv.Atoi(rec.Column(0).ValueStr(i))
-			if err != nil || n < 1 || n > 5000 || seen[n] {
-				t.Fatal("invalid/duplicate restart row")
+			if err != nil || n < 1 || n > 25000 || seen[n] {
+				t.Fatal("invalid/duplicate transition row")
 			}
 			seen[n] = true
 			count++
@@ -272,22 +279,36 @@ func TestFlexServerRestart(t *testing.T) {
 	restartCtx, cancel := context.WithTimeout(h.ctx, 2*time.Minute)
 	defer cancel()
 	started := time.Now()
-	cmd := exec.CommandContext(restartCtx, "docker", "exec", container, "rladmin", "restart", "db", "db:"+dbid)
+	args := []string{"exec", container, "rladmin", "-y", operation, "db", "db:" + dbid}
+	if operation == "failover" {
+		shards := strings.Fields(os.Getenv(prefix + "_SHARDS"))
+		if len(shards) == 0 {
+			t.Fatal("explicit owned failover shard IDs are required")
+		}
+		args = append(args, "shard")
+		for _, shard := range shards {
+			if n, err := strconv.Atoi(shard); err != nil || n < 1 {
+				t.Fatal("invalid failover shard ID")
+			}
+			args = append(args, shard)
+		}
+	}
+	cmd := exec.CommandContext(restartCtx, "docker", args...)
 	cmd.WaitDelay = 2 * time.Second
 	if output, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("disposable restart failed: %v (output length %d)", err, len(output))
+		t.Fatalf("disposable transition failed: %v (output length %d)", err, len(output))
 	}
 	for reader.Next() {
 		check()
 	}
 	err = reader.Err()
-	if err == nil && count != 5000 {
-		t.Fatalf("restart silently truncated rows: %d", count)
+	if err == nil && count != 25000 {
+		t.Fatalf("transition silently truncated rows: %d", count)
 	}
 	if err != nil && reader.Next() {
-		t.Fatal("restart error was not terminal")
+		t.Fatal("transition error was not terminal")
 	}
-	t.Logf("restart completed in %s; old reader rows=%d, terminal_error=%t", time.Since(started), count, err != nil)
+	t.Logf("%s completed in %s; old reader rows=%d, terminal_error=%t", operation, time.Since(started), count, err != nil)
 	deadline := time.Now().Add(30 * time.Second)
 	for {
 		s, e := h.conn.NewStatement(h.ctx)
@@ -308,8 +329,8 @@ func TestFlexServerRestart(t *testing.T) {
 			r.Release()
 			_ = s.Close(h.ctx)
 			if e == nil {
-				if len(got) != 1 || got[0] != "5000|12502500" {
-					t.Fatal("post-restart data mismatch", got)
+				if len(got) != 1 || got[0] != "25000|312512500" {
+					t.Fatal("post-transition data mismatch", got)
 				}
 				break
 			}
@@ -318,12 +339,12 @@ func TestFlexServerRestart(t *testing.T) {
 			_ = s.Close(h.ctx)
 		}
 		if time.Now().After(deadline) {
-			t.Fatal("post-restart query did not recover", e)
+			t.Fatal("post-transition query did not recover", e)
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
 	var want []string
-	for n := 1; n <= 5000; n++ {
+	for n := 1; n <= 25000; n++ {
 		want = append(want, strconv.Itoa(n))
 	}
 	h.expectRows("SELECT n FROM "+name, want...)

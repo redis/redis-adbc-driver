@@ -1,0 +1,14 @@
+{
+  "client_memory": "Go heap sampled at 1ms; process RSS is lifetime HWM including fixture setup",
+  "flex_max_page_rows": 10000,
+  "go": "go1.27.3",
+  "gomaxprocs": 18,
+  "payload_columns": 12,
+  "payload_suffix_bytes": 120,
+  "rows": 50000,
+  "server_counters": "sum of redis-server and dmcproxy process CPU, RSS and /proc/io endpoints; includes background work, not per-document flash reads",
+  "trials": 5,
+  "validation": "every field of every fully fetched row against independent formulas",
+  "warmup": 1,
+  "workers": 1
+}
