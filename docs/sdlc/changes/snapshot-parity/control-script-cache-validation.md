@@ -1,8 +1,8 @@
 # Standalone snapshot control script cache
 
 Date: 2026-11-05. Parent: 05b60a6 (production 8d59eeb).
-Status: focused Software race and EVAL-only compatibility checks pass;
-native performance and full updated-source checks remain required.
+Status: focused Software race, EVAL-only compatibility and full native checks
+pass; performance and full updated-source Go checks remain required.
 See [intent](intent.md), [spec](spec.md), [plan](plan.md) and
 [PR #284](https://github.com/redis/redis-adbc-driver/pull/284).
 
@@ -60,3 +60,77 @@ Separately, the previously running full ordinary race suite at production
 all six test-bearing packages passing; root 1,144.857 s. That process compiled
 before this control-cache change and is not evidence for the new executor.
 No latency improvement is inferred from the smaller script payload.
+
+At fdbe75f, the versioned native driver passes the full ADBC suite: 565 tests
+and three subtests, eight explicit capability skips, 82.38 s; Python 3.14.10,
+PyArrow 26.0.1 and manager 1.13.0. Library SHA-256:
+`39bfe7b82aa8bb6ae85fccd759d4d9cdeb1b6661cd2cb24d5eb73530ac5a45f0`.
+The skipped capabilities do not establish compatibility.
+
+The preceding hosted [Test at 05b60a6](https://github.com/redis/redis-adbc-driver/actions/runs/42125238521)
+is terminal failure overall. Both AMD64 and ARM64 pass ordinary Go, snapshot
+regressions and native ADBC validation, covering production 8d59eeb. Both fail
+the independent restricted TLS partition worker with permission_denied and the
+required SELECT-grant gate. Later Cluster/proxy TLS steps skip. The earlier
+provisioning step's successful exit does not satisfy its final required gate.
+This is neither full reader parity nor coverage of the later cached executor.
+
+## Matched native reads
+
+Two separately retained comparisons each run preceding 8d59eeb, cached fdbe75f,
+mutable f4d5b78, then reverse order. Each native process uses the unchanged
+eight-case harness, 20,000 input rows, replacement/deletion, 32 unrelated tables,
+one warmup and five measured samples per case. Complete fetch and independent
+value checks are included in timing; the implicit case also checks Arrow schema.
+Setup is excluded. All twelve processes pass. A process census before each
+process and every 500 ms detects zero competing test/build violations.
+
+Full 19,999-row implicit-read medians, in milliseconds:
+
+| Comparison | Preceding | Cached control | Mutable |
+|---|---:|---:|---:|
+| Initial | 601.310 | 704.638 | 130.097 |
+| Regression investigation repeat | 584.195 | 561.686 | 124.500 |
+| Both, twenty samples/source | 595.828 | 602.433 | 126.319 |
+
+The first result triggered the repeat; neither is discarded. Pooled cached
+latency is 1.11% higher than preceding and 4.769x mutable. These limited,
+variable results do not establish a stable full-read improvement or regression.
+All eight cases and samples remain in the
+[raw comparisons](control-cache-read-comparisons.json). Smaller script payloads
+alone are not performance parity. Python 3.13.16 / PyArrow 26.0.0 / manager
+1.13.0; Apple M5 Max, 18 logical CPUs / 36 GiB, Docker 18 CPUs /
+25,421,033,472 bytes. This synthetic workload is not ClickBench.
+
+An initial comparison launch stopped before setup/timing because its required
+snapshot URI was absent; it yielded no samples and was corrected before the
+two complete comparisons above. Fresh full-source Go suites remain required.
+
+## Matched sustained writes
+
+Six additional isolated native processes run 8d59eeb, fdbe75f, mutable f4d5b78,
+then reverse order. Each performs 64 alternating UPDATE RETURNING statements
+across two 20,000-row tables. Every returned value and all 40,000 final rows
+are independently checked, with zero caller retries. Complete publication and
+RETURNING fetch are timed; setup/final validation are excluded. The same
+process guard detects zero violations. All
+[samples, intervals and hashes](control-cache-write-comparison.json) remain.
+
+| Build | Median ms | p95 ms | Updates/s |
+|---|---:|---:|---:|
+| Preceding 8d59eeb | 32.700 | 67.099 | 25.073 |
+| Cached control fdbe75f | 32.439 | 64.719 | 26.279 |
+| Mutable f4d5b78 | 5.603 | 7.389 | 172.175 |
+
+Throughput is 4.81% higher in this comparison, with nearly unchanged median
+latency. Mutable throughput remains 6.552x higher. Two processes/source do not
+establish statistical or cross-workload guarantees. This limited improvement
+does not close performance parity; retain the mixed read results above.
+
+Author review checks direct native refusal classification, cancellation between
+attempts, unchanged argument suffixes, NoRetry markers, unknown fallback outcomes,
+actual EVAL-only command denials and observer/wire separation. No reader grants,
+Lua/storage logic, quotas, protocol or SQL/input replay behavior change.
+This is not independent maintainer approval. The current full snapshot race
+selection and hosted Test run at fdbe75f are in progress; completed earlier
+sources are not relabeled as these checks.
