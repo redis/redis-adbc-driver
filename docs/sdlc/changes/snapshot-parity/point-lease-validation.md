@@ -105,3 +105,11 @@ by another reader's validation. The exact 128-slot test covers that transition.
 No SQL reader grants or raw row access are broadened. This is not independent
 maintainer approval; current full Go/platform and reader/Cluster/recovery gates
 remain open.
+
+The complete snapshot race selection at 7c30fa6 is running. Hosted
+[Test at 638c308](https://github.com/redis/redis-adbc-driver/actions/runs/42132744174)
+is the new current-source run. The earlier
+[Test at fdbe75f](https://github.com/redis/redis-adbc-driver/actions/runs/42130363002)
+passes ordinary Go on both AMD64 and ARM64, then is intentionally canceled
+while snapshot regressions run to release the workflow concurrency slot for
+the new implementation. Its unfinished snapshot/native steps are not passes.

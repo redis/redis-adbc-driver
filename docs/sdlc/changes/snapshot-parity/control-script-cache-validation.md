@@ -135,5 +135,9 @@ This is not independent maintainer approval. The full snapshot race selection
 at fdbe75f completes with 450 test passes, 28 explicit skips and zero failures;
 root 371.868 s and all six test-bearing packages pass. It compiled before the
 subsequent point-lease regression/optimization and does not cover that change.
-The hosted Test run at fdbe75f remains in progress. Full-suite elapsed times are
-not controlled performance comparisons; no speedup is inferred from this run.
+The hosted Test run at fdbe75f passes ordinary Go on both AMD64 and ARM64,
+then is intentionally canceled during snapshot regressions to release the
+workflow concurrency slot for the later point-lease implementation. Its pending
+snapshot/native steps are not passes. Full-suite elapsed times are not controlled
+performance comparisons; no speedup is inferred from this run. See the
+[point-lease checkpoint](point-lease-validation.md) for the replacement run.

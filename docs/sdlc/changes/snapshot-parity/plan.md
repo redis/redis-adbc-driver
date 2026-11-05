@@ -5,12 +5,16 @@ Date: 2026-11-02. Status: in progress. See [intent](intent.md), [spec](spec.md).
 The [point-lease checkpoint](point-lease-validation.md) moves validation,
 renewal and release before catalog enumeration. A reproduced Software HGETALL
 denial becomes a pass without broader grants; neighboring lifecycle races pass.
-Full-source/native/performance checks remain required.
+Full native checks pass. Matched implicit reads measure 10.85% lower median;
+sustained writes do not improve (3.55% lower throughput in that comparison).
+Full-source Go/platform checks and overall parity remain required.
 
 The [control-cache checkpoint](control-script-cache-validation.md) reduces
 standalone control script payloads while retaining no-retry behavior and an
-EVAL-only operator path. Focused race and actual Software role checks pass;
-native/full-source validation and measured performance remain required.
+EVAL-only operator path. Focused race, actual Software role, complete snapshot
+race and native checks pass. Matched write throughput is 4.81% higher; two read
+comparisons do not establish a stable full-read gain. Full-source/platform and
+overall parity gates remain open.
 
 The [narrow positional checkpoint](narrow-positional-validation.md) removes
 intermediate row maps from eligible simple directory/candidate streams. Focused
