@@ -258,7 +258,20 @@ jobs:
             go test -count=1 -p 1 -timeout=30m ./...
           fi
 
+      # Snapshot protocol fixtures reset their disposable database. Keep this
+      # selection separate from ordinary tests and finish it before native tests.
+      - name: Atomic statement snapshot regressions
+        if: startsWith(matrix.environment, 'software-')
+        working-directory: go
+        run: |
+          export REDIS_SNAPSHOT_URI="${REDIS_URI:?verified Software fixture required}"
+          make test-software TEST_ARGS="-race -run Snapshot"
+
+      # Preserve authorization as a required failing gate, while allowing
+      # independent native/platform checks to produce evidence after a refusal.
       - name: Enforced SQL SELECT grants through Software RBAC
+        id: snapshot_reader_rbac
+        continue-on-error: true
         if: startsWith(matrix.environment, 'software-')
         working-directory: go
         env:
@@ -403,6 +416,12 @@ jobs:
       - name: Remove Software TLS private material
         if: always() && startsWith(matrix.environment, 'software-')
         run: rm -rf "$RUNNER_TEMP/software-partition-tls"
+
+      - name: Require SQL SELECT grant validation
+        if: always() && steps.snapshot_reader_rbac.outcome == 'failure'
+        run: |
+          echo "::error::SQL SELECT grant validation failed; independent checks do not establish authorization parity."
+          exit 1
 
       - name: Redis logs on failure
         if: failure()

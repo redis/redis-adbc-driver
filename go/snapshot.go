@@ -948,20 +948,29 @@ func snapshotNames(ctx context.Context, schema, table string) (tableNames, bool)
 func (s *store) beginSnapshotWrite(ctx context.Context, pin *snapshotPin) (context.Context, string, error) {
 	id := snapshotID()
 	n, err := s.snapshotControl(ctx, "reserve", pin.token, id, pin.root).Int()
-	var serverErr interface {
-		error
-		RedisError()
+	capacityRefusal := func(err error) bool {
+		var serverErr interface {
+			error
+			RedisError()
+		}
+		return errors.As(err, &serverErr) && serverErr.Error() == "snapshot generation limit (16) reached; release old readers or retry cleanup"
 	}
-	if errors.As(err, &serverErr) && serverErr.Error() == "snapshot generation limit (16) reached; release old readers or retry cleanup" {
-		// The server refused before reserving anything. Retire one eligible
-		// manifest without scanning/deleting row data, then retry admission
-		// once. SQL and Arrow consumption have not started. Transport errors
-		// (including lost successful replies) must never enter this path.
+	// A different writer may consume the slot freed by our previous retirement.
+	// Repeat only definite native refusals, before SQL or Arrow consumption, and
+	// bound reclamation by the ledger's existing capacity. The workspace ID stays
+	// fixed. A transport error, including a lost successful reply, ends admission.
+	for attempt := 0; attempt < 16 && capacityRefusal(err); attempt++ {
 		maintenance := context.WithValue(ctx, snapshotContextKey{}, (*snapshotScope)(nil))
-		if reclaimed, reapErr := s.reapSnapshotManifest(maintenance); reapErr != nil {
+		reclaimed, reapErr := s.reapSnapshotManifest(maintenance)
+		if reapErr != nil {
 			return ctx, "", wrapRedis(reapErr, "failed to reclaim snapshot generation for admission")
-		} else if reclaimed {
-			n, err = s.snapshotControl(ctx, "reserve", pin.token, id, pin.root).Int()
+		}
+		// Another collector may already have retired the claimed manifest. Its
+		// accounting is not ours, but one fresh reservation after the proven
+		// refusal is safe. If no retirement was confirmed, do not keep polling.
+		n, err = s.snapshotControl(ctx, "reserve", pin.token, id, pin.root).Int()
+		if !reclaimed {
+			break
 		}
 	}
 	if err != nil {

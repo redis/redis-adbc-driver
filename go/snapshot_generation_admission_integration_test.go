@@ -177,3 +177,106 @@ func TestSnapshotGenerationAdmissionNeverReplaysUnknownReservation(t *testing.T)
 		t.Fatal("lost-reply fixture did not reserve on the server")
 	}
 }
+
+// Another pre-execution writer can take a slot between our confirmed manifest
+// retirement and reservation. Capacity refusals are definite server outcomes;
+// they must not be confused with an unknown successful reservation reply.
+type generationSlotCompetitor struct {
+	generationReservationObserver
+	competing *store
+	pin       *snapshotPin
+	id        string
+	attempts  int
+}
+
+func (h *generationSlotCompetitor) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
+	observed := h.generationReservationObserver.ProcessHook(next)
+	return func(ctx context.Context, cmd goredis.Cmder) error {
+		a := cmd.Args()
+		if cmd.Name() == "eval" && len(a) > 3 && a[1] == snapshotControl {
+			keys, ok := a[2].(int)
+			if ok && 3+keys < len(a) && a[3+keys] == "reserve" {
+				h.attempts++
+				if h.attempts == 2 {
+					n, err := h.competing.snapshotControl(ctx, "reserve", h.pin.token, h.id, h.pin.root).Int()
+					if err != nil || n != 1 {
+						return fmt.Errorf("competing reservation did not consume the free slot: admitted=%d error=%v", n, err)
+					}
+				}
+			}
+		}
+		return observed(ctx, cmd)
+	}
+}
+
+func TestSnapshotGenerationAdmissionCompetingReservation(t *testing.T) {
+	h, raw, _ := newSnapshotHarnessMode(t, false, false)
+	s, competitor := snapshotTestStore(t, raw), snapshotTestStore(t, raw)
+	base, pin, err := s.acquireSnapshotMode(h.ctx, false, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pin.release()
+	_, otherPin, err := competitor.acquireSnapshotMode(h.ctx, false, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer otherPin.release()
+	fillSnapshotGenerations(t, h, s, true)
+	if n := snapshotWorkCount(t, s, h.ctx); n != 16 {
+		t.Fatal("generation fixture not full", n)
+	}
+	otherID := snapshotID()
+	defer competitor.abortSnapshot(otherPin, otherID)
+	observer := &generationSlotCompetitor{competing: competitor, pin: otherPin, id: otherID}
+	s.client.AddHook(observer)
+	work, id, err := s.beginSnapshotWrite(base, pin)
+	if err != nil {
+		t.Fatal("reclaimable capacity refused after a competing reservation", err)
+	}
+	defer s.abortSnapshot(pin, id)
+	if snapshotOf(work) == nil || !snapshotOf(work).write {
+		t.Fatal("reservation did not admit a private workspace")
+	}
+	observer.mu.Lock()
+	ids := append([]string(nil), observer.ids...)
+	clones, dataGC := observer.clones, observer.dataGC
+	observer.mu.Unlock()
+	if len(ids) != 3 || ids[0] != id || ids[1] != id || ids[2] != id || clones != 1 || dataGC != 0 {
+		t.Fatal("unexpected reservation retries, metadata copies or row GC", len(ids), clones, dataGC)
+	}
+	if n := snapshotWorkCount(t, s, h.ctx); n > 16 {
+		t.Fatal("admission raised the generation limit", n)
+	}
+	if !raw.HExists(h.ctx, snapshotCatalogKey, "w:"+otherID).Val() || raw.HGet(h.ctx, snapshotCatalogKey, "root").Val() != pin.root {
+		t.Fatal("admission evicted the competitor or changed the committed root")
+	}
+}
+
+func TestSnapshotGenerationAdmissionNeverReplaysUnknownAfterReclaim(t *testing.T) {
+	h, raw, _ := newSnapshotHarnessMode(t, false, false)
+	s := snapshotTestStore(t, raw)
+	base, pin, err := s.acquireSnapshotMode(h.ctx, false, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pin.release()
+	fillSnapshotGenerations(t, h, s, true)
+	observer := &generationReservationObserver{lose: true}
+	s.client.AddHook(observer)
+	_, id, err := s.beginSnapshotWrite(base, pin)
+	if err == nil || id != "" {
+		t.Fatal("unknown successful reservation admitted SQL/input")
+	}
+	observer.mu.Lock()
+	ids := append([]string(nil), observer.ids...)
+	clones := observer.clones
+	observer.mu.Unlock()
+	if len(ids) != 2 || ids[0] != ids[1] || clones != 0 {
+		t.Fatal("unknown post-reclamation reservation was replayed or consumed input", len(ids), clones)
+	}
+	defer s.abortSnapshot(pin, ids[0])
+	if !raw.HExists(h.ctx, snapshotCatalogKey, "w:"+ids[0]).Val() {
+		t.Fatal("lost-reply fixture did not reserve on the server")
+	}
+}

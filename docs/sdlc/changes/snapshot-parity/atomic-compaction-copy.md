@@ -119,9 +119,15 @@ count. The test now opens its database with automatic maintenance disabled,
 matching the explicit-collector protocol fixtures, while preserving all denial,
 immediate takeover, exact three-row accounting and pinned-live-value assertions.
 Ten consecutive focused race invocations pass (root 4.281 s). No production
-collector behavior or permissions change. A fresh full ordinary run remains
-pending; the failed attempt is not counted as a pass. The manually dispatched [hosted test matrix](https://github.com/redis/redis-adbc-driver/actions/runs/42064051718)
-targets `534cd6f` and is in progress (helper/coverage jobs passed at inspection).
-Neither pending run is counted as passed. Current protocol Cluster API/HA/
+collector behavior or permissions change. The clean full ordinary race rerun at c4698f3 passes 1,945 individual test
+events with 308 explicit skips and zero failures; root 1,168.550 s. The first
+failed attempt remains recorded. This run predates the new opt-in phase profiler
+and later admission-race tests; it is not evidence for unexecuted changes. The manually dispatched [hosted test matrix](https://github.com/redis/redis-adbc-driver/actions/runs/42064051718)
+targets `534cd6f` and completes with failures: amd64 ordinary Go hits the
+16-generation limit in `TestSQLCommentConcurrent`; arm64 ordinary Go passes but
+the SQL SELECT grant step fails because the narrow reader lacks EVAL for catalog
+initialization. Coverage/helpers/superset pass. See the
+[hosted failure record](atomic-compaction-hosted-validation.md); later skipped
+steps are not counted as passes. Current protocol Cluster API/HA/
 persistence, actual restricted-principal authorization, public operation/input
 resume, broader platform acceptance and complete performance parity remain open.

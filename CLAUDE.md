@@ -159,7 +159,11 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.27.3).
   exposing an execution to Close. Preserve indeterminate-outcome diagnostics when
   mapping a canceled command to its connection-close cause. Never DROP/TRUNCATE shared data directly.
   Reclaim manifests separately from segment rows/indexes/directories using atomic
-  reference checks. Explicit sweep previews must suppress connection-side GC;
+  reference checks. Before execution, exact typed capacity refusals can reclaim
+  manifests and retry reservation with the same workspace ID, bounded by 16
+  passes. Stop on unknown replies; do not clone metadata or consume SQL/input
+  before confirmed admission. Competing writers can take a newly freed slot;
+  preserve live owners and keep row/index GC outside this admission path. Explicit sweep previews must suppress connection-side GC;
   report confirmed reclamation and errors through the same ownership protocol.
   Preview covers currently zero-reference data and reports pending metadata;
   preserve pins/writer references and never infer ownership from prefix scans.

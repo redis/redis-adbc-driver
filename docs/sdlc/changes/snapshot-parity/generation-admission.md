@@ -55,3 +55,55 @@ hosted rerun proving the original CI failure resolved.
 Full feature/performance parity remains incomplete. Reader authorization,
 process/input resume, sustained compaction, current platform/recovery coverage and
 matched current-source performance comparisons retain their separate gates.
+
+## Competing-slot checkpoint, 2026-11-05
+
+The one-retry behavior above still permits a different writer to consume the
+freed slot. A new deterministic case reproduces that refusal: fill the real
+16-slot ledger with reclaimable work, retire one manifest, then use another
+valid leased owner to reserve the freed slot before the original retry. The
+unchanged implementation fails in 0.11 s with the native capacity refusal. This
+is a reproducible mechanism matching the hosted error class, not proof that it
+was the only cause of the hosted COMMENT failure.
+
+Admission now permits at most 16 reclamation passes after definite native
+capacity refusals, retaining the same workspace ID and no-retry command wrapper.
+Each pass retires at most one manifest; it never scans or deletes row/index data.
+When no retirement is confirmed, one final reservation can observe a slot freed
+by a competing collector, then admission stops rather than polling indefinitely.
+Any unknown reply, cancellation or different refusal terminates the loop before
+SQL/input execution. Active owners, pins, compaction and the 16-generation limit
+remain protected. Explicit sweep accounting is unchanged.
+
+Five focused race cases pass (root 2.204 s), including the new competing-slot
+case (three reservation attempts, one metadata clone, no row-GC claim, competitor
+still live and root unchanged). A new lost-successful-reply-after-reclamation
+case proves two attempts total, no metadata clone or SQL/input admission, and a
+real server-side reservation. The existing initial unknown-reply, reclaimable
+and all-active cases remain. Ten repeated runs of these five cases plus the
+public concurrent COMMENT publication test pass all 60 test events, no skips or
+failures, root 11.459 s. The fixture remains owned Software 8.8.0, strict TLS,
+active/effective 4x QPF and noeviction.
+
+Unit-only race verification after this change passes 1,037 test events,
+936 expected integration/diagnostic skips, zero failures; root 53.320 s. The
+versioned native build passes; SHA-256
+`54de8fb71df05d8f4acd7d15bdd1e7d4803c2b86d0342cf11c661874ab128921`.
+The complete snapshot race selection passes 372 test events, 24 explicit skips
+and zero failures; root 284.131 s. Skips retain nine absent Cluster fixtures,
+six reader-lease model cases, six permission/recovery cases and three opt-in
+profiles. The versioned library passes all 113 selected native Arrow, layout,
+statistics and partition tests, no skips, 26.50 s, after the Go database process
+exited and the owned Software fixture was reset/reverified. Python 3.14.10,
+PyArrow 26.0.1 and ADBC manager 1.13.0. No new sustained-throughput claim is made
+for this admission-only change. The full ordinary c4698f3 run passes 1,945 events with 308 explicit
+skips, root 1,168.550 s, before this admission change. The failed hosted 534cd6f
+run is preserved in [its record](atomic-compaction-hosted-validation.md). Neither
+result establishes current hosted/reader/platform parity.
+
+Author review checks (1) bounded admission before execution/consumption, preserved
+active leases and same-ID/no-replay behavior; (2) unchanged namespace, reference,
+ACL/TLS and GC ownership boundaries; (3) the distinction between current focused/
+snapshot/native checks, the preceding full ordinary source, failed hosted jobs
+and unmerged upstream features. This is not maintainer approval. Hosted snapshot
+coverage and required reader authorization remain incomplete.

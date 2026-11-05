@@ -351,8 +351,12 @@ preserving all newer deltas and the latest metadata/row sequence. DROP/TRUNCATE 
 replacement of that lineage discards the obsolete job. Pinned readers retain old
 segments; rows, indexes and directories are reclaimed after the final reference
 is gone. Background reclamation prevents abandoned publication work from filling
-manifest capacity. Each worker uses a separate connection pool and bounded I/O
-contexts. Job concurrency, available memory, retained snapshots and index-building
+manifest capacity. A definite native capacity refusal before execution permits
+bounded manifest retirement and reservation attempts with the same workspace ID
+(up to 16 retirement passes), so another writer taking a freed slot does not
+prematurely end admission. This does not run row/index GC, raise the limit or
+retry an uncertain reservation. SQL and Arrow input are not replayed. Each worker
+uses a separate connection pool and bounded I/O contexts. Job concurrency, available memory, retained snapshots and index-building
 costs can still limit progress; this is not a throughput or latency guarantee.
 
 DROP removes a descriptor; TRUNCATE and replace ingestion allocate fresh storage

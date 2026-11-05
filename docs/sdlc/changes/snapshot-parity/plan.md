@@ -620,3 +620,29 @@ output recovery and prevents stale error/checkpoint rewinds. Full snapshot race
 and 113 native checks pass. Fresh both-order comparisons improve throughput
 1.095x, but remain 219.95x behind the mutable baseline: the sustained parity gate
 still fails. Complete ordinary and hosted platform validation are pending.
+
+The [phase profile](compaction-phase-profile.md) measures a 7.38-second full-base
+job (3.35 seconds in copy steps, 3.75 seconds in waits); omitting active pacing
+still takes 5.50 seconds. [Selective compaction](selective-compaction-design.md)
+is a design under evaluation, with tombstone and actual old-worker validation
+required before enabling it. The [hosted failure record](atomic-compaction-hosted-validation.md)
+keeps ordinary generation pressure and reader authorization failures visible.
+The competing-reservation admission regression now reproduces/refines the bounded
+pre-execution recovery: 60 repeated race events, the complete snapshot selection
+(372 passes / 24 skips), unit-only race checks and 113 native tests pass. The full
+ordinary c4698f3 checkpoint passes separately; current hosted validation remains
+incomplete. An
+explicit sequential verified Software snapshot CI step is staged; reader failure
+remains a required final job gate while independent native checks can run.
+
+Upstream main has advanced through 3aa87e2, including bounded Substrait plan
+execution (4fd0894/23860f8). Those three upstream commits are not yet merged into
+this branch. Full current-feature parity therefore also requires integrating and
+verifying the Substrait metadata/execution reader lifecycle through snapshot
+pins, plus its native C-boundary checks; existing SQL-only checks cannot prove
+that new frontend's consistency. Preserve the upstream supported plan limits.
+
+PR #284 currently reports CONFLICTING/DIRTY against main (verified before this
+checkpoint is published). Resolve the three upstream commits after preserving
+this validated milestone; current parity cannot be inferred from an unmergeable
+PR or from the upstream frontend's mutable-storage tests.
