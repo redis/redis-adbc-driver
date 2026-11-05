@@ -97,7 +97,7 @@ if op == 'init' then
 end
 if redis.call('HGET', k, 'format') ~= '15' then return redis.error_reply('missing or unsupported snapshot catalog') end
 local entries = redis.call('HGETALL', k)
-local pins, works, protected = 0, 0, {}
+local pins, works, protected, owners = 0, 0, {}, {}
 for n=1,#entries,2 do
   local field = entries[n]
   if string.sub(field,1,2) == 'p:' then
@@ -105,6 +105,7 @@ for n=1,#entries,2 do
     if pin.expires > now then
       pins = pins + 1
       protected[pin.root] = true
+      owners[string.sub(field,3)] = pin.root
     else redis.call('HDEL', k, field) end
   elseif string.sub(field,1,2) == 'w:' then works = works + 1 end
 end
@@ -129,7 +130,11 @@ elseif op == 'compact_start' then
   if not candidate then return 0 end
   candidate=cjson.decode(candidate)
   if candidate.oid~=job.queue_oid or candidate.lineage~=job.source.snapshot_lineage or type(candidate.references)~='table' or #candidate.references<#job.references then return 0 end
-  for i,data in ipairs(job.references) do if candidate.references[i]~=data then return 0 end end
+  local source_start=job.source_start or 0
+  if type(source_start)~='number' or source_start<0 or source_start%1~=0 or
+     source_start+#job.references>#candidate.references or
+     (source_start>0 and #job.references<2) then return 0 end
+  for i,data in ipairs(job.references) do if candidate.references[source_start+i]~=data then return 0 end end
   for _,data in ipairs(job.references) do
     local raw = redis.call('HGET', graph, 'd:'..data)
     if not raw or cjson.decode(raw).state ~= 'live' then return 0 end
@@ -144,7 +149,12 @@ elseif op == 'compact_start' then
   redis.call('HSET', k, 'compaction', ARGV[6], 'w:'..id,
     cjson.encode({state='compacting',token=job.token,expires=expiry}),
     'r:'..id,cjson.encode(refs))
-  redis.call('ZREM',compactionqueue,job.queue_key);redis.call('HDEL',candidates,job.queue_key)
+  -- Retain selective work until publication updates its candidate. An older
+  -- worker safely declines non-prefix sources; it must still discover a full
+  -- merge rather than strand writers at the hard segment limit.
+  if source_start==0 then
+    redis.call('ZREM',compactionqueue,job.queue_key);redis.call('HDEL',candidates,job.queue_key)
+  end
   return 1
 elseif op == 'compact_acquire' then
   local raw = redis.call('HGET', k, 'compaction')
@@ -170,9 +180,19 @@ elseif op == 'compact_checkpoint' or op == 'compact_error' or op == 'compact_rel
   if w.state ~= 'compacting' or w.token ~= token or w.expires <= now then return 0 end
   if op == 'compact_checkpoint' then
     local update=cjson.decode(ARGV[6])
+    local function same_value(a,b)
+      if type(a)~=type(b) then return false end
+      if type(a)~='table' then return a==b end
+      for key,value in pairs(a) do if not same_value(value,b[key]) then return false end end
+      for key,_ in pairs(b) do if a[key]==nil then return false end end
+      return true
+    end
     local phases={copy=1,index=2,install=3}
     local prior_phase,next_phase=phases[job.phase],phases[update.phase]
     if update.id~=job.id or update.token~=token or update.data~=job.data or update.prefix~=job.prefix or
+       (update.source_start or 0)~=(job.source_start or 0) or
+       not same_value(update.source,job.source) or not same_value(update.references,job.references) or
+       update.queue_key~=job.queue_key or update.queue_version~=job.queue_version or update.queue_oid~=job.queue_oid or
        not prior_phase or not next_phase or next_phase<prior_phase or next_phase>prior_phase+1 or
        type(update.after)~='string' or update.after<(job.after or '') or
        job.copy_pending then return 0 end
@@ -407,7 +427,12 @@ elseif op == 'claim' or op == 'peek' then
     if string.sub(field,1,2) == 'w:' then
       local candidate = string.sub(field,3)
       local w = cjson.decode(entries[n+1])
-      if candidate ~= root and not protected[candidate] and w.state ~= 'compacting' and ((w.state ~= 'staging' and w.state ~= 'sealed') or w.expires <= now) then
+      -- A lost reservation reply can strand an ownerless pre-clone workspace.
+      -- Established work retains its independent lease and reference lifetime,
+      -- even if its base pin stops. Claiming atomically fences a late clone.
+      -- Durable compaction jobs have separate ownership and remain excluded.
+      local abandoned = w.state == 'staging' and not w.metadata_ready and owners[w.token] ~= w.base
+      if candidate ~= root and not protected[candidate] and w.state ~= 'compacting' and ((w.state ~= 'staging' and w.state ~= 'sealed') or w.expires <= now or abandoned) then
         if op=='claim' then redis.call('HSET', k, field, cjson.encode({state='deleting'})) end
         return candidate
       end

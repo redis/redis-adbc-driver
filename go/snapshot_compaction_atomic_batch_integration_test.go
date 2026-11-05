@@ -87,7 +87,7 @@ func TestSnapshotCompactionAtomicCopyBatch(t *testing.T) {
 			h.exec("CREATE TABLE t(id INTEGER,v BIGINT)")
 			h.exec("INSERT INTO t SELECT i,9007199254740993 FROM generate_series(1,257) AS g(i)")
 			for i := 0; i < 3; i++ {
-				h.exec("UPDATE t SET v=v+1 WHERE __rowid=1")
+				h.exec("UPDATE t SET v=v+1 WHERE __rowid<=128")
 			}
 			s := snapshotTestStore(t, raw)
 			token := snapshotID()
@@ -129,7 +129,7 @@ func compactionAtomicFixture(t *testing.T) (*sqlHarness, *goredis.Client, *store
 	h.exec("CREATE TABLE t(id INTEGER,v INTEGER)")
 	h.exec("INSERT INTO t SELECT i,1 FROM generate_series(1,257) AS g(i)")
 	for i := 0; i < 3; i++ {
-		h.exec("UPDATE t SET v=v+1 WHERE __rowid=1")
+		h.exec("UPDATE t SET v=v+1 WHERE __rowid<=128")
 	}
 	s := snapshotTestStore(t, raw)
 	token := snapshotID()
@@ -268,8 +268,8 @@ func TestSnapshotCompactionAtomicAllDeletedPage(t *testing.T) {
 	}
 	defer pin.release()
 	h.exec("DELETE FROM t WHERE id<=64")
-	h.exec("UPDATE t SET v=2 WHERE id=65")
-	h.exec("UPDATE t SET v=3 WHERE id=66")
+	h.exec("UPDATE t SET v=2")
+	h.exec("UPDATE t SET v=CASE WHEN id=66 THEN 3 WHEN id=65 THEN 2 ELSE 1 END")
 	token := snapshotID()
 	if started, err := s.startSnapshotCompaction(h.ctx, token); err != nil || !started {
 		t.Fatal(started, err)

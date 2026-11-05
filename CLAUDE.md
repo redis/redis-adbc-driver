@@ -146,12 +146,16 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.27.3).
   or Arrow consumption. Gate waiting honors cancellation; never replay inputs.
   Stores without workers retain explicit backpressure. Preserve
   durable copy checkpoints, lease/phase fences, and source/output references even
-  across expired worker leases. Compaction commits bounded complete images,
+  across expired worker leases. Selective jobs preserve a much larger older
+  prefix and retain winning tombstones; only full oldest-prefix merges discard
+  them. Keep the exact source position/ordered identities immutable, and retain
+  candidate eligibility until publication so older workers can decline a range
+  job without stranding writers. Current-generation matching includes lineage. Compaction commits bounded complete images,
   directory registration and checkpoint together; incomplete batches retain a
   durable marker until repair and cannot advance through metadata checkpoints.
   Resolve unknown replies from durable progress without resending mutations;
-  error logging must never overwrite completed progress with a stale job. Installation grafts only the original prefix and
-  respects write intents plus its short admission gate. Close/join workers before
+  error logging must never overwrite completed progress with a stale job. Installation grafts only the recorded contiguous source range, preserving
+  its older prefix and newer tail, and respects write intents plus its short admission gate. Close/join workers before
   closing connection resources; old segments stay pinned. Track execution
   completion separately from socket interruption: Close must leave the maintenance
   pool usable until private abort/pin cleanup finishes, with a bounded join.
@@ -163,7 +167,12 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.27.3).
   manifests and retry reservation with the same workspace ID, bounded by 16
   passes. Stop on unknown replies; do not clone metadata or consume SQL/input
   before confirmed admission. Competing writers can take a newly freed slot;
-  preserve live owners and keep row/index GC outside this admission path. Explicit sweep previews must suppress connection-side GC;
+  preserve live owners and keep row/index GC outside this admission path.
+  An ownerless pre-clone reservation is reclaimable before its work expiry;
+  atomically fence it as deleting. Established private work retains its own
+  lease/reference lifetime even after its base pin stops.
+  Keep current/pinned roots protected and durable compaction ownership separate.
+  Explicit sweep previews must suppress connection-side GC;
   report confirmed reclamation and errors through the same ownership protocol.
   Preview covers currently zero-reference data and reports pending metadata;
   preserve pins/writer references and never infer ownership from prefix scans.

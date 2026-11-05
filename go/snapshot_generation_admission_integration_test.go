@@ -4,6 +4,7 @@ package redis
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -278,5 +279,83 @@ func TestSnapshotGenerationAdmissionNeverReplaysUnknownAfterReclaim(t *testing.T
 	defer s.abortSnapshot(pin, ids[0])
 	if !raw.HExists(h.ctx, snapshotCatalogKey, "w:"+ids[0]).Val() {
 		t.Fatal("lost-reply fixture did not reserve on the server")
+	}
+}
+
+// A lost reservation reply leaves a fresh staging record whose caller cannot
+// abort by ID. Once its owning pin is released it cannot publish, and should
+// not occupy the bounded ledger for the rest of the two-minute work lease.
+func TestSnapshotGenerationAdmissionReclaimsReleasedUnknownOwner(t *testing.T) {
+	h, raw, _ := newSnapshotHarnessMode(t, false, false)
+	s, orphan := snapshotTestStore(t, raw), snapshotTestStore(t, raw)
+	base, pin, err := s.acquireSnapshotMode(h.ctx, false, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pin.release()
+	orphanBase, orphanPin, err := orphan.acquireSnapshotMode(h.ctx, false, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer orphanPin.release()
+	lost := &generationReservationObserver{lose: true}
+	orphan.client.AddHook(lost)
+	if _, id, err := orphan.beginSnapshotWrite(orphanBase, orphanPin); err == nil || id != "" {
+		t.Fatal("fixture did not lose a successful reservation reply")
+	}
+	lost.mu.Lock()
+	ids := append([]string(nil), lost.ids...)
+	lost.mu.Unlock()
+	if len(ids) != 1 {
+		t.Fatal("unknown reservation was replayed")
+	}
+	defer orphan.abortSnapshot(orphanPin, ids[0])
+	for range 14 {
+		owner, p, err := s.acquireSnapshotMode(h.ctx, false, true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, work, err := s.beginSnapshotWrite(owner, p)
+		if err != nil {
+			p.release()
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { s.abortSnapshot(p, work); p.release() })
+	}
+	var state struct {
+		State   string `json:"state"`
+		Expires int64  `json:"expires"`
+	}
+	if err := json.Unmarshal([]byte(raw.HGet(h.ctx, snapshotCatalogKey, "w:"+ids[0]).Val()), &state); err != nil {
+		t.Fatal(err)
+	}
+	now, err := raw.Time(h.ctx).Result()
+	if err != nil || state.State != "staging" || state.Expires <= now.UnixMilli() || snapshotWorkCount(t, s, h.ctx) != 16 {
+		t.Fatal("fixture lacks a fresh unexpired unknown reservation", err)
+	}
+	if candidate, err := s.snapshotControl(h.ctx, "peek", "", "", "").Text(); err != nil || candidate != "" {
+		t.Fatal("live unknown owner became reclaimable", candidate, err)
+	}
+	orphanPin.release()
+	observed := &generationReservationObserver{}
+	s.client.AddHook(observed)
+	_, work, err := s.beginSnapshotWrite(base, pin)
+	if err != nil {
+		t.Fatal("released unknown owner stranded otherwise-admissible work", err)
+	}
+	defer s.abortSnapshot(pin, work)
+	if raw.HExists(h.ctx, snapshotCatalogKey, "w:"+ids[0]).Val() || snapshotWorkCount(t, s, h.ctx) != 16 || raw.HGet(h.ctx, snapshotCatalogKey, "root").Val() != pin.root {
+		t.Fatal("orphan reclamation changed the root, limit or retained unknown owner")
+	}
+	check := snapshotTestStore(t, raw)
+	for _, op := range []string{"renew", "seal"} {
+		if n, err := check.snapshotControl(h.ctx, op, orphanPin.token, ids[0], orphanPin.root).Int(); err != nil || n != 0 {
+			t.Fatal("released owner revived reclaimed work", op, n, err)
+		}
+	}
+	observed.mu.Lock()
+	defer observed.mu.Unlock()
+	if len(observed.ids) != 2 || observed.ids[0] != observed.ids[1] || observed.clones != 1 || observed.dataGC != 0 {
+		t.Fatal("unexpected reservation replay, copy or data collection")
 	}
 }

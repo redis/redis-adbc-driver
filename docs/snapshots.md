@@ -292,16 +292,25 @@ and remaining parity work are tracked in the [parity record](sdlc/changes/snapsh
 Background compaction is automatic while managed connections are open. Publication
 updates a durable queue only for changed table descriptors; idle discovery reads
 no table descriptors. Candidates retain their original queue age across updates,
-carry table/lineage identities and generation prefixes, and are consumed atomically
-when a durable job starts. Stale cleanup cannot remove a newer candidate. A worker
-may claim an older immutable prefix across newer deltas; installation preserves
+carry table/lineage identities and generation prefixes. A full-prefix job consumes
+its candidate atomically when it starts; a selective job retains eligibility
+until publication. Stale cleanup cannot remove a newer candidate. A worker
+may claim an older immutable range across newer deltas; installation preserves
 those tails. Failed candidate checks are deferred so other due work can progress.
-Discovery considers at most 16 due candidates per pass. It starts at four segments and copies an immutable prefix in resumable batches of at most
+Discovery considers at most 16 due candidates per pass. It starts at four
+segments and copies an immutable contiguous range in resumable batches of at most
 64 merged row IDs, targeting 1 MiB of write data per batch. One oversized row may
 exceed that target under the normal 64 MiB hard staging limit. Source fetches
 remain bounded by row count, rather than the soft write-byte target. The complete
 job is not subject to the unbatched utility quota or 15-minute statement limit.
-Normal writes allocate deltas and never perform compaction row copies.
+When a much larger older prefix can be preserved, selection consolidates at
+least two smaller newer segments. Partial merges retain tombstones to keep
+older base versions hidden. Balanced/ambiguous size estimates use a full merge.
+The exact source range, older prefix and newer publications remain protected.
+Selective jobs retain queue eligibility until publication, allowing the tested
+older protocol-15 worker to decline them and discover a full merge. There is no
+storage-version change or new user option. Normal writes allocate deltas and
+never perform compaction row copies.
 
 A table still has a hard eight-segment bound. Writable managed connections wait
 for their background worker to make room before reserving a workspace, planning
@@ -346,8 +355,8 @@ Connection close stops its worker and releases ownership when reachable. With al
 connections closed, progress waits for the next open.
 
 When copying finishes, the output is sealed against further row mutations before
-its index is built and validated. Publication replaces only the compacted prefix,
-preserving all newer deltas and the latest metadata/row sequence. DROP/TRUNCATE or
+its index is built and validated. Publication replaces only the recorded compacted range,
+preserving its older prefix, all newer deltas and the latest metadata/row sequence. DROP/TRUNCATE or
 replacement of that lineage discards the obsolete job. Pinned readers retain old
 segments; rows, indexes and directories are reclaimed after the final reference
 is gone. Background reclamation prevents abandoned publication work from filling

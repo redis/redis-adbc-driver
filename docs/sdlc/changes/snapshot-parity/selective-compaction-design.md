@@ -1,11 +1,13 @@
-# Selective compaction design under evaluation
+# Selective compaction design and acceptance
 
-Date: 2026-11-05. Status: design only; not enabled or implemented.
+Date: 2026-11-05. Status: selection implemented; scoped checks and actual older
+worker handoffs pass. See [implementation/evidence](selective-compaction-validation.md).
+Full validation and measured throughput parity remain incomplete.
 See [the phase attribution contract](compaction-phase-profile.md),
 [the failed sustained gate](atomic-compaction-copy.md), [intent](intent.md),
 [spec](spec.md) and [plan](plan.md).
 
-Current jobs always merge the entire oldest prefix. A large base followed by
+At parent be0ed4d, jobs always merge the entire oldest prefix. A large base followed by
 several one-row updates therefore causes a full-table copy when those small
 updates need consolidating. Atomic batches reduce command overhead but preserve
 that work. The fresh end-to-end comparison still fails performance parity.

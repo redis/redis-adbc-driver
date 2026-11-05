@@ -2,6 +2,12 @@
 
 Date: 2026-11-02. Status: in progress. See [intent](intent.md), [spec](spec.md).
 
+The [released-owner checkpoint](released-owner-validation.md) records a
+reproduced lost-reservation capacity leak and its ownership-aware reclamation
+fix, plus the native snapshot rekey-close fixture correction. Combined and
+hosted verification remain required; this does not close reader authorization
+or sustained throughput parity.
+
 | Workstream | Status |
 |---|---|
 | Shared-generation live partition capabilities, release and expiry | Implemented; proxy/native checks passed |
@@ -654,3 +660,10 @@ the combined snapshot selection (382 passes / 24 explicit skips), unit race
 checks and 118 selected native tests. Current hosted/ordinary/recovery and
 sustained performance checks remain open. These changes address the new
 frontend without expanding its supported operator/type/parameter/partition scope.
+
+The [selective compaction checkpoint](selective-compaction-validation.md) avoids
+repeated large-base copies for small overlays, retains tombstones, and proves
+actual older-native handoffs at the hard segment limit. Full-copy resource and
+recovery assertions remain exercised with genuinely large source inputs. Full
+validation and fresh comparative throughput remain pending; index construction
+and inactive pacing retain their separate performance work.

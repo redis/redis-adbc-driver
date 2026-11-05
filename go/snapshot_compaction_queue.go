@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -68,6 +69,28 @@ func prepareSnapshotCompactionQueue(ctx context.Context, tables []*tableMeta) er
 		scope.compactionUpdates = string(raw)
 	}
 	return err
+}
+
+// Preserve a much larger older prefix when at least two newer segments can be
+// consolidated cheaply. Ambiguous/overflowing estimates retain the full merge.
+// The earliest qualifying split maximizes the segment slots recovered.
+func snapshotCompactionSourceStart(segments []snapshotSegment) int {
+	var total int64
+	for _, segment := range segments {
+		if segment.Rows < 0 || segment.Rows > math.MaxInt64-total {
+			return 0
+		}
+		total += segment.Rows
+	}
+	var older int64
+	for start := 1; start <= len(segments)-2; start++ {
+		older += segments[start-1].Rows
+		newer := total - older
+		if newer <= math.MaxInt64/4 && older > 4*newer {
+			return start
+		}
+	}
+	return 0
 }
 
 func (s *store) startSnapshotCompaction(ctx context.Context, token string) (bool, error) {
@@ -137,9 +160,13 @@ func (s *store) startSnapshotCompaction(ctx context.Context, token string) (bool
 		if !snapshotMetadataID(version) {
 			return false, errorf(adbc.StatusIO, "invalid compaction source version")
 		}
-		job := &snapshotCompactionJob{ID: snapshotID(), Token: token, Data: snapshotID(), Source: meta, Phase: "copy", References: []string{}, QueueKey: key, QueueVersion: version, QueueOID: strconv.FormatInt(meta.OID, 10)}
+		segments := meta.snapshotSegments()
+		start := snapshotCompactionSourceStart(segments)
+		source := *meta
+		source.SnapshotSegments = append([]snapshotSegment(nil), segments[start:len(segments)-1]...)
+		job := &snapshotCompactionJob{ID: snapshotID(), Token: token, Data: snapshotID(), Source: &source, SourceStart: start, Phase: "copy", References: []string{}, QueueKey: key, QueueVersion: version, QueueOID: strconv.FormatInt(meta.OID, 10)}
 		job.Prefix = snapshotRows(job.Data, meta.Schema)
-		for _, seg := range meta.snapshotSegments() {
+		for _, seg := range source.snapshotSegments() {
 			job.References = append(job.References, snapshotDataID(seg.Prefix))
 		}
 		encoded, err := json.Marshal(job)

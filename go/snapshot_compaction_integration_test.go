@@ -204,7 +204,11 @@ func TestSnapshotCompactionResumeFencesOldOwnerAndGraftsTail(t *testing.T) {
 	h.exec("CREATE TABLE t(id INTEGER,v INTEGER)")
 	h.exec("INSERT INTO t SELECT i,10 FROM generate_series(1,1001) AS g(i)")
 	for i := 0; i < 3; i++ {
-		h.exec(fmt.Sprintf("UPDATE t SET v=%d WHERE __rowid=1", 100+i))
+		other := 11 + i
+		if i == 2 {
+			other = 10
+		}
+		h.exec(fmt.Sprintf("UPDATE t SET v=CASE WHEN __rowid=1 THEN %d ELSE %d END WHERE __rowid<=501", 100+i, other))
 	}
 	s := snapshotTestStore(t, raw)
 	oldToken := snapshotID()
@@ -388,7 +392,7 @@ func TestSnapshotCompactionBatchesBoundBytes(t *testing.T) {
 	h.exec("CREATE TABLE t(id INTEGER,payload VARCHAR)")
 	h.exec("INSERT INTO t SELECT i,'" + strings.Repeat("x", 65536) + "' FROM generate_series(1,100) AS g(i)")
 	for i := 0; i < 3; i++ {
-		h.exec(fmt.Sprintf("UPDATE t SET id=%d WHERE __rowid=1", 100+i))
+		h.exec(fmt.Sprintf("UPDATE t SET id=%d ", 100+i))
 	}
 	s := snapshotTestStore(t, raw)
 	tracker := &snapshotCompactionBatchTracker{}
@@ -405,8 +409,8 @@ func TestSnapshotCompactionExceedsStatementRowBudgetInBatches(t *testing.T) {
 	h.exec("CREATE TABLE t(id INTEGER,v INTEGER)")
 	h.exec("INSERT INTO t SELECT i,10 FROM generate_series(1,100000) AS g(i)")
 	h.exec("INSERT INTO t VALUES(100001,10)")
-	h.exec("UPDATE t SET v=11 WHERE __rowid=1")
-	h.exec("UPDATE t SET v=12 WHERE __rowid=1")
+	h.exec("UPDATE t SET v=v+1")
+	h.exec("UPDATE t SET v=CASE WHEN __rowid=1 THEN 12 ELSE 10 END")
 	s := snapshotTestStore(t, raw)
 	tracker := &snapshotCompactionBatchTracker{}
 	s.client.AddHook(tracker)
@@ -477,7 +481,8 @@ func TestSnapshotCompactionCloseReleasesRecoverableJob(t *testing.T) {
 	h.exec("CREATE TABLE t(v INTEGER)")
 	h.exec("INSERT INTO t SELECT i FROM generate_series(1,501) AS g(i)")
 	for i := 0; i < 3; i++ {
-		h.exec(fmt.Sprintf("UPDATE t SET v=%d WHERE __rowid=1", 100+i))
+		offset := (i + 1) % 3
+		h.exec(fmt.Sprintf("UPDATE t SET v=CASE WHEN __rowid=1 THEN %d ELSE __rowid+%d END WHERE __rowid<=256", 100+i, offset))
 	}
 	s := snapshotTestStore(t, raw)
 	token := snapshotID()

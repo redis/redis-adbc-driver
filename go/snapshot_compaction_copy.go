@@ -76,7 +76,7 @@ for i=4,#KEYS do
  local fields,seen={},{}
  for n=1,count,2 do
   local field,value=ARGV[offset+1+n],ARGV[offset+2+n]
-  if seen[field] or (field=='` + snapshotDeletedField + `' and value=='1') then
+  if seen[field] or (field=='` + snapshotDeletedField + `' and value=='1' and (job.source_start or 0)==0) then
    return redis.error_reply('invalid compaction copy fields')
   end
   seen[field]=true;fields[n]=field;fields[n+1]=value

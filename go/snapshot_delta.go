@@ -62,13 +62,14 @@ type snapshotDeltaSource struct {
 	done    bool
 }
 type snapshotDeltaScan struct {
-	store    *store
-	meta     *tableMeta
-	sources  []snapshotDeltaSource
-	fields   []string
-	last     string
-	pageRows int
-	through  string
+	store       *store
+	meta        *tableMeta
+	sources     []snapshotDeltaSource
+	fields      []string
+	last        string
+	pageRows    int
+	through     string
+	keepDeleted bool // partial compaction must shadow preserved older segments
 }
 
 func newSnapshotDeltaScan(s *store, m *tableMeta, fields []string) *snapshotDeltaScan {
@@ -188,7 +189,7 @@ func (d *snapshotDeltaScan) next(ctx context.Context) ([]string, []aggRow, error
 		if row[rowIDField] != strings.TrimPrefix(logical[i], d.meta.prefix()) {
 			return nil, nil, errorf(adbc.StatusIO, "snapshot row identity does not match its directory")
 		}
-		if row[snapshotDeletedField] == "1" {
+		if row[snapshotDeletedField] == "1" && !d.keepDeleted {
 			continue
 		}
 		keys = append(keys, logical[i])

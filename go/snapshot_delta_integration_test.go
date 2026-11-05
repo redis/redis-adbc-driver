@@ -232,13 +232,34 @@ func TestSnapshotDeltaCompactionRetainsStreamingReader(t *testing.T) {
 	h.expectRows("SELECT COUNT(*),MIN(v),MAX(v) FROM t", "1000|10|109")
 	pin.release()
 	snapshotReapTest(s, h.ctx)
+	currentCtx, currentPin, err := s.acquireSnapshot(h.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	current := snapshotTableTest(t, s, currentCtx, "t")
+	currentPin.release()
+	retained := map[string]bool{}
+	for _, seg := range current.snapshotSegments() {
+		retained[seg.Prefix] = true
+	}
+	reclaimed := 0
 	for _, seg := range oldSegments {
+		if retained[seg.Prefix] {
+			if raw.Exists(h.ctx, seg.Prefix+"1", snapshotMembers(snapshotDataID(seg.Prefix))).Val() != 2 || raw.Do(h.ctx, "FT.INFO", seg.Index).Err() != nil {
+				t.Fatal("compaction reclaimed a still-referenced base")
+			}
+			continue
+		}
+		reclaimed++
 		if raw.Exists(h.ctx, seg.Prefix+"1", snapshotMembers(snapshotDataID(seg.Prefix))).Val() != 0 {
 			t.Fatal("compacted unreferenced data/directory leaked")
 		}
 		if err := raw.Do(h.ctx, "FT.INFO", seg.Index).Err(); err == nil {
 			t.Fatal("compacted unreferenced index leaked")
 		}
+	}
+	if reclaimed == 0 {
+		t.Fatal("fixture did not reclaim an obsolete pinned segment")
 	}
 }
 

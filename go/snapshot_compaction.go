@@ -32,6 +32,7 @@ type snapshotCompactionJob struct {
 	Prefix       string                         `json:"prefix"`
 	Source       *tableMeta                     `json:"source"`
 	References   []string                       `json:"references"`
+	SourceStart  int                            `json:"source_start,omitempty"`
 	After        string                         `json:"after"`
 	Phase        string                         `json:"phase"`
 	LastError    string                         `json:"last_error,omitempty"`
@@ -173,7 +174,7 @@ func validateSnapshotCompactionJob(j *snapshotCompactionJob) error {
 		return errorf(adbc.StatusIO, "invalid durable compaction phase")
 	}
 	segments := j.Source.snapshotSegments()
-	if len(segments) > snapshotMaxSegments || len(segments) != len(j.References) {
+	if len(segments) > snapshotMaxSegments || len(segments) != len(j.References) || j.SourceStart < 0 || j.SourceStart > snapshotMaxSegments-len(segments) || (j.SourceStart > 0 && len(segments) < 2) {
 		return errorf(adbc.StatusIO, "invalid durable compaction sources")
 	}
 	for i, seg := range segments {
@@ -228,7 +229,7 @@ func (s *store) readSnapshotCompaction(ctx context.Context) (*snapshotCompaction
 }
 
 func snapshotCompactionPrefix(current *tableMeta, j *snapshotCompactionJob) (matches, installed bool) {
-	if current.OID != j.Source.OID {
+	if current.OID != j.Source.OID || current.SnapshotLineage != j.Source.SnapshotLineage {
 		return false, false
 	}
 	sources, segs := j.Source.snapshotSegments(), current.snapshotSegments()
@@ -237,11 +238,11 @@ func snapshotCompactionPrefix(current *tableMeta, j *snapshotCompactionJob) (mat
 			return false, true
 		}
 	}
-	if len(segs) < len(sources) {
+	if j.SourceStart < 0 || j.SourceStart > len(segs) || len(segs)-j.SourceStart < len(sources) {
 		return false, false
 	}
 	for i, seg := range sources {
-		if seg != segs[i] {
+		if seg != segs[j.SourceStart+i] {
 			return false, false
 		}
 	}
@@ -350,6 +351,7 @@ func (s *store) compactionWriteContext(ctx context.Context, j *snapshotCompactio
 func (s *store) copySnapshotCompactionBatch(ctx context.Context, j *snapshotCompactionJob) error {
 	wctx := s.compactionWriteContext(ctx, j)
 	scan := newSnapshotDeltaScan(s, j.Source, nil)
+	scan.keepDeleted = j.SourceStart > 0
 	scan.pageRows = snapshotCompactionBatchRows
 	for i := range scan.sources {
 		if j.After != "" {
@@ -453,15 +455,14 @@ func (s *store) installSnapshotCompaction(ctx context.Context, j *snapshotCompac
 	defer s.abortSnapshot(pin, id)
 	snapshotOf(wctx).maintenance = true
 	segments := meta.snapshotSegments()
-	tail := segments[len(j.Source.snapshotSegments()):]
 	compacted := snapshotSegment{Prefix: j.Prefix, Index: snapshotIndexPrefix(j.Data) + "compacted", Rows: j.Rows}
-	if len(tail) == 0 {
-		meta.KeyPrefix, meta.IndexName = compacted.Prefix, compacted.Index
-		meta.SnapshotRows = &j.Rows
-		meta.SnapshotSegments = nil
-	} else {
-		meta.SnapshotSegments = append([]snapshotSegment{compacted}, tail[:len(tail)-1]...)
-	}
+	merged := append([]snapshotSegment(nil), segments[:j.SourceStart]...)
+	merged = append(merged, compacted)
+	merged = append(merged, segments[j.SourceStart+len(j.Source.snapshotSegments()):]...)
+	head := merged[len(merged)-1]
+	meta.KeyPrefix, meta.IndexName = head.Prefix, head.Index
+	meta.SnapshotRows = &head.Rows
+	meta.SnapshotSegments = merged[:len(merged)-1]
 	meta.SnapshotOverlay = true
 	meta.PrefixGen = 0
 	raw, err := json.Marshal(meta)
