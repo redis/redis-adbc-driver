@@ -29,6 +29,8 @@ import (
 )
 
 type databaseImpl struct {
+	usage                       usageState
+	rbac                        *rbacManager
 	retainedNamespace           string
 	partitionControlPersistence string
 	retainedLimits              retainedLimits
@@ -259,6 +261,24 @@ func (d *databaseImpl) dial(ctx context.Context) (client goredis.UniversalClient
 }
 
 func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, error) {
+	u, err := d.usage.start()
+	if err != nil {
+		return nil, err
+	}
+	if u != nil {
+		if v, ok := d.DriverInfo.GetInfoForInfoCode(adbc.InfoDriverVersion); ok {
+			u.mu.Lock()
+			u.data.DriverVersion, _ = v.(string)
+			u.mu.Unlock()
+		}
+	}
+	ok := false
+	defer func() {
+		if u != nil {
+			u.connection(ok)
+		}
+	}()
+
 	if d.readerOnly && d.retainedNamespace == "" {
 		return nil, errorf(adbc.StatusInvalidArgument, "reader-only partitions require an explicit result namespace")
 	}
@@ -297,15 +317,18 @@ func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, er
 		}
 		// Drop temporary objects of connections that exited without closing.
 		st.sweepTemp(ctx)
-		if err := st.collectMatviews(ctx); err != nil {
-			_ = client.Close()
-			return nil, wrapRedis(err, "recover retired materialized view generations")
-		}
+		// Retired generations are garbage, not pending catalog changes. Like
+		// temporary-object cleanup, collection must not prevent a restricted
+		// reader from connecting. Keep retirement records for an authorized
+		// connection to retry when cleanup commands are denied or fail.
+		_ = st.collectMatviews(ctx)
 	}
 	st.foreignIndexes = d.foreignIndexes
 	conn := &connectionImpl{
+		usage:              u,
 		ConnectionImplBase: driverbase.NewConnectionImplBase(&d.DatabaseImplBase),
 		store:              st,
+		rbac:               d.rbac,
 		retainedNamespace:  d.retainedNamespace, retainedLimits: d.resultLimits(), readerOnly: d.readerOnly, partitionControlPersistence: d.partitionControlPersistence,
 		sess:         d.newSession(),
 		pushdown:     d.pushdown,
@@ -323,6 +346,7 @@ func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, er
 	if cfg.single.Username != "" {
 		conn.sess.user = cfg.single.Username
 	}
+	ok = true
 	return driverbase.NewConnectionBuilder(conn).
 		WithCurrentNamespacer(conn).
 		WithDriverInfoPreparer(conn).
@@ -403,9 +427,18 @@ func clusterParamsError(params []string, why string) error {
 		strings.Join(params, ", "), verb, why)
 }
 
-func (d *databaseImpl) Close(ctx context.Context) error { return nil }
+func (d *databaseImpl) Close(ctx context.Context) error {
+	d.usage.close()
+	if d.rbac != nil {
+		d.rbac.client.CloseIdleConnections()
+	}
+	return nil
+}
 
 func (d *databaseImpl) GetOption(ctx context.Context, key string) (string, error) {
+	if strings.HasPrefix(key, usagePrefix) {
+		return d.usage.get(key)
+	}
 	switch key {
 	case OptionStringPartitionControlPersistence:
 		if d.partitionControlPersistence == "" {
@@ -468,7 +501,25 @@ func (d *databaseImpl) GetOption(ctx context.Context, key string) (string, error
 }
 
 func (d *databaseImpl) SetOption(ctx context.Context, key, value string) error {
+	if key == OptionStringTelemetryFlush {
+		if value != "true" {
+			return errorf(adbc.StatusInvalidArgument, "telemetry flush must be true")
+		}
+		return d.usage.flush(ctx)
+	}
+	if strings.HasPrefix(key, usagePrefix) {
+		return d.usage.set(key, value)
+	}
 	switch key {
+	case OptionStringRBAC:
+		r, err := newRBAC(value)
+		if err != nil {
+			return err
+		}
+		if d.rbac != nil {
+			d.rbac.client.CloseIdleConnections()
+		}
+		d.rbac = r
 	case OptionStringPartitionControlPersistence:
 		if value != "auto" && value != "guaranteed" {
 			return errorf(adbc.StatusInvalidArgument, "partition_control_persistence must be auto or guaranteed")

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Redis ADBC · Adoption analytics</title>
+<link rel="stylesheet" href="/dashboard.css">
+<p class="muted">REDIS / ADBC DRIVER</p><h1>Adoption analytics</h1>
+<p class="muted">We collect high-level usage metrics to understand how the driver is used and help improve it. Your SQL statements, query parameters, query results and database contents are not collected.</p>
+<p class="muted">Opt-out product usage feedback · Last 28 days unless labeled · Organization and team labels are self-reported, not verified identities.</p>
+<form id="login"><input id="token" type="password" placeholder="Dashboard read token" aria-label="Dashboard read token" required><button>Load dashboard</button><span id="status" role="status"></span></form>
+<p class="muted">Each table supports search, column filters, sorting by column heading, and pages. Controls apply to loaded rows; query samples are limited to the latest 200. Reset table clears its controls.</p>
+<div id="cards" class="cards"></div>
+<p class="muted">Distinct active installation IDs: each ID counts once if it has a query attempt received in the last 7 days. These are not unique machines or people. New clients save a generated ID in the local user configuration directory and reuse it across handles and restarts. An application-supplied ID takes precedence. Read-only storage falls back to a temporary ID, which can inflate this count. Older clients used a new ID per handle. Containers can receive new installation IDs; automatic deployment associations below track supported platform workloads across replacements.</p>
+<section><h2>Automatically associated deployments</h2>
+<p class="muted">No UUID configuration or mounted ID file is required. Deployment IDs are assigned automatically. Matching platform workload hashes associate replacement containers; matching installation IDs preserve continuity when networks change. Runtime instances are counted separately. Identifier matches are self-reported, not verified customer identities. Older reports without an association are excluded here.</p><div id="deployments" class="scroll"></div></section>
+<section><h2>Probable network associations</h2>
+<p class="muted">Shared public IP or reverse DNS can suggest related containers, but also occurs with NATs, VPNs and shared infrastructure. These suggestions never merge deployment IDs or reduce the associated-deployment count.</p><div id="associations" class="scroll"></div></section>
+<section><h2>Recent query workloads</h2>
+<p class="muted">See work for each sampled execution, rather than adding rows across unrelated queries. Query text, values, table names and parameters are not collected. An execution ID identifies one call; a script or parameter batch is one call.</p>
+<label for="execution-filter">Filter by host, statement, feature or outcome</label>
+<input id="execution-filter" type="search" placeholder="e.g. SELECT, aggregate, my-host" aria-label="Filter execution samples">
+<p id="execution-count" class="muted"></p><div id="executions" class="scroll"></div>
+<p class="muted">Index documents observed: point-in-time index sizes from readiness checks already made by the query; an index may cover more than one logical table. Driver row candidates: rows fetched for driver-side evaluation, including repeated scans. Pushdown rows represented: source rows represented by aggregate tuples, including retries. These are different measures, not Redis internal rows scanned. Not applicable means the counter does not apply to this operation. Unavailable means the driver did not report it; see Measurement notes or hover over the cell. Unavailable never means zero, and the reason cannot always be determined from a report. No extra scans are run for analytics. Returned rows count batches delivered to the caller; elapsed time includes fetching.</p></section>
+<section><h2>Reporting hosts and networks</h2><p class="muted">Hostnames are reported by clients and may be short or internal names. Public reverse DNS is a best-effort PTR lookup of the observed egress IP; NAT, VPNs and proxies can represent many machines. Neither identifies a verified company. Older reports cannot supply missing source data. Reload after a few seconds while DNS lookups finish.</p><div id="hosts" class="scroll"></div></section>
+<section><h2>Statement types and outcomes</h2><p class="muted">One attempt = one ExecuteQuery/ExecuteUpdate call, including an entire script or parameter batch. Success requires result exhaustion. Latency includes application fetch time; histogram percentiles are upper bounds.</p><div id="queries" class="scroll"></div></section>
+<section><h2>Organizations, teams and applications</h2><div id="orgs" class="scroll"></div></section>
+<section><h2>SQL features</h2><p class="muted">Top-level SELECT features; one execution may use several features. Nested query bodies are not included.</p><div id="features" class="scroll"></div></section>
+<section><h2>Daily activity</h2><p class="muted">UTC collector receipt date. Offline or delayed reports may move activity into a later day.</p><div id="daily" class="scroll"></div></section>
+<section><h2>Download snapshots</h2><p class="muted">Downloads measure distribution activity, not unique users. GitHub build assets may be fetched by packaging jobs. Channels are shown separately.</p><div id="downloads" class="scroll"></div></section>
+<p class="muted">Week-4 retention: installations with a successful execution 28–35 days after their first observed successful execution; only cohorts with the full 35-day window are eligible. Installation IDs must remain stable. Missing telemetry, blocked networks and opt-out users are outside this view.</p>
+<script src="/dashboard.js"></script>
+</html>

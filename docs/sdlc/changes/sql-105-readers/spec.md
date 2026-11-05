@@ -15,7 +15,9 @@
 - Finish/release/cancel/connection close stop renewal and remove membership.
   Connection open and refresh retry collection after abandoned leases expire.
   Multiple collectors release a generation exactly once. Cleanup errors retain
-  durable retirement metadata for retry.
+  durable retirement metadata for retry. Connection-open collection is best
+  effort and uses existing metadata-read permissions; a restricted reader must
+  still connect when only a more privileged client can finish collection.
 - Protect normal indexed/range/parallel scans and retained source capture.
   A lost lease fails explicitly with SQLSTATE 55000. Destructive DDL, server
   failure, and mixed-version clients are outside the refresh-only guarantee.

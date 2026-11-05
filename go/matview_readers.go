@@ -207,20 +207,16 @@ return 1
 `)
 
 func (s *store) collectMatviews(ctx context.Context) error {
-	var cursor uint64
-	for {
-		entries, next, err := s.redis(ctx).HScan(ctx, matviewRetiredKey, cursor, "*", 100).Result()
-		if err != nil {
+	// Use the same metadata-read permission as pending rename recovery;
+	// ordinary connections must not require an additional HSCAN grant.
+	entries, err := s.redis(ctx).HGetAll(ctx, matviewRetiredKey).Result()
+	if err != nil {
+		return err
+	}
+	for prefix := range entries {
+		if err = s.collectMatviewGeneration(ctx, prefix); err != nil {
 			return err
 		}
-		for i := 0; i < len(entries); i += 2 {
-			if err = s.collectMatviewGeneration(ctx, entries[i]); err != nil {
-				return err
-			}
-		}
-		cursor = next
-		if cursor == 0 {
-			return nil
-		}
 	}
+	return nil
 }

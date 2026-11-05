@@ -10,6 +10,7 @@ Ordinary SQL has its own supported subset and remains autocommit-only.
 | Operation/source | Live partitions | Retained partitions | Ordinary SQL |
 |---|---|---|---|
 | Managed permanent table, row-local projection/filter | Restricted deterministic allowlist | Bounded evaluator | Supported |
+| OCTET_LENGTH, BIT_LENGTH (VARCHAR/VARBINARY) | Supported, constant work/output per value | Supported | Supported |
 | SUBSTR, LEFT, RIGHT | Rejected | Supported | Supported |
 | Pattern/regex SUBSTRING | Rejected | Rejected | Supported forms |
 | ORDER BY, LIMIT/OFFSET | Rejected | Once over complete captured input | Once per execution |
@@ -57,3 +58,15 @@ Future expansions must retain bounded admission, fixed expiry, explicit revoke,
 independently authenticated readers and immutable replay after producer closure.
 Existing failure/lifecycle suites remain necessary; this expansion does not
 establish new deployment, concurrent snapshot or packaged-release evidence.
+
+## Byte-length expansion (#304)
+
+OCTET_LENGTH and BIT_LENGTH accept one VARCHAR or VARBINARY scalar (or NULL),
+return BIGINT byte/bit counts, and share the ordinary evaluator across live and
+retained execution. UTF-8 characters count their encoded bytes, embedded NULs
+count, empty inputs return zero and NULL returns NULL. Other SQL types, including
+fixed CHAR, and wrong arity reject during binding. There is no output expansion,
+new retained per-row state or string copy: evaluation inspects the existing byte
+length. Source fetch/batch admission and retained work/allocation/output limits
+remain in force. Global operations still run once before retained chunking;
+regex, recursion, generators, lateral and volatile functions retain their limits.

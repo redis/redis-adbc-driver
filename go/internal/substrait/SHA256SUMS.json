@@ -1,0 +1,11 @@
+{
+  "source/buf.yaml": "f8173130e86e50aa438f9de698d4b205e116729d6fcf1aaf41c6c91e53485d46",
+  "source/substrait/algebra.proto": "c870a2298f837a457076bedf6ca9943c6a74652c63014f708b5ee9cc241a1551",
+  "source/substrait/extended_expression.proto": "e58c92a5cf51e152f91d72173f63c4dae0ea08e6968e5620883e8fccce2e2b25",
+  "source/substrait/extensions/extensions.proto": "0eea193ab1a0afcd008fa636fbd325b43d3faf068e9c646533d4a468dc8537f2",
+  "source/substrait/plan.proto": "19a62221a66ab31243eb7d5b86c5904b984ce20b9e6b1cb2d82bd024ddf5432e",
+  "source/substrait/type.proto": "e947854475631d08ff711e6416a3bed7d7c378575539163d0bea5f768873179e",
+  "extensions/functions_boolean.yaml": "3ea451c2a77bd96b2f628e8ca4049564c43194274c8f3ec3009b4d9adcbcd0f2",
+  "extensions/functions_comparison.yaml": "8399d8fec7e82ba54d9955eb17c0577ab45b6713dcb9dff5ce16bf58536e3bbb",
+  "descriptor.pb": "499a9bc19789c7173a8300786ea2a5590f83145adcdd6cb9e10f0b0ef8ebb6b0"
+}

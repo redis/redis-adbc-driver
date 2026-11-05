@@ -2,7 +2,8 @@
 
 Retained mode extends `ExecutePartitions` with global SQL and immutable Arrow
 replay. It runs a bounded coordinator query once, stores its completed final
-output, and returns version-2 descriptors over contiguous chunk ordinals.
+output, and returns version-2 canonical or version-4 explicit-layout descriptors
+over contiguous chunk ordinals.
 `ExecuteQuery` remains the ordinary SQL API. Live row-range partitions remain the
 default and are useful when workers should read current source rows without
 storing a result. This implementation addresses the runtime work in [#166](https://github.com/redis/redis-adbc-driver/issues/166), [#167](https://github.com/redis/redis-adbc-driver/issues/167)
@@ -193,3 +194,13 @@ SQL and stable retries, not an inherent speedup over ExecuteQuery/live scans.
 See [implementation evidence](sdlc/changes/retained-execution-budget/evidence.md)
 and [deployment validation](sdlc/changes/retained-deployment-validation/evidence.md)
 for tested revisions, compatibility coverage and scoped measurements.
+
+### Explicit layouts (#302)
+
+Revision 4 descriptors select non-dictionary Arrow result layouts; revision 2
+canonical descriptors remain readable. The coordinator validates each converted
+batch before publishing. Stored chunks retain canonical restricted IPC and its
+schema digest; readers independently validate and apply the selected layouts.
+Closing the producer or truncating its source does not change committed replay.
+Dictionary layouts reject before publication. Existing expiry, revocation,
+namespace authentication and quotas apply to both descriptor revisions.

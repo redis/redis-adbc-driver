@@ -50,6 +50,7 @@ const (
 // endpoint or credentials, allowing different cluster seeds/proxy addresses.
 type partitionID struct {
 	Version int              `json:"version"`
+	Layouts resultLayouts    `json:"result_layouts,omitempty"`
 	Query   string           `json:"query"`
 	Schema  string           `json:"schema"`
 	Table   string           `json:"table"`
@@ -200,6 +201,10 @@ func (s *statementImpl) executePartitions(ctx context.Context) (*arrow.Schema, a
 	if err != nil {
 		return fail(err)
 	}
+	schema, err := s.resultLayouts.schema(resultSchema(plan.columns()))
+	if err != nil {
+		return fail(err)
+	}
 	last, err := e.store.rowSequence(ctx, plan.meta)
 	if errors.Is(err, goredis.Nil) {
 		last, err = 0, nil // a new table has no allocated IDs
@@ -233,6 +238,10 @@ func (s *statementImpl) executePartitions(ctx context.Context) (*arrow.Schema, a
 	parts := adbc.Partitions{NumPartitions: uint64(len(spans)), PartitionIDs: make([][]byte, len(spans))}
 	d := partitionID{Version: 1, Query: s.query, Schema: plan.meta.Schema, Table: plan.meta.Name,
 		ScanCap: s.partitionScanCap, Params: encoded, Target: partitionTarget(plan.meta), Zone: s.conn.sess.value("timezone").text}
+	if len(s.resultLayouts) > 0 {
+		d.Version = 3
+		d.Layouts = maps.Clone(s.resultLayouts)
+	}
 	for i, span := range spans {
 		d.Lo, d.Hi = span.lo, span.hi
 		parts.PartitionIDs[i], err = json.Marshal(d)
@@ -240,7 +249,7 @@ func (s *statementImpl) executePartitions(ctx context.Context) (*arrow.Schema, a
 			return fail(errorf(adbc.StatusInvalidArgument, "partition descriptor is too large"))
 		}
 	}
-	return resultSchema(plan.columns()), parts, -1, nil
+	return schema, parts, -1, nil
 }
 
 func decodePartition(data []byte) (partitionID, error) {
@@ -259,8 +268,14 @@ func decodePartition(data []byte) (partitionID, error) {
 	if err := dec.Decode(new(any)); err != io.EOF {
 		return bad()
 	}
-	if d.ScanCap < 0 || d.ScanCap > 1<<31 || d.Version != 1 || d.Query == "" || d.Schema == "" || d.Table == "" || len(d.Target) != 64 || d.Zone == "" ||
+	if d.ScanCap < 0 || d.ScanCap > 1<<31 || (d.Version != 1 && d.Version != 3) || d.Query == "" || d.Schema == "" || d.Table == "" || len(d.Target) != 64 || d.Zone == "" ||
 		d.Lo < 1 || d.Hi >= exactDoubleLimit || d.Hi < d.Lo && (d.Lo != 1 || d.Hi != 0) {
+		return bad()
+	}
+	if d.Version == 1 && len(d.Layouts) > 0 || d.Version == 3 && len(d.Layouts) == 0 {
+		return bad()
+	}
+	if err := d.Layouts.partitionCompatible(); err != nil {
 		return bad()
 	}
 	if _, _, err := decodePartitionParams(d.Params); err != nil {
@@ -270,12 +285,13 @@ func decodePartition(data []byte) (partitionID, error) {
 }
 
 func (c *connectionImpl) ReadPartition(ctx context.Context, data []byte) (result array.RecordReader, resultErr error) {
+	layoutCtx := ctx
 	if c.store == nil || c.store.isClosed() {
 		return nil, errConnClosed
 	}
 	t := c.timeouts
 	var transportVersion struct{ Version int }
-	if len(data) <= maxPartitionBytes && json.Unmarshal(data, &transportVersion) == nil && transportVersion.Version == 2 {
+	if len(data) <= maxPartitionBytes && json.Unmarshal(data, &transportVersion) == nil && (transportVersion.Version == 2 || transportVersion.Version == 4) {
 		if t.read <= 0 || t.read > 30*time.Second {
 			t.read = 30 * time.Second
 		}
@@ -297,7 +313,7 @@ func (c *connectionImpl) ReadPartition(ctx context.Context, data []byte) (result
 		var version struct {
 			Version int `json:"version"`
 		}
-		if json.Unmarshal(data, &version) == nil && version.Version == 2 {
+		if json.Unmarshal(data, &version) == nil && (version.Version == 2 || version.Version == 4) {
 			descriptor, err := decodeRetainedPartition(data)
 			if err != nil {
 				return nil, err
@@ -321,7 +337,7 @@ func (c *connectionImpl) ReadPartition(ctx context.Context, data []byte) (result
 				reader.Release()
 				return nil, errConnClosed
 			}
-			return reader, nil
+			return descriptor.Layouts.wrap(layoutCtx, c.Alloc, reader)
 		}
 	}
 	if c.readerOnly {
@@ -331,6 +347,11 @@ func (c *connectionImpl) ReadPartition(ctx context.Context, data []byte) (result
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		if resultErr == nil && result != nil {
+			result, resultErr = d.Layouts.wrap(layoutCtx, c.Alloc, result)
+		}
+	}()
 	sel, err := partitionSelect(d.Query)
 	if err != nil {
 		return nil, err
@@ -355,6 +376,9 @@ func (c *connectionImpl) ReadPartition(ctx context.Context, data []byte) (result
 	e.tz, e.tzKnown = zone.zone, true
 	plan, err := e.partitionPlan(ctx, sel)
 	if err != nil {
+		return nil, err
+	}
+	if _, err := d.Layouts.schema(resultSchema(plan.columns())); err != nil {
 		return nil, err
 	}
 	if partitionTarget(plan.meta) != d.Target {

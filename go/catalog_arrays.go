@@ -4,10 +4,10 @@
 package redis
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
 	"slices"
-	"sort"
 	"strings"
 )
 
@@ -264,17 +264,19 @@ func expandedOrderKeys(env *evalEnv, p *selectPlan, rows [][]Value) ([][]Value, 
 	}
 	return keys, nil
 }
-func sortExpandedRows(rows [][]Value, keys [][]Value, order []planOrder) [][]Value {
+func sortExpandedRows(ctx context.Context, rows [][]Value, keys [][]Value, order []planOrder) ([][]Value, error) {
 	idx := make([]int, len(rows))
 	for i := range idx {
 		idx[i] = i
 	}
-	sort.SliceStable(idx, func(i, j int) bool { return lessKeys(keys[idx[i]], keys[idx[j]], order) })
+	if err := sortSlice(ctx, idx, func(i, j int) bool { return lessKeys(keys[idx[i]], keys[idx[j]], order) }); err != nil {
+		return nil, err
+	}
 	out := make([][]Value, len(rows))
 	for i, j := range idx {
 		out[i] = rows[j]
 	}
-	return out
+	return out, nil
 }
 
 type arrayAgg struct{ jsonAgg }
@@ -288,7 +290,9 @@ func (a *arrayAgg) result(env *evalEnv, t ColType) (Value, error) {
 		for i, o := range a.fn.OrderBy {
 			order[i] = planOrder{desc: o.Desc, nullsFirst: o.Nulls == NullsFirst, nullsLast: o.Nulls == NullsLast}
 		}
-		sort.SliceStable(a.rows, func(i, j int) bool { return lessKeys(a.rows[i].keys, a.rows[j].keys, order) })
+		if err := sortSlice(env.ctx, a.rows, func(i, j int) bool { return lessKeys(a.rows[i].keys, a.rows[j].keys, order) }); err != nil {
+			return Value{}, err
+		}
 	}
 	v := make([]Value, len(a.rows))
 	for i, r := range a.rows {

@@ -287,6 +287,39 @@ func TestMatviewRetirementOpenRecovery(t *testing.T) {
 	other.expectRows("SELECT count(*) FROM it_mv_open_recovery", "12000")
 }
 
+func TestACLMatviewRetirementOpenRecovery(t *testing.T) {
+	a := newACLHarness(t)
+	a.exec("DROP MATERIALIZED VIEW IF EXISTS it_mv_acl_recovery")
+	t.Cleanup(func() { a.exec("DROP MATERIALIZED VIEW IF EXISTS it_mv_acl_recovery") })
+	a.exec("CREATE MATERIALIZED VIEW it_mv_acl_recovery AS SELECT n AS id FROM generate_series(1,12000) s(n)")
+	r, _ := a.openStream(a.ctx, a.conn, "SELECT id FROM it_mv_acl_recovery", nil, map[string]string{OptionIntStreamBatchRows: "100"})
+	defer r.Release()
+	old, err := (&store{client: a.raw}).getTable(a.ctx, defaultSchema, "it_mv_acl_recovery")
+	if err != nil {
+		t.Fatal(err)
+	}
+	other := newSQLHarness(t)
+	other.exec("REFRESH MATERIALIZED VIEW CONCURRENTLY it_mv_acl_recovery")
+	l := r.(*streamReader).transport.matviews.lease
+	l.release()
+	if err := a.raw.Del(a.ctx, rekeyAliveKey(l.owner)).Err(); err != nil {
+		t.Fatal(err)
+	}
+	// This ordinary read-only role cannot enumerate reader memberships or
+	// delete retired indexes. Cleanup must leave durable work for an admin
+	// without preventing queries against the current catalog.
+	a.user("it_acl_mv_recovery", append(a.readOnlyCommands(), "~adbc:*", "~public:*")...)
+	reader := a.connect("it_acl_mv_recovery", nil)
+	reader.expectRows("SELECT 42", "42")
+	if !a.raw.HExists(a.ctx, matviewRetiredKey, old.prefix()).Val() {
+		t.Fatal("restricted Open lost pending retirement")
+	}
+	_ = newSQLHarness(t)
+	if a.raw.HExists(a.ctx, matviewRetiredKey, old.prefix()).Val() {
+		t.Fatal("authorized Open did not retry retirement")
+	}
+}
+
 func TestMatviewReadersRacingPublication(t *testing.T) {
 	h := newSQLHarness(t)
 	h.exec("DROP MATERIALIZED VIEW IF EXISTS it_mv_race")

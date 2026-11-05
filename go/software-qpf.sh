@@ -26,9 +26,11 @@ software_qpf_4x_ready() {
 
 software_qpf_4x() {
     if ! software_qpf_4x_ready; then
+        # Redis 8.8 can enable 4x QPF without changing cmp/5 routing defaults.
+        # Request the same effective settings that the readiness gate requires.
         software_qpf_4x_request() {
             call -f -o /dev/null -X PUT "$api/bdbs/$uid" \
-                -d '{"query_performance_factor":{"active":true,"scaling_factor":4}}'
+                -d '{"query_performance_factor":{"active":true,"scaling_factor":4},"sched_policy":"mnp","conns":32}'
         }
         wait_for '4x QPF configuration acceptance' software_qpf_4x_request
     fi

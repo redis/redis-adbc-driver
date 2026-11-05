@@ -15,3 +15,9 @@
 5. Submit a draft PR with evidence and leave #105 open for the reader guarantee.
    Merging and closing the issue are outside this submission. dbt stays in its
    own linked issues.
+
+2026-11-05 update for PR #289: merge current main, preserve result-layout
+selection and background-worker joins while retaining reader leases, reproduce
+the restricted-ACL startup failure, and cover deferred cleanup followed by an
+authorized retry. Verify unit tests, ACL compatibility, reader lifecycle races,
+the full Software suite and the native library build.

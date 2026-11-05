@@ -84,13 +84,6 @@ func (s *statementImpl) executeIPC(ctx context.Context) (int64, error) {
 		}
 		return n, err
 	}
-	if s.ipc.get(OptionStringIPCFormat) == "file" {
-		for _, layout := range s.resultLayouts {
-			if layout == "dictionary" {
-				return -1, errorf(adbc.StatusNotImplemented, "per-batch dictionary output requires IPC stream format")
-			}
-		}
-	}
 	if s.ingest.TableName != "" {
 		return -1, errorf(adbc.StatusInvalidState, "IPC output requires a SELECT, not an ingest target")
 	}
@@ -130,6 +123,20 @@ func writeIPCOutput(ctx context.Context, path, format string, mem memory.Allocat
 	rdr, err := query()
 	if err != nil {
 		return -1, err
+	}
+	if format == "file" {
+		hasDictionary := false
+		for _, f := range rdr.Schema().Fields() {
+			if f.Type.ID() == arrow.DICTIONARY {
+				hasDictionary = true
+			}
+		}
+		if hasDictionary {
+			rdr, err = prepareDictionaryFile(ctx, mem, rdr)
+			if err != nil {
+				return -1, err
+			}
+		}
 	}
 	defer rdr.Release()
 	var writer interface {

@@ -48,7 +48,7 @@ func (t ColType) namedRecord() bool {
 // coercion cannot observe a field-name/type/nullability mismatch. Scalar and
 // scalar-array append coercions keep their existing SQL behavior.
 func storedRecordAppendCompatible(from, to ColType) bool {
-	if from.namedRecord() || to.namedRecord() {
+	if from.namedRecord() || to.namedRecord() || from.taggedNested() || to.taggedNested() {
 		return from == to
 	}
 	if from.Kind == KindArray && to.Kind == KindArray {
@@ -58,7 +58,7 @@ func storedRecordAppendCompatible(from, to ColType) bool {
 		for t.Kind == KindArray {
 			t = t.element()
 		}
-		return t.namedRecord()
+		return t.namedRecord() || t.taggedNested()
 	}
 	return !contains(from) && !contains(to)
 }
@@ -85,7 +85,7 @@ type storedComposite struct {
 }
 
 func compositeStorage(t ColType) bool {
-	return t.namedRecord() || t.Kind == KindArray && (t.element().Kind == KindArray || t.element().namedRecord())
+	return t.namedRecord() || t.Kind == KindArray && (t.element().Kind == KindArray || t.element().namedRecord() || t.element().taggedNested())
 }
 func encodeComposite(v Value) string {
 	out := storedComposite{Version: 1, Fields: make([]*[]byte, len(v.fields()))}

@@ -173,3 +173,31 @@ func TestExtensionMalformedMetadata(t *testing.T) {
 		}
 	}
 }
+
+func TestNestedExtensionBoundsAndUnknownNames(t *testing.T) {
+	for _, kind := range []string{"unknown", "storage", "metadata", "depth"} {
+		field := arrow.Field{Name: "v", Type: arrow.BinaryTypes.String, Metadata: arrow.NewMetadata([]string{"ARROW:extension:name"}, []string{"arrow.json"})}
+		switch kind {
+		case "unknown":
+			field.Metadata = arrow.NewMetadata([]string{"ARROW:extension:name"}, []string{"custom.unknown"})
+		case "storage":
+			field.Type = arrow.PrimitiveTypes.Int64
+		case "metadata":
+			field.Metadata = arrow.NewMetadata([]string{"ARROW:extension:name", "ARROW:extension:name"}, []string{"arrow.json", "arrow.json"})
+		}
+		depth := 2
+		if kind == "depth" {
+			depth = 18
+		}
+		for range depth {
+			field = arrow.Field{Name: "nested", Type: arrow.StructOf(field)}
+		}
+		source, _ := array.NewRecordReader(arrow.NewSchema([]arrow.Field{field}, nil), nil)
+		r, err := extensionStorageReader(source)
+		if err == nil {
+			r.Release()
+			t.Fatal("unsafe nested semantics accepted", kind)
+		}
+		source.Release()
+	}
+}

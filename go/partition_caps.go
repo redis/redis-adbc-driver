@@ -92,6 +92,7 @@ func (s *store) checkRangeReadiness(ctx context.Context, index string) error {
 			}
 			return wrapRedis(err, "checking bounded scan index readiness failed")
 		}
+		usageIndexSize(ctx, index, node.c, reply)
 		return checkRangeReadinessReply(reply)
 	}
 	if cc, ok := s.redis(ctx).(*goredis.ClusterClient); ok {

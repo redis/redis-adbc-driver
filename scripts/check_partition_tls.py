@@ -67,6 +67,17 @@ def verified_uri(value):
     return uri
 
 
+def managed_config_get_blocked(client):
+    """Managed proxies may filter the reply or explicitly deny CONFIG GET."""
+    try:
+        result = client.config_get('search-max-aggregate-results')
+    except redis.exceptions.NoPermissionError:
+        return 'denied'
+    if result != {}:
+        raise AssertionError('worker could read managed Search configuration')
+    return 'filtered_empty'
+
+
 def worker_failure_summary(result):
     """Fixed diagnostic labels only; child errors may contain private data."""
     markers = {
@@ -350,6 +361,9 @@ def main(argv=None, cloud_principals_factory=None):
                 direct, direct_schema = cur.adbc_execute_partitions('SELECT * FROM ' + qualified + ' WHERE __rowid IN(1,1,3,1100)')
                 cur.adbc_statement.set_options(**{'adbc.redis.partition_count': 1})
                 cancellable, _ = cur.adbc_execute_partitions('SELECT * FROM ' + qualified)
+                cur.adbc_statement.set_options(**{'adbc.redis.result_layouts': json.dumps({'label':'large_string','payload':'large_binary','amount':'decimal64'})})
+                layout_parts, layout_schema = cur.adbc_execute_partitions('SELECT * FROM ' + qualified)
+
         if args.cluster_mode == 'true' or (args.cluster_mode == 'auto' and cluster_enabled == 1):
             primary_clients = (dict(zip(sorted(principals.nodes), principals.clients))
                                if args.oss_cluster_fixture else None)
@@ -366,6 +380,10 @@ def main(argv=None, cloud_principals_factory=None):
         actual = pa.concat_tables([read(part) for part in broad]).sort_by('id')
         assert actual.schema.equals(broad_schema) and actual.equals(expected)
         check('restricted_cross_process_search_full_values_schema')
+        layout_actual = pa.concat_tables([read(part) for part in layout_parts]).sort_by('id')
+        assert layout_actual.schema.equals(layout_schema) and layout_actual.equals(expected.cast(layout_schema))
+        check('restricted_cross_process_explicit_layout_values_and_schema')
+
         actual = pa.concat_tables([read(part) for part in direct]).sort_by('id')
         assert actual.schema.equals(direct_schema) and actual.equals(data.take(pa.array([0, 1099])))
         check('restricted_cross_process_direct_hash_duplicates_deleted')
@@ -418,10 +436,11 @@ def main(argv=None, cloud_principals_factory=None):
                 commands = [('CONFIG', 'SET', 'search-max-aggregate-results', '137'),
                             ('HSET', schema + ':forbidden', 'id', '1')]
                 if args.software_fixture or args.cloud_fixture:
-                    # The managed proxy filters unauthorized CONFIG GET to an empty reply
-                    # instead of NOPERM. The worker cannot discover or raise the cap.
-                    assert worker_control.config_get('search-max-aggregate-results') == {}
-                    check('cloud_proxy_config_get_filtered_empty' if args.cloud_fixture else 'software_proxy_config_get_filtered_empty')
+                    # Older proxies filter the reply; Redis 8.8 returns NOPERM.
+                    # Both block discovery; a nonempty reply still fails.
+                    outcome = managed_config_get_blocked(worker_control)
+                    deployment = 'cloud' if args.cloud_fixture else 'software'
+                    check(f'{deployment}_proxy_config_get_{outcome}')
                 else:
                     commands.insert(0, ('CONFIG', 'GET', '*'))
                 for command in commands:

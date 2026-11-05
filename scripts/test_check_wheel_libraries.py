@@ -20,7 +20,7 @@ class WheelLibraryTests(unittest.TestCase):
         for target, magic, offset, fmt, machine in (
             ("manylinux_2_28_x86_64", b"\x7fELF\x02\x01", 18, "<H", 62),
             ("manylinux_2_28_aarch64", b"\x7fELF\x02\x01", 18, "<H", 183),
-            ("macosx_12_0_arm64", b"\xcf\xfa\xed\xfe", 4, "<I", 0x0100000C),
+            ("macosx_15_0_arm64", b"\xcf\xfa\xed\xfe", 4, "<I", 0x0100000C),
         ):
             with self.subTest(target=target):
                 content = bytearray(64)
@@ -33,7 +33,7 @@ class WheelLibraryTests(unittest.TestCase):
 
     def test_truncated_library(self):
         with self.assertRaisesRegex(ValueError, "truncated"):
-            self.check("macosx_12_0_arm64", b"bad")
+            self.check("macosx_15_0_arm64", b"bad")
 
     def test_wheel_data_install_schemes(self):
         content = bytearray(64)
@@ -41,7 +41,7 @@ class WheelLibraryTests(unittest.TestCase):
         struct.pack_into("<I", content, 4, 0x0100000C)
         for scheme in ("purelib", "platlib"):
             with self.subTest(scheme=scheme):
-                self.check("macosx_12_0_arm64", content,
+                self.check("macosx_15_0_arm64", content,
                     [f"adbc_driver_redis-0.1.0.data/{scheme}/adbc_driver_redis/libadbc_driver_redis.so"])
 
     def test_ambiguous_or_unrelated_library_locations(self):
@@ -52,7 +52,7 @@ class WheelLibraryTests(unittest.TestCase):
              "adbc_driver_redis-0.1.0.data/purelib/adbc_driver_redis/libadbc_driver_redis.so"],
         ):
             with self.subTest(locations=locations), self.assertRaisesRegex(ValueError, "exactly one"):
-                self.check("macosx_12_0_arm64", bytes(64), locations)
+                self.check("macosx_15_0_arm64", bytes(64), locations)
 
 
 if __name__ == "__main__":

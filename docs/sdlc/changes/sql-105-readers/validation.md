@@ -38,3 +38,42 @@ hosted CI result is asserted by this local validation record. #105 stays open.
 
 dbt adapter work is tracked separately in redis/redis-dbt-adapter#38 and #39.
 No complete dbt run, release or cross-platform validation is claimed here.
+
+## PR #289 repair, 2026-11-05
+
+Pulled head `715d7a7` and merged main `a9f3e41`. Resolved conflicts in
+`partitions.go` by preserving result-layout selection and the leased sequence
+bound, and in `transport.go` by joining background workers before releasing
+generation leases.
+
+The failed hosted runs (`41770965525`, `41770965528`) reported restricted
+connections failing during Open because retirement recovery required HSCAN.
+Reproduced both `TestACLDriverUser` and `TestACLReadOnlyUser` failing with that
+NOPERM error on an isolated Redis OSS 8.6.2 authenticated TLS fixture.
+Retirement enumeration now uses the existing HGETALL metadata permission.
+Open treats garbage collection as best effort, retaining retirement records
+for an authorized retry. Added `TestACLMatviewRetirementOpenRecovery` to verify
+that restricted Open succeeds with abandoned work and an authorized Open later
+collects it. Existing permission assertions were preserved.
+
+Validation of the repaired code on macOS arm64:
+
+- `env -u REDIS_URI go test -count=1 -p 1 ./...`: all packages passed;
+  integration tests skip without an endpoint.
+- TLS OSS focused ACL, reader lifecycle, partition-reader and statistics
+  permission tests: **25 top-level tests passed, zero skips/failures**.
+- TLS OSS focused reader-generation and SQL lifecycle tests with `-race`:
+  **12 top-level tests passed, zero skips/failures**, no race reports.
+- Full `software-setup.sh --exec go test -count=1 -p 1 -json ./...` on a
+  dedicated Redis Software 8.8.0 fixture with three shards, TLS, Search,
+  noeviction and management-verified active 4x QPF (six Search workers, mnp
+  routing, 32 connections): **905 top-level tests passed, 47 skipped, zero
+  failures** across all packages. The driver package took 253.079 seconds.
+  Skips cover Software protocol ACL/command introspection restrictions,
+  opt-in profiles and external/environment probes. The new restricted-ACL
+  regression passed on OSS and skips on Software, which blocks ACL SETUSER.
+- `make -C go build`: native shared library passed.
+- `git diff --check` and change-record relative links passed.
+
+These are local results; hosted CI was not rerun and no release, dbt or
+cross-platform result is claimed. The PR remains a draft and #105 stays open.

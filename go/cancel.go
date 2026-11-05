@@ -26,8 +26,8 @@ import (
 // the work the driver does in memory (filtering, joins, aggregates, window
 // functions, sorts, generate_series) checks the context in its row loops,
 // with cancelled, at every row. That costs one atomic load (cancelCtx.Err)
-// per row, next to the map a row is. A sort under way can't be stopped:
-// the loops check before and after it.
+// per row, next to the map a row is. Query sorts also check every 256
+// comparisons and abort before publishing their private working results.
 
 // cancelEvery is how many values the generate_series loops make between
 // checks of the context, as they do little else.

@@ -25,6 +25,10 @@ concurrency:
   group: pypi-publish
   cancel-in-progress: false
 
+# Validation traffic must not inflate product usage metrics.
+env:
+  REDIS_ADBC_TELEMETRY_DISABLED: "true"
+
 jobs:
   resolve:
     if: >-

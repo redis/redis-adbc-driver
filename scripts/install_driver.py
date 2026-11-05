@@ -39,8 +39,8 @@ def host_target():
             raise ValueError("Linux releases require glibc 2.28+; musl is unsupported")
         return f"linux-{arch}", f"linux_{arch}", "so"
     if sys.platform == "darwin" and arch == "arm64":
-        if int(platform.mac_ver()[0].split(".")[0]) < 12:
-            raise ValueError("macOS releases require macOS 12+")
+        if int(platform.mac_ver()[0].split(".")[0]) < 15:
+            raise ValueError("macOS releases require macOS 15+")
         return "darwin-arm64", "macos_arm64", "dylib"
     raise ValueError("Native releases support Linux amd64/arm64 and macOS arm64")
 

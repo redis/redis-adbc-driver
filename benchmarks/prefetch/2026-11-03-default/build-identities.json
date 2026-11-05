@@ -1,0 +1,32 @@
+{
+  "runtime_source_commit": "158b8c820c476a7ae116fb677c6f1fffa4722b98",
+  "go_version": "go version go1.27.3 linux/amd64",
+  "tooling_commit": "c21a8f3",
+  "go_harness_source_sha256": "0b464b04c3e504859b3b01811684db6c0acf548b0ba94e629decce423c165992",
+  "runtime_go_tree_sha256": {
+    "baseline": "6cb7435096d73a289594a0a6c07a8c77213e066c81391eff4f38989c766d0902",
+    "candidate": "6cb7435096d73a289594a0a6c07a8c77213e066c81391eff4f38989c766d0902"
+  },
+  "go_binary_sha256": {
+    "baseline": "4f197504539fd4e0f2025411042535769caf5dd21766d8b4b2dccfe2386fdf34",
+    "candidate": "beb8bf23e60dd85d2eabf91f4bbd0d945742edc791be1cbd98852fdd77f7d119"
+  },
+  "go_build_flags": {
+    "baseline": "-ldflags=-s -w",
+    "candidate": "-tags=scanprefetch -ldflags=-s -w"
+  },
+  "native_c_library_sha256": {
+    "baseline": "80205a648851507f34b39b4a81aef4c1f2a614de0238f483f647af8cadf56a45",
+    "candidate": "542816f4e194d0ba8c37ad71d11f2c161044bb0f1c267a47b2c48a321c8ce6c0"
+  },
+  "native_c_build_flags": "-buildmode=c-shared -tags driverlib[,scanprefetch] -ldflags=-s -w -X github.com/adbc-drivers/driverbase-go/driverbase.infoDriverVersion=v0.1.0",
+  "orchestrator_source_sha256": "8ebd90d1d1cb5f2e1737be776a506bd9c65aa5b79a374e56c137ad352daa42ce",
+  "c_shared_harness_source_sha256": "46eeef16673dd982df3e03dad57ec3341c562a14083dc50c1cdf535af6b06a3a",
+  "python_dependencies": {
+    "pyarrow": "26.0.0",
+    "adbc-driver-manager": "1.12.0",
+    "redis": "6.4.0",
+    "psutil": "7.2.2",
+    "duckdb": "2.0.0"
+  }
+}

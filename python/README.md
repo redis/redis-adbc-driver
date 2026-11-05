@@ -7,7 +7,7 @@ benefit from SQL and Apache Arrow, including the data-tool integrations describe
 
 SQL queries and Arrow bulk ingestion over Redis through the Arrow Database
 Connectivity (ADBC) API. This community driver bundles its native library in
-platform wheels for Linux x86_64/arm64 (glibc 2.28+) and macOS arm64 (macOS 12+).
+platform wheels for Linux x86_64/arm64 (glibc 2.28+) and macOS arm64 (macOS 15+).
 Use Python 3.14 for the current integrations. Python 3.12+ remains installable
 for the separate Superset compatibility environment. Windows and macOS Intel wheels are not provided.
 
@@ -234,3 +234,10 @@ for results, proposed upstream patches and remaining dependency work.
 
 Arrow IPC stream/file serialization is available inside the native driver through
 standard ADBC statement options. See the [IPC contract and example](https://github.com/redis/redis-adbc-driver/blob/main/docs/arrow-ipc.md).
+
+Optional Arrow C Device interchange is available through
+`adbc_driver_redis.device.DeviceAdapterV1`. It stages nullable numeric,
+boolean and UTF-8/binary arrays through host memory and uses ordinary public
+ADBC manager binding. See the [device adapter contract and example](https://github.com/redis/redis-adbc-driver/blob/main/docs/gpu-execution.md#python-and-driver-manager-adapter-v1)
+for explicit device IDs, ownership, cancellation, supported versions and CUDA
+availability. Importing CPU clients does not require CUDA Python packages.

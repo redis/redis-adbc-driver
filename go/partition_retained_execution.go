@@ -150,6 +150,9 @@ func (r *retainedExecution) table(ctx context.Context, schema, name string) (*ta
 	return snapshot, nil
 }
 func retainedType(t ColType, depth int) error {
+	if t.taggedNested() {
+		return errorf(adbc.StatusNotImplemented, "Map/Union retained partitions are not supported")
+	}
 	if t.Alias != "" {
 		return errorf(adbc.StatusNotImplemented, "catalog/OID aliases require separate retained admission")
 	}

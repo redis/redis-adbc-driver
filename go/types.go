@@ -48,6 +48,8 @@ const (
 	// (stored_struct.go).
 	KindRecord
 	KindArray
+	KindMap
+	KindUnion
 )
 
 var kindNames = map[Kind]string{
@@ -68,6 +70,8 @@ var kindNames = map[Kind]string{
 	KindTimeTZ:    "timetz",
 	KindRecord:    "record",
 	KindArray:     "array",
+	KindMap:       "map",
+	KindUnion:     "union",
 }
 
 func (k Kind) String() string { return kindNames[k] }
@@ -114,18 +118,19 @@ type ColType struct {
 }
 
 type colTypeJSON struct {
-	Fields    []structField `json:"fields,omitempty"`
-	Element   *ColType      `json:"element,omitempty"`
-	Kind      string        `json:"kind"`
-	Unit      string        `json:"unit,omitempty"`
-	TZ        string        `json:"tz,omitempty"`
-	Precision int32         `json:"precision,omitempty"`
-	Scale     int32         `json:"scale,omitempty"`
-	Length    int32         `json:"length,omitempty"`
-	Fixed     bool          `json:"fixed,omitempty"`
-	Text      bool          `json:"text,omitempty"`
-	Alias     string        `json:"alias,omitempty"`
-	Collation string        `json:"collation,omitempty"`
+	Codes     []arrow.UnionTypeCode `json:"codes,omitempty"`
+	Fields    []structField         `json:"fields,omitempty"`
+	Element   *ColType              `json:"element,omitempty"`
+	Kind      string                `json:"kind"`
+	Unit      string                `json:"unit,omitempty"`
+	TZ        string                `json:"tz,omitempty"`
+	Precision int32                 `json:"precision,omitempty"`
+	Scale     int32                 `json:"scale,omitempty"`
+	Length    int32                 `json:"length,omitempty"`
+	Fixed     bool                  `json:"fixed,omitempty"`
+	Text      bool                  `json:"text,omitempty"`
+	Alias     string                `json:"alias,omitempty"`
+	Collation string                `json:"collation,omitempty"`
 }
 
 var unitNames = map[arrow.TimeUnit]string{
@@ -137,7 +142,8 @@ var unitNames = map[arrow.TimeUnit]string{
 
 func (t ColType) MarshalJSON() ([]byte, error) {
 	j := colTypeJSON{Kind: t.Kind.String()}
-	if t.namedRecord() {
+	if t.namedRecord() || t.taggedNested() {
+		j.Codes = t.Rec.codes
 		j.Fields = t.Rec.named
 	}
 	if t.Kind == KindArray {
@@ -164,6 +170,9 @@ func (t ColType) MarshalJSON() ([]byte, error) {
 }
 
 func (t *ColType) UnmarshalJSON(data []byte) error {
+	if err := checkNestedMetadataJSON(data); err != nil {
+		return err
+	}
 	var j colTypeJSON
 	if err := json.Unmarshal(data, &j); err != nil {
 		return err
@@ -198,6 +207,16 @@ func (t *ColType) UnmarshalJSON(data []byte) error {
 			return fmt.Errorf("invalid array element type")
 		}
 		t.Rec = arrayOf(*j.Element).Rec
+	}
+	if t.taggedNested() {
+		if j.Element != nil || j.Alias != "" || j.Collation != "" || j.Unit != "" || j.TZ != "" || j.Precision != 0 || j.Scale != 0 || j.Length != 0 || j.Fixed || j.Text {
+			return fmt.Errorf("invalid Map/Union metadata qualifiers")
+		}
+		nested, err := nestedType(t.Kind, j.Fields, j.Codes)
+		if err != nil {
+			return err
+		}
+		t.Rec = nested.Rec
 	}
 	if t.Kind == KindRecord && len(j.Fields) > 0 {
 		named, err := namedRecordOf(j.Fields)
@@ -349,6 +368,8 @@ func (t ColType) ArrowType() arrow.DataType {
 		// Arrow has no time with time zone: its text, as Postgres writes it
 		// (see arrowField).
 		return arrow.BinaryTypes.String
+	case KindMap, KindUnion:
+		return t.nestedArrowType()
 	case KindRecord:
 		return t.Rec.arrowType()
 	case KindArray:
@@ -406,6 +427,10 @@ func (t ColType) SQLName() string {
 		return fmt.Sprintf("TIMESTAMP(%d)", t.fracDigits())
 	case KindInterval:
 		return "INTERVAL"
+	case KindMap:
+		return "MAP"
+	case KindUnion:
+		return "UNION"
 	case KindRecord:
 		return "RECORD"
 	case KindArray:
@@ -421,6 +446,12 @@ func colTypeFromArrow(dt arrow.DataType) (ColType, error) {
 		return ColType{}, err
 	}
 	switch t := dt.(type) {
+	case *arrow.MapType:
+		return mapFromArrow(t)
+	case *arrow.DenseUnionType:
+		return unionFromArrow(t)
+	case *arrow.SparseUnionType:
+		return unionFromArrow(t)
 	case *arrow.ListType, *arrow.LargeListType, *arrow.FixedSizeListType, *arrow.ListViewType, *arrow.LargeListViewType:
 		field := dt.(interface{ ElemField() arrow.Field }).ElemField()
 		el, err := colTypeFromField(field)

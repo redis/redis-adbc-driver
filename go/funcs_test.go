@@ -93,6 +93,7 @@ var funcSamples = map[string]string{
 	"SPLIT_PART": "SPLIT_PART('a,b', ',', 2)", "LPAD": "LPAD('a', 3)", "RPAD": "RPAD('a', 3, '-')", "REVERSE": "REVERSE('abc')",
 	"REPEAT": "REPEAT('a', 2)", "INITCAP": "INITCAP('ab cd')", "MD5": "MD5('a')", "STARTS_WITH": "STARTS_WITH('abc', 'a')",
 	"REGEXP_REPLACE": "REGEXP_REPLACE('abc', 'b', 'x')", "LOWER": "LOWER('A')", "LCASE": "LCASE('A')", "UPPER": "UPPER('a')",
+	"OCTET_LENGTH": "OCTET_LENGTH('é')", "BIT_LENGTH": "BIT_LENGTH('é')",
 	"UCASE": "UCASE('a')", "LENGTH": "LENGTH('abc')", "CHAR_LENGTH": "CHAR_LENGTH('abc')",
 	"CHARACTER_LENGTH": "CHARACTER_LENGTH('abc')", "LEN": "LEN('abc')", "FROM_HEX": "FROM_HEX('6162')",
 	"UNHEX": "UNHEX('6162')", "DECODE_HEX": "DECODE_HEX('6162')", "TO_HEX": "TO_HEX('ab')", "HEX": "HEX('ab')",

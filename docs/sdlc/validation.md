@@ -19,6 +19,17 @@ abandoned moves. Never target an application database for convenience.
 | PostgreSQL comparison | `make -C go pgdiff` | Inspect report and underlying runner status; known dialect differences are expected |
 | Controlled gate tooling | `python3 -m unittest discover -s benchmarks/worker-autotune/controlled -v` | Exit 0; tests measurement tools, not tuner readiness |
 
+Run focused retained publication/capture and policy checks through the same
+verified fixture with `make -C go test-software TEST_ARGS='-run TestRetained'`.
+`test-software` sets the owned TLS endpoint and CA, then declares control
+persistence only in the child process after topology, effective 4x QPF and
+`noeviction` checks pass. It replaces an inherited `REDIS_URI`; use `make test`
+for another endpoint after independently verifying its policy. The declaration
+is not saved in `build/test.env`.
+
+Check the runner without a live server with
+`python3 -m unittest discover -s scripts -p test_software_setup_exec.py -v`.
+
 For catalog changes, CI also runs `uv run --with 'sqlalchemy>=2.1' python
 check_catalog_reflection.py` from `go/validation`, with `REDIS_ADBC_LIBRARY` pointing
 to the built library. Format changed Go files with `gofmt`; no `make lint` exists.

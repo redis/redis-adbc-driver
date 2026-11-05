@@ -1,0 +1,47 @@
+{
+  "date": "2026-11-05",
+  "go_unit_race": {
+    "pass": 1017,
+    "skip": 616
+  },
+  "software_integration": {
+    "version": "8.8.0",
+    "qpf": 4,
+    "passed": 47,
+    "skipped": 1,
+    "failed": 0,
+    "skip_reason": "hosted endpoint check is explicitly opt-in"
+  },
+  "collector_tests": {
+    "passed": 11,
+    "failed": 0,
+    "skipped": 0
+  },
+  "checks": [
+    "Python compilation",
+    "JavaScript syntax",
+    "bootstrap/update shell syntax",
+    "diff whitespace"
+  ],
+  "default_id": "atomic local-file publication; concurrent handles and restarts reuse the ID; temporary fallback explicitly reported",
+  "input_work": "observed index population, driver candidates, pushdown represented rows are separate; unknown values remain null",
+  "live_aws": {
+    "go_driver_tests": 2,
+    "passed": true,
+    "tls_verification": "public roots plus private test CA; no verification bypass",
+    "per_execution_example": {
+      "indexed_documents": 250,
+      "driver_candidates": 250,
+      "rows_returned_success": 250,
+      "rows_returned_early_release": 10
+    },
+    "hostname_present": true,
+    "public_egress_present": true,
+    "saved_id_status_present": true,
+    "background_ptr_check": "dns.google for 8.8.8.8",
+    "read_token_preserved": true,
+    "deployed_source": "34a557a29de96dd8f6c41572b406f34e3cd507e4",
+    "filtered_select_returned": 3,
+    "application_update": "passed; pre-update S3 backup and existing token preserved"
+  }
+}

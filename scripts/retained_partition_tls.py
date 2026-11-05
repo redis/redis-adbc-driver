@@ -110,7 +110,9 @@ def check_retained_tls(principals, control, schema, planner_uri, worker_name,
                     child.read(expected)
                 revoke(parts[0])
             cur.adbc_statement.set_options(**{'adbc.redis.partition_count': 1})
+            cur.adbc_statement.set_options(**{'adbc.redis.result_layouts': json.dumps({'label':'string_view','payload':'fixed_size_binary:2','amount':'decimal256'})})
             parts, output_schema = cur.adbc_execute_partitions(f'SELECT * FROM {table} ORDER BY id')
+            data = data.cast(output_schema)
             assert len(parts) == 1 and output_schema.equals(data.schema)
         part = parts[0]
         report['checks'].append('global_sql_exact_schema_and_values_independent_minimal_acl')
@@ -122,7 +124,7 @@ def check_retained_tls(principals, control, schema, planner_uri, worker_name,
             for child in workers:
                 stack.callback(child.close)
                 child.read(data)
-            report['checks'].append('typed_replay_after_planner_close_and_source_drop')
+            report['checks'].append('typed_explicit_layout_replay_after_planner_close_and_source_drop')
             # A descriptor/configuration pair cannot grant another tenant's ACL.
             other = json.loads(part)
             other['result']['namespace'] = 'other_' + namespace

@@ -16,3 +16,7 @@ user's request; #105 stays open for review. dbt
 integration is explicitly moved to
 [redis-dbt-adapter #38](https://github.com/redis/redis-dbt-adapter/issues/38) and
 [#39](https://github.com/redis/redis-dbt-adapter/issues/39).
+
+2026-11-05: Albert Wong requested pulling PR #289 and fixing errors. Bring the
+branch up to date with main and restore existing restricted-ACL connections
+without weakening the reader-generation guarantee or granting broader roles.

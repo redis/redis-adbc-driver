@@ -22,7 +22,8 @@ storage layout. Rebuild the native library to use these changes.
 | Dictionary | Decode each index using that batch's dictionary, including NULL values/indices | Opt-in string/binary dictionaries described below |
 | List/LargeList/FixedSizeList/ListView/LargeListView | Recursive, potentially ragged arrays; canonical List output | Input offset width, child field metadata and fixed width are normalized |
 | Named Struct | Named stored records, recursively normalized child types | Struct output with stored child names and nullability |
-| Map, dense/sparse Union | Rejected with unsupported-type error | No implicit JSON/text conversion |
+| Map | Ordered key/value pairs, non-NULL scalar keys, duplicate keys preserved | Native Map; canonical keys/value names and unsorted flag |
+| Dense/sparse Union | Persisted type-code mapping and selected child, including NULL | Canonical dense Union; child schemas and tags preserved |
 | Extension types or `ARROW:extension:*` field metadata | Rejected by default; explicit allowlisted storage normalization below | No implicit fallback or persisted extension identity |
 
 Decimals validate physical precision (9/18/38/76 digits); scale is retained,
@@ -100,14 +101,31 @@ batch**. Repeated values count once toward that payload limit. Exceeding either
 limit ends the reader with InvalidArgument; reduce `stream_batch_rows`.
 These limits exclude index buffers, bookkeeping, source batches and
 consumer-retained batches and are not RSS caps. IPC stream output supports
-replacement dictionaries across batches; dictionary IPC **file** output is
-explicitly rejected because this policy does not provide a file-wide dictionary.
+replacement dictionaries across batches. Dictionary IPC **file** output stages
+batches in a private, automatically deleted IPC stream, constructs a file-wide
+String/Binary dictionary per column, then remaps int32 indices on replay.
+The file schema stays dictionary-encoded throughout; NULLs remain NULL indices.
+Limits: 65,536 entries and 16 MiB distinct payload per column; 262,144 entries
+and 64 MiB payload across columns; 4,096 fields, 16,777,216 input cells,
+65,536 batches and 256 MiB staging bytes per file. Dictionary entry visits also
+cap at 16,777,216 and cumulative visited dictionary payload at 256 MiB, including
+unused entries and repeated dictionaries; remapping visits each entry once per
+batch before translating row indices. Exceeding admission fails;
+there is no plain-array fallback. Cancellation and errors remove staging and
+partial output files. These counters bound work/state, not total RSS or
+consumer-retained buffers. File output is finite and needs two passes before
+completion; stream output keeps its existing per-batch policy.
 
 Other selected layouts support native IPC stream and file output. Live and
-retained `ExecutePartitions` reject any nonempty result-layout option before
-publishing work. Independent replay keeps its established schema/IPC validation
-contract. Default canonical output remains available to both partition modes,
-subject to their existing expression/type/descriptor limits.
+retained `ExecutePartitions` support all selected **non-dictionary** layouts.
+Live descriptor revision 3 and retained revision 4 carry the bounded layout map;
+old canonical revisions 1 and 2 remain readable. Independent readers validate
+layout syntax and source compatibility and report the producer's physical
+schema. Retained chunks stay canonical under their existing restricted IPC
+validation contract: every conversion is checked before publication and applied
+again during immutable replay. Dictionary layouts reject before work starts.
+Fixed-size output rows above 16 MiB reject, including across multiple selected
+columns. Other conversion errors retain their explicit loss/overflow behavior.
 
 ## Recursive arrays and stored records
 
@@ -141,17 +159,23 @@ HASH field, not individual struct children.
 
 ## Streaming inventory
 
-| Operator/source | Incremental input | Incremental output / retained state |
-|---|---|---|
-| Eligible indexed single-table scan | Cursor or bounded row-ID pages | Batches; one page's decode/Arrow overshoot can coexist |
-| Unordered prepared key lookup | Pipelined HASH chunks | Batches; prepared key list remains O(number of keys) |
-| Eligible UNION ALL | One current leaf | Pairwise coercions and per-node LIMIT/OFFSET; tree state plus leaf batch |
-| Search IDs followed by authoritative HASH fetch | Paged IDs, bounded HASH pipelines | Eligible row-local projection batches |
-| General HASH discovery fallback | SCAN pages | Materialized for insertion-order/global-sort and duplicate handling |
-| Scalar/group aggregates | Eligible scan input can be paged | Final output can block; cardinality/spill policy depends on aggregate |
-| DISTINCT, general sort, windows, joins, correlated/subquery work | Plan-dependent | Existing materialization/caches; no universal memory bound |
+| Operator/source | Incremental input | Incremental output | Retained state and fallback |
+|---|---|---|---|
+| Eligible indexed single-table scan | Cursor or bounded row-ID pages | Yes, in batches | One page's decode/Arrow overshoot can coexist |
+| Unordered prepared key lookup | Pipelined HASH chunks | Yes, in batches | Prepared key list remains O(number of keys) |
+| Eligible UNION ALL | One current leaf | Yes, with pairwise coercions and per-node LIMIT/OFFSET | Tree state plus one leaf batch |
+| Search IDs followed by authoritative HASH fetch | Paged IDs, bounded HASH pipelines | Yes for eligible row-local projections | Page/pipeline state and output batches |
+| General HASH discovery fallback | SCAN pages | Blocks before ordinary insertion-order output | Key deduplication and row/global-sort state; stream_required rejects |
+| Scalar aggregates | Eligible scan input can be paged | Usually only after final input | Function-dependent accumulator or retained ordered-set input; stream_required rejects |
+| Group aggregates | Eligible scan input can be paged | Blocks before final groups | Group-cardinality state; supported exact paths can spill; stream_required rejects |
+| Unordered managed-table DISTINCT with stream_required=true | Bounded row-ID pages/key pipelines | Yes, first-encounter batches | Bounded distinct-key set; explicit rejection on work/state exhaustion |
+| General DISTINCT | Plan-dependent | Can block before deduplication/group output | Unique-row/group state or materialization; no universal memory bound |
+| Global sorting | Input can be scanned in pages | Blocks until sorting finishes | Rows, keys and permutation grow with cardinality; stream_required rejects |
+| Windows | Source input can be paged | Blocks for partition/order/frame evaluation | Rows, partition/order keys, permutations and function state; stream_required rejects |
+| Joins | Plan-dependent source scans/materialization | Not admitted as incremental here | Build/probe and result state can grow with cardinality; stream_required rejects |
+| Correlation/subqueries | Plan-dependent | Not admitted as incremental here | Subquery results and caches can grow with distinct outer keys; stream_required rejects |
 
-Only unordered key-source leaves are added to finite streaming here. Explicit
+Unordered key-source leaves and bounded DISTINCT extend finite streaming. Explicit
 ordering that needs a global sort and general HASH discovery retain ordinary
 execution. Rows/duplicates, residual predicates, pairwise UNION coercion and
 per-node limits follow the ordinary path. First-fill errors fail execution;
@@ -164,7 +188,19 @@ row, server sort state, allocator slack or total process memory.
 Set statement option `adbc.redis.stream_required=true` to reject materializing
 fallback before executing it. This conservative mode accepts unordered
 driver-managed table scans/key lookups and eligible unordered UNION ALL trees.
-It rejects grouping/aggregates, DISTINCT, ORDER BY, windows, joins, views,
+It also admits unordered, row-local managed-table DISTINCT with resolved result
+types, without DISTINCT ON. Map/Union-containing results remain outside this
+new incremental DISTINCT path. Ordinary execution keeps its existing optimizer and
+materialized fallback. This opt-in path retains at most 65,536 unique keys and
+16 MiB of key bytes plus charged map overhead, rejects rows above its key
+serialization budget, and admits at most two million allocated source IDs (or
+prepared keys) and projected rows. There is no spill or materializing retry
+after results have been exposed. Budget exhaustion can therefore be a late reader
+error. DISTINCT consumes input incrementally and emits each first encounter;
+OFFSET/LIMIT apply after deduplication. Without ORDER BY neither ordinary nor
+streaming execution promises a particular ordering; a grouped ordinary plan can
+select different valid LIMIT rows. General HASH discovery still rejects.
+It rejects grouping/aggregates, ORDER BY, windows, joins, views,
 CTEs/derived tables, subqueries, set operations other than UNION ALL and HASH
 discovery/global-sort fallback. It requires `stream_results=true`, ExecuteQuery,
 one SELECT and at most one bound parameter row. A result small enough for the
@@ -192,13 +228,13 @@ selects the following contracts. Physical encodings are not persisted in HASHes.
 
 | Layout | Decision and validation |
 |---|---|
-| Map | Reject every key/value type, including NULL containers, duplicate keys, empty and sliced arrays. No key/duplicate/order policy is implied by accepting ordinary lists or structs. Future stored Map semantics: [#267](https://github.com/redis/redis-adbc-driver/issues/267). |
-| Dense/sparse Union | Reject both layouts, regardless of type codes, dense offsets or sparse child alignment. A NULL selected child does not make the Union type supported. Future tagged storage: [#268](https://github.com/redis/redis-adbc-driver/issues/268). |
+| Map | Store ordered pairs with non-NULL canonical scalar keys; preserve duplicates, NULL/empty containers and nullable values. See the [stored contract](#stored-map-and-union-contract), [#267](https://github.com/redis/redis-adbc-driver/issues/267). |
+| Dense/sparse Union | Validate type codes, dense offsets and sparse alignment; normalize to tagged storage and dense output. Selected-child NULL retains its tag. See [#268](https://github.com/redis/redis-adbc-driver/issues/268). |
 | FixedSizeList | Validate positive width and sufficient child extent, including slices; normalize to List. Preserve parent NULLs and child NULLs; discard fixed-width identity. |
 | ListView/LargeListView | Validate offset/size ranges without overflowing their sum. Shared, overlapping and non-monotonic views normalize in logical row order to List, with NULL/empty distinctions intact. |
 | Run-end encoding | Accept signed int16/int32/int64 run ends that are positive, strictly increasing, non-NULL and cover the logical slice within the index type's range. Normalize each logical value recursively; encoded NULLs come from the values child. Empty and nonzero-offset slices are supported. |
 
-For any bound batch whose schema contains FixedSizeList, ListView,
+For any bound batch whose schema contains Map, Union, FixedSizeList, ListView,
 LargeListView or run-end encoding (including inside lists, structs or
 dictionaries), normalization permits at most **1,048,576 decoded values** and
 **67,108,864 decoded string/binary payload bytes** across all its input columns.
@@ -222,8 +258,66 @@ and retained partition paths. Independent readers see canonical schemas, not
 input encoding identity. The assessment fixtures compare complete values and
 schemas after create/append, fresh-connection metadata reload, IPC, and replay;
 retained replay is checked after the live source is truncated. Existing result
-layout partition restrictions remain as described above. Map/Union rejection
-occurs before table creation and never silently stringifies values.
+layout partition restrictions remain as described above. Map/Union support live
+partitions; retained execution rejects either type, including nested occurrences.
+No implicit stringification or nested Search indexing occurs.
+
+## Stored Map and Union contract
+
+Map and Union columns are created through Arrow ingestion or copied through
+CTAS. Their SQL catalog type names are `MAP` and `UNION`; there is no new SQL
+constructor or type-declaration syntax. Scalars inside them follow the canonical
+normalization rules above. Arbitrary Arrow field metadata and physical input
+layout identity are not persisted.
+
+Map is an ordered sequence of key/value pairs. Duplicate keys remain distinct,
+including their order; a NULL map, an empty map and a NULL item differ. Keys must
+have supported scalar types and be non-NULL; Null/list/struct/Map/Union key types
+reject even on empty input. Values can contain recursively supported types.
+Output uses Arrow Map with `entries`, `key`, `value`, non-null keys, nullable
+items, and `keys_sorted=false`. Input `keys_sorted` and non-null item declarations
+are not retained: Map items
+are always nullable in the canonical schema, consistently with the Arrow Go
+C importer. Union and named-struct child nullability remains persisted.
+
+Union is a code and exactly one selected child cell. Codes must be unique and
+in 0..127; there must be 1..128 uniquely named children. Dense offsets and sparse
+child alignment are validated before decoding. Both input layouts produce dense
+Union output with the persisted child order, names, canonical types, nullability
+and code mapping. Selected-child NULL is a non-NULL tagged value. Arrow Union
+has no parent validity bitmap: a SQL NULL Union from an outer join/NULL assignment
+uses Arrow's first-child NULL representation on output. That representation
+cannot distinguish a SQL parent NULL from that child's tagged NULL.
+
+Both schemas persist in table metadata. Append requires an exact canonical
+schema match, including nested names/nullability and Union code mapping, even
+for empty/all-NULL batches. Sparse/dense physical differences are compatible
+when canonical schemas match. Automatic schema evolution and scalar casts are
+rejected. Child identifiers use named-struct bounds: unique, 1..1024 bytes, no
+NUL. Input nesting is limited to 16 levels; stored column schemas to 1 MiB and
+64 JSON levels before recursive metadata decoding.
+
+Map comparisons use lexicographic entry order; Union compares numeric codes
+then selected values. Schemas must match. Nested NULLs sort last. DISTINCT,
+grouping and join keys include the schema and Union tag. Containers do not get
+Search indexes or Search pushdown. Field notation/key lookup and scalar text/JSON
+functions reject. COUNT, ANY_VALUE and schema-matched
+COALESCE/NULLIF/GREATEST/LEAST preserve generic values.
+
+A non-NULL HASH cell uses version-1 JSON with `v`, `tag`, and `fields`: alternating
+key/item cells for Map, one selected child cell for Union. Map tag is zero. NULL
+cells are JSON null; other recursively encoded cells are base64 byte strings.
+NULL parents are missing HASH fields. Existing scalar/list/struct storage stays
+compatible. Corrupt shape/version/tag/nullability rejects; stored Map/Union input
+is capped at 128 MiB encoded bytes and 1,048,576 child cells.
+
+Ordinary queries, IPC streams/files and independent live partition reads preserve
+canonical schemas/values. Bound container parameters remain outside the portable
+partition parameter subset. Retained execution rejects any Map/Union source or
+result (including nested types) with NotImplemented before publishing partition
+descriptors; its restricted IPC decoder continues to admit lists/structs only.
+Releasing/cancelling a reader preserves previously retained Arrow batches.
+See the [change record and verification](sdlc/changes/arrow-map-union-267-268/plan.md).
 
 ## Ownership and extension policy
 
@@ -238,15 +332,14 @@ occurs before table creation and never silently stringifies values.
   is no end-to-end zero-copy Redis storage/network path.
 - IPC serialization/deserialization and explicit layout conversion can allocate
   additional buffers. Fixed-binary conversion splits source batches to target at
-  most 16 MiB of fixed-width payload per output batch (one oversized row can
-  exceed this). This excludes source buffers, variable payload, allocator slack
+  most 16 MiB of fixed-width payload per output batch; an oversized row rejects. This excludes source buffers, variable payload, allocator slack
   and retained batches. No reduction in copies or allocation speed is claimed.
 
 ### Explicit extension storage normalization
 
 Statement option `adbc.redis.extension_policy` is `reject` by default. Setting it
-to `storage` explicitly permits the following **registry revision 1** mappings
-for top-level fields, including registered Go/PyArrow types and C-imported
+to `storage` explicitly permits the following **registry revision 2** mappings
+for top-level fields and recursively nested STRUCT fields, including registered Go/PyArrow types and C-imported
 storage fields carrying extension metadata:
 
 | Extension | Required physical storage/metadata | Stored/default output |
@@ -257,8 +350,13 @@ storage fields carrying extension metadata:
 This follows [Arrow's canonical definitions](https://arrow.apache.org/docs/format/CanonicalExtensions.html#json).
 Names are limited to 256 UTF-8 bytes and serialized extension metadata to 16 KiB
 per field. Duplicate/orphan/reserved unknown metadata keys, storage/type
-mismatches, conflicting driver SQL metadata, unknown/custom names and nested
-extension fields reject. UUID metadata parameters/version changes reject;
+mismatches, conflicting driver SQL metadata and unknown/custom names reject.
+Nested lists/dictionaries containing extension semantics remain unsupported.
+STRUCT recursion is limited to 16 levels, 4,096 fields and 64 KiB aggregate
+schema/extension metadata. Converted batches permit at most 1,048,576 decoded
+values and 64 MiB decoded string/binary bytes across their columns. Parent NULLs
+do not validate hidden JSON values. Empty and sliced STRUCT arrays retain
+validity/offsets while owned buffers are retained. UUID metadata parameters/version changes reject;
 JSON metadata may contain future optional fields under its canonical contract.
 No executable/plugin loading or dynamic registry installation is driven by
 metadata. Driver TIMETZ metadata remains separate.
@@ -286,6 +384,10 @@ and IPC. These do not establish throughput improvements, general constant-memory
 execution, all topology compatibility, or every issue's full acceptance matrix.
 See also the [remaining-issues closeout](sdlc/changes/arrow-remaining-closeout/plan.md)
 for the completed acceptance matrices, explicit limits/policies and actual
-measurements. True Map/Union storage remains in separate implementation issues;
-partial matrix classifications describe normalization and allowlist boundaries,
-not an assertion that all Arrow physical encodings persist.
+measurements. [Map/Union storage](#stored-map-and-union-contract) adds explicit
+container contracts with separate retained-partition restrictions;
+the [README matrix](../README.md#apache-arrow-feature-matrix) marks completed
+normalization and explicit-layout contracts as supported, with their boundaries
+retained. The [extensions and remaining limits inventory](arrow-adbc-limits.md)
+links completed follow-ups and documents their remaining boundaries. Support
+does not imply that all Arrow physical encodings or extension identities persist.

@@ -1,0 +1,477 @@
+{
+  "source_sha256": "7fd6a17c71912db01ad675a12d85e2f2e6fad629be263b2d04e3d9cb318e51c9",
+  "binaries": {
+    "baseline": "4f197504539fd4e0f2025411042535769caf5dd21766d8b4b2dccfe2386fdf34",
+    "candidate": "cc0acdb1cf2f42f451daf445657a8d0a54525e69d290a77d5fd37fabd8462ee0"
+  },
+  "cases": [
+    {
+      "projection": "narrow",
+      "api": "partition",
+      "readers": 1,
+      "baseline": {
+        "elapsed_median_seconds": 1.9447377449999999,
+        "elapsed_range_seconds": [
+          1.928131657,
+          1.9833051739999998
+        ],
+        "trials": 5,
+        "actual_first_batch_rows": [
+          25000
+        ],
+        "client_cpu_seconds_median": 0.729689,
+        "allocated_bytes_median": 236381472,
+        "allocations_median": 3965070,
+        "sampled_peak_go_heap_bytes_median": 25734288,
+        "process_lifetime_peak_rss_bytes_median": 429187072,
+        "sampled_process_peak_rss_bytes_median": 70750208,
+        "minimum_rss_samples": 97,
+        "maximum_sampled_process_rss_bytes": 73814016
+      },
+      "candidate": {
+        "elapsed_median_seconds": 1.962928759,
+        "elapsed_range_seconds": [
+          1.92196058,
+          1.984561915
+        ],
+        "trials": 5,
+        "actual_first_batch_rows": [
+          25000
+        ],
+        "client_cpu_seconds_median": 0.717648,
+        "allocated_bytes_median": 236287744,
+        "allocations_median": 3965066,
+        "sampled_peak_go_heap_bytes_median": 25613608,
+        "process_lifetime_peak_rss_bytes_median": 429187072,
+        "sampled_process_peak_rss_bytes_median": 76738560,
+        "minimum_rss_samples": 97,
+        "maximum_sampled_process_rss_bytes": 81641472
+      },
+      "candidate_paired_elapsed_wins": 3,
+      "median_elapsed_change_percent": 0.935396767341512,
+      "paired_elapsed_change_percent": [
+        -0.6867739896723069,
+        1.2801915935055197,
+        -1.0273968558708435,
+        1.36699855585376,
+        -0.3200547523607211
+      ],
+      "paired_median_elapsed_change_percent": -0.3200547523607211,
+      "paired_bootstrap_median_interval_95_percent": [
+        -1.0273968558708435,
+        1.36699855585376
+      ],
+      "within_declared_5_percent_regression_margin": true
+    },
+    {
+      "projection": "narrow",
+      "api": "partition",
+      "readers": 4,
+      "baseline": {
+        "elapsed_median_seconds": 0.805059885,
+        "elapsed_range_seconds": [
+          0.760063886,
+          0.823980526
+        ],
+        "trials": 5,
+        "actual_first_batch_rows": [
+          25000
+        ],
+        "client_cpu_seconds_median": 0.6822159999999999,
+        "allocated_bytes_median": 236063416,
+        "allocations_median": 3964858,
+        "sampled_peak_go_heap_bytes_median": 60198424,
+        "process_lifetime_peak_rss_bytes_median": 429187072,
+        "sampled_process_peak_rss_bytes_median": 112021504,
+        "minimum_rss_samples": 40,
+        "maximum_sampled_process_rss_bytes": 115634176
+      },
+      "candidate": {
+        "elapsed_median_seconds": 0.78243439,
+        "elapsed_range_seconds": [
+          0.750513814,
+          0.835427398
+        ],
+        "trials": 5,
+        "actual_first_batch_rows": [
+          25000
+        ],
+        "client_cpu_seconds_median": 0.665833,
+        "allocated_bytes_median": 236113112,
+        "allocations_median": 3964833,
+        "sampled_peak_go_heap_bytes_median": 58816536,
+        "process_lifetime_peak_rss_bytes_median": 429187072,
+        "sampled_process_peak_rss_bytes_median": 115208192,
+        "minimum_rss_samples": 39,
+        "maximum_sampled_process_rss_bytes": 123981824
+      },
+      "candidate_paired_elapsed_wins": 3,
+      "median_elapsed_change_percent": -2.8104114267226254,
+      "paired_elapsed_change_percent": [
+        -6.775405409747881,
+        -3.459732060882581,
+        -6.277281970617842,
+        4.226593989519811,
+        6.674653793510199
+      ],
+      "paired_median_elapsed_change_percent": -3.459732060882581,
+      "paired_bootstrap_median_interval_95_percent": [
+        -6.775405409747881,
+        6.674653793510199
+      ],
+      "within_declared_5_percent_regression_margin": false
+    },
+    {
+      "projection": "narrow",
+      "api": "regular",
+      "readers": 1,
+      "baseline": {
+        "elapsed_median_seconds": 2.387458407,
+        "elapsed_range_seconds": [
+          2.355061982,
+          2.455765602
+        ],
+        "trials": 5,
+        "actual_first_batch_rows": [
+          65536
+        ],
+        "client_cpu_seconds_median": 0.784727,
+        "allocated_bytes_median": 231510376,
+        "allocations_median": 4281828,
+        "sampled_peak_go_heap_bytes_median": 28758928,
+        "process_lifetime_peak_rss_bytes_median": 429187072,
+        "sampled_process_peak_rss_bytes_median": 71995392,
+        "minimum_rss_samples": 118,
+        "maximum_sampled_process_rss_bytes": 77025280
+      },
+      "candidate": {
+        "elapsed_median_seconds": 2.397524702,
+        "elapsed_range_seconds": [
+          2.365577178,
+          2.456388537
+        ],
+        "trials": 5,
+        "actual_first_batch_rows": [
+          65536
+        ],
+        "client_cpu_seconds_median": 0.787108,
+        "allocated_bytes_median": 231452976,
+        "allocations_median": 4281790,
+        "sampled_peak_go_heap_bytes_median": 30073288,
+        "process_lifetime_peak_rss_bytes_median": 429187072,
+        "sampled_process_peak_rss_bytes_median": 83132416,
+        "minimum_rss_samples": 119,
+        "maximum_sampled_process_rss_bytes": 85774336
+      },
+      "candidate_paired_elapsed_wins": 2,
+      "median_elapsed_change_percent": 0.42163226678570975,
+      "paired_elapsed_change_percent": [
+        -3.672517602109482,
+        0.929660790453446,
+        -0.5554582216557913,
+        2.8871761618086245,
+        2.369695210849865
+      ],
+      "paired_median_elapsed_change_percent": 0.929660790453446,
+      "paired_bootstrap_median_interval_95_percent": [
+        -3.672517602109482,
+        2.8871761618086245
+      ],
+      "within_declared_5_percent_regression_margin": true
+    },
+    {
+      "projection": "narrow",
+      "api": "regular",
+      "readers": 4,
+      "baseline": {
+        "elapsed_median_seconds": 1.283406565,
+        "elapsed_range_seconds": [
+          1.207690388,
+          1.313977396
+        ],
+        "trials": 5,
+        "actual_first_batch_rows": [
+          25000
+        ],
+        "client_cpu_seconds_median": 0.75166,
+        "allocated_bytes_median": 240508040,
+        "allocations_median": 4441306,
+        "sampled_peak_go_heap_bytes_median": 64932792,
+        "process_lifetime_peak_rss_bytes_median": 429187072,
+        "sampled_process_peak_rss_bytes_median": 115052544,
+        "minimum_rss_samples": 62,
+        "maximum_sampled_process_rss_bytes": 117129216
+      },
+      "candidate": {
+        "elapsed_median_seconds": 1.248507313,
+        "elapsed_range_seconds": [
+          1.1775740670000001,
+          1.328729552
+        ],
+        "trials": 5,
+        "actual_first_batch_rows": [
+          25000
+        ],
+        "client_cpu_seconds_median": 0.746909,
+        "allocated_bytes_median": 240515288,
+        "allocations_median": 4441239,
+        "sampled_peak_go_heap_bytes_median": 62413776,
+        "process_lifetime_peak_rss_bytes_median": 429187072,
+        "sampled_process_peak_rss_bytes_median": 119431168,
+        "minimum_rss_samples": 61,
+        "maximum_sampled_process_rss_bytes": 125620224
+      },
+      "candidate_paired_elapsed_wins": 3,
+      "median_elapsed_change_percent": -2.7192670624994086,
+      "paired_elapsed_change_percent": [
+        -8.308609717840243,
+        10.022367090330775,
+        1.055973453980763,
+        -3.1805187937463897,
+        -4.4750621417843695
+      ],
+      "paired_median_elapsed_change_percent": -3.1805187937463897,
+      "paired_bootstrap_median_interval_95_percent": [
+        -8.308609717840243,
+        10.022367090330775
+      ],
+      "within_declared_5_percent_regression_margin": false
+    },
+    {
+      "projection": "wide",
+      "api": "partition",
+      "readers": 1,
+      "baseline": {
+        "elapsed_median_seconds": 8.226454133,
+        "elapsed_range_seconds": [
+          8.165746756,
+          8.364757228
+        ],
+        "trials": 5,
+        "actual_first_batch_rows": [
+          25000
+        ],
+        "client_cpu_seconds_median": 4.733064000000001,
+        "allocated_bytes_median": 1174419304,
+        "allocations_median": 32745131,
+        "sampled_peak_go_heap_bytes_median": 115599248,
+        "process_lifetime_peak_rss_bytes_median": 429301760,
+        "sampled_process_peak_rss_bytes_median": 162975744,
+        "minimum_rss_samples": 407,
+        "maximum_sampled_process_rss_bytes": 164995072
+      },
+      "candidate": {
+        "elapsed_median_seconds": 7.030020243,
+        "elapsed_range_seconds": [
+          7.006746558,
+          7.118008244
+        ],
+        "trials": 5,
+        "actual_first_batch_rows": [
+          25000
+        ],
+        "client_cpu_seconds_median": 4.784245,
+        "allocated_bytes_median": 1175220048,
+        "allocations_median": 32766238,
+        "sampled_peak_go_heap_bytes_median": 97497480,
+        "process_lifetime_peak_rss_bytes_median": 429301760,
+        "sampled_process_peak_rss_bytes_median": 153870336,
+        "minimum_rss_samples": 349,
+        "maximum_sampled_process_rss_bytes": 157896704
+      },
+      "candidate_paired_elapsed_wins": 5,
+      "median_elapsed_change_percent": -14.543737443336212,
+      "paired_elapsed_change_percent": [
+        -14.543737443336212,
+        -14.533577312467195,
+        -14.904783845090686,
+        -13.973130065068617,
+        -14.333338626786151
+      ],
+      "paired_median_elapsed_change_percent": -14.533577312467195,
+      "paired_bootstrap_median_interval_95_percent": [
+        -14.904783845090686,
+        -13.973130065068617
+      ],
+      "within_declared_5_percent_regression_margin": true
+    },
+    {
+      "projection": "wide",
+      "api": "partition",
+      "readers": 4,
+      "baseline": {
+        "elapsed_median_seconds": 2.901147181,
+        "elapsed_range_seconds": [
+          2.812371857,
+          3.047507644
+        ],
+        "trials": 5,
+        "actual_first_batch_rows": [
+          25000
+        ],
+        "client_cpu_seconds_median": 4.681236,
+        "allocated_bytes_median": 1174118736,
+        "allocations_median": 32744973,
+        "sampled_peak_go_heap_bytes_median": 267247824,
+        "process_lifetime_peak_rss_bytes_median": 429187072,
+        "sampled_process_peak_rss_bytes_median": 348102656,
+        "minimum_rss_samples": 143,
+        "maximum_sampled_process_rss_bytes": 392540160
+      },
+      "candidate": {
+        "elapsed_median_seconds": 2.7821523470000002,
+        "elapsed_range_seconds": [
+          2.706614871,
+          2.787914169
+        ],
+        "trials": 5,
+        "actual_first_batch_rows": [
+          25000
+        ],
+        "client_cpu_seconds_median": 4.77987,
+        "allocated_bytes_median": 1174952760,
+        "allocations_median": 32766132,
+        "sampled_peak_go_heap_bytes_median": 311387144,
+        "process_lifetime_peak_rss_bytes_median": 429187072,
+        "sampled_process_peak_rss_bytes_median": 385331200,
+        "minimum_rss_samples": 137,
+        "maximum_sampled_process_rss_bytes": 402296832
+      },
+      "candidate_paired_elapsed_wins": 5,
+      "median_elapsed_change_percent": -4.1016476095839804,
+      "paired_elapsed_change_percent": [
+        -2.2101183809884684,
+        -8.707288971774595,
+        -8.16193885527553,
+        -3.903042656421496,
+        -0.8973839621237656
+      ],
+      "paired_median_elapsed_change_percent": -3.903042656421496,
+      "paired_bootstrap_median_interval_95_percent": [
+        -8.707288971774595,
+        -0.8973839621237656
+      ],
+      "within_declared_5_percent_regression_margin": true
+    },
+    {
+      "projection": "wide",
+      "api": "regular",
+      "readers": 1,
+      "baseline": {
+        "elapsed_median_seconds": 9.05910683,
+        "elapsed_range_seconds": [
+          8.938242701,
+          9.089442188
+        ],
+        "trials": 5,
+        "actual_first_batch_rows": [
+          65536
+        ],
+        "client_cpu_seconds_median": 4.422789,
+        "allocated_bytes_median": 1161696944,
+        "allocations_median": 33040506,
+        "sampled_peak_go_heap_bytes_median": 166890496,
+        "process_lifetime_peak_rss_bytes_median": 429379584,
+        "sampled_process_peak_rss_bytes_median": 224747520,
+        "minimum_rss_samples": 445,
+        "maximum_sampled_process_rss_bytes": 230715392
+      },
+      "candidate": {
+        "elapsed_median_seconds": 7.78775421,
+        "elapsed_range_seconds": [
+          7.669960434,
+          7.9125743790000005
+        ],
+        "trials": 5,
+        "actual_first_batch_rows": [
+          65536
+        ],
+        "client_cpu_seconds_median": 4.369319,
+        "allocated_bytes_median": 1162097216,
+        "allocations_median": 33051101,
+        "sampled_peak_go_heap_bytes_median": 166402584,
+        "process_lifetime_peak_rss_bytes_median": 429379584,
+        "sampled_process_peak_rss_bytes_median": 231645184,
+        "minimum_rss_samples": 383,
+        "maximum_sampled_process_rss_bytes": 246874112
+      },
+      "candidate_paired_elapsed_wins": 5,
+      "median_elapsed_change_percent": -14.033973148321943,
+      "paired_elapsed_change_percent": [
+        -14.033973148321943,
+        -13.156633841106524,
+        -15.518310166696436,
+        -12.817865006218454,
+        -12.947635120598655
+      ],
+      "paired_median_elapsed_change_percent": -13.156633841106524,
+      "paired_bootstrap_median_interval_95_percent": [
+        -15.518310166696436,
+        -12.817865006218454
+      ],
+      "within_declared_5_percent_regression_margin": true
+    },
+    {
+      "projection": "wide",
+      "api": "regular",
+      "readers": 4,
+      "baseline": {
+        "elapsed_median_seconds": 3.7140104320000003,
+        "elapsed_range_seconds": [
+          3.473443277,
+          4.103877479
+        ],
+        "trials": 5,
+        "actual_first_batch_rows": [
+          25000
+        ],
+        "client_cpu_seconds_median": 4.736616,
+        "allocated_bytes_median": 1178077000,
+        "allocations_median": 33219249,
+        "sampled_peak_go_heap_bytes_median": 293024320,
+        "process_lifetime_peak_rss_bytes_median": 429330432,
+        "sampled_process_peak_rss_bytes_median": 356851712,
+        "minimum_rss_samples": 176,
+        "maximum_sampled_process_rss_bytes": 382836736
+      },
+      "candidate": {
+        "elapsed_median_seconds": 3.406630698,
+        "elapsed_range_seconds": [
+          3.368687959,
+          3.7353365309999997
+        ],
+        "trials": 5,
+        "actual_first_batch_rows": [
+          25000
+        ],
+        "client_cpu_seconds_median": 4.806864,
+        "allocated_bytes_median": 1179190520,
+        "allocations_median": 33245639,
+        "sampled_peak_go_heap_bytes_median": 288929160,
+        "process_lifetime_peak_rss_bytes_median": 429330432,
+        "sampled_process_peak_rss_bytes_median": 361721856,
+        "minimum_rss_samples": 171,
+        "maximum_sampled_process_rss_bytes": 410124288
+      },
+      "candidate_paired_elapsed_wins": 4,
+      "median_elapsed_change_percent": -8.276221610785194,
+      "paired_elapsed_change_percent": [
+        -16.989951200246356,
+        0.5084028378077754,
+        -0.5832847767909044,
+        -8.651693119423099,
+        -3.01589257822793
+      ],
+      "paired_median_elapsed_change_percent": -3.01589257822793,
+      "paired_bootstrap_median_interval_95_percent": [
+        -16.989951200246356,
+        0.5084028378077754
+      ],
+      "within_declared_5_percent_regression_margin": true
+    }
+  ],
+  "interpretation": "Go public ADBC APIs and Go Arrow allocator, including IPC output. Negative elapsed change is faster. Sampled heap is not a strict peak; RSS is process lifetime high-water. No native server-export speedup or Python/C-boundary speedup is established.",
+  "wide_columns": 105,
+  "wide_elapsed_gate_passed": true,
+  "uncertainty_method": "10000 seeded bootstrap resamples of paired percentage changes; descriptive fixture/run interval, not a universal performance guarantee"
+}

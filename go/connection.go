@@ -29,6 +29,8 @@ import (
 )
 
 type connectionImpl struct {
+	usage                       *usageTelemetry
+	rbac                        *rbacManager
 	retainedNamespace           string
 	partitionControlPersistence string
 	retainedLimits              retainedLimits
@@ -64,10 +66,16 @@ type connectionImpl struct {
 func (c *connectionImpl) executor() *executor {
 	metrics := &partitionMetrics{}
 	c.aggregateMetrics.Store(metrics)
-	return &executor{store: c.store, partitionNamespace: c.retainedNamespace, sess: c.sess, schema: c.sess.currentSchema(), pushdown: c.pushdown, queryWorkers: c.queryWorkers, workerBudget: c.workerBudget, workerGrant: &c.workerGrant, aggregateMetrics: metrics, rekey: c.rekey}
+	return &executor{store: c.store, rbac: c.rbac, partitionNamespace: c.retainedNamespace, sess: c.sess, schema: c.sess.currentSchema(), pushdown: c.pushdown, queryWorkers: c.queryWorkers, workerBudget: c.workerBudget, workerGrant: &c.workerGrant, aggregateMetrics: metrics, rekey: c.rekey}
 }
 
 func (c *connectionImpl) GetOption(ctx context.Context, key string) (string, error) {
+	if key == OptionStringTelemetrySnapshot {
+		if c.usage == nil {
+			return "{}", nil
+		}
+		return string(c.usage.snapshot()), nil
+	}
 	switch key {
 	case OptionStringPartitionResultNamespace:
 		return c.retainedNamespace, nil
@@ -196,6 +204,10 @@ func (c *connectionImpl) Close(ctx context.Context) error {
 	// the client is open (see rekey.go).
 	c.store.stopRekeys(ctx)
 	c.streams.closeAll(errorf(adbc.StatusInvalidState, "the connection was closed while its result was being read"))
+	// During ExecuteQuery's initial fill the transport is registered before
+	// its public reader. Keep maintenance sockets alive for worker cursor
+	// cleanup even when closeAll could only cancel that transport.
+	c.streams.finishTransports()
 	// Best effort: whatever can't be dropped now is swept by a later
 	// connection (see temp.go).
 	_ = c.store.dropTempSchema(ctx)

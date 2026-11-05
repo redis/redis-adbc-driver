@@ -840,12 +840,15 @@ func computeWindowGroup(env *evalEnv, g *windowGroup, n int, setRow func(int)) e
 		}
 		ps, pe := ws.parts[p], ws.parts[p+1]
 		if no > 0 {
-			slices.SortFunc(ws.perm[ps:pe], func(a, b int) int {
+			if err := sortSliceUnstable(env.ctx, ws.perm[ps:pe], func(i, j int) bool {
+				a, b := ws.perm[ps+i], ws.perm[ps+j]
 				if c := compareKeys(ws.okey(a), ws.okey(b), ws.order); c != 0 {
-					return c
+					return c < 0
 				}
-				return cmp.Compare(a, b)
-			})
+				return cmp.Compare(a, b) < 0
+			}); err != nil {
+				return err
+			}
 		}
 		for i := ps; i < pe; i++ {
 			if i == ps || compareKeys(ws.okey(ws.perm[i-1]), ws.okey(ws.perm[i]), ws.order) != 0 {

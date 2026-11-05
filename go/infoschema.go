@@ -69,7 +69,9 @@ const infoSchema = "information_schema"
 func isInfoSchema(schema string) bool { return (schema == infoSchema) }
 
 var infoSchemaColumns = map[string][]resultColumn{
-	"sequences": catalogColumns("sequence_catalog sequence_schema sequence_name data_type numeric_precision:i numeric_precision_radix:i numeric_scale:i start_value minimum_value maximum_value increment cycle_option"),
+	"role_table_grants": catalogColumns("grantor grantee table_catalog table_schema table_name privilege_type is_grantable with_hierarchy"),
+	"table_privileges":  catalogColumns("grantor grantee table_catalog table_schema table_name privilege_type is_grantable with_hierarchy"),
+	"sequences":         catalogColumns("sequence_catalog sequence_schema sequence_name data_type numeric_precision:i numeric_precision_radix:i numeric_scale:i start_value minimum_value maximum_value increment cycle_option"),
 	"schemata": {
 		{Name: "catalog_name", Type: typeString},
 		{Name: "schema_name", Type: typeString},
@@ -324,6 +326,9 @@ func (e *executor) infoSchemaTable(ctx context.Context, name string) (*tableMeta
 	}
 	if e.planOnly {
 		return memTable(key, cols, nil, nil) // only its columns are wanted (see empty.go)
+	}
+	if key == "role_table_grants" || key == "table_privileges" {
+		return e.rbacGrantTable(ctx, key, cols)
 	}
 	if key == "routines" {
 		return memTable(key, cols, routineRows(), nil)

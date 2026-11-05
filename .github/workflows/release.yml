@@ -46,6 +46,8 @@ on:
     paths:
       - .github/workflows/release.yml
       - go/build-linux.sh
+      # Native validation changes must exercise the installed-wheel layout.
+      - go/validation/**
       - go/Dockerfile.linux-builder
       - go/compose.yaml
       - go/cluster-ready.sh
@@ -90,6 +92,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
+  REDIS_ADBC_TELEMETRY_DISABLED: "true"
   # The version stamped into the library and used in asset names.
   VERSION: ${{ github.event.release.tag_name || inputs.tag || 'v0.0.0-dev' }}
   REF: ${{ github.event.release.tag_name || inputs.tag || github.sha }}
@@ -402,6 +405,8 @@ jobs:
           tar xzf "dist/adbc_driver_redis-$VERSION-linux-$ARCH.tar.gz" -C dist
           docker run --rm --init --name redis-release-validation --network host \
             -v "$PWD/go/validation:/src/validation:ro" \
+            -v "$PWD/go/pkg/adbc.h:/src/adbc.h:ro" \
+            -v "$PWD/go/testdata:/src/testdata:ro" \
             -v "$PWD/dist/adbc_driver_redis-$VERSION-linux-$ARCH:/lib-in:ro" \
             -v "$(dirname "$(command -v uv)"):/uv:ro" \
             -v "$PWD/go/build/test-tls:/test-tls:ro" \
@@ -416,15 +421,16 @@ jobs:
               echo "=== Installing system prerequisites ==="
               if command -v apt-get >/dev/null; then
                 apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=60 -o Acquire::https::Timeout=60 update
-                DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=60 -o Acquire::https::Timeout=60 install -y git ca-certificates
+                DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=60 -o Acquire::https::Timeout=60 install -y git ca-certificates gcc libc6-dev
               else
                 # AlmaLinux mirrors can trickle metadata for the entire step
                 # budget. Reject slow transfers so DNF tries another mirror.
-                dnf --setopt=timeout=30 --setopt=minrate=1M --setopt=retries=2 -y install git ca-certificates
+                dnf --setopt=timeout=30 --setopt=minrate=1M --setopt=retries=2 -y install git ca-certificates gcc glibc-devel
               fi
               echo "=== Preparing validation fixtures ==="
-              mkdir -p /work/go/build
-              cp -r /src/validation /work/go/
+              mkdir -p /work/go/build /work/go/pkg
+              cp -r /src/validation /src/testdata /work/go/
+              cp /src/adbc.h /work/go/pkg/
               cp /lib-in/libadbc_driver_redis.so /work/go/build/
               cd /work/go/validation
               echo "=== Resolving Python and validation dependencies ==="
@@ -485,9 +491,9 @@ jobs:
     name: darwin-arm64
     runs-on: macos-15
     env:
-      MACOSX_DEPLOYMENT_TARGET: '12.0'
-      CGO_CFLAGS: '-mmacosx-version-min=12.0'
-      CGO_LDFLAGS: '-mmacosx-version-min=12.0'
+      MACOSX_DEPLOYMENT_TARGET: '15.0'
+      CGO_CFLAGS: '-mmacosx-version-min=15.0'
+      CGO_LDFLAGS: '-mmacosx-version-min=15.0'
     steps:
       - uses: actions/checkout@v7
         with:
@@ -509,7 +515,7 @@ jobs:
           # Use this source ref's build requirements even when uv has cached older tools.
           python3 -c 'import pathlib, tomllib; print("\n".join(tomllib.loads(pathlib.Path("python/pyproject.toml").read_text())["build-system"]["requires"]))' > "$RUNNER_TEMP/python-build-requirements.txt"
           uv run --no-project --with build --with packaging --with-requirements "$RUNNER_TEMP/python-build-requirements.txt" python scripts/build_python_wheel.py \
-            --library go/build/libadbc_driver_redis.dylib --platform macosx_12_0_arm64 --version "$VERSION" --out dist
+            --library go/build/libadbc_driver_redis.dylib --platform macosx_15_0_arm64 --version "$VERSION" --out dist
           for wheel in dist/*.whl; do shasum -a 256 "$wheel" > "$wheel.sha256"; done
           uv venv --python 3.14 /tmp/redis-wheel-smoke
           uv pip install --python /tmp/redis-wheel-smoke/bin/python dist/*.whl
