@@ -682,3 +682,26 @@ Separate capacity-change evidence from explicit sweep accounting; repeated
 focused admission/COMMENT/sweep and private-reference checks pass. Fresh broad
 ordinary/hosted coverage remains required. The measured performance checkpoint
 continues to describe 820ccfd, not this subsequent control-flow change.
+
+
+At 11213c8 the Arrow layout fixture explicitly releases portable partition sets,
+checks the pin is removed and refuses reopened descriptors. The focused Arrow
+layout/inventory plus COMMENT race selection passes 23 events, no skips; no live
+pins remain before COMMENT staging. The d1d2778 hosted failure still observes
+nine pinned committed roots plus seven owned workspaces. Test-only aggregate
+origin diagnostics are published and a fresh hosted run is active; the one-root
+fixture leak does not explain all retained roots. See the
+[hosted record](atomic-compaction-hosted-validation.md).
+
+The [owned index readiness experiment](compaction-readiness-polling.md) at
+7051556 distinguishes known pending index work from idle discovery and records
+foreground client-call attribution. Complete local snapshot checks pass 412
+race events / 25 skips, and the fresh committed native binary passes 565 tests
+plus three subtests / eight skips. The instrumented job completes sooner but
+performs more index/control calls; foreground medians are essentially unchanged.
+The unchanged six-process native comparison finds no gain: 2.748 updates/s
+versus 2.794 preceding, with essentially unchanged median and p95. Extra index/
+control calls are unjustified; the production polling change is removed while
+profiling and exact-source evidence are retained. The experiment remains
+63.570x behind mutable throughput. These results do not close any reader-principal,
+process/input resume, Cluster/recovery or sustained-performance acceptance gate.

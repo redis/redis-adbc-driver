@@ -39,6 +39,21 @@ unnecessary.
 
 ## Guarantee
 
+The driver maintains query read views through immutable generations and reader
+pins. Redis already provides point-in-time persistence through
+[RDB snapshots](https://redis.io/docs/latest/operate/oss_and_stack/management/persistence/)
+and non-interleaved execution through
+[MULTI/EXEC](https://redis.io/docs/latest/develop/using-commands/transactions/).
+Those guarantees do not provide a reusable historical read view for this
+driver's successive query commands. An incremental
+[SCAN](https://redis.io/docs/latest/commands/scan/) followed by live HASH reads
+can observe concurrent changes; the generation/pin protocol keeps managed query
+batches on one published version. Persistence snapshots remain relevant to
+backup and recovery validation, independently of this statement-level guarantee.
+The upstream request for reusable native query read views is tracked in
+[redis/redis#16180](https://github.com/redis/redis/issues/16180); it does not
+replace the driver's current generation and retention protocol.
+
 Each SELECT acquires one committed catalog generation before planning. Joins,
 views, CTEs, subqueries, direct lookups, pushed aggregates, cursor pages and
 subsequent exact-value HASH reads all use that generation. A streaming Arrow

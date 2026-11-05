@@ -149,3 +149,19 @@ aggregate origin labels plus separate reader/writer/partition counts; tokens,
 keys and values remain private. Unknown replies are marked, never retried by
 the observer. No production ownership, capacity, permission or storage behavior
 changes. The next actual hosted failure must establish which origins remain.
+
+
+Review of the observer at 11213c8 found an inherited `snapshotHook` pipeline
+method: although its command observation was passive, pipelines could traverse
+the normal snapshot fencing hook twice. The correction implements explicit
+pass-through Dial/Pipeline hooks and removes that embedding. Do not treat the
+11213c8 observer as proof of unchanged pipeline behavior. This is test-only;
+production fencing and permissions remain unchanged. The diagnostic hosted run
+at 11213c8 remains source-labeled and is not canceled or silently replaced.
+
+
+With explicit observer pass-through and production compaction scheduling restored,
+the Arrow layout/inventory and COMMENT race selection passes all 23 test events,
+no skips/failures, root 11.344 s, on the same verified Software fixture. The
+pre-COMMENT live-pin/origin counts are zero. This is a focused local check, not
+an explanation of the still-active 11213c8 hosted run's retained reader roots.

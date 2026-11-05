@@ -1,7 +1,7 @@
 # Owned compaction index readiness polling
 
-Date: 2026-11-05. Status: correctness checks passed; native performance decision
-pending. Parent production: 2be297e, preserved baseline build at d1d2778.
+Date: 2026-11-05. Status: experiment rejected after native measurement; production
+scheduling restored. Parent production: 2be297e, preserved baseline build at d1d2778.
 See [intent](intent.md), [spec](spec.md), [plan](plan.md) and
 [selective compaction measurements](selective-compaction-validation.md).
 
@@ -12,9 +12,9 @@ known pending work from an empty queue or another worker's ownership, without
 changing storage, source identity, leases, readiness/publication proofs or
 unknown-operation handling.
 
-Retain the existing five-millisecond pacing after actual progress and one-second
+The experiment retains the existing five-millisecond pacing after actual progress and one-second
 idle discovery. Only a successfully acquired, validated job awaiting index
-readiness should use bounded exponential delays from 10 to 100 milliseconds.
+readiness uses bounded exponential delays from 10 to 100 milliseconds.
 Absent explicit wakeups, long waits poll at most ten times per second after the initial backoff;
 other workers continue idle discovery. Errors retain lease release and their
 existing 100-millisecond retry delay. Publication conflicts and existing writer
@@ -79,7 +79,7 @@ requires substantial time; shorter polling adds control and index calls. The
 separate instrumented foreground workload's median changes from 66.907 to
 68.299 ms, p95 from 2,892.301 to 2,823.107 ms. This does not establish improved
 native throughput or performance parity. The unchanged six-process native
-comparison remains necessary before retaining this production scheduling change.
+comparison remains necessary before deciding whether to retain this production scheduling change.
 
 Author review checks: the pending flag is returned only after acquisition,
 job validation and an index-phase not-ready result; idle discovery, install
@@ -87,3 +87,49 @@ conflicts, leases, unknown replies, publication proofs and durable source/output
 identity remain unchanged. Cancellation joins and a different client resumes
 the same output. More frequent index/control calls are the measured cost. These
 checks are not maintainer approval or completion of the overall parity work.
+
+
+A fresh versioned build at committed experiment 7051556 has SHA-256
+`f5326fabe37b968b40d51c575ec7f033fae6c0748d8699b05d2add660eedd4e1`.
+Because this differs from the earlier worktree binary, its full native suite was
+rerun sequentially: 565 passed, eight skipped, three subtests passed, 94.80 s.
+The sustained comparison uses this newly validated committed binary, not the
+earlier worktree hash. Its predecessor is the preserved d1d2778 binary; mutable
+baseline remains f4d5b78. No ClickBench load or measurement is involved.
+
+
+## Native comparison and decision
+
+The [raw six-process comparison](compaction-readiness-comparison.json) runs
+preceding d1d2778, experiment 7051556 and mutable f4d5b78, then reverse order.
+Each process performs 64 alternating UPDATE RETURNING statements on two
+20,000-row tables, no caller retries, with every return and all 40,000 final rows
+checked. Setup and final verification are outside timing. No local builds,
+tests or database probes overlap the measured processes. Each process verifies
+owned Software, effective 4x QPF and noeviction; exact driver/harness hashes and
+generic machine/settings fields are included. This is synthetic load, not
+ClickBench. Each source contributes two runs; small differences are not a
+statistical performance claim.
+
+| Source | Median ms | p95 ms | Max ms | Updates/s |
+|---|---:|---:|---:|---:|
+| Preceding d1d2778 | 64.788 | 2,842.089 | 2,989.235 | 2.794 |
+| Polling experiment 7051556 | 64.553 | 2,846.390 | 3,417.438 | 2.748 |
+| Mutable f4d5b78 | 5.440 | 7.770 | 12.831 | 174.693 |
+
+Experimental throughput is 0.983x the preceding driver. Its median is 11.866x
+mutable and mutable throughput is 63.570x higher. There is no sustained-write
+benefit to justify the measured extra index/control calls. Restore the preceding
+production scheduling and remove the experiment-specific 500-ms readiness
+assertion; retain the unchanged recovery/publication tests, foreground profiler,
+raw observations and this source-labeled experiment history. The experiment's
+565-test native and 412-event snapshot checks do not become current final-head
+claims after restoration. The next optimization should reduce index construction
+or foreground metadata work, then repeat independent native measurements.
+
+
+The removed experimental worker regression remains reviewable at
+[7051556](https://github.com/redis/redis-adbc-driver/blob/7051556/go/snapshot_compaction_poll_integration_test.go).
+Its deadline was an experimental latency target, not a newly imposed supported
+query guarantee. Removing the experiment does not weaken existing publication,
+row visibility, lease, recovery or cancellation assertions.

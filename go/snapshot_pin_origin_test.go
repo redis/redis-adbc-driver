@@ -22,8 +22,12 @@ type snapshotPinTestOrigin struct {
 var snapshotPinTestOrigins sync.Map // token -> origin; tokens never appear in diagnostics
 
 type snapshotPinOriginHook struct {
-	snapshotHook
 	test, pool string
+}
+
+func (*snapshotPinOriginHook) DialHook(next goredis.DialHook) goredis.DialHook { return next }
+func (*snapshotPinOriginHook) ProcessPipelineHook(next goredis.ProcessPipelineHook) goredis.ProcessPipelineHook {
+	return next
 }
 
 func pinOriginHook(t *testing.T, pool string) *snapshotPinOriginHook {

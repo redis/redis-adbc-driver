@@ -159,8 +159,6 @@ func TestSnapshotCompactionPhaseProfile(t *testing.T) {
 			ctx, cancel := context.WithTimeout(h.ctx, time.Minute)
 			defer cancel()
 			var pacing time.Duration
-			var schedule snapshotCompactionPacing
-			inactiveDelay := time.Second
 			active, complete := true, false
 			started := time.Now()
 			for range 10000 {
@@ -175,7 +173,7 @@ func TestSnapshotCompactionPhaseProfile(t *testing.T) {
 				if paced || !active {
 					delay := 5 * time.Millisecond
 					if !active {
-						delay = inactiveDelay
+						delay = time.Second
 					}
 					wait := time.Now()
 					select {
@@ -192,7 +190,7 @@ func TestSnapshotCompactionPhaseProfile(t *testing.T) {
 				}
 				profile.mu.Unlock()
 				step := time.Now()
-				result, err := s.stepSnapshotCompaction(ctx, token)
+				progress, err := s.snapshotCompactionStep(ctx, token)
 				elapsed := time.Since(step)
 				profile.mu.Lock()
 				profile.phase = ""
@@ -202,8 +200,7 @@ func TestSnapshotCompactionPhaseProfile(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				active = result.progress
-				inactiveDelay = schedule.inactiveDelay(result, err)
+				active = progress
 			}
 			elapsed := time.Since(started)
 			if !complete {
