@@ -96,6 +96,30 @@ if op == 'init' then
   return 1
 end
 if redis.call('HGET', k, 'format') ~= '15' then return redis.error_reply('missing or unsupported snapshot catalog') end
+-- Lease operations need only their own records. Admission and reclamation
+-- below still enumerate/prune expired pins before accounting or collection.
+if op == 'renew' or op == 'valid' then
+  local raw = redis.call('HGET', k, 'p:'..token)
+  if not raw then return 0 end
+  local pin = cjson.decode(raw)
+  if pin.root ~= base or pin.expires <= now then return 0 end
+  if op == 'renew' then
+    pin.expires = expiry
+    redis.call('HSET', k, 'p:'..token, cjson.encode(pin))
+    if id ~= '' then
+      local wr = redis.call('HGET', k, 'w:'..id)
+      if not wr then return 0 end
+      local w = cjson.decode(wr)
+      if (w.state ~= 'staging' and w.state ~= 'sealed') or w.token ~= token or w.expires <= now then return 0 end
+      w.expires = expiry
+      redis.call('HSET', k, 'w:'..id, cjson.encode(w))
+    end
+  end
+  return 1
+elseif op == 'release' then
+  redis.call('HDEL', k, 'p:'..token)
+  return 1
+end
 local entries = redis.call('HGETALL', k)
 local pins, works, protected, owners = 0, 0, {}, {}
 for n=1,#entries,2 do
@@ -266,27 +290,6 @@ elseif op == 'admit_ingest' then
   end
   pin.ingest_target=target
   redis.call('HSET',k,'p:'..token,cjson.encode(pin))
-  return 1
-elseif op == 'renew' or op == 'valid' then
-  local raw = redis.call('HGET', k, 'p:'..token)
-  if not raw then return 0 end
-  local pin = cjson.decode(raw)
-  if pin.root ~= base or pin.expires <= now then return 0 end
-  if op == 'renew' then
-    pin.expires = expiry
-    redis.call('HSET', k, 'p:'..token, cjson.encode(pin))
-    if id ~= '' then
-      local wr = redis.call('HGET', k, 'w:'..id)
-      if not wr then return 0 end
-      local w = cjson.decode(wr)
-      if (w.state ~= 'staging' and w.state ~= 'sealed') or w.token ~= token or w.expires <= now then return 0 end
-      w.expires = expiry
-      redis.call('HSET', k, 'w:'..id, cjson.encode(w))
-    end
-  end
-  return 1
-elseif op == 'release' then
-  redis.call('HDEL', k, 'p:'..token)
   return 1
 elseif op == 'reserve' then
   local prior = redis.call('HGET', k, 'w:'..id)

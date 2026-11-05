@@ -2,6 +2,11 @@
 
 Date: 2026-11-02. Status: in progress. See [intent](intent.md), [spec](spec.md).
 
+The [point-lease checkpoint](point-lease-validation.md) moves validation,
+renewal and release before catalog enumeration. A reproduced Software HGETALL
+denial becomes a pass without broader grants; neighboring lifecycle races pass.
+Full-source/native/performance checks remain required.
+
 The [control-cache checkpoint](control-script-cache-validation.md) reduces
 standalone control script payloads while retaining no-retry behavior and an
 EVAL-only operator path. Focused race and actual Software role checks pass;

@@ -58,20 +58,24 @@ def main():
         (folder / "admin.uri").chmod(0o600)
         principals = SoftwarePrincipals(folder)
         operator = "script-operator-" + uuid.uuid4().hex + "@example.com"
+        point_operator = "point-lease-" + uuid.uuid4().hex + "@example.com"
         try:
             principals.create(operator, secrets.token_urlsafe(32), ["~*", "+@all", "-evalsha"])
+            principals.create(point_operator, secrets.token_urlsafe(32), ["~*", "+@all", "-hgetall"])
             verify()
             env = dict(os.environ, REDIS_SNAPSHOT_URI=uri,
                        REDIS_SCRIPT_EVAL_ONLY_URI=principals.people[operator]["uri"],
+                       REDIS_SCRIPT_POINT_LEASE_URI=principals.people[point_operator]["uri"],
                        REDIS_RETAINED_CONTROL_PERSISTENCE="guaranteed")
             subprocess.run(["go", "test", "-race", "-json", "-count=1", "-p", "1",
-                            "-timeout=2m", "-run", "^TestSnapshotControlScriptEvalOnlySoftware$", "."],
+                            "-timeout=2m", "-run", "^TestSnapshotControlScript(EvalOnly|PointLease)Software$", "."],
                            cwd=Path(__file__).resolve().parents[1] / "go", env=env, check=True)
         finally:
             principals.cleanup()
             verify()
     print(json.dumps({"software": True, "qpf": 4, "strict_tls": True,
-                      "eval_only_operator_verified": True, "owned_principal_removed": True}))
+                      "eval_only_operator_verified": True, "point_lease_operator_verified": True,
+                      "owned_principals_removed": True}))
 
 
 if __name__ == "__main__":

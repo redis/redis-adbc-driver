@@ -131,6 +131,9 @@ Author review checks direct native refusal classification, cancellation between
 attempts, unchanged argument suffixes, NoRetry markers, unknown fallback outcomes,
 actual EVAL-only command denials and observer/wire separation. No reader grants,
 Lua/storage logic, quotas, protocol or SQL/input replay behavior change.
-This is not independent maintainer approval. The current full snapshot race
-selection and hosted Test run at fdbe75f are in progress; completed earlier
-sources are not relabeled as these checks.
+This is not independent maintainer approval. The full snapshot race selection
+at fdbe75f completes with 450 test passes, 28 explicit skips and zero failures;
+root 371.868 s and all six test-bearing packages pass. It compiled before the
+subsequent point-lease regression/optimization and does not cover that change.
+The hosted Test run at fdbe75f remains in progress. Full-suite elapsed times are
+not controlled performance comparisons; no speedup is inferred from this run.
