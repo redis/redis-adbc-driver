@@ -24,6 +24,7 @@ import (
 // CPU time. Failed and discarded partition attempts remain in these counts.
 type partitionMetrics struct {
 	used                                                     atomic.Bool
+	pushdowns                                                atomic.Int64
 	partitions, retries, fallbacks, tuples, rows, valueBytes atomic.Int64
 	redisNanos, partitionNanos, mergeNanos, spillBytes       atomic.Int64
 	workers                                                  atomic.Int64

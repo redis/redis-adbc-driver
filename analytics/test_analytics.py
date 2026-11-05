@@ -11,7 +11,7 @@ import urllib.error
 import urllib.request
 import uuid
 
-from collector import BOUNDS, COUNTERS, CollectorServer, Store, handler, validate
+from collector import BOUNDS, COUNTERS, CollectorServer, Store, handler, validate, traffic_class, workload_size
 from downloads import github, pypi
 
 
@@ -93,6 +93,52 @@ class AnalyticsTests(unittest.TestCase):
             with self.subTest(payload=p), self.assertRaises(ValueError):
                 validate(p)
 
+    def test_fixed_diagnostic_allowlist_and_traffic(self):
+        self.assertEqual(traffic_class({'hostname':'runnervmabc'}, {}), 'ci_inferred')
+        self.assertEqual(traffic_class({'hostname':'runnervmabc','traffic_class':'application'}, {}), 'application')
+        self.assertEqual(traffic_class({}, {}), 'unknown')
+        self.assertEqual(traffic_class({'hostname':'runnervmabc','traffic_class':'unknown'}, {'environment':'ci'}), 'unknown')
+        self.assertEqual(workload_size({'rows_returned':10}), 'unmeasured')
+        self.assertEqual(workload_size({'rows_examined':0}), '0')
+        self.assertEqual(workload_size({'rows_examined':101,'rows_represented':10001}), '10k–1m')
+        p=report();p['traffic_class']='benchmark'
+        m=p['metrics']['select'];m['execution_paths']={'aggregate_row_fallback':1};m['group_limit_retries']=2
+        validate(p)
+        for field,value in [('execution_paths',{'private table':1}),('error_classes',{'raw error':1}),('row_fallbacks',-1),('execution_paths',{'driver_scan':2})]:
+            bad=copy.deepcopy(p);bad['metrics']['select'][field]=value
+            with self.subTest(field=field,value=value),self.assertRaises(ValueError):validate(bad)
+        p['traffic_class']='customer-name'
+        with self.assertRaises(ValueError):validate(p)
+
+    def test_version_traffic_grouping_and_diagnostic_deduplication(self):
+        self.require_store()
+        p=report();p['traffic_class']='application'
+        p['metrics']['select'].update(execution_paths={'driver_scan':1},group_limit_retries=2,row_fallbacks=1)
+        self.assertTrue(self.store.ingest(p));self.assertFalse(self.store.ingest(p))
+        other=report();other['traffic_class']='ci';other['driver_version']='v0.2.0'
+        self.store.ingest(other)
+        second=copy.deepcopy(p);second['sequence']=2
+        second['metrics']['select'].update(attempts=2,success=2,latency=[2]+[0]*14,ready_latency=[2]+[0]*14,execution_paths={'driver_scan':2},group_limit_retries=3)
+        self.store.ingest(second)
+        summary=self.store.summary('application')
+        self.assertEqual(summary['metrics']['select']['attempts'],2)
+        self.assertEqual(summary['metrics']['select']['execution_paths'],{'driver_scan':2})
+        self.assertEqual(summary['metrics']['select']['group_limit_retries'],3)
+        self.assertEqual(summary['metrics']['select']['row_fallbacks'],1)
+        self.assertEqual(len(summary['comparisons']),1)
+        self.assertEqual(summary['comparisons'][0]['driver_version'],'v0.1.0')
+        self.assertEqual(self.store.summary('ci')['metrics']['select']['attempts'],1)
+        self.assertFalse(self.store.summary('benchmark')['metrics'])
+        changed=copy.deepcopy(second);changed['sequence']=3;changed['traffic_class']='ci'
+        with self.assertRaises(ValueError):self.store.ingest(changed)
+        # Old stream entries genuinely have no version; do not invent it.
+        legacy=report()
+        delta={key:legacy[key] for key in ['connections','connection_errors','features','metrics','delivery_failures']}
+        self.store.redis.xadd(self.store.prefix+'reports',{'received_at':datetime.now(timezone.utc).isoformat(),'installation':'legacy','labels':'{}','delta':json.dumps(delta),'source':json.dumps({'hostname':'runnervmlegacy'})})
+        legacy_summary=self.store.summary('ci_inferred')
+        self.assertEqual(legacy_summary['comparisons'][0]['driver_version'],'unknown')
+        self.assertEqual(legacy_summary['metrics']['select']['execution_paths'],{})
+
     def test_retention_needs_full_window_and_success(self):
         self.require_store()
         now = datetime.now(timezone.utc)
@@ -123,6 +169,16 @@ class AnalyticsTests(unittest.TestCase):
             self.assertTrue(json.load(response)['accepted'])
         with request('/api/summary', 'read') as response:
             self.assertEqual(json.load(response)['metrics']['select']['success'], 1)
+        with request('/api/summary?traffic=application', 'read') as response:
+            self.assertEqual(json.load(response)['metrics'], {})
+        with self.assertRaises(urllib.error.HTTPError) as ctx:
+            request('/api/summary?traffic=private', 'read')
+        self.assertEqual(ctx.exception.code, 400)
+        ctx.exception.close()
+        with self.assertRaises(urllib.error.HTTPError) as ctx:
+            request('/api/summary?traffic=ci')
+        self.assertEqual(ctx.exception.code, 401)
+        ctx.exception.close()
         with self.assertRaises(urllib.error.HTTPError) as ctx:
             request('/v1/usage', 'write', b'{"sql":"private"}')
         self.assertEqual(ctx.exception.code, 400)

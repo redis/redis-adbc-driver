@@ -407,6 +407,9 @@ func TestUsageRedisIntegration(t *testing.T) {
 	for _, execution := range d.Executions {
 		if execution.Kind == "select" && execution.Status == "success" && execution.RowsReturned == 250 {
 			consumed = true
+			if execution.ExecutionPath != "driver_scan" {
+				t.Fatalf("scan path: %+v", execution)
+			}
 			if execution.RowsExamined == nil || *execution.RowsExamined < 250 {
 				t.Fatalf("SELECT input work not measured: %+v", execution)
 			}
@@ -416,6 +419,9 @@ func TestUsageRedisIntegration(t *testing.T) {
 		t.Fatal("missing fully consumed SELECT workload sample")
 	}
 	m := d.Metrics["select"]
+	if m.ErrorClasses["canceled"] != 1 {
+		t.Fatalf("cancellation category: %+v", m)
+	}
 	if m.Attempts != 3 || m.Success != 1 || m.Abandoned != 1 || m.Canceled != 1 || m.Rows != 260 {
 		t.Fatalf("stream metrics %+v", m)
 	}
@@ -630,5 +636,80 @@ func TestUsageRuntimeIdentityAcrossHandles(t *testing.T) {
 	}
 	if first.SessionID == second.SessionID {
 		t.Fatal("database sessions were conflated")
+	}
+}
+
+func TestUsageTrafficClassification(t *testing.T) {
+	for _, key := range []string{"CI", "GITHUB_ACTIONS", "GITLAB_CI", "TF_BUILD", "REDIS_ADBC_TELEMETRY_TRAFFIC_CLASS"} {
+		t.Setenv(key, "")
+	}
+	if got, _ := usageDefault(OptionStringTelemetryTrafficClass); got != "unknown" {
+		t.Fatal(got)
+	}
+	t.Setenv("GITHUB_ACTIONS", "true")
+	if got, _ := usageDefault(OptionStringTelemetryTrafficClass); got != "ci" {
+		t.Fatal(got)
+	}
+	t.Setenv("REDIS_ADBC_TELEMETRY_TRAFFIC_CLASS", "benchmark")
+	_, u := usageForTest(t, nil)
+	if usageData(t, u).TrafficClass != "benchmark" {
+		t.Fatal("benchmark environment ignored")
+	}
+	_, u = usageForTest(t, map[string]string{OptionStringTelemetryTrafficClass: "application", OptionStringTelemetryEnabled: "true"})
+	if usageData(t, u).TrafficClass != "application" {
+		t.Fatal("explicit class must win")
+	}
+	var s usageState
+	if s.set(OptionStringTelemetryTrafficClass, "private arbitrary label") == nil {
+		t.Fatal("accepted arbitrary traffic class")
+	}
+}
+
+func TestUsageFixedDiagnostics(t *testing.T) {
+	_, u := usageForTest(t, nil)
+	cases := []struct {
+		err   error
+		class string
+	}{
+		{context.Canceled, "canceled"}, {context.DeadlineExceeded, "timeout"},
+		{adbc.Error{Code: adbc.StatusInvalidArgument, Msg: "private SQL literal"}, "invalid_argument"},
+		{adbc.Error{Code: adbc.StatusIO, Msg: "private Redis address"}, "io"},
+		{errors.New("private error text"), "unknown"},
+	}
+	for _, c := range cases {
+		op := usageStatement(t, u, "SELECT 1").startUsage()
+		op.diagnostics = &executionDiagnostics{}
+		op.diagnostics.scanObserved.Store(true)
+		op.metrics = &partitionMetrics{}
+		op.metrics.used.Store(true)
+		op.metrics.pushdowns.Store(1)
+		op.metrics.retries.Store(2)
+		op.metrics.fallbacks.Store(1)
+		op.finish(c.err, false)
+		op.finish(nil, false)
+		data := usageData(t, u)
+		sample := data.Executions[len(data.Executions)-1]
+		if sample.ErrorClass != c.class || sample.ExecutionPath != "aggregate_row_fallback" || sample.GroupLimitRetries != 2 || sample.RowFallbacks != 1 {
+			t.Fatalf("unexpected diagnostics: %+v", sample)
+		}
+	}
+	data := usageData(t, u)
+	m := data.Metrics["select"]
+	if m.GroupLimitRetries != 10 || m.RowFallbacks != 5 || m.ExecutionPaths["aggregate_row_fallback"] != 5 || m.ErrorClasses["unknown"] != 1 {
+		t.Fatalf("cumulative diagnostics: %+v", m)
+	}
+	if strings.Contains(string(u.snapshot()), "private") {
+		t.Fatal("raw error leaked")
+	}
+	// A client row aggregate must not be mislabeled as server pushdown.
+	op := usageStatement(t, u, "SELECT 1").startUsage()
+	op.metrics = &partitionMetrics{}
+	op.metrics.used.Store(true)
+	op.diagnostics = &executionDiagnostics{}
+	op.diagnostics.scanObserved.Store(true)
+	op.finish(nil, false)
+	data = usageData(t, u)
+	if data.Executions[len(data.Executions)-1].ExecutionPath != "driver_scan" {
+		t.Fatal("client aggregate mislabeled")
 	}
 }
