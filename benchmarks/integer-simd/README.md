@@ -16,8 +16,11 @@ go test -run '^$' -bench BenchmarkMatch -benchmem -count=3 ./internal/intpredica
 go test -run '^$' -bench BenchmarkIntegerBatchConversion -benchmem -count=3 .
 ```
 
-The `Integer SIMD experiment` workflow runs these measurements on native hosted
-amd64 and arm64 hardware. Emulation/cross-compilation is not hardware validation.
+The retired `Integer SIMD experiment` workflow recorded these measurements on
+native hosted amd64 and arm64 hardware. It was removed after the completed
+experiment retained its no-go decision for automatic SQL integration. The
+commands above remain available for manual reproduction. Emulation and
+cross-compilation are not hardware validation.
 Runtime dispatch uses SSE4.2 or NEON, with a portable scalar fallback. Results
 include output allocation and cgo overhead; full conversion includes input/NULL
 bitmap allocation and decoded-map lookup. Compare `row` to `convert-dispatch`,

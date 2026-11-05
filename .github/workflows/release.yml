@@ -45,6 +45,9 @@ on:
   pull_request:
     paths:
       - .github/workflows/release.yml
+      - .github/workflows/wheel-client.yml
+      - scripts/ci_test_matrix.py
+      - scripts/test_ci_test_matrix.py
       - go/build-linux.sh
       # Native validation changes must exercise the installed-wheel layout.
       - go/validation/**
@@ -106,10 +109,27 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       duckdb: ${{ steps.features.outputs.duckdb }}
+      platforms: ${{ steps.platforms.outputs.matrix }}
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ env.REF }}
+          fetch-depth: 0
+      - name: Select distribution compatibility coverage
+        id: platforms
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ -f scripts/ci_test_matrix.py ] && grep -q select_release_matrix scripts/ci_test_matrix.py; then
+            matrix=$(python3 scripts/ci_test_matrix.py --suite release --event "$EVENT" --base "$BASE" --head "$HEAD")
+          else
+            # Historical tags without the selector retain every distribution.
+            matrix='{"arch":["amd64","arm64"],"image":["ubuntu:20.04","ubuntu:22.04","almalinux:8","almalinux:9","amazonlinux:2023"]}'
+          fi
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "$matrix" >> "$GITHUB_STEP_SUMMARY"
       - id: features
         run: echo "duckdb=${{ hashFiles('duckdb-extension/redis_adbc_extension.cpp') != '' }}" >> "$GITHUB_OUTPUT"
       - name: Test publication validation
@@ -118,7 +138,8 @@ jobs:
 
   duckdb:
     needs: distribution
-    if: needs.distribution.outputs.duckdb == 'true'
+    # PR extension checks run in the standalone DuckDB workflow.
+    if: github.event_name != 'pull_request' && needs.distribution.outputs.duckdb == 'true'
     uses: ./.github/workflows/duckdb-extension.yml
     with:
       ref: ${{ github.event.release.tag_name || inputs.tag || github.sha }}
@@ -251,7 +272,9 @@ jobs:
       # -p 1: the packages' integration tests share the server, and a
       # connection opened by one rolls back the abandoned moves another set
       # up (see the Makefile's test target).
+      # Test owns PR source-suite coverage; release/manual runs retain it here.
       - name: Test (Redis Software)
+        if: github.event_name != 'pull_request'
         working-directory: go
         env:
           # The preceding owned setup verifies noeviction through its API.
@@ -367,13 +390,11 @@ jobs:
   # (the linux job above already ran it on the Ubuntu 24.04 runner).
   platforms:
     name: ${{ matrix.image }} (${{ matrix.arch }})
-    needs: linux
+    needs: [linux, distribution]
     timeout-minutes: 20
     strategy:
       fail-fast: false
-      matrix:
-        arch: [amd64, arm64]
-        image: ["ubuntu:20.04", "ubuntu:22.04", "almalinux:8", "almalinux:9", "amazonlinux:2023"]
+      matrix: ${{ fromJSON(needs.distribution.outputs.platforms) }}
     runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     steps:
       - uses: actions/checkout@v7
@@ -703,104 +724,39 @@ jobs:
           name: darwin-arm64
           path: dist/
 
-  # Reuse the native release wheels rather than rebuilding for each client.
-  # This is a partition/TLS gate; the parent jobs retain full upstream suites.
-  wheel-clients:
-    name: wheel-${{ matrix.artifact }}-py${{ matrix.python }}-adbc${{ matrix.manager }}
-    needs: [linux, macos]
-    timeout-minutes: 20
+  # Each client gate waits only for its own platform's packaged artifacts.
+  linux-wheel-clients:
+    needs: linux
     strategy:
       fail-fast: false
       matrix:
-        artifact: [linux-amd64, linux-arm64, darwin-arm64]
-        python: ['3.14']
-        manager: ['1.12.0']
         include:
           - artifact: linux-amd64
             runner: ubuntu-24.04
           - artifact: linux-arm64
             runner: ubuntu-24.04-arm
-          - artifact: darwin-arm64
-            runner: macos-15
-    runs-on: ${{ matrix.runner }}
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ env.REF }}
-      - name: Detect partition checker at the selected release ref
-        id: capability
-        run: |
-          # Historical releases without this checker keep their existing gates.
-          if [ -f scripts/check_partition_tls.py ] && [ -f scripts/native_partition_redis.py ]; then
-            echo 'enabled=true' >> "$GITHUB_OUTPUT"
-          fi
-      - uses: actions/download-artifact@v8
-        if: steps.capability.outputs.enabled == 'true'
-        with:
-          name: ${{ matrix.artifact }}
-          path: dist
-      - uses: astral-sh/setup-uv@v10.2.0
-        if: steps.capability.outputs.enabled == 'true'
-      - name: Install the packaged wheel and selected client
-        if: steps.capability.outputs.enabled == 'true'
-        env:
-          CLIENT_PYTHON: ${{ matrix.python }}
-          ADBC_MANAGER: ${{ matrix.manager }}
-        run: |
-          uv venv --python "$CLIENT_PYTHON" "$RUNNER_TEMP/wheel-client"
-          uv pip install --python "$RUNNER_TEMP/wheel-client/bin/python" \
-            dist/*.whl "adbc-driver-manager==$ADBC_MANAGER" pyarrow redis
-      - name: Start owned Linux TLS fixture
-        if: steps.capability.outputs.enabled == 'true' && runner.os == 'Linux'
-        run: bash scripts/start_partition_tls.sh "$RUNNER_TEMP/wheel-client-tls" redis-wheel-client-tls 16390
-      - name: Start owned macOS TLS fixture
-        if: steps.capability.outputs.enabled == 'true' && runner.os == 'macOS'
-        run: |
-          brew update
-          env -u HOMEBREW_NO_INSTALL_UPGRADE brew install redis
-          prefix="$(brew --prefix redis)"
-          python3 scripts/native_partition_redis.py start "$RUNNER_TEMP/wheel-client-native" --tls \
-            --server "$prefix/bin/redis-server" --cli "$prefix/bin/redis-cli" \
-            --module "$prefix/lib/redis/modules/redisearch.so" --port 16390
-      - name: Verify independent partitions from the installed wheel
-        if: steps.capability.outputs.enabled == 'true'
-        env:
-          CLIENT_ARTIFACT: ${{ matrix.artifact }}
-          CLIENT_PYTHON: ${{ matrix.python }}
-          ADBC_MANAGER: ${{ matrix.manager }}
-        run: |
-          fixture="$RUNNER_TEMP/wheel-client-tls"
-          if [ "$RUNNER_OS" = macOS ]; then fixture="$RUNNER_TEMP/wheel-client-native/tls"; fi
-          export REDIS_TLS_ADMIN_URI="$(cat "$fixture/admin.uri")"
-          export SSL_CERT_FILE="$fixture/ca.crt"
-          env -u REDIS_ADBC_LIBRARY "$RUNNER_TEMP/wheel-client/bin/python" scripts/check_partition_tls.py \
-            --require-wheel --output "$RUNNER_TEMP/wheel-client-$CLIENT_ARTIFACT-py$CLIENT_PYTHON-adbc$ADBC_MANAGER.json"
-      - name: Upload wheel client evidence
-        if: always() && steps.capability.outputs.enabled == 'true'
-        uses: actions/upload-artifact@v7
-        with:
-          name: wheel-client-${{ matrix.artifact }}-py${{ matrix.python }}-adbc${{ matrix.manager }}
-          path: ${{ runner.temp }}/wheel-client-*.json
-          if-no-files-found: warn
-      - name: Remove owned Linux TLS fixture
-        if: always() && steps.capability.outputs.enabled == 'true' && runner.os == 'Linux'
-        run: |
-          if docker container inspect redis-wheel-client-tls >/dev/null 2>&1; then docker rm -f redis-wheel-client-tls; fi
-          rm -rf "$RUNNER_TEMP/wheel-client-tls"
-      - name: Stop owned macOS TLS fixture and remove private material
-        if: always() && steps.capability.outputs.enabled == 'true' && runner.os == 'macOS'
-        run: |
-          python3 scripts/native_partition_redis.py stop "$RUNNER_TEMP/wheel-client-native"
-          rm -rf "$RUNNER_TEMP/wheel-client-native"
+    uses: ./.github/workflows/wheel-client.yml
+    with:
+      ref: ${{ github.event.release.tag_name || inputs.tag || github.sha }}
+      artifact: ${{ matrix.artifact }}
+      runner: ${{ matrix.runner }}
+
+  macos-wheel-clients:
+    needs: macos
+    uses: ./.github/workflows/wheel-client.yml
+    with:
+      ref: ${{ github.event.release.tag_name || inputs.tag || github.sha }}
+      artifact: darwin-arm64
+      runner: macos-15
 
   upload:
     if: >-
       !cancelled() && github.event_name != 'pull_request' &&
       needs.distribution.result == 'success' && needs.linux.result == 'success' &&
       needs.platforms.result == 'success' && needs.macos.result == 'success' &&
-      needs.wheel-clients.result == 'success' &&
+      needs.linux-wheel-clients.result == 'success' && needs.macos-wheel-clients.result == 'success' &&
       (needs.duckdb.result == 'success' || needs.duckdb.result == 'skipped')
-    needs: [distribution, linux, platforms, macos, wheel-clients, duckdb]
+    needs: [distribution, linux, platforms, macos, linux-wheel-clients, macos-wheel-clients, duckdb]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
