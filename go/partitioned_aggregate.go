@@ -587,6 +587,7 @@ func (e *executor) aggregateTuplePartition(ctx context.Context, plan *selectPlan
 	started := time.Now()
 	var endFetch func()
 	if e.aggregateMetrics != nil {
+		e.aggregateMetrics.pushdowns.Add(1)
 		endFetch = e.aggregateMetrics.fetch.start()
 	}
 	raw, err := e.store.aggregate(ctx, req)

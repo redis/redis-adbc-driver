@@ -34,6 +34,7 @@ const defaultUsageEndpoint = "https://adbc-telemetry.sa.redislabs.com/v1/usage"
 const (
 	OptionStringTelemetryInstallationIDFile = usagePrefix + "installation_id_file"
 	OptionStringTelemetrySourceHostname     = usagePrefix + "source_hostname"
+	OptionStringTelemetryTrafficClass       = usagePrefix + "traffic_class"
 	OptionStringTelemetryEnabled            = usagePrefix + "enabled"
 	OptionStringTelemetryEndpoint           = usagePrefix + "endpoint"
 	OptionStringTelemetryToken              = usagePrefix + "token"
@@ -55,33 +56,41 @@ const (
 var usageLatencyBounds = []int64{1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 30000, 60000}
 
 type usageMetric struct {
-	Attempts     int64   `json:"attempts"`
-	Success      int64   `json:"success"`
-	Errors       int64   `json:"errors"`
-	Canceled     int64   `json:"canceled"`
-	Abandoned    int64   `json:"abandoned"`
-	Rows         int64   `json:"rows"`
-	Affected     int64   `json:"affected"`
-	Latency      []int64 `json:"latency"`
-	ReadyLatency []int64 `json:"ready_latency"`
+	ErrorClasses      map[string]int64 `json:"error_classes,omitempty"`
+	ExecutionPaths    map[string]int64 `json:"execution_paths,omitempty"`
+	GroupLimitRetries int64            `json:"group_limit_retries,omitempty"`
+	RowFallbacks      int64            `json:"row_fallbacks,omitempty"`
+	Attempts          int64            `json:"attempts"`
+	Success           int64            `json:"success"`
+	Errors            int64            `json:"errors"`
+	Canceled          int64            `json:"canceled"`
+	Abandoned         int64            `json:"abandoned"`
+	Rows              int64            `json:"rows"`
+	Affected          int64            `json:"affected"`
+	Latency           []int64          `json:"latency"`
+	ReadyLatency      []int64          `json:"ready_latency"`
 }
 
 // Only fixed classifications, anonymous execution IDs and numeric work counters
 // leave the driver. SQL, plans, predicates and relation names are never exported.
 type usageExecution struct {
-	ID              string    `json:"id"`
-	Kind            string    `json:"kind"`
-	Features        []string  `json:"features"`
-	StartedAt       time.Time `json:"started_at"`
-	CompletedAt     time.Time `json:"completed_at"`
-	Status          string    `json:"status"`
-	DurationMS      int64     `json:"duration_ms"`
-	ReadyMS         *int64    `json:"ready_ms"`
-	RowsReturned    int64     `json:"rows_returned"`
-	RowsAffected    *int64    `json:"rows_affected"`
-	RowsExamined    *int64    `json:"rows_examined"`
-	IndexedRows     *int64    `json:"indexed_rows"`
-	RowsRepresented *int64    `json:"rows_represented"`
+	ErrorClass        string    `json:"error_class,omitempty"`
+	ExecutionPath     string    `json:"execution_path,omitempty"`
+	GroupLimitRetries int64     `json:"group_limit_retries"`
+	RowFallbacks      int64     `json:"row_fallbacks"`
+	ID                string    `json:"id"`
+	Kind              string    `json:"kind"`
+	Features          []string  `json:"features"`
+	StartedAt         time.Time `json:"started_at"`
+	CompletedAt       time.Time `json:"completed_at"`
+	Status            string    `json:"status"`
+	DurationMS        int64     `json:"duration_ms"`
+	ReadyMS           *int64    `json:"ready_ms"`
+	RowsReturned      int64     `json:"rows_returned"`
+	RowsAffected      *int64    `json:"rows_affected"`
+	RowsExamined      *int64    `json:"rows_examined"`
+	IndexedRows       *int64    `json:"indexed_rows"`
+	RowsRepresented   *int64    `json:"rows_represented"`
 }
 
 const usageExecutionLimit = 24
@@ -89,6 +98,7 @@ const usageExecutionLimit = 24
 type usageOperationContextKey struct{}
 
 type usageSnapshot struct {
+	TrafficClass         string                  `json:"traffic_class,omitempty"`
 	InstanceID           string                  `json:"instance_id,omitempty"`
 	WorkloadIdentity     *usageWorkloadIdentity  `json:"workload_identity,omitempty"`
 	InstallationIDSource string                  `json:"installation_id_source,omitempty"`
@@ -123,6 +133,16 @@ type usageState struct {
 
 func usageDefault(key string) (string, bool) {
 	switch key {
+	case OptionStringTelemetryTrafficClass:
+		if v := os.Getenv("REDIS_ADBC_TELEMETRY_TRAFFIC_CLASS"); usageTrafficClassValid(v) {
+			return v, true
+		}
+		for _, key := range []string{"CI", "GITHUB_ACTIONS", "GITLAB_CI", "TF_BUILD"} {
+			if v := os.Getenv(key); v == "1" || strings.EqualFold(v, "true") {
+				return "ci", true
+			}
+		}
+		return "unknown", true
 	case OptionStringTelemetryInstallationIDFile:
 		directory, err := os.UserConfigDir()
 		if err != nil {
@@ -161,6 +181,10 @@ func (s *usageState) set(key, value string) error {
 		return errorf(adbc.StatusInvalidArgument, "telemetry label exceeds 256 bytes")
 	}
 	switch key {
+	case OptionStringTelemetryTrafficClass:
+		if !usageTrafficClassValid(value) {
+			return errorf(adbc.StatusInvalidArgument, "traffic_class must be ci, benchmark, application or unknown")
+		}
 	case OptionStringTelemetryEnabled:
 		if value != "true" && value != "false" {
 			return errorf(adbc.StatusInvalidArgument, "telemetry enabled must be true or false")
@@ -242,6 +266,10 @@ func (s *usageState) start() (*usageTelemetry, error) {
 	if v := s.options[OptionStringTelemetryInterval]; v != "" {
 		interval, _ = time.ParseDuration(v)
 	}
+	traffic, configured := s.options[OptionStringTelemetryTrafficClass]
+	if !configured {
+		traffic, _ = usageDefault(OptionStringTelemetryTrafficClass)
+	}
 	now := time.Now().UTC()
 	endpoint, configured := s.options[OptionStringTelemetryEndpoint]
 	if !configured {
@@ -253,7 +281,7 @@ func (s *usageState) start() (*usageTelemetry, error) {
 	}
 	t := &usageTelemetry{endpoint: endpoint, token: s.options[OptionStringTelemetryToken], stop: make(chan struct{}), done: make(chan struct{}), wake: make(chan struct{}, 1), interval: interval,
 		client: &http.Client{Timeout: 2 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }},
-		data:   usageSnapshot{InstanceID: usageRuntimeInstanceID, InstallationIDSource: idSource, SourceHostname: hostname, SchemaVersion: 1, SessionID: uuid.NewString(), InstallationID: id, StartedAt: now, DriverVersion: "unknown", OS: runtime.GOOS, Arch: runtime.GOARCH, Labels: labels, Features: map[string]int64{}, Metrics: map[string]*usageMetric{}, LatencyBounds: usageLatencyBounds}}
+		data:   usageSnapshot{TrafficClass: traffic, InstanceID: usageRuntimeInstanceID, InstallationIDSource: idSource, SourceHostname: hostname, SchemaVersion: 1, SessionID: uuid.NewString(), InstallationID: id, StartedAt: now, DriverVersion: "unknown", OS: runtime.GOOS, Arch: runtime.GOARCH, Labels: labels, Features: map[string]int64{}, Metrics: map[string]*usageMetric{}, LatencyBounds: usageLatencyBounds}}
 	s.reporter = t
 	t.identityReady = make(chan struct{})
 	if t.endpoint != "" {
@@ -390,7 +418,7 @@ func (t *usageTelemetry) deliver(ctx context.Context) error {
 	return errorf(adbc.StatusIO, "telemetry delivery failed")
 }
 func newUsageMetric() *usageMetric {
-	return &usageMetric{Latency: make([]int64, len(usageLatencyBounds)+1), ReadyLatency: make([]int64, len(usageLatencyBounds)+1)}
+	return &usageMetric{ErrorClasses: map[string]int64{}, ExecutionPaths: map[string]int64{}, Latency: make([]int64, len(usageLatencyBounds)+1), ReadyLatency: make([]int64, len(usageLatencyBounds)+1)}
 }
 func usageBucket(d time.Duration) int {
 	ms := d.Milliseconds()
@@ -570,6 +598,36 @@ func (o *usageOperation) finish(err error, abandoned bool) {
 			m.Success++
 			o.data.Status = "success"
 		}
+		o.data.ErrorClass = usageErrorClass(err)
+		o.data.ExecutionPath = "unobserved"
+		if o.diagnostics != nil && o.diagnostics.scanObserved.Load() {
+			o.data.ExecutionPath = "driver_scan"
+		}
+		if o.metrics != nil && o.metrics.used.Load() {
+			if o.metrics.pushdowns.Load() > 0 {
+				o.data.ExecutionPath = "aggregate_pushdown"
+				if o.diagnostics != nil && o.diagnostics.scanObserved.Load() {
+					o.data.ExecutionPath = "mixed"
+				}
+			}
+			o.data.GroupLimitRetries = o.metrics.retries.Load()
+			o.data.RowFallbacks = o.metrics.fallbacks.Load()
+			if o.data.RowFallbacks > 0 {
+				o.data.ExecutionPath = "aggregate_row_fallback"
+			}
+		}
+		if m.ErrorClasses == nil {
+			m.ErrorClasses = map[string]int64{}
+		}
+		if o.data.ErrorClass != "" {
+			m.ErrorClasses[o.data.ErrorClass]++
+		}
+		if m.ExecutionPaths == nil {
+			m.ExecutionPaths = map[string]int64{}
+		}
+		m.ExecutionPaths[o.data.ExecutionPath]++
+		m.GroupLimitRetries += o.data.GroupLimitRetries
+		m.RowFallbacks += o.data.RowFallbacks
 		elapsed := time.Since(o.started)
 		m.Latency[usageBucket(elapsed)]++
 		o.data.DurationMS = elapsed.Milliseconds()
@@ -700,4 +758,52 @@ func usageInstallationID(path string) (string, string) {
 		return existing, "local_file"
 	}
 	return uuid.NewString(), "temporary"
+}
+
+// Only allowlisted categories leave the process; never stringify an error.
+func usageTrafficClassValid(v string) bool {
+	return v == "ci" || v == "benchmark" || v == "application" || v == "unknown"
+}
+func usageErrorClass(err error) string {
+	if err == nil {
+		return ""
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return "timeout"
+	}
+	if errors.Is(err, context.Canceled) {
+		return "canceled"
+	}
+	var ae adbc.Error
+	if errors.As(err, &ae) {
+		switch ae.Code {
+		case adbc.StatusCancelled:
+			return "canceled"
+		case adbc.StatusTimeout:
+			return "timeout"
+		case adbc.StatusInvalidArgument:
+			return "invalid_argument"
+		case adbc.StatusInvalidState:
+			return "invalid_state"
+		case adbc.StatusNotImplemented:
+			return "not_implemented"
+		case adbc.StatusNotFound:
+			return "not_found"
+		case adbc.StatusAlreadyExists:
+			return "already_exists"
+		case adbc.StatusUnauthenticated:
+			return "unauthenticated"
+		case adbc.StatusUnauthorized:
+			return "unauthorized"
+		case adbc.StatusIO:
+			return "io"
+		case adbc.StatusIntegrity:
+			return "integrity"
+		case adbc.StatusInvalidData:
+			return "invalid_data"
+		case adbc.StatusInternal:
+			return "internal"
+		}
+	}
+	return "unknown"
 }

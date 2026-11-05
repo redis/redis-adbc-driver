@@ -85,3 +85,16 @@ test('table controls page, combine search/filters, sort numbers, and reset', () 
   reset.events.click(); assert.match(status.textContent, /Page 1 of 3/);
   assert.equal(search.value, ''); assert.equal(filter.value, '');
 });
+
+test('version and size comparisons keep cumulative metrics distinct from samples', () => {
+  const {context,elements}=dashboard();
+  vm.runInContext(`renderInsights({latency_bounds_ms:[1,5,10],comparisons:[{traffic_class:'ci_inferred',driver_version:'v1',kind:'select',metrics:{attempts:100,success:90,errors:2,canceled:3,abandoned:5,latency:[90,5,5,0],execution_paths:{driver_scan:10},error_classes:{io:2},group_limit_retries:3,row_fallbacks:1}}],executions:[{traffic_class:'application',driver_version:'v2',kind:'select',workload_size:'1–100',duration_ms:20,status:'success'},{traffic_class:'application',driver_version:'v2',kind:'select',workload_size:'1–100',duration_ms:40,status:'abandoned'}]})`,context);
+  const rows=id=>elements.get(id).children[1].children[1].children;
+  assert.equal(rows('comparisons')[0].children[0].textContent,'CI (inferred)');
+  assert.equal(rows('comparisons')[0].children[3].textContent,'100');
+  assert.equal(rows('comparisons')[0].children[6].textContent,'2.0%');
+  assert.equal(rows('diagnostics')[0].children[3].textContent,'10 / 100');
+  assert.equal(rows('workload-comparisons')[0].children[4].textContent,'2');
+  assert.equal(rows('workload-comparisons')[0].children[7].textContent,'20 ms');
+  assert.equal(rows('workload-comparisons')[0].children[8].textContent,'40 ms');
+});

@@ -318,3 +318,54 @@ counts sort numerically, dates chronologically, and missing measurements last.
 Reset table clears filters/sort and restores 25 rows. Controls persist across
 refreshes in the current page. Pagination does not fetch additional history: the
 query endpoint still supplies at most 200 recent samples.
+
+
+## Driver improvement diagnostics
+
+The dashboard traffic selector scopes usage counts, retention, source tables and
+comparisons to CI/test, benchmark, application, unknown, or inferred CI traffic.
+Application classifications are self-reported, not verified customer activity.
+The default is all traffic. Unclassified legacy runner hostnames matching
+`runnervm[a-z0-9]+` appear in a separate **CI (inferred)** bucket; they are never
+silently treated as application usage. Explicit classifications take precedence.
+Older `environment` labels `ci`/`test`/`testing` and `benchmark`/`benchmarks` also
+provide self-reported classification. Other legacy traffic remains unknown.
+
+Updated drivers accept `adbc.redis.telemetry.traffic_class` with exactly `ci`,
+`benchmark`, `application`, or `unknown`, set before connecting. The default
+honors `REDIS_ADBC_TELEMETRY_TRAFFIC_CLASS` when valid, otherwise recognizes true/1
+in CI, GITHUB_ACTIONS, GITLAB_CI or TF_BUILD, otherwise uses unknown. An explicit
+option takes precedence. Set benchmark jobs to benchmark and application clients
+to application; this does not override telemetry opt-out. Repository CI remains
+opted out. No additional environment-variable values are transmitted.
+
+Version comparisons use cumulative report deltas grouped by traffic, driver
+version and statement type. New stream entries persist the version already
+present in reports; historical stream entries without it remain unknown. Reports
+and retries are still differenced per session, including diagnostic counters.
+There is no retroactive reconstruction of historical versions or execution paths.
+
+Updated clients report fixed error categories derived from ADBC status and Go
+context errors, never raw error text. Wrapped unknown errors are `unknown`.
+Observed execution paths are `driver_scan`, `aggregate_pushdown`, `mixed`,
+`aggregate_row_fallback`, or `unobserved`. A driver scan can be the intended plan;
+it does not establish fallback. Aggregate pushdown records supported partitioned
+aggregate calls, not every possible Redis pushdown. Mixed includes both observed
+scans and supported aggregate calls in one execution, including scripts/retries.
+Group-limit retry and aggregate row-fallback counts reuse existing counters.
+Unsupported paths remain unobserved. Missing historical categories are shown as
+not reported, with categorized-completion coverage alongside total outcomes.
+
+Workload size comparisons use only the newest 200 retained execution samples
+before traffic filtering. Buckets use the larger measured driver-candidate or
+represented-row count: 0, 1–100, 101–10k, 10k–1m, >1m; absent counters stay
+unmeasured. These counters include repeated/retry work and are not table sizes.
+Sample p50/p95 are nearest-rank observed durations, including application fetch
+time. They are distinct from upper-bound cumulative histogram percentiles and
+are biased by the per-client sample window. Compare versions only within similar
+traffic, statement and size groups; neither table alone proves a regression.
+
+The collector remains compatible with schema-1 clients without diagnostic fields.
+Deploy the collector before rolling out updated drivers: an older collector's
+strict allowlist rejects the new optional fields. Existing installed driver
+binaries require rebuilding/upgrading to generate new categories.

@@ -156,7 +156,7 @@ let latest = null;
 function renderExecutions(data) {
   const filter = element('execution-filter').value.trim().toLowerCase();
   const all = data.executions || [];
-  const rows = all.filter(e => [e.kind, e.source_hostname, e.reverse_dns, e.public_ip, e.application, e.status, e.id,
+  const rows = all.filter(e => [e.kind, e.source_hostname, e.reverse_dns, e.public_ip, e.application, e.status, e.id, e.driver_version, e.traffic_class, e.execution_path, e.error_class,
     ...(e.features || [])].some(v => String(v || '').toLowerCase().includes(filter)));
   const inputWork = e => {
     const parts = [];
@@ -165,12 +165,13 @@ function renderExecutions(data) {
     return parts.join(' · ') || missingMeasurement(e, 'input_work');
   };
   table('executions', ['Completed (your time)', 'Reporting host', 'Statement / features',
-    'Index documents observed', 'Measured input work', 'Rows returned', 'Rows changed', 'Outcome', 'Elapsed', 'Execution ID', 'Measurement notes'], rows.map(e => [
+    'Index documents observed', 'Measured input work', 'Rows returned', 'Rows changed', 'Outcome', 'Elapsed', 'Execution ID', 'Measurement notes', 'Driver version', 'Traffic', 'Observed path', 'Error category', 'Group-limit retries', 'Aggregate row fallbacks'], rows.map(e => [
     new Date(e.completed_at).toLocaleString(), e.source_hostname || e.reverse_dns || 'Not reported',
     kindLabel(e.kind) + ((e.features || []).length ? ' · ' + e.features.join(', ') : ''),
     measured(e, 'indexed_rows'), inputWork(e), format(e.rows_returned), measured(e, 'rows_affected'), e.status,
     format(e.duration_ms) + ' ms', e.id.slice(0, 8),
-    executionNotes(e),
+    executionNotes(e), e.driver_version || 'unknown', trafficLabel(e.traffic_class), e.execution_path || 'Not reported', e.error_class || (['error','canceled'].includes(e.status) ? 'Not reported' : '—'),
+    e.group_limit_retries ?? 'Not reported', e.row_fallbacks ?? 'Not reported',
   ]));
   element('execution-count').textContent = rows.length + ' shown of ' + all.length + ' recent samples. '
     + 'Clients retain their latest 24 completed executions per report; this is not a complete query log.';
@@ -185,8 +186,37 @@ function executionNotes(e) {
   return text ? {text, details: true, executionId: e.id} : '—';
 }
 
+const trafficLabel = value => ({ci:'CI / test',ci_inferred:'CI (inferred)',benchmark:'Benchmark',application:'Application (self-reported)',unknown:'Unknown'})[value] || 'Unknown';
+const outcomes = m => m.success + m.errors + m.canceled + m.abandoned;
+function renderInsights(data) {
+  const comparisons = data.comparisons || [];
+  table('comparisons', ['Traffic', 'Driver version', 'Statement', 'Attempts', 'Success', 'Errors', 'Error rate', 'Canceled', 'Abandoned', 'p50 elapsed', 'p95 elapsed'], comparisons.map(c => {
+    const m = c.metrics, completed = outcomes(m);
+    return [trafficLabel(c.traffic_class), c.driver_version, kindLabel(c.kind), format(m.attempts), format(m.success), format(m.errors), completed ? (100*m.errors/completed).toFixed(1)+'%' : '—', format(m.canceled), format(m.abandoned), percentile(m.latency,data.latency_bounds_ms,.5), percentile(m.latency,data.latency_bounds_ms,.95)];
+  }));
+  table('diagnostics', ['Traffic','Driver version','Statement','Diagnostic coverage','Observed paths','Error categories','Group-limit retries','Aggregate row fallbacks'], comparisons.map(c => {
+    const m=c.metrics, paths=m.execution_paths || {}, classes=m.error_classes || {};
+    const categories = counts => Object.entries(counts).map(([key,count])=>key+': '+format(count)).join(' · ') || 'Not reported';
+    const covered=Object.values(paths).reduce((a,b)=>a+b,0);
+    return [trafficLabel(c.traffic_class),c.driver_version,kindLabel(c.kind),format(covered)+' / '+format(outcomes(m)),categories(paths),Object.keys(classes).length ? categories(classes) : covered && !m.errors && !m.canceled ? 'None' : 'Not reported',covered ? format(m.group_limit_retries) : 'Not reported',covered ? format(m.row_fallbacks) : 'Not reported'];
+  }));
+  const groups = new Map();
+  for (const e of data.executions || []) {
+    const dimensions=[e.traffic_class || 'unknown',e.driver_version || 'unknown',e.kind,e.workload_size || 'unmeasured'];
+    const key=JSON.stringify(dimensions);
+    if (!groups.has(key)) groups.set(key,{dimensions,durations:[],errors:0,abandoned:0});
+    const g=groups.get(key); g.durations.push(e.duration_ms); g.errors+=e.status==='error'; g.abandoned+=e.status==='abandoned';
+  }
+  table('workload-comparisons',['Traffic','Driver version','Statement','Measured input size','Samples','Errors','Abandoned','Sample p50','Sample p95'],Array.from(groups.values(),g=>{
+    g.durations.sort((a,b)=>a-b);
+    const quantile=p=>format(g.durations[Math.ceil(p*g.durations.length)-1])+' ms';
+    return [trafficLabel(g.dimensions[0]),g.dimensions[1],kindLabel(g.dimensions[2]),g.dimensions[3],format(g.durations.length),format(g.errors),format(g.abandoned),quantile(.5),quantile(.95)];
+  }));
+}
+
 function render(data) {
   latest = data;
+  renderInsights(data);
   const metrics = Object.values(data.metrics);
   const attempts = metrics.reduce((n, m) => n + m.attempts, 0);
   const errors = metrics.reduce((n, m) => n + m.errors, 0);
@@ -264,21 +294,26 @@ function render(data) {
   ]));
 }
 
+let loadSequence = 0;
 async function load(event) {
+  const sequence = ++loadSequence;
   event.preventDefault();
   element('status').textContent = 'Loading…';
   try {
-    const response = await fetch('/api/summary', {
+    const response = await fetch('/api/summary?traffic=' + encodeURIComponent(element('traffic-filter').value || 'all'), {
       headers: { Authorization: 'Bearer ' + element('token').value },
     });
     if (!response.ok) {
       throw Error(response.status === 401 ? 'Invalid read token' : 'Could not load metrics');
     }
-    render(await response.json());
+    const data = await response.json();
+    if (sequence !== loadSequence) return;
+    render(data);
     element('status').textContent = 'Updated ' + new Date().toLocaleTimeString();
   } catch (error) {
+    if (sequence !== loadSequence) return;
     // Clear previously authorized data if a later request fails.
-    for (const id of ['cards', 'queries', 'orgs', 'features', 'daily', 'downloads', 'hosts', 'executions', 'deployments', 'associations']) {
+    for (const id of ['cards', 'queries', 'orgs', 'features', 'daily', 'downloads', 'hosts', 'executions', 'deployments', 'associations', 'comparisons', 'diagnostics', 'workload-comparisons']) {
       element(id).replaceChildren();
     }
     latest = null;
@@ -290,3 +325,5 @@ async function load(event) {
 element('login').addEventListener('submit', load);
 
 element('execution-filter').addEventListener('input', () => { if (latest) renderExecutions(latest); });
+
+element('traffic-filter').addEventListener('change', event => { if (element('token').value) load(event); });
