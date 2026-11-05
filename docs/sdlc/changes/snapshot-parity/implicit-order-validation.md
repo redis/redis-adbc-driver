@@ -100,10 +100,14 @@ The subsequent complete native ADBC validation at c06e181 passes **565 tests
 and three subtests**, eight explicit capability skips, 96.92 s; Python 3.14.10,
 PyArrow 26.0.1, manager 1.13.0, exact library hash above. The skip reasons retain
 unimplemented connection/ingestion capabilities, table-type filtering,
-secondary-catalog schema and multi-statement transactions. After that process
-terminates, the complete current snapshot race selection starts with the
-preserved older native worker supplied. Its result is still pending; do not
-count it or a fresh ordinary/platform suite as passed.
+secondary-catalog schema and multi-statement transactions. The subsequent
+complete c06e181 snapshot race selection passes 430 test events, 25 explicit
+skips, zero failures; root 964.963 s, with the preserved older native worker
+supplied. Its large 100,001-row compaction case passes in 455.170 s; that
+whole-case duration includes SQL setup/checks and is not a compaction-only
+performance comparison. This root test binary was compiled before the later
+narrow positional edits, so its result does not cover those edits. A fresh
+ordinary/platform suite remains required.
 
 Owned Redis Software 8.8.0, strict TLS, active/effective 4x QPF, noeviction,
 three primaries behind its proxy, macOS ARM64 / Go 1.27.3. Proxy tests do not prove

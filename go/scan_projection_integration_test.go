@@ -48,7 +48,7 @@ func TestSQLScanProjectionBothAPIs(t *testing.T) {
 		}
 		return rows
 	}
-	for _, q := range []string{
+	for caseIndex, q := range []string{
 		"SELECT label AS alias, id, id AS duplicate, qty, stamp, __rowid FROM " + table,
 		"SELECT label FROM " + table + " LIMIT 100 OFFSET 10",
 	} {
@@ -59,6 +59,10 @@ func TestSQLScanProjectionBothAPIs(t *testing.T) {
 			sr, ok := r.(*streamReader)
 			if !ok || sr.it.projection == nil {
 				t.Fatalf("ordinary API did not select projection: %T", r)
+			}
+			if caseIndex == 0 && (sr.it.delta != nil || sr.it.candidates != nil) &&
+				(!sr.it.hashFetch || sr.it.projection.hashFields == nil) {
+				t.Fatal("narrow snapshot stream still constructs intermediate row maps")
 			}
 			if sr.arrow == nil || len(sr.pending) != 0 || len(sr.it.projection.rows) != 0 {
 				t.Fatal("simple projection still buffers projected rows")
@@ -85,7 +89,7 @@ func TestSQLScanProjectionBothAPIs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if sr, ok := r.(*streamReader); !ok || sr.it.projection == nil {
+	if sr, ok := r.(*streamReader); !ok || sr.it.projection == nil || !sr.it.hashFetch || sr.it.projection.hashFields == nil {
 		t.Fatalf("partition API did not select projection: %T", r)
 	}
 	got := read(r)

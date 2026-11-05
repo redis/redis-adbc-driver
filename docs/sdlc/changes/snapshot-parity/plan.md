@@ -2,6 +2,10 @@
 
 Date: 2026-11-02. Status: in progress. See [intent](intent.md), [spec](spec.md).
 
+The [narrow positional checkpoint](narrow-positional-validation.md) removes
+intermediate row maps from eligible simple directory/candidate streams. Focused
+unit and actual API checks pass; native and isolated comparative checks are pending.
+
 The [implicit-order checkpoint](implicit-order-validation.md) extends the exact
 directory/candidate merge to unbounded narrow implicit-order reads. Matched
 native medians improve 25.93% for the full implicit read; complete current-source

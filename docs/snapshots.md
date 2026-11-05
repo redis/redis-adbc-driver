@@ -299,7 +299,8 @@ AVG combines SUM and non-NULL COUNT. Parallel exact scalar/top-K and tuple paths
 use the same visibility rules. Empty private tails can use immutable source
 indexes for selective DML discovery; populated private indexes remain on the
 HASH/directory path. Prefix expansion completeness is proved on every segment.
-Eligible wide, simple Arrow projections fetch positional HASH fields only after
+Eligible simple Arrow projections over snapshot directories/candidates fetch
+positional HASH fields at every projection width, only after
 resolving the newest physical versions. They validate row identity and deletion
 markers before projection and reject missing referenced HASHes. Ascending row-ID
 merges preserve order without a separate ordered reduction. Live partition

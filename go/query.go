@@ -668,7 +668,7 @@ func (e *executor) openScan(ctx context.Context, req scanRequest, params []Value
 		if !indexed && req.where.original != nil {
 			req.where.residual = req.where.original
 		}
-		it, fields, exactly := e.newScanIter(ctx, req, params)
+		it, fields, _ := e.newScanIter(ctx, req, params)
 		if fields == nil {
 			fields = []string{}
 		}
@@ -686,9 +686,9 @@ func (e *executor) openScan(ctx context.Context, req scanRequest, params []Value
 			}
 		}
 		// Exact visibility is resolved before fetching the winning HASHes.
-		// Wide projections can bind positional HMGET values after that merge,
+		// Simple projections can bind positional HMGET values after that merge,
 		// preserving the ordinary path's residual/order/limit restrictions.
-		if req.where.keys == nil && wideHashFetch(req, it, &aggRequest{loadAll: !exactly}) {
+		if req.where.keys == nil && snapshotHashFetch(req) {
 			it.hashFetch = true
 		}
 		return it, nil
@@ -973,6 +973,18 @@ func (it *scanIter) nextPage(ctx context.Context) ([]string, []map[string]Value,
 // that would otherwise LOAD every HASH field. Indexes or exact snapshot
 // directories own discovery and ordering; no keys are guessed. Other SQL
 // operators keep their path.
+// Snapshot directories/candidates already resolve the winning physical HASH.
+// Positional projection therefore needs no minimum width or LOAD * proof.
+// newScanProjection still admits only supported simple output expressions.
+func snapshotHashFetch(req scanRequest) bool {
+	if !managedRowIDTable(req.meta) || req.where.residual != nil ||
+		req.ties != nil || req.late != nil || req.limit != nil {
+		return false
+	}
+	return len(req.sortBy) == 0 || len(req.sortBy) == 1 &&
+		req.sortBy[0].field == rowIDField && !req.sortBy[0].desc
+}
+
 func wideHashFetch(req scanRequest, it *scanIter, ar *aggRequest) bool {
 	if !ar.loadAll || !managedRowIDTable(req.meta) || len(it.need) < 64 ||
 		len(it.need)*2 <= len(req.meta.Columns) || req.where.residual != nil ||
