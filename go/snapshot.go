@@ -742,9 +742,20 @@ if w.state == 'compacting' then
   local jr = redis.call('HGET', KEYS[1], 'compaction')
   if not jr then return redis.error_reply('compaction job is no longer active') end
   local job = cjson.decode(jr)
+  local early_index=false
+  if command=='ft.create' and job.phase=='copy' and (job.after or '')=='' and not job.copy_pending then
+    local data=string.match(ARGV[6],'^adbc_snapshot_{meta}_([0-9a-f]+)_')
+    local skip=false
+    for i=7,#ARGV do
+      if string.lower(ARGV[i])=='schema' then break end
+      if string.lower(ARGV[i])=='skipinitialscan' then skip=true end
+    end
+    early_index=data==job.data and skip and KEYS[#KEYS]=='` + snapshotPrefix + `members:'..data and
+      redis.call('ZCARD',KEYS[#KEYS])==0
+  end
   if job.id ~= ARGV[1] or
      (command == 'hset' and job.phase ~= 'copy') or
-     (command == 'ft.create' and job.phase ~= 'index') or
+     (command == 'ft.create' and job.phase ~= 'index' and not early_index) or
      (command ~= 'hset' and command ~= 'ft.create') then
     return redis.error_reply('compaction output is sealed for this operation')
   end
@@ -813,6 +824,11 @@ func fenceSnapshotCommand(ctx context.Context, cmd goredis.Cmder) goredis.Cmder 
 			keys = append(keys, original[1])
 		}
 		member := ""
+		if strings.EqualFold(fmt.Sprint(original[0]), "ft.create") {
+			if data := snapshotDataID(fmt.Sprint(original[1])); data != "" {
+				keys = append(keys, snapshotMembers(data))
+			}
+		}
 		if strings.EqualFold(fmt.Sprint(original[0]), "hset") {
 			member = snapshotDirectoryMember(fmt.Sprint(original[1]))
 			if member != "" {

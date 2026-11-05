@@ -714,3 +714,13 @@ eight retained plans on seven roots plus nine COMMENT writers exhaust the real
 cleanup pass 20 Ray tests, leave zero groups, and the same COMMENT case passes.
 No live capability is evicted and capacity stays unchanged. Hosted confirmation,
 reader authorization and the remaining full objective are still required.
+
+The [pre-copy compaction-index checkpoint](compaction-directory-index-design.md)
+eliminates a new job's initial keyspace scan by indexing the existing atomic
+complete-image copy batches. It adds no storage fields, protocol, option or row
+notification journal. Legacy unindexed partial outputs keep scan recovery;
+early creation requires a live owner and explicitly empty registered output.
+Focused complete-row and interruption/admission cases pass, as do real older
+native copy/index/install handoffs and unchanged atomic/Close/writer-yield
+recovery. Broad current snapshot/native checks and matched benchmarks remain
+required before retaining or claiming a sustained throughput improvement.

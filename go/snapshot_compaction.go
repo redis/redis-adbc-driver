@@ -350,6 +350,31 @@ func (s *store) compactionWriteContext(ctx context.Context, j *snapshotCompactio
 }
 func (s *store) copySnapshotCompactionBatch(ctx context.Context, j *snapshotCompactionJob) error {
 	wctx := s.compactionWriteContext(ctx, j)
+	if j.After == "" && j.CopyPending == nil {
+		// Install an empty index before any complete images are copied. Their
+		// existing atomic HSET/checkpoint batches then populate it directly.
+		// Resumed legacy jobs with copied images retain the initial-scan path.
+		output := *j.Source
+		output.KeyPrefix = j.Prefix
+		output.IndexName = snapshotIndexPrefix(j.Data) + "compacted"
+		if err := s.searchDo(wctx, output.index(), "FT.INFO", output.index()).Err(); err != nil {
+			if !isUnknownIndex(err) {
+				return err
+			}
+			count, err := s.client.ZCard(ctx, snapshotMembers(j.Data)).Result()
+			if err != nil {
+				return err
+			}
+			// A legacy worker could stop after a per-row write but before its
+			// first checkpoint. Leave that populated, unindexed directory on
+			// the existing initial-scan path; an empty index would miss it.
+			if count == 0 {
+				if err := s.searchDo(wctx, output.index(), indexCreateArgs(&output)...).Err(); err != nil {
+					return err
+				}
+			}
+		}
+	}
 	scan := newSnapshotDeltaScan(s, j.Source, nil)
 	scan.keepDeleted = j.SourceStart > 0
 	scan.pageRows = snapshotCompactionBatchRows

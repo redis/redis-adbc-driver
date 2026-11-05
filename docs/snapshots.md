@@ -203,7 +203,14 @@ query-permission refusal selects a new private index built with the original
 initial-scan completion proof, preserving write-only principals; other errors
 remain terminal. Document counts alone do not prove that incremental updates
 have settled. Background compaction retains its separate resumable copy/index/
-install path. CREATE/CTAS, ordinary DML, ALTER rewrites and TRUNCATE build no
+install path. For new empty compaction outputs, an empty index is created before
+the first complete-image copy batch. The existing atomic directory/image/
+checkpoint batches populate it directly, avoiding a database initial scan or a
+second notification journal. Each image comes from the immutable source, with
+canonical row identity checked before its first insertion; repair restores the
+same complete image. Native readiness, failure, prefix and cardinality checks
+still precede installation. Legacy already populated unindexed jobs retain their
+initial-scan recovery path. CREATE/CTAS, ordinary DML, ALTER rewrites and TRUNCATE build no
 temporary working index. UPDATE/DELETE statements that write no row images or tombstones
 return without publishing a new empty segment or building an index.
 
