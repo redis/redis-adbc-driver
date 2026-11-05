@@ -46,6 +46,8 @@ on:
     paths:
       - .github/workflows/release.yml
       - go/build-linux.sh
+      # Native validation changes must exercise the installed-wheel layout.
+      - go/validation/**
       - go/Dockerfile.linux-builder
       - go/compose.yaml
       - go/cluster-ready.sh
@@ -402,6 +404,8 @@ jobs:
           tar xzf "dist/adbc_driver_redis-$VERSION-linux-$ARCH.tar.gz" -C dist
           docker run --rm --init --name redis-release-validation --network host \
             -v "$PWD/go/validation:/src/validation:ro" \
+            -v "$PWD/go/pkg/adbc.h:/src/adbc.h:ro" \
+            -v "$PWD/go/testdata:/src/testdata:ro" \
             -v "$PWD/dist/adbc_driver_redis-$VERSION-linux-$ARCH:/lib-in:ro" \
             -v "$(dirname "$(command -v uv)"):/uv:ro" \
             -v "$PWD/go/build/test-tls:/test-tls:ro" \
@@ -416,15 +420,16 @@ jobs:
               echo "=== Installing system prerequisites ==="
               if command -v apt-get >/dev/null; then
                 apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=60 -o Acquire::https::Timeout=60 update
-                DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=60 -o Acquire::https::Timeout=60 install -y git ca-certificates
+                DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=60 -o Acquire::https::Timeout=60 install -y git ca-certificates gcc libc6-dev
               else
                 # AlmaLinux mirrors can trickle metadata for the entire step
                 # budget. Reject slow transfers so DNF tries another mirror.
-                dnf --setopt=timeout=30 --setopt=minrate=1M --setopt=retries=2 -y install git ca-certificates
+                dnf --setopt=timeout=30 --setopt=minrate=1M --setopt=retries=2 -y install git ca-certificates gcc glibc-devel
               fi
               echo "=== Preparing validation fixtures ==="
-              mkdir -p /work/go/build
-              cp -r /src/validation /work/go/
+              mkdir -p /work/go/build /work/go/pkg
+              cp -r /src/validation /src/testdata /work/go/
+              cp /src/adbc.h /work/go/pkg/
               cp /lib-in/libadbc_driver_redis.so /work/go/build/
               cd /work/go/validation
               echo "=== Resolving Python and validation dependencies ==="
