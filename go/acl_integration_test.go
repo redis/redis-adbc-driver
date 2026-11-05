@@ -35,6 +35,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/adbc-drivers/driverbase-go/driverbase"
 	"github.com/apache/arrow-adbc/go/adbc"
 	"github.com/apache/arrow-go/v18/arrow/memory"
 	goredis "github.com/redis/go-redis/v9"
@@ -515,7 +516,27 @@ func TestACLSearchCommandsAndKeys(t *testing.T) {
 // back. A refused index cleanup must preserve its rows and remain immediately
 // recoverable by another collector, without waiting for a failed owner's lease.
 func TestSQLSnapshotCleanupDeniedRecovery(t *testing.T) {
-	h := newSQLHarness(t)
+	// This test observes the exact work done by two explicit collectors. A
+	// third automatic collector could legitimately remove the three rows after
+	// the denial, racing the successor's immediate-recovery assertion.
+	uri := os.Getenv("REDIS_URI")
+	if uri == "" {
+		t.Skip("set REDIS_URI to run SQL integration tests")
+	}
+	ctx := context.Background()
+	impl, err := newDriverImpl(memory.DefaultAllocator).newDatabaseImpl(ctx, retainedTestDatabaseOptions(map[string]string{adbc.OptionKeyURI: uri}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	impl.snapshotCompactionDisabled = true
+	db := driverbase.NewDatabase(impl)
+	conn, err := db.Open(ctx)
+	if err != nil {
+		_ = db.Close(ctx)
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = conn.Close(ctx); _ = db.Close(ctx) })
+	h := &sqlHarness{t: t, ctx: ctx, conn: conn}
 	h.dropTables("it_cleanup_live")
 	h.exec("CREATE TABLE it_cleanup_live(v BIGINT)")
 	h.exec("INSERT INTO it_cleanup_live VALUES(9007199254740993)")

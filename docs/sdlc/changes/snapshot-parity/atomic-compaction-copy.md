@@ -111,8 +111,16 @@ cohort above uses Python 3.14.10/PyArrow 26.0.1. The previous and mutable librar
 were preserved and hash-verified before every invocation. The current binary hash
 matches the native-validated build above.
 
-The complete ordinary Go race suite is now running separately; its result is
-pending. The manually dispatched [hosted test matrix](https://github.com/redis/redis-adbc-driver/actions/runs/42064051718)
+The first complete ordinary Go race attempt stopped at
+`TestSQLSnapshotCleanupDeniedRecovery` (root 1.908 s). Its automatic production
+worker can legitimately reclaim the fixture between the denied and authorized
+explicit collector steps, leaving zero rows for the latter's exact deletion
+count. The test now opens its database with automatic maintenance disabled,
+matching the explicit-collector protocol fixtures, while preserving all denial,
+immediate takeover, exact three-row accounting and pinned-live-value assertions.
+Ten consecutive focused race invocations pass (root 4.281 s). No production
+collector behavior or permissions change. A fresh full ordinary run remains
+pending; the failed attempt is not counted as a pass. The manually dispatched [hosted test matrix](https://github.com/redis/redis-adbc-driver/actions/runs/42064051718)
 targets `534cd6f` and is in progress (helper/coverage jobs passed at inspection).
 Neither pending run is counted as passed. Current protocol Cluster API/HA/
 persistence, actual restricted-principal authorization, public operation/input
