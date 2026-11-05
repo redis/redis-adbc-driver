@@ -1,8 +1,9 @@
 # Selective compaction design and acceptance
 
-Date: 2026-11-05. Status: selection implemented; scoped checks and actual older
-worker handoffs pass. See [implementation/evidence](selective-compaction-validation.md).
-Full validation and measured throughput parity remain incomplete.
+Date: 2026-11-05. Status: selection implemented; complete local snapshot/native
+checks and actual older-worker handoffs pass. See [implementation/evidence](selective-compaction-validation.md).
+Fresh throughput improves, median latency regresses, and performance parity fails.
+Complete feature/platform validation remains incomplete.
 See [the phase attribution contract](compaction-phase-profile.md),
 [the failed sustained gate](atomic-compaction-copy.md), [intent](intent.md),
 [spec](spec.md) and [plan](plan.md).

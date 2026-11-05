@@ -43,3 +43,34 @@ Software three-shard proxy tests are also not actual Cluster API routing,
 failover or AOF/RDB recovery evidence. A new sequential Software snapshot step is
 staged and its YAML, order and policy-verifying Make target checked locally.
 It requires an actual future run; the failed 534cd6f run predates that edit.
+
+## Subsequent be0ed4d run
+
+The [Test run](https://github.com/redis/redis-adbc-driver/actions/runs/42074144960)
+and [Release binaries run](https://github.com/redis/redis-adbc-driver/actions/runs/42074144950)
+both finish with failure. Test helpers, coverage and Superset pass; amd64 ordinary
+Go still fails concurrent COMMENT with the capacity-16 refusal. Arm64 ordinary
+Go passes. Its native suite reports 563 passed, eight skipped, three subtests
+passed and two failures: rename-close watches the legacy rekey journal, and
+cross-thread stream cancellation receives unraisable native-handle warnings.
+Those warnings name an unclosed Cursor and a Connection with an open Statement;
+the rename test's failure path did not close either handle. The required SELECT
+grant gate still fails. This does not prove cancellation itself caused the leaks.
+
+Linux release validation reports the same two native failures. Darwin release
+Go exposes missing snapshot initialization permissions for existing narrow
+roles across ACL/client-name/read-only/exec-abort, Search, adopted/foreign data,
+HASH tools, partitions, discovery, statistics and sweep. The distribution and
+DuckDB-native checks pass; skipped later artifacts/platform steps are not passes.
+The separate [DuckDB workflow](https://github.com/redis/redis-adbc-driver/actions/runs/42074145077)
+passes. Reader authorization remains an implementation gap, not a reason to
+broaden grants or suppress existing assertions.
+
+At 820ccfd, [pre-clone orphan reclamation and the corrected native-close fixture](released-owner-validation.md)
+address reproduced mechanisms; [selective compaction](selective-compaction-validation.md)
+reduces unchanged-base copying and preserves independent private-work leases.
+These local fixes do not establish the exact causes of every hosted failure.
+Fresh [Test](https://github.com/redis/redis-adbc-driver/actions/runs/42083993691)
+and [Release binaries](https://github.com/redis/redis-adbc-driver/actions/runs/42083993651)
+runs at that source still require terminal results. Historical server/settings
+and scoped local outcomes must not be substituted for current hosted parity.

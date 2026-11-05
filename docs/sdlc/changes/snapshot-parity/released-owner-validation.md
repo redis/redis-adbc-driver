@@ -33,7 +33,10 @@ weakening that test. Additional assertions protect
 the still-live unknown owner and reject renewal/sealing after reclamation;
 the focused combined race selection passes ten events, no skips/failures, root
 4.069 s, including those assertions and the unchanged independent private-copy
-retention test. Full current-source validation is pending.
+retention test. Final implementation 820ccfd passes the complete snapshot race
+selection (406 pass events, 24 explicit skips, root 418.647 s) and unit-only race
+checks (1,097 pass events, 958 expected skips, root 54.076 s); no failures.
+See [complete local evidence and limitations](selective-compaction-validation.md).
 
 This fixes a reproduced capacity leak. It is not yet proof that it explains all
 hosted concurrent-writer failures; a fresh hosted run remains required.
@@ -54,7 +57,10 @@ pass together: two tests, no skips, 4.13 s, through the versioned native library
 An initial local attempt used byte keys against the decoded raw client and
 failed; correcting that fixture type did not change driver behavior. Hosted
 unraisable warnings explicitly named an unclosed cursor/connection; the native
-rerun does not suppress warnings. Full hosted/platform validation remains open.
+rerun does not suppress warnings. The final complete native suite at 820ccfd
+passes 565 tests and three subtests, eight capability skips, zero failures,
+90.68 s, with the tested library hash in the linked evidence. Full
+hosted/platform validation remains open.
 
 All database evidence above uses the owned Redis Software 8.8.0 strict-TLS
 fixture, verified active/effective 4x QPF and noeviction, three primary shards

@@ -4,8 +4,8 @@ Date: 2026-11-02. Status: in progress. See [intent](intent.md), [spec](spec.md).
 
 The [released-owner checkpoint](released-owner-validation.md) records a
 reproduced lost-reservation capacity leak and its ownership-aware reclamation
-fix, plus the native snapshot rekey-close fixture correction. Combined and
-hosted verification remain required; this does not close reader authorization
+fix, plus the native snapshot rekey-close fixture correction. Local combined
+checks pass; hosted verification remains required. This does not close reader authorization
 or sustained throughput parity.
 
 | Workstream | Status |
@@ -664,6 +664,12 @@ frontend without expanding its supported operator/type/parameter/partition scope
 The [selective compaction checkpoint](selective-compaction-validation.md) avoids
 repeated large-base copies for small overlays, retains tombstones, and proves
 actual older-native handoffs at the hard segment limit. Full-copy resource and
-recovery assertions remain exercised with genuinely large source inputs. Full
-validation and fresh comparative throughput remain pending; index construction
-and inactive pacing retain their separate performance work.
+recovery assertions remain exercised with genuinely large source inputs. At
+820ccfd the complete snapshot selection passes 406 events / 24 skips, unit race
+checks pass 1,097 / 958 expected skips, and complete native validation passes
+565 tests plus three subtests / eight skips. A fresh six-process comparison
+improves throughput 3.651x, but median latency regresses 1.985x and mutable
+throughput remains 61.217x faster. Performance parity fails. A current controlled
+phase profile attributes about two seconds per small job to inactive waits;
+index readiness polling, index construction and foreground median attribution
+remain separate work. Hosted/platform/Cluster/HA and input resume remain open.
