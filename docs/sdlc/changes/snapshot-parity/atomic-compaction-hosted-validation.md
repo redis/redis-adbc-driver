@@ -74,3 +74,11 @@ Fresh [Test](https://github.com/redis/redis-adbc-driver/actions/runs/42083993691
 and [Release binaries](https://github.com/redis/redis-adbc-driver/actions/runs/42083993651)
 runs at that source still require terminal results. Historical server/settings
 and scoped local outcomes must not be substituted for current hosted parity.
+
+The terminal amd64 job in the 820ccfd Test run again fails
+`TestSQLCommentConcurrent` at its first staged publication race (line 582), with
+the generation-limit-16 reservation refusal. The downloaded terminal job log
+confirms this outcome while other jobs are still running. Thus pre-clone orphan
+reclamation does **not** resolve the hosted capacity failure. The remaining
+mechanism needs a separate deterministic reproduction; local focused/full
+snapshot passes must not be used as proof that this failure is fixed.
