@@ -1,7 +1,13 @@
 # Driver adoption analytics
 
-The driver can collect aggregate usage in its shared Go layer. Reporting is
-**off by default**. There is no built-in vendor endpoint. Python, SQLAlchemy,
+The driver collects aggregate product usage in its shared Go layer **by default**.
+This provides product usage feedback to help us understand how users use the
+driver, identify common workloads and reliability issues, and guide product
+improvements. Opt out by setting `adbc.redis.telemetry.enabled` to `false` before
+opening a connection; this disables both collection and reporting.
+
+There is no built-in vendor endpoint. Without a configured collector endpoint,
+usage stays in local in-memory snapshots and is not sent anywhere. Python, SQLAlchemy,
 Superset, Dagster and DuckDB can use the same database options when their
 integration forwards them; the caller supplies the integration label.
 
@@ -27,7 +33,7 @@ Back up the SQLite database, including WAL state using SQLite's backup tooling.
 The server does not log request addresses or tokens. TLS termination and hosting
 are deployment steps; nothing is provisioned or published by this change.
 
-## Enable a reporting application
+## Configure reporting or opt out
 
 Build a new native library (`make -C go build`) or install a wheel containing
 this feature. Existing released wheels will not acquire these options until a
@@ -42,7 +48,6 @@ from adbc_driver_redis import dbapi
 with dbapi.connect(
     os.environ["REDIS_URI"],
     db_kwargs={
-        "adbc.redis.telemetry.enabled": "true",
         "adbc.redis.telemetry.endpoint": "http://127.0.0.1:8787/v1/usage",
         "adbc.redis.telemetry.token": os.environ["ANALYTICS_WRITE_TOKEN"],
         "adbc.redis.telemetry.installation_id": "c2f2a874-fc8f-4214-aada-d265d8fc7233",
@@ -71,7 +76,7 @@ They are exported as Go constants in `usage.go` and Python `DatabaseOptions`.
 
 | Option suffix after `adbc.redis.telemetry.` | Default | Meaning |
 |---|---|---|
-| `enabled` | `false` | Explicit `true` enables collection |
+| `enabled` | `true` | Set `false` to opt out of collection and reporting |
 | `endpoint` | empty | POST destination; empty means local snapshots only |
 | `token` | empty | Write bearer token; never returned by GetOption or included in reports |
 | `installation_id` | random per database handle | Supply a persisted random ID for retention/deduplication across restarts |
@@ -82,8 +87,18 @@ They are exported as Go constants in `usage.go` and Python `DatabaseOptions`.
 
 Non-loopback endpoints require HTTPS. URLs cannot contain user info, query strings
 or fragments. Redirects are refused so tokens are not forwarded elsewhere.
-Configuration alone does not enable reporting. Set `enabled=false` or omit it to
-collect nothing. Label values are included verbatim: use organization identifiers
+Collection is enabled when `enabled` is omitted. Configuring an endpoint enables
+background reporting unless you opt out. To collect and send nothing:
+
+```python
+with dbapi.connect(
+    os.environ["REDIS_URI"],
+    db_kwargs={"adbc.redis.telemetry.enabled": "false"},
+) as connection:
+    pass
+```
+
+Label values are included verbatim: use organization identifiers
 and workload descriptions suitable for sharing, without secrets.
 
 Short-lived low-level clients can force delivery after draining and releasing results:

@@ -3,7 +3,9 @@
 Date: 2026-10-29. Source: public main `820d5af`.
 [Intent](intent.md), [plan and verification](plan.md).
 
-- Reporting defaults off; enabling without an endpoint provides local snapshots.
+- Collection defaults on (updated 2026-11-05); `enabled=false` disables collection
+  and reporting even with a configured endpoint. Without an endpoint, only local
+  snapshots are collected. Product usage feedback informs product improvement.
   Immutable database-level configuration after first Open, shared across connections.
 - Count ADBC ExecuteQuery/ExecuteUpdate calls, not individual statements within
   scripts/parameter batches. Distinguish type, success/error/cancellation/abandonment,

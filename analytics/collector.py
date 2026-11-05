@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Dependency-free, opt-in Redis ADBC aggregate collector and local dashboard."""
+"""Dependency-free Redis ADBC product usage collector and local dashboard."""
 import argparse
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone

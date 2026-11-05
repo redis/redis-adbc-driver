@@ -37,9 +37,10 @@ automatic downloads, stable paths, upgrades and uninstall.
 For dbc package creation and the pending public registry submission, see
 [Redis in dbc](docs/dbc.md).
 
-[Optional adoption analytics](analytics/README.md) provides company/team labels,
-aggregate query metrics, a local dashboard, and download snapshots. Reporting is
-off by default and excludes SQL text and result values.
+[Product usage analytics and feedback](analytics/README.md) helps us understand
+how users use the driver and guide product improvements. Aggregate collection is
+on by default; opt out with `adbc.redis.telemetry.enabled=false`. Sending reports
+requires a configured collector endpoint. Reports exclude SQL text and result values.
 
 For repository context and the development artifact workflow, see the
 [AI-native SDLC records](docs/sdlc/README.md).

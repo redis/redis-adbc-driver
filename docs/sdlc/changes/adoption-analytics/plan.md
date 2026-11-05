@@ -52,7 +52,8 @@ refused. Read and write credentials are separate, and dashboard labels render as
 text under a same-origin content security policy. No maintainer merge approval is
 implied by this implementation review.
 
-Limitations: telemetry defaults off and covers participating installations only;
+Original implementation limitations (before the 2026-11-05 opt-out update):
+telemetry defaulted off and covered participating installations only;
 company/team labels are self-reported; IDs must be persisted for retention;
 time windows use receipt dates; scripts/batches count as one API execution;
 client buffering is in memory; production hosting/TLS, customer identity mapping,
@@ -77,3 +78,26 @@ by that branch. No unrelated source history is part of the PR.
   '^(TestUsage|TestSQLStream|TestSQLCancel|TestSQLBoundStrings)' ./...`: passed
   against that verified Software 4x QPF fixture, with no race findings.
 - The dedicated Software container and its network were removed after validation.
+
+
+## Opt-out update (2026-11-05)
+
+Source: PR #244 head `691e48ab41432da804b60bd540952f9c4550b1e4`.
+Requestor: Albert Wong. Collection now defaults on; explicit `enabled=false`
+disables collection and reporting, including when an endpoint is configured.
+Explain product usage feedback as a way to understand user usage and improve
+workloads, reliability and the product. Preserve the payload exclusions.
+
+1. Change both option readback and zero-value startup defaults. Completed.
+2. Update setup examples, opt-out instructions, purpose and feature records. Completed.
+3. Verify implicit collection/reporting, explicit opt-out, privacy and lifecycle
+   with the focused Go race tests. Passed; Redis integration skipped without REDIS_URI.
+4. Collector tests: 5 passed (including local HTTP access control). Full Go
+   regression: `env -u REDIS_URI go test -race -count=1 -p 1 -json ./...`
+   passed: 653 passing test cases, 572 environment-dependent skips, no failures.
+   Evidence: [go-tests.json](evidence/opt-out-go-tests.json). `git diff --check` passed.
+5. Route 53 endpoint requested; hostname and collector target pending clarification.
+
+Review: opt-out returns before reporter allocation or background network startup;
+endpoint configuration alone enables reporting. No changes to wire fields, label
+handling, redirect rejection, TLS requirements or Arrow ownership.

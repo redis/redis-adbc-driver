@@ -87,7 +87,7 @@ type usageState struct {
 func usageDefault(key string) (string, bool) {
 	switch key {
 	case OptionStringTelemetryEnabled:
-		return "false", true
+		return "true", true
 	case OptionStringTelemetryInterval:
 		return "60s", true
 	case OptionStringTelemetryEndpoint, OptionStringTelemetryToken, OptionStringTelemetryInstallationID,
@@ -164,7 +164,8 @@ func (s *usageState) start() (*usageTelemetry, error) {
 		return s.reporter, nil
 	}
 	s.started = true
-	if s.options[OptionStringTelemetryEnabled] != "true" {
+	// Collection is opt-out, including for a zero-value usageState.
+	if s.options[OptionStringTelemetryEnabled] == "false" {
 		return nil, nil
 	}
 	labels := map[string]string{}

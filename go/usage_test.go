@@ -26,7 +26,7 @@ func usageForTest(t *testing.T, opts map[string]string) (*usageState, *usageTele
 	t.Helper()
 	s := &usageState{}
 	if opts == nil {
-		opts = map[string]string{OptionStringTelemetryEnabled: "true"}
+		opts = map[string]string{}
 	}
 	for k, v := range opts {
 		if err := s.set(k, v); err != nil {
@@ -61,10 +61,47 @@ func usageStatement(t *testing.T, u *usageTelemetry, query string) *statementImp
 	c := &connectionImpl{clientCfg: cfg, usage: u, store: &store{}, sess: newSession(defaultSchema), workerBudget: &workerBudget{}, ConnectionImplBase: driverbase.NewConnectionImplBase(&db.DatabaseImplBase)}
 	return &statementImpl{conn: c, query: query, StatementImplBase: driverbase.NewStatementImplBase(&c.ConnectionImplBase, c.ErrorHelper)}
 }
+func TestUsageOptOutDefaults(t *testing.T) {
+	for _, enabled := range []string{"", "true"} {
+		t.Run("enabled="+enabled, func(t *testing.T) {
+			opts := map[string]string{}
+			if enabled != "" {
+				opts[OptionStringTelemetryEnabled] = enabled
+			}
+			s, u := usageForTest(t, opts)
+			if got, err := s.get(OptionStringTelemetryEnabled); err != nil || got != "true" {
+				t.Fatalf("enabled=%q err=%v", got, err)
+			}
+			if u == nil {
+				t.Fatal("telemetry must default on")
+			}
+			op := usageStatement(t, u, "SELECT 1").startUsage()
+			op.finish(nil, false)
+			if usageData(t, u).Metrics["select"].Attempts != 1 {
+				t.Fatal("missing default collection")
+			}
+			if u.endpoint != "" {
+				t.Fatal("unexpected default reporting endpoint")
+			}
+			select {
+			case <-u.done:
+			default:
+				t.Fatal("reporter started without an endpoint")
+			}
+		})
+	}
+}
+
 func TestUsageDisabledAndValidation(t *testing.T) {
-	s, u := usageForTest(t, map[string]string{})
+	s, u := usageForTest(t, map[string]string{OptionStringTelemetryEnabled: "false", OptionStringTelemetryEndpoint: "https://example.com/v1/usage"})
 	if u != nil {
-		t.Fatal("telemetry must default off")
+		t.Fatal("explicit opt-out must disable telemetry")
+	}
+	if got, _ := s.get(OptionStringTelemetryEnabled); got != "false" {
+		t.Fatalf("opt-out readback: %s", got)
+	}
+	if err := s.flush(context.Background()); err == nil {
+		t.Fatal("opted-out telemetry allowed a flush")
 	}
 	if got, _ := s.get(OptionStringTelemetrySnapshot); got != "{}" {
 		t.Fatal(got)
@@ -220,7 +257,7 @@ func TestUsageReportingRetriesAndNoRedirect(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	s, u := usageForTest(t, map[string]string{OptionStringTelemetryEnabled: "true", OptionStringTelemetryEndpoint: server.URL, OptionStringTelemetryToken: "token", OptionStringTelemetryInstallationID: "stable-id"})
+	s, u := usageForTest(t, map[string]string{OptionStringTelemetryEndpoint: server.URL, OptionStringTelemetryToken: "token", OptionStringTelemetryInstallationID: "stable-id"})
 	op := usageStatement(t, u, "SELECT 1").startUsage()
 	op.finish(nil, false)
 	// Send directly to make failure/retry deterministic; start() hasn't signaled.
