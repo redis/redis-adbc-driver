@@ -34,11 +34,16 @@ or FT.CURSOR is needed by this reader, including string-level checks.
 The initial restrictions are deliberate:
 
 - Driver-created tables only. Adoption, application indexes, foreign-index
-  discovery, retained partitions and pending table rewrites are rejected. Copying into a fresh
+  discovery and schema rewrites are rejected. Copying into a fresh
   driver-created table remains the alternative to adoption.
-- ALTER TABLE (including rename/type changes), CREATE INDEX, materialized views,
-  TRUNCATE and rename rekeying are
-  unsupported. Rejected SQL operations return ADBC NotImplemented.
+- ALTER TABLE schema changes, CREATE INDEX and materialized views are unsupported.
+  Rejected SQL operations return ADBC NotImplemented. A single table rename with
+  `adbc.redis.rename_rekey=true` uses the bounded Flex reader and copies HASH fields
+  into a fresh physical generation, preserving the existing lease/recovery contract.
+  It does not use DUMP/RESTORE: rollback of restored Flex HASHes was reproduced to
+  remove source Search memberships while source HASHes still existed.
+- TRUNCATE switches to a fresh empty prefix/index and cleans canonical owned rows
+  without DD. Unrelated keys remain intact; RESTART IDENTITY resets the row sequence.
 - No validation of indexing documents that predate an index: new indexes use
   SKIPINITIALSCAN and new driver-owned prefixes.
 - Row IDs must be positive integers at most 2^53. This limit applies to hidden
@@ -53,6 +58,13 @@ DROP TABLE drops the index without DD and scans its permanently reserved prefix.
 It deletes canonical positive numeric row keys whose HASH marker matches the key.
 Adopted HASHes, non-row keys and unrelated prefixes are preserved. Cleanup is
 bounded into pipelines; retry DROP after interruption to finish cleanup.
+
+Retained partition execution carries Flex capabilities into the independent,
+budgeted source-capture client. Capture uses bounded SCAN/HMGET batches and the
+existing schema/cardinality checks; publication and replay retain their existing
+limits, ACLs, expiry and cancellation contracts. Reader-only workers consume
+published immutable output without Search probes or catalog writes. This does
+not add source snapshot isolation. See the [follow-up validation](sdlc/changes/324-330-flex-followups/validation.md).
 
 ## Bounded reads and consistency
 
@@ -118,8 +130,8 @@ slower for broad reads, sorting and aggregation. It remains opt-in.
 
 Three-shard Software Flex correctness and race checks were run with authenticated
 TLS and verified 4x QPF. Full native ADBC validation was run on RAM and Flex;
-Flex still has failing cases for its explicitly restricted retained/schema
-features. The native cancellation test asserts zero aggregate cursors in Flex
+The initial Flex run had failures for restricted retained/schema
+features; follow-up retained and rekey results are recorded separately below. The native cancellation test asserts zero aggregate cursors in Flex
 mode without skipping its cancellation/reuse checks.
 
 A temporary Cloud Pro Flex deployment in GCP us-west2 (Redis 8.6.2) authenticated
@@ -131,3 +143,11 @@ A Software database restart validation exceeded its two-minute operator deadline
 restart recovery and HA failover remain unproven. Cold/flash-dominant workloads,
 concurrent throughput, general sort spilling and document/flash read counters also
 remain follow-up work. See the reports for measurement limits and exact results.
+
+## Software Flex follow-up
+
+Work on #324–#328 and #330 targets Redis Software Flex. Cloud-only #329 is
+excluded at the requestor's direction. ALTER/CREATE INDEX work (#325/#326) is
+skipped because existing paths require FT.ALTER, unavailable on Software Flex.
+See the [current follow-up record](sdlc/changes/324-330-flex-followups/validation.md)
+for actual runs; historical measurements above remain dated evidence.

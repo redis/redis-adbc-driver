@@ -43,7 +43,7 @@ func newRekeyHarness(t *testing.T, opts map[string]string) *sqlHarness {
 	for k, v := range opts {
 		all[k] = v
 	}
-	db, err := NewDriver(memory.DefaultAllocator).NewDatabaseWithContext(ctx, all)
+	db, err := NewDriver(memory.DefaultAllocator).NewDatabaseWithContext(ctx, retainedTestDatabaseOptions(all))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,7 +62,7 @@ func (h *sqlHarness) setConnOption(key, value string) error {
 // tableNames returns a table's key prefix and index name.
 func (h *sqlHarness) tableNames(raw goredis.UniversalClient, schema, table string) (string, string) {
 	h.t.Helper()
-	meta, err := (&store{client: raw}).getTable(h.ctx, schema, table)
+	meta, err := (&store{client: raw, flex: os.Getenv("REDIS_ADBC_FLEX") == "true"}).getTable(h.ctx, schema, table)
 	if err != nil {
 		h.t.Fatal(err)
 	}
@@ -312,7 +312,7 @@ func TestSQLRekeyFieldsAndCleanup(t *testing.T) {
 	h := newRekeyHarness(t, map[string]string{OptionStringRenameRekey: "true"})
 	h.dropTables("it_rk_fields", "it_rk_fields2", "it_rk_fields3")
 	raw := h.rawClient()
-	st := &store{client: raw}
+	st := &store{client: raw, flex: os.Getenv("REDIS_ADBC_FLEX") == "true"}
 	h.exec(`CREATE TABLE it_rk_fields (id INTEGER, v INTEGER)`)
 	h.exec(`INSERT INTO it_rk_fields VALUES (1, 10), (2, 20), (3, 30)`)
 
@@ -364,7 +364,7 @@ func TestSQLRekeyResumes(t *testing.T) {
 	h := newSQLHarness(t)
 	h.dropTables("it_rk_res", "it_rk_res2")
 	raw := h.rawClient()
-	st := &store{client: raw}
+	st := &store{client: raw, flex: os.Getenv("REDIS_ADBC_FLEX") == "true"}
 	h.exec(`CREATE TABLE it_rk_res (id INTEGER, label VARCHAR)`)
 	h.exec(`INSERT INTO it_rk_res VALUES (1, 'a'), (2, 'b'), (3, 'c')`)
 	oldPrefix, oldIndex := h.tableNames(raw, "public", "it_rk_res")
@@ -486,7 +486,7 @@ func TestSQLRekeyConcurrentStatements(t *testing.T) {
 	h := newSQLHarness(t)
 	h.dropTables("it_rk_conc", "it_rk_conc2", "it_rk_conc3")
 	raw := h.rawClient()
-	st := &store{client: raw}
+	st := &store{client: raw, flex: os.Getenv("REDIS_ADBC_FLEX") == "true"}
 	h.exec(`CREATE TABLE it_rk_conc (id INTEGER)`)
 	h.exec(`INSERT INTO it_rk_conc VALUES (1), (2)`)
 	load := func(table string) *tableMeta {
@@ -600,7 +600,7 @@ func TestSQLRekeyLease(t *testing.T) {
 	h := newSQLHarness(t)
 	h.dropTables("it_rk_lease", "it_rk_lease2")
 	raw := h.rawClient()
-	st := &store{client: raw}
+	st := &store{client: raw, flex: os.Getenv("REDIS_ADBC_FLEX") == "true"}
 	h.exec(`CREATE TABLE it_rk_lease (id INTEGER)`)
 	h.exec(`INSERT INTO it_rk_lease VALUES (1)`)
 	job, start, err := st.beginRekey(h.ctx, "public", "it_rk_lease", "it_rk_lease2")

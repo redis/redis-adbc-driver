@@ -23,6 +23,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/apache/arrow-adbc/go/adbc"
 	"github.com/apache/arrow-go/v18/arrow/memory"
@@ -101,7 +102,7 @@ func TestFlexStopgap(t *testing.T) {
 			h.expectRows("SELECT n FROM "+name+" WHERE s = 'updated'", "2")
 			h.exec("DELETE FROM " + name + " WHERE n = 10")
 			h.expectRows("SELECT count(*) FROM "+name, "3")
-			for _, sql := range []string{"ALTER TABLE " + name + " ADD COLUMN x INT", "TRUNCATE " + name} {
+			for _, sql := range []string{"ALTER TABLE " + name + " ADD COLUMN x INT"} {
 				st, _ := conn.NewStatement(ctx)
 				_ = st.SetSqlQuery(ctx, sql)
 				_, err := st.ExecuteUpdate(ctx)
@@ -368,12 +369,101 @@ func TestFlexRejectsUnsupportedCapabilities(t *testing.T) {
 	}
 }
 
-// A nil Redis client is deliberate: rejected retained requests must not access
-// Redis, allocate a capture, or publish partial output before failing.
-func TestFlexRetainedPartitionsRejectBeforeIO(t *testing.T) {
-	s := &statementImpl{conn: &connectionImpl{store: &store{flex: true}}, retainedMode: "retained"}
-	schema, parts, n, err := s.ExecutePartitions(context.Background())
-	if !isStatus(err, adbc.StatusNotImplemented) || schema != nil || n != -1 || parts.NumPartitions != 0 {
-		t.Fatalf("unexpected retained rejection: %v %v %d %v", schema, parts, n, err)
+// Retained execution uses an independently budgeted transport but must retain
+// the producer's schema capabilities; otherwise getTable rejects PlainIndex.
+func TestFlexRetainedExecutorMode(t *testing.T) {
+	for _, flex := range []bool{false, true} {
+		client := goredis.NewClient(&goredis.Options{Addr: "localhost:1"})
+		base := &executor{store: &store{client: client, flex: flex}}
+		cfg := &clientConfig{single: &goredis.Options{Addr: "localhost:1"}}
+		_, exec, capture, close, err := newRetainedExecutor(context.Background(), base, cfg, timeouts{}, defaultRetainedExecutionLimits())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if exec.store.flex != flex || capture.capture.store.flex != flex {
+			t.Fatal("retained coordinator lost producer capabilities")
+		}
+		close()
+		client.Close()
 	}
+}
+
+func TestFlexTruncateOwnership(t *testing.T) {
+	uri := os.Getenv("REDIS_FLEX_URI")
+	if uri == "" {
+		t.Skip("set REDIS_FLEX_URI to a disposable Flex database")
+	}
+	t.Setenv("REDIS_URI", uri)
+	h, c := flexBenchConn(t, true)
+	name := "it_flex_truncate"
+	h.exec("DROP TABLE IF EXISTS " + name)
+	h.exec("CREATE TABLE " + name + " (n BIGINT)")
+	defer h.exec("DROP TABLE IF EXISTS " + name)
+	h.exec("INSERT INTO " + name + " VALUES (1),(2),(3)")
+	meta, err := c.store.getTable(h.ctx, defaultSchema, name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	unrelated := meta.prefix() + "application"
+	if err := c.store.client.HSet(h.ctx, unrelated, "n", "keep").Err(); err != nil {
+		t.Fatal(err)
+	}
+	defer c.store.client.Del(h.ctx, unrelated)
+	h.exec("TRUNCATE " + name + " RESTART IDENTITY")
+	h.expectRows("SELECT count(*) FROM "+name, "0")
+	h.exec("INSERT INTO " + name + " VALUES (4)")
+	h.expectRows("SELECT n FROM "+name, "4")
+	current, err := c.store.getTable(h.ctx, defaultSchema, name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if current.prefix() == meta.prefix() {
+		t.Fatal("TRUNCATE reused source prefix")
+	}
+	if n, err := c.store.client.Exists(h.ctx, meta.prefix()+"1", meta.prefix()+"2", meta.prefix()+"3").Result(); err != nil || n != 0 {
+		t.Fatal("old rows leaked", n, err)
+	}
+	if got, err := c.store.client.HGet(h.ctx, unrelated, "n").Result(); err != nil || got != "keep" {
+		t.Fatal("unrelated HASH changed", got, err)
+	}
+	if last, err := c.store.rowSequence(h.ctx, current); err != nil || last != 1 {
+		t.Fatal("identity restart failed", last, err)
+	}
+}
+
+func TestFlexRekeyRollbackRows(t *testing.T) {
+	uri := os.Getenv("REDIS_FLEX_URI")
+	if uri == "" {
+		t.Skip("set REDIS_FLEX_URI to a disposable Flex database")
+	}
+	t.Setenv("REDIS_URI", uri)
+	h, c := flexBenchConn(t, true)
+	name := "it_flex_rollback_rows"
+	h.exec("DROP TABLE IF EXISTS " + name)
+	h.exec("CREATE TABLE " + name + " (n BIGINT)")
+	defer h.exec("DROP TABLE IF EXISTS " + name)
+	h.exec("INSERT INTO " + name + " VALUES (1),(2),(3)")
+	before, err := c.store.getTable(h.ctx, defaultSchema, name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	job, start, err := c.store.beginRekey(h.ctx, defaultSchema, name, name+"2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer job.lease.release()
+	if err := c.store.moveRows(h.ctx, job, start, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.store.rollbackRekey(h.ctx, job); err != nil {
+		t.Fatal(err)
+	}
+	for id := 1; id <= 3; id++ {
+		key := fmt.Sprint(before.prefix(), id)
+		row, err := c.store.client.HGetAll(h.ctx, key).Result()
+		if err != nil || row[rowIDField] != fmt.Sprint(id) || row["n"] != fmt.Sprint(id) {
+			t.Fatalf("source HASH changed after rollback: row %d: %v, %v", id, row, err)
+		}
+	}
+	h.expectRows("SELECT n FROM "+name+" ORDER BY n", "1", "2", "3")
 }

@@ -109,6 +109,23 @@ func (s *store) dropEmptyIndex(ctx context.Context, index string) error {
 	return s.searchDo(ctx, index, args...).Err()
 }
 
+// dropOwnedIndex removes an exclusively driver-owned physical generation.
+// Plain Flex indexes cannot use DD. Keep canonical row/key ownership checks
+// when cleaning their permanently reserved prefix, including interrupted moves.
+func (s *store) dropOwnedIndex(ctx context.Context, index, prefix string, plain bool) error {
+	args := []any{"FT.DROPINDEX", index}
+	if !plain {
+		args = append(args, "DD")
+	}
+	if err := s.searchDo(ctx, index, args...).Err(); err != nil && !isUnknownIndex(err) {
+		return err
+	}
+	if plain {
+		return s.deleteFlexRows(ctx, &tableMeta{KeyPrefix: prefix, IndexName: index, PlainIndex: true})
+	}
+	return nil
+}
+
 // deleteFlexRows only visits the permanently reserved driver-owned prefix.
 // It never runs on adopted HASHes, including nested application collections.
 func (s *store) deleteFlexRows(ctx context.Context, meta *tableMeta) error {
@@ -151,6 +168,8 @@ func (s *store) deleteFlexRows(ctx context.Context, meta *tableMeta) error {
 	}
 }
 
+const flexRangeMaxRows = 1000
+
 type idRange struct{ lo, hi int64 }
 type rangeReader struct {
 	store  *store
@@ -173,7 +192,7 @@ func (s *store) openRangeReader(ctx context.Context, req *aggRequest) (*aggCurso
 		return nil, flexUnsupported("row IDs beyond 2^53")
 	}
 	caps := s.paginationCaps(ctx, meta.index())
-	page := min(req.pageRows(), 1000)
+	page := min(req.pageRows(), flexRangeMaxRows)
 	if caps[0] > 0 {
 		page = min(page, int(caps[0]))
 	}
@@ -336,4 +355,72 @@ func (s *store) allocateFlexRowIDs(ctx context.Context, meta *tableMeta, n int) 
 		return 0, "", errorf(adbc.StatusInternal, "malformed Flex allocation values")
 	}
 	return last, raw, nil
+}
+
+// A moving managed table is write-fenced by the existing rekey machinery.
+// Enumerate disjoint numeric ranges without unsupported aggregate cursors;
+// fetch only identity fields before the caller copies/converts authoritative HASHes.
+func (s *store) walkFlexKeys(ctx context.Context, meta *tableMeta, visit func([]string) error) error {
+	if err := s.checkRangeReadiness(ctx, meta.index()); err != nil {
+		return err
+	}
+	cursor, err := s.openRangeReader(ctx, &aggRequest{meta: meta, index: meta.index(), query: "*"})
+	if err != nil {
+		return err
+	}
+	defer cursor.close(ctx)
+	for {
+		rows, err := cursor.next(ctx)
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		keys := make([]string, 0, len(rows))
+		for _, row := range rows {
+			if row != nil {
+				keys = append(keys, row["__key"])
+			}
+		}
+		if err := visit(keys); err != nil {
+			return err
+		}
+	}
+}
+
+// Flex copies HASH fields rather than DUMP/RESTORE. Restoring a disk-backed
+// HASH into another prefix can leave Search memberships coupled: deleting the
+// copy then removes the source from its index even though its HASH still exists.
+// Independent HSET objects keep each physical generation's index membership.
+func (s *store) copyFlexRows(ctx context.Context, job *rekeyJob, keys []string) error {
+	for first := 0; first < len(keys); first += pipelineChunk {
+		batch := keys[first:min(first+pipelineChunk, len(keys))]
+		pipe := s.redis(ctx).Pipeline()
+		rows := make([]*goredis.MapStringStringCmd, len(batch))
+		for i, key := range batch {
+			rows[i] = pipe.HGetAll(ctx, key)
+		}
+		if _, err := pipe.Exec(ctx); err != nil {
+			return wrapRedis(err, "Flex rename: reading HASHes failed")
+		}
+		pipe = s.redis(ctx).Pipeline()
+		for i, key := range batch {
+			fields, err := rows[i].Result()
+			if err != nil {
+				return wrapRedis(err, "Flex rename: reading HASH failed")
+			}
+			if len(fields) == 0 {
+				continue
+			}
+			pipe.HSet(ctx, job.KeyPrefix+strings.TrimPrefix(key, job.OldPrefix), fields)
+		}
+		if err := job.mayAct(); err != nil {
+			return err
+		}
+		if _, err := pipe.Exec(ctx); err != nil {
+			return wrapRedis(err, "Flex rename: copying HASHes failed")
+		}
+	}
+	return nil
 }
