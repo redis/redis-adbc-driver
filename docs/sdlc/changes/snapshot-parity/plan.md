@@ -564,3 +564,12 @@ failing regression proves compaction requested 256 directory entries per source
 for each 64-row checkpoint. Reads now respect the smaller batch; 35 related race
 test events pass, including 100,001-row compaction. No end-to-end speedup or
 full parity is inferred. Fresh matched-source comparisons remain pending.
+
+Fresh both-order [sustained-write comparisons](sustained-write-validation.md#fresh-comparison-with-the-mutable-baseline)
+completed on Redis 8.8.0 Software 4x QPF: all four runs validated 40,000 final rows
+and every RETURNING value with no retries. Snapshot 32c9d2f pooled median is
+1,709.874 ms versus 4.975 ms for mutable f4d5b78; throughput 0.435 versus 190.879
+updates/s. This is a large failed performance-parity gate, not a completed
+compaction/performance item. The raw reports retain both orders and every sample.
+Profile point-write discovery/publication and per-row compaction script overhead
+next; their respective contributions remain unproven.

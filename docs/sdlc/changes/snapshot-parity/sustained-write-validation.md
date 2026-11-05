@@ -1,6 +1,6 @@
 # Sustained-write diagnostics and bounded compaction reads
 
-Date: 2026-11-04. Parent: 9fbbaa4. Status: focused regression matrix passed; matched timing pending.
+Date: 2026-11-04. Parent: 9fbbaa4. Status: focused regression matrix and both-order native comparisons completed; performance parity failed for this workload.
 PR: https://github.com/redis/redis-adbc-driver/pull/284.
 See [intent](intent.md), [spec](spec.md), [plan](plan.md).
 
@@ -64,8 +64,41 @@ set disposable snapshot endpoint. This includes directory damage, pinned streams
 checkpoint takeover, byte bounds, queue fairness and authoritative statistics
 cases. The CUDA support package had no applicable tests. `git diff --check`
 passed. The final versioned `make -C go build` also passed. [Raw diagnostic samples](sustained-write-diagnostic.json) are retained
-with their observer-probe qualification. Fresh matched-source timings remain
-pending.
+with their observer-probe qualification. Fresh matched-source timings are recorded below.
 Reduced directory request size alone does not establish an end-to-end speedup.
 Reader authorization, process/input resume, sustained compaction under broader
 loads, platform/recovery coverage and full performance parity remain open.
+
+## Fresh comparison with the mutable baseline
+
+[All four reports and ordered samples](sustained-write-comparison.json) compare
+current driver `32c9d2f` with mutable upstream `f4d5b78`, in the order current,
+baseline, baseline, current. Each process resets the same owned fixture, uses
+the same harness hash, and performs 64 alternating updates after one warmup per
+table. There were no observer probes, concurrent builds or tests during these
+runs. Native library hashes and actual observed storage models are retained;
+current reports protocol 15, baseline mutable storage. The baseline library was
+built from its archived source using the same versioned Make target/toolchain.
+All four runs passed every RETURNING and complete final-row check with no caller
+retries. The final run leaves the fixture using current snapshot storage.
+
+| Driver | Median update ms | p95 ms | Maximum ms | Updates/second |
+|---|---:|---:|---:|---:|
+| Mutable f4d5b78 | 4.975 | 7.553 | 10.808 | 190.879 |
+| Snapshot 32c9d2f | 1709.874 | 6589.798 | 6818.636 | 0.435 |
+
+Each row pools 128 serial update samples from two independent processes. p95 is
+nearest-rank; throughput is total timed operations divided by total interval
+seconds. Complete final verification is outside those intervals. These are
+observed local results, without a statistical generalization across deployments.
+The snapshot median is 343.7 times the mutable median; mutable throughput is
+438.4 times snapshot throughput on this workload. Performance parity is not
+achieved. The directory-page reduction does not close the gap, and the earlier
+probed diagnostic is not a controlled before/after speedup comparison.
+
+The next profiling target is the cost of ordinary point-write discovery,
+publication and repeated compaction. Compaction currently emits one fenced Lua
+command per output row; that is a concrete candidate, not an established sole
+cause of the measured gap. Preserve exact visibility and durable outcome/lease
+fences while investigating; do not hide stalls by increasing batch/segment limits,
+adding SQL retries or reducing the dataset.
