@@ -1,0 +1,67 @@
+{
+  "kind": "instrumented diagnostic, not comparative timing",
+  "driver_go_source": "32c9d2f",
+  "driver_sha256": "ffe05a73886569779ee6b44c595ed21b74ae001afc195ded719e62955309ca6d",
+  "private_runner_sha256": "7c0161fbed30b37fadbab8881ebcf1af472d65967e06a406d39dc59b9d181962",
+  "rows_per_table": 20000,
+  "tables": 2,
+  "complete_final_rows_validated": 40000,
+  "caller_retries": 0,
+  "native_cases": {
+    "0-sustained_a": {
+      "elapsed_seconds": 1.470124042010866,
+      "predicate": "id=1"
+    },
+    "1-sustained_b": {
+      "elapsed_seconds": 1.448799167003017,
+      "predicate": "__rowid=1"
+    },
+    "2-sustained_a": {
+      "elapsed_seconds": 1.4349785410158802,
+      "predicate": "id=1"
+    },
+    "3-sustained_b": {
+      "elapsed_seconds": 1.4633983340172563,
+      "predicate": "__rowid=1"
+    }
+  },
+  "execute_diagnostics": {
+    "0-sustained_a": {
+      "execute_elapsed_seconds": 1.466572,
+      "redis_commands": 197,
+      "redis_round_trip_worker_seconds": 0.152154163,
+      "connection_read_bytes": 342879,
+      "connection_written_bytes": 417766,
+      "process_allocated_bytes_during_execute": 3182048,
+      "processed_rows": 1
+    },
+    "1-sustained_b": {
+      "execute_elapsed_seconds": 1.44745975,
+      "redis_commands": 179,
+      "redis_round_trip_worker_seconds": 0.156300285,
+      "connection_read_bytes": 333602,
+      "connection_written_bytes": 434778,
+      "process_allocated_bytes_during_execute": 3134768,
+      "processed_rows": 1
+    },
+    "2-sustained_a": {
+      "execute_elapsed_seconds": 1.432674,
+      "redis_commands": 192,
+      "redis_round_trip_worker_seconds": 0.154002034,
+      "connection_read_bytes": 340714,
+      "connection_written_bytes": 396702,
+      "process_allocated_bytes_during_execute": 3155664,
+      "processed_rows": 1
+    },
+    "3-sustained_b": {
+      "execute_elapsed_seconds": 1.4611535,
+      "redis_commands": 182,
+      "redis_round_trip_worker_seconds": 0.157556626,
+      "connection_read_bytes": 341558,
+      "connection_written_bytes": 435132,
+      "process_allocated_bytes_during_execute": 3159552,
+      "processed_rows": 1
+    }
+  },
+  "scope": "Execute-only sampler; client round trips include pool/network/decode and worker sums; RESP bytes may include concurrent connection maintenance; no Redis server CPU attribution."
+}

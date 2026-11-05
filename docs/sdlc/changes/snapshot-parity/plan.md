@@ -573,3 +573,15 @@ updates/s. This is a large failed performance-parity gate, not a completed
 compaction/performance item. The raw reports retain both orders and every sample.
 Profile point-write discovery/publication and per-row compaction script overhead
 next; their respective contributions remain unproven.
+
+[Point-write readiness profiling](point-write-profile.md) narrows the sustained
+write gap: indexed/direct-ID updates both process one row, and newly created
+index readiness accounts for 1,401.825 ms of a 1,430.743 ms update with an
+unrelated 20,000-row table. With no unrelated table it is 746.081/780.125 ms.
+A separately aborted private-index prototype creates an empty index and notifies
+one unchanged final row under its writer fence; readiness takes 2.330 ms and
+public SQL retains the prior value. Both opt-in race diagnostic cases pass.
+Production behavior is unchanged. Next implement and validate bounded,
+directory-driven final indexing with complete ownership/identity/completion and
+failure/recovery proofs before adopting it; do not substitute the prototype
+latency for a production throughput result. Existing full-parity gates stay open.
