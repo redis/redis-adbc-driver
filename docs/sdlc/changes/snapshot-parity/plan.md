@@ -540,3 +540,11 @@ fixture fails snapshot initialization permissions. Release commands now use the
 existing 30-minute budget; all other failures remain explicit work. No quota,
 assertion or ACL recipe is weakened. Matched-source baseline/profiling artifacts
 are prepared privately; no unmeasured performance gain is claimed.
+
+[Bounded generation admission](generation-admission.md) now reclaims one eligible
+manifest after a proven pre-mutation capacity refusal, then retries reservation
+once before SQL/input begins. The regression failed before the fix; 34 related
+race test events pass afterward on verified three-shard Software 4x QPF. Live
+work/pins, the 16-generation bound, unknown-outcome no-replay behavior and explicit
+sweep counts remain intact. This narrows the hosted concurrent-comment failure;
+a hosted rerun and broader parity gates remain open.

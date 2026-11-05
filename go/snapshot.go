@@ -937,6 +937,22 @@ func snapshotNames(ctx context.Context, schema, table string) (tableNames, bool)
 func (s *store) beginSnapshotWrite(ctx context.Context, pin *snapshotPin) (context.Context, string, error) {
 	id := snapshotID()
 	n, err := s.snapshotControl(ctx, "reserve", pin.token, id, pin.root).Int()
+	var serverErr interface {
+		error
+		RedisError()
+	}
+	if errors.As(err, &serverErr) && serverErr.Error() == "snapshot generation limit (16) reached; release old readers or retry cleanup" {
+		// The server refused before reserving anything. Retire one eligible
+		// manifest without scanning/deleting row data, then retry admission
+		// once. SQL and Arrow consumption have not started. Transport errors
+		// (including lost successful replies) must never enter this path.
+		maintenance := context.WithValue(ctx, snapshotContextKey{}, (*snapshotScope)(nil))
+		if reclaimed, reapErr := s.reapSnapshotManifest(maintenance); reapErr != nil {
+			return ctx, "", wrapRedis(reapErr, "failed to reclaim snapshot generation for admission")
+		} else if reclaimed {
+			n, err = s.snapshotControl(ctx, "reserve", pin.token, id, pin.root).Int()
+		}
+	}
 	if err != nil {
 		return ctx, "", wrapRedis(err, "failed to reserve snapshot generation")
 	}
@@ -1289,17 +1305,18 @@ type snapshotReapResult struct {
 	manifest bool
 }
 
-// Explicit maintenance uses the same ownership/retirement protocol, with errors
-// and confirmed deletions returned instead of hidden by background maintenance.
-func (s *store) reapSnapshotStep(ctx context.Context) (result snapshotReapResult, err error) {
+// reapSnapshotManifest frees at most one generation slot. Row/index and bucket
+// collection remain separate work; admission must not pay for an entire table's
+// reclamation. Only this collector's confirmed retirement counts as progress.
+func (s *store) reapSnapshotManifest(ctx context.Context) (bool, error) {
 	id, err := s.snapshotControl(ctx, "claim", "", "", "").Text()
 	if err != nil {
-		return result, err
+		return false, err
 	}
 	if id != "" {
 		if err := s.retireSnapshotMetadata(ctx, id); err != nil {
 			if !strings.Contains(err.Error(), "snapshot metadata retirement not admitted") {
-				return result, err
+				return false, err
 			}
 			// Another collector can finish after both received the same claim.
 			// Confirm its durable outcome; do not replay retirement or hide a
@@ -1308,17 +1325,27 @@ func (s *store) reapSnapshotStep(ctx context.Context) (result snapshotReapResult
 			work := pipe.HExists(ctx, snapshotCatalogKey, "w:"+id)
 			root := pipe.Exists(ctx, snapshotMetadataMap(id))
 			if _, probeErr := pipe.Exec(ctx); probeErr != nil {
-				return result, probeErr
+				return false, probeErr
 			}
 			if work.Val() || root.Val() != 0 {
-				return result, err
+				return false, err
 			}
 		} else {
 			if err := s.snapshotControl(ctx, "reclaimed", "", id, "").Err(); err != nil {
-				return result, err
+				return false, err
 			}
-			result.manifest = true
+			return true, nil
 		}
+	}
+	return false, nil
+}
+
+// Explicit maintenance uses the same ownership/retirement protocol, with errors
+// and confirmed deletions returned instead of hidden by background maintenance.
+func (s *store) reapSnapshotStep(ctx context.Context) (result snapshotReapResult, err error) {
+	result.manifest, err = s.reapSnapshotManifest(ctx)
+	if err != nil {
+		return result, err
 	}
 	if err := s.collectSnapshotMetadata(ctx); err != nil {
 		return result, err
