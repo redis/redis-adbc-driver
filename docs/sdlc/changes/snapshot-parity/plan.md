@@ -673,3 +673,12 @@ throughput remains 61.217x faster. Performance parity fails. A current controlle
 phase profile attributes about two seconds per small job to inactive waits;
 index readiness polling, index construction and foreground median attribution
 remain separate work. Hosted/platform/Cluster/HA and input resume remain open.
+
+The [concurrent-collector admission follow-up](generation-admission.md) reproduces
+another real capacity refusal after the 820ccfd hosted failure: a concurrent
+collector's confirmed deletion was treated as no capacity change, allowing a
+competing writer to strand admission despite other reclaimable manifests.
+Separate capacity-change evidence from explicit sweep accounting; repeated
+focused admission/COMMENT/sweep and private-reference checks pass. Fresh broad
+ordinary/hosted coverage remains required. The measured performance checkpoint
+continues to describe 820ccfd, not this subsequent control-flow change.

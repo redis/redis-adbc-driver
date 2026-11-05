@@ -986,7 +986,7 @@ func (s *store) beginSnapshotWrite(ctx context.Context, pin *snapshotPin) (conte
 	// fixed. A transport error, including a lost successful reply, ends admission.
 	for attempt := 0; attempt < 16 && capacityRefusal(err); attempt++ {
 		maintenance := context.WithValue(ctx, snapshotContextKey{}, (*snapshotScope)(nil))
-		reclaimed, reapErr := s.reapSnapshotManifest(maintenance)
+		retirement, reapErr := s.reapSnapshotManifestOutcome(maintenance)
 		if reapErr != nil {
 			return ctx, "", wrapRedis(reapErr, "failed to reclaim snapshot generation for admission")
 		}
@@ -994,7 +994,7 @@ func (s *store) beginSnapshotWrite(ctx context.Context, pin *snapshotPin) (conte
 		// accounting is not ours, but one fresh reservation after the proven
 		// refusal is safe. If no retirement was confirmed, do not keep polling.
 		n, err = s.snapshotControl(ctx, "reserve", pin.token, id, pin.root).Int()
-		if !reclaimed {
+		if !retirement.capacityChanged {
 			break
 		}
 	}
@@ -1386,18 +1386,28 @@ type snapshotReapResult struct {
 	manifest bool
 }
 
+type snapshotManifestRetirement struct {
+	reclaimed       bool // this collector completed the manifest deletion
+	capacityChanged bool // this or another collector is confirmed to have freed a slot
+}
+
 // reapSnapshotManifest frees at most one generation slot. Row/index and bucket
 // collection remain separate work; admission must not pay for an entire table's
 // reclamation. Only this collector's confirmed retirement counts as progress.
 func (s *store) reapSnapshotManifest(ctx context.Context) (bool, error) {
+	outcome, err := s.reapSnapshotManifestOutcome(ctx)
+	return outcome.reclaimed, err
+}
+
+func (s *store) reapSnapshotManifestOutcome(ctx context.Context) (snapshotManifestRetirement, error) {
 	id, err := s.snapshotControl(ctx, "claim", "", "", "").Text()
 	if err != nil {
-		return false, err
+		return snapshotManifestRetirement{}, err
 	}
 	if id != "" {
 		if err := s.retireSnapshotMetadata(ctx, id); err != nil {
 			if !strings.Contains(err.Error(), "snapshot metadata retirement not admitted") {
-				return false, err
+				return snapshotManifestRetirement{}, err
 			}
 			// Another collector can finish after both received the same claim.
 			// Confirm its durable outcome; do not replay retirement or hide a
@@ -1406,19 +1416,22 @@ func (s *store) reapSnapshotManifest(ctx context.Context) (bool, error) {
 			work := pipe.HExists(ctx, snapshotCatalogKey, "w:"+id)
 			root := pipe.Exists(ctx, snapshotMetadataMap(id))
 			if _, probeErr := pipe.Exec(ctx); probeErr != nil {
-				return false, probeErr
+				return snapshotManifestRetirement{}, probeErr
 			}
 			if work.Val() || root.Val() != 0 {
-				return false, err
+				return snapshotManifestRetirement{}, err
 			}
+			// Preserve explicit sweep accounting, but admission may continue its
+			// bounded loop if a competitor takes this confirmed freed slot.
+			return snapshotManifestRetirement{capacityChanged: true}, nil
 		} else {
 			if err := s.snapshotControl(ctx, "reclaimed", "", id, "").Err(); err != nil {
-				return false, err
+				return snapshotManifestRetirement{}, err
 			}
-			return true, nil
+			return snapshotManifestRetirement{reclaimed: true, capacityChanged: true}, nil
 		}
 	}
-	return false, nil
+	return snapshotManifestRetirement{}, nil
 }
 
 // Explicit maintenance uses the same ownership/retirement protocol, with errors

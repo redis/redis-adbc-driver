@@ -107,3 +107,36 @@ ACL/TLS and GC ownership boundaries; (3) the distinction between current focused
 snapshot/native checks, the preceding full ordinary source, failed hosted jobs
 and unmerged upstream features. This is not maintainer approval. Hosted snapshot
 coverage and required reader authorization remain incomplete.
+
+## Concurrent collector and competing writer, 2026-11-05
+
+The amd64 job at 820ccfd still fails the first staged concurrent COMMENT race
+with capacity 16; see [the hosted record](atomic-compaction-hosted-validation.md).
+The pre-clone orphan fix does not resolve that outcome. A separate deterministic
+regression reproduces a remaining mechanism in 0.120 s: fill the real ledger,
+claim a reclaimable manifest, let another collector finish that same retirement,
+then let a competing leased writer take the freed slot before reservation.
+Other reclaimable manifests remain, but admission previously stopped because
+the first deletion was not counted as its own.
+
+Retirement now distinguishes this collector's confirmed deletion from a
+confirmed capacity change by either collector. Explicit sweep keeps its existing
+accounting; admission may continue its existing 16-pass bound after either
+confirmed capacity change. With no confirmed retirement it still makes only one
+final reservation and stops. Same workspace ID, pre-execution/input admission,
+typed native refusal checks, active/private-work leases and no row/index GC or
+uncertain mutation replay remain unchanged. This is a Go control-flow change;
+the storage format and Lua ownership/reference fences are unchanged.
+
+The admission cases plus concurrent COMMENT and sweep selection pass ten
+race-enabled repetitions: 170 test events, no skips/failures, root 22.047 s.
+The new case requires three same-ID reservation attempts, one metadata clone,
+no row-GC claim, unchanged root/limit and the competitor still live. A separate
+test requires explicit sweep to report no deletion when the other collector
+completed it, and verifies real retirement plus reference accounting. The new
+accounting/admission cases and unchanged private-copy retention pass ten
+repetitions (30 race events, no skips/failures, root 6.600 s). Unit/broader checks
+remain pending. Database checks run sequentially on the owned Software 8.8.0 strict-TLS fixture,
+active/effective 4x QPF and noeviction. No fresh hosted pass or current-head
+performance claim follows from this deterministic reproduction. The completed
+820ccfd native/snapshot/benchmark evidence retains its actual source label.

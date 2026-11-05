@@ -168,6 +168,8 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.27.3).
   passes. Stop on unknown replies; do not clone metadata or consume SQL/input
   before confirmed admission. Competing writers can take a newly freed slot;
   preserve live owners and keep row/index GC outside this admission path.
+  A concurrent collector's confirmed deletion can permit another bounded
+  admission pass, but must not count as this collector's explicit sweep result.
   An ownerless pre-clone reservation is reclaimable before its work expiry;
   atomically fence it as deleting. Established private work retains its own
   lease/reference lifetime even after its base pin stops.

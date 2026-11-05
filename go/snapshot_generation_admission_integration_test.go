@@ -359,3 +359,99 @@ func TestSnapshotGenerationAdmissionReclaimsReleasedUnknownOwner(t *testing.T) {
 		t.Fatal("unexpected reservation replay, copy or data collection")
 	}
 }
+
+// A background collector can complete the same claimed retirement. Its deletion
+// must not count as ours, but it did free capacity: another writer can take that
+// slot before our next reservation, while other reclaimable manifests remain.
+type generationConcurrentRetirement struct {
+	generationReservationObserver
+	collector *store
+	pin       *snapshotPin
+	workspace string
+	collected bool
+}
+
+func (h *generationConcurrentRetirement) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
+	observed := h.generationReservationObserver.ProcessHook(next)
+	return func(ctx context.Context, cmd goredis.Cmder) error {
+		a := cmd.Args()
+		if !h.collected && cmd.Name() == "eval" && len(a) > 7 && a[1] == snapshotMetadataRetireRoot {
+			h.collected = true
+			claimed := fmt.Sprint(a[7])
+			if err := h.collector.retireSnapshotMetadata(ctx, claimed); err != nil {
+				return err
+			}
+			if err := h.collector.snapshotControl(ctx, "reclaimed", "", claimed, "").Err(); err != nil {
+				return err
+			}
+			if n, err := h.collector.snapshotControl(ctx, "reserve", h.pin.token, h.workspace, h.pin.root).Int(); err != nil || n != 1 {
+				return fmt.Errorf("competitor did not take the concurrently freed slot: admitted=%d error=%v", n, err)
+			}
+		}
+		return observed(ctx, cmd)
+	}
+}
+
+func TestSnapshotGenerationAdmissionConcurrentRetirement(t *testing.T) {
+	h, raw, _ := newSnapshotHarnessMode(t, false, false)
+	s, collector := snapshotTestStore(t, raw), snapshotTestStore(t, raw)
+	base, pin, err := s.acquireSnapshotMode(h.ctx, false, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pin.release()
+	_, otherPin, err := collector.acquireSnapshotMode(h.ctx, false, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer otherPin.release()
+	fillSnapshotGenerations(t, h, s, true)
+	competitor := snapshotID()
+	defer collector.abortSnapshot(otherPin, competitor)
+	observer := &generationConcurrentRetirement{collector: collector, pin: otherPin, workspace: competitor}
+	s.client.AddHook(observer)
+	_, work, err := s.beginSnapshotWrite(base, pin)
+	if err != nil {
+		t.Fatal("concurrent retirement hid remaining reclaimable capacity", err)
+	}
+	defer s.abortSnapshot(pin, work)
+	if !observer.collected || !raw.HExists(h.ctx, snapshotCatalogKey, "w:"+competitor).Val() || snapshotWorkCount(t, s, h.ctx) > 16 || raw.HGet(h.ctx, snapshotCatalogKey, "root").Val() != pin.root {
+		t.Fatal("admission changed the limit, root or competing owner's work")
+	}
+	observer.mu.Lock()
+	defer observer.mu.Unlock()
+	if len(observer.ids) != 3 || observer.ids[0] != observer.ids[1] || observer.ids[1] != observer.ids[2] || observer.clones != 1 || observer.dataGC != 0 {
+		t.Fatal("unexpected attempts, replay, cloning or row GC", len(observer.ids), observer.clones, observer.dataGC)
+	}
+}
+
+func TestSnapshotSweepConcurrentManifestAccounting(t *testing.T) {
+	h, raw, _ := newSnapshotHarnessMode(t, false, false)
+	s, collector := snapshotTestStore(t, raw), snapshotTestStore(t, raw)
+	base, pin, err := s.acquireSnapshotMode(h.ctx, false, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pin.release()
+	_, work, err := s.beginSnapshotWrite(base, pin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.abortSnapshot(pin, work)
+	_, otherPin, err := collector.acquireSnapshotMode(h.ctx, false, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer otherPin.release()
+	competitor := snapshotID()
+	defer collector.abortSnapshot(otherPin, competitor)
+	observer := &generationConcurrentRetirement{collector: collector, pin: otherPin, workspace: competitor}
+	s.client.AddHook(observer)
+	if reclaimed, err := s.reapSnapshotManifest(h.ctx); err != nil || reclaimed {
+		t.Fatal("sweep counted another collector's deletion", reclaimed, err)
+	}
+	if !observer.collected || raw.HExists(h.ctx, snapshotCatalogKey, "w:"+work).Val() || !raw.HExists(h.ctx, snapshotCatalogKey, "w:"+competitor).Val() {
+		t.Fatal("fixture did not complete a real concurrent retirement")
+	}
+	assertSnapshotDataReferences(t, h, s)
+}
