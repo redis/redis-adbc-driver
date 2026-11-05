@@ -73,9 +73,11 @@ func snapshotAdmissionDiagnostics(t *testing.T, s *store, ctx context.Context) {
 		State         string `json:"state"`
 		Expires       int64  `json:"expires"`
 		Writing       bool   `json:"writing"`
+		Partition     bool   `json:"partition"`
 		MetadataReady bool   `json:"metadata_ready"`
 	}
 	stats := map[string]int64{}
+	origins := map[string]int64{}
 	owners, protected := map[string]string{}, map[string]bool{}
 	for field, value := range entries {
 		if !strings.HasPrefix(field, "p:") {
@@ -91,8 +93,21 @@ func snapshotAdmissionDiagnostics(t *testing.T, s *store, ctx context.Context) {
 			continue
 		}
 		stats["live_pins"]++
+		originLabel := "untracked"
+		if origin, ok := snapshotPinTestOrigins.Load(strings.TrimPrefix(field, "p:")); ok {
+			value := origin.(snapshotPinTestOrigin)
+			originLabel = value.test + ":" + value.pool + ":" + value.operation
+			if value.failedReply {
+				originLabel += ":failed_reply"
+			}
+		}
+		origins[originLabel]++
 		if pin.Writing {
 			stats["live_writing_pins"]++
+		} else if pin.Partition {
+			stats["live_partition_sets"]++
+		} else {
+			stats["live_reader_pins"]++
 		}
 		owners[strings.TrimPrefix(field, "p:")] = pin.Root
 		protected[pin.Root] = true
@@ -139,6 +154,8 @@ func snapshotAdmissionDiagnostics(t *testing.T, s *store, ctx context.Context) {
 	}
 	encoded, _ := json.Marshal(stats)
 	t.Logf("snapshot admission diagnostics (before failed caller pin release): %s", encoded)
+	encodedOrigins, _ := json.Marshal(origins)
+	t.Logf("snapshot live pin test origins: %s", encodedOrigins)
 }
 
 type generationReservationObserver struct {

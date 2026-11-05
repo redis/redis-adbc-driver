@@ -137,8 +137,10 @@ completed it, and verifies real retirement plus reference accounting. The new
 accounting/admission cases and unchanged private-copy retention pass ten
 repetitions (30 race events, no skips/failures, root 6.600 s). Unit-only race
 checks pass 1,097 events, 960 expected integration/opt-in skips, no failures,
-root 51.948 s. The full ordinary race suite at implementation 2be297e is running;
-its result is pending. Database checks run sequentially on the owned Software 8.8.0 strict-TLS fixture,
+root 51.948 s. The complete ordinary race suite at implementation 2be297e passes
+2,020 test events, 328 explicit skips and zero failures; root 1,153.736 s. It
+includes the COMMENT case in the preceding broad sequence. It does not resolve
+the latest hosted failure recorded below. Database checks run sequentially on the owned Software 8.8.0 strict-TLS fixture,
 active/effective 4x QPF and noeviction. No fresh hosted pass or current-head
 performance claim follows from this deterministic reproduction. The completed
 820ccfd native/snapshot/benchmark evidence retains its actual source label.

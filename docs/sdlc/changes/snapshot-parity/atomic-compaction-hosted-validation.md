@@ -98,3 +98,54 @@ credentials, change Redis state, broaden permissions or mask the original
 failure. These observations are not one atomic catalog snapshot. Their purpose
 is to distinguish retained live work/pins from a reclaimable admission race in
 the next actual failure, before making another ownership change.
+
+The local 2be297e ordinary process subsequently reaches terminal success:
+2,020 pass events, 328 explicit skips, no failures, root 1,153.736 s. The
+COMMENT case passes in 1.28 s within that broad sequence. This is local macOS
+Software evidence at the stated source, not a hosted/platform pass. The new
+failure-only diagnostics were published at d1d2778. Production compaction
+scheduling at that source remains unchanged.
+
+## Terminal d1d2778 run and pin attribution
+
+The [Test run](https://github.com/redis/redis-adbc-driver/actions/runs/42090859224)
+is terminal with failure. Amd64 ordinary Go again fails COMMENT admission. At
+failure the diagnostic observes 16 workspaces: nine committed roots, all nine
+pinned, and seven live owned staging workspaces. There are 19 live pins, eight
+writing pins; the shortest private-work lease has 119,949 ms remaining. No
+unpinned old committed generation or unowned staging work is reported. These
+non-atomic observations justify neither reclaiming a live pin nor increasing the
+capacity limit. The unexplained reader pins need attribution.
+
+Arm64 passes ordinary Go, the separate snapshot regression step and native ADBC
+validation. SQL SELECT grant provisioning still fails because the narrow reader
+cannot initialize the catalog without EVAL; the required final gate fails. The
+TLS partition script fails before restricted-worker validation because it asks
+for the legacy logical index name, which managed snapshots no longer use.
+Later Cluster and Software-proxy TLS steps are skipped. These are separate
+implementation/fixture gaps, not evidence that restricted readers work.
+
+A local non-race run of the 137 top-level tests through COMMENT passes. Its
+pre-race observation has three live partition-set pins sharing one root; it does
+not reproduce the additional hosted pinned roots. Inspection found that
+`TestArrowResultLayouts` never released its successful live partition sets.
+A new assertion reproduces that fixture leak in 0.16 s for `large_string`.
+Each supported layout now registers failure cleanup, explicitly drops its
+partition snapshot after all schema/value checks, requires the pin to be absent,
+and requires reopening the descriptor to fail as released. Close semantics are
+unchanged: portable partition sets intentionally survive producer Close.
+
+The corrected Arrow layout/inventory and COMMENT selection passes 23 race test
+events, no skips/failures, root 9.228 s, on owned Software 8.8.0 with strict TLS,
+verified effective 4x QPF and noeviction. Its pre-COMMENT observation has zero
+live pins. This fixes a fixture leak retaining one root, not the unexplained
+additional hosted roots. These local selections also include the pending Go
+compaction-polling experiment; they are not an exact d1d2778 production rerun.
+
+Test-only hooks now associate observed acquire/partition-retain tokens with the
+top-level test, SQL/inspection pool and operation. Successful releases remove
+the association. Diagnostics match only currently live catalog records and print
+aggregate origin labels plus separate reader/writer/partition counts; tokens,
+keys and values remain private. Unknown replies are marked, never retried by
+the observer. No production ownership, capacity, permission or storage behavior
+changes. The next actual hosted failure must establish which origins remain.

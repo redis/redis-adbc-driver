@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"reflect"
 	"strings"
 	"sync"
@@ -539,6 +540,9 @@ func TestSQLCommentConcurrent(t *testing.T) {
 	// Stage individual autocommit statements against the same definition,
 	// then race publication. A descriptor change must never be silently lost.
 	st := &store{client: h.rawClient(), snapshots: true}
+	if os.Getenv("REDIS_SNAPSHOT_ADMISSION_DIAGNOSTICS") != "" {
+		snapshotAdmissionDiagnostics(t, st, h.ctx)
+	}
 	race := func(sqls []string) int {
 		t.Helper()
 		contexts := make([]context.Context, len(sqls))

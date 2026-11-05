@@ -61,6 +61,14 @@ func newSQLHarness(t *testing.T) *sqlHarness {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = conn.Close(ctx) })
+	stmt, err := conn.NewStatement(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stmt.(*statementImpl).conn.store.client.AddHook(pinOriginHook(t, "sql"))
+	if err := stmt.Close(ctx); err != nil {
+		t.Fatal(err)
+	}
 	return &sqlHarness{t: t, ctx: ctx, conn: conn}
 }
 
@@ -887,6 +895,7 @@ func (h *sqlHarness) rawClient(hooks ...goredis.Hook) goredis.UniversalClient {
 			Username: opts.Username, TLSConfig: opts.TLSConfig, Protocol: 3,
 			ReadTimeout: opts.ReadTimeout, WriteTimeout: opts.WriteTimeout})
 	}
+	c.AddHook(pinOriginHook(h.t, "inspection"))
 	for _, hook := range hooks {
 		c.AddHook(hook)
 	}
