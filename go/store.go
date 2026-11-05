@@ -946,6 +946,7 @@ func wrapRedis(err error, context string) error {
 // ---- store ----
 
 type store struct {
+	controlScript  snapshotControlExecutor
 	snapshots      bool
 	compactor      *snapshotCompactor
 	foreignIndexes bool

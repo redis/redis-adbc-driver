@@ -2,6 +2,11 @@
 
 Date: 2026-11-02. Status: in progress. See [intent](intent.md), [spec](spec.md).
 
+The [control-cache checkpoint](control-script-cache-validation.md) reduces
+standalone control script payloads while retaining no-retry behavior and an
+EVAL-only operator path. Focused race and actual Software role checks pass;
+native/full-source validation and measured performance remain required.
+
 The [narrow positional checkpoint](narrow-positional-validation.md) removes
 intermediate row maps from eligible simple directory/candidate streams. Focused
 unit, actual API and native checks pass. The corrected helper uses 42.08% fewer

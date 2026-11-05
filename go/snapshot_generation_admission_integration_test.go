@@ -169,9 +169,9 @@ type generationReservationObserver struct {
 
 func (h *generationReservationObserver) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	return func(ctx context.Context, cmd goredis.Cmder) error {
-		args := cmd.Args()
+		args := snapshotObservedControlArgs(cmd)
 		reservation := false
-		if cmd.Name() == "eval" && len(args) > 3 {
+		if snapshotObservedControlName(cmd) == "eval" && len(args) > 3 {
 			if args[1] == snapshotMetadataCloneRoot {
 				h.mu.Lock()
 				h.clones++
@@ -299,8 +299,8 @@ type generationSlotCompetitor struct {
 func (h *generationSlotCompetitor) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	observed := h.generationReservationObserver.ProcessHook(next)
 	return func(ctx context.Context, cmd goredis.Cmder) error {
-		a := cmd.Args()
-		if cmd.Name() == "eval" && len(a) > 3 && a[1] == snapshotControl {
+		a := snapshotObservedControlArgs(cmd)
+		if snapshotObservedControlName(cmd) == "eval" && len(a) > 3 && a[1] == snapshotControl {
 			keys, ok := a[2].(int)
 			if ok && 3+keys < len(a) && a[3+keys] == "reserve" {
 				h.attempts++
@@ -480,8 +480,8 @@ type generationConcurrentRetirement struct {
 func (h *generationConcurrentRetirement) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	observed := h.generationReservationObserver.ProcessHook(next)
 	return func(ctx context.Context, cmd goredis.Cmder) error {
-		a := cmd.Args()
-		if !h.collected && cmd.Name() == "eval" && len(a) > 7 && a[1] == snapshotMetadataRetireRoot {
+		a := snapshotObservedControlArgs(cmd)
+		if !h.collected && snapshotObservedControlName(cmd) == "eval" && len(a) > 7 && a[1] == snapshotMetadataRetireRoot {
 			h.collected = true
 			claimed := fmt.Sprint(a[7])
 			if err := h.collector.retireSnapshotMetadata(ctx, claimed); err != nil {

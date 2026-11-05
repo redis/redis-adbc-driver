@@ -245,7 +245,7 @@ type snapshotLostReply struct {
 func (h *snapshotLostReply) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	return func(ctx context.Context, cmd goredis.Cmder) error {
 		err := next(ctx, cmd)
-		args := cmd.Args()
+		args := snapshotObservedControlArgs(cmd)
 		op := -1
 		if len(args) > 2 && fmt.Sprint(args[0]) == "EVAL" && args[1] == snapshotControl {
 			if n, e := strconv.Atoi(fmt.Sprint(args[2])); e == nil {
@@ -304,7 +304,7 @@ func (h *snapshotPendingIndex) ProcessHook(next goredis.ProcessHook) goredis.Pro
 		err := next(ctx, cmd)
 		// Shared inputs are now validated lazily during write planning too.
 		// Inject pending indexing only into the private output this test owns.
-		if scope := snapshotOf(ctx); err == nil && scope != nil && scope.write && strings.EqualFold(fmt.Sprint(cmd.Args()[0]), "FT.INFO") && snapshotOwns(ctx, fmt.Sprint(cmd.Args()[1])) {
+		if scope := snapshotOf(ctx); err == nil && scope != nil && scope.write && strings.EqualFold(fmt.Sprint(snapshotObservedControlArgs(cmd)[0]), "FT.INFO") && snapshotOwns(ctx, fmt.Sprint(snapshotObservedControlArgs(cmd)[1])) {
 			if h.reads.Add(1) == 1 {
 				result := cmd.(interface {
 					Val() any
@@ -734,7 +734,7 @@ func (b *snapshotReadBarrier) ProcessPipelineHook(next goredis.ProcessPipelineHo
 	}
 }
 func (b *snapshotReadBarrier) checkpoint(ctx context.Context, cmd goredis.Cmder) error {
-	if scope := snapshotOf(ctx); scope != nil && !scope.write && strings.EqualFold(fmt.Sprint(cmd.Args()[0]), b.command) && b.hit.CompareAndSwap(false, true) {
+	if scope := snapshotOf(ctx); scope != nil && !scope.write && strings.EqualFold(fmt.Sprint(snapshotObservedControlArgs(cmd)[0]), b.command) && b.hit.CompareAndSwap(false, true) {
 		close(b.ready)
 		select {
 		case <-b.proceed:

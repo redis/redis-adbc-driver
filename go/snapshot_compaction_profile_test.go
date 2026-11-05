@@ -36,8 +36,8 @@ type compactionPhaseProfile struct {
 // Record categories and elapsed client round trips only. Arguments, keys, row
 // values and endpoint/credential data are deliberately absent from the report.
 func compactionProfileCategory(cmd goredis.Cmder) string {
-	a := cmd.Args()
-	if cmd.Name() == "eval" && len(a) > 3 {
+	a := snapshotObservedControlArgs(cmd)
+	if snapshotObservedControlName(cmd) == "eval" && len(a) > 3 {
 		switch a[1] {
 		case snapshotMetadataCloneRoot:
 			return "metadata_clone_root"
@@ -74,7 +74,7 @@ func compactionProfileCategory(cmd goredis.Cmder) string {
 			}
 		}
 	}
-	return cmd.Name()
+	return snapshotObservedControlName(cmd)
 }
 func (p *compactionPhaseProfile) current() string {
 	p.mu.Lock()

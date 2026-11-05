@@ -166,7 +166,7 @@ type snapshotAdmissionSocketTimeout struct {
 
 func (h *snapshotAdmissionSocketTimeout) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	return func(ctx context.Context, cmd goredis.Cmder) error {
-		args := cmd.Args()
+		args := snapshotObservedControlArgs(cmd)
 		if len(args) > 3 && strings.EqualFold(fmt.Sprint(args[0]), "EVAL") {
 			n, _ := strconv.Atoi(fmt.Sprint(args[2]))
 			if n >= 0 && len(args) > 3+n && fmt.Sprint(args[3+n]) == "acquire" {

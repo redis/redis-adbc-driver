@@ -49,8 +49,8 @@ type ingestAdmissionObserver struct {
 
 func (o *ingestAdmissionObserver) Process(ctx context.Context, cmd goredis.Cmder) error {
 	err := o.UniversalClient.Process(ctx, cmd)
-	a := cmd.Args()
-	if len(a) > 3 && strings.EqualFold(cmd.Name(), "eval") {
+	a := snapshotObservedControlArgs(cmd)
+	if len(a) > 3 && strings.EqualFold(snapshotObservedControlName(cmd), "eval") {
 		n, _ := strconv.Atoi(fmt.Sprint(a[2]))
 		if len(a) > 3+n && a[3+n] == "admit_ingest" {
 			o.claims.Add(1)

@@ -211,7 +211,7 @@ type snapshotMergePublicationHook struct {
 
 func (h *snapshotMergePublicationHook) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	return func(ctx context.Context, cmd goredis.Cmder) error {
-		args := cmd.Args()
+		args := snapshotObservedControlArgs(cmd)
 		merge := false
 		if len(args) > 2 && args[1] == snapshotControl {
 			count, err := strconv.Atoi(fmt.Sprint(args[2]))

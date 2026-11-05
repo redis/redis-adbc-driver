@@ -36,9 +36,9 @@ func pinOriginHook(t *testing.T, pool string) *snapshotPinOriginHook {
 
 func (h *snapshotPinOriginHook) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	return func(ctx context.Context, cmd goredis.Cmder) error {
-		a := cmd.Args()
+		a := snapshotObservedControlArgs(cmd)
 		op, token := "", ""
-		if cmd.Name() == "eval" && len(a) > 3 && a[1] == snapshotControl {
+		if snapshotObservedControlName(cmd) == "eval" && len(a) > 3 && a[1] == snapshotControl {
 			keys, err := strconv.Atoi(fmt.Sprint(a[2]))
 			if err == nil && keys > 0 && 5+keys < len(a) {
 				op, token = fmt.Sprint(a[3+keys]), fmt.Sprint(a[4+keys])

@@ -149,7 +149,7 @@ type snapshotSweepLateDrop struct {
 
 func (h *snapshotSweepLateDrop) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	return func(ctx context.Context, cmd goredis.Cmder) error {
-		args := cmd.Args()
+		args := snapshotObservedControlArgs(cmd)
 		err := next(ctx, cmd)
 		if err == nil && len(args) > 1 && strings.EqualFold(fmt.Sprint(args[0]), "FT.DROPINDEX") && fmt.Sprint(args[1]) == h.index {
 			h.calls.Add(1)
@@ -319,7 +319,7 @@ type snapshotSweepClaimBarrier struct {
 func (h *snapshotSweepClaimBarrier) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	return func(ctx context.Context, cmd goredis.Cmder) error {
 		err := next(ctx, cmd)
-		args := cmd.Args()
+		args := snapshotObservedControlArgs(cmd)
 		if err != nil || len(args) < 4 || !strings.EqualFold(fmt.Sprint(args[0]), "EVAL") {
 			return err
 		}
@@ -403,7 +403,7 @@ type snapshotCleanupDenied struct {
 
 func (h *snapshotCleanupDenied) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	return func(ctx context.Context, cmd goredis.Cmder) error {
-		args := cmd.Args()
+		args := snapshotObservedControlArgs(cmd)
 		if len(args) > 1 && strings.EqualFold(fmt.Sprint(args[0]), "FT.DROPINDEX") && fmt.Sprint(args[1]) == h.index {
 			h.calls.Add(1)
 			return errors.New("NOPERM injected FT.DROPINDEX denial")

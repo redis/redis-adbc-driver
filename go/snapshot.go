@@ -476,8 +476,8 @@ return redis.error_reply('unknown snapshot control operation')
 `
 
 func (s *store) snapshotControl(ctx context.Context, op, token, id, base string, extra ...string) *goredis.Cmd {
-	// EVAL is sent once. Acquisition/reservation/renewal are idempotent for their
-	// tokens; publication resolves lost replies through its durable outcome.
+	// Unknown replies are never resent. A definite digest/command refusal may
+	// precede one full-body attempt; publication still resolves its durable outcome.
 	arg := ""
 	if len(extra) != 0 {
 		arg = extra[0]
@@ -493,14 +493,11 @@ func (s *store) snapshotControl(ctx context.Context, op, token, id, base string,
 		keys = append(keys, snapshotMetadataBucketQueue, snapshotMetadataMap(extra[2]))
 	}
 	keys = append(keys, snapshotMetadataGraph, snapshotDataQueue, snapshotCompactionQueue, snapshotCompactionCandidates)
-	args := []any{"EVAL", snapshotControl, len(keys)}
-	args = append(args, keys...)
 	updates := "[]"
 	if len(extra) > 3 && extra[3] != "" {
 		updates = extra[3]
 	}
-	args = append(args, op, token, id, base, snapshotLease.Milliseconds(), arg, updates)
-	return once(ctx, s.client, args...)
+	return s.controlScript.run(ctx, s.client, keys, op, token, id, base, snapshotLease.Milliseconds(), arg, updates)
 }
 
 type snapshotPin struct {

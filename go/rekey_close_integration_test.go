@@ -150,7 +150,7 @@ type rekeyCommittedReply struct {
 func (h *rekeyCommittedReply) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	return func(ctx context.Context, cmd goredis.Cmder) error {
 		err := next(ctx, cmd)
-		args := cmd.Args()
+		args := snapshotObservedControlArgs(cmd)
 		if err != nil || len(args) < 4 || args[1] != snapshotControl {
 			return err
 		}

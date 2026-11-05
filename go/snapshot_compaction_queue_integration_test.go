@@ -186,7 +186,7 @@ type snapshotQueuePeekRace struct {
 
 func (h *snapshotQueuePeekRace) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	return func(ctx context.Context, cmd goredis.Cmder) error {
-		a := cmd.Args()
+		a := snapshotObservedControlArgs(cmd)
 		if len(a) > 2 && a[1] == snapshotControl {
 			count, err := strconv.Atoi(fmt.Sprint(a[2]))
 			op := 3 + count
