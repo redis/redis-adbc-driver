@@ -1,8 +1,8 @@
 # Positional values for narrow snapshot projections
 
 Date: 2026-11-05. Parent: 5a4604a, production c06e181.
-Status: focused API/native checks pass; initial native comparison shows no
-latency gain. Missing-default allocation correction is under validation.
+Status: focused API/native checks and corrected allocation/native comparisons
+pass. Full current-source ordinary/snapshot/platform checks remain required.
 See [intent](intent.md), [spec](spec.md),
 [plan](plan.md) and [implicit-order evidence](implicit-order-validation.md).
 
@@ -93,8 +93,54 @@ constructing a map for default resolution. The follow-up unit race selection
 passes (root 1.980 s); the expanded live selection, including ADD/ALTER defaults,
 ingestion defaults and temporary defaults, passes 65 test events, zero skips or
 failures, root 20.124 s. Final allocation/native checks of that correction remain
-pending; no end-to-end latency gain is claimed.
+recorded below. No end-to-end gain is inferred from an in-process allocation test.
 
 Native comparison Python 3.13.16 / Arrow 26.0.0 / manager 1.13.0; native suite
 Python 3.14.10 / Arrow 26.0.1 / manager 1.13.0. Host Apple M5 Max, 18 logical
 CPUs / 36 GiB; Docker 18 CPUs / 25,421,033,472 bytes, checked after comparison.
+
+## Corrected default kernel and final native comparison
+
+At 8d59eeb, the complete native suite passes 565 tests and three subtests,
+eight explicit capability skips, 84.22 s. The versioned library SHA-256 is
+`fe36bbaed9c2ef65edfd69620d5c5d0c2e556b8f0b78727dbc5bd06d5816d993`.
+
+The allocation benchmark runs three repetitions of each complete 256-row page
+shape. Pooled medians are shown below. These are in-process fetch/decode costs
+with intercepted replies, not Redis/native latency or whole-process memory.
+
+| Shape/path | ns/page | bytes/page | allocations/page |
+|---|---:|---:|---:|
+| Present / maps | 115,676 | 194,368 | 2,833 |
+| Present / positional | 83,806 | 112,576 | 2,321 |
+| Missing defaults / maps | 117,524 | 194,368 | 2,833 |
+| Missing defaults / positional | 83,074 | 112,576 | 2,321 |
+
+Both shapes use 42.08% fewer bytes and 18.07% fewer allocations per page.
+The initial default-map result remains in the
+[before/after allocation data](narrow-positional-allocation.json), with the
+unchanged test-harness hash and every sample. Correct values, duplicates,
+default cutoffs and NULLs are checked inside every iteration. Retain this as a
+measured kernel resource reduction, not a claim that native read memory drops
+by the same percentage.
+
+A separate six-process comparison repeats c06e181, final 8d59eeb, mutable
+f4d5b78, then reverse order, with the identical eight-case native harness and
+parameters described above. All six processes pass complete independent value
+checks and the implicit Arrow schema check; the isolation guard sees zero
+violations. [All final samples and source/harness/library hashes](narrow-default-positional-native-comparison.json)
+remain separate from the earlier eligibility-only comparison.
+
+The full implicit read has pooled median **667.164 ms → 612.826 ms** (8.14%
+lower / 1.089x improvement). Mutable is **122.454 ms**, leaving a **5.005x**
+median gap. Final p95 is 774.340 ms versus preceding 952.155 ms. Two processes
+per source and ten samples are limited evidence, not a statistical or general
+workload guarantee. Other seven cases remain reported without attributing
+their variation to this change. Historical native samples are not relabeled.
+
+Author review checks immutable visibility before projection, marker presence
+versus value, exact row IDs, missing/default semantics, binder failure state,
+unchanged fields/ACLs, bounded buffering, cancellation and resource release.
+No protocol, public option or input-replay behavior changes. Restricted-reader,
+explicit-sort cap handling, Cluster/recovery, remaining write/utility/resume
+and full performance-parity gates remain open. This is not maintainer approval.
