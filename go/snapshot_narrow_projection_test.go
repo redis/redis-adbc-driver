@@ -5,7 +5,10 @@ package redis
 
 import (
 	"context"
+	"fmt"
 	"testing"
+
+	goredis "github.com/redis/go-redis/v9"
 )
 
 func TestSnapshotNarrowProjectionBindsAuthoritativeValues(t *testing.T) {
@@ -37,6 +40,67 @@ func TestSnapshotNarrowProjectionBindsAuthoritativeValues(t *testing.T) {
 	values[4] = "1"
 	if err := p.decodeHashInto(values, row); err != nil || !row[3].Null {
 		t.Fatal("explicit NULL marker lost", row, err)
+	}
+}
+
+// An in-process allocation/decoding comparison, not Redis latency evidence.
+// The real production fetch helpers consume identical HMGET reply slices.
+func BenchmarkSnapshotNarrowProjectionValues(b *testing.B) {
+	for _, tc := range []struct {
+		name                string
+		positional, missing bool
+	}{
+		{"present/maps", false, false},
+		{"present/positional", true, false},
+		{"missing_defaults/maps", false, true},
+		{"missing_defaults/positional", true, true},
+	} {
+		b.Run(tc.name, func(b *testing.B) {
+			it, projection := hashProjectionFixture()
+			client := goredis.NewClient(&goredis.Options{})
+			b.Cleanup(func() { _ = client.Close() })
+			hook := &hashSliceHook{t: b, fields: it.fetch, rows: map[string][]any{}}
+			keys := make([]string, 256)
+			for i := range keys {
+				keys[i] = fmt.Sprintf("projection:%d", i+1)
+				var qty any = "7"
+				if tc.missing {
+					qty = nil
+				}
+				hook.rows[keys[i]] = []any{fmt.Sprint(i + 1), "9007199254740993", "a\x00b", qty, nil, nil}
+			}
+			client.AddHook(hook)
+			s := &store{client: client}
+			ctx, scratch := context.Background(), make([]Value, projection.width)
+			check := func(i int, err error) {
+				if err != nil || scratch[0].S != "a\x00b" || scratch[1].I != 9007199254740993 ||
+					scratch[2].S != scratch[0].S || scratch[5].I != int64(i+1) || !scratch[4].Null ||
+					((!tc.missing || i < 10) && (scratch[3].Null || scratch[3].I != 7)) || (tc.missing && i >= 10 && !scratch[3].Null) {
+					b.Fatal("incorrect complete positional/map projection", i, err)
+				}
+			}
+			b.ReportAllocs()
+			b.ResetTimer()
+			for n := 0; n < b.N; n++ {
+				if tc.positional {
+					rows, err := s.fetchRowSlices(ctx, keys, it.fetch, wideFetchChunk)
+					if err != nil {
+						b.Fatal(err)
+					}
+					for i, row := range rows {
+						check(i, projection.decodeHashInto(row, scratch))
+					}
+				} else {
+					rows, err := s.fetchRows(ctx, keys, it.fetch)
+					if err != nil {
+						b.Fatal(err)
+					}
+					for i, row := range rows {
+						check(i, projection.decodeInto(row, scratch))
+					}
+				}
+			}
+		})
 	}
 }
 

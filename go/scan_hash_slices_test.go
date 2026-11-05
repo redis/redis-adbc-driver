@@ -72,7 +72,7 @@ func TestHashSliceProjectionCompatibility(t *testing.T) {
 }
 
 type hashSliceHook struct {
-	t      *testing.T
+	t      testing.TB
 	rows   map[string][]any
 	calls  int
 	fields []string
