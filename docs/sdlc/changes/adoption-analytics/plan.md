@@ -188,3 +188,14 @@ explicitly marked temporary ID when persistence is unavailable.
   current read/write tokens, extends local ACLs, and retains rollback files.
   New driver builds are needed for hostname, persistent-ID status and samples;
   historical reports cannot recover missing fields or merge old ephemeral IDs.
+
+
+Live follow-up: both Go hosted checks passed with the race detector using a
+combined public/private CA bundle. The fixture-only CA initially prevented trust
+of the public AWS certificate; no certificate verification was disabled. A real
+SELECT reports 250 indexed documents, 250 input candidates and 250 delivered
+rows; early release shows 250 input candidates and 10 delivered rows separately.
+Client hostname, public source and saved-file ID status reach the dashboard.
+A real background PTR lookup resolves 8.8.8.8 to dns.google. The existing read
+token still works. Delivery failures now include safe HTTP status information,
+without response bodies, SQL, tokens or raw transport errors.

@@ -341,6 +341,7 @@ func (s *usageState) flush(ctx context.Context) error {
 }
 
 func (t *usageTelemetry) deliver(ctx context.Context) error {
+	status := 0
 	t.sendMu.Lock()
 	defer t.sendMu.Unlock()
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, t.endpoint, bytes.NewReader(t.snapshot()))
@@ -352,6 +353,7 @@ func (t *usageTelemetry) deliver(ctx context.Context) error {
 		var res *http.Response
 		res, err = t.client.Do(req)
 		if err == nil {
+			status = res.StatusCode
 			_, _ = io.Copy(io.Discard, io.LimitReader(res.Body, 4096))
 			res.Body.Close()
 			if res.StatusCode >= 200 && res.StatusCode < 300 {
@@ -362,6 +364,9 @@ func (t *usageTelemetry) deliver(ctx context.Context) error {
 	t.mu.Lock()
 	t.data.DeliveryFailures++
 	t.mu.Unlock()
+	if status != 0 {
+		return errorf(adbc.StatusIO, "telemetry delivery failed (HTTP %d)", status)
+	}
 	return errorf(adbc.StatusIO, "telemetry delivery failed")
 }
 func newUsageMetric() *usageMetric {

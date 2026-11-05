@@ -289,7 +289,9 @@ func TestUsageReportingRetriesAndNoRedirect(t *testing.T) {
 	op := usageStatement(t, u, "SELECT 1").startUsage()
 	op.finish(nil, false)
 	// Send directly to make failure/retry deterministic; start() hasn't signaled.
-	u.send()
+	if err := u.deliver(context.Background()); err == nil || !strings.Contains(err.Error(), "HTTP 503") {
+		t.Fatalf("missing safe delivery status: %v", err)
+	}
 	if err := s.flush(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -330,6 +332,9 @@ func TestUsageRedisIntegration(t *testing.T) {
 	if endpoint := os.Getenv("REDIS_ADBC_TEST_TELEMETRY_ENDPOINT"); endpoint != "" {
 		opts[OptionStringTelemetryEndpoint] = endpoint
 		opts[OptionStringTelemetryToken] = os.Getenv("REDIS_ADBC_TEST_TELEMETRY_TOKEN")
+		opts[OptionStringTelemetryInstallationID] = "deployment-workload-go-244"
+		opts[OptionStringTelemetryApplication] = "deployment-smoke-test"
+		opts[OptionStringTelemetryEnvironment] = "validation"
 	}
 	db, err := newDriverImpl(memory.DefaultAllocator).newDatabaseImpl(ctx, opts)
 	if err != nil {
@@ -418,6 +423,23 @@ func TestUsageRedisIntegration(t *testing.T) {
 		t.Fatalf("ingestion/connection metrics %+v", d)
 	}
 	if opts[OptionStringTelemetryEndpoint] != "" {
+		// A small result from a larger source demonstrates per-execution context.
+		if err := st.SetSqlQuery(ctx, "SELECT id FROM "+table+" WHERE id > 0 AND id <= 3 ORDER BY id"); err != nil {
+			t.Fatal(err)
+		}
+		reader, _, err := st.ExecuteQuery(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var returned int64
+		for reader.Next() {
+			returned += reader.RecordBatch().NumRows()
+		}
+		err = reader.Err()
+		reader.Release()
+		if err != nil || returned != 3 {
+			t.Fatalf("filtered workload: rows=%d err=%v", returned, err)
+		}
 		if err := db.SetOption(ctx, OptionStringTelemetryFlush, "true"); err != nil {
 			t.Fatal(err)
 		}
@@ -431,11 +453,12 @@ func TestUsageHostedEndpoint(t *testing.T) {
 	}
 	t.Setenv("REDIS_ADBC_TELEMETRY_DISABLED", "")
 	var state usageState
+	idFile := filepath.Join(t.TempDir(), "installation_id")
 	for key, value := range map[string]string{
-		OptionStringTelemetryInstallationID: "deployment-smoke-go-244",
-		OptionStringTelemetryApplication:    "deployment-smoke-test",
-		OptionStringTelemetryEnvironment:    "validation",
-		OptionStringTelemetryIntegration:    "go-driver",
+		OptionStringTelemetryInstallationIDFile: idFile,
+		OptionStringTelemetryApplication:        "deployment-smoke-test",
+		OptionStringTelemetryEnvironment:        "validation",
+		OptionStringTelemetryIntegration:        "go-driver",
 	} {
 		if err := state.set(key, value); err != nil {
 			t.Fatal(err)
@@ -456,6 +479,14 @@ func TestUsageHostedEndpoint(t *testing.T) {
 	if u.endpoint != defaultUsageEndpoint {
 		t.Fatalf("default endpoint: %s", u.endpoint)
 	}
+	identity := usageData(t, u)
+	if identity.InstallationIDSource != "local_file" {
+		t.Fatal("hosted default ID was not persisted")
+	}
+	reopened, source := usageInstallationID(idFile)
+	if reopened != identity.InstallationID || source != "local_file" {
+		t.Fatal("hosted ID changed on reopen")
+	}
 	r, _, err := usageStatement(t, u, "SELECT 1").ExecuteQuery(context.Background())
 	if err != nil {
 		t.Fatal(err)
@@ -469,6 +500,11 @@ func TestUsageHostedEndpoint(t *testing.T) {
 	}
 	if m := usageData(t, u).Metrics["select"]; m.Success != 1 || m.Rows != 1 {
 		t.Fatalf("hosted query metrics: %+v", m)
+	}
+	if path := os.Getenv("REDIS_ADBC_TEST_TELEMETRY_SNAPSHOT_PATH"); path != "" {
+		if err := os.WriteFile(path, u.snapshot(), 0600); err != nil {
+			t.Fatal(err)
+		}
 	}
 	if err := state.flush(context.Background()); err != nil {
 		t.Fatal(err)

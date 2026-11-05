@@ -80,7 +80,7 @@ function render(data) {
   const retention = data.retention_week4;
   const cards = [
     ['Distinct active installation IDs · 7 days', data.weekly_active_installations],
-    ['Reporting sources · 28 days', (data.hosts || []).length],
+    ['Identified reporting sources · 28 days', (data.hosts || []).filter(h => h.hostname || h.public_ip).length],
     ['Active organizations', data.self_reported_organizations],
     ['Active teams', data.self_reported_teams],
     ['Query attempts', format(attempts)],

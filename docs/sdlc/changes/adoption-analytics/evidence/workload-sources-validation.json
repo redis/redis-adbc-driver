@@ -24,5 +24,21 @@
     "diff whitespace"
   ],
   "default_id": "atomic local-file publication; concurrent handles and restarts reuse the ID; temporary fallback explicitly reported",
-  "input_work": "observed index population, driver candidates, pushdown represented rows are separate; unknown values remain null"
+  "input_work": "observed index population, driver candidates, pushdown represented rows are separate; unknown values remain null",
+  "live_aws": {
+    "go_driver_tests": 2,
+    "passed": true,
+    "tls_verification": "public roots plus private test CA; no verification bypass",
+    "per_execution_example": {
+      "indexed_documents": 250,
+      "driver_candidates": 250,
+      "rows_returned_success": 250,
+      "rows_returned_early_release": 10
+    },
+    "hostname_present": true,
+    "public_egress_present": true,
+    "saved_id_status_present": true,
+    "background_ptr_check": "dns.google for 8.8.8.8",
+    "read_token_preserved": true
+  }
 }
