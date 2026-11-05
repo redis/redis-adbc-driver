@@ -639,11 +639,22 @@ func (e *executor) openScan(ctx context.Context, req scanRequest, params []Value
 	it, fields, exactly := e.newScanIter(ctx, req, params)
 	meta := req.meta
 	ar := &aggRequest{
+		meta:      meta,
 		index:     meta.index(),
 		query:     req.where.query,
 		rowFilter: meta.rowFilter(),
 		sortBy:    req.sortBy,
 		limit:     req.limit,
+	}
+	if e.store.flexEnabled() {
+		ar.load = append([]string{"__key", rowIDField}, fields...)
+		ar.width = len(ar.load)
+		cur, err := e.store.openRangeReader(ctx, ar)
+		if err != nil {
+			return nil, err
+		}
+		it.cur = cur
+		return it, nil
 	}
 	if !meta.KeyRows && !exactly && len(it.need)*2 <= len(meta.Columns) {
 		// Keep narrow projections narrow even when a SORTABLE value rounds
@@ -976,6 +987,9 @@ func (it *scanIter) keep(keys []string, fetched []aggRow) ([]string, []map[strin
 // HASH, as must strings cut at a NUL byte (see tags.go).
 // Unindexed fields are always read from the HASH.
 func loadsExactly(c columnMeta) bool {
+	if c.PlainIndex {
+		return false
+	}
 	if !simpleName(c.field()) {
 		return false
 	}
@@ -1156,7 +1170,7 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 
 	// ORDER BY on indexed columns sorts inside the index; anything else is
 	// sorted by the driver after fetching.
-	indexSort := wp.keys == nil && !meta.isMem
+	indexSort := wp.keys == nil && !meta.isMem && !e.store.flexEnabled()
 	var sortCols []columnMeta
 	for _, o := range plan.order {
 		c, ok := o.expr.(*ColumnRef)
@@ -1188,7 +1202,7 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 	if len(plan.order) == 0 && wp.keys == nil && !meta.isMem {
 		// Implicit insertion order. Rows identified by their keys have none:
 		// they come in the index's order.
-		if !meta.KeyRows {
+		if !meta.KeyRows && !e.store.flexEnabled() {
 			req.sortBy = []sortKey{{field: rowIDField}}
 		}
 		indexSort = true
@@ -1196,7 +1210,7 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 	sel := plan.sel
 	// With window functions, LIMIT applies once they are computed (and
 	// QUALIFY has filtered), so it never runs in the index.
-	pushLimit := !plan.hasSetReturning() && !plan.windowed() && wp.residual == nil && indexSort && wp.keys == nil && sel.Limit != nil
+	pushLimit := !e.store.flexEnabled() && !plan.hasSetReturning() && !plan.windowed() && wp.residual == nil && indexSort && wp.keys == nil && sel.Limit != nil
 	if pushLimit {
 		off := int64(0)
 		if sel.Offset != nil {
@@ -1210,7 +1224,7 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 	}
 	// A residual predicate prevents index LIMIT. Read only its inputs (and
 	// exact tie-sort inputs), then fetch output fields for surviving rows.
-	if !plan.hasSetReturning() && wp.residual != nil && indexSort && !meta.KeyRows && !plan.windowed() &&
+	if !e.store.flexEnabled() && !plan.hasSetReturning() && wp.residual != nil && indexSort && !meta.KeyRows && !plan.windowed() &&
 		!plan.hasCorrelated() && len(plan.extraNeed) == 0 && sel.Limit != nil {
 		predicate := map[string]bool{}
 		columnRefs(wp.residual, predicate)
@@ -1233,7 +1247,7 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 	rowIDOrder := len(req.sortBy) == 1 && req.sortBy[0].field == rowIDField && !req.sortBy[0].desc
 	boundedStream := req.limit == nil && rowIDOrder && plan.streamable() && managedRowIDTable(meta)
 	fallbackRequired := len(meta.PendingCleanup) > 0 || req.limit == nil && caps[1] < 1<<31
-	if !meta.isMem && wp.keys == nil && (fallbackRequired || boundedStream) {
+	if !e.store.flexEnabled() && !meta.isMem && wp.keys == nil && (fallbackRequired || boundedStream) {
 		if meta.Foreign {
 			return selectScan{}, errorf(adbc.StatusNotImplemented, "unbounded foreign-index queries require an unrestricted aggregate result cap")
 		}
@@ -1667,7 +1681,7 @@ var indexReducers = map[string]string{
 // exactly by the index; the caller then aggregates in the driver.
 func (e *executor) indexAggregate(ctx context.Context, plan *selectPlan, wp wherePlan, aggs []*Func) ([]aggGroup, bool, error) {
 	meta := plan.meta
-	if e.pushdown == PushdownNone || len(meta.PendingCleanup) > 0 || wp.residual != nil || wp.keys != nil || wp.none || meta.isMem || len(plan.extraNeed) > 0 {
+	if e.store.flexEnabled() || e.pushdown == PushdownNone || len(meta.PendingCleanup) > 0 || wp.residual != nil || wp.keys != nil || wp.none || meta.isMem || len(plan.extraNeed) > 0 {
 		return nil, false, nil
 	}
 	groupCols := make([]columnMeta, 0, len(plan.sel.GroupBy))

@@ -32,6 +32,9 @@ import (
 // predicate must be checked first. The final range is open-ended so concurrent
 // inserts follow the same inclusion rule as partitioned aggregates.
 func (e *executor) parallelSelectTopK(ctx context.Context, plan *selectPlan, sc selectScan, params []Value) (out [][]Value, handled bool, resultErr error) {
+	if e.store.flexEnabled() {
+		return nil, false, nil
+	}
 	k := aggregateTopLimit(plan, math.MaxInt)
 	meta := plan.meta
 	// selectTopKShape rejects an index-ordered scan because the serial path can

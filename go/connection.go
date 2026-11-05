@@ -110,6 +110,9 @@ func (c *connectionImpl) GetOption(ctx context.Context, key string) (string, err
 func (c *connectionImpl) SetOption(ctx context.Context, key, value string) error {
 	switch key {
 	case OptionStringForeignIndexes:
+		if c.store.flexEnabled() && value == "true" {
+			return flexUnsupported("foreign indexes")
+		}
 		v, err := parseForeignIndexes(value)
 		if err != nil {
 			return err
@@ -126,6 +129,9 @@ func (c *connectionImpl) SetOption(ctx context.Context, key, value string) error
 			return errorf(adbc.StatusInvalidArgument, "invalid autocommit value %q: expected true or false", value)
 		}
 	case OptionStringRenameRekey:
+		if c.store.flexEnabled() && value == "true" {
+			return flexUnsupported("rename rekeying")
+		}
 		rekey, err := parseRenameRekey(value)
 		if err != nil {
 			return err

@@ -419,7 +419,12 @@ table refuses `INSERT` and `TRUNCATE`. The driver doesn't touch
 indexes it didn't create, even one with the name a new table's index would
 take (see "Indexes the driver didn't create are left alone" below).
 
-#### Redis Flex databases are not supported yet
+#### Redis Flex experimental stopgap
+
+Use `adbc.redis.flex=true` for the [experimental bounded-reader stopgap](redis-flex-stopgap.md).
+The following compatibility discussion describes default mode and historical
+probes; it does not describe the opt-in stopgap.
+
 
 [Redis Flex](https://redis.io/docs/latest/operate/rs/flex/) (formerly Auto
 Tiering) keeps most of a database on SSD, for datasets of a terabyte and

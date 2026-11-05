@@ -29,6 +29,7 @@ import (
 )
 
 type databaseImpl struct {
+	flex                        bool
 	usage                       usageState
 	rbac                        *rbacManager
 	retainedNamespace           string
@@ -261,6 +262,9 @@ func (d *databaseImpl) dial(ctx context.Context) (client goredis.UniversalClient
 }
 
 func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, error) {
+	if d.flex && (d.foreignIndexes || d.rekey || d.readerOnly) {
+		return nil, flexUnsupported("foreign_indexes, rename_rekey or reader-only partitions")
+	}
 	u, err := d.usage.start()
 	if err != nil {
 		return nil, err
@@ -292,9 +296,19 @@ func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, er
 			_ = client.Close()
 			return nil, errorf(adbc.StatusNotImplemented, "the Redis server does not provide the search (RediSearch) module: %v", err)
 		}
-		if err := st.refuseFlex(ctx); err != nil {
+		if err := st.configureSearch(ctx, d.flex); err != nil {
 			_ = client.Close()
 			return nil, err
+		}
+		if st.flex {
+			n, err := st.redis(ctx).HLen(ctx, rekeyKey).Result()
+			if err != nil || n > 0 {
+				_ = client.Close()
+				if err != nil {
+					return nil, wrapRedis(err, "checking pending Flex rewrites failed")
+				}
+				return nil, flexUnsupported("pending schema rewrites")
+			}
 		}
 		if err := st.migrateLegacyMetadata(ctx); err != nil {
 			_ = client.Close()
@@ -358,17 +372,14 @@ func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, er
 // flexProbeIndex is an index name the driver never creates.
 const flexProbeIndex = "adbc:{meta}:probe"
 
-// refuseFlex fails on Redis Flex (RAM + flash) databases, before anything
-// is written. Search on Flex has no FT.AGGREGATE and no NUMERIC fields (the
-// Redis Cloud Pro Preview, and Redis Software 8.2 with Search 8.6, which
-// also lacks SORTABLE), and every table needs them. Asking for a missing
-// index tells Flex apart: other servers answer "No such index", so a Flex
-// release that adds FT.AGGREGATE passes.
+// refuseFlex preserves the legacy default-mode guard for older deployments.
+// A missing-index reply does not certify sortable/cursor support on newer Flex
+// builds. Flex users must select the explicit, positively probed stopgap mode.
 func (s *store) refuseFlex(ctx context.Context) error {
 	err := s.searchDo(ctx, flexProbeIndex, "FT.AGGREGATE", flexProbeIndex, "*", "LIMIT", 0, 0).Err()
 	if err != nil && strings.Contains(err.Error(), "not supported in Redis Flex") {
-		return errorf(adbc.StatusNotImplemented, "Redis Flex databases are not supported: their search has no "+
-			"FT.AGGREGATE and no NUMERIC or SORTABLE fields, which the driver needs (%v)", err)
+		return errorf(adbc.StatusNotImplemented, "default execution requires sortable indexes and aggregate cursors; "+
+			"set adbc.redis.flex=true to probe the experimental Flex stopgap (%v)", err)
 	}
 	return nil
 }
@@ -436,6 +447,9 @@ func (d *databaseImpl) Close(ctx context.Context) error {
 }
 
 func (d *databaseImpl) GetOption(ctx context.Context, key string) (string, error) {
+	if key == OptionStringFlex {
+		return strconv.FormatBool(d.flex), nil
+	}
 	if strings.HasPrefix(key, usagePrefix) {
 		return d.usage.get(key)
 	}
@@ -544,6 +558,11 @@ func (d *databaseImpl) SetOption(ctx context.Context, key, value string) error {
 			return errorf(adbc.StatusInvalidArgument, "invalid retained result limits")
 		}
 		d.retainedLimits = limits
+	case OptionStringFlex:
+		if value != "true" && value != "false" {
+			return errorf(adbc.StatusInvalidArgument, "flex must be true or false")
+		}
+		d.flex = value == "true"
 	case OptionStringForeignIndexes:
 		v, err := parseForeignIndexes(value)
 		if err != nil {

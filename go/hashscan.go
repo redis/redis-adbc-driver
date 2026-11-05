@@ -57,7 +57,7 @@ func dialHashes(ctx context.Context, options map[string]string) (*hashConn, erro
 		_ = db.Base().Close(ctx)
 		return nil, err
 	}
-	return &hashConn{db: db, client: client, st: &store{client: client}}, nil
+	return &hashConn{db: db, client: client, st: &store{client: client, flex: db.flex}}, nil
 }
 
 func (c *hashConn) close(ctx context.Context) {

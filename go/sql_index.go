@@ -135,6 +135,9 @@ func (e *executor) findNamedIndex(ctx context.Context, schema, name string) (*ta
 }
 
 func (e *executor) runCreateIndex(ctx context.Context, st *CreateIndexStmt) error {
+	if e.store.flexEnabled() {
+		return flexUnsupported("CREATE INDEX")
+	}
 	m, err := e.loadTable(ctx, st.Table)
 	if err != nil {
 		return err

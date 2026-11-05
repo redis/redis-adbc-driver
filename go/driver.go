@@ -34,6 +34,8 @@ import (
 )
 
 const (
+	// OptionStringFlex enables the experimental plain-index, bounded-range reader.
+	OptionStringFlex = "adbc.redis.flex"
 	// OptionStringDefaultSchema sets the schema (key namespace) used for
 	// unqualified table names. Defaults to "public".
 	OptionStringDefaultSchema = "adbc.redis.default_schema"

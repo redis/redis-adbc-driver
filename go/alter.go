@@ -77,6 +77,9 @@ import (
 func cleanupMember(schema, table string) string { return schema + "\x00" + table }
 
 func (e *executor) runAlter(ctx context.Context, st *AlterTableStmt) error {
+	if e.store.flex {
+		return flexUnsupported("ALTER TABLE")
+	}
 	schema, name, err := e.resolveTable(st.Table)
 	if err != nil {
 		return err

@@ -299,6 +299,12 @@ remote deployment support, or Redis Flight SQL compatibility.
 | Metaflow | Read through ADBC in a local flow and persist rows between steps; remote backends remain untested. | [Guide](docs/integrations/metaflow.md) |
 | Quarto | Render a Python document containing native ADBC queries to HTML. | [Guide](docs/integrations/quarto.md) |
 
+## Experimental Redis Flex stopgap
+
+Set database option `adbc.redis.flex=true` for plain indexes and bounded row-ID
+reads on tested Software Flex builds. See [scope, usage and evidence](docs/redis-flex-stopgap.md).
+ALTER TABLE, TRUNCATE, adoption and foreign indexes remain unsupported.
+
 ## Quick start
 
 Install the driver from PyPI, start Redis Software, and load the sample dataset.
