@@ -1,8 +1,9 @@
 # Point lookups for snapshot lease operations
 
 Date: 2026-11-05. Parent: 31ade98 (production fdbe75f).
-Status: reproduced regression, implementation and focused Software checks pass;
-native/performance/full-source checks remain required.
+Status: reproduced regression, implementation, focused Software checks, full
+native validation and matched comparisons complete; full-source Go checks and
+feature/performance parity remain open.
 See [intent](intent.md), [spec](spec.md), [plan](plan.md) and
 [control-cache evidence](control-script-cache-validation.md).
 
@@ -44,9 +45,63 @@ next acquisition refuses. It expires two fixture pins, validates/renews a live
 pin without pruning either unrelated record, then confirms acquisition prunes
 them and admits exactly two replacements before refusing again. Cleanup uses
 the normal release operation for every owned token, including refused attempts.
+The complete control-script race selection including this case passes 20 test
+events, two separately covered operator fixture skips, zero failures; root
+2.021 s.
 
 All live checks are sequential on owned Redis Software 8.8.0, verified strict
 TLS, noeviction and active/effective 4x QPF; three primaries behind a proxy,
 macOS ARM64 / Go 1.27.3. They do not prove Cluster API or reader authorization.
-Versioned native validation and matched comparisons remain required. Fewer
-catalog reads alone do not establish latency or throughput parity.
+At production source 7c30fa6, versioned native ADBC validation passes 565 tests
+and three subtests, eight explicit capability skips, 82.45 s; Python 3.14.10 /
+PyArrow 26.0.1 / manager 1.13.0. Library SHA-256:
+`a7d1bc5d9279f0c2eaff8debfe83742922d1663ba3d5499091e916513f5641d6`.
+Fewer catalog reads alone do not establish latency or throughput parity; the
+actual comparisons follow.
+
+## Matched native comparisons
+
+Separate read and sustained-write comparisons each use six isolated native
+processes: preceding fdbe75f, point leases 7c30fa6, mutable f4d5b78, then reverse
+order. The unchanged eight-case read harness uses 20,000 input rows plus
+replacement/deletion, 32 unrelated tables, one warmup and five samples per case.
+All fetched values are independently checked in timing; the complete implicit
+read also checks Arrow schema. Setup is excluded. All
+[read cases, samples and hashes](point-lease-read-comparison.json) are retained.
+
+The full 19,999-row implicit-read pooled median is **671.892 → 599.015 ms**,
+10.85% lower in this comparison. Mutable is 127.184 ms, leaving a **4.710x**
+gap. Current p95 is 697.212 ms versus preceding 879.087 ms. Two processes and
+ten samples/source are limited evidence, not statistical or general workload
+guarantees; prior control-cache read comparisons remain separately reported.
+
+The sustained case runs 64 alternating UPDATE RETURNING operations across two
+20,000-row tables per process. Every returned value and all 40,000 final rows
+are independently verified, with zero caller retries. Publication and complete
+RETURNING fetch are timed; setup/final validation are excluded. All
+[write samples, intervals and hashes](point-lease-write-comparison.json) remain.
+
+| Build | Median ms | p95 ms | Updates/s |
+|---|---:|---:|---:|
+| Preceding fdbe75f | 33.027 | 69.868 | 25.969 |
+| Point leases 7c30fa6 | 33.511 | 67.233 | 25.047 |
+| Mutable f4d5b78 | 5.485 | 6.778 | 173.069 |
+
+The write result does **not** establish an improvement: throughput is 3.55%
+lower in this comparison and median is nearly unchanged. Mutable throughput is
+6.910x higher. Keep this negative result alongside the read result; constant
+record access does not imply all-workload parity.
+
+Both process guards detect zero competing local build/test violations, sampling
+before each process and every 500 ms; no database probes overlap timing. Software
+settings are verified per process. Python 3.13.16 / PyArrow 26.0.0 / manager
+1.13.0; Apple M5 Max, 18 logical CPUs / 36 GiB; Docker 18 CPUs /
+25,421,033,472 bytes. This synthetic workload is not ClickBench.
+
+Author review checks moved branches preserve token/root/time/state checks and
+argument shape, generation bounds, admission pruning, cancellation and NoRetry.
+An expired unrelated pin is left for admission/collection rather than modified
+by another reader's validation. The exact 128-slot test covers that transition.
+No SQL reader grants or raw row access are broadened. This is not independent
+maintainer approval; current full Go/platform and reader/Cluster/recovery gates
+remain open.
