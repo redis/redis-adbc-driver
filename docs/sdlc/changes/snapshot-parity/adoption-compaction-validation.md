@@ -1,8 +1,8 @@
 # Failed refresh checks during background compaction
 
 Date: 2026-11-05. Production: 50d6b84, unchanged by this fixture correction.
-Status: deterministic reproduction and repeated race checks pass; full ordinary
-suite rerun required. See [intent](intent.md), [spec](spec.md), [plan](plan.md) and
+Status: deterministic reproduction, repeated race checks and the corrected full ordinary
+suite pass. See [intent](intent.md), [spec](spec.md), [plan](plan.md) and
 [pre-copy indexing evidence](compaction-directory-index-design.md).
 
 The first full ordinary run after the matched benchmark terminates with
@@ -34,9 +34,12 @@ could miss without mislabeling legitimate physical maintenance.
 The corrected original adoption case and deterministic interleaving pass ten
 race-enabled repetitions: 20 test events, no skips/failures, root 22.986 s.
 The production library and its completed snapshot/native/benchmark results are
-unchanged. This is not proof that the whole ordinary suite passes; its failed
-attempt remains a failed attempt. The next complete run uses a reset owned
-fixture after all focused processes are terminal.
+unchanged. Its first full-suite attempt remains a failed attempt. The subsequent
+complete ordinary race run at 27e05c2, after an exclusive owned reset, passes:
+2,025 test pass events, 340 explicit skips, zero failures, all six tested packages
+successful; root package 1,158.243 s. Snapshot-specific opt-ins remain unset and
+their skips are not snapshot/Cluster/authorization passes. The separate completed
+snapshot and native suites retain source 50d6b84.
 
 Owned Redis Software 8.8.0, strict verified TLS, active/effective 4x QPF,
 noeviction, three primaries behind its proxy; macOS ARM64 / Go 1.27.3. Author

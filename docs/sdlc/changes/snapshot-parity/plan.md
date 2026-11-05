@@ -2,6 +2,12 @@
 
 Date: 2026-11-02. Status: in progress. See [intent](intent.md), [spec](spec.md).
 
+The [TLS fixture checkpoint](tls-snapshot-fixture-validation.md) records the
+completed current ordinary race suite and restores planner partition readiness,
+producer snapshot lifetime assertions and explicit capability cleanup. The
+independent restricted worker still fails permission checks; current Cluster
+layout helpers and the ordinary SELECT cap regression remain open.
+
 The [released-owner checkpoint](released-owner-validation.md) records a
 reproduced lost-reservation capacity leak and its ownership-aware reclamation
 fix, plus the native snapshot rekey-close fixture correction. Local combined

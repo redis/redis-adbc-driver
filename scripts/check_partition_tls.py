@@ -19,7 +19,6 @@ import socket
 import ssl
 import subprocess
 import sys
-import time
 import threading
 from urllib.parse import quote, urlsplit, urlunsplit
 
@@ -123,6 +122,43 @@ def native_search_ready(invoke, partitions, expected):
             or difference['duplicate_ids'] or difference['changed_value_ids']):
         raise AssertionError('native Search readiness returned invalid fixture values')
     return not difference['missing_ids']
+
+
+def planner_fixture_ready(cur, partitions, schema, expected):
+    """Validate the complete logical fixture through the native snapshot path.
+
+    Snapshot acquisition checks every retained index. A guessed mutable index
+    name is neither the table's physical layout nor a logical row-count proof:
+    this fixture already has an older segment and a deletion tombstone.
+    """
+    if not schema.equals(expected.schema):
+        raise AssertionError('native planner readiness returned invalid fixture schema')
+    tables = []
+    for part in partitions:
+        cur.adbc_read_partition(part)
+        tables.append(cur.fetch_arrow_table())
+    actual = (pa.concat_tables(tables) if tables
+              else pa.Table.from_batches([], schema=schema)).sort_by('id')
+    if not actual.schema.equals(expected.schema) or not actual.equals(expected):
+        raise AssertionError('native planner readiness returned invalid fixture values')
+
+
+def fixture_partitions(cur, query, groups):
+    """Record successful producer capabilities for explicit fixture cleanup."""
+    result = cur.adbc_execute_partitions(query)
+    token = cur.adbc_statement.get_option('adbc.redis.partition_snapshot_id')
+    if (not isinstance(token, str) or len(token) != 32
+            or any(c not in '0123456789abcdef' for c in token)):
+        raise AssertionError('native partition producer returned invalid release ID')
+    groups.append(token)
+    return result
+
+
+def release_fixture_partitions(cur, groups):
+    # Keep a failed/uncertain release tracked for cleanup; never retry SQL here.
+    while groups:
+        cur.execute("DROP PARTITION SNAPSHOT '" + groups[-1] + "'")
+        groups.pop()
 
 
 def cluster_distribution(control, index, minimum_primaries, primary_clients=None):
@@ -263,6 +299,7 @@ def main(argv=None, cloud_principals_factory=None):
     if not override:
         report['packages']['adbc-driver-redis'] = importlib.metadata.version('adbc-driver-redis')
     schema_created = False
+    partition_groups = []
     def check(name):
         report['checks'].append(name)
         if args.cloud_fixture:
@@ -336,33 +373,28 @@ def main(argv=None, cloud_principals_factory=None):
             'amount': pa.array([decimal.Decimal('123456789.12')] * 1100, pa.decimal128(18, 2)),
             'payload': pa.array([b'\x00\xff'] * 1100, pa.binary()),
         })
+        # Independent fixture oracle, shared by planner and restricted workers.
+        expected = data.take(pa.array([i for i in range(1100) if i != 2]))
         with connect(planner_uri) as owner:
             with owner.cursor() as cur:
                 cur.execute('CREATE SCHEMA ' + schema)
                 schema_created = True
                 cur.adbc_ingest(table, data, db_schema_name=schema)
                 cur.execute('DELETE FROM ' + qualified + ' WHERE id=2')
-                deadline = time.monotonic() + 10
-                while True:
-                    raw = control.execute_command('FT.INFO', 'idx:' + schema + ':' + table)
-                    info = dict(zip(raw[::2], raw[1::2])) if isinstance(raw, list) else raw
-                    if float(info['indexing']) == 0 and float(info['percent_indexed']) >= 1:
-                        break
-                    if time.monotonic() >= deadline:
-                        raise AssertionError('fixture did not finish indexing')
-                    time.sleep(0.01)
                 if args.oss_cluster_fixture:
                     from partition_tls_resharding import wait_search_convergence
                     report['initial_search_convergence_attempts'] = wait_search_convergence(
                         principals.clients, 'idx:' + schema + ':' + table, 1099,
                         row_ids=[i for i in range(1, 1101) if i != 3])
                 cur.adbc_statement.set_options(**{'adbc.redis.partition_count': 4, 'adbc.redis.partition_scan_cap': 137})
-                broad, broad_schema = cur.adbc_execute_partitions('SELECT * FROM ' + qualified)
-                direct, direct_schema = cur.adbc_execute_partitions('SELECT * FROM ' + qualified + ' WHERE __rowid IN(1,1,3,1100)')
+                broad, broad_schema = fixture_partitions(cur, 'SELECT * FROM ' + qualified, partition_groups)
+                planner_fixture_ready(cur, broad, broad_schema, expected)
+                check('native_planner_segmented_fixture_full_values_schema')
+                direct, direct_schema = fixture_partitions(cur, 'SELECT * FROM ' + qualified + ' WHERE __rowid IN(1,1,3,1100)', partition_groups)
                 cur.adbc_statement.set_options(**{'adbc.redis.partition_count': 1})
-                cancellable, _ = cur.adbc_execute_partitions('SELECT * FROM ' + qualified)
+                cancellable, _ = fixture_partitions(cur, 'SELECT * FROM ' + qualified, partition_groups)
                 cur.adbc_statement.set_options(**{'adbc.redis.result_layouts': json.dumps({'label':'large_string','payload':'large_binary','amount':'decimal64'})})
-                layout_parts, layout_schema = cur.adbc_execute_partitions('SELECT * FROM ' + qualified)
+                layout_parts, layout_schema = fixture_partitions(cur, 'SELECT * FROM ' + qualified, partition_groups)
 
         if args.cluster_mode == 'true' or (args.cluster_mode == 'auto' and cluster_enabled == 1):
             primary_clients = (dict(zip(sorted(principals.nodes), principals.clients))
@@ -371,15 +403,13 @@ def main(argv=None, cloud_principals_factory=None):
                                                                   args.minimum_cluster_primaries, primary_clients)
             check('fixture_rows_span_advertised_cluster_primaries')
         assert len(broad) == 4 and len(direct) == 3
-        for descriptor in broad + direct + cancellable:
+        for descriptor in broad + direct + cancellable + layout_parts:
             for secret in (admin_uri, endpoint.password, planner_uri, worker_uri, planner_password, worker_password, str(ca)):
                 assert secret.encode() not in descriptor
         check('closed_planner_and_credential_free_descriptors')
-        # Build expected values directly from the fixture, independently of SQL.
-        expected = data.take(pa.array([i for i in range(1100) if i != 2]))
         actual = pa.concat_tables([read(part) for part in broad]).sort_by('id')
         assert actual.schema.equals(broad_schema) and actual.equals(expected)
-        check('restricted_cross_process_search_full_values_schema')
+        check('restricted_cross_process_snapshot_full_values_schema')
         layout_actual = pa.concat_tables([read(part) for part in layout_parts]).sort_by('id')
         assert layout_actual.schema.equals(layout_schema) and layout_actual.equals(expected.cast(layout_schema))
         check('restricted_cross_process_explicit_layout_values_and_schema')
@@ -494,17 +524,28 @@ def main(argv=None, cloud_principals_factory=None):
                 report['mutation_rowcounts']['delete'] = cur.rowcount
                 cur.execute('INSERT INTO ' + qualified + ' (id) VALUES(1100)')
                 report['mutation_rowcounts']['insert'] = cur.rowcount
+                fresh_parts, fresh_schema = fixture_partitions(cur, 'SELECT * FROM ' + qualified, partition_groups)
         live_expected = [row for row in data.to_pylist() if row['id'] not in (2, 5)]
         live_expected[0]['label'] = 'updated'
-        live = pa.concat_tables([read(part) for part in broad]).sort_by('id')
-        report['live_result'] = fixture_difference(live, live_expected, broad_schema)
-        assert live.schema.equals(broad_schema) and live.to_pylist() == live_expected
-        check('live_updates_deletes_and_later_insert_exclusion')
+        live_expected.append({'id':1100, 'label':None, 'amount':None, 'payload':None})
+        pinned = pa.concat_tables([read(part) for part in broad]).sort_by('id')
+        assert pinned.schema.equals(broad_schema) and pinned.equals(expected)
+        fresh = pa.concat_tables([read(part) for part in fresh_parts]).sort_by('id')
+        report['fresh_result'] = fixture_difference(fresh, live_expected, fresh_schema)
+        assert fresh.schema.equals(fresh_schema) and fresh.to_pylist() == live_expected
+        check('producer_snapshot_stable_and_new_producer_observes_mutations')
         with connect(planner_uri) as owner:
             with owner.cursor() as cur:
                 cur.execute('TRUNCATE ' + qualified)
-        assert_failed(broad[0], 'partition target changed')
-        check('stale_target_rejected')
+                empty_parts, empty_schema = fixture_partitions(cur, 'SELECT * FROM ' + qualified, partition_groups)
+                planner_fixture_ready(cur, empty_parts, empty_schema, data.slice(0, 0))
+        pinned = pa.concat_tables([read(part) for part in broad]).sort_by('id')
+        assert pinned.schema.equals(broad_schema) and pinned.equals(expected)
+        with connect(planner_uri) as owner:
+            with owner.cursor() as cur:
+                release_fixture_partitions(cur, partition_groups)
+        assert_failed(broad[0], 'partition snapshot expired or released')
+        check('truncate_preserves_producer_snapshot_and_explicit_release_revokes')
         from retained_partition_tls import check_retained_tls
         retained_cluster = ('true' if cluster_enabled == 1 else 'false') if args.cluster_mode == 'auto' else args.cluster_mode
         report['retained'] = check_retained_tls(principals, control, schema, planner_uri,
@@ -518,6 +559,7 @@ def main(argv=None, cloud_principals_factory=None):
             if schema_created:
                 with connect(planner_uri) as owner:
                     with owner.cursor() as cur:
+                        release_fixture_partitions(cur, partition_groups)
                         cur.execute('DROP TABLE IF EXISTS ' + qualified)
                         cur.execute('DROP SCHEMA IF EXISTS ' + schema)
         except BaseException:
