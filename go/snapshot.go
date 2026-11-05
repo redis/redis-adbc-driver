@@ -41,22 +41,23 @@ const (
 type snapshotContextKey struct{}
 
 type snapshotScope struct {
-	compactionUpdates string
-	store             *store
-	metadataMu        sync.Mutex
-	metadata          snapshotMetadataState
-	id                string
-	pin               *snapshotPin
-	maintenance       bool
-	tempDead          string
-	write             bool
-	owned             map[string]bool
-	deferredIndexes   map[string]*snapshotIndexState // data ID -> final index layout
-	validated         *sync.Map                      // immutable segment descriptor -> *snapshotSegmentValidation
-	mu                sync.Mutex
-	rowBatchMu        sync.Mutex
-	bytes, writes     int64
-	batchedWrites     int64 // acknowledged row images, outside the cumulative command quota
+	compactionUpdates   string
+	store               *store
+	metadataMu          sync.Mutex
+	metadata            snapshotMetadataState
+	id                  string
+	pin                 *snapshotPin
+	maintenance         bool
+	tempDead            string
+	write               bool
+	owned               map[string]bool
+	deferredIndexes     map[string]*snapshotIndexState // data ID -> final index layout
+	scannedFinalIndexes map[string]bool                // compatibility fallback for non-querying writers
+	validated           *sync.Map                      // immutable segment descriptor -> *snapshotSegmentValidation
+	mu                  sync.Mutex
+	rowBatchMu          sync.Mutex
+	bytes, writes       int64
+	batchedWrites       int64 // acknowledged row images, outside the cumulative command quota
 }
 
 func snapshotOf(ctx context.Context) *snapshotScope {
@@ -990,7 +991,8 @@ func (s *store) publishSnapshot(ctx context.Context, pin *snapshotPin, id string
 		return err
 	}
 	// Document counts alone cannot establish that incremental updates have
-	// settled. Index the final, now immutable HASHes with a fresh initial scan.
+	// settled. Populate a fresh index from the final registered row images and
+	// require both readiness metadata and a native indexed-row proof.
 	if err := s.rebuildSnapshotIndexes(ctx); err != nil {
 		return err
 	}
@@ -1120,8 +1122,11 @@ func (s *store) rebuildSnapshotIndexes(ctx context.Context) error {
 			meta.SnapshotOverlay = overlay
 		}
 		meta.IndexName = snapshotIndexPrefix(snapshotDataID(meta.prefix())) + snapshotID()
-		if err := s.searchDo(ctx, meta.index(), snapshotScannedIndexArgs(meta)...).Err(); err != nil {
+		if err := s.searchDo(ctx, meta.index(), indexCreateArgs(meta)...).Err(); err != nil {
 			return wrapRedis(err, "failed to index final snapshot rows")
+		}
+		if err := s.populateSnapshotIndex(ctx, meta); err != nil {
+			return err
 		}
 		raw, err := json.Marshal(meta)
 		if err != nil {
@@ -1176,7 +1181,39 @@ func (s *store) validateSnapshot(ctx context.Context) error {
 					if len(info.prefixes) != 1 || info.prefixes[0] != meta.prefix() {
 						return errorf(adbc.StatusIO, "snapshot index has an unexpected row prefix")
 					}
-					break
+					// Every document is a first insertion into this fresh index,
+					// from its complete final HASH image. Query the indexed row-ID
+					// field as well as checking the registry's document count.
+					scope := snapshotOf(ctx)
+					scope.mu.Lock()
+					scanned := scope.scannedFinalIndexes[meta.index()]
+					scope.mu.Unlock()
+					if count == 0 || scanned {
+						break
+					}
+					indexed, err := s.snapshotIndexedRowCount(ctx, meta.index())
+					if err != nil {
+						var denied interface {
+							error
+							RedisError()
+						}
+						if errors.As(err, &denied) && strings.HasPrefix(denied.Error(), "NOPERM ") {
+							// Keep write-only principals working with the original
+							// initial-scan completion proof. Only a definite permission
+							// refusal selects it; unknown query outcomes remain errors.
+							if err := s.replaceSnapshotIndexWithScan(ctx, meta); err != nil {
+								return err
+							}
+							continue
+						}
+						return wrapRedis(transportContextError(ctx, err), "failed to prove final snapshot index")
+					}
+					if indexed > count {
+						return errorf(adbc.StatusIO, "final snapshot index contains unexpected rows")
+					}
+					if indexed == count {
+						break
+					}
 				}
 			}
 			select {

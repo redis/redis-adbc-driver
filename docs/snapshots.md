@@ -177,10 +177,19 @@ index outside Software's distributed registry. A late global CREATE after lease
 loss cannot publish; maintenance removes its private orphan index. Row and metadata
 mutations remain inside atomic Lua fences. Private staging reads resolve
 immutable inputs and their unindexed outputs through authoritative row directories.
-After all changes, a single fresh index scans each final immutable output before
-publication; document counts alone do not prove that incremental updates have
-settled. CREATE/CTAS, ordinary DML, ALTER rewrites and TRUNCATE build no temporary
-working index. UPDATE/DELETE statements that write no row images or tombstones
+After SQL/Arrow changes finish, each ordinary private output gets one empty
+final index. Bounded batches traverse only its exact registered directory and
+notify Search using unchanged row-ID fields; ownership, lease, score, HASH type,
+row identity and permissions are checked before any batch notification. No
+row image or directory entry changes, and an uncertain reply aborts without
+replay. Publication retains index-readiness/failure/prefix/cardinality checks
+and requires a warning-free indexed-row-ID count for nonempty outputs. A typed
+query-permission refusal selects a new private index built with the original
+initial-scan completion proof, preserving write-only principals; other errors
+remain terminal. Document counts alone do not prove that incremental updates
+have settled. Background compaction retains its separate resumable copy/index/
+install path. CREATE/CTAS, ordinary DML, ALTER rewrites and TRUNCATE build no
+temporary working index. UPDATE/DELETE statements that write no row images or tombstones
 return without publishing a new empty segment or building an index.
 
 Metadata/control records use `adbc:{meta}:`; row HASHes use their escaped

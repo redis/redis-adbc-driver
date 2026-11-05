@@ -591,3 +591,15 @@ idempotent certificate update before tests, bounded GET/PUT/bootstrap reads, and
 skipping an already-installed public certificate. Six setup/exec mock tests and
 subsequent actual verified Software setup pass; QPF/noeviction/TLS gates remain.
 No test pass is inferred from the interrupted setup invocation.
+
+[Directory-driven final indexing](directory-indexing.md) is implemented for
+ordinary private SQL/Arrow outputs: bounded registered-directory traversal,
+whole-batch writer/identity/permission admission, unchanged row-ID notifications,
+and warning-free indexed-row proof plus existing readiness checks. A typed
+query-permission refusal preserves write-only compatibility through a new index
+with the original initial-scan proof; transport failures never select it.
+Final exact-source checks: 353 snapshot race pass events/23 explicit skips,
+1,035 unit pass events/918 expected skips, versioned native build, and 113 native
+Arrow/extension/partition/statistics passes with no skips. The old snapshot native
+binary is preserved for fresh comparisons; current latency/throughput and full
+ordinary/platform/recovery gates are still pending. No full parity claim.

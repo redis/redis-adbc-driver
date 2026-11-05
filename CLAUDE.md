@@ -116,7 +116,15 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.27.3).
   coordinator. Compact authoritative scans carry exact row-ID bounds, including
   tails; a pushed Search range alone does not restrict a snapshot directory scan.
   Private outputs stay unindexed until final sealing; staging SQL reads exact
-  directories. Build one final index and wait for readiness before publication.
+  directories. Build one empty final index for ordinary outputs, populate it from
+  exact directories with bounded lease/ownership/identity/permission-checked
+  unchanged row-ID notifications, then require readiness, zero failures, exact
+  prefix/cardinality and a warning-free indexed-row-ID count before publication.
+  Unknown notification replies abort without replay; never recreate a missing HASH.
+  A typed native query-permission refusal retains write-only compatibility by
+  constructing a new private index with the original initial-scan proof. Never
+  select that fallback from an unknown transport outcome or a warning.
+  Background compaction retains its separate resumable indexing path.
   Track private tombstones when restoring a baseline's published overlay flag.
   No-op UPDATE/DELETE do not publish empty generations or build indexes.
   SQL/Arrow row writes and ALTER/rekey use bounded atomic batches (256 rows, 1 MiB target,
