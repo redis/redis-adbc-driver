@@ -2,6 +2,12 @@
 
 Date: 2026-11-02. Status: in progress. See [intent](intent.md), [spec](spec.md).
 
+The [controlled-plan checkpoint](controlled-plan-validation.md) preserves
+explicit test caps and separates pinned cursor primitives from complete logical
+directory references. The actual ordinary aggregate cap is 2147483648; focused
+range/readiness/tie/top-K counters and exact results pass without assertion
+relaxation. Complete combined/ordinary/platform checks remain open.
+
 The [direct partition checkpoint](direct-partition-validation.md) removes the
 unintended FT.INFO dependency for proven finite IDs while checking native
 ownership, references, exact directories and every present row's membership.

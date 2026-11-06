@@ -61,7 +61,10 @@ func readinessScanPlan(t *testing.T, h *sqlHarness, query string, hook *rangeRea
 	st, ctx, pin := h.inspectionSnapshot(h.rawClient(hook))
 	t.Cleanup(pin.release)
 	e := &executor{store: st, schema: defaultSchema, pushdown: PushdownExact, cache: newExecCache(), now: time.Now().UTC(), sess: newSession(defaultSchema)}
-	e.store.searchCapsOnce.Do(func() { e.store.searchCaps = [2]int64{1_000_000, 137} })
+	e.store.searchCapsOnce.Do(func() {
+		e.store.searchCaps = [2]int64{1_000_000, 137}
+		e.store.searchAggregateCapKnown = true // deliberate controlled planning bound
+	})
 	parsed, err := ParseScript(query)
 	if err != nil {
 		t.Fatal(err)
@@ -85,6 +88,7 @@ func readinessScanPlan(t *testing.T, h *sqlHarness, query string, hook *rangeRea
 		}
 		p.meta = cloneMeta(p.meta)
 		p.meta.SnapshotOverlay, p.meta.SnapshotSegments = false, nil
+		p.meta.SnapshotRows = nil // validated/pinned physical cursor leaf only
 	}
 	return ctx, e, p
 }

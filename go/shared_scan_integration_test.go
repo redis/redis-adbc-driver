@@ -35,7 +35,10 @@ func sharedScanPlan(t *testing.T, h *sqlHarness, q string, params []Value, hooks
 	e := &executor{store: st, schema: defaultSchema, pushdown: PushdownExact, cache: newExecCache(), now: time.Now().UTC(), sess: newSession(defaultSchema)}
 	// Force the formerly materializing branch even on normal-cap CI servers;
 	// fresh discovery still verifies the real cap before any cursor is opened.
-	e.store.searchCapsOnce.Do(func() { e.store.searchCaps = [2]int64{1_000_000, 137} })
+	e.store.searchCapsOnce.Do(func() {
+		e.store.searchCaps = [2]int64{1_000_000, 137}
+		e.store.searchAggregateCapKnown = true // deliberate controlled planning bound
+	})
 	types := make([]ColType, len(params))
 	for i, p := range params {
 		types[i] = p.T
@@ -84,6 +87,10 @@ func sharedScanPrimitivePlan(t *testing.T, h *sqlHarness, q string, params []Val
 	}
 	p.meta = cloneMeta(p.meta)
 	p.meta.SnapshotOverlay, p.meta.SnapshotSegments = false, nil
+	// The original descriptor was validated and remains pinned. This clone
+	// represents the physical cursor leaf, not logical baseline admission.
+	// Public baseline/cap and segmented visibility paths have separate tests.
+	p.meta.SnapshotRows = nil
 	return ctx, e, p
 }
 
@@ -478,7 +485,13 @@ func TestSharedScanMeasurement(t *testing.T) {
 	q := "SELECT id FROM " + table
 	for _, mode := range []string{"bounded_primitive", "directory"} {
 		counter := &sharedScanCounter{commands: map[string]int{}}
-		ctx, e, p := sharedScanPrimitivePlan(t, h, q, nil, counter)
+		planner := sharedScanPrimitivePlan
+		if mode == "directory" {
+			// The reference needs the complete logical descriptor/directory
+			// count, not the bounded cursor's deliberately physical leaf.
+			planner = sharedScanPlan
+		}
+		ctx, e, p := planner(t, h, q, nil, counter)
 		sc, err := e.prepareScan(ctx, p, nil)
 		if err != nil {
 			t.Fatal(err)
