@@ -336,92 +336,86 @@ update recovery](sql-rbac.md).
 
 ### ACL users
 
-Protocol 13 separates row HASHes into
-`<escaped-schema>:{meta}:snapshot:rows:<uuid>:`; schema `adbc` uses `%61dbc` to
-stay outside the `adbc:*` metadata grant. This repairs the protocol-12
-cross-schema row exposure. See the
-[schema-isolation checkpoint](sdlc/changes/snapshot-parity/schema-namespace-validation.md).
-The command recipes below describe the legacy execution protocol; snapshot
-reader pins require additional control operations. Complete restricted-driver
-recipes remain under validation, so this draft does not yet claim full ACL parity.
+Format 16 stores row HASHes under
+`<table-access-id>~<escaped-schema>:{meta}:snapshot:16:rows:<generation-id>:`.
+The access identity survives DML, TRUNCATE and rewrites; DROP/recreate allocates
+a new identity. Schema `adbc` is escaped as `%61dbc`. Existing storage formats
+are refused without migration. See [snapshots](snapshots.md).
 
-If the database has ACL users, the driver's user needs these commands. The
-lists were historically checked before snapshots with users that have exactly
-these rules, running the Go
-integration tests and the ADBC validation suite on Redis 8.6.2, standalone
-and a 3-shard cluster:
+The command profile for trusted writers is:
 
 ```text
-# Every connection: queries, DDL, DML, views, bulk ingest, temporary tables
-+ping +info +ft._list +ft.create +ft.alter +ft.info +ft.dropindex +ft.aggregate +ft.cursor +ft.search +ft.profile +get +set +del +exists +incrby +hset +hget +hmget +hgetall +hdel +hincrby +hexists +sadd +srem +smembers +sismember +multi +exec +watch +unwatch
-# A cluster (OSS Cluster API) also: the client reads the slot map and the commands' key positions
++ping +info +ft._list +ft.create +ft.alter +ft.info +ft.dropindex +ft.aggregate +ft.cursor +ft.search +ft.profile +get +set +del +exists +incrby +hset +hget +hmget +hgetall +hdel +hincrby +hexists +sadd +srem +smembers +sismember +multi +exec +watch +unwatch +eval +copy +dbsize +time +type +unlink +pexpireat +hlen +hstrlen +hscan +scard +memory|usage +zadd +zrem +zcard +zrange +zrangebylex +zrangebyscore +zremrangebyscore +zscore +zmscore +zlexcount
+# Cluster API clients also need
 +cluster|slots +command
-# adbc.redis.rename_rekey also
-+incr +dump +restore
 ```
 
-- **Keys:** `~adbc:*` (the driver's metadata), `~<schema>:*` for each schema
-  the user works in (`~public:*` by default), and `~pg_temp_*` for temporary
-  tables. Temporary tables and bulk ingest need no other commands.
-- **What they're for:** `PING` and `INFO` to connect (`INFO` also tells a
-  cluster apart, and gives the server version); the `FT.*` commands for the
-  tables' indexes and queries (`FT.PROFILE` checks that a `LIKE 'abc%'`
-  filter's prefix expansion was complete: without it such filters are
-  still right, but are evaluated by the driver; `FT.INFO` lists an index's
-  attributes for `ALTER TABLE … ADD COLUMN`); the string, hash and set
-  commands for metadata and rows (`HGETALL` reads pending re-keying
-  renames on every connect, and `HEXISTS` checks that a new table's key
-  prefix was never released); and `MULTI` / `EXEC` / `WATCH` / `UNWATCH`
-  for metadata transactions. `ALTER COLUMN … TYPE`, which rewrites the
-  rows to new keys, needs only these (it copies rows with `HGETALL` and
-  `HSET`, not `DUMP` / `RESTORE`).
-- **Not needed:** RESP3 negotiation uses `HELLO`, but `HELLO` and `AUTH` are
-  always allowed. Add `+select` if the URI names a database other than 0 (not
-  tested), and `+client|setname` if it sets `client_name`. RESP2-only
-  deployments are unsupported.
-- **On a cluster,** ACL users are per node: create the user on every node.
-- **For example,** for dbt on a cluster, with `rename_rekey`:
+Writers need `~adbc:*` for metadata, `~adbc_snapshot16_{meta}_*` for
+their versioned Search index namespace, and
+`~*~<escaped-schema>:{meta}:snapshot:16:rows:*` for each permitted schema.
+Temporary tables use `~*~pg_temp_*:{meta}:snapshot:16:rows:*`. Keep external HASH
+patterns separate. Writers are trusted to mutate the internal catalog. Atomic
+scripts and their hash/set/sorted-set commands support publication, retention
+and bounded reclamation. Snapshot `rename_rekey` uses the same writer profile;
+the old mutable recipe's `INCR`, `DUMP` and `RESTORE` are no longer required.
 
-  ```text
-  ACL SETUSER dbt on >password resetchannels ~adbc:* ~public:* ~pg_temp_* +ping +info +ft._list +ft.create +ft.alter +ft.info +ft.dropindex +ft.aggregate +ft.cursor +ft.search +ft.profile +get +set +del +exists +incrby +hset +hget +hmget +hgetall +hdel +hincrby +hexists +sadd +srem +smembers +sismember +multi +exec +watch +unwatch +cluster|slots +command +incr +dump +restore
-  ```
-
-Partition workers also need `+ft.info` to verify Search readiness; a configured
-partition scan cap does not bypass that requirement. Ordinary readers retain
-their complete HASH fallback when that optional optimization cannot check readiness.
-
-A **read-only user** needs these commands, and read access to the keys:
+For example, a trusted writer for `public` and temporary tables uses:
 
 ```text
-+ping +info +ft._list +ft.aggregate +ft.cursor +ft.search +ft.profile +get +exists +hget +hmget +hgetall +smembers +sismember
+ACL SETUSER dbt on >password resetchannels ~adbc:* ~adbc_snapshot16_{meta}_* ~*~public:{meta}:snapshot:16:rows:* ~*~pg_temp_*:{meta}:snapshot:16:rows:* +ping +info +ft._list +ft.create +ft.alter +ft.info +ft.dropindex +ft.aggregate +ft.cursor +ft.search +ft.profile +get +set +del +exists +incrby +hset +hget +hmget +hgetall +hdel +hincrby +hexists +sadd +srem +smembers +sismember +multi +exec +watch +unwatch +eval +copy +dbsize +time +type +unlink +pexpireat +hlen +hstrlen +hscan +scard +memory|usage +zadd +zrem +zcard +zrange +zrangebylex +zrangebyscore +zremrangebyscore +zscore +zmscore +zlexcount
 ```
+
+`HELLO` and `AUTH` are always allowed. Add `+select` for a nonzero URI database,
+and `+client|setname` if it sets `client_name`. RESP2-only deployments are
+unsupported. Apply per-node ACLs to every primary when using Cluster API;
+Redis Software manages users and roles through its management API.
+
+A **read-only user** needs a registered backend role/ACL domain and the generated
+lease policy. Generate it without connecting to Redis:
 
 ```text
-ACL SETUSER reader on >password resetchannels %R~adbc:* %R~public:* +ping +info +ft._list +ft.aggregate +ft.cursor +ft.search +ft.profile +get +exists +hget +hmget +hgetall +smembers +sismember
+redis-adbc reader-acl -domain <backend-role-or-acl-identity>
 ```
 
-(On a cluster, also `+cluster|slots +command`.)
+Using administrator credentials, register the returned namespace in its registry.
+Users sharing one backend ACL share that domain. Its selectors permit only
+writes to its lease HASH and additive active-directory registration; they grant
+no catalog/row writes or removal of other domains. Keep each parenthesized ACL
+selector as one argument to `ACL SETUSER`. See [SQL RBAC](sql-rbac.md) for
+Software role configuration. Keep its positive metadata grants: `%R~adbc:*`
+would expose import journals containing row values.
 
-- **What it can do:** queries, views, `information_schema`, and the ADBC
-  metadata calls (`GetObjects`, `GetTableSchema`): what dbt's tests and
-  `dbt docs generate` run (this was tested with the driver, not with dbt).
-- **What it can't:** every change is refused before anything changes, with
-  Redis's reason, for example `failed to allocate row ids: NOPERM User reader
-  has no permissions to run the 'multi' command` for an `INSERT`. That
-  includes temporary tables (allocating a temporary schema needs `INCRBY`),
-  so dbt unit tests and snapshots need a user that can write.
-- **Connecting needs no writes,** with two exceptions. The first connection
-  to a new database records the table registry, so a read-only user can't
-  be the first to connect (`failed to build the table registry: NOPERM …`).
-  And a connection that finds a re-keying rename or a temporary schema that
-  another connection abandoned cleans it up: a read-only user can't, and
-  leaves that to the next connection that can write. (Redis's `ACL LOG`
-  then shows the refused commands.)
+The ordinary query command profile alongside these lease controls is:
+
+```text
++ping +info +ft._list +ft.info +ft.aggregate +ft.cursor +ft.search +ft.profile +get +exists +hget +hmget +hgetall +smembers +sismember +zmscore
+```
+
+Add `%R~<table-access-id>~*` per SELECT-authorized logical table, or deliberately
+grant a whole schema with `%R~*~<escaped-schema>:{meta}:snapshot:16:rows:*`.
+Managed copies need permission on their private rows, separate from external
+source grants needed for import/refresh. Cluster clients also need
+`+cluster|slots +command`.
+
+Queries, views, `information_schema`, `GetObjects` and `GetTableSchema` use
+immutable metadata and the caller's row grants. Broad snapshot reads need
+`FT.INFO` for readiness; finite direct-HASH partitions validate their exact row
+directory and pinned descriptor without Search commands. Denying `HMGET` still
+denies their values.
+
+Restricted DML/DDL, including temporary-table creation, is refused at admission
+with `NOPERM restricted snapshot reader cannot acquire a writer lease` before
+published data or schema changes. The old SQL MULTI/WATCH errors no longer
+represent this boundary; raw transactions still preserve their backend errors.
+Initialize a new database as administrator first. Restricted Open inspects
+capability without mutation and leaves recovery, retirement and temporary
+cleanup to authorized writers.
 
 #### Search commands and key patterns
 
-RediSearch commands that change indexes declare no keys, so key patterns
-don't apply to them:
+Search ACL checks vary with server version and deployment. The Software 8.8
+writer validation requires the versioned index namespace grant above for
+`FT.CREATE`. Keep Search DDL permissions restricted:
 
 - **`FT.DROPINDEX … DD`** deletes every row of a table, even for a user that
   may only read the table's keys. `FT.CREATE`, `FT.ALTER` and the
@@ -437,12 +431,11 @@ don't apply to them:
 
 #### Permission errors
 
-A command the user may not run fails with Redis's `NOPERM` error. One that
-Redis refuses inside a transaction is reported with the
-command and its key, rather than as `EXECABORT Transaction discarded because
-of previous errors`: `failed to create view: NOPERM No permissions to access
-a key ('set' on adbc:{meta}:view:public:v, in a MULTI transaction that Redis
-discarded)`.
+A command the user may not run fails with Redis's `NOPERM` error. SQL
+snapshot writes use the writer-lease boundary above. For raw backend
+transactions, a refused queued command is reported with its command and key
+while preserving `EXECABORT` for the client, so the transaction cannot appear
+to have succeeded.
 
 ### Limitations
 
@@ -919,7 +912,7 @@ commands:
 
 ```text
 +ping +info +scan +hkeys +hmget +ft._list +ft.info +ft.aggregate +memory|usage
-+get +exists +smembers +sismember +hget +hexists
++get +exists +smembers +sismember +hget +hexists +hgetall
 # A cluster (OSS Cluster API) also
 +cluster|slots +command
 ```

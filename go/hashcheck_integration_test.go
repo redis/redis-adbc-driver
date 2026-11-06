@@ -391,7 +391,7 @@ func TestCopyHashes(t *testing.T) {
 // The ACL rules the driver reference documents for check and copy.
 var (
 	aclCheckCommands     = []string{"+ping", "+info", "+scan", "+hkeys", "+hmget", "+ft._list", "+ft.info", "+ft.aggregate", "+memory|usage"}
-	aclCheckMetaCommands = []string{"+get", "+exists", "+smembers", "+sismember", "+hget", "+hexists"}
+	aclCheckMetaCommands = []string{"+get", "+exists", "+smembers", "+sismember", "+hget", "+hexists", "+hgetall"}
 	aclCopyCommands      = []string{"+scan", "+hkeys"}
 )
 
@@ -417,7 +417,7 @@ func TestACLHashTools(t *testing.T) {
 		cluster = aclClusterCommands
 	}
 	a.user("it_hc_check", slices.Concat(aclCheckCommands, aclCheckMetaCommands, cluster, []string{"%R~it:hc:acl:*", "%R~adbc:*"})...)
-	a.user("it_hc_copy", slices.Concat(a.driverCommands(false), aclCopyCommands, []string{"~adbc:*", "~public:*", "%R~it:hc:acl:*"})...)
+	a.user("it_hc_copy", slices.Concat(a.driverCommands(), aclCopyCommands, []string{"~adbc:*", "~public:*", "%R~it:hc:acl:*"})...)
 
 	r, err := InspectHashes(a.ctx, map[string]string{adbc.OptionKeyURI: a.userURI("it_hc_check")}, HashInspectOptions{Prefix: f.prefix})
 	if err != nil {

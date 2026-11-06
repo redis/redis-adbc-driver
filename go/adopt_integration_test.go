@@ -326,7 +326,7 @@ func TestACLAdopt(t *testing.T) {
 	t.Cleanup(func() { f.dropAdopted("it_ad_acl") })
 	f.users(5)
 	// Adopting only reads the HASHes.
-	a.user("it_ad_acl", slices.Concat(a.driverCommands(false), aclAdoptCommands, []string{"~adbc:*", "~public:*", "%R~it:ad:acl:*"})...)
+	a.user("it_ad_acl", slices.Concat(a.driverCommands(), aclAdoptCommands, []string{"~adbc:*", "~public:*", "%R~it:ad:acl:*"})...)
 	res, err := AdoptHashes(a.ctx, map[string]string{adbc.OptionKeyURI: a.userURI("it_ad_acl")},
 		HashAdoptOptions{Prefix: f.prefix, Table: "it_ad_acl", Apply: true})
 	if err != nil || !res.Applied {
@@ -336,15 +336,17 @@ func TestACLAdopt(t *testing.T) {
 	u.expectRows(`SELECT COUNT(*) FROM it_ad_acl`, "5")
 	a.expectNoDenials("it_ad_acl")
 
-	// A reader needs the read-only rules and read access to the HASHes.
-	a.user("it_ad_reader", slices.Concat(a.readOnlyCommands(), []string{"%R~adbc:*", "%R~it:ad:acl:*"})...)
+	// A reader needs lease controls and read access to the managed copy,
+	// independently of its external source HASH permissions.
+	a.user("it_ad_reader", slices.Concat(a.readOnlyCommands(), []string{"%R~adbc:*", "%R~public:*", "%R~it:ad:acl:*"})...)
 	reader := a.connect("it_ad_reader", nil)
 	reader.expectRows(`SELECT name FROM it_ad_acl WHERE __key = 'it:ad:acl:2'`, "User 2")
 	reader.expectRows(`SELECT COUNT(*) FROM it_ad_acl WHERE active = 'true'`, "2")
 	a.expectNoDenials("it_ad_reader")
 
-	// A writer needs write access to the HASHes and the update commands.
-	a.user("it_ad_writer", slices.Concat(a.driverCommands(false), aclUpdateAdopted, []string{"~adbc:*", "~it:ad:acl:*"})...)
+	// Updates need write access to private managed-copy rows; the existing
+	// external source grant remains separate.
+	a.user("it_ad_writer", slices.Concat(a.driverCommands(), aclUpdateAdopted, []string{"~adbc:*", "~public:*", "~it:ad:acl:*"})...)
 	writer := a.connect("it_ad_writer", nil)
 	writer.exec(`UPDATE it_ad_acl SET name = 'Two' WHERE __key = 'it:ad:acl:2'`)
 	writer.exec(`UPDATE it_ad_acl SET age = NULL WHERE name = 'Two'`)

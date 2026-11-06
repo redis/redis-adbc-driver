@@ -229,9 +229,9 @@ func TestAdoptAppIndexChoice(t *testing.T) {
 // indexes supply capture; SQL reads a private managed copy and its own index.
 func TestACLAppIndexReader(t *testing.T) {
 	a := newACLHarness(t)
-	// Verify principal setup before importing fixture data. Keep the existing
-	// grants and SETUSER gate; this does not activate a new reader ACL layout.
-	keys := []string{"%R~adbc:*", "%R~it:ad:apr:*"}
+	// Verify principal setup before importing fixture data. The snapshot reader
+	// profile includes its lease domain and private managed-copy row grant.
+	keys := []string{"%R~adbc:*", "%R~public:*", "%R~it:ad:apr:*"}
 	a.user("it_ad_apr_r", slices.Concat(a.readOnlyCommands(), []string{"+ft.info"}, keys)...)
 	f := newHashFixture(t, "it:ad:apr:")
 	f.dropAdopted("it_ad_apr")
@@ -244,6 +244,6 @@ func TestACLAppIndexReader(t *testing.T) {
 	reader := a.connect("it_ad_apr_r", nil)
 	reader.expectRows(`SELECT name FROM it_ad_apr WHERE balance > 4.5`, "User 5")
 	a.expectNoDenials("it_ad_apr_r")
-	a.user("it_ad_apr_n", slices.Concat(a.readOnlyCommands(), keys)...)
+	a.user("it_ad_apr_n", slices.Concat(a.readOnlyCommands(), []string{"-ft.info"}, keys)...)
 	a.connect("it_ad_apr_n", nil).expectError(`SELECT COUNT(*) FROM it_ad_apr`, "NOPERM")
 }

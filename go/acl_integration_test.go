@@ -27,9 +27,9 @@ package redis
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/url"
 	"os"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -50,13 +50,15 @@ var (
 		"+hset", "+hget", "+hmget", "+hgetall", "+hdel", "+hincrby", "+hexists",
 		"+sadd", "+srem", "+smembers", "+sismember",
 		"+multi", "+exec", "+watch", "+unwatch",
+		"+eval", "+copy", "+dbsize", "+time", "+type", "+unlink", "+pexpireat",
+		"+hlen", "+hstrlen", "+hscan", "+scard", "+memory|usage",
+		"+zadd", "+zrem", "+zcard", "+zrange", "+zrangebylex", "+zrangebyscore", "+zremrangebyscore", "+zscore", "+zmscore", "+zlexcount",
 	}
 	aclClusterCommands = []string{"+cluster|slots", "+command"}
-	aclRekeyCommands   = []string{"+incr", "+dump", "+restore"}
 	aclReadOnly        = []string{
 		"+ping", "+info",
-		"+ft._list", "+ft.aggregate", "+ft.cursor", "+ft.search", "+ft.profile",
-		"+get", "+exists", "+hget", "+hmget", "+hgetall", "+smembers", "+sismember",
+		"+ft._list", "+ft.info", "+ft.aggregate", "+ft.cursor", "+ft.search", "+ft.profile",
+		"+get", "+exists", "+hget", "+hmget", "+hgetall", "+smembers", "+sismember", "+zmscore",
 	}
 )
 
@@ -94,6 +96,7 @@ func (a *aclHarness) eachNode(fn func(*goredis.Client) error) error {
 // the ACL log, and deletes the user when the test ends.
 func (a *aclHarness) user(name string, rules ...string) {
 	a.t.Helper()
+	rules, namespace := aclSnapshotRules(name, rules)
 	args := append([]any{"ACL", "SETUSER", name, "reset", "on", ">" + aclPassword, "resetchannels"}, anySlice(rules)...)
 	err := a.eachNode(func(n *goredis.Client) error {
 		if err := n.Do(a.ctx, args...).Err(); err != nil {
@@ -110,9 +113,79 @@ func (a *aclHarness) user(name string, rules ...string) {
 		}
 		a.t.Fatal(err)
 	}
+	if namespace != "" {
+		if err := a.raw.SAdd(a.ctx, snapshotReaderDomains, namespace).Err(); err != nil {
+			a.t.Fatal(err)
+		}
+	}
 	a.t.Cleanup(func() {
 		_ = a.eachNode(func(n *goredis.Client) error { return n.Do(context.Background(), "ACL", "DELUSER", name).Err() })
+		if namespace != "" {
+			_ = a.raw.SRem(context.Background(), snapshotReaderDomains, namespace).Err()
+			_ = a.raw.SRem(context.Background(), snapshotReaderDirectory, namespace).Err()
+			_ = a.raw.Del(context.Background(), snapshotReaderPrefix+namespace).Err()
+		}
 	})
+}
+
+// Preserve each fixture's explicit command denials and external HASH grants.
+// Only logical SQL schema patterns gain the format-16 physical equivalent.
+// Restricted clients use the production lease selectors, never catalog writes.
+func aclSnapshotRules(name string, rules []string) ([]string, string) {
+	writer := slices.Contains(rules, "+hset") && (slices.Contains(rules, "~adbc:*") || slices.Contains(rules, "~*"))
+	metadata := slices.Contains(rules, "~adbc:*") || slices.Contains(rules, "%R~adbc:*")
+	var out []string
+	namespace := ""
+	if writer {
+		out = append(out, "~adbc_snapshot16_{meta}_*")
+	}
+	if metadata && !writer {
+		policy := SnapshotReaderPermissions("acl-fixture:" + name)
+		namespace = policy.Namespace
+		// Base query commands remain exactly those requested by the fixture.
+		// Lease-control commands and positive metadata keys are canonical.
+		base := strings.Fields(rbacBaseACL)
+		for _, token := range regexp.MustCompile(`\([^)]*\)|\S+`).FindAllString(policy.ACL, -1) {
+			if strings.HasPrefix(token, "+") && slices.Contains(base, token) {
+				continue
+			}
+			out = append(out, token)
+		}
+	}
+	for _, rule := range rules {
+		if namespace != "" && (rule == "~adbc:*" || rule == "%R~adbc:*") {
+			continue
+		}
+		out = append(out, rule)
+		for _, mode := range []string{"~", "%R~", "%W~"} {
+			if !strings.HasPrefix(rule, mode) {
+				continue
+			}
+			pattern := strings.TrimPrefix(rule, mode)
+			if pattern == "pg_temp_*" {
+				out = append(out, mode+"*~pg_temp_*"+snapshotRowMarker+"*")
+			} else if schema, ok := strings.CutSuffix(pattern, ":*"); ok && !strings.ContainsAny(schema, ":*?[]{}") && schema != "adbc" {
+				out = append(out, mode+"*~"+snapshotSchemaPart(schema)+snapshotRowMarker+"*")
+			}
+		}
+	}
+	return out, namespace
+}
+
+func (a *aclHarness) expectSnapshotWriteDenied(reader *sqlHarness, sql string) {
+	a.t.Helper()
+	before, err := a.raw.HGet(a.ctx, snapshotCatalogKey, "root").Result()
+	if err != nil {
+		a.t.Fatal(err)
+	}
+	err = reader.execErr(sql)
+	if !isStatus(err, adbc.StatusUnauthorized) || !strings.Contains(err.Error(), "NOPERM restricted snapshot reader cannot acquire a writer lease") {
+		a.t.Fatalf("%s: expected the snapshot writer-lease denial, got %v", sql, err)
+	}
+	after, err := a.raw.HGet(a.ctx, snapshotCatalogKey, "root").Result()
+	if err != nil || after != before {
+		a.t.Fatal("denied statement changed the published catalog", sql, err)
+	}
 }
 
 func anySlice(s []string) []any {
@@ -124,13 +197,10 @@ func anySlice(s []string) []any {
 }
 
 // driverCommands are the commands of the driver on this server.
-func (a *aclHarness) driverCommands(rekey bool) []string {
+func (a *aclHarness) driverCommands() []string {
 	cmds := slices.Clone(aclBaseCommands)
 	if a.cluster {
 		cmds = append(cmds, aclClusterCommands...)
-	}
-	if rekey {
-		cmds = append(cmds, aclRekeyCommands...)
 	}
 	return cmds
 }
@@ -207,7 +277,6 @@ func TestACLReadme(t *testing.T) {
 	for what, rules := range map[string][]string{
 		"base":      aclBaseCommands,
 		"cluster":   aclClusterCommands,
-		"rekey":     aclRekeyCommands,
 		"read-only": aclReadOnly,
 	} {
 		if line := strings.Join(rules, " "); !strings.Contains(readme, line) {
@@ -224,8 +293,8 @@ func TestACLDriverUser(t *testing.T) {
 	t.Cleanup(func() { a.exec(`DROP SCHEMA IF EXISTS it_acl_s CASCADE`) })
 	a.dropTables("it_acl_d", "it_acl_d2", "it_acl_d3", "it_acl_ing")
 	keys := []string{"~adbc:*", "~public:*", "~it_acl_s:*", "~pg_temp_*"}
-	a.user("it_acl_base", append(a.driverCommands(false), keys...)...)
-	a.user("it_acl_rekey", append(a.driverCommands(true), keys...)...)
+	a.user("it_acl_base", append(a.driverCommands(), keys...)...)
+	a.user("it_acl_rekey", append(a.driverCommands(), keys...)...)
 
 	u := a.connect("it_acl_base", map[string]string{OptionStringReadTimeout: "60s"})
 	for _, sql := range []string{
@@ -294,30 +363,23 @@ func TestACLDriverUser(t *testing.T) {
 	} {
 		u.exec(sql)
 	}
-	// rename_rekey needs three more commands.
+	// Snapshot rekey copies into a private generation with the same writer
+	// profile; the former mutable protocol's INCR/DUMP/RESTORE recipe is gone.
 	if err := u.setConnOption(OptionStringRenameRekey, "true"); err != nil {
 		t.Fatal(err)
 	}
-	u.expectErrorExact(`ALTER TABLE it_acl_s.t RENAME TO t2`, `I/O: [redis] failed to start the rename: `+
-		`NOPERM User it_acl_base has no permissions to run the 'incr' command`)
-	// Closing drops the temporary objects; the background cleanup of the
-	// dropped column has had time to run.
-	waitFor(t, "the dropped column's cleanup", func() bool {
-		m, _ := a.raw.SCard(a.ctx, cleanupKey).Result()
-		return m == 0
-	})
+	u.exec(`ALTER TABLE it_acl_s.t RENAME TO t2`)
+	u.expectRows(`SELECT COUNT(*) FROM it_acl_s.t2`, "3")
+	u.rekeyNativeLayout(a.raw, "it_acl_s", "t2")
 	if err := u.conn.Close(u.ctx); err != nil {
 		t.Error(err)
 	}
-	// Nothing but the rename's INCR was refused.
-	if d := a.denials("it_acl_base"); !slices.Equal(d, []string{"command incr"}) {
-		t.Errorf("ACL log for it_acl_base: %v", d)
-	}
+	a.expectNoDenials("it_acl_base")
 
 	r := a.connect("it_acl_rekey", map[string]string{OptionStringRenameRekey: "true", OptionStringReadTimeout: "60s"})
-	r.exec(`ALTER TABLE it_acl_s.t RENAME TO t2`)
-	r.expectRows(`SELECT COUNT(*) FROM it_acl_s.t2`, "3")
-	r.namesN(a.raw, "it_acl_s", "t2", "t2")
+	r.exec(`ALTER TABLE it_acl_s.t2 RENAME TO t3`)
+	r.expectRows(`SELECT COUNT(*) FROM it_acl_s.t3`, "3")
+	r.rekeyNativeLayout(a.raw, "it_acl_s", "t3")
 	a.expectNoDenials("it_acl_rekey")
 }
 
@@ -328,8 +390,8 @@ func ptr[T any](v T) *T { return &v }
 func TestACLClientName(t *testing.T) {
 	a := newACLHarness(t)
 	keys := []string{"~adbc:*", "~public:*", "~pg_temp_*"}
-	a.user("it_acl_noname", append(a.driverCommands(false), keys...)...)
-	a.user("it_acl_name", append(append(a.driverCommands(false), "+client|setname"), keys...)...)
+	a.user("it_acl_noname", append(a.driverCommands(), keys...)...)
+	a.user("it_acl_name", append(append(a.driverCommands(), "+client|setname"), keys...)...)
 	db, err := NewDriver(memory.DefaultAllocator).NewDatabaseWithContext(a.ctx, map[string]string{
 		adbc.OptionKeyURI: withParams(t, a.userURI("it_acl_noname"), "client_name=it_acl_app")})
 	if err != nil {
@@ -372,22 +434,19 @@ func TestACLReadOnlyUser(t *testing.T) {
 	}
 	a.expectNoDenials("it_acl_ro")
 
-	noperm := func(cmd string) string {
-		return fmt.Sprintf("NOPERM User it_acl_ro has no permissions to run the '%s' command", cmd)
-	}
-	for _, c := range []struct{ sql, want string }{
-		{`INSERT INTO it_acl_ro VALUES (4, 'c')`, "failed to allocate row ids: " + noperm("multi")},
-		{`UPDATE it_acl_ro SET label = 'x'`, "failed to update rows: " + noperm("hset")},
-		{`DELETE FROM it_acl_ro`, "failed to delete rows: " + noperm("del")},
-		{`TRUNCATE it_acl_ro`, "failed to reserve a key prefix: " + noperm("sadd")},
-		{`DROP TABLE it_acl_ro`, "failed to drop search index: " + noperm("FT.DROPINDEX")},
-		{`CREATE TABLE it_acl_ro2 (id INTEGER)`, "failed to reserve a key prefix: " + noperm("sadd")},
-		{`CREATE VIEW it_acl_rov2 AS SELECT 1 AS x`, "failed to create view: " + noperm("watch")},
-		{`ALTER TABLE it_acl_ro ADD COLUMN z INTEGER`, "failed to read the search index: " + noperm("FT.INFO")},
-		{`COMMENT ON TABLE it_acl_ro IS 'x'`, "failed to update table metadata: " + noperm("watch")},
-		{`CREATE TEMP TABLE it_acl_t (id INTEGER)`, "failed to allocate a temporary schema: " + noperm("incrby")},
+	for _, sql := range []string{
+		`INSERT INTO it_acl_ro VALUES (4, 'c')`,
+		`UPDATE it_acl_ro SET label = 'x'`,
+		`DELETE FROM it_acl_ro`,
+		`TRUNCATE it_acl_ro`,
+		`DROP TABLE it_acl_ro`,
+		`CREATE TABLE it_acl_ro2 (id INTEGER)`,
+		`CREATE VIEW it_acl_rov2 AS SELECT 1 AS x`,
+		`ALTER TABLE it_acl_ro ADD COLUMN z INTEGER`,
+		`COMMENT ON TABLE it_acl_ro IS 'x'`,
+		`CREATE TEMP TABLE it_acl_t (id INTEGER)`,
 	} {
-		u.expectErrorExact(c.sql, "I/O: [redis] "+c.want)
+		a.expectSnapshotWriteDenied(u, sql)
 	}
 	a.expectRows(`SELECT id, label FROM it_acl_ro ORDER BY id`, "1|a", "2|ab", "3|b")
 	a.expectRows(`SELECT COUNT(*) FROM information_schema.tables WHERE table_name LIKE 'it_acl_ro%'`, "2")
@@ -404,28 +463,17 @@ func TestACLExecAbort(t *testing.T) {
 	a.exec(`INSERT INTO it_acl_x VALUES (1)`)
 	a.exec(`CREATE VIEW it_acl_xv AS SELECT id FROM it_acl_x`)
 	// Every command the driver needs, but read-only keys.
-	a.user("it_acl_keys", append(a.driverCommands(true), "%R~adbc:*", "%R~public:*", "~adbc:{meta}:oid:next")...)
+	a.user("it_acl_keys", append(a.driverCommands(), "%R~adbc:*", "%R~public:*", "~adbc:{meta}:oid:next")...)
 	u := a.connect("it_acl_keys", map[string]string{OptionStringReadTimeout: "60s"})
 	const denied = "NOPERM No permissions to access a key"
-	for _, c := range []struct{ sql, want string }{
-		// WATCH … MULTI … EXEC
-		{`CREATE VIEW it_acl_xv2 AS SELECT id FROM it_acl_x`,
-			"failed to create view: " + denied + " ('set' on adbc:{meta}:view:public:it_acl_xv2, in a MULTI transaction that Redis discarded)"},
-		{`COMMENT ON TABLE it_acl_x IS 'x'`,
-			"failed to update table metadata: " + denied + " ('set' on adbc:{meta}:table:public:it_acl_x, in a MULTI transaction that Redis discarded)"},
-		// MULTI … EXEC
-		{`INSERT INTO it_acl_x VALUES (2)`,
-			"failed to allocate row ids: " + denied + " ('incrby' on adbc:{meta}:seq:public:it_acl_x, in a MULTI transaction that Redis discarded)"},
+	for _, sql := range []string{
+		`CREATE VIEW it_acl_xv2 AS SELECT id FROM it_acl_x`,
+		`COMMENT ON TABLE it_acl_x IS 'x'`,
+		`INSERT INTO it_acl_x VALUES (2)`,
+		`DROP VIEW it_acl_xv`,
 	} {
-		u.expectErrorExact(c.sql, "I/O: [redis] "+c.want)
+		a.expectSnapshotWriteDenied(u, sql)
 	}
-	// Both of DROP VIEW's commands are refused. A cluster client then shows
-	// no EXECABORT, only the first command's error.
-	dropView := "failed to drop view: " + denied + " ('del' on adbc:{meta}:view:public:it_acl_xv, in a MULTI transaction that Redis discarded)"
-	if a.cluster {
-		dropView = "failed to drop view: " + denied
-	}
-	u.expectErrorExact(`DROP VIEW it_acl_xv`, "I/O: [redis] "+dropView)
 	a.expectRows(`SELECT id FROM it_acl_xv`, "1")
 
 	// go-redis still sees EXECABORT through the rewritten error (it then
@@ -437,7 +485,12 @@ func TestACLExecAbort(t *testing.T) {
 	opts.Protocol, opts.DisableIdentity = 3, true // the driver's default
 	client := newClient(newClientConfig(opts), a.cluster, timeouts{read: time.Minute, write: time.Minute})
 	defer client.Close()
-	key := metaKey("public", "it_acl_x")
+	_, inspectCtx, inspectPin := a.inspectionSnapshot(a.raw)
+	defer inspectPin.release()
+	key, err := resolveSnapshotMetadata(inspectCtx, strings.TrimPrefix(metaKey("public", "it_acl_x"), metaPrefix), false)
+	if err != nil {
+		t.Fatal(err)
+	}
 	err = client.Watch(a.ctx, func(tx *goredis.Tx) error {
 		_, err := tx.TxPipelined(a.ctx, func(p goredis.Pipeliner) error {
 			p.Get(a.ctx, key)
@@ -489,7 +542,10 @@ func TestACLSearchCommandsAndKeys(t *testing.T) {
 	a.user("it_acl_schema", append(a.readOnlyCommands(), "%R~adbc:*", "%R~public:*")...)
 	const refused = "NOPERM User does not have the required permissions to query the index"
 	u := a.connect("it_acl_schema", map[string]string{OptionStringReadTimeout: "60s"})
-	u.expectErrorExact(`SELECT id FROM it_acl_other.t`, "I/O: [redis] FT.SEARCH failed: "+refused)
+	u.expectError(`SELECT id FROM it_acl_other.t`, "NOPERM")
+	if err := rawAs("it_acl_schema").searchDo(a.ctx, otherIndex, "FT.SEARCH", otherIndex, "*", "NOCONTENT").Err(); err == nil || err.Error() != refused {
+		t.Fatalf("FT.SEARCH on another schema's index: %v", err)
+	}
 	u.expectRows(`SELECT COUNT(*) FROM it_acl_victim`, "3")
 	_, err := rawAs("it_acl_schema").aggregate(a.ctx, &aggRequest{index: otherIndex, query: "*", load: []string{"secret"}})
 	if err == nil || err.Error() != "I/O: [redis] FT.AGGREGATE failed: "+refused {
