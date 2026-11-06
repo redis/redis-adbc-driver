@@ -14,25 +14,20 @@
 
 package redis
 
-// Connecting to a Redis Flex database fails with a clear error. The test runs
-// against the Flex database at REDIS_FLEX_URI (flex-setup.sh creates one) and
-// is skipped when it is unset:
-//
-//	source build/flex-test.env; go test -run TestFlex ./...
+// Capability probes must clean up their temporary objects without initializing
+// driver metadata, whether a deployment meets the stopgap requirements or not.
 
 import (
 	"context"
 	"errors"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/apache/arrow-adbc/go/adbc"
-	"github.com/apache/arrow-go/v18/arrow/memory"
 	goredis "github.com/redis/go-redis/v9"
 )
 
-func TestFlexRefused(t *testing.T) {
+func TestFlexProbeNoMetadata(t *testing.T) {
 	uri := os.Getenv("REDIS_FLEX_URI")
 	if uri == "" {
 		t.Skip("set REDIS_FLEX_URI to a Redis Flex database to run this test")
@@ -49,24 +44,20 @@ func TestFlexRefused(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	db, err := NewDriver(memory.DefaultAllocator).NewDatabaseWithContext(ctx, map[string]string{adbc.OptionKeyURI: uri})
+	st := &store{client: raw}
+	err = st.configureSearch(ctx, true)
 	if err != nil {
-		t.Fatal(err)
-	}
-	defer db.Close(ctx)
-	conn, err := db.Open(ctx)
-	if err == nil {
-		_ = conn.Close(ctx)
-		t.Fatal("connected to a Redis Flex database; want an error")
-	}
-	var ae adbc.Error
-	if !errors.As(err, &ae) || ae.Code != adbc.StatusNotImplemented ||
-		!strings.Contains(ae.Msg, "Redis Flex databases are not supported") {
-		t.Fatalf("got %v, want a NotImplemented error about Redis Flex", err)
+		var ae adbc.Error
+		if !errors.As(err, &ae) || ae.Code != adbc.StatusNotImplemented {
+			t.Fatal(err)
+		}
+		t.Logf("target lacks stopgap capabilities: %v", err)
+	} else if !st.flex {
+		t.Fatal("probe succeeded without enabling bounded execution")
 	}
 
-	// The driver refuses before writing its metadata.
+	// No persistent metadata or probe objects may remain.
 	if keysAfter, err := raw.DBSize(ctx).Result(); err != nil || keysAfter != keysBefore {
-		t.Errorf("database has %d keys after the refused connection, %d before (err %v)", keysAfter, keysBefore, err)
+		t.Errorf("database has %d keys after the capability probe, %d before (err %v)", keysAfter, keysBefore, err)
 	}
 }

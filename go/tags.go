@@ -83,6 +83,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"math"
 	"strings"
 	"sync/atomic"
@@ -235,7 +236,7 @@ func (c columnMeta) sortsExactly() bool {
 // inPipeline reports whether an FT.AGGREGATE pipeline can use an indexed
 // column's values (APPLY, sorts on a cluster): an attribute of the
 // application's index can't unless it is SORTABLE (see appindex.go).
-func (c columnMeta) inPipeline() bool { return c.App == nil || c.App.sortable }
+func (c columnMeta) inPipeline() bool { return !c.PlainIndex && (c.App == nil || c.App.sortable) }
 
 // initTags records that a new indexed string column has no values yet.
 func (c *columnMeta) initTags() {
@@ -386,7 +387,7 @@ func (s *store) startTagCheck(meta *tableMeta) {
 	s.mu.Unlock()
 	// As for cleanups, a closed connection makes the task fail, and a later
 	// connection starts it again.
-	worker := &store{client: s.client}
+	worker := &store{client: s.client, flex: s.flex}
 	go func() {
 		err := worker.runTagCheck(context.Background(), meta.Schema, meta.Name)
 		s.mu.Lock()
@@ -470,18 +471,16 @@ func (s *store) scanTagLevels(ctx context.Context, meta *tableMeta) (map[string]
 	if levels == nil {
 		return nil, nil
 	}
-	node, err := s.search(ctx, meta.index())
+	cur, err := s.openAggregate(ctx, &aggRequest{meta: meta, index: meta.index(), query: "*", loadAll: true, width: len(meta.Columns) + 2})
 	if err != nil {
 		return nil, err
 	}
-	page := (&aggRequest{width: len(meta.Columns) + 2}).pageRows()
-	reply, err := node.Do(ctx, "FT.AGGREGATE", meta.index(), "*", "LOAD", "*",
-		"TIMEOUT", 0, "WITHCURSOR", "COUNT", page, "DIALECT", 2).Result()
-	if err != nil {
-		return nil, wrapRedis(err, "FT.AGGREGATE failed")
-	}
+	defer cur.close(ctx)
 	for {
-		rows, cursor, err := parseCursorReply(reply)
+		rows, err := cur.next(ctx)
+		if errors.Is(err, io.EOF) {
+			return levels, nil
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -493,12 +492,6 @@ func (s *store) scanTagLevels(ctx context.Context, meta *tableMeta) (map[string]
 					}
 				}
 			}
-		}
-		if cursor == 0 {
-			return levels, nil
-		}
-		if reply, err = node.Do(ctx, "FT.CURSOR", "READ", meta.index(), cursor, "COUNT", page).Result(); err != nil {
-			return nil, wrapRedis(err, "FT.CURSOR READ failed")
 		}
 	}
 }

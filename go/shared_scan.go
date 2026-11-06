@@ -64,7 +64,7 @@ func (e *executor) boundedOrdinaryScan(ctx context.Context, plan *selectPlan, ca
 		return nil, err
 	}
 	cap = min(cap, cachedCap, maxScanRangeRows)
-	last, err := e.store.redis(ctx).Get(ctx, seqKey(m.Schema, m.Name)).Int64()
+	last, err := e.store.rowSequence(ctx, m)
 	if errors.Is(err, goredis.Nil) {
 		last, err = 0, nil
 	}

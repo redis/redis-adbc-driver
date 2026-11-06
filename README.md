@@ -68,6 +68,15 @@ are opt-in and under validation. CPU execution remains the default. The earlier
 [GPU feasibility experiment](benchmarks/gpu-query/README.md) records its measured
 workload and performance limits.
 
+[Product usage analytics and feedback](analytics/README.md) collects high-level
+metrics—such as statement types, execution counts, timings and row counts—to
+understand how the driver is used and help improve it. **Your SQL statements,
+query parameters, query results and database contents are not collected.**
+Reporting is on by default and uses `https://adbc-telemetry.sa.redislabs.com/v1/usage`;
+opt out with `adbc.redis.telemetry.enabled=false`. The analytics documentation
+explains the source and deployment metadata included with these metrics.
+
+
 ## Contents
 
 - [Why a Redis ADBC driver?](#why-a-redis-adbc-driver)
@@ -296,6 +305,12 @@ remote deployment support, or Redis Flight SQL compatibility.
 | Kubeflow Pipelines | Run a custom ADBC component with the local SubprocessRunner; Kubernetes execution remains untested. | [Guide](docs/integrations/kubeflow.md) |
 | Metaflow | Read through ADBC in a local flow and persist rows between steps; remote backends remain untested. | [Guide](docs/integrations/metaflow.md) |
 | Quarto | Render a Python document containing native ADBC queries to HTML. | [Guide](docs/integrations/quarto.md) |
+
+## Experimental Redis Flex stopgap
+
+Set database option `adbc.redis.flex=true` for plain indexes and bounded row-ID
+reads on tested Software Flex builds. See [scope, usage and evidence](docs/redis-flex-stopgap.md).
+ALTER TABLE, TRUNCATE, adoption and foreign indexes remain unsupported.
 
 ## Quick start
 

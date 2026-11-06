@@ -1,5 +1,9 @@
 # Redis Flex compatibility test report
 
+The current [opt-in experimental stopgap](redis-flex-stopgap.md) has separate
+validation. Results below describe historical default-mode behavior.
+
+
 Historical tests below ran on 2026-10-06 against commit `40da0bf`.
 See the 2026-11-04 retest immediately below for the newer release. The Redis ADBC driver does
 not currently support Redis Flex. A local Redis Software Flex database

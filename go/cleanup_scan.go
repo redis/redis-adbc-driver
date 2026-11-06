@@ -22,7 +22,7 @@ func (e *executor) scanAllocatedCleanupPages(ctx context.Context, req scanReques
 	if snapshotOf(ctx) != nil && snapshotDataID(meta.prefix()) != "" {
 		return e.scanSnapshotFallbackPages(ctx, req, params, visit)
 	}
-	last, err := e.store.redis(ctx).Get(ctx, seqKey(meta.Schema, meta.Name)).Int64()
+	last, err := e.store.rowSequence(ctx, meta)
 	if errors.Is(err, goredis.Nil) {
 		return nil
 	}

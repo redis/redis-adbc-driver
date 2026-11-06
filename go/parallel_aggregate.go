@@ -161,12 +161,12 @@ func (e *executor) parallelAggregate(ctx context.Context, plan *selectPlan, wp w
 	if e.workerBudget != nil {
 		workers = min(workers, e.workerBudget.capacity())
 	}
-	if meta.SnapshotOverlay && !e.snapshotIndexable(ctx, meta) || meta.isMem || meta.Adopted || meta.KeyRows || meta.AppIndex || len(plan.sel.GroupBy) > 0 || len(plan.extraNeed) > 0 || len(plan.outerAggs) > 0 || wp.none || wp.keys != nil || !parallelPredicate(wp.residual) || !parallelAggregates(aggs, meta.types()) {
+	if e.store.flexEnabled() || meta.SnapshotOverlay && !e.snapshotIndexable(ctx, meta) || meta.isMem || meta.Adopted || meta.KeyRows || meta.AppIndex || len(plan.sel.GroupBy) > 0 || len(plan.extraNeed) > 0 || len(plan.outerAggs) > 0 || wp.none || wp.keys != nil || !parallelPredicate(wp.residual) || !parallelAggregates(aggs, meta.types()) {
 		return nil, false, nil
 	}
 	// The sequence is an upper bound, not a count: deleted rows and gaps do not
 	// matter. The last range extends to +inf so concurrent inserts aren't lost.
-	last, err := e.store.redis(ctx).Get(ctx, seqKey(meta.Schema, meta.Name)).Int64()
+	last, err := e.store.rowSequence(ctx, meta)
 	if errors.Is(err, goredis.Nil) {
 		return nil, false, nil
 	}

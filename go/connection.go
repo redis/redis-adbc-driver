@@ -30,6 +30,7 @@ import (
 )
 
 type connectionImpl struct {
+	usage                       *usageTelemetry
 	rbac                        *rbacManager
 	retainedNamespace           string
 	partitionControlPersistence string
@@ -70,6 +71,12 @@ func (c *connectionImpl) executor() *executor {
 }
 
 func (c *connectionImpl) GetOption(ctx context.Context, key string) (string, error) {
+	if key == OptionStringTelemetrySnapshot {
+		if c.usage == nil {
+			return "{}", nil
+		}
+		return string(c.usage.snapshot()), nil
+	}
 	switch key {
 	case OptionStringStatementSnapshots:
 		return strconv.FormatBool(c.store != nil && c.store.snapshots), nil
@@ -123,6 +130,9 @@ func (c *connectionImpl) SetOption(ctx context.Context, key, value string) error
 		}
 		return c.store.refreshSnapshotForeign(ctx, true)
 	case OptionStringForeignIndexes:
+		if c.store.flexEnabled() && value == "true" {
+			return flexUnsupported("foreign indexes")
+		}
 		v, err := parseForeignIndexes(value)
 		if err != nil {
 			return err

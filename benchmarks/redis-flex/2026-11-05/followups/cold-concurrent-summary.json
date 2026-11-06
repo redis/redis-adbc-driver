@@ -1,0 +1,332 @@
+[
+  {
+    "variant": "default",
+    "workers": 1,
+    "trials": 3,
+    "seconds": {
+      "median": 10.968351167,
+      "min": 10.326641334,
+      "max": 11.134622
+    },
+    "total_rows_per_second": {
+      "median": 13675.710935596087,
+      "min": 13471.494586884044,
+      "max": 14525.535955832202
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 905516592,
+      "min": 905297136,
+      "max": 905948376
+    },
+    "client_cpu_seconds": {
+      "median": 4.114120999999999,
+      "min": 4.029925,
+      "max": 4.209111999999999
+    },
+    "commands": {
+      "median": 150041,
+      "min": 150041,
+      "max": 150042
+    },
+    "resp_read_bytes": {
+      "median": 640500073,
+      "min": 640500073,
+      "max": 640500170
+    },
+    "resp_write_bytes": {
+      "median": 15944838,
+      "min": 15944838,
+      "max": 15944930
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 554348544,
+      "min": 552652800,
+      "max": 591568896
+    },
+    "server_cpu_seconds": {
+      "median": 18.15000000000009,
+      "min": 16.309999999999945,
+      "max": 18.600000000000023
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0
+    }
+  },
+  {
+    "variant": "default",
+    "workers": 2,
+    "trials": 3,
+    "seconds": {
+      "median": 14.098427459,
+      "min": 12.966939959,
+      "max": 15.118188459
+    },
+    "total_rows_per_second": {
+      "median": 21278.968939794013,
+      "min": 19843.647326767325,
+      "max": 23135.759165120387
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 1805231672,
+      "min": 1805099128,
+      "max": 1805649232
+    },
+    "client_cpu_seconds": {
+      "median": 10.233631000000003,
+      "min": 9.896574999999999,
+      "max": 10.302688999999997
+    },
+    "commands": {
+      "median": 300082,
+      "min": 300082,
+      "max": 300083
+    },
+    "resp_read_bytes": {
+      "median": 1281000146,
+      "min": 1281000146,
+      "max": 1281000243
+    },
+    "resp_write_bytes": {
+      "median": 31889676,
+      "min": 31889676,
+      "max": 31889768
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 554455040,
+      "min": 550551552,
+      "max": 559894528
+    },
+    "server_cpu_seconds": {
+      "median": 27.90000000000009,
+      "min": 25.279999999999973,
+      "max": 29.199999999999932
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0
+    }
+  },
+  {
+    "variant": "default",
+    "workers": 4,
+    "trials": 3,
+    "seconds": {
+      "median": 19.470725417,
+      "min": 16.402972083,
+      "max": 20.062146958
+    },
+    "total_rows_per_second": {
+      "median": 30815.4928565803,
+      "min": 29907.068334017134,
+      "max": 36578.73688767894
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 3598122432,
+      "min": 3071124224,
+      "max": 3603439400
+    },
+    "client_cpu_seconds": {
+      "median": 25.632672,
+      "min": 22.948161,
+      "max": 26.413432999999998
+    },
+    "commands": {
+      "median": 600164,
+      "min": 600164,
+      "max": 600166
+    },
+    "resp_read_bytes": {
+      "median": 2562000292,
+      "min": 2562000292,
+      "max": 2562000486
+    },
+    "resp_write_bytes": {
+      "median": 63779352,
+      "min": 63779352,
+      "max": 63779536
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 556646400,
+      "min": 556044288,
+      "max": 558702592
+    },
+    "server_cpu_seconds": {
+      "median": 44.82000000000005,
+      "min": 40.360000000000014,
+      "max": 47.32999999999993
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0
+    }
+  },
+  {
+    "variant": "8m-byte-budget",
+    "workers": 1,
+    "trials": 3,
+    "seconds": {
+      "median": 10.17319175,
+      "min": 10.038317291,
+      "max": 10.191741209
+    },
+    "total_rows_per_second": {
+      "median": 14744.635084657673,
+      "min": 14717.79913990946,
+      "max": 14942.743455069376
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 197442112,
+      "min": 195494328,
+      "max": 201467880
+    },
+    "client_cpu_seconds": {
+      "median": 4.015687,
+      "min": 3.945368,
+      "max": 4.030876999999999
+    },
+    "commands": {
+      "median": 150041,
+      "min": 150041,
+      "max": 150042
+    },
+    "resp_read_bytes": {
+      "median": 641100077,
+      "min": 641100077,
+      "max": 641100174
+    },
+    "resp_write_bytes": {
+      "median": 16244906,
+      "min": 16244906,
+      "max": 16244998
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 582193152,
+      "min": 572153856,
+      "max": 616058880
+    },
+    "server_cpu_seconds": {
+      "median": 15.18999999999994,
+      "min": 14.940000000000055,
+      "max": 16.250000000000114
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0
+    }
+  },
+  {
+    "variant": "8m-byte-budget",
+    "workers": 2,
+    "trials": 3,
+    "seconds": {
+      "median": 11.002145,
+      "min": 10.782366375,
+      "max": 11.237504417
+    },
+    "total_rows_per_second": {
+      "median": 27267.41012775236,
+      "min": 26696.318761500337,
+      "max": 27823.205924033533
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 375385248,
+      "min": 349284672,
+      "max": 379442112
+    },
+    "client_cpu_seconds": {
+      "median": 8.628354000000002,
+      "min": 8.578065000000002,
+      "max": 8.668601000000002
+    },
+    "commands": {
+      "median": 300082,
+      "min": 300082,
+      "max": 300083
+    },
+    "resp_read_bytes": {
+      "median": 1282200154,
+      "min": 1282200154,
+      "max": 1282200251
+    },
+    "resp_write_bytes": {
+      "median": 32489812,
+      "min": 32489812,
+      "max": 32489904
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 573640704,
+      "min": 573599744,
+      "max": 574648320
+    },
+    "server_cpu_seconds": {
+      "median": 20.57000000000005,
+      "min": 19.659999999999854,
+      "max": 20.670000000000073
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0
+    }
+  },
+  {
+    "variant": "8m-byte-budget",
+    "workers": 4,
+    "trials": 3,
+    "seconds": {
+      "median": 13.500402041,
+      "min": 12.755804167,
+      "max": 13.555011291
+    },
+    "total_rows_per_second": {
+      "median": 44443.12089209137,
+      "min": 44264.072313859055,
+      "max": 47037.41074610055
+    },
+    "client_sampled_heap_peak_bytes": {
+      "median": 714147880,
+      "min": 649378536,
+      "max": 726994800
+    },
+    "client_cpu_seconds": {
+      "median": 19.727063,
+      "min": 19.343125,
+      "max": 20.031389999999995
+    },
+    "commands": {
+      "median": 600164,
+      "min": 600164,
+      "max": 600166
+    },
+    "resp_read_bytes": {
+      "median": 2564400308,
+      "min": 2564400308,
+      "max": 2564400502
+    },
+    "resp_write_bytes": {
+      "median": 64979624,
+      "min": 64979624,
+      "max": 64979808
+    },
+    "server_sampled_rss_peak_bytes": {
+      "median": 576462848,
+      "min": 575537152,
+      "max": 592125952
+    },
+    "server_cpu_seconds": {
+      "median": 32.55999999999983,
+      "min": 31.17999999999995,
+      "max": 32.65000000000009
+    },
+    "server_read_bytes": {
+      "median": 0,
+      "min": 0,
+      "max": 0
+    }
+  }
+]

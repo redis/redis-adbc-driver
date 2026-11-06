@@ -94,6 +94,10 @@ func (e *executor) prepareDMLCTEs(ctx context.Context, st Stmt) (bool, error) {
 			if m.MaterializedSQL != "" && m.Unpopulated {
 				return stateErrorf("55000", "materialized view %q has not been populated", m.Name)
 			}
+			m, err = e.store.pinMatview(ctx, m)
+			if err != nil {
+				return err
+			}
 			need := map[string]bool{rowIDField: true, keyField: true}
 			for _, c := range m.Columns {
 				need[c.Name] = true

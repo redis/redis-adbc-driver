@@ -112,6 +112,9 @@ func (e *executor) runAlter(ctx context.Context, st *AlterTableStmt) error {
 	if err := e.store.checkWritable(ctx, meta); err != nil {
 		return err
 	}
+	if e.store.flex && !(e.rekey && len(st.Cmds) == 1 && st.Cmds[0].Action == AlterRenameTable) {
+		return flexUnsupported("ALTER TABLE")
+	}
 	identity := slices.ContainsFunc(st.Cmds, func(c AlterCmd) bool {
 		return c.Action == AlterAddIdentity || c.Action == AlterSetIdentity || c.Action == AlterDropIdentity
 	})

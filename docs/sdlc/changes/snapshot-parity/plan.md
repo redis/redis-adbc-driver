@@ -2,6 +2,12 @@
 
 Date: 2026-11-02. Status: in progress. See [intent](intent.md), [spec](spec.md).
 
+The [current-main reconciliation](current-main-20261105-validation.md) integrates
+cc2cbb2 while retaining managed materialized-view pins, ownership and the upstream
+55000 expiry contract. Combined checks are in progress. Managed Flex source
+execution remains an open parity gate; its upstream stopgap is not counted as
+verified snapshot support.
+
 The [point-lease checkpoint](point-lease-validation.md) moves validation,
 renewal and release before catalog enumeration. A reproduced Software HGETALL
 denial becomes a pass without broader grants; neighboring lifecycle races pass.

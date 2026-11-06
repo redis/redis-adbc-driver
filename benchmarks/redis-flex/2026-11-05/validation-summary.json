@@ -1,0 +1,143 @@
+{
+  "date": "2026-11-05",
+  "validation_dependency_commit": "47a5ddf3f2a617ac88da3891848e000c74d55b0e",
+  "suite": "full default pytest suite, repository standard feature selection; no new skips for Flex",
+  "adbc_runs": [
+    {
+      "run": "RAM baseline (initial)",
+      "configuration": {
+        "shards": 1,
+        "total_gib": 1,
+        "ram_gib": 1
+      },
+      "summary": {
+        "passed": 565,
+        "failed": 0,
+        "skipped": 8,
+        "errors": 0,
+        "subtests_passed": 3
+      },
+      "failure_categories": {}
+    },
+    {
+      "run": "Flex capacity-limited attempt",
+      "configuration": {
+        "shards": 3,
+        "total_gib": 1,
+        "ram_gib": 0.25
+      },
+      "summary": {
+        "passed": 202,
+        "failed": 72,
+        "skipped": 7,
+        "errors": 292,
+        "subtests_passed": 3
+      },
+      "failure_categories": {
+        "unsupported_alter_table": 3,
+        "missing_verified_control_policy_declaration": 26,
+        "server_disk_index_capacity": 335
+      }
+    },
+    {
+      "run": "Flex capacity-limited retry",
+      "configuration": {
+        "shards": 3,
+        "total_gib": 4,
+        "ram_gib": 1
+      },
+      "summary": {
+        "passed": 404,
+        "failed": 35,
+        "skipped": 7,
+        "errors": 127,
+        "subtests_passed": 3
+      },
+      "failure_categories": {
+        "unsupported_alter_table": 5,
+        "unsupported_retained_partitions_or_reader_mode": 30,
+        "server_disk_index_capacity": 127
+      }
+    },
+    {
+      "run": "Flex pre-allocation-fix full suite",
+      "configuration": {
+        "shards": 3,
+        "total_gib": 16,
+        "ram_gib": 4
+      },
+      "summary": {
+        "passed": 527,
+        "failed": 38,
+        "skipped": 8,
+        "errors": 0,
+        "subtests_passed": 3
+      },
+      "failure_categories": {
+        "unsupported_alter_table": 5,
+        "unsupported_retained_partitions_or_reader_mode": 31,
+        "other_requires_review": 1,
+        "unsupported_create_index": 1
+      }
+    },
+    {
+      "run": "RAM final library",
+      "configuration": {
+        "shards": 1,
+        "total_gib": 1,
+        "ram_gib": 1
+      },
+      "summary": {
+        "passed": 565,
+        "failed": 0,
+        "skipped": 8,
+        "errors": 0,
+        "subtests_passed": 3
+      },
+      "failure_categories": {}
+    },
+    {
+      "run": "Flex final library",
+      "configuration": {
+        "shards": 3,
+        "total_gib": 16,
+        "ram_gib": 4
+      },
+      "summary": {
+        "passed": 527,
+        "failed": 38,
+        "skipped": 8,
+        "errors": 0,
+        "subtests_passed": 3
+      },
+      "failure_categories": {
+        "unsupported_alter_table": 5,
+        "unsupported_retained_partitions_or_reader_mode": 31,
+        "unsupported_create_index": 1,
+        "unsupported_rename_rekey": 1
+      }
+    }
+  ],
+  "go_checks": {
+    "unit": "passed",
+    "standard_path_regressions": "passed",
+    "initial_full_ram_integration": "11 retained-policy setup failures; corrected affected groups passed after verified policy declaration",
+    "flex_socket_faults": "passed, including race detector",
+    "three_shard_flex": "passed focused suite",
+    "actual_search_cap_two": "passed: 100 rows, no loss/duplicates",
+    "real_rowid_2pow53_boundary": "failed before fix; passed after atomic allocation fix",
+    "concurrent_final_id_allocation": "passed under race detector",
+    "retained_rejection_before_io": "passed",
+    "software_database_restart": "did not complete within 2-minute operator deadline; recovery not established",
+    "native_cancellation_without_aggregate_cursor": "passed with complete cancellation/reuse assertions"
+  },
+  "gaps": [
+    "HA failover",
+    "Cloud SQL queries (Query Engine unavailable on tested configuration)",
+    "cold flash-dominant data",
+    "concurrent throughput",
+    "general external sort spilling",
+    "document/flash read counters",
+    "transient server-memory peak"
+  ]
+}

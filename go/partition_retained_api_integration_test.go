@@ -25,6 +25,9 @@ import (
 // Explicit fixture roots and verified control persistence remain test-local.
 // Managed fixtures set the declaration only after their API verifies policy.
 func retainedTestDatabaseOptions(options map[string]string) map[string]string {
+	if flex := os.Getenv("REDIS_ADBC_FLEX"); flex != "" {
+		options[OptionStringFlex] = flex
+	}
 	if ca := os.Getenv("REDIS_RETAINED_TLS_CA_FILE"); ca != "" {
 		options[OptionStringTLSCAFile] = ca
 	}

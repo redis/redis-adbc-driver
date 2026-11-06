@@ -628,6 +628,7 @@ func (e *executor) aggregateTuplePartition(ctx context.Context, plan *selectPlan
 	started := time.Now()
 	var endFetch func()
 	if e.aggregateMetrics != nil {
+		e.aggregateMetrics.pushdowns.Add(1)
 		endFetch = e.aggregateMetrics.fetch.start()
 	}
 	raw, err := e.store.aggregate(ctx, req)
@@ -722,7 +723,7 @@ func addWeightedInteger(a *accumulator, v Value, n int64) {
 }
 
 func (e *executor) partitionedAggregate(ctx context.Context, plan *selectPlan, wp wherePlan, aggs []*Func, params []Value, force bool) (groups []aggGroup, handled bool, resultErr error) {
-	if e.gpu != nil {
+	if e.store.flexEnabled() || e.gpu != nil {
 		return nil, false, nil
 	}
 	if len(plan.meta.PendingCleanup) > 0 {
@@ -763,7 +764,7 @@ func (e *executor) partitionedAggregate(ctx context.Context, plan *selectPlan, w
 	if !distinctResidual(wp.residual, p.cols, nil) {
 		return nil, false, nil
 	}
-	last, err := e.store.redis(ctx).Get(ctx, seqKey(plan.meta.Schema, plan.meta.Name)).Int64()
+	last, err := e.store.rowSequence(ctx, plan.meta)
 	if errors.Is(err, goredis.Nil) {
 		return nil, false, nil
 	}

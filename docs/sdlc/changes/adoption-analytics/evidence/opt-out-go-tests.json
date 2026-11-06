@@ -1,0 +1,6134 @@
+{
+  "date": "2026-11-05",
+  "command": "env -u REDIS_URI go test -race -count=1 -p 1 -json ./...",
+  "passed": 653,
+  "skipped": 572,
+  "failed": 0,
+  "tests": [
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestACLReadme",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestACLDriverUser",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestACLClientName",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestACLReadOnlyUser",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestACLExecAbort",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestACLSearchCommandsAndKeys",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestACLRekeyTakeoverReleased",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestAdoptHashes",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestAdoptedUpdateRaces",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestAdoptV0011Table",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestAdoptedPrefixOverlap",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestAdoptBlockers",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestAdoptIndexFailure",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestACLAdopt",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestAdoptResume",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLCompactIntegerTuples",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestCompactTupleLatencySamples",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLCompactTupleProbeOwnership",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestAggregateInputLoadProfile",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestAggregateIntegerInputs",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestAggregateInputFallback",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLAggregateExpressionInputs",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestAggregateIntegerBoundariesAndErrorOrder",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLAggregatePages",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestAggregateSharedMemoryRows",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestAggregatePagesProfile",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestAggregateRawFieldsCompatibility",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestAggregateReplyMalformedAndReducers",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestAggregateIdentityListFields",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTupleSpillMergeMultiplePasses",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTupleSpillPerQueryTuning",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestAggregateSpillShard",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTupleSpillCancellationAndTruncation",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWeightedIntegerAggregates",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestAggregateGroupLimitClassification",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLAggStringAgg",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLAggBoolAnyValueCountDistinct",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLAggStatistics",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLAggOrderedSet",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLAggFilter",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLAggGroupingSets",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLWindowIgnoreNulls",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLWindowFrameExclude",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLWindowRangeTime",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLAliasesInExpressions",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestAliasesInExpressions",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIndexAttributesRetry/success",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIndexAttributesRetry/OSS_schema_converges",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIndexAttributesRetry/OSS_bounded",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIndexAttributesRetry/transport_with_schema_message",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIndexAttributesRetry/schema_converges",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIndexAttributesRetry/bounded",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIndexAttributesRetry/permission_denied",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIndexAttributesRetry/missing_index",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIndexAttributesRetry/network_failure",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIndexAttributesRetry/other_search_error",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIndexAttributesRetry/canceled",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIndexAttributesRetry",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLAlterMultiDbt",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLAlterMultiMixed",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLAlterMultiAtomic",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLAlterMultiErrors",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLAlterLeftoverAttribute",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLAlterMultiConcurrent",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLAlterNotNull",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLAlterNotNullMissing",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLAlterNotNullConcurrent",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestAlterOrder",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestApplyAlterPasses",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLAlterTypeValues",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLAlterTypeConstraints",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLAlterTypeMulti",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLAlterTypeViews",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLAlterTypeConcurrent",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLAlterTypeCancel",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLAlterTypeClose",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLAlterTypeLostLease",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLAlterTypeBig",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLAlterTypeCleanupDuringCursor",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLAlterType",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestAlterTypeAssignable",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestAlterTypeNames",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestApplyAlterType",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestAdoptAppIndex",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestAdoptAppIndexChoice",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestACLAppIndexReader",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLBoundStringsOutliveTheirBuffers",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestBugIssueScalarRegressions",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestBugIssueInMemoryQueries",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestBugIssueAutocommit",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLBugIssues",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLPaginationConfiguredCaps",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLCancel",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestCancelled",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestCancelStatus",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestClickBenchExecutionProfile",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLCheckedParallelInputs",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLPartitionedExpressionGroups",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLPartialGroupsMultipleSpillPasses",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestExecutionDiagnosticsLive",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLExecutionDiagnosticsAndStreamTopK",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLParallelExactTopK",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestFigureColname",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestOrderByOutputNames",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestGroupByOutputNames",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestDerivedColumnNames",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestColumnLabel",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLResultColumnNames",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLDuplicateColumnLabels",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLCommentOnTable",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLCommentOnView",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLCommentRename",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLCommentDuringRekey",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLCommentTemp",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLCommentErrors",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLCommentDbt",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLCreateTableComment",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLCommentConcurrent",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLConstraintForms",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLCheckInsert",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLCheckUpdateMerge",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLCheckIngest",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLCheckDefinition",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLCheckAlter",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLCheckLifetime",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLCheckMetadata",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLCheckTemp",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLCheckDbt",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLCountExpressionSpillGroups",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestCreationZoneView",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestCreationZoneDefault",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestCreationZoneCheck",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestFoldedLocalTime",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestFoldLocalTimes",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestFractionalPrecisionIssue113",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestDateRange",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIntervalArithmeticRange",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRoundPrecisionIssue103",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRoundPrecision",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestFractionalPrecision",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestCurrentTimePrecision",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestColTypeFracDigitsJSON",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRoundUnit",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestDateTimeText",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestFormatOffsetAndTimestamp",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestToChar",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestToCharInterval",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestDateTimeTextIssue84",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTimeZonesIssue88",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestToCharIssue90",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestToCharIntervalRows",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLDefaultsInsert",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLDefaultsValidation",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLDefaultsMerge",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLDefaultsIngest",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLAddColumnDefault",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLAlterColumnDefault",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLAddColumnDefaultConcurrentInsert",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLDefaultsTemp",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLExactCountDistinct",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLDistinctPagesAndShards",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLDistinctTupleResidual",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLDistinctCollisionVerification",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRenameDuringDrop/before_the_index_is_dropped/plain",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRenameDuringDrop/before_the_index_is_dropped/if_exists",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRenameDuringDrop/before_the_index_is_dropped/new_table_of_the_old_name",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRenameDuringDrop/after_the_index_is_dropped/plain",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRenameDuringDrop/after_the_index_is_dropped/if_exists",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRenameDuringDrop/after_the_index_is_dropped/new_table_of_the_old_name",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRenameDuringDrop",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLDropDuringRename",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRekeyDuringDrop/after_the_index_is_dropped",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRekeyDuringDrop/before_the_index_is_dropped",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRekeyDuringDrop/switched,_not_ended",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRekeyDuringDrop",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRenameDuringDropTemp",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLEmptyWhere",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLEmptyJoins",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLEmptySetOpsAndSubqueries",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLEmptyLimit",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLEmptyWrites",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLEmptyKeepsChecks",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLEmptySchema",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLEmptyDbt",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLEmptyErrors",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLEmptyReadsNothing",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestNeverTrue",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestJoinReads",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestExactDistinctProfile",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLExactSumsIssue",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLExactSums",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLExactWindowSums",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLPushdownSumNulls",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLHaversineDistance",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestExactSumIssueData",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestExactSumRandom",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestExactSumRounding",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestNearestFloat",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestExactSumSpecial",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestExactSumSliding",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestExactSumKinds",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestFlexRefused",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLForeignIndexName",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLLeftoverIndexReused",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestACLForeignIndexName",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestFourIssueSQL/select_array[1,2]_||_array[3,4]",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestFourIssueSQL/select_array(select_generate_series(1,3))",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestFourIssueSQL/select_array_position(array[1,null,3],null),_array_positions(array[1,2,1],1)",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestFourIssueSQL/select_array_remove(array[1,null,1],1),array_replace(array[1,null],null,2)",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestFourIssueSQL/select_array_upper(array[1,2],1),array_lower(array[1,2],1),array_dims(array[1,2])",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestFourIssueSQL/select_array_to_string(array['a',null,'b'],',','N')",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestFourIssueSQL/select_array[1,2]_@>_array[2],array[1]_<@_array[1,2],array[1]_&&_array[2]",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestFourIssueSQL/select_generate_series(1,2)+10,unnest(array['a','b','c'])",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestFourIssueSQL/select_*_from_unnest(array[1,2],array['a'])_with_ordinality_u(a,b,i)",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestFourIssueSQL/select_*_from_regexp_matches('a1_b2','([a-z])([0-9])','g')_r(m)",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestFourIssueSQL/select_regexp_split_to_array('a,b',',')",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestFourIssueSQL/select_*_from_generate_series(1,2)_g,_lateral_generate_series(1,g)_x",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestFourIssueSQL/select_(array[1,2,3])[2]",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestFourIssueSQL/select_'{1,2,NULL}'::integer[]",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestFourIssueSQL/select_string_to_array('a,b',',')",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestFourIssueSQL/select_array_append(array[1,2],3)",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestFourIssueSQL/select_array[1,2,3][2:3]",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestFourIssueSQL/select_generate_series(1,3)",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestFourIssueSQL/select_*_from_generate_series(1,3)_with_ordinality_as_g(n,i)",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestFourIssueSQL/select_*_from_string_to_table('a,b',',')",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestFourIssueSQL/select_*_from_pg_catalog.unnest(array[1,2])",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestFourIssueSQL/select_*_from_regexp_split_to_table('a,b',',')",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestFourIssueSQL/select_*_from_unnest(array[1,2])_x(n)",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestFourIssueSQL/select_*_from_rows_from_(generate_series(1,2),generate_series(1,3))_r(a,b)",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestFourIssueSQL",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestFourIssueDropPreflight",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestArrayStorage",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSRFPlacement",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestDropViewPreflight",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestArrayView",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestArrayStoredScalarRoundTrip/ARRAY[true,false,NULL]",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestArrayStoredScalarRoundTrip/ARRAY[1::smallint,NULL]",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestArrayStoredScalarRoundTrip/ARRAY[9007199254740993::bigint,NULL]",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestArrayStoredScalarRoundTrip/ARRAY[1.25::numeric(20,2),NULL]",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestArrayStoredScalarRoundTrip/ARRAY[1.25::real,NULL]",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestArrayStoredScalarRoundTrip/ARRAY[1.25::double_precision,NULL]",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestArrayStoredScalarRoundTrip/ARRAY['a,b','NULL','',NULL]",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestArrayStoredScalarRoundTrip/ARRAY[from_hex('00ff'),NULL]",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestArrayStoredScalarRoundTrip/ARRAY[DATE_'2024-02-29',NULL]",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestArrayStoredScalarRoundTrip/ARRAY[TIME_'12:34:56.123456',NULL]",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestArrayStoredScalarRoundTrip/ARRAY[TIMETZ_'12:34:56+05:30',NULL]",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestArrayStoredScalarRoundTrip/ARRAY[TIMESTAMP_'2024-01-02_03:04:05.123456',NULL]",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestArrayStoredScalarRoundTrip/ARRAY[TIMESTAMPTZ_'2024-01-02_03:04:05+05:30',NULL]",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestArrayStoredScalarRoundTrip/ARRAY[INTERVAL_'1_month_2_days_3_seconds',NULL]",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestArrayStoredScalarRoundTrip",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSRFResourceBounds",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestToDatePatterns",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestToTimestampPatterns",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestToDateErrors",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestToCharRoundTrip",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestToTimestampZone",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestMakeDateBC",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLFunctionsIssueTable",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLFunctionsArgCounts",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLFunctionsEveryPosition",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLFunctionsErrorOrder",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLFunctionsValueErrors",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLFunctionsNamesAndForms",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLFunctionsStoredBefore",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLFunctionsRoutines",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestFuncRegistryEvaluates",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestFuncRegistryCoversEvaluator",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestFuncRegistryShape",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestFuncUnboundErrors",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLEqualIntervalsGroup",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLNegativeZeroGroups",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLMixedKindKeys",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLKeysWithNULs",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLGroupByOutputNames",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLGroupedSubqueryIssue",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLGroupedSubqueryClauses",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLGroupedSubqueryLevels",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLGroupedSubqueryAllowed",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLGroupedSubqueryOuterAggregates",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLOuterAggregateIssue",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLOuterAggregateForms",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLOuterAggregatePlacement",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLOuterAggregatePushdown",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLGroupingSets",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLGroupingFunction",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLGroupingSetsCombined",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLGroupingSetsPushdown",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLGroupingSetsQueries",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLGroupingSetsErrors",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestHashInspect",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestHashInspectCopyBlockers",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestHashDiscover",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestHashScan",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestHashScanUnknownFields",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestCopyHashes",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestACLHashTools",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestGuessColumnTypes",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestGuessOutliers",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestGuessTable",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestConvertValue",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestHashToolHelpers",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestAlterWaitsBeforeMetadataCommit//false",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestAlterWaitsBeforeMetadataCommit//true",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestAlterWaitsBeforeMetadataCommit/Inconsistent_index_state/false",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestAlterWaitsBeforeMetadataCommit/Inconsistent_index_state/true",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestAlterWaitsBeforeMetadataCommit/SEARCH_VALUE_BAD_Inconsistent_index_state/false",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestAlterWaitsBeforeMetadataCommit/SEARCH_VALUE_BAD_Inconsistent_index_state/true",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestAlterWaitsBeforeMetadataCommit",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRangeReadinessSchemaConvergence/Inconsistent_index_state",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRangeReadinessSchemaConvergence/SEARCH_VALUE_BAD_Inconsistent_index_state",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRangeReadinessSchemaConvergence/NOPERM_no_FT.INFO_permission",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRangeReadinessSchemaConvergence/Unknown_index_name",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRangeReadinessSchemaConvergence",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPendingCleanupUsesCompleteHashInput",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPendingCleanupAggregateAndPartitionInputs",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTruncateAttributeReadinessRetry",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWaitIndexReady",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestInconsistentIndexState",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestInformationSchemaColumnsPostgresNames",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPostgresTypeNames",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/int64/SMALLINT",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/int64/INTEGER",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/int64/BIGINT",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/int64/VARCHAR",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/int64/VARBINARY",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/int64/DATE",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/int64/CHAR(3)",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/utf8/SMALLINT",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/utf8/INTEGER",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/utf8/BIGINT",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/utf8/VARCHAR",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/utf8/VARBINARY",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/utf8/DATE",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/utf8/CHAR(3)",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/int16/SMALLINT",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/int16/INTEGER",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/int16/BIGINT",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/int16/VARCHAR",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/int16/VARBINARY",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/int16/DATE",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/int16/CHAR(3)",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/int32/SMALLINT",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/int32/INTEGER",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/int32/BIGINT",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/int32/VARCHAR",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/int32/VARBINARY",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/int32/DATE",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/int32/CHAR(3)",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/large_utf8/SMALLINT",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/large_utf8/INTEGER",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/large_utf8/BIGINT",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/large_utf8/VARCHAR",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/large_utf8/VARBINARY",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/large_utf8/DATE",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/large_utf8/CHAR(3)",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/uint64/SMALLINT",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/uint64/INTEGER",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/uint64/BIGINT",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/uint64/VARCHAR",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/uint64/VARBINARY",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/uint64/DATE",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/uint64/CHAR(3)",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/date32/SMALLINT",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/date32/INTEGER",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/date32/BIGINT",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/date32/VARCHAR",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/date32/VARBINARY",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/date32/DATE",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion/date32/CHAR(3)",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnCoercion",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIngestColumnOwnsStringBytes",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestParallelBulkIngest",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestInListMatchesOrChain",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRowInListMatchesOrChain",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestInListRecognition",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLIntervalAggregates",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLIntervalWindowAggregates",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLIntervalAvgRounding",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLIntervalAggregateRange",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLIntervalLiterals",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIntervalLiteral",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIntervalLiteralFields",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIntervalTypmod",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestFormatInterval",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIntervalRange",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIntervalMulDiv",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIntervalMulDivNanos",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIntervalFromArrowDuration",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIntervalSum",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWideInt",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIntervalMean",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIntervalMinMaxTies",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTextToInteger",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestHashScanTextIntegers",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestParseIntText",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTextToInteger",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIPCRoundTripAndEarlyRelease/stream0",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIPCRoundTripAndEarlyRelease/stream1",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIPCRoundTripAndEarlyRelease/stream3",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIPCRoundTripAndEarlyRelease/file0",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIPCRoundTripAndEarlyRelease/file1",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIPCRoundTripAndEarlyRelease/file3",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIPCRoundTripAndEarlyRelease",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIPCFailureCleanup/streamquery",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIPCFailureCleanup/streamlate",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIPCFailureCleanup/streamcancel",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIPCFailureCleanup/filequery",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIPCFailureCleanup/filelate",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIPCFailureCleanup/filecancel",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIPCFailureCleanup",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIPCOptionsAndInvalidInput",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIPCInputCancellation",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLIssue232RepeatedGrouping",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLIssue187NullSetOperationSchema",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLJSONOperators",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLJSONFunctions",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLJSONMalformed",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLJSONExactNumbers",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLJSONUnicode",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLJSONPath",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLJSONConstructors",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLJSONAggregates",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLJSONInQueries",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLJSONBind",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLLateProjection",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestLateProjectionDeletedAndCancelled",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestLateProjectionProfile",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestLateralReferenceErrors",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLLengthCasts",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLLengthWrites",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLLengthDefaults",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLLengthChar",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLLengthIngest",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLLengthMetadata",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLLengthUnbounded",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestCutRunes",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestFitLength",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestColTypeLengthJSON",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLNaNIssue110",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLNaNWritePaths",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLNaNFilters",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLNaNOrder",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLNaNAggregates",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLNaNJoins",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLNaNText",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLNaNNoOrphans",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLNaNNumeric",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestNaNStored",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestNaNText",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestNaNPushdown",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestNaNColumnNeeds",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestNaNJoinKeys",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLNarrowExactScan",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestNarrowFetchCancelled",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestNarrowFetchCancelledBetweenBatches",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestNarrowScanProfile",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLNumericNotEqualIndex",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLNotEqualTimestampRetainsFallback",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLOrderByOutputNames",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLOrderByOutputNameNotIndexSort",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLOuterReferencesFromFrom",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLOuterReferencesFromFromDML",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestOuterReferencesFromFrom",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestOuterReferencesFromFromRuns",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestMergeExactSumPartitions",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestDefaultQueryWorkers",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestQueryWorkersOption",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLParallelAggregates",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLParameterSchema",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestBalancedPartitionReads",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestBalancedPartitionCoverage/dense",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestBalancedPartitionCoverage/sparse",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestBalancedPartitionCoverage/tail",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestBalancedPartitionCoverage/clusters",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestBalancedPartitionCoverage/empty",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestBalancedPartitionCoverage",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestBalancedPartitionBudgetAndFailure",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionUnsupportedLayoutOwnership/adopted",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionUnsupportedLayoutOwnership/application_index",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionUnsupportedLayoutOwnership/foreign_index",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionUnsupportedLayoutOwnership",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionLegacyMetadataNotMigrated",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionParameterEncoding",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionBindingLimits",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionIncrementalOptions",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionParameterStreamError",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionParameterTypeMetadata",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPrunedPartitionReads",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPrunedPartitionPermissions",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionPredicateBounds/__rowid=42",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionPredicateBounds/__rowid_IN(9,2,2,3)",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionPredicateBounds/__rowid_BETWEEN_10_AND_20",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionPredicateBounds/__rowid_>_95_AND___rowid_<_100",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionPredicateBounds/20_>___rowid",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionPredicateBounds/__rowid_<=_0",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionPredicateBounds/__rowid=2_AND___rowid=3",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionPredicateBounds/__rowid_>=_?",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionPredicateBounds/__rowid_>_?",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionPredicateBounds/__rowid_<_?",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionPredicateBounds/__rowid_=_?",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionPredicateBounds/__rowid_=_?#01",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionPredicateBounds/__rowid='2'",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionPredicateBounds/id=2",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionPredicateBounds/__rowid=2_OR_id=3",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionPredicateBounds/(__rowid=2_OR_id=3)_AND___rowid<10",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionPredicateBounds/NOT_(__rowid=2)",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionPredicateBounds/__rowid=2_AND_id>5",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionPredicateBounds/__rowid>=80_OR___rowid<3",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionPredicateBounds/__rowid=2.1",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionPredicateBounds/__rowid=CAST(2_AS_BIGINT)",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionPredicateBounds/__rowid=2_OR___rowid=NULL",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionPredicateBounds",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionPredicateBudgets",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestBoundedScanRejectsBuildingIndex",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestBoundedScanReadinessTransitions",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestOrdinaryBuildingIndexUsesHashFallback",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRangeReadinessChecksAllPrimaries",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRangeReadinessReplies/RESP2_ready",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRangeReadinessReplies/RESP3_ready",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRangeReadinessReplies/backfill",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRangeReadinessReplies/partial",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRangeReadinessReplies/missing",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRangeReadinessReplies/multiple_building_shards",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRangeReadinessReplies/building_with_NaN_progress",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRangeReadinessReplies/numeric_flag",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRangeReadinessReplies/nan",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRangeReadinessReplies/infinite",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRangeReadinessReplies",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionAPIPublicationReplayAndRevoke",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionAPIEmptyAndBudgetFailure",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionAPIProcessHelper",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionAPIIndependentProcessAndMinimalACL",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionAPIControlPolicyAdmission",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionAPIPrepublicationFailure/cancel",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionAPIPrepublicationFailure/cardinality",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionAPIPrepublicationFailure/schema",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionAPIPrepublicationFailure/index",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionAPIPrepublicationFailure/view",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionAPIPrepublicationFailure",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionAPICoordinatorDeathHelper",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionAPICoordinatorDeathBeforePublication",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionAPICloseBeforeReaderRegistration",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedArrowBatchAccounting",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedReaderBatchByteLimit/0",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedReaderBatchByteLimit/1",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedReaderBatchByteLimit/520",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedReaderBatchByteLimit/900",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedReaderBatchByteLimit/4096",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedReaderBatchByteLimit",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedSourceCaptureExactLargeIDsAndMissingValues",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedSourceCaptureApplicationOwnership/adopted",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedSourceCaptureApplicationOwnership/application_index",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedSourceCaptureApplicationOwnership/foreign_index",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedSourceCaptureApplicationOwnership",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedSourceCaptureLimitsDoNotTruncate",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedSourceCaptureLegacyWithoutMigration/fresh",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedSourceCaptureLegacyWithoutMigration/reused",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedSourceCaptureLegacyWithoutMigration",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedSourceCaptureForeignPrefixesAndFilter",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedSourceByteGlob",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedSourceIdentityPreservesBinaryDefinitions",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionDescriptor",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedExecutionGlobalSQLMatchesExecuteQuery",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedExecutionOwnTemporarySources",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedExecutionBudgetFailureAndSideEffectPolicy",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedExecutionWorkContextAndStickyAllocation",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedExecutionExpressionPolicy/SELECT_REPEAT('x',2147483647)",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedExecutionExpressionPolicy/SELECT_1_LIMIT_length(REPEAT('x',2147483647))",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedExecutionExpressionPolicy/VALUES_(REPEAT('x',2147483647))",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedExecutionExpressionPolicy/SELECT_LPAD('x',2147483647,'y')",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedExecutionExpressionPolicy/SELECT_REPLACE('x','','large')",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedExecutionExpressionPolicy/SELECT_SET_CONFIG('timezone','UTC',false)",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedExecutionExpressionPolicy/SELECT_RANDOM()",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedExecutionExpressionPolicy/SELECT_ROUND(1.0,2147483647)",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedExecutionExpressionPolicy/SELECT_ROUND(1.0,1+1)",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedExecutionExpressionPolicy/SELECT_CAST('x'_AS_CHAR(65537))",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedExecutionExpressionPolicy/SELECT_*_FROM_generate_series(1,1000000000)",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedExecutionExpressionPolicy/WITH_RECURSIVE_n_AS_(SELECT_1_UNION_ALL_SELECT_1_FROM_n)_SELECT_*_FROM_n",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedExecutionExpressionPolicy/SELECT_*_FROM_information_schema.tables",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedExecutionExpressionPolicy",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedExecutionRejectsExpandingValuesAndViewChange",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionIPCBoundedReplay",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionIPCOutputTypesAndEmpty",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionIPCRejectsCompressionAndFraming",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionIPCRejectsOversizedMetadataBeforeDecode/schema-vector",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionIPCRejectsOversizedMetadataBeforeDecode/row-count",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionIPCRejectsOversizedMetadataBeforeDecode/body-length",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionIPCRejectsOversizedMetadataBeforeDecode/buffer-offset",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionIPCRejectsOversizedMetadataBeforeDecode",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedOptionsRejectInvalidWithoutChangingPolicy",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedControlPolicyPreservesPersistentQuotas",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionReaderBatchingAndLocalRelease",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionReaderCancellationAndOwnerClose",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionReaderMidReadFailure/revoke",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionReaderMidReadFailure/evict-manifest",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionReaderMidReadFailure/corrupt-chunk",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionReaderMidReadFailure/wrong-rows",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionReaderMidReadFailure/wrong-schema",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionReaderMidReadFailure",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionReaderCloseRace",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionReaderExpiryBetweenChunks",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionReaderProcessHelper",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionReaderIndependentProcess",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedSourceRESPDefaultAndBoundedReads",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedSourceRESPRejectsOversizedValue",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedSourceRESPCumulativeReadBudget",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedSourceRESPPreservesTLSVerification",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedBudgetConcurrentReservation",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedRESPRejectsLengthsBeforeDecoder/$1073741824",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedRESPRejectsLengthsBeforeDecoder/$9223372036854775807",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedRESPRejectsLengthsBeforeDecoder/$9223372036854775808",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedRESPRejectsLengthsBeforeDecoder/$-2",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedRESPRejectsLengthsBeforeDecoder/*1073741824",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedRESPRejectsLengthsBeforeDecoder/%9223372036854775807",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedRESPRejectsLengthsBeforeDecoder/~4097",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedRESPRejectsLengthsBeforeDecoder/>-1",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedRESPRejectsLengthsBeforeDecoder/|-1",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedRESPRejectsLengthsBeforeDecoder/$?",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedRESPRejectsLengthsBeforeDecoder/*?",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedRESPRejectsLengthsBeforeDecoder/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedRESPRejectsLengthsBeforeDecoder",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedRESPFragmentedAndNested",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedRESPSharedAllocationBudgetAndDepth",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedSourceClientPreservesDialerAndIsolation",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedSourceLifetimeInterruptsBlockedIO",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionPublicationAndReplay",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionQuotaRaces",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionRevokeRacingUpload",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionRevokeUsesCompleteJobKeySpace",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionJobQuotaAndCancelledPublication",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionCorruptLeaseCannotExtendOrphanLifetime",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionMissingCorruptAndUnpublished",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionManifestEvictionStopsReplay",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionControlStateDoesNotPolluteApplicationIndexes",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionExpiryAndAbandonedUpload",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionIndependentACL",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionRevokeRepairsMissingOrCorruptMetadata/missing",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionRevokeRepairsMissingOrCorruptMetadata/corrupt",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionRevokeRepairsMissingOrCorruptMetadata",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedPartitionNamespaceAndLimits",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRetainedSourceTopologyIdentityAndMigration",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLPartitionedAggregateExact",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLPartitionedGroupCapRecovery",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLPartitionedWorkersTopKAndCleanup",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLClickBenchFollowupShapes",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLStreamingStringTopK",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionReads",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionStreamingLifecycle",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionReaderPermissions",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionLimitsAndScope",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionTimeZone",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionCapRanges",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionIncrementalLifecycle",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionRuntimeCapDiscovery",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionLiveReadConsistency",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionSQLScope",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionDescriptorValidation",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPartitionCountOption",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPerformance406Profile",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLPostgresCatalogCompatibility",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLCatalogOIDLifecycle",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLCatalogArrayOperations",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestACLForeignIndexDiscovery",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLPrimaryKeyCreate",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLPrimaryKeyAlter",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLPrimaryKeyLifetime",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLPrimaryKeyConcurrent",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRESP3Required/protocol=2",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRESP3Required/protocol=1",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRESP3Required/protocol=0",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRESP3Required/protocol=4",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRESP3Required/protocol=",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRESP3Required/protocol=2&protocol=3",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRESP3Required/protocol=3&protocol=2",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRESP3Required/protocol=2&addr=h2:7001",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRESP3Required",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRESP3NoFallback/cluster=false/REJECT_HELLO",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRESP3NoFallback/cluster=false/RESP2_HELLO",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRESP3NoFallback/cluster=true/REJECT_HELLO",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRESP3NoFallback/cluster=true/RESP2_HELLO",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRESP3NoFallback",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestQ19Profile",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLSubqueryOuterOnlyCondition",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRecursiveCTE",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRecursiveSearchCycle",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRecursiveCTELimits",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLLateral",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLQuantifiedComparisons",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLNaturalJoin",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLGenerateSeries",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRecordValues",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRecordArrow",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRecordStorage",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRecordErrorStates",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRecordValues",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRecordOrder",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRecordArrow",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRecordStorageErrors",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRegex",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRegexBind",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRegexOperatorPrecedence",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRegexOperators",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRegexFunctions",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRegexSubstring",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRegexSimilarTo",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRegexErrors",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRegexSimilarTranslation",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRegexPushdownPlan",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRekeyCloseDuringMove",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRekeyCloseAfterSwitch",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRekeyCloseGivesUp",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRekeyDbtPattern",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRekeyManyPages",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRekeyDefaultOff",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRekeyConnectionOption",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRekeyTempTable",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRekeyFieldsAndCleanup",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRekeyResumes",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRekeyConcurrentStatements",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRekeyLease",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRekeyInformationSchema",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRekeyConcurrentWriters",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRekeyKilled",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRekeyTakeoverWait",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRekeyEarlierRename",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRekeyAbandonedMessages",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRekeyDropAbandoned",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRenamedColumnNames",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLReturningInsert",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLReturningUpdate",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLReturningDelete",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLReturningMerge",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLUpdateRowAssignment",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLReturningStatement",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLReturningBind",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLReturningTemp",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLGroupByRoundedValues",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLGroupByNanoseconds",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIndexValueExact",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestGroupable",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestExactIntSum",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRowValueOperators",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRowValuePushdown",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRowValueKeysetBound",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRowValueHashSet",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRowValueDML",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRowValueDbtDeleteInsert",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRowValueErrors",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLRowValueScale",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRowValueExpressions",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRowValueErrors",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRowSetMatchesLinearScan",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestKeysetBound",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRowSetMatchesRowComparisons",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLScalarAggregateScanEquivalent",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestScalarFixesTryCast",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestScalarFixesModOperator",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestScalarFixesExpUnderflow",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestScalarFixesDateAddDiff",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestScalarMath",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestScalarTrigonometry",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestScalarStrings",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestScalarConditional",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestScalarErrors",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestScalarTrimKeywordColumns",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestScalarPushdownPlan",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestScalarConcat",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestScanArrowValuesAndOwnership",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestScanArrowSkippedAndPartialErrors/offset",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestScanArrowSkippedAndPartialErrors/limit",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestScanArrowSkippedAndPartialErrors/partial",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestScanArrowSkippedAndPartialErrors",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestScanArrowPartialBuilderError",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestHashSliceProjectionCompatibility",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestHashSliceExistenceDiagnosticsAndCancellation",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLScanProjectionBothAPIs",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLScanArrowEarlyReleaseBothAPIs",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestScanProjectionValuesAndErrors",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestScanProjectionFallbacks",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestScanProjectionKeepCancellationAndDiagnostics",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTypedArrowAgainstGeneric/SMALLINT",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTypedArrowAgainstGeneric/INTEGER",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTypedArrowAgainstGeneric/BIGINT",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTypedArrowAgainstGeneric/BOOLEAN",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTypedArrowAgainstGeneric/REAL",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTypedArrowAgainstGeneric/DOUBLE_PRECISION",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTypedArrowAgainstGeneric/VARCHAR",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTypedArrowAgainstGeneric/CHAR(5)",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTypedArrowAgainstGeneric/VARBINARY",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTypedArrowAgainstGeneric/DATE",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTypedArrowAgainstGeneric/TIME(6)",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTypedArrowAgainstGeneric/TIMESTAMP(6)",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTypedArrowAgainstGeneric/TIMESTAMP(6)_WITH_TIME_ZONE",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTypedArrowAgainstGeneric/TIME(6)_WITH_TIME_ZONE",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTypedArrowAgainstGeneric/INTERVAL",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTypedArrowAgainstGeneric/NUMERIC(12,3)",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTypedArrowAgainstGeneric",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTypedProjectionWideDefaultsAndAliases",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTypedWideArrowLifetimeAndErrorOrder/0",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTypedWideArrowLifetimeAndErrorOrder/256",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTypedWideArrowLifetimeAndErrorOrder",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLAliasScopeIssue",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLAliasScopeForms",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLAliasScopeSubqueryPaths",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLAliasScopeDML",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLAliasScopeErrors",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLJoinConditionScopeDML",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLJoinConditionScope",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLLateralScopeErrors",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLSchemaScopeIssue",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLSchemaScopeForms",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLSchemaScopeDML",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLSchemaScopeChecks",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLSchemaScopeErrors",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSearchKeyRepliesPreserveBinaryIdentity/RESP2",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSearchKeyRepliesPreserveBinaryIdentity/RESP3",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSearchKeyRepliesPreserveBinaryIdentity",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSearchKeyRepliesRejectMalformedIdentity",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSearchReplyScanProfile",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSearchCountReplies/RESP2",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSearchCountReplies/RESP3",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSearchCountReplies",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestCursorReplies/RESP2",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestCursorReplies/RESP3",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestCursorReplies",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIndexInfoReplies/RESP2",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIndexInfoReplies/RESP3",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIndexInfoReplies",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestProfileReplies/RESP2",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestProfileReplies/RESP3",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestProfileReplies",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestInSetMatchesLinearScan",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSemiKeyMatchesCompareValues",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTransactionStatements",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLSetSearchPath",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLSetLocal",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLSetParameters",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSessionTimeZoneSet",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSessionTimeZoneFunctions",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSessionTimeZoneIndexAndIsolation",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSessionTimeZoneIngest",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSessionZoneValues",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSessionZonePosixRules",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSessionZoneLosAngeles",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSessionZoneKolkata",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSessionZoneKinds",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRowKeyMatchesCompareValues",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRowKeyParts",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestEqualValuesGroupTogether",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSharedScanExactResults",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSharedScanUnrestrictedCapStillBoundsSort",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSharedScanFallbacksAndPushdown",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSharedScanLifecycle",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSharedScanMeasurement",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSharedScanMultiPageCursor",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLCase",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLHaving",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLCreateTableAs",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLSubqueries",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLScalarSubqueryRows",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLDerivedTablesAndCTEs",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLSubqueryDML",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLInSubqueryHashSet",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLSemiJoins",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLJoins",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLViews",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLAlterTable",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLAlterCleanupResumes",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLInformationSchema",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLLike",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLSetOperations",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLDateTimeFunctions",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLIntervals",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLIntervalBind",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLScanReadsExactValues",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLScanAcrossCursorPages",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLInsertParenthesizedQuery",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncate",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLDropSchemaCascade",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLDropBehaviorKeywords",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLAlterViewRename",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLScalarFunctions",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLScalarFunctionBind",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLMerge",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLUpdateFromDeleteUsing",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLMergeDbt",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLCastShorthand",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLConcatNulls",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLWindowRanking",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLWindowOffsetFunctions",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLWindowAggregates",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLWindowGrouped",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLWindowQueries",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLWindowErrors",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLWindowAcrossPages",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLSelectDistinct",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLQualifiedStar",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLDistinctOnInCorrelatedSubquery",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLInexactConstantPushdown",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLLongInList",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestNextSQLInMemory/select_date('2099-12-31')",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestNextSQLInMemory/select_date(timestamp_'2023-09-02_10:00:00')",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestNextSQLInMemory/select_count(*)",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestNextSQLInMemory/select_count(*)_where_false",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestNextSQLInMemory/select_sum(1),_max(2)",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestNextSQLInMemory/select_count(*)_having_count(*)_=_1",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestNextSQLInMemory/select_count(*)_having_false",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestNextSQLInMemory/select_count(*)_group_by_()",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestNextSQLInMemory/select_count(*)_group_by_grouping_sets_((),_())",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestNextSQLInMemory/select_count(*)_where_false_group_by_1+0",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestNextSQLInMemory/values_(1,'a'),(2,'b')",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestNextSQLInMemory/select_*_from_(values_(1,'a'),(2,'b'))_v(n,s)_order_by_n_desc",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestNextSQLInMemory/values_(null),('2'),(1)",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestNextSQLInMemory/values_(3),(1),(2)_order_by_column1_limit_1+1_offset_1",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestNextSQLInMemory/with_v(x)_as_(values_(1),(2))_select_sum(x)_from_v",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestNextSQLInMemory/values_(1)_union_all_values_(2)",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestNextSQLInMemory/select_1_where_1_in_(values_(1),(2))",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestNextSQLInMemory/select_1_limit_all_offset_null",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestNextSQLInMemory/select_1_limit_null",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestNextSQLInMemory/values_(1),(2),(3)_limit_1.5",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestNextSQLInMemory/with_n(x)_as_(values_(1))_select_1_limit_(select_x_from_n)",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestNextSQLInMemory/select_1_limit_0",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestNextSQLInMemory/select_1_fetch_first_(1+1)_rows_only",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestNextSQLInMemory/select_1_offset_1_rows_fetch_next_1_row_only",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestNextSQLInMemory/select_1_limit_(select_1)",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestNextSQLInMemory",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestNextPaginationErrorsAndRebinding",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestNextSQLIntegration",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLErrorStates",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestStateStatus",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLStateKept",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLDropDuringCreateTableAs",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLDropDuringInsertSelect",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLDropDuringIngest/adbc.ingest.mode.create",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLDropDuringIngest/adbc.ingest.mode.append",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLDropDuringIngest",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLDropDuringTempCreateTableAs",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSameKeys",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLKeyPrefixesNotReused",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestStatisticsManagedCountsAndFilters",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestStatisticsReadOnlyPermissions",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestResolveLegacyMixedCaseColumn",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestStreamByteBudget",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestStreamByteBudgetSettings",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestStreamByteBudgetAccounting",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestScanArrowByteBudget/1",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestScanArrowByteBudget/520",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestScanArrowByteBudget/1024",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestScanArrowByteBudget/9223372036854775807",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestScanArrowByteBudget",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestStreamPageDeadlinePreservesTimeout",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLStreamResults",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSweepReleased",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSweepSkips",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSweepDriverPrefix",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestACLSweep",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTagExactness",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTagLongValues",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTagExactnessJoinsAndDML",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTagLevels",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTagPrefixExpansion",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTagOlderTables",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTagModel",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTemporaryObjectsOption",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTempTables",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTempShadowing",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTempIsolation",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTempViews",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTempDropSchema",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTempDropOnClose",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTempSweep",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTempVisibility",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTempIngest",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTempDML",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestAdoptTextEncoding/own_index",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestAdoptTextEncoding/app_index",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestAdoptTextEncoding",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLForeignIndexDiscovery",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTextEncodingPreservesApplicationFormat",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTextToTypes",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestHashScanTextNumbers",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestParseNumericText",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestParseFloatText",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestParseBoolText",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTextConversionErrors",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestNumberRangeErrors",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLOrderByRoundedValues",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLOrderByRoundedRuns",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLOrderByRoundedAdopted",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTieBound",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTieRuns",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTieWindow",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTimeoutOptions",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestClientURIOptionsTakeEffect",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestRESP3Queries",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestClientURIClusterParamsConnect",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTimeoutServerPaused",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTimeoutParse",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTimeoutResolve",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestClientURIOptions",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestClientURIClusterParams",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestClusterOptionsCopiesEverySetting",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTimeoutMessages",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTimeoutExecAbortMessage",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTimeoutNoReply",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTimeoutNotRetried",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestErrorHookStructuredADBCError/false",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestErrorHookStructuredADBCError/true",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestErrorHookStructuredADBCError",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTimestampTextOffsetSQL",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTimestampTextOffsetIngest",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTimestampTextOffset",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestParseTimestampOffset",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTimeTZColumns",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTimeTZSessionZoneColumns",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTimeTZIngestAndBind",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTimeTZText",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTimeTZCompare",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTimeTZFunctions",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTimeTZSessionZone",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTimeTZColumnType",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTimeTZRangeFrame",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestZoneAbbrevs",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestAtTimeZone",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestAtTimeZoneDST",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTimeZoneNames",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestPosixZoneRules",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestAtTimeZoneErrors",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestAtTimeZoneParse",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTimeZoneCaseInsensitive",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestExplicitTLSRoots",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTransportDeadlineBoundsBlockedCommandAndPipeline/resp2/read=0s/cluster=false/command",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTransportDeadlineBoundsBlockedCommandAndPipeline/resp2/read=0s/cluster=false/pipeline",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTransportDeadlineBoundsBlockedCommandAndPipeline/resp2/read=0s/cluster=false/cursor",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTransportDeadlineBoundsBlockedCommandAndPipeline/resp2/read=0s/cluster=true/command",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTransportDeadlineBoundsBlockedCommandAndPipeline/resp2/read=0s/cluster=true/pipeline",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTransportDeadlineBoundsBlockedCommandAndPipeline/resp2/read=0s/cluster=true/cursor",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTransportDeadlineBoundsBlockedCommandAndPipeline/resp2/read=1m0s/cluster=false/command",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTransportDeadlineBoundsBlockedCommandAndPipeline/resp2/read=1m0s/cluster=false/pipeline",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTransportDeadlineBoundsBlockedCommandAndPipeline/resp2/read=1m0s/cluster=false/cursor",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTransportDeadlineBoundsBlockedCommandAndPipeline/resp2/read=1m0s/cluster=true/command",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTransportDeadlineBoundsBlockedCommandAndPipeline/resp2/read=1m0s/cluster=true/pipeline",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTransportDeadlineBoundsBlockedCommandAndPipeline/resp2/read=1m0s/cluster=true/cursor",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTransportDeadlineBoundsBlockedCommandAndPipeline/resp3/read=0s/cluster=false/command",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTransportDeadlineBoundsBlockedCommandAndPipeline/resp3/read=0s/cluster=false/pipeline",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTransportDeadlineBoundsBlockedCommandAndPipeline/resp3/read=0s/cluster=false/cursor",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTransportDeadlineBoundsBlockedCommandAndPipeline/resp3/read=0s/cluster=true/command",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTransportDeadlineBoundsBlockedCommandAndPipeline/resp3/read=0s/cluster=true/pipeline",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTransportDeadlineBoundsBlockedCommandAndPipeline/resp3/read=0s/cluster=true/cursor",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTransportDeadlineBoundsBlockedCommandAndPipeline/resp3/read=1m0s/cluster=false/command",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTransportDeadlineBoundsBlockedCommandAndPipeline/resp3/read=1m0s/cluster=false/pipeline",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTransportDeadlineBoundsBlockedCommandAndPipeline/resp3/read=1m0s/cluster=false/cursor",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTransportDeadlineBoundsBlockedCommandAndPipeline/resp3/read=1m0s/cluster=true/command",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTransportDeadlineBoundsBlockedCommandAndPipeline/resp3/read=1m0s/cluster=true/pipeline",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTransportDeadlineBoundsBlockedCommandAndPipeline/resp3/read=1m0s/cluster=true/cursor",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestTransportDeadlineBoundsBlockedCommandAndPipeline",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestExecutionTransportInterruptsBlockedRead/cluster=false/timeout=0s/command/owner=false",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestExecutionTransportInterruptsBlockedRead/cluster=false/timeout=0s/command/owner=true",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestExecutionTransportInterruptsBlockedRead/cluster=false/timeout=0s/pipeline/owner=false",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestExecutionTransportInterruptsBlockedRead/cluster=false/timeout=0s/pipeline/owner=true",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestExecutionTransportInterruptsBlockedRead/cluster=false/timeout=0s/cursor/owner=false",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestExecutionTransportInterruptsBlockedRead/cluster=false/timeout=0s/cursor/owner=true",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestExecutionTransportInterruptsBlockedRead/cluster=false/timeout=1m0s/command/owner=false",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestExecutionTransportInterruptsBlockedRead/cluster=false/timeout=1m0s/command/owner=true",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestExecutionTransportInterruptsBlockedRead/cluster=false/timeout=1m0s/pipeline/owner=false",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestExecutionTransportInterruptsBlockedRead/cluster=false/timeout=1m0s/pipeline/owner=true",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestExecutionTransportInterruptsBlockedRead/cluster=false/timeout=1m0s/cursor/owner=false",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestExecutionTransportInterruptsBlockedRead/cluster=false/timeout=1m0s/cursor/owner=true",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestExecutionTransportInterruptsBlockedRead/cluster=true/timeout=0s/command/owner=false",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestExecutionTransportInterruptsBlockedRead/cluster=true/timeout=0s/command/owner=true",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestExecutionTransportInterruptsBlockedRead/cluster=true/timeout=0s/pipeline/owner=false",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestExecutionTransportInterruptsBlockedRead/cluster=true/timeout=0s/pipeline/owner=true",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestExecutionTransportInterruptsBlockedRead/cluster=true/timeout=0s/cursor/owner=false",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestExecutionTransportInterruptsBlockedRead/cluster=true/timeout=0s/cursor/owner=true",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestExecutionTransportInterruptsBlockedRead/cluster=true/timeout=1m0s/command/owner=false",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestExecutionTransportInterruptsBlockedRead/cluster=true/timeout=1m0s/command/owner=true",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestExecutionTransportInterruptsBlockedRead/cluster=true/timeout=1m0s/pipeline/owner=false",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestExecutionTransportInterruptsBlockedRead/cluster=true/timeout=1m0s/pipeline/owner=true",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestExecutionTransportInterruptsBlockedRead/cluster=true/timeout=1m0s/cursor/owner=false",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestExecutionTransportInterruptsBlockedRead/cluster=true/timeout=1m0s/cursor/owner=true",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestExecutionTransportInterruptsBlockedRead",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestExecutionTransportChildCancellation",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateDuringInsertSelect/continue",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateDuringInsertSelect/restart",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateDuringInsertSelect",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateDuringCreateTableAs/continue",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateDuringCreateTableAs/restart",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateDuringCreateTableAs",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateDuringIngest/adbc.ingest.mode.create/continue",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateDuringIngest/adbc.ingest.mode.create/restart",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateDuringIngest/adbc.ingest.mode.append/continue",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateDuringIngest/adbc.ingest.mode.append/restart",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateDuringIngest/one_pipeline/continue",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateDuringIngest/one_pipeline/restart",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateDuringIngest",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateDuringTempCreateTableAs/continue",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateDuringTempCreateTableAs/restart",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateDuringTempCreateTableAs",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateRestartLateWrite",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateDuringAddColumn",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLAddColumnDuringTruncate",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateAllOrNone",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLDropDuringTruncate",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestUnionAllStream",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestUnionAllStreamSemantics",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestUnionAllStreamLifecycle",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestUnionAllStreamFallback",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLUnknownLiterals",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLUnknownLiteralWrites",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLUnknownLiteralTimeZones",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLUnknownLiteralParams",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLUnknownOperands",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLUnknownOperandErrors",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLUnknownOperandWrites",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLUnknownOperandParams",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestUnknownOperandTypes",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestUnknownOperandErrors",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestUnknownOperandValues",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestUnknownLiteralFlag",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestUnknownLiteralTypes",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestUnknownLiteralErrors",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestUnknownLiteralValues",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestUnknownLiteralSetOps",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestIssue187SetOperationTypes",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateOrDropDuringUpdate/UPDATE/TRUNCATE_continue",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateOrDropDuringUpdate/UPDATE/TRUNCATE_restart",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateOrDropDuringUpdate/UPDATE/DROP",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateOrDropDuringUpdate/UPDATE_FROM/TRUNCATE_continue",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateOrDropDuringUpdate/UPDATE_FROM/TRUNCATE_restart",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateOrDropDuringUpdate/UPDATE_FROM/DROP",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateOrDropDuringUpdate/MERGE_UPDATE/TRUNCATE_continue",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateOrDropDuringUpdate/MERGE_UPDATE/TRUNCATE_restart",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateOrDropDuringUpdate/MERGE_UPDATE/DROP",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateOrDropDuringUpdate/MERGE_INSERT/TRUNCATE_continue",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateOrDropDuringUpdate/MERGE_INSERT/TRUNCATE_restart",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateOrDropDuringUpdate/MERGE_INSERT/DROP",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateOrDropDuringUpdate",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateOrDropDuringDelete/DELETE/TRUNCATE_continue/checks=false",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateOrDropDuringDelete/DELETE/TRUNCATE_continue/checks=true",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateOrDropDuringDelete/DELETE/TRUNCATE_restart/checks=false",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateOrDropDuringDelete/DELETE/TRUNCATE_restart/checks=true",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateOrDropDuringDelete/DELETE/DROP/checks=false",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateOrDropDuringDelete/DELETE/DROP/checks=true",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateOrDropDuringDelete/MERGE_DELETE/TRUNCATE_continue/checks=false",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateOrDropDuringDelete/MERGE_DELETE/TRUNCATE_continue/checks=true",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateOrDropDuringDelete/MERGE_DELETE/TRUNCATE_restart/checks=false",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateOrDropDuringDelete/MERGE_DELETE/TRUNCATE_restart/checks=true",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateOrDropDuringDelete/MERGE_DELETE/DROP/checks=false",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateOrDropDuringDelete/MERGE_DELETE/DROP/checks=true",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLTruncateOrDropDuringDelete",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestUsageOptOutDefaults/enabled=",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestUsageOptOutDefaults/enabled=true",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestUsageOptOutDefaults",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestUsageDisabledAndValidation",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestUsageQueryLifecycleAndPrivacy",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestUsageReaderLateErrorsAndCancellation",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestUsageFeaturesAndConcurrency",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestUsageReportingRetriesAndNoRedirect",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestUsageRedisIntegration",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestSQLWideHashFetchBothAPIs",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWideHashFetchSelection/unordered",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWideHashFetchSelection/implicit_order",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWideHashFetchSelection/narrow",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWideHashFetchSelection/half_omitted",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWideHashFetchSelection/exact_load",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWideHashFetchSelection/residual",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWideHashFetchSelection/ties",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWideHashFetchSelection/late",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWideHashFetchSelection/limit",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWideHashFetchSelection/descending",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWideHashFetchSelection/other_sort",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWideHashFetchSelection/adopted",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWideHashFetchSelection/key_rows",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWideHashFetchSelection/foreign",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWideHashFetchSelection/application_index",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWideHashFetchSelection/moving",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWideHashFetchSelection",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWideFetchCancelledBetweenBatches",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestAggregateWorkerConcurrencyProfile",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWorkerBudgetRuntimeAndCeiling",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWorkerBudgetFIFOAndSharing",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWorkerBudgetCancellationAndResize",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWorkerBudgetCancellationGrantRace",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWorkerBudgetOptions",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWorkerBudgetConcurrentLimit",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWorkerBudgetDeadline",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestAggregateWorkerMixedProbe",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWorkerTunerMeasuredWorkloads/CPU_bound",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWorkerTunerMeasuredWorkloads/IO_bound",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWorkerTunerMeasuredWorkloads/diminishing_returns",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWorkerTunerMeasuredWorkloads/concurrent_contention",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWorkerTunerMeasuredWorkloads",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWorkerTunerNoiseCapacityAndPressure",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWorkerTunerCohortAndFailedCleanup",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWorkerTunerContinuousTraffic",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWorkerTunerExplicitCeilings",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWorkerTunerTailAndRedisChanges",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWorkerTunerPartitionBound",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWorkerTunerRejectsDriftAndBursts",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWorkerTunerWorkloadCache",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWorkerTunerContinuousTransitionRecovery",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWorkerTunerResetWithOutstandingLease",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWorkerTunerAbandonsIncomparableProbe",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWorkerTunerSustainedMixedProbe",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWorkerTunerCachedCapacityReason",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "TestWorkerTunerAbandonPreservesAdmission",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "FuzzRetainedPartitionIPC/seed#0",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "FuzzRetainedPartitionIPC/seed#1",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "FuzzRetainedPartitionIPC/seed#2",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "FuzzRetainedPartitionIPC",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "FuzzRetainedRESPAdmission/seed#0",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "FuzzRetainedRESPAdmission/seed#1",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "FuzzRetainedRESPAdmission/seed#2",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "FuzzRetainedRESPAdmission/seed#3",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "FuzzRetainedRESPAdmission/seed#4",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go",
+      "Test": "FuzzRetainedRESPAdmission",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go/cmd/redis-adbc",
+      "Test": "TestCommandLineErrors",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go/cmd/redis-adbc",
+      "Test": "TestCheckCommand",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go/cmd/redis-adbc",
+      "Test": "TestCopyCommand",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go/cmd/redis-adbc",
+      "Test": "TestAdoptCommand",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go/cmd/redis-adbc",
+      "Test": "TestSweepCommand",
+      "Action": "skip"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go/internal/benchproxy",
+      "Test": "TestFrameSegmentationAndCoalescing",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go/internal/benchproxy",
+      "Test": "TestFrameInvalidLengthAndTerminator",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go/internal/benchproxy",
+      "Test": "TestCommandDelayScope",
+      "Action": "pass"
+    },
+    {
+      "Package": "github.com/adbc-drivers/redis/go/internal/benchproxy",
+      "Test": "TestPipelineDelayCountsAndWirePreservation",
+      "Action": "pass"
+    }
+  ]
+}

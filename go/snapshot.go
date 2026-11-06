@@ -504,15 +504,16 @@ func (s *store) snapshotControl(ctx context.Context, op, token, id, base string,
 }
 
 type snapshotPin struct {
-	ctx         context.Context
-	store       *store
-	token, root string
-	mu          sync.Mutex
-	workspace   string
-	err         error
-	stop        chan struct{}
-	done        chan struct{}
-	once        sync.Once
+	ctx          context.Context
+	store        *store
+	token, root  string
+	mu           sync.Mutex
+	workspace    string
+	err          error
+	materialized bool // under mu; preserve the materialized-reader expiry SQLSTATE
+	stop         chan struct{}
+	done         chan struct{}
+	once         sync.Once
 }
 
 func (s *store) acquireSnapshot(ctx context.Context, writing ...bool) (context.Context, *snapshotPin, error) {
@@ -593,6 +594,9 @@ func (p *snapshotPin) heartbeat() {
 			if err != nil || n != 1 {
 				p.mu.Lock()
 				p.err = errorf(adbc.StatusIO, "statement snapshot lease lost; retry the statement")
+				if err == nil && id == "" && p.materialized {
+					p.err = matviewLeaseExpired()
+				}
 				p.mu.Unlock()
 				return
 			}
@@ -609,6 +613,7 @@ func (p *snapshotPin) valid(ctx context.Context) error {
 	}
 	p.mu.Lock()
 	err := p.err
+	materialized := p.materialized
 	p.mu.Unlock()
 	if err != nil {
 		return err
@@ -618,6 +623,9 @@ func (p *snapshotPin) valid(ctx context.Context) error {
 		return wrapRedis(err, "failed to validate statement snapshot")
 	}
 	if n != 1 {
+		if materialized {
+			return matviewLeaseExpired()
+		}
 		return errorf(adbc.StatusIO, "statement snapshot expired; retry the statement")
 	}
 	return nil

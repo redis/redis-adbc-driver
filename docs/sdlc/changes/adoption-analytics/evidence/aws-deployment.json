@@ -1,0 +1,78 @@
+{
+  "date": "2026-11-05",
+  "account": "735486936198",
+  "region": "us-east-1",
+  "terraform": {
+    "created": 14,
+    "tag_updates": 5,
+    "backend": "s3://redis-adbc-telemetry-735486936198-us-east-1/terraform/terraform.tfstate",
+    "native_state_locking": true,
+    "final_drift_check": "no changes"
+  },
+  "source_commit": "be6c31ed026e9f915615fa4da29c5dfc21e620b0",
+  "endpoint": "https://adbc-telemetry.sa.redislabs.com/v1/usage",
+  "instance": "i-0a0f07f12f13d4b52",
+  "public_ip": "100.29.239.174",
+  "root_volume": "vol-017c9a32f74253fcf",
+  "security_group": "sg-0732e802aae18e1bd",
+  "backup_bucket": "redis-adbc-telemetry-735486936198-us-east-1",
+  "storage": "Redis 8.10.3 from official Redis apt repository",
+  "rds_resources_created": 0,
+  "http_checks": {
+    "health": 200,
+    "first_report": {
+      "status": 200,
+      "accepted": true
+    },
+    "duplicate_report": {
+      "status": 200,
+      "accepted": false
+    },
+    "sql_payload_rejected": 400,
+    "unauthenticated_summary": 401,
+    "authenticated_summary": 200
+  },
+  "go_driver_hosted_endpoint": "passed with race detector; default endpoint and no client secret",
+  "services_active": [
+    "redis-server",
+    "redis-adbc-analytics",
+    "nginx"
+  ],
+  "timers_enabled": [
+    "redis-adbc-backup.timer",
+    "certbot.timer"
+  ],
+  "real_s3_restore": {
+    "key": "backups/2026/11/05/20261105T170541.821453Z.rdb.gz",
+    "sha256": "05888b267bbff5d4f19268e29c1578a3b0d5dc2ee2ea018403a0f345ac266c4e",
+    "rdb_bytes": 51728,
+    "s3_encryption": "AES256",
+    "s3_version": "07iueLL9Xob1lbPLhy.T3WWkTkn.IXHM",
+    "rdb_check": "passed",
+    "isolated_redis_load": "passed",
+    "smoke_reports_present": true
+  },
+  "tags": {
+    "Project": "redis-adbc-driver",
+    "Purpose": "Product usage feedback",
+    "ManagedBy": "Terraform",
+    "Owner": "Albert Wong",
+    "Name": "resource-specific"
+  },
+  "ci_telemetry": "disabled in validation workflows and Go TestMain to avoid metric pollution",
+  "limitations": [
+    "single-server deployment; hourly S3 backup RPO",
+    "Redis live history has no automatic expiry",
+    "Public self-reported reports are unverified",
+    "Initial pre-opt-out CI/validation traffic may be included in unattributed metrics"
+  ],
+  "synthetic_cleanup": {
+    "sessions": 2,
+    "reports": 3,
+    "unlabeled_usage_preserved": true
+  },
+  "redis_persistence": {
+    "appendonly": "yes",
+    "maxmemory-policy": "noeviction"
+  }
+}

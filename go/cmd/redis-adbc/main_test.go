@@ -304,6 +304,8 @@ func TestAdoptCommand(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
+	// Keep ordinary test and subprocess traffic out of hosted product metrics.
+	os.Setenv("REDIS_ADBC_TELEMETRY_DISABLED", "true")
 	if err := testenv.SetupRoots(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

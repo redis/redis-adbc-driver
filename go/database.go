@@ -31,6 +31,8 @@ import (
 type databaseImpl struct {
 	snapshots                   bool
 	snapshotCompactionDisabled  bool // internal deterministic protocol-test fixture only
+	flex                        bool
+	usage                       usageState
 	rbac                        *rbacManager
 	retainedNamespace           string
 	partitionControlPersistence string
@@ -267,6 +269,30 @@ func (d *databaseImpl) dial(ctx context.Context) (client goredis.UniversalClient
 }
 
 func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, error) {
+	if d.snapshots && d.flex && !d.readerOnly {
+		return nil, errorf(adbc.StatusNotImplemented, "managed-table statement snapshots require sortable indexes and aggregate cursors; Redis Flex snapshot execution is not supported")
+	}
+	if d.flex && d.foreignIndexes {
+		return nil, flexUnsupported("foreign_indexes")
+	}
+	u, err := d.usage.start()
+	if err != nil {
+		return nil, err
+	}
+	if u != nil {
+		if v, ok := d.DriverInfo.GetInfoForInfoCode(adbc.InfoDriverVersion); ok {
+			u.mu.Lock()
+			u.data.DriverVersion, _ = v.(string)
+			u.mu.Unlock()
+		}
+	}
+	ok := false
+	defer func() {
+		if u != nil {
+			u.connection(ok)
+		}
+	}()
+
 	if d.readerOnly && d.retainedNamespace == "" {
 		return nil, errorf(adbc.StatusInvalidArgument, "reader-only partitions require an explicit result namespace")
 	}
@@ -280,7 +306,7 @@ func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, er
 			_ = client.Close()
 			return nil, errorf(adbc.StatusNotImplemented, "the Redis server does not provide the search (RediSearch) module: %v", err)
 		}
-		if err := st.refuseFlex(ctx); err != nil {
+		if err := st.configureSearch(ctx, d.flex); err != nil {
 			_ = client.Close()
 			return nil, err
 		}
@@ -315,6 +341,13 @@ func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, er
 	if st.snapshots {
 		st.sweepTemp(ctx)
 	}
+	if !d.readerOnly {
+		// Retired generations are garbage, not pending catalog changes. Like
+		// temporary-object cleanup, collection must not prevent a restricted
+		// reader from connecting. Keep retirement records for an authorized
+		// connection to retry when cleanup commands are denied or fail.
+		_ = st.collectMatviews(ctx)
+	}
 	st.foreignIndexes = d.foreignIndexes
 	if st.snapshots && d.foreignIndexes {
 		if err := st.refreshSnapshotForeign(ctx, false); err != nil {
@@ -323,6 +356,7 @@ func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, er
 		}
 	}
 	conn := &connectionImpl{
+		usage:              u,
 		ConnectionImplBase: driverbase.NewConnectionImplBase(&d.DatabaseImplBase),
 		store:              st,
 		rbac:               d.rbac,
@@ -346,6 +380,7 @@ func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, er
 	if st.snapshots && !d.snapshotCompactionDisabled {
 		st.startSnapshotCompactor(cfg, t)
 	}
+	ok = true
 	return driverbase.NewConnectionBuilder(conn).
 		WithCurrentNamespacer(conn).
 		WithDriverInfoPreparer(conn).
@@ -357,17 +392,14 @@ func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, er
 // flexProbeIndex is an index name the driver never creates.
 const flexProbeIndex = "adbc:{meta}:probe"
 
-// refuseFlex fails on Redis Flex (RAM + flash) databases, before anything
-// is written. Search on Flex has no FT.AGGREGATE and no NUMERIC fields (the
-// Redis Cloud Pro Preview, and Redis Software 8.2 with Search 8.6, which
-// also lacks SORTABLE), and every table needs them. Asking for a missing
-// index tells Flex apart: other servers answer "No such index", so a Flex
-// release that adds FT.AGGREGATE passes.
+// refuseFlex preserves the legacy default-mode guard for older deployments.
+// A missing-index reply does not certify sortable/cursor support on newer Flex
+// builds. Flex users must select the explicit, positively probed stopgap mode.
 func (s *store) refuseFlex(ctx context.Context) error {
 	err := s.searchDo(ctx, flexProbeIndex, "FT.AGGREGATE", flexProbeIndex, "*", "LIMIT", 0, 0).Err()
 	if err != nil && strings.Contains(err.Error(), "not supported in Redis Flex") {
-		return errorf(adbc.StatusNotImplemented, "Redis Flex databases are not supported: their search has no "+
-			"FT.AGGREGATE and no NUMERIC or SORTABLE fields, which the driver needs (%v)", err)
+		return errorf(adbc.StatusNotImplemented, "default execution requires sortable indexes and aggregate cursors; "+
+			"set adbc.redis.flex=true to probe the experimental Flex stopgap (%v)", err)
 	}
 	return nil
 }
@@ -427,6 +459,7 @@ func clusterParamsError(params []string, why string) error {
 }
 
 func (d *databaseImpl) Close(ctx context.Context) error {
+	d.usage.close()
 	if d.rbac != nil {
 		d.rbac.client.CloseIdleConnections()
 	}
@@ -434,6 +467,12 @@ func (d *databaseImpl) Close(ctx context.Context) error {
 }
 
 func (d *databaseImpl) GetOption(ctx context.Context, key string) (string, error) {
+	if key == OptionStringFlex {
+		return strconv.FormatBool(d.flex), nil
+	}
+	if strings.HasPrefix(key, usagePrefix) {
+		return d.usage.get(key)
+	}
 	switch key {
 	case OptionStringStatementSnapshots:
 		return strconv.FormatBool(d.snapshots), nil
@@ -498,6 +537,15 @@ func (d *databaseImpl) GetOption(ctx context.Context, key string) (string, error
 }
 
 func (d *databaseImpl) SetOption(ctx context.Context, key, value string) error {
+	if key == OptionStringTelemetryFlush {
+		if value != "true" {
+			return errorf(adbc.StatusInvalidArgument, "telemetry flush must be true")
+		}
+		return d.usage.flush(ctx)
+	}
+	if strings.HasPrefix(key, usagePrefix) {
+		return d.usage.set(key, value)
+	}
 	switch key {
 	case OptionStringStatementSnapshots:
 		if value != "true" {
@@ -537,6 +585,11 @@ func (d *databaseImpl) SetOption(ctx context.Context, key, value string) error {
 			return errorf(adbc.StatusInvalidArgument, "invalid retained result limits")
 		}
 		d.retainedLimits = limits
+	case OptionStringFlex:
+		if value != "true" && value != "false" {
+			return errorf(adbc.StatusInvalidArgument, "flex must be true or false")
+		}
+		d.flex = value == "true"
 	case OptionStringForeignIndexes:
 		v, err := parseForeignIndexes(value)
 		if err != nil {

@@ -1,0 +1,28 @@
+{
+  "cache_control": "no host-wide cache eviction; first scan after loading and subsequent tiered scans, not guaranteed cold OS page cache",
+  "flex_max_page_rows": 10000,
+  "payload_bytes": 614400000,
+  "payload_bytes_per_row": 4096,
+  "rows": 150000,
+  "source": "Software Flex only; fixture loading excluded from query measurements",
+  "storage_after": {
+    "used_memory": 726017453,
+    "used_memory_lua": 41984,
+    "used_memory_peak": 732475389,
+    "used_memory_rss": 726017453
+  },
+  "storage_before": {
+    "used_memory": 144773001,
+    "used_memory_lua": 41984,
+    "used_memory_peak": 729661557,
+    "used_memory_rss": 144773001
+  },
+  "stream_batch_bytes": 8388608,
+  "trials_per_concurrency": 3,
+  "validation": "every field of every row on every worker; exact ascending ID and SHA256-derived payload oracle",
+  "workers": [
+    1,
+    2,
+    4
+  ]
+}

@@ -39,6 +39,7 @@ import (
 // The fields are loaded last, so only the rows that survive sorting and
 // limiting are read.
 type aggRequest struct {
+	meta       *tableMeta
 	visibility []snapshotIndexQuery
 	index      string
 	query      string
@@ -182,6 +183,7 @@ type aggCursor struct {
 	node     searchConn
 	index    string
 	count    int
+	bounded  *rangeReader
 	// first is the page the pipeline returned, until next returns it.
 	first   []aggRow
 	pending bool
@@ -201,6 +203,9 @@ func (s *store) openAggregate(ctx context.Context, req *aggRequest) (*aggCursor,
 			sources = append(sources, copy)
 		}
 		return &aggCursor{store: s, sources: sources}, nil
+	}
+	if s.flex {
+		return s.openRangeReader(ctx, req)
 	}
 	maxRows := int64(0)
 	if len(req.sortBy) > 0 {
@@ -268,6 +273,9 @@ func (c *aggCursor) next(ctx context.Context) ([]aggRow, error) {
 		}
 		return nil, io.EOF
 	}
+	if c.bounded != nil {
+		return c.bounded.next(ctx)
+	}
 	if c.pending {
 		c.pending = false
 		page := c.first
@@ -311,6 +319,10 @@ func (c *aggCursor) close(ctx context.Context) {
 	}
 	if c.sources != nil {
 		c.source = len(c.sources)
+	}
+	if c.bounded != nil {
+		c.bounded.closed = true
+		c.bounded.ranges = nil
 	}
 	if c.cursor != 0 {
 		cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), cursorCleanupTimeout)

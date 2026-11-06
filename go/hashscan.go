@@ -66,7 +66,7 @@ func dialHashesMode(ctx context.Context, options map[string]string, reap bool) (
 		_ = db.Base().Close(ctx)
 		return nil, err
 	}
-	c := &hashConn{db: db, client: client, st: &store{client: client}}
+	c := &hashConn{db: db, client: client, st: &store{client: client, flex: db.flex}}
 	n, err := client.Exists(ctx, snapshotCatalogKey).Result()
 	if err != nil {
 		c.close(ctx)

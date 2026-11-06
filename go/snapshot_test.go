@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/apache/arrow-adbc/go/adbc"
 	"github.com/apache/arrow-go/v18/arrow/memory"
 	goredis "github.com/redis/go-redis/v9"
 )
@@ -112,6 +113,14 @@ func TestSnapshotAlwaysEnabled(t *testing.T) {
 	}
 	if !db.snapshots {
 		t.Fatal("rejected disable changed snapshot state")
+	}
+}
+
+func TestSnapshotFlexExecutionRefusesBeforeDial(t *testing.T) {
+	db := &databaseImpl{snapshots: true, flex: true}
+	conn, err := db.Open(context.Background())
+	if conn != nil || !isStatus(err, adbc.StatusNotImplemented) || !strings.Contains(err.Error(), "Redis Flex snapshot execution is not supported") {
+		t.Fatal("unverified Flex execution was admitted or attempted a connection", err)
 	}
 }
 

@@ -35,6 +35,8 @@ redis_version=${FLEX_REDIS_VERSION:-8.8}
 # The database's size and the part of it kept in RAM; the rest is on flash.
 memory_mb=${FLEX_MEMORY_MB:-1024}
 ram_mb=${FLEX_RAM_MB:-256}
+shards=${FLEX_SHARDS:-1}
+case $shards in 1|3) ;; *) echo "FLEX_SHARDS must be 1 or 3" >&2; exit 1 ;; esac
 db_name=adbc-flex
 db_pass=${FLEX_DB_PASSWORD:-adbc-enterprise-test}
 tls_dir="$PWD/build/flex-test-tls"
@@ -48,6 +50,8 @@ if [ ! -s "$tls_dir/server.key" ] || ! openssl x509 -checkend 86400 -noout -in "
     chmod 600 "$tls_dir/server.key"
 fi
 
+# Public CA only; keep the private key at 0600.
+chmod 644 "$tls_dir/ca.pem"
 
 api="https://localhost:$api_port/v1"
 # The cluster's certificate is self-signed.
@@ -112,19 +116,20 @@ if [ -z "$uid" ]; then
 	# Flex on Software 8.2.6 needs Redis 8.8 or later.
 	# The port is the container's; compose maps FLEX_DB_PORT to it.
 	body=$(jq -n --arg name "$db_name" --arg version "$redis_version" --arg pass "$db_pass" \
-		--argjson memory "$((memory_mb * 1024 * 1024))" --argjson ram "$((ram_mb * 1024 * 1024))" '{
+		--argjson memory "$((memory_mb * 1024 * 1024))" --argjson ram "$((ram_mb * 1024 * 1024))" --argjson shards "$shards" '{
 		name: $name,
 		type: "redis",
 		redis_version: $version,
 		port: 12000,
 		memory_size: $memory,
 		query_performance_factor: {active: true, scaling_factor: 4},
-		bigstore: true,
+		bigstore: true, eviction_policy: "noeviction",
         tls_mode: "enabled", enforce_client_authentication: "disabled",
         authentication_redis_pass: $pass,
 		bigstore_ram_size: $ram,
+		shards_count: $shards, sharding: ($shards > 1),
 		search_on_bigstore: true
-	}')
+	} + if $shards > 1 then {shard_key_regex:[{regex:".*\\{(?<tag>.*)\\}.*"},{regex:"(?<tag>.*)"}]} else {} end')
 	# A just-created cluster refuses new databases (406) for a few seconds.
 	create() {
 		last_reply=$(call -X POST "$api/bdbs" -d "$body") || return 1
@@ -135,6 +140,14 @@ if [ -z "$uid" ]; then
 fi
 active() { [ "$(call -f "$api/bdbs/$uid" | jq -r .status)" = active ]; }
 wait_for "database $db_name" active
+if ! call -f "$api/bdbs/$uid" | jq -e --argjson shards "$shards" '.shards_count == $shards' >/dev/null; then
+    echo 'Existing Flex database has a different shard count; use a fresh owned fixture.' >&2
+    exit 1
+fi
+if ! call -f "$api/bdbs/$uid" | jq -e '.eviction_policy == "noeviction"' >/dev/null; then
+    echo 'Existing Flex test fixture must use noeviction; use a fresh owned fixture.' >&2
+    exit 1
+fi
 source ./software-qpf.sh
 software_qpf_4x
 

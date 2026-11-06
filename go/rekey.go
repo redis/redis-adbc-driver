@@ -148,7 +148,8 @@ type rekeyJob struct {
 	Recovering bool `json:"recovering,omitempty"`
 	// Rewrite is set for ALTER COLUMN … TYPE, which moves the rows to new
 	// keys of the same table (From = To), converted (see alter_type.go).
-	Rewrite bool `json:"rewrite,omitempty"`
+	Rewrite    bool `json:"rewrite,omitempty"`
+	PlainIndex bool `json:"plain_index,omitempty"`
 
 	// lease is held by the connection running the job.
 	lease *lease
@@ -316,7 +317,7 @@ func (s *store) beginMove(ctx context.Context, schema, from, to string, rewrite 
 			}
 			job = &rekeyJob{Schema: schema, From: from, To: to, OldPrefix: cur.KeyPrefix, OldIndex: cur.IndexName,
 				KeyPrefix: names.prefix, IndexName: names.index, OldPrefixGen: cur.PrefixGen, Owner: owner,
-				Rewrite: rewrite != nil}
+				Rewrite: rewrite != nil, PlainIndex: cur.PlainIndex}
 			start = *cur
 			cur.RekeyTo, cur.Rewriting = names.prefix, rewrite != nil
 			rawMeta, err := marshalMeta(cur)
@@ -571,7 +572,7 @@ func (s *store) moveRows(ctx context.Context, job *rekeyJob, start *tableMeta, f
 	// The index name was free in the registry, so an index with that name is
 	// left over from an interrupted CREATE/DROP and can be discarded
 	// (freeNames skips names whose index isn't one, see foreignIndex).
-	_ = s.searchDo(ctx, job.IndexName, "FT.DROPINDEX", job.IndexName, "DD").Err()
+	_ = s.dropOwnedIndex(ctx, job.IndexName, job.KeyPrefix, job.PlainIndex)
 	if err := s.searchDo(ctx, job.IndexName, indexCreateArgs(&target)...).Err(); err != nil {
 		return wrapRedis(err, "failed to create the new search index")
 	}
@@ -579,6 +580,14 @@ func (s *store) moveRows(ctx context.Context, job *rekeyJob, start *tableMeta, f
 	case <-ctx.Done():
 		return wrapRedis(ctx.Err(), "rename stopped")
 	case <-time.After(time.Until(fence)):
+	}
+	if job.PlainIndex {
+		return s.walkFlexKeys(ctx, start, func(keys []string) error {
+			if testHookRekeyStep != nil {
+				testHookRekeyStep(ctx, "copy")
+			}
+			return s.copyRows(ctx, job, keys)
+		})
 	}
 	node, err := s.search(ctx, job.OldIndex)
 	if err != nil {
@@ -622,6 +631,9 @@ func (s *store) moveRows(ctx context.Context, job *rekeyJob, start *tableMeta, f
 // RESTORE … REPLACE (so a copy left over from an earlier attempt is
 // overwritten).
 func (s *store) copyRows(ctx context.Context, job *rekeyJob, keys []string) error {
+	if job.PlainIndex {
+		return s.copyFlexRows(ctx, job, keys)
+	}
 	for start := 0; start < len(keys); start += pipelineChunk {
 		chunk := keys[start:min(start+pipelineChunk, len(keys))]
 		pipe := s.redis(ctx).Pipeline()
@@ -695,6 +707,9 @@ func (s *store) switchRekey(ctx context.Context, job *rekeyJob, start *tableMeta
 			// added an attribute to the old index since.
 			for _, c := range cur.Columns {
 				if c.Indexed && !indexed[c.field()] {
+					if job.PlainIndex {
+						return errorf(adbc.StatusIO, "table schema changed during rename; try again")
+					}
 					args := append([]any{"FT.ALTER", job.IndexName, "SCHEMA", "ADD"}, indexAttrArgs(c)...)
 					if err := s.searchDo(ctx, job.IndexName, args...).Err(); err != nil {
 						return wrapRedis(err, "failed to add a column to the new search index")
@@ -770,7 +785,7 @@ func (s *store) finishRekey(ctx context.Context, job *rekeyJob) error {
 		return err
 	}
 	// DD deletes every document the old index knows about: the old rows.
-	if err := s.searchDo(ctx, job.OldIndex, "FT.DROPINDEX", job.OldIndex, "DD").Err(); err != nil &&
+	if err := s.dropOwnedIndex(ctx, job.OldIndex, job.OldPrefix, job.PlainIndex); err != nil &&
 		!isUnknownIndex(err) {
 		return wrapRedis(err, "failed to drop the old search index")
 	}
@@ -783,7 +798,7 @@ func (s *store) rollbackRekey(ctx context.Context, job *rekeyJob) error {
 		return err
 	}
 	// DD deletes the copies.
-	if err := s.searchDo(ctx, job.IndexName, "FT.DROPINDEX", job.IndexName, "DD").Err(); err != nil &&
+	if err := s.dropOwnedIndex(ctx, job.IndexName, job.KeyPrefix, job.PlainIndex); err != nil &&
 		!isUnknownIndex(err) {
 		return wrapRedis(err, "failed to drop the new search index")
 	}
@@ -1281,6 +1296,11 @@ func (s *store) checkKeys(ctx context.Context, meta *tableMeta, writing bool) er
 			return errorf(adbc.StatusInvalidState, "snapshot row access requires a statement pin")
 		}
 		return scope.pin.valid(ctx)
+	}
+	if !writing && meta.matviewRead != nil {
+		if !meta.matviewRead.lease.valid() {
+			return matviewLeaseExpired()
+		}
 	}
 	if meta.Foreign {
 		if writing {
