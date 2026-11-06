@@ -1,8 +1,9 @@
 # Current upstream reconciliation
 
 Date: 2026-11-05. Snapshot parent: c54a6cd (production 7c30fa6).
-Incoming main: cc2cbb2. Status: unit and focused Software checks pass;
-versioned native/full combined checks remain required.
+Incoming main: cc2cbb2. Merge: e03255a. Subsequent payload ACL fix: a48ccc9.
+Status: unit/focused Software and full versioned native checks pass;
+full combined ordinary/snapshot/platform checks remain required.
 See [intent](intent.md), [spec](spec.md), [plan](plan.md) and
 [point-lease evidence](point-lease-validation.md).
 
@@ -65,7 +66,21 @@ macOS ARM64 / Go 1.27.3. Telemetry is disabled for development/tests. No local
 fixture credential, license, infrastructure identifier or operational artifact
 is published. This does not prove Cluster API, failover or persistence recovery.
 
-Finish neighboring checks, review the merged diff, commit the coherent merge,
-then build a versioned native library and run actual native/current-source
-regressions. Comparative measurements and reader/Cluster/resume/utility gates
-remain required before full feature/performance parity can be claimed.
+At a48ccc9, the full versioned native ADBC suite passes 565 tests and three
+subtests, eight explicit capability skips, 86.18 s; Python 3.14.10 / PyArrow
+26.0.1 / manager 1.13.0. Library SHA-256:
+`df7b2928615b9bb6570b6a1466cc29645fd5afbc6bf392e852e3daf2dffb22c4`.
+
+The reviewed coordinated fix originally at 2e9769e (cherry-picked as a48ccc9)
+replaces broad metadata read access with positive metadata key-family patterns.
+Its regression uses the production import capture path, verifies owner decoding,
+and denies restricted raw HGET/HMGET/HGETALL of captured rows. The coordinated
+author reproduces those reads before the fix and verifies denial afterward on
+a separate owned verified Software fixture. The SQL reader Open/EVAL gate is
+still open at this stage; this does not claim production reader isolation.
+Independent RBAC/snapshot unit races on the combined source pass 38 test events,
+five expected server/role skips, root 1.901 s. No server claim follows from skips.
+
+Full combined ordinary/snapshot/platform checks, comparative measurements and
+reader/Cluster/resume/utility gates remain required before full feature and
+performance parity can be claimed.
