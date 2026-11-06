@@ -152,6 +152,39 @@ func checkSnapshotRestrictedPeers(t *testing.T, first, second *sqlHarness) {
 	}
 }
 
+func checkSnapshotSharedRole(t *testing.T, first, second *sqlHarness) {
+	t.Helper()
+	f, s := *first, *second
+	f.t, s.t = t, t
+	first, second = &f, &s
+	storeFor := func(h *sqlHarness) *store {
+		st, err := h.conn.NewStatement(h.ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer st.Close(h.ctx)
+		return st.(*statementImpl).conn.store
+	}
+	a, b := storeFor(first), storeFor(second)
+	if !a.restrictedReader || !b.restrictedReader || a.readerNamespace != b.readerNamespace {
+		t.Fatal("shared role did not resolve to one backend authorization domain")
+	}
+	first.expectRows("SELECT id FROM it_rbac_renamed", "84")
+	second.expectRows("SELECT id FROM it_rbac_renamed", "84")
+	second.expectError("SELECT id FROM it_rbac_denied", "NOPERM")
+	modelDenied(t, b.client.HSet(second.ctx, snapshotCatalogKey, "root", snapshotID()).Err())
+	// Raw rights are shared inside the role, just as its row-read ACL is. This
+	// intentionally makes no per-user isolation promise within that domain.
+	key := snapshotReaderPrefix + b.readerNamespace
+	if err := b.client.HSet(second.ctx, key, "domain_canary", "{}").Err(); err != nil {
+		t.Fatal(err)
+	}
+	defer b.client.HDel(second.ctx, key, "domain_canary")
+	if a.client.HGet(first.ctx, key, "domain_canary").Val() != "{}" {
+		t.Fatal("fixture did not use the shared backend role rights")
+	}
+}
+
 func checkSnapshotRestrictedPoison(t *testing.T, admin, reader *sqlHarness) {
 	t.Helper()
 	ac, rc := *admin, *reader

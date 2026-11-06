@@ -65,13 +65,28 @@ const rbacBaseACL = "+ping +info +ft._list +ft.info +ft.aggregate +ft.cursor +ft
 	" %R~" + snapshotPrefix + "workspace:*:sequence-state:*"
 
 // ACL selectors keep EVAL's declared-key envelope separate from commands a
-// script may execute. Only this principal's HASH is writable; SADD registers
+// script may execute. Only this backend role/ACL domain HASH is writable; SADD registers
 // retention but cannot remove another principal's namespace.
-func rbacReaderACL(user string) string {
-	own := snapshotReaderPrefix + snapshotReaderNamespace(user)
-	return rbacBaseACL + " +time +scard +hlen +hstrlen +zcard +zrange +zrangebylex +zscore +zlexcount +memory|usage %R~" + snapshotReaderDirectory + " %R~" + snapshotReaderPrefix + "* %R~" + snapshotPrefix + "members:*" +
+func rbacReaderACL(domain string) string {
+	own := snapshotReaderPrefix + snapshotReaderNamespace(domain)
+	return rbacBaseACL + " +time +scard +hlen +hstrlen +zcard +zrange +zrangebylex +zscore +zlexcount +memory|usage %R~" + snapshotReaderDirectory + " %R~" + snapshotReaderDomains + " %R~" + snapshotReaderPrefix + "* %R~" + snapshotPrefix + "members:*" +
 		" (+eval ~" + snapshotCatalogKey + " ~" + snapshotPrefix + "*)" +
 		" (+hset +hdel ~" + own + ") (+sadd ~" + snapshotReaderDirectory + ")"
+}
+
+// SnapshotReaderPermissions returns the namespace and canonical baseline ACL
+// for one backend authorization domain. Users sharing the ACL share this trust
+// boundary. SQL RBAC uses the dedicated ACL name as domain; row SELECT grants
+// are added separately. Register the returned namespace as an administrator.
+type SnapshotReaderPolicy struct {
+	Format    int    `json:"format"`
+	Namespace string `json:"namespace"`
+	ACL       string `json:"acl"`
+	Registry  string `json:"registry"`
+}
+
+func SnapshotReaderPermissions(domain string) SnapshotReaderPolicy {
+	return SnapshotReaderPolicy{16, snapshotReaderNamespace(domain), rbacReaderACL(domain), snapshotReaderDomains}
 }
 
 func newRBAC(raw string) (*rbacManager, error) {
@@ -148,10 +163,10 @@ func (r *rbacManager) request(ctx context.Context, method, path string, body, ou
 }
 
 type rbacACL struct {
-	Principal string `json:"-"`
-	UID       int    `json:"uid"`
-	Name      string `json:"name"`
-	ACL       string `json:"acl"`
+	Domain string `json:"-"`
+	UID    int    `json:"uid"`
+	Name   string `json:"name"`
+	ACL    string `json:"acl"`
 }
 type rbacPermission struct {
 	RoleUID int `json:"role_uid"`
@@ -208,19 +223,14 @@ func (r *rbacManager) readRole(ctx context.Context, role string) (rbacACL, []str
 	if err := r.request(ctx, "GET", "users", nil, &users); err != nil {
 		return rbacACL{}, nil, err
 	}
-	principal := ""
+	// A role is a backend authorization domain. Multiple users may share it,
+	// but additive memberships still have no unambiguous SQL-role mapping.
 	for _, user := range users {
-		if !slices.Contains(user.Roles, b.RoleUID) {
-			continue
+		if slices.Contains(user.Roles, b.RoleUID) && len(user.Roles) != 1 {
+			return rbacACL{}, nil, errorf(adbc.StatusNotImplemented, "RBAC SELECT grants require users with a single Redis role")
 		}
-		if len(user.Roles) != 1 || user.Email == "" || principal != "" {
-			return rbacACL{}, nil, errorf(adbc.StatusNotImplemented, "RBAC SELECT grants require one principal with a single Redis role")
-		}
-		principal = user.Email
 	}
-	if principal == "" {
-		return rbacACL{}, nil, errorf(adbc.StatusInvalidArgument, "RBAC reader role has no principal")
-	}
+	domain := rbacACLName(r.cfg.DatabaseUID, b.RoleUID)
 	var acl rbacACL
 	if err := r.request(ctx, "GET", "redis_acls/"+strconv.Itoa(b.ACLUID), nil, &acl); err != nil {
 		return acl, nil, err
@@ -228,8 +238,8 @@ func (r *rbacManager) readRole(ctx context.Context, role string) (rbacACL, []str
 	if acl.UID != b.ACLUID || acl.Name != rbacACLName(r.cfg.DatabaseUID, b.RoleUID) {
 		return acl, nil, errorf(adbc.StatusInvalidArgument, "RBAC ACL is not dedicated to this binding")
 	}
-	acl.Principal = principal
-	prefixes, err := rbacPrefixes(acl.ACL, rbacReaderACL(principal))
+	acl.Domain = domain
+	prefixes, err := rbacPrefixes(acl.ACL, rbacReaderACL(domain))
 	return acl, prefixes, err
 }
 
@@ -355,7 +365,7 @@ func (e *executor) runPrivilege(ctx context.Context, st *PrivilegeStmt) error {
 	for _, grant := range grants {
 		recorded = append(recorded, grant.Prefix)
 	}
-	if rbacACLString(recorded, rbacReaderACL(acl.Principal)) != acl.ACL {
+	if rbacACLString(recorded, rbacReaderACL(acl.Domain)) != acl.ACL {
 		return errorf(adbc.StatusInvalidState, "RBAC ACL and grant ledger differ; administrator reconciliation required")
 	}
 	grants = slices.DeleteFunc(grants, func(g rbacGrant) bool { return g.TableOID == tableOID(m) })
@@ -366,7 +376,7 @@ func (e *executor) runPrivilege(ctx context.Context, st *PrivilegeStmt) error {
 	for _, grant := range grants {
 		prefixes = append(prefixes, grant.Prefix)
 	}
-	next := rbacACLString(prefixes, rbacReaderACL(acl.Principal))
+	next := rbacACLString(prefixes, rbacReaderACL(acl.Domain))
 	if next == acl.ACL {
 		return nil
 	}

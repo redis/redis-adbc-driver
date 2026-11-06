@@ -9,7 +9,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"slices"
 	"strings"
 
@@ -19,6 +18,7 @@ import (
 
 const snapshotReaderDirectory = snapshotPrefix + "readers"
 const snapshotReaderPrefix = snapshotPrefix + "reader:"
+const snapshotReaderDomains = snapshotPrefix + "reader-domains"
 
 func snapshotReaderNamespace(user string) string {
 	sum := sha256.Sum256([]byte(user))
@@ -124,15 +124,19 @@ return root
 `
 
 func (s *store) snapshotReaderKeys(ctx context.Context) ([]any, error) {
+	return s.snapshotNamespaceKeys(ctx, snapshotReaderDirectory)
+}
+
+func (s *store) snapshotNamespaceKeys(ctx context.Context, directory string) ([]any, error) {
 
 	// Atomic read-only size checks precede materializing an untrusted directory.
 	// A separate SCARD followed by SMEMBERS could race arbitrary raw SADD calls.
-	names, err := once(ctx, s.client, "EVAL", `if redis.call('SCARD',KEYS[1])>128 or (redis.call('MEMORY','USAGE',KEYS[1],'SAMPLES',0) or 0)>262144 then return redis.error_reply('snapshot reader namespace resource limit exceeded; administrator reconciliation required') end return redis.call('SMEMBERS',KEYS[1])`, 1, snapshotReaderDirectory).StringSlice()
+	names, err := once(ctx, s.client, "EVAL", `if redis.call('SCARD',KEYS[1])>128 or (redis.call('MEMORY','USAGE',KEYS[1],'SAMPLES',0) or 0)>262144 then return redis.error_reply('snapshot reader namespace resource limit exceeded; administrator reconciliation required') end return redis.call('SMEMBERS',KEYS[1])`, 1, directory).StringSlice()
 	if err != nil {
 		return nil, err
 	}
 	slices.Sort(names)
-	keys := []any{snapshotReaderDirectory}
+	keys := []any{directory}
 	for _, ns := range names {
 		if len(ns) != 64 || strings.Trim(ns, "0123456789abcdef") != "" {
 			return nil, errorf(adbc.StatusIO, "invalid snapshot reader namespace")
@@ -140,6 +144,60 @@ func (s *store) snapshotReaderKeys(ctx context.Context) ([]any, error) {
 		keys = append(keys, snapshotReaderPrefix+ns)
 	}
 	return keys, nil
+}
+
+// Only the administrator's explicit RBAC configuration registers authorization
+// domains. Restricted roles cannot alter this set. Users in one Software role
+// share its backend rights and therefore share the same lease trust boundary.
+func (s *store) registerRBACReaderDomains(ctx context.Context, manager *rbacManager) error {
+	roles := make([]string, 0, len(manager.cfg.Roles))
+	for role := range manager.cfg.Roles {
+		roles = append(roles, role)
+	}
+	slices.Sort(roles)
+	var domains []any
+	for _, role := range roles {
+		acl, _, err := manager.readRole(ctx, role)
+		if err != nil {
+			return err
+		}
+		domains = append(domains, snapshotReaderNamespace(acl.Domain))
+	}
+	if len(domains) > 128 {
+		return errorf(adbc.StatusInvalidArgument, "RBAC reader domain limit (128) exceeded")
+	}
+	args := []any{"EVAL", `local n=redis.call('SCARD',KEYS[1]);for _,v in ipairs(ARGV) do if redis.call('SISMEMBER',KEYS[1],v)==0 then n=n+1 end end;if n>128 then return redis.error_reply('RBAC reader domain limit (128) exceeded; administrator reconciliation required') end;return redis.call('SADD',KEYS[1],unpack(ARGV))`, 1, snapshotReaderDomains}
+	args = append(args, domains...)
+	return wrapRedis(once(ctx, s.client, args...).Err(), "cannot register RBAC reader authorization domains")
+}
+
+func (s *store) discoverReaderDomain(ctx context.Context) (string, error) {
+	domains, err := s.snapshotNamespaceKeys(ctx, snapshotReaderDomains)
+	if err != nil {
+		return "", err
+	}
+	keys := []any{snapshotReaderDirectory}
+	keys = append(keys, domains[1:]...)
+	args := []any{"EVAL", `local own='';for i=2,#KEYS do if redis.acl_check_cmd('HSET',KEYS[i],'probe','') and redis.acl_check_cmd('HDEL',KEYS[i],'probe') and redis.acl_check_cmd('SADD',KEYS[1],'probe') then if own~='' then return redis.error_reply('multiple reader authorization domains; SQL RBAC requires a single Redis role') end;own=KEYS[i] end end;return own`, len(keys)}
+	args = append(args, keys...)
+	own, err := once(ctx, s.client, args...).Text()
+	if err != nil {
+		return "", wrapRedis(err, "cannot inspect snapshot reader authorization domain")
+	}
+	if own == "" {
+		return "", errorf(adbc.StatusUnauthorized, "restricted snapshot reader has no registered role/ACL authorization domain; configure its administrator RBAC binding")
+	}
+	return strings.TrimPrefix(own, snapshotReaderPrefix), nil
+}
+
+// Only a direct native reply from the fixed script proves no mutation ran.
+// Transport/wrapped/joined errors can contain the same words after execution.
+func snapshotNativeRefusal(err error, message string) bool {
+	native, ok := err.(interface {
+		error
+		RedisError()
+	})
+	return ok && (native.Error() == message || native.Error() == "ERR "+message)
 }
 
 func (s *store) readerControl(ctx context.Context, producer, op, token, id, root string, extra ...string) *goredis.Cmd {
@@ -151,6 +209,11 @@ func (s *store) readerControl(ctx context.Context, producer, op, token, id, root
 		producer = snapshotCatalogKey
 	}
 	for attempt := 0; attempt < 8; attempt++ {
+		if err := ctx.Err(); err != nil {
+			cmd := goredis.NewCmd(ctx)
+			cmd.SetErr(err)
+			return cmd
+		}
 		var directory []any
 		var err error
 		if op == "valid" || op == "renew" || op == "release" || op == "release_partitions" {
@@ -169,7 +232,7 @@ func (s *store) readerControl(ctx context.Context, producer, op, token, id, root
 		args = append(args, keys...)
 		args = append(args, op, s.readerNamespace, token, id, root, ttl, len(directory)-1)
 		cmd := once(ctx, s.client, args...)
-		if cmd.Err() == nil || !strings.Contains(fmt.Sprint(cmd.Err()), "reader namespace changed before mutation") {
+		if cmd.Err() == nil || !snapshotNativeRefusal(cmd.Err(), "reader namespace changed before mutation") {
 			return cmd
 		}
 	}

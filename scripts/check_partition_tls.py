@@ -26,6 +26,8 @@ import adbc_driver_manager.dbapi as dbapi
 import pyarrow as pa
 import redis
 
+from snapshot_reader_acl import access_prefix, reader_rules, register_reader
+
 
 WORKER = r'''
 import base64, json, os, sys
@@ -366,7 +368,7 @@ def main(argv=None, cloud_principals_factory=None):
         else:
             raise AssertionError('TLS hostname verification was bypassed')
         principals.create(planner, planner_password, ['~*', '+@all'])
-        principals.create(worker, worker_password, ['%R~adbc:*', '%R~' + schema + ':*', *read_commands])
+        principals.create(worker, worker_password, [*reader_rules(worker), *read_commands])
         data = pa.table({
             'id': pa.array(range(1100), pa.int64()),
             'label': [None if i % 3 == 0 else 'a\x00b' for i in range(1100)],
@@ -381,6 +383,12 @@ def main(argv=None, cloud_principals_factory=None):
                 schema_created = True
                 cur.adbc_ingest(table, data, db_schema_name=schema)
                 cur.execute('DELETE FROM ' + qualified + ' WHERE id=2')
+                cur.execute("SELECT key_prefix,index_name FROM information_schema.tables WHERE table_schema='" + schema + "' AND table_name='" + table + "'")
+                physical_prefix, physical_index = cur.fetchone()
+                if args.software_fixture:
+                    principals.people[worker].update(probe_index=physical_index, probe_row=physical_prefix + "1")
+                principals.command(worker, '%R~' + access_prefix(physical_prefix) + '*')
+                register_reader(control, worker)
                 if args.oss_cluster_fixture:
                     from partition_tls_resharding import wait_search_convergence
                     report['initial_search_convergence_attempts'] = wait_search_convergence(
@@ -485,7 +493,7 @@ def main(argv=None, cloud_principals_factory=None):
                 worker_control.close()
         check('worker_config_mutation_and_writes_denied' if args.software_fixture or args.cloud_fixture else 'worker_config_and_writes_denied')
         from partition_metadata_tls import check_metadata_tls
-        report['metadata'] = check_metadata_tls(principals, connect, planner_uri, schema, read_commands)
+        report['metadata'] = check_metadata_tls(principals, connect, planner_uri, schema, read_commands, control)
         assert_failed(b'{}', 'invalid Redis ADBC partition')
         check('malformed_descriptor_rejected')
         principals.command(worker, '-ft.info')

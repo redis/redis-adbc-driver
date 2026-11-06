@@ -110,3 +110,28 @@ role. The planned follow-up uses a namespace per backend role/ACL trust domain
 to preserve the prior shared-SQL-role contract while keeping different-role,
 catalog, row and payload boundaries. Full snapshot/native/race and hosted
 validation remain pending; this checkpoint alone is not a completed CI repair.
+
+## Shared backend role domains
+
+The follow-up restores shared-role compatibility: two actual Software users in
+one role both Open and SELECT through the role's domain. Different-role direct
+and scripted lease write denials remain tested. Users with additive multiple
+role memberships still receive the preexisting unsupported-mapping refusal.
+The explicitly configured grant administrator validates bindings and registers
+domain identities; restricted Open discovers its one permitted domain using
+nonmutating capability checks over explicitly declared keys. Readers cannot
+write the domain registry. Same-role users intentionally share their backend
+ACL rights; this does not promise per-user raw isolation within that role.
+
+The complete SQL RBAC fixture and ordinary Go packages pass at this checkpoint.
+Retry classification now requires a direct native RedisError with exactly the
+fixed pre-mutation refusal. Plain lookalikes, wrapped native errors, joined
+EOF/native errors and prefixed messages are rejected. Actual cancellation after
+a proven refusal stops before a second admission command.
+
+`redis-adbc reader-acl` prints the driver's canonical policy without connecting
+to a server. The independent native fixture uses that policy and stable table
+access prefixes instead of broad metadata/schema wildcards. Its metadata
+permission probes now target snapshot directories and actual physical objects.
+These native fixture changes still require live validation, along with the
+complete snapshot/race selection and hosted replacement workflows.

@@ -528,6 +528,11 @@ func (s *store) snapshotControl(ctx context.Context, op, token, id, base string,
 	}
 	controlN := len(keys)
 	for attempt := 0; attempt < 8; attempt++ {
+		if err := ctx.Err(); err != nil {
+			cmd := goredis.NewCmd(ctx)
+			cmd.SetErr(err)
+			return cmd
+		}
 		directory, err := s.snapshotReaderKeys(ctx)
 		if err != nil {
 			cmd := goredis.NewCmd(ctx)
@@ -536,7 +541,7 @@ func (s *store) snapshotControl(ctx context.Context, op, token, id, base string,
 		}
 		allKeys := append(append([]any(nil), keys...), directory...)
 		cmd := s.controlScript.run(ctx, s.client, allKeys, op, token, id, base, snapshotLease.Milliseconds(), arg, updates, controlN, len(directory)-1)
-		if cmd.Err() == nil || !strings.Contains(cmd.Err().Error(), "reader namespace changed before mutation") {
+		if cmd.Err() == nil || !snapshotNativeRefusal(cmd.Err(), "reader namespace changed before mutation") {
 			return cmd
 		}
 	}
@@ -588,7 +593,7 @@ func (s *store) acquireSnapshotMode(ctx context.Context, reap bool, writing ...b
 		if err == nil {
 			break
 		}
-		if !strings.Contains(err.Error(), "snapshot compaction publication pending") {
+		if !snapshotNativeRefusal(err, "snapshot compaction publication pending") {
 			return ctx, nil, wrapRedis(transportContextError(ctx, err), "failed to acquire statement snapshot")
 		}
 		// Only a known admission refusal is polled. SQL planning/execution and
@@ -1781,14 +1786,11 @@ func (s *store) openSnapshotCatalog(ctx context.Context, enabled bool, importing
 			return wrapRedis(err, "failed to inspect snapshot control capability")
 		}
 		if capable == 0 {
-			own := snapshotReaderPrefix + s.readerNamespace
-			allowed, err := once(ctx, s.client, "EVAL", `return redis.acl_check_cmd('HSET',KEYS[1],'probe','') and redis.acl_check_cmd('HDEL',KEYS[1],'probe') and redis.acl_check_cmd('SADD',KEYS[2],ARGV[1]) and 1 or 0`, 2, own, snapshotReaderDirectory, s.readerNamespace).Int()
+			domain, err := s.discoverReaderDomain(ctx)
 			if err != nil {
-				return wrapRedis(err, "failed to inspect reader lease capability")
+				return err
 			}
-			if allowed != 1 {
-				return errorf(adbc.StatusUnauthorized, "restricted snapshot reader requires an ACL for its authenticated principal; SQL RBAC supports one principal per role")
-			}
+			s.readerNamespace = domain
 			s.restrictedReader = true
 			s.snapshots = true
 			return addSnapshotHooks(s.client)(ctx)

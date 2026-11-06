@@ -81,7 +81,7 @@ func TestRBACManagementBoundaries(t *testing.T) {
 					out = []map[string]any{{"role_uids": roles, "email": "reader@example.com"}}
 				case "/v1/redis_acls/9":
 					name := rbacACLName(1, 7)
-					acl := rbacReaderACL("reader@example.com")
+					acl := rbacReaderACL(rbacACLName(1, 7))
 					if mode == "wrong-acl-name" {
 						name = "administrator-acl"
 					}

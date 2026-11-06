@@ -1,14 +1,9 @@
 # SQL SELECT grants through Redis Software RBAC
 
-The imported upstream implementation below targets mutable table prefixes.
-Always-on snapshot catalogs currently reject SQL GRANT/REVOKE before management
-API mutation: a static physical-prefix grant cannot authorize future immutable
-generations, and its read-only control permissions cannot acquire protocol-15
-reader pins. [Isolated reader leases](sdlc/changes/snapshot-parity/reader-acl-design.md)
-and production lifecycle/security verification remain open parity work. Do not
-provision broader catalog writes to work around this limitation. The following
-provisioning/validation evidence is historical upstream behavior, not current
-snapshot-reader support.
+Protocol-16 snapshots support SQL SELECT grants using stable logical table access
+identities and reader leases outside the catalog. Existing draft formats are
+refused without migration. The driver never grants catalog or row writes to make
+restricted readers work.
 
 `GRANT SELECT ON [TABLE] schema.table TO role` and
 `REVOKE SELECT ON [TABLE] schema.table FROM role` update a dedicated Redis
@@ -27,18 +22,25 @@ management API and OSS `ACL SETUSER` are not implemented by this feature.
 
 ## Provisioning
 
-1. Initialize the database with an administrator connection. Finish any legacy
-   metadata migration and abandoned DDL recovery before connecting restricted
-   readers.
+1. Initialize a fresh database with an administrator connection. Existing
+   driver storage is not migrated or upgraded.
 2. Create a Redis Software role with management access `none`, then assign
    database users to it. The SQL identifier must match the role's name exactly
    after normal SQL identifier folding; quote mixed-case names.
 3. Create a **new, dedicated ACL**, named
    `adbc-select-db<DATABASE_UID>-role<ROLE_UID>`, with this initial rule:
 
-   ```text
-   +ping +info +ft._list +ft.info +ft.aggregate +ft.cursor +ft.search +ft.profile +get +exists +hget +hmget +hgetall +smembers +sismember %R~adbc:{meta}:* %R~adbc:schemas
+   ```sh
+   redis-adbc reader-acl -domain adbc-select-db1-role7 > reader-policy.json
    ```
+
+   Replace the example IDs with this database and role. Provision the exact
+   `acl` string from that JSON; `namespace` identifies its lease authorization
+   domain. The command prints configuration and does not contact Redis. The
+   baseline permits positive metadata key families and writes only this domain's
+   lease HASH plus directory registration. Captured import values, catalog
+   writes and row writes remain denied. Keep each parenthesized ACL selector
+   intact when provisioning through the protocol rather than the API.
 
 4. Associate that ACL with exactly this role and database using
    `roles_permissions`. Never reuse it on another database or role, and never
@@ -69,9 +71,18 @@ management API and OSS `ACL SETUSER` are not implemented by this feature.
    ACLs, and permission to update ACLs. Redis Software's `user_manager` or
    `admin` management role supplies these API permissions. Query credentials
    need ordinary driver permissions plus `GET`, `SET` (including `NX`) and
-   `DEL` on `adbc:{meta}:rbac:*`. Keep management credentials on trusted
+   `DEL` on `adbc:{meta}:snapshot:16:rbac:*`, and control access to
+   the reader-domain registry. Keep management credentials on trusted
    administrative handles; ordinary readers need only their Redis credentials.
    Reading this driver option never returns its secret configuration.
+
+   Opening this explicitly configured administrator handle validates the role
+   bindings and registers their reader authorization domains. Do this before
+   restricted Open. Ordinary reader connections discover their single writable
+   domain through nonmutating capability checks and never receive API credentials.
+   Multiple users may share one SQL role; they share that role's backend ACL
+   and lease trust boundary. Per-user raw isolation inside a shared backend ACL
+   is not claimed. Different roles retain separate lease write domains.
 
 Use the Redis Software [database-role setup guide](https://redis.io/docs/latest/operate/rs/security/access-control/create-db-roles/)
 and [ACL API](https://redis.io/docs/latest/operate/rs/references/rest-api/requests/redis_acls/)
@@ -114,15 +125,20 @@ are read back before SQL reports success; enforcement can propagate
 asynchronously to proxies/shards. Do not treat SQL completion as a synchronous
 barrier for in-flight queries or previously opened cursors.
 
-A metadata-only rename preserves access because it preserves the key prefix.
-`TRUNCATE`, rekeying renames and type rewrites can change the physical prefix;
-access to the new prefix is denied until `GRANT SELECT` is issued again.
-The grant ledger tracks stable table IDs: re-grant replaces the earlier prefix,
-and revoke removes it even after such a rewrite. Dropping and recreating a table
-does not transfer the grant. Dropped objects can leave inactive ledger/ACL entries;
-an administrator can reconcile them during maintenance. Grants to old prefixes
-may still allow direct reads of old keys until revoked/cleaned; this feature does
-not erase data retained by interrupted operations.
+A table's opaque access identity survives DML, metadata-only rename, TRUNCATE,
+type rewrites, compaction, Arrow replacement and managed-copy refresh. Its row
+ACL uses this identity ahead of schema/generation components, so replacement
+prefixes retain the SELECT grant. REVOKE removes the logical grant across
+retained and current generations. DROP/recreate allocates a different identity
+and does not inherit the grant. Dropped objects can leave inactive ledger/ACL
+entries for administrator reconciliation; old grants may permit raw reads of
+old retained keys until revoked or collected.
+
+Reader admission is bounded to 128 live pins and 128 namespaces. Directory/HASH
+size checks precede materialization, and lease values are bounded before parsing.
+Raw lease/directory writes can still cause denial of service: oversized or
+malformed state fails closed and requires administrator repair. Collection never
+ignores an invalid directory and guesses which live roots may be deleted.
 
 ## Interrupted updates and recovery
 
@@ -132,10 +148,10 @@ grant writers and reconcile API state before resuming. Never expire or manually
 modify reserved RBAC keys while writers are active.
 
 All driver grant writers sharing a Redis database serialize through the durable
-key `adbc:{meta}:rbac:lock`. A second writer fails while it exists. There is no
+key `adbc:{meta}:snapshot:16:rbac:lock`. A second writer fails while it exists. There is no
 lease expiry: a delayed API request must not overwrite a newer writer after
 its lock expires. No atomic transaction spans Redis metadata and the management
-API. The ledger at `adbc:{meta}:rbac:grants:<DATABASE_UID>:<ACL_UID>` is committed
+API. The ledger at `adbc:{meta}:snapshot:16:rbac:grants:<DATABASE_UID>:<ACL_UID>` is committed
 after verifying the API update. An uncertain API write, failed verification or
 failed ledger commit leaves the lock in place and returns an error.
 

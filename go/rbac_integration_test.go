@@ -91,7 +91,7 @@ func TestSQLRBACSelect(t *testing.T) {
 	defer fixtureRBACRequest(manager, ctx, "DELETE", "roles/"+strconv.Itoa(role.UID), nil, nil)
 	user := roleName + "@example.com"
 	var acl rbacACL
-	call("POST", "redis_acls", map[string]string{"name": rbacACLName(cfg.DatabaseUID, role.UID), "acl": rbacReaderACL(user)}, &acl)
+	call("POST", "redis_acls", map[string]string{"name": rbacACLName(cfg.DatabaseUID, role.UID), "acl": rbacReaderACL(rbacACLName(cfg.DatabaseUID, role.UID))}, &acl)
 	defer fixtureRBACRequest(manager, ctx, "DELETE", "redis_acls/"+strconv.Itoa(acl.UID), nil, nil)
 	dbpath := "bdbs/" + strconv.Itoa(cfg.DatabaseUID)
 	original := dbs[0].Permissions
@@ -246,7 +246,7 @@ func TestSQLRBACSelect(t *testing.T) {
 	admin.exec(`REVOKE SELECT ON it_rbac_renamed FROM ` + roleName)
 	var afterTruncate rbacACL
 	call("GET", "redis_acls/"+strconv.Itoa(acl.UID), nil, &afterTruncate)
-	if afterTruncate.ACL != rbacReaderACL(user) {
+	if afterTruncate.ACL != rbacReaderACL(rbacACLName(cfg.DatabaseUID, role.UID)) {
 		t.Fatal("revocation retained the old prefix")
 	}
 	admin.exec(`GRANT SELECT ON it_rbac_renamed TO ` + roleName)
@@ -293,7 +293,7 @@ func TestSQLRBACSelect(t *testing.T) {
 	}
 	failWrite.Store(false)
 	// Explicit fixture reconciliation restores the last committed empty ACL.
-	call("PUT", "redis_acls/"+strconv.Itoa(acl.UID), map[string]string{"acl": rbacReaderACL(user)}, nil)
+	call("PUT", "redis_acls/"+strconv.Itoa(acl.UID), map[string]string{"acl": rbacReaderACL(rbacACLName(cfg.DatabaseUID, role.UID))}, nil)
 	client.Del(ctx, snapshotPrefix+"rbac:lock")
 
 	// Provision an independent ACL and a mixed-role user. Rejected SQL must
@@ -310,7 +310,7 @@ func TestSQLRBACSelect(t *testing.T) {
 	}
 	independentEmail := roleName + "_both@example.com"
 	var independentACL rbacACL
-	call("POST", "redis_acls", map[string]string{"name": roleName + "_independent", "acl": rbacACLString([]string{snapshotAccessID(rows[0]) + "~"}, rbacReaderACL(independentEmail))}, &independentACL)
+	call("POST", "redis_acls", map[string]string{"name": roleName + "_independent", "acl": rbacACLString([]string{snapshotAccessID(rows[0]) + "~"}, rbacReaderACL(roleName+"_independent"))}, &independentACL)
 	bound := append(slices.Clone(original), rbacPermission{role.UID, acl.UID})
 	var independentUser struct {
 		UID int `json:"uid"`
@@ -325,14 +325,17 @@ func TestSQLRBACSelect(t *testing.T) {
 	call("POST", "users", map[string]any{"name": roleName + "_both", "email": independentEmail, "password": password, "role_uids": []int{independentRole.UID}}, &independentUser)
 	peerURI := *uri
 	peerURI.User = url.UserPassword(independentEmail, password)
+	if err := client.SAdd(ctx, snapshotReaderDomains, snapshotReaderNamespace(roleName+"_independent")).Err(); err != nil {
+		t.Fatal(err)
+	}
 	peer := open(peerURI.String(), "")
 	admin.exec(`GRANT SELECT ON it_rbac_renamed TO ` + roleName)
 	waitRows(`SELECT id FROM it_rbac_renamed`, "84")
 	t.Run("two_restricted_principals", func(t *testing.T) { checkSnapshotRestrictedPeers(t, reader, peer) })
 	t.Run("peer_captured_payload_is_private", func(t *testing.T) { checkSnapshotImportPayloadACL(t, peerURI.String()) })
 	admin.exec(`REVOKE SELECT ON it_rbac_renamed FROM ` + roleName)
-	// Software ACLs belong to roles. Two users in one role cannot have separate
-	// write namespaces; refuse that mapping rather than sharing lease writes.
+	// Users sharing one backend role share its lease authorization domain.
+	// Their grants work without adding per-user control/catalog permissions.
 	var sameRole struct {
 		UID int `json:"uid"`
 	}
@@ -341,28 +344,12 @@ func TestSQLRBACSelect(t *testing.T) {
 	defer fixtureRBACRequest(manager, ctx, "DELETE", "users/"+strconv.Itoa(sameRole.UID), nil, nil)
 	sameURI := *uri
 	sameURI.User = url.UserPassword(sameEmail, password)
-	deadline = time.Now().Add(20 * time.Second)
-	for {
-		db, e := NewDriver(memory.DefaultAllocator).NewDatabaseWithContext(ctx, map[string]string{adbc.OptionKeyURI: sameURI.String()})
-		if e != nil {
-			t.Fatal(e)
-		}
-		c, e := db.Open(ctx)
-		if c != nil {
-			c.Close(ctx)
-		}
-		db.Close(ctx)
-		if e != nil && strings.Contains(e.Error(), "one principal per role") {
-			break
-		}
-		if e == nil || !strings.Contains(e.Error(), "WRONGPASS") || time.Now().After(deadline) {
-			t.Fatal("same-role reader did not receive precise unsupported mapping refusal", e)
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
-	if e := admin.execErr(`GRANT SELECT ON it_rbac_renamed TO ` + roleName); e == nil || !strings.Contains(e.Error(), "one principal") {
-		t.Fatal("shared reader role reached grant management", e)
-	}
+	same := open(sameURI.String(), "")
+	same.expectError(`SELECT id FROM it_rbac_renamed`, "NOPERM")
+	admin.exec(`GRANT SELECT ON it_rbac_renamed TO ` + roleName)
+	waitRows(`SELECT id FROM it_rbac_renamed`, "84")
+	t.Run("shared_role_readers", func(t *testing.T) { checkSnapshotSharedRole(t, reader, same) })
+	admin.exec(`REVOKE SELECT ON it_rbac_renamed FROM ` + roleName)
 	call("DELETE", "users/"+strconv.Itoa(sameRole.UID), nil, nil)
 	call("PUT", "users/"+strconv.Itoa(independentUser.UID), map[string]any{"role_uids": []int{role.UID, independentRole.UID}}, nil)
 	// The mixed-role reader is outside the supported authorization contract.
@@ -379,7 +366,7 @@ func TestSQLRBACSelect(t *testing.T) {
 	}
 	var dedicatedAfter rbacACL
 	call("GET", "redis_acls/"+strconv.Itoa(acl.UID), nil, &dedicatedAfter)
-	if dedicatedAfter.ACL != rbacReaderACL(user) {
+	if dedicatedAfter.ACL != rbacReaderACL(rbacACLName(cfg.DatabaseUID, role.UID)) {
 		t.Fatal("changed ACL for unsupported mixed-role binding")
 	}
 

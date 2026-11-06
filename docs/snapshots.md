@@ -5,8 +5,12 @@ managed tables and imported copies of application data. No option is required.
 Ordinary Open initializes an empty isolated database. Explicit HASH import and
 foreign-index import may initialize alongside application-owned data and indexes,
 but reject existing legacy driver metadata without modification. No upgrade or
-migration path is included. Storage protocol version 15 rejects earlier draft
+migration path is included. Storage protocol version 16 rejects earlier draft
 formats. It requires an indexed tombstone marker for visibility-safe server reduction.
+Reader leases use separate backend role/ACL domains; SQL grants use stable
+logical table identities across physical generations. Versioned rows, Search
+indexes, workspaces and graph/queue keys fence old collectors; the fixed catalog
+anchor refuses older formats. See [SQL RBAC](sql-rbac.md).
 Metadata manifests share immutable buckets and native values through a fixed
 256-slot map. Buckets have exact ordered field directories; point metadata reads
 fetch individual fields with count/reference proofs. Writes copy touched buckets/values; reference-counted retirement
@@ -375,7 +379,7 @@ An uncertain copy reply is resolved by reading the durable checkpoint, without
 resending the mutation. Another managed connection resumes after cooperative
 release or crash-lease expiration; it can repair registered incomplete images from
 the retained immutable source. These optional job outcome fields retain storage
-protocol 15. This recovery does not resume public SQL plans or unread Arrow input.
+protocol 16. This recovery does not resume public SQL plans or unread Arrow input.
 Connection close stops its worker and releases ownership when reachable. With all
 connections closed, progress waits for the next open.
 

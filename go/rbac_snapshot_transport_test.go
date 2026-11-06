@@ -5,6 +5,7 @@ package redis
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -13,6 +14,23 @@ import (
 
 	goredis "github.com/redis/go-redis/v9"
 )
+
+func TestSnapshotReaderRefusalRequiresDirectNativeReply(t *testing.T) {
+	native := controlScriptNativeError("ERR reader namespace changed before mutation")
+	for _, tc := range []struct {
+		err  error
+		want bool
+	}{
+		{native, true}, {controlScriptNativeError("reader namespace changed before mutation"), true},
+		{errors.New(native.Error()), false}, {fmt.Errorf("wrapped: %w", native), false},
+		{errors.Join(io.EOF, native), false}, {controlScriptNativeError("ERR prefix reader namespace changed before mutation"), false},
+		{nil, false}, {io.EOF, false},
+	} {
+		if got := snapshotNativeRefusal(tc.err, "reader namespace changed before mutation"); got != tc.want {
+			t.Fatalf("%T classified %v want %v", tc.err, got, tc.want)
+		}
+	}
+}
 
 type restrictedAcquireFault struct {
 	snapshotHook
@@ -64,8 +82,10 @@ func checkSnapshotRestrictedTransport(t *testing.T, admin, reader *sqlHarness) {
 	}
 	a := adminStmt.(*statementImpl).conn.store
 	_ = adminStmt.Close(admin.ctx)
-	for _, mode := range []string{"stale_directory", "lost_reply"} {
+	for _, mode := range []string{"stale_directory", "lost_reply", "cancel_after_refusal"} {
 		t.Run(mode, func(t *testing.T) {
+			requestCtx, cancel := context.WithCancel(reader.ctx)
+			defer cancel()
 			opts := *base.client.(*goredis.Client).Options()
 			client := goredis.NewClient(&opts)
 			defer client.Close()
@@ -73,7 +93,7 @@ func checkSnapshotRestrictedTransport(t *testing.T, admin, reader *sqlHarness) {
 			client.AddHook(hook)
 			s := &store{client: client, snapshots: true, restrictedReader: true, readerNamespace: base.readerNamespace}
 			root := a.client.HGet(admin.ctx, snapshotCatalogKey, "root").Val()
-			if mode == "stale_directory" {
+			if mode != "lost_reply" {
 				ns := snapshotReaderNamespace("injected-directory-churn")
 				hook.before = func(goredis.Cmder) {
 					if err := a.client.SAdd(admin.ctx, snapshotReaderDirectory, ns).Err(); err != nil {
@@ -83,6 +103,9 @@ func checkSnapshotRestrictedTransport(t *testing.T, admin, reader *sqlHarness) {
 				hook.after = func(cmd goredis.Cmder, cause error) {
 					if cause == nil {
 						t.Fatal("stale directory did not cause a pre-mutation refusal")
+					}
+					if mode == "cancel_after_refusal" {
+						cancel()
 					}
 					args := cmd.Args()
 					n, _ := strconv.Atoi(fmt.Sprint(args[2]))
@@ -97,7 +120,13 @@ func checkSnapshotRestrictedTransport(t *testing.T, admin, reader *sqlHarness) {
 				hook.after = func(goredis.Cmder, error) { admin.exec("CREATE TABLE it_rbac_lost_probe(v INTEGER)") }
 				defer admin.dropTables("it_rbac_lost_probe")
 			}
-			ctx, pin, err := s.acquireSnapshot(reader.ctx)
+			ctx, pin, err := s.acquireSnapshot(requestCtx)
+			if mode == "cancel_after_refusal" {
+				if err == nil || pin != nil || requestCtx.Err() != context.Canceled || hook.calls.Load() != 1 {
+					t.Fatal("cancellation did not stop admission before retry", err, hook.calls.Load())
+				}
+				return
+			}
 			if err != nil {
 				t.Fatal(err)
 			}

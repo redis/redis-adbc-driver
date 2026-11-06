@@ -38,6 +38,7 @@ const defaultURI = "redis://localhost:6379/0"
 const usage = `usage: redis-adbc <command> [flags]
 
 Commands:
+  reader-acl  print canonical snapshot reader lease permissions as JSON
   check    check an existing HASH collection: guess its table structure, and
            list what the ADBC driver needs to query it
   copy     copy an existing HASH collection into a driver table
@@ -75,6 +76,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 		return usageError{errors.New("no command given")}
 	}
 	switch args[0] {
+	case "reader-acl":
+		return runReaderACL(args[1:], stdout, stderr)
 	case "check":
 		return runCheck(ctx, args[1:], stdout, stderr)
 	case "copy":

@@ -338,6 +338,12 @@ func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, er
 			st.sweepTemp(ctx)
 		}
 	}
+	if st.snapshots && d.rbac != nil && !st.restrictedReader {
+		if err := st.registerRBACReaderDomains(ctx, d.rbac); err != nil {
+			_ = client.Close()
+			return nil, err
+		}
+	}
 	if st.snapshots && !st.restrictedReader {
 		st.sweepTemp(ctx)
 	}

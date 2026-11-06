@@ -8,8 +8,10 @@ from urllib.parse import quote, urlsplit, urlunsplit
 
 import adbc_driver_manager.dbapi as dbapi
 
+from snapshot_reader_acl import access_prefix, reader_rules, register_reader
 
-def check_metadata_tls(principals, connect, planner_uri, schema, read_commands):
+
+def check_metadata_tls(principals, connect, planner_uri, schema, read_commands, control):
     table = 'metadata_rows'
     qualified = schema + '.' + table
     checks = []
@@ -73,18 +75,23 @@ def check_metadata_tls(principals, connect, planner_uri, schema, read_commands):
                     'UNIQUE (label), FOREIGN KEY (a) REFERENCES ' + qualified + ' (a))')
         cur.execute(f"INSERT INTO {qualified} VALUES (1,2,'x'),(1,2,'x'),(3,4,NULL)")
 
-        # Independent identities isolate Search, SCAN and source-key permissions.
-        for role in ('both', 'hash', 'catalog', 'noscan', 'noexists'):
+        cur.execute("SELECT key_prefix FROM information_schema.tables WHERE table_schema='" + schema + "' AND table_name='" + table + "'")
+        prefix = access_prefix(cur.fetchone()[0])
+        # Independent identities isolate Search, directory and field permissions.
+        for role in ('both', 'hash', 'catalog', 'nodirectory', 'noexists'):
             # Email principals work with Software's management API and are also
             # valid protocol ACL usernames on the other fixture backends.
             name = schema + '_metadata_' + role + '@metadata.invalid'
             password = 'Aa1!' + secrets.token_urlsafe(21)
-            commands = [command for command in read_commands
-                        if not (role == 'hash' and command == '+ft.search')]
-            keys = ['%R~adbc:*', '%R~idx:' + schema + ':*']
-            if role != 'catalog':
-                keys.append('%R~' + schema + ':*')
-            principals.create(name, password, [*commands, *(['+scan'] if role != 'noscan' else []), *(['+hexists'] if role not in ('noscan', 'noexists') else []), *keys])
+            commands = [*reader_rules(name, [] if role == 'catalog' else [prefix]), *read_commands]
+            if role == 'hash':
+                commands.append('-ft.search')
+            if role == 'nodirectory':
+                commands.append('-zrange')
+            if role != 'noexists':
+                commands.append('+hexists')
+            principals.create(name, password, commands)
+            register_reader(control, name)
             endpoint = urlsplit(planner_uri)
             uri = urlunsplit((endpoint.scheme, quote(name) + ':' + quote(password)
                 + '@' + endpoint.netloc.split('@')[-1], endpoint.path, '', ''))
@@ -114,6 +121,6 @@ def check_metadata_tls(principals, connect, planner_uri, schema, read_commands):
                 else:
                     expect_count(worker, True)
                     expect_denied(worker, False)
-                    checks.append('search_statistics_without_' + ('field_existence' if role == 'noexists' else 'scan') + '_permission')
+                    checks.append('search_statistics_without_' + ('field_existence' if role == 'noexists' else 'directory') + '_permission')
         cur.execute('DROP TABLE ' + qualified)
     return {'status': 'passed', 'checks': checks}
