@@ -73,7 +73,7 @@ func snapshotID() string                    { return strings.ReplaceAll(uuid.New
 // The bounded catalog contains at most 16 generations and 128 live pins. Redis
 // TIME governs leases. Root acquisition and pin creation, publication/outcome,
 // and reclamation claims each have one metadata-slot linearization point.
-const snapshotControl = snapshotDataEdges + snapshotReaderLua + snapshotMetadataPublicationProof + `
+const snapshotControl = snapshotDataEdges + snapshotReaderLua + snapshotMetadataPublicationProof + snapshotImportCaptureProof + `
 local k = KEYS[1]
 local controlN = tonumber(ARGV[8]) or #KEYS
 local graph, dataqueue = KEYS[controlN-3], KEYS[controlN-2]
@@ -352,6 +352,7 @@ elseif op == 'seal' then
   local w=cjson.decode(raw)
   if (w.state~='staging' and w.state~='sealed') or w.token~=token or w.expires<=now then return 0 end
   if w.import_pending then return redis.error_reply('incomplete import batch cannot publish') end
+  if w.import_capture and (not import_capture_ready(w.import_capture) or w.import_capture.remaining~=0) then return redis.error_reply('import capture is incomplete or unconsumed') end
   if (w.metadata_builds or 0)>0 then return redis.error_reply('snapshot metadata construction is incomplete') end
   local incomplete=snapshot_metadata_publication_error(KEYS[3],graph)
   if incomplete then return redis.error_reply(incomplete) end
@@ -363,6 +364,7 @@ elseif op == 'publish' or op == 'publish_compaction' or op == 'publish_temp' the
   if w.state == 'committed' then return 1 end
   if (w.state ~= 'staging' and w.state ~= 'sealed') or w.token ~= token or w.expires <= now or not owns_pin() then return -1 end
   if w.import_pending then return redis.error_reply('incomplete import batch cannot publish') end
+  if w.import_capture and (not import_capture_ready(w.import_capture) or w.import_capture.remaining~=0) then return redis.error_reply('import capture is incomplete or unconsumed') end
   if (w.metadata_builds or 0)>0 then return redis.error_reply('snapshot metadata construction is incomplete') end
   local incomplete=snapshot_metadata_publication_error(KEYS[3],graph)
   if incomplete then return redis.error_reply(incomplete) end
@@ -842,9 +844,21 @@ for i=4,#KEYS do
  local prefix,data=snapshot_row_key(KEYS[i])
  if prefix then
   if data_prefixes[data]~=prefix then return redis.error_reply('snapshot physical prefix is not owned') end
+  if w.import_capture and w.import_capture.data==data then return redis.error_reply('import output requires atomic capture consumption') end
  end
 end
 local command = string.lower(ARGV[5])
+if w.import_capture then
+ local private='` + snapshotPrefix + `workspace:'..ARGV[1]..':'
+ for i=4,#KEYS do
+  if KEYS[i]==private..'import:rows:'..ARGV[1] or KEYS[i]==private..'import:keys:'..ARGV[1] then
+   if w.import_capture.state~='capturing' and
+      not ((command=='del' or command=='unlink') and w.import_capture.state=='ready' and w.import_capture.remaining==0) then
+    return redis.error_reply('completed import capture is immutable')
+   end
+  end
+ end
+end
 if command=='ft.create' then
  local data=string.match(ARGV[6],'^adbc_snapshot16_{meta}_([0-9a-f]+)_')
  local expected=data and data_prefixes[data]

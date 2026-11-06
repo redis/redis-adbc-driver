@@ -21,6 +21,7 @@ type snapshotImportSpool struct {
 	store      *store
 	meta       *tableMeta
 	rows, keys string
+	begun      bool
 }
 
 // The journal is ordinary reference-owned private metadata. No application
@@ -135,6 +136,9 @@ func (p *snapshotImportSpool) mutate(ctx context.Context, command, key string, a
 }
 
 func (p *snapshotImportSpool) append(ctx context.Context, rows []map[string]Value) error {
+	if err := p.begin(ctx); err != nil {
+		return err
+	}
 	// A SCAN page can repeat keys within itself. Keep only this bounded page's
 	// first occurrence; earlier pages are deduplicated by the private journal.
 	for start := 0; start < len(rows); {
@@ -196,9 +200,16 @@ func (p *snapshotImportSpool) append(ctx context.Context, rows []map[string]Valu
 }
 
 func (p *snapshotImportSpool) apply(ctx context.Context) error {
+	remaining, err := p.ready(ctx)
+	if err != nil {
+		return err
+	}
 	count, err := p.store.redis(ctx).HLen(ctx, p.rows).Result()
 	if err != nil {
 		return err
+	}
+	if count != remaining {
+		return errorf(adbc.StatusIO, "import capture remaining count is inconsistent")
 	}
 	directory, err := resolveSnapshotMetadata(ctx, p.keys[len(metaPrefix):], false)
 	if err != nil {

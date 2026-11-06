@@ -110,6 +110,9 @@ func (s *store) importSnapshotTable(ctx context.Context, source *tableMeta, sche
 	}
 	spool := newSnapshotImportSpool(wctx, s, target)
 	wctx = context.WithValue(wctx, snapshotImportSpoolKey{}, spool)
+	if err := spool.begin(wctx); err != nil {
+		return err
+	}
 	for {
 		rows, done, err := next(wctx)
 		if err != nil {
@@ -121,6 +124,9 @@ func (s *store) importSnapshotTable(ctx context.Context, source *tableMeta, sche
 		if done {
 			break
 		}
+	}
+	if err := spool.complete(wctx); err != nil {
+		return err
 	}
 	if err := spool.apply(wctx); err != nil {
 		return err
