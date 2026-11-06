@@ -25,6 +25,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/apache/arrow-adbc/go/adbc"
 	goredis "github.com/redis/go-redis/v9"
@@ -198,7 +199,26 @@ func TestACLSweep(t *testing.T) {
 	if res.Deleted != int64(20-remaining) || res.Deleted < 0 || res.Deleted > 20 || a.prefixKeyCount(a.raw, other) != 1 {
 		t.Fatalf("partial sweep lost or misreported rows: public=%d report=%+v", remaining, res)
 	}
-	if d := a.denials("it_sw_acl"); len(d) != 1 || !strings.HasPrefix(d[0], "key "+other) {
+	// Lua's acl_check_cmd preflight can refuse without writing ACL LOG.
+	// Verify the same row-key boundary through a direct backend command,
+	// which must also be denied and produces the auditable key refusal.
+	opts, err := goredis.ParseURL(a.userURI("it_sw_acl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	probe := newClient(newClientConfig(opts), a.cluster, timeouts{read: time.Minute, write: time.Minute})
+	defer probe.Close()
+	forbidden := other + "1"
+	if a.raw.Exists(a.ctx, forbidden).Val() != 1 {
+		t.Fatal("missing forbidden row before direct permission probe")
+	}
+	if err := probe.Del(a.ctx, forbidden).Err(); err == nil || !strings.Contains(err.Error(), "NOPERM") {
+		t.Fatal("direct row deletion permission was not denied", err)
+	}
+	if a.prefixKeyCount(a.raw, other) != 1 {
+		t.Fatal("direct permission probe changed forbidden rows")
+	}
+	if d := a.denials("it_sw_acl"); len(d) != 1 || d[0] != "key "+forbidden {
 		t.Errorf("ACL log: %v", d)
 	}
 	runSweep(t, sweepOpts(adminURI()), true)

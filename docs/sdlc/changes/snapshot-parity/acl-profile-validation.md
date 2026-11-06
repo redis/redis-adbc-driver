@@ -105,3 +105,22 @@ error, and permits administrator recovery. Temporary roles/domains are removed
 and the owned Software fixture is stopped. These checks use Software 8.8, strict
 TLS, effective QPF 4x, noeviction, and the ordinary 2,147,483,648 aggregate cap.
 The hosted macOS run remains required for its backend-specific ACL-log/DD proof.
+
+### Explicit backend ACL audit probe
+
+The next hosted macOS run at `076c838` passes all earlier failing permission and
+inspection families. Its only Go failure is the sweep fixture's empty ACL log:
+`redis.acl_check_cmd` preflight returns the required NOPERM without recording a
+command execution refusal. Partial-report conservation, unauthorized-row
+preservation and administrator reclamation checks already pass.
+
+The follow-up retains those assertions and explicitly issues DEL for the single
+forbidden fixture row using the same restricted principal. DEL must return
+NOPERM, the row must remain, and ACL LOG must identify that exact key. This
+separates a preflight refusal from an executed backend command's audit record.
+All unit packages pass (root 26.966 seconds). Five race-enabled registered-data
+sweep repetitions on the owned Software role pass direct DEL denial, unchanged
+forbidden data, partial-report conservation and strong administrator reclamation.
+Software's blocked protocol ACL LOG remains the hosted macOS audit gate; it is
+not claimed as locally validated. The current hosted Software jobs are allowed
+to finish before publishing this test-only follow-up.
