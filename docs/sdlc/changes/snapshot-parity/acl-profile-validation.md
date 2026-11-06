@@ -145,3 +145,25 @@ All Go unit packages pass after typed decoding (root 27.072 seconds). Both
 Software jobs in Test run 42160980011 are terminal green at `076c838`; its Release
 workflow remains failed only by the old macOS audit assertion. The follow-ups
 still require a new hosted macOS result and are not claimed as green CI.
+
+### Writer cache permission and raw probe handshake
+
+With RESP3 audit decoding repaired, macOS at `c79084a` exposes the previously
+hidden EVALSHA command refusals in trusted-writer fixtures. The control executor
+accepts EVAL-only writers through a proven top-level command-refusal fallback,
+so SQL succeeds but that compatibility probe creates an ACL event. The documented
+writer recipe and its fixtures now include EVALSHA for successful cached control
+execution without refusals. Existing EVAL-only compatibility remains unchanged;
+row grants and denied operations are not broadened.
+
+The sweep's raw DEL probe now explicitly uses RESP3 and disables optional client
+identity metadata, matching the ordinary driver handshake. Its extra CLIENT
+SETINFO refusal is removed without granting that unrelated command. All existing
+no-denials and exact forbidden-key assertions remain enabled.
+
+All Go unit packages pass (root 27.555 seconds). Five real Software sweep races
+with the final EVALSHA profile and handshake pass (5.306 seconds), including
+NOPERM, exact forbidden-row preservation, partial-result conservation and strong
+administrator reclamation. The hosted macOS audit gate is still pending. The
+production runtime is identical between the fully Software-green `076c838` and
+`c79084a`; their differences are limited to audit test fixtures and evidence.

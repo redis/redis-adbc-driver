@@ -345,10 +345,14 @@ are refused without migration. See [snapshots](snapshots.md).
 The command profile for trusted writers is:
 
 ```text
-+ping +info +ft._list +ft.create +ft.alter +ft.info +ft.dropindex +ft.aggregate +ft.cursor +ft.search +ft.profile +get +set +del +exists +incrby +hset +hget +hmget +hgetall +hdel +hincrby +hexists +sadd +srem +smembers +sismember +multi +exec +watch +unwatch +eval +copy +dbsize +time +type +unlink +pexpireat +hlen +hstrlen +hscan +scard +memory|usage +zadd +zrem +zcard +zrange +zrangebylex +zrangebyscore +zremrangebyscore +zscore +zmscore +zlexcount
++ping +info +ft._list +ft.create +ft.alter +ft.info +ft.dropindex +ft.aggregate +ft.cursor +ft.search +ft.profile +get +set +del +exists +incrby +hset +hget +hmget +hgetall +hdel +hincrby +hexists +sadd +srem +smembers +sismember +multi +exec +watch +unwatch +eval +evalsha +copy +dbsize +time +type +unlink +pexpireat +hlen +hstrlen +hscan +scard +memory|usage +zadd +zrem +zcard +zrange +zrangebylex +zrangebyscore +zremrangebyscore +zscore +zmscore +zlexcount
 # Cluster API clients also need
 +cluster|slots +command
 ```
+
+`+evalsha` permits cached control-script execution without ACL audit refusals.
+Existing EVAL-only writers remain compatible through the explicit command-refusal
+fallback, which can record an EVALSHA denial before selecting EVAL.
 
 Writers need `~adbc:*` for metadata, `~adbc_snapshot16_{meta}_*` for
 their versioned Search index namespace, and
@@ -362,7 +366,7 @@ the old mutable recipe's `INCR`, `DUMP` and `RESTORE` are no longer required.
 For example, a trusted writer for `public` and temporary tables uses:
 
 ```text
-ACL SETUSER dbt on >password resetchannels ~adbc:* ~adbc_snapshot16_{meta}_* ~*~public:{meta}:snapshot:16:rows:* ~*~pg_temp_*:{meta}:snapshot:16:rows:* +ping +info +ft._list +ft.create +ft.alter +ft.info +ft.dropindex +ft.aggregate +ft.cursor +ft.search +ft.profile +get +set +del +exists +incrby +hset +hget +hmget +hgetall +hdel +hincrby +hexists +sadd +srem +smembers +sismember +multi +exec +watch +unwatch +eval +copy +dbsize +time +type +unlink +pexpireat +hlen +hstrlen +hscan +scard +memory|usage +zadd +zrem +zcard +zrange +zrangebylex +zrangebyscore +zremrangebyscore +zscore +zmscore +zlexcount
+ACL SETUSER dbt on >password resetchannels ~adbc:* ~adbc_snapshot16_{meta}_* ~*~public:{meta}:snapshot:16:rows:* ~*~pg_temp_*:{meta}:snapshot:16:rows:* +ping +info +ft._list +ft.create +ft.alter +ft.info +ft.dropindex +ft.aggregate +ft.cursor +ft.search +ft.profile +get +set +del +exists +incrby +hset +hget +hmget +hgetall +hdel +hincrby +hexists +sadd +srem +smembers +sismember +multi +exec +watch +unwatch +eval +evalsha +copy +dbsize +time +type +unlink +pexpireat +hlen +hstrlen +hscan +scard +memory|usage +zadd +zrem +zcard +zrange +zrangebylex +zrangebyscore +zremrangebyscore +zscore +zmscore +zlexcount
 ```
 
 `HELLO` and `AUTH` are always allowed. Add `+select` for a nonzero URI database,

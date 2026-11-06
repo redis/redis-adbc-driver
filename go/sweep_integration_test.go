@@ -206,6 +206,7 @@ func TestACLSweep(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	opts.Protocol, opts.DisableIdentity = 3, true // match the driver's handshake
 	probe := newClient(newClientConfig(opts), a.cluster, timeouts{read: time.Minute, write: time.Minute})
 	defer probe.Close()
 	forbidden := other + "1"
