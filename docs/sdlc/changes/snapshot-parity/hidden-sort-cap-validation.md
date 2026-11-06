@@ -54,6 +54,24 @@ Its three shards are behind the Software proxy; this is not Cluster API evidence
   skips/failures, root **25.851 s**. This run precedes the final two test-only
   additions; its production implementation is unchanged.
 
+## Private outputs and complete native checkpoint
+
+Complete native ADBC validation at `a371624` passes **565 tests and 3 subtests**,
+with **8 capability skips**, in **81.61 s**. The versioned library SHA-256 is
+`500ee213f4e07856461c9fb85dd250caa9945c4fec4faabb20363e9e5ed9a6dd`.
+This source precedes the private-output correction below.
+
+Further review reproduced `SEARCH_INDEX_NOT_FOUND` when an unknown-CONFIG reader
+orders a newly staged private table before its final index exists (case 0.05 s,
+root 0.852 s). Capability discovery must preserve private directory execution.
+The follow-up establishes the existing immutable-source visibility proof first,
+skips probes for unindexed private/empty proven inputs, and reuses that proof
+for the eventual ordered merge. No staging index is created or queried.
+The expanded ordering/DDL/NULL/projection race selection passes **74 test
+events**, no skips/failures, root **27.602 s**. An additional actual cap-137 run
+passes all 10 events and restores/verifies the original cap and 4x QPF.
+Complete native validation of this follow-up remains a separate requirement.
+
 The native selection is `TestSnapshotExplicitOrderHiddenAggregateCap` with
 `REDIS_TEST_NATIVE_HIDDEN_CAP=137` only after the management API confirms that
 actual setting. Without that test-only environment declaration, its separate

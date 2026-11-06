@@ -1368,11 +1368,27 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 		}
 	}
 	if snapshotOf(ctx) != nil && meta.SnapshotRows != nil && indexSort && len(plan.order) > 0 && !wp.none {
-		caps, err = e.store.snapshotSortCap(ctx, snapshotSourceIndex(ctx, meta), caps)
-		if err != nil {
-			return selectScan{}, err
+		if meta.SnapshotOverlay && orderVisibility == nil {
+			// Nonempty private outputs have no final index yet. Establish the
+			// existing immutable-source proof before probing Search capacity.
+			var ok bool
+			orderVisibility, ok, err = e.snapshotIndexQueries(ctx, meta)
+			if err != nil {
+				return selectScan{}, err
+			}
+			if !ok {
+				indexSort = false
+			} else if orderVisibility == nil {
+				orderVisibility = []snapshotIndexQuery{}
+			}
 		}
-		if !meta.SnapshotOverlay && caps[1] < maxAggLimit {
+		if indexSort && (!meta.SnapshotOverlay || len(orderVisibility) > 0) {
+			caps, err = e.store.snapshotSortCap(ctx, snapshotSourceIndex(ctx, meta), caps)
+			if err != nil {
+				return selectScan{}, err
+			}
+		}
+		if indexSort && !meta.SnapshotOverlay && caps[1] < maxAggLimit {
 			// A single immutable baseline has the same exact directory as an
 			// overlay. Reuse its cap-independent path only when needed; retain
 			// the ordinary index fast path under the standard unlimited cap.
