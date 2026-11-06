@@ -1853,17 +1853,30 @@ func TestSQLDropSchemaCascade(t *testing.T) {
 	h.expectRows("SELECT COUNT(*) FROM information_schema.views WHERE table_schema = 'it_cascade_v'", "0")
 	h.expectError("SELECT * FROM it_cascade_v.only", "does not exist")
 
-	// CASCADE drops the views, the tables (index and rows), then the schema.
-	prefix := h.tablePrefix(raw, "it_cascade", "t1")
+	// CASCADE publishes the logical drop atomically. A pinned old root still
+	// owns its physical rows until release; reclamation is a separate phase.
+	heldStore, heldCtx, heldPin := h.inspectionSnapshot(raw)
+	defer heldPin.release()
+	held, err := heldStore.getTable(heldCtx, "it_cascade", "t1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	prefix, index := held.prefix(), held.index()
 	if n := h.prefixKeyCount(raw, prefix); n != 2 {
 		t.Fatalf("it_cascade.t1 has %d row keys, want 2", n)
 	}
 	h.exec("DROP SCHEMA it_cascade CASCADE")
 	h.expectRows("SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name = 'it_cascade'", "0")
 	h.expectRows("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'it_cascade'", "0")
-	if n := h.prefixKeyCount(raw, prefix); n != 0 {
-		t.Errorf("%d row keys left after DROP SCHEMA … CASCADE", n)
+	snapshotReapTest(heldStore, h.ctx)
+	if err := heldPin.valid(heldCtx); err != nil {
+		t.Fatal("DROP SCHEMA invalidated the pinned old root", err)
 	}
+	if n := h.prefixKeyCount(raw, prefix); n != 2 {
+		t.Fatalf("pinned schema rows were reclaimed: got %d, want 2", n)
+	}
+	heldPin.release()
+	h.expectSnapshotReleased(raw, prefix, index)
 	h.expectError("SELECT * FROM it_cascade.t1", "does not exist")
 	h.expectError("DROP SCHEMA it_cascade CASCADE", "does not exist")
 	h.exec("DROP SCHEMA IF EXISTS it_cascade CASCADE")
