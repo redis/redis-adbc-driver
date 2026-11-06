@@ -2,6 +2,15 @@
 
 Date: 2026-11-05. Driver: PR #323, based on 689dbc6, with the profile harness added in this change. Measurements precede the later validation-driven error, retained-mode and allocation-bound fixes; the measured read algorithms were unchanged. These are warm synthetic local measurements, not ClickBench or production sizing evidence.
 
+This is the historical **1,000-ID bounded-page baseline**, merged in
+[PR #323](https://github.com/redis/redis-adbc-driver/pull/323). The
+[latest follow-up](followups/README.md), merged in
+[PR #331](https://github.com/redis/redis-adbc-driver/pull/331), measures 10,000-ID
+pages and tiered/concurrent reads. In its latest matched warm results, Flex
+stopgap averaged **6.9x RAM-default latency** and RAM stopgap **3.1x** across
+seven workloads, using ratios of mean per-workload medians. The tables below
+retain the earlier baseline and must not be read as those latest results.
+
 ## Method
 
 - Redis Software 8.2.6-25, Redis 8.8.0, Search 8.8.8; Linux aarch64 containers on one macOS ARM host. RAM and Flex each had one shard, verified active 4x QPF, 6 Search workers, mnp routing and 32 connections. Both used authenticated TLS and RESP3. Flex had BigStore v2, 1 GiB total / 256 MiB RAM; RAM had 1 GiB, no replication. Flash was a container directory, not a provisioned SSD service.

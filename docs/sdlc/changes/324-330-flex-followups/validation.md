@@ -1,6 +1,21 @@
 # Follow-up validation
 
-Date: 2026-11-05. Base main `4ae4700`. Status: in progress. See [plan](plan.md).
+Date of recorded experiments: 2026-11-05. Base main `4ae4700`.
+Implementation/evidence merged in [PR #331](https://github.com/redis/redis-adbc-driver/pull/331)
+as `cc2cbb27`; measured driver source is `a121842`, evidence checkpoint `8847f76`.
+See [plan](plan.md). Earlier checkpoints below remain historical results.
+
+## Merged outcome
+
+Retained replay (#324), bounded rename/rekey (#327), restart/planned failover
+validation (#328) and bounded-reader/resource work (#330) are merged; those four
+issues are closed. The final full native Flex suite still reports **559 passed,
+6 failed and 8 skipped**, with 3 passing subtests. The six ALTER/CREATE INDEX
+failures belong to open #325/#326, intentionally skipped under the requestor's
+scope. Cloud #329 remains excluded. This is not a clean full-ADBC Flex pass.
+The final restart/failover and tiered/concurrent evidence below supersedes the
+initial timeout and missing-coverage checkpoints without erasing them.
+
 
 Isolated Software Flex fixture: Software 8.2.6-25 / Redis 8.8.0 / Search 8.8.8, three primary shards on one node, BigStore v2, 16 GiB total / 4 GiB RAM, noeviction, TLS/RESP3. Setup verified active 4x QPF, 6 Search workers, mnp routing and 32 connections before tests. Infrastructure identifiers and raw logs remain private. This topology is not HA coverage.
 
@@ -16,7 +31,7 @@ Isolated Software Flex fixture: Software 8.2.6-25 / Redis 8.8.0 / Search 8.8.8, 
 
 Scope: #325/#326 are skipped under Albert's direction because existing paths require unsupported FT.ALTER. The all-suite failures remain visible; no skip or weakened assertion is added to hide them. #329 is excluded because work is now Software Flex only.
 
-Cloud blocker (#329): [current Redis Cloud documentation](https://redis.io/docs/latest/operate/rc/databases/create-database/create-flex-database/#redis-search-on-flex-beta), checked 2026-11-05, describes a Pro subscription beta flag, but explicitly excludes NUMERIC fields, FT.AGGREGATE and background indexing. Plain NUMERIC is required by the stopgap. The previously tested account offered Redis through 8.6 and rejected Search configuration. Enabling the documented beta alone therefore cannot fulfill the SQL acceptance criteria. No new Cloud deployment has been provisioned or successful Cloud SQL claimed in this follow-up.
+Historical Cloud blocker (#329): [Redis Cloud documentation](https://redis.io/docs/latest/operate/rc/databases/create-database/create-flex-database/#redis-search-on-flex-beta), checked 2026-11-05, describes a Pro subscription beta flag, but explicitly excludes NUMERIC fields, FT.AGGREGATE and background indexing. Plain NUMERIC is required by the stopgap. The previously tested account offered Redis through 8.6 and rejected Search configuration. Enabling the documented beta alone therefore cannot fulfill the SQL acceptance criteria. No new Cloud deployment has been provisioned or successful Cloud SQL claimed in this follow-up.
 
 ## Restart and unit checkpoint
 
@@ -53,4 +68,4 @@ Raw logs/JUnit, API controls, credentials, endpoints and infrastructure identifi
 
 Removed four task-owned containers and both task-owned Docker networks. Verified no owned containers remained and both pre-existing Software fixtures were still running. No Cloud resources were created in this follow-up. [Sanitized cleanup evidence](../../../../benchmarks/redis-flex/2026-11-05/followups/cleanup.json) is committed.
 
-Self-review covered exact row/value/order behavior, terminal reader failure/cancellation, row-ID precision, persisted rekey layout capability, independent HASH copies, rollback/source ownership, retained source mode propagation and reader-only replay. Existing RAM behavior was checked by the complete native suite and focused race tests. No remaining driver change is required within this task's narrowed scope. This self-review is not maintainer approval; PR review/merge and release remain separate. Known server populated-database replica-loading failure, unsupported schema operations, absent general spill and unmeasured physical-host outages/cold-SSD amplification remain explicit limitations.
+Self-review covered exact row/value/order behavior, terminal reader failure/cancellation, row-ID precision, persisted rekey layout capability, independent HASH copies, rollback/source ownership, retained source mode propagation and reader-only replay. Existing RAM behavior was checked by the complete native suite and focused race tests. No remaining driver change is required within this task's narrowed scope. This records agent self-review, not a maintainer sign-off. Implementation/evidence were subsequently merged in PR #331; no release validation is added by this refresh. Known server populated-database replica-loading failure, unsupported schema operations, absent general spill and unmeasured physical-host outages/cold-SSD amplification remain explicit limitations.

@@ -6,6 +6,20 @@ Larger bounded pages improved broad-query latency by roughly 1.8–2.8x in this 
 
 Across the seven measured warm workloads, weighted equally, **Flex stopgap averaged 6.9× RAM-default latency**, while **RAM stopgap averaged 3.1× RAM-default latency**, using the latest “after” results. These ratios divide each mode's arithmetic mean of the seven per-workload median latencies by RAM default's corresponding mean. Individual workload slowdowns vary considerably.
 
+The arithmetic means behind that summary are:
+
+| Latest warm mode | Mean of seven workload medians, ms | Ratio to RAM default |
+|---|---:|---:|
+| RAM default | 287.93 | 1.00x |
+| RAM stopgap | 887.13 | 3.08x |
+| Flex stopgap | 1,981.52 | 6.88x |
+
+The ratio is `sum(mode's seven median latencies) / sum(RAM default's seven median
+latencies)`. It is a latency multiplier for this workload mix; it is not the
+arithmetic mean of the seven individual slowdown ratios or a production estimate.
+These recorded results are merged in PR #331; no new measurements were taken for
+the documentation refresh.
+
 ## Matched warm comparison
 
 - Same 50,000 rows and 15 columns as the original report: id, group, nullable numeric score and twelve unindexed strings with a 120-byte suffix. Every returned field was validated against formulas and the entire Arrow stream consumed.
@@ -28,6 +42,17 @@ All latency cells are **before → after median milliseconds**.
 | grouped | 268.75 → 282.77 | 2571.87 → 1017.17 | 4572.72 → 2427.98 |
 
 Selective is the final 100 IDs; broad projects id/n; wide projects id plus twelve strings. Top-K orders nullable n/id and returns 100 rows. Sort orders the full set. Scalar and grouped aggregates match the original report. The selective Flex case regressed by about 6 ms; no improvement is claimed for it.
+
+### Reading changes in the RAM-default control
+
+The 1,000-to-10,000 page change targets bounded readers. RAM-default cells are
+controls from separate before/after runs, with fresh prefixes, an unpinned shared
+host and storage/cache/allocator history. Those factors were not isolated. Some
+controls increased, while scalar latency fell from 270.16 to 223.38 ms. The
+selective increase from 8.99 to 19.01 ms is about 10 ms in absolute time.
+Five trials do not establish the cause or statistical significance of these
+cross-run differences. The 6.9x/3.1x headline uses all three modes from the same
+latest "after" comparison, rather than mixing before and after controls.
 
 The raw factorial comparison still isolates both numeric schemas and both readers on RAM, with identical exact HASH fetching and no server sorting/reducers:
 
