@@ -130,12 +130,13 @@ func (d *snapshotDeltaScan) nextKeys(ctx context.Context) ([]string, []string, e
 	if limit == 0 {
 		limit = snapshotDeltaPage
 	}
+	// Reuse merge scratch for the whole page, rather than allocating per row.
+	heads := make([]string, len(d.sources))
 	for len(logical) < limit {
 		if err := cancelled(ctx); err != nil {
 			return nil, nil, err
 		}
 		smallest := ""
-		heads := make([]string, len(d.sources))
 		for i := range d.sources {
 			id, err := d.head(ctx, i)
 			if err != nil {
@@ -157,11 +158,13 @@ func (d *snapshotDeltaScan) nextKeys(ctx context.Context) ([]string, []string, e
 			}
 		}
 		n, err := strconv.ParseInt(smallest, 10, 64)
-		if err != nil || n < 1 || fmt.Sprintf("%020d", n) != smallest {
+		id := strconv.FormatInt(n, 10)
+		// head proved a 20-byte directory entry. Removing only zero padding
+		// must yield the canonical positive int64, including at MaxInt64.
+		if err != nil || n < 1 || strings.TrimLeft(smallest, "0") != id {
 			return nil, nil, errorf(adbc.StatusIO, "invalid snapshot row identity")
 		}
 		d.last = smallest
-		id := strconv.FormatInt(n, 10)
 		logical = append(logical, d.meta.prefix()+id)
 		physical = append(physical, d.sources[winner].segment.Prefix+id)
 	}

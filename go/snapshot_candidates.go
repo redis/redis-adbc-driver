@@ -122,12 +122,13 @@ func (d *snapshotCandidateScan) verify(ctx context.Context) error {
 func (d *snapshotCandidateScan) nextKeys(ctx context.Context) ([]string, []string, error) {
 	var ids []string
 	var winners []int
+	// Reuse merge scratch for the whole page, rather than allocating per row.
+	heads := make([]string, len(d.sources))
 	for len(ids) < snapshotDeltaPage {
 		if err := cancelled(ctx); err != nil {
 			return nil, nil, err
 		}
 		smallest := ""
-		heads := make([]string, len(d.sources))
 		for i := range d.sources {
 			id, err := d.head(ctx, i)
 			if err != nil {
