@@ -31,3 +31,40 @@ comparative benchmarks retain their exact revisions and measured gaps, including
 the approximately 6.5x mutable sustained-write throughput advantage. The delivery
 split does not convert that gap into performance parity or erase remaining
 optimization and comparative-measurement obligations.
+
+## Upstream replacement plan
+
+The user subsequently requested reducing both already implemented and remaining
+custom work as far as possible. Freeze additional bespoke operation-resume and
+performance infrastructure in PR #284; retain the private development branch
+without publishing it as part of the core snapshot change. Existing working
+snapshot protections remain necessary until a replacement is available and
+verified; filing a request alone does not make its feature supported.
+
+| Upstream request | Driver machinery it could replace or avoid |
+|---|---|
+| [Redis #16180: reusable point-in-time read views](https://github.com/redis/redis/issues/16180) (existing) | Custom immutable row generations, reader retention, version directories, reference accounting and reclamation |
+| [Search #12219: view-bound Search and cursors](https://github.com/RediSearch/RediSearch/issues/12219) (new) | Retained index generations, visibility candidate rechecks, reducer masks, index/version compaction |
+| [Redis #16184: coordinated cross-shard views](https://github.com/redis/redis/issues/16184) (new) | Driver-specific distributed read coordination and dependence on one-slot managed data placement |
+| [Search #12220: index/write-boundary completion barrier](https://github.com/RediSearch/RediSearch/issues/12220) (new) | Repeated readiness polling, exact coverage validation and custom final-index notification workarounds |
+| [Redis #16185: bounded mutation outcomes](https://github.com/redis/redis/issues/16185) (new) | Custom mutation identities, outcome journals, partial-failure bookkeeping and uncertain-reply recovery protocol |
+| [Redis #16048: typed bounded bulk export](https://github.com/redis/redis/issues/16048) (existing) | Repeated per-cell RESP decoding and parts of the custom analytical transfer pipeline |
+
+Each request states acceptance criteria, limitations and alternatives; the new
+requests were checked against existing discussions. The user explicitly allowed
+unlabeled upstream submissions because this account cannot assign labels.
+The two core requests were submitted through the user's signed-in browser after
+API credentials refused creation. All four new issue bodies and open states
+were verified through GitHub after submission.
+
+These requests are proposals, not accepted implementation commitments. Do not
+publish an unsupported Redis bug claim for the unexplained metadata recovery
+failure: it still requires driver-level diagnosis. SQL/Arrow semantics, managed
+external-copy refresh, error propagation and native ADBC integration remain
+client responsibilities. Native mutation outcomes alone also do not implement
+unread-input capture or full process resume.
+
+The minimal immediate deliverable is core statement-snapshot correctness and
+stabilization with truthful evidence/limits. Public operation resume, new bespoke
+optimizations and cross-shard snapshot coordination are deferred rather than
+silently counted as completed. Performance parity is not a core completion claim.
