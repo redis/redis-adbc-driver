@@ -617,7 +617,7 @@ func TestSQLAlterTypeLostLease(t *testing.T) {
 	if dataID == "" {
 		t.Fatal("rewrite has no owned private output")
 	}
-	target := snapshotRows(dataID, defaultSchema)
+	target := snapshotRows(dataID, defaultSchema, snapshotAccessID(prefix))
 	if count, err := raw.ZCard(h.ctx, snapshotMembers(dataID)).Result(); err != nil || count != snapshotDeltaPage {
 		t.Fatal("partial private output missing", count, err)
 	}

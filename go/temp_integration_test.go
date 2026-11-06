@@ -267,7 +267,7 @@ func TestSQLTempTables(t *testing.T) {
 	}
 	for _, seg := range meta.snapshotSegments() {
 		data := snapshotDataID(seg.Prefix)
-		if data == "" || seg.Prefix != snapshotRows(data, schema) || snapshotDataID(seg.Index) != data {
+		if data == "" || seg.Prefix != snapshotRows(data, schema, meta.SnapshotAccessID) || snapshotDataID(seg.Index) != data {
 			t.Fatal("temporary storage is not canonical")
 		}
 	}

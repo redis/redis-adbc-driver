@@ -74,7 +74,7 @@ func (h *sqlHarness) rekeyNativeLayout(raw goredis.UniversalClient, schema, tabl
 	meta := h.inspectTable(raw, schema, table)
 	for _, seg := range meta.snapshotSegments() {
 		id := snapshotDataID(seg.Prefix)
-		if id == "" || seg.Prefix != snapshotRows(id, schema) || snapshotDataID(seg.Index) != id {
+		if id == "" || seg.Prefix != snapshotRows(id, schema, meta.SnapshotAccessID) || snapshotDataID(seg.Index) != id {
 			h.t.Fatal("noncanonical rekey storage")
 		}
 	}
@@ -438,7 +438,7 @@ func stageRekeySnapshot(t *testing.T, h *sqlHarness, raw goredis.UniversalClient
 		t.Fatal(err)
 	}
 	data := snapshotDataID(target.prefix())
-	if data == "" || target.prefix() != snapshotRows(data, defaultSchema) || target.prefix() == source.prefix() {
+	if data == "" || target.prefix() != snapshotRows(data, defaultSchema, target.SnapshotAccessID) || target.prefix() == source.prefix() {
 		t.Fatal("private rekey did not allocate canonical fresh storage")
 	}
 	return &stagedRekeySnapshot{store: st, base: base, ctx: ctx, pin: pin, id: id, source: source, target: target}
@@ -848,7 +848,8 @@ func TestSQLRekeyConcurrentWriters(t *testing.T) {
 	}()
 	waitFor(t, "writer progress", func() bool { return progress.Load() >= 5 })
 	// The source can span changing segment UUIDs; match its native schema prefix.
-	prefix := strings.TrimSuffix(snapshotRows("fixture", defaultSchema), "fixture:")
+	sourceMeta := h.inspectTable(raw, defaultSchema, from)
+	prefix := sourceMeta.SnapshotAccessID + "~" + snapshotSchemaPart(defaultSchema) + snapshotRowMarker
 	stmt, ctx, _, transport, barrier := snapshotPausedAlter(t, h, "ALTER TABLE "+from+" RENAME TO "+to, prefix)
 	var resumeOnce sync.Once
 	resume := func() { resumeOnce.Do(func() { close(barrier.resume) }) }

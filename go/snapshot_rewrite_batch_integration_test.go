@@ -176,7 +176,7 @@ func TestSnapshotReplacementRequiresRegisteredPrivateImages(t *testing.T) {
 					t.Fatal(err)
 				}
 			case "alias":
-				second.key = snapshotRows(snapshotDataID(meta.prefix()), "another_schema") + "2"
+				second.key = snapshotRows(snapshotDataID(meta.prefix()), "another_schema", meta.SnapshotAccessID) + "2"
 			}
 			if mode == "missing" || mode == "score" {
 				score := float64(0)

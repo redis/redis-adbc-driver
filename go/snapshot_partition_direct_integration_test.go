@@ -113,7 +113,7 @@ func TestSnapshotDirectPartitionRejectsCorruptNativeState(t *testing.T) {
 				if err = json.Unmarshal([]byte(owner), &record); err != nil {
 					t.Fatal(err)
 				}
-				record["prefix"] = snapshotRows(data, "another_schema")
+				record["prefix"] = snapshotRows(data, "another_schema", snapshotAccessID(base.Prefix))
 				value, e := json.Marshal(record)
 				if e != nil {
 					t.Fatal(e)

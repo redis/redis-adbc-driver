@@ -114,7 +114,7 @@ func TestSnapshotGCBatchAdmission(t *testing.T) {
 			case "missing_queue":
 				raw.ZRem(h.ctx, snapshotDataQueue, id)
 			case "wrong_prefix":
-				prefix = snapshotRows(id, "another_schema")
+				prefix = snapshotRows(id, "another_schema", meta.SnapshotAccessID)
 			case "bad_score":
 				raw.ZAdd(h.ctx, directory, goredis.Z{Score: 1, Member: members[1]})
 			case "bad_member":

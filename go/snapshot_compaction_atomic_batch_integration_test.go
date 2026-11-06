@@ -232,7 +232,7 @@ func TestSnapshotCompactionAtomicPreflight(t *testing.T) {
 			case "tombstone":
 				images[1].fields = append(images[1].fields, snapshotDeletedField, "1")
 			case "prefix_alias":
-				images[1].key = snapshotRows(job.Data, "other") + "2"
+				images[1].key = snapshotRows(job.Data, "other", snapshotAccessID(job.Prefix)) + "2"
 			case "checkpoint":
 				after = "00000000000000000000"
 			case "duplicate_member":

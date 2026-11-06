@@ -83,18 +83,17 @@ func rekeyPrivateOutput(t *testing.T, h *sqlHarness, raw goredis.UniversalClient
 		t.Fatal("expected one private rekey output", len(ids))
 	}
 	data := ids[0]
-	prefix := snapshotRows(data, defaultSchema)
 	payload, err := raw.HGet(h.ctx, snapshotMetadataGraph, "d:"+data).Bytes()
 	var owned struct {
 		Prefix string `json:"prefix"`
 	}
-	if err != nil || json.Unmarshal(payload, &owned) != nil || owned.Prefix != prefix {
+	if err != nil || json.Unmarshal(payload, &owned) != nil || owned.Prefix != snapshotRows(data, defaultSchema, snapshotAccessID(owned.Prefix)) {
 		t.Fatal("private rekey ownership missing", err)
 	}
 	if n, err := raw.ZCard(h.ctx, snapshotMembers(data)).Result(); err != nil || n != snapshotDeltaPage {
 		t.Fatal("private batch directory is not exact", n, err)
 	}
-	return prefix, snapshotIndexPrefix(data) + "working"
+	return owned.Prefix, snapshotIndexPrefix(data) + "working"
 }
 
 func expectClosedRename(t *testing.T, err error) {

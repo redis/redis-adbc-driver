@@ -254,10 +254,10 @@ func TestSnapshotCompactionResumeFencesOldOwnerAndGraftsTail(t *testing.T) {
 	if progress.Data != job.Data || progress.After <= job.After || progress.Token == oldToken {
 		t.Fatal("new owner did not resume the existing checkpoint")
 	}
-	if err := s.client.HSet(oldCtx, snapshotRows(job.Data)+"1002", rowIDField, "1002", "v", "999").Err(); err == nil {
+	if err := s.client.HSet(oldCtx, job.Prefix+"1002", rowIDField, "1002", "v", "999").Err(); err == nil {
 		t.Fatal("expired owner wrote after takeover")
 	}
-	if raw.Exists(h.ctx, snapshotRows(job.Data)+"1002").Val() != 0 {
+	if raw.Exists(h.ctx, job.Prefix+"1002").Val() != 0 {
 		t.Fatal("stale writer reached Redis")
 	}
 	// These commits happen while source copying is incomplete. Installation must
@@ -272,10 +272,10 @@ func TestSnapshotCompactionResumeFencesOldOwnerAndGraftsTail(t *testing.T) {
 		}
 		if job.Phase != "copy" {
 			sealed := resumed.compactionWriteContext(h.ctx, job)
-			if err := resumed.client.HSet(sealed, snapshotRows(job.Data)+"2000", rowIDField, "2000", "v", "999").Err(); err == nil {
+			if err := resumed.client.HSet(sealed, job.Prefix+"2000", rowIDField, "2000", "v", "999").Err(); err == nil {
 				t.Fatal("copy mutation reached sealed output")
 			}
-			if raw.Exists(h.ctx, snapshotRows(job.Data)+"2000").Val() != 0 {
+			if raw.Exists(h.ctx, job.Prefix+"2000").Val() != 0 {
 				t.Fatal("sealed output changed")
 			}
 			break
@@ -329,7 +329,7 @@ func TestSnapshotCompactionDropAndTruncateDiscardObsoleteJob(t *testing.T) {
 				t.Fatal("obsolete job remained active")
 			}
 			snapshotReapTest(s, h.ctx)
-			if raw.Exists(h.ctx, snapshotRows(job.Data)+"1", snapshotMembers(job.Data)).Val() != 0 {
+			if raw.Exists(h.ctx, job.Prefix+"1", snapshotMembers(job.Data)).Val() != 0 {
 				t.Fatal("obsolete output/directory leaked")
 			}
 			if sql == "TRUNCATE t" {

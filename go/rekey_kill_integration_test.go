@@ -91,7 +91,7 @@ func rekeyChild(args string) int {
 	if os.Getenv("ADBC_REDIS_REKEY_PHASE") == "committed" {
 		impl.conn.store.client.AddHook(&rekeyCommittedReply{ready: ready, resume: make(chan struct{})})
 	} else {
-		prefix := strings.TrimSuffix(snapshotRows("fixture", defaultSchema), "fixture:")
+		prefix := os.Getenv("ADBC_REDIS_REKEY_ACCESS") + "~" + snapshotSchemaPart(defaultSchema) + snapshotRowMarker
 		transport.client.AddHook(&snapshotAlterReadBarrier{prefix: prefix, ready: ready, resume: make(chan struct{})})
 	}
 	go func() {
@@ -159,7 +159,7 @@ func TestSQLRekeyKilled(t *testing.T) {
 			if mode == "committed" {
 				phase = "committed"
 			}
-			cmd.Env = append(os.Environ(), "ADBC_REDIS_REKEY_CHILD="+from+" "+to, "ADBC_REDIS_REKEY_PHASE="+phase)
+			cmd.Env = append(os.Environ(), "ADBC_REDIS_REKEY_CHILD="+from+" "+to, "ADBC_REDIS_REKEY_PHASE="+phase, "ADBC_REDIS_REKEY_ACCESS="+original.SnapshotAccessID)
 			cmd.Stderr = stderr
 			stdout, err := cmd.StdoutPipe()
 			if err != nil {
@@ -204,7 +204,7 @@ func TestSQLRekeyKilled(t *testing.T) {
 				t.Fatal("incomplete child boundary")
 			}
 			data := boundary.Data[0]
-			prefix := snapshotRows(data, defaultSchema)
+			prefix := snapshotRows(data, defaultSchema, original.SnapshotAccessID)
 			payload, err := raw.HGet(h.ctx, snapshotCatalogKey, "w:"+boundary.ID).Bytes()
 			var work struct {
 				State   string `json:"state"`

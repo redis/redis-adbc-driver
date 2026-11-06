@@ -105,7 +105,7 @@ func (h *sqlHarness) raceNativeImagesAt(raw goredis.UniversalClient, table strin
 			h.t.Fatal("race missed first acknowledged native batch", written, count)
 		}
 		data := snapshotDataID(meta.prefix())
-		if data == "" || meta.prefix() != snapshotRows(data, meta.Schema) {
+		if data == "" || meta.prefix() != snapshotRows(data, meta.Schema, meta.SnapshotAccessID) {
 			h.t.Fatal("race output is not canonical private storage")
 		}
 		// These are exact private images, not partially written published HASHes.

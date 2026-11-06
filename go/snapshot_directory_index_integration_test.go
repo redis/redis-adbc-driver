@@ -225,7 +225,7 @@ func TestSnapshotIndexNotificationRejectsDamagedBatch(t *testing.T) {
 			case "duplicate":
 				members[1] = members[0]
 			case "prefix_alias":
-				prefix = snapshotRows(snapshotDataID(prefix), "other")
+				prefix = snapshotRows(snapshotDataID(prefix), "other", snapshotAccessID(prefix))
 			case "aborted":
 				s.abortSnapshot(pin, id)
 			case "expired":
