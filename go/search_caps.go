@@ -124,8 +124,10 @@ func snapshotAggregateLimitRefusal(err error) (int64, bool) {
 	if !ok {
 		return 0, false
 	}
-	const prefix = "SEARCH_LIMIT_OVER LIMIT exceeds maximum of "
-	message := native.Error()
+	// Redis 8.6 emits the bare argument refusal; newer Search releases tag
+	// the same pre-execution refusal. Accept only these exact native forms.
+	const prefix = "LIMIT exceeds maximum of "
+	message := strings.TrimPrefix(native.Error(), "SEARCH_LIMIT_OVER ")
 	if !strings.HasPrefix(message, prefix) {
 		return 0, false
 	}
