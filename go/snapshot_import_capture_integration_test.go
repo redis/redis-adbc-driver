@@ -1,0 +1,162 @@
+// Copyright (c) 2026 ADBC Drivers Contributors
+// Licensed under the Apache License, Version 2.0.
+package redis
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"strings"
+	"sync/atomic"
+	"testing"
+
+	goredis "github.com/redis/go-redis/v9"
+)
+
+func TestSnapshotClusterImportCaptureCompletion(t *testing.T) {
+	h, s, ctx, meta, p := snapshotClusterCaptureFixture(t, 513)
+	scope := snapshotOf(ctx)
+	if err := p.apply(ctx); err == nil {
+		t.Fatal("output started before complete capture")
+	}
+	done, err := p.captureControl(ctx, "complete")
+	if err != nil || done {
+		t.Fatal("expected one bounded incomplete validation checkpoint", done, err)
+	}
+	var work struct {
+		Capture struct {
+			State                     string
+			Checked, Total, Remaining int64
+		} `json:"import_capture"`
+	}
+	raw, err := s.client.HGet(h.ctx, snapshotCatalogKey, "w:"+scope.id).Bytes()
+	if err != nil || json.Unmarshal(raw, &work) != nil || work.Capture.State != "checking" || work.Capture.Checked != 128 || work.Capture.Total != 513 {
+		t.Fatal("capture completion did not persist its bounded checkpoint", err)
+	}
+	if err := p.append(ctx, []map[string]Value{{keyField: stringValue("late-source"), "v": intValue(typeInt64, 42)}}); err == nil || !strings.Contains(err.Error(), "capture is immutable") {
+		t.Fatal("validation allowed new input", err)
+	}
+	if err := p.complete(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if n, err := p.ready(ctx); err != nil || n != 513 {
+		t.Fatal("completed capture count", n, err)
+	}
+	if err := p.apply(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if n, err := p.ready(ctx); err != nil || n != 0 {
+		t.Fatal("output did not checkpoint exact consumption", n, err)
+	}
+	// A second Go journal handle reads the durable outcome without a source
+	// callback. This is private-workspace continuation, not process ownership.
+	other := newSnapshotImportSpool(ctx, s, meta)
+	if n, err := other.ready(ctx); err != nil || n != 0 {
+		t.Fatal("completion only existed in process memory", n, err)
+	}
+	if err := s.publishSnapshot(ctx, scope.pin, scope.id); err != nil {
+		t.Fatal(err)
+	}
+	h.expectRows("SELECT COUNT(*),MIN(v),MAX(v),COUNT(__key) FROM capture_barrier", "513|9007199254740993|9007199254740993|513")
+}
+
+func TestSnapshotClusterEmptyImportCaptureCompletion(t *testing.T) {
+	h, s, ctx, _, p := snapshotClusterCaptureFixture(t, 0)
+	if err := p.complete(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := p.apply(ctx); err != nil {
+		t.Fatal(err)
+	}
+	scope := snapshotOf(ctx)
+	if err := s.publishSnapshot(ctx, scope.pin, scope.id); err != nil {
+		t.Fatal(err)
+	}
+	h.expectRows("SELECT COUNT(*) FROM capture_barrier", "0")
+}
+
+func TestSnapshotClusterImportCaptureRejectsMismatchedMembership(t *testing.T) {
+	h, s, ctx, _, p := snapshotClusterCaptureFixture(t, 2)
+	scope := snapshotOf(ctx)
+	keys := snapshotWorkspace(scope.id) + "import:keys:" + scope.id
+	if err := s.client.ZRem(h.ctx, keys, "capture:00001").Err(); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.client.ZAdd(h.ctx, keys, goredis.Z{Score: 0, Member: "not-captured"}).Err(); err != nil {
+		t.Fatal(err)
+	}
+	if err := p.complete(ctx); err == nil || !strings.Contains(err.Error(), "membership is incomplete") {
+		t.Fatal("equal counts hid missing input", err)
+	}
+	if err := p.append(ctx, []map[string]Value{{keyField: stringValue("repair"), "v": intValue(typeInt64, 1)}}); err == nil {
+		t.Fatal("failed validation reopened source capture")
+	}
+}
+
+func TestSnapshotClusterImportCaptureWideKeyValidationBudget(t *testing.T) {
+	h, s, ctx, _, p := snapshotClusterCaptureFixture(t, 0)
+	var rows []map[string]Value
+	for i := 0; i < 10; i++ {
+		rows = append(rows, map[string]Value{keyField: stringValue(strings.Repeat("k", 200<<10) + fmt.Sprint(i)), "v": intValue(typeInt64, 1)})
+	}
+	if err := p.append(ctx, rows); err != nil {
+		t.Fatal(err)
+	}
+	done, err := p.captureControl(ctx, "complete")
+	if err != nil || done {
+		t.Fatal("wide key completion was not bounded", done, err)
+	}
+	var w struct {
+		Capture struct{ Checked int64 } `json:"import_capture"`
+	}
+	raw, err := s.client.HGet(h.ctx, snapshotCatalogKey, "w:"+snapshotOf(ctx).id).Bytes()
+	if err != nil || json.Unmarshal(raw, &w) != nil || w.Capture.Checked != 5 {
+		t.Fatal("wide keys exceeded validation byte target", err, w.Capture.Checked)
+	}
+	if err := p.complete(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if n, err := p.ready(ctx); err != nil || n != 10 {
+		t.Fatal("wide capture count", n, err)
+	}
+}
+
+type lostImportCompletionReply struct {
+	snapshotHook
+	completeCalls atomic.Int64
+	lost          atomic.Bool
+}
+
+func (h *lostImportCompletionReply) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
+	return func(ctx context.Context, cmd goredis.Cmder) error {
+		a := cmd.Args()
+		complete := len(a) > 8 && a[0] == "EVAL" && a[1] == snapshotImportCaptureLua && a[8] == "complete"
+		if complete {
+			h.completeCalls.Add(1)
+		}
+		err := next(ctx, cmd)
+		if complete && err == nil && h.lost.CompareAndSwap(false, true) {
+			err = errors.New("injected lost input-completion reply")
+			cmd.SetErr(err)
+		}
+		return err
+	}
+}
+func TestSnapshotClusterImportCaptureLostCompletionReplyDoesNotReplay(t *testing.T) {
+	h, s, ctx, meta, p := snapshotClusterCaptureFixture(t, 2)
+	observer := &lostImportCompletionReply{}
+	s.client.AddHook(observer)
+	if err := p.complete(ctx); err == nil || !strings.Contains(err.Error(), "injected lost input-completion reply") {
+		t.Fatal("unknown completion unexpectedly succeeded", err)
+	}
+	if !observer.lost.Load() || observer.completeCalls.Load() != 1 {
+		t.Fatal("completion mutation was replayed")
+	}
+	if n, err := p.ready(ctx); err != nil || n != 2 {
+		t.Fatal("durable completion could not be observed read-only", n, err)
+	}
+	if s.client.ZCard(h.ctx, snapshotMembers(snapshotDataID(meta.prefix()))).Val() != 0 {
+		t.Fatal("unknown completion emitted output")
+	}
+}

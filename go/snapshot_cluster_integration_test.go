@@ -380,6 +380,28 @@ func TestSnapshotClusterRecovery(t *testing.T) {
 	if err := json.Unmarshal([]byte(raw.HGet(h.ctx, snapshotCatalogKey, "w:"+wid).Val()), &staged); err != nil || staged.Batch.ID == "" || staged.Batch.Rows != 88 {
 		t.Fatalf("private batch outcome missing: %v", err)
 	}
+	// Keep a complete, unconsumed capture durable too. This proves persistence
+	// of private input state; it does not grant detached/process-resume ownership.
+	captureMeta := &tableMeta{Schema: "public", Name: "unpublished_capture", SnapshotSourceKey: true,
+		SnapshotImportSource: snapshotImportIdentity(&tableMeta{KeyPrefix: "app:recovery:"}),
+		Columns:              []columnMeta{{Name: "v", Type: typeInt64}}}
+	if _, err := s.createTable(wctx, captureMeta, false); err != nil {
+		t.Fatal(err)
+	}
+	captured := []map[string]Value{
+		{keyField: stringValue("app:recovery:\x00\xff"), "v": intValue(typeInt64, 9007199254740993)},
+		{keyField: stringValue("app:recovery:second"), "v": intValue(typeInt64, 9007199254740995)},
+	}
+	capture := newSnapshotImportSpool(wctx, s, captureMeta)
+	if err := capture.append(wctx, captured); err != nil {
+		t.Fatal(err)
+	}
+	if err := capture.complete(wctx); err != nil {
+		t.Fatal(err)
+	}
+	if n, err := capture.ready(wctx); err != nil || n != 2 {
+		t.Fatal("capture completion was not staged", n, err)
+	}
 	if err := stmt.SetOption(h.ctx, OptionIntStreamBatchRows, "7"); err != nil {
 		t.Fatal(err)
 	}
@@ -490,6 +512,19 @@ func TestSnapshotClusterRecovery(t *testing.T) {
 	}
 	if raw.ZCard(h.ctx, snapshotMembers(snapshotDataID(privateRows.prefix()))).Val() != 600 || raw.HGet(h.ctx, privateRows.prefix()+"1", "v").Val() != "9007199254740993" || raw.HGet(h.ctx, privateRows.prefix()+"600", "v").Val() != "9007199254740993" {
 		t.Fatal("private row batches did not persist exactly")
+	}
+	if n, err := capture.ready(wctx); err != nil || n != 2 {
+		t.Fatal("private input completion did not persist", n, err)
+	}
+	journalRows, journalKeys := snapshotWorkspace(wid)+"import:rows:"+wid, snapshotWorkspace(wid)+"import:keys:"+wid
+	if raw.HLen(h.ctx, journalRows).Val() != 2 || raw.ZCard(h.ctx, journalKeys).Val() != 2 ||
+		raw.HGet(h.ctx, journalRows, captured[0][keyField].S).Val() != encodeSnapshotImportRow(captureMeta, captured[0]) ||
+		raw.HGet(h.ctx, journalRows, captured[1][keyField].S).Val() != encodeSnapshotImportRow(captureMeta, captured[1]) ||
+		raw.ZCard(h.ctx, snapshotMembers(snapshotDataID(captureMeta.prefix()))).Val() != 0 {
+		t.Fatal("private capture values, membership or unconsumed output changed")
+	}
+	if _, err := s.getTable(committedCtx, "public", captureMeta.Name); !isStatus(err, adbc.StatusNotFound) {
+		t.Fatal("private capture became visible", err)
 	}
 	resumed, err := s.readSnapshotCompaction(h.ctx)
 	if err != nil || resumed == nil || resumed.Data != job.Data || resumed.After != job.After || resumed.Rows != job.Rows || resumed.SourceStart != job.SourceStart || !slices.Equal(resumed.References, job.References) || resumed.CopyBatch == nil || *resumed.CopyBatch != *job.CopyBatch {

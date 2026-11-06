@@ -73,10 +73,11 @@ The protocol-16 code audit identifies specific work before a public resume API:
 - `importSnapshotTable` owns a renewable statement pin and unconditionally
   defers private abort. A detached operation needs independent retained ownership;
   leaving a process-local pin alive is not a recovery contract.
-- `snapshotImportSpool` preserves exact typed payloads and source-key bytes, but
-  has no durable input-complete transition. The output path consumes entries and
-  deletes the journal. Persist a source-validated completion barrier before any
-  phase can be resumed without rereading the source.
+- `snapshotImportSpool` preserves exact typed payloads and source-key bytes. The
+  [private capture completion prerequisite](import-capture-completion.md) adds a
+  persisted validation/consumption barrier, while ordinary abort/expiry still
+  deletes its journal. Transfer that exact completed capture into independent
+  retained operation ownership before exposing cross-process resume.
 - `applyPage` allocates physical row IDs before committing each output batch.
   Reserve or persist those bindings so a new owner cannot create different row
   identities after an acknowledged allocation and an interrupted output call.
