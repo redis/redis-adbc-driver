@@ -190,7 +190,8 @@ func TestOrdinaryBuildingIndexUsesHashFallback(t *testing.T) {
 	const table = "it_ordinary_readiness"
 	h.setupStreamTable(table, 2500)
 	t.Cleanup(func() { h.exec("DROP TABLE IF EXISTS " + table) })
-	hook := &rangeReadinessHook{index: h.inspectTable(h.rawClient(), defaultSchema, table).index()}
+	logical := h.inspectTable(h.rawClient(), defaultSchema, table)
+	hook := &rangeReadinessHook{index: logical.index()}
 	ctx, e, p := readinessScanPlan(t, h, "SELECT id FROM "+table+" WHERE id >= 10 LIMIT 200 OFFSET 3", hook, true)
 	hook.active.Store(true)
 	hook.building.Store(true)
@@ -201,9 +202,18 @@ func TestOrdinaryBuildingIndexUsesHashFallback(t *testing.T) {
 	if sc.req.ranges != nil || !sc.req.hashScan {
 		t.Fatal("ordinary read lost complete HASH fallback")
 	}
+	// Admission exercises the physical cursor primitive, but execution has
+	// selected the logical directory fallback and needs its proven count.
+	if sc.req.meta.prefix() != logical.prefix() {
+		t.Fatal("fallback changed its pinned physical source")
+	}
+	sc.req.meta.SnapshotRows = logical.SnapshotRows
 	rows, err := e.selectScanned(ctx, p, sc, nil)
 	if err != nil || len(rows) != 200 || rows[0][0].I != 13 || rows[199][0].I != 212 {
 		t.Fatalf("HASH fallback changed values/limits: %d %v", len(rows), err)
+	}
+	if hook.aggregates.Load() != 0 {
+		t.Fatal("building index opened a data aggregate instead of the directory fallback")
 	}
 }
 

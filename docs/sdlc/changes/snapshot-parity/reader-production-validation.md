@@ -286,3 +286,14 @@ aggregate cap 2147483648. A complete combined ordinary Go run and the final
 snapshot race run remain in progress; hosted Darwin ACL fixtures, current
 platform/Cluster/recovery, public operation resume and performance parity remain
 required. This remains a draft implementation, not a full-parity completion.
+
+The final default-cap complete snapshot race selection at coordinated test
+source `7738a7d` now passes **495 test events**, with **29 explicit skips**, root
+**575.602 seconds**, all selected packages passing and no data races. This is
+the same production source and controlled-plan test correction as public
+`a6ea443`; it supersedes the failing nondefault-cap race result only for this
+explicitly identified source/configuration. The ordinary run at `bdddd1b`
+stops on the additional physical/logical fallback fixture described in the
+controlled-plan report; its correction passes 30 focused race events before a
+complete ordinary restart. Current hosted ACL/profile/platform, actual Cluster
+recovery, public resume and performance requirements remain open.

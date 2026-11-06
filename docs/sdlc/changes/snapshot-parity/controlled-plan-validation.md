@@ -35,3 +35,14 @@ are correctness checks, not a new comparative performance or ClickBench claim.
 The endpoint uses strict TLS, noeviction and API-verified active/effective 4x
 QPF. Full ordinary, final combined snapshot, current hosted/platform and actual
 Cluster API/recovery checks remain separate requirements.
+
+The complete ordinary run at `bdddd1b` subsequently stops on
+`TestOrdinaryBuildingIndexUsesHashFallback` after root **464.106 s**. Planning
+correctly chose the directory fallback, but its physical test clone still had
+no logical count. The test now restores the original pinned count after
+admission and verifies the same physical prefix before execution. Its exact
+200-row values/limits remain asserted, with an additional zero-data-aggregate
+assertion for the building index. The expanded focused race selection passes
+**30 test events**, no skips/failures, root **51.170 s**. Production code is
+unchanged. The incomplete ordinary run is not counted as a full-suite pass;
+the full ordinary selection must be restarted with this fixture correction.
