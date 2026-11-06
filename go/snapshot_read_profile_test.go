@@ -9,6 +9,9 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"sort"
+
+	"github.com/apache/arrow-adbc/go/adbc"
 	"strings"
 	"testing"
 	"time"
@@ -86,10 +89,45 @@ func TestSnapshotReadResourceProfile(t *testing.T) {
 	}
 	defer stmt.Close(h.ctx)
 	c := stmt.(*statementImpl).conn
-	for _, wide := range []bool{false, true} {
-		projection := "id,v"
-		if wide {
-			projection = "*"
+
+	for _, shape := range []string{"narrow", "wide", "filter", "aggregate", "limit", "partitions"} {
+		var expected []string
+		sql := "SELECT id,v FROM read_profile"
+		switch shape {
+		case "wide":
+			sql = "SELECT * FROM read_profile"
+		case "filter":
+			sql += " WHERE id>=100 AND id<=200"
+		case "aggregate":
+			sql = "SELECT COUNT(*),SUM(CAST(v AS DECIMAL(38,0))) FROM read_profile"
+		case "limit":
+			sql += " ORDER BY id DESC LIMIT 17 OFFSET 3"
+		}
+		for id := 1; id <= 4096; id++ {
+			if id == 2 || shape == "filter" && (id < 100 || id > 200) {
+				continue
+			}
+			v := int64(9007199254740993) + int64(id)
+			if id == 1 {
+				v = 0
+			}
+			want := fmt.Sprintf("%d|%d", id, v)
+			if shape == "wide" {
+				want += strings.Repeat("|payload", 30)
+			}
+			expected = append(expected, want)
+		}
+		if shape == "aggregate" {
+			expected = []string{"4095|36875473748918015995"}
+		}
+		if shape == "limit" {
+			expected = nil
+			for id := 4093; id >= 4077; id-- {
+				expected = append(expected, fmt.Sprintf("%d|%d", id, int64(9007199254740993)+int64(id)))
+			}
+		}
+		if shape == "partitions" {
+			sort.Strings(expected)
 		}
 		for sample := range 4 {
 			runtime.GC()
@@ -101,34 +139,62 @@ func TestSnapshotReadResourceProfile(t *testing.T) {
 			runtime.ReadMemStats(&before)
 			cpu, _ := flexBenchCPU()
 			start := time.Now()
-			rows, _ := h.query("SELECT " + projection + " FROM read_profile")
+			var rows []string
+			group := ""
+			if shape == "partitions" {
+				if err := stmt.SetSqlQuery(h.ctx, sql); err != nil {
+					t.Fatal(err)
+				}
+				if err := stmt.SetOption(h.ctx, OptionIntPartitionCount, "4"); err != nil {
+					t.Fatal(err)
+				}
+				_, parts, _, err := stmt.ExecutePartitions(h.ctx)
+				if err != nil {
+					t.Fatal(err)
+				}
+				group, err = stmt.(adbc.GetSetOptionsWithContext).GetOption(h.ctx, OptionStringPartitionSnapshotID)
+				if err != nil {
+					t.Fatal(err)
+				}
+				for _, part := range parts.PartitionIDs {
+					reader, err := h.conn.ReadPartition(h.ctx, part)
+					if err != nil {
+						t.Fatal(err)
+					}
+					for reader.Next() {
+						rec := reader.RecordBatch()
+						for r := 0; r < int(rec.NumRows()); r++ {
+							rows = append(rows, rec.Column(0).ValueStr(r)+"|"+rec.Column(1).ValueStr(r))
+						}
+					}
+					err = reader.Err()
+					reader.Release()
+					if err != nil {
+						t.Fatal(err)
+					}
+				}
+				sort.Strings(rows)
+			} else {
+				rows, _ = h.query(sql)
+			}
 			elapsed := time.Since(start)
 			cpuAfter, _ := flexBenchCPU()
 			runtime.ReadMemStats(&after)
 			h.ctx = prior
 			c.clientCfg.diagnostics.Store(nil)
-			if len(rows) != 4095 {
-				t.Fatal("incomplete full Arrow fetch", len(rows))
+			if len(rows) != len(expected) {
+				t.Fatal("incomplete full Arrow fetch", shape, len(rows))
 			}
 			for j, row := range rows {
-				id := j + 1
-				if id >= 2 {
-					id++
-				}
-				v := int64(9007199254740993) + int64(id)
-				if id == 1 {
-					v = 0
-				}
-				want := fmt.Sprintf("%d|%d", id, v)
-				if wide {
-					want += strings.Repeat("|payload", 30)
-				}
-				if row != want {
-					t.Fatal("exact replacement/delete or payload differs at row", j)
+				if row != expected[j] {
+					t.Fatalf("%s: exact full result differs at row %d: %s", shape, j, row)
 				}
 			}
+			if group != "" {
+				h.exec("DROP PARTITION SNAPSHOT '" + group + "'")
+			}
 			if sample > 0 {
-				r, _ := json.Marshal(map[string]any{"wide": wide, "sample": sample, "rows": len(rows), "elapsed_ms": float64(elapsed) / float64(time.Millisecond), "allocated_bytes": after.TotalAlloc - before.TotalAlloc, "allocations": after.Mallocs - before.Mallocs, "read_bytes": d.readBytes.Load(), "written_bytes": d.writtenBytes.Load(), "client_cpu_seconds": cpuAfter - cpu})
+				r, _ := json.Marshal(map[string]any{"shape": shape, "sample": sample, "rows": len(rows), "elapsed_ms": float64(elapsed) / float64(time.Millisecond), "allocated_bytes": after.TotalAlloc - before.TotalAlloc, "allocations": after.Mallocs - before.Mallocs, "read_bytes": d.readBytes.Load(), "written_bytes": d.writtenBytes.Load(), "client_cpu_seconds": cpuAfter - cpu})
 				t.Logf("snapshot_read_profile %s", r)
 			}
 		}
