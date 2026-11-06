@@ -296,6 +296,70 @@ func checkSnapshotRestrictedQuota(t *testing.T, admin, reader *sqlHarness) {
 	}
 	a, r := storeFor(admin), storeFor(reader)
 	a.stopSnapshotCompactor()
+	// Keep real administrator-owned partition capabilities alive. Global quota
+	// tests must account for capabilities from earlier completed native clients,
+	// without deleting them or assuming all 128 slots belong to this role.
+	ctx, producer, err := a.acquireSnapshot(admin.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer producer.release()
+	var groups []*partitionSnapshot
+	for i := 0; i < 2; i++ {
+		group, err := a.retainPartitionSnapshot(ctx, time.Minute)
+		if err != nil {
+			t.Fatal(err)
+		}
+		groups = append(groups, group)
+		defer a.releasePartitionSnapshot(admin.ctx, group.Token)
+	}
+	producer.release()
+	livePins := func() int {
+		t.Helper()
+		now, err := a.client.Time(admin.ctx).Result()
+		if err != nil {
+			t.Fatal(err)
+		}
+		catalog, err := a.client.HGetAll(admin.ctx, snapshotCatalogKey).Result()
+		if err != nil {
+			t.Fatal(err)
+		}
+		count := 0
+		countPin := func(raw string) {
+			var pin struct {
+				Root    string `json:"root"`
+				Expires int64  `json:"expires"`
+			}
+			if err := json.Unmarshal([]byte(raw), &pin); err != nil {
+				t.Fatal("invalid fixture pin", err)
+			}
+			if pin.Expires > now.UnixMilli() {
+				if len(pin.Root) != 32 || strings.Trim(pin.Root, "0123456789abcdef") != "" {
+					t.Fatal("invalid fixture root")
+				}
+				count++
+			}
+		}
+		for field, raw := range catalog {
+			if strings.HasPrefix(field, "p:") {
+				countPin(raw)
+			}
+		}
+		names, err := a.client.SMembers(admin.ctx, snapshotReaderDirectory).Result()
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, name := range names {
+			fields, err := a.client.HGetAll(admin.ctx, snapshotReaderPrefix+name).Result()
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, raw := range fields {
+				countPin(raw)
+			}
+		}
+		return count
+	}
 	var tokens []string
 	defer func() {
 		for _, token := range tokens {
@@ -303,28 +367,62 @@ func checkSnapshotRestrictedQuota(t *testing.T, admin, reader *sqlHarness) {
 		}
 	}()
 	root := ""
-	for i := 0; i < 128; i++ {
+	key := snapshotReaderPrefix + r.readerNamespace
+	for i := 0; i <= 128; i++ {
 		token := snapshotID()
 		var err error
 		root, err = r.snapshotControl(reader.ctx, "acquire", token, "", "").Text()
 		if err != nil {
-			t.Fatalf("reader %d: %v", i, err)
+			if !strings.Contains(err.Error(), "reader limit (128)") {
+				t.Fatalf("reader %d: %v", i, err)
+			}
+			if n := livePins(); n != 128 {
+				t.Fatalf("quota refused at %d global live pins, want 128", n)
+			}
+			if a.client.HExists(admin.ctx, key, token).Val() {
+				t.Fatal("refused admission partially installed a lease")
+			}
+			break
 		}
 		tokens = append(tokens, token)
+		if len(tokens) == 129 {
+			t.Fatal("global quota was not enforced")
+		}
 	}
-	if err := r.snapshotControl(reader.ctx, "acquire", snapshotID(), "", "").Err(); err == nil || !strings.Contains(err.Error(), "reader limit (128)") {
-		t.Fatal("reader quota was not enforced", err)
+	if len(tokens) < 2 || len(tokens) > 126 {
+		t.Fatal("quota fixture did not retain both independent producers", len(tokens))
 	}
-	key := snapshotReaderPrefix + r.readerNamespace
+	// Independently verify global accounting, then release one slot and admit
+	// exactly one replacement while the foreign capabilities stay alive.
+	if err := r.snapshotControl(reader.ctx, "release", tokens[len(tokens)-1], "", "").Err(); err != nil {
+		t.Fatal(err)
+	}
+	if n := livePins(); n != 127 {
+		t.Fatal("release did not free exactly one global slot", n)
+	}
+	replacement := snapshotID()
+	if _, err := r.snapshotControl(reader.ctx, "acquire", replacement, "", "").Text(); err != nil {
+		t.Fatal("released slot was not reusable", err)
+	}
+	tokens[len(tokens)-1] = replacement
+	if n := livePins(); n != 128 {
+		t.Fatal("replacement did not restore exact global capacity", n)
+	}
+	// The failed command clears its result, so recover the pinned root from a
+	// successful, idempotent acquisition of an existing token.
+	root, err = r.snapshotControl(reader.ctx, "acquire", tokens[0], "", "").Text()
+	if err != nil {
+		t.Fatal(err)
+	}
 	hashBytes, err := a.client.Do(admin.ctx, "MEMORY", "USAGE", key, "SAMPLES", 0).Int64()
 	if err != nil || hashBytes > 262144 {
-		t.Fatal("128 legitimate leases exceeded their byte budget", hashBytes, err)
+		t.Fatal("legitimate leases exceeded their byte budget", hashBytes, err)
 	}
 	directoryBytes, err := a.client.Do(admin.ctx, "MEMORY", "USAGE", snapshotReaderDirectory, "SAMPLES", 0).Int64()
 	if err != nil || directoryBytes > 262144 {
 		t.Fatal("legitimate directory exceeded its byte budget", directoryBytes, err)
 	}
-	t.Logf("reader resource sample: pins=128 hash_bytes=%d directory_bytes=%d control_script_bytes=%d", hashBytes, directoryBytes, len(snapshotReaderControl))
+	t.Logf("reader resource sample: role_pins=%d global_pins=128 hash_bytes=%d directory_bytes=%d control_script_bytes=%d", len(tokens), hashBytes, directoryBytes, len(snapshotReaderControl))
 	expired, _ := json.Marshal(map[string]any{"root": root, "expires": 0})
 	if err := a.client.HSet(admin.ctx, key, tokens[0], expired).Err(); err != nil {
 		t.Fatal(err)
@@ -350,9 +448,20 @@ func checkSnapshotRestrictedQuota(t *testing.T, admin, reader *sqlHarness) {
 			t.Fatal(err)
 		}
 	}
+	for _, group := range groups {
+		workerCtx, worker, err := a.acquirePartitionSnapshot(admin.ctx, group)
+		if err != nil {
+			t.Fatal("quota test revoked an independent producer", err)
+		}
+		err = worker.valid(workerCtx)
+		worker.release()
+		if err != nil {
+			t.Fatal("independent producer lost its root", err)
+		}
+	}
 	snapshotReapTest(a, admin.ctx)
-	if a.client.SCard(admin.ctx, snapshotReaderDirectory).Val() != 0 {
-		t.Fatal("inactive namespaces were not reclaimed")
+	if a.client.SIsMember(admin.ctx, snapshotReaderDirectory, r.readerNamespace).Val() {
+		t.Fatal("inactive owned namespace was not reclaimed")
 	}
 }
 
