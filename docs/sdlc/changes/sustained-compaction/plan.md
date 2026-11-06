@@ -21,3 +21,10 @@ Date: 2026-11-06. Status: in progress. See [intent](intent.md) and [spec](spec.m
 
 No release/tag publication is requested. Operational identifiers, credentials,
 licenses and raw operational logs remain private.
+
+Native refinement: the unconditional implementation's first 18-process series
+and four unpaced confirmation runs expose a sparse median regression. Preserve
+all those samples. Restrict batching to declared inputs exceeding 64 entries,
+retain the original serial path for smaller jobs, and repeat focused/full
+correctness, source-specific profiles and matched comparisons before delivery.
+Initial experiment checks are not relabeled as final gated-candidate validation.

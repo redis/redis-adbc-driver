@@ -149,10 +149,13 @@ def main():
     p.add_argument("--windows", type=int, default=4)
     p.add_argument("--window-seconds", type=float, default=20)
     p.add_argument("--drain-seconds", type=float, default=30)
+    p.add_argument("--max-starts-per-second", type=float, default=0,
+                   help="Explicit common offered-load ceiling; zero means unpaced")
     p.add_argument("--output", type=Path, required=True)
     a = p.parse_args()
     if not (128 <= a.rows <= 50000 and a.windows >= 2 and a.window_seconds >= 1
-            and 1 <= a.drain_seconds <= 120):
+            and 1 <= a.drain_seconds <= 120
+            and math.isfinite(a.max_starts_per_second) and 0 <= a.max_starts_per_second <= 10000):
         p.error("require 128..50000 rows, >=2 windows, >=1 second/window, 1..120s drain")
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
     from software_partition_tls import SoftwareAPI, qpf_4x_ready
@@ -178,6 +181,7 @@ def main():
               "workload": a.workload, "rows_per_table": a.rows, "qpf": 4,
               "noeviction": True, "software_shards": database["shards_count"],
               "platform": platform.platform(), "caller_retries": 0,
+              "max_statement_starts_per_second": a.max_starts_per_second,
               "timing": "complete SQL/publication/RETURNING; probes and full validation between windows excluded",
               "windows": [], "drain": [], "status": "started"}
     def save():
@@ -197,10 +201,23 @@ def main():
                     validate(cur, expected)
                     result["initial"] = observe(raw, names, storage=True)
                     operation = 0
+                    load_started = time.perf_counter()
                     for window in range(a.windows):
                         samples = []
+                        row_changes = 0
+                        pacing_seconds = 0
+                        next_start = 0
                         started = time.perf_counter()
                         while time.perf_counter()-started < a.window_seconds:
+                            if a.max_starts_per_second and next_start:
+                                wait = min(next_start-time.perf_counter(),
+                                           a.window_seconds-(time.perf_counter()-started))
+                                if wait > 0:
+                                    before_wait = time.perf_counter()
+                                    time.sleep(wait)
+                                    pacing_seconds += time.perf_counter()-before_wait
+                                if time.perf_counter()-started >= a.window_seconds:
+                                    break
                             name = names[operation % 2]
                             values = expected[name]
                             # Mixed mode deletes then reinserts a rotating ID;
@@ -220,6 +237,8 @@ def main():
                                 sql = f"UPDATE {name} SET v=v+1{where} RETURNING id,v"
                                 want = [(i, v+1) for i, (v, _) in values.items() if a.workload == "dense" or i == row_id]
                             tick = time.perf_counter()
+                            if a.max_starts_per_second:
+                                next_start = tick+1/a.max_starts_per_second
                             cur.execute(sql)
                             actual = cur.fetchall()
                             elapsed = (time.perf_counter()-tick)*1000
@@ -233,19 +252,31 @@ def main():
                                 for i, v in want:
                                     values[i] = (v, values[i][1])
                             operation += 1
+                            row_changes += len(want)
                             samples.append(elapsed)
-                        seconds = time.perf_counter()-started
+                        load_finished_at = time.perf_counter()
+                        seconds = load_finished_at-started
+                        # Observe pending work before validation/storage traffic
+                        # can give the background worker time to catch up.
+                        end_of_load = observe(raw, names)
                         check = time.perf_counter()
                         validate(cur, expected)
                         observation = observe(raw, names, storage=True)
                         result["windows"].append({"window": window, "operations": len(samples),
                             "seconds": seconds, "operations_per_second": len(samples)/seconds,
+                            "logical_row_changes": row_changes,
+                            "offered_load_pacing_seconds": pacing_seconds,
+                            "start_seconds": started-load_started,
+                            "end_seconds": load_finished_at-load_started,
+                            "end_of_load_backlog": end_of_load,
                             "samples_ms": samples, **quantiles(samples), "observation": observation,
                             "validation_and_probe_seconds": time.perf_counter()-check})
                         save()
                     # Keep the connection's ordinary worker alive while waiting;
                     # never call private compaction/GC or retry SQL to drain it.
-                    start = time.perf_counter()
+                    # Include final validation/storage observation time in the
+                    # elapsed cleanup bound; never restart the clock afterward.
+                    start = load_finished_at
                     while True:
                         observation = observe(raw, names)
                         elapsed = time.perf_counter()-start

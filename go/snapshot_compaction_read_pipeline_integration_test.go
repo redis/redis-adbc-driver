@@ -20,6 +20,8 @@ type compactionReadPipelineObserver struct {
 	pipelines, commands int
 	failure             string
 	failed              bool
+	serial              bool
+	singles             int
 }
 
 func (*compactionReadPipelineObserver) DialHook(next goredis.DialHook) goredis.DialHook { return next }
@@ -30,6 +32,10 @@ func (h *compactionReadPipelineObserver) directory(ctx context.Context, cmd gore
 func (h *compactionReadPipelineObserver) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	return func(ctx context.Context, cmd goredis.Cmder) error {
 		if h.directory(ctx, cmd) {
+			if h.serial {
+				h.singles++
+				return next(ctx, cmd)
+			}
 			err := errors.New("compaction directory reads require a bounded pipeline")
 			cmd.SetErr(err)
 			return err
@@ -47,6 +53,9 @@ func (h *compactionReadPipelineObserver) ProcessPipelineHook(next goredis.Proces
 		}
 		if len(reads) > 0 {
 			h.pipelines++
+			if h.serial {
+				return errors.New("small compaction must retain serial directory reads")
+			}
 			h.commands += len(reads)
 			if len(reads) > snapshotMaxSegments {
 				return errors.New("unbounded directory read pipeline")
@@ -67,6 +76,56 @@ func (h *compactionReadPipelineObserver) ProcessPipelineHook(next goredis.Proces
 			return injected
 		}
 		return err
+	}
+}
+
+func TestSnapshotCompactionSmallReadsStaySerial(t *testing.T) {
+	h, raw, _ := newSnapshotHarnessMode(t, false, false)
+	h.exec("CREATE TABLE t(id BIGINT,v BIGINT)")
+	h.exec("INSERT INTO t SELECT i,9007199254740993 FROM generate_series(1,257) AS g(i)")
+	for range 3 {
+		h.exec("UPDATE t SET v=v+1 WHERE id=1")
+	}
+	s := snapshotTestStore(t, raw)
+	token := snapshotID()
+	if started, err := s.startSnapshotCompaction(h.ctx, token); err != nil || !started {
+		t.Fatal("start", started, err)
+	}
+	defer s.releaseSnapshotCompaction(h.ctx, token)
+	job, err := s.readSnapshotCompaction(h.ctx)
+	if err != nil || job == nil || job.SourceStart != 1 {
+		t.Fatal("small selective job", err)
+	}
+	observer := &compactionReadPipelineObserver{sources: map[string]bool{}, serial: true}
+	for _, seg := range job.Source.snapshotSegments() {
+		observer.sources[snapshotMembers(snapshotDataID(seg.Prefix))] = true
+	}
+	s.client.AddHook(observer)
+	ctx := context.WithValue(h.ctx, compactionReadObservation{}, true)
+	for range 2 {
+		if err := s.copySnapshotCompactionBatch(ctx, job); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if observer.pipelines != 0 || observer.singles != 3*len(observer.sources) || job.Phase != "index" {
+		t.Fatal("small job changed its serial reads", observer.pipelines, observer.singles, job.Phase)
+	}
+	if err := s.releaseSnapshotCompaction(h.ctx, token); err != nil {
+		t.Fatal(err)
+	}
+	snapshotDrainCompactionTest(t, s)
+	rows, _ := h.query("SELECT id,v FROM t ORDER BY id")
+	if len(rows) != 257 {
+		t.Fatal("incomplete final fetch", len(rows))
+	}
+	for i, row := range rows {
+		want := int64(9007199254740993)
+		if i == 0 {
+			want += 3
+		}
+		if row != fmt.Sprintf("%d|%d", i+1, want) {
+			t.Fatal("incorrect small-job row", i+1)
+		}
 	}
 }
 

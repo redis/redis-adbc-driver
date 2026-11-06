@@ -12,7 +12,9 @@ are independently batchable too.
 
 Use supported [Redis pipelining](https://redis.io/docs/latest/develop/using-commands/pipelining/):
 one bounded rank pipeline for nonempty checkpoints, then one bounded first-page
-pipeline. Each contains at most eight existing commands. No rank/range command,
+pipeline, only when the declared source directories exceed 64 entries. Smaller
+jobs keep the original serial rank/page commands. Each pipeline contains at most
+eight existing commands. No rank/range command,
 page-size limit, permission, storage field or mutation script changes. The
 ordinary scanner and compaction share the unchanged page-acceptance/cardinality
 check. Row identities, newest-version/tombstone selection and physical-image
@@ -33,7 +35,8 @@ rebuild or new worker scheduling protocol is introduced.
 
 ## Controlled observations
 
-The same owned Software fixture, test bytes and non-race profile mode are used
+The first unconditional experiment (`778f0a4c`) uses the same owned Software fixture,
+test bytes and non-race profile mode
 sequentially. Each case independently checks every final exact BIGINT/payload
 and all unrelated rows. Setup and final validation are outside the profile.
 
@@ -52,6 +55,39 @@ existing metadata-GC queue probes, not unbatched source pages. Total copy-phase
 calls fall by 1,881. These are single controlled observations per pacing mode;
 native sustained comparisons, storage observations and broad correctness checks
 are separate acceptance evidence, not implied by these timings.
+
+## Preserve small-job scheduling after native regression
+
+Unconditional batching reduces copy calls, but the complete matched series
+shows a material sparse median regression. Four additional isolated unpaced
+processes use identical current harness bytes in A/B/B/A order, so this is not
+dismissed as an offered-load pacing effect:
+
+| Process | Source | Median ms | Writes/s |
+|---|---|---:|---:|
+| 0 | Preceding | 27.357 | 30.872 |
+| 1 | Unconditional batch | 38.987 | 28.326 |
+| 2 | Unconditional batch | 39.461 | 27.846 |
+| 3 | Preceding | 29.214 | 29.134 |
+
+All final rows and eligible-work drains pass; no caller retry or known competing
+compiler/test/profile process occurs. Preserve these observations and the
+preceding 18-process series as the unconditional experiment, not final-candidate
+evidence. They establish the negative case, not its exact scheduler mechanism.
+
+The revised implementation batches only jobs whose declared source directory
+entry counts exceed one 64-row copy batch. Contributions are clamped to 65
+before addition, avoiding overflow for very large valid manifests. This is a
+local choice from existing immutable metadata, with no new server read, cache,
+job field or hard limit. Tiny selective jobs retain their original serial rank
+queries and lazy page reads; larger jobs retain the two bounded pipelines and
+shared cardinality proof. Declared counts include duplicate IDs/tombstones; this
+threshold chooses a read strategy and never substitutes for visibility checks.
+
+The new small selective-job regression fails unconditional batching in 0.16 s.
+It checks both initial and resumed reads, unchanged serial command counts and
+every final exact BIGINT row. Revised focused race results and new source-specific
+profile/native comparisons are recorded separately before delivery.
 
 ## Regression
 
