@@ -81,7 +81,7 @@ func TestSnapshotForegroundWritePhaseProfile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(encoded), "snapshot:rows:") || strings.Contains(string(encoded), "rediss://") {
+	if strings.Contains(string(encoded), "snapshot:16:rows:") || strings.Contains(string(encoded), "rediss://") {
 		t.Fatal("foreground profile must not expose physical keys or endpoints")
 	}
 	t.Logf("snapshot_foreground_profile %s", encoded)

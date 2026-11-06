@@ -373,7 +373,7 @@ func (s *store) prepareSnapshotDelta(ctx context.Context, schema, table string) 
 		s.wakeSnapshotCompactor()
 		return stateErrorf("40001", "snapshot segment limit reached; background compaction is pending; retry the statement")
 	}
-	nm, err := s.claimNames(ctx, schema, table)
+	nm, err := s.claimNames(ctx, schema, table, old.SnapshotAccessID)
 	if err != nil {
 		return err
 	}

@@ -167,7 +167,7 @@ func validateSnapshotCompactionJob(j *snapshotCompactionJob) error {
 	if j.Source == nil || j.QueueOID != strconv.FormatInt(j.Source.OID, 10) || !valid(j.QueueVersion) || j.QueueKey != strings.TrimPrefix(metaKey(j.Source.Schema, j.Source.Name), metaPrefix) || !valid(j.ID) || !valid(j.Data) || !valid(j.Token) || len(j.Source.Columns) == 0 || j.Source.SnapshotRows == nil {
 		return errorf(adbc.StatusIO, "invalid durable compaction record")
 	}
-	if j.Prefix != snapshotRows(j.Data, j.Source.Schema) {
+	if j.Prefix != snapshotRows(j.Data, j.Source.Schema, j.Source.SnapshotAccessID) {
 		return errorf(adbc.StatusIO, "invalid durable compaction output prefix")
 	}
 	if j.Phase != "copy" && j.Phase != "index" && j.Phase != "install" {
@@ -179,7 +179,7 @@ func validateSnapshotCompactionJob(j *snapshotCompactionJob) error {
 	}
 	for i, seg := range segments {
 		id := snapshotDataID(seg.Prefix)
-		if id == "" || seg.Prefix != snapshotRows(id, j.Source.Schema) || id != j.References[i] || snapshotDataID(seg.Index) != id || seg.Rows < 0 {
+		if id == "" || seg.Prefix != snapshotRows(id, j.Source.Schema, j.Source.SnapshotAccessID) || id != j.References[i] || snapshotDataID(seg.Index) != id || seg.Rows < 0 {
 			return errorf(adbc.StatusIO, "invalid durable compaction segment")
 		}
 	}

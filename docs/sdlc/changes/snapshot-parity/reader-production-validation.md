@@ -68,3 +68,45 @@ SELECT and REVOKE, two restricted principals, stale-directory and uncertain
 reply injection, retained results, the complete race/native suites, resource
 measurements and replacement hosted CI. Raw logs and fixture configuration are
 private; the owned fixture remains available for those checks.
+
+## Stable-access checkpoint
+
+The next local checkpoint passes the entire required `TestSQLRBACSelect`, with
+all ordinary Go packages also passing. It adds a separate `SnapshotAccessID`
+ahead of schema and generation components in row keys; DROP/recreate allocates
+a new identity. DML, TRUNCATE, ALTER rewrite, compaction, Arrow replacement and
+managed-copy refresh preserve that identity. Replacement/refresh also preserve
+the table OID used by the grant ledger. Search indexes have a versioned name so
+old orphan workers cannot mistake them for abandoned protocol-15 indexes.
+
+RBAC's administrative lock and grant ledger are deliberately outside immutable
+SQL roots. Ambiguous API writes retain the shared lock across SQL pin/root
+lifetimes; successful lock removal compares its owner token. These management
+operations do not promise a transaction with SQL publication.
+
+Additional actual Software checks pass: granted reads across INSERT, UPDATE,
+DELETE, ADD/DROP COLUMN, type conversion and compaction; two restricted users in
+different dedicated roles deny each other's direct and scripted lease writes;
+both deny captured import data; cross-role partition workers remain valid after
+producer release. Production fault injection proves a stale-directory refusal
+creates no partial pin and permits one safe retry. A lost acquire reply is
+resolved using read-only lookup of the original token after another root is
+published, with exactly one acquire execution.
+
+Untrusted directories and HASHes have byte checks before materialization:
+atomic SCARD/MEMORY USAGE SAMPLES 0 checks precede SMEMBERS, and each HASH is
+limited to 128 fields and 256 KiB before HGETALL. Lease payloads are at most
+1024 bytes before decoding. Malformed names, 129 names, a 300 KB directory
+member, 129 HASH fields and a 300 KB HASH value all cause collection to refuse
+without freeing a live root. Explicit fixture-owner repair restores collection.
+Raw ACL commands can still poison these structures: these are fail-closed
+protocol resource limits, not backend-enforced availability guarantees.
+
+**Shared-role compatibility is still open at this intermediate checkpoint.**
+The per-user namespace variant precisely refuses a second same-role user at
+Open and rejects grant management before mutation. Backend ACLs are shared by
+role, however, so per-user raw isolation cannot be promised within a shared
+role. The planned follow-up uses a namespace per backend role/ACL trust domain
+to preserve the prior shared-SQL-role contract while keeping different-role,
+catalog, row and payload boundaries. Full snapshot/native/race and hosted
+validation remain pending; this checkpoint alone is not a completed CI repair.

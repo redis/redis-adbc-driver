@@ -68,7 +68,7 @@ func TestSQLForeignIndexDiscovery(t *testing.T) {
 	for _, q := range []string{`UPDATE redis_foreign.it_foreign_idx SET n=0`, `DELETE FROM redis_foreign.it_foreign_idx`, `DROP TABLE redis_foreign.it_foreign_idx`, `CREATE TABLE redis_foreign.x (n integer)`} {
 		h.expectError(q, "read-only")
 	}
-	h.expectRows(`SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='redis_foreign' AND table_name='it_foreign_idx' AND key_prefix LIKE 'redis_foreign:{meta}:snapshot:rows:%'`, "1")
+	h.expectRows(`SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='redis_foreign' AND table_name='it_foreign_idx' AND key_prefix LIKE '%~redis_foreign:{meta}:snapshot:16:rows:%'`, "1")
 	f.hset(f.prefix+"new", "name", "New", "active", "true", "n", 4)
 	h.expectRows(`SELECT COUNT(*) FROM redis_foreign.it_foreign_idx`, "2")
 	if err := h.setConnOption(OptionStringForeignIndexesRefresh, "true"); err != nil {

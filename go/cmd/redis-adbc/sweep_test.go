@@ -91,7 +91,7 @@ func TestSweepCommand(t *testing.T) {
 	prefix := result.RecordBatch().Column(0).(*array.String).Value(0)
 	result.Release()
 	query.Close(ctx)
-	if prefix == "" || !strings.Contains(prefix, ":{meta}:snapshot:rows:") {
+	if prefix == "" || !strings.Contains(prefix, ":{meta}:snapshot:16:rows:") {
 		t.Fatal("unexpected private prefix")
 	}
 	t.Cleanup(func() { c.Del(context.Background(), prefix+"x", prefix+"900") })

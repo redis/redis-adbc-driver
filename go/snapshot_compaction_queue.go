@@ -165,7 +165,7 @@ func (s *store) startSnapshotCompaction(ctx context.Context, token string) (bool
 		source := *meta
 		source.SnapshotSegments = append([]snapshotSegment(nil), segments[start:len(segments)-1]...)
 		job := &snapshotCompactionJob{ID: snapshotID(), Token: token, Data: snapshotID(), Source: &source, SourceStart: start, Phase: "copy", References: []string{}, QueueKey: key, QueueVersion: version, QueueOID: strconv.FormatInt(meta.OID, 10)}
-		job.Prefix = snapshotRows(job.Data, meta.Schema)
+		job.Prefix = snapshotRows(job.Data, meta.Schema, meta.SnapshotAccessID)
 		for _, seg := range source.snapshotSegments() {
 			job.References = append(job.References, snapshotDataID(seg.Prefix))
 		}

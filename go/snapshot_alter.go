@@ -55,7 +55,7 @@ func (e *executor) alterSnapshotTable(ctx context.Context, source *tableMeta, cm
 	definitionOnly := len(cmds) > 0 && !res.rewrite && !res.dropped && len(res.added) == 0 &&
 		!res.validates() && len(res.rechecked) == 0 && len(res.droppedIndexes) == 0 && len(res.droppedSequences) == 0
 	if !definitionOnly {
-		names, err := e.store.claimNames(ctx, source.Schema, source.Name)
+		names, err := e.store.claimNames(ctx, source.Schema, source.Name, source.SnapshotAccessID)
 		if err != nil {
 			return err
 		}

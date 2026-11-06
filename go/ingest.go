@@ -144,6 +144,8 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 			}
 			if st.snapshots {
 				// Explicit refresh still addresses the externally owned source.
+				wanted.SnapshotAccessID = current.SnapshotAccessID
+				wanted.OID = current.OID
 				wanted.SnapshotImportSource = current.SnapshotImportSource
 				wanted.SnapshotSourceKey = current.SnapshotSourceKey
 			}

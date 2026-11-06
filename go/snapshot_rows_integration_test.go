@@ -31,7 +31,7 @@ func TestSnapshotSchemaRowsCompactionAndReclamation(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if strings.HasPrefix(old.prefix(), "adbc:") || old.prefix() != snapshotRows(snapshotDataID(old.prefix()), schema) {
+			if strings.HasPrefix(old.prefix(), "adbc:") || old.prefix() != snapshotRows(snapshotDataID(old.prefix()), schema, old.SnapshotAccessID) {
 				t.Fatal("rows overlap the metadata ACL grant")
 			}
 			for value := 2; value <= 4; value++ {
@@ -48,7 +48,7 @@ func TestSnapshotSchemaRowsCompactionAndReclamation(t *testing.T) {
 				t.Fatal(err)
 			}
 			currentPin.release()
-			if len(current.snapshotSegments()) != 1 || current.prefix() != snapshotRows(snapshotDataID(current.prefix()), schema) {
+			if len(current.snapshotSegments()) != 1 || current.prefix() != snapshotRows(snapshotDataID(current.prefix()), schema, current.SnapshotAccessID) {
 				t.Fatal("compaction lost the schema namespace")
 			}
 			var data struct{ Prefix string }
@@ -82,7 +82,7 @@ func TestSnapshotSchemaPrefixAliasRejected(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wrong := snapshotRows(snapshotDataID(meta.prefix()), "other")
+	wrong := snapshotRows(snapshotDataID(meta.prefix()), "other", meta.SnapshotAccessID)
 	if err := s.client.HSet(wctx, wrong+"1", rowIDField, "1", "v", "999").Err(); err == nil {
 		t.Fatal("same UUID authorized a different schema prefix")
 	}

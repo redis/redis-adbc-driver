@@ -243,7 +243,7 @@ func TestSnapshotCompactionPhaseProfile(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if strings.Contains(string(encoded), "snapshot:rows:") {
+			if strings.Contains(string(encoded), "snapshot:16:rows:") {
 				t.Fatal("profile must not expose physical keys")
 			}
 			t.Logf("compaction_phase_profile %s", encoded)

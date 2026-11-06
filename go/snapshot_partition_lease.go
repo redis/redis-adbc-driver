@@ -73,6 +73,11 @@ func (s *store) acquirePartitionSnapshot(ctx context.Context, ref *partitionSnap
 	} else {
 		_, err = s.snapshotControl(ctx, "acquire_partition", p.token, ref.Token, ref.Root).Text()
 	}
+	if err != nil && (s.restrictedReader || p.reader) {
+		if _, ok := s.resolveReaderAcquire(ctx, p.token, ref.Root, err); ok {
+			err = nil
+		}
+	}
 	if err != nil {
 		return ctx, nil, wrapRedis(err, "failed to acquire partition snapshot")
 	}

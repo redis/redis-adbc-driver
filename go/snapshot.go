@@ -67,7 +67,7 @@ func snapshotOf(ctx context.Context) *snapshotScope {
 
 func snapshotWorkspace(id string) string    { return snapshotPrefix + "workspace:" + id + ":" }
 func snapshotMetadataKeys(id string) string { return snapshotWorkspace(id) + "__keys" }
-func snapshotIndexPrefix(id string) string  { return "adbc_snapshot_{meta}_" + id + "_" }
+func snapshotIndexPrefix(id string) string  { return "adbc_snapshot16_{meta}_" + id + "_" }
 func snapshotID() string                    { return strings.ReplaceAll(uuid.NewString(), "-", "") }
 
 // The bounded catalog contains at most 16 generations and 128 live pins. Redis
@@ -580,6 +580,11 @@ func (s *store) acquireSnapshotMode(ctx context.Context, reap bool, writing ...b
 	delay := 5 * time.Millisecond
 	for {
 		root, err = s.snapshotControl(ctx, "acquire", p.token, "", "", mode).Text()
+		if err != nil && s.restrictedReader {
+			if recovered, ok := s.resolveReaderAcquire(ctx, p.token, "", err); ok {
+				root, err = recovered, nil
+			}
+		}
 		if err == nil {
 			break
 		}
@@ -789,7 +794,7 @@ for i=4,#KEYS do
 end
 local command = string.lower(ARGV[5])
 if command=='ft.create' then
- local data=string.match(ARGV[6],'^adbc_snapshot_{meta}_([0-9a-f]+)_')
+ local data=string.match(ARGV[6],'^adbc_snapshot16_{meta}_([0-9a-f]+)_')
  local expected=data and data_prefixes[data]
  local found=false
  for i=7,#ARGV do
@@ -808,7 +813,7 @@ if w.state == 'compacting' then
   local job = cjson.decode(jr)
   local early_index=false
   if command=='ft.create' and job.phase=='copy' and (job.after or '')=='' and not job.copy_pending then
-    local data=string.match(ARGV[6],'^adbc_snapshot_{meta}_([0-9a-f]+)_')
+    local data=string.match(ARGV[6],'^adbc_snapshot16_{meta}_([0-9a-f]+)_')
     local skip=false
     for i=7,#ARGV do
       if string.lower(ARGV[i])=='schema' then break end
@@ -1041,13 +1046,17 @@ func scopeSnapshotCommand(ctx context.Context, cmd goredis.Cmder) error {
 	return nil
 }
 
-func snapshotNames(ctx context.Context, schema, table string) (tableNames, bool) {
+func snapshotNames(ctx context.Context, schema, table string, access ...string) (tableNames, bool) {
 	ss := snapshotOf(ctx)
 	if ss == nil {
 		return tableNames{}, false
 	}
 	id := snapshotID()
-	return tableNames{base: rowPrefix(schema, table), prefix: snapshotRows(id, schema), index: snapshotIndexPrefix(id) + "working", n: 1}, true
+	permission := id
+	if len(access) > 0 && access[0] != "" {
+		permission = access[0]
+	}
+	return tableNames{base: rowPrefix(schema, table), prefix: snapshotRows(id, schema, permission), index: snapshotIndexPrefix(id) + "working", n: 1}, true
 }
 
 func (s *store) beginSnapshotWrite(ctx context.Context, pin *snapshotPin) (context.Context, string, error) {
@@ -1177,7 +1186,7 @@ func snapshotDataID(key string) string {
 	if prefix := snapshotRowPrefix(key); prefix != "" {
 		return prefix[len(prefix)-33 : len(prefix)-1]
 	}
-	for _, prefix := range []string{snapshotPrefix + "members:", "adbc_snapshot_{meta}_"} {
+	for _, prefix := range []string{snapshotPrefix + "members:", "adbc_snapshot16_{meta}_"} {
 		if rest, ok := strings.CutPrefix(key, prefix); ok {
 			if (len(rest) == 32 && prefix == snapshotPrefix+"members:") || (len(rest) >= 33 && (rest[32] == ':' || rest[32] == '_')) {
 				id := rest[:32]
@@ -1389,6 +1398,9 @@ func validateSnapshotDescriptor(ctx context.Context, meta *tableMeta) error {
 	if scope == nil {
 		return nil
 	}
+	if !snapshotMetadataID(meta.SnapshotAccessID) {
+		return errorf(adbc.StatusIO, "invalid snapshot table access identity")
+	}
 	own := snapshotOwns(ctx, meta.prefix())
 	if (!own && meta.SnapshotRows == nil) || meta.Adopted || meta.KeyRows || meta.Foreign || meta.AppIndex || meta.RekeyTo != "" {
 		return errorf(adbc.StatusIO, "invalid managed snapshot descriptor")
@@ -1401,7 +1413,7 @@ func validateSnapshotDescriptor(ctx context.Context, meta *tableMeta) error {
 	}
 	for _, seg := range meta.snapshotSegments() {
 		id := snapshotDataID(seg.Prefix)
-		if id == "" || seg.Prefix != snapshotRows(id, meta.Schema) || snapshotDataID(seg.Index) != id || seg.Rows < 0 {
+		if id == "" || seg.Prefix != snapshotRows(id, meta.Schema, meta.SnapshotAccessID) || snapshotDataID(seg.Index) != id || seg.Rows < 0 {
 			return errorf(adbc.StatusIO, "invalid snapshot segment descriptor")
 		}
 	}
@@ -1591,7 +1603,12 @@ func (e *executor) executeSnapshot(ctx context.Context, ps ParsedStmt, params []
 	write := false
 	switch ps.Stmt.(type) {
 	case *PrivilegeStmt:
-		return execResult{}, errorf(adbc.StatusNotImplemented, "SQL GRANT/REVOKE requires isolated snapshot reader leases; management ACL changes are not enabled for snapshot catalogs")
+		if e.store.restrictedReader {
+			return execResult{}, errorf(adbc.StatusUnauthorized, "NOPERM restricted snapshot reader cannot manage SQL grants")
+		}
+		if e.rbac == nil {
+			return execResult{}, errorf(adbc.StatusNotImplemented, "SQL GRANT/REVOKE requires administrator-configured adbc.redis.rbac")
+		}
 	case *SelectStmt, *ShowStmt, *SetStmt, *TransactionStmt:
 	case *InsertStmt, *UpdateStmt, *DeleteStmt, *MergeStmt, *CreateTableStmt, *DropTableStmt, *CreateViewStmt, *DropViewStmt, *CreateSchemaStmt, *DropSchemaStmt, *TruncateStmt, *CommentStmt, *AlterTableStmt, *SequenceStmt, *CreateIndexStmt, *DropIndexStmt, *RefreshMatViewStmt, *DropMatViewStmt, *RenameMatViewStmt:
 		write = true
@@ -1764,6 +1781,14 @@ func (s *store) openSnapshotCatalog(ctx context.Context, enabled bool, importing
 			return wrapRedis(err, "failed to inspect snapshot control capability")
 		}
 		if capable == 0 {
+			own := snapshotReaderPrefix + s.readerNamespace
+			allowed, err := once(ctx, s.client, "EVAL", `return redis.acl_check_cmd('HSET',KEYS[1],'probe','') and redis.acl_check_cmd('HDEL',KEYS[1],'probe') and redis.acl_check_cmd('SADD',KEYS[2],ARGV[1]) and 1 or 0`, 2, own, snapshotReaderDirectory, s.readerNamespace).Int()
+			if err != nil {
+				return wrapRedis(err, "failed to inspect reader lease capability")
+			}
+			if allowed != 1 {
+				return errorf(adbc.StatusUnauthorized, "restricted snapshot reader requires an ACL for its authenticated principal; SQL RBAC supports one principal per role")
+			}
 			s.restrictedReader = true
 			s.snapshots = true
 			return addSnapshotHooks(s.client)(ctx)

@@ -7,6 +7,8 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -28,7 +30,7 @@ func snapshotReaderNamespace(user string) string {
 const snapshotReaderLua = `
 local function reader_hex(v,n) return type(v)=='string' and #v==n and not string.find(v,'[^0-9a-f]') end
 local function reader_pin(raw,now)
- if not raw then return nil end
+ if not raw or #raw>1024 then return nil end
  local ok,p=pcall(cjson.decode,raw)
  if not ok or type(p)~='table' or not reader_hex(p.root,32) or type(p.expires)~='number' or p.expires%1~=0 or p.expires<=now or p.expires>now+86400000 then return nil end
  return p
@@ -46,7 +48,7 @@ local function reader_directory(start,count)
   local key=KEYS[start+i]
   local ns=string.sub(key,#'` + snapshotReaderPrefix + `'+1)
   if not reader_hex(ns,64) or key~='` + snapshotReaderPrefix + `'..ns or seen[ns] or redis.call('SISMEMBER',KEYS[start],ns)~=1 then return false end
-  if redis.call('HLEN',key)>128 then return false end
+  if redis.call('HLEN',key)>128 or (redis.call('MEMORY','USAGE',key,'SAMPLES',0) or 0)>262144 then error('reader lease hash exceeds resource limit; administrator reconciliation required') end
   seen[ns]=true
  end
  return KEYS[start]=='` + snapshotReaderDirectory + `'
@@ -71,6 +73,7 @@ local t=redis.call('TIME');local now=tonumber(t[1])*1000+math.floor(tonumber(t[2
 ttl=tonumber(ttl);count=tonumber(count)
 if catalog~='` + snapshotCatalogKey + `' or redis.call('HGET',catalog,'format')~='16' then return redis.error_reply('missing or unsupported snapshot catalog') end
 if names~='` + snapshotReaderDirectory + `' or not reader_hex(ns,64) or own~='` + snapshotReaderPrefix + `'..ns or not reader_hex(token,32) then return redis.error_reply('invalid reader lease identity') end
+if redis.call('HSTRLEN',own,token)>1024 then return redis.error_reply('reader lease value exceeds resource limit') end
 local raw=redis.call('HGET',own,token)
 local current=reader_pin(raw,now)
 if op=='release' or op=='release_partitions' then
@@ -121,19 +124,12 @@ return root
 `
 
 func (s *store) snapshotReaderKeys(ctx context.Context) ([]any, error) {
-	n, err := s.client.SCard(ctx, snapshotReaderDirectory).Result()
+
+	// Atomic read-only size checks precede materializing an untrusted directory.
+	// A separate SCARD followed by SMEMBERS could race arbitrary raw SADD calls.
+	names, err := once(ctx, s.client, "EVAL", `if redis.call('SCARD',KEYS[1])>128 or (redis.call('MEMORY','USAGE',KEYS[1],'SAMPLES',0) or 0)>262144 then return redis.error_reply('snapshot reader namespace resource limit exceeded; administrator reconciliation required') end return redis.call('SMEMBERS',KEYS[1])`, 1, snapshotReaderDirectory).StringSlice()
 	if err != nil {
 		return nil, err
-	}
-	if n > 128 {
-		return nil, errorf(adbc.StatusIO, "snapshot reader namespace limit (128) exceeded; administrator reconciliation required")
-	}
-	names, err := s.client.SMembers(ctx, snapshotReaderDirectory).Result()
-	if err != nil {
-		return nil, err
-	}
-	if len(names) > 128 {
-		return nil, errorf(adbc.StatusIO, "snapshot reader namespace limit (128) exceeded")
 	}
 	slices.Sort(names)
 	keys := []any{snapshotReaderDirectory}
@@ -180,4 +176,31 @@ func (s *store) readerControl(ctx context.Context, producer, op, token, id, root
 	c := goredis.NewCmd(ctx)
 	c.SetErr(errorf(adbc.StatusIO, "snapshot reader namespace changed repeatedly; retry the statement"))
 	return c
+}
+
+// An unknown acquire reply is resolved by reading its original token, never by
+// repeating acquisition against a newer root. Native refusals and cancellation
+// cannot become successful admissions through this recovery path.
+func (s *store) resolveReaderAcquire(ctx context.Context, token, expected string, cause error) (string, bool) {
+	var reply goredis.Error
+	if ctx.Err() != nil || errors.As(cause, &reply) {
+		return "", false
+	}
+	key := snapshotReaderPrefix + s.readerNamespace
+	n, err := s.client.HStrLen(ctx, key, token).Result()
+	if err != nil || n < 1 || n > 1024 {
+		return "", false
+	}
+	raw, err := s.client.HGet(ctx, key, token).Bytes()
+	if err != nil {
+		return "", false
+	}
+	var pin struct {
+		Root string `json:"root"`
+	}
+	if json.Unmarshal(raw, &pin) != nil || !snapshotMetadataID(pin.Root) || expected != "" && pin.Root != expected {
+		return "", false
+	}
+	valid, err := s.readerControl(ctx, "", "valid", token, "", pin.Root).Int()
+	return pin.Root, err == nil && valid == 1
 }

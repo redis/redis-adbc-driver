@@ -166,14 +166,14 @@ func TestSnapshotRBACRefusesBeforeManagementMutation(t *testing.T) {
 		calls++
 		t.Error("snapshot grant reached management API")
 	})
-	e := &executor{store: &store{snapshots: true}, rbac: manager}
+	e := &executor{store: &store{snapshots: true, restrictedReader: true}, rbac: manager}
 	for _, sql := range []string{"GRANT SELECT ON t TO analyst", "REVOKE SELECT ON t FROM analyst"} {
 		statements, err := ParseScript(sql)
 		if err != nil {
 			t.Fatal(err)
 		}
 		_, err = e.executeSnapshot(context.Background(), statements[0], nil, nil, nil)
-		if !isStatus(err, adbc.StatusNotImplemented) || !strings.Contains(err.Error(), "isolated snapshot reader leases") {
+		if !isStatus(err, adbc.StatusUnauthorized) || !strings.Contains(err.Error(), "cannot manage SQL grants") {
 			t.Fatal(err)
 		}
 	}

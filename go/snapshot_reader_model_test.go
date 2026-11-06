@@ -27,7 +27,7 @@ import (
 
 const readerLeaseModelHelpers = `
 local base=ARGV[1]
-if not string.match(base,'^adbc:{meta}:snapshot:reader%-model:[0-9a-f]+:') then return redis.error_reply('not an isolated reader lease model') end
+if not string.match(base,'^` + snapshotPrefix + `reader%-model:[0-9a-f]+:') then return redis.error_reply('not an isolated reader lease model') end
 for _,key in ipairs(KEYS) do if string.sub(key,1,#base)~=base then return redis.error_reply('model key escaped isolated prefix') end end
 local function hex(value,n) return type(value)=='string' and #value==n and not string.find(value,'[^0-9a-f]') end
 local function pin(raw,now)

@@ -75,6 +75,8 @@ func (s *store) importSnapshotTable(ctx context.Context, source *tableMeta, sche
 	}
 	defer s.abortSnapshot(pin, id)
 	wctx = context.WithValue(wctx, snapshotImportKey{}, true)
+	access := ""
+	var oid int64
 	if exists, err := s.tableExists(wctx, schema, name); err != nil {
 		return err
 	} else if exists {
@@ -88,11 +90,12 @@ func (s *store) importSnapshotTable(ctx context.Context, source *tableMeta, sche
 		if !replace {
 			return stateErrorf(stateDuplicateTable, "table %q.%q already exists", schema, name)
 		}
+		access, oid = old.SnapshotAccessID, old.OID
 		if err := s.dropTable(wctx, schema, name, false); err != nil {
 			return err
 		}
 	}
-	target := &tableMeta{Schema: schema, Name: name, SnapshotImportSource: snapshotImportIdentity(source), SnapshotSourceKey: source.KeyRows || source.SnapshotSourceKey}
+	target := &tableMeta{Schema: schema, Name: name, SnapshotAccessID: access, OID: oid, SnapshotImportSource: snapshotImportIdentity(source), SnapshotSourceKey: source.KeyRows || source.SnapshotSourceKey}
 	for _, col := range source.Columns {
 		col.Field, col.Encoding, col.TextFormat = "", "", ""
 		col.Missing, col.MissingThrough = "", 0

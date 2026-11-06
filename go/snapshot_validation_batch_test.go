@@ -78,15 +78,16 @@ func validationBatchFixture(t *testing.T) (*store, context.Context, *tableMeta, 
 	hook := &validationBatchReplies{segments: map[string]snapshotSegment{}}
 	client.AddHook(hook)
 	var segments []snapshotSegment
+	access := snapshotID()
 	for range 3 {
 		id := snapshotID()
-		seg := snapshotSegment{Prefix: snapshotRows(id), Index: snapshotIndexPrefix(id) + "working", Rows: 1}
+		seg := snapshotSegment{Prefix: snapshotRows(id, defaultSchema, access), Index: snapshotIndexPrefix(id) + "working", Rows: 1}
 		hook.segments[seg.Index] = seg
 		segments = append(segments, seg)
 	}
 	n := int64(1)
 	last := segments[len(segments)-1]
-	meta := &tableMeta{Schema: defaultSchema, KeyPrefix: last.Prefix, IndexName: last.Index, SnapshotRows: &n,
+	meta := &tableMeta{SnapshotAccessID: access, Schema: defaultSchema, KeyPrefix: last.Prefix, IndexName: last.Index, SnapshotRows: &n,
 		SnapshotOverlay: true, SnapshotSegments: segments[:len(segments)-1]}
 	s := &store{client: client, snapshots: true}
 	ctx := context.WithValue(context.Background(), snapshotContextKey{}, &snapshotScope{store: s})

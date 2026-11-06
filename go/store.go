@@ -216,6 +216,7 @@ type tableMeta struct {
 	// SnapshotRows counts physical row versions (including tombstones) in the
 	// current segment. Prior immutable segments carry their own expected counts.
 	// Acquisition validates indexes and directories against these counts.
+	SnapshotAccessID     string            `json:"snapshot_access_id,omitempty"`
 	SnapshotLineage      string            `json:"snapshot_lineage,omitempty"`
 	SnapshotImportSource string            `json:"snapshot_import_source,omitempty"`
 	SnapshotSourceKey    bool              `json:"snapshot_source_key,omitempty"`
@@ -498,8 +499,8 @@ func (s *store) lastNames(ctx context.Context, c goredis.Cmdable, schema, table 
 // when it was added can't be released later, since only its owner releases
 // it. Temporary schemas don't count releases; their connection remembers
 // every prefix it handed out instead (see tempSpace).
-func (s *store) claimNames(ctx context.Context, schema, table string) (tableNames, error) {
-	if nm, ok := snapshotNames(ctx, schema, table); ok {
+func (s *store) claimNames(ctx context.Context, schema, table string, access ...string) (tableNames, error) {
+	if nm, ok := snapshotNames(ctx, schema, table, access...); ok {
 		if err := s.ownSnapshotData(ctx, snapshotDataID(nm.prefix), nm.prefix); err != nil {
 			return tableNames{}, err
 		}
@@ -1222,13 +1223,14 @@ func (s *store) createTable(ctx context.Context, meta *tableMeta, ifNotExists bo
 	// Reserve a key prefix and index name that no table has had (see
 	// claimNames), and create the index. The metadata is written last, so
 	// no statement sees the table before its keys are known and indexed.
-	nm, err := s.claimNames(ctx, meta.Schema, meta.Name)
+	nm, err := s.claimNames(ctx, meta.Schema, meta.Name, meta.SnapshotAccessID)
 	if err != nil {
 		return false, err
 	}
 	meta.KeyPrefix, meta.IndexName, meta.PrefixGen = nm.prefix, nm.index, 0
 	if s.snapshots {
 		meta.SnapshotLineage = snapshotDataID(nm.prefix)
+		meta.SnapshotAccessID = snapshotAccessID(nm.prefix)
 	}
 	deferred := deferSnapshotIndex(ctx, meta)
 	created := false
@@ -1383,7 +1385,7 @@ func (s *store) truncateTables(ctx context.Context, metas []*tableMeta, restartI
 		}
 	}
 	for _, t := range ts {
-		nm, err := s.claimNames(ctx, t.meta.Schema, t.meta.Name)
+		nm, err := s.claimNames(ctx, t.meta.Schema, t.meta.Name, t.meta.SnapshotAccessID)
 		if err != nil {
 			release()
 			return err

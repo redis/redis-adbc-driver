@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-const snapshotRowMarker = ":{meta}:snapshot:rows:"
+const snapshotRowMarker = ":{meta}:snapshot:16:rows:"
 
 func snapshotSchemaPart(schema string) string {
 	part := escapeKeyPart(schema)
@@ -24,7 +24,11 @@ func snapshotRows(id string, schema ...string) string {
 	if len(schema) > 0 {
 		name = schema[0]
 	}
-	return snapshotSchemaPart(name) + snapshotRowMarker + id + ":"
+	access := id
+	if len(schema) > 1 && schema[1] != "" {
+		access = schema[1]
+	}
+	return access + "~" + snapshotSchemaPart(name) + snapshotRowMarker + id + ":"
 }
 
 // Return only canonical schema/UUID prefixes. Control records and indexes have
@@ -34,8 +38,12 @@ func snapshotRowPrefix(key string) string {
 	if !ok || part == "" || len(rest) < 33 || rest[32] != ':' {
 		return ""
 	}
-	schema, err := url.PathUnescape(part)
-	if err != nil || snapshotSchemaPart(schema) != part {
+	access, encoded, ok := strings.Cut(part, "~")
+	if !ok || len(access) != 32 || strings.Trim(access, "0123456789abcdef") != "" {
+		return ""
+	}
+	schema, err := url.PathUnescape(encoded)
+	if err != nil || snapshotSchemaPart(schema) != encoded {
 		return ""
 	}
 	for _, c := range rest[:32] {
@@ -46,12 +54,22 @@ func snapshotRowPrefix(key string) string {
 	return part + snapshotRowMarker + rest[:33]
 }
 
+// An opaque logical table identity precedes schema and generation components.
+// Grants therefore survive physical replacement without matching another table.
+func snapshotAccessID(prefix string) string {
+	if snapshotRowPrefix(prefix) == "" {
+		return ""
+	}
+	return prefix[:32]
+}
+func snapshotAccessPrefix(meta *tableMeta) string { return meta.SnapshotAccessID + "~" }
+
 const snapshotRowLayoutLua = `
 local function snapshot_row_key(key)
  if type(key)~='string' then return nil end
- local schema,id,suffix=string.match(key,'^([^:{}]+):{meta}:snapshot:rows:([0-9a-f]+):(.*)$')
- if not schema or schema=='adbc' or #id~=32 then return nil end
- return schema..':{meta}:snapshot:rows:'..id..':',id
+ local access,schema,id,suffix=string.match(key,'^([0-9a-f]+)~([^:{}]+):{meta}:snapshot:16:rows:([0-9a-f]+):(.*)$')
+ if not access or #access~=32 or schema=='adbc' or #id~=32 then return nil end
+ return access..'~'..schema..':{meta}:snapshot:16:rows:'..id..':',id,access
 end
 local function valid_data_prefix(prefix,id)
  local parsed,data=snapshot_row_key(prefix)
