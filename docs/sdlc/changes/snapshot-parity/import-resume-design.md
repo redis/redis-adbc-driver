@@ -1,7 +1,8 @@
 # Remaining durable import resume work
 
-Status: design, not a shipped API. The [parity specification](spec.md) remains
-the acceptance boundary. Private capture journals and atomic output consumption
+Status: deferred design, not a shipped API and not a completion gate for core
+PR #284. See the [saved-code inventory](deferred-resume-code.md). The broader
+[parity specification](spec.md) describes follow-up requirements. Private capture journals and atomic output consumption
 are prerequisites, not evidence that an interrupted operation can resume today.
 
 ## Recovery contract
@@ -78,9 +79,10 @@ The protocol-16 code audit identifies specific work before a public resume API:
   persisted validation/consumption barrier, while ordinary abort/expiry still
   deletes its journal. Transfer that exact completed capture into independent
   retained operation ownership before exposing cross-process resume.
-- `applyPage` allocates physical row IDs before committing each output batch.
-  Reserve or persist those bindings so a new owner cannot create different row
-  identities after an acknowledged allocation and an interrupted output call.
+- The baseline `applyPage` allocates physical row IDs before committing each
+  output batch. This branch includes a partially validated reserved-range
+  experiment; see its validation boundary in the saved-code inventory. Stable
+  bindings across independent owner takeover still require separate proof.
 - `snapshotMetadataState` keeps original read owners and dirty/prune/change sets
   in process memory. Persist the semantic dependency/change plan; restore it
   before rebase rather than treating a restarted resolver as a new statement.
