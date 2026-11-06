@@ -11,6 +11,7 @@ import (
 	"hash/fnv"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/apache/arrow-adbc/go/adbc"
 	goredis "github.com/redis/go-redis/v9"
@@ -373,6 +374,7 @@ func (s *store) snapshotDirtyTables(ctx context.Context) ([]*tableMeta, error) {
 	scope.metadataMu.Unlock()
 	var tables []*tableMeta
 	for _, key := range keys {
+		readAt := time.Now()
 		raw, err := s.redis(ctx).Get(ctx, key).Bytes()
 		if errors.Is(err, goredis.Nil) {
 			continue
@@ -384,11 +386,16 @@ func (s *store) snapshotDirtyTables(ctx context.Context) ([]*tableMeta, error) {
 		if err := json.Unmarshal(raw, &m); err != nil || metaKey(m.Schema, m.Name) != key {
 			return nil, errorf(adbc.StatusIO, "invalid private snapshot table descriptor")
 		}
-		current, err := s.getTable(ctx, m.Schema, m.Name)
-		if err != nil {
+		// The scoped GET above already performed native key authorization and
+		// metadata ownership checks. Reuse that exact decoded descriptor, while
+		// retaining the normal local policy and complete snapshot validation.
+		if err := s.hydrateTableMetadata(ctx, &m, readAt); err != nil {
 			return nil, err
 		}
-		tables = append(tables, current)
+		if err := s.validateSnapshotTable(ctx, &m); err != nil {
+			return nil, err
+		}
+		tables = append(tables, &m)
 	}
 	return tables, nil
 }
