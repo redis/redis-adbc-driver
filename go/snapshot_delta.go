@@ -108,11 +108,8 @@ func (d *snapshotDeltaScan) head(ctx context.Context, i int) (string, error) {
 		if err != nil {
 			return "", wrapRedis(err, "failed to read snapshot row directory")
 		}
-		src.ids, src.at = ids, 0
-		src.offset += int64(len(ids))
-		src.done = len(ids) < page
-		if src.done && !snapshotOwns(ctx, src.segment.Prefix) && src.offset != src.segment.Rows {
-			return "", errorf(adbc.StatusIO, "published snapshot row directory changed")
+		if err := d.acceptPage(ctx, i, ids, page); err != nil {
+			return "", err
 		}
 	}
 	if src.at == len(src.ids) {
@@ -124,6 +121,18 @@ func (d *snapshotDeltaScan) head(ctx context.Context, i int) (string, error) {
 	}
 	return id, nil
 }
+
+func (d *snapshotDeltaScan) acceptPage(ctx context.Context, i int, ids []string, page int) error {
+	src := &d.sources[i]
+	src.ids, src.at = ids, 0
+	src.offset += int64(len(ids))
+	src.done = len(ids) < page
+	if src.done && !snapshotOwns(ctx, src.segment.Prefix) && src.offset != src.segment.Rows {
+		return errorf(adbc.StatusIO, "published snapshot row directory changed")
+	}
+	return nil
+}
+
 func (d *snapshotDeltaScan) nextKeys(ctx context.Context) ([]string, []string, error) {
 	var logical, physical []string
 	limit := d.pageRows

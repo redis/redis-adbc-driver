@@ -21,15 +21,26 @@ type compactionDirectoryReads struct {
 
 func (h *compactionDirectoryReads) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	return func(ctx context.Context, cmd goredis.Cmder) error {
-		args := cmd.Args()
-		if ctx.Value(compactionDirectoryObservation{}) == true && cmd.Name() == "zrange" && len(args) == 4 && h.sources[fmt.Sprint(args[1])] {
-			first, e1 := strconv.ParseInt(fmt.Sprint(args[2]), 10, 64)
-			last, e2 := strconv.ParseInt(fmt.Sprint(args[3]), 10, 64)
-			if e1 == nil && e2 == nil {
-				h.max.Store(max(h.max.Load(), last-first+1))
-			}
-		}
+		h.observe(ctx, cmd)
 		return next(ctx, cmd)
+	}
+}
+func (h *compactionDirectoryReads) observe(ctx context.Context, cmd goredis.Cmder) {
+	args := cmd.Args()
+	if ctx.Value(compactionDirectoryObservation{}) == true && cmd.Name() == "zrange" && len(args) == 4 && h.sources[fmt.Sprint(args[1])] {
+		first, e1 := strconv.ParseInt(fmt.Sprint(args[2]), 10, 64)
+		last, e2 := strconv.ParseInt(fmt.Sprint(args[3]), 10, 64)
+		if e1 == nil && e2 == nil {
+			h.max.Store(max(h.max.Load(), last-first+1))
+		}
+	}
+}
+func (h *compactionDirectoryReads) ProcessPipelineHook(next goredis.ProcessPipelineHook) goredis.ProcessPipelineHook {
+	return func(ctx context.Context, cmds []goredis.Cmder) error {
+		for _, cmd := range cmds {
+			h.observe(ctx, cmd)
+		}
+		return next(ctx, cmds)
 	}
 }
 

@@ -378,13 +378,42 @@ func (s *store) copySnapshotCompactionBatch(ctx context.Context, j *snapshotComp
 	scan := newSnapshotDeltaScan(s, j.Source, nil)
 	scan.keepDeleted = j.SourceStart > 0
 	scan.pageRows = snapshotCompactionBatchRows
-	for i := range scan.sources {
-		if j.After != "" {
-			offset, err := s.redis(ctx).ZLexCount(ctx, snapshotMembers(snapshotDataID(scan.sources[i].segment.Prefix)), "-", "["+j.After).Result()
+	// All sources are immutable and retained by the durable job. Batch their
+	// independent positions, then their bounded first pages. Keep the same rank
+	// queries and complete-directory checks as the single-command scanner; no
+	// cursor, cache or copy checkpoint survives a failed read pipeline.
+	if j.After != "" {
+		pipe := s.redis(ctx).Pipeline()
+		positions := make([]*goredis.IntCmd, len(scan.sources))
+		for i, src := range scan.sources {
+			positions[i] = pipe.ZLexCount(ctx, snapshotMembers(snapshotDataID(src.segment.Prefix)), "-", "["+j.After)
+		}
+		if _, err := pipe.Exec(ctx); err != nil {
+			return err
+		}
+		for i, position := range positions {
+			offset, err := position.Result()
 			if err != nil {
 				return err
 			}
 			scan.sources[i].offset = offset
+		}
+	}
+	pipe := s.redis(wctx).Pipeline()
+	pages := make([]*goredis.StringSliceCmd, len(scan.sources))
+	for i, src := range scan.sources {
+		pages[i] = pipe.ZRange(wctx, snapshotMembers(snapshotDataID(src.segment.Prefix)), src.offset, src.offset+snapshotCompactionBatchRows-1)
+	}
+	if _, err := pipe.Exec(wctx); err != nil {
+		return wrapRedis(err, "failed to read compaction row directories")
+	}
+	for i, page := range pages {
+		ids, err := page.Result()
+		if err != nil {
+			return wrapRedis(err, "failed to read compaction row directory")
+		}
+		if err := scan.acceptPage(wctx, i, ids, snapshotCompactionBatchRows); err != nil {
+			return err
 		}
 	}
 	keys, rows, err := scan.next(wctx)
