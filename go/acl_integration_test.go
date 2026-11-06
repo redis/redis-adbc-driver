@@ -98,6 +98,15 @@ func (a *aclHarness) user(name string, rules ...string) {
 	a.t.Helper()
 	rules, namespace := aclSnapshotRules(name, rules)
 	args := append([]any{"ACL", "SETUSER", name, "reset", "on", ">" + aclPassword, "resetchannels"}, anySlice(rules)...)
+	// Also clean partial node setup or a failed domain registration.
+	a.t.Cleanup(func() {
+		_ = a.eachNode(func(n *goredis.Client) error { return n.Do(context.Background(), "ACL", "DELUSER", name).Err() })
+		if namespace != "" {
+			_ = a.raw.SRem(context.Background(), snapshotReaderDomains, namespace).Err()
+			_ = a.raw.SRem(context.Background(), snapshotReaderDirectory, namespace).Err()
+			_ = a.raw.Del(context.Background(), snapshotReaderPrefix+namespace).Err()
+		}
+	})
 	err := a.eachNode(func(n *goredis.Client) error {
 		if err := n.Do(a.ctx, args...).Err(); err != nil {
 			return err
@@ -118,14 +127,6 @@ func (a *aclHarness) user(name string, rules ...string) {
 			a.t.Fatal(err)
 		}
 	}
-	a.t.Cleanup(func() {
-		_ = a.eachNode(func(n *goredis.Client) error { return n.Do(context.Background(), "ACL", "DELUSER", name).Err() })
-		if namespace != "" {
-			_ = a.raw.SRem(context.Background(), snapshotReaderDomains, namespace).Err()
-			_ = a.raw.SRem(context.Background(), snapshotReaderDirectory, namespace).Err()
-			_ = a.raw.Del(context.Background(), snapshotReaderPrefix+namespace).Err()
-		}
-	})
 }
 
 // Preserve each fixture's explicit command denials and external HASH grants.
