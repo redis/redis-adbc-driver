@@ -12,7 +12,7 @@ page defines the current guarantee, limits and supported deployments and takes
 precedence over the historical layout and feature descriptions below. New
 catalogs normally require an empty isolated database; explicit imports may
 initialize alongside application data after rejecting legacy driver metadata.
-Storage protocol version 14 rejects legacy catalogs and prior draft formats 1–13 without
+Storage protocol version 16 rejects legacy catalogs and prior draft formats 1–15 without
 modification; no upgrade path is provided. ALTER and temporary objects are
 supported. AdoptHashes creates a managed copy; repeating Apply explicitly refreshes
 it. Managed imports retain the original application key as a queryable `__key`

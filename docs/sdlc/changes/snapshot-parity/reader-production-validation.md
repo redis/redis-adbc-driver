@@ -253,3 +253,36 @@ The complete required SQL authorization fixture passes with this stronger test
 under `-race` in **25.486 seconds**. The mixed sample is 126 role pins, 128 global
 pins, 19,982 HASH bytes and 130 directory bytes, with the same 5,831-byte script.
 The prior 128-role-pin sample above remains a distinct, explicitly isolated run.
+
+## Public-branch integration and independent verification
+
+The public integration maps the staged reader commits to `b6e9ee9`, `944592d`,
+`d09d2b2`, `671d4ea`, `8d7e893` and `892ef4a`. Test-only stable-prefix updates
+are `49a89d8`; mixed-producer quota coverage is `bf91570`. These preserve the
+hidden-cap/direct-partition implementation already published at `09b4e78`.
+Production Go and native fixture files match the coordinated `b1bc95b`/`dd84bc9`
+source above; the local conflict resolution retains both reader state and the
+aggregate-cap discovery flag.
+
+All no-endpoint unit/race packages at `892ef4a` pass: **1,169 test events**,
+**1,017 explicit integration/profile skips**, root **53.236 seconds**. This is
+compile/unit evidence, not live server compatibility.
+
+An independently owned Software fixture runs the versioned `49a89d8` library
+with SHA-256
+`4221eb8f3567e839a44ce6d807403af0dd9e5cd526cb34044a169c2b60f19927`:
+**19 native TLS partition/lifecycle checks and 6 metadata/statistics identities
+pass** with actual separate Software identities. Strict certificates, noeviction
+and active/effective 4x QPF are verified; the original aggregate cap and owned
+role mappings are restored. Two initial local attempts stopped on incomplete
+negative-certificate fixture inputs, before those checks ran; the complete
+fixture rerun passes without changing assertions. Certificate keys, identities,
+deployment details and full operational reports remain private.
+
+The [controlled-plan correction](controlled-plan-validation.md) preserves
+explicit test caps and the distinction between physical cursor primitives and
+logical directories. Its 29-event focused race run passes at the actual default
+aggregate cap 2147483648. A complete combined ordinary Go run and the final
+snapshot race run remain in progress; hosted Darwin ACL fixtures, current
+platform/Cluster/recovery, public operation resume and performance parity remain
+required. This remains a draft implementation, not a full-parity completion.

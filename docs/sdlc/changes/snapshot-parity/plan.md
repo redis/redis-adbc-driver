@@ -2,6 +2,12 @@
 
 Date: 2026-11-02. Status: in progress. See [intent](intent.md), [spec](spec.md).
 
+The [production reader checkpoint](reader-production-validation.md) integrates
+protocol-16 isolated role leases and stable table grants. Actual Software SQL
+authorization and independent native TLS/lifecycle/metadata checks pass; full
+combined ordinary/race, hosted ACL/platform and recovery gates remain open.
+There is no migration or older-format interoperability.
+
 The [controlled-plan checkpoint](controlled-plan-validation.md) preserves
 explicit test caps and separates pinned cursor primitives from complete logical
 directory references. The actual ordinary aggregate cap is 2147483648; focused
@@ -77,7 +83,7 @@ or sustained throughput parity.
 | Exact index aggregation/grouping/top-K on segmented visibility | Implemented with bounded masks and exact fallbacks; seven-case read comparison recorded |
 | Incremental metadata, independent publication and index lifecycle | Lazy validation and one-build index lifecycle/no-op publication implemented; pre-execution admission and metadata sharing/GC implemented; incremental row references verified locally; independent publication verified locally; bounded bucket construction verified locally |
 | Large atomic writes/ingestion and sustained compaction | Durable dirty-table scheduling and GC batch progress verified locally; bounded SQL/Arrow row images and ALTER/rekey with durable outcomes implemented; process/input resume, remaining utility quotas and broader sustained throughput work remain open |
-| Full feature/native/platform/Cluster API validation | Protocol-14 Cluster Go, primary promotion, all-node AOF/RDB restart and replicated proxy race/native checks verified historically; protocol-15 Cluster reruns, hosted CI and full feature/native/platform matrix remain open |
+| Full feature/native/platform/Cluster API validation | Protocol-14 Cluster Go, primary promotion, all-node AOF/RDB restart and replicated proxy race/native checks verified historically; current protocol-16 Cluster reruns, hosted CI and full feature/native/platform matrix remain open |
 | Comparative benchmarks, review, PR evidence and owned cleanup | Seven-case read comparison and self-review recorded; remaining benchmarks/cleanup pending |
 
 Implement and verify coherent milestones; keep PR #284 reviewable. Provision
@@ -320,9 +326,9 @@ ordinary/platform and sustained performance parity remain open.
 The [isolated reader-lease design and model](reader-acl-design.md) validates six
 race-enabled cases on verified Software 4x QPF, including actual ACL denials,
 cross-principal retention, stale membership and read-only lost-reply resolution.
-The production catalog is unchanged and remains protocol 15. This is staged
-evidence only: production ACL integration, bounded namespace management and the
-ordinary reader-role regression remain incomplete.
+At that model-only checkpoint the production catalog remained protocol 15.
+Production integration and its newer evidence are recorded in the reader
+checkpoint above; the historical model run alone did not establish them.
 
 The [Arrow partition-lifetime checkpoint](arrow-partition-validation.md) restores
 canonical storage/layout validation without exhausting retained generations:
@@ -591,9 +597,9 @@ race events with one existing ACL skip; package units pass 1,032 race events wit
 895 explicit integration skips; four native acceptance files pass all 113 cases.
 The latest Software fixture observes Redis 8.8.0 and verified effective 4x QPF;
 prior timings retain their older server labels. Completed native capabilities
-are explicitly released; no retention quota is raised. SQL GRANT/REVOKE remains
-gated on isolated reader leases and generation-stable authorization, so current
-feature parity is still incomplete. Fresh full ordinary/snapshot, broader native
+are explicitly released; no retention quota is raised. At that checkpoint SQL
+GRANT/REVOKE remained gated on isolated reader leases and generation-stable
+authorization. Their newer integration is recorded above. Fresh full ordinary/snapshot, broader native
 and platform/recovery, current-source comparisons, public resume and sustained
 compaction gates remain open.
 

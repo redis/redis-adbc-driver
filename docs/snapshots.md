@@ -336,10 +336,11 @@ When a much larger older prefix can be preserved, selection consolidates at
 least two smaller newer segments. Partial merges retain tombstones to keep
 older base versions hidden. Balanced/ambiguous size estimates use a full merge.
 The exact source range, older prefix and newer publications remain protected.
-Selective jobs retain queue eligibility until publication, allowing the tested
-older protocol-15 worker to decline them and discover a full merge. There is no
-storage-version change or new user option. Normal writes allocate deltas and
-never perform compaction row copies.
+Selective jobs retain queue eligibility until publication. The older-worker
+decline/full-merge behavior was verified historically within protocol 15;
+protocol 16 requires matching clients and does not interoperate with that older
+storage format. Selective compaction introduces no new user option. Normal writes
+allocate deltas and never perform compaction row copies.
 
 A table still has a hard eight-segment bound. Writable managed connections wait
 for their background worker to make room before reserving a workspace, planning
