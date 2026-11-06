@@ -1,6 +1,7 @@
 """Use the driver's canonical reader policy for owned native fixtures.
 
-The fixture controller has Go available because it builds the native driver.
+Fixture controllers need Go for the configuration-only CLI, including installed-
+wheel validation jobs. This helper does not rebuild the native driver.
 No URI, credential or descriptor is passed to the configuration-only CLI.
 """
 import functools

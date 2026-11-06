@@ -167,3 +167,22 @@ NOPERM, exact forbidden-row preservation, partial-result conservation and strong
 administrator reclamation. The hosted macOS audit gate is still pending. The
 production runtime is identical between the fully Software-green `076c838` and
 `c79084a`; their differences are limited to audit test fixtures and evidence.
+
+### Installed-wheel fixture toolchain dependency
+
+At `1664000`, the macOS parent release job passes all Go/ACL, native cap-137,
+minimum-client and TLS checks. All ten Linux distro jobs and both Linux wheel
+clients pass. The newly reached macOS reusable wheel-client job then fails before
+restricted-role validation because its canonical ACL helper invokes `go`, which
+is absent from that runner's PATH.
+
+The reusable workflow now explicitly installs Go from `go/go.mod` when the
+selected ref contains the canonical reader ACL helper. Historical checker refs
+without that helper retain their prior gates. Go generates only the fixture's
+configuration policy; the native driver still loads from the packaged wheel,
+with `--require-wheel` and removal of REDIS_ADBC_LIBRARY unchanged.
+
+Workflow YAML parsing, toolchain order and historical helper guard checks pass;
+all nine offline CI-matrix tests pass. Running the actual configuration-only
+helper produces a valid format-16 policy without a Redis connection. The new
+hosted macOS wheel-client run and complete final-head matrix remain pending.
