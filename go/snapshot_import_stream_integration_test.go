@@ -43,6 +43,9 @@ func snapshotImportBatchFixture(t *testing.T) (*sqlHarness, *goredis.Client, *st
 	}); err != nil {
 		t.Fatal(err)
 	}
+	if err := spool.complete(wctx); err != nil {
+		t.Fatal(err)
+	}
 	journal := &snapshotImportOutput{rows: snapshotWorkspace(id) + "import:rows:" + id, keys: snapshotWorkspace(id) + "import:keys:" + id}
 	wctx = context.WithValue(wctx, snapshotImportOutputKey{}, journal)
 	rows := []snapshotInsertRow{

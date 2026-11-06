@@ -19,7 +19,7 @@ const snapshotIngestConvertRows = 4096
 
 // All row images and their exact directory entries precede the durable outcome.
 // An uncertain reply is resolved by reading that outcome, never replaying input.
-const snapshotWriteBatchLua = snapshotRowLayoutLua + `
+const snapshotWriteBatchLua = snapshotRowLayoutLua + snapshotImportCaptureProof + `
 -- snapshot insert row batch
 local catalog,graph,directory=KEYS[1],KEYS[2],KEYS[3]
 local workspace,token,data,operation,mode=ARGV[1],ARGV[2],ARGV[3],ARGV[4],ARGV[5]
@@ -45,11 +45,18 @@ local d=cjson.decode(owned)
 if d.owner~=workspace or d.state~='live' or not valid_data_prefix(d.prefix,data) then
  return redis.error_reply('shared snapshot data is immutable')
 end
+if w.import_capture and w.import_capture.data==data and not importing then
+ return redis.error_reply('import output requires atomic capture consumption')
+end
 if w.row_batch and w.row_batch.id==operation then return w.row_batch.rows end
 if w.import_pending then return redis.error_reply('incomplete import batch cannot resume') end
 local journal,inputs,metakeys
 if importing then
  journal,inputs,metakeys=KEYS[lastrow+1],KEYS[lastrow+2],KEYS[lastrow+3]
+ local capture=w.import_capture
+ if not import_capture_ready(capture) or capture.data~=data then
+  return redis.error_reply('import capture is not complete')
+ end
  local private='` + snapshotPrefix + `workspace:'..workspace..':'
  if journal~=private..'import:rows:'..workspace or inputs~=private..'import:keys:'..workspace or metakeys~=private..'__keys' or
     (w.metadata_builds or 0)>0 or redis.call('TYPE',journal).ok~='hash' or redis.call('TYPE',inputs).ok~='zset' or
@@ -57,6 +64,9 @@ if importing then
     tonumber(redis.call('HGET',graph,'v:'..journal) or '0')<=0 or tonumber(redis.call('HGET',graph,'v:'..inputs) or '0')<=0 or
     redis.call('HGET',graph,'e:'..journal)~='1' or redis.call('HGET',graph,'e:'..inputs)~='1' then
   return redis.error_reply('invalid import batch journal')
+ end
+ if redis.call('HLEN',journal)~=capture.remaining or redis.call('ZCARD',inputs)~=capture.remaining then
+  return redis.error_reply('import capture remaining count is inconsistent')
  end
 end
 local dirtype=redis.call('TYPE',directory).ok
@@ -113,6 +123,12 @@ for i=4,lastrow do
 end
 if offset~=#ARGV+1 then return redis.error_reply('invalid snapshot insert batch arguments') end
 w.row_batch={id=operation,rows=#rows}
+local remaining
+if importing then
+ remaining=w.import_capture.remaining
+ if #rows>remaining then return redis.error_reply('import batch exceeds remaining capture') end
+ w.import_capture.remaining=remaining-#rows
+end
 local outcome=cjson.encode(w)
 local registration={}
 for _,member in ipairs(members) do registration[#registration+1]=0;registration[#registration+1]=member end
@@ -129,6 +145,7 @@ if importing then
  -- If an unexpected runtime failure interrupts mutation, retain an explicit
  -- incomplete marker. A future owner must fail closed rather than duplicate
  -- private images whose captured inputs may still be present.
+ w.import_capture.remaining=remaining
  w.row_batch=nil;w.import_pending=operation
  redis.call('HSET',catalog,'w:'..workspace,cjson.encode(w))
 end
