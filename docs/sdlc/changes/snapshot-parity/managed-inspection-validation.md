@@ -1,6 +1,6 @@
 # Managed-copy inspection readiness
 
-Status: isolated correction; not integrated into the stable repair head.
+Status: integrated as `22f977d`; replacement hosted checks remain required.
 
 The generic HASH inspector still reports in-place adoption after managed import
 became mandatory. Its checklist promises live application rows, destructive SQL

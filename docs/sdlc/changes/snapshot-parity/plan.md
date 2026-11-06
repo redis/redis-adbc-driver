@@ -2,6 +2,20 @@
 
 Date: 2026-11-02. Status: in progress. See [intent](intent.md), [spec](spec.md).
 
+The [reader-directory checkpoint](reader-directory-cache-validation.md) reuses
+bounded namespace hints only after exact server proofs before mutation. Peer
+review's count-before-memory correction is covered by a native Lua regression.
+Corrected native/role/race checks pass. Matched sustained writes improve 6.21%,
+with a remaining 6.547x mutable-throughput gap; variable and negative read
+samples remain reported without a stable full-read speedup claim.
+
+The [managed inspection checkpoint](managed-inspection-validation.md) replaces
+obsolete in-place readiness with the managed-copy contract, preserving JSON
+identifiers and the existing sample. Real refresh/source-preservation,
+partial-sample, fresh-catalog and CLI checks pass. This does not provide public
+process/input resume; the [resume design](import-resume-design.md) now maps the
+remaining ownership, completion, row-identity and metadata-plan work to code.
+
 The [production reader checkpoint](reader-production-validation.md) integrates
 protocol-16 isolated role leases and stable table grants. Actual Software SQL
 authorization and independent native TLS/lifecycle/metadata checks pass.

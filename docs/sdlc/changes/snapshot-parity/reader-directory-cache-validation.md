@@ -1,6 +1,6 @@
 # Reader directory hints
 
-Status: corrected candidate verified and measured; integration pending.
+Status: integrated; current-source hosted/platform and full-parity gates remain open.
 
 Admission and reclamation currently read the complete bounded reader namespace
 directory in a separate read-only script before sending the control command.
@@ -182,3 +182,23 @@ is not pooled or relabeled as corrected-source evidence.
 [All corrected write samples and hashes](reader-directory-cache-countfix-write-comparison.json)
 include every returned value and final 40,000-row validation. Two processes per
 source remain limited evidence. Full feature/performance parity is incomplete.
+
+## Public-branch integration
+
+The integration includes corrected candidate `41bb8fe` and all comparison
+records, managed inspection `22f977d`, and the reviewed macOS fixture changes
+`e7a5162`. Combined code at `b70f24a` passes all no-endpoint unit packages
+(root 26.853 seconds) and **77 focused Software race test events**, with **2
+explicit protocol-ACL skips**, root **26.795 seconds**, all six test-bearing
+packages passing. The focused selection includes real Software SQL roles,
+namespace/capacity/poisoning/transport checks, the actual count-before-memory
+regression, fresh-catalog inspection, copy/adopt/refresh and CLI contracts.
+
+The combined versioned native library has SHA-256
+`87f0c5a9f3ab076d5c12c3fe3c36034cb3268c9cb9273a118361d6a95b040cc2`.
+Its complete native validation independently passes **565 tests and 3 subtests**,
+**8 capability skips**, **80.47 seconds**, in the same pinned Python 3.14
+environment. This is tracked separately from the corrected candidate's native
+and 529-event results above. Hosted macOS, current combined
+platform coverage, true Cluster API/failover/persistence, public operation/input
+resume and the measured performance gap remain open.

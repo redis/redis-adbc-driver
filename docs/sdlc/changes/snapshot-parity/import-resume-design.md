@@ -65,3 +65,35 @@ rejection and the existing autocommit, Active-Active and noeviction boundaries.
 - Measure capture, continuation, final sealing/publication and total retained
   storage; compare unchanged imports and long-running workloads as well as short
   successful samples. Full operation and compaction throughput remain obligations.
+
+## Current implementation boundaries
+
+The protocol-16 code audit identifies specific work before a public resume API:
+
+- `importSnapshotTable` owns a renewable statement pin and unconditionally
+  defers private abort. A detached operation needs independent retained ownership;
+  leaving a process-local pin alive is not a recovery contract.
+- `snapshotImportSpool` preserves exact typed payloads and source-key bytes, but
+  has no durable input-complete transition. The output path consumes entries and
+  deletes the journal. Persist a source-validated completion barrier before any
+  phase can be resumed without rereading the source.
+- `applyPage` allocates physical row IDs before committing each output batch.
+  Reserve or persist those bindings so a new owner cannot create different row
+  identities after an acknowledged allocation and an interrupted output call.
+- `snapshotMetadataState` keeps original read owners and dirty/prune/change sets
+  in process memory. Persist the semantic dependency/change plan; restore it
+  before rebase rather than treating a restarted resolver as a new statement.
+- The row-batch outcome records the last completed batch, while `import_pending`
+  fences runtime-interrupted output. Preserve both distinctions: an unknown reply
+  can be resolved read-only, but an incomplete mutation is abort-only.
+- Publication and reclamation replace workspace records with compact terminal
+  records. Operation plan/outcome ownership must survive those transitions and
+  remain discoverable for bounded cleanup; adding an untracked pointer would
+  strand captured input or lose the original commit outcome.
+
+Introduce the new storage fence before enabling detached ownership, then wire
+capture, output, final indexing and publication into that owner protocol. External
+HASH/foreign imports can exercise the first implementation milestone; SQL and
+Arrow capture/resume, native status/error handles and separate-process recovery
+remain part of the same completion requirement. No public resume API is shipped
+by the inspection or reader-directory work.
