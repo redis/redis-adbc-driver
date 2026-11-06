@@ -136,3 +136,47 @@ func TestSnapshotReaderKeyCacheNativeWarmResourceGuards(t *testing.T) {
 		})
 	}
 }
+
+func TestSnapshotReaderKeyCacheNativeCountBeforeMemoryBudget(t *testing.T) {
+	h, raw, _ := newSnapshotHarness(t)
+	s := snapshotTestStore(t, raw)
+	keys, err := s.snapshotReaderKeys(h.ctx, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names []any
+	for i := 0; i < 129; i++ {
+		names = append(names, snapshotReaderNamespace(fmt.Sprint("oversized-", i)))
+	}
+	if err := raw.SAdd(h.ctx, snapshotReaderDirectory, names...).Err(); err != nil {
+		t.Fatal(err)
+	}
+	// Fault the expensive primitive in the actual Lua program. An oversized
+	// directory must take its cheap bound refusal without reaching MEMORY.
+	const forbidMemory = `local backend=redis
+local redis=setmetatable({call=function(cmd,...)
+ if cmd=='MEMORY' then error('unbounded MEMORY before directory count refusal') end
+ return backend.call(cmd,...)
+end},{__index=backend})
+`
+	controlKeys := []any{snapshotCatalogKey, snapshotMetadataGraph, snapshotDataQueue, snapshotCompactionQueue, snapshotCompactionCandidates}
+	n := len(controlKeys)
+	controlKeys = append(controlKeys, keys...)
+	token := snapshotID()
+	args := []any{"EVAL", forbidMemory + snapshotControl, len(controlKeys)}
+	args = append(args, controlKeys...)
+	args = append(args, "acquire", token, "", "", snapshotLease.Milliseconds(), "", "[]", n, len(keys)-1)
+	err = once(h.ctx, s.client, args...).Err()
+	if !snapshotNativeRefusal(err, "reader namespace changed before mutation") {
+		t.Fatal("oversized directory reached memory accounting", err)
+	}
+	if raw.HExists(h.ctx, snapshotCatalogKey, "p:"+token).Val() {
+		t.Fatal("oversized directory admitted a pin")
+	}
+	// Fresh discovery must likewise reject by count before materializing or
+	// measuring the untrusted set.
+	err = once(h.ctx, s.client, "EVAL", forbidMemory+snapshotNamespaceRead, 1, snapshotReaderDirectory).Err()
+	if !snapshotNativeRefusal(err, "snapshot reader namespace resource limit exceeded; administrator reconciliation required") {
+		t.Fatal("discovery reached memory accounting", err)
+	}
+}

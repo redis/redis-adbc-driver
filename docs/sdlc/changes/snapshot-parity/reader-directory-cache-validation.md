@@ -1,6 +1,6 @@
 # Reader directory hints
 
-Status: isolated candidate; validated and measured, not integrated.
+Status: isolated candidate; pre-correction measurements retained, not integrated.
 
 Admission and reclamation currently read the complete bounded reader namespace
 directory in a separate read-only script before sending the control command.
@@ -114,3 +114,20 @@ bounded churn, point-operation independence and unchanged original-token
 outcome resolution. No actionable finding remains from that review. Actual
 Cluster API/platform proof and independent maintainer review remain separate
 requirements; these local proxy/Software checks do not establish them.
+
+## Peer-review correction: count before memory accounting
+
+Peer review identifies a resource-order issue in measured source `c306768`:
+`MEMORY USAGE ... SAMPLES 0` precedes the cheap directory count/range check.
+An oversized untrusted directory can therefore force an unbounded accounting
+walk before refusal. The fresh discovery script already short-circuits SCARD
+first; the warm-hint control path must do the same.
+
+A real-Lua regression injects a fault at MEMORY with 129 directory members and
+a warm empty hint. Before correction it reaches the forbidden primitive and
+fails (root 0.805 seconds). Moving count/range/SCARD validation before MEMORY
+restores the exact pre-mutation refusal; fresh discovery also rejects before
+MEMORY. The focused native membership/resource/control/no-replay race selection
+passes afterward, root 2.083 seconds. No partial pin is admitted. The measured
+`c306768` results above are retained as that source's evidence; fresh comparisons
+and broader verification remain required for the corrected candidate.

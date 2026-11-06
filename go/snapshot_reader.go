@@ -51,8 +51,8 @@ local function reader_committed(catalog,root)
 end
 local function reader_directory(start,count)
  if KEYS[start]~='` + snapshotReaderDirectory + `' then return false end
- if (redis.call('MEMORY','USAGE',KEYS[start],'SAMPLES',0) or 0)>262144 then error('snapshot reader namespace resource limit exceeded; administrator reconciliation required') end
  if type(count)~='number' or count<0 or count>128 or redis.call('SCARD',KEYS[start])~=count then return false end
+ if (redis.call('MEMORY','USAGE',KEYS[start],'SAMPLES',0) or 0)>262144 then error('snapshot reader namespace resource limit exceeded; administrator reconciliation required') end
  local seen={}
  for i=1,count do
   local key=KEYS[start+i]
