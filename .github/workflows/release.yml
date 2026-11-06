@@ -503,7 +503,22 @@ jobs:
               /cli/redis-adbc copy -prefix release:adbc: -table release_adbc_copy -mode replace > out
               grep -qx "2 rows copied into public.release_adbc_copy" out
               /cli/redis-adbc adopt -prefix release:adbc: -table release_adbc -apply > out
-              grep -q "^Adopted: public.release_adbc now reads the HASHes under release:adbc:" out'
+              grep -Fq "2 HASHes under release:adbc: are rows" out
+              grep -Fxq "Imported: public.release_adbc is a managed copy of HASHes under release:adbc:. Repeat -apply to refresh; application HASHes and indexes are unchanged." out'
+          # Importing must preserve the application-owned HASH payloads.
+          (
+            cd go
+            source_cli() {
+              docker compose exec -T -e REDISCLI_AUTH=adbc-enterprise-test redis-software /opt/redislabs/bin/redis-cli --tls --cacert /tmp/adbc-test-ca.pem --user default -p 12000 "$@"
+            }
+            sample_id=0
+            for sample_name in a b; do
+              sample_id=$((sample_id + 1))
+              source_cli HLEN "release:adbc:$sample_id" | grep -qx "2"
+              source_cli HGET "release:adbc:$sample_id" name | grep -Fxq "$sample_name"
+              source_cli HGET "release:adbc:$sample_id" n | grep -Fxq "$sample_id"
+            done
+          )
 
   # macOS uses a native Homebrew Redis/Search fixture instead of Docker.
   # New source refs require Go integration and installed-wheel validation;
