@@ -46,3 +46,11 @@ assertion for the building index. The expanded focused race selection passes
 **30 test events**, no skips/failures, root **51.170 s**. Production code is
 unchanged. The incomplete ordinary run is not counted as a full-suite pass;
 the full ordinary selection must be restarted with this fixture correction.
+
+That complete ordinary restart at `431dcb2` passes: **2,105 test events**,
+**372 explicit skips**, root **987.730 s**, all six executable packages passing.
+The final default-cap complete snapshot race selection at equivalent production
+and controlled-plan source `7738a7d` separately passes **495 test events**,
+**29 explicit skips**, root **575.602 s**, without data races. These are actual
+Software 8.8/4x QPF checks, with strict TLS and noeviction. Current hosted ACL,
+platform, Cluster and recovery requirements remain separately open.

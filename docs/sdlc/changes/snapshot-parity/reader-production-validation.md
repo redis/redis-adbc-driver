@@ -282,8 +282,8 @@ deployment details and full operational reports remain private.
 The [controlled-plan correction](controlled-plan-validation.md) preserves
 explicit test caps and the distinction between physical cursor primitives and
 logical directories. Its 29-event focused race run passes at the actual default
-aggregate cap 2147483648. A complete combined ordinary Go run and the final
-snapshot race run remain in progress; hosted Darwin ACL fixtures, current
+aggregate cap 2147483648. At that checkpoint the complete combined ordinary Go
+run and final snapshot race run were still in progress; hosted Darwin ACL fixtures, current
 platform/Cluster/recovery, public operation resume and performance parity remain
 required. This remains a draft implementation, not a full-parity completion.
 
@@ -297,3 +297,17 @@ stops on the additional physical/logical fallback fixture described in the
 controlled-plan report; its correction passes 30 focused race events before a
 complete ordinary restart. Current hosted ACL/profile/platform, actual Cluster
 recovery, public resume and performance requirements remain open.
+
+The complete ordinary restart at `431dcb2` finishes successfully on owned
+Software 8.8 with strict TLS, noeviction and verified active/effective 4x QPF:
+**2,105 passing test events**, **372 explicit skips**, root **987.730 seconds**.
+All six executable packages pass; three packages contain no tests. The actual
+ordinary aggregate cap is 2147483648. This closes that source's ordinary-suite
+gate; it does not convert skipped backend ACL/profile cases into passes.
+
+The reviewed generic ACL/profile fixes are integrated as `c9870ef` and
+`15b8b0a`; [their exact Software profile checks](acl-profile-validation.md)
+preserve restricted negative assertions and raw EXECABORT behavior. The narrow
+older native cap-response fix is `d1ab283`; its
+[red/green and Software evidence](sort-cap-error-compatibility.md) remains
+source-specific. Replacement hosted jobs must validate these follow-ups.
