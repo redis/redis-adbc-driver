@@ -258,6 +258,43 @@ func TestSnapshotClusterDirectNodeFences(t *testing.T) {
 	}
 }
 
+// The recovery fixture disables background compaction and serializes writers.
+// Audit mapped buckets at phase boundaries, before SQL can stop on a lazily
+// loaded bucket. Report only counts, not logical keys, owners or source values.
+func snapshotClusterAuditMetadata(t *testing.T, parent context.Context, raw *goredis.ClusterClient, phase string) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(parent, 3*time.Second)
+	defer cancel()
+	root, err := raw.HGet(ctx, snapshotCatalogKey, "root").Result()
+	if err != nil {
+		t.Fatalf("%s metadata root read failed", phase)
+	}
+	buckets, err := raw.HGetAll(ctx, snapshotMetadataMap(root)).Result()
+	if err != nil || len(buckets) > 256 {
+		t.Fatalf("%s metadata map invalid: buckets=%d", phase, len(buckets))
+	}
+	for slot, owner := range buckets {
+		pipe := raw.Pipeline()
+		proof := pipe.HMGet(ctx, snapshotMetadataGraph, "n:"+owner+":"+slot, "b:"+owner+":"+slot)
+		entries := pipe.HLen(ctx, snapshotMetadataBucket(owner, slot))
+		fields := pipe.ZCard(ctx, snapshotMetadataDirectory(owner, slot))
+		if _, err := pipe.Exec(ctx); err != nil {
+			t.Fatalf("%s metadata audit read failed", phase)
+		}
+		values := proof.Val()
+		if len(values) != 2 {
+			t.Fatalf("%s metadata proof absent", phase)
+		}
+		var expected, refs int64
+		_, ne := fmt.Sscan(fmt.Sprint(values[0]), &expected)
+		_, re := fmt.Sscan(fmt.Sprint(values[1]), &refs)
+		if ne != nil || re != nil || refs <= 0 || expected != entries.Val() || expected != fields.Val() {
+			t.Fatalf("%s metadata mismatch: parsed=%t expected=%d references=%d entries=%d fields=%d", phase, ne == nil && re == nil, expected, refs, entries.Val(), fields.Val())
+		}
+	}
+	t.Logf("%s metadata audit: %d committed buckets valid", phase, len(buckets))
+}
+
 // The client runs outside the database containers. The orchestrator changes the
 // deployment only after ready, and releases it after all shards/QPF are active.
 func TestSnapshotClusterRecovery(t *testing.T) {
@@ -416,6 +453,7 @@ func TestSnapshotClusterRecovery(t *testing.T) {
 		}
 	}
 	checkBatch()
+	snapshotClusterAuditMetadata(t, h.ctx, raw, "before interruption")
 	dir := os.Getenv("REDIS_SNAPSHOT_CHAOS_DIR")
 	if err := os.WriteFile(dir+"/ready", []byte("ready"), 0600); err != nil {
 		t.Fatal(err)
@@ -444,6 +482,7 @@ func TestSnapshotClusterRecovery(t *testing.T) {
 	reader.Release()
 	reader = nil
 	snapshotClusterAwaitRecovery(t, h)
+	snapshotClusterAuditMetadata(t, h.ctx, raw, "after deployment recovery")
 	if os.Getenv("REDIS_SNAPSHOT_RDB_REQUIRED") == "1" {
 		encoded, err := os.ReadFile(dir + "/rdb-probes.json")
 		if err != nil {
@@ -503,7 +542,9 @@ func TestSnapshotClusterRecovery(t *testing.T) {
 		t.Fatal("failed to retire recovered private writer before compaction", err)
 	}
 	wpin.release()
+	snapshotClusterAuditMetadata(t, h.ctx, raw, "before resumed compaction")
 	snapshotCompleteJobTest(t, s, snapshotID())
+	snapshotClusterAuditMetadata(t, h.ctx, raw, "after compaction publication")
 	h.expectRows("SELECT COUNT(*),MIN(v),MAX(v) FROM t", "1001|102|9007199254740993")
 	fresh, err := db.Open(h.ctx)
 	if err != nil {

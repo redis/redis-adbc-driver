@@ -849,3 +849,9 @@ The [minimal core specification](core-spec.md) now defines PR #284 acceptance.
 At production 272bbd4d, Test, Release and DuckDB workflows are terminal SUCCESS.
 The unexplained RDB metadata failure, final review and owned cleanup remain;
 additional features/resume/performance work is deferred under the user request.
+
+Test-only recovery phase audits now distinguish mapped-bucket proofs before
+interruption, after recovery and around resumed compaction. The instrumented
+promotion/RDB sequence passes (7.26/51.37 s); the retained incomplete-bucket
+failure is still unexplained. No deferred functionality or production code
+was added; see the Cluster report for source and diagnostic limits.

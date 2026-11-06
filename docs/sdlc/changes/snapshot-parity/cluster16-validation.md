@@ -203,3 +203,30 @@ preflight initially timed out by checking effective QPF in an unrequested-field
 response; requesting the explicit QPF fields corrects that preflight, without
 changing driver code. This additional pass does not reproduce or explain the
 retained incomplete-bucket failure; it remains open.
+
+
+## Recovery phase diagnostics (test-only)
+
+The recovery test now audits mapped committed buckets at four serialized phase
+boundaries: before interruption, after deployment/SQL recovery, before resumed
+compaction, and immediately after compaction publication. Each audit has a
+three-second deadline, visits at most 256 mapped buckets and checks numeric
+reference/count proofs against HASH and directory cardinality. Diagnostics emit
+phase and counts only, without logical keys, owner IDs or source values. The
+fixture disables background compaction and serializes its writers; this helper
+is not a general concurrent catalog verifier or production validation change.
+Existing exact SQL, private-row/outcome, pin and sentinel assertions remain.
+
+On the same owned three-physical-primary/three-replica Software Cluster with
+strict TLS and verified effective QPF4, the original promotion-then-RDB sequence
+passes: promotion **7.26 seconds**, fresh per-shard RDB restart **51.37 seconds**,
+checkpoint helper **0.21 seconds**. All four audits report five valid mapped
+buckets in each fault run, including after recovered compaction publication.
+The promotion stream completes all exact values; the RDB stream fails explicitly
+without replay, then established/fresh queries and every RDB sentinel pass.
+
+Production code remains identical to `272bbd4d`; only recovery test diagnostics
+change. The instrumented binary precedes a comment-placement clarification with
+identical test execution. These additional passes do not reproduce or explain
+the retained incomplete-bucket attempt. The failure remains a core completion
+blocker, and no Redis defect, fix, resume support or performance gain is claimed.
