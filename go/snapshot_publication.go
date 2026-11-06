@@ -9,6 +9,32 @@ import (
 	"sort"
 )
 
+// Refuse incomplete mapped buckets at the publication boundary, including
+// shared buckets not visited by statement planning. Empty registered buckets
+// remain valid. This checks bounded count/reference proofs, not every value.
+const snapshotMetadataPublicationProof = `
+local function snapshot_metadata_publication_error(map,graph)
+ if redis.call('HLEN',map)>256 then return 'invalid snapshot metadata bucket map' end
+ local entries=redis.call('HGETALL',map)
+ for i=1,#entries,2 do
+  local slot,owner=entries[i],entries[i+1]
+  if #slot~=2 or string.find(slot,'[^0-9a-f]') or #owner~=32 or string.find(owner,'[^0-9a-f]') then
+   return 'invalid snapshot metadata bucket identity'
+  end
+  local id=owner..':'..slot
+  local proof=redis.call('HMGET',graph,'n:'..id,'b:'..id)
+  local expected,refs=tonumber(proof[1]),tonumber(proof[2])
+  local count=redis.call('HLEN','` + snapshotPrefix + `metadata:bucket:'..id)
+  local fields=redis.call('ZCARD','` + snapshotPrefix + `metadata:fields:'..id)
+  if not expected or expected<0 or expected%1~=0 or not refs or refs<=0 or refs%1~=0 or
+     expected~=count or expected~=fields or redis.call('HEXISTS',graph,'c:'..id)~=0 then
+   return 'snapshot metadata bucket is incomplete before publication (expected='..tostring(expected)..', references='..tostring(refs)..', entries='..count..', fields='..fields..')'
+  end
+ end
+ return nil
+end
+`
+
 // Merge logical entries, never entire old buckets. A bucket can contain keys
 // changed by both publications. Native values are already immutable and retain
 // their data edges; adding an alias changes only the bucket-to-value count.

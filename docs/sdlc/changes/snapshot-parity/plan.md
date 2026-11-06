@@ -855,3 +855,9 @@ interruption, after recovery and around resumed compaction. The instrumented
 promotion/RDB sequence passes (7.26/51.37 s); the retained incomplete-bucket
 failure is still unexplained. No deferred functionality or production code
 was added; see the Cluster report for source and diagnostic limits.
+
+The [publication-integrity guard](publication-integrity-validation.md) reproduces
+and closes missing mapped-bucket admission checks at seal/publication and merge
+installation. Focused Cluster/race/unit and fresh RDB checks pass. It does not
+explain the original intermittent recovery failure; broader combined checks
+remain required for the new core guard. No deferred functionality is merged.

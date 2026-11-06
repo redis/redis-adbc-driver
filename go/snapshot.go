@@ -73,7 +73,7 @@ func snapshotID() string                    { return strings.ReplaceAll(uuid.New
 // The bounded catalog contains at most 16 generations and 128 live pins. Redis
 // TIME governs leases. Root acquisition and pin creation, publication/outcome,
 // and reclamation claims each have one metadata-slot linearization point.
-const snapshotControl = snapshotDataEdges + snapshotReaderLua + `
+const snapshotControl = snapshotDataEdges + snapshotReaderLua + snapshotMetadataPublicationProof + `
 local k = KEYS[1]
 local controlN = tonumber(ARGV[8]) or #KEYS
 local graph, dataqueue = KEYS[controlN-3], KEYS[controlN-2]
@@ -353,6 +353,8 @@ elseif op == 'seal' then
   if (w.state~='staging' and w.state~='sealed') or w.token~=token or w.expires<=now then return 0 end
   if w.import_pending then return redis.error_reply('incomplete import batch cannot publish') end
   if (w.metadata_builds or 0)>0 then return redis.error_reply('snapshot metadata construction is incomplete') end
+  local incomplete=snapshot_metadata_publication_error(KEYS[3],graph)
+  if incomplete then return redis.error_reply(incomplete) end
   w.state='sealed';redis.call('HSET',k,'w:'..id,cjson.encode(w));return 1
 elseif op == 'publish' or op == 'publish_compaction' or op == 'publish_temp' then
   local raw = redis.call('HGET', k, 'w:'..id)
@@ -362,6 +364,8 @@ elseif op == 'publish' or op == 'publish_compaction' or op == 'publish_temp' the
   if (w.state ~= 'staging' and w.state ~= 'sealed') or w.token ~= token or w.expires <= now or not owns_pin() then return -1 end
   if w.import_pending then return redis.error_reply('incomplete import batch cannot publish') end
   if (w.metadata_builds or 0)>0 then return redis.error_reply('snapshot metadata construction is incomplete') end
+  local incomplete=snapshot_metadata_publication_error(KEYS[3],graph)
+  if incomplete then return redis.error_reply(incomplete) end
   local queueupdates=cjson.decode(ARGV[7])
   for _,update in ipairs(queueupdates) do
     if type(update.key)~='string' or string.sub(update.key,1,6)~='table:' then return redis.error_reply('invalid compaction queue update') end
@@ -402,6 +406,8 @@ elseif op == 'publish' or op == 'publish_compaction' or op == 'publish_temp' the
   data_releasable(graph,refs)
   if merge then
     local oldmap=redis.call('HGETALL',KEYS[3])
+    local incomplete=snapshot_metadata_publication_error(KEYS[controlN-4],graph)
+    if incomplete then return redis.error_reply(incomplete) end
     local newmap=redis.call('HGETALL',KEYS[controlN-4])
     if #oldmap>512 or #newmap>512 then return redis.error_reply('invalid snapshot merge root') end
     for i=1,#oldmap,2 do
@@ -518,7 +524,7 @@ func (s *store) snapshotControl(ctx context.Context, op, token, id, base string,
 		arg = extra[0]
 	}
 	keys := []any{snapshotCatalogKey}
-	if op == "publish" || op == "publish_compaction" || op == "publish_temp" {
+	if op == "seal" || op == "publish" || op == "publish_compaction" || op == "publish_temp" {
 		keys = append(keys, snapshotMetadataKeys(id), snapshotMetadataMap(id))
 	}
 	if op == "publish_temp" && len(extra) > 1 {

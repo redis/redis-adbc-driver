@@ -99,6 +99,9 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.27.3).
   Native table metadata objects retain their row segments; copy those edges before
   replacing shared metadata and update them atomically with descriptor SET. Work
   references hold only private outputs; durable jobs retain their own sources.
+  Seal/publication check bounded mapped-bucket count/reference/directory proofs
+  before admission, including the replacement map on rebase. Check map count
+  before enumeration; zero-count registered buckets remain valid.
   Metadata dependencies include pre-workspace planning reads. Publication seals
   outputs before CAS/rebase; merge only dirty logical keys into a pinned latest
   root and validate both pins/leases. Same-target/read-source changes conflict;
