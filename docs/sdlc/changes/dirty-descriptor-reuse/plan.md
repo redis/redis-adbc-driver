@@ -13,3 +13,7 @@ See [intent](intent.md) and [spec](spec.md).
    Arrow/small-batch operations in both revision orders with full verification.
 6. Publish source-specific evidence and a focused PR for #336. Preserve private
    operational artifacts and remove only the owned disposable fixture.
+
+Implementation, full local race/RBAC/native validation and matched comparison
+are complete. See [validation](validation.md) for source boundaries and every
+limitation. Owned cleanup is complete. Publication authorization and PR review remain.
