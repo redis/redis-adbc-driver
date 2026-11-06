@@ -199,11 +199,22 @@ func TestPrunedPartitionPermissions(t *testing.T) {
 		t.Fatal(err)
 	}
 	r, err = worker.conn.ReadPartition(a.ctx, parts.PartitionIDs[0])
-	if err != nil {
-		t.Fatal(err)
+	if err == nil {
+		if r == nil {
+			t.Fatal("missing both partition reader and permission error")
+		}
+		if r.Next() {
+			r.Release()
+			t.Fatal("denied HMGET returned partition values")
+		}
+		err = r.Err()
+		r.Release()
+	} else if r != nil {
+		r.Release()
 	}
-	if r.Next() || !isStatus(r.Err(), adbc.StatusIO) || !strings.Contains(r.Err().Error(), "NOPERM") {
-		t.Fatal("denied HASH permission bypassed", r.Err())
+	// HMGET may be required by immutable metadata admission before row
+	// iteration. Either phase must reject this exact command with no values.
+	if !isStatus(err, adbc.StatusIO) || !strings.Contains(err.Error(), "NOPERM") || !strings.Contains(strings.ToLower(err.Error()), "hmget") {
+		t.Fatal("denied HMGET permission bypassed", err)
 	}
-	r.Release()
 }

@@ -31,6 +31,7 @@ import (
 	"os"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -525,7 +526,6 @@ func TestACLSearchCommandsAndKeys(t *testing.T) {
 	a.exec(`CREATE SCHEMA it_acl_other`)
 	a.exec(`CREATE TABLE it_acl_other.t (id INTEGER, secret VARCHAR)`)
 	a.exec(`INSERT INTO it_acl_other.t VALUES (1, 's1'), (2, 's2')`)
-	prefix, index := a.tableNames(a.raw, "public", "it_acl_victim")
 	_, otherIndex := a.tableNames(a.raw, "it_acl_other", "t")
 
 	rawAs := func(name string) *store {
@@ -552,8 +552,16 @@ func TestACLSearchCommandsAndKeys(t *testing.T) {
 	if err == nil || err.Error() != "I/O: [redis] FT.AGGREGATE failed: "+refused {
 		t.Errorf("FT.AGGREGATE … LOAD on another schema's index: %v", err)
 	}
-	// One who may only read keys, but run FT.DROPINDEX, deletes a table's
-	// rows.
+	// Exercise destructive module DDL on an independent application index.
+	// Deleting a published managed index would intentionally corrupt the
+	// snapshot catalog and poison unrelated later inspection/cleanup tests.
+	rawFixture := newHashFixture(t, "it:acl:dropper:{meta}:")
+	for i := 1; i <= 3; i++ {
+		rawFixture.hset(rawFixture.prefix+strconv.Itoa(i), "id", i)
+	}
+	index := "it_acl_dropper_{meta}_idx"
+	rawFixture.appIndex(index, "SCHEMA", "id", "NUMERIC")
+	prefix := rawFixture.prefix
 	dropper := []string{"+ping", "+ft.dropindex", "%R~*"}
 	if a.cluster {
 		dropper = append(dropper, aclClusterCommands...)
@@ -566,6 +574,7 @@ func TestACLSearchCommandsAndKeys(t *testing.T) {
 		t.Errorf("%d rows left after FT.DROPINDEX … DD", n)
 	}
 	a.expectNoDenials("it_acl_dropper")
+	a.expectRows(`SELECT COUNT(*) FROM it_acl_victim`, "3")
 	a.exec(`DROP TABLE it_acl_victim`)
 }
 

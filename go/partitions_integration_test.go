@@ -299,6 +299,8 @@ func TestPartitionReaderPermissions(t *testing.T) {
 	a.exec("DROP TABLE IF EXISTS it_partition_acl")
 	a.exec("CREATE TABLE it_partition_acl (id BIGINT)")
 	a.exec("INSERT INTO it_partition_acl VALUES (1),(2)")
+	// Require broad metadata validation rather than the finite direct-ID path.
+	a.sparseSnapshotTable("it_partition_acl", maxPartitionDirectIDs+1, nil)
 	t.Cleanup(func() { a.exec("DROP TABLE IF EXISTS it_partition_acl") })
 	_, parts := planPartitions(t, a.sqlHarness, "SELECT id FROM it_partition_acl", 1)
 	d, _ := decodePartition(parts.PartitionIDs[0])
@@ -310,11 +312,15 @@ func TestPartitionReaderPermissions(t *testing.T) {
 	hidden := d
 	hidden.ScanCap = 0
 	unknown, _ := json.Marshal(hidden)
-	if r, err := worker.conn.ReadPartition(a.ctx, unknown); !isStatus(err, adbc.StatusNotImplemented) {
-		if r != nil {
-			r.Release()
-		}
-		t.Fatalf("hidden cap must require explicit contract: %v", err)
+	uncapped, err := worker.conn.ReadPartition(a.ctx, unknown)
+	if err != nil {
+		t.Fatal("managed directory replay unexpectedly required a Search cap", err)
+	}
+	uncappedValues, _, err := readInts(uncapped)
+	uncapped.Release()
+	slices.Sort(uncappedValues)
+	if err != nil || !slices.Equal(uncappedValues, []int64{1, 2}) {
+		t.Fatal("uncapped managed directory values", uncappedValues, err)
 	}
 	r, err := worker.conn.ReadPartition(a.ctx, parts.PartitionIDs[0])
 	if err != nil {
@@ -343,9 +349,28 @@ func TestPartitionReaderPermissions(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if r, err := worker.conn.ReadPartition(a.ctx, parts.PartitionIDs[0]); err == nil {
-		r.Release()
-		t.Fatal("descriptor bypassed the reading connection's denied FT.AGGREGATE permission")
+	// Managed partitions seek their exact row directory, so FT.AGGREGATE is
+	// not a data dependency. Prove the command is really denied, then require
+	// complete directory replay with the remaining row-read permissions.
+	opts, err := goredis.ParseURL(a.userURI(user))
+	if err != nil {
+		t.Fatal(err)
+	}
+	probe := newClient(newClientConfig(opts), a.cluster, timeouts{read: time.Minute, write: time.Minute})
+	defer probe.Close()
+	_, index := a.tableNames(a.raw, defaultSchema, "it_partition_acl")
+	if err := (&store{client: probe}).searchDo(a.ctx, index, "FT.AGGREGATE", index, "*").Err(); err == nil || !strings.Contains(err.Error(), "NOPERM") {
+		t.Fatal("FT.AGGREGATE command denial was not enforced", err)
+	}
+	directoryReader, err := worker.conn.ReadPartition(a.ctx, parts.PartitionIDs[0])
+	if err != nil {
+		t.Fatal("managed directory replay depended on FT.AGGREGATE", err)
+	}
+	values, _, err := readInts(directoryReader)
+	directoryReader.Release()
+	slices.Sort(values)
+	if err != nil || !slices.Equal(values, []int64{1, 2}) {
+		t.Fatal("managed directory replay lost values", values, err)
 	}
 }
 

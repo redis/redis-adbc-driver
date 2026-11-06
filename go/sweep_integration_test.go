@@ -20,7 +20,6 @@ package redis
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"slices"
 	"strings"
@@ -153,8 +152,8 @@ func TestSweepDriverPrefix(t *testing.T) {
 // The commands sweep needs besides the driver's (driver reference).
 var aclSweepCommands = []string{"+scan"}
 
-// A user with the driver's commands and SCAN sweeps the schemas it may
-// write to, and leaves the others alone.
+// A restricted operator reclaims authorized registered data and reports a
+// partial error without deleting another schema's rows. An admin can resume.
 func TestACLSweep(t *testing.T) {
 	raw, err := os.ReadFile("../docs/driver-reference.md")
 	if err != nil {
@@ -164,40 +163,45 @@ func TestACLSweep(t *testing.T) {
 		t.Errorf("the driver reference doesn't say %s", want)
 	}
 	a := newACLHarness(t)
-	// Verify the existing principal-setup requirement before producing any
-	// cleanup fixtures. The same SETUSER denial remains an explicit skip.
-	a.user("it_sw_acl", slices.Concat(a.driverCommands(), aclSweepCommands, []string{"~adbc:*", "~public:*"})...)
-	// Sweep what other tests left, so that the user only meets these keys.
+	// Read access lets index validation reach the actual deletion permission
+	// boundary; the other schema deliberately has no write grant.
+	a.user("it_sw_acl", slices.Concat(a.driverCommands(), aclSweepCommands, []string{"~adbc:*", "~public:*", "%R~it_sw_acls:*", "%R~*~it_sw_acls:{meta}:snapshot:16:rows:*"})...)
+	stopMatviewTestMaintenance(t, a.sqlHarness)
 	runSweep(t, sweepOpts(adminURI()), true)
-	leave := func(schema, table string, n int) string {
-		t.Helper()
-		a.exec(fmt.Sprintf(`CREATE TABLE %s.%s (id BIGINT)`, schema, table))
-		prefix := a.tablePrefix(a.raw, schema, table)
-		a.exec(fmt.Sprintf(`DROP TABLE %s.%s`, schema, table))
-		for i := 1; i <= n; i++ {
-			if err := a.raw.HSet(a.ctx, fmt.Sprintf("%s%d", prefix, i), rowIDField, i).Err(); err != nil {
-				t.Fatal(err)
-			}
-		}
-		return prefix
-	}
 	a.dropTables("it_sw_acl")
 	a.exec(`DROP SCHEMA IF EXISTS it_sw_acls CASCADE`)
 	a.exec(`CREATE SCHEMA it_sw_acls`)
 	t.Cleanup(func() { a.exec(`DROP SCHEMA IF EXISTS it_sw_acls CASCADE`) })
-	public := leave("public", "it_sw_acl", 20)
-	other := leave("it_sw_acls", "t", 1)
-	t.Cleanup(func() { a.raw.Del(context.Background(), other+"1") })
-
-	res := runSweep(t, sweepOpts(a.userURI("it_sw_acl")), true)
-	if got := swept(res, public); got.Deleted != 20 {
-		t.Errorf("%+v", got)
+	a.exec(`CREATE TABLE it_sw_acl (id BIGINT)`)
+	a.exec(`INSERT INTO it_sw_acl SELECT generate_series FROM generate_series(1,20)`)
+	a.exec(`CREATE TABLE it_sw_acls.t (id BIGINT)`)
+	a.exec(`INSERT INTO it_sw_acls.t VALUES (1)`)
+	public, publicIndex := a.tableNames(a.raw, defaultSchema, "it_sw_acl")
+	other, otherIndex := a.tableNames(a.raw, "it_sw_acls", "t")
+	// Keep both real data generations registered and alive through both DROP
+	// statements, then make them eligible together immediately before sweeping.
+	_, _, pin := a.inspectionSnapshot(a.raw)
+	defer pin.release()
+	a.exec(`DROP TABLE it_sw_acl`)
+	a.exec(`DROP TABLE it_sw_acls.t`)
+	if a.prefixKeyCount(a.raw, public) != 20 || a.prefixKeyCount(a.raw, other) != 1 {
+		t.Fatal("pinned sweep fixture lost rows")
 	}
-	if got := skipReason(res, other); got != sweepDenied || a.prefixKeyCount(a.raw, other) != 1 {
-		t.Errorf("%s: %q", other, got)
+	pin.release()
+	res, err := SweepReleased(a.ctx, sweepOpts(a.userURI("it_sw_acl")), SweepOptions{Apply: true})
+	if err == nil || !isStatus(err, adbc.StatusIO) || !strings.Contains(err.Error(), "NOPERM") || res == nil || !res.ManagedSnapshots || !res.Applied || !res.More {
+		t.Fatalf("expected explicit partial permission failure: %+v %v", res, err)
 	}
-	// Redis refused only the DEL of the other schema's key.
-	if d := a.denials("it_sw_acl"); len(d) != 1 || d[0] != "key "+other+"1" {
+	remaining := a.prefixKeyCount(a.raw, public)
+	// GC ordering may encounter the forbidden segment first. Every confirmed
+	// authorized deletion must still be accounted for by the partial report.
+	if res.Deleted != int64(20-remaining) || res.Deleted < 0 || res.Deleted > 20 || a.prefixKeyCount(a.raw, other) != 1 {
+		t.Fatalf("partial sweep lost or misreported rows: public=%d report=%+v", remaining, res)
+	}
+	if d := a.denials("it_sw_acl"); len(d) != 1 || !strings.HasPrefix(d[0], "key "+other) {
 		t.Errorf("ACL log: %v", d)
 	}
+	runSweep(t, sweepOpts(adminURI()), true)
+	a.expectSnapshotReleased(a.raw, public, publicIndex)
+	a.expectSnapshotReleased(a.raw, other, otherIndex)
 }
