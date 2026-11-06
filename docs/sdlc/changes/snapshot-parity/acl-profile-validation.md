@@ -109,9 +109,9 @@ The hosted macOS run remains required for its backend-specific ACL-log/DD proof.
 ### Explicit backend ACL audit probe
 
 The next hosted macOS run at `076c838` passes all earlier failing permission and
-inspection families. Its only Go failure is the sweep fixture's empty ACL log:
-`redis.acl_check_cmd` preflight returns the required NOPERM without recording a
-command execution refusal. Partial-report conservation, unauthorized-row
+inspection families. Its only Go failure is the sweep helper reporting an empty ACL log. Native
+`redis.acl_check_cmd` preflight can return NOPERM without a command execution
+audit entry; the RESP3 decoder issue described below can also hide entries. Partial-report conservation, unauthorized-row
 preservation and administrator reclamation checks already pass.
 
 The follow-up retains those assertions and explicitly issues DEL for the single
@@ -124,3 +124,24 @@ forbidden data, partial-report conservation and strong administrator reclamation
 Software's blocked protocol ACL LOG remains the hosted macOS audit gate; it is
 not claimed as locally validated. The current hosted Software jobs are allowed
 to finish before publishing this test-only follow-up.
+
+
+### Preserve RESP3 audit entries
+
+The helper's raw ACL LOG parser accepted only flat arrays and silently discarded
+RESP3 maps. [Redis 8.6's ACL LOG implementation](https://github.com/redis/redis/blob/8.6/src/acl.c#L2886)
+emits map entries. The helper now uses go-redis's typed ACLLog decoder and keeps
+its exact principal filter, reason/object values, ordering and deduplication.
+This also makes the existing no-denials assertions observe real RESP3 events.
+
+An in-memory wire regression negotiates RESP3 and returns target-principal,
+other-principal and duplicate map entries. The old helper loses all events
+(focused red, 0.927 seconds); the typed helper returns the exact target denial
+(focused race green, 1.778 seconds). No additional Redis distribution is started.
+The explicit forbidden DEL still supplies a real backend refusal for the hosted
+macOS audit assertion; NOPERM, row preservation and exact-key auditing remain
+required.
+All Go unit packages pass after typed decoding (root 27.072 seconds). Both
+Software jobs in Test run 42160980011 are terminal green at `076c838`; its Release
+workflow remains failed only by the old macOS audit assertion. The follow-ups
+still require a new hosted macOS result and are not claimed as green CI.

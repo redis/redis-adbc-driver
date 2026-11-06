@@ -237,20 +237,13 @@ func (a *aclHarness) denials(name string) []string {
 	a.t.Helper()
 	var out []string
 	err := a.eachNode(func(n *goredis.Client) error {
-		entries, err := n.Do(a.ctx, "ACL", "LOG", 1000).Slice()
+		entries, err := n.ACLLog(a.ctx, 1000).Result()
 		if err != nil {
 			return err
 		}
-		for _, e := range entries {
-			fields, _ := e.([]any)
-			m := map[string]string{}
-			for i := 0; i+1 < len(fields); i += 2 {
-				k, _ := fields[i].(string)
-				v, _ := fields[i+1].(string)
-				m[k] = v
-			}
-			if m["username"] == name {
-				out = append(out, m["reason"]+" "+m["object"])
+		for _, entry := range entries {
+			if entry.Username == name {
+				out = append(out, entry.Reason+" "+entry.Object)
 			}
 		}
 		return nil
