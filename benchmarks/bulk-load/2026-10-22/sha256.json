@@ -1,0 +1,14 @@
+{
+  "date": "2026-10-22",
+  "files": {
+    "README.md": "85699008a574a2ad9611f99cdf3b878521a897e4456a3a5ce654f96008112f44",
+    "container.txt": "9930d0485774f5f9f248b084d7dd2b562047e1955aeb0114a1a9bc19d6054d06",
+    "results.json": "1e15a8b31d9fe32da23bbbfb068d49f5290329a92b72ee5ab40564726e6b8ad7",
+    "smoke-failed-protocol-check.json": "4452f5761f498278a5de7e502993a74d9828ff3dbb797b711d04571d13304592",
+    "smoke-failed-protocol-check.log": "e234afb1f1de683be0bc53d39ac70659abd383bf5e8c784b6261a5cb63d754e1",
+    "smoke-failed-serialization.log": "8236976cfbd0973b101153042718820e59bf560b3b611a808923f4f9a5ecf28e",
+    "smoke-results.json": "04bb27865ee7f89af1c906086c9dbd56463ca2aa8772f219a1887434bedf930e",
+    "smoke.log": "f3249e80793a77fae760f3c843cf9339a83c0470091f61b3e03375aeed1f1348",
+    "trials.log": "ace70c1f0f38d499b39fa5dcf494f6b7dd16a849026fca83fcddeb196ce70998"
+  }
+}

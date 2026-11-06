@@ -1,0 +1,4 @@
+{"method": "adbc", "writers": 1, "repeat": -1, "total_index_ready_seconds": 7.521862709021661, "write_complete_seconds": 7.484061416995246, "exact_full_values_validated": true}
+{"method": "redis_py", "writers": 1, "repeat": -1, "total_index_ready_seconds": 9.621949166990817, "write_complete_seconds": 9.599314791994402, "exact_full_values_validated": true}
+{"method": "adbc", "writers": 4, "repeat": -1, "total_index_ready_seconds": 6.564421417017002, "write_complete_seconds": 6.496580417006044, "exact_full_values_validated": true}
+{"method": "redis_py", "writers": 4, "repeat": -1, "total_index_ready_seconds": 6.539486625028076, "write_complete_seconds": 6.5061875830288045, "exact_full_values_validated": true}

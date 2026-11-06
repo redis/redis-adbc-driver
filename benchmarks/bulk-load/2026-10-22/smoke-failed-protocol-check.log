@@ -1,0 +1,41 @@
+{"method": "adbc", "writers": 1, "repeat": -1, "total_index_ready_seconds": 7.920958665985381, "write_complete_seconds": 7.887066957977368, "exact_full_values_validated": true}
+concurrent.futures.process._RemoteTraceback: 
+"""
+Traceback (most recent call last):
+  File "/Users/albert.wong/.local/share/uv/python/cpython-3.13.16-macos-aarch64-none/lib/python3.13/concurrent/futures/process.py", line 255, in _process_worker
+    r = call_item.fn(*call_item.args, **call_item.kwargs)
+  File "/Users/albert.wong/.local/share/uv/python/cpython-3.13.16-macos-aarch64-none/lib/python3.13/concurrent/futures/process.py", line 204, in _process_chunk
+    return [fn(*args) for args in chunk]
+            ~~^^^^^^^
+  File "/Users/albert.wong/.codex/worktrees/0716/redis-adbc-driver/benchmarks/bulk-load/run.py", line 74, in writer
+    assert conn.client_info()['resp'] == 3
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError
+"""
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/albert.wong/.codex/worktrees/0716/redis-adbc-driver/benchmarks/bulk-load/run.py", line 289, in <module>
+    main()
+    ~~~~^^
+  File "/Users/albert.wong/.codex/worktrees/0716/redis-adbc-driver/benchmarks/bulk-load/run.py", line 269, in main
+    report['trials'].append(trial(args,expected,control,method,writers,repeat))
+                            ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/albert.wong/.codex/worktrees/0716/redis-adbc-driver/benchmarks/bulk-load/run.py", line 183, in trial
+    worker_results = list(pool.map(writer, payloads))
+  File "/Users/albert.wong/.local/share/uv/python/cpython-3.13.16-macos-aarch64-none/lib/python3.13/concurrent/futures/process.py", line 621, in _chain_from_iterable_of_lists
+    for element in iterable:
+                   ^^^^^^^^
+  File "/Users/albert.wong/.local/share/uv/python/cpython-3.13.16-macos-aarch64-none/lib/python3.13/concurrent/futures/_base.py", line 625, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/Users/albert.wong/.local/share/uv/python/cpython-3.13.16-macos-aarch64-none/lib/python3.13/concurrent/futures/_base.py", line 318, in _result_or_cancel
+    return fut.result(timeout)
+           ~~~~~~~~~~^^^^^^^^^
+  File "/Users/albert.wong/.local/share/uv/python/cpython-3.13.16-macos-aarch64-none/lib/python3.13/concurrent/futures/_base.py", line 460, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "/Users/albert.wong/.local/share/uv/python/cpython-3.13.16-macos-aarch64-none/lib/python3.13/concurrent/futures/_base.py", line 402, in __get_result
+    raise self._exception
+AssertionError
