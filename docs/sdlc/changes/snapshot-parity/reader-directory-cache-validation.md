@@ -48,6 +48,14 @@ explicit skips**, root **374.564 seconds**; all six test-bearing packages pass,
 with no failures or data races. QPF/TLS/noeviction are reverified before each
 phase. Suite durations are validation evidence, not performance comparisons.
 
+The same candidate library independently passes **19 native TLS partition and
+lifecycle checks plus 6 metadata/statistics identities**, using real separate
+Software credentials. This includes cross-process workers, direct-HASH Search
+independence, denied writes, negative certificates, cancellation, old/new
+producer visibility, TRUNCATE, release and retained replay. Owned roles are
+removed, the original aggregate cap is restored, and effective QPF/noeviction
+are reverified. Full operational reports and fixture identities remain private.
+
 The preserved comparison reference is production source `4f77d9c`, library
 SHA-256 `74ec9ffe708e1feeeab4adff9481733a39d4ab4568baf9c0160269949b42c76c`.
 Production differences from that reference are limited to the three cache
@@ -58,3 +66,10 @@ Fewer directory commands are a performance hypothesis. Complete native reads,
 writes and matched comparative timings remain required; unit command counts do
 not establish query latency or sustained throughput parity. Keep this candidate
 separate from the currently validated protocol-16 repair/hosted CI evidence.
+
+Self-review checks the immutable-slice ownership and atomic pointer, exact
+server membership/resource proof before mutation, direct-native-only retry,
+bounded churn, point-operation independence and unchanged original-token
+outcome resolution. No actionable finding remains from that review. Actual
+Cluster API/platform proof and independent maintainer review remain separate
+requirements; these local proxy/Software checks do not establish them.
