@@ -1,6 +1,6 @@
 # Reader directory hints
 
-Status: isolated candidate; not integrated or performance-validated.
+Status: isolated candidate; validated and measured, not integrated.
 
 Admission and reclamation currently read the complete bounded reader namespace
 directory in a separate read-only script before sending the control command.
@@ -62,10 +62,51 @@ Production differences from that reference are limited to the three cache
 implementation files. The older native cap-response correction is present in
 both libraries; test/workflow repairs remain separate from the candidate.
 
-Fewer directory commands are a performance hypothesis. Complete native reads,
-writes and matched comparative timings remain required; unit command counts do
-not establish query latency or sustained throughput parity. Keep this candidate
-separate from the currently validated protocol-16 repair/hosted CI evidence.
+## Matched native comparison
+
+Six independent processes compare reference `4f77d9c`, candidate `c306768`,
+mutable `f4d5b78`, then reverse order, separately for reads and writes. Every
+process verifies strict Software 8.8 TLS, noeviction and effective 4x QPF.
+Local builds, tests, compilers and pytest are absent before and throughout each
+process; the 500 ms census reports zero violations. The other owned Software
+fixture is stopped before the timing window. Apple M5 Max, 18 logical CPUs,
+36 GiB host memory; Docker has 18 CPUs and 25,421,033,472 bytes available.
+This is synthetic load, not ClickBench.
+
+Reads use 20,000 input rows plus replacement/deletion, 32 unrelated tables,
+eight query shapes, one warmup and five samples per process. Timing includes
+execution, full Arrow fetch and independently checked values; the full implicit
+read also checks schema. All processes pass, but the full-read median does not
+improve:
+
+| Build | Full-read median ms | p95 ms |
+|---|---:|---:|
+| Reference | 773.598 | 1069.837 |
+| Directory hints | 781.742 | 1015.355 |
+| Mutable | 121.527 | 149.287 |
+
+The candidate median is **1.05% higher** than the reference and **6.433x**
+mutable. Some smaller cases improve, but this comparison does not establish a
+full-read speedup. [All eight cases and samples](reader-directory-cache-read-comparison.json)
+retain the negative result.
+
+Writes alternate 64 UPDATE RETURNING statements between two 20,000-row tables
+after a warmup on each table, with zero caller retries. Timing includes atomic
+publication and complete RETURNING fetch. Setup and independent final checks
+of all 40,000 rows/columns are outside timing. All six processes pass:
+
+| Build | Median ms | p95 ms | Updates/s |
+|---|---:|---:|---:|
+| Reference | 35.514 | 72.136 | 23.478 |
+| Directory hints | 31.948 | 66.836 | 25.892 |
+| Mutable | 5.634 | 12.525 | 148.829 |
+
+Throughput is **10.28% higher**, while mutable throughput remains **5.748x**
+the candidate. [All write samples and source/library hashes](reader-directory-cache-write-comparison.json)
+remain reported. Two processes per source do not establish statistical or
+all-workload parity. The full feature and performance objective remains open.
+The candidate is kept separate from the stable repair head during its hosted
+compatibility checks.
 
 Self-review checks the immutable-slice ownership and atomic pointer, exact
 server membership/resource proof before mutation, direct-native-only retry,
