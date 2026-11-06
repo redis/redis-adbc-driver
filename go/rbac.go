@@ -47,7 +47,22 @@ type rbacManager struct {
 // The baseline reveals metadata and index names, but permits no row reads until
 // a prefix is added. Command permissions never include writes or Search DDL.
 // Keep rules additive; resetting command/key permissions is outside our ownership.
-const rbacBaseACL = "+ping +info +ft._list +ft.info +ft.aggregate +ft.cursor +ft.search +ft.profile +get +exists +hget +hmget +hgetall +smembers +sismember %R~adbc:{meta}:* %R~adbc:schemas"
+// Import capture journals contain row values. Keep metadata grants positive:
+// a wildcard over workspace values would reveal unpublished captured payloads.
+const rbacBaseACL = "+ping +info +ft._list +ft.info +ft.aggregate +ft.cursor +ft.search +ft.profile +get +exists +hget +hmget +hgetall +smembers +sismember" +
+	" %R~adbc:schemas %R~" + snapshotCatalogKey + " %R~" + snapshotPrefix + "metadata:*" +
+	" %R~" + snapshotPrefix + "workspace:*:__keys" +
+	" %R~" + snapshotPrefix + "workspace:*:schemas" +
+	" %R~" + snapshotPrefix + "workspace:*:namespace:*" +
+	" %R~" + snapshotPrefix + "workspace:*:tables:*" +
+	" %R~" + snapshotPrefix + "workspace:*:table:*" +
+	" %R~" + snapshotPrefix + "workspace:*:views:*" +
+	" %R~" + snapshotPrefix + "workspace:*:view:*" +
+	" %R~" + snapshotPrefix + "workspace:*:sql-sequences:*" +
+	" %R~" + snapshotPrefix + "workspace:*:sql-sequence:*" +
+	" %R~" + snapshotPrefix + "workspace:*:sql-index:*" +
+	" %R~" + snapshotPrefix + "workspace:*:seq:*" +
+	" %R~" + snapshotPrefix + "workspace:*:sequence-state:*"
 
 func newRBAC(raw string) (*rbacManager, error) {
 	var cfg rbacConfig

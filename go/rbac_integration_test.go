@@ -135,6 +135,9 @@ func TestSQLRBACSelect(t *testing.T) {
 	admin.exec(`INSERT INTO it_rbac_denied VALUES (99)`)
 	uri, _ := url.Parse(os.Getenv("REDIS_URI"))
 	uri.User = url.UserPassword(user, password)
+	t.Run("captured_import_payload_is_private", func(t *testing.T) {
+		checkSnapshotImportPayloadACL(t, uri.String())
+	})
 	var reader *sqlHarness
 	// User provisioning is propagated asynchronously to the data proxy.
 	deadline := time.Now().Add(20 * time.Second)
