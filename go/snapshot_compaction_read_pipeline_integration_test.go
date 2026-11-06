@@ -83,8 +83,8 @@ func TestSnapshotCompactionSmallReadsStaySerial(t *testing.T) {
 	h, raw, _ := newSnapshotHarnessMode(t, false, false)
 	h.exec("CREATE TABLE t(id BIGINT,v BIGINT)")
 	h.exec("INSERT INTO t SELECT i,9007199254740993 FROM generate_series(1,257) AS g(i)")
-	for range 3 {
-		h.exec("UPDATE t SET v=v+1 WHERE id=1")
+	for i := range 3 {
+		h.expectRows("UPDATE t SET v=v+1 WHERE id=1 RETURNING v", fmt.Sprint(int64(9007199254740994)+int64(i)))
 	}
 	s := snapshotTestStore(t, raw)
 	token := snapshotID()

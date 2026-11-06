@@ -1,6 +1,6 @@
 # Sustained snapshot maintenance
 
-Date: 2026-11-06. Requestor: user. Status: investigation.
+Date: 2026-11-06. Requestor: user. Status: implemented and locally verified; delivery status is recorded on the PR.
 Issue [#337](https://github.com/redis/redis-adbc-driver/issues/337).
 Preceding snapshot source: `c6baae32d77fd13575f0fc46defaaf761f699df4`.
 

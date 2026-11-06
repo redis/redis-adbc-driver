@@ -1,6 +1,6 @@
 # Contract and acceptance
 
-Date: 2026-11-06. Status: investigation. See [intent](intent.md), [plan](plan.md)
+Date: 2026-11-06. Status: implemented and locally verified; see validation and PR delivery gates. See [intent](intent.md), [plan](plan.md)
 and [#337](https://github.com/redis/redis-adbc-driver/issues/337).
 
 - Exercise sustained sparse replacements, mixed replacements/deletions and

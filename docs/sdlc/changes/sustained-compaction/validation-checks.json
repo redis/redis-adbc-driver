@@ -1,0 +1,175 @@
+{
+  "production_revision": "e5fa7bdcc813a878438d3ec26113f2b0cabdea39",
+  "selections": {
+    "final-snapshot-race": {
+      "events": {
+        "pass": 573,
+        "skip": 58
+      },
+      "packages": [
+        {
+          "Package": "github.com/adbc-drivers/redis/go",
+          "Action": "pass",
+          "Elapsed": 365.639
+        },
+        {
+          "Package": "github.com/adbc-drivers/redis/go/cmd/redis-adbc",
+          "Action": "pass",
+          "Elapsed": 1.768
+        },
+        {
+          "Package": "github.com/adbc-drivers/redis/go/internal/benchproxy",
+          "Action": "pass",
+          "Elapsed": 1.291
+        },
+        {
+          "Package": "github.com/adbc-drivers/redis/go/internal/intpredicate",
+          "Action": "pass",
+          "Elapsed": 1.266
+        },
+        {
+          "Package": "github.com/adbc-drivers/redis/go/internal/testenv",
+          "Action": "pass",
+          "Elapsed": 1.2770000000000001
+        },
+        {
+          "Package": "github.com/adbc-drivers/redis/go/internal/tlstrust",
+          "Action": "pass",
+          "Elapsed": 1.286
+        }
+      ]
+    },
+    "final-unit-race": {
+      "events": {
+        "pass": 1211,
+        "skip": 1082
+      },
+      "packages": [
+        {
+          "Package": "github.com/adbc-drivers/redis/go",
+          "Action": "pass",
+          "Elapsed": 53.625
+        },
+        {
+          "Package": "github.com/adbc-drivers/redis/go/cmd/redis-adbc",
+          "Action": "pass",
+          "Elapsed": 1.6989999999999998
+        },
+        {
+          "Package": "github.com/adbc-drivers/redis/go/internal/benchproxy",
+          "Action": "pass",
+          "Elapsed": 1.2570000000000001
+        },
+        {
+          "Package": "github.com/adbc-drivers/redis/go/internal/intpredicate",
+          "Action": "pass",
+          "Elapsed": 3.205
+        },
+        {
+          "Package": "github.com/adbc-drivers/redis/go/internal/testenv",
+          "Action": "pass",
+          "Elapsed": 1.234
+        },
+        {
+          "Package": "github.com/adbc-drivers/redis/go/internal/tlstrust",
+          "Action": "pass",
+          "Elapsed": 1.255
+        }
+      ]
+    },
+    "isolated-focused": {
+      "events": {
+        "pass": 17
+      },
+      "packages": [
+        {
+          "Package": "github.com/adbc-drivers/redis/go",
+          "Action": "pass",
+          "Elapsed": 8.001
+        }
+      ]
+    },
+    "final-returning-regression": {
+      "events": {
+        "pass": 2
+      },
+      "packages": [
+        {
+          "Package": "github.com/adbc-drivers/redis/go",
+          "Action": "pass",
+          "Elapsed": 2.215
+        }
+      ]
+    },
+    "final-rbac-race": {
+      "events": {
+        "pass": 22
+      },
+      "packages": [
+        {
+          "Package": "github.com/adbc-drivers/redis/go",
+          "Action": "pass",
+          "Elapsed": 24.629
+        }
+      ]
+    }
+  },
+  "native_snapshot": {
+    "passed": 19,
+    "skipped": 0,
+    "seconds": 10.735
+  },
+  "official_native": {
+    "summary": "565 passed, 8 skipped, 3 subtests passed in 74.95s (0:01:14)",
+    "junit_numeric": [
+      {
+        "tests": "576",
+        "skipped": "8",
+        "errors": "0",
+        "failures": "0",
+        "time": "74.913"
+      }
+    ]
+  },
+  "controlled_regressions": {
+    "baseline-pipeline-regression": {
+      "result": "failed_as_expected",
+      "events": [
+        {
+          "Action": "fail",
+          "Test": "TestSnapshotCompactionReadPipelines/failure_",
+          "Elapsed": 0.37
+        },
+        {
+          "Action": "fail",
+          "Test": "TestSnapshotCompactionReadPipelines",
+          "Elapsed": 0.37
+        },
+        {
+          "Action": "fail",
+          "Elapsed": 1.073
+        }
+      ]
+    },
+    "unconditional-small-regression": {
+      "result": "failed_as_expected",
+      "events": [
+        {
+          "Action": "fail",
+          "Test": "TestSnapshotCompactionSmallReadsStaySerial",
+          "Elapsed": 0.16
+        },
+        {
+          "Action": "fail",
+          "Elapsed": 0.88
+        }
+      ]
+    }
+  },
+  "notes": [
+    "Go counts include parent/package pass events; selections overlap and are not independent totals.",
+    "Actual Cluster/preserved-native/special-permission/profile skips remain skips.",
+    "RETURNING strengthening changes only the test body and was verified separately after the full production-source selection.",
+    "Raw operational logs and JUnit host identities remain private."
+  ]
+}

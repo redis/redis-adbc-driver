@@ -1,6 +1,6 @@
 # Implementation and verification
 
-Date: 2026-11-06. Status: in progress. See [intent](intent.md) and [spec](spec.md).
+Date: 2026-11-06. Status: local implementation and acceptance complete; final delivery gates are tracked on PR #348. See [intent](intent.md) and [spec](spec.md).
 
 1. Start an owned Software fixture through `make -C go redis-up`; verify active
    and effective QPF4, strict TLS and noeviction. Retain clean versioned native
@@ -28,3 +28,9 @@ all those samples. Restrict batching to declared inputs exceeding 64 entries,
 retain the original serial path for smaller jobs, and repeat focused/full
 correctness, source-specific profiles and matched comparisons before delivery.
 Initial experiment checks are not relabeled as final gated-candidate validation.
+
+The final background-only source is `e5fa7bdc`. Fresh full checks, dense
+attribution, 18 matched processes and four unpaced confirmations are complete.
+The ordinary scanner is unchanged from the preceding source. All earlier
+experiments remain source-labeled; final review/cleanup/hosted checks/merge are
+tracked as delivery gates on PR #348.
