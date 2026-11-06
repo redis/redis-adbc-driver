@@ -184,3 +184,22 @@ the failed attempts. Arbitrary faults, corruption and cross-region behavior rema
 Public process/input resume, sustained compaction performance and the broader
 comparative performance/platform gates remain open. Active-Active remains
 excluded, noeviction required, autocommit only, and no storage migration is added.
+
+
+## Minimal-scope stabilization follow-up
+
+The user narrowed PR #284 to the [minimal atomic statement snapshot contract](core-spec.md).
+No deferred import-capture/resume production code is merged. Production `272bbd4d`
+has terminal SUCCESS in Test 42172244144, Release 42172244104 and DuckDB
+42172244094; subsequent scope commits change documentation only.
+
+A freshly compiled exact-core Linux/AMD64 recovery binary passes a further RDB
+restart in **47.38 seconds**, with its per-primary checkpoint subcase passing in
+0.22 seconds. Every physical-primary sentinel, committed exact values, private
+rows and batch outcome, metadata isolation, recovered compaction and fresh/old
+connection behavior pass. The interrupted reader returns an explicit error and
+is not replayed. QPF4 and fresh RDB policy/checkpoints are verified. A private
+preflight initially timed out by checking effective QPF in an unrequested-field
+response; requesting the explicit QPF fields corrects that preflight, without
+changing driver code. This additional pass does not reproduce or explain the
+retained incomplete-bucket failure; it remains open.

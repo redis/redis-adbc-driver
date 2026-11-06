@@ -42,6 +42,15 @@ At production revision `272bbd4d`, hosted workflows are all terminal SUCCESS:
 Test includes both AMD64 and ARM64 Software jobs; proxy workflow success does
 not replace the separate actual Cluster API/fault/persistence evidence.
 
+A fresh exact-production `272bbd4d` RDB diagnostic passes in **47.38 seconds**:
+all three physical-primary sentinels recover, interrupted streaming returns an
+explicit error without replay, established/fresh clients read exact values,
+private rows/outcome remain isolated, and durable compaction completes. The
+checkpoint-only subcase passes in 0.22 seconds. A private readiness preflight
+first timed out because it inspected effective QPF from an API response without
+requesting those fields; correcting that query admitted the verified run. This
+is a preflight correction, not a driver fix or an extra passing recovery run.
+
 Completion remains unproven: one retained post-promotion RDB run reports an
 incomplete metadata bucket after compaction publication. Diagnose it and retain
 the failed attempt; later passes alone are not a resolution. Final review and
