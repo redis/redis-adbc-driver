@@ -190,7 +190,7 @@ func TestCheckCommand(t *testing.T) {
 		"COLUMN  COPY TYPE",
 		"SQL, copied into a driver table (redis-adbc copy): READY",
 		"run: redis-adbc copy -prefix it:cli:user: -table it_cli_user",
-		"SQL, adopted in place (redis-adbc adopt): READY",
+		"SQL, imported as a managed copy (redis-adbc adopt): READY",
 		"run: redis-adbc adopt -prefix it:cli:user: -table it_cli_user",
 	} {
 		if !strings.Contains(out, want) {

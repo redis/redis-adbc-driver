@@ -553,92 +553,58 @@ the shared library. It connects with `-uri`, else `$REDIS_URI`, else
 
 ### Check collections
 
-Without `-prefix`, `check` lists the collections it finds: the
-prefixes (up to the last `:`) of HASH keys in a sample of 10,000 keys, the
-prefixes of search indexes on HASHes, and the driver's own tables. With a
-prefix, it reads a sample of the HASHes, guesses the columns (their type in
-a copy, and in place), and prints a checklist for each way of making them
-a table. Each item is `ok`, `warn`, `missing` (the suggested command
-provides it) or `blocker` (something to change first), with a fix:
+Without `-prefix`, `check` lists collections from a 10,000-key sample, Search
+index prefixes and the driver's tables. With a prefix it samples HASHes and
+reports two ways to import them: `copy`, including its optional key column,
+and `adopt`, which always creates a private managed copy. Application changes
+become visible only after an explicit refresh.
 
 ```bash
 build/redis-adbc check -prefix user: -table users
 ```
 
+An illustrative, shortened checklist is:
+
 ```text
-Collection user: on Redis 8.6.2 (standalone)
-  501 HASH keys; the columns are guessed from 501 of them
-  search index idx:users (prefix user:): 499 documents, 2 indexing failures
-
-Guessed columns (as table public.users):
-  COLUMN      COPY TYPE                    IN-PLACE TYPE     PRESENT  NOTES
-  _key        VARCHAR                      -                 100%     each HASH's key
-  name        VARCHAR                      VARCHAR           100%
-  age         VARCHAR                      VARCHAR           100%     2 of 501 values aren't BIGINT (such as "n/a" in user:500)
-  active      BOOLEAN                      BOOLEAN           99.8%    true/false text
-  created_at  TIMESTAMP(6) WITH TIME ZONE  TIMESTAMP(6) WITH TIME ZONE  99.8%    ISO 8601 text
-  balance     NUMERIC(38,2)                NUMERIC(38,2)     99.8%
-  zip         VARCHAR                      VARCHAR           99.8%    numbers with leading zeros, kept as text
-  avatar      VARBINARY                    VARBINARY         10.0%    not UTF-8; 50 values have a NUL byte
-
 SQL, copied into a driver table (redis-adbc copy): READY
-  [ok]      the Query Engine (RediSearch) is available
-  [ok]      501 HASH keys under user:
-  [ok]      the columns are guessed from all 501 HASHes
-  [ok]      every field has a column type (8 columns)
-  [warn]    age is VARCHAR: 2 of 501 values aren't BIGINT (such as "n/a" in user:500)
-            fix: -type age=BIGINT -on-error null reads them as NULL
-  [ok]      public.users doesn't exist yet: copy creates it
-  [ok]      copy uses a fresh private row generation and its own Search index; application HASHes and indexes are left unchanged
-  [ok]      a copy needs about 0.10 MB (MEMORY USAGE of the sampled HASHes, scaled to all of them), plus its index; 14 MB are in use, and there is no maxmemory limit
+  ...
   run: redis-adbc copy -prefix user: -table users
 
-SQL, adopted in place (redis-adbc adopt): READY
-  [ok]      the Query Engine (RediSearch) is available
-  [ok]      no driver table's rows can be under user:
-  [ok]      public.users doesn't exist yet
-  [ok]      every HASH under user: is a row (501)
-  [warn]    the application's index idx:users can't serve: it has had 2 indexing failures, so it may leave HASHes out
-  [missing] a search index in the driver's format on user:
-            fix: adopt creates idx:public:users:adopted, over the HASHes that are rows, including those the application writes later; it takes memory of its own (the application's idx:users stays as it is, and isn't used)
-  [missing] the table's metadata (adbc:{meta}:table:public:users)
-            fix: adopt writes it
-  [warn]    a write by the application of a value a numeric column can't hold (text, an empty value, NaN) takes that HASH out of the index, and so out of the table
-  [warn]    SQL UPDATE and DELETE change the application's HASHes (an UPDATE that would leave a HASH without fields is refused); INSERT requires an explicit __key, TRUNCATE requires adbc.redis.truncate_adopted=true, and ADD COLUMN and a re-keying RENAME are refused, and DROP TABLE drops only the metadata and an index adopt created
-  run: redis-adbc adopt -prefix user: -table users
+SQL, imported as a managed copy (redis-adbc adopt): READY
+  [ok]      capture source HASHes directly; SQL uses a private managed index
+  [ok]      501 HASHes under user: are rows
+  [missing] a private managed copy and its own Search index
+            fix: Apply publishes the observed source rows atomically
+  [ok]      source HASHes and application indexes remain unchanged
+  [warn]    capture is a scan of observed data, not an atomic snapshot of application writers
+            fix: pause source writes if a point-in-time source image is required
+  run: redis-adbc adopt -prefix user: -table users -apply
 ```
 
-`-json` writes the same report as JSON. `check` writes nothing to Redis,
-and exits 0 whenever it could check (whether or not a checklist is
-ready). What the checklists look for:
+Items are `ok`, `warn`, `missing` (the suggested command provides it), or
+`blocker`. `check` exits successfully whenever inspection completes, including
+when a checklist is blocked. It does not change application data, initialize a
+catalog or publish metadata; reading an existing catalog uses a metadata pin.
+`-json` returns the same report. The existing `sql_in_place` checklist identifier
+and `in_place_type` JSON field remain for API compatibility; their current
+meaning is managed import. Text output labels the type column `IMPORT TYPE`.
 
-- **Copy:** the Query Engine (`FT._LIST`); not Redis Flex (the probe the
-  driver runs on connect); HASH keys under the prefix, and how many the
-  columns were guessed from; columns that a few odd values made `VARCHAR`;
-  `-type` overrides that some sampled values don't convert to; fields that
-  can't be columns (`__rowid`, other names starting with `__`, an empty
-  name); the target isn't a view (an existing table is a warning: copy
-  with `-mode replace` or `append`); no keys already under the key prefix
-  the new table would take (they would merge with its rows), which also
-  rules out copying a collection into its own prefix; column names that
-  can't be indexed (only letters, digits and `_` can, and at most 200
-  columns); memory: the sampled HASHes' `MEMORY USAGE` scaled to all of
-  them, against `used_memory`, `maxmemory` and `maxmemory_policy` (summed
-  over a cluster's primaries). It is a blocker when the copy doesn't fit,
-  or leaves less than 10% free under an `allkeys-*` policy (which could
-  evict the originals); otherwise less than 10% free is a warning.
-- **In place:** the Query Engine, and not Redis Flex; that no driver
-  table's rows can be under the prefix (and that the prefix isn't the
-  driver's own `adbc:` or `pg_temp_`); the table, view and index names;
-  which HASHes would be rows: those with no `:` after the prefix, whatever
-  their keys (`user:42`, `user:alice`), while keys such as `user:42:prefs`
-  are another collection's, and stay out of the table; columns that are
-  weaker in place than in a copy; `-type` overrides that some values
-  aren't stored as; the application's index adopt would read the rows
-  through and what its attributes answer, or why none can serve; what
-  adopt creates; and the hazards below. For a table
-  that was adopted already, it checks the index's indexing failures, and
-  whether redis-adbc v0.0.11 adopted it (see below).
+- **Copy** checks Search availability, source keys and inferred columns,
+  sampled conversion errors, destination collisions, indexable column names,
+  and estimated memory. It allocates private generation storage; external keys
+  under an old logical destination prefix do not merge into it. `replace` and
+  `append` operate on the managed destination. The noeviction requirement remains.
+- **Managed import** uses the same source-decoding and readiness rules as
+  `adopt`. Only keys with no further `:` after the source prefix qualify as rows.
+  Nested HASHes and copy's synthetic key column do not influence import type
+  inference. It checks the target schema, view/table collisions and source
+  identity for explicit refresh. A compatible application index may supply
+  capture; it is never reused as the destination's live index.
+
+The two checklists reuse the existing sample without another source scan.
+Partial samples carry a warning; `-sample -1` inspects all HASHes. Apply validates
+its complete captured input before atomic publication. Inspection does not make
+arbitrary application writers participate in the snapshot protocol.
 
 ### Column inference
 

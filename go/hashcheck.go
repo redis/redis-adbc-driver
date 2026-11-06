@@ -105,7 +105,8 @@ type HashColumn struct {
 	Field string `json:"field,omitempty"`
 	// Type is the column's SQL type in a copy.
 	Type string `json:"type"`
-	// InPlaceType is its type in a table adopted in place.
+	// InPlaceType is the source type used by a managed import. The field name
+	// is retained for JSON/API compatibility with the former in-place report.
 	InPlaceType string `json:"in_place_type,omitempty"`
 	// Present is how many sampled HASHes have the field.
 	Present int      `json:"present"`
@@ -298,16 +299,7 @@ func InspectHashes(ctx context.Context, options map[string]string, o HashInspect
 	if err != nil {
 		return nil, err
 	}
-	t := inPlaceTarget{prefix: o.Prefix, schema: r.Schema, table: r.Table, sampled: r.Sampled,
-		command: adoptCommand(o.Prefix, r.Schema, r.Table, c.db.schema, o.Types, o.Renames),
-		app:     chooseAppIndex(indexes, cols, o.Prefix, r.Keys, "", false)}
-	for _, tm := range tables {
-		if tm.Adopted && tm.prefix() == o.Prefix {
-			t.existing = tm
-			t.command = adoptCommand(o.Prefix, tm.Schema, tm.Name, c.db.schema, nil, nil)
-		}
-	}
-	ip, err := c.checkInPlace(ctx, r, cols, &stats, tables, indexes, t)
+	ip, err := c.snapshotInspectionChecklist(ctx, r, rows, stats, indexes, o)
 	if err != nil {
 		return nil, err
 	}

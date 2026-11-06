@@ -369,7 +369,11 @@ func (a *adopter) snapshotAdoptionChecklist(ctx context.Context, source *tableMe
 		}
 	}
 	if len(a.cols) == 0 {
-		cl.add(CheckBlocker, "the source has no fields that can become columns", "choose a collection with readable fields")
+		if int64(a.res.Report.Sampled) < a.stats.rows {
+			cl.add(CheckBlocker, "the inspection sample has no fields from qualifying source rows", "use check -sample -1 to inspect all source rows")
+		} else {
+			cl.add(CheckBlocker, "the source has no fields that can become columns", "choose a collection with readable fields")
+		}
 	}
 	checkColumnNames(&cl, a.cols)
 	if isTempSchema(a.schema) || isTempAlias(a.schema) {
