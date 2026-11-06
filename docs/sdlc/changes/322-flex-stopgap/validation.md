@@ -1,6 +1,10 @@
 # Expanded validation and comparative measurements
 
-Date: 2026-11-05. Status: experimental draft; no release/maintainer approval.
+Date: 2026-11-05. Historical PR #323 validation checkpoint; implementation
+merged in [PR #323](https://github.com/redis/redis-adbc-driver/pull/323).
+The [PR #331 follow-up](../324-330-flex-followups/validation.md) records later
+retained/rekey, restart/planned failover and resource results. Counts and failures
+below are preserved from the initial checkpoint; this is not a fresh test run.
 See [intent](intent.md), [spec](spec.md), [plan](plan.md), the
 [benchmark report](../../../../benchmarks/redis-flex/2026-11-05/README.md), and
 [machine-readable results](../../../../benchmarks/redis-flex/2026-11-05/validation-summary.json).
@@ -92,8 +96,9 @@ go test -count=1 -p 1 -race -run '^TestFlex' -v .
 ```
 
 The actual-cap and server-restart cases are separate operator opt-ins. See their
-REDIS_FLEX_EXPECT_SEARCH_CAP and REDIS_FLEX_RESTART_CONTAINER/DB guards. Restart
-validation is deliberately not claimed as passing.
+REDIS_FLEX_EXPECT_SEARCH_CAP and REDIS_FLEX_RESTART_CONTAINER/DB guards. At this initial checkpoint, restart
+validation was not established; later successful operator runs are recorded in
+the [follow-up](../324-330-flex-followups/validation.md).
 
 Native validation from go/validation uses REDIS_URI, REDIS_RETAINED_TLS_CA_FILE,
 REDIS_ADBC_FLEX=true for Flex, and the externally verified retained-control policy
@@ -101,7 +106,7 @@ where needed, then `.venv/bin/python -m pytest -q -r fEsxX tests/`. Keep raw log
 and JUnit files private: failures can contain connection arguments. Published
 results contain aggregate counts and controlled categories only.
 
-HA failover, successful Cloud SQL execution, cold/flash-dominant data, concurrent
+At this initial checkpoint, HA failover, successful Cloud SQL execution, cold/flash-dominant data, concurrent
 throughput, general sort spilling, per-document flash reads and transient server
 memory peaks remain unproven. The measured warm workload shows a real index-memory
 saving and substantial broad-query latency costs; see the benchmark report.

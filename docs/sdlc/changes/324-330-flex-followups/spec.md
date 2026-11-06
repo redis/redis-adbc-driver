@@ -1,6 +1,6 @@
 # Flex follow-up contracts
 
-Date: 2026-11-05. Status: implemented and validated; awaiting maintainer review. See [intent](intent.md) and [plan](plan.md).
+Date: 2026-11-05. Status: implementation/evidence merged in [PR #331](https://github.com/redis/redis-adbc-driver/pull/331). See [intent](intent.md) and [plan](plan.md).
 
 Retained execution carries the producer's Flex mode into its independently budgeted source client. Existing SCAN/HMGET capture, admission, source identity/cardinality checks, immutable Arrow publication, namespace ACLs, expiry, cancellation and cleanup contracts remain. Capture freezes observed values for one execution; no snapshot isolation is added. Reader-only replay reads published retained data and does not require Search or catalog mutation, including on Flex.
 

@@ -3,7 +3,7 @@
 Implementation for [issue #322](https://github.com/redis/redis-adbc-driver/issues/322).
 Enable database option `adbc.redis.flex=true` together with the usual `uri`.
 The default remains the sortable-index / aggregate-cursor execution mode.
-Current main requires RESP3; this PR does not add RESP2 connection support.
+RESP3 is required.
 Selecting Flex mode is explicit: it also exercises the fallback on RAM databases.
 
 ```go
@@ -96,60 +96,71 @@ outside the driver are unsupported. Only primary reads are used, as before.
 
 ## Validated deployment and evidence
 
-2026-11-05: disposable local Redis Software **8.2.6-25**, Redis **8.8.0**,
-Search **8.8.8**, Linux aarch64. BigStore v2, 1,024 MB total / 256 MB RAM,
-one shard, search_on_bigstore=true; flash is a container directory. The initial-worktree test
-endpoint had no TLS. The current-main PR port was additionally validated with
-authenticated TLS and active verified 4x QPF (6 Search workers, mnp routing,
-32 connections). No Cloud Flex deployment was tested. Older Software
-8.2.0-78 (Redis 8.6.2/Search 8.6.11) lacks plain NUMERIC and cannot use this mode.
-The version matrix is evidence for these named builds, not a promise about all
-newer Software releases or Cloud products.
+The stopgap is merged in [PR #323](https://github.com/redis/redis-adbc-driver/pull/323),
+with retained replay, TRUNCATE, rename/rekey and bounded-page improvements merged
+in [PR #331](https://github.com/redis/redis-adbc-driver/pull/331). The measurements
+below were recorded on 2026-11-05; this documentation refresh does not rerun them.
 
-From `go/`:
+The follow-up tested driver source `a121842` on Redis Software **8.2.6-25**,
+Redis **8.8.0**, Search **8.8.8**, Linux aarch64, authenticated TLS/RESP3,
+noeviction and verified active **4x QPF** (6 Search workers, mnp routing,
+32 connections). The full Flex suite used three primary shards on one node,
+16 GiB total / 4 GiB RAM. Warm comparisons used separate one-shard RAM/Flex
+fixtures; Flex had 1 GiB total / 256 MiB RAM. Flash was a container directory.
+Older Software 8.2.0-78 (Redis 8.6.2/Search 8.6.11) lacks plain NUMERIC and cannot
+use this mode. These named builds do not establish compatibility for every
+Software release or Cloud configuration.
+
+| Validation at the follow-up checkpoint | Recorded outcome | Boundary |
+|---|---|---|
+| Full native ADBC on Software RAM | 565 passed, 0 failed, 8 skipped; 3 passing subtests | Default RAM regression coverage |
+| Full native ADBC on three-shard Software Flex | 559 passed, 6 failed, 8 skipped; 3 passing subtests | Five ALTER cases and one CREATE INDEX case remain failures; no Flex-specific skips were added |
+| Data-preserving Software Flex restart | All 25,000 old-reader and whole-query retry rows matched; operator completed in 2.895 s | Replaces the initial operator-timeout result as the later successful checkpoint |
+| Planned Software Flex failover | Three nodes, three primaries and three replicas; all three former replicas promoted; all 25,000 rows matched; operator completed in 1.794 s | Docker nodes share one host; physical-host outages were not tested |
+| Tiered/concurrent reads | 18 cases, 6.3 million validated rows; dataset exceeded the 256 MiB RAM tier; backing-store counters were positive | Host cache was not flushed and process block-read deltas were zero; physical cold-SSD amplification remains unproven |
+
+See the [follow-up validation](sdlc/changes/324-330-flex-followups/validation.md)
+and [sanitized failover evidence](../benchmarks/redis-flex/2026-11-05/followups/failover-validation.json).
+An earlier attempt to add replicas to a database populated by the full suite
+hit a Search assertion during replica loading. The successful fresh replicated
+target does not resolve that server failure or validate every schema for HA.
+
+The [original validation](sdlc/changes/322-flex-stopgap/validation.md) and
+[original comparison](../benchmarks/redis-flex/2026-11-05/README.md) remain dated
+baseline evidence, including their earlier failures. Initial worktree tests also
+used RESP2; current supported connections and follow-up runs use RESP3.
+
+For focused live checks from `go/`, use a disposable Software Flex fixture whose
+active 4x QPF and policy have been verified:
 
 ```sh
 source build/flex-test.env
-go test -count=1 -p 1 -run '^TestFlex' -v .
+go test -count=1 -p 1 -race -run '^TestFlex' -v .
 ```
-
-Initial worktree tests covered RESP2 and RESP3. The PR port follows current
-main’s RESP3-only policy and reruns live coverage with RESP3. Tests cover SQL
-creation/insertion/update/deletion; exact
-BIGINT/DECIMAL values; NULLs; 2-versus-10 ordering; NaN/infinities; grouping and
-scalar aggregation; 2,500-row scans; sparse IDs and a 2^53 upper boundary;
-forced splitting; injected lower server caps, errors and warnings; cancellation;
-concurrent inserts/updates against the documented boundary; restricted SQL;
-and DROP ownership. Capability-probe key count is unchanged after cleanup.
-
-Comparative benchmarks and expanded validation are recorded in the
-[measured report](../benchmarks/redis-flex/2026-11-05/README.md) and
-[validation matrix](sdlc/changes/322-flex-stopgap/validation.md). The stopgap saved
-about 55% of index memory in the synthetic comparison but was substantially
-slower for broad reads, sorting and aggregation. It remains opt-in.
-
-Three-shard Software Flex correctness and race checks were run with authenticated
-TLS and verified 4x QPF. Full native ADBC validation was run on RAM and Flex;
-The initial Flex run had failures for restricted retained/schema
-features; follow-up retained and rekey results are recorded separately below. The native cancellation test asserts zero aggregate cursors in Flex
-mode without skipping its cancellation/reuse checks.
-
-A temporary Cloud Pro Flex deployment in GCP us-west2 (Redis 8.6.2) authenticated
-over TLS/RESP3 but rejected FT._LIST. The driver refused with NotImplemented and
-left the key count unchanged. Cloud SQL support was therefore not established.
-The temporary Cloud database and subscription were deleted and removal verified.
-
-A Software database restart validation exceeded its two-minute operator deadline;
-restart recovery and HA failover remain unproven. Cold/flash-dominant workloads,
-concurrent throughput, general sort spilling and document/flash read counters also
-remain follow-up work. See the reports for measurement limits and exact results.
 
 ## Software Flex follow-up
 
-Work on #324–#328 and #330 targets Redis Software Flex. Cloud-only #329 is
-excluded at the requestor's direction. ALTER/CREATE INDEX work (#325/#326) is
-skipped because existing paths require FT.ALTER, unavailable on Software Flex.
-See the [current follow-up record](sdlc/changes/324-330-flex-followups/validation.md)
-for actual runs; historical measurements above remain dated evidence.
+In the latest matched warm comparison, **Flex stopgap averaged 6.9x RAM-default
+latency**, and **RAM stopgap averaged 3.1x RAM-default latency**. These are ratios
+of the arithmetic means of seven per-workload median latencies. Individual
+workloads vary. The [follow-up report](../benchmarks/redis-flex/2026-11-05/followups/README.md)
+provides the formula, raw samples, before/after controls and resource limits.
+The original schema comparison saved about 55% of index memory; that is not a
+measurement of total server memory or flash allocation.
 
-The [Software Flex follow-up performance report](../benchmarks/redis-flex/2026-11-05/followups/README.md) compares 1,000- and 10,000-row page ceilings and records concurrent reads on a flash-dominant working set. Larger pages reduced broad-query latency but increased some heap peaks. For wide values, configure `adbc.redis.stream_batch_bytes` as well as row batching; the measured 8 MiB Arrow budget reduced client heap, but it is not a total-query memory limit. Full sorts still materialize results and have no general spill implementation.
+Larger pages reduced broad-query latency and increased some heap peaks. For wide
+values, configure `adbc.redis.stream_batch_bytes` as well as row batching. The
+measured 8 MiB Arrow budget reduced client heap but is not a total-query memory
+limit. Full sorts still materialize results and have no general spill path.
+
+- [#325](https://github.com/redis/redis-adbc-driver/issues/325) and
+  [#326](https://github.com/redis/redis-adbc-driver/issues/326) remain open and
+  intentionally skipped: the existing ALTER/CREATE INDEX paths require FT.ALTER,
+  unavailable on the tested Software Flex build.
+- Cloud-only [#329](https://github.com/redis/redis-adbc-driver/issues/329) remains
+  excluded from Software Flex work. An earlier disposable Cloud Pro target
+  authenticated but rejected FT._LIST, so Cloud SQL was not established. Its
+  database/subscription were removed; PR #331 created no Cloud resources.
+- Physical-host outage behavior, cold physical-SSD amplification and general sort
+  spilling remain outside the recorded evidence. No source snapshot isolation
+  or automatic migration to sortable indexes is added.

@@ -223,7 +223,7 @@ unsupported deployment; yellow identifies limits in an applicable driver path.
 | Persistence configuration (AOF / snapshots) | ⚪ N/A | Persistence policy is configured in Redis Software, outside the ADBC interface. Stored driver data follows that server policy; [retained partition control state](docs/retained-partition-storage.md) has additional durability requirements. [Server settings](https://redis.io/docs/latest/operate/rs/databases/configure/database-persistence/). |
 | Backup, restore and disaster recovery | ⚪ N/A | These are server/operator responsibilities. Restore must keep table metadata, HASHes and Search definitions consistent. [Server administration](https://redis.io/docs/latest/operate/rs/databases/configure/). |
 | Active-Active geo-distribution | 🔴 Unsupported / unvalidated | No supported multi-region contract for concurrent DDL, metadata/row-ID allocation, writes or partition consistency. Redis Software supports Search on Active-Active, but indexes must be created per instance; driver compatibility cannot be inferred from command availability. The driver does not guarantee automatic rejection of an Active-Active endpoint. [Redis Active-Active Search](https://redis.io/docs/latest/operate/oss_and_stack/stack-with-enterprise/search/search-active-active/). |
-| Redis Flex / Auto Tiering | 🔴 Unsupported | The driver's Search requirements are incompatible with the documented Flex path; it refuses detected Flex databases. [Requirements and evidence](docs/driver-reference.md#redis-flex-databases-are-not-supported-yet). |
+| Redis Flex / Auto Tiering | 🟡 Experimental, opt-in | Tested Redis Software Flex builds support plain indexes and bounded reads with `adbc.redis.flex=true`. SQL restrictions remain; Cloud SQL is unvalidated. [Scope and evidence](docs/redis-flex-stopgap.md). |
 | JSON document collections / ON JSON indexes | 🔴 Unsupported | Table storage and collection adoption target HASHes; RedisJSON document collections are outside that path. This is separate from SQL JSON functions. [#65](https://github.com/redis/redis-adbc-driver/issues/65). |
 | Vector and full-text SQL operations | 🔴 Unsupported | No supported SQL operations for Redis vector KNN/range search or full-text relevance scoring. Ordinary SQL string predicates do not provide those query semantics. |
 | Streams, Pub/Sub and keyspace notifications | ⚪ N/A | Native messaging and event-subscription APIs belong to Redis clients or a companion service, outside this SQL/Arrow interface. Finite Arrow result streaming is separate; [CDC placement is tracked in #196](https://github.com/redis/redis-adbc-driver/issues/196). |
@@ -303,7 +303,12 @@ remote deployment support, or Redis Flight SQL compatibility.
 
 Set database option `adbc.redis.flex=true` for plain indexes and bounded row-ID
 reads on tested Software Flex builds. See [scope, usage and evidence](docs/redis-flex-stopgap.md).
-ALTER TABLE, TRUNCATE, adoption and foreign indexes remain unsupported.
+Retained replay and TRUNCATE are validated, as is table rename with
+`adbc.redis.rename_rekey=true`. Other ALTER TABLE operations, CREATE INDEX,
+materialized views, adoption and foreign indexes remain unsupported. The
+implementation and follow-up are merged in
+[PR #323](https://github.com/redis/redis-adbc-driver/pull/323) and
+[PR #331](https://github.com/redis/redis-adbc-driver/pull/331).
 
 ## Quick start
 
