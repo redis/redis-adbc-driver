@@ -67,3 +67,41 @@ root, unrelated public rows remain denied, and the source HASH is unchanged.
 Owned principal, index, copy and domain cleanup completes. All Go unit packages
 pass after the fixture follow-up (root 26.924 seconds). This is actual Software
 role evidence; the existing hosted macOS ACL fixtures remain required.
+
+## macOS fixture isolation and managed partition/sweep contracts
+
+At PR head `0c969bd`, [Test run 42156026576](https://github.com/redis/redis-adbc-driver/actions/runs/42156026576)
+passes completely, including both Software platform jobs. All ten Linux distro
+jobs and both installed-wheel client jobs pass in the corresponding
+[Release run](https://github.com/redis/redis-adbc-driver/actions/runs/42156026631).
+That Release run still fails macOS, so this is not a green-PR claim.
+
+Follow-up source `66e027f` addresses four fixture assumptions:
+
+- The destructive read-only-key `FT.DROPINDEX ... DD` proof uses an independent
+  application HASH/index, retaining its three-row deletion assertion. It no
+  longer intentionally removes an index referenced by the managed catalog. The
+  managed victim must still contain all three rows afterward; cross-schema
+  SQL/raw Search denials remain required.
+- HMGET revocation must produce a concrete IO/NOPERM/HMGET failure with no values,
+  whether immutable metadata admission or subsequent row iteration needs it first.
+- A broad partition (row-ID range 1..1025, two actual rows) must still return
+  exactly 1 and 2 with no Search cap and with FT.AGGREGATE revoked. A raw command
+  proves that revocation is enforced. FT.INFO revocation must still fail with
+  Unauthorized; exact directory replay does not remove broad index validation.
+- Sweep uses genuinely registered rows retained by an old-root pin through DROP,
+  rather than unregistered raw rows inserted after DROP. Its restricted operator
+  can read but cannot delete the other schema. A concrete NOPERM partial result
+  must account for every authorized deletion and preserve the unauthorized row.
+  An administrator then resumes and verifies rows, index, directory and ownership
+  graph reclamation. GC ordering may encounter the forbidden segment first.
+
+All Go unit packages pass (root 26.755 seconds). The exact broad and pruned Go
+assertion bodies also pass under `-race` against temporary Software API-managed
+roles (8.425 and 4.409 seconds); only principal setup/revocation is adapted because
+Software blocks protocol ACL SETUSER. A real registered-data sweep probe deletes
+20 authorized rows, preserves the other schema's one row with a key permission
+error, and permits administrator recovery. Temporary roles/domains are removed
+and the owned Software fixture is stopped. These checks use Software 8.8, strict
+TLS, effective QPF 4x, noeviction, and the ordinary 2,147,483,648 aggregate cap.
+The hosted macOS run remains required for its backend-specific ACL-log/DD proof.
