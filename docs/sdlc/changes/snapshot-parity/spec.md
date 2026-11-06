@@ -2,6 +2,11 @@
 
 Date: 2026-11-02. Status: in progress. See [intent](intent.md), [plan](plan.md).
 
+The [agreed delivery boundaries](delivery-scope.md) separate core stabilization
+in PR #284 from public operation resume and the upstream native read-view ask.
+The numbered requirements below retain the broader objective; they are not a
+claim that each deliverable is complete.
+
 1. A live partition set must resolve one committed generation at production.
    Independent workers retain that generation across DML, ALTER, TRUNCATE, DROP,
    producer close and compaction. Capabilities have bounded lifetime, explicit

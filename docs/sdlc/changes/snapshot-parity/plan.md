@@ -839,3 +839,8 @@ writer pin after heartbeat cleanup fails. The [cleanup correction](pin-cleanup-r
 retries only failed token release and shares one bounded attempt across concurrent
 callers, with focused red/green and review findings retained. Broad final-source
 checks, public operation/input resume and sustained performance remain required.
+
+The user-approved [delivery split](delivery-scope.md) focuses PR #284 on core
+statement snapshot stabilization. Public process/input resume is a separate
+follow-up and is not a core PR completion gate. Its unfinished implementation
+and the measured performance gap remain tracked; neither is labeled complete.
