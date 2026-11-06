@@ -135,3 +135,25 @@ access prefixes instead of broad metadata/schema wildcards. Its metadata
 permission probes now target snapshot directories and actual physical objects.
 These native fixture changes still require live validation, along with the
 complete snapshot/race selection and hosted replacement workflows.
+
+## Global management lock and resource sample
+
+The moved administrative SET NX now carries the transport NoRetry marker. An
+unknown successful lock reply stops before management API writes and leaves the
+original lock owner for reconciliation. The production regression fails against
+the preceding implementation (NoRetry=false, one observed mutation), then passes
+with the once command, retained original token and unchanged API write count.
+The complete Software SQL authorization fixture also passes under `-race`.
+
+At 128 legitimate pins in one role domain, Software reports 20,280 bytes for the
+lease HASH and 130 bytes for the one-member active directory (MEMORY USAGE,
+SAMPLES 0). The reader control script is 5,574 bytes. These are metadata samples
+on this fixture, not total server RSS, per-query peak allocation or throughput
+benchmarks. The enforced per-HASH/directory limit remains 256 KiB.
+
+The rebased broad race run completed import, compaction, ownership and metadata
+lifecycle cases without race reports, then stopped on upstream telemetry-wrapper
+test assumptions in expiry/Substrait cases. Those cases pass with the workflow's
+`REDIS_ADBC_TELEMETRY_DISABLED=true` setting. Enabled-wrapper compatibility is
+being repaired separately in the upstream reconciliation; neither this partial
+run nor the CI-env selections establish a complete enabled-accounting race run.

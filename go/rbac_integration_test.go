@@ -46,7 +46,11 @@ func TestSQLRBACSelect(t *testing.T) {
 	proxy := httputil.NewSingleHostReverseProxy(upstream)
 	proxy.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}} // disposable fixture only
 	var failWrite atomic.Bool
+	var aclWrites atomic.Int64
 	proxy.ModifyResponse = func(res *http.Response) error {
+		if res.Request.Method == "PUT" && strings.HasPrefix(res.Request.URL.Path, "/v1/redis_acls/") {
+			aclWrites.Add(1)
+		}
 		if res.Request.Method == "PUT" && strings.HasPrefix(res.Request.URL.Path, "/v1/redis_acls/") && failWrite.Load() {
 			res.StatusCode = 503
 		}
@@ -277,6 +281,7 @@ func TestSQLRBACSelect(t *testing.T) {
 	}
 	client := goredis.NewClient(opts)
 	defer client.Close()
+	t.Run("lost_global_lock_reply", func(t *testing.T) { checkRBACLockLostReply(t, admin, roleName, aclWrites.Load) })
 	client.Set(ctx, snapshotPrefix+"rbac:lock", "other writer", 0)
 	if e := admin.execErr(`GRANT SELECT ON it_rbac_renamed TO ` + roleName); e == nil || !strings.Contains(e.Error(), "locked") {
 		t.Fatal(e)

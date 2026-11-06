@@ -195,9 +195,7 @@ class SoftwarePrincipals:
         self.api.call('PUT', f"redis_acls/{person['rule']}", {'acl': ' '.join(acl)})
         person['acl'] = acl
         command = permission[1:].lower()
-        if permission.startswith('%R~') and permission.endswith('*'):
-            probe = ('EXISTS', permission[3:-1] + 'acl-probe')
-        elif command == 'ft.info':
+        if command == 'ft.info':
             probe = ('FT.INFO', person.get('probe_index', 'idx:' + self.schema + ':rows'))
         elif command == 'hmget':
             probe = ('HMGET', person.get('probe_row', self.schema + ':acl-probe'), 'id')
@@ -207,7 +205,7 @@ class SoftwarePrincipals:
             client = self.client(name)
             try:
                 client.execute_command(*probe)
-                return not permission.startswith('-')
+                return permission.startswith('+')
             except redis.exceptions.NoPermissionError:
                 return permission.startswith('-')
             finally:

@@ -331,11 +331,13 @@ func (e *executor) runPrivilege(ctx context.Context, st *PrivilegeStmt) error {
 	controlCtx := context.WithValue(ctx, snapshotContextKey{}, (*snapshotScope)(nil))
 	lock := e.store.rbacControlKey("lock")
 	token := uuid.NewString()
-	ok, err := e.store.client.SetNX(controlCtx, lock, token, 0).Result()
-	if err != nil {
-		return wrapRedis(err, "cannot acquire RBAC lock")
+	reply, err := once(controlCtx, e.store.client, "SET", lock, token, "NX").Text()
+	if err != nil && err != goredis.Nil {
+		// An unknown successful SET must remain locked; never resend NX and
+		// reinterpret its second reply as the outcome of the first attempt.
+		return wrapRedis(err, "RBAC lock acquisition outcome is unknown; reconcile the durable lock before retrying")
 	}
-	if !ok {
+	if err == goredis.Nil || reply != "OK" {
 		return errorf(adbc.StatusInvalidState, "RBAC update locked; reconcile any interrupted management operation before removing its durable administrative lock")
 	}
 	keepLock := false

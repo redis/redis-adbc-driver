@@ -89,6 +89,7 @@ func checkSnapshotImportPayloadACL(t *testing.T, readerURI string) {
 		{"EVAL", "return redis.call('HSET',KEYS[1],'root',ARGV[1])", 1, snapshotCatalogKey, snapshotID()},
 		{"HSET", snapshotReaderPrefix + snapshotReaderNamespace("other-principal@example.com"), snapshotID(), "{}"},
 		{"SREM", snapshotReaderDirectory, "other-principal"},
+		{"SADD", snapshotReaderDomains, "forbidden-domain"},
 		{"HSET", meta.prefix() + "1", "secret", "forbidden"},
 	} {
 		if err := reader.Do(ctx, command...).Err(); err == nil || !(strings.Contains(err.Error(), "NOPERM") || strings.HasPrefix(err.Error(), "ERR ACL failure in script:")) {
@@ -315,6 +316,15 @@ func checkSnapshotRestrictedQuota(t *testing.T, admin, reader *sqlHarness) {
 		t.Fatal("reader quota was not enforced", err)
 	}
 	key := snapshotReaderPrefix + r.readerNamespace
+	hashBytes, err := a.client.Do(admin.ctx, "MEMORY", "USAGE", key, "SAMPLES", 0).Int64()
+	if err != nil || hashBytes > 262144 {
+		t.Fatal("128 legitimate leases exceeded their byte budget", hashBytes, err)
+	}
+	directoryBytes, err := a.client.Do(admin.ctx, "MEMORY", "USAGE", snapshotReaderDirectory, "SAMPLES", 0).Int64()
+	if err != nil || directoryBytes > 262144 {
+		t.Fatal("legitimate directory exceeded its byte budget", directoryBytes, err)
+	}
+	t.Logf("reader resource sample: pins=128 hash_bytes=%d directory_bytes=%d control_script_bytes=%d", hashBytes, directoryBytes, len(snapshotReaderControl))
 	expired, _ := json.Marshal(map[string]any{"root": root, "expires": 0})
 	if err := a.client.HSet(admin.ctx, key, tokens[0], expired).Err(); err != nil {
 		t.Fatal(err)

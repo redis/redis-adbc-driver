@@ -39,6 +39,11 @@ def register_reader(control, domain):
     control.sadd(policy['registry'], policy['namespace'])
 
 
+def unregister_reader(control, domain):
+    policy = reader_policy(domain)
+    control.srem(policy['registry'], policy['namespace'])
+
+
 def access_prefix(physical):
     prefix = physical.split('~', 1)[0] + '~'
     assert re.fullmatch('[0-9a-f]{32}~', prefix)

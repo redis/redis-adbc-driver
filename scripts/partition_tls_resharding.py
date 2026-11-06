@@ -45,7 +45,7 @@ class RepeatedWorker:
     def __init__(self, driver, uri, ca, cluster_mode, partition, options=None):
         env = {name:value for name,value in os.environ.items() if name in (
             'PATH', 'HOME', 'SYSTEMROOT', 'TMPDIR', 'TMP', 'TEMP',
-            'LD_LIBRARY_PATH', 'DYLD_LIBRARY_PATH')}
+            'LD_LIBRARY_PATH', 'DYLD_LIBRARY_PATH', 'REDIS_ADBC_TELEMETRY_DISABLED')}
         self.process = subprocess.Popen([sys.executable, '-c', WORKER],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
             text=True, env=env)

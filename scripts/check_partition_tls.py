@@ -26,7 +26,7 @@ import adbc_driver_manager.dbapi as dbapi
 import pyarrow as pa
 import redis
 
-from snapshot_reader_acl import access_prefix, reader_rules, register_reader
+from snapshot_reader_acl import access_prefix, reader_rules, register_reader, unregister_reader
 
 
 WORKER = r'''
@@ -314,7 +314,7 @@ def main(argv=None, cloud_principals_factory=None):
         # planner/admin connection variables or unrelated host credentials.
         worker_env = {name: value for name, value in os.environ.items() if name in (
             'PATH', 'HOME', 'SYSTEMROOT', 'TMPDIR', 'TMP', 'TEMP',
-            'LD_LIBRARY_PATH', 'DYLD_LIBRARY_PATH')}
+            'LD_LIBRARY_PATH', 'DYLD_LIBRARY_PATH', 'REDIS_ADBC_TELEMETRY_DISABLED')}
         worker_env.update(env or {})
         result = subprocess.run([sys.executable, '-c', WORKER], input=json.dumps({
             'driver': driver, 'uri': uri, 'ca_file':str(ca_file or ca), 'cluster_mode': args.cluster_mode, 'partition': base64.b64encode(part).decode(), 'cancel': cancel, 'release': release,
@@ -368,7 +368,6 @@ def main(argv=None, cloud_principals_factory=None):
         else:
             raise AssertionError('TLS hostname verification was bypassed')
         principals.create(planner, planner_password, ['~*', '+@all'])
-        principals.create(worker, worker_password, [*reader_rules(worker), *read_commands])
         data = pa.table({
             'id': pa.array(range(1100), pa.int64()),
             'label': [None if i % 3 == 0 else 'a\x00b' for i in range(1100)],
@@ -385,9 +384,10 @@ def main(argv=None, cloud_principals_factory=None):
                 cur.execute('DELETE FROM ' + qualified + ' WHERE id=2')
                 cur.execute("SELECT key_prefix,index_name FROM information_schema.tables WHERE table_schema='" + schema + "' AND table_name='" + table + "'")
                 physical_prefix, physical_index = cur.fetchone()
+                principals.create(worker, worker_password,
+                                  [*reader_rules(worker, [access_prefix(physical_prefix)]), *read_commands])
                 if args.software_fixture:
                     principals.people[worker].update(probe_index=physical_index, probe_row=physical_prefix + "1")
-                principals.command(worker, '%R~' + access_prefix(physical_prefix) + '*')
                 register_reader(control, worker)
                 if args.oss_cluster_fixture:
                     from partition_tls_resharding import wait_search_convergence
@@ -575,7 +575,10 @@ def main(argv=None, cloud_principals_factory=None):
             raise
         finally:
             try:
-                principals.cleanup()
+                try:
+                    unregister_reader(control, worker)
+                finally:
+                    principals.cleanup()
             except BaseException:
                 report['status'] = 'failed'
                 raise
