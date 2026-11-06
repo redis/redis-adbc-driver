@@ -265,6 +265,34 @@ func TestSnapshotClusterRecovery(t *testing.T) {
 		t.Skip("requires owned recovery orchestrator")
 	}
 	h, raw, db := snapshotClusterHarness(t)
+	defer func() {
+		if !t.Failed() {
+			return
+		}
+		// Inspect before fixture cleanup, without logging identities or values.
+		ctx, cancel := context.WithTimeout(h.ctx, 3*time.Second)
+		defer cancel()
+		root := raw.HGet(ctx, snapshotCatalogKey, "root").Val()
+		buckets := raw.HGetAll(ctx, snapshotMetadataMap(root)).Val()
+		mismatches := 0
+		for slot, owner := range buckets {
+			proof := raw.HMGet(ctx, snapshotMetadataGraph, "n:"+owner+":"+slot, "b:"+owner+":"+slot).Val()
+			entries := raw.HLen(ctx, snapshotMetadataBucket(owner, slot)).Val()
+			fields := raw.ZCard(ctx, snapshotMetadataDirectory(owner, slot)).Val()
+			var expected, refs int64
+			if len(proof) != 2 {
+				t.Log("recovery metadata proof absent")
+				continue
+			}
+			_, ne := fmt.Sscan(fmt.Sprint(proof[0]), &expected)
+			_, re := fmt.Sscan(fmt.Sprint(proof[1]), &refs)
+			if ne != nil || re != nil || refs <= 0 || expected != entries || expected != fields {
+				mismatches++
+				t.Logf("durable recovery metadata mismatch: parsed=%t expected=%d references=%d entries=%d fields=%d", ne == nil && re == nil, expected, refs, entries, fields)
+			}
+		}
+		t.Logf("recovery metadata inspection: buckets=%d mismatches=%d", len(buckets), mismatches)
+	}()
 	h.exec("CREATE TABLE t(id INTEGER,v BIGINT)")
 	h.exec("INSERT INTO t SELECT i,9007199254740993 FROM generate_series(1,1001) AS g(i)")
 	// Keep enough winning rows in the newer segments for a real 64-row

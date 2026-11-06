@@ -107,6 +107,9 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.27.3).
   zero-reference queue with writer fences intact. Never bulk-delete an old metadata workspace: later roots can share its values. Test Software nodes need
   stable private addresses across restarts; verify actual shard roles and Search
   recovery as well as active QPF before resuming SQL.
+  RDB gates require completed snapshots strictly later than acknowledged probe
+  writes at INFO's whole-second precision. Dirty each physical primary using
+  verified management slot groups; promoted primaries can share an endpoint.
   Catalog manifests share immutable row-version segments. DML allocates a new
   segment before planning logical row keys. Resolve newest versions/tombstones
   before predicates, aggregates or limits. Search candidates require newer-directory
@@ -163,6 +166,9 @@ repository root; its toolchain is declared in `go/go.mod` (currently Go 1.27.3).
   closing connection resources; old segments stay pinned. Track execution
   completion separately from socket interruption: Close must leave the maintenance
   pool usable until private abort/pin cleanup finishes, with a bounded join.
+  A stopped heartbeat does not prove server pin cleanup. Preserve failed release
+  outcomes for bounded explicit retry, and share one attempt across concurrent
+  callers without adding a second command to normal successful cleanup.
   Keep registration atomic with the closed flag and register stream owners before
   exposing an execution to Close. Preserve indeterminate-outcome diagnostics when
   mapping a canceled command to its connection-close cause. Never DROP/TRUNCATE shared data directly.

@@ -104,6 +104,50 @@ this does not prove distributed managed-catalog write throughput.
   in the Redis-enabled helper environment. The old gate has exactly one expected
   failure: accepting the pre-write checkpoint. Formatting and diff checks pass.
 
+## Final cleanup implementation checks
+
+The shared-attempt cleanup implementation at `1fb8208` passes the normal Cluster
+suite (seven cases, two orchestrator skips) and actual promotion (7.22 seconds).
+The physical-slot checkpoint helper then passes after promotion, including all
+three exact primary sentinels. That RDB recovery attempt fails in the SQL query
+after compaction publication with `snapshot metadata bucket is incomplete`
+(53.01 seconds). This is a distinct unresolved metadata validation failure,
+not counted as a successful final-code recovery. A subsequent diagnostic run
+passes in 55.28 seconds; that pass does not explain or erase the failure.
+
+The final runtime native C/ADBC Cluster suite passes all 19 cases, zero skips,
+8.957 seconds. Same native environment as above; rebuilt library SHA-256:
+`f4ff5dd062dd6b51e3af1c69965996af9a86b7fc4711a42c2594945c6612d233`.
+The diagnostic executable only adds sanitized bucket-count inspection on failure;
+it does not change production behavior or assertions. Further recovery evidence
+is required before closing the metadata failure.
+
+Further final-code checks:
+
+- Initialized AOF files are verified on all six shards before abrupt restart,
+  including enabled AOF, completed successful rewrite and no scheduled rewrite.
+  Effective QPF4/noeviction/appendfsync-always are reverified. Recovery passes in
+  38.86 seconds with the cleanup correction and bounded failure diagnostics.
+- Three RDB diagnostic repetitions pass in 46.36, 47.28 and 47.39 seconds.
+  Three subsequent complete promotion-then-RDB cycles pass: promotion 7.44,
+  7.38 and 6.81 seconds; restart 47.81, 51.23 and 53.44 seconds. They do not
+  reproduce the earlier metadata error, which remains unresolved. The error now
+  includes numeric proof/reference/directory counts without identities or values;
+  validation still fails closed and is not relaxed or retried.
+- The anchored snapshot race selection passes 471 events / 61 explicit skips,
+  root 410.908 seconds, all six executable packages, no races. Its first invocation
+  omitted the raw administrator URI and fails six partition cleanup fixtures;
+  that 397.604-second failed run is retained, not counted as a pass. The corrected
+  invocation supplies `REDIS_ADMIN_URI`. The selection leaves ordinary-URI gates
+  and names outside `^TestSnapshot` for a separately configured supplement.
+- All final cleanup unit packages pass under the race detector, root 54.395
+  seconds. This predates the numeric-only error detail and bounded failure
+  inspection additions; no broader head claim follows from it.
+- Actual-principal SQL SELECT/RBAC race coverage passes 21 events, no skips,
+  root 24.851 seconds. A subsequent snapshot supplement is initially refused by
+  the retained-control policy gate because the verified declaration was omitted;
+  this is a failed configuration attempt, not passing retained coverage.
+
 ## Limits and remaining work
 
 The Cluster Go binary is Linux AMD64, Go 1.27.3, CGO disabled; this is separate

@@ -59,3 +59,11 @@ found no further actionable issues with lock/channel ordering, idempotent releas
 or permission boundaries. This is agent review, not human maintainer approval.
 Final broad snapshot, native, platform and recovery checks remain required;
 passing focused tests alone does not establish full parity.
+
+Later checks include all unit packages under the race detector (root 54.395
+seconds), the anchored snapshot selection (471 pass events / 61 explicit skips,
+root 410.908 seconds), actual-principal SQL/RBAC (21 race events, no skips,
+root 24.851 seconds), native Cluster C ABI (19 cases, no skips, 8.957 seconds),
+and initialized AOF recovery (38.86 seconds). See the Cluster checkpoint for
+source boundaries, failed fixture attempts and the separate unresolved RDB
+metadata validation error. The full platform/performance goal remains active.

@@ -188,7 +188,7 @@ func resolveSnapshotMetadata(ctx context.Context, suffix string, writing bool, c
 				expected, e := strconv.ParseInt(fmt.Sprint(values[0]), 10, 64)
 				refs, r := strconv.ParseInt(fmt.Sprint(values[1]), 10, 64)
 				if e != nil || r != nil || refs <= 0 || expected != count.Val() || expected != fields.Val() {
-					return "", errorf(adbc.StatusIO, "snapshot metadata bucket is incomplete")
+					return "", errorf(adbc.StatusIO, "snapshot metadata bucket is incomplete (valid proof=%t, expected=%d, references=%d, entries=%d, fields=%d)", e == nil && r == nil, expected, refs, count.Val(), fields.Val())
 				}
 				m.bucketChecked[slot] = true
 				value, err = entry.Result()
