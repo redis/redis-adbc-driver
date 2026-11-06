@@ -18,11 +18,12 @@ type scanProjection struct {
 	// aggregate consumes an ephemeral decoded row. Other
 	// projection users retain the row-returning diagnostic path.
 	consume func(aggRow) error
-	// Positional HASH bindings are private to wide, simple projections.
-	consumeHash   func([]any) error
-	hashExclusive bool // scalar consumer: every needed field comes from HMGET
-	hashFields    []string
-	hashPositions []int
+	// Positional HASH bindings are private to authoritative simple projections.
+	consumeHash       func([]any) error
+	hashExclusive     bool // scalar consumer: every needed field comes from HMGET
+	hashFields        []string
+	hashPositions     []int
+	hashNullPositions []int
 }
 
 type projectionColumn struct {
@@ -38,7 +39,7 @@ func newScanProjection(it *scanIter, items []planItem) *scanProjection {
 	}
 	p := &scanProjection{width: len(items)}
 	slots := make(map[string]int, len(it.need))
-	for _, c := range it.meta.Columns {
+	for _, c := range it.meta.scanColumns() {
 		if it.need[c.Name] {
 			slots[c.Name] = len(p.columns)
 			decode := c.decode
@@ -74,21 +75,25 @@ func (p *scanProjection) bindHash(fields []string) bool {
 	for i, f := range fields {
 		positions[f] = i + 1
 	}
-	var slots []int
+	var slots, nullSlots []int
 	for _, c := range p.columns {
 		at, ok := positions[c.field]
 		if !ok {
 			return false
 		}
+		nullAt := 0
 		if c.column.MissingThrough > 0 {
-			if _, ok := positions[nullMarker(c.field)]; !ok {
+			var ok bool
+			if nullAt, ok = positions[nullMarker(c.field)]; !ok {
 				return false
 			}
 		}
 		slots = append(slots, at)
+		nullSlots = append(nullSlots, nullAt)
 	}
 	p.hashFields = append([]string(nil), fields...)
 	p.hashPositions = slots
+	p.hashNullPositions = nullSlots
 	return true
 }
 
@@ -137,7 +142,7 @@ func (p *scanProjection) decodeInto(raw aggRow, row []Value) error {
 }
 
 // decodeHashInto preserves decodeInto's metadata order and missing-value rules.
-// Only missing-default rows need a temporary map; ordinary values use bound slots.
+// Bound NULL-marker positions preserve defaults without constructing row maps.
 func (p *scanProjection) decodeHashInto(vals []any, row []Value) error {
 	if len(vals) != len(p.hashFields)+1 {
 		return errorf(adbc.StatusInternal, "unexpected HMGET row width %d", len(vals))
@@ -153,28 +158,19 @@ func (p *scanProjection) decodeHashInto(vals []any, row []Value) error {
 	for _, output := range p.rowID {
 		row[output] = id
 	}
-	var missing aggRow
 	for i := range p.columns {
 		c := &p.columns[i]
 		var v Value
 		var err error
 		if raw, ok := vals[p.hashPositions[i]].(string); ok {
 			v, err = c.decode(raw)
-		} else if c.column.MissingThrough == 0 {
-			v = nullValue(c.column.Type)
 		} else {
-			if missing == nil {
-				missing = aggRow{}
-				if raw, ok := vals[0].(string); ok {
-					missing[rowIDField] = raw
-				}
-				for j, f := range p.hashFields {
-					if raw, ok := vals[j+1].(string); ok {
-						missing[f] = raw
-					}
+			v = nullValue(c.column.Type)
+			if c.column.MissingThrough > 0 && !id.Null {
+				if _, explicitNull := vals[p.hashNullPositions[i]].(string); !explicitNull {
+					v, err = c.column.missingValueForID(id.I)
 				}
 			}
-			v, err = c.column.missingValue(missing)
 		}
 		if err != nil {
 			return errorf(adbc.StatusInternal, "column %q: %v", c.column.Name, err)

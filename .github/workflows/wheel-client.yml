@@ -41,6 +41,13 @@ jobs:
           if [ -f scripts/check_partition_tls.py ] && [ -f scripts/native_partition_redis.py ]; then
             echo 'enabled=true' >> "$GITHUB_OUTPUT"
           fi
+      # The format-16 fixture generates its ACL policy with the configuration
+      # CLI. The native driver under test still comes only from the wheel.
+      - uses: actions/setup-go@v7
+        if: steps.capability.outputs.enabled == 'true' && hashFiles('scripts/snapshot_reader_acl.py') != ''
+        with:
+          go-version-file: go/go.mod
+          cache-dependency-path: go/go.sum
       - uses: actions/download-artifact@v8
         if: steps.capability.outputs.enabled == 'true'
         with:

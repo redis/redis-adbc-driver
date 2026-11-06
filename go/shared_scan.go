@@ -78,7 +78,7 @@ func (e *executor) boundedOrdinaryScan(ctx context.Context, plan *selectPlan, ca
 }
 
 func managedRowIDTable(m *tableMeta) bool {
-	return m != nil && !m.isMem && !isTempSchema(m.Schema) && !isTempAlias(m.Schema) && m.Schema != foreignSchema &&
+	return m != nil && !m.isMem && !isTempSchema(m.Schema) && !isTempAlias(m.Schema) &&
 		!m.Adopted && !m.KeyRows && !m.Foreign && !m.AppIndex && m.RekeyTo == "" && !m.Rewriting && m.KeyPrefix != ""
 }
 

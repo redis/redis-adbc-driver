@@ -8,7 +8,7 @@ import os
 import pyarrow as pa
 import pytest
 
-from .test_partitions import connect, worker_kwargs
+from .test_partitions import connect, worker_kwargs, release_live_partitions
 from .test_partitions_retained import retained_namespace
 from .test_statistics import entries
 
@@ -69,6 +69,7 @@ def test_partition_layout_independent_replay(driver_path, db_kwargs, layout, sou
                         return sorted(zip(ids, column.to_pylist()))
                     assert values(actual) == values(expected)
         finally:
+            release_live_partitions(driver_path, options, parts)
             with connect(driver_path, options) as cleaner:
                 with cleaner.cursor() as cur:
                     cur.execute(f"DROP TABLE IF EXISTS {table}")
@@ -286,5 +287,6 @@ def test_nested_extension_partition_replay(driver_path, db_kwargs, mode):
                     results.append(result)
                 assert pa.concat_tables(results).equals(expected)
         finally:
+            release_live_partitions(driver_path, options, parts)
             with connect(driver_path, options) as cleaner, cleaner.cursor() as cur:
                 cur.execute(f"DROP TABLE IF EXISTS {table}")

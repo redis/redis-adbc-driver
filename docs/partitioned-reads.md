@@ -16,6 +16,36 @@ checks over verified TLS on Redis Software 8.6.2 with 4x QPF. See the
 Other wheel/platform combinations require their own validation. Rebuild from
 source to use changes made after that release, including bounded cursor cleanup.
 
+## Current managed snapshot contract
+
+Rebuild from PR #284 to use the current storage format. Managed live descriptors
+are version 3: the entire set retains the producer's committed generation.
+Workers see the original schema and values despite later DML, ALTER, TRUNCATE,
+DROP/recreation, compaction or producer close. Expired or explicitly released
+sets fail on new reads rather than silently acquiring the latest generation.
+Each active reader holds a separate child pin until completion/release.
+
+The statement option `adbc.redis.partition_result_ttl` applies to live and retained
+production: default 300 seconds, range 1..86400. For live results it bounds when
+new workers may acquire the snapshot; an admitted reader retains its own lease.
+Get statement option `adbc.redis.partition_snapshot_id` after successful live
+production. `DROP PARTITION SNAPSHOT '<id>'` releases admission early, without
+invalidating active readers. Statement/connection close and freeing the C
+partition byte array do not revoke descriptor copies. Retained mode remains the
+option for independently stored durable replay. Legacy version-1 live descriptors
+are rejected by managed snapshot catalogs; regenerate them.
+
+Private managed copies created by HASH adoption or foreign-index discovery also
+support live partitions. A regular worker connection reads the captured copy
+without enabling foreign-index discovery or importing unrelated sources. Ordinary
+SQL discovery and explicit refresh retain their existing options and read-only
+foreign-schema behavior. Old descriptors retain their original copied rows after
+refresh or retirement; application HASHes and index definitions remain external.
+
+This contract supersedes the historical unpinned consistency/lifecycle details
+below, which describe earlier releases. Query-shape and permission restrictions
+remain unless explicitly described by the current snapshot contract.
+
 ## Supported queries
 
 Use column/star projections, arithmetic, casts, CASE, and these deterministic
@@ -46,9 +76,10 @@ Parameter stream failures produce IO errors without including values.
 Scripts, subqueries, views, CTEs, joins, aggregates, grouping, DISTINCT, windows,
 set operations, ORDER BY, LIMIT and OFFSET remain unsupported. Volatile,
 user-dependent and other session-dependent functions remain rejected. Captured
-time zone is the only supported session setting used by expressions. Temporary,
-adopted, foreign-index and legacy tables without a persistent unique key prefix
-are unsupported. Flex remains unsupported. See the
+time zone is the only supported session setting used by expressions. Temporary
+tables, live external HASH/index layouts and legacy tables without persistent
+managed row IDs are unsupported. Managed application/foreign copies use the native
+partition path described above. Flex remains unsupported. See the
 [retained runtime contract](retained-partition-results.md) for global SQL,
 additional layouts and stable replay in the opt-in mode.
 
@@ -89,19 +120,23 @@ with its Arrow schema. A previously populated empty table may return more.
 The string statement option `adbc.redis.partition_strategy` defaults to `rowid`
 (equal-width allocated-ID ranges). Opt-in `balanced` chooses live-row count
 quantiles within the inferred candidate envelope, without estimating residual
-selectivity. It performs at most 256 count queries with a two-second internal count-probe deadline; exhaustion discards
+selectivity. Managed planning counts visible versions under the producer's pin,
+using bounded per-segment masks to exclude replacements and tombstones. It
+performs at most 256 count queries across all segments, with a two-second internal
+deadline after readiness/cap discovery; exhaustion discards
 partial cuts and retains equal-width ranges. Sparse/empty tables with fewer
 live rows than requested partitions also retain the default splits. A candidate
 that would exceed the current cap's per-descriptor subrange budget falls back.
 Normal Redis metadata/transport timeouts still apply outside the probe deadline.
 
-Counts are advisory workload estimates, not frozen membership. Every candidate
-allocated ID remains covered, including currently empty gaps and unfinished inserts below
-the captured watermark. Concurrent writes may make counts unbalanced but do not
-create overlapping ranges or a snapshot. Balanced planning requires Search
+Counts estimate workload without estimating residual selectivity. Every captured
+allocated ID remains covered, including empty gaps. Managed workers retain the
+same committed generation through later writes and DDL; balancing preserves that
+membership. Balanced planning requires Search
 readiness and FT.SEARCH; failures remain explicit. It needs a discoverable cap
 or the configured positive contract to protect range width; if automatic cap
-information is unavailable it retains the default splits. Independent workers
+information is unavailable it retains the default splits. If exact visibility
+masks exceed their bounds, planning also retains equal-width ranges. Independent workers
 need no new descriptor fields or scheduler. More planning work can lose on
 small/already-balanced queries; use the default unless measurements justify it.
 
@@ -376,3 +411,8 @@ compatibility is checked independently on every reader; conversion errors remain
 explicit. OCTET_LENGTH/BIT_LENGTH over VARCHAR/VARBINARY are admitted row-local
 functions. See [Arrow result layouts](arrow-interoperability.md#explicit-result-layouts)
 and [coverage](partition-coverage.md#byte-length-expansion-304).
+
+Live revision-3 descriptors may carry a snapshot capability, supported result
+layouts, or both. Managed catalogs require a valid shared snapshot at read time;
+layout metadata alone never enables a live read of a managed catalog. Layout
+wrappers retain the underlying reader and its snapshot/transport ownership.

@@ -25,18 +25,26 @@ func TestAdoptTextEncoding(t *testing.T) {
 			h.expectRows(`SELECT active, day, clock FROM it_enc ORDER BY created`, "true|2024-01-01|12:00:00.000000", "false|2024-01-02|13:00:00.000000")
 			h.expectRows(`SELECT COUNT(*), MIN(created) FROM it_enc WHERE active`, "1|2024-01-01T12:00:00Z")
 			h.exec(`UPDATE it_enc SET active=NOT active, created=created+INTERVAL '1 day'`)
-			for key, want := range map[string]string{"a": "NO", "b": "true"} {
+			for key, want := range map[string]string{"a": "YES", "b": "false"} {
 				if got, _ := f.raw.HGet(h.ctx, f.prefix+key, "active").Result(); got != want {
 					t.Errorf("%s active = %s", key, got)
 				}
 			}
-			for key, want := range map[string]string{"a": "2024-01-02T12:00:00Z", "b": "2024-01-03 14:00:00+02"} {
+			for key, want := range map[string]string{"a": "2024-01-01T12:00:00Z", "b": "2024-01-02 14:00:00+02"} {
 				if got, _ := f.raw.HGet(h.ctx, f.prefix+key, "created").Result(); got != want {
 					t.Errorf("%s created = %s, want %s", key, got, want)
 				}
 			}
+			h.expectRows(`SELECT __key,active,created FROM it_enc ORDER BY __key`,
+				"it:enc:a|false|2024-01-02T12:00:00Z", "it:enc:b|true|2024-01-03T12:00:00Z")
 			f.hset(f.prefix+"c", "active", "t", "created", "2024-01-04T00:00:00Z")
+			h.expectRows(`SELECT COUNT(*) FROM it_enc WHERE active`, "1")
+			if !f.adopt(o).Applied {
+				t.Fatal("refresh was not published")
+			}
 			h.expectRows(`SELECT COUNT(*) FROM it_enc WHERE active`, "2")
+			h.expectRows(`SELECT __key,active,created FROM it_enc ORDER BY __key`,
+				"it:enc:a|true|2024-01-01T12:00:00Z", "it:enc:b|false|2024-01-02T12:00:00Z", "it:enc:c|true|2024-01-04T00:00:00Z")
 		})
 	}
 }
@@ -60,11 +68,18 @@ func TestSQLForeignIndexDiscovery(t *testing.T) {
 	for _, q := range []string{`UPDATE redis_foreign.it_foreign_idx SET n=0`, `DELETE FROM redis_foreign.it_foreign_idx`, `DROP TABLE redis_foreign.it_foreign_idx`, `CREATE TABLE redis_foreign.x (n integer)`} {
 		h.expectError(q, "read-only")
 	}
-	if n, _ := f.raw.Exists(h.ctx, metaKey(foreignSchema, "it_foreign_idx")).Result(); n != 0 {
-		t.Fatal("foreign discovery persisted metadata")
-	}
+	h.expectRows(`SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='redis_foreign' AND table_name='it_foreign_idx' AND key_prefix LIKE '%~redis_foreign:{meta}:snapshot:16:rows:%'`, "1")
 	f.hset(f.prefix+"new", "name", "New", "active", "true", "n", 4)
+	h.expectRows(`SELECT COUNT(*) FROM redis_foreign.it_foreign_idx`, "2")
+	if err := h.setConnOption(OptionStringForeignIndexesRefresh, "true"); err != nil {
+		t.Fatal(err)
+	}
 	h.expectRows(`SELECT COUNT(*) FROM redis_foreign.it_foreign_idx`, "3")
+	h.expectRows(`SELECT __key,name FROM redis_foreign.it_foreign_idx ORDER BY n`,
+		"it:foreign:alice|Alice", "it:foreign:bob:extra|Nested", "it:foreign:new|New")
+	if err := f.raw.Do(h.ctx, "FT.INFO", "it_foreign_idx").Err(); err != nil {
+		t.Fatal("refresh changed the application index", err)
+	}
 	if err := h.setConnOption(OptionStringForeignIndexes, "false"); err != nil {
 		t.Fatal(err)
 	}

@@ -184,6 +184,15 @@ func (e *executor) runCreateIndex(ctx context.Context, st *CreateIndexStmt) erro
 		fields = append(fields, c.field())
 	}
 	registryKey := sqlIndexKey(m.Schema, st.Name.Name)
+	if e.store.snapshots && !snapshotOwns(ctx, m.prefix()) {
+		if err := e.alterSnapshotTable(ctx, m, nil); err != nil {
+			return err
+		}
+		m, err = e.store.getTable(ctx, m.Schema, m.Name)
+		if err != nil {
+			return err
+		}
+	}
 	registered := false
 	return e.store.updateTableTx(ctx, m.Schema, m.Name, false, func(cur *tableMeta, _ int64) error {
 		registered = false
@@ -228,13 +237,17 @@ func (e *executor) runCreateIndex(ctx context.Context, st *CreateIndexStmt) erro
 				return stateErrorf(stateFeatureNotSupported, "too many indexed columns")
 			}
 			args := append([]any{"FT.ALTER", cur.index(), "SCHEMA", "ADD"}, indexAttrArgs(*c)...)
-			if err := e.store.searchDo(ctx, cur.index(), args...).Err(); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate") {
-				return wrapRedis(err, "failed to add index column")
+			if _, pending := snapshotDeferredIndex(ctx, cur); !pending {
+				if err := e.store.searchDo(ctx, cur.index(), args...).Err(); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate") {
+					return wrapRedis(err, "failed to add index column")
+				}
 			}
 			c.Indexed = true
 		}
-		if err := e.store.awaitIndexReady(ctx, cur.index()); err != nil {
-			return err
+		if _, pending := snapshotDeferredIndex(ctx, cur); !pending {
+			if err := e.store.awaitIndexReady(ctx, cur.index()); err != nil {
+				return err
+			}
 		}
 		registered = true
 		cur.NamedIndexes = append(slices.Clone(cur.NamedIndexes), namedIndex{Name: st.Name.Name, Fields: slices.Clone(fields)})

@@ -25,22 +25,28 @@ import (
 	goredis "github.com/redis/go-redis/v9"
 )
 
-func distinctTestPlan(t *testing.T, h *sqlHarness, sql string) (*executor, *selectPlan, wherePlan) {
+func distinctTestPlan(t *testing.T, h *sqlHarness, sql string, hooks ...goredis.Hook) (*executor, *selectPlan, wherePlan) {
+	_, e, plan, wp := distinctSnapshotTestPlan(t, h, sql, hooks...)
+	return e, plan, wp
+}
+
+func distinctSnapshotTestPlan(t *testing.T, h *sqlHarness, sql string, hooks ...goredis.Hook) (context.Context, *executor, *selectPlan, wherePlan) {
 	t.Helper()
-	e := &executor{store: &store{client: h.rawClient()}, schema: defaultSchema, pushdown: PushdownExact, cache: newExecCache(), now: time.Now().UTC()}
+	st, ctx := h.frozenPlanStore(hooks...)
+	e := &executor{store: st, schema: defaultSchema, pushdown: PushdownExact, cache: newExecCache(), now: time.Now().UTC()}
 	parsed, err := ParseScript(sql)
 	if err != nil {
 		t.Fatal(err)
 	}
-	plan, err := e.planSelect(h.ctx, parsed[0].Stmt.(*SelectStmt), nil)
+	plan, err := e.planSelect(ctx, parsed[0].Stmt.(*SelectStmt), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	wp, err := e.planWhere(h.ctx, plan.sel.Where, plan.meta, nil)
+	wp, err := e.planWhere(ctx, plan.sel.Where, plan.meta, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return e, plan, wp
+	return ctx, e, plan, wp
 }
 
 func TestSQLExactCountDistinct(t *testing.T) {
@@ -90,19 +96,7 @@ func TestSQLExactCountDistinct(t *testing.T) {
 		t.Fatalf("NUL groups: %v", found)
 	}
 	for _, version := range []int64{0, 80400} {
-		e, p, w := distinctTestPlan(t, h, "SELECT COUNT(DISTINCT s) FROM it_distinct_exact")
-		client := h.rawClient()
-		if cc, ok := client.(*goredis.ClusterClient); ok {
-			if err := cc.ForEachMaster(h.ctx, func(_ context.Context, node *goredis.Client) error {
-				node.AddHook(&distinctModuleHook{version: version})
-				return nil
-			}); err != nil {
-				t.Fatal(err)
-			}
-		} else {
-			client.AddHook(&distinctModuleHook{version: version})
-		}
-		e.store = &store{client: client}
+		e, p, w := distinctTestPlan(t, h, "SELECT COUNT(DISTINCT s) FROM it_distinct_exact", &distinctModuleHook{version: version})
 		if _, ok, err := e.indexCountDistinct(h.ctx, p, w, p.aggregateCalls(), nil); err != nil || ok {
 			t.Fatalf("unverified binary equality: %v %v", ok, err)
 		}
@@ -127,6 +121,18 @@ func TestSQLExactCountDistinct(t *testing.T) {
 	h.exec("ALTER TABLE it_distinct_exact ADD COLUMN later BIGINT DEFAULT 9007199254740993")
 	h.expectRows("SELECT COUNT(DISTINCT later) FROM it_distinct_exact", "1")
 	e, p, w := distinctTestPlan(t, h, "SELECT COUNT(DISTINCT later) FROM it_distinct_exact")
+	if _, ok, err := e.indexCountDistinct(h.ctx, p, w, p.aggregateCalls(), nil); err != nil || !ok {
+		t.Fatalf("materialized default index: %v %v", ok, err)
+	}
+	// Snapshot ALTER materializes the default. Retain the virtual-value guard
+	// by presenting the planner with an unmaterialized column descriptor only.
+	p.meta = cloneMeta(p.meta)
+	i, _ := p.meta.resolve("later")
+	if p.meta.Columns[i].Missing != "" {
+		t.Fatal("snapshot default was not materialized")
+	}
+	p.meta.Columns[i].Missing = "9007199254740993"
+	p.meta.Columns[i].MissingThrough = 1
 	if _, ok, err := e.indexCountDistinct(h.ctx, p, w, p.aggregateCalls(), nil); err != nil || ok {
 		t.Fatalf("virtual default fallback: %v %v", ok, err)
 	}
@@ -136,28 +142,15 @@ func TestSQLDistinctPagesAndShards(t *testing.T) {
 	h := newSQLHarness(t)
 	h.dropTables("it_distinct_pages")
 	h.exec("CREATE TABLE it_distinct_pages (g INTEGER,v BIGINT)")
-	st := &store{client: h.rawClient()}
-	meta, err := st.getTable(h.ctx, defaultSchema, "it_distinct_pages")
-	if err != nil {
-		t.Fatal(err)
-	}
 	const distinct = 12003
-	// Each tuple has two rows with different keys/slots, exercising global
-	// deduplication of overlapping values across shards and cursor pages.
-	for start := 0; start < 2*distinct; start += pipelineChunk {
-		pipe := st.client.Pipeline()
-		for i := start; i < min(start+pipelineChunk, 2*distinct); i++ {
-			v := int64(9007199254740992) + int64(i%distinct)
-			pipe.HSet(h.ctx, fmt.Sprintf("%s%d", meta.prefix(), i+1), rowIDField, i+1, "g", i%3, "v", fmt.Sprint(v))
-		}
-		if _, err := pipe.Exec(h.ctx); err != nil {
-			t.Fatal(err)
-		}
-	}
+	// Duplicate complete tuples span independent row-ID ranges and cursor
+	// pages. Managed generations intentionally share the catalog hash slot.
+	h.exec(fmt.Sprintf("INSERT INTO it_distinct_pages SELECT i%%3,9007199254740992+i%%%d FROM generate_series(0,%d) AS g(i)", distinct, 2*distinct-1))
 	sql := "SELECT g,COUNT(DISTINCT v) FROM it_distinct_pages GROUP BY g ORDER BY g"
 	h.expectRows(sql, "0|4001", "1|4001", "2|4001")
 	h.expectRows("SELECT COUNT(DISTINCT v) FROM it_distinct_pages", "12003")
 	e, p, w := distinctTestPlan(t, h, sql)
+	st, meta := e.store, p.meta
 	if _, ok, err := e.indexCountDistinct(h.ctx, p, w, p.aggregateCalls(), nil); err != nil || !ok {
 		t.Fatalf("page strategy: %v %v", ok, err)
 	}
@@ -167,51 +160,25 @@ func TestSQLDistinctPagesAndShards(t *testing.T) {
 		t.Fatal("cancelled query succeeded")
 	}
 	ctx, cancel = context.WithCancel(h.ctx)
-	client := h.rawClient()
 	hook := &distinctCancelHook{cancel: cancel}
-	if cc, ok := client.(*goredis.ClusterClient); ok {
-		node, err := cc.MasterForKey(h.ctx, meta.index())
-		if err != nil {
-			t.Fatal(err)
-		}
-		node.AddHook(hook)
-	} else {
-		client.AddHook(hook)
-	}
-	e.store = &store{client: client}
+	e, p, w = distinctTestPlan(t, h, sql, hook)
 	if _, _, err := e.indexCountDistinct(ctx, p, w, p.aggregateCalls(), nil); err == nil || !hook.opened {
 		t.Fatalf("cancel after cursor open: %v opened=%v", err, hook.opened)
 	}
 	// Use an unhooked client for subsequent reads and assert cursor cleanup.
 	e.store = st
-	info, err := st.searchDo(h.ctx, meta.index(), "FT.INFO", meta.index()).Result()
+	h.expectNoIndexCursors(st, meta.index())
+	// Alternate integer spelling is equal in SQL, but not as raw strings.
+	// Validate canonical spelling and fall back rather than overcounting.
+	oldValue, err := st.client.HGet(h.ctx, meta.prefix()+"1", "v").Result()
 	if err != nil {
 		t.Fatal(err)
 	}
-	fields := info.([]any)
-	found := false
-	for i := 0; i+1 < len(fields); i += 2 {
-		if fields[i] != "cursor_stats" {
-			continue
-		}
-		stats := fields[i+1].([]any)
-		for j := 0; j+1 < len(stats); j += 2 {
-			if stats[j] == "index_total" {
-				found = true
-				if stats[j+1] != int64(0) {
-					t.Fatalf("leaked cursor: %v", stats)
-				}
-			}
-		}
+	h.patchStoredRow("public", "it_distinct_pages", "1", "v", "+9007199254740992")
+	if got, err := st.client.HGet(h.ctx, meta.prefix()+"1", "v").Result(); err != nil || got != oldValue {
+		t.Fatal("noncanonical fixture changed a pinned source", err)
 	}
-	if !found {
-		t.Fatal("FT.INFO omitted cursor stats")
-	}
-	// Alternate integer spelling is equal in SQL, but not as raw strings.
-	// Validate canonical spelling and fall back rather than overcounting.
-	if err := st.client.HSet(h.ctx, meta.prefix()+"1", "v", "+9007199254740992").Err(); err != nil {
-		t.Fatal(err)
-	}
+	e, p, w = distinctTestPlan(t, h, sql)
 	if _, ok, err := e.indexCountDistinct(h.ctx, p, w, p.aggregateCalls(), nil); err != nil || ok {
 		t.Fatalf("canonical fallback: %v %v", ok, err)
 	}

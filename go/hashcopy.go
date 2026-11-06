@@ -41,8 +41,8 @@ type HashCopyOptions struct {
 	Schema, Table string
 	// Mode is the bulk ingest mode: adbc.OptionValueIngestModeCreate (the
 	// default), Append, Replace or CreateAppend. A copy that fails in create
-	// mode drops the table it created; in the others, the rows copied
-	// before the failure stay.
+	// mode publishes nothing. In snapshot catalogs all modes publish their
+	// complete input atomically; failed append/replace leaves the old table.
 	Mode string
 	// IndexColumns are the columns to index (nil: every one that can be).
 	IndexColumns []string
@@ -104,6 +104,9 @@ func CopyHashes(ctx context.Context, options map[string]string, o HashCopyOption
 		return nil, err
 	}
 	defer s.Release()
+	if err := s.conn.st.initializeSnapshotImport(ctx); err != nil {
+		return nil, err
+	}
 	if o.Schema == "" {
 		o.Schema = s.conn.db.schema
 	}
@@ -149,7 +152,7 @@ func CopyHashes(ctx context.Context, options map[string]string, o HashCopyOption
 	}
 	if _, err := st.ExecuteUpdate(ctx); err != nil {
 		var ae adbc.Error
-		if o.Mode == adbc.OptionValueIngestModeCreate && !(asAdbc(err, &ae) && ae.Code == adbc.StatusAlreadyExists) {
+		if !s.conn.st.snapshots && o.Mode == adbc.OptionValueIngestModeCreate && !(asAdbc(err, &ae) && ae.Code == adbc.StatusAlreadyExists) {
 			// The table is this copy's: the ingest created it.
 			_ = s.conn.st.dropTable(context.WithoutCancel(ctx), o.Schema, o.Table, true)
 		}
@@ -167,6 +170,7 @@ func scanHashes(ctx context.Context, options map[string]string, o HashCopyOption
 	if err != nil {
 		return nil, err
 	}
+	ctx = c.context(ctx)
 	s := &hashScan{ctx: ctx, conn: c, o: o, seen: map[string]struct{}{}}
 	s.refs.Store(1)
 	if err := s.guess(); err != nil {

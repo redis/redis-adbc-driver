@@ -470,7 +470,7 @@ func (e *executor) semiJoinState(ctx context.Context, sq *Subquery) *semiResult 
 	r := &semiResult{}
 	e.cache.semi[sq] = r
 	plan := sq.semi.plan
-	if plan.meta.isMem {
+	if plan.meta.isMem || plan.meta.SnapshotOverlay && !e.snapshotIndexable(ctx, plan.meta) {
 		// Each per-row run filters the whole relation anyway.
 		r.eager = true
 		return r
@@ -483,7 +483,12 @@ func (e *executor) semiJoinState(ctx context.Context, sq *Subquery) *semiResult 
 	}
 	n := int64(len(wp.keys))
 	if wp.keys == nil && !wp.none {
-		if n, err = e.store.countMatches(ctx, plan.meta.index(), wp.query); err != nil {
+		if plan.meta.SnapshotOverlay {
+			n, err = e.store.countSnapshotCandidates(ctx, plan.meta, wp.query)
+		} else {
+			n, err = e.store.countMatches(ctx, plan.meta.index(), wp.query)
+		}
+		if err != nil {
 			r.failed = true
 			return r
 		}

@@ -5,6 +5,41 @@ reference. Start with the [README](../README.md) for an overview, the Apache Arr
 feature matrix and a quick start. Historical test and benchmark results retain
 their original server distributions, dates and settings.
 
+## Managed-table snapshot format
+
+Managed tables now have [always-on statement snapshots](snapshots.md). The linked
+page defines the current guarantee, limits and supported deployments and takes
+precedence over the historical layout and feature descriptions below. New
+catalogs normally require an empty isolated database; explicit imports may
+initialize alongside application data after rejecting legacy driver metadata.
+Storage protocol version 16 rejects legacy catalogs and prior draft formats 1–15 without
+modification; no upgrade path is provided. ALTER and temporary objects are
+supported. AdoptHashes creates a managed copy; repeating Apply explicitly refreshes
+it. Managed imports retain the original application key as a queryable `__key`
+system column, excluded from `SELECT *` and public schemas; SQL-added rows have
+NULL provenance. Refresh replaces the private copy's rows and inferred schema.
+Foreign indexes are exposed as managed copies after enabling foreign_indexes;
+set connection option `adbc.redis.foreign_indexes_refresh=true` (or call Go API
+`RefreshForeignIndexes`) for subsequent refreshes. Capturing external data is not
+atomic with application writers; published copies have normal snapshot guarantees.
+Source HASHes/indexes remain unchanged. Live partition sets retain one producer generation;
+retained production pins one managed generation and publishes independent Arrow
+results. Retained reader-only connections do not initialize a managed catalog.
+Snapshot-aware HASH inspection/copy and reference-aware sweep are available.
+
+Each write copies a metadata manifest, shares unchanged data and appends changed
+row versions/tombstones. Automatic background compaction starts at four segments; a hard eight-segment
+bound applies retryable backpressure instead of foreground copying. Jobs persist
+bounded-batch checkpoints and preserve newer deltas when published. Segmented
+reads merge visibility in the driver and disable unsafe Search pushdowns. Fixed
+manifest, reader, staging and time limits apply. Primary proxy and Cluster API
+connections are supported with RESP3 and TLS.
+Active-Active remains unsupported and verified noeviction is required. Rename/rekey
+allocates a new private identity without moving pinned rows. Metadata copies use
+immutable key directories instead of SCAN cursors. See the
+[recovery evidence](sdlc/changes/snapshot-cluster/validation.md). It is not a
+multi-statement transaction implementation.
+
 ## Contents
 
 - [Server requirements](#server-requirements)
@@ -301,82 +336,90 @@ update recovery](sql-rbac.md).
 
 ### ACL users
 
-If the database has ACL users, the driver's user needs these commands. The
-lists were checked with users that have exactly these rules, running the Go
-integration tests and the ADBC validation suite on Redis 8.6.2, standalone
-and a 3-shard cluster:
+Format 16 stores row HASHes under
+`<table-access-id>~<escaped-schema>:{meta}:snapshot:16:rows:<generation-id>:`.
+The access identity survives DML, TRUNCATE and rewrites; DROP/recreate allocates
+a new identity. Schema `adbc` is escaped as `%61dbc`. Existing storage formats
+are refused without migration. See [snapshots](snapshots.md).
+
+The command profile for trusted writers is:
 
 ```text
-# Every connection: queries, DDL, DML, views, bulk ingest, temporary tables
-+ping +info +ft._list +ft.create +ft.alter +ft.info +ft.dropindex +ft.aggregate +ft.cursor +ft.search +ft.profile +get +set +del +exists +incrby +hset +hget +hmget +hgetall +hdel +hincrby +hexists +sadd +srem +smembers +sismember +multi +exec +watch +unwatch
-# A cluster (OSS Cluster API) also: the client reads the slot map and the commands' key positions
++ping +info +ft._list +ft.create +ft.alter +ft.info +ft.dropindex +ft.aggregate +ft.cursor +ft.search +ft.profile +get +set +del +exists +incrby +hset +hget +hmget +hgetall +hdel +hincrby +hexists +sadd +srem +smembers +sismember +multi +exec +watch +unwatch +eval +evalsha +copy +dbsize +time +type +unlink +pexpireat +hlen +hstrlen +hscan +scard +memory|usage +zadd +zrem +zcard +zrange +zrangebylex +zrangebyscore +zremrangebyscore +zscore +zmscore +zlexcount
+# Cluster API clients also need
 +cluster|slots +command
-# adbc.redis.rename_rekey also
-+incr +dump +restore
 ```
 
-- **Keys:** `~adbc:*` (the driver's metadata), `~<schema>:*` for each schema
-  the user works in (`~public:*` by default), and `~pg_temp_*` for temporary
-  tables. Temporary tables and bulk ingest need no other commands.
-- **What they're for:** `PING` and `INFO` to connect (`INFO` also tells a
-  cluster apart, and gives the server version); the `FT.*` commands for the
-  tables' indexes and queries (`FT.PROFILE` checks that a `LIKE 'abc%'`
-  filter's prefix expansion was complete: without it such filters are
-  still right, but are evaluated by the driver; `FT.INFO` lists an index's
-  attributes for `ALTER TABLE … ADD COLUMN`); the string, hash and set
-  commands for metadata and rows (`HGETALL` reads pending re-keying
-  renames on every connect, and `HEXISTS` checks that a new table's key
-  prefix was never released); and `MULTI` / `EXEC` / `WATCH` / `UNWATCH`
-  for metadata transactions. `ALTER COLUMN … TYPE`, which rewrites the
-  rows to new keys, needs only these (it copies rows with `HGETALL` and
-  `HSET`, not `DUMP` / `RESTORE`).
-- **Not needed:** RESP3 negotiation uses `HELLO`, but `HELLO` and `AUTH` are
-  always allowed. Add `+select` if the URI names a database other than 0 (not
-  tested), and `+client|setname` if it sets `client_name`. RESP2-only
-  deployments are unsupported.
-- **On a cluster,** ACL users are per node: create the user on every node.
-- **For example,** for dbt on a cluster, with `rename_rekey`:
+`+evalsha` permits cached control-script execution without ACL audit refusals.
+Existing EVAL-only writers remain compatible through the explicit command-refusal
+fallback, which can record an EVALSHA denial before selecting EVAL.
 
-  ```text
-  ACL SETUSER dbt on >password resetchannels ~adbc:* ~public:* ~pg_temp_* +ping +info +ft._list +ft.create +ft.alter +ft.info +ft.dropindex +ft.aggregate +ft.cursor +ft.search +ft.profile +get +set +del +exists +incrby +hset +hget +hmget +hgetall +hdel +hincrby +hexists +sadd +srem +smembers +sismember +multi +exec +watch +unwatch +cluster|slots +command +incr +dump +restore
-  ```
+Writers need `~adbc:*` for metadata, `~adbc_snapshot16_{meta}_*` for
+their versioned Search index namespace, and
+`~*~<escaped-schema>:{meta}:snapshot:16:rows:*` for each permitted schema.
+Temporary tables use `~*~pg_temp_*:{meta}:snapshot:16:rows:*`. Keep external HASH
+patterns separate. Writers are trusted to mutate the internal catalog. Atomic
+scripts and their hash/set/sorted-set commands support publication, retention
+and bounded reclamation. Snapshot `rename_rekey` uses the same writer profile;
+the old mutable recipe's `INCR`, `DUMP` and `RESTORE` are no longer required.
 
-Partition workers also need `+ft.info` to verify Search readiness; a configured
-partition scan cap does not bypass that requirement. Ordinary readers retain
-their complete HASH fallback when that optional optimization cannot check readiness.
-
-A **read-only user** needs these commands, and read access to the keys:
+For example, a trusted writer for `public` and temporary tables uses:
 
 ```text
-+ping +info +ft._list +ft.aggregate +ft.cursor +ft.search +ft.profile +get +exists +hget +hmget +hgetall +smembers +sismember
+ACL SETUSER dbt on >password resetchannels ~adbc:* ~adbc_snapshot16_{meta}_* ~*~public:{meta}:snapshot:16:rows:* ~*~pg_temp_*:{meta}:snapshot:16:rows:* +ping +info +ft._list +ft.create +ft.alter +ft.info +ft.dropindex +ft.aggregate +ft.cursor +ft.search +ft.profile +get +set +del +exists +incrby +hset +hget +hmget +hgetall +hdel +hincrby +hexists +sadd +srem +smembers +sismember +multi +exec +watch +unwatch +eval +evalsha +copy +dbsize +time +type +unlink +pexpireat +hlen +hstrlen +hscan +scard +memory|usage +zadd +zrem +zcard +zrange +zrangebylex +zrangebyscore +zremrangebyscore +zscore +zmscore +zlexcount
 ```
+
+`HELLO` and `AUTH` are always allowed. Add `+select` for a nonzero URI database,
+and `+client|setname` if it sets `client_name`. RESP2-only deployments are
+unsupported. Apply per-node ACLs to every primary when using Cluster API;
+Redis Software manages users and roles through its management API.
+
+A **read-only user** needs a registered backend role/ACL domain and the generated
+lease policy. Generate it without connecting to Redis:
 
 ```text
-ACL SETUSER reader on >password resetchannels %R~adbc:* %R~public:* +ping +info +ft._list +ft.aggregate +ft.cursor +ft.search +ft.profile +get +exists +hget +hmget +hgetall +smembers +sismember
+redis-adbc reader-acl -domain <backend-role-or-acl-identity>
 ```
 
-(On a cluster, also `+cluster|slots +command`.)
+Using administrator credentials, register the returned namespace in its registry.
+Users sharing one backend ACL share that domain. Its selectors permit only
+writes to its lease HASH and additive active-directory registration; they grant
+no catalog/row writes or removal of other domains. Keep each parenthesized ACL
+selector as one argument to `ACL SETUSER`. See [SQL RBAC](sql-rbac.md) for
+Software role configuration. Keep its positive metadata grants: `%R~adbc:*`
+would expose import journals containing row values.
 
-- **What it can do:** queries, views, `information_schema`, and the ADBC
-  metadata calls (`GetObjects`, `GetTableSchema`): what dbt's tests and
-  `dbt docs generate` run (this was tested with the driver, not with dbt).
-- **What it can't:** every change is refused before anything changes, with
-  Redis's reason, for example `failed to allocate row ids: NOPERM User reader
-  has no permissions to run the 'multi' command` for an `INSERT`. That
-  includes temporary tables (allocating a temporary schema needs `INCRBY`),
-  so dbt unit tests and snapshots need a user that can write.
-- **Connecting needs no writes,** with two exceptions. The first connection
-  to a new database records the table registry, so a read-only user can't
-  be the first to connect (`failed to build the table registry: NOPERM …`).
-  And a connection that finds a re-keying rename or a temporary schema that
-  another connection abandoned cleans it up: a read-only user can't, and
-  leaves that to the next connection that can write. (Redis's `ACL LOG`
-  then shows the refused commands.)
+The ordinary query command profile alongside these lease controls is:
+
+```text
++ping +info +ft._list +ft.info +ft.aggregate +ft.cursor +ft.search +ft.profile +get +exists +hget +hmget +hgetall +smembers +sismember +zmscore
+```
+
+Add `%R~<table-access-id>~*` per SELECT-authorized logical table, or deliberately
+grant a whole schema with `%R~*~<escaped-schema>:{meta}:snapshot:16:rows:*`.
+Managed copies need permission on their private rows, separate from external
+source grants needed for import/refresh. Cluster clients also need
+`+cluster|slots +command`.
+
+Queries, views, `information_schema`, `GetObjects` and `GetTableSchema` use
+immutable metadata and the caller's row grants. Broad snapshot reads need
+`FT.INFO` for readiness; finite direct-HASH partitions validate their exact row
+directory and pinned descriptor without Search commands. Denying `HMGET` still
+denies their values.
+
+Restricted DML/DDL, including temporary-table creation, is refused at admission
+with `NOPERM restricted snapshot reader cannot acquire a writer lease` before
+published data or schema changes. The old SQL MULTI/WATCH errors no longer
+represent this boundary; raw transactions still preserve their backend errors.
+Initialize a new database as administrator first. Restricted Open inspects
+capability without mutation and leaves recovery, retirement and temporary
+cleanup to authorized writers.
 
 #### Search commands and key patterns
 
-RediSearch commands that change indexes declare no keys, so key patterns
-don't apply to them:
+Search ACL checks vary with server version and deployment. The Software 8.8
+writer validation requires the versioned index namespace grant above for
+`FT.CREATE`. Keep Search DDL permissions restricted:
 
 - **`FT.DROPINDEX … DD`** deletes every row of a table, even for a user that
   may only read the table's keys. `FT.CREATE`, `FT.ALTER` and the
@@ -392,12 +435,11 @@ don't apply to them:
 
 #### Permission errors
 
-A command the user may not run fails with Redis's `NOPERM` error. One that
-Redis refuses inside a transaction is reported with the
-command and its key, rather than as `EXECABORT Transaction discarded because
-of previous errors`: `failed to create view: NOPERM No permissions to access
-a key ('set' on adbc:{meta}:view:public:v, in a MULTI transaction that Redis
-discarded)`.
+A command the user may not run fails with Redis's `NOPERM` error. SQL
+snapshot writes use the writer-lease boundary above. For raw backend
+transactions, a refused queued command is reported with its command and key
+while preserving `EXECABORT` for the client, so the transaction cannot appear
+to have succeeded.
 
 ### Limitations
 
@@ -420,6 +462,11 @@ indexes it didn't create, even one with the name a new table's index would
 take (see "Indexes the driver didn't create are left alone" below).
 
 #### Redis Flex experimental stopgap
+
+On this always-on statement-snapshot branch, managed Flex source execution is
+currently rejected. The upstream stopgap below does not yet implement the
+snapshot index/publication contract. Its integration remains a feature-parity
+gate; independent reader-only retained-result replay is separate.
 
 Use `adbc.redis.flex=true` for the [experimental bounded-reader stopgap](redis-flex-stopgap.md).
 The following compatibility discussion describes default mode and historical
@@ -510,92 +557,58 @@ the shared library. It connects with `-uri`, else `$REDIS_URI`, else
 
 ### Check collections
 
-Without `-prefix`, `check` lists the collections it finds: the
-prefixes (up to the last `:`) of HASH keys in a sample of 10,000 keys, the
-prefixes of search indexes on HASHes, and the driver's own tables. With a
-prefix, it reads a sample of the HASHes, guesses the columns (their type in
-a copy, and in place), and prints a checklist for each way of making them
-a table. Each item is `ok`, `warn`, `missing` (the suggested command
-provides it) or `blocker` (something to change first), with a fix:
+Without `-prefix`, `check` lists collections from a 10,000-key sample, Search
+index prefixes and the driver's tables. With a prefix it samples HASHes and
+reports two ways to import them: `copy`, including its optional key column,
+and `adopt`, which always creates a private managed copy. Application changes
+become visible only after an explicit refresh.
 
 ```bash
 build/redis-adbc check -prefix user: -table users
 ```
 
+An illustrative, shortened checklist is:
+
 ```text
-Collection user: on Redis 8.6.2 (standalone)
-  501 HASH keys; the columns are guessed from 501 of them
-  search index idx:users (prefix user:): 499 documents, 2 indexing failures
-
-Guessed columns (as table public.users):
-  COLUMN      COPY TYPE                    IN-PLACE TYPE     PRESENT  NOTES
-  _key        VARCHAR                      -                 100%     each HASH's key
-  name        VARCHAR                      VARCHAR           100%
-  age         VARCHAR                      VARCHAR           100%     2 of 501 values aren't BIGINT (such as "n/a" in user:500)
-  active      BOOLEAN                      BOOLEAN           99.8%    true/false text
-  created_at  TIMESTAMP(6) WITH TIME ZONE  TIMESTAMP(6) WITH TIME ZONE  99.8%    ISO 8601 text
-  balance     NUMERIC(38,2)                NUMERIC(38,2)     99.8%
-  zip         VARCHAR                      VARCHAR           99.8%    numbers with leading zeros, kept as text
-  avatar      VARBINARY                    VARBINARY         10.0%    not UTF-8; 50 values have a NUL byte
-
 SQL, copied into a driver table (redis-adbc copy): READY
-  [ok]      the Query Engine (RediSearch) is available
-  [ok]      501 HASH keys under user:
-  [ok]      the columns are guessed from all 501 HASHes
-  [ok]      every field has a column type (8 columns)
-  [warn]    age is VARCHAR: 2 of 501 values aren't BIGINT (such as "n/a" in user:500)
-            fix: -type age=BIGINT -on-error null reads them as NULL
-  [ok]      public.users doesn't exist yet: copy creates it
-  [ok]      its rows go under public:users:, which has no keys, and its index is idx:public:users
-  [ok]      a copy needs about 0.10 MB (MEMORY USAGE of the sampled HASHes, scaled to all of them), plus its index; 14 MB are in use, and there is no maxmemory limit
+  ...
   run: redis-adbc copy -prefix user: -table users
 
-SQL, adopted in place (redis-adbc adopt): READY
-  [ok]      the Query Engine (RediSearch) is available
-  [ok]      no driver table's rows can be under user:
-  [ok]      public.users doesn't exist yet
-  [ok]      every HASH under user: is a row (501)
-  [warn]    the application's index idx:users can't serve: it has had 2 indexing failures, so it may leave HASHes out
-  [missing] a search index in the driver's format on user:
-            fix: adopt creates idx:public:users:adopted, over the HASHes that are rows, including those the application writes later; it takes memory of its own (the application's idx:users stays as it is, and isn't used)
-  [missing] the table's metadata (adbc:{meta}:table:public:users)
-            fix: adopt writes it
-  [warn]    a write by the application of a value a numeric column can't hold (text, an empty value, NaN) takes that HASH out of the index, and so out of the table
-  [warn]    SQL UPDATE and DELETE change the application's HASHes (an UPDATE that would leave a HASH without fields is refused); INSERT requires an explicit __key, TRUNCATE requires adbc.redis.truncate_adopted=true, and ADD COLUMN and a re-keying RENAME are refused, and DROP TABLE drops only the metadata and an index adopt created
-  run: redis-adbc adopt -prefix user: -table users
+SQL, imported as a managed copy (redis-adbc adopt): READY
+  [ok]      capture source HASHes directly; SQL uses a private managed index
+  [ok]      501 HASHes under user: are rows
+  [missing] a private managed copy and its own Search index
+            fix: Apply publishes the observed source rows atomically
+  [ok]      source HASHes and application indexes remain unchanged
+  [warn]    capture is a scan of observed data, not an atomic snapshot of application writers
+            fix: pause source writes if a point-in-time source image is required
+  run: redis-adbc adopt -prefix user: -table users -apply
 ```
 
-`-json` writes the same report as JSON. `check` writes nothing to Redis,
-and exits 0 whenever it could check (whether or not a checklist is
-ready). What the checklists look for:
+Items are `ok`, `warn`, `missing` (the suggested command provides it), or
+`blocker`. `check` exits successfully whenever inspection completes, including
+when a checklist is blocked. It does not change application data, initialize a
+catalog or publish metadata; reading an existing catalog uses a metadata pin.
+`-json` returns the same report. The existing `sql_in_place` checklist identifier
+and `in_place_type` JSON field remain for API compatibility; their current
+meaning is managed import. Text output labels the type column `IMPORT TYPE`.
 
-- **Copy:** the Query Engine (`FT._LIST`); not Redis Flex (the probe the
-  driver runs on connect); HASH keys under the prefix, and how many the
-  columns were guessed from; columns that a few odd values made `VARCHAR`;
-  `-type` overrides that some sampled values don't convert to; fields that
-  can't be columns (`__rowid`, other names starting with `__`, an empty
-  name); the target isn't a view (an existing table is a warning: copy
-  with `-mode replace` or `append`); no keys already under the key prefix
-  the new table would take (they would merge with its rows), which also
-  rules out copying a collection into its own prefix; column names that
-  can't be indexed (only letters, digits and `_` can, and at most 200
-  columns); memory: the sampled HASHes' `MEMORY USAGE` scaled to all of
-  them, against `used_memory`, `maxmemory` and `maxmemory_policy` (summed
-  over a cluster's primaries). It is a blocker when the copy doesn't fit,
-  or leaves less than 10% free under an `allkeys-*` policy (which could
-  evict the originals); otherwise less than 10% free is a warning.
-- **In place:** the Query Engine, and not Redis Flex; that no driver
-  table's rows can be under the prefix (and that the prefix isn't the
-  driver's own `adbc:` or `pg_temp_`); the table, view and index names;
-  which HASHes would be rows: those with no `:` after the prefix, whatever
-  their keys (`user:42`, `user:alice`), while keys such as `user:42:prefs`
-  are another collection's, and stay out of the table; columns that are
-  weaker in place than in a copy; `-type` overrides that some values
-  aren't stored as; the application's index adopt would read the rows
-  through and what its attributes answer, or why none can serve; what
-  adopt creates; and the hazards below. For a table
-  that was adopted already, it checks the index's indexing failures, and
-  whether redis-adbc v0.0.11 adopted it (see below).
+- **Copy** checks Search availability, source keys and inferred columns,
+  sampled conversion errors, destination collisions, indexable column names,
+  and estimated memory. It allocates private generation storage; external keys
+  under an old logical destination prefix do not merge into it. `replace` and
+  `append` operate on the managed destination. The noeviction requirement remains.
+- **Managed import** uses the same source-decoding and readiness rules as
+  `adopt`. Only keys with no further `:` after the source prefix qualify as rows.
+  Nested HASHes and copy's synthetic key column do not influence import type
+  inference. It checks the target schema, view/table collisions and source
+  identity for explicit refresh. A compatible application index may supply
+  capture; it is never reused as the destination's live index.
+
+The two checklists reuse the existing sample without another source scan.
+Partial samples carry a warning; `-sample -1` inspects all HASHes. Apply validates
+its complete captured input before atomic publication. Inspection does not make
+arbitrary application writers participate in the snapshot protocol.
 
 ### Column inference
 
@@ -655,7 +668,44 @@ build/redis-adbc copy -prefix user: -table users -type age=BIGINT -on-error null
 - **Memory:** the HASHes are read and ingested in batches of up to 10,000
   rows, whatever the collection's size.
 
+### Import or refresh a managed copy
+
+Current `redis-adbc adopt` and Go `AdoptHashes` read application HASHes into a
+private managed table. A dry run reports what Apply would do. Repeating Apply
+for the same source and destination explicitly refreshes the copy; application
+HASHes and indexes remain unchanged. SQL writes affect the copy. Queries can
+read its original key explicitly:
+
+```sql
+SELECT __key, name FROM users WHERE __key = 'user:42';
+```
+
+`__key` is provenance rather than a Redis address for the managed row. It stays
+out of `SELECT *` and table schema discovery, survives compaction/DDL/partitions,
+and is NULL for private rows inserted through SQL. Source changes remain invisible
+until refresh. Refresh recaptures the source rows/schema and replaces private
+SQL changes. See [current snapshot semantics](snapshots.md) and the
+[source-key evidence](sdlc/changes/snapshot-parity/source-key-validation.md).
+
+SQL, MERGE and Arrow writes modify the private table; imported `__key` is
+read-only provenance and new rows have NULL `__key`. Qualified joins can read
+it. Arrow replace changes the public schema/data while preserving the import
+origin, so a later explicit refresh can still recapture the application source.
+See the [managed-write evidence](sdlc/changes/snapshot-parity/import-write-validation.md).
+
+The application index is used only during capture. The report's `source_index`
+identifies it; SQL uses the managed copy's private index. `-own-index` captures
+HASHes directly. `-index-columns` controls the private index independently of
+`-index`, including renamed columns and decoded text values. Missing or
+incompatible requested source indexes produce a blocker checklist; Apply returns
+that report plus an error without replacing the copy. See the
+[index-policy evidence](sdlc/changes/snapshot-parity/import-index-validation.md).
+
 ### Adopt HASHes in place
+
+This subsection records historical in-place behavior. Current managed-copy
+imports follow the section above; the ownership and live-read rules below do
+not describe always-on snapshot catalogs.
 
 `adopt` reads every HASH under the prefix, runs the in-place checklist on
 all of them, and prints what it would do. Nothing changes
@@ -832,7 +882,7 @@ commands:
 
 ```text
 +ping +info +scan +hkeys +hmget +ft._list +ft.info +ft.aggregate +memory|usage
-+get +exists +smembers +sismember +hget +hexists
++get +exists +smembers +sismember +hget +hexists +hgetall
 # A cluster (OSS Cluster API) also
 +cluster|slots +command
 ```
@@ -864,6 +914,19 @@ the keys (`~user:*`), and the row scripts' permissions:
 ```
 
 ### Sweep leftover rows
+
+Current snapshot catalogs use registered reference ownership. `redis-adbc sweep`
+previews currently eligible rows without reclaiming them. `-apply` advances
+bounded metadata/data cleanup, protects active readers/writers and reports
+confirmed deletions. JSON sets `managed_snapshots=true`; `metadata_pending` and
+`more` distinguish deferred work from a completed pass. Repeat Apply when more
+work remains. A failed pass returns an error plus its partial report. Unknown
+objects and application HASHes/indexes are not selected by a broad prefix scan.
+See [snapshot cleanup semantics](snapshots.md) and the
+[sweep validation](sdlc/changes/snapshot-parity/sweep-validation.md).
+
+The remainder of this subsection records historical legacy-prefix behavior;
+those registry, reuse and permission recipes do not describe current snapshot GC.
 
 `DROP TABLE`, `TRUNCATE` and a re-keying rename release the table's key
 prefix, and no table takes it again (see "Key prefixes are
@@ -1001,19 +1064,16 @@ Deleted 13 HASHes under 2 prefixes.
     driver. A constant with an ASCII control character other than
     whitespace can't be written in a TAG query, so it is checked by the
     driver.
-  - Tables created by earlier versions (no `tags_checked` in their
-    columns' metadata) count as truncated until a background check,
-    started by the first statement that reads one on a connection, has read
-    every row (about 0.4 s for 100,000 rows of 10 columns) and recorded
-    what they hold. It records nothing if the table's metadata changed
-    meanwhile (a writer raising a level), and starts over; a connection
-    whose check failed tries again a minute later.
-  - A statement that read a table's metadata before another connection
-    raised a level may see that connection's new rows as the index holds
-    them (count a new `'ab '` as `'ab'`, or sort or read a new value with a
-    NUL byte up to that byte), in the same window in which it may or may
-    not see them at all. Earlier versions of the driver don't raise levels
-    when they write.
+  - Missing `tags_checked` facts count as truncated. Native catalogs retain
+    those conservative facts in their immutable generation; they do not run
+    the legacy in-place background checker. An explicit converting rewrite,
+    such as `ALTER TABLE t ALTER COLUMN s TYPE VARCHAR USING s`, validates
+    the values into fresh storage. Earlier storage formats remain rejected,
+    with no migration path.
+  - TAG facts and visible row images share the statement's pinned generation.
+    A concurrent writer raising a level cannot change that reader's values
+    or optimizer facts. A private rewrite whose input changes refuses
+    publication with `40001`; the driver does not replay its SQL.
 - **NaNs in the index**: `REAL` and `DOUBLE PRECISION` columns hold `NaN`,
   `Infinity` and `-Infinity`, as in Postgres. RediSearch doesn't index a
   HASH whose `NUMERIC` field is `NaN`, so up to v0.0.8 a row holding one was
@@ -1318,8 +1378,9 @@ results are built whole before `ExecuteQuery` returns.
   - without aggregates, `GROUP BY`, `DISTINCT`, set operations, window
     functions or correlated subqueries;
   - in insertion order, or ordered by indexed columns the index sorts
-    exactly. An `ORDER BY` the driver sorts itself (an expression,
-    `NULLS FIRST`, …) reads the rows whole. Rows that tie on a large
+    exactly. Nullable numeric `NULLS FIRST` ordering can use the index when
+    a pinned visibility proof finds no NULL candidates. Other driver-side
+    ordering (such as an expression) reads the rows whole. Rows that tie on a large
     number in the index are sorted again as they stream (see "Ties in the
     sort vector" above).
 
@@ -1563,11 +1624,16 @@ once, then empty terminal sets on repeated calls. Reset the query/binding or
 option to begin another execution. This is finite partition discovery; it does
 not provide continuous subscriptions or CDC.
 
-Descriptors capture a row-ID high watermark, not a shared snapshot. Later
-inserts are excluded; updates, deletes and retries can change results. Output
-order is unspecified. Close each worker's Arrow reader promptly to release its
-Search cursor. Descriptors contain query data but no URI or password, and do
-not grant access to Redis.
+Managed live descriptors retain one shared producer generation, including its
+schema and values across later writes and DROP/recreation. Output order is
+unspecified. `adbc.redis.partition_result_ttl` bounds admission of new readers;
+active readers own independent renewable pins. Get statement option
+`adbc.redis.partition_snapshot_id` after production, then use
+`DROP PARTITION SNAPSHOT '<id>'` to prevent new readers before expiry. Producer
+close and freeing descriptor bytes do not revoke worker copies. Close worker
+Arrow readers promptly to release their pins and Search cursors. Descriptors
+contain query data but no URI or password and do not grant access to Redis.
+Legacy version-1 live descriptors must be regenerated for snapshot catalogs.
 
 Opt-in `adbc.redis.partition_result_mode=retained` executes a bounded global SQL
 query once and stores immutable final Arrow chunks. It adds ordering, aggregates,
@@ -4245,6 +4311,8 @@ before opting in; unsupported CUDA operations return errors without fallback.
 
 | Option | Level | Meaning |
 |-|-|-|
+| `adbc.redis.statement_snapshots` | database, connection | Always `true` for managed tables. Explicit `true` is accepted; `false` is rejected. See [snapshots](snapshots.md). |
+| `adbc.redis.foreign_indexes_refresh` | connection, write-only | Set `true` to refresh managed copies of external HASH indexes atomically per index. Does not modify source HASHes/indexes. Requires a managed connection. |
 | `adbc.redis.stream_required` | statement | `false` (default) permits existing materializing fallback. `true` requires an unordered incremental managed-table/key-source SELECT or UNION ALL, rejecting blocking plans and fallback before execution. See [policy and limits](arrow-interoperability.md#streaming-inventory). |
 | `adbc.redis.extension_policy` | statement | `reject` (default) or explicit `storage` normalization for top-level allowlisted `arrow.uuid`/`arrow.json` fields. Canonical SQL schemas persist; unknown/nested semantics reject. See [extension policy](arrow-interoperability.md#explicit-extension-storage-normalization). |
 | `adbc.redis.result_layouts` | statement | JSON map of exact result names to explicit physical Arrow layouts; SQL/table schemas remain canonical. See [layout contract](arrow-interoperability.md#explicit-result-layouts). |
@@ -4274,7 +4342,8 @@ before opting in; unsupported CUDA operations return errors without fallback.
 | `adbc.redis.partition_result_mode` | statement | `live` (default) or `retained`: bounded global execution and immutable final Arrow replay. See [retained results](../docs/retained-partition-results.md). |
 | `adbc.redis.partition_result_namespace` | database | Explicit tenant namespace for retained publication/replay; 1–64 ASCII letters/digits/underscores/hyphens. |
 | `adbc.redis.partition_reader_only` | database | `true` bypasses source bootstrap and refuses SQL/ingestion; requires a result namespace. Default `false`. |
-| `adbc.redis.partition_result_ttl` | statement | Fixed retained lifetime after publication, integer/string seconds 1–86400 (default 300). Reads do not renew it. |
+| `adbc.redis.partition_result_ttl` | statement | Live snapshot admission lifetime or fixed retained-result lifetime after publication, integer/string seconds 1–86400 (default 300). Reads do not renew the group/result lifetime. |
+| `adbc.redis.partition_snapshot_id` | statement (read only) | Last successful live partition set's release ID. `DROP PARTITION SNAPSHOT '<id>'` blocks new readers; admitted readers retain their pins. |
 | `adbc.redis.partition_result_limits` | database | Partial JSON output/namespace policy: `job_bytes`, `total_bytes`, `chunk_bytes`, `chunks`, `jobs`; publishers must agree. See [limits](../docs/retained-partition-results.md#limits-and-persistence). |
 | `adbc.redis.partition_execution_limits` | statement | Partial JSON cumulative coordinator resource limits; over-budget queries fail before publishing descriptors. See [limits](../docs/retained-partition-results.md#limits-and-persistence). |
 | `adbc.redis.partition_control_persistence` | database | `auto` checks that persistent quota keys are protected from eviction; `guaranteed` requires independent operator verification when CONFIG is restricted. |
@@ -4897,8 +4966,9 @@ operands to `BIGINT` when the wider range or an Arrow int64 schema is required.
 
 Default descending sorts put NULLs first, including windows and ordered
 aggregates. Write `DESC NULLS LAST` to retain the old ordering. Nullable
-descending sorts with NULLs first are sorted by the driver; `NOT NULL` keys or
-explicit `NULLS LAST` can retain index sorting.
+numeric sorts with NULLs first can retain index ordering when a proof over the
+pinned visible candidates finds no NULLs. Other cases use the exact driver sort;
+`NOT NULL` keys and explicit `NULLS LAST` retain their usual index eligibility.
 
 `DATE_ADD(timestamptz, interval [, zone])` and `DATE_SUBTRACT` implement the
 PostgreSQL 16 overloads, using the session time zone unless a zone is supplied.

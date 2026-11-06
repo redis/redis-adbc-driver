@@ -1,0 +1,416 @@
+{
+  "runs": [
+    {
+      "order": 0,
+      "variant": "before",
+      "source": "ac3c2600509c789641164916742621a13ff1fd99",
+      "driver_sha256": "0b2fff1130adad291f1f2e99d1a17227c66f215fc718c278ab1813323b9fc4f3",
+      "harness_sha256": "4c03d4a1b5987371578ad4edbfa182d442586a6f11236dc6235ec544dd9dbf75",
+      "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+      "machine": "arm64",
+      "redis_version": "8.6.2",
+      "software_shards": 3,
+      "qpf": 4,
+      "noeviction": true,
+      "input_rows": 20000,
+      "visible_rows": 19999,
+      "storage_model": "snapshot",
+      "snapshot_protocol": 15,
+      "initial_segments": null,
+      "segment_count_note": "not sampled; maintenance enabled during workload",
+      "unrelated_tables": 32,
+      "wide_columns": null,
+      "repeats": 5,
+      "warmups": 1,
+      "timing": "execute + complete Arrow fetch + independent validation",
+      "cases": {
+        "selective": {
+          "median_ms": 13.875709002604708,
+          "samples_ms": [
+            13.875709002604708,
+            14.305666001746431,
+            15.10516699636355,
+            13.385957980062813,
+            13.6085000121966
+          ],
+          "output_rows": 0
+        },
+        "matching_selective": {
+          "median_ms": 14.011416991706938,
+          "samples_ms": [
+            13.94737500231713,
+            14.230749977286905,
+            14.225083985365927,
+            14.011416991706938,
+            13.961749995360151
+          ],
+          "output_rows": 2
+        },
+        "grouped": {
+          "median_ms": 14.893249986926094,
+          "samples_ms": [
+            14.38570799655281,
+            17.241291992831975,
+            14.888833014992997,
+            14.893249986926094,
+            15.6173330033198
+          ],
+          "output_rows": 64
+        },
+        "distinct": {
+          "median_ms": 15.870832983637229,
+          "samples_ms": [
+            16.861541982507333,
+            16.501542006153613,
+            15.870832983637229,
+            14.828499988652766,
+            15.31325001269579
+          ],
+          "output_rows": 1
+        },
+        "topk": {
+          "median_ms": 16.844208992552012,
+          "samples_ms": [
+            18.236167001305148,
+            16.857458016602322,
+            16.82666700799018,
+            16.69208297971636,
+            16.844208992552012
+          ],
+          "output_rows": 10
+        },
+        "topk_nulls_last": {
+          "median_ms": 14.042166993021965,
+          "samples_ms": [
+            14.042166993021965,
+            13.319999998202547,
+            14.491999987512827,
+            14.995749981608242,
+            13.994958979310468
+          ],
+          "output_rows": 10
+        },
+        "point": {
+          "median_ms": 11.461832997156307,
+          "samples_ms": [
+            12.597709021065384,
+            11.386875004973263,
+            10.98900000215508,
+            11.6915000253357,
+            11.461832997156307
+          ],
+          "output_rows": 1
+        }
+      }
+    },
+    {
+      "order": 1,
+      "variant": "after",
+      "source": "885b2bc6ff3ee3ae9fb608d8f7a0d12e4622ee1a",
+      "driver_sha256": "c6ec818538424e7cd443970f41a6e046b3b3f183a38c2d46c166efbf90be1082",
+      "harness_sha256": "4c03d4a1b5987371578ad4edbfa182d442586a6f11236dc6235ec544dd9dbf75",
+      "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+      "machine": "arm64",
+      "redis_version": "8.6.2",
+      "software_shards": 3,
+      "qpf": 4,
+      "noeviction": true,
+      "input_rows": 20000,
+      "visible_rows": 19999,
+      "storage_model": "snapshot",
+      "snapshot_protocol": 15,
+      "initial_segments": null,
+      "segment_count_note": "not sampled; maintenance enabled during workload",
+      "unrelated_tables": 32,
+      "wide_columns": null,
+      "repeats": 5,
+      "warmups": 1,
+      "timing": "execute + complete Arrow fetch + independent validation",
+      "cases": {
+        "selective": {
+          "median_ms": 12.831416010158136,
+          "samples_ms": [
+            20.602916018106043,
+            14.722040999913588,
+            12.831416010158136,
+            12.346999981673434,
+            12.552291009342298
+          ],
+          "output_rows": 0
+        },
+        "matching_selective": {
+          "median_ms": 13.675541995326057,
+          "samples_ms": [
+            16.974457976175472,
+            13.675541995326057,
+            13.870082999346778,
+            12.88308299263008,
+            13.510333985323086
+          ],
+          "output_rows": 2
+        },
+        "grouped": {
+          "median_ms": 13.405541016254574,
+          "samples_ms": [
+            13.315124990185723,
+            13.405541016254574,
+            13.175959000363946,
+            13.796625018585473,
+            13.433582993457094
+          ],
+          "output_rows": 64
+        },
+        "distinct": {
+          "median_ms": 13.66662498912774,
+          "samples_ms": [
+            13.761000009253621,
+            14.069166994886473,
+            13.523875008104369,
+            13.66662498912774,
+            13.410541985649616
+          ],
+          "output_rows": 1
+        },
+        "topk": {
+          "median_ms": 16.336250002495944,
+          "samples_ms": [
+            16.336250002495944,
+            15.642707992810756,
+            15.954792004777119,
+            16.755832999479026,
+            16.614583000773564
+          ],
+          "output_rows": 10
+        },
+        "topk_nulls_last": {
+          "median_ms": 12.282082985620946,
+          "samples_ms": [
+            12.032875005388632,
+            12.237958988407627,
+            12.282082985620946,
+            12.609166995389387,
+            13.273916993057355
+          ],
+          "output_rows": 10
+        },
+        "point": {
+          "median_ms": 11.045541992643848,
+          "samples_ms": [
+            43.04283298552036,
+            11.32020799559541,
+            10.665332985809073,
+            11.045541992643848,
+            10.620624991133809
+          ],
+          "output_rows": 1
+        }
+      }
+    },
+    {
+      "order": 2,
+      "variant": "after",
+      "source": "885b2bc6ff3ee3ae9fb608d8f7a0d12e4622ee1a",
+      "driver_sha256": "c6ec818538424e7cd443970f41a6e046b3b3f183a38c2d46c166efbf90be1082",
+      "harness_sha256": "4c03d4a1b5987371578ad4edbfa182d442586a6f11236dc6235ec544dd9dbf75",
+      "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+      "machine": "arm64",
+      "redis_version": "8.6.2",
+      "software_shards": 3,
+      "qpf": 4,
+      "noeviction": true,
+      "input_rows": 20000,
+      "visible_rows": 19999,
+      "storage_model": "snapshot",
+      "snapshot_protocol": 15,
+      "initial_segments": null,
+      "segment_count_note": "not sampled; maintenance enabled during workload",
+      "unrelated_tables": 32,
+      "wide_columns": null,
+      "repeats": 5,
+      "warmups": 1,
+      "timing": "execute + complete Arrow fetch + independent validation",
+      "cases": {
+        "selective": {
+          "median_ms": 12.964416004251689,
+          "samples_ms": [
+            14.132625015918165,
+            12.306125019676983,
+            12.964416004251689,
+            12.773417023709044,
+            13.974041998153552
+          ],
+          "output_rows": 0
+        },
+        "matching_selective": {
+          "median_ms": 14.140665996819735,
+          "samples_ms": [
+            14.241915981983766,
+            14.507541985949501,
+            13.043624989222735,
+            14.140665996819735,
+            12.970999989192933
+          ],
+          "output_rows": 2
+        },
+        "grouped": {
+          "median_ms": 14.018125017173588,
+          "samples_ms": [
+            14.717000012751669,
+            13.988208025693893,
+            14.018125017173588,
+            13.913125003455207,
+            14.65525000821799
+          ],
+          "output_rows": 64
+        },
+        "distinct": {
+          "median_ms": 14.966500020818785,
+          "samples_ms": [
+            13.39262499823235,
+            15.170916012721136,
+            14.69170901691541,
+            15.579583996441215,
+            14.966500020818785
+          ],
+          "output_rows": 1
+        },
+        "topk": {
+          "median_ms": 17.361957987304777,
+          "samples_ms": [
+            18.810165987815708,
+            17.361957987304777,
+            16.6965409880504,
+            17.188541998621076,
+            18.6297089967411
+          ],
+          "output_rows": 10
+        },
+        "topk_nulls_last": {
+          "median_ms": 13.491749996319413,
+          "samples_ms": [
+            12.840207986300811,
+            13.526750000892207,
+            13.491749996319413,
+            13.294791977386922,
+            14.497083990136161
+          ],
+          "output_rows": 10
+        },
+        "point": {
+          "median_ms": 11.912916990695521,
+          "samples_ms": [
+            14.630666992161423,
+            11.919167009182274,
+            10.68412497988902,
+            11.912916990695521,
+            9.980832983274013
+          ],
+          "output_rows": 1
+        }
+      }
+    },
+    {
+      "order": 3,
+      "variant": "before",
+      "source": "ac3c2600509c789641164916742621a13ff1fd99",
+      "driver_sha256": "0b2fff1130adad291f1f2e99d1a17227c66f215fc718c278ab1813323b9fc4f3",
+      "harness_sha256": "4c03d4a1b5987371578ad4edbfa182d442586a6f11236dc6235ec544dd9dbf75",
+      "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+      "machine": "arm64",
+      "redis_version": "8.6.2",
+      "software_shards": 3,
+      "qpf": 4,
+      "noeviction": true,
+      "input_rows": 20000,
+      "visible_rows": 19999,
+      "storage_model": "snapshot",
+      "snapshot_protocol": 15,
+      "initial_segments": null,
+      "segment_count_note": "not sampled; maintenance enabled during workload",
+      "unrelated_tables": 32,
+      "wide_columns": null,
+      "repeats": 5,
+      "warmups": 1,
+      "timing": "execute + complete Arrow fetch + independent validation",
+      "cases": {
+        "selective": {
+          "median_ms": 13.943999976618215,
+          "samples_ms": [
+            17.042624996975064,
+            13.943999976618215,
+            12.801790988305584,
+            13.315999996848404,
+            14.31545801460743
+          ],
+          "output_rows": 0
+        },
+        "matching_selective": {
+          "median_ms": 14.681250002468005,
+          "samples_ms": [
+            14.681250002468005,
+            17.167665995657444,
+            15.153000014834106,
+            14.048250013729557,
+            14.276041998527944
+          ],
+          "output_rows": 2
+        },
+        "grouped": {
+          "median_ms": 15.327125001931563,
+          "samples_ms": [
+            14.931500016245991,
+            15.327125001931563,
+            17.679582990240306,
+            14.66104100109078,
+            15.746332996059209
+          ],
+          "output_rows": 64
+        },
+        "distinct": {
+          "median_ms": 16.173125011846423,
+          "samples_ms": [
+            18.574167013866827,
+            21.57395798712969,
+            16.173125011846423,
+            15.809707983862609,
+            15.78704098938033
+          ],
+          "output_rows": 1
+        },
+        "topk": {
+          "median_ms": 17.34183300868608,
+          "samples_ms": [
+            17.34183300868608,
+            17.40166699164547,
+            17.10783297312446,
+            16.567292012041435,
+            18.81254100590013
+          ],
+          "output_rows": 10
+        },
+        "topk_nulls_last": {
+          "median_ms": 13.690292020328343,
+          "samples_ms": [
+            14.095042017288506,
+            14.395792008144781,
+            13.690292020328343,
+            13.461999973515049,
+            13.236458005849272
+          ],
+          "output_rows": 10
+        },
+        "point": {
+          "median_ms": 11.460000008810312,
+          "samples_ms": [
+            11.052916990593076,
+            11.460000008810312,
+            11.053791997255757,
+            11.726458003977314,
+            11.738708009943366
+          ],
+          "output_rows": 1
+        }
+      }
+    }
+  ]
+}

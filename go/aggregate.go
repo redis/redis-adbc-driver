@@ -39,9 +39,10 @@ import (
 // The fields are loaded last, so only the rows that survive sorting and
 // limiting are read.
 type aggRequest struct {
-	meta  *tableMeta
-	index string
-	query string
+	meta       *tableMeta
+	visibility []snapshotIndexQuery
+	index      string
+	query      string
 	// rowFilter keeps the documents that are rows (tableMeta.rowFilter).
 	rowFilter string
 	groupBy   []any     // raw APPLY/GROUPBY/REDUCE arguments
@@ -122,6 +123,9 @@ func (s *store) countMatches(ctx context.Context, index, query string) (int64, e
 	if err != nil {
 		return 0, wrapRedis(err, "FT.SEARCH failed")
 	}
+	if s.snapshots && snapshotReplyWarning(reply) {
+		return 0, errorf(adbc.StatusIO, "snapshot search returned a partial-result warning")
+	}
 	return parseSearchCount(reply)
 }
 
@@ -171,11 +175,15 @@ func (s *store) aggregate(ctx context.Context, req *aggRequest) ([]aggRow, error
 // read through the same connection. Redis deletes a cursor left unread for
 // its idle time (300 seconds by default).
 type aggCursor struct {
-	store   *store
-	node    searchConn
-	index   string
-	count   int
-	bounded *rangeReader
+	sources  []aggRequest
+	child    *aggCursor
+	source   int
+	snapshot bool
+	store    *store
+	node     searchConn
+	index    string
+	count    int
+	bounded  *rangeReader
 	// first is the page the pipeline returned, until next returns it.
 	first   []aggRow
 	pending bool
@@ -186,6 +194,16 @@ type aggCursor struct {
 
 // openAggregate runs the pipeline and reads its first page.
 func (s *store) openAggregate(ctx context.Context, req *aggRequest) (*aggCursor, error) {
+	if req.visibility != nil {
+		sources := make([]aggRequest, 0, len(req.visibility))
+		for _, query := range req.visibility {
+			copy := *req
+			copy.visibility = nil
+			copy.index, copy.query, copy.rowFilter = query.segment.Index, andSnapshotQuery(req.query, query.query), query.rowFilter
+			sources = append(sources, copy)
+		}
+		return &aggCursor{store: s, sources: sources}, nil
+	}
 	if s.flex {
 		return s.openRangeReader(ctx, req)
 	}
@@ -212,10 +230,14 @@ func (s *store) openAggregate(ctx context.Context, req *aggRequest) (*aggCursor,
 	if err != nil {
 		return nil, wrapRedis(err, "FT.AGGREGATE failed")
 	}
-	c := &aggCursor{store: s, node: node, index: req.index, count: req.pageRows(), pending: true, listLengths: req.listLengths}
+	c := &aggCursor{store: s, snapshot: s.snapshots, node: node, index: req.index, count: req.pageRows(), pending: true, listLengths: req.listLengths}
 	if c.first, c.cursor, err = parseCursorReplyLists(reply, c.listLengths); err != nil {
 		c.close(ctx)
 		return nil, err
+	}
+	if c.snapshot && snapshotReplyWarning(reply) {
+		c.close(ctx)
+		return nil, errorf(adbc.StatusIO, "snapshot aggregation returned a partial-result warning")
 	}
 	return c, nil
 }
@@ -223,6 +245,34 @@ func (s *store) openAggregate(ctx context.Context, req *aggRequest) (*aggCursor,
 // next returns the next page of rows, or io.EOF after the last one. The
 // cursor is deleted when next fails.
 func (c *aggCursor) next(ctx context.Context) ([]aggRow, error) {
+	if c.sources != nil {
+		for c.source < len(c.sources) {
+			if err := cancelled(ctx); err != nil {
+				c.close(ctx)
+				return nil, err
+			}
+			if c.child == nil {
+				child, err := c.store.openAggregate(ctx, &c.sources[c.source])
+				if err != nil {
+					c.close(ctx)
+					return nil, err
+				}
+				c.child = child
+			}
+			page, err := c.child.next(ctx)
+			if errors.Is(err, io.EOF) {
+				c.child.close(ctx)
+				c.child = nil
+				c.source++
+				continue
+			}
+			if err != nil {
+				c.close(ctx)
+			}
+			return page, err
+		}
+		return nil, io.EOF
+	}
 	if c.bounded != nil {
 		return c.bounded.next(ctx)
 	}
@@ -246,6 +296,9 @@ func (c *aggCursor) next(ctx context.Context) ([]aggRow, error) {
 	}
 	page, cursor, err := parseCursorReplyLists(reply, c.listLengths)
 	c.cursor = cursor
+	if err == nil && c.snapshot && snapshotReplyWarning(reply) {
+		err = errorf(adbc.StatusIO, "snapshot cursor returned a partial-result warning")
+	}
 	if err != nil {
 		c.close(ctx)
 		return nil, err
@@ -260,6 +313,13 @@ const cursorCleanupTimeout = time.Second
 // expires. Cleanup is best effort and bounded independently of user-configured
 // read timeouts: a missing DEL reply must not hang cancellation or Release.
 func (c *aggCursor) close(ctx context.Context) {
+	if c.child != nil {
+		c.child.close(ctx)
+		c.child = nil
+	}
+	if c.sources != nil {
+		c.source = len(c.sources)
+	}
 	if c.bounded != nil {
 		c.bounded.closed = true
 		c.bounded.ranges = nil

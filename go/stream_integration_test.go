@@ -144,22 +144,32 @@ func readInts(rdr array.RecordReader) (vals []int64, batches []int, err error) {
 
 // cursorOf returns the id of a stream's open cursor, or 0.
 func cursorOf(rdr array.RecordReader) int64 {
-	if r, ok := rdr.(*streamReader); ok && r.it != nil && r.it.cur != nil {
+	if r, ok := inspectionReader(rdr).(*streamReader); ok && r.it != nil && r.it.cur != nil {
 		return r.it.cur.cursor
 	}
 	return 0
 }
 
 // delCursor deletes a cursor of a table's index, on the node that runs its
-// searches, and reports whether it was there.
+// searches, and reports whether it was there. Resolve the current binding under
+// one pin; retained-generation tests must carry their original physical index.
 func (h *sqlHarness) delCursor(raw goredis.UniversalClient, table string, id int64) bool {
 	h.t.Helper()
-	st := &store{client: raw}
-	meta, err := st.getTable(h.ctx, defaultSchema, table)
+	st, ctx, pin := h.inspectionSnapshot(raw)
+	defer pin.release()
+	meta, err := st.getTable(ctx, defaultSchema, table)
 	if err != nil {
 		h.t.Fatal(err)
 	}
-	return st.searchDo(h.ctx, meta.index(), "FT.CURSOR", "DEL", meta.index(), id).Err() == nil
+	err = st.searchDo(ctx, meta.index(), "FT.CURSOR", "DEL", meta.index(), id).Err()
+	if err == nil {
+		return true
+	}
+	if strings.Contains(err.Error(), "Cursor not found") || strings.Contains(err.Error(), "Cursor does not exist") {
+		return false
+	}
+	h.t.Fatal("cursor inspection failed", err)
+	return false
 }
 
 func sequence(from, n, step int64) []int64 {
@@ -441,6 +451,50 @@ func TestSQLStreamResults(t *testing.T) {
 		}
 	})
 
+	t.Run("numeric NULL order follows visible candidates", func(t *testing.T) {
+		rdr, n := h.openStream(h.ctx, h.conn, "SELECT id, label FROM "+table+" ORDER BY qty NULLS FIRST, id", nil, small)
+		defer rdr.Release()
+		var expected []int64
+		for qty := range 10 {
+			expected = append(expected, sequence(int64(qty), streamRows/10, 10)...)
+		}
+		var actual []int64
+		for rdr.Next() {
+			rec := rdr.RecordBatch()
+			ids, labels := rec.Column(0).(*array.Int64), rec.Column(1).(*array.String)
+			for i := range ids.Len() {
+				id := ids.Value(i)
+				if labels.IsNull(i) || labels.Value(i) != fmt.Sprintf("r%d", id) {
+					t.Fatalf("id/label mismatch at %d", id)
+				}
+				actual = append(actual, id)
+			}
+		}
+		if n != -1 || rdr.Err() != nil || !slices.Equal(actual, expected) {
+			t.Fatalf("null-free numeric order: count=%d rows=%d err=%v", n, len(actual), rdr.Err())
+		}
+		// An actual visible NULL still requires the exact materializing fallback.
+		h.dropTables("it_stream_null_order")
+		h.exec("CREATE TABLE it_stream_null_order(id BIGINT, qty INTEGER)")
+		h.exec("INSERT INTO it_stream_null_order VALUES (1,3),(2,1),(0,NULL)")
+		nulls, count := h.openStream(h.ctx, h.conn, "SELECT id FROM it_stream_null_order ORDER BY qty NULLS FIRST,id", nil, small)
+		defer nulls.Release()
+		ids, _, err := readInts(nulls)
+		if count != 3 || err != nil || !slices.Equal(ids, []int64{0, 2, 1}) {
+			t.Fatalf("visible NULL fallback: count=%d ids=%v err=%v", count, ids, err)
+		}
+	})
+
+	t.Run("distinct streams complete unique ids", func(t *testing.T) {
+		rdr, n := h.openStream(h.ctx, h.conn, "SELECT DISTINCT id FROM "+table, nil, map[string]string{OptionStringStreamRequired: "true", OptionIntStreamBatchRows: "1000"})
+		defer rdr.Release()
+		ids, batches, err := readInts(rdr)
+		slices.Sort(ids)
+		if err != nil || n != -1 || !slices.Equal(ids, sequence(0, streamRows, 1)) || slices.ContainsFunc(batches, func(n int) bool { return n > 1000 }) {
+			t.Fatalf("distinct stream: count=%d ids=%d batches=%v err=%v", n, len(ids), batches, err)
+		}
+	})
+
 	t.Run("materialized", func(t *testing.T) {
 		h.dropTables("it_stream_k")
 		h.exec("CREATE TABLE it_stream_k (k INTEGER, name VARCHAR)")
@@ -452,7 +506,7 @@ func TestSQLStreamResults(t *testing.T) {
 		}{
 			{"SELECT id FROM " + table, map[string]string{OptionStringStreamResults: "false"}, streamRows},
 			{"SELECT id FROM " + table + " ORDER BY id % 10, id", small, streamRows},
-			{"SELECT id, label FROM " + table + " ORDER BY qty NULLS FIRST, id", small, streamRows},
+			{"SELECT id, label FROM " + table + " ORDER BY qty NULLS FIRST, id", map[string]string{OptionStringStreamResults: "false"}, streamRows},
 			{"SELECT DISTINCT id FROM " + table, small, streamRows},
 			{"SELECT id, ROW_NUMBER() OVER (ORDER BY id) FROM " + table, small, streamRows},
 			{"SELECT t.id FROM " + table + " t JOIN it_stream_k k ON k.k = t.qty", small, 2 * streamRows / 10},
@@ -494,4 +548,118 @@ func TestSQLStreamResults(t *testing.T) {
 			t.Errorf("%s = %d, want 42", OptionIntStreamBatchRows, v)
 		}
 	})
+}
+
+// Public segmented streams retain exact images across unrelated later
+// publications. Arrow consumer buffers outlive both the pin and connection.
+func TestSQLStreamSnapshotLifetime(t *testing.T) {
+	const table = "it_stream_snapshot"
+	for _, action := range []string{"finish", "release", "cancel", "connection"} {
+		t.Run(action, func(t *testing.T) {
+			h := newSQLHarness(t)
+			h.setupStreamTable(table, streamRows)
+			h.exec("UPDATE " + table + " SET label=NULL,qty=99 WHERE id=20000")
+			h.exec("DELETE FROM " + table + " WHERE id=21000")
+			raw := h.rawClient()
+			reader := newSQLHarness(t)
+			ctx, cancel := context.WithCancel(h.ctx)
+			defer cancel()
+			rdr, n := h.openStream(ctx, reader.conn, "SELECT id,label,qty FROM "+table+" ORDER BY __rowid", nil, map[string]string{OptionIntStreamBatchRows: "37"})
+			defer func() {
+				if rdr != nil {
+					rdr.Release()
+				}
+			}()
+			stream, ok := inspectionReader(rdr).(*streamReader)
+			if !ok || n != -1 || stream.snapshot == nil || stream.it == nil || !stream.it.meta.SnapshotOverlay || len(stream.it.meta.snapshotSegments()) < 2 {
+				t.Fatal("expected a pinned native segmented stream")
+			}
+			original := cloneMeta(stream.it.meta)
+			token := stream.snapshot.token
+			seen := int64(0)
+			check := func(rec arrow.RecordBatch) {
+				t.Helper()
+				if rec.NumRows() > 37 {
+					t.Fatal("unbounded stream batch", rec.NumRows())
+				}
+				for i := 0; i < int(rec.NumRows()); i++ {
+					if seen == 21000 {
+						seen++
+					}
+					id := rec.Column(0).(*array.Int64)
+					label := rec.Column(1).(*array.String)
+					qty := rec.Column(2).(*array.Int32)
+					if id.IsNull(i) || id.Value(i) != seen {
+						t.Fatal("stream identity changed", seen)
+					}
+					if seen == 20000 {
+						if !label.IsNull(i) || qty.IsNull(i) || qty.Value(i) != 99 {
+							t.Fatal("stream lost replacement/NULL", seen)
+						}
+					} else if label.IsNull(i) || label.Value(i) != fmt.Sprintf("r%d", seen) || qty.IsNull(i) || qty.Value(i) != int32(seen%10) {
+						t.Fatal("stream value changed", seen)
+					}
+					seen++
+				}
+			}
+			if !rdr.Next() {
+				t.Fatal("first segmented batch", rdr.Err())
+			}
+			check(rdr.RecordBatch())
+			retained := rdr.RecordBatch()
+			retained.Retain()
+			defer retained.Release()
+			// Change values outside the already buffered first batch, then retire the
+			// entire binding. None of these current images belong to the old stream.
+			h.exec("UPDATE " + table + " SET label='later' WHERE id=10000")
+			h.exec("TRUNCATE " + table)
+			h.exec("INSERT INTO " + table + " VALUES (999999,'new',9)")
+			h.exec("DROP TABLE " + table)
+			h.exec("CREATE TABLE " + table + " (id BIGINT,label TEXT,qty INTEGER)")
+			h.exec("INSERT INTO " + table + " VALUES (888888,'replacement',8)")
+			snapshotReapTest(&store{client: raw, snapshots: true}, h.ctx)
+			if !raw.HExists(h.ctx, snapshotCatalogKey, "p:"+token).Val() {
+				t.Fatal("active stream lost reader control")
+			}
+			for _, seg := range original.snapshotSegments() {
+				if count, err := raw.ZCard(h.ctx, snapshotMembers(snapshotDataID(seg.Prefix))).Result(); err != nil || count != seg.Rows {
+					t.Fatal("DDL reclaimed live stream source", count, err)
+				}
+			}
+			switch action {
+			case "finish":
+				for rdr.Next() {
+					check(rdr.RecordBatch())
+				}
+				if err := rdr.Err(); err != nil || seen != streamRows {
+					t.Fatal("incomplete old stream", seen, err)
+				}
+			case "release":
+				rdr.Release()
+				rdr = nil
+			case "cancel":
+				cancel()
+				if rdr.Next() || !isStatus(rdr.Err(), adbc.StatusCancelled) {
+					t.Fatal("cancelled native stream survived", rdr.Err())
+				}
+			case "connection":
+				if err := reader.conn.Close(h.ctx); err != nil {
+					t.Fatal(err)
+				}
+				if rdr.Next() || !isStatus(rdr.Err(), adbc.StatusInvalidState) {
+					t.Fatal("closed native stream survived", rdr.Err())
+				}
+			}
+			if raw.HExists(h.ctx, snapshotCatalogKey, "p:"+token).Val() {
+				t.Fatal("finished stream retained reader control")
+			}
+			for _, seg := range original.snapshotSegments() {
+				h.expectSnapshotReleased(raw, seg.Prefix, seg.Index)
+			}
+			if retained.NumRows() != 37 || retained.Column(0).(*array.Int64).Value(0) != 0 || retained.Column(1).(*array.String).Value(0) != "r0" {
+				t.Fatal("retained Arrow buffer changed after cleanup")
+			}
+			h.expectRows("SELECT id,label,qty FROM "+table, "888888|replacement|8")
+		})
+	}
 }

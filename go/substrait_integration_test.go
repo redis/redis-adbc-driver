@@ -329,7 +329,12 @@ func TestSubstraitIntegrationScanBudget(t *testing.T) {
 	defer statement.Close(h.ctx)
 	conn := statement.(*statementImpl).conn
 	e := conn.executor()
-	ctx := context.WithValue(h.ctx, subBudgetKey{}, &subWork{rows: subMaxRows - 19})
+	ctx, pin, err := conn.store.acquireSnapshot(h.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pin.release()
+	ctx = context.WithValue(ctx, subBudgetKey{}, &subWork{rows: subMaxRows - 19})
 	plan, err := p.bind(ctx, e)
 	if err != nil {
 		t.Fatal(err)
@@ -440,7 +445,12 @@ func TestSubstraitIntegrationAdopted(t *testing.T) {
 	// Build the discovery vector from the table's stored public schema; the
 	// values themselves are asserted independently against application HASHes.
 	impl := statement.(*statementImpl)
-	meta, err := impl.conn.store.getTable(f.h.ctx, "public", "it_sub_adopted")
+	metadataCtx, pin, err := impl.conn.store.acquireSnapshot(f.h.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	meta, err := impl.conn.store.getTable(metadataCtx, "public", "it_sub_adopted")
+	pin.release()
 	if err != nil {
 		t.Fatal(err)
 	}

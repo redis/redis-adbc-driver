@@ -23,9 +23,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
-	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -115,12 +114,13 @@ func (h *sqlHarness) expectTypes(table string, want ...string) {
 // attrTypes lists a table's index attributes as "attribute TYPE", in order.
 func (h *sqlHarness) attrTypes(raw goredis.UniversalClient, table string) string {
 	h.t.Helper()
-	st := &store{client: raw}
-	meta, err := st.getTable(h.ctx, defaultSchema, table)
+	st, ctx, pin := h.inspectionSnapshot(raw)
+	defer pin.release()
+	meta, err := st.getTable(ctx, defaultSchema, table)
 	if err != nil {
 		h.t.Fatal(err)
 	}
-	reply, err := st.searchDo(h.ctx, meta.index(), "FT.INFO", meta.index()).Result()
+	reply, err := st.searchDo(ctx, meta.index(), "FT.INFO", meta.index()).Result()
 	if err != nil {
 		h.t.Fatal(err)
 	}
@@ -143,19 +143,35 @@ func (h *sqlHarness) lastNames(raw goredis.UniversalClient, table string) tableN
 }
 
 // expectRolledBack checks that a failed ALTER left a table as it was: its
-// metadata (meta, as stored before), and nothing of the rewrite: the names
-// it took are free again, with no keys or index, and no job is left.
+// metadata (meta, as stored before), and consistent row ownership after
+// bounded reclamation of its private rewrite.
 func (h *sqlHarness) expectRolledBack(raw goredis.UniversalClient, table, meta string) {
 	h.t.Helper()
 	if got := h.rawMeta(raw, defaultSchema, table); got != meta {
 		h.t.Errorf("%s: metadata changed\n got: %s\nwant: %s", table, got, meta)
 	}
-	prefix, _ := h.tableNames(raw, defaultSchema, table)
-	if h.rekeyPending(raw, prefix) {
-		h.t.Errorf("%s: a rewrite is still recorded", table)
+	// Aborted private generations retire through the snapshot reference graph;
+	// the old mutable rename/name registries do not own these objects.
+	st := &store{client: raw, snapshots: true}
+	snapshotReapTest(st, h.ctx)
+	assertSnapshotDataReferences(h.t, h, st)
+	graph, err := raw.HGetAll(h.ctx, snapshotMetadataGraph).Result()
+	if err != nil {
+		h.t.Fatal(err)
 	}
-	if nm := h.lastNames(raw, table); nm.prefix != prefix {
-		h.expectReleased(raw, nm.prefix, nm.index)
+	for field, count := range graph {
+		if strings.HasPrefix(field, "r:") && count == "0" {
+			h.t.Error("unreferenced rewrite output survived cleanup")
+		}
+	}
+	indexes, err := raw.Do(h.ctx, "FT._LIST").StringSlice()
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	for _, index := range indexes {
+		if data := snapshotDataID(index); data != "" && graph["d:"+data] == "" {
+			h.t.Error("rewrite index survived without registered ownership")
+		}
 	}
 }
 
@@ -352,8 +368,8 @@ func TestSQLAlterTypeMulti(t *testing.T) {
 	if f := h.rowFields(raw, defaultSchema, "it_atm"); len(f) != 4 || f["id"] != 2 || f["c"] != 2 || f["n"] != 2 {
 		t.Errorf("row fields: %v (the dropped columns' fields should be gone)", f)
 	}
-	if ok, err := raw.SIsMember(h.ctx, cleanupKey, cleanupMember(defaultSchema, "it_atm")).Result(); err != nil || ok {
-		t.Errorf("a cleanup is still pending (%v)", err)
+	if meta := h.inspectTable(raw, defaultSchema, "it_atm"); len(meta.PendingCleanup) != 0 {
+		t.Errorf("replacement retained pending cleanup: %v", meta.PendingCleanup)
 	}
 
 	before := h.rawMeta(raw, defaultSchema, "it_atm")
@@ -438,282 +454,300 @@ func TestSQLAlterTypeViews(t *testing.T) {
 	h.expectRows(`SELECT * FROM it_atv`, "1|2|3")
 }
 
-// whileRewriting runs fn (once) when a rewrite is about to copy its first
-// page of rows, with the rewrite's context.
-func whileRewriting(t *testing.T, fn func(ctx context.Context)) {
-	t.Cleanup(func() { testHookRewriteStep = nil })
-	testHookRewriteStep = func(ctx context.Context, step string) {
-		if step == "copy" {
-			testHookRewriteStep = nil
-			fn(ctx)
-		}
-	}
-}
-
-// Other statements while the rows are rewritten: writes are refused, a
-// write by a statement that read the table before is lost and fails, and
-// statements that use the old keys after the switch fail. Another change
-// of the table meanwhile, and a DROP TABLE, make the ALTER fail and roll
-// back.
+// Private rewrites do not block a concurrent writer or invalidate an old
+// reader. Changed source/schema dependencies conflict at publication instead;
+// stale writes cannot enter the replacement generation and no SQL is replayed.
 func TestSQLAlterTypeConcurrent(t *testing.T) {
 	h := newSQLHarness(t)
 	h.dropTables("it_atx")
+	h.exec("CREATE TABLE it_atx(id INTEGER,c TEXT)")
+	h.exec("INSERT INTO it_atx VALUES(1,'1'),(2,'2')")
 	raw := h.rawClient()
-	other := newSQLHarness(t)
-	st := &store{client: raw}
-	h.exec(`CREATE TABLE it_atx (id int, c text)`)
-	h.exec(`INSERT INTO it_atx VALUES (1, '1'), (2, '2')`)
-	stale, err := st.getTable(h.ctx, defaultSchema, "it_atx")
+	st, oldCtx, oldPin := h.inspectionSnapshot(raw)
+	defer oldPin.release()
+	old, err := st.getTable(oldCtx, defaultSchema, "it_atx")
 	if err != nil {
 		t.Fatal(err)
 	}
-	oldPrefix, oldIndex := stale.prefix(), stale.index()
-	row := func(id int64, c string) [][]Value { return [][]Value{{intValue(typeInt32, id), stringValue(c)}} }
-	var refused, lost error
-	whileRewriting(t, func(context.Context) {
-		_, refused = tryExec(other.ctx, other.conn, `INSERT INTO it_atx VALUES (3, '3')`)
-		// It read the metadata before the rewrite began, and writes more
-		// than rekeyFence later, after the copy began.
-		stale.readAt = time.Now().Add(-time.Second)
-		_, lost = st.insertRows(h.ctx, stale, row(4, "4"))
-	})
-	h.exec(`ALTER TABLE it_atx ALTER COLUMN c TYPE int USING c::int`)
-	if !isStatus(refused, adbc.StatusIO) || !strings.Contains(refused.Error(),
-		`table "public"."it_atx" is being altered: ALTER COLUMN … TYPE is rewriting its rows to new keys; try again when that has finished`) {
-		t.Errorf("insert while the rows are rewritten: %v", refused)
-	}
-	if !isStatus(lost, adbc.StatusIO) || !strings.Contains(lost.Error(), srWriteErr) {
-		t.Errorf("insert with metadata read before: %v", lost)
-	}
-	h.expectRows(`SELECT id, c FROM it_atx ORDER BY id`, "1|1", "2|2")
-	h.expectReleased(raw, oldPrefix, oldIndex)
-
-	// A read that began before the switch and ended after it fails (the
-	// statement checks when it ends), and so does a write with the old keys.
-	stale, err = st.getTable(h.ctx, defaultSchema, "it_atx")
-	if err != nil {
-		t.Fatal(err)
-	}
-	h.exec(`ALTER TABLE it_atx ALTER COLUMN c TYPE bigint USING c + 10`)
-	stale.readAt = time.Now().Add(-time.Second)
-	if err := st.checkReads(h.ctx, []*tableMeta{stale}); err == nil || !strings.Contains(err.Error(),
-		"was renamed with its rows moved to new keys, rewritten by ALTER COLUMN … TYPE, truncated or dropped, while this statement was reading it") {
-		t.Errorf("read across the switch: %v", err)
-	}
-	if _, err := st.insertRows(h.ctx, stale, row(5, "5")); !isStatus(err, adbc.StatusIO) || !strings.Contains(err.Error(), srWriteErr) {
-		t.Errorf("insert with the old keys: %v", err)
-	}
-	h.expectRows(`SELECT id, c FROM it_atx ORDER BY id`, "1|11", "2|12")
-
-	// Another change of the metadata while the rows are copied (an ALTER
-	// that had begun before): the switch fails, and the ALTER is rolled
-	// back. The other change stays.
-	whileRewriting(t, func(context.Context) {
-		if err := st.updateTable(h.ctx, defaultSchema, "it_atx", func(m *tableMeta) error {
-			m.Comment = "meanwhile"
-			return nil
-		}, nil); err != nil {
-			t.Error(err)
+	conflict := func(ctx context.Context, pin *snapshotPin, work string) {
+		t.Helper()
+		err := st.publishSnapshot(ctx, pin, work)
+		var ae adbc.Error
+		if !errors.As(err, &ae) || string(ae.SqlState[:]) != "40001" {
+			t.Fatalf("stale rewrite/write did not conflict: %v", err)
 		}
-	})
-	h.expectQueryError(`ALTER TABLE it_atx ALTER COLUMN c TYPE text`, adbc.StatusIO,
-		`table "public"."it_atx" was changed while ALTER COLUMN … TYPE rewrote its rows; try again`)
-	meta, err := st.getTable(h.ctx, defaultSchema, "it_atx")
+		st.abortSnapshot(pin, work)
+		pin.release()
+	}
+	staleCtx, stalePin, staleWork := snapshotStageSQL(t, st, h.ctx, "it_atx", "INSERT INTO it_atx VALUES(4,'4')")
+	ctx, pin, work := snapshotStageSQL(t, st, h.ctx, "", "ALTER TABLE it_atx ALTER COLUMN c TYPE INTEGER USING c::INTEGER")
+	h.exec("INSERT INTO it_atx VALUES(3,'3')")
+	conflict(ctx, pin, work)
+	conflict(staleCtx, stalePin, staleWork)
+	h.expectTypes("it_atx", "id INTEGER", "c VARCHAR")
+	h.expectRows("SELECT id,c FROM it_atx ORDER BY id", "1|1", "2|2", "3|3")
+	h.exec("ALTER TABLE it_atx ALTER COLUMN c TYPE INTEGER USING c::INTEGER")
+
+	staleCtx, stalePin, staleWork = snapshotStageSQL(t, st, h.ctx, "it_atx", "INSERT INTO it_atx VALUES(5,5)")
+	h.exec("ALTER TABLE it_atx ALTER COLUMN c TYPE BIGINT USING c+10")
+	conflict(staleCtx, stalePin, staleWork)
+	h.expectRows("SELECT id,c FROM it_atx ORDER BY id", "1|11", "2|12", "3|13")
+	// Reads retain the original values and type across both successful rewrites.
+	rows, err := st.fetchSnapshotVisible(oldCtx, old, []string{old.prefix() + "1", old.prefix() + "2"}, nil)
+	if err != nil || len(rows) != 2 || rows[0]["c"] != "1" || rows[1]["c"] != "2" || old.Columns[1].Type.Kind != KindString {
+		t.Fatalf("rewrites invalidated pinned source: %v %v", rows, err)
+	}
+
+	ctx, pin, work = snapshotStageSQL(t, st, h.ctx, "", "ALTER TABLE it_atx ALTER COLUMN c TYPE TEXT")
+	h.exec("COMMENT ON TABLE it_atx IS 'meanwhile'")
+	conflict(ctx, pin, work)
+	meta := h.inspectTable(raw, defaultSchema, "it_atx")
+	if meta.Comment != "meanwhile" || meta.RekeyTo != "" || meta.Rewriting || meta.Columns[1].Type != typeInt64 {
+		t.Fatalf("failed rewrite lost intervening metadata: %+v", meta)
+	}
+	h.exec("INSERT INTO it_atx VALUES(6,16)")
+
+	ctx, pin, work = snapshotStageSQL(t, st, h.ctx, "", "ALTER TABLE it_atx ALTER COLUMN c TYPE TEXT")
+	private, err := st.getTable(ctx, defaultSchema, "it_atx")
 	if err != nil {
 		t.Fatal(err)
 	}
-	h.expectRolledBack(raw, "it_atx", h.rawMeta(raw, defaultSchema, "it_atx"))
-	if meta.Comment != "meanwhile" || meta.RekeyTo != "" || meta.Rewriting || meta.Columns[1].Type != typeInt64 {
-		t.Errorf("metadata after the failed ALTER: %+v", meta)
+	h.exec("DROP TABLE it_atx")
+	conflict(ctx, pin, work)
+	h.expectError("SELECT * FROM it_atx", "does not exist")
+	h.expectSnapshotReleased(raw, private.prefix(), private.index())
+	rows, err = st.fetchSnapshotVisible(oldCtx, old, []string{old.prefix() + "1", old.prefix() + "2"}, nil)
+	if err != nil || len(rows) != 2 || rows[0]["c"] != "1" || rows[1]["c"] != "2" {
+		t.Fatal("DROP invalidated pinned pre-rewrite source", err)
 	}
-	h.exec(`INSERT INTO it_atx VALUES (6, 16)`)
-
-	// DROP TABLE isn't refused: the ALTER fails, and nothing of the
-	// rewrite is left.
-	whileRewriting(t, func(context.Context) { other.exec(`DROP TABLE it_atx`) })
-	h.expectQueryError(`ALTER TABLE it_atx ALTER COLUMN c TYPE text`, adbc.StatusNotFound, `table "public"."it_atx" does not exist`)
-	nm := h.lastNames(raw, "it_atx")
-	h.expectReleased(raw, nm.prefix, nm.index)
-	if h.rekeyPending(raw, meta.prefix()) {
-		t.Error("the rewrite is still recorded")
-	}
+	oldPin.release()
+	h.expectSnapshotReleased(raw, old.prefix(), old.index())
+	assertSnapshotDataReferences(t, h, st)
 }
 
-// A cancelled ALTER (AdbcStatementCancel) leaves the table as it was.
+// Both caller-context cancellation and AdbcStatementCancel stop a real rewrite
+// after one acknowledged private batch, preserving published rows and metadata.
 func TestSQLAlterTypeCancel(t *testing.T) {
-	h := newSQLHarness(t)
-	h.dropTables("it_atk")
-	raw := h.rawClient()
-	h.exec(`CREATE TABLE it_atk (id int, c text)`)
-	h.exec(`INSERT INTO it_atk VALUES (1, '1'), (2, '2')`)
-	before := h.rawMeta(raw, defaultSchema, "it_atk")
-	lag, err := h.runCancelled(`ALTER TABLE it_atk ALTER COLUMN c TYPE int USING c::int`, true, func(cancel func()) func() {
-		whileRewriting(t, func(ctx context.Context) {
-			cancel()
-			<-ctx.Done()
+	for _, mode := range []string{"context", "statement"} {
+		t.Run(mode, func(t *testing.T) {
+			h := newSQLHarness(t)
+			h.dropTables("it_atk")
+			h.exec("CREATE TABLE it_atk(id INTEGER,c TEXT)")
+			h.exec("INSERT INTO it_atk SELECT i,i::TEXT FROM generate_series(1,600) AS g(i)")
+			raw := h.rawClient()
+			prefix, _ := h.tableNames(raw, defaultSchema, "it_atk")
+			before := h.rawMeta(raw, defaultSchema, "it_atk")
+			stmt, ctx, cancel, transport, barrier := snapshotPausedAlter(t, h, "ALTER TABLE it_atk ALTER COLUMN c TYPE INTEGER USING c::INTEGER", prefix)
+			done := make(chan error, 1)
+			go func() { _, err := stmt.ExecuteUpdate(ctx); transport.finish(); done <- err }()
+			scope := snapshotAwaitAlterBatch(t, h, raw, barrier, done)
+			start := time.Now()
+			if mode == "context" {
+				cancel()
+			} else if err := stmt.(*statementImpl).Cancel(h.ctx); err != nil {
+				t.Fatal(err)
+			}
+			err := snapshotAwaitAlterError(t, done)
+			expectCancelled(t, time.Since(start), err)
+			snapshotExpectAlterLeaseReleased(t, h, raw, scope)
+			h.expectRolledBack(raw, "it_atk", before)
+			h.expectRows("SELECT COUNT(*),SUM(c::BIGINT),MIN(id),MAX(id) FROM it_atk", "600|180300|1|600")
+			h.exec("INSERT INTO it_atk VALUES(601,'601')")
+			h.expectRows("SELECT COUNT(*),SUM(c::BIGINT) FROM it_atk", "601|180901")
 		})
-		return func() { testHookRewriteStep = nil }
-	})
-	expectCancelled(t, lag, err)
-	h.expectRolledBack(raw, "it_atk", before)
-	h.exec(`INSERT INTO it_atk VALUES (3, '3')`)
-	h.expectRows(`SELECT id, c FROM it_atk ORDER BY id`, "1|1", "2|2", "3|3")
+	}
 }
 
-// Closing the connection while its ALTER rewrites the rows stops it as a
-// cancel does: the table is as it was, and other connections change it at
-// once.
+// Close must stop active execution while its cleanup client is still usable.
+// The next writer must not wait for a private workspace or pin to expire.
 func TestSQLAlterTypeClose(t *testing.T) {
 	h := newSQLHarness(t)
 	h.dropTables("it_atq")
+	h.exec("CREATE TABLE it_atq(id INTEGER,c TEXT)")
+	h.exec("INSERT INTO it_atq SELECT i,i::TEXT FROM generate_series(1,600) AS g(i)")
 	raw := h.rawClient()
-	h.exec(`CREATE TABLE it_atq (id int, c text)`)
-	h.exec(`INSERT INTO it_atq VALUES (1, '1')`)
+	prefix, _ := h.tableNames(raw, defaultSchema, "it_atq")
 	before := h.rawMeta(raw, defaultSchema, "it_atq")
 	closing := newSQLHarness(t)
-	var closed chan error
-	whileRewriting(t, func(ctx context.Context) {
-		closed = make(chan error, 1)
-		go func() { closed <- closing.conn.Close(context.Background()) }()
-		<-ctx.Done()
-	})
-	_, err := tryExec(closing.ctx, closing.conn, `ALTER TABLE it_atq ALTER COLUMN c TYPE int USING c::int`)
-	if closed == nil {
-		t.Fatalf("ALTER: %v, and it didn't rewrite the rows", err)
-	}
-	if err := <-closed; err != nil {
-		t.Errorf("close: %v", err)
-	}
+	stmt, ctx, _, transport, barrier := snapshotPausedAlter(t, closing, "ALTER TABLE it_atq ALTER COLUMN c TYPE INTEGER USING c::INTEGER", prefix)
+	done := make(chan error, 1)
+	go func() { _, err := stmt.ExecuteUpdate(ctx); transport.finish(); done <- err }()
+	scope := snapshotAwaitAlterBatch(t, h, raw, barrier, done)
+	closed := make(chan error, 1)
+	go func() { closed <- closing.conn.Close(context.Background()) }()
+	err := snapshotAwaitAlterError(t, done)
 	var ae adbc.Error
-	if !errors.As(err, &ae) || ae.Code != adbc.StatusInvalidState || ae.Msg != errRewriteClosed.(adbc.Error).Msg {
-		t.Errorf("ALTER: %v, want %v", err, errRewriteClosed)
+	if !errors.As(err, &ae) || ae.Code != adbc.StatusInvalidState {
+		t.Errorf("ALTER after Close: %v, want INVALID_STATE", err)
 	}
+	if err := snapshotAwaitAlterError(t, closed); err != nil {
+		t.Errorf("Close: %v", err)
+	}
+	snapshotExpectAlterLeaseReleased(t, h, raw, scope)
 	h.expectRolledBack(raw, "it_atq", before)
-	h.exec(`INSERT INTO it_atq VALUES (2, '2')`)
+	h.expectRows("SELECT COUNT(*),SUM(c::BIGINT) FROM it_atq", "600|180300")
+	h.exec("INSERT INTO it_atq VALUES(601,'601')")
+	h.expectRows("SELECT COUNT(*),SUM(c::BIGINT) FROM it_atq", "601|180901")
 }
 
-// A connection that can't renew its lease stops its rewrite; the rewrite is
-// left for another connection to roll back, as a re-key's: the next
-// statement that would change the table does, and then goes on.
+// Lease expiry fences an acknowledged partial rewrite. Another collector may
+// retire its private rows before the old execution resumes; it cannot recreate
+// them or publish stale output, and fresh SQL remains usable.
 func TestSQLAlterTypeLostLease(t *testing.T) {
-	defer func(was time.Duration) { rekeyTTL = was }(rekeyTTL)
-	rekeyTTL = 2 * time.Second
 	h := newSQLHarness(t)
 	h.dropTables("it_atl")
+	h.exec("CREATE TABLE it_atl(id INTEGER,c TEXT)")
+	h.exec("INSERT INTO it_atl SELECT i,i::TEXT FROM generate_series(1,600) AS g(i)")
 	raw := h.rawClient()
-	h.exec(`CREATE TABLE it_atl (id int, c text)`)
-	h.exec(`INSERT INTO it_atl VALUES (1, '1')`)
-	before := h.rawMeta(raw, defaultSchema, "it_atl")
 	prefix, _ := h.tableNames(raw, defaultSchema, "it_atl")
-	other := newSQLHarness(t)
-	// Force failed owner cleanup as well as lease loss. A cancelled context
-	// alone does not deterministically prevent a pooled Redis command from
-	// completing; this case specifically tests recovery of an abandoned job.
-	statement, err := h.conn.NewStatement(h.ctx)
+	before := h.rawMeta(raw, defaultSchema, "it_atl")
+	stmt, ctx, _, transport, barrier := snapshotPausedAlter(t, h, "ALTER TABLE it_atl ALTER COLUMN c TYPE INTEGER USING c::INTEGER", prefix)
+	done := make(chan error, 1)
+	go func() { _, err := stmt.ExecuteUpdate(ctx); transport.finish(); done <- err }()
+	scope := snapshotAwaitAlterBatch(t, h, raw, barrier, done)
+	scope.mu.Lock()
+	var dataID string
+	for data := range scope.owned {
+		if dataID != "" {
+			t.Error("unexpected multiple rewrite outputs")
+		}
+		dataID = data
+	}
+	scope.mu.Unlock()
+	if dataID == "" {
+		t.Fatal("rewrite has no owned private output")
+	}
+	target := snapshotRows(dataID, defaultSchema, snapshotAccessID(prefix))
+	if count, err := raw.ZCard(h.ctx, snapshotMembers(dataID)).Result(); err != nil || count != snapshotDeltaPage {
+		t.Fatal("partial private output missing", count, err)
+	}
+	payload, err := raw.HGet(h.ctx, snapshotCatalogKey, "w:"+scope.id).Bytes()
+	var work map[string]any
+	if err != nil || json.Unmarshal(payload, &work) != nil {
+		t.Fatal("private work missing", err)
+	}
+	work["expires"] = 0
+	payload, err = json.Marshal(work)
 	if err != nil {
 		t.Fatal(err)
 	}
-	hook := &lostLeaseCleanupHook{}
-	statement.(*statementImpl).conn.store.client.AddHook(hook)
-	_ = statement.Close(h.ctx)
-	whileRewriting(t, func(ctx context.Context) {
-		job := h.rekeyRecord(raw, prefix)
-		if job == nil || !job.Rewrite || job.From != "it_atl" || job.To != "it_atl" {
-			t.Errorf("job: %+v", job)
-			return
-		}
-		raw.Del(h.ctx, rekeyAliveKey(job.Owner))
-		<-ctx.Done() // the lease can't be renewed
-	})
-	_, err = tryExec(h.ctx, h.conn, `ALTER TABLE it_atl ALTER COLUMN c TYPE int USING c::int`)
-	if !isStatus(err, adbc.StatusIO) || !strings.Contains(err.Error(), "its lease on the rewrite of the table's rows could not be renewed in time") {
-		t.Fatalf("ALTER: %v", err)
+	if err := raw.HSet(h.ctx, snapshotCatalogKey, "w:"+scope.id, payload).Err(); err != nil {
+		t.Fatal(err)
 	}
-	if hook.blocked.Load() == 0 {
-		t.Fatal("owner cleanup failure was not injected")
+	collector := &store{client: raw, snapshots: true}
+	snapshotReapTest(collector, h.ctx)
+	if raw.Exists(h.ctx, target+"1", target+"256", snapshotMembers(dataID)).Val() != 0 || raw.HExists(h.ctx, snapshotMetadataGraph, "d:"+dataID).Val() {
+		t.Fatal("expired partial rewrite was not reclaimed")
 	}
-	if meta, err := (&store{client: raw}).getTable(h.ctx, defaultSchema, "it_atl"); err != nil || meta.RekeyTo == "" || !meta.Rewriting {
-		t.Fatalf("the abandoned rewrite isn't recorded: %+v %v", meta, err)
+	close(barrier.resume)
+	err = snapshotAwaitAlterError(t, done)
+	if !isStatus(err, adbc.StatusIO) || !strings.Contains(err.Error(), "reclaimed") {
+		t.Fatalf("expired execution was not server-fenced: %v", err)
 	}
-	other.exec(`INSERT INTO it_atl VALUES (2, '2')`)
-	h.expectRows(`SELECT id, c FROM it_atl ORDER BY id`, "1|1", "2|2")
-	h.exec(`DELETE FROM it_atl WHERE id = 2`)
+	if barrier.pages.Load() != 2 || raw.Exists(h.ctx, target+"1", target+"257").Val() != 0 {
+		t.Fatal("expired writer replayed or resurrected private rows")
+	}
+	snapshotExpectAlterLeaseReleased(t, h, raw, scope)
 	h.expectRolledBack(raw, "it_atl", before)
-	h.exec(`ALTER TABLE it_atl ALTER COLUMN c TYPE int USING c::int`)
-	h.expectRows(`SELECT id, c FROM it_atl ORDER BY id`, "1|1")
+	h.expectRows("SELECT COUNT(*),SUM(c::BIGINT) FROM it_atl", "600|180300")
+	h.exec("INSERT INTO it_atl VALUES(601,'601')")
+	h.exec("ALTER TABLE it_atl ALTER COLUMN c TYPE INTEGER USING c::INTEGER")
+	h.expectRows("SELECT COUNT(*),SUM(c) FROM it_atl", "601|180901")
 }
 
-// A table of several cursor pages, on a cluster across shards: every row is
-// converted and copied, the dropped columns' fields are gone, and the index
-// answers queries on the new types.
+// Several immutable directory pages are converted exactly once. Managed rows
+// share the catalog slot; a multi-primary fixture does not distribute these rows.
 func TestSQLAlterTypeBig(t *testing.T) {
 	h := newSQLHarness(t)
 	h.dropTables("it_atb")
 	raw := h.rawClient()
 	const n = 20000
-	h.exec(fmt.Sprintf(`CREATE TABLE it_atb AS SELECT g AS id, CAST(g AS text) AS c, g %% 7 AS k FROM generate_series(1, %d) AS s(g)`, n))
-	h.exec(`ALTER TABLE it_atb DROP COLUMN k`)
+	h.exec(fmt.Sprintf("CREATE TABLE it_atb AS SELECT g AS id,CAST(g AS TEXT) AS c,g %% 7 AS k FROM generate_series(1,%d) AS s(g)", n))
+	h.exec("ALTER TABLE it_atb DROP COLUMN k")
 	oldPrefix, oldIndex := h.tableNames(raw, defaultSchema, "it_atb")
-	pages := 0
-	var mu sync.Mutex
-	t.Cleanup(func() { testHookRewriteStep = nil })
-	testHookRewriteStep = func(_ context.Context, step string) {
-		if step == "copy" {
-			mu.Lock()
-			pages++
-			mu.Unlock()
-		}
-	}
-	h.exec(`ALTER TABLE it_atb ALTER COLUMN c TYPE bigint USING c::bigint * 2, ALTER COLUMN id TYPE text`)
-	testHookRewriteStep = nil
-	if pages < 2 {
-		t.Errorf("%d pages of rows copied, want several", pages)
+	pages, rows := snapshotCountedAlter(t, h, "ALTER TABLE it_atb ALTER COLUMN c TYPE BIGINT USING c::BIGINT*2,ALTER COLUMN id TYPE TEXT", oldPrefix)
+	if pages != int64((n+snapshotDeltaPage-1)/snapshotDeltaPage) || rows != n {
+		t.Fatalf("rewrite source paging duplicated/skipped rows: pages=%d rows=%d", pages, rows)
 	}
 	h.expectTypes("it_atb", "id VARCHAR", "c BIGINT")
-	h.expectRows(`SELECT count(*), sum(c), min(c), max(c) FROM it_atb`, fmt.Sprintf("%d|%d|2|%d", n, n*(n+1), 2*n))
-	h.expectRows(`SELECT c FROM it_atb WHERE id = '12345'`, "24690")
-	h.expectRows(`SELECT count(*) FROM it_atb WHERE c > 39990`, "5")
-	h.expectRows(`SELECT id FROM it_atb ORDER BY c DESC LIMIT 2`, "20000", "19999")
+	h.expectRows("SELECT COUNT(*),SUM(c),MIN(c),MAX(c) FROM it_atb", fmt.Sprintf("%d|%d|2|%d", n, n*(n+1), 2*n))
+	h.expectRows("SELECT c FROM it_atb WHERE id='12345'", "24690")
+	h.expectRows("SELECT COUNT(*) FROM it_atb WHERE c>39990", "5")
+	h.expectRows("SELECT id FROM it_atb ORDER BY c DESC LIMIT 2", "20000", "19999")
 	if f := h.rowFields(raw, defaultSchema, "it_atb"); len(f) != 3 || f["c"] != n || f["id"] != n || f[rowIDField] != n {
 		t.Errorf("row fields: %v", f)
 	}
-	h.expectReleased(raw, oldPrefix, oldIndex)
-	if ok, err := raw.SIsMember(h.ctx, cleanupKey, cleanupMember(defaultSchema, "it_atb")).Result(); err != nil || ok {
-		t.Errorf("a cleanup is still pending (%v)", err)
+	h.expectSnapshotReleased(raw, oldPrefix, oldIndex)
+	if meta := h.inspectTable(raw, defaultSchema, "it_atb"); len(meta.PendingCleanup) != 0 {
+		t.Errorf("replacement retained pending cleanup: %v", meta.PendingCleanup)
 	}
 }
 
-// Dropped-column cleanup can HDEL an indexed field between cursor pages,
-// replacing the source index's document ids. Force that overlap so a cursor
-// that skips rows must be detected and the missing copies rescanned.
+// Snapshot cleanup never HDELs a published field between pages. Exercise the
+// corresponding overlap through an intervening SQL update and reference GC:
+// the stale copy conflicts, and the original pinned directory stays exact even
+// after a fresh DROP COLUMN/type rewrite publishes and retires its old roots.
 func TestSQLAlterTypeCleanupDuringCursor(t *testing.T) {
 	h := newSQLHarness(t)
 	h.dropTables("it_at_cleanup")
 	raw := h.rawClient()
 	const n = 20000
-	h.exec(fmt.Sprintf(`CREATE TABLE it_at_cleanup AS SELECT g AS id, CAST(g AS text) AS c, g %% 7 AS k FROM generate_series(1, %d) AS s(g)`, n))
-	prefix, oldIndex := h.tableNames(raw, defaultSchema, "it_at_cleanup")
-	first := true
-	t.Cleanup(func() { testHookRewriteStep = nil })
-	testHookRewriteStep = func(ctx context.Context, step string) {
-		if step != "copy" || !first {
-			return
+	h.exec(fmt.Sprintf("CREATE TABLE it_at_cleanup AS SELECT g AS id,CAST(g AS TEXT) AS c,g %% 7 AS k FROM generate_series(1,%d) AS s(g)", n))
+	source, oldCtx, oldPin := h.inspectionSnapshot(raw)
+	defer oldPin.release()
+	old, err := source.getTable(oldCtx, defaultSchema, "it_at_cleanup")
+	if err != nil {
+		t.Fatal(err)
+	}
+	stmt, ctx, _, transport, barrier := snapshotPausedAlter(t, h, "ALTER TABLE it_at_cleanup DROP COLUMN k,ALTER COLUMN c TYPE BIGINT USING c::BIGINT*2", old.prefix(), time.Minute)
+	done := make(chan error, 1)
+	go func() { _, err := stmt.ExecuteUpdate(ctx); transport.finish(); done <- err }()
+	snapshotAwaitAlterBatch(t, h, raw, barrier, done)
+	h.exec("UPDATE it_at_cleanup SET k=-1 WHERE id<=100")
+	snapshotReapTest(source, h.ctx)
+	if value := raw.HGet(h.ctx, old.prefix()+"1", "k").Val(); value != "1" {
+		t.Fatal("concurrent cleanup mutated pinned source", value)
+	}
+	close(barrier.resume)
+	select {
+	case err = <-done:
+	case <-time.After(30 * time.Second):
+		t.Fatal("stale paged rewrite did not finish")
+	}
+	var ae adbc.Error
+	if !errors.As(err, &ae) || string(ae.SqlState[:]) != "40001" {
+		t.Fatalf("stale paged rewrite did not conflict: %v", err)
+	}
+	h.expectRows("SELECT COUNT(*) FROM it_at_cleanup WHERE k=-1", "100")
+	h.exec("ALTER TABLE it_at_cleanup DROP COLUMN k,ALTER COLUMN c TYPE BIGINT USING c::BIGINT*2")
+	h.expectRows("SELECT COUNT(*),SUM(c),MIN(c),MAX(c) FROM it_at_cleanup", fmt.Sprintf("%d|%d|2|%d", n, n*(n+1), 2*n))
+	if fields := h.rowFields(raw, defaultSchema, "it_at_cleanup"); len(fields) != 3 || fields["id"] != n || fields["c"] != n || fields["k"] != 0 {
+		t.Fatal("replacement kept dropped fields or lost rows", fields)
+	}
+	snapshotReapTest(source, h.ctx)
+	scan := newSnapshotDeltaScan(source, old, nil)
+	seen := 0
+	for {
+		_, rows, err := scan.next(oldCtx)
+		if errors.Is(err, io.EOF) {
+			break
 		}
-		first = false
-		for start := 1; start <= n; start += pipelineChunk {
-			pipe := raw.Pipeline()
-			for i := start; i < start+pipelineChunk && i <= n; i++ {
-				pipe.HDel(ctx, prefix+fmt.Sprint(i), "k")
-			}
-			if _, err := pipe.Exec(ctx); err != nil {
-				t.Fatal(err)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, row := range rows {
+			seen++
+			if row["id"] != fmt.Sprint(seen) || row["c"] != fmt.Sprint(seen) || row["k"] != fmt.Sprint(seen%7) {
+				t.Fatalf("pinned directory skipped/changed source row %d: %v", seen, row)
 			}
 		}
 	}
-	h.exec(`ALTER TABLE it_at_cleanup DROP COLUMN k, ALTER COLUMN c TYPE bigint USING c::bigint * 2`)
-	testHookRewriteStep = nil
-	h.expectRows(`SELECT count(*), sum(c), min(c), max(c) FROM it_at_cleanup`, fmt.Sprintf("%d|%d|2|%d", n, n*(n+1), 2*n))
-	h.expectReleased(raw, prefix, oldIndex)
+	if seen != n {
+		t.Fatalf("pinned source returned %d rows, want %d", seen, n)
+	}
+	oldPin.release()
+	h.expectSnapshotReleased(raw, old.prefix(), old.index())
+	assertSnapshotDataReferences(t, h, source)
 }
 
 func (h *sqlHarness) expectAttrs(raw goredis.UniversalClient, table, want string) {
@@ -734,7 +768,7 @@ func TestSQLAlterType(t *testing.T) {
 	h.exec(`CREATE TABLE it_at (id integer, c text, n integer DEFAULT 5, v varchar(5), f double precision NOINDEX)`)
 	h.exec(`INSERT INTO it_at VALUES (1, '10', 1, 'a', 1.5), (2, '9', 2, 'bb', 2.5), (3, 'abc', 3, NULL, NULL)`)
 	h.expectTypes("it_at", "id INTEGER", "c VARCHAR", "n INTEGER", "v VARCHAR(5)", "f DOUBLE PRECISION")
-	h.expectAttrs(raw, "it_at", "__rowid NUMERIC, id NUMERIC, c TAG, n NUMERIC, v TAG")
+	h.expectAttrs(raw, "it_at", "__rowid NUMERIC, "+snapshotDeletedField+" NUMERIC, id NUMERIC, c TAG, n NUMERIC, v TAG")
 
 	// Postgres's errors, and the table stays as it was.
 	before := h.rawMeta(raw, defaultSchema, "it_at")
@@ -777,15 +811,13 @@ func TestSQLAlterType(t *testing.T) {
 	h.exec(`UPDATE it_at SET c = '11' WHERE id = 3`)
 	h.exec(`ALTER TABLE it_at ALTER COLUMN c TYPE integer USING c::integer`)
 	h.expectTypes("it_at", "id INTEGER", "c INTEGER", "n INTEGER", "v VARCHAR(5)", "f DOUBLE PRECISION")
-	h.expectAttrs(raw, "it_at", "__rowid NUMERIC, id NUMERIC, c NUMERIC, n NUMERIC, v TAG")
+	h.expectAttrs(raw, "it_at", "__rowid NUMERIC, "+snapshotDeletedField+" NUMERIC, id NUMERIC, c NUMERIC, n NUMERIC, v TAG")
 	newPrefix, newIndex := h.tableNames(raw, defaultSchema, "it_at")
 	if newPrefix == oldPrefix || newIndex == oldIndex {
 		t.Errorf("names %s %s: the rows weren't rewritten", newPrefix, newIndex)
 	}
-	h.expectReleased(raw, oldPrefix, oldIndex)
-	if h.rekeyPending(raw, oldPrefix) {
-		t.Error("the rewrite is still recorded")
-	}
+	h.expectSnapshotReleased(raw, oldPrefix, oldIndex)
+	assertSnapshotDataReferences(t, h, &store{client: raw, snapshots: true})
 	h.expectRows(`SELECT id, c FROM it_at ORDER BY c`, "2|9", "1|10", "3|11")
 	h.expectRows(`SELECT id FROM it_at WHERE c BETWEEN 9 AND 10 ORDER BY id`, "1", "2")
 	h.expectRows(`SELECT sum(c), max(c) FROM it_at`, "30|11")
@@ -798,7 +830,7 @@ func TestSQLAlterType(t *testing.T) {
 
 	// And back to text, without USING: c is a TAG again.
 	h.exec(`ALTER TABLE it_at ALTER COLUMN c TYPE text`)
-	h.expectAttrs(raw, "it_at", "__rowid NUMERIC, id NUMERIC, c TAG, n NUMERIC, v TAG")
+	h.expectAttrs(raw, "it_at", "__rowid NUMERIC, "+snapshotDeletedField+" NUMERIC, id NUMERIC, c TAG, n NUMERIC, v TAG")
 	h.expectRows(`SELECT id FROM it_at WHERE c = '10'`, "1")
 	h.expectRows(`SELECT c FROM it_at ORDER BY c`, "10", "11", "12", "9")
 	if q, _ := h.pushedWhere(raw, `SELECT id FROM it_at WHERE c = '10'`); !strings.Contains(q, "@c:{10}") {
@@ -822,7 +854,7 @@ func TestSQLAlterType(t *testing.T) {
 	// NOINDEX column stays out of the index.
 	h.exec(`ALTER TABLE it_at ALTER COLUMN n SET DATA TYPE bigint, ALTER COLUMN f TYPE numeric(4,1)`)
 	h.expectTypes("it_at", "id INTEGER", "c VARCHAR", "n BIGINT", "v VARCHAR", "f NUMERIC(4,1)")
-	h.expectAttrs(raw, "it_at", "__rowid NUMERIC, id NUMERIC, c TAG, n NUMERIC, v TAG")
+	h.expectAttrs(raw, "it_at", "__rowid NUMERIC, "+snapshotDeletedField+" NUMERIC, id NUMERIC, c TAG, n NUMERIC, v TAG")
 	h.exec(`INSERT INTO it_at (id) VALUES (6)`)
 	h.exec(`ALTER TABLE it_at ALTER COLUMN n TYPE text`)
 	h.exec(`INSERT INTO it_at (id) VALUES (7)`)
@@ -830,22 +862,4 @@ func TestSQLAlterType(t *testing.T) {
 		"5|NULL|5|longer than five|NULL", "6|NULL|5|NULL|NULL", "7|NULL|5|NULL|NULL")
 	h.expectRows(`SELECT column_name, column_default FROM information_schema.columns WHERE table_name = 'it_at' AND column_name = 'n'`, "n|5")
 	h.expectRows(`SELECT id FROM it_at WHERE n = '5' ORDER BY id`, "4", "5", "6", "7")
-}
-
-// Only the expired owner's state read fails; the independent recovery client
-// retains normal Redis behavior and must still roll the job back correctly.
-type lostLeaseCleanupHook struct{ blocked atomic.Int32 }
-
-func (*lostLeaseCleanupHook) DialHook(next goredis.DialHook) goredis.DialHook { return next }
-func (h *lostLeaseCleanupHook) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
-	return func(ctx context.Context, cmd goredis.Cmder) error {
-		if ctx.Err() != nil && cmd.Name() == "hget" && len(cmd.Args()) > 1 && cmd.Args()[1] == rekeyKey {
-			h.blocked.Add(1)
-			return ctx.Err()
-		}
-		return next(ctx, cmd)
-	}
-}
-func (*lostLeaseCleanupHook) ProcessPipelineHook(next goredis.ProcessPipelineHook) goredis.ProcessPipelineHook {
-	return next
 }

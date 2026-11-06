@@ -232,7 +232,7 @@ func TestSQLRowValuePushdown(t *testing.T) {
 		"SELECT * FROM it_rv_t WHERE (k1, k2) = (SELECT k1, k2 FROM it_rv_s) AND (1, 2) > (2, 1)",
 		"SELECT COUNT(*) FROM it_rv_t WHERE ROW(1) IS NULL",
 	} {
-		h.expectNoReads(c, sql, func() { h.query(sql) })
+		h.expectNoReads(sql, func() { h.query(sql) })
 	}
 	h.expectRows("SELECT COUNT(*) FROM it_rv_t WHERE (1, 2) < (1, 3)", "6")
 	h.expectRows("SELECT COUNT(*) FROM it_rv_t WHERE (1, 2) = (1, 3)", "0")

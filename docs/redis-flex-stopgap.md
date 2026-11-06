@@ -1,5 +1,11 @@
 # Experimental Redis Flex stopgap
 
+This document records the upstream stopgap. In the always-on statement-snapshot
+branch, managed Flex source execution is rejected before dialing; snapshot
+index/publication compatibility has not been implemented or verified. That
+remains an open feature-parity gate. Reader-only retained-result replay has no
+managed source catalog and keeps its independent contract.
+
 Implementation for [issue #322](https://github.com/redis/redis-adbc-driver/issues/322).
 Enable database option `adbc.redis.flex=true` together with the usual `uri`.
 The default remains the sortable-index / aggregate-cursor execution mode.

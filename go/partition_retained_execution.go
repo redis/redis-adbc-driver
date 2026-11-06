@@ -91,7 +91,10 @@ func newRetainedExecutor(ctx context.Context, base *executor, cfg *clientConfig,
 	ctx = context.WithValue(workCtx, retainedAllocationKey{}, working)
 	transport := newRetainedBudget(limits.TransportBytes)
 	client := newRetainedSourceClient(cfg, cluster, t, transport, ctx)
-	st := &store{client: client, foreignIndexes: base.store.foreignIndexes, flex: base.store.flex}
+	st := &store{client: client, foreignIndexes: base.store.foreignIndexes, snapshots: base.store.snapshots, flex: base.store.flex, restrictedReader: base.store.restrictedReader, readerNamespace: base.store.readerNamespace}
+	if st.snapshots {
+		addSnapshotHooks(client)
+	}
 	base.store.temp.mu.Lock()
 	st.temp.id = base.store.temp.id
 	st.temp.objects = maps.Clone(base.store.temp.objects)

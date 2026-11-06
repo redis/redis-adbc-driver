@@ -36,9 +36,15 @@ type SequenceStmt struct {
 
 func (*SequenceStmt) stmtNode() {}
 
-type sequenceBlock struct{ Next, Step, Remaining, Epoch int64 }
+type sequenceBlock struct {
+	Next, Step, Remaining, Epoch int64
+	Token                        string
+}
 
 type sequenceMeta struct {
+	ResetEpoch, ResetLast                   int64
+	ResetCalled                             bool
+	snapshotToken                           string
 	OwnerOID                                int64
 	OwnerField                              string
 	Epoch                                   int64
@@ -245,15 +251,20 @@ func (m *sequenceMeta) apply(o sequenceOptions, create bool) error {
 	if create {
 		m.Last = m.Start
 		m.Called = false
+		m.ResetLast = m.Start
 	}
 	if o.RestartDefault {
 		m.Last, m.Called = m.Start, false
+		m.ResetEpoch++
+		m.ResetLast, m.ResetCalled = m.Last, m.Called
 	}
 	if o.Restart != nil {
 		if *o.Restart < m.Min || *o.Restart > m.Max {
 			return stateErrorf(stateInvalidParameter, "RESTART value out of bounds")
 		}
 		m.Last, m.Called = *o.Restart, false
+		m.ResetEpoch++
+		m.ResetLast, m.ResetCalled = m.Last, m.Called
 	}
 	if o.Owned != nil {
 		m.OwnerOID, m.OwnerField = 0, ""
@@ -273,6 +284,13 @@ func (s *store) getSequence(ctx context.Context, schema, name string) (*sequence
 	var m sequenceMeta
 	if err = json.Unmarshal(raw, &m); err != nil {
 		return nil, err
+	}
+	if s.snapshots {
+		state, _, err := s.readSnapshotSequenceValue(ctx, &m)
+		if err != nil {
+			return nil, err
+		}
+		overlaySnapshotSequenceValue(&m, state)
 	}
 	return &m, nil
 }
@@ -324,6 +342,10 @@ func (e *executor) runSequence(ctx context.Context, st *SequenceStmt) error {
 				return stateErrorf(stateDuplicateTable, "relation %q already exists", name)
 			}
 			_, err = tx.TxPipelined(ctx, func(p goredis.Pipeliner) error {
+				if e.store.snapshots {
+					state, _ := json.Marshal(snapshotSequenceValue{ID: m.ID, Last: m.Last, Called: m.Called, ResetEpoch: m.ResetEpoch, ConfigEpoch: m.Epoch})
+					p.Set(ctx, snapshotSequenceKey(m.ID), state, 0)
+				}
 				p.Set(ctx, key, raw, 0)
 				p.SAdd(ctx, sequencesKey(schema), name)
 				p.SAdd(ctx, schemasKey, schema)
@@ -376,6 +398,9 @@ func (e *executor) mutateSequence(ctx context.Context, schema, name string, fn f
 			}
 			_, err = tx.TxPipelined(ctx, func(p goredis.Pipeliner) error {
 				if drop {
+					if e.store.snapshots {
+						p.Del(ctx, snapshotSequenceKey(m.ID))
+					}
 					p.Del(ctx, key)
 					p.SRem(ctx, sequencesKey(schema), name)
 				} else {
@@ -475,7 +500,7 @@ func (env *evalEnv) evalSequence(f *Func) (Value, bool, error) {
 		sess.sequenceBlocks = map[string]sequenceBlock{}
 	}
 	if f.Name == "NEXTVAL" {
-		if block, ok := sess.sequenceBlocks[m.ID]; ok && block.Remaining > 0 && block.Epoch == m.Epoch {
+		if block, ok := sess.sequenceBlocks[m.ID]; ok && block.Remaining > 0 && block.Epoch == m.Epoch && block.Token == m.snapshotToken {
 			result := block.Next
 			block.Remaining--
 			if block.Remaining > 0 {
@@ -492,7 +517,11 @@ func (env *evalEnv) evalSequence(f *Func) (Value, bool, error) {
 	var result int64
 	id := ""
 	called := true
-	err = e.mutateSequence(env.ctx, schema, name, func(m *sequenceMeta) error {
+	mutate := e.mutateSequence
+	if e.store.snapshots {
+		mutate = e.mutateSnapshotSequenceValue
+	}
+	err = mutate(env.ctx, schema, name, func(m *sequenceMeta) error {
 		id = m.ID
 		if f.Name == "SETVAL" {
 			v, err := Coerce(args[1], typeInt64)
@@ -547,7 +576,7 @@ func (env *evalEnv) evalSequence(f *Func) (Value, bool, error) {
 		}
 		end := new(big.Int).Mul(big.NewInt(count-1), big.NewInt(m.Increment))
 		end.Add(end, big.NewInt(result))
-		reserved = sequenceBlock{Step: m.Increment, Remaining: count - 1, Epoch: m.Epoch}
+		reserved = sequenceBlock{Step: m.Increment, Remaining: count - 1, Epoch: m.Epoch, Token: m.snapshotToken}
 		if count > 1 {
 			reserved.Next = result + m.Increment
 		}
@@ -702,7 +731,13 @@ func (e *executor) restartOwnedSequences(ctx context.Context, metas []*tableMeta
 			return err
 		}
 		for _, seq := range seqs {
-			if err = e.mutateSequence(ctx, seq.Schema, seq.Name, func(cur *sequenceMeta) error { cur.Epoch++; cur.Last, cur.Called = cur.Start, false; return nil }, false, false); err != nil {
+			if err = e.mutateSequence(ctx, seq.Schema, seq.Name, func(cur *sequenceMeta) error {
+				cur.Epoch++
+				cur.ResetEpoch++
+				cur.Last, cur.Called = cur.Start, false
+				cur.ResetLast, cur.ResetCalled = cur.Last, cur.Called
+				return nil
+			}, false, false); err != nil {
 				return err
 			}
 		}

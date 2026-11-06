@@ -190,6 +190,8 @@ func (e *executor) refreshMatView(ctx context.Context, m *tableMeta, noData bool
 	stage.KeyPrefix, stage.IndexName = "", ""
 	stage.OID, stage.IndexOID = 0, 0
 	stage.NamedIndexes = nil
+	stage.SnapshotSegments, stage.SnapshotRows, stage.SnapshotOverlay = nil, nil, false
+	stage.SnapshotLineage = ""
 	stage.MaterializedSQL = ""
 	stage.Unpopulated = false
 	for i := range stage.Columns {
@@ -233,6 +235,10 @@ func (e *executor) refreshMatView(ctx context.Context, m *tableMeta, noData bool
 			return stateErrorf("55000", "materialized view changed during refresh; try again")
 		}
 		cur.KeyPrefix, cur.IndexName, cur.PrefixGen = stage.KeyPrefix, stage.IndexName, 0
+		if e.store.snapshots {
+			cur.SnapshotLineage = stage.SnapshotLineage
+			cur.SnapshotSegments, cur.SnapshotRows, cur.SnapshotOverlay = stage.SnapshotSegments, stage.SnapshotRows, stage.SnapshotOverlay
+		}
 		cur.Unpopulated = noData
 		for i := range cur.Columns {
 			cur.Columns[i].Missing = ""
@@ -254,7 +260,9 @@ func (e *executor) refreshMatView(ctx context.Context, m *tableMeta, noData bool
 			p.Set(ctx, seqKey(m.Schema, m.Name), count, 0)
 			p.Del(ctx, metaKey(stage.Schema, stage.Name), seqKey(stage.Schema, stage.Name))
 			p.SRem(ctx, tablesKey(stage.Schema), stage.Name)
-			p.HSet(ctx, matviewRetiredKey, m.prefix(), retired)
+			if !e.store.snapshots {
+				p.HSet(ctx, matviewRetiredKey, m.prefix(), retired)
+			}
 			return nil
 		})
 		return err
@@ -266,6 +274,9 @@ func (e *executor) refreshMatView(ctx context.Context, m *tableMeta, noData bool
 		return 0, wrapRedis(err, "failed to publish materialized view")
 	}
 	published = true
+	if e.store.snapshots {
+		return n, nil
+	}
 	if err = e.store.collectMatviews(ctx); err != nil {
 		return n, wrapRedis(err, "view refreshed but deleting old rows failed")
 	}

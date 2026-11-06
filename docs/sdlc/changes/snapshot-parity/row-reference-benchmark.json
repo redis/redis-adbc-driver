@@ -1,0 +1,202 @@
+{
+  "runs": [
+    {
+      "unrelated_tables": 32,
+      "baseline": {
+        "source": "272ac1a49eb1b733f8d7c81f37fe90e8874fca5c",
+        "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "redis_version": "8.6.2",
+        "software_shards": 3,
+        "qpf": 4,
+        "noeviction": true,
+        "input_rows": 1,
+        "visible_rows": 7,
+        "initial_segments": 2,
+        "unrelated_tables": 32,
+        "repeats": 5,
+        "warmups": 1,
+        "timing": "write/publication + complete RETURNING fetch; independent post-write validation excluded",
+        "cases": {
+          "metadata_comment": {
+            "median_ms": 65.14308298937976,
+            "samples_ms": [
+              62.38216700148769,
+              98.06774999015033,
+              66.61675000214018,
+              65.14308298937976,
+              63.06012498680502
+            ]
+          },
+          "point_update": {
+            "median_ms": 78.67345801787451,
+            "samples_ms": [
+              70.71629099664278,
+              82.9034160124138,
+              155.44470900204033,
+              75.87745800265111,
+              78.67345801787451
+            ]
+          },
+          "arrow_append": {
+            "median_ms": 79.57908298703842,
+            "samples_ms": [
+              79.57908298703842,
+              78.34154198644683,
+              127.97166701056994,
+              84.75591702153906,
+              74.67483400250785
+            ]
+          }
+        }
+      },
+      "current": {
+        "source": "8c2e3365a01629ef47ef886e1f0dce92772efe0e",
+        "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "redis_version": "8.6.2",
+        "software_shards": 3,
+        "qpf": 4,
+        "noeviction": true,
+        "input_rows": 1,
+        "visible_rows": 7,
+        "initial_segments": 2,
+        "unrelated_tables": 32,
+        "repeats": 5,
+        "warmups": 1,
+        "timing": "write/publication + complete RETURNING fetch; independent post-write validation excluded",
+        "cases": {
+          "metadata_comment": {
+            "median_ms": 16.979499981971458,
+            "samples_ms": [
+              15.46500000404194,
+              16.339082998456433,
+              16.979499981971458,
+              17.28070800891146,
+              17.51666600466706
+            ]
+          },
+          "point_update": {
+            "median_ms": 34.18658400187269,
+            "samples_ms": [
+              32.29529201053083,
+              34.18658400187269,
+              39.92466599447653,
+              32.89779098122381,
+              50.16299997805618
+            ]
+          },
+          "arrow_append": {
+            "median_ms": 32.50641698832624,
+            "samples_ms": [
+              65.3112500149291,
+              28.89179199701175,
+              27.064042020356283,
+              75.44754102127627,
+              32.50641698832624
+            ]
+          }
+        }
+      }
+    },
+    {
+      "unrelated_tables": 128,
+      "baseline": {
+        "source": "272ac1a49eb1b733f8d7c81f37fe90e8874fca5c",
+        "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "redis_version": "8.6.2",
+        "software_shards": 3,
+        "qpf": 4,
+        "noeviction": true,
+        "input_rows": 1,
+        "visible_rows": 7,
+        "initial_segments": 2,
+        "unrelated_tables": 128,
+        "repeats": 5,
+        "warmups": 1,
+        "timing": "write/publication + complete RETURNING fetch; independent post-write validation excluded",
+        "cases": {
+          "metadata_comment": {
+            "median_ms": 164.43437497946434,
+            "samples_ms": [
+              198.57404101639986,
+              179.00629100040533,
+              164.31262498372234,
+              160.5250000138767,
+              164.43437497946434
+            ]
+          },
+          "point_update": {
+            "median_ms": 284.2314580047969,
+            "samples_ms": [
+              224.94641700177453,
+              220.59900002204813,
+              338.15891700214706,
+              468.7800419924315,
+              284.2314580047969
+            ]
+          },
+          "arrow_append": {
+            "median_ms": 289.6380419842899,
+            "samples_ms": [
+              376.84700000681914,
+              231.87841699109413,
+              289.6380419842899,
+              453.4802919952199,
+              279.9809999996796
+            ]
+          }
+        }
+      },
+      "current": {
+        "source": "8c2e3365a01629ef47ef886e1f0dce92772efe0e",
+        "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "redis_version": "8.6.2",
+        "software_shards": 3,
+        "qpf": 4,
+        "noeviction": true,
+        "input_rows": 1,
+        "visible_rows": 7,
+        "initial_segments": 2,
+        "unrelated_tables": 128,
+        "repeats": 5,
+        "warmups": 1,
+        "timing": "write/publication + complete RETURNING fetch; independent post-write validation excluded",
+        "cases": {
+          "metadata_comment": {
+            "median_ms": 26.79350000107661,
+            "samples_ms": [
+              28.923333011334762,
+              37.16204201919027,
+              26.25324999098666,
+              26.79350000107661,
+              14.29766698856838
+            ]
+          },
+          "point_update": {
+            "median_ms": 66.34762499015778,
+            "samples_ms": [
+              67.19679199159145,
+              66.34762499015778,
+              59.4889170024544,
+              55.44645802001469,
+              86.77820899174549
+            ]
+          },
+          "arrow_append": {
+            "median_ms": 91.08433302026242,
+            "samples_ms": [
+              90.48833299311809,
+              85.54904197808355,
+              91.85879197320901,
+              91.08433302026242,
+              171.4124589925632
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

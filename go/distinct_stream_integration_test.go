@@ -26,7 +26,7 @@ func TestDistinctStreamingLateErrorAndLifecycle(t *testing.T) {
 		other := newSQLHarness(t)
 		ctx, cancel := context.WithCancel(other.ctx)
 		st, r, _ := other.openStmtStream(ctx, other.conn, "SELECT DISTINCT id FROM "+table, nil, map[string]string{OptionStringStreamRequired: "true", OptionIntStreamBatchRows: "1"})
-		sr, ok := r.(*streamReader)
+		sr, ok := inspectionReader(r).(*streamReader)
 		if !ok || sr.distinct == nil {
 			r.Release()
 			t.Fatal("distinct query did not stream")

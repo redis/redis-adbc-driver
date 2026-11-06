@@ -53,18 +53,20 @@ func aggregateSpillShard(key string) int {
 }
 
 type tupleAggregatePlan struct {
-	cols, distinct []columnMeta
-	groupExprs     []Expr
-	argExprs       map[int]Expr
-	args           []int
-	types          []ColType
-	countAlias     string
-	server         bool
-	compactRows    bool
-	countGroups    bool
-	partialGroups  bool
-	functions      []*Func
-	groupKeyMask   []bool
+	visibilityReady bool
+	visibility      []snapshotIndexQuery
+	cols, distinct  []columnMeta
+	groupExprs      []Expr
+	argExprs        map[int]Expr
+	args            []int
+	types           []ColType
+	countAlias      string
+	server          bool
+	compactRows     bool
+	countGroups     bool
+	partialGroups   bool
+	functions       []*Func
+	groupKeyMask    []bool
 }
 
 func tupleAggregateShape(plan *selectPlan, aggs []*Func) (*tupleAggregatePlan, bool) {
@@ -516,11 +518,45 @@ func (p *tupleAggregatePlan) values(row spillTuple) ([]Value, error) {
 	return vals, nil
 }
 
+// Prepare immutable visibility once before a coordinator starts its workers.
+func (e *executor) prepareTupleVisibility(ctx context.Context, meta *tableMeta, p *tupleAggregatePlan) error {
+	if meta.SnapshotOverlay {
+		visibility, ok, err := e.snapshotIndexQueries(ctx, meta)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			p.server = false
+		} else {
+			p.visibility = visibility
+			if p.visibility == nil {
+				p.visibility = []snapshotIndexQuery{}
+			}
+		}
+	}
+	p.visibilityReady = true
+	return nil
+}
+
 // Read an entire partition before accepting it. A group-limit error can
 // occur on a later cursor page: discard that attempt before splitting or
 // scanning, otherwise partial rows would be counted twice.
 func (e *executor) aggregateTuplePartition(ctx context.Context, plan *selectPlan, p *tupleAggregatePlan, wp wherePlan, params []Value, lo, hi int64, tail bool, visit func(spillTuple) error) error {
+	if plan.meta.SnapshotOverlay && !p.visibilityReady {
+		// Coordinators prepare once before starting workers. Independently
+		// invoked partitions must establish the same proof, without mutating a
+		// shape that another worker may share.
+		local := *p
+		p = &local
+		if err := e.prepareTupleVisibility(ctx, plan.meta, p); err != nil {
+			return err
+		}
+	}
 	part := partitionWhere(wp, lo, hi, tail)
+	boundHi := hi
+	if tail {
+		boundHi = math.MaxInt64
+	}
 	if e.aggregateMetrics != nil {
 		e.aggregateMetrics.partitions.Add(1)
 	}
@@ -550,7 +586,11 @@ func (e *executor) aggregateTuplePartition(ctx context.Context, plan *selectPlan
 			local.telemetry = stats
 			defer func() { e.telemetry.fetch.Add(stats.fetch.Load()) }()
 		}
-		return local.scanPages(ctx, scanRequest{meta: plan.meta, where: part, need: need}, params, func(rows []map[string]Value) error {
+		req := scanRequest{meta: plan.meta, where: part, need: need}
+		if plan.meta.SnapshotOverlay {
+			req.ranges = &rowIDRangeScan{lo: lo, hi: boundHi}
+		}
+		return local.scanPages(ctx, req, params, func(rows []map[string]Value) error {
 			for _, row := range rows {
 				vals := make([]Value, len(p.cols))
 				for i, c := range p.cols {
@@ -576,12 +616,13 @@ func (e *executor) aggregateTuplePartition(ctx context.Context, plan *selectPlan
 		})
 	}
 	if p.compactRows {
-		return e.compactIntegerTuplePartition(ctx, plan, p, part, params, emit)
+		return e.compactIntegerTuplePartition(ctx, plan, p, part, params, lo, boundHi, emit)
 	}
 	if !p.server {
 		return scan()
 	}
 	req := distinctRequest(plan.meta, part, p.cols, nil)
+	req.visibility = p.visibility
 	req.groupBy = append(req.groupBy, "REDUCE", "COUNT", 0, "AS", p.countAlias)
 	req.width++
 	started := time.Now()
@@ -733,6 +774,9 @@ func (e *executor) partitionedAggregate(ctx context.Context, plan *selectPlan, w
 	if (!force && last < aggregatePartitionRows) || last >= exactDoubleLimit {
 		return nil, false, nil
 	}
+	if err := e.prepareTupleVisibility(ctx, plan.meta, p); err != nil {
+		return nil, true, err
+	}
 	if e.pushdown == PushdownNone {
 		p.server = false
 	}
@@ -743,7 +787,7 @@ func (e *executor) partitionedAggregate(ctx context.Context, plan *selectPlan, w
 		}
 	}
 	var compactRTT time.Duration
-	if compactIntegerTupleShape(plan.meta, p, wp) {
+	if (!plan.meta.SnapshotOverlay || e.snapshotIndexable(ctx, plan.meta)) && compactIntegerTupleShape(plan.meta, p, wp) {
 		p.compactRows, compactRTT = e.compactIntegerTupleRTT(ctx)
 		if p.compactRows {
 			p.server = false

@@ -29,6 +29,8 @@ import (
 )
 
 type databaseImpl struct {
+	snapshots                   bool
+	snapshotCompactionDisabled  bool // internal deterministic protocol-test fixture only
 	flex                        bool
 	usage                       usageState
 	rbac                        *rbacManager
@@ -113,6 +115,11 @@ func (d *databaseImpl) clientConfig() (*clientConfig, error) {
 	opts.Protocol = 3
 	opts.OnConnect = requireRESP3
 	opts.DisableIdentity = true
+	// Snapshot leases, cleanup and statement lifetimes need their context
+	// deadlines enforced on socket I/O, independently of ordinary timeouts.
+	if d.snapshots {
+		opts.ContextTimeoutEnabled = true
+	}
 	cfg := newClientConfig(opts)
 	cfg.clusterParams = params
 	if extra != nil {
@@ -262,6 +269,9 @@ func (d *databaseImpl) dial(ctx context.Context) (client goredis.UniversalClient
 }
 
 func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, error) {
+	if d.snapshots && d.flex && !d.readerOnly {
+		return nil, errorf(adbc.StatusNotImplemented, "managed-table statement snapshots require sortable indexes and aggregate cursors; Redis Flex snapshot execution is not supported")
+	}
 	if d.flex && d.foreignIndexes {
 		return nil, flexUnsupported("foreign_indexes")
 	}
@@ -290,7 +300,7 @@ func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, er
 	if err != nil {
 		return nil, err
 	}
-	st := &store{client: client}
+	st := &store{client: client, readerNamespace: snapshotReaderNamespace(cfg.single.Username)}
 	if !d.readerOnly {
 		if err := st.searchDo(ctx, "", "FT._LIST").Err(); err != nil {
 			_ = client.Close()
@@ -300,27 +310,44 @@ func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, er
 			_ = client.Close()
 			return nil, err
 		}
-		if err := st.migrateLegacyMetadata(ctx); err != nil {
+		if err := st.openSnapshotCatalog(ctx, d.snapshots, d.foreignIndexes); err != nil {
 			_ = client.Close()
 			return nil, err
 		}
-		if err := st.ensureRegistry(ctx); err != nil {
+		if !st.snapshots {
+			if err := st.migrateLegacyMetadata(ctx); err != nil {
+				_ = client.Close()
+				return nil, err
+			}
+			if err := st.ensureRegistry(ctx); err != nil {
+				_ = client.Close()
+				return nil, err
+			}
+			// Finish removing dropped columns' fields left over by earlier connections.
+			if err := st.resumeCleanups(ctx); err != nil {
+				_ = client.Close()
+				return nil, err
+			}
+			// Roll back or finish renames that were moving rows when their
+			// connection went away, before any statement runs (see rekey.go).
+			if err := st.recoverDead(ctx); err != nil {
+				_ = client.Close()
+				return nil, err
+			}
+			// Drop temporary objects of connections that exited without closing.
+			st.sweepTemp(ctx)
+		}
+	}
+	if st.snapshots && d.rbac != nil && !st.restrictedReader {
+		if err := st.registerRBACReaderDomains(ctx, d.rbac); err != nil {
 			_ = client.Close()
 			return nil, err
 		}
-		// Finish removing dropped columns' fields left over by earlier connections.
-		if err := st.resumeCleanups(ctx); err != nil {
-			_ = client.Close()
-			return nil, err
-		}
-		// Roll back or finish renames that were moving rows when their
-		// connection went away, before any statement runs (see rekey.go).
-		if err := st.recoverDead(ctx); err != nil {
-			_ = client.Close()
-			return nil, err
-		}
-		// Drop temporary objects of connections that exited without closing.
+	}
+	if st.snapshots && !st.restrictedReader {
 		st.sweepTemp(ctx)
+	}
+	if !d.readerOnly {
 		// Retired generations are garbage, not pending catalog changes. Like
 		// temporary-object cleanup, collection must not prevent a restricted
 		// reader from connecting. Keep retirement records for an authorized
@@ -328,6 +355,12 @@ func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, er
 		_ = st.collectMatviews(ctx)
 	}
 	st.foreignIndexes = d.foreignIndexes
+	if st.snapshots && d.foreignIndexes && !st.restrictedReader {
+		if err := st.refreshSnapshotForeign(ctx, false); err != nil {
+			_ = client.Close()
+			return nil, err
+		}
+	}
 	conn := &connectionImpl{
 		usage:              u,
 		ConnectionImplBase: driverbase.NewConnectionImplBase(&d.DatabaseImplBase),
@@ -349,6 +382,9 @@ func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, er
 	}
 	if cfg.single.Username != "" {
 		conn.sess.user = cfg.single.Username
+	}
+	if st.snapshots && !d.snapshotCompactionDisabled && !st.restrictedReader {
+		st.startSnapshotCompactor(cfg, t)
 	}
 	ok = true
 	return driverbase.NewConnectionBuilder(conn).
@@ -444,6 +480,8 @@ func (d *databaseImpl) GetOption(ctx context.Context, key string) (string, error
 		return d.usage.get(key)
 	}
 	switch key {
+	case OptionStringStatementSnapshots:
+		return strconv.FormatBool(d.snapshots), nil
 	case OptionStringPartitionControlPersistence:
 		if d.partitionControlPersistence == "" {
 			return "auto", nil
@@ -515,6 +553,11 @@ func (d *databaseImpl) SetOption(ctx context.Context, key, value string) error {
 		return d.usage.set(key, value)
 	}
 	switch key {
+	case OptionStringStatementSnapshots:
+		if value != "true" {
+			return errorf(adbc.StatusInvalidArgument, "managed-table statement snapshots are always enabled; %s cannot be disabled", key)
+		}
+		d.snapshots = true
 	case OptionStringRBAC:
 		r, err := newRBAC(value)
 		if err != nil {

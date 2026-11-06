@@ -122,7 +122,7 @@ func printReport(w io.Writer, r *redis.HashReport) {
 	if len(r.Columns) > 0 {
 		fmt.Fprintf(w, "\nGuessed columns (as table %s.%s):\n", r.Schema, r.Table)
 		tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-		fmt.Fprintln(tw, "  COLUMN\tCOPY TYPE\tIN-PLACE TYPE\tPRESENT\tNOTES")
+		fmt.Fprintln(tw, "  COLUMN\tCOPY TYPE\tIMPORT TYPE\tPRESENT\tNOTES")
 		for _, c := range r.Columns {
 			name := c.Name
 			if c.Field != "" && c.Field != c.Name {

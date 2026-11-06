@@ -86,8 +86,15 @@ func (c *retainedCapture) table(ctx context.Context, meta *tableMeta) (*tableMet
 	if c.budget == nil || c.maxRows < 1 || c.maxKeys < 1 || len(meta.Columns) > 1024 {
 		return nil, errorf(adbc.StatusInvalidArgument, "invalid retained source capture limits")
 	}
-	if meta.isMem || isTempSchema(meta.Schema) && !c.store.ownTempSchema(meta.Schema) || meta.RekeyTo != "" || len(meta.PendingCleanup) > 0 || meta.Adopted && !meta.KeyRows {
+	// Native immutable directories remain an exact capture source even when a
+	// descriptor carries the legacy cleanup marker. Other layouts retain their
+	// readiness/ownership restrictions.
+	nativeSnapshot := c.store.snapshots && !meta.Adopted && !meta.Foreign && !meta.AppIndex
+	if meta.isMem || isTempSchema(meta.Schema) && !c.store.ownTempSchema(meta.Schema) || meta.RekeyTo != "" || len(meta.PendingCleanup) > 0 && !nativeSnapshot || meta.Adopted && !meta.KeyRows {
 		return nil, errorf(adbc.StatusNotImplemented, "retained source layout is unowned temporary, moving, pending cleanup or requires explicit re-adoption")
+	}
+	if nativeSnapshot {
+		return c.snapshotTable(ctx, meta)
 	}
 	topology, err := c.store.retainedTopology(ctx)
 	if err != nil {

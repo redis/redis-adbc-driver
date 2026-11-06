@@ -63,3 +63,17 @@ func ctxStatus(err error) (adbc.Status, bool) {
 	}
 	return 0, false
 }
+
+// Closing an owner can interrupt Redis with context.Canceled. Preserve the
+// InvalidState cause while retaining the command's diagnostic/outcome details.
+// In particular, an IO error for indeterminate publication is never replaced.
+func executionCloseError(ctx context.Context, err error) error {
+	var original, cause adbc.Error
+	if !errors.As(err, &original) || original.Code != adbc.StatusCancelled ||
+		!errors.As(cancelled(ctx), &cause) || cause.Code != adbc.StatusInvalidState {
+		return err
+	}
+	original.Code, original.SqlState = cause.Code, cause.SqlState
+	original.Msg = cause.Msg + "; " + original.Msg
+	return original
+}

@@ -21,12 +21,12 @@ import (
 	"os"
 	"slices"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/apache/arrow-adbc/go/adbc"
 	"github.com/apache/arrow-go/v18/arrow"
-	"github.com/apache/arrow-go/v18/arrow/memory"
 	goredis "github.com/redis/go-redis/v9"
 )
 
@@ -55,7 +55,24 @@ func planPartitions(t *testing.T, h *sqlHarness, q string, count int) (*arrow.Sc
 	if n != -1 || parts.NumPartitions != uint64(len(parts.PartitionIDs)) {
 		t.Fatalf("count %d, partitions %+v", n, parts)
 	}
+	registerPartitionTestCleanup(t, h, parts)
 	return schema, parts
+}
+
+func registerPartitionTestCleanup(t *testing.T, h *sqlHarness, parts adbc.Partitions) {
+	t.Helper()
+	descriptor, err := decodePartition(parts.PartitionIDs[0])
+	if err != nil || descriptor.Snapshot == nil {
+		t.Fatal("live partitions lack a shared generation", err)
+	}
+	// Fixture cleanup must not depend on the producer connection still being open.
+	cleanup := &store{client: h.rawClient(), snapshots: true}
+	token := descriptor.Snapshot.Token
+	t.Cleanup(func() {
+		if err := cleanup.releasePartitionSnapshot(context.Background(), token); err != nil {
+			t.Error("release test partition snapshot", err)
+		}
+	})
 }
 
 func TestPartitionReads(t *testing.T) {
@@ -104,8 +121,9 @@ func TestPartitionReads(t *testing.T) {
 			}
 		})
 	}
+	original := h.inspectTable(h.rawClient(), defaultSchema, "it_partition_api")
 	_, parts := planPartitions(t, h, "SELECT id FROM it_partition_api", 2)
-	// Inserts allocated after planning are outside the captured high watermark.
+	// Later writes are outside the producer generation.
 	h.exec("INSERT INTO it_partition_api VALUES (7,'g',7)")
 	var vals []int64
 	for _, id := range parts.PartitionIDs {
@@ -124,7 +142,7 @@ func TestPartitionReads(t *testing.T) {
 	if !slices.Equal(vals, []int64{1, 2, 4, 5, 6}) {
 		t.Fatal(vals)
 	}
-	// Re-reading a descriptor is allowed, but returns current data.
+	// Re-reading a descriptor retains the original producer generation.
 	r, err := worker.conn.ReadPartition(h.ctx, parts.PartitionIDs[0])
 	if err != nil {
 		t.Fatal(err)
@@ -134,22 +152,67 @@ func TestPartitionReads(t *testing.T) {
 	json.Unmarshal(parts.PartitionIDs[0], &d)
 	d.Target = "0123456789012345678901234567890123456789012345678901234567890123"
 	bad, _ := json.Marshal(d)
-	if _, err := worker.conn.ReadPartition(h.ctx, bad); !isStatus(err, adbc.StatusInvalidState) {
+	badReader, err := worker.conn.ReadPartition(h.ctx, bad)
+	if badReader != nil {
+		badReader.Release()
+		t.Fatal("forged target returned a reader")
+	}
+	if !isStatus(err, adbc.StatusInvalidState) {
 		t.Fatal(err)
 	}
 	h.exec("TRUNCATE it_partition_api")
-	if _, err := worker.conn.ReadPartition(h.ctx, parts.PartitionIDs[0]); !isStatus(err, adbc.StatusInvalidState) {
-		t.Fatal(err)
+	readOriginal := func() {
+		t.Helper()
+		var got []int64
+		for _, id := range parts.PartitionIDs {
+			reader, err := worker.conn.ReadPartition(h.ctx, id)
+			if err != nil {
+				t.Fatal(err)
+			}
+			values, _, err := readInts(reader)
+			reader.Release()
+			if err != nil {
+				t.Fatal(err)
+			}
+			got = append(got, values...)
+		}
+		slices.Sort(got)
+		if !slices.Equal(got, []int64{1, 2, 4, 5, 6}) {
+			t.Fatal("producer generation changed", got)
+		}
 	}
+	readOriginal()
 	schema, empty := planPartitions(t, h, "SELECT id FROM it_partition_api", 4)
 	r, err = worker.conn.ReadPartition(h.ctx, empty.PartitionIDs[0])
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer r.Release()
 	if !r.Schema().Equal(schema) || r.Next() || r.Err() != nil {
+		r.Release()
 		t.Fatal("empty partition lost schema or returned rows")
 	}
+	r.Release()
+	h.exec("DROP TABLE it_partition_api")
+	snapshotReapTest(&store{client: h.rawClient(), snapshots: true}, h.ctx)
+	readOriginal()
+	// Release the retained generation and require exact private reclamation.
+	descriptor, err := decodePartition(parts.PartitionIDs[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.exec("DROP PARTITION SNAPSHOT '" + descriptor.Snapshot.Token + "'")
+	for _, segment := range original.snapshotSegments() {
+		h.expectSnapshotReleased(h.rawClient(), segment.Prefix, segment.Index)
+	}
+	reader, err := worker.conn.ReadPartition(h.ctx, parts.PartitionIDs[0])
+	if reader != nil {
+		reader.Release()
+		t.Fatal("released descriptor returned a reader")
+	}
+	if !isStatus(err, adbc.StatusIO) || !strings.Contains(err.Error(), "partition snapshot expired or released") {
+		t.Fatal("released descriptor failed for wrong reason", err)
+	}
+
 }
 
 func TestPartitionStreamingLifecycle(t *testing.T) {
@@ -158,56 +221,77 @@ func TestPartitionStreamingLifecycle(t *testing.T) {
 	h.setupStreamTable(table, streamRows)
 	t.Cleanup(func() { h.exec("DROP TABLE IF EXISTS " + table) })
 	_, parts := planPartitions(t, h, "SELECT id FROM "+table, 1)
-	worker := newSQLHarness(t)
-	db, err := NewDriver(memory.DefaultAllocator).NewDatabaseWithContext(h.ctx, map[string]string{
-		adbc.OptionKeyURI: os.Getenv("REDIS_URI"), OptionIntStreamBatchRows: "1000",
-	})
-	if err != nil {
-		t.Fatal(err)
+	raw := h.rawClient()
+	meta := h.inspectTable(raw, defaultSchema, table)
+	noCursors := func() {
+		t.Helper()
+		for _, segment := range meta.snapshotSegments() {
+			h.expectNoIndexCursors(&store{client: raw}, segment.Index)
+		}
 	}
-	worker.conn.Close(h.ctx)
-	worker.conn, err = db.Open(h.ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
+	worker := openWith(t, os.Getenv("REDIS_URI"), map[string]string{OptionIntStreamBatchRows: "1000"})
 	ctx, cancel := context.WithCancel(h.ctx)
+	defer cancel()
 	r, err := worker.conn.ReadPartition(ctx, parts.PartitionIDs[0])
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !r.Next() || r.RecordBatch().NumRows() > 1000 {
+		r.Release()
 		t.Fatal("expected bounded Arrow batch")
 	}
-	id := cursorOf(r)
-	if id == 0 {
-		t.Fatal("expected live cursor")
-	}
+	// Native full scans use exact directories; no Search cursor is required.
 	cancel()
 	if r.Next() || !isStatus(r.Err(), adbc.StatusCancelled) {
-		t.Fatalf("cancel: %v", r.Err())
+		readErr := r.Err()
+		r.Release()
+		t.Fatalf("cancel: %v", readErr)
 	}
 	r.Release()
-	if h.delCursor(h.rawClient(), table, id) {
-		t.Fatal("cancel leaked cursor")
-	}
+	noCursors()
 	r, err = worker.conn.ReadPartition(h.ctx, parts.PartitionIDs[0])
 	if err != nil {
 		t.Fatal(err)
 	}
-	id = cursorOf(r)
 	r.Release()
-	if h.delCursor(h.rawClient(), table, id) {
-		t.Fatal("release leaked cursor")
-	}
+	noCursors()
 	r, err = worker.conn.ReadPartition(h.ctx, parts.PartitionIDs[0])
 	if err != nil {
 		t.Fatal(err)
 	}
-	worker.conn.Close(h.ctx)
+	if err := worker.conn.Close(h.ctx); err != nil {
+		r.Release()
+		t.Fatal(err)
+	}
 	if r.Next() || !isStatus(r.Err(), adbc.StatusInvalidState) {
-		t.Fatalf("closed: %v", r.Err())
+		readErr := r.Err()
+		r.Release()
+		t.Fatalf("closed: %v", readErr)
 	}
 	r.Release()
+	noCursors()
+	// Closing one worker does not revoke other workers' capability.
+	worker = openWith(t, os.Getenv("REDIS_URI"), map[string]string{OptionIntStreamBatchRows: "1000"})
+	r, err = worker.conn.ReadPartition(h.ctx, parts.PartitionIDs[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	values, batches, err := readInts(r)
+	r.Release()
+	if err != nil || len(values) != streamRows {
+		t.Fatal("incomplete fresh replay", len(values), err)
+	}
+	for i, v := range values {
+		if v != int64(i) {
+			t.Fatal("fresh replay changed value", i, v)
+		}
+	}
+	for _, n := range batches {
+		if n > 1000 {
+			t.Fatal("fresh replay exceeded batch bound", n)
+		}
+	}
+	noCursors()
 }
 
 func TestPartitionReaderPermissions(t *testing.T) {
@@ -215,6 +299,8 @@ func TestPartitionReaderPermissions(t *testing.T) {
 	a.exec("DROP TABLE IF EXISTS it_partition_acl")
 	a.exec("CREATE TABLE it_partition_acl (id BIGINT)")
 	a.exec("INSERT INTO it_partition_acl VALUES (1),(2)")
+	// Require broad metadata validation rather than the finite direct-ID path.
+	a.sparseSnapshotTable("it_partition_acl", maxPartitionDirectIDs+1, nil)
 	t.Cleanup(func() { a.exec("DROP TABLE IF EXISTS it_partition_acl") })
 	_, parts := planPartitions(t, a.sqlHarness, "SELECT id FROM it_partition_acl", 1)
 	d, _ := decodePartition(parts.PartitionIDs[0])
@@ -226,11 +312,15 @@ func TestPartitionReaderPermissions(t *testing.T) {
 	hidden := d
 	hidden.ScanCap = 0
 	unknown, _ := json.Marshal(hidden)
-	if r, err := worker.conn.ReadPartition(a.ctx, unknown); !isStatus(err, adbc.StatusNotImplemented) {
-		if r != nil {
-			r.Release()
-		}
-		t.Fatalf("hidden cap must require explicit contract: %v", err)
+	uncapped, err := worker.conn.ReadPartition(a.ctx, unknown)
+	if err != nil {
+		t.Fatal("managed directory replay unexpectedly required a Search cap", err)
+	}
+	uncappedValues, _, err := readInts(uncapped)
+	uncapped.Release()
+	slices.Sort(uncappedValues)
+	if err != nil || !slices.Equal(uncappedValues, []int64{1, 2}) {
+		t.Fatal("uncapped managed directory values", uncappedValues, err)
 	}
 	r, err := worker.conn.ReadPartition(a.ctx, parts.PartitionIDs[0])
 	if err != nil {
@@ -259,9 +349,28 @@ func TestPartitionReaderPermissions(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if r, err := worker.conn.ReadPartition(a.ctx, parts.PartitionIDs[0]); err == nil {
-		r.Release()
-		t.Fatal("descriptor bypassed the reading connection's denied FT.AGGREGATE permission")
+	// Managed partitions seek their exact row directory, so FT.AGGREGATE is
+	// not a data dependency. Prove the command is really denied, then require
+	// complete directory replay with the remaining row-read permissions.
+	opts, err := goredis.ParseURL(a.userURI(user))
+	if err != nil {
+		t.Fatal(err)
+	}
+	probe := newClient(newClientConfig(opts), a.cluster, timeouts{read: time.Minute, write: time.Minute})
+	defer probe.Close()
+	_, index := a.tableNames(a.raw, defaultSchema, "it_partition_acl")
+	if err := (&store{client: probe}).searchDo(a.ctx, index, "FT.AGGREGATE", index, "*").Err(); err == nil || !strings.Contains(err.Error(), "NOPERM") {
+		t.Fatal("FT.AGGREGATE command denial was not enforced", err)
+	}
+	directoryReader, err := worker.conn.ReadPartition(a.ctx, parts.PartitionIDs[0])
+	if err != nil {
+		t.Fatal("managed directory replay depended on FT.AGGREGATE", err)
+	}
+	values, _, err := readInts(directoryReader)
+	directoryReader.Release()
+	slices.Sort(values)
+	if err != nil || !slices.Equal(values, []int64{1, 2}) {
+		t.Fatal("managed directory replay lost values", values, err)
 	}
 }
 
@@ -285,10 +394,7 @@ func TestPartitionLimitsAndScope(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	raw := h.rawClient()
-	if err := raw.Set(h.ctx, seqKey(defaultSchema, "it_partition_limits"), exactDoubleLimit-1, 0).Err(); err != nil {
-		t.Fatal(err)
-	}
+	h.sparseSnapshotTable("it_partition_limits", exactDoubleLimit-1, nil)
 	_, parts := planPartitions(t, h, "SELECT id FROM it_partition_limits", 1024)
 	var previous int64
 	for _, part := range parts.PartitionIDs {
@@ -304,9 +410,7 @@ func TestPartitionLimitsAndScope(t *testing.T) {
 	if previous != exactDoubleLimit-1 {
 		t.Fatal(previous)
 	}
-	if err := raw.Set(h.ctx, seqKey(defaultSchema, "it_partition_limits"), exactDoubleLimit, 0).Err(); err != nil {
-		t.Fatal(err)
-	}
+	h.sparseSnapshotTable("it_partition_limits", exactDoubleLimit, nil)
 	st.SetSqlQuery(h.ctx, "SELECT id FROM it_partition_limits")
 	if _, _, _, err := st.ExecutePartitions(h.ctx); !isStatus(err, adbc.StatusNotImplemented) {
 		t.Fatal(err)
@@ -413,6 +517,7 @@ func TestPartitionIncrementalLifecycle(t *testing.T) {
 		if err != nil || parts.NumPartitions == 0 {
 			t.Fatalf("initial: %v", err)
 		}
+		registerPartitionTestCleanup(t, h, parts)
 		for range 3 {
 			terminal, empty, _, err := st.ExecutePartitions(h.ctx)
 			if err != nil || empty.NumPartitions != 0 || !terminal.Equal(schema) {
@@ -448,9 +553,11 @@ func TestPartitionIncrementalLifecycle(t *testing.T) {
 	}
 	st.SetOption(h.ctx, OptionStringIncremental, "false")
 	for range 2 {
-		if _, p, _, err := st.ExecutePartitions(h.ctx); err != nil || p.NumPartitions == 0 {
+		_, p, _, err := st.ExecutePartitions(h.ctx)
+		if err != nil || p.NumPartitions == 0 {
 			t.Fatalf("disabled: %v", err)
 		}
+		registerPartitionTestCleanup(t, h, p)
 	}
 }
 
@@ -544,7 +651,10 @@ func TestPartitionLiveReadConsistency(t *testing.T) {
 	h.exec("UPDATE " + table + " SET id=20 WHERE id=2")
 	h.exec("DELETE FROM " + table + " WHERE id=3")
 	h.exec("INSERT INTO " + table + " VALUES (4)")
-	if values := read(); !slices.Equal(values, []int64{1, 20}) {
-		t.Fatalf("live retry/high watermark: %v", values)
+	h.expectRows("SELECT id FROM "+table+" ORDER BY id", "1", "4", "20")
+	for range 2 {
+		if values := read(); !slices.Equal(values, []int64{1, 2, 3}) {
+			t.Fatalf("retry changed producer generation: %v", values)
+		}
 	}
 }

@@ -3,6 +3,9 @@
 2026-11-03. Base `bb83527`. Status: implementation in review.
 [Intent](intent.md), [plan](plan.md), [validation](validation.md).
 
+The later [snapshot integration](../snapshot-parity/main-merge-validation.md)
+supersedes the partial-effect model below for managed snapshot catalogs.
+
 The public contract and limitations are in [the SQL addition guide](../../../sql-101-105.md).
 
 - Sequences are exact int64 allocators in the metadata slot, with connection-local

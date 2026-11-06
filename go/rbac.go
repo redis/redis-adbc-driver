@@ -47,7 +47,49 @@ type rbacManager struct {
 // The baseline reveals metadata and index names, but permits no row reads until
 // a prefix is added. Command permissions never include writes or Search DDL.
 // Keep rules additive; resetting command/key permissions is outside our ownership.
-const rbacBaseACL = "+ping +info +ft._list +ft.info +ft.aggregate +ft.cursor +ft.search +ft.profile +get +exists +hget +hmget +hgetall +smembers +sismember %R~adbc:{meta}:* %R~adbc:schemas"
+// Import capture journals contain row values. Keep metadata grants positive:
+// a wildcard over workspace values would reveal unpublished captured payloads.
+const rbacBaseACL = "+ping +info +ft._list +ft.info +ft.aggregate +ft.cursor +ft.search +ft.profile +get +exists +hget +hmget +hgetall +smembers +sismember +zmscore" +
+	" %R~adbc:schemas %R~" + snapshotCatalogKey + " %R~" + snapshotPrefix + "metadata:*" +
+	" %R~" + snapshotPrefix + "absent:*" +
+	" %R~" + snapshotPrefix + "workspace:*:__keys" +
+	" %R~" + snapshotPrefix + "workspace:*:schemas" +
+	" %R~" + snapshotPrefix + "workspace:*:namespace:*" +
+	" %R~" + snapshotPrefix + "workspace:*:tables:*" +
+	" %R~" + snapshotPrefix + "workspace:*:table:*" +
+	" %R~" + snapshotPrefix + "workspace:*:views:*" +
+	" %R~" + snapshotPrefix + "workspace:*:view:*" +
+	" %R~" + snapshotPrefix + "workspace:*:sql-sequences:*" +
+	" %R~" + snapshotPrefix + "workspace:*:sql-sequence:*" +
+	" %R~" + snapshotPrefix + "workspace:*:sql-index:*" +
+	" %R~" + snapshotPrefix + "workspace:*:seq:*" +
+	" %R~" + snapshotPrefix + "workspace:*:sequence-state:*"
+
+// ACL selectors keep EVAL's declared-key envelope separate from commands a
+// script may execute. Only this backend role/ACL domain HASH is writable; SADD registers
+// retention but cannot remove another principal's namespace.
+func rbacReaderACL(domain string) string {
+	own := snapshotReaderPrefix + snapshotReaderNamespace(domain)
+	return rbacBaseACL + " +time +scard +hlen +hstrlen +zcard +zrange +zrangebylex +zscore +zlexcount +memory|usage %R~" + snapshotReaderDirectory + " %R~" + snapshotReaderDomains + " %R~" + snapshotReaderPrefix + "* %R~" + snapshotPrefix + "members:*" +
+		" (+eval ~" + snapshotCatalogKey + " ~" + snapshotPrefix + "*)" +
+		" (+hset +hdel ~" + own + ") (+sadd ~" + snapshotReaderDirectory + ")"
+}
+
+// SnapshotReaderPolicy describes the baseline permissions and registration for
+// one backend authorization domain; it contains no connection credentials.
+type SnapshotReaderPolicy struct {
+	Format    int    `json:"format"`
+	Namespace string `json:"namespace"`
+	ACL       string `json:"acl"`
+	Registry  string `json:"registry"`
+}
+
+// SnapshotReaderPermissions constructs a policy without contacting Redis.
+// SQL RBAC uses its dedicated ACL name as domain. Users sharing the ACL share
+// this trust boundary; row SELECT grants are added separately.
+func SnapshotReaderPermissions(domain string) SnapshotReaderPolicy {
+	return SnapshotReaderPolicy{16, snapshotReaderNamespace(domain), rbacReaderACL(domain), snapshotReaderDomains}
+}
 
 func newRBAC(raw string) (*rbacManager, error) {
 	var cfg rbacConfig
@@ -123,9 +165,10 @@ func (r *rbacManager) request(ctx context.Context, method, path string, body, ou
 }
 
 type rbacACL struct {
-	UID  int    `json:"uid"`
-	Name string `json:"name"`
-	ACL  string `json:"acl"`
+	Domain string `json:"-"`
+	UID    int    `json:"uid"`
+	Name   string `json:"name"`
+	ACL    string `json:"acl"`
 }
 type rbacPermission struct {
 	RoleUID int `json:"role_uid"`
@@ -176,16 +219,20 @@ func (r *rbacManager) readRole(ctx context.Context, role string) (rbacACL, []str
 	// Combined-role ACL behavior is not a supported SQL authorization mapping.
 	// Fail before writing if any user of this role has additional memberships.
 	var users []struct {
-		Roles []int `json:"role_uids"`
+		Roles []int  `json:"role_uids"`
+		Email string `json:"email"`
 	}
 	if err := r.request(ctx, "GET", "users", nil, &users); err != nil {
 		return rbacACL{}, nil, err
 	}
+	// A role is a backend authorization domain. Multiple users may share it,
+	// but additive memberships still have no unambiguous SQL-role mapping.
 	for _, user := range users {
 		if slices.Contains(user.Roles, b.RoleUID) && len(user.Roles) != 1 {
 			return rbacACL{}, nil, errorf(adbc.StatusNotImplemented, "RBAC SELECT grants require users with a single Redis role")
 		}
 	}
+	domain := rbacACLName(r.cfg.DatabaseUID, b.RoleUID)
 	var acl rbacACL
 	if err := r.request(ctx, "GET", "redis_acls/"+strconv.Itoa(b.ACLUID), nil, &acl); err != nil {
 		return acl, nil, err
@@ -193,7 +240,8 @@ func (r *rbacManager) readRole(ctx context.Context, role string) (rbacACL, []str
 	if acl.UID != b.ACLUID || acl.Name != rbacACLName(r.cfg.DatabaseUID, b.RoleUID) {
 		return acl, nil, errorf(adbc.StatusInvalidArgument, "RBAC ACL is not dedicated to this binding")
 	}
-	prefixes, err := rbacPrefixes(acl.ACL)
+	acl.Domain = domain
+	prefixes, err := rbacPrefixes(acl.ACL, rbacReaderACL(domain))
 	return acl, prefixes, err
 }
 
@@ -208,34 +256,54 @@ func safeRBACPrefix(prefix string) bool {
 	}
 	return true
 }
-func rbacACLString(prefixes []string) string {
+func rbacACLString(prefixes []string, base ...string) string {
 	prefixes = slices.Clone(prefixes)
 	slices.Sort(prefixes)
 	prefixes = slices.Compact(prefixes)
 	s := rbacBaseACL
+	if len(base) > 0 {
+		s = base[0]
+	}
 	for _, prefix := range prefixes {
 		s += " %R~" + prefix + "*"
 	}
 	return s
 }
-func rbacPrefixes(acl string) ([]string, error) {
+func rbacPrefixes(acl string, bases ...string) ([]string, error) {
+	base := rbacBaseACL
+	if len(bases) > 0 {
+		base = bases[0]
+	}
 	var prefixes []string
-	if acl == rbacBaseACL {
+	if acl == base {
 		return prefixes, nil
 	}
-	if strings.HasPrefix(acl, rbacBaseACL+" ") {
-		for _, token := range strings.Split(strings.TrimPrefix(acl, rbacBaseACL+" "), " ") {
+	if strings.HasPrefix(acl, base+" ") {
+		for _, token := range strings.Split(strings.TrimPrefix(acl, base+" "), " ") {
 			prefix := strings.TrimSuffix(strings.TrimPrefix(token, "%R~"), "*")
 			if !strings.HasPrefix(token, "%R~") || !strings.HasSuffix(token, "*") || !safeRBACPrefix(prefix) {
 				return nil, errorf(adbc.StatusInvalidArgument, "RBAC ACL contains unmanaged rules")
 			}
 			prefixes = append(prefixes, prefix)
 		}
-		if rbacACLString(prefixes) == acl {
+		if rbacACLString(prefixes, base) == acl {
 			return prefixes, nil
 		}
 	}
 	return nil, errorf(adbc.StatusInvalidArgument, "RBAC ACL contains unmanaged rules")
+}
+
+func (s *store) rbacControlKey(suffix string) string {
+	if s.snapshots {
+		return snapshotPrefix + "rbac:" + suffix
+	}
+	return metaPrefix + "rbac:" + suffix
+}
+func (s *store) rbacTablePrefix(m *tableMeta) string {
+	if s.snapshots {
+		return snapshotAccessPrefix(m)
+	}
+	return m.prefix()
 }
 
 func (e *executor) runPrivilege(ctx context.Context, st *PrivilegeStmt) error {
@@ -253,21 +321,26 @@ func (e *executor) runPrivilege(ctx context.Context, st *PrivilegeStmt) error {
 	if m.Foreign || m.Adopted || m.MaterializedSQL != "" || isTempSchema(schema) || m.RekeyTo != "" {
 		return errorf(adbc.StatusNotImplemented, "RBAC SELECT grants require a permanent driver-owned base table with no move in progress")
 	}
-	prefix := m.prefix()
+	prefix := e.store.rbacTablePrefix(m)
 	if !safeRBACPrefix(prefix) {
 		return errorf(adbc.StatusNotImplemented, "table prefix cannot be represented safely in an RBAC ACL")
 	}
 	// A durable lock serializes API read-modify-write operations across driver
 	// processes. No expiry: a stalled API writer must never outlive its lease.
 	// On an ambiguous API write failure it is retained for admin reconciliation.
-	lock := metaPrefix + "rbac:lock"
+	// Management state is durable across SQL roots: an uncertain API write
+	// must keep blocking every future grant writer even if its SQL pin expires.
+	controlCtx := context.WithValue(ctx, snapshotContextKey{}, (*snapshotScope)(nil))
+	lock := e.store.rbacControlKey("lock")
 	token := uuid.NewString()
-	ok, err := e.store.redis(ctx).SetNX(ctx, lock, token, 0).Result()
-	if err != nil {
-		return wrapRedis(err, "cannot acquire RBAC lock")
+	reply, err := once(controlCtx, e.store.client, "SET", lock, token, "NX").Text()
+	if err != nil && err != goredis.Nil {
+		// An unknown successful SET must remain locked; never resend NX and
+		// reinterpret its second reply as the outcome of the first attempt.
+		return wrapRedis(err, "RBAC lock acquisition outcome is unknown; reconcile the durable lock before retrying")
 	}
-	if !ok {
-		return errorf(adbc.StatusInvalidState, "RBAC update locked; reconcile any interrupted management operation before removing adbc:{meta}:rbac:lock")
+	if err == goredis.Nil || reply != "OK" {
+		return errorf(adbc.StatusInvalidState, "RBAC update locked; reconcile any interrupted management operation before removing its durable administrative lock")
 	}
 	keepLock := false
 	defer func() {
@@ -276,16 +349,16 @@ func (e *executor) runPrivilege(ctx context.Context, st *PrivilegeStmt) error {
 			defer cancel()
 			// Only this process removes its lock; administrators must quiesce all
 			// grant writers before manually recovering an abandoned lock.
-			_ = e.store.redis(cleanup).Del(cleanup, lock).Err()
+			_ = once(cleanup, e.store.client, "EVAL", `if redis.call('GET',KEYS[1])==ARGV[1] then return redis.call('DEL',KEYS[1]) end return 0`, 1, lock, token).Err()
 		}
 	}()
 	acl, _, err := e.rbac.readRole(ctx, st.Role)
 	if err != nil {
 		return err
 	}
-	ledgerKey := metaPrefix + "rbac:grants:" + strconv.Itoa(e.rbac.cfg.DatabaseUID) + ":" + strconv.Itoa(acl.UID)
+	ledgerKey := e.store.rbacControlKey("grants:" + strconv.Itoa(e.rbac.cfg.DatabaseUID) + ":" + strconv.Itoa(acl.UID))
 	var grants []rbacGrant
-	raw, readErr := e.store.redis(ctx).Get(ctx, ledgerKey).Result()
+	raw, readErr := e.store.client.Get(controlCtx, ledgerKey).Result()
 	if readErr != nil && readErr != goredis.Nil {
 		return wrapRedis(readErr, "cannot read RBAC grant ledger")
 	}
@@ -296,7 +369,7 @@ func (e *executor) runPrivilege(ctx context.Context, st *PrivilegeStmt) error {
 	for _, grant := range grants {
 		recorded = append(recorded, grant.Prefix)
 	}
-	if rbacACLString(recorded) != acl.ACL {
+	if rbacACLString(recorded, rbacReaderACL(acl.Domain)) != acl.ACL {
 		return errorf(adbc.StatusInvalidState, "RBAC ACL and grant ledger differ; administrator reconciliation required")
 	}
 	grants = slices.DeleteFunc(grants, func(g rbacGrant) bool { return g.TableOID == tableOID(m) })
@@ -307,7 +380,7 @@ func (e *executor) runPrivilege(ctx context.Context, st *PrivilegeStmt) error {
 	for _, grant := range grants {
 		prefixes = append(prefixes, grant.Prefix)
 	}
-	next := rbacACLString(prefixes)
+	next := rbacACLString(prefixes, rbacReaderACL(acl.Domain))
 	if next == acl.ACL {
 		return nil
 	}
@@ -325,7 +398,7 @@ func (e *executor) runPrivilege(ctx context.Context, st *PrivilegeStmt) error {
 		return errorf(adbc.StatusIO, "RBAC ACL changed during update; lock retained")
 	}
 	ledger, _ := json.Marshal(grants)
-	if err := e.store.redis(ctx).Set(ctx, ledgerKey, ledger, 0).Err(); err != nil {
+	if err := once(controlCtx, e.store.client, "SET", ledgerKey, ledger).Err(); err != nil {
 		return wrapErr(adbc.StatusIO, err, "RBAC ledger write failed after ACL update; lock retained")
 	}
 	keepLock = false
@@ -368,7 +441,7 @@ func (e *executor) rbacGrantTable(ctx context.Context, name string, cols []resul
 				return nil, err
 			}
 			for _, m := range metas {
-				if m != nil && slices.Contains(prefixes, m.prefix()) {
+				if m != nil && slices.Contains(prefixes, e.store.rbacTablePrefix(m)) {
 					rows = append(rows, []Value{str("redis_rbac"), str(role), str(catalogName), str(schema), str(m.Name), str("SELECT"), str("NO"), str("NO")})
 				}
 			}

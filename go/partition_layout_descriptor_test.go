@@ -35,3 +35,39 @@ func TestPartitionLayoutDescriptorRevisions(t *testing.T) {
 		t.Fatal("old retained revision accepted layout")
 	}
 }
+
+func TestPartitionSnapshotAndLayoutExtensions(t *testing.T) {
+	base := partitionID{Version: 3, Query: "SELECT v FROM t", Schema: "public", Table: "t", Target: strings.Repeat("a", 64), Zone: "UTC", Lo: 1, Hi: 2}
+	snapshot := &partitionSnapshot{Root: strings.Repeat("a", 32), Token: strings.Repeat("b", 32), Expires: 12345}
+	for _, tc := range []struct {
+		name     string
+		snapshot *partitionSnapshot
+		layouts  resultLayouts
+		valid    bool
+	}{
+		{"snapshot", snapshot, nil, true},
+		{"layout", nil, resultLayouts{"v": "string_view"}, true},
+		{"both", snapshot, resultLayouts{"v": "string_view"}, true},
+		{"neither", nil, nil, false},
+		{"bad snapshot", &partitionSnapshot{}, resultLayouts{"v": "string_view"}, false},
+		{"bad layout", snapshot, resultLayouts{"v": "dictionary"}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			d := base
+			d.Snapshot, d.Layouts = tc.snapshot, tc.layouts
+			raw, _ := json.Marshal(d)
+			decoded, err := decodePartition(raw)
+			if (err == nil) != tc.valid {
+				t.Fatalf("valid=%t error=%v", tc.valid, err)
+			}
+			if tc.valid && (decoded.Snapshot == nil) != (tc.snapshot == nil) {
+				t.Fatal("lost snapshot extension")
+			}
+			d.Version = 1
+			raw, _ = json.Marshal(d)
+			if _, err := decodePartition(raw); err == nil && (tc.snapshot != nil || len(tc.layouts) != 0) {
+				t.Fatal("legacy descriptor accepted an extension")
+			}
+		})
+	}
+}

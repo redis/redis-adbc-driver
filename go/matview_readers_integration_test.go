@@ -4,14 +4,66 @@ package redis
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/apache/arrow-adbc/go/adbc"
 	"github.com/apache/arrow-go/v18/arrow/array"
+	goredis "github.com/redis/go-redis/v9"
 )
+
+// Managed view generations use the same immutable references and statement pins
+// as tables. Assert actual directories/indexes rather than the legacy mutable
+// layout's retirement HASH and rekey leases.
+func matviewGenerationHeld(t *testing.T, h *sqlHarness, raw goredis.UniversalClient, m *tableMeta, rows int64) {
+	t.Helper()
+	if n, err := raw.ZCard(h.ctx, snapshotMembers(snapshotDataID(m.prefix()))).Result(); err != nil || n != rows {
+		t.Fatalf("pinned materialized view rows: %d, want %d: %v", n, rows, err)
+	}
+	if err := raw.Do(h.ctx, "FT.INFO", m.index()).Err(); err != nil {
+		t.Fatal("pinned materialized view index lost", err)
+	}
+}
+
+func stopMatviewTestMaintenance(t *testing.T, h *sqlHarness) {
+	t.Helper()
+	st, err := h.conn.NewStatement(h.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	owner := st.(*statementImpl).conn.store
+	if err := st.Close(h.ctx); err != nil {
+		t.Fatal(err)
+	}
+	owner.stopSnapshotCompactor()
+}
+
+// Poll only: this helper must not run a collector itself. The Open-recovery
+// cases stop all preexisting workers before starting the recovering connection.
+func awaitMatviewOpenReclamation(t *testing.T, h *sqlHarness, raw goredis.UniversalClient, m *tableMeta) {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		n, err := raw.Exists(h.ctx, snapshotMembers(snapshotDataID(m.prefix()))).Result()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if n == 0 {
+			if err := raw.Do(h.ctx, "FT.INFO", m.index()).Err(); !isUnknownIndex(err) {
+				t.Fatal("recovered view index remains", err)
+			}
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("new connection did not reclaim abandoned materialized view")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
 
 func TestMatviewReaderDuringRefresh(t *testing.T) {
 	h := newSQLHarness(t)
@@ -21,11 +73,7 @@ func TestMatviewReaderDuringRefresh(t *testing.T) {
 	h.exec("CREATE TABLE it_mv_reader_source AS SELECT n::bigint AS id FROM generate_series(1,25000) AS s(n)")
 	h.exec("CREATE MATERIALIZED VIEW it_mv_reader AS SELECT id FROM it_mv_reader_source")
 	raw := h.rawClient()
-	store := &store{client: raw}
-	old, err := store.getTable(h.ctx, defaultSchema, "it_mv_reader")
-	if err != nil {
-		t.Fatal(err)
-	}
+	old := h.inspectTable(raw, defaultSchema, "it_mv_reader")
 	r, n := h.openStream(h.ctx, h.conn, "SELECT id FROM it_mv_reader", nil, map[string]string{OptionIntStreamBatchRows: "100", OptionStringStreamRequired: "true"})
 	defer r.Release()
 	if n != -1 {
@@ -50,30 +98,15 @@ func TestMatviewReaderDuringRefresh(t *testing.T) {
 	other.exec("UPDATE it_mv_reader_source SET id=id+1000")
 	other.exec("REFRESH MATERIALIZED VIEW CONCURRENTLY it_mv_reader")
 	other.expectRows("SELECT count(*),min(id),max(id) FROM it_mv_reader", "50|1001|1050")
-	if live, err := raw.SIsMember(h.ctx, prefixesKey, old.prefix()).Result(); err != nil || !live {
-		t.Fatalf("old generation retired before reader ended: %v %v", live, err)
-	}
-	if raw.HExists(h.ctx, matviewRetiredKey, old.prefix()).Val() != true {
-		t.Fatal("missing retired generation registration")
-	}
+	matviewGenerationHeld(t, h, raw, old, 25000)
 	for r.Next() {
 		consume()
 	}
-	if err := r.Err(); err != nil {
-		t.Fatalf("reader interrupted after %d rows: %v", count, err)
+	if r.Err() != nil || count != 25000 {
+		t.Fatalf("old reader: %d rows: %v", count, r.Err())
 	}
-	if count != 25000 {
-		t.Fatalf("got %d old rows", count)
-	}
-	if live, err := raw.SIsMember(h.ctx, prefixesKey, old.prefix()).Result(); err != nil || live {
-		t.Fatalf("old generation not collected: %v %v", live, err)
-	}
-	if raw.HExists(h.ctx, matviewRetiredKey, old.prefix()).Val() {
-		t.Fatal("retirement record leaked")
-	}
-	if err := store.searchDo(h.ctx, old.index(), "FT.INFO", old.index()).Err(); !isUnknownIndex(err) {
-		t.Fatalf("old index remains: %v", err)
-	}
+	r.Release()
+	h.expectSnapshotReleased(raw, old.prefix(), old.index())
 	other.expectRows("SELECT count(*),min(id),max(id) FROM it_mv_reader", "50|1001|1050")
 }
 
@@ -85,33 +118,24 @@ func TestMatviewMultipleReaderGenerations(t *testing.T) {
 	h.exec("CREATE TABLE it_mv_multi_source AS SELECT n AS id,0 AS v FROM generate_series(1,12000) s(n)")
 	h.exec("CREATE MATERIALIZED VIEW it_mv_multi AS SELECT id,v FROM it_mv_multi_source")
 	raw := h.rawClient()
-	st := &store{client: raw}
-	old, err := st.getTable(h.ctx, defaultSchema, "it_mv_multi")
-	if err != nil {
-		t.Fatal(err)
-	}
+	old := h.inspectTable(raw, defaultSchema, "it_mv_multi")
 	a, b, c := newSQLHarness(t), newSQLHarness(t), newSQLHarness(t)
 	opts := map[string]string{OptionIntStreamBatchRows: "100"}
 	ra, _ := h.openStream(a.ctx, a.conn, "SELECT id,v FROM it_mv_multi", nil, opts)
+	defer ra.Release()
 	rb, _ := h.openStream(b.ctx, b.conn, "SELECT id,v FROM it_mv_multi", nil, opts)
 	defer rb.Release()
 	h.exec("UPDATE it_mv_multi_source SET v=1")
 	h.exec("REFRESH MATERIALIZED VIEW CONCURRENTLY it_mv_multi")
-	middle, err := st.getTable(h.ctx, defaultSchema, "it_mv_multi")
-	if err != nil {
-		t.Fatal(err)
-	}
+	middle := h.inspectTable(raw, defaultSchema, "it_mv_multi")
 	rc, _ := h.openStream(c.ctx, c.conn, "SELECT id,v FROM it_mv_multi", nil, opts)
+	defer rc.Release()
 	h.exec("UPDATE it_mv_multi_source SET v=2")
 	h.exec("REFRESH MATERIALIZED VIEW CONCURRENTLY it_mv_multi")
 	ra.Release()
-	if !raw.HExists(h.ctx, matviewRetiredKey, old.prefix()).Val() {
-		t.Fatal("one reader released another reader's generation")
-	}
+	matviewGenerationHeld(t, h, raw, old, 12000)
 	rc.Release()
-	if raw.HExists(h.ctx, matviewRetiredKey, middle.prefix()).Val() {
-		t.Fatal("middle generation leaked")
-	}
+	h.expectSnapshotReleased(raw, middle.prefix(), middle.index())
 	var count int64
 	for rb.Next() {
 		rec := rb.RecordBatch()
@@ -125,9 +149,8 @@ func TestMatviewMultipleReaderGenerations(t *testing.T) {
 	if count != 12000 || rb.Err() != nil {
 		t.Fatalf("old reader: %d %v", count, rb.Err())
 	}
-	if raw.HExists(h.ctx, matviewRetiredKey, old.prefix()).Val() {
-		t.Fatal("old generation leaked")
-	}
+	rb.Release()
+	h.expectSnapshotReleased(raw, old.prefix(), old.index())
 	h.expectRows("SELECT count(*),min(v),max(v) FROM it_mv_multi", "12000|2|2")
 }
 
@@ -142,25 +165,14 @@ func TestMatviewReaderCleanup(t *testing.T) {
 			h.exec("CREATE MATERIALIZED VIEW it_mv_cleanup AS SELECT id FROM it_mv_cleanup_source")
 			reader := newSQLHarness(t)
 			stmt, r, _ := h.openStmtStream(reader.ctx, reader.conn, "SELECT id FROM it_mv_cleanup", nil, map[string]string{OptionIntStreamBatchRows: "100"})
-			released := false
-			defer func() {
-				if !released {
-					r.Release()
-				}
-			}()
+			defer r.Release()
 			raw := h.rawClient()
-			old, err := (&store{client: raw}).getTable(h.ctx, defaultSchema, "it_mv_cleanup")
-			if err != nil {
-				t.Fatal(err)
-			}
+			old := h.inspectTable(raw, defaultSchema, "it_mv_cleanup")
 			h.exec("REFRESH MATERIALIZED VIEW CONCURRENTLY it_mv_cleanup")
-			if !raw.HExists(h.ctx, matviewRetiredKey, old.prefix()).Val() {
-				t.Fatal("expected leased old generation")
-			}
+			matviewGenerationHeld(t, h, raw, old, 12000)
 			switch mode {
 			case "release":
 				r.Release()
-				released = true
 			case "cancel":
 				if err := canceler(t, stmt).Cancel(h.ctx); err != nil {
 					t.Fatal(err)
@@ -170,13 +182,7 @@ func TestMatviewReaderCleanup(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			deadline := time.Now().Add(3 * time.Second)
-			for raw.HExists(h.ctx, matviewRetiredKey, old.prefix()).Val() && time.Now().Before(deadline) {
-				time.Sleep(10 * time.Millisecond)
-			}
-			if raw.HExists(h.ctx, matviewRetiredKey, old.prefix()).Val() {
-				t.Fatal("old generation leaked after " + mode)
-			}
+			h.expectSnapshotReleased(raw, old.prefix(), old.index())
 		})
 	}
 }
@@ -188,21 +194,25 @@ func TestMatviewGenerationRecovery(t *testing.T) {
 	h.exec("CREATE MATERIALIZED VIEW it_mv_recovery AS SELECT 1 AS id")
 	checkState(t, "truncate materialized view", h.stmtErr("TRUNCATE it_mv_recovery", nil), adbc.StatusInvalidArgument, "42809", "cannot change materialized view")
 	raw := h.rawClient()
-	st := &store{client: raw}
-	old, err := st.getTable(h.ctx, defaultSchema, "it_mv_recovery")
+	old := h.inspectTable(raw, defaultSchema, "it_mv_recovery")
+	st := &store{client: raw, snapshots: true}
+	token := snapshotID()
+	root, err := st.snapshotControl(h.ctx, "acquire", token, "", "").Text()
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Simulate a terminated reader: membership survives its expired alive key.
-	if err = raw.SAdd(h.ctx, matviewReadersKey(old.prefix()), "abandoned-reader").Err(); err != nil {
+	defer func() {
+		if err := st.snapshotControl(h.ctx, "release", token, "", root).Err(); err != nil {
+			t.Error("fixture reader release failed", err)
+		}
+	}()
+	h.exec("REFRESH MATERIALIZED VIEW it_mv_recovery")
+	matviewGenerationHeld(t, h, raw, old, 1)
+	if err := raw.HSet(h.ctx, snapshotCatalogKey, "p:"+token, `{"root":"`+root+`","expires":0}`).Err(); err != nil {
 		t.Fatal(err)
 	}
-	h.exec("REFRESH MATERIALIZED VIEW it_mv_recovery")
-	if raw.HExists(h.ctx, matviewRetiredKey, old.prefix()).Val() {
-		t.Fatal("abandoned reader prevented recovery")
-	}
+	h.expectSnapshotReleased(raw, old.prefix(), old.index())
 	h.expectRows("SELECT id FROM it_mv_recovery", "1")
-	// Every statement in a script resolves the newly published generation.
 	h.expectRows("SELECT * FROM it_mv_recovery; REFRESH MATERIALIZED VIEW it_mv_recovery WITH NO DATA; REFRESH MATERIALIZED VIEW it_mv_recovery; SELECT id FROM it_mv_recovery", "1")
 }
 
@@ -216,29 +226,43 @@ func TestMatviewReaderLeasesSurviveIdle(t *testing.T) {
 	r, _ := h.openStream(ctx, h.conn, "SELECT id FROM it_mv_idle", nil, map[string]string{OptionIntStreamBatchRows: "100"})
 	defer r.Release()
 	raw := h.rawClient()
-	old, err := (&store{client: raw}).getTable(h.ctx, defaultSchema, "it_mv_idle")
+	stream, ok := inspectionReader(r).(*streamReader)
+	if !ok || stream.snapshot == nil {
+		t.Fatal("expected pinned stream")
+	}
+	p := stream.snapshot
+	var record map[string]any
+	text, err := raw.HGet(h.ctx, snapshotCatalogKey, "p:"+p.token).Result()
 	if err != nil {
 		t.Fatal(err)
 	}
-	owners, err := raw.SMembers(h.ctx, matviewReadersKey(old.prefix())).Result()
-	if err != nil || len(owners) != 1 {
-		t.Fatalf("reader owners: %v %v", owners, err)
-	}
-	// Drive one renewal directly, without a time-dependent sleep or TTL change.
-	token := owners[0]
-	if err := raw.PExpire(h.ctx, rekeyAliveKey(token), time.Second).Err(); err != nil {
+	if err := json.Unmarshal([]byte(text), &record); err != nil {
 		t.Fatal(err)
 	}
-	stream, ok := r.(*streamReader)
-	if !ok {
-		t.Fatalf("expected stream reader, got %T", r)
+	now, err := raw.Time(h.ctx).Result()
+	if err != nil {
+		t.Fatal(err)
 	}
-	l := stream.transport.matviews.lease
-	if !l.renew() {
-		t.Fatal("reader lease renewal failed")
+	record["expires"] = now.UnixMilli() + 1000
+	data, err := json.Marshal(record)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if ttl := raw.PTTL(h.ctx, rekeyAliveKey(token)).Val(); ttl < rekeyTTL/2 {
-		t.Fatal(fmt.Sprintf("lease was not extended: %v", ttl))
+	if err := raw.HSet(h.ctx, snapshotCatalogKey, "p:"+p.token, data).Err(); err != nil {
+		t.Fatal(err)
+	}
+	if n, err := p.store.snapshotControl(h.ctx, "renew", p.token, "", p.root).Int(); err != nil || n != 1 {
+		t.Fatal("reader lease renewal failed", err)
+	}
+	text, err = raw.HGet(h.ctx, snapshotCatalogKey, "p:"+p.token).Result()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal([]byte(text), &record); err != nil {
+		t.Fatal(err)
+	}
+	if record["expires"].(float64) < float64(now.UnixMilli()+snapshotLease.Milliseconds()/2) {
+		t.Fatal("lease was not extended")
 	}
 	other := newSQLHarness(t)
 	other.exec("REFRESH MATERIALIZED VIEW CONCURRENTLY it_mv_idle")
@@ -253,35 +277,27 @@ func TestMatviewReaderLeasesSurviveIdle(t *testing.T) {
 
 func TestMatviewRetirementOpenRecovery(t *testing.T) {
 	h := newSQLHarness(t)
+	stopMatviewTestMaintenance(t, h)
 	h.exec("DROP MATERIALIZED VIEW IF EXISTS it_mv_open_recovery")
 	t.Cleanup(func() { h.exec("DROP MATERIALIZED VIEW IF EXISTS it_mv_open_recovery") })
 	h.exec("CREATE MATERIALIZED VIEW it_mv_open_recovery AS SELECT n AS id FROM generate_series(1,12000) s(n)")
 	r, _ := h.openStream(h.ctx, h.conn, "SELECT id FROM it_mv_open_recovery", nil, map[string]string{OptionIntStreamBatchRows: "100"})
 	defer r.Release()
 	raw := h.rawClient()
-	old, err := (&store{client: raw}).getTable(h.ctx, defaultSchema, "it_mv_open_recovery")
-	if err != nil {
-		t.Fatal(err)
-	}
+	old := h.inspectTable(raw, defaultSchema, "it_mv_open_recovery")
 	other := newSQLHarness(t)
+	stopMatviewTestMaintenance(t, other)
 	other.exec("REFRESH MATERIALIZED VIEW CONCURRENTLY it_mv_open_recovery")
-	if !raw.HExists(h.ctx, matviewRetiredKey, old.prefix()).Val() {
-		t.Fatal("expected pending retirement")
+	matviewGenerationHeld(t, h, raw, old, 12000)
+	p := inspectionReader(r).(*streamReader).snapshot
+	p.release()
+	_ = newSQLHarness(t) // Its automatic reference collector is the only running worker.
+	awaitMatviewOpenReclamation(t, h, raw, old)
+	if n, err := p.store.snapshotControl(h.ctx, "renew", p.token, "", p.root).Int(); err != nil || n != 0 {
+		t.Fatal("expired reader lease was resurrected", err)
 	}
-	l := r.(*streamReader).transport.matviews.lease
-	// Simulate process death and expiry without relying on wall-clock sleeps.
-	l.release()
-	if err := raw.Del(h.ctx, rekeyAliveKey(l.owner)).Err(); err != nil {
-		t.Fatal(err)
-	}
-	_ = newSQLHarness(t) // Open retries abandoned-generation collection.
-	if raw.HExists(h.ctx, matviewRetiredKey, old.prefix()).Val() {
-		t.Fatal("Open did not recover abandoned retirement")
-	}
-	if l.renew() {
-		t.Fatal("expired reader lease was resurrected")
-	}
-	for r.Next() {
+	if r.Next() || r.Err() == nil {
+		t.Fatal("expired reader exposed buffered data")
 	}
 	checkState(t, "expired reader", r.Err(), adbc.StatusInvalidState, "55000", "reader lease expired")
 	other.expectRows("SELECT count(*) FROM it_mv_open_recovery", "12000")
@@ -289,35 +305,27 @@ func TestMatviewRetirementOpenRecovery(t *testing.T) {
 
 func TestACLMatviewRetirementOpenRecovery(t *testing.T) {
 	a := newACLHarness(t)
+	stopMatviewTestMaintenance(t, a.sqlHarness)
 	a.exec("DROP MATERIALIZED VIEW IF EXISTS it_mv_acl_recovery")
 	t.Cleanup(func() { a.exec("DROP MATERIALIZED VIEW IF EXISTS it_mv_acl_recovery") })
 	a.exec("CREATE MATERIALIZED VIEW it_mv_acl_recovery AS SELECT n AS id FROM generate_series(1,12000) s(n)")
 	r, _ := a.openStream(a.ctx, a.conn, "SELECT id FROM it_mv_acl_recovery", nil, map[string]string{OptionIntStreamBatchRows: "100"})
 	defer r.Release()
-	old, err := (&store{client: a.raw}).getTable(a.ctx, defaultSchema, "it_mv_acl_recovery")
-	if err != nil {
-		t.Fatal(err)
-	}
+	old := a.inspectTable(a.raw, defaultSchema, "it_mv_acl_recovery")
 	other := newSQLHarness(t)
+	stopMatviewTestMaintenance(t, other)
 	other.exec("REFRESH MATERIALIZED VIEW CONCURRENTLY it_mv_acl_recovery")
-	l := r.(*streamReader).transport.matviews.lease
-	l.release()
-	if err := a.raw.Del(a.ctx, rekeyAliveKey(l.owner)).Err(); err != nil {
-		t.Fatal(err)
-	}
-	// This ordinary read-only role cannot enumerate reader memberships or
-	// delete retired indexes. Cleanup must leave durable work for an admin
-	// without preventing queries against the current catalog.
+	matviewGenerationHeld(t, a.sqlHarness, a.raw, old, 12000)
+	inspectionReader(r).(*streamReader).snapshot.release()
+	// Keep this authorization assertion: a restricted Open must leave unrelated
+	// retirement work for an authorized collector. Production reader isolation is
+	// independently gated by TestSQLRBACSelect and its real Software principals.
 	a.user("it_acl_mv_recovery", append(a.readOnlyCommands(), "~adbc:*", "~public:*")...)
 	reader := a.connect("it_acl_mv_recovery", nil)
 	reader.expectRows("SELECT 42", "42")
-	if !a.raw.HExists(a.ctx, matviewRetiredKey, old.prefix()).Val() {
-		t.Fatal("restricted Open lost pending retirement")
-	}
+	matviewGenerationHeld(t, a.sqlHarness, a.raw, old, 12000)
 	_ = newSQLHarness(t)
-	if a.raw.HExists(a.ctx, matviewRetiredKey, old.prefix()).Val() {
-		t.Fatal("authorized Open did not retry retirement")
-	}
+	awaitMatviewOpenReclamation(t, a.sqlHarness, a.raw, old)
 }
 
 func TestMatviewReadersRacingPublication(t *testing.T) {
@@ -358,19 +366,58 @@ func TestMatviewLeasePreservesGenerationFence(t *testing.T) {
 	r, _ := h.openStream(h.ctx, h.conn, "SELECT id FROM it_mv_fence", nil, map[string]string{OptionIntStreamBatchRows: "100"})
 	defer r.Release()
 	raw := h.rawClient()
-	meta, err := (&store{client: raw}).getTable(h.ctx, defaultSchema, "it_mv_fence")
+	old := h.inspectTable(raw, defaultSchema, "it_mv_fence")
+	h.exec("DROP MATERIALIZED VIEW it_mv_fence")
+	h.exec("CREATE MATERIALIZED VIEW it_mv_fence AS SELECT 99 AS id")
+	current := h.inspectTable(raw, defaultSchema, "it_mv_fence")
+	if current.prefix() == old.prefix() {
+		t.Fatal("recreated view reused a pinned generation")
+	}
+	matviewGenerationHeld(t, h, raw, old, 12000)
+	// Normal protocol release removes protection; no published reference graph
+	// or legacy ownership counter is corrupted to manufacture this condition.
+	inspectionReader(r).(*streamReader).snapshot.release()
+	h.expectSnapshotReleased(raw, old.prefix(), old.index())
+	if r.Next() || r.Err() == nil {
+		t.Fatal("reader bypassed its retired generation fence")
+	}
+	h.expectRows("SELECT id FROM it_mv_fence", "99")
+}
+
+func TestMatviewLegacyCollectorRefusesSnapshotGeneration(t *testing.T) {
+	h := newSQLHarness(t)
+	h.exec("DROP MATERIALIZED VIEW IF EXISTS it_mv_gc_fence")
+	t.Cleanup(func() { h.exec("DROP MATERIALIZED VIEW IF EXISTS it_mv_gc_fence") })
+	h.exec("CREATE MATERIALIZED VIEW it_mv_gc_fence AS SELECT 9007199254740993::bigint AS id")
+	raw := h.rawClient()
+	m := h.inspectTable(raw, defaultSchema, "it_mv_gc_fence")
+	// Reproduce a legacy caller without the managed client's command hook. Keep
+	// the same endpoint, RESP3 and verified TLS options, including Cluster API.
+	var legacy goredis.UniversalClient
+	switch c := raw.(type) {
+	case *goredis.Client:
+		opts := *c.Options()
+		legacy = goredis.NewClient(&opts)
+	case *goredis.ClusterClient:
+		opts := *c.Options()
+		legacy = goredis.NewClusterClient(&opts)
+	default:
+		t.Fatal("unexpected native client type")
+	}
+	defer legacy.Close()
+	encoded, err := marshalMeta(m)
 	if err != nil {
 		t.Fatal(err)
 	}
-	// A lease must not bypass the existing ownership fence for destructive
-	// DDL. Refresh keeps this counter unchanged while its readers are alive.
-	if err := raw.HIncrBy(h.ctx, releasedKey, meta.prefix(), 1).Err(); err != nil {
+	// Even an erroneous legacy retirement record must not authorize its DD
+	// collector to delete a managed generation outside the reference protocol.
+	if err := legacy.HSet(h.ctx, matviewRetiredKey, m.prefix(), encoded).Err(); err != nil {
 		t.Fatal(err)
 	}
-	defer raw.HIncrBy(h.ctx, releasedKey, meta.prefix(), -1)
-	for r.Next() {
+	defer legacy.HDel(h.ctx, matviewRetiredKey, m.prefix())
+	if err := (&store{client: legacy}).collectMatviewGeneration(h.ctx, m.prefix()); !isStatus(err, adbc.StatusInvalidState) || !strings.Contains(err.Error(), "require snapshot reclamation") {
+		t.Fatal("legacy collector admitted managed row storage", err)
 	}
-	if r.Err() == nil {
-		t.Fatal("reader lease bypassed the generation ownership fence")
-	}
+	matviewGenerationHeld(t, h, raw, m, 1)
+	h.expectRows("SELECT id FROM it_mv_gc_fence", "9007199254740993")
 }

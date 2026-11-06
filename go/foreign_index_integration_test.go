@@ -14,34 +14,26 @@
 
 package redis
 
-import "testing"
+import (
+	"slices"
+	"strings"
+	"testing"
+)
 
-// An index that the driver didn't create but that has the index name a new
-// table would take (an application's own idx:public:<table>) isn't dropped
-// with its HASHes: CREATE TABLE, TRUNCATE and a re-keying RENAME take the
-// next names instead.
+// Application indexes, including legacy table-like names and prefixes, survive
+// CREATE, TRUNCATE, rekey, DROP and GC. Managed tables use private generations.
 func TestSQLForeignIndexName(t *testing.T) {
 	h := newSQLHarness(t)
 	raw := h.rawClient()
 	st := &store{client: raw}
 	h.exec(`DROP TABLE IF EXISTS it_fi_t`)
 	h.exec(`DROP TABLE IF EXISTS it_fi_u`)
-	// The names the tables would take next (names are never reused, so
-	// earlier runs have used some).
-	last := func(table string) int64 {
-		n, err := st.lastNames(h.ctx, raw, "public", table)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return n
-	}
-	tn, un := last("it_fi_t"), last("it_fi_u")
-	// The application's indexes: one on its own prefix, one on exactly the
-	// prefix a table would take but with a document, and one with a filter.
-	t2, t3, t4 := namesFor("public", "it_fi_t", tn+2), namesFor("public", "it_fi_t", tn+3), namesFor("public", "it_fi_t", tn+4)
-	u1, u2 := namesFor("public", "it_fi_u", un+1), namesFor("public", "it_fi_u", un+2)
+	// Legacy-looking names belong to the application, regardless of whether
+	// their indexes are empty. Managed generations use fresh UUID identities.
+	t3 := namesFor("public", "it_fi_t", 3)
+	u1 := namesFor("public", "it_fi_u", 1)
 	apps := []struct{ index, prefix, key string }{
-		{namesFor("public", "it_fi_t", tn+1).index, "it_fi_app:", "it_fi_app:1"},
+		{namesFor("public", "it_fi_t", 1).index, "it_fi_app:", "it_fi_app:1"},
 		{t3.index, t3.prefix, t3.prefix + "1"},
 		{u1.index, u1.prefix, ""},
 	}
@@ -80,28 +72,43 @@ func TestSQLForeignIndexName(t *testing.T) {
 			if a.key == "" {
 				continue
 			}
-			if n, err := raw.Exists(h.ctx, a.key).Result(); err != nil || n != 1 {
-				t.Errorf("%s: the application's HASH %s: exists %d, %v", step, a.key, n, err)
+			fields, err := raw.HGetAll(h.ctx, a.key).Result()
+			if err != nil || len(fields) != 1 || fields["n"] != "1" {
+				t.Errorf("%s: application's HASH changed: %v %v", step, fields, err)
 			}
 		}
 	}
-	expectNames := func(step, table string, want tableNames) {
+	usedPrefixes, usedIndexes := map[string]bool{}, map[string]bool{}
+	expectNames := func(step, table string) {
 		t.Helper()
-		rows, _ := h.query(`SELECT key_prefix || ' ' || index_name FROM information_schema.tables WHERE table_name = '` + table + `'`)
-		if w := want.prefix + " " + want.index; len(rows) != 1 || rows[0] != w {
-			t.Errorf("%s took %q, want %q", step, rows, w)
+		rows, _ := h.query(`SELECT key_prefix || '|' || index_name FROM information_schema.tables WHERE table_name = '` + table + `'`)
+		if len(rows) != 1 {
+			t.Fatalf("%s: expected one managed table, got %q", step, rows)
+		}
+		prefix, index, ok := strings.Cut(rows[0], "|")
+		if !ok || snapshotRowPrefix(prefix) != prefix || prefix == "" || !strings.HasPrefix(index, snapshotIndexPrefix(snapshotDataID(prefix))) {
+			t.Fatalf("%s: invalid private generation names %q", step, rows)
+		}
+		if usedPrefixes[prefix] || usedIndexes[index] {
+			t.Errorf("%s reused a prior generation: %q", step, rows)
+		}
+		usedPrefixes[prefix], usedIndexes[index] = true, true
+		for _, a := range apps {
+			if prefix == a.prefix || index == a.index {
+				t.Errorf("%s claimed application storage: %q", step, rows)
+			}
 		}
 	}
 
 	h.exec(`CREATE TABLE it_fi_t (a INTEGER)`)
 	expectApps("CREATE TABLE")
-	expectNames("CREATE TABLE", "it_fi_t", t2)
+	expectNames("CREATE TABLE", "it_fi_t")
 	h.exec(`INSERT INTO it_fi_t VALUES (1), (2)`)
 	h.expectRows(`SELECT COUNT(*) FROM it_fi_t`, "2")
 
 	h.exec(`TRUNCATE it_fi_t`)
 	expectApps("TRUNCATE")
-	expectNames("TRUNCATE", "it_fi_t", t4)
+	expectNames("TRUNCATE", "it_fi_t")
 	h.exec(`INSERT INTO it_fi_t VALUES (3)`)
 
 	if err := h.setConnOption(OptionStringRenameRekey, "true"); err != nil {
@@ -109,46 +116,78 @@ func TestSQLForeignIndexName(t *testing.T) {
 	}
 	h.exec(`ALTER TABLE it_fi_t RENAME TO it_fi_u`)
 	expectApps("RENAME")
-	expectNames("RENAME", "it_fi_u", u2)
+	expectNames("RENAME", "it_fi_u")
 	h.expectRows(`SELECT a FROM it_fi_u`, "3")
+	h.exec(`DROP TABLE it_fi_u`)
+	snapshotReapTest(&store{client: raw, snapshots: true}, h.ctx)
+	expectApps("DROP and GC")
+	info, err := st.searchDo(h.ctx, u1.index, "FT.INFO", u1.index).Result()
+	if err != nil || !slices.Equal(indexInfoOf(info).prefixes, []string{u1.prefix}) || indexInfoOf(info).filter != "@n > 0" {
+		t.Fatal("application index policy changed", err)
+	}
 }
 
-// A leftover of an interrupted CREATE TABLE (an index on the names' prefix
-// with no documents) is still dropped, and its names reused.
-func TestSQLLeftoverIndexReused(t *testing.T) {
+// Empty unowned indexes survive CREATE and GC. Only a registered private
+// output of an interrupted CREATE is reclaimed; its identity is never reused.
+func TestSQLLeftoverIndexOwnership(t *testing.T) {
 	h := newSQLHarness(t)
+	h.dropTables("it_fi_left")
 	raw := h.rawClient()
-	st := &store{client: raw}
-	h.exec(`DROP TABLE IF EXISTS it_fi_left`)
-	t.Cleanup(func() { h.exec(`DROP TABLE IF EXISTS it_fi_left`) })
-	last, err := st.lastNames(h.ctx, raw, "public", "it_fi_left")
+	st := &store{client: raw, snapshots: true}
+	nm := namesFor("public", "it_fi_left", 1)
+	app := &tableMeta{Schema: "public", Name: "it_fi_left", Columns: []columnMeta{{Name: "a", Type: typeInt32, Indexed: true}}, KeyPrefix: nm.prefix, IndexName: nm.index}
+	if err := st.searchDo(h.ctx, app.index(), indexCreateArgs(app)...).Err(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = st.searchDo(h.ctx, app.index(), "FT.DROPINDEX", app.index()).Err() })
+	hook := &managedImportIndexFailure{}
+	privateRaw := h.rawClient(hook)
+	privateStore := &store{client: privateRaw, snapshots: true}
+	root := raw.HGet(h.ctx, snapshotCatalogKey, "root").Val()
+	wctx, pin, work := snapshotStageSQL(t, privateStore, h.ctx, "", "CREATE TABLE it_fi_left (a INTEGER)")
+	private, err := privateStore.getTable(wctx, defaultSchema, "it_fi_left")
 	if err != nil {
 		t.Fatal(err)
 	}
-	nm := namesFor("public", "it_fi_left", last+1)
-	meta := &tableMeta{Schema: "public", Name: "it_fi_left", Columns: []columnMeta{{Name: "a", Type: typeInt32, Indexed: true}}}
-	meta.KeyPrefix, meta.IndexName = nm.prefix, nm.index
-	if err := st.searchDo(h.ctx, meta.index(), indexCreateArgs(meta)...).Err(); err != nil {
-		t.Fatal(err)
+	err = privateStore.rebuildSnapshotIndexes(wctx)
+	if err == nil || !strings.Contains(err.Error(), "injected late private index failure") || !hook.fired.Load() || hook.creates.Load() != 1 || !strings.HasPrefix(hook.index, snapshotIndexPrefix(snapshotDataID(private.prefix()))) {
+		t.Fatalf("late CREATE index failure was hidden or replayed: %v", err)
 	}
+	info, err := privateStore.searchDo(wctx, hook.index, "FT.INFO", hook.index).Result()
+	if err != nil || !slices.Equal(indexInfoOf(info).prefixes, []string{private.prefix()}) {
+		t.Fatal("failure did not leave a real index on the registered private prefix", err)
+	}
+	if root != raw.HGet(h.ctx, snapshotCatalogKey, "root").Val() {
+		t.Fatal("failed CREATE published")
+	}
+	h.expectRows("SELECT COUNT(*) FROM information_schema.tables WHERE table_name='it_fi_left'", "0")
+	privateStore.abortSnapshot(pin, work)
+	pin.release()
+	h.expectSnapshotReleased(raw, private.prefix(), hook.index)
 	h.exec(`CREATE TABLE it_fi_left (a INTEGER)`)
-	h.expectRows(`SELECT index_name FROM information_schema.tables WHERE table_name = 'it_fi_left'`, nm.index)
+	current := h.inspectTable(raw, defaultSchema, "it_fi_left")
+	if current.prefix() == private.prefix() || current.index() == hook.index || current.prefix() == app.prefix() || current.index() == app.index() {
+		t.Fatal("fresh CREATE reused retired or unowned storage")
+	}
 	h.exec(`INSERT INTO it_fi_left VALUES (7)`)
 	h.expectRows(`SELECT a FROM it_fi_left`, "7")
+	written := h.inspectTable(raw, defaultSchema, "it_fi_left")
+	h.exec(`DROP TABLE it_fi_left`)
+	h.expectSnapshotReleased(raw, current.prefix(), current.index())
+	h.expectSnapshotReleased(raw, written.prefix(), written.index())
+	info, err = st.searchDo(h.ctx, app.index(), "FT.INFO", app.index()).Result()
+	if err != nil || !slices.Equal(indexInfoOf(info).prefixes, []string{app.prefix()}) {
+		t.Fatal("unowned empty index was reclaimed", err)
+	}
 }
 
-// An ACL user that may not read the keys of an index with the name a new
-// table would take can't run FT.INFO on it (NOPERM): the table takes the
-// next names, as for any other index that isn't the driver's.
+// A driver user cannot inspect the application's HASH prefix. CREATE must
+// use a private generation without adopting or reclaiming that external index.
 func TestACLForeignIndexName(t *testing.T) {
 	a := newACLHarness(t)
 	st := &store{client: a.raw}
 	a.exec(`DROP TABLE IF EXISTS it_fi_acl`)
-	last, err := st.lastNames(a.ctx, a.raw, "public", "it_fi_acl")
-	if err != nil {
-		t.Fatal(err)
-	}
-	app, next := namesFor("public", "it_fi_acl", last+1), namesFor("public", "it_fi_acl", last+2)
+	app := namesFor("public", "it_fi_acl", 1)
 	if err := st.searchDo(a.ctx, app.index, "FT.CREATE", app.index, "ON", "HASH", "PREFIX", 1, "it_fi_acl_app:",
 		"SCHEMA", "n", "NUMERIC").Err(); err != nil {
 		t.Fatal(err)
@@ -157,11 +196,14 @@ func TestACLForeignIndexName(t *testing.T) {
 		a.exec(`DROP TABLE IF EXISTS it_fi_acl`)
 		_ = st.searchDo(a.ctx, app.index, "FT.DROPINDEX", app.index).Err()
 	})
-	a.user("it_fi_acl", append(a.driverCommands(false), "~adbc:*", "~public:*")...)
+	a.user("it_fi_acl", append(a.driverCommands(), "~adbc:*", "~public:*")...)
 	u := a.connect("it_fi_acl", nil)
 	u.exec(`CREATE TABLE it_fi_acl (a INTEGER)`)
 	u.exec(`INSERT INTO it_fi_acl VALUES (1)`)
-	u.expectRows(`SELECT index_name FROM information_schema.tables WHERE table_name = 'it_fi_acl'`, next.index)
+	prefix, index := a.tableNames(a.raw, defaultSchema, "it_fi_acl")
+	if prefix == app.prefix || index == app.index || snapshotRowPrefix(prefix) != prefix || !strings.HasPrefix(index, snapshotIndexPrefix(snapshotDataID(prefix))) {
+		t.Fatal("driver user claimed application storage")
+	}
 	if err := st.searchDo(a.ctx, app.index, "FT.INFO", app.index).Err(); err != nil {
 		t.Errorf("the application's index: %v", err)
 	}

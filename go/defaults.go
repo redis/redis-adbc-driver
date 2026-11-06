@@ -74,10 +74,19 @@ func nullMarker(field string) string { return "__null_" + field }
 func (c columnMeta) missingValue(row aggRow) (Value, error) {
 	if c.MissingThrough > 0 {
 		if _, ok := row[nullMarker(c.field())]; !ok {
-			if id, err := strconv.ParseInt(row[rowIDField], 10, 64); err == nil && id <= c.MissingThrough {
-				return decodeStored(c.Missing, c.Type)
+			if id, err := strconv.ParseInt(row[rowIDField], 10, 64); err == nil {
+				return c.missingValueForID(id)
 			}
 		}
+	}
+	return nullValue(c.Type), nil
+}
+
+// The caller has validated the row ID and excluded an explicit NULL marker.
+// Map and positional readers share the same default visibility/type decoder.
+func (c columnMeta) missingValueForID(id int64) (Value, error) {
+	if c.MissingThrough > 0 && id <= c.MissingThrough {
+		return decodeStored(c.Missing, c.Type)
 	}
 	return nullValue(c.Type), nil
 }

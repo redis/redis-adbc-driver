@@ -17,6 +17,7 @@ package redis
 import (
 	"bytes"
 	"encoding/json"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -87,10 +88,7 @@ func (h *sqlHarness) columnDefs(table string) []string {
 // tableColumn returns a column's metadata as stored.
 func (h *sqlHarness) tableColumn(c goredis.UniversalClient, table, column string) columnMeta {
 	h.t.Helper()
-	meta, err := (&store{client: c}).getTable(h.ctx, defaultSchema, table)
-	if err != nil {
-		h.t.Fatal(err)
-	}
+	meta := h.inspectTable(c, defaultSchema, table)
 	col, ok := meta.column(column)
 	if !ok {
 		h.t.Fatalf("column %q of %q not found", column, table)
@@ -106,18 +104,20 @@ func (h *sqlHarness) pushedWhere(c goredis.UniversalClient, sql string, params .
 	if err != nil {
 		h.t.Fatal(err)
 	}
-	e := &executor{store: &store{client: c}, schema: defaultSchema}
+	st, ctx, pin := h.inspectionSnapshot(c)
+	defer pin.release()
+	e := &executor{store: st, schema: defaultSchema, sess: newSession(defaultSchema)}
 	e.cache = newExecCache()
 	var types []ColType
 	for _, p := range params {
 		types = append(types, p.T)
 	}
 	e.params = params
-	plan, err := e.planSelect(h.ctx, parsed[0].Stmt.(*SelectStmt), types)
+	plan, err := e.planSelect(ctx, parsed[0].Stmt.(*SelectStmt), types)
 	if err != nil {
 		h.t.Fatal(err)
 	}
-	wp, err := e.planWhere(h.ctx, plan.sel.Where, plan.meta, params)
+	wp, err := e.planWhere(ctx, plan.sel.Where, plan.meta, params)
 	if err != nil {
 		h.t.Fatal(err)
 	}
@@ -297,8 +297,8 @@ func TestSQLDefaultsIngest(t *testing.T) {
 	h.expectRows(`SELECT COUNT(DISTINCT at) FROM it_def_ing WHERE id <= 3`, "1")
 }
 
-// ADD COLUMN … DEFAULT: the rows that existed read the default without being
-// rewritten; rows inserted later read what they were given, NULL included.
+// Snapshot ADD COLUMN … DEFAULT materializes existing rows; later inserts read
+// the current default or their explicit value, including NULL.
 // Every read path agrees: scans, index filters, sorts, aggregates, joins,
 // subqueries, views, and the rows UPDATE / DELETE / MERGE match.
 func TestSQLAddColumnDefault(t *testing.T) {
@@ -313,11 +313,11 @@ func TestSQLAddColumnDefault(t *testing.T) {
 	h.exec(`ALTER TABLE it_def_add ADD COLUMN qty INTEGER DEFAULT 7`)
 	h.exec(`ALTER TABLE it_def_add ADD COLUMN tag VARCHAR NOT NULL DEFAULT 'old'`)
 	h.exec(`ALTER TABLE it_def_add ADD COLUMN blank VARCHAR DEFAULT ''`)
-	if f := h.rowFields(raw, "public", "it_def_add"); f["qty"] != 0 || f["tag"] != 0 || f["blank"] != 0 {
-		t.Errorf("row fields after ADD COLUMN … DEFAULT = %v, want no qty, tag or blank fields", f)
+	if f := h.rowFields(raw, "public", "it_def_add"); f["qty"] != 4 || f["tag"] != 4 || f["blank"] != 4 {
+		t.Errorf("row fields after snapshot ADD COLUMN … DEFAULT = %v, want four materialized values per field", f)
 	}
-	if c := h.tableColumn(raw, "it_def_add", "qty"); c.Missing != "7" || c.MissingThrough != 4 || c.Default != "7" {
-		t.Errorf("qty metadata = %+v, want missing value 7 through row 4", c)
+	if c := h.tableColumn(raw, "it_def_add", "qty"); c.Missing != "" || c.MissingThrough != 0 || c.Default != "7" {
+		t.Errorf("qty metadata = %+v, want materialized default 7 without virtual values", c)
 	}
 	h.exec(`INSERT INTO it_def_add (id, label) VALUES (5, 'e')`)
 	h.exec(`INSERT INTO it_def_add (id, label, qty, tag, blank) VALUES (6, 'f', NULL, 'new', NULL), (7, 'g', 13, 'new', 'x')`)
@@ -326,8 +326,7 @@ func TestSQLAddColumnDefault(t *testing.T) {
 	h.expectRows(`SELECT * FROM it_def_add ORDER BY id`, all...)
 	h.expectRows(`SELECT * FROM it_def_add WHERE __rowid = 2`, all[1])
 
-	// Index filters: a predicate the missing value satisfies also reads the
-	// old rows (and is re-checked); one it doesn't is answered by the index.
+	// Materialized defaults remain visible to every predicate and index path.
 	for where, want := range map[string][]string{
 		"qty = 7":                               {"1", "2", "3", "4", "5"},
 		"qty IS NULL":                           {"6"},
@@ -352,9 +351,9 @@ func TestSQLAddColumnDefault(t *testing.T) {
 		h.expectRows(`SELECT id FROM it_def_add WHERE `+where+` ORDER BY id`, want...)
 	}
 	for sql, want := range map[string]string{
-		`SELECT id FROM it_def_add WHERE qty = 7`:     "(@qty:[7 7] | @__rowid:[-inf 4]) residual",
+		`SELECT id FROM it_def_add WHERE qty = 7`:     "@qty:[7 7]",
 		`SELECT id FROM it_def_add WHERE qty > 8`:     "@qty:[(8 +inf]",
-		`SELECT id FROM it_def_add WHERE tag = 'old'`: "(@tag:{old} | @__rowid:[-inf 4]) residual",
+		`SELECT id FROM it_def_add WHERE tag = 'old'`: "@tag:{old}",
 		`SELECT id FROM it_def_add WHERE tag = 'new'`: "@tag:{new}",
 	} {
 		q, residual := h.pushedWhere(raw, sql)
@@ -366,7 +365,50 @@ func TestSQLAddColumnDefault(t *testing.T) {
 		}
 	}
 
-	// Sorts and aggregates are computed by the driver for such columns.
+	// Preserve virtual-value predicate guards on a planner-only copy, without
+	// changing the materialized source or its published metadata.
+	st, ctx, pin := h.inspectionSnapshot(raw)
+	defer pin.release()
+	virtual, err := st.getTable(ctx, defaultSchema, "it_def_add")
+	if err != nil {
+		t.Fatal(err)
+	}
+	virtual = cloneMeta(virtual)
+	for i := range virtual.Columns {
+		switch virtual.Columns[i].Name {
+		case "qty":
+			virtual.Columns[i].Missing = "7"
+			virtual.Columns[i].MissingThrough = 4
+		case "tag":
+			virtual.Columns[i].Missing = "old"
+			virtual.Columns[i].MissingThrough = 4
+		}
+	}
+	e := &executor{store: st, schema: defaultSchema, sess: newSession(defaultSchema), cache: newExecCache()}
+	for sql, want := range map[string]string{
+		`SELECT id FROM it_def_add WHERE qty = 7`:     "(@qty:[7 7] | @__rowid:[-inf 4]) residual",
+		`SELECT id FROM it_def_add WHERE qty > 8`:     "@qty:[(8 +inf]",
+		`SELECT id FROM it_def_add WHERE tag = 'old'`: "(@tag:{old} | @__rowid:[-inf 4]) residual",
+		`SELECT id FROM it_def_add WHERE tag = 'new'`: "@tag:{new}",
+	} {
+		parsed, err := ParseScript(sql)
+		if err != nil {
+			t.Fatal(err)
+		}
+		wp, err := e.planWhere(ctx, parsed[0].Stmt.(*SelectStmt).Where, virtual, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		q := wp.query
+		if wp.residual != nil {
+			q += " residual"
+		}
+		if q != want {
+			t.Errorf("virtual guard %s: %q, want %q", sql, q, want)
+		}
+	}
+	pin.release()
+	// Sorts and aggregates retain their exact default/NULL semantics.
 	h.expectRows(`SELECT id, qty FROM it_def_add ORDER BY qty DESC, id`,
 		"6|NULL", "7|13", "1|7", "2|7", "3|7", "4|7", "5|7")
 	h.expectRows(`SELECT id FROM it_def_add ORDER BY tag, id DESC LIMIT 2`, "7", "6")
@@ -394,12 +436,12 @@ func TestSQLAddColumnDefault(t *testing.T) {
 	h.exec(`CREATE TABLE it_def_copy AS SELECT id, qty FROM it_def_add`)
 	h.expectRows(`SELECT id, qty FROM it_def_copy WHERE qty = 7 ORDER BY id`, "1|7", "2|7", "3|7", "4|7", "5|7")
 
-	// UPDATE / DELETE / MERGE match the old rows by the value they read;
-	// setting an old row's column to NULL marks it, setting a value unmarks it.
+	// UPDATE / DELETE / MERGE match materialized defaults exactly. Explicit
+	// NULL is absent from the newest image and needs no virtual-value marker.
 	h.expectAffected(`UPDATE it_def_add SET qty = NULL WHERE id = 2`, 1)
 	h.expectRows(`SELECT id, qty FROM it_def_add WHERE id <= 3 ORDER BY id`, "1|7", "2|NULL", "3|7")
-	if f := h.rowFields(raw, "public", "it_def_add"); f[nullMarker("qty")] != 1 || f["qty"] != 2 {
-		t.Errorf("row fields after UPDATE SET qty = NULL = %v, want one %s marker", f, nullMarker("qty"))
+	if f := h.rowFields(raw, "public", "it_def_add"); f[nullMarker("qty")] != 0 || f["qty"] != 5 {
+		t.Errorf("row fields after UPDATE SET qty = NULL = %v, want five values and no virtual marker", f)
 	}
 	h.expectRows(`SELECT id FROM it_def_add WHERE qty = 7 ORDER BY id`, "1", "3", "4", "5")
 	h.expectRows(`SELECT id FROM it_def_add WHERE qty IS NULL ORDER BY id`, "2", "6")
@@ -417,8 +459,8 @@ func TestSQLAddColumnDefault(t *testing.T) {
 	h.expectAffected(`DELETE FROM it_def_add t USING it_def_keys k WHERE t.qty = k.k AND k.name = 'thirteen'`, 1)
 	h.expectRows(`SELECT id, qty FROM it_def_add ORDER BY id`, "3|NULL", "4|7", "5|7", "6|NULL")
 
-	// The missing value follows RENAME COLUMN; DROP COLUMN removes the field
-	// and the NULL markers.
+	// Defaulted values follow RENAME COLUMN; DROP COLUMN removes the field
+	// and leaves no virtual NULL markers.
 	h.exec(`ALTER TABLE it_def_add RENAME COLUMN qty TO amount`)
 	h.expectRows(`SELECT id FROM it_def_add WHERE amount = 7 ORDER BY id`, "4", "5")
 	h.exec(`ALTER TABLE it_def_add DROP COLUMN amount`)
@@ -429,8 +471,8 @@ func TestSQLAddColumnDefault(t *testing.T) {
 	h.exec(`ALTER TABLE it_def_add ADD COLUMN qty INTEGER`)
 	h.expectRows(`SELECT id, qty, tag FROM it_def_add ORDER BY id`, "3|NULL|old", "4|NULL|old", "5|NULL|old", "6|NULL|new")
 
-	// TRUNCATE forgets the missing values: after RESTART IDENTITY new rows
-	// reuse the old row ids, and an absent field is NULL for them.
+	// TRUNCATE clears the materialized values. RESTART IDENTITY reuses row IDs;
+	// new rows still distinguish an explicit NULL from the retained default.
 	h.exec(`ALTER TABLE it_def_add ADD COLUMN extra INTEGER DEFAULT 5`)
 	h.expectRows(`SELECT id, extra FROM it_def_add WHERE extra = 5 ORDER BY id`, "3|5", "4|5", "5|5", "6|5")
 	h.exec(`TRUNCATE it_def_add RESTART IDENTITY`)
@@ -444,7 +486,7 @@ func TestSQLAddColumnDefault(t *testing.T) {
 }
 
 // ALTER COLUMN … SET / DROP DEFAULT change what later inserts get; existing
-// rows, and the missing value of a column added with a default, stay.
+// rows, including materialized values of a column added with a default, stay.
 func TestSQLAlterColumnDefault(t *testing.T) {
 	h := newSQLHarness(t)
 	h.dropTables("it_def_alt")
@@ -469,7 +511,7 @@ func TestSQLAlterColumnDefault(t *testing.T) {
 	h.expectRows(`SELECT id FROM it_def_alt WHERE flag = FALSE ORDER BY id`, "4")
 	h.expectRows(`SELECT id FROM it_def_alt WHERE flag IS NULL ORDER BY id`, "5")
 
-	// Numeric and timestamp missing values; the existing rows all read the
+	// Numeric and timestamp defaults; the existing rows all read the
 	// ALTER statement's time.
 	h.exec(`ALTER TABLE it_def_alt ADD COLUMN price NUMERIC(8,2) DEFAULT 9.99`)
 	h.exec(`ALTER TABLE it_def_alt ADD COLUMN at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`)
@@ -479,8 +521,7 @@ func TestSQLAlterColumnDefault(t *testing.T) {
 	h.expectRows(`SELECT COUNT(*), COUNT(at), COUNT(DISTINCT at) FROM it_def_alt WHERE at <= CURRENT_TIMESTAMP`, "5|5|1")
 	h.expectRows(`SELECT id FROM it_def_alt WHERE at IS NULL`, "6")
 
-	// A table that never had rows (since RESTART IDENTITY) has none to read
-	// the missing value.
+	// An empty table has no existing values to materialize.
 	h.exec(`TRUNCATE it_def_alt RESTART IDENTITY`)
 	h.exec(`ALTER TABLE it_def_alt ADD COLUMN later INTEGER DEFAULT 3`)
 	if c := h.tableColumn(h.rawClient(), "it_def_alt", "later"); c.MissingThrough != 0 {
@@ -491,33 +532,53 @@ func TestSQLAlterColumnDefault(t *testing.T) {
 	h.expectRows(`SELECT id, later FROM it_def_alt ORDER BY id`, "6|3", "7|NULL")
 }
 
-// A statement that read the table's metadata before ADD COLUMN … DEFAULT
-// (here, rows written with the old metadata) still gives its rows the
-// column's missing value: they were not inserted with an explicit NULL.
+// An INSERT staged before ADD COLUMN must conflict, leaving the new definition
+// intact. A fresh explicit INSERT reads its default; an explicit NULL stays NULL.
 func TestSQLAddColumnDefaultConcurrentInsert(t *testing.T) {
 	h := newSQLHarness(t)
 	h.dropTables("it_def_race")
 	raw := h.rawClient()
 	h.exec(`CREATE TABLE it_def_race (id INTEGER)`)
 	h.exec(`INSERT INTO it_def_race VALUES (1)`)
-	st := &store{client: raw}
-	old, err := st.getTable(h.ctx, defaultSchema, "it_def_race")
+	st, oldCtx, oldPin := h.inspectionSnapshot(raw, true)
+	defer oldPin.release()
+	old, err := st.getTable(oldCtx, defaultSchema, "it_def_race")
+	if err != nil {
+		t.Fatal(err)
+	}
+	keys, before, err := newSnapshotDeltaScan(st, old, nil).next(oldCtx)
+	if err != nil || len(before) != 1 {
+		t.Fatal("missing pre-ALTER input", err)
+	}
+	ctx, pin, work := snapshotStageSQL(t, st, h.ctx, "it_def_race", `INSERT INTO it_def_race VALUES (2)`)
+	private, err := st.getTable(ctx, defaultSchema, "it_def_race")
 	if err != nil {
 		t.Fatal(err)
 	}
 	h.exec(`ALTER TABLE it_def_race ADD COLUMN extra INTEGER DEFAULT 11`)
 	h.exec(`ALTER TABLE it_def_race ADD COLUMN plain VARCHAR`)
-	id, err := Coerce(intValue(typeInt64, 2), old.Columns[0].Type)
+	root, err := raw.HGet(h.ctx, snapshotCatalogKey, "root").Result()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := st.insertRows(h.ctx, old, [][]Value{{id}}); err != nil {
-		t.Fatal(err)
+	if err := st.publishSnapshot(ctx, pin, work); sqlState(err) != "40001" {
+		t.Fatal("stale INSERT did not conflict with ADD COLUMN", err)
 	}
+	if after, err := raw.HGet(h.ctx, snapshotCatalogKey, "root").Result(); err != nil || after != root {
+		t.Fatal("stale INSERT published a root", err)
+	}
+	if after, err := st.fetchSnapshotVisible(oldCtx, old, keys, nil); err != nil || !reflect.DeepEqual(before, after) {
+		t.Fatal("ADD COLUMN changed pinned old rows", err)
+	}
+	st.abortSnapshot(pin, work)
+	pin.release()
+	h.expectSnapshotReleased(raw, private.prefix(), private.index())
+	h.expectRows(`SELECT id, extra, plain FROM it_def_race`, "1|11|NULL")
+	h.exec(`INSERT INTO it_def_race (id) VALUES (2)`)
 	h.exec(`INSERT INTO it_def_race (id, extra) VALUES (3, NULL)`)
 	h.expectRows(`SELECT id, extra, plain FROM it_def_race ORDER BY id`, "1|11|NULL", "2|11|NULL", "3|NULL|NULL")
-	if f := h.rowFields(raw, "public", "it_def_race"); f["extra"] != 1 || f["plain"] != 0 {
-		t.Errorf("row fields = %v, want extra written for the row inserted with the old metadata only", f)
+	if f := h.rowFields(raw, "public", "it_def_race"); f["extra"] != 2 || f["plain"] != 0 {
+		t.Errorf("row fields = %v, want two materialized defaults and no explicit plain values", f)
 	}
 }
 

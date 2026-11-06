@@ -78,17 +78,17 @@ func TestRBACManagementBoundaries(t *testing.T) {
 					if mode == "multiple-roles" {
 						roles = append(roles, 8)
 					}
-					out = []map[string]any{{"role_uids": roles}}
+					out = []map[string]any{{"role_uids": roles, "email": "reader@example.com"}}
 				case "/v1/redis_acls/9":
 					name := rbacACLName(1, 7)
-					acl := rbacBaseACL
+					acl := rbacReaderACL(rbacACLName(1, 7))
 					if mode == "wrong-acl-name" {
 						name = "administrator-acl"
 					}
 					if mode == "extra-rule" {
 						acl += " +@all"
 					}
-					out = rbacACL{9, name, acl}
+					out = rbacACL{UID: 9, Name: name, ACL: acl}
 				default:
 					t.Errorf("unexpected path %s", r.URL.Path)
 				}
@@ -157,5 +157,27 @@ func TestRBACConfigAndTLS(t *testing.T) {
 	}
 	if _, err := ParseScript(`GRANT INSERT ON t TO analyst`); !isStatus(err, adbc.StatusNotImplemented) {
 		t.Fatal(err)
+	}
+}
+
+func TestSnapshotRBACRefusesBeforeManagementMutation(t *testing.T) {
+	calls := 0
+	manager, _ := testRBAC(t, func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		t.Error("snapshot grant reached management API")
+	})
+	e := &executor{store: &store{snapshots: true, restrictedReader: true}, rbac: manager}
+	for _, sql := range []string{"GRANT SELECT ON t TO analyst", "REVOKE SELECT ON t FROM analyst"} {
+		statements, err := ParseScript(sql)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = e.executeSnapshot(context.Background(), statements[0], nil, nil, nil)
+		if !isStatus(err, adbc.StatusUnauthorized) || !strings.Contains(err.Error(), "cannot manage SQL grants") {
+			t.Fatal(err)
+		}
+	}
+	if calls != 0 {
+		t.Fatal("unexpected management requests", calls)
 	}
 }

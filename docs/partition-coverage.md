@@ -1,10 +1,10 @@
 # Remaining partition coverage
 
-As of 2026-10-30, this table compares source capabilities. The published
-`0.0.19` macOS ARM64 wheel has passed native live/retained TLS checks; this is
-platform-specific evidence, not validation of every release asset. See the
-[validation record](sdlc/changes/210-212/validation.md),
-[live reads](partitioned-reads.md) and [retained reads](retained-partition-results.md).
+Current snapshot branch contract, 2026-11-04. See [live reads](partitioned-reads.md),
+[retained reads](retained-partition-results.md) and the [open parity gates](sdlc/changes/snapshot-parity/plan.md).
+The published 0.0.19 macOS ARM64 wheel’s native live/retained TLS checks are
+[historical platform-specific evidence](sdlc/changes/210-212/validation.md), not
+validation of the current snapshot implementation or every release asset.
 Ordinary SQL has its own supported subset and remains autocommit-only.
 
 | Operation/source | Live partitions | Retained partitions | Ordinary SQL |
@@ -16,12 +16,13 @@ Ordinary SQL has its own supported subset and remains autocommit-only.
 | ORDER BY, LIMIT/OFFSET | Rejected | Once over complete captured input | Once per execution |
 | DISTINCT, grouping, aggregates, windows | Rejected | Once at coordinator, within budgets | Supported subset |
 | Joins, sets, nonrecursive CTEs, permanent views/subqueries | Rejected | Bounded supported subset | Supported subset |
-| Adopted key-identified, foreign/application index, legacy layouts | Rejected | Supported layouts with ownership/membership checks | Supported layouts |
+| Managed copies of adopted HASHes and foreign/application indexes | Native managed partition path | Captured managed copy | Managed copy with explicit refresh |
+| Legacy storage and direct live external layouts | Rejected | Rejected by current catalog bootstrap | Rejected; no migration |
 | Temporary source | Rejected | Producer-owned temporary tables/views | Connection-owned lifetime |
 | Recursive CTEs, generators, lateral/table functions | Rejected | Rejected | Supported subset |
 | Volatile/side-effect functions | Rejected | Rejected | Supported subset |
-| Atomic source snapshot under concurrent DML/DDL | Unavailable | Unavailable | Unavailable |
-| Retry after source changes | Rereads live data | Replays immutable committed output until expiry/revocation | Fresh execution |
+| Atomic source snapshot under concurrent DML/DDL | One producer generation for the live set | One pinned managed generation during capture | One managed generation per statement |
+| Retry after source changes | Same pinned generation until expiry/release | Replays immutable committed output until expiry/revocation | Fresh execution |
 
 The retained expansion selected for
 [#211](https://github.com/redis/redis-adbc-driver/issues/211) added
@@ -32,32 +33,31 @@ Tests compare complete Arrow values/types with ordinary execution, including
 NULL, Unicode, negative positions/lengths and extreme integer bounds. Global
 operators still run once before chunking, never once per reader.
 
-## Source-consistent capture assessment
+## Source-consistent capture
 
-No opt-in atomic mode is implemented. A before/after row count, index-ready bit,
-schema identity or checksum cannot detect an update changed and restored while
-capture runs. A best-effort retry therefore cannot establish source consistency.
-SCAN deduplication prevents repeated keys; it does not freeze their values.
+Managed statement snapshots are always enabled. Live sets retain one producer
+generation, retained coordinators evaluate one pinned generation, and ordinary
+statements each acquire their own generation. Concurrent SQL DML/DDL does not
+change a pinned input. Readiness checks and before/after counts do not establish
+this guarantee; immutable data/catalog generations and their reference protocol do.
 
-Driver-level transaction and consistency feature development is outside the
-active roadmap per maintainer direction (2026-10-22). Operators requiring
-consistent capture must quiesce all source writers and DDL through publication.
-This operational condition is not a driver-verified snapshot.
+Application-owned HASHes and indexes remain external. SQL reads a private managed
+copy, and explicit refresh publishes a new copy for future statements. External
+writers do not participate in the driver’s snapshot protocol; a refresh does not
+promise an atomic capture of arbitrary concurrently changing application data.
+Completed copies and retained output preserve the captured exact values.
 
-Retained capture admits temporary tables/views owned by the producing
-connection. The coordinator copies the producer's temporary catalog identity;
-unowned temporary schemas are rejected. Capture and evaluation finish before
-publication; independent readers only access committed namespace-authorized
-output. Closing the producer cancels active work, and detectable source identity
-or membership changes fail publication. Temporary sources do not gain a source
-snapshot guarantee. Keep producer DDL/DML quiescent during capture. Committed
-output remains replayable after the producer closes and its temporary objects
-are deleted. Existing deadlines, budgets, quota, expiry and revocation apply.
+Retained capture admits temporary tables/views owned by the producing connection.
+The coordinator copies its temporary catalog identity; unowned temporary schemas
+are rejected. Independent readers access only committed namespace-authorized
+output. Closing the producer cancels active work; completed output remains
+replayable after the producer’s temporary objects are removed. Existing deadlines,
+budgets, quota, expiry and revocation apply.
 
-Future expansions must retain bounded admission, fixed expiry, explicit revoke,
-independently authenticated readers and immutable replay after producer closure.
-Existing failure/lifecycle suites remain necessary; this expansion does not
-establish new deployment, concurrent snapshot or packaged-release evidence.
+Full feature/platform and current-protocol Cluster recovery checks, process/input
+resumption and comparative/sustained workload measurements remain open in the
+parity plan. Targeted snapshot and replay checks do not establish complete
+packaged-release or performance parity.
 
 ## Byte-length expansion (#304)
 

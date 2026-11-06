@@ -56,6 +56,7 @@ func (s *statementImpl) ExecutePartitions(ctx context.Context) (*arrow.Schema, a
 	if s.incremental && s.partitionExecution != nil {
 		return s.partitionExecution.schema, adbc.Partitions{}, -1, s.partitionExecution.err
 	}
+	previousSnapshot := s.partitionSnapshotID
 	ctx, transport := s.conn.executionContext(ctx, &s.streams, &s.conn.streams)
 	if transport != nil {
 		defer transport.finish()
@@ -65,6 +66,15 @@ func (s *statementImpl) ExecutePartitions(ctx context.Context) (*arrow.Schema, a
 			s.partitionExecution = &incrementalPartitions{err: err}
 		}
 		return nil, adbc.Partitions{}, -1, err
+	}
+	if s.conn.store.snapshots {
+		var pin *snapshotPin
+		var err error
+		ctx, pin, err = s.conn.store.acquireSnapshot(ctx)
+		if err != nil {
+			return nil, adbc.Partitions{}, -1, err
+		}
+		defer pin.release()
 	}
 	var schema *arrow.Schema
 	var parts adbc.Partitions
@@ -82,6 +92,10 @@ func (s *statementImpl) ExecutePartitions(ctx context.Context) (*arrow.Schema, a
 		s.partitionExecution = &incrementalPartitions{schema: schema, err: err}
 	}
 	if err != nil {
+		if s.partitionSnapshotID != "" && s.partitionSnapshotID != previousSnapshot {
+			_ = s.conn.store.releasePartitionSnapshot(context.Background(), s.partitionSnapshotID)
+			s.partitionSnapshotID = ""
+		}
 		return nil, adbc.Partitions{}, -1, err
 	}
 	return schema, parts, n, nil

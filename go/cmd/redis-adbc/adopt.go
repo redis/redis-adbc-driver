@@ -36,8 +36,8 @@ func runAdopt(ctx context.Context, args []string, stdout, stderr io.Writer) erro
 	table := fs.String("table", "", "the table's name (default: made from the prefix)")
 	index := fs.String("index-columns", "", "comma-separated `columns` to index (default: every one that can be)")
 	trust := fs.Bool("trust-strings", false, "trust the string values to stay as they are now (see the README)")
-	appIndex := fs.String("index", "", "the application's search `index` to read the rows through (default: one that can serve, if any)")
-	ownIndex := fs.Bool("own-index", false, "create an index in the driver's format, even if the application's can serve")
+	appIndex := fs.String("index", "", "the application's search `index` used to select source rows for the managed copy")
+	ownIndex := fs.Bool("own-index", false, "scan source HASHes directly; the managed copy always owns its private index")
 	apply := fs.Bool("apply", false, "do it; without -apply, adopt only checks and prints what it would do")
 	asJSON := fs.Bool("json", false, "write the result as JSON")
 	if err := parseFlags(fs, args); err != nil {
@@ -75,6 +75,8 @@ func printAdoption(w io.Writer, res *redis.HashAdoption) {
 	}
 	ready := len(r.Checks) == 0 || r.Checks[0].Ready
 	switch {
+	case res.Applied && res.ManagedCopy:
+		fmt.Fprintf(w, "\nImported: %s is a managed copy of HASHes under %s. Repeat -apply to refresh; application HASHes and indexes are unchanged.\n", res.Table, r.Prefix)
 	case res.Applied && res.AppIndex:
 		fmt.Fprintf(w, "\nAdopted: %s now reads the HASHes under %s, and those the application writes later (through the application's index %s).\n",
 			res.Table, r.Prefix, res.Index)

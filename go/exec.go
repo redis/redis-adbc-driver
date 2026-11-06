@@ -39,6 +39,12 @@ type executor struct {
 	store              *store
 	retained           *retainedExecution
 	partitionNamespace string
+	// A validated live capability resolves its one captured foreign copy
+	// without enabling connection-wide discovery or importing other sources.
+	partitionForeignTable string
+	// Set only while binding a proven finite-ID partition. Its native row
+	// ownership proof does not authorize an index scan or populate that cache.
+	partitionDirectTable *tableMeta
 	// sess is the connection's settings (session.go), and schema its
 	// current schema.
 	sess             *session
@@ -89,10 +95,13 @@ type executor struct {
 
 // execResult is the outcome of one statement.
 type execResult struct {
-	isQuery  bool
-	cols     []resultColumn
-	rows     [][]Value
-	affected int64
+	isQuery bool
+	cols    []resultColumn
+	// Keep the pinned declared shape separate from value-resolved NUMERIC
+	// precision/scale when combining bound parameter executions.
+	declaredCols []resultColumn
+	rows         [][]Value
+	affected     int64
 	// stream, if set, holds the rows instead (see stream.go).
 	stream array.RecordReader
 }
@@ -109,6 +118,11 @@ func invalidArg(err error) error {
 // one by that name, and otherwise in the current schema; pg_temp.<name> is
 // always the temporary one.
 func (e *executor) resolveTable(t TableName) (string, string, error) {
+
+	if (t.Schema == foreignSchema || t.Schema == "" && e.schema == foreignSchema) && !e.store.foreignIndexes &&
+		(e.partitionForeignTable == "" || t.Name != e.partitionForeignTable) {
+		return "", "", tableNotFound(foreignSchema, t.Name)
+	}
 	schema := t.Schema
 	if t.Catalog != "" && t.Catalog != catalogName {
 		if schema == "" {
@@ -175,6 +189,9 @@ func (e *executor) loadTable(ctx context.Context, t TableName) (*tableMeta, erro
 	if m := e.dmlSnapshots[metaKey(schema, name)]; m != nil {
 		return m, nil
 	}
+	if m := e.partitionDirectTable; m != nil && m.Schema == schema && m.Name == name {
+		return m, nil
+	}
 	if e.retained != nil {
 		return e.retained.table(ctx, schema, name)
 	}
@@ -212,6 +229,9 @@ func (e *executor) loadTable(ctx context.Context, t TableName) (*tableMeta, erro
 // execute runs one statement. With so set, a query's rows may be streamed
 // (see stream.go).
 func (e *executor) execute(ctx context.Context, ps ParsedStmt, params []Value, paramTypes []ColType, so *streamOpts) (res execResult, err error) {
+	if e.store != nil && e.store.snapshots && snapshotOf(ctx) == nil {
+		return e.executeSnapshot(ctx, ps, params, paramTypes, so)
+	}
 	if e.retained != nil {
 		if _, ok := ps.Stmt.(*SelectStmt); !ok {
 			return execResult{}, errorf(adbc.StatusNotImplemented, "retained execution requires one SELECT")
@@ -261,6 +281,9 @@ func (e *executor) execute(ctx context.Context, ps ParsedStmt, params []Value, p
 	}
 	switch st := ps.Stmt.(type) {
 	case *DropPartitionResultStmt:
+		if st.Snapshot {
+			return execResult{}, errorf(adbc.StatusInvalidState, "partition snapshots require a managed snapshot catalog")
+		}
 		store, err := newRetainedStore(e.store.redis(ctx), e.partitionNamespace, defaultRetainedLimits())
 		if err != nil {
 			return execResult{}, err
@@ -363,6 +386,9 @@ func (e *executor) fitResult(res execResult, err error) (execResult, error) {
 	}
 	// A cached plan retains declared types; resolving one execution's values
 	// must not freeze its scale for another bound parameter row.
+	if res.declaredCols == nil {
+		res.declaredCols = res.cols
+	}
 	res.cols = append([]resultColumn(nil), res.cols...)
 	resolveNumericColumns(res.cols, res.rows)
 	z := e.zone()
@@ -1879,6 +1905,9 @@ func (e *executor) writeUpdates(ctx context.Context, meta *tableMeta, changes []
 	if err := e.store.raiseNeeds(ctx, meta, changeNeeds(meta, changes)); err != nil {
 		return err
 	}
+	if meta.SnapshotOverlay {
+		return e.writeSnapshotUpdates(ctx, meta, changes)
+	}
 	if meta.KeyRows {
 		if err := e.store.checkKeyRowsKept(ctx, meta, changes); err != nil {
 			return err
@@ -1931,6 +1960,9 @@ func (e *executor) deleteKeys(ctx context.Context, meta *tableMeta, keys []strin
 	}
 	if err := e.store.checkWritable(ctx, meta); err != nil {
 		return err
+	}
+	if meta.SnapshotOverlay {
+		return e.writeSnapshotDeletes(ctx, meta, keys)
 	}
 	for start := 0; start < len(keys); start += pipelineChunk {
 		end := min(start+pipelineChunk, len(keys))

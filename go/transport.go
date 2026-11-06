@@ -29,6 +29,8 @@ type executionTransport struct {
 	finishing   bool
 	background  map[<-chan struct{}]struct{}
 	once        sync.Once
+	finished    sync.Once
+	done        chan struct{}
 	owners      []*streams
 	matviews    *matviewReads
 }
@@ -61,9 +63,9 @@ func (t *executionTransport) closeWith(err error) {
 	t.cancel(err)
 	t.interrupt()
 	// Close waits for command machinery; never call it inside a process hook.
-	go t.finish()
+	go t.closeClient()
 }
-func (t *executionTransport) finish() {
+func (t *executionTransport) closeClient() {
 	t.once.Do(func() {
 		t.cancel(nil)
 		t.interrupt()
@@ -85,6 +87,32 @@ func (t *executionTransport) finish() {
 			owner.remove(t)
 		}
 	})
+}
+
+// Socket interruption may finish before SQL/Arrow unwinds its abort and reader
+// lease defers. Keep that operation registered until its normal owner finishes.
+func (t *executionTransport) finish() {
+	t.closeClient()
+	t.finished.Do(func() {
+		if t.owner != nil {
+			t.owner.mu.Lock()
+			delete(t.owner.executions, t)
+			t.owner.mu.Unlock()
+		}
+		if t.done != nil {
+			close(t.done)
+		}
+	})
+}
+
+func (s *store) activeExecutions() []*executionTransport {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]*executionTransport, 0, len(s.executions))
+	for execution := range s.executions {
+		out = append(out, execution)
+	}
+	return out
 }
 
 // Registration and finish share mu, so a worker cannot start after the pool
@@ -144,7 +172,7 @@ func (c *connectionImpl) executionContextWithTimeouts(ctx context.Context, timeo
 		return ctx, nil
 	}
 	parent, cancel := context.WithCancelCause(ctx)
-	t := &executionTransport{owner: c.store, ctx: parent, cancel: cancel, sockets: map[*executionSocket]bool{}, owners: owners}
+	t := &executionTransport{owner: c.store, ctx: parent, cancel: cancel, sockets: map[*executionSocket]bool{}, owners: owners, done: make(chan struct{})}
 	t.matviews = &matviewReads{store: c.store}
 	single, cluster := *c.clientCfg.single, *c.clientCfg.cluster
 	dial := single.Dialer
@@ -174,6 +202,9 @@ func (c *connectionImpl) executionContextWithTimeouts(ctx context.Context, timeo
 	cfg := &clientConfig{single: &single, cluster: &cluster}
 	_, isCluster := c.store.client.(*goredis.ClusterClient)
 	t.client = newClient(cfg, isCluster, timeouts)
+	if c.store.snapshots {
+		addSnapshotHooks(t.client)
+	}
 	t.client.AddHook(t)
 	if cc, ok := t.client.(*goredis.ClusterClient); ok {
 		cc.OnNewNode(func(node *goredis.Client) { node.AddHook(t) })
@@ -181,7 +212,16 @@ func (c *connectionImpl) executionContextWithTimeouts(ctx context.Context, timeo
 	for _, owner := range owners {
 		owner.add(t)
 	}
-	if c.store.isClosed() {
+	c.store.mu.Lock()
+	closed := c.store.closed
+	if !closed {
+		if c.store.executions == nil {
+			c.store.executions = map[*executionTransport]struct{}{}
+		}
+		c.store.executions[t] = struct{}{}
+	}
+	c.store.mu.Unlock()
+	if closed || c.store.isClosed() {
 		t.closeWith(errConnClosed)
 	}
 	return context.WithValue(parent, transportContextKey{}, t), t

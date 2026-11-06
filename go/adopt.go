@@ -37,22 +37,20 @@ type HashAdoptOptions struct {
 	// Schema and Table name the table (by default the database's schema,
 	// and a name made from the prefix).
 	Schema, Table string
-	// Types sets columns' types in place; every stored value must be
-	// readable in its inferred or explicitly selected storage encoding.
+	// Types selects decoded source column types; every value must be readable
+	// in its inferred or explicitly selected source storage encoding.
 	Types map[string]string
 	// Renames gives fields other column names (field → column).
 	Renames map[string]string
-	// IndexColumns are the columns to index (nil: every one that can be).
+	// IndexColumns selects columns in the private managed index (nil: every
+	// eligible column), independently of an application's source index.
 	IndexColumns []string
-	// TrustStrings records how exactly the index holds each string column's
-	// values, as measured now. Otherwise every indexed string column is
-	// taken to hold values that the index doesn't hold exactly (the
-	// application's later writes don't tell the driver), which makes the
-	// driver re-check, sort and group string columns itself.
+	// TrustStrings is retained for historical in-place plans. Managed copies
+	// validate source values and build their own native index.
 	TrustStrings bool
-	// Index names the application's index to read the rows through; by
-	// default adopt picks one that can serve, if any (see appindex.go).
-	// OwnIndex makes it create the driver's own index even so.
+	// Index names the application's index used during capture; by default
+	// adopt picks one that can serve, if any (see appindex.go). OwnIndex
+	// captures HASHes directly. Every managed copy owns a private index.
 	Index    string
 	OwnIndex bool
 	// Apply does it; otherwise AdoptHashes only checks and plans.
@@ -63,11 +61,18 @@ type HashAdoptOptions struct {
 
 // HashAdoption is what AdoptHashes found, planned and did.
 type HashAdoption struct {
+	// ManagedCopy distinguishes explicit-refresh imports from historical in-place adoption.
+	ManagedCopy bool `json:"managed_copy,omitempty"`
 	// Report has the collection, the columns (InPlaceType) and the
 	// ChecklistSQLInPlace checklist.
 	Report *HashReport `json:"report"`
 	Table  string      `json:"table"`
-	Index  string      `json:"index,omitempty"`
+	// Index describes historical in-place layouts. Managed copies discover
+	// their current private index through information_schema.tables.
+	Index string `json:"index,omitempty"`
+	// SourceIndex is used only while capturing a managed copy. SQL reads its
+	// private managed index, independently of this application's index.
+	SourceIndex string `json:"source_index,omitempty"`
 	// Steps are what adopt does (or did, when Applied).
 	Steps   []string `json:"steps,omitempty"`
 	Applied bool     `json:"applied"`
@@ -91,10 +96,13 @@ type adoptRecord struct {
 	Index  string `json:"index"`
 }
 
-// AdoptHashes makes the HASHes under o.Prefix a driver table without
-// copying them (see inplace.go). Without o.Apply, it only reads them,
-// checks, and says what it would do. The options are the driver's database
-// options.
+// AdoptHashes imports the HASHes under o.Prefix into an immutable managed
+// copy. Repeating Apply for the same source and destination refreshes the copy;
+// source HASHes and indexes stay application-owned. Without o.Apply, it reads them,
+// checks, and says what it would do. Copy or publication failures return the
+// completed plan alongside the error. Applied reports acknowledged publication;
+// a publication error can still require resolving an uncertain outcome.
+// The options are the driver's database options.
 func AdoptHashes(ctx context.Context, options map[string]string, o HashAdoptOptions) (*HashAdoption, error) {
 	if o.Prefix == "" {
 		return nil, errorf(adbc.StatusInvalidArgument, "a key prefix is required")
@@ -112,7 +120,7 @@ func AdoptHashes(ctx context.Context, options map[string]string, o HashAdoptOpti
 		progress = func(string) {}
 	}
 	a := &adopter{c: c, o: o, progress: progress, res: &HashAdoption{Report: &HashReport{Prefix: o.Prefix}}}
-	return a.run(ctx)
+	return a.snapshotAdopt(c.context(ctx))
 }
 
 type adopter struct {

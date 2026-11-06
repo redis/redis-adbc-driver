@@ -12,10 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Closing a connection while a rename with adbc.redis.rename_rekey moves
-the rows on another thread (see stopRekeys in go/rekey.go), through the C
-API: the rename is rolled back before close() returns, and leaves no lease,
-so other connections change the table at once."""
+"""Close through the C API during a private snapshot rekey copy.
+
+The unpublished copy must not become visible, and Close must release its owner
+before returning so another connection can immediately change the original.
+"""
 
 import json
 import threading
@@ -30,7 +31,7 @@ from .redis_client import raw_options
 
 TABLE = "it_close_rekey"
 ROWS = 100_000
-REKEY = "adbc:{meta}:rekey"
+CATALOG = "adbc:{meta}:snapshot:catalog"
 
 
 def raw_client(db_kwargs):
@@ -57,6 +58,7 @@ def table(conn):
 
 def test_close_during_rename(conn, driver_path, db_kwargs, table) -> None:
     client = raw_client(db_kwargs)
+    renaming, thread = None, None
     try:
         renaming = adbc_driver_manager.dbapi.connect(
             driver=driver_path,
@@ -74,13 +76,23 @@ def test_close_during_rename(conn, driver_path, db_kwargs, table) -> None:
 
         thread = threading.Thread(target=rename)
         thread.start()
-        # Close once the rename has begun.
-        jobs, deadline = {}, time.monotonic() + 30
-        while not jobs and time.monotonic() < deadline:
-            jobs = client.hgetall(REKEY)
-            time.sleep(0.005)
-        assert len(jobs) == 1, jobs
-        owner = json.loads(next(iter(jobs.values())))["owner"]
+        # Observe an acknowledged private row batch, rather than the legacy
+        # mutable-rekey journal. No other statement writes in this interval.
+        jobs, deadline = [], time.monotonic() + 30
+        while not jobs and thread.is_alive() and time.monotonic() < deadline:
+            jobs = [
+                (field, work)
+                for field, raw in client.hgetall(CATALOG).items()
+                if field.startswith("w:")
+                and (work := json.loads(raw)).get("state") == "staging"
+                and work.get("row_batch", {}).get("rows", 0) > 0
+            ]
+            if not jobs:
+                time.sleep(0.001)
+        assert len(jobs) == 1, "rename did not expose an in-flight private copy"
+        workspace, work = jobs[0]
+        owner = work["token"]
+        assert client.hget(CATALOG, "root") != workspace[2:]
         began = time.monotonic()
         renaming.close()  # releases the cursor's statement, then the connection
         took = time.monotonic() - began
@@ -88,13 +100,23 @@ def test_close_during_rename(conn, driver_path, db_kwargs, table) -> None:
         assert not thread.is_alive()
 
         assert len(errors) == 1, errors
-        assert "the rename was" in str(errors[0]), errors[0]
+        assert isinstance(errors[0], adbc_driver_manager.dbapi.Error), errors[0]
+        assert "closed" in str(errors[0]).lower() or "cancel" in str(errors[0]).lower(), errors[0]
         assert took < 5, f"close() took {took:.1f}s"
-        # Rolled back, with no lease left.
-        assert client.hlen(REKEY) == 0
-        assert client.exists(f"adbc:{{meta}}:rekey:alive:{owner}") == 0
+        # Unpublished and ownerless before Close returns. Private output may
+        # remain for the reference-aware collector, but cannot publish.
+        assert client.hget(CATALOG, "root") != workspace[2:]
+        assert not client.hexists(CATALOG, f"p:{owner}")
+        remaining = client.hget(CATALOG, workspace)
+        assert remaining is None or json.loads(remaining)["state"] == "deleting"
     finally:
-        client.close()
+        try:
+            if renaming is not None:
+                renaming.close()
+        finally:
+            if thread is not None:
+                thread.join(30)
+            client.close()
 
     # The table is as it was, and changes at once.
     with conn.cursor() as cur:
@@ -103,3 +125,5 @@ def test_close_during_rename(conn, driver_path, db_kwargs, table) -> None:
         assert time.monotonic() - began < 5
         cur.execute(f"SELECT count(*) FROM {table}")
         assert cur.fetchone() == (ROWS + 1,)
+        cur.execute(f"SELECT id FROM {table} ORDER BY id")
+        assert cur.fetchall() == [(i,) for i in range(ROWS + 1)]

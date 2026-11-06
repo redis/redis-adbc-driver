@@ -21,7 +21,9 @@ package redis
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"sync"
@@ -36,9 +38,11 @@ import (
 )
 
 type sqlHarness struct {
-	t    *testing.T
-	ctx  context.Context
-	conn adbc.ConnectionWithContext
+	rowReadObserver *rowReadHook // statement-scoped I/O observer for rowReads
+	afterExec       func()       // deterministic maintenance steps, snapshot protocol fixtures only
+	t               *testing.T
+	ctx             context.Context
+	conn            adbc.ConnectionWithContext
 }
 
 func newSQLHarness(t *testing.T) *sqlHarness {
@@ -57,6 +61,14 @@ func newSQLHarness(t *testing.T) *sqlHarness {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = conn.Close(ctx) })
+	stmt, err := conn.NewStatement(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stmt.(*statementImpl).conn.store.client.AddHook(pinOriginHook(t, "sql"))
+	if err := stmt.Close(ctx); err != nil {
+		t.Fatal(err)
+	}
 	return &sqlHarness{t: t, ctx: ctx, conn: conn}
 }
 
@@ -74,6 +86,9 @@ func (h *sqlHarness) exec(sql string) int64 {
 	n, err := st.ExecuteUpdate(h.ctx)
 	if err != nil {
 		h.t.Fatalf("%s: %v", sql, err)
+	}
+	if h.afterExec != nil {
+		h.afterExec()
 	}
 	return n
 }
@@ -861,7 +876,7 @@ func adminURI() string {
 
 // rawClient connects to adminURI directly (cluster-aware) so tests can
 // inspect row HASHes.
-func (h *sqlHarness) rawClient() goredis.UniversalClient {
+func (h *sqlHarness) rawClient(hooks ...goredis.Hook) goredis.UniversalClient {
 	h.t.Helper()
 	opts, err := goredis.ParseURL(adminURI())
 	if err != nil {
@@ -870,40 +885,49 @@ func (h *sqlHarness) rawClient() goredis.UniversalClient {
 	if err := configureTLSRoots(opts, os.Getenv("REDIS_RETAINED_TLS_CA_FILE")); err != nil {
 		h.t.Fatal(err)
 	}
-	// Keep the test-inspection client on RESP2: a few helpers below inspect
-	// raw replies directly. Driver connections use the configured protocol.
-	opts.Protocol = 2
+	// Inspection and driver connections both use RESP3. Search replies are
+	// normalized by the same map/list-aware helpers as ordinary execution.
+	opts.Protocol = 3
 	var c goredis.UniversalClient = goredis.NewClient(opts)
 	if info, err := c.Info(h.ctx, "cluster").Result(); err == nil && strings.Contains(info, "cluster_enabled:1") {
 		_ = c.Close()
 		c = goredis.NewClusterClient(&goredis.ClusterOptions{Addrs: []string{opts.Addr}, Password: opts.Password,
-			Username: opts.Username, TLSConfig: opts.TLSConfig, Protocol: 2,
+			Username: opts.Username, TLSConfig: opts.TLSConfig, Protocol: 3,
 			ReadTimeout: opts.ReadTimeout, WriteTimeout: opts.WriteTimeout})
 	}
+	c.AddHook(pinOriginHook(h.t, "inspection"))
+	for _, hook := range hooks {
+		c.AddHook(hook)
+	}
+	addSnapshotHooks(c)
 	h.t.Cleanup(func() { _ = c.Close() })
 	return c
 }
 
-// rowFields returns the field names of every row HASH under a table prefix.
+// rowFields counts physical fields in the newest visible HASH images, retaining
+// one generation while older replacements/tombstones remain reference-owned.
 func (h *sqlHarness) rowFields(c goredis.UniversalClient, schema, table string) map[string]int {
 	h.t.Helper()
-	st := &store{client: c}
-	meta, err := st.getTable(h.ctx, schema, table)
-	if err != nil {
-		h.t.Fatal(err)
-	}
-	rows, err := st.aggregate(h.ctx, &aggRequest{index: meta.index(), query: "*", load: []string{"__key"}})
+	st, ctx, pin := h.inspectionSnapshot(c)
+	defer pin.release()
+	meta, err := st.getTable(ctx, schema, table)
 	if err != nil {
 		h.t.Fatal(err)
 	}
 	counts := map[string]int{}
-	for _, r := range rows {
-		fields, err := c.HKeys(h.ctx, r["__key"]).Result()
+	scan := newSnapshotDeltaScan(st, meta, nil)
+	for {
+		_, rows, err := scan.next(ctx)
+		if errors.Is(err, io.EOF) {
+			break
+		}
 		if err != nil {
 			h.t.Fatal(err)
 		}
-		for _, f := range fields {
-			counts[f]++
+		for _, row := range rows {
+			for field := range row {
+				counts[field]++
+			}
 		}
 	}
 	return counts
@@ -954,8 +978,8 @@ func TestSQLAlterTable(t *testing.T) {
 	h.expectError(`ALTER TABLE it_alter ADD COLUMN must INTEGER NOT NULL`, `column "must" of relation "it_alter" contains null values`)
 	h.expectError(`ALTER TABLE it_alter ADD COLUMN d INTEGER DEFAULT RANDOM()`, "volatile DEFAULT")
 
-	// DROP COLUMN: gone at once; its field is removed from rows in the
-	// background; re-adding the name never shows the old values.
+	// DROP COLUMN publishes fresh rows without that field. Old snapshots retain
+	// their images until reclamation; re-adding the name never shows old values.
 	h.exec(`ALTER TABLE it_alter DROP COLUMN qty`)
 	h.expectRows(`SELECT * FROM it_alter WHERE id = 1`, "1|a|NULL")
 	h.expectError(`SELECT qty FROM it_alter`, "does not exist")
@@ -991,46 +1015,88 @@ func TestSQLAlterTable(t *testing.T) {
 }
 
 func TestSQLAlterCleanupResumes(t *testing.T) {
+	const table = "it_resume"
 	h := newSQLHarness(t)
-	h.exec("DROP TABLE IF EXISTS it_resume")
-	t.Cleanup(func() { h.exec("DROP TABLE IF EXISTS it_resume") })
-	h.exec(`CREATE TABLE it_resume (id INTEGER, v INTEGER)`)
-	h.exec(`INSERT INTO it_resume VALUES (1, 1), (2, 2), (3, 3)`)
+	h.exec("DROP TABLE IF EXISTS " + table)
+	h.exec("CREATE TABLE " + table + " (id INTEGER,v INTEGER,ghost TEXT)")
+	h.exec("INSERT INTO " + table + " SELECT i,i,'boo' FROM generate_series(1,600) AS g(i)")
 	raw := h.rawClient()
-
-	// Leave a cleanup pending, as if the process had exited mid-way: the
-	// rows still hold a dropped column's field.
-	st := &store{client: raw}
-	meta, err := st.getTable(h.ctx, "public", "it_resume")
+	source, oldCtx, oldPin := h.inspectionSnapshot(raw)
+	defer oldPin.release()
+	old, err := source.getTable(oldCtx, defaultSchema, table)
 	if err != nil {
 		t.Fatal(err)
 	}
-	pipe := raw.Pipeline()
-	for id := 1; id <= 3; id++ {
-		pipe.HSet(h.ctx, fmt.Sprintf("%s%d", meta.prefix(), id), "ghost", "boo")
+	h.exec("ALTER TABLE " + table + " DROP COLUMN ghost")
+	if n := h.rowFields(raw, defaultSchema, table)["ghost"]; n != 0 {
+		t.Fatal("dropped field remains in current output", n)
 	}
-	if _, err := pipe.Exec(h.ctx); err != nil {
+	rows := snapshotExecuteTest(t, source, oldCtx, "SELECT id,v,ghost FROM "+table+" ORDER BY id").rows
+	if len(rows) != 600 {
+		t.Fatal("incomplete retained ALTER input", len(rows))
+	}
+	for i, row := range rows {
+		if len(row) != 3 || row[0].I != int64(i+1) || row[1].I != int64(i+1) || row[2].Null || row[2].S != "boo" {
+			t.Fatal("DROP changed pinned fields", i)
+		}
+	}
+	// Stop the driver worker before releasing the old pin. Only this explicit
+	// collector can consume the first batch, so the lost reply is deterministic.
+	if err := h.conn.Close(h.ctx); err != nil {
 		t.Fatal(err)
 	}
-	if err := st.updateTable(h.ctx, "public", "it_resume", func(m *tableMeta) error {
-		m.RetiredFields = append(m.RetiredFields, "ghost")
-		m.PendingCleanup = append(m.PendingCleanup, "ghost")
-		return nil
-	}, func(p goredis.Pipeliner) { p.SAdd(h.ctx, cleanupKey, cleanupMember("public", "it_resume")) }); err != nil {
-		t.Fatal(err)
+	observer := &snapshotGCPageObserver{prefix: old.prefix(), interrupt: true}
+	collector := &store{client: h.rawClient(observer), snapshots: true}
+	oldPin.release()
+	interrupted := false
+	for i := 0; i < 64; i++ {
+		result, err := collector.reapSnapshotStep(h.ctx)
+		if err != nil {
+			if !strings.Contains(err.Error(), "injected interruption after GC batch reply") || observer.batches.Load() != 1 || result.deleted != 0 {
+				t.Fatal("unexpected cleanup interruption", result, err)
+			}
+			interrupted = true
+			break
+		}
 	}
-	if h.rowFields(raw, "public", "it_resume")["ghost"] != 3 {
-		t.Fatal("setup: ghost field missing")
+	if !interrupted {
+		t.Fatal("retired ALTER output did not reach injected reply loss")
 	}
-
-	// A new connection resumes and finishes it.
-	h2 := newSQLHarness(t)
-	waitFor(t, "resumed cleanup", func() bool { return h2.rowFields(raw, "public", "it_resume")["ghost"] == 0 })
-	waitFor(t, "cleanup marker removal", func() bool {
-		m, _ := raw.SIsMember(h.ctx, cleanupKey, cleanupMember("public", "it_resume")).Result()
-		return !m
+	directory := snapshotMembers(snapshotDataID(old.prefix()))
+	if n, err := raw.ZCard(h.ctx, directory).Result(); err != nil || n != 344 {
+		t.Fatal("cleanup batch did not durably advance", n, err)
+	}
+	if raw.Exists(h.ctx, old.prefix()+"1", old.prefix()+"256").Val() != 0 || raw.Exists(h.ctx, old.prefix()+"257", old.prefix()+"600").Val() != 2 {
+		t.Fatal("interrupted cleanup coverage differs")
+	}
+	// A new connection resumes reference-owned retirement, never edits current
+	// HASH fields or needs a persisted SCAN cursor/legacy cleanup marker.
+	reopened := newSQLHarness(t)
+	t.Cleanup(func() { reopened.exec("DROP TABLE IF EXISTS " + table) })
+	waitFor(t, "new connection resumed ALTER reclamation", func() bool {
+		n, err := raw.Exists(h.ctx, directory).Result()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return n == 0
 	})
-	h2.expectRows(`SELECT id, v FROM it_resume ORDER BY id`, "1|1", "2|2", "3|3")
+	for _, seg := range old.snapshotSegments() {
+		reopened.expectSnapshotReleased(raw, seg.Prefix, seg.Index)
+	}
+	want := make([]string, 600)
+	for i := range want {
+		want[i] = fmt.Sprintf("%d|%d", i+1, i+1)
+	}
+	reopened.expectRows("SELECT id,v FROM "+table+" ORDER BY id", want...)
+	reopened.exec("ALTER TABLE " + table + " ADD COLUMN ghost TEXT")
+	for i := range want {
+		want[i] += "|NULL"
+	}
+	reopened.expectRows("SELECT id,v,ghost FROM "+table+" ORDER BY id", want...)
+	reopened.exec("UPDATE " + table + " SET ghost='new' WHERE id=600")
+	reopened.expectRows("SELECT COUNT(*) FROM "+table+" WHERE ghost='boo'", "0")
+	reopened.expectRows("SELECT id,v FROM "+table+" WHERE ghost='new'", "600|600")
+	assertSnapshotDataReferences(t, reopened, &store{client: raw, snapshots: true})
 }
 
 func TestSQLInformationSchema(t *testing.T) {
@@ -1546,11 +1612,7 @@ func TestSQLScanAcrossCursorPages(t *testing.T) {
 // tablePrefix returns a table's row key prefix.
 func (h *sqlHarness) tablePrefix(c goredis.UniversalClient, schema, table string) string {
 	h.t.Helper()
-	meta, err := (&store{client: c}).getTable(h.ctx, schema, table)
-	if err != nil {
-		h.t.Fatal(err)
-	}
-	return meta.prefix()
+	return h.inspectTable(c, schema, table).prefix()
 }
 
 // prefixKeyCount counts the keys under a row key prefix (on every master of
@@ -1628,26 +1690,44 @@ func TestSQLTruncate(t *testing.T) {
 	h.exec("INSERT INTO it_trunc2 VALUES ('p'), ('q')")
 	h.exec("CREATE VIEW it_trunc_v AS SELECT id FROM it_trunc")
 
-	// The table moves to a new key prefix and index, and the old ones are
-	// released, as by DROP TABLE.
-	n := h.namesN(raw, "public", "it_trunc", "it_trunc")
-	prefix, index := h.tableNames(raw, "public", "it_trunc")
-	prefix2, index2 := h.tableNames(raw, "public", "it_trunc2")
+	// TRUNCATE publishes fresh canonical storage. The previous generation
+	// remains readable and owns all its sources until its final pin releases.
+	oldStore, oldCtx, oldPin := h.inspectionSnapshot(raw)
+	defer oldPin.release()
+	old, err := oldStore.getTable(oldCtx, defaultSchema, "it_trunc")
+	if err != nil {
+		t.Fatal(err)
+	}
+	prefix2, index2 := h.rekeyNativeLayout(raw, defaultSchema, "it_trunc2")
 	h.exec("TRUNCATE TABLE it_trunc")
 	h.expectRows("SELECT COUNT(*) FROM it_trunc", "0")
-	if m := h.namesN(raw, "public", "it_trunc", "it_trunc"); m <= n {
-		t.Errorf("names of N = %d after TRUNCATE, want more than %d", m, n)
+	prefix, index := h.rekeyNativeLayout(raw, defaultSchema, "it_trunc")
+	for _, seg := range old.snapshotSegments() {
+		if prefix == seg.Prefix || index == seg.Index {
+			t.Fatal("TRUNCATE reused retired storage")
+		}
+		if n, err := raw.ZCard(h.ctx, snapshotMembers(snapshotDataID(seg.Prefix))).Result(); err != nil || n != seg.Rows {
+			t.Fatal("TRUNCATE reclaimed pinned source", n, err)
+		}
 	}
-	h.expectReleased(raw, prefix, index)
-	if gen, err := raw.HGet(h.ctx, releasedKey, prefix).Int64(); err != nil || gen != 1 {
-		t.Errorf("released count of %q = %d (%v), want 1", prefix, gen, err)
+	if n := h.prefixKeyCount(raw, prefix); n != 0 {
+		t.Fatal("TRUNCATE output is not empty", n)
 	}
-	if n := h.prefixKeyCount(raw, h.tablePrefix(raw, "public", "it_trunc")); n != 0 {
-		t.Errorf("%d row keys under the new prefix after TRUNCATE", n)
+	retained := snapshotExecuteTest(t, oldStore, oldCtx, "SELECT id,label,note,qty FROM it_trunc ORDER BY id").rows
+	if got, want := strings.Join(valueRows(retained), "\n"), "1|a|x|NULL\n2|b|NULL|NULL\n3|c|z|NULL\n4|d|NULL|7"; got != want {
+		t.Fatal("TRUNCATE changed old rows", got)
+	}
+	retained = snapshotExecuteTest(t, oldStore, oldCtx, "SELECT id FROM it_trunc_v ORDER BY id").rows
+	if strings.Join(valueRows(retained), "|") != "1|2|3|4" {
+		t.Fatal("TRUNCATE changed pinned view")
+	}
+	oldPin.release()
+	for _, seg := range old.snapshotSegments() {
+		h.expectSnapshotReleased(raw, seg.Prefix, seg.Index)
 	}
 	h.expectRows("SELECT COUNT(*) FROM it_trunc2", "2")
-	if p, i := h.tableNames(raw, "public", "it_trunc2"); p != prefix2 || i != index2 {
-		t.Errorf("it_trunc2 has the names %q, %q, want %q, %q", p, i, prefix2, index2)
+	if p, i := h.rekeyNativeLayout(raw, defaultSchema, "it_trunc2"); p != prefix2 || i != index2 {
+		t.Fatal("TRUNCATE changed unrelated physical storage")
 	}
 	h.expectRows(`SELECT column_name, driver_data_type, is_indexed FROM information_schema.columns
 		WHERE table_name = 'it_trunc' ORDER BY ordinal_position`,
@@ -1660,13 +1740,66 @@ func TestSQLTruncate(t *testing.T) {
 	h.expectRows("SELECT __rowid, id FROM it_trunc ORDER BY id", "5|5", "6|6")
 	h.expectRows("SELECT id FROM it_trunc_v ORDER BY id", "5", "6")
 
-	// RESTART IDENTITY, several tables at once (one of them named twice),
-	// and no TABLE keyword.
-	prefix, index = h.tableNames(raw, "public", "it_trunc")
+	// Multi-table publication is atomic even when only one input changed.
+	// The private restart cannot change either public table or row sequence.
+	st := &store{client: raw, snapshots: true}
+	staged, pin, work := snapshotStageSQL(t, st, h.ctx, "", "TRUNCATE it_trunc,it_trunc2 RESTART IDENTITY")
+	var private []*tableMeta
+	for _, name := range []string{"it_trunc", "it_trunc2"} {
+		m, err := st.getTable(staged, defaultSchema, name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		private = append(private, m)
+	}
+	h.exec("INSERT INTO it_trunc2 VALUES ('intervening')")
+	root := raw.HGet(h.ctx, snapshotCatalogKey, "root").Val()
+	if err := st.publishSnapshot(staged, pin, work); sqlState(err) != "40001" {
+		t.Fatal("stale multi-table TRUNCATE published", err)
+	}
+	if raw.HGet(h.ctx, snapshotCatalogKey, "root").Val() != root {
+		t.Fatal("refused TRUNCATE changed root")
+	}
+	h.expectRows("SELECT (SELECT COUNT(*) FROM it_trunc),(SELECT COUNT(*) FROM it_trunc2)", "2|3")
+	h.expectRows("SELECT __rowid,id FROM it_trunc ORDER BY id", "5|5", "6|6")
+	st.abortSnapshot(pin, work)
+	pin.release()
+	for _, m := range private {
+		h.expectSnapshotReleased(raw, m.prefix(), m.index())
+	}
+
+	// RESTART IDENTITY, several tables at once (one named twice), no TABLE
+	// keyword. One old reader retains the consistent pair through publication.
+	prior, priorCtx, priorPin := h.inspectionSnapshot(raw)
+	defer priorPin.release()
+	var retired []*tableMeta
+	for _, name := range []string{"it_trunc", "it_trunc2"} {
+		m, err := prior.getTable(priorCtx, defaultSchema, name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		retired = append(retired, m)
+	}
 	h.exec("TRUNCATE it_trunc, it_trunc2, public.it_trunc RESTART IDENTITY CASCADE")
-	h.expectRows("SELECT COUNT(*) FROM it_trunc2", "0")
-	h.expectReleased(raw, prefix, index)
-	h.expectReleased(raw, prefix2, index2)
+	h.expectRows("SELECT (SELECT COUNT(*) FROM it_trunc),(SELECT COUNT(*) FROM it_trunc2)", "0|0")
+	counts := snapshotExecuteTest(t, prior, priorCtx, "SELECT (SELECT COUNT(*) FROM it_trunc),(SELECT COUNT(*) FROM it_trunc2)").rows
+	if strings.Join(valueRows(counts), "|") != "2|3" {
+		t.Fatal("multi-table TRUNCATE changed old generation", counts)
+	}
+	for at, name := range []string{"it_trunc", "it_trunc2"} {
+		p, i := h.rekeyNativeLayout(raw, defaultSchema, name)
+		for _, seg := range retired[at].snapshotSegments() {
+			if p == seg.Prefix || i == seg.Index {
+				t.Fatal("multi-table TRUNCATE reused storage")
+			}
+		}
+	}
+	priorPin.release()
+	for _, m := range retired {
+		for _, seg := range m.snapshotSegments() {
+			h.expectSnapshotReleased(raw, seg.Prefix, seg.Index)
+		}
+	}
 	h.exec("INSERT INTO it_trunc (id) VALUES (7)")
 	h.expectRows("SELECT __rowid, id FROM it_trunc", "1|7")
 	h.exec("INSERT INTO it_trunc2 VALUES ('r')")
@@ -1677,11 +1810,17 @@ func TestSQLTruncate(t *testing.T) {
 	h.exec("INSERT INTO it_trunc (id) VALUES (8)")
 	h.expectRows("SELECT __rowid, id FROM it_trunc", "2|8")
 
-	// A bad name anywhere in the list leaves every table untouched.
+	// Every validation failure leaves the entire publication and both tables intact.
+	root = raw.HGet(h.ctx, snapshotCatalogKey, "root").Val()
 	h.expectError("TRUNCATE it_trunc, it_trunc_missing", "does not exist")
-	h.expectRows("SELECT COUNT(*) FROM it_trunc", "1")
 	h.expectError("TRUNCATE it_trunc_v", "it is a view")
 	h.expectError("TRUNCATE information_schema.tables", "read-only")
+	if raw.HGet(h.ctx, snapshotCatalogKey, "root").Val() != root {
+		t.Fatal("invalid TRUNCATE published")
+	}
+	h.expectRows("SELECT __rowid,id FROM it_trunc", "2|8")
+	h.expectRows("SELECT __rowid,k FROM it_trunc2", "1|r")
+
 }
 
 func TestSQLDropSchemaCascade(t *testing.T) {
@@ -1714,17 +1853,30 @@ func TestSQLDropSchemaCascade(t *testing.T) {
 	h.expectRows("SELECT COUNT(*) FROM information_schema.views WHERE table_schema = 'it_cascade_v'", "0")
 	h.expectError("SELECT * FROM it_cascade_v.only", "does not exist")
 
-	// CASCADE drops the views, the tables (index and rows), then the schema.
-	prefix := h.tablePrefix(raw, "it_cascade", "t1")
+	// CASCADE publishes the logical drop atomically. A pinned old root still
+	// owns its physical rows until release; reclamation is a separate phase.
+	heldStore, heldCtx, heldPin := h.inspectionSnapshot(raw)
+	defer heldPin.release()
+	held, err := heldStore.getTable(heldCtx, "it_cascade", "t1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	prefix, index := held.prefix(), held.index()
 	if n := h.prefixKeyCount(raw, prefix); n != 2 {
 		t.Fatalf("it_cascade.t1 has %d row keys, want 2", n)
 	}
 	h.exec("DROP SCHEMA it_cascade CASCADE")
 	h.expectRows("SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name = 'it_cascade'", "0")
 	h.expectRows("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'it_cascade'", "0")
-	if n := h.prefixKeyCount(raw, prefix); n != 0 {
-		t.Errorf("%d row keys left after DROP SCHEMA … CASCADE", n)
+	snapshotReapTest(heldStore, h.ctx)
+	if err := heldPin.valid(heldCtx); err != nil {
+		t.Fatal("DROP SCHEMA invalidated the pinned old root", err)
 	}
+	if n := h.prefixKeyCount(raw, prefix); n != 2 {
+		t.Fatalf("pinned schema rows were reclaimed: got %d, want 2", n)
+	}
+	heldPin.release()
+	h.expectSnapshotReleased(raw, prefix, index)
 	h.expectError("SELECT * FROM it_cascade.t1", "does not exist")
 	h.expectError("DROP SCHEMA it_cascade CASCADE", "does not exist")
 	h.exec("DROP SCHEMA IF EXISTS it_cascade CASCADE")
@@ -1834,13 +1986,15 @@ func (h *sqlHarness) planIn(sql, mode string) (query string, residual, indexAgg 
 	if err != nil {
 		h.t.Fatalf("%s: %v", sql, err)
 	}
-	e := &executor{store: &store{client: h.rawClient()}, schema: "public", pushdown: mode, now: time.Now().UTC()}
+	st, ctx, pin := h.inspectionSnapshot(h.rawClient())
+	defer pin.release()
+	e := &executor{store: st, schema: "public", pushdown: mode, now: time.Now().UTC()}
 	e.cache = newExecCache()
-	plan, err := e.planSelect(h.ctx, parsed[0].Stmt.(*SelectStmt), nil)
+	plan, err := e.planSelect(ctx, parsed[0].Stmt.(*SelectStmt), nil)
 	if err != nil {
 		h.t.Fatalf("%s: %v", sql, err)
 	}
-	wp, err := e.planWhere(h.ctx, plan.sel.Where, plan.meta, nil)
+	wp, err := e.planWhere(ctx, plan.sel.Where, plan.meta, nil)
 	if err != nil {
 		h.t.Fatalf("%s: %v", sql, err)
 	}
@@ -1849,7 +2003,7 @@ func (h *sqlHarness) planIn(sql, mode string) (query string, residual, indexAgg 
 		for _, it := range plan.items {
 			collectAggregates(it.expr, &aggs)
 		}
-		if _, indexAgg, err = e.indexAggregate(h.ctx, plan, wp, aggs); err != nil {
+		if _, indexAgg, err = e.indexAggregate(ctx, plan, wp, aggs); err != nil {
 			h.t.Fatalf("%s: %v", sql, err)
 		}
 	}

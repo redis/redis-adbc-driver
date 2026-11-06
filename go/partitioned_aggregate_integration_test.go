@@ -29,8 +29,8 @@ import (
 	goredis "github.com/redis/go-redis/v9"
 )
 
-// Redis OSS does not expose the Cloud MAX_AGGREGATE_GROUPS setting. This
-// proxy hook executes real pipelines, but returns Cloud's resource error
+// Exercise the Search MAX_AGGREGATE_GROUPS resource error deterministically.
+// This hook executes real pipelines, but returns the resource error
 // whenever their actual tuple cardinality exceeds a small configured cap.
 // A late-page variant verifies that abandoned attempts are never counted.
 type aggregateCapHook struct {
@@ -97,6 +97,23 @@ func (h *aggregateCapHook) ProcessHook(next goredis.ProcessHook) goredis.Process
 	}
 }
 
+// The pin stays on its original store. Install failure hooks on a fresh client
+// before workers can share it; direct Cluster Search uses its coordinator node.
+func partitionAggregateHookStore(t *testing.T, h *sqlHarness, ctx context.Context, index string, hook goredis.Hook) *store {
+	t.Helper()
+	client := h.rawClient()
+	if cc, ok := client.(*goredis.ClusterClient); ok {
+		node, err := cc.MasterForKey(ctx, index)
+		if err != nil {
+			t.Fatal(err)
+		}
+		node.AddHook(hook)
+	} else {
+		client.AddHook(hook)
+	}
+	return &store{client: client, snapshots: true}
+}
+
 func aggregateGroupsText(groups []aggGroup, plan *selectPlan) []string {
 	var out []string
 	for _, g := range groups {
@@ -145,7 +162,7 @@ func TestSQLPartitionedAggregateExact(t *testing.T) {
 	}
 	for _, sql := range queries {
 		t.Run(sql, func(t *testing.T) {
-			e, plan, wp := distinctTestPlan(t, h, sql)
+			ctx, e, plan, wp := distinctSnapshotTestPlan(t, h, sql)
 			p, ok := tupleAggregateShape(plan, plan.aggregateCalls())
 			if !ok {
 				t.Fatal("unsupported plan")
@@ -153,15 +170,15 @@ func TestSQLPartitionedAggregateExact(t *testing.T) {
 			// Force two ranges so equality must merge across partition boundaries.
 			spill := tupleSpill{dir: t.TempDir(), prefix: "fixture"}
 			for _, r := range [][2]int64{{1, 2}, {3, 8}} {
-				if err := e.aggregateTuplePartition(h.ctx, plan, p, wp, nil, r[0], r[1], false, func(row spillTuple) error { return spill.add(h.ctx, row) }); err != nil {
+				if err := e.aggregateTuplePartition(ctx, plan, p, wp, nil, r[0], r[1], false, func(row spillTuple) error { return spill.add(ctx, row) }); err != nil {
 					t.Fatal(err)
 				}
 			}
-			got, err := e.reduceTupleRuns(h.ctx, plan, p, plan.aggregateCalls(), nil, &spill)
+			got, err := e.reduceTupleRuns(ctx, plan, p, plan.aggregateCalls(), nil, &spill)
 			if err != nil {
 				t.Fatal(err)
 			}
-			want, err := e.serialDriverAggregate(h.ctx, plan, wp, plan.aggregateCalls(), nil)
+			want, err := e.serialDriverAggregate(ctx, plan, wp, plan.aggregateCalls(), nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -187,30 +204,20 @@ func TestSQLPartitionedGroupCapRecovery(t *testing.T) {
 			"SELECT g,COUNT(DISTINCT v) FROM it_partition_cap GROUP BY g",
 			"SELECT g,COUNT(*) FROM it_partition_cap GROUP BY g",
 		} {
-			e, plan, wp := distinctTestPlan(t, h, sql)
-			client := h.rawClient()
 			hook := &aggregateCapHook{cap: 2, late: late, cleanup: h.rawClient()}
-			if cc, ok := client.(*goredis.ClusterClient); ok {
-				node, err := cc.MasterForKey(h.ctx, plan.meta.index())
-				if err != nil {
-					t.Fatal(err)
-				}
-				node.AddHook(hook)
-			} else {
-				client.AddHook(hook)
-			}
-			e.store = &store{client: client}
+			ctx, e, plan, wp := distinctSnapshotTestPlan(t, h, sql)
+			e.store = partitionAggregateHookStore(t, h, ctx, plan.meta.index(), hook)
 			// End-to-end retry from the failed global aggregate, below the normal
 			// large-table threshold, must not return the server resource error.
-			got, err := e.selectAggregate(h.ctx, plan, nil)
+			got, err := e.selectAggregate(ctx, plan, nil)
 			if err != nil {
 				t.Fatalf("late=%v %s: %v", late, sql, err)
 			}
 			if len(got) == 0 || hook.failures.Load() == 0 {
 				t.Fatalf("recovery not exercised: %v failures=%d", got, hook.failures.Load())
 			}
-			clean, _, _ := distinctTestPlan(t, h, sql)
-			want, err := clean.runSelect(h.ctx, plan, nil)
+			cleanCtx, clean, cleanPlan, cleanWP := distinctSnapshotTestPlan(t, h, sql)
+			want, err := clean.runSelect(cleanCtx, cleanPlan, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -237,18 +244,18 @@ func TestSQLPartitionedGroupCapRecovery(t *testing.T) {
 			}
 			spill := tupleSpill{dir: t.TempDir(), prefix: "cap"}
 			beforeFailures := hook.failures.Load()
-			if err := e.aggregateTuplePartition(h.ctx, plan, shape, wp, nil, 1, 64, false, func(row spillTuple) error { return spill.add(h.ctx, row) }); err != nil {
+			if err := e.aggregateTuplePartition(ctx, plan, shape, wp, nil, 1, 64, false, func(row spillTuple) error { return spill.add(ctx, row) }); err != nil {
 				t.Fatal(err)
 			}
-			reduced, err := e.reduceTupleRuns(h.ctx, plan, shape, plan.aggregateCalls(), nil, &spill)
+			reduced, err := e.reduceTupleRuns(ctx, plan, shape, plan.aggregateCalls(), nil, &spill)
 			if err != nil {
 				t.Fatal(err)
 			}
-			serial, err := clean.serialDriverAggregate(h.ctx, plan, wp, plan.aggregateCalls(), nil)
+			serial, err := clean.serialDriverAggregate(cleanCtx, cleanPlan, cleanWP, cleanPlan.aggregateCalls(), nil)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if a, b := aggregateGroupsText(reduced, plan), aggregateGroupsText(serial, plan); !reflect.DeepEqual(a, b) {
+			if a, b := aggregateGroupsText(reduced, plan), aggregateGroupsText(serial, cleanPlan); !reflect.DeepEqual(a, b) {
 				t.Fatalf("split got %v want %v", a, b)
 			}
 			if hook.failures.Load() <= beforeFailures+1 {
@@ -270,22 +277,15 @@ func TestSQLPartitionedWorkersTopKAndCleanup(t *testing.T) {
 	h.dropTables("it_partition_workers")
 	h.exec("CREATE TABLE it_partition_workers (g INTEGER, v BIGINT)")
 	h.exec("INSERT INTO it_partition_workers VALUES (1,9007199254740993),(1,9007199254740993),(1,NULL),(2,7),(2,8),(3,NULL)")
-	e, plan, wp := distinctTestPlan(t, h, "SELECT g,COUNT(DISTINCT v) AS n,COUNT(*) FROM it_partition_workers GROUP BY g ORDER BY n DESC,g LIMIT 1 OFFSET 1")
-	// Move duplicates into another partition and leave a sparse sequence.
-	for _, id := range []int{2, 5} {
-		if err := e.store.client.HSet(h.ctx, plan.meta.prefix()+fmt.Sprint(id), rowIDField, aggregatePartitionRows+int64(id)).Err(); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := e.store.client.Set(h.ctx, seqKey(plan.meta.Schema, plan.meta.Name), aggregatePartitionRows*2, 0).Err(); err != nil {
-		t.Fatal(err)
-	}
+	// Move canonical keys and directories through private publication before planning.
+	h.sparseSnapshotTable("it_partition_workers", aggregatePartitionRows*2, map[int64]int64{2: aggregatePartitionRows + 2, 5: aggregatePartitionRows + 5})
+	ctx, e, plan, wp := distinctSnapshotTestPlan(t, h, "SELECT g,COUNT(DISTINCT v) AS n,COUNT(*) FROM it_partition_workers GROUP BY g ORDER BY n DESC,g LIMIT 1 OFFSET 1")
 	e.queryWorkers = 2
 	e.workerBudget = &workerBudget{configured: 2}
 	var grant atomic.Int64
 	e.workerGrant = &grant
 	e.aggregateMetrics = &partitionMetrics{}
-	got, ok, err := e.partitionedAggregate(h.ctx, plan, wp, plan.aggregateCalls(), nil, false)
+	got, ok, err := e.partitionedAggregate(ctx, plan, wp, plan.aggregateCalls(), nil, false)
 	if err != nil || !ok {
 		t.Fatalf("handled=%v err=%v", ok, err)
 	}
@@ -298,31 +298,31 @@ func TestSQLPartitionedWorkersTopKAndCleanup(t *testing.T) {
 	if e.aggregateMetrics.rows.Load() != 6 || e.aggregateMetrics.spillBytes.Load() == 0 {
 		t.Fatalf("metrics=%s", e.aggregateMetrics.json())
 	}
-	rows, err := e.selectAggregate(h.ctx, plan, nil)
+	rows, err := e.selectAggregate(ctx, plan, nil)
 	if err != nil || len(rows) != 1 || rows[0][0].I != 1 || rows[0][1].I != 1 || rows[0][2].I != 3 {
 		t.Fatalf("rows=%v err=%v", rows, err)
 	}
 	// Cancellation after opening a real cursor must release the shared grant,
 	// close that cursor, and remove the query-local spill directory.
 	before, _ := filepath.Glob(filepath.Join(os.TempDir(), "redis-adbc-aggregate-*"))
-	ctx, cancel := context.WithCancel(h.ctx)
-	client := h.rawClient()
+	cancelPlanCtx, cancelExec, cancelPlan, cancelWhere := distinctSnapshotTestPlan(t, h, "SELECT g,COUNT(DISTINCT v) AS n,COUNT(*) FROM it_partition_workers GROUP BY g ORDER BY n DESC,g LIMIT 1 OFFSET 1")
+	cancelCtx, cancel := context.WithCancel(cancelPlanCtx)
+	defer cancel()
 	hook := &partitionCancelHook{cancel: cancel}
-	if cc, ok := client.(*goredis.ClusterClient); ok {
-		node, err := cc.MasterForKey(h.ctx, plan.meta.index())
-		if err != nil {
-			t.Fatal(err)
-		}
-		node.AddHook(hook)
-	} else {
-		client.AddHook(hook)
-	}
-	e.store = &store{client: client}
-	if _, _, err := e.partitionedAggregate(ctx, plan, wp, plan.aggregateCalls(), nil, false); err == nil {
+	cancelExec.store = partitionAggregateHookStore(t, h, cancelCtx, cancelPlan.meta.index(), hook)
+	cancelExec.queryWorkers = 2
+	cancelExec.workerBudget = &workerBudget{configured: 2}
+	if _, _, err := cancelExec.partitionedAggregate(cancelCtx, cancelPlan, cancelWhere, cancelPlan.aggregateCalls(), nil, false); err == nil {
 		t.Fatal("cancellation succeeded")
 	}
-	if e.workerBudget.active != 0 {
+	if !hook.opened.Load() {
+		t.Fatal("cancellation did not open a real cursor")
+	}
+	if cancelExec.workerBudget.active != 0 {
 		t.Fatal("worker grant leaked")
+	}
+	for _, segment := range cancelPlan.meta.snapshotSegments() {
+		h.expectNoIndexCursors(&store{client: h.rawClient()}, segment.Index)
 	}
 	after, _ := filepath.Glob(filepath.Join(os.TempDir(), "redis-adbc-aggregate-*"))
 	if !reflect.DeepEqual(before, after) {
@@ -335,6 +335,7 @@ func TestSQLPartitionedWorkersTopKAndCleanup(t *testing.T) {
 type partitionCancelHook struct {
 	once   sync.Once
 	cancel context.CancelFunc
+	opened atomic.Bool
 }
 
 func (h *partitionCancelHook) DialHook(next goredis.DialHook) goredis.DialHook { return next }
@@ -343,12 +344,34 @@ func (h *partitionCancelHook) ProcessPipelineHook(next goredis.ProcessPipelineHo
 }
 func (h *partitionCancelHook) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	return func(ctx context.Context, cmd goredis.Cmder) error {
+		if cmd.Name() == "ft.aggregate" {
+			args := cmd.Args()
+			for i, arg := range args {
+				if strings.EqualFold(fmt.Sprint(arg), "WITHCURSOR") {
+					for j := i + 1; j+1 < len(args); j++ {
+						if strings.EqualFold(fmt.Sprint(args[j]), "COUNT") {
+							args[j+1] = 1
+							break
+						}
+					}
+					break
+				}
+			}
+		}
 		err := next(ctx, cmd)
 		if err == nil && cmd.Name() == "ft.aggregate" {
-			h.once.Do(h.cancel)
+			_, cursor, parseErr := parseCursorReply(cmd.(interface{ Val() any }).Val())
+			if parseErr != nil {
+				return parseErr
+			}
+			if cursor != 0 {
+				h.opened.Store(true)
+				h.once.Do(h.cancel)
+			}
 		}
 		return err
 	}
+
 }
 
 func TestSQLClickBenchFollowupShapes(t *testing.T) {
@@ -363,6 +386,8 @@ func TestSQLClickBenchFollowupShapes(t *testing.T) {
  (7,'','google','Google',2,NULL),(8,NULL,NULL,NULL,3,NULL),
  (9,'a','GOOGLE','google',3,'1969-12-31 23:59:59'),
  (10,'a','googlé','Google',4,'2013-07-14 00:01:01')`)
+	// Publish the sparse sequence once before any plan pins its generation.
+	h.sparseSnapshotTable("it_cb_followup", aggregatePartitionRows*2, nil)
 	queries := []string{
 		"SELECT uid,phrase,COUNT(*) FROM it_cb_followup GROUP BY uid,phrase LIMIT 2",
 		"SELECT uid,extract(minute FROM ts) AS m,phrase,COUNT(*) FROM it_cb_followup GROUP BY uid,m,phrase ORDER BY COUNT(*) DESC LIMIT 2",
@@ -372,21 +397,21 @@ func TestSQLClickBenchFollowupShapes(t *testing.T) {
 	}
 	for _, sql := range queries {
 		t.Run(sql, func(t *testing.T) {
-			e, plan, wp := distinctTestPlan(t, h, sql)
+			ctx, e, plan, wp := distinctSnapshotTestPlan(t, h, sql)
 			p, ok := tupleAggregateShape(plan, plan.aggregateCalls())
 			if !ok {
 				t.Fatal("shape rejected")
 			}
 			spill := tupleSpill{dir: t.TempDir(), prefix: "followup"}
 			for _, r := range [][2]int64{{1, 2}, {3, 8}} {
-				if err := e.aggregateTuplePartition(h.ctx, plan, p, wp, nil, r[0], r[1], false, func(row spillTuple) error { return spill.add(h.ctx, row) }); err != nil {
+				if err := e.aggregateTuplePartition(ctx, plan, p, wp, nil, r[0], r[1], false, func(row spillTuple) error { return spill.add(ctx, row) }); err != nil {
 					t.Fatal(err)
 				}
-				if err := spill.flush(h.ctx); err != nil {
+				if err := spill.flush(ctx); err != nil {
 					t.Fatal(err)
 				}
 			}
-			groups, err := e.reduceTupleRuns(h.ctx, plan, p, plan.aggregateCalls(), nil, &spill)
+			groups, err := e.reduceTupleRuns(ctx, plan, p, plan.aggregateCalls(), nil, &spill)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -395,27 +420,66 @@ func TestSQLClickBenchFollowupShapes(t *testing.T) {
 			}
 			// Use public projection to compare exact expressions and HAVING; sorted
 			// ties may differ, so use a query with complete ordering below as well.
-			if err := e.store.client.Set(h.ctx, seqKey(plan.meta.Schema, plan.meta.Name), aggregatePartitionRows*2, 0).Err(); err != nil {
-				t.Fatal(err)
-			}
 			e.queryWorkers = 2
+			e.workerBudget = &workerBudget{configured: 2}
+			var grant atomic.Int64
+			e.workerGrant = &grant
 			e.pushdown = PushdownNone
-			actual, err := e.selectAggregate(h.ctx, plan, nil)
+			actual, err := e.selectAggregate(ctx, plan, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := e.store.client.Set(h.ctx, seqKey(plan.meta.Schema, plan.meta.Name), 8, 0).Err(); err != nil {
-				t.Fatal(err)
+			if grant.Load() != 2 || e.workerBudget.active != 0 {
+				t.Fatal("parallel tuple reduction did not release two workers", grant.Load(), e.workerBudget.active)
 			}
 			full := *plan
 			sel := *plan.sel
 			sel.Limit = nil
 			full.sel = &sel
-			all, err := e.selectAggregate(h.ctx, &full, nil)
+			// Use complete authoritative rows in a memory relation so the reference
+			// cannot take the same partitioned path or alter the pinned sequence.
+			capture := &retainedCapture{store: e.store, budget: newRetainedBudget(1 << 20), maxRows: 100, maxKeys: 100}
+			full.meta, err = capture.snapshotTable(ctx, plan.meta)
 			if err != nil {
 				t.Fatal(err)
 			}
-			for _, row := range actual {
+			reference := *e
+			reference.queryWorkers, reference.workerBudget, reference.workerGrant = 1, nil, nil
+			all, err := reference.selectAggregate(ctx, &full, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			wantCount := len(all)
+			if plan.sel.Limit != nil && int(*plan.sel.Limit) < wantCount {
+				wantCount = int(*plan.sel.Limit)
+			}
+			if len(actual) != wantCount {
+				t.Fatal("top-K lost groups", len(actual), wantCount)
+			}
+			for i, row := range actual {
+				for _, prior := range actual[:i] {
+					if reflect.DeepEqual(row, prior) {
+						t.Fatal("duplicate output group", row)
+					}
+				}
+				// Ties may select different groups; their ordered score must still match
+				// the independent complete sort at each retained rank.
+				score := -1
+				if strings.Contains(sql, "ORDER BY COUNT(*) DESC") {
+					score = len(row) - 1
+				}
+				if strings.Contains(sql, "ORDER BY c DESC") {
+					score = 2
+					if len(row) == 5 {
+						score = 3
+					}
+				}
+				if strings.Contains(sql, "ORDER BY l DESC") {
+					score = 1
+				}
+				if score >= 0 && !reflect.DeepEqual(row[score], all[i][score]) {
+					t.Fatal("wrong top-K score", row, all[i])
+				}
 				found := false
 				for _, other := range all {
 					if reflect.DeepEqual(row, other) {
@@ -434,15 +498,12 @@ func TestSQLClickBenchFollowupShapes(t *testing.T) {
 			}
 		})
 	}
-	e, plan, wp := distinctTestPlan(t, h, "SELECT COUNT(*) FROM it_cb_followup WHERE url LIKE '%google%'")
+	ctx, e, plan, wp := distinctSnapshotTestPlan(t, h, "SELECT COUNT(*) FROM it_cb_followup WHERE url LIKE '%google%'")
 	if !parallelPredicate(wp.residual) {
 		t.Fatal("LIKE excluded")
 	}
-	if err := e.store.client.Set(h.ctx, seqKey(plan.meta.Schema, plan.meta.Name), 4096, 0).Err(); err != nil {
-		t.Fatal(err)
-	}
 	e.queryWorkers = 2
-	got, ok, err := e.parallelAggregate(h.ctx, plan, wp, plan.aggregateCalls(), nil)
+	got, ok, err := e.parallelAggregate(ctx, plan, wp, plan.aggregateCalls(), nil)
 	if err != nil || !ok || got[0].results[plan.aggregateCalls()[0]].I != 5 {
 		t.Fatalf("groups=%v handled=%v err=%v", got, ok, err)
 	}
@@ -453,8 +514,8 @@ func TestSQLStreamingStringTopK(t *testing.T) {
 	h.dropTables("it_string_topk")
 	h.exec("CREATE TABLE it_string_topk (phrase VARCHAR, unused INTEGER)")
 	h.exec(`INSERT INTO it_string_topk VALUES ('z',1),('',2),('a',3),('A',4),('a',5),('a\x00b',6),(NULL,7),(' b',8)`)
-	e, plan, _ := distinctTestPlan(t, h, "SELECT phrase FROM it_string_topk WHERE phrase<>'' ORDER BY phrase LIMIT 3 OFFSET 1")
-	sc, err := e.prepareScan(h.ctx, plan, nil)
+	ctx, e, plan, _ := distinctSnapshotTestPlan(t, h, "SELECT phrase FROM it_string_topk WHERE phrase<>'' ORDER BY phrase LIMIT 3 OFFSET 1")
+	sc, err := e.prepareScan(ctx, plan, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -464,11 +525,11 @@ func TestSQLStreamingStringTopK(t *testing.T) {
 	sc.req.limit = nil
 	sc.req.late = nil
 	sc.req.ties = nil
-	got, handled, err := e.selectTopK(h.ctx, plan, sc, nil)
+	got, handled, err := e.selectTopK(ctx, plan, sc, nil)
 	if err != nil || !handled {
 		t.Fatalf("handled=%v err=%v", handled, err)
 	}
-	want, err := e.selectScanned(h.ctx, plan, sc, nil)
+	want, err := e.selectScanned(ctx, plan, sc, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

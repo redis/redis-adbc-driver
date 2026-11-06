@@ -44,10 +44,42 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 	if transport != nil {
 		defer transport.finish()
 	}
-	opts := s.ingest
 	if s.params == nil {
 		return -1, errorf(adbc.StatusInvalidState, "bulk ingest requires data to be bound")
 	}
+	if s.conn.store.snapshots && snapshotOf(ctx) == nil {
+		ctx, cancel := context.WithTimeout(ctx, snapshotTimeout)
+		defer cancel()
+		sctx, pin, err := s.conn.store.acquireIngestSnapshot(ctx, s.snapshotIngestTarget)
+		if err != nil {
+			return -1, err
+		}
+		defer pin.release()
+		if err := s.conn.store.refreshSnapshotTemp(sctx); err != nil {
+			return -1, err
+		}
+		published := false
+		defer func() {
+			if !published {
+				_ = s.conn.store.refreshSnapshotTemp(sctx)
+			}
+		}()
+		wctx, id, err := s.conn.store.beginSnapshotWrite(sctx, pin)
+		if err != nil {
+			return -1, err
+		}
+		defer s.conn.store.abortSnapshot(pin, id)
+		n, err := s.executeIngest(wctx)
+		if err != nil {
+			return -1, err
+		}
+		if err := s.conn.store.publishSnapshot(wctx, pin, id); err != nil {
+			return -1, err
+		}
+		published = true
+		return n, nil
+	}
+	opts := s.ingest
 	defer s.clearParams()
 	if err := s.prepareExtensionInput(); err != nil {
 		return -1, err
@@ -98,8 +130,25 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 		}
 		meta = wanted
 	case adbc.OptionValueIngestModeReplace:
-		if old, err := st.getTable(ctx, schemaName, opts.TableName); err == nil && old.MaterializedSQL != "" {
-			return -1, matViewWriteError(old)
+		exists, err := st.tableExists(ctx, schemaName, opts.TableName)
+		if err != nil {
+			return -1, err
+		}
+		if exists {
+			current, err := st.getTable(ctx, schemaName, opts.TableName)
+			if err != nil {
+				return -1, err
+			}
+			if current.MaterializedSQL != "" {
+				return -1, matViewWriteError(current)
+			}
+			if st.snapshots {
+				// Explicit refresh still addresses the externally owned source.
+				wanted.SnapshotAccessID = current.SnapshotAccessID
+				wanted.OID = current.OID
+				wanted.SnapshotImportSource = current.SnapshotImportSource
+				wanted.SnapshotSourceKey = current.SnapshotSourceKey
+			}
 		}
 		if err := st.dropTable(ctx, schemaName, opts.TableName, true); err != nil {
 			return -1, err
@@ -140,6 +189,15 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 		return -1, errorf(adbc.StatusInvalidArgument, "unknown ingest mode %q", opts.Mode)
 	}
 
+	if st.snapshots && !snapshotOwns(ctx, meta.prefix()) {
+		if err := st.prepareSnapshotTable(ctx, schemaName, opts.TableName); err != nil {
+			return -1, err
+		}
+		meta, err = st.getTable(ctx, schemaName, opts.TableName)
+		if err != nil {
+			return -1, err
+		}
+	}
 	meta = insertMeta(meta)
 
 	// Map each Arrow field onto a table column; the other columns get their
@@ -175,12 +233,7 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 		return -1, err
 	}
 
-	var total int64
-	for s.params.Next() {
-		rec := s.params.RecordBatch()
-		if err := validateInputRecord(rec); err != nil {
-			return -1, errorf(adbc.StatusInvalidArgument, "invalid Arrow input: %v", err)
-		}
+	writeRecord := func(rec arrow.RecordBatch) (int64, error) {
 		n := int(rec.NumRows())
 		rows := make([][]Value, n)
 		values := make([]Value, n*len(meta.Columns))
@@ -199,17 +252,38 @@ func (s *statementImpl) executeIngest(ctx context.Context) (int64, error) {
 				return -1, columnErr(col.Name, err)
 			}
 		}
-		// Each batch is checked whole before any of it is written.
+		// Each conversion slice is checked before writing. Snapshot slices stay
+		// private until the entire input succeeds and publishes once.
 		for _, row := range rows {
 			if err := checkNewRow(meta, checks, row); err != nil {
 				return -1, err
 			}
 		}
-		written, err := st.insertRows(ctx, meta, rows)
-		if err != nil {
-			return -1, err
+		return st.insertRows(ctx, meta, rows)
+	}
+	var total int64
+	for s.params.Next() {
+		rec := s.params.RecordBatch()
+		if err := validateInputRecord(rec); err != nil {
+			return -1, errorf(adbc.StatusInvalidArgument, "invalid Arrow input: %v", err)
 		}
-		total += written
+		if scope := snapshotOf(ctx); scope != nil && scope.write {
+			for start := int64(0); start < rec.NumRows(); start += snapshotIngestConvertRows {
+				part := rec.NewSlice(start, min(start+snapshotIngestConvertRows, rec.NumRows()))
+				written, err := writeRecord(part)
+				part.Release()
+				if err != nil {
+					return -1, err
+				}
+				total += written
+			}
+		} else {
+			written, err := writeRecord(rec)
+			if err != nil {
+				return -1, err
+			}
+			total += written
+		}
 	}
 	if err := s.params.Err(); err != nil && !errors.Is(err, io.EOF) {
 		var ae adbc.Error

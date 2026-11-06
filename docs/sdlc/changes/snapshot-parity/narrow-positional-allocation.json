@@ -1,0 +1,193 @@
+{
+  "initial": {
+    "date": "2026-11-05",
+    "production_source": "6a041e53990535afa733b03b4881f62bd2194677",
+    "rows_per_page": 256,
+    "backend": "In-process HMGET reply hook; no Redis connections. Not native/Software latency or memory evidence.",
+    "go_version": "go1.27.3",
+    "cpu": "Apple M5 Max",
+    "harness_sha256": "34dfe1ff0e768082652322216be7cdcac5c34a145fe1540684d356388bb50744",
+    "samples": [
+      {
+        "case": "present/maps",
+        "iterations": 9896,
+        "nanoseconds_per_page": 123003,
+        "bytes_per_page": 194370,
+        "allocations_per_page": 2833
+      },
+      {
+        "case": "present/maps",
+        "iterations": 9555,
+        "nanoseconds_per_page": 120086,
+        "bytes_per_page": 194368,
+        "allocations_per_page": 2833
+      },
+      {
+        "case": "present/maps",
+        "iterations": 9176,
+        "nanoseconds_per_page": 124860,
+        "bytes_per_page": 194368,
+        "allocations_per_page": 2833
+      },
+      {
+        "case": "present/positional",
+        "iterations": 12286,
+        "nanoseconds_per_page": 110792,
+        "bytes_per_page": 112576,
+        "allocations_per_page": 2321
+      },
+      {
+        "case": "present/positional",
+        "iterations": 12380,
+        "nanoseconds_per_page": 98328,
+        "bytes_per_page": 112576,
+        "allocations_per_page": 2321
+      },
+      {
+        "case": "present/positional",
+        "iterations": 10000,
+        "nanoseconds_per_page": 103169,
+        "bytes_per_page": 112576,
+        "allocations_per_page": 2321
+      },
+      {
+        "case": "missing_defaults/maps",
+        "iterations": 8012,
+        "nanoseconds_per_page": 126787,
+        "bytes_per_page": 194368,
+        "allocations_per_page": 2833
+      },
+      {
+        "case": "missing_defaults/maps",
+        "iterations": 10000,
+        "nanoseconds_per_page": 123310,
+        "bytes_per_page": 194368,
+        "allocations_per_page": 2833
+      },
+      {
+        "case": "missing_defaults/maps",
+        "iterations": 10000,
+        "nanoseconds_per_page": 129413,
+        "bytes_per_page": 194368,
+        "allocations_per_page": 2833
+      },
+      {
+        "case": "missing_defaults/positional",
+        "iterations": 10000,
+        "nanoseconds_per_page": 124731,
+        "bytes_per_page": 198592,
+        "allocations_per_page": 2833
+      },
+      {
+        "case": "missing_defaults/positional",
+        "iterations": 7566,
+        "nanoseconds_per_page": 133440,
+        "bytes_per_page": 198592,
+        "allocations_per_page": 2833
+      },
+      {
+        "case": "missing_defaults/positional",
+        "iterations": 9984,
+        "nanoseconds_per_page": 121053,
+        "bytes_per_page": 198592,
+        "allocations_per_page": 2833
+      }
+    ]
+  },
+  "final": {
+    "date": "2026-11-05",
+    "rows_per_page": 256,
+    "backend": "In-process HMGET reply hook; no Redis connections. Not native/Software latency or memory evidence.",
+    "go_version": "go1.27.3",
+    "cpu": "Apple M5 Max",
+    "harness_sha256": "34dfe1ff0e768082652322216be7cdcac5c34a145fe1540684d356388bb50744",
+    "production_source": "8d59eeb49b543d24d2089d181d1ef455ae7d0714",
+    "samples": [
+      {
+        "case": "present/maps",
+        "iterations": 10426,
+        "nanoseconds_per_page": 113043,
+        "bytes_per_page": 194368,
+        "allocations_per_page": 2833
+      },
+      {
+        "case": "present/maps",
+        "iterations": 10000,
+        "nanoseconds_per_page": 116307,
+        "bytes_per_page": 194368,
+        "allocations_per_page": 2833
+      },
+      {
+        "case": "present/maps",
+        "iterations": 10000,
+        "nanoseconds_per_page": 115676,
+        "bytes_per_page": 194368,
+        "allocations_per_page": 2833
+      },
+      {
+        "case": "present/positional",
+        "iterations": 13914,
+        "nanoseconds_per_page": 85980,
+        "bytes_per_page": 112576,
+        "allocations_per_page": 2321
+      },
+      {
+        "case": "present/positional",
+        "iterations": 14126,
+        "nanoseconds_per_page": 83806,
+        "bytes_per_page": 112576,
+        "allocations_per_page": 2321
+      },
+      {
+        "case": "present/positional",
+        "iterations": 14194,
+        "nanoseconds_per_page": 83703,
+        "bytes_per_page": 112576,
+        "allocations_per_page": 2321
+      },
+      {
+        "case": "missing_defaults/maps",
+        "iterations": 10000,
+        "nanoseconds_per_page": 118626,
+        "bytes_per_page": 194368,
+        "allocations_per_page": 2833
+      },
+      {
+        "case": "missing_defaults/maps",
+        "iterations": 10000,
+        "nanoseconds_per_page": 117524,
+        "bytes_per_page": 194368,
+        "allocations_per_page": 2833
+      },
+      {
+        "case": "missing_defaults/maps",
+        "iterations": 10000,
+        "nanoseconds_per_page": 116032,
+        "bytes_per_page": 194368,
+        "allocations_per_page": 2833
+      },
+      {
+        "case": "missing_defaults/positional",
+        "iterations": 14229,
+        "nanoseconds_per_page": 82871,
+        "bytes_per_page": 112576,
+        "allocations_per_page": 2321
+      },
+      {
+        "case": "missing_defaults/positional",
+        "iterations": 14618,
+        "nanoseconds_per_page": 83074,
+        "bytes_per_page": 112576,
+        "allocations_per_page": 2321
+      },
+      {
+        "case": "missing_defaults/positional",
+        "iterations": 14324,
+        "nanoseconds_per_page": 83278,
+        "bytes_per_page": 112576,
+        "allocations_per_page": 2321
+      }
+    ]
+  },
+  "note": "Production source identifies the compared decoder/fetch functions; the initial phase uses the same later-added test harness (hash recorded) available in 8d59eeb. In-process data is not native/Software performance evidence."
+}

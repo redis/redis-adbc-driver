@@ -39,15 +39,28 @@ func newZoneHarness(t *testing.T, zone string) *sqlHarness {
 // earlier version would have written it.
 func (h *sqlHarness) patchMeta(raw goredis.UniversalClient, key, old, new string) {
 	h.t.Helper()
-	s, err := raw.Get(h.ctx, key).Result()
+	st, ctx, pin := h.inspectionSnapshot(raw, true)
+	defer pin.release()
+	s, err := st.redis(ctx).Get(ctx, key).Result()
 	if err != nil {
 		h.t.Fatal(err)
 	}
 	if !strings.Contains(s, old) {
 		h.t.Fatalf("metadata %s has no %q: %s", key, old, s)
 	}
-	if err := raw.Set(h.ctx, key, strings.ReplaceAll(s, old, new), 0).Err(); err != nil {
+	wctx, work, err := st.beginSnapshotWrite(ctx, pin)
+	if err != nil {
 		h.t.Fatal(err)
+	}
+	defer st.abortSnapshot(pin, work)
+	if err := st.redis(wctx).Set(wctx, key, strings.ReplaceAll(s, old, new), 0).Err(); err != nil {
+		h.t.Fatal(err)
+	}
+	if err := st.publishSnapshot(wctx, pin, work); err != nil {
+		h.t.Fatal(err)
+	}
+	if stored, err := st.redis(ctx).Get(ctx, key).Result(); err != nil || stored != s {
+		h.t.Fatal("definition patch changed its pinned source", err)
 	}
 }
 

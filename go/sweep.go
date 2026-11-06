@@ -74,10 +74,17 @@ type SweepOptions struct {
 
 // Sweep is what SweepReleased found and deleted.
 type Sweep struct {
-	ServerVersion string `json:"server_version,omitempty"`
-	Cluster       bool   `json:"cluster"`
-	// Released counts the key prefixes that were ever released
-	// (adbc:{meta}:released).
+	// ManagedSnapshots uses registered zero-reference segments, not legacy prefixes.
+	ManagedSnapshots bool `json:"managed_snapshots,omitempty"`
+	// MetadataPending means retirement can make additional segments eligible.
+	MetadataPending bool `json:"metadata_pending,omitempty"`
+	// More requests another bounded pass; Found is not an exhaustive future count.
+	More             bool   `json:"more,omitempty"`
+	ManifestsRetired int    `json:"manifests_retired,omitempty"`
+	ServerVersion    string `json:"server_version,omitempty"`
+	Cluster          bool   `json:"cluster"`
+	// Released counts eligible data generations observed in managed mode;
+	// legacy mode counts historical releases in adbc:{meta}:released.
 	Released int `json:"released"`
 	// Prefixes are the released prefixes that HASHes were found under.
 	Prefixes []SweptPrefix `json:"prefixes,omitempty"`
@@ -102,20 +109,31 @@ type SkippedPrefix struct {
 	Reason string `json:"reason"`
 }
 
-// SweepReleased finds the HASHes left under the key prefixes of dropped and
-// truncated tables (and of tables a re-keying rename moved), and with
-// o.Apply deletes them. The options are the driver's database options.
+// SweepReleased previews or reclaims registered, unreferenced snapshot data.
+// Preview counts currently eligible row HASHes and reports pending metadata
+// retirement separately; Apply advances bounded maintenance and reports confirmed
+// deletions, partial errors and More. Active references and unregistered objects
+// are protected. Legacy catalogs use their historical released-prefix registry.
+// The options are the driver's database options.
 func SweepReleased(ctx context.Context, options map[string]string, o SweepOptions) (*Sweep, error) {
-	c, err := dialHashes(ctx, options)
+	c, err := dialHashesMode(ctx, options, false)
 	if err != nil {
 		return nil, err
 	}
 	defer c.close(ctx)
+	ctx = c.context(ctx)
 	progress := o.Progress
 	if progress == nil {
 		progress = func(string) {}
 	}
 	res := &Sweep{Cluster: c.cluster(), Applied: o.Apply}
+	if c.st.snapshots {
+		report, err := c.sweepSnapshots(ctx, o, res, progress)
+		if err != nil {
+			report.More = true
+		}
+		return report, wrapRedis(transportContextError(ctx, err), "snapshot sweep failed")
+	}
 	if info, err := c.client.Info(ctx, "server").Result(); err == nil {
 		res.ServerVersion = infoField(info, "redis_version")
 	}

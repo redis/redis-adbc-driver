@@ -72,7 +72,7 @@ func TestHashSliceProjectionCompatibility(t *testing.T) {
 }
 
 type hashSliceHook struct {
-	t      *testing.T
+	t      testing.TB
 	rows   map[string][]any
 	calls  int
 	fields []string
@@ -143,5 +143,50 @@ func TestHashSliceExistenceDiagnosticsAndCancellation(t *testing.T) {
 	calls := hook.calls
 	if _, err := it.store.fetchRowSlices(ctx, []string{"live"}, it.fetch, wideFetchChunk); !isStatus(err, adbc.StatusCancelled) || hook.calls != calls {
 		t.Fatalf("cancelled read queued commands: %v, calls=%d", err, hook.calls)
+	}
+}
+
+func TestSnapshotHashSliceVisibilityAndIntegrity(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	client := goredis.NewClient(&goredis.Options{})
+	defer client.Close()
+	it, p := hashProjectionFixture()
+	it.meta.KeyPrefix = "logical:"
+	it.store, it.env, it.projection = &store{client: client}, &evalEnv{ctx: ctx}, p
+	it.diagnostics = &executionDiagnostics{}
+	live := []any{"1", "9007199254740993", "a\x00b", nil, nil, nil, nil}
+	hook := &hashSliceHook{t: t, fields: append(append([]string(nil), it.fetch...), snapshotDeletedField), rows: map[string][]any{
+		"physical:1": live,
+		"physical:2": {"2", nil, nil, nil, nil, nil, "1"},
+		"missing":    make([]any, len(live)),
+		"wrong":      {"9", nil, nil, nil, nil, nil, nil},
+	}}
+	client.AddHook(hook)
+	consumed := 0
+	p.consumeHash = func(values []any) error {
+		row := make([]Value, p.width)
+		if err := p.decodeHashInto(values, row); err != nil {
+			return err
+		}
+		consumed++
+		return nil
+	}
+	keys, rows, err := it.nextSnapshotHashValues(ctx, []string{"logical:1", "logical:2"}, []string{"physical:1", "physical:2"})
+	if err != nil || !reflect.DeepEqual(keys, []string{"logical:1"}) || rows != nil || consumed != 1 ||
+		it.diagnostics.processed.Load() != 2 || it.diagnostics.matched.Load() != 1 {
+		t.Fatalf("keys=%v rows=%v consumed=%d error=%v", keys, rows, consumed, err)
+	}
+	for _, physical := range []string{"missing", "wrong"} {
+		if _, _, err := it.nextSnapshotHashValues(ctx, []string{"logical:1"}, []string{physical}); !isStatus(err, adbc.StatusIO) {
+			t.Fatalf("%s must fail closed: %v", physical, err)
+		}
+	}
+	if consumed != 1 {
+		t.Fatal("missing or invalid snapshot row reached projection")
+	}
+	p.consumeHash = func([]any) error { consumed++; cancel(); return nil }
+	if _, _, err := it.nextSnapshotHashValues(ctx, []string{"logical:1", "logical:1"}, []string{"physical:1", "physical:1"}); !isStatus(err, adbc.StatusCancelled) || consumed != 2 {
+		t.Fatalf("cancel returned %v after %d total rows", err, consumed)
 	}
 }

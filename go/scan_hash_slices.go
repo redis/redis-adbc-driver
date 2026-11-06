@@ -5,9 +5,48 @@ package redis
 
 import (
 	"context"
+	"strings"
 
 	"github.com/apache/arrow-adbc/go/adbc"
 )
+
+// Snapshot discovery has already selected the newest physical version. Unlike
+// live unmanaged HASH reads, a vanished winning row is corruption, not omission.
+// Tombstones and exact row identities are checked before positional projection.
+func (it *scanIter) nextSnapshotHashValues(ctx context.Context, logical, physical []string) ([]string, []map[string]Value, error) {
+	fields := append(append([]string(nil), it.fetch...), snapshotDeletedField)
+	values, err := it.store.fetchRowSlices(ctx, physical, fields, wideFetchChunk)
+	if err != nil {
+		return nil, nil, err
+	}
+	return it.consumeSnapshotHashValues(ctx, logical, values)
+}
+
+func (it *scanIter) consumeSnapshotHashValues(ctx context.Context, logical []string, values [][]any) ([]string, []map[string]Value, error) {
+	if it.diagnostics != nil {
+		it.diagnostics.processed.Add(int64(len(values)))
+	}
+	kept := make([]string, 0, len(logical))
+	for i, row := range values {
+		if err := cancelled(it.env.ctx); err != nil {
+			return nil, nil, err
+		}
+		if row == nil || row[0] != strings.TrimPrefix(logical[i], it.meta.prefix()) {
+			return nil, nil, errorf(adbc.StatusIO, "snapshot directory references a missing or invalid row")
+		}
+		if row[len(row)-1] == "1" {
+			continue
+		}
+		if err := it.projection.consumeHash(row[:len(row)-1]); err != nil {
+			return nil, nil, err
+		}
+		kept = append(kept, logical[i])
+	}
+	if it.diagnostics != nil {
+		it.diagnostics.matched.Add(int64(len(kept)))
+	}
+	return kept, nil, nil
+}
 
 // fetchRowSlices retains each command's owned reply slice for one cursor page.
 // It skips vanished rows before projection; callers never retain these replies

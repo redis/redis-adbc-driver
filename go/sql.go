@@ -572,7 +572,10 @@ type CreateTableStmt struct {
 	Comment string
 }
 
-type DropPartitionResultStmt struct{ JobID string }
+type DropPartitionResultStmt struct {
+	JobID    string
+	Snapshot bool
+}
 
 func (*DropPartitionResultStmt) stmtNode() {}
 
@@ -2722,15 +2725,18 @@ func (p *parser) parseDrop() (Stmt, error) {
 		return p.parseDropMatView()
 	}
 	if p.acceptKeyword("PARTITION") {
-		if err := p.expectKeyword("RESULT"); err != nil {
-			return nil, err
+		snapshot := p.acceptKeyword("SNAPSHOT")
+		if !snapshot {
+			if err := p.expectKeyword("RESULT"); err != nil {
+				return nil, err
+			}
 		}
 		token := p.peek()
 		if token.kind != tokString || !retainedIdentity.MatchString(token.text) {
-			return nil, syntaxErr("DROP PARTITION RESULT requires a quoted retained job ID")
+			return nil, syntaxErr("DROP PARTITION RESULT/SNAPSHOT requires a quoted result ID")
 		}
 		p.pos++
-		return &DropPartitionResultStmt{JobID: token.text}, nil
+		return &DropPartitionResultStmt{JobID: token.text, Snapshot: snapshot}, nil
 	}
 	if p.acceptKeyword("INDEX") {
 		return p.parseDropIndex()

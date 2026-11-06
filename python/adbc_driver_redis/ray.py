@@ -47,10 +47,14 @@ def _stream_partition(descriptor, *, uri, schema, db_kwargs, conn_kwargs):
 
 
 class RedisDatasource(Datasource):
-    """A planned live Redis read; construct with :func:`read_query`.
+    """A planned live Redis read; also usable as a context manager.
 
     Planning opens and closes a connection immediately. Rows are fetched only
-    by Ray workers. Descriptors may be replayed, but live data can change.
+    by Ray workers. All descriptors retain one shared generation and replay it
+    until their admission lifetime expires or the partition group is released.
+    Construct a new datasource to observe later writes.
+    Call ``close()`` after all reads/retries finish to release its partition
+    group promptly, or use a context covering the complete Ray computation.
     """
 
     def __init__(
@@ -79,12 +83,45 @@ class RedisDatasource(Datasource):
                 "adbc.redis.partition_result_mode": "live",
             })
             partitions, self._schema = cur.adbc_execute_partitions(query, parameters)
+            self._snapshot_id = cur.adbc_statement.get_option(
+                "adbc.redis.partition_snapshot_id"
+            )
+            if (not isinstance(self._snapshot_id, str)
+                    or len(self._snapshot_id) != 32
+                    or any(c not in "0123456789abcdef" for c in self._snapshot_id)):
+                raise ValueError("driver did not return a valid partition snapshot ID")
             self._partitions = tuple(bytes(p) for p in partitions)
+
+    def close(self):
+        """Release this plan; already acquired readers keep their own pins.
+
+        Finish lazy computations and any desired retries before closing.
+        Closing twice is harmless. A failed release leaves the plan open so
+        the caller can explicitly retry cleanup.
+        """
+        snapshot_id = self._snapshot_id
+        if snapshot_id is None:
+            return
+        with dbapi.connect(
+            self._uri, db_kwargs=self._db_kwargs, conn_kwargs=self._conn_kwargs
+        ) as conn, conn.cursor() as cur:
+            cur.execute(f"DROP PARTITION SNAPSHOT '{snapshot_id}'")
+        self._snapshot_id = None
+
+    def __enter__(self):
+        if self._snapshot_id is None:
+            raise ValueError("Redis datasource is closed")
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
 
     def estimate_inmemory_data_size(self):
         return None
 
     def get_read_tasks(self, parallelism, per_task_row_limit=None, data_context=None):
+        if self._snapshot_id is None:
+            raise ValueError("Redis datasource is closed")
         # The driver's complete, nonoverlapping split set controls task count.
         # Ray's parallelism and row-limit hints never change query membership.
         return [
@@ -113,10 +150,14 @@ def read_query(
     ``concurrency`` caps simultaneous Ray read tasks. ``batch_rows`` bounds each
     driver Arrow batch, not total Ray object-store or pipeline memory.
 
-    Reads are unordered and live: no shared snapshot, stable retries, CDC or
-    exactly-once guarantee. Unsupported SQL fails during planning, without a
+    Reads are unordered. Workers and retries share the planned snapshot while
+    descriptors remain valid (five minutes by default); expiry or explicit
+    release requires replanning. This does not provide CDC or exactly-once
+    processing. Unsupported SQL fails during planning, without a
     materializing fallback. Worker-local TLS CA paths must exist on all nodes.
     Configuration may contain credentials; use a trusted Ray cluster.
+    For explicit early release, use ``RedisDatasource`` as a context manager
+    around ``ray.data.read_datasource`` and the complete computation instead.
     """
     if concurrency is not None:
         _positive_int("concurrency", concurrency)

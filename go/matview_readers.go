@@ -37,6 +37,17 @@ type matviewReads struct {
 }
 
 func (s *store) pinMatview(ctx context.Context, m *tableMeta) (*tableMeta, error) {
+	// A managed statement already pins its immutable catalog and every referenced
+	// data generation. Registering the mutable-layout lease would create a second
+	// ownership protocol outside that catalog's publication and collection fences.
+	if s.snapshots {
+		if scope := snapshotOf(ctx); m.MaterializedSQL != "" && scope != nil && scope.pin != nil {
+			scope.pin.mu.Lock()
+			scope.pin.materialized = true
+			scope.pin.mu.Unlock()
+		}
+		return m, nil
+	}
 	t, _ := ctx.Value(transportContextKey{}).(*executionTransport)
 	if m.MaterializedSQL == "" || t == nil || t.owner != s {
 		return m, nil
@@ -154,6 +165,12 @@ func (s *store) rowSequence(ctx context.Context, m *tableMeta) (int64, error) {
 // No new reader can register a retired generation after publication. Existing
 // owners are kept alive by the same renewable leases used for re-key recovery.
 func (s *store) collectMatviewGeneration(ctx context.Context, prefix string) error {
+	if s.snapshots {
+		return nil // managed generations are reclaimed only by the reference graph
+	}
+	if snapshotDataID(prefix) != "" {
+		return errorf(adbc.StatusInvalidState, "managed materialized view generations require snapshot reclamation")
+	}
 	raw, err := s.redis(ctx).HGet(ctx, matviewRetiredKey, prefix).Result()
 	if errors.Is(err, goredis.Nil) {
 		return nil
@@ -207,6 +224,9 @@ return 1
 `)
 
 func (s *store) collectMatviews(ctx context.Context) error {
+	if s.snapshots {
+		return nil
+	}
 	// Use the same metadata-read permission as pending rename recovery;
 	// ordinary connections must not require an additional HSCAN grant.
 	entries, err := s.redis(ctx).HGetAll(ctx, matviewRetiredKey).Result()

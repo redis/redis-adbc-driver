@@ -32,41 +32,28 @@ func TestSQLAggregatePages(t *testing.T) {
 	h := newSQLHarness(t)
 	h.dropTables("it_agg_pages")
 	h.exec("CREATE TABLE it_agg_pages (g INTEGER, v BIGINT, pad VARCHAR)")
-	st := &store{client: h.rawClient()}
-	meta, err := st.getTable(h.ctx, defaultSchema, "it_agg_pages")
-	if err != nil {
-		t.Fatal(err)
-	}
 	const n = 25001
 	const wide int64 = 9007199254740993
 	counts, valid := make([]int, 37), make([]int, 37)
 	sums := make([]big.Int, 37)
 	distinct := make([]map[int64]bool, 37)
-	for start := 0; start < n; start += pipelineChunk {
-		pipe := st.client.Pipeline()
-		for i := start; i < min(start+pipelineChunk, n); i++ {
-			g := i % 37
-			fields := []any{rowIDField, i + 1, "g", g, "pad", "discarded payload"}
-			counts[g]++
-			if i%7 != 0 {
-				v := wide
-				if i%2 == 1 {
-					v = -v
-				}
-				fields = append(fields, "v", strconv.FormatInt(v, 10))
-				valid[g]++
-				sums[g].Add(&sums[g], big.NewInt(v))
-				if distinct[g] == nil {
-					distinct[g] = map[int64]bool{}
-				}
-				distinct[g][v] = true
+	for i := 0; i < n; i++ {
+		g := i % 37
+		counts[g]++
+		if i%7 != 0 {
+			v := wide
+			if i%2 == 1 {
+				v = -v
 			}
-			pipe.HSet(h.ctx, meta.prefix()+strconv.Itoa(i+1), fields...)
-		}
-		if _, err := pipe.Exec(h.ctx); err != nil {
-			t.Fatal(err)
+			valid[g]++
+			sums[g].Add(&sums[g], big.NewInt(v))
+			if distinct[g] == nil {
+				distinct[g] = map[int64]bool{}
+			}
+			distinct[g][v] = true
 		}
 	}
+	h.exec(fmt.Sprintf("INSERT INTO it_agg_pages SELECT i%%37,CASE WHEN i%%7=0 THEN NULL WHEN i%%2=1 THEN -9007199254740993 ELSE 9007199254740993 END,'discarded payload' FROM generate_series(0,%d) AS g(i)", n-1))
 	sql := "SELECT g, COUNT(*), COUNT(v), SUM(v), COUNT(DISTINCT v), AVG(v) FROM it_agg_pages GROUP BY g ORDER BY g"
 	rows, _ := h.query(sql)
 	if len(rows) != 37 {
@@ -95,15 +82,8 @@ func TestSQLAggregatePages(t *testing.T) {
 	}
 	// Aggregate input columns and the internal row id must not survive in
 	// every group's representative map.
-	parsed, err := ParseScript("SELECT g, SUM(v) FROM it_agg_pages GROUP BY g")
-	if err != nil {
-		t.Fatal(err)
-	}
-	e := &executor{store: st, schema: defaultSchema, pushdown: PushdownExact, cache: newExecCache()}
-	plan, err := e.planSelect(h.ctx, parsed[0].Stmt.(*SelectStmt), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	e, plan, _ := distinctTestPlan(t, h, "SELECT g,SUM(v) FROM it_agg_pages GROUP BY g")
+	st, meta := e.store, plan.meta
 	groups, err := e.driverAggregate(h.ctx, plan, wherePlan{query: "*"}, plan.aggregateCalls(), nil)
 	if err != nil {
 		t.Fatal(err)
@@ -138,36 +118,8 @@ func TestSQLAggregatePages(t *testing.T) {
 	if !errors.Is(err, sentinel) {
 		t.Fatal(err)
 	}
-	// FT.INFO on the cursor's coordinator must report no cursor left open.
-	info, err := st.searchDo(h.ctx, meta.index(), "FT.INFO", meta.index()).Result()
-	if err != nil {
-		t.Fatal(err)
-	}
-	fields, ok := info.([]any)
-	if !ok {
-		t.Fatalf("unexpected FT.INFO reply %T", info)
-	}
-	found := false
-	for i := 0; i+1 < len(fields); i += 2 {
-		if fields[i] != "cursor_stats" {
-			continue
-		}
-		stats, ok := fields[i+1].([]any)
-		if !ok {
-			t.Fatalf("unexpected cursor stats %T", fields[i+1])
-		}
-		for j := 0; j+1 < len(stats); j += 2 {
-			if stats[j] == "index_total" {
-				found = true
-				if stats[j+1] != int64(0) {
-					t.Fatalf("leaked cursor: %v", stats)
-				}
-			}
-		}
-	}
-	if !found {
-		t.Fatal("FT.INFO omitted index cursor count")
-	}
+	// RESP3 cursor statistics must still prove complete cursor cleanup.
+	h.expectNoIndexCursors(st, meta.index())
 }
 
 func TestAggregateSharedMemoryRows(t *testing.T) {

@@ -59,7 +59,11 @@ func printSweep(w io.Writer, res *redis.Sweep, finished bool) {
 	if res.ServerVersion != "" {
 		server = fmt.Sprintf("Redis %s (%s)", res.ServerVersion, kind)
 	}
-	fmt.Fprintf(w, "Released key prefixes on %s: %d\n", server, res.Released)
+	if res.ManagedSnapshots {
+		fmt.Fprintf(w, "Managed snapshot cleanup on %s: %d eligible data generations\n", server, res.Released)
+	} else {
+		fmt.Fprintf(w, "Released key prefixes on %s: %d\n", server, res.Released)
+	}
 	if len(res.Prefixes) > 0 {
 		tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
 		if res.Applied {
@@ -91,6 +95,8 @@ func printSweep(w io.Writer, res *redis.Sweep, finished bool) {
 		fmt.Fprintf(w, "\nStopped after deleting %d of the %s found so far.\n", res.Deleted, under)
 	case !finished:
 		fmt.Fprintf(w, "\nStopped after finding %s.\n", under)
+	case res.ManagedSnapshots && res.Found == 0:
+		fmt.Fprintln(w, "\nNo currently eligible row HASHes were found.")
 	case res.Found == 0:
 		fmt.Fprintln(w, "\nFound no HASHes to delete.")
 	case res.Applied && res.Deleted == res.Found:
@@ -99,5 +105,12 @@ func printSweep(w io.Writer, res *redis.Sweep, finished bool) {
 		fmt.Fprintf(w, "\nDeleted %d of the %s; the others were gone already.\n", res.Deleted, under)
 	default:
 		fmt.Fprintf(w, "\nNothing was deleted. With -apply, sweep deletes the %s.\n", under)
+	}
+	if res.ManagedSnapshots && res.More && finished {
+		if res.Applied {
+			fmt.Fprintln(w, "More snapshot cleanup remains; run sweep -apply again to continue.")
+		} else {
+			fmt.Fprintln(w, "The preview covers currently eligible rows; pending retirement can expose more. Use -apply to advance cleanup.")
+		}
 	}
 }

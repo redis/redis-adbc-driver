@@ -49,12 +49,19 @@ func TestSQLWideHashFetchBothAPIs(t *testing.T) {
 		nulls = append(nulls, field+"=NULL")
 	}
 	h.exec("UPDATE " + table + " SET " + strings.Join(nulls, ",") + " WHERE __rowid=5000")
-	st := &store{client: h.rawClient()}
-	meta, err := st.getTable(h.ctx, defaultSchema, table)
+	h.exec("UPDATE " + table + " SET label='a\x00b' WHERE __rowid=1")
+	raw := h.rawClient()
+	st := &store{client: raw, snapshots: true}
+	if err := addSnapshotHooks(raw)(h.ctx); err != nil {
+		t.Fatal(err)
+	}
+	readCtx, pin, err := st.acquireSnapshot(h.ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := st.client.HSet(h.ctx, meta.KeyPrefix+"1", "label", "a\x00b").Err(); err != nil {
+	defer pin.release()
+	meta, err := st.getTable(readCtx, defaultSchema, table)
+	if err != nil {
 		t.Fatal(err)
 	}
 	outputs = append(outputs, "stamp", "id AS duplicate", "__rowid")
@@ -62,7 +69,7 @@ func TestSQLWideHashFetchBothAPIs(t *testing.T) {
 		r, _ := h.openStream(h.ctx, h.conn, "SELECT id,label,p0 FROM "+table, nil,
 			map[string]string{OptionIntStreamBatchRows: "1"})
 		defer r.Release()
-		s, ok := r.(*streamReader)
+		s, ok := inspectionReader(r).(*streamReader)
 		if !ok || s.it == nil || len(s.it.need) >= 64 || s.it.prefetch != nil {
 			t.Fatalf("narrow projection started a wide prefetch worker: %T", r)
 		}
@@ -81,18 +88,29 @@ func TestSQLWideHashFetchBothAPIs(t *testing.T) {
 		{"pushed limit", " WHERE __rowid>=1 LIMIT 2 OFFSET 1", false},
 		{"descending", " WHERE __rowid>=1 ORDER BY __rowid DESC", false},
 	} {
-		e, p := sharedScanPlan(t, h, q+tc.suffix, nil)
-		e.store.searchCaps = [2]int64{1_000_000, 1 << 31}
-		sc, err := e.prepareScan(h.ctx, p, nil)
+		e := &executor{store: st, schema: defaultSchema, pushdown: PushdownExact, cache: newExecCache(), now: time.Now().UTC(), sess: newSession(defaultSchema), diagnostics: &executionDiagnostics{}}
+		st.searchCapsOnce.Do(func() { st.searchCaps = [2]int64{1_000_000, 1 << 31} })
+		parsed, err := ParseScript(q + tc.suffix)
 		if err != nil {
 			t.Fatal(err)
 		}
-		it, err := e.openScan(h.ctx, sc.req, nil)
+		p, err := e.planSelect(readCtx, parsed[0].Stmt.(*SelectStmt), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		sc, err := e.prepareScan(readCtx, p, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if tc.fast && e.diagnostics.plan.Load() == nil {
+			t.Fatal("wide scan bypassed execution plan diagnostics")
+		}
+		it, err := e.openScan(readCtx, sc.req, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
 		t.Logf("%s: ranges=%v limit=%v sort=%+v residual=%T hashFetch=%v loadAll=%v", tc.name, sc.req.ranges, sc.req.limit, sc.req.sortBy, sc.req.where.residual, it.hashFetch, !it.hashFetch && it.store == nil && len(it.fetch) == 0)
-		it.close(h.ctx)
+		it.close(readCtx)
 		if it.hashFetch != tc.fast {
 			t.Fatalf("%s selected=%v, want %v", tc.name, it.hashFetch, tc.fast)
 		}
@@ -101,7 +119,7 @@ func TestSQLWideHashFetchBothAPIs(t *testing.T) {
 	check := func(r array.RecordReader, ordered bool) {
 		t.Helper()
 		defer r.Release()
-		sr, ok := r.(*streamReader)
+		sr, ok := inspectionReader(r).(*streamReader)
 		if !ok || !sr.it.hashFetch {
 			t.Fatalf("wide fetch not selected: %T", r)
 		}
@@ -193,6 +211,67 @@ func TestSQLWideHashFetchBothAPIs(t *testing.T) {
 	limited, _ := h.query(q + " LIMIT 2 OFFSET 1")
 	if len(limited) != 2 || !strings.HasSuffix(limited[0], "|2") || !strings.HasSuffix(limited[1], "|3") {
 		t.Fatalf("wide LIMIT/OFFSET fallback returned %v", limited)
+	}
+
+	// A managed stream keeps its generation across a later SQL publication.
+	r, _ = h.openStream(h.ctx, h.conn, q, nil, map[string]string{OptionIntStreamBatchRows: "127"})
+	h.exec("UPDATE " + table + " SET label='new generation' WHERE __rowid=2")
+	check(r, true)
+	r, err = h.conn.ReadPartition(h.ctx, parts.PartitionIDs[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	check(r, false)
+	h.exec("UPDATE " + table + " SET label='row2' WHERE __rowid=2")
+
+	// Keep the unmanaged discovery/fetch race coverage on a separate physical
+	// copy. Mutating published managed HASHes would violate their immutability.
+	unmanaged := cloneMeta(meta)
+	unmanaged.KeyPrefix = rowPrefix(defaultSchema, table+"_unmanaged_"+snapshotID())
+	unmanaged.IndexName = indexName(defaultSchema, table+"_unmanaged_"+snapshotID())
+	unmanaged.SnapshotOverlay, unmanaged.SnapshotSegments, unmanaged.SnapshotRows = false, nil, nil
+	unmanaged.SnapshotLineage = ""
+	directory := newSnapshotDeltaScan(st, meta, nil)
+	copied := 0
+	for {
+		_, rows, err := directory.next(readCtx)
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		pipe := raw.Pipeline()
+		for _, row := range rows {
+			pipe.HSet(h.ctx, unmanaged.prefix()+row[rowIDField], map[string]string(row))
+		}
+		if len(rows) > 0 {
+			if _, err := pipe.Exec(h.ctx); err != nil {
+				t.Fatal(err)
+			}
+		}
+		copied += len(rows)
+	}
+	if copied != 4998 {
+		t.Fatalf("unmanaged fixture rows=%d", copied)
+	}
+	if err := raw.Do(h.ctx, snapshotScannedIndexArgs(unmanaged)...).Err(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := raw.Do(h.ctx, "FT.DROPINDEX", unmanaged.index(), "DD").Err(); err != nil {
+			t.Error(err)
+		}
+	})
+	st, meta = &store{client: raw}, unmanaged
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		if err := st.checkRangeReadiness(h.ctx, meta.index()); err == nil {
+			break
+		} else if time.Now().After(deadline) {
+			t.Fatal(err)
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 
 	// Independent authoritative HASH changes after discovery: vanished rows

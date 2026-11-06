@@ -44,22 +44,24 @@ const (
 	maxPartitionBytes = 1 << 20
 )
 
-// partitionID describes a deferred read, not a retained result or snapshot.
+// partitionID describes a deferred read. Version 3 binds managed readers to
+// one shared statement snapshot; version 1 is the legacy live descriptor.
 // Query literals may be sensitive: callers must treat these bytes as query data.
 // The table fingerprint identifies the logical target without embedding an
 // endpoint or credentials, allowing different cluster seeds/proxy addresses.
 type partitionID struct {
-	Version int              `json:"version"`
-	Layouts resultLayouts    `json:"result_layouts,omitempty"`
-	Query   string           `json:"query"`
-	Schema  string           `json:"schema"`
-	Table   string           `json:"table"`
-	Target  string           `json:"target"`
-	Zone    string           `json:"zone"`
-	Params  []partitionParam `json:"params,omitempty"`
-	ScanCap int64            `json:"scan_cap,omitempty"`
-	Lo      int64            `json:"lo"`
-	Hi      int64            `json:"hi"`
+	Snapshot *partitionSnapshot `json:"snapshot,omitempty"`
+	Version  int                `json:"version"`
+	Query    string             `json:"query"`
+	Schema   string             `json:"schema"`
+	Table    string             `json:"table"`
+	Target   string             `json:"target"`
+	Zone     string             `json:"zone"`
+	Params   []partitionParam   `json:"params,omitempty"`
+	ScanCap  int64              `json:"scan_cap,omitempty"`
+	Lo       int64              `json:"lo"`
+	Hi       int64              `json:"hi"`
+	Layouts  resultLayouts      `json:"result_layouts,omitempty"`
 }
 
 func (s *statementImpl) partitions() int {
@@ -128,29 +130,54 @@ func partitionTarget(meta *tableMeta) string {
 		cols[i].TagValues, cols[i].TagsChecked, cols[i].NaNs = "", false, false
 		cols[i].Comment, cols[i].Default, cols[i].DefaultOID = "", "", 0
 	}
+	prefix, index, generation := meta.prefix(), meta.index(), meta.PrefixGen
+	if meta.SnapshotLineage != "" {
+		prefix, index, generation = "snapshot:"+meta.SnapshotLineage, "", 0
+	}
 	data, _ := json.Marshal(struct {
 		Prefix, Index string
 		Generation    int64
 		Columns       []columnMeta
-	}{meta.prefix(), meta.index(), meta.PrefixGen, cols})
+	}{prefix, index, generation, cols})
 	sum := sha256.Sum256(data)
 	return hex.EncodeToString(sum[:])
 }
 
-func (e *executor) partitionPlan(ctx context.Context, sel *SelectStmt) (*selectPlan, error) {
+func (e *executor) partitionPlan(ctx context.Context, sel *SelectStmt, lo, hi int64) (*selectPlan, error) {
 	schema, name, err := e.resolveTable(*sel.From)
 	if err != nil {
 		return nil, err
 	}
-	if isTempSchema(schema) || schema == foreignSchema {
+	if isTempSchema(schema) {
 		return nil, errorf(adbc.StatusNotImplemented, "partitioned reads require a permanent driver-managed table")
 	}
-	meta, err := e.store.getTable(ctx, schema, name)
+	// Prove the bounded HASH route before loading a table: getTable includes
+	// Search readiness, which belongs only to the non-direct route.
+	spans, known := partitionPredicateSpans(sel.Where, lo, hi, e.params)
+	_, finite := partitionFiniteIDs(spans)
+	direct := known && finite && e.store.snapshots
+	load := e.store.getTable
+	if direct {
+		load = e.store.getTableMetadata
+	}
+	meta, err := load(ctx, schema, name)
 	if err != nil {
 		return nil, err
 	}
 	if !managedRowIDTable(meta) {
 		return nil, errorf(adbc.StatusNotImplemented, "partitioned reads require a permanent managed table with stable row IDs")
+	}
+	if direct {
+		if err := e.store.validateSnapshotDirectTable(ctx, meta); err != nil {
+			return nil, err
+		}
+		meta, err = e.store.pinMatview(ctx, meta)
+		if err != nil {
+			return nil, err
+		}
+		previous := e.partitionDirectTable
+		e.partitionDirectTable = meta
+		defer func() { e.partitionDirectTable = previous }()
 	}
 	// Pin resolution, including when a worker has a temporary table shadowing
 	// the original name. Plan only after refusing views and virtual relations.
@@ -161,6 +188,17 @@ func (e *executor) partitionPlan(ctx context.Context, sel *SelectStmt) (*selectP
 	}
 	if plan.meta == nil || plan.meta.isMem || plan.aggregate || plan.meta.RekeyTo != "" || partitionTarget(plan.meta) != partitionTarget(meta) {
 		return nil, errorf(adbc.StatusInvalidState, "partition table changed during planning")
+	}
+	if direct {
+		// Binding must not widen a preliminary finite proof into an index
+		// route that has only native ownership validation.
+		bound, known := partitionPredicateSpans(sel.Where, lo, hi, e.params)
+		_, finite := partitionFiniteIDs(bound)
+		if !known || !finite {
+			if err := e.store.validateSnapshotTable(ctx, plan.meta); err != nil {
+				return nil, err
+			}
+		}
 	}
 	return plan, nil
 }
@@ -197,7 +235,7 @@ func (s *statementImpl) executePartitions(ctx context.Context) (*arrow.Schema, a
 	}
 	e := s.executor()
 	e.params, e.paramTypes = params, types
-	plan, err := e.partitionPlan(ctx, sel)
+	plan, err := e.partitionPlan(ctx, sel, 1, exactDoubleLimit-1)
 	if err != nil {
 		return fail(err)
 	}
@@ -242,6 +280,20 @@ func (s *statementImpl) executePartitions(ctx context.Context) (*arrow.Schema, a
 		d.Version = 3
 		d.Layouts = maps.Clone(s.resultLayouts)
 	}
+	var group *partitionSnapshot
+	complete := false
+	defer func() {
+		if group != nil && !complete {
+			_ = e.store.releasePartitionSnapshot(context.Background(), group.Token)
+		}
+	}()
+	if scope := snapshotOf(ctx); scope != nil {
+		group, err = e.store.retainPartitionSnapshot(ctx, s.resultTTL())
+		if err != nil {
+			return fail(err)
+		}
+		d.Version, d.Snapshot = 3, group
+	}
 	for i, span := range spans {
 		d.Lo, d.Hi = span.lo, span.hi
 		parts.PartitionIDs[i], err = json.Marshal(d)
@@ -249,6 +301,10 @@ func (s *statementImpl) executePartitions(ctx context.Context) (*arrow.Schema, a
 			return fail(errorf(adbc.StatusInvalidArgument, "partition descriptor is too large"))
 		}
 	}
+	if group != nil {
+		s.partitionSnapshotID = group.Token
+	}
+	complete = true
 	return schema, parts, -1, nil
 }
 
@@ -272,7 +328,10 @@ func decodePartition(data []byte) (partitionID, error) {
 		d.Lo < 1 || d.Hi >= exactDoubleLimit || d.Hi < d.Lo && (d.Lo != 1 || d.Hi != 0) {
 		return bad()
 	}
-	if d.Version == 1 && len(d.Layouts) > 0 || d.Version == 3 && len(d.Layouts) == 0 {
+	if d.Version == 1 && (d.Snapshot != nil || len(d.Layouts) != 0) || d.Version == 3 && d.Snapshot == nil && len(d.Layouts) == 0 {
+		return bad()
+	}
+	if d.Snapshot != nil && !d.Snapshot.valid() {
 		return bad()
 	}
 	if err := d.Layouts.partitionCompatible(); err != nil {
@@ -352,6 +411,43 @@ func (c *connectionImpl) ReadPartition(ctx context.Context, data []byte) (result
 			result, resultErr = d.Layouts.wrap(layoutCtx, c.Alloc, result)
 		}
 	}()
+	if !c.store.snapshots && d.Snapshot != nil {
+		return nil, errorf(adbc.StatusInvalidState, "partition snapshot requires a managed snapshot catalog")
+	}
+	if c.store.snapshots {
+		var stop context.CancelFunc
+		ctx, stop = context.WithTimeout(ctx, snapshotTimeout)
+		var pin *snapshotPin
+		var err error
+		ctx, pin, err = c.store.acquirePartitionSnapshot(ctx, d.Snapshot)
+		if err != nil {
+			stop()
+			return nil, err
+		}
+		defer func() {
+			if resultErr != nil || result == nil {
+				stop()
+				pin.release()
+				return
+			}
+			if reader, ok := result.(*streamReader); ok {
+				reader.mu.Lock()
+				if reader.closed {
+					reader.mu.Unlock()
+					stop()
+					pin.release()
+					return
+				}
+				reader.snapshot = pin
+				reader.snapshotCancel = stop
+				reader.snapshotStop = context.AfterFunc(ctx, func() { reader.closeWith(cancelled(ctx)) })
+				reader.mu.Unlock()
+			} else {
+				stop()
+				pin.release()
+			}
+		}()
+	}
 	sel, err := partitionSelect(d.Query)
 	if err != nil {
 		return nil, err
@@ -372,9 +468,14 @@ func (c *connectionImpl) ReadPartition(ctx context.Context, data []byte) (result
 		return nil, err
 	}
 	e := c.executor()
+	if d.Snapshot != nil && d.Schema == foreignSchema {
+		// acquirePartitionSnapshot above already validated and pinned the
+		// capability. partitionPlan still requires native managed ownership.
+		e.partitionForeignTable = d.Table
+	}
 	e.params, e.paramTypes = params, types
 	e.tz, e.tzKnown = zone.zone, true
-	plan, err := e.partitionPlan(ctx, sel)
+	plan, err := e.partitionPlan(ctx, sel, d.Lo, d.Hi)
 	if err != nil {
 		return nil, err
 	}
@@ -388,6 +489,9 @@ func (c *connectionImpl) ReadPartition(ctx context.Context, data []byte) (result
 	// Search cursor/cap/readiness requirement exists on this bounded path.
 	if candidates, known := partitionPredicateSpans(sel.Where, d.Lo, d.Hi, params); known {
 		if ids, finite := partitionFiniteIDs(candidates); finite {
+			if c.store.snapshots {
+				ctx = context.WithValue(ctx, snapshotDirectReadKey{}, true)
+			}
 			if len(ids) == 0 {
 				return recordsReader(c.Alloc, plan.columns(), nil)
 			}
@@ -406,6 +510,9 @@ func (c *connectionImpl) ReadPartition(ctx context.Context, data []byte) (result
 			r.attachOwners([]*streams{&c.streams})
 			return r, nil
 		}
+	}
+	if c.store.snapshots {
+		return e.snapshotPartitionReader(ctx, plan, sel, params, d, c)
 	}
 	if len(plan.meta.PendingCleanup) > 0 {
 		return nil, errorf(adbc.StatusInvalidState, "partition table has pending dropped-column cleanup; retry after cleanup completes")

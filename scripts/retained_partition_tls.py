@@ -134,7 +134,7 @@ def check_retained_tls(principals, control, schema, planner_uri, worker_name,
             denied.read(denied=True, permission=True)
             report['checks'].append('different_namespace_acl_denied')
             for cancel in (False, True):
-                env = {k:v for k,v in os.environ.items() if k in ('PATH','HOME','SYSTEMROOT','TMPDIR','TMP','TEMP','LD_LIBRARY_PATH','DYLD_LIBRARY_PATH')}
+                env = {k:v for k,v in os.environ.items() if k in ('PATH','HOME','SYSTEMROOT','TMPDIR','TMP','TEMP','LD_LIBRARY_PATH','DYLD_LIBRARY_PATH','REDIS_ADBC_TELEMETRY_DISABLED')}
                 payload = {'driver': driver, 'options': {**options, **worker_options, 'uri': uri},
                            'partition': base64.b64encode(part).decode(), 'cancel': cancel}
                 result = subprocess.run([sys.executable, '-c', LIFECYCLE], input=json.dumps(payload),

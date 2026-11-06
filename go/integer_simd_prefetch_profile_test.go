@@ -117,7 +117,7 @@ func TestIntegerSIMDPrefetchProfile(t *testing.T) {
 		runtime.ReadMemStats(&before)
 		start := time.Now()
 		statement, r, _ := h.openStmtStream(h.ctx, h.conn, "SELECT * FROM "+table, nil, map[string]string{OptionIntStreamBatchRows: "4096"})
-		stream, ok := r.(*streamReader)
+		stream, ok := inspectionReader(r).(*streamReader)
 		if !ok || stream.it == nil || !stream.it.hashFetch || stream.it.projection == nil || stream.it.allowPrefetch != scanPrefetchEnabled {
 			r.Release()
 			t.Fatal("wide positional Arrow path not selected")

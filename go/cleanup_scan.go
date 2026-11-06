@@ -7,6 +7,7 @@ package redis
 import (
 	"context"
 	"errors"
+	"io"
 	"strconv"
 
 	"github.com/apache/arrow-adbc/go/adbc"
@@ -18,6 +19,9 @@ import (
 // Gaps/deletes are filtered by fetchRows; raw int64 IDs need no Search doubles.
 func (e *executor) scanAllocatedCleanupPages(ctx context.Context, req scanRequest, params []Value, visit func([]string, []map[string]Value) error) error {
 	meta := req.meta
+	if snapshotOf(ctx) != nil && snapshotDataID(meta.prefix()) != "" {
+		return e.scanSnapshotFallbackPages(ctx, req, params, visit)
+	}
 	last, err := e.store.rowSequence(ctx, meta)
 	if errors.Is(err, goredis.Nil) {
 		return nil
@@ -61,4 +65,36 @@ func (e *executor) scanAllocatedCleanupPages(ctx context.Context, req scanReques
 		start += n
 	}
 	return nil
+}
+
+// Snapshot fallbacks read exact visible directories, including old segments
+// and tombstones. A current tail prefix or allocated-ID watermark cannot
+// describe their input, and sparse int64 IDs must not allocate empty pages.
+func (e *executor) scanSnapshotFallbackPages(ctx context.Context, req scanRequest, params []Value, visit func([]string, []map[string]Value) error) error {
+	it, fields, _ := e.newScanIter(ctx, req, params)
+	scan := newSnapshotDeltaScan(e.store, req.meta, fields)
+	if req.ranges != nil {
+		if err := scan.seek(ctx, req.ranges.lo, req.ranges.hi); err != nil {
+			return err
+		}
+	}
+	for {
+		if err := cancelled(ctx); err != nil {
+			return err
+		}
+		keys, raw, err := scan.next(ctx)
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		kept, rows, err := it.keep(keys, raw)
+		if err != nil {
+			return err
+		}
+		if err := visit(kept, rows); err != nil {
+			return err
+		}
+	}
 }

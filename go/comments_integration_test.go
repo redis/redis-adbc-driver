@@ -18,12 +18,14 @@ package redis
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/apache/arrow-adbc/go/adbc"
 	"github.com/apache/arrow-go/v18/arrow/array"
@@ -167,8 +169,8 @@ func TestSQLCommentOnTable(t *testing.T) {
 	h.exec(`COMMENT ON TABLE public.it_cmt_t IS NULL`)
 	h.exec(`COMMENT ON COLUMN it_cmt_t.note IS ''`)
 	h.expectComments("public", "it_cmt_t", "NULL", "id=NULL", "Fare Amount=NULL", "note=NULL")
-	if stored, err := raw.Get(h.ctx, metaKey("public", "it_cmt_t")).Result(); err != nil || strings.Contains(stored, `"comment"`) {
-		t.Errorf("metadata after removing every comment: %s (%v)", stored, err)
+	if stored := h.storedTableJSON(raw, "public", "it_cmt_t"); strings.Contains(stored, `"comment"`) {
+		t.Errorf("metadata after removing every comment: %s", stored)
 	}
 	// Setting a comment that is already absent is fine.
 	h.exec(`COMMENT ON TABLE it_cmt_t IS NULL`)
@@ -269,10 +271,29 @@ func TestSQLCommentRename(t *testing.T) {
 	if err := h.setConnOption(OptionStringRenameRekey, "true"); err != nil {
 		t.Fatal(err)
 	}
+	st, oldCtx, pin := h.inspectionSnapshot(raw)
+	defer pin.release()
+	old, err := st.getTable(oldCtx, "public", "it_cmt_r2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	keys, oldRows, err := newSnapshotDeltaScan(st, old, nil).next(oldCtx)
+	if err != nil || len(oldRows) != 1 || oldRows[0] == nil || oldRows[0]["id"] != "3" {
+		t.Fatal("pinned rekey source missing", err)
+	}
 	h.exec(`ALTER TABLE it_cmt_r2 RENAME TO it_cmt_r3`)
-	h.namesN(raw, "public", "it_cmt_r3", "it_cmt_r3") // the new name's keys
+	prefix, index := h.tableNames(raw, "public", "it_cmt_r3")
+	if prefix == old.prefix() || index == old.index() || snapshotDataID(prefix) == "" {
+		t.Fatal("rekey did not allocate a fresh snapshot layout")
+	}
+	rows, err := st.fetchSnapshotVisible(oldCtx, old, keys, nil)
+	if err != nil || !reflect.DeepEqual(rows, oldRows) {
+		t.Fatal("rekey changed pinned source", err)
+	}
 	h.expectComments("public", "it_cmt_r3", "Orders", "id=NULL", "name=Name", "qty=Quantity again")
 	h.expectRows(`SELECT id, name, qty FROM it_cmt_r3 WHERE name = 'c'`, "3|c|30")
+	pin.release()
+	h.expectSnapshotReleased(raw, old.prefix(), old.index())
 
 	// DROP TABLE drops them.
 	h.exec(`DROP TABLE it_cmt_r3`)
@@ -280,46 +301,69 @@ func TestSQLCommentRename(t *testing.T) {
 	h.expectComments("public", "it_cmt_r3", "NULL", "id=NULL", "name=NULL", "qty=NULL")
 }
 
-// COMMENT ON isn't refused while a re-keying rename moves the rows, and the
-// comment is kept by the switch, or by a rollback.
+// Comments and inserts can publish during private rekey construction. Stale
+// rekeys conflict rather than overwriting them; a fresh rekey preserves both.
 func TestSQLCommentDuringRekey(t *testing.T) {
 	h := newSQLHarness(t)
 	h.dropTables("it_cmt_mv", "it_cmt_mv2")
-	st := &store{client: h.rawClient()}
+	raw := h.rawClient()
 	h.exec(`CREATE TABLE it_cmt_mv (id INTEGER, v VARCHAR)`)
 	h.exec(`INSERT INTO it_cmt_mv VALUES (1, 'a')`)
-
-	job, _, err := st.beginRekey(h.ctx, "public", "it_cmt_mv", "it_cmt_mv2")
-	if err != nil {
-		t.Fatal(err)
+	stale := func(changes ...string) {
+		t.Helper()
+		st, ctx, pin := h.inspectionSnapshot(raw, true)
+		defer pin.release()
+		old, err := st.getTable(ctx, "public", "it_cmt_mv")
+		if err != nil {
+			t.Fatal(err)
+		}
+		keys, before, err := newSnapshotDeltaScan(st, old, nil).next(ctx)
+		if err != nil || len(before) == 0 {
+			t.Fatal("missing rekey input", err)
+		}
+		wctx, work, err := st.beginSnapshotWrite(ctx, pin)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer st.abortSnapshot(pin, work)
+		parsed, err := ParseScript(`ALTER TABLE it_cmt_mv RENAME TO it_cmt_mv2`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		e := &executor{store: st, sess: newSession("public"), schema: "public", pushdown: PushdownExact, rekey: true}
+		if _, err := e.execute(wctx, parsed[0], nil, nil, nil); err != nil {
+			t.Fatal(err)
+		}
+		private, err := st.getTable(wctx, "public", "it_cmt_mv2")
+		if err != nil || private.prefix() == old.prefix() {
+			t.Fatal("private rekey output missing", err)
+		}
+		for _, sql := range changes {
+			h.exec(sql)
+		}
+		if err := st.publishSnapshot(wctx, pin, work); sqlState(err) != "40001" {
+			t.Fatal("stale rekey lost intervening publication", err)
+		}
+		after, err := st.fetchSnapshotVisible(ctx, old, keys, nil)
+		if err != nil || !reflect.DeepEqual(before, after) {
+			t.Fatal("stale rekey changed pinned source", err)
+		}
+		h.expectError(`SELECT * FROM it_cmt_mv2`, "does not exist")
+		st.abortSnapshot(pin, work)
+		pin.release()
+		h.expectSnapshotReleased(raw, private.prefix(), private.index())
 	}
-	h.exec(`COMMENT ON TABLE it_cmt_mv IS 'During a move rolled back'`)
-	h.expectError(`INSERT INTO it_cmt_mv VALUES (2, 'b')`, "is being renamed")
-	err = st.rollbackRekey(h.ctx, job)
-	job.lease.release()
-	if err != nil {
-		t.Fatal(err)
-	}
+	stale(`COMMENT ON TABLE it_cmt_mv IS 'During a move rolled back'`, `INSERT INTO it_cmt_mv VALUES (2, 'b')`)
 	h.expectComments("public", "it_cmt_mv", "During a move rolled back", "id=NULL", "v=NULL")
-
-	job, start, err := st.beginRekey(h.ctx, "public", "it_cmt_mv", "it_cmt_mv2")
-	if err != nil {
+	stale(`COMMENT ON COLUMN it_cmt_mv.v IS 'During the copy'`)
+	h.expectComments("public", "it_cmt_mv", "During a move rolled back", "id=NULL", "v=During the copy")
+	stale(`COMMENT ON TABLE it_cmt_mv IS 'Before the switch'`)
+	if err := h.setConnOption(OptionStringRenameRekey, "true"); err != nil {
 		t.Fatal(err)
 	}
-	defer job.lease.release()
-	h.exec(`COMMENT ON COLUMN it_cmt_mv.v IS 'During the copy'`)
-	if err := st.moveRows(h.ctx, job, start, time.Now()); err != nil {
-		t.Fatal(err)
-	}
-	h.exec(`COMMENT ON TABLE it_cmt_mv IS 'Before the switch'`)
-	if _, err := st.switchRekey(h.ctx, job, start); err != nil {
-		t.Fatal(err)
-	}
-	if err := st.finishRekey(h.ctx, job); err != nil {
-		t.Fatal(err)
-	}
+	h.exec(`ALTER TABLE it_cmt_mv RENAME TO it_cmt_mv2`)
 	h.expectComments("public", "it_cmt_mv2", "Before the switch", "id=NULL", "v=During the copy")
-	h.expectRows(`SELECT id, v FROM it_cmt_mv2 WHERE v = 'a'`, "1|a")
+	h.expectRows(`SELECT id, v FROM it_cmt_mv2 ORDER BY id`, "1|a", "2|b")
 	h.expectError(`COMMENT ON TABLE it_cmt_mv IS 'x'`, `relation "it_cmt_mv" does not exist`)
 }
 
@@ -481,8 +525,8 @@ func TestSQLCreateTableComment(t *testing.T) {
 	h.expectError(`CREATE TABLE it_cmt_bad (id INTEGER) COMMENT = 'x' 'y'`, `unexpected "y"`)
 }
 
-// Comments are written with WATCH/MULTI: concurrent comments on one table
-// from several connections are all kept, and so is a concurrent ALTER.
+// Same-definition publications serialize or conflict, never silently lose
+// comments. Explicit fresh statements can then apply the refused changes.
 func TestSQLCommentConcurrent(t *testing.T) {
 	h := newSQLHarness(t)
 	h.dropTables("it_cmt_conc")
@@ -493,41 +537,79 @@ func TestSQLCommentConcurrent(t *testing.T) {
 		want[i] = fmt.Sprintf("c%d=comment %d", i, i)
 	}
 	h.exec(`CREATE TABLE it_cmt_conc (` + strings.Join(cols, ", ") + `)`)
-	// One connection per column comments it and then the table; one more
-	// adds a column.
-	conns := make([]*sqlHarness, n+1)
-	for i := range conns {
-		conns[i] = newSQLHarness(t)
+	// Stage individual autocommit statements against the same definition,
+	// then race publication. A descriptor change must never be silently lost.
+	st := &store{client: h.rawClient(), snapshots: true}
+	if os.Getenv("REDIS_SNAPSHOT_ADMISSION_DIAGNOSTICS") != "" {
+		snapshotAdmissionDiagnostics(t, st, h.ctx)
 	}
-	var wg sync.WaitGroup
-	errs := make([]error, n+1)
-	for i, c := range conns {
-		sqls := []string{
-			fmt.Sprintf(`COMMENT ON COLUMN it_cmt_conc.c%d IS 'comment %d'`, i, i),
-			fmt.Sprintf(`COMMENT ON TABLE it_cmt_conc IS 'set by %d'`, i),
+	race := func(sqls []string) int {
+		t.Helper()
+		contexts := make([]context.Context, len(sqls))
+		pins := make([]*snapshotPin, len(sqls))
+		works := make([]string, len(sqls))
+		for i, sql := range sqls {
+			contexts[i], pins[i], works[i] = snapshotStageSQL(t, st, h.ctx, "", sql)
 		}
-		if i == n {
-			sqls = []string{`ALTER TABLE it_cmt_conc ADD COLUMN added INTEGER`}
+		errs := make([]error, len(sqls))
+		start := make(chan struct{})
+		var wg sync.WaitGroup
+		for i := range sqls {
+			wg.Add(1)
+			go func() { defer wg.Done(); <-start; errs[i] = st.publishSnapshot(contexts[i], pins[i], works[i]) }()
 		}
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for _, sql := range sqls {
-				if _, err := tryExec(h.ctx, c.conn, sql); err != nil {
-					errs[i] = err
-					return
+		close(start)
+		wg.Wait()
+		winner := -1
+		for i, err := range errs {
+			if err == nil {
+				if winner >= 0 {
+					t.Fatal("two same-definition changes published")
 				}
+				winner = i
+			} else if sqlState(err) != "40001" {
+				t.Fatalf("unexpected concurrent error %d: %v", i, err)
 			}
-		}()
+			st.abortSnapshot(pins[i], works[i])
+			pins[i].release()
+		}
+		if winner < 0 {
+			t.Fatal("no same-definition writer published")
+		}
+		return winner
 	}
-	wg.Wait()
-	for i, err := range errs {
-		if err != nil {
-			t.Errorf("statement %d: %v", i, err)
+	sqls := make([]string, n+1)
+	for i := range n {
+		sqls[i] = fmt.Sprintf(`COMMENT ON COLUMN it_cmt_conc.c%d IS 'comment %d'`, i, i)
+	}
+	sqls[n] = `ALTER TABLE it_cmt_conc ADD COLUMN added INTEGER`
+	winner := race(sqls)
+	partial := []string{"NULL"}
+	for i := range n {
+		value := fmt.Sprintf("c%d=NULL", i)
+		if i == winner {
+			value = want[i]
+		}
+		partial = append(partial, value)
+	}
+	if winner == n {
+		partial = append(partial, "added=NULL")
+	}
+	h.expectComments("public", "it_cmt_conc", partial...)
+	// Explicit fresh client statements after proven serialization refusals;
+	// the driver itself never replays a failed statement.
+	for i, sql := range sqls {
+		if i != winner {
+			h.exec(sql)
 		}
 	}
+	tableSQL := make([]string, n)
+	for i := range n {
+		tableSQL[i] = fmt.Sprintf(`COMMENT ON TABLE it_cmt_conc IS 'set by %d'`, i)
+	}
+	tableWinner := race(tableSQL)
 	rows, _ := h.query(`SELECT comment FROM information_schema.tables WHERE table_name = 'it_cmt_conc'`)
-	if len(rows) != 1 || !strings.HasPrefix(rows[0], "set by ") {
+	if len(rows) != 1 || rows[0] != fmt.Sprintf("set by %d", tableWinner) {
 		t.Fatalf("table comment = %q", rows)
 	}
 	h.expectComments("public", "it_cmt_conc", append([]string{rows[0]}, append(want, "added=NULL")...)...)

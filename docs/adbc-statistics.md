@@ -14,30 +14,35 @@ produces zero catalog rows; a missing schema/table produces empty nested lists.
 Views and temporary, adopted, application/foreign-index tables are omitted.
 Moving tables and tables with pending index cleanup are also omitted.
 
-With `approximate=true`, counts use live Search document counts and require
-FT.INFO readiness plus FT.SEARCH access. With `approximate=false`, the driver
-scans authoritative HASH identities, deduplicates keys and validates physical
-row IDs; it does not consult Search counts. That path needs SCAN, HGET and HEXISTS plus
-normal catalog metadata access. It is bounded by a one-minute deadline, 64 MiB
-identity budget and two million work units (each candidate key plus two field-existence probes
-per column), with at most 4,096 columns. Exhaustion fails explicitly.
+Discovery and row counts share one pinned committed generation. Concurrent DML,
+TRUNCATE, DROP or recreation cannot mix table definitions or row counts within
+one request. The returned Arrow data is materialized before the pin releases.
 
-Both paths return `statistic_is_approximate=true`: neither isolates concurrent
-DML/DDL, and SCAN can observe membership from different times. ADBC allows an
-approximate result even when exact statistics were requested. The HASH path
-avoids index lag; it does not provide a transaction snapshot. Quiescent sources
-produce complete counts. Table identity changes fail rather than silently
-switching to replacement data.
+With `approximate=true`, native counts use immutable per-segment Search queries
+with exact visibility masks: shadowed versions and tombstones never contribute.
+This path requires FT.INFO readiness and FT.SEARCH access. Inexact numeric IDs or
+excessive mask work fall back to authoritative directories. With
+`approximate=false`, counts merge ordered row-ID directories and read winning
+HASH identities and tombstones; they do not consult Search document counts.
+Directory reads use bounded pages and require ZRANGE/HMGET plus normal snapshot
+catalog/pin access. They have a one-minute per-table deadline and a two-million
+physical directory-entry work budget, including shadowed/deleted entries.
+Exhaustion fails explicitly rather than returning a partial count.
 
+Both request modes retain `statistic_is_approximate=true` for API compatibility,
+including native visible counts that are exact at their pinned generation.
 The authoritative (`approximate=false`) path also returns standard column NULL
-count key **5**, as int64 union values, for each physical SQL column. Counts use
-field existence rather than fetching unbounded payloads: empty strings/binary
-and NaN are non-NULL. Absent HASH fields follow stored ADD COLUMN defaults and
-explicit NULL markers. An empty eligible table returns zero per known column;
-unknown/filter-excluded columns produce no invented entries. Both row and NULL
-counts are classified approximate under concurrent writes, without a snapshot.
-The Search (`approximate=true`) path continues to return only row counts.
-Distinct/min/max/width/size quantities remain unavailable and omitted.
+count key **5**, as int64 union values, for each physical SQL column. It resolves
+winning versions/tombstones first and probes field/explicit-NULL-marker existence
+without fetching unbounded payloads. Empty values and NaN are non-NULL; missing
+fields follow stored ADD COLUMN defaults. The one-minute deadline and two-million
+work-unit ceiling include physical directory entries plus two field-existence
+probes per visible row/column, with at most 4,096 columns. Empty eligible tables
+return zero for each known column; excluded tables/columns invent no entries.
+Search (`approximate=true`) still returns row counts only.
+Distinct/min/max/width/size quantities remain unavailable and omitted. The full restricted-principal snapshot command
+recipe remains a validation gate; historical read-only grants do not establish
+current-protocol permission compatibility.
 
 Permission denial fails explicitly; it does not become a zero count. Named ACL
 users do not require CONFIG for statistics. Reader-only retained

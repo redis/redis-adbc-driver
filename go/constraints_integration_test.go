@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -35,10 +36,7 @@ import (
 // them, "name: expr".
 func (h *sqlHarness) storedChecks(raw goredis.UniversalClient, schema, table string) []string {
 	h.t.Helper()
-	meta, err := (&store{client: raw}).getTable(h.ctx, schema, table)
-	if err != nil {
-		h.t.Fatal(err)
-	}
+	meta := h.inspectTable(raw, schema, table)
 	var out []string
 	for _, c := range meta.Checks {
 		out = append(out, c.Name+": "+c.Expr)
@@ -208,7 +206,7 @@ func TestSQLConstraintForms(t *testing.T) {
 	} {
 		h.expectError(sql, msg)
 	}
-	if ok, err := (&store{client: raw}).tableExists(h.ctx, defaultSchema, "it_con_bad"); err != nil || ok {
+	if _, err := h.conn.GetTableSchema(h.ctx, nil, nil, "it_con_bad"); !isStatus(err, adbc.StatusNotFound) {
 		t.Errorf("it_con_bad exists (%v)", err)
 	}
 }
@@ -498,7 +496,7 @@ func TestSQLCheckDefinition(t *testing.T) {
 		b.Release()
 		h.expectError(sql, "query has 1 parameter(s) but none are bound")
 	}
-	if ok, err := (&store{client: raw}).tableExists(h.ctx, defaultSchema, "it_chk_bad"); err != nil || ok {
+	if _, err := h.conn.GetTableSchema(h.ctx, nil, nil, "it_chk_bad"); !isStatus(err, adbc.StatusNotFound) {
 		t.Errorf("it_chk_bad exists (%v)", err)
 	}
 	h.expectChecks(raw, "it_chk_names", before...)
@@ -640,12 +638,31 @@ func TestSQLCheckLifetime(t *testing.T) {
 	if err := h.setConnOption(OptionStringRenameRekey, "true"); err != nil {
 		t.Fatal(err)
 	}
+	st, oldCtx, pin := h.inspectionSnapshot(raw)
+	defer pin.release()
+	old, err := st.getTable(oldCtx, "public", "it_chk_life2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	keys, before, err := newSnapshotDeltaScan(st, old, nil).next(oldCtx)
+	if err != nil || len(before) != 3 {
+		t.Fatal("missing pinned CHECK rekey input", err)
+	}
 	h.exec(`ALTER TABLE it_chk_life2 RENAME TO it_chk_life3`)
-	h.namesN(raw, "public", "it_chk_life3", "it_chk_life3") // the new name's keys
+	prefix, index := h.tableNames(raw, "public", "it_chk_life3")
+	if prefix == old.prefix() || index == old.index() || snapshotDataID(prefix) == "" {
+		t.Fatal("CHECK rekey did not allocate fresh snapshot storage")
+	}
+	after, err := st.fetchSnapshotVisible(oldCtx, old, keys, nil)
+	if err != nil || !reflect.DeepEqual(before, after) {
+		t.Fatal("CHECK rekey changed pinned input", err)
+	}
 	h.expectChecks(raw, "it_chk_life3", checks[0], checks[3])
 	h.expectError(`INSERT INTO it_chk_life3 VALUES (5, -1, 100, 1)`, `new row for relation "it_chk_life3" violates check constraint "it_chk_life_amount_check"`)
 	h.expectError(`UPDATE it_chk_life3 SET ident = -1`, `violates check constraint "it_chk_life_id_check"`)
 	h.expectRows(`SELECT ident, "Amount Due", low, hi FROM it_chk_life3 ORDER BY ident`, "2|1|1|NULL", "3|1|100|NULL", "4|1|100|1")
+	pin.release()
+	h.expectSnapshotReleased(raw, old.prefix(), old.index())
 
 	// The stored text keeps comments and quoting inside the expression, and
 	// RENAME COLUMN finds every reference: also a column named like a date
@@ -675,8 +692,8 @@ func TestSQLCheckLifetime(t *testing.T) {
 	h.exec(`DROP TABLE it_chk_life3`)
 	h.exec(`CREATE TABLE it_chk_life3 (amount integer)`)
 	h.exec(`INSERT INTO it_chk_life3 VALUES (-1)`)
-	if raw, err := raw.Get(h.ctx, metaKey("public", "it_chk_life3")).Result(); err != nil || strings.Contains(raw, "checks") {
-		t.Errorf("metadata %s (%v)", raw, err)
+	if doc := h.storedTableJSON(raw, "public", "it_chk_life3"); strings.Contains(doc, "checks") {
+		t.Errorf("metadata %s", doc)
 	}
 	if got := h.tableConstraints("public", "it_chk_life3"); strings.Join(got, ",") != "table" {
 		t.Errorf("GetObjects constraints %q", got)
@@ -692,11 +709,7 @@ func TestSQLCheckMetadata(t *testing.T) {
 	h.dropTables("it_chk_meta")
 	raw := h.rawClient()
 	h.exec(`CREATE TABLE it_chk_meta (a integer check (a > 0), b integer)`)
-	key := metaKey("public", "it_chk_meta")
-	js, err := raw.Get(h.ctx, key).Result()
-	if err != nil {
-		t.Fatal(err)
-	}
+	js := h.storedTableJSON(raw, "public", "it_chk_meta")
 	var m map[string]any
 	if err := json.Unmarshal([]byte(js), &m); err != nil {
 		t.Fatal(err)
@@ -714,9 +727,7 @@ func TestSQLCheckMetadata(t *testing.T) {
 	cols[0].(map[string]any)["name"] = "x"
 	cols[0].(map[string]any)["field"] = "a"
 	out, _ := json.Marshal(m)
-	if err := raw.Set(h.ctx, key, out, 0).Err(); err != nil {
-		t.Fatal(err)
-	}
+	h.writeTableJSON(raw, "public", "it_chk_meta", string(out))
 	msg := `check constraint "it_chk_meta_a_check" of relation "it_chk_meta" can't be evaluated (column "a" does not exist in table "it_chk_meta"); drop it with ALTER TABLE … DROP CONSTRAINT`
 	h.expectError(`INSERT INTO it_chk_meta VALUES (1, 1)`, msg)
 	h.expectError(`UPDATE it_chk_meta SET b = 2`, msg)
@@ -725,11 +736,12 @@ func TestSQLCheckMetadata(t *testing.T) {
 	h.expectRows(`SELECT x, b FROM it_chk_meta`, "-1|1")
 
 	// Without the checks field (an older table), nothing is checked.
-	delete(m, "checks")
-	out, _ = json.Marshal(m)
-	if err := raw.Set(h.ctx, key, out, 0).Err(); err != nil {
+	if err := json.Unmarshal([]byte(h.storedTableJSON(raw, "public", "it_chk_meta")), &m); err != nil {
 		t.Fatal(err)
 	}
+	delete(m, "checks")
+	out, _ = json.Marshal(m)
+	h.writeTableJSON(raw, "public", "it_chk_meta", string(out))
 	h.exec(`INSERT INTO it_chk_meta VALUES (-2, 1)`)
 	h.expectRows(`SELECT COUNT(*) FROM it_chk_meta`, "2")
 }

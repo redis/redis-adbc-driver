@@ -6,6 +6,7 @@ import (
 	"context"
 	"maps"
 	"reflect"
+	"strings"
 
 	"github.com/apache/arrow-adbc/go/adbc"
 )
@@ -27,8 +28,8 @@ func statementWith(st Stmt) []CTE {
 }
 
 // Capture physical inputs before this statement performs its first write.
-// This is an in-memory statement image, not cross-connection isolation or a
-// transaction. A later failure can leave earlier CTE writes applied.
+// Snapshot catalogs stage all modifying bodies in one private workspace and
+// publish only after the outer statement succeeds.
 func (e *executor) prepareDMLCTEs(ctx context.Context, st Stmt) (bool, error) {
 	with := statementWith(st)
 	has := false
@@ -196,6 +197,47 @@ func (e *executor) runDMLCTE(ctx context.Context, def *CTE) (*tableMeta, error) 
 	}
 	e.dmlRunning[def] = true
 	defer delete(e.dmlRunning, def)
+	if e.store.snapshots && !e.planOnly {
+		var target TableName
+		switch st := def.Statement.(type) {
+		case *InsertStmt:
+			target = st.Table
+		case *UpdateStmt:
+			target = st.Table
+		case *DeleteStmt:
+			target = st.Table
+		case *MergeStmt:
+			target = st.Table
+		}
+		schema, name, err := e.resolveTable(target)
+		if err != nil {
+			return nil, err
+		}
+		if err := e.store.prepareSnapshotTable(ctx, schema, name); err != nil {
+			return nil, err
+		}
+		key := metaKey(schema, name)
+		if frozen := e.dmlSnapshots[key]; frozen != nil {
+			current, err := e.store.getTable(ctx, schema, name)
+			if err != nil {
+				return nil, err
+			}
+			// SQL still reads the statement's frozen values. Target identities
+			// point at the private delta, never at its published input HASHes.
+			image := *frozen
+			image.KeyPrefix, image.IndexName, image.PrefixGen = current.KeyPrefix, current.IndexName, current.PrefixGen
+			image.SnapshotSegments, image.SnapshotRows, image.SnapshotOverlay = current.SnapshotSegments, current.SnapshotRows, current.SnapshotOverlay
+			image.sourceKeys = make([]string, len(frozen.sourceKeys))
+			for i, oldKey := range frozen.sourceKeys {
+				id, ok := strings.CutPrefix(oldKey, frozen.prefix())
+				if !ok {
+					return nil, errorf(adbc.StatusIO, "invalid modifying CTE row identity")
+				}
+				image.sourceKeys[i] = current.prefix() + id
+			}
+			e.dmlSnapshots[key] = &image
+		}
+	}
 	var n int64
 	var err error
 	switch st := def.Statement.(type) {

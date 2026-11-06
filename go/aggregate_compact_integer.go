@@ -97,7 +97,7 @@ func sampleCompactTupleRTT(ctx context.Context, ping func(context.Context) error
 	return slowest, nil
 }
 
-func (e *executor) compactIntegerTuplePartition(ctx context.Context, plan *selectPlan, p *tupleAggregatePlan, part wherePlan, params []Value, emit func([]Value, int64) error) error {
+func (e *executor) compactIntegerTuplePartition(ctx context.Context, plan *selectPlan, p *tupleAggregatePlan, part wherePlan, params []Value, lo, hi int64, emit func([]Value, int64) error) error {
 	need := map[string]bool{}
 	aggs := make([]*Func, len(p.cols))
 	for i, c := range p.cols {
@@ -146,7 +146,11 @@ func (e *executor) compactIntegerTuplePartition(ctx context.Context, plan *selec
 	if e.aggregateMetrics != nil {
 		e.aggregateMetrics.rowScans.Add(1)
 	}
-	handled, err := local.scanScalarAggregateValues(ctx, scanRequest{meta: plan.meta, where: part, need: need, authoritative: true}, params, aggs, func(vals []Value) error {
+	req := scanRequest{meta: plan.meta, where: part, need: need, authoritative: true}
+	if plan.meta.SnapshotOverlay {
+		req.ranges = &rowIDRangeScan{lo: lo, hi: hi}
+	}
+	handled, err := local.scanScalarAggregateValues(ctx, req, params, aggs, func(vals []Value) error {
 		var key compactIntegerTuple
 		for i, v := range vals {
 			if v.Null {

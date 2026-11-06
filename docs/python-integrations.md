@@ -464,9 +464,14 @@ read/write paths below are separate integrations.
 uneven. `concurrency` caps simultaneous Ray read tasks independently of split
 count. `batch_rows` controls native Arrow batch rows, not total pipeline memory;
 Ray can combine or split blocks and buffer data in its object store. Output is
-unordered. Reads and retries have no shared snapshot, stable replay or
-exactly-once guarantee. Concurrent writes can change re-read values. Schema or
-physical table changes can invalidate descriptors and require a new query plan.
+unordered. All tasks and retries share the generation acquired during planning,
+including across concurrent writes, schema changes, TRUNCATE and DROP. Planning
+a new datasource observes a new committed generation. Descriptors accept new
+readers for five minutes by default; expiry or explicit partition-group release
+requires a new query plan. Readers already admitted retain their own pins.
+Closing planner handles does not release the group. This is snapshot replay,
+not CDC or an exactly-once processing guarantee; see the
+[partition lifetime contract](partitioned-reads.md).
 
 `db_kwargs` and `conn_kwargs` are passed to caller and worker connections.
 For private TLS CAs, use a verified `rediss://` URI and

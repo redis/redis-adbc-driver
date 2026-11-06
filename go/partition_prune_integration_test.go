@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/apache/arrow-adbc/go/adbc"
+	"github.com/apache/arrow-go/v18/arrow"
 	goredis "github.com/redis/go-redis/v9"
 )
 
@@ -22,6 +23,18 @@ func TestPrunedPartitionReads(t *testing.T) {
 	t.Cleanup(func() { h.exec("DROP TABLE IF EXISTS " + table) })
 	h.exec("DELETE FROM " + table + " WHERE id=2")
 	worker := newSQLHarness(t)
+	raw := h.rawClient()
+	produce := func(t *testing.T, query string, count int) (*arrow.Schema, adbc.Partitions, string) {
+		t.Helper()
+		schema, parts := planPartitions(t, h, query, count)
+		descriptor, err := decodePartition(parts.PartitionIDs[0])
+		if err != nil || descriptor.Snapshot == nil {
+			t.Fatal("missing shared generation", err)
+		}
+		token := descriptor.Snapshot.Token
+		t.Cleanup(func() { h.exec("DROP PARTITION SNAPSHOT '" + token + "'") })
+		return schema, parts, token
+	}
 	for _, tc := range []struct {
 		where string
 		count int
@@ -36,7 +49,8 @@ func TestPrunedPartitionReads(t *testing.T) {
 	} {
 		t.Run(tc.where, func(t *testing.T) {
 			q := "SELECT id FROM " + table + " WHERE " + tc.where
-			schema, parts := planPartitions(t, h, q, 8)
+			schema, parts, token := produce(t, q, 8)
+			defer h.exec("DROP PARTITION SNAPSHOT '" + token + "'")
 			if int(parts.NumPartitions) != tc.count {
 				t.Fatalf("descriptors: got %d want %d", parts.NumPartitions, tc.count)
 			}
@@ -76,8 +90,9 @@ func TestPrunedPartitionReads(t *testing.T) {
 			}
 		})
 	}
-	// A live direct reader observes updates/deletes, but excludes new IDs.
-	_, parts := planPartitions(t, h, "SELECT id FROM "+table+" WHERE __rowid>=4999", 1)
+	// A pruned capability retains its producer generation through later writes.
+	_, parts, oldToken := produce(t, "SELECT id FROM "+table+" WHERE __rowid>=4999", 1)
+	old := h.inspectTable(raw, defaultSchema, table)
 	h.exec("UPDATE " + table + " SET id=9000 WHERE __rowid=4999")
 	h.exec("DELETE FROM " + table + " WHERE __rowid=5000")
 	h.exec("INSERT INTO " + table + " (id,label,qty) VALUES(5001,'later',0)")
@@ -87,11 +102,19 @@ func TestPrunedPartitionReads(t *testing.T) {
 	}
 	vals, _, err := readInts(r)
 	r.Release()
-	if err != nil || !slices.Equal(vals, []int64{9000}) {
+	if err != nil || !slices.Equal(vals, []int64{4998, 4999}) {
 		t.Fatal(vals, err)
 	}
+	h.expectRows("SELECT id FROM "+table+" WHERE __rowid>=4999 ORDER BY __rowid", "9000", "5001")
 	// Small Arrow batches exercise pending-page cancellation and owner closure.
-	_, parts = planPartitions(t, h, "SELECT id FROM "+table+" WHERE __rowid BETWEEN 1 AND 1024", 1)
+	_, parts, token := produce(t, "SELECT id FROM "+table+" WHERE __rowid BETWEEN 1 AND 1024", 1)
+	expectedReader, _ := h.openStream(h.ctx, h.conn, "SELECT id FROM "+table+" WHERE __rowid BETWEEN 1 AND 1024 ORDER BY __rowid", nil, nil)
+	expected, _, err := readInts(expectedReader)
+	expectedReader.Release()
+	if err != nil {
+		t.Fatal(err)
+	}
+	pinned := h.inspectTable(raw, defaultSchema, table)
 	worker.conn.Close(h.ctx)
 	worker = openWith(t, os.Getenv("REDIS_URI"), map[string]string{OptionIntStreamBatchRows: "10"})
 	ctx, cancel := context.WithCancel(h.ctx)
@@ -122,15 +145,34 @@ func TestPrunedPartitionReads(t *testing.T) {
 		t.Fatal(err)
 	}
 	h.exec("TRUNCATE " + table)
-	if r.Next() || !isStatus(r.Err(), adbc.StatusIO) || !strings.Contains(r.Err().Error(), "truncated or dropped") {
-		t.Fatal("stale reader", r.Err())
-	}
+	h.exec("DROP TABLE " + table)
+	snapshotReapTest(&store{client: raw, snapshots: true}, h.ctx)
+	vals, _, err = readInts(r)
 	r.Release()
-	if r, err = worker.conn.ReadPartition(h.ctx, parts.PartitionIDs[0]); !isStatus(err, adbc.StatusInvalidState) {
+	if err != nil || !slices.Equal(vals, expected) {
+		t.Fatal("pinned reader changed after retirement", vals, err)
+	}
+	r, err = worker.conn.ReadPartition(h.ctx, parts.PartitionIDs[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	vals, _, err = readInts(r)
+	r.Release()
+	if err != nil || !slices.Equal(vals, expected) {
+		t.Fatal("pinned descriptor changed after retirement", vals, err)
+	}
+	h.exec("DROP PARTITION SNAPSHOT '" + oldToken + "'")
+	h.exec("DROP PARTITION SNAPSHOT '" + token + "'")
+	for _, descriptor := range []*tableMeta{old, pinned} {
+		for _, segment := range descriptor.snapshotSegments() {
+			h.expectSnapshotReleased(raw, segment.Prefix, segment.Index)
+		}
+	}
+	if r, err = worker.conn.ReadPartition(h.ctx, parts.PartitionIDs[0]); !isStatus(err, adbc.StatusIO) || !strings.Contains(err.Error(), "partition snapshot expired or released") {
 		if r != nil {
 			r.Release()
 		}
-		t.Fatal(err)
+		t.Fatal("released generation remained available", err)
 	}
 }
 
@@ -157,11 +199,22 @@ func TestPrunedPartitionPermissions(t *testing.T) {
 		t.Fatal(err)
 	}
 	r, err = worker.conn.ReadPartition(a.ctx, parts.PartitionIDs[0])
-	if err != nil {
-		t.Fatal(err)
+	if err == nil {
+		if r == nil {
+			t.Fatal("missing both partition reader and permission error")
+		}
+		if r.Next() {
+			r.Release()
+			t.Fatal("denied HMGET returned partition values")
+		}
+		err = r.Err()
+		r.Release()
+	} else if r != nil {
+		r.Release()
 	}
-	if r.Next() || !isStatus(r.Err(), adbc.StatusIO) || !strings.Contains(r.Err().Error(), "NOPERM") {
-		t.Fatal("denied HASH permission bypassed", r.Err())
+	// HMGET may be required by immutable metadata admission before row
+	// iteration. Either phase must reject this exact command with no values.
+	if !isStatus(err, adbc.StatusIO) || !strings.Contains(err.Error(), "NOPERM") || !strings.Contains(strings.ToLower(err.Error()), "hmget") {
+		t.Fatal("denied HMGET permission bypassed", err)
 	}
-	r.Release()
 }

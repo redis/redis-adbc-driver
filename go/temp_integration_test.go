@@ -71,14 +71,27 @@ func (h *sqlHarness) newTempID(raw goredis.UniversalClient, before map[string]bo
 // cluster, row keys are in different slots).
 func (h *sqlHarness) existing(raw goredis.UniversalClient, keys ...string) []string {
 	h.t.Helper()
+	// Logical catalog existence belongs to one current manifest. Physical rows
+	// and liveness controls remain raw probes, including already retired data.
+	var st *store
+	var ctx context.Context
+	var pin *snapshotPin
+	defer func() { pin.release() }()
 	var out []string
-	for _, k := range keys {
-		n, err := raw.Exists(h.ctx, k).Result()
+	for _, key := range keys {
+		client, readCtx := raw, h.ctx
+		if strings.HasPrefix(key, metaPrefix) && !strings.HasPrefix(key, snapshotPrefix) && !snapshotTempControlKey(key) {
+			if st == nil {
+				st, ctx, pin = h.inspectionSnapshot(raw)
+			}
+			client, readCtx = st.redis(ctx), ctx
+		}
+		n, err := client.Exists(readCtx, key).Result()
 		if err != nil {
 			h.t.Fatal(err)
 		}
 		if n > 0 {
-			out = append(out, k)
+			out = append(out, key)
 		}
 	}
 	return out
@@ -245,16 +258,23 @@ func TestSQLTempTables(t *testing.T) {
 
 	// Stored like any table, under the connection's own schema, which is not
 	// registered as a schema.
-	meta, err := (&store{client: raw}).getTable(h.ctx, schema, "it_tmp")
+	st, inspectCtx, inspectPin := h.inspectionSnapshot(raw)
+	defer inspectPin.release()
+	meta, err := st.getTable(inspectCtx, schema, "it_tmp")
 	if err != nil {
+		inspectPin.release()
 		t.Fatal(err)
 	}
-	if meta.prefix() != schema+":it_tmp:" || meta.index() != "idx:"+schema+":it_tmp" {
-		t.Errorf("prefix %q, index %q", meta.prefix(), meta.index())
+	for _, seg := range meta.snapshotSegments() {
+		data := snapshotDataID(seg.Prefix)
+		if data == "" || seg.Prefix != snapshotRows(data, schema, meta.SnapshotAccessID) || snapshotDataID(seg.Index) != data {
+			t.Fatal("temporary storage is not canonical")
+		}
 	}
-	if ok, err := raw.SIsMember(h.ctx, schemasKey, schema).Result(); err != nil || ok {
-		t.Errorf("%s is registered in %s (err %v)", schema, schemasKey, err)
+	if ok, err := st.redis(inspectCtx).SIsMember(inspectCtx, schemasKey, schema).Result(); err != nil || ok {
+		t.Fatal("private temporary schema entered the public registry", err)
 	}
+	inspectPin.release()
 
 	// IF NOT EXISTS and clashes.
 	h.exec(`CREATE TEMPORARY TABLE IF NOT EXISTS it_tmp (x INTEGER)`)
@@ -316,26 +336,32 @@ func TestSQLTempTables(t *testing.T) {
 	h.expectError(`ALTER TABLE it_tmp RENAME TO public.it_tmp`, "another schema")
 	h.expectRows(`SELECT id, tag FROM it_tmp WHERE tag = 'c'`, "3|c")
 
-	// TRUNCATE keeps the table, and moves it to new keys.
-	h.exec(`TRUNCATE TABLE it_tmp_ctas`)
-	if n := h.namesN(raw, schema, "it_tmp_ctas", "it_tmp_ctas"); n != 2 {
-		t.Errorf("the truncated temporary table has the names of N = %d, want 2", n)
+	// TRUNCATE keeps the temporary definition and allocates fresh storage.
+	prior := h.inspectTable(raw, schema, "it_tmp_ctas")
+	h.exec("TRUNCATE TABLE it_tmp_ctas")
+	prefix, index := h.rekeyNativeLayout(raw, schema, "it_tmp_ctas")
+	for _, seg := range prior.snapshotSegments() {
+		if prefix == seg.Prefix || index == seg.Index {
+			t.Fatal("temporary TRUNCATE reused storage")
+		}
+		h.expectSnapshotReleased(raw, seg.Prefix, seg.Index)
 	}
 	h.expectRows(`SELECT COUNT(*) FROM it_tmp_ctas`, "0")
 	h.exec(`INSERT INTO it_tmp_ctas VALUES (5, 1.25)`)
 	h.expectRows(`SELECT customer_id, total FROM it_tmp_ctas WHERE customer_id = 5`, "5|1.25")
 
-	// DROP TABLE.
-	h.exec(`DROP TABLE IF EXISTS it_tmp_q CASCADE`)
-	h.exec(`DROP TABLE it_tmp`)
-	h.expectError(`SELECT * FROM it_tmp`, "does not exist")
-	h.exec(`DROP TABLE IF EXISTS it_tmp`)
-	h.exec(`DROP TABLE IF EXISTS pg_temp.it_tmp`)
-	if got := h.existing(raw, metaKey(schema, "it_tmp"), metaKey(schema, "it_tmp2"), meta.prefix()+"2"); len(got) > 0 {
-		t.Errorf("left after DROP TABLE: %v", got)
+	// DROP removes the logical descriptor and retires every current segment.
+	retired := h.inspectTable(raw, schema, "it_tmp")
+	h.exec("DROP TABLE IF EXISTS it_tmp_q CASCADE")
+	h.exec("DROP TABLE it_tmp")
+	h.expectError("SELECT * FROM it_tmp", "does not exist")
+	h.exec("DROP TABLE IF EXISTS it_tmp")
+	h.exec("DROP TABLE IF EXISTS pg_temp.it_tmp")
+	if got := h.existing(raw, metaKey(schema, "it_tmp"), metaKey(schema, "it_tmp2")); len(got) > 0 {
+		t.Fatal("temporary descriptors survived DROP", got)
 	}
-	if h.indexExists(raw, meta.index()) {
-		t.Errorf("index %s left after DROP TABLE", meta.index())
+	for _, seg := range retired.snapshotSegments() {
+		h.expectSnapshotReleased(raw, seg.Prefix, seg.Index)
 	}
 }
 
@@ -420,15 +446,8 @@ func TestSQLTempIsolation(t *testing.T) {
 	b.expectRows(`SELECT COUNT(*) FROM it_iso WHERE who = 'a'`, "0")
 
 	// Their rows and indexes don't overlap.
-	st := &store{client: raw}
-	ma, err := st.getTable(a.ctx, schemaA, "it_iso")
-	if err != nil {
-		t.Fatal(err)
-	}
-	mb, err := st.getTable(a.ctx, schemaB, "it_iso")
-	if err != nil {
-		t.Fatal(err)
-	}
+	ma := a.inspectTable(raw, schemaA, "it_iso")
+	mb := b.inspectTable(raw, schemaB, "it_iso")
 	if strings.HasPrefix(ma.prefix(), mb.prefix()) || strings.HasPrefix(mb.prefix(), ma.prefix()) || ma.index() == mb.index() {
 		t.Errorf("prefixes %q / %q, indexes %q / %q", ma.prefix(), mb.prefix(), ma.index(), mb.index())
 	}
@@ -443,6 +462,9 @@ func TestSQLTempIsolation(t *testing.T) {
 	}
 	b.exec(`INSERT INTO it_iso VALUES (2, 'b', 8)`)
 	b.expectRows(`SELECT id, who, n FROM it_iso ORDER BY id`, "1|b|7", "2|b|8")
+	for _, seg := range ma.snapshotSegments() {
+		b.expectSnapshotReleased(raw, seg.Prefix, seg.Index)
+	}
 	if got := b.existing(raw, metaKey(schemaA, "it_iso"), ma.prefix()+"1"); len(got) > 0 {
 		t.Errorf("left after closing the owner: %v", got)
 	}
@@ -552,10 +574,7 @@ func TestSQLTempDropOnClose(t *testing.T) {
 	h.exec(`CREATE TEMP VIEW it_close_v AS SELECT id FROM it_close`)
 	id := h.newTempID(raw, before)
 	schema := tempSchemaBase + id
-	meta, err := (&store{client: raw}).getTable(h.ctx, schema, "it_close")
-	if err != nil {
-		t.Fatal(err)
-	}
+	meta := h.inspectTable(raw, schema, "it_close")
 	keys := []string{metaKey(schema, "it_close"), seqKey(schema, "it_close"), tablesKey(schema),
 		viewKey(schema, "it_close_v"), viewsKey(schema), tempAliveKey(id), meta.prefix() + "1", meta.prefix() + "2"}
 	if got := h.existing(raw, keys...); len(got) != len(keys) {
@@ -567,6 +586,9 @@ func TestSQLTempDropOnClose(t *testing.T) {
 
 	if err := h.conn.Close(h.ctx); err != nil {
 		t.Fatal(err)
+	}
+	for _, seg := range meta.snapshotSegments() {
+		h.expectSnapshotReleased(raw, seg.Prefix, seg.Index)
 	}
 	if got := h.existing(raw, keys...); len(got) > 0 {
 		t.Errorf("left after close: %v", got)
@@ -593,15 +615,16 @@ func TestSQLTempSweep(t *testing.T) {
 	// The connection that will die: a store and executor like a
 	// connection's own, with its own client.
 	client := h.rawClient()
-	gone := &store{client: client}
+	gone := &store{client: client, snapshots: true}
+	t.Cleanup(func() { gone.stopHeartbeat() })
 	run := func(sql string) {
 		t.Helper()
 		parsed, err := ParseScript(sql)
 		if err != nil {
 			t.Fatal(err)
 		}
-		ex := &executor{store: gone, schema: defaultSchema, pushdown: "exact"}
-		if _, err := ex.execute(h.ctx, parsed[0], nil, nil, nil); err != nil {
+		ex := &executor{store: gone, schema: defaultSchema, pushdown: PushdownExact, sess: newSession(defaultSchema)}
+		if _, err := ex.executeSnapshot(h.ctx, parsed[0], nil, nil, nil); err != nil {
 			t.Fatalf("%s: %v", sql, err)
 		}
 	}
@@ -611,10 +634,7 @@ func TestSQLTempSweep(t *testing.T) {
 	run(`CREATE TEMP VIEW it_sweep_v AS SELECT id FROM it_sweep`)
 	id := h.newTempID(raw, before)
 	schema := tempSchemaBase + id
-	meta, err := gone.getTable(h.ctx, schema, "it_sweep")
-	if err != nil {
-		t.Fatal(err)
-	}
+	meta := h.inspectTable(raw, schema, "it_sweep")
 	keys := []string{metaKey(schema, "it_sweep"), seqKey(schema, "it_sweep"), tablesKey(schema),
 		viewKey(schema, "it_sweep_v"), viewsKey(schema), meta.prefix() + "1", meta.prefix() + "2"}
 
@@ -630,7 +650,7 @@ func TestSQLTempSweep(t *testing.T) {
 		t.Fatalf("a live connection's objects were swept: only %v exist", got)
 	}
 
-	// The process dies: the heartbeat stops and Close is never called.
+	// Model a finished owner disappearing: stop its heartbeat without Close.
 	gone.stopHeartbeat()
 	waitFor(t, "the alive key to expire", func() bool { return len(h.existing(raw, tempAliveKey(id))) == 0 })
 	if got := h.existing(raw, keys...); len(got) != len(keys) {
@@ -639,6 +659,9 @@ func TestSQLTempSweep(t *testing.T) {
 
 	// The next connection to open drops the leftovers and the owner entry.
 	newSQLHarness(t)
+	for _, seg := range meta.snapshotSegments() {
+		h.expectSnapshotReleased(raw, seg.Prefix, seg.Index)
+	}
 	if got := h.existing(raw, keys...); len(got) > 0 {
 		t.Errorf("left after the sweep: %v", got)
 	}

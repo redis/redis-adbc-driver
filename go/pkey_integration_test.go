@@ -20,8 +20,8 @@ package redis
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -197,7 +197,7 @@ func TestSQLPrimaryKeyCreate(t *testing.T) {
 	} {
 		h.expectQueryError(c.sql, c.code, c.msg)
 	}
-	if ok, err := (&store{client: raw}).tableExists(h.ctx, defaultSchema, "it_pk_bad"); err != nil || ok {
+	if _, err := h.conn.GetTableSchema(h.ctx, nil, nil, "it_pk_bad"); !isStatus(err, adbc.StatusNotFound) {
 		t.Errorf("it_pk_bad exists (%v)", err)
 	}
 }
@@ -325,18 +325,15 @@ func TestSQLPrimaryKeyLifetime(t *testing.T) {
 	h.expectQueryError(`INSERT INTO it_pk_tmp (v) VALUES (1)`, adbc.StatusIntegrity,
 		`null value in column "id" of relation "it_pk_tmp" violates not-null constraint`)
 
-	// Metadata without the primary_key field, as older versions wrote it:
-	// no key, and the column stays as its metadata says.
-	h.exec(`CREATE TABLE it_pk_old (id integer primary key)`)
-	key := metaKey(defaultSchema, "it_pk_old")
+	// An omitted optional key field is a valid current-format table, with
+	// independent NOT NULL metadata. Do not rewrite a published descriptor.
+	h.exec(`CREATE TABLE it_pk_old (id integer NOT NULL)`)
 	var m map[string]any
 	if err := json.Unmarshal([]byte(h.rawMeta(raw, defaultSchema, "it_pk_old")), &m); err != nil {
 		t.Fatal(err)
 	}
-	delete(m, "primary_key")
-	out, _ := json.Marshal(m)
-	if err := raw.Set(h.ctx, key, out, 0).Err(); err != nil {
-		t.Fatal(err)
+	if _, exists := m["primary_key"]; exists {
+		t.Fatal("keyless metadata unexpectedly has a primary key")
 	}
 	h.expectKey("public", "it_pk_old", "")
 	h.exec(`ALTER TABLE it_pk_old ALTER COLUMN id DROP NOT NULL`)
@@ -345,10 +342,8 @@ func TestSQLPrimaryKeyLifetime(t *testing.T) {
 		`column "id" of relation "it_pk_old" contains null values`)
 }
 
-// Without locks, other connections write while ADD PRIMARY KEY checks the
-// rows: a NULL key inserted before it commits makes it fail, a key that
-// another connection adds first makes it a second key, and an insert with
-// metadata read before the key was added is checked against its NOT NULL.
+// Concurrent data/schema publication invalidates a staged key definition or
+// INSERT. The driver refuses publication; a fresh explicit statement revalidates.
 func TestSQLPrimaryKeyConcurrent(t *testing.T) {
 	h := newSQLHarness(t)
 	h.dropTables("it_pk_race", "it_pk_race2")
@@ -356,36 +351,93 @@ func TestSQLPrimaryKeyConcurrent(t *testing.T) {
 	other := newSQLHarness(t)
 	h.exec(`CREATE TABLE it_pk_race (id integer, v integer)`)
 	h.exec(`INSERT INTO it_pk_race VALUES (1, 1)`)
-	t.Cleanup(func() { testHookAltered = nil })
-	beforeCommit := func(sql string) {
-		testHookAltered = func(*tableMeta) {
-			testHookAltered = nil
-			other.exec(sql)
+	staleKey := func(intervening string) {
+		t.Helper()
+		st, oldCtx, oldPin := h.inspectionSnapshot(raw, true)
+		defer oldPin.release()
+		old, err := st.getTable(oldCtx, defaultSchema, "it_pk_race")
+		if err != nil {
+			t.Fatal(err)
+		}
+		keys, before, err := newSnapshotDeltaScan(st, old, nil).next(oldCtx)
+		if err != nil || len(before) != 1 {
+			t.Fatal("missing pinned key input", err)
+		}
+		ctx, pin, work := snapshotStageSQL(t, st, h.ctx, "", `ALTER TABLE it_pk_race ADD PRIMARY KEY (id)`)
+		private, err := st.getTable(ctx, defaultSchema, "it_pk_race")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(private.keyColumns(), []string{"id"}) {
+			t.Fatal("key was not staged")
+		}
+		other.exec(intervening)
+		root, err := raw.HGet(h.ctx, snapshotCatalogKey, "root").Result()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := st.publishSnapshot(ctx, pin, work); sqlState(err) != "40001" {
+			t.Fatal("stale key publication did not conflict", err)
+		}
+		if got, err := raw.HGet(h.ctx, snapshotCatalogKey, "root").Result(); err != nil || got != root {
+			t.Fatal("stale key changed current root", err)
+		}
+		if after, err := st.fetchSnapshotVisible(oldCtx, old, keys, nil); err != nil || !reflect.DeepEqual(before, after) {
+			t.Fatal("key race changed pinned source", err)
+		}
+		st.abortSnapshot(pin, work)
+		pin.release()
+		if private.prefix() != old.prefix() {
+			h.expectSnapshotReleased(raw, private.prefix(), private.index())
+			indexes, err := raw.Do(h.ctx, "FT._LIST").StringSlice()
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, index := range indexes {
+				if snapshotDataID(index) == snapshotDataID(private.prefix()) {
+					t.Fatal("stale key left a sealed private index")
+				}
+			}
 		}
 	}
-	beforeCommit(`INSERT INTO it_pk_race VALUES (NULL, 2)`)
-	h.expectQueryError(`ALTER TABLE it_pk_race ADD PRIMARY KEY (id)`, adbc.StatusIntegrity,
-		`column "id" of relation "it_pk_race" contains null values`)
+	staleKey(`INSERT INTO it_pk_race VALUES (NULL, 2)`)
 	h.expectKey("public", "it_pk_race", "")
+	h.expectRows(`SELECT id,v FROM it_pk_race ORDER BY v`, "1|1", "NULL|2")
+	h.expectQueryError(`ALTER TABLE it_pk_race ADD PRIMARY KEY (id)`, adbc.StatusIntegrity, `column "id" of relation "it_pk_race" contains null values`)
 	h.exec(`DELETE FROM it_pk_race WHERE id IS NULL`)
-	beforeCommit(`ALTER TABLE it_pk_race ADD PRIMARY KEY (v)`)
-	h.expectQueryError(`ALTER TABLE it_pk_race ADD PRIMARY KEY (id)`, adbc.StatusInvalidArgument,
-		`multiple primary keys for table "it_pk_race" are not allowed`)
+	staleKey(`ALTER TABLE it_pk_race ADD PRIMARY KEY (v)`)
 	h.expectKey("public", "it_pk_race", "it_pk_race_pkey (v)")
 	h.expectNullable("it_pk_race", "id=YES", "v=NO")
+	h.expectQueryError(`ALTER TABLE it_pk_race ADD PRIMARY KEY (id)`, adbc.StatusInvalidArgument, `multiple primary keys for table "it_pk_race" are not allowed`)
 
 	h.exec(`CREATE TABLE it_pk_race2 (id integer, v integer)`)
-	st := &store{client: raw}
-	old, err := st.getTable(h.ctx, defaultSchema, "it_pk_race2")
+	st, oldCtx, oldPin := h.inspectionSnapshot(raw, true)
+	defer oldPin.release()
+	before := h.rawMeta(raw, defaultSchema, "it_pk_race2")
+	ctx, pin, work := snapshotStageSQL(t, st, h.ctx, "it_pk_race2", `INSERT INTO it_pk_race2 VALUES (NULL,1)`)
+	private, err := st.getTable(ctx, defaultSchema, "it_pk_race2")
 	if err != nil {
 		t.Fatal(err)
 	}
 	h.exec(`ALTER TABLE it_pk_race2 ADD PRIMARY KEY (id)`)
-	_, err = st.insertRows(h.ctx, old, [][]Value{{nullValue(typeInt32), intValue(typeInt32, 1)}})
-	var ae adbc.Error
-	if !errors.As(err, &ae) || ae.Code != adbc.StatusIntegrity ||
-		ae.Msg != `[redis] null value in column "id" of relation "it_pk_race2" violates not-null constraint` {
-		t.Errorf("insert with the metadata read before ADD PRIMARY KEY: %v", err)
+	root, err := raw.HGet(h.ctx, snapshotCatalogKey, "root").Result()
+	if err != nil {
+		t.Fatal(err)
 	}
+	if err := st.publishSnapshot(ctx, pin, work); sqlState(err) != "40001" {
+		t.Fatal("stale INSERT did not conflict with key", err)
+	}
+	if got, err := raw.HGet(h.ctx, snapshotCatalogKey, "root").Result(); err != nil || got != root {
+		t.Fatal("stale INSERT changed root", err)
+	}
+	if got, err := st.redis(oldCtx).Get(oldCtx, metaKey(defaultSchema, "it_pk_race2")).Result(); err != nil || got != before {
+		t.Fatal("key changed pinned metadata", err)
+	}
+	st.abortSnapshot(pin, work)
+	pin.release()
+	h.expectSnapshotReleased(raw, private.prefix(), private.index())
 	h.expectRows(`SELECT COUNT(*) FROM it_pk_race2`, "0")
+	h.expectQueryError(`INSERT INTO it_pk_race2 VALUES (NULL,1)`, adbc.StatusIntegrity, `null value in column "id" of relation "it_pk_race2" violates not-null constraint`)
+	h.exec(`INSERT INTO it_pk_race2 VALUES (7,1)`)
+	h.expectRows(`SELECT id,v FROM it_pk_race2`, "7|1")
 }

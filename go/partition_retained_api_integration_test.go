@@ -34,7 +34,7 @@ func retainedTestDatabaseOptions(options map[string]string) map[string]string {
 	if policy := os.Getenv("REDIS_RETAINED_CONTROL_PERSISTENCE"); policy != "" {
 		options[OptionStringPartitionControlPersistence] = policy
 	}
-	return options
+	return testUsageOptions(options)
 }
 
 func retainedAPIConnection(t *testing.T, namespace string, reader bool) adbc.ConnectionWithContext {
@@ -337,8 +337,8 @@ func TestRetainedPartitionAPIControlPolicyAdmission(t *testing.T) {
 	}
 }
 
-func TestRetainedPartitionAPIPrepublicationFailure(t *testing.T) {
-	for _, failure := range []string{"cancel", "cardinality", "schema", "index", "view", "replace"} {
+func TestRetainedPartitionAPIPrepublicationSnapshotLifetime(t *testing.T) {
+	for _, failure := range []string{"cancel", "cardinality", "schema", "rekey", "view", "replace"} {
 		t.Run(failure, func(t *testing.T) {
 			h := newSQLHarness(t)
 			const table = "it_retained_publication_failure"
@@ -349,6 +349,7 @@ func TestRetainedPartitionAPIPrepublicationFailure(t *testing.T) {
 			t.Cleanup(func() {
 				h.exec("DROP VIEW IF EXISTS " + view)
 				h.exec("DROP TABLE IF EXISTS " + table)
+				h.exec("DROP TABLE IF EXISTS " + table + "_rekeyed")
 			})
 			h.exec("INSERT INTO " + table + " VALUES (1),(2),(3)")
 			query := "SELECT id FROM " + table + " ORDER BY id"
@@ -356,7 +357,8 @@ func TestRetainedPartitionAPIPrepublicationFailure(t *testing.T) {
 				h.exec("CREATE VIEW " + view + " AS SELECT id FROM " + table)
 				query = "SELECT id FROM " + view + " ORDER BY id"
 			}
-			storage := retainedFixture(t, h.rawClient(), defaultRetainedLimits())
+			raw := h.rawClient()
+			storage := retainedFixture(t, raw, defaultRetainedLimits())
 			publisher := retainedAPIConnection(t, storage.namespace, false)
 			statement, err := publisher.NewStatement(h.ctx)
 			if err != nil {
@@ -375,7 +377,7 @@ func TestRetainedPartitionAPIPrepublicationFailure(t *testing.T) {
 			testHookRetainedBeforePublish = func(upload *retainedUpload) {
 				job = upload.id
 				if len(upload.chunks) == 0 {
-					t.Fatal("failure injected before upload")
+					t.Fatal("publication seam reached before upload")
 				}
 				switch failure {
 				case "cancel":
@@ -388,27 +390,60 @@ func TestRetainedPartitionAPIPrepublicationFailure(t *testing.T) {
 					// Same schema/cardinality, different physical table identity.
 					h.exec("DROP TABLE " + table)
 					h.exec("CREATE TABLE " + table + " (id BIGINT)")
-					h.exec("INSERT INTO " + table + " VALUES (1),(2),(3)")
+					h.exec("INSERT INTO " + table + " VALUES (101),(102),(103)")
 				case "view":
 					h.exec("CREATE OR REPLACE VIEW " + view + " AS SELECT id+1 AS id FROM " + table)
-				case "index":
-					st := &store{client: storage.client}
-					meta, err := st.getTable(h.ctx, defaultSchema, table)
-					if err != nil {
+				case "rekey":
+					before := h.inspectTable(raw, defaultSchema, table)
+					if err := h.setConnOption(OptionStringRenameRekey, "true"); err != nil {
 						t.Fatal(err)
 					}
-					if err := st.searchDo(h.ctx, meta.index(), "FT.ALTER", meta.index(), "SCHEMA", "ADD", "external_field", "TAG").Err(); err != nil {
-						t.Fatal(err)
+					h.exec("ALTER TABLE " + table + " RENAME TO " + table + "_rekeyed")
+					h.exec("ALTER TABLE " + table + "_rekeyed RENAME TO " + table)
+					after := h.inspectTable(raw, defaultSchema, table)
+					if before.prefix() == after.prefix() || before.index() == after.index() {
+						t.Fatal("rekey reused the captured physical layout")
 					}
 				}
 			}
 			t.Cleanup(func() { testHookRetainedBeforePublish = nil })
 			schema, parts, rows, err := statement.ExecutePartitions(ctx)
 			testHookRetainedBeforePublish = nil
+			if failure != "cancel" {
+				if err != nil || schema == nil || rows != 3 || parts.NumPartitions != 1 || job == "" {
+					t.Fatal("pinned capture did not publish", parts.NumPartitions, rows, err)
+				}
+				if len(schema.Fields()) != 1 || schema.Field(0).Name != "id" || schema.Field(0).Type.ID() != arrow.INT64 {
+					t.Fatal("captured schema changed", schema)
+				}
+				switch failure {
+				case "cardinality":
+					h.expectRows("SELECT id FROM "+table+" ORDER BY id", "1", "2", "3", "4")
+				case "schema":
+					h.expectRows("SELECT COUNT(*) FROM "+table+" WHERE added IS NULL", "3")
+				case "replace":
+					h.expectRows("SELECT id FROM "+table+" ORDER BY id", "101", "102", "103")
+				case "view":
+					h.expectRows("SELECT id FROM "+view+" ORDER BY id", "2", "3", "4")
+				}
+				if err := publisher.Close(h.ctx); err != nil {
+					t.Fatal(err)
+				}
+				h.exec("DROP VIEW IF EXISTS " + view)
+				h.exec("DROP TABLE " + table)
+				snapshotReapTest(&store{client: raw, snapshots: true}, h.ctx)
+				reader := retainedAPIConnection(t, storage.namespace, true)
+				for range 2 {
+					if got := retainedAPIReadIDs(t, reader, schema, parts); !slices.Equal(got, []int64{1, 2, 3}) {
+						t.Fatal("source changes altered retained output", got)
+					}
+				}
+				return
+			}
 			if err == nil || schema != nil || parts.NumPartitions != 0 || rows != -1 || job == "" {
 				t.Fatal("partial result escaped failed publication", parts.NumPartitions, rows, err)
 			}
-			if failure != "cancel" && !isStatus(err, adbc.StatusInvalidState) {
+			if !isStatus(err, adbc.StatusCancelled) {
 				t.Fatal(err)
 			}
 			if exists, err := storage.client.Exists(h.ctx, storage.jobKey(job, "manifest")).Result(); err != nil || exists != 0 {
@@ -424,9 +459,8 @@ func TestRetainedPartitionAPIPrepublicationFailure(t *testing.T) {
 	}
 }
 
-// Retained output freezes the completed capture without promising a source
-// snapshot. Exercise an overlapping writer that updates the same number of rows
-// before publication: replay must preserve captured values rather than rerun SQL.
+// Retained output freezes its coordinator snapshot. An overlapping same-size
+// update before publication must preserve captured values rather than rerun SQL.
 func TestRetainedPartitionAPIUpdateAfterCapture(t *testing.T) {
 	h := newSQLHarness(t)
 	const table = "it_retained_update_after_capture"
@@ -584,10 +618,12 @@ func TestRetainedPartitionAPICloseBeforeReaderRegistration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	closed := make(chan error, 1)
 	readStore.client.AddHook(&retainedCloseReadHook{close: func() {
-		if err := worker.Close(h.ctx); err != nil {
-			t.Error(err)
-		}
+		// Close runs on the caller's goroutine, not inside a Redis process hook:
+		// it joins this execution after the interrupted read has unwound.
+		go func() { closed <- worker.Close(h.ctx) }()
+		<-ctx.Done()
 	}})
 	reader, err := worker.ReadPartition(ctx, parts.PartitionIDs[0])
 	if reader != nil {
@@ -596,5 +632,14 @@ func TestRetainedPartitionAPICloseBeforeReaderRegistration(t *testing.T) {
 	}
 	if !isStatus(err, adbc.StatusInvalidState) {
 		t.Fatal(err)
+	}
+	transport.finish()
+	select {
+	case err := <-closed:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Close did not join interrupted partition read")
 	}
 }

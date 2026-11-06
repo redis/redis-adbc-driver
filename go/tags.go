@@ -55,13 +55,10 @@ package redis
 //   - The query syntax has no way to write ASCII control characters other
 //     than whitespace, so a value with one isn't looked up in the index.
 //
-// Tables created before the levels were recorded have columns without
-// TagsChecked, which count as truncated until checked: the first statement
-// that reads such a table on a connection starts a background task that
-// reads every row and records the levels. It records them only if the
-// table's metadata hasn't changed since it started reading, so a writer
-// raising a level meanwhile makes it start over. A connection whose check
-// fails waits tagCheckRetry before it tries again.
+// Missing TagsChecked facts count as truncated. Native catalogs retain those
+// conservative facts in their immutable generation; an explicit converting
+// ALTER can revalidate values into fresh storage. The legacy mutable checker
+// below is disabled for snapshots and does not provide a storage migration.
 //
 // Prefix queries: RediSearch expands @c:{ab*} into at most
 // MAXPREFIXEXPANSIONS tags (search-max-prefix-expansions, 200 by default;
@@ -366,6 +363,9 @@ const tagCheckRetry = time.Minute
 // table that were never checked: at most one task per table per connection,
 // and after one fails, not again for tagCheckRetry.
 func (s *store) startTagCheck(meta *tableMeta) {
+	if s.snapshots {
+		return
+	}
 	unchecked := false
 	for _, c := range meta.Columns {
 		unchecked = unchecked || (c.Indexed && c.Type.Kind == KindString && !c.TagsChecked)
@@ -504,6 +504,24 @@ func (s *store) scanTagLevels(ctx context.Context, meta *tableMeta) (map[string]
 // limit. Each query is profiled once per statement; a profile that can't be
 // read (or planning without a server) counts as incomplete.
 func (e *executor) prefixComplete(ctx context.Context, meta *tableMeta, query string) bool {
+	if meta.SnapshotOverlay {
+		for _, seg := range meta.snapshotSegments() {
+			if snapshotOwns(ctx, seg.Prefix) {
+				n, err := e.store.redis(ctx).ZCard(ctx, snapshotMembers(snapshotDataID(seg.Prefix))).Result()
+				if err != nil || n != 0 {
+					return false
+				}
+				continue
+			}
+			copy := *meta
+			copy.SnapshotOverlay = false
+			copy.KeyPrefix, copy.IndexName = seg.Prefix, seg.Index
+			if !e.prefixComplete(ctx, &copy, query) {
+				return false
+			}
+		}
+		return true
+	}
 	if e.store == nil {
 		return false
 	}

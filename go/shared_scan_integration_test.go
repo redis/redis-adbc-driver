@@ -28,12 +28,17 @@ import (
 	goredis "github.com/redis/go-redis/v9"
 )
 
-func sharedScanPlan(t *testing.T, h *sqlHarness, q string, params []Value) (*executor, *selectPlan) {
+func sharedScanPlan(t *testing.T, h *sqlHarness, q string, params []Value, hooks ...goredis.Hook) (context.Context, *executor, *selectPlan) {
 	t.Helper()
-	e := &executor{store: &store{client: h.rawClient()}, schema: defaultSchema, pushdown: PushdownExact, cache: newExecCache(), now: time.Now().UTC(), sess: newSession(defaultSchema)}
+	st, ctx, pin := h.inspectionSnapshot(h.rawClient(hooks...))
+	t.Cleanup(pin.release)
+	e := &executor{store: st, schema: defaultSchema, pushdown: PushdownExact, cache: newExecCache(), now: time.Now().UTC(), sess: newSession(defaultSchema)}
 	// Force the formerly materializing branch even on normal-cap CI servers;
 	// fresh discovery still verifies the real cap before any cursor is opened.
-	e.store.searchCapsOnce.Do(func() { e.store.searchCaps = [2]int64{1_000_000, 137} })
+	e.store.searchCapsOnce.Do(func() {
+		e.store.searchCaps = [2]int64{1_000_000, 137}
+		e.store.searchAggregateCapKnown = true // deliberate controlled planning bound
+	})
 	types := make([]ColType, len(params))
 	for i, p := range params {
 		types[i] = p.T
@@ -43,7 +48,7 @@ func sharedScanPlan(t *testing.T, h *sqlHarness, q string, params []Value) (*exe
 	if err != nil {
 		t.Fatal(err)
 	}
-	plan, err := e.planSelect(h.ctx, parsed[0].Stmt.(*SelectStmt), types)
+	plan, err := e.planSelect(ctx, parsed[0].Stmt.(*SelectStmt), types)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +56,7 @@ func sharedScanPlan(t *testing.T, h *sqlHarness, q string, params []Value) (*exe
 	// initial/ALTER backfill correctly uses the ordinary HASH fallback instead.
 	deadline := time.Now().Add(10 * time.Second)
 	for {
-		err := e.store.checkRangeReadiness(h.ctx, plan.meta.index())
+		err := e.store.checkRangeReadiness(ctx, plan.meta.index())
 		if err == nil {
 			break
 		}
@@ -60,7 +65,73 @@ func sharedScanPlan(t *testing.T, h *sqlHarness, q string, params []Value) (*exe
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	return e, plan
+	return ctx, e, plan
+}
+
+// Keep range/cursor algorithm primitives on one pinned immutable physical source.
+// Public/native segmented visibility and lifecycle are exercised separately.
+func sharedScanPrimitivePlan(t *testing.T, h *sqlHarness, q string, params []Value, hooks ...goredis.Hook) (context.Context, *executor, *selectPlan) {
+	t.Helper()
+	ctx, e, p := sharedScanPlan(t, h, q, params, hooks...)
+	sources := 0
+	for _, seg := range p.meta.snapshotSegments() {
+		if seg.Rows > 0 {
+			sources++
+			if seg.Prefix != p.meta.prefix() {
+				t.Fatal("primitive source is not current")
+			}
+		}
+	}
+	if sources != 1 {
+		t.Fatal("cursor primitive requires one immutable physical source", sources)
+	}
+	p.meta = cloneMeta(p.meta)
+	p.meta.SnapshotOverlay, p.meta.SnapshotSegments = false, nil
+	// The original descriptor was validated and remains pinned. This clone
+	// represents the physical cursor leaf, not logical baseline admission.
+	// Public baseline/cap and segmented visibility paths have separate tests.
+	p.meta.SnapshotRows = nil
+	return ctx, e, p
+}
+
+func sharedScanExpected(query int) []string {
+	var rows []string
+	for id := 0; id < 2500; id++ {
+		if id >= 100 && id < 200 {
+			continue
+		}
+		amount, label := "NULL", fmt.Sprintf("r%d", id)
+		if id%2 == 0 {
+			amount = "12.34"
+		}
+		if id%7 == 0 {
+			label = "NULL"
+		}
+		switch query {
+		case 0, 3:
+			rows = append(rows, fmt.Sprint(id))
+		case 1:
+			if id >= 20 && (id%10)%3 == 0 {
+				rows = append(rows, fmt.Sprintf("%d|%s|%s", id, amount, label))
+			}
+		case 2:
+			if id >= 10 {
+				if id%7 == 0 {
+					label = "missing"
+				}
+				rows = append(rows, fmt.Sprintf("%d|%s|%s", int64(1<<54)+int64(id), label, amount))
+			}
+		}
+	}
+	switch query {
+	case 1:
+		return rows[130:530]
+	case 2:
+		return rows[140:440]
+	case 3:
+		return rows[150:650]
+	}
+	return rows
 }
 
 func valueRows(rows [][]Value) []string {
@@ -84,7 +155,7 @@ func TestSharedScanExactResults(t *testing.T) {
 	h.exec("UPDATE " + table + " SET amount=12.34 WHERE id % 2 = 0")
 	h.exec("UPDATE " + table + " SET label=NULL WHERE id % 7 = 0")
 	h.exec("DELETE FROM " + table + " WHERE id >= 100 AND id < 200")
-	for _, q := range []string{
+	for queryIndex, q := range []string{
 		"SELECT id FROM " + table,
 		"SELECT id,amount,label FROM " + table + " WHERE id >= 20 AND qty % 3 = 0 LIMIT 400 OFFSET 130",
 		"SELECT id + ?, COALESCE(label,'missing'), amount FROM " + table + " WHERE id >= ? LIMIT 300 OFFSET 140",
@@ -96,37 +167,60 @@ func TestSharedScanExactResults(t *testing.T) {
 			if strings.Contains(q, "?") {
 				params = []Value{intValue(typeInt64, 1<<54), intValue(typeInt64, 10)}
 			}
-			e, plan := sharedScanPlan(t, h, q, params)
-			sc, err := e.prepareScan(h.ctx, plan, params)
+			ctx, e, plan := sharedScanPlan(t, h, q, params)
+			sc, err := e.prepareScan(ctx, plan, params)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !sc.req.where.none && sc.req.ranges == nil {
-				t.Fatal("eligible scan did not use bounded ranges")
+			if !sc.req.where.none {
+				it, err := e.openScan(ctx, sc.req, params)
+				if err != nil {
+					t.Fatal(err)
+				}
+				native := it.delta != nil || it.candidates != nil || it.ordered != nil || it.directKeys != nil
+				it.close(ctx)
+				if !native {
+					t.Fatal("segmented scan bypassed native visibility")
+				}
 			}
-			actual, err := e.selectScanned(h.ctx, plan, sc, params)
+			actual, err := e.selectScanned(ctx, plan, sc, params)
 			if err != nil {
 				t.Fatal(err)
 			}
-			// Compare against the previous complete HASH fallback, including one global
-			// LIMIT/OFFSET and the exact insertion order across sparse windows.
+			// Compare the complete-directory fallback under the same pin, then an
+			// independently calculated exact reference including global LIMIT/OFFSET.
 			old := sc
 			old.req.ranges = nil
 			old.req.hashScan = true
 			// HASH pagination cannot apply Search terms: restore the complete
 			// predicate when deliberately replacing the bounded index source.
 			old.req.where.residual = plan.sel.Where
+			old.req.where.query = "*"
 			old.req.sortBy = nil
 			old.indexSort = false
 			old.pushLimit = false
-			expected, err := e.selectScanned(h.ctx, plan, old, params)
+			if !old.req.where.none {
+				it, err := e.openScan(ctx, old.req, params)
+				if err != nil {
+					t.Fatal(err)
+				}
+				directory := it.delta != nil
+				it.close(ctx)
+				if !directory {
+					t.Fatal("reference scan did not use exact directories")
+				}
+			}
+			expected, err := e.selectScanned(ctx, plan, old, params)
 			if err != nil {
 				t.Fatal(err)
+			}
+			if !slices.Equal(valueRows(actual), sharedScanExpected(queryIndex)) {
+				t.Fatal("native result differs from independent exact reference")
 			}
 			if !slices.Equal(valueRows(actual), valueRows(expected)) {
 				t.Fatalf("range result differs from HASH fallback: %d versus %d rows", len(actual), len(expected))
 			}
-			res, err := e.streamSelect(h.ctx, plan, params, &streamOpts{mem: memory.DefaultAllocator, batchRows: 31})
+			res, err := e.streamSelect(ctx, plan, params, &streamOpts{mem: memory.DefaultAllocator, batchRows: 31})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -178,16 +272,16 @@ func TestSharedScanUnrestrictedCapStillBoundsSort(t *testing.T) {
 		"SELECT id FROM " + table + " ORDER BY __rowid",
 	} {
 		t.Run(q, func(t *testing.T) {
-			e, plan := sharedScanPlan(t, h, q, nil)
+			ctx, e, plan := sharedScanPrimitivePlan(t, h, q, nil)
 			e.store.searchCaps[1] = 1 << 31
-			sc, err := e.prepareScan(h.ctx, plan, nil)
+			sc, err := e.prepareScan(ctx, plan, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
 			if sc.req.ranges == nil || sc.req.ranges.cap > maxScanRangeRows || sc.req.ranges.cap < 1 {
 				t.Fatalf("unbounded Search sort: %+v", sc.req.ranges)
 			}
-			actual, err := e.selectScanned(h.ctx, plan, sc, nil)
+			actual, err := e.selectScanned(ctx, plan, sc, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -207,8 +301,8 @@ func TestSharedScanFallbacksAndPushdown(t *testing.T) {
 		"SELECT id FROM " + table + " ORDER BY id DESC",
 		"SELECT id, row_number() OVER (ORDER BY id) FROM " + table,
 	} {
-		e, p := sharedScanPlan(t, h, q, nil)
-		sc, err := e.prepareScan(h.ctx, p, nil)
+		ctx, e, p := sharedScanPrimitivePlan(t, h, q, nil)
+		sc, err := e.prepareScan(ctx, p, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -217,8 +311,8 @@ func TestSharedScanFallbacksAndPushdown(t *testing.T) {
 		}
 	}
 	for _, q := range []string{"SELECT id FROM " + table + " WHERE __rowid=2"} {
-		e, p := sharedScanPlan(t, h, q, nil)
-		sc, err := e.prepareScan(h.ctx, p, nil)
+		ctx, e, p := sharedScanPrimitivePlan(t, h, q, nil)
+		sc, err := e.prepareScan(ctx, p, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -226,19 +320,19 @@ func TestSharedScanFallbacksAndPushdown(t *testing.T) {
 			t.Fatal("direct-key lookup replaced")
 		}
 	}
-	e, p := sharedScanPlan(t, h, "SELECT id FROM "+table+" WHERE id >= 20", nil)
-	sc, err := e.prepareScan(h.ctx, p, nil)
+	ctx, e, p := sharedScanPrimitivePlan(t, h, "SELECT id FROM "+table+" WHERE id >= 20", nil)
+	sc, err := e.prepareScan(ctx, p, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if sc.req.ranges == nil || sc.req.where.query == "*" {
 		t.Fatal("selective predicate lost index pushdown")
 	}
-	it, err := e.openScan(h.ctx, sc.req, nil)
+	it, err := e.openScan(ctx, sc.req, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	it.close(h.ctx)
+	it.close(ctx)
 	// Layout and precision guards must retain complete fallback behavior.
 	for _, mutate := range []func(*tableMeta){
 		func(m *tableMeta) { m.Adopted = true }, func(m *tableMeta) { m.KeyRows = true }, func(m *tableMeta) { m.KeyPrefix = "" },
@@ -250,16 +344,14 @@ func TestSharedScanFallbacksAndPushdown(t *testing.T) {
 			t.Fatal("unsafe layout accepted")
 		}
 	}
-	raw := h.rawClient()
-	old, err := raw.Get(h.ctx, seqKey(defaultSchema, table)).Result()
-	if err != nil {
-		t.Fatal(err)
+	// Publish sequence metadata privately. The existing pin keeps its old
+	// bounds, while a fresh plan must reject inexact Search row-ID ranges.
+	h.sparseSnapshotTable(table, exactDoubleLimit, nil)
+	if bounds, err := e.boundedOrdinaryScan(ctx, p, 137); err != nil || bounds == nil || bounds.hi != 500 {
+		t.Fatal("sequence publication changed pinned bounds", bounds, err)
 	}
-	defer raw.Set(h.ctx, seqKey(defaultSchema, table), old, 0)
-	if err := raw.Set(h.ctx, seqKey(defaultSchema, table), exactDoubleLimit, 0).Err(); err != nil {
-		t.Fatal(err)
-	}
-	if bounds, err := e.boundedOrdinaryScan(h.ctx, p, 137); err != nil || bounds != nil {
+	largeCtx, largeExec, largePlan := sharedScanPrimitivePlan(t, h, "SELECT id FROM "+table, nil)
+	if bounds, err := largeExec.boundedOrdinaryScan(largeCtx, largePlan, 137); err != nil || bounds != nil {
 		t.Fatalf("large-ID fallback: %v", err)
 	}
 	// Global operators and joins keep the ordinary public execution contract.
@@ -275,17 +367,17 @@ func TestSharedScanLifecycle(t *testing.T) {
 	t.Cleanup(func() { h.exec("DROP TABLE IF EXISTS " + table) })
 	for _, action := range []string{"release", "cancel", "ddl"} {
 		t.Run(action, func(t *testing.T) {
-			e, p := sharedScanPlan(t, h, "SELECT id FROM "+table, nil)
+			ctx, e, p := sharedScanPlan(t, h, "SELECT id FROM "+table, nil)
 			owner := &streams{}
-			ctx, cancel := context.WithCancel(h.ctx)
+			ctx, cancel := context.WithCancel(ctx)
 			defer cancel()
 			res, err := e.streamSelect(ctx, p, nil, &streamOpts{mem: memory.DefaultAllocator, batchRows: 10, owners: []*streams{owner}})
 			if err != nil || res.stream == nil {
 				t.Fatalf("lowered-cap query did not stream: %v", err)
 			}
 			r := res.stream.(*streamReader)
-			if len(r.pending) > 147 {
-				t.Fatal("reader buffered beyond batch plus cap window")
+			if len(r.pending) > 10+snapshotDeltaPage {
+				t.Fatal("reader buffered beyond batch plus native directory page")
 			}
 			if !r.Next() {
 				t.Fatal(r.Err())
@@ -303,19 +395,41 @@ func TestSharedScanLifecycle(t *testing.T) {
 					t.Fatal(r.Err())
 				}
 			case "ddl":
+				original := cloneMeta(p.meta)
 				h.exec("TRUNCATE " + table)
-				for r.Next() {
+				h.exec("INSERT INTO " + table + " VALUES (99999,'new',9)")
+				h.exec("DROP TABLE " + table)
+				h.exec("CREATE TABLE " + table + " (id BIGINT,label TEXT,qty INTEGER)")
+				raw := h.rawClient()
+				snapshotReapTest(&store{client: raw, snapshots: true}, h.ctx)
+				values := sequence(0, 10, 1)
+				rest, _, err := readInts(r)
+				if err != nil {
+					t.Fatal("retained stream failed after DDL", err)
 				}
-				if !isStatus(r.Err(), adbc.StatusIO) || !strings.Contains(r.Err().Error(), "truncated or dropped") {
-					t.Fatalf("stale read must preserve the ordinary stale-prefix error: %v", r.Err())
+				values = append(values, rest...)
+				if !slices.Equal(values, sequence(0, 2500, 1)) {
+					t.Fatal("DDL changed complete retained stream")
 				}
+				for _, seg := range original.snapshotSegments() {
+					if n, err := raw.ZCard(h.ctx, snapshotMembers(snapshotDataID(seg.Prefix))).Result(); err != nil || n != seg.Rows {
+						t.Fatal("DDL reclaimed pinned source", n, err)
+					}
+				}
+				r.Release()
+				snapshotOf(ctx).pin.release()
+				for _, seg := range original.snapshotSegments() {
+					h.expectSnapshotReleased(raw, seg.Prefix, seg.Index)
+				}
+				h.expectRows("SELECT COUNT(*) FROM "+table, "0")
+				return
 			}
 			r.Release()
 		})
 	}
 	h.exec("TRUNCATE " + table)
-	e, p := sharedScanPlan(t, h, "SELECT id FROM "+table, nil)
-	res, err := e.streamSelect(h.ctx, p, nil, &streamOpts{mem: memory.DefaultAllocator, batchRows: 10})
+	ctx, e, p := sharedScanPlan(t, h, "SELECT id FROM "+table, nil)
+	res, err := e.streamSelect(ctx, p, nil, &streamOpts{mem: memory.DefaultAllocator, batchRows: 10})
 	if err != nil || res.stream != nil || len(res.rows) != 0 {
 		t.Fatalf("empty result: %v", err)
 	}
@@ -346,39 +460,52 @@ func (h *sharedScanCounter) ProcessHook(next goredis.ProcessHook) goredis.Proces
 		return next(ctx, cmd)
 	}
 }
+
+func (h *sharedScanCounter) reset() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.commands = map[string]int{}
+}
+
+func (h *sharedScanCounter) counts() map[string]int {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	out := make(map[string]int, len(h.commands))
+	for name, n := range h.commands {
+		out[name] = n
+	}
+	return out
+}
+
 func TestSharedScanMeasurement(t *testing.T) {
 	h := newSQLHarness(t)
 	const table = "it_shared_scan_measure"
 	h.setupStreamTable(table, 5000)
 	t.Cleanup(func() { h.exec("DROP TABLE IF EXISTS " + table) })
 	q := "SELECT id FROM " + table
-	for _, mode := range []string{"bounded", "hash"} {
-		e, p := sharedScanPlan(t, h, q, nil)
+	for _, mode := range []string{"bounded_primitive", "directory"} {
 		counter := &sharedScanCounter{commands: map[string]int{}}
-		// Use a separate connection so hooks do not accumulate across measurements.
-		client := h.rawClient()
-		switch c := client.(type) {
-		case *goredis.Client:
-			c.AddHook(counter)
-		case *goredis.ClusterClient:
-			if err := c.ForEachMaster(h.ctx, func(_ context.Context, n *goredis.Client) error { n.AddHook(counter); return nil }); err != nil {
-				t.Fatal(err)
-			}
+		planner := sharedScanPrimitivePlan
+		if mode == "directory" {
+			// The reference needs the complete logical descriptor/directory
+			// count, not the bounded cursor's deliberately physical leaf.
+			planner = sharedScanPlan
 		}
-		e.store.client = client
-		sc, err := e.prepareScan(h.ctx, p, nil)
+		ctx, e, p := planner(t, h, q, nil, counter)
+		sc, err := e.prepareScan(ctx, p, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if mode == "hash" {
+		if mode == "directory" {
 			sc.req.ranges = nil
 			sc.req.hashScan = true
 			sc.req.where.residual = p.sel.Where
 			sc.req.sortBy = nil
 			sc.indexSort = false
 		}
+		counter.reset()
 		started := time.Now()
-		rows, err := e.selectScanned(h.ctx, p, sc, nil)
+		rows, err := e.selectScanned(ctx, p, sc, nil)
 		elapsed := time.Since(started)
 		if err != nil || len(rows) != 5000 {
 			t.Fatalf("measurement rows=%d err=%v", len(rows), err)
@@ -388,10 +515,14 @@ func TestSharedScanMeasurement(t *testing.T) {
 				t.Fatal("measurement changed order/results")
 			}
 		}
-		if mode == "bounded" && counter.commands["scan"] != 0 {
-			t.Fatal("bounded scan materialized HASH keys")
+		counts := counter.counts()
+		if mode == "bounded_primitive" && (counts["ft.aggregate"] == 0 || counts["scan"] != 0) {
+			t.Fatal("bounded primitive did not use Search ranges")
 		}
-		t.Logf("mode=%s rows=%d elapsed=%s commands=%s", mode, len(rows), elapsed, fmt.Sprint(counter.commands))
+		if mode == "directory" && (counts["zrange"] == 0 || counts["ft.aggregate"] != 0) {
+			t.Fatal("reference scan did not use native directories")
+		}
+		t.Logf("mode=%s rows=%d elapsed=%s commands=%s", mode, len(rows), elapsed, fmt.Sprint(counts))
 	}
 }
 
@@ -400,10 +531,9 @@ func TestSharedScanMultiPageCursor(t *testing.T) {
 	const table = "it_shared_scan_pages"
 	h.setupStreamTable(table, 25000)
 	t.Cleanup(func() { h.exec("DROP TABLE IF EXISTS " + table) })
-	e, p := sharedScanPlan(t, h, "SELECT id FROM "+table, nil)
-	e.store = &store{client: e.store.client}
-	e.store.searchCapsOnce.Do(func() { e.store.searchCaps = [2]int64{1_000_000, 12000} })
-	sc, err := e.prepareScan(h.ctx, p, nil)
+	ctx, e, p := sharedScanPrimitivePlan(t, h, "SELECT id FROM "+table, nil)
+	e.store.searchCaps[1] = 12000
+	sc, err := e.prepareScan(ctx, p, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -411,7 +541,7 @@ func TestSharedScanMultiPageCursor(t *testing.T) {
 		t.Fatal("expected bounded source")
 	}
 	for _, early := range []bool{false, true} {
-		r, err := e.newScanReader(h.ctx, p, sc.req, nil, &streamOpts{mem: memory.DefaultAllocator, batchRows: 100})
+		r, err := e.newScanReader(ctx, p, sc.req, nil, &streamOpts{mem: memory.DefaultAllocator, batchRows: 100})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -424,7 +554,7 @@ func TestSharedScanMultiPageCursor(t *testing.T) {
 		}
 		if early {
 			r.Release()
-			if id != 0 && h.delCursor(h.rawClient(), table, id) {
+			if id != 0 && e.store.searchDo(ctx, p.meta.index(), "FT.CURSOR", "DEL", p.meta.index(), id).Err() == nil {
 				t.Fatal("early release leaked cursor")
 			}
 			continue

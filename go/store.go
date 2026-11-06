@@ -213,12 +213,22 @@ type tableMeta struct {
 	matviewRead     *matviewRead
 	Unpopulated     bool         `json:"unpopulated,omitempty"`
 	NamedIndexes    []namedIndex `json:"named_indexes,omitempty"`
-	OID             int64        `json:"oid,omitempty"`
-	IndexOID        int64        `json:"index_oid,omitempty"`
-	Foreign         bool         `json:"-"`
-	Schema          string       `json:"schema"`
-	Name            string       `json:"name"`
-	Columns         []columnMeta `json:"columns"`
+	// SnapshotRows counts physical row versions (including tombstones) in the
+	// current segment. Prior immutable segments carry their own expected counts.
+	// Acquisition validates indexes and directories against these counts.
+	SnapshotAccessID     string            `json:"snapshot_access_id,omitempty"`
+	SnapshotLineage      string            `json:"snapshot_lineage,omitempty"`
+	SnapshotImportSource string            `json:"snapshot_import_source,omitempty"`
+	SnapshotSourceKey    bool              `json:"snapshot_source_key,omitempty"`
+	SnapshotOverlay      bool              `json:"snapshot_overlay,omitempty"`
+	SnapshotSegments     []snapshotSegment `json:"snapshot_segments,omitempty"`
+	SnapshotRows         *int64            `json:"snapshot_rows,omitempty"`
+	OID                  int64             `json:"oid,omitempty"`
+	IndexOID             int64             `json:"index_oid,omitempty"`
+	Foreign              bool              `json:"-"`
+	Schema               string            `json:"schema"`
+	Name                 string            `json:"name"`
+	Columns              []columnMeta      `json:"columns"`
 	// FoldedIdentifiers is set on metadata created after unquoted SQL
 	// identifiers began following PostgreSQL's lower-case folding rules.
 	// Older metadata did not record whether a mixed-case column was quoted,
@@ -320,11 +330,23 @@ func (t *tableMeta) column(name string) (columnMeta, bool) {
 	case t.isMem && !t.retainedSource:
 	case t.KeyRows && (name == keyField):
 		return columnMeta{Name: keyField, Type: typeString}, true
+	case t.SnapshotSourceKey && name == keyField:
+		return snapshotSourceKeyColumn(), true
 	case !t.KeyRows && (name == rowIDField):
 		return columnMeta{Name: rowIDField, Type: typeInt64, Indexed: true}, true
 	}
 	if i, ok := t.resolve(name); ok {
 		return t.Columns[i], true
+	}
+	if t.join != nil {
+		for _, item := range t.join.items {
+			if item.base.SnapshotSourceKey && name == item.prefix+keyField {
+				col := snapshotSourceKeyColumn()
+				col.Name, col.Field, col.Indexed = name, name, false
+				col.label = keyField
+				return col, true
+			}
+		}
 	}
 	return columnMeta{}, false
 }
@@ -338,6 +360,16 @@ func (t *tableMeta) types() map[string]ColType {
 	}
 	for _, c := range t.Columns {
 		m[c.Name] = c.Type
+	}
+	if t.SnapshotSourceKey {
+		m[keyField] = typeString
+	}
+	if t.join != nil {
+		for _, item := range t.join.items {
+			if item.base.SnapshotSourceKey {
+				m[item.prefix+keyField] = typeString
+			}
+		}
 	}
 	return m
 }
@@ -467,7 +499,13 @@ func (s *store) lastNames(ctx context.Context, c goredis.Cmdable, schema, table 
 // when it was added can't be released later, since only its owner releases
 // it. Temporary schemas don't count releases; their connection remembers
 // every prefix it handed out instead (see tempSpace).
-func (s *store) claimNames(ctx context.Context, schema, table string) (tableNames, error) {
+func (s *store) claimNames(ctx context.Context, schema, table string, access ...string) (tableNames, error) {
+	if nm, ok := snapshotNames(ctx, schema, table, access...); ok {
+		if err := s.ownSnapshotData(ctx, snapshotDataID(nm.prefix), nm.prefix); err != nil {
+			return tableNames{}, err
+		}
+		return nm, nil
+	}
 	last, err := s.lastNames(ctx, s.redis(ctx), schema, table)
 	if err != nil {
 		return tableNames{}, wrapRedis(err, "failed to reserve a key prefix")
@@ -567,6 +605,9 @@ func (s *store) freeNames(ctx context.Context, tx *goredis.Tx, schema, table str
 // reserveNames adds the commands that reserve names found by freeNames to a
 // transaction; noteTempNames must follow once it has committed.
 func reserveNames(ctx context.Context, p goredis.Pipeliner, nm tableNames) {
+	if snapshotOf(ctx) != nil {
+		return
+	} // UUID ownership and snapshot references replace legacy registries.
 	p.SAdd(ctx, prefixesKey, nm.prefix)
 	p.SAdd(ctx, indexesKey, nm.index)
 	if !nm.temp {
@@ -915,10 +956,18 @@ func wrapRedis(err error, context string) error {
 // ---- store ----
 
 type store struct {
-	flex           bool
-	foreignIndexes bool
-	searchCapsOnce sync.Once
-	searchCaps     [2]int64
+	readerNamespace  string
+	restrictedReader bool
+	readerKeys       snapshotReaderKeyCache
+	controlScript    snapshotControlExecutor
+	snapshots        bool
+	compactor        *snapshotCompactor
+	flex             bool
+	foreignIndexes   bool
+	searchCapsOnce   sync.Once
+	searchCaps       [2]int64
+
+	searchAggregateCapKnown bool // initialized with searchCapsOnce
 	// client is a *goredis.Client, or a *goredis.ClusterClient when the
 	// server exposes the OSS Cluster API.
 	client goredis.UniversalClient
@@ -941,8 +990,9 @@ type store struct {
 	// rekeys are the re-keys this connection is running or settling, which
 	// Close stops (see stopRekeys); closed is set once Close has begun. The
 	// client stays set after Close, closed.
-	rekeys map[*rekeyRun]struct{}
-	closed bool
+	rekeys     map[*rekeyRun]struct{}
+	executions map[*executionTransport]struct{} // operation cleanup may outlive socket interruption
+	closed     bool
 }
 
 // onceCmd is a command that go-redis must not send again when it fails.
@@ -1065,7 +1115,22 @@ func (s *store) migrateLegacyMetadata(ctx context.Context) error {
 }
 
 func (s *store) getTable(ctx context.Context, schema, table string) (*tableMeta, error) {
-	if schema == foreignSchema {
+	if schema == foreignSchema && !s.snapshots {
+		return s.foreignTable(ctx, table)
+	}
+	meta, err := s.getTableMetadata(ctx, schema, table)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.validateSnapshotTable(ctx, meta); err != nil {
+		return nil, err
+	}
+	return meta, nil
+}
+
+// Metadata/reference publication does not need to open unrelated row indexes.
+func (s *store) getTableMetadata(ctx context.Context, schema, table string) (*tableMeta, error) {
+	if schema == foreignSchema && !s.snapshots {
 		return s.foreignTable(ctx, table)
 	}
 	readAt := time.Now()
@@ -1079,6 +1144,9 @@ func (s *store) getTable(ctx context.Context, schema, table string) (*tableMeta,
 	var meta tableMeta
 	if err := json.Unmarshal([]byte(raw), &meta); err != nil {
 		return nil, errorf(adbc.StatusInternal, "corrupt metadata for table %q.%q: %v", schema, table, err)
+	}
+	if _, pending := snapshotDeferredIndex(ctx, &meta); pending {
+		meta.SnapshotOverlay = true
 	}
 	if (s.flex || meta.PlainIndex) && (meta.Adopted || meta.KeyRows || meta.AppIndex || meta.Foreign) {
 		return nil, flexUnsupported("adopted and application indexes")
@@ -1105,7 +1173,7 @@ func (s *store) tableExists(ctx context.Context, schema, table string) (bool, er
 // createTable registers the table metadata and creates its search index.
 // It returns false (and no error) if the table exists and ifNotExists is set.
 func (s *store) createTable(ctx context.Context, meta *tableMeta, ifNotExists bool) (bool, error) {
-	if err := s.checkWritableSchema(meta.Schema); err != nil {
+	if err := s.checkWritableSchema(meta.Schema); err != nil && !(meta.Schema == foreignSchema && snapshotImporting(ctx)) {
 		return false, err
 	}
 	if len(meta.Columns) == 0 {
@@ -1156,11 +1224,16 @@ func (s *store) createTable(ctx context.Context, meta *tableMeta, ifNotExists bo
 	// Reserve a key prefix and index name that no table has had (see
 	// claimNames), and create the index. The metadata is written last, so
 	// no statement sees the table before its keys are known and indexed.
-	nm, err := s.claimNames(ctx, meta.Schema, meta.Name)
+	nm, err := s.claimNames(ctx, meta.Schema, meta.Name, meta.SnapshotAccessID)
 	if err != nil {
 		return false, err
 	}
 	meta.KeyPrefix, meta.IndexName, meta.PrefixGen = nm.prefix, nm.index, 0
+	if s.snapshots {
+		meta.SnapshotLineage = snapshotDataID(nm.prefix)
+		meta.SnapshotAccessID = snapshotAccessID(nm.prefix)
+	}
+	deferred := deferSnapshotIndex(ctx, meta)
 	created := false
 	release := func() {
 		bg := context.WithoutCancel(ctx)
@@ -1182,16 +1255,18 @@ func (s *store) createTable(ctx context.Context, meta *tableMeta, ifNotExists bo
 		return false, errorf(adbc.StatusInternal, "failed to encode metadata: %v", err)
 	}
 
-	// The index name was free in the registry, so an index with that name is
-	// left over from an interrupted CREATE/DROP and can be discarded
-	// (claimNames skips names whose index isn't one, see foreignIndex).
-	_ = s.dropEmptyIndex(ctx, meta.index())
+	if !deferred {
+		// The index name was free in the registry, so an index with that name is
+		// left over from an interrupted CREATE/DROP and can be discarded
+		// (claimNames skips names whose index isn't one, see foreignIndex).
+		_ = s.dropEmptyIndex(ctx, meta.index())
 
-	if err := s.searchDo(ctx, meta.index(), indexCreateArgs(meta)...).Err(); err != nil {
-		release()
-		return false, wrapRedis(err, "failed to create search index")
+		if err := s.searchDo(ctx, meta.index(), indexCreateArgs(meta)...).Err(); err != nil {
+			release()
+			return false, wrapRedis(err, "failed to create search index")
+		}
+		created = true
 	}
-	created = true
 	// The metadata, a fresh row id sequence and the registration, in one
 	// transaction, unless the table was created meanwhile.
 	won := false
@@ -1234,6 +1309,12 @@ func indexCreateArgs(meta *tableMeta) []any {
 		"SKIPINITIALSCAN", "SCHEMA", rowIDField, "NUMERIC"}
 	if !meta.PlainIndex {
 		args = append(args, "SORTABLE")
+	}
+	if snapshotDataID(meta.prefix()) != "" {
+		args = append(args, snapshotDeletedField, "NUMERIC")
+	}
+	if meta.SnapshotSourceKey {
+		args = append(args, indexAttrArgs(snapshotSourceKeyColumn())...)
 	}
 	for _, c := range meta.Columns {
 		if c.Indexed {
@@ -1305,7 +1386,7 @@ func (s *store) truncateTables(ctx context.Context, metas []*tableMeta, restartI
 		}
 	}
 	for _, t := range ts {
-		nm, err := s.claimNames(ctx, t.meta.Schema, t.meta.Name)
+		nm, err := s.claimNames(ctx, t.meta.Schema, t.meta.Name, t.meta.SnapshotAccessID)
 		if err != nil {
 			release()
 			return err
@@ -1313,15 +1394,18 @@ func (s *store) truncateTables(ctx context.Context, metas []*tableMeta, restartI
 		t.names = nm
 		next := *t.meta
 		next.KeyPrefix, next.IndexName = nm.prefix, nm.index
-		// The index name was free in the registry, so an index with that
-		// name is left over from an interrupted CREATE/DROP and can be
-		// discarded (see foreignIndex).
-		_ = s.dropEmptyIndex(ctx, nm.index)
-		if err := s.searchDo(ctx, nm.index, indexCreateArgs(&next)...).Err(); err != nil {
-			release()
-			return wrapRedis(err, "failed to create search index")
+		next.SnapshotSegments, next.SnapshotOverlay, next.SnapshotRows = nil, false, nil
+		if !deferSnapshotIndex(ctx, &next) {
+			// The index name was free in the registry, so an index with that
+			// name is left over from an interrupted CREATE/DROP and can be
+			// discarded (see foreignIndex).
+			_ = s.dropEmptyIndex(ctx, nm.index)
+			if err := s.searchDo(ctx, nm.index, indexCreateArgs(&next)...).Err(); err != nil {
+				release()
+				return wrapRedis(err, "failed to create search index")
+			}
+			t.created = true
 		}
-		t.created = true
 		t.attrs = map[string]string{}
 		for _, c := range t.meta.Columns {
 			if c.Indexed {
@@ -1361,10 +1445,14 @@ func (s *store) truncateTables(ctx context.Context, metas []*tableMeta, restartI
 				// it: then that one is emptied.
 				t.oldPrefix, t.oldIndex = cur.prefix(), cur.index()
 				cur.KeyPrefix, cur.IndexName, cur.PrefixGen = t.names.prefix, t.names.index, 0
+				if s.snapshots {
+					cur.SnapshotLineage = snapshotDataID(t.names.prefix)
+				}
 				for j := range cur.Columns {
 					cur.Columns[j].Missing, cur.Columns[j].MissingThrough = "", 0
 				}
 				cur.PendingCleanup = nil
+				cur.SnapshotSegments, cur.SnapshotOverlay, cur.SnapshotRows = nil, false, nil
 				if raws[i], err = marshalMeta(cur); err != nil {
 					return err
 				}
@@ -1407,6 +1495,9 @@ func (s *store) truncateTables(ctx context.Context, metas []*tableMeta, restartI
 
 	var first error
 	for _, t := range ts {
+		if s.snapshots && !snapshotOwns(ctx, t.oldPrefix) {
+			continue
+		}
 		if err := s.dropOwnedIndex(ctx, t.oldIndex, t.oldPrefix, t.meta.PlainIndex); err != nil &&
 			!isUnknownIndex(err) && first == nil {
 			first = errorf(adbc.StatusIO, "table %q.%q is empty, but deleting its old rows failed: %v; they are left under the key prefix %q, which no table has any more",
@@ -1421,6 +1512,10 @@ func (s *store) truncateTables(ctx context.Context, metas []*tableMeta, restartI
 // ADD COLUMN that committed after TRUNCATE read the metadata added them to
 // the old index only.
 func (s *store) addIndexedColumns(ctx context.Context, t *truncation, cur *tableMeta) error {
+	// The final snapshot index uses the complete committed schema.
+	if s.snapshots {
+		return nil
+	}
 	for _, c := range cur.Columns {
 		if !c.Indexed {
 			continue
@@ -1477,7 +1572,7 @@ var testHookDropping func()
 //     meanwhile, so that the new index and key prefix don't outlive the
 //     table.
 func (s *store) dropTable(ctx context.Context, schema, table string, ifExists bool) error {
-	if schema == foreignSchema || schema == pgCatalog {
+	if schema == pgCatalog || schema == foreignSchema && !snapshotImporting(ctx) {
 		return virtualReadOnly(schema)
 	}
 	name := table // as the statement names it
@@ -1518,7 +1613,7 @@ func (s *store) dropTable(ctx context.Context, schema, table string, ifExists bo
 		}
 		// DD deletes every document the index knows about; an adopted
 		// table's HASHes stay, and the application's index too (AppIndex).
-		if !meta.AppIndex {
+		if !meta.AppIndex && (!s.snapshots || snapshotOwns(ctx, meta.prefix())) {
 			drop := []any{"FT.DROPINDEX", meta.index(), "DD"}
 			if meta.Adopted || s.flex {
 				drop = drop[:2]
@@ -1552,7 +1647,7 @@ func (s *store) dropTable(ctx context.Context, schema, table string, ifExists bo
 				p.SRem(ctx, tablesKey(schema), table)
 				p.SRem(ctx, prefixesKey, meta.prefix())
 				p.SRem(ctx, indexesKey, meta.index())
-				if !isTempSchema(schema) {
+				if !s.snapshots && !isTempSchema(schema) {
 					p.HIncrBy(ctx, releasedKey, meta.prefix(), 1) // see rekey.go
 				}
 				p.SRem(ctx, cleanupKey, cleanupMember(schema, table))
@@ -1593,7 +1688,7 @@ func (s *store) renamedTo(ctx context.Context, meta *tableMeta) (string, error) 
 	if _, err := pipe.Exec(ctx); err != nil {
 		return "", wrapRedis(err, "failed to drop table")
 	}
-	if !kept.Val() {
+	if !s.snapshots && !kept.Val() {
 		return "", nil
 	}
 	names := listed.Val()
@@ -1617,7 +1712,7 @@ func (s *store) renamedTo(ctx context.Context, meta *tableMeta) (string, error) 
 func isUnknownIndex(err error) bool {
 	msg := strings.ToLower(err.Error())
 	return strings.Contains(msg, "unknown index") || strings.Contains(msg, "no such index") ||
-		strings.Contains(msg, "not found")
+		strings.Contains(msg, "not found") || strings.Contains(msg, "search_index_not_found")
 }
 
 func (s *store) listSchemas(ctx context.Context) ([]string, error) {
@@ -1626,7 +1721,9 @@ func (s *store) listSchemas(ctx context.Context) ([]string, error) {
 		return nil, wrapRedis(err, "failed to list schemas")
 	}
 	// Temporary schemas are never registered; skip them all the same.
-	members = slices.DeleteFunc(members, reservedSchema)
+	members = slices.DeleteFunc(members, func(schema string) bool {
+		return reservedSchema(schema) || schema == foreignSchema && !s.foreignIndexes
+	})
 	if !slices.Contains(members, defaultSchema) {
 		members = append(members, defaultSchema)
 	}
@@ -1747,7 +1844,7 @@ func (s *store) dropSchema(ctx context.Context, schema string, ifExists, cascade
 }
 
 func (s *store) listTables(ctx context.Context, schema string) ([]string, error) {
-	if schema == foreignSchema {
+	if schema == foreignSchema && !s.snapshots {
 		return s.foreignNames(ctx)
 	}
 	members, err := s.redis(ctx).SMembers(ctx, tablesKey(schema)).Result()
@@ -1772,8 +1869,9 @@ func (s *store) insertRows(ctx context.Context, meta *tableMeta, rows [][]Value)
 // first+1, …, and added holds the fields (name, value, …) of the missing
 // values they must be written with (see addedMissing).
 type rowAlloc struct {
-	first int64
-	added []any
+	first      int64
+	added      []any
+	sourceKeys []Value // import-only provenance, separate from physical row IDs
 }
 
 // allocRows checks rows to be inserted against NOT NULL and allocates their
@@ -1898,9 +1996,10 @@ func sameKeys(meta *tableMeta, raw string) bool {
 	return prefix == meta.prefix() && cur.PrefixGen == meta.PrefixGen
 }
 
-// testHookRowsWritten, when set by a test, runs after each pipeline of rows
-// that writeRows, writeUpdates or deleteKeys sends, with the number of rows
-// written (set or deleted) so far.
+// testHookRowsWritten, when set by a test, runs after acknowledged row writes.
+// Native INSERT reports each atomic batch; native replacements/tombstones report
+// each bounded image group. Legacy paths report each pipeline. The count is the
+// number of rows written (set or deleted) so far.
 var testHookRowsWritten func(meta *tableMeta, written int)
 
 // writeRows writes rows allocated by allocRows as HASHes. A write of more
@@ -1926,6 +2025,9 @@ func (s *store) writeRows(ctx context.Context, meta *tableMeta, a rowAlloc, rows
 		fieldNames[i] = c.field()
 	}
 	meta.wrote.ranges = append(meta.wrote.ranges, [2]int64{a.first, int64(len(rows))})
+	if scope := snapshotOf(ctx); scope != nil && scope.write {
+		return s.writeSnapshotRows(ctx, meta, a, rows, fieldNames)
+	}
 	for start := 0; start < len(rows); start += pipelineChunk {
 		if start > 0 {
 			if err := s.checkWritten(ctx, meta); err != nil {
@@ -1938,6 +2040,9 @@ func (s *store) writeRows(ctx context.Context, meta *tableMeta, a rowAlloc, rows
 			id := strconv.FormatInt(a.first+int64(r), 10)
 			fields := make([]any, 0, 2+2*len(meta.Columns)+len(a.added))
 			fields = append(fields, rowIDField, id)
+			if meta.SnapshotSourceKey && len(a.sourceKeys) > 0 && !a.sourceKeys[r].Null {
+				fields = append(fields, snapshotSourceKeyField, a.sourceKeys[r].S)
+			}
 			for i := range meta.Columns {
 				if v := rows[r][i]; !v.Null {
 					fields = append(fields, fieldNames[i], encodeStored(v))

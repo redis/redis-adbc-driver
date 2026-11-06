@@ -14,158 +14,120 @@
 
 package redis
 
-// UPDATE, UPDATE … FROM, MERGE and DELETE racing a TRUNCATE or a DROP TABLE
-// that lands after the first of their three pipelines (raceDrop, as for the
-// inserts in stale_rows_integration_test.go and
-// truncate_race_integration_test.go).
-//
-// An HSET after the TRUNCATE or DROP makes a partial HASH of the row it
-// sets, under the old key prefix, which no table has any more: the check
-// after the last pipeline finds out, deletes those keys, and the statement
-// fails. MERGE's new rows are written as INSERT's are. A DEL makes nothing:
-// a DELETE (or MERGE … DELETE) that doesn't check succeeds, as if it had run
-// first, and one that checks fails.
+// Native UPDATE/MERGE replacement images and DELETE tombstones stay private.
+// An intervening TRUNCATE or DROP/recreation must win over their stale writer.
 
 import (
 	"fmt"
 	"strings"
 	"testing"
-	"time"
-
-	goredis "github.com/redis/go-redis/v9"
 )
 
-// updateRaces are the writes that change rows (writeUpdates) or insert them
-// (MERGE … INSERT, into an empty target). %[1]s is the target, %[2]s the
-// source, which has srRows rows (id, 'old').
 var updateRaces = []struct {
 	name  string
-	empty bool // the target starts empty
+	empty bool
 	sql   string
 }{
-	{"UPDATE", false, `UPDATE %[1]s SET note = 'new'`},
-	{"UPDATE FROM", false, `UPDATE %[1]s t SET note = 'new' FROM %[2]s s WHERE t.id = s.id`},
-	{"MERGE UPDATE", false, `MERGE INTO %[1]s t USING %[2]s s ON t.id = s.id WHEN MATCHED THEN UPDATE SET note = 'new'`},
-	{"MERGE INSERT", true, `MERGE INTO %[1]s t USING %[2]s s ON t.id = s.id WHEN NOT MATCHED THEN INSERT (id, note) VALUES (s.id, 'new')`},
+	{"UPDATE", false, "UPDATE %[1]s SET note='new'"},
+	{"UPDATE FROM", false, "UPDATE %[1]s t SET note='new' FROM %[2]s s WHERE t.id=s.id"},
+	{"MERGE UPDATE", false, "MERGE INTO %[1]s t USING %[2]s s ON t.id=s.id WHEN MATCHED THEN UPDATE SET note='new'"},
+	{"MERGE INSERT", true, "MERGE INTO %[1]s t USING %[2]s s ON t.id=s.id WHEN NOT MATCHED THEN INSERT (id,note) VALUES (s.id,'new')"},
 }
 
-// deleteRaces delete every row of a full target.
 var deleteRaces = []struct{ name, sql string }{
-	{"DELETE", `DELETE FROM %[1]s`},
-	{"MERGE DELETE", `MERGE INTO %[1]s t USING %[2]s s ON t.id = s.id WHEN MATCHED THEN DELETE`},
+	{"DELETE", "DELETE FROM %[1]s"},
+	{"MERGE DELETE", "MERGE INTO %[1]s t USING %[2]s s ON t.id=s.id WHEN MATCHED THEN DELETE"},
 }
 
-// fillTarget creates the target of a race: empty, or with the source's rows.
-func (h *sqlHarness) fillTarget(table, src string, empty bool) {
-	h.t.Helper()
-	if empty {
-		h.exec(fmt.Sprintf(`CREATE TABLE %s (id BIGINT, note VARCHAR)`, table))
-	} else {
-		h.exec(fmt.Sprintf(`CREATE TABLE %s AS SELECT id, note FROM %s`, table, src))
-	}
-}
-
-// raceMode is the tables, the TRUNCATE or DROP of a race, and what to
-// check afterwards.
-type raceMode struct {
-	name string
-	// setup creates the source and drops the target; the target and the
-	// source are named so.
-	setup       func(h *sqlHarness)
-	target, src string
-	run         func(other *sqlHarness)
-	// after checks the table once the writer is done.
-	after func(h *sqlHarness, raw goredis.UniversalClient, r *dropRace)
-}
-
-func raceModes() []raceMode {
-	var modes []raceMode
-	for _, m := range truncModes {
-		firstID := map[bool]int{true: 1, false: srRows + 1}[m.restart]
-		modes = append(modes, raceMode{
-			name:   "TRUNCATE " + m.name,
-			setup:  (*sqlHarness).setupTruncRace,
-			target: "it_tr_t", src: "it_tr_src",
-			run: func(other *sqlHarness) { other.exec(`TRUNCATE it_tr_t` + m.clause) },
-			after: func(h *sqlHarness, raw goredis.UniversalClient, r *dropRace) {
-				h.expectTruncated(raw, r, "public", "it_tr_t", firstID)
-			},
-		})
-	}
-	return append(modes, raceMode{
-		name:   "DROP",
-		setup:  (*sqlHarness).setupStaleRows,
-		target: "it_sr_t", src: "it_sr_src",
-		run: func(other *sqlHarness) { other.exec(`DROP TABLE it_sr_t`) },
-		after: func(h *sqlHarness, raw goredis.UniversalClient, r *dropRace) {
-			h.expectError(`SELECT * FROM it_sr_t`, "does not exist")
-			h.expectNewTable(raw, r, "public", `CREATE TABLE it_sr_t (id BIGINT, note VARCHAR)`, "it_sr_t")
-		},
-	})
-}
-
-// A write that changes or inserts rows fails, and leaves no key behind.
 func TestSQLTruncateOrDropDuringUpdate(t *testing.T) {
 	for _, w := range updateRaces {
-		for _, m := range raceModes() {
-			t.Run(w.name+"/"+m.name, func(t *testing.T) {
-				h := newSQLHarness(t)
-				m.setup(h)
-				raw := h.rawClient()
-				other := newSQLHarness(t)
-				h.fillTarget(m.target, m.src, w.empty)
-				r := h.raceDrop(raw, m.target, func(*tableMeta) { m.run(other) })
-				_, err := tryExec(h.ctx, h.conn, fmt.Sprintf(w.sql, m.target, m.src))
-				h.expectRaceLost(raw, r, err)
-				m.after(h, raw, r)
-			})
+		for _, mode := range []string{"continue", "restart", "drop"} {
+			t.Run(w.name+"/"+mode, func(t *testing.T) { testNativeDMLRace(t, w.sql, w.empty, false, srRows, mode) })
 		}
 	}
 }
 
-// A delete deletes nothing after the TRUNCATE or DROP, and makes no key.
-// One that checks fails, as any write does whose table's rows moved away
-// meanwhile (it can't tell from a re-keying rename, which copied the rows
-// it hadn't deleted yet); one that doesn't succeeds. Either way the table
-// is empty (or gone) and nothing is left under the old prefix.
 func TestSQLTruncateOrDropDuringDelete(t *testing.T) {
 	for _, w := range deleteRaces {
-		for _, m := range raceModes() {
-			for _, checks := range []bool{false, true} {
-				t.Run(fmt.Sprintf("%s/%s/checks=%v", w.name, m.name, checks), func(t *testing.T) {
-					h := newSQLHarness(t)
-					m.setup(h)
-					raw := h.rawClient()
-					other := newSQLHarness(t)
-					h.fillTarget(m.target, m.src, false)
-					r := h.raceDrop(raw, m.target, func(*tableMeta) { m.run(other) })
-					if checks {
-						// After raceDrop's hook: the metadata looks read long ago.
-						hook := testHookRowsWritten
-						testHookRowsWritten = func(meta *tableMeta, written int) {
-							hook(meta, written)
-							meta.readAt = time.Now().Add(-time.Second)
-						}
-					}
-					n, err := tryExec(h.ctx, h.conn, fmt.Sprintf(w.sql, m.target, m.src))
-					testHookRowsWritten = nil
-					if r.prefix == "" {
-						t.Fatal("the race did not run")
-					}
-					switch {
-					case checks && (err == nil || !strings.Contains(err.Error(), srWriteErr)):
-						t.Errorf("writer: got %v, want an error containing %q", err, srWriteErr)
-					case !checks && err != nil:
-						t.Errorf("writer: %v", err)
-					case !checks && n != srRows:
-						t.Errorf("writer: %d rows, want %d", n, srRows)
-					}
-					if r.left != 0 {
-						t.Errorf("%d keys under %q after the last delete, want 0", r.left, r.prefix)
-					}
-					m.after(h, raw, r)
-				})
+		for _, mode := range []string{"continue", "restart", "drop"} {
+			for _, rows := range []int{snapshotWriteBatchRows / 2, srRows} {
+				t.Run(fmt.Sprintf("%s/%s/%d", w.name, mode, rows), func(t *testing.T) { testNativeDMLRace(t, w.sql, false, true, rows, mode) })
 			}
 		}
+	}
+}
+
+func testNativeDMLRace(t *testing.T, sql string, empty, deleted bool, rows int, mode string) {
+	t.Helper()
+	h := newSQLHarness(t)
+	h.setupTruncRace()
+	raw := h.rawClient()
+	other := newSQLHarness(t)
+	if empty {
+		h.exec("CREATE TABLE it_tr_t (id BIGINT,note VARCHAR)")
+	} else {
+		h.exec(fmt.Sprintf("CREATE TABLE it_tr_t AS SELECT id,note FROM it_tr_src WHERE id<=%d", rows))
+	}
+	st, oldCtx, pin := h.inspectionSnapshot(raw)
+	defer pin.release()
+	old, err := st.getTable(oldCtx, defaultSchema, "it_tr_t")
+	if err != nil {
+		t.Fatal(err)
+	}
+	field, want, firstBatch := "note", "new", min(rows, pipelineChunk)
+	if empty {
+		firstBatch = min(rows, snapshotWriteBatchRows)
+	}
+	if deleted {
+		field, want = snapshotDeletedField, "1"
+	}
+	r := h.raceNativeImagesAt(raw, "it_tr_t", firstBatch, field, want, func(*tableMeta) {
+		switch mode {
+		case "continue":
+			other.exec("TRUNCATE it_tr_t")
+		case "restart":
+			other.exec("TRUNCATE it_tr_t RESTART IDENTITY")
+		case "drop":
+			other.exec("DROP TABLE it_tr_t")
+			other.exec("CREATE TABLE it_tr_t (id BIGINT,note VARCHAR)")
+			other.exec("INSERT INTO it_tr_t VALUES (999999,'replacement')")
+		default:
+			t.Fatal("unknown race mode", mode)
+		}
+	})
+	_, err = tryExec(h.ctx, h.conn, fmt.Sprintf(sql, "it_tr_t", "it_tr_src"))
+	h.expectNativeRowRefusal(raw, r, err)
+	current := h.inspectTable(raw, defaultSchema, "it_tr_t")
+	if current.prefix() == old.prefix() || current.prefix() == r.meta.prefix() {
+		t.Fatal("competing binding reused storage")
+	}
+	if mode == "drop" {
+		h.expectRows("SELECT id,note FROM it_tr_t", "999999|replacement")
+		h.exec("TRUNCATE it_tr_t RESTART IDENTITY")
+	}
+	first := 1
+	if mode == "continue" && !empty {
+		first = rows + 1
+	}
+	h.expectNativeTruncated(raw, r, defaultSchema, "it_tr_t", first)
+	retained := valueRows(snapshotExecuteTest(t, st, oldCtx, "SELECT __rowid,id,note FROM it_tr_t ORDER BY __rowid").rows)
+	wantRows := rows
+	if empty {
+		wantRows = 0
+	}
+	if len(retained) != wantRows {
+		t.Fatal("old reader row count changed", len(retained), wantRows)
+	}
+	for i, row := range retained {
+		if row != fmt.Sprintf("%d|%d|old", i+1, i+1) {
+			t.Fatal("old reader changed", i, row)
+		}
+	}
+	if got := strings.Join(valueRows(snapshotExecuteTest(t, st, oldCtx, "SELECT COUNT(*) FROM it_tr_src").rows), "|"); got != fmt.Sprint(srRows) {
+		t.Fatal("source changed", got)
+	}
+	pin.release()
+	for _, seg := range old.snapshotSegments() {
+		h.expectSnapshotReleased(raw, seg.Prefix, seg.Index)
 	}
 }

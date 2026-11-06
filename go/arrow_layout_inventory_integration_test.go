@@ -69,6 +69,9 @@ func checkCanonicalStorage(t *testing.T, cases []layoutInventoryCase, prefix str
 	worker := newSQLHarness(t) // separate metadata cache and partition reader
 	for i, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
+			// Shared connections are sequential, but helper failures belong to the
+			// current case rather than calling FailNow on its parent test.
+			h := &sqlHarness{t: t, ctx: h.ctx, conn: h.conn}
 			table := fmt.Sprintf("%s_%d", prefix, i)
 			h.exec("DROP TABLE IF EXISTS " + table)
 			t.Cleanup(func() { h.exec("DROP TABLE IF EXISTS " + table) })
@@ -222,6 +225,12 @@ func checkCanonicalStorage(t *testing.T, cases []layoutInventoryCase, prefix str
 			if !partSchema.Equal(want.Schema()) || parts.NumPartitions != 1 {
 				t.Fatal(partSchema, parts.NumPartitions)
 			}
+			group, err := st.(adbc.GetSetOptionsWithContext).GetOption(h.ctx, OptionStringPartitionSnapshotID)
+			if err != nil || group == "" {
+				t.Fatal("live partition release ID missing", group, err)
+			}
+			release := func() { h.exec("DROP PARTITION SNAPSHOT '" + group + "'") }
+			t.Cleanup(release)
 			r, err = worker.conn.ReadPartition(h.ctx, parts.PartitionIDs[0])
 			if err != nil {
 				t.Fatal(err)
@@ -259,6 +268,15 @@ func checkCanonicalStorage(t *testing.T, cases []layoutInventoryCase, prefix str
 				reader, _ = h.openStream(h.ctx, worker.conn, query+" ORDER BY __rowid", nil, nil)
 				assertInventoryReader(t, reader, want)
 				reader.Release()
+			}
+			// Statement Close intentionally preserves descriptors for independent
+			// workers. Release this completed set before the next case publishes.
+			release()
+			if stale, err := worker.conn.ReadPartition(h.ctx, parts.PartitionIDs[0]); err == nil {
+				stale.Release()
+				t.Fatal("released live partition remained readable")
+			} else if !strings.Contains(err.Error(), "partition snapshot expired or released") {
+				t.Fatal("released partition failed for an unrelated reason", err)
 			}
 			// Retained publication serializes canonical output, never these physical inputs.
 			storage := retainedFixture(t, h.rawClient(), defaultRetainedLimits())
@@ -332,6 +350,7 @@ func checkCanonicalStorage(t *testing.T, cases []layoutInventoryCase, prefix str
 
 func TestArrowLayoutExpansionRejectedBeforeRows(t *testing.T) {
 	h := newSQLHarness(t)
+	raw := retainedTestClient(t, h.rawClient())
 	ends := inventoryJSON(t, memory.DefaultAllocator, arrow.PrimitiveTypes.Int64, fmt.Sprintf("[%d]", maxNormalizedInputValues+1))
 	defer ends.Release()
 	values := inventoryJSON(t, memory.DefaultAllocator, arrow.PrimitiveTypes.Int64, `[7]`)
@@ -354,6 +373,10 @@ func TestArrowLayoutExpansionRejectedBeforeRows(t *testing.T) {
 					t.Fatal(err)
 				}
 			} else if err := st.SetSqlQuery(h.ctx, "SELECT ? AS v"); err != nil {
+				t.Fatal(err)
+			}
+			root, err := raw.HGet(h.ctx, snapshotCatalogKey, "root").Result()
+			if err != nil {
 				t.Fatal(err)
 			}
 			if stream {
@@ -382,8 +405,17 @@ func TestArrowLayoutExpansionRejectedBeforeRows(t *testing.T) {
 			if !isStatus(err, adbc.StatusInvalidArgument) || !strings.Contains(err.Error(), "Arrow normalization exceeds") {
 				t.Fatal(stream, ingest, err)
 			}
+			after, err := raw.HGet(h.ctx, snapshotCatalogKey, "root").Result()
+			if err != nil || after != root {
+				t.Fatal("rejected Arrow input published metadata", stream, ingest, err)
+			}
 			if ingest {
-				h.expectRows("SELECT COUNT(*) FROM it_layout_expansion_guard", "0")
+				if _, err := h.conn.GetTableSchema(h.ctx, nil, nil, "it_layout_expansion_guard"); !isStatus(err, adbc.StatusNotFound) {
+					t.Fatal("rejected Arrow input left a table", stream, err)
+				}
+				h.exec("CREATE TABLE it_layout_expansion_guard (v BIGINT)")
+				h.exec("INSERT INTO it_layout_expansion_guard VALUES (7)")
+				h.expectRows("SELECT v FROM it_layout_expansion_guard", "7")
 			}
 		}
 	}

@@ -50,6 +50,7 @@ const exactDoubleLimit = 1 << 53
 // wherePlan is the part of a WHERE clause answered by the index plus the
 // residual predicate evaluated by the driver on fetched rows.
 type wherePlan struct {
+	original Expr // full overlay predicate for authoritative-directory fallback
 	query    string
 	residual Expr
 	// keys is set for a direct lookup (WHERE __rowid = N): the rows are read
@@ -160,6 +161,9 @@ func (e *executor) planWhere(ctx context.Context, where Expr, meta *tableMeta, p
 		return wherePlan{query: "*", residual: where}, nil
 	}
 	wp := wherePlan{query: "*"}
+	if meta.SnapshotOverlay {
+		wp.original = where
+	}
 	if where == nil {
 		return wp, nil
 	}
@@ -187,6 +191,9 @@ func (e *executor) planWhere(ctx context.Context, where Expr, meta *tableMeta, p
 		}
 		if meta.Foreign {
 			continue
+		}
+		if (meta.KeyRows && col.Name != keyField) || (!meta.KeyRows && col.Name != rowIDField) {
+			continue // source __key provenance must never become a physical row lookup
 		}
 		v, err := env.eval(other)
 		if err != nil {
@@ -222,7 +229,7 @@ func (e *executor) planWhere(ctx context.Context, where Expr, meta *tableMeta, p
 		return wp, nil
 	}
 
-	if len(meta.PendingCleanup) > 0 {
+	if meta.SnapshotOverlay && !e.snapshotIndexable(ctx, meta) || len(meta.PendingCleanup) > 0 {
 		wp.residual = where
 		return wp, nil
 	}
@@ -487,14 +494,24 @@ func decodeRow(meta *tableMeta, row aggRow, only map[string]bool) (map[string]Va
 		}
 		out[c.Name] = v
 	}
+	// Avoid constructing a copied metadata slice for every decoded row.
+	if meta.SnapshotSourceKey && (only == nil || only[keyField]) {
+		if key, ok := row[snapshotSourceKeyField]; ok {
+			out[keyField] = stringValue(key)
+		} else {
+			out[keyField] = nullValue(typeString)
+		}
+	}
 	return out, nil
 }
 
 // scanRequest describes an index lookup followed by a row fetch.
 type scanRequest struct {
-	authoritative bool            // private exact integer tuple source: fetch every needed HASH field
-	ranges        *rowIDRangeScan // optional bounded numeric range source
-	hashScan      bool            // lowered aggregate cap requires HASH pagination
+	dependencies  map[string]bool      // transitive outer-column inputs for correlated predicates
+	visibility    []snapshotIndexQuery // immutable per-segment visibility for ordered merge
+	authoritative bool                 // private exact integer tuple source: fetch every needed HASH field
+	ranges        *rowIDRangeScan      // optional bounded numeric range source
+	hashScan      bool                 // lowered aggregate cap requires HASH pagination
 	meta          *tableMeta
 	where         wherePlan
 	sortBy        []sortKey
@@ -520,13 +537,19 @@ func (e *executor) scan(ctx context.Context, req scanRequest, params []Value) ([
 	if req.hashScan || len(req.meta.PendingCleanup) > 0 && req.where.keys == nil {
 		return e.scanBeyondCap(ctx, req, params)
 	}
-	if req.where.keys != nil {
+	if req.where.keys != nil && !req.meta.SnapshotOverlay {
 		it, fields, _ := e.newScanIter(ctx, req, params)
 		fetch := e.store.fetchRows
 		if req.meta.KeyRows {
 			fetch = e.store.fetchKeyRows
 		}
-		fetched, err := fetch(ctx, req.where.keys, fields)
+		var fetched []aggRow
+		var err error
+		if snapshotOf(ctx) != nil && snapshotDataID(req.meta.prefix()) != "" {
+			fetched, err = e.store.fetchSnapshotVisible(ctx, req.meta, req.where.keys, fields)
+		} else {
+			fetched, err = fetch(ctx, req.where.keys, fields)
+		}
 		if err != nil {
 			return nil, nil, err
 		}
@@ -554,6 +577,9 @@ func (e *executor) scan(ctx context.Context, req scanRequest, params []Value) ([
 // scanIter reads the rows of a scan: decodes them and applies the residual
 // predicate, a cursor page at a time for a scan through the index.
 type scanIter struct {
+	ordered       *snapshotOrderedScan
+	candidates    *snapshotCandidateScan
+	delta         *snapshotDeltaScan
 	subBudget     *subWork // nil for ordinary SQL
 	gpu           *cudaPredicate
 	allowPrefetch bool
@@ -601,7 +627,7 @@ func (e *executor) newScanIter(ctx context.Context, req scanRequest, params []Va
 		columnRefs(req.where.residual, need)
 	}
 	exactly = true
-	for _, c := range meta.Columns {
+	for _, c := range meta.scanColumns() {
 		if need[c.Name] {
 			fields = append(fields, c.field())
 			exactly = exactly && loadsExactly(c)
@@ -621,6 +647,55 @@ func (e *executor) newScanIter(ctx context.Context, req scanRequest, params []Va
 // openScan starts a scan through the index (req.where.keys nil) and reads
 // its first page.
 func (e *executor) openScan(ctx context.Context, req scanRequest, params []Value) (*scanIter, error) {
+	if req.meta.SnapshotOverlay {
+		if req.visibility != nil && len(req.sortBy) > 0 {
+			it, _, exactly := e.newScanIter(ctx, req, params)
+			// Both exact directories and index candidates merge ascending row
+			// IDs already. Eligible wide scans need no separate ordered reducer.
+			if !wideHashFetch(req, it, &aggRequest{loadAll: !exactly}) {
+				ordered, err := e.openSnapshotOrdered(ctx, req, params)
+				if err != nil {
+					return nil, err
+				}
+				it.ordered = ordered
+				if req.late != nil {
+					// The ordered merge materializes only globally selected rows.
+					it.need = req.late.need
+				}
+				// Source predicates ran before the merge; never evaluate volatility twice.
+				it.residual = nil
+				return it, nil
+			}
+		}
+		indexed := req.where.keys == nil && req.where.query != "*" && e.snapshotIndexable(ctx, req.meta) && e.store.paginationCaps(ctx, snapshotSourceIndex(ctx, req.meta))[0] > 0
+		if !indexed && req.where.original != nil {
+			req.where.residual = req.where.original
+		}
+		it, fields, _ := e.newScanIter(ctx, req, params)
+		if fields == nil {
+			fields = []string{}
+		}
+		it.store, it.fetch = e.store, fields
+		if req.where.keys != nil {
+			it.directKeys = req.where.keys
+		} else if indexed {
+			it.candidates = newSnapshotCandidateScan(ctx, e.store, req.meta, req.where.query, fields)
+		} else {
+			it.delta = newSnapshotDeltaScan(e.store, req.meta, fields)
+			if req.ranges != nil {
+				if err := it.delta.seek(ctx, req.ranges.lo, req.ranges.hi); err != nil {
+					return nil, err
+				}
+			}
+		}
+		// Exact visibility is resolved before fetching the winning HASHes.
+		// Simple projections can bind positional HMGET values after that merge,
+		// preserving the ordinary path's residual/order/limit restrictions.
+		if req.where.keys == nil && snapshotHashFetch(req) {
+			it.hashFetch = true
+		}
+		return it, nil
+	}
 	if req.where.keys != nil {
 		it, fields, _ := e.newScanIter(ctx, req, params)
 		it.store, it.fetch, it.directKeys = e.store, fields, req.where.keys
@@ -662,7 +737,7 @@ func (e *executor) openScan(ctx context.Context, req scanRequest, params []Value
 		// justify the extra pipeline round trips. Wider projections and
 		// adopted HASHes retain LOAD *.
 		fields = nil
-		for _, c := range meta.Columns {
+		for _, c := range meta.scanColumns() {
 			if !it.need[c.Name] {
 				continue
 			}
@@ -686,6 +761,9 @@ func (e *executor) openScan(ctx context.Context, req scanRequest, params []Value
 		// no field at all.
 		ar.load, ar.loadAll = []string{"__key"}, true
 		ar.width = len(meta.Columns) + 2
+		if meta.SnapshotSourceKey {
+			ar.width++
+		}
 	}
 	if req.authoritative {
 		it.store, it.fetch, it.hashFetch = e.store, append(fields, it.fetch...), true
@@ -776,13 +854,45 @@ func (it *scanIter) checkReadiness(ctx context.Context) error {
 
 // nextPage is next in the index's order.
 func (it *scanIter) nextPage(ctx context.Context) ([]string, []map[string]Value, error) {
+	if it.ordered != nil {
+		keys, rows, err := it.ordered.next(ctx)
+		if err != nil {
+			return nil, nil, err
+		}
+		return it.keep(keys, rows)
+	}
 	if it.allowPrefetch && it.gpu == nil && it.hashFetch && len(it.need) >= 64 && it.projection != nil && it.projection.consumeHash != nil &&
 		it.directKeys == nil && it.ties == nil && it.late == nil &&
-		(it.prefetch != nil || it.cur != nil && it.cur.cursor != 0) {
-		// A zero initial cursor means discovery already fit in one page:
-		// there is no next page to overlap. Do not read worker-owned cursor
-		// state after prefetch starts (the first operand short-circuits).
+		it.hasHashLookahead() {
 		return it.nextPrefetchedHash(ctx)
+	}
+	if it.candidates != nil {
+		if it.hashFetch && it.projection != nil && it.projection.consumeHash != nil {
+			keys, physical, err := it.candidates.nextKeys(ctx)
+			if err != nil {
+				return nil, nil, err
+			}
+			return it.nextSnapshotHashValues(ctx, keys, physical)
+		}
+		keys, rows, err := it.candidates.next(ctx)
+		if err != nil {
+			return nil, nil, err
+		}
+		return it.keep(keys, rows)
+	}
+	if it.delta != nil {
+		if it.hashFetch && it.projection != nil && it.projection.consumeHash != nil {
+			keys, physical, err := it.delta.nextKeys(ctx)
+			if err != nil {
+				return nil, nil, err
+			}
+			return it.nextSnapshotHashValues(ctx, keys, physical)
+		}
+		keys, rows, err := it.delta.next(ctx)
+		if err != nil {
+			return nil, nil, err
+		}
+		return it.keep(keys, rows)
 	}
 	if it.directKeys != nil {
 		if it.directOffset == len(it.directKeys) {
@@ -797,7 +907,13 @@ func (it *scanIter) nextPage(ctx context.Context) ([]string, []map[string]Value,
 		if it.meta.KeyRows {
 			fetch = it.store.fetchKeyRows
 		}
-		rows, err := fetch(ctx, keys, it.fetch)
+		var rows []aggRow
+		var err error
+		if snapshotOf(ctx) != nil && snapshotDataID(it.meta.prefix()) != "" {
+			rows, err = it.store.fetchSnapshotVisible(ctx, it.meta, keys, it.fetch)
+		} else {
+			rows, err = fetch(ctx, keys, it.fetch)
+		}
 		if err != nil {
 			return nil, nil, err
 		}
@@ -868,8 +984,21 @@ func (it *scanIter) nextPage(ctx context.Context) ([]string, []map[string]Value,
 }
 
 // wideHashFetch limits the measured retrieval strategy to wide managed scans
-// that would otherwise LOAD every HASH field. The index still owns discovery
-// and row ordering; no keys are guessed. Other SQL operators keep their path.
+// that would otherwise LOAD every HASH field. Indexes or exact snapshot
+// directories own discovery and ordering; no keys are guessed. Other SQL
+// operators keep their path.
+// Snapshot directories/candidates already resolve the winning physical HASH.
+// Positional projection therefore needs no minimum width or LOAD * proof.
+// newScanProjection still admits only supported simple output expressions.
+func snapshotHashFetch(req scanRequest) bool {
+	if !managedRowIDTable(req.meta) || req.where.residual != nil ||
+		req.ties != nil || req.late != nil || req.limit != nil {
+		return false
+	}
+	return len(req.sortBy) == 0 || len(req.sortBy) == 1 &&
+		req.sortBy[0].field == rowIDField && !req.sortBy[0].desc
+}
+
 func wideHashFetch(req scanRequest, it *scanIter, ar *aggRequest) bool {
 	if !ar.loadAll || !managedRowIDTable(req.meta) || len(it.need) < 64 ||
 		len(it.need)*2 <= len(req.meta.Columns) || req.where.residual != nil ||
@@ -899,6 +1028,12 @@ func (it *scanIter) exists(r aggRow) bool {
 
 // close deletes the scan's cursor, if it is still open.
 func (it *scanIter) close(ctx context.Context) {
+	if it.ordered != nil {
+		it.ordered.close(ctx)
+		it.ordered = nil
+	}
+	it.delta = nil
+	it.candidates = nil
 	if it.prefetch != nil {
 		it.prefetch.close()
 		it.prefetch = nil
@@ -928,6 +1063,9 @@ func (it *scanIter) keep(keys []string, fetched []aggRow) ([]string, []map[strin
 	}
 	for i, raw := range fetched {
 		if raw == nil {
+			if snapshotOf(it.env.ctx) != nil && it.cur != nil {
+				return nil, nil, errorf(adbc.StatusIO, "a row from the published snapshot cursor disappeared")
+			}
 			continue
 		}
 		if err := cancelled(it.env.ctx); err != nil {
@@ -1155,9 +1293,9 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 	}
 	var caps [2]int64
 	if !meta.isMem && wp.keys == nil {
-		caps = e.store.paginationCaps(ctx, meta.index())
+		caps = e.store.paginationCaps(ctx, snapshotSourceIndex(ctx, meta))
 	}
-	req := scanRequest{meta: meta, where: wp, need: maps.Clone(plan.extraNeed)}
+	req := scanRequest{meta: meta, where: wp, need: maps.Clone(plan.extraNeed), dependencies: plan.extraNeed}
 	if req.need == nil {
 		req.need = map[string]bool{}
 	}
@@ -1167,10 +1305,28 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 	if plan.qualify != nil {
 		columnRefs(plan.qualify, req.need)
 	}
+	if len(meta.PendingCleanup) > 0 && wp.keys == nil && !meta.isMem {
+		for _, o := range plan.order {
+			columnRefs(o.expr, req.need)
+		}
+		req.hashScan = true
+		req.where.residual = plan.sel.Where
+		sc := selectScan{req: req, caps: caps, indexSort: len(plan.order) == 0}
+		e.recordSelectPlan(plan, sc)
+		return sc, nil
+	}
+
+	if meta.SnapshotOverlay {
+		for _, o := range plan.order {
+			columnRefs(o.expr, req.need)
+		}
+	}
 
 	// ORDER BY on indexed columns sorts inside the index; anything else is
 	// sorted by the driver after fetching.
 	indexSort := wp.keys == nil && !meta.isMem && !e.store.flexEnabled()
+	var orderVisibility []snapshotIndexQuery
+	var nullOrderCols []columnMeta
 	var sortCols []columnMeta
 	for _, o := range plan.order {
 		c, ok := o.expr.(*ColumnRef)
@@ -1184,12 +1340,65 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 		// strings cut at a NUL byte sort on what is left, and NaNs tie with
 		// +Infinity. Values the index rounds to the same double are sorted
 		// again by the scan (see ties.go).
-		if !ok || !col.Indexed || col.MissingThrough > 0 || !col.sortsExactly() || (col.Nullable && (o.nullsFirst || o.desc && !o.nullsLast)) {
+		if !ok || !col.Indexed || col.MissingThrough > 0 || !col.sortsExactly() {
 			indexSort = false
 			break
 		}
+		if col.Nullable && (o.nullsFirst || o.desc && !o.nullsLast) {
+			if wp.none || !e.snapshotNullOrderEligible(ctx, meta, col) {
+				indexSort = false
+				break
+			}
+			nullOrderCols = append(nullOrderCols, col)
+		}
 		req.sortBy = append(req.sortBy, sortKey{field: col.field(), desc: o.desc})
 		sortCols = append(sortCols, col)
+	}
+	if indexSort && !wp.none {
+		for _, col := range nullOrderCols {
+			queries, absent, err := e.snapshotOrderNoNulls(ctx, meta, col, wp.query, orderVisibility)
+			if err != nil {
+				return selectScan{}, err
+			}
+			if !absent {
+				indexSort = false
+				break
+			}
+			orderVisibility = queries
+		}
+	}
+	if snapshotOf(ctx) != nil && meta.SnapshotRows != nil && indexSort && len(plan.order) > 0 && !wp.none {
+		if meta.SnapshotOverlay && orderVisibility == nil {
+			// Nonempty private outputs have no final index yet. Establish the
+			// existing immutable-source proof before probing Search capacity.
+			var ok bool
+			orderVisibility, ok, err = e.snapshotIndexQueries(ctx, meta)
+			if err != nil {
+				return selectScan{}, err
+			}
+			if !ok {
+				indexSort = false
+			} else if orderVisibility == nil {
+				orderVisibility = []snapshotIndexQuery{}
+			}
+		}
+		if indexSort && (!meta.SnapshotOverlay || len(orderVisibility) > 0) {
+			caps, err = e.store.snapshotSortCap(ctx, snapshotSourceIndex(ctx, meta), caps)
+			if err != nil {
+				return selectScan{}, err
+			}
+		}
+		if indexSort && !meta.SnapshotOverlay && caps[1] < maxAggLimit {
+			// A single immutable baseline has the same exact directory as an
+			// overlay. Reuse its cap-independent path only when needed; retain
+			// the ordinary index fast path under the standard unlimited cap.
+			copy := *meta
+			copy.SnapshotOverlay = true
+			meta, req.meta = &copy, &copy
+			for _, o := range plan.order {
+				columnRefs(o.expr, req.need)
+			}
+		}
 	}
 	if !indexSort {
 		req.sortBy = nil
@@ -1206,6 +1415,44 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 			req.sortBy = []sortKey{{field: rowIDField}}
 		}
 		indexSort = true
+	}
+	if meta.SnapshotOverlay {
+		// Exact directories and candidate probes already merge ascending row
+		// IDs, regardless of projection width. Implicit insertion order needs
+		// no per-segment Search sort or visibility masks. This also keeps an
+		// unbounded narrow read independent of an undiscoverable aggregate cap.
+		// Wide row-ID scans retain the same shortcut for explicit safe ordering.
+		if indexSort && wp.keys == nil && plan.sel.Limit == nil {
+			it, _, exactly := e.newScanIter(ctx, req, params)
+			if len(plan.order) == 0 || wideHashFetch(req, it, &aggRequest{loadAll: !exactly}) {
+				sc := selectScan{req: req, caps: caps, indexSort: true}
+				e.recordSelectPlan(plan, sc)
+				return sc, nil
+			}
+		}
+		fallback := func() (selectScan, error) {
+			req.sortBy, req.ties = nil, nil
+			return selectScan{req: req, caps: caps, indexSort: len(plan.order) == 0}, nil
+		}
+		if !indexSort || wp.keys != nil {
+			return fallback()
+		}
+		queries := orderVisibility
+		if queries == nil {
+			var ok bool
+			queries, ok, err = e.snapshotIndexQueries(ctx, meta)
+			if err != nil {
+				return selectScan{}, err
+			}
+			if !ok {
+				return fallback()
+			}
+		}
+		req.visibility = queries
+		// A non-nil empty slice identifies a proven empty visible input.
+		if req.visibility == nil {
+			req.visibility = []snapshotIndexQuery{}
+		}
 	}
 	sel := plan.sel
 	// With window functions, LIMIT applies once they are computed (and
@@ -1233,7 +1480,7 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 			if sel.Offset != nil {
 				late.offset = *sel.Offset
 			}
-			for _, c := range meta.Columns {
+			for _, c := range meta.scanColumns() {
 				if late.need[c.Name] {
 					late.fields = append(late.fields, c.field())
 					if c.MissingThrough > 0 {
@@ -1243,6 +1490,26 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 			}
 			req.need, req.late = predicate, late
 		}
+	}
+	if meta.SnapshotOverlay {
+		// Rounded sort keys can widen a limited tie window to the whole
+		// segment. Prove that bound too, before evaluating any residual.
+		if req.limit == nil || req.ties != nil {
+			for _, seg := range meta.snapshotSegments() {
+				if seg.Rows > caps[1] {
+					if req.late != nil {
+						req.need, req.late = req.late.need, nil
+					}
+					req.visibility, req.sortBy, req.ties = nil, nil, nil
+					return selectScan{req: req, caps: caps, indexSort: len(plan.order) == 0}, nil
+				}
+			}
+		}
+		// No physical-source shortcut: openScan merges every proven-visible
+		// source and applies OFFSET/LIMIT once after their exact global order.
+		sc := selectScan{req: req, caps: caps, indexSort: indexSort, pushLimit: pushLimit}
+		e.recordSelectPlan(plan, sc)
+		return sc, nil
 	}
 	rowIDOrder := len(req.sortBy) == 1 && req.sortBy[0].field == rowIDField && !req.sortBy[0].desc
 	boundedStream := req.limit == nil && rowIDOrder && plan.streamable() && managedRowIDTable(meta)
@@ -1680,8 +1947,11 @@ var indexReducers = map[string]string{
 // SORTABLE index fields. ok is false when the query cannot be answered
 // exactly by the index; the caller then aggregates in the driver.
 func (e *executor) indexAggregate(ctx context.Context, plan *selectPlan, wp wherePlan, aggs []*Func) ([]aggGroup, bool, error) {
+	if plan.meta.SnapshotOverlay {
+		return e.snapshotIndexAggregate(ctx, plan, wp, aggs)
+	}
 	meta := plan.meta
-	if e.store.flexEnabled() || e.pushdown == PushdownNone || len(meta.PendingCleanup) > 0 || wp.residual != nil || wp.keys != nil || wp.none || meta.isMem || len(plan.extraNeed) > 0 {
+	if e.store.flexEnabled() || e.pushdown == PushdownNone || len(meta.PendingCleanup) > 0 || wp.residual != nil || wp.keys != nil || wp.none || meta.SnapshotOverlay || meta.isMem || len(plan.extraNeed) > 0 {
 		return nil, false, nil
 	}
 	groupCols := make([]columnMeta, 0, len(plan.sel.GroupBy))
@@ -1882,9 +2152,13 @@ func (e *executor) indexAggregate(ctx context.Context, plan *selectPlan, wp wher
 				g.results[f] = intValue(typeInt64, count)
 				continue
 			}
-			nn, err := strconv.ParseFloat(r[nonNull[argCol[i].Name]+"_n"], 64)
-			if err != nil {
-				return nil, false, nil
+			var nn float64
+			// Empty global reducers can omit the non-NULL count field.
+			if count != 0 {
+				nn, err = strconv.ParseFloat(r[nonNull[argCol[i].Name]+"_n"], 64)
+				if err != nil {
+					return nil, false, nil
+				}
 			}
 			if f.Name == "COUNT" {
 				g.results[f] = intValue(typeInt64, int64(nn))

@@ -67,7 +67,7 @@ call() {
     # idempotent updates, including temporary authentication failures while the
     # new cluster propagates credentials. A create POST must never be replayed.
     case $method in
-        GET|PUT) set -- --retry 5 --retry-delay 1 --retry-max-time 30 --retry-all-errors "$@" ;;
+        GET|PUT) set -- --connect-timeout 5 --max-time 10 --retry 5 --retry-delay 1 --retry-max-time 30 --retry-all-errors "$@" ;;
     esac
     curl -sSk -u "$admin_user:$admin_pass" -H 'Content-Type: application/json' "$@" || {
         local status=$?
@@ -87,7 +87,7 @@ wait_for() {
 }
 docker compose up --detach --wait redis-software >&2
 state() {
-    { curl -sSk "$api/bootstrap" | jq -er '.bootstrap_status.state // empty' 2>/dev/null; } ||
+    { curl -sSk --connect-timeout 5 --max-time 10 "$api/bootstrap" | jq -er '.bootstrap_status.state // empty' 2>/dev/null; } ||
         call -f "$api/bootstrap" | jq -er '.bootstrap_status.state // empty'
 }
 # The container is healthy before its API answers (the healthcheck accepts
@@ -118,9 +118,15 @@ bootstrapped() {
 }
 wait_for 'Redis Software cluster' bootstrapped
 # Use a locally trusted proxy certificate, with hostname verification enabled.
-jq -n --rawfile cert "$tls_dir/ca.pem" --rawfile key "$tls_dir/server.key" \
-    '{certificates: [{name: "proxy", certificate: $cert, key: $key}]}' | \
-    call -f -X PUT "$api/cluster/certificates" -d @- >/dev/null
+# A reused fixture already has the desired public certificate. Avoid an
+# unnecessary proxy reload (and a management response that can hang during it).
+# Never print the certificate response: it also contains private key material.
+if ! call -f "$api/cluster/certificates" | jq -e --rawfile cert "$tls_dir/ca.pem" \
+    '(.proxy_cert // "" | gsub("\\s"; "")) == ($cert | gsub("\\s"; ""))' >/dev/null; then
+    jq -n --rawfile cert "$tls_dir/ca.pem" --rawfile key "$tls_dir/server.key" \
+        '{certificates: [{name: "proxy", certificate: $cert, key: $key}]}' | \
+        call -f -X PUT "$api/cluster/certificates" -d @- >/dev/null
+fi
 uid=$(call -f "$api/bdbs" | jq -r '[.[] | select(.name == "adbc-test") | .uid][0] // empty')
 if [ -z "$uid" ]; then
     # Redis 8 includes Search; an explicit module_list is unnecessary.

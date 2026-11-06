@@ -71,8 +71,8 @@ func TestRoundPrecisionIssue103(t *testing.T) {
 		"1|36001|36000.124|10", "2|36000|36000.123|10", "3|86400|86400|24")
 	// As stored in the row hash.
 	raw := h.rawClient()
-	if got, err := raw.HGet(h.ctx, rowKeyOf(h, "it_rnd", 1), "ts0").Result(); err != nil || got != "1704880801" {
-		t.Errorf("stored ts0 of row 1: %q, %v; want 1704880801", got, err)
+	if got := h.storedRowByID(raw, "it_rnd", 1)["ts0"]; got != "1704880801" {
+		t.Errorf("stored ts0 of row 1: %q; want 1704880801", got)
 	}
 
 	// Index queries compare with the stored, rounded values, and give what
@@ -215,19 +215,4 @@ func TestRoundPrecisionIssue103(t *testing.T) {
 	h.expectRows(`SELECT id, CAST(ts0 AS TEXT), CAST(tz3 AS TEXT), CAST(t0 AS TEXT) FROM it_rnd_ing ORDER BY id`,
 		"1|2024-01-10 10:00:01|2024-01-10 10:00:00.124+00|10:00:01", "2|2025-01-01 00:00:00|2024-01-10 10:00:00.123+00|24:00:00")
 	h.expectRows(`SELECT id FROM it_rnd_ing WHERE ts0 = '2024-01-10 10:00:01' OR tz3 = '2024-01-10 10:00:00.123+00' ORDER BY id`, "1", "2")
-}
-
-// rowKeyOf is the key of the row with the given id of a table in the
-// default schema.
-func rowKeyOf(h *sqlHarness, table string, id int) string {
-	h.t.Helper()
-	got, _ := h.query(`SELECT __rowid FROM ` + table + ` WHERE id = ` + string(rune('0'+id)))
-	if len(got) != 1 {
-		h.t.Fatalf("row %d of %s: %q", id, table, got)
-	}
-	meta, err := (&store{client: h.rawClient()}).getTable(h.ctx, defaultSchema, table)
-	if err != nil {
-		h.t.Fatal(err)
-	}
-	return meta.prefix() + got[0]
 }

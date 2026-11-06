@@ -280,7 +280,7 @@ jobs:
           # The preceding owned setup verifies noeviction through its API.
           REDIS_RETAINED_CONTROL_PERSISTENCE: guaranteed
         run: |
-          go test -count=1 -p 1 -skip "$SKIP" ./...
+          go test -count=1 -p 1 -timeout=30m -skip "$SKIP" ./...
           cd validation && uv run pytest -q -ra --junitxml=software-validation.xml tests/
           if [ -f ../../scripts/check_partition_junit.py ]; then python3 ../../scripts/check_partition_junit.py software-validation.xml; fi
 
@@ -499,11 +499,26 @@ jobs:
               cd /tmp
               /cli/redis-adbc check -prefix release:adbc: > out
               grep -qx "SQL, copied into a driver table (redis-adbc copy): READY" out
-              grep -qx "SQL, adopted in place (redis-adbc adopt): READY" out
+              grep -qx "SQL, imported as a managed copy (redis-adbc adopt): READY" out
               /cli/redis-adbc copy -prefix release:adbc: -table release_adbc_copy -mode replace > out
               grep -qx "2 rows copied into public.release_adbc_copy" out
               /cli/redis-adbc adopt -prefix release:adbc: -table release_adbc -apply > out
-              grep -q "^Adopted: public.release_adbc now reads the HASHes under release:adbc:" out'
+              grep -Fq "2 HASHes under release:adbc: are rows" out
+              grep -Fxq "Imported: public.release_adbc is a managed copy of HASHes under release:adbc:. Repeat -apply to refresh; application HASHes and indexes are unchanged." out'
+          # Importing must preserve the application-owned HASH payloads.
+          (
+            cd go
+            source_cli() {
+              docker compose exec -T -e REDISCLI_AUTH=adbc-enterprise-test redis-software /opt/redislabs/bin/redis-cli --tls --cacert /tmp/adbc-test-ca.pem --user default -p 12000 "$@"
+            }
+            sample_id=0
+            for sample_name in a b; do
+              sample_id=$((sample_id + 1))
+              source_cli HLEN "release:adbc:$sample_id" | grep -qx "2"
+              source_cli HGET "release:adbc:$sample_id" name | grep -Fxq "$sample_name"
+              source_cli HGET "release:adbc:$sample_id" n | grep -Fxq "$sample_id"
+            done
+          )
 
   # macOS uses a native Homebrew Redis/Search fixture instead of Docker.
   # New source refs require Go integration and installed-wheel validation;
@@ -587,12 +602,12 @@ jobs:
       - name: Test native wide fetch
         if: hashFiles('go/wide_fetch_integration_test.go') != ''
         working-directory: go
-        run: env -u REDIS_PARTITION_SCAN_CAP REDIS_PARTITION_CAP_TEST=1 go test -count=1 -p 1 -run '^TestSQLWideHashFetchBothAPIs$' -v .
+        run: env -u REDIS_PARTITION_SCAN_CAP REDIS_PARTITION_CAP_TEST=1 go test -count=1 -p 1 -timeout=30m -run '^TestSQLWideHashFetchBothAPIs$' -v .
 
       - name: Test
         working-directory: go
         run: |
-          env -u REDIS_PARTITION_SCAN_CAP REDIS_PARTITION_CAP_TEST=1 go test -count=1 -p 1 -skip "$SKIP" ./...
+          env -u REDIS_PARTITION_SCAN_CAP REDIS_PARTITION_CAP_TEST=1 go test -count=1 -p 1 -timeout=30m -skip "$SKIP" ./...
           file build/libadbc_driver_redis.dylib | grep -q arm64
           python3 -c "import ctypes; ctypes.CDLL('build/libadbc_driver_redis.dylib').AdbcDriverInit"
 

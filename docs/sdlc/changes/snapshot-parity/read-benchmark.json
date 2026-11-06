@@ -1,0 +1,199 @@
+{
+  "date": "2026-11-02",
+  "baseline": {
+    "source": "b4b73e04fc8c13b5f08b63e194b85e906a2a79fd",
+    "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+    "machine": "arm64",
+    "redis_version": "8.6.2",
+    "software_shards": 3,
+    "qpf": 4,
+    "noeviction": true,
+    "input_rows": 20000,
+    "visible_rows": 19999,
+    "segments": 3,
+    "unrelated_tables": 32,
+    "repeats": 5,
+    "warmups": 1,
+    "timing": "execute + complete Arrow fetch + independent validation",
+    "cases": {
+      "selective": {
+        "median_ms": 146.22854097979143,
+        "samples_ms": [
+          170.68458400899544,
+          141.91670800209977,
+          126.17575001786463,
+          146.22854097979143,
+          173.627915995894
+        ],
+        "output_rows": 0
+      },
+      "matching_selective": {
+        "median_ms": 179.90787501912564,
+        "samples_ms": [
+          122.80670800828375,
+          159.34558399021626,
+          234.55433401977643,
+          179.90787501912564,
+          184.458417003043
+        ],
+        "output_rows": 2
+      },
+      "grouped": {
+        "median_ms": 170.34879099810496,
+        "samples_ms": [
+          168.66250001476146,
+          184.36166699393652,
+          170.34879099810496,
+          123.61012501060031,
+          171.44112498499453
+        ],
+        "output_rows": 64
+      },
+      "distinct": {
+        "median_ms": 124.45820798166096,
+        "samples_ms": [
+          120.62783297733404,
+          121.80112500209361,
+          124.45820798166096,
+          125.21533301332965,
+          144.54733399907127
+        ],
+        "output_rows": 1
+      },
+      "topk": {
+        "median_ms": 647.2073330078274,
+        "samples_ms": [
+          664.1021670075133,
+          691.9966660207137,
+          568.6471670051105,
+          647.2073330078274,
+          596.8422500009183
+        ],
+        "output_rows": 10
+      },
+      "topk_nulls_last": {
+        "median_ms": 642.3338330059778,
+        "samples_ms": [
+          642.3338330059778,
+          624.0136249980424,
+          595.6005839980207,
+          722.4595829902682,
+          661.7829159949906
+        ],
+        "output_rows": 10
+      },
+      "point": {
+        "median_ms": 40.10933300014585,
+        "samples_ms": [
+          50.90720902080648,
+          42.99229200114496,
+          36.29466699203476,
+          40.10933300014585,
+          38.341541978297755
+        ],
+        "output_rows": 1
+      }
+    }
+  },
+  "current": {
+    "source": "9bc80c0b3cb3af514009dfa3bc8526d430df708c",
+    "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+    "machine": "arm64",
+    "redis_version": "8.6.2",
+    "software_shards": 3,
+    "qpf": 4,
+    "noeviction": true,
+    "input_rows": 20000,
+    "visible_rows": 19999,
+    "segments": 3,
+    "unrelated_tables": 32,
+    "repeats": 5,
+    "warmups": 1,
+    "timing": "execute + complete Arrow fetch + independent validation",
+    "cases": {
+      "selective": {
+        "median_ms": 11.761708999983966,
+        "samples_ms": [
+          14.920084009645507,
+          12.476999982027337,
+          11.761708999983966,
+          11.30433302023448,
+          11.446084012277424
+        ],
+        "output_rows": 0
+      },
+      "matching_selective": {
+        "median_ms": 13.321833976078779,
+        "samples_ms": [
+          13.473333994625136,
+          17.360291996737942,
+          13.321833976078779,
+          12.814165995223448,
+          12.706250010523945
+        ],
+        "output_rows": 2
+      },
+      "grouped": {
+        "median_ms": 13.372291025007144,
+        "samples_ms": [
+          13.266166002722457,
+          13.372291025007144,
+          14.534375019138679,
+          13.829792005708441,
+          13.232083001639694
+        ],
+        "output_rows": 64
+      },
+      "distinct": {
+        "median_ms": 13.964790996396914,
+        "samples_ms": [
+          13.725666998652741,
+          14.464458014117554,
+          14.679041021736339,
+          13.964790996396914,
+          13.139292015694082
+        ],
+        "output_rows": 1
+      },
+      "topk": {
+        "median_ms": 620.9522499993909,
+        "samples_ms": [
+          608.09349999181,
+          620.9522499993909,
+          655.293709016405,
+          728.0562919913791,
+          586.6645000060089
+        ],
+        "output_rows": 10
+      },
+      "topk_nulls_last": {
+        "median_ms": 12.892124999780208,
+        "samples_ms": [
+          13.932624977314845,
+          12.892124999780208,
+          11.757416999898851,
+          12.438250007107854,
+          16.17641598568298
+        ],
+        "output_rows": 10
+      },
+      "point": {
+        "median_ms": 10.693000018363819,
+        "samples_ms": [
+          11.779916007071733,
+          10.703292005928233,
+          10.096583020640537,
+          10.693000018363819,
+          10.683250002330169
+        ],
+        "output_rows": 1
+      }
+    }
+  },
+  "limits": [
+    "Sequential local Software proxy microbenchmark, not a distributed scaling test",
+    "Baseline is the preceding snapshot revision, not the pre-snapshot driver",
+    "Setup and data loading excluded; each timed query includes complete Arrow fetch and independent validation",
+    "No write, compaction, large-ingest, Cluster API or cross-platform parity conclusion"
+  ]
+}

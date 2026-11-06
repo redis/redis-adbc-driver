@@ -20,8 +20,8 @@ package redis
 // always evaluates itself.
 
 import (
-	"encoding/json"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -179,29 +179,98 @@ func (h *sqlHarness) tagIngest(table, mode string, opts map[string]string, ids [
 	}
 }
 
-// clearTagLevels makes a table look like one created before the levels of
-// its string columns were recorded.
+// Publish unknown TAG facts in a current-format private metadata workspace.
+// This does not install an earlier storage format or edit a committed object.
 func (h *sqlHarness) clearTagLevels(c goredis.UniversalClient, table string) {
 	h.t.Helper()
-	key := metaKey(defaultSchema, table)
-	raw, err := c.Get(h.ctx, key).Result()
+	st, base, pin := h.inspectionSnapshot(c, true)
+	defer pin.release()
+	meta, err := st.getTable(base, defaultSchema, table)
 	if err != nil {
 		h.t.Fatal(err)
 	}
-	var m map[string]any
-	if err := json.Unmarshal([]byte(raw), &m); err != nil {
-		h.t.Fatal(err)
-	}
-	for _, col := range m["columns"].([]any) {
-		delete(col.(map[string]any), "tag_values")
-		delete(col.(map[string]any), "tags_checked")
-	}
-	out, err := json.Marshal(m)
+	before, err := st.redis(base).Get(base, metaKey(defaultSchema, table)).Result()
 	if err != nil {
 		h.t.Fatal(err)
 	}
-	if err := c.Set(h.ctx, key, out, 0).Err(); err != nil {
+	ctx, id, err := st.beginSnapshotWrite(base, pin)
+	if err != nil {
 		h.t.Fatal(err)
+	}
+	defer st.abortSnapshot(pin, id)
+	if err := st.updateTable(ctx, defaultSchema, table, func(m *tableMeta) error {
+		for i := range m.Columns {
+			col := &m.Columns[i]
+			if col.Indexed && col.Type.Kind == KindString {
+				col.TagValues = ""
+				col.TagsChecked = false
+			}
+		}
+		return nil
+	}, nil); err != nil {
+		h.t.Fatal(err)
+	}
+	if err := st.publishSnapshot(ctx, pin, id); err != nil {
+		h.t.Fatal(err)
+	}
+	if after, err := st.redis(base).Get(base, metaKey(defaultSchema, table)).Result(); err != nil || after != before {
+		h.t.Fatal("private TAG facts changed pinned metadata", err)
+	}
+	current := h.inspectTable(c, defaultSchema, table)
+	if current.prefix() != meta.prefix() || current.index() != meta.index() {
+		h.t.Fatal("TAG fact publication rebuilt shared storage")
+	}
+}
+
+// A public passthrough conversion validates a fresh layout. Its old unknown
+// metadata and rows remain immutable until their independent reader releases.
+func (h *sqlHarness) rewriteTagLevels(c goredis.UniversalClient, table string) {
+	h.t.Helper()
+	st, ctx, pin := h.inspectionSnapshot(c)
+	defer pin.release()
+	old, err := st.getTable(ctx, defaultSchema, table)
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	if col, ok := old.column("s"); !ok || col.TagsChecked {
+		h.t.Fatal("expected unknown TAG facts before revalidation")
+	}
+	query := "SELECT id,s,n FROM " + table + " ORDER BY id"
+	before := valueRows(snapshotExecuteTest(h.t, st, ctx, query).rows)
+	h.exec("ALTER TABLE " + table + " ALTER COLUMN s TYPE VARCHAR USING s")
+	if after := valueRows(snapshotExecuteTest(h.t, st, ctx, query).rows); !slices.Equal(before, after) {
+		h.t.Fatal("revalidation changed pinned rows")
+	}
+	unchanged, err := st.getTable(ctx, defaultSchema, table)
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	if col, ok := unchanged.column("s"); !ok || col.TagsChecked {
+		h.t.Fatal("revalidation changed pinned TAG facts")
+	}
+	current, currentCtx, currentPin := h.inspectionSnapshot(c)
+	defer currentPin.release()
+	now, err := current.getTable(currentCtx, defaultSchema, table)
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	if col, ok := now.column("s"); !ok || !col.TagsChecked {
+		h.t.Fatal("fresh conversion did not validate TAG facts")
+	}
+	if after := valueRows(snapshotExecuteTest(h.t, current, currentCtx, query).rows); !slices.Equal(before, after) {
+		h.t.Fatal("passthrough conversion changed current values")
+	}
+	for _, seg := range old.snapshotSegments() {
+		if now.prefix() == seg.Prefix {
+			h.t.Fatal("revalidation reused old storage")
+		}
+		if n, err := c.ZCard(h.ctx, snapshotMembers(snapshotDataID(seg.Prefix))).Result(); err != nil || n != seg.Rows {
+			h.t.Fatal("revalidation reclaimed pinned data", n, err)
+		}
+	}
+	pin.release()
+	for _, seg := range old.snapshotSegments() {
+		h.expectSnapshotReleased(c, seg.Prefix, seg.Index)
 	}
 }
 
@@ -535,24 +604,20 @@ func TestSQLTagPrefixExpansion(t *testing.T) {
 	h.tagAgree("SELECT COUNT(*) FROM it_tag_wide WHERE {c} LIKE 'ab%'", "901")
 }
 
-// Tables created before the levels were recorded count as truncated until a
-// background check has read their rows; it records what they need.
+// Unknown native TAG facts keep conservative predicates/sorts. A fresh public
+// conversion revalidates them; old pinned generations retain their facts.
 func TestSQLTagOlderTables(t *testing.T) {
 	h := newSQLHarness(t)
 	h.dropTables("it_tag_old", "it_tag_old_exact", "it_tag_old_nul", "it_tag_old_w")
 	raw := h.rawClient()
-	checked := func(table string) func() bool {
-		return func() bool { return h.tableColumn(raw, table, "s").TagsChecked }
-	}
 
-	// Padded values written by an older driver.
+	// Current-format padded values with privately published unknown facts.
 	h.setupTagTable("it_tag_old", tagValues)
 	h.clearTagLevels(raw, "it_tag_old")
 	if c := h.tableColumn(raw, "it_tag_old", "s"); c.TagsChecked || c.TagValues != "" {
 		t.Fatalf("cleared column = %+v", c)
 	}
-	// Planning starts the check, so only the first plan is sure to be made
-	// before it ends.
+	// Missing facts must retain a full predicate recheck before validation.
 	h.expectTagPlan("SELECT COUNT(*) FROM it_tag_old WHERE s = 'ab'", "@s:{ab}", true, false)
 	check := func() {
 		for _, v := range []string{"ab", "ab ", " ab", " ", "", "a\x1fb", "€5"} {
@@ -563,7 +628,7 @@ func TestSQLTagOlderTables(t *testing.T) {
 		h.tagSame("SELECT id FROM it_tag_old ORDER BY {c}, id LIMIT 10")
 	}
 	check()
-	waitFor(t, "the check of it_tag_old", checked("it_tag_old"))
+	h.rewriteTagLevels(raw, "it_tag_old")
 	h.expectTagLevel(raw, "it_tag_old", "s", tagsNormalized)
 	check()
 
@@ -573,31 +638,66 @@ func TestSQLTagOlderTables(t *testing.T) {
 	h.clearTagLevels(raw, "it_tag_old_exact")
 	h.expectTagPlan("SELECT s, COUNT(*) FROM it_tag_old_exact GROUP BY s", "*", false, false)
 	h.tagAgree("SELECT COUNT(*) FROM it_tag_old_exact WHERE {c} = 'ab'", "1")
-	waitFor(t, "the check of it_tag_old_exact", checked("it_tag_old_exact"))
+	h.rewriteTagLevels(raw, "it_tag_old_exact")
 	h.expectTagLevel(raw, "it_tag_old_exact", "s", "")
 	h.expectTagPlan("SELECT COUNT(*) FROM it_tag_old_exact WHERE s = 'ab'", "@s:{ab}", false, true)
 	h.expectTagPlan("SELECT s, COUNT(*) FROM it_tag_old_exact GROUP BY s", "*", false, true)
 
-	// NUL bytes: read from the HASHes before and after the check.
+	// NUL bytes require exact HASH values before and after revalidation.
 	h.exec("CREATE TABLE it_tag_old_nul (id BIGINT, s VARCHAR, n VARCHAR NOINDEX)")
 	h.tagIngest("it_tag_old_nul", adbc.OptionValueIngestModeAppend, map[string]string{},
 		[]int64{1, 2}, []string{"a\x00b", "ab"})
 	h.clearTagLevels(raw, "it_tag_old_nul")
 	h.tagAgree("SELECT id, LENGTH({c}) FROM it_tag_old_nul ORDER BY id", "1|3", "2|2")
-	waitFor(t, "the check of it_tag_old_nul", checked("it_tag_old_nul"))
+	h.rewriteTagLevels(raw, "it_tag_old_nul")
 	h.expectTagLevel(raw, "it_tag_old_nul", "s", tagsTruncated)
 	h.tagAgree("SELECT id, LENGTH({c}) FROM it_tag_old_nul ORDER BY {c}", "1|3", "2|2")
 
-	// A writer raises the level of an unchecked column, and the check keeps
-	// it whichever finishes first.
-	h.exec("CREATE TABLE it_tag_old_w (id INTEGER, s VARCHAR, n VARCHAR NOINDEX)")
-	h.exec("INSERT INTO it_tag_old_w VALUES (1, 'ab', 'ab')")
+	// A private conversion cannot install stale facts after another writer
+	// introduces a padded value. It refuses publication without replay.
+	h.exec("CREATE TABLE it_tag_old_w (id INTEGER,s VARCHAR,n VARCHAR NOINDEX)")
+	h.exec("INSERT INTO it_tag_old_w VALUES (1,'ab','ab')")
 	h.clearTagLevels(raw, "it_tag_old_w")
-	h.exec("INSERT INTO it_tag_old_w VALUES (2, 'ab ', 'ab ')")
-	waitFor(t, "the check of it_tag_old_w", checked("it_tag_old_w"))
+	st := &store{client: raw, snapshots: true}
+	ctx, pin, id := snapshotStageSQL(t, st, h.ctx, "", "ALTER TABLE it_tag_old_w ALTER COLUMN s TYPE VARCHAR USING s")
+	private, err := st.getTable(ctx, defaultSchema, "it_tag_old_w")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if col, ok := private.column("s"); !ok || !col.TagsChecked || col.TagValues != "" {
+		t.Fatal("private revalidation did not prove its exact input")
+	}
+	h.exec("INSERT INTO it_tag_old_w VALUES (2,'ab ','ab ')")
+	root := raw.HGet(h.ctx, snapshotCatalogKey, "root").Val()
+	if err := st.publishSnapshot(ctx, pin, id); sqlState(err) != "40001" {
+		t.Fatal("stale TAG revalidation published", err)
+	}
+	if raw.HGet(h.ctx, snapshotCatalogKey, "root").Val() != root {
+		t.Fatal("refused TAG revalidation changed root")
+	}
+	st.abortSnapshot(pin, id)
+	pin.release()
+	h.expectSnapshotReleased(raw, private.prefix(), private.index())
+	indexes, err := raw.Do(h.ctx, "FT._LIST").StringSlice()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, index := range indexes {
+		if snapshotDataID(index) == snapshotDataID(private.prefix()) {
+			t.Fatal("refused TAG revalidation retained a final index")
+		}
+	}
+	if col := h.tableColumn(raw, "it_tag_old_w", "s"); col.TagsChecked || col.TagValues != tagsNormalized {
+		t.Fatal("writer lost conservative raised TAG facts", col)
+	}
+	h.tagAgree("SELECT id FROM it_tag_old_w WHERE {c}='ab'", "1")
+	h.tagAgree("SELECT id FROM it_tag_old_w WHERE {c}='ab '", "2")
+	// This is a new explicit SQL request after a proven refusal, not a retry
+	// of the old workspace. It validates both committed values.
+	h.rewriteTagLevels(raw, "it_tag_old_w")
 	h.expectTagLevel(raw, "it_tag_old_w", "s", tagsNormalized)
-	h.tagAgree("SELECT id FROM it_tag_old_w WHERE {c} = 'ab'", "1")
-	h.tagAgree("SELECT id FROM it_tag_old_w WHERE {c} = 'ab '", "2")
+	h.tagAgree("SELECT id FROM it_tag_old_w WHERE {c}='ab'", "1")
+	h.tagAgree("SELECT id FROM it_tag_old_w WHERE {c}='ab '", "2")
 }
 
 // The pure parts of the TAG model (no server needed).

@@ -220,7 +220,8 @@ func (s *store) ensureTempSchema(ctx context.Context) (string, error) {
 	s.temp.mu.Lock()
 	defer s.temp.mu.Unlock()
 	if s.temp.id != "" {
-		return tempSchemaBase + s.temp.id, nil
+		schema := tempSchemaBase + s.temp.id
+		return schema, s.registerSnapshotTemp(ctx, schema)
 	}
 	ttl := tempTTL
 	for attempt := 0; attempt < 100; attempt++ {
@@ -254,7 +255,8 @@ func (s *store) ensureTempSchema(ctx context.Context) (string, error) {
 		s.temp.id, s.temp.objects = id, map[string]bool{}
 		s.temp.stop, s.temp.done = cancel, make(chan struct{})
 		go heartbeat(hb, s.client, id, ttl, s.temp.done)
-		return tempSchemaBase + id, nil
+		schema := tempSchemaBase + id
+		return schema, s.registerSnapshotTemp(ctx, schema)
 	}
 	return "", errorf(adbc.StatusInternal, "could not allocate a temporary schema")
 }
@@ -301,7 +303,7 @@ func (s *store) dropTempSchema(ctx context.Context) error {
 	if id == "" {
 		return nil
 	}
-	if err := s.dropTempObjects(ctx, tempSchemaBase+id, nil); err != nil {
+	if err := s.dropTempOwned(ctx, id, nil); err != nil {
 		s.redis(ctx).Del(ctx, tempAliveKey(id))
 		return err
 	}
@@ -381,7 +383,7 @@ func (s *store) sweepTempOwner(ctx context.Context, id string) error {
 		return err == nil && n == 0
 	}
 	if isTempSchema(tempSchemaBase + id) {
-		if err := s.dropTempObjects(ctx, tempSchemaBase+id, stillDead); err != nil {
+		if err := s.dropTempOwned(ctx, id, stillDead); err != nil {
 			return err
 		}
 	}

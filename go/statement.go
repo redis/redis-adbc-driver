@@ -65,6 +65,7 @@ type statementImpl struct {
 	// Bound parameters (or ingest data).
 	params                  array.RecordReader
 	closed                  bool
+	partitionSnapshotID     string
 	partitionCount          int
 	partitionStrategyName   string
 	incremental             bool
@@ -109,6 +110,8 @@ func (s *statementImpl) GetOption(ctx context.Context, key string) (string, erro
 		return string(b), nil
 	case OptionStringIPCInput, OptionStringIPCOutput, OptionStringIPCFormat:
 		return s.ipc.get(key), nil
+	case OptionStringPartitionSnapshotID:
+		return s.partitionSnapshotID, nil
 	case OptionStringPartitionResultMode:
 		return s.resultMode(), nil
 	case OptionIntPartitionResultTTL:
@@ -432,7 +435,7 @@ func (s *statementImpl) SetSubstraitPlan(ctx context.Context, plan []byte) error
 	if err != nil {
 		return err
 	}
-	if _, err := p.bind(ctx, s.executor()); err != nil {
+	if _, err := s.bindSubstraitMetadata(ctx, p); err != nil {
 		return subError(err, "metadata")
 	}
 	s.substrait = p
@@ -488,6 +491,11 @@ func (s *statementImpl) GetParameterSchema(ctx context.Context) (*arrow.Schema, 
 	if err := s.checkExecution(); err != nil {
 		return nil, err
 	}
+	ctx, pin, snapshotErr := s.conn.store.acquireSnapshot(ctx)
+	if snapshotErr != nil {
+		return nil, snapshotErr
+	}
+	defer pin.release()
 	if s.ingest.TableName != "" {
 		return nil, errorf(adbc.StatusInvalidState, "a bulk ingest has no parameters")
 	}
@@ -573,6 +581,9 @@ func (s *statementImpl) run(ctx context.Context, stream bool) (result execResult
 			}
 		}()
 	}
+	// Preserve a Close cause on context-canceled command failures without
+	// replacing unknown-outcome errors or downgrading a successful publication.
+	defer func() { resultErr = executionCloseError(ctx, resultErr) }()
 	parsed, err := s.parse()
 	if err != nil {
 		return execResult{}, err
@@ -634,14 +645,20 @@ func (s *statementImpl) run(ctx context.Context, stream bool) (result execResult
 		}
 		combined := execResult{affected: 0}
 		_, isShow := ps.Stmt.(*ShowStmt)
-		if _, ok := ps.Stmt.(*SelectStmt); ok || isShow || hasReturning(ps.Stmt) {
+		_, isSelect := ps.Stmt.(*SelectStmt)
+		if (isSelect || isShow || hasReturning(ps.Stmt)) && (!exec.store.snapshots || len(paramRows) == 0) {
 			// Establish the result schema even when no rows are bound.
 			exec.cache = newExecCache()
 			exec.paramTypes = paramTypes
 			if len(paramRows) > 0 {
 				exec.params = paramRows[0]
 			}
-			cols, _, err := exec.resultColumns(ctx, ps.Stmt, paramTypes)
+			planCtx, pin, err := exec.store.acquireSnapshot(ctx)
+			if err != nil {
+				return execResult{}, err
+			}
+			cols, _, err := exec.resultColumns(planCtx, ps.Stmt, paramTypes)
+			pin.release()
 			if err != nil {
 				return execResult{}, err
 			}
@@ -660,6 +677,16 @@ func (s *statementImpl) run(ctx context.Context, stream bool) (result execResult
 				return res, nil // the only row
 			}
 			if res.isQuery {
+				cols := res.declaredCols
+				if cols == nil {
+					cols = res.cols
+				}
+				if !combined.isQuery {
+					combined.isQuery, combined.cols = true, cols
+				}
+				if exec.store != nil && exec.store.snapshots && !resultSchema(combined.cols).Equal(resultSchema(cols)) {
+					return execResult{}, errorf(adbc.StatusInvalidState, "result schema changed between parameter executions")
+				}
 				combined.rows = append(combined.rows, res.rows...)
 			}
 			if res.affected >= 0 && combined.affected >= 0 {
@@ -792,6 +819,11 @@ func (s *statementImpl) ExecuteSchema(ctx context.Context) (*arrow.Schema, error
 	if err := s.checkExecution(); err != nil {
 		return nil, err
 	}
+	ctx, pin, snapshotErr := s.conn.store.acquireSnapshot(ctx)
+	if snapshotErr != nil {
+		return nil, snapshotErr
+	}
+	defer pin.release()
 	if s.substrait != nil {
 		return s.subSchema(ctx)
 	}

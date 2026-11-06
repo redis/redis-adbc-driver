@@ -46,13 +46,15 @@ func (h *sqlHarness) pushedWhereIn(c goredis.UniversalClient, zone, sql string) 
 	}
 	sess := newSession(defaultSchema)
 	sess.vals["timezone"] = tz
-	e := &executor{store: &store{client: c}, sess: sess, schema: defaultSchema}
+	st, ctx, pin := h.inspectionSnapshot(c)
+	defer pin.release()
+	e := &executor{store: st, sess: sess, schema: defaultSchema}
 	e.cache = newExecCache()
-	plan, err := e.planSelect(h.ctx, parsed[0].Stmt.(*SelectStmt), nil)
+	plan, err := e.planSelect(ctx, parsed[0].Stmt.(*SelectStmt), nil)
 	if err != nil {
 		h.t.Fatal(err)
 	}
-	wp, err := e.planWhere(h.ctx, plan.sel.Where, plan.meta, nil)
+	wp, err := e.planWhere(ctx, plan.sel.Where, plan.meta, nil)
 	if err != nil {
 		h.t.Fatal(err)
 	}
@@ -398,8 +400,8 @@ func TestSessionTimeZoneIndexAndIsolation(t *testing.T) {
 		}
 		h.expectRows(`SELECT MAX(tz), COUNT(*) FROM it_stz`, "2024-11-03T09:30:00Z|7")
 	}
-	if got, err := raw.HGet(h.ctx, rowKeyOf(h, "it_stz", 1), "tz").Result(); err != nil || got != "1704862800000000" {
-		t.Errorf("stored tz of row 1: %q, %v", got, err)
+	if got := h.storedRowByID(raw, "it_stz", 1)["tz"]; got != "1704862800000000" {
+		t.Errorf("stored tz of row 1: %q", got)
 	}
 
 	// adbc.redis.time_zone: on the database, the default of its

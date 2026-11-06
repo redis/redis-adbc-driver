@@ -5,8 +5,8 @@ replay. It runs a bounded coordinator query once, stores its completed final
 output, and returns version-2 canonical or version-4 explicit-layout descriptors
 over contiguous chunk ordinals.
 `ExecuteQuery` remains the ordinary SQL API. Live row-range partitions remain the
-default and are useful when workers should read current source rows without
-storing a result. This implementation addresses the runtime work in [#166](https://github.com/redis/redis-adbc-driver/issues/166), [#167](https://github.com/redis/redis-adbc-driver/issues/167)
+default and let workers read the producer’s shared committed generation without
+storing a separate final result. This implementation addresses the runtime work in [#166](https://github.com/redis/redis-adbc-driver/issues/166), [#167](https://github.com/redis/redis-adbc-driver/issues/167)
 and [#169](https://github.com/redis/redis-adbc-driver/issues/169); the deployment/performance matrix in [#170](https://github.com/redis/redis-adbc-driver/issues/170) is tracked separately.
 
 ## Configure and use
@@ -66,40 +66,37 @@ cutsets must be bounded literals; ROUND/TRUNC precision must be a literal in
 
 | Source layout | Coverage and ownership |
 |---|---|
-| Permanent managed table | Exact authoritative HASH reads; signed int64 physical IDs, including values above 2^53 through MaxInt64; no floating Search range boundaries |
-| Adopted key-identified HASHes | Exact byte-key deduplication within the adopted row scope; source HASHes remain application-owned |
-| Application / foreign HASH Search index | Exact keys across declared prefixes, deduplicated; per-key membership respects index FILTER; reads only declared schema fields |
-| Legacy table metadata without a unique physical prefix | Captures existing physical keys; no retained-planning migration/rekey |
-| Producer-owned temporary tables/views | Capture before publication; readers replay committed output after producer closure |
-| Historical adopted non-key layouts or unowned temporary relations | Explicitly unsupported |
+| Permanent managed table | Exact authoritative rows from one coordinator snapshot; native int64 IDs and values retain precision |
+| Adopted HASHes and application indexes | Private managed copy with original source-key provenance; explicit refresh recaptures application changes |
+| Foreign HASH Search index | Private managed copy of captured membership/schema; explicit refresh; ordinary foreign discovery options still apply |
+| Producer-owned temporary tables/views | Capture under the coordinator snapshot; readers replay committed output after producer closure |
+| Legacy storage and unowned temporary relations | Unsupported; no migration |
 
-Capture scans all relevant source rows/columns before evaluating predicates.
-It does not yet push projections/predicates into capture. Duplicate projected
-rows remain duplicates. For non-UTF-8 application keys project
-`CAST(__key AS BYTEA)`; invalid UTF-8 typed TEXT output is rejected, not repaired.
-Managed input is sorted by exact physical ID for ordinary insertion-order
-behavior; arbitrary application keys have no implicit SQL order.
+Capture reads relevant source rows/columns before evaluating predicates. It does
+not yet push projections/predicates into capture. Duplicate projected rows remain
+duplicates. For non-UTF-8 application keys project `CAST(__key AS BYTEA)`;
+invalid UTF-8 typed TEXT output is rejected. Native input preserves exact physical
+ID order; application keys do not imply SQL order.
 
-Capture does not rewrite/adopt application data, delete external indexes or run
-source catalog housekeeping. Normal publisher database Open retains its existing
-SQL catalog migration/recovery behavior; retained mode does not redefine that
-older bootstrap contract. Reader-only Open bypasses it.
+The coordinator pins a committed catalog generation. Concurrent SQL DML, schema
+changes, view replacement, rekey and source replacement do not change its captured
+rows or definitions. An application-owned HASH/index is represented by its managed
+copy; external edits appear only after explicit refresh. Import and retained
+capture do not transfer ownership of application HASHes or index definitions.
+Publisher Open requires the current snapshot storage format, with no migration;
+reader-only retained replay bypasses ordinary catalog access.
 
-Source schema/index identity, permanent view definitions, managed/foreign
-cardinality and Cluster topology are checked before publication. Active Cluster
-slot migrations and observed routing changes fail planning; retry after routing
-converges. Cluster source publishers therefore need CLUSTER NODES as well as
-normal topology discovery. Keep source DDL quiescent: before/after identity
-checks cannot detect a definition changed and restored between checks.
+The frozen object is the **completed query output** evaluated from that coordinator
+snapshot. Replay reads immutable Arrow chunks and never reruns SQL or consults
+source tables after publication. Cancellation before publication must expose no
+descriptors and release private upload/quota reservations. Stable replay does not
+give exactly-once effects in a downstream sink. Retained mode remains subject to
+its SQL/resource limits and control-persistence requirements below.
 
-The frozen object is the **completed query output**, not an atomic Redis source
-snapshot. Concurrent same-cardinality DML can yield mixed-time input. Persistent
-membership/definition/routing changes are rejected where detectable. Readers
-never rerun SQL or consult source tables after commit. Stable replay does not
-give exactly-once effects in a downstream sink.
-
-See the [remaining coverage and snapshot assessment](partition-coverage.md) for
-the comparison with live/ordinary SQL and dependencies for future source consistency.
+Current-protocol Cluster API, topology changes, failover and persistence recovery
+still require the deployment checks in the [snapshot parity plan](sdlc/changes/snapshot-parity/plan.md).
+Historical source-capture topology checks are not proof of that full matrix. See
+[partition coverage](partition-coverage.md) for other partition limitations.
 
 ## Limits and persistence
 

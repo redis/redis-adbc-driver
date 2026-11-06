@@ -180,11 +180,8 @@ func TestSQLBugIssues(t *testing.T) {
 	h.expectRows(`select "Id",id from it_bug_fixes.quoted`, "1|2")
 	h.exec(`create table it_bug_fixes.legacy_case ("AdvEngineID" integer)`)
 	h.exec(`insert into it_bug_fixes.legacy_case values(7)`)
-	key := metaKey("it_bug_fixes", "legacy_case")
-	stored, err := h.rawClient().Get(h.ctx, key).Result()
-	if err != nil {
-		t.Fatal(err)
-	}
+	raw := h.rawClient()
+	stored := h.storedTableJSON(raw, "it_bug_fixes", "legacy_case")
 	var legacy map[string]any
 	if err := json.Unmarshal([]byte(stored), &legacy); err != nil {
 		t.Fatal(err)
@@ -195,9 +192,7 @@ func TestSQLBugIssues(t *testing.T) {
 		t.Fatal(err)
 	}
 	stored = string(b)
-	if err := h.rawClient().Set(h.ctx, key, stored, 0).Err(); err != nil {
-		t.Fatal(err)
-	}
+	h.writeTableJSON(raw, "it_bug_fixes", "legacy_case", stored)
 	h.expectRows(`select advengineid from it_bug_fixes.legacy_case`, "7")
 	h.expectRows(`select id from it_bug_fixes.foo order by score desc limit 1`, "2")
 	h.expectRows(`select id,name from it_bug_fixes.foo group by id order by id`, "1|a", "2|b", "3|c")

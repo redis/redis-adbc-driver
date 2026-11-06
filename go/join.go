@@ -477,8 +477,11 @@ func (jp *joinPlan) planPushdown(where Expr) {
 // original HASH fields), for scanning it as part of a join.
 func (it *joinItem) view() *tableMeta {
 	v := *it.base
-	v.Columns = make([]columnMeta, len(it.base.Columns))
-	for i, c := range it.base.Columns {
+	columns := it.base.scanColumns()
+	v.Columns = make([]columnMeta, len(columns))
+	// Provenance is represented by its qualified scan column in this view.
+	v.SnapshotSourceKey = false
+	for i, c := range columns {
 		c.Field = c.field()
 		c.Name = it.prefix + c.Name
 		v.Columns[i] = c
@@ -592,6 +595,25 @@ func (e *executor) joinOrder(ctx context.Context, jp *joinPlan, wps []wherePlan)
 	counts := make([]int64, len(jp.items))
 	for i, it := range jp.items {
 		switch {
+		case it.base.SnapshotOverlay:
+			if wps[i].none {
+				continue
+			}
+			if wps[i].keys != nil {
+				counts[i] = int64(len(wps[i].keys))
+				continue
+			}
+			if e.snapshotIndexable(ctx, it.base) {
+				n, err := e.store.countSnapshotCandidates(ctx, it.base, wps[i].query)
+				if err != nil {
+					return nil, err
+				}
+				counts[i] = n
+			} else {
+				for _, seg := range it.base.snapshotSegments() {
+					counts[i] += seg.Rows
+				}
+			}
 		case it.base.isMem:
 			counts[i] = int64(len(it.base.mem))
 		case wps[i].none:
@@ -702,7 +724,7 @@ func (e *executor) runJoin(ctx context.Context, jp *joinPlan, need map[string]bo
 	}
 	types := map[string]ColType{}
 	for _, it := range jp.items {
-		for _, c := range it.base.Columns {
+		for _, c := range it.base.scanColumns() {
 			types[it.prefix+c.Name] = c.Type
 		}
 	}
@@ -856,7 +878,7 @@ func (e *executor) runJoin(ctx context.Context, jp *joinPlan, need map[string]bo
 			}
 			continue
 		}
-		if !first && innerLike && wp.keys == nil && !view.isMem {
+		if !first && innerLike && wp.keys == nil && !view.isMem && (!view.SnapshotOverlay || e.snapshotIndexable(ctx, view)) {
 			// Index lookup join: fetch only rows whose key matches the left.
 			for _, p := range pairs {
 				cm, ok := lookupColumn(view, p.right)

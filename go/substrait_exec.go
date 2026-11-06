@@ -86,7 +86,7 @@ func newSubSource(ctx context.Context, e *executor, plan *selectPlan) (*subSourc
 	if src.done {
 		return src, nil
 	}
-	if !sc.req.hashScan {
+	if !sc.req.hashScan || plan.meta.SnapshotOverlay {
 		src.it, err = e.openScan(ctx, sc.req, nil)
 	} else {
 		src.it, src.fields, _ = e.newScanIter(ctx, sc.req, nil)
@@ -156,22 +156,24 @@ func (s *subSource) close(ctx context.Context) {
 // its own typed schema and work accounting. No detached goroutine or unbounded
 // channel holds resources after release. Both result modes consume this reader.
 type subReader struct {
-	refs        atomic.Int64
-	mu          sync.Mutex
-	ctx         context.Context
-	cancel      context.CancelFunc
-	cancelCause context.CancelCauseFunc
-	transport   *executionTransport
-	source      *subSource
-	plan        *subPlan
-	mem         memory.Allocator
-	settings    streamSettings
-	env         *evalEnv
-	owners      []*streams
-	input       []map[string]Value
-	current     arrow.RecordBatch
-	err         error
-	closed      bool
+	refs         atomic.Int64
+	mu           sync.Mutex
+	ctx          context.Context
+	cancel       context.CancelFunc
+	cancelCause  context.CancelCauseFunc
+	transport    *executionTransport
+	snapshot     *snapshotPin
+	snapshotStop func() bool
+	source       *subSource
+	plan         *subPlan
+	mem          memory.Allocator
+	settings     streamSettings
+	env          *evalEnv
+	owners       []*streams
+	input        []map[string]Value
+	current      arrow.RecordBatch
+	err          error
+	closed       bool
 }
 
 func (r *subReader) Retain() { r.refs.Add(1) }
@@ -195,7 +197,11 @@ func (r *subReader) close() {
 		return
 	}
 	r.closed = true
+	if r.snapshotStop != nil {
+		r.snapshotStop()
+	}
 	r.source.close(r.ctx)
+	r.snapshot.release()
 	r.cancelCause(nil)
 	r.cancel()
 	r.input = nil
@@ -241,6 +247,9 @@ func (r *subReader) Next() bool {
 	if err := cancelled(r.ctx); err != nil {
 		return r.fail(err)
 	}
+	if err := r.snapshot.valid(r.ctx); err != nil {
+		return r.fail(err)
+	}
 	limit := min(r.settings.rows(), 4096)
 	rows := make([][]Value, 0, limit)
 	var batchBytes int64
@@ -248,6 +257,9 @@ func (r *subReader) Next() bool {
 		if len(r.input) == 0 {
 			page, err := r.source.next(r.ctx)
 			if errors.Is(err, io.EOF) {
+				if err := r.snapshot.valid(r.ctx); err != nil {
+					return r.fail(err)
+				}
 				if err := r.source.exec.store.checkReads(r.ctx, r.source.exec.cache.loaded); err != nil {
 					return r.fail(err)
 				}
@@ -302,8 +314,26 @@ func (r *subReader) Next() bool {
 	rec.Release()
 	return true
 }
+
+// Metadata-only operations bind one committed generation without retaining it
+// in the installed plan. Execution rebinds its declared schema under a fresh pin.
+func (s *statementImpl) bindSubstraitMetadata(ctx context.Context, plan *subPlan) (*selectPlan, error) {
+	ctx, pin, err := s.conn.store.acquireSnapshot(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer pin.release()
+	if err := s.conn.store.refreshSnapshotTemp(ctx); err != nil {
+		return nil, err
+	}
+	bound, err := plan.bind(ctx, s.executor())
+	if err == nil {
+		err = pin.valid(ctx)
+	}
+	return bound, err
+}
 func (s *statementImpl) subSchema(ctx context.Context) (*arrow.Schema, error) {
-	if _, err := s.substrait.bind(ctx, s.executor()); err != nil {
+	if _, err := s.bindSubstraitMetadata(ctx, s.substrait); err != nil {
 		return nil, subError(err, "metadata")
 	}
 	return s.substrait.schema, nil
@@ -324,6 +354,22 @@ func (s *statementImpl) subQuery(ctx context.Context) (reader array.RecordReader
 	}
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	ctx, cancelCause := context.WithCancelCause(ctx)
+	ctx, pin, err := s.conn.store.acquireSnapshot(ctx)
+	if err != nil {
+		cancelCause(nil)
+		cancel()
+		return nil, -1, subError(err, "snapshot admission")
+	}
+	defer func() {
+		if pin != nil {
+			pin.release()
+		}
+	}()
+	if err := s.conn.store.refreshSnapshotTemp(ctx); err != nil {
+		cancelCause(nil)
+		cancel()
+		return nil, -1, subError(err, "temporary metadata")
+	}
 	work := new(subWork)
 	ctx = context.WithValue(ctx, subBudgetKey{}, work)
 	e := s.executor()
@@ -342,9 +388,17 @@ func (s *statementImpl) subQuery(ctx context.Context) (reader array.RecordReader
 	}
 	r := &subReader{ctx: ctx, cancel: cancel, cancelCause: cancelCause, source: src, plan: s.substrait, mem: s.conn.Alloc, settings: s.stream, env: e.newEnv(ctx, plan.meta.types(), nil), owners: []*streams{&s.streams, &s.subResults, &s.conn.streams}}
 	r.refs.Store(1)
+	// Register every owner before cancellation can close the reader. Close may
+	// already have interrupted its execution transport during source admission.
+	r.mu.Lock()
 	for _, o := range r.owners {
 		o.add(r)
 	}
+	r.snapshot, pin = pin, nil
+	if r.snapshot != nil {
+		r.snapshotStop = context.AfterFunc(ctx, func() { r.closeWith(cancelled(ctx)) })
+	}
+	r.mu.Unlock()
 	if !s.stream.off {
 		return r, -1, nil
 	}

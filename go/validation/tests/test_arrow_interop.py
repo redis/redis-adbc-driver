@@ -3,6 +3,8 @@
 """Arrow normalization/layouts across the native C driver-manager boundary."""
 import json
 
+import adbc_driver_manager as adm
+
 import pyarrow as pa
 import pytest
 
@@ -203,8 +205,18 @@ def test_layout_expansion_rejected_before_rows(conn):
                 try:
                     with pytest.raises(Exception, match="Arrow normalization exceeds"):
                         cur.adbc_ingest(table, data)
-                    cur.execute(f"SELECT COUNT(*) FROM {table}")
-                    assert cur.fetchall() == [(0,)]
+                    # A failed create publishes no descriptor or empty table.
+                    with pytest.raises(adm.ProgrammingError, match="NOT_FOUND:.*42P01"):
+                        cur.execute(f"SELECT COUNT(*) FROM {table}")
+                    # The same preflight rejection must preserve an existing
+                    # table's exact rows when append is requested.
+                    dtype = source.type.value_type
+                    seed = pa.array([7] if pa.types.is_integer(dtype) else ["preserved"], dtype)
+                    cur.adbc_ingest(table, pa.record_batch([seed], names=["v"]))
+                    with pytest.raises(Exception, match="Arrow normalization exceeds"):
+                        cur.adbc_ingest(table, data, mode="append")
+                    cur.execute(f"SELECT v FROM {table}")
+                    assert cur.fetch_arrow_table().column("v").to_pylist() == seed.to_pylist()
                 finally:
                     cur.execute(f"DROP TABLE IF EXISTS {table}")
 
@@ -261,14 +273,9 @@ def test_map_union_malformed_buffers(conn, bad, stream):
             try:
                 with pytest.raises(Exception, match="invalid|offset|type id|bounds"):
                     cur.adbc_ingest(table, pa.Table.from_batches([batch]) if stream else batch)
-                # Creation may precede batch validation. No malformed rows may appear.
-                try:
+                # Neither malformed rows nor a table descriptor may publish.
+                with pytest.raises(adm.ProgrammingError, match="NOT_FOUND:.*42P01"):
                     conn.adbc_get_table_schema(table)
-                except Exception:
-                    pass
-                else:
-                    cur.execute(f"SELECT COUNT(*) FROM {table}")
-                    assert cur.fetchall() == [(0,)]
             finally:
                 cur.execute(f"DROP TABLE IF EXISTS {table}")
     finally:

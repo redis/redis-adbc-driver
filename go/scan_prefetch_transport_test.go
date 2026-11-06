@@ -62,7 +62,8 @@ func TestHashPrefetchConnectionCloseDuringInitialFillJoinsWorker(t *testing.T) {
 	var exited, maintenancePremature, executionPremature atomic.Bool
 	connection := &connectionImpl{store: &store{client: prefetchCloseObserver{exited: &exited, premature: &maintenancePremature}}}
 	transport := &executionTransport{owner: connection.store, ctx: ctx, cancel: cancel,
-		client: prefetchCloseObserver{exited: &exited, premature: &executionPremature}, owners: []*streams{&connection.streams}}
+		client: prefetchCloseObserver{exited: &exited, premature: &executionPremature}, owners: []*streams{&connection.streams}, done: make(chan struct{})}
+	connection.store.executions = map[*executionTransport]struct{}{transport: {}}
 	connection.streams.add(transport) // initial fill: the public reader isn't attached yet
 	ctx = context.WithValue(ctx, transportContextKey{}, transport)
 	started := make(chan struct{})
@@ -77,6 +78,11 @@ func TestHashPrefetchConnectionCloseDuringInitialFillJoinsWorker(t *testing.T) {
 		exited.Store(true)
 	})
 	awaitPrefetch(t, started)
+	go func() {
+		<-ctx.Done()
+		p.close()
+		transport.finish()
+	}()
 	if err := connection.Close(context.Background()); err != nil {
 		t.Fatal(err)
 	}

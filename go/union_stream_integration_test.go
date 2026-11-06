@@ -160,7 +160,7 @@ func TestUnionAllStreamLifecycle(t *testing.T) {
 			if n != -1 || !r.Next() {
 				t.Fatal(n, r.Err())
 			}
-			reader := r.(*streamReader)
+			reader := inspectionReader(r).(*streamReader)
 			leaf := unionActiveLeaf(reader.union)
 			id := cursorOf(leaf)
 			if leaf == nil || id == 0 {
@@ -204,7 +204,7 @@ func TestUnionAllStreamLifecycle(t *testing.T) {
 
 	t.Run("release after child transition", func(t *testing.T) {
 		r, _ := h.openStream(h.ctx, h.conn, "SELECT id FROM "+a+" WHERE id<3 UNION ALL SELECT id FROM "+b, nil, opts)
-		root := r.(*streamReader)
+		root := inspectionReader(r).(*streamReader)
 		leaf := unionActiveLeaf(root.union)
 		id := cursorOf(leaf)
 		if !root.union.children[0].closed || root.union.children[1].leaf != leaf || id == 0 {
@@ -260,7 +260,7 @@ func TestUnionAllStreamLifecycle(t *testing.T) {
 		if n != -1 || len(vals) == 0 || err == nil {
 			t.Fatal(n, len(vals), err)
 		}
-		if unionActiveLeaf(r.(*streamReader).union) != nil {
+		if unionActiveLeaf(inspectionReader(r).(*streamReader).union) != nil {
 			t.Fatal("failed child remains open")
 		}
 	})

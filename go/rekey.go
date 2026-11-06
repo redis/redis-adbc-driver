@@ -1127,7 +1127,7 @@ func (s *store) checkWritable(ctx context.Context, meta *tableMeta) error {
 	if meta.MaterializedSQL != "" {
 		return matViewWriteError(meta)
 	}
-	if meta.Foreign {
+	if meta.Foreign || meta.Schema == foreignSchema && !snapshotImporting(ctx) {
 		return virtualReadOnly(meta.Schema)
 	}
 	if meta.RekeyTo == "" {
@@ -1290,6 +1290,13 @@ func (s *store) checkReads(ctx context.Context, metas []*tableMeta) error {
 // to readers once it has switched). Otherwise the metadata counts as read
 // again now.
 func (s *store) checkKeys(ctx context.Context, meta *tableMeta, writing bool) error {
+	if s.snapshots {
+		scope := snapshotOf(ctx)
+		if scope == nil || scope.pin == nil {
+			return errorf(adbc.StatusInvalidState, "snapshot row access requires a statement pin")
+		}
+		return scope.pin.valid(ctx)
+	}
 	if !writing && meta.matviewRead != nil {
 		if !meta.matviewRead.lease.valid() {
 			return matviewLeaseExpired()

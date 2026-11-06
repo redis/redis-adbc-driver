@@ -196,9 +196,9 @@ class SoftwarePrincipals:
         person['acl'] = acl
         command = permission[1:].lower()
         if command == 'ft.info':
-            probe = ('FT.INFO', 'idx:' + self.schema + ':rows')
+            probe = ('FT.INFO', person.get('probe_index', 'idx:' + self.schema + ':rows'))
         elif command == 'hmget':
-            probe = ('HMGET', self.schema + ':acl-probe', 'id')
+            probe = ('HMGET', person.get('probe_row', self.schema + ':acl-probe'), 'id')
         else:
             raise ValueError('unsupported permission readiness probe')
         def propagated():

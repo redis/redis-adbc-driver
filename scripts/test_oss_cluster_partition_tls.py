@@ -11,10 +11,98 @@ import pyarrow as pa
 
 from oss_cluster_partition_tls import ClusterPrincipals, declared_primaries
 from partition_tls_resharding import SlotMigration, RepeatedWorker, wait_search_convergence
-from check_partition_tls import worker_failure_summary, native_search_ready, managed_config_get_blocked
+from check_partition_tls import (worker_failure_summary, native_search_ready,
+                                 managed_config_get_blocked, planner_fixture_ready,
+                                 fixture_partitions, release_fixture_partitions)
 
 
 class ClusterManagementSafety(unittest.TestCase):
+    def test_partition_fixture_tracks_and_releases_only_its_own_producers(self):
+        cur, groups = Mock(), []
+        first, second = 'a' * 32, 'b' * 32
+        cur.adbc_statement.get_option.side_effect = [first, second]
+        result = ([b'opaque'], pa.schema([('id', pa.int64())]))
+        cur.adbc_execute_partitions.return_value = result
+        self.assertIs(fixture_partitions(cur, 'SELECT * FROM fixture.rows', groups), result)
+        fixture_partitions(cur, 'SELECT id FROM fixture.rows', groups)
+        self.assertEqual(groups, [first, second])
+        release_fixture_partitions(cur, groups)
+        self.assertEqual([c.args for c in cur.execute.call_args_list], [
+            ("DROP PARTITION SNAPSHOT '" + second + "'",),
+            ("DROP PARTITION SNAPSHOT '" + first + "'",)])
+        self.assertEqual(groups, [])
+        release_fixture_partitions(cur, groups)
+        self.assertEqual(cur.execute.call_count, 2)
+
+    def test_partition_fixture_rejects_malformed_release_ids(self):
+        for token in (None, b'a' * 32, '', 'a' * 31, 'G' * 32, "a'" * 16):
+            with self.subTest(token_type=type(token).__name__):
+                cur, groups = Mock(), []
+                cur.adbc_statement.get_option.return_value = token
+                with self.assertRaisesRegex(AssertionError, 'invalid release ID'):
+                    fixture_partitions(cur, 'SELECT * FROM fixture.rows', groups)
+                self.assertEqual(groups, [])
+                cur.execute.assert_not_called()
+
+    def test_partition_fixture_retains_failed_release_and_does_not_replay(self):
+        cur, groups = Mock(), ['a' * 32, 'b' * 32]
+        cur.execute.side_effect = RuntimeError('uncertain release')
+        with self.assertRaisesRegex(RuntimeError, 'uncertain release'):
+            release_fixture_partitions(cur, groups)
+        self.assertEqual(groups, ['a' * 32, 'b' * 32])
+        cur.execute.assert_called_once()
+
+    def test_planner_readiness_validates_complete_logical_snapshot(self):
+        # Physical segments may contain both id=2 and its later tombstone.
+        # The independent logical oracle excludes that row and preserves NULLs,
+        # binary values and integers beyond the exact floating-point range.
+        expected = pa.table({'id': [0, 1, 3],
+            'value': [9007199254740993, None, 9007199254740995],
+            'payload': [b'\x00\xff', None, b'\xff\x00']})
+        cur = Mock()
+        cur.fetch_arrow_table.side_effect = [expected.take(pa.array([2, 0])), expected.slice(1, 1)]
+        planner_fixture_ready(cur, [b'first', b'second'], expected.schema, expected)
+        self.assertEqual([c.args for c in cur.adbc_read_partition.call_args_list],
+                         [(b'first',), (b'second',)])
+        self.assertEqual(cur.fetch_arrow_table.call_count, 2)
+        cur.execute.assert_not_called()
+
+    def test_empty_planner_readiness_requires_empty_oracle_and_exact_planned_schema(self):
+        empty = pa.table({'id':pa.array([], pa.int64())})
+        cur = Mock()
+        planner_fixture_ready(cur, [], empty.schema, empty)
+        cur.fetch_arrow_table.assert_not_called()
+        with self.assertRaisesRegex(AssertionError, 'invalid fixture values'):
+            planner_fixture_ready(cur, [], empty.schema, pa.table({'id':[1]}))
+        with self.assertRaisesRegex(AssertionError, 'invalid fixture schema'):
+            planner_fixture_ready(cur, [], pa.schema([('id', pa.int32())]), empty)
+
+    def test_planner_readiness_rejects_stale_tombstones_and_partial_or_corrupt_rows(self):
+        expected = pa.table({'id': [0, 1, 3], 'value': [10, 11, 13]})
+        invalid = [expected.slice(1),
+            pa.table({'id': [0, 1, 2, 3], 'value': [10, 11, 12, 13]}),
+            expected.take(pa.array([0, 0, 2])),
+            pa.table({'id': [0, 1, 3], 'value': [10, 99, 13]}),
+            pa.table({'id': [0, 1, 3], 'wrong_column': [10, 11, 13]}),
+            expected.cast(pa.schema([('id', pa.int32()), ('value', pa.int64())]))]
+        for actual in invalid:
+            with self.subTest(schema=actual.schema, rows=actual.num_rows):
+                cur = Mock()
+                cur.fetch_arrow_table.return_value = actual
+                with self.assertRaisesRegex(AssertionError, 'invalid fixture values'):
+                    planner_fixture_ready(cur, [b'part'], expected.schema, expected)
+
+    def test_planner_readiness_propagates_acquisition_and_fetch_failures_without_retry(self):
+        expected = pa.table({'id': [0]})
+        for phase in ('adbc_read_partition', 'fetch_arrow_table'):
+            with self.subTest(phase=phase):
+                cur = Mock()
+                getattr(cur, phase).side_effect = RuntimeError('snapshot unavailable')
+                with self.assertRaisesRegex(RuntimeError, 'snapshot unavailable'):
+                    planner_fixture_ready(cur, [b'part'], expected.schema, expected)
+                cur.adbc_read_partition.assert_called_once()
+                self.assertEqual(cur.fetch_arrow_table.call_count, int(phase != 'adbc_read_partition'))
+
     def test_managed_config_get_accepts_filtered_empty_or_permission_denied(self):
         client = Mock(spec=redis.Redis)
         client.config_get.return_value = {}

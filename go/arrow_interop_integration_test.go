@@ -87,6 +87,11 @@ func TestArrowNormalizedStorage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	group, err := st.(adbc.GetSetOptionsWithContext).GetOption(h.ctx, OptionStringPartitionSnapshotID)
+	if err != nil || group == "" {
+		t.Fatal("live partition release ID missing", group, err)
+	}
+	defer h.exec("DROP PARTITION SNAPSHOT '" + group + "'")
 	var partitionRows []string
 	for _, token := range parts.PartitionIDs {
 		r, err := h.conn.ReadPartition(h.ctx, token)
@@ -206,6 +211,11 @@ func TestArrowResultLayouts(t *testing.T) {
 			if err != nil || !partitionSchema.Equal(schema) {
 				t.Fatal(partitionSchema, err)
 			}
+			registerPartitionTestCleanup(t, h, parts)
+			descriptor, err := decodePartition(parts.PartitionIDs[0])
+			if err != nil {
+				t.Fatal(err)
+			}
 			actual := map[string]int{}
 			for _, part := range parts.PartitionIDs {
 				r, err := h.conn.ReadPartition(h.ctx, part)
@@ -233,6 +243,16 @@ func TestArrowResultLayouts(t *testing.T) {
 			}
 			if !maps.Equal(actual, wantValues) {
 				t.Fatal("partition values changed", actual, wantValues)
+			}
+			h.exec("DROP PARTITION SNAPSHOT '" + descriptor.Snapshot.Token + "'")
+			if live, err := h.rawClient().HExists(h.ctx, snapshotCatalogKey, "p:"+descriptor.Snapshot.Token).Result(); err != nil || live {
+				t.Fatal("completed layout fixture retained its partition snapshot", err)
+			}
+			if r, err := h.conn.ReadPartition(h.ctx, parts.PartitionIDs[0]); err == nil {
+				r.Release()
+				t.Fatal("released layout partition reopened")
+			} else if !isStatus(err, adbc.StatusIO) || !strings.Contains(err.Error(), "partition snapshot expired or released") {
+				t.Fatal("unexpected released layout partition error", err)
 			}
 		})
 	}

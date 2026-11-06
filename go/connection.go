@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/adbc-drivers/driverbase-go/driverbase"
 	"github.com/apache/arrow-adbc/go/adbc"
@@ -77,6 +78,8 @@ func (c *connectionImpl) GetOption(ctx context.Context, key string) (string, err
 		return string(c.usage.snapshot()), nil
 	}
 	switch key {
+	case OptionStringStatementSnapshots:
+		return strconv.FormatBool(c.store != nil && c.store.snapshots), nil
 	case OptionStringPartitionResultNamespace:
 		return c.retainedNamespace, nil
 	case OptionStringPartitionReaderOnly:
@@ -108,7 +111,24 @@ func (c *connectionImpl) GetOption(ctx context.Context, key string) (string, err
 }
 
 func (c *connectionImpl) SetOption(ctx context.Context, key, value string) error {
+	if key == OptionStringStatementSnapshots {
+		if value == "true" && c.store != nil && c.store.snapshots {
+			return nil
+		}
+		return snapshotUnsupported()
+	}
 	switch key {
+	case OptionStringForeignIndexesRefresh:
+		if value != "true" {
+			return errorf(adbc.StatusInvalidArgument, "foreign_indexes_refresh must be true")
+		}
+		if c.store == nil || c.store.isClosed() {
+			return errConnClosed
+		}
+		if !c.store.snapshots || c.readerOnly {
+			return errorf(adbc.StatusInvalidState, "foreign refresh requires a managed connection")
+		}
+		return c.store.refreshSnapshotForeign(ctx, true)
 	case OptionStringForeignIndexes:
 		if c.store.flexEnabled() && value == "true" {
 			return flexUnsupported("foreign indexes")
@@ -116,6 +136,11 @@ func (c *connectionImpl) SetOption(ctx context.Context, key, value string) error
 		v, err := parseForeignIndexes(value)
 		if err != nil {
 			return err
+		}
+		if v && c.store.snapshots {
+			if err := c.store.refreshSnapshotForeign(ctx, false); err != nil {
+				return err
+			}
 		}
 		c.store.foreignIndexes = v
 		return nil
@@ -181,6 +206,9 @@ func (c *connectionImpl) setTimeouts(ctx context.Context, t timeouts) error {
 	}
 	_, cluster := c.store.client.(*goredis.ClusterClient)
 	client := newClient(c.clientCfg, cluster, t)
+	if c.store.snapshots {
+		addSnapshotHooks(client)
+	}
 	if err := client.Ping(ctx).Err(); err != nil {
 		_ = client.Close()
 		return wrapRedis(err, "failed to connect to Redis")
@@ -205,12 +233,29 @@ func (c *connectionImpl) Close(ctx context.Context) error {
 	}
 	// Renames running on other goroutines stop, and are rolled back, while
 	// the client is open (see rekey.go).
+	c.store.stopSnapshotCompactor()
 	c.store.stopRekeys(ctx)
-	c.streams.closeAll(errorf(adbc.StatusInvalidState, "the connection was closed while its result was being read"))
-	// During ExecuteQuery's initial fill the transport is registered before
-	// its public reader. Keep maintenance sockets alive for worker cursor
-	// cleanup even when closeAll could only cancel that transport.
-	c.streams.finishTransports()
+	executions := c.store.activeExecutions()
+	reason := errorf(adbc.StatusInvalidState, "the connection was closed while its result was being read")
+	for _, execution := range executions {
+		execution.closeWith(reason)
+	}
+	c.streams.closeAll(reason)
+	// Abort private work and release pins using the maintenance pool before
+	// closing it. Bound Close even if caller-owned Arrow input ignores cancel.
+	cleanup, cancelCleanup := context.WithTimeout(ctx, 5*time.Second)
+	var cleanupErr error
+	for _, execution := range executions {
+		select {
+		case <-execution.done:
+		case <-cleanup.Done():
+			cleanupErr = wrapRedis(cleanup.Err(), "active execution cleanup did not finish before Close")
+		}
+		if cleanupErr != nil {
+			break
+		}
+	}
+	cancelCleanup()
 	// Best effort: whatever can't be dropped now is swept by a later
 	// connection (see temp.go).
 	_ = c.store.dropTempSchema(ctx)
@@ -223,6 +268,9 @@ func (c *connectionImpl) Close(ctx context.Context) error {
 	c.store.mu.Unlock()
 	for _, old := range retired {
 		_ = old.Close()
+	}
+	if cleanupErr != nil {
+		return cleanupErr
 	}
 	return err
 }
@@ -280,6 +328,11 @@ func (c *connectionImpl) SetCurrentCatalog(ctx context.Context, catalog string) 
 }
 
 func (c *connectionImpl) SetCurrentDbSchema(ctx context.Context, schema string) error {
+	ctx, pin, snapshotErr := c.store.acquireSnapshot(ctx)
+	if snapshotErr != nil {
+		return snapshotErr
+	}
+	defer pin.release()
 	ok, err := c.store.schemaExists(ctx, schema)
 	if err != nil {
 		return err
@@ -298,6 +351,11 @@ func (c *connectionImpl) ListTableTypes(ctx context.Context) ([]string, error) {
 }
 
 func (c *connectionImpl) GetTableSchema(ctx context.Context, catalog *string, dbSchema *string, tableName string) (*arrow.Schema, error) {
+	ctx, pin, snapshotErr := c.store.acquireSnapshot(ctx)
+	if snapshotErr != nil {
+		return nil, snapshotErr
+	}
+	defer pin.release()
 	name := TableName{Name: tableName}
 	if catalog != nil {
 		name.Catalog = *catalog
@@ -310,7 +368,11 @@ func (c *connectionImpl) GetTableSchema(ctx context.Context, catalog *string, db
 	if err != nil {
 		return nil, err
 	}
-	meta, err := c.store.getTable(ctx, schema, tableName)
+	// Schema discovery uses immutable metadata, not row/index permissions.
+	meta, err := c.store.getTableMetadata(ctx, schema, tableName)
+	if err == nil {
+		err = validateSnapshotDescriptor(ctx, meta)
+	}
 	if err != nil {
 		v, verr := c.store.getView(ctx, schema, tableName)
 		if verr != nil {
@@ -363,6 +425,11 @@ func (c *connectionImpl) GetCatalogs(ctx context.Context, catalogFilter *string)
 }
 
 func (c *connectionImpl) GetDBSchemasForCatalog(ctx context.Context, catalog string, schemaFilter *string) ([]string, error) {
+	ctx, pin, snapshotErr := c.store.acquireSnapshot(ctx)
+	if snapshotErr != nil {
+		return nil, snapshotErr
+	}
+	defer pin.release()
 	if catalog != catalogName {
 		return nil, nil
 	}
@@ -385,6 +452,11 @@ func (c *connectionImpl) GetDBSchemasForCatalog(ctx context.Context, catalog str
 }
 
 func (c *connectionImpl) GetTablesForDBSchema(ctx context.Context, catalog string, schema string, tableFilter *string, columnFilter *string, includeColumns bool) ([]driverbase.TableInfo, error) {
+	ctx, pin, snapshotErr := c.store.acquireSnapshot(ctx)
+	if snapshotErr != nil {
+		return nil, snapshotErr
+	}
+	defer pin.release()
 	if catalog != catalogName {
 		return nil, nil
 	}
@@ -434,8 +506,11 @@ func (c *connectionImpl) GetTablesForDBSchema(ctx context.Context, catalog strin
 				if v, err = c.store.getView(ctx, schema, ent.name); err == nil {
 					cols = v.Columns
 				}
-			} else if meta, err = c.store.getTable(ctx, schema, ent.name); err == nil {
-				cols = meta.Columns
+			} else if meta, err = c.store.getTableMetadata(ctx, schema, ent.name); err == nil {
+				err = validateSnapshotDescriptor(ctx, meta)
+				if err == nil {
+					cols = meta.Columns
+				}
 			}
 			if err != nil {
 				var ae adbc.Error

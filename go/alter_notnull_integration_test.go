@@ -19,6 +19,7 @@ package redis
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -189,9 +190,8 @@ func TestSQLAlterNotNull(t *testing.T) {
 	h.expectChecks(raw, "it_nn_order")
 }
 
-// The rows read a column added with a DEFAULT as queries do: the rows that
-// existed then read its missing value, unless set to NULL since, and rows
-// inserted later without a value read NULL.
+// Snapshot ALTER materializes the default in its private replacement. Later
+// NULL updates and inserts after DROP DEFAULT must still reject SET NOT NULL.
 func TestSQLAlterNotNullMissing(t *testing.T) {
 	h := newSQLHarness(t)
 	h.dropTables("it_nn_miss")
@@ -201,8 +201,12 @@ func TestSQLAlterNotNullMissing(t *testing.T) {
 	h.exec(`ALTER TABLE it_nn_miss ADD COLUMN d integer DEFAULT 5`)
 	h.exec(`ALTER TABLE it_nn_miss ALTER COLUMN d SET NOT NULL`)
 	h.expectNullable("it_nn_miss", "id=YES", "d=NO")
-	if f := h.rowFields(raw, defaultSchema, "it_nn_miss"); f["d"] != 0 {
-		t.Errorf("row fields %v: the rows were written", f)
+	if f := h.rowFields(raw, defaultSchema, "it_nn_miss"); f["d"] != 2 {
+		t.Errorf("materialized default missing from replacement rows: %v", f)
+	}
+	h.expectRows("SELECT id,d FROM it_nn_miss ORDER BY id", "1|5", "2|5")
+	if c := h.tableColumn(raw, "it_nn_miss", "d"); c.Missing != "" || c.MissingThrough != 0 {
+		t.Errorf("replacement retained virtual default metadata: %+v", c)
 	}
 
 	h.exec(`ALTER TABLE it_nn_miss ALTER COLUMN d DROP NOT NULL`)
@@ -223,94 +227,68 @@ func TestSQLAlterNotNullMissing(t *testing.T) {
 	h.expectRows(`SELECT id, d FROM it_nn_miss ORDER BY id`, "1|5", "2|6")
 }
 
-// Without locks, other connections write while SET NOT NULL or ADD
-// CONSTRAINT … CHECK runs. A row inserted after the rows were checked and
-// before the change commits is checked when it commits, and an insert by a
-// statement that read the table before the change, once it has committed,
-// is checked against the new NOT NULL.
+// A schema change validates its pinned input and conflicts if another writer
+// changes that input before publication. Stale writes likewise cannot bypass
+// newly committed constraints. Only an explicit fresh statement revalidates.
 func TestSQLAlterNotNullConcurrent(t *testing.T) {
 	h := newSQLHarness(t)
 	h.dropTables("it_nn_race", "it_nn_race2")
 	raw := h.rawClient()
-	other := newSQLHarness(t)
-	h.exec(`CREATE TABLE it_nn_race (id integer, v integer)`)
-	h.exec(`INSERT INTO it_nn_race VALUES (1, 1)`)
-	t.Cleanup(func() { testHookAltered = nil })
-	insertBeforeCommit := func(sql string) {
-		testHookAltered = func(*tableMeta) {
-			testHookAltered = nil
-			other.exec(sql)
+	st := &store{client: raw, snapshots: true}
+	h.exec("CREATE TABLE it_nn_race(id integer,v integer)")
+	h.exec("INSERT INTO it_nn_race VALUES(1,1)")
+	conflict := func(ctx context.Context, pin *snapshotPin, work string) {
+		t.Helper()
+		err := st.publishSnapshot(ctx, pin, work)
+		var ae adbc.Error
+		if !errors.As(err, &ae) || string(ae.SqlState[:]) != "40001" {
+			t.Fatalf("stale schema/write did not conflict: %v", err)
 		}
+		st.abortSnapshot(pin, work)
+		pin.release()
 	}
-
-	insertBeforeCommit(`INSERT INTO it_nn_race VALUES (2, NULL)`)
-	h.expectQueryError(`ALTER TABLE it_nn_race ALTER COLUMN v SET NOT NULL`, adbc.StatusIntegrity,
-		`column "v" of relation "it_nn_race" contains null values`)
+	ctx, pin, work := snapshotStageSQL(t, st, h.ctx, "", "ALTER TABLE it_nn_race ALTER COLUMN v SET NOT NULL")
+	h.exec("INSERT INTO it_nn_race VALUES(2,NULL)")
+	conflict(ctx, pin, work)
 	h.expectNullable("it_nn_race", "id=YES", "v=YES")
-	h.exec(`DELETE FROM it_nn_race WHERE v IS NULL`)
-	insertBeforeCommit(`INSERT INTO it_nn_race VALUES (3, 3)`)
-	h.exec(`ALTER TABLE it_nn_race ALTER COLUMN v SET NOT NULL`)
+	h.expectQueryError("ALTER TABLE it_nn_race ALTER COLUMN v SET NOT NULL", adbc.StatusIntegrity, `column "v" of relation "it_nn_race" contains null values`)
+	h.exec("DELETE FROM it_nn_race WHERE v IS NULL")
+
+	ctx, pin, work = snapshotStageSQL(t, st, h.ctx, "", "ALTER TABLE it_nn_race ALTER COLUMN v SET NOT NULL")
+	h.exec("INSERT INTO it_nn_race VALUES(3,3)")
+	conflict(ctx, pin, work)
+	h.exec("ALTER TABLE it_nn_race ALTER COLUMN v SET NOT NULL")
 	h.expectNullable("it_nn_race", "id=YES", "v=NO")
 
-	insertBeforeCommit(`INSERT INTO it_nn_race VALUES (4, -4)`)
-	h.expectQueryError(`ALTER TABLE it_nn_race ADD CONSTRAINT v_pos CHECK (v > 0)`, adbc.StatusIntegrity,
-		`check constraint "v_pos" of relation "it_nn_race" is violated by some row`)
+	ctx, pin, work = snapshotStageSQL(t, st, h.ctx, "", "ALTER TABLE it_nn_race ADD CONSTRAINT v_pos CHECK(v>0)")
+	h.exec("INSERT INTO it_nn_race VALUES(4,-4)")
+	conflict(ctx, pin, work)
 	h.expectChecks(raw, "it_nn_race")
-	h.exec(`DELETE FROM it_nn_race WHERE id = 4`)
+	h.expectQueryError("ALTER TABLE it_nn_race ADD CONSTRAINT v_pos CHECK(v>0)", adbc.StatusIntegrity, `check constraint "v_pos" of relation "it_nn_race" is violated by some row`)
+	h.exec("DELETE FROM it_nn_race WHERE id=4")
 
-	// SET NOT NULL on a NOT NULL column checks no rows; if another
-	// connection drops the NOT NULL before it commits, it fails.
-	insertBeforeCommit(`ALTER TABLE it_nn_race ALTER COLUMN v DROP NOT NULL`)
-	h.expectQueryError(`ALTER TABLE it_nn_race ALTER COLUMN v SET NOT NULL`, adbc.StatusIO,
-		`table "it_nn_race" changed concurrently; try again`)
+	// Even an initially redundant SET NOT NULL depends on its original schema.
+	ctx, pin, work = snapshotStageSQL(t, st, h.ctx, "", "ALTER TABLE it_nn_race ALTER COLUMN v SET NOT NULL")
+	h.exec("ALTER TABLE it_nn_race ALTER COLUMN v DROP NOT NULL")
+	conflict(ctx, pin, work)
 	h.expectNullable("it_nn_race", "id=YES", "v=YES")
 
-	// Rows written with metadata read before SET NOT NULL committed.
-	h.exec(`ALTER TABLE it_nn_race ALTER COLUMN v DROP NOT NULL`)
-	st := &store{client: raw}
-	old, err := st.getTable(h.ctx, defaultSchema, "it_nn_race")
-	if err != nil {
-		t.Fatal(err)
-	}
-	h.exec(`ALTER TABLE it_nn_race ALTER COLUMN v SET NOT NULL`)
-	row := func(meta *tableMeta, vals ...int64) []Value {
-		out := make([]Value, len(meta.Columns))
-		for i, c := range meta.Columns {
-			out[i] = nullValue(c.Type)
-			if i < len(vals) {
-				if out[i], err = Coerce(intValue(typeInt64, vals[i]), c.Type); err != nil {
-					t.Fatal(err)
-				}
-			}
-		}
-		return out
-	}
-	expectErr := func(err error, code adbc.Status, msg string) {
-		t.Helper()
-		var ae adbc.Error
-		if !errors.As(err, &ae) || ae.Code != code || ae.Msg != "[redis] "+msg {
-			t.Errorf("got %v, want %q (%v)", err, msg, code)
-		}
-	}
-	_, err = st.insertRows(h.ctx, old, [][]Value{row(old, 5)})
-	expectErr(err, adbc.StatusIntegrity, `null value in column "v" of relation "it_nn_race" violates not-null constraint`)
-	if _, err := st.insertRows(h.ctx, old, [][]Value{row(old, 6, 6)}); err != nil {
-		t.Fatal(err)
-	}
-	// A NOT NULL column added since gives such rows its missing value, or
-	// without one (the table had no rows), they are refused.
-	h.exec(`ALTER TABLE it_nn_race ADD COLUMN w integer NOT NULL DEFAULT 7`)
-	if _, err := st.insertRows(h.ctx, old, [][]Value{row(old, 8, 8)}); err != nil {
-		t.Fatal(err)
-	}
-	h.expectRows(`SELECT id, v, w FROM it_nn_race ORDER BY id`, "1|1|7", "3|3|7", "6|6|7", "8|8|7")
-	h.exec(`CREATE TABLE it_nn_race2 (id integer)`)
-	old2, err := st.getTable(h.ctx, defaultSchema, "it_nn_race2")
-	if err != nil {
-		t.Fatal(err)
-	}
-	h.exec(`ALTER TABLE it_nn_race2 ADD COLUMN w integer NOT NULL`)
-	_, err = st.insertRows(h.ctx, old2, [][]Value{row(old2, 1)})
-	expectErr(err, adbc.StatusIO, `table "it_nn_race2" changed concurrently; try again`)
-	h.expectRows(`SELECT COUNT(*) FROM it_nn_race2`, "0")
+	ctx, pin, work = snapshotStageSQL(t, st, h.ctx, "it_nn_race", "INSERT INTO it_nn_race(id) VALUES(5)")
+	h.exec("ALTER TABLE it_nn_race ALTER COLUMN v SET NOT NULL")
+	conflict(ctx, pin, work)
+	h.expectQueryError("INSERT INTO it_nn_race(id) VALUES(5)", adbc.StatusIntegrity, `null value in column "v" of relation "it_nn_race" violates not-null constraint`)
+	h.expectRows("SELECT id,v FROM it_nn_race ORDER BY id", "1|1", "3|3")
+
+	ctx, pin, work = snapshotStageSQL(t, st, h.ctx, "it_nn_race", "INSERT INTO it_nn_race VALUES(6,6),(8,8)")
+	h.exec("ALTER TABLE it_nn_race ADD COLUMN w integer NOT NULL DEFAULT 7")
+	conflict(ctx, pin, work)
+	h.exec("INSERT INTO it_nn_race(id,v) VALUES(6,6),(8,8)")
+	h.expectRows("SELECT id,v,w FROM it_nn_race ORDER BY id", "1|1|7", "3|3|7", "6|6|7", "8|8|7")
+
+	h.exec("CREATE TABLE it_nn_race2(id integer)")
+	ctx, pin, work = snapshotStageSQL(t, st, h.ctx, "it_nn_race2", "INSERT INTO it_nn_race2 VALUES(1)")
+	h.exec("ALTER TABLE it_nn_race2 ADD COLUMN w integer NOT NULL")
+	conflict(ctx, pin, work)
+	h.expectQueryError("INSERT INTO it_nn_race2(id) VALUES(1)", adbc.StatusIntegrity, `null value in column "w" of relation "it_nn_race2" violates not-null constraint`)
+	h.expectRows("SELECT COUNT(*) FROM it_nn_race2", "0")
 }

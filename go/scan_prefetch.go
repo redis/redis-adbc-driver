@@ -16,9 +16,10 @@ import (
 // consumer holds its current page, including a page blocked on delivery. There
 // is no command/reply pool: each page owns its reply slices through consumption.
 type hashPage struct {
-	keys   []string
-	values [][]any
-	err    error
+	keys     []string
+	values   [][]any
+	err      error
+	snapshot bool // values include the deletion marker and require exact row IDs
 }
 
 type hashPagePrefetch struct {
@@ -103,6 +104,31 @@ func (p *hashPagePrefetch) close() {
 	<-p.done // no READ can race DEL, transport close or worker-token release
 }
 
+func (it *scanIter) hasHashLookahead() bool {
+	// Never inspect cursor/discovery state once the worker owns it.
+	if it.prefetch != nil {
+		return true
+	}
+	if it.delta != nil || it.candidates != nil {
+		// Exact immutable image counts are a conservative upper bound on
+		// merged discoveries, including replacements and tombstones. Avoid a
+		// worker when the entire source is proven to fit in one page.
+		limit := int64(snapshotDeltaPage)
+		if it.delta != nil && it.delta.pageRows > 0 {
+			limit = int64(it.delta.pageRows)
+		}
+		for _, segment := range it.meta.snapshotSegments() {
+			if segment.Rows > limit {
+				return true
+			}
+			limit -= segment.Rows
+		}
+		return false
+	}
+	// A zero initial Search cursor proves discovery fit in one reply.
+	return it.cur != nil && it.cur.cursor != 0
+}
+
 func (it *scanIter) nextPrefetchedHash(ctx context.Context) ([]string, []map[string]Value, error) {
 	if it.prefetch == nil {
 		// The worker gets immutable scan metadata and exclusive cursor access.
@@ -123,10 +149,28 @@ func (it *scanIter) nextPrefetchedHash(ctx context.Context) ([]string, []map[str
 	if page.err != nil {
 		return nil, nil, page.err
 	}
+	if page.snapshot {
+		return it.consumeSnapshotHashValues(ctx, page.keys, page.values)
+	}
 	return it.consumeHashValues(page.keys, page.values)
 }
 
 func (it *scanIter) fetchHashPage(ctx context.Context) hashPage {
+	if it.candidates != nil || it.delta != nil {
+		var logical, physical []string
+		var err error
+		if it.candidates != nil {
+			logical, physical, err = it.candidates.nextKeys(ctx)
+		} else {
+			logical, physical, err = it.delta.nextKeys(ctx)
+		}
+		if err != nil {
+			return hashPage{err: err}
+		}
+		fields := append(append([]string(nil), it.fetch...), snapshotDeletedField)
+		values, err := it.store.fetchRowSlices(ctx, physical, fields, wideFetchChunk)
+		return hashPage{keys: logical, values: values, err: err, snapshot: true}
+	}
 	if err := it.checkReadiness(ctx); err != nil {
 		return hashPage{err: err}
 	}

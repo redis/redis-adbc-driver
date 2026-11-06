@@ -36,13 +36,20 @@ a query performance factor (QPF) of **4×** is recommended where supported,
 with sufficient server CPU capacity. See the [server requirements](docs/driver-reference.md#server-requirements)
 for supported deployments and configuration.
 
-SQL tables use a defined layout for rows, indexes, and metadata. Compatible
-existing HASH collections can be [adopted in place](docs/driver-reference.md#adopt-hashes-in-place);
-other data must be migrated to that layout. The
-[architecture guide](docs/driver-reference.md#architecture-hybrid-index-row-layout)
-explains how the driver stores and queries tables. See a worked
-[SQL INSERT and SELECT example](docs/sql-redis-example.md) showing the Redis
-HASH and commands behind a table.
+Managed tables now use [always-on statement snapshots](docs/snapshots.md).
+Each statement reads one committed generation, including streamed results;
+supported writes publish atomically. Storage protocol version 15 rejects legacy catalogs
+and earlier draft formats without modification; there is no upgrade path. ALTER
+and connection-owned temporary objects are supported. HASH adoption and foreign
+indexes use private managed copies with explicit refreshes, preserving application
+ownership. Live partition sets share one producer generation; retained production
+captures one managed generation and publishes replayable Arrow results. Writes
+append row-version segments with bounded background compaction. See the snapshot
+contract for import initialization, deployment constraints and fixed limits.
+Historical in-place adoption/layout descriptions below concern the previous format.
+The [architecture guide](docs/driver-reference.md#architecture-hybrid-index-row-layout)
+explains table storage. The [SQL INSERT and SELECT example](docs/sql-redis-example.md)
+shows managed row storage and snapshot-aware reads.
 
 Start with [Choose your tool and connect](docs/setup.md) for Python wheels,
 connection diagnostics, and application examples. For native tools such as
@@ -172,8 +179,8 @@ for their implemented scope and boundaries. Restrictions stay in the behavior co
 | Dense/sparse Union | 🟢 Supported | Tagged storage preserves codes and selected-child NULLs; both inputs normalize to dense Union output. Exact-schema append, IPC and live partitions; retained partitions reject. | [#268](https://github.com/redis/redis-adbc-driver/issues/268) |
 | UUID/JSON extension storage normalization | 🟢 Supported | Reject by default; explicit `extension_policy=storage` normalizes allowlisted top-level UUID/JSON extensions to canonical SQL storage. Unknown/nested extensions reject; extension identity is not persisted. [Policy](docs/arrow-interoperability.md#explicit-extension-storage-normalization). | [#209](https://github.com/redis/redis-adbc-driver/issues/209) |
 | SQL execution, prepared statements and Arrow parameter binding | 🟢 Supported | Supports `Prepare`, `Bind`, `BindStream`, parameter schemas and result-schema discovery for supported SQL. | — |
-| ADBC metadata and row-count statistics | 🟢 Supported | Driver info, objects, table schemas/types and approximate managed-table row counts are available. Counts remain approximate under concurrent writes; column statistics are unavailable. UNIQUE/FOREIGN KEY metadata depends on [#114](https://github.com/redis/redis-adbc-driver/issues/114). See [statistics](docs/adbc-statistics.md). | [#210](https://github.com/redis/redis-adbc-driver/issues/210) |
-| ADBC partitioned reads | 🟢 Supported | Portable row-range descriptors cover a restricted SELECT subset; retained-result mode supports broader SQL with quotas/expiry. No shared source snapshot. Rebuild from source; see [partitioned reads](docs/partitioned-reads.md). | [#211](https://github.com/redis/redis-adbc-driver/issues/211) |
+| ADBC metadata and row/NULL statistics | 🟢 Supported | Driver info, objects, table schemas/types and approximate managed-table row counts are available. Discovery and visible row/NULL counts share a pinned generation; results retain the approximate API classification. UNIQUE/FOREIGN KEY metadata depends on [#114](https://github.com/redis/redis-adbc-driver/issues/114). See [statistics](docs/adbc-statistics.md). | [#210](https://github.com/redis/redis-adbc-driver/issues/210) |
+| ADBC partitioned reads | 🟢 Supported | Portable row-range descriptors cover a restricted SELECT subset; retained-result mode supports broader SQL with quotas/expiry. Managed live partition sets retain one producer generation; retained capture uses a pinned source. Rebuild from source; see [partitioned reads](docs/partitioned-reads.md). | [#211](https://github.com/redis/redis-adbc-driver/issues/211) |
 | Statement cancellation | 🟢 Supported | Cancels driver work and interrupts execution-owned socket waits, including blocked cursor pages/pipelines. Remote server work may continue; sorts finish before checking cancellation. See [cancellation](docs/driver-reference.md#cancelling-a-statement). | [#212](https://github.com/redis/redis-adbc-driver/issues/212) |
 | Transactions and rollback through ADBC | 🔴 Unsupported | Autocommit only; disabling autocommit is rejected. | [#113](https://github.com/redis/redis-adbc-driver/issues/113) |
 | Substrait plans | 🟡 Bounded subset | Binary Substrait 0.108.0 read/filter/project support; [subset and limits](docs/substrait.md). | [#213](https://github.com/redis/redis-adbc-driver/issues/213) |
@@ -216,9 +223,9 @@ unsupported deployment; yellow identifies limits in an applicable driver path.
 | TLS and private certificate authorities | 🟢 Supported | `rediss://` verifies server certificates; `adbc.redis.tls_ca_file` supplies explicit trust roots, including cluster nodes and independent partition workers. [TLS evidence](docs/partitioned-reads.md#tls-and-independent-worker-validation). |
 | Mutual TLS with client certificates | 🔴 Unsupported | No public driver options configure a client certificate/private key; server-certificate verification alone does not provide mutual TLS. |
 | Password / ACL-user authentication | 🟢 Supported | URI credentials or username/password options authenticate Redis connections. [ACL requirements](docs/driver-reference.md#acl-users). |
-| Role-based access control (RBAC) | 🟢 Supported | Uses administrator-provisioned Redis users and command/key permissions. Opt-in SQL `GRANT SELECT` / `REVOKE SELECT` manage dedicated Redis Software ACLs for individual base tables; other SQL privilege forms reject. [Setup and limits](docs/sql-rbac.md). |
+| Role-based access control (RBAC) | 🟡 Partial | Administrator-provisioned Redis authentication remains available. Restricted snapshot readers and SQL `GRANT SELECT` / `REVOKE SELECT` remain gated on isolated reader leases; no management ACL changes are enabled by SQL on snapshot catalogs. [Design and limits](docs/sql-rbac.md). |
 | Replication | ⚪ N/A | Redis Software manages primary/replica synchronization and replica configuration. The driver connects to the database endpoint; replica read routing is assessed separately below. [Server replication](https://redis.io/docs/latest/operate/rs/databases/durability-ha/). |
-| Automatic failover (client recovery) | 🟢 Supported | Uses go-redis connection recovery and Cluster routing for supported Redis Software proxy / Cluster API connections. Applications must handle interrupted operations, as with standard Redis clients. Dedicated live-failover validation is not recorded. [Retry and timeout limits](docs/driver-reference.md#timeouts), [official client guidance](https://redis.io/docs/latest/develop/clients/go/error-handling/). |
+| Automatic failover (client recovery) | 🟢 Supported | Uses go-redis connection recovery and Cluster routing for supported Redis Software proxy / Cluster API connections. Applications must handle interrupted operations, as with standard Redis clients. An [owned three-node Software run](docs/sdlc/changes/snapshot-cluster/validation.md) verifies planned primary promotion and AOF restart recovery; this does not promise transparent recovery of interrupted operations. [Retry and timeout limits](docs/driver-reference.md#timeouts), [official client guidance](https://redis.io/docs/latest/develop/clients/go/error-handling/). |
 | Read scaling through replicas | 🔴 Unsupported | `read_only=true`, `route_by_latency=true` and `route_randomly=true` are rejected because replicas can lag the driver's writes. |
 | Persistence configuration (AOF / snapshots) | ⚪ N/A | Persistence policy is configured in Redis Software, outside the ADBC interface. Stored driver data follows that server policy; [retained partition control state](docs/retained-partition-storage.md) has additional durability requirements. [Server settings](https://redis.io/docs/latest/operate/rs/databases/configure/database-persistence/). |
 | Backup, restore and disaster recovery | ⚪ N/A | These are server/operator responsibilities. Restore must keep table metadata, HASHes and Search definitions consistent. [Server administration](https://redis.io/docs/latest/operate/rs/databases/configure/). |
