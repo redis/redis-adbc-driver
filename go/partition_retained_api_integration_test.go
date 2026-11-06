@@ -34,7 +34,7 @@ func retainedTestDatabaseOptions(options map[string]string) map[string]string {
 	if policy := os.Getenv("REDIS_RETAINED_CONTROL_PERSISTENCE"); policy != "" {
 		options[OptionStringPartitionControlPersistence] = policy
 	}
-	return options
+	return testUsageOptions(options)
 }
 
 func retainedAPIConnection(t *testing.T, namespace string, reader bool) adbc.ConnectionWithContext {

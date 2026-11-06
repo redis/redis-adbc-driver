@@ -74,7 +74,7 @@ func TestSnapshotSubstraitRetainsGeneration(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer reader.Release()
-			live, ok := reader.(*subReader)
+			live, ok := inspectionReader(reader).(*subReader)
 			if !ok || live.snapshot == nil {
 				t.Fatal("live Substrait reader does not own its generation")
 			}
@@ -174,7 +174,7 @@ func TestSnapshotSubstraitMetadataAndCancellationReleaseLeases(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer reader.Release()
-	live := reader.(*subReader)
+	live := inspectionReader(reader).(*subReader)
 	token := live.snapshot.token
 	cancel() // No Next/Release is needed to trigger lease cleanup.
 	waitFor(t, "canceled Substrait snapshot released", func() bool { return !raw.HExists(h.ctx, snapshotCatalogKey, "p:"+token).Val() })
@@ -207,7 +207,7 @@ func TestSnapshotSubstraitRejectsExpiredReaderPin(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer reader.Release()
-	live := reader.(*subReader)
+	live := inspectionReader(reader).(*subReader)
 	if live.snapshot == nil || !reader.Next() || len(live.input) == 0 {
 		t.Fatal("fixture did not retain a lease and buffered input")
 	}
@@ -240,7 +240,7 @@ func TestSnapshotSubstraitConnectionCloseReleasesLease(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer reader.Release()
-	live := reader.(*subReader)
+	live := inspectionReader(reader).(*subReader)
 	if live.snapshot == nil || !reader.Next() {
 		t.Fatal("fixture did not open a live snapshot reader", reader.Err())
 	}

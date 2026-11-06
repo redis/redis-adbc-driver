@@ -28,7 +28,7 @@ func TestPrefetchAvoidsSinglePageWorker(t *testing.T) {
 	r, _ := h.openStream(h.ctx, h.conn, "SELECT * FROM "+table, nil,
 		map[string]string{OptionIntStreamBatchRows: "1"})
 	defer r.Release()
-	stream, ok := r.(*streamReader)
+	stream, ok := inspectionReader(r).(*streamReader)
 	if !ok || stream.it == nil || !stream.it.hashFetch {
 		t.Fatalf("expected wide HASH stream: %T", r)
 	}

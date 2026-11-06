@@ -144,7 +144,7 @@ func readInts(rdr array.RecordReader) (vals []int64, batches []int, err error) {
 
 // cursorOf returns the id of a stream's open cursor, or 0.
 func cursorOf(rdr array.RecordReader) int64 {
-	if r, ok := rdr.(*streamReader); ok && r.it != nil && r.it.cur != nil {
+	if r, ok := inspectionReader(rdr).(*streamReader); ok && r.it != nil && r.it.cur != nil {
 		return r.it.cur.cursor
 	}
 	return 0
@@ -570,7 +570,7 @@ func TestSQLStreamSnapshotLifetime(t *testing.T) {
 					rdr.Release()
 				}
 			}()
-			stream, ok := rdr.(*streamReader)
+			stream, ok := inspectionReader(rdr).(*streamReader)
 			if !ok || n != -1 || stream.snapshot == nil || stream.it == nil || !stream.it.meta.SnapshotOverlay || len(stream.it.meta.snapshotSegments()) < 2 {
 				t.Fatal("expected a pinned native segmented stream")
 			}

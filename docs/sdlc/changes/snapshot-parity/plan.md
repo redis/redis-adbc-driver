@@ -2,6 +2,11 @@
 
 Date: 2026-11-02. Status: in progress. See [intent](intent.md), [spec](spec.md).
 
+The [usage-wrapper checkpoint](usage-wrapper-validation.md) preserves enabled
+accounting while fixing internal reader inspections in lifecycle/projection
+tests. Focused actual enabled-accounting checks pass; this is not a production
+snapshot or authorization change.
+
 The [current-main reconciliation](current-main-20261105-validation.md) integrates
 cc2cbb2 while retaining managed materialized-view pins, ownership and the upstream
 55000 expiry contract. Full snapshot/native checks pass; combined ordinary and

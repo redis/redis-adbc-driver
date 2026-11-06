@@ -19,7 +19,7 @@ func TestPrefetchScreenSelection(t *testing.T) {
 	h := newSQLHarness(t)
 	r, _ := h.openStream(h.ctx, h.conn, query, nil, map[string]string{OptionIntStreamBatchRows: "65536"})
 	defer r.Release()
-	regular, ok := r.(*streamReader)
+	regular, ok := inspectionReader(r).(*streamReader)
 	if !ok || regular.it == nil || !regular.it.hashFetch || len(regular.cols) < 64 || regular.it.projection == nil {
 		t.Fatal("restored wide fixture did not select managed positional HASH streaming")
 	}
@@ -36,7 +36,7 @@ func TestPrefetchScreenSelection(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer partition.Release()
-	p, ok := partition.(*streamReader)
+	p, ok := inspectionReader(partition).(*streamReader)
 	if !ok || p.it == nil || !p.it.hashFetch || p.it.projection == nil || p.it.allowPrefetch != scanPrefetchEnabled {
 		t.Fatal("restored public partition did not select eligible positional HASH streaming")
 	}

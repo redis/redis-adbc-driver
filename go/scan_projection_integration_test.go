@@ -56,7 +56,7 @@ func TestSQLScanProjectionBothAPIs(t *testing.T) {
 			r, _ := h.openStream(h.ctx, h.conn, q, nil, map[string]string{OptionStringStreamResults: "false"})
 			want := read(r)
 			r, _ = h.openStream(h.ctx, h.conn, q, nil, map[string]string{OptionIntStreamBatchRows: "10"})
-			sr, ok := r.(*streamReader)
+			sr, ok := inspectionReader(r).(*streamReader)
 			if !ok || sr.it.projection == nil {
 				t.Fatalf("ordinary API did not select projection: %T", r)
 			}
@@ -89,7 +89,7 @@ func TestSQLScanProjectionBothAPIs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if sr, ok := r.(*streamReader); !ok || sr.it.projection == nil || !sr.it.hashFetch || sr.it.projection.hashFields == nil {
+	if sr, ok := inspectionReader(r).(*streamReader); !ok || sr.it.projection == nil || !sr.it.hashFetch || sr.it.projection.hashFields == nil {
 		t.Fatalf("partition API did not select projection: %T", r)
 	}
 	got := read(r)

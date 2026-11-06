@@ -69,7 +69,7 @@ func TestSQLWideHashFetchBothAPIs(t *testing.T) {
 		r, _ := h.openStream(h.ctx, h.conn, "SELECT id,label,p0 FROM "+table, nil,
 			map[string]string{OptionIntStreamBatchRows: "1"})
 		defer r.Release()
-		s, ok := r.(*streamReader)
+		s, ok := inspectionReader(r).(*streamReader)
 		if !ok || s.it == nil || len(s.it.need) >= 64 || s.it.prefetch != nil {
 			t.Fatalf("narrow projection started a wide prefetch worker: %T", r)
 		}
@@ -119,7 +119,7 @@ func TestSQLWideHashFetchBothAPIs(t *testing.T) {
 	check := func(r array.RecordReader, ordered bool) {
 		t.Helper()
 		defer r.Release()
-		sr, ok := r.(*streamReader)
+		sr, ok := inspectionReader(r).(*streamReader)
 		if !ok || !sr.it.hashFetch {
 			t.Fatalf("wide fetch not selected: %T", r)
 		}

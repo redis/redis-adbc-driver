@@ -226,7 +226,7 @@ func TestMatviewReaderLeasesSurviveIdle(t *testing.T) {
 	r, _ := h.openStream(ctx, h.conn, "SELECT id FROM it_mv_idle", nil, map[string]string{OptionIntStreamBatchRows: "100"})
 	defer r.Release()
 	raw := h.rawClient()
-	stream, ok := r.(*streamReader)
+	stream, ok := inspectionReader(r).(*streamReader)
 	if !ok || stream.snapshot == nil {
 		t.Fatal("expected pinned stream")
 	}
@@ -289,7 +289,7 @@ func TestMatviewRetirementOpenRecovery(t *testing.T) {
 	stopMatviewTestMaintenance(t, other)
 	other.exec("REFRESH MATERIALIZED VIEW CONCURRENTLY it_mv_open_recovery")
 	matviewGenerationHeld(t, h, raw, old, 12000)
-	p := r.(*streamReader).snapshot
+	p := inspectionReader(r).(*streamReader).snapshot
 	p.release()
 	_ = newSQLHarness(t) // Its automatic reference collector is the only running worker.
 	awaitMatviewOpenReclamation(t, h, raw, old)
@@ -316,7 +316,7 @@ func TestACLMatviewRetirementOpenRecovery(t *testing.T) {
 	stopMatviewTestMaintenance(t, other)
 	other.exec("REFRESH MATERIALIZED VIEW CONCURRENTLY it_mv_acl_recovery")
 	matviewGenerationHeld(t, a.sqlHarness, a.raw, old, 12000)
-	r.(*streamReader).snapshot.release()
+	inspectionReader(r).(*streamReader).snapshot.release()
 	// Keep this authorization assertion: a restricted Open must leave unrelated
 	// retirement work for an authorized collector. Production reader isolation is
 	// independently gated by TestSQLRBACSelect and its real Software principals.
@@ -376,7 +376,7 @@ func TestMatviewLeasePreservesGenerationFence(t *testing.T) {
 	matviewGenerationHeld(t, h, raw, old, 12000)
 	// Normal protocol release removes protection; no published reference graph
 	// or legacy ownership counter is corrupted to manufacture this condition.
-	r.(*streamReader).snapshot.release()
+	inspectionReader(r).(*streamReader).snapshot.release()
 	h.expectSnapshotReleased(raw, old.prefix(), old.index())
 	if r.Next() || r.Err() == nil {
 		t.Fatal("reader bypassed its retired generation fence")

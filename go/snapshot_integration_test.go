@@ -75,7 +75,7 @@ func newSnapshotHarnessMode(t *testing.T, background, drain bool) (*sqlHarness, 
 		_ = raw.FlushDB(ctx).Err()
 		_ = raw.Close()
 	})
-	impl, err := newDriverImpl(memory.DefaultAllocator).newDatabaseImpl(ctx, map[string]string{adbc.OptionKeyURI: uri})
+	impl, err := newDriverImpl(memory.DefaultAllocator).newDatabaseImpl(ctx, testUsageOptions(map[string]string{adbc.OptionKeyURI: uri}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -569,7 +569,7 @@ func TestSnapshotExpiredReaderAndCancellation(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		stream, ok := r.(*streamReader)
+		stream, ok := inspectionReader(r).(*streamReader)
 		if !ok {
 			t.Fatalf("not streaming: %T", r)
 		}
