@@ -6,6 +6,10 @@ package redis
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/apache/arrow-adbc/go/adbc"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
+	"github.com/apache/arrow-go/v18/arrow/memory"
 	"os"
 	"strings"
 	"testing"
@@ -85,4 +89,139 @@ func TestSnapshotForegroundWritePhaseProfile(t *testing.T) {
 		t.Fatal("foreground profile must not expose physical keys or endpoints")
 	}
 	t.Logf("snapshot_foreground_profile %s", encoded)
+}
+
+// Fixed foreground attribution keeps each target below the segment admission
+// limit with workers disabled. It does not measure sustained maintenance (#337).
+func TestSnapshotForegroundFixedWriteProfile(t *testing.T) {
+	if os.Getenv("REDIS_SNAPSHOT_FIXED_PROFILE") == "" {
+		t.Skip("set REDIS_SNAPSHOT_FIXED_PROFILE for owned Software attribution")
+	}
+	for _, unrelated := range []int{0, 32} {
+		t.Run(fmt.Sprintf("unrelated_%d", unrelated), func(t *testing.T) {
+			h, _, _ := newSnapshotHarnessMode(t, false, false)
+			h.exec("CREATE TABLE point_target(id BIGINT,v BIGINT,payload VARCHAR)")
+			h.exec("INSERT INTO point_target SELECT i,9007199254740993,'row-'||i FROM generate_series(1,20000) AS g(i)")
+			for _, name := range []string{"arrow_small", "arrow_batch"} {
+				h.exec("CREATE TABLE " + name + "(id BIGINT,v BIGINT,payload VARCHAR)")
+			}
+			for i := 0; i < unrelated; i++ {
+				h.exec(fmt.Sprintf("CREATE TABLE unrelated_%d(id BIGINT)", i))
+			}
+			profile := &compactionPhaseProfile{phases: map[string]*compactionProfilePhase{}}
+			ctx, _ := statisticsHookedTransport(t, h, profile)
+			prior := h.ctx
+			h.ctx = ctx
+			defer func() { h.ctx = prior }()
+			type observation struct {
+				Case   string  `json:"case"`
+				Sample int     `json:"sample"`
+				Millis float64 `json:"milliseconds"`
+			}
+			var observations []observation
+			value := int64(9007199254740993)
+			for _, name := range []string{"point_update", "no_op_update", "arrow_small", "arrow_batch"} {
+				for sample := 0; sample < 4; sample++ {
+					var rec arrow.RecordBatch
+					count := 1
+					if name == "arrow_batch" {
+						count = 512
+					}
+					if strings.HasPrefix(name, "arrow_") {
+						builder := array.NewRecordBuilder(memory.DefaultAllocator, arrow.NewSchema([]arrow.Field{{Name: "id", Type: arrow.PrimitiveTypes.Int64}, {Name: "v", Type: arrow.PrimitiveTypes.Int64}, {Name: "payload", Type: arrow.BinaryTypes.String}}, nil))
+						for i := 0; i < count; i++ {
+							builder.Field(0).(*array.Int64Builder).Append(int64(sample*count + i + 1))
+							builder.Field(1).(*array.Int64Builder).Append(9007199254740993)
+							builder.Field(2).(*array.StringBuilder).Append("payload")
+						}
+						rec = builder.NewRecordBatch()
+						builder.Release()
+					}
+					phase := fmt.Sprintf("%s_%d", name, sample)
+					profile.mu.Lock()
+					profile.phases[phase] = &compactionProfilePhase{RoundTrips: map[string]*compactionProfileRoundTrips{}}
+					profile.phase = phase
+					profile.mu.Unlock()
+					started := time.Now()
+					if name == "point_update" {
+						value++
+						h.expectRows("UPDATE point_target SET v=v+1 WHERE __rowid=1 RETURNING id,v", fmt.Sprintf("1|%d", value))
+					} else if name == "no_op_update" {
+						if n := h.exec("UPDATE point_target SET v=v+1 WHERE id=-1"); n != 0 {
+							t.Fatal("no-op changed rows", n)
+						}
+					} else {
+						st, err := h.conn.NewStatement(h.ctx)
+						if err != nil {
+							t.Fatal(err)
+						}
+						for k, v := range map[string]string{adbc.OptionKeyIngestTargetTable: name, adbc.OptionKeyIngestMode: adbc.OptionValueIngestModeAppend} {
+							if err = st.SetOption(h.ctx, k, v); err != nil {
+								t.Fatal(err)
+							}
+						}
+						if err = st.Bind(h.ctx, rec); err != nil {
+							t.Fatal(err)
+						}
+						n, err := st.ExecuteUpdate(h.ctx)
+						if err != nil || n != int64(count) {
+							t.Fatal("Arrow append failed", n, err)
+						}
+						if err = st.Close(h.ctx); err != nil {
+							t.Fatal(err)
+						}
+					}
+					elapsed := float64(time.Since(started)) / float64(time.Millisecond)
+					profile.mu.Lock()
+					profile.phase = ""
+					profile.phases[phase].Steps = 1
+					profile.phases[phase].Millis = elapsed
+					profile.mu.Unlock()
+					if rec != nil {
+						rec.Release()
+					}
+					observations = append(observations, observation{Case: name, Sample: sample, Millis: elapsed})
+				}
+			}
+			h.ctx = prior
+			rows, _ := h.query("SELECT id,v,payload FROM point_target ORDER BY id")
+			if len(rows) != 20000 {
+				t.Fatal("incomplete point target fetch", len(rows))
+			}
+			for i, row := range rows {
+				want := int64(9007199254740993)
+				if i == 0 {
+					want = value
+				}
+				if row != fmt.Sprintf("%d|%d|row-%d", i+1, want, i+1) {
+					t.Fatal("incorrect point target row", i+1)
+				}
+			}
+			for _, name := range []string{"arrow_small", "arrow_batch"} {
+				count := 4
+				if name == "arrow_batch" {
+					count *= 512
+				}
+				rows, _ := h.query("SELECT id,v,payload FROM " + name + " ORDER BY id")
+				if len(rows) != count {
+					t.Fatal("incomplete Arrow fetch", len(rows))
+				}
+				for i, row := range rows {
+					if row != fmt.Sprintf("%d|9007199254740993|payload", i+1) {
+						t.Fatal("incorrect Arrow row", i+1)
+					}
+				}
+			}
+			for i := 0; i < unrelated; i++ {
+				h.expectRows(fmt.Sprintf("SELECT COUNT(*) FROM unrelated_%d", i), "0")
+			}
+			profile.mu.Lock()
+			encoded, err := json.Marshal(map[string]any{"unrelated_tables": unrelated, "operations": observations, "foreground_calls": profile.phases, "caller_retries": 0, "maintenance": "disabled; target segments below admission limit"})
+			profile.mu.Unlock()
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Logf("snapshot_fixed_profile %s", encoded)
+		})
+	}
 }
