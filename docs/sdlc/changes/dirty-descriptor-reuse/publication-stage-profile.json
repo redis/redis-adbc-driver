@@ -1,0 +1,656 @@
+{
+  "production_source": "fc10e0d27847f01e6772a1514fb32d37901c030a",
+  "note": "Warm-connection uncontended helper attribution; maintenance worker disabled, bounded foreground reclamation retained. Storage probes follow timed phases. Selected key memory only, not net or retention memory.",
+  "cases": [
+    {
+      "caller_retries": 0,
+      "index_memory_mb": {
+        "doc_table_size_mb": 0.023229598999023438,
+        "inverted_sz_mb": 0.000370025634765625,
+        "key_table_size_mb": 0,
+        "sortable_values_size_mb": 0.00015735626220703125
+      },
+      "inherited_dependencies": 1,
+      "maintenance": "disabled; uncontended helper attribution",
+      "new_indexes": 1,
+      "output_rows": 1,
+      "phases": {
+        "admission": {
+          "steps": 1,
+          "step_milliseconds": 6.779792,
+          "round_trips": {
+            "control_acquire": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.287042
+            },
+            "control_claim": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.238542
+            },
+            "control_claim_data": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.230209
+            },
+            "control_reclaimed": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.2275
+            },
+            "control_reclaimed_data": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.223542
+            },
+            "control_valid": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.2505
+            },
+            "del": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.236625
+            },
+            "eval": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.298
+            },
+            "ft._list": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.246208
+            },
+            "ft.dropindex": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.423167
+            },
+            "hello": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.277917
+            },
+            "metadata_collect_bucket": {
+              "calls": 2,
+              "commands": 2,
+              "milliseconds": 0.5705
+            },
+            "metadata_collect_value": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.266709
+            },
+            "metadata_retire_root": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.250541
+            },
+            "pipeline_mixed": {
+              "calls": 1,
+              "commands": 3,
+              "milliseconds": 2.2045
+            },
+            "zrange": {
+              "calls": 2,
+              "commands": 2,
+              "milliseconds": 0.545666
+            },
+            "zrangebylex": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.211042
+            }
+          }
+        },
+        "atomic_seal_and_publication": {
+          "steps": 1,
+          "step_milliseconds": 0.275208,
+          "round_trips": {
+            "control_publish": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.271292
+            }
+          }
+        },
+        "deletion_pruning": {
+          "steps": 1,
+          "step_milliseconds": 0.000459,
+          "round_trips": {}
+        },
+        "index_readiness": {
+          "steps": 1,
+          "step_milliseconds": 1.716333,
+          "round_trips": {
+            "ft.info": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.462292
+            },
+            "ft.search": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.521333
+            },
+            "get": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.203666
+            },
+            "metadata_mutation": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.288958
+            },
+            "zcard": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.186666
+            }
+          }
+        },
+        "index_sealing": {
+          "steps": 1,
+          "step_milliseconds": 2.449541,
+          "round_trips": {
+            "eval": {
+              "calls": 2,
+              "commands": 2,
+              "milliseconds": 0.48329200000000005
+            },
+            "ft.create": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.303375
+            },
+            "get": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.192708
+            },
+            "index_notify": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.241541
+            },
+            "pipeline_metadata_mutation": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.301209
+            },
+            "zcard": {
+              "calls": 2,
+              "commands": 2,
+              "milliseconds": 0.40133399999999997
+            },
+            "zrangebylex": {
+              "calls": 2,
+              "commands": 2,
+              "milliseconds": 0.4555
+            }
+          }
+        },
+        "lease_validation": {
+          "steps": 1,
+          "step_milliseconds": 0.208084,
+          "round_trips": {
+            "control_valid": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.206
+            }
+          }
+        },
+        "metadata_resolution_and_dependencies": {
+          "steps": 1,
+          "step_milliseconds": 1.452166,
+          "round_trips": {
+            "get": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.222625
+            },
+            "hgetall": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.198417
+            },
+            "pipeline_mixed": {
+              "calls": 3,
+              "commands": 8,
+              "milliseconds": 0.9845410000000001
+            }
+          }
+        },
+        "private_metadata_and_row_stage": {
+          "steps": 1,
+          "step_milliseconds": 4.633166,
+          "round_trips": {
+            "control_own_data": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.327375
+            },
+            "control_valid": {
+              "calls": 2,
+              "commands": 2,
+              "milliseconds": 0.4265
+            },
+            "get": {
+              "calls": 2,
+              "commands": 2,
+              "milliseconds": 0.42245900000000003
+            },
+            "hgetall": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.200666
+            },
+            "metadata_clone_bucket": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.332459
+            },
+            "metadata_own_value": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.271542
+            },
+            "pipeline_hgetall": {
+              "calls": 2,
+              "commands": 2,
+              "milliseconds": 0.416541
+            },
+            "pipeline_hmget": {
+              "calls": 2,
+              "commands": 2,
+              "milliseconds": 0.40875
+            },
+            "pipeline_metadata_mutation": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.296542
+            },
+            "pipeline_mixed": {
+              "calls": 2,
+              "commands": 6,
+              "milliseconds": 0.519834
+            },
+            "row_batch": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.301708
+            },
+            "zscore": {
+              "calls": 2,
+              "commands": 2,
+              "milliseconds": 0.408
+            }
+          }
+        },
+        "reserve_and_shared_metadata": {
+          "steps": 1,
+          "step_milliseconds": 0.730417,
+          "round_trips": {
+            "control_reserve": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.243333
+            },
+            "metadata_clone_root": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.253083
+            },
+            "pipeline_mixed": {
+              "calls": 1,
+              "commands": 3,
+              "milliseconds": 0.221458
+            }
+          }
+        }
+      },
+      "planning_dependencies": 1,
+      "private_key_memory_bytes": {
+        "output_directory": 127,
+        "output_row": 181,
+        "owned_metadata_directory": 1032,
+        "private_descriptor": 1408,
+        "root_map": 287
+      },
+      "sealing_index_drops": 0,
+      "unrelated_descriptor_copies": 0,
+      "unrelated_descriptor_reads": 0,
+      "unrelated_tables": 0
+    },
+    {
+      "caller_retries": 0,
+      "index_memory_mb": {
+        "doc_table_size_mb": 0.023229598999023438,
+        "inverted_sz_mb": 0.000370025634765625,
+        "key_table_size_mb": 0,
+        "sortable_values_size_mb": 0.00015735626220703125
+      },
+      "inherited_dependencies": 1,
+      "maintenance": "disabled; uncontended helper attribution",
+      "new_indexes": 1,
+      "output_rows": 1,
+      "phases": {
+        "admission": {
+          "steps": 1,
+          "step_milliseconds": 5.189333,
+          "round_trips": {
+            "control_acquire": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.190583
+            },
+            "control_claim": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.194166
+            },
+            "control_claim_data": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.193542
+            },
+            "control_reclaimed": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.192958
+            },
+            "control_reclaimed_data": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.213083
+            },
+            "control_valid": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.235959
+            },
+            "del": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.180541
+            },
+            "eval": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.205416
+            },
+            "ft._list": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.246959
+            },
+            "ft.dropindex": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.294542
+            },
+            "hello": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.26725
+            },
+            "metadata_collect_bucket": {
+              "calls": 2,
+              "commands": 2,
+              "milliseconds": 0.411375
+            },
+            "metadata_collect_value": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.187875
+            },
+            "metadata_retire_root": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.2845
+            },
+            "pipeline_mixed": {
+              "calls": 1,
+              "commands": 3,
+              "milliseconds": 1.592875
+            },
+            "zrange": {
+              "calls": 2,
+              "commands": 2,
+              "milliseconds": 0.35420799999999997
+            },
+            "zrangebylex": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.171875
+            }
+          }
+        },
+        "atomic_seal_and_publication": {
+          "steps": 1,
+          "step_milliseconds": 0.400334,
+          "round_trips": {
+            "control_publish": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.395458
+            }
+          }
+        },
+        "deletion_pruning": {
+          "steps": 1,
+          "step_milliseconds": 0.000208,
+          "round_trips": {}
+        },
+        "index_readiness": {
+          "steps": 1,
+          "step_milliseconds": 1.564333,
+          "round_trips": {
+            "ft.info": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.397417
+            },
+            "ft.search": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.462208
+            },
+            "get": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.179917
+            },
+            "metadata_mutation": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.273458
+            },
+            "zcard": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.207625
+            }
+          }
+        },
+        "index_sealing": {
+          "steps": 1,
+          "step_milliseconds": 2.490667,
+          "round_trips": {
+            "eval": {
+              "calls": 2,
+              "commands": 2,
+              "milliseconds": 0.450625
+            },
+            "ft.create": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.358167
+            },
+            "get": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.271875
+            },
+            "index_notify": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.218208
+            },
+            "pipeline_metadata_mutation": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.267166
+            },
+            "zcard": {
+              "calls": 2,
+              "commands": 2,
+              "milliseconds": 0.417626
+            },
+            "zrangebylex": {
+              "calls": 2,
+              "commands": 2,
+              "milliseconds": 0.449334
+            }
+          }
+        },
+        "lease_validation": {
+          "steps": 1,
+          "step_milliseconds": 0.210041,
+          "round_trips": {
+            "control_valid": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.208208
+            }
+          }
+        },
+        "metadata_resolution_and_dependencies": {
+          "steps": 1,
+          "step_milliseconds": 1.4495,
+          "round_trips": {
+            "get": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.208208
+            },
+            "hgetall": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.195708
+            },
+            "pipeline_mixed": {
+              "calls": 3,
+              "commands": 8,
+              "milliseconds": 1.0054159999999999
+            }
+          }
+        },
+        "private_metadata_and_row_stage": {
+          "steps": 1,
+          "step_milliseconds": 5.677625,
+          "round_trips": {
+            "control_own_data": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.198
+            },
+            "control_valid": {
+              "calls": 2,
+              "commands": 2,
+              "milliseconds": 0.453958
+            },
+            "get": {
+              "calls": 2,
+              "commands": 2,
+              "milliseconds": 0.413167
+            },
+            "hgetall": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.188333
+            },
+            "metadata_clone_bucket": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.230416
+            },
+            "metadata_own_value": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.215791
+            },
+            "pipeline_hgetall": {
+              "calls": 2,
+              "commands": 2,
+              "milliseconds": 0.444167
+            },
+            "pipeline_hmget": {
+              "calls": 2,
+              "commands": 2,
+              "milliseconds": 1.8745
+            },
+            "pipeline_metadata_mutation": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.338167
+            },
+            "pipeline_mixed": {
+              "calls": 2,
+              "commands": 6,
+              "milliseconds": 0.365208
+            },
+            "row_batch": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.2605
+            },
+            "zscore": {
+              "calls": 2,
+              "commands": 2,
+              "milliseconds": 0.49208399999999997
+            }
+          }
+        },
+        "reserve_and_shared_metadata": {
+          "steps": 1,
+          "step_milliseconds": 0.825167,
+          "round_trips": {
+            "control_reserve": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.246708
+            },
+            "metadata_clone_root": {
+              "calls": 1,
+              "commands": 1,
+              "milliseconds": 0.363167
+            },
+            "pipeline_mixed": {
+              "calls": 1,
+              "commands": 3,
+              "milliseconds": 0.201083
+            }
+          }
+        }
+      },
+      "planning_dependencies": 1,
+      "private_key_memory_bytes": {
+        "output_directory": 127,
+        "output_row": 181,
+        "owned_metadata_directory": 1032,
+        "private_descriptor": 1408,
+        "root_map": 2377
+      },
+      "sealing_index_drops": 0,
+      "unrelated_descriptor_copies": 0,
+      "unrelated_descriptor_reads": 0,
+      "unrelated_tables": 32
+    }
+  ]
+}

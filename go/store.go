@@ -1145,21 +1145,30 @@ func (s *store) getTableMetadata(ctx context.Context, schema, table string) (*ta
 	if err := json.Unmarshal([]byte(raw), &meta); err != nil {
 		return nil, errorf(adbc.StatusInternal, "corrupt metadata for table %q.%q: %v", schema, table, err)
 	}
-	if _, pending := snapshotDeferredIndex(ctx, &meta); pending {
+	if err := s.hydrateTableMetadata(ctx, &meta, readAt); err != nil {
+		return nil, err
+	}
+	return &meta, nil
+}
+
+// Apply the same local metadata policy to ordinary loads and already-decoded
+// private descriptors. This does not open an index or replace snapshot proofs.
+func (s *store) hydrateTableMetadata(ctx context.Context, meta *tableMeta, readAt time.Time) error {
+	if _, pending := snapshotDeferredIndex(ctx, meta); pending {
 		meta.SnapshotOverlay = true
 	}
 	if (s.flex || meta.PlainIndex) && (meta.Adopted || meta.KeyRows || meta.AppIndex || meta.Foreign) {
-		return nil, flexUnsupported("adopted and application indexes")
+		return flexUnsupported("adopted and application indexes")
 	}
 	if s.flex && meta.MaterializedSQL != "" {
-		return nil, flexUnsupported("materialized views")
+		return flexUnsupported("materialized views")
 	}
 	if meta.PlainIndex && !s.flex {
-		return nil, flexUnsupported("plain-index tables require adbc.redis.flex=true")
+		return flexUnsupported("plain-index tables require adbc.redis.flex=true")
 	}
 	meta.readAt = readAt
-	hydrateCatalogOIDs(&meta)
-	return &meta, nil
+	hydrateCatalogOIDs(meta)
+	return nil
 }
 
 func (s *store) tableExists(ctx context.Context, schema, table string) (bool, error) {
