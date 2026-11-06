@@ -148,6 +148,31 @@ Further final-code checks:
   the retained-control policy gate because the verified declaration was omitted;
   this is a failed configuration attempt, not passing retained coverage.
 
+At integrated candidate `9036c90` (cleanup `b9813e3`, based on the published
+`1664000` audit fixes), the remaining local checks finish:
+
+- The correctly configured snapshot supplement passes 75 race events, zero
+  skips, root 27.591 seconds. It covers the 20 families omitted by the anchored
+  selection or their ordinary-URI gates, including retained publication lifetime,
+  readiness, ordering/NULLs, schema rebinding, cancellation and statistics.
+- Native macOS snapshot validation passes all 19 cases, zero skips, 11.921
+  seconds (helper Python 3.13.16, Arrow 26.0.0, manager 1.13.0).
+- Full official native validation passes 565 tests plus three subtests, eight
+  explicit skips, 85.28 seconds. Python 3.14.10, Arrow 26.0.1, manager 1.13.0,
+  pytest 9.2.0; framework revision
+  `47a5ddf3f2a617ac88da3891848e000c74d55b0e`. The versioned macOS ARM64 library
+  SHA-256 is `3a1f3109875183c7f0ac8e06538e44eae43bc04c268d3efb3311399899135170`.
+  It was built before the commit/rebase from the equivalent production tree plus
+  the numeric diagnostics; its embedded VCS is not a clean `9036c90` build.
+- Complete ordinary Go suite: `go test -count=1 -p 1 -timeout=30m -v ./...`,
+  2,157 pass events / 379 expected skips, all six executable packages, root
+  1,240.876 seconds. The verified retained-control declaration and raw admin URI
+  are present. Actual-principal SQL/RBAC is enabled. Snapshot-only fixtures remain
+  separate; ordinary skips do not establish those capabilities.
+
+These complete the named local candidate checks, not the separate final-head
+hosted/platform gate. The intermittent RDB metadata failure remains open.
+
 ## Limits and remaining work
 
 The Cluster Go binary is Linux AMD64, Go 1.27.3, CGO disabled; this is separate

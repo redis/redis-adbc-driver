@@ -67,3 +67,12 @@ root 24.851 seconds), native Cluster C ABI (19 cases, no skips, 8.957 seconds),
 and initialized AOF recovery (38.86 seconds). See the Cluster checkpoint for
 source boundaries, failed fixture attempts and the separate unresolved RDB
 metadata validation error. The full platform/performance goal remains active.
+
+Integrated candidate `9036c90` additionally passes the 75-event race supplement
+without skips, all 19 native macOS snapshot cases, full official native validation
+(565 tests plus three subtests, eight skips), and the complete ordinary Go suite
+(2,157 pass events / 379 skips, root 1,240.876 seconds). Exact runtime versions,
+library/source equivalence, failed configuration attempts and coverage boundaries
+are recorded in the Cluster checkpoint. The later workflow-only wheel-fixture
+toolchain fix does not change production behavior. Hosted final-head validation,
+the unexplained RDB metadata failure and the full parity obligations remain open.
