@@ -1,0 +1,31 @@
+{"method": "adbc", "writers": 1, "repeat": -1, "total_index_ready_seconds": 8.21207420900464, "write_complete_seconds": 8.177664459013613, "exact_full_values_validated": true}
+Traceback (most recent call last):
+  File "/Users/albert.wong/.codex/worktrees/0716/redis-adbc-driver/benchmarks/bulk-load/run.py", line 260, in main
+    path.write_text(json.dumps(report,indent=2,default=json_default)+'\n')
+                    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/albert.wong/.local/share/uv/python/cpython-3.13.16-macos-aarch64-none/lib/python3.13/json/__init__.py", line 242, in dumps
+    **kw).encode(obj)
+          ~~~~~~^^^^^
+  File "/Users/albert.wong/.local/share/uv/python/cpython-3.13.16-macos-aarch64-none/lib/python3.13/json/encoder.py", line 202, in encode
+    chunks = self.iterencode(o, _one_shot=True)
+  File "/Users/albert.wong/.local/share/uv/python/cpython-3.13.16-macos-aarch64-none/lib/python3.13/json/encoder.py", line 263, in iterencode
+    return _iterencode(o, 0)
+TypeError: keys must be str, int, float, bool or None, not bytes
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/albert.wong/.codex/worktrees/0716/redis-adbc-driver/benchmarks/bulk-load/run.py", line 279, in <module>
+    main()
+    ~~~~^^
+  File "/Users/albert.wong/.codex/worktrees/0716/redis-adbc-driver/benchmarks/bulk-load/run.py", line 276, in main
+    path.write_text(json.dumps(report,indent=2,default=json_default)+'\n')
+                    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/albert.wong/.local/share/uv/python/cpython-3.13.16-macos-aarch64-none/lib/python3.13/json/__init__.py", line 242, in dumps
+    **kw).encode(obj)
+          ~~~~~~^^^^^
+  File "/Users/albert.wong/.local/share/uv/python/cpython-3.13.16-macos-aarch64-none/lib/python3.13/json/encoder.py", line 202, in encode
+    chunks = self.iterencode(o, _one_shot=True)
+  File "/Users/albert.wong/.local/share/uv/python/cpython-3.13.16-macos-aarch64-none/lib/python3.13/json/encoder.py", line 263, in iterencode
+    return _iterencode(o, 0)
+TypeError: keys must be str, int, float, bool or None, not bytes

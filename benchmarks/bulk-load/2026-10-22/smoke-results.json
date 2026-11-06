@@ -1,0 +1,4536 @@
+{
+  "status": "complete",
+  "started_at": "2026-10-22T18:01:49.516687+00:00",
+  "source_commit": "d72b730bf24074942609e9f0f839c1f46e10d365",
+  "driver_sha256": "3e3fce4a85a22f31933b02fa360acdc8be66490295721aa099e9934b51edb934",
+  "runner_sha256": "c187634b4c954a517dd9bd331eb58e36ff2284c5bda31317a3b0d38ffc4205a1",
+  "fixture_helper_sha256": "9f571f1b0e855d3c55c54fc9ed1905a8a0883c4b22f782125701d2965218a0f6",
+  "parquet_sha256": "d053397f7aa5b2e1ee9160779a9e9307b162c6994aebba829c7ea1411076c4d0",
+  "source_arrow_sha256": "a9f58367a9bb3af0e244043640e967ec618b4f96b759cd144be900030f2bf5a2",
+  "clickbench_commit": "ccda3033f3c7303d9d7f9634d6dae118ef085f96",
+  "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+  "python": "3.13.16 (main, Oct 14 2026, 00:55:38) [Clang 23.1.3 ]",
+  "logical_cpus": 18,
+  "packages": {
+    "redis": "8.1.0",
+    "hiredis": "3.5.0",
+    "pyarrow": "26.0.0",
+    "adbc-driver-manager": "1.12.0"
+  },
+  "redis_version": "8.6.2",
+  "modules": [
+    {
+      "name": "vectorset",
+      "ver": 1,
+      "path": "",
+      "args": []
+    },
+    {
+      "name": "timeseries",
+      "ver": 80600,
+      "path": "/usr/local/lib/redis/modules//redistimeseries.so",
+      "args": []
+    },
+    {
+      "name": "bf",
+      "ver": 80600,
+      "path": "/usr/local/lib/redis/modules//redisbloom.so",
+      "args": []
+    },
+    {
+      "name": "search",
+      "ver": 80600,
+      "path": "/usr/local/lib/redis/modules//redisearch.so",
+      "args": []
+    },
+    {
+      "name": "ReJSON",
+      "ver": 80600,
+      "path": "/usr/local/lib/redis/modules//rejson.so",
+      "args": []
+    }
+  ],
+  "protocol": 3,
+  "batch_rows": 10000,
+  "pipeline_rows": 1000,
+  "rows": 100000,
+  "columns": 105,
+  "logical_arrow_bytes": 79578019,
+  "methodology": "Common typed Arrow IPC input. Timer includes identical ADBC empty-table/index setup for both clients, fresh process startup, source IPC read, connections, Arrow-to-native conversion, ID allocation, HSET writes, worker teardown, and index readiness. Fixture preparation, cleanup, and full independent verification excluded. Native HSET skips generic SQL constraints, metadata fencing and DDL concurrency semantics.",
+  "trials": [
+    {
+      "method": "adbc",
+      "writers": 1,
+      "repeat": -1,
+      "warmup": true,
+      "rows": 100000,
+      "columns": 105,
+      "total_index_ready_seconds": 7.521862709021661,
+      "common_setup_seconds": 0.04146562502137385,
+      "append_and_worker_lifecycle_seconds": 7.478799999982584,
+      "write_complete_seconds": 7.484061416995246,
+      "post_worker_index_wait_seconds": 0.0015970840177033097,
+      "rows_per_second": 13294.579264263997,
+      "worker_cpu_seconds": 2.545683,
+      "server_cpu_seconds": 5.859763999999998,
+      "server_input_bytes": 330534832,
+      "server_output_bytes": 888961,
+      "server_used_memory_bytes": 854387944,
+      "max_worker_peak_rss_bytes": 757186560,
+      "index_attributes": [
+        {
+          "identifier": "__rowid",
+          "attribute": "__rowid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "watchid",
+          "attribute": "watchid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "javaenable",
+          "attribute": "javaenable",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "title",
+          "attribute": "title",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "goodevent",
+          "attribute": "goodevent",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "eventtime",
+          "attribute": "eventtime",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "eventdate",
+          "attribute": "eventdate",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "counterid",
+          "attribute": "counterid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "clientip",
+          "attribute": "clientip",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "regionid",
+          "attribute": "regionid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "userid",
+          "attribute": "userid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "counterclass",
+          "attribute": "counterclass",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "os",
+          "attribute": "os",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "useragent",
+          "attribute": "useragent",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "url",
+          "attribute": "url",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "referer",
+          "attribute": "referer",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "isrefresh",
+          "attribute": "isrefresh",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "referercategoryid",
+          "attribute": "referercategoryid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "refererregionid",
+          "attribute": "refererregionid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "urlcategoryid",
+          "attribute": "urlcategoryid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "urlregionid",
+          "attribute": "urlregionid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "resolutionwidth",
+          "attribute": "resolutionwidth",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "resolutionheight",
+          "attribute": "resolutionheight",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "resolutiondepth",
+          "attribute": "resolutiondepth",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "flashmajor",
+          "attribute": "flashmajor",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "flashminor",
+          "attribute": "flashminor",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "flashminor2",
+          "attribute": "flashminor2",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "netmajor",
+          "attribute": "netmajor",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "netminor",
+          "attribute": "netminor",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "useragentmajor",
+          "attribute": "useragentmajor",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "useragentminor",
+          "attribute": "useragentminor",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "cookieenable",
+          "attribute": "cookieenable",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "javascriptenable",
+          "attribute": "javascriptenable",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "ismobile",
+          "attribute": "ismobile",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "mobilephone",
+          "attribute": "mobilephone",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "mobilephonemodel",
+          "attribute": "mobilephonemodel",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "params",
+          "attribute": "params",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "ipnetworkid",
+          "attribute": "ipnetworkid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "traficsourceid",
+          "attribute": "traficsourceid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "searchengineid",
+          "attribute": "searchengineid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "searchphrase",
+          "attribute": "searchphrase",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "advengineid",
+          "attribute": "advengineid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "isartifical",
+          "attribute": "isartifical",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "windowclientwidth",
+          "attribute": "windowclientwidth",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "windowclientheight",
+          "attribute": "windowclientheight",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "clienttimezone",
+          "attribute": "clienttimezone",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "clienteventtime",
+          "attribute": "clienteventtime",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "silverlightversion1",
+          "attribute": "silverlightversion1",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "silverlightversion2",
+          "attribute": "silverlightversion2",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "silverlightversion3",
+          "attribute": "silverlightversion3",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "silverlightversion4",
+          "attribute": "silverlightversion4",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "pagecharset",
+          "attribute": "pagecharset",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "codeversion",
+          "attribute": "codeversion",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "islink",
+          "attribute": "islink",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "isdownload",
+          "attribute": "isdownload",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "isnotbounce",
+          "attribute": "isnotbounce",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "funiqid",
+          "attribute": "funiqid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "originalurl",
+          "attribute": "originalurl",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "hid",
+          "attribute": "hid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "isoldcounter",
+          "attribute": "isoldcounter",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "isevent",
+          "attribute": "isevent",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "isparameter",
+          "attribute": "isparameter",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "dontcounthits",
+          "attribute": "dontcounthits",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "withhash",
+          "attribute": "withhash",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "hitcolor",
+          "attribute": "hitcolor",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "localeventtime",
+          "attribute": "localeventtime",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "age",
+          "attribute": "age",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "sex",
+          "attribute": "sex",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "income",
+          "attribute": "income",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "interests",
+          "attribute": "interests",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "robotness",
+          "attribute": "robotness",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "remoteip",
+          "attribute": "remoteip",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "windowname",
+          "attribute": "windowname",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "openername",
+          "attribute": "openername",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "historylength",
+          "attribute": "historylength",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "browserlanguage",
+          "attribute": "browserlanguage",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "browsercountry",
+          "attribute": "browsercountry",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "socialnetwork",
+          "attribute": "socialnetwork",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "socialaction",
+          "attribute": "socialaction",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "httperror",
+          "attribute": "httperror",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "sendtiming",
+          "attribute": "sendtiming",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "dnstiming",
+          "attribute": "dnstiming",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "connecttiming",
+          "attribute": "connecttiming",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "responsestarttiming",
+          "attribute": "responsestarttiming",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "responseendtiming",
+          "attribute": "responseendtiming",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "fetchtiming",
+          "attribute": "fetchtiming",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "socialsourcenetworkid",
+          "attribute": "socialsourcenetworkid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "socialsourcepage",
+          "attribute": "socialsourcepage",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "paramprice",
+          "attribute": "paramprice",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "paramorderid",
+          "attribute": "paramorderid",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "paramcurrency",
+          "attribute": "paramcurrency",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "paramcurrencyid",
+          "attribute": "paramcurrencyid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "openstatservicename",
+          "attribute": "openstatservicename",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "openstatcampaignid",
+          "attribute": "openstatcampaignid",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "openstatadid",
+          "attribute": "openstatadid",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "openstatsourceid",
+          "attribute": "openstatsourceid",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "utmsource",
+          "attribute": "utmsource",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "utmmedium",
+          "attribute": "utmmedium",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "utmcampaign",
+          "attribute": "utmcampaign",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "utmcontent",
+          "attribute": "utmcontent",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "utmterm",
+          "attribute": "utmterm",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "fromtag",
+          "attribute": "fromtag",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "hasgclid",
+          "attribute": "hasgclid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "refererhash",
+          "attribute": "refererhash",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "urlhash",
+          "attribute": "urlhash",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "clid",
+          "attribute": "clid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        }
+      ],
+      "index_docs": 100000,
+      "exact_full_values_validated": true,
+      "server_commands": {
+        "hset": 100001,
+        "watch": 3,
+        "hget": 121,
+        "info": 4,
+        "FT.INFO": 3,
+        "multi": 13,
+        "incrby": 13,
+        "hello": 5,
+        "FT.DROPINDEX": 1,
+        "sismember": 60,
+        "get": 27,
+        "exists": 7,
+        "hgetall": 2,
+        "ping": 2,
+        "set": 5,
+        "FT.AGGREGATE": 2,
+        "hexists": 1,
+        "FT._LIST": 2,
+        "smembers": 7,
+        "FT.CREATE": 1,
+        "del": 1,
+        "exec": 13,
+        "sadd": 5,
+        "_FT.CREATE": 1
+      },
+      "workers": [
+        {
+          "rows": 100000,
+          "started_at": 181049.520589916,
+          "source_ready_at": 181049.528861583,
+          "connected_at": 181049.538184791,
+          "first_batch_written_at": 181050.255529208,
+          "write_complete_at": 181056.822488958,
+          "finished_at": 181056.825280833,
+          "client_cpu_seconds": 2.545683,
+          "peak_rss_bytes": 757186560
+        }
+      ]
+    },
+    {
+      "method": "redis_py",
+      "writers": 1,
+      "repeat": -1,
+      "warmup": true,
+      "rows": 100000,
+      "columns": 105,
+      "total_index_ready_seconds": 9.621949166990817,
+      "common_setup_seconds": 0.026144000003114343,
+      "append_and_worker_lifecycle_seconds": 9.59475045799627,
+      "write_complete_seconds": 9.599314791994402,
+      "post_worker_index_wait_seconds": 0.0010547089914325625,
+      "rows_per_second": 10392.904625090028,
+      "worker_cpu_seconds": 4.034314,
+      "server_cpu_seconds": 5.821819000000001,
+      "server_input_bytes": 330501917,
+      "server_output_bytes": 683339,
+      "server_used_memory_bytes": 854407736,
+      "max_worker_peak_rss_bytes": 225312768,
+      "index_attributes": [
+        {
+          "identifier": "__rowid",
+          "attribute": "__rowid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "watchid",
+          "attribute": "watchid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "javaenable",
+          "attribute": "javaenable",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "title",
+          "attribute": "title",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "goodevent",
+          "attribute": "goodevent",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "eventtime",
+          "attribute": "eventtime",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "eventdate",
+          "attribute": "eventdate",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "counterid",
+          "attribute": "counterid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "clientip",
+          "attribute": "clientip",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "regionid",
+          "attribute": "regionid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "userid",
+          "attribute": "userid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "counterclass",
+          "attribute": "counterclass",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "os",
+          "attribute": "os",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "useragent",
+          "attribute": "useragent",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "url",
+          "attribute": "url",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "referer",
+          "attribute": "referer",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "isrefresh",
+          "attribute": "isrefresh",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "referercategoryid",
+          "attribute": "referercategoryid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "refererregionid",
+          "attribute": "refererregionid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "urlcategoryid",
+          "attribute": "urlcategoryid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "urlregionid",
+          "attribute": "urlregionid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "resolutionwidth",
+          "attribute": "resolutionwidth",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "resolutionheight",
+          "attribute": "resolutionheight",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "resolutiondepth",
+          "attribute": "resolutiondepth",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "flashmajor",
+          "attribute": "flashmajor",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "flashminor",
+          "attribute": "flashminor",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "flashminor2",
+          "attribute": "flashminor2",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "netmajor",
+          "attribute": "netmajor",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "netminor",
+          "attribute": "netminor",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "useragentmajor",
+          "attribute": "useragentmajor",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "useragentminor",
+          "attribute": "useragentminor",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "cookieenable",
+          "attribute": "cookieenable",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "javascriptenable",
+          "attribute": "javascriptenable",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "ismobile",
+          "attribute": "ismobile",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "mobilephone",
+          "attribute": "mobilephone",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "mobilephonemodel",
+          "attribute": "mobilephonemodel",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "params",
+          "attribute": "params",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "ipnetworkid",
+          "attribute": "ipnetworkid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "traficsourceid",
+          "attribute": "traficsourceid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "searchengineid",
+          "attribute": "searchengineid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "searchphrase",
+          "attribute": "searchphrase",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "advengineid",
+          "attribute": "advengineid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "isartifical",
+          "attribute": "isartifical",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "windowclientwidth",
+          "attribute": "windowclientwidth",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "windowclientheight",
+          "attribute": "windowclientheight",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "clienttimezone",
+          "attribute": "clienttimezone",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "clienteventtime",
+          "attribute": "clienteventtime",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "silverlightversion1",
+          "attribute": "silverlightversion1",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "silverlightversion2",
+          "attribute": "silverlightversion2",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "silverlightversion3",
+          "attribute": "silverlightversion3",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "silverlightversion4",
+          "attribute": "silverlightversion4",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "pagecharset",
+          "attribute": "pagecharset",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "codeversion",
+          "attribute": "codeversion",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "islink",
+          "attribute": "islink",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "isdownload",
+          "attribute": "isdownload",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "isnotbounce",
+          "attribute": "isnotbounce",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "funiqid",
+          "attribute": "funiqid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "originalurl",
+          "attribute": "originalurl",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "hid",
+          "attribute": "hid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "isoldcounter",
+          "attribute": "isoldcounter",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "isevent",
+          "attribute": "isevent",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "isparameter",
+          "attribute": "isparameter",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "dontcounthits",
+          "attribute": "dontcounthits",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "withhash",
+          "attribute": "withhash",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "hitcolor",
+          "attribute": "hitcolor",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "localeventtime",
+          "attribute": "localeventtime",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "age",
+          "attribute": "age",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "sex",
+          "attribute": "sex",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "income",
+          "attribute": "income",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "interests",
+          "attribute": "interests",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "robotness",
+          "attribute": "robotness",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "remoteip",
+          "attribute": "remoteip",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "windowname",
+          "attribute": "windowname",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "openername",
+          "attribute": "openername",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "historylength",
+          "attribute": "historylength",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "browserlanguage",
+          "attribute": "browserlanguage",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "browsercountry",
+          "attribute": "browsercountry",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "socialnetwork",
+          "attribute": "socialnetwork",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "socialaction",
+          "attribute": "socialaction",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "httperror",
+          "attribute": "httperror",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "sendtiming",
+          "attribute": "sendtiming",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "dnstiming",
+          "attribute": "dnstiming",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "connecttiming",
+          "attribute": "connecttiming",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "responsestarttiming",
+          "attribute": "responsestarttiming",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "responseendtiming",
+          "attribute": "responseendtiming",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "fetchtiming",
+          "attribute": "fetchtiming",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "socialsourcenetworkid",
+          "attribute": "socialsourcenetworkid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "socialsourcepage",
+          "attribute": "socialsourcepage",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "paramprice",
+          "attribute": "paramprice",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "paramorderid",
+          "attribute": "paramorderid",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "paramcurrency",
+          "attribute": "paramcurrency",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "paramcurrencyid",
+          "attribute": "paramcurrencyid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "openstatservicename",
+          "attribute": "openstatservicename",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "openstatcampaignid",
+          "attribute": "openstatcampaignid",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "openstatadid",
+          "attribute": "openstatadid",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "openstatsourceid",
+          "attribute": "openstatsourceid",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "utmsource",
+          "attribute": "utmsource",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "utmmedium",
+          "attribute": "utmmedium",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "utmcampaign",
+          "attribute": "utmcampaign",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "utmcontent",
+          "attribute": "utmcontent",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "utmterm",
+          "attribute": "utmterm",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "fromtag",
+          "attribute": "fromtag",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "hasgclid",
+          "attribute": "hasgclid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "refererhash",
+          "attribute": "refererhash",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "urlhash",
+          "attribute": "urlhash",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "clid",
+          "attribute": "clid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        }
+      ],
+      "index_docs": 100000,
+      "exact_full_values_validated": true,
+      "server_commands": {
+        "hset": 100001,
+        "client|setinfo": 2,
+        "client|info": 1,
+        "watch": 1,
+        "hget": 1,
+        "info": 3,
+        "FT.INFO": 3,
+        "multi": 1,
+        "incrby": 13,
+        "hello": 3,
+        "FT.DROPINDEX": 1,
+        "get": 3,
+        "exists": 5,
+        "hgetall": 1,
+        "ping": 1,
+        "set": 3,
+        "FT.AGGREGATE": 1,
+        "hexists": 1,
+        "FT._LIST": 1,
+        "smembers": 5,
+        "FT.CREATE": 1,
+        "del": 1,
+        "exec": 1,
+        "sadd": 5,
+        "_FT.CREATE": 1
+      },
+      "workers": [
+        {
+          "rows": 100000,
+          "started_at": 181060.32034725,
+          "source_ready_at": 181060.327032791,
+          "connected_at": 181060.333631375,
+          "first_batch_written_at": 181061.226575375,
+          "write_complete_at": 181069.7116855,
+          "finished_at": 181069.711715625,
+          "client_cpu_seconds": 4.034314,
+          "peak_rss_bytes": 225312768
+        }
+      ]
+    },
+    {
+      "method": "adbc",
+      "writers": 4,
+      "repeat": -1,
+      "warmup": true,
+      "rows": 100000,
+      "columns": 105,
+      "total_index_ready_seconds": 6.564421417017002,
+      "common_setup_seconds": 0.028314916999079287,
+      "append_and_worker_lifecycle_seconds": 6.534835917002056,
+      "write_complete_seconds": 6.496580417006044,
+      "post_worker_index_wait_seconds": 0.0012705830158665776,
+      "rows_per_second": 15233.635022390428,
+      "worker_cpu_seconds": 4.672965,
+      "server_cpu_seconds": 6.1357849999999985,
+      "server_input_bytes": 330573433,
+      "server_output_bytes": 960678,
+      "server_used_memory_bytes": 854427408,
+      "max_worker_peak_rss_bytes": 676675584,
+      "index_attributes": [
+        {
+          "identifier": "__rowid",
+          "attribute": "__rowid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "watchid",
+          "attribute": "watchid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "javaenable",
+          "attribute": "javaenable",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "title",
+          "attribute": "title",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "goodevent",
+          "attribute": "goodevent",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "eventtime",
+          "attribute": "eventtime",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "eventdate",
+          "attribute": "eventdate",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "counterid",
+          "attribute": "counterid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "clientip",
+          "attribute": "clientip",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "regionid",
+          "attribute": "regionid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "userid",
+          "attribute": "userid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "counterclass",
+          "attribute": "counterclass",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "os",
+          "attribute": "os",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "useragent",
+          "attribute": "useragent",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "url",
+          "attribute": "url",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "referer",
+          "attribute": "referer",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "isrefresh",
+          "attribute": "isrefresh",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "referercategoryid",
+          "attribute": "referercategoryid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "refererregionid",
+          "attribute": "refererregionid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "urlcategoryid",
+          "attribute": "urlcategoryid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "urlregionid",
+          "attribute": "urlregionid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "resolutionwidth",
+          "attribute": "resolutionwidth",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "resolutionheight",
+          "attribute": "resolutionheight",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "resolutiondepth",
+          "attribute": "resolutiondepth",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "flashmajor",
+          "attribute": "flashmajor",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "flashminor",
+          "attribute": "flashminor",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "flashminor2",
+          "attribute": "flashminor2",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "netmajor",
+          "attribute": "netmajor",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "netminor",
+          "attribute": "netminor",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "useragentmajor",
+          "attribute": "useragentmajor",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "useragentminor",
+          "attribute": "useragentminor",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "cookieenable",
+          "attribute": "cookieenable",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "javascriptenable",
+          "attribute": "javascriptenable",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "ismobile",
+          "attribute": "ismobile",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "mobilephone",
+          "attribute": "mobilephone",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "mobilephonemodel",
+          "attribute": "mobilephonemodel",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "params",
+          "attribute": "params",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "ipnetworkid",
+          "attribute": "ipnetworkid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "traficsourceid",
+          "attribute": "traficsourceid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "searchengineid",
+          "attribute": "searchengineid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "searchphrase",
+          "attribute": "searchphrase",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "advengineid",
+          "attribute": "advengineid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "isartifical",
+          "attribute": "isartifical",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "windowclientwidth",
+          "attribute": "windowclientwidth",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "windowclientheight",
+          "attribute": "windowclientheight",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "clienttimezone",
+          "attribute": "clienttimezone",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "clienteventtime",
+          "attribute": "clienteventtime",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "silverlightversion1",
+          "attribute": "silverlightversion1",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "silverlightversion2",
+          "attribute": "silverlightversion2",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "silverlightversion3",
+          "attribute": "silverlightversion3",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "silverlightversion4",
+          "attribute": "silverlightversion4",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "pagecharset",
+          "attribute": "pagecharset",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "codeversion",
+          "attribute": "codeversion",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "islink",
+          "attribute": "islink",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "isdownload",
+          "attribute": "isdownload",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "isnotbounce",
+          "attribute": "isnotbounce",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "funiqid",
+          "attribute": "funiqid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "originalurl",
+          "attribute": "originalurl",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "hid",
+          "attribute": "hid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "isoldcounter",
+          "attribute": "isoldcounter",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "isevent",
+          "attribute": "isevent",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "isparameter",
+          "attribute": "isparameter",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "dontcounthits",
+          "attribute": "dontcounthits",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "withhash",
+          "attribute": "withhash",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "hitcolor",
+          "attribute": "hitcolor",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "localeventtime",
+          "attribute": "localeventtime",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "age",
+          "attribute": "age",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "sex",
+          "attribute": "sex",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "income",
+          "attribute": "income",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "interests",
+          "attribute": "interests",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "robotness",
+          "attribute": "robotness",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "remoteip",
+          "attribute": "remoteip",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "windowname",
+          "attribute": "windowname",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "openername",
+          "attribute": "openername",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "historylength",
+          "attribute": "historylength",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "browserlanguage",
+          "attribute": "browserlanguage",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "browsercountry",
+          "attribute": "browsercountry",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "socialnetwork",
+          "attribute": "socialnetwork",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "socialaction",
+          "attribute": "socialaction",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "httperror",
+          "attribute": "httperror",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "sendtiming",
+          "attribute": "sendtiming",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "dnstiming",
+          "attribute": "dnstiming",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "connecttiming",
+          "attribute": "connecttiming",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "responsestarttiming",
+          "attribute": "responsestarttiming",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "responseendtiming",
+          "attribute": "responseendtiming",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "fetchtiming",
+          "attribute": "fetchtiming",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "socialsourcenetworkid",
+          "attribute": "socialsourcenetworkid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "socialsourcepage",
+          "attribute": "socialsourcepage",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "paramprice",
+          "attribute": "paramprice",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "paramorderid",
+          "attribute": "paramorderid",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "paramcurrency",
+          "attribute": "paramcurrency",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "paramcurrencyid",
+          "attribute": "paramcurrencyid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "openstatservicename",
+          "attribute": "openstatservicename",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "openstatcampaignid",
+          "attribute": "openstatcampaignid",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "openstatadid",
+          "attribute": "openstatadid",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "openstatsourceid",
+          "attribute": "openstatsourceid",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "utmsource",
+          "attribute": "utmsource",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "utmmedium",
+          "attribute": "utmmedium",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "utmcampaign",
+          "attribute": "utmcampaign",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "utmcontent",
+          "attribute": "utmcontent",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "utmterm",
+          "attribute": "utmterm",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "fromtag",
+          "attribute": "fromtag",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "hasgclid",
+          "attribute": "hasgclid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "refererhash",
+          "attribute": "refererhash",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "urlhash",
+          "attribute": "urlhash",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "clid",
+          "attribute": "clid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        }
+      ],
+      "index_docs": 100000,
+      "exact_full_values_validated": true,
+      "server_commands": {
+        "hset": 100001,
+        "watch": 6,
+        "hget": 201,
+        "info": 7,
+        "FT.INFO": 3,
+        "multi": 18,
+        "incrby": 15,
+        "hello": 14,
+        "FT.DROPINDEX": 1,
+        "sismember": 100,
+        "get": 37,
+        "exists": 13,
+        "hgetall": 5,
+        "ping": 5,
+        "set": 8,
+        "FT.AGGREGATE": 5,
+        "hexists": 1,
+        "FT._LIST": 5,
+        "smembers": 13,
+        "FT.CREATE": 1,
+        "del": 1,
+        "exec": 18,
+        "sadd": 5,
+        "_FT.CREATE": 1
+      },
+      "workers": [
+        {
+          "rows": 25000,
+          "started_at": 181073.141019833,
+          "source_ready_at": 181073.148588458,
+          "connected_at": 181073.157508458,
+          "first_batch_written_at": 181075.602121416,
+          "write_complete_at": 181079.228052625,
+          "finished_at": 181079.231810208,
+          "client_cpu_seconds": 1.267717,
+          "peak_rss_bytes": 676675584
+        },
+        {
+          "rows": 25000,
+          "started_at": 181073.145681041,
+          "source_ready_at": 181073.152828041,
+          "connected_at": 181073.164507166,
+          "first_batch_written_at": 181074.279702666,
+          "write_complete_at": 181078.959123125,
+          "finished_at": 181078.964841833,
+          "client_cpu_seconds": 1.0703880000000001,
+          "peak_rss_bytes": 629473280
+        },
+        {
+          "rows": 25000,
+          "started_at": 181073.152734208,
+          "source_ready_at": 181073.160027291,
+          "connected_at": 181073.185082416,
+          "first_batch_written_at": 181075.74853475,
+          "write_complete_at": 181079.424022458,
+          "finished_at": 181079.427326583,
+          "client_cpu_seconds": 1.0784129999999998,
+          "peak_rss_bytes": 622690304
+        },
+        {
+          "rows": 25000,
+          "started_at": 181073.1679525,
+          "source_ready_at": 181073.182671166,
+          "connected_at": 181073.211996166,
+          "first_batch_written_at": 181074.473772708,
+          "write_complete_at": 181079.39393625,
+          "finished_at": 181079.399249083,
+          "client_cpu_seconds": 1.256447,
+          "peak_rss_bytes": 628490240
+        }
+      ]
+    },
+    {
+      "method": "redis_py",
+      "writers": 4,
+      "repeat": -1,
+      "warmup": true,
+      "rows": 100000,
+      "columns": 105,
+      "total_index_ready_seconds": 6.539486625028076,
+      "common_setup_seconds": 0.026653625012841076,
+      "append_and_worker_lifecycle_seconds": 6.511718416004442,
+      "write_complete_seconds": 6.5061875830288045,
+      "post_worker_index_wait_seconds": 0.0011145840107928962,
+      "rows_per_second": 15291.720242576484,
+      "worker_cpu_seconds": 4.431802,
+      "server_cpu_seconds": 6.0458529999999975,
+      "server_input_bytes": 330502808,
+      "server_output_bytes": 686790,
+      "server_used_memory_bytes": 854429968,
+      "max_worker_peak_rss_bytes": 222609408,
+      "index_attributes": [
+        {
+          "identifier": "__rowid",
+          "attribute": "__rowid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "watchid",
+          "attribute": "watchid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "javaenable",
+          "attribute": "javaenable",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "title",
+          "attribute": "title",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "goodevent",
+          "attribute": "goodevent",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "eventtime",
+          "attribute": "eventtime",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "eventdate",
+          "attribute": "eventdate",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "counterid",
+          "attribute": "counterid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "clientip",
+          "attribute": "clientip",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "regionid",
+          "attribute": "regionid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "userid",
+          "attribute": "userid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "counterclass",
+          "attribute": "counterclass",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "os",
+          "attribute": "os",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "useragent",
+          "attribute": "useragent",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "url",
+          "attribute": "url",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "referer",
+          "attribute": "referer",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "isrefresh",
+          "attribute": "isrefresh",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "referercategoryid",
+          "attribute": "referercategoryid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "refererregionid",
+          "attribute": "refererregionid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "urlcategoryid",
+          "attribute": "urlcategoryid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "urlregionid",
+          "attribute": "urlregionid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "resolutionwidth",
+          "attribute": "resolutionwidth",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "resolutionheight",
+          "attribute": "resolutionheight",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "resolutiondepth",
+          "attribute": "resolutiondepth",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "flashmajor",
+          "attribute": "flashmajor",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "flashminor",
+          "attribute": "flashminor",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "flashminor2",
+          "attribute": "flashminor2",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "netmajor",
+          "attribute": "netmajor",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "netminor",
+          "attribute": "netminor",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "useragentmajor",
+          "attribute": "useragentmajor",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "useragentminor",
+          "attribute": "useragentminor",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "cookieenable",
+          "attribute": "cookieenable",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "javascriptenable",
+          "attribute": "javascriptenable",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "ismobile",
+          "attribute": "ismobile",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "mobilephone",
+          "attribute": "mobilephone",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "mobilephonemodel",
+          "attribute": "mobilephonemodel",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "params",
+          "attribute": "params",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "ipnetworkid",
+          "attribute": "ipnetworkid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "traficsourceid",
+          "attribute": "traficsourceid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "searchengineid",
+          "attribute": "searchengineid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "searchphrase",
+          "attribute": "searchphrase",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "advengineid",
+          "attribute": "advengineid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "isartifical",
+          "attribute": "isartifical",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "windowclientwidth",
+          "attribute": "windowclientwidth",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "windowclientheight",
+          "attribute": "windowclientheight",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "clienttimezone",
+          "attribute": "clienttimezone",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "clienteventtime",
+          "attribute": "clienteventtime",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "silverlightversion1",
+          "attribute": "silverlightversion1",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "silverlightversion2",
+          "attribute": "silverlightversion2",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "silverlightversion3",
+          "attribute": "silverlightversion3",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "silverlightversion4",
+          "attribute": "silverlightversion4",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "pagecharset",
+          "attribute": "pagecharset",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "codeversion",
+          "attribute": "codeversion",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "islink",
+          "attribute": "islink",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "isdownload",
+          "attribute": "isdownload",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "isnotbounce",
+          "attribute": "isnotbounce",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "funiqid",
+          "attribute": "funiqid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "originalurl",
+          "attribute": "originalurl",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "hid",
+          "attribute": "hid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "isoldcounter",
+          "attribute": "isoldcounter",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "isevent",
+          "attribute": "isevent",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "isparameter",
+          "attribute": "isparameter",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "dontcounthits",
+          "attribute": "dontcounthits",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "withhash",
+          "attribute": "withhash",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "hitcolor",
+          "attribute": "hitcolor",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "localeventtime",
+          "attribute": "localeventtime",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "age",
+          "attribute": "age",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "sex",
+          "attribute": "sex",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "income",
+          "attribute": "income",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "interests",
+          "attribute": "interests",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "robotness",
+          "attribute": "robotness",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "remoteip",
+          "attribute": "remoteip",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "windowname",
+          "attribute": "windowname",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "openername",
+          "attribute": "openername",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "historylength",
+          "attribute": "historylength",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "browserlanguage",
+          "attribute": "browserlanguage",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "browsercountry",
+          "attribute": "browsercountry",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "socialnetwork",
+          "attribute": "socialnetwork",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "socialaction",
+          "attribute": "socialaction",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "httperror",
+          "attribute": "httperror",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "sendtiming",
+          "attribute": "sendtiming",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "dnstiming",
+          "attribute": "dnstiming",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "connecttiming",
+          "attribute": "connecttiming",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "responsestarttiming",
+          "attribute": "responsestarttiming",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "responseendtiming",
+          "attribute": "responseendtiming",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "fetchtiming",
+          "attribute": "fetchtiming",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "socialsourcenetworkid",
+          "attribute": "socialsourcenetworkid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "socialsourcepage",
+          "attribute": "socialsourcepage",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "paramprice",
+          "attribute": "paramprice",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "paramorderid",
+          "attribute": "paramorderid",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "paramcurrency",
+          "attribute": "paramcurrency",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "paramcurrencyid",
+          "attribute": "paramcurrencyid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "openstatservicename",
+          "attribute": "openstatservicename",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "openstatcampaignid",
+          "attribute": "openstatcampaignid",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "openstatadid",
+          "attribute": "openstatadid",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "openstatsourceid",
+          "attribute": "openstatsourceid",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "utmsource",
+          "attribute": "utmsource",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "utmmedium",
+          "attribute": "utmmedium",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "utmcampaign",
+          "attribute": "utmcampaign",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "utmcontent",
+          "attribute": "utmcontent",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "utmterm",
+          "attribute": "utmterm",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "fromtag",
+          "attribute": "fromtag",
+          "type": "TAG",
+          "SEPARATOR": "\u001f",
+          "flags": [
+            "CASESENSITIVE",
+            "SORTABLE",
+            "UNF",
+            "INDEXEMPTY"
+          ]
+        },
+        {
+          "identifier": "hasgclid",
+          "attribute": "hasgclid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "refererhash",
+          "attribute": "refererhash",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "urlhash",
+          "attribute": "urlhash",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        },
+        {
+          "identifier": "clid",
+          "attribute": "clid",
+          "type": "NUMERIC",
+          "flags": [
+            "SORTABLE",
+            "UNF"
+          ]
+        }
+      ],
+      "index_docs": 100000,
+      "exact_full_values_validated": true,
+      "server_commands": {
+        "hset": 100001,
+        "client|setinfo": 8,
+        "client|info": 4,
+        "watch": 1,
+        "hget": 1,
+        "info": 3,
+        "FT.INFO": 3,
+        "multi": 1,
+        "incrby": 15,
+        "hello": 6,
+        "FT.DROPINDEX": 1,
+        "get": 3,
+        "exists": 5,
+        "hgetall": 1,
+        "ping": 1,
+        "set": 3,
+        "FT.AGGREGATE": 1,
+        "hexists": 1,
+        "FT._LIST": 1,
+        "smembers": 5,
+        "FT.CREATE": 1,
+        "del": 1,
+        "exec": 1,
+        "sadd": 5,
+        "_FT.CREATE": 1
+      },
+      "workers": [
+        {
+          "rows": 25000,
+          "started_at": 181082.974987416,
+          "source_ready_at": 181082.982409958,
+          "connected_at": 181082.999811291,
+          "first_batch_written_at": 181085.376620166,
+          "write_complete_at": 181088.966553625,
+          "finished_at": 181088.966585541,
+          "client_cpu_seconds": 1.114822,
+          "peak_rss_bytes": 221102080
+        },
+        {
+          "rows": 25000,
+          "started_at": 181082.978786541,
+          "source_ready_at": 181082.985908208,
+          "connected_at": 181082.999821333,
+          "first_batch_written_at": 181084.31421525,
+          "write_complete_at": 181089.275904208,
+          "finished_at": 181089.275931916,
+          "client_cpu_seconds": 1.106368,
+          "peak_rss_bytes": 221691904
+        },
+        {
+          "rows": 25000,
+          "started_at": 181082.985707833,
+          "source_ready_at": 181082.992447791,
+          "connected_at": 181083.000645958,
+          "first_batch_written_at": 181085.539579833,
+          "write_complete_at": 181089.108257,
+          "finished_at": 181089.108294708,
+          "client_cpu_seconds": 1.096362,
+          "peak_rss_bytes": 220790784
+        },
+        {
+          "rows": 25000,
+          "started_at": 181082.994704,
+          "source_ready_at": 181083.001890375,
+          "connected_at": 181083.009441208,
+          "first_batch_written_at": 181084.318060541,
+          "write_complete_at": 181089.249217166,
+          "finished_at": 181089.249251541,
+          "client_cpu_seconds": 1.1142500000000002,
+          "peak_rss_bytes": 222609408
+        }
+      ]
+    }
+  ],
+  "summary": [],
+  "finished_at": "2026-10-22T18:02:32.567220+00:00"
+}

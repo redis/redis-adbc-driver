@@ -1,0 +1,36 @@
+{
+  "date": "2026-10-22",
+  "source_commit": "d72b730bf24074942609e9f0f839c1f46e10d365",
+  "canonical_complete": true,
+  "canonical_executions": 28,
+  "canonical_warmups": 4,
+  "canonical_measured": 24,
+  "final_smoke_executions": 4,
+  "all_full_values_exact": true,
+  "all_index_attributes_identical": true,
+  "fixture_helper_tests_passed": 4,
+  "measured_runner_hash_verified": true,
+  "production_go_tests_rerun": false,
+  "earlier_harness_failures_preserved": 2,
+  "review": {
+    "correctness_lifecycle": "Validated every output value/multiplicity, row IDs/counter, index docs and failures; worker pools/connections close and result reports persist atomically.",
+    "security_ownership": "Disposable task-owned local container only; harness refuses an initially populated database and requires its ownership marker between clears. No application data or credentials used.",
+    "intent_evidence": "Matched Arrow input and index/HASH representation. Timing and native semantic omissions documented. One-writer advantage is supported; four-writer ranges overlap. Higher ADBC worker RSS remains visible."
+  },
+  "summaries_recomputed": 4,
+  "all_local_links_valid": true,
+  "artifact_hashes_verified": true,
+  "dedicated_container_removed": true,
+  "slides": {
+    "count_before": 14,
+    "count_after": 15,
+    "new_slide_number": 8,
+    "new_slide_id": "redis_bulk_load_comparison_20261022",
+    "native_text_and_table": true,
+    "speaker_notes_verified": true,
+    "full_deck_pdf_rendered": true,
+    "new_slide_and_contact_sheet_visually_checked": true,
+    "repair_passes_required": 0,
+    "inspection_method": "Live DOM plus browser-exported PDF; connector structural read unavailable"
+  }
+}
