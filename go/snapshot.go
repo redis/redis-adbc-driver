@@ -571,6 +571,9 @@ type snapshotPin struct {
 	stop         chan struct{}
 	done         chan struct{}
 	once         sync.Once
+	releaseMu    sync.Mutex
+	releaseErr   error         // releaseMu; failed heartbeat cleanup may be retried explicitly
+	releaseDone  chan struct{} // releaseMu; concurrent callers share one cleanup attempt
 }
 
 func (s *store) acquireSnapshot(ctx context.Context, writing ...bool) (context.Context, *snapshotPin, error) {
@@ -646,7 +649,10 @@ func (p *snapshotPin) heartbeat() {
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		_ = p.control(ctx, "release", "").Err()
+		err := p.control(ctx, "release", "").Err()
+		p.releaseMu.Lock()
+		p.releaseErr = err
+		p.releaseMu.Unlock()
 	}()
 	tick := time.NewTicker(snapshotLease / 4)
 	defer tick.Stop()
@@ -714,6 +720,32 @@ func (p *snapshotPin) release() {
 		close(p.stop)
 		<-p.done
 	})
+	// The heartbeat may have stopped during an outage, including its best-effort
+	// release. A later explicit Close/release must still retire that server pin:
+	// a surviving writer intent otherwise blocks compaction until lease expiry.
+	// Token release is idempotent; this never replays SQL or a publication. Keep
+	// normal cleanup to its original single command. Concurrent callers share a
+	// failed retry's deadline; they must not queue independent five-second calls.
+	p.releaseMu.Lock()
+	if p.releaseErr == nil {
+		p.releaseMu.Unlock()
+		return
+	}
+	if done := p.releaseDone; done != nil {
+		p.releaseMu.Unlock()
+		<-done
+		return
+	}
+	done := make(chan struct{})
+	p.releaseDone = done
+	p.releaseMu.Unlock()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	err := p.control(ctx, "release", "").Err()
+	cancel()
+	p.releaseMu.Lock()
+	p.releaseErr, p.releaseDone = err, nil
+	close(done)
+	p.releaseMu.Unlock()
 }
 
 // snapshotHook scopes only command key positions, never SQL literals, HASH

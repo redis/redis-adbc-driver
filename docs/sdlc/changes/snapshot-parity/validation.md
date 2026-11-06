@@ -3,6 +3,10 @@
 Date: 2026-11-02. Implementation: `9bc80c0` (parent `b4b73e0`).
 Status: milestone evidence; the full [parity plan](plan.md) remains incomplete.
 
+For the later protocol-16 Cluster API, native C ABI and persistence checks, see
+the separate [current Cluster checkpoint](cluster16-validation.md). Results below
+retain their original source revision and scope.
+
 ## Environment and scope
 
 Owned disposable Redis Software 8.2.0-78.18, Redis 8.6.2, Search enabled,

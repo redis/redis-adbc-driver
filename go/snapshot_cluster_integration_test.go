@@ -96,11 +96,31 @@ func TestSnapshotClusterRDBCheckpointWrites(t *testing.T) {
 	raw := snapshotClusterClient(t)
 	defer raw.Close()
 	ctx := context.Background()
-	slots, err := raw.ClusterSlots(ctx).Result()
-	if err != nil {
-		t.Fatal(err)
+	var primarySlots [][][2]int64
+	if err := json.Unmarshal([]byte(os.Getenv("REDIS_SNAPSHOT_CLUSTER_SHARD_SLOTS")), &primarySlots); err != nil || len(primarySlots) != 3 {
+		t.Fatal("RDB checkpoint requires three management-verified physical primary slot groups")
 	}
-	owners := map[string]bool{}
+	coverage := make([]bool, 16384)
+	for _, ranges := range primarySlots {
+		if len(ranges) == 0 {
+			t.Fatal("empty physical primary slot group")
+		}
+		for _, bounds := range ranges {
+			if bounds[0] < 0 || bounds[1] >= int64(len(coverage)) || bounds[0] > bounds[1] {
+				t.Fatal("invalid physical primary slot range")
+			}
+			for slot := bounds[0]; slot <= bounds[1]; slot++ {
+				if coverage[slot] {
+					t.Fatal("overlapping physical primary slot ranges")
+				}
+				coverage[slot] = true
+			}
+		}
+	}
+	if slices.Contains(coverage, false) {
+		t.Fatal("physical primary ranges do not cover every slot")
+	}
+	owners := map[int]bool{}
 	var probes []snapshotRDBProbe
 	for i := 0; i < 1000 && len(owners) < 3; i++ {
 		key := fmt.Sprintf("it_snapshot_rdb:{checkpoint_%d}", i)
@@ -108,14 +128,16 @@ func TestSnapshotClusterRDBCheckpointWrites(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		owner := ""
-		for _, range_ := range slots {
-			if slot >= int64(range_.Start) && slot <= int64(range_.End) && len(range_.Nodes) > 0 {
-				owner = range_.Nodes[0].Addr
-				break
+		owner := -1
+		for primary, ranges := range primarySlots {
+			for _, bounds := range ranges {
+				if slot >= bounds[0] && slot <= bounds[1] {
+					owner = primary
+					break
+				}
 			}
 		}
-		if owner == "" {
+		if owner == -1 {
 			t.Fatal("RDB probe slot owner missing")
 		}
 		if owners[owner] {
@@ -245,8 +267,11 @@ func TestSnapshotClusterRecovery(t *testing.T) {
 	h, raw, db := snapshotClusterHarness(t)
 	h.exec("CREATE TABLE t(id INTEGER,v BIGINT)")
 	h.exec("INSERT INTO t SELECT i,9007199254740993 FROM generate_series(1,1001) AS g(i)")
+	// Keep enough winning rows in the newer segments for a real 64-row
+	// checkpoint even when compaction preserves a much larger older base.
+	const updatedRows = 128
 	for i := 0; i < 3; i++ {
-		h.exec(fmt.Sprintf("UPDATE t SET v=%d WHERE __rowid=1", 100+i))
+		h.exec(fmt.Sprintf("UPDATE t SET v=%d WHERE __rowid<=%d", 100+i, updatedRows))
 	}
 	stmt, err := h.conn.NewStatement(h.ctx)
 	if err != nil {
@@ -263,6 +288,14 @@ func TestSnapshotClusterRecovery(t *testing.T) {
 	job, err := s.readSnapshotCompaction(h.ctx)
 	if err != nil || job == nil || job.After == "" {
 		t.Fatal("missing durable compaction checkpoint", err)
+	}
+	if n := raw.ZCard(h.ctx, snapshotMembers(job.Data)).Val(); n != snapshotCompactionBatchRows {
+		t.Fatalf("recovery fixture must stage %d output rows before interruption, got %d (source start %d)", snapshotCompactionBatchRows, n, job.SourceStart)
+	}
+	// Rows is finalized after indexing; the copy phase records its acknowledged
+	// complete-image count in CopyBatch instead.
+	if job.CopyBatch == nil || job.CopyBatch.Rows != snapshotCompactionBatchRows {
+		t.Fatal("recovery fixture lacks its durable complete-image batch outcome")
 	}
 	// Expire ownership before the interruption, modeling a dead process without
 	// adding two minutes to each fixture run. The output/checkpoint stays durable.
@@ -345,7 +378,7 @@ func TestSnapshotClusterRecovery(t *testing.T) {
 		for i := 0; i < int(rec.NumRows()); i++ {
 			id := ids.Value(i)
 			want := int64(9007199254740993)
-			if id == 1 {
+			if id <= updatedRows {
 				want = 102
 			}
 			if id < 1 || id > 1001 || seen[id] || vs.Value(i) != want {
@@ -431,14 +464,16 @@ func TestSnapshotClusterRecovery(t *testing.T) {
 		t.Fatal("private row batches did not persist exactly")
 	}
 	resumed, err := s.readSnapshotCompaction(h.ctx)
-	if err != nil || resumed == nil || resumed.Data != job.Data || resumed.After != job.After {
+	if err != nil || resumed == nil || resumed.Data != job.Data || resumed.After != job.After || resumed.Rows != job.Rows || resumed.SourceStart != job.SourceStart || !slices.Equal(resumed.References, job.References) || resumed.CopyBatch == nil || *resumed.CopyBatch != *job.CopyBatch {
 		t.Fatal("durable checkpoint changed", err)
 	}
 	if raw.ZCard(h.ctx, snapshotMembers(job.Data)).Val() != snapshotCompactionBatchRows {
 		t.Fatal("durable output missing")
 	}
 	// Release the write-intent pin before the compactor's publication barrier.
-	s.abortSnapshot(wpin, wid)
+	if err := s.snapshotControl(h.ctx, "abort", wpin.token, wid, wpin.root).Err(); err != nil {
+		t.Fatal("failed to retire recovered private writer before compaction", err)
+	}
 	wpin.release()
 	snapshotCompleteJobTest(t, s, snapshotID())
 	h.expectRows("SELECT COUNT(*),MIN(v),MAX(v) FROM t", "1001|102|9007199254740993")

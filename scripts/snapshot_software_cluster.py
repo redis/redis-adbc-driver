@@ -335,6 +335,17 @@ def client_container(project):
 
 def test_command(args, config):
     client = client_container(args.project)
+    api = SoftwareAPI(config["nodes"][0]["api_port"], args.directory.resolve() / "ca.pem")
+    shards = ready_shards(api, config["bdb_uid"], config["primaries"], config["replication"])
+    if not shards:
+        raise ValueError("owned shard slot ranges are unavailable")
+    # Software can route two physical primaries through one node endpoint
+    # after promotion. RDB probes must dirty each physical shard, not merely
+    # each distinct advertised address.
+    primary_slots = [
+        [[int(a), int(b)] for a, b in (part.split("-") for part in shard["assigned_slots"].split(","))]
+        for shard in shards if shard["role"] == "master"
+    ]
     docker(
         "cp", str(args.test_binary.resolve()), client + ":/tmp/snapshot-cluster.test"
     )
@@ -346,16 +357,23 @@ def test_command(args, config):
         + quote(config["database_password"], safe="")
         + "@"
         + config["nodes"][0]["ip"]
-        + ":12000/0?"
+        + ":12000/0"
     )
-    uri += urlencode([("addr", node["ip"] + ":12000") for node in config["nodes"][1:]])
+    inspection_uri = uri
+    uri += "?" + urlencode([("addr", node["ip"] + ":12000") for node in config["nodes"][1:]])
     return [
         "docker",
         "exec",
         "-e",
         "REDIS_SNAPSHOT_CLUSTER_URI=" + uri,
         "-e",
+        # Generic partition cleanup uses adminURI and discovers Cluster slots.
+        # Keep its URI free of the driver's repeated addr query parameters.
+        "REDIS_ADMIN_URI=" + inspection_uri,
+        "-e",
         "REDIS_SNAPSHOT_CLUSTER_PRIMARIES=" + str(config["primaries"]),
+        "-e",
+        "REDIS_SNAPSHOT_CLUSTER_SHARD_SLOTS=" + json.dumps(primary_slots),
         "-e",
         "REDIS_RETAINED_CONTROL_PERSISTENCE=guaranteed",
         "-e",
@@ -495,9 +513,6 @@ def rdb_checkpoint_shards(config, api):
 def checkpoint_rdb(config, api, command, output):
     # Require every shard's completed RDB to be newer than the paused test's final writes.
     # This is separate from saving Software management CCS configuration.
-    after = int(time.time()) + 1
-    while time.time() < after:
-        time.sleep(0.05)
     checkpoint = command[:]
     checkpoint[2:2] = ["-e", "REDIS_SNAPSHOT_RDB_CHECKPOINT=1"]
     checkpoint[-1] = "^TestSnapshotClusterRDBCheckpointWrites$"
@@ -505,6 +520,10 @@ def checkpoint_rdb(config, api, command, output):
     if result.returncode:
         # The command contains private connection environment values.
         raise RuntimeError("owned RDB checkpoint writes failed")
+    # INFO timestamps have whole-second precision. A checkpoint in the same
+    # second can precede the writes, even if it satisfies a pre-write bound.
+    # Require a strictly later second than the acknowledged final probe write.
+    after = int(time.time()) + 1
     current = rdb_checkpoint_shards(config, api)
     if rdb_checkpoint_ready(current, after + 3600):
         raise ValueError("RDB gate accepted a future checkpoint")

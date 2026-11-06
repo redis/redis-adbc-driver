@@ -1,10 +1,12 @@
 # Copyright (c) 2026 ADBC Drivers Contributors
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may obtain a copy at http://www.apache.org/licenses/LICENSE-2.0
-"""Native C/ADBC snapshot validation on REDIS_SNAPSHOT_URI (DISPOSABLE).
+"""Native C/ADBC snapshot validation on a snapshot URI (DISPOSABLE).
 
 This script clears the explicitly selected test database before and after each
-test. Run separately from the ordinary validation suite; see docs/snapshots.md.
+test. REDIS_SNAPSHOT_CLUSTER_URI selects actual Cluster API routing, including
+raw source/inspection commands. Run separately from ordinary validation and
+recovery tests; see docs/snapshots.md.
 """
 
 import os
@@ -15,27 +17,50 @@ import sys
 import time
 import unittest
 from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
 
 import adbc_driver_manager.dbapi
 import pyarrow as pa
 import redis
 
 
-@unittest.skipUnless(os.environ.get("REDIS_SNAPSHOT_URI"), "set REDIS_SNAPSHOT_URI to a disposable database")
+class SnapshotRedisCluster(redis.RedisCluster):
+    def execute_command(self, *args, **kwargs):
+        # Search schema commands are distributed by Software, not by a HASH
+        # key. Choose an explicit primary for the raw inspection client.
+        if args and str(args[0]).upper().startswith("FT."):
+            kwargs.setdefault("target_nodes", self.get_default_node())
+        return super().execute_command(*args, **kwargs)
+
+
+@unittest.skipUnless(os.environ.get("REDIS_SNAPSHOT_URI") or os.environ.get("REDIS_SNAPSHOT_CLUSTER_URI"),
+                     "set a snapshot URI to a disposable database")
 class SnapshotValidation(unittest.TestCase):
     def setUp(self):
-        self.uri = os.environ["REDIS_SNAPSHOT_URI"]
-        kwargs = {"decode_responses": True, "protocol": 3}
-        if self.uri.startswith("rediss://") and os.environ.get("SSL_CERT_FILE"):
-            kwargs["ssl_ca_certs"] = os.environ["SSL_CERT_FILE"]
-        self.raw = redis.Redis.from_url(self.uri, **kwargs)
+        self.cluster = bool(os.environ.get("REDIS_SNAPSHOT_CLUSTER_URI"))
+        self.uri = os.environ["REDIS_SNAPSHOT_CLUSTER_URI" if self.cluster else "REDIS_SNAPSHOT_URI"]
+        self.raw = self.raw_client(decode_responses=True)
         self.addCleanup(self.raw.close)
+        if self.cluster:
+            self.assertGreaterEqual(len(self.raw.get_primaries()), 2,
+                                    "Cluster validation requires multiple routed primary endpoints")
         self.reset()
         self.addCleanup(self.reset)
         ext = {"darwin": "dylib", "win32": "dll"}.get(sys.platform, "so")
         self.driver = str(Path(__file__).resolve().parents[1] / f"build/libadbc_driver_redis.{ext}")
         self.conn = self.connect()
         self.addCleanup(self.conn.close)
+
+    def raw_client(self, **kwargs):
+        kwargs["protocol"] = 3
+        if self.uri.startswith("rediss://") and os.environ.get("SSL_CERT_FILE"):
+            kwargs["ssl_ca_certs"] = os.environ["SSL_CERT_FILE"]
+        if self.cluster:
+            # Repeated addr parameters belong to the Go driver. redis-py
+            # discovers all primary endpoints from this one verified seed.
+            uri = urlsplit(self.uri)
+            return SnapshotRedisCluster.from_url(urlunsplit(uri._replace(query="")), **kwargs)
+        return redis.Redis.from_url(self.uri, **kwargs)
 
     def reset(self):
         for index in self.raw.execute_command("FT._LIST"):
@@ -369,7 +394,7 @@ class SnapshotValidation(unittest.TestCase):
                 info = dict(zip(info[::2], info[1::2]))
             return info["index_definition"], info["attributes"]
 
-        with redis.Redis.from_url(self.uri, **binary_options) as raw:
+        with self.raw_client(**binary_options) as raw:
             before = {key: raw.hgetall(key) for key in keys}
             source_definition = definition()
             with self.connect(**options) as producer, producer.cursor() as cur:

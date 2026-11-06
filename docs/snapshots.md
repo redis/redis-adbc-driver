@@ -182,7 +182,7 @@ an incompatible declared result schema change between executions returns an erro
   unsupported. Open checks each primary and installs fences on direct node
   connections, including nodes discovered after topology changes.
 - No live migration or downgrade is included. See the
-  [Cluster API and recovery evidence](sdlc/changes/snapshot-cluster/validation.md)
+  [protocol-16 Cluster API and recovery evidence](sdlc/changes/snapshot-parity/cluster16-validation.md)
   for the tested Software topology and recovery boundaries.
 - Protocol 13 separates row data from the metadata ACL namespace. Row prefixes
   are `<escaped-schema>:{meta}:snapshot:rows:<uuid>:`; schema `adbc` uses `%61dbc`
@@ -466,8 +466,9 @@ Read-only SQL clients still need control-hash write permission for reader pins.
 
 ## Validation
 
-The snapshot suites **clear the database selected by REDIS_SNAPSHOT_URI, including
-its indexes**. Use a disposable database, separately from ordinary suites.
+The snapshot suites **clear the selected snapshot database, including its
+indexes**. Use a disposable database, separately from ordinary suites and recovery
+orchestrations. Verify Software 4x QPF and deployment policy before running.
 
 ```sh
 cd go
@@ -476,6 +477,13 @@ make build
 # Python environment: adbc-driver-manager, pyarrow and redis
 REDIS_SNAPSHOT_URI=redis://localhost:16400/0 python validation/snapshot_validation.py
 ```
+
+The native suite also accepts `REDIS_SNAPSHOT_CLUSTER_URI` for actual Cluster API
+connections. Its client must reach all advertised primary endpoints; provide
+`SSL_CERT_FILE` for the fixture CA. That variable takes precedence over
+`REDIS_SNAPSHOT_URI`, and cleanup clears every primary. See the
+[protocol-16 checkpoint](sdlc/changes/snapshot-parity/cluster16-validation.md)
+for the separate native, promotion and persistence checks and their limits.
 
 See [design and validation evidence](sdlc/changes/statement-snapshots/validation.md).
 

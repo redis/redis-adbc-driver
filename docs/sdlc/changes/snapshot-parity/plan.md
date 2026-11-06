@@ -829,3 +829,13 @@ Arrow schema, internal IDs, provenance and every row remain unchanged. The
 corrected original and deterministic cases pass ten race repetitions (20 events).
 Production is unchanged; the complete ordinary run must be repeated and its
 first failed attempt is not counted as a pass.
+
+The [protocol-16 Cluster checkpoint](cluster16-validation.md) adds actual Cluster
+API native C ABI evidence and separates promotion, AOF and RDB recovery from
+proxy CI results. Its strengthened RDB gate reproduces a stale checkpoint
+admission; physical-primary slot groups retain sentinel coverage after promotion
+co-locates primaries behind one endpoint. Repeated recovery exposes a surviving
+writer pin after heartbeat cleanup fails. The [cleanup correction](pin-cleanup-recovery-validation.md)
+retries only failed token release and shares one bounded attempt across concurrent
+callers, with focused red/green and review findings retained. Broad final-source
+checks, public operation/input resume and sustained performance remain required.
