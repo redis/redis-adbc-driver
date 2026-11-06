@@ -1,6 +1,6 @@
 # Reader directory hints
 
-Status: isolated candidate; pre-correction measurements retained, not integrated.
+Status: corrected candidate verified and measured; integration pending.
 
 Admission and reclamation currently read the complete bounded reader namespace
 directory in a separate read-only script before sending the control command.
@@ -143,3 +143,42 @@ Python 3.14 environment described above. Its complete snapshot race selection
 passes **529 test events**, **29 explicit skips**, root **370.799 seconds**;
 all six test-bearing packages pass without data races. These results belong to
 the corrected source; they do not relabel the earlier timing samples.
+
+The corrected library independently repeats all **19 TLS/partition/lifecycle
+checks plus 6 metadata identities** successfully. Owned credentials are removed,
+the cap is restored, and effective QPF/noeviction are reverified.
+
+## Corrected-source comparison
+
+A fresh pair of six-process comparisons uses the preserved `41bb8fe` library,
+the same `4f77d9c` reference and mutable `f4d5b78`, then reverse order. The owned
+secondary fixture is stopped; all builds/tests/probes remain paused. Every full
+result/schema check passes, with zero caller retries and zero 500 ms process
+census violations. The workload, harness and hardware are unchanged from above.
+
+| Build | Full-read median ms | p95 ms |
+|---|---:|---:|
+| Reference | 429.895 | 842.828 |
+| Corrected hints | 373.015 | 805.607 |
+| Mutable | 125.224 | 147.964 |
+
+This limited comparison has a **13.23% lower** full-read median, still **2.979x**
+mutable. Read times vary substantially between processes and comparisons; the
+earlier source's negative read result remains above. Maintenance stays enabled
+and physical segment topology is not sampled. These results do **not establish
+a stable or general full-read speedup** or isolate a pure cache/decode effect.
+[All corrected read cases and samples](reader-directory-cache-countfix-read-comparison.json)
+are retained separately from the pre-correction samples.
+
+| Build | Median ms | p95 ms | Updates/s |
+|---|---:|---:|---:|
+| Reference | 33.742 | 67.447 | 25.004 |
+| Corrected hints | 32.734 | 63.218 | 26.556 |
+| Mutable | 5.645 | 7.082 | 173.848 |
+
+Corrected-source write throughput is **6.21% higher**; mutable throughput remains
+**6.547x** higher. The independent prior-source comparison measured 10.28%, and
+is not pooled or relabeled as corrected-source evidence.
+[All corrected write samples and hashes](reader-directory-cache-countfix-write-comparison.json)
+include every returned value and final 40,000-row validation. Two processes per
+source remain limited evidence. Full feature/performance parity is incomplete.
