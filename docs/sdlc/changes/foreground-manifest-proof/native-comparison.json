@@ -1,0 +1,1434 @@
+{
+  "baseline": "2eeb82d93636f653f3feccec704863bd7fe9b35a",
+  "candidate": "cbb5b0f4aedabf254601d20a3fe3e458ae18a6c3",
+  "plan": {
+    "baseline": "2eeb82d93636f653f3feccec704863bd7fe9b35a",
+    "candidate": "cbb5b0f4aedabf254601d20a3fe3e458ae18a6c3",
+    "order": [
+      "baseline",
+      "candidate",
+      "candidate",
+      "baseline"
+    ],
+    "workloads": [
+      {
+        "mode": "writes",
+        "rows": 1,
+        "unrelated_tables": 0
+      },
+      {
+        "mode": "writes",
+        "rows": 1,
+        "unrelated_tables": 32
+      },
+      {
+        "mode": "write-batches",
+        "rows": 512,
+        "unrelated_tables": 0
+      }
+    ],
+    "warmups": 1,
+    "samples_per_case_per_process": 7,
+    "runs": 12,
+    "publication_and_complete_returning_fetch_in_timer": true,
+    "independent_full_row_validation_outside_write_timer": true,
+    "new_protocol": false,
+    "performance_parity_claim": false
+  },
+  "environment": {
+    "cpu": "Apple M5 Max",
+    "logical_cpus": 18,
+    "memory_bytes": 38654705664,
+    "docker_cpus": 18,
+    "docker_memory_bytes": 25420967936,
+    "software_image_digests": [
+      "redislabs/redis@sha256:b3993a5ed453ffe2aeacff63db7dd3702253b7e2f732032676e2b221413e0e06"
+    ],
+    "software_image_version": "8.2.6",
+    "software_image_release": "25",
+    "software_image_architecture": "aarch64",
+    "go": "go version go1.27.2 darwin/arm64",
+    "baseline_native_go_toolchain": "go1.27.3",
+    "candidate_native_go_toolchain": "go1.27.3"
+  },
+  "initial_census": {
+    "runs": 12,
+    "census_interval_ms": 500,
+    "census_samples": 62,
+    "competing_known_process_violations": 0,
+    "ordering_per_workload": [
+      "baseline",
+      "candidate",
+      "candidate",
+      "baseline"
+    ],
+    "caller_retries": 0
+  },
+  "regression_investigation_census": {
+    "runs": 8,
+    "census_interval_ms": 500,
+    "census_samples": 41,
+    "competing_known_process_violations": 0,
+    "ordering_per_workload": [
+      "baseline",
+      "candidate",
+      "candidate",
+      "baseline",
+      "candidate",
+      "baseline",
+      "baseline",
+      "candidate"
+    ],
+    "caller_retries": 0
+  },
+  "summary": [
+    {
+      "mode": "batch",
+      "unrelated_tables": 0,
+      "case": "arrow_append_batch",
+      "samples_per_source": 42,
+      "baseline_median_ms": 26.430083496961743,
+      "candidate_median_ms": 26.019916986115277,
+      "latency_change_percent": -1.5518926033420088
+    },
+    {
+      "mode": "batch",
+      "unrelated_tables": 0,
+      "case": "sql_insert_batch",
+      "samples_per_source": 42,
+      "baseline_median_ms": 26.42458296031691,
+      "candidate_median_ms": 26.350708008976653,
+      "latency_change_percent": -0.2795690340740675
+    },
+    {
+      "mode": "small",
+      "unrelated_tables": 0,
+      "case": "arrow_append",
+      "samples_per_source": 14,
+      "baseline_median_ms": 20.674791507190093,
+      "candidate_median_ms": 20.321770483860746,
+      "latency_change_percent": -1.7074949617101431
+    },
+    {
+      "mode": "small",
+      "unrelated_tables": 0,
+      "case": "metadata_comment",
+      "samples_per_source": 14,
+      "baseline_median_ms": 15.616000513546169,
+      "candidate_median_ms": 13.485708506777883,
+      "latency_change_percent": -13.641726029147828
+    },
+    {
+      "mode": "small",
+      "unrelated_tables": 0,
+      "case": "noop_update",
+      "samples_per_source": 14,
+      "baseline_median_ms": 14.457187498919666,
+      "candidate_median_ms": 14.322583010653034,
+      "latency_change_percent": -0.9310558383274103
+    },
+    {
+      "mode": "small",
+      "unrelated_tables": 0,
+      "case": "point_update",
+      "samples_per_source": 14,
+      "baseline_median_ms": 24.57131296978332,
+      "candidate_median_ms": 22.87385446834378,
+      "latency_change_percent": -6.908293844643132
+    },
+    {
+      "mode": "small",
+      "unrelated_tables": 32,
+      "case": "arrow_append",
+      "samples_per_source": 14,
+      "baseline_median_ms": 22.499833517940715,
+      "candidate_median_ms": 21.31920846295543,
+      "latency_change_percent": -5.24726129215084
+    },
+    {
+      "mode": "small",
+      "unrelated_tables": 32,
+      "case": "metadata_comment",
+      "samples_per_source": 14,
+      "baseline_median_ms": 14.637645479524508,
+      "candidate_median_ms": 13.62906300346367,
+      "latency_change_percent": -6.890332721008086
+    },
+    {
+      "mode": "small",
+      "unrelated_tables": 32,
+      "case": "noop_update",
+      "samples_per_source": 14,
+      "baseline_median_ms": 14.874520478770137,
+      "candidate_median_ms": 13.748020981438458,
+      "latency_change_percent": -7.573350004388313
+    },
+    {
+      "mode": "small",
+      "unrelated_tables": 32,
+      "case": "point_update",
+      "samples_per_source": 14,
+      "baseline_median_ms": 24.81858301325701,
+      "candidate_median_ms": 23.080833023414016,
+      "latency_change_percent": -7.001809849155228
+    }
+  ],
+  "runs": [
+    {
+      "run": "matched-write-batches-0-0-baseline",
+      "version": "baseline",
+      "result": {
+        "source": "2eeb82d93636f653f3feccec704863bd7fe9b35a",
+        "driver_sha256": "41ba5d2d8be82c377c6204a1b641bcbc59a82a8ec481d023d45de825ef35b9dd",
+        "harness_sha256": "b11636d73e14a72c4292d08b8c9cb5907ae376724503e83b0dae7141353a5f23",
+        "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "redis_version": "8.8.0",
+        "software_shards": 3,
+        "qpf": 4,
+        "noeviction": true,
+        "input_rows": 512,
+        "visible_rows": 512,
+        "storage_model": "snapshot",
+        "snapshot_protocol": 16,
+        "initial_segments": null,
+        "segment_count_note": "not sampled; maintenance enabled during workload",
+        "unrelated_tables": 0,
+        "wide_columns": null,
+        "repeats": 7,
+        "warmups": 1,
+        "timing": "write through atomic publication and complete RETURNING fetch when present; complete independent post-write validation excluded",
+        "cases": {
+          "sql_insert_batch": {
+            "median_ms": 26.18312498088926,
+            "samples_ms": [
+              26.993792038410902,
+              26.45916596520692,
+              26.18312498088926,
+              25.871707999613136,
+              25.877291976939887,
+              28.13241700641811,
+              25.556750013493
+            ],
+            "output_rows": 512
+          },
+          "arrow_append_batch": {
+            "median_ms": 26.855999953113496,
+            "samples_ms": [
+              28.970416984520853,
+              27.39441697485745,
+              26.162083027884364,
+              26.92187501816079,
+              26.544917025603354,
+              26.427042030263692,
+              26.855999953113496
+            ],
+            "output_rows": 512
+          }
+        }
+      }
+    },
+    {
+      "run": "matched-write-batches-0-1-candidate",
+      "version": "candidate",
+      "result": {
+        "source": "cbb5b0f4aedabf254601d20a3fe3e458ae18a6c3",
+        "driver_sha256": "a6bdc5babfccc2e5c6db5206637cc18477b39cde764f219023d62e3fc9d2903a",
+        "harness_sha256": "b11636d73e14a72c4292d08b8c9cb5907ae376724503e83b0dae7141353a5f23",
+        "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "redis_version": "8.8.0",
+        "software_shards": 3,
+        "qpf": 4,
+        "noeviction": true,
+        "input_rows": 512,
+        "visible_rows": 512,
+        "storage_model": "snapshot",
+        "snapshot_protocol": 16,
+        "initial_segments": null,
+        "segment_count_note": "not sampled; maintenance enabled during workload",
+        "unrelated_tables": 0,
+        "wide_columns": null,
+        "repeats": 7,
+        "warmups": 1,
+        "timing": "write through atomic publication and complete RETURNING fetch when present; complete independent post-write validation excluded",
+        "cases": {
+          "sql_insert_batch": {
+            "median_ms": 25.828499987255782,
+            "samples_ms": [
+              25.613625010009855,
+              33.19629200268537,
+              25.828499987255782,
+              26.85387502424419,
+              25.441749952733517,
+              36.52570804115385,
+              25.63599997665733
+            ],
+            "output_rows": 512
+          },
+          "arrow_append_batch": {
+            "median_ms": 25.632667005993426,
+            "samples_ms": [
+              25.127665954641998,
+              25.627374998293817,
+              24.986084026750177,
+              25.632667005993426,
+              27.74991700425744,
+              26.304124970920384,
+              25.846666016150266
+            ],
+            "output_rows": 512
+          }
+        }
+      }
+    },
+    {
+      "run": "matched-write-batches-0-2-candidate",
+      "version": "candidate",
+      "result": {
+        "source": "cbb5b0f4aedabf254601d20a3fe3e458ae18a6c3",
+        "driver_sha256": "a6bdc5babfccc2e5c6db5206637cc18477b39cde764f219023d62e3fc9d2903a",
+        "harness_sha256": "b11636d73e14a72c4292d08b8c9cb5907ae376724503e83b0dae7141353a5f23",
+        "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "redis_version": "8.8.0",
+        "software_shards": 3,
+        "qpf": 4,
+        "noeviction": true,
+        "input_rows": 512,
+        "visible_rows": 512,
+        "storage_model": "snapshot",
+        "snapshot_protocol": 16,
+        "initial_segments": null,
+        "segment_count_note": "not sampled; maintenance enabled during workload",
+        "unrelated_tables": 0,
+        "wide_columns": null,
+        "repeats": 7,
+        "warmups": 1,
+        "timing": "write through atomic publication and complete RETURNING fetch when present; complete independent post-write validation excluded",
+        "cases": {
+          "sql_insert_batch": {
+            "median_ms": 31.842667027376592,
+            "samples_ms": [
+              48.41225000564009,
+              36.71704197768122,
+              27.861916983965784,
+              31.842667027376592,
+              26.170625002123415,
+              36.561458953656256,
+              29.22445797594264
+            ],
+            "output_rows": 512
+          },
+          "arrow_append_batch": {
+            "median_ms": 26.696000015363097,
+            "samples_ms": [
+              28.04154099430889,
+              25.980500038713217,
+              27.804542041849345,
+              29.62070901412517,
+              26.696000015363097,
+              26.473375037312508,
+              26.100417017005384
+            ],
+            "output_rows": 512
+          }
+        }
+      }
+    },
+    {
+      "run": "matched-write-batches-0-3-baseline",
+      "version": "baseline",
+      "result": {
+        "source": "2eeb82d93636f653f3feccec704863bd7fe9b35a",
+        "driver_sha256": "41ba5d2d8be82c377c6204a1b641bcbc59a82a8ec481d023d45de825ef35b9dd",
+        "harness_sha256": "b11636d73e14a72c4292d08b8c9cb5907ae376724503e83b0dae7141353a5f23",
+        "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "redis_version": "8.8.0",
+        "software_shards": 3,
+        "qpf": 4,
+        "noeviction": true,
+        "input_rows": 512,
+        "visible_rows": 512,
+        "storage_model": "snapshot",
+        "snapshot_protocol": 16,
+        "initial_segments": null,
+        "segment_count_note": "not sampled; maintenance enabled during workload",
+        "unrelated_tables": 0,
+        "wide_columns": null,
+        "repeats": 7,
+        "warmups": 1,
+        "timing": "write through atomic publication and complete RETURNING fetch when present; complete independent post-write validation excluded",
+        "cases": {
+          "sql_insert_batch": {
+            "median_ms": 25.843458017334342,
+            "samples_ms": [
+              28.96341698942706,
+              26.725292031187564,
+              26.277665980160236,
+              25.487499951850623,
+              25.607375020626932,
+              25.843458017334342,
+              24.835625023115426
+            ],
+            "output_rows": 512
+          },
+          "arrow_append_batch": {
+            "median_ms": 26.284667022991925,
+            "samples_ms": [
+              25.716874981299043,
+              26.424207957461476,
+              26.284667022991925,
+              25.60416702181101,
+              27.063292043749243,
+              25.794667017180473,
+              30.765208008233458
+            ],
+            "output_rows": 512
+          }
+        }
+      }
+    },
+    {
+      "run": "matched-writes-0-0-baseline",
+      "version": "baseline",
+      "result": {
+        "source": "2eeb82d93636f653f3feccec704863bd7fe9b35a",
+        "driver_sha256": "41ba5d2d8be82c377c6204a1b641bcbc59a82a8ec481d023d45de825ef35b9dd",
+        "harness_sha256": "b11636d73e14a72c4292d08b8c9cb5907ae376724503e83b0dae7141353a5f23",
+        "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "redis_version": "8.8.0",
+        "software_shards": 3,
+        "qpf": 4,
+        "noeviction": true,
+        "input_rows": 1,
+        "visible_rows": 9,
+        "storage_model": "snapshot",
+        "snapshot_protocol": 16,
+        "initial_segments": null,
+        "segment_count_note": "not sampled; maintenance enabled during workload",
+        "unrelated_tables": 0,
+        "wide_columns": null,
+        "repeats": 7,
+        "warmups": 1,
+        "timing": "write/publication + complete RETURNING fetch; independent post-write validation excluded",
+        "cases": {
+          "metadata_comment": {
+            "median_ms": 16.039917012676597,
+            "samples_ms": [
+              15.905666979961097,
+              18.29483301844448,
+              15.522708999924362,
+              15.481666021514684,
+              17.504542018286884,
+              17.051916976924986,
+              16.039917012676597
+            ]
+          },
+          "point_update": {
+            "median_ms": 25.895708007737994,
+            "samples_ms": [
+              21.442500001285225,
+              25.895708007737994,
+              29.17858399450779,
+              24.359416973311454,
+              26.55887504806742,
+              29.433458985295147,
+              24.12650000769645
+            ]
+          },
+          "noop_update": {
+            "median_ms": 14.510624983813614,
+            "samples_ms": [
+              31.263292010407895,
+              15.616499993484467,
+              14.857625006698072,
+              14.510624983813614,
+              13.63787503214553,
+              13.659499993082136,
+              13.668375031556934
+            ]
+          },
+          "arrow_append": {
+            "median_ms": 20.860375021584332,
+            "samples_ms": [
+              18.50187499076128,
+              19.942125014495105,
+              20.860375021584332,
+              26.225707959383726,
+              20.610750012565404,
+              21.81516698328778,
+              26.13100002054125
+            ]
+          }
+        }
+      }
+    },
+    {
+      "run": "matched-writes-0-1-candidate",
+      "version": "candidate",
+      "result": {
+        "source": "cbb5b0f4aedabf254601d20a3fe3e458ae18a6c3",
+        "driver_sha256": "a6bdc5babfccc2e5c6db5206637cc18477b39cde764f219023d62e3fc9d2903a",
+        "harness_sha256": "b11636d73e14a72c4292d08b8c9cb5907ae376724503e83b0dae7141353a5f23",
+        "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "redis_version": "8.8.0",
+        "software_shards": 3,
+        "qpf": 4,
+        "noeviction": true,
+        "input_rows": 1,
+        "visible_rows": 9,
+        "storage_model": "snapshot",
+        "snapshot_protocol": 16,
+        "initial_segments": null,
+        "segment_count_note": "not sampled; maintenance enabled during workload",
+        "unrelated_tables": 0,
+        "wide_columns": null,
+        "repeats": 7,
+        "warmups": 1,
+        "timing": "write/publication + complete RETURNING fetch; independent post-write validation excluded",
+        "cases": {
+          "metadata_comment": {
+            "median_ms": 12.977708014659584,
+            "samples_ms": [
+              12.977708014659584,
+              12.882124981842935,
+              13.48308299202472,
+              13.43862502835691,
+              12.930458993650973,
+              12.903416994959116,
+              13.703791017178446
+            ]
+          },
+          "point_update": {
+            "median_ms": 23.80891697248444,
+            "samples_ms": [
+              20.385957963299006,
+              23.80891697248444,
+              26.871541980654,
+              21.84495801338926,
+              25.89624997926876,
+              26.197124971076846,
+              21.604708046652377
+            ]
+          },
+          "noop_update": {
+            "median_ms": 14.247999992221594,
+            "samples_ms": [
+              30.0862499861978,
+              15.448582998942584,
+              13.313416973687708,
+              14.247999992221594,
+              13.057999953161925,
+              13.790792028885335,
+              16.664209018927068
+            ]
+          },
+          "arrow_append": {
+            "median_ms": 19.98541597276926,
+            "samples_ms": [
+              17.773250001482666,
+              17.520457971841097,
+              20.65812499495223,
+              26.226999994833022,
+              19.23308300320059,
+              19.98541597276926,
+              24.331249995157123
+            ]
+          }
+        }
+      }
+    },
+    {
+      "run": "matched-writes-0-2-candidate",
+      "version": "candidate",
+      "result": {
+        "source": "cbb5b0f4aedabf254601d20a3fe3e458ae18a6c3",
+        "driver_sha256": "a6bdc5babfccc2e5c6db5206637cc18477b39cde764f219023d62e3fc9d2903a",
+        "harness_sha256": "b11636d73e14a72c4292d08b8c9cb5907ae376724503e83b0dae7141353a5f23",
+        "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "redis_version": "8.8.0",
+        "software_shards": 3,
+        "qpf": 4,
+        "noeviction": true,
+        "input_rows": 1,
+        "visible_rows": 9,
+        "storage_model": "snapshot",
+        "snapshot_protocol": 16,
+        "initial_segments": null,
+        "segment_count_note": "not sampled; maintenance enabled during workload",
+        "unrelated_tables": 0,
+        "wide_columns": null,
+        "repeats": 7,
+        "warmups": 1,
+        "timing": "write/publication + complete RETURNING fetch; independent post-write validation excluded",
+        "cases": {
+          "metadata_comment": {
+            "median_ms": 14.241791039239615,
+            "samples_ms": [
+              14.202540973201394,
+              14.7795410011895,
+              13.206540956161916,
+              17.56204100092873,
+              14.241791039239615,
+              13.488334021531045,
+              14.923541049938649
+            ]
+          },
+          "point_update": {
+            "median_ms": 21.93879196420312,
+            "samples_ms": [
+              20.734333025757223,
+              24.21470801346004,
+              27.57129102246836,
+              21.93879196420312,
+              27.759750024415553,
+              21.82625001296401,
+              20.639416004996747
+            ]
+          },
+          "noop_update": {
+            "median_ms": 14.397166029084474,
+            "samples_ms": [
+              29.86958302790299,
+              15.18874999601394,
+              14.998209022451192,
+              13.603333965875208,
+              12.960499967448413,
+              13.2748750038445,
+              14.397166029084474
+            ]
+          },
+          "arrow_append": {
+            "median_ms": 20.811749971471727,
+            "samples_ms": [
+              18.44000001437962,
+              19.00041598128155,
+              20.856291987001896,
+              25.192582979798317,
+              19.891541975084692,
+              20.811749971471727,
+              26.547125016804785
+            ]
+          }
+        }
+      }
+    },
+    {
+      "run": "matched-writes-0-3-baseline",
+      "version": "baseline",
+      "result": {
+        "source": "2eeb82d93636f653f3feccec704863bd7fe9b35a",
+        "driver_sha256": "41ba5d2d8be82c377c6204a1b641bcbc59a82a8ec481d023d45de825ef35b9dd",
+        "harness_sha256": "b11636d73e14a72c4292d08b8c9cb5907ae376724503e83b0dae7141353a5f23",
+        "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "redis_version": "8.8.0",
+        "software_shards": 3,
+        "qpf": 4,
+        "noeviction": true,
+        "input_rows": 1,
+        "visible_rows": 9,
+        "storage_model": "snapshot",
+        "snapshot_protocol": 16,
+        "initial_segments": null,
+        "segment_count_note": "not sampled; maintenance enabled during workload",
+        "unrelated_tables": 0,
+        "wide_columns": null,
+        "repeats": 7,
+        "warmups": 1,
+        "timing": "write/publication + complete RETURNING fetch; independent post-write validation excluded",
+        "cases": {
+          "metadata_comment": {
+            "median_ms": 13.935833994764835,
+            "samples_ms": [
+              13.676125032361597,
+              15.831125027034432,
+              13.935833994764835,
+              13.837790989782661,
+              13.611875008791685,
+              15.709292027167976,
+              14.253999979700893
+            ]
+          },
+          "point_update": {
+            "median_ms": 23.894957965239882,
+            "samples_ms": [
+              21.559957996942103,
+              23.76274997368455,
+              38.57766598230228,
+              23.23225000873208,
+              24.783208966255188,
+              29.379207990132272,
+              23.894957965239882
+            ]
+          },
+          "noop_update": {
+            "median_ms": 14.403750014025718,
+            "samples_ms": [
+              30.998250003904104,
+              15.025832981336862,
+              15.829999989364296,
+              14.403750014025718,
+              12.968000024557114,
+              13.189250021241605,
+              13.3761249599047
+            ]
+          },
+          "arrow_append": {
+            "median_ms": 20.55333397584036,
+            "samples_ms": [
+              17.892208008561283,
+              20.281875040382147,
+              20.55333397584036,
+              35.91012500692159,
+              20.449125033337623,
+              20.738833001814783,
+              32.89795899763703
+            ]
+          }
+        }
+      }
+    },
+    {
+      "run": "matched-writes-32-0-baseline",
+      "version": "baseline",
+      "result": {
+        "source": "2eeb82d93636f653f3feccec704863bd7fe9b35a",
+        "driver_sha256": "41ba5d2d8be82c377c6204a1b641bcbc59a82a8ec481d023d45de825ef35b9dd",
+        "harness_sha256": "b11636d73e14a72c4292d08b8c9cb5907ae376724503e83b0dae7141353a5f23",
+        "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "redis_version": "8.8.0",
+        "software_shards": 3,
+        "qpf": 4,
+        "noeviction": true,
+        "input_rows": 1,
+        "visible_rows": 9,
+        "storage_model": "snapshot",
+        "snapshot_protocol": 16,
+        "initial_segments": null,
+        "segment_count_note": "not sampled; maintenance enabled during workload",
+        "unrelated_tables": 32,
+        "wide_columns": null,
+        "repeats": 7,
+        "warmups": 1,
+        "timing": "write/publication + complete RETURNING fetch; independent post-write validation excluded",
+        "cases": {
+          "metadata_comment": {
+            "median_ms": 14.956750033888966,
+            "samples_ms": [
+              15.696334012318403,
+              14.804999984335154,
+              15.381625038571656,
+              14.306250028312206,
+              14.674291014671326,
+              14.956750033888966,
+              15.0137500022538
+            ]
+          },
+          "point_update": {
+            "median_ms": 25.336791994050145,
+            "samples_ms": [
+              22.906916972715408,
+              28.001790982671082,
+              28.836417011916637,
+              24.087917001452297,
+              25.336791994050145,
+              38.181333045940846,
+              23.98450003238395
+            ]
+          },
+          "noop_update": {
+            "median_ms": 14.510290988255292,
+            "samples_ms": [
+              31.630040961317718,
+              16.067458025645465,
+              14.510290988255292,
+              15.632958034984767,
+              13.670790998730808,
+              14.236957998946309,
+              14.251707994844764
+            ]
+          },
+          "arrow_append": {
+            "median_ms": 21.636417019180954,
+            "samples_ms": [
+              20.310249994508922,
+              20.556500006932765,
+              22.859750024508685,
+              26.73854201566428,
+              21.62091596983373,
+              21.636417019180954,
+              27.029707969632
+            ]
+          }
+        }
+      }
+    },
+    {
+      "run": "matched-writes-32-1-candidate",
+      "version": "candidate",
+      "result": {
+        "source": "cbb5b0f4aedabf254601d20a3fe3e458ae18a6c3",
+        "driver_sha256": "a6bdc5babfccc2e5c6db5206637cc18477b39cde764f219023d62e3fc9d2903a",
+        "harness_sha256": "b11636d73e14a72c4292d08b8c9cb5907ae376724503e83b0dae7141353a5f23",
+        "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "redis_version": "8.8.0",
+        "software_shards": 3,
+        "qpf": 4,
+        "noeviction": true,
+        "input_rows": 1,
+        "visible_rows": 9,
+        "storage_model": "snapshot",
+        "snapshot_protocol": 16,
+        "initial_segments": null,
+        "segment_count_note": "not sampled; maintenance enabled during workload",
+        "unrelated_tables": 32,
+        "wide_columns": null,
+        "repeats": 7,
+        "warmups": 1,
+        "timing": "write/publication + complete RETURNING fetch; independent post-write validation excluded",
+        "cases": {
+          "metadata_comment": {
+            "median_ms": 13.602334016468376,
+            "samples_ms": [
+              14.550832973327488,
+              13.51558300666511,
+              13.555374986026436,
+              13.602334016468376,
+              13.499083986971527,
+              14.122458000201732,
+              14.363792026415467
+            ]
+          },
+          "point_update": {
+            "median_ms": 23.13316601794213,
+            "samples_ms": [
+              21.106083993799984,
+              23.950916016474366,
+              27.828542049974203,
+              22.943457996007055,
+              23.13316601794213,
+              27.765790990088135,
+              21.590667020063847
+            ]
+          },
+          "noop_update": {
+            "median_ms": 13.689749990589917,
+            "samples_ms": [
+              34.59150000708178,
+              15.091540990397334,
+              14.819999982137233,
+              13.689749990589917,
+              12.881166010629386,
+              12.954625010024756,
+              12.872749997768551
+            ]
+          },
+          "arrow_append": {
+            "median_ms": 20.292999979574233,
+            "samples_ms": [
+              17.805667011998594,
+              19.00912501150742,
+              20.465874986257404,
+              25.380083010531962,
+              19.51845904113725,
+              20.292999979574233,
+              27.75574999395758
+            ]
+          }
+        }
+      }
+    },
+    {
+      "run": "matched-writes-32-2-candidate",
+      "version": "candidate",
+      "result": {
+        "source": "cbb5b0f4aedabf254601d20a3fe3e458ae18a6c3",
+        "driver_sha256": "a6bdc5babfccc2e5c6db5206637cc18477b39cde764f219023d62e3fc9d2903a",
+        "harness_sha256": "b11636d73e14a72c4292d08b8c9cb5907ae376724503e83b0dae7141353a5f23",
+        "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "redis_version": "8.8.0",
+        "software_shards": 3,
+        "qpf": 4,
+        "noeviction": true,
+        "input_rows": 1,
+        "visible_rows": 9,
+        "storage_model": "snapshot",
+        "snapshot_protocol": 16,
+        "initial_segments": null,
+        "segment_count_note": "not sampled; maintenance enabled during workload",
+        "unrelated_tables": 32,
+        "wide_columns": null,
+        "repeats": 7,
+        "warmups": 1,
+        "timing": "write/publication + complete RETURNING fetch; independent post-write validation excluded",
+        "cases": {
+          "metadata_comment": {
+            "median_ms": 13.655791990458965,
+            "samples_ms": [
+              15.130290994420648,
+              13.526417023967952,
+              13.848582981154323,
+              13.44033400528133,
+              13.655791990458965,
+              13.662083016242832,
+              13.427916972432286
+            ]
+          },
+          "point_update": {
+            "median_ms": 23.0285000288859,
+            "samples_ms": [
+              21.130624983925372,
+              23.0285000288859,
+              37.079499976243824,
+              21.88383403699845,
+              25.723250000737607,
+              28.287624998483807,
+              22.81770802801475
+            ]
+          },
+          "noop_update": {
+            "median_ms": 13.806291972287,
+            "samples_ms": [
+              32.68162504537031,
+              16.2680420326069,
+              14.337666041683406,
+              13.806291972287,
+              12.419416976626962,
+              13.037250027991831,
+              12.01145799132064
+            ]
+          },
+          "arrow_append": {
+            "median_ms": 23.61100004054606,
+            "samples_ms": [
+              21.760166971944273,
+              19.014874997083098,
+              23.61100004054606,
+              28.306374966632575,
+              24.868750013411045,
+              24.670542043168098,
+              20.878249953966588
+            ]
+          }
+        }
+      }
+    },
+    {
+      "run": "matched-writes-32-3-baseline",
+      "version": "baseline",
+      "result": {
+        "source": "2eeb82d93636f653f3feccec704863bd7fe9b35a",
+        "driver_sha256": "41ba5d2d8be82c377c6204a1b641bcbc59a82a8ec481d023d45de825ef35b9dd",
+        "harness_sha256": "b11636d73e14a72c4292d08b8c9cb5907ae376724503e83b0dae7141353a5f23",
+        "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "redis_version": "8.8.0",
+        "software_shards": 3,
+        "qpf": 4,
+        "noeviction": true,
+        "input_rows": 1,
+        "visible_rows": 9,
+        "storage_model": "snapshot",
+        "snapshot_protocol": 16,
+        "initial_segments": null,
+        "segment_count_note": "not sampled; maintenance enabled during workload",
+        "unrelated_tables": 32,
+        "wide_columns": null,
+        "repeats": 7,
+        "warmups": 1,
+        "timing": "write/publication + complete RETURNING fetch; independent post-write validation excluded",
+        "cases": {
+          "metadata_comment": {
+            "median_ms": 14.224249986000359,
+            "samples_ms": [
+              13.813582947477698,
+              14.166250010021031,
+              14.252665976528078,
+              14.14683397160843,
+              14.831083011813462,
+              14.60099994437769,
+              14.224249986000359
+            ]
+          },
+          "point_update": {
+            "median_ms": 24.78216600138694,
+            "samples_ms": [
+              22.344500001054257,
+              24.78216600138694,
+              38.100583013147116,
+              23.095416952855885,
+              24.855000025127083,
+              36.9027919950895,
+              23.707374988589436
+            ]
+          },
+          "noop_update": {
+            "median_ms": 14.877457986585796,
+            "samples_ms": [
+              34.78200000245124,
+              16.642832953948528,
+              14.871582970954478,
+              15.44333400670439,
+              14.877457986585796,
+              14.024832984432578,
+              13.805958034936339
+            ]
+          },
+          "arrow_append": {
+            "median_ms": 24.681874958332628,
+            "samples_ms": [
+              19.499750051181763,
+              19.866916991304606,
+              22.139917011372745,
+              27.601915993727744,
+              24.681874958332628,
+              29.670624993741512,
+              27.266499993856996
+            ]
+          }
+        }
+      }
+    },
+    {
+      "run": "repeat-batch-write-batches-0-0-baseline",
+      "version": "baseline",
+      "result": {
+        "source": "2eeb82d93636f653f3feccec704863bd7fe9b35a",
+        "driver_sha256": "41ba5d2d8be82c377c6204a1b641bcbc59a82a8ec481d023d45de825ef35b9dd",
+        "harness_sha256": "b11636d73e14a72c4292d08b8c9cb5907ae376724503e83b0dae7141353a5f23",
+        "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "redis_version": "8.8.0",
+        "software_shards": 3,
+        "qpf": 4,
+        "noeviction": true,
+        "input_rows": 512,
+        "visible_rows": 512,
+        "storage_model": "snapshot",
+        "snapshot_protocol": 16,
+        "initial_segments": null,
+        "segment_count_note": "not sampled; maintenance enabled during workload",
+        "unrelated_tables": 0,
+        "wide_columns": null,
+        "repeats": 7,
+        "warmups": 1,
+        "timing": "write through atomic publication and complete RETURNING fetch when present; complete independent post-write validation excluded",
+        "cases": {
+          "sql_insert_batch": {
+            "median_ms": 28.040000004693866,
+            "samples_ms": [
+              28.50566600682214,
+              30.6370829930529,
+              28.040000004693866,
+              27.639125008136034,
+              29.70245899632573,
+              27.175292023457587,
+              26.3899999554269
+            ],
+            "output_rows": 512
+          },
+          "arrow_append_batch": {
+            "median_ms": 26.22820797841996,
+            "samples_ms": [
+              26.78808302152902,
+              26.071667030919343,
+              26.160625042393804,
+              26.88766602659598,
+              26.150125020649284,
+              27.415624994318932,
+              26.22820797841996
+            ],
+            "output_rows": 512
+          }
+        }
+      }
+    },
+    {
+      "run": "repeat-batch-write-batches-0-1-candidate",
+      "version": "candidate",
+      "result": {
+        "source": "cbb5b0f4aedabf254601d20a3fe3e458ae18a6c3",
+        "driver_sha256": "a6bdc5babfccc2e5c6db5206637cc18477b39cde764f219023d62e3fc9d2903a",
+        "harness_sha256": "b11636d73e14a72c4292d08b8c9cb5907ae376724503e83b0dae7141353a5f23",
+        "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "redis_version": "8.8.0",
+        "software_shards": 3,
+        "qpf": 4,
+        "noeviction": true,
+        "input_rows": 512,
+        "visible_rows": 512,
+        "storage_model": "snapshot",
+        "snapshot_protocol": 16,
+        "initial_segments": null,
+        "segment_count_note": "not sampled; maintenance enabled during workload",
+        "unrelated_tables": 0,
+        "wide_columns": null,
+        "repeats": 7,
+        "warmups": 1,
+        "timing": "write through atomic publication and complete RETURNING fetch when present; complete independent post-write validation excluded",
+        "cases": {
+          "sql_insert_batch": {
+            "median_ms": 25.663500011432916,
+            "samples_ms": [
+              30.960290983784944,
+              26.53079101582989,
+              25.249833008274436,
+              24.87370796734467,
+              25.663500011432916,
+              25.17454099142924,
+              30.774791026487947
+            ],
+            "output_rows": 512
+          },
+          "arrow_append_batch": {
+            "median_ms": 26.01191698340699,
+            "samples_ms": [
+              25.850666977930814,
+              26.027916988823563,
+              25.301000045146793,
+              26.112458028364927,
+              26.919165975414217,
+              25.78999998513609,
+              26.01191698340699
+            ],
+            "output_rows": 512
+          }
+        }
+      }
+    },
+    {
+      "run": "repeat-batch-write-batches-0-2-candidate",
+      "version": "candidate",
+      "result": {
+        "source": "cbb5b0f4aedabf254601d20a3fe3e458ae18a6c3",
+        "driver_sha256": "a6bdc5babfccc2e5c6db5206637cc18477b39cde764f219023d62e3fc9d2903a",
+        "harness_sha256": "b11636d73e14a72c4292d08b8c9cb5907ae376724503e83b0dae7141353a5f23",
+        "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "redis_version": "8.8.0",
+        "software_shards": 3,
+        "qpf": 4,
+        "noeviction": true,
+        "input_rows": 512,
+        "visible_rows": 512,
+        "storage_model": "snapshot",
+        "snapshot_protocol": 16,
+        "initial_segments": null,
+        "segment_count_note": "not sampled; maintenance enabled during workload",
+        "unrelated_tables": 0,
+        "wide_columns": null,
+        "repeats": 7,
+        "warmups": 1,
+        "timing": "write through atomic publication and complete RETURNING fetch when present; complete independent post-write validation excluded",
+        "cases": {
+          "sql_insert_batch": {
+            "median_ms": 25.5207089940086,
+            "samples_ms": [
+              25.64708300633356,
+              25.5207089940086,
+              25.57087503373623,
+              24.997625034302473,
+              25.453042006120086,
+              25.320291984826326,
+              26.656833011657
+            ],
+            "output_rows": 512
+          },
+          "arrow_append_batch": {
+            "median_ms": 26.233915996272117,
+            "samples_ms": [
+              24.936624977272004,
+              24.81533301761374,
+              25.679332960862666,
+              26.264125015586615,
+              26.233915996272117,
+              26.75816701957956,
+              27.112291019875556
+            ],
+            "output_rows": 512
+          }
+        }
+      }
+    },
+    {
+      "run": "repeat-batch-write-batches-0-3-baseline",
+      "version": "baseline",
+      "result": {
+        "source": "2eeb82d93636f653f3feccec704863bd7fe9b35a",
+        "driver_sha256": "41ba5d2d8be82c377c6204a1b641bcbc59a82a8ec481d023d45de825ef35b9dd",
+        "harness_sha256": "b11636d73e14a72c4292d08b8c9cb5907ae376724503e83b0dae7141353a5f23",
+        "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "redis_version": "8.8.0",
+        "software_shards": 3,
+        "qpf": 4,
+        "noeviction": true,
+        "input_rows": 512,
+        "visible_rows": 512,
+        "storage_model": "snapshot",
+        "snapshot_protocol": 16,
+        "initial_segments": null,
+        "segment_count_note": "not sampled; maintenance enabled during workload",
+        "unrelated_tables": 0,
+        "wide_columns": null,
+        "repeats": 7,
+        "warmups": 1,
+        "timing": "write through atomic publication and complete RETURNING fetch when present; complete independent post-write validation excluded",
+        "cases": {
+          "sql_insert_batch": {
+            "median_ms": 26.762000052258372,
+            "samples_ms": [
+              27.862666989676654,
+              25.772291992325336,
+              26.383916032500565,
+              27.359124971553683,
+              26.989332982338965,
+              26.762000052258372,
+              26.063375000376254
+            ],
+            "output_rows": 512
+          },
+          "arrow_append_batch": {
+            "median_ms": 27.11141697363928,
+            "samples_ms": [
+              26.25925000756979,
+              26.431708014570177,
+              28.263374988455325,
+              27.18820795416832,
+              27.11141697363928,
+              28.632458008360118,
+              26.990167039912194
+            ],
+            "output_rows": 512
+          }
+        }
+      }
+    },
+    {
+      "run": "repeat-batch-write-batches-0-4-candidate",
+      "version": "candidate",
+      "result": {
+        "source": "cbb5b0f4aedabf254601d20a3fe3e458ae18a6c3",
+        "driver_sha256": "a6bdc5babfccc2e5c6db5206637cc18477b39cde764f219023d62e3fc9d2903a",
+        "harness_sha256": "b11636d73e14a72c4292d08b8c9cb5907ae376724503e83b0dae7141353a5f23",
+        "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "redis_version": "8.8.0",
+        "software_shards": 3,
+        "qpf": 4,
+        "noeviction": true,
+        "input_rows": 512,
+        "visible_rows": 512,
+        "storage_model": "snapshot",
+        "snapshot_protocol": 16,
+        "initial_segments": null,
+        "segment_count_note": "not sampled; maintenance enabled during workload",
+        "unrelated_tables": 0,
+        "wide_columns": null,
+        "repeats": 7,
+        "warmups": 1,
+        "timing": "write through atomic publication and complete RETURNING fetch when present; complete independent post-write validation excluded",
+        "cases": {
+          "sql_insert_batch": {
+            "median_ms": 25.935167039278895,
+            "samples_ms": [
+              29.00170802604407,
+              27.412833995185792,
+              26.930959022138268,
+              25.002375012263656,
+              25.64937499118969,
+              25.935167039278895,
+              25.72937501827255
+            ],
+            "output_rows": 512
+          },
+          "arrow_append_batch": {
+            "median_ms": 26.08120796503499,
+            "samples_ms": [
+              27.907041017897427,
+              26.08120796503499,
+              25.448500004131347,
+              28.28708302695304,
+              25.71795805124566,
+              26.34929202031344,
+              25.402833009138703
+            ],
+            "output_rows": 512
+          }
+        }
+      }
+    },
+    {
+      "run": "repeat-batch-write-batches-0-5-baseline",
+      "version": "baseline",
+      "result": {
+        "source": "2eeb82d93636f653f3feccec704863bd7fe9b35a",
+        "driver_sha256": "41ba5d2d8be82c377c6204a1b641bcbc59a82a8ec481d023d45de825ef35b9dd",
+        "harness_sha256": "b11636d73e14a72c4292d08b8c9cb5907ae376724503e83b0dae7141353a5f23",
+        "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "redis_version": "8.8.0",
+        "software_shards": 3,
+        "qpf": 4,
+        "noeviction": true,
+        "input_rows": 512,
+        "visible_rows": 512,
+        "storage_model": "snapshot",
+        "snapshot_protocol": 16,
+        "initial_segments": null,
+        "segment_count_note": "not sampled; maintenance enabled during workload",
+        "unrelated_tables": 0,
+        "wide_columns": null,
+        "repeats": 7,
+        "warmups": 1,
+        "timing": "write through atomic publication and complete RETURNING fetch when present; complete independent post-write validation excluded",
+        "cases": {
+          "sql_insert_batch": {
+            "median_ms": 26.305415958631784,
+            "samples_ms": [
+              26.5723749762401,
+              26.040834025479853,
+              25.76170803513378,
+              26.61999996053055,
+              26.305415958631784,
+              26.22579096350819,
+              27.080875006504357
+            ],
+            "output_rows": 512
+          },
+          "arrow_append_batch": {
+            "median_ms": 26.63216699147597,
+            "samples_ms": [
+              32.51629101578146,
+              26.63216699147597,
+              27.666040987242013,
+              26.42845897935331,
+              26.844291016459465,
+              25.89562500361353,
+              26.63199999369681
+            ],
+            "output_rows": 512
+          }
+        }
+      }
+    },
+    {
+      "run": "repeat-batch-write-batches-0-6-baseline",
+      "version": "baseline",
+      "result": {
+        "source": "2eeb82d93636f653f3feccec704863bd7fe9b35a",
+        "driver_sha256": "41ba5d2d8be82c377c6204a1b641bcbc59a82a8ec481d023d45de825ef35b9dd",
+        "harness_sha256": "b11636d73e14a72c4292d08b8c9cb5907ae376724503e83b0dae7141353a5f23",
+        "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "redis_version": "8.8.0",
+        "software_shards": 3,
+        "qpf": 4,
+        "noeviction": true,
+        "input_rows": 512,
+        "visible_rows": 512,
+        "storage_model": "snapshot",
+        "snapshot_protocol": 16,
+        "initial_segments": null,
+        "segment_count_note": "not sampled; maintenance enabled during workload",
+        "unrelated_tables": 0,
+        "wide_columns": null,
+        "repeats": 7,
+        "warmups": 1,
+        "timing": "write through atomic publication and complete RETURNING fetch when present; complete independent post-write validation excluded",
+        "cases": {
+          "sql_insert_batch": {
+            "median_ms": 26.373458036687225,
+            "samples_ms": [
+              26.639832998625934,
+              26.6645000083372,
+              25.815458968281746,
+              25.720292003825307,
+              26.150167046580464,
+              26.373458036687225,
+              26.70529205352068
+            ],
+            "output_rows": 512
+          },
+          "arrow_append_batch": {
+            "median_ms": 26.080249983351678,
+            "samples_ms": [
+              26.080249983351678,
+              25.620165979489684,
+              26.42237499821931,
+              26.16391598712653,
+              25.521750038024038,
+              26.168500015046448,
+              25.85024997824803
+            ],
+            "output_rows": 512
+          }
+        }
+      }
+    },
+    {
+      "run": "repeat-batch-write-batches-0-7-candidate",
+      "version": "candidate",
+      "result": {
+        "source": "cbb5b0f4aedabf254601d20a3fe3e458ae18a6c3",
+        "driver_sha256": "a6bdc5babfccc2e5c6db5206637cc18477b39cde764f219023d62e3fc9d2903a",
+        "harness_sha256": "b11636d73e14a72c4292d08b8c9cb5907ae376724503e83b0dae7141353a5f23",
+        "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "redis_version": "8.8.0",
+        "software_shards": 3,
+        "qpf": 4,
+        "noeviction": true,
+        "input_rows": 512,
+        "visible_rows": 512,
+        "storage_model": "snapshot",
+        "snapshot_protocol": 16,
+        "initial_segments": null,
+        "segment_count_note": "not sampled; maintenance enabled during workload",
+        "unrelated_tables": 0,
+        "wide_columns": null,
+        "repeats": 7,
+        "warmups": 1,
+        "timing": "write through atomic publication and complete RETURNING fetch when present; complete independent post-write validation excluded",
+        "cases": {
+          "sql_insert_batch": {
+            "median_ms": 27.328166004735976,
+            "samples_ms": [
+              25.915624981280416,
+              26.79137501399964,
+              24.671582970768213,
+              27.5503330049105,
+              28.313707967754453,
+              27.328166004735976,
+              27.608709002379328
+            ],
+            "output_rows": 512
+          },
+          "arrow_append_batch": {
+            "median_ms": 25.79141699243337,
+            "samples_ms": [
+              26.19420795235783,
+              25.788708007894456,
+              25.94766701804474,
+              29.771791014354676,
+              25.718457996845245,
+              25.744541024323553,
+              25.79141699243337
+            ],
+            "output_rows": 512
+          }
+        }
+      }
+    }
+  ]
+}

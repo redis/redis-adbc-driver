@@ -31,7 +31,7 @@ import pyarrow as pa
 def write_cases(cur, repeats, logical):
     results = {}
     value = 1
-    for name in ("metadata_comment", "point_update", "arrow_append"):
+    for name in ("metadata_comment", "point_update", "noop_update", "arrow_append"):
         samples = []
         for iteration in range(repeats + 1):
             if name == "arrow_append":
@@ -47,6 +47,10 @@ def write_cases(cur, repeats, logical):
             start = time.perf_counter()
             if name == "metadata_comment":
                 cur.execute("COMMENT ON TABLE t IS 'metadata benchmark'")
+            elif name == "noop_update":
+                cur.execute("UPDATE t SET v=v+1 WHERE id=-1")
+                if cur.rowcount != 0:
+                    raise AssertionError("no-op UPDATE affected rows")
             elif name == "point_update":
                 value += 1
                 cur.execute("UPDATE t SET v=v+1 WHERE id=1 RETURNING v")

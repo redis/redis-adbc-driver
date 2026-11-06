@@ -31,7 +31,16 @@ func (s *store) walkSnapshotDirectory(ctx context.Context, directory string, vis
 }
 
 func (s *store) validateSnapshotMetadata(ctx context.Context, root string) error {
-	raw, err := s.client.HGet(ctx, snapshotCatalogKey, "w:"+root).Bytes()
+	// A live pin protects this immutable committed root. Batch the same native
+	// proof reads; this is not a transaction or a weaker cached validation.
+	pipe := s.client.Pipeline()
+	manifest := pipe.HGet(ctx, snapshotCatalogKey, "w:"+root)
+	directory := pipe.ZCard(ctx, snapshotMetadataKeys(root))
+	rootMap := pipe.HLen(ctx, snapshotMetadataMap(root))
+	_, pipelineErr := pipe.Exec(ctx)
+	// Preserve proof/error precedence instead of consuming a failed command's
+	// zero value or letting a later pipeline error hide the manifest failure.
+	raw, err := manifest.Bytes()
 	if err != nil {
 		return wrapRedis(err, "snapshot metadata manifest unavailable")
 	}
@@ -43,7 +52,7 @@ func (s *store) validateSnapshotMetadata(ctx context.Context, root string) error
 	if err := json.Unmarshal(raw, &work); err != nil || work.State != "committed" || work.Count == nil || *work.Count < 0 {
 		return errorf(adbc.StatusIO, "invalid snapshot metadata manifest")
 	}
-	count, err := s.client.ZCard(ctx, snapshotMetadataKeys(root)).Result()
+	count, err := directory.Result()
 	if err != nil {
 		return err
 	}
@@ -53,12 +62,14 @@ func (s *store) validateSnapshotMetadata(ctx context.Context, root string) error
 	if work.Buckets == nil || *work.Buckets < 0 || *work.Buckets > 256 {
 		return errorf(adbc.StatusIO, "invalid snapshot metadata bucket manifest")
 	}
-	buckets, err := s.client.HLen(ctx, snapshotMetadataMap(root)).Result()
+	buckets, err := rootMap.Result()
 	if err != nil {
 		return err
 	}
 	if buckets != *work.Buckets {
 		return errorf(adbc.StatusIO, "snapshot metadata map is incomplete")
 	}
-	return nil
+	// Hooks/transports can fail the pipeline even when individual replies are
+	// populated. A proof never succeeds after an unaccounted-for pipeline error.
+	return pipelineErr
 }
