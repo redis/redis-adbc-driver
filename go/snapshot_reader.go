@@ -11,6 +11,7 @@ import (
 	"errors"
 	"slices"
 	"strings"
+	"sync/atomic"
 
 	"github.com/apache/arrow-adbc/go/adbc"
 	goredis "github.com/redis/go-redis/v9"
@@ -19,6 +20,13 @@ import (
 const snapshotReaderDirectory = snapshotPrefix + "readers"
 const snapshotReaderPrefix = snapshotPrefix + "reader:"
 const snapshotReaderDomains = snapshotPrefix + "reader-domains"
+
+// A cached list is only a routing hint. The server proves exact membership
+// and resource bounds before mutation; a stale list receives a fixed refusal.
+type snapshotReaderKeyList struct{ keys []any }
+type snapshotReaderKeyCache struct {
+	current atomic.Pointer[snapshotReaderKeyList]
+}
 
 func snapshotReaderNamespace(user string) string {
 	sum := sha256.Sum256([]byte(user))
@@ -42,6 +50,8 @@ local function reader_committed(catalog,root)
  return ok and type(w)=='table' and w.state=='committed'
 end
 local function reader_directory(start,count)
+ if KEYS[start]~='` + snapshotReaderDirectory + `' then return false end
+ if (redis.call('MEMORY','USAGE',KEYS[start],'SAMPLES',0) or 0)>262144 then error('snapshot reader namespace resource limit exceeded; administrator reconciliation required') end
  if type(count)~='number' or count<0 or count>128 or redis.call('SCARD',KEYS[start])~=count then return false end
  local seen={}
  for i=1,count do
@@ -128,15 +138,29 @@ if partition then return tostring(now+ttl) end
 return root
 `
 
-func (s *store) snapshotReaderKeys(ctx context.Context) ([]any, error) {
-	return s.snapshotNamespaceKeys(ctx, snapshotReaderDirectory)
+func (s *store) snapshotReaderKeys(ctx context.Context, refresh bool) ([]any, error) {
+	if !refresh {
+		if cached := s.readerKeys.current.Load(); cached != nil {
+			return cached.keys, nil
+		}
+	}
+	keys, err := s.snapshotNamespaceKeys(ctx, snapshotReaderDirectory)
+	if err != nil {
+		return nil, err
+	}
+	// Neither caller mutates this slice; command envelopes append a copy.
+	// Concurrent refreshes may leave an older hint, never a weaker proof.
+	s.readerKeys.current.Store(&snapshotReaderKeyList{keys: keys})
+	return keys, nil
 }
+
+const snapshotNamespaceRead = `if redis.call('SCARD',KEYS[1])>128 or (redis.call('MEMORY','USAGE',KEYS[1],'SAMPLES',0) or 0)>262144 then return redis.error_reply('snapshot reader namespace resource limit exceeded; administrator reconciliation required') end return redis.call('SMEMBERS',KEYS[1])`
 
 func (s *store) snapshotNamespaceKeys(ctx context.Context, directory string) ([]any, error) {
 
 	// Atomic read-only size checks precede materializing an untrusted directory.
 	// A separate SCARD followed by SMEMBERS could race arbitrary raw SADD calls.
-	names, err := once(ctx, s.client, "EVAL", `if redis.call('SCARD',KEYS[1])>128 or (redis.call('MEMORY','USAGE',KEYS[1],'SAMPLES',0) or 0)>262144 then return redis.error_reply('snapshot reader namespace resource limit exceeded; administrator reconciliation required') end return redis.call('SMEMBERS',KEYS[1])`, 1, directory).StringSlice()
+	names, err := once(ctx, s.client, "EVAL", snapshotNamespaceRead, 1, directory).StringSlice()
 	if err != nil {
 		return nil, err
 	}
@@ -224,7 +248,7 @@ func (s *store) readerControl(ctx context.Context, producer, op, token, id, root
 		if op == "valid" || op == "renew" || op == "release" || op == "release_partitions" {
 			directory = []any{snapshotReaderDirectory}
 		} else {
-			directory, err = s.snapshotReaderKeys(ctx)
+			directory, err = s.snapshotReaderKeys(ctx, attempt > 0)
 		}
 		if err != nil {
 			c := goredis.NewCmd(ctx)

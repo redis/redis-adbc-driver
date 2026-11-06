@@ -958,6 +958,7 @@ func wrapRedis(err error, context string) error {
 type store struct {
 	readerNamespace  string
 	restrictedReader bool
+	readerKeys       snapshotReaderKeyCache
 	controlScript    snapshotControlExecutor
 	snapshots        bool
 	compactor        *snapshotCompactor

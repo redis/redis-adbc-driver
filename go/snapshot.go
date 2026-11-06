@@ -542,7 +542,7 @@ func (s *store) snapshotControl(ctx context.Context, op, token, id, base string,
 			cmd.SetErr(err)
 			return cmd
 		}
-		directory, err := s.snapshotReaderKeys(ctx)
+		directory, err := s.snapshotReaderKeys(ctx, op == "init" || attempt > 0)
 		if err != nil {
 			cmd := goredis.NewCmd(ctx)
 			cmd.SetErr(err)
