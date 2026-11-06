@@ -1,0 +1,746 @@
+{
+  "date": "2026-11-06",
+  "libraries": {
+    "baseline": {
+      "revision": "c6baae32d77fd13575f0fc46defaaf761f699df4",
+      "sha256": "dc2fc70e41717ec8e1ae554925f7a0103a19581d50d9fa067f92910fa2126923",
+      "go": "1.27.3",
+      "clean_vcs": true
+    },
+    "candidate": {
+      "revision": "e5fa7bdcc813a878438d3ec26113f2b0cabdea39",
+      "sha256": "a5e4a40b2b0a8a291c106ce571cb08a2d5df23553528ec54692f97b47d680abb",
+      "go": "1.27.3",
+      "clean_vcs": true
+    },
+    "mutable": {
+      "revision": "f4d5b787e8c28c036baf49de9190c4e6f83ca2e8",
+      "sha256": "cc7ff80c8439ac8932f9baf8c308b6bc7f58514d1cbbe4c03538f0e66b3518f1",
+      "go": "1.27.3",
+      "clean_vcs": true
+    }
+  },
+  "machine": {
+    "host_cpu": "Apple M5 Max",
+    "host_logical_cpus": 18,
+    "host_memory_bytes": 38654705664,
+    "docker_cpus": 18,
+    "docker_memory_bytes": 25420967936,
+    "image_digests": [
+      "redislabs/redis@sha256:b3993a5ed453ffe2aeacff63db7dd3702253b7e2f732032676e2b221413e0e06"
+    ],
+    "image_architecture": "arm64",
+    "software_versions": [
+      "8.2.6-25"
+    ],
+    "python_environments": {
+      "benchmark": {
+        "python": "3.13.16",
+        "pyarrow": "26.0.0",
+        "manager": "1.13.0",
+        "redis_py": "8.1.0"
+      },
+      "native_validation": {
+        "python": "3.14.10",
+        "pyarrow": "26.0.1",
+        "manager": "1.13.0",
+        "redis_py": "8.1.0"
+      }
+    }
+  },
+  "container_census": {
+    "running_containers": 1,
+    "owned_fixture_containers": 1,
+    "other_running_containers": 0
+  },
+  "matched_census": {
+    "interval_ms": 500,
+    "observations": 2487,
+    "known_competitor_violations": [],
+    "completed_runs": 18,
+    "source_order_per_workload": [
+      "baseline",
+      "candidate",
+      "mutable",
+      "mutable",
+      "candidate",
+      "baseline"
+    ]
+  },
+  "unpaced_census": {
+    "interval_ms": 500,
+    "observations": 658,
+    "known_competitor_violations": [],
+    "completed_runs": 4,
+    "source_order_per_workload": [
+      "baseline",
+      "candidate",
+      "candidate",
+      "baseline"
+    ]
+  },
+  "offered_load_ceiling_per_second": 40,
+  "matched": [
+    {
+      "workload": "dense",
+      "label": "baseline",
+      "processes": 2,
+      "operations": 462,
+      "seconds": 120.83119079301832,
+      "operations_per_second": 3.823516072033071,
+      "median_ms": 257.1982920053415,
+      "p95_ms": 313.39037499856204,
+      "p99_ms": 332.00358401518315,
+      "max_ms": 336.16216597147286,
+      "logical_row_changes": 473088,
+      "window_rate_range": [
+        3.774633227389572,
+        3.871949203621916
+      ],
+      "immediate_max_segments": 4,
+      "immediate_max_compaction_candidates": 1,
+      "immediate_max_data_gc": 2,
+      "immediate_max_works": 3,
+      "post_window_key_bytes_range": [
+        1591952,
+        2331155
+      ],
+      "post_window_total_index_mb_field_range": [
+        2.353992462158203,
+        3.568547248840332
+      ],
+      "final_key_bytes": [
+        958706,
+        1274841
+      ],
+      "final_total_index_mb_field": [
+        1.4123954772949219,
+        1.8831939697265625
+      ],
+      "max_observed_driver_drain_seconds": 5.058430875011254,
+      "max_validation_probe_gap_seconds": 0.6402038750238717,
+      "per_process": [
+        {
+          "operations": 229,
+          "operations_per_second": 3.8046514373504032,
+          "drain_seconds": 3.5747403749846853,
+          "median_ms": 261.3850840134546,
+          "p95_ms": 313.39037499856204,
+          "p99_ms": 332.85999996587634,
+          "max_ms": 336.16216597147286
+        },
+        {
+          "operations": 233,
+          "operations_per_second": 3.8422400265542413,
+          "drain_seconds": 5.058430875011254,
+          "median_ms": 255.29904098948464,
+          "p95_ms": 314.7973750019446,
+          "p99_ms": 327.1327089751139,
+          "max_ms": 334.93770798668265
+        }
+      ]
+    },
+    {
+      "workload": "dense",
+      "label": "candidate",
+      "processes": 2,
+      "operations": 467,
+      "seconds": 120.90100150200306,
+      "operations_per_second": 3.8626644461027304,
+      "median_ms": 248.45233297673985,
+      "p95_ms": 314.466625044588,
+      "p99_ms": 331.5901670139283,
+      "max_ms": 363.4953750297427,
+      "logical_row_changes": 478208,
+      "window_rate_range": [
+        3.781297847809668,
+        3.917729538953649
+      ],
+      "immediate_max_segments": 4,
+      "immediate_max_compaction_candidates": 1,
+      "immediate_max_data_gc": 4,
+      "immediate_max_works": 5,
+      "post_window_key_bytes_range": [
+        1640395,
+        2322414
+      ],
+      "post_window_total_index_mb_field_range": [
+        2.543807029724121,
+        3.568547248840332
+      ],
+      "final_key_bytes": [
+        1274833,
+        645835
+      ],
+      "final_total_index_mb_field": [
+        1.8831939697265625,
+        0.9415969848632812
+      ],
+      "max_observed_driver_drain_seconds": 5.148904874979053,
+      "max_validation_probe_gap_seconds": 0.7217240419704467,
+      "per_process": [
+        {
+          "operations": 233,
+          "operations_per_second": 3.859543413220145,
+          "drain_seconds": 5.148904874979053,
+          "median_ms": 248.0177090037614,
+          "p95_ms": 314.466625044588,
+          "p99_ms": 339.0746249933727,
+          "max_ms": 363.4953750297427
+        },
+        {
+          "operations": 234,
+          "operations_per_second": 3.86577716063648,
+          "drain_seconds": 4.168588083004579,
+          "median_ms": 248.85358300525695,
+          "p95_ms": 314.69116697553545,
+          "p99_ms": 325.5609579500742,
+          "max_ms": 326.826875039842
+        }
+      ]
+    },
+    {
+      "workload": "dense",
+      "label": "mutable",
+      "processes": 2,
+      "operations": 3771,
+      "seconds": 120.12892158399336,
+      "operations_per_second": 31.39127489264391,
+      "median_ms": 31.33749996777624,
+      "p95_ms": 40.52729101385921,
+      "p99_ms": 45.191667042672634,
+      "max_ms": 154.1794579825364,
+      "logical_row_changes": 3861504,
+      "window_rate_range": [
+        30.43867407897965,
+        32.77183679243782
+      ],
+      "immediate_max_segments": 0,
+      "immediate_max_compaction_candidates": 0,
+      "immediate_max_data_gc": 0,
+      "immediate_max_works": 0,
+      "post_window_key_bytes_range": [
+        225953,
+        225953
+      ],
+      "post_window_total_index_mb_field_range": [
+        14.740537643432617,
+        33.97997188568115
+      ],
+      "final_key_bytes": [
+        225953,
+        225953
+      ],
+      "final_total_index_mb_field": [
+        30.146255493164062,
+        29.040494918823242
+      ],
+      "max_observed_driver_drain_seconds": null,
+      "max_validation_probe_gap_seconds": 0.07485208299476653,
+      "per_process": [
+        {
+          "operations": 1894,
+          "operations_per_second": 31.53095765951359,
+          "drain_seconds": 0.07659941696329042,
+          "median_ms": 30.490312521578744,
+          "p95_ms": 40.36437498871237,
+          "p99_ms": 44.4101250031963,
+          "max_ms": 154.1794579825364
+        },
+        {
+          "operations": 1877,
+          "operations_per_second": 31.251575894443253,
+          "drain_seconds": 0.0662569580017589,
+          "median_ms": 31.894792045932263,
+          "p95_ms": 40.64395901514217,
+          "p99_ms": 46.01399996317923,
+          "max_ms": 49.74820796633139
+        }
+      ]
+    },
+    {
+      "workload": "mixed",
+      "label": "baseline",
+      "processes": 2,
+      "operations": 2780,
+      "seconds": 120.66866370901698,
+      "operations_per_second": 23.03829274768263,
+      "median_ms": 27.277916989987716,
+      "p95_ms": 89.86516599543393,
+      "p99_ms": 346.1973749799654,
+      "max_ms": 457.99595897551626,
+      "logical_row_changes": 2780,
+      "window_rate_range": [
+        18.335223725126944,
+        31.258567398830454
+      ],
+      "immediate_max_segments": 8,
+      "immediate_max_compaction_candidates": 2,
+      "immediate_max_data_gc": 5,
+      "immediate_max_works": 3,
+      "post_window_key_bytes_range": [
+        12808192,
+        13125387
+      ],
+      "post_window_total_index_mb_field_range": [
+        18.03113842010498,
+        18.340418815612793
+      ],
+      "final_key_bytes": [
+        12991436,
+        12988243
+      ],
+      "final_total_index_mb_field": [
+        18.17041301727295,
+        18.146484375
+      ],
+      "max_observed_driver_drain_seconds": 6.9510258749942295,
+      "max_validation_probe_gap_seconds": 4.65031033399282,
+      "per_process": [
+        {
+          "operations": 1390,
+          "operations_per_second": 22.94506138383356,
+          "drain_seconds": 4.652395291952416,
+          "median_ms": 27.519208495505154,
+          "p95_ms": 87.81350002391264,
+          "p99_ms": 345.3154999879189,
+          "max_ms": 457.99595897551626
+        },
+        {
+          "operations": 1390,
+          "operations_per_second": 23.132284845984696,
+          "drain_seconds": 6.9510258749942295,
+          "median_ms": 27.067250019172207,
+          "p95_ms": 146.25054196221754,
+          "p99_ms": 346.2899999576621,
+          "max_ms": 452.23866699961945
+        }
+      ]
+    },
+    {
+      "workload": "mixed",
+      "label": "candidate",
+      "processes": 2,
+      "operations": 2890,
+      "seconds": 120.42216533300234,
+      "operations_per_second": 23.99890412208009,
+      "median_ms": 26.959937007632107,
+      "p95_ms": 62.582582992035896,
+      "p99_ms": 334.1615839744918,
+      "max_ms": 440.012457955163,
+      "logical_row_changes": 2890,
+      "window_rate_range": [
+        19.180952887994255,
+        31.610999170334473
+      ],
+      "immediate_max_segments": 8,
+      "immediate_max_compaction_candidates": 2,
+      "immediate_max_data_gc": 6,
+      "immediate_max_works": 3,
+      "post_window_key_bytes_range": [
+        12855719,
+        13068342
+      ],
+      "post_window_total_index_mb_field_range": [
+        18.098002433776855,
+        18.327372550964355
+      ],
+      "final_key_bytes": [
+        13008064,
+        12998410
+      ],
+      "final_total_index_mb_field": [
+        18.18067455291748,
+        18.156206130981445
+      ],
+      "max_observed_driver_drain_seconds": 8.524625166959595,
+      "max_validation_probe_gap_seconds": 4.608671791967936,
+      "per_process": [
+        {
+          "operations": 1447,
+          "operations_per_second": 24.043189044829607,
+          "drain_seconds": 4.352353750029579,
+          "median_ms": 26.78583300439641,
+          "p95_ms": 61.768084007781,
+          "p99_ms": 336.3384580006823,
+          "max_ms": 433.2376669626683
+        },
+        {
+          "operations": 1443,
+          "operations_per_second": 23.954659954302656,
+          "drain_seconds": 8.524625166959595,
+          "median_ms": 27.095207944512367,
+          "p95_ms": 62.780584034044296,
+          "p99_ms": 333.8825000100769,
+          "max_ms": 440.012457955163
+        }
+      ]
+    },
+    {
+      "workload": "mixed",
+      "label": "mutable",
+      "processes": 2,
+      "operations": 4048,
+      "seconds": 120.02838637505192,
+      "operations_per_second": 33.72535549508464,
+      "median_ms": 8.676209021359682,
+      "p95_ms": 10.982749983668327,
+      "p99_ms": 12.228834035340697,
+      "max_ms": 36.00583301158622,
+      "logical_row_changes": 4048,
+      "window_rate_range": [
+        33.46636453906572,
+        34.0594926975722
+      ],
+      "immediate_max_segments": 0,
+      "immediate_max_compaction_candidates": 0,
+      "immediate_max_data_gc": 0,
+      "immediate_max_works": 0,
+      "post_window_key_bytes_range": [
+        4522295,
+        4529380
+      ],
+      "post_window_total_index_mb_field_range": [
+        14.906438827514648,
+        14.955507278442383
+      ],
+      "final_key_bytes": [
+        4522521,
+        4522295
+      ],
+      "final_total_index_mb_field": [
+        14.912311553955078,
+        14.906438827514648
+      ],
+      "max_observed_driver_drain_seconds": null,
+      "max_validation_probe_gap_seconds": 0.5753153340192512,
+      "per_process": [
+        {
+          "operations": 2022,
+          "operations_per_second": 33.69522187658494,
+          "drain_seconds": 0.5623033330193721,
+          "median_ms": 8.642186992801726,
+          "p95_ms": 10.868665995076299,
+          "p99_ms": 12.143542000558227,
+          "max_ms": 23.603540961630642
+        },
+        {
+          "operations": 2026,
+          "operations_per_second": 33.755483405218584,
+          "drain_seconds": 0.5647627089638263,
+          "median_ms": 8.724021026864648,
+          "p95_ms": 11.085957987233996,
+          "p99_ms": 12.845791003201157,
+          "max_ms": 36.00583301158622
+        }
+      ]
+    },
+    {
+      "workload": "sparse",
+      "label": "baseline",
+      "processes": 2,
+      "operations": 3620,
+      "seconds": 120.12944933306426,
+      "operations_per_second": 30.13415960946752,
+      "median_ms": 27.824207994854078,
+      "p95_ms": 45.5242499592714,
+      "p99_ms": 64.81775001157075,
+      "max_ms": 81.73249999526888,
+      "logical_row_changes": 3620,
+      "window_rate_range": [
+        29.593835931412517,
+        30.70824589439591
+      ],
+      "immediate_max_segments": 7,
+      "immediate_max_compaction_candidates": 2,
+      "immediate_max_data_gc": 2,
+      "immediate_max_works": 5,
+      "post_window_key_bytes_range": [
+        12718545,
+        12725150
+      ],
+      "post_window_total_index_mb_field_range": [
+        17.949907302856445,
+        18.022299766540527
+      ],
+      "final_key_bytes": [
+        12723060,
+        12718545
+      ],
+      "final_total_index_mb_field": [
+        17.925776481628418,
+        17.949907302856445
+      ],
+      "max_observed_driver_drain_seconds": 6.006516624998767,
+      "max_validation_probe_gap_seconds": 4.484198916004971,
+      "per_process": [
+        {
+          "operations": 1807,
+          "operations_per_second": 30.07865528839598,
+          "drain_seconds": 6.006516624998767,
+          "median_ms": 27.965957997366786,
+          "p95_ms": 45.192374964244664,
+          "p99_ms": 64.17366699315608,
+          "max_ms": 81.73249999526888
+        },
+        {
+          "operations": 1813,
+          "operations_per_second": 30.18968444748988,
+          "drain_seconds": 4.238064165983815,
+          "median_ms": 27.638542000204325,
+          "p95_ms": 45.94870796427131,
+          "p99_ms": 65.41174999438226,
+          "max_ms": 81.04016695870087
+        }
+      ]
+    },
+    {
+      "workload": "sparse",
+      "label": "candidate",
+      "processes": 2,
+      "operations": 3636,
+      "seconds": 120.13891041494207,
+      "operations_per_second": 30.264965675498406,
+      "median_ms": 27.681770996423438,
+      "p95_ms": 45.05079204682261,
+      "p99_ms": 64.5598330302164,
+      "max_ms": 82.80295797158033,
+      "logical_row_changes": 3636,
+      "window_rate_range": [
+        29.47707755898317,
+        30.8736541318301
+      ],
+      "immediate_max_segments": 7,
+      "immediate_max_compaction_candidates": 2,
+      "immediate_max_data_gc": 3,
+      "immediate_max_works": 5,
+      "post_window_key_bytes_range": [
+        12726145,
+        12730622
+      ],
+      "post_window_total_index_mb_field_range": [
+        17.949907302856445,
+        18.022299766540527
+      ],
+      "final_key_bytes": [
+        12725220,
+        12728532
+      ],
+      "final_total_index_mb_field": [
+        17.925776481628418,
+        17.925776481628418
+      ],
+      "max_observed_driver_drain_seconds": 6.730014665983617,
+      "max_validation_probe_gap_seconds": 4.561590583994985,
+      "per_process": [
+        {
+          "operations": 1806,
+          "operations_per_second": 30.051867114495238,
+          "drain_seconds": 5.57656037498964,
+          "median_ms": 27.82829198986292,
+          "p95_ms": 45.617916039191186,
+          "p99_ms": 64.24662499921396,
+          "max_ms": 77.51487503992394
+        },
+        {
+          "operations": 1830,
+          "operations_per_second": 30.478253364450346,
+          "drain_seconds": 6.730014665983617,
+          "median_ms": 27.533729531569406,
+          "p95_ms": 44.734166003763676,
+          "p99_ms": 64.73787501454353,
+          "max_ms": 82.80295797158033
+        }
+      ]
+    },
+    {
+      "workload": "sparse",
+      "label": "mutable",
+      "processes": 2,
+      "operations": 3957,
+      "seconds": 120.02389850094914,
+      "operations_per_second": 32.96843419870009,
+      "median_ms": 8.640708983875811,
+      "p95_ms": 10.931042023003101,
+      "p99_ms": 12.507000006735325,
+      "max_ms": 26.653916982468218,
+      "logical_row_changes": 3957,
+      "window_rate_range": [
+        32.7940386821255,
+        33.199142446222645
+      ],
+      "immediate_max_segments": 0,
+      "immediate_max_compaction_candidates": 0,
+      "immediate_max_data_gc": 0,
+      "immediate_max_works": 0,
+      "post_window_key_bytes_range": [
+        4530227,
+        4530227
+      ],
+      "post_window_total_index_mb_field_range": [
+        14.956809997558594,
+        15.022634506225586
+      ],
+      "final_key_bytes": [
+        4530227,
+        4530227
+      ],
+      "final_total_index_mb_field": [
+        15.018233299255371,
+        15.022634506225586
+      ],
+      "max_observed_driver_drain_seconds": null,
+      "max_validation_probe_gap_seconds": 0.5892521669738926,
+      "per_process": [
+        {
+          "operations": 1978,
+          "operations_per_second": 32.957797769419386,
+          "drain_seconds": 0.5780902089900337,
+          "median_ms": 8.580353984143585,
+          "p95_ms": 10.884582996368408,
+          "p99_ms": 12.632249970920384,
+          "max_ms": 26.653916982468218
+        },
+        {
+          "operations": 1979,
+          "operations_per_second": 32.97907211570644,
+          "drain_seconds": 0.5732808749889955,
+          "median_ms": 8.697583980392665,
+          "p95_ms": 11.060249991714954,
+          "p99_ms": 12.40100001450628,
+          "max_ms": 17.742915952112526
+        }
+      ]
+    }
+  ],
+  "unpaced_confirmation": [
+    {
+      "workload": "sparse",
+      "label": "baseline",
+      "processes": 2,
+      "operations": 3634,
+      "seconds": 120.18017541902373,
+      "operations_per_second": 30.23793223241345,
+      "median_ms": 27.76622900273651,
+      "p95_ms": 45.575875032227486,
+      "p99_ms": 64.90529101574793,
+      "max_ms": 95.6969169783406,
+      "logical_row_changes": 3634,
+      "window_rate_range": [
+        29.784013347477742,
+        30.587684971912502
+      ],
+      "immediate_max_segments": 7,
+      "immediate_max_compaction_candidates": 2,
+      "immediate_max_data_gc": 3,
+      "immediate_max_works": 5,
+      "post_window_key_bytes_range": [
+        12721289,
+        12729944
+      ],
+      "post_window_total_index_mb_field_range": [
+        17.949907302856445,
+        18.046430587768555
+      ],
+      "final_key_bytes": [
+        12719407,
+        12726444
+      ],
+      "final_total_index_mb_field": [
+        17.90164566040039,
+        17.925776481628418
+      ],
+      "max_observed_driver_drain_seconds": 7.069449500006158,
+      "max_validation_probe_gap_seconds": 4.517891374998726,
+      "per_process": [
+        {
+          "operations": 1826,
+          "operations_per_second": 30.37560622307964,
+          "drain_seconds": 7.069449500006158,
+          "median_ms": 27.599333523539826,
+          "p95_ms": 45.95991596579552,
+          "p99_ms": 64.77562501095235,
+          "max_ms": 95.6969169783406
+        },
+        {
+          "operations": 1808,
+          "operations_per_second": 30.100148504051408,
+          "drain_seconds": 6.947181833034847,
+          "median_ms": 27.924478985369205,
+          "p95_ms": 44.97424996225163,
+          "p99_ms": 64.93316596606746,
+          "max_ms": 86.8804999627173
+        }
+      ]
+    },
+    {
+      "workload": "sparse",
+      "label": "candidate",
+      "processes": 2,
+      "operations": 3665,
+      "seconds": 120.15711208287394,
+      "operations_per_second": 30.501731744952405,
+      "median_ms": 27.506290993187577,
+      "p95_ms": 44.50374998850748,
+      "p99_ms": 64.31012495886534,
+      "max_ms": 90.52362502552569,
+      "logical_row_changes": 3665,
+      "window_rate_range": [
+        30.22299972114225,
+        31.062018132916446
+      ],
+      "immediate_max_segments": 7,
+      "immediate_max_compaction_candidates": 2,
+      "immediate_max_data_gc": 3,
+      "immediate_max_works": 4,
+      "post_window_key_bytes_range": [
+        12722640,
+        12727692
+      ],
+      "post_window_total_index_mb_field_range": [
+        17.949907302856445,
+        18.046430587768555
+      ],
+      "final_key_bytes": [
+        12722148,
+        12723615
+      ],
+      "final_total_index_mb_field": [
+        17.925776481628418,
+        17.90164566040039
+      ],
+      "max_observed_driver_drain_seconds": 10.298583834024612,
+      "max_validation_probe_gap_seconds": 4.5744261250365525,
+      "per_process": [
+        {
+          "operations": 1843,
+          "operations_per_second": 30.666346769916174,
+          "drain_seconds": 6.8473735000006855,
+          "median_ms": 27.427583001554012,
+          "p95_ms": 44.49950001435354,
+          "p99_ms": 64.42716700257733,
+          "max_ms": 90.52362502552569
+        },
+        {
+          "operations": 1822,
+          "operations_per_second": 30.337007648683993,
+          "drain_seconds": 10.298583834024612,
+          "median_ms": 27.602479502093047,
+          "p95_ms": 44.50374998850748,
+          "p99_ms": 64.23341599293053,
+          "max_ms": 82.12895801989362
+        }
+      ]
+    }
+  ],
+  "total_matched_operations": 25631,
+  "total_unpaced_operations": 7299,
+  "caller_retries": 0,
+  "notes": [
+    "Two independent processes per source/workload; limited finite workload evidence.",
+    "Matched delivered rates include local checks and explicit pacing; individual latency samples cover execute/fetch.",
+    "Quiet validation/storage gaps remain explicit. Immediate backlog precedes those gaps.",
+    "Native allocation observations are approximate and exclude allocator/RSS accounting; index fields overlap.",
+    "Mutable driver-maintenance drain is not applicable. Search-internal GC is not a driver queue."
+  ]
+}

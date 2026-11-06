@@ -378,9 +378,19 @@ func (s *store) copySnapshotCompactionBatch(ctx context.Context, j *snapshotComp
 	scan := newSnapshotDeltaScan(s, j.Source, nil)
 	scan.keepDeleted = j.SourceStart > 0
 	scan.pageRows = snapshotCompactionBatchRows
-	for i := range scan.sources {
-		if j.After != "" {
-			offset, err := s.redis(ctx).ZLexCount(ctx, snapshotMembers(snapshotDataID(scan.sources[i].segment.Prefix)), "-", "["+j.After).Result()
+	var inputRows int64
+	for _, src := range scan.sources {
+		// Only the threshold matters; clamping avoids int64 overflow.
+		inputRows += min(src.segment.Rows, int64(snapshotCompactionBatchRows)+1)
+	}
+	if inputRows > snapshotCompactionBatchRows {
+		if err := s.prefetchSnapshotCompactionScan(ctx, wctx, scan, j.After); err != nil {
+			return err
+		}
+	} else if j.After != "" {
+		// Preserve the original small-job rank queries and lazy page reads.
+		for i, src := range scan.sources {
+			offset, err := s.redis(ctx).ZLexCount(ctx, snapshotMembers(snapshotDataID(src.segment.Prefix)), "-", "["+j.After).Result()
 			if err != nil {
 				return err
 			}
@@ -422,6 +432,57 @@ func (s *store) copySnapshotCompactionBatch(ctx context.Context, j *snapshotComp
 	}
 	return s.commitSnapshotCompactionCopy(ctx, j, after, images)
 }
+
+// Only larger jobs use prefetch. Small jobs and ordinary readers retain their
+// original call paths after native comparisons exposed sparse regressions.
+func (s *store) prefetchSnapshotCompactionScan(ctx, wctx context.Context, scan *snapshotDeltaScan, after string) error {
+	// All sources are immutable and retained by the durable job. Batch their
+	// independent positions, then their bounded first pages. Keep the same rank
+	// queries and complete-directory checks as the single-command scanner; no
+	// cursor, cache or copy checkpoint survives a failed read pipeline.
+	if after != "" {
+		pipe := s.redis(ctx).Pipeline()
+		positions := make([]*goredis.IntCmd, len(scan.sources))
+		for i, src := range scan.sources {
+			positions[i] = pipe.ZLexCount(ctx, snapshotMembers(snapshotDataID(src.segment.Prefix)), "-", "["+after)
+		}
+		if _, err := pipe.Exec(ctx); err != nil {
+			return err
+		}
+		for i, position := range positions {
+			offset, err := position.Result()
+			if err != nil {
+				return err
+			}
+			scan.sources[i].offset = offset
+		}
+	}
+	pipe := s.redis(wctx).Pipeline()
+	pages := make([]*goredis.StringSliceCmd, len(scan.sources))
+	for i, src := range scan.sources {
+		pages[i] = pipe.ZRange(wctx, snapshotMembers(snapshotDataID(src.segment.Prefix)), src.offset, src.offset+snapshotCompactionBatchRows-1)
+	}
+	if _, err := pipe.Exec(wctx); err != nil {
+		return wrapRedis(err, "failed to read compaction row directories")
+	}
+	for i, page := range pages {
+		ids, err := page.Result()
+		if err != nil {
+			return wrapRedis(err, "failed to read compaction row directory")
+		}
+		// Apply the same complete-page/cardinality proof as the unchanged
+		// ordinary scanner. Keep prefetch isolated from its foreground path.
+		src := &scan.sources[i]
+		src.ids, src.at = ids, 0
+		src.offset += int64(len(ids))
+		src.done = len(ids) < snapshotCompactionBatchRows
+		if src.done && !snapshotOwns(wctx, src.segment.Prefix) && src.offset != src.segment.Rows {
+			return errorf(adbc.StatusIO, "published snapshot row directory changed")
+		}
+	}
+	return nil
+}
+
 func (s *store) indexSnapshotCompaction(ctx context.Context, j *snapshotCompactionJob) (bool, error) {
 	output := *j.Source
 	output.KeyPrefix = j.Prefix
