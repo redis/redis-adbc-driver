@@ -89,14 +89,14 @@ func TestSQLRBACSelect(t *testing.T) {
 	}
 	call("POST", "roles", map[string]any{"name": roleName, "management": "none"}, &role)
 	defer fixtureRBACRequest(manager, ctx, "DELETE", "roles/"+strconv.Itoa(role.UID), nil, nil)
+	user := roleName + "@example.com"
 	var acl rbacACL
-	call("POST", "redis_acls", map[string]string{"name": rbacACLName(cfg.DatabaseUID, role.UID), "acl": rbacBaseACL}, &acl)
+	call("POST", "redis_acls", map[string]string{"name": rbacACLName(cfg.DatabaseUID, role.UID), "acl": rbacReaderACL(user)}, &acl)
 	defer fixtureRBACRequest(manager, ctx, "DELETE", "redis_acls/"+strconv.Itoa(acl.UID), nil, nil)
 	dbpath := "bdbs/" + strconv.Itoa(cfg.DatabaseUID)
 	original := dbs[0].Permissions
 	call("PUT", dbpath, map[string]any{"roles_permissions": append(slices.Clone(original), rbacPermission{role.UID, acl.UID})}, nil)
 	defer fixtureRBACRequest(manager, ctx, "PUT", dbpath, map[string]any{"roles_permissions": original}, nil)
-	user := roleName + "@example.com"
 	password := "RBAC-test-" + uuid.NewString()
 	var created struct {
 		UID int `json:"uid"`
@@ -160,6 +160,10 @@ func TestSQLRBACSelect(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 	}
 	reader.expectError(`SELECT * FROM it_rbac_allowed`, "NOPERM")
+	t.Run("restricted_reader_retains_roots", func(t *testing.T) {
+		checkSnapshotRestrictedRetention(t, admin, reader)
+	})
+	t.Run("restricted_reader_quota_and_expiry", func(t *testing.T) { checkSnapshotRestrictedQuota(t, admin, reader) })
 	grant := `GRANT SELECT ON TABLE it_rbac_allowed TO ` + roleName
 	admin.exec(grant)
 	admin.exec(grant) // idempotent

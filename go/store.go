@@ -955,13 +955,15 @@ func wrapRedis(err error, context string) error {
 // ---- store ----
 
 type store struct {
-	controlScript  snapshotControlExecutor
-	snapshots      bool
-	compactor      *snapshotCompactor
-	flex           bool
-	foreignIndexes bool
-	searchCapsOnce sync.Once
-	searchCaps     [2]int64
+	readerNamespace  string
+	restrictedReader bool
+	controlScript    snapshotControlExecutor
+	snapshots        bool
+	compactor        *snapshotCompactor
+	flex             bool
+	foreignIndexes   bool
+	searchCapsOnce   sync.Once
+	searchCaps       [2]int64
 
 	searchAggregateCapKnown bool // initialized with searchCapsOnce
 	// client is a *goredis.Client, or a *goredis.ClusterClient when the

@@ -300,7 +300,7 @@ func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, er
 	if err != nil {
 		return nil, err
 	}
-	st := &store{client: client}
+	st := &store{client: client, readerNamespace: snapshotReaderNamespace(cfg.single.Username)}
 	if !d.readerOnly {
 		if err := st.searchDo(ctx, "", "FT._LIST").Err(); err != nil {
 			_ = client.Close()
@@ -338,7 +338,7 @@ func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, er
 			st.sweepTemp(ctx)
 		}
 	}
-	if st.snapshots {
+	if st.snapshots && !st.restrictedReader {
 		st.sweepTemp(ctx)
 	}
 	if !d.readerOnly {
@@ -349,7 +349,7 @@ func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, er
 		_ = st.collectMatviews(ctx)
 	}
 	st.foreignIndexes = d.foreignIndexes
-	if st.snapshots && d.foreignIndexes {
+	if st.snapshots && d.foreignIndexes && !st.restrictedReader {
 		if err := st.refreshSnapshotForeign(ctx, false); err != nil {
 			_ = client.Close()
 			return nil, err
@@ -377,7 +377,7 @@ func (d *databaseImpl) Open(ctx context.Context) (adbc.ConnectionWithContext, er
 	if cfg.single.Username != "" {
 		conn.sess.user = cfg.single.Username
 	}
-	if st.snapshots && !d.snapshotCompactionDisabled {
+	if st.snapshots && !d.snapshotCompactionDisabled && !st.restrictedReader {
 		st.startSnapshotCompactor(cfg, t)
 	}
 	ok = true

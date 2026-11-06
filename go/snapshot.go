@@ -30,8 +30,8 @@ const (
 	// OptionStringStatementSnapshots reports the mandatory managed-table
 	// consistency guarantee. It cannot be disabled. See docs/snapshots.md.
 	OptionStringStatementSnapshots = "adbc.redis.statement_snapshots"
-	snapshotPrefix                 = metaPrefix + "snapshot:"
-	snapshotCatalogKey             = snapshotPrefix + "catalog"
+	snapshotPrefix                 = metaPrefix + "snapshot:16:"
+	snapshotCatalogKey             = metaPrefix + "snapshot:catalog"
 	snapshotLease                  = 2 * time.Minute
 	snapshotTimeout                = 15 * time.Minute
 	snapshotMaxBytes               = 64 << 20
@@ -73,10 +73,11 @@ func snapshotID() string                    { return strings.ReplaceAll(uuid.New
 // The bounded catalog contains at most 16 generations and 128 live pins. Redis
 // TIME governs leases. Root acquisition and pin creation, publication/outcome,
 // and reclamation claims each have one metadata-slot linearization point.
-const snapshotControl = snapshotDataEdges + `
+const snapshotControl = snapshotDataEdges + snapshotReaderLua + `
 local k = KEYS[1]
-local graph, dataqueue = KEYS[#KEYS-3], KEYS[#KEYS-2]
-local compactionqueue, candidates = KEYS[#KEYS-1], KEYS[#KEYS]
+local controlN = tonumber(ARGV[8]) or #KEYS
+local graph, dataqueue = KEYS[controlN-3], KEYS[controlN-2]
+local compactionqueue, candidates = KEYS[controlN-1], KEYS[controlN]
 local op, token, id, base = ARGV[1], ARGV[2], ARGV[3], ARGV[4]
 local t = redis.call('TIME')
 local now = tonumber(t[1])*1000 + math.floor(tonumber(t[2])/1000)
@@ -90,12 +91,12 @@ end
 if op == 'init' then
   if redis.call('EXISTS', k) == 0 then
     if ARGV[6] ~= 'import' and redis.call('DBSIZE') ~= 0 then return redis.error_reply('managed-table snapshots require a fresh empty database; existing storage is not upgraded or modified') end
-    redis.call('HSET', k, 'format', '15', 'root', id, 'w:'..id, cjson.encode({state='committed',metadata_keys=0,metadata_buckets=0}), 'r:'..id, '[]')
+    redis.call('HSET', k, 'format', '16', 'root', id, 'w:'..id, cjson.encode({state='committed',metadata_keys=0,metadata_buckets=0}), 'r:'..id, '[]')
   end
-  if redis.call('HGET', k, 'format') ~= '15' then return redis.error_reply('unsupported snapshot catalog format') end
+  if redis.call('HGET', k, 'format') ~= '16' then return redis.error_reply('unsupported snapshot catalog format') end
   return 1
 end
-if redis.call('HGET', k, 'format') ~= '15' then return redis.error_reply('missing or unsupported snapshot catalog') end
+if redis.call('HGET', k, 'format') ~= '16' then return redis.error_reply('missing or unsupported snapshot catalog') end
 -- Lease operations need only their own records. Admission and reclamation
 -- below still enumerate/prune expired pins before accounting or collection.
 if op == 'renew' or op == 'valid' then
@@ -120,8 +121,22 @@ elseif op == 'release' then
   redis.call('HDEL', k, 'p:'..token)
   return 1
 end
+local readerCount=tonumber(ARGV[9]) or 0
+if #KEYS~=controlN+1+readerCount or not reader_directory(controlN+1,readerCount) then return redis.error_reply('reader namespace changed before mutation') end
+local readerPins,readerRoots=reader_held(controlN+1,readerCount,now)
+if op=='claim' then
+ for i=1,readerCount do
+  local key=KEYS[controlN+1+i]
+  local fields=redis.call('HGETALL',key)
+  for n=1,#fields,2 do
+   local p=reader_hex(fields[n],32) and reader_pin(fields[n+1],now)
+   if not p or not reader_committed(k,p.root) then redis.call('HDEL',key,fields[n]) end
+  end
+  if redis.call('HLEN',key)==0 then redis.call('SREM',KEYS[controlN+1],string.sub(key,#'` + snapshotReaderPrefix + `'+1)) end
+ end
+end
 local entries = redis.call('HGETALL', k)
-local pins, works, protected, owners = 0, 0, {}, {}
+local pins, works, protected, owners = readerPins, 0, readerRoots, {}
 for n=1,#entries,2 do
   local field = entries[n]
   if string.sub(field,1,2) == 'p:' then
@@ -357,7 +372,7 @@ elseif op == 'publish' or op == 'publish_compaction' or op == 'publish_temp' the
     if not mr or not pr then return -1 end
     local mw,mp=cjson.decode(mr),cjson.decode(pr)
     if mw.state~='staging' or mw.base~=merge.base or mw.token~=merge.token or mw.expires<=now or mp.root~=merge.base or mp.expires<=now or not mw.metadata_ready or (mw.metadata_builds or 0)>0 or #(cjson.decode(redis.call('HGET',k,'r:'..merge.id) or '[]'))~=0 then return -1 end
-    if KEYS[#KEYS-4]~='` + snapshotPrefix + `metadata:root:'..merge.id then return redis.error_reply('invalid snapshot merge map') end
+    if KEYS[controlN-4]~='` + snapshotPrefix + `metadata:root:'..merge.id then return redis.error_reply('invalid snapshot merge map') end
   end
   if redis.call('HGET', k, 'root') ~= expected then return 0 end
   if op == 'publish_temp' and redis.call('EXISTS',KEYS[4]) ~= 0 then return -4 end
@@ -378,7 +393,7 @@ elseif op == 'publish' or op == 'publish_compaction' or op == 'publish_temp' the
   data_releasable(graph,refs)
   if merge then
     local oldmap=redis.call('HGETALL',KEYS[3])
-    local newmap=redis.call('HGETALL',KEYS[#KEYS-4])
+    local newmap=redis.call('HGETALL',KEYS[controlN-4])
     if #oldmap>512 or #newmap>512 then return redis.error_reply('invalid snapshot merge root') end
     for i=1,#oldmap,2 do
       if tonumber(redis.call('HGET',graph,'b:'..oldmap[i+1]..':'..oldmap[i]) or '0')<=0 then return redis.error_reply('snapshot metadata reference missing') end
@@ -388,11 +403,11 @@ elseif op == 'publish' or op == 'publish_compaction' or op == 'publish_temp' the
     end
     for i=1,#oldmap,2 do
       local field=oldmap[i+1]..':'..oldmap[i]
-      if redis.call('HINCRBY',graph,'b:'..field,-1)==0 then redis.call('ZADD',KEYS[#KEYS-5],0,field) end
+      if redis.call('HINCRBY',graph,'b:'..field,-1)==0 then redis.call('ZADD',KEYS[controlN-5],0,field) end
     end
     redis.call('DEL',KEYS[3])
     for i=1,#newmap,2 do redis.call('HSET',KEYS[3],newmap[i],newmap[i+1]) end
-    redis.call('DEL',KEYS[#KEYS-4])
+    redis.call('DEL',KEYS[controlN-4])
     redis.call('HSET',k,'w:'..merge.id,cjson.encode({state='deleting'}))
   end
   redis.call('HSET', k, 'root', id, 'w:'..id, cjson.encode({state='committed',metadata_keys=redis.call('ZCARD',KEYS[2]),metadata_buckets=redis.call('HLEN',KEYS[3])}), 'r:'..id, '[]')
@@ -479,6 +494,14 @@ return redis.error_reply('unknown snapshot control operation')
 `
 
 func (s *store) snapshotControl(ctx context.Context, op, token, id, base string, extra ...string) *goredis.Cmd {
+	if s.restrictedReader {
+		if op == "acquire" && len(extra) > 0 && extra[0] == "write" {
+			cmd := goredis.NewCmd(ctx)
+			cmd.SetErr(errorf(adbc.StatusUnauthorized, "NOPERM restricted snapshot reader cannot acquire a writer lease"))
+			return cmd
+		}
+		return s.readerControl(ctx, "", op, token, id, base, extra...)
+	}
 	// Unknown replies are never resent. A definite digest/command refusal may
 	// precede one full-body attempt; publication still resolves its durable outcome.
 	arg := ""
@@ -500,10 +523,30 @@ func (s *store) snapshotControl(ctx context.Context, op, token, id, base string,
 	if len(extra) > 3 && extra[3] != "" {
 		updates = extra[3]
 	}
-	return s.controlScript.run(ctx, s.client, keys, op, token, id, base, snapshotLease.Milliseconds(), arg, updates)
+	if op == "valid" || op == "renew" || op == "release" {
+		return s.controlScript.run(ctx, s.client, keys, op, token, id, base, snapshotLease.Milliseconds(), arg, updates, len(keys), 0)
+	}
+	controlN := len(keys)
+	for attempt := 0; attempt < 8; attempt++ {
+		directory, err := s.snapshotReaderKeys(ctx)
+		if err != nil {
+			cmd := goredis.NewCmd(ctx)
+			cmd.SetErr(err)
+			return cmd
+		}
+		allKeys := append(append([]any(nil), keys...), directory...)
+		cmd := s.controlScript.run(ctx, s.client, allKeys, op, token, id, base, snapshotLease.Milliseconds(), arg, updates, controlN, len(directory)-1)
+		if cmd.Err() == nil || !strings.Contains(cmd.Err().Error(), "reader namespace changed before mutation") {
+			return cmd
+		}
+	}
+	cmd := goredis.NewCmd(ctx)
+	cmd.SetErr(errorf(adbc.StatusIO, "snapshot reader namespace changed repeatedly; retry the statement"))
+	return cmd
 }
 
 type snapshotPin struct {
+	reader       bool
 	ctx          context.Context
 	store        *store
 	token, root  string
@@ -524,7 +567,7 @@ func (s *store) acquireSnapshotMode(ctx context.Context, reap bool, writing ...b
 	if s == nil || !s.snapshots || snapshotOf(ctx) != nil {
 		return ctx, nil, nil
 	}
-	if reap {
+	if reap && !s.restrictedReader {
 		s.reapSnapshot(ctx)
 	}
 	p := &snapshotPin{ctx: ctx, store: s, token: snapshotID(), stop: make(chan struct{}), done: make(chan struct{})}
@@ -566,12 +609,25 @@ func (s *store) acquireSnapshotMode(ctx context.Context, reap bool, writing ...b
 	return sctx, p, nil
 }
 
+func (p *snapshotPin) control(ctx context.Context, op, id string) *goredis.Cmd {
+	if p.reader {
+		return p.store.readerControl(ctx, "", op, p.token, id, p.root)
+	}
+	return p.store.snapshotControl(ctx, op, p.token, id, p.root)
+}
+func (p *snapshotPin) leaseKey() string {
+	if p.reader || p.store.restrictedReader {
+		return snapshotReaderPrefix + p.store.readerNamespace
+	}
+	return snapshotCatalogKey
+}
+
 func (p *snapshotPin) heartbeat() {
 	defer close(p.done)
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		_ = p.store.snapshotControl(ctx, "release", p.token, "", p.root).Err()
+		_ = p.control(ctx, "release", "").Err()
 	}()
 	tick := time.NewTicker(snapshotLease / 4)
 	defer tick.Stop()
@@ -589,7 +645,7 @@ func (p *snapshotPin) heartbeat() {
 			id := p.workspace
 			p.mu.Unlock()
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			n, err := p.store.snapshotControl(ctx, "renew", p.token, id, p.root).Int()
+			n, err := p.control(ctx, "renew", id).Int()
 			cancel()
 			if err != nil || n != 1 {
 				p.mu.Lock()
@@ -618,7 +674,7 @@ func (p *snapshotPin) valid(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	n, err := p.store.snapshotControl(ctx, "valid", p.token, "", p.root).Int()
+	n, err := p.control(ctx, "valid", "").Int()
 	if err != nil {
 		return wrapRedis(err, "failed to validate statement snapshot")
 	}
@@ -913,7 +969,7 @@ func scopeSnapshotCommand(ctx context.Context, cmd goredis.Cmder) error {
 		if ok && strings.HasPrefix(key, snapshotPrefix+"rows:") {
 			return errorf(adbc.StatusInvalidState, "legacy snapshot row layout is unsupported")
 		}
-		if !ok || !strings.HasPrefix(key, metaPrefix) || strings.HasPrefix(key, snapshotPrefix) || snapshotTempControlKey(key) {
+		if !ok || !strings.HasPrefix(key, metaPrefix) || key == snapshotCatalogKey || strings.HasPrefix(key, snapshotPrefix) || snapshotTempControlKey(key) {
 			continue
 		}
 		if scope == nil {
@@ -1692,6 +1748,26 @@ func (s *store) openSnapshotCatalog(ctx context.Context, enabled bool, importing
 			return err
 		}
 		mode = "import"
+	}
+	// Probe command capability without writing. Existing restricted readers must
+	// not initialize the catalog, recover writers, sweep temps or run compaction.
+	if n != 0 {
+		format, err := s.client.HGet(ctx, snapshotCatalogKey, "format").Result()
+		if err != nil {
+			return err
+		}
+		if format != "16" {
+			return errorf(adbc.StatusInvalidState, "unsupported snapshot catalog format; existing storage is not upgraded or modified")
+		}
+		capable, err := once(ctx, s.client, "EVAL", `return redis.acl_check_cmd('HSET',KEYS[1],'root','') and 1 or 0`, 1, snapshotCatalogKey).Int()
+		if err != nil {
+			return wrapRedis(err, "failed to inspect snapshot control capability")
+		}
+		if capable == 0 {
+			s.restrictedReader = true
+			s.snapshots = true
+			return addSnapshotHooks(s.client)(ctx)
+		}
 	}
 	if err := s.snapshotControl(ctx, "init", "", snapshotID(), "", mode).Err(); err != nil {
 		return wrapRedis(err, "failed to initialize snapshot catalog")

@@ -59,7 +59,14 @@ if catalog~='` + snapshotCatalogKey + `' or graph~='` + snapshotMetadataGraph + 
  not string.match(counter,'^` + snapshotPrefix + `workspace:[0-9a-f]+:sequence%-state:') then
  return redis.error_reply('invalid sequence counter keys')
 end
-local pinraw=redis.call('HGET',catalog,'p:'..token)
+if redis.call('HGET',catalog,'format')~='16' then return redis.error_reply('unsupported snapshot catalog format') end
+local pinkey=KEYS[7];local pinfield='p:'..token
+if pinkey~=catalog then
+ local ns=string.sub(pinkey,#'` + snapshotReaderPrefix + `'+1)
+ if #ns~=64 or string.find(ns,'[^0-9a-f]') or pinkey~='` + snapshotReaderPrefix + `'..ns or KEYS[8]~='` + snapshotReaderDirectory + `' or redis.call('SISMEMBER',KEYS[8],ns)~=1 then return redis.error_reply('invalid sequence reader namespace') end
+ pinfield=token
+end
+local pinraw=redis.call('HGET',pinkey,pinfield)
 if not pinraw then return redis.error_reply('sequence snapshot pin expired') end
 local pin=cjson.decode(pinraw)
 if pin.root~=base or pin.expires<=now then return redis.error_reply('sequence snapshot pin expired') end
@@ -156,7 +163,7 @@ func (e *executor) mutateSnapshotSequenceValue(ctx context.Context, schema, name
 				return wrapRedis(err, "read current sequence definition bucket")
 			}
 		}
-		n, err := once(ctx, e.store.client, "EVAL", snapshotSequenceValueCAS, 6, snapshotCatalogKey, snapshotMetadataGraph, counter, snapshotMetadataMap(root), snapshotMetadataBucket(bucketOwner, slot), definition, scope.id, scope.pin.token, scope.pin.root, owner, slot, suffix, before, string(after), root, bucketOwner, mode).Int()
+		n, err := once(ctx, e.store.client, "EVAL", snapshotSequenceValueCAS, 8, snapshotCatalogKey, snapshotMetadataGraph, counter, snapshotMetadataMap(root), snapshotMetadataBucket(bucketOwner, slot), definition, scope.pin.leaseKey(), snapshotReaderDirectory, scope.id, scope.pin.token, scope.pin.root, owner, slot, suffix, before, string(after), root, bucketOwner, mode).Int()
 		if err != nil {
 			return wrapRedis(err, "sequence allocation outcome is unknown; allocation was not replayed")
 		}

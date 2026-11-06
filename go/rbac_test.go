@@ -78,17 +78,17 @@ func TestRBACManagementBoundaries(t *testing.T) {
 					if mode == "multiple-roles" {
 						roles = append(roles, 8)
 					}
-					out = []map[string]any{{"role_uids": roles}}
+					out = []map[string]any{{"role_uids": roles, "email": "reader@example.com"}}
 				case "/v1/redis_acls/9":
 					name := rbacACLName(1, 7)
-					acl := rbacBaseACL
+					acl := rbacReaderACL("reader@example.com")
 					if mode == "wrong-acl-name" {
 						name = "administrator-acl"
 					}
 					if mode == "extra-rule" {
 						acl += " +@all"
 					}
-					out = rbacACL{9, name, acl}
+					out = rbacACL{UID: 9, Name: name, ACL: acl}
 				default:
 					t.Errorf("unexpected path %s", r.URL.Path)
 				}

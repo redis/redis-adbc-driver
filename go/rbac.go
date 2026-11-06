@@ -64,6 +64,16 @@ const rbacBaseACL = "+ping +info +ft._list +ft.info +ft.aggregate +ft.cursor +ft
 	" %R~" + snapshotPrefix + "workspace:*:seq:*" +
 	" %R~" + snapshotPrefix + "workspace:*:sequence-state:*"
 
+// ACL selectors keep EVAL's declared-key envelope separate from commands a
+// script may execute. Only this principal's HASH is writable; SADD registers
+// retention but cannot remove another principal's namespace.
+func rbacReaderACL(user string) string {
+	own := snapshotReaderPrefix + snapshotReaderNamespace(user)
+	return rbacBaseACL + " +time +scard +hlen +zcard +zrangebylex %R~" + snapshotReaderDirectory + " %R~" + snapshotReaderPrefix + "* %R~" + snapshotPrefix + "members:*" +
+		" (+eval ~" + snapshotCatalogKey + " ~" + snapshotPrefix + "*)" +
+		" (+hset +hdel ~" + own + ") (+sadd ~" + snapshotReaderDirectory + ")"
+}
+
 func newRBAC(raw string) (*rbacManager, error) {
 	var cfg rbacConfig
 	d := json.NewDecoder(strings.NewReader(raw))
@@ -138,9 +148,10 @@ func (r *rbacManager) request(ctx context.Context, method, path string, body, ou
 }
 
 type rbacACL struct {
-	UID  int    `json:"uid"`
-	Name string `json:"name"`
-	ACL  string `json:"acl"`
+	Principal string `json:"-"`
+	UID       int    `json:"uid"`
+	Name      string `json:"name"`
+	ACL       string `json:"acl"`
 }
 type rbacPermission struct {
 	RoleUID int `json:"role_uid"`
@@ -191,15 +202,24 @@ func (r *rbacManager) readRole(ctx context.Context, role string) (rbacACL, []str
 	// Combined-role ACL behavior is not a supported SQL authorization mapping.
 	// Fail before writing if any user of this role has additional memberships.
 	var users []struct {
-		Roles []int `json:"role_uids"`
+		Roles []int  `json:"role_uids"`
+		Email string `json:"email"`
 	}
 	if err := r.request(ctx, "GET", "users", nil, &users); err != nil {
 		return rbacACL{}, nil, err
 	}
+	principal := ""
 	for _, user := range users {
-		if slices.Contains(user.Roles, b.RoleUID) && len(user.Roles) != 1 {
-			return rbacACL{}, nil, errorf(adbc.StatusNotImplemented, "RBAC SELECT grants require users with a single Redis role")
+		if !slices.Contains(user.Roles, b.RoleUID) {
+			continue
 		}
+		if len(user.Roles) != 1 || user.Email == "" || principal != "" {
+			return rbacACL{}, nil, errorf(adbc.StatusNotImplemented, "RBAC SELECT grants require one principal with a single dedicated Redis role")
+		}
+		principal = user.Email
+	}
+	if principal == "" {
+		return rbacACL{}, nil, errorf(adbc.StatusInvalidArgument, "RBAC reader role has no principal")
 	}
 	var acl rbacACL
 	if err := r.request(ctx, "GET", "redis_acls/"+strconv.Itoa(b.ACLUID), nil, &acl); err != nil {
@@ -208,7 +228,8 @@ func (r *rbacManager) readRole(ctx context.Context, role string) (rbacACL, []str
 	if acl.UID != b.ACLUID || acl.Name != rbacACLName(r.cfg.DatabaseUID, b.RoleUID) {
 		return acl, nil, errorf(adbc.StatusInvalidArgument, "RBAC ACL is not dedicated to this binding")
 	}
-	prefixes, err := rbacPrefixes(acl.ACL)
+	acl.Principal = principal
+	prefixes, err := rbacPrefixes(acl.ACL, rbacReaderACL(principal))
 	return acl, prefixes, err
 }
 
@@ -223,30 +244,37 @@ func safeRBACPrefix(prefix string) bool {
 	}
 	return true
 }
-func rbacACLString(prefixes []string) string {
+func rbacACLString(prefixes []string, base ...string) string {
 	prefixes = slices.Clone(prefixes)
 	slices.Sort(prefixes)
 	prefixes = slices.Compact(prefixes)
 	s := rbacBaseACL
+	if len(base) > 0 {
+		s = base[0]
+	}
 	for _, prefix := range prefixes {
 		s += " %R~" + prefix + "*"
 	}
 	return s
 }
-func rbacPrefixes(acl string) ([]string, error) {
+func rbacPrefixes(acl string, bases ...string) ([]string, error) {
+	base := rbacBaseACL
+	if len(bases) > 0 {
+		base = bases[0]
+	}
 	var prefixes []string
-	if acl == rbacBaseACL {
+	if acl == base {
 		return prefixes, nil
 	}
-	if strings.HasPrefix(acl, rbacBaseACL+" ") {
-		for _, token := range strings.Split(strings.TrimPrefix(acl, rbacBaseACL+" "), " ") {
+	if strings.HasPrefix(acl, base+" ") {
+		for _, token := range strings.Split(strings.TrimPrefix(acl, base+" "), " ") {
 			prefix := strings.TrimSuffix(strings.TrimPrefix(token, "%R~"), "*")
 			if !strings.HasPrefix(token, "%R~") || !strings.HasSuffix(token, "*") || !safeRBACPrefix(prefix) {
 				return nil, errorf(adbc.StatusInvalidArgument, "RBAC ACL contains unmanaged rules")
 			}
 			prefixes = append(prefixes, prefix)
 		}
-		if rbacACLString(prefixes) == acl {
+		if rbacACLString(prefixes, base) == acl {
 			return prefixes, nil
 		}
 	}
@@ -311,7 +339,7 @@ func (e *executor) runPrivilege(ctx context.Context, st *PrivilegeStmt) error {
 	for _, grant := range grants {
 		recorded = append(recorded, grant.Prefix)
 	}
-	if rbacACLString(recorded) != acl.ACL {
+	if rbacACLString(recorded, rbacReaderACL(acl.Principal)) != acl.ACL {
 		return errorf(adbc.StatusInvalidState, "RBAC ACL and grant ledger differ; administrator reconciliation required")
 	}
 	grants = slices.DeleteFunc(grants, func(g rbacGrant) bool { return g.TableOID == tableOID(m) })
@@ -322,7 +350,7 @@ func (e *executor) runPrivilege(ctx context.Context, st *PrivilegeStmt) error {
 	for _, grant := range grants {
 		prefixes = append(prefixes, grant.Prefix)
 	}
-	next := rbacACLString(prefixes)
+	next := rbacACLString(prefixes, rbacReaderACL(acl.Principal))
 	if next == acl.ACL {
 		return nil
 	}

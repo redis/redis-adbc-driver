@@ -17,9 +17,9 @@ const snapshotGCRowBatchLua = snapshotRowLayoutLua + `
 local id,prefix=ARGV[1],ARGV[2]
 local graph,queue,directory=KEYS[1],KEYS[2],KEYS[3]
 if #KEYS<4 or #KEYS>259 or #ARGV~=#KEYS-1 or
- graph~='adbc:{meta}:snapshot:metadata:graph' or
- queue~='adbc:{meta}:snapshot:metadata:gc:data' or
- directory~='adbc:{meta}:snapshot:members:'..id or
+ graph~='` + snapshotMetadataGraph + `' or
+ queue~='` + snapshotDataQueue + `' or
+ directory~='` + snapshotPrefix + `members:'..id or
  not valid_data_prefix(prefix,id) then
  return redis.error_reply('invalid snapshot reclamation batch')
 end
