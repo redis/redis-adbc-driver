@@ -70,7 +70,13 @@ for the eventual ordered merge. No staging index is created or queried.
 The expanded ordering/DDL/NULL/projection race selection passes **74 test
 events**, no skips/failures, root **27.602 s**. An additional actual cap-137 run
 passes all 10 events and restores/verifies the original cap and 4x QPF.
-Complete native validation of this follow-up remains a separate requirement.
+Complete native validation at `4d76dfc` passes **565 tests and 3 subtests**, with
+**8 capability skips**, in **80.04 s**. Its versioned library SHA-256 is
+`89b3f0de06701ce4dc70204ce10f3d024465d75ee34f2bb1adbfbe378e0e0fe9`.
+The complete `-race -run Snapshot` selection at this source passes **482 test
+events**, with **29 explicit test skips**, no failures/race reports, root
+**411.708 s**; all six tested packages pass. Skips remain capability/profile/
+external-fixture limits and do not establish the remaining platform gates.
 
 The native selection is `TestSnapshotExplicitOrderHiddenAggregateCap` with
 `REDIS_TEST_NATIVE_HIDDEN_CAP=137` only after the management API confirms that
