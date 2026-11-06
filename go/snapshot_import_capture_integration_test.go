@@ -126,6 +126,7 @@ type lostImportCompletionReply struct {
 	snapshotHook
 	completeCalls atomic.Int64
 	lost          atomic.Bool
+	data          string
 }
 
 func (h *lostImportCompletionReply) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
@@ -137,6 +138,7 @@ func (h *lostImportCompletionReply) ProcessHook(next goredis.ProcessHook) goredi
 		}
 		err := next(ctx, cmd)
 		if complete && err == nil && h.lost.CompareAndSwap(false, true) {
+			h.data = fmt.Sprint(a[11])
 			err = errors.New("injected lost input-completion reply")
 			cmd.SetErr(err)
 		}
@@ -159,4 +161,31 @@ func TestSnapshotClusterImportCaptureLostCompletionReplyDoesNotReplay(t *testing
 	if s.client.ZCard(h.ctx, snapshotMembers(snapshotDataID(meta.prefix()))).Val() != 0 {
 		t.Fatal("unknown completion emitted output")
 	}
+}
+
+func TestSnapshotClusterImportCaptureLostCompletionReplyAbortsImport(t *testing.T) {
+	h, raw, _ := snapshotClusterHarness(t)
+	st, err := h.conn.NewStatement(h.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close(h.ctx)
+	s := st.(*statementImpl).conn.store
+	observer := &lostImportCompletionReply{}
+	s.client.AddHook(observer)
+	source := &tableMeta{Name: "source", KeyPrefix: "app:lost-capture:", KeyRows: true, Columns: []columnMeta{{Name: "v", Type: typeInt64}}}
+	calls := 0
+	next := func(context.Context) ([]map[string]Value, bool, error) {
+		calls++
+		return []map[string]Value{{keyField: stringValue("app:lost-capture:\x00\xff"), "v": intValue(typeInt64, 9007199254740993)}}, true, nil
+	}
+	root := raw.HGet(h.ctx, snapshotCatalogKey, "root").Val()
+	err = s.importSnapshotTable(h.ctx, source, "public", "capture_lost_reply", false, nil, next)
+	if err == nil || !strings.Contains(err.Error(), "injected lost input-completion reply") || calls != 1 || observer.completeCalls.Load() != 1 || observer.data == "" {
+		t.Fatal("unknown completion replayed source/transition or succeeded", err, calls, observer.completeCalls.Load())
+	}
+	if raw.HGet(h.ctx, snapshotCatalogKey, "root").Val() != root || raw.ZCard(h.ctx, snapshotMembers(observer.data)).Val() != 0 {
+		t.Fatal("unknown completion published or emitted output")
+	}
+	h.expectRows("SELECT COUNT(*) FROM information_schema.tables WHERE table_name='capture_lost_reply'", "0")
 }

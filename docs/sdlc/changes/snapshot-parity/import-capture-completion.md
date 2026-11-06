@@ -96,10 +96,27 @@ Run Software with verified effective 4x QPF and keep operational state private.
 - Existing import/adoption/provenance race regressions pass, root 114.674 seconds,
   on the separate owned Software 8.8/TLS/QPF4 fixture. This includes large capture,
   split output, source preservation, native types, atomic input consumption and
-  failure cases. Exact event/skip counts are recorded after final inspection.
+  failure cases: 60 pass events and two explicit permission skips. A separate
+  actual-principal run closes those permission cases: three pass events, no
+  skips, root 1.962 seconds, with native HDEL/ZREM denials verified before
+  executing the cases. Temporary test permissions were restored and removed.
 - Native C/ADBC snapshot validation on that fixture: 19 passed, no skips,
   13.191 seconds, versioned library built with `make build`.
 
-Broader snapshot races and expanded promotion/RDB capture checks are pending.
+- The full unanchored `-race -count=1 -p 1 -timeout 30m -run Snapshot ./...`
+  selection passes on Software 8.8/QPF4: 535 pass events, 39 explicit skips,
+  root 422.558 seconds, all six executable packages pass without a race report.
+- SQL SELECT/RBAC with actual principals passes 21 events, no skips, root
+  25.064 seconds, including denial of captured-payload access.
+- The expanded Cluster recovery fixture retains a complete, unconsumed private
+  capture with binary keys and exact integers through real primary promotion
+  (7.34 seconds), fresh RDB recovery (48.93 seconds), and AOF recovery
+  (45.82 seconds). These checks exercise the same ordinary private owner; they
+  do not demonstrate a new process taking ownership.
+- The final focused Cluster run passes all seven capture families and five
+  refusal subcases. Its additional public-import case injects a lost completion
+  reply after the server transition: exactly one source call and transition,
+  no destination rows, unchanged catalog root, and no published table.
+
 These are correctness observations, not matched performance benchmarks. No
 performance-parity, public-resume or complete-goal claim follows from this stage.
