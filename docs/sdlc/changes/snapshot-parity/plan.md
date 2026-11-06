@@ -869,3 +869,11 @@ all 19 native snapshot cases pass, full official native validation passes
 DuckDB is terminal SUCCESS;
 the combined evidence doc is held locally to avoid canceling that matrix.
 The original RDB metadata failure is not explained by these passes.
+
+The publication guard's exact production source 0f707f34 is terminal green in
+Test, Release and DuckDB, including both ordinary Software Go suites and actual
+SQL grant/native/proxy checks. The [reference/checkpoint diagnostic](recovery-reference-audit-validation.md)
+adds no production behavior: a seeded positive undercount is detected, real
+promotion passes, a failed pre-restart checkpoint gate is preserved, and the
+corrected liveness helper passes fresh RDB recovery without changing probes or
+weakening freshness. The original incomplete-bucket failure remains open.

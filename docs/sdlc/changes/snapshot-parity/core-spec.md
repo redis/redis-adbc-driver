@@ -36,7 +36,8 @@ The [protocol-16 Cluster report](cluster16-validation.md),
 [recovery cleanup report](pin-cleanup-recovery-validation.md), existing visibility/
 lifecycle regressions and native validation contain the source-specific evidence.
 The later [publication-integrity guard](publication-integrity-validation.md)
-has its own current-source evidence and pending hosted gate. The older hosted
+has its own current-source local evidence and terminal green hosted matrix.
+The later reference/checkpoint diagnostics are test-only, with separate evidence. The older hosted
 checkpoint below does not prove that subsequent production change.
 
 At production revision `272bbd4d`, hosted workflows are all terminal SUCCESS:

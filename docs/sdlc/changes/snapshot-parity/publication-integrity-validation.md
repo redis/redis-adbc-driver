@@ -1,7 +1,7 @@
 # Publication metadata integrity admission
 
 Status: implemented; focused and complete local snapshot/native checks pass.
-Exact-head ordinary/hosted platform checks remain in progress.
+The exact production-source hosted Test, Release and DuckDB workflows pass.
 This is core snapshot correctness work, not a deferred feature or a demonstrated
 explanation of the intermittent RDB failure. See [minimal scope](core-spec.md).
 
@@ -80,13 +80,24 @@ Both native suites use that exact artifact. The normal owned Software 8.8 fixtur
 reverifies strict TLS, effective QPF4 and noeviction before each suite; database
 suites are serialized. No matched performance benchmark is run.
 
-Current-source [Test](https://github.com/redis/redis-adbc-driver/actions/runs/42178643433),
-[Release](https://github.com/redis/redis-adbc-driver/actions/runs/42178643525) remain in progress at recording.
-[DuckDB](https://github.com/redis/redis-adbc-driver/actions/runs/42178643441) is
-terminal SUCCESS at the exact same source. The complete ordinary Go suite on both hosted
-Software architectures and final matrix outcomes must be inspected. Documentation
-evidence is held locally until this matrix finishes, to avoid canceling it with
-a docs-only push. No pending or skipped job is counted as a pass.
+At exact production source `0f707f34`, all three workflows are terminal SUCCESS:
+[Test](https://github.com/redis/redis-adbc-driver/actions/runs/42178643433),
+[Release](https://github.com/redis/redis-adbc-driver/actions/runs/42178643525),
+[DuckDB](https://github.com/redis/redis-adbc-driver/actions/runs/42178643441).
+Both Software architectures pass ordinary Go, snapshot regressions, the actual
+SQL SELECT grant step, native validation and independent proxy-TLS/RBAC checks.
+The conditional failure-only “Require SQL SELECT grant validation” steps skip
+because their actual authorization steps succeeded. ARM-only optional Ray/Airflow
+and partition-measurement skips remain visible; they are not capability passes.
+Release passes macOS, both Linux builds, ten distro jobs and all three installed
+wheel-client jobs. Intentional release-upload/in-workflow DuckDB skips do not
+replace the separate successful DuckDB workflow.
+
+The local combined evidence was held until that matrix completed to avoid
+canceling it with a documentation push. The subsequent
+[test-only reference/checkpoint follow-up](recovery-reference-audit-validation.md)
+has separate focused evidence and leaves production code unchanged; these
+hosted results retain their exact `0f707f34` source, not a later-head label.
 
 ## Review and original failure boundary
 

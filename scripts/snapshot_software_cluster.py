@@ -527,9 +527,49 @@ def checkpoint_rdb(config, api, command, output):
     current = rdb_checkpoint_shards(config, api)
     if rdb_checkpoint_ready(current, after + 3600):
         raise ValueError("RDB gate accepted a future checkpoint")
-    wait(lambda: rdb_checkpoint_ready(
-        rdb_checkpoint_shards(config, api), after),
-        "fresh completed RDB checkpoint with AOF disabled was not verified", seconds=90)
+    progress = checkpoint[:]
+    progress[-1] = "^TestSnapshotClusterRDBCheckpointProgress$"
+    last_progress = None
+    last_shards = current
+
+    def ready():
+        nonlocal last_progress, last_shards
+        last_shards = rdb_checkpoint_shards(config, api)
+        if rdb_checkpoint_ready(last_shards, after):
+            return True
+        # A save in the probe second can leave a clean shard with no reason
+        # to save again. Dirty separate keys after the bound; never replace
+        # the original probe values/file or lower the checkpoint requirement.
+        if time.time() >= after and (last_progress is None or
+                                    time.monotonic() - last_progress >= 5):
+            last_progress = time.monotonic()
+            try:
+                result = subprocess.run(progress, stdout=output,
+                                        stderr=subprocess.STDOUT, timeout=15)
+            except (OSError, subprocess.TimeoutExpired):
+                # wait() retries native readiness errors, but must not replay
+                # an uncertain helper execution or hide an admission failure.
+                raise ValueError("owned RDB checkpoint progress outcome unavailable") from None
+            if result.returncode:
+                raise ValueError("owned RDB checkpoint progress writes failed")
+        return False
+
+    try:
+        wait(ready, "fresh completed RDB checkpoint with AOF disabled was not verified",
+             seconds=90)
+    except TimeoutError:
+        summary = []
+        for shard in last_shards or []:
+            fields = redis_info_fields(shard.get("redis_info"))
+            summary.append({key: fields.get(key) for key in
+                            ("aof_enabled", "rdb_bgsave_in_progress", "rdb_last_bgsave_status")})
+            try:
+                summary[-1]["save_second_minus_required"] = int(fields["rdb_last_save_time"]) - after
+            except (KeyError, TypeError, ValueError):
+                summary[-1]["save_second_minus_required"] = None
+        print("RDB checkpoint gate timeout (last sanitized observations): " + json.dumps(summary),
+              flush=True)
+        raise
     print("Fresh completed RDB checkpoints and disabled AOF verified on every shard", flush=True)
 
 
