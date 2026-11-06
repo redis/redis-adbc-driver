@@ -183,3 +183,73 @@ script sample is 5,831 bytes; the 128-pin HASH/directory samples remain
 20,280/130 bytes. Native cleanup removes only its known generated schema,
 including leftover fixture tables after failures. Full native completion and
 the final combined broad suites remain pending at this checkpoint.
+
+## Combined reader and direct-partition checkpoint
+
+Reader source through `0b21b18`, combined with the upstream telemetry, hidden-cap
+and direct-partition changes through `b1bc95b`, passes the complete native ADBC
+suite on an owned Redis Software 8.8 RAM deployment with strict TLS, effective
+4x QPF and noeviction. The native library identifies source `b1bc95b`; its
+SHA-256 is `10dc9c3519c20a3dd2771b0c08bc3407c9a1a86f79b36fe1c9134fe50848d0a9`.
+
+With Python 3.15.2, PyArrow 26.0.1, ADBC manager 1.13.0, pytest 9.2.0 and
+upstream validation commit `47a5ddf3f2a617ac88da3891848e000c74d55b0e`, the result
+is **565 passed, 3 subtests passed, 8 capability skips**, in **85.94 seconds**.
+Pytest initially collects 676 items; the upstream collection hook removes 103
+interactive REPL/query-display helpers, leaving 573 executable cases. This is
+the normal complete selection, with no user-provided selection flags.
+
+Test-only source `dd84bc9` updates canonical-prefix assertions, wrong-schema
+negative cases, compaction probes and concurrent/crash rekey barriers to retain
+the table access identity across generations. All ordinary Go unit packages
+pass (root 27.758 seconds). A focused live ordinary selection clears the prior
+canonical-storage, rekey/crash, temporary-table, truncation and streaming
+failures. That run used a nondefault aggregate cap of 1,000,000: remaining
+failures concern exact plan/sort-counter assertions, rather than row results.
+The actual ordinary fixture aggregate cap is 2,147,483,648; the Search result
+cap of 1,000,000 is a different setting.
+
+The full actual Software snapshot race selection at `dd84bc9`, also with the
+nondefault aggregate cap of 1,000,000, completes in 379.052 seconds with 494
+passing test events, 29 explicit profile/capability/model skips and one failure.
+The failure is the readiness hook counting the new empty `FILTER 0` capability
+probe as a data aggregate. No data races are reported. The selection includes
+100,001-row bounded compaction and imports beyond capture/candidate quotas.
+It does not replace a passing final ordinary-cap snapshot race selection.
+
+The unchanged required `TestSQLRBACSelect` passes under `-race` at `dd84bc9`
+in 25.989 seconds, with actual Software API-created restricted identities and
+no skipped subtests. This includes metadata discovery/GetTableSchema before
+GRANT, row denial, captured-payload privacy, retention, quota, malformed state,
+uncertain replies, stable grants, shared roles and DROP/recreate denial. At 128
+pins its resource sample remains 20,280/130 bytes (HASH/directory), with the
+5,831-byte control script.
+
+An earlier quota run after native validation correctly reached the global
+128-pin limit after creating only 125 new readers: preceding completed validation clients
+had left three retained/expiring pins. The idle fixture owner explicitly cleaned
+only those observed pins before rerunning the unchanged test. CI runs the RBAC
+gate before native validation. No quota assertion or admission limit was relaxed.
+The final ordinary-cap broad/race and hosted platform gates remain pending.
+
+
+The independent native TLS check on the same `b1bc95b` library now passes all
+**19 partition/lifecycle checks and 6 metadata/statistics identities**. This
+includes separate restricted credentials, certificate negatives, full-value and
+layout replay, FT.INFO denial with direct-HASH independence, read/write denials,
+retained results and producer release. The fixture owner restores the actual
+ordinary aggregate cap and re-verifies QPF/noeviction in `finally`.
+
+Test-only follow-up `8f39639` removes the quota fixture's empty-global-state
+assumption without changing production admission. Two real administrator-owned
+partition producers stay alive while the restricted role fills remaining slots.
+An independent administrative read counts exactly 128 live global pins at
+refusal; the refused token is absent. Releasing one reader gives 127 and admitting
+one replacement returns to 128. Existing expiry/wrong-root checks remain, and
+both foreign producers still admit valid workers after the role's pins are
+released. Cleanup checks only the test role's inactive namespace.
+
+The complete required SQL authorization fixture passes with this stronger test
+under `-race` in **25.486 seconds**. The mixed sample is 126 role pins, 128 global
+pins, 19,982 HASH bytes and 130 directory bytes, with the same 5,831-byte script.
+The prior 128-role-pin sample above remains a distinct, explicitly isolated run.
