@@ -16,8 +16,9 @@ pipeline, only when the declared source directories exceed 64 entries. Smaller
 jobs keep the original serial rank/page commands. Each pipeline contains at most
 eight existing commands. No rank/range command,
 page-size limit, permission, storage field or mutation script changes. The
-ordinary scanner and compaction share the unchanged page-acceptance/cardinality
-check. Row identities, newest-version/tombstone selection and physical-image
+ordinary scanner remains byte-for-byte unchanged from the preceding source;
+prefetch applies its same complete page/cardinality checks locally. Row identities,
+newest-version/tombstone selection and physical-image
 fetches still pass through the existing merge. Both aggregate pipeline errors
 and individual command errors stop the batch before any copy commit.
 
@@ -81,13 +82,23 @@ before addition, avoiding overflow for very large valid manifests. This is a
 local choice from existing immutable metadata, with no new server read, cache,
 job field or hard limit. Tiny selective jobs retain their original serial rank
 queries and lazy page reads; larger jobs retain the two bounded pipelines and
-shared cardinality proof. Declared counts include duplicate IDs/tombstones; this
+same cardinality proof. Declared counts include duplicate IDs/tombstones; this
 threshold chooses a read strategy and never substitutes for visibility checks.
 
 The new small selective-job regression fails unconditional batching in 0.16 s.
 It checks both initial and resumed reads, unchanged serial command counts and
 every final exact BIGINT row. Revised focused race results and new source-specific
 profile/native comparisons are recorded separately before delivery.
+
+The first guard-only source `76d4a182` retains the ordinary scanner helper
+extraction. A short unpaced native smoke measures 27.957 / 27.728 writes/s,
+preceding / guarded, with 31.267 / 38.361 ms medians. It restores near-baseline
+throughput in that observation but does not settle the median behavior. Retain
+that short diagnostic without treating it as full acceptance. The final refinement
+also removes the ordinary-reader refactor and avoids an additional small-job
+helper call: only larger background jobs invoke prefetch. Both the ordinary
+scanner and small-job rank/lazy-page command sequence retain their original
+implementation. Fresh source-specific checks/measurements remain required.
 
 ## Regression
 
