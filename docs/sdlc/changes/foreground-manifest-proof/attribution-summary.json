@@ -1,0 +1,4261 @@
+{
+  "note": "All raw phases and samples are preserved in attribution.json.gz. Medians exclude sample 0; per-operation call totals and category attribution average all four samples. Client times are instrumented, not native comparison results.",
+  "profiles": {
+    "baseline": {
+      "0": {
+        "arrow_batch": {
+          "median_ms": 23.861166,
+          "average_round_trips": 67.0,
+          "average_commands": 83.5,
+          "category_per_operation": {
+            "control_abort": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2302085
+            },
+            "control_acquire": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.25391675
+            },
+            "control_admit_ingest": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.24688575000000001
+            },
+            "control_claim": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2768125
+            },
+            "control_claim_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2489895
+            },
+            "control_own_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.27503125
+            },
+            "control_publish": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.3177185
+            },
+            "control_reclaimed": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.21787499999999999
+            },
+            "control_reclaimed_data": {
+              "calls": 0.25,
+              "commands": 0.25,
+              "client_ms": 0.09966675
+            },
+            "control_release": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.22453125
+            },
+            "control_reserve": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2565
+            },
+            "control_valid": {
+              "calls": 3.0,
+              "commands": 3.0,
+              "client_ms": 0.66216725
+            },
+            "del": {
+              "calls": 0.25,
+              "commands": 0.25,
+              "client_ms": 0.06275
+            },
+            "eval": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.55429175
+            },
+            "ft._list": {
+              "calls": 0.25,
+              "commands": 0.25,
+              "client_ms": 0.06697925
+            },
+            "ft.create": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.362552
+            },
+            "ft.dropindex": {
+              "calls": 0.25,
+              "commands": 0.25,
+              "client_ms": 0.08154175
+            },
+            "ft.info": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.45135424999999996
+            },
+            "ft.search": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.54368775
+            },
+            "get": {
+              "calls": 8.0,
+              "commands": 8.0,
+              "client_ms": 1.76366625
+            },
+            "hget": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.45085425
+            },
+            "hgetall": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.428802
+            },
+            "hlen": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.42831275
+            },
+            "index_notify": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 2.9202390000000005
+            },
+            "metadata_clone_bucket": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.5661562499999999
+            },
+            "metadata_clone_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.27715625
+            },
+            "metadata_collect_bucket": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.5188125
+            },
+            "metadata_collect_value": {
+              "calls": 1.75,
+              "commands": 1.75,
+              "client_ms": 0.48811475
+            },
+            "metadata_mutation": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.3020935
+            },
+            "metadata_own_value": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.51123925
+            },
+            "metadata_retire_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.26379175
+            },
+            "pipeline_metadata_mutation": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.6693232499999999
+            },
+            "pipeline_mixed": {
+              "calls": 7.0,
+              "commands": 23.5,
+              "client_ms": 2.07140625
+            },
+            "row_batch": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 3.0941875000000003
+            },
+            "zcard": {
+              "calls": 5.0,
+              "commands": 5.0,
+              "client_ms": 1.1011985000000002
+            },
+            "zrange": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.4185525
+            },
+            "zrangebylex": {
+              "calls": 3.25,
+              "commands": 3.25,
+              "client_ms": 0.881052
+            }
+          }
+        },
+        "arrow_small": {
+          "median_ms": 16.2345,
+          "average_round_trips": 64.5,
+          "average_commands": 81.0,
+          "category_per_operation": {
+            "control_abort": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.25557275
+            },
+            "control_acquire": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.20222925
+            },
+            "control_admit_ingest": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.22501025000000002
+            },
+            "control_claim": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.22493724999999998
+            },
+            "control_claim_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.20028124999999997
+            },
+            "control_own_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2584065
+            },
+            "control_publish": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.30747925
+            },
+            "control_reclaimed": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.24719775
+            },
+            "control_reclaimed_data": {
+              "calls": 0.5,
+              "commands": 0.5,
+              "client_ms": 0.09901025
+            },
+            "control_release": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.21261449999999998
+            },
+            "control_reserve": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2052605
+            },
+            "control_valid": {
+              "calls": 3.0,
+              "commands": 3.0,
+              "client_ms": 0.6376042499999999
+            },
+            "del": {
+              "calls": 0.5,
+              "commands": 0.5,
+              "client_ms": 0.09292675
+            },
+            "eval": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.48980225
+            },
+            "ft._list": {
+              "calls": 0.5,
+              "commands": 0.5,
+              "client_ms": 0.11746875
+            },
+            "ft.create": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.3073545
+            },
+            "ft.dropindex": {
+              "calls": 0.25,
+              "commands": 0.25,
+              "client_ms": 0.06507275
+            },
+            "ft.info": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.44196874999999997
+            },
+            "ft.search": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.5379375
+            },
+            "get": {
+              "calls": 8.0,
+              "commands": 8.0,
+              "client_ms": 1.6559165
+            },
+            "hget": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.39833375
+            },
+            "hgetall": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.406219
+            },
+            "hlen": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.3834895
+            },
+            "index_notify": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2670625
+            },
+            "metadata_clone_bucket": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.5770725
+            },
+            "metadata_clone_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.24670825000000002
+            },
+            "metadata_collect_bucket": {
+              "calls": 1.75,
+              "commands": 1.75,
+              "client_ms": 0.37920825
+            },
+            "metadata_collect_value": {
+              "calls": 1.5,
+              "commands": 1.5,
+              "client_ms": 0.32417725000000003
+            },
+            "metadata_mutation": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.30146850000000003
+            },
+            "metadata_own_value": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.5019687500000001
+            },
+            "metadata_retire_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.23951025
+            },
+            "pipeline_metadata_mutation": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.59494775
+            },
+            "pipeline_mixed": {
+              "calls": 7.0,
+              "commands": 23.5,
+              "client_ms": 1.99960425
+            },
+            "row_batch": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2587605
+            },
+            "zcard": {
+              "calls": 5.0,
+              "commands": 5.0,
+              "client_ms": 0.9687912499999999
+            },
+            "zrange": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.38392675
+            },
+            "zrangebylex": {
+              "calls": 2.5,
+              "commands": 2.5,
+              "client_ms": 0.53856225
+            }
+          }
+        },
+        "no_op_update": {
+          "median_ms": 14.90825,
+          "average_round_trips": 50.25,
+          "average_commands": 75.25,
+          "category_per_operation": {
+            "config": {
+              "calls": 0.25,
+              "commands": 0.25,
+              "client_ms": 0.09947925
+            },
+            "control_abort": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.27408325
+            },
+            "control_acquire": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.24499975000000002
+            },
+            "control_claim": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2495315
+            },
+            "control_claim_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.22649975
+            },
+            "control_own_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.26615649999999996
+            },
+            "control_reclaimed": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.26775
+            },
+            "control_reclaimed_data": {
+              "calls": 0.75,
+              "commands": 0.75,
+              "client_ms": 0.184521
+            },
+            "control_release": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.29801025
+            },
+            "control_reserve": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.26543775
+            },
+            "control_valid": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.5478959999999999
+            },
+            "del": {
+              "calls": 0.75,
+              "commands": 0.75,
+              "client_ms": 0.18467699999999998
+            },
+            "ft._list": {
+              "calls": 0.75,
+              "commands": 0.75,
+              "client_ms": 0.21341675
+            },
+            "ft.search": {
+              "calls": 5.0,
+              "commands": 5.0,
+              "client_ms": 3.0061045
+            },
+            "get": {
+              "calls": 5.0,
+              "commands": 5.0,
+              "client_ms": 1.16142725
+            },
+            "hget": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.438427
+            },
+            "hgetall": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.46045875
+            },
+            "hlen": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.4098965
+            },
+            "metadata_clone_bucket": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.28470850000000003
+            },
+            "metadata_clone_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.26811450000000003
+            },
+            "metadata_collect_bucket": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2370935
+            },
+            "metadata_collect_value": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.25466675
+            },
+            "metadata_own_value": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.35843749999999996
+            },
+            "metadata_retire_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.26391675
+            },
+            "pipeline_metadata_mutation": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.37494774999999997
+            },
+            "pipeline_mixed": {
+              "calls": 7.0,
+              "commands": 28.0,
+              "client_ms": 2.6247390000000004
+            },
+            "pipeline_zcard": {
+              "calls": 1.0,
+              "commands": 5.0,
+              "client_ms": 0.29788525
+            },
+            "zcard": {
+              "calls": 4.0,
+              "commands": 4.0,
+              "client_ms": 0.9056465
+            },
+            "zrange": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.43497925
+            },
+            "zrangebylex": {
+              "calls": 0.75,
+              "commands": 0.75,
+              "client_ms": 0.171677
+            }
+          }
+        },
+        "point_update": {
+          "median_ms": 20.502708,
+          "average_round_trips": 64.5,
+          "average_commands": 76.5,
+          "category_per_operation": {
+            "client": {
+              "calls": 0.25,
+              "commands": 0.25,
+              "client_ms": 0.062625
+            },
+            "control_abort": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2721355
+            },
+            "control_acquire": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.3340835
+            },
+            "control_claim": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.34917699999999996
+            },
+            "control_claim_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.297531
+            },
+            "control_own_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.37580199999999997
+            },
+            "control_publish": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.39579175
+            },
+            "control_reclaimed": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.3104165
+            },
+            "control_release": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.28229150000000003
+            },
+            "control_reserve": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.304427
+            },
+            "control_valid": {
+              "calls": 4.0,
+              "commands": 4.0,
+              "client_ms": 1.15602075
+            },
+            "eval": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.5907500000000001
+            },
+            "ft.create": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.39514575
+            },
+            "ft.info": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.616625
+            },
+            "ft.search": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 2.0070625
+            },
+            "get": {
+              "calls": 7.0,
+              "commands": 7.0,
+              "client_ms": 1.9712185
+            },
+            "hello": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.242052
+            },
+            "hget": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.5429895
+            },
+            "hgetall": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 1.2830309999999998
+            },
+            "hlen": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.516375
+            },
+            "index_notify": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.34286475000000005
+            },
+            "metadata_clone_bucket": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.388094
+            },
+            "metadata_clone_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.34983325
+            },
+            "metadata_collect_bucket": {
+              "calls": 1.5,
+              "commands": 1.5,
+              "client_ms": 0.44283324999999996
+            },
+            "metadata_collect_value": {
+              "calls": 1.75,
+              "commands": 1.75,
+              "client_ms": 0.53668775
+            },
+            "metadata_mutation": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.38138525
+            },
+            "metadata_own_value": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.4997085
+            },
+            "metadata_retire_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.327823
+            },
+            "pipeline_hgetall": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.528656
+            },
+            "pipeline_hmget": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.49518725
+            },
+            "pipeline_metadata_mutation": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.8160935
+            },
+            "pipeline_mixed": {
+              "calls": 5.0,
+              "commands": 17.0,
+              "client_ms": 2.603959
+            },
+            "row_batch": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.3397295
+            },
+            "zcard": {
+              "calls": 5.0,
+              "commands": 5.0,
+              "client_ms": 1.2982402499999999
+            },
+            "zrange": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.5134065
+            },
+            "zrangebylex": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.5399269999999999
+            },
+            "zscore": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.49746875
+            }
+          }
+        }
+      },
+      "32": {
+        "arrow_batch": {
+          "median_ms": 21.635083,
+          "average_round_trips": 67.0,
+          "average_commands": 83.5,
+          "category_per_operation": {
+            "control_abort": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.21493774999999998
+            },
+            "control_acquire": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.207948
+            },
+            "control_admit_ingest": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2168645
+            },
+            "control_claim": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.21255225
+            },
+            "control_claim_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.20789575
+            },
+            "control_own_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.20145825
+            },
+            "control_publish": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.44816675
+            },
+            "control_reclaimed": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.20004125
+            },
+            "control_reclaimed_data": {
+              "calls": 0.25,
+              "commands": 0.25,
+              "client_ms": 0.0548125
+            },
+            "control_release": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.22039599999999998
+            },
+            "control_reserve": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2122395
+            },
+            "control_valid": {
+              "calls": 3.0,
+              "commands": 3.0,
+              "client_ms": 0.614854
+            },
+            "del": {
+              "calls": 0.25,
+              "commands": 0.25,
+              "client_ms": 0.04828125
+            },
+            "eval": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.45136475
+            },
+            "ft._list": {
+              "calls": 0.25,
+              "commands": 0.25,
+              "client_ms": 0.0575835
+            },
+            "ft.create": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.28053125
+            },
+            "ft.dropindex": {
+              "calls": 0.25,
+              "commands": 0.25,
+              "client_ms": 0.05789575
+            },
+            "ft.info": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.39226025000000003
+            },
+            "ft.search": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.466854
+            },
+            "get": {
+              "calls": 8.0,
+              "commands": 8.0,
+              "client_ms": 1.5830947499999999
+            },
+            "hget": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.3773645
+            },
+            "hgetall": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.40845825
+            },
+            "hlen": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.41099975
+            },
+            "index_notify": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 2.7157497499999996
+            },
+            "metadata_clone_bucket": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.509521
+            },
+            "metadata_clone_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.35160375
+            },
+            "metadata_collect_bucket": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.4105205
+            },
+            "metadata_collect_value": {
+              "calls": 1.75,
+              "commands": 1.75,
+              "client_ms": 0.36609350000000007
+            },
+            "metadata_mutation": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.290646
+            },
+            "metadata_own_value": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.425927
+            },
+            "metadata_retire_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.32187475
+            },
+            "pipeline_metadata_mutation": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.5893959999999999
+            },
+            "pipeline_mixed": {
+              "calls": 7.0,
+              "commands": 23.5,
+              "client_ms": 1.8038545
+            },
+            "row_batch": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 2.99014525
+            },
+            "zcard": {
+              "calls": 5.0,
+              "commands": 5.0,
+              "client_ms": 0.9864685
+            },
+            "zrange": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.38114574999999995
+            },
+            "zrangebylex": {
+              "calls": 3.25,
+              "commands": 3.25,
+              "client_ms": 0.6851665
+            }
+          }
+        },
+        "arrow_small": {
+          "median_ms": 15.27425,
+          "average_round_trips": 64.5,
+          "average_commands": 81.0,
+          "category_per_operation": {
+            "control_abort": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.21910425
+            },
+            "control_acquire": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.21038525000000002
+            },
+            "control_admit_ingest": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2079585
+            },
+            "control_claim": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.21345825000000002
+            },
+            "control_claim_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.21904175
+            },
+            "control_own_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.212177
+            },
+            "control_publish": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.413771
+            },
+            "control_reclaimed": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2146565
+            },
+            "control_reclaimed_data": {
+              "calls": 0.5,
+              "commands": 0.5,
+              "client_ms": 0.1032605
+            },
+            "control_release": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.19549975
+            },
+            "control_reserve": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.192844
+            },
+            "control_valid": {
+              "calls": 3.0,
+              "commands": 3.0,
+              "client_ms": 0.5840835
+            },
+            "del": {
+              "calls": 0.5,
+              "commands": 0.5,
+              "client_ms": 0.093458
+            },
+            "eval": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.43112475
+            },
+            "ft._list": {
+              "calls": 0.5,
+              "commands": 0.5,
+              "client_ms": 0.10931225
+            },
+            "ft.create": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.26902075
+            },
+            "ft.dropindex": {
+              "calls": 0.25,
+              "commands": 0.25,
+              "client_ms": 0.0585625
+            },
+            "ft.info": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.3681145
+            },
+            "ft.search": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.47838525
+            },
+            "get": {
+              "calls": 8.0,
+              "commands": 8.0,
+              "client_ms": 1.5569485
+            },
+            "hget": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.38729175
+            },
+            "hgetall": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.4196045
+            },
+            "hlen": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.3551875
+            },
+            "index_notify": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2431875
+            },
+            "metadata_clone_bucket": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.50770825
+            },
+            "metadata_clone_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.3307915
+            },
+            "metadata_collect_bucket": {
+              "calls": 1.75,
+              "commands": 1.75,
+              "client_ms": 0.343771
+            },
+            "metadata_collect_value": {
+              "calls": 1.5,
+              "commands": 1.5,
+              "client_ms": 0.35653100000000004
+            },
+            "metadata_mutation": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.27299999999999996
+            },
+            "metadata_own_value": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.5052500000000001
+            },
+            "metadata_retire_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.3376665
+            },
+            "pipeline_metadata_mutation": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.5486562500000001
+            },
+            "pipeline_mixed": {
+              "calls": 7.0,
+              "commands": 23.5,
+              "client_ms": 1.83874025
+            },
+            "row_batch": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2703545
+            },
+            "zcard": {
+              "calls": 5.0,
+              "commands": 5.0,
+              "client_ms": 0.9270424999999999
+            },
+            "zrange": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.44434375000000004
+            },
+            "zrangebylex": {
+              "calls": 2.5,
+              "commands": 2.5,
+              "client_ms": 0.48136474999999995
+            }
+          }
+        },
+        "no_op_update": {
+          "median_ms": 13.476583,
+          "average_round_trips": 50.25,
+          "average_commands": 75.25,
+          "category_per_operation": {
+            "config": {
+              "calls": 0.25,
+              "commands": 0.25,
+              "client_ms": 0.0518855
+            },
+            "control_abort": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.24737475
+            },
+            "control_acquire": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.23144800000000001
+            },
+            "control_claim": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.22452099999999997
+            },
+            "control_claim_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.20565624999999998
+            },
+            "control_own_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.23691675
+            },
+            "control_reclaimed": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.21711475
+            },
+            "control_reclaimed_data": {
+              "calls": 0.75,
+              "commands": 0.75,
+              "client_ms": 0.15060400000000002
+            },
+            "control_release": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.23603125000000003
+            },
+            "control_reserve": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.24151049999999996
+            },
+            "control_valid": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.38798975
+            },
+            "del": {
+              "calls": 0.75,
+              "commands": 0.75,
+              "client_ms": 0.1552605
+            },
+            "ft._list": {
+              "calls": 0.75,
+              "commands": 0.75,
+              "client_ms": 0.21725
+            },
+            "ft.search": {
+              "calls": 5.0,
+              "commands": 5.0,
+              "client_ms": 2.20158275
+            },
+            "get": {
+              "calls": 5.0,
+              "commands": 5.0,
+              "client_ms": 1.0071462500000001
+            },
+            "hget": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.407667
+            },
+            "hgetall": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.4408645
+            },
+            "hlen": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.401667
+            },
+            "metadata_clone_bucket": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.25776024999999997
+            },
+            "metadata_clone_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.35185425000000004
+            },
+            "metadata_collect_bucket": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.20745825
+            },
+            "metadata_collect_value": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2238955
+            },
+            "metadata_own_value": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.26776025000000003
+            },
+            "metadata_retire_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.35052075000000005
+            },
+            "pipeline_metadata_mutation": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.31481225
+            },
+            "pipeline_mixed": {
+              "calls": 7.0,
+              "commands": 28.0,
+              "client_ms": 2.3388435000000003
+            },
+            "pipeline_zcard": {
+              "calls": 1.0,
+              "commands": 5.0,
+              "client_ms": 0.2101355
+            },
+            "zcard": {
+              "calls": 4.0,
+              "commands": 4.0,
+              "client_ms": 0.7833230000000001
+            },
+            "zrange": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.37878125
+            },
+            "zrangebylex": {
+              "calls": 0.75,
+              "commands": 0.75,
+              "client_ms": 0.14712524999999999
+            }
+          }
+        },
+        "point_update": {
+          "median_ms": 16.449,
+          "average_round_trips": 64.5,
+          "average_commands": 76.5,
+          "category_per_operation": {
+            "client": {
+              "calls": 0.25,
+              "commands": 0.25,
+              "client_ms": 0.0524375
+            },
+            "control_abort": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.37260424999999997
+            },
+            "control_acquire": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.20256275
+            },
+            "control_claim": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.34269799999999995
+            },
+            "control_claim_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.20969824999999997
+            },
+            "control_own_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2613335
+            },
+            "control_publish": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.47855200000000003
+            },
+            "control_reclaimed": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.24448975
+            },
+            "control_release": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.37714575
+            },
+            "control_reserve": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.24220825
+            },
+            "control_valid": {
+              "calls": 4.0,
+              "commands": 4.0,
+              "client_ms": 0.8500315
+            },
+            "eval": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.47411475000000003
+            },
+            "ft.create": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.31343750000000004
+            },
+            "ft.info": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.44991650000000005
+            },
+            "ft.search": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.484948
+            },
+            "get": {
+              "calls": 7.0,
+              "commands": 7.0,
+              "client_ms": 1.4781982500000002
+            },
+            "hello": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2157395
+            },
+            "hget": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.38648975
+            },
+            "hgetall": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.9796355
+            },
+            "hlen": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.393281
+            },
+            "index_notify": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.25643775
+            },
+            "metadata_clone_bucket": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.262896
+            },
+            "metadata_clone_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.37637525
+            },
+            "metadata_collect_bucket": {
+              "calls": 1.5,
+              "commands": 1.5,
+              "client_ms": 0.33509350000000004
+            },
+            "metadata_collect_value": {
+              "calls": 1.75,
+              "commands": 1.75,
+              "client_ms": 0.37302075
+            },
+            "metadata_mutation": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.3039375
+            },
+            "metadata_own_value": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.24883325
+            },
+            "metadata_retire_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.398448
+            },
+            "pipeline_hgetall": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.40592675
+            },
+            "pipeline_hmget": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.40336425
+            },
+            "pipeline_metadata_mutation": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.63234375
+            },
+            "pipeline_mixed": {
+              "calls": 5.0,
+              "commands": 17.0,
+              "client_ms": 1.9840834999999999
+            },
+            "row_batch": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.26026025
+            },
+            "zcard": {
+              "calls": 5.0,
+              "commands": 5.0,
+              "client_ms": 1.02894775
+            },
+            "zrange": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.43332325000000005
+            },
+            "zrangebylex": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.39832275
+            },
+            "zscore": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.42659375
+            }
+          }
+        }
+      }
+    },
+    "initial_candidate_before_pipeline_error_fix": {
+      "0": {
+        "arrow_batch": {
+          "median_ms": 20.960166,
+          "average_round_trips": 63.0,
+          "average_commands": 83.5,
+          "category_per_operation": {
+            "control_abort": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.213854
+            },
+            "control_acquire": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2315
+            },
+            "control_admit_ingest": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.22941675
+            },
+            "control_claim": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.22584349999999997
+            },
+            "control_claim_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.19413525
+            },
+            "control_own_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2081045
+            },
+            "control_publish": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.291323
+            },
+            "control_reclaimed": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.1945835
+            },
+            "control_reclaimed_data": {
+              "calls": 0.25,
+              "commands": 0.25,
+              "client_ms": 0.05302075
+            },
+            "control_release": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.1998335
+            },
+            "control_reserve": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.21273950000000003
+            },
+            "control_valid": {
+              "calls": 3.0,
+              "commands": 3.0,
+              "client_ms": 0.6670832499999999
+            },
+            "del": {
+              "calls": 0.25,
+              "commands": 0.25,
+              "client_ms": 0.045625
+            },
+            "eval": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.46604125
+            },
+            "ft._list": {
+              "calls": 0.25,
+              "commands": 0.25,
+              "client_ms": 0.050875
+            },
+            "ft.create": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.28712475
+            },
+            "ft.dropindex": {
+              "calls": 0.25,
+              "commands": 0.25,
+              "client_ms": 0.073927
+            },
+            "ft.info": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.45403125
+            },
+            "ft.search": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.5158437499999999
+            },
+            "get": {
+              "calls": 8.0,
+              "commands": 8.0,
+              "client_ms": 1.6777715000000002
+            },
+            "hgetall": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.389729
+            },
+            "index_notify": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 2.84112425
+            },
+            "metadata_clone_bucket": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.5077085
+            },
+            "metadata_clone_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.239052
+            },
+            "metadata_collect_bucket": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.4193125
+            },
+            "metadata_collect_value": {
+              "calls": 1.75,
+              "commands": 1.75,
+              "client_ms": 0.37717675
+            },
+            "metadata_mutation": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.297281
+            },
+            "metadata_own_value": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.44495825
+            },
+            "metadata_retire_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.228354
+            },
+            "pipeline_metadata_mutation": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.614896
+            },
+            "pipeline_mixed": {
+              "calls": 9.0,
+              "commands": 29.5,
+              "client_ms": 2.435708
+            },
+            "row_batch": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 3.01387525
+            },
+            "zcard": {
+              "calls": 3.0,
+              "commands": 3.0,
+              "client_ms": 0.58753175
+            },
+            "zrange": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.39301049999999993
+            },
+            "zrangebylex": {
+              "calls": 3.25,
+              "commands": 3.25,
+              "client_ms": 0.7270095000000001
+            }
+          }
+        },
+        "arrow_small": {
+          "median_ms": 15.441791,
+          "average_round_trips": 60.5,
+          "average_commands": 81.0,
+          "category_per_operation": {
+            "control_abort": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.26245825
+            },
+            "control_acquire": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.23076075000000001
+            },
+            "control_admit_ingest": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2266355
+            },
+            "control_claim": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2758335
+            },
+            "control_claim_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.23630175
+            },
+            "control_own_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.25658325000000004
+            },
+            "control_publish": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.368719
+            },
+            "control_reclaimed": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.27530175
+            },
+            "control_reclaimed_data": {
+              "calls": 0.5,
+              "commands": 0.5,
+              "client_ms": 0.10844825
+            },
+            "control_release": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.26298975
+            },
+            "control_reserve": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.22222925
+            },
+            "control_valid": {
+              "calls": 3.0,
+              "commands": 3.0,
+              "client_ms": 0.6699065
+            },
+            "del": {
+              "calls": 0.5,
+              "commands": 0.5,
+              "client_ms": 0.1149895
+            },
+            "eval": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.46426025
+            },
+            "ft._list": {
+              "calls": 0.5,
+              "commands": 0.5,
+              "client_ms": 0.12736475
+            },
+            "ft.create": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.28881249999999997
+            },
+            "ft.dropindex": {
+              "calls": 0.25,
+              "commands": 0.25,
+              "client_ms": 0.0704375
+            },
+            "ft.info": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.49754175
+            },
+            "ft.search": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.5571355
+            },
+            "get": {
+              "calls": 8.0,
+              "commands": 8.0,
+              "client_ms": 1.7328865
+            },
+            "hgetall": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.40582300000000004
+            },
+            "index_notify": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.30920825
+            },
+            "metadata_clone_bucket": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.5345727499999999
+            },
+            "metadata_clone_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.272604
+            },
+            "metadata_collect_bucket": {
+              "calls": 1.75,
+              "commands": 1.75,
+              "client_ms": 0.46603124999999995
+            },
+            "metadata_collect_value": {
+              "calls": 1.5,
+              "commands": 1.5,
+              "client_ms": 0.3522915
+            },
+            "metadata_mutation": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.378479
+            },
+            "metadata_own_value": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.495438
+            },
+            "metadata_retire_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.30228125
+            },
+            "pipeline_metadata_mutation": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.7406355
+            },
+            "pipeline_mixed": {
+              "calls": 9.0,
+              "commands": 29.5,
+              "client_ms": 2.5168545
+            },
+            "row_batch": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.30729175
+            },
+            "zcard": {
+              "calls": 3.0,
+              "commands": 3.0,
+              "client_ms": 0.68237525
+            },
+            "zrange": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.54906275
+            },
+            "zrangebylex": {
+              "calls": 2.5,
+              "commands": 2.5,
+              "client_ms": 0.61618725
+            }
+          }
+        },
+        "no_op_update": {
+          "median_ms": 16.053667,
+          "average_round_trips": 46.25,
+          "average_commands": 75.25,
+          "category_per_operation": {
+            "config": {
+              "calls": 0.25,
+              "commands": 0.25,
+              "client_ms": 0.04978125
+            },
+            "control_abort": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.3071975
+            },
+            "control_acquire": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.25316675
+            },
+            "control_claim": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.26788525
+            },
+            "control_claim_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.21958325
+            },
+            "control_own_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.23047875
+            },
+            "control_reclaimed": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.23664599999999997
+            },
+            "control_reclaimed_data": {
+              "calls": 0.75,
+              "commands": 0.75,
+              "client_ms": 0.17146875
+            },
+            "control_release": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.282021
+            },
+            "control_reserve": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.260302
+            },
+            "control_valid": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.53959375
+            },
+            "del": {
+              "calls": 0.75,
+              "commands": 0.75,
+              "client_ms": 0.14776075
+            },
+            "ft._list": {
+              "calls": 0.75,
+              "commands": 0.75,
+              "client_ms": 0.16928100000000001
+            },
+            "ft.search": {
+              "calls": 5.0,
+              "commands": 5.0,
+              "client_ms": 2.9040314999999994
+            },
+            "get": {
+              "calls": 5.0,
+              "commands": 5.0,
+              "client_ms": 1.179854
+            },
+            "hgetall": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.43835424999999995
+            },
+            "metadata_clone_bucket": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.28247925
+            },
+            "metadata_clone_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2523435
+            },
+            "metadata_collect_bucket": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.213646
+            },
+            "metadata_collect_value": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.22875025
+            },
+            "metadata_own_value": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.28535425000000003
+            },
+            "metadata_retire_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.22110425
+            },
+            "pipeline_metadata_mutation": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.31985375
+            },
+            "pipeline_mixed": {
+              "calls": 9.0,
+              "commands": 34.0,
+              "client_ms": 3.1563017500000004
+            },
+            "pipeline_zcard": {
+              "calls": 1.0,
+              "commands": 5.0,
+              "client_ms": 0.30411475
+            },
+            "zcard": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.5668335
+            },
+            "zrange": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.40618750000000003
+            },
+            "zrangebylex": {
+              "calls": 0.75,
+              "commands": 0.75,
+              "client_ms": 0.1857295
+            }
+          }
+        },
+        "point_update": {
+          "median_ms": 14.11525,
+          "average_round_trips": 60.5,
+          "average_commands": 76.5,
+          "category_per_operation": {
+            "client": {
+              "calls": 0.25,
+              "commands": 0.25,
+              "client_ms": 0.04633325
+            },
+            "control_abort": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.21879175
+            },
+            "control_acquire": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.20656249999999998
+            },
+            "control_claim": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.20879175
+            },
+            "control_claim_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.19740625
+            },
+            "control_own_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2228545
+            },
+            "control_publish": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.26497899999999996
+            },
+            "control_reclaimed": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.196604
+            },
+            "control_release": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2098335
+            },
+            "control_reserve": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.22543725
+            },
+            "control_valid": {
+              "calls": 4.0,
+              "commands": 4.0,
+              "client_ms": 0.853115
+            },
+            "eval": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.44318725
+            },
+            "ft.create": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.28429174999999995
+            },
+            "ft.info": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.38209374999999995
+            },
+            "ft.search": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.4655415
+            },
+            "get": {
+              "calls": 7.0,
+              "commands": 7.0,
+              "client_ms": 1.38466575
+            },
+            "hello": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2718335
+            },
+            "hgetall": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.8659585
+            },
+            "index_notify": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.22554175
+            },
+            "metadata_clone_bucket": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.29634375
+            },
+            "metadata_clone_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.23978125
+            },
+            "metadata_collect_bucket": {
+              "calls": 1.5,
+              "commands": 1.5,
+              "client_ms": 0.31811500000000004
+            },
+            "metadata_collect_value": {
+              "calls": 1.75,
+              "commands": 1.75,
+              "client_ms": 0.36845799999999995
+            },
+            "metadata_mutation": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.310865
+            },
+            "metadata_own_value": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.23360425
+            },
+            "metadata_retire_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.23463499999999998
+            },
+            "pipeline_hgetall": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.39499975
+            },
+            "pipeline_hmget": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.3962915
+            },
+            "pipeline_metadata_mutation": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.58587475
+            },
+            "pipeline_mixed": {
+              "calls": 7.0,
+              "commands": 23.0,
+              "client_ms": 2.7048852500000002
+            },
+            "row_batch": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.24957325
+            },
+            "zcard": {
+              "calls": 3.0,
+              "commands": 3.0,
+              "client_ms": 0.5760835
+            },
+            "zrange": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.38323975000000005
+            },
+            "zrangebylex": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.3851255
+            },
+            "zscore": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.377052
+            }
+          }
+        }
+      },
+      "32": {
+        "arrow_batch": {
+          "median_ms": 25.808667,
+          "average_round_trips": 63.0,
+          "average_commands": 83.5,
+          "category_per_operation": {
+            "control_abort": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.31475025
+            },
+            "control_acquire": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2930835
+            },
+            "control_admit_ingest": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.25188525
+            },
+            "control_claim": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.30358324999999997
+            },
+            "control_claim_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2877395
+            },
+            "control_own_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.25065625
+            },
+            "control_publish": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.56205225
+            },
+            "control_reclaimed": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2971045
+            },
+            "control_reclaimed_data": {
+              "calls": 0.25,
+              "commands": 0.25,
+              "client_ms": 0.0524585
+            },
+            "control_release": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.35691649999999997
+            },
+            "control_reserve": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.257052
+            },
+            "control_valid": {
+              "calls": 3.0,
+              "commands": 3.0,
+              "client_ms": 0.73313425
+            },
+            "del": {
+              "calls": 0.25,
+              "commands": 0.25,
+              "client_ms": 0.05246875
+            },
+            "eval": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.5686665000000001
+            },
+            "ft._list": {
+              "calls": 0.25,
+              "commands": 0.25,
+              "client_ms": 0.05897925
+            },
+            "ft.create": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.3549685
+            },
+            "ft.dropindex": {
+              "calls": 0.25,
+              "commands": 0.25,
+              "client_ms": 0.0726875
+            },
+            "ft.info": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.43913525
+            },
+            "ft.search": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.45991675
+            },
+            "get": {
+              "calls": 8.0,
+              "commands": 8.0,
+              "client_ms": 1.831375
+            },
+            "hgetall": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.5549897500000001
+            },
+            "index_notify": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 2.92152075
+            },
+            "metadata_clone_bucket": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.5555522500000001
+            },
+            "metadata_clone_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.39162474999999997
+            },
+            "metadata_collect_bucket": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.58725025
+            },
+            "metadata_collect_value": {
+              "calls": 1.75,
+              "commands": 1.75,
+              "client_ms": 0.591125
+            },
+            "metadata_mutation": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.31432299999999996
+            },
+            "metadata_own_value": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.5361045
+            },
+            "metadata_retire_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.43283325
+            },
+            "pipeline_metadata_mutation": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.666552
+            },
+            "pipeline_mixed": {
+              "calls": 9.0,
+              "commands": 29.5,
+              "client_ms": 2.693271
+            },
+            "row_batch": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 3.11425
+            },
+            "zcard": {
+              "calls": 3.0,
+              "commands": 3.0,
+              "client_ms": 0.59696825
+            },
+            "zrange": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.5629585
+            },
+            "zrangebylex": {
+              "calls": 3.25,
+              "commands": 3.25,
+              "client_ms": 0.80459425
+            }
+          }
+        },
+        "arrow_small": {
+          "median_ms": 15.362333,
+          "average_round_trips": 60.5,
+          "average_commands": 81.0,
+          "category_per_operation": {
+            "control_abort": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.22592725
+            },
+            "control_acquire": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2467605
+            },
+            "control_admit_ingest": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.23746825
+            },
+            "control_claim": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2718645
+            },
+            "control_claim_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.23909375
+            },
+            "control_own_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2650415
+            },
+            "control_publish": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.45173949999999996
+            },
+            "control_reclaimed": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.20802099999999998
+            },
+            "control_reclaimed_data": {
+              "calls": 0.5,
+              "commands": 0.5,
+              "client_ms": 0.10835425000000001
+            },
+            "control_release": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.22406249999999997
+            },
+            "control_reserve": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.20282275
+            },
+            "control_valid": {
+              "calls": 3.0,
+              "commands": 3.0,
+              "client_ms": 0.6864167499999999
+            },
+            "del": {
+              "calls": 0.5,
+              "commands": 0.5,
+              "client_ms": 0.09639575
+            },
+            "eval": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.46702024999999997
+            },
+            "ft._list": {
+              "calls": 0.5,
+              "commands": 0.5,
+              "client_ms": 0.12164575
+            },
+            "ft.create": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.286625
+            },
+            "ft.dropindex": {
+              "calls": 0.25,
+              "commands": 0.25,
+              "client_ms": 0.05903125
+            },
+            "ft.info": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.403198
+            },
+            "ft.search": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.436406
+            },
+            "get": {
+              "calls": 8.0,
+              "commands": 8.0,
+              "client_ms": 1.8531975
+            },
+            "hgetall": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.45589599999999997
+            },
+            "index_notify": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.21334375
+            },
+            "metadata_clone_bucket": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.629781
+            },
+            "metadata_clone_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.38214575
+            },
+            "metadata_collect_bucket": {
+              "calls": 1.75,
+              "commands": 1.75,
+              "client_ms": 0.40417725000000004
+            },
+            "metadata_collect_value": {
+              "calls": 1.5,
+              "commands": 1.5,
+              "client_ms": 0.3166355
+            },
+            "metadata_mutation": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2839795
+            },
+            "metadata_own_value": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.5086665
+            },
+            "metadata_retire_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.33602099999999996
+            },
+            "pipeline_metadata_mutation": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.60832275
+            },
+            "pipeline_mixed": {
+              "calls": 9.0,
+              "commands": 29.5,
+              "client_ms": 2.49541625
+            },
+            "row_batch": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.27613525000000005
+            },
+            "zcard": {
+              "calls": 3.0,
+              "commands": 3.0,
+              "client_ms": 0.57522925
+            },
+            "zrange": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.392625
+            },
+            "zrangebylex": {
+              "calls": 2.5,
+              "commands": 2.5,
+              "client_ms": 0.487969
+            }
+          }
+        },
+        "no_op_update": {
+          "median_ms": 12.249292,
+          "average_round_trips": 46.25,
+          "average_commands": 75.25,
+          "category_per_operation": {
+            "config": {
+              "calls": 0.25,
+              "commands": 0.25,
+              "client_ms": 0.052
+            },
+            "control_abort": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.21969825
+            },
+            "control_acquire": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.20452075
+            },
+            "control_claim": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2069585
+            },
+            "control_claim_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.209625
+            },
+            "control_own_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.21548975
+            },
+            "control_reclaimed": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.21001075
+            },
+            "control_reclaimed_data": {
+              "calls": 0.75,
+              "commands": 0.75,
+              "client_ms": 0.15240625
+            },
+            "control_release": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.26511475
+            },
+            "control_reserve": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2176875
+            },
+            "control_valid": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.39162525
+            },
+            "del": {
+              "calls": 0.75,
+              "commands": 0.75,
+              "client_ms": 0.134385
+            },
+            "ft._list": {
+              "calls": 0.75,
+              "commands": 0.75,
+              "client_ms": 0.1663855
+            },
+            "ft.search": {
+              "calls": 5.0,
+              "commands": 5.0,
+              "client_ms": 2.1563755
+            },
+            "get": {
+              "calls": 5.0,
+              "commands": 5.0,
+              "client_ms": 0.967042
+            },
+            "hgetall": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.40721850000000004
+            },
+            "metadata_clone_bucket": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.24054150000000002
+            },
+            "metadata_clone_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.36412524999999996
+            },
+            "metadata_collect_bucket": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.21244775
+            },
+            "metadata_collect_value": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.21299975000000002
+            },
+            "metadata_own_value": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.25988550000000005
+            },
+            "metadata_retire_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.3322395
+            },
+            "pipeline_metadata_mutation": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.34246875
+            },
+            "pipeline_mixed": {
+              "calls": 9.0,
+              "commands": 34.0,
+              "client_ms": 2.5868640000000003
+            },
+            "pipeline_zcard": {
+              "calls": 1.0,
+              "commands": 5.0,
+              "client_ms": 0.2013435
+            },
+            "zcard": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.36072950000000004
+            },
+            "zrange": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.374448
+            },
+            "zrangebylex": {
+              "calls": 0.75,
+              "commands": 0.75,
+              "client_ms": 0.1339165
+            }
+          }
+        },
+        "point_update": {
+          "median_ms": 14.299584,
+          "average_round_trips": 60.5,
+          "average_commands": 76.5,
+          "category_per_operation": {
+            "client": {
+              "calls": 0.25,
+              "commands": 0.25,
+              "client_ms": 0.04170825
+            },
+            "control_abort": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.21543725
+            },
+            "control_acquire": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.21015625
+            },
+            "control_claim": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.25842725
+            },
+            "control_claim_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.20573999999999998
+            },
+            "control_own_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.25405225
+            },
+            "control_publish": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.47129174999999995
+            },
+            "control_reclaimed": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.23865625000000001
+            },
+            "control_release": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.21190625
+            },
+            "control_reserve": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.22176025
+            },
+            "control_valid": {
+              "calls": 4.0,
+              "commands": 4.0,
+              "client_ms": 0.886667
+            },
+            "eval": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.45527074999999995
+            },
+            "ft.create": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.28428125
+            },
+            "ft.info": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.400552
+            },
+            "ft.search": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.4578645
+            },
+            "get": {
+              "calls": 7.0,
+              "commands": 7.0,
+              "client_ms": 1.45443725
+            },
+            "hello": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.21882300000000002
+            },
+            "hgetall": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 1.0319895000000001
+            },
+            "index_notify": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.23534375
+            },
+            "metadata_clone_bucket": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2617915
+            },
+            "metadata_clone_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.4005835
+            },
+            "metadata_collect_bucket": {
+              "calls": 1.5,
+              "commands": 1.5,
+              "client_ms": 0.313583
+            },
+            "metadata_collect_value": {
+              "calls": 1.75,
+              "commands": 1.75,
+              "client_ms": 0.34609375
+            },
+            "metadata_mutation": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.3132605
+            },
+            "metadata_own_value": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.263354
+            },
+            "metadata_retire_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.32973975
+            },
+            "pipeline_hgetall": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.39554175
+            },
+            "pipeline_hmget": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.42526025
+            },
+            "pipeline_metadata_mutation": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.615531
+            },
+            "pipeline_mixed": {
+              "calls": 7.0,
+              "commands": 23.0,
+              "client_ms": 2.4158447499999998
+            },
+            "row_batch": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.26011475
+            },
+            "zcard": {
+              "calls": 3.0,
+              "commands": 3.0,
+              "client_ms": 0.6140105
+            },
+            "zrange": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.40863574999999996
+            },
+            "zrangebylex": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.43404099999999995
+            },
+            "zscore": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.396573
+            }
+          }
+        }
+      }
+    },
+    "corrected_candidate": {
+      "0": {
+        "arrow_batch": {
+          "median_ms": 20.201208,
+          "average_round_trips": 63.0,
+          "average_commands": 83.5,
+          "category_per_operation": {
+            "control_abort": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.26750025
+            },
+            "control_acquire": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.191292
+            },
+            "control_admit_ingest": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.23401049999999998
+            },
+            "control_claim": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.21227125
+            },
+            "control_claim_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.208375
+            },
+            "control_own_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.21669775
+            },
+            "control_publish": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.28485425
+            },
+            "control_reclaimed": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.204698
+            },
+            "control_reclaimed_data": {
+              "calls": 0.25,
+              "commands": 0.25,
+              "client_ms": 0.04984375
+            },
+            "control_release": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2473645
+            },
+            "control_reserve": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.20752075000000003
+            },
+            "control_valid": {
+              "calls": 3.0,
+              "commands": 3.0,
+              "client_ms": 0.60898975
+            },
+            "del": {
+              "calls": 0.25,
+              "commands": 0.25,
+              "client_ms": 0.04783325
+            },
+            "eval": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.44240675
+            },
+            "ft._list": {
+              "calls": 0.25,
+              "commands": 0.25,
+              "client_ms": 0.0565625
+            },
+            "ft.create": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.279802
+            },
+            "ft.dropindex": {
+              "calls": 0.25,
+              "commands": 0.25,
+              "client_ms": 0.06334375
+            },
+            "ft.info": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.40494774999999994
+            },
+            "ft.search": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.43307300000000004
+            },
+            "get": {
+              "calls": 8.0,
+              "commands": 8.0,
+              "client_ms": 1.589135
+            },
+            "hgetall": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.382156
+            },
+            "index_notify": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 2.6598965000000003
+            },
+            "metadata_clone_bucket": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.55452075
+            },
+            "metadata_clone_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2464585
+            },
+            "metadata_collect_bucket": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.39572950000000007
+            },
+            "metadata_collect_value": {
+              "calls": 1.75,
+              "commands": 1.75,
+              "client_ms": 0.37691675
+            },
+            "metadata_mutation": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.3010415
+            },
+            "metadata_own_value": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.46897925
+            },
+            "metadata_retire_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.20923925000000002
+            },
+            "pipeline_metadata_mutation": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.6076145
+            },
+            "pipeline_mixed": {
+              "calls": 9.0,
+              "commands": 29.5,
+              "client_ms": 2.2054165
+            },
+            "row_batch": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 2.9340835
+            },
+            "zcard": {
+              "calls": 3.0,
+              "commands": 3.0,
+              "client_ms": 0.5583225
+            },
+            "zrange": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.391146
+            },
+            "zrangebylex": {
+              "calls": 3.25,
+              "commands": 3.25,
+              "client_ms": 0.71789575
+            }
+          }
+        },
+        "arrow_small": {
+          "median_ms": 13.975667,
+          "average_round_trips": 60.5,
+          "average_commands": 81.0,
+          "category_per_operation": {
+            "control_abort": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.222823
+            },
+            "control_acquire": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.20176049999999998
+            },
+            "control_admit_ingest": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.23115625
+            },
+            "control_claim": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.210167
+            },
+            "control_claim_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2014375
+            },
+            "control_own_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.21983350000000002
+            },
+            "control_publish": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.292625
+            },
+            "control_reclaimed": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.21134375
+            },
+            "control_reclaimed_data": {
+              "calls": 0.5,
+              "commands": 0.5,
+              "client_ms": 0.10680200000000001
+            },
+            "control_release": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.19479174999999999
+            },
+            "control_reserve": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.21411475
+            },
+            "control_valid": {
+              "calls": 3.0,
+              "commands": 3.0,
+              "client_ms": 0.61944825
+            },
+            "del": {
+              "calls": 0.5,
+              "commands": 0.5,
+              "client_ms": 0.0917605
+            },
+            "eval": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.45813575
+            },
+            "ft._list": {
+              "calls": 0.5,
+              "commands": 0.5,
+              "client_ms": 0.104771
+            },
+            "ft.create": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.27825025
+            },
+            "ft.dropindex": {
+              "calls": 0.25,
+              "commands": 0.25,
+              "client_ms": 0.0706355
+            },
+            "ft.info": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.44306225
+            },
+            "ft.search": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.504677
+            },
+            "get": {
+              "calls": 8.0,
+              "commands": 8.0,
+              "client_ms": 1.5812602500000001
+            },
+            "hgetall": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.38975025
+            },
+            "index_notify": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.23035450000000002
+            },
+            "metadata_clone_bucket": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.4850935
+            },
+            "metadata_clone_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.22213549999999999
+            },
+            "metadata_collect_bucket": {
+              "calls": 1.75,
+              "commands": 1.75,
+              "client_ms": 0.34655199999999997
+            },
+            "metadata_collect_value": {
+              "calls": 1.5,
+              "commands": 1.5,
+              "client_ms": 0.32170825
+            },
+            "metadata_mutation": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.287625
+            },
+            "metadata_own_value": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.4524585
+            },
+            "metadata_retire_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.23082300000000003
+            },
+            "pipeline_metadata_mutation": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.550302
+            },
+            "pipeline_mixed": {
+              "calls": 9.0,
+              "commands": 29.5,
+              "client_ms": 2.2351242499999997
+            },
+            "row_batch": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2392705
+            },
+            "zcard": {
+              "calls": 3.0,
+              "commands": 3.0,
+              "client_ms": 0.5551247500000001
+            },
+            "zrange": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.382677
+            },
+            "zrangebylex": {
+              "calls": 2.5,
+              "commands": 2.5,
+              "client_ms": 0.464281
+            }
+          }
+        },
+        "no_op_update": {
+          "median_ms": 12.551916,
+          "average_round_trips": 46.25,
+          "average_commands": 75.25,
+          "category_per_operation": {
+            "config": {
+              "calls": 0.25,
+              "commands": 0.25,
+              "client_ms": 0.05241675
+            },
+            "control_abort": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.233406
+            },
+            "control_acquire": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.19986475
+            },
+            "control_claim": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2443435
+            },
+            "control_claim_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.21709374999999997
+            },
+            "control_own_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.21339575
+            },
+            "control_reclaimed": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.658948
+            },
+            "control_reclaimed_data": {
+              "calls": 0.75,
+              "commands": 0.75,
+              "client_ms": 0.172927
+            },
+            "control_release": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.20527049999999997
+            },
+            "control_reserve": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.22484349999999997
+            },
+            "control_valid": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.41573950000000004
+            },
+            "del": {
+              "calls": 0.75,
+              "commands": 0.75,
+              "client_ms": 0.14534375
+            },
+            "ft._list": {
+              "calls": 0.75,
+              "commands": 0.75,
+              "client_ms": 0.16090625
+            },
+            "ft.search": {
+              "calls": 5.0,
+              "commands": 5.0,
+              "client_ms": 2.1926255
+            },
+            "get": {
+              "calls": 5.0,
+              "commands": 5.0,
+              "client_ms": 1.0068435
+            },
+            "hgetall": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.39742725
+            },
+            "metadata_clone_bucket": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2677605
+            },
+            "metadata_clone_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.23249999999999998
+            },
+            "metadata_collect_bucket": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.33101025
+            },
+            "metadata_collect_value": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.32277100000000003
+            },
+            "metadata_own_value": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.24538549999999998
+            },
+            "metadata_retire_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.24360400000000001
+            },
+            "pipeline_metadata_mutation": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.30853125
+            },
+            "pipeline_mixed": {
+              "calls": 9.0,
+              "commands": 34.0,
+              "client_ms": 2.7343440000000006
+            },
+            "pipeline_zcard": {
+              "calls": 1.0,
+              "commands": 5.0,
+              "client_ms": 0.19963550000000002
+            },
+            "zcard": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.39864574999999997
+            },
+            "zrange": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.444031
+            },
+            "zrangebylex": {
+              "calls": 0.75,
+              "commands": 0.75,
+              "client_ms": 0.14745824999999999
+            }
+          }
+        },
+        "point_update": {
+          "median_ms": 13.97925,
+          "average_round_trips": 60.5,
+          "average_commands": 76.5,
+          "category_per_operation": {
+            "client": {
+              "calls": 0.25,
+              "commands": 0.25,
+              "client_ms": 0.046427
+            },
+            "control_abort": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.215302
+            },
+            "control_acquire": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.21039575
+            },
+            "control_claim": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.251698
+            },
+            "control_claim_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.21130225
+            },
+            "control_own_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.22988549999999996
+            },
+            "control_publish": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.27457275000000003
+            },
+            "control_reclaimed": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.204719
+            },
+            "control_release": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2035725
+            },
+            "control_reserve": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2357185
+            },
+            "control_valid": {
+              "calls": 4.0,
+              "commands": 4.0,
+              "client_ms": 0.81560425
+            },
+            "eval": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.4472605
+            },
+            "ft.create": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.27086449999999995
+            },
+            "ft.info": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.43259375
+            },
+            "ft.search": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.43179175
+            },
+            "get": {
+              "calls": 7.0,
+              "commands": 7.0,
+              "client_ms": 1.4000420000000002
+            },
+            "hello": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2390835
+            },
+            "hgetall": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.8696455000000001
+            },
+            "index_notify": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.226333
+            },
+            "metadata_clone_bucket": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.25235425
+            },
+            "metadata_clone_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.24596850000000003
+            },
+            "metadata_collect_bucket": {
+              "calls": 1.5,
+              "commands": 1.5,
+              "client_ms": 0.3175415
+            },
+            "metadata_collect_value": {
+              "calls": 1.75,
+              "commands": 1.75,
+              "client_ms": 0.354646
+            },
+            "metadata_mutation": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.3016145
+            },
+            "metadata_own_value": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.268146
+            },
+            "metadata_retire_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.219677
+            },
+            "pipeline_hgetall": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.39475
+            },
+            "pipeline_hmget": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.39128125
+            },
+            "pipeline_metadata_mutation": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.6002395
+            },
+            "pipeline_mixed": {
+              "calls": 7.0,
+              "commands": 23.0,
+              "client_ms": 2.35120775
+            },
+            "row_batch": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.22618775
+            },
+            "zcard": {
+              "calls": 3.0,
+              "commands": 3.0,
+              "client_ms": 0.6049694999999999
+            },
+            "zrange": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.39987475
+            },
+            "zrangebylex": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.39580175000000006
+            },
+            "zscore": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.42510375
+            }
+          }
+        }
+      },
+      "32": {
+        "arrow_batch": {
+          "median_ms": 20.822666,
+          "average_round_trips": 63.0,
+          "average_commands": 83.5,
+          "category_per_operation": {
+            "control_abort": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.19921875
+            },
+            "control_acquire": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.21126024999999998
+            },
+            "control_admit_ingest": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.222781
+            },
+            "control_claim": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.247625
+            },
+            "control_claim_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.19158275000000002
+            },
+            "control_own_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.23327075
+            },
+            "control_publish": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.44738525000000007
+            },
+            "control_reclaimed": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2117395
+            },
+            "control_reclaimed_data": {
+              "calls": 0.25,
+              "commands": 0.25,
+              "client_ms": 0.0515625
+            },
+            "control_release": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.204396
+            },
+            "control_reserve": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2019895
+            },
+            "control_valid": {
+              "calls": 3.0,
+              "commands": 3.0,
+              "client_ms": 0.6294172499999999
+            },
+            "del": {
+              "calls": 0.25,
+              "commands": 0.25,
+              "client_ms": 0.04696875
+            },
+            "eval": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.46210425
+            },
+            "ft._list": {
+              "calls": 0.25,
+              "commands": 0.25,
+              "client_ms": 0.0605
+            },
+            "ft.create": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.279698
+            },
+            "ft.dropindex": {
+              "calls": 0.25,
+              "commands": 0.25,
+              "client_ms": 0.06553125
+            },
+            "ft.info": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.38246875
+            },
+            "ft.search": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.45089575
+            },
+            "get": {
+              "calls": 8.0,
+              "commands": 8.0,
+              "client_ms": 1.55154175
+            },
+            "hgetall": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.41360375000000005
+            },
+            "index_notify": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 2.60135375
+            },
+            "metadata_clone_bucket": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.46129175
+            },
+            "metadata_clone_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.33827100000000004
+            },
+            "metadata_collect_bucket": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.4463855
+            },
+            "metadata_collect_value": {
+              "calls": 1.75,
+              "commands": 1.75,
+              "client_ms": 0.37997925
+            },
+            "metadata_mutation": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.28647925
+            },
+            "metadata_own_value": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.45078125
+            },
+            "metadata_retire_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.32384375
+            },
+            "pipeline_metadata_mutation": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.5660732500000001
+            },
+            "pipeline_mixed": {
+              "calls": 9.0,
+              "commands": 29.5,
+              "client_ms": 2.25480225
+            },
+            "row_batch": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 3.04489575
+            },
+            "zcard": {
+              "calls": 3.0,
+              "commands": 3.0,
+              "client_ms": 0.571625
+            },
+            "zrange": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.39103075
+            },
+            "zrangebylex": {
+              "calls": 3.25,
+              "commands": 3.25,
+              "client_ms": 0.69515675
+            }
+          }
+        },
+        "arrow_small": {
+          "median_ms": 12.527375,
+          "average_round_trips": 60.5,
+          "average_commands": 81.0,
+          "category_per_operation": {
+            "control_abort": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.19983325
+            },
+            "control_acquire": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.19790625
+            },
+            "control_admit_ingest": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.1961145
+            },
+            "control_claim": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.217531
+            },
+            "control_claim_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.17817700000000003
+            },
+            "control_own_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.19251025
+            },
+            "control_publish": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.42452075
+            },
+            "control_reclaimed": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.1760625
+            },
+            "control_reclaimed_data": {
+              "calls": 0.5,
+              "commands": 0.5,
+              "client_ms": 0.09733325
+            },
+            "control_release": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.20996825
+            },
+            "control_reserve": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.18126025
+            },
+            "control_valid": {
+              "calls": 3.0,
+              "commands": 3.0,
+              "client_ms": 0.600375
+            },
+            "del": {
+              "calls": 0.5,
+              "commands": 0.5,
+              "client_ms": 0.09419775
+            },
+            "eval": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.3808545
+            },
+            "ft._list": {
+              "calls": 0.5,
+              "commands": 0.5,
+              "client_ms": 0.1130935
+            },
+            "ft.create": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.25088525
+            },
+            "ft.dropindex": {
+              "calls": 0.25,
+              "commands": 0.25,
+              "client_ms": 0.06616675
+            },
+            "ft.info": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.36183350000000003
+            },
+            "ft.search": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.383479
+            },
+            "get": {
+              "calls": 8.0,
+              "commands": 8.0,
+              "client_ms": 1.345323
+            },
+            "hgetall": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.39014625
+            },
+            "index_notify": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.193948
+            },
+            "metadata_clone_bucket": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.43667725
+            },
+            "metadata_clone_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.340875
+            },
+            "metadata_collect_bucket": {
+              "calls": 1.75,
+              "commands": 1.75,
+              "client_ms": 0.32876025
+            },
+            "metadata_collect_value": {
+              "calls": 1.5,
+              "commands": 1.5,
+              "client_ms": 0.2760625
+            },
+            "metadata_mutation": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.26850025
+            },
+            "metadata_own_value": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.394583
+            },
+            "metadata_retire_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.31130225
+            },
+            "pipeline_metadata_mutation": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.4977705
+            },
+            "pipeline_mixed": {
+              "calls": 9.0,
+              "commands": 29.5,
+              "client_ms": 1.9787285000000003
+            },
+            "row_batch": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.222219
+            },
+            "zcard": {
+              "calls": 3.0,
+              "commands": 3.0,
+              "client_ms": 0.47841675
+            },
+            "zrange": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.35042724999999997
+            },
+            "zrangebylex": {
+              "calls": 2.5,
+              "commands": 2.5,
+              "client_ms": 0.41678075000000003
+            }
+          }
+        },
+        "no_op_update": {
+          "median_ms": 12.455625,
+          "average_round_trips": 46.25,
+          "average_commands": 75.25,
+          "category_per_operation": {
+            "config": {
+              "calls": 0.25,
+              "commands": 0.25,
+              "client_ms": 0.0509895
+            },
+            "control_abort": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.20953124999999997
+            },
+            "control_acquire": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.20977099999999999
+            },
+            "control_claim": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.20354175
+            },
+            "control_claim_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2172395
+            },
+            "control_own_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2129685
+            },
+            "control_reclaimed": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.20664575000000002
+            },
+            "control_reclaimed_data": {
+              "calls": 0.75,
+              "commands": 0.75,
+              "client_ms": 0.1483335
+            },
+            "control_release": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.21356225
+            },
+            "control_reserve": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.21979174999999998
+            },
+            "control_valid": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.42191675
+            },
+            "del": {
+              "calls": 0.75,
+              "commands": 0.75,
+              "client_ms": 0.148552
+            },
+            "ft._list": {
+              "calls": 0.75,
+              "commands": 0.75,
+              "client_ms": 0.17281249999999998
+            },
+            "ft.search": {
+              "calls": 5.0,
+              "commands": 5.0,
+              "client_ms": 2.15452075
+            },
+            "get": {
+              "calls": 5.0,
+              "commands": 5.0,
+              "client_ms": 0.9662289999999999
+            },
+            "hgetall": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.43472924999999996
+            },
+            "metadata_clone_bucket": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2565625
+            },
+            "metadata_clone_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.35550000000000004
+            },
+            "metadata_collect_bucket": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.20510399999999998
+            },
+            "metadata_collect_value": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2231045
+            },
+            "metadata_own_value": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.24835425
+            },
+            "metadata_retire_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.34939549999999997
+            },
+            "pipeline_metadata_mutation": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2912395
+            },
+            "pipeline_mixed": {
+              "calls": 9.0,
+              "commands": 34.0,
+              "client_ms": 2.715646
+            },
+            "pipeline_zcard": {
+              "calls": 1.0,
+              "commands": 5.0,
+              "client_ms": 0.21028125000000003
+            },
+            "zcard": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.3772815
+            },
+            "zrange": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.39871875
+            },
+            "zrangebylex": {
+              "calls": 0.75,
+              "commands": 0.75,
+              "client_ms": 0.14328100000000002
+            }
+          }
+        },
+        "point_update": {
+          "median_ms": 14.278709,
+          "average_round_trips": 60.5,
+          "average_commands": 76.5,
+          "category_per_operation": {
+            "client": {
+              "calls": 0.25,
+              "commands": 0.25,
+              "client_ms": 0.05265625
+            },
+            "control_abort": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.21377125
+            },
+            "control_acquire": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.2003335
+            },
+            "control_claim": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.23271875
+            },
+            "control_claim_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.24735449999999998
+            },
+            "control_own_data": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.22764600000000002
+            },
+            "control_publish": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.46006250000000004
+            },
+            "control_reclaimed": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.21212499999999998
+            },
+            "control_release": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.20706275000000002
+            },
+            "control_reserve": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.22903099999999998
+            },
+            "control_valid": {
+              "calls": 4.0,
+              "commands": 4.0,
+              "client_ms": 0.8393125
+            },
+            "eval": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.46893799999999997
+            },
+            "ft.create": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.28170799999999996
+            },
+            "ft.info": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.40028125000000003
+            },
+            "ft.search": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.47548975000000004
+            },
+            "get": {
+              "calls": 7.0,
+              "commands": 7.0,
+              "client_ms": 1.396635
+            },
+            "hello": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.245552
+            },
+            "hgetall": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 1.0152605
+            },
+            "index_notify": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.24645825000000002
+            },
+            "metadata_clone_bucket": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.23504175
+            },
+            "metadata_clone_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.38937499999999997
+            },
+            "metadata_collect_bucket": {
+              "calls": 1.5,
+              "commands": 1.5,
+              "client_ms": 0.3167915
+            },
+            "metadata_collect_value": {
+              "calls": 1.75,
+              "commands": 1.75,
+              "client_ms": 0.35160399999999997
+            },
+            "metadata_mutation": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.28221875
+            },
+            "metadata_own_value": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.23975000000000002
+            },
+            "metadata_retire_root": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.35883325
+            },
+            "pipeline_hgetall": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.37764549999999997
+            },
+            "pipeline_hmget": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.37415625
+            },
+            "pipeline_metadata_mutation": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.5994275
+            },
+            "pipeline_mixed": {
+              "calls": 7.0,
+              "commands": 23.0,
+              "client_ms": 2.333969
+            },
+            "row_batch": {
+              "calls": 1.0,
+              "commands": 1.0,
+              "client_ms": 0.26976049999999996
+            },
+            "zcard": {
+              "calls": 3.0,
+              "commands": 3.0,
+              "client_ms": 0.56096875
+            },
+            "zrange": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.38601074999999996
+            },
+            "zrangebylex": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.3864685
+            },
+            "zscore": {
+              "calls": 2.0,
+              "commands": 2.0,
+              "client_ms": 0.38189575000000003
+            }
+          }
+        }
+      }
+    }
+  }
+}

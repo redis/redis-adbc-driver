@@ -12,3 +12,9 @@ See [intent](intent.md) and [spec](spec.md).
    processes in both orders, including no-op/small writes and unrelated catalogs.
 6. Review, publish evidence and create a focused PR against #336. Keep partial
    attribution results, negative measurements and remaining work explicit.
+
+Local implementation, complete snapshot races, actual RBAC, native validation and
+the matched comparison are complete. See [validation](validation.md) for every
+source boundary, skip, initial candidate error and retained negative batch result.
+PR #346 is open; hosted checks/review remain pending. No further optimization
+infrastructure or operation-resume protocol is included.
