@@ -845,6 +845,7 @@ local command = string.lower(ARGV[5])
 if w.import_capture then
  local private='` + snapshotPrefix + `workspace:'..ARGV[1]..':'
  for i=4,#KEYS do
+  if KEYS[i]==w.import_capture.sequence then return redis.error_reply('import row ID reservation is immutable') end
   if KEYS[i]==private..'import:rows:'..ARGV[1] or KEYS[i]==private..'import:keys:'..ARGV[1] then
    if w.import_capture.state~='capturing' and
       not ((command=='del' or command=='unlink') and w.import_capture.state=='ready' and w.import_capture.remaining==0) then

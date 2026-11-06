@@ -23,11 +23,12 @@ end
 `
 
 const snapshotImportCaptureLua = snapshotImportCaptureProof + `
-local catalog,graph,rows,inputs,output=unpack(KEYS)
+local catalog,graph,rows,inputs,output,sequence,metakeys=unpack(KEYS)
 local op,workspace,token,data=unpack(ARGV)
 local private='` + snapshotPrefix + `workspace:'..workspace..':'
 if catalog~='` + snapshotCatalogKey + `' or graph~='` + snapshotMetadataGraph + `' or
  rows~=private..'import:rows:'..workspace or inputs~=private..'import:keys:'..workspace or
+ string.sub(sequence,1,#(private..'seq:'))~=private..'seq:' or metakeys~=private..'__keys' or
  #data~=32 or string.find(data,'[^0-9a-f]') or output~='` + snapshotPrefix + `members:'..data then
  return redis.error_reply('invalid import capture identity')
 end
@@ -42,7 +43,7 @@ local owned=redis.call('HGET',graph,'d:'..data)
 if not owned then return redis.error_reply('import output is unavailable') end
 local d=cjson.decode(owned)
 if d.owner~=workspace or d.state~='live' then return redis.error_reply('import output is not private') end
-for _,key in ipairs({rows,inputs}) do
+for _,key in ipairs({rows,inputs,sequence}) do
  if tonumber(redis.call('HGET',graph,'v:'..key) or '0')<=0 or
   tonumber(redis.call('HGET',graph,'e:'..key) or '-1')~=redis.call('EXISTS',key) then
   return redis.error_reply('import capture metadata is unavailable')
@@ -53,13 +54,14 @@ if (rowtype~='none' and rowtype~='hash') or (inputtype~='none' and inputtype~='z
  return redis.error_reply('invalid import capture journal type')
 end
 local capture=w.import_capture
-if capture and (type(capture)~='table' or capture.data~=data) then return redis.error_reply('import capture identity changed') end
+if capture and (type(capture)~='table' or capture.data~=data or capture.sequence~=sequence) then return redis.error_reply('import capture identity changed') end
 if op=='begin' then
  if capture then return 1 end
  if redis.call('ZCARD',output)~=0 or redis.call('HLEN',rows)~=0 or redis.call('ZCARD',inputs)~=0 then
   return redis.error_reply('import capture must begin before input or output')
  end
- w.import_capture={state='capturing',data=data}
+ if redis.call('EXISTS',sequence)~=0 then return redis.error_reply('import row IDs must be unallocated') end
+ w.import_capture={state='capturing',data=data,sequence=sequence}
 elseif op=='complete' then
  if not capture then return redis.error_reply('import capture was not started') end
  if capture.state=='ready' then
@@ -97,7 +99,22 @@ elseif op=='complete' then
   count=count+1;bytes=bytes+#key
  end
  capture.checked=capture.checked+count
- if capture.checked==total then capture.state='ready' end
+ if capture.checked==total then
+  if redis.call('EXISTS',sequence)~=0 or redis.call('ZCARD',output)~=0 then return redis.error_reply('import row IDs must be unallocated') end
+  local reserved=string.format('%.0f',total)
+  if not redis.acl_check_cmd('SET',sequence,reserved) or
+     not redis.acl_check_cmd('HSET',graph,'e:'..sequence,1) or
+     not redis.acl_check_cmd('ZADD',metakeys,0,sequence) or
+     not redis.acl_check_cmd('HSET',catalog,'w:'..workspace,cjson.encode(w)) then
+   return redis.error_reply('NOPERM import capture requires row ID reservation')
+  end
+  -- Reserve the entire immutable ordinal range before admitting output.
+  -- The remaining count binds subsequent batches to its unconsumed suffix.
+  redis.call('SET',sequence,reserved)
+  redis.call('HSET',graph,'e:'..sequence,1)
+  redis.call('ZADD',metakeys,0,sequence)
+  capture.state='ready'
+ end
 else return redis.error_reply('invalid import capture operation') end
 redis.call('HSET',catalog,'w:'..workspace,cjson.encode(w))
 if w.import_capture.state=='ready' or op=='begin' then return 1 end
@@ -117,9 +134,13 @@ func (p *snapshotImportSpool) captureControl(ctx context.Context, op string) (bo
 	if err != nil {
 		return false, err
 	}
+	sequence, err := resolveSnapshotMetadata(ctx, strings.TrimPrefix(seqKey(p.meta.Schema, p.meta.Name), metaPrefix), true, "set")
+	if err != nil {
+		return false, err
+	}
 	data := snapshotDataID(p.meta.prefix())
-	n, err := once(ctx, p.store.client, "EVAL", snapshotImportCaptureLua, 5,
-		snapshotCatalogKey, snapshotMetadataGraph, rows, keys, snapshotMembers(data),
+	n, err := once(ctx, p.store.client, "EVAL", snapshotImportCaptureLua, 7,
+		snapshotCatalogKey, snapshotMetadataGraph, rows, keys, snapshotMembers(data), sequence, snapshotMetadataKeys(scope.id),
 		op, scope.id, scope.pin.token, data).Int()
 	if err != nil {
 		return false, wrapRedis(err, "import capture transition failed; input was not replayed")
@@ -156,28 +177,38 @@ func (p *snapshotImportSpool) complete(ctx context.Context) error {
 	}
 }
 
-func (p *snapshotImportSpool) ready(ctx context.Context) (int64, error) {
+type snapshotImportCaptureState struct {
+	State, Data, Sequence     string
+	Total, Remaining, Checked int64
+}
+
+func (p *snapshotImportSpool) captureOutcome(ctx context.Context) (*snapshotImportCaptureState, error) {
 	scope := snapshotOf(ctx)
 	if scope == nil || scope.pin == nil {
-		return 0, errorf(adbc.StatusInvalidState, "import capture requires a private workspace")
+		return nil, errorf(adbc.StatusInvalidState, "import capture requires a private workspace")
 	}
 	raw, err := p.store.client.HGet(ctx, snapshotCatalogKey, "w:"+scope.id).Bytes()
 	if err != nil {
-		return 0, wrapRedis(err, "import capture outcome unavailable")
+		return nil, wrapRedis(err, "import capture outcome unavailable")
 	}
 	var work struct {
-		State   string `json:"state"`
-		Token   string `json:"token"`
-		Pending string `json:"import_pending"`
-		Capture *struct {
-			State, Data               string
-			Total, Remaining, Checked int64
-		} `json:"import_capture"`
+		State   string                      `json:"state"`
+		Token   string                      `json:"token"`
+		Pending string                      `json:"import_pending"`
+		Capture *snapshotImportCaptureState `json:"import_capture"`
 	}
 	if json.Unmarshal(raw, &work) != nil || work.State != "staging" || work.Token != scope.pin.token || work.Pending != "" || work.Capture == nil ||
 		work.Capture.State != "ready" || work.Capture.Data != snapshotDataID(p.meta.prefix()) || work.Capture.Total < 0 ||
 		work.Capture.Checked != work.Capture.Total || work.Capture.Remaining < 0 || work.Capture.Remaining > work.Capture.Total {
-		return 0, errorf(adbc.StatusInvalidState, "import capture is not complete")
+		return nil, errorf(adbc.StatusInvalidState, "import capture is not complete")
 	}
-	return work.Capture.Remaining, nil
+	return work.Capture, nil
+}
+
+func (p *snapshotImportSpool) ready(ctx context.Context) (int64, error) {
+	capture, err := p.captureOutcome(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return capture.Remaining, nil
 }

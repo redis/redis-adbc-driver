@@ -132,13 +132,13 @@ type lostImportCompletionReply struct {
 func (h *lostImportCompletionReply) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	return func(ctx context.Context, cmd goredis.Cmder) error {
 		a := cmd.Args()
-		complete := len(a) > 8 && a[0] == "EVAL" && a[1] == snapshotImportCaptureLua && a[8] == "complete"
+		complete := len(a) > 8 && a[0] == "EVAL" && a[1] == snapshotImportCaptureLua && a[10] == "complete"
 		if complete {
 			h.completeCalls.Add(1)
 		}
 		err := next(ctx, cmd)
 		if complete && err == nil && h.lost.CompareAndSwap(false, true) {
-			h.data = fmt.Sprint(a[11])
+			h.data = fmt.Sprint(a[13])
 			err = errors.New("injected lost input-completion reply")
 			cmd.SetErr(err)
 		}
@@ -188,4 +188,36 @@ func TestSnapshotClusterImportCaptureLostCompletionReplyAbortsImport(t *testing.
 		t.Fatal("unknown completion published or emitted output")
 	}
 	h.expectRows("SELECT COUNT(*) FROM information_schema.tables WHERE table_name='capture_lost_reply'", "0")
+}
+
+func TestSnapshotClusterImportCaptureReservesStableRowIDs(t *testing.T) {
+	h, s, ctx, meta, p := snapshotClusterCaptureFixture(t, 3)
+	if err := p.complete(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if n, err := s.redis(ctx).Get(ctx, seqKey(meta.Schema, meta.Name)).Int64(); err != nil || n != 3 {
+		t.Fatal("completed capture did not reserve its immutable row ID range", n, err)
+	}
+	if err := p.applyPage(ctx, []string{"\x00\xfforiginal-key"}); err != nil {
+		t.Fatal(err)
+	}
+	// Reconstruct only the private spool, with no process-local allocation state.
+	other := newSnapshotImportSpool(ctx, s, meta)
+	if err := other.apply(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if n, err := s.redis(ctx).Get(ctx, seqKey(meta.Schema, meta.Name)).Int64(); err != nil || n != 3 {
+		t.Fatal("continuation allocated new row IDs", n, err)
+	}
+	for i, key := range []string{"\x00\xfforiginal-key", "capture:00001", "capture:00002"} {
+		if got, err := s.client.HGet(h.ctx, meta.prefix()+fmt.Sprint(i+1), snapshotSourceKeyField).Result(); err != nil || got != key {
+			t.Fatal("unstable source-to-row binding", i, err)
+		}
+	}
+	scope := snapshotOf(ctx)
+	if err := s.publishSnapshot(ctx, scope.pin, scope.id); err != nil {
+		t.Fatal(err)
+	}
+	h.exec("INSERT INTO capture_barrier VALUES (42)")
+	h.expectRows("SELECT COUNT(*),COUNT(__key),MAX(v) FROM capture_barrier", "4|3|9007199254740993")
 }

@@ -58,6 +58,12 @@ if importing then
   return redis.error_reply('import capture is not complete')
  end
  local private='` + snapshotPrefix + `workspace:'..workspace..':'
+ if type(capture.sequence)~='string' or string.sub(capture.sequence,1,#(private..'seq:'))~=private..'seq:' or
+    tonumber(redis.call('HGET',graph,'v:'..capture.sequence) or '0')<=0 or
+    redis.call('HGET',graph,'e:'..capture.sequence)~='1' or
+    redis.call('GET',capture.sequence)~=string.format('%.0f',capture.total) then
+  return redis.error_reply('import row ID reservation is unavailable')
+ end
  if journal~=private..'import:rows:'..workspace or inputs~=private..'import:keys:'..workspace or metakeys~=private..'__keys' or
     (w.metadata_builds or 0)>0 or redis.call('TYPE',journal).ok~='hash' or redis.call('TYPE',inputs).ok~='zset' or
     redis.call('TYPE',metakeys).ok~='zset' or
@@ -107,6 +113,11 @@ for i=4,lastrow do
   end
   if not source or source_seen[source] or redis.call('HEXISTS',journal,source)~=1 or redis.call('ZSCORE',inputs,source)~='0' then
    return redis.error_reply('import batch input is unavailable')
+  end
+  local ordinal=w.import_capture.total-w.import_capture.remaining+i-3
+  local nextsource=redis.call('ZRANGE',inputs,i-4,i-4)
+  if suffix~=string.format('%.0f',ordinal) or #nextsource~=1 or nextsource[1]~=source then
+   return redis.error_reply('import row ID reservation changed')
   end
   source_seen[source]=true;sources[#sources+1]=source
  end
