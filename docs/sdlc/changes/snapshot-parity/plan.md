@@ -2,6 +2,13 @@
 
 Date: 2026-11-02. Status: in progress. See [intent](intent.md), [spec](spec.md).
 
+The [direct partition checkpoint](direct-partition-validation.md) removes the
+unintended FT.INFO dependency for proven finite IDs while checking native
+ownership, references, exact directories and every present row's membership.
+Broad index reads still require readiness permissions. Focused lifecycle,
+corruption and neighboring partition races pass; actual restricted-role/native
+and complete combined verification remain required.
+
 The [hidden-sort-cap checkpoint](hidden-sort-cap-validation.md) verifies explicit
 ordering against an actual unavailable cap of 137, using a pre-evaluation empty
 capability query and exact local sorting. Baselines, layered visibility, rounded

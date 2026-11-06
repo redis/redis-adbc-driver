@@ -143,7 +143,7 @@ func partitionTarget(meta *tableMeta) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func (e *executor) partitionPlan(ctx context.Context, sel *SelectStmt) (*selectPlan, error) {
+func (e *executor) partitionPlan(ctx context.Context, sel *SelectStmt, lo, hi int64) (*selectPlan, error) {
 	schema, name, err := e.resolveTable(*sel.From)
 	if err != nil {
 		return nil, err
@@ -151,12 +151,33 @@ func (e *executor) partitionPlan(ctx context.Context, sel *SelectStmt) (*selectP
 	if isTempSchema(schema) {
 		return nil, errorf(adbc.StatusNotImplemented, "partitioned reads require a permanent driver-managed table")
 	}
-	meta, err := e.store.getTable(ctx, schema, name)
+	// Prove the bounded HASH route before loading a table: getTable includes
+	// Search readiness, which belongs only to the non-direct route.
+	spans, known := partitionPredicateSpans(sel.Where, lo, hi, e.params)
+	_, finite := partitionFiniteIDs(spans)
+	direct := known && finite && e.store.snapshots
+	load := e.store.getTable
+	if direct {
+		load = e.store.getTableMetadata
+	}
+	meta, err := load(ctx, schema, name)
 	if err != nil {
 		return nil, err
 	}
 	if !managedRowIDTable(meta) {
 		return nil, errorf(adbc.StatusNotImplemented, "partitioned reads require a permanent managed table with stable row IDs")
+	}
+	if direct {
+		if err := e.store.validateSnapshotDirectTable(ctx, meta); err != nil {
+			return nil, err
+		}
+		meta, err = e.store.pinMatview(ctx, meta)
+		if err != nil {
+			return nil, err
+		}
+		previous := e.partitionDirectTable
+		e.partitionDirectTable = meta
+		defer func() { e.partitionDirectTable = previous }()
 	}
 	// Pin resolution, including when a worker has a temporary table shadowing
 	// the original name. Plan only after refusing views and virtual relations.
@@ -167,6 +188,17 @@ func (e *executor) partitionPlan(ctx context.Context, sel *SelectStmt) (*selectP
 	}
 	if plan.meta == nil || plan.meta.isMem || plan.aggregate || plan.meta.RekeyTo != "" || partitionTarget(plan.meta) != partitionTarget(meta) {
 		return nil, errorf(adbc.StatusInvalidState, "partition table changed during planning")
+	}
+	if direct {
+		// Binding must not widen a preliminary finite proof into an index
+		// route that has only native ownership validation.
+		bound, known := partitionPredicateSpans(sel.Where, lo, hi, e.params)
+		_, finite := partitionFiniteIDs(bound)
+		if !known || !finite {
+			if err := e.store.validateSnapshotTable(ctx, plan.meta); err != nil {
+				return nil, err
+			}
+		}
 	}
 	return plan, nil
 }
@@ -203,7 +235,7 @@ func (s *statementImpl) executePartitions(ctx context.Context) (*arrow.Schema, a
 	}
 	e := s.executor()
 	e.params, e.paramTypes = params, types
-	plan, err := e.partitionPlan(ctx, sel)
+	plan, err := e.partitionPlan(ctx, sel, 1, exactDoubleLimit-1)
 	if err != nil {
 		return fail(err)
 	}
@@ -443,7 +475,7 @@ func (c *connectionImpl) ReadPartition(ctx context.Context, data []byte) (result
 	}
 	e.params, e.paramTypes = params, types
 	e.tz, e.tzKnown = zone.zone, true
-	plan, err := e.partitionPlan(ctx, sel)
+	plan, err := e.partitionPlan(ctx, sel, d.Lo, d.Hi)
 	if err != nil {
 		return nil, err
 	}
@@ -457,6 +489,9 @@ func (c *connectionImpl) ReadPartition(ctx context.Context, data []byte) (result
 	// Search cursor/cap/readiness requirement exists on this bounded path.
 	if candidates, known := partitionPredicateSpans(sel.Where, d.Lo, d.Hi, params); known {
 		if ids, finite := partitionFiniteIDs(candidates); finite {
+			if c.store.snapshots {
+				ctx = context.WithValue(ctx, snapshotDirectReadKey{}, true)
+			}
 			if len(ids) == 0 {
 				return recordsReader(c.Alloc, plan.columns(), nil)
 			}

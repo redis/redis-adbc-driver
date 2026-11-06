@@ -223,6 +223,7 @@ func (s *store) fetchSnapshotPhysical(ctx context.Context, keys, fields []string
 // Direct row-ID lookups preserve exact IDs and resolve newest-to-oldest without
 // enumerating other rows. Tombstones stop lookup just like a live replacement.
 func (s *store) fetchSnapshotVisible(ctx context.Context, m *tableMeta, keys, fields []string) ([]aggRow, error) {
+	strict, _ := ctx.Value(snapshotDirectReadKey{}).(bool)
 	out := make([]aggRow, len(keys))
 	resolved := make([]bool, len(keys))
 	segments := m.snapshotSegments()
@@ -246,8 +247,25 @@ func (s *store) fetchSnapshotVisible(ctx context.Context, m *tableMeta, keys, fi
 		if err != nil {
 			return nil, err
 		}
+		var members []bool
+		if strict {
+			members, err = s.snapshotDirectMembers(ctx, segments[seg], physical)
+			if err != nil {
+				return nil, err
+			}
+		}
 		for j, row := range rows {
-			if row == nil {
+			if strict {
+				if row == nil && members[j] {
+					return nil, errorf(adbc.StatusIO, "snapshot directory references a missing row")
+				}
+				if row != nil && !members[j] {
+					return nil, errorf(adbc.StatusIO, "direct snapshot HASH is not a registered row")
+				}
+				if row == nil {
+					continue
+				}
+			} else if row == nil {
 				if !snapshotOwns(ctx, segments[seg].Prefix) {
 					count, err := s.redis(ctx).ZCard(ctx, snapshotMembers(snapshotDataID(segments[seg].Prefix))).Result()
 					if err != nil {

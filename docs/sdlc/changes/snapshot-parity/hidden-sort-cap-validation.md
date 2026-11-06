@@ -31,6 +31,11 @@ statement. No comparative performance improvement is claimed here.
 All live checks use an owned Redis Software 8.8.0 fixture with Search, strict TLS,
 noeviction and active/effective 4x QPF, verified through the management API.
 Its three shards are behind the Software proxy; this is not Cluster API evidence.
+Native ADBC runs below use the installed official validation Git revision
+`5db1f44782f4868c5ae9e89d6ac9812ca6e1758c`, Python 3.14.10, pytest 9.2.0,
+PyArrow 26.0.1 and driver manager 1.13.0, with the complete repository `tests/`
+selection and no vendor/selection flags. Other dependency/runtime matrices
+remain required; these counts are not relabeled as a different installed suite.
 
 - Before the fix, the native cap-137 run fails on the single-baseline descending
   query with `FT.AGGREGATE failed: SEARCH_LIMIT_OVER LIMIT exceeds maximum of

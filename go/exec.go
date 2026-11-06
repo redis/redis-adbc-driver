@@ -42,6 +42,9 @@ type executor struct {
 	// A validated live capability resolves its one captured foreign copy
 	// without enabling connection-wide discovery or importing other sources.
 	partitionForeignTable string
+	// Set only while binding a proven finite-ID partition. Its native row
+	// ownership proof does not authorize an index scan or populate that cache.
+	partitionDirectTable *tableMeta
 	// sess is the connection's settings (session.go), and schema its
 	// current schema.
 	sess             *session
@@ -184,6 +187,9 @@ func (e *executor) loadTable(ctx context.Context, t TableName) (*tableMeta, erro
 		return nil, err
 	}
 	if m := e.dmlSnapshots[metaKey(schema, name)]; m != nil {
+		return m, nil
+	}
+	if m := e.partitionDirectTable; m != nil && m.Schema == schema && m.Name == name {
 		return m, nil
 	}
 	if e.retained != nil {

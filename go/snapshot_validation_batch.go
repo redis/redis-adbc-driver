@@ -5,6 +5,7 @@ package redis
 
 import (
 	"context"
+	"strings"
 
 	"github.com/apache/arrow-adbc/go/adbc"
 	goredis "github.com/redis/go-redis/v9"
@@ -61,6 +62,12 @@ func (s *store) validateSnapshotSegments(ctx context.Context, probes []snapshotS
 		switch {
 		case probe.info.Err() != nil:
 			err = wrapRedis(probe.info.Err(), "published snapshot index is unavailable")
+			if native, ok := probe.info.Err().(interface {
+				error
+				RedisError()
+			}); ok && strings.HasPrefix(native.Error(), "NOPERM ") {
+				err = wrapErr(adbc.StatusUnauthorized, probe.info.Err(), "snapshot index reads require FT.INFO permission to verify readiness")
+			}
 		case probe.count.Err() != nil:
 			err = wrapRedis(probe.count.Err(), "snapshot row directory is unavailable")
 		case execErr != nil:

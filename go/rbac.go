@@ -49,7 +49,7 @@ type rbacManager struct {
 // Keep rules additive; resetting command/key permissions is outside our ownership.
 // Import capture journals contain row values. Keep metadata grants positive:
 // a wildcard over workspace values would reveal unpublished captured payloads.
-const rbacBaseACL = "+ping +info +ft._list +ft.info +ft.aggregate +ft.cursor +ft.search +ft.profile +get +exists +hget +hmget +hgetall +smembers +sismember" +
+const rbacBaseACL = "+ping +info +ft._list +ft.info +ft.aggregate +ft.cursor +ft.search +ft.profile +get +exists +hget +hmget +hgetall +smembers +sismember +zmscore" +
 	" %R~adbc:schemas %R~" + snapshotCatalogKey + " %R~" + snapshotPrefix + "metadata:*" +
 	" %R~" + snapshotPrefix + "workspace:*:__keys" +
 	" %R~" + snapshotPrefix + "workspace:*:schemas" +
