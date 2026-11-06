@@ -268,6 +268,15 @@ elseif op == 'acquire_partition' then
 elseif op == 'release_partitions' then
   local raw = redis.call('HGET',k,'p:'..token)
   if raw and cjson.decode(raw).partition then redis.call('HDEL',k,'p:'..token) end
+  -- Administrators can release groups made by restricted producers too.
+  -- Restricted callers dispatch to the own-domain script, never this path.
+  for i=1,readerCount do
+    local key=KEYS[controlN+1+i]
+    if redis.call('HSTRLEN',key,token)<=1024 then
+      local group=reader_pin(redis.call('HGET',key,token),now)
+      if group and group.partition then redis.call('HDEL',key,token) end
+    end
+  end
   return 1
 elseif op == 'acquire' then
   if ARGV[6] == 'write' then

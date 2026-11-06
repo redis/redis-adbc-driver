@@ -51,6 +51,7 @@ type rbacManager struct {
 // a wildcard over workspace values would reveal unpublished captured payloads.
 const rbacBaseACL = "+ping +info +ft._list +ft.info +ft.aggregate +ft.cursor +ft.search +ft.profile +get +exists +hget +hmget +hgetall +smembers +sismember +zmscore" +
 	" %R~adbc:schemas %R~" + snapshotCatalogKey + " %R~" + snapshotPrefix + "metadata:*" +
+	" %R~" + snapshotPrefix + "absent:*" +
 	" %R~" + snapshotPrefix + "workspace:*:__keys" +
 	" %R~" + snapshotPrefix + "workspace:*:schemas" +
 	" %R~" + snapshotPrefix + "workspace:*:namespace:*" +
@@ -74,10 +75,8 @@ func rbacReaderACL(domain string) string {
 		" (+hset +hdel ~" + own + ") (+sadd ~" + snapshotReaderDirectory + ")"
 }
 
-// SnapshotReaderPermissions returns the namespace and canonical baseline ACL
-// for one backend authorization domain. Users sharing the ACL share this trust
-// boundary. SQL RBAC uses the dedicated ACL name as domain; row SELECT grants
-// are added separately. Register the returned namespace as an administrator.
+// SnapshotReaderPolicy describes the baseline permissions and registration for
+// one backend authorization domain; it contains no connection credentials.
 type SnapshotReaderPolicy struct {
 	Format    int    `json:"format"`
 	Namespace string `json:"namespace"`
@@ -85,6 +84,9 @@ type SnapshotReaderPolicy struct {
 	Registry  string `json:"registry"`
 }
 
+// SnapshotReaderPermissions constructs a policy without contacting Redis.
+// SQL RBAC uses its dedicated ACL name as domain. Users sharing the ACL share
+// this trust boundary; row SELECT grants are added separately.
 func SnapshotReaderPermissions(domain string) SnapshotReaderPolicy {
 	return SnapshotReaderPolicy{16, snapshotReaderNamespace(domain), rbacReaderACL(domain), snapshotReaderDomains}
 }

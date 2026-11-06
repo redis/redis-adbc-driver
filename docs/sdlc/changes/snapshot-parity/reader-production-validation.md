@@ -157,3 +157,29 @@ test assumptions in expiry/Substrait cases. Those cases pass with the workflow's
 `REDIS_ADBC_TELEMETRY_DISABLED=true` setting. Enabled-wrapper compatibility is
 being repaired separately in the upstream reconciliation; neither this partial
 run nor the CI-env selections establish a complete enabled-accounting race run.
+
+## Native metadata follow-up
+
+The independent native run at reader source `8ae4098` passed 11 checks including
+the previously failing restricted cross-process full-value/schema replay,
+explicit layouts, direct HASH reads, certificate failures and write denials.
+It then failed metadata discovery: missing view directories resolve to empty
+`absent:*` addresses, and column discovery unnecessarily opened row indexes.
+
+The follow-up permits only that empty-address read family and makes schema/
+column discovery read immutable metadata with descriptor validation. Row queries
+retain their index/reference checks and row ACLs. An actual restricted metadata
+regression runs before GRANT; row SELECT remains denied and no management ACL
+write occurs. DROP/recreate also receives a fresh access identity and cannot
+inherit the dropped table's grant. The full SQL authorization race fixture and
+the sequence, live partition and frozen-format selections pass with actual
+Software fixture URIs and no skips.
+
+Administrative partition release now reaches restricted producers' groups while
+keeping active workers alive. Restricted callers still release only their own
+backend domain. Partition producer membership and sequence/group lease values
+are checked before decoding, including the 1024-byte limit. The current reader
+script sample is 5,831 bytes; the 128-pin HASH/directory samples remain
+20,280/130 bytes. Native cleanup removes only its known generated schema,
+including leftover fixture tables after failures. Full native completion and
+the final combined broad suites remain pending at this checkpoint.

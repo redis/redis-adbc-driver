@@ -569,7 +569,7 @@ def main(argv=None, cloud_principals_factory=None):
                     with owner.cursor() as cur:
                         release_fixture_partitions(cur, partition_groups)
                         cur.execute('DROP TABLE IF EXISTS ' + qualified)
-                        cur.execute('DROP SCHEMA IF EXISTS ' + schema)
+                        cur.execute('DROP SCHEMA IF EXISTS ' + schema + ' CASCADE')
         except BaseException:
             report['status'] = 'failed'
             raise

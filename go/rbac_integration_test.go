@@ -164,6 +164,29 @@ func TestSQLRBACSelect(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 	}
 	reader.expectError(`SELECT * FROM it_rbac_allowed`, "NOPERM")
+	t.Run("metadata_with_absent_view_directory", func(t *testing.T) {
+		writesBefore := aclWrites.Load()
+		schema, err := reader.conn.GetTableSchema(ctx, nil, ptr("public"), "it_rbac_allowed")
+		if err != nil || len(schema.Fields()) != 1 || schema.Field(0).Name != "id" {
+			t.Fatal("restricted schema metadata failed", err)
+		}
+		objects, err := reader.conn.GetObjects(ctx, adbc.ObjectDepthAll, nil, ptr("public"), ptr("it_rbac_allowed"), nil, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer objects.Release()
+		seen := false
+		for objects.Next() {
+			seen = true
+		}
+		if err := objects.Err(); err != nil || !seen {
+			t.Fatal("metadata enumeration failed", err)
+		}
+		if aclWrites.Load() != writesBefore {
+			t.Fatal("metadata discovery mutated management ACLs")
+		}
+	})
+	reader.expectError(`SELECT * FROM it_rbac_allowed`, "NOPERM")
 	t.Run("restricted_reader_retains_roots", func(t *testing.T) {
 		checkSnapshotRestrictedRetention(t, admin, reader)
 	})
@@ -281,6 +304,8 @@ func TestSQLRBACSelect(t *testing.T) {
 	}
 	client := goredis.NewClient(opts)
 	defer client.Close()
+	defer client.SRem(ctx, snapshotReaderDomains, snapshotReaderNamespace(rbacACLName(cfg.DatabaseUID, role.UID)))
+	defer client.Del(ctx, snapshotPrefix+"rbac:grants:"+strconv.Itoa(cfg.DatabaseUID)+":"+strconv.Itoa(acl.UID))
 	t.Run("lost_global_lock_reply", func(t *testing.T) { checkRBACLockLostReply(t, admin, roleName, aclWrites.Load) })
 	client.Set(ctx, snapshotPrefix+"rbac:lock", "other writer", 0)
 	if e := admin.execErr(`GRANT SELECT ON it_rbac_renamed TO ` + roleName); e == nil || !strings.Contains(e.Error(), "locked") {
@@ -333,6 +358,7 @@ func TestSQLRBACSelect(t *testing.T) {
 	if err := client.SAdd(ctx, snapshotReaderDomains, snapshotReaderNamespace(roleName+"_independent")).Err(); err != nil {
 		t.Fatal(err)
 	}
+	defer client.SRem(ctx, snapshotReaderDomains, snapshotReaderNamespace(roleName+"_independent"))
 	peer := open(peerURI.String(), "")
 	admin.exec(`GRANT SELECT ON it_rbac_renamed TO ` + roleName)
 	waitRows(`SELECT id FROM it_rbac_renamed`, "84")
@@ -386,6 +412,24 @@ func TestSQLRBACSelect(t *testing.T) {
 		t.Fatal("revocation left managed grants")
 	}
 	client.Del(ctx, snapshotPrefix+"rbac:grants:"+strconv.Itoa(cfg.DatabaseUID)+":"+strconv.Itoa(acl.UID))
+	// Restore the supported membership before the independent DROP/recreate
+	// security check. The old logical table's ACL must not reach its successor.
+	call("PUT", "users/"+strconv.Itoa(independentUser.UID), map[string]any{"role_uids": []int{independentRole.UID}}, nil)
+	admin.exec(`GRANT SELECT ON it_rbac_renamed TO ` + roleName)
+	waitRows(`SELECT id FROM it_rbac_renamed`, "84")
+	t.Run("drop_recreate_does_not_inherit_grant", func(t *testing.T) {
+		ac, rc := *admin, *reader
+		ac.t, rc.t = t, t
+		before, _ := ac.query("SELECT key_prefix FROM information_schema.tables WHERE table_schema='public' AND table_name='it_rbac_renamed'")
+		ac.exec("DROP TABLE it_rbac_renamed")
+		ac.exec("CREATE TABLE it_rbac_renamed(id INTEGER)")
+		ac.exec("INSERT INTO it_rbac_renamed VALUES(85)")
+		after, _ := ac.query("SELECT key_prefix FROM information_schema.tables WHERE table_schema='public' AND table_name='it_rbac_renamed'")
+		if len(before) != 1 || len(after) != 1 || snapshotAccessID(before[0]) == snapshotAccessID(after[0]) {
+			t.Fatal("DROP/recreate reused a logical access identity")
+		}
+		rc.expectError("SELECT id FROM it_rbac_renamed", "NOPERM")
+	})
 }
 
 // Software serializes database configuration tasks. Retry only explicit busy

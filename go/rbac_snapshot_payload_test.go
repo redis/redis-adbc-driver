@@ -403,7 +403,7 @@ func checkSnapshotRestrictedRetention(t *testing.T, admin, reader *sqlHarness) {
 		t.Fatal(err)
 	}
 	defer worker.release()
-	if err := r.releasePartitionSnapshot(reader.ctx, group.Token); err != nil {
+	if err := a.releasePartitionSnapshot(admin.ctx, group.Token); err != nil {
 		t.Fatal(err)
 	}
 	if _, late, err := a.acquirePartitionSnapshot(admin.ctx, group); err == nil {

@@ -368,7 +368,11 @@ func (c *connectionImpl) GetTableSchema(ctx context.Context, catalog *string, db
 	if err != nil {
 		return nil, err
 	}
-	meta, err := c.store.getTable(ctx, schema, tableName)
+	// Schema discovery uses immutable metadata, not row/index permissions.
+	meta, err := c.store.getTableMetadata(ctx, schema, tableName)
+	if err == nil {
+		err = validateSnapshotDescriptor(ctx, meta)
+	}
 	if err != nil {
 		v, verr := c.store.getView(ctx, schema, tableName)
 		if verr != nil {
@@ -502,8 +506,11 @@ func (c *connectionImpl) GetTablesForDBSchema(ctx context.Context, catalog strin
 				if v, err = c.store.getView(ctx, schema, ent.name); err == nil {
 					cols = v.Columns
 				}
-			} else if meta, err = c.store.getTable(ctx, schema, ent.name); err == nil {
-				cols = meta.Columns
+			} else if meta, err = c.store.getTableMetadata(ctx, schema, ent.name); err == nil {
+				err = validateSnapshotDescriptor(ctx, meta)
+				if err == nil {
+					cols = meta.Columns
+				}
 			}
 			if err != nil {
 				var ae adbc.Error

@@ -106,7 +106,12 @@ elseif op=='retain_partitions' then
 elseif op=='acquire_partition' then
  local field=id
  if producer==catalog then field='p:'..id
- elseif not reader_hex(string.sub(producer,#'` + snapshotReaderPrefix + `'+1),64) or string.sub(producer,1,#'` + snapshotReaderPrefix + `')~='` + snapshotReaderPrefix + `' then return redis.error_reply('invalid partition namespace') end
+ else
+  local producerNS=string.sub(producer,#'` + snapshotReaderPrefix + `'+1)
+  if not reader_hex(producerNS,64) or producer~='` + snapshotReaderPrefix + `'..producerNS then return redis.error_reply('invalid partition namespace') end
+  if redis.call('SISMEMBER',names,producerNS)~=1 then return redis.error_reply('partition snapshot expired or released') end
+ end
+ if redis.call('HSTRLEN',producer,field)>1024 then return redis.error_reply('partition snapshot lease exceeds resource limit') end
  local group=reader_pin(redis.call('HGET',producer,field),now)
  if not group or not group.partition or group.root~=root then return redis.error_reply('partition snapshot expired or released') end
  ttl=120000

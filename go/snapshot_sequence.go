@@ -49,7 +49,7 @@ func overlaySnapshotSequenceValue(m *sequenceMeta, state *snapshotSequenceValue)
 	m.snapshotToken = fmt.Sprintf("%d/%d/%d", m.Epoch, m.ResetEpoch, state.CacheEpoch)
 }
 
-const snapshotSequenceValueCAS = `
+const snapshotSequenceValueCAS = snapshotReaderLua + `
 -- volatile snapshot SQL sequence counter
 local catalog,graph,counter,rootmap,bucket,definition=unpack(KEYS)
 local workspace,token,base,owner,slot,suffix=unpack(ARGV)
@@ -66,10 +66,9 @@ if pinkey~=catalog then
  if #ns~=64 or string.find(ns,'[^0-9a-f]') or pinkey~='` + snapshotReaderPrefix + `'..ns or KEYS[8]~='` + snapshotReaderDirectory + `' or redis.call('SISMEMBER',KEYS[8],ns)~=1 then return redis.error_reply('invalid sequence reader namespace') end
  pinfield=token
 end
-local pinraw=redis.call('HGET',pinkey,pinfield)
-if not pinraw then return redis.error_reply('sequence snapshot pin expired') end
-local pin=cjson.decode(pinraw)
-if pin.root~=base or pin.expires<=now then return redis.error_reply('sequence snapshot pin expired') end
+if redis.call('HSTRLEN',pinkey,pinfield)>1024 then return redis.error_reply('sequence snapshot pin exceeds resource limit') end
+local pin=reader_pin(redis.call('HGET',pinkey,pinfield),now)
+if not pin or pin.root~=base or not reader_committed(catalog,base) then return redis.error_reply('sequence snapshot pin expired') end
 if ARGV[11]=='private' then
  if owner~=workspace then return redis.error_reply('invalid private sequence definition') end
  local wr=redis.call('HGET',catalog,'w:'..workspace)
