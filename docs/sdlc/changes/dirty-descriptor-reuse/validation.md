@@ -156,3 +156,7 @@ private. No unrelated resources or supplied license files are removed.
 These are local results at the stated source revisions. Publication/review and
 hosted checks must be recorded separately for the published PR head; no unfinished
 or absent hosted job is counted as a successful platform check.
+
+[Issue #336 acceptance audit](issue336-acceptance.md) adds test-only warm-connection
+phase attribution, dependency-retention and private storage/index costs. It does
+not change the native before/after results or production source above.
