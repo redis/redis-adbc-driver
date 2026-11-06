@@ -166,7 +166,7 @@ func TestACLSweep(t *testing.T) {
 	a := newACLHarness(t)
 	// Verify the existing principal-setup requirement before producing any
 	// cleanup fixtures. The same SETUSER denial remains an explicit skip.
-	a.user("it_sw_acl", slices.Concat(a.driverCommands(false), aclSweepCommands, []string{"~adbc:*", "~public:*"})...)
+	a.user("it_sw_acl", slices.Concat(a.driverCommands(), aclSweepCommands, []string{"~adbc:*", "~public:*"})...)
 	// Sweep what other tests left, so that the user only meets these keys.
 	runSweep(t, sweepOpts(adminURI()), true)
 	leave := func(schema, table string, n int) string {

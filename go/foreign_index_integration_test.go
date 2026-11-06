@@ -196,7 +196,7 @@ func TestACLForeignIndexName(t *testing.T) {
 		a.exec(`DROP TABLE IF EXISTS it_fi_acl`)
 		_ = st.searchDo(a.ctx, app.index, "FT.DROPINDEX", app.index).Err()
 	})
-	a.user("it_fi_acl", append(a.driverCommands(false), "~adbc:*", "~public:*")...)
+	a.user("it_fi_acl", append(a.driverCommands(), "~adbc:*", "~public:*")...)
 	u := a.connect("it_fi_acl", nil)
 	u.exec(`CREATE TABLE it_fi_acl (a INTEGER)`)
 	u.exec(`INSERT INTO it_fi_acl VALUES (1)`)

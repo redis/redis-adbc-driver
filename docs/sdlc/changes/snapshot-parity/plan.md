@@ -4,8 +4,11 @@ Date: 2026-11-02. Status: in progress. See [intent](intent.md), [spec](spec.md).
 
 The [production reader checkpoint](reader-production-validation.md) integrates
 protocol-16 isolated role leases and stable table grants. Actual Software SQL
-authorization and independent native TLS/lifecycle/metadata checks pass; full
-combined ordinary/race, hosted ACL/platform and recovery gates remain open.
+authorization and independent native TLS/lifecycle/metadata checks pass.
+The complete ordinary suite at `431dcb2` and equivalent-source final snapshot
+race selection pass; reviewed ACL/profile and older native Search-response
+follow-ups still require replacement hosted checks. Current platform/Cluster
+recovery gates remain open.
 There is no migration or older-format interoperability.
 
 The [controlled-plan checkpoint](controlled-plan-validation.md) preserves

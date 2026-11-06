@@ -91,12 +91,29 @@ func TestSQLCatalogArrayOperations(t *testing.T) {
 
 func TestACLForeignIndexDiscovery(t *testing.T) {
 	a := newACLHarness(t)
+	keys := []string{"~adbc:*", "~it:foreign:acl:*"}
+	// Verify backend principal support before producing/importing fixtures.
+	a.user("it_foreign_reader", append(a.readOnlyCommands(), keys...)...)
 	f := newHashFixture(t, "it:foreign:acl:")
 	f.hset(f.prefix+"a", "n", 1, "active", "true")
 	f.appIndex("it_foreign_acl_idx", "SCHEMA", "n", "NUMERIC", "active", "TAG")
-	a.user("it_foreign_reader", append(a.readOnlyCommands(), "+ft.info", "~adbc:*", "~it:foreign:acl:*")...)
+	// Restricted Open never publishes copies. Capture as an administrator,
+	// then authorize only this logical copy, rather than the whole schema.
+	_ = openWith(t, adminURI(), map[string]string{OptionStringForeignIndexes: "true"})
+	t.Cleanup(func() {
+		st := &store{client: a.raw, snapshots: true}
+		if err := st.removeSnapshotForeign(a.ctx, "it_foreign_acl_idx"); err != nil {
+			t.Error("owned foreign-copy cleanup failed", err)
+		}
+	})
+	copyMeta := a.inspectTable(a.raw, foreignSchema, "it_foreign_acl_idx")
+	keys = append(keys, "%R~"+snapshotAccessPrefix(copyMeta)+"*")
+	a.user("it_foreign_reader", append(a.readOnlyCommands(), keys...)...)
 	u := a.connect("it_foreign_reader", map[string]string{OptionStringForeignIndexes: "true"})
 	u.expectRows(`SELECT n,active FROM redis_foreign.it_foreign_acl_idx`, "1|true")
 	u.expectRows(`SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='redis_foreign' AND table_name='it_foreign_acl_idx'`, "2")
-	u.expectError(`UPDATE redis_foreign.it_foreign_acl_idx SET n=2`, "read-only")
+	a.expectSnapshotWriteDenied(u, `UPDATE redis_foreign.it_foreign_acl_idx SET n=2`)
+	if got := f.raw.HGet(a.ctx, f.prefix+"a", "n").Val(); got != "1" {
+		t.Fatal("restricted update changed the source HASH", got)
+	}
 }
