@@ -1,6 +1,7 @@
 # Publication metadata integrity admission
 
-Status: implemented, focused validation complete; broader combined checks remain.
+Status: implemented; focused and complete local snapshot/native checks pass.
+Exact-head ordinary/hosted platform checks remain in progress.
 This is core snapshot correctness work, not a deferred feature or a demonstrated
 explanation of the intermittent RDB failure. See [minimal scope](core-spec.md).
 
@@ -51,8 +52,41 @@ or performance-parity claim accompanies this correctness guard.
   Live endpoints are unset; integration/profile skips are not deployment proof.
 
 Production sources in these guard runs are the same; subsequent documentation
-and comment changes do not change execution. Full combined snapshot/native and
-hosted/platform checks are not yet passing evidence for this guard revision.
+and comment changes do not change execution. The complete local follow-up below
+adds snapshot/native and actual-principal evidence. Hosted/platform checks remain
+a separate exact-source requirement.
+
+## Complete local follow-up at `0f707f34`
+
+- Full `-race -count=1 -p 1 -timeout 30m -v -run Snapshot ./...`: **536 pass
+  events / 40 explicit skips**, root **391.138 seconds**, all six executable
+  packages pass, no data-race report. Skips retain absent actual Cluster, special
+  permission/reader-model and profile gates; the actual Cluster cases above are
+  separate positive evidence, not inferred from these skips.
+- Native C/ADBC snapshot suite: **19 passed, no skips, 11.505 seconds**. Host
+  Python 3.13.16, PyArrow 26.0.0, driver manager 1.13.0.
+- Full official native validation: **565 tests plus three subtests passed / eight
+  capability skips**, **84.87 seconds**. Python 3.14.10, pytest 9.2.0, PyArrow
+  26.0.1 and manager 1.13.0; official validation commit
+  `47a5ddf3f2a617ac88da3891848e000c74d55b0e`.
+- Actual Software-principal SQL SELECT/RBAC races: **21 pass events, zero skips**,
+  root **26.206 seconds**, including captured-payload privacy, independent readers,
+  grant lifetime and DROP/recreate isolation. No command/key grant is broadened.
+
+The versioned host library is built with `make -C go build`, macOS ARM64 / Go
+1.27.3. Embedded VCS reports clean `0f707f340d2b410085a6dd185c224466da2b6798`;
+SHA-256 `9f81b90751554098b8d7dc733291774656bc3cea70dc8e8b599d2be0db2f8b9a`.
+Both native suites use that exact artifact. The normal owned Software 8.8 fixture
+reverifies strict TLS, effective QPF4 and noeviction before each suite; database
+suites are serialized. No matched performance benchmark is run.
+
+Current-source [Test](https://github.com/redis/redis-adbc-driver/actions/runs/42178643433),
+[Release](https://github.com/redis/redis-adbc-driver/actions/runs/42178643525) remain in progress at recording.
+[DuckDB](https://github.com/redis/redis-adbc-driver/actions/runs/42178643441) is
+terminal SUCCESS at the exact same source. The complete ordinary Go suite on both hosted
+Software architectures and final matrix outcomes must be inspected. Documentation
+evidence is held locally until this matrix finishes, to avoid canceling it with
+a docs-only push. No pending or skipped job is counted as a pass.
 
 ## Review and original failure boundary
 

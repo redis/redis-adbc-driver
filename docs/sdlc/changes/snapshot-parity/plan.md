@@ -861,3 +861,11 @@ and closes missing mapped-bucket admission checks at seal/publication and merge
 installation. Focused Cluster/race/unit and fresh RDB checks pass. It does not
 explain the original intermittent recovery failure; broader combined checks
 remain required for the new core guard. No deferred functionality is merged.
+
+At guard source 0f707f34, full snapshot races pass 536 events / 40 skips,
+all 19 native snapshot cases pass, full official native validation passes
+565 + three subtests / eight skips, and actual-principal SQL/RBAC races pass
+21 / zero skips. Current-source hosted Test/Release runs remain pending;
+DuckDB is terminal SUCCESS;
+the combined evidence doc is held locally to avoid canceling that matrix.
+The original RDB metadata failure is not explained by these passes.

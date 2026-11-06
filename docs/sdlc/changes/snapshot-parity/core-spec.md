@@ -35,6 +35,10 @@ is not being claimed as implemented. See [delivery boundaries](delivery-scope.md
 The [protocol-16 Cluster report](cluster16-validation.md),
 [recovery cleanup report](pin-cleanup-recovery-validation.md), existing visibility/
 lifecycle regressions and native validation contain the source-specific evidence.
+The later [publication-integrity guard](publication-integrity-validation.md)
+has its own current-source evidence and pending hosted gate. The older hosted
+checkpoint below does not prove that subsequent production change.
+
 At production revision `272bbd4d`, hosted workflows are all terminal SUCCESS:
 [Test](https://github.com/redis/redis-adbc-driver/actions/runs/42172244144),
 [Release](https://github.com/redis/redis-adbc-driver/actions/runs/42172244104),
