@@ -338,7 +338,9 @@ func TestACLAdopt(t *testing.T) {
 
 	// A reader needs lease controls and read access to the managed copy,
 	// independently of its external source HASH permissions.
-	a.user("it_ad_reader", slices.Concat(a.readOnlyCommands(), []string{"%R~adbc:*", "%R~public:*", "%R~it:ad:acl:*"})...)
+	copyMeta := a.inspectTable(a.raw, defaultSchema, "it_ad_acl")
+	copyGrant := snapshotAccessPrefix(copyMeta) + "*"
+	a.user("it_ad_reader", slices.Concat(a.readOnlyCommands(), []string{"%R~adbc:*", "%R~" + copyGrant, "%R~it:ad:acl:*"})...)
 	reader := a.connect("it_ad_reader", nil)
 	reader.expectRows(`SELECT name FROM it_ad_acl WHERE __key = 'it:ad:acl:2'`, "User 2")
 	reader.expectRows(`SELECT COUNT(*) FROM it_ad_acl WHERE active = 'true'`, "2")
@@ -346,7 +348,7 @@ func TestACLAdopt(t *testing.T) {
 
 	// Updates need write access to private managed-copy rows; the existing
 	// external source grant remains separate.
-	a.user("it_ad_writer", slices.Concat(a.driverCommands(), aclUpdateAdopted, []string{"~adbc:*", "~public:*", "~it:ad:acl:*"})...)
+	a.user("it_ad_writer", slices.Concat(a.driverCommands(), aclUpdateAdopted, []string{"~adbc:*", "~" + copyGrant, "~it:ad:acl:*"})...)
 	writer := a.connect("it_ad_writer", nil)
 	writer.exec(`UPDATE it_ad_acl SET name = 'Two' WHERE __key = 'it:ad:acl:2'`)
 	writer.exec(`UPDATE it_ad_acl SET age = NULL WHERE name = 'Two'`)

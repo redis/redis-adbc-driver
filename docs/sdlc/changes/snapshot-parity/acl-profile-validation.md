@@ -48,3 +48,22 @@ Owned users, roles, ACL mappings, producer groups and domain leases are cleaned;
 ordinary cap/QPF/noeviction are reverified. No non-Software server is started for
 this development validation. Existing hosted macOS/Cluster ACL families remain
 the compatibility gate; their replacement runs are still pending.
+
+## Exact managed-copy grants and authorized foreign capture
+
+A follow-up keeps source-scoped import fixtures scoped to one logical copy's
+stable access identity, rather than granting every managed row in `public`.
+The app-index and adopt readers/updater retain their separate external source
+patterns. Foreign-index inspection first verifies principal support, captures
+its owned foreign copy through an administrator, and then grants that exact
+copy to the reader. Restricted Open never performs the capture. Its UPDATE
+assertion uses the exact writer-lease denial and preserves source values;
+cleanup removes only the owned foreign copy.
+
+Actual Software roles reproduce the missing-copy failure before administrator
+capture. After capture and the exact copy grant, full foreign values/schema are
+readable, UPDATE receives the exact lease denial with an unchanged published
+root, unrelated public rows remain denied, and the source HASH is unchanged.
+Owned principal, index, copy and domain cleanup completes. All Go unit packages
+pass after the fixture follow-up (root 26.924 seconds). This is actual Software
+role evidence; the existing hosted macOS ACL fixtures remain required.
