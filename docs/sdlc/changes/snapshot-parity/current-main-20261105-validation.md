@@ -2,8 +2,8 @@
 
 Date: 2026-11-05. Snapshot parent: c54a6cd (production 7c30fa6).
 Incoming main: cc2cbb2. Merge: e03255a. Subsequent payload ACL fix: a48ccc9.
-Status: unit/focused Software and full versioned native checks pass;
-full combined ordinary/snapshot/platform checks remain required.
+Status: unit/focused Software, full snapshot races and versioned native checks
+pass; full combined ordinary/platform checks remain required.
 See [intent](intent.md), [spec](spec.md), [plan](plan.md) and
 [point-lease evidence](point-lease-validation.md).
 
@@ -81,6 +81,20 @@ still open at this stage; this does not claim production reader isolation.
 Independent RBAC/snapshot unit races on the combined source pass 38 test events,
 five expected server/role skips, root 1.901 s. No server claim follows from skips.
 
-Full combined ordinary/snapshot/platform checks, comparative measurements and
+The complete snapshot race selection at a48ccc9 passes 453 test events,
+29 explicit skips and zero failures; root 369.512 s, all six test-bearing
+packages pass. This includes the merged snapshot admission/visibility/lifecycle
+paths; absent role/Cluster/profile fixtures remain explicit skips. Counts include
+subtests and overlap earlier selections. Elapsed suite time is not a controlled
+performance comparison.
+
+The preceding hosted [Test at 638c308](https://github.com/redis/redis-adbc-driver/actions/runs/42132744174)
+is terminal failure overall. Both AMD64 and ARM64 pass ordinary Go, complete
+snapshot regressions and native ADBC validation, covering point-lease production
+7c30fa6. Both still fail the independent restricted TLS worker with
+permission_denied and the required SQL SELECT-grant gate. This run predates the
+main merge and payload ACL fix, so it does not verify this combined source.
+
+Full combined ordinary/platform checks, comparative measurements and
 reader/Cluster/resume/utility gates remain required before full feature and
 performance parity can be claimed.

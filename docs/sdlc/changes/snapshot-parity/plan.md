@@ -4,7 +4,8 @@ Date: 2026-11-02. Status: in progress. See [intent](intent.md), [spec](spec.md).
 
 The [current-main reconciliation](current-main-20261105-validation.md) integrates
 cc2cbb2 while retaining managed materialized-view pins, ownership and the upstream
-55000 expiry contract. Combined checks are in progress. Managed Flex source
+55000 expiry contract. Full snapshot/native checks pass; combined ordinary and
+platform checks remain required. Managed Flex source
 execution remains an open parity gate; its upstream stopgap is not counted as
 verified snapshot support.
 
