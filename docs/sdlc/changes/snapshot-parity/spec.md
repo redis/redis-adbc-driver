@@ -1,6 +1,8 @@
 # Specification: snapshot feature and performance parity
 
-Date: 2026-11-02. Status: in progress. See [intent](intent.md), [plan](plan.md).
+Date: 2026-11-02. Status: broader follow-up scope; not the PR #284 completion gate. See [intent](intent.md), [plan](plan.md).
+
+The user requested the [minimal core acceptance scope](core-spec.md) for PR #284.
 
 The [agreed delivery boundaries](delivery-scope.md) separate core stabilization
 in PR #284 from public operation resume and the upstream native read-view ask.

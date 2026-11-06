@@ -3,6 +3,9 @@
 Status: agreed with the user on 2026-11-05. This separates deliverables; it does
 not claim that the broader feature/performance objective is complete.
 
+The [minimal core specification](core-spec.md) is now the completion boundary
+for PR #284, superseding the earlier broad parity requirements for this delivery.
+
 PR #284 delivers and stabilizes managed-table atomic statement snapshots:
 visibility-correct reads, atomic publication, pinned readers and shared-generation
 live partitions, reference-safe maintenance, existing feature compatibility and
