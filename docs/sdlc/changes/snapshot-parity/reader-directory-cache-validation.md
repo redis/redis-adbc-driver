@@ -120,7 +120,8 @@ requirements; these local proxy/Software checks do not establish them.
 Peer review identifies a resource-order issue in measured source `c306768`:
 `MEMORY USAGE ... SAMPLES 0` precedes the cheap directory count/range check.
 An oversized untrusted directory can therefore force an unbounded accounting
-walk before refusal. The fresh discovery script already short-circuits SCARD
+walk before refusal. [Redis documents MEMORY USAGE](https://redis.io/docs/latest/commands/memory-usage/)
+as linear in the samples; SAMPLES 0 examines all nested values. The fresh discovery script already short-circuits SCARD
 first; the warm-hint control path must do the same.
 
 A real-Lua regression injects a fault at MEMORY with 129 directory members and
@@ -131,3 +132,14 @@ MEMORY. The focused native membership/resource/control/no-replay race selection
 passes afterward, root 2.083 seconds. No partial pin is admitted. The measured
 `c306768` results above are retained as that source's evidence; fresh comparisons
 and broader verification remain required for the corrected candidate.
+
+Corrected source `41bb8fe` combines the count-order fix with repair fixtures
+through `0c969bd`. Its versioned library has SHA-256
+`4fe8edd4c151342976879991c3d82a0acbda3db7c78c4b9aeb9c72d459d9e11a`.
+Actual Software SQL RBAC passes **21 race test events**, no skips/failures,
+root **24.684 seconds**. Complete native validation passes **565 tests and 3
+subtests**, **8 capability skips**, **80.84 seconds**, in the same pinned
+Python 3.14 environment described above. Its complete snapshot race selection
+passes **529 test events**, **29 explicit skips**, root **370.799 seconds**;
+all six test-bearing packages pass without data races. These results belong to
+the corrected source; they do not relabel the earlier timing samples.
