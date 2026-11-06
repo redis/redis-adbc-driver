@@ -1367,6 +1367,23 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 			orderVisibility = queries
 		}
 	}
+	if snapshotOf(ctx) != nil && meta.SnapshotRows != nil && indexSort && len(plan.order) > 0 && !wp.none {
+		caps, err = e.store.snapshotSortCap(ctx, snapshotSourceIndex(ctx, meta), caps)
+		if err != nil {
+			return selectScan{}, err
+		}
+		if !meta.SnapshotOverlay && caps[1] < maxAggLimit {
+			// A single immutable baseline has the same exact directory as an
+			// overlay. Reuse its cap-independent path only when needed; retain
+			// the ordinary index fast path under the standard unlimited cap.
+			copy := *meta
+			copy.SnapshotOverlay = true
+			meta, req.meta = &copy, &copy
+			for _, o := range plan.order {
+				columnRefs(o.expr, req.need)
+			}
+		}
+	}
 	if !indexSort {
 		req.sortBy = nil
 		for _, o := range plan.order {
@@ -1459,7 +1476,9 @@ func (e *executor) prepareScan(ctx context.Context, plan *selectPlan, params []V
 		}
 	}
 	if meta.SnapshotOverlay {
-		if req.limit == nil {
+		// Rounded sort keys can widen a limited tie window to the whole
+		// segment. Prove that bound too, before evaluating any residual.
+		if req.limit == nil || req.ties != nil {
 			for _, seg := range meta.snapshotSegments() {
 				if seg.Rows > caps[1] {
 					if req.late != nil {

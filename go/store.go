@@ -962,6 +962,8 @@ type store struct {
 	foreignIndexes bool
 	searchCapsOnce sync.Once
 	searchCaps     [2]int64
+
+	searchAggregateCapKnown bool // initialized with searchCapsOnce
 	// client is a *goredis.Client, or a *goredis.ClusterClient when the
 	// server exposes the OSS Cluster API.
 	client goredis.UniversalClient

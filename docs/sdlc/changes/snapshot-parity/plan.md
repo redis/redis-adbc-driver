@@ -2,6 +2,11 @@
 
 Date: 2026-11-02. Status: in progress. See [intent](intent.md), [spec](spec.md).
 
+The [hidden-sort-cap checkpoint](hidden-sort-cap-validation.md) verifies explicit
+ordering against an actual unavailable cap of 137, using a pre-evaluation empty
+capability query and exact local sorting. Baselines, layered visibility, rounded
+ties and one-time volatility are covered; full combined validation remains open.
+
 The [usage-wrapper checkpoint](usage-wrapper-validation.md) preserves enabled
 accounting while fixing internal reader inspections in lifecycle/projection
 tests. Focused actual enabled-accounting checks pass; this is not a production
@@ -37,8 +42,8 @@ lower median latency. Full current-source suites and the remaining gap stay open
 The [implicit-order checkpoint](implicit-order-validation.md) extends the exact
 directory/candidate merge to unbounded narrow implicit-order reads. Matched
 native medians improve 25.93% for the full implicit read; complete current-source
-suites remain required. Explicit
-sorting under undiscoverable lowered caps is a separate open case.
+suites remain required. Explicit sorting under undiscoverable lowered caps is
+covered separately by the hidden-sort-cap checkpoint above.
 
 The [TLS fixture checkpoint](tls-snapshot-fixture-validation.md) records the
 completed current ordinary race suite and restores planner partition readiness,
