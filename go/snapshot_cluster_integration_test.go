@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -258,6 +260,169 @@ func TestSnapshotClusterDirectNodeFences(t *testing.T) {
 	}
 }
 
+// This test-only reference model requires the serialized recovery fixture.
+// It includes construction-source edges and never logs resource identities.
+func snapshotClusterMetadataReferenceAudit(ctx context.Context, raw *goredis.ClusterClient) (int, int, error) {
+	count, err := raw.HLen(ctx, snapshotCatalogKey).Result()
+	if err != nil || count > 1024 {
+		return 0, 0, fmt.Errorf("metadata reference audit catalog unavailable or oversized")
+	}
+	names, err := raw.HKeys(ctx, snapshotCatalogKey).Result()
+	if err != nil {
+		return 0, 0, fmt.Errorf("metadata reference audit catalog read failed")
+	}
+	roots := []string{}
+	for _, name := range names {
+		if id, ok := strings.CutPrefix(name, "w:"); ok {
+			roots = append(roots, id)
+		}
+	}
+	if len(roots) > 32 {
+		return 0, 0, fmt.Errorf("metadata reference audit root bound exceeded")
+	}
+	expected := map[string]int64{}
+	checkedBuild := map[string]bool{}
+	for _, root := range roots {
+		if !snapshotMetadataID(root) {
+			return 0, 0, fmt.Errorf("metadata reference audit root identity invalid")
+		}
+		n, err := raw.HLen(ctx, snapshotMetadataMap(root)).Result()
+		if err != nil || n > 256 {
+			return 0, 0, fmt.Errorf("metadata reference audit map unavailable or oversized")
+		}
+		entries, err := raw.HGetAll(ctx, snapshotMetadataMap(root)).Result()
+		if err != nil {
+			return 0, 0, fmt.Errorf("metadata reference audit map read failed")
+		}
+		for slot, owner := range entries {
+			if !snapshotMetadataID(owner) || len(slot) != 2 {
+				return 0, 0, fmt.Errorf("metadata reference audit bucket identity invalid")
+			}
+			if _, err := strconv.ParseUint(slot, 16, 8); err != nil {
+				return 0, 0, fmt.Errorf("metadata reference audit slot invalid")
+			}
+			id := owner + ":" + slot
+			expected[id]++
+			if checkedBuild[id] {
+				continue
+			}
+			checkedBuild[id] = true
+			build, err := raw.HGet(ctx, snapshotMetadataGraph, "c:"+id).Bytes()
+			if errors.Is(err, goredis.Nil) {
+				continue
+			}
+			if err != nil {
+				return 0, 0, fmt.Errorf("metadata reference audit construction read failed")
+			}
+			var state struct {
+				Source string `json:"source"`
+			}
+			if json.Unmarshal(build, &state) != nil || !snapshotMetadataID(state.Source) {
+				return 0, 0, fmt.Errorf("metadata reference audit construction invalid")
+			}
+			expected[state.Source+":"+slot]++
+		}
+	}
+	ids := make([]string, 0, len(expected))
+	for id := range expected {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	if len(ids) == 0 {
+		return len(roots), 0, nil
+	}
+	fields := make([]string, len(ids))
+	for i, id := range ids {
+		fields[i] = "b:" + id
+	}
+	values, err := raw.HMGet(ctx, snapshotMetadataGraph, fields...).Result()
+	if err != nil || len(values) != len(ids) {
+		return 0, 0, fmt.Errorf("metadata reference audit proofs unavailable")
+	}
+	for i, id := range ids {
+		actual, err := strconv.ParseInt(fmt.Sprint(values[i]), 10, 64)
+		if err != nil || actual != expected[id] {
+			return len(roots), len(ids), fmt.Errorf("metadata reference mismatch: parsed=%t expected=%d observed=%d", err == nil, expected[id], actual)
+		}
+	}
+	return len(roots), len(ids), nil
+}
+
+// The recovery fixture disables background compaction and serializes writers.
+// Audit mapped buckets at phase boundaries, before SQL can stop on a lazily
+// loaded bucket. Report only counts, not logical keys, owners or source values.
+func snapshotClusterAuditMetadata(t *testing.T, parent context.Context, raw *goredis.ClusterClient, phase string) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(parent, 3*time.Second)
+	defer cancel()
+	root, err := raw.HGet(ctx, snapshotCatalogKey, "root").Result()
+	if err != nil {
+		t.Fatalf("%s metadata root read failed", phase)
+	}
+	buckets, err := raw.HGetAll(ctx, snapshotMetadataMap(root)).Result()
+	if err != nil || len(buckets) > 256 {
+		t.Fatalf("%s metadata map invalid: buckets=%d", phase, len(buckets))
+	}
+	for slot, owner := range buckets {
+		pipe := raw.Pipeline()
+		proof := pipe.HMGet(ctx, snapshotMetadataGraph, "n:"+owner+":"+slot, "b:"+owner+":"+slot)
+		entries := pipe.HLen(ctx, snapshotMetadataBucket(owner, slot))
+		fields := pipe.ZCard(ctx, snapshotMetadataDirectory(owner, slot))
+		if _, err := pipe.Exec(ctx); err != nil {
+			t.Fatalf("%s metadata audit read failed", phase)
+		}
+		values := proof.Val()
+		if len(values) != 2 {
+			t.Fatalf("%s metadata proof absent", phase)
+		}
+		var expected, refs int64
+		_, ne := fmt.Sscan(fmt.Sprint(values[0]), &expected)
+		_, re := fmt.Sscan(fmt.Sprint(values[1]), &refs)
+		if ne != nil || re != nil || refs <= 0 || expected != entries.Val() || expected != fields.Val() {
+			t.Fatalf("%s metadata mismatch: parsed=%t expected=%d references=%d entries=%d fields=%d", phase, ne == nil && re == nil, expected, refs, entries.Val(), fields.Val())
+		}
+	}
+	roots, edges, err := snapshotClusterMetadataReferenceAudit(ctx, raw)
+	if err != nil {
+		t.Fatalf("%s: %v", phase, err)
+	}
+	t.Logf("%s metadata audit: %d committed buckets valid; %d reference totals across %d roots consistent", phase, len(buckets), edges, roots)
+}
+
+func TestSnapshotClusterRDBCheckpointProgress(t *testing.T) {
+	if os.Getenv("REDIS_SNAPSHOT_RDB_CHECKPOINT") != "1" {
+		t.Skip("requires owned RDB checkpoint orchestration")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	raw := snapshotClusterClient(t)
+	defer raw.Close()
+	data, err := os.ReadFile(os.Getenv("REDIS_SNAPSHOT_CHAOS_DIR") + "/rdb-probes.json")
+	if err != nil {
+		t.Fatal("checkpoint probe record unavailable")
+	}
+	var probes []snapshotRDBProbe
+	if json.Unmarshal(data, &probes) != nil || len(probes) != 3 {
+		t.Fatal("checkpoint probe record invalid")
+	}
+	for _, probe := range probes {
+		text := strings.TrimSuffix(strings.TrimPrefix(probe.Key, "it_snapshot_rdb:{checkpoint_"), "}")
+		number, err := strconv.Atoi(text)
+		if err != nil || number < 0 || number >= 1000 || fmt.Sprintf("it_snapshot_rdb:{checkpoint_%d}", number) != probe.Key || !snapshotMetadataID(probe.Value) {
+			t.Fatal("checkpoint probe identity invalid")
+		}
+		if value, err := raw.Get(ctx, probe.Key).Result(); err != nil || value != probe.Value {
+			t.Fatal("original checkpoint probe changed")
+		}
+		// The suffix retains the original hash tag/physical-primary coverage.
+		// Original probe values and the expected recovery record stay immutable.
+		if err := once(ctx, raw, "SET", probe.Key+":progress", snapshotID()).Err(); err != nil {
+			t.Fatal("checkpoint progress write failed")
+		}
+	}
+	t.Log("checkpoint progress dirtied original routed primaries without replacing probes")
+}
+
 // The client runs outside the database containers. The orchestrator changes the
 // deployment only after ready, and releases it after all shards/QPF are active.
 func TestSnapshotClusterRecovery(t *testing.T) {
@@ -307,6 +472,11 @@ func TestSnapshotClusterRecovery(t *testing.T) {
 	}
 	defer stmt.Close(h.ctx)
 	s := stmt.(*statementImpl).conn.store
+	observer := &issue344ProofObserver{logf: t.Logf, directory: os.Getenv("REDIS_SNAPSHOT_CHAOS_DIR")}
+	s.client.AddHook(observer)
+	defer func() {
+		t.Logf("proof pipeline diagnostic: matched=%d mismatches=%d", observer.recognized.Load(), observer.captured.Load())
+	}()
 	token := snapshotID()
 	for i := 0; i < 2; i++ {
 		if _, err := s.snapshotCompactionStep(h.ctx, token); err != nil {
@@ -416,6 +586,7 @@ func TestSnapshotClusterRecovery(t *testing.T) {
 		}
 	}
 	checkBatch()
+	snapshotClusterAuditMetadata(t, h.ctx, raw, "before interruption")
 	dir := os.Getenv("REDIS_SNAPSHOT_CHAOS_DIR")
 	if err := os.WriteFile(dir+"/ready", []byte("ready"), 0600); err != nil {
 		t.Fatal(err)
@@ -444,6 +615,7 @@ func TestSnapshotClusterRecovery(t *testing.T) {
 	reader.Release()
 	reader = nil
 	snapshotClusterAwaitRecovery(t, h)
+	snapshotClusterAuditMetadata(t, h.ctx, raw, "after deployment recovery")
 	if os.Getenv("REDIS_SNAPSHOT_RDB_REQUIRED") == "1" {
 		encoded, err := os.ReadFile(dir + "/rdb-probes.json")
 		if err != nil {
@@ -503,7 +675,9 @@ func TestSnapshotClusterRecovery(t *testing.T) {
 		t.Fatal("failed to retire recovered private writer before compaction", err)
 	}
 	wpin.release()
+	snapshotClusterAuditMetadata(t, h.ctx, raw, "before resumed compaction")
 	snapshotCompleteJobTest(t, s, snapshotID())
+	snapshotClusterAuditMetadata(t, h.ctx, raw, "after compaction publication")
 	h.expectRows("SELECT COUNT(*),MIN(v),MAX(v) FROM t", "1001|102|9007199254740993")
 	fresh, err := db.Open(h.ctx)
 	if err != nil {
@@ -846,5 +1020,46 @@ func snapshotClusterAwaitRecovery(t *testing.T, h *sqlHarness) {
 		}
 		failures++
 		time.Sleep(100 * time.Millisecond)
+	}
+}
+
+func TestSnapshotClusterReferenceAuditDetectsPositiveUndercount(t *testing.T) {
+	h, raw, _ := snapshotClusterHarness(t)
+	h.exec("CREATE TABLE reference_audit(v INTEGER)")
+	st, err := h.conn.NewStatement(h.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close(h.ctx)
+	s := st.(*statementImpl).conn.store
+	base, pin, err := s.acquireSnapshot(h.ctx, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pin.release()
+	_, id, err := s.beginSnapshotWrite(base, pin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.abortSnapshot(pin, id)
+	if _, _, err := snapshotClusterMetadataReferenceAudit(h.ctx, raw); err != nil {
+		t.Fatal("valid references rejected", err)
+	}
+	slot := snapshotMetadataSlot(strings.TrimPrefix(metaKey("public", "reference_audit"), metaPrefix))
+	owner, err := raw.HGet(h.ctx, snapshotMetadataMap(id), slot).Result()
+	if err != nil {
+		t.Fatal(err)
+	}
+	field := "b:" + owner + ":" + slot
+	before, err := raw.HGet(h.ctx, snapshotMetadataGraph, field).Int64()
+	if err != nil || before < 2 {
+		t.Fatal("test requires a shared bucket", before, err)
+	}
+	if err := raw.HIncrBy(h.ctx, snapshotMetadataGraph, field, -1).Err(); err != nil {
+		t.Fatal(err)
+	}
+	defer raw.HIncrBy(h.ctx, snapshotMetadataGraph, field, 1)
+	if _, _, err := snapshotClusterMetadataReferenceAudit(h.ctx, raw); err == nil || !strings.Contains(err.Error(), "metadata reference mismatch") {
+		t.Fatal("positive but undercounted reference admitted", err)
 	}
 }
