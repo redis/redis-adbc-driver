@@ -59,6 +59,9 @@ failure, and it must not be relabeled as a proven Redis server defect.
 
 ## Explicitly deferred
 
+The [deferred-work index](deferred-work.md) links seven labeled follow-up issues
+and the separately saved WIP code, with exact validation boundaries.
+
 Public operation/input resume and process takeover; performance parity with the
 mutable driver; additional metadata/index optimizations and new read fast paths;
 new sustained-throughput targets; coordinated cross-shard snapshots; additional

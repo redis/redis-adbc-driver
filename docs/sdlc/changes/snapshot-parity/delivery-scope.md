@@ -71,3 +71,7 @@ The minimal immediate deliverable is core statement-snapshot correctness and
 stabilization with truthful evidence/limits. Public operation resume, new bespoke
 optimizations and cross-shard snapshot coordination are deferred rather than
 silently counted as completed. Performance parity is not a core completion claim.
+
+The [deferred-work index](deferred-work.md) records driver follow-ups #335–#341
+and the preserved remote resume-prerequisite branch. None is a minimal core
+completion gate; final WIP reservation code is explicitly not fully validated.
