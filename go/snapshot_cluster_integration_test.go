@@ -472,6 +472,11 @@ func TestSnapshotClusterRecovery(t *testing.T) {
 	}
 	defer stmt.Close(h.ctx)
 	s := stmt.(*statementImpl).conn.store
+	observer := &snapshotClusterProofObserver{logf: t.Logf, directory: os.Getenv("REDIS_SNAPSHOT_CHAOS_DIR")}
+	s.client.AddHook(observer)
+	defer func() {
+		t.Logf("proof pipeline diagnostic: matched=%d mismatches=%d", observer.recognized.Load(), observer.captured.Load())
+	}()
 	token := snapshotID()
 	for i := 0; i < 2; i++ {
 		if _, err := s.snapshotCompactionStep(h.ctx, token); err != nil {

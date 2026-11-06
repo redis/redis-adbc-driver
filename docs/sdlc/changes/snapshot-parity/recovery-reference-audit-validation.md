@@ -71,3 +71,57 @@ The failed gate's actual cause and the original incomplete-bucket failure remain
 separate unresolved observations. The publication guard's full local/native and
 terminal hosted evidence is recorded in [its report](publication-integrity-validation.md).
 No deferred operation-resume or compatibility expansion is merged.
+
+## Issue #344: source audit and failure-only comparison
+
+At `af0fa15c`, all three hosted workflows are terminal SUCCESS:
+[Test](https://github.com/redis/redis-adbc-driver/actions/runs/42248797797),
+[Release](https://github.com/redis/redis-adbc-driver/actions/runs/42248797946) and
+[DuckDB](https://github.com/redis/redis-adbc-driver/actions/runs/42248797775).
+Both Software architectures pass. The conditional SQL-grant failure guard skips
+because the actual authorization step passes; optional measurement skips remain
+skips. Hosted proxy jobs do not replace the dedicated Cluster recovery runs.
+The exact revision also passes all-node AOF recovery in **37.62 seconds**, with
+all phase reference totals consistent, private outcomes retained and resumed
+compaction verified. Admission verifies effective QPF4, strict TLS, noeviction,
+all six shard roles and initialized AOF files with appendfsync-always.
+
+An isolated pre-publication-guard runtime (`272bbd4d`) with current test-only
+audits passes three serial promotion/RDB pairs: **8.11/63.05**, **6.55/44.12**
+and **7.33/47.34 seconds**. This weakens any inference from passing new-runtime
+runs that the publication guard explains the original failure. The comparison
+does not establish its cause.
+
+A test-only pipeline observer now captures the exact failed native proof before
+the query unwinds. Only on a mismatch, at most three times per recovery test, it
+uses a fresh TLS/RESP3 Cluster connection to reread the same bucket proof and
+current root under a three-second context. It preserves every original reply and
+error and never replays SQL or mutates Redis. Logs contain numeric tuples and
+status flags; optional identity records stay in the fixture's chaos directory,
+created exclusively with mode 0600. A later healthy read is diagnostic evidence,
+not proof that the original reply was wrong: state can change between reads.
+
+The controlled self-test alters one native reply without changing Redis. It
+requires the original query failure, detection of that exact pipeline, and a
+healthy independent read. A pre-guard observed RDB run passes in **47.80 seconds**
+with **12 matched proof pipelines and zero mismatches**. The isolated baseline
+investigation is preserved at `157cd824` on
+[codex/issue344-baseline-investigation](https://github.com/redis/redis-adbc-driver/tree/codex/issue344-baseline-investigation);
+it is not merged into the core PR.
+
+On the current production runtime with the observer attached, the final
+controlled self-test passes in **0.46 seconds**, including mode-0600 artifact
+verification. All-node AOF recovery passes in **37.66 seconds**, followed by
+primary promotion in **6.75 seconds** and all-node RDB recovery in **53.50
+seconds**. Each recovery matches 12 proof pipelines with zero mismatches.
+The RDB gate verifies fresh completed saves with AOF disabled on every shard;
+both separate progress-helper executions pass without changing original probes.
+All phase reference totals and exact recovered values remain correct. The
+complete Cluster selection passes 22 events with three explicit orchestrator-only
+skips (probe writes, progress and recovery); those cases run separately above. These
+test-only changes require their own hosted checks; the green `af0fa15c` matrix
+above does not cover the newly added observer.
+
+The original post-promotion RDB metadata failure remains unresolved. No current
+observation supplies its missing numeric tuple or root identity, and successful
+reruns must not be used to close that acceptance gate.

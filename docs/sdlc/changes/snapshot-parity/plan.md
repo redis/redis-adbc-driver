@@ -877,3 +877,12 @@ adds no production behavior: a seeded positive undercount is detected, real
 promotion passes, a failed pre-restart checkpoint gate is preserved, and the
 corrected liveness helper passes fresh RDB recovery without changing probes or
 weakening freshness. The original incomplete-bucket failure remains open.
+
+
+Issue [#344](https://github.com/redis/redis-adbc-driver/issues/344) is the
+minimal-core tracker for PR #284. The [recovery diagnostic follow-up](recovery-reference-audit-validation.md#issue-344-source-audit-and-failure-only-comparison)
+records terminal green `af0fa15c` workflows, exact-source AOF recovery and
+pre-guard comparison runs. A read-only test observer retains the failed native
+proof and an independent fresh read without repairing/replaying the query.
+The retained RDB failure remains a completion blocker; these successful runs
+and diagnostics do not explain it. Deferred parity/resume work stays separate.
