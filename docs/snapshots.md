@@ -457,6 +457,15 @@ failed cleanup retains resources for a later attempt. Atomic reference checks
 prevent deleting shared table generations while a manifest can still use them.
 Process-crash recovery waits for the abandoned writer's lease to expire.
 
+A retained Software Cluster test reported an explicit metadata-proof I/O error
+after primary promotion, RDB recovery and resumed compaction. Subsequent runs
+have not reproduced it; its cause and the original durable-metadata condition
+remain unknown. No mixed or incorrect query result was observed. Track the
+intermittent recovery failure in [#345](https://github.com/redis/redis-adbc-driver/issues/345).
+This is not a claim of uninterrupted query availability or a proven fix.
+Unavailable/inconsistent views must fail explicitly rather than return mixed
+results, switch to live data or replay uncertain SQL/input.
+
 In addition to ordinary Search/HASH/metadata commands, the mode requires `EVAL`,
 `TIME`, `DBSIZE`, `DUMP`, `RESTORE`, `SCAN`, `ZRANGE`, `ZLEXCOUNT`, `ZCARD`, `ZSCORE` and
 `ZRANGEBYLEX` and `INFO`, plus namespace access. Lua directory registration also

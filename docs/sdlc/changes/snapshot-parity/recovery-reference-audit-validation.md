@@ -2,7 +2,12 @@
 
 Status: test/orchestration-only follow-up to the core publication guard. Production
 code is unchanged from `0f707f34`. The original intermittent RDB metadata failure
-remains unexplained; none of the observations below closes it.
+remains unexplained; none of the observations below closes it. On 2026-11-06 the
+user approved separate investigation in [#345](https://github.com/redis/redis-adbc-driver/issues/345),
+removing causal diagnosis as a #344 completion gate. Historical gate statements
+below describe the earlier scope. Explicit failure, no mixed/incorrect results,
+no uncertain replay and preservation of acknowledged/referenced data remain core
+requirements. Recovery tests and assertions are unchanged.
 
 ## Stronger serialized reference diagnostic
 
@@ -124,4 +129,5 @@ above does not cover the newly added observer.
 
 The original post-promotion RDB metadata failure remains unresolved. No current
 observation supplies its missing numeric tuple or root identity, and successful
-reruns must not be used to close that acceptance gate.
+reruns must not be used to claim resolution of #345. Its separate tracking does
+not establish that the original metadata was intact or that the event was a fluke.

@@ -30,7 +30,7 @@ is not being claimed as implemented. See [delivery boundaries](delivery-scope.md
    fresh protocol-16 storage with no migration, autocommit-only scope, Active-Active
    exclusion and noeviction. No new option disables snapshot correctness.
 
-## Completion evidence and remaining blocker
+## Completion evidence and remaining work
 
 The [protocol-16 Cluster report](cluster16-validation.md),
 [recovery cleanup report](pin-cleanup-recovery-validation.md), existing visibility/
@@ -56,11 +56,20 @@ first timed out because it inspected effective QPF from an API response without
 requesting those fields; correcting that query admitted the verified run. This
 is a preflight correction, not a driver fix or an extra passing recovery run.
 
-Completion remains unproven: one retained post-promotion RDB run reports an
-incomplete metadata bucket after compaction publication. Diagnose it and retain
-the failed attempt; later passes alone are not a resolution. Final review and
-owned-resource cleanup also remain. No new feature is needed to explain this
-failure, and it must not be relabeled as a proven Redis server defect.
+On 2026-11-06, the user approved tracking the retained post-promotion RDB
+metadata error separately in [#345](https://github.com/redis/redis-adbc-driver/issues/345),
+rather than requiring its causal explanation to complete #344 / PR #284.
+The observed query returned an explicit I/O error; no mixed or incorrect result
+was observed. The cause and durable-metadata condition remain unknown. Passing
+reruns do not establish a fix, a fluke or a Redis server defect.
+
+The correctness gate remains: unavailable/inconsistent views fail explicitly,
+with no live-data fallback, mixed/incorrect rows or uncertain SQL/input replay.
+Evidence of lost acknowledged state or deletion of referenced metadata/data
+also remains a core blocker. Splitting the investigation does not prove those
+properties safe or excuse such a defect. Preserve all recovery tests, assertions,
+failed evidence and the diagnostic observer. Final source-specific checks,
+maintainer review and owned-resource cleanup remain required.
 
 ## Explicitly deferred
 

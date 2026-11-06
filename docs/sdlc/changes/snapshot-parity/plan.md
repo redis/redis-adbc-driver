@@ -884,5 +884,10 @@ minimal-core tracker for PR #284. The [recovery diagnostic follow-up](recovery-r
 records terminal green `af0fa15c` workflows, exact-source AOF recovery and
 pre-guard comparison runs. A read-only test observer retains the failed native
 proof and an independent fresh read without repairing/replaying the query.
-The retained RDB failure remains a completion blocker; these successful runs
-and diagnostics do not explain it. Deferred parity/resume work stays separate.
+The 2026-11-06 user decision moves causal investigation of the retained RDB
+error to [#345](https://github.com/redis/redis-adbc-driver/issues/345), outside
+#344's completion gates. Successful runs and diagnostics do not explain it.
+Explicit errors without mixed/incorrect results, no uncertain replay and safety
+of acknowledged/referenced data remain required. Keep tests and failed evidence;
+any demonstrated correctness defect remains a core blocker. Deferred parity/resume
+work stays separate. Final source-specific checks, review and owned cleanup remain.

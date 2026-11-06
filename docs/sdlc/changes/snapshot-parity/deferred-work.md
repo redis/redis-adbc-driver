@@ -3,7 +3,8 @@
 These follow-ups are outside [minimal core PR #284](core-spec.md), per the user's
 request. They are not completion gates for atomic managed-table statement
 snapshots, and are not claimed as implemented. Every issue was created with
-an existing `enhancement` label and its body/open state was verified.
+existing repository labels at creation. #335–#341 use `enhancement`;
+the separate recovery investigation #345 uses `bug` and `needs-triage`.
 
 | Follow-up | Scope |
 |---|---|
@@ -14,6 +15,7 @@ an existing `enhancement` label and its body/open state was verified.
 | [#339](https://github.com/redis/redis-adbc-driver/issues/339) | adopt upstream native read views and retire custom snapshot machinery |
 | [#340](https://github.com/redis/redis-adbc-driver/issues/340) | integrate coordinated cross-shard views when upstream supports them |
 | [#341](https://github.com/redis/redis-adbc-driver/issues/341) | replace remaining cumulative utility staging quotas with bounded execution |
+| [#345](https://github.com/redis/redis-adbc-driver/issues/345) | investigate the retained intermittent post-promotion RDB metadata error; not declared fixed or a fluke |
 
 ## Saved code
 
@@ -41,5 +43,8 @@ The [delivery record](delivery-scope.md#upstream-replacement-plan) links the six
 Redis/Search requests. Native view adoption, coordinated Cluster views and
 read/export follow-ups link those dependencies rather than duplicating them.
 Open upstream proposals do not establish availability or justify removing
-existing snapshot protections. The unexplained RDB metadata failure stays a core
-stabilization obligation and has not been deferred into these issues.
+existing snapshot protections. Per the 2026-11-06 user decision, the unexplained
+RDB error is investigated separately in #345. Core safety requirements remain
+unchanged: explicit failure without mixed/incorrect data or uncertain replay.
+Any evidence of lost acknowledged state or deletion of referenced data remains
+a core blocker. The failed attempt, tests and diagnostic code are retained.
