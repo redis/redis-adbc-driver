@@ -24,6 +24,7 @@ type snapshotSortCapHook struct {
 	probes, refusedData int
 	data                int
 	native              bool
+	legacy              bool
 }
 
 func (h *snapshotSortCapHook) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
@@ -53,7 +54,11 @@ func (h *snapshotSortCapHook) ProcessHook(next goredis.ProcessHook) goredis.Proc
 						if !probe {
 							h.refusedData++
 						}
-						err := controlScriptNativeError("SEARCH_LIMIT_OVER LIMIT exceeds maximum of 137")
+						message := "LIMIT exceeds maximum of 137"
+						if !h.legacy {
+							message = "SEARCH_LIMIT_OVER " + message
+						}
+						err := controlScriptNativeError(message)
 						c.SetErr(err)
 						return err
 					}
@@ -183,6 +188,21 @@ func TestSnapshotExplicitOrderHiddenAggregateCap(t *testing.T) {
 		}
 		h.expectRows("SELECT nextval('calls')", "300") // 299 visible rows, evaluated once each.
 	})
+	t.Run("legacy native refusal evaluates predicate once", func(t *testing.T) {
+		h.exec("ALTER SEQUENCE calls RESTART WITH 1")
+		s := snapshotTestStore(t, raw)
+		s.searchCapsOnce.Do(func() { s.searchCaps = [2]int64{1_000_000, 1 << 31} })
+		guard := &snapshotSortCapHook{legacy: true}
+		s.client.AddHook(guard)
+		res := snapshotExecuteTest(t, s, h.ctx, "SELECT id FROM t WHERE nextval('calls')>0 ORDER BY id DESC LIMIT 10")
+		if got := snapshotResultStrings(res.rows); !slices.Equal(got, []string{"300", "299", "298", "297", "296", "295", "294", "293", "292", "291"}) {
+			t.Fatal(got)
+		}
+		if guard.probes != 1 || guard.refusedData != 0 {
+			t.Fatalf("probes=%d refused data queries=%d", guard.probes, guard.refusedData)
+		}
+		h.expectRows("SELECT nextval('calls')", "300") // 299 visible rows, evaluated once.
+	})
 	t.Run("required stream refuses before volatility", func(t *testing.T) {
 		h.exec("ALTER SEQUENCE calls RESTART WITH 1")
 		s := snapshotTestStore(t, raw)
@@ -241,17 +261,22 @@ func TestSnapshotSortCapacityUnknownStopsBeforeSQL(t *testing.T) {
 	h.exec("INSERT INTO t SELECT i FROM generate_series(1,300) AS g(i)")
 	h.exec("CREATE SEQUENCE calls CACHE 1")
 	native := controlScriptNativeError("SEARCH_LIMIT_OVER LIMIT exceeds maximum of 137")
+	legacy := controlScriptNativeError("LIMIT exceeds maximum of 137")
 	for _, tc := range []struct {
 		name   string
 		err    error
 		cancel bool
 	}{
 		{"plain", errors.New(native.Error()), false},
+		{"legacy plain", errors.New(legacy.Error()), false},
+		{"legacy wrapped", fmt.Errorf("transport: %w", legacy), false},
+		{"legacy joined", errors.Join(legacy, errors.New("lost reply")), false},
 		{"wrapped", fmt.Errorf("transport: %w", native), false},
 		{"joined", errors.Join(native, errors.New("lost reply")), false},
 		{"EOF", io.EOF, false},
 		{"permission", controlScriptNativeError("NOPERM this user has no permissions to run the 'ft.aggregate' command"), false},
 		{"canceled refusal", native, true},
+		{"legacy canceled refusal", legacy, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			s := snapshotTestStore(t, raw)
