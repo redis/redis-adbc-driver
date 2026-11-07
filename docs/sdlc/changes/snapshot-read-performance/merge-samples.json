@@ -1,0 +1,137 @@
+{
+  "rows_per_page": 256,
+  "benchtime": "1s",
+  "repeats": 3,
+  "samples": {
+    "reference": [
+      {
+        "segments": 1,
+        "iterations": 40562,
+        "ns_per_page": 29079,
+        "bytes_per_page": 32948,
+        "allocs_per_page": 940
+      },
+      {
+        "segments": 1,
+        "iterations": 39974,
+        "ns_per_page": 29732,
+        "bytes_per_page": 32948,
+        "allocs_per_page": 940
+      },
+      {
+        "segments": 1,
+        "iterations": 41474,
+        "ns_per_page": 27780,
+        "bytes_per_page": 32948,
+        "allocs_per_page": 940
+      },
+      {
+        "segments": 4,
+        "iterations": 32184,
+        "ns_per_page": 38425,
+        "bytes_per_page": 49350,
+        "allocs_per_page": 1196
+      },
+      {
+        "segments": 4,
+        "iterations": 30364,
+        "ns_per_page": 38328,
+        "bytes_per_page": 49350,
+        "allocs_per_page": 1196
+      },
+      {
+        "segments": 4,
+        "iterations": 31933,
+        "ns_per_page": 38362,
+        "bytes_per_page": 49350,
+        "allocs_per_page": 1196
+      },
+      {
+        "segments": 8,
+        "iterations": 24972,
+        "ns_per_page": 46842,
+        "bytes_per_page": 65751,
+        "allocs_per_page": 1196
+      },
+      {
+        "segments": 8,
+        "iterations": 25173,
+        "ns_per_page": 49039,
+        "bytes_per_page": 65752,
+        "allocs_per_page": 1196
+      },
+      {
+        "segments": 8,
+        "iterations": 25369,
+        "ns_per_page": 48525,
+        "bytes_per_page": 65751,
+        "allocs_per_page": 1196
+      }
+    ],
+    "current": [
+      {
+        "segments": 1,
+        "iterations": 59805,
+        "ns_per_page": 18683,
+        "bytes_per_page": 26752,
+        "allocs_per_page": 683
+      },
+      {
+        "segments": 1,
+        "iterations": 59356,
+        "ns_per_page": 18774,
+        "bytes_per_page": 26752,
+        "allocs_per_page": 683
+      },
+      {
+        "segments": 1,
+        "iterations": 64387,
+        "ns_per_page": 18766,
+        "bytes_per_page": 26752,
+        "allocs_per_page": 683
+      },
+      {
+        "segments": 4,
+        "iterations": 47283,
+        "ns_per_page": 25005,
+        "bytes_per_page": 26816,
+        "allocs_per_page": 684
+      },
+      {
+        "segments": 4,
+        "iterations": 47690,
+        "ns_per_page": 25808,
+        "bytes_per_page": 26816,
+        "allocs_per_page": 684
+      },
+      {
+        "segments": 4,
+        "iterations": 46335,
+        "ns_per_page": 25698,
+        "bytes_per_page": 26816,
+        "allocs_per_page": 684
+      },
+      {
+        "segments": 8,
+        "iterations": 38600,
+        "ns_per_page": 32021,
+        "bytes_per_page": 26880,
+        "allocs_per_page": 684
+      },
+      {
+        "segments": 8,
+        "iterations": 35835,
+        "ns_per_page": 31835,
+        "bytes_per_page": 26880,
+        "allocs_per_page": 684
+      },
+      {
+        "segments": 8,
+        "iterations": 38528,
+        "ns_per_page": 33191,
+        "bytes_per_page": 26880,
+        "allocs_per_page": 684
+      }
+    ]
+  }
+}

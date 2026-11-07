@@ -30,7 +30,44 @@ import redis
 import pyarrow as pa
 
 
-def exact_cases(conn, cur, repeats, rows):
+def read_fixture(uri, ca, table):
+    """Owned-fixture diagnostics, outside all query timers; no SQL retries."""
+    prefix = "adbc:{meta}:snapshot:16:"
+    catalog = "adbc:{meta}:snapshot:catalog"
+    suffix = "table:public:" + table
+    slot = 2166136261
+    for byte in suffix.encode():
+        slot = ((slot ^ byte) * 16777619) & 0xffffffff
+    slot = f"{slot & 255:02x}"
+    with redis.Redis.from_url(uri, ssl_ca_certs=str(ca), decode_responses=True) as raw:
+        version = raw.hget(catalog, "format")
+        if version is None:
+            return {"storage_model": "mutable", "segments": None}
+        if version != "16":
+            raise RuntimeError("unsupported fixture inspection format")
+        deadline = time.monotonic() + 120
+        while raw.zcard(prefix + "compaction:queue") or raw.hexists(catalog, "compaction"):
+            if time.monotonic() >= deadline:
+                raise TimeoutError("owned fixture maintenance did not settle")
+            time.sleep(0.05)
+        # One atomic read-only inspection of the owned metadata slot. This is
+        # test instrumentation, never a driver transfer/read protocol.
+        script = """
+local p,slot,suffix=ARGV[1],ARGV[2],ARGV[3]
+local root=redis.call('HGET',KEYS[1],'root')
+local bucket=redis.call('HGET',p..'metadata:root:'..root,slot)
+local owner=redis.call('HGET',p..'metadata:bucket:'..bucket..':'..slot,suffix)
+return redis.call('GET',p..'workspace:'..owner..':'..suffix)
+"""
+        meta = json.loads(raw.execute_command("EVAL_RO", script, 1, catalog, prefix, slot, suffix))
+        segments = meta.get("snapshot_segments") or []
+        return {"storage_model": "snapshot", "snapshot_protocol": 16,
+                "segments": [x["rows"] for x in segments] + [meta["snapshot_rows"]],
+                "overlay": meta.get("snapshot_overlay", False),
+                "maintenance_queue_and_job_empty": True}
+
+
+def exact_cases(conn, cur, repeats, rows, profile):
     """Exact typed values and complete live partition fetch after DML."""
     ids = list(range(1, rows + 1))
     original = pa.table({
@@ -53,6 +90,7 @@ def exact_cases(conn, cur, repeats, rows):
         ("typed_limit", "SELECT * FROM typed_reads ORDER BY id DESC LIMIT 17 OFFSET 3", expected.take(pa.array(list(range(len(visible)-4, len(visible)-21, -1)), pa.int64()))),
         ("typed_partitions", "SELECT * FROM typed_reads", expected),
     ]:
+        fixture = profile("typed_reads" if name.startswith("typed_") else "wide")
         samples, cpu_samples = [], []
         for iteration in range(repeats + 1):
             before = resource.getrusage(resource.RUSAGE_SELF)
@@ -64,8 +102,9 @@ def exact_cases(conn, cur, repeats, rows):
                 # Older mutable driver partitions predate snapshot group options.
                 try:
                     group = cur.adbc_statement.get_option("adbc.redis.partition_snapshot_id")
-                except adbc_driver_manager.Error:
-                    pass
+                except adbc_driver_manager.Error as error:
+                    if error.status_code != adbc_driver_manager.AdbcStatusCode.NOT_FOUND:
+                        raise
                 tables = []
                 with conn.cursor() as worker:
                     for part in parts:
@@ -88,7 +127,7 @@ def exact_cases(conn, cur, repeats, rows):
             if group:
                 cur.execute(f"DROP PARTITION SNAPSHOT '{group}'")
         results[name] = {"median_ms": statistics.median(samples), "samples_ms": samples,
-                         "client_cpu_samples_ms": cpu_samples, "output_rows": want.num_rows}
+                         "client_cpu_samples_ms": cpu_samples, "output_rows": want.num_rows, "fixture": fixture}
     return results, visible
 
 
@@ -139,7 +178,7 @@ def write_cases(cur, repeats, logical):
     return results
 
 
-def wide_cases(cur, repeats, rows):
+def wide_cases(cur, repeats, rows, profile):
     """Wide exact-value reads over a baseline plus replacements/tombstones."""
     ids = list(range(1, rows + 1))
     labels = [None if i % 3 == 0 else f"Redis → {i}\x00value" for i in ids]
@@ -172,6 +211,7 @@ def wide_cases(cur, repeats, rows):
     )
     results = {}
     for name, sql, expected in cases:
+        fixture = profile("typed_reads" if name.startswith("typed_") else "wide")
         samples, cpu_samples = [], []
         for iteration in range(repeats + 1):
             before = resource.getrusage(resource.RUSAGE_SELF)
@@ -190,6 +230,7 @@ def wide_cases(cur, repeats, rows):
             "samples_ms": samples,
             "client_cpu_samples_ms": cpu_samples,
             "output_rows": expected.num_rows,
+            "fixture": fixture,
         }
     return results, visible
 
@@ -377,6 +418,7 @@ def main():
     modes.add_argument("--sustained-writes", action="store_true",
                        help="Alternating point updates on two populated tables; no caller retries")
     modes.add_argument("--exact", action="store_true", help="Exact BIGINT/decimal/NULL/binary reads and live partitions")
+    parser.add_argument("--settle-reads", action="store_true", help="Wait for owned-fixture maintenance and record segment counts outside query timers")
     parser.add_argument("--write-count", type=int, default=64,
                         help="Even updates per sustained interval (at least 32)")
     parser.add_argument("--unrelated-tables", type=int, default=32)
@@ -427,9 +469,10 @@ def main():
     with adbc_driver_manager.dbapi.connect(
         driver=str(args.driver.resolve()), db_kwargs={"uri": uri}, autocommit=True
     ) as conn:
+        profile = (lambda table: read_fixture(uri, ca, table)) if args.settle_reads else (lambda table: None)
         with conn.cursor() as cur:
             if args.exact:
-                results, logical = exact_cases(conn, cur, args.repeats, args.rows)
+                results, logical = exact_cases(conn, cur, args.repeats, args.rows, profile)
             elif args.sustained_writes:
                 results, logical = sustained_write_cases(cur, args.repeats, args.rows, args.write_count)
             elif args.foreign_imports:
@@ -437,7 +480,7 @@ def main():
             elif args.write_batches or args.rewrite_batches:
                 results, logical = batch_write_cases(cur, args.repeats, args.rows, args.rewrite_batches)
             elif args.wide:
-                results, logical = wide_cases(cur, args.repeats, args.rows)
+                results, logical = wide_cases(cur, args.repeats, args.rows, profile)
             else:
                 cur.execute(
                     "CREATE TABLE t(id INTEGER,g INTEGER,v INTEGER,payload VARCHAR)"
@@ -495,6 +538,7 @@ def main():
                     ]
                     results = {}
                     for name, sql, expected in cases:
+                        fixture = profile("t")
                         samples, cpu_samples = [], []
                         for iteration in range(args.repeats + 1):
                             before = resource.getrusage(resource.RUSAGE_SELF)
@@ -522,6 +566,7 @@ def main():
                             "samples_ms": samples,
                             "client_cpu_samples_ms": cpu_samples,
                             "output_rows": len(expected),
+                            "fixture": fixture,
                         }
 
     # Identify the selected library's actual storage model after closing its
@@ -559,9 +604,10 @@ def main():
                 "visible_rows": len(logical),
                 "storage_model": storage_model,
                 "snapshot_protocol": snapshot_protocol,
+                "settled_reads": args.settle_reads,
                 "initial_segments": None,
                 "segment_count_note": (
-                    "not sampled; maintenance enabled during workload"
+                    "per-case settled segment counts recorded; maintenance remains enabled" if args.settle_reads else "not sampled; maintenance enabled during workload"
                     if snapshot_protocol is not None else "not applicable to mutable storage"
                 ),
                 "unrelated_tables": 0 if args.exact or args.sustained_writes or args.foreign_imports or args.wide or args.write_batches or args.rewrite_batches else args.unrelated_tables,
