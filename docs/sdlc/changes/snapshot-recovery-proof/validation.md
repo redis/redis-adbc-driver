@@ -50,6 +50,7 @@ Credentials, infrastructure identities, raw logs and license remain private.
 |---|---|
 | Unchanged base, original observer self-test | Pass |
 | Unchanged base, primary promotion then all-node RDB restart | Pass: 6.83 s / 41.49 s |
+| Preserved pre-guard source `157cd824`, test-only SQL observer/retention changes, primary promotion then fresh all-node RDB restart | Pass: 5.85 s / 41.68 s; each matches 21 proofs, including 9 execution proofs, zero mismatches; SQL observer fault self-test also passes |
 | New SQL-path regression with original observer | Expected failure: SQL proof was missed |
 | Corrected observer, both controlled differential tests | Pass; original SQL error preserved |
 | Corrected observer, ten serial promotion/RDB pairs | All 20 pass; 420 matched proofs, including 180 execution proofs, zero mismatches |
@@ -78,6 +79,8 @@ value/reference assertion or skip condition changes. The historical limitation
 in the [recovery report](../snapshot-parity/recovery-reference-audit-validation.md)
 remains applicable. The next occurrence can now be observed on the actual SQL
 path with its failed fixture retained for reference/lease/persistence inspection.
+The pre-guard comparison likewise provides no evidence that the later
+publication guard corrected this incident; its production source was not changed.
 
 Review against `REVIEW.md`: the changes are test-only and bounded; controlled
 faults return their original errors; artifacts remain private; actual recovery
