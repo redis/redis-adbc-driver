@@ -1,0 +1,141 @@
+{
+  "rows_per_page": 256,
+  "benchtime": "1s",
+  "repeats": 3,
+  "profile_harness_sha256": "c6e18f016400ccdde2a7ebb7472a88c6e2c921ba538a0e351222ef3c2385b396",
+  "membership_probes": "Synthetic zero latency, membership score zero; not Redis throughput",
+  "reference_revision": "1970bf4a49d13f70f764bf647caa6dad15dc8018",
+  "final_runtime_revision": "528ef2dd07b904eb239d153d7c246cd94dfafacf",
+  "samples": {
+    "reference": [
+      {
+        "segments": 1,
+        "iterations": 56506,
+        "ns_per_page": 19769,
+        "bytes_per_page": 42208,
+        "allocs_per_page": 699
+      },
+      {
+        "segments": 1,
+        "iterations": 61104,
+        "ns_per_page": 19802,
+        "bytes_per_page": 42208,
+        "allocs_per_page": 699
+      },
+      {
+        "segments": 1,
+        "iterations": 61353,
+        "ns_per_page": 19684,
+        "bytes_per_page": 42208,
+        "allocs_per_page": 699
+      },
+      {
+        "segments": 4,
+        "iterations": 30676,
+        "ns_per_page": 39367,
+        "bytes_per_page": 114024,
+        "allocs_per_page": 1762
+      },
+      {
+        "segments": 4,
+        "iterations": 30584,
+        "ns_per_page": 39628,
+        "bytes_per_page": 114024,
+        "allocs_per_page": 1762
+      },
+      {
+        "segments": 4,
+        "iterations": 30636,
+        "ns_per_page": 39683,
+        "bytes_per_page": 114024,
+        "allocs_per_page": 1762
+      },
+      {
+        "segments": 8,
+        "iterations": 18570,
+        "ns_per_page": 63307,
+        "bytes_per_page": 204360,
+        "allocs_per_page": 2836
+      },
+      {
+        "segments": 8,
+        "iterations": 18320,
+        "ns_per_page": 62739,
+        "bytes_per_page": 204360,
+        "allocs_per_page": 2836
+      },
+      {
+        "segments": 8,
+        "iterations": 19039,
+        "ns_per_page": 62900,
+        "bytes_per_page": 204360,
+        "allocs_per_page": 2836
+      }
+    ],
+    "final": [
+      {
+        "segments": 1,
+        "iterations": 57026,
+        "ns_per_page": 20516,
+        "bytes_per_page": 42208,
+        "allocs_per_page": 699
+      },
+      {
+        "segments": 1,
+        "iterations": 59187,
+        "ns_per_page": 20303,
+        "bytes_per_page": 42208,
+        "allocs_per_page": 699
+      },
+      {
+        "segments": 1,
+        "iterations": 59274,
+        "ns_per_page": 20194,
+        "bytes_per_page": 42208,
+        "allocs_per_page": 699
+      },
+      {
+        "segments": 4,
+        "iterations": 32314,
+        "ns_per_page": 37109,
+        "bytes_per_page": 97704,
+        "allocs_per_page": 1507
+      },
+      {
+        "segments": 4,
+        "iterations": 33100,
+        "ns_per_page": 36861,
+        "bytes_per_page": 97704,
+        "allocs_per_page": 1507
+      },
+      {
+        "segments": 4,
+        "iterations": 32167,
+        "ns_per_page": 37031,
+        "bytes_per_page": 97704,
+        "allocs_per_page": 1507
+      },
+      {
+        "segments": 8,
+        "iterations": 20095,
+        "ns_per_page": 60199,
+        "bytes_per_page": 171720,
+        "allocs_per_page": 2581
+      },
+      {
+        "segments": 8,
+        "iterations": 20196,
+        "ns_per_page": 59558,
+        "bytes_per_page": 171720,
+        "allocs_per_page": 2581
+      },
+      {
+        "segments": 8,
+        "iterations": 20584,
+        "ns_per_page": 58146,
+        "bytes_per_page": 171720,
+        "allocs_per_page": 2581
+      }
+    ]
+  }
+}

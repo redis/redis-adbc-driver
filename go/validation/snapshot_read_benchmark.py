@@ -17,6 +17,8 @@ import json
 import math
 import os
 import platform
+import resource
+from decimal import Decimal
 import statistics
 import sys
 import time
@@ -26,6 +28,107 @@ from urllib.parse import urlsplit
 import adbc_driver_manager.dbapi
 import redis
 import pyarrow as pa
+
+
+def read_fixture(uri, ca, table):
+    """Owned-fixture diagnostics, outside all query timers; no SQL retries."""
+    prefix = "adbc:{meta}:snapshot:16:"
+    catalog = "adbc:{meta}:snapshot:catalog"
+    suffix = "table:public:" + table
+    slot = 2166136261
+    for byte in suffix.encode():
+        slot = ((slot ^ byte) * 16777619) & 0xffffffff
+    slot = f"{slot & 255:02x}"
+    with redis.Redis.from_url(uri, ssl_ca_certs=str(ca), decode_responses=True) as raw:
+        version = raw.hget(catalog, "format")
+        if version is None:
+            return {"storage_model": "mutable", "segments": None}
+        if version != "16":
+            raise RuntimeError("unsupported fixture inspection format")
+        deadline = time.monotonic() + 120
+        while raw.zcard(prefix + "compaction:queue") or raw.hexists(catalog, "compaction"):
+            if time.monotonic() >= deadline:
+                raise TimeoutError("owned fixture maintenance did not settle")
+            time.sleep(0.05)
+        # One atomic read-only inspection of the owned metadata slot. This is
+        # test instrumentation, never a driver transfer/read protocol.
+        script = """
+local p,slot,suffix=ARGV[1],ARGV[2],ARGV[3]
+local root=redis.call('HGET',KEYS[1],'root')
+local bucket=redis.call('HGET',p..'metadata:root:'..root,slot)
+local owner=redis.call('HGET',p..'metadata:bucket:'..bucket..':'..slot,suffix)
+return redis.call('GET',p..'workspace:'..owner..':'..suffix)
+"""
+        meta = json.loads(raw.execute_command("EVAL_RO", script, 1, catalog, prefix, slot, suffix))
+        segments = meta.get("snapshot_segments") or []
+        return {"storage_model": "snapshot", "snapshot_protocol": 16,
+                "segments": [x["rows"] for x in segments] + [meta["snapshot_rows"]],
+                "overlay": meta.get("snapshot_overlay", False),
+                "maintenance_queue_and_job_empty": True}
+
+
+def exact_cases(conn, cur, repeats, rows, profile):
+    """Exact typed values and complete live partition fetch after DML."""
+    ids = list(range(1, rows + 1))
+    original = pa.table({
+        "id": pa.array(ids, pa.int64()),
+        "exact": pa.array([9007199254740993 + i for i in ids], pa.int64()),
+        "amount": pa.array([None if i % 5 == 0 else Decimal(i).scaleb(-4) for i in ids], pa.decimal128(24, 4)),
+        "payload": pa.array([None if i % 3 == 0 else bytes([0, 255, i % 256, 128]) for i in ids], pa.binary()),
+    })
+    if cur.adbc_ingest("typed_reads", original, mode="create") != rows:
+        raise AssertionError("typed fixture ingest count")
+    cur.execute("UPDATE typed_reads SET exact=0 WHERE id=1")
+    cur.execute("DELETE FROM typed_reads WHERE id=2")
+    visible = [i for i in ids if i != 2]
+    expected = original.take(pa.array([i-1 for i in visible], pa.int64()))
+    expected = expected.set_column(1, "exact", pa.array([0 if i == 1 else 9007199254740993+i for i in visible], pa.int64()))
+    results = {}
+    for name, sql, want in [
+        ("typed_all", "SELECT * FROM typed_reads", expected),
+        ("typed_filter", "SELECT * FROM typed_reads WHERE id>=100 AND id<=200", expected.filter(pa.array([100 <= i <= 200 for i in visible]))),
+        ("typed_limit", "SELECT * FROM typed_reads ORDER BY id DESC LIMIT 17 OFFSET 3", expected.take(pa.array(list(range(len(visible)-4, len(visible)-21, -1)), pa.int64()))),
+        ("typed_partitions", "SELECT * FROM typed_reads", expected),
+    ]:
+        fixture = profile("typed_reads" if name.startswith("typed_") else "wide")
+        samples, cpu_samples = [], []
+        for iteration in range(repeats + 1):
+            before = resource.getrusage(resource.RUSAGE_SELF)
+            start = time.perf_counter()
+            group = None
+            if name == "typed_partitions":
+                cur.adbc_statement.set_options(**{"adbc.redis.partition_count": "4"})
+                parts, schema = cur.adbc_execute_partitions(sql)
+                # Older mutable driver partitions predate snapshot group options.
+                try:
+                    group = cur.adbc_statement.get_option("adbc.redis.partition_snapshot_id")
+                except adbc_driver_manager.Error as error:
+                    if error.status_code != adbc_driver_manager.AdbcStatusCode.NOT_FOUND:
+                        raise
+                tables = []
+                with conn.cursor() as worker:
+                    for part in parts:
+                        worker.adbc_read_partition(part)
+                        table = worker.fetch_arrow_table()
+                        if not table.schema.equals(schema):
+                            raise AssertionError("partition schema differs")
+                        tables.append(table)
+                actual = pa.concat_tables(tables).sort_by([("id", "ascending")])
+            else:
+                cur.execute(sql)
+                actual = cur.fetch_arrow_table()
+            if not actual.equals(want, check_metadata=True):
+                raise AssertionError(f"{name}: full exact typed result differs")
+            elapsed = (time.perf_counter() - start) * 1000
+            after = resource.getrusage(resource.RUSAGE_SELF)
+            if iteration:
+                samples.append(elapsed)
+                cpu_samples.append(1000 * (after.ru_utime + after.ru_stime - before.ru_utime - before.ru_stime))
+            if group:
+                cur.execute(f"DROP PARTITION SNAPSHOT '{group}'")
+        results[name] = {"median_ms": statistics.median(samples), "samples_ms": samples,
+                         "client_cpu_samples_ms": cpu_samples, "output_rows": want.num_rows, "fixture": fixture}
+    return results, visible
 
 
 def write_cases(cur, repeats, logical):
@@ -75,7 +178,7 @@ def write_cases(cur, repeats, logical):
     return results
 
 
-def wide_cases(cur, repeats, rows):
+def wide_cases(cur, repeats, rows, profile):
     """Wide exact-value reads over a baseline plus replacements/tombstones."""
     ids = list(range(1, rows + 1))
     labels = [None if i % 3 == 0 else f"Redis → {i}\x00value" for i in ids]
@@ -108,8 +211,10 @@ def wide_cases(cur, repeats, rows):
     )
     results = {}
     for name, sql, expected in cases:
-        samples = []
+        fixture = profile("typed_reads" if name.startswith("typed_") else "wide")
+        samples, cpu_samples = [], []
         for iteration in range(repeats + 1):
+            before = resource.getrusage(resource.RUSAGE_SELF)
             start = time.perf_counter()
             cur.execute(sql)
             actual = cur.fetch_arrow_table()
@@ -118,10 +223,14 @@ def wide_cases(cur, repeats, rows):
             elapsed = (time.perf_counter() - start) * 1000
             if iteration:
                 samples.append(elapsed)
+                after = resource.getrusage(resource.RUSAGE_SELF)
+                cpu_samples.append(1000*(after.ru_utime+after.ru_stime-before.ru_utime-before.ru_stime))
         results[name] = {
             "median_ms": statistics.median(samples),
             "samples_ms": samples,
+            "client_cpu_samples_ms": cpu_samples,
             "output_rows": expected.num_rows,
+            "fixture": fixture,
         }
     return results, visible
 
@@ -308,11 +417,16 @@ def main():
                        help="Explicit foreign refresh with complete source/copy validation")
     modes.add_argument("--sustained-writes", action="store_true",
                        help="Alternating point updates on two populated tables; no caller retries")
+    modes.add_argument("--exact", action="store_true", help="Exact BIGINT/decimal/NULL/binary reads and live partitions")
+    parser.add_argument("--settle-reads", action="store_true", help="Wait for owned-fixture maintenance and record segment counts outside query timers")
     parser.add_argument("--write-count", type=int, default=64,
                         help="Even updates per sustained interval (at least 32)")
     parser.add_argument("--unrelated-tables", type=int, default=32)
     parser.add_argument("--repeats", type=int, default=5)
     args = parser.parse_args()
+    if args.settle_reads and any((args.writes, args.write_batches, args.rewrite_batches,
+                                 args.foreign_imports, args.sustained_writes)):
+        parser.error("--settle-reads applies only to the normal, wide and exact read modes")
     if (
         (args.rows != 1 if args.writes else not 128 <= args.rows <= 50000)
         or args.repeats < 1
@@ -358,15 +472,18 @@ def main():
     with adbc_driver_manager.dbapi.connect(
         driver=str(args.driver.resolve()), db_kwargs={"uri": uri}, autocommit=True
     ) as conn:
+        profile = (lambda table: read_fixture(uri, ca, table)) if args.settle_reads else (lambda table: None)
         with conn.cursor() as cur:
-            if args.sustained_writes:
+            if args.exact:
+                results, logical = exact_cases(conn, cur, args.repeats, args.rows, profile)
+            elif args.sustained_writes:
                 results, logical = sustained_write_cases(cur, args.repeats, args.rows, args.write_count)
             elif args.foreign_imports:
                 results, logical = foreign_import_cases(conn, cur, uri, ca, args.repeats, args.rows)
             elif args.write_batches or args.rewrite_batches:
                 results, logical = batch_write_cases(cur, args.repeats, args.rows, args.rewrite_batches)
             elif args.wide:
-                results, logical = wide_cases(cur, args.repeats, args.rows)
+                results, logical = wide_cases(cur, args.repeats, args.rows, profile)
             else:
                 cur.execute(
                     "CREATE TABLE t(id INTEGER,g INTEGER,v INTEGER,payload VARCHAR)"
@@ -424,8 +541,10 @@ def main():
                     ]
                     results = {}
                     for name, sql, expected in cases:
-                        samples = []
+                        fixture = profile("t")
+                        samples, cpu_samples = [], []
                         for iteration in range(args.repeats + 1):
+                            before = resource.getrusage(resource.RUSAGE_SELF)
                             start = time.perf_counter()
                             cur.execute(sql)
                             table = cur.fetch_arrow_table()
@@ -443,10 +562,14 @@ def main():
                             elapsed = time.perf_counter() - start
                             if iteration:
                                 samples.append(elapsed * 1000)
+                                after = resource.getrusage(resource.RUSAGE_SELF)
+                                cpu_samples.append(1000*(after.ru_utime+after.ru_stime-before.ru_utime-before.ru_stime))
                         results[name] = {
                             "median_ms": statistics.median(samples),
                             "samples_ms": samples,
+                            "client_cpu_samples_ms": cpu_samples,
                             "output_rows": len(expected),
+                            "fixture": fixture,
                         }
 
     # Identify the selected library's actual storage model after closing its
@@ -484,12 +607,13 @@ def main():
                 "visible_rows": len(logical),
                 "storage_model": storage_model,
                 "snapshot_protocol": snapshot_protocol,
+                "settled_reads": args.settle_reads,
                 "initial_segments": None,
                 "segment_count_note": (
-                    "not sampled; maintenance enabled during workload"
+                    ("per-case settled segment counts recorded; maintenance remains enabled" if args.settle_reads else "not sampled; maintenance enabled during workload")
                     if snapshot_protocol is not None else "not applicable to mutable storage"
                 ),
-                "unrelated_tables": 0 if args.sustained_writes or args.foreign_imports or args.wide or args.write_batches or args.rewrite_batches else args.unrelated_tables,
+                "unrelated_tables": 0 if args.exact or args.sustained_writes or args.foreign_imports or args.wide or args.write_batches or args.rewrite_batches else args.unrelated_tables,
                 "wide_columns": 64 if args.wide else None,
                 "repeats": args.repeats,
                 "warmups": 1,
