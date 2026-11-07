@@ -607,7 +607,7 @@ def main():
                 "settled_reads": args.settle_reads,
                 "initial_segments": None,
                 "segment_count_note": (
-                    "per-case settled segment counts recorded; maintenance remains enabled" if args.settle_reads else "not sampled; maintenance enabled during workload"
+                    ("per-case settled segment counts recorded; maintenance remains enabled" if args.settle_reads else "not sampled; maintenance enabled during workload")
                     if snapshot_protocol is not None else "not applicable to mutable storage"
                 ),
                 "unrelated_tables": 0 if args.exact or args.sustained_writes or args.foreign_imports or args.wide or args.write_batches or args.rewrite_batches else args.unrelated_tables,
