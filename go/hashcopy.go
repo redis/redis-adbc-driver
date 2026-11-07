@@ -158,7 +158,14 @@ func CopyHashes(ctx context.Context, options map[string]string, o HashCopyOption
 		}
 		return nil, err
 	}
-	return &s.stats, nil
+	return s.copyResult(), nil
+}
+
+func (s *hashScan) copyResult() *HashCopy {
+	// An interior pointer into the reader would keep its seen-key map and
+	// closed connection objects alive for as long as the caller keeps results.
+	result := s.stats
+	return &result
 }
 
 // scanHashes starts reading the HASHes under o.Prefix (see CopyHashes).
